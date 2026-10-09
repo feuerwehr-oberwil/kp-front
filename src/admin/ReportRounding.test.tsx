@@ -45,7 +45,7 @@ const STATION = {
   version: 'v1',
   identity: { appName: 'Feuerwehr Steintal' },
   report: {
-    partnerOrgs: [], links: [], reversePrintOrder: true,
+    partnerOrgs: [], links: [],
     hoursRounding: { stepMin: 30, graceMin: 5 },
     attendanceMergeGapMin: 15,
   },

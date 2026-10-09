@@ -11,6 +11,21 @@ of that snapshot – the same «any vertex inside the bbox» rule Overpass appli
 per-object request only remains as the fallback for a station without a snapshot at all.
 """
 
+# **Building outlines come from the station's snapshot first** (25.09.2026). `POST
+# /api/overpass/buildings` clips the box out of the stored station snapshot
+# (`reference_buildings · stored_answer`, read-only) whenever that covers the box AND its
+# `fetched_at` is at most 30 days old; otherwise it races the mirrors and falls back to the
+# snapshot at any age only when every mirror failed (also with no mirror configured, before the
+# 503). Only the alignment worker refreshes the snapshot, and only while it has jobs to run, so
+# «recent» is not a given. ⚠️ The live path has its OWN parsed copy (`_live`, one shared load for
+# concurrent cold callers, parse and clip off the event loop): the worker's `_cache` is returned
+# for ten minutes without checking the station's objects, and fed from the live path it once
+# handed the worker a snapshot missing newly pushed objects. The race itself is cached
+# per query (6 h, 64 entries, never a failure) and shared between concurrent callers — every
+# device of an Einsatz asks for the same box from ONE egress address, which the public mirrors
+# throttle — and its per-mirror guard (30 s) outlasts the query's own `[timeout:25]`. Staging
+# answered about half of all Karte opens with a 502 before.
+
 from __future__ import annotations
 
 import asyncio

@@ -52,6 +52,26 @@ rather than at the next restart; a 30 s scheduler refresh covers any reader that
 a session of its own.
 """
 
+# **Integration credentials are settable from `/admin`, encrypted, and read through an
+# accessor — never off `settings`.** Divera / Traccar / VAPID / STT / CARTO / the two webhook secrets /
+# `HEALTHCHECK_PING_URL` live in `integration_credentials`
+# (AES-256-GCM under an HKDF key derived from `SECRET_KEY`, which stays in `.env`), and every
+# consumer reads `app.credentials.get(name)` after `await load(db)`. **`.env` still wins where
+# it is set**, so no existing deployment changes. Two rules for anything added here: a
+# scheduler job whose credential is runtime-settable is **registered unconditionally and
+# no-ops when unset** (gating registration at boot is what made this impossible before), and
+# a secret is **write-only over the API** — settable, never readable. The CARTO basemap key is
+# the explicit client-credential exception: CARTO requires it in browser tile URLs, so it is
+# readable at runtime and must be restricted to deployment domains at the provider. The
+# authenticated organizer catalogue also shares this browser key for its route map; allow
+# that organizer's domain at CARTO too. ⚠️ Readable
+# is not public — `/api/config` serves it only to a caller holding a session, and «session»
+# includes an incident LINK (`LinkApp` mounts the whole app, and a link carries no
+# `access_token`, so `actor is not None` is the wrong test). Server-side renders (Rapport/Kroki)
+# use `app/carto.py` and the deployment's own credential, never the client's copy. `SECRET_KEY`,
+# `ADMIN_SECRET`, `KP_TELEMETRY_*` and `REQUIRE_PLAN_DIGEST` stay env-only on purpose: each
+# would defeat itself in the database it gates.
+
 from __future__ import annotations
 
 import ipaddress
@@ -157,9 +177,8 @@ FIELDS: tuple[CredentialField, ...] = (
     # CARTO requires this value in every browser tile URL. It therefore is not a server
     # secret; CARTO's domain restrictions are the protection against reuse elsewhere.
     CredentialField("carto_api_key", "maps", False, "CARTO Basemap API-Key"),
-    # --- Webhooks + relay -------------------------------------------------------------
+    # --- Webhooks ---------------------------------------------------------------------
     CredentialField("alarm_webhook_secret", "webhooks", True, "Alarm-Webhook-Secret"),
-    CredentialField("print_agent_secret", "webhooks", True, "Print-Agent-Secret"),
     # --- Monitoring -------------------------------------------------------------------
     # ⚠️ Write-only, deliberately, even though it is barely a secret to this deployment.
     # api/system reports it as a BOOLEAN with the same reasoning: the ping address is a write

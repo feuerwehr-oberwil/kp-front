@@ -50,6 +50,34 @@ overwrite, is `plan_alignment_worker`'s business. ``python -m app.plan_markers <
 what a given export says, which is the plan author's dry run (``just plan-markers``).
 """
 
+# **A plan PDF may prepare itself (`§` markers).** The plan author writes `§EG` / `§1OG` / `§DG`
+# (`§1OG.B` for a second join point, where no one staircase runs through the whole building –
+# floors sharing a label join there, and the chain is resolved in one frame), optional region
+# corners `§[EG` / `§EG]` and `§GEO <E> <N>` as ordinary text spans on the sheet; SEVERAL corner
+# pairs for one storey are its several drawings (16.09.2026), each holding the one join tag that
+# places it – a second drawing without its own tag is refused (`part_without_join`), never guessed.
+# A corner pair MAY name its drawing's point (`§[1OG.A` … `§1OG.A]`, 16.09.2026) and then pairs and
+# places by that name, which beats nearest-corner pairing and containment; named and unnamed pairs
+# mix on one storey, and a named pair whose join tag the sheet never states is `corner_stray`.
+# **A tag is one TEXT OBJECT and is read back as one** – PDFium's char stream is NOT positionally
+# aligned with its text, so never index `get_text_range(0, count)` by char index;
+# `app/plan_markers.py` is the one grammar, and the alignment worker turns them into the floor
+# pack plus – with two or more `§GEO` – the map fit (`reason`/`reference_source` = `markers`).
+# A marked fit is the plan author's own statement, so the worker APPROVES it on import through
+# the one shared gate (`app/plan_approval.py`, 16.09.2026) – the admin checks instead of
+# approving; without `§GEO` only the floors are pre-filled and the fit stays a proposal. Markers
+# never move an approved fit, and never overwrite a pack the admin built by hand. Each row keeps the proposal it was born from
+# (`plan_page_floors.marker`), so the next re-export follows the markers where they moved and
+# re-applies, by storey index, every name/region/join a human had corrected. `just plan-markers
+# <pdf>` is the author's dry run; the tag grammar for humans is `docs/plan-markers/README.md`.
+# **A broken export says so on the row** (16.09.2026): every marker run writes
+# `plan_alignments.marker_notes` – the faults as a CLOSED code set (`plan_markers.WarningCode`,
+# German through `plan_markers.text` for the CLI/log and through
+# `admin.alignment.markerWarnings.<code>` for the admin UI) plus
+# `storeys_found`/`storeys_written`/`geo_pairs` – so an object left with zero Geschosse reads
+# «Marker unvollständig» in Objektpläne and lists what to fix under the editor's header. Add a
+# code ⇒ add its sentence in BOTH places.
+
 from __future__ import annotations
 
 import argparse

@@ -6,7 +6,7 @@
 import type { AttendanceState, PresenceInterval } from '../types'
 import { intervalsOf, mergeCloseBlocks, totalMinutes } from './attendanceIntervals'
 import { attendanceMergeGapMin } from './deploymentConfig'
-import { pad2 } from './format'
+import { pad2, compareText } from './format'
 
 export interface HoursRow {
   personId: string
@@ -52,7 +52,7 @@ export function hoursRows(
         intervals,
       }
     })
-    .sort((x, y) => x.name.localeCompare(y.name, 'de-CH'))
+    .sort((x, y) => compareText(x.name, y.name))
 }
 
 /** Default rounding rule when the deployment configures none — see `docs/CONFIGURATION.md` §1b.

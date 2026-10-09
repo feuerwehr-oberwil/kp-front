@@ -2,7 +2,7 @@ import type { AttendanceState, BoardDoc, Drawing, Entity, LngLat, MittelEntry, P
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from './workspace'
 import { allAuftragTypes, appConfig } from '../config/appConfig'
 import { fmtDistance } from './geo'
-import { fillTemplate, fmtDuration, hhmm, pad2, restoreUmlauts, unitLabel } from './format'
+import { fillTemplate, fmtDuration, hhmm, pad2, restoreUmlauts, unitLabel, compareText, formatLocale } from './format'
 import { fahrzeugRows, gruppenRows } from './alarmzeiten'
 import { fahrtenText } from './vehiclePresence'
 import { intervalsOf, mergeCloseBlocks } from './attendanceIntervals'
@@ -530,7 +530,7 @@ export function missingTranscriptCount(events: TimelineEvent[]): number {
  *  formatDateTime: this is read against a slider that spans one Einsatz. */
 export function krokiStandLabel(ms: number | null): string {
   return ms == null ? appConfig.copy.preflight.krokiAtNow
-    : new Date(ms).toLocaleString(appConfig.locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : new Date(ms).toLocaleString(formatLocale(), { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
 /**
@@ -544,8 +544,8 @@ export function krokiStandLabel(ms: number | null): string {
 export function formatDateTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  const date = d.toLocaleDateString(appConfig.locale, { day: '2-digit', month: '2-digit', year: 'numeric' })
-  const time = d.toLocaleTimeString(appConfig.locale, { hour: '2-digit', minute: '2-digit' })
+  const date = d.toLocaleDateString(formatLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const time = d.toLocaleTimeString(formatLocale(), { hour: '2-digit', minute: '2-digit' })
   return `${date} ${time}`
 }
 
@@ -1022,11 +1022,8 @@ const META_FIELD_LABELS: Record<string, string> = {
  *  `linksDone` is here DELIBERATELY, not by omission: ticking off the station's own paperwork
  *  (the Getränkeabrechnung, a Schadenmeldung — see lib/reportLinks) says nothing about what
  *  happened at the Einsatz, and the Verlauf is the record of the Einsatz. The tick itself is
- *  kept in the workspace blob with its timestamp, so it is neither invisible nor lost.
- *
- *  `printJob` is here for the same reason: which relay job a rapport is queued on is plumbing,
- *  not a statement about the Einsatz. The print itself is already recorded elsewhere. */
-const META_QUIET = new Set(['erfasser', 'krokiPrint', 'linksDone', 'printJob'])
+ *  kept in the workspace blob with its timestamp, so it is neither invisible nor lost. */
+const META_QUIET = new Set(['erfasser', 'krokiPrint', 'linksDone'])
 
 /** Fields short enough to print their new value in the Verlauf line. A Kurzbericht or a
  *  Bemerkung is a paragraph — quoting it would turn the log into a second copy of the rapport,
@@ -1406,7 +1403,7 @@ export function mittelFormForPdf(
   // Joined because one material can be logged from two sources, each with its own note.
   const noteOf = (r: (typeof recorded)[number] | undefined) =>
     [...new Set((r?.items ?? []).map((i) => i.note?.trim()).filter(Boolean) as string[])].join(' · ') || undefined
-  const sorted = [...catalogue].sort((a, b) => a.label.localeCompare(b.label, 'de-CH'))
+  const sorted = [...catalogue].sort((a, b) => compareText(a.label, b.label))
   for (const c of sorted) {
     const unit = c.unit || appConfig.mittel.defaultUnit
     const hit = byKey.get(`${c.id}|${unit.trim().toLowerCase()}`)

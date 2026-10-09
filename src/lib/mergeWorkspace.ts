@@ -16,6 +16,22 @@
 // mine) apart from "I never had X" (absent in both base and mine). Without it a naive union
 // can't honor deletes and would resurrect everything the other device removed.
 
+/*
+ * **Anwesenheit entries and Zeitplan shifts merge PER FIELD** (staging r4 D3, 25.09.2026):
+ * two saves in the same second share one ancestor, and whole-object LWW dropped one device's
+ * field. `mergeWorkspace · mergeFields` resolves unit by unit — an entry's presence
+ * (`status`/`intervals`/`checkedInAt`/`leftAt`) is ONE unit, the Funktion (`note` + `noteAt`)
+ * another, `source`/`displayNameSnapshot` are quiet bookkeeping. Only a unit both sides
+ * changed differently is a divergence; it is reported as two whole entries differing only in
+ * that unit, so the row names only it and settling either side keeps the other edits. A shift
+ * whose merged from/to would not be a block keeps mine's pair. Reproduced end-to-end with two
+ * engines on the 409 path (`workspaceSync.sameSecond.test.ts`).
+ *
+ * *Merges compare JSON, not key order* (staging r3 F11): the server's JSONB re-sorts keys, so
+ * `mergeWorkspace · eq` ignores key order; an Anwesenheit divergence is reported only when the
+ * sides differ in more than `noteAt`.
+ */
+
 import { followerOnlyChange } from './gpsReturn'
 import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } from './tacticalObjects'
 import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'

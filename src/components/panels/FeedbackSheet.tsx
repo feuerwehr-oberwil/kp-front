@@ -13,6 +13,7 @@ import {
 import { markTroubleAsked, type TroubleEvent } from '../../lib/trouble'
 import { MAX_MESSAGE, readDraft, writeDraft } from '../../lib/feedbackDraft'
 import { Modal } from './_shared'
+import { localeDateTime } from '../../lib/format'
 
 /** Which way the report leaves. GitHub first because it is the one that can demand structure
  *  — the issue form has required fields and a status the reporter can follow — and mail
@@ -70,7 +71,7 @@ export function FeedbackSheet({ trouble, onClose }: {
     env,
     message,
     ...(trouble ? { trouble: { kind: trouble.kind, at: trouble.at } } : {}),
-    fmtTime: (at) => new Date(at).toLocaleString('de-CH', {
+    fmtTime: (at) => localeDateTime(at, {
       day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
     }),
   }

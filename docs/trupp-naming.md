@@ -187,8 +187,25 @@ be registrable offline.
   (`whiteboard.teamNameTaken`), and a Spur revived under a number handed out since comes back as
   the next one (`placedTrupps · counterNames / teamNoTaken / freshTeamLabel`).
 - **Undo:** a renumbering is a merge outcome, not an act. It reaches the view only through a
-  hydrate, which drops every undo step that touches a renumbered Trupp or chip (AGENTS.md ·
-  Undo/redo, `lib/undoKeys`), and it pushes nothing on it.
+  hydrate, which drops every undo step that touches a renumbered Trupp or chip ([`undo.md`](undo.md),
+  `lib/undoKeys`), and it pushes nothing on it.
+
+## Standing rules
+
+- **A Trupp is `Trupp N` on paper and its Gruppenführer in person** (12.09.,
+  [`docs/trupp-naming.md`](trupp-naming.md)). The number comes from ONE counter per Einsatz
+  that unlinked «Trupp N» chips draw from too, is never reused, and is a badge beside the leader's
+  name – never the primary label. Every Verlauf row about a Trupp is `Trupp N (crew …)` through
+  `truppLogName`, and the crew's history is `crew` rows in the Trupp's own log, which is what the
+  Rapport prints per cycle. Add a crew-changing action ⇒ it writes a `crew` row.
+
+- **A Trupp's marker says which STOREY it is on** (18.09.2026): the Gebäude chip — at rest
+  (`.team-dot`) and selected (`TwinTeamPill`) — and the Karte marker whose body was baked off
+  that chip wear the same signed badge a Leitung's `floorTag` wears (`.team-floor`,
+  `symbolRender · floorBadge`). A Trupp placed straight onto the Karte shows none: it is on no
+  storey, and a «0» would assert an EG nobody stated. Every row that already names the place a
+  Trupp was put or marked names the storey too (« · 2. OG», appended through `floorLabel` — no
+  new row kind, no new template key).
 
 ## Out of scope
 

@@ -1,3 +1,12 @@
+/*
+ * ⚠️ **FKS spread arrows (`spread`) are a drawn convention, never a bearing** (decided 30.08.2026,
+ * `27f0d92f`; re-confirmed 24.09.2026): ↑/↓ mean upper/lower storeys, ←/→ mean «sideways». They
+ * are drawn screen-upright outside the glyph's rotated layer on the Karte, on every plan sheet —
+ * a turned one included — and on paper (`kroki · _spread_dirs`). Turning them through a fit or
+ * the map bearing was built once (28.08., `spreadRotation`) and made the Feuer's Ausbreitung
+ * point the wrong way on a turned sheet; do not re-add it.
+ */
+
 import type { LegacySpread, Spread } from '../types'
 
 // FKS Entwicklung (spread) — reading and tidying the four arrows.

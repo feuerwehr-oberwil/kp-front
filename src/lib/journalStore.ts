@@ -1,3 +1,7 @@
+/*
+ * A disposed journal store must never publish a late snapshot over its replacement.
+ */
+
 import { ApiError, apiBeacon, apiGet, apiPost, LONG_POLL_TIMEOUT_MS } from './api'
 import { idbRead, idbSet } from './idb'
 import { newId } from './ids'

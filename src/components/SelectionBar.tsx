@@ -1,3 +1,35 @@
+/*
+ * **One selection bar, one edit-chrome vocabulary** (decided 01.09.). Moving, turning and
+ * deleting a selection – a single Linie/Fläche/Absperrkreis, a Form, or a Mehrfach group – happen
+ * on the fixed `SelectionBar` at the bottom of each surface, never on floating chrome grown at the
+ * object's own centre. **✥ and ⟳ answer two gestures** (02.09.): a *drag on the grip* moves /
+ * dials straight away, for the small adjustment; a *tap* arms that grip as a surface **mode**
+ * (`lib/useArmedTransform`), and while it is on, a drag anywhere on the Karte or the Kroki moves
+ * the selection by the drag delta or turns it about its centre, following the pointer's bearing.
+ * The mode exists because of where the bar sits: pinned bottom-centre, pulling ✥ *downward* runs
+ * the finger off the screen within ~28px. Only one of the two is ever armed; tapping it again,
+ * Esc, a selection change and a tool change all disarm, and while armed the surface answers no
+ * taps at all – a press that never travels is nothing, so nothing can be placed, selected or
+ * deselected under the finger. **The bar has three slots and no fourth: ✥ · ⟳ · Fertig.** The
+ * turn's degrees are read *on the surface*, beside the pivot and the radius the finger is
+ * swinging (`components/SelectionTurn`), never off a button at the far edge of a tablet – so the
+ * two grips are icon-only and never re-flow mid-gesture. «Fertig» ends the editing state
+ * (disarm + clear the selection + close its sheets); **«Entfernen» is not on the bar** (it was
+ * called «Löschen» until 25.09.2026) – an object is removed from its own editor sheet and with the
+ * Delete key, which on both surfaces reaches a
+ * Mehrfach group and a mirrored selection too. On the object itself only **geometry** grips live:
+ * vertex, «+» midpoint, Verlängern, Verbindung lösen, the radius ring, and a shape's own
+ * resize grips (its rotate knob left on 02.09.: the bar's ⟳ is the one way to turn a Form;
+ * directional symbols and composites keep their rotor because they are not on the bar) – and all of them step aside for the length of a transform
+ * (`lib/transformChrome`, a body class), because they answer «where exactly» and a whole-object
+ * drag is asking «where to».
+ * Colour is one family: a geometry point is white-filled with a `--blue` ring, an action grip that
+ * transforms the whole object is solid `--blue`, `--amber` means the SECOND axis and nothing else,
+ * `--red` means delete, and `--accent` stays alarm/relationship – never «selected». Node dots are
+ * 24px on both surfaces. Every grip whose press-and-hold is its own gesture carries
+ * `data-holdaction`, or the app-wide hold-tooltip eats its release.
+ */
+
 import { useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'

@@ -3,6 +3,11 @@
 Guidance for agents and humans working in this repo. Keep it current: when a convention or
 decision changes, update this file in the same change.
 
+This file holds the conventions and concepts. A rule about ONE module lives in a comment at the
+top of that module (or above the function it concerns); a rule that spans modules lives in the
+matching page under [`docs/`](docs/) – see the map at the end. Read the module's header before
+you change it.
+
 ## What this is
 
 KP Front is an **Einsatzführungs-app for frontline fire-service command** – a tablet-first
@@ -41,576 +46,194 @@ pnpm install
 pnpm dev     # Vite dev server on http://localhost:5188 (http origin required, not file://)
 pnpm build   # tsc --noEmit + vite build
 pnpm test    # vitest
-pnpm lint    # eslint, with a warning ceiling (--max-warnings) – lower it when you fix some, never raise it
+pnpm lint    # eslint + a per-rule warning ratchet (scripts/eslint-baseline.json); `pnpm lint:update` lowers it
 ```
 
-**Large / long incidents** (26.09.2026): `pnpm bench` times the pure hot paths and `just fat-perf
-[preset …]` plays a synthetic fat incident (`src/lib/fatIncident.ts`) into a throwaway backend and
-opens it on a CPU-throttled browser. Measurements, not gates. Run them when you change the save
-path, the Karte's rendering, the Verlauf or the Replay, and compare against the recorded run in
-[`docs/testing/fat-incident.md`](docs/testing/fat-incident.md).
+`just` (no argument) lists the recipes: `just dev` for the full local stack, `just bench` /
+`just fat-perf` for large incidents ([`docs/testing/fat-incident.md`](docs/testing/fat-incident.md)),
+`just perf` for the performance journeys, `just staging-refresh`, `just release …`.
 
-**Performance is gated** (05.10.2026): CI's «Performance» job walks real user journeys on the busiest
-Einsatz on record (`e2e/journeys.journey.ts`) on every PR and every push to main, and fails when
-requests, bytes, writes, memory left behind or interaction times regress against
-`e2e/perf/baseline.json` (`scripts/perf-report.mjs`). For an agent this is part of «done»:
-- **Read the «Performance journeys» comment on your PR** (or the job summary), not only the colour. A ⚠️ (drifting) or 🟢 (better) line
-  is worth a sentence in the PR description. You caused it, so you know why.
-- **A red Performance check blocks the merge** like a failing test. Fix the cause first: a new poll,
-  a save on open, a chunk pulled into the entry bundle, a listener a surface never removes. The
-  summary names the routes that changed.
-- **Never accept a baseline to turn a check green.** `just perf-accept <run-id>` is for a cost the
-  change deliberately buys (a request a feature needs). Take it from a CI run (never a local one),
-  in its own commit, with the reason in the message, and say so in the PR. Accepting a 🟢 gain is
-  always welcome.
-- **Never loosen a tolerance or skip a journey to pass.** Gate on a count or a size where the
-  regression shows in one. Times are scaled by the runner's calibration and confirmed by a second
-  run.
-- **Touch the save path, polling, the Karte, a surface's mount, or the bundle?** Run `just perf` locally
-  first (a look, not a verdict).
+## Working in this repo
 
-Read [`docs/testing/perf-journeys.md`](docs/testing/perf-journeys.md) before adding or changing a
-journey.
+- **Committing straight to `main` is fine (no PR ceremony).** But only commit+push
+  *immediately* when the user needs the change on production to test it right now; otherwise
+  **batch related changes and commit once the chunk of work is done** (a coherent unit), rather
+  than after every small edit. The user tests on production, so a needed-for-testing change
+  still ships promptly – just don't pepper `main` with partial commits.
+- **Sign off every commit (DCO):** `git commit -s`. The «DCO (sign-off)» check fails a pull
+  request with a commit that has no `Signed-off-by` line; why and how to fix one:
+  [`CONTRIBUTING.md`](CONTRIBUTING.md). Commit subjects are Conventional Commits (`feat(scope):
+  …`, `fix: …`, `docs: …`) – git-cliff drafts the CHANGELOG from them.
+- **An idea that should not reach the station yet goes to staging, not `main`.** Push it to the
+  `staging` branch; it deploys to the Railway `staging` environment
+  (`https://kp-front-staging.up.railway.app`, a separate PWA on prod's data, with push and
+  webhooks cut). `just staging-refresh` re-copies prod into it and overwrites whatever was tested
+  there. Pass `--environment` explicitly to every `railway` command: the checkout is linked to
+  `production`. See `docs/DEPLOYMENT.md` §3a.
+- **The user keeps uncommitted WIP and commits in parallel.** Never `git add -A` / `git commit
+  -a`; stage only the specific files you changed, and don't assume the tree is clean.
+- **Verification before prod (the CI gate).** Prod deploys from `main`, so a red `main` reaches
+  the field. The standing flow for any non-urgent change: develop on a branch, push, let
+  `ci.yml` go **fully green**, *then* merge – never merge a red branch. `ci.yml` runs three gate
+  jobs: *Frontend (tsc + build)* – eslint + `tsc --noEmit` + vitest + `vite build`; *Backend
+  (ruff + alembic + pytest)*; *Image (hadolint + build + smoke)* – builds & boots the real
+  production container and drives the Playwright e2e against it: the white-screen smoke
+  (`e2e/smoke.spec.ts`) and the field scenario of the Übung on 23.09.2026
+  (`e2e/field-scenario.spec.ts`: a parked vehicle sending GPS, a coupled Leitung, a tapped Trupp,
+  and then three devices on one login). ⚠️ **Every e2e test fails when the app reports a client
+  error or a render storm** (`e2e/guard.ts`, 24.09.2026). A spec imports `test` from
+  `e2e/helpers`, never from `@playwright/test` (eslint enforces it). A report a test provokes on
+  purpose is listed with `expectedClientErrors`; nothing turns the guard off (`e2e/README.md`).
+  An **urgent prod hotfix** may still go straight to `main` (see the commit bullets / the 3am
+  tenet) – but run `pnpm lint && pnpm test` (and ideally `pnpm build`) locally first. For
+  interactive changes a unit test can't cover, use `/code-review` on the diff and `/verify` to
+  drive the real app. Keep the house rule: every new mutating feature ships with a `src/lib` test.
+- **The gate is server-enforced.** Branch protection on `main` requires four checks to pass
+  before a merge: *Frontend (tsc + build)*, *Backend (ruff + alembic + pytest)*, *Image
+  (hadolint + build + smoke)*, and *Secrets (gitleaks)*. `enforce_admins` is **off** on purpose,
+  so a 3am hotfix can still bypass it – that is the only intended bypass, not a routine one.
+- **Performance is gated too.** CI's «Performance» job walks real user journeys on the busiest
+  Einsatz on record and fails on regressions against `e2e/perf/baseline.json`; a red check
+  blocks the merge like a failing test, and a baseline is never accepted (nor a tolerance
+  loosened) to turn it green. The rules for an agent are in
+  [`docs/testing/perf-journeys.md`](docs/testing/perf-journeys.md) · «The gate is part of
+  «done»». Read [`docs/testing/perf-journeys.md`](docs/testing/perf-journeys.md) before adding
+  or changing a journey.
+- **Releases are for other stations, not for us.** Prod + demo deploy continuously from `main`;
+  a `v*` tag exists so a self-hoster can pull a known image. The number answers *what does this
+  update cost the operator* – PATCH = fixes, MINOR = features + automatic migrations, MAJOR =
+  operator action required (table at the top of `CHANGELOG.md`). Cutting one:
+  `just changelog` (git-cliff draft) → curate into `[Unreleased]` → `just release X.Y.Z` (bumps
+  `package.json`, `backend/pyproject.toml`, `backend/app/config.py`, opens the CHANGELOG section;
+  a pytest fails if those three ever drift) → `just release-tag X.Y.Z` → `git push --follow-tags`,
+  which runs the CI gate and publishes `ghcr.io/feuerwehr-oberwil/kp-front:{X.Y.Z,X.Y,latest}`
+  plus a GitHub Release whose body is the committed CHANGELOG section. `docker-compose.yml`
+  **pulls** that image by default (`KP_FRONT_TAG`); building from source is the commented path.
+- Replace files in place – no `_v2` / `-new` / `-fixed` variants.
+- Scratch scripts are named `.x-*` (git ignores them anywhere; never leave one in `site/`, which
+  is published). New work starts in a worktree off `origin/main`; `just doctor` warns when a
+  checkout is far behind it, `just wt-prune [--apply]` clears finished worktrees (CONTRIBUTING.md).
+- Match the surrounding code's style, naming, and comment density.
+- When writing docs, convert relative dates to absolute.
+- **A new rule goes where the next editor meets it**: a comment at the top of the module (or
+  above the function) it is about, or the `docs/` page of its topic when it spans modules. Add
+  a line here only for a convention every change has to know.
 
-**Sourcemaps are hidden** (24.09.2026): `build.sourcemap: 'hidden'` writes a `.map` beside every
-chunk. No bundle references it, and the service worker's precache excludes `*.map`.
-`scripts/check-sourcemaps.mjs` checks all of this in CI. Never switch to `true`, and never
-precache maps. To read a field stack, see [`docs/SOURCEMAPS.md`](docs/SOURCEMAPS.md). A client
-crash report is ONE log line (`kpfront.clienterror`, newlines as « ⏎ », each field bounded). The
-client sends a repeated signature as a counter (`repeat=×N since=…`) and never drops it
-(`src/lib/reportError.ts`). The one thing it does not report is a bare fetch failure while
-`navigator.onLine` is false (`isOfflineNetworkNoise`, 24.09.2026). That is the device being
-offline, not a crash. The reports could not leave an offline device anyway, but the counter of
-failed basemap tiles went out after reconnect as «Failed to fetch ×N». `app.admin_postcheck`
-parses these lines back per device, the morning after every Einsatz (read-only;
-[`backend/README.md`](backend/README.md)). If you change the line's shape, update
-`parse_crash_message` and its test.
+## Testing
 
 **Tests** are Vitest (node env), colocated as `*.test.ts`, focused on pure `src/lib` logic
 (plus a few components); the backend uses pytest. The backend has a ruff pre-commit hook; the
 frontend has none – so run `pnpm lint && pnpm test` before pushing, since changes go straight
 to prod.
 
-## Review regression contracts (02.10.2026)
+- **Ratchets only go down.** The eslint warnings per rule (`scripts/eslint-baseline.json`; `pnpm
+  lint` fails when a rule's count goes up, or down without `pnpm lint:update`), the style-debt
+  baseline (`src/styles/styleDebt.baseline.json`, below) and the vitest coverage floor are lowered
+  (the floor raised) when you fix something and never moved the other way to pass. The gzipped
+  entry, App, maplibre, pdf-worker and CSS chunks have a +5 % budget against
+  `scripts/bundle-baseline.json` (`scripts/check-bundle-size.mjs`, CI); a deliberate growth is an
+  `--update` in its own commit, with the reason.
+- **e2e** runs on the production image in CI (`e2e/README.md`); every spec takes `test` from
+  `e2e/helpers`, which fails on a client error or a render storm.
+- **The look is gated too.** CI's «Visual» job shoots nine frozen states and compares them with
+  `e2e/visual/baseline/` (`maxDiffPixels: 20`). A changed pixel you did not mean is a regression;
+  a look you changed on purpose gets new baselines from CI (`just visual-accept <run-id>`) in its
+  own commit, saying why – never to turn the check green, never shot on a laptop
+  ([`docs/testing/visual-regression.md`](docs/testing/visual-regression.md)).
+- **Large / long incidents and performance** are measured, not guessed:
+  [`docs/testing/fat-incident.md`](docs/testing/fat-incident.md),
+  [`docs/testing/perf-journeys.md`](docs/testing/perf-journeys.md).
+- **Field crash reports** are one `kpfront.clienterror` log line; hidden sourcemaps turn their
+  stacks back into source ([`docs/SOURCEMAPS.md`](docs/SOURCEMAPS.md)).
 
-- Journal lifecycle boundaries and the `sys` id namespace belong to the server. Neither a
-  client row nor a patch targeting a system row may create, retract or edit them; the client
-  alarm clock ignores ordinary journal rows carrying lifecycle-looking metadata.
-- A failed conflict PUT still hands the merged union to the live view before another edit.
-  Re-sending parked workspace saves first commits their replacement cache entry, with transfer
-  markers for crash-safe retry, before clearing the parked originals.
-- Blob data never falls back to JSON storage. Failed local media persistence retains bytes in
-  memory and reports storage failure. Pending uploads retry with a bounded delay; exhausted
-  uploads wait for explicit retry. Rendering the queue must never trigger an upload loop.
-- Time popovers join the shared dismissal guard: one Escape closes only the picker. Invalid
-  typed times stay open with an error; optional values expose «Leeren» left of «Jetzt» and «OK»
-  in the action row. Named state choices such as «noch da» stay above the wheels. Hold-repeat
-  buttons support click-only assistive activation without doubling pointer taps.
-- ONE time picker: every clock entry is `TimeField`/`WheelPopover` – no per-surface ± time
-  stepper. The Verlauf composer's «Uhrzeit …» (Wiedervorlage) opens `WheelPopover` straight off
-  the clock button (`title`, a day column of today + 6 days, `noNow`, and a `note` that shows the
-  resolved «Morgen · Fr 09.10. · 07:30» and BLOCKS «OK» on a past instant – never rolled to
-  tomorrow). The imported memo's «Aufnahme begann» is a `required` `TimeField`.
-- ONE date+time control: `DateTimeField` (`components/TimeField`, ISO in/out). The date is a
-  bounded day column («Mo 05.10.», `lib/zeitplanFormat · fmtWheelDay`) from `days` – the incident's (`incidentDays`)
-  or by default the last 60 days – never day/month/year wheels and never a native
-  `datetime-local`. A bare clock with an optional day column is `TimeField` (+`days`/`valueDay`).
-- Cancelled map requests (`AbortError`) are filtered only at `lib/mapError`, not globally.
-  Timeouts, actual map failures and aborts outside the map still enter crash telemetry.
-- CI enables the six workspace workflows and phone/tablet touch checks on its disposable stack.
-  Locally these mutations require `E2E_WORKFLOWS=1`; never target a station in use.
+## Conventions
 
-## Architecture & conventions
+### Copy and language
 
-- **The loading mascot has one source.** `public/firefighter-snail-loader.svg` owns its paths,
-  motion, station-accent shell/hose, sizing and reduced-motion rule. `SnailLoader` imports it
-  as trusted raw markup with unique ids per instance; Vite's `inlineSnailLoader` inserts it at
-  `index.html`'s `kp:snail-loader` marker so the static boot screen paints without fetching an
-  asset. Keep both stages at the same size; never replace the boot markup with an external image.
-  The boot cover paints immediately and stays through the SVG's 630 ms skid arrival, even on
-  a cached launch (`lib/snailLaunch`). React launch loading stages continue that animation clock.
-  That clock is `performance.now() - animation.startTime`, never `now - currentTime`:
-  `currentTime` stands still until the next frame, and on a loaded device that made React rewind
-  the entrance by up to 20 ms (08.10.2026). The e2e reads it the same way at the moment React
-  empties `#root`, not from `animationend` (dispatched only with a frame, so a starved runner never
-  sent it for the removed cover).
-  Do not replay the arrival at each loading stage or add a fade that hides it.
-  Reduced motion skips both motion and the minimum hold.
-  In-workspace activity uses `ShellLoader` / `LoadingStatus` (01.10.2026): the compact
-  Shell trail draws the SVG's `fs-shell-trail` spiral in inherited ink, with a 2.4 s loop
-  and a static reduced-motion state. Keep the path in the mascot SVG, never copy its geometry.
-  Use the decorative loader inside busy actions, or `LoadingStatus` beside existing loading
-  copy. Do not add artificial minimum waits for in-app activity.
-  **KP Rück shows the same snail** (02.10.2026): kp-rueck carries a byte-identical copy at
-  `frontend/public/firefighter-snail-loader.svg` and the `fs-shell-trail` path in its own
-  `ShellLoader`. Its CI job «Snail loader matches KP Front» fails when they differ, so the SVG
-  is edited HERE and then copied over to kp-rueck in the same breath.
-  `SnailLoader` keeps ONE `{ __html }` object per instance: React 19 rewrites `innerHTML` for a
-  new object even with the same string, which re-inserts the SVG and restarts its animations, so
-  every re-render of a loading stage replayed the arrival.
-  **An Einsatz opens behind the snail** (01.10.2026, `lib/bootCover`): a genuine open (App ·
-  `coverId`, never a background remount or a re-select of the Einsatz on screen) keeps the
-  pre-app Splash portalled over the whole workspace until the symbol pack, the framed Karte's
-  first `idle`, the rail's plan tiles and the weather are in, capped at 8 s (below Splash's
-  STUCK_MS), then fades it out. The launcher waits for the boot's pick (`bootDecided`): the list
-  watch can fill the list first.
-- **Operational browser state lives in IndexedDB, not localStorage.** `src/lib/idb.ts` is the
-  storage layer (localStorage only as its degradation fallback), `src/lib/storageMigration.ts`
-  moved legacy operational keys over once. IndexedDB holds incident workspaces, pending sync,
-  media queue metadata, reference/checklist/object metadata, and readiness; localStorage holds
-  only tiny device flags (update banners, install prompts, once-per-device hints) and migration
-  flags. The Mannschaft (roster) is cached there too (`kp-front-roster`, `usePersonnel`); a one-off
-  read outside the hook — the Leeres Erfassungsblatt — goes through `loadRoster` (server, else the
-  cache), never a bare `listPersonnel()`, and the launcher warms it at sign-in (05.10.2026: the
-  blank sheet printed an empty «Personal / Anwesenheit» offline). UI copy/locale/defaults/storage keys live in
-  `src/config/appConfig.ts`; the neutral fallback incident is `src/data/demoIncident.ts`.
-- **Saved means every operational queue is acknowledged.** Workspace, journal and client audit
-  outboxes and the media upload queue contribute to the shared sync status. Preserve rejected entries for retry/export;
-  a failed IndexedDB write must never claim local durability. Hydrate and merge a predecessor's
-  queue before a promoted tab writes it. A failed IndexedDB READ is not a miss: every hydrate that
-  writes back reads through `idbRead` and never writes over a slot it could not read. Client audit events carry a stable `client_id` through
-  retries; a beacon does not acknowledge delivery.
-  ⚠️ **An audit event the ROLE can never write is not owed** (24.09.2026, `lib/eventScope`,
-  `auditEventStore · refused`). The client mirrors the server's append allowlist
-  (`EL_EVENT_PREFIXES`, `atemschutz.*` for an Atemschutz-Link, nothing for a viewer — a test
-  pins the prefix list to `api/events.py`) and never queues an op outside it; a 403 for such an
-  op is PARKED as `refused` — persisted, exported with «Einträge sichern», never re-sent by
-  «Erneut versuchen», and NOT part of the shared sync status (a calm note in the Verlauf, not a
-  red lamp). A 403 for an op the role SHOULD be able to write stays `rejected` and red: that
-  is a real mismatch. Never drop either kind. (The `el` phone sat red for three hours on
-  23.09.2026 over five `atemschutz.alarm` events it could never deliver.)
-  ⚠️ **Reconnect is proven by an answer, not by the `online` event** (24.09.2026, after #209).
-  A WLAN that routes nowhere, a backend restart, or a reload while offline never fires `online`.
-  So the fetch wrapper reports what it saw (`lib/connectivity`). Any FRESH successful answer
-  (`serverClock · isFreshSampleSource`, never a service-worker cache hit) turns `useOnline` back
-  on. Only the `offline` event turns it off: a failed request never does, so it cannot flap. The
-  first answer after a failure to reach the server (status 0 or 502/503/504, or an `offline`
-  event) fires `onReachable`, and the workspace and audit outboxes flush on it as on `online`.
-  A flush REQUESTED while an outbox attempt is in flight gets one more attempt if that attempt
-  failed to reach the server. Workspace and audit do this through the public `flush()`; the
-  journal has its own copy. The stores' own timers go through `run()` and request nothing. It is
-  one re-run per request and never after an answer (401, refused, exhausted merge), so an offline
-  device does not spin (`outboxReconnect.soak.test.ts`).
-  ⚠️ **A closed Einsatz keeps its RECORD, not its operation, and every device hears the close**
-  (25.09.2026, staging N3: two devices ran a closed Einsatz for minutes and wrote a Kontakt and
-  two «Überfällig» rows into it). Server (`api/incidents · incident_closed`): once `is_open` is
-  false, a live write MADE AFTER THE CLOSE is 409 `{code: 'incident_closed', closed_at}` — judged
-  by when it happened (rows `at`, events `occurred_at`, saves `edited_at`, all on the
-  server-aligned clock, +120 s tolerance; no stamp ⇒ by arrival), never by when it arrived: a
-  Kontakt from before the close is a true fact and prints as a Nachtrag. Live = events outside
-  the record vocabulary (`EL_EVENT_PREFIXES`), Verlauf rows of kind `team`/`symbol`/`layer`/
-  `vehicle` without a `conflict` payload, the trupps slice, and a full save that changes a key
-  outside `RECORD_WORKSPACE_KEYS` and `VIEW_WORKSPACE_KEYS` (the revision check runs FIRST, and an
-  entry the server already holds is the idempotent success, not a refusal). The record slice,
-  record events, Meldungen/patch rows, `PATCH`, media and «Wieder öffnen» are untouched. Every
-  workspace read — the 304 too — carries `X-Incident-Open`/`X-Incident-Closed-At`; a lifecycle
-  `PATCH` and the auto-archive sweep wake the parked followers, and a poll carrying `open=` that
-  no longer matches is answered at once. Client (`lib/incidentClosed`): the poll header, a
-  refusal and the list watch (a suspicion, verified) all `reportIncidentClosed`; App flips the
-  meta IN PLACE (`closedMetaFor`, never for the Einsatz this device is closing, never a jump
-  elsewhere), and `IncidentWorkspace` derives `readOnly` from `isIncidentRunning` live, so the
-  alarm, the GPS pass, the presence log, the weather stamp and the Wiedervorlagen stop, with one
-  Meldeleiste row («… auf einem anderen Gerät abgeschlossen (hh:mm)»). The closing device drains
-  its Verlauf and audit outboxes before the archive `PATCH`. The outboxes keep DELIVERING on a
-  closed view (`outboxReadOnly`), and a refused write is parked — journal `refused`, audit
-  `closed` (apart from the role bucket `refused`), the workspace's `::__refused__` slots, whose
-  record part is re-saved at once through the record route and whose ancestor goes straight
-  back on screen. Parked entries are exported by «Einträge sichern», keep the lamp amber until
-  then, and are SENT again once the Einsatz runs again. A plain 409 on the workspace is still
-  the revision conflict: test the code first. «Wieder öffnen» elsewhere comes back the same way
-  (`X-Incident-Open: 1`, the same wake, the list watch, `reopenedMetaFor`) on EVERY device that
-  shows the Einsatz closed, however it came to (a close signal, its own close, «Alle Einsätze» —
-  forceReadOnly goes too), with its own row naming the reopen row's time. The live poll claims
-  `open=` from the server's last `X-Incident-Open`, never only from the view, and a held poll that
-  answers at once with nothing new eases off — a closed view must never spin (it did, 3.4/s). «Anhängen» is never offered onto a closed Einsatz.
-  **«Wieder öffnen» needs the server — there is no offline reopen** (05.10.2026, asked for after an
-  Übung in airplane mode). The reopen boundary row is server-owned (`sys` namespace, review
-  contract above), the Atemschutz alarm HOLDS until it has arrived (`reopenPending`), and the
-  crews' restart rows derive their ids from it — so an Einsatz reopened offline would run its
-  Tafel with no Überfällig alarm for as long as the device stays offline. Offline the doors stay
-  (useOnline is a hint) but say so: «Braucht Verbindung zum Server» under the chip's row, one
-  line over «Alle Einsätze», and an unreachable server answers with `reactivateNeedsServer`, not
-  a raw network error. An offline reopen would need a client-stamped reopen time and a
-  precondition on the close it saw (`last_closed_at`, so a later close elsewhere wins), a local
-  provisional boundary for the alarm, the reopen sent BEFORE any outbox on reconnect, and closed
-  signals for that Einsatz ignored until then — a design, not a patch.
-  After the close the RAPPORT stays editable (`canEditRapport`, one line at its top: «Änderungen
-  … erscheinen als Nachträge»); the Tafel, Karte, Anwesenheit/Mittel/Checklisten stay read-only
-  until «Wieder öffnen». Every row the server accepts on a closed Einsatz is stamped
-  `receivedAfterClose` and prints as a Nachtrag whatever its time — except a row the Abschluss
-  itself wrote between the confirm and the close (`atClose`, set by `useAbschluss · markClosing`;
-  honoured up to 120 s past the close, `verlauf · isNachtrag`). A reopen clears
-  `report_done_at` (a running Einsatz is not «Rapport fertig»), keeps `closed_at` (the first
-  Einsatzende, which marks the Nachträge — so the Einsatzuhr ignores it while the Einsatz runs),
-  and writes its boundary row with `lifecycle: 'reopened'`; every crew still inside restarts its
-  contact clock at that row's `at`, one `azro-<row>-<Trupp>` row each, and the alarm holds until
-  the row has arrived (`lib/reopenClocks`); the alarm that restart ends names the reopen
-  (`contactRestartedAt`), never a Funkkontakt — read off the Trupp the alarm engine EVALUATED
-  (`logAlarmCleared(id, turnus, seen)`), not the parent's state, which gets the restart one effect
-  later, so every tablet writes the same reason under the one derived id — and the pressure estimate skips the closed
-  interval (`pausedFrom` → `contactRestartedAt`, `atemschutz · estimatePressure`). The Atemschutz-Link of a closed Einsatz says «diese
-  Tafel zeigt nur noch an» and follows once a minute (`pollBackoff · minDelayMs`): a link
-  session on a closed Einsatz is answered 409 `incident_closed` + `X-Incident-Open: 0` on the
-  Einsatz's own routes (before any key check — every close, the second too), and a link page
-  refused 403 on its workspace/Verlauf/events freezes read-only (`api · LINK_REFUSED_EVENT`). A
-  per-Einsatz Atemschutz link RELOADED while closed gets the same 409 from the exchange (no cookie;
-  the alarm link's (src, ref) exchange keeps its one 404) and shows «Einsatz abgeschlossen», asking
-  again once a minute so a reopen opens the board by itself (`link/LinkApp · ClosedCard`). The
-  link KEY is not revoked by a close, on purpose: the QR panel shows it standing and a reopen
-  revives it. `closed_at` is the FIRST close (Nachträge only); `last_closed_at` is stamped on
-  every close and is the Einsatzende the clock, the Rapport and the Anwesenheit ends default to
-  (`api/incidents · closeTimeOf`); the PDF prints the Nachtrag mark under the row's time. A
-  closed Tafel alarms nothing (no badge, no red; «Stand beim Abschluss»), the lifecycle row
-  expires after two minutes and never covers the Rapport.
-  A disposed journal store must never publish a late snapshot over its replacement.
-  A Web Lock request rejected before a grant must not immediately requeue: an inactive
-  document can reject forever and prevent navigation. Requeue only after a held lock is lost,
-  and ignore grants that arrive after the owner stopped.
-- **Backup originals are immutable.** Publish original blobs under fresh/content-addressed
-  keys before committing their SQL reference; delete obsolete files through `storage.delete`
-  (including transaction callbacks). The online backup guard retains deleted originals until
-  `app.backup` pins them; never bypass it with direct unlink or overwrite original keys in place.
-  Derived thumbnails/waveforms may be regenerated. Keep `.kp-backup` coordination files private
-  and never unlink its lock files. Corrupt deletion markers retain their pins for inspection;
-  they must not prevent other cleanup or backups. Incompatible schema rollback is an explicit restore with
-  `scripts/restore.sh --no-start`, followed by selecting the matching image; never auto-downgrade.
-- **PDFium calls share one process-wide lock.** Hold `app/pdfium_lock.py`'s lock through object
-  creation, rendering and explicit closure, including print-page reversal. Run this synchronous
-  work off the request event loop; separate PDF documents are not thread-safe either.
-- **Alarm validation must preserve unchanged legacy data.** Full workspace saves validate at
-  `apply_workspace_put` against the stored incident, retaining exact existing malformed rows
-  while rejecting new, edited or duplicated invalid rows. Never silently drop operational
-  records or skip validation because a revision differs; return the normal conflict instead.
-- **Undo/redo – every mutating op should be undoable, scoped to the workspace.** ONE
-  chronological timeline for the whole Einsatz (`lib/undoTimeline`), driven by the TopBar's ↶ ↷
-  and by Cmd/Ctrl+Z on every surface – so «take back the last thing that happened» never asks
-  which surface you are standing on. Three ways to join it, and the choice is decided by what
-  the domain already owns:
-  - *Delegating* – the domain keeps its own history and the entry calls it: the Karte's document
-    (`useUndoableDoc` through `useObjectStore`), a Plan's per-document history (`useBoardDoc`),
-    and the synced slices (`useUndoableSlice` – Anwesenheit, Mittel, Checklisten, **Rapport**,
-    **Zeitplan**). Always through a **ref**: the entry outlives the render that pushed it.
-  - *Closure* – the entry carries its own inverse, for a domain with no stack: the
-    Atemschutz-Tafel, the Gebäude one-shots (floor add/remove, building replace, Drehung),
-    Rapport-Beilagen, Ansichten (`rememberOneShot`).
-  - *Confirm-with-undo toast* – the fast door beside the header pair, for a one-shot that
-    destroys something (a Geschoss, a Beilage, an Anwesenheits-Block, a Pendenz's «Erledigt» —
-    whose inverse is an APPENDED `reopened` row, since 23.09.2026). It does the inverse
-    itself and **drops its timeline entry** (`push` returns the dropper), so an act is never
-    undoable twice. ⚠️ …and it writes the SAME counter-row the ↶ would (25.09.2026,
-    `IncidentWorkspace · oneShotUndoToast`): a storey restored from the toast used to leave
-    «Geschoss 3. OG entfernt» alone on the printed Einsatzjournal. The Rapport prints the ↶ / ↷
-    rows as well (`report · journalRows`) — a taken-back act is two rows, on paper too. ⚠️ And a
-    counter-row exists only beside the row it counters (26.09.2026): a one-shot whose act wrote
-    no row undoes silently (`rememberOneShot(…, 'silent')`), and a ↶ of an act the paper does not
-    print (a move) is not printed either (`report · historyCountersPrintedRow`).
-  Two rules that fall out of it: a surface that persists on every **keystroke** classifies its
-  writes so a burst of typing is ONE step and a value/row appearing or disappearing is its own
-  (`lib/reportUndo`, `UndoableSlice.set`'s `coalesce`); and a remote hydrate closes the open
-  fold windows — the Rapport's typing burst (`lastReportStep`), the Bildlegende
-  (`lastCaptionStep`), the Gebäude-Drehung (`lastReorient`) — and re-opens a plan gesture whose
-  step the merge took: the store's sheet-step token (`useObjectStore · rebaseObjects`) and the
-  Whiteboard's first-movement checkpoint (`useBoardDoc · set`) each lay a fresh step at the
-  gesture's next sample.
-  - ⚠️ **A remote merge drops only the steps it INVALIDATED** (25.09.2026, `lib/undoKeys`,
-    `UndoTimeline.rebase`) — this REVERSES the 08.09. rule that dropped the whole timeline on
-    every hydrate, which with three devices greyed ↶ out within ~2 s of any save anywhere.
-    `applyWorkspace` diffs the live state against the merged one record by record, at or coarser
-    than the merge's own granularity (`WORKSPACE_RECORDS`: an object/Trupp/Mittel row by id, an
-    Anwesenheit by person, a Rapport field by name, `building:` whole; `planview:<planId>` for a
-    sheet whose drawn view moved, `planview:*` when a fit field did). The diff is by value and
-    insensitive to key order ONLY (an `undefined` property counts as absent): array order and
-    every value are compared exactly — the merge's own comparison (`undoKeys · sameValue` IS
-    `lib/jsonEqual`), so «the merge changed this record» and «this side changed it» never
-    disagree about a re-sorted value. Every entry says which records its undo/redo TOUCH
-    (`touches`): every record it writes, AND every record one of those values LINKS to — a
-    placard's `dockedTo`, a Leitung end's attachment target, a `truppId`, a Gebäude body's
-    `building:` (`objectRefs` / `annoRefs`, old value and new) — because re-stating a link means
-    «where the target is NOW», and a ↷ that re-docks onto a host another device moved would land
-    at the old spot. The merge drops each entry that touches a changed record, plus — walking in
-    the order the steps would be taken — every entry behind a dropped one that touches a record
-    the dropped one touched (its effect is now permanent). An entry with no `touches` is dropped
-    by any real change, and so is everything older. An echo drops nothing. The delegating
-    domains then keep exactly the steps whose entries survived (`step`), RE-LAID onto the merged
-    state as a patch of the records each wrote (`rebaseHistory`; an open Karte drag via
-    `rebasePending`) — the Karte store per object, the slices per record — so no snapshot carries
-    a pre-merge value of a record the merge changed. A Plan's stack is whole-sheet VIEW snapshots
-    (an absent anno is a deletion), so it cannot be re-laid: it survives only WHOLE
-    (`planStackTouches` names the stack's every object, link and its view), cut by step id
-    (`keepPlanSteps`). The confirm-with-undo toasts are guarded too: `undoToast(…, guard)`
-    declines with «Nicht mehr rückgängig machbar» once a merge changed a record it would write or
-    link to (or its entry is no longer `standing`); a toast whose target lives outside the
-    workspace checks the target itself (`georefStillIs`, `mittel · tombstoneStands`). The whole
-    bookkeeping runs through `carryUndoThroughMerge`: if any of it throws, the old rule applies
-    (timeline cleared, every history dropped, the merged state still lands). ⚠️ ↶ never turns
-    into an older act SILENTLY (staging r3, F8): when a merge drops the step ↶ would have taken
-    back, one line says so («Letzter Schritt nicht mehr rückgängig machbar – ein anderes Gerät
-    hat … geändert», `onTopDropped`), and the header's label and flash caption name the SURFACE
-    in front of an action that does not already say it («Trupps · Trupp 1 (…): Ausrüstung: WBK»,
-    `undoTimeline · undoCaption`, `copy.undoSurfaces`) — the Verlauf row keeps the bare action. Add an entry ⇒ give
-    it a `touches` that covers EVERYTHING its undo and redo write, and every record those values
-    link to; add an id-valued link field ⇒ add it to `objectRefs`; add a synced slice ⇒ its
-    `WORKSPACE_RECORDS` row (tsc asks) AND its entry in `liveWs` (tsc asks too, `RecordedField`).
-    A Trupp's grow-only `crewFiled` marker is not part of its record here, because every Trupp
-    inverse keeps the live one (`keepCrewFiled`).
-  Deliberately NOT undoable: append-only records (Verlauf rows, audit events – corrections are
-  new appended rows), device preferences (Ebenen, Einstellungen sheet) and server-side incident
-  metadata (`PATCH /incidents`). Add undo for new mutations; don't skip it.
-- **Objektpläne is object-first.** Tabs Objekte · Vorschläge (the review wall's staged ✓/✕ +
-  Übernehmen, only open proposals) · Übersicht. The object table row itself opens the detail
-  (chevron, no «Öffnen» button), which IS the object editor: auto-saving settings rows (explicit
-  button only to create), one TABLE row per catalogue module prefixed with its short form («M6»,
-  «M5 PV» – never a raw modulN key), ONE primary action per row («Vorbereiten» or the upload) and a
-  kebab for the rest – no modal, no nested cards, no captions. Plan order everywhere is
-  `src/lib/planOrder.ts` (module number, family before sub-slots; catalogue `order` only breaks ties). Catalogue coverage and locations live
-  under Übersicht. Preparation opens a full-screen editor (admin header + Segmented tabs
-  Geschosse / Karte ausrichten / Vorschau, the selected floor row expands in place into its
-  inspector, one map fit per PDF shown as a per-page setting) with one persistent draft/save action.
-  Switching tabs never saves or discards changes; leaving a dirty editor asks before discarding.
-  Status belongs to the current PDF byte revision, never an older approved revision.
-- **Prepared Gebäude floors belong to their frozen plan binding.** A Modul-6 stack stores
-  `pack.bindingId`; changing the selected Einsatzobjekt must not retarget its backdrop or ink.
-  Prepared floors cannot be added or deleted in the incident. Floor drawings may connect in
-  pairs across PDF pages; resolve those joins in a common frame, never independently centre
-  each crop. **A storey may BE several drawings** (`PlanFloor.part`, 16.09.2026 – two wings of one
-  1. OG): each drawing is a row with its own region and its own join, all on one page, and the
-  storey is still ONE tile, ONE index and one surface for ink, Trupps and symbols. Every join
-  shift is keyed by (index, part); a shift per storey can only place one wing. A symbol's Von/Bis range is one object shown and selectable on every covered floor.
-  Dragging it one storey moves the whole range (0–2 → 1–3), with one undo step; range controls
-  change coverage, and old single-floor values remain readable without inventing assignments.
-  Removing a storey never deletes a range that still covers another one: it shrinks to the
-  storeys left, and a home on the removed storey moves to the lowest of them.
-  A Linie/Fläche dragged or turned WHOLE stays on the storeys it is drawn on and keeps its shape:
-  at a tile's edge the translation stops, never each vertex (`whiteboard · floorGeometry.moveRigid`,
-  24.09.2026 — the per-vertex clamp flattened a Leitung onto the tile's rim in the field); a vertex
-  changes storey only by its own grip.
-  - *A storey's acts live in its LABEL* (29.09.2026). The label shows the word only («4. OG»,
-    «EG», a custom name); the signed chip comes back only when a custom name hides the order. A
-    tap opens a Menu «Ausblenden · Geschoss entfernen» — Ausblenden is a way of looking
-    (device-local, on read-only surfaces too, the folded strip is the way back), «Geschoss
-    entfernen» is the danger row and stays the owner's confirm-with-undo (IncidentWorkspace ·
-    onRemoveFloor). No eye and no bin on the canvas: delete is the rarest act on this surface.
-  - *The north dial is the ONE door to «Gebäude drehen»* (29.09.2026), on every device
-    (`PlanCompass`); it also shows the angle. The rail carries no compass tile (it opened the same
-    popover a second way and brought a second foot hairline).
-  - *The picker offers the building at the Einsatzort* (08.10.2026, `lib/footprintPick`). With
-    no Gebäude yet and an Einsatz coordinate, the outline that contains the pin starts selected,
-    with a note. If no outline contains it, the nearest one within 12 m is selected, but only when
-    the runner-up is at least twice as far (no neighbour guessed). The pick is never committed
-    without «Übernehmen» and never re-offered once the operator has changed the selection. There
-    is no offer over a legacy (un-georeferenced) building.
-  **Ink is cut to its storey's visible SECTION** (24.09.2026, `lib/storeyClip`): the tile's
-  drawings, laid as `FloorPage` lays them and cut to the footprint box, or the whole tile where
-  there is no Geschossplan. Linien, Flächen, Absperrkreise and trails are clipped to it (SVG
-  `clipPath`, which also cuts the hit surface: only what shows can be tapped), and a crossing wears
-  an EDGE MARK — white disc, ring and arrowhead in the stroke's colour, pointing the way it goes on.
-  Tip, tag, markers, label and stair mark stand only on the visible part; a selected cut stroke
-  shows its whole path as a faint dashed ghost so its outside grips stay attached. The printed
-  stack cuts to the storey's BAND (no plan is printed) with the same mark (`reportPdfDirect ·
-  cutToBands`). A Karte hose projected onto the 1. OG used to run on into the EG's plan.
-- **A plan PDF may prepare itself (`§` markers).** The plan author writes `§EG` / `§1OG` / `§DG`
-  (`§1OG.B` for a second join point, where no one staircase runs through the whole building –
-  floors sharing a label join there, and the chain is resolved in one frame), optional region
-  corners `§[EG` / `§EG]` and `§GEO <E> <N>` as ordinary text spans on the sheet; SEVERAL corner
-  pairs for one storey are its several drawings (16.09.2026), each holding the one join tag that
-  places it – a second drawing without its own tag is refused (`part_without_join`), never guessed.
-  A corner pair MAY name its drawing's point (`§[1OG.A` … `§1OG.A]`, 16.09.2026) and then pairs and
-  places by that name, which beats nearest-corner pairing and containment; named and unnamed pairs
-  mix on one storey, and a named pair whose join tag the sheet never states is `corner_stray`.
-  **A tag is one TEXT OBJECT and is read back as one** – PDFium's char stream is NOT positionally
-  aligned with its text, so never index `get_text_range(0, count)` by char index;
-  `app/plan_markers.py` is the one grammar, and the alignment worker turns them into the floor
-  pack plus – with two or more `§GEO` – the map fit (`reason`/`reference_source` = `markers`).
-  A marked fit is the plan author's own statement, so the worker APPROVES it on import through
-  the one shared gate (`app/plan_approval.py`, 16.09.2026) – the admin checks instead of
-  approving; without `§GEO` only the floors are pre-filled and the fit stays a proposal. Markers
-  never move an approved fit, and never overwrite a pack the admin built by hand. Each row keeps the proposal it was born from
-  (`plan_page_floors.marker`), so the next re-export follows the markers where they moved and
-  re-applies, by storey index, every name/region/join a human had corrected. `just plan-markers
-  <pdf>` is the author's dry run; the tag grammar for humans is `docs/plan-markers/README.md`.
-  **A broken export says so on the row** (16.09.2026): every marker run writes
-  `plan_alignments.marker_notes` – the faults as a CLOSED code set (`plan_markers.WarningCode`,
-  German through `plan_markers.text` for the CLI/log and through
-  `admin.alignment.markerWarnings.<code>` for the admin UI) plus
-  `storeys_found`/`storeys_written`/`geo_pairs` – so an object left with zero Geschosse reads
-  «Marker unvollständig» in Objektpläne and lists what to fix under the editor's header. Add a
-  code ⇒ add its sentence in BOTH places.
-- **Sync supports task-scoped collaboration.** Multiple editors may work different domains in the
-  same incident (e.g. Atemschutz + Lage drawing); this is not shared-cursor co-editing of the same
-  object. Cross-domain concurrent edits must merge. Mergeable collections merge three-way **by
-  `id`** (`mergeById` in `mergeWorkspace.ts`; delete beats concurrent edit; server-then-local
-  order). Same-object conflicts can stay simple for now. To add a synced field: add it to
-  `Saved` and give it a row in `MERGE_POLICY` (`mergeWorkspace.ts`) – the map is checked against
-  `Saved` at compile time, so a field without a policy fails `tsc` instead of silently merging
-  as «this device wins» (23.09.2026). (`Person`/roster is the exception – it carries
-  `updatedAt` because it's pulled from Divera, not merged.)
-  - ⚠️ **The server observes; devices never write observations** (24.09.2026, design D2 after
-    the Feueralarm-Übung of 23.09.2026). A fact about the OUTSIDE world — a vehicle arrived or
-    left, the weather, a new Divera alarm — is recorded by the scheduler, once, stamped with
-    the time the fact is about: «vor Ort» / «verlassen» on the tracker's report time (Traccar
-    `deviceTime`, capped at now) inside the 30 s
-    sweep (`app/vehicle_presence`), a `weather.observe` per reading and the wind-shift row
-    every 10 min (`app/observations`), the Divera poll (30 s idle / 120 s while an Einsatz
-    runs, back-off on 429). Why: a device writes what it noticed WHEN it noticed — five
-    vehicles «vor Ort» at 19:43 because a tablet woke up (GPS said 19:23–19:28), one weather
-    reading ×5, 469 Divera polls — and writes nothing while every screen sleeps. Devices only
-    READ (the pool, the Verlauf, the `reportMeta.fahrzeuge[].gps` block behind the Rapport's
-    «Fahrzeuge GPS · live» table); an older build's own copies are acknowledged and dropped at
-    the endpoints (`api/journal · observed_by_server`, `api/events · SERVER_OBSERVED_OPS`). A
-    new observation ⇒ a scheduler job registered unconditionally (no-op when unconfigured) with
-    a derived id, never a device-side effect. Three rules an observer keeps (review 25.09.2026):
-    its memory changes only AFTER the commit (`vehicle_presence · Tick.commit` — a failed tick
-    must not lose a transition); it walks incidents in id order (row locks, deadlock); and what
-    it writes is SERVER-OWNED — `reportMeta.fahrzeuge[].gps` is put back on every client save
-    (`keep_server_gps`). `zurueck` is «back at the depot» and stays the geofence's. «Active» =
-    a human write within 24 h, never the observers' own. Full table: `docs/ARCHITECTURE.md`.
-  - ⚠️ **What every device OBSERVES is recorded under a DERIVED id, once** (24.09.2026). One
-    login is routinely open on three devices, and each runs the same engines — the Atemschutz
-    alarm clock (the one observation still on the devices: it is about the device's own Tafel,
-    not the outside world). A row or event such an engine writes must carry an id every device
-    computes identically from the fact itself, so the server's idempotency keeps one: Verlauf
-    rows `azal-`/`azcl-<trupp>-<turnus>` (alarm), and the audit event beside an observed row
-    `observedEventId(rowId, actor)` with a payload free of anything device-local. The server's
-    own observers derive theirs the same way (`vps-<n>-<zone>-gps-<device>`, `wx:<incident>:<observed_at>`,
-    `wxd-<observed_at>`), so a restart or a second worker converges.
-    Audit ids are ACTOR-scoped (the server binds a `client_id` to its author; two accounts each
-    observed it). The server treats a same-id, same-author, same-op, same-payload event with a
-    different `occurred_at` as the duplicate (the first observation's time is kept) — a
-    different payload under one id stays a 409. A hand-performed act keeps a fresh `newId`.
-  - **409 re-merges wait a jittered moment** (`workspaceSync · conflictBackoffMs`: none before
-    the first merge, then 125–375 · 250–750 · 500–1500 ms) so three devices do not retry in
-    lock-step. ⚠️ An edit saved while a re-merge is in flight is built on the live view, which
-    has not seen that merge — the resolver re-bases it onto the merge before merging again
-    (`lastMerged`), or the next attempt reads the remote objects it lacks as local deletes
-    (the three-device load test lost 7–14 % of edits that way, `workspaceSync.load.test.ts`).
-  - ⚠️ **Key order is never a change** (25.09.2026). The server stores the blob as JSONB, which
-    hands every object back with its keys RE-SORTED, while this device's own objects keep the
-    order the code built them in. Anything that decides «changed / unchanged / same divergence»
-    on synced data compares with `jsonEqual` or `canonicalJson` (`lib/jsonEqual`), never
-    `JSON.stringify(a) === JSON.stringify(b)`: in `mergeById` an untouched entry read as «mine
-    changed» against its re-sorted ancestor, and the other device's real edit lost the
-    «both changed» LWW. Round-trip tests re-sort the server copy (`jsonb.test-utils ·
-    serverRoundTrip`).
-  - **Anwesenheit entries and Zeitplan shifts merge PER FIELD** (staging r4 D3, 25.09.2026):
-    two saves in the same second share one ancestor, and whole-object LWW dropped one device's
-    field. `mergeWorkspace · mergeFields` resolves unit by unit — an entry's presence
-    (`status`/`intervals`/`checkedInAt`/`leftAt`) is ONE unit, the Funktion (`note` + `noteAt`)
-    another, `source`/`displayNameSnapshot` are quiet bookkeeping. Only a unit both sides
-    changed differently is a divergence; it is reported as two whole entries differing only in
-    that unit, so the row names only it and settling either side keeps the other edits. A shift
-    whose merged from/to would not be a block keeps mine's pair. Reproduced end-to-end with two
-    engines on the 409 path (`workspaceSync.sameSecond.test.ts`).
-- **A Trupp is `Trupp N` on paper and its Gruppenführer in person** (12.09.,
-  [`docs/trupp-naming.md`](docs/trupp-naming.md)). The number comes from ONE counter per Einsatz
-  that unlinked «Trupp N» chips draw from too, is never reused, and is a badge beside the leader's
-  name – never the primary label. Every Verlauf row about a Trupp is `Trupp N (crew …)` through
-  `truppLogName`, and the crew's history is `crew` rows in the Trupp's own log, which is what the
-  Rapport prints per cycle. Add a crew-changing action ⇒ it writes a `crew` row.
-  - ⚠️ **Two devices that mint the same number at once are settled by the MERGE** (25.09.2026,
-    `lib/truppNumbers`, trupp-naming §7). Every device derives the next number from its own view,
-    so three online devices tapping «Neuer Trupp» in one second all minted «Trupp 1». At the end
-    of `mergeWorkspace`, every contested number stays with ONE claimant (on the board and went in
-    > on the board > taken off the board > an unlinked «Trupp N» chip, then the one the server
-    already holds under it, then registration time, then id), and the others take the next
-    numbers of the one counter (`formerNos` keeps what they lost). ⚠️ One move per collision
-    (N16): a re-merge after a 409 first takes back its OWN un-landed renumberings
-    (`unwindUnlanded`) — a number it just handed out is not a claim. It is pure over the merge's
-    INPUTS: the same inputs give the same numbers on every device, nothing is left to ping-pong —
-    but which merge lands first can decide the keeper. A
-    session settles only what its push carries (`WorkspaceSync · numberScope`: the Link Trupps
-    only, `el` nothing). It is NOT an act: it reaches the view by a hydrate (which drops the undo
-    timeline) and writes ONE Verlauf row, «Trupp 1 (…) heisst jetzt Trupp 3», under the DERIVED
-    id `trn-<id>-<from>-<to>` — said against the view's content that 409'd AND its latest save,
-    against every adopted revision, and by the resolving device after its push; the Link writes
-    it too (`appendTeamRow`). Rows written under the old number stay as they are; the Rapport
-    heading reads «Trupp 3 (zuerst Trupp 1)», and a row's `subjectId` links its «Trupp 1» by id.
-    `Trupp.no` changes nowhere else — don't add a second writer. A duplicate ONE device could see
-    coming (⌘D, a rename, a revived Spur) is refused or re-minted at the source
-    (`placedTrupps · counterNames / freshTeamLabel`), never left for a merge; the counter reads
-    every chip, every ghost trail and every Trupp ever registered.
-  - **A Trupp's marker says which STOREY it is on** (18.09.2026): the Gebäude chip — at rest
-    (`.team-dot`) and selected (`TwinTeamPill`) — and the Karte marker whose body was baked off
-    that chip wear the same signed badge a Leitung's `floorTag` wears (`.team-floor`,
-    `symbolRender · floorBadge`). A Trupp placed straight onto the Karte shows none: it is on no
-    storey, and a «0» would assert an EG nobody stated. Every row that already names the place a
-    Trupp was put or marked names the storey too (« · 2. OG», appended through `floorLabel` — no
-    new row kind, no new template key).
-  - **A Trupp's «Spur» belongs to the incident, not to its marker** (18.09.2026,
-    `lib/truppTrails`). Removing a chip / map marker (or the Trupp, via «Entfernen») moves its
-    recorded positions into a synced GHOST TRAIL — read-only, grey, labelled «Trupp N», drawn on
-    the storey it was walked on and in the frame it was recorded in (sheet-normalised for a plan,
-    geo for the Karte; never projected across). The marker's bar has ONE trash (`deleteLocked` and
-    the morphing trash are gone, and so is the short-lived footprint button beside it): with no
-    trail it removes the marker outright, and with one it opens the app's `Menu` — «Marker
-    entfernen» (the ghost stays) · «Spur entfernen» · «Marker und Spur entfernen», the last two danger
-    rows, each confirming first. The combined row leaves NO ghost: the surface arms the
-    reconciliation (`reconcileGhostTrails · dropped`, `IncidentWorkspace · armTrailDrop`) and the
-    ghost is born `removedAt`-stamped rather than skipped — a skipped one is ghosted again by the
-    next pass — so the marker's own ↶ is still the whole act.
-    ⚠️ Ghosting is a RECONCILIATION over the marker set
-    (`reconcileGhostTrails`, one effect in `IncidentWorkspace`), NOT a write bolted onto each of
-    the four removal paths — that is what keeps the removal's own ↶ ONE step: a marker that comes
-    back takes its trail home and its ghost goes with it, and nothing was ever pushed onto the
-    timeline for the ghost. Ids are derived (`ght-<markerId>`) so two devices reconciling the same
-    removal converge under `mergeById`; deleting a ghost STAMPS `removedAt` (never drops the row),
-    or the reconciliation would write a deliberate deletion straight back.
-    A tap on a ghost whose Trupp still exists offers the way BACK before the delete («Trupp wieder
-    platzieren», 20.09.2026, `truppTrails · ghostRevival`): the marker returns at the trail's end
-    under the id the trail was recorded on (`placeTruppOn… · revive`), carrying the points — so
-    the same reconciliation takes the ghost home, and nothing is written for the ghost itself.
-    Offered for EVERY ghost with points, not only one with a live Trupp: a loose «Trupp N» chip,
-    or one whose Trupp was since removed, returns as the loose marker it then is.
-- **IDs are prefixed timestamps, not UUIDs** – `newId(prefix)` from `src/lib/ids.ts`
-  (`<prefix><ms>-<seq><rand>`) for EVERY record the app mints and syncs — Verlauf rows
-  included (`newRowId(tag?)`), Mittel events, patch rows, Gäste, Pendenzen. A per-device
-  counter is not enough: one login on three tablets (Übung 23.09.2026) had each counter at
-  0, and the journal's idempotency-by-id silently dropped the second device's row. Ids
-  already stored keep their old shape (never rewrite them); a reader that needs to know
-  what wrote a row reads the tag (`isPlayerRowId`), never a parsed timestamp. Deliberately
-  DERIVED ids (`ght-<markerId>`, `vp-…`, `azal-`/`azcl-`) stay deterministic — two devices
-  must mint the same one. Offline-friendly, no DB roundtrip; don't reach for
-  `crypto.randomUUID()`.
-- **Incident records are append-only where it matters.** Verlauf is the human operational journal
-  plus selected meaningful system events; audit/events record committed domain actions. Don't add
-  mutate/delete shortcuts for production records; lifecycle changes (reminders, media transcripts,
-  corrections) are *new appended events* with state derived from them. **A row carries what was
-  said, not a pointer to it** (reversed 11.08.): a Notiz, a Fläche's name, a Druckmeldung print
-  their actual text/value, because the Rapport is read on paper where nothing can be clicked. The
-  row is also the ONE string the Verlauf, the Rapport and the hash chain all read – so a re-shown
-  reminder carries its bare text alongside (`reminder.text`) rather than the row being re-parsed.
-  **Deleting and creating belong in the same channel, on both surfaces**: a single object removed
-  on a Plan writes the Karte's «{name} entfernt» (24.09.2026, `drawingEdit · annoLogName`, as a
-  `subjectId`, never a jump target), and «Gelöscht / erledigt» writes «Feuer EG gelöscht» /
-  «Feuer EG wieder aktiv» from the act itself — one row per act ([`docs/verlauf-coverage.md`](docs/verlauf-coverage.md)).
-  ⚠️ **The two acts never share a verb** (decided 25.09.2026): taking a tactical object off the
-  picture is «Entfernen» / «… entfernt» — button, confirm and Verlauf row, Karte and Plan, every
-  object kind (`copy · remove`, `log.objectDeleted` …) — so «gelöscht» only ever means an
-  extinguished Feuer. That holds for EVERYTHING on the picture (audited 25.09.2026 after the second
-  staging walk-through): a Trupp taken off the board («Trupp N entfernt»), a marker's Spur, a
-  Gebäude storey («Geschoss 3. OG entfernt», now written by the act itself), a plan group — pinned
-  by `config/copy/removalWords.test.ts`. Rows already written keep their «gelöscht»
-  (append-only). «Löschen» stays for records that are not on the picture (an Ansicht, a Schicht,
-  a Checkliste, a Verlauf-Eintrag, a Mittel line).
-  The one accepted maintenance exception is whole-incident hard deletion through `/admin`:
-  `DELETE /api/incidents/{id}` is deployment-admin-only, and a real Einsatz must already be
-  archived (an Übung may be deleted in any state). It deliberately removes the full record and
-  its audit chain, so do not widen this to editors, individual production rows, or a mutable
-  history shortcut. Revisit external deletion evidence/retention policy before offering managed
-  hosting; the current trust boundary is one station operating its own deployment.
-- **A setting lives in one of three places – pick by who owns it, not by what is easiest to
-  reach.** (1) *Device preference* – theme, symbol scale, rail words, offline radius, screen
-  wake: cookie via `src/lib/prefs.ts`, surfaced in the **Einstellungen sheet**
-  (`src/components/panels/SettingsSheet.tsx`), which since 28.08. carries device prefs plus
-  per-device utilities and **nothing else**. (2) *Station doctrine* – Funkkontakt-Intervall,
-  Nachfrist, Funkkanal, Auftragsfarben: deployment config `doctrine.*`, edited **only** in
-  `/admin › Doktrin` (`DoctrineSection` in `src/admin/ConfigSections.tsx`) and read **only**
-  through `atemschutzDoctrine()` in `src/lib/deploymentConfig.ts`, never off
-  `appConfig.atemschutz`. These left the sheet on purpose (99c4348): station configuration
-  belongs where whoever set it up changes it, not under the finger of an unknowing operator at
-  3am – do not re-add a doctrine editor to any in-app surface. (3) *Synced per-incident state* –
-  the workspace blob (`IncidentSettings` in `src/lib/workspace.ts`). Overrides already written
-  there keep applying as the layer above doctrine, but no surface offers new ones; add here only
-  when the value must genuinely differ *per Einsatz* and be identical on every device.
+- **Domain language is German** (Atemschutz, Trupp, Einsatz, Verlauf, …); keep terms
+  accurate. **All user-facing strings live in `appConfig.copy.*`** – never hard-code UI text in
+  a component; add a key and reference it.
+- **Prose language split: technical English, user-facing German.** Everything technical –
+  `docs/`, READMEs, `CHANGELOG.md`, code comments, commit messages – is written in English;
+  German appears there only as domain terms and as «quoted» UI copy. User-facing text is German
+  with i18n overlays (above). The gitignored internal station documents under `docs/` are the
+  exception and may stay German.
+- **i18n / multilingual copy lives in `src/config/copy/`.** German (`de.ts`) is the canonical
+  base and the source of the `Copy` type; `en.ts` (full) / `fr.ts` / `it.ts` are
+  `Localizable<Copy>` partial overlays **deep-merged over German**, so any missing key falls
+  back to the German string – a half-translated locale is always complete. `appConfig.copy` is
+  a **getter** returning the active locale's catalogue (`copy/getCopy()`); read sites are
+  unchanged (`appConfig.copy.x.y`). Locale is a **per-deployment** setting (one brigade = one
+  language), resolved **once at boot** (`/api/config` `identity.locale` → `de-CH`) by
+  `applyLocale()` in `main.tsx`. It's set in deployment config (CLI/config file first; admin UI
+  can inspect/basic-edit Station › Identität › Sprache), NOT per device. **Add a new string to
+  `de.ts` first** (it defines
+  the shape); translate in the other locales as desired. Two caveats: (1) module-level captures
+  like `const C = appConfig.copy.x` freeze the language at import – read inside the
+  component/function instead; (2) a few copy values are structural DATA keys, not labels
+  (`contextPanel.unField`/`stoffField` match the non-localized preset fields, intake
+  `kategorien`/`kategorieGuess` mirror the backend) – leave these untranslated (German fallback).
+- Which word a screen uses – «Karte» vs «Kroki», «Geschoss», «Verlauf» / «Eintrag»,
+  «Entfernen» vs «gelöscht», failure sentences, «leeren», search placeholders – is settled in
+  [`docs/copy-and-wording.md`](docs/copy-and-wording.md). Help text is per device
+  (`lib/helpDevice`).
+
+### Look and feel
+
+- **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, ...)`, **never** a frozen
+  `rgba()` of the accent – that breaks day/night and per-station accent theming.
+- **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live
+  in **`src/styles/NN-*.css`** – one numbered file per block (tokens, base, map, chrome, one per
+  surface), listed in order by `src/app.css`, which is now a manifest of `@import`s and holds no
+  rules of its own. **The numbering is the cascade**: source order decides ties, so put a new
+  block where it belongs and renumber, rather than appending for tidiness – `20-touch-floors.css`
+  is last precisely because its `(pointer: coarse)` targets have to beat every surface above it.
+  Component-specific layout still goes in `*.module.css` files that reference `var(--token)`;
+  the admin UI uses `src/admin/admin.css`. Form controls take the page's family from ONE reset
+  in 02-base (`button, input, select, textarea { font-family: inherit }`, 07.10.2026): never add
+  a per-control `font-family: inherit`. The reset is the family only; sizes stay per rule.
+- **New CSS picks from the scales** (07.10.2026, UI sweep C1–C5; `01-tokens.css` · «THE SCALES»,
+  «THE TINTS»): type `--fs-1…7` (12.5 · 14 · 16 · 19 · 24 · 32 · 40, each with its `--lh-*`) and
+  `--fs-micro` (11, read-only captions, never a tappable label); weight `--fw-regular/medium/
+  bold/heavy` (400/500/700/800 – 600 is not a step); space `--sp-1…8` (4/8/12/16/24/32/48/64;
+  1–2px optical nudges stay literal); elevation `--e1…e5` (with night values; `--shadow-sm` and
+  `--shadow` are `--e3`/`--e4`); tints `--{blue,red,amber,green,ink}-{5,8,12,16,22,28,45,62}`
+  (= that hue at that % over transparent). The old literals move onto them surface by surface
+  (staged; the owner sees pairs for anything visible), so do not mass-convert a file on the side.
+  **The pile only shrinks**: `src/styles/styleDebt.test.ts` counts per stylesheet the literal
+  font sizes, off-step weights, off-grid spacings and literal-colour shadows against
+  `styleDebt.baseline.json` and fails when one goes up – or when one went down and the baseline
+  was not lowered (`STYLE_DEBT_UPDATE=1 pnpm vitest run src/styles/styleDebt.test.ts`, which
+  only ever lowers it). Like the lint ceiling: never raise it to pass.
+- **One corner, one button family.** Every rectangle wears `var(--r-sm)` (12px); a floating bar
+  that hugs controls wears `--r-bar` (19px), things under ~32px `--r-xs`, and map furniture stays
+  round. New buttons are `<Button>` / `<IconButton>` / `<Chip>` (the `.ip-btn` family), never a
+  new `.foo-btn` rule. Breakpoints come from `src/lib/breakpoints.ts` only. The whole spec –
+  type, colour, selected, primary, delete, close, messages, the floating family – is
+  [`docs/ui-conventions.md`](docs/ui-conventions.md); phone layout is
+  [`docs/phone-layout.md`](docs/phone-layout.md).
+- **Overlays go through `src/lib/overlays/`** (`Sheet`/`SheetClose`, `Overlay`, `ConfirmCard`,
+  `Menu`, `Popover`/`PopoverClose`) – thin wrappers over **Base UI** (`@base-ui/react`, headless)
+  that supply focus trap/restore, scroll-lock, Esc, backdrop/outside-click dismissal, and ARIA,
+  painted with the existing `.ip-*`/token CSS. That package is imported **only** inside
+  `src/lib/overlays/` – every surface uses the wrappers, so behaviour/theming/a11y live in one
+  place. Base UI portals Backdrop+Popup as siblings, so scrim = `.ui-backdrop` and centering =
+  `.ip-sheet.ui-dialog` (see app.css). **Modal surfaces only** – the non-modal map tool-docks
+  (`MapViewsMenu` views popover, the `.ctx` tool editors, the incident `ip-menu`) stay
+  hand-rolled: a focus-trapping/scroll-locking primitive would break map interaction. The
+  tap-open picker (`ComboMenu`, worn by `Combo` and the Atemschutz `PersonField`) and the
+  tap-toggle `DockInfo`/`InfoTip` also stay bespoke (free-type + in-menu toggle / a tablet tap
+  model don't map cleanly to Base UI Select/Tooltip); the admin `Select` stays hand-rolled too,
+  keyboard-driven and unportalled. What a surface IS on a phone (slide-up sheet, centred
+  dialog, anchored popover), one gesture closing one thing, and the sheet footer:
+  [`docs/ui-conventions.md`](docs/ui-conventions.md) · «Overlays».
+- **Editor sheets have one control per kind of question** – a yes/no is the `OnOff` pair, a
+  number the `Stepper`, and no native form control (`Menu`, not `<select>`):
+  [`docs/ui-conventions.md`](docs/ui-conventions.md) · «Editor sheets».
+- **Touch: one beat, one buzz, one wash.** Holds that reveal share the 350 ms beat, `buzz()`
+  fires 12 ms on arm and only on arm, a press is the `--press` wash and nothing moves, `:hover`
+  is mouse-only. The vocabulary is in [`docs/ui-conventions.md`](docs/ui-conventions.md) ·
+  «Touch vocabulary».
 - **The empty Tafel starts with «Womit beginnen?», and its first Vorlage is the FKS «Erstes
   Plakat»** (08.10.2026, staging). `components/TafelStart` lays three cards over the empty `tafel`
   sheet on faint squared paper — **Objekt wählen** (the nearest objects from the SAME
@@ -641,679 +264,105 @@ to prod.
   and behavior. Only the implementation that *must* differ because of the drawing surface /
   relative coordinate system may diverge. Shared logic lives in `ToolDock`, `DrawEditor`,
   `SelectionBar` and `src/lib/lineStyle.ts` / `src/lib/selectionTransform.ts`; the renderers stay
-  separate only for that surface-specific part.
-- **One selection bar, one edit-chrome vocabulary** (decided 01.09.). Moving, turning and
-  deleting a selection – a single Linie/Fläche/Absperrkreis, a Form, or a Mehrfach group – happen
-  on the fixed `SelectionBar` at the bottom of each surface, never on floating chrome grown at the
-  object's own centre. **✥ and ⟳ answer two gestures** (02.09.): a *drag on the grip* moves /
-  dials straight away, for the small adjustment; a *tap* arms that grip as a surface **mode**
-  (`lib/useArmedTransform`), and while it is on, a drag anywhere on the Karte or the Kroki moves
-  the selection by the drag delta or turns it about its centre, following the pointer's bearing.
-  The mode exists because of where the bar sits: pinned bottom-centre, pulling ✥ *downward* runs
-  the finger off the screen within ~28px. Only one of the two is ever armed; tapping it again,
-  Esc, a selection change and a tool change all disarm, and while armed the surface answers no
-  taps at all – a press that never travels is nothing, so nothing can be placed, selected or
-  deselected under the finger. **The bar has three slots and no fourth: ✥ · ⟳ · Fertig.** The
-  turn's degrees are read *on the surface*, beside the pivot and the radius the finger is
-  swinging (`components/SelectionTurn`), never off a button at the far edge of a tablet – so the
-  two grips are icon-only and never re-flow mid-gesture. «Fertig» ends the editing state
-  (disarm + clear the selection + close its sheets); **«Entfernen» is not on the bar** (it was
-  called «Löschen» until 25.09.2026) – an object is removed from its own editor sheet and with the
-  Delete key, which on both surfaces reaches a
-  Mehrfach group and a mirrored selection too. On the object itself only **geometry** grips live:
-  vertex, «+» midpoint, Verlängern, Verbindung lösen, the radius ring, and a shape's own
-  resize grips (its rotate knob left on 02.09.: the bar's ⟳ is the one way to turn a Form;
-  directional symbols and composites keep their rotor because they are not on the bar) – and all of them step aside for the length of a transform
-  (`lib/transformChrome`, a body class), because they answer «where exactly» and a whole-object
-  drag is asking «where to».
-  Colour is one family: a geometry point is white-filled with a `--blue` ring, an action grip that
-  transforms the whole object is solid `--blue`, `--amber` means the SECOND axis and nothing else,
-  `--red` means delete, and `--accent` stays alarm/relationship – never «selected». Node dots are
-  24px on both surfaces. Every grip whose press-and-hold is its own gesture carries
-  `data-holdaction`, or the app-wide hold-tooltip eats its release.
-- **The editor sheets have one control per kind of question** (decided 01.09., same sweep). A
-  yes/no property is the `OnOff` Segmented pair (`components/Segmented`) – never a single chip
-  whose text or glyph flips, which said «An» on one row and showed a state on the next.
-  That holds app-wide, not only in the editor sheets (28.09.2026): the Einstellungen, the Übung
-  on the Einsatz form and the Kroki's «Folgt der Karte» are `OnOff` rows too, always «Aus | An»
-  in that order (a row's own «Ein | Aus» with «on» on the left reversed the thumb position). A
-  **«none of these»** answer that stands in for a list (Material «Nichts verwendet») is a
-  CHOICE chip: one fixed text, picked = the choice fill, and no «✓» growing into the label. A
-  single option on a sheet is a yes/no too (PersonnelSync «… ausblenden» is an `OnOff` row, not
-  a native checkbox). Only a control that picks ITEMS in a list is multi-select. The
-  head-bar status buttons (bell, share QR, the menu's Standort row) name the state that is TRUE
-  now and are not yes/no properties.
-  A number
-  is the shared `Stepper`; where the two surfaces cannot agree on a unit (a Form's size is metres
-  on the Karte and a share of the sheet on a Plan) it is `ScaleStepper`, the same chrome handing
-  the caller a ×-factor. A one-press action is a `.de-action` row, in the grammar «Verbindung
-  lösen» already had – it is not given toggle chrome, because it has no state to be in. Rows are
-  grouped in `.de-group`, and since 18.09.2026 a group boundary is SPACING: a hairline is drawn
-  ONLY above a group that opens a NAMED section («Messung», «Verbindungen» — matched on the
-  `.de-group-toggle`/`.de-conn-title` it starts with), because four or five rules stacked down a
-  340px panel read as a bordered table and said nothing the padding did not. «Spacing» is the
-  ROW RHYTHM, not a band of air (20.09.2026): plain groups follow each other as one continuous
-  list of options — the 24px the dropped rules left behind read as something missing. The same
-  rule reached the app chrome on 22.09.2026, and was then tuned by hand the same day — what
-  stands is: the TOP BAR has ONE 8px gap between every neighbour and no groups at all (a wider
-  «group gap» was tried and read as holes); the LEFT rail keeps 14px of air around the plan
-  tiles; the TOOL rail's tools are ONE undivided list (the `sep` entries left `mapTools` /
-  `planTools`) and its one hairline is the FOOT's, above the generic controls (Ebenen · compass ·
-  zoom) — a real seam, where «select vs. create» was noise; the map-utility cluster has air; and
-  the Einsatz menu draws ONE hairline, above the identity row (the small-caps label heads «App»
-  on its own, but the signed-in row is not an action and the rule says «the list ends here»).
-  The Trupps section heads draw no rule either (29.09.2026 — see the Atemschutz board).
-  What leaves the TOP BAR when it runs out of room is MEASURED, not ruled per breakpoint
-  (`lib/useHeadFit`, 25.09.2026): one `fit-N` step at a time until it fits, lowest priority
-  first — weather, Einsatzdauer, ↷, the gaps, the Verlauf word, the alarm's
-  name, the Einsatz title (the pill stays: glyph + ÜBUNG), the «1?» count, and last the
-  Eintrag's word (`'eintrag-word'`, 29.09.2026). The Einsatz pill never
-  gives: squeezed below a readable width counts as «does not fit». A chip NEVER loses its icon —
-  a bare number says nothing — and is at least a tap wide. A new chip in the bar takes its place
-  in that ladder, never a `:has(...)` rule that hides a neighbour. The PAGE HEADS climb the same
-  ladder (`climbLadder`, `lib/pageHeadFit`, 28.09.2026 — below, «ONE page head»).
-  A hairline also survives where it carries a label (`.jr-day-sep`) or guards a destructive row
-  in a `Menu`.
-  And **no native form
-  control** on these surfaces: the app's own `Menu` instead of a `<select>`, the `Stepper`
-  instead of a number field, `components/Slider` instead of `<input type="range">`.
-  **One question, one name, one place, in every sheet that asks it** (29.09.2026): the Einsatz
-  wizard and «Einsatzdaten bearbeiten» share the «Alarmierung» section – eyebrow, then
-  «Alarmzeit», then «Alarmmeldung» (the Rapport's word). A one-step sheet's footer cancel is
-  «Abbrechen»; «Zurück» only where there is a real previous step. The composer's Art is ONE of
-  three with «Info» preselected – «nothing» and «Info» were two ways to say one thing; «Info»
-  still writes no `entryType` and no marker. An optional count with a «Keine» answer beside it
-  shows «–» while unanswered, never «0». Its ✕ stays visible and disabled while empty, so filling
-  or clearing the count never shifts the adjacent controls.
-  **A sheet whose edits are live has no confirm footer** (29.09.2026, owner: «everything should be
-  auto-saved without manual confirmations»): ✕ and swipe close it, and one quiet «Alles wird
-  laufend gespeichert.» line (`copy.savedLive`) says so (TimeBlockSheet, PersonnelSync result).
-  «Speichern» stays only where something is CREATED (Trupp anmelden, Einsatz eröffnen, Eintrag /
-  Mittel erfassen) or where a typed value would otherwise write a record per keystroke — the Trupp's
-  Auftrag sheet, the Schichtband edit and the Mittel pencil KEEP their Speichern / Abbrechen (owner,
-  29.09.2026: save-on-close was built and taken back; do not re-introduce it without asking).
-  ⚠️ A Mittel line coming back from a removal is a CHANGE even when its count/remark/Bestand equal
-  the tombstone's (`useMittelActions`) — it compared «unchanged», so the removal toast's
-  «Rückgängig» wrote nothing; it now writes and logs «… wiederhergestellt» (`mittel.logRestored`).
-  **A symbol's context sheet is headed by its TYPE**, for every symbol, the generic Fahrzeug too
-  («Fahrzeug» / the pack's name; 29.09.2026). A user-given name lives in its field
-  («Bezeichnung») only — never twice, never an underlined head that jumps to a field. The foot's
-  «Erledigt» wears the same ink as «Zentrieren» (a dimmed action reads «not available»).
-- **One object, two surfaces — there are no twins any more** (10.09.2026,
-  `tmp/design-unified-objects.md`). A tactical object is ONE record in one collection
-  (`src/lib/tacticalObjects.ts`), carrying up to two bodies of the same thing: `entity` XOR
-  `drawing` is what the Karte draws, `sheet {planId, anno}` is what one plan sheet draws. The
-  three legacy collections (`entities` / `drawings` / `board`) survive only as VIEWS of it, and
-  the blob still carries them so an older client can read a newer incident.
-  - **The sheet body's PRESENCE is the anchor.** An object hand-placed on a sheet carries
-    `sheet`: the sheet coordinates are its truth, and its map body is BAKED through the plan's
-    georeference (`bakeGeoBody`) and re-baked when that fit changes. An object hand-placed on the
-    Karte carries no `sheet` at all: geo is its truth, and a linked sheet draws it by PROJECTING
-    it through the same fit (`src/lib/planProjection.ts`). Both derivations are pure, and they
-    are **inverse in geometry AND in absence** — a projected anno handed back off a sheet becomes
-    the stored sheet body verbatim, so an asymmetry between them would rotate, resize or displace
-    the object a little on every flip, and an absent field materialising as `0` or `''` would
-    invent one. Where one converts (the sheet's own turn into and out of the paper's frame, for
-    BOTH bearings; metres into sheet fractions and back, at the same default an unsized object is
-    drawn at) the other undoes it, and the comment at each says so. ⚠️ The absence half is
-    normalised on the way BACK, not on the way out: an object with no bearing genuinely IS turned
-    by `rotationDeg` in the paper's frame, so the projection has to state that — and «points
-    north» is the same fact as «has no bearing», so the bake returns the shorter one
-    (`turnedToGround`). Without it every ordinary unturned Fahrzeug acquired `rotation: 0` on its
-    first flip. ⚠️ **The DOC seam converts bearings too** (24.09.2026, Feueralarm-Übung 23.09.):
-    a Karte write hands back the GROUND bearing, and `annoAfterMapEdit` once spread it into the
-    PAPER's frame for every sheet-anchored object, changed or not — each «Karte write → bake»
-    cycle turned the glyph by −`rotationDeg` (a Lüfter reached 66 735°, and turning one turned
-    all). Now `sheetBearings` keeps an unchanged bearing verbatim and sends a changed one through
-    `turnedToSheet`; `applyDocToObjects` hands an object whose map body did not change back as
-    the same record; both conversions answer in [0, 360); and the load gate
-    (`sanitizeWorkspace`) brings any stored bearing into [0, 360) by mod alone.
-    Pinned by `sheetBearingRoundtrip.test.ts`. A field that cannot be said in both units — a note's width, a label's nudge —
-    does not cross at all: it is preserved through the bake instead (`BAKE_PRESERVED`), because a
-    number that means two distances is worse in the record than no number.
-  - **Last hand-placement owns the truth.** A drag flips the anchor to the surface it happened
-    on: dragging a sheet-anchored object on the Karte DROPS its sheet body, dragging a map object
-    onto a sheet CREATES one. Both seams (`applyDocToObjects`, `applyBoardToObjects`) therefore
-    read a document as a GESTURE rather than as the truth, in four readings each — unchanged is
-    nothing, a prop edit writes through to the OTHER body, a positional edit flips the anchor,
-    and absence deletes the whole object, because deleting an object deletes the object.
-    ⚠️ The flip is between the Karte and PAPER, never between two sheets (24.09.2026): a move of
-    the Gebäude's ink on a sheet it is lent to is written back INTO the Gebäude through both fits
-    (that sheet's → ground → the stack's), storey and per-vertex storeys intact, and the Gebäude
-    keeps it. It used to flip, and a 0.3° ⟳ on Modul 1 took a 1. OG Leitung off its storey (prod
-    23.09.2026). Only a HAND drag that leaves the Gebäude's paper (a Brand dragged out onto the
-    street), or a stack with no fit to write through, still re-homes it to the sheet it happened on.
-  - ⚠️ **A MACHINE write never flips an anchor.** Only a hand places something. The live-GPS pass
-    re-routes attached Leitungen several times a minute, and read as a placement it tore
-    plan-drawn hoses off their sheet with nobody touching anything; such writers pass
-    `gesture: false` and their position crosses through the fit instead. Both store writers take
-    it — `setDocRaw` and, since 24.09.2026, `setBoard` (it hard-coded «gesture»): a plan ↶/↷
-    restoring a snapshot (`planStepAt`, `useBoardDoc`), the Trupp sweeps that move a marker
-    (`settleAtHoseEnd`, `unlinkTruppLine`), a Gebäude amend and a storey removal. A writer that
-    rewrites what a sheet OWNS hands the lent annos back untouched (`tacticalObjects ·
-    withOwnAnnos`) — the Gebäude amend carried the Karte's projections through the old building
-    frame and they came back «moved». So does «Geschoss entfernen» and the ↶ of «Geschoss
-    hinzufügen» (24.09.2026, `stackFloors · removeStorey` / `withoutOwnOnStorey`): a Karte object
-    SHOWN on a storey is not the storey's, and swept out of the view it was deleted outright. It
-    stays on the Karte and simply finds no tile. The removal's confirm asks only about what the
-    SAME sweep loses (`removeStorey · lost`, `lib/storeyRemoval`) — «n Markierungen … entfernt oder
-    gekürzt» — and a storey showing only Karte objects goes without asking; the toast still undoes
-    it. And the seam honours it per object: a lent anno
-    handed back exactly as shown folds to the SAME record (`applyBoardToObjects`), never through
-    the bake — which lost a note's text and laid a store step for nothing.
-  - ⚠️ **A live-GPS Leitung end keeps its way back to the Einsatzort** (24.09.2026, D3,
-    `lib/gpsReturn`). The first «Weiter folgen» / «Spur» on a GPS end stores the on-site line in
-    `gps.before` (geometry, coupling state, tap time). It is taken ONCE — never overwritten while
-    the end follows or after «Folgen stoppen» — rides with the attachment through sync, merge, bake
-    and ↶, and is dropped by detaching or a fresh confirmation. It counts only while its
-    `confirmedAt` is the coupling's own (`freshBefore`): an older client spreads `gps`, carries the
-    field unread and may re-confirm the end under it. Three releases, each saying what it does:
-    «Zurück auf Stand am Einsatzort» restores the snapshot exactly; «Am Einsatzort lassen/lösen»
-    cuts a followed trace back to its on-site end (`onSiteCoords`, the cut vertex found by value),
-    offered only where that point is KNOWN (`onSiteKnown`); «Hier lösen (Spur behalten)» keeps the
-    traced hose — a traced line may be meant to stay. A hand dragging the end off lands at the drop
-    point. Restoring or cutting back is `commit(…, { gesture: false })`: not a placement, so a
-    plan-drawn hose keeps its sheet and storey. Either act that takes vertices out writes ONE
-    Verlauf row (`log.gpsReverted` / `log.gpsReleasedOnSite`). The Meldung is ONE row per vehicle
-    and question, acting on all of its ends; «fährt weg» is RAISED only at ≥100 m from the on-site
-    point (`AWAY_NOTICE_M` — below it the 20 m pause stays silent, GPS scatter of a parked vehicle
-    asks nothing, and a vehicle back under it clears the row without a word); the «back on site» offer ARMS only once the vehicle
-    was ≥300 m out (live or in the trace) and is asked once per return; a «stopped» row can be
-    waved away — both device-local. The sync merge lets a hand's change of a hose beat a
-    follower-only change (`followerOnlyChange` in `mergeWorkspace`), or another device's poll puts
-    the drive back after a «Zurück». And the printed Kroki names an attached end only while it
-    SITS on its object (`lineAttachments · endOnTarget`): the server couples every named end to the
-    glyph where the vehicle is now.
-  - ⚠️ **A machine writer is idempotent — writing an unchanged value is a render loop**
-    (24.09.2026, post-mortem of the Übung on 23.09.2026). A pass that runs on a feed or an effect
-    returns the document it was given (`cur` itself) when nothing changed BY VALUE; a copy with an
-    equal-but-new field is a store write, i.e. a render, i.e. another run. The live-GPS pass
-    (`lib/useGpsFollow`) rebuilt every guarded/continuous coupling on every run and put every
-    device with the vehicle feed into React #185, which then tore the Karte down under a tapped
-    Trupp. Two rules keep it closed: `useObjectStore`'s writers keep ONE identity for the life of
-    the store (they forward to the latest render through a ref), so they may sit in effect deps;
-    and a machine writer runs only where the device may write the tactical document
-    (`canEditIncident` — never a viewer, the `el` role, a link or a replay). A layout effect that
-    measures after every render sets state only when the measurement changed, compared against a
-    ref (`TwinTeamPill · useBarPlacement`) — even a no-op updater is an update React must render.
-    `useGpsFollow.load.test.tsx` pins the budget: one write per poll that changed something.
-  - ⚠️ **Ownership decides the undo stack.** A surface's own objects belong to that surface's
-    history — the Karte's `commit`, a plan's per-document `planHistory` / `useBoardDoc`. An edit
-    that touches an object the surface does NOT own is a store-level act, and checkpoints on the
-    store's stack: a per-sheet snapshot of annotations cannot express «this object was
-    geo-anchored», so it could not undo an anchor flip at all. One gesture stays one step: a plan
-    step opens a TOKEN (`useObjectStore · beginSheetStep`) whose first cross-ownership fold takes
-    the step and whose remaining samples fold into it, and the token closes when the finger lifts
-    — a plan step is a pointer gesture. With none open, every write is its own step, which is what
-    the writers that are not gestures (the Trupp sweeps, a plan ↶, a Gebäude amend) need.
-    ⚠️ The plan laid ITS entry when the step began, before anyone knew whom the fold would touch;
-    when the store takes the step, that entry and its per-plan snapshot are withdrawn
-    (`useObjectStore · onForeignStep` → `lib/planStepLink`, 25.09.2026). A plan-panel edit of a
-    Karte-owned symbol used to cost two ↶, the second one reporting a lost step.
-  - **Presentation stays equivalent, and nothing is lent that is owned.** Each surface draws the
-    other's objects with its OWN native chrome and sizing (map `symPx`, board `symBase`) — no
-    projection tone, no reduced opacity, no twin-only band — and every capability the surface has
-    applies: selection, the `SelectionBar`, the marquee, the magnet, the fat-finger fan, Delete.
-    A sheet is never shown its own objects back through the projection, nor a sibling sheet's
-    — with ONE exception: the Gebäude stack's ink shows on every other linked sheet, its storey as
-    a badge (14.09.2026, `planProjection · projectOntoSheet`), because the building is where a
-    Brand is marked and the Übersicht is where it is read. The stack itself never shows another
-    sheet's ink, and plan A's work never clutters plan B. What IS lent is only what is not a record
-    — the live vehicle and responder feed (`planProjection · liveOverlay`, `PlanLiveLayer`),
-    read-only but for the one gesture it always had: dropping a Fahrzeug writes the same
-    held-in-place override the Karte writes.
-  - **A symbol whose matter is over is marked, never deleted** (24.09.2026, review item 21b,
-    `lib/objectDone`). «Gelöscht / erledigt», a row of the symbol's editor sheet, sets
-    `done {at, by?}` — a SymbolProps prop, so both bodies share it and every write-through and bake
-    carries it (never `BAKE_PRESERVED`: that list would re-add a cleared value from the map body).
-    ⚠️ It is offered ONLY where being over means something — the damage and hazard categories
-    (`appConfig.symbols.doneCategories`: Schadenlage, Gefahren) and the fire family
-    (`objectDone · offersDone`, decided by the PACK's category, never the editable subtitle); there
-    it is the editor's first row. A Fahrzeug, a KP Front, a Hydrant, an Einsatzmittel never gets
-    it (owner's sign-off, 26.09.2026: «we don't need "erledigt" for cars»). A `done` already on
-    another symbol (an older record) keeps rendering and can be reopened, never newly set
-    (`doneAct` refuses).
-    The symbol stays, greyed with its HH:MM top-left, by ONE rule on the Karte, the Plan and the
-    Gebäude (`TacticalSymbol` · `.ts-done`, the `--done-*` tokens) and on paper (`kroki ·
-    _place_symbol`, `DONE_ALPHA`). «Wieder aktiv» clears it; both are ordinary undoable prop edits,
-    audited with `done: null` for the clear (JSON drops `undefined`, and the replay would keep it
-    grey). A Feuer is «gelöscht», everything else «erledigt» (`appConfig.symbols.fireFamily`, one
-    copy key `objectDone.word`). The footer's delete reads «Entfernen» — for a mistake — and it
-    writes the Karte's removal row («… entfernt») on the Plan too. Symbols only: a
-    Fläche/Absperrkreis would need greyed ink on four renderers.
-  - **Reference change or delete loses nothing.** Correcting a fit re-bakes every sheet-anchored
-    object's map body — that correction is the whole point of correcting a fit — as ONE undo step
-    with one Verlauf row («Referenz angepasst – n Objekte neu verortet»). A DELETED reference
-    leaves both bodies standing: the sheet keeps its annos, the Karte keeps the ground positions
-    the last fit baked, and neither is marked stale — last known truth, like a vehicle that
-    stopped reporting. Nothing moves, so the re-bake honestly reports 0, and the row is therefore
-    its own («Referenz entfernt – n Objekte behalten ihre letzte Position»): without it the
-    Verlauf would say nothing whatever about an act somebody performed on purpose. ⚠️ It is
-    derived from SHEET KEYS still on the rail (`georefTwins · referenceDelta`) — every
-    Einsatzobjekt has a «Modul 2», so counting plan ids would read every object switch as a
-    deletion. Re-linking later re-links both directions and re-bakes.
-    ⚠️ **A reference ARRIVING is a seed, never a correction** (23.09.2026, two phantom rows in
-    prod after a remount): the cause is decided PER SHEET KEY (`georefTwins · fitChange`). A key
-    this session has never baked a fit for — plans listed late, a `georefKey` resolving to the
-    binding's — bakes silently, no row, no step. Only a known key whose `fitSignature` changed is
-    a change (its own pairs say `reference` or `measurement`); a key re-linked after «Referenz
-    entfernt» is compared with the fit it was left on. `n` counts only GROUND relocations on those
-    sheets (`movedOnSheets`) — never objects whose bake differs for another reason (a turn, a
-    size, another sheet) — and `rebake` takes the undo step only when that count is > 0.
-    A sheet with no fit linked BY HAND gets its ONE row from the act, never the re-bake
-    (24.09.2026): the three commit points in `georefMode` (second pair placed, «Übernehmen»,
-    «Passung übertragen») call `noteHandLink`, and `georefTwins · handLinkRow` writes «Plan mit
-    Karte verknüpft – {plan}[ – n Objekte verortet]» unless the reader already knows that key (a
-    re-link after «Referenz entfernt» keeps the re-bake's «Referenz angepasst»); `tacticalLocked`
-    devices write nothing.
-  - ⚠️ **The aspect the fit is solved in is its own stored fact** (`measuredArByPlan`), NOT
-    `PlanScale.ar`. `ar` is half of a pair — a sheet's ground width is `ar · mPerU` — so
-    correcting it in place silently rescales every measured distance on that plan. The measured
-    aspect says only «this sheet is this shape»; correcting it re-solves the fit from the SAME
-    pairs (a pair is an aspect-independent statement), so `fitSignature` changes and the ordinary
-    journalled re-bake does the rest. The surface holding the bitmap writes it, once per sheet per
-    session, past the same 2 % drift calibration staleness uses. It matters because a replaced
-    Modul PDF leaves a stale `ar` that staleness CANNOT catch (it is measured against the very
-    aspect being looked for, and the pairs were fitted at the same wrong one), and a wrong aspect
-    is now a wrong position in the record rather than a tilted picture.
-  - **The station document is version-guarded.** `PUT /api/plan-scales` is a whole-document
-    replace and now carries `If-Match` — the same content-hash token and 409 as `PUT /api/config`
-    — because a lost update no longer costs a re-measurable calibration but MOVES objects. The
-    client recovers by re-reading and re-applying its per-plan change on top, once. A PUT without
-    the header is still accepted for one release (there is no CLI writer here, and an old build
-    must not lose the ability to save a Georeferenz in the field).
-  - ⚠️ Known limitation, ACCEPTED and not to be re-opened without a decision: the flip is a FIELD
-    REMOVAL, and `mergeWorkspace` merges an object field-wise last-writer-wins — a concurrent edit
-    still carrying the dropped sheet body brings it back. Absence cannot say «deliberately
-    dropped»; a tombstone or an explicit anchor enum could, and that is a schema change nobody has
-    asked for. Replay is unaffected: it folds VIEWS, so a sheet there shows only what was recorded
-    on it.
-  - ⚠️ **An attachment may name an object in the other document, and that is now the common
-    case.** A Leitung end docked onto an object stores the object's id; both live surfaces resolve
-    it, because it is the same id on both. The server-side print/export adapters cannot — they see
-    one document at a time — and neither can a reader after the far side deleted it. Both land on
-    the SAME safe answer every unresolvable attachment gets: the stored coordinate, which is
-    exactly where the endpoint was dropped (`lineAttachments · resolveLinePoints`). Do not «fix»
-    that by resolving across documents in an adapter; the fallback is the contract.
-  - ⚠️ **Replay stays VIEW-based, deliberately** (`lib/replay`). A `Saved` blob carries the three
-    legacy collections even though they are derived, so a recorded incident replays through
-    anything that ever spoke those shapes — and a view is *what was on the screen*, whereas an
-    object would have to be projected through a fit, and the only fit a replay has is TODAY's.
-    The price is that the event stream has to be COHERENT across both views, so the seams pay it:
-    an anchor flip emits the PAIR (the store reports the flip — `tacticalObjects · anchorChanges`
-    — because neither surface can see the other's half), `board.move` is folded, and the georef
-    re-bake deliberately emits NOTHING (n `entity.move` rows would claim n placements nobody made;
-    the snapshot the ensuing save writes is what carries it). Full ledger:
-    `docs/verlauf-coverage.md`.
-  - The word «twin» survives where renaming it would cost something real: `twin:` is a persisted
-    Ebenen-preference prefix (`lib/prefs`) and would reset every device's rows, and
-    `TWIN_CLIP_MARGIN` is the one clip both derivations quote. Elsewhere it is only a name that
-    has outlived its concept — the file `lib/georefTwins.ts`, `components/TwinTeamPill`, the copy
-    keys `twinFromMap` / `twinUnnamed`, the `LayerPanel` `twins` prop — and any of those may be
-    renamed by whoever is next in that file anyway. Nothing in the app is a twin.
-- **«Automatisch ausrichten» PROPOSES a georeference; it never asserts one** (08.09.2026). An
-  unlinked module sheet's «Karte verknüpfen» chip offers the CV suggestion beside the point
-  flow: `POST /api/georef/suggest` (matcher in `app/georef_suggest.py`, evaluation + provenance
-  in the gitignored `docs/planning/auto-alignment/`) segments the client-rendered sheet
-  (`PdfViewport · planMatcherImage` reuses the resident bake), matches it against OSM building
-  rings via the Overpass proxy, and streams NDJSON progress for the step card. The heavy CV
-  deps are the **optional `georef` dependency group** (`uv sync --extra georef`) — installed in
-  the production image since 11.09.2026 (`Dockerfile`, both `uv sync` lines; without the extra
-  the endpoint answers 503 and the app degrades to the point flow, fail-closed). ⚠️ A server that cannot do it **never offers it**: `/api/config` states
-  the capability (`integrations.autoAlignConfigured` — extra importable *and* an Overpass mirror
-  configured, `app/providers.py`) and the chip then arms the point flow directly instead of
-  answering every press with «…ist auf diesem Server nicht eingerichtet» (field report
-  09.09.2026). The honesty rules are load-bearing: an accepted fit is stored as exactly
-  **two pairs `kind: 'auto'`** (more would fabricate zero-residual evidence); while any auto
-  pair is in the fit no surface ever claims a ⌀ — but **whether it is called «ungemessen»
-  depends on the APPROVAL** (18.09.2026): an unapproved proposal reads «Automatisch ausgerichtet ·
-  ungemessen» in the amber tone, while a fit the admin greenlit on Objektpläne is a plain
-  **«verknüpft»** everywhere — chip tone, lamp («Von der Station freigegeben», green), Passung,
-  Ebenen row — with the residual simply OMITTED rather than replaced by a word that calls a
-  reviewed reference doubtful. The signal is the binding, never a heuristic on the pairs:
-  `incidentPlanBindings · incidentBindingApproved` (`source === 'approved'` and no operator
-  `override`), threaded into `georefChip` / `georefLamp` / `GeorefQuality` / `georefPlans`; one
-  operator-set pair of their own is a correction in progress and brings the proposal wording
-  back. Auto anchors are ghosted, badged «A», excluded from every count, and the
-  SECOND operator-set pair drops them (`georefMode · settleSlots`); score ≤ 6 = confident,
-  under the template ceiling (12 · m1 16) = amber «Deckung nachprüfen», above = «kein
-  Vorschlag» — and an **m1 result is never confident**. The proposal review lives on «Deckung
-  prüfen» (nothing persists before «Übernehmen», which is confirm-with-undo).
-- **Plan alignments are pre-computed server-side and published only by explicit approval**
-  (11.09.2026). Every distinct byte version of a Modul-PDF is pinned as an immutable
-  `plan_revisions` row (`plans.py · store_plan` — identical bytes are a metadata refresh, old
-  blobs are never deleted) and queues one durable `plan_alignments` job the scheduler worker
-  prepares (`plan_alignment_worker`, claim/lease/CAS; the CV match from the same `georef`
-  extra). An admin reviews and approves on the Objektpläne page (`admin/PlanAlignmentReview`,
-  `/api/admin/plan-alignments`); nothing is published by computing, fetching or selecting.
-  Approved fits surface at `GET /api/reference/{id}/alignments?v=N`, and an incident FREEZES
-  what it opened as an `IncidentPlanBinding` in the workspace blob (`lib/incidentPlanBindings`:
-  exact dataset revision + fit; first binding wins, corrections are an `override`, an override
-  with empty pairs is a deliberate disconnect — a later replacement or approval never moves a
-  running Einsatz's backdrop). ⚠️ The one thing a frozen binding may still GAIN is its `floors`,
-  once and only from the SAME dataset revision (`fillBindingFloors`, also inside
-  `mergeIncidentPlanBindings`; `useObjectPlans` asks once per session): absent floors are an
-  answer not given yet — bound before the pack was published, or by a device with an older
-  cached answer — and a stack whose `pack.bindingId` names a floor-less binding reads «Kein
-  Geschossplan» on every storey (prod, 20.09.2026). Floors that exist are never replaced. Bound sheets carry `incident:` georef keys, routed by
-  `stationPlanScale · georefForPlan`; legacy fits under existing ink are preserved, never
-  silently replaced.
-- **Building outlines come from the station's snapshot first** (25.09.2026). `POST
-  /api/overpass/buildings` clips the box out of the stored station snapshot
-  (`reference_buildings · stored_answer`, read-only) whenever that covers the box AND its
-  `fetched_at` is at most 30 days old; otherwise it races the mirrors and falls back to the
-  snapshot at any age only when every mirror failed (also with no mirror configured, before the
-  503). Only the alignment worker refreshes the snapshot, and only while it has jobs to run, so
-  «recent» is not a given. ⚠️ The live path has its OWN parsed copy (`_live`, one shared load for
-  concurrent cold callers, parse and clip off the event loop): the worker's `_cache` is returned
-  for ten minutes without checking the station's objects, and fed from the live path it once
-  handed the worker a snapshot missing newly pushed objects. The race itself is cached
-  per query (6 h, 64 entries, never a failure) and shared between concurrent callers — every
-  device of an Einsatz asks for the same box from ONE egress address, which the public mirrors
-  throttle — and its per-mirror guard (30 s) outlasts the query's own `[timeout:25]`. Staging
-  answered about half of all Karte opens with a 502 before.
-- **A plan PDF is downloaded ONCE per revision, and its pages are rendered once per width**
-  (18.09.2026). pdf.js is never handed a URL: `lib/pdfBytes` does one plain `GET` and
-  `PdfViewport · docEntry` opens the document from `data` (a COPY — pdf.js transfers, i.e.
-  detaches, the buffer it is given). The reason is cacheability, not tidiness: pdf.js fetches in
-  RANGE requests, and a `206` is cacheable by nothing — not the HTTP cache, not Workbox (`200`
-  only) — so every cold open re-downloaded tens of megabytes and offline the sheet was simply
-  gone. `?v=N` is immutable by construction, so the backend says so
-  (`api/reference · _download_headers`), the fetch may read it straight out of the cache, and a
-  dedicated Workbox `reference-plans` CacheFirst route keeps it (purged with the others on an
-  explicit denial, `public/sw-media-cache.js`). The unpinned address is always revalidated, so a
-  replaced PDF still refreshes. The reader's rasterised pages survive its unmount in a
-  byte-bounded LRU (`lib/pdfPageCache`, keyed document + page + CSS width, evicted bitmaps
-  CLOSED) — the Plan surface is unmounted on every tab switch, and re-rasterising a multi-page
-  A4 is the seconds of white column that read as «it is loading again». `evictPlan` («Erneut
-  laden») drops bytes, pages and bitmaps together.
-- **A plan sheet is drawn from a server-side TILE PYRAMID; pdf.js is the fallback** (21.09.2026).
-  pdf.js walks a page's whole display list on every render, whatever the canvas size: the
-  Gymnasium's A1 Modul 6 (357 000 paths) cost 4.5 s a pass on a desktop and 10 s+ on a tablet, and
-  its 0.29 mm room stamps need ~600 dpi — a raster no tablet can hold, so the pixel budget
-  (`lib/pdfRenderBudget`) capped it to mush. `app/plan_tiles.py` renders every current plan
-  revision ONCE with PDFium into lossless-WebP tiles (512 px, top level 600 dpi, ~10 MB for that
-  A1): a scheduler tick fills pyramids a few seconds at a time (`fill_once`; the page is loaded
-  once per BATCH because loading parses it, each block is encoded before the next is drawn, and
-  `malloc_trim` hands PDFium's ~200 MB back), and a cold tile is rendered on demand with its
-  block. The fill walks documents of up to 12 pages on its own and EVERY `modul6` (a floor pack is
-  one Geschoss per page, however many); a long PV/RWA document renders on demand only. Tiles are DERIVED: own storage root `plan-tiles/`, skipped by `app.backup`, regenerable.
-  `GET /api/reference/{id}/tiles?v=N` is the manifest (revalidated — `complete` is live),
-  `…/tiles/{v}/{page}/{z}/{x}/{y}` a tile (the revision is in the PATH → immutable), both under
-  the same session/link narrowing as the PDF itself (`auth/incident_link`). Client:
-  `lib/planTiles` is the pure half (level by the √2 rule, visible tiles, the stitched multi-page
-  layout — ⚠️ which must never drift from `PdfViewport · render`, ink is stored in it);
-  `PlanTileLayer` (board) and `FloorPage · TiledFloorPage` (Gebäude storeys) mount an always-there
-  small UNDERLAY plus the on-screen tiles of the level the zoom asks for, so a device holds about
-  two screenfuls of pixels for any sheet at any depth. Tile overlap against seams is half a
-  PIXEL, never a constant of the unit square. `lib/planTileRaster · composeTiles` gives the
-  Karte backdrop, the auto-align upload and the ink scan their pixels without a bake, and a
-  tiled sheet is never pre-baked. `lib/planTilePrefetch` fetches an object's complete pyramids
-  through the service worker (`plan-tiles` CacheFirst, `plan-tile-manifests` NetworkFirst — both
-  listed BEFORE the reference routes and purged on denial) so a sheet is whole offline. No
-  pyramid (unpinned/bundled PDF, >80 pages, PDFium cannot read it, a tile that cannot be had
-  offline) ⇒ every caller keeps the pdf.js path unchanged.
-  ⚠️ **The zoom ceiling of a tiled sheet follows the PAPER** (`planTiles · paperMaxScale`, 28 CSS
-  px per paper mm ≈ 5× life size; `MAX_SCALE` / `MAX_SCALE_STACK` are its floor): a multiple of
-  «eingepasst» gave an A1 a sixth of the magnification it gave an A4. It ARRIVES after mount, so
-  `useBoardView` clamps through a ref — its wheel listener is bound once.
-- **The precache is the field app; `/admin` is online-only** (2026-09-23). Every device used to
-  install the AdminApp chunk (~250 KB JS + ~90 KB CSS) and its lazy map/alignment chunks with
-  every deploy. `vite.config · adminOutsidePrecache` takes out what is reachable from
-  `src/admin/AdminApp.tsx` but not from the field entry (computed from the chunk graph, so a
-  chunk both import stays), and `navigateFallbackDenylist` sends an `/admin` navigation to the
-  network – a precached old shell would import an AdminApp hash the server no longer has.
-  Offline, `/admin` does not open. Both fail the build loudly if the shape they rely on changes.
-- **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, ...)`, **never** a frozen
-  `rgba()` of the accent – that breaks day/night and per-station accent theming.
-- **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live
-  in **`src/styles/NN-*.css`** – one numbered file per block (tokens, base, map, chrome, one per
-  surface), listed in order by `src/app.css`, which is now a manifest of `@import`s and holds no
-  rules of its own. **The numbering is the cascade**: source order decides ties, so put a new
-  block where it belongs and renumber, rather than appending for tidiness – `20-touch-floors.css`
-  is last precisely because its `(pointer: coarse)` targets have to beat every surface above it.
-  Component-specific layout still goes in `*.module.css` files that reference `var(--token)`;
-  the admin UI uses `src/admin/admin.css`. Form controls take the page's family from ONE reset
-  in 02-base (`button, input, select, textarea { font-family: inherit }`, 07.10.2026): never add
-  a per-control `font-family: inherit`. The reset is the family only; sizes stay per rule.
-- **Wide screens: form and list BODIES are capped, boards are not** (B1, decided 07.10.2026, revised
-  the same day). Above 1180px the body of a FORM or LIST surface (Rapport, Material, the Checkliste
-  runner, the sheets) stops at the width its content needs and stands centred on the surface
-  ground. It adds columns of independent groups rather than stretching: Material has 2 columns
-  from 1200px and 3 from 1600px. A BOARD (Karte, Plan, Trupps, the Anwesenheit grid, Zeitplan)
-  stays full width. **Heads and toolbars are never capped.** The surface head and the search
-  line stay full surface width, with the tiles and filters at the RIGHT edge on every width (owner:
-  «keep things right aligned»). A wide head may only show more words (the measured ladder,
-  `lib/pageHeadFit`), never move its tiles. The mechanism lives in `components/Surface.module.css`
-  · «cap + columns». A surface sets `--content-max` (its content box, padding excluded) on its
-  shell, only inside a `min-width` block of 1181px or more. Its scrolling body then takes
-  `padding-inline: var(--content-pad-x)`. Because `--content-max` is unset at 1180 and below,
-  phones and tablets get exactly the old 22px inset. Never cap a phone or tablet layout this way.
-  A new capped body uses this token rather than a hand-rolled `max-width` + `margin: auto` box
-  (the Checkliste runner's 720px predates it). Inside a row, a control stays near its label (the
-  Rapport's Gerettete steppers sit in a 320px row).
-  ⚠️ Dev-server gotcha: a module that `composes` from `Surface.module.css` (Atemschutz,
-  Anwesenheit, Mittel, Checklists) gets its OWN inlined copy of that file. `pnpm dev` does not
-  refresh that copy when `Surface.module.css` changes. The surfaces keep the old rules until the
-  composing module itself is edited. A screenshot taken after an edit there therefore needs a
-  restart with `pnpm dev --force` first. `pnpm build` is not affected.
-- **Admin tables stack below 860px of table width** (UI sweep 07.10.2026). `.adm-table-wrap` is
-  a container; under 860px every `.adm-table` drops its header row and each row becomes a card:
-  line 1 = the name (first cell or `.adm-c-main`) · state (`.adm-c-side`) · actions (`.adm-c-act`),
-  every other cell under it, labelled by `data-label`. Use the shared `Table` (ui.tsx), or call
-  `useCellLabels()` on a hand-written `<table>` – a cell without its column name is a bare «v3».
-  Tag the status and ⋮ cells so the actions stay on the row's first line; never hide a cell.
-  A viewer whose rows span (`rowSpan`) opts out with `.adm-table-scroll` and scrolls instead.
-  The /admin sidebar is the drawer up to 1024px; header links move into it at ≤720px.
-- **New CSS picks from the scales** (07.10.2026, UI sweep C1–C5; `01-tokens.css` · «THE SCALES»,
-  «THE TINTS»): type `--fs-1…7` (12.5 · 14 · 16 · 19 · 24 · 32 · 40, each with its `--lh-*`) and
-  `--fs-micro` (11, read-only captions, never a tappable label); weight `--fw-regular/medium/
-  bold/heavy` (400/500/700/800 – 600 is not a step); space `--sp-1…8` (4/8/12/16/24/32/48/64;
-  1–2px optical nudges stay literal); elevation `--e1…e5` (with night values; `--shadow-sm` and
-  `--shadow` are `--e3`/`--e4`); tints `--{blue,red,amber,green,ink}-{5,8,12,16,22,28,45,62}`
-  (= that hue at that % over transparent). The old literals move onto them surface by surface
-  (staged; the owner sees pairs for anything visible), so do not mass-convert a file on the side.
-  **The pile only shrinks**: `src/styles/styleDebt.test.ts` counts per stylesheet the literal
-  font sizes, off-step weights, off-grid spacings and literal-colour shadows against
-  `styleDebt.baseline.json` and fails when one goes up – or when one went down and the baseline
-  was not lowered (`STYLE_DEBT_UPDATE=1 pnpm vitest run src/styles/styleDebt.test.ts`, which
-  only ever lowers it). Like the lint ceiling: never raise it to pass.
-- **New buttons are `<Button>` / `<IconButton>` / `<Chip>`** (07.10.2026, UI sweep C4;
-  `components/Button.tsx`, `components/Chip.tsx`). `Button` variant `primary | secondary
-  (default) | quiet | danger | go` (go = the green primary whose move keeps things as they are, the
-  Meldeleiste's «Am Einsatzort lassen»), size `md` (44) `| lg` (52, the one big action of a screen),
-  `block`, `icon`; `IconButton` requires `label` (aria-label + title, which the hold-tooltip
-  reads), variant `quiet | secondary`; `Chip` is a choice (`selected` → `--sel` + aria-pressed).
-  All default to `type="button"`. A surface's `className` on them is for placement only; a new
-  look is a new variant there, not a local override. Do not write a new `.foo-btn` rule.
-  `<Button>` and `.ip-btn` are ONE definition (08.10.2026): the component renders the global
-  `.ip-btn` family (`primary` · `danger` · `quiet` (old name `ghost`) · `lg` · `block`; 13-incident ·
-  «THE button»), 44px on every pointer and 52 for `lg`, so a hand-written `.ip-btn` and a
-  `<Button>` cannot drift apart and 20-touch-floors needs no entry for either. The sheet ✕ stays
-  `.ip-x` (36px, grey, 44 pad; owner spec below), not an `IconButton`.
-- **Breakpoints have one source** (07.10.2026): `src/lib/breakpoints.ts`. Stylesheets write
-  `@media (--phone)` (also `--phone-landscape`, `--not-phone`, `--tablet`), and
-  `vite.config · customMedia` writes the query in; `useIsPhone` re-exports the same
-  `PHONE_QUERY`. Never hand-copy a query (`breakpoints.test.ts` fails). A name must stand alone
-  in its query (`(--phone) and (hover: none)` stops the build). ⚠️ A file another module
-  `composes: … from` (Surface.module.css) is read by postcss-modules WITHOUT our plugin and keeps
-  the literal query; the test pins it to `PHONE_QUERY`, and the build fails if a name ever
-  reaches an emitted stylesheet unresolved.
-- **Overlays go through `src/lib/overlays/`** (`Sheet`/`SheetClose`, `Overlay`, `ConfirmCard`,
-  `Menu`, `Popover`/`PopoverClose`) – thin wrappers over **Base UI** (`@base-ui/react`, headless)
-  that supply focus trap/restore, scroll-lock, Esc, backdrop/outside-click dismissal, and ARIA,
-  painted with the existing `.ip-*`/token CSS. That package is imported **only** inside
-  `src/lib/overlays/` – every surface uses the wrappers, so behaviour/theming/a11y live in one
-  place. Base UI portals Backdrop+Popup as siblings, so scrim = `.ui-backdrop` and centering =
-  `.ip-sheet.ui-dialog` (see app.css). **Modal surfaces only** – the non-modal map tool-docks
-  (`MapViewsMenu` views popover, the `.ctx` tool editors, the incident `ip-menu`) stay
-  hand-rolled: a focus-trapping/scroll-locking primitive would break map interaction. The
-  tap-open picker (`ComboMenu`, worn by `Combo` and the Atemschutz `PersonField`) and the
-  tap-toggle `DockInfo`/`InfoTip` also stay bespoke (free-type + in-menu toggle / a tablet tap
-  model don't map cleanly to Base UI Select/Tooltip); the admin `Select` stays hand-rolled too,
-  keyboard-driven and unportalled.
-  **Mobile modal scrolling** (01.10.2026): `useMobileScrollLock` prevents background touch
-  scrolling and edge chaining while `Sheet` / `Overlay` is open, without making portalled
-  pickers inert. Inner vertical lists and the composer's native horizontal suggestions keep
-  their gestures. The composer's mobile Pendenz / time menus retain the sentence's caret for
-  pointer picks (`Menu · keepFocusRef`); keyboard navigation still moves focus into the menu.
-  Three rules the primitives own, so no surface re-answers them (18.09.2026):
-  - **One gesture closes one thing.** A dropdown open INSIDE a dialog closes first and alone — the
-    first Esc / the first outside tap is the menu's, the second is the sheet's. Every transient
-    surface registers while it is open (`overlays/popoverGuard` · `usePopoverGuard`; `Menu`,
-    `Popover` and `ComboMenu` already do), and `Sheet`/`Overlay` veto an `outside-press`/
-    `escape-key` dismissal while the register is warm. Add a hand-rolled popover ⇒ register it.
-    A surface with its own INNER layers (a search, an inline editor) answers Esc through
-    `Overlay · onEscape` — true = «I closed my layer» — never through `dismissEscape={false}`,
-    which only vetoes and left the Verlauf drawer deaf to Esc on the tablet (26.09.2026).
-  - **A phone bottom sheet is closed by pushing it down.** `overlays/swipeDismiss`, spread on the
-    popup by `Sheet` and `Overlay` (`swipeToClose`, on by default) — never a per-surface copy. It
-    measures that the popup IS a bottom sheet, leaves a scrolled body its own gesture, never starts
-    on a control. ONE grab bar (`overlays/SheetGrab` → `.ui-sheet-grab`, the same 40×5px pill as the
-    `.ctx` editors' `.sheet-grip`): `Sheet` draws it by default, a bespoke `Overlay` frame that IS
-    a bottom sheet on a phone opts in with `grab` (composer, Verlauf, PlanPicker, audio player, …
-    — never a frame that is full-screen or centred there, like the Trupp form on a tablet or the
-    handed-over Tafel; on the full app's PHONE board it IS a bottom sheet since 24.09.2026 and
-    wears the bar, see the Atemschutz bullet), and the one
-    hand-rolled sheet (`Palette`) borrows `SheetGrab` + `useSwipeDismiss` (20.09.2026), and so do
-    the NON-modal map sheet Ebenen (`LayerPanel`, 29.09.2026), whose `.lc-title` is a handle, and
-    the plan's NON-modal Passung dock (`GeorefDock`: Passung + «Karte verknüpfen» chooser; it
-    portals into `.app` on a phone to cover the bars). The map picker (`MapPicker`) is an
-    `Overlay grab` at the sheet cap: a map has no height to hug. The gesture needs the frame FLUSH with the bottom edge — which is why the phone
-    Verlauf is a real bottom sheet now and no longer a card floating 8px off it.
-  - **What a surface IS on a phone — one rule, three shapes** (29.09.2026, owner: «rethink what is
-    a modal and what a slide-up thing on mobile … ebenen, search, etc. should be a slide-up»).
-    Pick by what the person DOES there, never by what was easiest to build: (1) a **tool or a
-    list you work in while you look at the map / board / page** — Ebenen, the «+»
-    chooser, a symbol's editor (`.ctx`), the composer, the Verlauf, the map picker, the plan's
-    Passung, every form and settings sheet — is a **slide-up bottom sheet**: flush with the bottom edge and both sides, over the bars,
-    the ONE grab bar on top, pushed down to close (`useSwipeDismiss`; the head is the handle),
-    lifted by the keyboard (`keyboardLift`), the bottom inset paid by its last row. It HUGS its
-    content up to a cap that leaves the top of the map in sight, so it grows upward and its foot
-    never moves under the thumb. Detents only where the surface has two useful heights (the
-    `.ctx` editors' half ⇄ full). Modal (scrim, focus trap) when it asks for input that must be
-    finished or abandoned; NON-modal (a clear `.mapctl-backdrop`, no trap) when it only changes
-    what the map shows — Ebenen is non-modal on purpose. (2) A **decision
-    that blocks** — a confirm, «Welcher Trupp?», a one-field ask — is a **centred dialog**
-    (`ConfirmCard`, `Overlay` without `grab`): it is answered, not worked in. (3) A **short
-    pick-one menu that belongs to its tile or chip** — Ansichten at the compass, the Einsatz-Menü,
-    the Meteo chip, every `Menu` — is a **popover anchored to that control**. Two exceptions,
-    each a rule: a page you READ (Hilfe) is full-screen, and a search that opens with the keyboard
-    (TruppFinder) hangs from the TOP edge so the keys never cover its results. A floating card
-    above the bars (Ebenen was one until 29.09.) is none of the three: it cannot
-    be pushed away and does not belong to its tile.
-    **The keyboard, on iOS (30.09.2026, owner: «this strange» / «check this strange gap»).** iOS
-    pans the visual viewport by `offsetTop` to reveal a caret; everything `position: fixed` is laid
-    out in the LAYOUT viewport. So ONE hook publishes the visible band (`lib/useViewportPan`):
-    `--vv-pan` (its top) and `--vv-foot` (the layout viewport's hidden foot = the keyboard LESS the
-    pan, `keyboardFootNow`), plus `html[data-kb]` while a keyboard is up — per frame, never a
-    render. A bottom sheet's LIFT is `--vv-foot` (`keyboardLift` / `keyboardMargin`), its height
-    CAP the whole keyboard (`--kb-inset`, `--jc-kb`): lifting by the keyboard stood the sheet the
-    pan above the keys, capping by the foot hides the caret (the pan/re-aim loop) — never mix the
-    two numbers up. A frame anchored at the TOP while the keyboard is up (`.is-kb` rides, the phone
-    Trupp sheet, the tablet composer and Verlauf) adds `--vv-pan` to its `top`. A page
-    (`Surface.module.css · .shell`) ends one `--float-gap` above the higher of the bars (their
-    reserve less the pan — they ride down behind the keys) and the keyboard (`--vv-foot`); its TOP
-    stays put and slides under the pinned top bar, whose `::before` covers the strip above it as
-    tall as the pan. Never translate the box that holds the caret. The Eintrag FAB is hidden while
-    `data-kb` (a running recording excepted). On the phone Verlauf the home-indicator inset + 10px
-    is `.history-list`'s padding, not the drawer's, so rows scroll to the sheet's edge («there is
-    a gap at the bottom where things don't scroll down below»).
-  - **A sheet's footer row is `SheetFoot`** (`.ui-sheet-foot`, 26.09.2026): `Sheet` draws it for
-    `footer`, and a bespoke frame whose footer is its bottom edge on a phone wears it (the Trupp
-    form, the Mittel note, the Georef transfer). ONE rule in 15-mobile.css insets it on a phone —
-    `max(20px, safe-area-inset-left/right)` and `16px + safe-area-inset-bottom` — at a weight a
-    surface's own footer class cannot undercut; never inset a sheet footer per surface (the Trupp
-    form's own rule lost to a later one and put its buttons into an iPhone's corners).
-  - **One menu row, one wash.** Every row `Menu`/`ContextMenu` renders wears `ui-menu-item`
-    (+ `ui-menu-danger`), which carries the hover (`--blue` at 8 %, gated on `hover: hover`), the
-    keyboard `[data-highlighted]`, the `--press` wash and the `--r-ctl` row radius
-    (13-incident.css · «ONE menu row»). A caller's `itemClassName` skin owns padding, type and
-    icons — never what a press looks like. Hand-rolled option lists (`.combo-opt`, `.pickOpt`,
-    `.pp-row`, `.tb-uhr-row`, `.ip-ac-row`, `.lrow`) match those values.
-- **Coordinates are WGS84 `[lng, lat]` wherever the map renders.** LV95 only at the edges via
-  `src/lib/geo.ts` (`wgs84ToLV95` / `lv95ToWgs84` / `fmtLV95`), the `centerLv95` config option,
-  and the geocoder bbox. Reference-layer GeoJSON (hydrants, …) must be WGS84.
-- **Role gating** – product model is three incident roles: `editor` (FU / can mutate incident
-  state), `el` (Einsatzleiter function, 07.09.2026 – reads everything, writes ONLY the record
-  domains: Anwesenheit/Zeitplan, Mittel, Checklisten, Rapport + Beilagen, via the
-  server-enforced `PUT …/workspace/record` slice (`RECORD_WORKSPACE_KEYS`), journal/event
-  appends limited to the record vocabulary (`EL_EVENT_PREFIXES`), media uploads, and — since
-  10.09.2026 — the EINSATZDATEN at the head of that record: `PATCH /incidents/{id}` limited to
-  the fields «Einsatzdaten bearbeiten» sends (`EL_META_FIELDS`); the full workspace PUT, the
-  trupps slice, the incident lifecycle (`status`, `is_archived`, `report_done_at`) and
-  everything tactical stay 403 for it), and `viewer`
-  (read-only). The Führungsansicht is the LOGIN's (`el_view_default`, the admin's Benutzer · «Führungsansicht»);
-  the per-device toggle in the Einstellungen is gone (05.10.2026, owner: «drop Führungsansicht in settings. We
-  can use users») and a stored `prefs.elView` is ignored. Frontend: `isEl` behaves like an editor's Führungsansicht (`tacticalLocked`
-  on, `readOnly` off) with `canEditRecord` unlocking the four surfaces, `canEditMeta` the
-  Einsatzdaten panel, and the sync pushing `slice: 'record'`. ⚠️ **A door the role cannot go
-  through is not drawn** — hidden, never disabled-without-a-reason (3am test, 25.09.2026). A
-  READ-OUT is not a door: it stays, disabled in the `.wb-object:disabled` recipe (full opacity,
-  its own words and tone, no tap). So a locked session (el, Führungsansicht, viewer, replay) keeps
-  the building's name, the Massstab and the linked «⌖ Karte» chip as read-outs — an unchecked
-  automatic fit must never look like a checked one, whoever is looking — but gets no «Anderes
-  Gebäude wählen» (the locked picker has no «Übernehmen»), no Passung, no «Gebäude drehen». Every
-  session that cannot share links (`canShareLink` false: el, Führungsansicht, viewer, link) gets
-  no «Weitergeben» section, and so sends no GET for a link it may not read. The `el` also gets no
-  saved-view writes, no vehicle override, no object switch, no «Wieder öffnen», no transcription
-  and no checklist «Zeichnen» link. The legacy `commander` value has been migrated away: the stored role,
-  the `Literal`/type unions, the `CurrentEditor` dependency, and `user?.role === 'editor'` checks
-  all use `editor` now. Do not reintroduce `commander`, and do not add deployment-admin power to the
-  incident role model. Deployment administration is **separated** behind the `ADMIN_SECRET` env var:
-  the `/admin` UI and admin-write API (config, branding, system, user CRUD, geodata/objects) gate on
-  `get_current_admin` / `CurrentAdmin` (a secret-backed admin-session cookie via `/api/admin/login`),
-  not the editor role; the `admin_geodata`/`admin_objects` `push` CLI uses `KP_ADMIN_SECRET`. It's
-  **fail-closed** – unset `ADMIN_SECRET` → admin endpoints 403, never the editor PIN. Incident
-  endpoints stay on `CurrentEditor`, with ONE exception: the Atemschutz-Link (a QR minted from a
-  running Einsatz that lets a non-FU operate only the Atemschutzüberwachung) writes through
-  `CurrentAtemschutzWriter` on exactly three routes – `PUT …/workspace/trupps`, `POST …/journal`
-  (`kind: 'team'` rows only) and `POST …/events` (`atemschutz.*` only); the allowlist and the
-  liveness rules live in `backend/app/auth/incident_link.py`. ⚠️ Every link kind may also
-  `POST /api/diag/client-error` (24.09.2026), even with a dead session (liveness-exempt). The
-  route needs no session and is throttled per source in its own handler. Without it, a crash on
-  a responder's phone got a 403 and never reached the log. Its read half, `GET /api/diag/export`,
-  stays off every list. A refusal logs its reason server-side (`kpfront.linkscope`) and never
-  sends it to the holder. Never widen the full workspace PUT
-  to a link session. **A link is the literal page and touches nothing on the device** (02.09.):
-  its cookie has to be site-wide (an `<img>` carries no header), so the PAGE says which session
-  it is asking with — `X-Incident-Link: off` from the app and `/admin`, `use` from the
-  handed-over Atemschutz board, nothing from a subresource or an alarm/view link page
-  (`src/lib/linkMode.ts` ↔ `LINK_MODE_HEADER`). Consequences to keep true: the bare site after a
-  link visit is whoever it was before, an Atemschutz link no longer signs the phone out to win
-  precedence, `logout` is off the allowlist, and **no link surface offers «Abmelden»** — leaving
-  a link is closing the page, and coming back is the link URL. Two rules that fall out of the
-  same model and are easy to break: a page sending `use` with no live link session is **401, never
-  the device's login** (falling through would turn a lapsed board into the phone owner's account),
-  and the device's own «Abmelden» **does** clear the link cookie — headerless requests (typed
-  address, `<img>`, service worker) answer as the link guest otherwise. That «Abmelden» **always
-  confirms** (23.09.2026, `lib/logoutConfirm`), in one card that adds the offline and the
-  unsent-entries cost when there is one.
+  separate only for that surface-specific part. How one tactical object lives on both surfaces:
+  [`docs/tactical-objects.md`](docs/tactical-objects.md).
+- **Tactical symbols are our own pack.** `public/tactical-symbols.json` is KP-Front-authored
+  artwork following the FKS Faltkarte conventions, generated by `tools/gen_symbols.py` – edit
+  the generator, never the JSON, and re-run `python3 tools/gen_symbols.py emit` (a `review`
+  mode renders a sign-off grid). Names/categories are compatibility keys referenced across
+  appConfig/copy/backend config; keep them stable.
+
+### Undo
+
+- **Undo/redo – every mutating op should be undoable, scoped to the workspace.** ONE
+  chronological timeline for the whole Einsatz (`lib/undoTimeline`), driven by the TopBar's ↶ ↷
+  and by Cmd/Ctrl+Z on every surface – so «take back the last thing that happened» never asks
+  which surface you are standing on. Three ways to join it – delegating, closure and the
+  confirm-with-undo toast – and the choice is decided by what the domain already owns
+  ([`docs/undo.md`](docs/undo.md), with what a remote merge does to the timeline).
+  Deliberately NOT undoable: append-only records (Verlauf rows, audit events – corrections are
+  new appended rows), device preferences (Ebenen, Einstellungen sheet) and server-side incident
+  metadata (`PATCH /incidents`). Add undo for new mutations; don't skip it.
+
+### Offline, sync and the record
+
+- **Operational browser state lives in IndexedDB, not localStorage.** `src/lib/idb.ts` is the
+  storage layer (localStorage only as its degradation fallback), `src/lib/storageMigration.ts`
+  moved legacy operational keys over once. IndexedDB holds incident workspaces, pending sync,
+  media queue metadata, reference/checklist/object metadata, and readiness; localStorage holds
+  only tiny device flags (update banners, install prompts, once-per-device hints) and migration
+  flags. UI copy/locale/defaults/storage keys live in
+  `src/config/appConfig.ts`; the neutral fallback incident is `src/data/demoIncident.ts`.
+- **Saved means every operational queue is acknowledged.** Workspace, journal and client audit
+  outboxes and the media upload queue contribute to the shared sync status. Preserve rejected entries for retry/export;
+  a failed IndexedDB write must never claim local durability. Hydrate and merge a predecessor's
+  queue before a promoted tab writes it. A failed IndexedDB READ is not a miss: every hydrate that
+  writes back reads through `idbRead` and never writes over a slot it could not read. Client audit events carry a stable `client_id` through
+  retries; a beacon does not acknowledge delivery.
+- **Sync supports task-scoped collaboration.** Multiple editors may work different domains in the
+  same incident (e.g. Atemschutz + Lage drawing); this is not shared-cursor co-editing of the same
+  object. Cross-domain concurrent edits must merge. Mergeable collections merge three-way **by
+  `id`** (`mergeById` in `mergeWorkspace.ts`; delete beats concurrent edit; server-then-local
+  order). Same-object conflicts can stay simple for now. To add a synced field: add it to
+  `Saved` and give it a row in `MERGE_POLICY` (`mergeWorkspace.ts`) – the map is checked against
+  `Saved` at compile time, so a field without a policy fails `tsc` instead of silently merging
+  as «this device wins» (23.09.2026). (`Person`/roster is the exception – it carries
+  `updatedAt` because it's pulled from Divera, not merged.)
+- **IDs are prefixed timestamps, not UUIDs** – `newId(prefix)` from `src/lib/ids.ts`
+  (`<prefix><ms>-<seq><rand>`) for EVERY record the app mints and syncs — Verlauf rows
+  included (`newRowId(tag?)`), Mittel events, patch rows, Gäste, Pendenzen. A per-device
+  counter is not enough: one login on three tablets (Übung 23.09.2026) had each counter at
+  0, and the journal's idempotency-by-id silently dropped the second device's row. Ids
+  already stored keep their old shape (never rewrite them); a reader that needs to know
+  what wrote a row reads the tag (`isPlayerRowId`), never a parsed timestamp. Deliberately
+  DERIVED ids (`ght-<markerId>`, `vp-…`, `azal-`/`azcl-`) stay deterministic — two devices
+  must mint the same one. Offline-friendly, no DB roundtrip; don't reach for
+  `crypto.randomUUID()`.
+- **Incident records are append-only where it matters.** Verlauf is the human operational journal
+  plus selected meaningful system events; audit/events record committed domain actions. Don't add
+  mutate/delete shortcuts for production records; lifecycle changes (reminders, media transcripts,
+  corrections) are *new appended events* with state derived from them. **A row carries what was
+  said, not a pointer to it** (reversed 11.08.): a Notiz, a Fläche's name, a Druckmeldung print
+  their actual text/value, because the Rapport is read on paper where nothing can be clicked. The
+  row is also the ONE string the Verlauf, the Rapport and the hash chain all read – so a re-shown
+  reminder carries its bare text alongside (`reminder.text`) rather than the row being re-parsed.
+  What reaches the Verlauf: [`docs/verlauf-coverage.md`](docs/verlauf-coverage.md).
+- **The server observes; devices never write observations** – a fact about the outside world
+  (vehicle presence, weather, Divera alarms) is recorded once by the scheduler
+  ([`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)). The closed Einsatz, derived ids for what
+  every device observes, and the review regression contracts:
+  [`docs/sync-and-offline.md`](docs/sync-and-offline.md).
+- **Time-based alerts** (Atemschutz clock, reminders) go through the shared `src/lib/alarm.ts`
+  layer, not ad-hoc timers. Delivery: foreground tone/wake-lock + service-worker notification,
+  plus – once the deployment sets VAPID keys (`app.gen_vapid`) – server-side Web Push for
+  killed apps: `backend/app/push.py` re-derives due-ness from the synced data (no mirror
+  API) and also pushes «Neuer Einsatz» when a new Divera alarm lands in the pool. Fail-closed:
+  no keys → `/api/push/vapid-key` serves `null` and no sweep runs. Every stamp counts in
+  `serverNow()` (`lib/serverClock`).
+
+### Configuration, station data and roles
+
+- **A setting lives in one of three places – pick by who owns it, not by what is easiest to
+  reach.** (1) *Device preference* – theme, symbol scale, rail words, offline radius, screen
+  wake: cookie via `src/lib/prefs.ts`, surfaced in the **Einstellungen sheet**
+  (`src/components/panels/SettingsSheet.tsx`), which since 28.08. carries device prefs plus
+  per-device utilities and **nothing else**. (2) *Station doctrine* – Funkkontakt-Intervall,
+  Nachfrist, Funkkanal, Auftragsfarben: deployment config `doctrine.*`, edited **only** in
+  `/admin › Doktrin` (`DoctrineSection` in `src/admin/ConfigSections.tsx`) and read **only**
+  through `atemschutzDoctrine()` in `src/lib/deploymentConfig.ts`, never off
+  `appConfig.atemschutz`. These left the sheet on purpose (99c4348): station configuration
+  belongs where whoever set it up changes it, not under the finger of an unknowing operator at
+  3am – do not re-add a doctrine editor to any in-app surface. (3) *Synced per-incident state* –
+  the workspace blob (`IncidentSettings` in `src/lib/workspace.ts`). Overrides already written
+  there keep applying as the layer above doctrine, but no surface offers new ones; add here only
+  when the value must genuinely differ *per Einsatz* and be identical on every device.
 - **Per-station config has four layers:** national defaults (code) → per-station deployment
   config (DB/admin) → secrets (env) → per-incident (workspace). One deployment = one station
   (**single-tenant**, no multi-tenancy). See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md).
   Edit a station's config as code: `cd backend && uv run python -m app.admin_config
   <schema|example|validate|diff|load>`; it's served at `GET /api/config` and applied at boot to
-  override `appConfig` defaults.
-- **Integration credentials are settable from `/admin`, encrypted, and read through an
-  accessor — never off `settings`.** Divera / Traccar / VAPID / STT / CARTO / the two webhook secrets /
-  the print-agent secret / `HEALTHCHECK_PING_URL` live in `integration_credentials`
-  (AES-256-GCM under an HKDF key derived from `SECRET_KEY`, which stays in `.env`), and every
-  consumer reads `app.credentials.get(name)` after `await load(db)`. **`.env` still wins where
-  it is set**, so no existing deployment changes. Two rules for anything added here: a
-  scheduler job whose credential is runtime-settable is **registered unconditionally and
-  no-ops when unset** (gating registration at boot is what made this impossible before), and
-  a secret is **write-only over the API** — settable, never readable. The CARTO basemap key is
-  the explicit client-credential exception: CARTO requires it in browser tile URLs, so it is
-  readable at runtime and must be restricted to deployment domains at the provider. The
-  authenticated organizer catalogue also shares this browser key for its route map; allow
-  that organizer's domain at CARTO too. ⚠️ Readable
-  is not public — `/api/config` serves it only to a caller holding a session, and «session»
-  includes an incident LINK (`LinkApp` mounts the whole app, and a link carries no
-  `access_token`, so `actor is not None` is the wrong test). Server-side renders (Rapport/Kroki)
-  use `app/carto.py` and the deployment's own credential, never the client's copy. `SECRET_KEY`,
-  `ADMIN_SECRET`, `KP_TELEMETRY_*` and `REQUIRE_PLAN_DIGEST` stay env-only on purpose: each
-  would defeat itself in the database it gates.
+  override `appConfig` defaults. Integration credentials are read through
+  `app.credentials.get(name)`, never off `settings` (`backend/app/credentials.py`).
 - **Reference geodata, object plans, and checklists are station data, never bundled.**
   Hydrants/Leitungskataster/canton-WMS layers, Modul PDFs, and the FU/EL checklist templates +
   playbook diagrams don't live in this repo – they're loaded into a deployment from a *private data
@@ -1327,898 +376,16 @@ to prod.
   `src/lib/checklists.ts`, offline-cached), falling back to one neutral bundled example
   (`src/data/checklists/generic-action.json`) – never a station's real lists. GeoJSON must be WGS84
   `[lng,lat]` (LV95 is rejected).
-- **Anleitungen are a checklist kind, not a second pipeline** (05.10.2026). `kind: "manual"`
-  rides `checklists:<id>` + `checklists:<id>:p<N>` images, the same manifest, CLI, admin page and
-  SharePoint folder; format in [`docs/CONFIGURATION.md` §9f](docs/CONFIGURATION.md). It is READ,
-  never ticked: no tick state, no progress, nothing in the Verlauf/Rapport — tickable means
-  `isTickable` (action/rapport) only, so check new kind switches against it. The picker shows
-  them in their own «Anleitungen» group, one sub-head per `device` (`manualGroups`); the reader
-  is `ManualReader` (own CSS module). Step pictures are prefetched into the SW's
-  `checklist-assets` cache when the templates load (`warmManualImages`), because a manual is
-  opened when it is needed — offline, for the first time. A step image the manifest has no
-  asset for is refused by `admin_checklists validate`.
-- **Objektbesuche live beside the Einsatz, never inside it** (03.10.2026). The module
-  (`objectVisits.enabled`, `src/objectVisits/`, `src/components/objectVisits/`, backend
-  `object_visits*.py`, `api/integrations.py`) owns standalone visits: no incident, no workspace
-  blob, no media row. Its contract is [`docs/object-visits.md`](docs/object-visits.md) — change
-  it with the code. Rules that are easy to break: `visits.py` / `admin_visits.py` are web
-  analytics and unrelated; checklist templates of `kind: "visit"` never reach an Einsatz surface
-  (`loadTemplates` drops them) and Einsatz kinds never reach a visit; a visit is «Gespeichert»
-  only when the server holds the latest revision AND every photo it references; a full photo
-  leaves the device only after a fresh server read says it is stored; revisions are cut at save
-  points, not keystrokes; a completed visit is corrected, never reopened; the SharePoint
-  IMPORTER stays GET-only (`sharepoint_graph.py`) and filing writes only through
-  `object_visit_sharepoint.py` with the separate `sharepoint_export_*` credentials; nothing
-  remote is ever deleted. Alarms and the new-Einsatz banner stay on the Objektbesuche surface.
-  «Neuer Objektbesuch» (05.10.2026) pushes once, at a visit's first completion, ONLY to the
-  accounts an admin ticked (`users.notify_object_visits`, default nobody) — never widen it to
-  every subscription; received visits are listed first on /admin › Objektbesuche.
-- **No history entry behind the operational screens** (05.10.2026, owner: iOS edge swipes «don't
-  always work as intended for modals»). iOS offers its standalone-app back swipe exactly when
-  there is an entry to go back to, and no CSS or event handler can switch it off — so the Karte,
-  the Plans and the launcher never have one. Sheets and modals do NOT push entries. The only
-  pushes are the Objektbesuche routes and the plan reader there, all through
-  `objectVisits/route` (`navigateTo` / `pushAppEntry`, counted in `history.state`), and the way
-  out is `leaveAppEntries`, which walks back over them rather than replacing the top entry
-  (which left one stale «/» behind the Karte per visit). Never call `history.pushState` directly.
-- **Visit planning keeps templates separate from rounds** (03.10.2026): `visit_programmes`
-  holds reusable organizer routes, never visible to crews. Annual publication is one
-  transaction with a stale-revision guard; a round's stable ref and stop snapshot survive
-  rescheduling/withdrawal. Never copy last year's completions into a new round. `scheduledOn`
-  is a calendar day, separate from `closesAt`; archived rounds retain visits and accept late
-  offline sync. Field history is collapsed, overdue work stays visible. Contract:
-  `docs/object-visits.md` · Visit programmes.
-- **Domain language is German** (Atemschutz, Trupp, Einsatz, Verlauf, …); keep terms
-  accurate. **All user-facing strings live in `appConfig.copy.*`** – never hard-code UI text in
-  a component; add a key and reference it.
-- **What the Rapport's figure pages carry (18.09.2026).** The **Kroki is the picture**; everything
-  else is opt-in or earns its page. Four rules, each from a printed review:
-  - **Objektpläne are OFF by default** (`report · defaultReportOptions.annotatedPlans`). A linked
-    sheet counts as «annotated» the moment the Karte's objects project onto it, so «on when there
-    are any» stapled every linked plan to every rapport. They are reference material the station already owns.
-  - **The Gebäude is its own section** (`options.gebaeude`, on), not one of the «Pläne»: it
-    carries the Einsatz's own work. Only storeys with content print
-    (`reportPdfDirect · usedStackFloors`); an untouched stack prints no page.
-  - **A legend line says what the thing IS** – «Art · Bezeichnung · Status»
-    (`symbols · symbolLegendText`), for every symbol. ⚠️ Not `symbolCaptionText`: the screen's
-    value-only caption is an answer without its question once lifted into a legend. A symbol's own
-    `caption: 'off'` is a screen declutter and is not read; only «Beschriftungen aus» silences it.
-    A «Gelöscht / erledigt» symbol ends its line on that Status with its time («Feuer · gelöscht
-    20:40», 24.09.2026) and prints grey, never absent.
-  - **One figure-page template** (`report_pdf · figure_pages`): heading, then the muted «Einsatz ·
-    Stand …» line, picture, legend – for the Kroki, a plan sheet and a Gebäude page alike. A new
-    kind of figure page joins that list; it does not get a layout block of its own. Orientation is
-    per kind ON PURPOSE: the Kroki is a free crop (the operator's choice), a plan sheet has the
-    shape its author gave it (the bitmap decides).
-  - **An attached Leitung end is coupled by the SERVER** (`kroki · _snap_attached_ends`, fed by
-    `startAt` / `endAt` + the entity `id`; a branch off a Teilstück by `startAtLine` / `endAtLine`
-    onto the fork's prong tip – `_snap_line_joints`, one geometry with the glyph: `_fork_dims`). The client has no projection and ends the line on a
-    fixed ground footprint; the glyph is sized in pixels, so only the sheet's own view can land the
-    end on it. ⚠️ And the fallback fit mirrors the PANEL: the ceiling is
-    `report · krokiFitMaxZoom` (20; 21 for a COMPACT Lage under 30 m – one level past the basemap's
-    last sharp one, so a single-building cluster is not 15 % of the sheet). That is a MapLibre
-    camera zoom, one level tighter than the 256-px projection: `report_pdf · _kroki_fit_max_z` = +1.
-    On paper the count badge is a WHITE chip like the storey badge – the numbered legend discs are
-    the only dark marks on the sheet.
-- **The map surface is «Karte», the printed picture is «Kroki» – user-facing copy no longer says
-  «Lage»** (2026-09-01). The word meant three things at once (the surface you draw on, the
-  tactical picture that gets printed, and the doctrinal *Lage* of an Einsatz), so a row could
-  read «auf der Lage platziert» while the tab beside it said «Karte» and the Rapport column said
-  «Kroki». The rule now: the surface and everything about placing things on it is **Karte**; the
-  rendered/printed snapshot is **Kroki** (the Rapport's `areaLage` value has said so since
-  10.08.); real doctrine compounds – *Lage- und Einsatzführung*, *Lagebeurteilung*, *Lagerapport*
-  – keep their word, because they are the fire service's terms and not ours. ⚠️ Code identifiers
-  are NOT part of this: `mode 'map'`, `surface: 'map'`, `areaLage`, `placeLage`, `lagePickSub`
-  and friends keep their names, and so does `alarmText.ts`'s `LINK_PREFIX = 'Lage & Pläne:'`,
-  which is a **wire literal** matching what the external alerting gateway (fwo-divera ·
-  `src/api/sms.py`) emits – renaming it would break link extraction on every real alarm.
-- **A storey is a «Geschoss», the Plan surface an «Arbeitsfläche» – never «Stockwerk» or
-  «Whiteboard» in user-facing copy** (2026-09-23: the controls, the Plan stack, the admin and
-  OG/UG already said Geschoss while the help and the Verlauf rows said Stockwerk). Already-written
-  Verlauf rows keep their wording (append-only); code identifiers (`floor`, `floorTag`,
-  `whiteboard.*`, `Whiteboard.tsx`) keep their names.
-- **The place is «Verlauf», the thing is «Eintrag» – on every screen** (29.09.2026). The composer
-  is «Neuer Eintrag», its toast «Eintrag erfasst», the checklist action chip «Verlauf», the
-  Führungsansicht «Verlauf & Symbol-Details», the source row «Von Hand erfasst». «Journal» appears
-  on screen nowhere. **«Einsatzjournal» stays ONLY as the printed Rapport section's name**
-  (`report_pdf · "journal"`, `copy.report.journal`, and the «Abschnitte» toggle that names that
-  section) – the paper term. The printed Atemschutz section is «Atemschutzüberwachung», never
-  «Atemschutz-Journal». en/fr/it keep their own place word (Log / Journal / Diario) and the same
-  entry word (Entry / Entrée / Voce). Code identifiers (`journal.*`, `Journal.tsx`, `jr-*`,
-  `jc-*`) keep their names. **One count, one word: «{n} anwesend»** – the chooser, the
-  Anwesenheit head and the Rapport's «Personal & Mittel» row say the same word for the head
-  count (the Rapport said «erfasst»).
-- **Failure copy has two shapes, and they are not interchangeable** (settled 2026-08-27 after a
-  sweep found 35 of one and 20+ of the other with no rule between them):
-  - *«X fehlgeschlagen»* – the action the operator just triggered failed, on a surface that
-    already says which one it was (the toast right after the button). It is a **fragment**.
-  - *«X konnte nicht … werden»* – the failure is about a **named thing** the operator did not
-    just act on, or the sentence has to carry *which* object failed («Plan konnte nicht
-    hochgeladen werden»). Losing the object name to shorten it is the wrong trade.
-  - **Punctuation follows the last segment, not the string.** A string ends with a period only
-    when its final segment is a full clause (subject + finite verb): «… – Änderungen sind lokal
-    gespeichert.» keeps it, «Löschen fehlgeschlagen» does not.
-    Headings and titles never take one, even when they are full clauses («Ein Fehler ist
-    aufgetreten»). The rule is per locale – French «La suppression a échoué.» is a clause where
-    German «Löschen fehlgeschlagen» is a fragment, and both are right.
-  - **A retry sentence says what happened, the button says «Erneut versuchen»** (29.09.2026) —
-    never «… nochmals versuchen» in the sentence next to it; one button word in every locale.
-- **A ✕ that empties a field says «leeren», never «löschen»** (29.09.2026) — «löschen» is the
-  delete verb. `copy.clear` «Leeren», `copy.clearSearch` «Suche leeren», `copy.clearField`
-  «{field} leeren»; no per-surface «Suche löschen» copies.
-- **A search field's placeholder is «<Thing> suchen …», or bare «Suchen …» where the surface
-  already names the thing** (swept 18.09.2026: «Suchen», «Name suchen», «Suchen oder Name
-  eingeben …» and three-dot `...` all existed side by side). Always the ellipsis character with a
-  space before it, in every locale. A string that serves only as `aria-label`/button text is
-  the plain infinitive («Im Verlauf suchen»); a key used for BOTH keeps the placeholder form.
-- **Prose language split: technical English, user-facing German.** Everything technical –
-  `docs/`, READMEs, `CHANGELOG.md`, code comments, commit messages – is written in English;
-  German appears there only as domain terms and as «quoted» UI copy. User-facing text is German
-  with i18n overlays (above). The gitignored internal station documents under `docs/` are the
-  exception and may stay German.
-- **i18n / multilingual copy lives in `src/config/copy/`.** German (`de.ts`) is the canonical
-  base and the source of the `Copy` type; `en.ts` (full) / `fr.ts` / `it.ts` are
-  `Localizable<Copy>` partial overlays **deep-merged over German**, so any missing key falls
-  back to the German string – a half-translated locale is always complete. `appConfig.copy` is
-  a **getter** returning the active locale's catalogue (`copy/getCopy()`); read sites are
-  unchanged (`appConfig.copy.x.y`). Locale is a **per-deployment** setting (one brigade = one
-  language), resolved **once at boot** (`/api/config` `identity.locale` → `de-CH`) by
-  `applyLocale()` in `main.tsx`. It's set in deployment config (CLI/config file first; admin UI
-  can inspect/basic-edit Station › Identität › Sprache), NOT per device. **Add a new string to
-  `de.ts` first** (it defines
-  the shape); translate in the other locales as desired. Two caveats: (1) module-level captures
-  like `const C = appConfig.copy.x` freeze the language at import – read inside the
-  component/function instead; (2) a few copy values are structural DATA keys, not labels
-  (`contextPanel.unField`/`stoffField` match the non-localized preset fields, intake
-  `kategorien`/`kategorieGuess` mirror the backend) – leave these untranslated (German fallback).
-- **Help describes the device it is read on** (29.09.2026). `HelpBlock` / `HelpSection` carry
-  `only: 'phone' | 'wide' | 'keyboard'` (`lib/helpDevice · helpShows`): a phone reads about the
-  two bottom bars and the FAB, never a left/right rail or a rail drag; the Tastaturkürzel section
-  and the mouse/keys parts show only off a phone and where a fine pointer exists. Every locale
-  carries its own sections array, so a device-specific block goes into all four
-  (`helpDevice.test` checks the phone text of every locale for rail words). **A surface's
-  explanation is one line; the long text lives in Hilfe**: the «Einsatz · lesen» share lede is
-  «Kein Login · gilt auch nach dem Abschluss.» in the share sheet and in Rapport › Weitergeben
-  alike; audiences and lifetimes are in Hilfe › Rapport & Abschluss.
-- **Tactical symbols are our own pack.** `public/tactical-symbols.json` is KP-Front-authored
-  artwork following the FKS Faltkarte conventions, generated by `tools/gen_symbols.py` – edit
-  the generator, never the JSON, and re-run `python3 tools/gen_symbols.py emit` (a `review`
-  mode renders a sign-off grid). Names/categories are compatibility keys referenced across
-  appConfig/copy/backend config; keep them stable.
-  ⚠️ **FKS spread arrows (`spread`) are a drawn convention, never a bearing** (decided 30.08.2026,
-  `27f0d92f`; re-confirmed 24.09.2026): ↑/↓ mean upper/lower storeys, ←/→ mean «sideways». They
-  are drawn screen-upright outside the glyph's rotated layer on the Karte, on every plan sheet —
-  a turned one included — and on paper (`kroki · _spread_dirs`). Turning them through a fit or
-  the map bearing was built once (28.08., `spreadRotation`) and made the Feuer's Ausbreitung
-  point the wrong way on a turned sheet; do not re-add it.
-- **Buttons follow one spec – don't invent a per-surface variant.** Decided 2026-07-28 after a
-  sweep found 12 label type combos, 6 disabled opacities and 8 stray radii for one role.
-  - *The ✕ that closes a sheet is 36px with an 18px glyph, everywhere* (`.ip-x`, `.journal-x`,
-    `.ctx-x` — one rule in 13-incident.css; it was 28/30/32). Beside a 44px search field it is
-    44px instead (Palette, Verlauf search), and it is the ordinary grey, never a filled «on».
-  - *Radius – ONE corner (25.09.2026):* **every** rectangle is `var(--r-sm)` (12px) – button,
-    field, status box, row, card, page card, sheet, dialog, message; `--r-ctl`/`--r-surface`/
-    `--r-hero` are aliases of it, kept only as role names. Three exceptions, each a rule, never
-    taste: (1) things under ~32px tall wear `--r-xs` (the same shape at that size) and map
-    furniture, dots, avatars and the FAB stay round – roundness is what tells map furniture
-    apart from chrome; (2) a **floating container that hugs controls** (top bar, nav/tool bar,
-    glass clusters, menus, docks) keeps ONE even gap all round – `--bar-pad` plus its
-    1px border – and its corner is the controls' corner plus that gap, `--r-bar` (19px), so the
-    curves run parallel like nested squares (the top bar had 7px above the pill and 11px beside
-    it, and no radius could match both); a MESSAGE is not a bar – it wears the one corner itself
-    and its buttons sit `--msg-pad` inside with `--r-msg-in`; (3) the **parts of one control** (segments in `.useg`,
-    the zoom buttons in their group) are the control's corner less their inset. No literal px
-    radius above `--r-xs` (hairline ticks and handles aside); the old 10 · 14 · 16 · 20 · 22 scale put three corners on three neighbouring
-    buttons and read as a mess.
-  - *Messages – ONE surface, ONE lane (25.09.2026):* a toast, a mode's instruction (Gebäude
-    wählen), a tool's tip and the hold-tip wear the same look (08-toasts.css · «ONE message
-    surface»): the floating family's material (below — light by day, dark by night, never a dark
-    pill on a light UI), ink 14/500 (13/600 until 08.10.2026), the one corner, no outline of its own. A tone is the colour of
-    the glyph the sentence leads with – never an edge, never a fill. What goes away **by itself**
-    shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
-    mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
-    the action button acts, a sideways swipe throws it away. On a phone they share one lane (`--msg-lane-bottom`, 15-mobile): the
-    bars' own width (8px in from each side), one `--float-gap` above THE floating row (below),
-    never beside a piece of it. A pill is ONE ROW (30.09.2026): the sentence wraps first, inside
-    its column, and «Rückgängig» + ✕ stay beside it. The column has a floor of 10em (05.10.2026):
-    only an action too wide to leave the sentence that much wraps under it, right-aligned. On
-    the launcher the lane is the card's own column. There is no standing «Offline» row
-    (removed 05.10.2026 — the head's «● Offline» chip says it), and «Jetzt synchronisieren» is
-    never offered while the device is offline. While a MODAL bottom sheet is open the lane stands ON the sheet, one `--float-gap` above
-    its top edge (`lib/toastLane` · `useToastLane` → `.toaster[data-lane]`); only a sheet that
-    leaves no room for a pill above it sends the lane to the top of the screen, never over the
-    sheet's head. Non-modal owners of the foot (detail sheet, Ebenen, Messen, Passung) keep the
-    lane under the top bar. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
-    bar first, then amber / blue / grey): a row's tone is its leading glyph's colour, so every
-    `Meldung` carries an `icon`. A row TITLE whose way in is the same
-    move as the row's filled button (the Atemschutz «Zum Trupp» — `Meldung.onOpen.label` = the
-    primary action's label) stays tappable but draws NO underline (`.ml-open.plain`, derived in
-    `Meldeleiste · MeldungTitle`); the underline is only the signal where the title is the ONLY
-    door. A button never repeats the glyph its row already leads with.
-  - *ONE floating family, ONE floating row (26.09.2026, owner: «everything has the same shape,
-    colour, padding»):* every small thing that floats over the Karte or a Plan — the messages
-    above, the plan's chips (Objekt · Gebäude · Massstab · ⌖ Karte),
-    «Zurück zum Rapport» and the Eintrag FAB — wears `--float-*` (01-tokens): the bars' glass with
-    their `--glass-line` edge as an INSET ring and `--shadow`; ONE row height `--float-h` (a --tap
-    button + `--msg-pad` all round = 52px); the one corner; 14px before the glyph; 16px glyphs. A
-    STATE is a glyph colour inside it — the chip's lamp, a toast's leading icon, the object chip's
-    amber ⚠ — never an outline (the Massstab chip wore a blue ring beside its green lamp); «open /
-    armed» is a blue wash mixed into the glass. «Not yet» is GREY (29.09.2026): a plan with no
-    scale and no link shows a grey lamp, never red (red = danger, act now; an unlinked plan read
-    as a picture is not an emergency). And ONE chip says it: until a sheet is linked, «Karte
-    verknüpfen» (the link glyph, never the locate crosshair) is the pill row's only chip — a link
-    gives the scale; «Massstab» appears once a link or a hand calibration exists (the hand
-    calibration stays reachable through Messen · «Massstab kalibrieren»). Where a plan cannot be
-    linked, the Massstab chip stays. On a phone the pieces stand on ONE baseline,
-    `--float-bottom` (15-mobile): `--float-gap` (8px) above the highest bar (nav bar · Rapport tab
-    strip · tool bar · a tool's option dock + its hint row), 8px from the screen's edge and from
-    each other. The FAB stays ROUND (the one-corner exception) but is `--float-h` across, on that
-    baseline; `--fab-safe` is its width + the gap. A new piece in that zone joins the family and
-    the row (and the `--float-row` `:has` list) — never a height, material or offset of its own.
-    The Meldeleiste hangs from the top and ENDS where the message lane starts (`--msg-lane-bottom`,
-    08-toasts · phone `.ml`, 08.10.2026): one `--float-gap` above the floating row, or the highest
-    bar when the row is empty. Past that it scrolls. It never runs under the FAB or a bar. Four
-    rows put «Jetzt aktualisieren» under the FAB.
-  - *Type:* two sizes, two weights. `12.5px/700` compact (toolbars, docks, dense rows, chips),
-    `14px/700` standard (sheet footers, form + page actions), and `800` **only** on the single
-    action of a surface (Kontakt, Speichern, Senden). Nothing else.
-  - *Two materials, by what the thing IS (29.09.2026, owner):* everything that floats over the
-    Karte or a Plan — the floating row, Ebenen, the Ansichten menu, the context
-    panel, every sheet — wears the **floating family's material**: `--float-bg` + `--float-blur` +
-    `--float-edge` (or the sheets' `--glass`), light by day and dark by night, with theme inks
-    (`--ink`, `--ink-dim`, `--ink-faint`, `--fill-soft`) — never a frozen `rgba(255,255,255,…)`. Every popup
-    OUT OF THE TOP BAR wears the bar's own glass (`--glass` + blur + `--glass-line` + `--shadow`):
-    the Einsatzuhr menu, the Atemschutz head detail and the Meteo details (30.09.2026:
-    `.tb-weather-pop` wore `--surface`, a lighter slate than the bar at night).
-    **On tablet/desktop, dark in both themes (`--ink-fill` + `--on-accent-ink`) is the ARMED material and nothing
-    else**: a tool dock (`.wb-dock` — something is armed, its ✕ disarms) and the Trupp marker's
-    action bar (`.wb-pill-acts` — this marker is in hand). It is the «clean selected state» of a
-    mode, so a list you read or a menu you pick from never wears it; a new surface that is dark
-    by day is a mode, or it is a bug. On a light-by-day card the ✕ is the global `.ip-x` and the
-    primary is `--btn-primary`; the on-ink ✕ (`.wb-dock-x`) and the light-fill primary
-    (`.wb-dock-go`) belong to the armed material only.
-    **Mobile tool docks use the popup material** (01.10.2026): Messen and every tool-option
-    dock wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
-    Their controls share a neutral fill and selected wash, with a centred row; the line dock
-    has no subtitle on mobile (its instructions stay behind ⓘ).
-    The sticky close button has no masking shadow: a solid surface patch mismatches the glass.
-    The blank Tafel offers no Messen on a phone; map and scaled plans keep it. The mobile
-    Ansichten popover dismisses on an outside pointer press, allowing the pressed control to act.
-  - *Height is a separate axis* – `--tap` (44px) by default, 48–50px for a card's main action.
-    The 12 type combos happened because people enlarged the *label* when they wanted a bigger
-    *target*; raise the height, not the font.
-  - *Colour:* the primary fill is `var(--btn-primary)` (+ `--btn-primary-hover` /
-    `--on-btn-primary`), never `--ink-fill`/`--blue`/`--accent` directly. **Red never fills an
-    action** – it means danger/delete only. Amber = warning but not critical; red = danger,
-    broken, act now; blue/grey = normal status and in-progress.
-  - *Disabled:* `opacity: var(--disabled)` + `cursor: default`. Never inline the number.
-  - *Selected – three roles, one look each (28.09.2026, owner: «all buttons have different
-    selected states» — the Trupp form alone wore four: ink outline, blue ring, ink fill, blue
-    segment).* (1) A **choice** — a segment, a chip, an option tile, a toggle chip, single or
-    multi — is `--sel` filled with `--on-sel` text and `--sel-shadow` (01-tokens), whether it
-    sits in a Segmented track, stands as chips (the Segmented's ≥5 mode too) or is a module's
-    own class. (2) A **row** in a list or menu (a combo option, a picker row, an option card
-    with a radio mark) is picked by `--sel-wash`, never filled — a filled row is a slab. **Nothing
-    else rides on the wash** (29.09.2026): no ring, no recoloured read-out; a count keeps its own
-    ink (an open count is amber on every row, current or not — `.group-choose-count.open`); a ✓
-    may stay as the cue that is not a colour. (3)
-    **Where you are** — the nav rail, the armed tool, a Trupp tab — keeps the ink pill
-    (`--ink-fill`): a place, not an answer. A chip whose tone IS its meaning (the composer's
-    Auftrag/Sofort) fills in that tone, same shape; colour swatches keep
-    their ring (their fill is the colour). Never an outline-only «selected», never `--ink` as a
-    choice fill (at night it is the primary button's light grey).
-  - *Primary (28.09.2026):* the single action of a surface is `--btn-primary` / `--on-btn-primary`,
-    14px/800 — never `--blue` (blue is «chosen», `--sel`), never `--ink-fill` directly (at night it
-    is a 1.14:1 patch on the sheet), never green. On the ARMED material (a tool dock, the Trupp
-    marker bar — dark in both themes) the primary is the LIGHT fill: `--on-accent-ink` with
-    `--ink-fill` ink (`.wb-dock-go`). The documented green «go» (`<Button variant="go">`, Atemschutz «Eintritt») is a
-    tone, not the primary, and stays. The Trupp marker's action bar (`.wb-pill-acts`) is all
-    neutral wash (29.09.2026): no green «Bei den Trupps zeigen», no blue «Position markieren». A
-    door to a page wears that page's nav glyph («Bei den Trupps zeigen» = the Trupps stopwatch,
-    never ⚠). The bin keeps THE delete outline; the rename pen, while its field is open, is a
-    pressed toggle (`--sel`, like `.wb-dock-tog.on`).
-  - *Delete (28.09.2026, owner pick A):* a destructive action is THE delete look — `--del-ink`
-    (red-strong) text, a `--del-edge` (red 40%) border, the surface it stands on; the bin and the
-    word (a rare delete may be a square bin, still outlined). Red never fills it (`.btn.warn`,
-    `.ip-btn-danger`/`.ip-btn.danger`, `.adm-danger-btn`, `.wb-pa-del`,
-    the audio player's marker row `.ap-row-del` all wear it; `.btn.warn-solid` is gone). ✕ only
-    ever closes or clears — a ✕ that deletes is a bug. The audio player's in-place editors are the
-    ✕ `.ip-x` + ✓ primary icon pair (36/44).
-  - *Close:* every sheet/dialog ✕ IS the global `.ip-x` in the TSX (36px, 18px glyph, grey fill);
-    a module class may position it, never restyle it. 44px only beside a 44px search field
-    (Palette, Verlauf search, TruppFinder — `.x:global(.ip-x)`). The armed material keeps its
-    on-ink ✕ (`.wb-dock-x`); Ebenen wears `.ip-x` (`.lc-x` only places it). A
-    menu has no ✕ row and no lone ⓘ row (29.09.2026): its tile toggles it and a row or a press
-    elsewhere closes it; an ⓘ sits at the END of the last row and opens its sentence under that
-    row (Ansichten).
-  - *Cancel (28.09.2026, owner pick A):* «Abbrechen» in a footer is a FRAMED `.ip-btn` 14/700 at
-    its word's width, never a ghost word; the primary takes the rest of the row, same height (on a
-    phone `[role=dialog] .ui-sheet-foot > .ip-btn.primary` flexes).
-  - *A label never leaves its button* (30.09.2026, owner: «fix this» — «Auf Modul 1 zeigen» ran
-    out of its tile over «Zentrieren»). A tile in a row whose share is fixed (`flex: 1 1 0`) cuts
-    its label with an ellipsis; where the label carries a NAME (`{plan}`), the name is the part
-    that gives way and the verb around it stays (ContextPanel · `LinkBtn`, `.btn-t` /
-    `.btn-t-cut`), with the whole sentence as the button's name. A door to the object's other
-    surface («Zum Original», «Auf {plan} zeigen») stands on a row of its own above the symbol
-    panel's foot. A rotation reads in whole degrees; ± from a hand-turned angle snaps to the next
-    15° mark (`Stepper · snap`).
-  - *Text actions (28.09.2026, owner pick A):* no bare blue word as an action. A verb that ends a
-    row makes the WHOLE row the button — `.row-go` (13-incident): ink text, the verb in
-    `--ink-dim` 12.5/700 + a 16px `chevron`, one press wash, ≥44px, `aria-label` «Verb: row text».
-    A fact that jumps inside a sentence is ink + › (`.kennGo`); anything else is a framed compact
-    button (`.wb-nearby-switch`, `.de-conn-reveal`).
-  - *Fields, titles, eyebrows, warnings — one look each (28.09.2026, owner: «remove what
-    contradicts»).* (1) **Focus** on anything you type into is `--focus-edge` + `--focus-halo`
-    (01-tokens), the `.ip-field` look: a half-blue edge and a soft 3px halo. It is never solid ink,
-    solid blue, a blue wash or an underline. A borderless field draws the edge as an inset ring
-    (`box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo)`). Where a box wraps a bare
-    input (a search pill), the BOX takes it (`:focus-within`) and the input wears nothing. (2) A
-    **sheet or dialog title** is `--sheet-title` (800/17). The page head's `--head-title` (19) is
-    for surfaces, so a sheet never out-shouts the page it opens over; a card head (Ebenen)
-    is that sheet title without a leading glyph. A **field label** is
-    `--field-label` (700/12) in `--ink-dim`, sentence case. (3) An **eyebrow**, the small
-    uppercase label over a section or a menu group, is `font: var(--eyebrow); letter-spacing:
-    var(--eyebrow-track); text-transform: uppercase` in `--ink-faint` (section heads such as
-    `.lgroup`, `.sym-ghead`). When the colour carries a
-    meaning (the amber Sicherungstrupp head, the red alarm kicker, a head that inherits its tone),
-    it keeps that colour and only takes the type. Badges, state words in a row, brand wordmarks
-    and the Kroki paper facsimile are not eyebrows. (4) A **warning inside a form** is THE global
-    `.form-warn` (13-incident, 29.09.2026; lifted from the Trupp form): a rounded `--r-sm` box, ink
-    text 13/700, the leading glyph in the tone over a 10% tint of it — `--warn-tone` red by
-    default, `.form-warn-amber` when it does not block; `.form-warn-text` for the sentence,
-    `.form-warn-act` for its one compact framed action in the tone (12.5/700, never 800, never
-    filled), `.form-warn-compact` for the one-line note under a field. The Rapport
-    Kontrolle/Zeiten, the QR-Bogen save error, Georef quality, Demo and the share sheet's note
-    under the address (`.esh-warn`, amber) wear it; a module class only places it. It is never a
-    full-width band, never red body text. A press on its sentence is the `--press` wash, never an
-    opacity drop. A QR is framed once: its white tile is the frame, no box around it.
-  - *Small roles – one look each (28.09.2026, owner: «remove contradicting UI»).*
-    (1) **Add** is a framed «+ word» button: 1px `--glass-edge`, `--surface`, ink 14/700, `--tap`
-    tall, the one corner — the `.cv-btn-add` look (13-incident). Dashed means «missing», never
-    «add»; the ONE dashed add is «Foto hinzufügen» (`.cv-beilagen-add`, `.report-att-add`,
-    decision D6 — it is the placeholder for a file). Icon-only where a column has no room (the
-    Schichten ＋), still a framed --tap square. Floating over a plan it keeps the glass, not the
-    shape (`.wb-floor-add`). Never a grey disc, a pill or a sub-44 tile.
-    (2) **Count badge**: 16px tall, min-width 16, 11px/800, `--r-xs`, padding 0 4px. Fill is the
-    meaning: ink (`--ink-fill` + `--on-accent-ink`) = a plain count, amber = open, red =
-    missing/alarm — NEVER the station `--accent`, never blue, never a round pill (`.nav-count`
-    in 05-navrail is the reference).
-    (3) **Disabled** = `opacity: var(--disabled)` + `cursor: default` and nothing else — no
-    repainted fill, no colour swap, no `not-allowed`, no inlined number (also not as a `var()`
-    fallback). **Gone** (a person who left, a Trupp raus, a layer off) = `opacity:
-    var(--done-opacity)` only; a strike-through may carry the word, a second dim may not. A
-    read-only control that is NOT unavailable (`opacity: 1` on purpose) says so in a comment.
-    (4) **Tag** (ÜBUNG, a status word): the `.ip-badge` recipe — 10px/700 uppercase .03em,
-    padding 2px 7px, `--r-xs`; ÜBUNG is amber 16% + `--amber-strong` wherever it stands (top bar,
-    lists, the poster's `.cv-badge-exercise` shares the selectors). Status words in a picker row
-    («AS», «raus» in the TruppFinder) are this tag in ink on `--fill-soft` — never blue (blue is
-    «chosen»), never a pill.
-    (5) **Search field** (29.09.2026): every «type to narrow this list» is `components/SearchField`
-    (`.ui-search`, 13-incident) — glyph · input · ✕ · optional count slot; the grey pill
-    (`--fill-soft`) that turns white on focus with the one field focus on the BOX, `--tap` tall,
-    the one corner, 16px text (iOS zooms into anything smaller). Its ✕ is a full `--tap` square
-    at the pill's end, shown only while there is something to clear, labelled «Suche leeren». A
-    surface PLACES it with its own class (flex, margin — `:where(.ui-search)` keeps the default at
-    zero specificity) and may add a STATE (the Trupp form's `.teamSearchWant`); it never re-skins
-    it. The one modifier is `variant="head"` (`.ui-search-head`): a card whose whole head IS the
-    search (TruppFinder) — no pill, 18/700 query. ONE ✕ (29.09.2026, owner): where the search's
-    own CLOSE ✕ stands beside the field and ends the search (the Verlauf's search row, the
-    TruppFinder), the field drops its inner ✕ — `noClear`, a prop, never CSS hiding; Escape still
-    closes. The Palette keeps both: its ✕ closes the whole «+» chooser, clearing only the query.
-    Never a bare native `type=search`, never a framed white box, never a ruled band.
-    (6) **ⓘ toggle**: `components/InfoToggle` (`.ui-info`) — the grey 36px chip with a 44px pad;
-    OPEN is `--sel-wash` + `--blue-strong` glyph (the «open/armed» look). Never the choice fill,
-    never the ink pill, never `--accent`. The dark tool docks keep DockInfo's on-ink ⓘ.
-    (7) **No hits**: one line, `.no-hits` (13/500 `--ink-faint`, centred, 20px pad, never italic),
-    worded `copy.noHits` «Keine Treffer für «{q}».»; a noun of its own only where it helps («Kein
-    Trupp gefunden»).
-    (8) **Fold**: every disclosure — a `<details>`, an accordion head, a notice that folds —
-    carries the global `<Icon id="chevron-down" className="chev" />`, turned by `aria-expanded` /
-    `details[open]` (02-base). Never an up/down icon swap, never a text ▸, never the UA marker
-    alone.
-    (9) **Filter on**: an active filter button is the choice fill (`--sel`) and nothing else — no
-    dot beside it (Anwesenheit/Mittel `.iconBtnOn`, the Verlauf funnel `.jr-filter-on`).
-    (10) **One glyph, one meaning, within a thumb's reach** (29.09.2026). «Eintrag» is the journal
-    pen (`lib/icons` · `#entry`, drawn inline by `EntryGlyph` on the FAB and the top bar's
-    Eintrag), never «+»: «+» means Hinzufügen only (the FAB stood 60px above the tool bar's «+
-    Hinzufügen» with the same glyph, and the tablet's Eintrag sat beside the rail's «+ Symbol»).
-    The top bar's Eintrag wears the FAB's material (`--float-bg` + `--float-edge`, ink), not a
-    blue slab, and keeps its word «Eintrag» until the LAST step of the top bar's ladder
-    (`HEAD_FIT_STEPS` · 'eintrag-word'). While the hold's chooser is up, the glyph gives way to
-    its drawn ✕ (both paths always in the DOM). «Trupp finden» wears `#trupp-find` (people with a
-    small lens — the owner's pick B, 29.09.2026; the flag in a reticle read as «ugly») on the Trupp tool's dock and in the finder's head — never the
-    `#search` lens, which a search tile wears.
-    (11) **Anwesend = the green tint, nothing else** (29.09.2026, owner pick B): no status dot, no
-    green border. Not colour alone: present rows are the ones with the Ort + Uhr buttons, gone
-    rows are `--done-opacity`, and the state word is in the row button's accessible name
-    (`.sr-only`). The filter menu shows each state as a small row swatch (plain · tint · dimmed),
-    the look the row has.
-  - *Colour of a mention is not a state* (29.09.2026, owner pick A): every recognised word in the
-    Verlauf – vehicle, partner, Trupp, person, material, group – is **bold `--ink`**
-    (`.jr-link`), and in the composer one blue wash / one blue suggestion tint
-    (`.jc-text-marks mark`, `.jc-phrase-link`). Red and amber are for alarms and warnings only; a
-    routine «Ausrücken TLF» in the station red read as the loudest row on a page that carries real
-    Atemschutz alarms. The composer's phrase chips wear the one corner (`--r-sm`), never a pill.
-  - *One green per surface that means «saved / alive»* (29.09.2026): the Einsatz menu card's green
-    is its «✓ Gespeichert» pill – no green stripe, no green fill, the other Einsätze' ages
-    `--ink-dim`.
-  - *A role or status TAG is neutral unless it IS a warning* (29.09.2026): the login roster's role
-    is the `.ip-badge` recipe in ink 10% for every role (red read as «something is wrong with
-    this account»). An Einsatz has ONE status tag, «Abgeschlossen» (29.09.2026, owner: «open is
-    the default state») — no «Offen», no «In Arbeit», in any list; the backend's two active
-    statuses are one state to the operator.
-- **Touch vocabulary – one beat, one buzz, one wash.** The primary devices are gloved tablets;
-  a new gesture reuses these or it teaches a second language. Any new touch interaction must:
-  - *Hold on the 350 ms beat* when the hold **reveals or offers** – the icon-only hold-tooltip
-    (`src/lib/holdTooltip.ts` · `HOLD_MS`) and the Eintrag hold (`src/lib/useHoldEntry.ts` ·
-    `HOLD_MS`) share it, so every still hold answers alike. The holds that are not «reveal» keep
-    their own documented numbers: `useHoldToDrag` arms a drag at 180 ms, `nodeHold.ts` arms at
-    250 ms and fires destructively at 825 ms. Reuse a constant; don't invent a third window.
-  - *Buzz on arm, and only on arm* – `buzz()` from `src/lib/haptics.ts`, always 12 ms, at the
-    moment a held gesture becomes something (tooltip appears, drag latches, chooser opens, magnet
-    dwell engages). Never on taps, successes or errors; never a pattern or a second duration
-    (`navigator.vibrate` is Android-only, so anything expressive is inaudible to half the fleet).
-    Older inline `navigator.vibrate?.(12)` sites (MapView/Whiteboard magnets, `nodeHold`) are the
-    same 12 ms – new call sites go through `buzz()`.
-  - *One hold ring, around the icon* – `HoldChargeRing` (`src/components/HoldTargets.tsx`, also
-    `NodeDeleteChip`), fed by `useTimedProgress` off the **same clock as the timer**. Never a CSS
-    keyframe: it drifts against the latch and, under `prefers-reduced-motion`, paints full on the
-    first frame while the timer still runs. The ring haloes the glyph – never strokes across a
-    label, and nothing may reflow under the finger mid-hold.
-  - *Pressed state is the `--press` wash* – `background-image: linear-gradient(var(--press),
-    var(--press))` on `:active:not(:disabled)`, so it composes over any background colour.
-    **Nothing moves**: no scale, no translate – motion on press reads as lag under a glove.
-  - *Hover is mouse-only* – every `:hover` rule sits inside `@media (hover: hover)` (app-wide
-    since 28.08.). A tap leaves `:hover` stuck on what it hit, which reads as a selection state
-    the surface does not have. `@media (pointer: coarse)` in `20-touch-floors.css` is the other
-    instrument: it grows a target, it does not style one.
-  - *A control whose press-and-hold IS its own gesture spreads `data-holdaction`* (the shared
-    hooks already do), so the global hold-tooltip never claims it and asking «what is this»
-    can never also do it. `useHoldRepeat`, `useHoldEntry`, `useNodeHold` and `useLongPress` return
-    the attribute WITH their handlers (08.10.2026): spread the props, and wrap `onPointerDown`
-    after the spread when a handle needs more. A bare `.press(…).onPointerDown(e)` call drops it
-    (the Plan's Messen nodes did, and popped «Gedrückt halten zum Löschen» mid-delete).
-  - *The Karte turns like Google Maps, and in no other way* (24.09.2026, `lib/mapTwist`): two
-    fingers pan and pinch freely, but the map only TURNS after a deliberate twist past
-    `TWIST_ENGAGE_DEG` (12°) from where the fingers came down — and, fingers close together
-    (gloves), past `TWIST_ENGAGE_ARC_PX` of travel along their circle. Once engaged the bearing
-    follows the fingers exactly (zoom alongside) until a finger lifts, without jumping by the
-    threshold. No snap-back: the old 6° `snapNorth` self-heal is gone, because nothing leaks into
-    the bearing any more and a deliberate turn stays; the compass's «Nach Norden» is the way
-    back. The gate replaces MapLibre's own rotate handler's `_start`/`_move`/`reset` and is
-    FAIL-CLOSED — internals not where MapLibre 4.7 keeps them ⇒ touch rotation off, never
-    un-gated (the test pins the shape). ⚠️ MapLibre's own 25 px-of-arc threshold is ~5° with
-    the fingers a hand apart, which every two-finger pan crosses: that is what turned the basemap
-    and plan overlay «when just scrolling» on an iPad (23.09.2026). Pitch stays off
-    (`maxPitch={0}`), mouse right-drag rotation is MapLibre's own. The Plan boards never rotate
-    under a gesture at all (`useBoardView` holds scale + pan only); a Gebäude turns only through
-    its orientation slider (`components/OrientSlider`), which commits on the input's NATIVE
-    `change` — the browser's own release, once per drag or keyboard step — never on `pointerup`;
-    a gesture that is CANCELLED (iOS: the touch became a scroll) or left live when the popover
-    closes drops its preview, unless a `change` still follows (then the browser did finish it).
-  - *One finger zooms the Plan like the Karte* (08.10.2026, `lib/tapDragZoom`): a **double tap**
-    zooms ×2 and **tap, then press-and-drag** zooms continuously (down = in, up = out, ×2 per
-    128 px) — MapLibre's own gestures and numbers (500 ms / 30 px), except that the drag zooms
-    about the FIRST tap instead of the screen centre. One pure state machine serves the boards
-    (`useBoardGestures`: selection tool only, presses on empty board only — objects swallow their
-    own; the second press never pans or deselects) and the PDF reader (`PdfScroller`: its double
-    tap still toggles fit ↔ 2×). Touch and pen only: a mouse has the wheel, and a double CLICK on
-    the board opens editors. The draw tools keep pinch only — on `.wb-ink` a double tap FINISHES
-    a Linie / Fläche. A second finger cancels the gesture and the pinch takes over.
-- **The phone's two bottom bars hold what 360px holds without scrolling** (18.09.2026) — five wide tiles at most, never a scrolling lane whose only cue is a fade.
-  - *Tool bar:* `Auswahl · + Hinzufügen · Messen · Ansichten · Ebenen` (Plan: `… · Einpassen`) —
-    five even tiles and NO hairline between the tools and the pinned controls. **«+» is the
-    one door to everything that is PUT ON the surface**: Linie · Fläche · Absperrkreis · Notiz ·
-    Trupp are the first section of its sheet (`components/Palette` · `tools`, `lib/toolFold`),
-    above the symbols and Formen, and search finds them by their word. «+» ALWAYS opens the sheet
-    — it never re-arms a remembered tool — and while a tool out of the sheet is armed the tile is
-    lit and wears that tool's glyph and word. Auswahl stays: it is the state, the one-tap way out,
-    and the door to Mehrfach (a two-member pair flips on the second tap; anything larger gets a
-    list, never a cycle). Add a tool that places something ⇒ add its id to `ADD_TOOLS`, in BOTH
-    spellings if the Karte and the Plan name it differently.
-  - *Every tile of a bar is ONE equal share* (03.10.2026, owner: «auswahl and messen is way
-    bigger than ansichten»). On a folded phone bar the tool lane and the pinned footer step aside
-    (`display: contents`, 15-mobile.css) so all tiles are items of the bar's own row, `flex: 1 1
-    0`, on its one 2px gap — never a percentage per wrapper: the old 60/40 split assumed three
-    tools, and the read-only set (Auswahl · Messen) stretched two tiles over 60%. A word longer
-    than its share ends in «…» inside its tile. The compass needle turns with the finger
-    (`lib/liveBearing`, like the wind arrow), not on release.
-  - *The compass lives in the BAR, beside Ebenen* (05.08.2026). It floated top-right on the map
-    for one day (18.09.) and came back: up there its menu opened half a screen from the thumb that
-    asked for it. «Mein Standort» is a row of that menu, not a tile of its own (also tried 18.09.).
-  - *Words under the glyphs by default on a phone* (29.09.2026, owner: «at least on mobile
-    default to "Wörter" so that all toolbars and views are always labelled»). The Einstellungen
-    «Beschriftung der Werkzeugleisten» (`lib/prefs · railLabels`) reads ON on a phone
-    (`railLabelsFor`, `PHONE_QUERY` at boot) and OFF on a tablet (the words widen the rails into
-    the map). It covers the nav bar (Karte · Pläne · Checkliste · Trupps · Einsatz) and the tool
-    bar of the Karte and of every Plan; the tool DOCKS (a tool's options) are not rails and stay
-    icon + ⓘ. A hand choice is marked (`railLabelsChosen`) and always wins; a stored 'off' without
-    the mark is the old default the app saved for everybody, not a choice.
-  - *«Einpassen» on a Plan is the bar's tile*; the top bar's twin (`TopBar · mapNav`) survives only
-    where there is no bar at all (viewer-only Modul, Gebäude pick surface, replay — 20.09.2026).
-  - *A plan opens with the WHOLE sheet between the bars* (sweep B8, 07.10.2026, owner option 1):
-    `lib/whiteboard · containFit` contains it in the canvas less the top bar (`TOP_INSET`), the
-    side rails (`sideInsets`) and the bottom-left chip row (`chipRowInset` — 76px on a tablet,
-    58px on a phone, where the row stands just above the tool bar; the Gebäude keeps
-    `STACK_CHIP_ROW`). The chips never cover the sheet's legend at fit, and «Einpassen» is scale 1
-    of the same box. The constants mirror the CSS like `TOP_INSET` does: move the chip row and
-    they move with it. (The Karte has no inset-aware fit to follow: its `fitBounds` takes a flat
-    padding.)
-  - *The FAB follows the THEME, not `--btn-primary`*: it wears the floating family's glass
-    (26.09.2026 — the white surface by day and a raised `--ink-fill` at night until then made it
-    the one piece of the bottom row in a colour of its own). `--btn-primary` inverts at night so a
-    form's one action has an edge against its sheet; the FAB sits on no sheet, and inverted it was
-    the one pale disc in a dark cab. Its
-    hold OPENS a chooser (Sprachnotiz · Foto) that STAYS until one is tapped; the button is its ✕
-    and a press elsewhere closes it (`useHoldEntry`, 21.09.2026). It was slide-and-release, which
-    «Foto» cannot be on an iPhone: WebKit opens a file picker only for a real TAP, refuses a slid
-    touch silently, and `navigator.userActivation.isActive` reads true while it does — two rounds
-    of detecting the refusal ended in one chooser with two grammars. Do not bring the slide back.
-    A tap on the FAB
-    commits the composer with `flushSync` INSIDE the click and the textarea focuses itself as it
-    attaches (`JournalComposer · attachText`): React otherwise commits a microtask later, and iOS
-    gives a focus made outside the tap a caret and no keys.
-  - *A docked tab strip is RESERVED by a sum of tokens, never a number* (30.09.2026, owner: «the
-    journal entry slightly overlaps with the selector below»): `--rp-tabs-safe` (15-mobile) is the
-    strip's height — `--tap` + the `.useg` track's 3px + `--bar-pad` + 1px edge, top and bottom —
-    plus its 6px channel. A literal 60px outlived a 4px shell padding and stood the FAB, the
-    message lane, «Zurück zum Rapport» and the page's foot 10px low.
-  - *ONE page-title size*: `--head-title` is 17px on a phone, set as the TOKEN in `15-mobile.css`
-    — never a per-surface `font-size` on the `<h2>`, which is how «Einsatzrapport» came to stand
-    19px beside «Anwesenheit» at 17. The Rapport's head carries the title and what is still open;
-    the «n Personen · m Positionen» line under it is gone (19.09.2026).
-  - *ONE page head, ONE ROW* (28.09.2026, owner: «fix the headers, especially the one from the
-    trupps, which occupies way too much vertical space … as much space for the actual content as
-    possible»). Trupps (the Atemschutz-Link board too), Anwesenheit, Material, Checkliste and
-    Rapport wear one shape at every width ≥ 360: the titles block left — the `<h2>` and AT MOST
-    one quiet line under it («✓ Gespeichert», the counts, the Checkliste's subtitle) — the tiles
-    right, centred on each other; `--tap` + `--head-pad-y` above and below (60px on a phone, 68
-    above; Surface.module.css · `.head`, tokens · `--head-*`). What does not fit gives up WORDS,
-    MEASURED, never per breakpoint (`lib/pageHeadFit` · `usePageHeadFit`, on the top bar's
-    `climbLadder`): (1) the quiet line's time («Gespeichert um 23:21» → «Gespeichert»), (2) each
-    tile's word, lowest priority first — the glyph stays, the word is already its aria-label/title
-    so the hold-tooltip says it, a count stays with its glyph («⚠ 4»), (3) the one primary tile
-    shortens («+ Trupp anmelden» → «+ Trupp»; it keeps its word and its fill), then a head's own
-    last words (the quiet «✓ Gespeichert» keeps its ✓ — a LOUD sync state never folds; the
-    Rapport's title says the nav's «Rapport»), and only as the LAST resort (≤ 359px, a locale that
-    cannot fit) the tiles take a second row (`data-fit-wrap`). Each head states its ladder where
-    its tiles are drawn — `data-fold="<rank>"` on the part, `.fold-long` / `.fold-short` inside
-    it (`HEAD_FOLD` in AtemschutzView / AnwesenheitView, `RP_FOLD` in ReportPreflight); text that
-    must never be cut wears `data-fit-check`, and every `<h2>` is checked. A new tile takes a rank
-    in that ladder — never a `useIsPhone` word switch, never a `@media` that drops a label, never
-    a row of its own. The 27.09. «Trupps head: the title line, then the tile row under it» (a
-    121px phone head, 190 on the 820 tablet with «+ Trupp anmelden» wrapped to a third row) is
-    superseded, and so is «icons below 1080px» on the Rapport. The one tile family stays:
-    `.headTile` (Atemschutz.module.css) / `.head-tile` (13-incident.css).
-  - *A head's quiet line is said WHOLE or not at all* (30.09.2026): free text there (the
-    Checkliste's subtitle) wears `data-fit-check` and the ladder's FIRST rank, so it folds away
-    whole before the tiles give up words — never «Aktions-Checkliste Fü…». On a phone the
-    Checkliste runner shows no head row at all: the chooser row names the list and carries its
-    «n/m» at the right. **No progress bar anywhere in an open checklist** (05.10.2026, owner: «the
-    checklists don't need a progress indicator. Occupies too much space») — the count is the
-    progress: «n/m erledigt» in the tablet head, «n/m» in the narrow chooser row and on each phase
-    head; no bar, no percentage. The chooser row leads with the list's rail glyph, never a 🔍.
-  - *No card inside the page card* (30.09.2026, owner: «in the rapport we have double stacked
-    cards on mobile»). A surface's sections sit ON the page card: no frame, no fill, the content
-    at the head's inset, a `--glass-edge` hairline over each section with its eyebrow (or its
-    round-up row's title) as the head, and no hairline over the first one under the head's edge.
-    The Rapport does this wherever it is ONE column (< 1080px — phone and portrait tablet; on a
-    phone per tab, `13-incident.css`), the Checkliste on a phone; the Rapport's two-column layout
-    (1080+) keeps its cards, which face each other across the page. Rows in a list (Material,
-    Anwesenheit, checklist items) are not sections and stay rows.
-  - *Mobile space and positioning* (01.10.2026): the Zeitplan's empty-grid ⓘ shares its clock
-    header instead of reserving a footer row, using the header's surface and control edge.
-    The Rapport's «noch offen» popup hugs its content, with only its maximum height bounded to
-    one gap above Eintrag. «Anderes Objekt» has a bounded scrolling list above its map (36dvh,
-    capped at 300px) and shows
-    the device's position; while typing, the map yields its space to the results. The opened
-    Trupp is parked again when «Im Einsatz» moves it to another section, by scrolling its own
-    port. The mobile Einsatz form answers «Übung?» with «Nein | Ja»; wider forms keep «Aus | An».
-  - *The Zeitplan's zoom lives in the grid's corner on a phone* (30.09.2026, owner: «the +/- 12h
-    thing … uses up a lot of vertical space»): on a phone it stands in the clock row's empty
-    corner over the names (`ZeitplanView · zoom`, the row grows to a lane's 44px and the hours sit
-    at its foot); a tablet keeps it at the end of the search line. Never a row of its own.
-  - *The Zeitplan opens FITTED* (sweep B5, 07.10.2026, owner option 1): the Einsatz so far + 1 h,
-    at least 2 h, from the alarm (never before it), filling the visible width (`lib/shifts ·
-    fitSpan`; the read-out says e.g. «3.5 h»). «Jetzt» lands at ~¾ once the Einsatz has run ~3 h;
-    a 10 h Einsatz opens on ~11 h. A fitted window wider than the screen opens scrolled with
-    «Jetzt» at ¾ of the lanes (`fitScrollLeft`). The zoom steps from the fitted length to the next
-    ladder stop (`nextHorizon`). ⚠️ The Zeitraum is NEVER stored (not per device, not per
-    Einsatz): every open starts fitted, and a picked zoom lasts while the Zeitplan stays on screen.
-    A stored zoom reopened later Einsätze on an empty grid, and leaving the view is the way back
-    to the fit, so no button is needed for it. Hour labels are spaced on the track's MEASURED
-    width, and the JETZT flag reads into the larger side of the axis.
-  - *A monogram chip keeps its HEIGHT; the text steps down and the box hugs what is left*
-    (`data-mono-len` on the chip; the rail's tiles and the `GroupChooser` rows each restate the
-    steps) — the same chip on a phone as on a wide screen. A fixed square was tried and cannot
-    work: «RWA» in Sora 800 is 25.5px at 10px, against a 27px inner box (19.09.2026). The
-    chooser's glyph column is 44px, the widest chip, so every row's name starts on one line —
-    and the EXPANDED rail's column does the same (22.09.2026): the rail stamps its longest
-    monogram on itself (`data-mono-max`) and the column is 26 · 28 · 38px for a digit · «PV» ·
-    «RWA», one width for every row, so no label steps out of line and no chip is clipped.
-  - *The Verlauf's head stays while searching* (22.09.2026): the field sits UNDER title · ⓘ ·
-    lens · Replay · ✕, in the row the timeline strip vacates, with its own ✕; the lens is lit and
-    closes it. The field used to REPLACE the head, and the drawer then no longer said what it was.
-    The funnel beside the lens (23.09.2026, `lib/journalFilter`) filters by the row's ONE Bereich —
-    `journalArea`/`journalDisc`'s own words, no taxonomy of its own — as a checkbox `Menu`
-    («Art des Eintrags» · «Bereich», with counts); ticks OR, and AND with the search. Lit (the
-    choice fill, no dot — «Filter on», below) while on, one «Gefiltert: … · Alle zeigen» line under the head, the timeline strip hidden as
-    during a search. Per-opening like the search, never stored; it narrows the list only — the
-    Wiedergabe always plays the whole picture. The pinned Pendenzen block is part of the list it
-    narrows (24.09.2026, `journalFilter · showsPinnedPendenzen`): hidden while a filter is on
-    that leaves «Pendenz» unticked, back once «Pendenz» is ticked or the filter is cleared.
-  - *The rail's key badges (K · C · A …) show only while ⌘ / Ctrl / Alt is held* (22.09.2026,
-    `lib/useModifierHeld` → `data-keys` on the rail): standing on every icon they read as status
-    marks in the corner the alarm dot uses, and they are wanted at exactly the moment the
-    modifier marks.
-  - *A head's icon buttons carry their word wherever it fits* (22.09.2026): «Reihenfolge ·
-    Überwachung abgeben · Alarmton» on the Trupps head — MEASURED since 28.09.2026 (the page head's
-    ladder above; the `.wordBtn`/`useIsPhone` switch there is gone), so a phone that has room shows
-    them and a tablet that has none folds them. The search line's «In Verwendung · Filtern ·
-    Anderes Material» (`SurfaceControls.module.css · .wordBtn`) is not a page head and keeps its
-    `useIsPhone` switch. A bare square's way of asking is the hold-tooltip. The bell's word is its
-    honest STATE (Alarmton / Stumm / Ton freigeben).
-  - *A checklist item that writes to the Verlauf says so on its row* («⚑ wird im Verlauf
-    notiert», `checklists.milestoneTag`, 22.09.2026) — the lone flag's meaning lived in a tooltip
-    no tablet shows.
-  - *Nav bar:* «Pläne» and «Einsatz» each stand for a group: a tap goes to the last-used member,
-    a second tap or a hold opens the ONE list (`components/GroupChooser`), and «Plan wählen» opens
-    unasked the first time the tile is used in an Einsatz, once per device (`lib/chooserOffer`).
-    Both wear the corner mark (`.nav-grp`; `.vrail-grp` on the two-state Auswahl).
-    ⚠️ The «Einsatz» tile's badge is what the Rapport still has OPEN, in amber (26.09.2026, owner:
-    «why is there 3 in the bottom when 6 are open?» — it was the head count). ONE number from ONE
-    derivation: `lib/abschluss · abschlussFacts` → `missingSteps`, read by the Rapport's «⚠ n noch
-    offen» chip and — through `useAbschluss`, which now counts the unsettled Abweichungen too — by
-    the badge, the chooser's Rapport row (in the chip's words, `controlChipLabel`), the Abschluss
-    confirm and the archive count (`rapportOneCount.test.tsx`). The head count lives on the
-    chooser's Anwesenheit row.
-  - Every BAR stacked above the nav bar keeps ONE 6px channel (`--rail-h + 14px`: the tool bar,
-    `.rp-tabs`, the page card in `Surface.module.css`); the floating row above the bars keeps the
-    family's `--float-gap` (8px) — the gap its pieces keep from each other and from the edge.
-  - Tried and thrown out the same day, so nobody rebuilds them: a «Zeichnen» tile with a flyout, the
-    same tile opening the GroupChooser behind a last-used first tap, and a «Karte» tile folding
-    Ansichten + Ebenen. The vertical rails (tablet/desktop) are unchanged throughout.
-- **The Atemschutz phone board of the full app** (`AtemschutzView · phoneMode` = phone and not the
-  handed-over Tafel; PR #212 and its follow-up, 24./25.09.2026, Übung 23.09.): sections Drin ·
-  Sicherungstrupp · Bereit · Draussen, «Drin» by urgency with the 2 s freeze, «Druck | Kontakt»
-  with words, one `PressureSheet`. The tablet grid and the Tafel are NOT this board, except where
-  a rule below says «every board» — their CARD is (see «The opened card …»). The rules:
-  - *The opened card is the row grown downwards* (owner, staging 26.09.2026): the same frame and
-    tone, the same line (`RowLine`: dot · name · clock) and the same «Druck 240 bar | Kontakt» pair
-    (`TruppPair`) in the same place, collapsed or open, in every tier — opening only ADDS the
-    Kennzeile (the tier in words where there is one; the ⋯ at its end), the note,
-    Rückzug / Raus, the Sockel line and the Verlauf. No band, no second Kontakt, no Druck row. The
-    whole first line is the collapse toggle. ONE card on every board since 29.09.2026 (owner:
-    «assimilate the tablet / desktop view closer / equal to the mobile view»): the tablet grid, the
-    desktop and the handed-over Tafel (grid and phone focus) wear this same card — line · 2×2
-    tiles · state words · note · fact chips · one terse foot that ENDS with the ⋯ (29.09.2026, owner
-    pick B — as the facts' last chip it wrapped onto a 44px row of its own). What differs is only
-    what the board has room for: on the grid every card stands open (the line is not a toggle, no
-    chevron), the hand-set order keeps its ‹ › in the ⋯, and a card on a board without state heads
-    (grid, Tafel — `headed` false) says «Bereit» in its state line, which on the phone is the
-    section head. The state line never says what the card's colour already says (29.09.2026,
-    owner: «drop the überfällig – if the card is red it's pretty obvious»; «the draussen subtitle
-    is probably not even required»): fällig / überfällig live on for a screen reader only
-    (`.sr-only`), and an out Trupp's card carries no «Draussen» — it keeps the words colour cannot
-    carry (the Alarmdruck with its limit, the stopped clock, «Nicht eingesetzt», «Bereit», a work
-    squad's state). The Druck is the pressure tile → `PressureSheet` everywhere; the
-    tablet's ± stepper with «Bestätigen», the band with the 40px clock, the tablet's grey
-    Kennzeile with its blue Auftrag, the top status edge and the «Verlauf · zuletzt: … Druck 300
-    bar» preview are gone — do not bring any of them back for the tablet. The focus Tafel's one
-    card shows the line's clock at 34px.
-  - *The Schätzung stays readable on the card's foot* (29.09.2026, owner: «we still need the
-    schätzung clearly visible»): the terse foot keeps its word and full ink — «1 d 11 h ·
-    Schätzung ≈ 0 bar ⌄» — and the word, not a dimmed grey, is what keeps it from being read as a
-    logged Druck. Its alarm case is the note under the tiles in the ONE form-warning look (ink
-    13/700, ⚠ in `--red-strong`, 10% red tint, no border), never red text in a red box.
-  - *Rückzug and Raus are equal tiles on every board* (29.09.2026): both framed grey, «Rückzug»
-    amber only at or under the Trupp's Alarmdruck (`.actAlarm`). A permanently amber «Rückzug
-    melden» says «warning» about a Trupp at 300 bar.
-  - *A Trupps section head* (Drin · Sicherungstrupp · Bereit · Draussen, and the grid's
-    Atemschutz / Weitere Trupps) is the eyebrow and the count badge — no hairline rule to the
-    edge (29.09.2026); the boundary is the air above the head — ONE number, 26px (`.sectSecond`),
-    and on the phone board ONE adjacency rule gives it to every section after the first, the
-    Sicherungstrupp zone included (`.phoneBoard > * + :is(.sect, .safetyZone)`, 30.09.2026:
-    Sicherungstrupp and Draussen sat flush on the card above). A head keeps 12px to its first
-    card. Never give a section its own top/bottom margins.
-  - *A NEW Trupp is led by its most senior member until somebody is crowned by hand* (30.09.2026,
-    `lib/truppLeader`): while «Trupp anmelden» is open and no name was tapped/held, every add or
-    removal puts the highest Dienstgrad (`lib/rank · rankOrder`) in front; ties and rankless crews
-    (Gäste) keep the order they were picked in. A tap on a name ends it for that form (kept with
-    the draft). An edit, a re-entry and the Mannschaft sheet never move the leader — a crew
-    somebody joins later keeps the one the radio knows. `TruppTeam · onChange` says which move it
-    made (`'add' | 'remove' | 'lead'`). The keyboard-up Trupp form buys back VERTICAL air only:
-    body, footer and blocked line keep the sheet's 20px side gutter.
-  - *The handed-over Tafel's strip (focus mode)*: the chosen Trupp tab is the nav's ink pill
-    (`--ink-fill` / `--on-accent-ink`, 29.09.2026), never an outline ring; on a red or amber tab
-    the fill wins (the card shows the tier). The add cell reads «+ Trupp» — a full cell has room
-    for the word.
-  - *One red door per alarm on screen* (29.09.2026): the TopBar's Atemschutz chip hides while its
-    alarm already has a door on screen — on the Trupps page (the head's «⚠ n» badge) and wherever
-    the Meldeleiste shows a row naming the chip's Trupp for the chip's reason
-    (`AtemschutzAlarmMeldung · azChipRedundant`, fed by `onShown`). It comes back the moment «Zum
-    Trupp» takes that row down, and the amber «Kontakt fällig» chip never hides (it has no row and
-    no badge). The top bar's `useHeadFit` key counts the chip only while it is drawn. Never hide
-    it with CSS `:has(...)`.
-  - *The four mini sheets are one sheet* (29.09.2026): Druck · Kanal · Auftrag · Mannschaft are
-    `TruppSheets · MiniSheet` — a bottom sheet with the grab bar and the swipe on a phone, a
-    centred card on a tablet — with ONE head: the title is the QUESTION («Druck», «Restdruck» at
-    «Raus melden», «Kanal», «Auftrag», «Mannschaft»), the line under it is whose
-    (`truppSheetSub`: «Keller Laura · Trupp 3»). A field label that repeats the title goes. The
-    hint under a pad/grid says what a tap does and never repeats a value the grid already marks
-    (no «Zuletzt 240 bar» beside the ringed 240). A new per-Trupp quick sheet uses `MiniSheet`.
-  - *A door answers the same question the same way* (29.09.2026): the Trupp form and the Auftrag
-    sheet share their Ziel and Leitung controls — `ZielChips` under the Ziel field for EVERY
-    Auftrag, and `TruppSheets · LeitungField` («keine · Ltg n · Nr. …»). Ziel chips are
-    SHORTCUTS: a pick fills the field and the chip is never drawn as chosen (no `aria-pressed`, no
-    `--sel`); the field holds the answer.
-  - *The form asks Druck and Kanal in the sheets that ask them on the card* (30.09.2026, owner):
-    one row each in every mode, «Eingangsdruck 300 bar ›» / «Funkkanal 11 ›», opening the Druck
-    sheet (20-bar grid, the form's value filled — `PressureSheet · chosen`) or the Kanal sheet
-    (`KanalPickSheet`, pad, or the ± stepper with tap-to-type and «Übernehmen» for a range too
-    wide for keys). A tap fills the draft and closes; nothing is written until the form's save.
-    The sheets are NESTED in the form's popup (their host stops pointerdown so the form's swipe
-    does not move with them); Escape closes the sheet, never the form. The grid and the pad never
-    sit inline in the form, and the «Standard: … — Ändern» fold is gone. The low-Eingangsdruck
-    «Ändern» opens the Druck sheet; the lock after the Austritt and «Gleiche / Neue Flasche» are
-    unchanged. The form's ± steppers are gone — do not bring them back.
-  - *The Trupp form is a bottom sheet there, with the due clocks above it* (D1 ⑥): at most two
-    due/overdue Trupps, most urgent first, each with a live «Kontakt» that confirms without
-    leaving the form. The pinned set holds 2 s after a tap and the row just confirmed reads
-    «✓ Bestätigt», disabled — it stays under the finger. The rows sit INSIDE the popup (under the
-    scrim they would be outside presses). Grab bar + swipe-to-close, which is «not now».
-  - *A kept draft belongs to ONE state of the Trupp* (`draftKeep`, every width): only «Abbrechen»
-    and a save the board CONFIRMED drop it (a «Zurück» on any question in front of the save
-    returns to a filled form), but an edit / re-entry draft is keyed on the Trupp as the form
-    opened it (sortie + every field the form writes, `truppDraftStamp`) — a new sortie, or a
-    Leitung linked on the Karte meanwhile, opens a fresh form. «Gleiche / Neue Flasche» is never
-    kept. A door that answers a field (`presetAuftrag`: «Bestimmen» → «Sichern») beats a draft.
-  - *An edit is a PATCH* (every width, 25.09.2026): only the field groups the form touched
-    (`truppFieldGroupsChanged` against the form's own untouched values) are written, onto the
-    Trupp as it stands NOW (`truppEditPatch`); a touched group another device changed since the
-    form opened is said in one line first, «Zurück zum Formular» focused. A Gast typed into the
-    form reaches the Anwesenheit only at the save (`fileGuests`, after every question) — never
-    from the picker, and Enter in «Person suchen» only takes a listed person.
-  - *Every Kontakt tap is ONE Kontakt*: a repeat on the same Trupp from this device within 3 s
-    writes nothing (`contactEcho · recentOwnContact`, in `recordContact`, so every board). The
-    first Druck within 3 min of the Eintritt replaces an Eingangsdruck NOBODY SET (the log's
-    run-start row carries `measured` when the form's value was dialled, a bottle answered, a low
-    value confirmed or a correction made — `entryPressureConfirmed`) and is still a Kontakt:
-    clock reset, `contact` row, one Verlauf row that says both; the sheet says so in words.
-  - *The Sicherungstrupp has ONE place* (D1 ⑦): between Drin and the rest while anybody is in or
-    waiting — a quiet dashed slot while nobody is inside, amber from the first crew in, gone once
-    every Trupp is out. «Bestimmen» = a waiting Trupp's Auftrag becomes «Sichern» (an ordinary
-    edit) or a new one registered on «Sichern». Its first Eintritt writes «Sicherungstrupp
-    eingesetzt». The Abschluss (every width) asks about every Atemschutz-Trupp still angemeldet
-    that was never inside (a Reserve after earlier sorties was — read the log, `entryTime` is
-    cleared on a re-park): «Zur Tafel» (focused) / «Als «nicht eingesetzt» schliessen». Not while
-    a crew is still inside, and the stand-down runs only after the FINAL «Abschliessen», re-checked
-    against the Trupps as they stand then — a crew sent in meanwhile never gets an Austritt.
-    Crews still INSIDE are the Abschluss's own FIRST question, by name («2 Trupps sind noch drin:
-    Trupp 1 (…), Trupp 2 (…).»), «Zur Tafel» focused, closing anyway the quiet answer — and after
-    the Abschluss the app lands on the LAUNCHER (App · completeRapport, 05.10.2026), never opens
-    another: the closed Einsatz is forgotten on the device and `prefs.landedAt` keeps a cold start
-    on the launcher too, until one is opened by hand or a NEWER alarm arrives (pickBootIncident).
-    A Sicherungstrupp wears «SiTr» on its row and card at every width, sent in or not.
-  - *The record is kept whole* (staging walk-through r2, 25.09.2026): the Gäste the form files at
-    its save are filed QUIETLY and named once in the crew's «Unter AS: …» row — the crew filing
-    knows them (`IncidentWorkspace · fileTruppGuest`) instead of reading a render-old Anwesenheit
-    and filing them again. A session that cannot write the record (the Atemschutz-Link) files and
-    logs nothing; every device that can OBSERVES the Trupps and files a missing crew under derived
-    ids (`lib/crewFiling`) — ONCE per (Trupp, person): the Trupp's `crewFiled` marker (grow-only,
-    merged as a union, kept by every undo restore) records who was filed or already there, so a
-    person somebody takes OFF the Anwesenheit is never written back by another device (the
-    ghost-trail trap). «Entfernen» on a crew INSIDE asks first («Raus melden» focused), and
-    every removal raises the confirm-with-undo toast. «Nicht eingesetzt» is a VISIBLE quiet button
-    on its own row — never beside «Im Einsatz», not hidden in the ⋮ (owner review 26.09.2026) —
-    answered by a confirm-with-undo toast, and its log row reads «Nicht eingesetzt», never
-    «Austritt». A question dialog of the Tafel has a TITLE that states the fact, at most one short
-    body line, and the verbs on its buttons (recognition over reading, same review).
-    No «#N» on the row or the card (30.09.2026, owner: «the group leader name needs more space …
-    drop the number #»): the leader's name is the label, a step larger (17.5px, 16.5 ≤ 760px) with
-    12px to the clock; the number stays in the TruppFinder and the Verlauf. The handed-over phone board opens on the most
-    urgent crew inside; the Eintrag FAB is not drawn over the phone Trupps page (a floating button
-    over a scrolling list of Kontakt buttons cannot be kept clear by an inset).
-  - *A Kontakt another device confirmed < 60 s ago asks* (D1 ⑧a, `lib/contactEcho`) — on EVERY
-    board, tablet grid and handed-over Tafel included: it guards the act, not a layout. A
-    confirmation this JS realm did not write is «anderes Gerät» — no device names; a stamp more
-    than 5 s in the future (a skewed device) is not an echo. «OK» is the filled, focused default;
-    it and every dismissal write nothing. «Überwachung abgeben makes the giver read-only» (⑧b)
-    was DECIDED AGAINST (25.09.2026) — do not build it.
-  - *The Eingangsdruck is guarded, once* (item 2, every width): locked in «Bearbeiten» once the
-    Trupp is raus (pointing at the exit's Restdruck); below `doctrine.entryPressureMin` (default
-    270, `/admin › Doktrin`) the form asks ONE question with the value on the button and «Ändern»
-    focused. No upper bound, no second plausibility rule.
-  A question whose «yes» WRITES something a reflex must not (these three) puts the safe answer
-  first: `ConfirmSpec · safeAnswer` ('cancel' | 'alt') fills and focuses it, not red. Every
-  question MOUNTS FRESH (`Overlays` keys the card per request, staging r3 F5): a chain answered
-  and re-asked in one render batch kept the node, and the focus of the «Trotzdem abschliessen»
-  just tapped stood on the next question's same button — Enter closed through «vermisst».
-  - *One act, one ↶* (staging r3 F1): a Trupp save — create, edit, re-entry — is ONE timeline
-    step with the Gäste it files and the Funktion it writes (`undoTimeline · group`,
-    `IncidentWorkspace · openTruppSave`, the save's Anwesenheit writes folded into one slice
-    step). ↶ reads «Trupp N … angemeldet» and takes the Trupp and its filing back together.
-  - *Closing over a crew inside is said* (staging r3 F4): the final «Trotzdem abschliessen»
-    writes «Trupp N (…) beim Abschluss noch drin» per crew and no Austritt; the Rapport ends
-    that sortie at the close with the same words while the Einsatz is closed.
-  - *No page is ever under the Meldeleiste* (staging r3 + r4 W1): every full page (the shared
-    shell — Tafel, Anwesenheit, Mittel, Checklisten, Rapport) starts below the strip
-    (`--ml-h` → `--ml-push`, Surface.module.css); only the Karte and the plans let it float over
-    the map. On the Tafel the strip also folds to its most urgent row plus a count (`.az-tafel`);
-    everywhere else every row stays open. Everything the top bar opens paints OVER the strip: the
-    strip portals into the open Einsatz's `.app` (`lib/meldeleisteHost`, staging r5 N3), because
-    `.app` is its own stacking context and from App root the strip outranked all of it.
-  - *Merges compare JSON, not key order* (staging r3 F11): the server's JSONB re-sorts keys, so
-    `mergeWorkspace · eq` ignores key order; an Anwesenheit divergence is reported only when the
-    sides differ in more than `noteAt`.
-- **Time-based alerts** (Atemschutz clock, reminders) go through the shared `src/lib/alarm.ts`
-  layer, not ad-hoc timers. Delivery: foreground tone/wake-lock + service-worker notification,
-  plus – once the deployment sets VAPID keys (`app.gen_vapid`) – server-side Web Push for
-  killed apps: `backend/app/push.py` re-derives due-ness from the synced data (no mirror
-  API) and also pushes «Neuer Einsatz» when a new Divera alarm lands in the pool. Fail-closed:
-  no keys → `/api/push/vapid-key` serves `null` and no sweep runs.
-- **The shared clock (`lib/serverClock`) learns only from answers that cannot have come out of a
-  cache** (24.09.2026, Feueralarm root cause B). Every Verlauf `at`, every Atemschutz stamp and
-  every contact clock counts in `serverNow()`, which is taught by `X-Server-Time` — and a
-  service-worker-cached response carries the header of the day it was stored: a three-day-old
-  alignments answer stamped «Atemschutz-Alarm beendet» on 20.09. for an act on 23.09. So:
-  `api · rawFetch` samples only `isFreshSampleSource` paths (never `/api/reference/…` or
-  `/api/media/…`, never a fetch allowed to read the HTTP cache), and the estimator moves the
-  clock FORWARD on one answer but BACKWARD only when two answers ≥ 2 s apart agree (a correction
-  ≤ 2 s pauses the clock instead of stepping it back; a device clock set back is followed via the
-  monotonic clock, so `serverNow()` stays put). A new caching Workbox route under `/api/` ⇒ extend
-  `SW_CACHED_API_PREFIXES` (the `serverClock.test` tripwire reads `vite.config.ts`). Live state
-  under `/api/reference/` (the plan alignments) is `NetworkOnly` in the SW; its offline copy is
-  IndexedDB.
-
-## Working in this repo
-
-- **Committing straight to `main` is fine (no PR ceremony).** But only commit+push
-  *immediately* when the user needs the change on production to test it right now; otherwise
-  **batch related changes and commit once the chunk of work is done** (a coherent unit), rather
-  than after every small edit. The user tests on production, so a needed-for-testing change
-  still ships promptly – just don't pepper `main` with partial commits.
-- **An idea that should not reach the station yet goes to staging, not `main`.** Push it to the
-  `staging` branch; it deploys to the Railway `staging` environment
-  (`https://kp-front-staging.up.railway.app`, a separate PWA on prod's data, with push and
-  webhooks cut). `just staging-refresh` re-copies prod into it and overwrites whatever was tested
-  there. Pass `--environment` explicitly to every `railway` command: the checkout is linked to
-  `production`. See `docs/DEPLOYMENT.md` §3a.
-- **The user keeps uncommitted WIP and commits in parallel.** Never `git add -A` / `git commit
-  -a`; stage only the specific files you changed, and don't assume the tree is clean.
-- **Verification before prod (the CI gate).** Prod deploys from `main`, so a red `main` reaches
-  the field. The standing flow for any non-urgent change: develop on a branch, push, let
-  `ci.yml` go **fully green**, *then* merge – never merge a red branch. `ci.yml` runs three gate
-  jobs: *Frontend (tsc + build)* – eslint + `tsc --noEmit` + vitest + `vite build`; *Backend
-  (ruff + alembic + pytest)*; *Image (hadolint + build + smoke)* – builds & boots the real
-  production container and drives the Playwright e2e against it: the white-screen smoke
-  (`e2e/smoke.spec.ts`) and the field scenario of the Übung on 23.09.2026
-  (`e2e/field-scenario.spec.ts`: a parked vehicle sending GPS, a coupled Leitung, a tapped Trupp,
-  and then three devices on one login). ⚠️ **Every e2e test fails when the app reports a client
-  error or a render storm** (`e2e/guard.ts`, 24.09.2026). A spec imports `test` from
-  `e2e/helpers`, never from `@playwright/test` (eslint enforces it). A report a test provokes on
-  purpose is listed with `expectedClientErrors`; nothing turns the guard off (`e2e/README.md`).
-  An **urgent prod hotfix** may still go straight to `main` (see the commit bullets / the 3am
-  tenet) – but run `pnpm lint && pnpm test` (and ideally `pnpm build`) locally first. For
-  interactive changes a unit test can't cover, use `/code-review` on the diff and `/verify` to
-  drive the real app. Keep the house rule: every new mutating feature ships with a `src/lib` test.
-- **The gate is server-enforced.** Branch protection on `main` requires four checks to pass
-  before a merge: *Frontend (tsc + build)*, *Backend (ruff + alembic + pytest)*, *Image
-  (hadolint + build + smoke)*, and *Secrets (gitleaks)*. `enforce_admins` is **off** on purpose,
-  so a 3am hotfix can still bypass it – that is the only intended bypass, not a routine one.
-- **Releases are for other stations, not for us.** Prod + demo deploy continuously from `main`;
-  a `v*` tag exists so a self-hoster can pull a known image. The number answers *what does this
-  update cost the operator* – PATCH = fixes, MINOR = features + automatic migrations, MAJOR =
-  operator action required (table at the top of `CHANGELOG.md`). Cutting one:
-  `just changelog` (git-cliff draft) → curate into `[Unreleased]` → `just release X.Y.Z` (bumps
-  `package.json`, `backend/pyproject.toml`, `backend/app/config.py`, opens the CHANGELOG section;
-  a pytest fails if those three ever drift) → `just release-tag X.Y.Z` → `git push --follow-tags`,
-  which runs the CI gate and publishes `ghcr.io/feuerwehr-oberwil/kp-front:{X.Y.Z,X.Y,latest}`
-  plus a GitHub Release whose body is the committed CHANGELOG section. `docker-compose.yml`
-  **pulls** that image by default (`KP_FRONT_TAG`); building from source is the commented path.
-- Replace files in place – no `_v2` / `-new` / `-fixed` variants.
-- Match the surrounding code's style, naming, and comment density.
-- When writing docs, convert relative dates to absolute.
+- **Coordinates are WGS84 `[lng, lat]` wherever the map renders.** LV95 only at the edges via
+  `src/lib/geo.ts` (`wgs84ToLV95` / `lv95ToWgs84` / `fmtLV95`), the `centerLv95` config option,
+  and the geocoder bbox. Reference-layer GeoJSON (hydrants, …) must be WGS84.
+- **Roles:** three incident roles – `editor` (FU), `el` (Einsatzleiter: reads everything,
+  writes only the record) and `viewer` – plus the Atemschutz-Link; deployment administration is
+  separate, behind `ADMIN_SECRET`, and fail-closed. A door the role cannot go through is not
+  drawn. The full model, the link rules and the allowlists:
+  [`docs/roles-and-access.md`](docs/roles-and-access.md).
+- **Objektbesuche live beside the Einsatz, never inside it** – the module's contract and the
+  rules that are easy to break are [`docs/object-visits.md`](docs/object-visits.md).
 
 ## Documentation map
 
@@ -2229,6 +396,25 @@ to prod.
   as exact commands. It names the four things a terminal cannot do (DNS, the Azure app
   registration, the Divera portal, the Railway volume), the Day-0 sequence, and the `setup`
   block on `GET /api/system` that answers «is this station set up» without scraping `/admin`.
+- Cross-module rules, by topic (each page says which modules carry the rest in their headers):
+  - [`docs/sync-and-offline.md`](docs/sync-and-offline.md) – the review regression contracts,
+    the closed Einsatz and reopening, derived ids for observed facts.
+  - [`docs/undo.md`](docs/undo.md) – how an act joins the undo timeline; what a merge does to it.
+  - [`docs/tactical-objects.md`](docs/tactical-objects.md) – one object, two surfaces: anchors,
+    projection, machine writes, references, replay.
+  - [`docs/plans-and-buildings.md`](docs/plans-and-buildings.md) – prepared Gebäude floors,
+    «Automatisch ausrichten», approved alignments, plan PDFs and the tile pyramid.
+  - [`docs/ui-conventions.md`](docs/ui-conventions.md) – editor sheets, overlays, the button
+    spec, the touch vocabulary.
+  - [`docs/phone-layout.md`](docs/phone-layout.md) – the two bottom bars, page heads, pages.
+  - [`docs/atemschutz-board.md`](docs/atemschutz-board.md) – the Trupps board, the Trupp form,
+    the Sicherungstrupp and the Abschluss.
+  - [`docs/copy-and-wording.md`](docs/copy-and-wording.md) – which word a screen uses.
+  - [`docs/rapport.md`](docs/rapport.md) – what the Rapport's figure pages carry.
+  - [`docs/roles-and-access.md`](docs/roles-and-access.md) – roles, the deployment admin, links.
+  - [`docs/trupp-naming.md`](docs/trupp-naming.md), [`docs/verlauf-coverage.md`](docs/verlauf-coverage.md),
+    [`docs/object-visits.md`](docs/object-visits.md) – Trupp identity, what reaches the Verlauf,
+    Objektbesuche.
 - `mockups/` – historical look-and-feel explorations (not maintained; only `app-lage.html` and
   `nav-concepts.html` are tracked, the rest stays local by `.gitignore`). The former
   `docs/design-concepts/` directory is gone – superseded by the React app itself.

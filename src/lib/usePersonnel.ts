@@ -1,3 +1,10 @@
+/*
+ * The Mannschaft (roster) is cached there too (`kp-front-roster`, `usePersonnel`); a one-off
+ *   read outside the hook — the Leeres Erfassungsblatt — goes through `loadRoster` (server, else the
+ *   cache), never a bare `listPersonnel()`, and the launcher warms it at sign-in (05.10.2026: the
+ *   blank sheet printed an empty «Personal / Anwesenheit» offline).
+ */
+
 import { useCallback, useEffect, useState } from 'react'
 import { listPersonnel } from './incidents'
 import { idbGet, idbSet } from './idb'

@@ -153,7 +153,7 @@ def as_json(row: ConnectorState | None) -> dict:
     tell «never ran» from «this build does not report it» is a reader that will get it wrong.
 
     ⚠️ The stored ``detail`` column is served as ``counts``: a connector row on ``/api/system``
-    already has a ``detail``, and that one is a STRING (the print relay's last-seen stamp). Two
+    already has a ``detail``, and that one is a STRING slot (null on every row today). Two
     fields of the same name and different types in one row is how a reader ends up rendering an
     object into a date.
     """

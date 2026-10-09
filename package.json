@@ -12,8 +12,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "lint": "eslint . --max-warnings=411",
+    "lint": "node scripts/lint-ratchet.mjs",
+    "lint:update": "node scripts/lint-ratchet.mjs --update",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "coverage:raise": "node scripts/coverage-raise.mjs",
     "test:e2e": "playwright test",
     "bench": "vitest bench --run",
     "preview": "vite preview --port 4173"

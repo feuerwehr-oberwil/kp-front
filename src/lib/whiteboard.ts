@@ -1,6 +1,17 @@
 // Pure helpers extracted from Whiteboard: plan URL resolution, floor labelling, and
 // the floor-stack ↔ board-normalized coordinate maths. No React — safe to unit-test.
 
+/*
+ * *A plan opens with the WHOLE sheet between the bars* (sweep B8, 07.10.2026, owner option 1):
+ * `lib/whiteboard · containFit` contains it in the canvas less the top bar (`TOP_INSET`), the
+ * side rails (`sideInsets`) and the bottom-left chip row (`chipRowInset` — 76px on a tablet,
+ * 58px on a phone, where the row stands just above the tool bar; the Gebäude keeps
+ * `STACK_CHIP_ROW`). The chips never cover the sheet's legend at fit, and «Einpassen» is scale 1
+ * of the same box. The constants mirror the CSS like `TOP_INSET` does: move the chip row and
+ * they move with it. (The Karte has no inset-aware fit to follow: its `fitBounds` takes a flat
+ * padding.)
+ */
+
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
 import type { BoardPoint } from '../types'

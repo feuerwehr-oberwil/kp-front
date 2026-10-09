@@ -19,6 +19,17 @@ way they are on Postgres. A session that rolls back undoes whatever another sess
 written but not yet committed. Only concurrency exposes that (a background task writing while
 a request runs); such a test lets the task finish first (see ``test_stt._poll_done``).
 
+On Postgres the schema is built ONCE per process and every test ends by emptying it (rows
+deleted, serial counters restarted) — not by dropping and re-creating 41 tables, which was most
+of the suite's 15 CI minutes. A test still starts on empty tables, exactly as before; one that
+drops a table on purpose (``test_integration_credentials``) makes the next test rebuild it.
+
+Under pytest-xdist (``-n 4``) each worker gets its OWN database, ``<name>_gw0`` … next to the
+one ``DATABASE_URL`` names, created at session start and dropped at the end. Workers sharing
+one database would be the end of a reliable suite. ``DATABASE_URL`` itself is pointed at the
+worker's database before any app module reads it, so code on the app's own engine lands there
+too. A plain ``uv run pytest`` (no ``-n``) uses ``DATABASE_URL`` as it is.
+
 Fixtures:
 - ``engine`` / ``db_session``: a rolled-back async session per test.
 - ``client``: an httpx AsyncClient wired to the FastAPI app with ``get_db`` overridden
@@ -30,6 +41,7 @@ import os
 
 import pytest
 import pytest_asyncio
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Ensure config accepts a secret in local runs before app modules import settings.
@@ -44,6 +56,113 @@ TEST_ADMIN_SECRET = "test-admin-secret-0123456789ab"
 os.environ.setdefault("ADMIN_SECRET", TEST_ADMIN_SECRET)
 
 TEST_PIN = "135790"[:6]
+
+
+def _postgres_url(url: str) -> str:
+    return url.replace("postgresql://", "postgresql+asyncpg://", 1) if url.startswith("postgresql://") else url
+
+
+# The database DATABASE_URL names when the run starts. Under xdist it is only the ADMIN
+# connection (CREATE/DROP DATABASE cannot run inside the database it creates); the tests use
+# the worker's own, derived from it. Kept in the environment because this module is imported
+# twice (pytest's `conftest`, and `from conftest import …` in a few tests) — the second import
+# must not take the already-redirected DATABASE_URL for the base.
+_BASE_DATABASE_URL = _postgres_url(
+    os.environ.setdefault("KPF_TEST_BASE_DATABASE_URL", os.environ.get("DATABASE_URL", ""))
+)
+_XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER")  # gw0, gw1, … — None when serial
+
+
+def _worker_database_url() -> str | None:
+    if not (_XDIST_WORKER and _BASE_DATABASE_URL.startswith("postgresql")):
+        return None
+    from sqlalchemy.engine import make_url
+
+    url = make_url(_BASE_DATABASE_URL)
+    return url.set(database=f"{url.database}_{_XDIST_WORKER}").render_as_string(hide_password=False)
+
+
+_WORKER_DATABASE_URL = _worker_database_url()
+if _WORKER_DATABASE_URL:
+    # Before any app module imports settings — app.database's own engine follows it.
+    os.environ["DATABASE_URL"] = _WORKER_DATABASE_URL
+
+
+async def _admin(*statements: str) -> None:
+    from sqlalchemy import text
+
+    eng = create_async_engine(_BASE_DATABASE_URL, isolation_level="AUTOCOMMIT")
+    try:
+        async with eng.connect() as conn:
+            for statement in statements:
+                await conn.execute(text(statement))
+    finally:
+        await eng.dispose()
+
+
+def pytest_sessionstart(session) -> None:
+    if _WORKER_DATABASE_URL:
+        import asyncio
+
+        from sqlalchemy.engine import make_url
+
+        name = make_url(_WORKER_DATABASE_URL).database
+        # DROP first: a run that was killed leaves its database behind, and that is harmless.
+        asyncio.run(_admin(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)', f'CREATE DATABASE "{name}"'))
+
+
+def pytest_sessionfinish(session, exitstatus) -> None:
+    import asyncio
+    import contextlib
+
+    from sqlalchemy.engine import make_url
+
+    # Best effort — a leftover database or table is cleared by the next run, and a failure
+    # here must never hide the actual result.
+    with contextlib.suppress(Exception):
+        if _WORKER_DATABASE_URL:
+            name = make_url(_WORKER_DATABASE_URL).database
+            asyncio.run(_admin(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+        elif _SCHEMA_READY and _BASE_DATABASE_URL.startswith("postgresql"):
+            asyncio.run(_drop_schema(_BASE_DATABASE_URL))
+
+
+# Postgres only: the metadata schema has been built in this process and is known to be intact.
+_SCHEMA_READY = False
+
+
+async def _drop_schema(url: str) -> None:
+    from app.database import Base
+
+    eng = create_async_engine(url)
+    try:
+        async with eng.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+    finally:
+        await eng.dispose()
+
+
+async def _empty_tables(eng) -> None:
+    """Every row gone and every serial counter back at 1 — what a freshly created table is.
+
+    DELETE, not TRUNCATE: on empty-ish tables it is ~40 ms where TRUNCATE (a new file per table)
+    took 1–2.5 s on a Postgres that fsyncs. Children first (reverse dependency order), so no
+    foreign key is ever in the way.
+    """
+    from sqlalchemy import text
+
+    from app.database import Base
+
+    async with eng.begin() as conn:
+        for table in reversed(Base.metadata.sorted_tables):
+            await conn.execute(table.delete())
+        for table in Base.metadata.sorted_tables:
+            col = table.autoincrement_column
+            if col is not None:
+                await conn.execute(
+                    text("SELECT setval(pg_get_serial_sequence(:t, :c), 1, false)"),
+                    {"t": table.name, "c": col.name},
+                )
 
 
 def _install_sqlite_shims() -> None:
@@ -126,13 +245,32 @@ async def engine(database_url: str):
     import app.models  # noqa: F401  (register tables on Base.metadata)
     from app.database import Base
 
-    async with eng.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    if is_sqlite:
+        # A new in-memory database per engine — building it is cheap, and it dies with the engine.
+        async with eng.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        try:
+            yield eng
+        finally:
+            await eng.dispose()
+        return
+
+    global _SCHEMA_READY
+    if not _SCHEMA_READY:
+        # drop first: CI migrates this database with alembic before the run, and the tests have
+        # always run on the metadata's schema, not on the migrated one.
+        async with eng.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+        _SCHEMA_READY = True
     try:
         yield eng
     finally:
-        async with eng.begin() as conn:
-            await conn.run_sync(Base.metadata.drop_all)
+        try:
+            await _empty_tables(eng)
+        except DBAPIError:
+            # The test dropped or broke a table on purpose — the next one rebuilds the schema.
+            _SCHEMA_READY = False
         await eng.dispose()
 
 

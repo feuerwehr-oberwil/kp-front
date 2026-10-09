@@ -1,4 +1,14 @@
 /// <reference types="vitest/config" />
+
+/*
+ * **The precache is the field app; `/admin` is online-only** (2026-09-23). Every device used to
+ * install the AdminApp chunk (~250 KB JS + ~90 KB CSS) and its lazy map/alignment chunks with
+ * every deploy. `vite.config · adminOutsidePrecache` takes out what is reachable from
+ * `src/admin/AdminApp.tsx` but not from the field entry (computed from the chunk graph, so a
+ * chunk both import stays), and `navigateFallbackDenylist` sends an `/admin` navigation to the
+ * network – a precached old shell would import an AdminApp hash the server no longer has.
+ * Offline, `/admin` does not open. Both fail the build loudly if the shape they rely on changes.
+ */
 import { execSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -442,7 +452,18 @@ export default defineConfig(({ mode }) => {
       // the DOM (the hook test); most run in the default node environment.
       environment: 'node',
       include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
-      coverage: { provider: 'v8', include: ['src/lib/**'] },
+      // Coverage (08.10.2026): CI runs the suite ONCE, with coverage (`pnpm test:coverage`), and
+      // fails below the floor in scripts/coverage-floor.json. The floor only goes up —
+      // `pnpm coverage:raise` after a run lifts it to what was measured (minus half a point of
+      // slack, so an unrelated refactor does not trip it) and never lowers it. Components count
+      // too: a surface without a test should show as a gap, not be outside the measurement.
+      coverage: {
+        provider: 'v8',
+        include: ['src/**/*.{ts,tsx}'],
+        exclude: ['src/**/*.test.{ts,tsx}', 'src/**/*.bench.ts', 'src/**/*.d.ts'],
+        reporter: ['text-summary', 'json-summary'],
+        thresholds: JSON.parse(readFileSync(new URL('./scripts/coverage-floor.json', import.meta.url), 'utf-8')).floor,
+      },
     },
     build: {
       // ⚠️ HIDDEN sourcemaps (24.09.2026): written next to every chunk, referenced by none. Without

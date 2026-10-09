@@ -11,7 +11,7 @@ import { confirmDialog } from './ui'
  * things. So it confirms every time, with ONE card: offline and/or with something not yet sent,
  * the same card adds what that costs on top, rather than a second, rarer dialog nobody learns.
  *
- * ⚠️ Never offered on a link surface (AGENTS.md · «no link surface offers Abmelden») — callers
+ * ⚠️ Never offered on a link surface (docs/roles-and-access.md · «no link surface offers Abmelden») — callers
  * keep their own `linkScoped` gate; this only phrases the ask.
  */
 export interface LogoutContext {

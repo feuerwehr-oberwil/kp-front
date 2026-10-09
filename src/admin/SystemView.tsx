@@ -5,7 +5,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { useConfig } from './ConfigContext'
 import { SetupChecklist, type SetupState } from './SetupChecklist'
-import { fillTemplate, fmtFileSize } from '../lib/format'
+import { fillTemplate, fmtFileSize, formatTime } from '../lib/format'
 import { providerLabel, type DeploymentSharePointSource } from '../lib/deploymentConfig'
 import { Card, StatusBadge, Metric, UsageBar, ProgressBar, EmptyState, ResultChip, ConfirmButton, fmtDateTime, fmtRelTime } from './ui'
 import { useCellLabels } from './useCellLabels'
@@ -94,11 +94,11 @@ function fmtCount(n: number | null | undefined): string {
 }
 
 /** Wall clock to the second — «Stand 17:49:20», the last heartbeat of the print agent.
- *  ⚠️ de-CH, like every other time in the Verwaltung (ui · fmtDate / fmtDateTime / fmtRelTime).
- *  With the browser's own locale this printed «05:49:20 PM» into a German page on any device
- *  set to en-US, which is most tablets out of the box. */
+ *  ⚠️ The DEPLOYMENT's locale (lib/format · formatTime), like every other time in the Verwaltung
+ *  (ui · fmtDate / fmtDateTime / fmtRelTime), never the browser's: that printed «05:49:20 PM»
+ *  into a German page on any device set to en-US, which is most tablets out of the box. */
 function fmtClock(d: Date): string {
-  return d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return formatTime(d, true)
 }
 
 // ─── connector health ─────────────────────────────────────────────────────────
@@ -810,7 +810,7 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
             <div className="adm-sys-grid">
             {/* Verbindungen — ONE table for everything this deployment talks to:
                 provider integrations (Divera/Traccar) and every consumer/producer
-                (print-relay agent with live heartbeat, capture poster, stats export,
+                (capture poster, stats export,
                 webhooks, web push, STT). Read-only; configured via env/CLI/admin. */}
             <Card title={C.connectors} tip={C.connectorsTip}>
               {state.data.integrations || state.data.connectors?.length ? (
@@ -843,7 +843,6 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                           divera_alarms: C.connDiveraAlarms,
                           traccar: C.connTraccar,
                           divera_personnel: C.connDiveraPersonnel,
-                          print_relay: C.connPrintRelay,
                           capture: C.connCapture,
                           stats: C.connStats,
                           divera_webhook: C.connDiveraWebhook,
@@ -873,11 +872,6 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                             <td>{conn.direction === 'in' ? C.directionIn : C.directionOut}</td>
                             <td>
                               <StatusBadge tone={health.tone} label="" state={health.state} />
-                              {conn.id === 'print_relay' && conn.detail && (
-                                <p className="adm-card-cap">
-                                  {fillTemplate(C.connLastSeen, { time: fmtClock(new Date(conn.detail)) })}
-                                </p>
-                              )}
                               {pollsFor(conn.id) && conn.configured && conn.lastSuccess && (
                                 <p className="adm-card-cap">
                                   {fillTemplate(C.connLastSuccess, { time: fmtRelTime(conn.lastSuccess) })}

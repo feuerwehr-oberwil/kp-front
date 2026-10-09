@@ -1,3 +1,19 @@
+/*
+ * *Every Kontakt tap is ONE Kontakt*: a repeat on the same Trupp from this device within 3 s
+ * writes nothing (`contactEcho · recentOwnContact`, in `recordContact`, so every board). The
+ * first Druck within 3 min of the Eintritt replaces an Eingangsdruck NOBODY SET (the log's
+ * run-start row carries `measured` when the form's value was dialled, a bottle answered, a low
+ * value confirmed or a correction made — `entryPressureConfirmed`) and is still a Kontakt:
+ * clock reset, `contact` row, one Verlauf row that says both; the sheet says so in words.
+ *
+ * *A Kontakt another device confirmed < 60 s ago asks* (D1 ⑧a, `lib/contactEcho`) — on EVERY
+ * board, tablet grid and handed-over Tafel included: it guards the act, not a layout. A
+ * confirmation this JS realm did not write is «anderes Gerät» — no device names; a stamp more
+ * than 5 s in the future (a skewed device) is not an echo. «OK» is the filled, focused default;
+ * it and every dismissal write nothing. «Überwachung abgeben makes the giver read-only» (⑧b)
+ * was DECIDED AGAINST (25.09.2026) — do not build it.
+ */
+
 import type { Trupp, TruppReading } from '../types'
 
 /**

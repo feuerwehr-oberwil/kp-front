@@ -106,8 +106,7 @@ picture belongs to the command post. Do not add the GET.
 WHY DEFAULT-DENY
 ----------------
 ``viewer`` is not "read-only" in the sense a shared URL needs. A viewer may generate the
-Einsatzrapport and Zeitplan PDFs (api/report.py), send both to the station's thermal printer
-(api/print_relay.py), cancel someone else's print job, and register push subscriptions. A
+Einsatzrapport and Zeitplan PDFs (api/report.py) and register push subscriptions. A
 handful of GETs are not reads either: ``/media/{id}/transcription`` mutates a job row,
 ``/media/{id}/peaks`` spawns a task that writes a file, and ``/geocode/*``, ``/weather`` and
 ``/traccar/*`` make billable outbound calls.
@@ -123,6 +122,8 @@ incident the token was minted for, or a link to one incident reads every other o
 
 Fail-closed: no ``incident_link_key`` configured → the whole surface answers 403.
 """
+
+# Rules for this area that span modules: docs/roles-and-access.md.
 
 import contextlib
 import hashlib
@@ -275,8 +276,6 @@ class _Denied(HTTPException):
 #
 # Everything here is a genuine read. Deliberate exclusions, each for a stated reason:
 #   report/pdf, zeitplan/pdf        — generate documents containing attendance + names
-#   report/print, zeitplan/print    — make the station printer print, from a forwarded URL
-#   print-jobs DELETE               — cancels another person's job
 #   push/subscriptions              — writes rows tied to a user
 #   diag/export                     — the station's own crash traces. Sanitised, but a link
 #                                     is handed to outsiders and this is internal diagnostics.

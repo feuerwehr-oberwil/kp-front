@@ -39,6 +39,34 @@
  * deliberately deleted trail as «never ghosted» and write it straight back, and the undo is then
  * un-stamping rather than a re-creation.
  */
+
+/*
+ * **A Trupp's «Spur» belongs to the incident, not to its marker** (18.09.2026,
+ * `lib/truppTrails`). Removing a chip / map marker (or the Trupp, via «Entfernen») moves its
+ * recorded positions into a synced GHOST TRAIL — read-only, grey, labelled «Trupp N», drawn on
+ * the storey it was walked on and in the frame it was recorded in (sheet-normalised for a plan,
+ * geo for the Karte; never projected across). The marker's bar has ONE trash (`deleteLocked` and
+ * the morphing trash are gone, and so is the short-lived footprint button beside it): with no
+ * trail it removes the marker outright, and with one it opens the app's `Menu` — «Marker
+ * entfernen» (the ghost stays) · «Spur entfernen» · «Marker und Spur entfernen», the last two danger
+ * rows, each confirming first. The combined row leaves NO ghost: the surface arms the
+ * reconciliation (`reconcileGhostTrails · dropped`, `IncidentWorkspace · armTrailDrop`) and the
+ * ghost is born `removedAt`-stamped rather than skipped — a skipped one is ghosted again by the
+ * next pass — so the marker's own ↶ is still the whole act.
+ * ⚠️ Ghosting is a RECONCILIATION over the marker set
+ * (`reconcileGhostTrails`, one effect in `IncidentWorkspace`), NOT a write bolted onto each of
+ * the four removal paths — that is what keeps the removal's own ↶ ONE step: a marker that comes
+ * back takes its trail home and its ghost goes with it, and nothing was ever pushed onto the
+ * timeline for the ghost. Ids are derived (`ght-<markerId>`) so two devices reconciling the same
+ * removal converge under `mergeById`; deleting a ghost STAMPS `removedAt` (never drops the row),
+ * or the reconciliation would write a deliberate deletion straight back.
+ * A tap on a ghost whose Trupp still exists offers the way BACK before the delete («Trupp wieder
+ * platzieren», 20.09.2026, `truppTrails · ghostRevival`): the marker returns at the trail's end
+ * under the id the trail was recorded on (`placeTruppOn… · revive`), carrying the points — so
+ * the same reconciliation takes the ghost home, and nothing is written for the ghost itself.
+ * Offered for EVERY ghost with points, not only one with a live Trupp: a loose «Trupp N» chip,
+ * or one whose Trupp was since removed, returns as the loose marker it then is.
+ */
 import { appConfig } from '../config/appConfig'
 import type { GeoTrailPoint, TrailPoint } from '../types'
 import type { TacticalObject } from './tacticalObjects'

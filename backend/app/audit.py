@@ -169,7 +169,7 @@ def _encode_snapshot(workspace: dict) -> bytes:
 def _decode_snapshot(data: bytes) -> dict:
     """A stored snapshot back to its blob. Decided by the gzip magic bytes, not by the key: every
     snapshot written before 26.09.2026 is plain JSON (`….json`) and stays readable as it is.
-    Nothing is rewritten, because backup originals are immutable (AGENTS.md)."""
+    Nothing is rewritten, because backup originals are immutable (app/storage.py)."""
     if data[:2] == _GZIP_MAGIC:
         data = gzip.decompress(data)
     return json.loads(data.decode("utf-8"))
@@ -188,7 +188,7 @@ async def snapshot_workspace(db: AsyncSession, *, incident_id: uuid.UUID, worksp
     stall of the whole event loop on every save — every other request, the live position feed
     included, waited behind it. The blob is published before the row that references it is
     flushed, and the rollback hook is armed before the write starts, so a save cancelled or
-    rolled back mid-way leaves no orphan (AGENTS.md · backup originals).
+    rolled back mid-way leaves no orphan (app/storage.py · backup originals).
     """
     seq_at = (
         await db.execute(

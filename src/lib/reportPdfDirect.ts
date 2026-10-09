@@ -362,8 +362,6 @@ export function einsatzleiterForPdf(
   }).join(', ')
 }
 
-/** The ONE payload builder — shared by the PDF download and the station-printer enqueue
- *  (src/lib/printRelay.ts), so both always produce the identical document. */
 /** The Tafel's poster for the Rapport — the trends as WORDS, since the PDF font has no ➚ ➘. */
 export function plakatPayload(board: BoardDoc | null | undefined): Record<string, unknown> | undefined {
   const pk = findPlakat(board?.[TAFEL_ID] ?? [])
@@ -372,6 +370,7 @@ export function plakatPayload(board: BoardDoc | null | undefined): Record<string
   return plakatForPdf(pk.plakat, { up: P.trendUp, same: P.trendSame, down: P.trendDown })
 }
 
+/** The ONE payload builder behind the Rapport-PDF download. */
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
   const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
   const meta = draft.meta

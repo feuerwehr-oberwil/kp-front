@@ -183,14 +183,14 @@ class Incident(Base):
     # Stored in the clear rather than hashed, and that is a requirement, not laziness: the
     # Rapport has to be able to SHOW the link again — anything else means «lost it, mint a new
     # one, tell everybody», which is how a station ends up with five live links per Einsatz.
-    view_link_key: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
+    view_link_key: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # The Atemschutz link (2026-09-01) — the THIRD kind. Same shape as `view_link_key` (a random
     # secret that IS the link, URL `/l/a<this>`, cleared to revoke), opposite lifetime: it is
     # minted from a RUNNING Einsatz for somebody who is not on the FU, and it dies when the
     # Einsatz closes. What it opens is not the read-only viewer but the Atemschutzüberwachung of
     # this one Einsatz — a narrow write slice, enforced in auth/incident_link.
-    atemschutz_link_key: Mapped[str | None] = mapped_column(Text, nullable=True, unique=True)
+    atemschutz_link_key: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     details_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     map_workspace_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
@@ -202,7 +202,14 @@ class Incident(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    __table_args__ = (Index("ix_incidents_archived_started", "is_archived", "started_at"),)
+    __table_args__ = (
+        Index("ix_incidents_archived_started", "is_archived", "started_at"),
+        # Both link keys are unique — the secret IS the credential. As unique INDEXES, the way
+        # their migrations (68cbf635f90e, 40a7d00c2b37) built them; `unique=True` on the column
+        # declared a unique CONSTRAINT instead, which only the tests' create_all ever had.
+        Index("ix_incidents_view_link_key", "view_link_key", unique=True),
+        Index("ix_incidents_atemschutz_link_key", "atemschutz_link_key", unique=True),
+    )
 
     @property
     def is_open(self) -> bool:
@@ -392,35 +399,6 @@ class SttJob(Base):
     segments: Mapped[list | None] = mapped_column(JSONB, nullable=True)  # [{start,end,text,status,rowId?}]
     created_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-
-class PrintJob(Base):
-    """Queued Einsatzrapport-PDF for the station print relay.
-
-    The backend composes the PDF at enqueue time; the on-site agent polls, claims the
-    oldest ``queued`` row, prints it, and reports back. Rows are transient — the paper is
-    the artefact — and are swept after ``PRINT_JOB_RETENTION_DAYS`` (scheduler.py)."""
-
-    __tablename__ = "print_jobs"
-
-    id: Mapped[uuid.UUID] = _uuid_pk()
-    incident_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    kind: Mapped[str] = mapped_column(String(16), nullable=False)  # 'report' | 'capture_report'
-    filename: Mapped[str] = mapped_column(Text, nullable=False)
-    pdf: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    # True only when the document renders the (coloured) Kroki — everything else prints
-    # monochrome at the agent (toner/ink discipline; decided 2026-07-18)
-    color: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="queued"
-    )  # queued|printing|done|failed|cancelled
-    error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    requested_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
