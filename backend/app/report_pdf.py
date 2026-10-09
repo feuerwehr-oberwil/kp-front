@@ -61,12 +61,12 @@ logger = logging.getLogger(__name__)
 
 # ReportLab defaults to ASCII85-encoding every compressed stream (`useA85`) so old PDF tools that
 # can only read ASCII can still consume the file — a concern from an era before every viewer spoke
-# binary PDF, and moot for a Rapport that never leaves the app/print pipeline. On this deployment
+# binary PDF, and moot for a Rapport that never leaves the app/download pipeline. On this deployment
 # (reportlab 5.0.0, Python 3.13) there is no prebuilt `_rl_accel` C wheel, so the A85 encode falls
 # back to pure-Python `_py_asciiBase85Encode` — profiling a full Rapport compose showed it burning
 # ~70% of render time (8.9s of 12.8s over 3 composes). `pdfdoc` reads `rl_config.useA85` at
 # document-save time, not at import time, so flipping it here — once, for every compose path
-# (Rapport and the print relay both call `compose_report_pdf`) — is enough: ~2.2s → ~1.07s per
+# (the editor and the capture download both call `compose_report_pdf`) — is enough: ~2.2s → ~1.07s per
 # compose, and a third smaller output (no base85 blow-up) on top.
 rl_config.useA85 = 0
 
@@ -1561,8 +1561,7 @@ def _legend_table(lines: list[str], width: float, st: dict[str, ParagraphStyle])
 
 # ----------------------------------------------------------------------------- composition
 
-# Print Kroki canvas size — the composer and the tile prewarm share it so both derive the
-# same View and hit identical tile-cache keys.
+# Print Kroki canvas size.
 #: ⚠️ Raised 30 % on 18.08. The picture is placed ~180 mm wide, so 1000 px was 141 dpi — every
 #: glyph edge and every number on the Kroki was softer on paper than the same picture on screen,
 #: which is most of what «das PDF sieht schlechter aus» actually was. 1300 px ≈ 183 dpi, still
@@ -1593,7 +1592,7 @@ def _kroki_fit_max_z(pts: list[tuple[float, float]]) -> float:
 
 
 def _kroki_view(pk, kw: int, kh: int):
-    """Derive the print View for a Kroki scene — shared by the composer and the tile prewarm."""
+    """Derive the print View for a Kroki scene."""
     from . import kroki as kk
 
     if pk.bounds and len(pk.bounds) == 4:
@@ -1617,28 +1616,6 @@ def _kroki_view(pk, kw: int, kh: int):
     view = kk.fit_view(pts, kw, kh, max_z=_kroki_fit_max_z(pts))
     view.overlay_z = view.z - math.log2(512 / kk.TILE)
     return view
-
-
-def warm_report_tiles(payload: ReportPayload) -> None:
-    """Fetch+cache the Kroki base tiles for this report's map view and discard the image, so
-    a later compose skips the network round-trips. Pure cache warming; never raises."""
-    opt = payload.options
-    if not (opt.kroki and payload.kroki is not None and payload.kroki.tiles):
-        return
-    try:
-        from . import kroki as kk
-
-        view = _kroki_view(payload.kroki, *(_KROKI_PX if opt.krokiLandscape else _KROKI_PX_PORTRAIT))
-        kk.render_base(
-            view,
-            kk.approved_tile_template(payload.kroki.tiles),
-            cache=kk.get_tile_cache(),
-            max_tile_z=payload.kroki.maxTileZoom or 19,
-        )
-    except Exception:  # noqa: BLE001 — a cold cache must not fail the rapport
-        # Was a silent `pass`. A failed prewarm is recoverable (the real render refetches),
-        # but silence here is how a permanently unreachable tile source stays invisible.
-        logger.warning("Rapport tile prewarm failed; the render will refetch", exc_info=True)
 
 
 def compose_report_pdf(

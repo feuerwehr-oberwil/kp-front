@@ -1,7 +1,7 @@
 """objects.measures / remarks / measures_source — an Einsatzobjekt's Sofortmassnahmen + Bemerkungen
 
 Revision ID: a1f5b2c3d4e5
-Revises: f9b8c7d6e5a4
+Revises: d3e6a9c2f5b8
 Create Date: 2026-10-09 10:00:00.000000
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "a1f5b2c3d4e5"
-down_revision: str | None = "f9b8c7d6e5a4"
+down_revision: str | None = "d3e6a9c2f5b8"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

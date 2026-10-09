@@ -26,7 +26,7 @@ describe('reportStep — what one step back on the Rapport is', () => {
   it('lays no step for the app\'s own bookkeeping — a print is not an edit', () => {
     const m: ReportMeta = { summary: 'Brand Küche' }
     expect(reportStep(m, { ...m, reportMadeAt: '2026-09-18T10:00:00.000Z' })).toBeNull()
-    expect(reportStep(m, { ...m, printJob: { id: 'j1', at: '2026-09-18T10:00:00.000Z' } })).toBeNull()
+    expect(reportStep(m, { ...m, krokiPrint: { at: '2026-09-18T10:00:00.000Z' } })).toBeNull()
     // …but the same write WITH an operator edit in it is a step, and it is the edit's step
     expect(reportStep(m, { ...m, summary: 'Brand Küche EG', reportMadeAt: 'x' })?.structural).toBe(false)
   })
@@ -72,11 +72,11 @@ describe('foldsIntoPrevious — a burst of typing is one step', () => {
 describe('keepMachineFields — what a step back does NOT touch', () => {
   it('restores the operator\'s Rapport and leaves the app\'s own bookkeeping standing', () => {
     const restored: ReportMeta = { summary: 'Brand', reportMadeAt: '2026-09-18T09:00:00.000Z' }
-    const live: ReportMeta = { summary: 'Brand Küche', printJob: { id: 'j1', at: '2026-09-18T10:00:00.000Z' } }
-    expect(keepMachineFields(restored, live)).toEqual({ summary: 'Brand', printJob: live.printJob })
+    const live: ReportMeta = { summary: 'Brand Küche', krokiPrint: { at: '2026-09-18T10:00:00.000Z' } }
+    expect(keepMachineFields(restored, live)).toEqual({ summary: 'Brand', krokiPrint: live.krokiPrint })
   })
   it('drops a machine field the live state no longer has', () => {
-    const restored: ReportMeta = { summary: 'Brand', printJob: { id: 'j1', at: '2026-09-18T10:00:00.000Z' } }
+    const restored: ReportMeta = { summary: 'Brand', krokiPrint: { at: '2026-09-18T10:00:00.000Z' } }
     expect(keepMachineFields(restored, { summary: 'x' })).toEqual({ summary: 'Brand' })
   })
 })
@@ -170,21 +170,21 @@ describe('the Rapport on the one timeline', () => {
     expect(result.current.timeline.canUndo()).toBe(false)
   })
 
-  it('keeps an outstanding print job across a ↶ — the machine\'s fields are not the edit', () => {
+  it('keeps the last print\'s framing across a ↶ — the machine\'s fields are not the edit', () => {
     const { result } = renderHook(() => useRapport())
-    const job = { id: 'j1', at: '2026-09-18T10:00:00.000Z' }
+    const framing = { at: '2026-09-18T10:00:00.000Z', landscape: true }
     act(() => { result.current.save({ summary: 'Brand' }, 100_000) })
-    // the print is queued (no step of its own), then the sentence grows in the SAME step
-    act(() => { result.current.save({ summary: 'Brand', printJob: job }, 100_100) })
-    act(() => { result.current.save({ summary: 'Brand Küche', printJob: job }, 100_200) })
+    // the framing is remembered (no step of its own), then the sentence grows in the SAME step
+    act(() => { result.current.save({ summary: 'Brand', krokiPrint: framing }, 100_100) })
+    act(() => { result.current.save({ summary: 'Brand Küche', krokiPrint: framing }, 100_200) })
     act(() => { result.current.timeline.undo() })
-    // the sentence goes back, the queued job stays — settlePrintJob still has something to stamp
+    // the sentence goes back, the framing stays
     expect(result.current.meta.summary).toBe('Brand')
-    expect(result.current.meta.printJob).toEqual(job)
-    // …and all the way back: still the operator's edits that move, never the print
+    expect(result.current.meta.krokiPrint).toEqual(framing)
+    // …and all the way back: still the operator's edits that move, never the framing
     act(() => { result.current.timeline.undo() })
     expect(result.current.meta.summary).toBeUndefined()
-    expect(result.current.meta.printJob).toEqual(job)
+    expect(result.current.meta.krokiPrint).toEqual(framing)
   })
 
   it('typing right after a ↶ is its own step — the fold window does not reach across it', () => {

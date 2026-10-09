@@ -51,8 +51,8 @@ export const LONG_POLL_TIMEOUT_MS = 35_000
 
 /** AbortSignal that fires after `ms`. Guarded: an environment without AbortSignal.timeout
  *  simply keeps the old unbounded behaviour rather than failing every request. Exported for
- *  the few callers that must use a bare `fetch` (cross-origin tiles, the print relay's
- *  FormData posts, the peaks poll) — «no fetch may be unbounded» holds for them too. */
+ *  the few callers that must use a bare `fetch` (cross-origin tiles, the peaks poll) — «no
+ *  fetch may be unbounded» holds for them too. */
 export function timeoutSignal(ms: number): AbortSignal | undefined {
   return typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
     ? AbortSignal.timeout(ms)
@@ -219,7 +219,7 @@ export function eitherSignal(a?: AbortSignal, b?: AbortSignal | null): AbortSign
  * So: a NEW request goes through this client and inherits it. A callsite that genuinely cannot
  * — a Blob or streaming response, a FormData body, its own abort clock, a poster token — keeps
  * its `fetch` and spreads `linkSessionHeaders()` into its `headers`, ahead of the caller's own
- * (reportPdf, zeitplanPrint, printRelay, captureClient, useShareMyPosition, StationWorkbookView
+ * (reportPdf, zeitplanPrint, captureClient, useShareMyPosition, StationWorkbookView
  * all do). Nothing under `/api` is exempt; a cross-origin URL (tiles, swisstopo) is not ours and
  * must not carry it.
  */

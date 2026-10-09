@@ -5,9 +5,8 @@
 // sections behind collapsed headers — Personen · Material · Allgemein — so nothing hides
 // below a long scroll (feedback 2026-07-08). «Wer erfasst?» is GONE (2026-08-15): it asked
 // whoever happened to be holding the phone for a name and printed the answer as a fact, and
-// the rapport normally comes off the KP tablet anyway — which is what the modal fronting
-// Rapport-PDF and Ausdrucken says instead. That modal stays, so every print is an explicit
-// two-step and no stray tap reaches the station printer. Everything writes
+// the rapport normally comes off the KP tablet anyway — which is what the modal fronting the
+// Rapport-PDF says instead. That modal stays, so the PDF is an explicit two-step. Everything writes
 // into the same incident workspace the KP tablet syncs (task-scoped merge, second-editor
 // semantics). Untrained-operator rails (2026-07-10): the one destructive tap (gegangen →
 // frei) gets confirm-with-undo, material lines get ± steppers so a fat-fingered amount is
@@ -29,8 +28,6 @@ import { addPartnerOrg } from '../lib/partnerOrgs'
 import { Overlays, toast } from '../lib/ui'
 import { Overlay } from '../lib/overlays'
 import { prepareUploadImage } from '../lib/imagePrep'
-import { capturePrintTransport, enqueuePrint, fetchPrintStatus, type PrintRelayStatus } from '../lib/printRelay'
-import { trackPrintJob } from '../lib/printJobToast'
 import type { AttendanceEntry, MittelEntry } from '../types'
 import type { PartnerContact, ReportMeta } from '../lib/workspace'
 import { Combo } from '../components/Combo'
@@ -774,26 +771,15 @@ export default function CaptureApp() {
     } catch { toast(C.pdfFailed, { icon: 'warn', tone: 'warn' }) } finally { setPdfBusy(false) }
   }
 
-  // Station print relay: the same rapport straight onto the station printer — the phone
-  // needs no printer setup. Hidden unless the deployment runs a relay (fail-closed).
-  const R = appConfig.copy.printRelay
   const A = appConfig.copy.anwesenheit
   // the closing-step names, shared with the tablet's Rapport so both surfaces call the same
   // missing field the same thing
   const AB = appConfig.copy.abschluss
-  const [printStatus, setPrintStatus] = useState<PrintRelayStatus | null>(null)
-  const [printBusy, setPrintBusy] = useState(false)
-  useEffect(() => {
-    if (!token || !incident) { setPrintStatus(null); return }
-    let alive = true
-    void fetchPrintStatus(capturePrintTransport(token)).then((s) => { if (alive) setPrintStatus(s) })
-    return () => { alive = false }
-  }, [token, incident])
-  // The modal in front of PDF + Ausdrucken. It used to ask «Wer erfasst?» and that question is
+  // The modal in front of the PDF. It used to ask «Wer erfasst?» and that question is
   // gone (2026-08-15) — it was put to whoever happened to be holding the phone, and the answer
   // printed on the rapport as a fact. What is worth saying at this moment is where the real
   // rapport comes from, so that is what the modal says. It stays a modal because it also makes
-  // every print an explicit two-step: no stray tap reaches the station printer.
+  // the PDF an explicit two-step.
   // ⚠️ It goes through `src/lib/overlays` like every other modal in the app (AGENTS.md), so the
   // focus trap, Esc, the backdrop dismissal, the ARIA and the scroll-lock are the ONE
   // implementation rather than this file's own. It used to be a hand-rolled `.cv-modal-ovl` with
@@ -802,42 +788,10 @@ export default function CaptureApp() {
   // the default 'trap-focus') because this page IS a scrolling document — unlike the kiosk, it
   // has no `body { overflow: hidden }` to make the lock redundant — and nothing inside the modal
   // portals a menu to <body> that full modality would mark inert.
-  const [confirmOut, setConfirmOut] = useState<null | 'pdf' | 'print'>(null)
+  const [confirmOut, setConfirmOut] = useState(false)
   const confirmOutput = () => {
-    const what = confirmOut
-    if (!what) return
-    setConfirmOut(null)
-    if (what === 'pdf') void printRapport()
-    else void sendToPrinter()
-  }
-
-  const sendToPrinter = async () => {
-    if (!token || !incident || printBusy) return
-    setPrintBusy(true)
-    try {
-      const [{ buildDirectReportPayload }, { defaultReportOptions }] = await Promise.all([
-        import('../lib/reportPdfDirect'), import('../lib/report'),
-      ])
-      let events: import('../types').TimelineEvent[] = []
-      try { events = (await captureApi.journal(token, incident.id)).entries.map((e) => e.row) } catch { /* PDF without Verlauf beats no PDF */ }
-      const payload = buildDirectReportPayload({
-        incident,
-        draft: {
-          meta: { ...rm, alarmiertAt: rm?.alarmiertAt ?? incident.started_at },
-          generatedAt: new Date().toISOString(),
-          proof: { intact: null, checkedAt: new Date().toISOString(), offline: true },
-          options: { ...defaultReportOptions, kroki: false, annotatedPlans: false, allPlans: false, atemschutz: false },
-        },
-        trupps: [], attendance, events, plans: [], mittel,
-        roster: roster.map((p) => ({ id: p.id, name: p.display_name })),
-      })
-      const t = capturePrintTransport(token)
-      // stalled enqueue must clear printBusy into the failed-toast, never freeze the button
-      const jobId = await withTimeout(enqueuePrint(t, incident.id, payload), 15_000)
-      // the poster has no Rapport head to keep an outstanding job on — but the toast still says
-      // «in der Warteschlange», and why, instead of «gesendet»
-      trackPrintJob(t, jobId, undefined, { relayOffline: !printStatus?.online })
-    } catch { toast(R.failed, { icon: 'warn', tone: 'warn' }) } finally { setPrintBusy(false) }
+    setConfirmOut(false)
+    void printRapport()
   }
 
   // Zeiten grid (Gruppen/Fahrzeuge) — same rows as the EL's Rapport form, prefilled by
@@ -901,9 +855,8 @@ export default function CaptureApp() {
     </p>
   ) : null
 
-  // <Overlays/> rides along on EVERY branch, not just the capture screen: a print job keeps
-  // running when the Erfasser taps «zurück» to the incident list, and a toast host that
-  // unmounts takes the live «wird gedruckt → gedruckt» status with it while the job prints on.
+  // <Overlays/> rides along on EVERY branch, not just the capture screen: a toast raised just
+  // before the Erfasser taps «zurück» to the incident list must not unmount with the screen.
   if (error) {
     return (
       <div className="cv-shell"><IconSprite /><Overlays /><div className="cv-card cv-center">
@@ -1511,31 +1464,19 @@ export default function CaptureApp() {
       <div className="cv-pdfbar">
         {/* KP active → the buttons step back to quiet secondary styling (never hidden or
             disabled — a phone print must stay possible, it's just no longer the main path) */}
-        <button className={`cv-btn cv-pdf${kpActive ? ' cv-quiet' : ''}`} disabled={busy || pdfBusy} onClick={() => setConfirmOut('pdf')}>
-          {pdfBusy ? <ShellLoader /> : <Icon id="doc" />} {pdfBusy ? R.sending : C.rapportPdf}
+        <button className={`cv-btn cv-pdf${kpActive ? ' cv-quiet' : ''}`} disabled={busy || pdfBusy} onClick={() => setConfirmOut(true)}>
+          {pdfBusy ? <ShellLoader /> : <Icon id="doc" />} {pdfBusy ? appConfig.copy.report.pdfBusy : C.rapportPdf}
         </button>
-        {printStatus?.available && (
-          <button className={`cv-btn print-send${kpActive ? ' cv-quiet' : ''}${printStatus.online ? '' : ' offline'}`}
-            disabled={busy || printBusy} onClick={() => setConfirmOut('print')}
-            title={printStatus.online ? R.online : R.offline}>
-            <span className="print-send-main">
-              {printBusy ? <ShellLoader /> : <Icon id="printer" />}
-              <span className={`dot print-relay-dot${printStatus.online ? ' online' : ''}`} aria-hidden />
-              {printBusy ? R.sending : R.send}
-            </span>
-            {!printStatus.online && <span className="print-send-off">{R.offline}</span>}
-          </button>
-        )}
       </div>
 
-      {/* The confirm in front of both outputs, so a stray tap on Ausdrucken can never reach the
-          station printer. It carries the one thing worth reading at this moment: where the real
-          rapport normally comes from — the KP tablet, with the Lageskizze this page cannot draw. */}
+      {/* The confirm in front of the PDF. It carries the one thing worth reading at this moment:
+          where the real rapport normally comes from — the KP tablet, with the Lageskizze this
+          page cannot draw. */}
       {confirmOut && (
-        <Overlay open modal onClose={() => setConfirmOut(null)}
+        <Overlay open modal onClose={() => setConfirmOut(false)}
           className="cv-card cv-modal ui-dialog"
-          ariaLabel={confirmOut === 'print' ? R.confirmTitle : C.rapportPdf}>
-          <h2>{confirmOut === 'print' ? R.confirmTitle : C.rapportPdf}</h2>
+          ariaLabel={C.rapportPdf}>
+          <h2>{C.rapportPdf}</h2>
           {/* the KP-aktiv notice lives HERE, at the print/PDF decision — not in the bar. With
               the tablet actually on the incident it is a live fact (green dot); otherwise it is
               the standing one, that this is the exception and not the usual route to paper. */}
@@ -1549,21 +1490,9 @@ export default function CaptureApp() {
           {incident.is_exercise && (
             <p className="cv-hint cv-modal-warn"><Icon id="warn" /> {C.exerciseHint}</p>
           )}
-          {/* the title + Ausdrucken button ARE the confirmation — no filler sentence;
-              only the offline store-and-forward warning earns a line */}
-          {confirmOut === 'print' && !printStatus?.online && (
-            /* just the fact. The sentence that used to stand here promised that the job «wird
-               gedruckt, sobald das Relay wieder erreichbar ist» — a claim about the future that
-               made queuing sound like printing. */
-            <p className="cv-hint cv-modal-warn"><Icon id="warn" /> {R.offline}</p>
-          )}
           <div className="cv-modal-actions">
-            <button className="cv-btn" onClick={() => setConfirmOut(null)}>{C.cancel}</button>
-            <button className="cv-btn cv-primary" onClick={confirmOutput}>
-              {confirmOut === 'print'
-                ? (printStatus?.online ? R.confirmBtn : R.offlineConfirmBtn)
-                : C.rapportPdf}
-            </button>
+            <button className="cv-btn" onClick={() => setConfirmOut(false)}>{C.cancel}</button>
+            <button className="cv-btn cv-primary" onClick={confirmOutput}>{C.rapportPdf}</button>
           </div>
         </Overlay>
       )}
