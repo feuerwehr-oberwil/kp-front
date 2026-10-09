@@ -418,6 +418,15 @@ function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
   if ('readings' in m || 'readings' in t) {
     const rows = (v: unknown): Readingish[] => (Array.isArray(v) ? (v.filter(isObj) as unknown as Readingish[]) : [])
     out.readings = mergeReadings(rows(a.readings), rows(m.readings), rows(t.readings))
+    // ⚠️ Two devices holding «Notfall» at once raised ONE Notfall (the earlier hold, above) — so
+    // the losing hold's `notfall` row goes too, or the Trupp's log and the Rapport print it twice
+    // (review of #300). Only when both sides raised it: a Notfall ended and raised again keeps both.
+    const raisedBoth = typeof m.notfallAt === 'string' && typeof t.notfallAt === 'string' && m.notfallAt !== t.notfallAt
+      && !eq(m.notfallAt, a.notfallAt) && !eq(t.notfallAt, a.notfallAt)
+    if (raisedBoth) {
+      const lost = out.notfallAt === m.notfallAt ? t.notfallAt : m.notfallAt
+      out.readings = (out.readings as Readingish[]).filter((r) => !(r.kind === 'notfall' && r.t === lost))
+    }
   }
   // The crew filing's one-shot marker (types · Trupp.crewFiled) is GROW-ONLY: a union of all
   // three, never a delete — a key lost here would let a device file again somebody a person took

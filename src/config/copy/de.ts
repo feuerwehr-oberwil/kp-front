@@ -2537,6 +2537,8 @@ export const de = {
       abschlussTitle: 'Notfall läuft noch',
       abschlussMsg: '{list} – noch nicht beendet.',
       abschlussClose: 'Trotzdem abschliessen',
+      // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
+      removeBlocked: 'Erst «Notfall beendet» halten – ein Trupp im Notfall bleibt auf der Tafel',
     },
     // «Entfernen» auf einem Trupp, der DRIN ist: zuerst fragen, «Raus melden» ist die sichere Antwort
     removeInsideTitle: 'Trupp {name} ist drin – erst rausmelden?',

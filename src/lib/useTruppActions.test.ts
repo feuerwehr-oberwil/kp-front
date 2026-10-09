@@ -2683,3 +2683,16 @@ describe('useTruppActions — the Atemschutznotfall (F1, 08.10.2026)', () => {
     expect(ui.toasts).toEqual([])
   })
 })
+
+describe('useTruppActions — a Trupp in a Notfall stays on the board (review of #300)', () => {
+  beforeEach(() => { ui.toasts.length = 0 })
+  it('refuses «Entfernen» until «Notfall beendet», and says why', () => {
+    const t = baseTrupp({ status: 'raus', exitTime: '2026-07-06T10:20:00Z', notfallAt: '2026-07-06T10:15:00Z' })
+    const lines: string[] = []
+    const { actions, state } = harness(t, undefined, (_i, x) => lines.push(x))
+    actions.deleteTrupp('T1')
+    expect(state.trupps[0].removedAt).toBeUndefined()
+    expect(lines).toEqual([])
+    expect(ui.toasts.map((x) => x.text)).toEqual([appConfig.copy.atemschutz.notfall.removeBlocked])
+  })
+})

@@ -1408,6 +1408,8 @@ export const fr: Localizable<Copy> = {
       abschlussTitle: 'Urgence en cours',
       abschlussMsg: '{list} – pas encore terminée.',
       abschlussClose: 'Clôturer quand même',
+      // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
+      removeBlocked: 'Maintenir d’abord «Urgence terminée» – un binôme en urgence reste au tableau',
     },
     removeInsideTitle: 'Le binôme {name} est engagé – l’annoncer sorti d’abord ?',
     removeInsideMsg: 'Retirer enlève le binôme du tableau et de toute alarme. En général, on veut dire : le binôme est sorti.',

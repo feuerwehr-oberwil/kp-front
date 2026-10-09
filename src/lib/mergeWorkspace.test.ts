@@ -372,6 +372,12 @@ describe('mergeWorkspace — trupps: field-level three-way merge', () => {
     const late = '2026-09-01T20:11:04.000Z'
     expect(mergedTrupp({ ...baseTrupp, notfallAt: late }, { ...baseTrupp, notfallAt: early }).notfallAt).toBe(early)
     expect(mergedTrupp({ ...baseTrupp, notfallAt: early }, { ...baseTrupp, notfallAt: late }).notfallAt).toBe(early)
+    // …and ONE `notfall` row in the Trupp's log — the losing hold's goes with it
+    const held = (at: string) => ({ ...baseTrupp, notfallAt: at, readings: [...baseTrupp.readings, { t: at, bar: 300, kind: 'notfall' }] })
+    for (const [mine, theirs] of [[held(late), held(early)], [held(early), held(late)]]) {
+      const rows = mergedTrupp(mine, theirs).readings as { t: string; kind: string }[]
+      expect(rows.filter((r) => r.kind === 'notfall')).toEqual([{ t: early, bar: 300, kind: 'notfall' }])
+    }
   })
 
   it('«Notfall beendet» on one device is not undone by an unrelated edit on another', () => {

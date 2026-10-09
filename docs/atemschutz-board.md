@@ -191,5 +191,9 @@ reworded.
 - *Sync*: `notfallAt` merges per field; two devices holding at once raise ONE Notfall from the
   EARLIER hold (`mergeWorkspace · mergeTrupp`); «beendet» on one side survives an unrelated edit
   on the other.
+- *Review of #300 (09.10.2026)*: a CLOSED Einsatz pushes no Atemschutz alarm at all, Notfall
+  included (sweep and save path — nobody can end it on a frozen Tafel); two simultaneous holds
+  keep ONE `notfall` reading (the earlier) and the moved trigger is claimed, never pushed again;
+  a Trupp in a Notfall cannot be removed from the board until «Notfall beendet».
 - *The Abschluss* asks about a running Notfall first («Zur Tafel» focused); closing anyway writes
   «Notfall beim Abschluss nicht beendet» per Trupp.

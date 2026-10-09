@@ -2421,6 +2421,8 @@ function TruppCard({
   // preEntry && monitored, so it logs and prints as one). «Entfernen» stays a button away for
   // the erroneous Anmeldung; dismissing does nothing.
   const doDelete = async () => {
+    // a Trupp in a Notfall leaves the board only after «Notfall beendet» (useTruppActions · deleteTrupp)
+    if (truppInNotfall(t)) { toast(az.notfall.removeBlocked, { icon: 'warn', tone: 'warn' }); return }
     /* ⚠️ A crew that is INSIDE is asked about first (staging walk-through 25.09.2026, N4): one tap
        on «Entfernen» took a crew under PA off the board and out of every alarm, with no question.
        What the operator almost always means is «they are out» — so «Raus melden» is the filled,

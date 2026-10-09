@@ -1801,6 +1801,11 @@ export function useTruppActions(deps: Deps) {
   }
   const deleteTrupp = (id: string) => {
     const tr = trupps.find((t) => t.id === id)
+    /* ⚠️ Never off the board while in a NOTFALL (review of #300): the removal would take it out of
+     * every alarm with no «Notfall beendet» row and no end push — the record would show a Notfall
+     * that simply stopped. The way is «Notfall beendet» first; refused here as well as in the
+     * view, because a guard that lives only in the view is one a second call site walks past. */
+    if (tr && truppInNotfall(tr)) { toast(appConfig.copy.atemschutz.notfall.removeBlocked, { icon: 'warn', tone: 'warn' }); return }
     // ⚠️ STAMPED, not removed (17.08.). The board loses it — that is what was asked for, and the
     // live list is filtered at the source (IncidentWorkspace) so no alarm, marker or roster lock
     // can still see it. But the Atemschutz page of the Rapport is a safety document: a crew that

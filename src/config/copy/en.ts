@@ -1420,6 +1420,8 @@ export const en: Localizable<Copy> = {
       abschlussTitle: 'Emergency still running',
       abschlussMsg: '{list} – not ended yet.',
       abschlussClose: 'Close anyway',
+      // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
+      removeBlocked: 'Hold «Emergency ended» first – a team in an emergency stays on the board',
     },
     removeInsideTitle: 'Team {name} is inside – report it out first?',
     removeInsideMsg: 'Removing takes the team off the board and out of every alarm. What is usually meant: the team is out.',

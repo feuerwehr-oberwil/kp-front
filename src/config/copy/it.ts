@@ -1408,6 +1408,8 @@ export const it: Localizable<Copy> = {
       abschlussTitle: 'Emergenza in corso',
       abschlussMsg: '{list} – non ancora conclusa.',
       abschlussClose: 'Chiudere comunque',
+      // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
+      removeBlocked: 'Tenere prima «Emergenza conclusa» – una squadra in emergenza resta sulla lavagna',
     },
     removeInsideTitle: 'La squadra {name} è dentro – annunciarla fuori prima?',
     removeInsideMsg: 'Rimuovere toglie la squadra dalla lavagna e da ogni allarme. Di solito si intende: la squadra è uscita.',

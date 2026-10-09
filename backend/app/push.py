@@ -199,7 +199,13 @@ def notfall_changes(previous: object, current: object) -> tuple[list[dict[str, A
         at = _ms(t.get("notfallAt"))
         was = before.get(tid, {}).get("notfallAt")
         if at and t.get("notfallAt") != was:
-            raised.append({"id": tid, "name": t.get("name") or "Trupp", "since": at, "reason": "notfall"})
+            alert: dict[str, Any] = {"id": tid, "name": t.get("name") or "Trupp", "since": at, "reason": "notfall"}
+            # ⚠️ a Notfall that was ALREADY running and only moved its trigger is the same one: two
+            # devices held at once and the merge kept the earlier hold (mergeWorkspace · mergeTrupp).
+            # It is announced already — its new crossing key is claimed, never sent (review of #300)
+            if _ms(was):
+                alert["moved"] = True
+            raised.append(alert)
         elif not at and _ms(was):
             ended.append({"id": tid, "name": t.get("name") or "Trupp", "since": _ms(was), "reason": "notfall"})
     return raised, ended
@@ -223,7 +229,8 @@ async def notify_notfall_changes(db: AsyncSession, inc: Incident, previous: obje
     (the sweep skips both too). Returns the pushes queued.
     """
     raised, ended = notfall_changes(previous, current)
-    if not (raised or ended) or not push_enabled() or inc.is_exercise:
+    # …and never for a closed Einsatz (the sweep's own rule above): nobody can end it there
+    if not (raised or ended) or not push_enabled() or inc.is_exercise or not inc.is_open:
         return 0
     from .alarms import is_demo_deployment
 
@@ -232,7 +239,11 @@ async def notify_notfall_changes(db: AsyncSession, inc: Incident, previous: obje
     factory = async_sessionmaker(db.bind, class_=AsyncSession, expire_on_commit=False, autoflush=False)
     # title, body, Trupp id, the crossing key it claims, and whether that key is the sweep's
     sends: list[tuple[str, str, str, str, bool]] = []
+    moved: list[str] = []
     for alert in raised:
+        if alert.get("moved"):
+            moved.append(_notfall_key(inc.id, alert))
+            continue
         title, body = _atemschutz_message(alert)
         sends.append((title, body, alert["id"], _notfall_key(inc.id, alert), True))
     for alert in ended:
@@ -251,6 +262,8 @@ async def notify_notfall_changes(db: AsyncSession, inc: Incident, previous: obje
         # claimed AFTER the commit: a save that rolled back raised nothing, and must not leave a
         # claimed key behind that would keep the sweep quiet about a later, real one
         now_ms = datetime.now(UTC).timestamp() * 1000
+        for key in moved:
+            _should_send(key, now_ms)  # claimed, so the sweep does not announce it a second time
         for title, body, trupp_id, key, swept in sends:
             if not _should_send(key, now_ms):
                 continue
@@ -775,7 +788,12 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
     for inc in incidents:
         ws = inc.map_workspace_json
         ws = ws if isinstance(ws, dict) else {}
-        for t in due_trupps(ws, doctrine, now_ms):
+        # ⚠️ A CLOSED Einsatz (status off the active ones, not yet archived) alarms nothing: its
+        # Tafel is frozen and nobody can enter the Kontakt or hold «Notfall beendet» that would end
+        # it, so every 120 s a push about a crew from an Einsatz that is over (review of #300). The
+        # client's alarm stops at the close for the same reason (useAbschluss · azMonitoring). The
+        # Wiedervorlagen below are not Atemschutz and keep their own closure rule.
+        for t in due_trupps(ws, doctrine, now_ms) if inc.is_open else []:
             # a Notfall's key is shared with the immediate push on its save (notify_notfall_changes)
             crossing = t.get("pressureAt") if t["reason"] == "pressure" else t["since"]
             key = f"az:{inc.id}:{t['id']}:{crossing}:{t['reason']}"

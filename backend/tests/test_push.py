@@ -354,6 +354,39 @@ async def test_sweep_stays_silent_for_an_uebung(db_session, monkeypatch):
     assert await push_mod.check_and_push(db_session, NOW) == 0
 
 
+async def test_sweep_stays_silent_about_atemschutz_on_a_closed_einsatz(db_session, monkeypatch):
+    """Closed but not yet archived (review of #300): the Tafel is frozen, nobody can enter the
+    Kontakt or hold «Notfall beendet» — so neither an overdue crew nor a Notfall is pushed, every
+    120 s, about an Einsatz that is over."""
+    import app.push as push_mod
+    from app.models import DeploymentConfig, Incident
+
+    push_mod._notified.clear()
+    db_session.add(DeploymentConfig(id=1, config_json={}))
+    db_session.add(
+        Incident(
+            title="Zimmerbrand",
+            source="manual",
+            status="abgeschlossen",
+            is_archived=False,
+            is_exercise=False,
+            map_workspace_json={
+                "trupps": [
+                    trupp("a", "2026-07-02T13:00:00Z"),
+                    trupp("b", "2026-07-02T14:09:30Z", notfallAt="2026-07-02T14:08:00Z"),
+                ]
+            },
+        )
+    )
+    await db_session.commit()
+
+    async def fake_broadcast(_db, **kw):  # pragma: no cover — the gate must keep this unreached
+        raise AssertionError("a closed Einsatz must not broadcast an Atemschutz alarm")
+
+    monkeypatch.setattr(push_mod, "broadcast", fake_broadcast)
+    assert await push_mod.check_and_push(db_session, NOW) == 0
+
+
 async def test_sweep_stays_silent_on_the_public_demo(db_session, monkeypatch):
     """Persisted demo clocks are seed time; browsers rebase them to each visitor's arrival."""
     import app.push as push_mod
@@ -871,6 +904,13 @@ class TestNotfallOnSave:
         assert swept == []
 
         # «Notfall beendet» once, replacing the tray entry, with no sweep ledger behind it
+        # two devices held at once: the merge moves the trigger to the EARLIER hold — the same
+        # Notfall, never announced twice, and its new key is claimed against the sweep too
+        await save({**base, "notfallAt": "2026-07-02T14:07:58Z"})
+        assert len(sent) == 1
+        await push_mod.check_and_push(db_session)
+        assert swept == []
+
         await save(base)
         assert len(sent) == 2
         assert sent[1]["title"] == "Notfall beendet – Keller Anna"
@@ -878,6 +918,14 @@ class TestNotfallOnSave:
         assert sent[1]["dedup_key"] is None
         await save(base)
         assert len(sent) == 2
+
+    async def test_a_closed_einsatz_is_not_pushed_on_save(self, db_session, monkeypatch):
+        import app.push as push_mod
+
+        monkeypatch.setattr(push_mod, "push_enabled", lambda: True)
+        closed = SimpleNamespace(id="i1", is_exercise=False, is_open=False)
+        after = [trupp("a", None, notfallAt="2026-07-02T14:08:00Z")]
+        assert await push_mod.notify_notfall_changes(db_session, closed, [trupp("a", None)], after) == 0
 
     async def test_an_uebung_is_not_pushed_on_save_either(self, client, editor, monkeypatch):
         import app.push as push_mod
