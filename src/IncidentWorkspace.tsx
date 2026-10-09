@@ -171,7 +171,7 @@ import { hasBuildingContent } from './lib/buildingCard'
 import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
 import { useBootCover } from './lib/bootCover'
-import { fillTileTemplate, predownloadArea, tilesForBounds } from './lib/offlineTiles'
+import { bulkFetchAllowed, fillTileTemplate, predownloadArea, tilesForBounds } from './lib/offlineTiles'
 import { WARM_BYTES, estimateStorage, fittedTileCap, prefetchFit } from './lib/storageBudget'
 import { ChecklistsView } from './components/ChecklistsView'
 import { AtemschutzView, type TruppOrder } from './components/AtemschutzView'
@@ -1346,7 +1346,9 @@ export function IncidentWorkspace({
     const map = mapRef.current?.getMap()
     if (!map) return
     const base = layers.find((l) => l.base && l.visible)
-    const templates = base?.tiles ?? cartoRasterTiles('rastertiles/voyager', ['a'])
+    // OSM's own servers may be viewed but not bulk-fetched (offlineTiles · bulkFetchAllowed):
+    // with OSM as base, Carto is warmed instead — the same OSM data, from a host that allows it.
+    const templates = base?.tiles?.every(bulkFetchAllowed) ? base.tiles : cartoRasterTiles('rastertiles/voyager', ['a'])
     const rasterOverlays = layers.filter((l) => !l.base && l.tiles?.length).map((l) => l.tiles as string[])
     const bounds = incidentBounds
     // warm: per-object plan PDFs and the geojson overlays cropped to the box. NOT the symbol

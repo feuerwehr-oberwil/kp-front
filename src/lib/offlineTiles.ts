@@ -53,6 +53,17 @@ export function fillTileTemplate(tpl: string, z: number, x: number, y: number): 
     .replace('{bbox-epsg-3857}', tileBbox3857(z, x, y))
 }
 
+/** The OSM Foundation's tile servers forbid bulk pre-fetching in their usage policy
+ *  (operations.osmfoundation.org/policies/tiles). Viewing them is fine; warming 1200 tiles at a
+ *  time is not. A base on such a host is pre-downloaded from the fallback (Carto) instead. */
+const NO_BULK_HOSTS = ['tile.openstreetmap.org']
+
+export function bulkFetchAllowed(tpl: string): boolean {
+  let host: string
+  try { host = new URL(tpl).hostname } catch { return true }
+  return !NO_BULK_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))
+}
+
 /**
  * What the download actually achieved — attempts AND hits, separately.
  *

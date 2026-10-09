@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fillTileTemplate, predownloadArea, tileBbox3857, tilesForBounds } from './offlineTiles'
+import { bulkFetchAllowed, fillTileTemplate, predownloadArea, tileBbox3857, tilesForBounds } from './offlineTiles'
 
 // A one-tile box at the coarsest zoom, so a run is three fetches and not twelve hundred.
 const BOX = { west: 7.5, south: 47.5, east: 7.5001, north: 47.5001 }
@@ -105,5 +105,17 @@ describe('predownloadArea can be cancelled', () => {
     await predownloadArea(opts)
     const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit
     expect(init.signal).toBeInstanceOf(AbortSignal)
+  })
+})
+
+describe('bulkFetchAllowed', () => {
+  it('refuses the OSM Foundation tile servers', () => {
+    expect(bulkFetchAllowed('https://tile.openstreetmap.org/{z}/{x}/{y}.png')).toBe(false)
+    expect(bulkFetchAllowed('https://a.tile.openstreetmap.org/{z}/{x}/{y}.png')).toBe(false)
+  })
+  it('allows Carto, swisstopo and unparseable templates', () => {
+    expect(bulkFetchAllowed('https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png')).toBe(true)
+    expect(bulkFetchAllowed('https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg')).toBe(true)
+    expect(bulkFetchAllowed('/tiles/{z}/{x}/{y}.png')).toBe(true)
   })
 })
