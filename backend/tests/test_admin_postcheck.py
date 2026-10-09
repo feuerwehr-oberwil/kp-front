@@ -220,7 +220,7 @@ def http_lines() -> list[dict]:
     evs = {e["seq"]: e for e in event_rows()}
     after = timedelta(milliseconds=12)  # the response leaves a few ms after the row is stored
     return [
-        http_line(at(-14), "POST", "/api/print-agent/claim", 204, "Python-urllib/3.12"),  # never this incident
+        http_line(at(-14), "GET", "/api/stats/incidents", 200, "Python-urllib/3.12"),  # never this incident
         http_line(at(5), "GET", f"{base}/workspace", 200, IPAD),
         http_line(at(6), "GET", f"{base}/workspace", 200, ANDROID, ip="198.51.100.20"),
         http_line(evs[1]["recorded_at"] + after, "POST", f"{base}/events", 201, IPAD),
@@ -255,7 +255,7 @@ def http_lines() -> list[dict]:
         # a browser that never opened this incident, stuck in a boot loop
         http_line(at(60), "GET", "/api/incidents", 500, WINDOWS, ip="203.0.113.30"),
         http_line(at(61), "GET", "/assets/index-old.js", 404, WINDOWS, ip="203.0.113.30"),
-        http_line(at(150), "POST", "/api/print-agent/claim", 204, "Python-urllib/3.12"),
+        http_line(at(150), "GET", "/api/stats/incidents", 200, "Python-urllib/3.12"),
     ]
 
 
@@ -398,7 +398,7 @@ def test_devices_are_the_browsers_that_opened_this_incident(full):
     sec = section(report, "devices")
     devices = sec.data["devices"]
     assert [f"{d['tag']} {d['label']}" for d in devices] == [D_IPAD, D_ANDROID, D_IPHONE], (
-        "the print agent and the Windows browser never touched this incident"
+        "the stats pull and the Windows browser never touched this incident"
     )
     # the audit events are attributed through the write request that stored them
     assert devices[0]["accounts"] == {f"{EDITOR[:8]} (editor)": 1}

@@ -402,17 +402,14 @@ async def test_abmelden_sheds_the_link_session_too(client, link_key, incident, e
 
 
 async def test_explicitly_excluded_routes_are_refused(client, link_key, incident):
-    """The named exclusions from auth/incident_link.py: documents carrying names, the station
-    printer, another person's print job, push rows, billable outbound calls, and the GETs that
-    are really writes. 403 specifically — «not 200» would pass on an unrelated breakage."""
+    """The named exclusions from auth/incident_link.py: documents carrying names, push rows,
+    billable outbound calls, and the GETs that are really writes. 403 specifically — «not 200»
+    would pass on an unrelated breakage."""
     await _open_link(client)
-    inc, media, job = incident.id, uuid.uuid4(), uuid.uuid4()
+    inc, media = incident.id, uuid.uuid4()
     excluded = [
         ("POST", f"/api/incidents/{inc}/report/pdf"),
         ("POST", f"/api/incidents/{inc}/zeitplan/pdf"),
-        ("POST", f"/api/incidents/{inc}/report/print"),
-        ("POST", f"/api/incidents/{inc}/zeitplan/print"),
-        ("DELETE", f"/api/print-jobs/{job}"),
         ("POST", "/api/push/subscriptions"),
         ("GET", "/api/geocode/search?q=Hauptstrasse"),
         ("POST", "/api/overpass/buildings"),

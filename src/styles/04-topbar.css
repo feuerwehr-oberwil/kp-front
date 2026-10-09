@@ -23,15 +23,4 @@
 .dot { width: 8px; height: 8px; border-radius: 50%; }
 .dot.r { background: var(--red); animation: p 1.4s infinite; }
 @keyframes p { 50% { opacity: .3; } }
-/* Station print relay: heartbeat dot on «An Stationsdrucker» (preflight + capture). Green and
-   silent while the relay answers — only the abnormal state gets words, because the title= it used
-   to rely on does not exist on a tablet. */
-.print-relay-dot { flex: none; background: var(--amber); }
-.print-relay-dot.online { background: var(--green); }
-.print-send.offline { flex-direction: column; align-items: flex-start; gap: 1px; padding-top: 4px; padding-bottom: 4px; }
-.print-send-main { display: inline-flex; align-items: center; gap: 8px; }
-.print-send-off { font: var(--fw-bold) var(--fs-micro) var(--body); color: var(--amber-strong); padding-left: 24px; }   /* under the label: THE button's 16px glyph + its 8px gap */
-/* the capture poster's buttons are centred, so the second line centres with them */
-.cv-btn.print-send.offline { align-items: center; }
-.cv-btn .print-send-off { padding-left: 0; }
 

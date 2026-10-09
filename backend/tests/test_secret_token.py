@@ -1,6 +1,6 @@
 """The shared secret gate (`app.auth.secret_token`) — the rule seven surfaces now share
-(the alarm intake, the Divera and FireHub webhooks, the Traccar fake feed, the print relay,
-the statistics export, the Erfassungs-Poster — see the module docstring on `SecretGate`;
+(the alarm intake, the Divera and FireHub webhooks, the Traccar fake feed, the organizer
+integration, the statistics export, the Erfassungs-Poster — see the module docstring on `SecretGate`;
 an earlier commit message miscounted these as eight and the number stuck in prose here).
 
 Worth its own test because the two refusals are not interchangeable: an unconfigured secret
@@ -50,7 +50,7 @@ def test_token_accepted_from_query_or_header() -> None:
 
 
 def test_header_only_gate_ignores_the_query_string() -> None:
-    """A gate without a query parameter (the print relay) must not read one — a secret in the
+    """A gate without a query parameter (the organizer integration) must not read one — a secret in the
     URL is a secret in every proxy log, and declaring none is how a surface refuses that."""
     header_only = SecretGate(disabled_detail="off", invalid_detail="nope")
     header_only.check_request("s3cret", _request(), "s3cret")
@@ -120,13 +120,6 @@ async def test_traccar_fake_gate_is_wired(client, monkeypatch):
     assert (await client.post("/api/traccar/fake?secret=wrong", json=PAYLOAD)).status_code == 401
 
 
-async def test_print_agent_gate_is_wired(client, monkeypatch):
-    monkeypatch.setattr(settings, "print_agent_secret", "")
-    assert (await client.post("/api/print-agent/claim")).status_code == 403
-    monkeypatch.setattr(settings, "print_agent_secret", "s3cret")
-    assert (await client.post("/api/print-agent/claim", headers={"X-Print-Agent-Secret": "wrong"})).status_code == 401
-
-
 async def test_stats_export_gate_is_wired(client, db_session):
     assert (await client.get("/api/stats/incidents")).status_code == 403
     await _set_config_secret(db_session, "stats_secret", "s3cret")
@@ -137,3 +130,13 @@ async def test_capture_poster_gate_is_wired(client, db_session):
     assert (await client.get("/api/capture/incidents")).status_code == 403
     await _set_config_secret(db_session, "capture_secret", "s3cret")
     assert (await client.get("/api/capture/incidents?t=wrong")).status_code == 401
+
+
+async def test_organizer_integration_gate_is_wired(client, db_session):
+    """Header-only (Bearer) — a key in the query string is never read, so it counts as missing."""
+    from tests.ov_support import set_key
+
+    url = "/api/integrations/visit-programmes/fwo-admin:fu"
+    assert (await client.get(url)).status_code == 403
+    await set_key(db_session)
+    assert (await client.get(url, headers={"Authorization": "Bearer wrong"})).status_code == 401

@@ -14,7 +14,7 @@ app/
   schemas.py         pydantic request/response models
   auth/              PIN-kiosk auth: peppered bcrypt, JWT cookies, JTI blocklist, cooldown
   api/               routers: incidents, journal, alarms, capture, media, events, divera,
-                     traccar, geocode, reference, objects, report, print_relay, push, stats,
+                     traccar, geocode, reference, objects, report, push, stats,
                      personnel, admin, …
   audit.py           hash-chained event append + workspace snapshots + chain verify
   divera.py          keyword maps + alarm parsing + pool upsert

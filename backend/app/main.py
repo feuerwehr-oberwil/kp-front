@@ -472,8 +472,8 @@ _UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 _SESSION_COOKIES = (ACCESS_COOKIE, REFRESH_COOKIE, ADMIN_COOKIE, LINK_COOKIE)
 
 #: The explicit non-cookie credentials, as the routes that read them spell them (api/capture,
-#: api/divera, api/alarms, api/firehub, api/traccar, api/stats, api/print_relay).
-_CREDENTIAL_HEADERS = ("x-capture-token", "x-webhook-secret", "x-stats-token", "x-print-agent-secret")
+#: api/divera, api/alarms, api/firehub, api/traccar, api/stats).
+_CREDENTIAL_HEADERS = ("x-capture-token", "x-webhook-secret", "x-stats-token")
 
 #: `Sec-Fetch-Site` values a request from our own page (or a typed address) carries.
 _OWN_FETCH_SITES = frozenset({"same-origin", "none"})
@@ -722,7 +722,6 @@ def _register_optional_routers() -> None:
         ("app.api.journal", "router"),
         ("app.api.push", "router"),
         ("app.api.report", "router"),
-        ("app.api.print_relay", "router"),
         ("app.api.stats", "router"),
         ("app.api.system", "router"),
         ("app.api.credentials", "router"),
