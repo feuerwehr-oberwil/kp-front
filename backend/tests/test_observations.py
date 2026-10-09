@@ -124,22 +124,6 @@ async def test_one_event_per_reading_in_the_shape_the_replay_reads(db_session, i
     assert ev.payload_json["weather"]["observed_at"] == t.isoformat()
 
 
-async def test_the_forecast_never_enters_the_record(db_session, incident, weather):
-    """The Open-Meteo hours ride the live reading for the ERG corridor, but a forecast is not
-    an observation — the recorded payload carries what was measured and nothing else."""
-    from app.weather import WindForecast
-
-    t = datetime(2026, 9, 23, 17, 20, tzinfo=UTC)
-    reading = _wx(t, 286)
-    reading.wind_forecast = [WindForecast(at="2026-09-23T18:00", dir_deg=40, speed_kmh=15)]
-    weather.readings.append(reading)
-    assert await obs.observe_weather(db_session, datetime.now(UTC)) == 1
-    await db_session.commit()
-    [ev] = await _events(db_session, incident)
-    assert "wind_forecast" not in ev.payload_json["weather"]
-    assert ev.payload_json["weather"]["wind_dir_deg"] == 286
-
-
 async def test_a_wind_shift_writes_one_row_and_the_readings_after_it_none(db_session, incident, weather):
     t = datetime(2026, 9, 23, 17, 20, tzinfo=UTC)
     now = datetime.now(UTC)

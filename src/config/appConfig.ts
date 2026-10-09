@@ -600,30 +600,6 @@ const base = {
     /** a placard marked «Gelöscht / erledigt» (lib/objectDone) keeps its rings, GREY and unfilled —
      *  the same «over, but it happened» the glyph says; a red wash would still order an evacuation */
     doneColor: '#8a929e',
-    /** The protective distance as a downwind OVAL (lib/ergRings · ergZoneEllipse, F4 09.10.2026):
-     *  an ellipse centred `corridorCenter`·D downwind with semi-axes `corridorAlong`·D along the
-     *  wind and `corridorAcross`·D across. ⚠️ It must CONTAIN the ERG protective action zone — a
-     *  square of side D downwind, the spill mid-way along its upwind edge — so every corner has
-     *  (0.5/along)² + (0.5/across)² ≤ 1 (0.90 here; ergRings.test checks it numerically). Do
-     *  not narrow it: an oval inside the square left buildings ERG puts in the zone outside
-     *  every line (#305 review). */
-    corridorCenter: 0.5,
-    corridorAlong: 0.8,
-    corridorAcross: 0.7,
-    /** under this speed the wind's direction is noise (a 10-min mean of a breeze) → full circle */
-    windCalmBelowKmh: 5,
-    /** a reading older than this no longer aims anything → full circle, and the panel says so.
-     *  MeteoSwiss publishes every 10 min with ~10–20 min lag; the badge polls every 10 min. */
-    windStaleMin: 45,
-    /** a reading stamped further than this AHEAD of the device: one of the two clocks is wrong */
-    windFutureToleranceMin: 5,
-    /** a MeteoSwiss station further than this from the Einsatz does not aim anything (the backend
-     *  takes the nearest within 60 km; Open-Meteo is a point model at the Einsatz itself) */
-    windMaxStationKm: 15,
-    /** a forecast turn at least this large… (→ full circle, «Prognose: Wind dreht …») */
-    forecastShiftDeg: 45,
-    /** …due within this many minutes */
-    forecastWithinMin: 120,
   },
   drawing: {
     colors: ['#1f6feb', '#e8392b', '#1f9d57', '#e2920a', '#1b2330', '#ffffff'],
