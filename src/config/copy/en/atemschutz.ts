@@ -175,6 +175,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     clockFrozen: 'As at the close',
     clockWarn: 'Contact due',
     clockOverdue: 'Overdue',
+    rowDue: 'Due',
     clockAlarmPressure: 'Alarm pressure',
     clockAlarmLimit: 'Limit {bar} bar',
     overdueBadge: (n: number) => `${n} in alarm`,

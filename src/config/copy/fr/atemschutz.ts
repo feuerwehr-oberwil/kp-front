@@ -163,6 +163,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     clockFrozen: 'État à la clôture',
     clockWarn: 'Contact à faire',
     clockOverdue: 'En retard',
+    rowDue: 'À faire',
     clockAlarmPressure: 'Pression d’alarme',
     clockAlarmLimit: 'Limite {bar} bar',
     overdueBadge: (n: number) => `${n} en alarme`,
