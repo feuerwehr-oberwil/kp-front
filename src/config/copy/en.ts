@@ -2076,6 +2076,14 @@ export const en: Localizable<Copy> = {
     submitPin: 'Sign in',
     retry: 'Try again',
     offlineHint: 'Signing in needs a connection. Saved incidents only open if this device was still signed in.',
+    microsoft: 'Sign in with Microsoft',
+    microsoftErrors: {
+      cancelled: 'Microsoft sign-in cancelled.',
+      expired: 'The Microsoft sign-in took too long. Please try again.',
+      failed: 'Microsoft sign-in failed. Please try again or sign in with your PIN.',
+      unknown: 'This Microsoft account is not enabled for KP Front. Please sign in with your PIN or ask the admin.',
+      inactive: 'The linked account is deactivated. Please ask the admin.',
+    },
   },
   splash: {
     stuck: 'Startup is taking longer than usual',
@@ -3971,6 +3979,10 @@ export const en: Localizable<Copy> = {
           title: 'Object visits (organizer)',
           caption: 'Key with which an organizer (e.g. fwo-admin) reads the catalogue and changes and writes lists. It is generated under «Object visits › Integration».',
         },
+        microsoft_login: {
+          title: 'Sign in with Microsoft',
+          caption: 'Optional: a separate Azure app registration (sign-in only, «openid profile») so named accounts can also sign in with Microsoft instead of a PIN. Redirect URI: <this instance\'s address>/api/auth/microsoft/callback. Only the accounts on the list get in, each as «Microsoft account=username», separated by commas. The PIN always keeps working. Guide: docs/microsoft-login.md.',
+        },
         sharepoint_export: {
           title: 'SharePoint (object visit filing)',
           caption: 'A separate Azure app registration with write access («Sites.Selected · write») only on the filing site. The read-only station-data sign-in is never used for writing.',
@@ -5403,6 +5415,23 @@ export const en: Localizable<Copy> = {
   photoViewer: {
     title: 'Photo',
     download: 'Download',
+  },
+  photoGeo: {
+    place: 'Place on map',
+    placeN: 'Place {n} photos on map',
+    show: 'Show on map',
+    placedStep: 'Photo placed on map',
+    logPlaced: 'Photo placed on map',
+    logPlacedN: '{n} photos placed on map',
+    where: 'Taken at',
+    whereN: 'Photo {n} taken at',
+    distance: '{d} from the incident',
+    facing: 'facing {dir}',
+    takenAt: 'taken {t}',
+    tooFar: 'Too far away for the map',
+    marker: 'Photo from the log',
+    markerTaken: 'Photo from the log · taken {t}',
+    planMark: 'Photo – move or remove it on the map',
   },
   einsatzuhr: {
     title: 'Incident duration — started {t}',

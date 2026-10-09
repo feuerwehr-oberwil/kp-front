@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
-import { liveOverlay, projectOnto } from './planProjection'
+import { liveOverlay, photoOverlay, projectOnto } from './planProjection'
 import { applyBoardToObjects, bakeGeoBody, sheetAnnos, viewsOf, type PlanFit, type TacticalObject } from './tacticalObjects'
 import { SHAPE_DEFS } from './shapes'
 import type { BoardAnno, Drawing, Entity } from '../types'
@@ -334,5 +334,37 @@ describe('Gebäude range edits use the same storeys on every surface', () => {
   it('a changed range moves the home tile inside the new range', () => {
     const changed = applyBoardToObjects([object], 'gebaeude', [{ ...original, floorFrom: 1 }], STACK)
     expect(changed[0].sheet?.anno).toMatchObject({ floor: 1, floorFrom: 1, floorTo: 2 })
+  })
+})
+
+describe('photoOverlay — a Verlauf photo on a georeferenced sheet (F16)', () => {
+  const photo = (over: Partial<Entity> = {}) => ent({
+    id: 'ph1', kind: 'photo', layer: 'markup', coord: coordEast(50), photoUrl: '/api/media/a',
+    photoOf: { row: 'j1', i: 0 }, heading: 90, ...over,
+  })
+
+  it('is never part of the sheet document — media, not a place on the paper', () => {
+    expect(projectOnto(geo(photo()), PLAN)).toBeNull()
+  })
+
+  it('shows the marker where it was taken, with its URL and heading', () => {
+    const [m] = photoOverlay([photo()], PLAN)
+    expect(m.id).toBe('ph1')
+    expect(m.url).toBe('/api/media/a')
+    expect(m.pt.x).toBeCloseTo(0.5, 6)
+    expect(m.heading).toBe(90)
+  })
+
+  it('turns the heading into the paper’s frame, the same way the live feed does', () => {
+    const turned: PlanFit = { fit: { ...PLAN.fit, rotationDeg: 30 }, aspect: 1 }
+    expect(photoOverlay([photo({ heading: 350 })], turned)[0].heading).toBe(20)
+    expect('heading' in photoOverlay([photo({ heading: undefined })], turned)[0]).toBe(false)
+  })
+
+  it('shows nothing off the sheet, nothing on the Gebäude stack, and no legacy session photo', () => {
+    expect(photoOverlay([photo({ coord: coordEast(2000) })], PLAN)).toEqual([])
+    expect(photoOverlay([photo()], { ...PLAN, stack: { floors: [0, 1] } })).toEqual([])
+    expect(photoOverlay([photo({ photoOf: undefined })], PLAN)).toEqual([])
+    expect(photoOverlay([ent({ id: 's1', coord: coordEast(50) })], PLAN)).toEqual([])
   })
 })

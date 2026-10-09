@@ -34,6 +34,8 @@ def auto_align_available() -> bool:
 
 
 def integrations() -> ConfigIntegrations:
+    from .auth.microsoft import enabled as microsoft_login_enabled  # deferred: auth imports the app's models
+
     divera = bool(credential("divera_access_key"))
     alarm_webhook = bool(credential("alarm_webhook_secret"))
     alarm_provider = "divera" if divera else "webhook" if alarm_webhook else None
@@ -45,6 +47,7 @@ def integrations() -> ConfigIntegrations:
         sttConfigured=bool(credential("stt_base_url")),
         autoAlignConfigured=auto_align_available(),
         cartoBasemapKey=credential("carto_api_key") or None,
+        microsoftLoginConfigured=microsoft_login_enabled(),
         personnel=ProviderCapability(
             provider="divera" if divera else None,
             configured=divera,

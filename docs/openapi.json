@@ -540,6 +540,72 @@
         }
       }
     },
+    "/api/auth/microsoft/start": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Start",
+        "operationId": "start_api_auth_microsoft_start_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/microsoft/callback": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Callback",
+        "operationId": "callback_api_auth_microsoft_callback_get",
+        "parameters": [
+          {
+            "name": "ms_login_tx",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ms Login Tx"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/session": {
       "get": {
         "tags": [
@@ -13972,6 +14038,11 @@
               }
             ],
             "title": "Cartobasemapkey"
+          },
+          "microsoftLoginConfigured": {
+            "type": "boolean",
+            "title": "Microsoftloginconfigured",
+            "default": false
           },
           "personnel": {
             "$ref": "#/components/schemas/ProviderCapability"
