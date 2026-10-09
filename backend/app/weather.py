@@ -28,6 +28,14 @@ from .config import settings
 from .geo_util import haversine_m, lv95_to_wgs84
 
 
+class WindForecast(BaseModel):
+    """One hour of the Open-Meteo point forecast — model wind, not a measurement."""
+
+    at: str  # ISO-8601 UTC (Open-Meteo answers in GMT without a zone suffix)
+    dir_deg: float | None = None  # FROM bearing, like WeatherData.wind_dir_deg
+    speed_kmh: float | None = None
+
+
 class WeatherData(BaseModel):
     wind_dir_deg: float | None = None  # meteorological FROM bearing (0=N, 90=E)
     wind_speed_kmh: float | None = None
@@ -38,6 +46,15 @@ class WeatherData(BaseModel):
     observed_at: str | None = None  # ISO-8601 UTC
     source: str = "unknown"  # "meteoswiss" | "open-meteo"
     station: str | None = None  # nearest SMN station name (MeteoSwiss only)
+    # how far that station is from the asked point (MeteoSwiss only — Open-Meteo is a point model
+    # at the point itself). The nearest station may be up to 60 km off; the ERG oval only trusts
+    # one within ~15 km (src/lib/ergRings · ergWind).
+    station_distance_km: float | None = None
+    # The next hours' wind from the Open-Meteo point forecast (the current hour first), so the
+    # ERG corridor can say «Wind dreht auf 300° in ~40′» (src/lib/ergRings · ergWindShiftAhead).
+    # Best-effort: None when Open-Meteo did not answer. A FORECAST, so it never enters the record
+    # (app/observations dumps the reading without it).
+    wind_forecast: list[WindForecast] | None = None
 
 
 def _f(value: str | None) -> float | None:
@@ -115,15 +132,22 @@ class WeatherClient:
             if result is not None:
                 break
 
-        # MeteoSwiss VQHA80 carries no present-weather code; backfill the WMO code from the
-        # open data point forecast so the UI can show a cloud/rain/… icon. Best-effort.
-        if result is not None and result.weather_code is None and result.source != "open-meteo":
+        # MeteoSwiss VQHA80 carries no present-weather code and no forecast; backfill the WMO
+        # code and the next hours' wind from the open data point forecast (one request) so the
+        # UI can show a cloud/rain/… icon and the ERG corridor a forecast turn. Best-effort.
+        if (
+            result is not None
+            and result.source != "open-meteo"
+            and (result.weather_code is None or result.wind_forecast is None)
+        ):
             try:
                 om = await self._from_open_meteo(lat, lng)
             except Exception:  # noqa: BLE001 — best-effort enrichment must never break the reading
                 om = None
-            if om is not None and om.weather_code is not None:
+            if om is not None and om.weather_code is not None and result.weather_code is None:
                 result.weather_code = om.weather_code
+            if om is not None and om.wind_forecast:
+                result.wind_forecast = om.wind_forecast
 
         if result is not None:
             async with self._lock:
@@ -168,6 +192,7 @@ class WeatherClient:
             observed_at=_vqha80_timestamp(row.get("Date")),
             source="meteoswiss",
             station=best_name,
+            station_distance_km=round(best_d / 1000, 1),
         )
         # If the nearest station reports no wind at all, the reading is useless for us.
         if data.wind_dir_deg is None and data.wind_speed_kmh is None:
@@ -211,6 +236,10 @@ class WeatherClient:
             "longitude": lng,
             "current": "wind_speed_10m,wind_direction_10m,wind_gusts_10m,temperature_2m,precipitation,weather_code",
             "wind_speed_unit": "kmh",
+            # the current hour and the two after it — what the ERG corridor's «Wind dreht …
+            # in ~40′» looks at (2 h); three rows, no second request
+            "hourly": "wind_speed_10m,wind_direction_10m",
+            "forecast_hours": 3,
         }
         async with httpx.AsyncClient(timeout=15.0) as client:
             r = await client.get(self.open_meteo_url, params=params)
@@ -234,7 +263,25 @@ class WeatherClient:
             observed_at=observed_at,
             source="open-meteo",
             station=None,
+            wind_forecast=_hourly_wind(payload.get("hourly")),
         )
+
+
+def _hourly_wind(hourly: object) -> list[WindForecast] | None:
+    """Open-Meteo's parallel `hourly` arrays → one row per hour; None when absent/malformed."""
+    if not isinstance(hourly, dict):
+        return None
+    times = hourly.get("time")
+    dirs = hourly.get("wind_direction_10m")
+    speeds = hourly.get("wind_speed_10m")
+    if not isinstance(times, list) or not isinstance(dirs, list) or not isinstance(speeds, list):
+        return None
+    rows = [
+        WindForecast(at=t, dir_deg=_num(d), speed_kmh=_num(v))
+        for t, d, v in zip(times, dirs, speeds, strict=False)
+        if isinstance(t, str) and t
+    ]
+    return rows or None
 
 
 def _num(value: object) -> float | None:

@@ -1,5 +1,5 @@
 import { Fragment } from 'react'
-import { Source, Layer } from 'react-map-gl/maplibre'
+import { Source, Layer, Marker } from 'react-map-gl/maplibre'
 import type { LayerDef, LayerId, PreparedMapOverlay } from '../types'
 import { circlePolygon } from '../lib/geo'
 import { vis, lineFeat } from '../lib/mapView'
@@ -126,10 +126,14 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
           data={
             overlay.kind === 'circle'
               ? { type: 'Feature' as const, geometry: { type: 'Polygon' as const, coordinates: circlePolygon(overlay.center, overlay.radiusM) }, properties: {} }
-              : lineFeat(overlay.coords)
+              : overlay.kind === 'polygon'
+                ? { type: 'Feature' as const, geometry: { type: 'Polygon' as const, coordinates: [overlay.coords] }, properties: {} }
+                : lineFeat(overlay.coords)
           }
         >
-          {overlay.kind === 'circle' ? (
+          {/* circle and polygon share their two layers (and their ids): the ERG protective
+              ring turning into the downwind oval and back is a data change, not a remount */}
+          {overlay.kind === 'circle' || overlay.kind === 'polygon' ? (
             <>
               <Layer
                 id={`l-${overlay.id}-fill`}
@@ -165,6 +169,13 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
             />
           )}
         </Source>
+      ))}
+      {/* an overlay's own tag (the ERG oval's wind + source + time, lib/ergRings) — a DOM label
+          like the measure labels (the style carries no glyphs), hidden with its layer */}
+      {mapReady && preparedOverlays.map((overlay) => overlay.kind === 'polygon' && overlay.label && isVisible(overlay.layer) && (
+        <Marker key={`lbl-${overlay.id}`} longitude={overlay.label.at[0]} latitude={overlay.label.at[1]} anchor="center">
+          <div className="measure-label draw-label">{overlay.label.lines.map((l) => <div key={l}>{l}</div>)}</div>
+        </Marker>
       ))}
     </>
   )

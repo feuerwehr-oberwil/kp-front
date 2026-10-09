@@ -1,7 +1,7 @@
 import type { LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
 
-const M_PER_LAT = 110540
+export const M_PER_LAT = 110540
 
 export function circlePolygon(center: LngLat, radiusM: number, n = 96): number[][][] {
   const mPerLon = 111320 * Math.cos((center[1] * Math.PI) / 180)
