@@ -2108,6 +2108,9 @@ export const de = {
     clockFrozen: 'Stand beim Abschluss',
     clockWarn: 'Kontakt fällig',
     clockOverdue: 'Überfällig',
+    // the phone row's short tier word for its clock glyph (AtemschutzView · tierMark, B5): drawn
+    // as the glyph only since 09.10.2026, so this is the row's aria-label and the glyph's title
+    rowDue: 'Fällig',
     // …and the same block on a PRESSURE alarm: same three lines, but the number is the bar the
     // Trupp dropped to, not a clock. The word must never read «Überfällig» there – the Verlauf
     // and the Rapport record two different events, and a radio check does not fix this one.
