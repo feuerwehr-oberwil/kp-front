@@ -137,3 +137,32 @@ export function acceptName(text: string, name: string): string {
   const head = word.length ? text.slice(0, text.length - word.length) : text
   return `${head}${name} `
 }
+
+/**
+ * The Art, read off the sentence's own first words — the keyboard's way to the three chips
+ * (10.10.2026, owner: «words, not signs»). Whoever types «Auftrag an Trupp 2: Frau Weber
+ * betreuen» has said what kind of entry it is; reaching for the chip as well is the second time.
+ *
+ * Returns the type and the sentence WITHOUT the lead, because `composeJournalText` prints the
+ * tag itself — filing the lead as typed would read «Auftrag · Auftrag an Trupp 2: …».
+ *
+ * ⚠️ Only the leads in copy · journal.entryLeads, never the bare word. «Auftrag erledigt, Trupp 2
+ * zurück» is a Meldung, and «Sofort» alone starts plenty of ordinary sentences. «Auftrag AN» and a
+ * COLON are what a person writes when the word is the kind of entry and not part of the news.
+ * ⚠️ A lead without its own colon needs a separator after it (space or colon): «Auftrag
+ * angenommen» must not light the Auftrag chip on its first eleven letters.
+ */
+export function readEntryLead(text: string): { type: Exclude<JournalEntryType, 'info'>; rest: string } | null {
+  const leads = appConfig.copy.journal.entryLeads
+  const body = text.replace(/^\s+/, '')
+  for (const type of ['auftrag', 'sofort'] as const) {
+    for (const lead of leads[type] ?? []) {
+      const head = body.slice(0, lead.length)
+      if (head.toLocaleLowerCase('de') !== lead.toLocaleLowerCase('de')) continue
+      const after = body.slice(lead.length)
+      if (!lead.endsWith(':') && !/^[\s:]/.test(after)) continue
+      return { type, rest: after.replace(/^[\s:·]+/, '') }
+    }
+  }
+  return null
+}

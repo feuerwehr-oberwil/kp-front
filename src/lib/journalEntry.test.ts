@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { acceptName, composeJournalText, currentWord, suggestLinks } from './journalEntry'
+import { acceptName, composeJournalText, currentWord, readEntryLead, suggestLinks } from './journalEntry'
 import type { JournalLink } from './journalLinks'
 
 describe('composeJournalText', () => {
@@ -164,5 +164,34 @@ describe('typing a term', () => {
   it('reads the word under the cursor, not the sentence', () => {
     expect(currentWord('Meier meldet Baum')).toBe('Baum')
     expect(currentWord('Meier ')).toBe('')
+  })
+})
+
+describe('readEntryLead — the Art off the sentence\'s first words', () => {
+  it('reads «Auftrag an» and files the sentence without it', () => {
+    expect(readEntryLead('Auftrag an Trupp 2: Frau Weber betreuen'))
+      .toEqual({ type: 'auftrag', rest: 'Trupp 2: Frau Weber betreuen' })
+  })
+
+  it('reads a colon lead, in any case, after leading spaces', () => {
+    expect(readEntryLead('  auftrag: Lüfter stellen')).toEqual({ type: 'auftrag', rest: 'Lüfter stellen' })
+    expect(readEntryLead('Sofort: Rückzug alle Trupps')).toEqual({ type: 'sofort', rest: 'Rückzug alle Trupps' })
+    expect(readEntryLead('Sofortmassnahme: Strom abstellen')).toEqual({ type: 'sofort', rest: 'Strom abstellen' })
+  })
+
+  // ⚠️ The ones that matter: the bare word is news, not a kind of entry.
+  it('leaves a Meldung that merely starts with the word alone', () => {
+    expect(readEntryLead('Auftrag erledigt, Trupp 2 zurück')).toBeNull()
+    expect(readEntryLead('Sofort Rückzug')).toBeNull()
+    expect(readEntryLead('Auftrag angenommen')).toBeNull()
+  })
+
+  it('says nothing for an ordinary sentence or an empty one', () => {
+    expect(readEntryLead('Lüfter im EG gestellt')).toBeNull()
+    expect(readEntryLead('')).toBeNull()
+  })
+
+  it('reads a lead that is all there is yet', () => {
+    expect(readEntryLead('Auftrag an ')).toEqual({ type: 'auftrag', rest: '' })
   })
 })

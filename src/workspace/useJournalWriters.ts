@@ -5,7 +5,7 @@
 // IncidentWorkspace (E1, 09.10.2026) verbatim; `pushEvent` / `log` themselves stay in the
 // workspace, because half of it writes through them.
 
-import { type Dispatch, type SetStateAction, type RefObject, useRef } from 'react'
+import { type Dispatch, type SetStateAction, type RefObject, useEffect, useRef } from 'react'
 import type { JournalDraft } from '../components/JournalComposer'
 import { appConfig } from '../config/appConfig'
 import { gebaeudeDoc } from '../data/demoIncident'
@@ -130,6 +130,11 @@ export function useJournalWriters({
 
   // quick-add a journal entry (text and/or voice memo), optionally pinned to the
   // current view so the row becomes a clickable, located marker.
+  // «Erledigt» for the open item a just-filed entry answers (JournalDraft · answers), reached from
+  // the saved toast below. ⚠️ A latest-ref, assigned once `reminders` exists further down: reading
+  // `reminders` in here, above its declaration, cost the compiler every memo after it
+  // (react-hooks/preserve-manual-memoization). Answers whether the item was still open.
+  const markAnsweredDone = useRef<(id: string) => boolean>(() => false)
   const addJournal = (d: JournalDraft, geoSettled = false) => {
     // a save pressed the instant a picture was picked waits (a few ms, at most
     // PHOTO_GEO_WAIT_MS) for its position to be read — it used to go out without it
@@ -241,6 +246,13 @@ export function useJournalWriters({
     setComposerOpen(false)
     setNoteOn(null)
     const C = appConfig.copy.journal
+    // ── the reply to an open Auftrag (10.10.2026) ───────────────────────────────────────────────
+    // The composer names the open item this entry answers (`answers`, see JournalDraft); the saved
+    // toast offers «erledigt» for it as one tap.
+    // ⚠️ An offer, never a close: the toast NAMES the item, so the guess is read before it is
+    // tapped, and ignoring it leaves everything as it was.
+    const answered = d.answers
+    const placeable = placeablePhotos({ id: rowId, photoUrls, photoGeo }).length > 0
     // ⚠️ The due time wins the confirmation. «Pendenz gesetzt» on a row that will ring in ten
     // minutes tells the smaller half of what was just decided — and the clock is the half that
     // acts on its own, so it is the one worth reading back.
@@ -256,9 +268,12 @@ export function useJournalWriters({
         icon: d.dueAt ? 'bell' : d.pendenz || d.noteFor ? 'circle' : icon, tone: 'success',
         // a picture that knows where it was taken offers its place right here, at the moment it
         // was taken — the toast is the one thing on screen (lib/photoGeo). Nothing without one.
-        action: placeablePhotos({ id: rowId, photoUrls, photoGeo }).length
+        // …the reply's «erledigt» otherwise — one action per toast, and a picture's place is the
+        // one that cannot be offered again later (the Pendenz can be ticked off in its list).
+        action: placeable
           ? { label: appConfig.copy.photoGeo.place, onClick: () => placePhotos({ id: rowId, photoUrls, photoGeo }) }
-          : undefined,
+          : answered ? { label: fillTemplate(C.answeredDone, { text: answered.text }), onClick: () => { markAnsweredDone.current(answered.id) } }
+            : undefined,
       },
     )
   }
@@ -302,6 +317,15 @@ export function useJournalWriters({
     // the Lagemeldung's first booking, before any row stands for it (lib/lageRhythm)
     lageStart,
   )
+  // …the saved toast's «Erledigt» (markAnsweredDone, above addJournal) — reassigned every render
+  // so it always sees the live open set, the latest-ref pattern
+  useEffect(() => {
+    markAnsweredDone.current = (id) => {
+      const r = reminders.open.find((o) => o.id === id)
+      if (r) reminders.markDone(r)
+      return !!r
+    }
+  })
 
   // «wieder in …» on a done row (Journal · onReminderAgain): re-raise a closed item as a FRESH
   // timed Wiedervorlage — new id, same bare text, due in `mins`. The Führungsrhythmus move
