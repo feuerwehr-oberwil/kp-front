@@ -66,6 +66,7 @@ import { confirmLogout } from './lib/logoutConfirm'
 import { Overlay } from './lib/overlays'
 import { apiDelete, LINK_REFUSED_EVENT } from './lib/api'
 import { initialMode, loadPrefs, planSymbolScale, savePrefs } from './lib/prefs'
+import { currentFix, makePhotoPositionSource } from './lib/devicePosition'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { changedAttendanceNames } from './lib/attendanceDiff'
 import { useMittelActions } from './lib/useMittelActions'
@@ -204,7 +205,7 @@ import { removalRowText } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { mintLocalThumb } from './lib/mediaUrl'
-import { photoGeoSettled, photoMarker, photoPlacement, photoUrlKey, rememberPhotoGeo, rowGeoFor, rowPhotoGeo, withPhotoUrls, withResolvedPhotos, type PhotoPlacement } from './lib/photoGeo'
+import { photoGeoLate, photoGeoSettled, photoMarker, setDevicePositionSource, photoPlacement, photoUrlKey, rememberPhotoGeo, rowGeoFor, rowPhotoGeo, withPhotoUrls, withResolvedPhotos, type PhotoPlacement } from './lib/photoGeo'
 import { whenIdle } from './lib/idle'
 
 const prefs = loadPrefs()
@@ -505,6 +506,23 @@ export function IncidentWorkspace({
    * 24.09.2026 — app/observations.)
    */
   const canWriteRecord = !readOnly && !asLink
+  // «Standort zu Fotos» (lib/devicePosition): a session that writes the record lends the device's
+  // position to a picture without one — after asking ONCE per device, with the reason.
+  const [photoPosition, setPhotoPositionState] = useState<boolean | undefined>(() => loadPrefs().photoPosition)
+  const setPhotoPosition = useCallback((v: boolean) => {
+    setPhotoPositionState(v)
+    savePrefs({ ...loadPrefs(), photoPosition: v })
+  }, [])
+  useEffect(() => {
+    if (!canWriteRecord) return
+    const G = appConfig.copy.photoGeo
+    setDevicePositionSource(makePhotoPositionSource({
+      loadPref: () => loadPrefs().photoPosition,
+      savePref: setPhotoPosition,
+      ask: () => confirmDialog({ title: G.askTitle, message: G.askMessage, note: G.askNote, confirmLabel: G.askYes, cancelLabel: G.askNo }),
+    }))
+    return () => setDevicePositionSource(null)
+  }, [canWriteRecord, setPhotoPosition])
   // Phones edit like tablets — the tool bar is simply always there on the drawing surfaces
   // (stacked above the surface bar). Viewers and the EL-Ansicht stay hands-off; a brigade
   // that wants a view-only phone uses exactly those.
@@ -2771,6 +2789,24 @@ export function IncidentWorkspace({
       at: (imported ? d.audioMeta?.startedAt : undefined) ?? composerOpenedAt.current ?? undefined,
       surface: onPlan ? 'plan' : 'map', planId: onPlan ? activePlanId : undefined,
     }, rowId)
+    // A picture without an EXIF position may still be getting the DEVICE's (lib/devicePosition
+    // — the iPhone's in-app camera never gives one). The row is not held for it: when the fix
+    // lands, the position follows as an appended patch, and the toast offers the Karte then.
+    const geoLate = photoGeoLate(photoUrls)
+    if (geoLate) {
+      void geoLate.then(() => {
+        const next = rowGeoFor(photoUrls, incidentView.center, ownIncidentCoord)
+        if (!next || JSON.stringify(next) === JSON.stringify(photoGeo ?? null)) return
+        journal.appendPatch(rowId, { photoGeo: next })
+        const row = { id: rowId, photoUrls, photoGeo: next }
+        if (placeablePhotos(row).length) {
+          toast(appConfig.copy.photoGeo.locatedLate, {
+            icon: 'pin', tone: 'success',
+            action: { label: appConfig.copy.photoGeo.place, onClick: () => placePhotos(row) },
+          })
+        }
+      })
+    }
     // one upload per picture; each swaps ITS OWN blob: URL for the server URL when it lands
     for (const url of photoUrls) void uploadPhotoForRow(rowId, url)
     // an imported memo's audioUrl is already the server URL (uploaded during save) — only a
@@ -6786,6 +6822,9 @@ export function IncidentWorkspace({
           onOfflineAuto={setOfflineAuto}
           keepScreenOn={keepScreenOn}
           onKeepScreenOn={setKeepScreenOn}
+          // «Standort zu Fotos» — switching it on here asks the browser right away, on this tap
+          photoPosition={canWriteRecord ? photoPosition === true : undefined}
+          onPhotoPosition={canWriteRecord ? (on) => { setPhotoPosition(on); if (on) void currentFix() } : undefined}
           themeCoord={incidentMeta.lng != null && incidentMeta.lat != null ? [incidentMeta.lng, incidentMeta.lat] : null}
           // Rückmeldung posts a diagnostic report — refused for a link session, so don't offer it
           onFeedback={linkScoped ? undefined : () => { setFeedbackParent('settings'); setFeedbackOpen(true) }}

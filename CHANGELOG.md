@@ -31,6 +31,18 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **A Verlauf photo on the Karte.** A photo that knows where it was taken offers «Auf Karte
+  setzen» in its Verlauf detail and in the save toast. The photo becomes a marker on the Karte
+  (with a view cone when the photo states its direction) and is shown read-only on a
+  georeferenced plan. The position comes from the photo's EXIF, read before the upload strips
+  it. Since 09.10.2026 a photo without one, taken just now (the iPhone's in-app camera never
+  gives one), takes the **device's position** instead. That is position only, with no
+  direction, and only after the operator says yes once per device to a question that gives the
+  reason; «Standort zu Fotos» in Einstellungen switches it back. Either way only a position
+  within 3 km of the Einsatz is ever stored, together with its source («Ort aus dem Foto» /
+  «Standort des Geräts»). Uploaded photos now go up without their metadata. *No action
+  needed.*
+
 - **«Anrückend» – who answered the Divera alarm, in the Anwesenheit.** An Einsatz with a Divera
   alarm starts its crew list (EL and editors) with one line of counts («9 kommen · 2 kommen nicht
   · 3 da»), the people coming, and «kommt nicht» in a muted group of its own, ✕ and the word on
