@@ -88,9 +88,10 @@ pnpm lint    # eslint + a per-rule warning ratchet (scripts/eslint-baseline.json
   tenet) – but run `pnpm lint && pnpm test` (and ideally `pnpm build`) locally first. For
   interactive changes a unit test can't cover, use `/code-review` on the diff and `/verify` to
   drive the real app. Keep the house rule: every new mutating feature ships with a `src/lib` test.
-- **The gate is server-enforced.** Branch protection on `main` requires four checks to pass
+- **The gate is server-enforced.** Branch protection on `main` requires these checks to pass
   before a merge: *Frontend (tsc + build)*, *Backend (ruff + alembic + pytest)*, *Image
-  (hadolint + build + smoke)*, and *Secrets (gitleaks)*. `enforce_admins` is **off** on purpose,
+  (hadolint + build + smoke)*, *Secrets (gitleaks)*, *Visual (screenshots vs baseline)* and
+  *Shared files match KP Rück*. `enforce_admins` is **off** on purpose,
   so a 3am hotfix can still bypass it – that is the only intended bypass, not a routine one.
 - **Performance is gated too.** CI's «Performance» job walks real user journeys on the busiest
   Einsatz on record and fails on regressions against `e2e/perf/baseline.json`; a red check
@@ -110,6 +111,9 @@ pnpm lint    # eslint + a per-rule warning ratchet (scripts/eslint-baseline.json
   plus a GitHub Release whose body is the committed CHANGELOG section. `docker-compose.yml`
   **pulls** that image by default (`KP_FRONT_TAG`); building from source is the commented path.
 - Replace files in place – no `_v2` / `-new` / `-fixed` variants.
+- **A file in [`shared/MANIFEST.json`](shared/MANIFEST.json) is shared with KP Rück by copy**
+  (telemetry sanitiser, alarm vocabulary, roster contract + reader, alarm intake corpus, snail).
+  Change it in both repositories on equally named branches – [`shared/README.md`](shared/README.md).
 - Scratch scripts are named `.x-*` (git ignores them anywhere; never leave one in `site/`, which
   is published). New work starts in a worktree off `origin/main`; `just doctor` warns when a
   checkout is far behind it, `just wt-prune [--apply]` clears finished worktrees (CONTRIBUTING.md).
@@ -158,8 +162,9 @@ to prod.
   German appears there only as domain terms and as «quoted» UI copy. User-facing text is German
   with i18n overlays (above). The gitignored internal station documents under `docs/` are the
   exception and may stay German.
-- **i18n / multilingual copy lives in `src/config/copy/`.** German (`de.ts`) is the canonical
-  base and the source of the `Copy` type; `en.ts` (full) / `fr.ts` / `it.ts` are
+- **i18n / multilingual copy lives in `src/config/copy/`.** German (`de.ts`, assembled from one
+  module per surface in `de/<surface>.ts`) is the canonical base and the source of the `Copy`
+  type; `en.ts` (full) / `fr.ts` / `it.ts` (each split the same way) are
   `Localizable<Copy>` partial overlays **deep-merged over German**, so any missing key falls
   back to the German string – a half-translated locale is always complete. `appConfig.copy` is
   a **getter** returning the active locale's catalogue (`copy/getCopy()`); read sites are
@@ -167,7 +172,7 @@ to prod.
   language), resolved **once at boot** (`/api/config` `identity.locale` → `de-CH`) by
   `applyLocale()` in `main.tsx`. It's set in deployment config (CLI/config file first; admin UI
   can inspect/basic-edit Station › Identität › Sprache), NOT per device. **Add a new string to
-  `de.ts` first** (it defines
+  `de/<surface>.ts` first** (it defines
   the shape); translate in the other locales as desired. Two caveats: (1) module-level captures
   like `const C = appConfig.copy.x` freeze the language at import – read inside the
   component/function instead; (2) a few copy values are structural DATA keys, not labels
