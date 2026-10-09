@@ -204,6 +204,12 @@ FIELDS: tuple[CredentialField, ...] = (
     # The organizer's bearer key for /api/integrations (docs/object-visits.md). Write-only like
     # every secret: the admin generates it, hands it to the organizer once, and can only rotate.
     CredentialField("object_visits_integration_key", "object_visits", True, "Organizer-Schlüssel"),
+    # --- Station index (docs/CONFIGURATION.md §4d) -------------------------------------
+    # ONE address for all the station's published data (owner decision X6/X7): an index.json
+    # listing roster/vehicles/… by kind with checksums. Same rules as the roster source below,
+    # which stays as the fallback for stations that set it before the index existed.
+    CredentialField("station_index_source", "station_index", False, "Stationsdaten-Index"),
+    CredentialField("station_index_token", "station_index", True, "Stationsdaten-Token"),
     # --- Roster snapshot (docs/CONFIGURATION.md §4c) -----------------------------------
     # WHERE the station's published roster file lives: an https:// address, or an absolute
     # path on this server (self-hosted: a file a script drops next to the stack). Readable,
@@ -601,7 +607,7 @@ def validate(name: str, value: str) -> str:
             raise CredentialRefusedError("Ohne «/v1» am Ende – das hängt die App selber an.")
     if name == "healthcheck_ping_url":
         v = _require_url(name, v, https_only=False, message="Die Ping-Adresse muss mit https:// beginnen.")
-    if name == "roster_snapshot_source":
+    if name in ("roster_snapshot_source", "station_index_source"):
         # A URL (https anywhere, plain http only inside the station's own network — the same
         # rule as the STT server), or an absolute path for a file on this host.
         if v.startswith(("https://", "http://")):

@@ -333,7 +333,7 @@ openapi: config-schema
 config-schema:
     cd backend && uv run python -m app.admin_config schema > ../docs/config.schema.json
 
-# Regenerate the committed roster-snapshot contract (schemas + example). Run it in the same
+# Regenerate the committed roster-snapshot + station-index contracts (schemas + examples). Run it in the same
 # change that touches app/roster_snapshot.py, then update the checksums recorded in
 # tests/test_roster_snapshot_contract.py AND in the kp-rueck copy. See docs/CONFIGURATION.md §4c.
 [group('Release')]
@@ -341,6 +341,8 @@ roster-schema:
     cd backend && uv run python -m app.roster_snapshot schema > ../docs/roster-snapshot.schema.json
     cd backend && uv run python -m app.roster_snapshot outcome-schema > ../docs/roster-snapshot-outcome.schema.json
     cd backend && uv run python -m app.roster_snapshot example > roster.snapshot.example.json
+    cd backend && uv run python -m app.station_index schema > ../docs/station-index.schema.json
+    cd backend && uv run python -m app.station_index example > ../docs/station-index.example.json
     @shasum -a 256 docs/roster-snapshot.schema.json docs/roster-snapshot-outcome.schema.json
 
 # (Needs no install — uvx fetches git-cliff. Add --tag vX.Y.Z to head it with a version.)

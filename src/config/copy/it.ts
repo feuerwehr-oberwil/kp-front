@@ -3884,6 +3884,10 @@ export const it: Localizable<Copy> = {
       removed: 'Eliminato – collegamento spento.',
       failed: 'Azione non riuscita',
       groups: {
+        station_index: {
+          title: 'Dati della stazione (indice)',
+          caption: 'Un indirizzo per tutti i dati della stazione: un index.json (https:// o percorso assoluto) che elenca l’effettivo e altri file con checksum (formato: docs/station-index.schema.json). Se l’indice contiene un effettivo, vale quello; altrimenti la fonte dell’effettivo qui sotto. Vuoto = spento.',
+        },
         roster_snapshot: {
           title: 'File del personale (snapshot)',
           caption: 'Dove il corpo pubblica il suo effettivo come file (formato: docs/roster-snapshot.schema.json) – un indirizzo https:// o un percorso assoluto su questo server. KP Front lo legge ogni ora e su «Scarica ora» in Sistema › Connessioni. Le credenziali vanno nel token, non nell’indirizzo. Vuoto = spento; Divera e l’importazione CSV restano invariati.',
@@ -5048,6 +5052,9 @@ export const it: Localizable<Copy> = {
       snapUnknownRanks: 'Gradi sconosciuti (ripresi senza grado): {ranks}',
       snapFileDate: 'Data del file: {time}',
       snapStale: 'Il file non è più stato rinnovato da oltre 7 giorni.',
+      snapViaIndex: 'Tramite l’indice dei dati della stazione del {time}.',
+      snapIndexNoRoster: 'L’indice dei dati della stazione del {time} non contiene l’effettivo – è stata letta la fonte diretta.',
+      snapIndexNotRead: 'Nell’indice, non ancora letto da questa versione: {kinds}.',
       spSources: 'Cartelle secondo la configurazione',
       spSourcesHint: 'Sola lettura – le cartelle stanno nella configurazione del corpo. Com’è strutturata è descritto nella documentazione del collegamento SharePoint.',
       spInterval: 'Sincronizzazione ogni {n} min',
