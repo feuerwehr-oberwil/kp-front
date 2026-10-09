@@ -33,7 +33,10 @@ x-logging: &default-logging
 
 services:
   db:
-    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    # Docker Official Images via AWS ECR Public: the same image (same digest) as Docker Hub's
+    # `postgres`, without Docker Hub's anonymous pull limit. CI boots this stack several times
+    # per push, and that limit failed those jobs at random (09.10.2026). caddy below likewise.
+    image: public.ecr.aws/docker/library/postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
     restart: unless-stopped
     logging: *default-logging
     environment:
@@ -233,7 +236,7 @@ services:
 
   # Optional automatic HTTPS. Enabled only with `--profile tls`; set DOMAIN (A record → this host).
   caddy:
-    image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
+    image: public.ecr.aws/docker/library/caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
     restart: unless-stopped
     logging: *default-logging
     profiles: ["tls"]
