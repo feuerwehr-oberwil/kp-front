@@ -98,25 +98,15 @@ import { ToolDock } from './components/ToolDock'
 import { ShapeEditor } from './components/ShapeEditor'
 import { MeasurePanel } from './components/MeasurePanel'
 import { ROTATION_DEFAULT_RUN_M, ROTATION_MAX_M, ROTATION_W_M, SHAPE_DEFS, SHAPE_MAX_M, SHAPE_MIN_M, SHAPE_TWO_POINT, ShapeGlyph, rotationBox, rotationRun, shapeAspect } from './lib/shapes'
-import { Journal } from './components/Journal'
-import { JournalComposer, type JournalDraft } from './components/JournalComposer'
+import { type JournalDraft } from './components/JournalComposer'
 import { composeJournalText } from './lib/journalEntry'
 import { journalVocabulary } from './lib/journalLinks'
-import { AudioPlayerSheet } from './components/AudioPlayerSheet'
-import { ReminderBanner } from './components/ReminderBanner'
 import { AtemschutzAlarmMeldungen } from './components/AtemschutzAlarmMeldung'
-import { UpdateBanner } from './components/UpdateBanner'
-import { InstallBanner } from './components/InstallBanner'
-import { InstallGuide } from './components/InstallGuide'
 import { getInstallPlatform, isStandalone } from './lib/installPrompt'
 import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { TabLockBanner } from './components/TabLockBanner'
-import { GpsFollowMeldung } from './components/GpsFollowMeldung'
-import { WindShiftMeldung } from './components/WindShiftMeldung'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
-import { SymbolsFailedMeldung } from './components/SymbolsFailedMeldung'
-import { NoBasemapMeldung } from './components/NoBasemapMeldung'
 import { RemindersHost, useReminders } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
@@ -139,7 +129,7 @@ import { askStoreyRemoval, storeyAddedRow, storeyRemovedRow, storeyRestoredRow, 
 import { floorPackOf, packFloorNames, packStoreys } from './lib/floorPackBinding'
 import { floorLabel } from './lib/whiteboard'
 import {
-  WorkspaceSync, uploadMedia,
+  WorkspaceSync, 
   type IncidentMeta,
   isIncidentRunning,
 } from './lib/incidents'
@@ -149,7 +139,6 @@ import { useAuditEvents } from './lib/useAuditEvents'
 import { EL_EVENT_PREFIXES, eventScopeFor } from './lib/eventScope'
 import { combinedSyncStatus } from './lib/combinedSyncStatus'
 import { downloadBlob } from './lib/download'
-import { JournalDeliveryNotice } from './components/JournalDeliveryNotice'
 import { useMapDrawing } from './lib/useMapDrawing'
 import { applyRouting, moveLineBody, resolveMapDrawings } from './lib/lineAttachments'
 import { duplicateDrawing, duplicateEntity } from './lib/duplicate'
@@ -159,12 +148,11 @@ import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
 import { useObjectPlans, isSelectOnlySurface, railPlanTiles, BUILDING_PICK_ID } from './lib/useObjectPlans'
 import { PlanPicker } from './components/PlanPicker'
-import { FeedbackSheet, IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineReadinessSheet, ShareIncidentSheet } from './components/panels'
+import { IncidentSwitcher } from './components/panels'
 import { fetchShareLink } from './lib/viewLink'
 import { useBuildingInfo } from './lib/useBuildingInfo'
 import { BuildingFloat } from './components/BuildingFloat'
 import { hasBuildingContent } from './lib/buildingCard'
-import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
 import { useBootCover } from './lib/bootCover'
 import { ChecklistsView } from './components/ChecklistsView'
@@ -202,6 +190,10 @@ import { photoGeoSettled, photoMarker, photoPlacement, photoUrlKey, rememberPhot
 import { whenIdle } from './lib/idle'
 import { useSessionRole, useWorkspaceFlags } from './workspace/access'
 import { useOfflinePrefetch } from './workspace/useOfflinePrefetch'
+import type { WorkspaceMode } from './workspace/types'
+import { WorkspaceMeldungen } from './workspace/WorkspaceMeldungen'
+import { WorkspaceSheets } from './workspace/WorkspaceSheets'
+import { JournalLayer } from './workspace/JournalLayer'
 
 const prefs = loadPrefs()
 
@@ -1021,7 +1013,7 @@ export function IncidentWorkspace({
   // so the remembered one is ignored there: the lite shell renders whatever `mode` says and
   // has no rail to steer back with. Fresh loadPrefs(), not the module-level boot snapshot —
   // an in-session incident switch must see the mode the LAST workspace saved.
-  const [mode, setMode] = useState<'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'>(() => initialMode(loadPrefs(), incidentMeta.id, asLink))
+  const [mode, setMode] = useState<WorkspaceMode>(() => initialMode(loadPrefs(), incidentMeta.id, asLink))
   /** The Rapport is a surface now, so «open it» is «go there». Kept as a named helper because
    *  half a dozen entry points say it (Abschluss-Assistent, the print action, the return chip). */
   const openRapport = () => setMode('rapport')
@@ -5037,123 +5029,14 @@ export function IncidentWorkspace({
       />
 
 
-      <ReminderBanner
-        due={reminders.due}
-        onDone={reminders.markDone}
-        onSnooze={(r) => reminders.snooze(r, 10)}
-        // …and the way in, on the row's TITLE (Meldeleiste · MeldungTitle) rather than a third
-        // button: open the Verlauf ON the row that raised this item, not at the top
-        onOpen={(r) => { setJournalOpen(true); setJournalLandOn({ id: r.rowId, nonce: Date.now() }) }}
-      />
-
-      {/* One row per Trupp in Alarm — the tone's own message. Fed from the SAME fold that drives
-          the tone (azAlarm.severities), so the strip cannot be silent while the app is not; and
-          empty during replay, where the fold is silent too. «Zum Trupp» points at the card the
-          Funkkontakt / die Druckmeldung is entered on — the same gesture the Anwesenheit's locked
-          rows already use (onJumpToTrupp below). */}
-      {/* the two degraded-map rows (see the state above): symbols that did not load, a basemap
-          that is not cached for this view — each says what still works */}
-      {sym.error && !symbolsRowHidden && (
-        <SymbolsFailedMeldung onReload={() => { setSymbolsRowHidden(false); sym.reload() }} onDismiss={() => setSymbolsRowHidden(true)} />
-      )}
-      {noBasemap && (
-        <NoBasemapMeldung onOpenOffline={() => { setNoBasemap(false); setOfflineReadyOpen(true) }} onDismiss={() => setNoBasemap(false)} />
-      )}
-      <AtemschutzAlarmMeldungen
-        trupps={trupps}
-        severities={azAlarm.severities}
-        // a device that cannot end the alarm gets «Zur Kenntnis genommen» (see the component)
-        canEdit={canEditTrupps}
-        intervalMin={azIntervalMin}
-        graceSec={azGraceSec}
-        // withheld while the board itself is on screen — it shows the alarm in full and the
-        // strip only covered its controls (see AtemschutzAlarmMeldung's header)
-        onBoard={mode === 'atemschutz'}
-        onShown={setAzRowsShown}
-        // Reaching the named card is acknowledgement enough to stop the room's tone and tray
-        // re-notifications. The row itself stays until a real contact/pressure event clears it.
-        onAcknowledge={muteAtemschutz}
-        onGoToTrupp={(id) => {
-          setMode('atemschutz'); setPanel(null)
-          setTruppFocus({ id, nonce: Date.now() })
-        }}
-      />
-
-      {/* one row per GPS end with something to say — they queue behind each other instead of
-          stacking (lib/gpsReturn · gpsNotices: drove off, following stopped, back on site) */}
-      {mapUI && !tacticalLocked && gpsMeld.notices.map((n) => (
-        <GpsFollowMeldung
-          key={n.key}
-          notice={n}
-          label={n.vehicle?.label ?? n.ends[0].drawing.label ?? appConfig.copy.drawingEditor.drawing}
-          onKeep={() => releaseOnSite(n.ends)}
-          onRevert={() => revertAll(n.ends)}
-          // on a «back» row, «Weiter folgen» changes nothing on the Karte: it answers the
-          // question for this return, on this device (gpsReturn · useGpsNotices)
-          onFollow={() => (n.kind === 'back' ? gpsMeld.answerBack(n) : followAll(n.ends))}
-          onDismiss={() => gpsMeld.dismissStopped(n)}
-        />
-      ))}
-
-      {/* the wind turned — the server observed it and wrote the Verlauf row; shown here once
-          per device while it is news (components/WindShiftMeldung, 24.09.2026) */}
-      {!replayActive && (
-        <WindShiftMeldung
-          incidentId={incidentMeta.id}
-          rows={journal.rows}
-          onOpenJournal={() => setJournalOpen(true)}
-        />
-      )}
-
-      {/* one-tap way back after a Rapport checklist row navigated here — without it, the
-          round trip went through the incident menu every time (feedback 2026-07-08) */}
-      {rapportReturn && (mode === 'anwesenheit' || mode === 'mittel') && (
-        <button
-          type="button"
-          className="rp-return"
-          onClick={() => { setRapportReturn(false); openRapport() }}
-        >
-          <Icon id="chevron-left" /> {appConfig.copy.abschluss.backToRapport}
-        </button>
-      )}
-
-      {/* non-blocking "new build ready" prompt — waits for the operator instead of auto-reloading */}
-      <UpdateBanner />
-
-      {/* No standing «Offline» row (removed 05.10.2026, owner: «no need for this large offline
-          banner at the top of the screen»): the head's «● Offline» chip stays on screen the
-          whole time, and the one-shot toast (useIncidentSync) announces the spell once. */}
-
-      {/* "Als App installieren" nudge — browser-tab only, one «Später» dismisses it for good
-          on this device (the menu keeps the permanent entry).
-          Hidden on the demo: a visitor isn't installing the demo as their command app. */}
-      {!isDemoMode() && <InstallBanner onOpenGuide={() => setInstallGuideOpen(true)} />}
-
-      {/* No demo «Zurücksetzen» button: it sat bottom-centre over the map's bottom controls
-          (obstructing them on a phone), and a plain page reload already restores the pristine
-          scene — the sandbox keeps a visitor's edits in React state only (see useIncidentSync),
-          so reloading re-fetches the curated seed. The welcome modal spells this out. */}
-
-      {/* another tab of this browser is editing this incident → this one is read-only; one tap
-          moves editing here (only meaningful for editors — viewers are read-only anyway) */}
-      {tabLockLost && user?.role === 'editor' && <TabLockBanner onTakeOver={onTakeOverTab} />}
-
-      {/* ⚠️ «Einsatz abgeschlossen» is NOT published here (23.08.). Read-only is a property of the
-          incident, not a message about it, so it rides beside the Einsatzname as a mode chip in
-          the top bar — where the incident lives — and carries its two exits there. */}
-
-      {/* correct-in-place: an alarm opens its Einsatz by itself, so the EL lands here
-          operational immediately and with the dispatch's guesses unchecked. «Passt» confirms
-          them, «Bearbeiten» opens the panel that holds Stichwort/Priorität/Ort/Einsatzart — no
-          wizard between the crew and the Lage, which is the whole point (2026-08-02). */}
-      {/* ⚠️ …and it is asked ONCE of the crew, not once of every device: `intakeReviewedAt` is the
-          shared stamp on the workspace blob (lib/workspace). App decides `needsReview` from the
-          blob as it stood when the Einsatz was opened — the live-follow poll only lands HERE, so
-          this is the gate that retires the banner mid-Einsatz the moment someone else confirms on
-          their tablet. */}
-      {needsReview && !readOnly && !intakeReviewedAt && (
-        <ReviewBanner meta={incidentMeta} onEdit={onEditMeta} onDone={onReviewDone} />
-      )}
+      <WorkspaceMeldungen {...{
+        reminders, setJournalOpen, setJournalLandOn, sym, symbolsRowHidden, setSymbolsRowHidden, noBasemap,
+        setNoBasemap, setOfflineReadyOpen, trupps, azAlarm, canEditTrupps, azIntervalMin, azGraceSec, mode,
+        setAzRowsShown, muteAtemschutz, setMode, setPanel, setTruppFocus, mapUI, tacticalLocked, gpsMeld,
+        releaseOnSite, revertAll, followAll, replayActive, incidentMeta, journal, rapportReturn,
+        setRapportReturn, openRapport, setInstallGuideOpen, tabLockLost, user, onTakeOverTab, needsReview,
+        readOnly, intakeReviewedAt, onEditMeta, onReviewDone,
+      }} />
 
       {/* single left navigation rail — all surfaces; switches Karte / object Pläne / Checkliste */}
       <NavRail
@@ -6278,110 +6161,14 @@ export function IncidentWorkspace({
           onFixTranscripts={() => { setJournalOpen(true); setJournalFromRapport(true) }}
         /></Suspense>
       ))}
-      {/* unified Verlauf + quick-add — rendered app-level so both open over either surface,
-          and AFTER the Rapport sheet so its checklist row can stack the Verlauf on top */}
-      {journalOpen && guarded('journal', (
-        <Journal
-          deliveryNotice={<JournalDeliveryNotice
-            status={combinedSyncStatus(journal.syncStatus, auditDelivery.status)}
-            count={journal.pendingCount + journal.rejectedCount + auditDelivery.pendingCount + auditDelivery.rejectedCount}
-            refused={auditDelivery.refusedCount}
-            closedRefused={closedRefusedTotal}
-            onRetry={async () => { await Promise.all([journal.retry(), auditDelivery.retry()]) }}
-            onExport={exportEntries}
-          />}
-          vocab={journalVocab}
-          events={timeline}
-          closedAt={incidentMeta.closed_at}
-          plans={planDocs}
-          onSelect={focusEvent}
-          replayAtMs={replayActive ? replayAtMs : null}
-          onSeekTo={replayActive ? seekToEvent : undefined}
-          landOn={journalLandOn}
-          // ⚠️ The landing is CONSUMED on close. The drawer remounts every time it opens, so the
-          // «already landed» guard inside it resets — and a stale `landOn` left lying around
-          // meant the next ordinary open (TopBar, checklist, Rapport) silently jumped to
-          // whatever row the Wiedergabe caption had pointed at, possibly hours ago.
-          onClose={() => { setJournalOpen(false); setJournalLandOn(null); if (journalFromRapport) { setJournalFromRapport(false); openRapport() } }}
-          onTranscript={!readOnly ? (id, transcript) => journal.appendPatch(id, { transcript: transcript.trim() }) : undefined}
-          onReplay={!replayActive ? () => { setJournalOpen(false); enterReplay() } : undefined}
-          openReminders={reminders.open}
-          onReminderDone={!readOnly ? reminders.markDone : undefined}
-          // tap a Pendenz → write a Meldung on it. The Verlauf steps aside so the composer is
-          // not stacked on a drawer the operator can no longer see behind it.
-          // ⚠️ The Verlauf STAYS OPEN behind it. Closing it meant that finishing a Meldung — or
-          // thinking better of it — dropped you back onto the map, away from the list you were
-          // working through; and at a Lagerapport you write several in a row. The composer is a
-          // modal above the drawer (z 81 over 61), so nothing is lost behind it.
-          onReminderNote={!readOnly ? (r) => {
-            setNoteOn({ id: r.id, text: r.text })
-            setComposerOpen(true)
-          } : undefined}
-          onReminderAgain={!readOnly && !replayActive ? reRaisePendenz : undefined}
-          mediaStatusOf={media.statusOf}
-          onOpenPlayer={(e, seekSec) => setPlayer({ row: e, seekSec })}
-          onEditText={!readOnly ? (id, text) => journal.appendPatch(id, { textEdit: text }) : undefined}
-          photoPlacement={photoOnMap}
-          onPhotoPlace={!tacticalLocked && !replayActive ? (e) => placePhotos(e) : undefined}
-          onPhotoShow={!replayActive ? showPhotoOnMap : undefined}
-        />
-      ))}
-      {player && (
-        <AudioPlayerSheet
-          row={player.row}
-          events={timeline}
-          readOnly={readOnly}
-          // transcribing and deciding its segments is editor-only on the server (api/media)
-          canTranscribe={isEditor}
-          initialSeekSec={player.seekSec}
-          // the same vocabulary the composer gets — «Eintrag an dieser Stelle» writes into the
-          // same Verlauf, so it completes and marks names identically
-          vocab={journalVocab}
-          onAddEntry={!readOnly ? addPlayerEntry : undefined}
-          // a voice memo's words land on the memo itself, as a transcript section at the
-          // playhead — appended like every enrichment, never edited in place
-          onAddSection={!readOnly ? (atSec, text) => {
-            journal.appendPatch(player.row.id, { transcriptSection: { at: atSec, text } })
-            toast(appConfig.copy.journal.saved, { icon: 'type', tone: 'success' })
-          } : undefined}
-          // fixing a section replaces its words in place ('' removes it) — the recording is
-          // the original, so no «korrigiert» mark and no new Verlauf line
-          onEditSection={!readOnly ? (sectionId, text) => journal.appendPatch(player.row.id, { transcriptSectionEdit: { id: sectionId, text } }) : undefined}
-          onPatchEntry={!readOnly ? (rowId, text) => journal.appendPatch(rowId, { textEdit: text }) : undefined}
-          onRetractEntry={!readOnly ? (rowId) => {
-            journal.appendPatch(rowId, { retracted: true })
-            toast(appConfig.copy.journal.entryRemoved, {
-              icon: 'trash', tone: 'default',
-              action: { label: appConfig.copy.undo, onClick: () => journal.appendPatch(rowId, { retracted: false }) },
-            })
-          } : undefined}
-          onClose={() => setPlayer(null)}
-        />
-      )}
-      {composerOpen && (
-        <JournalComposer
-          // everything this Einsatz has words for — Mannschaft, Mittel, Partnerorganisationen,
-          // Fahrzeuge, Alarmgruppen. Typing three letters of any of them completes it.
-          vocab={journalVocab}
-          // …and this Einsatz's own rows, so the chips offered on an empty field are the phrases
-          // that are actually being used tonight (lib/startChips)
-          timeline={timeline}
-          onSubmit={addJournal}
-          onClose={() => { setComposerOpen(false); setNoteOn(null) }}
-          noteOn={noteOn ?? undefined}
-          onClearNote={() => setNoteOn(null)}
-          // …and the same list the Verlauf pins, so an entry being written can be attached to an
-          // open item without going through the Verlauf at all — the sheet offers the ones the
-          // sentence already names, and holds a picker for the rest.
-          openPendenzen={reminders.open.map((r) => ({ id: r.id, text: r.text, urgent: !!r.urgent, createdAt: r.createdAt }))}
-          onLinkPendenz={(pdz) => setNoteOn(pdz)}
-          incidentStartAt={incidentMeta.started_at}
-          uploadAudio={(blob, filename) => uploadMedia(incidentMeta.id, blob, 'audio', filename)}
-          // generic Beilagen (PDF & Co.) ride the same endpoint under kind 'file' — the server
-          // hands those back as a download, never inline (backend/app/api/media.py)
-          uploadFile={(blob, filename) => uploadMedia(incidentMeta.id, blob, 'file', filename)}
-        />
-      )}
+      <JournalLayer {...{
+        journalOpen, guarded, journal, auditDelivery, closedRefusedTotal, exportEntries, journalVocab,
+        timeline, incidentMeta, planDocs, focusEvent, replayActive, replayAtMs, seekToEvent, journalLandOn,
+        setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
+        enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
+        tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen,
+        addJournal, noteOn,
+      }} />
       {sharePick && (
         <SharePositionSheet
           roster={personnel}
@@ -6408,87 +6195,16 @@ export function IncidentWorkspace({
           }}
         />
       )}
-      {helpOpen && <HelpOverlay onClose={() => setHelpOpen(false)} />}
-      {/* ONE sheet for every «Teilen» door — its own tabs are the chooser (03.09.). `archived`
-          drops the Atemschutz tab, which dies with the Einsatz. */}
-      {shareLink && (
-        <ShareIncidentSheet
-          incidentId={incidentMeta.id}
-          initialKind={shareLink}
-          archived={incidentMeta.is_archived}
-          // the QR beside the Atemschutz bell hands over in ONE tap: pressing it IS the
-          // decision, so the sheet mints the link rather than asking a second time
-          autoCreate={shareLink === 'atemschutz'}
-          onClose={() => setShareLink(null)}
-          // the Atemschutz header's own button paints its «ein Link läuft» tint from this,
-          // so minting or revoking one is reflected the moment the sheet closes
-          onState={(k, l) => { if (k === 'atemschutz') setAtemschutzLinkOn(l.enabled) }}
-        />
-      )}
-      {installGuideOpen && <InstallGuide onClose={() => setInstallGuideOpen(false)} />}
-      {offlineReadyOpen && (
-        <OfflineReadinessSheet
-          onClose={() => setOfflineReadyOpen(false)}
-          probeUrls={offlineProbeUrls}
-          symbolsReady={sym.ready}
-          planCount={Object.keys(backendPlans).length}
-          objectLabel={manualObject?.name ?? null}
-          weatherOk={liveWeather.data != null}
-          weatherError={liveWeather.error != null}
-          personnelCount={personnel.length}
-          syncStatus={syncStatus}
-          lastSyncedAt={lastSyncedAt}
-          onSyncNow={syncNow}
-          onLoadAll={() => { void downloadOffline(); void reloadPersonnel() }}
-          onCancel={cancelOffline}
-          loading={offlineProgress != null}
-          progress={offlineProgress}
-        />
-      )}
-      {settingsOpen && !feedbackOpen && !(sharePick && shareParent === 'settings') && (
-        <SettingsSheet
-          onClose={() => setSettingsOpen(false)}
-          symbolScale={symbolScale}
-          onSymbolScale={setSymbolScale}
-          symbolCaptions={symbolCaptions}
-          onSymbolCaptions={setSymbolCaptions}
-          railLabels={railLabels}
-          onRailLabels={setRailLabels}
-          offlineRadiusM={offlineRadiusM}
-          onOfflineRadius={setOfflineRadiusM}
-          offlineAuto={offlineAuto}
-          onOfflineAuto={setOfflineAuto}
-          keepScreenOn={keepScreenOn}
-          onKeepScreenOn={setKeepScreenOn}
-          themeCoord={incidentMeta.lng != null && incidentMeta.lat != null ? [incidentMeta.lng, incidentMeta.lat] : null}
-          // Rückmeldung posts a diagnostic report — refused for a link session, so don't offer it
-          onFeedback={linkScoped ? undefined : () => { setFeedbackParent('settings'); setFeedbackOpen(true) }}
-          // Einstellungen holds the PERMISSION only — «dieses Gerät darf meinen Standort
-          // verwenden» — never the act. Switching it on opens the sheet (the device has to know
-          // whose position it would be reporting); switching it off revokes and stops.
-          shareAs={share.ready ? (share.pref?.displayName ?? null) : null}
-          onSharePosition={!isDemoMode()
-            ? (on) => {
-              if (on) {
-                setShareParent('settings')
-                setSharePick('ask')
-              }
-              else share.revoke()
-            }
-            : undefined}
-          onChangeShareName={() => {
-            setShareParent('settings')
-            setSharePick('rename')
-          }}
-        />
-      )}
-      {/* Rückmeldung, opened deliberately from Einstellungen. Nothing ever PUSHES this at the
-          operator mid-incident — the trouble prompt lives on the launcher (see lib/trouble). */}
-      {feedbackOpen && <FeedbackSheet onClose={(reason) => {
-        setFeedbackOpen(false)
-        if (reason === 'complete' && feedbackParent === 'settings') setSettingsOpen(false)
-        setFeedbackParent(null)
-      }} />}
+      <WorkspaceSheets {...{
+        helpOpen, setHelpOpen, shareLink, incidentMeta, setShareLink, setAtemschutzLinkOn, installGuideOpen,
+        setInstallGuideOpen, offlineReadyOpen, setOfflineReadyOpen, offlineProbeUrls, sym, backendPlans,
+        manualObject, liveWeather, personnel, syncStatus, lastSyncedAt, syncNow, downloadOffline,
+        reloadPersonnel, cancelOffline, offlineProgress, settingsOpen, feedbackOpen, sharePick, shareParent,
+        setSettingsOpen, symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, railLabels,
+        setRailLabels, offlineRadiusM, setOfflineRadiusM, offlineAuto, setOfflineAuto, keepScreenOn,
+        setKeepScreenOn, linkScoped, setFeedbackParent, setFeedbackOpen, share, setShareParent, setSharePick,
+        feedbackParent,
+      }} />
 
       {/* phone field-capture: a editor can't draw tactical symbols on a phone, but can
           always add a journal entry / photo / voice memo from the field — tap to compose,
