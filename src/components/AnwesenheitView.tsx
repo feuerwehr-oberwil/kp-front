@@ -427,7 +427,7 @@ export function AnwesenheitView({
   /** stamps the remembered tab, so switching Einsatz starts on the crew list again */
   incidentId?: string
   /** The incident whose Divera Rückmeldungen the «Anrückend» block reads (AnrueckendBlock) —
-   *  set only for a running Einsatz opened from Divera, on a session that may see the crew.
+   *  set only for a running Einsatz on a station with Divera, for the EL and the editors.
    *  Absent = no block, and no request: a station without Divera never sees it. */
   diveraResponsesFor?: string
 }) {

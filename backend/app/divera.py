@@ -374,6 +374,44 @@ async def response_window_open(db: AsyncSession, now: datetime) -> bool:
     return bool(n)
 
 
+async def prune_responses(db: AsyncSession, now: datetime) -> int:
+    """Clear stored Rückmeldungen nobody may read any more. Returns rows cleared.
+
+    The answers carry free text («krank», «Ferien») and exist for one purpose — who is still on
+    the way to THIS Einsatz. So they go once the Einsatz is no longer open (closed, archived, or
+    the incident deleted and the link nulled), and in any case
+    :data:`divera_responses.RESPONSES_RETENTION_SECONDS` after the alarm (PRIVACY.md). The pool
+    row itself — the alarm — stays: that is the intake history, and it is not personal.
+    """
+    from sqlalchemy import null, or_, update
+
+    from .divera_responses import RESPONSES_RETENTION_SECONDS
+    from .models import INCIDENT_ACTIVE_STATUSES
+
+    cutoff_ts = int(now.timestamp()) - RESPONSES_RETENTION_SECONDS
+    cutoff_dt = now - timedelta(seconds=RESPONSES_RETENTION_SECONDS)
+    open_incidents = select(Incident.id).where(
+        Incident.is_archived.is_(False), Incident.status.in_(INCIDENT_ACTIVE_STATUSES)
+    )
+    result = await db.execute(
+        update(DiveraEmergency)
+        .where(
+            DiveraEmergency.responses_json.is_not(None),
+            or_(
+                DiveraEmergency.ts_create < cutoff_ts,
+                DiveraEmergency.ts_create.is_(None) & (DiveraEmergency.received_at < cutoff_dt),
+                DiveraEmergency.taken_incident_id.is_(None) & DiveraEmergency.is_taken.is_(True),
+                DiveraEmergency.taken_incident_id.is_not(None)
+                & DiveraEmergency.taken_incident_id.not_in(open_incidents),
+            ),
+        )
+        # null(), not None: a JSON column renders a Python None as the JSON value 'null'
+        .values(responses_json=null(), responses_at=None)
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount or 0
+
+
 class DiveraApiError(Exception):
     """A Divera call failed, described WITHOUT the request URL.
 
@@ -431,7 +469,8 @@ async def fetch_and_upsert(db: AsyncSession) -> int:
     # that fetch (≤ once per 6 h) happens HERE — before the upserts take their per-alarm locks,
     # never while holding them.
     responses = parse_responses_by_alarm(data)
-    catalogue = await ensure_catalogue() if any(p["answered"] for p in responses.values()) else cached_catalogue()
+    used = {sid for p in responses.values() for sid in p["answered"]}
+    catalogue = await ensure_catalogue(used) if used else cached_catalogue()
     new = 0
     for alarm in parse_alarms_response(data)[: settings.divera_poll_max_alarms]:
         em = await upsert_emergency(db, alarm)
@@ -459,20 +498,22 @@ async def store_responses(db: AsyncSession, responses: dict[int, dict], catalogu
     if not responses:
         return 0
     try:
-        rows = (
-            (await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id.in_(list(responses)))))
-            .scalars()
-            .all()
-        )
-        now = datetime.now(UTC)
-        changed = 0
-        for em in rows:
-            blob = with_catalogue(responses[em.divera_id], catalogue, now)
-            if same_answers(em.responses_json, blob):
-                continue
-            em.responses_json = blob
-            em.responses_at = now
-            changed += 1
+        # a SAVEPOINT: a failure here rolls back the answers only, never the alarms upserted above
+        async with db.begin_nested():
+            rows = (
+                (await db.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id.in_(list(responses)))))
+                .scalars()
+                .all()
+            )
+            now = datetime.now(UTC)
+            changed = 0
+            for em in rows:
+                blob = with_catalogue(responses[em.divera_id], catalogue, now, previous=em.responses_json)
+                if same_answers(em.responses_json, blob):
+                    continue
+                em.responses_json = blob
+                em.responses_at = now
+                changed += 1
         return changed
     except Exception:  # noqa: BLE001 — see the docstring
         logger.warning("Storing Divera Rückmeldungen failed", exc_info=True)

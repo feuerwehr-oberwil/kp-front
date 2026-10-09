@@ -132,11 +132,38 @@ def divera_tick_seconds() -> int:
     return max(1, min(DIVERA_IDLE_POLL_SECONDS, settings.divera_poll_interval_seconds))
 
 
+#: How often the stored Rückmeldungen are swept for ones nobody may read any more
+#: (divera · prune_responses). Runs whether or not a key is set: a key removed after an Einsatz
+#: must not keep that Einsatz's notes forever.
+DIVERA_PRUNE_SECONDS = 600
+_divera_last_prune: float | None = None
+
+
+async def _prune_divera_responses() -> None:
+    global _divera_last_prune
+    from .divera import prune_responses
+
+    clock = _divera_now()
+    if _divera_last_prune is not None and clock - _divera_last_prune < DIVERA_PRUNE_SECONDS:
+        return
+    _divera_last_prune = clock
+    async with async_session_maker() as db:
+        try:
+            cleared = await prune_responses(db, datetime.now(UTC))
+            await db.commit()
+            if cleared:
+                logger.info("Divera Rückmeldungen cleared on %d alarm(s) (Einsatz over or past retention)", cleared)
+        except Exception:  # noqa: BLE001 — a failed sweep is retried on the next one
+            await db.rollback()
+            logger.warning("Clearing Divera Rückmeldungen failed", exc_info=True)
+
+
 async def _divera_tick() -> None:
     """Decide whether this tick polls Divera: backed off, or not due at the current cadence."""
     global _divera_last_poll
     from .vehicle_presence import running_incident_exists
 
+    await _prune_divera_responses()
     clock = _divera_now()
     if clock < _divera_backoff_until:
         return

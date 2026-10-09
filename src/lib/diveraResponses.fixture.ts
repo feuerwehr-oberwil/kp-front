@@ -3,7 +3,8 @@ import type { Person } from '../types'
 
 /** What GET /api/divera/responses/{id} returns for the fixture alarm in
  *  backend/tests/fixtures/divera (the REAL Divera shape) — generated from the backend's own
- *  `divera_responses.summarise`, so the two halves are tested against one payload. */
+ *  `divera_responses.summarise` with Divera users 101–106 on the roster as p101–p106, so the two
+ *  halves are tested against one payload. User 999 is on nobody's roster: a count, no row. */
 export const FIXTURE: DiveraResponses = {
   "available": true,
   "updated_at": "2026-10-08T18:03:00+00:00",
@@ -14,6 +15,7 @@ export const FIXTURE: DiveraResponses = {
     "answered": 7,
     "addressed": 10,
     "unanswered": 3,
+    "unmapped": 1,
     "read": 8
   },
   "statuses": [
@@ -48,7 +50,7 @@ export const FIXTURE: DiveraResponses = {
   ],
   "answers": [
     {
-      "ucr_id": 101,
+      "person_id": "p101",
       "status_id": 11,
       "kind": "coming",
       "answered_at": "2026-10-08T17:01:00+00:00",
@@ -56,7 +58,7 @@ export const FIXTURE: DiveraResponses = {
       "note": ""
     },
     {
-      "ucr_id": 102,
+      "person_id": "p102",
       "status_id": 11,
       "kind": "coming",
       "answered_at": "2026-10-08T17:01:15+00:00",
@@ -64,7 +66,7 @@ export const FIXTURE: DiveraResponses = {
       "note": "bin im Magazin"
     },
     {
-      "ucr_id": 103,
+      "person_id": "p103",
       "status_id": 12,
       "kind": "coming",
       "answered_at": "2026-10-08T17:01:30+00:00",
@@ -72,15 +74,7 @@ export const FIXTURE: DiveraResponses = {
       "note": "5 min"
     },
     {
-      "ucr_id": 999,
-      "status_id": 12,
-      "kind": "coming",
-      "answered_at": "2026-10-08T17:01:35+00:00",
-      "eta": "2026-10-08T17:11:35+00:00",
-      "note": ""
-    },
-    {
-      "ucr_id": 104,
+      "person_id": "p104",
       "status_id": 13,
       "kind": "not_coming",
       "answered_at": "2026-10-08T17:01:40+00:00",
@@ -88,7 +82,7 @@ export const FIXTURE: DiveraResponses = {
       "note": "Ferien"
     },
     {
-      "ucr_id": 105,
+      "person_id": "p105",
       "status_id": 13,
       "kind": "not_coming",
       "answered_at": "2026-10-08T17:01:50+00:00",
@@ -96,7 +90,7 @@ export const FIXTURE: DiveraResponses = {
       "note": ""
     },
     {
-      "ucr_id": 106,
+      "person_id": "p106",
       "status_id": 17,
       "kind": "other",
       "answered_at": "2026-10-08T17:02:10+00:00",

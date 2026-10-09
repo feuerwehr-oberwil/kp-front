@@ -16,6 +16,10 @@ import s from './Anwesenheit.module.css'
  *  divera.RESPONSE_WINDOW_SECONDS), so a faster read here could only re-fetch the same answers. */
 export const ANRUECKEND_POLL_MS = 30_000
 
+/** Per Einsatz, for this app session only — never persisted (the answers carry free text such as
+ *  «krank», and they are not ours to keep on a device). */
+const lastKnown = new Map<string, DiveraResponses>()
+
 const clock = (iso: string | null): string => {
   if (!iso) return ''
   const d = new Date(iso)
@@ -39,9 +43,9 @@ const clock = (iso: string | null): string => {
  * - Nothing to show → nothing rendered: a station without Divera, or an Einsatz no Divera alarm
  *   belongs to, never sees an empty frame.
  *
- * It fetches while it is MOUNTED, and it is mounted only on the crew list of a running Einsatz
- * opened from Divera (AnwesenheitView · diveraResponsesFor) — a closed Einsatz, a replay, a link
- * session and every other tab cost nothing.
+ * It fetches while it is MOUNTED, and it is mounted only on the crew list of a running Einsatz on a
+ * station with Divera, for the EL and the editors (AnwesenheitView · diveraResponsesFor) — a closed
+ * Einsatz, a replay, a link session, a viewer and every other tab cost nothing.
  */
 export function AnrueckendBlock({ incidentId, people, attendance, canEdit, onMarkPresent, initial }: {
   incidentId: string
@@ -53,13 +57,20 @@ export function AnrueckendBlock({ incidentId, people, attendance, canEdit, onMar
   initial?: DiveraResponses | null
 }) {
   const R = appConfig.copy.anrueckend
-  const [resp, setResp] = useState<DiveraResponses | null>(initial ?? null)
+  // the last answers this device saw for the Einsatz: offline (or on the way back to this tab) the
+  // block shows them rather than vanishing — a list that empties itself the moment the network
+  // drops is worse than one that is a few minutes old, and «Divera · 22:39» says how old
+  const [resp, setResp] = useState<DiveraResponses | null>(initial ?? lastKnown.get(incidentId) ?? null)
   const [open, setOpen] = useState(true)
 
   const refresh = useCallback(async () => {
     // a hidden tab reads nothing; the resume on return catches up (useResumingPoll)
     if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
-    setResp(await getDiveraResponses(incidentId))
+    // offline: keep what is on screen, ask again once the device is back
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return
+    const next = await getDiveraResponses(incidentId)
+    lastKnown.set(incidentId, next)
+    setResp(next)
   }, [incidentId])
   useResumingPoll(initial === undefined, refresh, { pollMs: ANRUECKEND_POLL_MS, resumeGapMs: 10_000 })
 

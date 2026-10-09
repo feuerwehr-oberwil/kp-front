@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { buildAnrueckend, personByDiveraId } from './diveraResponses'
+import { buildAnrueckend } from './diveraResponses'
 import { FIXTURE, ROSTER } from './diveraResponses.fixture'
 import type { DiveraResponses } from './api/divera'
 import type { AttendanceState } from '../types'
 
 describe('the «Anrückend» block, as data', () => {
-  it('maps Divera users onto the roster through the divera external identity', () => {
-    const m = personByDiveraId(ROSTER)
-    expect(m.get('103')?.id).toBe('p103')
-    expect(m.has('999')).toBe(false)
-    expect([...m.values()].some((p) => p.id === 'p200')).toBe(false)
+  it('maps the server rows onto the roster by OUR id; a row the device lacks is only counted', () => {
+    const a = buildAnrueckend(FIXTURE, ROSTER.filter((p) => p.id !== 'p102'), {})!
+    expect(a.coming.map((r) => r.person.id)).toEqual(['p101', 'p103'])
+    expect(a.unmapped).toBe(2) // 999 (server) + p102 (not on this device's roster)
+    expect(a.counts.coming).toBe(4) // the head line still says what Divera said
   })
 
   it('groups coming / not coming / other and counts every answer in the head line', () => {
@@ -55,8 +55,8 @@ describe('the «Anrückend» block, as data', () => {
     const resp: DiveraResponses = {
       ...FIXTURE,
       answers: [
-        { ucr_id: 101, status_id: 12, kind: 'coming', answered_at: '2026-10-08T17:00:00Z', eta: '2026-10-08T17:10:00Z', note: '' },
-        { ucr_id: 102, status_id: 11, kind: 'coming', answered_at: '2026-10-08T17:04:00Z', eta: null, note: '' },
+        { person_id: 'p101', status_id: 12, kind: 'coming', answered_at: '2026-10-08T17:00:00Z', eta: '2026-10-08T17:10:00Z', note: '' },
+        { person_id: 'p102', status_id: 11, kind: 'coming', answered_at: '2026-10-08T17:04:00Z', eta: null, note: '' },
       ],
     }
     expect(buildAnrueckend(resp, ROSTER, {})!.coming.map((r) => r.person.id)).toEqual(['p102', 'p101'])

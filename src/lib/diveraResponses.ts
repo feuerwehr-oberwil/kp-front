@@ -32,20 +32,10 @@ export interface Anrueckend {
   notComing: AnrueckendRow[]
   /** an answer that is neither («Rückruf erbeten») */
   other: AnrueckendRow[]
-  /** answers from somebody the Mannschaftsliste does not know (never synced, or a guest) */
+  /** answers from somebody the Mannschaftsliste does not know (never synced, or a guest) — the
+   *  server sends only the count, never who */
   unmapped: number
   updatedAt: string | null
-}
-
-/** Divera user id → roster person, through the `divera` external identity. */
-export function personByDiveraId(people: Person[]): Map<string, Person> {
-  const out = new Map<string, Person>()
-  for (const p of people) {
-    for (const ident of p.externalIdentities ?? []) {
-      if (ident.provider === 'divera' && ident.externalId) out.set(String(ident.externalId), p)
-    }
-  }
-  return out
 }
 
 const byTime = (a: string | null, b: string | null) => (a ?? '￿').localeCompare(b ?? '￿')
@@ -58,17 +48,20 @@ export function buildAnrueckend(
   if (!resp?.available) return null
   const answers: DiveraAnswer[] = resp.answers ?? []
   const names = new Map((resp.statuses ?? []).map((s) => [s.id, s.name]))
-  const roster = personByDiveraId(people)
-  const counts: Record<DiveraResponseKind, number> = { coming: 0, not_coming: 0, other: 0 }
+  // the server already mapped Divera users onto OUR ids (and dropped everybody else)
+  const roster = new Map(people.map((p) => [p.id, p]))
+  // the head line counts EVERY answer — the server's totals include the people it could not name
+  const tally: Record<DiveraResponseKind, number> = { coming: 0, not_coming: 0, other: 0 }
   const coming: AnrueckendRow[] = []
   const notComing: AnrueckendRow[] = []
   const other: AnrueckendRow[] = []
   let here = 0
-  let unmapped = 0
+  // a roster row the device does not have (yet) counts with the ones the server could not map
+  let unmapped = resp.counts?.unmapped ?? 0
   for (const a of answers) {
     const kind: DiveraResponseKind = a.kind === 'coming' || a.kind === 'not_coming' ? a.kind : 'other'
-    counts[kind]++
-    const person = roster.get(String(a.ucr_id))
+    tally[kind]++
+    const person = roster.get(a.person_id)
     if (!person) { unmapped++; continue }
     // Recorded here in ANY state — anwesend, or here and gone again. Either way the Anwesenheit
     // below already carries them; listing them again as «anrückend» would be a second, stale row.
@@ -87,6 +80,10 @@ export function buildAnrueckend(
   const byName = (a: AnrueckendRow, b: AnrueckendRow) => a.person.displayName.localeCompare(b.person.displayName, 'de')
   notComing.sort(byName)
   other.sort(byName)
+  const c = resp.counts
+  const counts: Record<DiveraResponseKind, number> = c
+    ? { coming: c.coming ?? 0, not_coming: c.not_coming ?? 0, other: c.other ?? 0 }
+    : tally
   return {
     counts, here, unmapped,
     unanswered: resp.counts?.unanswered ?? 0,

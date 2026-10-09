@@ -258,8 +258,8 @@ never carries a credential – see the URL warning in Step 1. The same data is s
 
 ## Rückmeldungen – «Anrückend» in the Anwesenheit
 
-Since 2026-10-08 the Anwesenheit of an Einsatz opened from Divera starts with an **«Anrückend»**
-block: one line of counts («9 kommen · 2 kommen nicht · 3 da»), then the people who said they
+Since 2026-10-08 the Anwesenheit of an Einsatz with a Divera alarm (opened from it, or with an
+alarm attached to it) starts with an **«Anrückend»** block for the EL and the editors: one line of counts («9 kommen · 2 kommen nicht · 3 da»), then the people who said they
 are coming with their answer time and an estimated arrival, and «kommt nicht» in a group of its
 own – muted, with ✕ and the word on every row. One tap on «da» checks somebody in.
 
@@ -279,8 +279,9 @@ Where the data comes from, so nothing new has to be set up:
   while the block is on screen); they never make the server call Divera.
 - **The status names come from `/pull/all`**, which the Mannschaft sync fetches anyway; the
   poll reuses that, and otherwise fetches it at most once every 6 h, only once an alarm has
-  answers to name. A key that cannot read it still stores the answers – they then count as
-  «andere» under «Status 13» until a name arrives.
+  answers to name, or once an answer uses a status id the cached list does not know (at most every
+  15 min, 5 s timeout). A key that cannot read it still stores the answers. They then count as
+  «andere» under «Status 13» until a name arrives, and a name the row already had is kept.
 - **The names of the people are the roster's.** Divera's user id under `ucr_answered` is the id
   the Mannschaft sync stores as the `divera` external identity, so an answer finds its person on
   the device. An answer from somebody who is not on the Mannschaftsliste is counted, not named.
@@ -290,9 +291,17 @@ Where the data comes from, so nothing new has to be set up:
 - **What counts as «kommt» / «kommt nicht»** is read off the status name, and a station whose
   words differ sets `roster.diveraResponses` ([`CONFIGURATION.md` §4a](CONFIGURATION.md#4a-divera--auto-sync)).
 - Several alarms on one Einsatz (a Nachalarm attached to it) are merged; the latest answer per
-  person wins.
-- **Privacy.** The answers are personal data: they are a logged-in read, an Einsatz-Link never
-  sees them, and they never enter the workspace, an export or the Rapport.
+  person wins. An alarm counts for **6 hours** (`RESPONSES_MAX_AGE_SECONDS`): a dispatch that
+  is over is not «anrückend», and a Nachalarm the next day does not inherit the night's answers.
+- Somebody already recorded on this Einsatz, whether anwesend or gone again, never stands in
+  «Anrückend» again.
+- **Privacy** ([`PRIVACY.md`](../PRIVACY.md) › Divera answers). The read is editor-only (EL and
+  editors, not viewers and not an Einsatz-Link) and only for an open Einsatz. Only people on the
+  Mannschaftsliste come out, under the station's own id, and everybody else is a count. Of who
+  was alerted and who read the alarm, only the counts are stored. The answers, notes included,
+  are **deleted** when the Einsatz is closed and in any case 48 h after the alarm
+  (`divera.prune_responses`, swept every 10 min). They never enter the workspace, an export or
+  the Rapport.
 
 > ⚠️ **Unverified (08.10.2026):** whether the **unit** accesskey's `/alarms` fills
 > `ucr_answered` for every member or only for what that key «sees». The fields and their shape are

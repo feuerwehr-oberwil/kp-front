@@ -52,9 +52,23 @@ NOTE_MAX = 80
 #: How long a fetched status catalogue is reused. A Rückmelde-Status is renamed perhaps once a
 #: year; asking Divera every poll would be the polling storm the connector promises not to be.
 CATALOGUE_TTL_SECONDS = 6 * 3600
-#: …and how long a FAILED catalogue fetch waits before it is tried again (a key that cannot read
-#: /pull/all must not turn every poll into a second, failing call).
-CATALOGUE_RETRY_SECONDS = 30 * 60
+#: …and how long a FAILED catalogue fetch — or a refetch for a status id the catalogue does not
+#: know yet — waits before it is tried again (a key that cannot read /pull/all must not turn every
+#: poll into a second, failing call).
+CATALOGUE_RETRY_SECONDS = 15 * 60
+#: The catalogue fetch runs inside the alarm poll; it gets its own short bound so a slow Divera
+#: cannot hold the alarm intake behind a list of status names.
+CATALOGUE_TIMEOUT_SECONDS = 5.0
+
+
+#: How long an alarm's answers count for «Anrückend». After a few hours they describe a dispatch
+#: that is over — somebody who said «komme» at 19:00 and never came is not «anrückend» at 02:00,
+#: and a Nachalarm the next day must not inherit the first night's answers.
+RESPONSES_MAX_AGE_SECONDS = 6 * 3600
+#: How long they are KEPT at all. Notes like «krank» are health data; nothing after the Einsatz
+#: reads them (they never reach the workspace, an export or the Rapport), so they are cleared
+#: once the Einsatz is closed, and in any case this long after the alarm (PRIVACY.md).
+RESPONSES_RETENTION_SECONDS = 48 * 3600
 
 
 # --- the default classification ---------------------------------------------------------
@@ -62,11 +76,12 @@ CATALOGUE_RETRY_SECONDS = 30 * 60
 #: Checked FIRST: «Komme nicht» contains «komme». Word-bounded where a bare substring would
 #: misfire («no» in «Notfall», «pas» in «Passerelle»).
 _NOT_COMING = re.compile(
-    r"\b(nicht|not|no|nein|kein\w*|pas|non)\b|abwesend|verhindert|absent|indisponible|unavailable|ferien|urlaub|krank"
+    r"\b(nicht|not|no|nein|kein\w*|pas|non)\b|abwesend|verhindert|absent|indisponible|unavailable|ferien|urlaub|krank|"
+    r"assente|non disponibile"
 )
 _COMING = re.compile(
     r"komm|unterwegs|anfahrt|auf dem weg|einsatzbereit|verfugbar|\bja\b|coming|on my way|\byes\b|viens|"
-    r"j'arrive|arrive|en route|disponible|\d+\s*min"
+    r"j'arrive|arrive|en route|disponible|vengo|arrivo|in arrivo|sto arrivando|\d+\s*min"
 )
 
 
@@ -140,12 +155,21 @@ def _int_list(value: Any) -> list[int]:
     return out
 
 
+def _count(value: Any) -> int:
+    """A non-negative count out of anything — junk reads 0, never an exception."""
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError, OverflowError):
+        return 0
+
+
 def _ts(value: Any) -> int | None:
     try:
         ts = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return None
-    return ts if ts > 0 else None
+    # a stamp no calendar can render (Divera junk, a ms value) is no stamp — see _iso
+    return ts if 0 < ts < 32503680000 else None
 
 
 def parse_alarm_responses(item: dict) -> dict | None:
@@ -154,8 +178,10 @@ def parse_alarm_responses(item: dict) -> dict | None:
     Shape (what ``divera_emergencies.responses_json`` stores)::
 
         {"answered": {"<status id>": {"<ucr>": {"ts": int, "note": str}}},
-         "addressed": [ucr, …], "read": int, "recipients": int}
+         "addressed": int, "read": int}
 
+    COUNTS only for who was addressed and who read it — never a per-person read receipt: nobody
+    on the Einsatz needs «who has not looked at their phone», and it is not ours to keep.
     «None» means «nothing to record»: no answers AND nobody addressed. An alarm that was sent to
     30 people of whom nobody answered yet is still worth recording (0 of 30).
     """
@@ -185,15 +211,11 @@ def parse_alarm_responses(item: dict) -> dict | None:
     read = _int_list(item.get("ucr_read"))
     if not answered and not addressed:
         return None
-    try:
-        recipients = int(item.get("count_recipients") or len(addressed))
-    except (TypeError, ValueError):
-        recipients = len(addressed)
-    try:
-        read_count = int(item.get("count_read") or len(read))
-    except (TypeError, ValueError):
-        read_count = len(read)
-    return {"answered": answered, "addressed": sorted(set(addressed)), "read": read_count, "recipients": recipients}
+    return {
+        "answered": answered,
+        "addressed": max(len(set(addressed)), _count(item.get("count_recipients"))),
+        "read": max(len(set(read)), _count(item.get("count_read"))),
+    }
 
 
 def parse_responses_by_alarm(data: dict) -> dict[int, dict]:
@@ -270,17 +292,20 @@ def reset_catalogue_cache() -> None:
     _catalogue_failed_at = None
 
 
-async def ensure_catalogue() -> dict | None:
-    """The status catalogue, fetched only when it is missing or stale (≤ one call per 6 h).
+async def ensure_catalogue(needed: set[str] | frozenset[str] = frozenset()) -> dict | None:
+    """The status catalogue, fetched only when it is missing, stale (6 h), or does not know a
+    status id an answer was filed under (`needed` — the Einheit added a status since).
 
-    Never raises: a failed fetch is logged WITHOUT the URL (the key travels in it) and waits
+    A fetch at most every :data:`CATALOGUE_RETRY_SECONDS` for the last two reasons. Never raises: a failed fetch is logged WITHOUT the URL (the key travels in it) and waits
     :data:`CATALOGUE_RETRY_SECONDS` before the next try. The answers are stored either way; a
     status nobody could name reads «Status 13» and counts as «other».
     """
     global _catalogue_failed_at
     now = _now()
     if _catalogue is not None and now - _catalogue[0] < CATALOGUE_TTL_SECONDS:
-        return _catalogue[1]
+        missing = set(needed) - set(_catalogue[1].get("status") or {})
+        if not missing or now - _catalogue[0] < CATALOGUE_RETRY_SECONDS:
+            return _catalogue[1]
     if _catalogue_failed_at is not None and now - _catalogue_failed_at < CATALOGUE_RETRY_SECONDS:
         return cached_catalogue()
     import httpx
@@ -293,7 +318,7 @@ async def ensure_catalogue() -> dict | None:
     if not key:
         return cached_catalogue()
     try:
-        async with httpx.AsyncClient(timeout=20.0) as client:
+        async with httpx.AsyncClient(timeout=CATALOGUE_TIMEOUT_SECONDS) as client:
             r = await client.get(f"{DIVERA_PULL_BASE_URL}/pull/all", params={"accesskey": key})
             check_response(r)
             data = r.json()
@@ -307,8 +332,9 @@ async def ensure_catalogue() -> dict | None:
             "Divera status catalogue fetch failed: %s", e if isinstance(e, DiveraApiError) else type(e).__name__
         )
         return cached_catalogue()
+    before = _catalogue
     remember_catalogue(data)
-    if _catalogue is None:
+    if _catalogue is before:  # nothing usable came back — back off like a failure
         _catalogue_failed_at = now
     return cached_catalogue()
 
@@ -325,21 +351,32 @@ def _iso(ts: int | None) -> str | None:
         return None
 
 
-def summarise(stored: list[dict], overrides: Any = None) -> dict:
+def summarise(
+    stored: list[dict],
+    overrides: Any = None,
+    person_by_ucr: dict[str, str] | None = None,
+    *,
+    with_notes: bool = True,
+) -> dict:
     """Merge the stored responses of an incident's alarm(s) into what the Anwesenheit shows.
 
     ``stored`` is a list of ``responses_json`` blobs (one per Divera alarm on the incident — a
     Nachalarm attached to it is one more). Per UCR the LATEST answer wins, across statuses and
     across alarms. The catalogue each blob carries (``statuses``) names the ids; the newest blob's
     name for an id wins.
+
+    Privacy: only people on the Mannschaftsliste (``person_by_ucr``: Divera user id → personnel
+    id) come out as a row, keyed by OUR id; everybody else is a number (``counts.unmapped``) — no
+    Divera id, no note. ``with_notes=False`` (a viewer) blanks the free text («krank», «Ferien»).
+    Every count counts every answer, so the head line still says what Divera said.
     """
+    person_by_ucr = person_by_ucr or {}
     ov = normalise_overrides(overrides)
     catalogue: dict[str, dict] = {}
     order: list[str] = []
     latest: dict[str, tuple[str, int | None, str]] = {}
-    addressed: set[int] = set()
+    addressed = 0
     read = 0
-    recipients = 0
     updated: str | None = None
     for blob in stored:
         if not isinstance(blob, dict):
@@ -352,13 +389,16 @@ def summarise(stored: list[dict], overrides: Any = None) -> dict:
                 order.append(str(sid))
         for sid, people in (blob.get("answered") or {}).items():
             for ucr, a in (people or {}).items():
-                ts = (a or {}).get("ts")
+                ts = _ts((a or {}).get("ts"))
                 prev = latest.get(ucr)
                 if prev is None or (ts or 0) >= (prev[1] or 0):
                     latest[ucr] = (str(sid), ts, (a or {}).get("note") or "")
-        addressed.update(_int_list(blob.get("addressed")))
-        read = max(read, int(blob.get("read") or 0))
-        recipients = max(recipients, int(blob.get("recipients") or 0))
+        # (a blob stored before 09.10.2026 carried the addressed LIST; both read as a count)
+        a_raw = blob.get("addressed")
+        addressed = max(
+            addressed, len(a_raw) if isinstance(a_raw, list) else _count(a_raw), _count(blob.get("recipients"))
+        )
+        read = max(read, _count(blob.get("read")))
         at = blob.get("updated_at")
         if at and (updated is None or at > updated):
             updated = at
@@ -367,23 +407,28 @@ def summarise(stored: list[dict], overrides: Any = None) -> dict:
     counts = dict.fromkeys(KINDS, 0)
     per_status: dict[str, int] = {}
     answers = []
+    unmapped = 0
     for ucr, (sid, ts, note) in latest.items():
         kind = kinds.get(sid, "other")
         counts[kind] += 1
         per_status[sid] = per_status.get(sid, 0) + 1
+        person_id = person_by_ucr.get(str(ucr))
+        if person_id is None:
+            unmapped += 1
+            continue
         minutes = _minutes(catalogue.get(sid))
         eta = ts + minutes * 60 if kind == "coming" and minutes > 0 and ts else None
         answers.append(
             {
-                "ucr_id": int(ucr),
+                "person_id": person_id,
                 "status_id": int(sid),
                 "kind": kind,
                 "answered_at": _iso(ts),
                 "eta": _iso(eta),
-                "note": note,
+                "note": note if with_notes else "",
             }
         )
-    answers.sort(key=lambda a: (a["answered_at"] or "", a["ucr_id"]))
+    answers.sort(key=lambda a: (a["answered_at"] or "", a["person_id"]))
 
     def _status_rank(sid: str) -> tuple[int, int]:
         return (order.index(sid) if sid in order else len(order), int(sid))
@@ -399,15 +444,17 @@ def summarise(stored: list[dict], overrides: Any = None) -> dict:
         for sid, n in sorted(per_status.items(), key=lambda kv: _status_rank(kv[0]))
     ]
     answered = len(latest)
-    addressed_n = max(len(addressed), recipients, answered)
+    addressed_n = max(addressed, answered)
     return {
         "available": bool(answered or addressed_n),
+        **({} if answered or addressed_n else {"reason": "no_data"}),
         "updated_at": updated,
         "counts": {
             **counts,
             "answered": answered,
             "addressed": addressed_n,
             "unanswered": max(0, addressed_n - answered),
+            "unmapped": unmapped,
             "read": read,
         },
         "statuses": statuses,
@@ -415,15 +462,25 @@ def summarise(stored: list[dict], overrides: Any = None) -> dict:
     }
 
 
-def with_catalogue(parsed: dict, catalogue: dict | None, now: datetime) -> dict:
+def with_catalogue(parsed: dict, catalogue: dict | None, now: datetime, previous: dict | None = None) -> dict:
     """The blob to store: the parsed answers plus the names of exactly the statuses they use (so
     a stored Einsatz still reads «Komme nicht» after the Einheit renames it, and the read never
-    needs the live catalogue), stamped with when it was seen."""
+    needs the live catalogue), stamped with when it was seen.
+
+    A name the current catalogue cannot supply is kept from `previous` (the row's stored blob):
+    after a restart whose first /pull/all failed, the poll must not overwrite every stored
+    «Komme nicht» with «Status 13» until the retry."""
     blob = dict(parsed)
     used = set((parsed.get("answered") or {}).keys())
     status = (catalogue or {}).get("status") or {}
-    blob["statuses"] = {sid: status[sid] for sid in sorted(used) if sid in status}
-    blob["order"] = [sid for sid in (catalogue or {}).get("order") or [] if sid in used]
+    kept = (previous or {}).get("statuses") or {} if isinstance(previous, dict) else {}
+    blob["statuses"] = {
+        sid: status[sid] if sid in status else kept[sid] for sid in sorted(used) if sid in status or sid in kept
+    }
+    order = (
+        (catalogue or {}).get("order") or ((previous or {}).get("order") if isinstance(previous, dict) else None) or []
+    )
+    blob["order"] = [sid for sid in order if sid in used]
     blob["updated_at"] = now.isoformat()
     return blob
 
@@ -432,5 +489,5 @@ def same_answers(a: dict | None, b: dict | None) -> bool:
     """True when two stored blobs say the same thing (the stamp aside) — no write for a no-op poll."""
     if not a or not b:
         return a == b
-    keys = ("answered", "addressed", "read", "recipients", "statuses")
+    keys = ("answered", "addressed", "read", "statuses")
     return all(a.get(k) == b.get(k) for k in keys)
