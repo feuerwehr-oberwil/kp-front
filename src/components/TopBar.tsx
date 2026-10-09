@@ -15,6 +15,7 @@ import { useLiveBearing } from '../lib/liveBearing'
 import { HoldChargeRing, HoldTargets } from './HoldTargets'
 import { useHeadFit } from '../lib/useHeadFit'
 import { useOnline } from '../lib/useOnline'
+import { parseWeatherTime } from '../lib/weatherTime'
 
 /* ── Weather helpers ───────────────────────────────────────────────────────────────────────────
  * The wind/condition maths, kept beside its only reader. It used to live in a `WindBadge`
@@ -441,7 +442,9 @@ function WeatherDetails({ weather, cond, onOpenMeteo }: {
   onOpenMeteo?: () => void
 }) {
   const dir = weather.wind_dir_deg
-  const observed = weather.observed_at ? formatTime(new Date(weather.observed_at)) : null
+  // through lib/weatherTime: an Open-Meteo stamp has no zone and is UTC, not device-local
+  const observedAt = parseWeatherTime(weather.observed_at)
+  const observed = observedAt ? formatTime(observedAt) : null
   const w = appConfig.copy.weather
   return (
     <>

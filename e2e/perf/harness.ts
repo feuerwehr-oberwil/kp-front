@@ -71,7 +71,7 @@ function solidPng(size = 256, rgb: [number, number, number] = [232, 228, 220]): 
 }
 const TILE = solidPng()
 
-export async function isolateFromOutside(context: BrowserContext, baseURL: string, external: string[]) {
+export async function isolateFromOutside(context: BrowserContext, baseURL: string, external: string[], now = () => Date.now()) {
   const own = new URL(baseURL).origin
   await context.route((url) => url.protocol.startsWith('http') && url.origin !== own, async (route) => {
     const req = route.request()
@@ -83,7 +83,7 @@ export async function isolateFromOutside(context: BrowserContext, baseURL: strin
   })
   await context.route('**/api/weather?*', (route) => route.fulfill({ json: {
     wind_dir_deg: 240, wind_speed_kmh: 9, wind_gust_kmh: 18, temp_c: 14, precip_mm: 0, weather_code: 1,
-    observed_at: new Date().toISOString(), source: 'meteoswiss', station: 'Basel-Binningen',
+    observed_at: new Date(now()).toISOString(), source: 'meteoswiss', station: 'Basel-Binningen',
   } }))
   await context.route('**/api/overpass/buildings', (route) => route.fulfill({ json: { elements: [] } }))
 }
@@ -311,9 +311,9 @@ export interface Seeded { id: string; title: string; trupps: string[]; journalRo
  * now. Every journey gets a fresh one, so what one journey wrote never changes the next one's
  * numbers. Archived again by `retire()`.
  */
-export async function seedIncident(api: APIRequestContext, title: string): Promise<Seeded> {
+export async function seedIncident(api: APIRequestContext, title: string, now = Date.now()): Promise<Seeded> {
   const opts = FAT_PRESETS.real
-  const fat = fatIncident({ ...opts, start: new Date(Date.now() - opts.hours * 3_600_000).toISOString() })
+  const fat = fatIncident({ ...opts, start: new Date(now - opts.hours * 3_600_000).toISOString() })
   const created = await api.post('/api/incidents', {
     data: { title, type: 'Brand', lat: fat.options.center[1], lng: fat.options.center[0], started_at: fat.startedAt },
   })
@@ -328,7 +328,7 @@ export async function seedIncident(api: APIRequestContext, title: string): Promi
   // Trupp is long out (each works 18–30 min), so the three latest go back in: entered ten minutes
   // ago, last contact two minutes ago — none goes überfällig during a journey (an alarm banner and
   // its saves would be the journey's numbers otherwise).
-  const iso = (minAgo: number) => new Date(Date.now() - minAgo * 60_000).toISOString()
+  const iso = (minAgo: number) => new Date(now - minAgo * 60_000).toISOString()
   const trupps = [...(fat.workspace.trupps ?? [])]
   const inside = new Set(trupps.slice(-3).map((t) => t.id))
   const ws = { ...fat.workspace, trupps: trupps.map((t) => (!inside.has(t.id) ? t : {
