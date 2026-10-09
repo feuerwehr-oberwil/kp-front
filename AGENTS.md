@@ -135,6 +135,11 @@ to prod.
   `--update` in its own commit, with the reason.
 - **e2e** runs on the production image in CI (`e2e/README.md`); every spec takes `test` from
   `e2e/helpers`, which fails on a client error or a render storm.
+- **The look is gated too.** CI's «Visual» job shoots nine frozen states and compares them with
+  `e2e/visual/baseline/` (`maxDiffPixels: 20`). A changed pixel you did not mean is a regression;
+  a look you changed on purpose gets new baselines from CI (`just visual-accept <run-id>`) in its
+  own commit, saying why – never to turn the check green, never shot on a laptop
+  ([`docs/testing/visual-regression.md`](docs/testing/visual-regression.md)).
 - **Large / long incidents and performance** are measured, not guessed:
   [`docs/testing/fat-incident.md`](docs/testing/fat-incident.md),
   [`docs/testing/perf-journeys.md`](docs/testing/perf-journeys.md).

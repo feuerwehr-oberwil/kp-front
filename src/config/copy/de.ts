@@ -320,7 +320,7 @@ export const de = {
             '**Zugesagt** (voll) oder **Vorschlag** (hohl) – der Unterschied zwischen «kommt» und «könnte».',
             'Der **Zeitraum** oben bestimmt, wie viele Stunden auf einmal zu sehen sind.',
             'In **Schichten** werden dieselben Fenster zu benannten Bändern gruppiert («Nacht 22–06»): ein Band anzulegen schreibt keine Schicht, und eine gelöschte Zeile löscht keine Verfügbarkeit.',
-            'Beide Ansichten drucken: über das **Drucker-Menü** in der Kopfzeile – **Schichtplan** oder **Verfügbarkeiten**, als PDF oder direkt auf den Stationsdrucker.',
+            'Beide Ansichten drucken: über das **Drucker-Menü** in der Kopfzeile – **Schichtplan** oder **Verfügbarkeiten**, als PDF.',
           ] },
         ],
       },
@@ -383,7 +383,6 @@ export const de = {
             'Unter dem Titel steht, was erfasst ist – und als eigene Chips, was **noch offen** ist: Zeiten, Anwesenheit, Material, Einsatzleiter, Kurzbericht, Rückmeldung ELZ. Nichts davon blockiert je den Druck.',
             'Der **Kroki-Ausschnitt** liegt als Feld neben dem Formular: verschieben, zoomen, **Hoch/Quer** und der **Kroki-Stand** – welchen Zeitpunkt das Bild zeigt, mit Strichen dort, wo etwas passiert ist. Gedruckt wird genau das, was auf dem Schirm steht; es gibt keinen Bestätigungsschritt.',
             '**Einsatzrapport (PDF)** erzeugt den fertigen Rapport – serverseitig gerendert, ein Knopf. Das **▾** daneben öffnet **«Abschnitte»**: was aufs Papier kommt (Kroki, Pläne, Atemschutz, Anwesenheit, Material, Verlauf, Fotos, detaillierter Prüfnachweis). Das Menü bleibt beim Anhaken offen.',
-            'Wo eine Wehr einen **Stationsdrucker** betreibt: **Ausdrucken** reiht den Rapport dort ein. Eingereiht ist nicht gedruckt – solange der Auftrag hängt, steht er als **offener Druckauftrag** unter dem Rapportkopf, mit **Prüfen** und **Abbrechen**. Erst wenn der Drucker «gedruckt» meldet, gilt der Rapport als erstellt.',
             'Hat die Wehr eigene Formulare hinterlegt (Verwaltung › Rapport), steht unter den Fotos **Formulare & Links** – eine Liste zum Abhaken. **Öffnen** ruft das Formular auf, mit Stichwort, Ort, Datum und Einsatzleiter bereits ausgefüllt, soweit der Link das vorsieht. Der Haken wird von Hand gesetzt: ob ein Formular abgeschickt wurde, sieht die App nicht.',
             'Stimmt etwas mit dem Datensatz nicht – eine unterbrochene Prüfkette, eine Sprachnotiz ohne Transkript, ein Foto noch in der Warteschlange –, erscheint neben den Knöpfen ein **oranger Hinweis-Chip**. Er zählt die Punkte und öffnet sie; ist alles in Ordnung, erscheint er gar nicht.',
             'Kontaktperson und Rückmeldung ELZ haben am Ende der Zeile ein **Entfällt** – für den Fehlalarm oder die Ölspur, wo es beides nicht gibt. Das ist eine Antwort, keine Übergehung: sie wird festgehalten und steht so im Rapport.',
@@ -4959,51 +4958,6 @@ export const de = {
     truppsDeployedConfirm: 'Noch im Einsatz: {n} – nie rausgemeldet',
     stateNote: 'Stand: ganzer Einsatz bis Rapport-Erstellung ({at}).',
   },
-  // Station print relay — «Ausdrucken» (preflight + capture)
-  printRelay: {
-    send: 'Ausdrucken',
-    sending: 'Wird gesendet …',
-    // ⚠️ «In der Warteschlange», nicht «gesendet». Eingereiht ist nicht gedruckt: was die App
-    // weiss, ist dass der Auftrag in einer Warteschlange liegt. «Gesendet» klang nach erledigt –
-    // und war die erste Hälfte der Geschichte, die damit endete, den Einsatz abschliessen zu
-    // dürfen, obwohl kein Blatt existierte.
-    queued: 'In der Warteschlange',
-    // live status toast follows the job: Warteschlange → wird gedruckt → gedruckt / fehlgeschlagen
-    printing: 'Wird gedruckt …',
-    printed: 'Gedruckt',
-    printFailed: 'Druck fehlgeschlagen – Drucker prüfen',
-    // the same three stages as a chain INSIDE that toast — short, they stand next to each other
-    stepQueued: 'In der Warteschlange',
-    stepPrinting: 'Wird gedruckt',
-    stepPrinted: 'Gedruckt',
-    // Ein unerledigter Auftrag ist ein ZUSTAND und lebt am Rapportkopf, nicht im Toast: das
-    // Polling gibt nach 90 s auf, danach las den Auftrag niemand je wieder.
-    jobOpen: 'Druckauftrag offen',
-    jobOpenSince: 'Seit {t} in der Warteschlange',
-    jobCheck: 'Prüfen',
-    jobCancel: 'Abbrechen',
-    jobUnreachable: 'Druckauftrag nicht erreichbar – Verbindung prüfen',
-    // 404 vom Relay: der 7-Tage-Sweep des Backends hat den Auftrag weggeräumt – genau der Fall
-    // «Relay war eine Woche down». Ohne eigene Antwort blieb das Band für immer stehen, und
-    // «Prüfen» sagte «nicht erreichbar» über einen Host, der soeben geantwortet hatte. Kein
-    // «Rapport erstellt»-Stempel: ob je ein Blatt herauskam, weiss niemand – der Satz sagt das.
-    jobGone: 'Druckauftrag nicht mehr auffindbar – falls kein Ausdruck herauskam, erneut drucken.',
-    // every print goes through a confirm modal — no accidental paper (2026-07-18)
-    confirmTitle: 'Ausdrucken',
-    confirmMsg: 'Einsatzrapport an den Stationsdrucker senden?',
-    confirmBtn: 'Ausdrucken',
-    undo: 'Rückgängig',
-    cancelled: 'Druckauftrag abgebrochen',
-    undoTooLate: 'Zu spät – der Auftrag ist schon beim Drucker',
-    failed: 'Senden an Stationsdrucker fehlgeschlagen',
-    online: 'Stationsdrucker erreichbar',
-    offline: 'Stationsdrucker offline',
-    // ⚠️ Nur der Titel, kein Erklärtext. «Der Auftrag wird gedruckt, sobald das Relay wieder
-    // erreichbar ist» war der Satz, der Einreihen wie Drucken klingen liess – und danach stand
-    // «Rapport erstellt» auf dem Schirm. Der Titel ist die ganze Aussage.
-    offlineConfirmTitle: 'Stationsdrucker offline',
-    offlineConfirmBtn: 'Trotzdem senden',
-  },
   // Anwesenheit surface (AnwesenheitView)
   anwesenheit: {
     title: 'Anwesenheit',
@@ -6316,8 +6270,8 @@ export const de = {
           caption: 'Browser-Key für die CARTO-Karten Voyager und Dark Matter. Er steht technisch bedingt in den Kachel-Anfragen; deshalb in CARTO auf die Domains dieser Installation beschränken.',
         },
         webhooks: {
-          title: 'Webhooks & Stationsdrucker',
-          caption: 'Gemeinsame Geheimnisse für die Alarm-Schnittstelle fremder Leitstellen und für den Druck-Agenten auf der Wache. Ohne Eintrag sind beide Türen zu.',
+          title: 'Webhooks',
+          caption: 'Gemeinsames Geheimnis für die Alarm-Schnittstelle fremder Leitstellen. Ohne Eintrag ist die Tür zu.',
         },
         sharepoint: {
           title: 'SharePoint (Stationsdaten)',
@@ -6531,12 +6485,6 @@ export const de = {
       linkPreview: 'Vorschau mit einem Beispiel-Einsatz',
       linkPreviewNone: 'Kein gültiger Link (http oder https) – dieser Eintrag erscheint nicht auf dem Rapport.',
       linkPreviewNoTitle: 'Ohne Titel erscheint dieser Eintrag nicht auf dem Rapport.',
-      // Nur für Wehren mit Stationsdrucker (Druck-Relay). Betrifft ausschliesslich den Weg
-      // zum Drucker – ein heruntergeladenes PDF ist immer in Leserichtung.
-      groupPrint: 'Druck am Stationsdrucker',
-      printTip: 'Betrifft nur den Rapport, der an den Stationsdrucker geschickt wird. Ein heruntergeladenes PDF bleibt immer in Leserichtung.',
-      reverseOrder: 'Seiten in umgekehrter Reihenfolge senden',
-      reverseOrderHint: 'Für Drucker, die das Blatt mit der bedruckten Seite nach oben auswerfen: der Stapel liegt sonst verkehrt herum und muss von Hand sortiert werden. Wirft dein Drucker nach unten aus, schalte es ab.',
     },
     // Alarme & Einsätze: die drei Uhren am Lebenslauf eines Einsatzes plus die Webhooks,
     // über die ein zweites System (z. B. der Zettel-Drucker von kp-rück) überhaupt erst
@@ -7669,8 +7617,6 @@ export const de = {
       directionOut: 'ausgehend',
       connOnline: 'online',
       connOffline: 'offline',
-      connLastSeen: 'Zuletzt gemeldet: {time}',
-      connPrintRelay: 'Stationsdrucker (Print-Agent)',
       connCapture: 'Erfassungs-Poster (QR)',
       connStats: 'Statistik-Export',
       connDiveraWebhook: 'Divera-Webhook',

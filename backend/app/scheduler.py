@@ -309,32 +309,6 @@ async def _object_visit_delivery_tick() -> None:
         logger.exception("Objektbesuche delivery tick failed")
 
 
-PRINT_JOB_RETENTION_DAYS = 7  # the paper is the artefact — the queue is transient
-PRINT_JOB_SWEEP_SECONDS = 3600
-
-
-async def _print_jobs_sweep() -> None:
-    from sqlalchemy import delete
-
-    from .credentials import get as credential
-    from .credentials import load as load_credentials
-    from .models import PrintJob
-
-    async with async_session_maker() as db:
-        await load_credentials(db)
-        if not credential("print_agent_secret"):
-            return  # no relay configured — there is no queue to retire
-        try:
-            cutoff = datetime.now(UTC) - timedelta(days=PRINT_JOB_RETENTION_DAYS)
-            res = await execute_dml(db, delete(PrintJob).where(PrintJob.created_at < cutoff))
-            await db.commit()
-            if res.rowcount:
-                logger.info("Print-job sweep: %d job(s) removed", res.rowcount)
-        except Exception:
-            await db.rollback()
-            logger.exception("Print-job sweep failed")
-
-
 #: How often the vehicle feed is sampled into the incident record. Not the 15 s the map polls
 #: at: this is a TRACK for the replay, and half-minute resolution draws the same route with a
 #: fraction of the rows.
@@ -754,15 +728,6 @@ def _start_scheduler_jobs() -> None:
         coalesce=True,
     )
     jobs.append(f"push sweep ({settings.push_check_seconds}s, idle without VAPID keys)")
-    _scheduler.add_job(
-        _print_jobs_sweep,
-        "interval",
-        seconds=PRINT_JOB_SWEEP_SECONDS,
-        id="print_jobs_sweep",
-        max_instances=1,
-        coalesce=True,
-    )
-    jobs.append(f"print-job sweep ({PRINT_JOB_SWEEP_SECONDS}s, idle without a relay secret)")
     _scheduler.add_job(
         _vehicle_samples_sweep,
         "interval",

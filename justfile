@@ -276,6 +276,25 @@ perf-accept run-id:
     PERF_SOURCE="CI run {{run-id}}" node scripts/perf-report.mjs --update $(ls -d tmp/perf-accept/run*)
     rm -rf tmp/perf-accept
 
+# (Throwaway Postgres + built app; never touches the dev database. CI's «Visual» job shoots the
+# same states and fails on a changed pixel — docs/testing/visual-regression.md.)
+# Shoot the screenshot regression states and compare them against e2e/visual/baseline/.
+[group('Quality')]
+visual *args:
+    bash scripts/visual.sh {{args}}
+
+# (A red «Visual» job or a «Visual baselines» run. A deliberate change of the look only — commit
+# the pictures on their own, saying why; never to turn the check green.)
+# Take a CI run's new pictures as the screenshot baselines.
+[group('Quality')]
+visual-accept run-id:
+    rm -rf tmp/visual-accept && gh run download {{run-id}} -n visual-results -D tmp/visual-accept
+    actual=$(find tmp/visual-accept -type d -name actual | head -1); \
+      test -n "$actual" || { echo "run {{run-id}} has no new pictures"; exit 1; }; \
+      cp "$actual"/*.png e2e/visual/baseline/
+    rm -rf tmp/visual-accept
+    git status --short e2e/visual/baseline
+
 # Type-check the frontend and the e2e specs without emitting.
 [group('Quality')]
 check:
