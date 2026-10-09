@@ -2,8 +2,8 @@
 
 ``roster_snapshot.py`` says what a published personnel file looks like. This module says what a
 consumer DOES with one, and it is shared for the same reason the contract is: KP Front and KP
-Rück each hold a byte-identical copy (pinned by checksum, diffed by kp-rück's
-``roster-schema-drift`` job), so one file a station publishes lands the same way in both
+Rück each hold a byte-identical copy (listed in ``shared/MANIFEST.json``, compared by both
+CIs' «Shared files» job), so one file a station publishes lands the same way in both
 products — the same people matched, the same ones created, the same ones held back, the same
 outcome report. Neither app imports the other (``docs/RUNNING-BOTH.md``); a copy and a hash
 hold them together, the arrangement the telemetry sanitiser already uses.

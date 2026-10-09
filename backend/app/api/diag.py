@@ -187,7 +187,7 @@ async def report_client_error(
     if payload.repeat:
         message = f"{message} (×{payload.repeat} seit {_hhmm(payload.since)})"
     # ⚠️ The two newer kinds are not in the vendored scrubber's enum (telemetry/scrub.py is kept
-    # byte-identical with kp-rueck, test_telemetry_vendored), which would flatten them to
+    # byte-identical with kp-rueck, shared/MANIFEST.json), which would flatten them to
     # «error». Both are render trouble, so they travel as `render` with the real kind at the head
     # of the message. The log line above carries the real kind as its own field.
     kind = payload.kind
