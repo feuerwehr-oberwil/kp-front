@@ -3679,6 +3679,25 @@ export const de = {
     title: 'Foto',
     download: 'Herunterladen',
   },
+  // a Verlauf photo that knows where it was taken (EXIF, lib/photoGeo) — detail sheet, save
+  // toast, the photo marker on the Karte and on a georeferenced Plan
+  photoGeo: {
+    place: 'Auf Karte setzen',
+    placeN: '{n} Fotos auf Karte setzen',
+    show: 'Auf Karte zeigen',
+    placedStep: 'Foto auf Karte gesetzt',
+    logPlaced: 'Foto auf Karte gesetzt',
+    logPlacedN: '{n} Fotos auf Karte gesetzt',
+    where: 'Aufnahmeort',
+    whereN: 'Aufnahmeort Foto {n}',
+    distance: '{d} vom Einsatzort',
+    facing: 'Blick nach {dir}',
+    takenAt: 'aufgenommen {t}',
+    tooFar: 'Zu weit weg für die Karte',
+    marker: 'Foto vom Verlauf',
+    markerTaken: 'Foto vom Verlauf · aufgenommen {t}',
+    planMark: 'Foto – auf der Karte verschieben oder entfernen',
+  },
   // running incident clock in the TopBar
   einsatzuhr: {
     title: 'Einsatzdauer – Beginn {t}',

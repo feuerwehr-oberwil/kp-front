@@ -85,8 +85,8 @@ import { georefForPlan, getStationPlanScales, noteMeasuredAspect, refreshStation
 import { planAspect } from '../lib/georefTwins'
 import { georefChip, georefChipTone, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, startGeorefProposal, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
 import { georefSuggestEligible, requestGeorefSuggestion, type GeorefSuggestStep } from '../lib/georefSuggest'
-import { PlanLiveLayer } from './PlanLiveLayer'
-import type { LiveMark } from '../lib/planProjection'
+import { PlanLiveLayer, PlanPhotoMarks } from './PlanLiveLayer'
+import type { LiveMark, PhotoMark } from '../lib/planProjection'
 import { MAX_SCALE, MAX_SCALE_STACK, MIN_SCALE, boardViewSignature, useBoardView, type BoardViews } from './useBoardView'
 import { newPlanStep, pushBoardPast, useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { recordKey, watchRecords } from '../lib/undoKeys'
@@ -315,6 +315,8 @@ interface Props {
    *  projected and clipped by the caller (lib/planProjection · liveOverlay). Everything else
    *  the Karte holds is an OBJECT and arrives in `annos` like the sheet's own work. */
   live?: LiveMark[]
+  /** The Karte's photo markers on this sheet, read-only (lib/planProjection · photoOverlay) */
+  photos?: PhotoMark[]
   /** Drag a live VEHICLE on this sheet: the same held-in-place override the Karte writes. */
   onPlanLiveMove?: (entityId: string, coord: LngLat, phase: 'start' | 'move' | 'end') => void
   /** ⚠️ This gesture is OVER — called from every `phase === 'end'` path below. A gesture that
@@ -350,7 +352,7 @@ export interface PlanLogExtra {
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafelStart }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafelStart }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -3883,6 +3885,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 otherwise a reference set in June could not be found again in November. */}
             {canGeoref && (georefArmed || georefQuality) && (
               <GeorefBoardLayer pairs={georefPairs} mode={georef} armed={georefArmed} sW={sW} sH={sH} view={georefView} />
+            )}
+            {!georefArmed && photos.length > 0 && (
+              <PlanPhotoMarks marks={photos} sW={sW} sH={sH} inert={tool !== 'pan'} />
             )}
             {!georefArmed && live.length > 0 && (
               <PlanLiveLayer
