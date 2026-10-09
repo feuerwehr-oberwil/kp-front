@@ -5,6 +5,9 @@ Oberwil, EGID 408319, fetched 08.10.2026); the HTTP half runs against an httpx M
 same technique as tests/test_geo_clients.py — so no test ever leaves the machine.
 """
 
+import asyncio
+import inspect
+import math
 import uuid
 from datetime import UTC, date, datetime
 
@@ -71,14 +74,17 @@ def registers(monkeypatch):
     def install(identify=None, find=None):
         calls.update(identify=0, find=0)
 
-        def handler(request: httpx.Request) -> httpx.Response:
+        async def handler(request: httpx.Request) -> httpx.Response:
+            answer = None
             if request.url.path.endswith("/identify"):
                 calls["identify"] += 1
-                return identify(request) if identify else httpx.Response(200, json={"results": []})
-            if request.url.path.endswith("/find"):
+                answer = identify(request) if identify else httpx.Response(200, json={"results": []})
+            elif request.url.path.endswith("/find"):
                 calls["find"] += 1
-                return find(request) if find else httpx.Response(200, json={"results": []})
-            return httpx.Response(404)
+                answer = find(request) if find else httpx.Response(200, json={"results": []})
+            else:
+                return httpx.Response(404)
+            return await answer if inspect.isawaitable(answer) else answer
 
         transport = httpx.MockTransport(handler)
 
@@ -182,6 +188,33 @@ def test_pick_building_prefers_the_address_then_the_nearest():
     # nothing within reach: no building rather than somebody else's
     far = _feature({**GWR_ATTRS, "egid": "2", "strname_deinr": "Weit weg 1"}, lng + 0.01, lat)
     assert bf.pick_building([far], lat, lng, None) is None
+    # …not even when it carries the incident's address: a matching street 700 m away is a
+    # different building with the same name, and an entry without a point is no «here» at all
+    far_same_address = _feature(GWR_ATTRS, lng + 0.01, lat)
+    no_point = {"properties": GWR_ATTRS}
+    assert bf.pick_building([far_same_address, no_point], lat, lng, "Hauptstrasse 10") is None
+
+
+def test_the_identify_radius_reaches_max_distance_east_west():
+    """identify's tolerance is in pixels of a pretend image; with 40 px over a 500 px image it
+    covered only ~18–27 m, so a building 40 m away was never even returned to be picked."""
+    for lat in (45.82, 46.9, 47.8):
+        m_per_px = (2 * bf._IDENTIFY_HALF_DEG / bf._IDENTIFY_PX) * 111_320 * math.cos(math.radians(lat))
+        assert bf.identify_tolerance_px(lat) * m_per_px >= bf.MAX_DISTANCE_M
+
+
+async def test_identify_asks_wide_enough_and_never_cuts_the_answer(registers):
+    seen = {}
+
+    def identify(request: httpx.Request) -> httpx.Response:
+        seen.update(request.url.params)
+        return _gwr_ok(request)
+
+    registers(identify=identify, find=_pv_ok)
+    await bf.ask_registers(*HOME, None)
+    assert int(seen["tolerance"]) == bf.identify_tolerance_px(HOME[0])
+    assert seen["imageDisplay"].startswith(f"{bf._IDENTIFY_PX},")
+    assert int(seen["limit"]) >= 200
 
 
 def test_switzerland_box():
@@ -195,12 +228,14 @@ def test_switzerland_box():
 
 async def test_registers_answer_gwr_and_pv(registers):
     calls = registers(identify=_gwr_ok, find=_pv_ok)
-    ans = await bf.ask_registers(*HOME, "Hauptstrasse 10", "de")
+    ans = await bf.ask_registers(*HOME, "Hauptstrasse 10")
     assert ans.gwr_ok and ans.pv_ok and ans.pv_asked
     assert ans.egid == "408319"
     assert ans.address == "Hauptstrasse 10, 4104 Oberwil"
     assert ans.gwr["heating"] == ["gas"]
-    assert ans.plants == [{"kind": "pv", "label": "Photovoltaik", "power_kw": 35.64, "since": date(2024, 9, 30)}]
+    assert ans.plants("de") == [{"kind": "pv", "label": "Photovoltaik", "power_kw": 35.64, "since": date(2024, 9, 30)}]
+    # one answer, every language: the label is decoded per request, not cached per language
+    assert ans.plants("fr")[0]["label"] == "Photovoltaïque"
     assert calls == {"identify": 1, "find": 1}
 
 
@@ -208,7 +243,7 @@ async def test_a_pv_outage_keeps_the_gwr_facts(registers):
     registers(identify=_gwr_ok, find=_down)
     ans = await bf.ask_registers(*HOME, None)
     assert ans.gwr_ok and ans.gwr["floors"] == 2
-    assert ans.pv_asked and not ans.pv_ok and ans.plants == []
+    assert ans.pv_asked and not ans.pv_ok and ans.plants() == []
 
 
 async def test_a_gwr_outage_asks_nothing_else(registers):
@@ -225,11 +260,32 @@ async def test_no_building_at_the_point_is_not_an_error(registers):
     assert calls["find"] == 0
 
 
+async def test_concurrent_lookups_for_one_building_ask_once(registers):
+    """Three devices open the Einsatz in the same second: one lookup, three answers."""
+    gate = asyncio.Event()
+
+    async def slow_identify(request):  # MockTransport takes an async handler too
+        await gate.wait()
+        return _gwr_ok(request)
+
+    calls = registers(identify=slow_identify, find=_pv_ok)
+    tasks = [asyncio.create_task(bf.registers_cached(*HOME, "Hauptstrasse 10")) for _ in range(3)]
+    await asyncio.sleep(0.05)
+    gate.set()
+    answers = await asyncio.gather(*tasks)
+    assert calls["identify"] == 1 and calls["find"] == 1
+    assert {a.egid for a in answers} == {"408319"}
+    assert not bf._inflight, "a finished lookup stayed registered as in flight"
+
+
 async def test_a_clean_answer_is_cached_and_a_failed_one_heals(registers, monkeypatch):
     calls = registers(identify=_gwr_ok, find=_pv_ok)
     await bf.registers_cached(*HOME, "Hauptstrasse 10")
     await bf.registers_cached(*HOME, "Hauptstrasse 10")
     assert calls["identify"] == 1
+    # another street at the same point is another question
+    await bf.registers_cached(*HOME, "Wehrlingasse 4")
+    assert calls["identify"] == 2
 
     bf.clear_cache()
     calls = registers(identify=_gwr_ok, find=_down)

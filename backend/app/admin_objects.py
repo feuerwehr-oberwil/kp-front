@@ -1272,6 +1272,22 @@ async def _move_object_links(db: AsyncSession, old_id: uuid.UUID, new_id: uuid.U
     )
 
 
+def _carry_notes(survivor: ObjectSite, loser: ObjectSite) -> None:
+    """A merge keeps the Gebäude card's Modul-1 notes (``measures``/``remarks`` + their source).
+
+    The survivor's own win where it has them; an empty survivor takes the loser's. The pair is
+    carried TOGETHER with its source, so a text never ends up labelled with the other row's
+    «Quelle»: when neither note came over, the survivor's source stays as it was.
+    """
+    took = False
+    for note in ("measures", "remarks"):
+        if not getattr(survivor, note) and getattr(loser, note):
+            setattr(survivor, note, getattr(loser, note))
+            took = True
+    if took and not survivor.measures_source and loser.measures_source:
+        survivor.measures_source = loser.measures_source
+
+
 async def _apply_rekey(db: AsyncSession, plan: Rekey) -> None:
     """Move the survivor itself onto the NFC-key id. Only under ``--apply``, same transaction.
 
@@ -1290,6 +1306,10 @@ async def _apply_rekey(db: AsyncSession, plan: Rekey) -> None:
         lng=lng,
         source_note=old.source_note,
         filing_folder=old.filing_folder,
+        # the Gebäude card's Modul-1 notes are the object's, not the id's — a re-key keeps them
+        measures=old.measures,
+        remarks=old.remarks,
+        measures_source=old.measures_source,
     )
     db.add(fresh)
     await db.flush()
@@ -1337,6 +1357,7 @@ async def _apply_pair(db: AsyncSession, pair: MergePair) -> None:
         await _move_object_links(db, pair.loser.id, pair.survivor.id)
         if not pair.survivor.filing_folder and pair.loser.filing_folder:
             pair.survivor.filing_folder = pair.loser.filing_folder
+        _carry_notes(pair.survivor, pair.loser)
         if pair.source_key:
             pair.loser.source_key = None  # source_key is UNIQUE — free it before the survivor takes it
             await db.flush()

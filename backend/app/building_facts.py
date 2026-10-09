@@ -27,6 +27,7 @@ The code lists are GWR catalogue 4.x, cross-checked against the register's decod
 
 import asyncio
 import logging
+import math
 import re
 import time
 import unicodedata
@@ -251,8 +252,9 @@ def pick_building(features: list[dict[str, Any]], lat: float, lng: float, addres
     """The register entry that IS the Einsatzort's building, or None.
 
     identify answers in no particular order (on 08.10.2026 «Hauptstrasse 10» came third of four
-    for a point on its own door). So: an entry whose street + number equals the incident's wins;
-    otherwise the nearest one within MAX_DISTANCE_M.
+    for a point on its own door). So: among the entries within MAX_DISTANCE_M, one whose street +
+    number equals the incident's wins; otherwise the nearest. An entry without a usable point is
+    never picked — «somewhere» is not «here».
     """
     street = _street_of(address)
     best: tuple[float, dict] | None = None
@@ -261,14 +263,14 @@ def pick_building(features: list[dict[str, Any]], lat: float, lng: float, addres
         if not attrs.get("egid"):
             continue
         coords = ((f.get("geometry") or {}).get("coordinates")) or []
-        dist = (
-            haversine_m(lat, lng, float(coords[1]), float(coords[0]))
-            if len(coords) >= 2 and all(isinstance(c, (int, float)) for c in coords[:2])
-            else None
-        )
-        if street and _norm_addr(attrs.get("strname_deinr")) == street and (dist is None or dist <= 4 * MAX_DISTANCE_M):
+        if len(coords) < 2 or not all(isinstance(c, (int, float)) for c in coords[:2]):
+            continue
+        dist = haversine_m(lat, lng, float(coords[1]), float(coords[0]))
+        if dist > MAX_DISTANCE_M:
+            continue
+        if street and _norm_addr(attrs.get("strname_deinr")) == street:
             return attrs
-        if dist is not None and dist <= MAX_DISTANCE_M and (best is None or dist < best[0]):
+        if best is None or dist < best[0]:
             best = (dist, attrs)
     return best[1] if best else None
 
@@ -280,16 +282,24 @@ def pick_building(features: list[dict[str, Any]], lat: float, lng: float, addres
 class RegisterAnswer:
     """What the two registers said about one point. ``gwr_ok``/``pv_ok`` False = that source
     could not be asked (timeout, 5xx, bad JSON); an empty answer from a source that WAS asked
-    is ok with nothing in it."""
+    is ok with nothing in it.
+
+    Language-free on purpose — the plants are kept as the register's raw attributes (which carry
+    the label in all four languages) and decoded per request (:meth:`plants`), so one cached
+    answer serves a German and a French station alike.
+    """
 
     egid: str | None = None
     address: str | None = None
     gwr: dict[str, Any] | None = None
     gwr_ok: bool = True
-    plants: list[dict[str, Any]] = field(default_factory=list)
+    plant_attrs: list[dict[str, Any]] = field(default_factory=list)
     pv_ok: bool = True
     pv_asked: bool = False
     fetched_at: datetime = field(default_factory=lambda: datetime.now().astimezone())
+
+    def plants(self, lang: str = "de") -> list[dict[str, Any]]:
+        return [decode_plant(a, lang) for a in self.plant_attrs]
 
 
 def _base() -> str | None:
@@ -298,34 +308,51 @@ def _base() -> str | None:
     return geocode._IDENTIFY_URL.rsplit("/identify", 1)[0]
 
 
+#: identify's search radius is in PIXELS of a pretend map image (mapExtent over imageDisplay).
+#: A small image over a ±0.0015° window makes a pixel 2–4 m, so the tolerance below reaches
+#: MAX_DISTANCE_M in every direction (east–west is the short side: a degree of longitude is
+#: cos(lat) of a degree of latitude) — with the 500 px image it used to, 40 px was only ~18–27 m.
+_IDENTIFY_HALF_DEG = 0.0015
+_IDENTIFY_PX = 100
+#: identify answers in NO particular order and cuts at `limit`, so the limit must hold every
+#: entry inside the radius — in Oberwil's centre (09.10.2026) the 30 px radius returned 43, and a
+#: limit of 30 dropped the building the point stood on in favour of its neighbour 11 m away.
+_IDENTIFY_LIMIT = 200
+
+
+def identify_tolerance_px(lat: float) -> int:
+    """Pixels that cover MAX_DISTANCE_M east–west at this latitude (+10 % margin)."""
+    m_per_px = (2 * _IDENTIFY_HALF_DEG / _IDENTIFY_PX) * 111_320.0 * math.cos(math.radians(lat))
+    return math.ceil(MAX_DISTANCE_M * 1.1 / m_per_px)
+
+
 async def _identify(client: httpx.AsyncClient, base: str, lat: float, lng: float) -> list[dict]:
-    d = 0.0015
+    d = _IDENTIFY_HALF_DEG
     params = {
         "geometry": f"{lng},{lat}",
         "geometryType": "esriGeometryPoint",
         "geometryFormat": "geojson",
         "sr": "4326",
-        "tolerance": "40",
+        "tolerance": str(identify_tolerance_px(lat)),
         "mapExtent": f"{lng - d},{lat - d},{lng + d},{lat + d}",
-        "imageDisplay": "500,500,96",
+        "imageDisplay": f"{_IDENTIFY_PX},{_IDENTIFY_PX},96",
         "layers": f"all:{GWR_LAYER}",
         "returnGeometry": "true",
         "lang": "de",
-        "limit": "10",
+        "limit": str(_IDENTIFY_LIMIT),
     }
     r = await client.get(f"{base}/identify", params=params)
     r.raise_for_status()
     return list(r.json().get("results", []))
 
 
-async def _plants(client: httpx.AsyncClient, base: str, egid: str, lang: str) -> list[dict]:
+async def _plant_attrs(client: httpx.AsyncClient, base: str, egid: str) -> list[dict]:
     params = {
         "layer": PV_LAYER,
         "searchField": "egid",
         "searchText": egid,
         "contains": "false",
         "returnGeometry": "false",
-        "lang": lang,
     }
     r = await client.get(f"{base}/find", params=params)
     r.raise_for_status()
@@ -335,11 +362,11 @@ async def _plants(client: httpx.AsyncClient, base: str, egid: str, lang: str) ->
         # `find` with contains=false is exact, but a register that ever returns a near-miss must
         # not put somebody else's roof on this card
         if str(attrs.get("egid")) == egid:
-            out.append(decode_plant(attrs, lang))
+            out.append(attrs)
     return out
 
 
-async def ask_registers(lat: float, lng: float, address: str | None, lang: str = "de") -> RegisterAnswer:
+async def ask_registers(lat: float, lng: float, address: str | None) -> RegisterAnswer:
     """Ask GWR then BFE about the building at (lat, lng). Never raises."""
     ans = RegisterAnswer()
     base = _base()
@@ -362,7 +389,7 @@ async def ask_registers(lat: float, lng: float, address: str | None, lang: str =
         if ans.egid:
             ans.pv_asked = True
             try:
-                ans.plants = await _plants(client, base, ans.egid, lang)
+                ans.plant_attrs = await _plant_attrs(client, base, ans.egid)
             except (httpx.HTTPError, ValueError, TypeError, KeyError) as e:
                 logger.warning("BFE plant lookup failed for EGID %s: %s", ans.egid, e)
                 ans.pv_ok = False
@@ -370,26 +397,49 @@ async def ask_registers(lat: float, lng: float, address: str | None, lang: str =
 
 
 _cache: dict[tuple, tuple[float, RegisterAnswer]] = {}
-_lock = asyncio.Lock()
+#: lookups in flight, per key — three devices opening one Einsatz at once ask the registers ONCE
+_inflight: dict[tuple, asyncio.Future[RegisterAnswer]] = {}
 _CACHE_MAX = 512
 
 
-async def registers_cached(lat: float, lng: float, address: str | None, lang: str = "de") -> RegisterAnswer:
-    """`ask_registers`, cached per point + address + language (a day; two minutes after a failure)."""
-    key = (round(lat, 5), round(lng, 5), _street_of(address), lang)
+def _key(lat: float, lng: float, address: str | None) -> tuple:
+    return (round(lat, 5), round(lng, 5), _street_of(address))
+
+
+async def registers_cached(lat: float, lng: float, address: str | None) -> RegisterAnswer:
+    """`ask_registers`, cached per point + street (a day; two minutes after a failure).
+
+    Concurrent callers for the same key share one lookup. Single event loop, no await between the
+    check and the registration, so no lock is needed for that.
+    """
+    key = _key(lat, lng, address)
     now = time.monotonic()
     hit = _cache.get(key)
     if hit and hit[0] > now:
         return hit[1]
-    ans = await ask_registers(lat, lng, address, lang)
+    pending = _inflight.get(key)
+    if pending is not None:
+        return await asyncio.shield(pending)
+    fut: asyncio.Future[RegisterAnswer] = asyncio.get_running_loop().create_future()
+    _inflight[key] = fut
+    try:
+        ans = await ask_registers(lat, lng, address)
+    except BaseException as e:  # ask_registers never raises, but a cancellation still must not strand waiters
+        _inflight.pop(key, None)
+        if not fut.done():
+            fut.set_exception(e)
+            fut.exception()  # mark retrieved — a waiter-less failure must not warn at GC
+        raise
     ttl = _OK_TTL_S if ans.gwr_ok and ans.pv_ok else _ERROR_TTL_S
-    async with _lock:
-        if len(_cache) >= _CACHE_MAX:
-            for k in [k for k, (exp, _) in _cache.items() if exp <= now] or list(_cache)[: _CACHE_MAX // 4]:
-                _cache.pop(k, None)
-        _cache[key] = (time.monotonic() + ttl, ans)
+    if len(_cache) >= _CACHE_MAX:
+        for k in [k for k, (exp, _) in _cache.items() if exp <= now] or list(_cache)[: _CACHE_MAX // 4]:
+            _cache.pop(k, None)
+    _cache[key] = (time.monotonic() + ttl, ans)
+    _inflight.pop(key, None)
+    fut.set_result(ans)
     return ans
 
 
 def clear_cache() -> None:
     _cache.clear()
+    _inflight.clear()

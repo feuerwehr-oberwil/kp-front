@@ -1294,8 +1294,9 @@ export function IncidentWorkspace({
 
   // The Gebäude card in the incident menu (KP Front F5): fetched with the Einsatz so it is cached
   // for offline before anybody opens the menu. Only the operator's MANUAL pick is passed — without
-  // one the server ranks the objects exactly as the plan rail does. A Rapport view link may not ask.
-  const buildingInfo = useBuildingInfo(incidentMeta.id, manualObject?.id ?? null, user?.link_kind !== 'view')
+  // one the server ranks the objects exactly as the plan rail does. Refetched when the address or
+  // point changes. A Rapport view link may not ask.
+  const buildingInfo = useBuildingInfo(incidentMeta, manualObject?.id ?? null, user?.link_kind !== 'view')
 
   // PWA: pre-download the current map area + plans/symbols/geodata so the base map and
   // reference data render offline at the scene (delivers the `offline`/`cachedTiles` promise).

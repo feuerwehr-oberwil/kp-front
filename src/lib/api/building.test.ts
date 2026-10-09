@@ -20,7 +20,7 @@ vi.mock('../api', () => ({
 }))
 
 import { __resetIdbForTests } from '../idb'
-import { buildingResilient, getBuilding, mergeBuilding, type BuildingInfo } from './building'
+import { buildingResilient, buildingWhere, getBuilding, mergeBuilding, type BuildingInfo } from './building'
 
 const info = (over: Partial<BuildingInfo> = {}): BuildingInfo => ({
   registers: 'on',
@@ -39,6 +39,10 @@ const info = (over: Partial<BuildingInfo> = {}): BuildingInfo => ({
   ...over,
 })
 
+const HERE = buildingWhere('Hauptstrasse 10, 4104 Oberwil', 47.515297, 7.557682)
+const THERE = buildingWhere('Hauptstrasse 12, 4104 Oberwil', 47.5154, 7.5578)
+const card = (incidentId: string, where = HERE) => buildingResilient(incidentId, null, 'de', where)
+
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory()
   __resetIdbForTests()
@@ -46,13 +50,23 @@ beforeEach(() => {
 })
 
 describe('mergeBuilding', () => {
-  it('a GWR outage keeps the last good building, PV included', () => {
-    const fresh = info({ egid: null, address: null, gwr: null, gwr_status: 'error', plants: [], pv_status: 'skipped', registers_fetched_at: '2026-10-09T10:00:00+02:00' })
-    const out = mergeBuilding(fresh, info())
+  const down = (where: string) => info({ egid: null, address: null, gwr: null, gwr_status: 'error', plants: [], pv_status: 'skipped', registers_fetched_at: '2026-10-09T10:00:00+02:00', where })
+
+  it('a GWR outage keeps the last good building of the SAME place, PV included', () => {
+    const out = mergeBuilding(down(HERE), info({ where: HERE }))
     expect(out.gwr?.heating).toEqual(['gas'])
     expect(out.gwr_status).toBe('ok')
     expect(out.plants).toHaveLength(1)
     expect(out.gwr_kept_from).toBe('2026-10-08T10:00:00+02:00')
+  })
+
+  it('a GWR outage after the address was corrected keeps NOTHING of the old building', () => {
+    const out = mergeBuilding(down(THERE), info({ where: HERE }))
+    expect(out.gwr).toBeNull()
+    expect(out.gwr_status).toBe('error')
+    expect(out.plants).toEqual([])
+    // and an answer that never said where it was asked is no proof of «same place» either
+    expect(mergeBuilding(down(HERE), info()).gwr).toBeNull()
   })
 
   it('a PV outage keeps the last plants of the SAME building only', () => {
@@ -78,28 +92,30 @@ describe('buildingResilient', () => {
     expect(apiGet).toHaveBeenCalledWith('/api/incidents/inc-1/building?lang=fr&object=obj-1')
   })
 
-  it('offline → the last copy of THIS Einsatz; never one → nothing', async () => {
+  it('offline → the last copy of THIS Einsatz at THIS place; never one → nothing', async () => {
     apiGet.mockResolvedValueOnce(info())
-    expect((await buildingResilient('inc-1'))?.egid).toBe('408319')
+    expect((await card('inc-1'))?.egid).toBe('408319')
     await new Promise((r) => setTimeout(r, 10)) // the cache write is fire-and-forget
     apiGet.mockRejectedValue(new ApiError(0, 'offline'))
-    expect((await buildingResilient('inc-1'))?.gwr?.floors).toBe(2)
-    expect(await buildingResilient('inc-2')).toBeNull()
+    expect((await card('inc-1'))?.gwr?.floors).toBe(2)
+    expect(await card('inc-2')).toBeNull()
+    // the address was corrected while offline: the old building's card is not this one's
+    expect(await card('inc-1', THERE)).toBeNull()
   })
 
   it('a refusal is not silence: no cached card, no throw', async () => {
     apiGet.mockResolvedValueOnce(info())
-    await buildingResilient('inc-1')
+    await card('inc-1')
     await new Promise((r) => setTimeout(r, 10))
     apiGet.mockRejectedValue(new ApiError(403, 'nein'))
-    expect(await buildingResilient('inc-1')).toBeNull()
+    expect(await card('inc-1')).toBeNull()
   })
 
   it('merges a failed source with the cached one on the way in', async () => {
     apiGet.mockResolvedValueOnce(info())
-    await buildingResilient('inc-1')
+    await card('inc-1')
     await new Promise((r) => setTimeout(r, 10))
     apiGet.mockResolvedValueOnce(info({ plants: [], pv_status: 'error' }))
-    expect((await buildingResilient('inc-1'))?.plants).toHaveLength(1)
+    expect((await card('inc-1'))?.plants).toHaveLength(1)
   })
 })

@@ -108,7 +108,7 @@ async def incident_building(
     elif not in_switzerland(float(inc.lat), float(inc.lng)):
         out.registers = "outside_ch"
     else:
-        ans = await registers_cached(float(inc.lat), float(inc.lng), inc.address, lang)
+        ans = await registers_cached(float(inc.lat), float(inc.lng), inc.address)
         out.registers_fetched_at = ans.fetched_at
         out.egid, out.address = ans.egid, ans.address
         if not ans.gwr_ok:
@@ -120,7 +120,7 @@ async def incident_building(
             out.gwr = BuildingGwrOut(**{k: v for k, v in ans.gwr.items() if k != "egid"})
         if ans.pv_asked:
             out.pv_status = "ok" if ans.pv_ok else "error"
-            out.plants = [BuildingPlantOut(**p) for p in ans.plants]
+            out.plants = [BuildingPlantOut(**p) for p in ans.plants(lang)]
 
     # --- 3+4: the station's own object -----------------------------------------------------
     picked = await _object_for(db, inc, object_id)

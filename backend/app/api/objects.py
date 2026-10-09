@@ -31,6 +31,23 @@ _ALLOWED_PLAN_TYPES = {"application/pdf"}
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
+def _is_link(user: object) -> bool:
+    return bool(getattr(user, "link_kind", None)) or bool(getattr(user, "link_scoped", False))
+
+
+def _for_reader(item: ObjectWithPlans, user: object) -> ObjectWithPlans:
+    """Leave the object's Modul-1 notes (``measures``/``remarks``) out for a link session.
+
+    A Rapport view link goes OUTSIDE the station (auth/incident_link · VIEW_LINK_ALLOWED) and
+    reaches these routes for the plans its Rapport points at — not for the station's operational
+    notes about the building. No link page reads them here anyway: the alarm link gets them, for
+    its own Einsatz only, from the Gebäude card (api/building), which the view link may not ask.
+    """
+    if _is_link(user):
+        item.measures = item.remarks = item.measures_source = None
+    return item
+
+
 async def _plans_for(db: AsyncSession, object_id: uuid.UUID) -> list[ReferenceDataset]:
     rows = (
         await db.execute(
@@ -99,7 +116,7 @@ async def list_objects(
         item = ObjectWithPlans.model_validate(o)
         item.plans = plans
         item.distance_m = dist
-        out.append(item)
+        out.append(_for_reader(item, _user))
     if ref_lat is not None:
         out.sort(key=lambda i: (i.distance_m is None, i.distance_m or 0))
     return out
@@ -133,7 +150,7 @@ async def get_object(object_id: uuid.UUID, _user: CurrentUser, db: AsyncSession 
         raise HTTPException(status_code=404, detail="Objekt nicht gefunden")
     item = ObjectWithPlans.model_validate(o)
     item.plans = [ReferenceDatasetOut.model_validate(p) for p in await _plans_for(db, o.id)]
-    return item
+    return _for_reader(item, _user)
 
 
 @router.post("", response_model=ObjectOut, status_code=201)
@@ -326,5 +343,5 @@ async def objects_near_incident(incident_id: uuid.UUID, _user: CurrentUser, db: 
         item.plans = [ReferenceDatasetOut.model_validate(p) for p in plans_by_obj.get(o.id, [])]
         item.distance_m = dist
         item.address_match = matched
-        out.append(item)
+        out.append(_for_reader(item, _user))
     return out

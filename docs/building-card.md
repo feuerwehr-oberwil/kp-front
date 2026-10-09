@@ -36,17 +36,29 @@ box), `no_location`. `gwr_status` / `pv_status` separate «could not be asked» 
 are the app's copy (`appConfig.copy.building`) in all four locales.
 
 The alarm link may read it (it is live information about its own Einsatz). The visit half is left
-out for every link session, and the Rapport view link may not ask at all.
+out for every link session, and the Rapport view link may not ask at all. The object routes
+(`/api/objects…`, `…/{id}/objects`) leave `measures`/`remarks`/`measures_source` out for every link
+session, because the view link reaches them for its Rapport's plans, not for the station's notes.
+
+The building is the GWR entry within 60 m (`MAX_DISTANCE_M`) of the Einsatzort; among those, one
+whose street + number equals the incident's wins, otherwise the nearest. identify's search radius
+is in pixels of a pretend image, so `identify_tolerance_px` sizes it to reach 60 m east–west, and the
+result limit is high enough that the building is never cut. identify answers in no order.
 
 ## Caching and offline
 
-- Server: per point + street + language, in-process. A clean answer is kept for a day; an answer
-  with a failed source for two minutes, so a blip heals by itself (`building_facts.registers_cached`).
-- Device: `lib/api/building.ts · buildingResilient` keeps the last answer per Einsatz in IndexedDB
-  and serves it when the server cannot be asked. A fresh answer in which a source failed keeps
-  that source's half from the last good one, but only for the same EGID: a corrected address
-  must not carry the old building's gas heating along. The hook fetches when the Einsatz opens,
-  not when the menu does, so the copy is on the device before anybody needs it.
+- Server: per point + street, in-process. The answer is language-free (the plants keep the
+  register's own labels in all four languages and are decoded per request). A clean answer is kept
+  for a day; an answer with a failed source for two minutes, so a blip heals by itself. Concurrent
+  requests for one key share one lookup (`building_facts.registers_cached`).
+- Device: `lib/api/building.ts · buildingResilient` keeps the last answer per Einsatz in IndexedDB,
+  stamped with the place it was asked for (`buildingWhere`: address + point), and serves it when
+  the server cannot be asked, but only for the same place. A fresh answer in which a source failed
+  keeps that source's half from the last good one: the GWR half only for the same place, the PV half
+  only for the same EGID. A corrected address must never carry the old building's gas heating
+  along. The hook fetches when the Einsatz opens (not when the menu does, so the copy is on the
+  device before anybody needs it), and again when the address or point changes, when the manual
+  object pick changes, and when the device comes back online.
 
 ## Sofortmassnahmen and Bemerkungen are station data, typed by hand
 
