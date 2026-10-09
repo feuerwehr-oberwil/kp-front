@@ -357,64 +357,6 @@ async def capture_report_pdf(
     return Response(content=pdf, media_type="application/pdf")
 
 
-# --- station print relay (poster token; twins of the /api/print* editor routes) --------
-
-
-@router.get("/print/status", dependencies=[Depends(_check_token)])
-async def capture_print_status() -> dict:
-    from .print_relay import print_status
-
-    return print_status()
-
-
-@router.post("/incidents/{incident_id}/report/print")
-async def capture_report_print(
-    payload: str = Form(...),
-    inc: Incident = Depends(_reachable_incident),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
-    """Queue the data-only Rapport-PDF on the station printer — the phone needs no
-    printer setup, possession of the poster token is the authority (same as the PDF)."""
-    # ⚠️ `enqueue_print_job` composes through the SAME resolver as the download, but it owns
-    # that call and takes no scope — so the poster's asset policy is applied HERE, before
-    # anything is queued. A refusal must leave no job behind for the agent to collect.
-    # (Kept out of the docstring: route docstrings are published in docs/openapi.json.)
-    from .print_relay import enqueue_print_job
-    from .report import enforce_report_asset_scope
-
-    await enforce_report_asset_scope(db, payload, _asset_scope(inc))
-    job = await enqueue_print_job(db, inc, payload, kind="capture_report", requested_by=None)
-    return {"job_id": str(job.id), "status": job.status}
-
-
-@router.get("/print-jobs/{job_id}", dependencies=[Depends(_check_token)])
-async def capture_print_job(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> dict:
-    """Poll a just-queued job's lifecycle (queued → printing → done/failed) for the live
-    toast. Token holders may only read jobs of incidents still reachable through the poster."""
-    from ..models import PrintJob
-    from .print_relay import job_view
-
-    job = (await db.execute(select(PrintJob).where(PrintJob.id == job_id))).scalar_one_or_none()
-    if job is None:
-        raise HTTPException(status_code=404, detail="Druckauftrag nicht gefunden")
-    await _get_in_window(db, job.incident_id)
-    return job_view(job)
-
-
-@router.delete("/print-jobs/{job_id}", dependencies=[Depends(_check_token)])
-async def capture_print_cancel(job_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> dict:
-    """Rückgängig for a just-queued job. Token holders may only touch jobs of incidents
-    still reachable through the poster (and never already-claimed ones)."""
-    from ..models import PrintJob
-    from .print_relay import cancel_print_job
-
-    job = (await db.execute(select(PrintJob).where(PrintJob.id == job_id))).scalar_one_or_none()
-    if job is None:
-        raise HTTPException(status_code=404, detail="Druckauftrag nicht gefunden")
-    await _get_in_window(db, job.incident_id)
-    return await cancel_print_job(db, job_id)
-
-
 @router.post("/incidents/{incident_id}/media", status_code=201)
 async def capture_upload_media(
     incident_id: uuid.UUID,

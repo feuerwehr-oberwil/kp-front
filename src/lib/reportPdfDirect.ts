@@ -395,8 +395,7 @@ export function einsatzleiterForPdf(
   }).join(', ')
 }
 
-/** The ONE payload builder — shared by the PDF download and the station-printer enqueue
- *  (src/lib/printRelay.ts), so both always produce the identical document. */
+/** The ONE payload builder behind the Rapport-PDF download. */
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
   const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
   const meta = draft.meta

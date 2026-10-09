@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { TimelineEvent, Trupp, TruppReading } from '../types'
 import type { ChecklistTemplate } from './checklists'
 import {
-  auswertungForPdf, computeAuswertung, contactIntervals, phaseLanes, tickStepMin, truppStretches, verlaufMilestones,
+  auswertungForPdf, computeAuswertung, contactIntervals, hadAtemschutzDeployment, phaseLanes, tickStepMin, truppStretches, verlaufMilestones,
   type AuswertungInput,
 } from './auswertung'
 
@@ -272,6 +272,21 @@ describe('review of #303', () => {
     expect(a.t1).toBeLessThanOrEqual(ms('13:00'))
     // the stray Ausgerückt a year early is off the picture, the TLF's stay is cut at the edge
     expect(a.vehicles.map((v) => v.label)).toEqual(['TLF'])
+  })
+})
+
+describe('hadAtemschutzDeployment — the default of the «Auswertung (intern)» tick', () => {
+  it('is true once a crew went in under PA — also one taken off the Tafel afterwards', () => {
+    expect(hadAtemschutzDeployment([trupp({ readings: [r('10:00', 'entry'), r('10:20', 'exit')] })])).toBe(true)
+    expect(hadAtemschutzDeployment([trupp({ removedAt: at('10:30'), readings: [r('10:00', 'entry'), r('10:20', 'exit')] })])).toBe(true)
+    // a work squad that put masks on mid-run
+    expect(hadAtemschutzDeployment([trupp({ kind: 'einfach', readings: [r('10:00', 'entry'), r('10:05', 'paOn'), r('10:20', 'exit')] })])).toBe(true)
+  })
+
+  it('is false with no Trupp, a Sicherungstrupp that never went in, or a work squad without PA', () => {
+    expect(hadAtemschutzDeployment([])).toBe(false)
+    expect(hadAtemschutzDeployment([trupp({ readings: [r('10:00', 'registered'), r('10:40', 'exit')] })])).toBe(false)
+    expect(hadAtemschutzDeployment([trupp({ kind: 'einfach', readings: [r('10:00', 'entry'), r('10:20', 'exit')] })])).toBe(false)
   })
 })
 

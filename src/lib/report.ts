@@ -87,9 +87,9 @@ export const defaultReportOptions: ReportOptions = {
   pendenzen: true,
   attachments: true,
   detailedAudit: false,
-  // ⚠️ ON for the Rapport (F7, 09.10.2026): the paper the station prints is the Kader's copy, and
-  // the debrief is what that copy is read for afterwards. Its own last sheet, so the signed part
-  // goes out without it. The QR-Erfassung's own PDF switches it off (CaptureApp).
+  // ⚠️ The SHEET seeds this from the record (ReportPreflight · `hadAtemschutzDeployment`, owner
+  // 09.10.2026): ticked when a crew went in under PA, unticked otherwise. Its own last sheet, so
+  // the signed part goes out without it. The QR-Erfassung's own PDF switches it off (CaptureApp).
   auswertung: true,
 }
 
@@ -1029,11 +1029,8 @@ const META_FIELD_LABELS: Record<string, string> = {
  *  `linksDone` is here DELIBERATELY, not by omission: ticking off the station's own paperwork
  *  (the Getränkeabrechnung, a Schadenmeldung — see lib/reportLinks) says nothing about what
  *  happened at the Einsatz, and the Verlauf is the record of the Einsatz. The tick itself is
- *  kept in the workspace blob with its timestamp, so it is neither invisible nor lost.
- *
- *  `printJob` is here for the same reason: which relay job a rapport is queued on is plumbing,
- *  not a statement about the Einsatz. The print itself is already recorded elsewhere. */
-const META_QUIET = new Set(['erfasser', 'krokiPrint', 'linksDone', 'printJob'])
+ *  kept in the workspace blob with its timestamp, so it is neither invisible nor lost. */
+const META_QUIET = new Set(['erfasser', 'krokiPrint', 'linksDone'])
 
 /** Fields short enough to print their new value in the Verlauf line. A Kurzbericht or a
  *  Bemerkung is a paragraph — quoting it would turn the log into a second copy of the rapport,

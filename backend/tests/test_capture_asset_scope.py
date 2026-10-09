@@ -17,8 +17,6 @@ Contract under test:
   reaching past its own surface;
 - a payload naming a different `incident.id` from the route is refused before anything is
   resolved — the route's authorisation is the authority, not the body;
-- the print-queue twin shares the resolver and therefore shares the policy, and a refused
-  print leaves no job behind;
 - the logged-in report path is deliberately UNCHANGED: an ordinary user already reads the
   whole station, so scoping their own rapport would buy nothing and would break legitimate
   cross-incident Beilagen.
@@ -34,7 +32,7 @@ from PIL import Image as PILImage
 from sqlalchemy import select
 
 from app import storage
-from app.models import DeploymentConfig, Incident, Media, PrintJob, ReferenceDataset
+from app.models import DeploymentConfig, Incident, Media, ReferenceDataset
 
 TOKEN = "poster-token-scope"
 CH = {"X-Capture-Token": TOKEN}
@@ -227,46 +225,6 @@ async def test_capture_rapport_still_accepts_a_payload_with_a_blank_incident_id(
     payload = json.dumps({"incident": {"title": "Wasser im Keller", "id": ""}, "generatedAt": "05.09.2026 09:00"})
     r = await client.post(f"/api/capture/incidents/{inc.id}/report/pdf", headers=CH, data={"payload": payload})
     assert r.status_code == 200, r.text
-
-
-# --- the print-queue twin shares the resolver, so it shares the policy --------------------
-
-
-@pytest.fixture
-def relay_secret(monkeypatch):
-    from app.api import print_relay
-    from app.config import settings
-
-    monkeypatch.setattr(settings, "print_agent_secret", "print-agent-secret-abc")
-    monkeypatch.setattr(print_relay, "_last_seen", None)
-
-
-async def test_capture_print_applies_the_same_policy(client, capture_secret, relay_secret, db_session):
-    inc = await _incident(db_session)
-    archived = await _incident(db_session, title="Archiviert", is_archived=True)
-    theirs = await _photo_on(db_session, archived.id)
-
-    r = await client.post(
-        f"/api/capture/incidents/{inc.id}/report/print",
-        headers=CH,
-        data={"payload": _payload(inc.id, attachments=[{"url": f"/api/media/{theirs.id}"}])},
-    )
-    assert r.status_code == 403, f"the print queue composed what the download refuses: {r.text[:200]}"
-    assert r.json()["detail"] == OUT_OF_SCOPE_DETAIL
-    # …and nothing is left on the station printer's queue for an agent to pick up
-    assert list((await db_session.execute(select(PrintJob))).scalars()) == []
-
-
-async def test_capture_print_still_queues_its_own_incidents_rapport(client, capture_secret, relay_secret, db_session):
-    inc = await _incident(db_session)
-    mine = await _photo_on(db_session, inc.id)
-    r = await client.post(
-        f"/api/capture/incidents/{inc.id}/report/print",
-        headers=CH,
-        data={"payload": _payload(inc.id, attachments=[{"url": f"/api/media/{mine.id}"}])},
-    )
-    assert r.status_code == 200, r.text
-    assert r.json()["status"] == "queued"
 
 
 # --- the boundary this fix deliberately does NOT move ------------------------------------

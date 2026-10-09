@@ -222,7 +222,10 @@ class WeatherClient:
             return None
         observed_at = cur.get("time")
         if isinstance(observed_at, str) and observed_at:
-            # Open-Meteo returns local-ish naive ISO time without a zone; tag it as best-effort.
+            # Open-Meteo answers in GMT (no `timezone` asked for) WITHOUT a zone suffix. Passed on
+            # as-is — a recorded reading's id is built from it (observations · event_id) — and
+            # every reader treats a zone-less stamp as UTC (observations · _parse, the client's
+            # lib/weatherTime).
             observed_at = observed_at if "T" in observed_at else None
         return WeatherData(
             wind_dir_deg=_num(cur.get("wind_direction_10m")),
