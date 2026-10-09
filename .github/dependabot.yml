@@ -47,8 +47,12 @@ updates:
     # Node 25 is end-of-life; keep updates on the supported Node 24 LTS line.
     # ⚠️ The docker ecosystem takes no range here: «>=25.0.0 <26.0.0» made the WHOLE file
     # invalid, so Dependabot read none of it (found 20.09.2026). `25.x` is the form it accepts.
+    # The Dockerfile pulls node from ECR Public (public.ecr.aws/docker/library/node, 09.10.2026),
+    # which Dependabot names `docker/library/node`, not `node` — both are listed so the hold stays.
     ignore:
       - dependency-name: node
+        versions: ["25.x"]
+      - dependency-name: docker/library/node
         versions: ["25.x"]
     schedule:
       interval: weekly
