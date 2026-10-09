@@ -68,8 +68,10 @@ absorbs anti-aliasing noise without counting it.
 - **Pixels, not a ratio.** A lost visual pass shows as a fixed number of pixels, whatever the
   viewport. Measured on 09.10.2026 by setting the corner token from 12 to 8 px: 40–521 changed
   pixels per state. `maxDiffPixelRatio: 0.001` (967 px on a tablet) let all of it through.
-- **The noise.** Repeated runs of the same build differed by at most 7 pixels (the glass of the top
-  bar over the map); 20 leaves room for that and nothing a person would call a change.
+- **The noise.** Three CI runs of the same commit and 15+ local runs all passed. Where whole
+  pages were hashed (35 local shots of the Karte), runs of one build were identical or 7 pixels
+  apart (the glass of the top bar over the map). 20 leaves room for that and nothing a person
+  would call a change.
 - **Never raised to pass.** A state that is noisier than 20 px has a determinism bug: fix it in
   the harness.
 
@@ -116,7 +118,9 @@ VISUAL_SKIP_BUILD=1 just visual
 ```
 
 The pictures land in `visual-results/`. A local run is a look, not a verdict: it compares against
-the CI baselines, and another machine may anti-alias a glyph differently. A missing baseline is
+the CI baselines, and another machine renders differently. Measured 09.10.2026 on WSL: the six
+states without a map matched CI pixel for pixel, the three Karte states differed by 6 000–12 000
+px (MapLibre draws through software WebGL, whose anti-aliasing follows the CPU). A missing baseline is
 written locally so a new state can be looked at, but commit the one CI shoots. On WSL without sudo,
 point `LD_LIBRARY_PATH` at Chromium's missing libraries.
 
@@ -132,8 +136,9 @@ point `LD_LIBRARY_PATH` at Chromium's missing libraries.
 ## CI cost
 
 The job runs on its own runner in parallel with «Image» and «Performance» (no `needs:`), so it
-does not lengthen the gate, whose slowest job is the backend's pytest. It builds the same
-gha-cached image as the other two.
+does not lengthen the gate. It builds the same gha-cached image as the other two. Measured on
+#310 (09.10.2026): the job takes about 4 minutes (3:56–4:27 over three runs, ~1 min of it the
+nine states), while «Image» takes about 9; the workflow's wall time did not change.
 
 ## Found on the way (09.10.2026)
 
