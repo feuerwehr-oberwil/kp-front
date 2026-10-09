@@ -6,8 +6,8 @@ and publishes an ``index.json`` there that lists the sibling files **by kind** (
 later ``vehicles``, ``groups``, ``keywords`` …) with each file's contract version and sha256.
 Each app gets ONE setting, the address of that index, and reads the kinds it understands.
 
-Byte-identical in KP Front and KP Rück (pinned by checksum in both, diffed by kp-rück's
-``roster-schema-drift`` job), like ``roster_snapshot.py`` and ``roster_snapshot_ingest.py``:
+Byte-identical in KP Front and KP Rück (listed in ``shared/MANIFEST.json``, compared by both
+CIs' «Shared files» job), like ``roster_snapshot.py`` and ``roster_snapshot_ingest.py``:
 the same index must resolve to the same files in both products. Neither app imports the other.
 
 WHAT IT GUARANTEES
