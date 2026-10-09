@@ -1034,7 +1034,7 @@
   :root { --float-bottom: calc(var(--float-base) + var(--float-gap) + env(safe-area-inset-bottom)); }
   /* the row is OCCUPIED while any of its pieces is on screen: a FAB, the plan's chip row, the
      strip, the way back to the Rapport. It publishes no height because it has only one: --float-h. */
-  :root:has(:is(.fab-entry, .wb-botleft, .rp-return)) { --float-row: calc(var(--float-h) + var(--float-gap)); }
+  :root:has(:is(.fab-entry, .wb-botleft, .rp-return, .wx-foot)) { --float-row: calc(var(--float-h) + var(--float-gap)); }
   /* …but a tool's option dock hides the FAB (below) and the host drops the strip, so there only
      the chips can stand in it */
   :root:has(.phone-tools .wb-dock):not(:has(.wb-botleft)) { --float-row: 0px; }

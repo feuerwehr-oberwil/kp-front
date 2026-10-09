@@ -167,6 +167,10 @@ import { FeedbackSheet, IncidentSwitcher, ReviewBanner, SettingsSheet, OfflineRe
 import { fetchShareLink } from './lib/viewLink'
 import { HelpOverlay } from './components/HelpOverlay'
 import { useWeather } from './lib/useWeather'
+import { useWeatherLayer } from './lib/useWeatherLayer'
+import { useRadarPlayback } from './lib/useRadarPlayback'
+import { radarIsStale, WEATHER_RADAR_ROW_ID } from './lib/weatherLayer'
+import { WeatherFloats } from './components/weatherLazy'
 import { useBootCover } from './lib/bootCover'
 import { fillTileTemplate, predownloadArea, tilesForBounds } from './lib/offlineTiles'
 import { WARM_BYTES, estimateStorage, fittedTileCap, prefetchFit } from './lib/storageBudget'
@@ -1695,6 +1699,28 @@ export function IncidentWorkspace({
   // During replay the badge reads the folded reading.
   const liveWeather = useWeather(incidentView.center)
   const displayWeather = replayActive ? (replayWs?.weather ?? null) : liveWeather.data
+  // The Karte's weather LAYER (components/WeatherLayer): radar + the official warnings at this
+  // Einsatz. Live data only — asked for on the Karte, never in the replay (whose past it is not).
+  // `enabled` false (WEATHER_LAYER_ENABLED=false, or no answer yet) offers nothing at all.
+  const wxLayer = useWeatherLayer(incidentView.center, mode === 'map' && !replayActive)
+  const wxOn = wxLayer.data?.enabled === true
+  const wxRadar = wxLayer.data?.radar ?? null
+  const wxPlayback = useRadarPlayback(wxRadar)
+  // «Niederschlag (Radar)» in Ebenen — a device pref like the plan rasters (lib/prefs), so
+  // persisted beside them and outside the synced layer list; off by default.
+  const [wxRadarOn, setWxRadarOn] = useState(() => loadPrefs().weatherRadar === true)
+  const [wxRadarOpacity, setWxRadarOpacity] = useState(() => loadPrefs().weatherRadarOpacity ?? 75)
+  const toggleWxRadar = () => {
+    const next = !wxRadarOn
+    setWxRadarOn(next)
+    savePrefs({ ...loadPrefs(), weatherRadar: next })
+    if (!next) wxPlayback.reset()
+  }
+  const setWxRadarOpacityPref = (v: number) => {
+    setWxRadarOpacity(v)
+    savePrefs({ ...loadPrefs(), weatherRadarOpacity: v })
+  }
+  const wxRadarStale = !!wxRadar && radarIsStale(wxRadar, wxLayer.now)
 
   // The opening cover (lib/bootCover): the boot Splash's snail stays over the whole workspace
   // until its first screen is whole — the symbol pack, the Karte framed with its first view drawn
@@ -2503,6 +2529,8 @@ export function IncidentWorkspace({
     // Ebenen panel stays ONE list with one gesture. ⚠️ The `twin:` prefix these ids carry is
     // PERSISTED on the device; it keeps its word because renaming it would reset everyone's rows.
     if (isTwinLayerId(id)) { toggleTwinLayer(id); return }
+    // …and the weather radar row, a device pref of its own (useWeatherLayer above)
+    if (id === WEATHER_RADAR_ROW_ID) { toggleWxRadar(); return }
     const target = layers.find((l) => l.id === id)
     // ⚠️ Not from an `el` session: its audit stream carries the record vocabulary only (the
     // backend refuses the whole batch otherwise), and which Ebenen an EL is looking at is
@@ -2543,6 +2571,7 @@ export function IncidentWorkspace({
   // tooltip / accessible name (lib/layerPreset, 05.10.2026)
   const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type)), [layers, incidentMeta.type])
   const setOpacity = (id: LayerId, v: number) => {
+    if (id === WEATHER_RADAR_ROW_ID) { setWxRadarOpacityPref(v); return }
     if (isTwinLayerId(id)) {
       // written outside the updater — see the note on persistTwinLayers
       const next = { ...twinLayerOpacity, [id]: v }
@@ -5108,6 +5137,8 @@ export function IncidentWorkspace({
           // the linked sheets themselves, as a raster backdrop under the ink — a picture of the
           // paper, not an object on it, which is why THIS one is not a projection of anything
           georefPlanRasters={georefPlanRasters}
+          weatherRadar={mapUI && wxOn && wxRadarOn && wxRadar && !replayActive
+            ? { radar: wxRadar, frameIndex: wxPlayback.frameIndex, opacity: wxRadarOpacity, stale: wxRadarStale } : null}
           isVisible={isVisible}
           selectedId={selectedId}
           // Messen: a tap on a symbol is a measuring point FROM ITS CENTRE, never a selection —
@@ -5532,6 +5563,16 @@ export function IncidentWorkspace({
               in the tool bar, beside Ebenen, where the map's other controls are (05.08.2026). It
               floated here again for one day (18.09.) and came back down — above the bar its menu
               opened half a screen away from the thumb that asked for it. */}
+          {/* the weather layer's floating pieces (lazy): the warnings chip — whether the radar is
+              on or not — and, while «Niederschlag» is on, the radar's pill. Not in the replay. */}
+          {wxOn && wxLayer.data && !replayActive && (
+            <Suspense fallback={null}>
+              <WeatherFloats layer={wxLayer.data} now={wxLayer.now} isPhone={isPhone}
+                radarOn={wxRadarOn} radarStale={wxRadarStale} frameIndex={wxPlayback.frameIndex}
+                playing={wxPlayback.playing} onPick={wxPlayback.pick} onTogglePlaying={wxPlayback.togglePlaying} />
+            </Suspense>
+          )}
+
           {isPhone && !slimRail && displayWeather?.wind_dir_deg != null && (
             <div className="phone-wx">
               <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} popAlignOffset={-5} />
@@ -5579,6 +5620,17 @@ export function IncidentWorkspace({
           // …directly under «Lage», wherever the deployment's config calls that group: the sheet
           // a symbol was drawn on belongs beside that symbol, not past Wasser and Gefahren.
           twinsAfterGroup={layers.find((l) => l.id === appConfig.defaults.operationalLayerId)?.group}
+          weather={wxOn ? {
+            id: WEATHER_RADAR_ROW_ID,
+            group: appConfig.copy.weatherLayer.group,
+            label: appConfig.copy.weatherLayer.radar,
+            sub: appConfig.copy.weatherLayer.radarSub,
+            icon: 'wx-rain',
+            visible: wxRadarOn,
+            opacity: wxRadarOpacity,
+            attribution: appConfig.copy.weatherLayer.attribution,
+            legend: wxRadar?.legend ?? [],
+          } : undefined}
           onShowAll={() => setAllLayers(true)}
           onHideAll={() => setAllLayers(false)}
           onReset={resetLayers}

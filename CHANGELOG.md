@@ -31,6 +31,19 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **Wetter on the Karte: MeteoSwiss precipitation radar and the official warnings.** Ebenen get a
+  «Wetter» group with «Niederschlag (Radar)» (a device setting, off by default): the last hour of
+  MeteoSwiss radar under every line and symbol, with a floating pill to step or play through it
+  and a colour key in Ebenen. A chip names any official warning covering the Einsatz – MeteoSwiss
+  (via MeteoAlarm) or Alertswiss, e.g. a cantonal fire ban – whether the radar is on or not; a tap
+  shows the full text exactly as the source wrote it. Old data is never shown as current: a stale
+  radar is greyed with «Stand hh:mm», a source that stopped answering keeps its last warnings,
+  greyed and dated, and offline both simply age. The backend fetches nationwide files only (no
+  coordinate leaves the station), renders each radar frame once and serves it from memory; the
+  algorithms are KP Rück's (R5), ported with its tests. *No action needed; `WEATHER_LAYER_ENABLED=false`
+  switches it off (stations outside Switzerland or without outbound access). The image grows by
+  ~17 MB (h5py; numpy was already in it).*
+
 - **Roster snapshot: read the personnel list from a file the station publishes.** Set
   «Personenstamm-Quelle» on /admin › Anbindungen to an `https://` address (optional bearer
   token) or an absolute path, and the deployment polls that `roster-snapshot/1` file hourly

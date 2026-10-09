@@ -29,7 +29,9 @@ stack:
 
 Plus optional external services you bring credentials for: Divera (alarms/roster), Traccar
 (live vehicle GPS). Base maps, weather, and the geocoder are public swisstopo/MeteoSwiss
-services – no credentials.
+services – no credentials. The Karte's weather layer (radar + official warnings) needs outbound
+HTTPS to `data.geo.admin.ch`, `feeds.meteoalarm.org` and `www.alert.swiss`; without it, or outside
+Switzerland, set `WEATHER_LAYER_ENABLED=false`. It holds the last hour of radar in memory (~1 MB).
 
 ## 2. Requirements
 

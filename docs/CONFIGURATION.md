@@ -1281,7 +1281,9 @@ and locks the field – see the rule above).
 > pydantic validation error. Give them a fallback that parses – which is what the file does.
 
 Weather (MeteoSwiss/Open-Meteo) and the swisstopo geocoder need **no** credentials – public
-endpoints, national, work everywhere *in Switzerland*. One honest limitation: the geocoder
+endpoints, national, work everywhere *in Switzerland*. The same holds for the Karte's weather
+layer (MeteoSwiss radar, MeteoAlarm/Alertswiss warnings); a station outside Switzerland sets
+`WEATHER_LAYER_ENABLED=false`, and the Ebenen offer no «Niederschlag» and the Karte no warning chip. One honest limitation: the geocoder
 client speaks the swisstopo SearchServer API shape only, so outside Switzerland address
 autocomplete simply returns nothing (map-pick still works). `GEOCODER_URL` exists to point at
 a *compatible* endpoint (e.g. a proxy) – it is **not** a generic-geocoder swap point for
