@@ -44,7 +44,8 @@ pinned (`e2e/visual/harness.ts`):
 - **The data.** The fat incident is generated from a seeded RNG, so it is the same Einsatz every
   time, and each state gets a fresh one on a fresh stack. The theme is set explicitly (the default
   «auto» follows daylight), and so is the surface (the prefs cookie).
-- **The outside world.** Basemap tiles are one flat PNG, the weather and the building outlines are
+- **The outside world.** Basemap tiles are one flat PNG; the weather, the building outlines and the Gebäude card
+  (`/api/incidents/{id}/building`, whose registers the SERVER asks) are
   canned (`perf/harness · isolateFromOutside`, shared with the performance journeys). Nothing on
   screen comes from the internet.
 - **The device.** Fixed viewport, device pixel ratio 1, `de-CH` / `Europe/Zurich`, reduced motion,
