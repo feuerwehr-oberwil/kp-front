@@ -1630,9 +1630,11 @@ class RankConfig(BaseModel):
 class RosterConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     # "snapshot" = a roster file somebody else publishes, to the contract in
-    # docs/CONFIGURATION.md §4c (schema: docs/roster-snapshot.schema.json). The value is
-    # accepted and served; the ingestion that reads such a file is NOT built yet, so today a
-    # station on "snapshot" behaves exactly like "manual" — CSV and hand entry, nothing synced.
+    # docs/CONFIGURATION.md §4c (schema: docs/roster-snapshot.schema.json). Like the other two
+    # values this is a LABEL, not a switch: what actually reads a snapshot is the
+    # `roster_snapshot_source` credential (app/roster_snapshot_sync.py) — set it and the file
+    # is polled, leave it empty and nothing is fetched, whatever this says. CSV and hand entry
+    # keep working on every value.
     source: Literal["manual", "divera", "snapshot"] | None = None
     # Ordered rank list (most senior first). Empty → the frontend falls back to its in-code
     # Swiss default (see src/lib/rank.ts). Ranks reference these keys.
@@ -1652,6 +1654,20 @@ class RosterConfig(BaseModel):
     #     goes false, and every past Einsatz keeps its names.
     #   "off"            — nothing unattended; «Mannschaft synchronisieren» still works.
     autoSync: Literal["off", "safe", "full"] = "safe"
+    # What each Divera Rückmelde-Status MEANS for the Anwesenheit's «Anrückend» block (Divera
+    # only; see docs/divera-connector.md «Rückmeldungen»). Keyed by the status id («13») or its
+    # name («Komme nicht», case- and accent-insensitive; an id beats a name). Unset statuses are
+    # read off their name — «nicht»/«abwesend» → not_coming, «komme»/«N min» → coming, else other,
+    # which is not shown — so most stations never set this. Only for an Einheit whose words the
+    # default misreads. Applies to answers the poll stores from then on.
+    diveraResponses: dict[str, Literal["coming", "not_coming", "other"]] = Field(default_factory=dict)
+    # How often the roster snapshot is polled (minutes), when a source is configured. A roster
+    # changes a few times a month; «Jetzt abrufen» on System › Verbindungen covers the urgent one.
+    snapshotIntervalMin: int = Field(default=60, ge=5, le=1440)
+    # A complete snapshot that would deactivate MORE than this share of the active people in one
+    # run is held for a human (nothing written, a warning on System › Verbindungen). 0 = never
+    # deactivate unattended, 100 = no cap. See app/roster_snapshot_ingest.py.
+    snapshotMaxDeactivatePct: int = Field(default=20, ge=0, le=100)
 
 
 class MittelStockEntry(BaseModel):

@@ -10,6 +10,7 @@ import io
 import itertools
 
 import pypdfium2 as pdfium
+import pypdfium2.raw as pdfium_c
 from PIL import Image
 
 from app.report_pdf import ReportPayload, compose_report_pdf
@@ -966,3 +967,110 @@ def test_a_nachtrag_row_is_marked_on_paper():
     assert text.count("Nachtrag") == 1
     # …under the row's own time, not somewhere else on the page
     assert text.index("00:05") < text.index("Nachtrag") < text.index("00:06")
+
+
+def _auswertung(lanes: int = 3, **over) -> dict:
+    """An Auswertung block the way src/lib/auswertung.ts · auswertungForPdf sends it."""
+    block = {
+        "heading": "Auswertung",
+        "note": "Für die Nachbesprechung – nicht Teil des unterzeichneten Rapports.",
+        "figures": [
+            {
+                "label": "Alarm bis 1. Fahrzeug vor Ort",
+                "value": "9 min",
+                "sub": "TLF · 19:09",
+                "footnote": "Definition A.",
+            },
+            {"label": "Funkkontakte eingehalten", "value": "80 %", "footnote": "Definition B.", "alert": True},
+            {"label": "Einsatzdauer", "value": "—", "footnote": "Definition C."},
+        ],
+        "timeline": {
+            "span": 80,
+            "ticks": [{"at": m, "label": f"19:{m:02d}"} for m in range(0, 60, 10)],
+            "groups": [
+                {
+                    "label": "Trupps",
+                    "lanes": [
+                        {
+                            "label": f"Trupp {i + 1}",
+                            "bars": [{"start": 10, "end": 40, "kind": "as"}],
+                            "contacts": [14, 20],
+                            "gaps": [{"start": 25, "end": 26, "level": 1}, {"start": 26, "end": 30, "level": 2}],
+                        }
+                        for i in range(lanes)
+                    ],
+                }
+            ],
+            "milestones": [{"at": 33, "label": "Feuer unter Kontrolle", "time": "19:33"}],
+        },
+        "lehrenNote": "Lehren / Sicherheit: siehe Seite 1",
+    }
+    block.update(over)
+    return block
+
+
+def _with_auswertung(block: dict | None, **options) -> bytes:
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Auswertung-Probe", "id": "p"},
+            "generatedAt": "23.09.2026 20:30",
+            "options": options,
+            **({"auswertung": block} if block is not None else {}),
+        }
+    )
+    return compose_report_pdf(payload, {})
+
+
+def _landscape_pages(pdf: bytes) -> list[int]:
+    doc = pdfium.PdfDocument(pdf)
+    return [i for i in range(len(doc)) if doc[i].get_width() > doc[i].get_height()]
+
+
+def test_the_auswertung_is_the_last_sheet_landscape_and_says_what_it_is():
+    """F7: the internal debrief Beilage closes the rapport on its own landscape sheet, so the
+    signed part above it goes out without it."""
+    pdf = _with_auswertung(_auswertung())
+    doc = pdfium.PdfDocument(pdf)
+    assert _landscape_pages(pdf) == [len(doc) - 1]
+    text = _text(pdf, len(doc) - 1)
+    for words in (
+        "Auswertung",
+        "nicht Teil des unterzeichneten",
+        "9 min",
+        "80 %",
+        "—",
+        "Definition B.",
+        "Feuer unter Kontrolle 19:33",
+        "siehe Seite 1",
+    ):
+        assert words in text, words
+
+
+def test_no_auswertung_without_its_block_or_with_the_option_off():
+    assert _landscape_pages(_with_auswertung(None)) == []
+    assert _landscape_pages(_with_auswertung(_auswertung(), auswertung=False)) == []
+
+
+def test_the_swimlanes_are_vector_not_a_picture():
+    """The chart is canvas strokes: it prints sharp at any size and stays text-searchable."""
+    pdf = _with_auswertung(_auswertung())
+    doc = pdfium.PdfDocument(pdf)
+    page = doc[len(doc) - 1]
+    assert not [o for o in page.get_objects() if o.type == pdfium_c.FPDF_PAGEOBJ_IMAGE]
+    assert len([o for o in page.get_objects() if o.type == pdfium_c.FPDF_PAGEOBJ_PATH]) > 20
+
+
+def test_a_long_lane_list_splits_and_every_part_repeats_the_axis():
+    """Sixty Trupps do not fit one sheet: the chart splits between rows (never a LayoutError) and
+    each sheet carries its own clock axis, so a page pulled out of the stack still reads."""
+    pdf = _with_auswertung(_auswertung(lanes=60))
+    pages = _landscape_pages(pdf)
+    assert len(pages) >= 2
+    for i in pages[: len(pages) - 1]:
+        assert "19:10" in _text(pdf, i)
+    assert "Trupp 60" in "".join(_text(pdf, i) for i in pages)
+
+
+def test_an_auswertung_with_nothing_on_the_timeline_says_so():
+    pdf = _with_auswertung(_auswertung(timeline=None, noTimeline="Keine Zeiten erfasst."))
+    assert "Keine Zeiten erfasst." in _text(pdf, len(pdfium.PdfDocument(pdf)) - 1)

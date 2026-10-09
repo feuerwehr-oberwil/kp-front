@@ -31,6 +31,36 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Added
 
+- **«Anrückend» – who answered the Divera alarm, in the Anwesenheit.** An Einsatz with a Divera
+  alarm starts its crew list (EL and editors) with one line of counts («9 kommen · 2 kommen nicht
+  · 3 da»), the people coming, and «kommt nicht» in a muted group of its own, ✕ and the word on
+  every row. One tap on «da» checks somebody in; an answer alone never does. Yes / no and names
+  only: no answer times, status words or notes are shown or stored. The answers ride in the
+  existing `/alarms` poll (new column `divera_emergencies.responses_json`), which keeps its 30 s
+  cadence for the first 10 min after an alarm. What a status means is read off its name, and
+  `roster.diveraResponses` overrides it (docs/divera-connector.md › Rückmeldungen). The answers
+  are deleted once the Einsatz is closed and in any case 48 h after the alarm (PRIVACY.md).
+  *Migration runs on boot; nothing to set up.*
+- **«Auswertung» – a debrief sheet at the end of the Rapport PDF.** Key figures (Alarm bis 1.
+  Fahrzeug vor Ort, Alarm bis 1. Atemschutz-Eintritt, Funkkontakte eingehalten with the overrun
+  count, längster Atemschutz-Einsatz, Einsatzdauer – each defined in a footnote, «—» when the
+  record does not carry it), a vector swimlane timeline (Fahrzeuge, Trupps with their contacts and
+  fällig/überfällig stretches hatched so they survive a greyscale printer, checklist phases,
+  milestones). Its own landscape sheet, last, so the signed part goes out without
+  it; «Auswertung (intern)» in the PDF ▾ menu, ticked by default when a crew went in under Atemschutz. *No action needed.*
+- **Roster snapshot: read the personnel list from a file the station publishes.** Set
+  «Personenstamm-Quelle» on /admin › Anbindungen to an `https://` address (optional bearer
+  token) or an absolute path, and the deployment polls that `roster-snapshot/1` file hourly
+  (`roster.snapshotIntervalMin`) and on «Jetzt abrufen» under System › Verbindungen. People are
+  matched by the snapshot's key, then by any identity it lists (an existing Divera link is
+  reused, never rewritten), then by a unique name; a failed fetch or an invalid file changes
+  nothing; a run that would deactivate more than `roster.snapshotMaxDeactivatePct` (20 %) of
+  the active people is held until an admin applies it; the roster is never emptied and nobody
+  is deleted. The outcome report sits on System › Verbindungen. Any tool can write the file –
+  `scripts/roster_snapshot_from_csv.py` turns a spreadsheet into one, and drops every column
+  that is not part of the contract (docs/CONFIGURATION.md §4c). The reading rules are
+  byte-identical with KP Rück's. *No action needed – without a source nothing is fetched;
+  Divera and the CSV import are unchanged and stay the default.*
 - **Anleitungen – a second kind of checklist, read-only and offline.** A template with
   `kind: "manual"` is a step-by-step guide: numbered steps, optional sub-points, «Achtung» and
   «Tipp» lines and pictures, grouped by Gerät in the Checkliste tab. The pictures are cached on

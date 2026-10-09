@@ -1772,6 +1772,32 @@
           ],
           "title": "Autosync",
           "type": "string"
+        },
+        "diveraResponses": {
+          "additionalProperties": {
+            "enum": [
+              "coming",
+              "not_coming",
+              "other"
+            ],
+            "type": "string"
+          },
+          "title": "Diveraresponses",
+          "type": "object"
+        },
+        "snapshotIntervalMin": {
+          "default": 60,
+          "maximum": 1440,
+          "minimum": 5,
+          "title": "Snapshotintervalmin",
+          "type": "integer"
+        },
+        "snapshotMaxDeactivatePct": {
+          "default": 20,
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Snapshotmaxdeactivatepct",
+          "type": "integer"
         }
       },
       "title": "RosterConfig",

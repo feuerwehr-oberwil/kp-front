@@ -3395,6 +3395,68 @@
         }
       }
     },
+    "/api/divera/responses/{incident_id}": {
+      "get": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "Responses",
+        "description": "Who answered the Divera alarm «kommt» / «kommt nicht» — our personnel ids, nothing else.\n\nRead-only and stored: the server's own poll keeps it (divera · store_responses); this read\nnever calls Divera. Every alarm taken into the incident counts (a Nachalarm attached to it is\none more; the newer alarm's answer wins), but only alarms of the last\n:data:`~app.divera_responses.RESPONSES_MAX_AGE_SECONDS`: the answers to a dispatch that is\nhours over are not «anrückend». ``available: false`` = nothing to show (``reason: no_data``,\nor ``closed`` for an archived Einsatz), and the Anwesenheit shows nothing at all.\n\nEditor-only like the rest of /api/divera (the EL and the editors who mark attendance; a viewer\nand an Einsatz-Link session are refused). Somebody not on the Mannschaftsliste is a count.\nThe answers never enter the workspace, an export or a Rapport, and are cleared after the\nEinsatz (divera · prune_responses). A Divera answer is not presence.",
+        "operationId": "responses_api_divera_responses__incident_id__get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Responses Api Divera Responses  Incident Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/divera/pool": {
       "get": {
         "tags": [
@@ -5822,6 +5884,75 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PersonnelSyncResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/personnel/snapshot/sync": {
+      "post": {
+        "tags": [
+          "personnel"
+        ],
+        "summary": "Snapshot Sync",
+        "description": "Read the roster snapshot now («Jetzt abrufen» on System › Verbindungen).\n\nThe same run the scheduler makes, minus the «unchanged, skip» shortcut — pressing the\nbutton after a rank was added to the station's list must apply it. Answers the status\ndocument either way: a refused or held run is a 200 with the reason in it, because the\nreport IS the answer; only «no source configured» is an error.",
+        "operationId": "snapshot_sync_api_personnel_snapshot_sync_post",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RosterSnapshotSyncBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Snapshot Sync Api Personnel Snapshot Sync Post"
                 }
               }
             }
@@ -19520,6 +19651,32 @@
             ],
             "title": "Autosync",
             "default": "safe"
+          },
+          "diveraResponses": {
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "coming",
+                "not_coming",
+                "other"
+              ]
+            },
+            "type": "object",
+            "title": "Diveraresponses"
+          },
+          "snapshotIntervalMin": {
+            "type": "integer",
+            "maximum": 1440.0,
+            "minimum": 5.0,
+            "title": "Snapshotintervalmin",
+            "default": 60
+          },
+          "snapshotMaxDeactivatePct": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Snapshotmaxdeactivatepct",
+            "default": 20
           }
         },
         "type": "object",
@@ -19652,6 +19809,18 @@
         ],
         "title": "RosterRankOption",
         "description": "One rank the station's list knows, as the mapping sheet offers it."
+      },
+      "RosterSnapshotSyncBody": {
+        "properties": {
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "RosterSnapshotSyncBody",
+        "description": "``force`` releases a run the deactivation cap held — the human decision the hold waits\nfor. It never releases the other refusals (an invalid file, an older copy, an empty roster)."
       },
       "RosterUnknownRank": {
         "properties": {

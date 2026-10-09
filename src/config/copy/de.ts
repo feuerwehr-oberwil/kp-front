@@ -4517,6 +4517,47 @@ export const de = {
     captionNone: 'Kein Eintrag zu diesem Zeitpunkt',
   },
   // Einsatzrapport: print preflight (ReportPreflight) + the printed document (ReportPrintView)
+  // Auswertung — the optional internal Beilage of the Rapport PDF (lib/auswertung, F7 09.10.2026):
+  // key figures, swimlanes, Lehren. ⚠️ No «→» in these: the paper is Helvetica (reportPdfDirect · forPaper).
+  auswertung: {
+    heading: 'Auswertung',
+    note: 'Für die Nachbesprechung – aus den Daten des Einsatzes abgeleitet, nicht Teil des unterzeichneten Rapports.',
+    missing: '—',
+    firstOnScene: 'Alarm bis 1. Fahrzeug vor Ort',
+    firstOnSceneDef: 'Von der Alarmierung bis zur frühesten «Vor Ort»-Zeit eines Fahrzeugs (Alarmierungs- / Ausrückzeiten).',
+    firstAs: 'Alarm bis 1. Atemschutz-Eintritt',
+    firstAsDef: 'Von der Alarmierung bis zum ersten Eintritt eines Trupps unter Atemschutz.',
+    contacts: 'Funkkontakte eingehalten',
+    contactsSub: '{n} überfällig von {total}',
+    contactsDef: 'Anteil der Funkkontakt-Intervalle unter Atemschutz, die endeten, bevor der Trupp überfällig war ({n} min + {g}). Ein Intervall läuft vom Eintritt oder einem Kontakt bis zum nächsten Kontakt, Druck, Rückzug oder Austritt; ein offenes zählt erst, wenn es überfällig wurde. Die Zeit zwischen Abschluss und Wiedereröffnen zählt nicht.',
+    contactsDefNoGrace: 'Anteil der Funkkontakt-Intervalle unter Atemschutz, die endeten, bevor der Trupp überfällig war ({n} min). Ein Intervall läuft vom Eintritt oder einem Kontakt bis zum nächsten Kontakt, Druck, Rückzug oder Austritt; ein offenes zählt erst, wenn es überfällig wurde. Die Zeit zwischen Abschluss und Wiedereröffnen zählt nicht.',
+    longestAs: 'Längster Atemschutz-Einsatz',
+    longestAsDef: 'Längste abgeschlossene Zeit eines Trupps unter Atemschutz, Eintritt bis Austritt.',
+    total: 'Einsatzdauer',
+    totalDef: 'Von der Alarmierung bis zum Einsatzende.',
+    totalRunning: 'Einsatz läuft noch',
+    truppLane: 'Trupp {no} · {name}',
+    groupPhases: 'Phasen (Checkliste)',
+    groupVehicles: 'Fahrzeuge',
+    groupTrupps: 'Trupps',
+    groupMilestones: 'Meilensteine',
+    noTimeline: 'Keine Fahrzeug-, Trupp- oder Checklisten-Zeiten erfasst.',
+    legendTravel: 'Anfahrt',
+    legendScene: 'vor Ort',
+    legendReturn: 'Rückfahrt',
+    legendAs: 'unter Atemschutz',
+    legendWork: 'im Einsatz ohne Atemschutz',
+    legendStandby: 'bereit',
+    legendContact: 'Funkkontakt',
+    legendFaellig: 'Kontakt fällig',
+    legendUeberfaellig: 'überfällig',
+    legendMilestone: 'Meilenstein',
+    legendPhase: 'Phase: erster bis letzter Haken',
+    footnotesHead: 'Definitionen',
+    lehrenSeePage1: 'Lehren / Sicherheit: siehe Seite 1',
+    graceMin: '{n} min',
+    graceSec: '{n} s',
+  },
   report: {
     erfasser: 'Erfasst durch',
     // print view chrome
@@ -4933,6 +4974,7 @@ export const de = {
     linksOpenedAction: 'Erledigt',
     linksOpenFailed: '{title} konnte nicht geöffnet werden – der Browser hat das Fenster blockiert.',
     toggleDetailedAudit: 'Detaillierter Prüfnachweis',
+    toggleAuswertung: 'Auswertung (intern)',
     // «Detaillierter Prüfnachweis» doesn't say what is being ticked – nobody ticks what they
     // don't understand. It is about the bookkeeping rows in the printed Verlauf (who changed
     // what when), which are otherwise filtered out. The Prüfnachweis status above is unaffected.
@@ -5202,6 +5244,26 @@ export const de = {
     viewPlan: 'Zeitplan',
     viewBands: 'Schichten',
     viewLabel: 'Ansicht',
+  },
+  // «Anrückend» — die Divera-Rückmeldungen über der Anwesenheit (AnrueckendBlock, X1 08.10.2026).
+  // Nur ja / nein und Namen (Besitzer, 09.10.2026). ⚠️ Eine Divera-Antwort ist KEINE Anwesenheit:
+  // erst «da» erfasst jemanden. «kommt nicht» steht in einer eigenen, gedämpften Gruppe — mit ✕
+  // und dem Wort, nie nur als Farbe.
+  anrueckend: {
+    title: 'Anrückend',
+    sourceBare: 'Divera',
+    coming: (n: number) => (n === 1 ? '1 kommt' : `${n} kommen`),
+    notComing: (n: number) => (n === 1 ? '1 kommt nicht' : `${n} kommen nicht`),
+    here: (n: number) => `${n} da`,
+    notComingGroup: (n: number) => `Kommt nicht (${n})`,
+    notComingWord: 'kommt nicht',
+    checkIn: 'da',
+    checkInLabel: '{name} ist da – als anwesend erfassen',
+    allHere: 'Alle, die kommen wollten, sind erfasst.',
+    unmapped: (n: number) => (n === 1 ? '1 Rückmeldung ohne Eintrag in der Mannschaftsliste' : `${n} Rückmeldungen ohne Eintrag in der Mannschaftsliste`),
+    hint: 'Eine Divera-Antwort ist keine Anwesenheit – erst «da» erfasst jemanden.',
+    collapse: 'Anrückend einklappen',
+    expand: 'Anrückend aufklappen',
   },
   // Schicht planning – the command form «Zeitplan» (who × time), purely planning: planned bars
   // are hollow, actual Anwesenheit is filled. The plan never writes.
@@ -6273,6 +6335,10 @@ export const de = {
       removed: 'Gelöscht – Anbindung aus.',
       failed: 'Aktion fehlgeschlagen',
       groups: {
+        roster_snapshot: {
+          title: 'Personenstamm (Snapshot)',
+          caption: 'Wo die Wehr ihren Personenstamm als Datei veröffentlicht (Format: docs/roster-snapshot.schema.json) – eine https://-Adresse oder ein absoluter Pfad auf diesem Server. KP Front liest sie stündlich und auf «Jetzt abrufen» unter System › Verbindungen. Zugangsdaten gehören ins Token, nicht in die Adresse. Leer = aus; Divera und CSV-Import bleiben unverändert.',
+        },
         object_visits: {
           title: 'Objektbesuche (Organisator)',
           caption: 'Schlüssel, mit dem ein Organisator (z. B. fwo-admin) Katalog und Änderungen liest und Listen schreibt. Erzeugt wird er unter «Objektbesuche › Integration».',
@@ -7683,6 +7749,27 @@ export const de = {
       // Die Zeile, die «safe» erzeugt: Abgänge werden gezählt und gemeldet, aber nie von selbst
       // deaktiviert. Führt auf die Mannschaft, wo sie erledigt werden.
       connLeavers: '{n} Abgänge warten',
+      // ── Personenstamm-Snapshot (docs/CONFIGURATION.md §4c) ──
+      // «Angehalten», nicht «offline»: die Datei kam an, aber sie würde zu viele Personen auf
+      // einmal deaktivieren. Das entscheidet ein Mensch – mit «Abgänge übernehmen» oder indem
+      // er die Datei korrigiert.
+      connRosterSnapshot: 'Personenstamm (Snapshot)',
+      snapHeld: 'angehalten',
+      snapHeldText: '{n} von {total} aktiven Personen würden deaktiviert (Grenze {limit}). Nichts geändert – bitte zuerst die Datei prüfen.',
+      snapRelease: 'Abgänge übernehmen',
+      snapHeldWho: 'Betroffen: {names}',
+      snapPostponed: 'Wartet auf das Einsatzende (noch im Einsatz): {names}',
+      snapReleaseQ: '{n} Personen deaktivieren?',
+      snapRunNow: 'Jetzt abrufen',
+      snapRunning: 'Wird abgerufen …',
+      snapRunOk: 'Abgerufen',
+      snapRunFailed: 'Abruf fehlgeschlagen',
+      snapSummary: 'Letzter Abgleich: {created} neu · {updated} geändert · {deactivated} deaktiviert',
+      snapUnchanged: 'Datei unverändert seit dem letzten Abgleich',
+      snapUnmatched: '{n} nicht zugeordnet: {names}',
+      snapUnknownRanks: 'Unbekannte Dienstgrade (ohne Grad übernommen): {ranks}',
+      snapFileDate: 'Stand der Datei: {time}',
+      snapStale: 'Die Datei wurde seit über 7 Tagen nicht mehr erneuert.',
       // ── SharePoint: welche Ordner konfiguriert sind (nur Ansicht) ──
       spSources: 'Ordner laut Konfiguration',
       spSourcesHint: 'Schreibgeschützt – die Ordner stehen in der Konfiguration der Wehr. Wie sie aufgebaut sind, steht in der Dokumentation zur SharePoint-Anbindung.',
