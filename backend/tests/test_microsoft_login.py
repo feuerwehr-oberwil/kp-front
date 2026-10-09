@@ -85,6 +85,31 @@ async def test_unconfigured_is_invisible(client):
     assert (await client.get("/api/auth/microsoft/callback", params={"code": "x", "state": "y"})).status_code == 404
 
 
+@pytest.mark.parametrize("field", microsoft.FIELDS)
+async def test_partly_configured_is_invisible(client, configured, monkeypatch, field):
+    monkeypatch.setenv(field.upper(), "")
+    assert (await client.get("/api/config")).json()["integrations"]["microsoftLoginConfigured"] is False
+    assert (await client.get("/api/auth/microsoft/start")).status_code == 404
+    assert (await client.get("/api/auth/microsoft/callback", params={"code": "x", "state": "y"})).status_code == 404
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("ENTRA_LOGIN_TENANT_ID", "Our brigade"),
+        ("ENTRA_LOGIN_CLIENT_ID", "KP Front"),
+        ("ENTRA_LOGIN_ACCOUNTS", "anna.muster@fw.example"),
+        ("ENTRA_LOGIN_ACCOUNTS", ",;,"),
+        ("ENTRA_LOGIN_ACCOUNTS", "anna.muster@fw.example=cmd, broken"),
+    ],
+)
+async def test_invalid_environment_config_is_invisible(client, configured, monkeypatch, field, value):
+    monkeypatch.setenv(field, value)
+    assert (await client.get("/api/config")).json()["integrations"]["microsoftLoginConfigured"] is False
+    assert (await client.get("/api/auth/microsoft/start")).status_code == 404
+    assert (await client.get("/api/auth/microsoft/callback", params={"code": "x", "state": "y"})).status_code == 404
+
+
 async def test_start_redirects_with_pkce(client, configured):
     assert (await client.get("/api/config")).json()["integrations"]["microsoftLoginConfigured"] is True
     location, tx = await _start(client)

@@ -350,6 +350,10 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
+- **Microsoft login stays hidden with an incomplete or invalid setup.** Environment values
+  now pass the same GUID and account-mapping validation as the admin form before the button
+  or login routes are enabled. Offline devices keep the PIN login available.
+
 - **The weather details showed an Open-Meteo reading 1–2 h off.** Open-Meteo sends its time in
   UTC without a zone, and the top bar's details read it as the device's local time. It is read as
   UTC now (`lib/weatherTime`); MeteoSwiss readings were never affected. *No action needed.*

@@ -69,7 +69,12 @@ SCOPE = "openid profile"
 
 
 def enabled() -> bool:
-    return all(credentials.get(name) for name in FIELDS)
+    # Environment values bypass the admin's write validation. A pasted display name or
+    # malformed allow-list must not advertise a sign-in that cannot work.
+    try:
+        return all(credentials.validate(name, credentials.get(name)) for name in FIELDS)
+    except credentials.CredentialRefusedError:
+        return False
 
 
 def parse_accounts(raw: str) -> dict[str, str]:
