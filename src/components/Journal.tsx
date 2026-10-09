@@ -1230,6 +1230,10 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
               k: photos.length > 1 ? fillTemplate(G.whereN, { n: i + 1 }) : G.where,
               v: fillTemplate(G.distance, { d: fmtDistance(p.distanceM) }),
               sub: p.kind === 'far' ? G.tooFar : [
+                // where the position came from — the photo's own EXIF, or the device's position
+                // when the picture arrived (lib/devicePosition), with how sure that fix was
+                p.geo.source === 'device' ? G.sourceDevice : G.sourceExif,
+                p.geo.source === 'device' && p.geo.acc != null ? fillTemplate(G.accuracy, { m: p.geo.acc }) : null,
                 p.geo.heading != null ? fillTemplate(G.facing, { dir: appConfig.copy.weather.cardinalsLong[cardinalIndex(p.geo.heading)] }) : null,
                 takenClock(p.geo.takenAt) ? fillTemplate(G.takenAt, { t: takenClock(p.geo.takenAt)! }) : null,
               ].filter(Boolean).join(' · ') || undefined,

@@ -199,8 +199,14 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   shows the view cone, opens the picture on a tap, is one ↶ step and one Verlauf row, and shows
   read-only on georeferenced plans. Only the position, direction and time are kept from the file;
   only pictures within 3 km of the Einsatz are offered. An iPhone camera shot taken from inside
-  the browser never carries a position (WebKit strips it) – attach from the photo library with
-  «Ortsangaben» on. *No action needed.*
+  the browser never carries a position (WebKit strips it). Such a photo, or any photo without
+  one that was taken just now, takes the **device's own position** instead: position only, with
+  no direction, a fix of 250 m or better, and only inside the same 3 km. This happens only after
+  the operator says yes once per device to a question that gives the reason, and
+  «Standort zu Fotos» in Einstellungen switches it either way. Denied, offline or without a fix,
+  the photo simply has no position. The record says where each position came from («Ort aus dem
+  Foto» / «Standort des Geräts», with its accuracy), and uploaded photos go up without their
+  metadata. *No action needed.*
 - **Optional «Mit Microsoft anmelden».** A station with Microsoft Entra ID can let listed members
   sign in to their **existing** named account with Microsoft instead of the PIN. The login never
   creates a user, never changes a role and never grants `/admin`; deactivating the account or

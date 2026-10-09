@@ -48,7 +48,7 @@ function ScaleRow({ surface, label, sub, value, onChange }: {
  *  /admin, where whoever set it up changes it — not under the finger of an unknowing operator
  *  at 3am (per-incident overrides already written keep working; the doctrine is the source). */
 export function SettingsSheet({
-  onClose, symbolScale, onSymbolScale, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, offlineRadiusM, onOfflineRadius, offlineAuto, onOfflineAuto, keepScreenOn, onKeepScreenOn, themeCoord, onFeedback,
+  onClose, symbolScale, onSymbolScale, symbolCaptions, onSymbolCaptions, railLabels, onRailLabels, offlineRadiusM, onOfflineRadius, offlineAuto, onOfflineAuto, keepScreenOn, onKeepScreenOn, photoPosition, onPhotoPosition, themeCoord, onFeedback,
   shareAs, onSharePosition, onChangeShareName,
 }: {
   onClose: () => void
@@ -73,6 +73,10 @@ export function SettingsSheet({
   /** keep the screen awake while an incident is open — device pref, default on */
   keepScreenOn: boolean
   onKeepScreenOn: (v: boolean) => void
+  /** «Standort zu Fotos» (lib/devicePosition) — a device preference. Omitted where this session
+   *  writes no record (viewer, link) → the row is hidden. */
+  photoPosition?: boolean
+  onPhotoPosition?: (v: boolean) => void
   themeCoord: [number, number] | null
   /** open the Rückmeldung composer (the caller closes this sheet first — two stacked modals is
    *  not a thing we do). Omitted → the row is hidden. */
@@ -184,6 +188,12 @@ export function SettingsSheet({
               <span className="set-row-l">{cp.keepScreenOn}<small>{cp.keepScreenOnSub}</small></span>
               <OnOff ariaLabel={cp.keepScreenOn} value={keepScreenOn} onChange={onKeepScreenOn} />
             </div>
+            {onPhotoPosition && (
+              <div className="set-row">
+                <span className="set-row-l">{appConfig.copy.photoGeo.settingsLabel}<small>{appConfig.copy.photoGeo.settingsHint}</small></span>
+                <OnOff ariaLabel={appConfig.copy.photoGeo.settingsLabel} value={!!photoPosition} onChange={onPhotoPosition} />
+              </div>
+            )}
             {/* No Führungsansicht row (05.10.2026): it is the LOGIN's, set by the admin
                 (Benutzer · «Startet in Führungsansicht»), not a per-device switch. */}
             {/* Standort verwenden — the standing PERMISSION only, never the act of sharing:
