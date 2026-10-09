@@ -1149,6 +1149,13 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .clockGroup { margin-left: .15em; }
 .trowSub { display: block; font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .05em;
   text-transform: uppercase; color: var(--ink-faint); margin-top: var(--sp-1); white-space: nowrap; }
+/* the tier as a glyph under the clock (B5, 08.10.2026; glyph only since 09.10.2026, owner: «Symbol
+   only») — fällig (clock) / überfällig and Alarmdruck (triangle) no longer ride on colour alone.
+   Inside the clock cell, so the row keeps its lines; shown on every width (unlike `.trowSub`),
+   because the phone is where the sun is. */
+.trowTier { display: flex; justify-content: flex-end; margin-top: var(--sp-1); line-height: 1; color: var(--amber-strong); }
+.trowTier :global(.i) { width: 16px; height: 16px; flex: none; }
+.trowTierCrit { color: var(--red); }
 
 .trowPress { text-align: right; font-family: var(--mono); font-size: var(--fs-3); font-weight: var(--fw-bold);
   color: var(--ink); font-variant-numeric: tabular-nums; }

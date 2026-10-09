@@ -481,6 +481,11 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Fixed
 
+- **A Trupp's «fällig» and «überfällig» no longer ride on colour alone.** On the phone board
+  the row said them only in amber and red, which is no answer in direct sun or to a colour-blind
+  reader. Under the clock it now carries a glyph: a clock for «fällig», the warning triangle for
+  «überfällig» and the Alarmdruck, in the space the row already had, and the row's spoken name
+  says the word. The opened card keeps the same line.
 - **From the post-mortem of the Übung of 23.09.2026** (one editor login on three devices plus an
   `el` phone):
   - **The Karte no longer locks up with a hose coupled to a vehicle's GPS.** A live-GPS effect
