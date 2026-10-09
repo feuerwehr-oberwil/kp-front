@@ -171,10 +171,17 @@ export interface RankConfig {
 }
 
 export interface DeploymentRoster {
-  /** Where people come from. `'snapshot'` = a roster file another system publishes, to the
-   *  contract in docs/CONFIGURATION.md §4c — accepted and served today, not yet ingested, so a
-   *  station on it behaves like `'manual'`. Nothing in the UI branches on this value. */
+  /** Where people come from — a label, not a switch. `'snapshot'` = a roster file another
+   *  system publishes, to the contract in docs/CONFIGURATION.md §4c; what actually reads one is
+   *  the `roster_snapshot_source` credential (backend · roster_snapshot_sync). Nothing in the UI
+   *  branches on this value. */
   source?: 'manual' | 'divera' | 'snapshot' | null
+  /** Roster-snapshot poll interval in minutes (5–1440, default 60). Mirrors backend
+   *  `schemas.RosterConfig.snapshotIntervalMin`; read only by the server. */
+  snapshotIntervalMin?: number | null
+  /** More than this share (%) of the active people deactivated by one snapshot run is held for
+   *  an admin (default 20; 0 = never unattended, 100 = no cap). Read only by the server. */
+  snapshotMaxDeactivatePct?: number | null
   /** Ordered ranks, most senior first. Empty/absent → the in-code Swiss default in rank.ts. */
   ranks?: RankConfig[]
   /** How a crew member's name reads, station-wide. `'last-first'` («Müller Hans») is the
@@ -293,6 +300,8 @@ export interface DeploymentIntegrations {
   autoAlignConfigured?: boolean
   /** CARTO Basemaps browser key; public by design and restricted to deployment domains. */
   cartoBasemapKey?: string | null
+  /** «Mit Microsoft anmelden» is set up (backend auth/microsoft) — gates the login screen's button. */
+  microsoftLoginConfigured?: boolean
   personnel?: ProviderCapability
   alarms?: ProviderCapability
   vehicles?: ProviderCapability

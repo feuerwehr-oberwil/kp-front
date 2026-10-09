@@ -2110,6 +2110,9 @@ export const de = {
     clockFrozen: 'Stand beim Abschluss',
     clockWarn: 'Kontakt fällig',
     clockOverdue: 'Überfällig',
+    // the phone row's short tier word for its clock glyph (AtemschutzView · tierMark, B5): drawn
+    // as the glyph only since 09.10.2026, so this is the row's aria-label and the glyph's title
+    rowDue: 'Fällig',
     // …and the same block on a PRESSURE alarm: same three lines, but the number is the bar the
     // Trupp dropped to, not a clock. The word must never read «Überfällig» there – the Verlauf
     // and the Rapport record two different events, and a radio check does not fix this one.
@@ -3512,6 +3515,17 @@ export const de = {
     // status 0 on the roster: the shared «Gespeicherte Einsätze bleiben offline verfügbar» is
     // not true from HERE — a device that reaches the login screen is not signed in any more
     offlineHint: 'Ohne Verbindung ist keine Anmeldung möglich. Gespeicherte Einsätze öffnen sich nur, wenn dieses Gerät noch angemeldet war.',
+    // optional second door onto the SAME accounts (backend auth/microsoft) — only drawn when the
+    // station set it up; the PIN tiles above stay the way in at the Schadenplatz
+    microsoft: 'Mit Microsoft anmelden',
+    // ?msLogin=<reason> on the way back from Microsoft
+    microsoftErrors: {
+      cancelled: 'Microsoft-Anmeldung abgebrochen.',
+      expired: 'Die Microsoft-Anmeldung hat zu lange gedauert. Bitte nochmals.',
+      failed: 'Microsoft-Anmeldung fehlgeschlagen. Bitte nochmals oder mit PIN anmelden.',
+      unknown: 'Dieses Microsoft-Konto ist für KP Front nicht freigeschaltet. Bitte mit PIN anmelden oder den Admin fragen.',
+      inactive: 'Das zugehörige Konto ist deaktiviert. Bitte den Admin fragen.',
+    },
   },
   // boot Splash: shown while the /me probe, the incident list or a lazy chunk settles. If a
   // stage takes unusually long the splash grows a status line + an action, so a stalled launch
@@ -3658,6 +3672,25 @@ export const de = {
   photoViewer: {
     title: 'Foto',
     download: 'Herunterladen',
+  },
+  // a Verlauf photo that knows where it was taken (EXIF, lib/photoGeo) — detail sheet, save
+  // toast, the photo marker on the Karte and on a georeferenced Plan
+  photoGeo: {
+    place: 'Auf Karte setzen',
+    placeN: '{n} Fotos auf Karte setzen',
+    show: 'Auf Karte zeigen',
+    placedStep: 'Foto auf Karte gesetzt',
+    logPlaced: 'Foto auf Karte gesetzt',
+    logPlacedN: '{n} Fotos auf Karte gesetzt',
+    where: 'Aufnahmeort',
+    whereN: 'Aufnahmeort Foto {n}',
+    distance: '{d} vom Einsatzort',
+    facing: 'Blick nach {dir}',
+    takenAt: 'aufgenommen {t}',
+    tooFar: 'Zu weit weg für die Karte',
+    marker: 'Foto vom Verlauf',
+    markerTaken: 'Foto vom Verlauf · aufgenommen {t}',
+    planMark: 'Foto – auf der Karte verschieben oder entfernen',
   },
   // running incident clock in the TopBar
   einsatzuhr: {
@@ -4185,6 +4218,69 @@ export const de = {
     atScene: 'Am Einsatzort',
     tapHint: 'Auf der Karte zeigen',
   },
+  // The Gebäude card under the Einsatz card in the incident menu (BuildingCard, KP Front F5):
+  // federal register hints (GWR, BFE) + the Einsatzobjekt's own Modul-1 notes. «Register-
+  // Hinweis», never «Fakt»: the register can be years behind the building.
+  building: {
+    title: 'Gebäude',
+    hint: 'Register-Hinweis',
+    hintTitle: 'Aus den Bundesregistern (GWR, BFE) – kann veraltet oder unvollständig sein. Vor Ort prüfen.',
+    floors: '{n} Geschosse',
+    floorsOne: '1 Geschoss',
+    flats: '{n} Wohnungen',
+    flatsOne: '1 Wohnung',
+    year: 'Baujahr {y}',
+    period: 'Bauperiode {p}',
+    shelter: 'Schutzraum',
+    heating: 'Heizung {e}',
+    hotWater: 'Warmwasser {e}',
+    pv: 'PV {kw}',
+    pvBare: 'PV',
+    pvTitle: 'Photovoltaik im BFE-Register{since} – kann fehlen, auch wenn eine Anlage da ist',
+    pvSince: ', in Betrieb seit {d}',
+    kw: '{n} kW',
+    energy: {
+      gas: 'Gas',
+      oil: 'Heizöl',
+      wood: 'Holz',
+      district: 'Fernwärme',
+      air: 'Wärmepumpe (Luft)',
+      geothermal: 'Wärmepumpe (Erdwärme)',
+      water: 'Wärmepumpe (Wasser)',
+      electricity: 'Elektro',
+      solar: 'Solar',
+      waste_heat: 'Abwärme',
+      other: 'andere',
+    },
+    status: {
+      planned: 'projektiert',
+      approved: 'bewilligt',
+      under_construction: 'im Bau',
+      unusable: 'nicht nutzbar',
+      demolished: 'abgebrochen',
+      not_built: 'nicht realisiert',
+    },
+    // the one line of sources under the chips — every fact names where it came from and when
+    srcGwr: 'GWR {a} · Stand {d}',
+    srcGwrNoAddr: 'GWR Stand {d}',
+    srcHeating: 'Heizung erfasst {d}',
+    srcPv: 'BFE abgefragt {d}',
+    srcCached: 'gespeichert {d}',
+    measures: 'Sofortmassnahmen',
+    remarks: 'Bemerkungen',
+    objectSource: '{name} · {src}',
+    objectNear: '{name} · in der Nähe ({m} m)',
+    objectNearNoDist: '{name} · in der Nähe',
+    visit: 'Letzter Objektbesuch {d}',
+    visitFindings: 'Letzter Objektbesuch {d} · {n} Mängel',
+    visitFindingsOne: 'Letzter Objektbesuch {d} · 1 Mangel',
+    // the chip on the Karte / in the plan's chip row that opens the card (BuildingFloat)
+    // not «Gebäude» alone: that word + the storey glyph is the rail's Gebäude tile, a surface
+    chipTitle: 'Gebäude-Info',
+    chipLabel: 'Gebäude-Steckbrief öffnen',
+    chipLabelHazards: 'Gebäude: {h} – Steckbrief öffnen',
+    measuresShort: 'Sofortmassn.',
+  },
   // TopBar incident switcher dropdown
   incidentSwitcher: {
     noIncident: 'Kein Einsatz',
@@ -4485,6 +4581,47 @@ export const de = {
     captionNone: 'Kein Eintrag zu diesem Zeitpunkt',
   },
   // Einsatzrapport: print preflight (ReportPreflight) + the printed document (ReportPrintView)
+  // Auswertung — the optional internal Beilage of the Rapport PDF (lib/auswertung, F7 09.10.2026):
+  // key figures, swimlanes, Lehren. ⚠️ No «→» in these: the paper is Helvetica (reportPdfDirect · forPaper).
+  auswertung: {
+    heading: 'Auswertung',
+    note: 'Für die Nachbesprechung – aus den Daten des Einsatzes abgeleitet, nicht Teil des unterzeichneten Rapports.',
+    missing: '—',
+    firstOnScene: 'Alarm bis 1. Fahrzeug vor Ort',
+    firstOnSceneDef: 'Von der Alarmierung bis zur frühesten «Vor Ort»-Zeit eines Fahrzeugs (Alarmierungs- / Ausrückzeiten).',
+    firstAs: 'Alarm bis 1. Atemschutz-Eintritt',
+    firstAsDef: 'Von der Alarmierung bis zum ersten Eintritt eines Trupps unter Atemschutz.',
+    contacts: 'Funkkontakte eingehalten',
+    contactsSub: '{n} überfällig von {total}',
+    contactsDef: 'Anteil der Funkkontakt-Intervalle unter Atemschutz, die endeten, bevor der Trupp überfällig war ({n} min + {g}). Ein Intervall läuft vom Eintritt oder einem Kontakt bis zum nächsten Kontakt, Druck, Rückzug oder Austritt; ein offenes zählt erst, wenn es überfällig wurde. Die Zeit zwischen Abschluss und Wiedereröffnen zählt nicht.',
+    contactsDefNoGrace: 'Anteil der Funkkontakt-Intervalle unter Atemschutz, die endeten, bevor der Trupp überfällig war ({n} min). Ein Intervall läuft vom Eintritt oder einem Kontakt bis zum nächsten Kontakt, Druck, Rückzug oder Austritt; ein offenes zählt erst, wenn es überfällig wurde. Die Zeit zwischen Abschluss und Wiedereröffnen zählt nicht.',
+    longestAs: 'Längster Atemschutz-Einsatz',
+    longestAsDef: 'Längste abgeschlossene Zeit eines Trupps unter Atemschutz, Eintritt bis Austritt.',
+    total: 'Einsatzdauer',
+    totalDef: 'Von der Alarmierung bis zum Einsatzende.',
+    totalRunning: 'Einsatz läuft noch',
+    truppLane: 'Trupp {no} · {name}',
+    groupPhases: 'Phasen (Checkliste)',
+    groupVehicles: 'Fahrzeuge',
+    groupTrupps: 'Trupps',
+    groupMilestones: 'Meilensteine',
+    noTimeline: 'Keine Fahrzeug-, Trupp- oder Checklisten-Zeiten erfasst.',
+    legendTravel: 'Anfahrt',
+    legendScene: 'vor Ort',
+    legendReturn: 'Rückfahrt',
+    legendAs: 'unter Atemschutz',
+    legendWork: 'im Einsatz ohne Atemschutz',
+    legendStandby: 'bereit',
+    legendContact: 'Funkkontakt',
+    legendFaellig: 'Kontakt fällig',
+    legendUeberfaellig: 'überfällig',
+    legendMilestone: 'Meilenstein',
+    legendPhase: 'Phase: erster bis letzter Haken',
+    footnotesHead: 'Definitionen',
+    lehrenSeePage1: 'Lehren / Sicherheit: siehe Seite 1',
+    graceMin: '{n} min',
+    graceSec: '{n} s',
+  },
   report: {
     erfasser: 'Erfasst durch',
     // print view chrome
@@ -4901,6 +5038,7 @@ export const de = {
     linksOpenedAction: 'Erledigt',
     linksOpenFailed: '{title} konnte nicht geöffnet werden – der Browser hat das Fenster blockiert.',
     toggleDetailedAudit: 'Detaillierter Prüfnachweis',
+    toggleAuswertung: 'Auswertung (intern)',
     // «Detaillierter Prüfnachweis» doesn't say what is being ticked – nobody ticks what they
     // don't understand. It is about the bookkeeping rows in the printed Verlauf (who changed
     // what when), which are otherwise filtered out. The Prüfnachweis status above is unaffected.
@@ -5170,6 +5308,26 @@ export const de = {
     viewPlan: 'Zeitplan',
     viewBands: 'Schichten',
     viewLabel: 'Ansicht',
+  },
+  // «Anrückend» — die Divera-Rückmeldungen über der Anwesenheit (AnrueckendBlock, X1 08.10.2026).
+  // Nur ja / nein und Namen (Besitzer, 09.10.2026). ⚠️ Eine Divera-Antwort ist KEINE Anwesenheit:
+  // erst «da» erfasst jemanden. «kommt nicht» steht in einer eigenen, gedämpften Gruppe — mit ✕
+  // und dem Wort, nie nur als Farbe.
+  anrueckend: {
+    title: 'Anrückend',
+    sourceBare: 'Divera',
+    coming: (n: number) => (n === 1 ? '1 kommt' : `${n} kommen`),
+    notComing: (n: number) => (n === 1 ? '1 kommt nicht' : `${n} kommen nicht`),
+    here: (n: number) => `${n} da`,
+    notComingGroup: (n: number) => `Kommt nicht (${n})`,
+    notComingWord: 'kommt nicht',
+    checkIn: 'da',
+    checkInLabel: '{name} ist da – als anwesend erfassen',
+    allHere: 'Alle, die kommen wollten, sind erfasst.',
+    unmapped: (n: number) => (n === 1 ? '1 Rückmeldung ohne Eintrag in der Mannschaftsliste' : `${n} Rückmeldungen ohne Eintrag in der Mannschaftsliste`),
+    hint: 'Eine Divera-Antwort ist keine Anwesenheit – erst «da» erfasst jemanden.',
+    collapse: 'Anrückend einklappen',
+    expand: 'Anrückend aufklappen',
   },
   // Schicht planning – the command form «Zeitplan» (who × time), purely planning: planned bars
   // are hollow, actual Anwesenheit is filled. The plan never writes.
@@ -6241,9 +6399,21 @@ export const de = {
       removed: 'Gelöscht – Anbindung aus.',
       failed: 'Aktion fehlgeschlagen',
       groups: {
+        station_index: {
+          title: 'Stationsdaten (Index)',
+          caption: 'Eine Adresse für alle Stationsdaten: eine index.json (https:// oder absoluter Pfad), die Personenstamm und weitere Dateien mit Prüfsumme aufführt (Format: docs/station-index.schema.json). Führt der Index einen Personenstamm, gilt er; sonst die Personenstamm-Quelle darunter. Leer = aus.',
+        },
+        roster_snapshot: {
+          title: 'Personenstamm (Snapshot)',
+          caption: 'Wo die Wehr ihren Personenstamm als Datei veröffentlicht (Format: docs/roster-snapshot.schema.json) – eine https://-Adresse oder ein absoluter Pfad auf diesem Server. KP Front liest sie stündlich und auf «Jetzt abrufen» unter System › Verbindungen. Zugangsdaten gehören ins Token, nicht in die Adresse. Leer = aus; Divera und CSV-Import bleiben unverändert.',
+        },
         object_visits: {
           title: 'Objektbesuche (Organisator)',
           caption: 'Schlüssel, mit dem ein Organisator (z. B. fwo-admin) Katalog und Änderungen liest und Listen schreibt. Erzeugt wird er unter «Objektbesuche › Integration».',
+        },
+        microsoft_login: {
+          title: 'Mit Microsoft anmelden',
+          caption: 'Freiwillig: eine eigene Azure-App-Registrierung (nur Anmeldung, «openid profile»), damit sich benannte Konten auch mit Microsoft statt PIN anmelden können. Redirect-URI: <Adresse dieser Instanz>/api/auth/microsoft/callback. Zugelassen sind nur die Konten in der Liste, je «Microsoft-Konto=Benutzername», durch Kommas getrennt. Die PIN bleibt immer möglich. Anleitung: docs/microsoft-login.md.',
         },
         sharepoint_export: {
           title: 'SharePoint (Ablage Objektbesuche)',
@@ -7103,6 +7273,14 @@ export const de = {
       coordsProjected: 'Das sieht nach LV95-Metern aus, nicht nach WGS84-Grad. Zuerst umrechnen.',
       noteLabel: 'Notiz',
       noteHint: 'woher die Angaben stammen',
+      // Sofortmassnahmen / Bemerkungen (KP Front F5): die zwei Felder des Modul-1-Blatts, auf der
+      // Gebäude-Karte des Einsatzes gezeigt. Freiwillig, von Hand – nichts liest sie aus dem PDF.
+      measuresLabel: 'Sofortmassnahmen',
+      measuresHint: 'eine pro Zeile – erscheinen auf der Gebäude-Karte des Einsatzes',
+      remarksLabel: 'Bemerkungen',
+      remarksHint: 'eine pro Zeile, z. B. Brandlast, PV-Anlage',
+      measuresSourceLabel: 'Quelle',
+      measuresSourceHint: 'z. B. «Modul 1, Stand 03.2024»',
       // Nur die Neuanlage hat noch einen Knopf: die Objekt-ID muss existieren, bevor ein Plan
       // darunter liegen kann. Ein bestehendes Objekt speichert sich beim Verlassen des Feldes.
       create: 'Objekt erstellen',
@@ -7639,6 +7817,30 @@ export const de = {
       // Die Zeile, die «safe» erzeugt: Abgänge werden gezählt und gemeldet, aber nie von selbst
       // deaktiviert. Führt auf die Mannschaft, wo sie erledigt werden.
       connLeavers: '{n} Abgänge warten',
+      // ── Personenstamm-Snapshot (docs/CONFIGURATION.md §4c) ──
+      // «Angehalten», nicht «offline»: die Datei kam an, aber sie würde zu viele Personen auf
+      // einmal deaktivieren. Das entscheidet ein Mensch – mit «Abgänge übernehmen» oder indem
+      // er die Datei korrigiert.
+      connRosterSnapshot: 'Personenstamm (Snapshot)',
+      snapHeld: 'angehalten',
+      snapHeldText: '{n} von {total} aktiven Personen würden deaktiviert (Grenze {limit}). Nichts geändert – bitte zuerst die Datei prüfen.',
+      snapRelease: 'Abgänge übernehmen',
+      snapHeldWho: 'Betroffen: {names}',
+      snapPostponed: 'Wartet auf das Einsatzende (noch im Einsatz): {names}',
+      snapReleaseQ: '{n} Personen deaktivieren?',
+      snapRunNow: 'Jetzt abrufen',
+      snapRunning: 'Wird abgerufen …',
+      snapRunOk: 'Abgerufen',
+      snapRunFailed: 'Abruf fehlgeschlagen',
+      snapSummary: 'Letzter Abgleich: {created} neu · {updated} geändert · {deactivated} deaktiviert',
+      snapUnchanged: 'Datei unverändert seit dem letzten Abgleich',
+      snapUnmatched: '{n} nicht zugeordnet: {names}',
+      snapUnknownRanks: 'Unbekannte Dienstgrade (ohne Grad übernommen): {ranks}',
+      snapFileDate: 'Stand der Datei: {time}',
+      snapStale: 'Die Datei wurde seit über 7 Tagen nicht mehr erneuert.',
+      snapViaIndex: 'Über den Stationsdaten-Index vom {time}.',
+      snapIndexNoRoster: 'Der Stationsdaten-Index vom {time} führt keinen Personenstamm – gelesen wurde die direkte Quelle.',
+      snapIndexNotRead: 'Im Index, von dieser Version noch nicht gelesen: {kinds}.',
       // ── SharePoint: welche Ordner konfiguriert sind (nur Ansicht) ──
       spSources: 'Ordner laut Konfiguration',
       spSourcesHint: 'Schreibgeschützt – die Ordner stehen in der Konfiguration der Wehr. Wie sie aufgebaut sind, steht in der Dokumentation zur SharePoint-Anbindung.',

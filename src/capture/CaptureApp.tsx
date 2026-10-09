@@ -761,7 +761,7 @@ export default function CaptureApp() {
           meta: { ...rm, alarmiertAt: rm?.alarmiertAt ?? incident.started_at },
           generatedAt: new Date().toISOString(),
           proof: { intact: null, checkedAt: new Date().toISOString(), offline: true },
-          options: { ...defaultReportOptions, kroki: false, annotatedPlans: false, allPlans: false, atemschutz: false },
+          options: { ...defaultReportOptions, kroki: false, annotatedPlans: false, allPlans: false, atemschutz: false, auswertung: false },
         },
         trupps: [], attendance, events, plans: [], mittel,
         roster: roster.map((p) => ({ id: p.id, name: p.display_name })),

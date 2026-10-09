@@ -31,6 +31,7 @@ import { SyncGlyph } from './SyncGlyph'
 import { Button, IconButton } from './Button'
 import { ZeitplanView } from './ZeitplanView'
 import { BandGrid } from './BandGrid'
+import { AnrueckendBlock } from './AnrueckendBlock'
 import s from './Anwesenheit.module.css'
 import c from './SurfaceControls.module.css'
 
@@ -322,7 +323,7 @@ export function AnwesenheitView({
   shifts, bands, onCreateBand, onSaveBand, onRemoveBand, onCycleCell, onSetCellState, onPutCellState,
   startedAt, onAddShift, onAddShiftSpan, onReplaceShift, onSetShiftTime, onRemoveShift,
   onDownloadZeitplan,
-  livePositions, incidentCenter, onShowOnMap, incidentId,
+  livePositions, incidentCenter, onShowOnMap, incidentId, diveraResponsesFor,
 }: {
   people: Person[]
   attendance: AttendanceState
@@ -409,6 +410,10 @@ export function AnwesenheitView({
   onShowOnMap?: (personId: string) => void
   /** stamps the remembered tab, so switching Einsatz starts on the crew list again */
   incidentId?: string
+  /** The incident whose Divera Rückmeldungen the «Anrückend» block reads (AnrueckendBlock) —
+   *  set only for a running Einsatz on a station with Divera, for the EL and the editors.
+   *  Absent = no block, and no request: a station without Divera never sees it. */
+  diveraResponsesFor?: string
 }) {
   const [q, setQ] = useState('')
   const [rankSel, setRankSel] = useState<ReadonlySet<string>>(() => new Set())
@@ -652,6 +657,8 @@ export function AnwesenheitView({
    * about time), and never for a name that is already standing here — that offer could only
    * produce a second row reading exactly like the first. */
   const typedName = q.trim()
+  /** anything typed or ticked that narrows the crew list (the «Anrückend» block steps aside) */
+  const narrowed = !!typedName || presentOnly || stateSel.size > 0 || rankSel.size > 0 || noteOnly
   const guestOffer = !showPlan && !showBands && canEdit && onAddGuest && typedName && !knownNames.has(typedName)
     ? typedName : ''
   /* …and the query goes with it: the rows that answered «mus» are not the way to the next person,
@@ -989,6 +996,13 @@ export function AnwesenheitView({
         />
       ) : (
         <div className={s.grid}>
+          {/* «Anrückend» — the Divera answers, as the grid's first cell across all columns. Only
+              on the unfiltered list: a search or a narrowing asks about the Mannschaft, and a block
+              that ignored it would stand there answering a different question. */}
+          {diveraResponsesFor && !narrowed && (
+            <AnrueckendBlock incidentId={diveraResponsesFor} people={people} attendance={attendance}
+              canEdit={canEdit} onMarkPresent={onMarkPresent} />
+          )}
           {rows.map((p) => {
             const a = attendance[p.id]
             const present = isPresent(a)

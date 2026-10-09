@@ -112,6 +112,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from . import visits
 from .auth.cookies import ACCESS_COOKIE, ADMIN_COOKIE, REFRESH_COOKIE
 from .auth.incident_link import LINK_COOKIE, enforce_link_scope
+from .auth.microsoft import router as microsoft_login_router
 from .auth.router import router as auth_router
 from .auth.token_blocklist import token_blocklist
 from .config import settings
@@ -690,6 +691,7 @@ async def ready() -> JSONResponse:
 # --- API routers (each phase registers here) ---
 P = settings.api_prefix
 app.include_router(auth_router, prefix=P)
+app.include_router(microsoft_login_router, prefix=P)
 
 
 def _register_optional_routers() -> None:
@@ -718,6 +720,7 @@ def _register_optional_routers() -> None:
         ("app.api.plan_alignments", "router"),
         ("app.api.objects", "router"),
         ("app.api.objects", "incidents_objects_router"),
+        ("app.api.building", "router"),
         ("app.api.events", "router"),
         ("app.api.journal", "router"),
         ("app.api.push", "router"),

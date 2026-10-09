@@ -540,6 +540,72 @@
         }
       }
     },
+    "/api/auth/microsoft/start": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Start",
+        "operationId": "start_api_auth_microsoft_start_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/microsoft/callback": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Callback",
+        "operationId": "callback_api_auth_microsoft_callback_get",
+        "parameters": [
+          {
+            "name": "ms_login_tx",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ms Login Tx"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/session": {
       "get": {
         "tags": [
@@ -3329,6 +3395,68 @@
         }
       }
     },
+    "/api/divera/responses/{incident_id}": {
+      "get": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "Responses",
+        "description": "Who answered the Divera alarm «kommt» / «kommt nicht» — our personnel ids, nothing else.\n\nRead-only and stored: the server's own poll keeps it (divera · store_responses); this read\nnever calls Divera. Every alarm taken into the incident counts (a Nachalarm attached to it is\none more; the newer alarm's answer wins), but only alarms of the last\n:data:`~app.divera_responses.RESPONSES_MAX_AGE_SECONDS`: the answers to a dispatch that is\nhours over are not «anrückend». ``available: false`` = nothing to show (``reason: no_data``,\nor ``closed`` for an archived Einsatz), and the Anwesenheit shows nothing at all.\n\nEditor-only like the rest of /api/divera (the EL and the editors who mark attendance; a viewer\nand an Einsatz-Link session are refused). Somebody not on the Mannschaftsliste is a count.\nThe answers never enter the workspace, an export or a Rapport, and are cleared after the\nEinsatz (divera · prune_responses). A Divera answer is not presence.",
+        "operationId": "responses_api_divera_responses__incident_id__get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Responses Api Divera Responses  Incident Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/divera/pool": {
       "get": {
         "tags": [
@@ -5756,6 +5884,75 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PersonnelSyncResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/personnel/snapshot/sync": {
+      "post": {
+        "tags": [
+          "personnel"
+        ],
+        "summary": "Snapshot Sync",
+        "description": "Read the roster snapshot now («Jetzt abrufen» on System › Verbindungen).\n\nThe same run the scheduler makes, minus the «unchanged, skip» shortcut — pressing the\nbutton after a rank was added to the station's list must apply it. Answers the status\ndocument either way: a refused or held run is a 200 with the reason in it, because the\nreport IS the answer; only «no source configured» is an error.",
+        "operationId": "snapshot_sync_api_personnel_snapshot_sync_post",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RosterSnapshotSyncBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Snapshot Sync Api Personnel Snapshot Sync Post"
                 }
               }
             }
@@ -8400,6 +8597,92 @@
                     "$ref": "#/components/schemas/ObjectWithPlans"
                   },
                   "title": "Response Objects Near Incident Api Incidents  Incident Id  Objects Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/building": {
+      "get": {
+        "tags": [
+          "objects"
+        ],
+        "summary": "Incident Building",
+        "operationId": "incident_building_api_incidents__incident_id__building_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "object",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Object"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "de",
+              "title": "Lang"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildingOut"
                 }
               }
             }
@@ -13662,6 +13945,393 @@
         ],
         "title": "Body_zeitplan_pdf_api_incidents__incident_id__zeitplan_pdf_post"
       },
+      "BuildingGwrOut": {
+        "properties": {
+          "stand": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stand"
+          },
+          "floors": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floors"
+          },
+          "flats": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flats"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          },
+          "heating": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Heating"
+          },
+          "heating_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heating Date"
+          },
+          "hot_water": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Hot Water"
+          },
+          "shelter": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shelter"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "title": "BuildingGwrOut",
+        "description": "GWR facts about the building — keys and numbers; the words are the app's copy."
+      },
+      "BuildingObjectOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "address_match": {
+            "type": "boolean",
+            "title": "Address Match",
+            "default": false
+          },
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "measures": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          },
+          "measures_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures Source"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "BuildingObjectOut",
+        "description": "The Einsatzobjekt the card speaks for — the plan rail's object (api/objects ·\nranked_objects_near), or the one the operator picked."
+      },
+      "BuildingOut": {
+        "properties": {
+          "registers": {
+            "type": "string",
+            "enum": [
+              "on",
+              "off",
+              "outside_ch",
+              "no_location"
+            ],
+            "title": "Registers"
+          },
+          "egid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Egid"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "gwr": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuildingGwrOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gwr_status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "none",
+              "error",
+              "skipped"
+            ],
+            "title": "Gwr Status",
+            "default": "skipped"
+          },
+          "plants": {
+            "items": {
+              "$ref": "#/components/schemas/BuildingPlantOut"
+            },
+            "type": "array",
+            "title": "Plants"
+          },
+          "pv_status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "error",
+              "skipped"
+            ],
+            "title": "Pv Status",
+            "default": "skipped"
+          },
+          "registers_fetched_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registers Fetched At"
+          },
+          "object": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuildingObjectOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuildingVisitOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "registers"
+        ],
+        "title": "BuildingOut",
+        "description": "``GET /api/incidents/{id}/building`` — the Gebäude card (app/building_facts).\n\nEvery half is optional and fails on its own: ``gwr_status``/``pv_status`` say whether the\nregister could be ASKED (``error``) as opposed to having nothing to say (``none``/``ok`` with\nan empty list). ``registers`` says why they were not asked at all."
+      },
+      "BuildingPlantOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "pv",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "power_kw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Kw"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "BuildingPlantOut",
+        "description": "One registered electricity production plant on the building (BFE)."
+      },
+      "BuildingVisitOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "visited_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visited At"
+          },
+          "findings": {
+            "type": "integer",
+            "title": "Findings",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "BuildingVisitOut",
+        "description": "The object's last completed Objektbesuch."
+      },
       "BuildingsRequest": {
         "properties": {
           "south": {
@@ -13903,6 +14573,11 @@
               }
             ],
             "title": "Cartobasemapkey"
+          },
+          "microsoftLoginConfigured": {
+            "type": "boolean",
+            "title": "Microsoftloginconfigured",
+            "default": false
           },
           "personnel": {
             "$ref": "#/components/schemas/ProviderCapability"
@@ -16610,6 +17285,17 @@
             },
             "type": "array",
             "title": "Externallinks"
+          },
+          "buildingRegister": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buildingregister"
           }
         },
         "type": "object",
@@ -17322,6 +18008,39 @@
             ],
             "title": "Source Key"
           },
+          "measures": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          },
+          "measures_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures Source"
+          },
           "updated_at": {
             "type": "string",
             "format": "date-time",
@@ -17458,6 +18177,42 @@
               }
             ],
             "title": "Refs"
+          },
+          "measures": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          },
+          "measures_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures Source"
           }
         },
         "type": "object",
@@ -17681,6 +18436,39 @@
               }
             ],
             "title": "Source Key"
+          },
+          "measures": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          },
+          "measures_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures Source"
           },
           "updated_at": {
             "type": "string",
@@ -18863,6 +19651,32 @@
             ],
             "title": "Autosync",
             "default": "safe"
+          },
+          "diveraResponses": {
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "coming",
+                "not_coming",
+                "other"
+              ]
+            },
+            "type": "object",
+            "title": "Diveraresponses"
+          },
+          "snapshotIntervalMin": {
+            "type": "integer",
+            "maximum": 1440.0,
+            "minimum": 5.0,
+            "title": "Snapshotintervalmin",
+            "default": 60
+          },
+          "snapshotMaxDeactivatePct": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Snapshotmaxdeactivatepct",
+            "default": 20
           }
         },
         "type": "object",
@@ -18995,6 +19809,18 @@
         ],
         "title": "RosterRankOption",
         "description": "One rank the station's list knows, as the mapping sheet offers it."
+      },
+      "RosterSnapshotSyncBody": {
+        "properties": {
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "RosterSnapshotSyncBody",
+        "description": "``force`` releases a run the deactivation cap held — the human decision the hold waits\nfor. It never releases the other refusals (an invalid file, an older copy, an empty roster)."
       },
       "RosterUnknownRank": {
         "properties": {

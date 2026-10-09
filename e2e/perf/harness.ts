@@ -86,6 +86,16 @@ export async function isolateFromOutside(context: BrowserContext, baseURL: strin
     observed_at: new Date(now()).toISOString(), source: 'meteoswiss', station: 'Basel-Binningen',
   } }))
   await context.route('**/api/overpass/buildings', (route) => route.fulfill({ json: { elements: [] } }))
+  // The Gebäude chip's register half (api/building) asks geo.admin from the SERVER, so routing the
+  // page's outside calls does not reach it: the answer itself is canned — one building with gas
+  // heating, no PV, no Objekt notes — or a GWR hiccup would take the chip off the Karte's baseline.
+  await context.route('**/api/incidents/*/building?*', (route) => route.fulfill({ json: {
+    registers: 'on', egid: '1000001', address: 'Hauptstrasse 1, 9999 Musterdorf',
+    gwr: { stand: '2026-09-15', floors: 4, flats: 6, year: 1962, period: null, heating: ['gas'],
+      heating_date: '2021-03-01', hot_water: ['gas'], shelter: null, status: null },
+    gwr_status: 'ok', plants: [], pv_status: 'ok', registers_fetched_at: new Date(now()).toISOString(),
+    object: null, visit: null,
+  } }))
 }
 
 // ── Network accounting ───────────────────────────────────────────────────────────────────────

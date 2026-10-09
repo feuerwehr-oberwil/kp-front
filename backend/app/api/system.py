@@ -136,7 +136,7 @@ _NO_HEALTH = {"lastAttempt": None, "lastSuccess": None, "lastError": None, "coun
 
 
 def _polling_connector(cid: str, *, configured: bool, health: dict) -> dict:
-    """One row for a connector that POLLS — the three that record into `connector_states`.
+    """One row for a connector that POLLS — the four that record into `connector_states`.
 
     ⚠️ `state` is derived from the last outcome and nothing else: 'offline' the moment an
     attempt failed, 'online' while the last one worked, null for a connector that has never
@@ -188,6 +188,11 @@ async def _connectors(db: AsyncSession) -> list[dict]:
             connector_state.DIVERA_PERSONNEL,
             configured=bool(credential("divera_personnel_access_key") or credential("divera_access_key")),
             health=health[connector_state.DIVERA_PERSONNEL],
+        ),
+        _polling_connector(
+            connector_state.ROSTER_SNAPSHOT,
+            configured=bool(credential("station_index_source") or credential("roster_snapshot_source")),
+            health=health[connector_state.ROSTER_SNAPSHOT],
         ),
         {
             "id": "capture",
