@@ -5111,23 +5111,17 @@ export const de = {
     viewLabel: 'Ansicht',
   },
   // «Anrückend» — die Divera-Rückmeldungen über der Anwesenheit (AnrueckendBlock, X1 08.10.2026).
-  // ⚠️ Eine Divera-Antwort ist KEINE Anwesenheit: erst «da» erfasst jemanden. «kommt nicht» steht
-  // in einer eigenen, gedämpften Gruppe — mit ✕ und dem Wort, nie nur als Farbe.
+  // Nur ja / nein und Namen (Besitzer, 09.10.2026). ⚠️ Eine Divera-Antwort ist KEINE Anwesenheit:
+  // erst «da» erfasst jemanden. «kommt nicht» steht in einer eigenen, gedämpften Gruppe — mit ✕
+  // und dem Wort, nie nur als Farbe.
   anrueckend: {
     title: 'Anrückend',
-    source: 'Divera · {t}',
     sourceBare: 'Divera',
     coming: (n: number) => (n === 1 ? '1 kommt' : `${n} kommen`),
     notComing: (n: number) => (n === 1 ? '1 kommt nicht' : `${n} kommen nicht`),
-    other: (n: number) => (n === 1 ? '1 andere Antwort' : `${n} andere Antworten`),
     here: (n: number) => `${n} da`,
-    noAnswers: 'Noch keine Rückmeldung',
     notComingGroup: (n: number) => `Kommt nicht (${n})`,
     notComingWord: 'kommt nicht',
-    otherGroup: 'Andere Rückmeldung',
-    answeredAt: 'Antwort {t}',
-    eta: 'ca. {t}',
-    etaHint: 'Schätzung: Antwortzeit plus die Minuten des Divera-Status',
     checkIn: 'da',
     checkInLabel: '{name} ist da – als anwesend erfassen',
     allHere: 'Alle, die kommen wollten, sind erfasst.',

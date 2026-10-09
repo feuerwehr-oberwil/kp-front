@@ -303,7 +303,6 @@ button.ortStation:active:not(:disabled) { background-image: linear-gradient(var(
   grid-area: meta; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim);
 }
-.anrEta { flex: none; font: var(--fw-heavy) var(--fs-1) var(--body); color: var(--ink); }
 .anrDa { grid-area: da; min-height: var(--tap); }
 /* «kommt nicht»: muted, but every row still SAYS it — ✕ + the word — and keeps its «da» (a
    misclick in Divera happens). Not the done-dim of a gone row: that one means «was here». */

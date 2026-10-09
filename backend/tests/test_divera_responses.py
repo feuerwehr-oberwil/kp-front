@@ -5,17 +5,18 @@ The fixtures in tests/fixtures/divera/ have the REAL shape of Divera's `/api/v2/
 `{status id: {ucr: {ts, note}}}`, not the `int[]` Divera's Swagger claims). No test here, and no
 code path, calls Divera: the HTTP layer is a MockTransport.
 
-What is pinned:
-- parsing: dict AND list `items`, `ucr_answered: []` on an alarm nobody answered, Divera's own
-  «ucr_adressed» spelling, junk ids dropped, notes clipped;
+What is pinned (yes / no only — owner, 09.10.2026):
+- parsing: dict AND list `items`, `ucr_answered: []` on an alarm nobody answered, junk ids
+  dropped, the latest answer per person if Divera files one twice;
 - the default classification («Komme nicht» is NOT coming although it contains «komme»), the
-  station override by id and by name, id beating name;
-- ETA = answer + the status's minutes, only for «coming», labelled an estimate by the UI;
-- the latest answer wins per person, across statuses and across a Nachalarm attached to the
-  same Einsatz;
-- the poll stores the answers of known alarms only, writes nothing for a no-op poll, fetches the
-  status names at most once per TTL and never while holding the per-alarm locks;
-- the read: logged-in only, `available: false` without a Divera alarm.
+  station override by id and by name, id beating name; «andere» is dropped, not counted;
+- what is STORED is our personnel ids per yes/no and a count of unknown people — no status, no
+  time, no note, no Divera id;
+- a newer alarm's answer wins (Nachalarm); alarms older than 6 h no longer count;
+- the poll stores known alarms only, writes nothing for a no-op poll, keeps what it had while the
+  status names cannot be loaded, and refetches the names for an unknown status (backoff);
+- stored answers are cleared once the Einsatz is over and 48 h after the alarm;
+- the read: editor-only, open Einsätze only, `available: false` without answers.
 """
 
 import json
@@ -29,7 +30,7 @@ from sqlalchemy import select
 from app import divera as divera_mod
 from app import divera_responses as dr
 from app.config import settings
-from app.models import DeploymentConfig, DiveraEmergency, Incident
+from app.models import DeploymentConfig, DiveraEmergency, Incident, Personnel, PersonnelExternalIdentity
 
 FIX = Path(__file__).parent / "fixtures" / "divera"
 ALARMS = json.loads((FIX / "alarms_with_responses.json").read_text())
@@ -77,30 +78,25 @@ def _divera(request: httpx.Request) -> httpx.Response:
 # --- parsing ------------------------------------------------------------------------------
 
 
-def test_the_real_alarm_shape_parses_and_a_closed_alarm_without_answers_is_skipped():
+def test_the_real_alarm_shape_parses_and_an_alarm_without_answers_is_skipped():
     parsed = dr.parse_responses_by_alarm(ALARMS)
-    assert set(parsed) == {4711, 4712}
-    a = parsed[4711]
-    assert sorted(a["answered"]) == ["11", "12", "13", "17"]
-    assert a["answered"]["12"]["103"] == {"ts": 1791478890, "note": "5 min"}
-    # COUNTS only — no per-person read receipt or addressed list is kept
-    assert (a["addressed"], a["read"]) == (10, 8)
-    # 4712: `ucr_answered: []` (Divera's empty shape) — no answers, one addressed, no crash
-    assert parsed[4712]["answered"] == {}
-    assert parsed[4712]["addressed"] == 1
+    # 4712: `ucr_answered: []` (Divera's empty shape) — nothing to record, no crash
+    assert list(parsed) == [4711]
+    assert parsed[4711] == {"101": "11", "102": "11", "103": "12", "999": "12", "104": "13", "105": "13", "106": "17"}
 
 
-def test_items_as_a_list_the_adressed_spelling_and_junk_are_handled():
+def test_items_as_a_list_junk_and_a_double_answer_are_handled():
     data = {
         "success": True,
         "data": {
             "items": [
                 {
                     "id": 9,
-                    "ucr_adressed": [5, "6", None],
                     "ucr_answered": {
                         "x": {"5": {}},
-                        "3": {"5": {"ts": "1791478860", "note": "  a  b " + "z" * 200}, "bad": {}},
+                        "3": {"5": {"ts": "1791478860"}, "bad": {}},
+                        # 5 answered twice: the later answer is the one that counts
+                        "4": {"5": {"ts": 1791478900}, "6": {"ts": 10**20}},
                     },
                 },
                 {"id": 0, "ucr_answered": {"3": {"1": {"ts": 1}}}},
@@ -109,12 +105,7 @@ def test_items_as_a_list_the_adressed_spelling_and_junk_are_handled():
             ]
         },
     }
-    parsed = dr.parse_responses_by_alarm(data)
-    assert list(parsed) == [9]
-    answer = parsed[9]["answered"]["3"]["5"]
-    assert answer["ts"] == 1791478860
-    assert answer["note"].startswith("a b z") and len(answer["note"]) == dr.NOTE_MAX
-    assert parsed[9]["addressed"] == 2
+    assert dr.parse_responses_by_alarm(data) == {9: {"5": "4", "6": "4"}}
     assert dr.parse_responses_by_alarm({"success": False}) == {}
 
 
@@ -135,6 +126,8 @@ def test_items_as_a_list_the_adressed_spelling_and_junk_are_handled():
         ("Bin unterwegs", 0, "coming"),
         ("Je viens", 0, "coming"),
         ("Je ne viens pas", 0, "not_coming"),
+        ("Vengo", 0, "coming"),
+        ("Non vengo", 0, "not_coming"),
         ("Grün", 5, "coming"),
         ("", 0, "other"),
     ],
@@ -152,106 +145,82 @@ def test_the_station_override_wins_by_id_then_by_name():
     assert dr.classify("99", None, ov) == "other"  # nobody can name it
 
 
-# --- summarise ----------------------------------------------------------------------------
-
-
-def _blob(alarm_id=4711, when=datetime(2026, 10, 8, 18, 0, tzinfo=UTC)):
-    parsed = dr.parse_responses_by_alarm(ALARMS)[alarm_id]
-    return dr.with_catalogue(parsed, dr.parse_status_catalogue(PULL_ALL), when)
-
+# --- what is stored, what is read -----------------------------------------------------------
 
 #: the Mannschaftsliste of the tests: Divera user → our personnel id; 999 is on nobody's roster
 ROSTER = {str(u): f"p{u}" for u in range(101, 107)}
+CATALOGUE = dr.parse_status_catalogue(PULL_ALL)
 
 
-def test_the_summary_counts_kinds_names_statuses_and_estimates_arrival():
-    s = dr.summarise([_blob()], None, ROSTER)
-    assert s["available"] is True
-    assert s["counts"] == {
-        "coming": 4,
-        "not_coming": 2,
-        "other": 1,
-        "answered": 7,
-        "addressed": 10,
-        "unanswered": 3,
-        "unmapped": 1,
-        "read": 8,
+def _blob():
+    return dr.classify_answers(dr.parse_responses_by_alarm(ALARMS)[4711], CATALOGUE, None, ROSTER)
+
+
+def test_only_our_ids_and_yes_no_are_stored():
+    assert _blob() == {
+        "coming": ["p101", "p102", "p103"],
+        "not_coming": ["p104", "p105"],
+        # 999 said «Komme in 10 min» and is on nobody's roster: a number, not an id
+        "unmapped": {"coming": 1, "not_coming": 0},
     }
-    # in Divera's own order (statussorting_alarm), with their names
-    assert [(x["id"], x["name"], x["kind"], x["count"]) for x in s["statuses"]] == [
-        (11, "Komme", "coming", 2),
-        (12, "Komme in 10 min", "coming", 2),
-        (13, "Komme nicht", "not_coming", 2),
-        (17, "Rückruf erbeten", "other", 1),
-    ]
-    by = {a["person_id"]: a for a in s["answers"]}
-    assert by["p103"]["eta"] == datetime.fromtimestamp(1791478890 + 600, tz=UTC).isoformat()
-    assert by["p101"]["eta"] is None  # «Komme» promises no minutes — no invented ETA
-    assert by["p104"]["kind"] == "not_coming" and by["p104"]["note"] == "Ferien"
-    assert by["p104"]["eta"] is None
-    # 999 is on nobody's roster: counted, but no row — no Divera id, no note leaves the server
-    assert len(s["answers"]) == 6
-    assert all("ucr_id" not in a for a in s["answers"])
+    # «Rückruf erbeten» (106) is neither — dropped, not counted
+    assert "p106" not in str(_blob())
 
 
-def test_a_viewer_never_reads_the_notes():
-    s = dr.summarise([_blob()], None, ROSTER, with_notes=False)
-    assert all(a["note"] == "" for a in s["answers"])
+def test_the_summary_is_names_and_counts_and_nothing_else():
+    s = dr.summarise([_blob()])
+    assert s == {
+        "available": True,
+        "coming": ["p101", "p102", "p103"],
+        "not_coming": ["p104", "p105"],
+        "counts": {"coming": 4, "not_coming": 2, "unmapped": 1},
+    }
 
 
-def test_a_junk_timestamp_or_count_never_takes_the_summary_down():
-    blob = _blob()
-    blob["answered"]["11"]["101"]["ts"] = 10**20
-    blob["answered"]["11"]["102"]["ts"] = "gestern"
-    blob["read"] = "viele"
-    s = dr.summarise([blob], None, ROSTER)
-    by = {a["person_id"]: a for a in s["answers"]}
-    assert by["p101"]["answered_at"] is None and by["p102"]["answered_at"] is None
-    assert s["counts"]["read"] == 0
-
-
-def test_nothing_stored_reads_as_no_data():
-    s = dr.summarise([], None, ROSTER)
-    assert s["available"] is False and s["reason"] == "no_data"
-
-
-def test_the_latest_answer_wins_across_statuses_and_across_an_attached_nachalarm():
+def test_a_newer_alarm_answer_wins_and_an_unknown_person_counts_once():
     first = _blob()
-    # Nachalarm: 104 changed their mind and now comes; 101 answered the first alarm only
-    second = dr.with_catalogue(
-        {"answered": {"11": {"104": {"ts": 1791479500, "note": ""}}}, "addressed": 1, "read": 1},
-        dr.parse_status_catalogue(PULL_ALL),
-        datetime(2026, 10, 8, 18, 10, tzinfo=UTC),
-    )
-    s = dr.summarise([first, second], None, ROSTER)
-    by = {a["person_id"]: a for a in s["answers"]}
-    assert by["p104"]["kind"] == "coming"
-    assert by["p101"]["kind"] == "coming"
-    assert s["counts"]["coming"] == 5 and s["counts"]["not_coming"] == 1
-    assert s["updated_at"] == datetime(2026, 10, 8, 18, 10, tzinfo=UTC).isoformat()
+    # Nachalarm: 104 changed their mind and now comes; 999 answers again
+    second = dr.classify_answers({"104": "11", "999": "11"}, CATALOGUE, None, ROSTER)
+    s = dr.summarise([first, second])
+    assert s["coming"] == ["p101", "p102", "p103", "p104"]
+    assert s["not_coming"] == ["p105"]
+    assert s["counts"] == {"coming": 5, "not_coming": 1, "unmapped": 1}
 
 
-def test_without_a_catalogue_the_answers_still_count_as_other_with_no_name():
-    parsed = dr.parse_responses_by_alarm(ALARMS)[4711]
-    s = dr.summarise([dr.with_catalogue(parsed, None, datetime.now(UTC))])
-    assert s["counts"]["other"] == 7 and s["counts"]["coming"] == 0
-    assert all(x["name"] == "" for x in s["statuses"])
-    # …and a failed lookup never overwrites the names a row already has
-    named = _blob()
-    again = dr.with_catalogue(parsed, None, datetime.now(UTC), previous=named)
-    assert again["statuses"]["13"]["name"] == "Komme nicht"
-    # …unless the station says what an id means
-    s = dr.summarise([dr.with_catalogue(parsed, None, datetime.now(UTC))], {"11": "coming", "13": "not_coming"})
-    assert (s["counts"]["coming"], s["counts"]["not_coming"]) == (2, 2)
+def test_nothing_or_only_other_reads_as_no_data():
+    assert dr.summarise([]) == {"available": False, "reason": "no_data"}
+    assert dr.classify_answers({"106": "17"}, CATALOGUE, None, ROSTER) is None
+
+
+def test_without_names_only_a_station_override_classifies():
+    answers = dr.parse_responses_by_alarm(ALARMS)[4711]
+    assert dr.classify_answers(answers, None, None, ROSTER) is None
+    assert not dr.resolvable(answers, None, None)
+    blob = dr.classify_answers(answers, None, {"11": "coming", "13": "not_coming"}, ROSTER)
+    assert blob == {
+        "coming": ["p101", "p102"],
+        "not_coming": ["p104", "p105"],
+        "unmapped": {"coming": 0, "not_coming": 0},
+    }
 
 
 # --- the poll -----------------------------------------------------------------------------
 
 
-async def test_the_poll_stores_answers_for_known_alarms_and_fetches_names_once(db_session, patch_httpx, monkeypatch):
+async def _roster(db_session):
+    for ucr in range(101, 107):
+        p = Personnel(display_name=f"P {ucr}", is_active=True)
+        db_session.add(p)
+        await db_session.flush()
+        db_session.add(PersonnelExternalIdentity(personnel_id=p.id, provider="divera", external_id=str(ucr)))
+    await db_session.flush()
+
+
+async def test_the_poll_stores_yes_no_for_known_alarms_and_fetches_names_once(db_session, patch_httpx, monkeypatch):
     monkeypatch.setattr(settings, "divera_access_key", "unit-key")
     monkeypatch.setattr(settings, "divera_api_url", "https://app.divera247.com/api/v2")
     calls = patch_httpx(_divera)
+    await _roster(db_session)
     # an unarchived Einsatz is running, so neither alarm opens a new one; 4711 is ours already
     inc = Incident(title="B2 Brand", source="divera", status="offen", divera_id=4711, started_at=datetime.now(UTC))
     db_session.add(inc)
@@ -262,8 +231,12 @@ async def test_the_poll_stores_answers_for_known_alarms_and_fetches_names_once(d
     await divera_mod.fetch_and_upsert(db_session)
     await db_session.commit()
     em = (await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 4711))).scalar_one()
-    assert em.responses_json["statuses"]["13"]["name"] == "Komme nicht"
-    assert em.responses_at is not None
+    stored = em.responses_json
+    assert len(stored["coming"]) == 3 and len(stored["not_coming"]) == 2
+    assert stored["unmapped"] == {"coming": 1, "not_coming": 0}
+    # nothing but that: no status, no time, no note, no Divera id
+    assert set(stored) == {"coming", "not_coming", "unmapped"}
+    assert "Ferien" not in json.dumps(stored) and "999" not in json.dumps(stored)
     first_at = em.responses_at
     assert calls.count("/api/v2/pull/all") == 1
 
@@ -276,7 +249,9 @@ async def test_the_poll_stores_answers_for_known_alarms_and_fetches_names_once(d
     assert calls.count("/api/v2/alarms") == 2
 
 
-async def test_a_failing_name_lookup_never_fails_the_alarm_poll(db_session, patch_httpx, monkeypatch, caplog):
+async def test_a_failing_name_lookup_never_fails_the_poll_nor_wipes_what_was_stored(
+    db_session, patch_httpx, monkeypatch, caplog
+):
     monkeypatch.setattr(settings, "divera_access_key", "unit-key-SECRET")
     monkeypatch.setattr(settings, "divera_api_url", "https://app.divera247.com/api/v2")
 
@@ -286,13 +261,14 @@ async def test_a_failing_name_lookup_never_fails_the_alarm_poll(db_session, patc
         return _divera(request)
 
     patch_httpx(_handler)
-    db_session.add(DiveraEmergency(divera_id=4711, title="B2", is_taken=True))
+    await _roster(db_session)
+    before = {"coming": ["x"], "not_coming": [], "unmapped": {"coming": 0, "not_coming": 0}}
+    db_session.add(DiveraEmergency(divera_id=4711, title="B2", is_taken=True, responses_json=before))
     await db_session.commit()
     await divera_mod.fetch_and_upsert(db_session)
     await db_session.commit()
     em = (await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 4711))).scalar_one()
-    assert em.responses_json["answered"]["13"]["104"]["note"] == "Ferien"
-    assert em.responses_json["statuses"] == {}
+    assert em.responses_json == before
     assert "unit-key-SECRET" not in caplog.text
 
 
@@ -303,7 +279,6 @@ async def test_a_status_the_names_list_does_not_know_refetches_it_within_the_bac
     monkeypatch.setattr(dr, "_now", lambda: clock[0])
     await dr.ensure_catalogue({"11"})
     assert calls.count("/api/v2/pull/all") == 1
-    # a known id: the cached list answers
     clock[0] += 60
     await dr.ensure_catalogue({"11", "13"})
     assert calls.count("/api/v2/pull/all") == 1
@@ -323,20 +298,27 @@ async def test_answers_are_cleared_once_the_einsatz_is_over_or_past_retention(db
     await db_session.flush()
     fresh = int((now - timedelta(minutes=10)).timestamp())
     old = int((now - timedelta(hours=49)).timestamp())
-    rows = [
-        DiveraEmergency(
-            divera_id=1, title="a", ts_create=fresh, is_taken=True, taken_incident_id=running.id, responses_json=_blob()
-        ),
-        DiveraEmergency(
-            divera_id=2, title="b", ts_create=fresh, is_taken=True, taken_incident_id=closed.id, responses_json=_blob()
-        ),
-        DiveraEmergency(
-            divera_id=3, title="c", ts_create=old, is_taken=True, taken_incident_id=running.id, responses_json=_blob()
-        ),
-        # its incident was deleted: the link is nulled, the row stays taken
-        DiveraEmergency(divera_id=4, title="d", ts_create=fresh, is_taken=True, responses_json=_blob()),
-    ]
-    db_session.add_all(rows)
+    blob = _blob()
+    db_session.add_all(
+        [
+            DiveraEmergency(
+                divera_id=1,
+                title="a",
+                ts_create=fresh,
+                is_taken=True,
+                taken_incident_id=running.id,
+                responses_json=blob,
+            ),
+            DiveraEmergency(
+                divera_id=2, title="b", ts_create=fresh, is_taken=True, taken_incident_id=closed.id, responses_json=blob
+            ),
+            DiveraEmergency(
+                divera_id=3, title="c", ts_create=old, is_taken=True, taken_incident_id=running.id, responses_json=blob
+            ),
+            # its incident was deleted: the link is nulled, the row stays taken
+            DiveraEmergency(divera_id=4, title="d", ts_create=fresh, is_taken=True, responses_json=blob),
+        ]
+    )
     await db_session.commit()
     assert await divera_mod.prune_responses(db_session, now) == 3
     await db_session.commit()
@@ -362,9 +344,7 @@ async def test_the_fast_cadence_lasts_ten_minutes_after_an_alarm(db_session):
 # --- the read -----------------------------------------------------------------------------
 
 
-async def test_the_read_is_editor_only_roster_mapped_and_forgets_old_alarms(client, db_session, editor, viewer):
-    from app.models import Personnel, PersonnelExternalIdentity
-
+async def test_the_read_is_editor_only_and_forgets_old_alarms(client, db_session, editor, viewer):
     now = datetime.now(UTC)
     inc = Incident(title="B2 Brand", source="divera", status="offen", divera_id=4711)
     # a MANUAL Einsatz with the alarm attached — no divera_id, still has answers
@@ -373,12 +353,8 @@ async def test_the_read_is_editor_only_roster_mapped_and_forgets_old_alarms(clie
     archived = Incident(title="alt", source="divera", status="offen", is_archived=True)
     db_session.add_all([inc, manual, other, archived])
     await db_session.flush()
-    for ucr in range(101, 107):
-        p = Personnel(display_name=f"P {ucr}", is_active=True)
-        db_session.add(p)
-        await db_session.flush()
-        db_session.add(PersonnelExternalIdentity(personnel_id=p.id, provider="divera", external_id=str(ucr)))
     recent = int((now - timedelta(minutes=5)).timestamp())
+    earlier = int((now - timedelta(minutes=30)).timestamp())
     db_session.add_all(
         [
             DiveraEmergency(
@@ -389,22 +365,23 @@ async def test_the_read_is_editor_only_roster_mapped_and_forgets_old_alarms(clie
                 taken_incident_id=inc.id,
                 responses_json=_blob(),
             ),
-            # the first night's alarm on the same Einsatz: 7 h old, no longer «anrückend»
+            # a first alarm 30 min earlier: 101 said no then — the newer «komme» wins
+            DiveraEmergency(
+                divera_id=4710,
+                title="B1",
+                ts_create=earlier,
+                is_taken=True,
+                taken_incident_id=inc.id,
+                responses_json={"coming": [], "not_coming": ["p101"], "unmapped": {"coming": 0, "not_coming": 0}},
+            ),
+            # the first night's alarm, 7 h old: no longer «anrückend»
             DiveraEmergency(
                 divera_id=4700,
-                title="B1",
+                title="B0",
                 ts_create=int((now - timedelta(hours=7)).timestamp()),
                 is_taken=True,
                 taken_incident_id=inc.id,
-                responses_json=dr.with_catalogue(
-                    {
-                        "answered": {"11": {"999": {"ts": 1, "note": "x"}, "101": {"ts": 2**31, "note": ""}}},
-                        "addressed": 50,
-                        "read": 0,
-                    },
-                    None,
-                    now,
-                ),
+                responses_json={"coming": ["p999"], "not_coming": [], "unmapped": {"coming": 0, "not_coming": 0}},
             ),
             DiveraEmergency(
                 divera_id=4712,
@@ -424,28 +401,36 @@ async def test_the_read_is_editor_only_roster_mapped_and_forgets_old_alarms(clie
             ),
         ]
     )
-    db_session.add(
-        DeploymentConfig(id=1, config_json={"roster": {"diveraResponses": {"Rückruf erbeten": "not_coming"}}})
-    )
     await db_session.commit()
 
     assert (await client.get(f"/api/divera/responses/{inc.id}")).status_code == 401
-    # personal data: editor-only, like the rest of /api/divera
     assert (await client.post("/api/auth/login", json={"user_id": str(viewer.id), "pin": PIN})).status_code == 200
     assert (await client.get(f"/api/divera/responses/{inc.id}")).status_code == 403
 
     assert (await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": PIN})).status_code == 200
     body = (await client.get(f"/api/divera/responses/{inc.id}")).json()
-    assert body["available"] is True
-    assert body["counts"]["addressed"] == 10  # the 7 h old alarm's 50 no longer count
-    assert body["counts"]["not_coming"] == 3  # 104, 105 + the override's 106
-    assert body["counts"]["unmapped"] == 1
-    # our ids only — 999 is a count, never a Divera id or a note
-    assert len(body["answers"]) == 6
-    assert all(set(a) == {"person_id", "status_id", "kind", "answered_at", "eta", "note"} for a in body["answers"])
-    assert "999" not in str(body)
-
-    # the attached alarm counts on a manual Einsatz too
+    assert body == {
+        "available": True,
+        "coming": ["p101", "p102", "p103"],
+        "not_coming": ["p104", "p105"],
+        "counts": {"coming": 4, "not_coming": 2, "unmapped": 1},
+    }
     assert (await client.get(f"/api/divera/responses/{manual.id}")).json()["available"] is True
     assert (await client.get(f"/api/divera/responses/{other.id}")).json() == {"available": False, "reason": "no_data"}
     assert (await client.get(f"/api/divera/responses/{archived.id}")).json() == {"available": False, "reason": "closed"}
+
+
+async def test_the_station_override_applies_when_the_poll_stores(db_session, patch_httpx, monkeypatch):
+    monkeypatch.setattr(settings, "divera_access_key", "unit-key")
+    monkeypatch.setattr(settings, "divera_api_url", "https://app.divera247.com/api/v2")
+    patch_httpx(_divera)
+    await _roster(db_session)
+    db_session.add(
+        DeploymentConfig(id=1, config_json={"roster": {"diveraResponses": {"Rückruf erbeten": "not_coming"}}})
+    )
+    db_session.add(DiveraEmergency(divera_id=4711, title="B2", is_taken=True))
+    await db_session.commit()
+    await divera_mod.fetch_and_upsert(db_session)
+    await db_session.commit()
+    em = (await db_session.execute(select(DiveraEmergency).where(DiveraEmergency.divera_id == 4711))).scalar_one()
+    assert len(em.responses_json["not_coming"]) == 3  # 104, 105 + the override's 106

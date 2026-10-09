@@ -1,44 +1,29 @@
-// The Anwesenheit's «Anrückend» block, as data: the Divera Rückmeldungen of this Einsatz laid
-// over the Mannschaft and over who is already here.
+// The Anwesenheit's «Anrückend» block, as data: who answered the Divera alarm «kommt» / «kommt
+// nicht», laid over the Mannschaft and over who is already here. Yes / no and names only (owner,
+// 09.10.2026: «just yes/no is enough») — no answer time, no status words, no notes.
 //
 // ⚠️ A Divera answer is NEVER presence. This module only sorts the answers into what the block
 // shows; somebody is anwesend once a person on the scene taps «da», which is the ordinary
 // attendance write (useAttendanceActions · markPresent) and nothing here.
 import type { AttendanceState, Person } from '../types'
-import type { DiveraAnswer, DiveraResponseKind, DiveraResponses } from './api/divera'
-
-export interface AnrueckendRow {
-  person: Person
-  kind: DiveraResponseKind
-  /** the Einheit's own word for the answer («Komme in 10 min»); empty when it could not be named */
-  statusName: string
-  statusId: number
-  answeredAt: string | null
-  /** an ESTIMATE (answer + the status's minutes), shown as «ca.» */
-  eta: string | null
-  note: string
-}
+import type { DiveraResponses } from './api/divera'
+import { rankOrder } from './rank'
 
 export interface Anrueckend {
   /** every answer, whoever gave it — the head line («9 kommen · 2 kommen nicht») */
-  counts: Record<DiveraResponseKind, number>
+  counts: { coming: number; notComing: number }
   /** answered and already recorded here (anwesend, or here and gone again) */
   here: number
-  /** addressed by the alarm and not answered (yet) */
-  unanswered: number
-  /** said they come, not recorded yet — soonest first */
-  coming: AnrueckendRow[]
+  /** said they come, not recorded yet — the way the crew list below sorts them */
+  coming: Person[]
   /** said they DON'T come — their own, muted group; still tappable (a misclick happens) */
-  notComing: AnrueckendRow[]
-  /** an answer that is neither («Rückruf erbeten») */
-  other: AnrueckendRow[]
-  /** answers from somebody the Mannschaftsliste does not know (never synced, or a guest) — the
-   *  server sends only the count, never who */
+  notComing: Person[]
+  /** answers from somebody this device's roster does not know — only ever a number */
   unmapped: number
-  updatedAt: string | null
 }
 
-const byTime = (a: string | null, b: string | null) => (a ?? '￿').localeCompare(b ?? '￿')
+const byRankThenName = (a: Person, b: Person) =>
+  rankOrder(a.rank) - rankOrder(b.rank) || a.displayName.localeCompare(b.displayName, 'de')
 
 export function buildAnrueckend(
   resp: DiveraResponses | null | undefined,
@@ -46,48 +31,29 @@ export function buildAnrueckend(
   attendance: AttendanceState,
 ): Anrueckend | null {
   if (!resp?.available) return null
-  const answers: DiveraAnswer[] = resp.answers ?? []
-  const names = new Map((resp.statuses ?? []).map((s) => [s.id, s.name]))
-  // the server already mapped Divera users onto OUR ids (and dropped everybody else)
   const roster = new Map(people.map((p) => [p.id, p]))
-  // the head line counts EVERY answer — the server's totals include the people it could not name
-  const tally: Record<DiveraResponseKind, number> = { coming: 0, not_coming: 0, other: 0 }
-  const coming: AnrueckendRow[] = []
-  const notComing: AnrueckendRow[] = []
-  const other: AnrueckendRow[] = []
   let here = 0
-  // a roster row the device does not have (yet) counts with the ones the server could not map
+  // the server already counted the people it could not name; a row this device lacks joins them
   let unmapped = resp.counts?.unmapped ?? 0
-  for (const a of answers) {
-    const kind: DiveraResponseKind = a.kind === 'coming' || a.kind === 'not_coming' ? a.kind : 'other'
-    tally[kind]++
-    const person = roster.get(a.person_id)
-    if (!person) { unmapped++; continue }
-    // Recorded here in ANY state — anwesend, or here and gone again. Either way the Anwesenheit
-    // below already carries them; listing them again as «anrückend» would be a second, stale row.
-    if (attendance[person.id]) { here++; continue }
-    const row: AnrueckendRow = {
-      person, kind, statusId: a.status_id, statusName: names.get(a.status_id) ?? '',
-      answeredAt: a.answered_at, eta: kind === 'coming' ? a.eta : null, note: a.note ?? '',
+  const pick = (ids: string[] | undefined): Person[] => {
+    const out: Person[] = []
+    for (const id of ids ?? []) {
+      const person = roster.get(id)
+      if (!person) { unmapped++; continue }
+      // Recorded here in ANY state — anwesend, or here and gone again. Either way the Anwesenheit
+      // below already carries them; listing them again as «anrückend» would be a second row.
+      if (attendance[person.id]) { here++; continue }
+      out.push(person)
     }
-    if (kind === 'coming') coming.push(row)
-    else if (kind === 'not_coming') notComing.push(row)
-    else other.push(row)
+    return out.sort(byRankThenName)
   }
-  // who is here first: the estimate where there is one, else the moment they answered
-  coming.sort((a, b) => byTime(a.eta ?? a.answeredAt, b.eta ?? b.answeredAt)
-    || a.person.displayName.localeCompare(b.person.displayName, 'de'))
-  const byName = (a: AnrueckendRow, b: AnrueckendRow) => a.person.displayName.localeCompare(b.person.displayName, 'de')
-  notComing.sort(byName)
-  other.sort(byName)
-  const c = resp.counts
-  const counts: Record<DiveraResponseKind, number> = c
-    ? { coming: c.coming ?? 0, not_coming: c.not_coming ?? 0, other: c.other ?? 0 }
-    : tally
+  const coming = pick(resp.coming)
+  const notComing = pick(resp.not_coming)
   return {
-    counts, here, unmapped,
-    unanswered: resp.counts?.unanswered ?? 0,
-    coming, notComing, other,
-    updatedAt: resp.updated_at ?? null,
+    counts: {
+      coming: resp.counts?.coming ?? (resp.coming?.length ?? 0),
+      notComing: resp.counts?.not_coming ?? (resp.not_coming?.length ?? 0),
+    },
+    here, unmapped, coming, notComing,
   }
 }

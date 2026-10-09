@@ -19,11 +19,17 @@ const mount = (over: Partial<Parameters<typeof AnrueckendBlock>[0]> = {}) => {
 }
 
 describe('«Anrückend» — the Divera answers above the crew list', () => {
-  it('says the counts in one line: kommen · kommen nicht · andere', () => {
+  it('says the counts in one line: kommen · kommen nicht', () => {
     mount()
     const R = appConfig.copy.anrueckend
     const head = screen.getByRole('button', { expanded: true })
-    expect(head.textContent).toContain(`${R.coming(4)} · ${R.notComing(2)} · ${R.other(1)}`)
+    expect(head.textContent).toContain(`${R.coming(4)} · ${R.notComing(2)}`)
+  })
+
+  it('shows names and yes / no only — no times, no status words, no notes', () => {
+    mount()
+    const row = screen.getByText('Keller Peter').closest('li')!
+    expect(row.textContent).not.toMatch(/\d\d:\d\d|ca\.|Komme|min/)
   })
 
   it('marks «kommt nicht» with the word on every row, in a group of its own — never colour alone', () => {
@@ -36,13 +42,6 @@ describe('«Anrückend» — the Divera answers above the crew list', () => {
     for (const r of rows) expect(r.textContent).toContain(R.notComingWord)
     // …and the coming ones never carry it
     expect(screen.getByText('Keller Peter').closest('li')!.textContent).not.toContain(R.notComingWord)
-  })
-
-  it('labels the arrival as an estimate («ca.») and only where the status promises minutes', () => {
-    mount()
-    const row = screen.getByText('Keller Peter').closest('li')!
-    expect(row.textContent).toMatch(/ca\. \d\d:\d\d/)
-    expect(screen.getByText('Muster Hans').closest('li')!.textContent).not.toMatch(/ca\./)
   })
 
   it('checks somebody in only on the explicit «da» tap — also somebody who said they would not come', () => {
