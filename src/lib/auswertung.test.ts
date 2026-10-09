@@ -24,6 +24,31 @@ const base = (over: Partial<AuswertungInput> = {}): AuswertungInput => ({
   ...over,
 })
 
+describe('Auswertung print default · actual Atemschutz deployment', () => {
+  it('stays off for no crew, standby only, or a deployment without PA', () => {
+    expect(hadAtemschutzDeployment([])).toBe(false)
+    expect(hadAtemschutzDeployment([trupp({ readings: [r('10:00', 'registered')] })])).toBe(false)
+    expect(hadAtemschutzDeployment([trupp({ kind: 'einfach', readings: [r('10:00', 'entry'), r('10:20', 'exit')] })])).toBe(false)
+  })
+
+  it('includes open, completed and later removed PA crews', () => {
+    expect(hadAtemschutzDeployment([trupp({ status: 'aktiv', readings: [r('10:00', 'entry')] })])).toBe(true)
+    expect(hadAtemschutzDeployment([trupp({ removedAt: at('10:30'), readings: [r('10:00', 'entry'), r('10:20', 'exit')] })])).toBe(true)
+    expect(hadAtemschutzDeployment([trupp({ removedAt: at('10:30'), readings: [r('10:00', 'registered'), r('10:20', 'exit')] })])).toBe(false)
+  })
+
+  it('uses the historical PA interval when the current crew kind is einfach', () => {
+    expect(hadAtemschutzDeployment([trupp({ kind: 'einfach', readings: [r('10:00', 'entry'), r('10:05', 'paOn'), r('10:15', 'paOff'), r('10:20', 'exit')] })])).toBe(true)
+    expect(hadAtemschutzDeployment([trupp({ kind: 'einfach', readings: [r('10:00', 'entry'), r('10:15', 'paOff'), r('10:20', 'exit')] })])).toBe(true)
+  })
+
+  it('recognizes legacy PA entry times but does not invent an entry from invalid timestamps', () => {
+    expect(hadAtemschutzDeployment([trupp({ readings: [], entryTime: at('10:00'), exitTime: at('10:20') })])).toBe(true)
+    expect(hadAtemschutzDeployment([trupp({ kind: 'einfach', readings: [], entryTime: at('10:00') })])).toBe(false)
+    expect(hadAtemschutzDeployment([trupp({ readings: [{ t: 'invalid', kind: 'entry', bar: 250 }] })])).toBe(false)
+  })
+})
+
 describe('truppStretches + contactIntervals', () => {
   // entry 10:10, contacts after 4 · 5.5 · 10.5 min, exit 2 min later
   const t = trupp({
