@@ -35,6 +35,8 @@ export interface ClientErrorReport {
   detail: string
   /** why the guard let it pass on its own (only in client-errors-expected.json) */
   excused?: string
+  /** why a report that looked like a broken tile was not excused */
+  notExcused?: string
 }
 
 interface ClientErrorSink {
@@ -46,7 +48,7 @@ interface ClientErrorSink {
   /** reports that are a broken basemap tile if the network says so — decided when the test ends,
    *  because the failed tile request and the report arrive in either order (so a mid-test
    *  `expectNoClientErrors` does not see them yet) */
-  tileBreaks: { report: ClientErrorReport; isTileBreak: () => boolean }[]
+  tileBreaks: { report: ClientErrorReport; notATileBreak: () => string }[]
 }
 
 const CLIENT_ERROR_PATH = '/api/diag/client-error'
@@ -80,9 +82,15 @@ function kindAndMessage(body: string): string {
 function guardClientErrors(context: BrowserContext, device: string, sink: ClientErrorSink) {
   // when this device saw a basemap tile request fail, and when one of its own requests failed
   // for any other reason than a cancel
-  const tileFailures: number[] = []
-  const ownFailures: number[] = []
-  const near = (times: number[], at: number) => times.some((t) => Math.abs(t - at) <= TILE_BREAK_WINDOW_MS)
+  const tileFailures: { at: number; what: string }[] = []
+  const ownFailures: { at: number; what: string }[] = []
+  const near = (failures: typeof ownFailures, at: number) => failures.filter((f) => Math.abs(f.at - at) <= TILE_BREAK_WINDOW_MS)
+  /** '' if it is a broken tile, else why not */
+  const notATileBreak = (at: number) => {
+    const own = near(ownFailures, at)
+    if (own.length) return `another request failed then: ${own.slice(0, 3).map((f) => f.what).join('; ')}`
+    return near(tileFailures, at).length ? '' : `no basemap request failed within ${TILE_BREAK_WINDOW_MS} ms (${tileFailures.length} in the test)`
+  }
   const push = (source: ClientErrorReport['source'], detail: string) => {
     const now = Date.now()
     const report = { device, source, at: new Date(now).toISOString(), detail: detail.slice(0, 4000) }
@@ -91,12 +99,14 @@ function guardClientErrors(context: BrowserContext, device: string, sink: Client
     if (excused) sink.expected.push(report)
     // A broken tile, unless our own server's requests were failing at the same moment: then the
     // same words could be ours, and the guard stays strict.
-    else if (TILE_BREAK.test(said)) sink.tileBreaks.push({ report, isTileBreak: () => near(tileFailures, now) && !near(ownFailures, now) })
+    else if (TILE_BREAK.test(said)) sink.tileBreaks.push({ report, notATileBreak: () => notATileBreak(now) })
     else sink.reports.push(report)
   }
   context.on('requestfailed', (req) => {
-    if (BASEMAP_TILE.test(req.url())) tileFailures.push(Date.now())
-    else if (!CANCELLED.test(req.failure()?.errorText ?? '')) ownFailures.push(Date.now())
+    const error = req.failure()?.errorText ?? ''
+    const failure = { at: Date.now(), what: `${req.method()} ${req.url().slice(0, 120)} – ${error}` }
+    if (BASEMAP_TILE.test(req.url())) tileFailures.push(failure)
+    else if (!CANCELLED.test(error)) ownFailures.push(failure)
   })
   const watch = (page: Page) => {
     page.on('console', (msg) => { if (msg.type() === 'error' && LOOP_SIGNS.test(msg.text())) push('console', msg.text()) })
@@ -117,9 +127,10 @@ export function expectNoClientErrors(reports: ClientErrorReport[], where: string
 
 async function settleClientErrors(sink: ClientErrorSink, testInfo: TestInfo) {
   let tiles = 0
-  for (const { report, isTileBreak } of sink.tileBreaks) {
-    if (isTileBreak()) { tiles++; sink.expected.push({ ...report, excused: 'a basemap tile request failed on this device' }) }
-    else sink.reports.push(report)
+  for (const { report, notATileBreak } of sink.tileBreaks) {
+    const why = notATileBreak()
+    if (!why) { tiles++; sink.expected.push({ ...report, excused: 'a basemap tile request failed on this device' }) }
+    else sink.reports.push({ ...report, notExcused: why })
   }
   // one line in the run log, so a green run still says the guard let something pass
   if (tiles) console.warn(`client-error guard: excused ${tiles} broken basemap tile report(s) in «${testInfo.title}» (client-errors-expected.json)`)
@@ -132,7 +143,8 @@ async function settleClientErrors(sink: ClientErrorSink, testInfo: TestInfo) {
   throw new Error(
     `The app reported ${sink.reports.length} client error(s) / render storm(s) during this test ` +
     `(attachment client-errors.json; the server log has them as kpfront.clienterror). ` +
-    `First, on ${first.device} via ${first.source}: ${first.detail.slice(0, 600)}`,
+    `First, on ${first.device} via ${first.source}: ${first.detail.slice(0, 600)}` +
+    (first.notExcused ? ` – not excused as a broken basemap tile: ${first.notExcused}` : ''),
   )
 }
 
