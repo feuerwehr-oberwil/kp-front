@@ -753,8 +753,9 @@ class AuswertungIn(BaseModel):
     noTimeline: str | None = None
     legend: AuswertungLegendIn = AuswertungLegendIn()
     footnotesHead: str = "Definitionen"
-    lehrenHeading: str = "Lehren / Sicherheit"
-    lehren: str | None = None
+    #: «Lehren / Sicherheit: siehe Seite 1» when the Lehren are filled. A pointer, not the text:
+    #: the Lehren print on page 1 with the signed record (review of #303 — one answer, one place).
+    lehrenNote: str | None = None
 
 
 class ReportPayload(BaseModel):
@@ -3367,7 +3368,7 @@ def _aw_legend_items(aw: AuswertungIn) -> list[tuple[str, str]]:
 
 def _auswertung_story(aw: AuswertungIn, width: float, st: dict[str, ParagraphStyle], head) -> list:
     """The Auswertung sheet: heading, the key figures, the swimlanes + legend, the milestone list,
-    the Lehren, the figures' definitions."""
+    the pointer to the Lehren, the figures' definitions."""
     out: list = [*head(aw.heading)]
     if aw.note:
         out.append(Paragraph(_esc(aw.note), st["muted"]))
@@ -3429,11 +3430,11 @@ def _auswertung_story(aw: AuswertungIn, width: float, st: dict[str, ParagraphSty
     elif aw.noTimeline:
         out.append(Paragraph(_esc(aw.noTimeline), st["muted"]))
 
-    # the Lehren before the definitions: they are what the sheet is discussed over, and the
-    # definitions are footnotes — they close the page
-    if aw.lehren:
-        out.extend(head(aw.lehrenHeading))
-        out.append(Paragraph(_esc(aw.lehren).replace("\n", "<br/>"), st["body"]))
+    # the pointer to the Lehren before the definitions: the definitions are footnotes, they close
+    # the page
+    if aw.lehrenNote:
+        out.append(Spacer(1, 6))
+        out.append(Paragraph(f"<b>{_esc(aw.lehrenNote)}</b>", st["cell"]))
 
     if notes:
         out.append(Spacer(1, 6))

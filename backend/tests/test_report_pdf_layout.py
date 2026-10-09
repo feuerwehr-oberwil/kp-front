@@ -1003,7 +1003,7 @@ def _auswertung(lanes: int = 3, **over) -> dict:
             ],
             "milestones": [{"at": 33, "label": "Feuer unter Kontrolle", "time": "19:33"}],
         },
-        "lehren": "Relais im Treppenhaus.",
+        "lehrenNote": "Lehren / Sicherheit: siehe Seite 1",
     }
     block.update(over)
     return block
@@ -1041,7 +1041,7 @@ def test_the_auswertung_is_the_last_sheet_landscape_and_says_what_it_is():
         "—",
         "Definition B.",
         "Feuer unter Kontrolle 19:33",
-        "Relais im Treppenhaus",
+        "siehe Seite 1",
     ):
         assert words in text, words
 

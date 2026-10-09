@@ -479,7 +479,7 @@ describe('buildDirectReportPayload · Auswertung', () => {
     // the same Feuer projected onto a sheet: one fact, one diamond
     board: { gebaeude: [{ ...fire, kind: 'symbol', x: 0.5, y: 0.5 }] as never },
     contactIntervalMin: 5, contactGraceSec: 60,
-  }) as { auswertung?: { figures: { value: string }[]; timeline: { milestones: { label: string }[] } | null; lehren?: string }; options: { auswertung?: boolean } }
+  }) as { auswertung?: { figures: { value: string; sub?: string }[]; timeline: { milestones: { label: string }[] } | null }; options: { auswertung?: boolean } }
 
   it('travels only when the option is on', () => {
     expect(build({ auswertung: false }).auswertung).toBeUndefined()
@@ -487,7 +487,17 @@ describe('buildDirectReportPayload · Auswertung', () => {
     expect(out.options.auswertung).toBe(true)
     // total = alarm (started_at) to the close
     expect(out.auswertung!.figures[4].value).toBe('1 h 00')
-    expect(out.auswertung!.lehren).toBe('Hydrant zugeparkt')
+    // the Lehren stay on page 1; the sheet only points there
+    expect((out.auswertung as { lehrenNote?: string }).lehrenNote).toBe(appConfig.copy.auswertung.lehrenSeePage1)
     expect(out.auswertung!.timeline!.milestones.map((m) => m.label)).toEqual([`Feuer ${appConfig.copy.objectDone.word.fire.inline}`])
+  })
+
+  it('a REOPENED Einsatz runs again — its old close time is no Einsatzende (review of #303)', () => {
+    const out = buildDirectReportPayload({
+      incident: { id: 'i1', title: 'Brand', started_at: '2026-09-25T21:36:00.000Z', closed_at: '2026-09-25T22:36:00.000Z', is_archived: false } as never,
+      draft: { meta: {}, generatedAt: '2026-09-25T23:00:00.000Z', proof: {}, options: { auswertung: true } } as never,
+      trupps: [], attendance: {}, events: [], plans: [], now: Date.parse('2026-09-25T23:00:00.000Z'),
+    }) as { auswertung: { figures: { value: string; sub?: string }[] } }
+    expect(out.auswertung.figures[4]).toMatchObject({ value: '—', sub: appConfig.copy.auswertung.totalRunning })
   })
 })

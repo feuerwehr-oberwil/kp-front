@@ -87,3 +87,28 @@ export function clocksAfterReopen(trupps: Trupp[], reopen: LifecycleBoundary | n
   })
   return changed ? next : trupps
 }
+
+/**
+ * Every stretch the Einsatz stood CLOSED and was then reopened, oldest first: `[closedAt,
+ * reopenedAt]` in ms. The contact clock does not run while closed and RESTARTS at the reopen
+ * (`clocksAfterReopen`) without any Trupp reading — so a reader of the log alone (the Rapport's
+ * Auswertung) has to know these moments, or the closed time reads as an overdue crew.
+ */
+export function closedPauses(rows: readonly TimelineEvent[]): { from: number; to: number }[] {
+  const all = rows
+    .filter((row) => row.id?.startsWith('sys') && !row.patchOf)
+    .map((row) => ({ kind: row.lifecycle ?? legacyKind(row), ms: row.at ? Date.parse(row.at) : Number.NaN }))
+    .filter((b) => !!b.kind && Number.isFinite(b.ms))
+    .sort((a, b) => a.ms - b.ms)
+  const out: { from: number; to: number }[] = []
+  let closed: number | null = null
+  for (const b of all) {
+    if (b.kind === 'closed') { if (closed == null) closed = b.ms }
+    else if (b.kind === 'reopened') {
+      // a reopen without a close row before it (an older record) still restarts the clock there
+      out.push({ from: closed ?? b.ms, to: b.ms })
+      closed = null
+    }
+  }
+  return out
+}

@@ -170,7 +170,14 @@ describe('computeAuswertung', () => {
     expect(pdf.figures.map((f) => f.value)).toEqual(['9 min', '14 min', '75 %', '24 min', '1 h 00'])
     expect(pdf.figures[2]).toMatchObject({ sub: '1 überfällig von 4', alert: true })
     expect(pdf.figures[2].footnote).toContain('(5 min + 1 min)')
-    expect(pdf.lehren).toBe('Zufahrt zu eng')
+    // a grace under a minute is printed as it is, not rounded away (review of #303)
+    expect(auswertungForPdf(a, { contactIntervalMin: 5, contactGraceSec: 20 }).figures[2].footnote).toContain('(5 min + 20 s)')
+    expect(auswertungForPdf(a, { contactIntervalMin: 5, contactGraceSec: 90 }).figures[2].footnote).toContain('(5 min + 1 min 30 s)')
+    expect(auswertungForPdf(a, { contactIntervalMin: 5, contactGraceSec: 0 }).figures[2].footnote).toContain('(5 min)')
+    // the Lehren print on page 1 only — the sheet points there (review of #303)
+    expect(pdf.lehrenNote).toBe('Lehren / Sicherheit: siehe Seite 1')
+    expect(JSON.stringify(pdf)).not.toContain('Zufahrt zu eng')
+    expect(auswertungForPdf(a, { contactIntervalMin: 5, contactGraceSec: 60 }, '  ').lehrenNote).toBeUndefined()
     expect(pdf.timeline!.groups.map((g) => g.label)).toEqual(['Fahrzeuge', 'Trupps'])
     // minutes after the axis start, not instants
     expect(pdf.timeline!.groups[0].lanes[0].marks).toEqual([6])
@@ -212,6 +219,59 @@ describe('computeAuswertung', () => {
       events: [{ id: 'm', t: '10:20', at: at('10:20'), icon: 'check', text: '☑ Feuer unter Kontrolle', kind: 'journal' }],
     }))
     expect(a.milestones.map((m) => m.label)).toEqual(['Feuer unter Kontrolle', 'Feuer gelöscht'])
+  })
+})
+
+describe('review of #303', () => {
+  const sys = (id: string, hhmm: string, lifecycle: 'closed' | 'reopened'): TimelineEvent =>
+    ({ id, t: hhmm, at: at(hhmm), icon: 'lock', text: lifecycle === 'closed' ? 'Einsatz abgeschlossen' : 'Einsatz wiedereröffnet', lifecycle } as TimelineEvent)
+
+  it('a Trupp taken off the Tafel ends where it was removed, and its open time is no overrun', () => {
+    const t = trupp({ status: 'aktiv', removedAt: at('10:12'), readings: [r('10:05', 'entry'), r('10:08', 'contact')] })
+    const a = computeAuswertung(base({ trupps: [t] }))
+    expect(a.trupps[0].bars).toEqual([{ from: ms('10:05'), to: ms('10:12'), kind: 'as' }])
+    expect(a.contacts).toEqual({ intervals: 1, kept: 1, overruns: 0 })
+    expect(a.trupps[0].gaps).toEqual([])
+  })
+
+  it('an Anmeldung taken back (removed, never went in) is not on the sheet', () => {
+    const t = trupp({ removedAt: at('10:06'), readings: [r('10:05', 'registered')] })
+    expect(computeAuswertung(base({ trupps: [t] })).trupps).toEqual([])
+  })
+
+  it('the closed stretch before a reopen is no phantom überfällig — the clock restarts at the reopen', () => {
+    // in at 10:00, contact 10:03, closed 10:05, reopened 10:40, contact 10:43, out 10:45
+    const t = trupp({ readings: [r('10:00', 'entry'), r('10:03', 'contact'), r('10:43', 'contact'), r('10:45', 'exit')] })
+    const a = computeAuswertung(base({ trupps: [t], events: [sys('sys1', '10:05', 'closed'), sys('sys2', '10:40', 'reopened')] }))
+    expect(a.trupps[0].gaps).toEqual([])
+    // 10:00–10:03, 10:40–10:43, 10:43–10:45 — the one the close cut short is open and was not overdue
+    expect(a.contacts).toEqual({ intervals: 3, kept: 3, overruns: 0 })
+    // without the lifecycle rows the same log WOULD read as an overrun
+    expect(computeAuswertung(base({ trupps: [t] })).contacts!.overruns).toBe(1)
+  })
+
+  it('a shuttle to the depot does not end the vehicle\'s stay — only a departure while AWAY does', () => {
+    const shuttle = computeAuswertung(base({
+      vehicles: [{ label: 'TLF', zeit: { id: 'tlf', ausgerueckt: at('10:03'), vorOrt: at('10:09'), gps: { zone: 'scene', ab: at('10:20'), fahrten: 2 } } }],
+    }))
+    expect(shuttle.vehicles[0].bars.find((b) => b.kind === 'scene')!.to).toBe(ms('11:00'))
+    const away = computeAuswertung(base({
+      vehicles: [{ label: 'TLF', zeit: { id: 'tlf', vorOrt: at('10:09'), gps: { zone: 'away', ab: at('10:50') } } }],
+    }))
+    expect(away.vehicles[0].bars.find((b) => b.kind === 'scene')!.to).toBe(ms('10:50'))
+  })
+
+  it('a mistyped year does not stretch the axis', () => {
+    const a = computeAuswertung(base({
+      vehicles: [
+        { label: 'TLF', zeit: { id: 'tlf', ausgerueckt: at('10:03'), vorOrt: at('10:09'), zurueck: at('11:10', '2027-09-20') } },
+        { label: 'ADL', zeit: { id: 'adl', ausgerueckt: at('10:04', '2025-09-20') } },
+      ],
+    }))
+    expect(a.t0).toBe(ms('10:00'))
+    expect(a.t1).toBeLessThanOrEqual(ms('13:00'))
+    // the stray Ausgerückt a year early is off the picture, the TLF's stay is cut at the edge
+    expect(a.vehicles.map((v) => v.label)).toEqual(['TLF'])
   })
 })
 

@@ -24,8 +24,14 @@ import { isAtemschutzTrupp } from './atemschutz'
 import { eventIso, spanAwareClock } from './report'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, fmtSpanShort } from './format'
+import { closedPauses } from './reopenClocks'
 
 const MIN = 60_000
+const HOUR = 60 * MIN
+/** the widest axis the sheet draws — a three-day Elementarereignis fits, a mistyped year does not */
+const MAX_AXIS = 7 * 24 * HOUR
+/** how far past the alarm / the Einsatzende the axis may reach for a return trip or a late tick */
+const AXIS_MARGIN = 2 * HOUR
 
 /** ms of an ISO stamp, or null for an empty/unparseable one */
 function ms(iso?: string | null): number | null {
@@ -86,7 +92,7 @@ export interface AuswertungInput {
   alarmedAt?: string | null
   /** reportMeta.endedAt ?? the close time — null while the Einsatz runs */
   endedAt?: string | null
-  /** wall clock, for what is still open on a running Einsatz */
+  /** the deployment clock (serverNow), for what is still open on a running Einsatz */
   now: number
   vehicles: { label: string; zeit?: FahrzeugZeit }[]
   trupps: Trupp[]
@@ -185,16 +191,22 @@ export function truppStretches(t: Trupp, openEnd: number): TruppStretches {
  * tiers as lib/atemschutz · contactSeverity). An interval runs from the Eintritt or a contact to
  * the next contact, or to the Austritt. One that is still OPEN (no Austritt recorded) counts only
  * once it was already overdue — that much is a fact; whether the rest would have been kept is not.
+ *
+ * ⚠️ `pauses` are the stretches the Einsatz stood CLOSED (reopenClocks · closedPauses). The clock
+ * does not run while closed and RESTARTS at the reopen without any reading in the Trupp's log
+ * (reopenClocks · clocksAfterReopen) — read without them, the closed hour is a phantom overrun.
+ * The interval the close cut short is open like one without an Austritt.
  */
 export function contactIntervals(
-  s: TruppStretches, intervalMin: number, graceSec: number,
+  s: TruppStretches, intervalMin: number, graceSec: number, pauses: readonly { from: number; to: number }[] = [],
 ): { gaps: Gap[]; stats: ContactStats } {
   const I = intervalMin * MIN
   const G = graceSec * 1000
   const gaps: Gap[] = []
   const stats: ContactStats = { intervals: 0, kept: 0, overruns: 0 }
   if (!s.logged || I <= 0) return { gaps, stats }
-  for (const w of s.watched) {
+  const pieces = s.watched.flatMap((w) => without(w, pauses).map((p) => ({ ...p, open: p.to < w.to || w.open })))
+  for (const w of pieces) {
     const marks = [w.from, ...s.contacts.filter((c) => c > w.from && c < w.to), w.to]
     for (let i = 0; i < marks.length - 1; i++) {
       const a = marks[i]
@@ -259,6 +271,20 @@ export function phaseLanes(state: ChecklistState | undefined, templates: Checkli
 
 const emptyLane = (label: string): Lane => ({ label, bars: [], marks: [], contacts: [], gaps: [] })
 
+/** One lane cut to the axis window: spans clamped at its edges, instants outside it dropped. */
+function clipLane(l: Lane, lo: number, hi: number): Lane {
+  const clamp = <T extends { from: number; to: number }>(x: T): T | null =>
+    x.to < lo || x.from > hi ? null : { ...x, from: Math.max(x.from, lo), to: Math.min(x.to, hi) }
+  const inside = (t: number) => t >= lo && t <= hi
+  return {
+    label: l.label,
+    bars: l.bars.map(clamp).filter((b): b is Bar => !!b),
+    marks: l.marks.filter(inside),
+    contacts: l.contacts.filter(inside),
+    gaps: l.gaps.map(clamp).filter((g): g is Gap => !!g),
+  }
+}
+
 /** `span` minus every interval in `cut` — the pieces that remain, in order */
 function without(span: { from: number; to: number }, cut: readonly { from: number; to: number }[]): { from: number; to: number }[] {
   let parts = [{ from: span.from, to: span.to }]
@@ -282,7 +308,9 @@ export function computeAuswertung(input: AuswertungInput): Auswertung {
   for (const v of input.vehicles) {
     const z = v.zeit
     if (!z) continue
-    const aus = ms(z.ausgerueckt), vor = ms(z.vorOrt), zur = ms(z.zurueck), ab = ms(z.gps?.ab)
+    // ⚠️ The GPS «ab» ends the stay only once the vehicle is AWAY: a shuttle to the depot and back
+    // also stamps an «ab», and the vehicle is on scene again after it (types · FahrzeugGps)
+    const aus = ms(z.ausgerueckt), vor = ms(z.vorOrt), zur = ms(z.zurueck), ab = z.gps?.zone === 'away' ? ms(z.gps.ab) : null
     const lane = emptyLane(v.label)
     if (aus != null && vor != null && vor >= aus) lane.bars.push({ from: aus, to: vor, kind: 'travel' })
     else if (aus != null) lane.marks.push(aus)
@@ -297,17 +325,21 @@ export function computeAuswertung(input: AuswertungInput): Auswertung {
     if (lane.bars.length || lane.marks.length) vehicles.push(lane)
   }
 
-  // Trupps: every one that ever stood ready or went in, the removed ones included (the record)
+  // Trupps: every one that ever went in, the removed ones included (the record — types ·
+  // Trupp.removedAt), each ending where it was taken off the Tafel. A removed one that never
+  // went in (an Anmeldung taken back) is not something that happened at the Einsatz.
+  const pauses = closedPauses(input.events)
   const trupps: Lane[] = []
   const totals: ContactStats = { intervals: 0, kept: 0, overruns: 0 }
   let anyWatched = false
   let firstAs: Auswertung['firstAs'] = null
   let longestAs: Auswertung['longestAs'] = null
   for (const t of input.trupps) {
-    const s = truppStretches(t, openEnd)
-    if (!s.runs.length && !s.standby.length) continue
+    const removed = ms(t.removedAt)
+    const s = truppStretches(t, removed != null ? Math.min(openEnd, removed) : openEnd)
+    if (!s.runs.length && (!s.standby.length || removed != null)) continue
     const label = truppLabel(t)
-    const { gaps, stats } = contactIntervals(s, input.contactIntervalMin, input.contactGraceSec)
+    const { gaps, stats } = contactIntervals(s, input.contactIntervalMin, input.contactGraceSec, pauses)
     totals.intervals += stats.intervals; totals.kept += stats.kept; totals.overruns += stats.overruns
     const lane = emptyLane(label)
     for (const sb of s.standby) lane.bars.push({ ...sb, kind: 'standby' })
@@ -332,13 +364,23 @@ export function computeAuswertung(input: AuswertungInput): Auswertung {
   ].sort((a, b) => a.at - b.at)
   const phases = phaseLanes(input.checklists, input.templates)
 
+  // ⚠️ The axis is CLAMPED around the Einsatz (alarm − 2 h … Einsatzende/now + 2 h, at most a
+  // week): one mistyped date («04.06.2025» in a Zurück field) otherwise stretches it to a year and
+  // squeezes every real bar into a hairline. What falls outside is cut at the edge or left off the
+  // picture; the figures above it still read the record as it is.
+  const hi = openEnd + AXIS_MARGIN
+  const lo = Math.max(alarmAt != null ? alarmAt - AXIS_MARGIN : -Infinity, hi - MAX_AXIS)
+  const lanesIn = (ls: Lane[]) => ls.map((l) => clipLane(l, lo, hi)).filter((l) => l.bars.length || l.marks.length)
+  const [cv, ct, cp] = [lanesIn(vehicles), lanesIn(trupps), lanesIn(phases)]
+  const cm = milestones.filter((m) => m.at >= lo && m.at <= hi)
+
   // the axis spans everything that is drawn, so nothing falls off either end
   const instants = [
-    ...[...vehicles, ...trupps, ...phases].flatMap((l) => [...l.bars.flatMap((b) => [b.from, b.to]), ...l.marks]),
-    ...milestones.map((m) => m.at),
+    ...[...cv, ...ct, ...cp].flatMap((l) => [...l.bars.flatMap((b) => [b.from, b.to]), ...l.marks]),
+    ...cm.map((m) => m.at),
   ]
-  const t0 = Math.min(...[alarmAt, ...instants].filter((x): x is number => x != null), openEnd)
-  const t1 = Math.max(...[endAt, ...instants].filter((x): x is number => x != null), t0 + MIN)
+  const t0 = Math.min(...[alarmAt, ...instants].filter((x): x is number => x != null && x >= lo), openEnd)
+  const t1 = Math.max(...[endAt, ...instants].filter((x): x is number => x != null && x <= hi), t0 + MIN)
 
   return {
     alarmAt, endAt, t0, t1,
@@ -346,7 +388,7 @@ export function computeAuswertung(input: AuswertungInput): Auswertung {
     contacts: anyWatched && totals.intervals > 0 ? totals : null,
     longestAs,
     totalMs: alarmAt != null && endAt != null && endAt >= alarmAt ? endAt - alarmAt : null,
-    vehicles, trupps, phases, milestones,
+    vehicles: cv, trupps: ct, phases: cp, milestones: cm,
   }
 }
 
@@ -370,7 +412,12 @@ export function auswertungForPdf(a: Auswertung, input: Pick<AuswertungInput, 'co
   const off = (t: number) => Math.round(((t - a.t0) / MIN) * 100) / 100
   const span = fmtSpanShort
   const pct = a.contacts ? Math.round((a.contacts.kept / a.contacts.intervals) * 100) : null
-  const graceMin = Math.round(input.contactGraceSec / 60)
+  // the grace as it IS — «20 s», «1 min», «1 min 30 s»; rounded to minutes a 20 s grace read «0»
+  const g = Math.max(0, Math.round(input.contactGraceSec))
+  const grace = [
+    g >= 60 ? fillTemplate(C.graceMin, { n: Math.floor(g / 60) }) : '',
+    g % 60 ? fillTemplate(C.graceSec, { n: g % 60 }) : '',
+  ].filter(Boolean).join(' ')
 
   const figures = [
     {
@@ -389,7 +436,7 @@ export function auswertungForPdf(a: Auswertung, input: Pick<AuswertungInput, 'co
       label: C.contacts,
       value: pct != null ? `${pct} %` : dash,
       sub: a.contacts ? fillTemplate(C.contactsSub, { n: a.contacts.overruns, total: a.contacts.intervals }) : undefined,
-      footnote: fillTemplate(graceMin ? C.contactsDef : C.contactsDefNoGrace, { n: input.contactIntervalMin, g: graceMin }),
+      footnote: fillTemplate(grace ? C.contactsDef : C.contactsDefNoGrace, { n: input.contactIntervalMin, g: grace }),
       // the one figure that is a judgement: an overrun is worth the reader's eye on paper
       alert: !!a.contacts?.overruns,
     },
@@ -452,8 +499,9 @@ export function auswertungForPdf(a: Auswertung, input: Pick<AuswertungInput, 'co
       milestone: C.legendMilestone, phase: C.legendPhase,
     },
     footnotesHead: C.footnotesHead,
-    lehrenHeading: C.lehrenHeading,
-    lehren: lehren?.trim() || undefined,
+    // ⚠️ A pointer, not the text (review of #303): the Lehren print on page 1 with the signed
+    // record, and a second copy here would be two places to read one answer from
+    lehrenNote: lehren?.trim() ? C.lehrenSeePage1 : undefined,
   }
 }
 

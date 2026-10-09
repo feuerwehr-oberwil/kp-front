@@ -39,8 +39,9 @@ wording unchanged.
 ## The Auswertung sheet (09.10.2026, F7)
 
 - **A debrief lives on paper, not on a screen** (owner: «maybe just on the pdf export?»). The
-  optional «Auswertung» is the LAST sheet of the Rapport, landscape: key figures, swimlanes,
-  Lehren. It is internal – the signed part above it is what leaves the station, so it is the sheet
+  optional «Auswertung» is the LAST sheet of the Rapport, landscape: key figures, swimlanes, and a
+  pointer «Lehren / Sicherheit: siehe Seite 1» – the Lehren themselves print once, on page 1 with
+  the signed record. It is internal – the signed part above it is what leaves the station, so it is the sheet
   that comes off the stack. `ReportOptions.auswertung` is ON for the Rapport and OFF for the
   QR-Erfassung's own PDF; a viewer link cannot make a PDF at all.
 - **Derived on the client, printed by the server.** `lib/auswertung` reads the record where the
@@ -51,7 +52,12 @@ wording unchanged.
   contact (Kontakt, Druck, Alarm, Rückzug, Wiedereinstieg) to the next one or the Austritt;
   fällig past the interval, überfällig past interval + grace (`atemschutz · contactSeverity`). An
   interval still open counts only once it was already overdue. Watched = under PA, read per run
-  off `paOn`/`paOff`.
+  off `paOn`/`paOff`. ⚠️ The clock also restarts at a REOPEN with no reading in the log
+  (`reopenClocks · closedPauses`): the closed stretch is cut out, or it reads as an overrun. A
+  Trupp taken off the Tafel ends at its `removedAt`; one that never went in is not drawn.
+- **The axis is clamped** to alarm − 2 h … Einsatzende (or now) + 2 h, at most a week: one
+  mistyped date must not squeeze the whole picture into a hairline. The figures still read the
+  record as it is.
 - **Greyscale first.** Most station printers are mono: fällig carries a sparse hatch, überfällig a
   dense cross-hatch on top of their amber/red, and the chart is canvas strokes (never a bitmap).
   Milestones are numbered diamonds with the words in a list underneath – the Kroki's rule, numbers

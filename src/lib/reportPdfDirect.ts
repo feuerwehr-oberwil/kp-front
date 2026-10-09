@@ -22,6 +22,7 @@ import {
 import { isAtemschutzTrupp, isStandDownExit } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { atemschutzDoctrine, getDeploymentConfig } from './deploymentConfig'
+import { serverNow } from './serverClock'
 import { fillTemplate } from './format'
 import { buildKrokiPayload, circleSvgString, shapeSvgString } from './krokiPayload'
 import { symbolLegendText } from './symbols'
@@ -632,8 +633,10 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
           const grace = args.contactGraceSec ?? atemschutzDoctrine().contactGraceSec
           const a = computeAuswertung({
             alarmedAt: meta.alarmiertAt ?? incident.started_at,
-            endedAt: meta.endedAt ?? closeTimeOf(incident),
-            now: args.now ?? Date.now(),
+            // ⚠️ `closedAt`, not `closeTimeOf`: a REOPENED Einsatz still carries its old close
+            // time, and is running again — its open spans run to now, not to that close
+            endedAt: meta.endedAt ?? closedAt ?? null,
+            now: args.now ?? serverNow(),
             vehicles: fahrzeugRows(cfg.fleet?.vehicles ?? [], meta.fahrzeuge).map((r) => ({ label: r.config.label, zeit: r.value })),
             trupps,
             contactIntervalMin: interval,
