@@ -28,7 +28,7 @@ import type { AttendanceState, BoardAnno, CameraView, Drawing, Entity, Incident,
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { newId, newRowId } from './lib/ids'
-import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
+import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode, lageRhythmDefault } from './lib/deploymentConfig'
 import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, fmtFileSize, formatSymbolName, formatTime } from './lib/format'
 import { formatAudioDuration } from './lib/audioImport'
@@ -123,12 +123,15 @@ import { SurfaceBoundary } from './components/SurfaceBoundary'
 import { SymbolsFailedMeldung } from './components/SymbolsFailedMeldung'
 import { NoBasemapMeldung } from './components/NoBasemapMeldung'
 import { RemindersHost, useReminders } from './lib/useReminders'
+import { derivedStartBooking, lageReminderId, lageRhythm, LAGE_START_ID } from './lib/lageRhythm'
+import type { LageInput } from './lib/lagemeldung'
+import type { LageSend } from './components/LagemeldungSheet'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
 import { azChipRedundant, isAtemschutzTrupp, truppInNotfall, truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
 import { ensureNotifyPermission } from './lib/alarm'
-import { bareText } from './lib/reminders'
+import { bareText, type OpenReminder } from './lib/reminders'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefSurfaceBridge } from './lib/georefMode'
 import { keepPlanSteps, planStackTouches, type BoardHistory } from './components/useBoardDoc'
@@ -194,7 +197,7 @@ import type { NoteSize } from './types'
 import { initialRapportPage, isRapportPage, writeRapportPage } from './lib/rapportPages'
 import { TruppFinder } from './components/TruppFinder'
 import { counterNames, freshTeamLabel, markerOptions, markerSite, placedTrupps, teamNoTaken, type PlacedTrupp } from './lib/placedTrupps'
-import { serverNowIso } from './lib/serverClock'
+import { serverNow, serverNowIso } from './lib/serverClock'
 import { clockRestartRowId, clocksAfterReopen, latestLifecycle } from './lib/reopenClocks'
 import { IncidentClosedMeldung, LinkRefusedMeldung } from './components/IncidentClosedMeldung'
 import { useGhostTrails } from './lib/useGhostTrails'
@@ -227,6 +230,10 @@ const loadWhiteboard = () => import('./components/Whiteboard')
 const Whiteboard = lazy(() => loadWhiteboard().then((m) => ({ default: m.Whiteboard })))
 const loadReportPreflight = () => import('./components/ReportPreflight')
 const ReportPreflight = lazy(() => loadReportPreflight().then((m) => ({ default: m.ReportPreflight })))
+/** The Lagemeldung composer (F3) and its engine — loaded on the first tap on «Lage» (or when a
+ *  booking comes due and the Meldeleiste row wants the engine's count), never at boot. */
+const loadLagemeldung = () => import('./components/LagemeldungSheet')
+const LagemeldungSheet = lazy(() => loadLagemeldung().then((m) => ({ default: m.LagemeldungSheet })))
 /** «Open the Rapport ON this Mindestangabe» (ReportPreflight · requestReportStep), through the
  *  lazy module: the ask queues there until the sheet mounts, exactly as it did when static. */
 const requestReportStep = (step: Parameters<typeof import('./components/ReportPreflight').requestReportStep>[0]) => {
@@ -2878,6 +2885,19 @@ export function IncidentWorkspace({
     return rowId
   }
 
+  // ── Lagemeldung auf Knopfdruck (F3) ──────────────────────────────────────────────────────────
+  // Who may send one: the editor and the Einsatzleiter (the journal POST is in the el allowlist),
+  // on a running Einsatz — a viewer, a link session or a closed Einsatz never sees the door.
+  const canLagemeldung = (isEditor || isEl) && !readOnly && !linkScoped
+  // the derived first «Lagemeldung fällig» — 5′ after the first vehicle is vor Ort, no row yet
+  const lageStart = useMemo(() => {
+    if (!canLagemeldung || lageRhythmDefault() <= 0) return [] as const
+    const b = derivedStartBooking(timeline, reportMeta.fahrzeuge, {
+      firstAfterMin: appConfig.lagemeldung.firstAfterVorOrtMin, text: appConfig.copy.lagemeldung.reminderText,
+    })
+    return b ? [b] : []
+  }, [canLagemeldung, timeline, reportMeta.fahrzeuge])
+
   // Wiedervorlagen: derive the open set from the timeline, alert when due (shared tone +
   // OS notification), and append done/snooze rows. Paused during replay so scrubbing past a
   // due time doesn't re-alarm. The `created` rows are written by addJournal above.
@@ -2900,7 +2920,124 @@ export function IncidentWorkspace({
     incidentMeta.closed_at,
     // «Erledigt» is confirm-with-undo and joins the one timeline (useReminders · completeReminder)
     undoHist,
+    // the Lagemeldung's first booking, before any row stands for it (lib/lageRhythm)
+    lageStart,
   )
+
+  // where the Führungsrhythmus stands — the chip, the booking id, the interval (lib/lageRhythm)
+  const lage = useMemo(() => lageRhythm(timeline, reminders.open, reportMeta.fahrzeuge, {
+    defaultMin: lageRhythmDefault(), firstAfterMin: appConfig.lagemeldung.firstAfterVorOrtMin,
+  }), [timeline, reminders.open, reportMeta.fahrzeuge])
+  const [lageOpen, setLageOpen] = useState(false)
+  /** The record as the engine reads it — built only when asked (the sheet opens, a booking comes
+   *  due), never per render. Lage entities and every plan's annotations: the engine counts a record
+   *  standing on both views once (by id). */
+  const lageInput = (): LageInput => {
+    const dz = atemschutzDoctrine()
+    return {
+      now: serverNow(),
+      title: incidentMeta.title ?? '',
+      alarmText: reportMeta.alarmText,
+      symbols: [...doc.entities, ...Object.values(board ?? {}).flat()],
+      trupps: allTrupps,
+      doctrine: {
+        contactIntervalMin: azIntervalMin, contactGraceSec: azGraceSec, alarmBar: dz.alarmBar, alarmBarRueckzug: dz.alarmBarRueckzug,
+        cylinderLiters: dz.cylinderLiters, estConsumptionLPerMin: dz.estConsumptionLPerMin,
+      },
+      rows: timeline,
+      reminders: reminders.open,
+      fahrzeuge: reportMeta.fahrzeuge ?? [],
+      fleet: getDeploymentConfig().fleet?.vehicles ?? [],
+      present: Object.values(attendance).filter((a) => isPresent(a)).length,
+      building: buildingInfo,
+    }
+  }
+  const lageInputRef = useRef(lageInput)
+  useEffect(() => { lageInputRef.current = lageInput })
+  // the due row's «letzte 21:17 · 5 Änderungen, 1 dringend» — the engine's own count, loaded with
+  // the engine only once a booking is actually due
+  const lageDue = canLagemeldung && reminders.due.some((r) => r.purpose === 'lagemeldung')
+  const [lageSub, setLageSub] = useState<string | undefined>(undefined)
+  useEffect(() => {
+    if (!lageDue) return
+    let alive = true
+    void import('./lib/lagemeldung').then((m) => {
+      if (!alive) return
+      const C = appConfig.copy.lagemeldung
+      const { changes, urgent } = m.changeSummary(m.composeLagemeldung(lageInputRef.current(), { mode: 'seit', anchor: lage.anchor }))
+      setLageSub([
+        lage.anchor ? fillTemplate(C.dueLast, { t: formatTime(new Date(lage.anchor.at)) }) : C.dueNone,
+        changes === 1 ? C.dueChangesOne : fillTemplate(C.dueChanges, { n: changes }),
+        urgent ? fillTemplate(C.dueUrgent, { n: urgent }) : '',
+      ].filter(Boolean).join(' · '))
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [lageDue, lage.anchor, timeline])
+  /** «Gemeldet ✓»: ONE Verlauf row carrying the Lagemeldung and its fact snapshot (the anchor),
+   *  and — unless «Übergabe» / «keine» was picked — ONE ordinary Wiedervorlage booking the next,
+   *  its id derived from the row (lib/lageRhythm). Confirm-with-undo: «Rückgängig» and ↶ retract
+   *  both rows (append-only — a patch, the originals stay in the record), ↷ restores them. */
+  const sendLagemeldung = (r: LageSend) => {
+    const C = appConfig.copy.lagemeldung
+    const nowMs = serverNow()
+    const t = formatTime(new Date(nowMs))
+    const onPlan = mode === 'plans'
+    const where = { surface: onPlan ? 'plan' as const : 'map' as const, planId: onPlan ? activePlanId : undefined }
+    const anchorId = newRowId('j')
+    pushEvent({ icon: 'radio', text: fillTemplate(r.mode === 'voll' ? C.rowVoll : C.row, { t, text: r.text }), kind: 'journal', lagemeldung: r.anchor, ...where }, anchorId)
+    emit('journal.add', { id: anchorId, kind: 'journal' })
+    const rows = [anchorId]
+    if (r.next.kind === 'every') {
+      const dueAt = new Date(nowMs + r.next.min * 60_000).toISOString()
+      const rid = lageReminderId(anchorId)
+      const bookingId = newRowId()
+      pushEvent({
+        icon: 'bell', text: fillTemplate(C.nextLog, { t: formatTime(new Date(dueAt)) }), kind: 'reminder',
+        reminder: { op: 'created', id: rid, dueAt, text: C.reminderText, purpose: 'lagemeldung', intervalMin: r.next.min }, ...where,
+      }, bookingId)
+      emit('reminder.create', { id: rid, dueAt })
+      rows.push(bookingId)
+    }
+    setLageOpen(false)
+    const label = fillTemplate(C.sentToast, { t })
+    let gone = false
+    const retract = (v: boolean) => { for (const id of rows) journal.appendPatch(id, { retracted: v }); gone = v }
+    const drop = undoHist.push({
+      domain: 'pendenz', label, touches: () => [],
+      undo: () => { if (gone) return false; retract(true); return true },
+      redo: () => { if (!gone) return false; retract(false); return true },
+    })
+    toast(label, { icon: 'radio', tone: 'success', action: { label: appConfig.copy.undo, onClick: () => { if (!gone) { retract(true); drop() } } } })
+  }
+  /** «Rhythmus ausschalten»: a done row on the current booking (the derived start included). Undo
+   *  retracts that row, which hands the booking back. */
+  const lageRhythmOff = () => {
+    const C = appConfig.copy.lagemeldung
+    const rowId = newRowId()
+    pushEvent({ icon: 'bell-off', text: C.rhythmOffLog, kind: 'reminder', reminder: { op: 'done', id: lage.reminderId } }, rowId)
+    emit('reminder.done', { id: lage.reminderId })
+    let gone = false
+    const drop = undoHist.push({
+      domain: 'pendenz', label: C.rhythmOffLog, touches: () => [],
+      undo: () => { if (gone) return false; journal.appendPatch(rowId, { retracted: true }); gone = true; return true },
+      redo: () => { if (!gone) return false; journal.appendPatch(rowId, { retracted: false }); gone = false; return true },
+    })
+    toast(C.rhythmOffLog, { icon: 'bell-off', action: { label: appConfig.copy.undo, onClick: () => { if (!gone) { journal.appendPatch(rowId, { retracted: true }); gone = true; drop() } } } })
+  }
+  /** +10′ on the Lagemeldung's due row. The derived start has no row to snooze — +10′ writes it. */
+  const snoozeReminder = (r: OpenReminder) => {
+    if (r.id === LAGE_START_ID && !r.rowId) {
+      const C = appConfig.copy.lagemeldung
+      const dueAt = new Date(serverNow() + 10 * 60_000).toISOString()
+      pushEvent({
+        icon: 'bell', text: appConfig.copy.journal.snoozeLog.replace('{mins}', '10').replace('{text}', C.reminderText), kind: 'reminder',
+        reminder: { op: 'created', id: LAGE_START_ID, dueAt, text: C.reminderText, purpose: 'lagemeldung', intervalMin: lage.intervalMin },
+      })
+      emit('reminder.create', { id: LAGE_START_ID, dueAt })
+      return
+    }
+    reminders.snooze(r, 10)
+  }
 
   // «wieder in …» on a done row (Journal · onReminderAgain): re-raise a closed item as a FRESH
   // timed Wiedervorlage — new id, same bare text, due in `mins`. The Führungsrhythmus move
@@ -5380,6 +5517,8 @@ export function IncidentWorkspace({
         archived={incidentMeta.is_archived}
         onBackFromArchive={onBackFromArchive}
         onReactivate={onReactivateActive}
+        // the Lagemeldung chip (F3): the rhythm off the bar's own clock, a tap opens the composer
+        lage={canLagemeldung ? { dueAt: lage.dueAt, off: lage.off, onOpen: () => setLageOpen(true) } : undefined}
         // On the phone map surface the compass in the bottom bar already carries Einpassen
         // (== centerIncident) + Mein Standort, so a top-bar center button here would just
         // duplicate it AND crowd the narrow bar off its right edge (clipping the Atemschutz
@@ -5393,6 +5532,8 @@ export function IncidentWorkspace({
         titleSlot={
           <IncidentSwitcher
             active={incidentMeta}
+            // the Lagemeldung's door on a PHONE — the bar has no room for its chip there (F3)
+            lage={isPhone && canLagemeldung ? { dueAt: lage.dueAt, off: lage.off, onOpen: () => setLageOpen(true) } : undefined}
             incidents={incidents}
             isEditor={isEditor}
             syncStatus={syncStatus}
@@ -5450,7 +5591,9 @@ export function IncidentWorkspace({
       <ReminderBanner
         due={reminders.due}
         onDone={reminders.markDone}
-        onSnooze={(r) => reminders.snooze(r, 10)}
+        onSnooze={snoozeReminder}
+        onLagemeldung={canLagemeldung ? () => setLageOpen(true) : undefined}
+        lageSub={lageSub}
         // …and the way in, on the row's TITLE (Meldeleiste · MeldungTitle) rather than a third
         // button: open the Verlauf ON the row that raised this item, not at the top
         onOpen={(r) => { setJournalOpen(true); setJournalLandOn({ id: r.rowId, nonce: Date.now() }) }}
@@ -6826,6 +6969,18 @@ export function IncidentWorkspace({
           onClose={() => setPlayer(null)}
         />
       )}
+      {lageOpen && canLagemeldung && (
+        <Suspense fallback={null}>
+          <LagemeldungSheet
+            getInput={lageInput}
+            anchor={lage.anchor}
+            intervalMin={lage.off ? 0 : lage.intervalMin}
+            onClose={() => setLageOpen(false)}
+            onSend={sendLagemeldung}
+            onRhythmOff={!lage.off && (lage.dueAt != null || lage.derived) ? () => { lageRhythmOff(); setLageOpen(false) } : undefined}
+          />
+        </Suspense>
+      )}
       {composerOpen && (
         <JournalComposer
           // everything this Einsatz has words for — Mannschaft, Mittel, Partnerorganisationen,
@@ -6843,6 +6998,8 @@ export function IncidentWorkspace({
           // sentence already names, and holds a picker for the rest.
           openPendenzen={reminders.open.map((r) => ({ id: r.id, text: r.text, urgent: !!r.urgent, createdAt: r.createdAt }))}
           onLinkPendenz={(pdz) => setNoteOn(pdz)}
+          // «Lagemeldung an Einsatzzentrale» typed → offer the composer (F3)
+          onLagemeldung={canLagemeldung ? () => { setComposerOpen(false); setNoteOn(null); setLageOpen(true) } : undefined}
           incidentStartAt={incidentMeta.started_at}
           uploadAudio={(blob, filename) => uploadMedia(incidentMeta.id, blob, 'audio', filename)}
           // generic Beilagen (PDF & Co.) ride the same endpoint under kind 'file' — the server
