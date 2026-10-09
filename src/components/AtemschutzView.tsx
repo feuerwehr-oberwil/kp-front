@@ -1983,8 +1983,9 @@ function TruppRow({
    * takes TWO lines on the phone (`.trowTwo`): at 360px a full name, a clock and two worded
    * buttons do not share one.
    * ⚠️ …except the TIER (B5, 08.10.2026): fällig / überfällig / Alarmdruck stand in colour alone,
-   * which is no answer in direct sun or to a colour-blind reader. A glyph and one word now sit
-   * under the clock (RowLine · tierMark), inside the clock cell: no new row. */
+   * which is no answer in direct sun or to a colour-blind reader. A glyph now sits under the
+   * clock (RowLine · tierMark), inside the clock cell: no new row. Glyph only, no word (owner,
+   * 09.10.2026: «Symbol only»); the word is in the row's aria-label. */
   const acts = monitored && canEdit && inField
   // ⚠️ «Draussen» and «angemeldet» are NOT one tone. They were both `trowIdle` (blue) while the
   // list still had a «Raus»-Abschnitt to tell them apart — and that section is gone (17.08.), so a
@@ -2081,10 +2082,12 @@ function RowLine({ t, live, color, lite, tier }: { t: Trupp; live: TruppLive; co
       <span className={s.trowClock}>
         <span className={s.trowClockVal}><ClockVal val={clock.val} /></span>
         <span className={s.trowSub}>{clockSub}</span>
-        {/* aria-hidden: the row's own aria-label and the card's status line already speak it */}
+        {/* the glyph only (owner, 09.10.2026: «Symbol only»); aria-hidden because the row's own
+            aria-label and the card's status line already speak the word, and the title shows it
+            on hover */}
         {tier && (
-          <span className={cx(s.trowTier, tier.crit && s.trowTierCrit)} aria-hidden>
-            <Icon id={tier.icon} />{tier.text}
+          <span className={cx(s.trowTier, tier.crit && s.trowTierCrit)} aria-hidden title={tier.text}>
+            <Icon id={tier.icon} />
           </span>
         )}
       </span>
@@ -2092,11 +2095,12 @@ function RowLine({ t, live, color, lite, tier }: { t: Trupp; live: TruppLive; co
   )
 }
 
-/** The tier as a GLYPH and a WORD, not colour alone (B5, 08.10.2026: sunlight, colour-blind).
- *  A different glyph per tier, so the shape differs too: the clock for «Fällig» (the radio check
- *  is due), the warning triangle for «Überfällig» and for the Alarmdruck — and the pressure alarm
- *  never says «Überfällig» (see `TruppAlarm.reason`). `withPressure` false where the caller says
- *  the Alarmdruck in words already (the card's state line, with its limit). */
+/** The tier as a GLYPH, not colour alone (B5, 08.10.2026: sunlight, colour-blind). A different
+ *  glyph per tier, so the SHAPE tells them apart: the clock for «Fällig» (the radio check is due),
+ *  the warning triangle for «Überfällig» and for the Alarmdruck. Only the glyph is drawn (owner,
+ *  09.10.2026: «Symbol only»); `text` is the word for the row's aria-label and the hover title,
+ *  and a pressure alarm never says «Überfällig» (see `TruppAlarm.reason`). `withPressure` false
+ *  where the caller says the Alarmdruck in words already (the card's state line, with its limit). */
 interface TierMark { icon: string; text: string; crit: boolean }
 function tierMark(alarm: TruppAlarm, sev: number, withPressure: boolean): TierMark | null {
   const az = appConfig.copy.atemschutz
@@ -2346,8 +2350,8 @@ function TruppCard({
   const rowMode = !!onCollapse
   /* ⚠️ 29.09.2026 (owner on staging): «drop the überfällig – if the card is red it's pretty obvious»,
    * and «the draussen subtitle is probably not even required». So fällig / überfällig are not a
-   * state LINE: since B5 (08.10.2026) they are the glyph + word under the clock on the card's
-   * first line (RowLine · tierMark), so colour is not the only carrier, and this line stays
+   * state LINE: since B5 (08.10.2026) they are a glyph under the clock on the card's first
+   * line (RowLine · tierMark), so colour is not the only carrier, and this line stays
    * for a screen reader only (`hidden`). An out Trupp's «Draussen» goes on every board — its card
    * is the grey one with «Wieder in den Einsatz» on it. What stays in words is what colour cannot
    * carry: the Alarmdruck with its limit, the stopped clock, «Nicht eingesetzt», «Bereit», a work
