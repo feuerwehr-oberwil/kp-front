@@ -155,7 +155,7 @@ describe('the contact times (the head of the Verlauf)', () => {
       const line = document.querySelector(`.${s.metaLine}`)!
       // the Einsatzzeit as a duration that says so («30:00 min») — terse, no «Einsatzzeit» word
       expect(line.textContent).toMatch(/\d+:\d{2} min/)
-      // the short form of «Geschätzter Druck» — see de.ts · estimatedShort. ⚠️ It KEEPS its word
+      // the short form of «Geschätzter Druck» — see copy/de/atemschutz.ts · estimatedShort. ⚠️ It KEEPS its word
       // on the terse line (owner 29.09.2026: «the schätzung clearly visible»)
       expect(line.textContent).toContain(az.estimatedShort)
       expect(line.textContent).toMatch(/≈ \d+ bar/)
