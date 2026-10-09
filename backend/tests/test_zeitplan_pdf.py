@@ -280,15 +280,6 @@ async def test_zeitplan_pdf_rejects_a_broken_payload(client, editor):
     assert r.status_code == 422
 
 
-@pytest.mark.asyncio
-async def test_zeitplan_print_fails_closed_without_a_station_printer(client, editor):
-    """No relay configured → no paper, and the client hides the button on the same signal."""
-    await _login(client, editor)
-    inc = await _create_incident(client)
-    r = await client.post(f"/api/incidents/{inc}/zeitplan/print", data={"payload": json.dumps(_payload())})
-    assert r.status_code == 403
-
-
 def test_sheet_prints_the_station_clock_not_utc():
     """The client sends UTC (`toISOString()`); the sheet must print Europe/Zurich.
 

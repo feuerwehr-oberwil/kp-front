@@ -107,13 +107,6 @@ it never overwrites a pair the station has since set or rotated, and never one t
 `SECRET_KEY` changed (§7) – the stored bytes are already dead, the app itself asks you to set the
 value again, and the run says which one it replaced.
 
-`PRINT_AGENT_SECRET` is deliberately *not* minted, and the reason is not a background job: the
-print sweep is registered either way and returns on its first line when no secret is set. It is
-that **the secret is the switch**. Setting it renders «An Stationsdrucker» on the Rapport and on
-the capture poster for every station that owns no printer, and parks a permanently offline
-connector on the System card. The agent lives on a second machine that is provisioned at a
-terminal anyway (§5).
-
 **The version you checked out is now the version that runs.** This used to be a trap: the
 instructions had you check out a release tag while `.env` still said `KP_FRONT_TAG=latest`, so the
 code you were reading and the image you were running were two different things. `setup.sh` closes that – on a `v*` tag
@@ -342,7 +335,7 @@ demanding you finish, and each a link straight to the page that fixes it.
 The card follows one rule, and it is worth knowing because it explains what is *not* on it: **it
 only ever lists things this UI can finish.** «Überwachung» used to be the exception – reported
 below the rows, outside the «x von n» count, because the ping URL was env-only and a row nobody
-could tick would have parked the card at «6 von 7» forever. It is now one of the seventeen
+could tick would have parked the card at «6 von 7» forever. It is now one of the
 credentials «Anbindungen» sets, so it is an ordinary counted row like every other
 ([`SetupChecklist.tsx`](../src/admin/SetupChecklist.tsx) · `SetupChecklist`).
 
@@ -381,7 +374,7 @@ forget.
 | **Mitglieder & Zugriff** | Who may log in, with which role and which PIN; deactivate an account |
 | **Personal** | The crew – hand entry, a CSV import with a downloadable template, or the workbook below |
 | **Erfassungsblatt** | The A4 paper form for the fallback case – the capture poster itself now lives under Links & Zugänge |
-| **Anbindungen** | The keys of every integration – Divera, Traccar, Web Push, speech-to-text, the two webhook intakes, the print relay and the monitor ping. Stored encrypted, live without a restart (§5) |
+| **Anbindungen** | The keys of every integration – Divera, Traccar, Web Push, speech-to-text, the two webhook intakes and the monitor ping. Stored encrypted, live without a restart (§5) |
 | **Arbeitsmappe** | The station's list-shaped data as one `.xlsx`: download, edit, upload back – see below |
 | **Alarmierung · Fahrzeugortung** | Connection status, test calls, the alarm pool and the vehicle positions |
 | **Links & Zugänge** | Every address the station hands out – capture poster, Einsatz-Link, Stations-Terminal, the fixed Atemschutz code and the Statistik-Export token: address, state, rotation and the printouts |
@@ -688,8 +681,8 @@ geodata or checklists above, so an integration is never a substitute for this st
 
 Every integration is fail-closed: no credential means the feature is off, not broken.
 
-**These go in the browser now.** Seventeen settings – the three Divera keys, the Traccar trio, the
-VAPID trio, the four speech-to-text settings, `CARTO_API_KEY`, `PRINT_AGENT_SECRET`,
+**These go in the browser now.** Sixteen settings – the three Divera keys, the Traccar trio, the
+VAPID trio, the four speech-to-text settings, `CARTO_API_KEY`,
 `ALARM_WEBHOOK_SECRET` and
 `HEALTHCHECK_PING_URL` – are set at `/admin` → **Anbindungen**. They are stored **encrypted** in
 this deployment's own database (AES-256-GCM under a key derived from `SECRET_KEY`) and take effect
@@ -747,10 +740,6 @@ Full list and formats in [`.env.example`](../.env.example); the API is in
 - **Monitoring** – `HEALTHCHECK_PING_URL`, the dead-man's switch. It is the «Überwachung» row on
   the «Einrichtung» card, and [`DEPLOYMENT.md` §5.5](DEPLOYMENT.md#55-knowing-when-it-is-down) is
   what to point it at.
-- **Station printer** – `PRINT_AGENT_SECRET` plus the polling agent, which now lives in
-  kp-rueck and serves both systems: see [`tools/PRINT-AGENT.md`](../tools/PRINT-AGENT.md).
-  ⚠️ Setting this secret is what turns «An Stationsdrucker» on, so set it when the agent exists –
-  not before (§1).
 
 ## 6. Backups, before you rely on any of it
 
