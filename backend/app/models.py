@@ -407,35 +407,6 @@ class SttJob(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-class PrintJob(Base):
-    """Queued Einsatzrapport-PDF for the station print relay.
-
-    The backend composes the PDF at enqueue time; the on-site agent polls, claims the
-    oldest ``queued`` row, prints it, and reports back. Rows are transient — the paper is
-    the artefact — and are swept after ``PRINT_JOB_RETENTION_DAYS`` (scheduler.py)."""
-
-    __tablename__ = "print_jobs"
-
-    id: Mapped[uuid.UUID] = _uuid_pk()
-    incident_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    kind: Mapped[str] = mapped_column(String(16), nullable=False)  # 'report' | 'capture_report'
-    filename: Mapped[str] = mapped_column(Text, nullable=False)
-    pdf: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    # True only when the document renders the (coloured) Kroki — everything else prints
-    # monochrome at the agent (toner/ink discipline; decided 2026-07-18)
-    color: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="queued"
-    )  # queued|printing|done|failed|cancelled
-    error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    requested_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-
-
 class ObjectSite(Base):
     """Einsatzobjekt — a pre-planned site carrying its own module plans."""
 

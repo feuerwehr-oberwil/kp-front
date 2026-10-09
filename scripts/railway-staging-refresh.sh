@@ -21,7 +21,7 @@
 #   · alarms.webhooks would fire a second time per alarm. → emptied.
 #   · healthcheck_ping_url would keep prod's dead-man's switch green while prod is down. →
 #     stored credential deleted; the variable must be empty in staging too.
-#   · print_agent_secret / the two inbound webhook secrets are prod's. → stored copies
+#   · the two inbound webhook secrets are prod's. → stored copies
 #     deleted; staging's variables carry its own values.
 #   · identity.appName becomes «KP Staging», so the installed app and every head say which
 #     one this is.
@@ -137,9 +137,9 @@ cat >> "$WORK/db.sql" <<SQL
 
 -- ─── staging cuts (railway-staging-refresh.sh) ───
 SET search_path = public;  -- the dump emptied it
-TRUNCATE push_subscriptions, telemetry_outbox, print_jobs;
+TRUNCATE push_subscriptions, telemetry_outbox;
 DELETE FROM integration_credentials WHERE name IN (
-  'healthcheck_ping_url', 'print_agent_secret', 'alarm_webhook_secret', 'divera_webhook_secret',
+  'healthcheck_ping_url', 'alarm_webhook_secret', 'divera_webhook_secret',
   'vapid_public_key', 'vapid_private_key', 'vapid_subject');
 UPDATE deployment_config SET config_json =
   jsonb_set(
