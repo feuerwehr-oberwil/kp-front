@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite } from './lib/icons'
@@ -19,7 +19,7 @@ import { navStops } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
 import { ergRingOverlays } from './lib/ergRings'
 import { useHazardData } from './lib/useHazardData'
-import type { AttendanceState, BoardAnno, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ReactivateResult, Shift, ShiftBand, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
+import type { BoardAnno, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, ReactivateResult, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { newRowId } from './lib/ids'
@@ -31,23 +31,18 @@ import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
 import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, truppRoleNote, unrecordedCrewNames, type AssignableRole } from './lib/roleAssignment'
 import { stampCrewFiled, unfiledTruppCrew } from './lib/crewFiling'
 import { registerMeldeleisteHost } from './lib/meldeleisteHost'
-import { useShiftActions } from './lib/useShiftActions'
-import { useBandActions } from './lib/useBandActions'
-import { buildZeitplanPayload, downloadZeitplanPdf, type ZeitplanSheet } from './lib/zeitplanPrint'
 import { conflictResolvedRow, openConflicts, type OpenConflict } from './lib/attendanceConflict'
 import { isBottomSheet, rectCenter, visibleWorkRect, type NudgeBox } from './lib/panelNudge'
 import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
 import { useObjectStore } from './lib/useObjectStore'
-import { fieldsOf, listById, recordByKey, recordKey, type RecordedField, type RecordKey, type RecordShape } from './lib/undoKeys'
+import { recordKey, type RecordedField, type RecordKey } from './lib/undoKeys'
 import { useGpsFollow } from './lib/useGpsFollow'
 import { freshBefore, gpsReleaseRow, gpsRevertWords, routingPatch, useGpsNotices, type GpsEnd } from './lib/gpsReturn'
 import { useUndoTimeline } from './lib/useUndoTimeline'
 import { undoCaption, type Dropper, type UndoDomain } from './lib/undoTimeline'
 import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
 import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
-import { pushSliceStep } from './lib/sliceUndoStep'
-import { foldsIntoPrevious, keepMachineFields, REPORT_MACHINE_FIELDS, reportStep as reportStepOf } from './lib/reportUndo'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
@@ -56,7 +51,6 @@ import { initialMode, loadPrefs, savePrefs } from './lib/prefs'
 import { makePhotoPositionSource } from './lib/devicePosition'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { changedAttendanceNames } from './lib/attendanceDiff'
-import { useMittelActions } from './lib/useMittelActions'
 import { useChecklistActions } from './lib/useChecklistActions'
 import { useTeamMarkerActions } from './lib/useTeamMarkerActions'
 import { useDevicePrefs } from './lib/useDevicePrefs'
@@ -121,7 +115,7 @@ import { MittelView } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
 import { assignedPersonIds, canonicalName, linkTrupps, personIdForName, rosterIdByName as rosterIdByNameOf, truppByPersonId } from './lib/personnel'
 import { rosterWithGuests } from './lib/guests'
-import type { ChecklistState, Item } from './lib/checklists'
+import type { Item } from './lib/checklists'
 import { warmTemplates } from './lib/checklists'
 import { primeKeyboard } from './lib/keyboardPrime'
 import { createPortal, flushSync } from 'react-dom'
@@ -161,7 +155,9 @@ import { MapStage } from './workspace/MapStage'
 import { useJournalWriters } from './workspace/useJournalWriters'
 import { useWorkspaceBlob } from './workspace/useWorkspaceBlob'
 import { prefs } from './workspace/bootPrefs'
+import { ATTENDANCE_RECORDS } from './workspace/recordShapes'
 import { useMapActions } from './workspace/useMapActions'
+import { useRecordSlices } from './workspace/useRecordSlices'
 
 /** How long an edit has to sit still before it earns a Verlauf row. Long enough that a sentence
  *  being typed is ONE edit, short enough that reading the Verlauf a moment later already shows
@@ -253,16 +249,6 @@ const LIFECYCLE_NOTICE_MS = 120_000
 /** One Drehung of the Gebäude is one drag, not forty slider frames — see onReorient. */
 const REORIENT_FOLD_MS = 1500
 
-/** How each undoable slice is made of records (lib/undoKeys) — the merge's own unit for each, so a
- *  remote merge keeps every step that writes records it did not change. Module-level: a shape is
- *  a constant, and the slice hooks take it as a stable argument. */
-const ATTENDANCE_RECORDS = recordByKey<AttendanceState[string]>('attendance')
-const MITTEL_RECORDS = listById<MittelEntry>('mittel')
-const CHECKLIST_RECORDS = recordByKey<ChecklistState[string]>('checklists')
-/** the app's own bookkeeping rides outside the Rapport's snapshots (lib/reportUndo), so it is no
- *  record of a step either */
-const REPORT_RECORDS = recordByKey<ReportMeta[keyof ReportMeta]>('reportMeta', REPORT_MACHINE_FIELDS) as unknown as RecordShape<ReportMeta>
-const ZEITPLAN_RECORDS = fieldsOf<{ shifts: Shift[]; bands: ShiftBand[] }>({ shifts: listById<Shift>('shifts'), bands: listById<ShiftBand>('bands') })
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
@@ -2677,161 +2663,17 @@ export function IncidentWorkspace({
     return true
   }
   stepAttendanceRef.current = stepAttendance
-  /**
-   * Mittel and Checklisten join the timeline the same way the Anwesenheit does: their slice gets
-   * an undo stack (`useUndoableSlice`), every write goes through it, and the entry delegates.
-   *
-   * ⚠️ Whole-slice snapshots, not reverse patches — the same reason the Anwesenheit takes them.
-   * A Mittel save is append-only with tombstones and a Checklisten-Haken carries who ticked it
-   * and when, so «put the list back as it stood» is a statement the record can make; «un-tick
-   * item 4» is not, once a merge has been through it.
-   * ⚠️ `canEditRecord`, like the Anwesenheit: both are record surfaces an `el` may write.
-   */
-  const mittelHist = useUndoableSlice(mittel, setMittel, !canWriteRecord, undefined, MITTEL_RECORDS)
-  const checklistHist = useUndoableSlice(checklists, setChecklists, !canWriteRecord, undefined, CHECKLIST_RECORDS)
-  /** One recorded step over a slice somebody else owns. `op` is the domain-scoped audit prefix —
-   *  see `logHistStep` for why a bare `undo` would wedge an `el` session's outbox. */
-  /*  `describe` lets the domain write the step's rows itself — the Checklisten write «☑ …» /
-   *  «Meilenstein zurückgenommen: …» for a milestone, the same row a tap writes — and a `true`
-   *  from it replaces the generic «… rückgängig gemacht», so one step is never two rows. */
-  /*  ⚠️ The slice's history travels as a REF, read when the step is taken (lib/sliceUndoStep). */
-  const rememberSliceStep = <T,>(laid: boolean, domain: UndoDomain, histRef: { readonly current: UndoableSlice<T> }, label: string, op: string, icon: string, onStep?: () => void, describe?: (moved: { from: T; to: T }) => boolean) =>
-    pushSliceStep(undoHist, {
-      domain, label, laid, histRef, onStep,
-      record: (moved, dir) => {
-        if (moved && describe?.(moved)) { histSide.current.emit(`${op}${dir}`); return true }
-        return histStep(!!moved, dir, label, op, icon, 'journal')
-      },
-    })
-  const mittelSet: typeof mittelHist.set = (u) => { const laid = mittelHist.set(u); rememberSliceStep(laid, 'mittel', mittelHistRef, C_HIST.undoDomains.mittel, 'mittel.', 'box'); return laid }
-  const checklistSet: typeof checklistHist.set = (u) => { const laid = checklistHist.set(u); rememberSliceStep(laid, 'checkliste', checklistHistRef, C_HIST.undoDomains.checkliste, 'checklist.', 'check', undefined, (moved) => checklistDescribeRef.current(moved)); return laid }
-  // ⚠️ The entry outlives the render that pushed it, and `hist` closes over that render's stacks.
-  const mittelHistRef = useRef(mittelHist); mittelHistRef.current = mittelHist
-  const checklistHistRef = useRef(checklistHist); checklistHistRef.current = checklistHist
-  /** the milestone rows of a Checklisten step (useChecklistActions · describeStep), set below */
-  const checklistDescribeRef = useRef<(moved: { from: ChecklistState; to: ChecklistState }) => boolean>(() => false)
-  /**
-   * …and the Einsatzrapport, the last record surface with no way back (field report 18.09.2026:
-   * «Rettungen eingetragen, Zahl war falsch, Rückgängig macht nichts»). Same slice mechanism as
-   * Mittel and the Checklisten — but the Rapport is the only surface that persists on every
-   * KEYSTROKE, so a checkpoint per write would have filled the whole history with one
-   * Kurzbericht and made ↶ hand back a single character. `lib/reportUndo` classifies the write
-   * instead: a burst of typing in the same field is ONE step, and a value or a row appearing or
-   * disappearing (a Rettung, «Keine», a Partnerorganisation, a cleared Gruppenzeit) is its own.
-   *
-   * ⚠️ Deliberately NOT a separate pair of buttons on the sheet: the Rapport wears the same
-   * TopBar as every other surface, and its ↶ ↷ already drive this one timeline (08.09.2026).
-   */
-  // ⚠️ the machine's own bookkeeping rides OUTSIDE the snapshots (lib/reportUndo ·
-  // keepMachineFields): it lays no step of its own, so it travels inside whatever step stands —
-  // and a ↶ must not lose the «Rapport erstellt» mark to an undone sentence.
-  const reportHist = useUndoableSlice(reportMeta, setReportMeta, !canWriteRecord, keepMachineFields, REPORT_RECORDS)
-  const reportHistRef = useRef(reportHist); reportHistRef.current = reportHist
-  const reportSet: typeof reportHist.set = (u) => {
-    // ⚠️ A session that may not write the record still writes LOCALLY exactly as it did before
-    // this stack existed — it simply lays no step down. Dropping the write here instead would
-    // have made undo a silent gate on a path that never had one.
-    if (!canWriteRecord) { setReportMeta(u); return false }
-    const hist = reportHistRef.current
-    const laid = hist.set(u, {
-      coalesce: (prev, next) => {
-        const step = reportStepOf(prev, next)
-        // the app's own bookkeeping (reportMadeAt / krokiPrint) — it rides along with
-        // whatever step stands and never becomes one of its own
-        if (!step) { lastReportStep.current = null; return true }
-        const now = Date.now()
-        const fold = foldsIntoPrevious(lastReportStep.current, step, now)
-        lastReportStep.current = { key: step.key, at: now }
-        return fold
-      },
-    })
-    // ⚠️ …and the fold window closes on every ↶ ↷ (the last argument): the step it would fold
-    // into has just moved to the other stack, so typing in the same field right after an undo
-    // would lay no step of its own — and the next ↷ would overwrite it.
-    rememberSliceStep(laid, 'rapport', reportHistRef, C_HIST.undoDomains.rapport, 'report.', 'clipboard', () => { lastReportStep.current = null })
-    return laid
-  }
-  reportSetRef.current = reportSet
-  const { saveMittel } = useMittelActions({ mittel, setMittel: mittelSet, authorName: user?.display_name, log })
-  // Symbol→Mittel moved OUT of the symbol's card (28.08.): the Material surface itself now shows
-  // the «Gesetzt, aber nicht erfasst» strip, fed with every symbol standing on Lage + all plans.
-  // The «has this station mapped anything» gate lives inside mittelRecommendations.
-  // ⚠️ Deduped by id: since unified objects `entities` and `board` are two VIEWS of the same
-  // records (lib/tacticalObjects · viewsOf), so this union repeats one object once per fitting
-  // plan — and a repeated view is not a second symbol standing in the Einsatz.
-  const placedSymbols = useMemo(
-    () => [...new Map(
-      [...doc.entities, ...Object.values(board).flat()]
-        .filter((x) => !!x.symbol && !(x as { live?: boolean }).live)
-        .map((x) => [x.id, { symbol: x.symbol as string, fields: x.fields, extract: x.extract }] as const),
-    ).values()],
-    [doc.entities, board],
-  )
-  /**
-   * The Zeitplan joins the timeline as ONE slice, because a Schichtband and the Schichten in it
-   * are not two things to an operator: removing a band strips `bandId` off its shifts in the
-   * same breath, and two entries for that act would need two ↶ to take back half of what looked
-   * like one press. `shifts` + `bands` are therefore snapshotted together.
-   *
-   * ⚠️ …which is also why one GESTURE is one step: the writers here legitimately touch both
-   * lists in the same synchronous handler, so the first write of a burst lays the checkpoint and
-   * whatever follows it in the same task folds in. A microtask closes the burst, so nothing is
-   * held open across an await (the band-times question asks first and is its own decision).
-   *
-   * Before this, `addShift`, `setShiftTime`, `addBand`, `renameBand`, `setBandTimes` and every
-   * cell tap had no way back at all — the surface's only doors were the four confirm-with-undo
-   * toasts, and a toast expires.
-   */
-  const zeitplanDoc = useMemo(() => ({ shifts, bands }), [shifts, bands])
-  const zeitplanHist = useUndoableSlice(zeitplanDoc, (v) => {
-    const next = typeof v === 'function' ? v(zeitplanDoc) : v
-    setShifts(next.shifts); setBands(next.bands)
-  }, !canWriteRecord, undefined, ZEITPLAN_RECORDS)
-  const zeitplanHistRef = useRef(zeitplanHist); zeitplanHistRef.current = zeitplanHist
-  // A remote merge re-lays every slice's stack onto what it merged (applyWorkspace, far above,
-  // which runs before any of these exist — hence the ref). Called AFTER the timeline has decided
-  // which entries survive: `keep` is their step ids.
-  // `keep` null = the merge bookkeeping failed: every stack goes (undoKeys · carryUndoThroughMerge)
-  sliceRebase.current = (next, keep) => {
-    if (!keep) { for (const h of [attHist, mittelHist, checklistHist, reportHist, zeitplanHist]) h.clear(); return }
-    attHist.rebase(next.attendance, keep)
-    mittelHist.rebase(next.mittel, keep)
-    checklistHist.rebase(next.checklists, keep)
-    reportHist.rebase(next.reportMeta, keep)
-    zeitplanHist.rebase({ shifts: next.shifts, bands: next.bands }, keep)
-  }
-  const zeitplanBurst = useRef(false)
-  const zeitplanWrite = (next: (cur: { shifts: Shift[]; bands: ShiftBand[] }) => { shifts: Shift[]; bands: ShiftBand[] }) => {
-    const fold = zeitplanBurst.current
-    const laid = zeitplanHistRef.current.set(next, { coalesce: () => fold })
-    if (!zeitplanBurst.current) {
-      zeitplanBurst.current = true
-      queueMicrotask(() => { zeitplanBurst.current = false })
-    }
-    // `shift.` is on the `el` audit allowlist (backend · EL_EVENT_PREFIXES): an Einsatzleiter
-    // plans shifts, so their ↶ must not 403 the batch — see logHistStep.
-    rememberSliceStep(laid, 'zeitplan', zeitplanHistRef, C_HIST.undoDomains.zeitplan, 'shift.', 'clock')
-  }
-  const setShiftsUndoable: Dispatch<SetStateAction<Shift[]>> = (u) =>
-    zeitplanWrite((cur) => ({ ...cur, shifts: typeof u === 'function' ? u(cur.shifts) : u }))
-  const setBandsUndoable: Dispatch<SetStateAction<ShiftBand[]>> = (u) =>
-    zeitplanWrite((cur) => ({ ...cur, bands: typeof u === 'function' ? u(cur.bands) : u }))
-  // Schichtenplanung — a PLAN over the same Mannschaft; it never writes the attendance record
-  const { addShift, addShiftSpan, replaceShift, setShiftTime, removeShift } = useShiftActions({ shifts, setShifts: setShiftsUndoable, startedAt: incidentMeta.started_at })
-  // …and the Schichten reading of it: the same shifts, grouped into named windows. Creating a band
-  // writes no shift, deleting one deletes no shift — see useBandActions.
-  const bandActions = useBandActions({ bands, setBands: setBandsUndoable, shifts, setShifts: setShiftsUndoable })
-  // The Zeitplan-Führungsformular on paper: the PDF, printed through the device's own dialog.
-  const zeitplanPayload = (rowPeople: Person[], sheet: ZeitplanSheet) => buildZeitplanPayload(
-    rowPeople, attendance, shifts,
-    { title: incidentMeta.title, address: incidentMeta.address, startedAt: incidentMeta.started_at },
-    new Date().toISOString(),
-    sheet, bands,
-  )
-  const onDownloadZeitplan = (rowPeople: Person[], sheet: ZeitplanSheet) => {
-    void downloadZeitplanPdf(incidentMeta.id, zeitplanPayload(rowPeople, sheet))
-      .catch(() => toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }))
-  }
+
+  // the record surfaces' undo stacks and writers — Mittel, Checklisten, Rapport, Zeitplan — and their
+  // re-lay after a merge (workspace/useRecordSlices)
+  const {
+    checklistSet, checklistDescribeRef, bandActions, addShift, addShiftSpan, replaceShift, setShiftTime,
+    removeShift, onDownloadZeitplan, saveMittel, placedSymbols,
+  } = useRecordSlices({
+    mittel, setMittel, canWriteRecord, checklists, setChecklists, undoHist, histSide, histStep, C_HIST,
+    reportMeta, setReportMeta, lastReportStep, reportSetRef, user, log, doc, board, shifts, bands,
+    setShifts, setBands, sliceRebase, attHist, incidentMeta, attendance,
+  })
   // assigning someone to a Trupp implies they're on scene — mark every roster-linked member
   // present (even at "angemeldet"). Only the newly-present are logged, so re-edits don't spam.
   /** The linkable vocabulary of this Einsatz — Mannschaft, Mittel, Partnerorganisationen,
