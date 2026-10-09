@@ -54,6 +54,7 @@ lives in a comment at the top of that module.
 | [`copy-and-wording.md`](copy-and-wording.md) | 🟢 | Which word a screen uses: Karte/Kroki, Geschoss/Arbeitsfläche, Verlauf/Eintrag, Entfernen vs gelöscht, the two failure shapes, «leeren», search placeholders. |
 | [`rapport.md`](rapport.md) | 🟢 | What the Rapport's figure pages carry: the Kroki as the picture, opt-in Objektpläne, the Gebäude section, legend lines, one figure-page template, server-coupled Leitung ends. |
 | [`roles-and-access.md`](roles-and-access.md) | 🟢 | The incident roles (`editor`, `el`, `viewer`), what the `el` may write, the separate deployment admin behind `ADMIN_SECRET`, the Atemschutz-Link allowlist and the link-session rules. |
+| [`microsoft-login.md`](microsoft-login.md) | 🟡 | Optional **«Mit Microsoft anmelden»** onto existing named accounts: what to register in Entra (redirect URI, delegated `openid profile`), the four credentials, the allow-list format. Off unless all four are set; the PIN is never replaced. |
 
 ## Testing ([`testing/`](testing/))
 

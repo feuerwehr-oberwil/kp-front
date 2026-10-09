@@ -2138,6 +2138,14 @@ export const en: Localizable<Copy> = {
     submitPin: 'Sign in',
     retry: 'Try again',
     offlineHint: 'Signing in needs a connection. Saved incidents only open if this device was still signed in.',
+    microsoft: 'Sign in with Microsoft',
+    microsoftErrors: {
+      cancelled: 'Microsoft sign-in cancelled.',
+      expired: 'The Microsoft sign-in took too long. Please try again.',
+      failed: 'Microsoft sign-in failed. Please try again or sign in with your PIN.',
+      unknown: 'This Microsoft account is not enabled for KP Front. Please sign in with your PIN or ask the admin.',
+      inactive: 'The linked account is deactivated. Please ask the admin.',
+    },
   },
   splash: {
     stuck: 'Startup is taking longer than usual',
@@ -4212,6 +4220,10 @@ export const en: Localizable<Copy> = {
         object_visits: {
           title: 'Object visits (organizer)',
           caption: 'Key with which an organizer (e.g. fwo-admin) reads the catalogue and changes and writes lists. It is generated under «Object visits › Integration».',
+        },
+        microsoft_login: {
+          title: 'Sign in with Microsoft',
+          caption: 'Optional: a separate Azure app registration (sign-in only, «openid profile») so named accounts can also sign in with Microsoft instead of a PIN. Redirect URI: <this instance\'s address>/api/auth/microsoft/callback. Only the accounts on the list get in, each as «Microsoft account=username», separated by commas. The PIN always keeps working. Guide: docs/microsoft-login.md.',
         },
         sharepoint_export: {
           title: 'SharePoint (object visit filing)',

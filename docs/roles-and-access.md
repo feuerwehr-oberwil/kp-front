@@ -61,3 +61,11 @@ wording unchanged.
   address, `<img>`, service worker) answer as the link guest otherwise. That «Abmelden» **always
   confirms** (23.09.2026, `lib/logoutConfirm`), in one card that adds the offline and the
   unsent-entries cost when there is one.
+
+## Signing in with Microsoft (optional)
+
+Since 09.10.2026 a station can add «Mit Microsoft anmelden» beside the PIN tiles
+([`microsoft-login.md`](microsoft-login.md)). It is a second door onto the SAME named accounts:
+an Entra identity reaches only the account an admin listed it against (`ENTRA_LOGIN_ACCOUNTS`),
+with that account's own role. It never creates an account, never grants deployment-admin power,
+and never replaces the PIN. Off (no button, routes 404) unless all four credentials are set.
