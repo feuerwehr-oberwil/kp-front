@@ -2522,6 +2522,10 @@ export const it: Localizable<Copy> = {
     visit: 'Ultima visita all’oggetto {d}',
     visitFindings: 'Ultima visita all’oggetto {d} · {n} difetti',
     visitFindingsOne: 'Ultima visita all’oggetto {d} · 1 difetto',
+    chipTitle: 'Info edificio',
+    chipLabel: 'Apri la scheda dell’edificio',
+    chipLabelHazards: 'Edificio: {h} – apri la scheda',
+    measuresShort: 'Misure',
   },
   incidentSwitcher: {
     noIncident: 'Nessun intervento',

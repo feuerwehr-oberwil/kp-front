@@ -1,9 +1,11 @@
-/* «Gebäude» in the incident menu (BuildingCard, KP Front F5). Lighter than the Einsatz card above
-   it — no fill of its own — so the menu still reads «this Einsatz» first. The tags are the card
+/* «Gebäude» (BuildingCard, KP Front F5): the body of the card its chip opens on the Karte / Plan
+   (BuildingFloat supplies the glass). The tags are the card
    pill's (13-incident · .ip-card-pill): read-only, not chips you tap. A hazard is the amber tag
    WITH the warn glyph and its word, so it never rests on colour alone. */
-.card { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0 2px var(--sp-2); padding: var(--sp-1) var(--sp-3) var(--sp-2); }
-.head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-width: 0; }
+.card { display: flex; flex-direction: column; gap: var(--sp-1); }
+.head { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.head .hint { margin-left: auto; }
+.close { flex: none; margin: calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) 0; }
 .title { display: inline-flex; align-items: center; gap: var(--sp-1); font: var(--eyebrow); letter-spacing: var(--eyebrow-track);
   text-transform: uppercase; color: var(--ink-faint); }
 .title svg, .hint svg { width: 12px; height: 12px; flex: none; }

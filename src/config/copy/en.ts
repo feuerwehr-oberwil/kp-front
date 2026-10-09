@@ -2469,6 +2469,10 @@ export const en: Localizable<Copy> = {
     visit: 'Last object visit {d}',
     visitFindings: 'Last object visit {d} · {n} defects',
     visitFindingsOne: 'Last object visit {d} · 1 defect',
+    chipTitle: 'Building info',
+    chipLabel: 'Open building profile',
+    chipLabelHazards: 'Building: {h} – open profile',
+    measuresShort: 'Measures',
   },
   incidentSwitcher: {
     noIncident: 'No incident',

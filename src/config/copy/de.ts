@@ -4180,6 +4180,12 @@ export const de = {
     visit: 'Letzter Objektbesuch {d}',
     visitFindings: 'Letzter Objektbesuch {d} · {n} Mängel',
     visitFindingsOne: 'Letzter Objektbesuch {d} · 1 Mangel',
+    // the chip on the Karte / in the plan's chip row that opens the card (BuildingFloat)
+    // not «Gebäude» alone: that word + the storey glyph is the rail's Gebäude tile, a surface
+    chipTitle: 'Gebäude-Info',
+    chipLabel: 'Gebäude-Steckbrief öffnen',
+    chipLabelHazards: 'Gebäude: {h} – Steckbrief öffnen',
+    measuresShort: 'Sofortmassn.',
   },
   // TopBar incident switcher dropdown
   incidentSwitcher: {

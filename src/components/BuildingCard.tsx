@@ -1,18 +1,19 @@
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
+import { IconButton } from './Button'
 import type { BuildingInfo } from '../lib/api/building'
 import { buildingChips, buildingSources, hasBuildingContent, noteLines, objectCaption, visitLine } from '../lib/buildingCard'
 import s from './BuildingCard.module.css'
 
 /**
- * «Gebäude» — the building at the Einsatzort, under the Einsatz card in the incident menu
- * (IncidentSwitcher · buildingSlot), on tablet and phone alike. KP Front card F5.
+ * «Gebäude» — the building at the Einsatzort (KP Front card F5). Opened from its chip on the Karte
+ * and in the plan's chip row (BuildingFloat); `onClose` draws the card's ✕.
  *
  * Read-only tags (the card pill's look), hazards first with the warn glyph AND the word, then
  * one line of sources; the Einsatzobjekt's Sofortmassnahmen / Bemerkungen as text when the station
  * wrote some; the last Objektbesuch. Nothing to say → nothing drawn (lib/buildingCard).
  */
-export function BuildingCard({ info }: { info: BuildingInfo | null }) {
+export function BuildingCard({ info, onClose }: { info: BuildingInfo | null; onClose?: () => void }) {
   if (!info || !hasBuildingContent(info)) return null
   const C = appConfig.copy.building
   const chips = buildingChips(info)
@@ -26,6 +27,9 @@ export function BuildingCard({ info }: { info: BuildingInfo | null }) {
       <div className={s.head}>
         <span className={s.title}><Icon id="floors" />{C.title}</span>
         {chips.length > 0 && <span className={s.hint} title={C.hintTitle}><Icon id="info" />{C.hint}</span>}
+        {onClose && (
+          <IconButton label={appConfig.copy.closeDialog} className={s.close} onClick={onClose}><Icon id="close" /></IconButton>
+        )}
       </div>
       {chips.length > 0 && (
         <ul className={s.chips}>

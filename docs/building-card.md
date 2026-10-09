@@ -2,9 +2,23 @@
 
 Status: 🟡 in review (KP Front idea F5, 2026-10-09).
 
-The incident menu (tap the Einsatz pill) shows a **Gebäude** card directly under the Einsatz
-card, on tablet and phone. It answers «what is this building» from four sources. Each one is
-optional and fails on its own:
+The **Gebäude** chip stands in the bottom-left chip row of the **Karte**, and in the **Plan**'s
+chip row beside the Objekt chip whenever an Objekt is bound (`components/BuildingFloat`). On a
+phone it is part of the one floating row, left of the FAB. Closed, it names the hazards as glyph +
+word («⚠ Gebäude-Info · Gas · PV»), or just «Gebäude-Info». A tap opens the card docked one row above it.
+The card is non-modal, like the Passung: the map stays live, and ✕, the chip or Esc close it.
+Until 09.10.2026 the card sat in the incident menu; the owner wanted it «on the map directly».
+
+The chip is not pinned to the building on the map, for three reasons. The Lage is drawn exactly
+at the Einsatzort, so a pinned chip would cover the Brandherd and the first vehicles. It would
+move with every pan. And it would have no plan-side twin. The chip row is the same place on both
+surfaces, and the floating row already budgets for it, with the message lane standing above it.
+The Plan skips the chip where it skips the Objekt chip: on the Gebäude floor stack and on the Tafel.
+It also skips it on a **phone**'s plan. That row is one line beside the FAB, and «⚠ Gas · PV»
+squeezed the Objekt chip down to its glyph, so «which object are these plans of» went unanswered.
+On a phone the Karte's chip is one tap away.
+
+The card answers «what is this building» from four sources. Each one is optional and fails on its own:
 
 | Half | Source | What it shows | Source line |
 |---|---|---|---|

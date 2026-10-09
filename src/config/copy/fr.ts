@@ -2463,6 +2463,10 @@ export const fr: Localizable<Copy> = {
     visit: 'Dernière visite d’objet {d}',
     visitFindings: 'Dernière visite d’objet {d} · {n} défauts',
     visitFindingsOne: 'Dernière visite d’objet {d} · 1 défaut',
+    chipTitle: 'Info bâtiment',
+    chipLabel: 'Ouvrir la fiche du bâtiment',
+    chipLabelHazards: 'Bâtiment : {h} – ouvrir la fiche',
+    measuresShort: 'Mesures',
   },
   incidentSwitcher: {
     noIncident: 'Aucune intervention',
