@@ -37,6 +37,14 @@ so this file – not the log – is the record of what shipped up to that point.
   notification and Web Push follow, the Verlauf and the Rapport record raising, the Sicherungstrupp
   going in and «Notfall beendet» (also held, undoable). A calm hint says when an Atemschutz-Trupp
   goes in with no Sicherungstrupp ready. *No action needed.*
+- **The ERG Schutzabstand runs downwind.** With a usable live wind the protective distance
+  around a Gefahrentafel is drawn as an oval leaning downwind that contains the whole ERG
+  protective action zone (a square of side D downwind of the placard, corners included); the
+  isolation circle stays. It stays the full circle – and the panel says why – without wind, with a
+  calm one (< 5 km/h), a reading older than 45 min or dated in the future, a MeteoSwiss station
+  more than 15 km away, or a forecast turn of 45°+ within 2 h (from the Open-Meteo hours the
+  weather request now also fetches, never recorded). The panel and a tag on the map name the
+  wind's source, distance and time. *No action needed.*
 - **Anleitungen – a second kind of checklist, read-only and offline.** A template with
   `kind: "manual"` is a step-by-step guide: numbered steps, optional sub-points, «Achtung» and
   «Tipp» lines and pictures, grouped by Gerät in the Checkliste tab. The pictures are cached on
