@@ -37,24 +37,6 @@ so this file – not the log – is the record of what shipped up to that point.
   notification and Web Push follow, the Verlauf and the Rapport record raising, the Sicherungstrupp
   going in and «Notfall beendet» (also held, undoable). A calm hint says when an Atemschutz-Trupp
   goes in with no Sicherungstrupp ready. *No action needed.*
-- **«Auswertung» – a debrief sheet at the end of the Rapport PDF.** Key figures (Alarm bis 1.
-  Fahrzeug vor Ort, Alarm bis 1. Atemschutz-Eintritt, Funkkontakte eingehalten with the overrun
-  count, längster Atemschutz-Einsatz, Einsatzdauer – each defined in a footnote, «—» when the
-  record does not carry it), a vector swimlane timeline (Fahrzeuge, Trupps with their contacts and
-  fällig/überfällig stretches hatched so they survive a greyscale printer, checklist phases,
-  milestones). Its own landscape sheet, last, so the signed part goes out without
-  it; ticked by default in the PDF ▾ menu as «Auswertung (intern)». *No action needed.*
-- **«Anrückend» – who answered the Divera alarm, in the Anwesenheit.** An Einsatz with a Divera
-  alarm starts its crew list (EL and editors) with one line of counts («9 kommen · 2 kommen nicht · 3 da»), the
-  people coming with their answer time and an estimated arrival («ca. 19:48»), and «kommt nicht»
-  in a muted group of its own, ✕ and the word on every row. One tap on «da» checks somebody in;
-  an answer alone never does. The answers ride in the existing `/alarms` poll (stored on the new
-  column `divera_emergencies.responses_json`), which keeps its 30 s cadence for the first 10 min
-  after an alarm; the status names come from the Mannschaft sync's `/pull/all`. What a status
-  means is read off its name, and `roster.diveraResponses` overrides it per status
-  (docs/divera-connector.md › Rückmeldungen). The answers are deleted once the Einsatz is
-  closed and in any case 48 h after the alarm (PRIVACY.md). *Migration runs on boot; nothing to
-  set up.*
 - **Wetter on the Karte: MeteoSwiss precipitation radar and the official warnings.** Ebenen get a
   «Wetter» group with «Niederschlag (Radar)» (a device setting, off by default): the last hour of
   MeteoSwiss radar under every line and symbol, with a floating pill to step or play through it
@@ -67,7 +49,23 @@ so this file – not the log – is the record of what shipped up to that point.
   algorithms are KP Rück's (R5), ported with its tests. *No action needed; `WEATHER_LAYER_ENABLED=false`
   switches it off (stations outside Switzerland or without outbound access). The image grows by
   ~17 MB (h5py; numpy was already in it).*
-
+- **«Anrückend» – who answered the Divera alarm, in the Anwesenheit.** An Einsatz with a Divera
+  alarm starts its crew list (EL and editors) with one line of counts («9 kommen · 2 kommen nicht
+  · 3 da»), the people coming, and «kommt nicht» in a muted group of its own, ✕ and the word on
+  every row. One tap on «da» checks somebody in; an answer alone never does. Yes / no and names
+  only: no answer times, status words or notes are shown or stored. The answers ride in the
+  existing `/alarms` poll (new column `divera_emergencies.responses_json`), which keeps its 30 s
+  cadence for the first 10 min after an alarm. What a status means is read off its name, and
+  `roster.diveraResponses` overrides it (docs/divera-connector.md › Rückmeldungen). The answers
+  are deleted once the Einsatz is closed and in any case 48 h after the alarm (PRIVACY.md).
+  *Migration runs on boot; nothing to set up.*
+- **«Auswertung» – a debrief sheet at the end of the Rapport PDF.** Key figures (Alarm bis 1.
+  Fahrzeug vor Ort, Alarm bis 1. Atemschutz-Eintritt, Funkkontakte eingehalten with the overrun
+  count, längster Atemschutz-Einsatz, Einsatzdauer – each defined in a footnote, «—» when the
+  record does not carry it), a vector swimlane timeline (Fahrzeuge, Trupps with their contacts and
+  fällig/überfällig stretches hatched so they survive a greyscale printer, checklist phases,
+  milestones). Its own landscape sheet, last, so the signed part goes out without
+  it; «Auswertung (intern)» in the PDF ▾ menu, ticked by default when a crew went in under Atemschutz. *No action needed.*
 - **Roster snapshot: read the personnel list from a file the station publishes.** Set
   «Personenstamm-Quelle» on /admin › Anbindungen to an `https://` address (optional bearer
   token) or an absolute path, and the deployment polls that `roster-snapshot/1` file hourly

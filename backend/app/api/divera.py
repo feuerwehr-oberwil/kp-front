@@ -78,29 +78,26 @@ async def webhook(
 
 
 @router.get("/responses/{incident_id}")
-async def responses(incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)) -> dict:
-    """The Divera Rückmeldungen for one Einsatz — who answered «komme» / «komme nicht».
+async def responses(incident_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)) -> dict:
+    """Who answered the Divera alarm «kommt» / «kommt nicht» — our personnel ids, nothing else.
 
-    Read-only and stored: the server's own poll keeps them (divera · store_responses); this read
+    Read-only and stored: the server's own poll keeps it (divera · store_responses); this read
     never calls Divera. Every alarm taken into the incident counts (a Nachalarm attached to it is
-    one more), the latest answer per person winning — but only alarms of the last
+    one more; the newer alarm's answer wins), but only alarms of the last
     :data:`~app.divera_responses.RESPONSES_MAX_AGE_SECONDS`: the answers to a dispatch that is
-    hours over are not «anrückend». ``available: false`` = nothing to show (no Divera alarm, or the
-    poll never saw answers on it — ``reason: no_data``), and the Anwesenheit shows nothing at all.
+    hours over are not «anrückend». ``available: false`` = nothing to show (``reason: no_data``,
+    or ``closed`` for an archived Einsatz), and the Anwesenheit shows nothing at all.
 
-    Personal data, so: editor-only like the rest of /api/divera (the EL and the editors who mark
-    attendance; a viewer and an Einsatz-Link session are refused), and only for an Einsatz that is
-    still open — an archived one answers ``available: false``. A person comes out only if they
-    are on the Mannschaftsliste, under OUR id; an unknown Divera user is a count, never an id or a
-    note. The answers never enter the
-    workspace, an export or a Rapport, and are cleared after the Einsatz (divera · prune_responses).
-    A Divera answer is not presence — see app/divera_responses.
+    Editor-only like the rest of /api/divera (the EL and the editors who mark attendance; a viewer
+    and an Einsatz-Link session are refused). Somebody not on the Mannschaftsliste is a count.
+    The answers never enter the workspace, an export or a Rapport, and are cleared after the
+    Einsatz (divera · prune_responses). A Divera answer is not presence.
     """
     from datetime import datetime, timedelta
 
+    from sqlalchemy import func as sa_func
+
     from ..divera_responses import RESPONSES_MAX_AGE_SECONDS, summarise
-    from ..models import Personnel, PersonnelExternalIdentity
-    from ..personnel import load_divera_response_kinds
 
     inc = await get_incident_or_404(db, incident_id)
     if inc.is_archived:
@@ -111,36 +108,21 @@ async def responses(incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSessio
     blobs = (
         (
             await db.execute(
-                select(DiveraEmergency.responses_json).where(
+                select(DiveraEmergency.responses_json)
+                .where(
                     DiveraEmergency.taken_incident_id == incident_id,
                     DiveraEmergency.responses_json.is_not(None),
                     (DiveraEmergency.ts_create >= cutoff_ts)
                     | (DiveraEmergency.ts_create.is_(None) & (DiveraEmergency.received_at >= cutoff_dt)),
                 )
+                # oldest alarm first: summarise lets the newer one's answer win
+                .order_by(sa_func.coalesce(DiveraEmergency.ts_create, 0), DiveraEmergency.received_at)
             )
         )
         .scalars()
         .all()
     )
-    if not blobs:
-        return {"available": False, "reason": "no_data"}
-    identities = await db.execute(
-        select(PersonnelExternalIdentity.external_id, PersonnelExternalIdentity.personnel_id).where(
-            PersonnelExternalIdentity.provider == "divera"
-        )
-    )
-    person_by_ucr = {str(ext): str(pid) for ext, pid in identities.all()}
-    # the deprecated column, for a roster row that predates the identities table
-    legacy = await db.execute(select(Personnel.divera_id, Personnel.id).where(Personnel.divera_id.is_not(None)))
-    for ucr, pid in legacy.all():
-        person_by_ucr.setdefault(str(ucr), str(pid))
-    return summarise(
-        list(blobs),
-        await load_divera_response_kinds(db),
-        person_by_ucr,
-        # belt and braces: CurrentEditor admits no viewer today; the notes stay off if it ever does
-        with_notes=user.role != "viewer",
-    )
+    return summarise(list(blobs))
 
 
 @router.get("/pool", response_model=list[DiveraEmergencyOut])

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildingChips, buildingSources, fmtDay, hasBuildingContent, noteLines, objectCaption, visitLine } from './buildingCard'
+import { buildingChipSummary, buildingChips, buildingSources, fmtDay, hasBuildingContent, noteLines, objectCaption, visitLine } from './buildingCard'
 import type { BuildingInfo } from './api/building'
 
 // What the Gebäude card draws (KP Front F5). Hazards first and always a WORD (the component adds
@@ -112,5 +112,18 @@ describe('sources, notes, object, visit', () => {
     expect(fmtDay('2026-10-07')).toBe('07.10.2026')
     expect(fmtDay('nonsense')).toBe('')
     expect(fmtDay(null)).toBe('')
+  })
+})
+
+describe('buildingChipSummary', () => {
+  it('hazard words deduplicated in order — gas heating and gas hot water are one «Gas»', () => {
+    expect(buildingChipSummary(info())).toMatchObject({ hazard: true, words: ['Gas', 'PV'], measures: false })
+    expect(buildingChipSummary(info({ gwr: { ...gwr, heating: ['air'], hot_water: ['oil'] }, plants: [] }))?.words).toEqual(['Heizöl'])
+  })
+
+  it('no hazard → the plain label; nothing at all → no chip', () => {
+    const calm = buildingChipSummary(info({ gwr: { ...gwr, heating: ['district'], hot_water: [] }, plants: [] }))
+    expect(calm).toMatchObject({ hazard: false, words: [], label: 'Gebäude-Steckbrief öffnen' })
+    expect(buildingChipSummary(info({ gwr: null, gwr_status: 'error', plants: [], pv_status: 'error' }))).toBeNull()
   })
 })

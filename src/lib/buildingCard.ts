@@ -156,3 +156,32 @@ export function hasBuildingContent(b: BuildingInfo | null): boolean {
     || noteLines(b.object?.remarks).length > 0
     || visitLine(b) !== ''
 }
+
+/** What the closed chip on the Karte / the plan's chip row says: the hazards as WORDS («Gas · PV»),
+ *  or nothing beyond «Gebäude» when there are none. `hazard` drives the warn glyph. */
+export interface BuildingChipSummary {
+  hazard: boolean
+  /** the hazard words, deduplicated, in the chips' order («Gas», «Heizöl», «PV») */
+  words: string[]
+  /** the Objekt's Sofortmassnahmen are there to be read */
+  measures: boolean
+  /** the full sentence for aria-label / title */
+  label: string
+}
+
+export function buildingChipSummary(b: BuildingInfo | null): BuildingChipSummary | null {
+  if (!b || !hasBuildingContent(b)) return null
+  const C = appConfig.copy.building
+  const words: string[] = []
+  const energy = C.energy as Record<string, string>
+  for (const c of buildingChips(b)) {
+    if (!c.hazard) continue
+    const w = c.key === 'pv' ? C.pvBare : energy[c.key.replace(/^(heat|water)-/, '')] ?? c.text
+    if (!words.includes(w)) words.push(w)
+  }
+  const measures = noteLines(b.object?.measures).length > 0
+  const label = words.length
+    ? fillTemplate(C.chipLabelHazards, { h: words.join(', ') })
+    : C.chipLabel
+  return { hazard: words.length > 0, words, measures, label }
+}

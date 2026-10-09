@@ -6,6 +6,7 @@ import { Overlays } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import type { IncidentMeta } from '../lib/incidents'
 import { downloadDirectReportPdf } from '../lib/reportPdfDirect'
+import type { Trupp } from '../types'
 
 // The «Angaben fehlen noch» ask in front of the Rapport-PDF (14.09.): it used to list the open
 // points as plain text, so the operator closed it and hunted for the section. Each point is now a
@@ -93,6 +94,56 @@ describe('ReportPreflight · the PDF with missing Mindestangaben', () => {
     expect(target?.contains(document.activeElement)).toBe(true)
     // going there is not going ahead
     expect(downloadDirectReportPdf).not.toHaveBeenCalled()
+  })
+})
+
+describe('ReportPreflight · Auswertung default and operator choice', () => {
+  const crew = (readings: Trupp['readings']): Trupp => ({
+    id: 't1', no: 1, name: 'Meier Anna', entryPressureBar: 300,
+    entryTime: '', lastContactTime: '', status: 'raus', readings,
+  })
+  const entry: Trupp['readings'] = [{ t: '2026-09-14T08:30:00.000Z', bar: 300, kind: 'entry' }]
+  function sheet(id: string, trupps: Trupp[]) {
+    return <ReportPreflight incident={{ ...incident, id }} reportMeta={{}} events={[]}
+      annotatedPlanCount={0} truppCount={trupps.length} trupps={trupps}
+      attendanceCount={0} mittelCount={0} onSaveMeta={() => {}} />
+  }
+  async function openMenu() {
+    await act(async () => {})
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: appConfig.copy.preflight.printMenu })) })
+    return screen.getByRole('menuitemcheckbox', { name: appConfig.copy.preflight.toggleAuswertung })
+  }
+
+  it.each([
+    ['no-crew', [], false],
+    ['standby', [crew([{ t: '2026-09-14T08:20:00.000Z', bar: 300, kind: 'registered' }])], false],
+    ['pa-entry', [crew(entry)], true],
+    ['basic-entry', [{ ...crew(entry), kind: 'einfach' as const }], false],
+  ] as const)('seeds the print checkbox for %s', async (id, trupps, checked) => {
+    render(sheet(`f7-default-${id}`, [...trupps]))
+    expect((await openMenu()).getAttribute('aria-checked')).toBe(String(checked))
+  })
+
+  it.each([true, false])('keeps an explicit %s choice after reopening with changed crew data', async (initial) => {
+    const id = `f7-override-${initial}`
+    const mounted = render(sheet(id, initial ? [crew(entry)] : []))
+    const toggle = await openMenu()
+    await act(async () => { fireEvent.click(toggle) })
+    expect(toggle.getAttribute('aria-checked')).toBe(String(!initial))
+    mounted.unmount()
+    render(sheet(id, initial
+      ? [{ ...crew(entry), removedAt: '2026-09-14T09:00:00.000Z' }]
+      : [crew([{ t: '2026-09-14T08:20:00.000Z', bar: 300, kind: 'registered' }])]))
+    expect((await openMenu()).getAttribute('aria-checked')).toBe(String(!initial))
+  })
+
+  it('refreshes an untouched default when a PA deployment starts between openings', async () => {
+    const id = 'f7-refresh-default'
+    const mounted = render(sheet(id, []))
+    expect((await openMenu()).getAttribute('aria-checked')).toBe('false')
+    mounted.unmount()
+    render(sheet(id, [crew(entry)]))
+    expect((await openMenu()).getAttribute('aria-checked')).toBe('true')
   })
 })
 

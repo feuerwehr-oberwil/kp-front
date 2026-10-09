@@ -87,9 +87,9 @@ export const defaultReportOptions: ReportOptions = {
   pendenzen: true,
   attachments: true,
   detailedAudit: false,
-  // ⚠️ ON for the Rapport (F7, 09.10.2026): the paper the station prints is the Kader's copy, and
-  // the debrief is what that copy is read for afterwards. Its own last sheet, so the signed part
-  // goes out without it. The QR-Erfassung's own PDF switches it off (CaptureApp).
+  // ⚠️ The SHEET seeds this from the record (ReportPreflight · `hadAtemschutzDeployment`, owner
+  // 09.10.2026): ticked when a crew went in under PA, unticked otherwise. Its own last sheet, so
+  // the signed part goes out without it. The QR-Erfassung's own PDF switches it off (CaptureApp).
   auswertung: true,
 }
 

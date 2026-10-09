@@ -7,6 +7,7 @@ import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
 import { downloadDirectReportPdf, usedStackFloors } from '../lib/reportPdfDirect'
 import { warmTemplates, type ChecklistState, type ChecklistTemplate } from '../lib/checklists'
+import { hadAtemschutzDeployment } from '../lib/auswertung'
 import { downloadUrl } from '../lib/download'
 import { thumbUrl } from '../lib/mediaUrl'
 import { geretteteFromLage, geretteteOffer } from '../lib/gerettete'
@@ -398,6 +399,9 @@ export function ReportPreflight({
     ...defaultReportOptions,
     kroki: mapContentCount > 0,
     atemschutz: truppCount > 0,
+    // the Auswertung is the contact log and the PA figures on one sheet: ticked when a crew went
+    // in under Atemschutz, unticked (still selectable) when nobody did (owner, 09.10.2026)
+    auswertung: hadAtemschutzDeployment(trupps),
     // The framing chosen for the LAST print of this Einsatz — the Kroki panel opens on it and
     // reports every settled pan back into this same field, so what the surface would print is
     // always what the crop on screen shows. Auto on first use: the operational extent decides

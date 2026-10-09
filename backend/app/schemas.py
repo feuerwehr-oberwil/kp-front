@@ -1657,8 +1657,9 @@ class RosterConfig(BaseModel):
     # What each Divera Rückmelde-Status MEANS for the Anwesenheit's «Anrückend» block (Divera
     # only; see docs/divera-connector.md «Rückmeldungen»). Keyed by the status id («13») or its
     # name («Komme nicht», case- and accent-insensitive; an id beats a name). Unset statuses are
-    # read off their name — «nicht»/«abwesend» → not_coming, «komme»/«N min» → coming, else other —
-    # so most stations never set this. Only for an Einheit whose words the default misreads.
+    # read off their name — «nicht»/«abwesend» → not_coming, «komme»/«N min» → coming, else other,
+    # which is not shown — so most stations never set this. Only for an Einheit whose words the
+    # default misreads. Applies to answers the poll stores from then on.
     diveraResponses: dict[str, Literal["coming", "not_coming", "other"]] = Field(default_factory=dict)
     # How often the roster snapshot is polled (minutes), when a source is configured. A roster
     # changes a few times a month; «Jetzt abrufen» on System › Verbindungen covers the urgent one.

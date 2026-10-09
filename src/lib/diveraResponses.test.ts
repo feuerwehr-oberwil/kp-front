@@ -1,36 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import { buildAnrueckend } from './diveraResponses'
 import { FIXTURE, ROSTER } from './diveraResponses.fixture'
-import type { DiveraResponses } from './api/divera'
 import type { AttendanceState } from '../types'
 
-describe('the «Anrückend» block, as data', () => {
-  it('maps the server rows onto the roster by OUR id; a row the device lacks is only counted', () => {
-    const a = buildAnrueckend(FIXTURE, ROSTER.filter((p) => p.id !== 'p102'), {})!
-    expect(a.coming.map((r) => r.person.id)).toEqual(['p101', 'p103'])
-    expect(a.unmapped).toBe(2) // 999 (server) + p102 (not on this device's roster)
-    expect(a.counts.coming).toBe(4) // the head line still says what Divera said
-  })
-
-  it('groups coming / not coming / other and counts every answer in the head line', () => {
+describe('the «Anrückend» block, as data — yes / no and names', () => {
+  it('lists who comes and who does not, and counts every answer in the head line', () => {
     const a = buildAnrueckend(FIXTURE, ROSTER, {})!
-    expect(a.counts).toEqual({ coming: 4, not_coming: 2, other: 1 })
-    expect(a.unanswered).toBe(3)
-    // 999 answered «Komme in 10 min» but is not on the Mannschaftsliste — counted, not listed
+    expect(a.counts).toEqual({ coming: 4, notComing: 2 })
+    // the crew list's own order: Grad first, then the name
+    expect(a.coming.map((p) => p.id)).toEqual(['p103', 'p101', 'p102'])
+    expect(a.notComing.map((p) => p.displayName)).toEqual(['Huber Lea', 'Weber Marco'])
+    // 999 is on nobody's roster: the server sent a number, never who
     expect(a.unmapped).toBe(1)
-    expect(a.coming.map((r) => r.person.id)).toEqual(['p101', 'p102', 'p103'])
-    expect(a.notComing.map((r) => r.person.displayName)).toEqual(['Huber Lea', 'Weber Marco'])
-    expect(a.other.map((r) => r.statusName)).toEqual(['Rückruf erbeten'])
   })
 
-  it('carries the estimate only where the status promises minutes, and never for «kommt nicht»', () => {
-    const a = buildAnrueckend(FIXTURE, ROSTER, {})!
-    const keller = a.coming.find((r) => r.person.id === 'p103')!
-    expect(keller.eta).toBe('2026-10-08T17:11:30+00:00')
-    expect(keller.statusName).toBe('Komme in 10 min')
-    expect(keller.note).toBe('5 min')
-    expect(a.coming.find((r) => r.person.id === 'p101')!.eta).toBeNull()
-    expect(a.notComing.every((r) => r.eta === null)).toBe(true)
+  it('maps by OUR id; a row this device lacks is only counted', () => {
+    const a = buildAnrueckend(FIXTURE, ROSTER.filter((p) => p.id !== 'p102'), {})!
+    expect(a.coming.map((p) => p.id)).toEqual(['p103', 'p101'])
+    expect(a.unmapped).toBe(2)
+    expect(a.counts.coming).toBe(4) // the head line still says what Divera said
   })
 
   it('takes somebody out of the block once they are recorded here — in any state', () => {
@@ -40,25 +28,13 @@ describe('the «Anrückend» block, as data', () => {
     }
     const a = buildAnrueckend(FIXTURE, ROSTER, att)!
     expect(a.here).toBe(2)
-    expect(a.coming.map((r) => r.person.id)).toEqual(['p102', 'p103'])
-    expect(a.notComing.map((r) => r.person.id)).toEqual(['p105'])
-    // the head line still counts what Divera said
+    expect(a.coming.map((p) => p.id)).toEqual(['p103', 'p102'])
+    expect(a.notComing.map((p) => p.id)).toEqual(['p105'])
     expect(a.counts.coming).toBe(4)
   })
 
   it('is nothing at all without Divera answers', () => {
     expect(buildAnrueckend(null, ROSTER, {})).toBeNull()
-    expect(buildAnrueckend({ available: false }, ROSTER, {})).toBeNull()
-  })
-
-  it('sorts the soonest arrival first: the estimate where there is one, else the answer time', () => {
-    const resp: DiveraResponses = {
-      ...FIXTURE,
-      answers: [
-        { person_id: 'p101', status_id: 12, kind: 'coming', answered_at: '2026-10-08T17:00:00Z', eta: '2026-10-08T17:10:00Z', note: '' },
-        { person_id: 'p102', status_id: 11, kind: 'coming', answered_at: '2026-10-08T17:04:00Z', eta: null, note: '' },
-      ],
-    }
-    expect(buildAnrueckend(resp, ROSTER, {})!.coming.map((r) => r.person.id)).toEqual(['p102', 'p101'])
+    expect(buildAnrueckend({ available: false, reason: 'no_data' }, ROSTER, {})).toBeNull()
   })
 })
