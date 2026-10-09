@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
-  cardinalIndex, fmtDistance, forgetPhotoGeo, nearIncident, photoGeoOf, photoGeoSettled, photoMarker, photoMarkerId, photoPlacement,
+  cardinalIndex, fmtDistance, forgetPhotoGeo, nearIncident, photoGeoLate, photoGeoOf, photoGeoSettled, setDevicePositionSource, photoMarker, photoMarkerId, photoPlacement,
   PHOTO_NEAR_FALLBACK_M, PHOTO_NEAR_M, photoUrlKey, rememberPhotoGeo, resolvePhotoUrl, rowGeoFor, rowPhotoGeo, takenClock, toPhotoGeo,
   validGeo, withPhotoUrls, withResolvedPhotos,
 } from './photoGeo'
@@ -18,7 +18,8 @@ describe('toPhotoGeo — what the record keeps', () => {
   it('keeps position, altitude, heading and time, and nothing else', () => {
     const m = parseExif(readFileSync('src/lib/fixtures/exif/gps-heading.jpg'))
     const g = toPhotoGeo(m)!
-    expect(Object.keys(g).sort()).toEqual(['alt', 'heading', 'lat', 'lng', 'takenAt'])
+    expect(Object.keys(g).sort()).toEqual(['alt', 'heading', 'lat', 'lng', 'source', 'takenAt'])
+    expect(g.source).toBe('exif')
     expect(g.lat).toBeCloseTo(47.513889, 6)
     expect(g.heading).toBeCloseTo(228.4, 1)
   })
@@ -234,5 +235,61 @@ describe('photoUrlKey / withPhotoUrls — the map is rebuilt only when a picture
     const once = withPhotoUrls([marker], key)
     expect(once[0].photoUrl).toBe('/api/media/a')
     expect(withPhotoUrls(once, key)).toBe(once)
+  })
+})
+
+describe('the device position stands in for a missing EXIF one (09.10.2026)', () => {
+  const NOW_FILE = (name: string) => new File([readFileSync(`src/lib/fixtures/exif/${name}`)], name, { lastModified: Date.now() })
+  const deviceAt = (lat: number, lng: number) => vi.fn(async (): Promise<PhotoGeo | null> => ({ lat, lng, acc: 9, source: 'device', takenAt: '2026-10-09T12:00:00+02:00' }))
+
+  it('a picture without position, taken now, gets the device fix — late, by patch', async () => {
+    const device = deviceAt(47.5141, 7.5571)
+    setDevicePositionSource(device)
+    try {
+      expect(await rememberPhotoGeo('blob:cam', NOW_FILE('no-exif.jpg'))).toBeNull()
+      const late = photoGeoLate(['blob:cam', 'blob:other'])
+      expect(late).not.toBeNull()
+      await late
+      expect(device).toHaveBeenCalledTimes(1)
+      expect(photoGeoOf('blob:cam')).toMatchObject({ source: 'device', acc: 9 })
+      expect(photoGeoLate(['blob:cam'])).toBeNull()
+      const geo = rowGeoFor(['blob:cam'], OBERWIL, true)!
+      expect(geo[0]).toMatchObject({ source: 'device' })
+    } finally { setDevicePositionSource(null) }
+  })
+
+  it('never asks the device when the photo has its own position', async () => {
+    const device = deviceAt(1, 1)
+    setDevicePositionSource(device)
+    try {
+      expect((await rememberPhotoGeo('blob:exif', NOW_FILE('gps-only.jpg')))?.source).toBe('exif')
+      expect(photoGeoLate(['blob:exif'])).toBeNull()
+      expect(device).not.toHaveBeenCalled()
+    } finally { setDevicePositionSource(null) }
+  })
+
+  it('never for a photo whose EXIF time says it was taken earlier (a library pick)', async () => {
+    const device = deviceAt(47.5141, 7.5571)
+    setDevicePositionSource(device)
+    try {
+      await rememberPhotoGeo('blob:old', NOW_FILE('no-gps.jpg')) // EXIF time 2026-10-08 14:32
+      expect(photoGeoLate(['blob:old'])).toBeNull()
+      expect(device).not.toHaveBeenCalled()
+    } finally { setDevicePositionSource(null) }
+  })
+
+  it('the radius rule holds for a device position too', async () => {
+    setDevicePositionSource(deviceAt(-33.86, 151.21))
+    try {
+      await rememberPhotoGeo('blob:far', NOW_FILE('no-exif.jpg'))
+      await photoGeoLate(['blob:far'])
+      expect(photoGeoOf('blob:far')).not.toBeNull()
+      expect(rowGeoFor(['blob:far'], OBERWIL, true)).toBeUndefined()
+    } finally { setDevicePositionSource(null) }
+  })
+
+  it('without a registered source (a viewer, a link) nothing is fixed', async () => {
+    await rememberPhotoGeo('blob:none', NOW_FILE('no-exif.jpg'))
+    expect(photoGeoLate(['blob:none'])).toBeNull()
   })
 })

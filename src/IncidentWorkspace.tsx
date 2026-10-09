@@ -59,6 +59,7 @@ import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
 import { apiDelete } from './lib/api'
 import { initialMode, loadPrefs, savePrefs } from './lib/prefs'
+import { makePhotoPositionSource } from './lib/devicePosition'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { changedAttendanceNames } from './lib/attendanceDiff'
 import { useMittelActions } from './lib/useMittelActions'
@@ -157,7 +158,7 @@ import { removalRowText } from './lib/drawingEdit'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
 import { mintLocalThumb } from './lib/mediaUrl'
-import { photoGeoSettled, photoMarker, photoPlacement, photoUrlKey, rememberPhotoGeo, rowGeoFor, rowPhotoGeo, withPhotoUrls, type PhotoPlacement } from './lib/photoGeo'
+import { photoGeoLate, photoGeoSettled, photoMarker, setDevicePositionSource, photoPlacement, photoUrlKey, rememberPhotoGeo, rowGeoFor, rowPhotoGeo, withPhotoUrls, type PhotoPlacement } from './lib/photoGeo'
 import { whenIdle } from './lib/idle'
 import { useSessionRole, useWorkspaceFlags } from './workspace/access'
 import { useOfflinePrefetch } from './workspace/useOfflinePrefetch'
@@ -341,6 +342,23 @@ export function IncidentWorkspace({
   const { active: replayActive, setActive: setReplayActive, ws: replayWs, onState: onReplayState, onVehicles: onReplayVehicles, exit: exitReplay, entities: replayEntities, board: replayBoard, building: replayBuilding } = useReplay()
   const { running, readOnly, outboxReadOnly, canEditIncident, canEditTrupps, canEditRecord, canEditRapport, canEditMeta, canWriteRecord, tacticalLocked } =
     useWorkspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, forceReadOnly, tabLockLost, replayActive, incidentMeta })
+  // «Standort zu Fotos» (lib/devicePosition): a session that writes the record lends the device's
+  // position to a picture without one — after asking ONCE per device, with the reason.
+  const [photoPosition, setPhotoPositionState] = useState<boolean | undefined>(() => loadPrefs().photoPosition)
+  const setPhotoPosition = useCallback((v: boolean) => {
+    setPhotoPositionState(v)
+    savePrefs({ ...loadPrefs(), photoPosition: v })
+  }, [])
+  useEffect(() => {
+    if (!canWriteRecord) return
+    const G = appConfig.copy.photoGeo
+    setDevicePositionSource(makePhotoPositionSource({
+      loadPref: () => loadPrefs().photoPosition,
+      savePref: setPhotoPosition,
+      ask: () => confirmDialog({ title: G.askTitle, message: G.askMessage, note: G.askNote, confirmLabel: G.askYes, cancelLabel: G.askNo }),
+    }))
+    return () => setDevicePositionSource(null)
+  }, [canWriteRecord, setPhotoPosition])
 
   // Seed all state slices once from this incident's workspace (the component is keyed
   // by incident id upstream, so this runs exactly once per incident). The blob passes the
@@ -2437,6 +2455,24 @@ export function IncidentWorkspace({
       at: (imported ? d.audioMeta?.startedAt : undefined) ?? composerOpenedAt.current ?? undefined,
       surface: onPlan ? 'plan' : 'map', planId: onPlan ? activePlanId : undefined,
     }, rowId)
+    // A picture without an EXIF position may still be getting the DEVICE's (lib/devicePosition
+    // — the iPhone's in-app camera never gives one). The row is not held for it: when the fix
+    // lands, the position follows as an appended patch, and the toast offers the Karte then.
+    const geoLate = photoGeoLate(photoUrls)
+    if (geoLate) {
+      void geoLate.then(() => {
+        const next = rowGeoFor(photoUrls, incidentView.center, ownIncidentCoord)
+        if (!next || JSON.stringify(next) === JSON.stringify(photoGeo ?? null)) return
+        journal.appendPatch(rowId, { photoGeo: next })
+        const row = { id: rowId, photoUrls, photoGeo: next }
+        if (placeablePhotos(row).length) {
+          toast(appConfig.copy.photoGeo.locatedLate, {
+            icon: 'pin', tone: 'success',
+            action: { label: appConfig.copy.photoGeo.place, onClick: () => placePhotos(row) },
+          })
+        }
+      })
+    }
     // one upload per picture; each swaps ITS OWN blob: URL for the server URL when it lands
     for (const url of photoUrls) void uploadPhotoForRow(rowId, url)
     // an imported memo's audioUrl is already the server URL (uploaded during save) — only a
@@ -4921,7 +4957,7 @@ export function IncidentWorkspace({
         setSettingsOpen, symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, railLabels,
         setRailLabels, offlineRadiusM, setOfflineRadiusM, offlineAuto, setOfflineAuto, keepScreenOn,
         setKeepScreenOn, linkScoped, setFeedbackParent, setFeedbackOpen, share, setShareParent, setSharePick,
-        feedbackParent,
+        feedbackParent, canWriteRecord, photoPosition, setPhotoPosition,
       }} />
 
       {/* phone field-capture: a editor can't draw tactical symbols on a phone, but can
