@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
 import { clearDraft, keepDraft, readDraft } from '../lib/draftKeep'
 import { useMediaQuery } from '../lib/useIsPhone'
 import { appConfig } from '../config/appConfig'
@@ -13,7 +13,7 @@ import {
   type QuadSection, type TableSection, type TemplateColumn, type TextSection,
 } from '../lib/boardTemplate'
 import {
-  boxLines, nextTrend, normalizeTime, putField, putHead, putLine, putRow, tableRows, tableSlots,
+  boxLines, moveLine, moveRow, nextTrend, normalizeTime, putField, putHead, putLine, putRow, tableRows, writtenRows,
   type BoardFormData, type FormHead,
 } from '../lib/boardForm'
 import { NEW, navTarget, type NavAt, type NavKey, type NavSection } from '../lib/boardFormNav'
@@ -57,10 +57,9 @@ const ARROW: Record<string, string> = { up: '➚', same: '=', down: '➘' }
 
 /** what a cell is in the form (and what it writes) */
 type Addr =
-  /** `slot`: the line / ruling this cell stands on — what a new line or row is written ON */
-  | { kind: 'line'; sec: string; box: string; row: string; slot?: number }
+  | { kind: 'line'; sec: string; box: string; row: string }
   | { kind: 'tag'; sec: string; box: string; row: string }
-  | { kind: 'cell'; sec: string; row: string; col: string; slot?: number }
+  | { kind: 'cell'; sec: string; row: string; col: string }
   | { kind: 'field'; sec: string; col: string }
   | { kind: 'head'; col: keyof FormHead }
 
@@ -98,10 +97,12 @@ interface CellProps {
    *  over it: last writer wins as before, but it is said (re-review of #338) — `theirs` is what
    *  stood, `mine` what replaces it */
   onClash?: (theirs: string, mine: string) => void
+  /** Alt+↑ / Alt+↓ (⌥ on a Mac): move this cell's entry up / down — with what was typed */
+  onMove?: (dir: -1 | 1, draft: string, changed: boolean) => void
 }
 
 /** One cell: an auto-growing textarea that commits once (see the file header for the keys). */
-function Cell({ k, kn, value, label, readOnly, time = false, placeholder, className, last = false, draftKey, onCommit, onNav, onClash }: CellProps) {
+function Cell({ k, kn, value, label, readOnly, time = false, placeholder, className, last = false, draftKey, onCommit, onNav, onClash, onMove }: CellProps) {
   const T0 = T()
   const [draft, setDraft] = useState(() => (draftKey ? readDraft<string | null>(draftKey, null) : null) ?? value)
   /** typed since the focus (or a kept draft came back): the one thing that makes a cell write */
@@ -115,12 +116,25 @@ function Cell({ k, kn, value, label, readOnly, time = false, placeholder, classN
   const base = useRef(value)
   // an untouched cell follows the stored value — a remote change shows up even while focused
   useEffect(() => { if (!dirty.current) { setDraft(value); base.current = value } }, [value])
-  useLayoutEffect(() => {
+  // the cell is as tall as its text — re-measured on every render AND whenever its width changes:
+  // a line that became an entry gains its grip and trend button, so the same text wraps once
+  // more, and a multi-line entry measured only on typing was cut off (owner, 10.10. evening:
+  // «allow multi-line entry» — it was there, but its last line disappeared)
+  const grow = useCallback(() => {
     const el = ref.current
     if (!el) return
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
-  }, [draft])
+  }, [])
+  useLayoutEffect(grow)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    let w = el.clientWidth
+    const ro = new ResizeObserver(() => { if (el.clientWidth !== w) { w = el.clientWidth; grow() } })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [grow])
   const live = useRef({ draft, value, readOnly, onCommit, onClash })
   useEffect(() => { live.current = { draft, value, readOnly, onCommit, onClash } })
   /** about to write `mine` over the stored value: was that value somebody else's, meanwhile? */
@@ -179,6 +193,15 @@ function Cell({ k, kn, value, label, readOnly, time = false, placeholder, classN
       // Alt+Enter is a line break like Shift+Enter (Excel) — a textarea does not do it by itself
       e.preventDefault()
       insertBreak(e.currentTarget)
+      return
+    }
+    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && onMove && !readOnly) {
+      e.preventDefault()
+      const changed = dirty.current && draft !== value
+      if (changed) clashCheck(draft)
+      dirty.current = false
+      if (draftKey) clearDraft(draftKey)
+      onMove(e.key === 'ArrowUp' ? -1 : 1, draft, changed)
       return
     }
     if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
@@ -312,6 +335,8 @@ function useFocusAfterRender(root: RefObject<HTMLElement | null>): (k: string) =
 export interface TafelFormPageProps {
   /** the page's anno id — the namespace of the drafts this device keeps for it */
   pageKey: string
+  /** what the page is called — «Konzept 2» for a second Konzept (lib/boardForm · pageTitles) */
+  title?: string
   data: BoardFormData
   readOnly: boolean
   isPhone: boolean
@@ -334,7 +359,7 @@ export interface TafelFormPageProps {
   inset: { top: number; left: number; right: number; bottom: number | string }
 }
 
-export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRemove, onConflict, onPrint, pageCount = 1, printing = false, scene, onOpenKarte, inset }: TafelFormPageProps) {
+export function TafelFormPage({ pageKey, title, data, readOnly, isPhone, onChange, onRemove, onConflict, onPrint, pageCount = 1, printing = false, scene, onOpenKarte, inset }: TafelFormPageProps) {
   const t = T()
   const page = data.page
   const sections = shownSections(page)
@@ -356,44 +381,37 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
   }
 
   // ── the layout the keyboard moves through (lib/boardFormNav) ──────────────────────────────
-  /** per section: the ids of what it shows top to bottom — a box's lines (an empty line above a
-   *  written one included) and its empty line; a table's written area as one id per RULING, the
-   *  written rows' own and a pre-minted one per empty ruling (keyed by the ruling, so the ruling
-   *  typed into is the ruling the row is written on — lib/boardForm · slotted) */
-  const ids: Record<string, { lines?: Record<string, { lines: string[]; newId: string }>; slots?: string[]; written?: number; fill?: string[] }> = {}
+  /** per section: a box's written lines and its empty line; a table's written rows, its empty row
+   *  (`newId`, where writing lands — directly under the last entry) and how many more empty
+   *  rulings are drawn under it (`ghosts`: the box's own height, then a taller neighbour's) */
+  const ids: Record<string, { lines?: Record<string, { lines: string[]; newId: string }>; newId?: string; ghosts?: number }> = {}
   const layout: NavSection[] = []
   if (page.header) layout.push({ kind: 'text', id: HEAD_SEC, fields: HEAD_KEYS })
   for (const sec of sections) {
     if (sec.type === 'quad') {
       const boxes = sec.cells.map((c) => {
-        const laid = boxLines(data, sec.id, c.id)
-        const taken = laid.flatMap((l) => (l ? [l.id] : []))
-        const lines = laid.map((l, j) => l?.id ?? trailing(`${sec.id}/${c.id}#${j}`, taken))
-        return { id: c.id, lines, newId: trailing(`${sec.id}/${c.id}`, taken) }
+        const lines = boxLines(data, sec.id, c.id).map((l) => l.id)
+        return { id: c.id, lines, newId: trailing(`${sec.id}/${c.id}`, lines) }
       })
       ids[sec.id] = { lines: Object.fromEntries(boxes.map((b) => [b.id, b])) }
       layout.push({ kind: 'quad', id: sec.id, boxes: readOnly ? [] : boxes, tag: !!sec.tag })
     } else if (sec.type === 'table') {
       const fixedRowIds = tableRows(data, sec).slice(0, shownFixedCount(sec)).map((r) => r.id)
-      const laid = tableSlots(data, sec)
-      const taken = laid.flatMap((r) => (r ? [r.id] : []))
+      const written = writtenRows(data, sec).map((r) => r.id)
       const adds = tableAddsRows(sec) && !readOnly
-      // the ruled empty rows the paper has are LIVE rows (owner, round 2) — between the written
-      // ones and below them, as many as the box holds (a pre-printed row stands two rulings
-      // tall), and always one more than written. Each is its ruling: typed into, it is written
-      // ON that ruling and stays there (owner, round 2: no jumping up to the first empty row).
+      const newRow = trailing(sec.id, written)
+      // the ruled empty rows the paper has below the entries (owner, round 2: every drawn box is a
+      // tap target) — as many as the box holds (a pre-printed row stands two rulings tall), then
+      // a taller neighbour's leftover (useFillCounts). Writing always lands in the first of them,
+      // directly under the last entry (owner, 10.10. evening: «reorder, no fixed slots»): a tap
+      // on any of the others puts the caret there.
       const room = adds && !isPhone ? Math.max(0, (sec.height ?? 0) - fixedRowIds.length * 2) : 0
-      const count = adds ? Math.max(laid.length + 1, room) : laid.length
-      const slots = Array.from({ length: count }, (_, j) => laid[j]?.id ?? trailing(`${sec.id}#${j}`, taken))
-      // …and below them, as many more as the box's leftover height holds (useFillCounts)
-      const fillIds = adds ? Array.from({ length: fill[sec.id] ?? 0 }, (_, i) => trailing(`${sec.id}#${count + i}`, taken)) : []
-      ids[sec.id] = { slots, written: laid.length, fill: fillIds }
+      ids[sec.id] = { newId: adds ? newRow : undefined, ghosts: Math.max(0, room - written.length - 1) }
       const typed = (cs: TemplateColumn[]) => cs.filter((c) => c.type !== 'trend').map((c) => c.id)
       const fixed = (sec.fixedRows ?? []).map((r) => r.id)
       layout.push({
         kind: 'table', id: sec.id, cols: readOnly ? [] : typed(editableColumns(sec)),
-        rows: [...fixedRowIds, ...slots.slice(0, laid.length)], adds,
-        newId: adds ? slots[laid.length] : undefined, free: adds ? [...slots.slice(laid.length), ...fillIds] : undefined,
+        rows: [...fixedRowIds, ...written], adds, newId: adds ? newRow : undefined,
         fixed, writtenCols: readOnly ? [] : typed(writtenColumns(sec)),
       })
     } else if (sec.type === 'text') {
@@ -407,7 +425,7 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
     if (l.kind === 'text') return keyOf(l.id, undefined, undefined, l.fields[l.fields.length - 1])
     if (l.kind === 'table') {
       const cs = l.adds ? l.writtenCols ?? l.cols : l.cols
-      const lastRow = l.adds ? (l.free ?? [])[(l.free ?? []).length - 1] ?? l.newId : l.rows[l.rows.length - 1]
+      const lastRow = l.adds ? l.newId : l.rows[l.rows.length - 1]
       return keyOf(l.id, undefined, lastRow, cs[cs.length - 1])
     }
     const b = l.boxes[l.boxes.length - 1]
@@ -415,6 +433,9 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
   })()
 
   // ── writing ────────────────────────────────────────────────────────────────────────────────
+  // the latest data, read where a closure outlives its render (a drag ends many renders later)
+  const dataRef = useRef(data)
+  useLayoutEffect(() => { dataRef.current = data })
   const put = (next: BoardFormData) => { if (next !== data) onChange(next) }
   const timeCol = (sec: TableSection) => editableColumns(sec).find((c) => c.type === 'time')
   /** the next state for a cell commit; `stamp` = Enter finished the row, so an empty «Wann» of a
@@ -423,7 +444,7 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
     // every commit carries its time (server clock): what settles a cell two devices changed at once
     const at = serverNow()
     switch (a.kind) {
-      case 'line': return putLine(data, a.sec, a.box, a.row, { text: raw, slot: a.slot }, at)
+      case 'line': return putLine(data, a.sec, a.box, a.row, { text: raw }, at)
       case 'tag': return putLine(data, a.sec, a.box, a.row, { tag: raw }, at)
       case 'field': {
         const sec = sections.find((x) => x.id === a.sec) as TextSection | undefined
@@ -443,7 +464,7 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
           const words = writtenColumns(sec).some((c) => (c.type ?? 'text') === 'text' && (merged[c.id] ?? '').trim())
           if (words && !(merged[tc.id] ?? '').trim()) cells[tc.id] = hhmm(new Date(at))
         }
-        return putRow(data, a.sec, a.row, { cells, slot: a.slot }, at)
+        return putRow(data, a.sec, a.row, { cells }, at)
       }
     }
   }
@@ -492,6 +513,97 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
   const clash = (a: Addr) => (theirs: string, mine: string) => onConflict?.(whereOf(a), mine, theirs)
   const draftKey = (k: string) => `tafel:${pageKey}:${k}`
 
+  // ── reordering: an entry moved by hand (owner, 10.10. evening) ─────────────────────────────
+  // Alt+↑ / Alt+↓ (⌥ on a Mac) in any of its cells, or the grip at its left edge dragged (pointer
+  // and touch, the page scrolling under the finger near its edges). One move is one ↶ step and
+  // writes one order key (lib/orderKey) — what was typed in the cell rides along in that step.
+  const listOf = (a: Addr, base: BoardFormData = data): string[] => {
+    if (a.kind === 'line' || a.kind === 'tag') return boxLines(base, a.sec, a.box).map((l) => l.id)
+    if (a.kind === 'cell') { const sec = sections.find((x) => x.id === a.sec); return sec?.type === 'table' ? writtenRows(base, sec).map((r) => r.id) : [] }
+    return []
+  }
+  const moveTo = (a: Addr, to: number, base: BoardFormData = data): BoardFormData =>
+    a.kind === 'line' || a.kind === 'tag' ? moveLine(base, a.sec, a.box, a.row, to, serverNow())
+      : a.kind === 'cell' ? moveRow(base, a.sec, a.row, to, serverNow()) : base
+  const onMove = (a: Addr, k: string) => (dir: -1 | 1, draft: string, changed: boolean) => {
+    const base = changed ? next(a, draft, false) : data
+    const order = listOf(a)
+    const from = a.kind === 'line' || a.kind === 'tag' || a.kind === 'cell' ? order.indexOf(a.row) : -1
+    const to = from + dir
+    put(from >= 0 && to >= 0 && to < order.length ? moveTo(a, to, base) : base)
+    focusAfterRender(k)
+  }
+  /** a drag in progress: which list, which entry, where it would land, how far it has travelled */
+  const [drag, setDrag] = useState<{ list: string; id: string; from: number; to: number; dy: number; h: number } | null>(null)
+  const beginDrag = (list: string, a: Addr, order: readonly string[]) => (e: ReactPointerEvent<HTMLButtonElement>) => {
+    const root = rootRef.current
+    if (readOnly || !root || (a.kind !== 'line' && a.kind !== 'cell')) return
+    e.preventDefault()
+    e.stopPropagation()
+    const els = order.map((id) => root.querySelector<HTMLElement>(`[data-ord-list="${CSS.escape(list)}"][data-ord-id="${CSS.escape(id)}"]`))
+    if (els.some((x) => !x)) return
+    const start = root.scrollTop
+    const mids = els.map((el) => { const r = el!.getBoundingClientRect(); return { mid: r.top + start + r.height / 2, h: r.height } })
+    const from = order.indexOf(a.row)
+    const h = mids[from].h
+    const y0 = e.clientY
+    let y = y0, to = from, raf = 0
+    const compute = () => {
+      const dy = y - y0 + (root.scrollTop - start)
+      const centre = mids[from].mid + dy
+      to = mids.filter((m, i) => i !== from && m.mid < centre).length
+      setDrag({ list, id: a.row, from, to, dy, h })
+    }
+    const onPointerMove = (ev: PointerEvent) => { y = ev.clientY; compute() }
+    // near the page's top or bottom edge the page scrolls under the finger
+    const tick = () => {
+      const r = root.getBoundingClientRect(), edge = 64
+      const v = y < r.top + edge ? -(r.top + edge - y) / 3 : y > r.bottom - edge ? (y - (r.bottom - edge)) / 3 : 0
+      if (v) { root.scrollTop += v; compute() }
+      raf = requestAnimationFrame(tick)
+    }
+    const end = (commit: boolean) => () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', cancel)
+      window.removeEventListener('keydown', esc)
+      cancelAnimationFrame(raf)
+      setDrag(null)
+      if (!commit || to === from) return
+      // ⚠️ Commit against the data as it stands NOW: another device's change (or a commit) may have
+      // landed during the drag. The drop is «after that neighbour», re-found in the current order.
+      const latest = dataRef.current
+      const now = listOf(a, latest).filter((id) => id !== a.row)
+      if (!listOf(a, latest).includes(a.row)) return // the entry is gone meanwhile
+      const after = to > 0 ? order.filter((id) => id !== a.row)[to - 1] : null
+      const at = after === null ? 0 : now.indexOf(after) + 1
+      const moved = moveTo(a, after !== null && at === 0 ? Math.min(to, now.length) : at, latest)
+      if (moved !== latest) onChange(moved)
+    }
+    const up = end(true), cancel = end(false)
+    const esc = (ev: globalThis.KeyboardEvent) => { if (ev.key === 'Escape') cancel() }
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', cancel)
+    window.addEventListener('keydown', esc)
+    raf = requestAnimationFrame(tick)
+    compute()
+  }
+  /** how a row of `list` stands while something in it is dragged: the dragged one follows the
+   *  finger, the ones it passes make room */
+  const dragStyle = (list: string, id: string, i: number): CSSProperties | undefined => {
+    if (!drag || drag.list !== list) return undefined
+    if (id === drag.id) return { transform: `translateY(${drag.dy}px)`, zIndex: 3, position: 'relative' }
+    const shift = drag.from < drag.to ? (i > drag.from && i <= drag.to ? -drag.h : 0) : (i >= drag.to && i < drag.from ? drag.h : 0)
+    return shift ? { transform: `translateY(${shift}px)`, transition: 'transform .12s' } : { transition: 'transform .12s' }
+  }
+  const grip = (list: string, a: Addr, order: readonly string[]) => readOnly || order.length < 2 ? null : (
+    <button type="button" className={s.grip} aria-label={t.reorder} title={t.reorder} tabIndex={-1}
+      onPointerDown={beginDrag(list, a, order)} onClick={(e) => e.preventDefault()}>
+      <svg viewBox="0 0 10 16" aria-hidden="true">{[3, 8, 13].flatMap((y) => [<circle key={`a${y}`} cx="2.5" cy={y} r="1.4" />, <circle key={`b${y}`} cx="7.5" cy={y} r="1.4" />])}</svg>
+    </button>
+  )
+
   // ── sections ───────────────────────────────────────────────────────────────────────────────
   const ROW_PX = isPhone ? 44 : 40
   const minH = (h: number | undefined) => (h && !isPhone ? { minHeight: h * ROW_PX } : undefined)
@@ -507,25 +619,27 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
     return (
       <div className={cx(s.quad, sec.cells.length > 2 && !isPhone && s.quad2)} style={st}>
         {sec.cells.map((c) => {
-          const laid = boxLines(data, sec.id, c.id)
+          const lines = boxLines(data, sec.id, c.id)
+          const order = lines.map((l) => l.id)
+          const list = `${sec.id}/${c.id}`
           const box = ids[sec.id].lines![c.id]
           const label = labelText(c.label)
-          /** `isNew`: an empty line (no trend, no Stichwort yet); `alias`: THE empty line at the end
-           *  of the box — the one «the next empty line» resolves to (an empty line above a written
-           *  one is not it) */
-          const lineRow = (id: string, text: string, trend: string | undefined, tag: string | undefined, isNew: boolean, slot: number, alias = isNew) => {
-            const a: Addr = { kind: 'line', sec: sec.id, box: c.id, row: id, slot }
+          const lineRow = (id: string, text: string, trend: string | undefined, tag: string | undefined, isNew: boolean, i: number) => {
+            const a: Addr = { kind: 'line', sec: sec.id, box: c.id, row: id }
+            const k = keyOf(sec.id, c.id, id, undefined)
             return (
-              <div key={id} className={cx(s.line, isNew && s.lineNew)}>
+              <div key={id} className={cx(s.line, isNew && s.lineNew, drag?.id === id && s.dragging)}
+                data-ord-list={isNew ? undefined : list} data-ord-id={isNew ? undefined : id} style={isNew ? undefined : dragStyle(list, id, i)}>
+                {!isNew && grip(list, a, order)}
                 {sec.trend && (isNew ? <span className={s.trendGap} aria-hidden="true" />
                   : <TrendButton trend={trend} readOnly={readOnly} onNext={() => put(putLine(data, sec.id, c.id, id, { trend: nextTrend(trend) }, serverNow()))} />)}
-                <Cell k={keyOf(sec.id, c.id, id, undefined)} kn={alias ? keyOf(sec.id, c.id, NEW, undefined) : undefined}
+                <Cell k={k} kn={isNew ? keyOf(sec.id, c.id, NEW, undefined) : undefined}
                   value={text} label={label} readOnly={readOnly} className={s.grow}
-                  last={keyOf(sec.id, c.id, id, undefined) === lastKey}
-                  onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(keyOf(sec.id, c.id, id, undefined))} onClash={clash(a)} />
+                  last={k === lastKey} onMove={isNew ? undefined : onMove(a, k)}
+                  onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(k)} onClash={clash(a)} />
                 {sec.tag && !isNew && (
                   <Cell k={`${keyOf(sec.id, c.id, id, 'tag')}`} value={tag ?? ''} label={`${label} · ${t.tag}`} placeholder={t.tag}
-                    readOnly={readOnly} className={s.tag}
+                    readOnly={readOnly} className={s.tag} onMove={onMove({ kind: 'tag', sec: sec.id, box: c.id, row: id }, keyOf(sec.id, c.id, id, 'tag'))}
                     onCommit={commit({ kind: 'tag', sec: sec.id, box: c.id, row: id })} onNav={(key, d, ch) => onNav({ kind: 'tag', sec: sec.id, box: c.id, row: id }, key, d, ch)}
                     draftKey={draftKey(keyOf(sec.id, c.id, id, 'tag'))} onClash={clash({ kind: 'tag', sec: sec.id, box: c.id, row: id })} />
                 )}
@@ -534,13 +648,12 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
           }
           return (
             <div key={c.id} className={s.box} data-box={c.id}
-              // a tap on the empty part of a box writes into it (its empty line)
+              // a tap on the empty part of a box writes into it: its empty line, under the last one
               onPointerDown={keep}
               onClick={(e) => { if (e.target === e.currentTarget) (e.currentTarget.querySelector<HTMLTextAreaElement>('[data-kn]'))?.focus() }}>
               <div className={s.boxLabel}>{label}</div>
-              {/* by slot: an emptied line above a written one stays an (empty) line — nothing moves up */}
-              {laid.map((l, j) => (l ? lineRow(l.id, l.text, l.trend, l.tag, false, j) : lineRow(box.lines[j], '', undefined, undefined, true, j, false)))}
-              {!readOnly && lineRow(box.newId, '', undefined, undefined, true, laid.length)}
+              {lines.map((l, i) => lineRow(l.id, l.text, l.trend, l.tag, false, i))}
+              {!readOnly && lineRow(box.newId, '', undefined, undefined, true, lines.length)}
             </div>
           )
         })}
@@ -552,19 +665,33 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
     const cols = shownColumns(sec)
     const fixedRows = new Map((sec.fixedRows ?? []).map((r) => [r.id, r]))
     const fixedList = tableRows(data, sec).slice(0, shownFixedCount(sec))
-    const laid = tableSlots(data, sec)
-    const { slots = [], written = 0, fill: fillIds = [] } = ids[sec.id]
-    const grid: CSSProperties = { gridTemplateColumns: [...cols.map((c) => `minmax(0, ${c.w ?? 1}fr)`), ...(sec.done ? ['auto'] : [])].join(' ') }
-    /** `slot`: the ruling of a written-area row; `alias`: the first empty row after the written
-     *  ones — what «the next empty row» (NEW) resolves to */
-    /** an empty ruling of the written area: a live row on ruling `j` */
-    const emptyRow = (id: string, j: number) => (
-      <div key={id} className={cx(s.tr, s.trNew)} role="row" style={grid}>
-        {cols.map((c) => cellFor({ id, cells: {} }, c, true, j, j === written))}
+    const written = writtenRows(data, sec)
+    const order = written.map((r) => r.id)
+    const list = sec.id
+    const { newId, ghosts = 0 } = ids[sec.id]
+    // on a phone a column is never narrower than its head's longest piece needs (owner, 10.10.:
+    // «Entwi/cklun/gs-» in a 70px column) — a wide sheet then scrolls sideways in its box
+    const minCol = isPhone ? 'var(--tafel-col-min)' : '0'
+    const grid: CSSProperties = {
+      gridTemplateColumns: [...cols.map((c) => `minmax(${minCol}, ${c.w ?? 1}fr)`), ...(sec.done ? ['auto'] : [])].join(' '),
+      ...(isPhone ? { minWidth: `calc(var(--tafel-col-min) * ${cols.length})` } : {}),
+    }
+    /** an empty ruling under the empty row: drawn like a row, and a tap on it writes in the empty
+     *  row — the same column — so writing lands directly under the last entry */
+    const ghostRow = (key: string) => (
+      <div key={key} className={cx(s.tr, s.trNew, s.ghost)} role="presentation" aria-hidden="true" style={grid}
+        onPointerDown={keep}
+        onClick={(e) => {
+          const col = (e.target as HTMLElement).closest<HTMLElement>('[data-col]')?.dataset.col
+          const root = rootRef.current
+          const at = (cid: string | undefined) => root?.querySelector<HTMLTextAreaElement>(`[data-kn="${CSS.escape(keyOf(sec.id, undefined, NEW, cid))}"]`)
+          ;(at(col) ?? root?.querySelector<HTMLTextAreaElement>(`[data-kn^="${CSS.escape(`${sec.id}||${NEW}|`)}"]`))?.focus()
+        }}>
+        {cols.map((c) => <span key={c.id} className={s.td} data-col={c.id} />)}
         {sec.done && <span className={s.td} />}
       </div>
     )
-    const cellFor = (r: { id: string; cells: Record<string, string> }, c: TemplateColumn, isNew: boolean, slot?: number, alias = false) => {
+    const cellFor = (r: { id: string; cells: Record<string, string> }, c: TemplateColumn, isNew: boolean, i = -1) => {
       const label = labelText(c.label)
       const fixedRow = fixedRows.has(r.id)
       if (c.fixed && fixedRow) {
@@ -583,11 +710,15 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
           </span>
         )
       }
-      const a: Addr = { kind: 'cell', sec: sec.id, row: r.id, col: c.id, slot }
+      const a: Addr = { kind: 'cell', sec: sec.id, row: r.id, col: c.id }
       const k = keyOf(sec.id, undefined, r.id, c.id)
+      const writtenRow = i >= 0
+      // the grip stands at the row's left edge, in its first typed cell
+      const first = c.id === cols.find((x) => !(x.fixed && (x.type === 'symbol' || x.type === 'index')) && x.type !== 'trend')?.id
       return (
-        <span key={c.id} className={s.td}>
-          <Cell k={k} kn={alias ? keyOf(sec.id, undefined, NEW, c.id) : undefined}
+        <span key={c.id} className={cx(s.td, writtenRow && first && order.length > 1 && !readOnly && s.tdGrip)}>
+          {writtenRow && first && grip(list, a, order)}
+          <Cell k={k} kn={isNew ? keyOf(sec.id, undefined, NEW, c.id) : undefined} onMove={writtenRow ? onMove(a, k) : undefined}
             value={r.cells[c.id] ?? ''} label={label} readOnly={readOnly} time={c.type === 'time'}
             placeholder={c.type === 'time' ? '--:--' : undefined} last={k === lastKey}
             onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(k)} onClash={clash(a)} />
@@ -597,7 +728,8 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
     return (
       <div className={s.table} role="table" aria-label={labelText(sec.title) || labelText(page.title)} style={minH(sec.height)}>
         <div className={cx(s.tr, s.thead)} role="row" style={grid}>
-          {cols.map((c) => <span key={c.id} className={s.th} role="columnheader">{labelText(c.label)}</span>)}
+          {/* a head may break after a slash («Funktion/ Standort/ Name»), never inside a word */}
+          {cols.map((c) => <span key={c.id} className={s.th} role="columnheader">{labelText(c.label).replace(/\//g, '/\u200b')}</span>)}
           {sec.done && <span className={s.th} role="columnheader"><span className={s.srOnly}>{t.done}</span></span>}
         </div>
         {fixedList.map((r) => (
@@ -608,26 +740,30 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
             </span>}
           </div>
         ))}
-        {/* the written area, ruling by ruling: a written row stays on the ruling it was written on,
-            an empty ruling above it stays an empty (live) row — lib/boardForm · slotted */}
-        {slots.map((id, j) => {
-          const r = laid[j]
-          if (!r) return emptyRow(id, j)
-          return (
-            <div key={r.id} className={cx(s.tr, r.done && s.trDone)} role="row" style={grid}>
-              {cols.map((c) => cellFor(r, c, false, j))}
-              {sec.done && <span className={cx(s.td, s.doneCell)}>
-                <DoneButton on={!!r.done} readOnly={readOnly} onToggle={() => put(putRow(data, sec.id, r.id, { done: !r.done }, serverNow()))} />
-              </span>}
-            </div>
-          )
-        })}
-        {/* the leftover height a taller neighbour leaves: more rulings of the standard height,
-            each a live row — or plain space when not a whole ruling is left (never a stretched
-            row). Takes no height of its own (flex-basis 0), so what it holds never grows the box. */}
-        {tableAddsRows(sec) && !readOnly && (
+        {/* the entries, from the top, in their order (owner, 10.10. evening: «reorder, no fixed
+            slots») — then the empty row writing lands in, then the empty rulings under it */}
+        {written.map((r, i) => (
+          <div key={r.id} className={cx(s.tr, r.done && s.trDone, drag?.id === r.id && s.dragging)} role="row"
+            data-ord-list={list} data-ord-id={r.id} style={{ ...grid, ...dragStyle(list, r.id, i) }}>
+            {cols.map((c) => cellFor(r, c, false, i))}
+            {sec.done && <span className={cx(s.td, s.doneCell)}>
+              <DoneButton on={!!r.done} readOnly={readOnly} onToggle={() => put(putRow(data, sec.id, r.id, { done: !r.done }, serverNow()))} />
+            </span>}
+          </div>
+        ))}
+        {newId && (
+          <div key={newId} className={cx(s.tr, s.trNew)} role="row" style={grid}>
+            {cols.map((c) => cellFor({ id: newId, cells: {} }, c, true))}
+            {sec.done && <span className={s.td} />}
+          </div>
+        )}
+        {Array.from({ length: newId ? ghosts : 0 }, (_, j) => ghostRow(`g${j}`))}
+        {/* the leftover height a taller neighbour leaves: more rulings of the standard height —
+            or plain space when not a whole ruling is left (never a stretched row). Takes no
+            height of its own (flex-basis 0), so what it holds never grows the box. */}
+        {newId && (
           <div className={s.fill} data-fill={sec.id}>
-            {fillIds.map((id, i) => emptyRow(id, slots.length + i))}
+            {Array.from({ length: fill[sec.id] ?? 0 }, (_, j) => ghostRow(`f${j}`))}
           </div>
         )}
       </div>
@@ -681,8 +817,9 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
       style={{ paddingTop: inset.top, paddingLeft: inset.left, paddingRight: inset.right, paddingBottom: inset.bottom }}>
       <div className={cx(s.paper, page.paper === 'landscape' && s.landscape, cols === 1 && s.single)}>
         <header className={s.head}>
-          <h2 className={s.title}>{labelText(page.title)}</h2>
-          <span className={s.meta} title={t.keysHint}>{fillTemplate(t.template, { title: labelText(data.tpl.title), v: data.tpl.version })}</span>
+          {/* no «Vorlage … Version …» line (owner, 10.10. evening): which file the page came from
+              stays in the data and on the paper's footer, not on the screen */}
+          <h2 className={s.title} title={t.keysHint}>{title ?? labelText(page.title)}</h2>
           {/* the page on paper — the same sheet the Rapport prints; also on a closed Einsatz */}
           {onPrint && (pageCount > 1
             ? (
@@ -690,14 +827,14 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
                 align="end"
                 popupClassName="de-menu-pop"
                 itemClassName={() => 'de-menu-item'}
-                trigger={<Button variant="quiet" className={s.print} icon={<Icon id="printer" />} disabled={printing}>{printing ? t.printBusy : t.print}</Button>}
+                trigger={<Button variant="quiet" className={s.print} icon={<Icon id="printer" />} disabled={printing} aria-label={t.print}><span className={s.printWord}>{printing ? t.printBusy : t.print}</span></Button>}
                 items={[
                   { label: t.printThis, onClick: () => onPrint(false) },
                   { label: fillTemplate(t.printAll, { n: pageCount }), onClick: () => onPrint(true) },
                 ]}
               />
             )
-            : <Button variant="quiet" className={s.print} icon={<Icon id="printer" />} disabled={printing} onPointerDown={keep} onClick={() => onPrint(false)}>{printing ? t.printBusy : t.print}</Button>)}
+            : <Button variant="quiet" className={s.print} icon={<Icon id="printer" />} disabled={printing} aria-label={t.print} onPointerDown={keep} onClick={() => onPrint(false)}><span className={s.printWord}>{printing ? t.printBusy : t.print}</span></Button>)}
           {!readOnly && (
             <IconButton label={t.removePage} className={s.remove} onPointerDown={keep} onClick={onRemove}><Icon id="trash" /></IconButton>
           )}

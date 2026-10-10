@@ -433,6 +433,12 @@
   .whiteboard:not(.wb-tafel-page) .wb-botleft > .tps { max-width: calc(100vw - var(--rail-w) - 28px - var(--vrail-w, 60px) - 28px); }
 }
 .tps > * { flex: none; }
+/* on a phone «+ Seite» is just «+» (owner, 10.10. evening) — the label still says «Seite
+   hinzufügen»; a square 44px target */
+@media (--phone) {
+  .tps .tps-add { min-width: var(--tap); padding-inline: 0; justify-content: center; }
+  .tps .tps-add-word { display: none; }
+}
 .tps .useg { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 .tps .useg::-webkit-scrollbar { display: none; }
 .tps .useg > .useg-btn { flex: none; }

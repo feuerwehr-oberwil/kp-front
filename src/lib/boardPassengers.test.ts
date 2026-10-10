@@ -94,7 +94,7 @@ describe('the audit hears a cell, not the page', () => {
   it('formDelta names the atoms that changed', () => {
     const a = page()
     const b = putRow(a, 'massnahmen', 'm1', { cells: { was: 'Riegel', wer: 'TLF' } })
-    expect(formDelta(a, b)).toEqual([{ k: 'r|massnahmen|m1|was', new: 'Riegel' }, { k: 'r|massnahmen|m1|wer', new: 'TLF' }])
+    expect(formDelta(a, b)).toEqual([{ k: 'r|massnahmen|m1|was', new: 'Riegel' }, { k: 'r|massnahmen|m1|wer', new: 'TLF' }, { k: 'r|massnahmen|m1|#ord', new: 'V' }])
     expect(JSON.stringify(formDelta(a, b)).length).toBeLessThan(200)
   })
 })

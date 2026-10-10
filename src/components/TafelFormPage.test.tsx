@@ -3,7 +3,8 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { StrictMode, useState } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { TafelFormPage } from './TafelFormPage'
-import { newFormPage, putRow, type BoardFormData } from '../lib/boardForm'
+import { newFormPage, putRow, writtenRows, type BoardFormData } from '../lib/boardForm'
+import type { TableSection } from '../lib/boardTemplate'
 import { BUNDLED_TEMPLATES } from '../lib/boardTemplates'
 import { getLocaleId } from '../config/copy'
 
@@ -94,12 +95,15 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     expect(row.cells).toEqual({ bez: 'Helikopterlandeplatz', ort: 'Sportplatz' })
   })
 
-  it('every ruled empty row of a table is a live row', () => {
+  it('every ruled empty row is a tap target — and writing lands directly under the last entry', () => {
     render(<Harness onCommit={() => {}} />)
     const mass = document.querySelector('[data-sec="massnahmen"]')!
-    // 11 rulings on the poster: the trailing row and the empty ones under it are all inputs
-    expect(mass.querySelectorAll('textarea[aria-label="Was/Wo"]').length).toBe(11)
-    expect(mass.querySelectorAll('[aria-hidden="true"][role="row"]').length).toBe(0)
+    // 11 rulings on the poster: ONE empty row you type in, the ten under it lead into it
+    expect(mass.querySelectorAll('textarea[aria-label="Was/Wo"]').length).toBe(1)
+    const ghosts = mass.querySelectorAll<HTMLElement>('[role="presentation"]')
+    expect(ghosts.length).toBe(10)
+    act(() => { fireEvent.click(ghosts[7].querySelector('[data-col="wer"]')!) })
+    expect(active().getAttribute('data-kn')).toBe('massnahmen||+new|wer')
   })
 
   it('a focused cell that was only passed through never writes its old text back over a remote change', () => {
@@ -123,12 +127,12 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
       type('Rauch'); key('Enter')
       const id = commits[0].values.problem.lines!.front![0].id
       const atom = `l|problem|front|${id}`
-      expect(commits[0].t).toEqual({ [atom]: 1_000_000 })
+      expect(commits[0].t).toEqual({ [atom]: 1_000_000, [`${atom}|#ord`]: 1_000_000 })
       now.mockReturnValue(1_005_000)
       act(() => { fireEvent.click(box('front').querySelector('[data-trend]')!) })
       const last = commits[commits.length - 1]
       expect(last.values.problem.lines!.front![0].trend).toBe('up')
-      expect(last.t).toEqual({ [atom]: 1_005_000 })
+      expect(last.t).toEqual({ [atom]: 1_005_000, [`${atom}|#ord`]: 1_000_000 })
     } finally { now.mockRestore() }
   })
 
@@ -137,25 +141,20 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     expect(document.querySelector('[data-testid="tafel-page"]')!.getAttribute('lang')).toBe(getLocaleId())
   })
 
-  it('a row typed on the 8th ruling stays there (owner, staging round 2), and Enter goes to the 9th', () => {
+  it('a tap on the 8th ruling under three entries writes in the 4th — directly under them; Enter goes on down (owner, 10.10. evening)', () => {
     const commits: BoardFormData[] = []
     render(<Harness vehicles={['TLF', 'ADF', 'MTF']} onCommit={(d) => commits.push(d)} />)
-    const formation = () => [...document.querySelectorAll<HTMLTextAreaElement>('[data-sec="mittel"] textarea[aria-label="Formation"]')]
-    expect(formation().slice(0, 3).map((t) => t.value)).toEqual(['TLF', 'ADF', 'MTF'])
-    act(() => { formation()[7].focus() })
+    const mittel = document.querySelector('[data-sec="mittel"]')!
+    const formation = () => [...mittel.querySelectorAll<HTMLTextAreaElement>('textarea[aria-label="Formation"]')]
+    expect(formation().map((t) => t.value)).toEqual(['TLF', 'ADF', 'MTF', ''])
+    // the 8th ruling is an empty ruling under the empty row: the caret goes to the 4th
+    act(() => { fireEvent.click(mittel.querySelectorAll('[role="presentation"]')[3].querySelector('[data-col="formation"]')!) })
     type('Test 1'); key('Enter')
-    expect(formation().map((t) => t.value).slice(0, 9)).toEqual(['TLF', 'ADF', 'MTF', '', '', '', '', 'Test 1', ''])
-    expect(active()).toBe(formation()[8]) // directly below the row just written, same column
-    type('Test 2'); key('Enter')
-    expect(formation().map((t) => t.value).slice(3, 10)).toEqual(['', '', '', '', 'Test 1', 'Test 2', ''])
-    expect(active()).toBe(formation()[9])
-    // an empty ruling ABOVE written rows is a row like any other: Enter there goes on down
-    act(() => { formation()[4].focus() })
-    key('Enter')
-    expect(active()).toBe(formation()[5])
+    expect(formation().map((t) => t.value)).toEqual(['TLF', 'ADF', 'MTF', 'Test 1', ''])
+    expect(active()).toBe(formation()[4]) // the next free line
   })
 
-  it('a Problemerfassung line emptied in the middle leaves an empty line; the lines below stay', () => {
+  it('a Problemerfassung line emptied in the middle closes up — the lines below move up', () => {
     const commits: BoardFormData[] = []
     render(<Harness onCommit={(d) => commits.push(d)} />)
     act(() => { box('front').querySelector<HTMLTextAreaElement>('[data-kn]')!.focus() })
@@ -164,10 +163,60 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     expect(lines()).toEqual(['Rauch', 'Rettung', 'Dach', ''])
     act(() => { box('front').querySelectorAll<HTMLTextAreaElement>('textarea')[0].focus() })
     type(''); key('Enter')
-    expect(lines()).toEqual(['', 'Rettung', 'Dach', ''])
+    expect(lines()).toEqual(['Rettung', 'Dach', ''])
   })
 
-  it('beside a taller neighbour a table gets more rulings of the standard height — live rows, never a stretched one', () => {
+  it('Alt+↓ / Alt+↑ moves the entry — one ↶ step each, with what was typed — and the caret stays in it', () => {
+    const commits: BoardFormData[] = []
+    render(<Harness onCommit={(d) => commits.push(d)} />)
+    act(() => { box('front').querySelector<HTMLTextAreaElement>('[data-kn]')!.focus() })
+    for (const t of ['Rauch', 'Rettung', 'Dach']) { type(t); key('Enter') }
+    const lines = () => [...box('front').querySelectorAll<HTMLTextAreaElement>('textarea')].map((t) => t.value)
+    act(() => { box('front').querySelectorAll<HTMLTextAreaElement>('textarea')[0].focus() })
+    const n = commits.length
+    key('ArrowDown', { altKey: true })
+    expect(lines()).toEqual(['Rettung', 'Rauch', 'Dach', ''])
+    expect(commits).toHaveLength(n + 1)
+    expect(active().value).toBe('Rauch')
+    type('Rauch Dach'); key('ArrowDown', { altKey: true })
+    expect(lines()).toEqual(['Rettung', 'Dach', 'Rauch Dach', ''])
+    expect(commits).toHaveLength(n + 2) // the edit and the move are one step
+    key('ArrowDown', { altKey: true }) // already last: nothing moves, nothing written
+    expect(commits).toHaveLength(n + 2)
+    key('ArrowUp', { altKey: true }); key('ArrowUp', { altKey: true })
+    expect(lines()).toEqual(['Rauch Dach', 'Rettung', 'Dach', ''])
+  })
+
+  it('a table row moves too — the fixed Absprachepunkte stay where they are', () => {
+    const commits: BoardFormData[] = []
+    render(<Harness vehicles={['TLF', 'ADF', 'MTF']} onCommit={(d) => commits.push(d)} />)
+    const formation = () => [...document.querySelectorAll<HTMLTextAreaElement>('[data-sec="mittel"] textarea[aria-label="Formation"]')]
+    act(() => { formation()[2].focus() })
+    key('ArrowUp', { altKey: true })
+    expect(formation().map((t) => t.value)).toEqual(['TLF', 'MTF', 'ADF', ''])
+    // a written row under the Abspracherapport can move among the written ones only
+    const abs = document.querySelector('[data-sec="absprachen"]')!
+    const bez = () => [...abs.querySelectorAll<HTMLTextAreaElement>('textarea[aria-label="Bezeichnung"]')]
+    act(() => { bez()[0].focus() }); type('Heli'); key('Enter')
+    act(() => { bez()[1].focus() }); type('Depot'); key('Enter')
+    act(() => { bez()[1].focus() })
+    key('ArrowUp', { altKey: true }); key('ArrowUp', { altKey: true })
+    expect(bez().map((t) => t.value)).toEqual(['Depot', 'Heli', ''])
+    expect(abs.textContent).toMatch(/Warteraum[\s\S]*Depot/) // still under the six
+  })
+
+  it('Shift+Enter is a line break inside a Problemerfassung entry, kept on commit', () => {
+    const commits: BoardFormData[] = []
+    render(<Harness onCommit={(d) => commits.push(d)} />)
+    act(() => { box('front').querySelector<HTMLTextAreaElement>('[data-kn]')!.focus() })
+    const ev = new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, cancelable: true, bubbles: true })
+    act(() => { active().dispatchEvent(ev) })
+    expect(ev.defaultPrevented).toBe(false) // the textarea makes the break itself
+    type('Rauch\nBrand Dach'); key('Enter')
+    expect(commits[commits.length - 1].values.problem.lines!.front![0].text).toBe('Rauch\nBrand Dach')
+  })
+
+  it('beside a taller neighbour a table gets more rulings of the standard height — never a stretched row', () => {
     // the browser's layout, as jsdom has none: the Verbindungen' leftover is 240px, a ruling 45px
     class RO { constructor(private cb: () => void) {} observe() {} disconnect() {} }
     vi.stubGlobal('ResizeObserver', RO)
@@ -179,17 +228,16 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
       const commits: BoardFormData[] = []
       render(<Harness onCommit={(d) => commits.push(d)} />)
       const fillBox = document.querySelector('[data-fill="verbindungen"]')!
-      const kanal = fillBox.querySelectorAll<HTMLTextAreaElement>('textarea[aria-label="Kanal"]')
-      expect(kanal.length).toBe(5) // 240 / 45 → five whole rulings
+      expect(fillBox.querySelectorAll('[role="presentation"]').length).toBe(5) // 240 / 45 → five whole rulings
       // less than one ruling left: plain space, no row
       expect(document.querySelector('[data-fill="massnahmen"]')!.children.length).toBe(0)
       // no row anywhere is given a height of its own
       expect([...document.querySelectorAll<HTMLElement>('[role="row"]')].every((r) => !r.style.height && !r.style.minHeight)).toBe(true)
-      // …and a ruling of the leftover is written ON its ruling, below the box's twelve
-      act(() => { kanal[0].focus() })
+      // …and a tap on one of them writes in the empty row, directly under the entries
+      act(() => { fireEvent.click(fillBox.querySelectorAll('[role="presentation"]')[2].querySelector('[data-col="kanal"]')!) })
       type('K1'); key('Enter')
-      const row = commits[commits.length - 1].values.verbindungen.rows!.find((r) => r.cells.kanal === 'K1')!
-      expect(row.slot).toBe(12)
+      const rows = commits[commits.length - 1].values.verbindungen.rows!
+      expect(rows.map((r) => r.cells.kanal)).toEqual(['K1'])
     } finally { ch.mockRestore(); oh.mockRestore(); vi.unstubAllGlobals() }
   })
 
@@ -232,6 +280,27 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     act(() => { was().focus() })
     type('Riegel Seite D'); key('Enter')
     expect(clashes).toHaveLength(1)
+  })
+
+  it('a drag commits against the data as it stands at the drop, not as it was at the grab (#339 review)', () => {
+    const MN = EF.sections.find((x) => x.id === 'massnahmen') as TableSection
+    let base = newFormPage(FKS, EF, {}, '2026-10-10T09:24:00.000Z')
+    for (const [id, was] of [['m1', 'A'], ['m2', 'B'], ['m3', 'C']]) base = putRow(base, 'massnahmen', id, { cells: { was } }, 1)
+    const commits: BoardFormData[] = []
+    const props = { pageKey: 'p', readOnly: false, isPhone: false, onRemove: () => {}, inset: { top: 0, left: 0, right: 0, bottom: 0 }, onChange: (d: BoardFormData) => commits.push(d) }
+    const { rerender } = render(<TafelFormPage {...props} data={base} />)
+    const grip = document.querySelector<HTMLElement>('[data-ord-list][data-ord-id="m1"] button[aria-label^="Verschieben"]')!
+    // A grabbed and dragged below C (jsdom has no layout: every row's middle is 0)
+    act(() => { fireEvent.pointerDown(grip, { clientY: 0 }) })
+    act(() => { window.dispatchEvent(new MouseEvent('pointermove', { clientY: 100 }) as PointerEvent) })
+    // …meanwhile another device rewrites B and adds D
+    const remote = putRow(putRow(base, 'massnahmen', 'm2', { cells: { was: 'B2' } }, 2), 'massnahmen', 'm4', { cells: { was: 'D' } }, 2)
+    rerender(<TafelFormPage {...props} data={remote} />)
+    act(() => { window.dispatchEvent(new MouseEvent('pointerup', { clientY: 100 }) as PointerEvent) })
+    expect(commits).toHaveLength(1)
+    const rows = writtenRows(commits[0], MN)
+    // nothing of the other device's is lost, and A lands right after C, where it was dropped
+    expect(rows.map((r) => r.cells.was)).toEqual(['B2', 'C', 'A', 'D'])
   })
 
   it('Alt+Enter is a line break inside the cell, not a move', () => {

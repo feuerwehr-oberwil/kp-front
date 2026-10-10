@@ -106,7 +106,7 @@
           "height": 10,
           "columns": [
             { "id": "problem", "label": { "de": "Problem/Ereignis", "fr": "Problème/événement", "it": "Problema/evento", "en": "Problem/event" }, "w": 4 },
-            { "id": "tendenz", "label": { "de": "Entwicklungstendenz ➚ = ➘", "fr": "Tendance évolution ➚ = ➘", "it": "Tendenza dell’evoluzione ➚ = ➘", "en": "Trend ➚ = ➘" }, "type": "trend", "w": 1.6 },
+            { "id": "tendenz", "label": { "de": "Entwicklungs\u00adtendenz ➚\u00a0=\u00a0➘", "fr": "Tendance évolution ➚\u00a0=\u00a0➘", "it": "Tendenza dell’evoluzione ➚\u00a0=\u00a0➘", "en": "Trend ➚\u00a0=\u00a0➘" }, "type": "trend", "w": 1.6 },
             { "id": "reaktion", "label": { "de": "Notwendige Reaktion", "fr": "Réaction requise", "it": "Reazione necessaria", "en": "Required response" }, "w": 3.4 },
             { "id": "prio", "label": { "de": "Priorität", "fr": "Priorité", "it": "Priorità", "en": "Priority" }, "w": 1 }
           ]
@@ -154,6 +154,7 @@
     },
     {
       "id": "konzept",
+      "repeatable": true,
       "title": { "de": "Konzept", "fr": "Concept", "it": "Concetto", "en": "Concept" },
       "paper": "portrait",
       "columns": 2,
@@ -177,6 +178,7 @@
     },
     {
       "id": "rapport",
+      "repeatable": true,
       "title": { "de": "Rapport", "fr": "Rapport", "it": "Rapporto", "en": "Briefing" },
       "paper": "portrait",
       "columns": 1,

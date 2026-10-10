@@ -13,10 +13,9 @@
  * - A text section's fields go one after the other for both.
  *
  * Rows are named by id, never by position: the row being left may vanish on this very commit (an
- * emptied row is dropped), and the id of the row after it is still the right target. A row stays
- * on the ruling it was written on (lib/boardForm · slotted), so «down» is the ruling directly
- * below — an empty ruling between written rows is a row like any other, and Enter after writing
- * the 8th goes to the 9th, never back up to the first empty one. `NEW` names
+ * emptied row is dropped), and the id of the row after it is still the right target. Entries
+ * stack from the top (lib/boardForm · ordered), so «down» from the last entry is the empty row
+ * directly under it — the next free line. `NEW` names
  * whatever trailing empty row the list has AFTER the commit — the component resolves it once the
  * render has landed. The trailing row the cursor is in is named by its own id (`newId`), which it
  * keeps when the commit makes it real.

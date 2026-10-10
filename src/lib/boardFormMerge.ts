@@ -59,7 +59,13 @@ export function mergeFormData(
     let out: string | undefined
     if (mv === bv) out = tv
     else if (tv === bv || mv === tv) out = mv
-    else {
+    else if (k.endsWith('|#ord')) {
+      // an entry moved on both devices: the later move stands — and on a tie the lower key, so
+      // every device ends on the SAME order (a tie broken by «mine» would differ per device).
+      // Not a conflict row: nothing written is lost by a move.
+      const a = tm[k] ?? 0, z = tt[k] ?? 0
+      out = a > z ? mv : z > a ? tv : mv === undefined ? tv : tv === undefined ? mv : mv < tv ? mv : tv
+    } else {
       const mineLater = (tm[k] ?? 0) >= (tt[k] ?? 0)
       out = mineLater ? mv : tv
       const show = (v: string | undefined) => (k.startsWith('l|') ? lineText(v) : k.endsWith('|#done') ? (v ? '✓' : '') : v ?? '')
@@ -80,19 +86,20 @@ export function mergeFormData(
     if (boxes.size) {
       const lines: Record<string, FormLine[]> = {}
       for (const box of boxes) {
-        const order = [...(tv.lines?.[box] ?? []), ...(mv.lines?.[box] ?? [])].map((l) => l.id)
-        // where a line stands is set once, when it is written, and travels with it (lib/boardForm ·
-        // slotted): two devices writing two lines keep both, each on its own line
+        const all = [...(tv.lines?.[box] ?? []), ...(mv.lines?.[box] ?? [])]
+        // a line's place is its own atom (`…|#ord`, lib/boardForm · ordered); a line from before
+        // the keys brings its old `slot` along so its list still reads in the order it showed
         const slotOf = new Map<string, number>()
-        for (const l of [...(tv.lines?.[box] ?? []), ...(mv.lines?.[box] ?? [])]) if (l.slot != null) slotOf.set(l.id, l.slot)
+        for (const l of all) if (l.slot != null) slotOf.set(l.id, l.slot)
         const seen = new Set<string>()
-        lines[box] = order.flatMap((id) => {
+        lines[box] = all.map((l) => l.id).flatMap((id) => {
           if (seen.has(id)) return []
           seen.add(id)
           const v = merged.get(`l|${sec}|${box}|${id}`)
           if (v === undefined) return []
+          const ord = merged.get(`l|${sec}|${box}|${id}|#ord`)
           const slot = slotOf.get(id)
-          return [{ ...parseLine(v, id), ...(slot != null ? { slot } : {}) }]
+          return [{ ...parseLine(v, id), ...(ord ? { ord } : slot != null ? { slot } : {}) }]
         })
       }
       out.lines = lines
@@ -114,7 +121,7 @@ export function mergeFormData(
           if (!k.startsWith(prefix)) continue
           const col = k.slice(prefix.length)
           if (col === '#done') done = true
-          else cells[col] = v
+          else if (col !== '#ord') cells[col] = v
         }
         if (!Object.keys(cells).length && !done) continue
         // a WRITTEN row left with only a time or a trend (one device emptied it while the other
@@ -122,9 +129,9 @@ export function mergeFormData(
         // as a row emptied on one device does (lib/boardForm · putRow, «a tick or a trend alone
         // is not content»; a time alone is not either once the words are gone)
         if (table && !fixedIds.has(id) && !done && Object.keys(cells).every((c) => bare.has(c))) continue
-        const theirsRow = (tv.rows ?? []).find((x) => x.id === id)
-        const slot = mineById.get(id)?.slot ?? theirsRow?.slot
-        const row: FormRow = { ...(mineById.get(id) ?? r), cells, ...(slot != null ? { slot } : {}) }
+        const ord = merged.get(`r|${sec}|${id}|#ord`)
+        const row: FormRow = { ...(mineById.get(id) ?? r), cells }
+        if (ord) { row.ord = ord; delete row.slot } else delete row.ord
         if (done) row.done = true
         else delete row.done
         rows.push(row)
