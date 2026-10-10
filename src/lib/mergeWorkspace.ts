@@ -379,7 +379,11 @@ function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
     if (eq(m[k], a[k])) { out[k] = t[k]; continue } // only theirs changed it
     if (eq(t[k], a[k])) { out[k] = m[k]; continue } // only I changed it
     // both changed it, to different values:
-    if (TRUPP_TIME_FIELDS.has(k)) out[k] = laterIso(m[k], t[k]) ?? m[k]
+    // ⚠️ …except the Notfall's trigger (F1, 08.10.2026): two devices that held «Notfall» on the
+    // same crew within the same seconds raised ONE emergency, and it began at the EARLIER hold —
+    // the Notfall clock must never jump forward and lose the seconds the crew has been waiting
+    if (k === 'notfallAt') out[k] = laterIso(m[k], t[k]) === m[k] ? t[k] : m[k]
+    else if (TRUPP_TIME_FIELDS.has(k)) out[k] = laterIso(m[k], t[k]) ?? m[k]
     else if (k === 'lowestBar' && typeof m[k] === 'number' && typeof t[k] === 'number') {
       out[k] = Math.min(m[k] as number, t[k] as number)
     } else out[k] = m[k] // scalar divergence stays LWW-mine (conservative)
@@ -414,6 +418,15 @@ function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
   if ('readings' in m || 'readings' in t) {
     const rows = (v: unknown): Readingish[] => (Array.isArray(v) ? (v.filter(isObj) as unknown as Readingish[]) : [])
     out.readings = mergeReadings(rows(a.readings), rows(m.readings), rows(t.readings))
+    // ⚠️ Two devices holding «Notfall» at once raised ONE Notfall (the earlier hold, above) — so
+    // the losing hold's `notfall` row goes too, or the Trupp's log and the Rapport print it twice
+    // (review of #300). Only when both sides raised it: a Notfall ended and raised again keeps both.
+    const raisedBoth = typeof m.notfallAt === 'string' && typeof t.notfallAt === 'string' && m.notfallAt !== t.notfallAt
+      && !eq(m.notfallAt, a.notfallAt) && !eq(t.notfallAt, a.notfallAt)
+    if (raisedBoth) {
+      const lost = out.notfallAt === m.notfallAt ? t.notfallAt : m.notfallAt
+      out.readings = (out.readings as Readingish[]).filter((r) => !(r.kind === 'notfall' && r.t === lost))
+    }
   }
   // The crew filing's one-shot marker (types · Trupp.crewFiled) is GROW-ONLY: a union of all
   // three, never a delete — a key lost here would let a device file again somebody a person took

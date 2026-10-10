@@ -356,6 +356,39 @@ describe('mergeWorkspace — trupps: field-level three-way merge', () => {
     expect('kind' in pa).toBe(false)
   })
 
+  /* ── the Atemschutznotfall (F1, 08.10.2026) ───────────────────────────────────────────────── */
+  it('a Notfall raised on one device and a Kontakt on another both survive', () => {
+    const N = '2026-09-01T20:11:00.000Z'
+    const mine = { ...baseTrupp, notfallAt: N, readings: [...baseTrupp.readings, { t: N, bar: 300, kind: 'notfall' }] }
+    const theirs = { ...baseTrupp, lastContactTime: T3, readings: [...baseTrupp.readings, { t: T3, bar: 300, kind: 'contact' }] }
+    const t = mergedTrupp(mine, theirs)
+    expect(t.notfallAt).toBe(N)
+    expect(t.lastContactTime).toBe(T3)
+    expect((t.readings as { kind: string }[]).map((r) => r.kind)).toEqual(['entry', 'notfall', 'contact'])
+  })
+
+  it('two devices holding «Notfall» at once raise ONE Notfall, from the EARLIER hold', () => {
+    const early = '2026-09-01T20:11:00.000Z'
+    const late = '2026-09-01T20:11:04.000Z'
+    expect(mergedTrupp({ ...baseTrupp, notfallAt: late }, { ...baseTrupp, notfallAt: early }).notfallAt).toBe(early)
+    expect(mergedTrupp({ ...baseTrupp, notfallAt: early }, { ...baseTrupp, notfallAt: late }).notfallAt).toBe(early)
+    // …and ONE `notfall` row in the Trupp's log — the losing hold's goes with it
+    const held = (at: string) => ({ ...baseTrupp, notfallAt: at, readings: [...baseTrupp.readings, { t: at, bar: 300, kind: 'notfall' }] })
+    for (const [mine, theirs] of [[held(late), held(early)], [held(early), held(late)]]) {
+      const rows = mergedTrupp(mine, theirs).readings as { t: string; kind: string }[]
+      expect(rows.filter((r) => r.kind === 'notfall')).toEqual([{ t: early, bar: 300, kind: 'notfall' }])
+    }
+  })
+
+  it('«Notfall beendet» on one device is not undone by an unrelated edit on another', () => {
+    const N = '2026-09-01T20:11:00.000Z'
+    const running = { ...baseTrupp, notfallAt: N }
+    const { notfallAt: _n, ...ended } = running
+    const t = mergedTrupp2(running, ended, { ...running, funkkanal: 7 })
+    expect('notfallAt' in t).toBe(false)
+    expect(t.funkkanal).toBe(7)
+  })
+
   it('dedupes a reading row present on both sides (it appears once)', () => {
     const shared = { t: T2, bar: 150, kind: 'pressure' } // reached both devices via an earlier sync
     const mine = { ...baseTrupp, readings: [...baseTrupp.readings, shared] }

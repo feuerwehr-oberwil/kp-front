@@ -47,6 +47,13 @@ export function useAtemschutzMute(incidentId: string) {
     setMutedFor(incidentId)
   }, [incidentId])
 
+  /** Re-arm the bell — the Atemschutznotfall's door (F1, 08.10.2026): a Notfall is a NEW
+   *  emergency, and a bell muted twenty minutes ago by «Zum Trupp» on an überfällig crew must not
+   *  swallow it. Idempotent; the operator mutes again with the bell or «Zum Trupp». */
+  const arm = useCallback(() => {
+    try { if (localStorage.getItem(MUTE_KEY) === incidentId) localStorage.removeItem(MUTE_KEY) } catch { /* preference only */ }
+    setMutedFor((v) => (v === incidentId ? null : v))
+  }, [incidentId])
   const [audioReady, setAudioReady] = useState(audioUnlocked)
   // true once the app has come back to the foreground at least once — the poll's off switch
   const [resumed, setResumed] = useState(false)
@@ -81,5 +88,5 @@ export function useAtemschutzMute(incidentId: string) {
 
   // Only worth saying while the alarm claims to be on: a muted bell promises no tone anyway,
   // and two warnings about the same silence would be one too many.
-  return { muted, mute, toggle, audioBlocked: !audioReady && !muted, unlockAudio }
+  return { muted, mute, arm, toggle, audioBlocked: !audioReady && !muted, unlockAudio }
 }

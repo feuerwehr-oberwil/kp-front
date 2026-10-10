@@ -6,7 +6,7 @@ import { rankMeldungen, type Meldung, type MeldungKind, type MeldungTone } from 
 // anything that would go away by itself.
 
 const TONE: Record<MeldungKind, MeldungTone> = {
-  atemschutz: 'alarm', alarm: 'alarm', lifecycle: 'info', reminder: 'warn', wind: 'warn', gps: 'warn', review: 'info', tabLock: 'info', symbols: 'warn', basemap: 'warn', session: 'warn', update: 'calm', install: 'calm',
+  notfall: 'alarm', atemschutz: 'alarm', alarm: 'alarm', lifecycle: 'info', reminder: 'warn', wind: 'warn', gps: 'warn', review: 'info', tabLock: 'info', symbols: 'warn', basemap: 'warn', session: 'warn', update: 'calm', install: 'calm',
 }
 const m = (kind: MeldungKind, id: string = kind): Meldung => ({ id, kind, tone: TONE[kind], icon: 'bell', title: kind })
 
@@ -21,9 +21,9 @@ describe('rankMeldungen', () => {
   })
 
   it('orders every kind, so the strip reads best-first from the top down', () => {
-    const all: MeldungKind[] = ['install', 'update', 'session', 'basemap', 'symbols', 'tabLock', 'review', 'gps', 'wind', 'reminder', 'lifecycle', 'alarm', 'atemschutz']
+    const all: MeldungKind[] = ['install', 'update', 'session', 'basemap', 'symbols', 'tabLock', 'review', 'gps', 'wind', 'reminder', 'lifecycle', 'alarm', 'atemschutz', 'notfall']
     expect(rankMeldungen(all.map((k) => m(k))).map((r) => r.kind))
-      .toEqual(['atemschutz', 'alarm', 'lifecycle', 'reminder', 'wind', 'gps', 'review', 'tabLock', 'symbols', 'basemap', 'session', 'update', 'install'])
+      .toEqual(['notfall', 'atemschutz', 'alarm', 'lifecycle', 'reminder', 'wind', 'gps', 'review', 'tabLock', 'symbols', 'basemap', 'session', 'update', 'install'])
   })
 
   it('keeps arrival order inside one class — two paused GPS connections stay in the order they came', () => {
@@ -42,6 +42,14 @@ describe('rankMeldungen', () => {
   // at the row UNDER an untaken dispatch.
   it('stands the Atemschutz alarm above a waiting dispatch', () => {
     expect(rankMeldungen([m('alarm'), m('atemschutz')]).map((r) => r.kind)).toEqual(['atemschutz', 'alarm'])
+  })
+
+  // …and above that alarm, the Atemschutznotfall (F1, 08.10.2026): a person said a crew is in
+  // distress — it stands at the very top, whatever else is pending and whenever it arrived
+  it('stands the Notfall above every other row, the Atemschutz alarm and a dispatch included', () => {
+    const rest: MeldungKind[] = ['atemschutz', 'alarm', 'lifecycle', 'reminder', 'update']
+    expect(rankMeldungen([...rest.map((k) => m(k)), m('notfall')])[0].kind).toBe('notfall')
+    expect(rankMeldungen([m('notfall'), ...rest.map((k) => m(k))])[0].kind).toBe('notfall')
   })
 
   it('does not mutate what the publishers handed it', () => {
