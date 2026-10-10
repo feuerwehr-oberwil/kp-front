@@ -582,6 +582,24 @@ describe('the phone row says its tier with a glyph, not colour alone', () => {
     expect(screen.getByText('Low Paula').closest(`.${s.trow}`)!.getAttribute('aria-label')).toContain(az.clockAlarmPressure)
   })
 
+  it('a crew in a NOTFALL wears the banner’s ⚠ in its dot’s place and no second glyph under the clock', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [
+      { ...aktivTrupp(), id: 'n', name: 'Nora Notfall', lastContactTime: iso(8 * 60_000), notfallAt: iso(60_000) },
+      { ...aktivTrupp(), id: 'o', name: 'Over Otto', lastContactTime: iso(8 * 60_000) },
+    ] })
+    const row = (name: string) => [...document.querySelectorAll<HTMLElement>(`button.${s.trow}`)].find((r) => r.textContent!.includes(name))!
+    const nf = row('Nora Notfall')
+    expect(nf.querySelector(`.${s.trowName} .${s.nfGlyph} use`)!.getAttribute('href')).toBe('#warn')
+    expect(nf.querySelector(`.${s.trowDot}`)).toBeNull()
+    expect(nf.querySelector(`.${s.trowTier}`)).toBeNull()
+    // every other crew keeps its dot and its tier glyph
+    expect(row('Over Otto').querySelector(`.${s.trowTier}`)).not.toBeNull()
+    expect(row('Over Otto').querySelector(`.${s.nfGlyph}`)).toBeNull()
+    // …and the banner names the crew exactly as its row does
+    expect(document.querySelector(`section.${s.nfBanner} .${s.trowNameTxt}`)!.textContent).toBe('Nora Notfall')
+  })
+
   it('keeps the row on its two lines — the mark lives in the clock cell', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [{ ...aktivTrupp(), lastContactTime: iso(8 * 60_000) }] })
@@ -1423,6 +1441,43 @@ describe('a Trupp may be registered without an Auftrag', () => {
     pickAuftrag()
     fireEvent.click(lastBtn(az.start))
     expect((createTrupp.mock.calls[0][0] as Trupp).auftrag).toBe('retten')
+  })
+
+  // ⚠️ The amber «Auftrag fehlt» line waits while the PERSON SEARCH has the caret (10.10.2026,
+  // owner's iPhone): the crew goes in one name after another, and the line stood there from the
+  // first name on. It appears once the search is left — and still before «Anmelden» is pressed.
+  it('holds the «Auftrag fehlt» line back while the person search is focused', () => {
+    mount({ trupps: [] })
+    fireEvent.click(firstBtn(az.newTrupp))
+    const search = screen.getByLabelText(az.teamSearchPlaceholder)
+    fireEvent.focus(search)
+    typeGuest('Meier Thomas')
+    typeGuest('Huber Anna')
+    // still adding people: the slot is held, but nothing is shown or announced
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.queryByText(az.auftragMissingHint)).not.toBeNull()
+    // focus moves on (to the Ziel here; the footer or anywhere else alike)
+    fireEvent.blur(search)
+    fireEvent.focus(screen.getByLabelText(az.zielLabel))
+    expect(screen.getByRole('status').textContent).toBe(az.auftragMissingHint)
+    // back in the search for one more name: it waits again
+    fireEvent.focus(search)
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  // a pick hands the caret back to the search (TruppTeam · add), so a tablet that taps names off
+  // the list waits too — and the line is there by the time the finger reaches the footer
+  it('shows the line once the focus reaches the footer, before «Anmelden» is pressed', () => {
+    const createTrupp = vi.fn()
+    mount({ createTrupp, trupps: [] })
+    fireEvent.click(firstBtn(az.newTrupp))
+    typeGuest('Meier Thomas')
+    expect(document.activeElement).toBe(screen.getByLabelText(az.teamSearchPlaceholder))
+    expect(screen.queryByRole('status')).toBeNull()
+    act(() => lastBtn(az.start).focus())
+    expect(screen.getByRole('status').textContent).toBe(az.auftragMissingHint)
+    fireEvent.click(lastBtn(az.start))
+    expect(createTrupp).toHaveBeenCalledTimes(1)
   })
 
   // the free text alone is a complete order too — a Ziel without a tile («2OG links»)

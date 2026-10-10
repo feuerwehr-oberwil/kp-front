@@ -917,8 +917,13 @@
     line-height: 1.25; }
 
   /* incident switcher dropdown caps to the viewport so it can't run off the bottom, and spans the
-     bar exactly — both edges under the bar's, never past its right one (13-incident · .ip-menu) */
-  .ip-menu { max-height: calc(100dvh - 87px - env(safe-area-inset-top));
+     bar exactly — both edges under the bar's, never past its right one (13-incident · .ip-menu).
+     ⚠️ It ends 8px ABOVE THE BOTTOM BAR (10.10.2026, owner's iPhone): the cap counted the top
+     inset only, so a long menu ran over the bar into the home indicator and its last row was cut
+     by the display's rounded corner. Its top is the inset + 8 + the 60px top bar + 8; the bottom
+     bar stands `8px + env(safe-area-inset-bottom)` off the edge and is --rail-h tall; anything
+     longer scrolls inside (`overflow: auto`). Same reservation as `.tb-weather-pop` above. */
+  .ip-menu { max-height: calc(100dvh - 76px - env(safe-area-inset-top) - var(--rail-h) - 16px - env(safe-area-inset-bottom));
     width: calc(100% + 2px); min-width: 0; max-width: none; }
 
   /* the plan's floating zoom (−/%/+/fit) is dropped on a phone — pinch handles zoom, and Fit is

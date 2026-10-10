@@ -551,6 +551,10 @@
    AND eating the taps of whatever field it happened to cover (see TruppForm · `blocked`). The
    last row before the footer, inset by the body's own gutter. */
 .formBlocked { flex: none; margin: 0 var(--sp-5) var(--sp-3); }
+/* the «Auftrag fehlt» line while the person search still has the caret (TruppForm ·
+   `teamSearchFocused`): its slot is kept, so the press that leaves the search — often the one on
+   «Anmelden» — does not see the footer move under it */
+.formHintWaiting { visibility: hidden; }
 .field { display: flex; flex-direction: column; gap: var(--sp-1); }
 /* flash-ring: the module-local copy of ui-flash-ring — see the .cardFlash comment below */
 .formFlash { border-radius: var(--r-ctl); animation: flash-ring 1.9s ease-out 1; }
@@ -1013,7 +1017,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      Leitung and the folded Standard row. The `assignedConflict` warning and the `blocked` line
      deliberately stay: both are about the very list on screen, and both already sit below it. */
   .modalStack:global(.is-kb):has(.teamSearch input:focus) .stack > *:not(:first-child),
-  .modalStack:global(.is-kb):has(.teamSearch input:focus) .modalFoot { display: none; }
+  .modalStack:global(.is-kb):has(.teamSearch input:focus) .modalFoot,
+  .modalStack:global(.is-kb) .formHintWaiting { display: none; }
 
   /* ── …AND THEY COME BACK GENTLY (09.09.) ───────────────────────────────────────────────────
      What the field saw as «hässliches Aufblitzen» when the search closes is two snaps, not one,
@@ -1816,3 +1821,77 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    Sicherungstrupp is a fact about the board at the close, not a call to act — the amber title was
    the one coloured warning left on a neutral closed Tafel. Same word, the frozen tone. */
 .surfaceFrozen .sectDue .sectTitle { color: var(--ink-dim); }
+
+/* ── The Atemschutznotfall (F1, 08.10.2026 — AtemschutzNotfall.tsx) ───────────────────────────────
+   Local to the feature and built from the board's own pieces: the held tile is an `.actBtn` (the
+   lifecycle row's 48px tile, the one corner) that FILLS while it is held (lib/nodeHold drives
+   `--hold` — never a keyframe), and the banner the red tier's edge and wash (`.trowCrit`) at the
+   top of the board. Red means the alarm here and nothing else. */
+.nfRow { margin-top: var(--sp-2); }
+/* holding IS the gesture: no scroll, no selection, no iOS callout under the finger */
+.actNotfall, .actNotfallEnd { position: relative; isolation: isolate; overflow: hidden;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+/* framed grey like Rückzug | Raus — colour is STATE (29.09.2026, T11), and nothing is wrong with a
+   crew at 300 bar; the tile turns red only while the hand is raising it */
+.actNotfall.actHolding { color: var(--red-strong); box-shadow: inset 0 0 0 1px var(--red-45); }
+.actNotfallEnd { color: var(--ink); }
+.actNotfallEnd.actHolding { color: var(--green-strong); box-shadow: inset 0 0 0 1px var(--green-45); }
+/* the glyph keeps the 24px box the old ring had — the resting tile is the same tile */
+.holdGlyph { display: inline-grid; place-items: center; width: 24px; height: 24px; flex: none; }
+/* ⚠️ The fill (owner feedback 10.10.2026): the whole tile is the progress, swept left→right by a
+   `scaleX` on a layer under the word — a transform, so nothing reflows mid-hold. `--hold` is the
+   hook's own 0…1, so the fill and the moment it fires cannot drift apart. The 33ms linear step is
+   the hook's tick smoothed; a release runs back quickly («nothing happened»). Under reduced
+   motion it still tracks the hold — it is the feedback, not decoration — just without easing. */
+.actNotfall::before, .actNotfallEnd::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--red-22); transform-origin: left center; transform: scaleX(var(--hold, 0));
+  transition: transform .12s ease-out; }
+.actNotfallEnd::before { background: var(--green-22); }
+.actHolding::before { transition: transform 33ms linear; }
+/* fired: the tile full and solid for a beat (NOTFALL_FIRED_MS), in the face that fired */
+.actNotfall.actFired { color: var(--on-fill); box-shadow: none; }
+.actNotfall.actFired::before { background: var(--red-strong); }
+.actNotfallEnd.actFired { color: var(--on-fill); box-shadow: none; }
+.actNotfallEnd.actFired::before { background: var(--green-strong); }
+@media (prefers-reduced-motion: reduce) { .actNotfall::before, .actNotfallEnd::before { transition: none; } }
+
+/* ⚠️ Sticky at the top of the board's scroll port, ALL banners in one stack (several Notfälle
+   stack, they never stick over each other): a card parked at the top of a phone's port (the
+   opened row) must never push the Notfall out of sight. Compact (owner feedback 10.10.2026) —
+   and measured: AtemschutzView sets its height as `--nf-h` on the port, which parks an opened
+   card below it and is the port's scroll padding for every scroll-into-view. */
+.nfStack { position: sticky; top: 0; z-index: 3; display: grid; gap: var(--sp-2); margin: 0 0 var(--sp-3); }
+.body { scroll-padding-top: var(--nf-h, 0px); }
+/* The frame is the phone card's (`.trow.trowCard.trowCrit`, AtemschutzNotfall · NotfallBanner);
+   this only stacks its rows and gives the head line its alarm face */
+.nfBanner { display: flex; flex-direction: column; }
+/* row 1 = the card's head line: ⚠ in the dot's place, the name in red, the card's clock, and a
+   chevron that points ON (it leads to the card, the card's own chevron folds DOWN) */
+.nfHead .trowName { color: var(--red-strong); }
+.nfGlyph { width: 18px; height: 18px; flex: none; }
+/* …and the same ⚠ in the dot's place on the crew's own card (AtemschutzView · RowLine) */
+.trowName .nfGlyph { color: var(--red-strong); }
+.nfHead .trowChevron { color: var(--red-strong); }
+/* A WIDE board (tablet / desktop grid, owner round 4): ONE slim row — «⚠ name» + the facts | the
+   act at its own width | the clock + ›. The name side and the clock side are both «Zum Trupp». */
+.trow.trowCard.nfWide { flex-direction: row; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); }
+.nfWideWho { flex: 1 1 auto; min-width: 0; min-height: 44px; display: flex; flex-wrap: wrap; align-items: baseline;
+  column-gap: var(--sp-3); row-gap: 2px; align-content: center; padding: 0; border: none; background: transparent;
+  color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.nfWideWho .trowName { align-self: center; color: var(--red-strong); }
+.nfWideWhen { flex: none; display: flex; align-items: center; gap: var(--sp-1); min-height: 44px; padding: 0; border: none;
+  background: transparent; color: var(--red-strong); font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.nfWideWhen .trowClockVal { font-size: var(--fs-5); }
+.nfWideWhen .trowChevron { width: 24px; height: 44px; color: var(--red-strong); }
+/* the facts: dim, wrapping under the name when they do not fit beside it — never cut */
+.nfFacts { flex: 0 1 auto; min-width: 0; font: var(--fw-medium) var(--fs-1)/1.35 var(--body); color: var(--ink-dim); }
+.nfWide .nfPrimary { flex: none; }
+.nfWide .nfNote { flex: 0 1 auto; max-width: 360px; }
+/* row 3: ONE act at the banner's width (beside «Zum Trupp» it wrapped to four lines) */
+.nfActs { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); }
+.nfPrimary { flex: 1 1 auto; min-width: 0; padding-block: var(--sp-1); }
+.nfPrimaryTxt { display: inline-grid; justify-items: center; min-width: 0; line-height: 1.15; text-align: center; }
+.nfPrimarySub { font: var(--fw-medium) var(--fs-1)/1.2 var(--body); opacity: .85; }
+.nfDefine { color: var(--ink); }
+.nfNote { flex: 1 1 auto; min-width: 0; margin: 0; font: var(--fw-heavy) var(--fs-2)/1.35 var(--body); color: var(--ink); }
+

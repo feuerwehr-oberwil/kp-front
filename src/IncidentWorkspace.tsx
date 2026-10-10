@@ -67,13 +67,16 @@ import { twinVisible, isTwinLayerId } from './lib/georefTwins'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
 import { SHAPE_TWO_POINT } from './lib/shapes'
 import { AtemschutzAlarmMeldungen } from './components/AtemschutzAlarmMeldung'
+import { AtemschutzNotfallMeldungen } from './components/AtemschutzNotfall'
+import { floorLabel } from './lib/whiteboard'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { TabLockBanner } from './components/TabLockBanner'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
 import { RemindersHost } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
-import { truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
+import { truppInNotfall, truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
+import { freshNotfallKeys } from './lib/notfall'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefSurfaceBridge } from './lib/georefMode'
 import { planStackTouches, type BoardHistory } from './components/useBoardDoc'
@@ -1036,7 +1039,7 @@ export function IncidentWorkspace({
   // drill in February is armed again for the next one (see useAtemschutzMute). `audioBlocked` is
   // the third honest state: the browser has not released audio, so only the OS notification can
   // fire and the bell says so instead of claiming to be on.
-  const { muted: atemschutzMuted, mute: muteAtemschutz, toggle: toggleAtemschutzMuted, audioBlocked: atemschutzAudioBlocked, unlockAudio: unlockAtemschutzAudio } = useAtemschutzMute(incidentMeta.id)
+  const { muted: atemschutzMuted, mute: muteAtemschutz, arm: armAtemschutz, toggle: toggleAtemschutzMuted, audioBlocked: atemschutzAudioBlocked, unlockAudio: unlockAtemschutzAudio } = useAtemschutzMute(incidentMeta.id)
   // how the Atemschutz board is arranged — a way of LOOKING at it, so per device. The hand-set
   // order it can show (Trupp.order) is synced, so «wie gesetzt» is the same board everywhere.
   const [atemschutzOrder, setAtemschutzOrderState] = useState<TruppOrder>(() => loadPrefs().atemschutzOrder ?? 'manuell')
@@ -1557,6 +1560,9 @@ export function IncidentWorkspace({
   // …and the row for a crew the Abschluss closes over (staging r3 F4), pointed the same way
   const noteInsideRef = useRef<(ts: Trupp[]) => void>(() => {})
   const noteInsideAtClose = useCallback((ts: Trupp[]) => noteInsideRef.current(ts), [])
+  // …and for a Notfall the Abschluss closes over (F1), pointed the same way
+  const noteNotfallRef = useRef<(ts: Trupp[]) => void>(() => {})
+  const noteNotfallAtClose = useCallback((ts: Trupp[]) => noteNotfallRef.current(ts), [])
   // What the Abschluss writes on its way to the close is part of the close (staging r6, F3):
   // `pushEvent` marks every row made between the confirm and the close's answer `atClose`, so it
   // never prints as a Nachtrag for being stamped a moment past the server's `closed_at`.
@@ -1571,6 +1577,7 @@ export function IncidentWorkspace({
     // only where the Tafel may be written — a viewer's or a replay's Abschluss has nothing to close
     standDownTrupps: canEditTrupps ? standDownTrupps : undefined,
     noteInsideAtClose: canWriteRecord ? noteInsideAtClose : undefined,
+    noteNotfallAtClose: canWriteRecord ? noteNotfallAtClose : undefined,
     // the Verlauf rows and audit events still queued go up BEFORE the close (review of #235) —
     // after it they would be judged against a closed Einsatz. After the stand-down and the
     // «beim Abschluss noch drin» rows (#227), so those go up with them.
@@ -1585,6 +1592,18 @@ export function IncidentWorkspace({
   const reopenPending = running && lifecycleBoundary?.kind === 'closed'
   const alarmTrupps = useMemo(() => clocksAfterReopen(trupps, running ? lifecycleBoundary : null), [trupps, running, lifecycleBoundary])
   const azAlarmActive = azMonitoring && !reopenPending
+  /* A Notfall re-arms a muted bell (F1, 08.10.2026). The mute is per Einsatz and «Zum Trupp» sets
+   * it, so a tablet that acknowledged an überfällig crew at 02:10 would hear nothing of a Notfall
+   * at 02:40. Every Notfall THIS session has not met yet (a new trigger, or one found running on
+   * open) arms it once; muting again is the bell or «Zum Trupp», as for any alarm. */
+  const notfallKeys = trupps.filter(truppInNotfall).map((t) => `${t.id}:${t.notfallAt}`).sort().join('|')
+  const notfallMet = useRef<Set<string>>(new Set())
+  // (an ENDED one is forgotten, so ↶ bringing it back with its original trigger arms it again —
+  // lib/notfall · freshNotfallKeys)
+  useEffect(() => {
+    if (!azAlarmActive) return
+    if (freshNotfallKeys(notfallMet.current, notfallKeys ? notfallKeys.split('|') : []).length) armAtemschutz()
+  }, [notfallKeys, azAlarmActive, armAtemschutz])
 
   /** the one-shot pusher, ref-held: the Beilagen handlers are `useCallback`s per mount and the
    *  timeline helper is created much further down — the same shape `reportSetRef` uses. */
@@ -2141,7 +2160,25 @@ export function IncidentWorkspace({
   })
 
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
-  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors } =
+  /** WHERE a placed Trupp's symbol stands, in words — «Gebäude · 2. OG», «M6», «Karte · bei
+   *  Hydrant» — the Notfall's «letzter Ort» beside its Auftrag/Ziel (F1, useTruppActions ·
+   *  truppPlace). Read when asked, off the picture as it stands; nothing placed ⇒ nothing said. */
+  const truppPositionWords = (t: Trupp): string | undefined => {
+    const nf = appConfig.copy.atemschutz.notfall
+    if (t.annoId && t.planId) {
+      const plan = planDocs.find((p) => p.id === t.planId)
+      const anno = (board[t.planId] ?? []).find((a) => a.id === t.annoId)
+      const floor = t.planId === gebaeudeDoc.id && anno ? floorLabel(anno.floor ?? 0) : ''
+      return [plan?.code ?? '', floor].filter(Boolean).join(' · ') || undefined
+    }
+    if (t.entityId) {
+      const marker = doc.entities.find((e) => e.id === t.entityId)
+      const host = marker?.dockedTo ? doc.entities.find((h) => h.id === marker.dockedTo) : undefined
+      return host ? fillTemplate(nf.placeMapAt, { host: host.label || appConfig.copy.entities.fallbackObjectName }) : nf.placeMap
+    }
+    return undefined
+  }
+  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, triggerNotfall, endNotfall, truppPlace, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors } =
     useTruppActions({
       trupps, drawings, entities, objects, setTrupps, board, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
       // The Atemschutz-Tafel joins the one global timeline (08.09.2026): every Kontakt, Druck,
@@ -2153,6 +2190,7 @@ export function IncidentWorkspace({
       // recorded it. A merge between the tap and the ↶ is exactly the case that has to decline.
       liveTrupps: () => truppsRef.current,
       counterNames: () => truppCounterNames(),
+      placeOf: truppPositionWords,
       // An Atemschutz-Link session syncs the trupps slice and nothing else: a chip removed or
       // recoloured here would change only on this phone and be undone by the next poll, while
       // the tablet keeps the old one. So the placement half of every Trupp action is a no-op
@@ -2390,6 +2428,14 @@ export function IncidentWorkspace({
       for (const id of ids) {
         const t = truppsRef.current.find((x) => x.id === id)
         if (t && truppStillRegistered(t)) setTruppStatus(id, 'raus')
+      }
+    }
+  })
+  useEffect(() => {
+    noteNotfallRef.current = (ts) => {
+      for (const t of ts) {
+        log('warn', fillTemplate(appConfig.copy.atemschutz.notfall.logAtClose, { name: truppLogName(t) }), 'team',
+          undefined, undefined, { subjectId: t.id })
       }
     }
   })
@@ -2721,6 +2767,10 @@ export function IncidentWorkspace({
       recordContact={recordContact}
       recordPressure={recordPressure}
       setTruppStatus={setTruppStatus}
+      // the Atemschutznotfall (F1, 08.10.2026) — the same slice an Atemschutz-Link writes
+      triggerNotfall={triggerNotfall}
+      endNotfall={endNotfall}
+      placeOf={truppPlace}
       editTrupp={editTruppA}
       // «In diesen Trupp verschieben» — the one tap behind the form's double-assignment warning.
       // It only ever touches the crew fields of the OTHER Trupp, so it is the same slice an
@@ -2814,6 +2864,9 @@ export function IncidentWorkspace({
           onAcknowledge={muteAtemschutz}
           onGoToTrupp={(id) => setTruppFocus({ id, nonce: Date.now() })}
         />
+        {/* …and the Notfall's row obeys the same contract: withheld on the board, whose banner
+            stands in its place (AtemschutzNotfall) */}
+        <AtemschutzNotfallMeldungen trupps={trupps} onBoard onGoToTrupp={(id) => setTruppFocus({ id, nonce: Date.now() })} />
       </div>
     )
   }
@@ -2978,7 +3031,7 @@ export function IncidentWorkspace({
         setAzRowsShown, muteAtemschutz, setMode, setPanel, setTruppFocus, mapUI, tacticalLocked, gpsMeld,
         releaseOnSite, revertAll, followAll, replayActive, incidentMeta, journal, rapportReturn,
         setRapportReturn, openRapport, setInstallGuideOpen, tabLockLost, user, onTakeOverTab, needsReview,
-        readOnly, intakeReviewedAt, onEditMeta, onReviewDone,
+        readOnly, intakeReviewedAt, onEditMeta, onReviewDone, azAlarmActive, truppPlace, setTruppStatus,
       }} />
 
       {/* single left navigation rail — all surfaces; switches Karte / object Pläne / Checkliste */}

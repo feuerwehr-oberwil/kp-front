@@ -415,7 +415,7 @@ is public FKS material, and a station set REPLACES it rather than joining it
     spec, the touch vocabulary.
   - [`docs/phone-layout.md`](docs/phone-layout.md) – the two bottom bars, page heads, pages.
   - [`docs/atemschutz-board.md`](docs/atemschutz-board.md) – the Trupps board, the Trupp form,
-    the Sicherungstrupp and the Abschluss.
+    the Sicherungstrupp, the Atemschutznotfall and the Abschluss.
   - [`docs/copy-and-wording.md`](docs/copy-and-wording.md) – which word a screen uses.
   - [`docs/rapport.md`](docs/rapport.md) – what the Rapport's figure pages carry.
   - [`docs/board-templates.md`](docs/board-templates.md) – the Tafel's pages (FKS «Erste

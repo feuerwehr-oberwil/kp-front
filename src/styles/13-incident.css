@@ -1610,13 +1610,21 @@ select.cv-input { appearance: none; -webkit-appearance: none;
    to sit HERE, on the positioner, and not on the popup: the popup is `position: static` inside a
    transformed positioner, so a z-index on it is inert (see the ⚠️ in lib/overlays/Menu.tsx).
    The admin raises this while it is mounted — see the scoped block at the end of admin.css. */
-.ui-menu-pos { z-index: var(--z-menu); }
+.ui-menu-pos { z-index: var(--z-menu); --menu-room: var(--available-height, 70dvh); }
+/* ⚠️ …less the display's own band on the side it opened to (10.10.2026, owner's iPhone): the
+   positioner measures to the VIEWPORT edge, and on a rounded display with a home indicator the
+   last `--safe-area-inset-bottom` of it is the indicator and the corner curve — the last row of a
+   long menu ended there, cut by the corner. `data-side` is Base UI's; env() is 0 where there is
+   no such band, so the desktop is unchanged. */
+.ui-menu-pos[data-side="bottom"] { --menu-room: calc(var(--available-height, 70dvh) - env(safe-area-inset-bottom)); }
+.ui-menu-pos[data-side="top"] { --menu-room: calc(var(--available-height, 70dvh) - env(safe-area-inset-top)); }
 /* EVERY menu fits the screen and scrolls inside itself (05.10.2026, owner's iPhone: the Rapport's
-   «PDF ▾» Abschnitte ran off the bottom). `--available-height` is what the positioner measured
-   between the trigger and the viewport edge on the side it chose, less `collisionPadding`; the
-   dvh is the fallback before the first measure. `:where` keeps this at one class of weight, so a
-   menu that sets its own cap (`.jc-pendenz-menu`, SurfaceControls' menus) still wins. */
-:where(.ui-menu-pos) > .ui-pop { max-height: var(--available-height, 70dvh); overflow-y: auto;
+   «PDF ▾» Abschnitte ran off the bottom). `--menu-room` is what the positioner measured between
+   the trigger and the viewport edge on the side it chose, less `collisionPadding` and the safe
+   area above; the dvh is the fallback before the first measure. `:where` keeps this at one class
+   of weight, so a menu that sets its own cap (`.jc-pendenz-menu`, SurfaceControls' menus) still
+   wins — and those caps read `--menu-room` too. */
+:where(.ui-menu-pos) > .ui-pop { max-height: var(--menu-room, 70dvh); overflow-y: auto;
   overscroll-behavior: contain; }
 .ui-menu-sep { height: 1px; margin: 4px 8px; background: var(--glass-edge); }
 .ui-menu-head {

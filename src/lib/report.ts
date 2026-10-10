@@ -91,10 +91,11 @@ export const defaultReportOptions: ReportOptions = {
   pendenzen: true,
   attachments: true,
   detailedAudit: false,
-  // ⚠️ The SHEET seeds this from the record (ReportPreflight · `hadAtemschutzDeployment`, owner
-  // 09.10.2026): ticked when a crew went in under PA, unticked otherwise. Its own last sheet, so
-  // the signed part goes out without it. The QR-Erfassung's own PDF switches it off (CaptureApp).
-  auswertung: true,
+  // ⚠️ OFF by default (owner, 10.10.2026), and the sheet no longer seeds it from the record (it
+  // was «ticked when a crew went in under PA» on 09.10.): an internal debrief is something to
+  // ASK for. Its own last sheet, so the signed part goes out without it; the operator's own tick
+  // is kept per Einsatz (ReportPreflight · optionOverrides). The QR-Erfassung's PDF has it off too.
+  auswertung: false,
   // ON: the Erste Führung is the Einsatz's own work, like the Gebäude; a Tafel with nothing on it
   // simply carries no page (reportPdfDirect · tafelPayload)
   tafel: true,
@@ -638,7 +639,9 @@ export function readingBarIsMeasured(kind: TruppReading['kind']): boolean {
   // shape — the Überwachung ended, nobody read a gauge for it — while `paOn` carries the
   // Eingangsdruck of the cylinder that was just opened, which IS a reading.
   // …and a `crew` row names people, not a pressure — its bar is carried like a Kontakt's
+  // …and so do the two ends of a Notfall (F1): nobody read a gauge for them
   return kind !== 'contact' && kind !== 'rueckzug' && kind !== 'exit' && kind !== 'resume' && kind !== 'paOff' && kind !== 'crew'
+    && kind !== 'notfall' && kind !== 'notfallEnde'
 }
 
 /**
@@ -822,6 +825,9 @@ export function readingKindLabel(kind: TruppReading['kind'], standDown = false):
   // …and the two ends of the monitored stretch, where the Art was changed after the fact
   if (kind === 'paOn') return az.readingKind.paOn
   if (kind === 'paOff') return az.readingKind.paOff
+  // …and the two ends of an Atemschutznotfall (F1, 08.10.2026)
+  if (kind === 'notfall') return az.readingKind.notfall
+  if (kind === 'notfallEnde') return az.readingKind.notfallEnde
   return az.readingKind.pressure
 }
 
