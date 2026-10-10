@@ -8,6 +8,7 @@ import io
 import pypdfium2 as pdfium
 import pytest
 from reportlab.lib.units import mm
+from reportlab.pdfbase.pdfmetrics import stringWidth
 
 from app.report_board import fit_size, wrap
 from app.report_pdf import ReportPayload, compose_report_pdf
@@ -205,6 +206,9 @@ def test_a_landscape_sheet_and_a_text_page():
 def test_wrapping_splits_where_the_template_says():
     assert wrap(f"Patienten{SHY}sammelstelle", 25 * mm, size=9) == ["Patienten-", "sammelstelle"]
     assert wrap(f"Sanitäts{SHY}hilfsstelle", 60 * mm, size=9) == ["Sanitätshilfsstelle"]  # no hyphen when it fits
+    # …nor when the word fits whole on the next line (round 2: «Standort / Einsatz- / leitung»)
+    w = stringWidth("Einsatzleitung", "Helvetica", 9) + 2
+    assert wrap(f"Standort Einsatz{SHY}leitung", w, size=9) == ["Standort", "Einsatzleitung"]
     assert wrap("Erste Zeile\nzweite", 60 * mm) == ["Erste Zeile", "zweite"]
     # Helvetica has no trend arrows: a label keeps its meaning instead of printing «?»
     assert wrap("Entwicklungstendenz ➚ = ➘", 90 * mm) == ["Entwicklungstendenz (+) = (–)"]
@@ -238,3 +242,43 @@ def test_the_header_line_prints_in_the_words_it_was_sent_in():
     text = _text(_compose(boardPages=[page]))
     assert "Intervention: Feu de cuisine" in text
     assert "Einsatz:" not in text
+
+
+def test_rows_written_under_the_absprachepunkte_print_on_the_sheet():
+    """Owner round 2: a row typed under the six pre-printed Absprachepunkte is on the poster, not
+    in a Fortsetzung — the pre-printed rows give up their double height before a word moves."""
+    page = _ef()
+    abs_ = page["sections"][3]
+    abs_["adds"] = True
+    names = [
+        ("patientensammelstelle", f"Patienten{SHY}sammelstelle"),
+        ("sanitaetshilfsstelle", f"Sanitäts{SHY}hilfsstelle"),
+        ("rettungsachse", f"Rettungs{SHY}achse"),
+        ("standort-einsatzleitung", f"Standort Einsatz{SHY}leitung"),
+        ("sammelstelle-unverletzte", f"Sammel{SHY}stelle Un{SHY}verletzte"),
+        ("warteraum", "Warteraum"),
+    ]
+    abs_["rows"] = [{"fixed": True, "cells": [k, v, ""]} for k, v in names] + [
+        {"cells": ["", f"Helikopterlandeplatz {i}", "Sportplatz Bachmatten"]} for i in range(3)
+    ]
+    text = _text(_compose(boardPages=[page]))
+    assert text.count("Helikopterlandeplatz") == 3
+    assert "Fortsetzung" not in text
+
+
+def test_a_long_source_line_stays_on_the_paper():
+    page = _ef()
+    page["source"] = (
+        "FKS Plakat «Erste Führung» A3 V 1.0/10.09.2019; "
+        + "FKS Handbuch Führung Grossereignisse, Kap. 8 " * 4
+        + "ENDE"
+    )
+    doc = pdfium.PdfDocument(io.BytesIO(_compose(boardPages=[page])))
+    for i in range(len(doc)):
+        tp = doc[i].get_textpage()
+        at = tp.get_text_range().find("ENDE")
+        if at >= 0:
+            # the last letter's box, not just the text: a line run off the paper still extracts
+            assert tp.get_charbox(at + 3)[2] <= doc[i].get_width()
+            return
+    raise AssertionError("the source line is missing")

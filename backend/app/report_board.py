@@ -177,6 +177,9 @@ def wrap(text: str, width: float, font: str = FONT, size: float = _FS) -> list[s
                         break
                     out.append(line)
                     line = ""
+                    # on a fresh line the rest of the word may fit whole: no hyphen then
+                    if stringWidth("".join(parts), font, size) <= width:
+                        break
                     continue
                 head = "".join(parts[:k]) + "-"
                 out.append(f"{line} {head}" if line else head)
@@ -524,31 +527,35 @@ class BoardPageFlowable(Flowable):
         body_h = body_top - by
         empty_rows = max(1, _default_height(s))
         n = len(s.rows)
-        # a pre-printed row stands two rulings tall (the poster's Absprachepunkte, the Traktanden)
-        weight = [2 if r.fixed else 1 for r in s.rows]
-        units = sum(weight)
-        slots = max(empty_rows, units) if s.adds else max(1, units)
         # the rows' heights: a fixed-row table shares its body out; a written one rules equal rows
-        # and gives a long cell the lines it needs, shrinking the type until it all fits
-        size = _FS
-        while True:
-            base = body_h / slots
-            need = []
-            for r, wgt in zip(s.rows, weight, strict=False):
-                lines = 1
-                for i, col in enumerate(cols):
-                    if col.kind in ("symbol", "index"):
-                        continue
-                    v = r.cells[i] if i < len(r.cells) else ""
-                    if v:
-                        cw = widths[i] - 2.4 * mm
-                        fs = fit_size(v, cw, 9, 7) if r.fixed else fit_size(v, cw, size)
-                        lines = max(lines, len(wrap(v, cw, FONT, fs)))
-                need.append(max(base * wgt, lines * size * 1.18 + 2.2 * mm))
-            used = sum(need) + base * max(0, slots - units)
-            if used <= body_h + 0.5 or size <= _MIN_FS:
+        # and gives a long cell the lines it needs, shrinking the type until it all fits. A
+        # pre-printed row stands two rulings tall (the poster's Absprachepunkte, the Traktanden) —
+        # unless the rows written under it would then not fit: what was written beats the look.
+        for tall in (True, False):
+            weight = [2 if r.fixed and tall else 1 for r in s.rows]
+            units = sum(weight)
+            slots = max(empty_rows, units) if s.adds else max(1, units)
+            size = _FS
+            while True:
+                base = body_h / slots
+                need = []
+                for r, wgt in zip(s.rows, weight, strict=False):
+                    lines = 1
+                    for i, col in enumerate(cols):
+                        if col.kind in ("symbol", "index"):
+                            continue
+                        v = r.cells[i] if i < len(r.cells) else ""
+                        if v:
+                            cw = widths[i] - 2.4 * mm
+                            fs = fit_size(v, cw, 9, 7) if r.fixed else fit_size(v, cw, size)
+                            lines = max(lines, len(wrap(v, cw, FONT, fs)))
+                    need.append(max(base * wgt, lines * size * 1.18 + 2.2 * mm))
+                used = sum(need) + base * max(0, slots - units)
+                if used <= body_h + 0.5 or size <= _MIN_FS:
+                    break
+                size -= 0.5
+            if used <= body_h + 0.5:
                 break
-            size -= 0.5
         # draw what fits; the rest goes to the Fortsetzung
         y = body_top
         drawn = 0
@@ -684,9 +691,15 @@ class BoardPageFlowable(Flowable):
         c.setLineWidth(0.6)
         c.line(0, _FOOT_H - 1 * mm, pw, _FOOT_H - 1 * mm)
         if p.source:
-            c.setFont(FONT, 6.5)
+            # a long source (the FKS file names the poster and the Handbuch's sheets) never runs
+            # off the paper: smaller first, then a second line
+            fs = 6.5
+            while fs > 5.5 and stringWidth(printable(p.source), FONT, fs) > pw:
+                fs -= 0.5
+            c.setFont(FONT, fs)
             c.setFillColor(RULE)
-            c.drawString(0, _FOOT_H - 4.5 * mm, printable(p.source))
+            for j, part in enumerate(wrap(p.source, pw, FONT, fs)[:2]):
+                c.drawString(0, _FOOT_H - 4.5 * mm - j * fs * 1.15, part)
         rows = _grid_rows(p)
         if not rows:
             return
