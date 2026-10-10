@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type FocusEvent as ReactFocusEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime, stripUnprintable } from '../lib/format'
@@ -3212,6 +3212,18 @@ function TruppForm({
   // on the amber line says what is still missing.
   const auftragMissing = mode === 'create' && !auftragGiven
     && team.some((sl) => sl.name.trim().length > 0)
+  // ⚠️ …and not while the caret is still in the PERSON SEARCH (10.10.2026, owner's iPhone): the
+  // crew goes in one name after another, and the line stood there from the first name on, naming
+  // a gap in a part of the form the operator had not reached. It waits until the search is left —
+  // for the Auftrag, the Ziel, the footer, or a tap anywhere else — on every form factor.
+  // The slot is HELD while it waits (visibility, not unmounting, `.formHintWaiting`): the blur
+  // that reveals it is very often the press on «Anmelden» itself, and a line appearing under that
+  // finger would move the button between the press and the release (on iOS the synthetic click
+  // is hit-tested after the blur has re-rendered).
+  const [teamSearchFocused, setTeamSearchFocused] = useState(false)
+  const onTeamFocusChange = (focused: boolean) => (e: ReactFocusEvent) => {
+    if (e.target === teamSearchRef.current) setTeamSearchFocused(focused)
+  }
   // A linked person already deployed in another active Trupp blocks submit (one person, one
   // Trupp). The picker no longer OFFERS one — but an existing Trupp being edited can still carry
   // somebody who was assigned elsewhere in the meantime, and that has to be sayable.
@@ -3465,7 +3477,7 @@ function TruppForm({
   ) : null
 
   const teamFields = (
-    <div ref={teamRef} className={s.field}>
+    <div ref={teamRef} className={s.field} onFocus={onTeamFocusChange(true)} onBlur={onTeamFocusChange(false)}>
       <span>{az.sectionTeam}</span>
       {/* One list, leader first. A Trupp is valid with exactly one name (the Gruppenführer),
           so a two-person Trupp, a four-person Trupp and a mis-tap are all one tap apart —
@@ -3716,7 +3728,8 @@ function TruppForm({
           registers as «Auftrag offen». `role="status"`, not alert: it is there from the first
           render of a fresh form and must not be shouted over the field the operator is filling. */}
       {!blocked && auftragMissing && (
-        <p className={cx('form-warn form-warn-amber', s.formBlocked)} role="status">
+        <p className={cx('form-warn form-warn-amber', s.formBlocked, teamSearchFocused && s.formHintWaiting)} role="status"
+          aria-hidden={teamSearchFocused || undefined}>
           <Icon id="warn" /><span>{az.auftragMissingHint}</span>
         </p>
       )}

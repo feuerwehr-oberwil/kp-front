@@ -503,6 +503,10 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   - **Messen is one row.** Distanz · Schläuche · the adopt action (the pen, named «Als Linie
     übernehmen») · ▾ share a line; the Höhenprofil and, on a Plan, «Neu kalibrieren» or the note
     where the metres come from fold behind the ▾. The Fläche readout works the same way.
+  - **«Trupp anmelden» names the missing Auftrag only once the crew is in.** The amber «Auftrag
+    fehlt» line waited for nobody: it stood there from the first name while the next ones were
+    still being searched. It now appears when the person search is left – for the Auftrag, the
+    Ziel or «Anmelden» – and its space is kept meanwhile, so the footer never moves under a press.
 - **A Trupp's «fällig» and «überfällig» no longer ride on colour alone.** On the phone board
   the row said them only in amber and red, which is no answer in direct sun or to a colour-blind
   reader. Under the clock it now carries a glyph: a clock for «fällig», the warning triangle for
