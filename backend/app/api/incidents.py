@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
-from .. import audit, live_wait, storage
+from .. import audit, live_wait, push, storage
 from ..alarm_validation import ALARM_VALIDATED_KEYS, validate_alarm_workspace
 from ..alarms import is_demo_deployment
 from ..auth.dependencies import (
@@ -528,6 +528,9 @@ async def apply_workspace_put(
         # report server_rev == your_base_rev — and it re-decodes megabytes of JSONB to do it.
         raise _workspace_revision_conflict(await _rev(db, incident_id), body.base_rev)
     new_rev = body.base_rev + 1
+    # An Atemschutznotfall raised (or ended) by this save is pushed the moment it commits — the
+    # 30 s sweep stays the fallback and shares its dedup key (app/push · notify_notfall_changes)
+    await push.notify_notfall_changes(db, inc, previous.get("trupps"), body.workspace.get("trupps"))
     # Wake the devices long-polling this incident's workspace — once this transaction commits,
     # so they re-read the blob they are being woken for (see app/live_wait).
     live_wait.notify_after_commit(db, live_wait.workspace_topic(incident_id))
