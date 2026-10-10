@@ -27,13 +27,14 @@ export function TafelPageStrip({ pages, current, templates, readOnly, onPick, on
   const T = appConfig.copy.tafel
   const added = new Set(pages.map((p) => `${p.form.tpl.id}/${p.form.page.id}`))
   const items: (MenuActionItem | MenuHeading)[] = templates.flatMap((tpl) => [
-    ...(templates.length > 1 ? [{ kind: 'head' as const, label: labelText(tpl.title) }] : []),
+    // the template's name heads its pages — which set the station runs is part of the answer
+    { kind: 'head' as const, label: labelText(tpl.title) },
     ...offeredPages(tpl).map((p) => {
       const there = added.has(`${tpl.id}/${p.id}`)
       return {
         label: (
           <span className="tps-item">
-            {p.code ? <span className="tps-code">{p.code}</span> : null}
+            <span className="tps-code">{p.code ?? ''}</span>
             <span className="tps-name">{labelText(p.title)}</span>
             {there ? <span className="tps-there"><Icon id="check" />{T.alreadyThere}</span> : null}
           </span>

@@ -75,6 +75,19 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Added
 
+- **The Tafel gets pages: the FKS «Erste Führung» and the Handbuch sheets.** A page strip on the
+  Tafel – «Skizze» (the free board, unchanged) plus «+ Seite» – adds the FKS «Erste Führung»
+  poster 1:1 (Problemerfassung · Lagekarte · Massnahmen · Mittel · Verbindungen ·
+  Abspracherapport with its six Signaturen) and the FKS Handbuch sheets 8.1 Problemerfassung,
+  8.6 Mittel, 8.8 Verbindungen, 8.9 Konzept and 8.11 Rapport, in German, French and Italian. A new
+  Tafel starts empty. The keyboard works like a spreadsheet (Enter down, Tab across, Shift+Enter a
+  line break, Esc reverts; «1124» becomes 11:24), the Lagekarte box is a live, read-only mini
+  Karte, Mittel starts with the Einsatz's vehicles, and every edit is one ↶ step that syncs and
+  works offline. The Rapport prints each page in its own layout (the Erste Führung as the poster,
+  its Lagekarte as the Karte at print time) and finally the Tafel's own drawing too
+  («Tafel – Seiten» in the print menu). A station replaces the bundled set with its own copy
+  (`board-template/1`, docs/board-templates.md): `admin_board_templates
+  validate|load|push` or `/admin › Tafel-Vorlagen`, distributed and pruned like the checklists.
 - **Station index: one address for all station data.** A station publishes an `index.json`
   next to its data files that lists them by kind with checksums (`station-index/1`,
   docs/CONFIGURATION.md §4d); KP Front gets ONE setting for it – «Stationsdaten-Index» on

@@ -298,6 +298,8 @@
   /* (…and the Gebäude's chip row steps up by that row: `--msg-dock-hint` is part of
      --float-base, see «THE floating row» below) */
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
+  /* …but a Tafel PAGE is a form with no tool bar under it: it runs down to the nav bar (Whiteboard · formPage) */
+  .phone-tools .whiteboard.wb-tafel-page { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
   /* A Plan-side detail sheet is fixed, but its z-index still cannot escape the whiteboard's
      stacking context (09-whiteboard.css). Lift that surface just above the shared nav rail while
      a sheet is open; the sheet then covers both Plan rails as its Lage twin already does, while
