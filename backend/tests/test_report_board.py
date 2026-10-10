@@ -353,3 +353,17 @@ def test_a_verlauf_entry_longer_than_a_page_prints_instead_of_failing_the_rappor
     )
     text = _text(compose_report_pdf(payload, {}))
     assert "lang2999" in text
+
+
+def test_a_long_column_head_prints_whole_with_its_symbol_group_together():
+    """Owner, 10.10. evening: «Entwicklungstendenz ➚ = ➘» broke with «➘» alone on the next line.
+    The label keeps «➚ = ➘» together (no-break spaces) and breaks the word at its soft hyphen; on
+    paper the head takes the lines it needs, every one printed."""
+    head = f"Entwicklungs{SHY}tendenz ➚ = ➘"
+    lines = wrap(head, 30 * mm, size=8)
+    assert lines[-1].endswith("(+) = (–)") or lines[-1] == "(+) = (–)"
+    assert all("=" not in ln or ("(+)" in ln and "(–)" in ln) for ln in lines)
+    page = _ef()
+    page["sections"][2]["columns"][1] = {"label": head, "w": 1.0}
+    text = _text(_compose(boardPages=[page]))
+    assert "tendenz" in text and "(–)" in text

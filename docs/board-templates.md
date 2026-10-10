@@ -154,7 +154,11 @@ Einsatz-Link session cannot print it (the pages carry names, like the Rapport).
   Tafel's ink never reaches paper» gap.
 - **Switch.** Everything above sits behind one entry in the print menu, «Tafel – Seiten (n)»,
   which is on by default.
-- **Fonts.** Trend arrows (➚ = ➘) are drawn as vector arrows, because Helvetica has no glyph for them. Soft hyphens (`­`)
+- **Fonts.** Trend arrows (➚ = ➘) are drawn as vector arrows, because Helvetica has no glyph for them.
+- **Heads** take the lines they need (up to three), every line printed. A label keeps a symbol
+  group together with no-break spaces (`➚\u00a0=\u00a0➘`) and breaks a long word at its soft
+  hyphen (`Entwicklungs\u00adtendenz`) — on screen the same: heads break at their soft hyphens
+  only (the browser's dictionary picked «Entwicklungsten-denz»). Soft hyphens (`­`)
   in a label split it where the poster does, as in «Patienten-sammelstelle».
 
 ## Writing a station template

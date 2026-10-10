@@ -115,7 +115,12 @@
    the last ruling sits flush on the box's border — never a doubled line */
 .fill > .tr:last-child { box-shadow: 0 1px 0 var(--ink-28); }
 .thead { min-height: 0; }
-.th { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-1); color: var(--ink); border-right: 1px solid var(--ink-28); }
+.th { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-1); color: var(--ink); border-right: 1px solid var(--ink-28);
+  /* a head breaks where its template says: at its soft hyphens («Entwicklungs-tendenz» — the
+     browser's own dictionary picked «Entwicklungsten-denz»), a symbol group («➚ = ➘») held by
+     its no-break spaces (owner, 10.10.); `anywhere` only for a word with no seam at all */
+  hyphens: manual; -webkit-hyphens: manual; overflow-wrap: anywhere; min-width: 0; }
+.sh, .boxLabel, .fieldLabel { hyphens: manual; -webkit-hyphens: manual; overflow-wrap: anywhere; }
 .td { display: flex; align-items: stretch; min-width: 0; border-right: 1px solid var(--ink-28); }
 .th:last-child, .td:last-child { border-right: none; }
 .td > .cell { flex: 1 1 auto; }
@@ -176,8 +181,13 @@
 
 /* ── a phone: one column, the paper edge to edge ── */
 .phone .paper { padding: var(--sp-3); border-radius: 0; box-shadow: none; margin-bottom: 0; }
-.phone .title { font-size: var(--fs-5); line-height: var(--lh-5); }
-.phone .meta { display: none; }
+.phone .title { font-size: var(--fs-5); line-height: var(--lh-5); overflow-wrap: anywhere; }
+/* on a phone the header's «Drucken» is its icon (the label says it): the title keeps the room */
+.phone .printWord { display: none; }
+/* …and a table's columns keep the width their heads need; the box scrolls sideways */
+.phone { --tafel-col-min: calc(var(--tap) * 2 + var(--sp-4)); }
+.phone .th { font-size: var(--fs-micro); }
+.phone .table { overflow-x: auto; }
 .phone .headRow { grid-template-columns: minmax(0, 1fr); }
 .phone .cell { min-height: 44px; }
 .phone .map { min-height: 220px; }

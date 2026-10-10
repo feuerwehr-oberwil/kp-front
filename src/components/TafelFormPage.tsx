@@ -655,7 +655,13 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
     const order = written.map((r) => r.id)
     const list = sec.id
     const { newId, ghosts = 0 } = ids[sec.id]
-    const grid: CSSProperties = { gridTemplateColumns: [...cols.map((c) => `minmax(0, ${c.w ?? 1}fr)`), ...(sec.done ? ['auto'] : [])].join(' ') }
+    // on a phone a column is never narrower than its head's longest piece needs (owner, 10.10.:
+    // «Entwi/cklun/gs-» in a 70px column) — a wide sheet then scrolls sideways in its box
+    const minCol = isPhone ? 'var(--tafel-col-min)' : '0'
+    const grid: CSSProperties = {
+      gridTemplateColumns: [...cols.map((c) => `minmax(${minCol}, ${c.w ?? 1}fr)`), ...(sec.done ? ['auto'] : [])].join(' '),
+      ...(isPhone ? { minWidth: `calc(var(--tafel-col-min) * ${cols.length})` } : {}),
+    }
     /** an empty ruling under the empty row: drawn like a row, and a tap on it writes in the empty
      *  row — the same column — so writing lands directly under the last entry */
     const ghostRow = (key: string) => (
@@ -708,7 +714,8 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
     return (
       <div className={s.table} role="table" aria-label={labelText(sec.title) || labelText(page.title)} style={minH(sec.height)}>
         <div className={cx(s.tr, s.thead)} role="row" style={grid}>
-          {cols.map((c) => <span key={c.id} className={s.th} role="columnheader">{labelText(c.label)}</span>)}
+          {/* a head may break after a slash («Funktion/ Standort/ Name»), never inside a word */}
+          {cols.map((c) => <span key={c.id} className={s.th} role="columnheader">{labelText(c.label).replace(/\//g, '/\u200b')}</span>)}
           {sec.done && <span className={s.th} role="columnheader"><span className={s.srOnly}>{t.done}</span></span>}
         </div>
         {fixedList.map((r) => (

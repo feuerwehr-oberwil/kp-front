@@ -511,20 +511,26 @@ class BoardPageFlowable(Flowable):
         xs = [bx]
         for wd in widths:
             xs.append(xs[-1] + wd)
-        head_h = _BAR_H * 0.82
-        # the column heads
+        # the column heads — on as many lines as the longest needs (up to three), each line whole:
+        # «Entwicklungs-/tendenz ➚ = ➘», never «…tendenz ➚ =» with the «➘» cut off (owner,
+        # 10.10. evening: the symbol group is kept together by its no-break spaces)
+        heads = []
+        for i, col in enumerate(cols):
+            fs = fit_size(col.label, widths[i] - 2.4 * mm, 9, 6.5) if col.label else 9.0
+            heads.append((fs, wrap(col.label, widths[i] - 2.4 * mm, FONT, fs)[:3] if col.label else []))
+        lead = max([fs * 1.15 for fs, _ in heads] or [9 * 1.15])
+        n_head = max([len(ls) for _, ls in heads] or [1])
+        head_h = max(_BAR_H * 0.82, n_head * lead + 2.6 * mm)
         c.setLineWidth(0.5)
         c.setStrokeColor(RULE)
         top = by + bh
         c.line(bx, top - head_h, bx + bw, top - head_h)
-        for i, col in enumerate(cols):
-            if not col.label:
-                continue
-            fs = fit_size(col.label, widths[i] - 2.4 * mm, 9, 6.5)
+        for i, (fs, lines) in enumerate(heads):
             c.setFont(FONT, fs)
             c.setFillColor(RULE)
-            label = wrap(col.label, widths[i] - 2.4 * mm, FONT, fs)[0]
-            c.drawString(xs[i] + 1.2 * mm, top - head_h + 2 * mm, label)
+            for j, line in enumerate(lines):
+                # bottom-aligned, as the one-line heads always stood
+                c.drawString(xs[i] + 1.2 * mm, top - head_h + 2 * mm + (len(lines) - 1 - j) * lead, line)
         body_top = top - head_h
         body_h = body_top - by
         n = len(s.rows)
