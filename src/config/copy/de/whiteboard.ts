@@ -491,6 +491,7 @@ export const whiteboardCopy = {
     trendTitle: 'Tendenz: {trend} – tippen zum Wechseln',
     keysHint: 'Enter: nächste Zeile · Tab: nächste Spalte · Shift+Enter: Zeilenumbruch',
     lineBreak: 'Zeilenumbruch',
+    reorder: 'Verschieben (ziehen, oder Alt+↑ / Alt+↓)',
     cellCap: 'Ein Feld fasst {n} Zeichen – für mehr einen Eintrag im Verlauf schreiben.',
   },
 } as const

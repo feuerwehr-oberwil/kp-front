@@ -339,6 +339,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     trendTitle: 'Trend: {trend} – tap to change',
     keysHint: 'Enter: next row · Tab: next column · Shift+Enter: line break',
     lineBreak: 'Line break',
+    reorder: 'Move (drag, or Alt+↑ / Alt+↓)',
     cellCap: 'A field holds {n} characters – for more, write an entry in the Verlauf.',
   },
 }

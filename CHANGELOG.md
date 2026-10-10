@@ -90,8 +90,9 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   validate|load|push [--prune]` or `/admin › Tafel-Vorlagen`, distributed like the checklists.
   Two devices on one page merge cell by cell (a true clash keeps the later edit and writes a
   Verlauf row), and an older build can no longer delete the pages it does not know. «Drucken» on
-  a page makes a PDF of it (or of all pages) in the same layout, and a row stays on the ruling it
-  was written on, on screen and on paper.
+  a page makes a PDF of it (or of all pages) in the same layout. Entries stack from the top and can
+  be reordered by hand — drag the grip, or Alt+↑ / Alt+↓ — on screen and on paper, the same on
+  every device.
 - **Atemschutznotfall for one Trupp.** Hold «Notfall» on a crew inside: every device turns that
   Trupp red at the top of the alarm strip with a running Notfall clock, its last place, last Druck
   with its age and Funkkanal, and «Sicherungstrupp einsetzen» as the first offer; tone, OS

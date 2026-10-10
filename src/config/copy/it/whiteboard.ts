@@ -339,6 +339,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     trendTitle: 'Tendenza: {trend} – tocca per cambiare',
     keysHint: 'Invio: riga successiva · Tab: colonna successiva · Maiusc+Invio: a capo',
     lineBreak: 'A capo',
+    reorder: 'Sposta (trascina, o Alt+↑ / Alt+↓)',
     cellCap: 'Un campo contiene {n} caratteri – per di più, scrivi una voce nel diario.',
   },
 }
