@@ -54,6 +54,8 @@ def _run(module: str, *args: str) -> subprocess.CompletedProcess:
         ("app.admin_objects", "example"),
         ("app.admin_geodata", "example"),
         ("app.admin_checklists", "example"),
+        ("app.admin_board_templates", "example"),
+        ("app.admin_board_templates", "schema"),
     ],
 )
 def test_a_pure_stdout_command_emits_nothing_but_json(module: str, command: str):
@@ -89,6 +91,7 @@ def test_cli_subprocess_ignores_the_local_deployment_dotenv(tmp_path, monkeypatc
         ("app.admin_geodata", "geodata.manifest.example.json"),
         ("app.admin_objects", "objects.manifest.example.json"),
         ("app.admin_checklists", "checklists.manifest.example.json"),
+        ("app.admin_board_templates", "tafel.manifest.example.json"),
     ],
 )
 def test_validating_a_shipped_template_says_it_is_a_template(module: str, template: str):

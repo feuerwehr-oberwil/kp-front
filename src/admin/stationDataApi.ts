@@ -266,3 +266,20 @@ export function parseChecklistTemplate(
 export function checklistUploadBlob(parsed: ParsedChecklist, order: number): Blob {
   return new Blob([JSON.stringify({ ...parsed.raw, order }, null, 2)], { type: 'application/json' })
 }
+
+// ─── Tafel-Vorlagen (board templates, 10.10.2026) ──────────────────────────────
+
+/** `tafel:<id>` — one board template (backend · api/reference · _is_board_template; the field
+ *  app's twin is lib/boardTemplates · isTafelTemplateId, not imported here so the admin does not
+ *  pull the Tafel's loader into a chunk of its own). */
+export const isBoardTemplateDataset = (datasetId: string): boolean =>
+  datasetId.startsWith('tafel:') && /^[a-z0-9][a-z0-9-]*$/.test(datasetId.slice('tafel:'.length))
+
+/** Delete board templates through the prune door `admin_board_templates push` uses (the
+ *  registry has no DELETE): re-read the registry, keep every other `tafel:*`. */
+export async function deleteBoardTemplates(ids: string[]): Promise<{ pruned: string[] }> {
+  const doomed = new Set(ids)
+  const fresh = await listReferenceDatasets()
+  const keep = fresh.filter((d) => isBoardTemplateDataset(d.id) && !doomed.has(d.id)).map((d) => d.id)
+  return apiPost<{ pruned: string[] }>('/api/reference/tafel/prune', keep)
+}

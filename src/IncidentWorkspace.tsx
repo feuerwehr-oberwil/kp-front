@@ -62,7 +62,6 @@ import { consumeJustUpdated } from './lib/swUpdate'
 import { useIsPhone, useMediaQuery } from './lib/useIsPhone'
 import { onReachable } from './lib/connectivity'
 import { Splash } from './components/Splash'
-import { plakatSeedFrom } from './lib/plakatSeed'
 import { NavRail } from './components/NavRail'
 import { twinVisible, isTwinLayerId } from './lib/georefTwins'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
@@ -137,6 +136,7 @@ import { whenIdle } from './lib/idle'
 import { useSessionRole, useWorkspaceFlags } from './workspace/access'
 import { useOfflinePrefetch } from './workspace/useOfflinePrefetch'
 import { loadReportPreflight, loadWhiteboard, requestReportStep } from './workspace/lazySurfaces'
+import { useTafelPages } from './workspace/useTafelPages'
 import type { OneShotRows, WorkspaceMode } from './workspace/types'
 import { WorkspaceMeldungen } from './workspace/WorkspaceMeldungen'
 import { WorkspaceSheets } from './workspace/WorkspaceSheets'
@@ -1330,17 +1330,6 @@ export function IncidentWorkspace({
   const displayWeather = replayActive ? (replayWs?.weather ?? null) : liveWeather.data
   // …and the Karte's weather LAYER: the MeteoSwiss radar (live only)
   const weather = useKarteWeather(mode === 'map' && !replayActive)
-  // the Tafel's «Erstes Plakat (FKS)» Vorlage pre-fills from what the Einsatz already knows — not
-  // for a link session (bound to one object)
-  const plakatSeed = linkScoped ? undefined : () => plakatSeedFrom({
-    title: incidentMeta.title, address: incidentMeta.address,
-    alarmIso: reportMeta.alarmiertAt ?? incidentMeta.started_at,
-    einsatzleiter: reportMeta.einsatzleiter,
-    weather: liveWeather.data,
-    fahrzeuge: reportMeta.fahrzeuge,
-    fleet: getDeploymentConfig().fleet?.vehicles,
-    entities: doc.entities,
-  })
 
   // The opening cover (lib/bootCover): the boot Splash's snail stays over the whole workspace
   // until its first screen is whole — the symbol pack, the Karte framed with its first view drawn
@@ -1788,6 +1777,18 @@ export function IncidentWorkspace({
     const m = new Map(mapLayers.map((l) => [l.id, l.visible]))
     return (id: LayerId) => m.get(id) ?? true
   }, [mapLayers])
+
+  // the Tafel's pages (10.10.2026): the template set, the pre-fill, the live mini Karte — not for a
+  // link session (bound to one object)
+  const tafel = useTafelPages({
+    enabled: !linkScoped,
+    title: incidentMeta.title, address: incidentMeta.address,
+    alarmIso: reportMeta.alarmiertAt ?? incidentMeta.started_at, einsatzleiter: reportMeta.einsatzleiter,
+    fahrzeuge: reportMeta.fahrzeuge, docEntities: doc.entities,
+    mapEntities, drawings, layers: mapLayers, isVisible, byName: sym.byName, center: incidentView.center,
+    symMul: symbolScale.map, captionMode: symbolCaptions, trupps: effTrupps,
+    openKarte: () => setMode('map'),
+  })
 
   // --- Georeferenz: which plans are tied to the ground, and how — lib/useGeorefFits -------------
   // ⚠️ Called HERE, where the block stood: its effects must keep their place after the store's and
@@ -3124,7 +3125,7 @@ export function IncidentWorkspace({
         planKeys, planFocus, effTrupps, truppCounterNames, teamNameTaken, azAlarm, updateTrupp,
         askTruppEntry, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker, linkTruppLine, unlinkLine,
         linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, syncLineNoToTrupp, setMode, setPanel,
-        setTruppFocus, planScale, setPlanScale, plakatSeed,
+        setTruppFocus, planScale, setPlanScale, tafel,
       }} />
 
       {pickerOpen && (

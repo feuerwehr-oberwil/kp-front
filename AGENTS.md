@@ -247,24 +247,6 @@ head, then `alembic check` against the models); image, secrets, e2e, visual and 
   fires 12 ms on arm and only on arm, a press is the `--press` wash and nothing moves, `:hover`
   is mouse-only. The vocabulary is in [`docs/ui-conventions.md`](docs/ui-conventions.md) ·
   «Touch vocabulary».
-- **The empty Tafel offers one Vorlage, the FKS «Erstes Plakat»** (08.10.2026, staging). Under
-  main's «Leeres Blatt» hint stands the Tafel's Vorlage list – ONE entry, «Erstes Plakat (FKS)»
-  (Raumordnung/Organigramm are not approved) – while the sheet is empty, Auswahl is armed and the
-  sheet is writable (`Whiteboard · vorlageShown`). The «Womit beginnen?» starter cards (Objekt
-  wählen / Gebäude am Einsatzort) were dropped 10.10.2026 (owner: links to doors the app already
-  has, and «Gebäude» could replace a building already set) – do not bring them back. **The Plakat
-  is ONE board anno** of kind `plakat` (`BoardAnno.plakat`, `lib/plakat`) with no x/y – insert =
-  one ↶ step, each field commit (blur/Enter) = one step via `patchCommit`, and it syncs, persists
-  and works offline like any note. The sanitizer gate (`workspace · isBoardAnno`) accepts it by
-  `isPlakatData`, never by an anchor; nothing positional (bake, projection, plan print) sees it.
-  It lies on the paper under the ink, scaled from a 1000px design width, and turns passive while
-  a drawing tool is armed; a phone fills the same fields as a list (`TafelPlakat variant="list"`).
-  Pre-fill only from what the app holds (`lib/plakatSeed`): title/address, alarm time, Rapport
-  Einsatzleiter, vehicles from the Fahrzeugzeiten and the Karte, the wind as a «Wetter»
-  suggestion, the FKS Absprachepunkte as open ticks. The Rapport prints it as its own section
-  after the Aufträge (`report_pdf · _plakat_section`, trends sent as WORDS – Helvetica has no
-  ➚ ➘). ⚠️ A client older than this drops a `plakat` anno at its gate, so this must not meet
-  prod data before prod has the code.
 - **Lage and Plan should stay as close as possible in every regard** – same tools, controls,
   and behavior. Only the implementation that *must* differ because of the drawing surface /
   relative coordinate system may diverge. Shared logic lives in `ToolDock`, `DrawEditor`,
@@ -385,7 +367,10 @@ head, then `alembic check` against the models); image, secrets, e2e, visual and 
   plans fall back only to OSM outlines + `Tafel`, never bundled `/public` PDFs; checklist templates
   are fetched from the `checklists:<id>` reference datasets (`loadTemplates` in
   `src/lib/checklists.ts`, offline-cached), falling back to one neutral bundled example
-  (`src/data/checklists/generic-action.json`) – never a station's real lists. GeoJSON must be WGS84
+  (`src/data/checklists/generic-action.json`) – never a station's real lists. The Tafel's board
+templates ride the same pipeline (`admin_board_templates`, `tafel:<id>`); their bundled FKS set
+is public FKS material, and a station set REPLACES it rather than joining it
+([`docs/board-templates.md`](docs/board-templates.md)). GeoJSON must be WGS84
   `[lng,lat]` (LV95 is rejected).
 - **Coordinates are WGS84 `[lng, lat]` wherever the map renders.** LV95 only at the edges via
   `src/lib/geo.ts` (`wgs84ToLV95` / `lv95ToWgs84` / `fmtLV95`), the `centerLv95` config option,
@@ -422,6 +407,9 @@ head, then `alembic check` against the models); image, secrets, e2e, visual and 
     the Sicherungstrupp, the Atemschutznotfall and the Abschluss.
   - [`docs/copy-and-wording.md`](docs/copy-and-wording.md) – which word a screen uses.
   - [`docs/rapport.md`](docs/rapport.md) – what the Rapport's figure pages carry.
+  - [`docs/board-templates.md`](docs/board-templates.md) – the Tafel's pages (FKS «Erste
+    Führung» …): a page is ONE `form` board anno with its template snapshot, values keyed by id,
+    the spreadsheet keyboard, and the `board-template/1` contract a station writes against.
   - [`docs/roles-and-access.md`](docs/roles-and-access.md) – roles, the deployment admin, links.
   - [`docs/trupp-naming.md`](docs/trupp-naming.md), [`docs/verlauf-coverage.md`](docs/verlauf-coverage.md),
     [`docs/object-visits.md`](docs/object-visits.md) – Trupp identity, what reaches the Verlauf,

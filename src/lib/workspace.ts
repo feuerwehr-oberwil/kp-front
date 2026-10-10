@@ -10,7 +10,7 @@ import { loadLayerPrefs } from './layerPrefs'
 import { isSafeColor } from './shapes'
 import { sanitizeSvgResult } from './sanitizeSvg'
 import { minPoints } from './vertexOps'
-import { isPlakatData } from './plakat'
+import { isFormData } from './boardForm'
 import type { ChecklistState } from './checklists'
 import { objectsFromLegacy, viewsOf, type TacticalObject } from './tacticalObjects'
 import { bearing360 } from './planProjection'
@@ -303,7 +303,7 @@ type Complete<T extends string, U extends readonly string[]> = Exclude<T, U[numb
 const kindSet = <T extends string>() => <const U extends readonly T[]>(u: U & Complete<T, U>): ReadonlySet<string> => new Set<string>(u)
 const ENTITY_KINDS = kindSet<EntityKind>()(['symbol', 'vehicle', 'note', 'photo', 'shape', 'team', 'person'])
 const DRAW_KINDS = kindSet<DrawKind>()(['line', 'area', 'circle'])
-const BOARD_KINDS = kindSet<BoardKind>()(['draw', 'area', 'circle', 'text', 'symbol', 'shape', 'resource', 'plakat'])
+const BOARD_KINDS = kindSet<BoardKind>()(['draw', 'area', 'circle', 'text', 'symbol', 'shape', 'resource', 'form'])
 /** the pre-'resource' board kind, still accepted at the gate because normalizeBoard migrates it */
 const LEGACY_BOARD_KINDS: ReadonlySet<string> = new Set([...BOARD_KINDS, 'trupp'])
 /** fewest vertices a drawing of each kind can render with (a circle is its centre) */
@@ -339,9 +339,9 @@ export const isDrawing = (v: unknown): v is Drawing =>
 /** A plan annotation the Whiteboard can draw: ink needs enough finite vertices, everything else an anchor. */
 export const isBoardAnno = (v: unknown): v is BoardAnno =>
   hasId(v) && typeof v.kind === 'string' && LEGACY_BOARD_KINDS.has(v.kind)
-  // the «Erstes Plakat» is sheet-wide (no anchor) and renders its lists straight away — a
-  // malformed one is dropped here, not thrown there
-  && (v.kind === 'plakat' ? isPlakatData(v.plakat)
+  // a Tafel page is sheet-wide (no anchor) and renders its lists straight away — a malformed
+  // one is dropped here, not thrown there (lib/boardForm · isFormData)
+  && (v.kind === 'form' ? isFormData(v.form)
     : v.kind === 'draw' || v.kind === 'area'
       ? Array.isArray(v.pts) && v.pts.length >= minPoints(v.kind) && v.pts.every(boardPt)
       : num(v.x) && num(v.y))

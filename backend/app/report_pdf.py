@@ -57,6 +57,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from .report_board import BoardPageFlowable, BoardPageIn, Continuation, page_has_map
+
 logger = logging.getLogger(__name__)
 
 # ReportLab defaults to ASCII85-encoding every compressed stream (`useA85`) so old PDF tools that
@@ -232,57 +234,6 @@ class PendenzRowIn(BaseModel):
     #: on every untimed row (same reasoning as Prio above).
     faellig: str | None = None
     notes: list[PendenzNoteIn] = []
-
-
-class PlakatProblemIn(BaseModel):
-    """One Problem on the «Erstes Plakat» (08.10.2026): the text, its Stichwort, and the trend
-    as a WORD («wird schlimmer») — Helvetica has no ➚ ➘, so the client sends the words."""
-
-    text: str = ""
-    note: str = ""
-    trend: str = ""
-
-
-class PlakatMassnahmeIn(BaseModel):
-    was: str = ""
-    wer: str = ""
-    wann: str = ""
-    done: bool = False
-
-
-class PlakatMittelIn(BaseModel):
-    formation: str = ""
-    pers: str = ""
-    wo: str = ""
-
-
-class PlakatVerbindungIn(BaseModel):
-    funktion: str = ""
-    kanal: str = ""
-    ruf: str = ""
-
-
-class PlakatPunktIn(BaseModel):
-    text: str = ""
-    done: bool = False
-
-
-class PlakatIn(BaseModel):
-    """The FKS «Erste Führung / Erstes Plakat» from the Tafel (08.10.2026, client lib/plakat) —
-    printed as its own section after the Aufträge, only when the Tafel carries one."""
-
-    title: str = ""
-    address: str = ""
-    alarm: str = ""
-    einsatzleiter: str = ""
-    front: list[PlakatProblemIn] = []
-    ordnung: list[PlakatProblemIn] = []
-    sanitaet: list[PlakatProblemIn] = []
-    spezial: list[PlakatProblemIn] = []
-    massnahmen: list[PlakatMassnahmeIn] = []
-    mittel: list[PlakatMittelIn] = []
-    verbindungen: list[PlakatVerbindungIn] = []
-    absprachen: list[PlakatPunktIn] = []
 
 
 class KrokiEntityIn(BaseModel):
@@ -677,6 +628,9 @@ class ReportOptionsIn(BaseModel):
     #: the «Auswertung» Beilage — printed only when the payload also carries its block, so an
     #: older client (which sends neither) prints exactly what it always did
     auswertung: bool = True
+    #: the Tafel's pages (10.10.2026, app/report_board) — like `auswertung`, they print only when
+    #: the payload carries them, so the default changes nothing for an older client
+    tafel: bool = True
 
 
 class PersonalSummaryIn(BaseModel):
@@ -836,11 +790,13 @@ class ReportPayload(BaseModel):
     #: Aufträge / Pendenzen — printed right after the Verlauf they are derived from, so a reader
     #: checking one line only turns back a page.
     pendenzen: list[PendenzRowIn] = []
-    #: «Erstes Plakat (FKS)» from the Tafel — absent when the Tafel carries none
-    plakat: PlakatIn | None = None
     attachments: list[AttachmentIn] = []
     #: the internal debrief Beilage — see AuswertungIn
     auswertung: AuswertungIn | None = None
+    #: the Tafel's board-template pages, resolved by the client (lib/boardForm · formForPdf)
+    boardPages: list[BoardPageIn] = []
+    #: the scene for their «Lagekarte» boxes, auto-framed, rendered here at print time
+    boardMap: KrokiIn | None = None
 
 
 # ----------------------------------------------------------------------------- German labels
@@ -920,26 +876,9 @@ L = {
     "colErteilt": "Erteilt",
     "colErledigt": "Erledigt",
     "pendenzOpen": "offen",
-    # «Erstes Plakat (FKS)» — the poster's own words (08.10.2026)
-    "plakat": "Erste Führung (Plakat)",
-    "plakatProblems": "Problemerfassung",
-    "plakatProblem": "Problem",
-    "plakatNote": "Stichwort",
-    "plakatTrend": "Trend",
-    "plakatMassnahmen": "Massnahmen",
-    "plakatWasWo": "Was / Wo",
-    "plakatWann": "Wann",
-    "plakatMittel": "Mittel",
-    "plakatFormation": "Formation",
-    "plakatPers": "Pers.",
-    "plakatWo": "Wo",
-    "plakatVerbindungen": "Verbindungen",
-    "plakatFunktion": "Funktion / Standort",
-    "plakatKanal": "Kanal",
-    "plakatRuf": "Rufname / Tel.",
-    "plakatAbsprachen": "Absprachepunkte",
-    "plakatAlarm": "Alarm {t}",
-    "plakatEl": "EL {n}",
+    # the Tafel's pages (app/report_board)
+    "boardMapAt": "Karte, Stand {t}",
+    "boardContinued": "Fortsetzung: {t}",
     "pendenzUrgent": "dringend",
     "colArea": "Bereich",
     "colEntry": "Eintrag",
@@ -1745,6 +1684,8 @@ def _legend_table(lines: list[str], width: float, st: dict[str, ParagraphStyle])
 _KROKI_PX = (2080, 1222)
 #: the same crop turned upright — a portrait Kroki page gets a portrait render, so the picture
 #: fills the sheet instead of being letterboxed into a landscape frame
+#: the Tafel's Lagekarte box (app/report_board): about the FKS poster's box shape, scaled to A4
+_BOARD_MAP_PX = (1200, 880)
 _KROKI_PX_PORTRAIT = (1300, 1820)
 
 
@@ -1789,6 +1730,55 @@ def _kroki_view(pk, kw: int, kh: int):
     view = kk.fit_view(pts, kw, kh, max_z=_kroki_fit_max_z(pts))
     view.overlay_z = view.z - math.log2(512 / kk.TILE)
     return view
+
+
+def _board_map_png(pk: KrokiIn | None) -> bytes | None:
+    """The Tafel's «Lagekarte» box: the scene rendered like the Kroki, auto-framed, at the box's
+    shape. None (an empty box to sketch in) without a pack, a base or a working render."""
+    if pk is None or not pk.tiles:
+        return None
+    from . import kroki as kk
+
+    pack = kk.get_pack()
+    if pack is None:
+        return None
+    kw, kh = _BOARD_MAP_PX
+    try:
+        view = _kroki_view(pk, kw, kh)
+        img = kk.render_kroki(
+            kk.KrokiScene(
+                entities=[e.model_dump() for e in pk.entities], drawings=[d.model_dump() for d in pk.drawings]
+            ),
+            pack,
+            kk.approved_tile_template(pk.tiles),
+            width=kw,
+            height=kh,
+            view=view,
+            cache=kk.get_tile_cache(),
+            sym_mul=kk.kroki_symbol_mul(view.overlay_z if view.overlay_z is not None else view.z),
+            max_tile_z=pk.maxTileZoom or 19,
+            attribution=pk.attribution,
+        )
+    except Exception:  # noqa: BLE001 — a failed map must not sink the rapport; the box stays blank
+        logger.warning("Tafel Lagekarte could not be rendered; box left blank", exc_info=True)
+        return None
+    b = io.BytesIO()
+    img.save(b, "PNG")
+    return b.getvalue()
+
+
+def _board_overflow(overflow, head, st: dict[str, ParagraphStyle]) -> list:
+    """The «Fortsetzung» tables for rows a Tafel box could not hold (app/report_board)."""
+    out: list = []
+    for ov in overflow:
+        out.extend(head(L["boardContinued"].format(t=ov.title)))
+        thead = [Paragraph(_esc(c), st["cellhead"]) for c in ov.columns]
+        body = [[Paragraph(_esc(v), st["cell"]) for v in r] for r in ov.rows]
+        tbl = Table([thead, *body], repeatRows=1)
+        tbl.setStyle(_table_style())
+        out.append(tbl)
+        out.append(Spacer(1, 4 * mm))
+    return out
 
 
 def compose_report_pdf(
@@ -2282,11 +2272,28 @@ def compose_report_pdf(
         # reads as belonging to it, «offen» is the word in the column — and a caption that repeats
         # its own table teaches the reader to skip captions.
 
-    # --- Erstes Plakat (FKS) — the Tafel's «Erste Führung», as the tables it is made of ------
-    # (08.10.2026). A section, not a picture of the poster: the record is what was written on
-    # it, and a table prints legibly at A4 where a shrunk A3 layout would not.
-    if payload.plakat is not None:
-        story.extend(_plakat_section(payload.plakat, head, inner_w, st))
+    # --- Die Tafel — every board-template page on a sheet of its own, in its own layout --------
+    # (10.10.2026, app/report_board). After the Aufträge: the Erste Führung is the Einsatz's own
+    # first record, not reference material, so it does not wait for the Anhang. Its Lagekarte box
+    # carries the server's own Kroki of the scene, framed on the Lage, rendered now.
+    if opt.tafel and payload.boardPages:
+        map_png = _board_map_png(payload.boardMap) if any(page_has_map(bp) for bp in payload.boardPages) else None
+        page_caption = f"{payload.incident.title} · {payload.generatedAt}"
+        for bp in payload.boardPages:
+            story.append(NextPageTemplate("landscape" if bp.landscape else "portrait"))
+            story.append(PageBreak())
+            sheet = BoardPageFlowable(
+                bp,
+                map_png if page_has_map(bp) else None,
+                caption=page_caption,
+                map_caption=L["boardMapAt"].format(t=payload.generatedAt),
+            )
+            story.append(sheet)
+            # what a box could not hold, after the sheet — nothing written is cut off the record
+            story.append(Continuation(sheet, lambda ov: _board_overflow(ov, head, st)))
+        # the sheet fills its frame, so whatever follows starts a new page by itself — portrait
+        # again, and no PageBreak here (two in a row print an empty sheet)
+        story.append(NextPageTemplate("portrait"))
 
     # --- Anhang: Kroki + annotated plans ALWAYS at the end (decided 2026-07-14) — the data
     # sections above are the identical main section; visual material is appended, never
@@ -2638,86 +2645,6 @@ _SPLIT_GUTTER = 3 * mm
 #: The tick-off square, drawn at a FIXED size so every checkbox in a column matches whatever
 #: the row around it does — see _personal_table.
 _CHECK_W = 4 * mm
-
-
-#: the four Problemerfassung areas of the «Erstes Plakat», in the poster's order
-_PLAKAT_AREAS = {"front": "Front", "ordnung": "Ordnung", "sanitaet": "Sanität", "spezial": "Spezialprobleme"}
-
-
-def _plakat_section(pk: PlakatIn, head, inner_w: float, st: dict[str, ParagraphStyle]) -> list:
-    """The «Erstes Plakat» as tables: header line, Problemerfassung, Massnahmen, Mittel,
-    Verbindungen, Absprachepunkte. A sub-table only when it has a row."""
-    out: list = [Spacer(1, 7 * mm), *head(L["plakat"])]
-    facts = [
-        pk.title,
-        pk.address,
-        L["plakatAlarm"].format(t=pk.alarm) if pk.alarm else "",
-        L["plakatEl"].format(n=pk.einsatzleiter) if pk.einsatzleiter else "",
-    ]
-    line = " · ".join(_esc(f) for f in facts if f.strip())
-    if line:
-        out.append(Paragraph(line, st["cell"]))
-        out.append(Spacer(1, 2 * mm))
-
-    def table(title: str, cols: list[str], rows: list[list], widths: list[float]) -> None:
-        if not rows:
-            return
-        out.append(Paragraph(f"<b>{_esc(title)}</b>", st["cell"]))
-        thead = [Paragraph(_esc(c), st["cellhead"]) for c in cols]
-        tbl = Table([thead, *rows], colWidths=widths, repeatRows=1)
-        tbl.setStyle(_table_style())
-        out.append(tbl)
-        out.append(Spacer(1, 3 * mm))
-
-    cell = lambda v: Paragraph(_esc(v or ""), st["cell"])  # noqa: E731
-    probs = [
-        [cell(_PLAKAT_AREAS[k]), cell(r.trend), cell(r.text), cell(r.note)]
-        for k in _PLAKAT_AREAS
-        for r in getattr(pk, k)
-        if r.text.strip() or r.note.strip()
-    ]
-    table(
-        L["plakatProblems"],
-        [L["colArea"], L["plakatTrend"], L["plakatProblem"], L["plakatNote"]],
-        probs,
-        [30 * mm, 28 * mm, inner_w - 88 * mm, 30 * mm],
-    )
-    mass = [
-        [cell(r.was), cell(r.wer), cell(r.wann), _check_box(r.done)]
-        for r in pk.massnahmen
-        if r.was.strip() or r.wer.strip() or r.wann.strip()
-    ]
-    table(
-        L["plakatMassnahmen"],
-        [L["plakatWasWo"], L["colWer"], L["plakatWann"], L["colErledigt"]],
-        mass,
-        [inner_w - 96 * mm, 46 * mm, 26 * mm, 24 * mm],
-    )
-    mittel = [
-        [cell(r.formation), cell(r.pers), cell(r.wo)]
-        for r in pk.mittel
-        if r.formation.strip() or r.pers.strip() or r.wo.strip()
-    ]
-    table(
-        L["plakatMittel"],
-        [L["plakatFormation"], L["plakatPers"], L["plakatWo"]],
-        mittel,
-        [50 * mm, 26 * mm, inner_w - 76 * mm],
-    )
-    verb = [
-        [cell(r.funktion), cell(r.kanal), cell(r.ruf)]
-        for r in pk.verbindungen
-        if r.funktion.strip() or r.kanal.strip() or r.ruf.strip()
-    ]
-    table(
-        L["plakatVerbindungen"],
-        [L["plakatFunktion"], L["plakatKanal"], L["plakatRuf"]],
-        verb,
-        [inner_w - 86 * mm, 26 * mm, 60 * mm],
-    )
-    punkte = [[_check_box(r.done), cell(r.text)] for r in pk.absprachen if r.text.strip()]
-    table(L["plakatAbsprachen"], ["", L["plakatAbsprachen"]], punkte, [12 * mm, inner_w - 12 * mm])
-    return out
 
 
 def _check_box(ticked: bool) -> Table:

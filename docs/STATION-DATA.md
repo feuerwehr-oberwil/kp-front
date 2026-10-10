@@ -39,6 +39,8 @@ kp-front-data-muster/
   plans/<object-id>/
   checklists.manifest.json
   checklists/
+  tafel.manifest.json      the Tafel's pages (board-template/1) – a copy of the FKS set to start
+  tafel/
   load.sh                  the whole sequence, in order (copy examples/demo-data/load.sh)
   gen_water.py             optional source-specific importer, beside what it writes
 ```
@@ -74,6 +76,7 @@ The complete field contract, including accepted properties and formats, is in
 | Einsatzobjekte | Object register or plan library | `objects.manifest.json` | Station › **Objektpläne** (no UUID typed – see below) |
 | Object plans | Approved pre-incident plans | PDF files referenced by the object manifest | Station › **Objektpläne**, per Modul slot |
 | Checklists, playbooks and Anleitungen | Station doctrine, device manuals | Template JSON, optional images, and `checklists.manifest.json` (format: [`CONFIGURATION.md` §9f](CONFIGURATION.md#9f-admin_checklists--checklist-templates)) | Station › **Checklisten**, incl. image assets and deletion |
+| The Tafel's pages (FKS «Erste Führung» …) | The station's copy of the bundled FKS set | `board-template/1` JSON + `tafel.manifest.json` (format: [`board-templates.md`](board-templates.md)) – a station set REPLACES the bundled one | Station › **Tafel-Vorlagen** |
 | Mittel, Quellen, Partnerorganisationen, Symbolfeld-Optionen | Station decisions | `config.json` | the **Arbeitsmappe** `.xlsx` – there is no form for these ([`CONFIGURATION.md` §9h](CONFIGURATION.md#9h-the-station-workbook--one-xlsx-for-the-list-shaped-data)) |
 | Mannschaft | Divera sync, or the station's own list | – **personal data: keep it out of the repo unless the repo is as protected as the roster is** | Divera sync, a CSV import, or the **Arbeitsmappe** ([`CONFIGURATION.md`](CONFIGURATION.md) §4a/§4b) |
 | Source adapters | GIS, DMS, or roster-specific APIs | Optional scripts maintained by the station | – |
@@ -127,10 +130,11 @@ this sequence – copy it as the skeleton of your station's own load script:
 3  admin_geodata     geodata.manifest.json
 4  admin_objects     objects.manifest.json
 5  admin_checklists  checklists.manifest.json
-6  seed_personnel    ⚠️ demo only – see below
+6  admin_board_templates  tafel.manifest.json
+7  seed_personnel    ⚠️ demo only – see below
 ```
 
-⚠️ **Step 6 is not a station step.** `app.seed_personnel` inserts the **synthetic Musterdorf
+⚠️ **Step 7 is not a station step.** `app.seed_personnel` inserts the **synthetic Musterdorf
 crew** (`app/demo_reset.py` · `DEMO_PEOPLE`) so a demo or a dev database has people for
 Anwesenheit and Schichtenplanung. It reads nothing from your repository and there is no
 station-data equivalent of it: a real crew arrives from the roster provider, a CSV import on
@@ -151,12 +155,13 @@ uv run python -m app.admin_branding   load reportLogo ../../kp-front-data-muster
 uv run python -m app.admin_geodata    load ../../kp-front-data-muster/geodata.manifest.json
 uv run python -m app.admin_objects    load ../../kp-front-data-muster/objects.manifest.json
 uv run python -m app.admin_checklists load ../../kp-front-data-muster/checklists.manifest.json
+uv run python -m app.admin_board_templates load ../../kp-front-data-muster/tafel.manifest.json
 ```
 
 ### From a workstation (`push`)
 
 **Postgres is deliberately not reachable from outside the compose network**, so there is no
-"connect to the deployment database from your laptop" path. Use `push` – all five CLIs have it.
+"connect to the deployment database from your laptop" path. Use `push` – all six CLIs have it.
 
 ```bash
 export KP_BASE_URL=https://kp-front.example.ch
@@ -169,13 +174,14 @@ uv run python -m app.admin_branding   push reportLogo ../../kp-front-data-muster
 uv run python -m app.admin_geodata    push ../../kp-front-data-muster/geodata.manifest.json
 uv run python -m app.admin_objects    push ../../kp-front-data-muster/objects.manifest.json
 uv run python -m app.admin_checklists push ../../kp-front-data-muster/checklists.manifest.json
+uv run python -m app.admin_board_templates push ../../kp-front-data-muster/tafel.manifest.json
 ```
 
-`push --dry-run` authenticates and reports without writing – on **four** of the five.
+`push --dry-run` authenticates and reports without writing – on **five** of the six.
 ⚠️ `admin_branding` is the odd one out twice over: it has no `--dry-run` (its input is one image
 file, so there is nothing to preview), and its secret flag is `--secret`, not the
 `--admin-secret` the others take. `KP_ADMIN_SECRET` / `KP_BASE_URL` from the environment work
-for all five, which is why the block above needs neither flag.
+for all six, which is why the block above needs neither flag.
 
 `admin_config` refuses a push that
 would **empty** a section that currently has content – that is what publishing a stale file looks

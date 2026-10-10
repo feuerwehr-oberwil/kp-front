@@ -1,0 +1,136 @@
+/* A Tafel page (10.10.2026): the board-template form laid out like its paper — grey section
+   bars, ruled rows, the Signaturen in blue. Tokens only, so day/night and the station accent
+   follow; the ruled lines are ink at 28 % so they read on both papers. */
+
+.page {
+  position: absolute; inset: 0; overflow: auto; box-sizing: border-box;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+}
+.paper {
+  box-sizing: border-box; margin: 0 auto var(--sp-6); max-width: 1180px;
+  padding: var(--sp-5) var(--sp-5) var(--sp-6);
+  background: var(--board-bg); color: var(--ink);
+  border-radius: var(--r-sm); box-shadow: var(--e3), inset 0 0 0 1px var(--border-soft);
+}
+.single { max-width: 900px; }
+.landscape { max-width: 1180px; }
+
+.head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-4); }
+.title { margin: 0; flex: 1 1 auto; min-width: 0; font: var(--fw-heavy) var(--fs-6)/var(--lh-6) var(--body); letter-spacing: -0.01em; }
+.code {
+  display: inline-block; margin-right: var(--sp-3); padding-right: var(--sp-3);
+  border-right: 1px solid var(--ink-28); color: var(--ink-dim); font-weight: var(--fw-bold);
+}
+.meta { flex: none; font-size: var(--fs-micro); color: var(--ink-faint); }
+.remove { flex: none; }
+
+.grid { display: grid; gap: var(--sp-4); align-items: stretch; }
+.sec { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--ink-45); }
+.secText { border: none; }
+/* the poster's grey section bar */
+.sh {
+  margin: 0; padding: var(--sp-2) var(--sp-3);
+  background: var(--ink-28); color: var(--ink);
+  font: var(--fw-bold) var(--fs-2)/var(--lh-2) var(--body);
+  border-bottom: 1px solid var(--ink-45);
+}
+.sub { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-1); border-bottom: 1px solid var(--ink-28); }
+
+/* ── one cell: an auto-growing textarea with no chrome of its own — the ruling is the frame ── */
+.cell {
+  display: block; box-sizing: border-box; width: 100%; min-height: 40px; margin: 0;
+  padding: var(--sp-2) var(--sp-2); resize: none; overflow: hidden;
+  border: none; border-radius: 0; background: transparent; color: var(--ink);
+  font-size: var(--fs-2); line-height: var(--lh-2);
+}
+.cell::placeholder { color: var(--ink-faint); }
+.cell:focus { outline: none; background: var(--blue-8); box-shadow: inset 0 0 0 2px var(--accent); }
+.cell[readonly] { cursor: default; }
+.time { font-variant-numeric: tabular-nums; }
+
+/* ── Problemerfassung: the four boxes ── */
+.quad { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1 1 auto; }
+.quad2 { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; }
+.box { display: flex; flex-direction: column; min-height: 132px; padding-bottom: var(--sp-2); border: 0 solid var(--ink-28); cursor: text; }
+.quad2 .box:nth-child(odd) { border-right-width: 1px; }
+.quad2 .box:nth-child(-n+2) { border-bottom-width: 1px; }
+.quad:not(.quad2) .box + .box { border-top-width: 1px; }
+.boxLabel { padding: var(--sp-2) var(--sp-3) 0; font-size: var(--fs-2); }
+.line { display: flex; align-items: flex-start; gap: var(--sp-1); padding: 0 var(--sp-1); }
+.grow { flex: 1 1 auto; min-width: 0; }
+.tag { flex: 0 0 30%; color: var(--ink-dim); }
+.trend, .done { flex: none; width: var(--tap); min-height: var(--tap); }
+.trend span { font-size: var(--fs-4); line-height: 1; }
+.trend[data-trend='up'] { color: var(--red); }
+.trend[data-trend='down'] { color: var(--green); }
+.trendGap { flex: none; width: var(--tap); }
+.lineNew .cell:not(:focus) { min-height: 36px; }
+
+/* ── tables ── */
+.table { display: flex; flex-direction: column; flex: 1 1 auto; }
+.tr { display: grid; border-bottom: 1px solid var(--ink-28); min-height: 40px; }
+.tr:last-child { border-bottom: none; }
+.thead { min-height: 0; }
+.th { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-1); color: var(--ink); border-right: 1px solid var(--ink-28); }
+.td { display: flex; align-items: stretch; min-width: 0; border-right: 1px solid var(--ink-28); }
+.th:last-child, .td:last-child { border-right: none; }
+.td > .cell { flex: 1 1 auto; }
+.fixed { align-items: center; padding: var(--sp-2); font-size: var(--fs-2); line-height: var(--lh-2); }
+.sig { align-items: center; justify-content: center; padding: var(--sp-1); color: var(--blue); }
+.sigSvg { width: 44px; height: 44px; }
+.sigSvg :global(.sig-text) { fill: currentColor; stroke: none; font-family: var(--body); font-weight: var(--fw-bold); }
+.sigSvg :global(.sig-fill) { fill: currentColor; stroke: none; }
+.trFixed { min-height: 56px; }
+.index { align-items: center; justify-content: center; }
+.disc {
+  display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--blue); color: var(--on-sel); font-weight: var(--fw-bold); font-size: var(--fs-2);
+}
+.trendCell { align-items: center; justify-content: center; }
+.doneCell { align-items: center; justify-content: center; }
+.doneOn { color: var(--green); }
+.tick { display: block; width: 16px; height: 16px; border: 2px solid var(--ink-45); border-radius: var(--r-xs); }
+.trDone .td > .cell { color: var(--ink-dim); text-decoration: line-through; }
+.filler { cursor: text; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* ── text sections (the Konzept, the Rapport's Datum / Zeit) ── */
+.textBox { display: flex; flex-direction: column; gap: var(--sp-3); flex: 1 1 auto; }
+.textRow { flex-direction: row; }
+.textRow > .field { flex: 1 1 0; }
+.field { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; border: 1px solid var(--ink-45); }
+.fieldMain { flex: 3 1 auto; border-bottom: none; }
+.fieldLabel { padding: var(--sp-2) var(--sp-3) 0; font-weight: var(--fw-bold); font-size: var(--fs-2); }
+.fieldCell { flex: 1 1 auto; min-height: 64px; padding: var(--sp-2) var(--sp-3); }
+.split { gap: 0; }
+.splitRow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); flex: 2 1 auto; }
+.splitRow > .field + .field { border-left: none; }
+.tone_plus { background: var(--green-16); }
+.tone_minus { background: var(--red-16); }
+.tone_shade { background: var(--ink-12); }
+
+/* ── the optional header line (a station switch, off in the FKS poster) ── */
+.headRow { display: grid; grid-template-columns: 2fr 2fr 1fr 2fr; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+.headField .fieldCell { min-height: 40px; }
+
+/* ── the Lagekarte: the live mini Karte, a tap opens the Karte ── */
+.map { position: relative; flex: 1 1 auto; min-height: 240px; overflow: hidden; background: var(--map-bg); }
+.mapInner { position: absolute; inset: 0; }
+.mapOpen {
+  position: absolute; inset: 0; z-index: 2; display: flex; align-items: flex-end; justify-content: flex-end;
+  padding: var(--sp-2); border: none; background: transparent; cursor: pointer;
+}
+.mapChip {
+  display: inline-flex; align-items: center; gap: var(--sp-1); min-height: var(--tap); padding: 0 var(--sp-3);
+  border-radius: var(--r-sm); background: var(--float-bg); color: var(--ink); box-shadow: var(--e2);
+  font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body);
+}
+.mapChip svg { width: 16px; height: 16px; }
+
+/* ── a phone: one column, the paper edge to edge ── */
+.phone .paper { padding: var(--sp-3); border-radius: 0; box-shadow: none; margin-bottom: 0; }
+.phone .title { font-size: var(--fs-5); line-height: var(--lh-5); }
+.phone .meta { display: none; }
+.phone .headRow { grid-template-columns: minmax(0, 1fr); }
+.phone .cell { min-height: 44px; }
+.phone .map { min-height: 220px; }

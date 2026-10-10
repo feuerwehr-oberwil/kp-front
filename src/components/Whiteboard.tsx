@@ -99,9 +99,14 @@ import { ToolDock } from './ToolDock'
 import { PlanCompass } from './PlanCompass'
 import { OrientSlider } from './OrientSlider'
 import { ToolRail } from './ToolRail'
-import { Button } from './Button'
-import { PLAKAT_BASE_W, TafelPlakat } from './TafelPlakat'
-import { findPlakat, newPlakat, plakatAnno, plakatHasContent, TAFEL_ID, type PlakatSeed } from '../lib/plakat'
+import { TafelPageStrip } from './TafelPageStrip'
+import { TafelFormPage } from './TafelFormPage'
+import { findForms, formAnno, formHasContent, isFormAnno, newFormPage, type BoardFormData, type FormSeed } from '../lib/boardForm'
+import { labelText, type BoardTemplate, type TemplatePage } from '../lib/boardTemplate'
+import { SKIZZE, TAFEL_ID, TAFEL_STRIP_H, stepPage, useTafelPage } from '../lib/tafelPages'
+import { isTypingTarget } from '../lib/hotkeys'
+import { BUNDLED_TEMPLATES, warmBoardTemplates } from '../lib/boardTemplates'
+import type { MiniKarteProps } from './MiniKarte'
 
 const COLORS = appConfig.drawing.colors
 
@@ -330,9 +335,18 @@ interface Props {
   onStepEnd?: () => void
   /** Show a plan-owned object at its projected position on the Lage map. */
   onPlanProjection?: (planId: string, annoId: string, coord: LngLat) => void
-  /** What the Einsatz already knows, for the «Erstes Plakat (FKS)» pre-fill — read at the tap.
-   *  Absent ⇒ the empty Tafel offers no Vorlage (an Einsatz-Link session). */
-  plakatSeed?: () => PlakatSeed
+  /** The Tafel's pages (10.10.2026, docs/board-templates.md): the station's template set, what a
+   *  new page may be pre-filled with, and the live mini Karte for a «Lagekarte» box. Absent ⇒
+   *  the Tafel is the free sheet only (an Einsatz-Link session). */
+  tafel?: TafelPagesProps
+}
+
+export interface TafelPagesProps {
+  /** read at the tap that adds a page */
+  seed: () => FormSeed
+  /** what the «Lagekarte» box's mini Karte draws (components/MiniKarte) */
+  scene?: MiniKarteProps
+  onOpenKarte?: () => void
 }
 
 /**
@@ -356,7 +370,16 @@ export interface PlanLogExtra {
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, plakatSeed }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel }: Props) {
+  // ⚠️ The Tafel's PAGES are annos on its own sheet (kind `form`, lib/boardForm), and nothing
+  // positional may see them: every drawing path below reads `annos` — the sheet WITHOUT its pages —
+  // and every write is handed back with the pages put back on (`withForms`), so an ink commit can
+  // never drop a page. The history (useBoardDoc) snapshots the WHOLE list, so ↶ restores both.
+  // On every other sheet there are no pages and this is the identity.
+  const formAnnos = useMemo(() => annosAll.filter(isFormAnno), [annosAll])
+  const annos = useMemo(() => (formAnnos.length ? annosAll.filter((a) => !isFormAnno(a)) : annosAll), [annosAll, formAnnos])
+  const withForms = (next: BoardAnno[]) => (formAnnos.length ? [...next.filter((a) => !isFormAnno(a)), ...formAnnos] : next)
+  const onChange = (next: BoardAnno[], opts?: { gesture?: boolean }) => onChangeAll(withForms(next), opts)
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -379,6 +402,25 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // A viewer-only plan (e.g. PV/documentation PDF) is read-only regardless of role: plain
   // pan/zoom, no drawing tools or annotation surface. Folds into the existing readOnly gates.
   const readOnly = readOnlyProp || active?.viewer === true || selectOnly
+  // ── the Tafel's pages (10.10.2026): «Skizze» (this very sheet) plus the template pages added
+  // to the Einsatz. Which one THIS device looks at is device-local (lib/tafelPages); a page that
+  // went away (↶, another device) falls back to the Skizze by construction.
+  const onTafel = active.id === TAFEL_ID && !!tafel
+  const pages = useMemo(() => (onTafel ? findForms(formAnnos) : []), [onTafel, formAnnos])
+  const [pageSel, setPageSel] = useTafelPage(incidentId)
+  const page = onTafel && pages.some((p) => p.id === pageSel) ? pageSel : SKIZZE
+  const formOpen = page !== SKIZZE
+  // the station's template set — read once the Tafel is first shown (never on the boot path);
+  // the bundled FKS set answers until it lands
+  const [templates, setTemplates] = useState<readonly BoardTemplate[]>(BUNDLED_TEMPLATES)
+  useEffect(() => {
+    if (!onTafel) return
+    let live = true
+    void warmBoardTemplates().then((t) => { if (live) setTemplates(t) })
+    return () => { live = false }
+  }, [onTafel])
+  /** the top lane the fit keeps clear: the floating bar, and on the Tafel its page strip too */
+  const topRes = TOP_INSET + (onTafel ? TAFEL_STRIP_H : 0)
   // The slim read-only rail (Auswahl · Messen) — never on a viewer-only or selection-only
   // document, which has no tool rail for ANYONE, so a locked editor and a viewer keep seeing the
   // same surface.
@@ -538,7 +580,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // `vShift` is where the centre of the lane between bar and row lies — the board transform,
   // the zoom focus (useBoardView) and «centre on» all read it
   const botRes = stack ? STACK_CHIP_ROW : chipRowInset(isPhone)
-  const vShift = (TOP_INSET - botRes) / 2
+  const vShift = (topRes - botRes) / 2
   // ⚠️ A sheet drawn from tiles zooms by its PAPER size (lib/planTiles · paperMaxScale): the fit it
   // is measured against is computed further down, so the ceiling lives in state and the view hook
   // reads it through a ref.
@@ -763,8 +805,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const side = useMemo(() => sideInsets(vp.w, isPhone), [vp.w, isPhone])
   const fit = useMemo(() => {
     const pad = stack ? STACK_VPAD : 0
-    return containFit(vp, effAspect, { top: TOP_INSET + pad, bottom: botRes + pad, l: side.l, r: side.r })
-  }, [vp, effAspect, stack, side, botRes])
+    return containFit(vp, effAspect, { top: topRes + pad, bottom: botRes + pad, l: side.l, r: side.r })
+  }, [vp, effAspect, stack, side, botRes, topRes])
   // a storey says its density at the CURRENT zoom; the ceiling wants it at fit. Rounded, so the
   // sub-pixel wobble of a re-layout cannot move the ceiling under a finger.
   const takeStackDensity = (now: number) => {
@@ -1102,9 +1144,68 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // as it does on the Lage. Checkpoint once when typing starts, emit once on blur — otherwise
   // «Sicherung» is nine undo steps and nine audit rows.
   const titleLive = useRef<string | null>(null)
-  const { pushPast, set, commit, add, patch, patchCommit, remove, removeAnno } = useBoardDoc({
-    annos, onChange, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd,
+  const boardDoc = useBoardDoc({
+    annos: annosAll, onChange: onChangeAll, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd,
   })
+  const { pushPast, add, patch, patchCommit, remove, removeAnno } = boardDoc
+  const set = (next: BoardAnno[]) => boardDoc.set(withForms(next))
+  const commit = (next: BoardAnno[]) => boardDoc.commit(withForms(next))
+
+  // ── a Tafel page: added, written on, removed — each ONE ↶ step on the Tafel's own stack ────────
+  const TP = () => appConfig.copy.tafel
+  /** «+ Seite»: the page, pre-filled from what the Einsatz knows — or the page itself, when it is
+   *  already on the Tafel (one of each; a second «Erste Führung» would only split the record) */
+  const addPage = (tpl: BoardTemplate, p: TemplatePage) => {
+    const there = pages.find((x) => x.form.tpl.id === tpl.id && x.form.page.id === p.id)
+    if (there) { setPageSel(there.id); return }
+    if (readOnly || !tafel) return
+    const a = formAnno(newFormPage(tpl, p, tafel.seed(), serverNowIso()))
+    const line = fillTemplate(TP().pageAdded, { page: labelText(p.title) })
+    onStepLabel?.(line)
+    add(a)
+    log('doc', line, { subjectId: a.id })
+    setPageSel(a.id)
+  }
+  const editPage = (id: string, next: BoardFormData) => {
+    if (readOnly) return
+    onStepLabel?.(fillTemplate(TP().pageEdited, { page: labelText(next.page.title) }))
+    patchCommit(id, { form: next })
+  }
+  /** a page with writing on it asks first; ↶ brings it back either way */
+  const removePage = async (id: string) => {
+    const a = pages.find((x) => x.id === id)
+    if (!a || readOnly) return
+    const name = labelText(a.form.page.title)
+    if (formHasContent(a.form) && !await confirmDialog({
+      title: TP().removeTitle, message: fillTemplate(TP().removeMsg, { page: name }),
+      confirmLabel: TP().removePage, cancelLabel: appConfig.copy.cancel, danger: true,
+    })) return
+    const line = fillTemplate(TP().pageRemoved, { page: name })
+    onStepLabel?.(line)
+    remove(a.id)
+    log('trash', line, { subjectId: a.id })
+    removedPage.current = a.id
+    setPageSel(SKIZZE)
+  }
+  // …and when ↶ brings it back, the operator lands on it again rather than hunting the strip
+  const removedPage = useRef<string | null>(null)
+  useEffect(() => {
+    const back = removedPage.current
+    if (back && pages.some((p) => p.id === back)) { removedPage.current = null; setPageSel(back) }
+  }, [pages, setPageSel])
+  // PageUp / PageDown walk the strip while no field has the keyboard (no swipe: that pans)
+  useEffect(() => {
+    if (!onTafel) return
+    const order = [SKIZZE, ...pages.map((p) => p.id)]
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key !== 'PageUp' && e.key !== 'PageDown') || e.metaKey || e.ctrlKey || e.altKey) return
+      if (isTypingTarget(document.activeElement)) return
+      e.preventDefault()
+      setPageSel(stepPage(order, page, e.key === 'PageDown' ? 1 : -1))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onTafel, pages, page, setPageSel])
   // expose fit-to-view (the phone top bar's Fit button calls it; desktop uses the rail footer)
   useEffect(() => { if (fitRef) fitRef.current = () => applyView(1, { x: 0, y: 0 }); return () => { if (fitRef) fitRef.current = null } })
   /**
@@ -1123,7 +1224,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    * since 18.09.2026, leave a ghost trail behind that nobody ever walked.
    */
   const DUP_OFFSET_N = 0.02 // ~2 % of the plan width — the same visible nudge a detached endpoint gets
-  const DUP_PREFIX: Record<BoardKind, string> = { draw: 'l', area: 'a', circle: 'c', text: 't', symbol: 's', shape: 'sh', resource: 'r', plakat: 'pk' }
+  const DUP_PREFIX: Record<BoardKind, string> = { draw: 'l', area: 'a', circle: 'c', text: 't', symbol: 's', shape: 'sh', resource: 'r', form: 'fm' }
   const duplicateSelection = () => {
     if (readOnly || selIds.length > 1) return
     const src = annos.find((a) => a.id === selId)
@@ -1146,37 +1247,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     log('layers', appConfig.copy.log.duplicated, { annoId: id, x: copy.x ?? copy.pts?.[0]?.[0], y: copy.y ?? copy.pts?.[0]?.[1], floor: copy.floor })
   }
 
-  // ── The empty Tafel: the «Leeres Blatt» hint and ONE Vorlage, «Erstes Plakat (FKS)» ─────────────
-  // (The «Womit beginnen?» starter cards were dropped 10.10.2026, owner: Objekt/Gebäude wählen
-  // were only links to doors the app already has, and «Gebäude» could replace one already set.)
-  // The Vorlage rides on the hint: there while the sheet holds nothing and Auswahl is armed, so a
-  // pen tap never lands on it, and never on a read-only sheet.
-  const onTafel = active.id === TAFEL_ID
-  const plakat = onTafel ? findPlakat(annos) : undefined
-  const vorlageShown = blank && onTafel && !!plakatSeed && annos.length === 0 && !readOnly && tool === 'pan'
-  /** «Erstes Plakat (FKS)»: ONE anno, ONE ↶ step, pre-filled from what the Einsatz already knows */
-  const insertPlakat = () => {
-    if (readOnly || !plakatSeed || findPlakat(annos)) return
-    const P = appConfig.copy.tafel.plakat
-    const a = plakatAnno(newPlakat(plakatSeed(), P.absprachenDefaults, P.weatherTag))
-    onStepLabel?.(P.inserted)
-    add(a)
-    log('doc', P.inserted, { annoId: a.id })
-  }
-  const editPlakat = (next: NonNullable<BoardAnno['plakat']>) => {
-    if (readOnly || !plakat) return
-    onStepLabel?.(appConfig.copy.tafel.plakat.edited)
-    patchCommit(plakat.id, { plakat: next })
-  }
-  const removePlakat = async () => {
-    if (readOnly || !plakat) return
-    const P = appConfig.copy.tafel.plakat
-    if (plakatHasContent(plakat.plakat) && !await confirmDialog({ title: P.removeTitle, message: P.removeMsg, confirmLabel: P.remove, cancelLabel: appConfig.copy.cancel, danger: true })) return
-    onStepLabel?.(P.removed)
-    remove(plakat.id)
-    log('trash', P.removed, { subjectId: plakat.id })
-  }
-
   useEffect(() => {
     if (isPhone && active.id === 'tafel' && tool === 'measure') setTool('pan')
   }, [isPhone, active.id, tool])
@@ -1189,6 +1259,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const MAP: Record<string, BoardTool> = { select: 'pan', lasso: 'lasso', line: 'line', area: 'area', circle: 'circle', note: 'text', team: 'resource', measure: 'measure' }
     keysRef.current = {
       pickTool: (cmd) => {
+        if (formOpen) return // a Tafel PAGE is a form: no tool to arm on it
         if (selectOnly || (isPhone && active.id === 'tafel' && cmd === 'measure')) return // the Umrisse sheet arms nothing — by keyboard either (see selectOnly)
         if (cmd === 'symbol') { setTool('symbol'); setPaletteOpen(true); return }
         const id = MAP[cmd]; if (!id) return
@@ -1785,8 +1856,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // --- A6 (29.08.): tap-away must not silently discard a node draft -------------------------
   // live mirrors for the auto-commit toast's «Rückgängig», which fires seconds later from outside
   // any render: the same-sheet undo must act on the annos/document of NOW, not of commit time.
-  const annosRef = useRef(annos); const activeIdRef = useRef(activeId); const onChangeRef = useRef(onChange)
-  useEffect(() => { annosRef.current = annos; activeIdRef.current = activeId; onChangeRef.current = onChange })
+  // the WHOLE sheet (pages included): these refs feed a history snapshot, and onChange puts the pages back anyway
+  const annosRef = useRef(annosAll); const activeIdRef = useRef(activeId); const onChangeRef = useRef(onChange)
+  useEffect(() => { annosRef.current = annosAll; activeIdRef.current = activeId; onChangeRef.current = onChange })
   /**
    * Whatever disarms a create tool with a draft still in the hand — picking another tool, arming
    * the Georeferenz, switching the document, leaving the surface — lands here (A6, 29.08.; the
@@ -1847,7 +1919,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             // this closure, which still points there), but a draft cannot be handed back onto a
             // document that is no longer open
             const step = newPlanStep()
-            setHist((m) => pushBoardPast(m, planId, [...annos, anno], step)); onCheckpoint?.(planId, step)
+            setHist((m) => pushBoardPast(m, planId, [...annosAll, anno], step)); onCheckpoint?.(planId, step)
             onChange(annos)
             emit('board.delete', { id: anno.id, planId })
           }
@@ -2940,6 +3012,27 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
   // Viewer-only plan (e.g. PV / documentation PDF): bypass the annotation board entirely and
   // show a plain, natively-scrolling multi-page PDF viewer — no tools, no stitched pan/zoom board.
+  // the Tafel's page strip, on the Skizze and on every page alike
+  const strip = onTafel ? (
+    <TafelPageStrip pages={pages} current={page} templates={templates} readOnly={readOnly} onPick={setPageSel} onAdd={addPage}
+      style={{ top: TOP_INSET - 8, left: side.l, right: formOpen ? side.l : side.r }} />
+  ) : null
+  // A Tafel PAGE is a form, not a drawing surface: it takes the stage, and none of the board's
+  // apparatus (rails, docks, chips) is drawn over it. The hooks above still ran, so the Tafel's
+  // history and its ↶ stay wired exactly as on the Skizze.
+  const formPage = formOpen ? pages.find((p) => p.id === page) : undefined
+  if (formPage) {
+    return (
+      <div className="whiteboard wb-tafel-page">
+        {strip}
+        <TafelFormPage key={formPage.id} data={formPage.form} readOnly={readOnly} isPhone={isPhone}
+          onChange={(next) => editPage(formPage.id, next)} onRemove={() => void removePage(formPage.id)}
+          scene={tafel?.scene} onOpenKarte={tafel?.onOpenKarte}
+          inset={{ top: topRes, left: isPhone ? 0 : side.l, right: isPhone ? 0 : side.l, bottom: isPhone ? 96 : 24 }} />
+      </div>
+    )
+  }
+
   if (active?.viewer && active.imageUrl) {
     // .whiteboard is already `position:absolute; inset:0` (a containing block for the
     // absolutely-positioned scroller) — don't override it, or the container collapses to 0 height.
@@ -2964,11 +3057,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       {/* the plan DOCUMENTS are picked in the global left NavRail (it is pure navigation); the
           object they all belong to is named on the chip in the bottom-left corner */}
       {/* plan canvas + annotation layer */}
+      {strip}
       <div className="wb-stage" ref={stageRef}>
-        {/* a phone reads and fills the Plakat as one column; arming a tool shows the paper again */}
-        {plakat && isPhone && tool === 'pan' && (
-          <TafelPlakat variant="list" topInset={TOP_INSET} data={plakat.plakat} readOnly={readOnly} onChange={editPlakat} onRemove={() => void removePlakat()} />
-        )}
         <div
           ref={setCanvas}
           className={`wb-canvas tool-${tool} ${pending || pendingShape ? 'placing' : ''}`}
@@ -2997,7 +3087,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         >
           <div
             ref={boardRef}
-            className={`wb-board ${blank ? 'wb-board-blank' : ''}${plakat ? ' wb-board-grid' : ''}`}
+            className={`wb-board ${blank ? 'wb-board-blank' : ''}`}
             // the reserved lanes are not symmetric (the rails differ), so the centre shifts by half
             // their difference — exactly what `vShift` does for the top bar (and the Gebäude's
             // chip row below)
@@ -3122,22 +3212,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 preselectSrc={building?.geo ? building.src : undefined} preselectGeo={building?.geo}
                 pin={incidentPos} onPick={onSelectBuilding} />
             ) : blank ? (
-              // the «Erstes Plakat» lies ON the paper, under the ink, scaled with it (and passive
-              // while a drawing tool is armed, so the pen writes over it)
-              plakat ? <TafelPlakat variant="sheet" data={plakat.plakat} readOnly={readOnly} scale={(sW || PLAKAT_BASE_W) / PLAKAT_BASE_W} fitH={sH || undefined}
-                passive={tool !== 'pan' || isPhone} onChange={editPlakat} onRemove={() => void removePlakat()} />
-                : annos.length === 0 && (
-                  <div className="wb-blank-hint">
-                    {appConfig.copy.whiteboard.blankHint}
-                    {/* the Tafel's Vorlage list — ONE entry for now (owner, 08.10.2026) */}
-                    {vorlageShown && (
-                      <div className="wb-blank-vorlage" data-testid="tafel-vorlage" onPointerDown={(e) => e.stopPropagation()}>
-                        <span className="wb-blank-vorlage-t">{appConfig.copy.tafel.templateTitle}</span>
-                        <Button variant="secondary" icon={<Icon id="doc" />} onClick={insertPlakat}>{appConfig.copy.tafel.plakatName}</Button>
-                      </div>
-                    )}
-                  </div>
-                )
+              annos.length === 0 && <div className="wb-blank-hint">{appConfig.copy.whiteboard.blankHint}</div>
             ) : (
               <PdfViewport
                 key={active.id}

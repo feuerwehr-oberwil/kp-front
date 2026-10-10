@@ -17,7 +17,7 @@ import type { IncidentMeta } from './incidents'
 import { closeTimeOf } from './api/incidents'
 import type { ReportDraft } from './report'
 import {
-  annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppCrewHistory, truppEquipmentLabels, truppRunTimes, truppStatusLabel,
+  annotatedPlans, einsatzleiterSuccession, formatDateTime, hasVisiblePlanAnnotation, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppCrewHistory, truppEquipmentLabels, truppRunTimes, truppStatusLabel,
 } from './report'
 import { isAtemschutzTrupp, isStandDownExit } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
@@ -38,8 +38,8 @@ import { ensureUnHazard } from './unHazard'
 import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
 import { resolvePlanAnnos } from './lineAttachments'
-import { findPlakat, plakatForPdf, TAFEL_ID } from './plakat'
 import type { JournalLink } from './journalLinks'
+import { TAFEL_ID, findForms, formForPdf, isFormAnno } from './boardForm'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
  *  glyphs resolved to SVG strings, like the whiteboard renders them).
@@ -396,12 +396,42 @@ export function einsatzleiterForPdf(
   }).join(', ')
 }
 
-/** The Tafel's poster for the Rapport — the trends as WORDS, since the PDF font has no ➚ ➘. */
-export function plakatPayload(board: BoardDoc | null | undefined): Record<string, unknown> | undefined {
-  const pk = findPlakat(board?.[TAFEL_ID] ?? [])
-  if (!pk) return undefined
-  const P = appConfig.copy.tafel.plakat
-  return plakatForPdf(pk.plakat, { up: P.trendUp, same: P.trendSame, down: P.trendDown })
+/**
+ * The Tafel in the Rapport (10.10.2026): every board-template page resolved for the server
+ * (lib/boardForm · formForPdf — it draws the paper, backend/app/report_board.py), and the Skizze
+ * as a blank-base plan page when it carries ink — which closes the old gap of the Tafel's
+ * drawing never reaching paper. The Lagekarte box gets the scene as a Kroki the server renders at
+ * print time: auto-framed on the Lage (never the operator's Kroki crop, which has another shape),
+ * and without captions or labels — the box has no room for the legend their numbers would need.
+ */
+export function tafelPayload(
+  board: BoardDoc | null | undefined,
+  plans: readonly PlanDocument[],
+  scene: DirectReportArgs['scene'],
+  trupps: Trupp[],
+  caption: string,
+): { boardPages: Record<string, unknown>[]; boardMap?: unknown; skizze?: Record<string, unknown> } {
+  const annos = board?.[TAFEL_ID] ?? []
+  const T = appConfig.copy.tafel
+  const pages = findForms(annos).map((a) => formForPdf(a.form, { up: T.trendUp, same: T.trendSame, down: T.trendDown }))
+  const wantsMap = findForms(annos).some((a) => a.form.page.sections.some((x) => x.type === 'map' && !x.hidden))
+  const map = wantsMap && scene
+    ? buildKrokiPayload({
+        entities: scene.entities, drawings: scene.drawings.map((d) => ({ ...d, label: undefined })), layers: scene.layers,
+        byName: scene.byName, center: scene.center, currentView: null, captionMode: 'off', trupps,
+      })
+    : null
+  const ink = annos.filter((a) => !isFormAnno(a))
+  const tafel = plans.find((p) => p.id === TAFEL_ID)
+  const skizze = tafel && hasVisiblePlanAnnotation({ [TAFEL_ID]: ink }, TAFEL_ID)
+    ? {
+        label: `${tafel.code} · ${T.skizze}`, caption,
+        // the blank sheet's own A4 shape (useMeasuredSheet · seed): h/w of a landscape sheet
+        blankAspect: tafel.orientation === 'portrait' ? 1.414 : 1 / 1.414,
+        annos: planAnnosForPdf(ink, scene?.captionMode ?? 'auto'),
+      }
+    : undefined
+  return { boardPages: pages, ...(map ? { boardMap: map } : {}), ...(skizze ? { skizze } : {}) }
 }
 
 /** The ONE payload builder behind the Rapport-PDF download. */
@@ -460,6 +490,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   // Gebäude sheet pulled out of the stapled rapport has to say what it belongs to. ⚠️ `generatedAt`,
   // not `krokiAt`: only the Kroki can be reconstructed for a past moment, a sheet's annos are now.
   const figureCaption = fillTemplate(appConfig.copy.report.krokiState, { title: incident.title, at: formatDateTime(draft.generatedAt) })
+  // (the Tafel is not one of the «Pläne»: its pages and its Skizze are their own section, below)
   const printPlans = selectedPlans.filter((p) => p.imageUrl && !p.floorStack)
   const planPages: Record<string, unknown>[] = printPlans.map((p) => ({
     label: `${p.code} · ${p.title}`,
@@ -479,6 +510,12 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       planPages.push(...floorStackPages(p, building, board?.[p.id] ?? [], scene?.captionMode ?? 'auto').map((page) => ({ ...page, caption: figureCaption })))
     }
   }
+
+  // the Tafel — its own switch, ON unless the operator took it off (an older draft has none)
+  const tafel = draft.options.tafel !== false
+    ? tafelPayload(board, plans, scene, trupps, figureCaption)
+    : { boardPages: [] as Record<string, unknown>[] }
+  if (tafel.skizze) planPages.unshift(tafel.skizze)
 
   const cfg = getDeploymentConfig()
   const catalogue = cfg.mittel?.catalogue ?? appConfig.mittel.catalogue
@@ -517,7 +554,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       endedAt: meta.endedAt ? formatDateTime(meta.endedAt) : undefined,
       partnerContacts: meta.partnerContacts,
     },
-    options: { kroki: !!kroki, atemschutz: draft.options.atemschutz, attendance: draft.options.attendance, mittel: draft.options.mittel, journal: draft.options.journal, pendenzen: draft.options.pendenzen, krokiLandscape: draft.options.krokiLandscape, auswertung: draft.options.auswertung },
+    options: { tafel: draft.options.tafel !== false, kroki: !!kroki, atemschutz: draft.options.atemschutz, attendance: draft.options.attendance, mittel: draft.options.mittel, journal: draft.options.journal, pendenzen: draft.options.pendenzen, krokiLandscape: draft.options.krokiLandscape, auswertung: draft.options.auswertung },
     // Beilagen: only the ones actually ON the server. A blob: URL is a photo that has not
     // finished uploading, and the server cannot fetch it — printing would silently drop it, so
     // it is left out here and the preflight says so beside the row.
@@ -555,6 +592,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     kroki: kroki ?? undefined,
     krokiCaption: kroki ? krokiCaption : undefined,
     planPages,
+    // the Tafel's pages, each on a sheet of its own in its own layout (backend · report_board)
+    boardPages: tafel.boardPages,
+    boardMap: tafel.boardMap,
     // ⚠️ WHAT «überfällig» MEANT on this Einsatz. The sheet reconstructs an Atemschutz-Einsatz
     // from its contact log, and every judgement about that log — was a gap acceptable, when did
     // the board go red — depends on an interval the paper never named. It is a per-incident
@@ -657,9 +697,6 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
           return auswertungForPdf(a, { contactIntervalMin: interval, contactGraceSec: grace }, meta.lehren)
         })()
       : undefined,
-    // the Tafel's «Erstes Plakat (FKS)» (08.10.2026) — its own section after the Aufträge,
-    // only when the Tafel carries one (backend · report_pdf · PlakatIn)
-    plakat: plakatPayload(board),
   }
   return forPaper(payload) as Record<string, unknown>
 }

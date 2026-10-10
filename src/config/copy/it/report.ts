@@ -187,6 +187,7 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'wheel
     toggleKroki: 'Schizzo',
     plansAnnotated: 'Piani annotati ({n})',
     toggleGebaeude: 'Edificio – piani ({n})',
+    toggleTafel: 'Lavagna – pagine ({n})',
     plansAll: 'Tutti i piani',
     toggleAtemschutz: 'Sorveglianza autoprotezione ({n})',
     toggleAttendance: 'Presenza ({n})',

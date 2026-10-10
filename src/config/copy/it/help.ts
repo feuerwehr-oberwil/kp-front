@@ -164,8 +164,6 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'Nei **Livelli** ogni foglio collegato riceve una riga propria («Piano (modulo 2)»): il foglio stesso, come immagine sotto la carta. Gli oggetti posati su di esso non hanno più bisogno di una riga – appartengono al livello su cui sono stati posati.',
           ] },
           { kind: 'note', text: '**Da che parte è girato l’edificio?** Un tocco sulla **freccia del nord** in alto a destra sulla pila dei piani apre la finestrella «Ruota l’edificio»: un cursore **Rotazione** con anteprima, più **Nord in alto** e **Ruota sull’asse maggiore** con un tocco ciascuno. Il contorno gira con essa, le marcature restano dove stanno sull’edificio – e le pagine dei piani stampate mostrano l’angolo impostato.' },
-          { kind: 'note', text: '**Il Tafel vuoto** mostra sotto «Foglio bianco» il **modello «Primo cartellone (CSSP)»** – un tocco posa il cartellone sul Tafel. Il modello compare solo finché il foglio è vuoto ed è scelta «Selezione».' },
-          { kind: 'note', text: '**Primo cartellone (CSSP)** – il cartellone A3 «Prima condotta» come veri campi sul Tafel: rilevamento dei problemi (fronte · ordine · sanitario · problemi speciali, ognuno con tendenza ➚ = ➘ – tocca per cambiare), misure (cosa/dove · chi · quando), mezzi, collegamenti, punti da concordare. Intestazione, veicoli e vento sono precompilati dall’intervento, il resto è vuoto. Ogni inserimento è un passo ↶, anche l’inserimento del cartellone. Sul telefono gli stessi campi come lista. Con uno strumento scelto si disegna sopra il cartellone. Il rapporto lo riporta in una sezione propria.' },
         ],
       },
       {

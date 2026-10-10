@@ -1,0 +1,220 @@
+{
+  "schema": "board-template/1",
+  "id": "fks-erste-fuehrung",
+  "version": 1,
+  "title": { "de": "FKS – Erste Führung", "fr": "CSSP – Première Conduite", "it": "CSP – Prima coordinazione", "en": "FKS – First command" },
+  "source": "FKS Plakat «Erste Führung» A3 V 1.0/10.09.2019; FKS Handbuch Führung Grossereignisse 09/2022, Kap. 8 Hilfsmittel",
+  "pages": [
+    {
+      "id": "ef",
+      "title": { "de": "Erste Führung", "fr": "Première Conduite", "it": "Prima coordinazione", "en": "First command" },
+      "paper": "portrait",
+      "columns": 2,
+      "header": false,
+      "sections": [
+        {
+          "id": "problem",
+          "type": "quad",
+          "title": { "de": "Problemerfassung", "fr": "Saisie du problème", "it": "Comprensione del problema", "en": "Problem assessment" },
+          "height": 11,
+          "trend": false,
+          "tag": false,
+          "cells": [
+            { "id": "front", "label": { "de": "Front", "fr": "Front", "it": "Fronte", "en": "Front" } },
+            { "id": "ordnung", "label": { "de": "Ordnung", "fr": "Ordre", "it": "Ordine e sicurezza", "en": "Order" } },
+            { "id": "sanitaet", "label": { "de": "Sanität", "fr": "Service sanitaire", "it": "Servizio sanitario", "en": "Medical" } },
+            { "id": "spezial", "label": { "de": "Spezialprobleme", "fr": "Problèmes spéciaux", "it": "Problemi speciali", "en": "Special problems" } }
+          ]
+        },
+        {
+          "id": "lagekarte",
+          "type": "map",
+          "title": { "de": "Lagekarte", "fr": "Carte de situation", "it": "Schizzo/carta della situazione", "en": "Situation map" },
+          "height": 11
+        },
+        {
+          "id": "massnahmen",
+          "type": "table",
+          "title": { "de": "Massnahmen", "fr": "Mesures", "it": "Misure", "en": "Measures" },
+          "height": 11,
+          "done": false,
+          "columns": [
+            { "id": "was", "label": { "de": "Was/Wo", "fr": "Quoi/Où", "it": "Cosa/Dove", "en": "What/Where" }, "w": 4.2 },
+            { "id": "wer", "label": { "de": "Wer", "fr": "Qui", "it": "Chi", "en": "Who" }, "w": 1.75 },
+            { "id": "wann", "label": { "de": "Wann", "fr": "Quand", "it": "Quando", "en": "When" }, "type": "time", "w": 1 }
+          ]
+        },
+        {
+          "id": "mittel",
+          "type": "table",
+          "title": { "de": "Mittel", "fr": "Moyens", "it": "Mezzi", "en": "Resources" },
+          "height": 11,
+          "seed": "vehicles",
+          "columns": [
+            { "id": "formation", "label": { "de": "Formation", "fr": "Formation", "it": "Formazione", "en": "Unit" }, "w": 2 },
+            { "id": "pers", "label": { "de": "Pers./Mittel", "fr": "Pers./Moyens", "it": "Pers./Mezzi", "en": "Staff/Equipment" }, "w": 2 },
+            { "id": "auftrag", "label": { "de": "Auftrag/Wo", "fr": "Mission/Où", "it": "Missione/Dove", "en": "Task/Where" }, "w": 2 },
+            { "id": "wann", "label": { "de": "Wann", "fr": "Quand", "it": "Quando", "en": "When" }, "type": "time", "w": 1 }
+          ]
+        },
+        {
+          "id": "verbindungen",
+          "type": "table",
+          "title": { "de": "Verbindungen", "fr": "Liaisons", "it": "Collegamenti", "en": "Communications" },
+          "height": 12,
+          "columns": [
+            { "id": "funktion", "label": { "de": "Funktion/Standort/Name", "fr": "Fonction/Site/Nom", "it": "Funzione/Luogo/Nome", "en": "Role/Location/Name" }, "w": 3.3 },
+            { "id": "kanal", "label": { "de": "Kanal", "fr": "Canal", "it": "Canale", "en": "Channel" }, "w": 0.9 },
+            { "id": "ruf", "label": { "de": "Rufname/Tel.-Nr.", "fr": "Nom d’appel/N° de tél.", "it": "Nome d'appello/Tel.", "en": "Call sign/Phone" }, "w": 2.15 },
+            { "id": "wann", "label": { "de": "Wann", "fr": "Quand", "it": "Quando", "en": "When" }, "type": "time", "w": 1 }
+          ]
+        },
+        {
+          "id": "absprachen",
+          "type": "table",
+          "title": { "de": "Abspracherapport", "fr": "Accord", "it": "Rapporto di coordinazione", "en": "Coordination briefing" },
+          "subtitle": { "de": "Feuerwehr – Polizei – Rettungsdienst", "fr": "Sapeurs-pompiers – police – secours", "it": "Pompieri – polizia – ambulanze", "en": "Fire service – police – ambulance" },
+          "height": 12,
+          "addRows": false,
+          "columns": [
+            { "id": "sig", "label": { "de": "Signatur", "fr": "Signature", "it": "Simbolo", "en": "Symbol" }, "type": "symbol", "fixed": true, "w": 1.55 },
+            { "id": "bez", "label": { "de": "Bezeichnung", "fr": "Désignation", "it": "Designazione", "en": "Designation" }, "fixed": true, "w": 1.5 },
+            { "id": "ort", "label": { "de": "Ort", "fr": "Lieu", "it": "Luogo", "en": "Location" }, "w": 2.4 }
+          ],
+          "fixedRows": [
+            { "id": "patientensammelstelle", "cells": { "sig": "patientensammelstelle", "bez": { "de": "Patienten\u00adsammelstelle", "fr": "Poste collecteur de patients", "it": "Nido feriti", "en": "Casualty collection point" } } },
+            { "id": "sanitaetshilfsstelle", "cells": { "sig": "sanitaetshilfsstelle", "bez": { "de": "Sanitäts\u00adhilfsstelle", "fr": "Poste médical avancé", "it": "Posto di soccorso sanitario", "en": "Advanced medical post" } } },
+            { "id": "rettungsachse", "cells": { "sig": "rettungsachse", "bez": { "de": "Rettungs\u00adachse", "fr": "Axe de sauvetage", "it": "Asse del salvataggio", "en": "Rescue route" } } },
+            { "id": "standort-einsatzleitung", "cells": { "sig": "standort-einsatzleitung", "bez": { "de": "Standort Einsatzleitung", "fr": "Poste de commandement", "it": "Posto della direzione dell’intervento", "en": "Incident command post" } } },
+            { "id": "sammelstelle-unverletzte", "cells": { "sig": "sammelstelle-unverletzte", "bez": { "de": "Sammelstelle Unverletzte", "fr": "Poste collecteur de personnes non blessées", "it": "Posto collettore dei non feriti", "en": "Uninjured collection point" } } },
+            { "id": "warteraum", "cells": { "sig": "warteraum", "bez": { "de": "Warteraum", "fr": "Zone d’attente", "it": "Piazza d’attesa", "en": "Staging area" } } },
+            { "id": "wasserbezug", "hidden": true, "cells": { "sig": "wasserbezug", "bez": { "de": "Wasserbezug", "fr": "Prise d’eau", "it": "Presa d’acqua", "en": "Water supply" } } },
+            { "id": "absperrung", "hidden": true, "cells": { "sig": "absperrung", "bez": { "de": "Absperrung", "fr": "Bouclage", "it": "Sbarramento", "en": "Cordon" } } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "problem-tendenz",
+      "code": "8.1",
+      "title": { "de": "Problemerfassung", "fr": "Appréhension du problème", "it": "Comprensione del problema", "en": "Problem assessment" },
+      "paper": "landscape",
+      "columns": 1,
+      "sections": [
+        {
+          "id": "probleme",
+          "type": "table",
+          "height": 10,
+          "columns": [
+            { "id": "problem", "label": { "de": "Problem/Ereignis", "fr": "Problème/événement", "it": "Problema/evento", "en": "Problem/event" }, "w": 4 },
+            { "id": "tendenz", "label": { "de": "Entwicklungstendenz ➚ = ➘", "fr": "Tendance évolution ➚ = ➘", "it": "Tendenza dell’evoluzione ➚ = ➘", "en": "Trend ➚ = ➘" }, "type": "trend", "w": 1.6 },
+            { "id": "reaktion", "label": { "de": "Notwendige Reaktion", "fr": "Réaction requise", "it": "Reazione necessaria", "en": "Required response" }, "w": 3.4 },
+            { "id": "prio", "label": { "de": "Priorität", "fr": "Priorité", "it": "Priorità", "en": "Priority" }, "w": 1 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mittel",
+      "code": "8.6",
+      "title": { "de": "Mittel", "fr": "Moyens", "it": "Mezzi", "en": "Resources" },
+      "paper": "portrait",
+      "columns": 1,
+      "sections": [
+        {
+          "id": "mittel",
+          "type": "table",
+          "height": 23,
+          "seed": "vehicles",
+          "columns": [
+            { "id": "formation", "label": { "de": "Formation", "fr": "Formation", "it": "Formazione", "en": "Unit" } },
+            { "id": "pers", "label": { "de": "Personal/Mittel", "fr": "Personnel/moyens", "it": "Personale/mezzi", "en": "Staff/Equipment" } },
+            { "id": "auftrag", "label": { "de": "Auftrag/Wo", "fr": "Mission/où", "it": "Missione/dove", "en": "Task/Where" } },
+            { "id": "wann", "label": { "de": "Wann", "fr": "Quand", "it": "Quando", "en": "When" }, "type": "time" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "verbindungen",
+      "code": "8.8",
+      "title": { "de": "Verbindungen", "fr": "Plan des liaisons", "it": "Collegamenti", "en": "Communications" },
+      "paper": "portrait",
+      "columns": 1,
+      "sections": [
+        {
+          "id": "verbindungen",
+          "type": "table",
+          "height": 23,
+          "columns": [
+            { "id": "funktion", "label": { "de": "Funktion/Standort/Name", "fr": "Fonction/lieu/nom", "it": "Funzione/ubicazione/nome", "en": "Role/Location/Name" }, "w": 1.4 },
+            { "id": "kanal", "label": { "de": "Kanal", "fr": "Canal", "it": "Canale", "en": "Channel" }, "w": 0.8 },
+            { "id": "ruf", "label": { "de": "Rufname/Telefon-Nr.", "fr": "Nom d’appel/n° de tél.", "it": "Nome d'appello/n° di telefono", "en": "Call sign/Phone number" }, "w": 1.2 },
+            { "id": "wann", "label": { "de": "Wann", "fr": "Quand", "it": "Quando", "en": "When" }, "type": "time", "w": 0.6 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "konzept",
+      "code": "8.9",
+      "title": { "de": "Konzept", "fr": "Concept", "it": "Concetto", "en": "Concept" },
+      "paper": "portrait",
+      "columns": 2,
+      "sections": [
+        { "id": "auftrag", "type": "text", "span": 2, "height": 3, "title": { "de": "Auftrag", "fr": "Mission", "it": "Missione", "en": "Mission" }, "fields": [{ "id": "text", "tone": "shade" }] },
+        { "id": "eigene-mittel", "type": "text", "span": 2, "height": 3, "title": { "de": "Eigene Mittel", "fr": "Moyens propres", "it": "Mezzi propri", "en": "Own resources" }, "fields": [{ "id": "text" }] },
+        { "id": "auflagen", "type": "text", "span": 2, "height": 3, "title": { "de": "Auflagen", "fr": "Contraintes", "it": "Condizioni quadro/limitazioni", "en": "Constraints" }, "fields": [{ "id": "text" }] },
+        {
+          "id": "variante-1", "type": "text", "height": 15, "layout": "split",
+          "title": { "de": "Variante 1", "fr": "Variante 1", "it": "Variante 1", "en": "Option 1" },
+          "fields": [{ "id": "text" }, { "id": "plus", "label": "+", "tone": "plus" }, { "id": "minus", "label": "–", "tone": "minus" }]
+        },
+        {
+          "id": "variante-2", "type": "text", "height": 15, "layout": "split",
+          "title": { "de": "Variante 2", "fr": "Variante 2", "it": "Variante 2", "en": "Option 2" },
+          "fields": [{ "id": "text" }, { "id": "plus", "label": "+", "tone": "plus" }, { "id": "minus", "label": "–", "tone": "minus" }]
+        },
+        { "id": "antrag", "type": "text", "height": 3, "title": { "de": "Antrag", "fr": "Proposition", "it": "Proposta", "en": "Proposal" }, "fields": [{ "id": "text" }] },
+        { "id": "begruendung", "type": "text", "height": 3, "title": { "de": "Begründung", "fr": "Justification", "it": "Motivazione", "en": "Rationale" }, "fields": [{ "id": "text" }] }
+      ]
+    },
+    {
+      "id": "rapport",
+      "code": "8.11",
+      "title": { "de": "Rapport", "fr": "Rapport", "it": "Rapporto", "en": "Briefing" },
+      "paper": "portrait",
+      "columns": 1,
+      "sections": [
+        {
+          "id": "traktanden",
+          "type": "table",
+          "height": 16,
+          "addRows": false,
+          "columns": [
+            { "id": "nr", "label": "", "type": "index", "fixed": true, "w": 0.5 },
+            { "id": "traktandum", "label": { "de": "Traktanden", "fr": "Points de l’ordre du jour", "it": "Punti all’ordine del giorno/trattande", "en": "Agenda" }, "fixed": true, "w": 4 },
+            { "id": "wer", "label": { "de": "Wer", "fr": "Qui", "it": "Chi", "en": "Who" }, "w": 2 }
+          ],
+          "fixedRows": [
+            { "id": "eroeffnung", "cells": { "nr": "1", "traktandum": { "de": "Rapporteröffnung und Rapportziel", "fr": "Ouverture du rapport et objectif du rapport", "it": "Apertura del rapporto e obiettivi del rapporto", "en": "Opening and aim of the briefing" } } },
+            { "id": "gesamtlage", "cells": { "nr": "2", "traktandum": { "de": "Orientierung Gesamtlage", "fr": "Information situation générale", "it": "Orientazione sulla situazione generale", "en": "Overall situation" } } },
+            { "id": "abschnitte", "cells": { "nr": "3", "traktandum": { "de": "Orientierung der Abschnitte", "fr": "Information des différents secteurs", "it": "Orientazione sui settori", "en": "Sectors" } } },
+            { "id": "fachbereiche", "cells": { "nr": "4", "traktandum": { "de": "Orientierung der Fachbereiche", "fr": "Information des différents services", "it": "Orientazione sugli ambiti di competenza", "en": "Specialist areas" } } },
+            { "id": "problemerfassung", "cells": { "nr": "5", "traktandum": { "de": "Problemerfassung anpassen", "fr": "Adapter l’appréhension du problème", "it": "Comprensione del problema", "en": "Update the problem assessment" } } },
+            { "id": "antraege", "cells": { "nr": "6", "traktandum": { "de": "Anträge und Entscheide", "fr": "Propositions et décisions", "it": "Proposte e decisioni", "en": "Proposals and decisions" } } },
+            { "id": "umfrage", "cells": { "nr": "7", "traktandum": { "de": "Umfrage", "fr": "Questions", "it": "Domande", "en": "Round of questions" } } },
+            { "id": "naechster", "cells": { "nr": "8", "traktandum": { "de": "Nächster Rapport", "fr": "Rapport suivant", "it": "Prossimo rapporto", "en": "Next briefing" } } }
+          ]
+        },
+        {
+          "id": "naechster-rapport", "type": "text", "height": 3, "layout": "row",
+          "fields": [
+            { "id": "datum", "label": { "de": "Datum", "fr": "Date", "it": "Data", "en": "Date" }, "tone": "shade" },
+            { "id": "zeit", "label": { "de": "Zeit", "fr": "Heure", "it": "Ora", "en": "Time" }, "tone": "shade", "type": "time" }
+          ]
+        }
+      ]
+    }
+  ]
+}
