@@ -80,9 +80,10 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   with its age and Funkkanal, and «Sicherungstrupp einsetzen» as the first offer; tone, OS
   notification and Web Push follow, the Verlauf and the Rapport record raising, the Sicherungstrupp
   going in and «Notfall beendet» (also held, undoable). The held tile fills from left to right
-  while it is held (a tap says «Gedrückt halten» in its place); on the Tafel a compact banner
-  stays at the top – «Trupp 1» with «Zum Trupp ›» and its people, the clock, the facts on one
-  line, one full-width action – and an opened card lands below it, never under it. A calm hint says when an
+  while it is held (a tap says «Gedrückt halten» in its place); on the Tafel the Trupp stands at
+  the top as its own card in red – «⚠ Trupp 1», the Notfall clock, one line of facts, one
+  full-width action, the head line leading to the card – and an opened card lands below it,
+  never under it. A calm hint says when an
   Atemschutz-Trupp goes in with no Sicherungstrupp ready. *No action needed.*
 - **Station index: one address for all station data.** A station publishes an `index.json`
   next to its data files that lists them by kind with checksums (`station-index/1`,

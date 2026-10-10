@@ -7,7 +7,7 @@ import { confirmDialog } from '../lib/ui'
 import { useMeldung } from '../lib/useMeldung'
 import { serverNow } from '../lib/serverClock'
 import { fmtClock, notfallFacts, safetyInside, safetyReady, truppInNotfall, truppLogName } from '../lib/atemschutz'
-import { notfallFactLine, notfallHead, notfallWho } from '../lib/notfall'
+import { notfallFactLine, notfallName, notfallWho } from '../lib/notfall'
 import { NODE_HOLD_ARM_MS, useNodeHold } from '../lib/nodeHold'
 import type { Trupp } from '../types'
 import s from './Atemschutz.module.css'
@@ -126,15 +126,16 @@ function useSecondTick(on: boolean): number {
  * button asks which (`pickSafety`). None ready ⇒ it says so and offers the board's own
  * «Bestimmen» door. One already inside ⇒ it says who and since when, and offers nothing twice.
  *
- * ⚠️ Compact on purpose (owner feedback 10.10.2026, phone ~620px tall before): it is sticky, so
- * every pixel of it is a pixel of the board it covers. Two rows of head — «⚠ NOTFALL» with the
- * clock on ONE line, then the name the radio uses («Trupp 1») over its people — the facts as one
- * dot-separated line, and ONE act at the full width: the primary tile carries its own reason as a
- * small second line («Kein Sicherungstrupp bereit» under «Sicherungstrupp bestimmen», the ready
- * crew's name under «… einsetzen»), each on one line down to 360 px. «Zum Trupp ›» is a compact
- * chip at the end of the name's line (beside the primary in the act row, the primary wrapped to
- * four lines). The board measures the stack (AtemschutzView · `--nf-h`) so an opened card parks
- * BELOW it, never under it.
+ * ⚠️ A Trupp card in its alarm state, not a widget of its own (owner feedback 10.10.2026, three
+ * rounds — the first banner was ~620 device px of kicker, clock column, wrapped names, facts,
+ * notes and two rows of buttons): it is sticky, so every pixel of it covers the board, and beside
+ * the cards it must read as one of them. So it IS one — the card's frame and red tone, and row 1
+ * the card's own head line («⚠ Trupp 1 … 0:04 ›», the whole line «Zum Trupp»). Row 2 is ONE dim
+ * line («Notfall seit 11:11 · Löschen · 300 bar (Eingangsdruck) · Kanal 11»); the people are the
+ * card's. Row 3 is the one act at the banner's width, its reason as a small second line («Kein
+ * Sicherungstrupp bereit» under «Sicherungstrupp bestimmen», the ready crew under «… einsetzen»).
+ * Several at once (`dense`): rows 1 and 3. The board measures the stack (AtemschutzView ·
+ * `--nf-h`) so an opened card parks BELOW it, never under it.
  */
 export function NotfallBanner({ t, now, place, ready, inside, canEdit, dense = false, onDeploySafety, pickSafety, defineSafety, onDefineSafety, onGo }: {
   t: Trupp
@@ -159,8 +160,12 @@ export function NotfallBanner({ t, now, place, ready, inside, canEdit, dense = f
 }) {
   const nf = appConfig.copy.atemschutz.notfall
   const f = notfallFacts(t, now)
-  const head = notfallHead(t)
-  const facts = notfallFactLine(t, now, place).slice(1) // the «seit» is the clock's caption here
+  const name = notfallName(t)
+  // ONE dim line under the head: «Notfall seit 11:11 · Löschen · 300 bar (Eingangsdruck) · Kanal 11»
+  const facts = [
+    ...(t.notfallAt ? [fillTemplate(nf.stateWord, { time: formatTime(new Date(t.notfallAt)) })] : []),
+    ...notfallFactLine(t, now, place).slice(1),
+  ]
   // the primary tile, with its small second line: whom it sends, or why it must be named first
   const primary = (cls: string, word: string, sub: string | undefined, onClick: (() => void) | undefined, icon?: ReactNode) => (
     <button type="button" className={cx(s.actBtn, cls, s.nfPrimary)} onClick={onClick}>
@@ -189,29 +194,25 @@ export function NotfallBanner({ t, now, place, ready, inside, canEdit, dense = f
     <p className={s.nfNote}>{nf.sitrNone}</p>
   )
   return (
-    <section className={cx(s.nfBanner, dense && s.nfDense)} role="alert" aria-label={`${nf.title}: ${notfallWho(t)}`}>
-      {/* row 1: what it is, and for how long — the clock on ONE line, never a column of its own */}
-      <div className={s.nfTop}>
-        <Icon id="warn" />
-        <span className={s.nfKicker}>{nf.title}</span>
-        <span className={s.nfClock}>
-          <b>{fmtClock(f.sinceSec)}</b>
-          {t.notfallAt && <span>{fillTemplate(nf.since, { time: formatTime(new Date(t.notfallAt)) })}</span>}
+    // the frame IS a Trupp card in its alarm tone (`.trow.trowCard.trowCrit`), so the banner reads
+    // as one of the cards below it that came to the top, not as a widget of its own
+    <section className={cx(s.trow, s.trowCard, s.trowCrit, s.nfBanner)} role="alert" aria-label={`${nf.title}: ${notfallWho(t)}`}>
+      {/* row 1: the card's own head line — ⚠ where the card has its dot, the name, the clock, and
+          the chevron — and the WHOLE line is the way to the card (as the card's head is its toggle) */}
+      <button type="button" className={cx(s.trowHead, s.nfHead)} onClick={() => onGo(t.id)}
+        aria-label={fillTemplate(nf.goToWho, { name })}>
+        <span className={s.trowId}>
+          <span className={s.trowName}>
+            <Icon id="warn" className={s.nfGlyph} />
+            <span className={s.trowNameTxt}>{name}</span>
+          </span>
         </span>
-      </div>
-      {/* row 2: who — the name the radio uses as the headline with «Zum Trupp ›» at its end (the
-          way to the card is about WHO, and out of the act row the primary gets the whole width),
-          the people on their own line below */}
-      <div className={s.nfWho}>
-        <div className={s.nfNameRow}>
-          <span className={s.nfName}>{head.name}</span>
-          <button type="button" className={s.nfGo} onClick={() => onGo(t.id)}>
-            <span>{nf.goTo}</span><Icon id="chevron" />
-          </button>
-        </div>
-        {!dense && head.crew && <span className={s.nfCrew}>{head.crew}</span>}
-      </div>
+        <span className={s.trowClock}><span className={s.trowClockVal}>{fmtClock(f.sinceSec)}</span></span>
+        <span className={s.trowChevron}><Icon id="chevron" /></span>
+      </button>
+      {/* row 2: ONE dim line, since when and what the record last knew (several at once: dropped) */}
       {!dense && facts.length > 0 && <p className={s.nfFacts}>{facts.join(' · ')}</p>}
+      {/* row 3: the one act, the banner's width */}
       {act && <div className={s.nfActs}>{act}</div>}
     </section>
   )

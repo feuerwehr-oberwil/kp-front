@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, fireEvent, act } from '@testing-library/react'
 import { AtemschutzNotfallMeldungen, NOTFALL_FIRED_MS, NOTFALL_TAP_HINT_MS, NotfallBanner, NotfallHold } from './AtemschutzNotfall'
-import { ageWords, notfallFactLine, notfallHead } from '../lib/notfall'
+import { ageWords, notfallFactLine, notfallName } from '../lib/notfall'
 import { atemschutzAlarmRows } from './AtemschutzAlarmMeldung'
 import { Meldeleiste } from './Meldeleiste'
 import { NODE_HOLD_ARM_MS, NODE_HOLD_FIRE_MS } from '../lib/nodeHold'
@@ -109,10 +109,10 @@ describe('the facts', () => {
     expect(notfallFactLine({ ...inNotfall, lastPressureBar: undefined, lastPressureTime: undefined }, NOW)[1]).toBe('300 bar (Eingangsdruck)')
   })
 
-  it('the banner’s headline is the radio’s name, its people a line of their own', () => {
-    expect(notfallHead(inNotfall)).toEqual({ name: 'Trupp 2', crew: 'Keller Anna / Frei Nina' })
-    // a record without a number: the leader is the name, the rest the crew
-    expect(notfallHead({ ...inNotfall, no: undefined })).toEqual({ name: 'Trupp Keller Anna', crew: 'Frei Nina' })
+  it('the banner’s headline is the radio’s name — the people are the card’s', () => {
+    expect(notfallName(inNotfall)).toBe('Trupp 2')
+    // a record without a number: the leader is the name
+    expect(notfallName({ ...inNotfall, no: undefined })).toBe('Trupp Keller Anna')
   })
 
   it('ages in the shortest honest unit', () => {
@@ -129,13 +129,14 @@ describe('NotfallBanner — the first offer is the Sicherungstrupp', () => {
     )
     const alert = container.querySelector('[role="alert"]')!
     expect(alert.getAttribute('aria-label')).toBe('Notfall: Trupp 2 (Keller Anna / Frei Nina)')
-    expect(alert.textContent).toContain('Trupp 2')
-    expect(alert.textContent).toContain('Keller Anna / Frei Nina')
-    expect(alert.textContent).toContain('180 bar (vor 7 min) · Kanal 11')
+    // the card's head line, and the WHOLE line is the way to the card
+    const head = alert.querySelector('button')!
+    expect(head.textContent).toBe('Trupp 22:10')
+    expect(head.getAttribute('aria-label')).toBe('Zum Trupp 2')
+    // ONE dim line: since when and what the record last knew — the people are the card's
+    expect(alert.textContent).toMatch(/Notfall seit \d\d:\d\d · 180 bar \(vor 7 min\) · Kanal 11/)
+    expect(alert.textContent).not.toContain('Frei Nina')
     expect(container.textContent).toContain('2:10') // the Notfall clock
-    // «Zum Trupp» rides on the name's line, so the primary has the act row to itself
-    expect(getByText('Zum Trupp').closest('button')!.parentElement!.textContent).toContain('Trupp 2')
-    expect(getByText('Sicherungstrupp einsetzen').closest('button')!.parentElement!.textContent).not.toContain('Zum Trupp')
     fireEvent.click(getByText('Sicherungstrupp einsetzen'))
     expect(deployed).toEqual(['s'])
     expect(container.textContent).toContain('Meier Beat')
@@ -157,19 +158,19 @@ describe('NotfallBanner — the first offer is the Sicherungstrupp', () => {
   it('a viewer is told «nobody ready» only when nobody is, and gets no act but «Zum Trupp»', () => {
     const none = render(<NotfallBanner t={inNotfall} now={NOW} ready={[]} inside={[]} canEdit={false} onDeploySafety={() => {}} onGo={() => {}} />)
     expect(none.getByText('Kein Sicherungstrupp bereit').closest('button')).toBeNull()
-    expect([...none.container.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Zum Trupp'])
+    expect([...none.container.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Zum Trupp 2'])
     cleanup()
     const one = render(<NotfallBanner t={inNotfall} now={NOW} ready={[sitr]} inside={[]} canEdit={false} onDeploySafety={() => {}} onGo={() => {}} />)
     expect(one.queryByText('Kein Sicherungstrupp bereit')).toBeNull()
-    expect([...one.container.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Zum Trupp'])
+    expect([...one.container.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(['Zum Trupp 2'])
   })
 
-  it('several at once: each banner is one head row over its acts', () => {
+  it('several at once: each banner is its head line over its act', () => {
     const { container } = render(<NotfallBanner t={inNotfall} now={NOW} ready={[]} inside={[]} canEdit dense
       onDefineSafety={() => {}} onDeploySafety={() => {}} onGo={() => {}} />)
     expect(container.textContent).toContain('Trupp 2')
-    expect(container.textContent).not.toContain('Frei Nina')
     expect(container.textContent).not.toContain('Kanal 11')
+    expect(container.textContent).not.toContain('Notfall seit')
     expect(container.textContent).toContain('Sicherungstrupp bestimmen')
   })
 

@@ -293,6 +293,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       sitrDefine: 'Désigner l’équipe de sécurité',
       sitrInside: 'Équipe de sécurité {name} engagée depuis {time}',
       goTo: 'Vers le binôme',
+      goToWho: 'Vers le {name}',
       rowTitle: 'Urgence – binôme {name}',
       rowTitleMany: 'Urgence – {count} binômes : {names}',
       logTrigger: 'Binôme {name} : urgence déclenchée',

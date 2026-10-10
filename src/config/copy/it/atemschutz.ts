@@ -293,6 +293,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       sitrDefine: 'Designare la squadra di sicurezza',
       sitrInside: 'Squadra di sicurezza {name} dentro da {time}',
       goTo: 'Alla squadra',
+      goToWho: 'Alla {name}',
       rowTitle: 'Emergenza – squadra {name}',
       rowTitleMany: 'Emergenza – {count} squadre: {names}',
       logTrigger: 'Squadra {name}: emergenza attivata',

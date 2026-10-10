@@ -21,18 +21,14 @@ export function notfallWho(t: Trupp): string {
 }
 
 /**
- * The banner's headline, split (owner feedback 10.10.2026): `name` is what the radio calls the
- * crew — «Trupp 1», or «Trupp Keller Anna» on a record without a number — and `crew` the people
- * on a smaller line of their own («Binggeli Michael / Baks Sebastiaan / Bendik Dimitri»). The
- * joined form (`notfallWho`) stays the words of the Meldeleiste row, the Verlauf and the
- * screen reader.
+ * The banner's headline (owner feedback 10.10.2026): what the radio calls the crew — «Trupp 1»,
+ * or «Trupp Keller Anna» on a record without a number — in the place a Trupp card has its
+ * leader's name. The people are the card's (and `notfallWho`'s, for the Meldeleiste row, the
+ * Verlauf and the screen reader).
  */
-export function notfallHead(t: Trupp): { name: string; crew: string } {
-  const who = appConfig.copy.atemschutz.notfall.who
-  const lead = (t.name ?? '').trim()
-  const rest = (t.members ?? []).map((m) => m.trim()).filter((m) => m && m !== lead)
-  if (typeof t.no === 'number') return { name: fillTemplate(who, { name: String(t.no) }), crew: [lead, ...rest].filter(Boolean).join(' / ') }
-  return { name: fillTemplate(who, { name: lead }), crew: rest.join(' / ') }
+export function notfallName(t: Trupp): string {
+  const name = typeof t.no === 'number' ? String(t.no) : (t.name ?? '').trim()
+  return fillTemplate(appConfig.copy.atemschutz.notfall.who, { name })
 }
 
 /**

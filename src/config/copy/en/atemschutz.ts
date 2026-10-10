@@ -305,6 +305,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       sitrDefine: 'Assign safety team',
       sitrInside: 'Safety team {name} inside since {time}',
       goTo: 'To the team',
+      goToWho: 'To {name}',
       rowTitle: 'Emergency – team {name}',
       rowTitleMany: 'Emergency – {count} teams: {names}',
       logTrigger: 'Team {name}: emergency raised',
