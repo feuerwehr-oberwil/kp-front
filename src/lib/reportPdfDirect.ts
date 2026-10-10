@@ -635,9 +635,6 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     })),
     journal: draft.options.journal ? journal : [],
     pendenzen: draft.options.pendenzen ? pendenzen : [],
-    // the Tafel's «Erstes Plakat (FKS)» (08.10.2026) — its own section after the Aufträge,
-    // only when the Tafel carries one (backend · report_pdf · PlakatIn)
-    plakat: plakatPayload(board),
     // the internal Beilage (lib/auswertung): computed HERE, where the ISO stamps are
     auswertung: draft.options.auswertung
       ? (() => {
@@ -661,6 +658,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
           return auswertungForPdf(a, { contactIntervalMin: interval, contactGraceSec: grace }, meta.lehren)
         })()
       : undefined,
+    // the Tafel's «Erstes Plakat (FKS)» (08.10.2026) — its own section after the Aufträge,
+    // only when the Tafel carries one (backend · report_pdf · PlakatIn)
+    plakat: plakatPayload(board),
   }
   return forPaper(payload) as Record<string, unknown>
 }

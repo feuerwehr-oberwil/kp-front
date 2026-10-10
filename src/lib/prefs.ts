@@ -104,6 +104,10 @@ export interface Prefs {
    *  command tablet at the scene must not dim mid-operation — but a personal device idling in the
    *  background may prefer to let the screen sleep, so it's a per-device toggle. */
   keepScreenOn?: boolean
+  /** «Standort zu Fotos»: a photo without its own EXIF position takes this device's position
+   *  (lib/devicePosition). ABSENT = never asked — the first such photo asks, once, with the
+   *  reason; the Einstellungen sheet switches it either way afterwards. */
+  photoPosition?: boolean
   /** last Verwaltung (admin) section id, so reopening /admin returns to the same page.
    *  Kept loose (string) so prefs.ts doesn't depend on the admin's SectionId union. */
   adminSection?: string

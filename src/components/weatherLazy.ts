@@ -15,4 +15,5 @@ const load = (): Promise<Module | null> => import('./WeatherLayer').catch(() => 
 const nothing = () => null
 
 export const WeatherRadarSource = lazy(() => load().then((m) => ({ default: m?.WeatherRadarSource ?? (nothing as unknown as Module['WeatherRadarSource']) })))
-export const WeatherFloats = lazy(() => load().then((m) => ({ default: m?.WeatherFloats ?? (nothing as unknown as Module['WeatherFloats']) })))
+export const WeatherWarningChip = lazy(() => load().then((m) => ({ default: m?.WeatherWarningChip ?? (nothing as unknown as Module['WeatherWarningChip']) })))
+export const WeatherRadarControls = lazy(() => load().then((m) => ({ default: m?.WeatherRadarControls ?? (nothing as unknown as Module['WeatherRadarControls']) })))

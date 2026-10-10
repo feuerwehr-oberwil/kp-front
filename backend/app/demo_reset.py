@@ -266,7 +266,7 @@ _EL_SYMBOL = "VKF Einsatzleiter"
 def _scene_roles(scene: dict, present: list[tuple[str, str]]) -> dict[str, str]:
     """person_id → Anwesenheits-Bemerkung, read off the symbols placed in the scene.
 
-    The German wording is the app's (`src/config/copy/de.ts` · anwesenheit.role*), repeated here
+    The German wording is the app's (`src/config/copy/de/anwesenheit.ts` · anwesenheit.role*), repeated here
     rather than shared: the demo dataset is German-only, and a seed that quietly diverges from
     what the app writes would teach the wrong thing. Only people who are actually present get a
     remark — a symbol naming somebody who is not on the list is a contradiction the demo should
