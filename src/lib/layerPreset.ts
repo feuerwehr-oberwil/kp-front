@@ -13,10 +13,16 @@ import { appConfig } from '../config/appConfig'
  *
  *  Visibility only: a transparency slider moved is still the same set of layers. Layers missing
  *  from either side are ignored rather than counted, so a deployment's config layer that came or
- *  went does not flip the answer. */
+ *  went does not flip the answer.
+ *
+ *  `radarOn` – the «Niederschlag (Radar)» row (workspace/useKarteWeather), a device pref outside
+ *  `layers`: «Standard» and «Alle aus» switch it off, so while it is on the set is neither of them,
+ *  and «Alle ein» leaves it alone, so it is not that either – «Eigene Auswahl» (10.10.2026, owner:
+ *  «Standard» lit with the radar on the map). */
 export type LayerPreset = 'standard' | 'all' | 'none' | 'custom'
 
-export function layerPreset(layers: LayerDef[], defaults: LayerDef[]): LayerPreset {
+export function layerPreset(layers: LayerDef[], defaults: LayerDef[], radarOn = false): LayerPreset {
+  if (radarOn) return 'custom'
   const byId = new Map(defaults.map((l) => [l.id, l.visible]))
   const matchesDefault = layers.every((l) => !byId.has(l.id) || byId.get(l.id) === l.visible)
   if (matchesDefault) return 'standard'

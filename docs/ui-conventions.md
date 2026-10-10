@@ -170,7 +170,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *ONE floating family, ONE floating row (26.09.2026, owner: «everything has the same shape,
     colour, padding»):* every small thing that floats over the Karte or a Plan — the messages
     above, the plan's chips (Objekt · Gebäude · Massstab · ⌖ Karte),
-    «Zurück zum Rapport» and the Eintrag FAB — wears `--float-*` (01-tokens): the bars' glass with
+    «Zurück zum Rapport», the Karte's radar pill (components/WeatherLayer: in the Karte's one
+    bottom-left chip row after the Gebäude chip – on a phone it is the piece in that row that
+    gives way) and the Eintrag FAB — wears `--float-*` (01-tokens): the bars' glass with
     their `--glass-line` edge as an INSET ring and `--shadow`; ONE row height `--float-h` (a --tap
     button + `--msg-pad` all round = 52px); the one corner; 14px before the glyph; 16px glyphs. A
     STATE is a glyph colour inside it — the chip's lamp, a toast's leading icon, the object chip's

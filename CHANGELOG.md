@@ -86,6 +86,16 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   same ⚠, and an opened card lands below the banner, never under it. «Raus» on a crew in a
   Notfall ends the Notfall too (one undo step restores both). A calm hint says when an
   Atemschutz-Trupp goes in with no Sicherungstrupp ready. *No action needed.*
+- **Wetter on the Karte: MeteoSwiss precipitation radar.** Ebenen get a «Wetter» group with
+  «Niederschlag (Radar)» (a device setting, off by default): the last hour of MeteoSwiss radar
+  under every line and symbol, with a floating pill to step or play through it and a colour key in
+  Ebenen. «Standard» and «Alle aus» switch it off with the other layers, and while it is on the
+  Ebenen read «Eigene Auswahl». Old data is never shown as current: a stale radar is greyed with
+  «Stand hh:mm», and offline it simply ages. The backend fetches the nationwide files only (no
+  coordinate leaves the station), renders each radar frame once and serves it from memory; the
+  algorithms are KP Rück's (R5), ported with its tests. *No action needed; `WEATHER_LAYER_ENABLED=false`
+  switches it off (stations outside Switzerland or without outbound access). The image grows by
+  ~17 MB (h5py; numpy was already in it).*
 - **Station index: one address for all station data.** A station publishes an `index.json`
   next to its data files that lists them by kind with checksums (`station-index/1`,
   docs/CONFIGURATION.md §4d); KP Front gets ONE setting for it – «Stationsdaten-Index» on

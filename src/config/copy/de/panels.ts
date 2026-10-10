@@ -87,6 +87,26 @@ export const panelsCopy = {
     windShiftOpen: 'Im Verlauf öffnen',
     windShiftDismiss: 'Ausblenden',
   },
+  // The Karte's weather LAYER (components/WeatherLayer, backend app/weather_layer): the
+  // MeteoSwiss radar in Ebenen and its floating pill.
+  weatherLayer: {
+    group: 'Wetter',
+    radar: 'Niederschlag (Radar)',
+    radarSub: 'MeteoSchweiz · letzte Stunde',
+    attribution: 'Radar © MeteoSchweiz',
+    radarTitle: 'Niederschlagsradar',
+    play: 'Letzte Stunde abspielen',
+    pause: 'Anhalten (zurück auf aktuell)',
+    frameSlider: 'Radarbild wählen',
+    frameAgo: 'vor {minutes} min',
+    latest: 'aktuell',
+    legendLight: 'schwach',
+    legendUnit: 'mm/h · Radar-Schätzung',
+    legendHeavy: 'stark',
+    radarPending: 'Noch kein Radarbild – wird geladen.',
+    radarUnavailable: 'Radar zurzeit nicht verfügbar.',
+    stale: 'Stand {time} – veraltet',
+  },
   // PDF rendering — status line in PdfScroller + first-load placeholder in PdfViewport (Plan)
   pdf: {
     loading: 'PDF wird geladen …',

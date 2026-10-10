@@ -1,0 +1,33 @@
+/* The Karte's weather layer (WeatherLayer.tsx): the floating family (01-tokens · --float-*,
+   docs/ui-conventions.md · «ONE floating family, ONE floating row») – the bars' glass with its
+   inset edge, one row height --float-h, the one corner, 14px before the glyph, 16px glyphs.
+   «veraltet» is GREY. */
+
+/* Where the pill stands is the Karte's ONE chip row (workspace/MapControls · `.wb-botleft wx-row`,
+   09-whiteboard): the Gebäude chip, the radar pill – one row, never two in one slot. */
+
+.pill { display: inline-flex; align-items: center; gap: var(--sp-2); box-sizing: border-box; min-width: 0;
+  min-height: var(--float-h); padding: var(--msg-pad) var(--float-pad-x); border-radius: var(--r-sm); border: none;
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
+  color: var(--ink); font: var(--fw-bold) var(--fs-1) var(--body); }
+.pill svg { width: 16px; height: 16px; flex: none; }
+
+/* ── the radar pill: ▶ · scrubber · time ── */
+.radar { padding-left: var(--msg-pad); width: 340px; max-width: 100%; }
+@media (--phone) {
+  /* the phone's row is ONE line beside the FAB (09-whiteboard · .wb-botleft): the Gebäude chip
+     keeps its words, the radar pill is the piece that gives way – down to ▶, a short scrubber and
+     the time */
+  .radar { flex: 1 1 auto; width: auto; min-width: 0; }
+  .radar .scrub { min-width: 56px; }
+}
+.radar.quiet { padding-left: var(--float-pad-x); width: auto; }
+.play { flex: none; }
+.scrub { flex: 1 1 auto; min-width: 96px; }
+.when { flex: none; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.when b { font-weight: var(--fw-bold); }
+.when small { font: var(--fw-medium) var(--fs-micro) var(--body); line-height: 1.25; color: var(--ink-faint); white-space: nowrap; }
+.when .credit { color: var(--ink-faint); font-weight: var(--fw-regular); }
+.lead { display: grid; place-items: center; color: var(--ink-dim); }
+.note { color: var(--ink-dim); font-weight: var(--fw-medium); }
+.stale .when b, .stale .when small { color: var(--ink-faint); }
