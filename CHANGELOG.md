@@ -511,6 +511,11 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
     bottom bar into the home indicator, where the display's rounded corner cut its last row; it
     now ends 8px above the bottom bar and scrolls inside. Every other menu (PDF ▾, the Verlauf
     filter, …) leaves out the safe area on the side it opens to.
+  - **«Neuer Eintrag»'s suggestion row scrolls sideways on an iPhone again.** The sheets' touch
+    lock judged every finger move on its own few pixels; a swipe whose first move read as vertical
+    was cancelled, and iOS then cancelled the whole pan. It now decides once per touch from the
+    travel since the finger went down, never blocks a touch that starts on the row, and still stops
+    a drag past a list's edge from rubber-banding the page.
 - **A Trupp's «fällig» and «überfällig» no longer ride on colour alone.** On the phone board
   the row said them only in amber and red, which is no answer in direct sun or to a colour-blind
   reader. Under the clock it now carries a glyph: a clock for «fällig», the warning triangle for
