@@ -224,17 +224,6 @@ export function contactIntervals(
   return { gaps, stats }
 }
 
-/**
- * Did any crew go in UNDER PA on this Einsatz? The seed of the Rapport's «Auswertung (intern)» tick
- * (owner, 09.10.2026: «ticked by default if we have Atemschutz; if not it's a bit useless») — the
- * sheet is mostly the contact log and the PA figures, and without a watched deployment three of its
- * five figures are «—». A Trupp only registered (a Sicherungstrupp that never went in) does not
- * count; one taken off the Tafel after it went in does — it happened.
- */
-export function hadAtemschutzDeployment(trupps: readonly Trupp[]): boolean {
-  return trupps.some((t) => truppStretches(t, 0).watched.length > 0)
-}
-
 function truppLabel(t: Trupp): string {
   const name = t.name.trim()
   return typeof t.no === 'number' ? fillTemplate(appConfig.copy.auswertung.truppLane, { no: t.no, name }) : name

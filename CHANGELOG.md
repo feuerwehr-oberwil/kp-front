@@ -183,7 +183,7 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   record does not carry it), a vector swimlane timeline (Fahrzeuge, Trupps with their contacts and
   fällig/überfällig stretches hatched so they survive a greyscale printer, checklist phases,
   milestones). Its own landscape sheet, last, so the signed part goes out without it; «Auswertung
-  (intern)» in the PDF ▾ menu, ticked by default when a crew went in under Atemschutz. *No action
+  (intern)» in the PDF ▾ menu, unticked by default – tick it when you want it. *No action
   needed.*
 - **«Gebäude-Info» – the building at the Einsatzort, on the Karte.** A chip in the Karte's chip
   row (and beside the Objekt chip on a tablet's plan) names the hazards it knows – «Gebäude-Info
