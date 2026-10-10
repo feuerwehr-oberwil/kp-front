@@ -14,7 +14,7 @@ replaces the bundled one.
 | `src/lib/boardTemplate.ts` | The client's model of `board-template/1`, `labelText` and the tolerant `isBoardTemplate` gate. |
 | `src/lib/boardForm.ts` | A page added to an Einsatz: its snapshot, its values and the edits. `formForPdf` resolves it for print. |
 | `src/lib/boardFormNav.ts` | The keyboard, as a pure function. |
-| `src/lib/boardTemplates.ts` | Loads `tafel:*` datasets through IndexedDB, with the bundled set as the fallback. |
+| `src/lib/boardTemplates.ts` | Loads `tafel:*` datasets through IndexedDB, with the bundled set as the fallback. The Whiteboard reads it when the Tafel is first shown, never at boot. |
 | `src/components/TafelFormPage.tsx`, `TafelPageStrip.tsx`, `MiniKarte.tsx` | The page, the strip and the Lagekarte box. |
 | `backend/app/board_templates.py` | The pydantic contract (`extra="forbid"`). |
 | `docs/board-template.schema.json` | The JSON Schema generated from that contract (`just board-template-schema`). A pytest pins the two together. |
@@ -71,7 +71,9 @@ same drawings, framed on what the Einsatz has placed. A tap opens the Karte.
 
 It is cheap on purpose:
 
-- The MapLibre instance exists only while a page with a map box is on screen (a lazy chunk).
+- The MapLibre instance exists only while a page with a map box is on screen. It rides the
+  Whiteboard's lazy chunk; a chunk of its own split shared modules out of the App chunk and cost
+  the cold start ten requests.
 - It takes no input (`interactive={false}`, `inert`).
 - It refits only when the extent of the Lage moves.
 

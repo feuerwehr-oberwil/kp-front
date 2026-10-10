@@ -19,7 +19,8 @@ import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LngLat, Trupp } f
  * framed on what the Einsatz has placed. A tap on the box opens the Karte (TafelFormPage).
  *
  * ⚠️ Cheap on purpose: a second MapLibre instance exists only while a page with a map box is ON
- * SCREEN (this chunk is lazy, the component unmounts with the page), it takes no input at all
+ * SCREEN (it rides the Whiteboard's lazy chunk and unmounts with the page — no chunk of its own,
+ * which split shared modules out of the App chunk), it takes no input at all
  * (`interactive={false}` — no pan, no zoom, no selection, nothing that could write), and it
  * refits only when the extent of the Lage really moved. It is NOT a second MapView: none of the
  * Karte's editing, GPS or label machinery runs here. The print uses a server-rendered snapshot
