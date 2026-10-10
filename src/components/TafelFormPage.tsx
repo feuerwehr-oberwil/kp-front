@@ -815,14 +815,14 @@ export function TafelFormPage({ pageKey, title, data, readOnly, isPhone, onChang
                 align="end"
                 popupClassName="de-menu-pop"
                 itemClassName={() => 'de-menu-item'}
-                trigger={<Button variant="quiet" className={s.print} icon={<Icon id="printer" />} disabled={printing}>{printing ? t.printBusy : t.print}</Button>}
+                trigger={<Button variant="quiet" className={s.print} icon={<Icon id="printer" />} disabled={printing} aria-label={t.print}><span className={s.printWord}>{printing ? t.printBusy : t.print}</span></Button>}
                 items={[
                   { label: t.printThis, onClick: () => onPrint(false) },
                   { label: fillTemplate(t.printAll, { n: pageCount }), onClick: () => onPrint(true) },
                 ]}
               />
             )
-            : <Button variant="quiet" className={s.print} icon={<Icon id="printer" />} disabled={printing} onPointerDown={keep} onClick={() => onPrint(false)}>{printing ? t.printBusy : t.print}</Button>)}
+            : <Button variant="quiet" className={s.print} icon={<Icon id="printer" />} disabled={printing} aria-label={t.print} onPointerDown={keep} onClick={() => onPrint(false)}><span className={s.printWord}>{printing ? t.printBusy : t.print}</span></Button>)}
           {!readOnly && (
             <IconButton label={t.removePage} className={s.remove} onPointerDown={keep} onClick={onRemove}><Icon id="trash" /></IconButton>
           )}

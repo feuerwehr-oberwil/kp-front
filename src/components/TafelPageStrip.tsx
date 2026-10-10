@@ -75,7 +75,8 @@ export function TafelPageStrip({ pages, titles, current, templates, readOnly, on
           align="start"
           popupClassName="de-menu-pop tps-menu"
           itemClassName={() => 'de-menu-item'}
-          trigger={<Button variant="quiet" className="tps-add" icon={<Icon id="plus" />} aria-label={T.addPageTitle}>{T.addPage}</Button>}
+          // on a phone just «+» (owner): the word is hidden there, the label still says it
+          trigger={<Button variant="quiet" className="tps-add" icon={<Icon id="plus" />} aria-label={T.addPageTitle} title={T.addPageTitle}><span className="tps-add-word">{T.addPage}</span></Button>}
           items={items}
         />
       )}
