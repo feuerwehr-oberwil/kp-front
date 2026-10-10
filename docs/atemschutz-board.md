@@ -191,9 +191,11 @@ reworded.
   seit hh:mm»). Compact because it is sticky (owner feedback 10.10.2026; ~200 px on a 390 px
   phone with three long names): «⚠ NOTFALL» and the clock on one line, the radio's name
   («Trupp 1») over its people, the facts as one dot-separated line («Löschen · 300 bar
-  (Eingangsdruck) · Kanal 11»), the acts on ONE row with «Zum Trupp ›» compact at the end; a
-  viewer gets only «Zum Trupp». All banners share one sticky stack; with several Notfälle each is
-  one head row over its acts. The board measures the stack (`--nf-h` on the port: its scroll
+  (Eingangsdruck) · Kanal 11»), and ONE act at the banner's width, both its lines on one line
+  each down to 360 px. «Zum Trupp ›» is a compact chip (36 px drawn, 44 px target) at the end of
+  the name's line — beside the primary it squeezed it to four lines; a viewer keeps only that
+  chip. All banners share one sticky stack; with several Notfälle each drops the people and the
+  facts. The board measures the stack (`--nf-h` on the port: its scroll
   padding, and the parking scroll of the phone's opened card), so an opened card lands below the
   banners, never under them. Elsewhere the Meldeleiste row offers
   the same first (exactly one ready ⇒ it goes in and the Tafel opens).

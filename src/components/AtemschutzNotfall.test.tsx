@@ -133,6 +133,9 @@ describe('NotfallBanner — the first offer is the Sicherungstrupp', () => {
     expect(alert.textContent).toContain('Keller Anna / Frei Nina')
     expect(alert.textContent).toContain('180 bar (vor 7 min) · Kanal 11')
     expect(container.textContent).toContain('2:10') // the Notfall clock
+    // «Zum Trupp» rides on the name's line, so the primary has the act row to itself
+    expect(getByText('Zum Trupp').closest('button')!.parentElement!.textContent).toContain('Trupp 2')
+    expect(getByText('Sicherungstrupp einsetzen').closest('button')!.parentElement!.textContent).not.toContain('Zum Trupp')
     fireEvent.click(getByText('Sicherungstrupp einsetzen'))
     expect(deployed).toEqual(['s'])
     expect(container.textContent).toContain('Meier Beat')

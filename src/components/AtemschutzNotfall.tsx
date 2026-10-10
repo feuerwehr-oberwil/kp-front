@@ -129,10 +129,12 @@ function useSecondTick(on: boolean): number {
  * ⚠️ Compact on purpose (owner feedback 10.10.2026, phone ~620px tall before): it is sticky, so
  * every pixel of it is a pixel of the board it covers. Two rows of head — «⚠ NOTFALL» with the
  * clock on ONE line, then the name the radio uses («Trupp 1») over its people — the facts as one
- * dot-separated line, and the acts on ONE row: the primary tile (flex) carries its own reason
- * as a small second line («Kein Sicherungstrupp bereit» under «Sicherungstrupp bestimmen», the
- * ready crew's name under «… einsetzen»), «Zum Trupp ›» compact at the end. The board measures
- * the stack (AtemschutzView · `--nf-h`) so an opened card parks BELOW it, never under it.
+ * dot-separated line, and ONE act at the full width: the primary tile carries its own reason as a
+ * small second line («Kein Sicherungstrupp bereit» under «Sicherungstrupp bestimmen», the ready
+ * crew's name under «… einsetzen»), each on one line down to 360 px. «Zum Trupp ›» is a compact
+ * chip at the end of the name's line (beside the primary in the act row, the primary wrapped to
+ * four lines). The board measures the stack (AtemschutzView · `--nf-h`) so an opened card parks
+ * BELOW it, never under it.
  */
 export function NotfallBanner({ t, now, place, ready, inside, canEdit, dense = false, onDeploySafety, pickSafety, defineSafety, onDefineSafety, onGo }: {
   t: Trupp
@@ -173,44 +175,44 @@ export function NotfallBanner({ t, now, place, ready, inside, canEdit, dense = f
     ready.length === 1 ? () => onDeploySafety(ready[0].id) : undefined, <Icon id="flag" />)
   const defineBtn = primary(s.nfDefine, nf.sitrDefine, nf.sitrNone, defineSafety ? undefined : onDefineSafety)
   const canDefine = canEdit && !!(defineSafety || onDefineSafety)
+  const act = inside.length > 0 ? (
+    <p className={s.nfNote}>{fillTemplate(nf.sitrInside, {
+      name: inside[0].name,
+      time: inside[0].entryTime ? formatTime(new Date(inside[0].entryTime)) : '',
+    })}</p>
+  ) : ready.length > 0 ? (
+    // a device that cannot write the Tafel is not told «nobody ready» while one stands ready
+    !canEdit ? null : ready.length > 1 && pickSafety ? pickSafety(deployBtn) : deployBtn
+  ) : canDefine ? (
+    defineSafety ? defineSafety(defineBtn) : defineBtn
+  ) : (
+    <p className={s.nfNote}>{nf.sitrNone}</p>
+  )
   return (
     <section className={cx(s.nfBanner, dense && s.nfDense)} role="alert" aria-label={`${nf.title}: ${notfallWho(t)}`}>
       {/* row 1: what it is, and for how long — the clock on ONE line, never a column of its own */}
       <div className={s.nfTop}>
         <Icon id="warn" />
         <span className={s.nfKicker}>{nf.title}</span>
-        {dense && <span className={s.nfName}>{head.name}</span>}
         <span className={s.nfClock}>
           <b>{fmtClock(f.sinceSec)}</b>
           {t.notfallAt && <span>{fillTemplate(nf.since, { time: formatTime(new Date(t.notfallAt)) })}</span>}
         </span>
       </div>
-      {/* row 2: who — the name the radio uses as the headline, the people below it */}
-      {!dense && (
-        <div className={s.nfWho}>
+      {/* row 2: who — the name the radio uses as the headline with «Zum Trupp ›» at its end (the
+          way to the card is about WHO, and out of the act row the primary gets the whole width),
+          the people on their own line below */}
+      <div className={s.nfWho}>
+        <div className={s.nfNameRow}>
           <span className={s.nfName}>{head.name}</span>
-          {head.crew && <span className={s.nfCrew}>{head.crew}</span>}
+          <button type="button" className={s.nfGo} onClick={() => onGo(t.id)}>
+            <span>{nf.goTo}</span><Icon id="chevron" />
+          </button>
         </div>
-      )}
-      {!dense && facts.length > 0 && <p className={s.nfFacts}>{facts.join(' · ')}</p>}
-      <div className={s.nfActs}>
-        {inside.length > 0 ? (
-          <p className={s.nfNote}>{fillTemplate(nf.sitrInside, {
-            name: inside[0].name,
-            time: inside[0].entryTime ? formatTime(new Date(inside[0].entryTime)) : '',
-          })}</p>
-        ) : ready.length > 0 ? (
-          // a device that cannot write the Tafel is not told «nobody ready» while one stands ready
-          !canEdit ? null : ready.length > 1 && pickSafety ? pickSafety(deployBtn) : deployBtn
-        ) : canDefine ? (
-          defineSafety ? defineSafety(defineBtn) : defineBtn
-        ) : (
-          <p className={s.nfNote}>{nf.sitrNone}</p>
-        )}
-        <button type="button" className={cx(s.actBtn, s.nfGo)} onClick={() => onGo(t.id)}>
-          <span>{nf.goTo}</span><Icon id="chevron" />
-        </button>
+        {!dense && head.crew && <span className={s.nfCrew}>{head.crew}</span>}
       </div>
+      {!dense && facts.length > 0 && <p className={s.nfFacts}>{facts.join(' · ')}</p>}
+      {act && <div className={s.nfActs}>{act}</div>}
     </section>
   )
 }
