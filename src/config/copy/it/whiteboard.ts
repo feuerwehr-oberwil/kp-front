@@ -325,7 +325,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     printFailed: 'Non è stato possibile stampare la pagina – riprova.',
     removeTitle: 'Rimuovere la pagina?',
     removeMsg: 'Tutto ciò che è scritto su «{page}» se ne va. Annulla (↶) la ripristina.',
-    template: 'Modello {title}, versione {v}',
     mapLabel: 'Carta della situazione – tocca per aprire la carta',
     mapOpen: 'Alla carta',
     mapPrint: 'Nel rapporto: la carta al momento della stampa',
@@ -339,6 +338,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     trendTitle: 'Tendenza: {trend} – tocca per cambiare',
     keysHint: 'Invio: riga successiva · Tab: colonna successiva · Maiusc+Invio: a capo',
     lineBreak: 'A capo',
+    reorder: 'Sposta (trascina, o Alt+↑ / Alt+↓)',
     cellCap: 'Un campo contiene {n} caratteri – per di più, scrivi una voce nel diario.',
   },
 }

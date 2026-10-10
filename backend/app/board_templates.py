@@ -184,7 +184,7 @@ class TemplatePage(BaseModel):
 
     id: Ident
     title: Label
-    #: the FKS sheet number («8.1»), shown in the «+ Seite» list
+    #: a sheet number («8.1») — metadata only, never shown
     code: str | None = None
     paper: Literal["portrait", "landscape"] | None = None
     columns: Literal[1, 2] | None = None
@@ -192,6 +192,9 @@ class TemplatePage(BaseModel):
     header: bool | None = None
     #: station switch: not offered under «+ Seite»
     hidden: bool | None = None
+    #: the page may be added more than once — each its own page («Konzept», «Konzept 2», …), for
+    #: a sheet an Einsatz fills again and again (a second Konzept, the next Rapport)
+    repeatable: bool | None = None
     sections: Annotated[list[Section], Field(min_length=1)]
 
     @model_validator(mode="after")

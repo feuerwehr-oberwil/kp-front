@@ -325,7 +325,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     printFailed: 'The page could not be printed – please try again.',
     removeTitle: 'Remove page?',
     removeMsg: 'Everything written on «{page}» goes with it. Undo (↶) brings it back.',
-    template: 'Template {title}, version {v}',
     mapLabel: 'Situation map – tap to open the map',
     mapOpen: 'Open map',
     mapPrint: 'In the report: the map at the moment of printing',
@@ -339,6 +338,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     trendTitle: 'Trend: {trend} – tap to change',
     keysHint: 'Enter: next row · Tab: next column · Shift+Enter: line break',
     lineBreak: 'Line break',
+    reorder: 'Move (drag, or Alt+↑ / Alt+↓)',
     cellCap: 'A field holds {n} characters – for more, write an entry in the Verlauf.',
   },
 }

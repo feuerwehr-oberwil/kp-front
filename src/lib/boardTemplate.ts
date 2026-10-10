@@ -98,7 +98,7 @@ export type TemplateSection = QuadSection | MapSection | TableSection | TextSect
 export interface TemplatePage {
   id: string
   title: Label
-  /** the FKS sheet number («8.1»), shown in the «+ Seite» list */
+  /** a sheet number («8.1») — metadata only, never shown */
   code?: string
   paper?: 'portrait' | 'landscape'
   columns?: 1 | 2
@@ -106,6 +106,8 @@ export interface TemplatePage {
   header?: boolean
   /** station switch: not offered under «+ Seite» */
   hidden?: boolean
+  /** may be added more than once — each its own page, numbered («Konzept», «Konzept 2», …) */
+  repeatable?: boolean
   sections: TemplateSection[]
 }
 
