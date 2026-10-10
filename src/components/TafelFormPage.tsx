@@ -433,6 +433,9 @@ export function TafelFormPage({ pageKey, title, data, readOnly, isPhone, onChang
   })()
 
   // ── writing ────────────────────────────────────────────────────────────────────────────────
+  // the latest data, read where a closure outlives its render (a drag ends many renders later)
+  const dataRef = useRef(data)
+  useLayoutEffect(() => { dataRef.current = data })
   const put = (next: BoardFormData) => { if (next !== data) onChange(next) }
   const timeCol = (sec: TableSection) => editableColumns(sec).find((c) => c.type === 'time')
   /** the next state for a cell commit; `stamp` = Enter finished the row, so an empty «Wann» of a
@@ -514,9 +517,9 @@ export function TafelFormPage({ pageKey, title, data, readOnly, isPhone, onChang
   // Alt+↑ / Alt+↓ (⌥ on a Mac) in any of its cells, or the grip at its left edge dragged (pointer
   // and touch, the page scrolling under the finger near its edges). One move is one ↶ step and
   // writes one order key (lib/orderKey) — what was typed in the cell rides along in that step.
-  const listOf = (a: Addr): string[] => {
-    if (a.kind === 'line' || a.kind === 'tag') return boxLines(data, a.sec, a.box).map((l) => l.id)
-    if (a.kind === 'cell') { const sec = sections.find((x) => x.id === a.sec); return sec?.type === 'table' ? writtenRows(data, sec).map((r) => r.id) : [] }
+  const listOf = (a: Addr, base: BoardFormData = data): string[] => {
+    if (a.kind === 'line' || a.kind === 'tag') return boxLines(base, a.sec, a.box).map((l) => l.id)
+    if (a.kind === 'cell') { const sec = sections.find((x) => x.id === a.sec); return sec?.type === 'table' ? writtenRows(base, sec).map((r) => r.id) : [] }
     return []
   }
   const moveTo = (a: Addr, to: number, base: BoardFormData = data): BoardFormData =>
@@ -566,7 +569,16 @@ export function TafelFormPage({ pageKey, title, data, readOnly, isPhone, onChang
       window.removeEventListener('keydown', esc)
       cancelAnimationFrame(raf)
       setDrag(null)
-      if (commit && to !== from) put(moveTo(a, to))
+      if (!commit || to === from) return
+      // ⚠️ Commit against the data as it stands NOW: another device's change (or a commit) may have
+      // landed during the drag. The drop is «after that neighbour», re-found in the current order.
+      const latest = dataRef.current
+      const now = listOf(a, latest).filter((id) => id !== a.row)
+      if (!listOf(a, latest).includes(a.row)) return // the entry is gone meanwhile
+      const after = to > 0 ? order.filter((id) => id !== a.row)[to - 1] : null
+      const at = after === null ? 0 : now.indexOf(after) + 1
+      const moved = moveTo(a, after !== null && at === 0 ? Math.min(to, now.length) : at, latest)
+      if (moved !== latest) onChange(moved)
     }
     const up = end(true), cancel = end(false)
     const esc = (ev: globalThis.KeyboardEvent) => { if (ev.key === 'Escape') cancel() }
