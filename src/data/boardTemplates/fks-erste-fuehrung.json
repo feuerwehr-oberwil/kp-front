@@ -3,7 +3,7 @@
   "id": "fks-erste-fuehrung",
   "version": 1,
   "title": { "de": "FKS – Erste Führung", "fr": "CSSP – Première Conduite", "it": "CSP – Prima coordinazione", "en": "FKS – First command" },
-  "source": "FKS Plakat «Erste Führung» A3 V 1.0/10.09.2019; FKS Handbuch Führung Grossereignisse 09/2022, Kap. 8 Hilfsmittel",
+  "source": "FKS Plakat «Erste Führung» A3 V 1.0/10.09.2019; FKS Handbuch Führung Grossereignisse 09/2022, Kap. 8 Hilfsmittel (8.1 Problemerfassung, 8.6 Mittel, 8.8 Verbindungen, 8.9 Konzept, 8.11 Rapport)",
   "pages": [
     {
       "id": "ef",
@@ -17,7 +17,7 @@
           "type": "quad",
           "title": { "de": "Problemerfassung", "fr": "Saisie du problème", "it": "Comprensione del problema", "en": "Problem assessment" },
           "height": 11,
-          "trend": false,
+          "trend": true,
           "tag": false,
           "cells": [
             { "id": "front", "label": { "de": "Front", "fr": "Front", "it": "Fronte", "en": "Front" } },
@@ -75,7 +75,7 @@
           "title": { "de": "Abspracherapport", "fr": "Accord", "it": "Rapporto di coordinazione", "en": "Coordination briefing" },
           "subtitle": { "de": "Feuerwehr – Polizei – Rettungsdienst", "fr": "Sapeurs-pompiers – police – secours", "it": "Pompieri – polizia – ambulanze", "en": "Fire service – police – ambulance" },
           "height": 12,
-          "addRows": false,
+          "addRows": true,
           "columns": [
             { "id": "sig", "label": { "de": "Signatur", "fr": "Signature", "it": "Simbolo", "en": "Symbol" }, "type": "symbol", "fixed": true, "w": 1.55 },
             { "id": "bez", "label": { "de": "Bezeichnung", "fr": "Désignation", "it": "Designazione", "en": "Designation" }, "fixed": true, "w": 1.5 },
@@ -85,8 +85,8 @@
             { "id": "patientensammelstelle", "cells": { "sig": "patientensammelstelle", "bez": { "de": "Patienten\u00adsammelstelle", "fr": "Poste collecteur de patients", "it": "Nido feriti", "en": "Casualty collection point" } } },
             { "id": "sanitaetshilfsstelle", "cells": { "sig": "sanitaetshilfsstelle", "bez": { "de": "Sanitäts\u00adhilfsstelle", "fr": "Poste médical avancé", "it": "Posto di soccorso sanitario", "en": "Advanced medical post" } } },
             { "id": "rettungsachse", "cells": { "sig": "rettungsachse", "bez": { "de": "Rettungs\u00adachse", "fr": "Axe de sauvetage", "it": "Asse del salvataggio", "en": "Rescue route" } } },
-            { "id": "standort-einsatzleitung", "cells": { "sig": "standort-einsatzleitung", "bez": { "de": "Standort Einsatzleitung", "fr": "Poste de commandement", "it": "Posto della direzione dell’intervento", "en": "Incident command post" } } },
-            { "id": "sammelstelle-unverletzte", "cells": { "sig": "sammelstelle-unverletzte", "bez": { "de": "Sammelstelle Unverletzte", "fr": "Poste collecteur de personnes non blessées", "it": "Posto collettore dei non feriti", "en": "Uninjured collection point" } } },
+            { "id": "standort-einsatzleitung", "cells": { "sig": "standort-einsatzleitung", "bez": { "de": "Standort Einsatz\u00adleitung", "fr": "Poste de commandement", "it": "Posto della direzione dell’intervento", "en": "Incident command post" } } },
+            { "id": "sammelstelle-unverletzte", "cells": { "sig": "sammelstelle-unverletzte", "bez": { "de": "Sammel\u00adstelle Un\u00adverletzte", "fr": "Poste collecteur de personnes non blessées", "it": "Posto collettore dei non feriti", "en": "Uninjured collection point" } } },
             { "id": "warteraum", "cells": { "sig": "warteraum", "bez": { "de": "Warteraum", "fr": "Zone d’attente", "it": "Piazza d’attesa", "en": "Staging area" } } },
             { "id": "wasserbezug", "hidden": true, "cells": { "sig": "wasserbezug", "bez": { "de": "Wasserbezug", "fr": "Prise d’eau", "it": "Presa d’acqua", "en": "Water supply" } } },
             { "id": "absperrung", "hidden": true, "cells": { "sig": "absperrung", "bez": { "de": "Absperrung", "fr": "Bouclage", "it": "Sbarramento", "en": "Cordon" } } }
@@ -96,7 +96,6 @@
     },
     {
       "id": "problem-tendenz",
-      "code": "8.1",
       "title": { "de": "Problemerfassung", "fr": "Appréhension du problème", "it": "Comprensione del problema", "en": "Problem assessment" },
       "paper": "landscape",
       "columns": 1,
@@ -116,7 +115,6 @@
     },
     {
       "id": "mittel",
-      "code": "8.6",
       "title": { "de": "Mittel", "fr": "Moyens", "it": "Mezzi", "en": "Resources" },
       "paper": "portrait",
       "columns": 1,
@@ -137,7 +135,6 @@
     },
     {
       "id": "verbindungen",
-      "code": "8.8",
       "title": { "de": "Verbindungen", "fr": "Plan des liaisons", "it": "Collegamenti", "en": "Communications" },
       "paper": "portrait",
       "columns": 1,
@@ -157,7 +154,6 @@
     },
     {
       "id": "konzept",
-      "code": "8.9",
       "title": { "de": "Konzept", "fr": "Concept", "it": "Concetto", "en": "Concept" },
       "paper": "portrait",
       "columns": 2,
@@ -181,7 +177,6 @@
     },
     {
       "id": "rapport",
-      "code": "8.11",
       "title": { "de": "Rapport", "fr": "Rapport", "it": "Rapporto", "en": "Briefing" },
       "paper": "portrait",
       "columns": 1,

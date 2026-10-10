@@ -487,10 +487,10 @@ checklists-push file *args:
 
 # Load a board-templates manifest (the Tafel's pages, board-template/1) into the deployment (DATABASE_URL).
 [group('Deployment config')]
-board-templates-load file:
-    cd backend && uv run python -m app.admin_board_templates load "{{absolute_path(file)}}"
+board-templates-load file *args:
+    cd backend && uv run python -m app.admin_board_templates load "{{absolute_path(file)}}" {{args}}
 
-# Publish a board-templates manifest to a RUNNING deployment via its API (and prune the rest).
+# Publish a board-templates manifest to a RUNNING deployment via its API (--prune deletes the rest).
 [group('Deployment config')]
 board-templates-push file *args:
     cd backend && uv run python -m app.admin_board_templates push "{{absolute_path(file)}}" {{args}}

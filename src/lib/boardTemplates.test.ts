@@ -19,10 +19,26 @@ describe('the station’s board templates', () => {
     expect(got.map((t) => t.id)).toEqual(['oberwil'])
     expect(apiGet).not.toHaveBeenCalledWith('/api/reference/tafel:x:y')
   })
-  it('a station with none gets the bundle; a broken file is no file; removing the last one goes back to the bundle', async () => {
+  it('one template that does not arrive keeps the last COMPLETE set — never a shorter one', async () => {
     apiGet.mockImplementation(async (p: string) => (p === '/api/reference' ? [{ id: 'tafel:oberwil' }] : station))
     expect((await loadBoardTemplates()).map((t) => t.id)).toEqual(['oberwil'])
-    apiGet.mockImplementation(async (p: string) => (p === '/api/reference' ? [{ id: 'tafel:kaputt' }] : { schema: 'board-template/1', id: 'kaputt' }))
+    const second = { ...station, id: 'zivilschutz' }
+    apiGet.mockImplementation(async (p: string) => {
+      if (p === '/api/reference') return [{ id: 'tafel:oberwil' }, { id: 'tafel:zivilschutz' }]
+      if (p.endsWith('zivilschutz')) throw new TypeError('Failed to fetch')
+      return station
+    })
+    expect((await loadBoardTemplates()).map((t) => t.id)).toEqual(['oberwil'])
+    // …and a file this build cannot read counts as not arrived
+    apiGet.mockImplementation(async (p: string) => (p === '/api/reference' ? [{ id: 'tafel:oberwil' }, { id: 'tafel:zivilschutz' }]
+      : p.endsWith('zivilschutz') ? { schema: 'board-template/2', id: 'zivilschutz' } : station))
+    expect((await loadBoardTemplates()).map((t) => t.id)).toEqual(['oberwil'])
+    void second
+  })
+  it('a station that removed its last template is back on the bundled FKS set', async () => {
+    apiGet.mockImplementation(async (p: string) => (p === '/api/reference' ? [{ id: 'tafel:oberwil' }] : station))
+    await loadBoardTemplates()
+    apiGet.mockImplementation(async () => [])
     expect((await loadBoardTemplates()).map((t) => t.id)).toEqual(['fks-erste-fuehrung'])
   })
   it('offline, the last set it saw answers', async () => {

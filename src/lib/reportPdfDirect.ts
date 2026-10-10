@@ -39,7 +39,8 @@ import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
 import { resolvePlanAnnos } from './lineAttachments'
 import type { JournalLink } from './journalLinks'
-import { TAFEL_ID, findForms, formForPdf, isFormAnno } from './boardForm'
+import { TAFEL_ID, findForms, formForPdf } from './boardForm'
+import { isDrawnBoardKind } from './workspace'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
  *  glyphs resolved to SVG strings, like the whiteboard renders them).
@@ -48,7 +49,8 @@ import { TAFEL_ID, findForms, formForPdf, isFormAnno } from './boardForm'
  *  (IncidentWorkspace · symbolCaptions), so the printed plan is labelled the way the screen it
  *  was drawn on was. */
 export function planAnnosForPdf(annos: BoardAnno[], captionMode: CaptionMode = 'auto'): Record<string, unknown>[] {
-  return resolvePlanAnnos(annos).map((a) => {
+  // only what a sheet DRAWS: a Tafel page prints as its own page, a passenger not at all
+  return resolvePlanAnnos(annos.filter((a) => isDrawnBoardKind(a.kind))).map((a) => {
     const out: Record<string, unknown> = {
       kind: a.kind, x: a.x, y: a.y, pts: a.pts, color: a.color, width: a.width,
       // ⚠️ `hatch` rides with the fill it REPLACES — an `area` that came out washed on paper was
@@ -413,7 +415,7 @@ export function tafelPayload(
 ): { boardPages: Record<string, unknown>[]; boardMap?: unknown; skizze?: Record<string, unknown> } {
   const annos = board?.[TAFEL_ID] ?? []
   const T = appConfig.copy.tafel
-  const pages = findForms(annos).map((a) => formForPdf(a.form, { up: T.trendUp, same: T.trendSame, down: T.trendDown }))
+  const pages = findForms(annos).map((a) => formForPdf(a.form, { up: T.trendUp, same: T.trendSame, down: T.trendDown }, undefined, T.head))
   const wantsMap = findForms(annos).some((a) => a.form.page.sections.some((x) => x.type === 'map' && !x.hidden))
   const map = wantsMap && scene
     ? buildKrokiPayload({
@@ -421,7 +423,7 @@ export function tafelPayload(
         byName: scene.byName, center: scene.center, currentView: null, captionMode: 'off', trupps,
       })
     : null
-  const ink = annos.filter((a) => !isFormAnno(a))
+  const ink = annos.filter((a) => isDrawnBoardKind(a.kind))
   const tafel = plans.find((p) => p.id === TAFEL_ID)
   const skizze = tafel && hasVisiblePlanAnnotation({ [TAFEL_ID]: ink }, TAFEL_ID)
     ? {

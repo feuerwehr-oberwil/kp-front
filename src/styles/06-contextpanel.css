@@ -130,8 +130,9 @@
    list — it wraps into a grey slab of two ragged rows, and the well stops meaning anything.
    So past four they become what they actually are: a row of chips. Same tap targets, same
    one-tap access (the reason the threshold is generous in the first place — a doctrine list must
-   not hide behind a dropdown), no well pretending to be a track. */
-.useg:has(> :nth-child(5)) { background: none; padding: 0; gap: 8px; }
+   not hide behind a dropdown), no well pretending to be a track. A control that SCROLLS instead
+   of wrapping (`scroll`, the Tafel's page strip) never wraps, so it stays a track. */
+.useg:where(:not(.useg-scroll)):has(> :nth-child(5)) { background: none; padding: 0; gap: 8px; }
 /* ⚠️ min-height back up to the FULL --tap. In track mode the control measures 44px as 3px of
    padding around a 38px option; dropping the padding for chips left the chips themselves at
    38px, so the same control was 6px shorter as chips than as a track — which is why the rank
@@ -139,9 +140,9 @@
    IS the control here, so it carries the whole tap target. */
 /* a chip is an option standing on its own: ink, like every other option chip (the track's dim
    words are dim because the well around them already says «options») */
-.useg:has(> :nth-child(5)) > .useg-btn { border: 1px solid var(--glass-edge); background: var(--surface); min-height: var(--tap); color: var(--ink); }
+.useg:where(:not(.useg-scroll)):has(> :nth-child(5)) > .useg-btn { border: 1px solid var(--glass-edge); background: var(--surface); min-height: var(--tap); color: var(--ink); }
 @media (hover: hover) {
-  .useg:has(> :nth-child(5)) > .useg-btn:hover:not(.on):not(:disabled) { border-color: var(--ink-faint); }
+  .useg:where(:not(.useg-scroll)):has(> :nth-child(5)) > .useg-btn:hover:not(.on):not(:disabled) { border-color: var(--ink-faint); }
 }
 /* ⚠️ The chip rule above sets `background: var(--surface)` at a HIGHER specificity than
    `.useg-btn.on`, so the active chip lost the blue fill but KEPT `color: var(--on-fill)` — white
@@ -150,7 +151,7 @@
    not read. So the active chip states its own colours rather than inheriting half of each rule.
    Since 28.09.2026 that is the SAME blue fill as the track's pill (01-tokens · --sel): a ring +
    tint here and a fill two rows up was one of the four «selected» the Trupp form wore. */
-.useg:has(> :nth-child(5)) > .useg-btn.on {
+.useg:where(:not(.useg-scroll)):has(> :nth-child(5)) > .useg-btn.on {
   border-color: var(--sel); background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow);
 }
 /* press wash BELOW the chip rules: their `background:` shorthand resets background-image at the

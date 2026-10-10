@@ -506,8 +506,10 @@ describe('sanitizeWorkspace — per-object shape gate', () => {
       { id: 'noxy', kind: 'symbol' },
       { id: 'kind', kind: 'sticker', x: 0.5, y: 0.5 },
     ] } })
-    expect(g.ws?.board?.modul1.map((a) => a.id)).toEqual(['ink', 'sym', 'old']) // 'trupp' migrates in normalizeBoard
-    expect(g.dropped).toBe(5)
+    // 'trupp' migrates in normalizeBoard; a kind this build has never heard of is a PASSENGER — kept
+    // untouched, never drawn (review of #338: dropping it made the next save delete it for everybody)
+    expect(g.ws?.board?.modul1.map((a) => a.id)).toEqual(['ink', 'sym', 'old', 'kind'])
+    expect(g.dropped).toBe(4)
   })
 
   it('board annos: a resource trail keeps only its valid points', () => {

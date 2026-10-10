@@ -126,7 +126,14 @@ export function labelText(l: Label | undefined, locale: string = getLocaleId()):
   return l[k] ?? l.de
 }
 
-// ── the shape check ───────────────────────────────────────────────────────────────────────────
+// ── the shape checks ──────────────────────────────────────────────────────────────────────────
+//
+// ⚠️ TWO questions, deliberately apart (review of #338, 10.10.2026). «May this be KEPT?» is asked
+// at the gates (a synced page snapshot, a station file) and is STRUCTURAL ONLY: ids, labels,
+// arrays. A value this build does not know — a newer section type, a new column type, a new
+// paper size — passes, and is only not DRAWN. «Can this section be DRAWN?» (`isUsableSection`)
+// is asked by the renderers. Before the split, one unknown enum value dropped the whole page at
+// load, and this device's next save then deleted it for everybody.
 
 const ID = /^[a-z0-9][a-z0-9-]*$/
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
@@ -135,19 +142,22 @@ export const isLabel = (v: unknown): v is Label =>
   typeof v === 'string' || (isObj(v) && typeof v.de === 'string' && ['fr', 'it', 'en'].every((k) => v[k] === undefined || typeof v[k] === 'string'))
 const optLabel = (v: unknown) => v === undefined || isLabel(v)
 const optBool = (v: unknown) => v === undefined || typeof v === 'boolean'
+const optStr = (v: unknown) => v === undefined || typeof v === 'string'
 const uniqueIds = (xs: { id: string }[]) => new Set(xs.map((x) => x.id)).size === xs.length
-const COLUMN_TYPES: readonly string[] = ['text', 'time', 'trend', 'symbol', 'index']
 
+/** A column the table can lay out. An unknown `type` is drawn as text. */
 function isColumn(v: unknown): v is TemplateColumn {
-  return isObj(v) && isId(v.id) && isLabel(v.label)
-    && (v.type === undefined || COLUMN_TYPES.includes(v.type as string))
+  return isObj(v) && isId(v.id) && isLabel(v.label) && optStr(v.type)
     && optBool(v.fixed) && optBool(v.hidden)
     && (v.w === undefined || (typeof v.w === 'number' && v.w > 0 && v.w <= 20))
 }
 
-function isSection(v: unknown): v is TemplateSection {
+/**
+ * A section this build can DRAW: a known type with what that type needs. An unknown `span`,
+ * `layout` or `tone` falls back to the default; an unknown section type is not drawn.
+ */
+export function isUsableSection(v: unknown): v is TemplateSection {
   if (!isObj(v) || !isId(v.id) || !optLabel(v.title) || !optLabel(v.subtitle) || !optBool(v.hidden)) return false
-  if (v.span !== undefined && v.span !== 1 && v.span !== 2) return false
   if (v.height !== undefined && !(typeof v.height === 'number' && v.height >= 1 && v.height <= 60)) return false
   switch (v.type) {
     case 'quad':
@@ -167,48 +177,49 @@ function isSection(v: unknown): v is TemplateSection {
         if (!v.fixedRows.every((r) => isObj(r) && isId(r.id) && optBool(r.hidden) && isObj(r.cells)
           && Object.entries(r.cells).every(([k, x]) => fixedIds.has(k) && isLabel(x)))) return false
       }
-      return optBool(v.addRows) && optBool(v.done) && (v.seed === undefined || v.seed === 'vehicles')
+      return optBool(v.addRows) && optBool(v.done) && optStr(v.seed)
     }
     case 'text':
       return Array.isArray(v.fields) && v.fields.length >= 1 && v.fields.length <= 6
-        && v.fields.every((f) => isObj(f) && isId(f.id) && optLabel(f.label)
-          && (f.tone === undefined || f.tone === 'plus' || f.tone === 'minus' || f.tone === 'shade')
-          && (f.type === undefined || f.type === 'text' || f.type === 'time'))
+        && v.fields.every((f) => isObj(f) && isId(f.id) && optLabel(f.label) && optStr(f.tone) && optStr(f.type))
         && uniqueIds(v.fields as TemplateField[])
-        && (v.layout === undefined || v.layout === 'stack' || v.layout === 'row' || v.layout === 'split')
     default:
       return false
   }
 }
 
-/** One page — also the gate the SNAPSHOT inside a synced Tafel page passes (lib/boardForm). */
+/** One page, structurally — the gate a synced SNAPSHOT passes (lib/boardForm · isFormData) and the
+ *  one a station file's pages pass. What its sections hold is the renderers' question. */
 export function isTemplatePage(v: unknown): v is TemplatePage {
-  return isObj(v) && isId(v.id) && isLabel(v.title)
-    && (v.code === undefined || typeof v.code === 'string')
-    && (v.paper === undefined || v.paper === 'portrait' || v.paper === 'landscape')
-    && (v.columns === undefined || v.columns === 1 || v.columns === 2)
-    && optBool(v.header) && optBool(v.hidden)
-    && Array.isArray(v.sections) && v.sections.length >= 1 && v.sections.every(isSection)
+  return isObj(v) && typeof v.id === 'string' && v.id.length > 0 && isLabel(v.title)
+    && optStr(v.code)
+    && Array.isArray(v.sections) && v.sections.length >= 1
+    && v.sections.every((x) => isObj(x) && typeof x.id === 'string' && typeof x.type === 'string')
     && uniqueIds(v.sections as TemplateSection[])
 }
 
-/** A whole `board-template/1` file. */
+/** A whole `board-template/1` file (structural, like the page gate: the backend's model is the
+ *  strict half — `extra="forbid"`, every enum — and refuses a bad file at upload). */
 export function isBoardTemplate(v: unknown): v is BoardTemplate {
   return isObj(v) && v.schema === BOARD_TEMPLATE_SCHEMA && isId(v.id)
     && typeof v.version === 'number' && Number.isInteger(v.version) && v.version >= 1
-    && isLabel(v.title) && (v.source === undefined || typeof v.source === 'string')
+    && isLabel(v.title) && optStr(v.source)
     && Array.isArray(v.pages) && v.pages.length >= 1 && v.pages.every(isTemplatePage)
     && uniqueIds(v.pages as TemplatePage[])
 }
 
 // ── reading a page ────────────────────────────────────────────────────────────────────────────
 
-/** What a page shows: its sections without the ones a station switched off. */
-export const shownSections = (p: TemplatePage): TemplateSection[] => p.sections.filter((s) => !s.hidden)
+/** What a page shows: the sections this build can draw, without the ones a station switched off. */
+export const shownSections = (p: TemplatePage): TemplateSection[] => p.sections.filter((s) => !s.hidden && isUsableSection(s))
 export const shownColumns = (s: TableSection): TemplateColumn[] => s.columns.filter((c) => !c.hidden)
 export const shownFixedRows = (s: TableSection): TemplateRow[] => (s.fixedRows ?? []).filter((r) => !r.hidden)
-/** the columns somebody types into */
+/** the columns somebody types into in a FIXED row (the pre-printed ones are the row's own) */
 export const editableColumns = (s: TableSection): TemplateColumn[] => shownColumns(s).filter((c) => !c.fixed)
+/** …and in a WRITTEN row: a pre-printed TEXT column is free text there (a seventh Absprachepunkt
+ *  names itself, owner round 2) — only a Signatur or a number stays the fixed rows' own */
+export const writtenColumns = (s: TableSection): TemplateColumn[] =>
+  shownColumns(s).filter((c) => !c.fixed || (c.type !== 'symbol' && c.type !== 'index'))
 /** a table with pre-printed rows is a fixed list unless it says otherwise */
 export const tableAddsRows = (s: TableSection): boolean => s.addRows ?? !(s.fixedRows?.length)
 

@@ -32,6 +32,9 @@
  * sides differ in more than `noteAt`.
  */
 
+import { isFormData } from './boardForm'
+import { mergeFormData } from './boardFormMerge'
+import { labelText } from './boardTemplate'
 import { followerOnlyChange } from './gpsReturn'
 import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } from './tacticalObjects'
 import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
@@ -623,7 +626,19 @@ void everySyncedFieldHasASlot
  * another device polling the same vehicle feed would otherwise write its follower sample over a
  * «Zurück auf Stand am Einsatzort» or an «Am Einsatzort lösen», and the drive came back.
  */
-function resolveTactical(ancestor: TacticalObject, mine: TacticalObject, theirs: TacticalObject): TacticalObject {
+function resolveTactical(ancestor: TacticalObject, mine: TacticalObject, theirs: TacticalObject, onFormConflict?: (c: RecordConflict) => void): TacticalObject {
+  // …and a Tafel PAGE is merged cell by cell (lib/boardFormMerge, review of #338): two devices
+  // on one page must both keep what they wrote, and a cell both changed goes to the later edit
+  const page = (o: TacticalObject) => (o.sheet?.anno.kind === 'form' && isFormData(o.sheet.anno.form) ? o.sheet.anno.form : null)
+  const [pa, pm, pt] = [page(ancestor), page(mine), page(theirs)]
+  if (pa && pm && pt && mine.sheet && theirs.sheet) {
+    const form = mergeFormData(pa, pm, pt, (c) => onFormConflict?.({
+      key: `${mine.id}|${c.atom}`,
+      mine: { page: labelText(pm.page.title), where: c.where, kept: c.kept },
+      theirs: { page: labelText(pm.page.title), where: c.where, lost: c.lost },
+    }))
+    return { ...mine, sheet: { ...mine.sheet, anno: { ...mine.sheet.anno, form } } }
+  }
   const mineMachine = followerOnlyChange(ancestor, mine)
   const theirsMachine = followerOnlyChange(ancestor, theirs)
   if (mineMachine && !theirsMachine) return theirs
@@ -669,7 +684,7 @@ export function mergeWorkspace(
   theirs: Record<string, unknown>,
   onAttendanceConflict?: (c: RecordConflict) => void,
   onTruppConflict?: (c: RecordConflict) => void,
-  opts: { numbers?: NumberScope } = {},
+  opts: { numbers?: NumberScope; onFormConflict?: (c: RecordConflict) => void } = {},
 ): Record<string, unknown> {
   // The unified objects (schema 2) are the authoritative tactical collection: each side
   // unifies FIRST (a legacy side — an un-updated device's save — derives its objects from
@@ -684,7 +699,7 @@ export function mergeWorkspace(
           asList(ws.drawings) as Drawing[],
           asBoard(ws.board) as BoardDoc,
         )
-  const objects = mergeById(objectsOf(base), objectsOf(mine), objectsOf(theirs), resolveTactical)
+  const objects = mergeById(objectsOf(base), objectsOf(mine), objectsOf(theirs), (a, m, t) => resolveTactical(a, m, t, opts.onFormConflict))
   const cx: MergeCx = { objects, views: viewsOf(objects), onAttendanceConflict, onTruppConflict }
   const out: Record<string, unknown> = { ...mine } // the 'local' rows (and keys this build doesn't know)
   for (const [k, policy] of Object.entries(MERGE_POLICY) as [keyof Saved, FieldPolicy][]) {

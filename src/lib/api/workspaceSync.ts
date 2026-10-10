@@ -274,6 +274,9 @@ export class WorkspaceSync {
    *  Verlauf note so a human checks. Buffers like the attendance channel until registration. */
   onTruppConflicts?: (conflicts: RecordConflict[]) => void
   private truppConflictBuf: RecordConflict[] = []
+  /** a Tafel page two devices wrote on at once, a cell both changed (lib/boardFormMerge) */
+  onFormConflicts?: (conflicts: RecordConflict[]) => void
+  private formConflictBuf: RecordConflict[] = []
   /** Registered by the live view (useIncidentSync): a Trupp or loose «Trupp N» chip changed its
    *  number — a merge settled a number two devices minted at once (lib/truppNumbers). The caller
    *  writes the ONE Verlauf row, under an id derived from the change, so every report of the same
@@ -451,7 +454,9 @@ export class WorkspaceSync {
   private mergeReporting(base: Workspace, mine: Workspace, theirs: Workspace): Workspace {
     const conflicts: RecordConflict[] = []
     const truppConflicts: RecordConflict[] = []
-    const merged = mergeWorkspace(base, mine, theirs, (c) => conflicts.push(c), (c) => truppConflicts.push(c), { numbers: this.numberScope })
+    const formConflicts: RecordConflict[] = []
+    const merged = mergeWorkspace(base, mine, theirs, (c) => conflicts.push(c), (c) => truppConflicts.push(c),
+      { numbers: this.numberScope, onFormConflict: (c) => formConflicts.push(c) })
     if (conflicts.length) {
       if (this.onAttendanceConflicts) this.onAttendanceConflicts(conflicts)
       else this.conflictBuf.push(...conflicts)
@@ -459,6 +464,10 @@ export class WorkspaceSync {
     if (truppConflicts.length) {
       if (this.onTruppConflicts) this.onTruppConflicts(truppConflicts)
       else this.truppConflictBuf.push(...truppConflicts)
+    }
+    if (formConflicts.length) {
+      if (this.onFormConflicts) this.onFormConflicts(formConflicts)
+      else this.formConflictBuf.push(...formConflicts)
     }
     return merged
   }
@@ -511,6 +520,13 @@ export class WorkspaceSync {
   drainAttendanceConflicts(): RecordConflict[] {
     const buf = this.conflictBuf
     this.conflictBuf = []
+    return buf
+  }
+
+  /** Same drain for the Tafel-page channel (see onFormConflicts). */
+  drainFormConflicts(): RecordConflict[] {
+    const buf = this.formConflictBuf
+    this.formConflictBuf = []
     return buf
   }
 

@@ -5,8 +5,8 @@ import fksErsteFuehrung from '../data/boardTemplates/fks-erste-fuehrung.json'
 
 /**
  * The station's board templates — distributed exactly like the checklists (docs/board-templates.md):
- * `admin_board_templates push` uploads each file as the reference dataset `tafel:<id>` and prunes
- * the ones that left the manifest; this reads them through IndexedDB so a Tafel opened offline
+ * `admin_board_templates push` uploads each file as the reference dataset `tafel:<id>` and (with
+ * `--prune`) deletes the ones that left the manifest; this reads them through IndexedDB so a Tafel opened offline
  * still offers its pages.
  *
  * ⚠️ A station set REPLACES the bundled one, never joins it (owner, 10.10.2026): a station that
@@ -37,9 +37,14 @@ export async function loadBoardTemplates(): Promise<BoardTemplate[]> {
     async () => {
       const list = await apiGet<{ id: string }[]>('/api/reference')
       const ids = (list ?? []).map((d) => d.id).filter(isTafelTemplateId).sort()
-      const fetched = await Promise.all(ids.map((id) =>
-        apiGet<unknown>(`/api/reference/${id}`).then((j) => (isBoardTemplate(j) ? j : null)).catch(() => null)))
-      return fetched.filter((t): t is BoardTemplate => t !== null)
+      // ⚠️ ALL or nothing (review of #338): one template that did not arrive, or arrived as
+      // something this build cannot read, must not be cached as a shorter set — it throws, and the
+      // last complete set answers (readThrough · the cache), else the bundled one
+      return Promise.all(ids.map(async (id) => {
+        const j = await apiGet<unknown>(`/api/reference/${id}`)
+        if (!isBoardTemplate(j)) throw new Error(`board template ${id} is not readable`)
+        return j
+      }))
     },
     { validate: isTemplateList, fallback: () => [], shouldFallback: () => true },
   )

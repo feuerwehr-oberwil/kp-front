@@ -30,8 +30,18 @@ from reportlab.platypus import Flowable
 
 class BoardLineIn(BaseModel):
     text: str = ""
+    #: the trend as a word («wird schlimmer») and as a direction (up · same · down) — the paper
+    #: draws the arrow itself, Helvetica has none
     trend: str = ""
+    dir: str = ""
     tag: str = ""
+
+
+class BoardHeadIn(BaseModel):
+    """One field of the optional header line, its label in the deployment's words."""
+
+    label: str = ""
+    value: str = ""
 
 
 class BoardCellIn(BaseModel):
@@ -90,12 +100,11 @@ class BoardPageIn(BaseModel):
     """One Tafel page, resolved by the client (lib/boardForm · formForPdf)."""
 
     title: str = ""
-    code: str = ""
     source: str = ""
     landscape: bool = False
     columns: int = 1
     #: the optional header line: Einsatz, Adresse, Alarm, Einsatzleiter (empty = switched off)
-    head: list[str] = []
+    head: list[BoardHeadIn] = []
     sections: list[BoardSectionIn] = []
 
 
@@ -168,6 +177,9 @@ def wrap(text: str, width: float, font: str = FONT, size: float = _FS) -> list[s
                         break
                     out.append(line)
                     line = ""
+                    # on a fresh line the rest of the word may fit whole: no hyphen then
+                    if stringWidth("".join(parts), font, size) <= width:
+                        break
                     continue
                 head = "".join(parts[:k]) + "-"
                 out.append(f"{line} {head}" if line else head)
@@ -241,6 +253,29 @@ class Overflow:
     title: str
     columns: list[str]
     rows: list[list[str]] = field(default_factory=list)
+
+
+def trend_arrow(c, direction: str, x: float, y_mid: float, size: float) -> None:
+    """The Entwicklungstendenz as the Handbuch draws it — ➚ worse (red), = unchanged, ➘ easing
+    (green) — a vector glyph in a `size` box starting at `x`, centred on `y_mid`."""
+    c.saveState()
+    c.setLineWidth(max(0.8, size / 7))
+    color = {"up": colors.HexColor("#c62828"), "down": colors.HexColor("#2e7d32")}.get(direction, RULE)
+    c.setStrokeColor(color)
+    c.setFillColor(color)
+    h = size / 2
+    if direction == "same":
+        c.line(x, y_mid + h * 0.35, x + size, y_mid + h * 0.35)
+        c.line(x, y_mid - h * 0.35, x + size, y_mid - h * 0.35)
+    elif direction in ("up", "down"):
+        sign = 1 if direction == "up" else -1
+        x0, y0 = x, y_mid - sign * h
+        x1, y1 = x + size, y_mid + sign * h
+        c.line(x0, y0, x1, y1)
+        # the head: two short strokes back from the tip
+        c.line(x1, y1, x1 - size * 0.45, y1)
+        c.line(x1, y1, x1, y1 - sign * size * 0.45)
+    c.restoreState()
 
 
 def draw_signature(c, key: str, x: float, y: float, size: float) -> None:
@@ -395,26 +430,46 @@ class BoardPageFlowable(Flowable):
             c.setFont(FONT, 9)
             c.setFillColor(RULE)
             c.drawString(cx + 1.8 * mm, cy_top - 4.6 * mm, printable(cell.label))
-            body = "\n".join(
-                " ".join(
-                    p for p in (f"[{ln.trend}]" if ln.trend else "", ln.text, f"({ln.tag})" if ln.tag else "") if p
-                )
-                for ln in cell.lines
-            )
-            if not body:
+            if not cell.lines:
                 continue
+            arrow_w = 4.2 * mm if any(ln.dir for ln in cell.lines) else 0.0
+            text_w = cw - 3.6 * mm - arrow_w
+
+            def line_text(ln: BoardLineIn) -> str:
+                return f"{ln.text} ({ln.tag})" if ln.tag else ln.text
+
             size = _FS
             while True:
                 # measure first, draw once
-                lines = wrap(body, cw - 3.6 * mm, FONT, size)
+                n_lines = sum(len(wrap(line_text(ln), text_w, FONT, size)) for ln in cell.lines)
                 room = int((ch - 7 * mm) // (size * 1.18))
-                if len(lines) <= room or size <= _MIN_FS:
+                if n_lines <= room or size <= _MIN_FS:
                     break
                 size -= 0.5
-            left = self._text(cx, cy_top - 5.4 * mm, cw, ch - 5.4 * mm, body, size)
-            if left:
+            lead = size * 1.18
+            y = cy_top - 5.4 * mm - 1.6 * mm - size * 0.82
+            floor = cy_top - ch + 1.2 * mm
+            c.setFont(FONT, size)
+            cut = False
+            for ln in cell.lines:
+                parts = wrap(line_text(ln), text_w, FONT, size)
+                if y - (len(parts) - 1) * lead < floor:
+                    cut = True
+                    break
+                if ln.dir:
+                    trend_arrow(c, ln.dir, cx + 1.8 * mm, y + size * 0.3, 3.2 * mm)
+                c.setFillColor(RULE)
+                c.setFont(FONT, size)
+                for j, part in enumerate(parts):
+                    c.drawString(cx + 1.8 * mm + arrow_w, y - j * lead, part)
+                y -= len(parts) * lead
+            if cut:
                 self.overflow.append(
-                    Overflow(f"{s.title} · {cell.label}", [cell.label], [[ln.text] for ln in cell.lines])
+                    Overflow(
+                        f"{s.title} · {cell.label}",
+                        [cell.label, ""] if arrow_w else [cell.label],
+                        [[ln.text, ln.trend] if arrow_w else [ln.text] for ln in cell.lines],
+                    )
                 )
 
     def _map(self, bx, by, bw, bh) -> None:
@@ -472,28 +527,35 @@ class BoardPageFlowable(Flowable):
         body_h = body_top - by
         empty_rows = max(1, _default_height(s))
         n = len(s.rows)
-        slots = max(empty_rows, n) if s.adds else max(1, n)
         # the rows' heights: a fixed-row table shares its body out; a written one rules equal rows
-        # and gives a long cell the lines it needs, shrinking the type until it all fits
-        size = _FS
-        while True:
-            base = body_h / slots
-            need = []
-            for r in s.rows:
-                lines = 1
-                for i, col in enumerate(cols):
-                    if col.kind in ("symbol", "index"):
-                        continue
-                    v = r.cells[i] if i < len(r.cells) else ""
-                    if v:
-                        cw = widths[i] - 2.4 * mm
-                        fs = fit_size(v, cw, 9, 7) if r.fixed else fit_size(v, cw, size)
-                        lines = max(lines, len(wrap(v, cw, FONT, fs)))
-                need.append(max(base, lines * size * 1.18 + 2.2 * mm))
-            used = sum(need) + base * max(0, slots - n)
-            if used <= body_h + 0.5 or size <= _MIN_FS:
+        # and gives a long cell the lines it needs, shrinking the type until it all fits. A
+        # pre-printed row stands two rulings tall (the poster's Absprachepunkte, the Traktanden) —
+        # unless the rows written under it would then not fit: what was written beats the look.
+        for tall in (True, False):
+            weight = [2 if r.fixed and tall else 1 for r in s.rows]
+            units = sum(weight)
+            slots = max(empty_rows, units) if s.adds else max(1, units)
+            size = _FS
+            while True:
+                base = body_h / slots
+                need = []
+                for r, wgt in zip(s.rows, weight, strict=False):
+                    lines = 1
+                    for i, col in enumerate(cols):
+                        if col.kind in ("symbol", "index"):
+                            continue
+                        v = r.cells[i] if i < len(r.cells) else ""
+                        if v:
+                            cw = widths[i] - 2.4 * mm
+                            fs = fit_size(v, cw, 9, 7) if r.fixed else fit_size(v, cw, size)
+                            lines = max(lines, len(wrap(v, cw, FONT, fs)))
+                    need.append(max(base * wgt, lines * size * 1.18 + 2.2 * mm))
+                used = sum(need) + base * max(0, slots - units)
+                if used <= body_h + 0.5 or size <= _MIN_FS:
+                    break
+                size -= 0.5
+            if used <= body_h + 0.5:
                 break
-            size -= 0.5
         # draw what fits; the rest goes to the Fortsetzung
         y = body_top
         drawn = 0
@@ -534,6 +596,8 @@ class BoardPageFlowable(Flowable):
                     draw_signature(c, v, x + (w - side) / 2, y_top - h + (h - side) / 2, side)
                 continue
             if col.kind == "index":
+                if not v:
+                    continue
                 rad = min(h, w) * 0.28
                 c.setFillColor(SIG)
                 c.circle(x + w / 2, y_top - h / 2, rad, stroke=0, fill=1)
@@ -609,18 +673,17 @@ class BoardPageFlowable(Flowable):
         # title, as large as the poster's
         c.setFillColor(RULE)
         c.setFont(BOLD, 24)
-        title = printable(f"{p.code}  {p.title}" if p.code else p.title)
+        title = printable(p.title)
         c.drawString(0, ph - 10 * mm, title)
         if self.caption:
             c.setFont(FONT, 7.5)
             c.setFillColor(DIM)
             c.drawRightString(pw, ph - 9.5 * mm, printable(self.caption))
         top = ph - _TITLE_H
-        if any(x.strip() for x in p.head):
-            labels = ("Einsatz", "Adresse", "Alarm", "Einsatzleiter")
+        if any(h.value.strip() for h in p.head):
             c.setFont(FONT, 9)
             c.setFillColor(RULE)
-            bits = [f"{a}: {b}" for a, b in zip(labels, p.head, strict=False) if b.strip()]
+            bits = [f"{h.label}: {h.value}" for h in p.head if h.value.strip()]
             c.drawString(0, top + 2 * mm, printable("   ·   ".join(bits)))
             top -= 6 * mm
         # footer: where the page comes from
@@ -628,9 +691,15 @@ class BoardPageFlowable(Flowable):
         c.setLineWidth(0.6)
         c.line(0, _FOOT_H - 1 * mm, pw, _FOOT_H - 1 * mm)
         if p.source:
-            c.setFont(FONT, 6.5)
+            # a long source (the FKS file names the poster and the Handbuch's sheets) never runs
+            # off the paper: smaller first, then a second line
+            fs = 6.5
+            while fs > 5.5 and stringWidth(printable(p.source), FONT, fs) > pw:
+                fs -= 0.5
+            c.setFont(FONT, fs)
             c.setFillColor(RULE)
-            c.drawString(0, _FOOT_H - 4.5 * mm, printable(p.source))
+            for j, part in enumerate(wrap(p.source, pw, FONT, fs)[:2]):
+                c.drawString(0, _FOOT_H - 4.5 * mm - j * fs * 1.15, part)
         rows = _grid_rows(p)
         if not rows:
             return
@@ -664,33 +733,31 @@ def page_has_map(page: BoardPageIn) -> bool:
 
 
 class Continuation(Flowable):
-    """What the page before could not hold, as plain tables — laid out only once that page has
-    been DRAWN (Platypus wraps a flowable right before it draws it, in story order), so it knows
-    exactly which rows were left over. Nothing at all when everything fitted."""
+    """What the page before could not hold, as plain tables that FLOW over as many pages as they
+    need (review of #338: a shrink-to-fit block made row 24 of 80 microscopic and dropped the rest
+    of 350). Laid out only once that page has been DRAWN — Platypus wraps a flowable right before
+    it draws it, in story order — so it knows exactly which rows were left over.
+
+    It asks for more room than any frame has, so the frame hands it to `split`, which answers with
+    the tables themselves; those split page by page like any table. The sheet before fills its
+    frame, so they start on a fresh page. Nothing at all when everything fitted."""
 
     def __init__(self, page: BoardPageFlowable, make_tables):
         super().__init__()
         self.page = page
         self.make_tables = make_tables
-        self._inner = None
-
-    def _content(self):
-        if self._inner is None:
-            from reportlab.platypus import KeepInFrame
-
-            parts = self.make_tables(self.page.overflow)
-            self._inner = KeepInFrame(0, 0, parts, mode="shrink") if parts else None
-        return self._inner
 
     def wrap(self, availWidth, availHeight):  # noqa: N803 — ReportLab API
-        inner = self._content()
-        if inner is None:
+        if not self.page.overflow:
             return 0, 0
-        inner.maxWidth, inner.maxHeight = availWidth, availHeight
-        inner.canv = self.canv
-        return inner.wrap(availWidth, availHeight)
+        return availWidth, availHeight + 1
+
+    def split(self, availWidth, availHeight):  # noqa: N803 — ReportLab API
+        # in the sliver the sheet left: nothing here — the frame then moves on to a fresh page and
+        # asks again, which is where the tables start
+        if not self.page.overflow or availHeight < 60 * mm:
+            return []
+        return list(self.make_tables(self.page.overflow, availWidth))
 
     def draw(self):
-        inner = self._content()
-        if inner is not None:
-            inner.drawOn(self.canv, 0, 0)
+        return

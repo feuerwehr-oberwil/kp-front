@@ -6,7 +6,9 @@ from __future__ import annotations
 import io
 
 import pypdfium2 as pdfium
+import pytest
 from reportlab.lib.units import mm
+from reportlab.pdfbase.pdfmetrics import stringWidth
 
 from app.report_board import fit_size, wrap
 from app.report_pdf import ReportPayload, compose_report_pdf
@@ -97,11 +99,31 @@ def test_the_erste_fuehrung_prints_as_its_poster():
     assert "FKS Plakat" in text  # where the page comes from, in its footer
 
 
-def test_nothing_written_is_cut_off_the_record():
-    """A box holding more than fits at a legible size continues after the page."""
-    text = _text(_compose(boardPages=[_ef(massnahmen_rows=70)]))
-    assert "Fortsetzung: Massnahmen" in text
-    assert "Massnahme 70" in text
+def _glyph_height(pdf: bytes, needle: str) -> float:
+    """The printed height (pt) of the first character of `needle`, wherever it lands."""
+    doc = pdfium.PdfDocument(io.BytesIO(pdf))
+    for i in range(len(doc)):
+        tp = doc[i].get_textpage()
+        found = tp.search(needle, match_whole_word=True).get_next()
+        if found:
+            left, bottom, right, top = tp.get_charbox(found[0], loose=False)
+            return top - bottom
+    raise AssertionError(f"{needle!r} is not on the paper")
+
+
+@pytest.mark.parametrize("rows", [80, 350])
+def test_nothing_written_is_cut_off_or_shrunk_away(rows):
+    """A box holding more than fits at a legible size continues after the page, at full size and
+    over as many pages as it needs — measured on the paper, not read back as text."""
+    pdf = _compose(boardPages=[_ef(massnahmen_rows=rows)])
+    assert "Fortsetzung: Massnahmen" in _text(pdf)
+    # the last row is there, and as legible as the first one on the continuation
+    last = _glyph_height(pdf, f"Massnahme {rows}")
+    assert last >= 5.0, last
+    assert abs(last - _glyph_height(pdf, "Massnahme 40")) < 0.5
+    # …which takes pages: ~45 rows a page at that size
+    pages = len(pdfium.PdfDocument(io.BytesIO(pdf)))
+    assert pages >= 2 + (rows - 20) // 60
 
 
 def test_an_older_client_prints_what_it_always_did():
@@ -115,7 +137,6 @@ def test_the_operator_can_leave_the_tafel_out():
 def test_a_landscape_sheet_and_a_text_page():
     konzept = {
         "title": "Konzept",
-        "code": "8.9",
         "columns": 2,
         "sections": [
             {
@@ -154,7 +175,6 @@ def test_a_landscape_sheet_and_a_text_page():
     }
     tendenz = {
         "title": "Problemerfassung",
-        "code": "8.1",
         "landscape": True,
         "columns": 1,
         "sections": [
@@ -170,7 +190,6 @@ def test_a_landscape_sheet_and_a_text_page():
     pdf = _compose(boardPages=[konzept, tendenz])
     text = _text(pdf)
     for word in (
-        "8.9",
         "Konzept",
         "Personen retten",
         "Innenangriff",
@@ -187,8 +206,79 @@ def test_a_landscape_sheet_and_a_text_page():
 def test_wrapping_splits_where_the_template_says():
     assert wrap(f"Patienten{SHY}sammelstelle", 25 * mm, size=9) == ["Patienten-", "sammelstelle"]
     assert wrap(f"Sanitäts{SHY}hilfsstelle", 60 * mm, size=9) == ["Sanitätshilfsstelle"]  # no hyphen when it fits
+    # …nor when the word fits whole on the next line (round 2: «Standort / Einsatz- / leitung»)
+    w = stringWidth("Einsatzleitung", "Helvetica", 9) + 2
+    assert wrap(f"Standort Einsatz{SHY}leitung", w, size=9) == ["Standort", "Einsatzleitung"]
     assert wrap("Erste Zeile\nzweite", 60 * mm) == ["Erste Zeile", "zweite"]
     # Helvetica has no trend arrows: a label keeps its meaning instead of printing «?»
     assert wrap("Entwicklungstendenz ➚ = ➘", 90 * mm) == ["Entwicklungstendenz (+) = (–)"]
     # a narrow column shrinks the type before it splits a word
     assert fit_size("Polycom", 9 * mm, 8.5) < 8.5
+
+
+def test_the_tendenz_prints_as_an_arrow_beside_the_problem(monkeypatch):
+    """The Erste Führung's Problemerfassung carries the trend (owner, round 2): the paper draws
+    ➚ = ➘ as vector arrows — Helvetica has none — in front of the line."""
+    import app.report_board as rb
+
+    drawn: list[str] = []
+    real = rb.trend_arrow
+    monkeypatch.setattr(rb, "trend_arrow", lambda c, d, *a: (drawn.append(d), real(c, d, *a)))
+    page = _ef()
+    page["sections"][0]["trend"] = True
+    page["sections"][0]["cells"][0]["lines"] = [
+        {"text": "Rettungen Haus 19", "trend": "wird schlimmer", "dir": "up"},
+        {"text": "Rauch", "trend": "gleich", "dir": "same"},
+        {"text": "Brand Haus 21"},
+    ]
+    text = _text(_compose(boardPages=[page]))
+    assert drawn == ["up", "same"]
+    assert "Rettungen Haus 19" in text and "Rauch" in text
+
+
+def test_the_header_line_prints_in_the_words_it_was_sent_in():
+    page = _ef()
+    page["head"] = [{"label": "Intervention", "value": "Feu de cuisine"}, {"label": "Adresse", "value": ""}]
+    text = _text(_compose(boardPages=[page]))
+    assert "Intervention: Feu de cuisine" in text
+    assert "Einsatz:" not in text
+
+
+def test_rows_written_under_the_absprachepunkte_print_on_the_sheet():
+    """Owner round 2: a row typed under the six pre-printed Absprachepunkte is on the poster, not
+    in a Fortsetzung — the pre-printed rows give up their double height before a word moves."""
+    page = _ef()
+    abs_ = page["sections"][3]
+    abs_["adds"] = True
+    names = [
+        ("patientensammelstelle", f"Patienten{SHY}sammelstelle"),
+        ("sanitaetshilfsstelle", f"Sanitäts{SHY}hilfsstelle"),
+        ("rettungsachse", f"Rettungs{SHY}achse"),
+        ("standort-einsatzleitung", f"Standort Einsatz{SHY}leitung"),
+        ("sammelstelle-unverletzte", f"Sammel{SHY}stelle Un{SHY}verletzte"),
+        ("warteraum", "Warteraum"),
+    ]
+    abs_["rows"] = [{"fixed": True, "cells": [k, v, ""]} for k, v in names] + [
+        {"cells": ["", f"Helikopterlandeplatz {i}", "Sportplatz Bachmatten"]} for i in range(3)
+    ]
+    text = _text(_compose(boardPages=[page]))
+    assert text.count("Helikopterlandeplatz") == 3
+    assert "Fortsetzung" not in text
+
+
+def test_a_long_source_line_stays_on_the_paper():
+    page = _ef()
+    page["source"] = (
+        "FKS Plakat «Erste Führung» A3 V 1.0/10.09.2019; "
+        + "FKS Handbuch Führung Grossereignisse, Kap. 8 " * 4
+        + "ENDE"
+    )
+    doc = pdfium.PdfDocument(io.BytesIO(_compose(boardPages=[page])))
+    for i in range(len(doc)):
+        tp = doc[i].get_textpage()
+        at = tp.get_text_range().find("ENDE")
+        if at >= 0:
+            # the last letter's box, not just the text: a line run off the paper still extracts
+            assert tp.get_charbox(at + 3)[2] <= doc[i].get_width()
+            return
+    raise AssertionError("the source line is missing")

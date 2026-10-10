@@ -484,5 +484,6 @@ export const whiteboardCopy = {
     trendDown: 'entspannt sich',
     trendTitle: 'Tendenz: {trend} – tippen zum Wechseln',
     keysHint: 'Enter: nächste Zeile · Tab: nächste Spalte · Shift+Enter: Zeilenumbruch',
+    lineBreak: 'Zeilenumbruch',
   },
 } as const

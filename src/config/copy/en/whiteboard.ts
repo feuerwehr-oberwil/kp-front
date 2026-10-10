@@ -332,5 +332,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     trendDown: 'easing',
     trendTitle: 'Trend: {trend} – tap to change',
     keysHint: 'Enter: next row · Tab: next column · Shift+Enter: line break',
+    lineBreak: 'Line break',
   },
 }

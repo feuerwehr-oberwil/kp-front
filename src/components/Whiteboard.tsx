@@ -101,7 +101,8 @@ import { OrientSlider } from './OrientSlider'
 import { ToolRail } from './ToolRail'
 import { TafelPageStrip } from './TafelPageStrip'
 import { TafelFormPage } from './TafelFormPage'
-import { findForms, formAnno, formHasContent, isFormAnno, newFormPage, type BoardFormData, type FormSeed } from '../lib/boardForm'
+import { findForms, formAnno, formDelta, formHasContent, newFormPage, type BoardFormData, type FormSeed } from '../lib/boardForm'
+import { isDrawnBoardKind } from '../lib/workspace'
 import { labelText, type BoardTemplate, type TemplatePage } from '../lib/boardTemplate'
 import { SKIZZE, TAFEL_ID, TAFEL_STRIP_H, stepPage, useTafelPage } from '../lib/tafelPages'
 import { isTypingTarget } from '../lib/hotkeys'
@@ -371,14 +372,15 @@ export interface PlanLogExtra {
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
 export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel }: Props) {
-  // ⚠️ The Tafel's PAGES are annos on its own sheet (kind `form`, lib/boardForm), and nothing
-  // positional may see them: every drawing path below reads `annos` — the sheet WITHOUT its pages —
-  // and every write is handed back with the pages put back on (`withForms`), so an ink commit can
-  // never drop a page. The history (useBoardDoc) snapshots the WHOLE list, so ↶ restores both.
-  // On every other sheet there are no pages and this is the identity.
-  const formAnnos = useMemo(() => annosAll.filter(isFormAnno), [annosAll])
-  const annos = useMemo(() => (formAnnos.length ? annosAll.filter((a) => !isFormAnno(a)) : annosAll), [annosAll, formAnnos])
-  const withForms = (next: BoardAnno[]) => (formAnnos.length ? [...next.filter((a) => !isFormAnno(a)), ...formAnnos] : next)
+  // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
+  // lib/boardForm) and any board object this build does not understand (lib/workspace ·
+  // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
+  // the sheet WITHOUT its riders — and every write is handed back with the riders put back on
+  // (`withForms`), so an ink commit can never drop one. The history (useBoardDoc) snapshots the
+  // WHOLE list, so ↶ restores both. On a sheet with no riders this is the identity.
+  const formAnnos = useMemo(() => annosAll.filter((a) => !isDrawnBoardKind(a.kind)), [annosAll])
+  const annos = useMemo(() => (formAnnos.length ? annosAll.filter((a) => isDrawnBoardKind(a.kind)) : annosAll), [annosAll, formAnnos])
+  const withForms = (next: BoardAnno[]) => (formAnnos.length ? [...next.filter((a) => isDrawnBoardKind(a.kind)), ...formAnnos] : next)
   const onChange = (next: BoardAnno[], opts?: { gesture?: boolean }) => onChangeAll(withForms(next), opts)
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
@@ -1144,8 +1146,17 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // as it does on the Lage. Checkpoint once when typing starts, emit once on blur — otherwise
   // «Sicherung» is nine undo steps and nine audit rows.
   const titleLive = useRef<string | null>(null)
+  /** ↶ / ↷ on the Tafel lands where the step was: the page it changed, else the Skizze */
+  const onRestore = (from: BoardAnno[], to: BoardAnno[]) => {
+    if (!onTafel) return
+    const was = new Map(from.filter((a) => a.kind === 'form').map((a) => [a.id, JSON.stringify(a)]))
+    const changed = to.find((a) => a.kind === 'form' && was.get(a.id) !== JSON.stringify(a))
+    if (changed) { setPageSel(changed.id); return }
+    const gone = [...was.keys()].some((id) => !to.some((a) => a.id === id))
+    if (gone || formOpen) setPageSel(SKIZZE)
+  }
   const boardDoc = useBoardDoc({
-    annos: annosAll, onChange: onChangeAll, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd,
+    annos: annosAll, onChange: onChangeAll, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd, onRestore,
   })
   const { pushPast, add, patch, patchCommit, remove, removeAnno } = boardDoc
   const set = (next: BoardAnno[]) => boardDoc.set(withForms(next))
@@ -1169,7 +1180,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const editPage = (id: string, next: BoardFormData) => {
     if (readOnly) return
     onStepLabel?.(fillTemplate(TP().pageEdited, { page: labelText(next.page.title) }))
-    patchCommit(id, { form: next })
+    // the audit row names the cells that changed, never the whole page again (review of #338)
+    const prev = pages.find((p) => p.id === id)?.form
+    patchCommit(id, { form: next }, { form: { page: next.page.id, delta: prev ? formDelta(prev, next) : [] } })
   }
   /** a page with writing on it asks first; ↶ brings it back either way */
   const removePage = async (id: string) => {
@@ -3014,8 +3027,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // show a plain, natively-scrolling multi-page PDF viewer — no tools, no stitched pan/zoom board.
   // the Tafel's page strip, on the Skizze and on every page alike
   const strip = onTafel ? (
-    <TafelPageStrip pages={pages} current={page} templates={templates} readOnly={readOnly} onPick={setPageSel} onAdd={addPage}
-      style={{ top: TOP_INSET - 8, left: side.l, right: formOpen ? side.l : side.r }} />
+    <TafelPageStrip pages={pages} current={page} templates={templates} readOnly={readOnly} onPick={setPageSel} onAdd={addPage} />
   ) : null
   // A Tafel PAGE is a form, not a drawing surface: it takes the stage, and none of the board's
   // apparatus (rails, docks, chips) is drawn over it. The hooks above still ran, so the Tafel's
@@ -3025,7 +3037,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     return (
       <div className="whiteboard wb-tafel-page">
         {strip}
-        <TafelFormPage key={formPage.id} data={formPage.form} readOnly={readOnly} isPhone={isPhone}
+        <TafelFormPage key={formPage.id} pageKey={formPage.id} data={formPage.form} readOnly={readOnly} isPhone={isPhone}
           onChange={(next) => editPage(formPage.id, next)} onRemove={() => void removePage(formPage.id)}
           scene={tafel?.scene} onOpenKarte={tafel?.onOpenKarte}
           inset={{ top: topRes, left: isPhone ? 0 : side.l, right: isPhone ? 0 : side.l, bottom: isPhone ? 96 : 24 }} />
