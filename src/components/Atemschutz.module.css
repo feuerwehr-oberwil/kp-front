@@ -1819,40 +1819,68 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 
 /* ── The Atemschutznotfall (F1, 08.10.2026 — AtemschutzNotfall.tsx) ───────────────────────────────
    Local to the feature and built from the board's own pieces: the held tile is an `.actBtn` (the
-   lifecycle row's 48px tile, the one corner), its ring the app's one hold ring around the glyph
-   (lib/nodeHold drives the fill — never a keyframe), and the banner the red tier's edge and wash
-   (`.trowCrit`) at the top of the board. Red means the alarm here and nothing else. */
+   lifecycle row's 48px tile, the one corner) that FILLS while it is held (lib/nodeHold drives
+   `--hold` — never a keyframe), and the banner the red tier's edge and wash (`.trowCrit`) at the
+   top of the board. Red means the alarm here and nothing else. */
 .nfRow { margin-top: var(--sp-2); }
 /* holding IS the gesture: no scroll, no selection, no iOS callout under the finger */
-.actNotfall, .actNotfallEnd { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.actNotfall, .actNotfallEnd { position: relative; isolation: isolate; overflow: hidden;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 /* framed grey like Rückzug | Raus — colour is STATE (29.09.2026, T11), and nothing is wrong with a
-   crew at 300 bar; the ring and the glyph turn red only while the hand is raising it */
-.actNotfall.actHolding { color: var(--red-strong); }
+   crew at 300 bar; the tile turns red only while the hand is raising it */
+.actNotfall.actHolding { color: var(--red-strong); box-shadow: inset 0 0 0 1px var(--red-45); }
 .actNotfallEnd { color: var(--ink); }
-.holdGlyph { position: relative; display: inline-grid; place-items: center; width: 24px; height: 24px; flex: none; }
-.holdRing { position: absolute; inset: 0; width: 24px; height: 24px; pointer-events: none; }
-.holdRing circle { fill: none; stroke: currentColor; stroke-width: 2.25; }
-.holdTrack { opacity: 0; }
-.actHolding .holdTrack { opacity: .25; }
-.holdFill { stroke-linecap: round; }
+.actNotfallEnd.actHolding { color: var(--green-strong); box-shadow: inset 0 0 0 1px var(--green-45); }
+/* the glyph keeps the 24px box the old ring had — the resting tile is the same tile */
+.holdGlyph { display: inline-grid; place-items: center; width: 24px; height: 24px; flex: none; }
+/* ⚠️ The fill (owner feedback 10.10.2026): the whole tile is the progress, swept left→right by a
+   `scaleX` on a layer under the word — a transform, so nothing reflows mid-hold. `--hold` is the
+   hook's own 0…1, so the fill and the moment it fires cannot drift apart. The 33ms linear step is
+   the hook's tick smoothed; a release runs back quickly («nothing happened»). Under reduced
+   motion it still tracks the hold — it is the feedback, not decoration — just without easing. */
+.actNotfall::before, .actNotfallEnd::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--red-22); transform-origin: left center; transform: scaleX(var(--hold, 0));
+  transition: transform .12s ease-out; }
+.actNotfallEnd::before { background: var(--green-22); }
+.actHolding::before { transition: transform 33ms linear; }
+/* fired: the tile full and solid for a beat (NOTFALL_FIRED_MS), in the face that fired */
+.actNotfall.actFired { color: var(--on-fill); box-shadow: none; }
+.actNotfall.actFired::before { background: var(--red-strong); }
+.actNotfallEnd.actFired { color: var(--on-fill); box-shadow: none; }
+.actNotfallEnd.actFired::before { background: var(--green-strong); }
+@media (prefers-reduced-motion: reduce) { .actNotfall::before, .actNotfallEnd::before { transition: none; } }
 
-/* sticky at the top of the board's scroll port: a card parked at the top of a phone's port (the
-   opened row) must never push the Notfall out of sight */
-.nfBanner { position: sticky; top: 0; z-index: 3; display: grid; gap: var(--sp-2); margin: 0 0 var(--sp-3); padding: var(--sp-3); border-radius: var(--r-sm);
+/* ⚠️ Sticky at the top of the board's scroll port, ALL banners in one stack (several Notfälle
+   stack, they never stick over each other): a card parked at the top of a phone's port (the
+   opened row) must never push the Notfall out of sight. Compact (owner feedback 10.10.2026) —
+   and measured: AtemschutzView sets its height as `--nf-h` on the port, which parks an opened
+   card below it and is the port's scroll padding for every scroll-into-view. */
+.nfStack { position: sticky; top: 0; z-index: 3; display: grid; gap: var(--sp-2); margin: 0 0 var(--sp-3); }
+.body { scroll-padding-top: var(--nf-h, 0px); }
+.nfBanner { display: grid; gap: var(--sp-1); padding: var(--sp-2) var(--sp-3) var(--sp-3); border-radius: var(--r-sm);
   border-left: 4px solid var(--red); background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
-.nfHead { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; color: var(--red-strong); }
-.nfHead > :global(.i) { width: 18px; height: 18px; flex: none; }
-.nfKicker { flex: none; font: var(--fw-heavy) var(--fs-1) var(--body); letter-spacing: .06em; text-transform: uppercase; }
-.nfName { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere;
-  font: var(--fw-heavy) var(--fs-3) var(--body); color: var(--ink); }
-.nfClock { flex: none; display: grid; justify-items: end; line-height: 1.1; }
-.nfClock b { font: var(--fw-heavy) var(--fs-5) var(--mono); font-variant-numeric: tabular-nums; color: var(--red-strong); }
-.nfClock span { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); }
-.nfFacts { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); }
-.nfActs { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
-.nfDeploy { flex: 1 1 220px; }
-.nfDeployTxt { display: inline-grid; justify-items: start; line-height: 1.15; text-align: left; }
-.nfDeployWho { font: var(--fw-medium) var(--fs-1) var(--body); opacity: .85; }
-.nfDefine { flex: 1 1 200px; color: var(--ink); }
-.nfGo { flex: 0 0 auto; color: var(--ink); }
-.nfNote { flex: 1 1 200px; margin: 0; font: var(--fw-heavy) var(--fs-2)/1.35 var(--body); color: var(--ink); }
+/* row 1: «⚠ NOTFALL» … «0:04 seit 00:21», one baseline */
+.nfTop { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; color: var(--red-strong); }
+.nfTop > :global(.i) { width: 18px; height: 18px; flex: none; }
+.nfKicker { flex: 1 1 auto; font: var(--fw-heavy) var(--fs-1) var(--body); letter-spacing: .06em; text-transform: uppercase; }
+.nfClock { flex: none; display: inline-flex; align-items: baseline; gap: var(--sp-1); line-height: 1; }
+.nfClock b { font: var(--fw-heavy) var(--fs-5)/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--red-strong); }
+.nfClock span { font: var(--fw-medium) var(--fs-1)/1 var(--body); color: var(--ink-dim); }
+/* row 2: «Trupp 1», its people below — a line of their own, wrapping, never squeezed */
+.nfWho { display: grid; min-width: 0; }
+.nfName { font: var(--fw-heavy) var(--fs-4)/1.2 var(--body); color: var(--ink); }
+.nfCrew { font: var(--fw-medium) var(--fs-1)/1.3 var(--body); color: var(--ink-dim); overflow-wrap: anywhere; }
+/* several at once: «⚠ NOTFALL Trupp 1 … 0:18» on one line — the kicker gives the name the room */
+.nfDense .nfKicker { flex: none; }
+.nfDense .nfName { flex: 1 1 auto; min-width: 0; font-size: var(--fs-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nfFacts { margin: 0; font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink-dim); }
+/* the acts on ONE row: the primary takes the room, «Zum Trupp ›» sits compact at the end */
+.nfActs { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-1); }
+.nfPrimary { flex: 1 1 auto; min-width: 0; padding-block: var(--sp-1); }
+.nfPrimaryTxt { display: inline-grid; justify-items: center; min-width: 0; line-height: 1.15; text-align: center; }
+.nfPrimarySub { font: var(--fw-medium) var(--fs-1)/1.2 var(--body); opacity: .85; }
+.nfDefine { color: var(--ink); }
+.nfGo { flex: none; margin-left: auto; gap: 0; padding-inline: var(--sp-2) var(--sp-1); color: var(--ink); }
+.nfNote { flex: 1 1 auto; min-width: 0; margin: 0; font: var(--fw-heavy) var(--fs-2)/1.35 var(--body); color: var(--ink); }
+/* a tablet's banner spans the board: the primary keeps a tile's width instead of a 1000px bar */
+@media (--not-phone) { .nfPrimary { flex: 0 1 420px; } .nfGo { margin-left: 0; } }

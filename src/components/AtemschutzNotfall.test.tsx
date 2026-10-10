@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, fireEvent, act } from '@testing-library/react'
-import { AtemschutzNotfallMeldungen, NotfallBanner, NotfallHold } from './AtemschutzNotfall'
-import { ageWords, notfallFactLine } from '../lib/notfall'
+import { AtemschutzNotfallMeldungen, NOTFALL_FIRED_MS, NOTFALL_TAP_HINT_MS, NotfallBanner, NotfallHold } from './AtemschutzNotfall'
+import { ageWords, notfallFactLine, notfallHead } from '../lib/notfall'
 import { atemschutzAlarmRows } from './AtemschutzAlarmMeldung'
 import { Meldeleiste } from './Meldeleiste'
-import { NODE_HOLD_FIRE_MS } from '../lib/nodeHold'
+import { NODE_HOLD_ARM_MS, NODE_HOLD_FIRE_MS } from '../lib/nodeHold'
 import type { Trupp } from '../types'
 
 // The Atemschutznotfall (F1, 08.10.2026): raised by a HOLD, never a tap; the top row of the strip
@@ -42,7 +42,7 @@ describe('NotfallHold — a hold, never a tap', () => {
     expect(fired).toHaveBeenCalledTimes(1)
   })
 
-  it('lets go early ⇒ nothing happened; a plain tap only says how', () => {
+  it('lets go early ⇒ nothing happened, and the fill runs back', () => {
     vi.useFakeTimers()
     const fired = vi.fn()
     const { getByRole } = render(<NotfallHold onFire={fired} />)
@@ -53,6 +53,41 @@ describe('NotfallHold — a hold, never a tap', () => {
     act(() => { vi.advanceTimersByTime(1000) })
     fireEvent.click(btn, { detail: 1 })
     expect(fired).not.toHaveBeenCalled()
+    expect(btn.style.getPropertyValue('--hold')).toBe('0')
+    // a let-go hold is not a tap: no «Gedrückt halten»
+    expect(btn.textContent).toBe('Notfall')
+  })
+
+  it('the whole tile is the progress: --hold follows the hand, full for a beat once it fired', () => {
+    vi.useFakeTimers()
+    const { getByRole } = render(<NotfallHold onFire={() => {}} />)
+    const btn = getByRole('button')
+    expect(btn.style.getPropertyValue('--hold')).toBe('0')
+    fireEvent.pointerDown(btn, { clientX: 10, clientY: 10 })
+    act(() => { vi.advanceTimersByTime(NODE_HOLD_ARM_MS + (NODE_HOLD_FIRE_MS - NODE_HOLD_ARM_MS) / 2) })
+    const mid = Number(btn.style.getPropertyValue('--hold'))
+    expect(mid).toBeGreaterThan(0.35)
+    expect(mid).toBeLessThan(0.65)
+    // the word never changes while the hand holds
+    expect(btn.textContent).toBe('Notfall')
+    act(() => { vi.advanceTimersByTime(NODE_HOLD_FIRE_MS) })
+    expect(btn.style.getPropertyValue('--hold')).toBe('1')
+    act(() => { vi.advanceTimersByTime(NOTFALL_FIRED_MS + 10) })
+    expect(btn.style.getPropertyValue('--hold')).toBe('0')
+  })
+
+  it('a plain tap says how IN the tile — «Gedrückt halten» for a moment, then its word again', () => {
+    vi.useFakeTimers()
+    const fired = vi.fn()
+    const { getByRole } = render(<NotfallHold onFire={fired} />)
+    const btn = getByRole('button')
+    fireEvent.pointerDown(btn, { clientX: 10, clientY: 10 })
+    fireEvent.pointerUp(window)
+    fireEvent.click(btn, { detail: 1 })
+    expect(fired).not.toHaveBeenCalled()
+    expect(btn.textContent).toBe('Gedrückt halten')
+    act(() => { vi.advanceTimersByTime(NOTFALL_TAP_HINT_MS + 10) })
+    expect(btn.textContent).toBe('Notfall')
   })
 
   it('names itself AND the gesture for a screen reader, and keeps the hold-tooltip off it', () => {
@@ -68,10 +103,16 @@ describe('the facts', () => {
     const [since, place, bar, kanal] = notfallFactLine(inNotfall, NOW, 'Löschen – 2. OG links · Gebäude · 2. OG')
     expect(since).toMatch(/^seit \d\d:\d\d$/)
     expect(place).toBe('Löschen – 2. OG links · Gebäude · 2. OG')
-    expect(bar).toBe('180 bar · vor 7 min')
+    expect(bar).toBe('180 bar (vor 7 min)')
     expect(kanal).toBe('Kanal 11')
     // never reported: the Eingangsdruck says so instead of an age
-    expect(notfallFactLine({ ...inNotfall, lastPressureBar: undefined, lastPressureTime: undefined }, NOW)[1]).toBe('300 bar · Eingangsdruck')
+    expect(notfallFactLine({ ...inNotfall, lastPressureBar: undefined, lastPressureTime: undefined }, NOW)[1]).toBe('300 bar (Eingangsdruck)')
+  })
+
+  it('the banner’s headline is the radio’s name, its people a line of their own', () => {
+    expect(notfallHead(inNotfall)).toEqual({ name: 'Trupp 2', crew: 'Keller Anna / Frei Nina' })
+    // a record without a number: the leader is the name, the rest the crew
+    expect(notfallHead({ ...inNotfall, no: undefined })).toEqual({ name: 'Trupp Keller Anna', crew: 'Frei Nina' })
   })
 
   it('ages in the shortest honest unit', () => {
@@ -86,7 +127,11 @@ describe('NotfallBanner — the first offer is the Sicherungstrupp', () => {
       <NotfallBanner t={inNotfall} now={NOW} ready={[sitr]} inside={[]} canEdit
         onDeploySafety={(id) => deployed.push(id)} onGo={() => {}} />,
     )
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain('Trupp 2 (Keller Anna / Frei Nina)')
+    const alert = container.querySelector('[role="alert"]')!
+    expect(alert.getAttribute('aria-label')).toBe('Notfall: Trupp 2 (Keller Anna / Frei Nina)')
+    expect(alert.textContent).toContain('Trupp 2')
+    expect(alert.textContent).toContain('Keller Anna / Frei Nina')
+    expect(alert.textContent).toContain('180 bar (vor 7 min) · Kanal 11')
     expect(container.textContent).toContain('2:10') // the Notfall clock
     fireEvent.click(getByText('Sicherungstrupp einsetzen'))
     expect(deployed).toEqual(['s'])
@@ -99,10 +144,30 @@ describe('NotfallBanner — the first offer is the Sicherungstrupp', () => {
       <NotfallBanner t={inNotfall} now={NOW} ready={[]} inside={[]} canEdit onDefineSafety={defined}
         onDeploySafety={() => {}} onGo={() => {}} />,
     )
-    expect(getByText('Kein Sicherungstrupp bereit')).toBeTruthy()
+    // the reason rides IN the button, as its second line
+    expect(getByText('Kein Sicherungstrupp bereit').closest('button')).toBe(getByText('Sicherungstrupp bestimmen').closest('button'))
     expect(queryByText('Sicherungstrupp einsetzen')).toBeNull()
     fireEvent.click(getByText('Sicherungstrupp bestimmen'))
     expect(defined).toHaveBeenCalled()
+  })
+
+  it('a viewer is told «nobody ready» only when nobody is, and gets no act but «Zum Trupp»', () => {
+    const none = render(<NotfallBanner t={inNotfall} now={NOW} ready={[]} inside={[]} canEdit={false} onDeploySafety={() => {}} onGo={() => {}} />)
+    expect(none.getByText('Kein Sicherungstrupp bereit').closest('button')).toBeNull()
+    expect([...none.container.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Zum Trupp'])
+    cleanup()
+    const one = render(<NotfallBanner t={inNotfall} now={NOW} ready={[sitr]} inside={[]} canEdit={false} onDeploySafety={() => {}} onGo={() => {}} />)
+    expect(one.queryByText('Kein Sicherungstrupp bereit')).toBeNull()
+    expect([...one.container.querySelectorAll('button')].map((b) => b.textContent)).toEqual(['Zum Trupp'])
+  })
+
+  it('several at once: each banner is one head row over its acts', () => {
+    const { container } = render(<NotfallBanner t={inNotfall} now={NOW} ready={[]} inside={[]} canEdit dense
+      onDefineSafety={() => {}} onDeploySafety={() => {}} onGo={() => {}} />)
+    expect(container.textContent).toContain('Trupp 2')
+    expect(container.textContent).not.toContain('Frei Nina')
+    expect(container.textContent).not.toContain('Kanal 11')
+    expect(container.textContent).toContain('Sicherungstrupp bestimmen')
   })
 
   it('names a Sicherungstrupp already inside instead of offering a second one; a viewer gets no act', () => {
