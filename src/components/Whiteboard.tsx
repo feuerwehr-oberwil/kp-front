@@ -99,10 +99,9 @@ import { ToolDock } from './ToolDock'
 import { PlanCompass } from './PlanCompass'
 import { OrientSlider } from './OrientSlider'
 import { ToolRail } from './ToolRail'
-import { TafelStart, type TafelStartInfo } from './TafelStart'
+import { Button } from './Button'
 import { PLAKAT_BASE_W, TafelPlakat } from './TafelPlakat'
-import { findPlakat, newPlakat, plakatAnno, plakatHasContent } from '../lib/plakat'
-import { markTafelUsed, TAFEL_ID, tafelStartVisible, tafelUsed } from '../lib/tafelStart'
+import { findPlakat, newPlakat, plakatAnno, plakatHasContent, TAFEL_ID, type PlakatSeed } from '../lib/plakat'
 
 const COLORS = appConfig.drawing.colors
 
@@ -331,9 +330,9 @@ interface Props {
   onStepEnd?: () => void
   /** Show a plan-owned object at its projected position on the Lage map. */
   onPlanProjection?: (planId: string, annoId: string, coord: LngLat) => void
-  /** The empty Tafel's starter cards (08.10.2026, components/TafelStart): the Einsatz, the
-   *  objects near it and the doors the cards open. Absent ⇒ the plain «Leeres Blatt» hint. */
-  tafelStart?: TafelStartInfo
+  /** What the Einsatz already knows, for the «Erstes Plakat (FKS)» pre-fill — read at the tap.
+   *  Absent ⇒ the empty Tafel offers no Vorlage (an Einsatz-Link session). */
+  plakatSeed?: () => PlakatSeed
 }
 
 /**
@@ -357,7 +356,7 @@ export interface PlanLogExtra {
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafelStart }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, plakatSeed }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -1147,20 +1146,19 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     log('layers', appConfig.copy.log.duplicated, { annoId: id, x: copy.x ?? copy.pts?.[0]?.[0], y: copy.y ?? copy.pts?.[0]?.[1], floor: copy.floor })
   }
 
-  // ── The empty Tafel (08.10.2026): starter cards, and the «Erstes Plakat (FKS)» Vorlage ──────────
-  // The return rule lives in lib/tafelStart: the cards stand only on a sheet that holds nothing on
-  // an Einsatz whose Tafel this device has never seen hold anything — so a delete-all (and its ↶)
-  // never brings them back. The first object on the sheet remembers the Einsatz.
+  // ── The empty Tafel: the «Leeres Blatt» hint and ONE Vorlage, «Erstes Plakat (FKS)» ─────────────
+  // (The «Womit beginnen?» starter cards were dropped 10.10.2026, owner: Objekt/Gebäude wählen
+  // were only links to doors the app already has, and «Gebäude» could replace one already set.)
+  // The Vorlage rides on the hint: there while the sheet holds nothing and Auswahl is armed, so a
+  // pen tap never lands on it, and never on a read-only sheet.
   const onTafel = active.id === TAFEL_ID
-  useEffect(() => { if (onTafel && annos.length > 0) markTafelUsed(incidentId) }, [onTafel, annos.length, incidentId])
   const plakat = onTafel ? findPlakat(annos) : undefined
-  const startShown = blank && onTafel && !!tafelStart
-    && tafelStartVisible({ planId: active.id, annos, everUsed: tafelUsed(incidentId), readOnly, dismissed: tool !== 'pan' })
+  const vorlageShown = blank && onTafel && !!plakatSeed && annos.length === 0 && !readOnly && tool === 'pan'
   /** «Erstes Plakat (FKS)»: ONE anno, ONE ↶ step, pre-filled from what the Einsatz already knows */
   const insertPlakat = () => {
-    if (readOnly || !tafelStart || findPlakat(annos)) return
+    if (readOnly || !plakatSeed || findPlakat(annos)) return
     const P = appConfig.copy.tafel.plakat
-    const a = plakatAnno(newPlakat(tafelStart.plakatSeed(), P.absprachenDefaults, P.weatherTag))
+    const a = plakatAnno(newPlakat(plakatSeed(), P.absprachenDefaults, P.weatherTag))
     onStepLabel?.(P.inserted)
     add(a)
     log('doc', P.inserted, { annoId: a.id })
@@ -2967,10 +2965,6 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           object they all belong to is named on the chip in the bottom-left corner */}
       {/* plan canvas + annotation layer */}
       <div className="wb-stage" ref={stageRef}>
-        {/* the empty Tafel's «Womit beginnen?» — non-modal: only its cards take a press */}
-        {startShown && tafelStart && (
-          <TafelStart info={tafelStart} phone={isPhone} topInset={isPhone ? TOP_INSET : 0} onPlakat={insertPlakat} onSketch={() => { setTool('line'); setPending(null) }} />
-        )}
         {/* a phone reads and fills the Plakat as one column; arming a tool shows the paper again */}
         {plakat && isPhone && tool === 'pan' && (
           <TafelPlakat variant="list" topInset={TOP_INSET} data={plakat.plakat} readOnly={readOnly} onChange={editPlakat} onRemove={() => void removePlakat()} />
@@ -3003,7 +2997,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         >
           <div
             ref={boardRef}
-            className={`wb-board ${blank ? 'wb-board-blank' : ''}${startShown || plakat ? ' wb-board-grid' : ''}`}
+            className={`wb-board ${blank ? 'wb-board-blank' : ''}${plakat ? ' wb-board-grid' : ''}`}
             // the reserved lanes are not symmetric (the rails differ), so the centre shifts by half
             // their difference — exactly what `vShift` does for the top bar (and the Gebäude's
             // chip row below)
@@ -3132,7 +3126,18 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               // while a drawing tool is armed, so the pen writes over it)
               plakat ? <TafelPlakat variant="sheet" data={plakat.plakat} readOnly={readOnly} scale={(sW || PLAKAT_BASE_W) / PLAKAT_BASE_W} fitH={sH || undefined}
                 passive={tool !== 'pan' || isPhone} onChange={editPlakat} onRemove={() => void removePlakat()} />
-                : annos.length === 0 && !startShown && <div className="wb-blank-hint">{appConfig.copy.whiteboard.blankHint}</div>
+                : annos.length === 0 && (
+                  <div className="wb-blank-hint">
+                    {appConfig.copy.whiteboard.blankHint}
+                    {/* the Tafel's Vorlage list — ONE entry for now (owner, 08.10.2026) */}
+                    {vorlageShown && (
+                      <div className="wb-blank-vorlage" data-testid="tafel-vorlage" onPointerDown={(e) => e.stopPropagation()}>
+                        <span className="wb-blank-vorlage-t">{appConfig.copy.tafel.templateTitle}</span>
+                        <Button variant="secondary" icon={<Icon id="doc" />} onClick={insertPlakat}>{appConfig.copy.tafel.plakatName}</Button>
+                      </div>
+                    )}
+                  </div>
+                )
             ) : (
               <PdfViewport
                 key={active.id}

@@ -63,7 +63,6 @@ import { useIsPhone, useMediaQuery } from './lib/useIsPhone'
 import { onReachable } from './lib/connectivity'
 import { Splash } from './components/Splash'
 import { plakatSeedFrom } from './lib/plakatSeed'
-import type { TafelStartInfo } from './components/TafelStart'
 import { NavRail } from './components/NavRail'
 import { twinVisible, isTwinLayerId } from './lib/georefTwins'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
@@ -1079,7 +1078,7 @@ export function IncidentWorkspace({
     () => !bootGate.ws?.planBindings?.length && hasLegacyAlignmentContext(bootGate.ws),
     [],  // eslint-disable-line react-hooks/exhaustive-deps
   )
-  const { nearObjects, plansSettled, backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
+  const { plansSettled, backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
     bindings: planBindings,
     onBind: (proposed) => { if (!readOnly) setPlanBindings((prev) => fillBindingFloors(addPlanBindings(prev, proposed), proposed)) },
     legacyPlanIds,
@@ -1326,26 +1325,17 @@ export function IncidentWorkspace({
   // During replay the badge reads the folded reading.
   const liveWeather = useWeather(incidentView.center)
   const displayWeather = replayActive ? (replayWs?.weather ?? null) : liveWeather.data
-  // the empty Tafel's «Womit beginnen?» (08.10.2026, components/TafelStart) — not for a link
-  // session (bound to one object) and with no object doors for el (see onObjectSwitch)
-  const tafelStart: TafelStartInfo | undefined = linkScoped ? undefined : {
-    title: incidentMeta.title,
-    address: incidentMeta.address,
-    near: nearObjects,
-    hasLocation: incidentMeta.lng != null && incidentMeta.lat != null && (incidentMeta.lng !== 0 || incidentMeta.lat !== 0),
-    onPickObject: isEl ? undefined : pickObject,
-    onOpenObjects: isEl ? undefined : () => setPickerOpen(true),
-    onOpenBuilding: () => setActivePlanId(BUILDING_PICK_ID),
-    plakatSeed: () => plakatSeedFrom({
-      title: incidentMeta.title, address: incidentMeta.address,
-      alarmIso: reportMeta.alarmiertAt ?? incidentMeta.started_at,
-      einsatzleiter: reportMeta.einsatzleiter,
-      weather: liveWeather.data,
-      fahrzeuge: reportMeta.fahrzeuge,
-      fleet: getDeploymentConfig().fleet?.vehicles,
-      entities: doc.entities,
-    }),
-  }
+  // the Tafel's «Erstes Plakat (FKS)» Vorlage pre-fills from what the Einsatz already knows — not
+  // for a link session (bound to one object)
+  const plakatSeed = linkScoped ? undefined : () => plakatSeedFrom({
+    title: incidentMeta.title, address: incidentMeta.address,
+    alarmIso: reportMeta.alarmiertAt ?? incidentMeta.started_at,
+    einsatzleiter: reportMeta.einsatzleiter,
+    weather: liveWeather.data,
+    fahrzeuge: reportMeta.fahrzeuge,
+    fleet: getDeploymentConfig().fleet?.vehicles,
+    entities: doc.entities,
+  })
 
   // The opening cover (lib/bootCover): the boot Splash's snail stays over the whole workspace
   // until its first screen is whole — the symbol pack, the Karte framed with its first view drawn
@@ -3068,7 +3058,7 @@ export function IncidentWorkspace({
         planKeys, planFocus, effTrupps, truppCounterNames, teamNameTaken, azAlarm, updateTrupp,
         askTruppEntry, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker, linkTruppLine, unlinkLine,
         linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, syncLineNoToTrupp, setMode, setPanel,
-        setTruppFocus, planScale, setPlanScale, tafelStart,
+        setTruppFocus, planScale, setPlanScale, plakatSeed,
       }} />
 
       {pickerOpen && (
