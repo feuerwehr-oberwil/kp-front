@@ -2,7 +2,7 @@
 # Load the synthetic Musterdorf demo dataset into a deployment's database:
 # deployment config + the station brandmark + a hydrant/water reference layer + the Schloss
 # Musterdorf Einsatzobjekt with synthetic module PDFs + demo checklists (an action list +
-# tactical Stichworte + two device Anleitungen).
+# tactical Stichworte + two device Anleitungen) + the Tafel's board templates.
 #
 #   just demo-load                      # against the local dev DB (needs 'just db' running)
 #   DATABASE_URL=... bash examples/demo-data/load.sh   # against another DB
@@ -15,7 +15,7 @@ cd "$(dirname "$0")"          # examples/demo-data
 HERE="$(pwd)"
 cd ../../backend             # the admin CLIs run from backend/
 
-echo "→ 1/6  deployment config"
+echo "→ 1/7  deployment config"
 uv run python -m app.admin_config load "$HERE/config.json"
 
 # ⚠️ AFTER the config, never before: `admin_config load` replaces the whole document, and
@@ -23,21 +23,25 @@ uv run python -m app.admin_config load "$HERE/config.json"
 # keeps pointing at the blobs this step writes (stable, slot-derived keys — see admin_branding).
 # Without it the demo ran with no brandmark at all: no logo on the login screen, and the printed
 # Einsatzrapport had no letterhead.
-echo "→ 2/6  Brandmark (Login-Screen + Rapport-Briefkopf)"
+echo "→ 2/7  Brandmark (Login-Screen + Rapport-Briefkopf)"
 uv run python -m app.admin_branding load logo "$HERE/report-logo.png"
 uv run python -m app.admin_branding load reportLogo "$HERE/report-logo.png"
 
-echo "→ 3/6  reference geodata (water mains + hydrants)"
+echo "→ 3/7  reference geodata (water mains + hydrants)"
 uv run python -m app.admin_geodata load "$HERE/geodata.manifest.json"
 
-echo "→ 4/6  Einsatzobjekt + synthetic Modul-PDFs"
+echo "→ 4/7  Einsatzobjekt + synthetic Modul-PDFs"
 uv run python -m app.admin_objects load "$HERE/objects.manifest.json"
 
-echo "→ 5/6  Checklisten (Aufgaben FU + Taktik-Stichworte + Anleitungen)"
+echo "→ 5/7  Checklisten (Aufgaben FU + Taktik-Stichworte + Anleitungen)"
 uv run python -m app.admin_checklists load "$HERE/checklists.manifest.json"
 
+# the Tafel's pages: the bundled FKS set, through the same pipeline a station's own copy takes
+echo "→ 6/7  Tafel-Vorlagen (FKS Erste Führung + Handbuch-Blätter)"
+uv run python -m app.admin_board_templates load "$HERE/tafel.manifest.json"
+
 # Additive, never destructive — a Divera-synced roster just gains the demo names.
-echo "→ 6/6  Mannschaft (synthetic crew, so Anwesenheit/Schichtenplanung have people)"
+echo "→ 7/7  Mannschaft (synthetic crew, so Anwesenheit/Schichtenplanung have people)"
 uv run python -m app.seed_personnel
 
 echo ""

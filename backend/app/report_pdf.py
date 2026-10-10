@@ -57,6 +57,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from .report_board import BoardPageFlowable, BoardPageIn, Continuation, page_has_map
+
 logger = logging.getLogger(__name__)
 
 # ReportLab defaults to ASCII85-encoding every compressed stream (`useA85`) so old PDF tools that
@@ -626,6 +628,9 @@ class ReportOptionsIn(BaseModel):
     #: the «Auswertung» Beilage — printed only when the payload also carries its block, so an
     #: older client (which sends neither) prints exactly what it always did
     auswertung: bool = True
+    #: the Tafel's pages (10.10.2026, app/report_board) — like `auswertung`, they print only when
+    #: the payload carries them, so the default changes nothing for an older client
+    tafel: bool = True
 
 
 class PersonalSummaryIn(BaseModel):
@@ -788,6 +793,10 @@ class ReportPayload(BaseModel):
     attachments: list[AttachmentIn] = []
     #: the internal debrief Beilage — see AuswertungIn
     auswertung: AuswertungIn | None = None
+    #: the Tafel's board-template pages, resolved by the client (lib/boardForm · formForPdf)
+    boardPages: list[BoardPageIn] = []
+    #: the scene for their «Lagekarte» boxes, auto-framed, rendered here at print time
+    boardMap: KrokiIn | None = None
 
 
 # ----------------------------------------------------------------------------- German labels
@@ -867,6 +876,9 @@ L = {
     "colErteilt": "Erteilt",
     "colErledigt": "Erledigt",
     "pendenzOpen": "offen",
+    # the Tafel's pages (app/report_board)
+    "boardMapAt": "Karte, Stand {t}",
+    "boardContinued": "Fortsetzung: {t}",
     "pendenzUrgent": "dringend",
     "colArea": "Bereich",
     "colEntry": "Eintrag",
@@ -1672,6 +1684,8 @@ def _legend_table(lines: list[str], width: float, st: dict[str, ParagraphStyle])
 _KROKI_PX = (2080, 1222)
 #: the same crop turned upright — a portrait Kroki page gets a portrait render, so the picture
 #: fills the sheet instead of being letterboxed into a landscape frame
+#: the Tafel's Lagekarte box (app/report_board): about the FKS poster's box shape, scaled to A4
+_BOARD_MAP_PX = (1200, 880)
 _KROKI_PX_PORTRAIT = (1300, 1820)
 
 
@@ -1716,6 +1730,55 @@ def _kroki_view(pk, kw: int, kh: int):
     view = kk.fit_view(pts, kw, kh, max_z=_kroki_fit_max_z(pts))
     view.overlay_z = view.z - math.log2(512 / kk.TILE)
     return view
+
+
+def _board_map_png(pk: KrokiIn | None) -> bytes | None:
+    """The Tafel's «Lagekarte» box: the scene rendered like the Kroki, auto-framed, at the box's
+    shape. None (an empty box to sketch in) without a pack, a base or a working render."""
+    if pk is None or not pk.tiles:
+        return None
+    from . import kroki as kk
+
+    pack = kk.get_pack()
+    if pack is None:
+        return None
+    kw, kh = _BOARD_MAP_PX
+    try:
+        view = _kroki_view(pk, kw, kh)
+        img = kk.render_kroki(
+            kk.KrokiScene(
+                entities=[e.model_dump() for e in pk.entities], drawings=[d.model_dump() for d in pk.drawings]
+            ),
+            pack,
+            kk.approved_tile_template(pk.tiles),
+            width=kw,
+            height=kh,
+            view=view,
+            cache=kk.get_tile_cache(),
+            sym_mul=kk.kroki_symbol_mul(view.overlay_z if view.overlay_z is not None else view.z),
+            max_tile_z=pk.maxTileZoom or 19,
+            attribution=pk.attribution,
+        )
+    except Exception:  # noqa: BLE001 — a failed map must not sink the rapport; the box stays blank
+        logger.warning("Tafel Lagekarte could not be rendered; box left blank", exc_info=True)
+        return None
+    b = io.BytesIO()
+    img.save(b, "PNG")
+    return b.getvalue()
+
+
+def _board_overflow(overflow, head, st: dict[str, ParagraphStyle]) -> list:
+    """The «Fortsetzung» tables for rows a Tafel box could not hold (app/report_board)."""
+    out: list = []
+    for ov in overflow:
+        out.extend(head(L["boardContinued"].format(t=ov.title)))
+        thead = [Paragraph(_esc(c), st["cellhead"]) for c in ov.columns]
+        body = [[Paragraph(_esc(v), st["cell"]) for v in r] for r in ov.rows]
+        tbl = Table([thead, *body], repeatRows=1)
+        tbl.setStyle(_table_style())
+        out.append(tbl)
+        out.append(Spacer(1, 4 * mm))
+    return out
 
 
 def compose_report_pdf(
@@ -2208,6 +2271,29 @@ def compose_report_pdf(
         # says out loud — «!» sits next to the word «dringend», an indented line under an Auftrag
         # reads as belonging to it, «offen» is the word in the column — and a caption that repeats
         # its own table teaches the reader to skip captions.
+
+    # --- Die Tafel — every board-template page on a sheet of its own, in its own layout --------
+    # (10.10.2026, app/report_board). After the Aufträge: the Erste Führung is the Einsatz's own
+    # first record, not reference material, so it does not wait for the Anhang. Its Lagekarte box
+    # carries the server's own Kroki of the scene, framed on the Lage, rendered now.
+    if opt.tafel and payload.boardPages:
+        map_png = _board_map_png(payload.boardMap) if any(page_has_map(bp) for bp in payload.boardPages) else None
+        page_caption = f"{payload.incident.title} · {payload.generatedAt}"
+        for bp in payload.boardPages:
+            story.append(NextPageTemplate("landscape" if bp.landscape else "portrait"))
+            story.append(PageBreak())
+            sheet = BoardPageFlowable(
+                bp,
+                map_png if page_has_map(bp) else None,
+                caption=page_caption,
+                map_caption=L["boardMapAt"].format(t=payload.generatedAt),
+            )
+            story.append(sheet)
+            # what a box could not hold, after the sheet — nothing written is cut off the record
+            story.append(Continuation(sheet, lambda ov: _board_overflow(ov, head, st)))
+        # the sheet fills its frame, so whatever follows starts a new page by itself — portrait
+        # again, and no PageBreak here (two in a row print an empty sheet)
+        story.append(NextPageTemplate("portrait"))
 
     # --- Anhang: Kroki + annotated plans ALWAYS at the end (decided 2026-07-14) — the data
     # sections above are the identical main section; visual material is appended, never

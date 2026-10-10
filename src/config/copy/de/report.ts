@@ -265,6 +265,7 @@ export const reportCopy = {
     toggleKroki: 'Kroki',
     plansAnnotated: 'Pläne mit Anmerkungen ({n})',
     toggleGebaeude: 'Gebäude – Geschosse ({n})',
+    toggleTafel: 'Tafel – Seiten ({n})',
     plansAll: 'Alle Pläne',
     toggleAtemschutz: 'Atemschutzüberwachung ({n})',
     toggleAttendance: 'Anwesenheit ({n})',

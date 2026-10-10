@@ -136,6 +136,7 @@ import { whenIdle } from './lib/idle'
 import { useSessionRole, useWorkspaceFlags } from './workspace/access'
 import { useOfflinePrefetch } from './workspace/useOfflinePrefetch'
 import { loadReportPreflight, loadWhiteboard, requestReportStep } from './workspace/lazySurfaces'
+import { useTafelPages } from './workspace/useTafelPages'
 import type { OneShotRows, WorkspaceMode } from './workspace/types'
 import { WorkspaceMeldungen } from './workspace/WorkspaceMeldungen'
 import { WorkspaceSheets } from './workspace/WorkspaceSheets'
@@ -1777,6 +1778,18 @@ export function IncidentWorkspace({
     return (id: LayerId) => m.get(id) ?? true
   }, [mapLayers])
 
+  // the Tafel's pages (10.10.2026): the template set, the pre-fill, the live mini Karte — not for a
+  // link session (bound to one object)
+  const tafel = useTafelPages({
+    enabled: !linkScoped,
+    title: incidentMeta.title, address: incidentMeta.address,
+    alarmIso: reportMeta.alarmiertAt ?? incidentMeta.started_at, einsatzleiter: reportMeta.einsatzleiter,
+    fahrzeuge: reportMeta.fahrzeuge, docEntities: doc.entities,
+    mapEntities, drawings, layers: mapLayers, isVisible, byName: sym.byName, center: incidentView.center,
+    symMul: symbolScale.map, captionMode: symbolCaptions, trupps: effTrupps,
+    openKarte: () => setMode('map'),
+  })
+
   // --- Georeferenz: which plans are tied to the ground, and how — lib/useGeorefFits -------------
   // ⚠️ Called HERE, where the block stood: its effects must keep their place after the store's and
   // the hydrate's. `log` is declared below and reaches it through `histSide` (assigned under it).
@@ -3112,7 +3125,7 @@ export function IncidentWorkspace({
         planKeys, planFocus, effTrupps, truppCounterNames, teamNameTaken, azAlarm, updateTrupp,
         askTruppEntry, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker, linkTruppLine, unlinkLine,
         linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, syncLineNoToTrupp, setMode, setPanel,
-        setTruppFocus, planScale, setPlanScale,
+        setTruppFocus, planScale, setPlanScale, tafel,
       }} />
 
       {pickerOpen && (

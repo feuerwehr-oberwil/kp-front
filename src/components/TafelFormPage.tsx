@@ -1,0 +1,506 @@
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from 'react'
+import { appConfig } from '../config/appConfig'
+import { Icon } from '../lib/icons'
+import { cx } from '../lib/cx'
+import { fillTemplate, hhmm } from '../lib/format'
+import { newId } from '../lib/ids'
+import { serverNow } from '../lib/serverClock'
+import {
+  editableColumns, labelText, shownColumns, shownSections, tableAddsRows,
+  type QuadSection, type TableSection, type TemplateColumn, type TextSection,
+} from '../lib/boardTemplate'
+import {
+  nextTrend, normalizeTime, putField, putHead, putLine, putRow, tableRows,
+  type BoardFormData, type FormHead,
+} from '../lib/boardForm'
+import { NEW, navTarget, type NavAt, type NavKey, type NavSection } from '../lib/boardFormNav'
+import { IconButton } from './Button'
+import { BoardSignature } from './BoardSignature'
+import MiniKarte, { type MiniKarteProps } from './MiniKarte'
+import s from './TafelFormPage.module.css'
+
+/**
+ * A Tafel PAGE (10.10.2026): one board-template page as a form, laid out like the paper it comes
+ * from — the FKS «Erste Führung» poster in two columns, the Handbuch sheets as they are printed.
+ * The model, persistence and undo are lib/boardForm; the keyboard is lib/boardFormNav.
+ *
+ * Every cell commits ONCE — on blur, Enter or Tab — so an edit is one ↶ step, never one per
+ * keystroke (the note's rule). Esc puts the stored value back (a second Esc lets go). The trailing
+ * empty row of every list carries a pre-minted id, so the row it becomes on its first commit is
+ * the same element and focus stays where Tab sent it.
+ *
+ * DOM order is the template's order, row-major — the Tab order and the iOS ↑↓ bar follow it.
+ * Pre-printed cells (Signatur, Bezeichnung, the Traktanden) are text, not inputs, so neither
+ * stops on them.
+ */
+
+const T = () => appConfig.copy.tafel
+const ARROW: Record<string, string> = { up: '➚', same: '=', down: '➘' }
+
+/** what a cell is in the form (and what it writes) */
+type Addr =
+  | { kind: 'line'; sec: string; box: string; row: string }
+  | { kind: 'tag'; sec: string; box: string; row: string }
+  | { kind: 'cell'; sec: string; row: string; col: string }
+  | { kind: 'field'; sec: string; col: string }
+  | { kind: 'head'; col: keyof FormHead }
+
+const HEAD_SEC = '__head'
+const HEAD_KEYS: (keyof FormHead)[] = ['title', 'address', 'alarm', 'el']
+const keyOf = (sec: string, box: string | undefined, row: string | undefined, col: string | undefined) => `${sec}|${box ?? ''}|${row ?? ''}|${col ?? ''}`
+const navAtOf = (a: Addr): NavAt => a.kind === 'line' || a.kind === 'tag' ? { sec: a.sec, box: a.box, row: a.row }
+  : a.kind === 'cell' ? { sec: a.sec, row: a.row, col: a.col }
+    : a.kind === 'field' ? { sec: a.sec, col: a.col } : { sec: HEAD_SEC, col: a.col }
+
+/** a press on a field must not start a pan or a selection on anything under it */
+const keep = (e: { stopPropagation: () => void }) => e.stopPropagation()
+
+interface CellProps {
+  k: string
+  /** the NEW alias of a trailing row's cell — what a «next empty row» target resolves to */
+  kn?: string
+  value: string
+  label: string
+  readOnly: boolean
+  time?: boolean
+  placeholder?: string
+  className?: string
+  last?: boolean
+  onCommit: (v: string) => void
+  onNav: (key: NavKey, draft: string) => void
+}
+
+/** One cell: an auto-growing textarea that commits once (see the file header for the keys). */
+function Cell({ k, kn, value, label, readOnly, time = false, placeholder, className, last = false, onCommit, onNav }: CellProps) {
+  const [draft, setDraft] = useState(value)
+  const typing = useRef(false)
+  /** the key handler already committed this draft — the blur that follows must not commit again */
+  const handled = useRef(false)
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => { if (!typing.current) setDraft(value) }, [value])
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [draft])
+  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.nativeEvent.isComposing) return
+    if (e.key === 'Enter' && e.altKey) {
+      // Alt+Enter is a line break like Shift+Enter (Excel) — a textarea does not do it by itself
+      e.preventDefault()
+      const el = e.currentTarget
+      const a = el.selectionStart, b = el.selectionEnd
+      const next = `${draft.slice(0, a)}\n${draft.slice(b)}`
+      setDraft(next)
+      requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = a + 1 })
+      return
+    }
+    if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+      e.preventDefault()
+      handled.current = true
+      onNav('enter', draft)
+      return
+    }
+    if (e.key === 'Tab' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault()
+      handled.current = true
+      onNav(e.shiftKey ? 'shift-tab' : 'tab', draft)
+      return
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      if (draft !== value) setDraft(value)
+      else e.currentTarget.blur()
+    }
+  }
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      className={cx(s.cell, time && s.time, className)}
+      value={draft}
+      readOnly={readOnly}
+      aria-label={label}
+      placeholder={readOnly ? undefined : placeholder}
+      data-k={k}
+      data-kn={kn}
+      // the phone's return key says what Enter does here: on to the next cell, or done
+      enterKeyHint={last ? 'done' : 'next'}
+      inputMode={time ? 'numeric' : undefined}
+      spellCheck={!time}
+      onPointerDown={keep}
+      onFocus={() => { typing.current = true; handled.current = false }}
+      onChange={(e) => { handled.current = false; setDraft(e.target.value) }}
+      onBlur={() => {
+        typing.current = false
+        if (handled.current) { handled.current = false; return }
+        if (draft !== value) onCommit(draft)
+      }}
+      onKeyDown={onKeyDown}
+    />
+  )
+}
+
+function TrendButton({ trend, readOnly, onNext }: { trend: string | undefined; readOnly: boolean; onNext: () => void }) {
+  const t = T()
+  const word = trend === 'up' ? t.trendUp : trend === 'same' ? t.trendSame : trend === 'down' ? t.trendDown : t.trendNone
+  return (
+    <IconButton label={fillTemplate(t.trendTitle, { trend: word })} disabled={readOnly} className={s.trend} data-trend={trend ?? 'none'}
+      tabIndex={-1} onPointerDown={keep} onClick={onNext}>
+      <span aria-hidden="true">{trend ? ARROW[trend] : '·'}</span>
+    </IconButton>
+  )
+}
+
+function DoneButton({ on, readOnly, onToggle }: { on: boolean; readOnly: boolean; onToggle: () => void }) {
+  return (
+    <IconButton label={T().done} aria-pressed={on} disabled={readOnly} className={cx(s.done, on && s.doneOn)} tabIndex={-1}
+      onPointerDown={keep} onClick={onToggle}>
+      {on ? <Icon id="check" /> : <span className={s.tick} aria-hidden="true" />}
+    </IconButton>
+  )
+}
+
+/** Focus the cell named `k` (a `data-k` or `data-kn`) once the render that creates it has landed —
+ *  a key's target may be a row the very commit it triggered is making. */
+function useFocusAfterRender(root: RefObject<HTMLElement | null>): (k: string) => void {
+  const want = useRef<string | null>(null)
+  const [, bump] = useReducer((n: number) => n + 1, 0)
+  useLayoutEffect(() => {
+    const k = want.current
+    if (!k) return
+    const el = root.current?.querySelector<HTMLTextAreaElement>(`[data-k="${CSS.escape(k)}"],[data-kn="${CSS.escape(k)}"]`)
+    if (!el) return
+    want.current = null
+    el.focus()
+    const end = el.value.length
+    el.setSelectionRange(end, end)
+  })
+  return useCallback((k: string) => { want.current = k; bump() }, [])
+}
+
+export interface TafelFormPageProps {
+  data: BoardFormData
+  readOnly: boolean
+  isPhone: boolean
+  onChange: (next: BoardFormData) => void
+  onRemove: () => void
+  /** what the live mini Karte of a `map` section draws — it exists only while this page is shown */
+  scene?: MiniKarteProps
+  /** a tap on the mini Karte opens the Karte */
+  onOpenKarte?: () => void
+  /** px the floating chrome covers: top bar + page strip, the rails */
+  inset: { top: number; left: number; right: number; bottom: number }
+}
+
+export function TafelFormPage({ data, readOnly, isPhone, onChange, onRemove, scene, onOpenKarte, inset }: TafelFormPageProps) {
+  const t = T()
+  const page = data.page
+  const sections = shownSections(page)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  // ── the trailing rows' ids: one per list, re-minted once the list has taken it ────────────
+  // (React's «adjust state while rendering»: a list whose trailing id was taken by the commit
+  // that just landed gets a fresh one, and the render repeats before anything is painted)
+  const [pending, setPending] = useState<Record<string, string>>({})
+  const minted: Record<string, string> = {}
+  const trailing = (list: string, taken: readonly string[]): string => {
+    const cur = pending[list]
+    if (cur && !taken.includes(cur)) return cur
+    minted[list] = newId('fr')
+    return minted[list]
+  }
+
+  // ── the layout the keyboard moves through (lib/boardFormNav) ──────────────────────────────
+  const ids: Record<string, { lines?: Record<string, { lines: string[]; newId: string }>; rows?: string[]; newId?: string }> = {}
+  const layout: NavSection[] = []
+  if (page.header) layout.push({ kind: 'text', id: HEAD_SEC, fields: HEAD_KEYS })
+  for (const sec of sections) {
+    if (sec.type === 'quad') {
+      const boxes = sec.cells.map((c) => {
+        const lines = (data.values[sec.id]?.lines?.[c.id] ?? []).map((l) => l.id)
+        return { id: c.id, lines, newId: trailing(`${sec.id}/${c.id}`, lines) }
+      })
+      ids[sec.id] = { lines: Object.fromEntries(boxes.map((b) => [b.id, b])) }
+      layout.push({ kind: 'quad', id: sec.id, boxes: readOnly ? [] : boxes })
+    } else if (sec.type === 'table') {
+      const rows = tableRows(data, sec).map((r) => r.id)
+      const adds = tableAddsRows(sec)
+      const newRow = trailing(sec.id, rows)
+      ids[sec.id] = { rows, newId: adds ? newRow : undefined }
+      const cols = editableColumns(sec).filter((c) => c.type !== 'trend').map((c) => c.id)
+      layout.push({ kind: 'table', id: sec.id, cols: readOnly ? [] : cols, rows, adds, newId: adds ? newRow : undefined })
+    } else if (sec.type === 'text') {
+      layout.push({ kind: 'text', id: sec.id, fields: readOnly ? [] : sec.fields.map((f) => f.id) })
+    }
+  }
+  if (Object.keys(minted).length) setPending((p) => ({ ...p, ...minted }))
+  const lastKey = (() => {
+    const l = [...layout].reverse().find((x) => (x.kind === 'quad' ? x.boxes.length : x.kind === 'table' ? x.cols.length : x.fields.length))
+    if (!l) return ''
+    if (l.kind === 'text') return keyOf(l.id, undefined, undefined, l.fields[l.fields.length - 1])
+    if (l.kind === 'table') return keyOf(l.id, undefined, l.adds ? l.newId : l.rows[l.rows.length - 1], l.cols[l.cols.length - 1])
+    const b = l.boxes[l.boxes.length - 1]
+    return keyOf(l.id, b.id, b.newId, undefined)
+  })()
+
+  // ── writing ────────────────────────────────────────────────────────────────────────────────
+  const put = (next: BoardFormData) => { if (next !== data) onChange(next) }
+  const timeCol = (sec: TableSection) => editableColumns(sec).find((c) => c.type === 'time')
+  /** the next state for a cell commit; `stamp` = Enter finished the row, so an empty «Wann» of a
+   *  row with words gets the current time (one ↶ step with the commit, so ↶ takes it back) */
+  const next = (a: Addr, raw: string, stamp: boolean): BoardFormData => {
+    switch (a.kind) {
+      case 'line': return putLine(data, a.sec, a.box, a.row, { text: raw })
+      case 'tag': return putLine(data, a.sec, a.box, a.row, { tag: raw })
+      case 'field': {
+        const sec = sections.find((x) => x.id === a.sec) as TextSection | undefined
+        const f = sec?.fields.find((x) => x.id === a.col)
+        return putField(data, a.sec, a.col, f?.type === 'time' ? normalizeTime(raw) : raw)
+      }
+      case 'head': return putHead(data, a.col, a.col === 'alarm' ? normalizeTime(raw) : raw)
+      case 'cell': {
+        const sec = sections.find((x) => x.id === a.sec) as TableSection | undefined
+        if (!sec) return data
+        const col = sec.columns.find((c) => c.id === a.col)
+        const cells: Record<string, string> = { [a.col]: col?.type === 'time' ? normalizeTime(raw) : raw }
+        const tc = timeCol(sec)
+        if (stamp && tc && tc.id !== a.col) {
+          const row = tableRows(data, sec).find((r) => r.id === a.row)
+          const merged = { ...row?.cells, ...cells }
+          const words = editableColumns(sec).some((c) => (c.type ?? 'text') === 'text' && (merged[c.id] ?? '').trim())
+          if (words && !(merged[tc.id] ?? '').trim()) cells[tc.id] = hhmm(new Date(serverNow()))
+        }
+        return putRow(data, a.sec, a.row, { cells })
+      }
+    }
+  }
+  /** does the line / row the cursor is in hold nothing once `draft` is committed? */
+  const emptyAfter = (a: Addr, draft: string): boolean => {
+    if (a.kind === 'line' || a.kind === 'tag') {
+      const l = data.values[a.sec]?.lines?.[a.box]?.find((x) => x.id === a.row)
+      const text = a.kind === 'line' ? draft : l?.text ?? ''
+      const tag = a.kind === 'tag' ? draft : l?.tag ?? ''
+      return !text.trim() && !tag.trim()
+    }
+    if (a.kind === 'cell') {
+      const sec = sections.find((x) => x.id === a.sec) as TableSection | undefined
+      if (!sec) return true
+      const row = tableRows(data, sec).find((r) => r.id === a.row)
+      const merged = { ...row?.cells, [a.col]: draft }
+      return !editableColumns(sec).some((c) => c.type !== 'trend' && (merged[c.id] ?? '').trim())
+    }
+    return false
+  }
+
+  // ── focus: where a key sent the cursor, resolved after the commit's render ───────────────────
+  const focusAfterRender = useFocusAfterRender(rootRef)
+  const onNav = (a: Addr, key: NavKey, draft: string) => {
+    const at = navAtOf(a)
+    const target = navTarget(layout, at, key, emptyAfter(a, draft))
+    put(next(a, draft, key === 'enter'))
+    if (target === null) return
+    if (target === 'blur') { (document.activeElement as HTMLElement | null)?.blur(); return }
+    focusAfterRender(keyOf(target.sec, target.box, target.row, target.col))
+  }
+  const commit = (a: Addr) => (v: string) => put(next(a, v, false))
+
+  // ── sections ───────────────────────────────────────────────────────────────────────────────
+  const ROW_PX = isPhone ? 44 : 40
+  const minH = (h: number | undefined) => (h && !isPhone ? { minHeight: h * ROW_PX } : undefined)
+  const heading = (title?: string, sub?: string) => (
+    <>
+      {title ? <h3 className={s.sh}>{title}</h3> : null}
+      {sub ? <div className={s.sub}>{sub}</div> : null}
+    </>
+  )
+
+  const quad = (sec: QuadSection) => {
+    const v = data.values[sec.id]?.lines ?? {}
+    const st = minH(sec.height)
+    return (
+      <div className={cx(s.quad, sec.cells.length > 2 && !isPhone && s.quad2)} style={st}>
+        {sec.cells.map((c) => {
+          const lines = v[c.id] ?? []
+          const box = ids[sec.id].lines![c.id]
+          const label = labelText(c.label)
+          const lineRow = (id: string, text: string, trend: string | undefined, tag: string | undefined, isNew: boolean) => {
+            const a: Addr = { kind: 'line', sec: sec.id, box: c.id, row: id }
+            return (
+              <div key={id} className={cx(s.line, isNew && s.lineNew)}>
+                {sec.trend && (isNew ? <span className={s.trendGap} aria-hidden="true" />
+                  : <TrendButton trend={trend} readOnly={readOnly} onNext={() => put(putLine(data, sec.id, c.id, id, { trend: nextTrend(trend) }))} />)}
+                <Cell k={keyOf(sec.id, c.id, id, undefined)} kn={isNew ? keyOf(sec.id, c.id, NEW, undefined) : undefined}
+                  value={text} label={label} readOnly={readOnly} className={s.grow}
+                  last={keyOf(sec.id, c.id, id, undefined) === lastKey}
+                  onCommit={commit(a)} onNav={(key, d) => onNav(a, key, d)} />
+                {sec.tag && !isNew && (
+                  <Cell k={`${keyOf(sec.id, c.id, id, 'tag')}`} value={tag ?? ''} label={`${label} · ${t.tag}`} placeholder={t.tag}
+                    readOnly={readOnly} className={s.tag}
+                    onCommit={commit({ kind: 'tag', sec: sec.id, box: c.id, row: id })} onNav={(key, d) => onNav({ kind: 'tag', sec: sec.id, box: c.id, row: id }, key, d)} />
+                )}
+              </div>
+            )
+          }
+          return (
+            <div key={c.id} className={s.box} data-box={c.id}
+              // a tap on the empty part of a box writes into it (its empty line)
+              onPointerDown={keep}
+              onClick={(e) => { if (e.target === e.currentTarget) (e.currentTarget.querySelector<HTMLTextAreaElement>('[data-kn]'))?.focus() }}>
+              <div className={s.boxLabel}>{label}</div>
+              {lines.map((l) => lineRow(l.id, l.text, l.trend, l.tag, false))}
+              {!readOnly && lineRow(box.newId, '', undefined, undefined, true)}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  const table = (sec: TableSection) => {
+    const cols = shownColumns(sec)
+    const fixedRows = new Map((sec.fixedRows ?? []).map((r) => [r.id, r]))
+    const rows = tableRows(data, sec)
+    const adds = tableAddsRows(sec) && !readOnly
+    const grid: CSSProperties = { gridTemplateColumns: [...cols.map((c) => `minmax(0, ${c.w ?? 1}fr)`), ...(sec.done ? ['auto'] : [])].join(' ') }
+    const newId = ids[sec.id].newId
+    const fillers = isPhone ? 0 : Math.max(0, (sec.height ?? 0) - rows.length - (adds ? 1 : 0) - 1 - (sec.subtitle ? 1 : 0))
+    const cellFor = (r: { id: string; cells: Record<string, string> }, c: TemplateColumn, isNew: boolean) => {
+      const label = labelText(c.label)
+      if (c.fixed) {
+        const v = fixedRows.get(r.id)?.cells[c.id]
+        if (c.type === 'symbol') return <span key={c.id} className={cx(s.td, s.sig)}><BoardSignature name={typeof v === 'string' ? v : labelText(v)} className={s.sigSvg} /></span>
+        if (c.type === 'index') return <span key={c.id} className={cx(s.td, s.index)}><span className={s.disc}>{labelText(v)}</span></span>
+        return <span key={c.id} className={cx(s.td, s.fixed)}>{labelText(v)}</span>
+      }
+      if (c.type === 'trend') {
+        return (
+          <span key={c.id} className={cx(s.td, s.trendCell)}>
+            {!isNew && <TrendButton trend={r.cells[c.id]} readOnly={readOnly}
+              onNext={() => put(putRow(data, sec.id, r.id, { cells: { [c.id]: nextTrend(r.cells[c.id]) ?? '' } }))} />}
+          </span>
+        )
+      }
+      const a: Addr = { kind: 'cell', sec: sec.id, row: r.id, col: c.id }
+      const k = keyOf(sec.id, undefined, r.id, c.id)
+      return (
+        <span key={c.id} className={s.td}>
+          <Cell k={k} kn={isNew ? keyOf(sec.id, undefined, NEW, c.id) : undefined}
+            value={r.cells[c.id] ?? ''} label={label} readOnly={readOnly} time={c.type === 'time'}
+            placeholder={c.type === 'time' ? '--:--' : undefined} last={k === lastKey}
+            onCommit={commit(a)} onNav={(key, d) => onNav(a, key, d)} />
+        </span>
+      )
+    }
+    return (
+      <div className={s.table} role="table" aria-label={labelText(sec.title) || labelText(page.title)} style={minH(sec.height)}>
+        <div className={cx(s.tr, s.thead)} role="row" style={grid}>
+          {cols.map((c) => <span key={c.id} className={s.th} role="columnheader">{labelText(c.label)}</span>)}
+          {sec.done && <span className={s.th} role="columnheader"><span className={s.srOnly}>{t.done}</span></span>}
+        </div>
+        {rows.map((r) => (
+          <div key={r.id} className={cx(s.tr, fixedRows.has(r.id) && s.trFixed, r.done && s.trDone)} role="row" style={grid}>
+            {cols.map((c) => cellFor(r, c, false))}
+            {sec.done && <span className={cx(s.td, s.doneCell)}>
+              <DoneButton on={!!r.done} readOnly={readOnly} onToggle={() => put(putRow(data, sec.id, r.id, { done: !r.done }))} />
+            </span>}
+          </div>
+        ))}
+        {adds && newId && (
+          <div key={newId} className={cx(s.tr, s.trNew)} role="row" style={grid}>
+            {cols.map((c) => cellFor({ id: newId, cells: {} }, c, true))}
+            {sec.done && <span className={s.td} />}
+          </div>
+        )}
+        {/* the ruled rows the paper has below the written ones — a tap writes in the empty row */}
+        {Array.from({ length: fillers }, (_, i) => (
+          <div key={`f${i}`} className={cx(s.tr, s.filler)} style={grid} aria-hidden="true"
+            onClick={(e) => e.currentTarget.parentElement?.querySelector<HTMLTextAreaElement>(`[data-kn="${CSS.escape(keyOf(sec.id, undefined, NEW, editableColumns(sec)[0]?.id))}"]`)?.focus()}>
+            {cols.map((c) => <span key={c.id} className={s.td} />)}
+            {sec.done && <span className={s.td} />}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const text = (sec: TextSection) => {
+    const layoutKind = sec.layout ?? (sec.fields.length > 1 ? 'row' : 'stack')
+    const v = data.values[sec.id]?.fields ?? {}
+    const st = minH(sec.height)
+    const field = (f: TextSection['fields'][number], i: number) => {
+      const a: Addr = { kind: 'field', sec: sec.id, col: f.id }
+      const label = labelText(f.label) || labelText(sec.title)
+      const k = keyOf(sec.id, undefined, undefined, f.id)
+      return (
+        <label key={f.id} className={cx(s.field, f.tone && s[`tone_${f.tone}`], layoutKind === 'split' && i === 0 && s.fieldMain)}>
+          {(i === 0 && sec.title) || f.label ? <span className={s.fieldLabel}>{i === 0 && sec.title && !f.label ? labelText(sec.title) : labelText(f.label)}</span> : null}
+          <Cell k={k} value={v[f.id] ?? ''} label={label} readOnly={readOnly} time={f.type === 'time'} className={s.fieldCell}
+            last={k === lastKey} onCommit={commit(a)} onNav={(key, d) => onNav(a, key, d)} />
+        </label>
+      )
+    }
+    if (layoutKind === 'split') {
+      return (
+        <div className={cx(s.textBox, s.split)} style={st}>
+          {field(sec.fields[0], 0)}
+          <div className={s.splitRow}>{sec.fields.slice(1).map((f, i) => field(f, i + 1))}</div>
+        </div>
+      )
+    }
+    return <div className={cx(s.textBox, layoutKind === 'row' && !isPhone && s.textRow)} style={st}>{sec.fields.map(field)}</div>
+  }
+
+  const map = (sec: { height?: number }) => (
+    <div className={s.map} style={minH(sec.height)}>
+      {/* inert: the markers inside are buttons on the Karte — here they are a picture, and neither
+          Tab nor the iOS ↑↓ bar may stop on them */}
+      <div className={cx(s.mapInner, 'tfp-map')} inert>{scene && <MiniKarte {...scene} />}</div>
+      <button type="button" className={s.mapOpen} aria-label={t.mapLabel} title={t.mapPrint}
+        onPointerDown={keep} onClick={() => onOpenKarte?.()}>
+        <span className={s.mapChip}><Icon id="map" />{t.mapOpen}</span>
+      </button>
+    </div>
+  )
+
+  const cols = isPhone ? 1 : page.columns ?? 1
+  return (
+    <div ref={rootRef} className={cx(s.page, isPhone && s.phone)} data-testid="tafel-page" data-page={page.id}
+      style={{ paddingTop: inset.top, paddingLeft: inset.left, paddingRight: inset.right, paddingBottom: inset.bottom }}>
+      <div className={cx(s.paper, page.paper === 'landscape' && s.landscape, cols === 1 && s.single)}>
+        <header className={s.head}>
+          <h2 className={s.title}>{page.code ? <span className={s.code}>{page.code}</span> : null}{labelText(page.title)}</h2>
+          <span className={s.meta} title={t.keysHint}>{fillTemplate(t.template, { title: labelText(data.tpl.title), v: data.tpl.version })}</span>
+          {!readOnly && (
+            <IconButton label={t.removePage} className={s.remove} onPointerDown={keep} onClick={onRemove}><Icon id="trash" /></IconButton>
+          )}
+        </header>
+        {page.header && (
+          <div className={s.headRow}>
+            {HEAD_KEYS.map((k) => {
+              const a: Addr = { kind: 'head', col: k }
+              return (
+                <label key={k} className={cx(s.field, s.headField)}>
+                  <span className={s.fieldLabel}>{t.head[k]}</span>
+                  <Cell k={keyOf(HEAD_SEC, undefined, undefined, k)} value={data.head?.[k] ?? ''} label={t.head[k]} readOnly={readOnly} time={k === 'alarm'}
+                    className={s.fieldCell} onCommit={commit(a)} onNav={(key, d) => onNav(a, key, d)} />
+                </label>
+              )
+            })}
+          </div>
+        )}
+        <div className={s.grid} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+          {sections.map((sec) => (
+            <section key={sec.id} className={cx(s.sec, sec.type === 'text' && s.secText)} data-sec={sec.id}
+              style={{ gridColumn: cols > 1 && sec.span === 2 ? '1 / -1' : undefined }}>
+              {sec.type !== 'text' && heading(labelText(sec.title), labelText(sec.subtitle))}
+              {sec.type === 'quad' ? quad(sec) : sec.type === 'table' ? table(sec) : sec.type === 'text' ? text(sec) : map(sec)}
+            </section>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}

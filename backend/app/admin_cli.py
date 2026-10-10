@@ -1,7 +1,7 @@
-"""The plumbing the five station CLIs share — nothing domain-specific lives here.
+"""The plumbing the station CLIs share — nothing domain-specific lives here.
 
-``admin_config``, ``admin_geodata``, ``admin_objects``, ``admin_checklists`` and
-``admin_branding`` are operator tools with the same shape: validate a file, write it into the
+``admin_config``, ``admin_geodata``, ``admin_objects``, ``admin_checklists``,
+``admin_board_templates`` (10.10.2026) and ``admin_branding`` are operator tools with the same shape: validate a file, write it into the
 database directly, or ``push`` it to a RUNNING deployment over its HTTP API. What they had in
 common was written out five times — the ``_fail`` that exits non-zero, the
 ``--base``/``--admin-secret``/``--dry-run`` flags with their environment fallbacks, the

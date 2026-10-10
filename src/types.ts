@@ -1,3 +1,4 @@
+import type { BoardFormData } from './lib/boardForm'
 export type LngLat = [number, number]
 
 export type LayerId = string
@@ -820,7 +821,9 @@ export type PreparedMapOverlay =
 /** Whiteboard annotation. All positions are normalized 0..1 in plan-image space,
  *  so they stick to the plan across zoom/pan. */
 export type BoardTool = 'pan' | 'lasso' | 'draw' | 'line' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource' | 'scale' | 'measure'
-export type BoardKind = 'draw' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource'
+/** `form` (10.10.2026): a Tafel PAGE — a board-template page with what was written on it (lib/boardForm).
+ *  Sheet-wide, no position, no map body; everything positional ignores it by having no x/y/pts. */
+export type BoardKind = 'draw' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource' | 'form'
 /** Plan point. The optional storey is backward compatible: legacy points inherit BoardAnno.floor. */
 export type BoardPoint = [x: number, y: number] | [x: number, y: number, floor: number]
 export interface BoardAnno extends SymbolProps {
@@ -912,6 +915,9 @@ export interface BoardAnno extends SymbolProps {
   /** Magnetic relationship intent at the first/last vertex (draw/line only). */
   startAttachment?: LineAttachment
   endAttachment?: LineAttachment
+  /** kind 'form' only: the Tafel page (lib/boardForm). The whole page is ONE object, so a commit
+   *  is one undo step and rides the board's own sync like any other anno. */
+  form?: BoardFormData
 }
 /** One past position of a team on a plan, in normalized 0..1 plan space. */
 /** a recorded breadcrumb. `floor` = the storey the team was on at time `t` (floor-stack

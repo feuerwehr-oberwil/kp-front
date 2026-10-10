@@ -7508,6 +7508,72 @@
         }
       }
     },
+    "/api/reference/tafel/prune": {
+      "post": {
+        "tags": [
+          "reference"
+        ],
+        "summary": "Prune Board Templates",
+        "description": "Delete every ``tafel:*`` board template whose id is NOT in ``keep`` (the manifest's), so a\ndropped or renamed template never lingers on the tablets. Called by ``admin_board_templates\npush``; admin-gated like the checklists' prune.",
+        "operationId": "prune_board_templates_api_reference_tafel_prune_post",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Keep"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Prune Board Templates Api Reference Tafel Prune Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/reference/checklists/prune": {
       "post": {
         "tags": [

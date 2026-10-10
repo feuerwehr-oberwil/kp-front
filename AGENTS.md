@@ -367,7 +367,10 @@ head, then `alembic check` against the models); image, secrets, e2e, visual and 
   plans fall back only to OSM outlines + `Tafel`, never bundled `/public` PDFs; checklist templates
   are fetched from the `checklists:<id>` reference datasets (`loadTemplates` in
   `src/lib/checklists.ts`, offline-cached), falling back to one neutral bundled example
-  (`src/data/checklists/generic-action.json`) – never a station's real lists. GeoJSON must be WGS84
+  (`src/data/checklists/generic-action.json`) – never a station's real lists. The Tafel's board
+templates ride the same pipeline (`admin_board_templates`, `tafel:<id>`); their bundled FKS set
+is public FKS material, and a station set REPLACES it rather than joining it
+([`docs/board-templates.md`](docs/board-templates.md)). GeoJSON must be WGS84
   `[lng,lat]` (LV95 is rejected).
 - **Coordinates are WGS84 `[lng, lat]` wherever the map renders.** LV95 only at the edges via
   `src/lib/geo.ts` (`wgs84ToLV95` / `lv95ToWgs84` / `fmtLV95`), the `centerLv95` config option,
@@ -404,6 +407,9 @@ head, then `alembic check` against the models); image, secrets, e2e, visual and 
     the Sicherungstrupp, the Atemschutznotfall and the Abschluss.
   - [`docs/copy-and-wording.md`](docs/copy-and-wording.md) – which word a screen uses.
   - [`docs/rapport.md`](docs/rapport.md) – what the Rapport's figure pages carry.
+  - [`docs/board-templates.md`](docs/board-templates.md) – the Tafel's pages (FKS «Erste
+    Führung» …): a page is ONE `form` board anno with its template snapshot, values keyed by id,
+    the spreadsheet keyboard, and the `board-template/1` contract a station writes against.
   - [`docs/roles-and-access.md`](docs/roles-and-access.md) – roles, the deployment admin, links.
   - [`docs/trupp-naming.md`](docs/trupp-naming.md), [`docs/verlauf-coverage.md`](docs/verlauf-coverage.md),
     [`docs/object-visits.md`](docs/object-visits.md) – Trupp identity, what reaches the Verlauf,
