@@ -3,6 +3,7 @@
 // the boot placeholder while the symbol pack loads. Split out of IncidentWorkspace (E1,
 // 09.10.2026) verbatim; every writer it calls is the workspace's and comes in as a prop.
 
+import type { KarteWeather } from './useKarteWeather'
 import type { ReactNode, RefObject, Dispatch, SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import type { JSX } from 'react/jsx-runtime'
@@ -67,6 +68,8 @@ export interface MapStageProps {
   mapOverlays: PreparedMapOverlay[]
   finishSelection: () => void
   georefPlanRasters: { id: string; url: string; opacity: number; coordinates: [[number, number], [number, number], [number, number], [number, number]] }[]
+  /** the «Niederschlag (Radar)» layer while it is on (workspace/useKarteWeather · mapRadar) */
+  weatherRadar: KarteWeather['mapRadar']
   isVisible: (id: LayerId) => boolean
   selectedId: string | null
   measure: ReturnType<typeof useMeasure>
@@ -123,7 +126,7 @@ export function MapStage({
   noteTextCommit, setSelectedId, setSelectedDrawingId, setEditNoteId, tool, setNotePanelId, effTrupps,
   azAlarm, setMode, setPanel, setTruppFocus, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker,
   markTeamPosition, renameTeam, clearTeamTrail, removeTeamWithTrail, trails, deleteGhostTrail, doc,
-  unlinkTruppLine, patchEntity, linkTruppLine, log, mapOverlays, finishSelection, georefPlanRasters,
+  unlinkTruppLine, patchEntity, linkTruppLine, log, mapOverlays, finishSelection, georefPlanRasters, weatherRadar,
   isVisible, selectedId, measure, setSelectedDrawIds, setSelectedEntityIds, onMapClick, drawings,
   draft, areaMode, lineNodes, setDraft, setDraftPointAttachment, startEntityMove, streamEntityMove,
   finishEntityMove, setVehicleOverrides, beginDrag, setDocRaw, endDrag, setView, onBasemapUnavailable,
@@ -218,6 +221,7 @@ export function MapStage({
           // the linked sheets themselves, as a raster backdrop under the ink — a picture of the
           // paper, not an object on it, which is why THIS one is not a projection of anything
           georefPlanRasters={georefPlanRasters}
+          weatherRadar={weatherRadar}
           isVisible={isVisible}
           selectedId={selectedId}
           // Messen: a tap on a symbol is a measuring point FROM ITS CENTRE, never a selection —

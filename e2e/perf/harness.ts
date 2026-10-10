@@ -96,6 +96,23 @@ export async function isolateFromOutside(context: BrowserContext, baseURL: strin
     gwr_status: 'ok', plants: [], pv_status: 'ok', registers_fetched_at: new Date(now()).toISOString(),
     object: null, visit: null,
   } }))
+  // The Karte's weather layer (backend app/weather_layer, off in CI's stack): a fixed answer, so the
+  // journeys pay for its poll – no radar frame (the radar row is off by default).
+  await context.route('**/api/weather/layer*', (route) => route.fulfill({ json: cannedWeatherLayer(now()) }))
+}
+
+function cannedWeatherLayer(at: number) {
+  const iso = new Date(at).toISOString()
+  const status = { last_attempt_at: iso, last_success_at: iso, last_error: null, last_error_at: null }
+  return {
+    enabled: true,
+    generated_at: iso,
+    radar: {
+      frames: [], coordinates: null, data_time: null, stale: true, stale_after_seconds: 900, status,
+      legend: [{ min_mm_h: 0.1, color: '#9bd7ff' }, { min_mm_h: 10, color: '#ff9a00' }],
+      attribution: 'MeteoSchweiz', source_url: 'https://www.meteoschweiz.admin.ch',
+    },
+  }
 }
 
 // ── Network accounting ───────────────────────────────────────────────────────────────────────

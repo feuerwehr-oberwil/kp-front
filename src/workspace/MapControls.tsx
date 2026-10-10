@@ -2,13 +2,14 @@
 // Ebenen buttons, the replay/locked variants — plus the phone backdrop and the Ebenen dock.
 // Split out of IncidentWorkspace (E1, 09.10.2026) verbatim; `mapUI` and `panel` gate them as before.
 
-import type { RefObject, Dispatch, SetStateAction } from 'react'
+import { Suspense, type RefObject, type Dispatch, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import { BuildingFloat } from '../components/BuildingFloat'
 import { LayerPanel } from '../components/LayerPanel'
 import { MapUtility } from '../components/MapUtility'
 import type { ViewsApi } from '../components/MapViewsMenu'
 import { WeatherBadge } from '../components/TopBar'
+import { WeatherRadarControls } from '../components/weatherLazy'
 import { appConfig } from '../config/appConfig'
 import { hasBuildingContent } from '../lib/buildingCard'
 import { fmtLV95, fmtWGS } from '../lib/geo'
@@ -20,6 +21,7 @@ import type { useCoordPicker } from '../lib/useCoordPicker'
 import type { useIsPhone } from '../lib/useIsPhone'
 import type { LngLat, WeatherData, LayerDef, LayerId } from '../types'
 import type { LayerPreset } from '../lib/layerPreset'
+import type { KarteWeather } from './useKarteWeather'
 
 export interface MapControlsProps {
   mapUI: boolean
@@ -55,6 +57,8 @@ export interface MapControlsProps {
   twinLayerOpacity: Record<string, number>
   setAllLayers: (visible: boolean) => void
   resetLayers: () => void
+  /** the weather layer (workspace/useKarteWeather): its radar pill joins the chip row */
+  weather: KarteWeather
 }
 
 export function MapControls({
@@ -62,7 +66,14 @@ export function MapControls({
   layersPreset, togglePanel, isPhone, slimRail, displayWeather, openWeatherDetails, replayActive,
   georefMode, buildingInfo, tool, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
   toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
+  weather,
 }: MapControlsProps) {
+  // The Karte's ONE bottom-left chip row (below): the Gebäude chip and the radar pill, in that
+  // order. Each piece is decided HERE, so the row exists only when one of them has something to
+  // say — its presence alone lifts the message lane (08-toasts, 15-mobile · --float-row).
+  const rowAllowed = !replayActive && !georefMode.planId
+  const showBuilding = rowAllowed && hasBuildingContent(buildingInfo)
+  const wxRadarInRow = rowAllowed && weather.on && !!weather.layer && weather.radarOn
   return (
     <>
       {mapUI && (
@@ -107,12 +118,24 @@ export function MapControls({
               hidden during replay so it never stacks under the bottom-centre scrubber. The ✕ on
               its right is the same exit in both states — the mode used to be leavable only from
               the compass menu, two taps away, while it swallowed every map tap (02.09.). */}
-          {/* The Gebäude chip — the Karte's bottom-left chip row, the same place and recipe as the
-              plan's (Whiteboard · .wb-botleft), so Lage and Plan say it in one spot. Rendered only
-              with something to say: the row's presence alone lifts the message lane. Not during
-              replay (a past Lage, and its scrubber owns the foot) or «Karte verknüpfen». */}
-          {!replayActive && !georefMode.planId && hasBuildingContent(buildingInfo) && (
-            <div className="wb-botleft"><BuildingFloat info={buildingInfo} compact={isPhone} /></div>
+          {/* The Karte's bottom-left chip row — the same place and recipe as the plan's
+              (Whiteboard · .wb-botleft), so Lage and Plan say it in one spot: the Gebäude chip and
+              the radar pill. ONE row for both — two rows in one slot covered each other
+              (09.10.2026). Rendered only with something to say: the row's presence alone lifts
+              the message lane. Not during replay (a past Lage, and its scrubber owns the foot) or
+              «Karte verknüpfen». On a phone it stays one line: the
+              Gebäude chip keeps its words, the radar pill gives way (WeatherLayer.module.css). */}
+          {(showBuilding || wxRadarInRow) && (
+            <div className="wb-botleft wx-row">
+              {showBuilding && <BuildingFloat info={buildingInfo} compact={isPhone} />}
+              {wxRadarInRow && (
+                <Suspense fallback={null}>
+                  <WeatherRadarControls radar={weather.radar} frameIndex={weather.playback.frameIndex}
+                    playing={weather.playback.playing} onPick={weather.playback.pick}
+                    onTogglePlaying={weather.playback.togglePlaying} stale={weather.radarStale} now={weather.now} />
+                </Suspense>
+              )}
+            </div>
           )}
 
           {coord.readout && !replayActive && (
@@ -156,6 +179,7 @@ export function MapControls({
           onHideAll={() => setAllLayers(false)}
           onReset={resetLayers}
           preset={layersPreset}
+          weather={weather.row}
           onClose={() => setPanel(null)}
         />
       )}
