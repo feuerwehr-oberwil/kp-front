@@ -29,6 +29,8 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+## [0.12.0] – 2026-10-10
+
 ### Upgrade notes
 
 Nothing in this release needs a manual step on a station that does not use the removed print
@@ -72,6 +74,11 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   station that set «Personenstamm-Quelle» keeps it – it is the fallback; to move to the one
   address, publish `index.json` beside `roster.json` (`scripts/station_index_build.py`) and set
   «Stationsdaten-Index».
+- **`docker-compose.yml` pulls `postgres` and `caddy` from AWS ECR Public**
+  (`public.ecr.aws/docker/library/postgres:16-alpine`, `…/caddy:2-alpine`, same digests) instead
+  of Docker Hub – the same official images, without Docker Hub's anonymous pull limit. Nothing to
+  migrate: `docker compose up -d` recreates the two containers once and the database stays on its
+  volume. A host whose outbound traffic goes through an allowlist needs `public.ecr.aws` on it.
 
 ### Added
 
@@ -379,6 +386,15 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Changed
 
+- **Under the hood: the biggest files are split up, and CI no longer trips over Docker Hub.**
+  The four copy catalogues (about 8,000 lines each) are one module per surface now
+  (`src/config/copy/<locale>/<surface>.ts`), and `IncidentWorkspace.tsx` hands its surfaces,
+  the Verlauf's writers, the workspace blob, the Karte's gestures, the undo stacks and the media
+  outbox to shells and hooks in `src/workspace/` – moved test-first, without changing behaviour.
+  CI and the image build pull their base images from AWS ECR Public or through `mirror.gcr.io`
+  (the production compose file follows, see Upgrade notes), the «Visual» screenshot check is
+  required on `main` since 10.10.2026, and the performance baseline carries the split's
+  cold-start bytes. *No action needed.*
 - **Files shared with KP Rück are checked from both sides.** `shared/MANIFEST.json` lists every
   file the two products share by copy (telemetry sanitiser, alarm vocabulary, roster contract and
   reader, alarm intake corpus, loading snail) with its owner and sha256, and replaces the hash
@@ -496,6 +512,10 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Fixed
 
+- **The snail's entrance is no longer cut short in Safari on a fast start.** WebKit draws the
+  start cover's first frame late, and the 630 ms hold was counted from before it, so the app
+  could take over mid-skid. The hold now counts from the entrance's real start (at most 1 s
+  waiting for a frame).
 - **A Trupp's «fällig» and «überfällig» no longer ride on colour alone.** On the phone board
   the row said them only in amber and red, which is no answer in direct sun or to a colour-blind
   reader. Under the clock it now carries a glyph: a clock for «fällig», the warning triangle for
@@ -4286,7 +4306,8 @@ toolchain on the VPS. Everything else here has been running in production since 
 - A render error on the login screen, landing list, or admin surface now shows the recoverable
   error card instead of a white screen (root-level error boundary + guarded boot init).
 
-[Unreleased]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.8.0...v0.9.0
