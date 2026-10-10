@@ -27,6 +27,18 @@ export const panelsCopy = {
     marker: 'Foto vom Verlauf',
     markerTaken: 'Foto vom Verlauf · aufgenommen {t}',
     planMark: 'Foto – auf der Karte verschieben oder entfernen',
+    // the device position stands in for a photo without EXIF position (lib/devicePosition)
+    sourceExif: 'Ort aus dem Foto',
+    sourceDevice: 'Standort des Geräts',
+    accuracy: '± {m} m',
+    askTitle: 'Standort zu Fotos speichern?',
+    askMessage: 'Die Kamera gibt KP Front keinen Aufnahmeort mit. Mit dem Standort dieses Geräts lässt sich ein Foto auf der Karte setzen.',
+    askNote: 'Gespeichert wird nur die Position, und nur in der Nähe des Einsatzes. Änderbar unter Einstellungen.',
+    askYes: 'Standort verwenden',
+    askNo: 'Nicht verwenden',
+    settingsLabel: 'Standort zu Fotos',
+    settingsHint: 'Hat ein Foto keinen Aufnahmeort, gilt der Standort dieses Geräts – nur in der Nähe des Einsatzes',
+    locatedLate: 'Foto mit Standort',
   },
   // running incident clock in the TopBar
   einsatzuhr: {
