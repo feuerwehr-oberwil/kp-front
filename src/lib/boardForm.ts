@@ -352,6 +352,38 @@ export function formDelta(a: BoardFormData, b: BoardFormData): { k: string; old?
   return out
 }
 
+/**
+ * A page with an audit row's `form.delta` applied (`formDelta`, the `board.edit` payload) — what
+ * the Replay scrubber folds so it shows the page as it was at that moment (re-review of #338).
+ * Through the same writers an edit uses; a row's atoms go in together, so a new row is made
+ * with all its cells at once. A row or line the page did not have yet goes after the last one
+ * (the audit names cells, not rulings).
+ */
+export function applyFormDelta(d: BoardFormData, delta: readonly { k: string; old?: string; new?: string }[]): BoardFormData {
+  let out = d
+  const rows = new Map<string, { sec: string; row: string; cells: Record<string, string>; done?: boolean }>()
+  for (const c of Array.isArray(delta) ? delta : []) {
+    if (!c || typeof c.k !== 'string') continue
+    const [kind, a, b, x] = c.k.split('|')
+    const v = typeof c.new === 'string' ? c.new : ''
+    if (kind === 'h' && a) out = putHead(out, a as keyof FormHead, v)
+    else if (kind === 'f' && a && b) out = putField(out, a, b, v)
+    else if (kind === 'l' && a && b && x) {
+      let line: Partial<FormLine> = { text: '', tag: '' }
+      if (v) { try { line = { tag: '', ...(JSON.parse(v) as Partial<FormLine>) } } catch { continue } }
+      out = putLine(out, a, b, x, { text: line.text ?? '', tag: line.tag ?? '', trend: line.trend })
+    } else if (kind === 'r' && a && b && x) {
+      const key = `${a}|${b}`
+      const r: { sec: string; row: string; cells: Record<string, string>; done?: boolean } = rows.get(key) ?? { sec: a, row: b, cells: {} }
+      if (x === '#done') r.done = !!v
+      else r.cells[x] = v
+      rows.set(key, r)
+    }
+  }
+  for (const r of rows.values()) out = putRow(out, r.sec, r.row, { cells: r.cells, ...(r.done !== undefined ? { done: r.done } : {}) })
+  return out
+}
+
 /** `next` with the edit time of every atom it changed against `prev` — or as it is without a time. */
 function stamped(prev: BoardFormData, next: BoardFormData, at: number | undefined): BoardFormData {
   if (next === prev || at == null) return next
