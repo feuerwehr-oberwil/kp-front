@@ -28,11 +28,13 @@ import type { BoardAnno } from '../types'
 export const TAFEL_ID = 'tafel'
 
 export type FormTrend = 'up' | 'same' | 'down'
-/** one written line in a Problemerfassung box */
-export interface FormLine { id: string; text: string; trend?: FormTrend; tag?: string }
+/** one written line in a Problemerfassung box. `slot`: where in the box it was written (see
+ *  `slotted` — a line stays where it was written, like on paper) */
+export interface FormLine { id: string; text: string; trend?: FormTrend; tag?: string; slot?: number }
 /** one table row: the typed cells by column id (a trend column holds 'up' | 'same' | 'down').
- *  `seed` marks a row the page pre-filled (a vehicle in «Mittel») until somebody edits it. */
-export interface FormRow { id: string; cells: Record<string, string>; done?: boolean; seed?: boolean }
+ *  `seed` marks a row the page pre-filled (a vehicle in «Mittel») until somebody edits it.
+ *  `slot`: which ruling under the pre-printed rows it was written on (see `slotted`) */
+export interface FormRow { id: string; cells: Record<string, string>; done?: boolean; seed?: boolean; slot?: number }
 export interface FormSectionValue {
   /** quad: lines per box id */
   lines?: Record<string, FormLine[]>
@@ -89,7 +91,7 @@ export function newFormPage(tpl: BoardTemplate, page: TemplatePage, seed: FormSe
   for (const s of page.sections) {
     if (s.type === 'table' && s.seed === 'vehicles' && vehicles.length && tableAddsRows(s)) {
       const first = editableColumns(s)[0]
-      if (first) values[s.id] = { rows: vehicles.map((name) => ({ id: newId('fr'), cells: { [first.id]: name }, seed: true })) }
+      if (first) values[s.id] = { rows: vehicles.map((name, slot) => ({ id: newId('fr'), cells: { [first.id]: name }, seed: true, slot })) }
     }
   }
   return {
@@ -117,10 +119,12 @@ export const findForms = (annos: readonly BoardAnno[]): FormAnno[] =>
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 const isStrMap = (v: unknown) => isObj(v) && Object.values(v).every((x) => typeof x === 'string')
 const TRENDS: readonly unknown[] = ['up', 'same', 'down']
+/** a slot is a ruling on the page: a small whole number (a runaway one would draw a mile of rows) */
+const isSlot = (v: unknown) => v === undefined || (Number.isInteger(v) && (v as number) >= 0 && (v as number) < MAX_SLOT)
 const isLine = (v: unknown) => isObj(v) && typeof v.id === 'string' && typeof v.text === 'string'
-  && (v.trend === undefined || TRENDS.includes(v.trend)) && (v.tag === undefined || typeof v.tag === 'string')
+  && (v.trend === undefined || TRENDS.includes(v.trend)) && (v.tag === undefined || typeof v.tag === 'string') && isSlot(v.slot)
 const isRow = (v: unknown) => isObj(v) && typeof v.id === 'string' && isStrMap(v.cells)
-  && (v.done === undefined || typeof v.done === 'boolean') && (v.seed === undefined || typeof v.seed === 'boolean')
+  && (v.done === undefined || typeof v.done === 'boolean') && (v.seed === undefined || typeof v.seed === 'boolean') && isSlot(v.slot)
 const isSectionValue = (v: unknown) => isObj(v)
   && (v.lines === undefined || (isObj(v.lines) && Object.values(v.lines).every((ls) => Array.isArray(ls) && ls.every(isLine))))
   && (v.rows === undefined || (Array.isArray(v.rows) && v.rows.every(isRow)))
@@ -141,6 +145,49 @@ export function isFormData(v: unknown): v is BoardFormData {
   if (v.head !== undefined && !isStrMap(v.head)) return false
   return isObj(v.values) && Object.values(v.values).every(isSectionValue)
 }
+
+// ── where a row stands: its slot ─────────────────────────────────────────────────────────────
+
+export const MAX_SLOT = 500
+
+/**
+ * ⚠️ A written row or line STAYS WHERE IT WAS WRITTEN, like on paper (owner, staging round 2:
+ * «Test 1» typed into Mittel's 8th ruling jumped up to the 4th). Each one carries its `slot` — its
+ * ruling under the pre-printed rows (a table) or its line in the box (a Problemerfassung) — and
+ * this lays a list out by it: index = slot, `undefined` = an empty ruling ABOVE a written one,
+ * which stays (it is not «free»; only the empties after the last written one are). An item from
+ * before slots (none stored) stands right after the one before it — the order it always had; two
+ * that claim one slot (two devices wrote the same ruling at once) keep both, the later in the
+ * list on the next free ruling below. Never an array position: a merge, an undo or a removal
+ * reorders arrays, and nothing that was written may move for it.
+ */
+export function slotted<T extends { slot?: number }>(items: readonly T[]): (T | undefined)[] {
+  const out: (T | undefined)[] = []
+  let prev = -1
+  for (const it of items) {
+    let at = typeof it.slot === 'number' && Number.isInteger(it.slot) && it.slot >= 0 ? Math.min(it.slot, MAX_SLOT - 1) : prev + 1
+    while (out[at] !== undefined) at++
+    out[at] = it
+    prev = at
+  }
+  return Array.from(out)
+}
+
+/** Every item with the slot it is laid out on, stored — so a later removal above it moves nothing
+ *  (an item from before slots is pinned on its first write). Same objects where nothing changes. */
+function pinSlots<T extends { slot?: number }>(items: readonly T[]): T[] {
+  const at = new Map<T, number>()
+  slotted(items).forEach((it, i) => { if (it) at.set(it, i) })
+  return items.map((it) => (it.slot === at.get(it) ? it : { ...it, slot: at.get(it) }))
+}
+
+/** The slot a new item takes: the one it was written on, else the first ruling after the last
+ *  written one (the trailing empty row). */
+const newSlot = <T extends { slot?: number }>(items: readonly T[], want: number | undefined): number =>
+  want != null && Number.isInteger(want) && want >= 0 && want < MAX_SLOT ? want : slotted(items).length
+
+/** A box's lines as laid out (see `slotted`). */
+export const boxLines = (d: BoardFormData, sec: string, box: string): (FormLine | undefined)[] => slotted(d.values[sec]?.lines?.[box] ?? [])
 
 // ── writing ───────────────────────────────────────────────────────────────────────────────────
 
@@ -165,9 +212,10 @@ const same = (a: Record<string, unknown>, b: Record<string, unknown>) => {
 const lineIsEmpty = (l: FormLine) => !l.text.trim() && !(l.tag ?? '').trim()
 
 /**
- * Write one line of a Problemerfassung box: patch it, append it when it is the trailing new line,
- * drop it when the patch left it without words. Hands back the SAME object for a no-op, so the
- * caller lays no empty ↶ step.
+ * Write one line of a Problemerfassung box: patch it, add it on the line it was written on
+ * (`patch.slot`, else after the last one) when it is new, drop it when the patch left it without
+ * words — the lines below stay where they are (`slotted`). Hands back the SAME object for a
+ * no-op, so the caller lays no empty ↶ step.
  */
 export function putLine(d: BoardFormData, sec: string, cell: string, id: string, patch: Partial<Omit<FormLine, 'id'>>, at?: number): BoardFormData {
   return stamped(d, putLineRaw(d, sec, cell, id, patch), at)
@@ -176,13 +224,16 @@ function putLineRaw(d: BoardFormData, sec: string, cell: string, id: string, pat
   const v = sectionValue(d, sec)
   const list = v.lines?.[cell] ?? []
   const i = list.findIndex((l) => l.id === id)
+  const { slot: want, ...edit } = patch
   const before: FormLine = i >= 0 ? list[i] : { id, text: '' }
-  const after: FormLine = { ...before, ...patch }
+  const after: FormLine = { ...before, ...edit }
   for (const k of ['trend', 'tag'] as const) if (after[k] === undefined || after[k] === '') delete after[k]
   if (i >= 0 && same(before as unknown as Record<string, unknown>, after as unknown as Record<string, unknown>)) return d
   const empty = lineIsEmpty(after)
   if (i < 0 && empty) return d
-  const next = i < 0 ? [...list, after] : empty ? list.filter((l) => l.id !== id) : list.map((l) => (l.id === id ? after : l))
+  const pinned = pinSlots(list)
+  const next = i < 0 ? [...pinned, { ...after, slot: newSlot(list, want) }]
+    : empty ? pinned.filter((l) => l.id !== id) : pinned.map((l) => (l.id === id ? { ...after, slot: l.slot } : l))
   return withSection(d, sec, { ...v, lines: { ...v.lines, [cell]: next } })
 }
 
@@ -201,10 +252,10 @@ export const tableOf = (d: BoardFormData, sec: string): TableSection | undefined
  * row and dropped when the patch left all its typed cells empty (a tick or a trend alone is not
  * content). Empty cell values are not stored. Same-object return for a no-op.
  */
-export function putRow(d: BoardFormData, sec: string, id: string, patch: { cells?: Record<string, string>; done?: boolean }, at?: number): BoardFormData {
+export function putRow(d: BoardFormData, sec: string, id: string, patch: { cells?: Record<string, string>; done?: boolean; slot?: number }, at?: number): BoardFormData {
   return stamped(d, putRowRaw(d, sec, id, patch), at)
 }
-function putRowRaw(d: BoardFormData, sec: string, id: string, patch: { cells?: Record<string, string>; done?: boolean }): BoardFormData {
+function putRowRaw(d: BoardFormData, sec: string, id: string, patch: { cells?: Record<string, string>; done?: boolean; slot?: number }): BoardFormData {
   const s = tableOf(d, sec)
   if (!s) return d
   const v = sectionValue(d, sec)
@@ -227,7 +278,14 @@ function putRowRaw(d: BoardFormData, sec: string, id: string, patch: { cells?: R
     return withSection(d, sec, { ...v, rows: next })
   }
   if (i < 0 && empty) return d
-  const next = i < 0 ? [...list, after] : empty ? list.filter((r) => r.id !== id) : list.map((r) => (r.id === id ? after : r))
+  // a written row takes the ruling it was written on and keeps it; the rows below an emptied one
+  // stay where they are (`slotted`) — only the fixed rows have no slot, they are the template's
+  const fixedIds = new Set((s.fixedRows ?? []).map((r) => r.id))
+  const written = list.filter((r) => !fixedIds.has(r.id))
+  const pinned = new Map(pinSlots(written).map((r) => [r.id, r]))
+  const keep = list.map((r) => pinned.get(r.id) ?? r)
+  const next = i < 0 ? [...keep, { ...after, slot: newSlot(written, patch.slot) }]
+    : empty ? keep.filter((r) => r.id !== id) : keep.map((r) => (r.id === id ? { ...after, slot: r.slot } : r))
   return withSection(d, sec, { ...v, rows: next })
 }
 
@@ -261,7 +319,10 @@ export function formAtoms(d: BoardFormData): Map<string, string> {
     if (!v || typeof v !== 'object') continue
     for (const [box, lines] of Object.entries(v.lines ?? {})) {
       for (const l of Array.isArray(lines) ? lines : []) {
-        const { id, ...rest } = l
+        // where the line stands is not something two devices write: it is set once, when the line
+        // is made (lib/boardFormMerge carries it over with the line)
+        const { id, slot: _slot, ...rest } = l
+        void _slot
         out.set(`l|${sec}|${box}|${id}`, JSON.stringify(rest))
       }
     }
@@ -293,14 +354,21 @@ function stamped(prev: BoardFormData, next: BoardFormData, at: number | undefine
   return { ...next, t }
 }
 
-/** The rows a table shows, in order: its shown fixed rows (written or not), then the written rows. */
+/** A table's WRITTEN rows as laid out under its fixed ones: index = slot, `undefined` = an empty
+ *  ruling above a written row (see `slotted`). */
+export function tableSlots(d: BoardFormData, s: TableSection): (FormRow | undefined)[] {
+  const fixedIds = new Set((s.fixedRows ?? []).map((r) => r.id))
+  return slotted((d.values[s.id]?.rows ?? []).filter((r) => !fixedIds.has(r.id)))
+}
+
+/** The rows a table holds, in order: its shown fixed rows (written or not), then the written rows
+ *  by slot (without the empty rulings between them — `tableSlots` has those). */
 export function tableRows(d: BoardFormData, s: TableSection): FormRow[] {
   const rows = d.values[s.id]?.rows ?? []
   const byId = new Map(rows.map((r) => [r.id, r]))
-  const fixedIds = new Set((s.fixedRows ?? []).map((r) => r.id))
   return [
     ...shownFixedRows(s).map((r) => byId.get(r.id) ?? { id: r.id, cells: {} }),
-    ...rows.filter((r) => !fixedIds.has(r.id)),
+    ...tableSlots(d, s).filter((r): r is FormRow => !!r),
   ]
 }
 
@@ -348,7 +416,11 @@ export function formForPdf(d: BoardFormData, words: TrendWords, locale?: string,
           cells: s.cells.map((c) => ({
             label: L(c.label),
             // `dir` too: the paper draws the arrow itself (Helvetica has no ➚ ➘), the word is its name
-            lines: (v.lines?.[c.id] ?? []).map((l) => ({ text: l.text, trend: s.trend ? trendWord(l.trend) : '', dir: s.trend ? l.trend ?? '' : '', tag: s.tag ? l.tag ?? '' : '' })),
+            // laid out by slot, an empty ruling above a written line printed empty — the paper
+            // shows what the Tafel showed
+            lines: slotted(v.lines?.[c.id] ?? []).map((l) => (l
+              ? { text: l.text, trend: s.trend ? trendWord(l.trend) : '', dir: s.trend ? l.trend ?? '' : '', tag: s.tag ? l.tag ?? '' : '' }
+              : { text: '', trend: '', dir: '', tag: '' })),
           })),
         }
       }
@@ -358,7 +430,9 @@ export function formForPdf(d: BoardFormData, words: TrendWords, locale?: string,
         return {
           ...base, done: !!s.done, adds: tableAddsRows(s),
           columns: cols.map((c) => ({ label: L(c.label), kind: c.type ?? 'text', w: c.w ?? 1 })),
-          rows: tableRows(d, s).map((r) => ({
+          // the fixed rows, then the written ones by slot — an empty ruling between two written
+          // rows prints empty, so a row stays on the ruling it was written on (owner, round 2)
+          rows: [...tableRows(d, s).filter((r) => fixed.has(r.id)), ...tableSlots(d, s).map((r) => r ?? { id: '', cells: {} })].map((r) => ({
             fixed: fixed.has(r.id),
             done: !!r.done,
             cells: cols.map((c) => {

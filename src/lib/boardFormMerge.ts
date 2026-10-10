@@ -81,12 +81,18 @@ export function mergeFormData(
       const lines: Record<string, FormLine[]> = {}
       for (const box of boxes) {
         const order = [...(tv.lines?.[box] ?? []), ...(mv.lines?.[box] ?? [])].map((l) => l.id)
+        // where a line stands is set once, when it is written, and travels with it (lib/boardForm ·
+        // slotted): two devices writing two lines keep both, each on its own line
+        const slotOf = new Map<string, number>()
+        for (const l of [...(tv.lines?.[box] ?? []), ...(mv.lines?.[box] ?? [])]) if (l.slot != null) slotOf.set(l.id, l.slot)
         const seen = new Set<string>()
         lines[box] = order.flatMap((id) => {
           if (seen.has(id)) return []
           seen.add(id)
           const v = merged.get(`l|${sec}|${box}|${id}`)
-          return v === undefined ? [] : [parseLine(v, id)]
+          if (v === undefined) return []
+          const slot = slotOf.get(id)
+          return [{ ...parseLine(v, id), ...(slot != null ? { slot } : {}) }]
         })
       }
       out.lines = lines
@@ -108,7 +114,9 @@ export function mergeFormData(
           else cells[col] = v
         }
         if (!Object.keys(cells).length && !done) continue
-        const row: FormRow = { ...(mineById.get(id) ?? r), cells }
+        const theirsRow = (tv.rows ?? []).find((x) => x.id === id)
+        const slot = mineById.get(id)?.slot ?? theirsRow?.slot
+        const row: FormRow = { ...(mineById.get(id) ?? r), cells, ...(slot != null ? { slot } : {}) }
         if (done) row.done = true
         else delete row.done
         rows.push(row)

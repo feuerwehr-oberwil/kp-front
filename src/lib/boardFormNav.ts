@@ -13,7 +13,10 @@
  * - A text section's fields go one after the other for both.
  *
  * Rows are named by id, never by position: the row being left may vanish on this very commit (an
- * emptied row is dropped), and the id of the row after it is still the right target. `NEW` names
+ * emptied row is dropped), and the id of the row after it is still the right target. A row stays
+ * on the ruling it was written on (lib/boardForm · slotted), so «down» is the ruling directly
+ * below — an empty ruling between written rows is a row like any other, and Enter after writing
+ * the 8th goes to the 9th, never back up to the first empty one. `NEW` names
  * whatever trailing empty row the list has AFTER the commit — the component resolves it once the
  * render has landed. The trailing row the cursor is in is named by its own id (`newId`), which it
  * keeps when the commit makes it real.
@@ -26,10 +29,12 @@ export type NavSection =
   /** boxes row-major; `lines` = the written line ids; `newId` = the id the trailing empty line
    *  wears right now (it keeps it when it becomes a real line, so «the same row» stays findable) */
   | { kind: 'quad'; id: string; boxes: { id: string; lines: string[]; newId?: string }[]; tag?: boolean }
-  /** `rows` = every row shown (fixed and written); `adds` = a trailing empty row follows them.
-   *  `cols` = what is typed in a FIXED row; a written row (or the empty one) may type more —
+  /** `rows` = every row shown down to the last written one (fixed, written and the empty rulings
+   *  between them); `adds` = empty rows follow: `newId` is the first of them, `free` all of them
+   *  in order (the ruled empty rows below, each its own id — default just `newId`).
+   *  `cols` = what is typed in a FIXED row; a written row (or an empty one) may type more —
    *  `writtenCols`, e.g. the Bezeichnung under the Abspracherapport's six (owner, round 2) */
-  | { kind: 'table'; id: string; cols: string[]; rows: string[]; adds: boolean; newId?: string; fixed?: string[]; writtenCols?: string[] }
+  | { kind: 'table'; id: string; cols: string[]; rows: string[]; adds: boolean; newId?: string; free?: string[]; fixed?: string[]; writtenCols?: string[] }
   | { kind: 'text'; id: string; fields: string[] }
 
 /** where the cursor is: quad → box + row (a line id or NEW), col `tag` on a line's Stichwort;
@@ -114,26 +119,34 @@ export function navTarget(layout: NavSection[], at: NavAt, key: NavKey, emptyAft
     return { sec: s.id, box: target.id, row: target.lines[Math.max(0, idx)] ?? NEW }
   }
 
-  // table
-  const isNew = at.row === NEW || (!!s.newId && at.row === s.newId) || !s.rows.includes(at.row ?? '')
+  // table — `seq` is every row top to bottom, the empty ones below the written ones included
+  const free = s.adds ? s.free ?? (s.newId ? [s.newId] : []) : []
+  const seq = [...s.rows, ...free]
+  const known = at.row !== NEW && seq.includes(at.row ?? '')
+  /** an empty row below the last written one (only those are «free»: Enter on one left empty
+   *  leaves the list) — an unknown id is one too */
+  const isNew = !known || free.includes(at.row ?? '')
   const cols = colsOf(s, isNew ? undefined : at.row)
   const c = cols.indexOf(at.col ?? '')
-  const r = isNew ? s.rows.length : s.rows.indexOf(at.row ?? '')
+  const r = known ? seq.indexOf(at.row ?? '') : s.rows.length
+  /** the row directly below `r`, the first empty one named NEW (it is that once rendered) */
+  const down = (): string | undefined => { const n = seq[r + 1]; return n && n === s.newId ? NEW : n }
   /** the column `col` in `row`, or that row's nearest one when it does not type it */
   const cell = (row: string, col: string | undefined): NavAt => {
     const there = colsOf(s, row === NEW ? undefined : row)
     return { sec: s.id, row, col: col && there.includes(col) ? col : there[Math.min(Math.max(0, cols.indexOf(col ?? '')), there.length - 1)] }
   }
   const below = (): NavTarget => {
-    if (isNew) return emptyAfter ? nextSection(layout, i) : cell(NEW, colsOf(s, undefined)[0])
-    const next = s.rows[r + 1]
-    if (next) return cell(next, colsOf(s, next)[0])
+    if (isNew && emptyAfter) return nextSection(layout, i)
+    const next = down()
+    if (next) return cell(next, colsOf(s, next === NEW ? undefined : next)[0])
     return s.adds ? cell(NEW, colsOf(s, undefined)[0]) : nextSection(layout, i)
   }
   if (key === 'enter') {
-    // the trailing row just became a real one: the NEXT trailing row, same column
-    if (isNew) return emptyAfter ? nextSection(layout, i) : cell(NEW, at.col)
-    const next = s.rows[r + 1]
+    // an empty row below the list left empty: out of the list; otherwise the row directly below
+    // (the row just written keeps its ruling, so «below» is the next ruling, same column)
+    if (isNew && emptyAfter) return nextSection(layout, i)
+    const next = down()
     if (next) return cell(next, at.col)
     return s.adds ? cell(NEW, at.col) : nextSection(layout, i)
   }
@@ -146,7 +159,7 @@ export function navTarget(layout: NavSection[], at: NavAt, key: NavKey, emptyAft
     return below()
   }
   if (c > 0) return { sec: s.id, row: at.row, col: cols[c - 1] }
-  const above = r - 1
-  if (above >= 0) { const up = colsOf(s, s.rows[above]); return { sec: s.id, row: s.rows[above], col: up[up.length - 1] } }
+  const above = seq[r - 1]
+  if (r - 1 >= 0 && above) { const up = colsOf(s, isNew && free.includes(above) ? undefined : above); return { sec: s.id, row: above, col: up[up.length - 1] } }
   return prevSection(layout, i)
 }

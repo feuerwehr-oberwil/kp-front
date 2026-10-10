@@ -9,11 +9,11 @@ import { fillTemplate, hhmm } from '../lib/format'
 import { newId } from '../lib/ids'
 import { serverNow } from '../lib/serverClock'
 import {
-  editableColumns, labelText, shownColumns, shownSections, tableAddsRows, writtenColumns,
+  editableColumns, labelText, shownColumns, shownFixedRows, shownSections, tableAddsRows, writtenColumns,
   type QuadSection, type TableSection, type TemplateColumn, type TextSection,
 } from '../lib/boardTemplate'
 import {
-  nextTrend, normalizeTime, putField, putHead, putLine, putRow, tableRows,
+  boxLines, nextTrend, normalizeTime, putField, putHead, putLine, putRow, tableRows, tableSlots,
   type BoardFormData, type FormHead,
 } from '../lib/boardForm'
 import { NEW, navTarget, type NavAt, type NavKey, type NavSection } from '../lib/boardFormNav'
@@ -53,11 +53,15 @@ const ARROW: Record<string, string> = { up: '➚', same: '=', down: '➘' }
 
 /** what a cell is in the form (and what it writes) */
 type Addr =
-  | { kind: 'line'; sec: string; box: string; row: string }
+  /** `slot`: the line / ruling this cell stands on — what a new line or row is written ON */
+  | { kind: 'line'; sec: string; box: string; row: string; slot?: number }
   | { kind: 'tag'; sec: string; box: string; row: string }
-  | { kind: 'cell'; sec: string; row: string; col: string }
+  | { kind: 'cell'; sec: string; row: string; col: string; slot?: number }
   | { kind: 'field'; sec: string; col: string }
   | { kind: 'head'; col: keyof FormHead }
+
+/** how many pre-printed rows a table shows (they lead `tableRows`) */
+const shownFixedCount = (sec: TableSection) => shownFixedRows(sec).length
 
 const HEAD_SEC = '__head'
 const HEAD_KEYS: (keyof FormHead)[] = ['title', 'address', 'alarm', 'el']
@@ -289,33 +293,42 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
   }
 
   // ── the layout the keyboard moves through (lib/boardFormNav) ──────────────────────────────
-  const ids: Record<string, { lines?: Record<string, { lines: string[]; newId: string }>; rows?: string[]; newId?: string; extras?: string[] }> = {}
+  /** per section: the ids of what it shows top to bottom — a box's lines (an empty line above a
+   *  written one included) and its empty line; a table's written area as one id per RULING, the
+   *  written rows' own and a pre-minted one per empty ruling (keyed by the ruling, so the ruling
+   *  typed into is the ruling the row is written on — lib/boardForm · slotted) */
+  const ids: Record<string, { lines?: Record<string, { lines: string[]; newId: string }>; slots?: string[]; written?: number }> = {}
   const layout: NavSection[] = []
   if (page.header) layout.push({ kind: 'text', id: HEAD_SEC, fields: HEAD_KEYS })
   for (const sec of sections) {
     if (sec.type === 'quad') {
       const boxes = sec.cells.map((c) => {
-        const lines = (data.values[sec.id]?.lines?.[c.id] ?? []).map((l) => l.id)
-        return { id: c.id, lines, newId: trailing(`${sec.id}/${c.id}`, lines) }
+        const laid = boxLines(data, sec.id, c.id)
+        const taken = laid.flatMap((l) => (l ? [l.id] : []))
+        const lines = laid.map((l, j) => l?.id ?? trailing(`${sec.id}/${c.id}#${j}`, taken))
+        return { id: c.id, lines, newId: trailing(`${sec.id}/${c.id}`, taken) }
       })
       ids[sec.id] = { lines: Object.fromEntries(boxes.map((b) => [b.id, b])) }
       layout.push({ kind: 'quad', id: sec.id, boxes: readOnly ? [] : boxes, tag: !!sec.tag })
     } else if (sec.type === 'table') {
-      const rows = tableRows(data, sec).map((r) => r.id)
-      const adds = tableAddsRows(sec)
-      const newRow = trailing(sec.id, rows)
-      // the ruled empty rows the paper has below the written ones are LIVE rows too (owner, round
-      // 2): each its own pre-minted id, so whichever one is typed in becomes the next written row.
-      // A pre-printed row stands two rulings tall, as on the poster.
-      const fixedIds = new Set((sec.fixedRows ?? []).map((r) => r.id))
-      const units = rows.reduce((n, id) => n + (fixedIds.has(id) ? 2 : 1), 0)
-      const extraCount = !adds || readOnly || isPhone ? 0 : Math.max(0, (sec.height ?? 0) - units - 1)
-      const extras = Array.from({ length: extraCount }, (_, i) => trailing(`${sec.id}#${i}`, rows))
-      ids[sec.id] = { rows, newId: adds ? newRow : undefined, extras }
+      const fixedRowIds = tableRows(data, sec).slice(0, shownFixedCount(sec)).map((r) => r.id)
+      const laid = tableSlots(data, sec)
+      const taken = laid.flatMap((r) => (r ? [r.id] : []))
+      const adds = tableAddsRows(sec) && !readOnly
+      // the ruled empty rows the paper has are LIVE rows (owner, round 2) — between the written
+      // ones and below them, as many as the box holds (a pre-printed row stands two rulings
+      // tall), and always one more than written. Each is its ruling: typed into, it is written
+      // ON that ruling and stays there (owner, round 2: no jumping up to the first empty row).
+      const room = adds && !isPhone ? Math.max(0, (sec.height ?? 0) - fixedRowIds.length * 2) : 0
+      const count = adds ? Math.max(laid.length + 1, room) : laid.length
+      const slots = Array.from({ length: count }, (_, j) => laid[j]?.id ?? trailing(`${sec.id}#${j}`, taken))
+      ids[sec.id] = { slots, written: laid.length }
       const typed = (cs: TemplateColumn[]) => cs.filter((c) => c.type !== 'trend').map((c) => c.id)
       const fixed = (sec.fixedRows ?? []).map((r) => r.id)
       layout.push({
-        kind: 'table', id: sec.id, cols: readOnly ? [] : typed(editableColumns(sec)), rows, adds, newId: adds ? newRow : undefined,
+        kind: 'table', id: sec.id, cols: readOnly ? [] : typed(editableColumns(sec)),
+        rows: [...fixedRowIds, ...slots.slice(0, laid.length)], adds,
+        newId: adds ? slots[laid.length] : undefined, free: adds ? slots.slice(laid.length) : undefined,
         fixed, writtenCols: readOnly ? [] : typed(writtenColumns(sec)),
       })
     } else if (sec.type === 'text') {
@@ -329,7 +342,8 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
     if (l.kind === 'text') return keyOf(l.id, undefined, undefined, l.fields[l.fields.length - 1])
     if (l.kind === 'table') {
       const cs = l.adds ? l.writtenCols ?? l.cols : l.cols
-      return keyOf(l.id, undefined, l.adds ? l.newId : l.rows[l.rows.length - 1], cs[cs.length - 1])
+      const lastRow = l.adds ? (l.free ?? [])[(l.free ?? []).length - 1] ?? l.newId : l.rows[l.rows.length - 1]
+      return keyOf(l.id, undefined, lastRow, cs[cs.length - 1])
     }
     const b = l.boxes[l.boxes.length - 1]
     return keyOf(l.id, b.id, b.newId, undefined)
@@ -344,7 +358,7 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
     // every commit carries its time (server clock): what settles a cell two devices changed at once
     const at = serverNow()
     switch (a.kind) {
-      case 'line': return putLine(data, a.sec, a.box, a.row, { text: raw }, at)
+      case 'line': return putLine(data, a.sec, a.box, a.row, { text: raw, slot: a.slot }, at)
       case 'tag': return putLine(data, a.sec, a.box, a.row, { tag: raw }, at)
       case 'field': {
         const sec = sections.find((x) => x.id === a.sec) as TextSection | undefined
@@ -364,7 +378,7 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
           const words = writtenColumns(sec).some((c) => (c.type ?? 'text') === 'text' && (merged[c.id] ?? '').trim())
           if (words && !(merged[tc.id] ?? '').trim()) cells[tc.id] = hhmm(new Date(at))
         }
-        return putRow(data, a.sec, a.row, { cells }, at)
+        return putRow(data, a.sec, a.row, { cells, slot: a.slot }, at)
       }
     }
   }
@@ -412,21 +426,23 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
   )
 
   const quad = (sec: QuadSection) => {
-    const v = data.values[sec.id]?.lines ?? {}
     const st = minH(sec.height)
     return (
       <div className={cx(s.quad, sec.cells.length > 2 && !isPhone && s.quad2)} style={st}>
         {sec.cells.map((c) => {
-          const lines = v[c.id] ?? []
+          const laid = boxLines(data, sec.id, c.id)
           const box = ids[sec.id].lines![c.id]
           const label = labelText(c.label)
-          const lineRow = (id: string, text: string, trend: string | undefined, tag: string | undefined, isNew: boolean) => {
-            const a: Addr = { kind: 'line', sec: sec.id, box: c.id, row: id }
+          /** `isNew`: an empty line (no trend, no Stichwort yet); `alias`: THE empty line at the end
+           *  of the box — the one «the next empty line» resolves to (an empty line above a written
+           *  one is not it) */
+          const lineRow = (id: string, text: string, trend: string | undefined, tag: string | undefined, isNew: boolean, slot: number, alias = isNew) => {
+            const a: Addr = { kind: 'line', sec: sec.id, box: c.id, row: id, slot }
             return (
               <div key={id} className={cx(s.line, isNew && s.lineNew)}>
                 {sec.trend && (isNew ? <span className={s.trendGap} aria-hidden="true" />
                   : <TrendButton trend={trend} readOnly={readOnly} onNext={() => put(putLine(data, sec.id, c.id, id, { trend: nextTrend(trend) }, serverNow()))} />)}
-                <Cell k={keyOf(sec.id, c.id, id, undefined)} kn={isNew ? keyOf(sec.id, c.id, NEW, undefined) : undefined}
+                <Cell k={keyOf(sec.id, c.id, id, undefined)} kn={alias ? keyOf(sec.id, c.id, NEW, undefined) : undefined}
                   value={text} label={label} readOnly={readOnly} className={s.grow}
                   last={keyOf(sec.id, c.id, id, undefined) === lastKey}
                   onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(keyOf(sec.id, c.id, id, undefined))} />
@@ -445,8 +461,9 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
               onPointerDown={keep}
               onClick={(e) => { if (e.target === e.currentTarget) (e.currentTarget.querySelector<HTMLTextAreaElement>('[data-kn]'))?.focus() }}>
               <div className={s.boxLabel}>{label}</div>
-              {lines.map((l) => lineRow(l.id, l.text, l.trend, l.tag, false))}
-              {!readOnly && lineRow(box.newId, '', undefined, undefined, true)}
+              {/* by slot: an emptied line above a written one stays an (empty) line — nothing moves up */}
+              {laid.map((l, j) => (l ? lineRow(l.id, l.text, l.trend, l.tag, false, j) : lineRow(box.lines[j], '', undefined, undefined, true, j, false)))}
+              {!readOnly && lineRow(box.newId, '', undefined, undefined, true, laid.length)}
             </div>
           )
         })}
@@ -457,12 +474,13 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
   const table = (sec: TableSection) => {
     const cols = shownColumns(sec)
     const fixedRows = new Map((sec.fixedRows ?? []).map((r) => [r.id, r]))
-    const rows = tableRows(data, sec)
-    const adds = tableAddsRows(sec) && !readOnly
+    const fixedList = tableRows(data, sec).slice(0, shownFixedCount(sec))
+    const laid = tableSlots(data, sec)
+    const { slots = [], written = 0 } = ids[sec.id]
     const grid: CSSProperties = { gridTemplateColumns: [...cols.map((c) => `minmax(0, ${c.w ?? 1}fr)`), ...(sec.done ? ['auto'] : [])].join(' ') }
-    const newId = ids[sec.id].newId
-    const extras = ids[sec.id].extras ?? []
-    const cellFor = (r: { id: string; cells: Record<string, string> }, c: TemplateColumn, isNew: boolean) => {
+    /** `slot`: the ruling of a written-area row; `alias`: the first empty row after the written
+     *  ones — what «the next empty row» (NEW) resolves to */
+    const cellFor = (r: { id: string; cells: Record<string, string> }, c: TemplateColumn, isNew: boolean, slot?: number, alias = false) => {
       const label = labelText(c.label)
       const fixedRow = fixedRows.has(r.id)
       if (c.fixed && fixedRow) {
@@ -481,11 +499,11 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
           </span>
         )
       }
-      const a: Addr = { kind: 'cell', sec: sec.id, row: r.id, col: c.id }
+      const a: Addr = { kind: 'cell', sec: sec.id, row: r.id, col: c.id, slot }
       const k = keyOf(sec.id, undefined, r.id, c.id)
       return (
         <span key={c.id} className={s.td}>
-          <Cell k={k} kn={isNew ? keyOf(sec.id, undefined, NEW, c.id) : undefined}
+          <Cell k={k} kn={alias ? keyOf(sec.id, undefined, NEW, c.id) : undefined}
             value={r.cells[c.id] ?? ''} label={label} readOnly={readOnly} time={c.type === 'time'}
             placeholder={c.type === 'time' ? '--:--' : undefined} last={k === lastKey}
             onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(k)} />
@@ -498,26 +516,35 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
           {cols.map((c) => <span key={c.id} className={s.th} role="columnheader">{labelText(c.label)}</span>)}
           {sec.done && <span className={s.th} role="columnheader"><span className={s.srOnly}>{t.done}</span></span>}
         </div>
-        {rows.map((r) => (
-          <div key={r.id} className={cx(s.tr, fixedRows.has(r.id) && s.trFixed, r.done && s.trDone)} role="row" style={grid}>
+        {fixedList.map((r) => (
+          <div key={r.id} className={cx(s.tr, s.trFixed, r.done && s.trDone)} role="row" style={grid}>
             {cols.map((c) => cellFor(r, c, false))}
             {sec.done && <span className={cx(s.td, s.doneCell)}>
               <DoneButton on={!!r.done} readOnly={readOnly} onToggle={() => put(putRow(data, sec.id, r.id, { done: !r.done }, serverNow()))} />
             </span>}
           </div>
         ))}
-        {adds && newId && (
-          <div key={newId} className={cx(s.tr, s.trNew)} role="row" style={grid}>
-            {cols.map((c) => cellFor({ id: newId, cells: {} }, c, true))}
-            {sec.done && <span className={s.td} />}
-          </div>
-        )}
-        {extras.map((id) => (
-          <div key={id} className={cx(s.tr, s.trNew)} role="row" style={grid}>
-            {cols.map((c) => cellFor({ id, cells: {} }, c, false))}
-            {sec.done && <span className={s.td} />}
-          </div>
-        ))}
+        {/* the written area, ruling by ruling: a written row stays on the ruling it was written on,
+            an empty ruling above it stays an empty (live) row — lib/boardForm · slotted */}
+        {slots.map((id, j) => {
+          const r = laid[j]
+          if (!r) {
+            return (
+              <div key={id} className={cx(s.tr, s.trNew)} role="row" style={grid}>
+                {cols.map((c) => cellFor({ id, cells: {} }, c, true, j, j === written))}
+                {sec.done && <span className={s.td} />}
+              </div>
+            )
+          }
+          return (
+            <div key={r.id} className={cx(s.tr, r.done && s.trDone)} role="row" style={grid}>
+              {cols.map((c) => cellFor(r, c, false, j))}
+              {sec.done && <span className={cx(s.td, s.doneCell)}>
+                <DoneButton on={!!r.done} readOnly={readOnly} onToggle={() => put(putRow(data, sec.id, r.id, { done: !r.done }, serverNow()))} />
+              </span>}
+            </div>
+          )
+        })}
       </div>
     )
   }
