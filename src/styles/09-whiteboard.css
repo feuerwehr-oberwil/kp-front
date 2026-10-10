@@ -413,6 +413,29 @@
 .wb-blank-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;
   font-family: var(--body); font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-faint); pointer-events: none; max-width: 70%; line-height: 1.4; }
 
+/* the Tafel's page strip (10.10.2026, TafelPageStrip): «Skizze» · the pages · «+ Seite», under the
+   floating top bar; the fit keeps its lane clear (lib/tafelPages · TAFEL_STRIP_H). It scrolls
+   sideways on a phone rather than wrapping into the sheet. */
+.tps { position: absolute; z-index: var(--z-chrome); display: flex; justify-content: center; pointer-events: none; }
+.tps-scroll {
+  display: flex; gap: var(--sp-2); max-width: 100%; overflow-x: auto; padding: var(--sp-1);
+  border-radius: var(--r-bar); background: var(--float-bg); box-shadow: var(--e2); pointer-events: auto;
+  scrollbar-width: none; -webkit-backdrop-filter: var(--float-blur); backdrop-filter: var(--float-blur);
+}
+.tps-scroll::-webkit-scrollbar { display: none; }
+.tps-scroll > * { flex: none; }
+.tps-item { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
+.tps-code { min-width: 32px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.tps-name { flex: 1 1 auto; }
+.tps-there { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--ink-faint); font-size: var(--fs-1); }
+.tps-there .i { width: 14px; height: 14px; }
+/* …and its «Lagekarte» box is a map of its own (components/MiniKarte): the rules above hide every
+   map while the Plan is up so the covered Karte can be dropped — not this one, which IS the picture
+   (the same exception the Kroki framing panel makes, 14-intake.css · .kf-map) */
+.app:not(.mode-map) .tfp-map .maplibregl-map { visibility: visible; }
+/* a Tafel PAGE takes the whole stage (Whiteboard · formPage) */
+.wb-tafel-page { background: var(--canvas-bg); }
+
 .wb-ink-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .wb-ink { position: absolute; inset: 0; z-index: 5; touch-action: none; }
 

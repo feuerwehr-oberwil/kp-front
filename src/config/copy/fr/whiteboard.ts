@@ -3,7 +3,7 @@
 
 import type { Copy, Localizable } from '../index'
 
-export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | 'notes' | 'whiteboard'>> = {
+export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | 'notes' | 'whiteboard' | 'tafel'>> = {
   incidents: {
     migratedTitle: 'État de travail migré',
     geojsonNotJson: 'Fichier JSON non valide.',
@@ -306,5 +306,31 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
 
     groupDeletedN: '{n} objets retirés du plan',
     truppPlacedHere: 'déjà ici',
+  },
+  tafel: {
+    strip: 'Pages du tableau',
+    skizze: 'Croquis',
+    addPage: 'Page',
+    addPageTitle: 'Ajouter une page',
+    alreadyThere: 'déjà là',
+    pageAdded: 'Page «{page}» ajoutée',
+    pageEdited: '{page} modifiée',
+    pageRemoved: 'Page «{page}» retirée',
+    removePage: 'Retirer la page',
+    removeTitle: 'Retirer la page?',
+    removeMsg: 'Tout ce qui est écrit sur «{page}» part avec. Annuler (↶) la rétablit.',
+    template: 'Modèle {title}, version {v}',
+    mapLabel: 'Carte de situation – toucher pour ouvrir la carte',
+    mapOpen: 'Vers la carte',
+    mapPrint: 'Dans le rapport: la carte au moment de l’impression',
+    head: { title: 'Intervention', address: 'Adresse', alarm: 'Alarme', el: 'Chef d’intervention' },
+    tag: 'Mot-clé',
+    done: 'Fait',
+    trendNone: 'Tendance ouverte',
+    trendUp: 's’aggrave',
+    trendSame: 'stable',
+    trendDown: 's’atténue',
+    trendTitle: 'Tendance: {trend} – toucher pour changer',
+    keysHint: 'Entrée: ligne suivante · Tab: colonne suivante · Maj+Entrée: retour à la ligne',
   },
 }

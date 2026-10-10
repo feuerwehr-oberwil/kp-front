@@ -19,3 +19,6 @@ export const ReportPreflight = lazy(() => loadReportPreflight().then((m) => ({ d
 export const requestReportStep = (step: Parameters<typeof import('../components/ReportPreflight').requestReportStep>[0]) => {
   void loadReportPreflight().then((m) => m.requestReportStep(step))
 }
+/** The Tafel page's live «Lagekarte» (10.10.2026) — a chunk of its own, fetched only when a page
+ *  with a map box is first shown (components/MiniKarte for why it is cheap). */
+export const MiniKarte = lazy(() => import('../components/MiniKarte'))
