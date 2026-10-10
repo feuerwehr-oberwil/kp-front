@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import plan_tiles, storage
 from ..auth.dependencies import CurrentAdmin, OptionalUser, UserOrAdmin
+from ..board_templates import board_template_problem
 from ..checklist_templates import template_problem
 from ..database import get_db
 from ..models import ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision, ReferenceDataset
@@ -55,6 +56,23 @@ def _validate_checklist_template(data: bytes) -> None:
     except (ValueError, TypeError) as e:
         raise HTTPException(status_code=422, detail=f"Checkliste ist kein gültiges JSON: {e}") from e
     problem = template_problem(tpl)
+    if problem:
+        raise HTTPException(status_code=422, detail=problem)
+
+
+def _is_board_template(dataset_id: str) -> bool:
+    """`tafel:<id>` — a board template (app/board_templates, the Tafel's pages). No assets."""
+    return dataset_id.startswith("tafel:") and ":" not in dataset_id[len("tafel:") :]
+
+
+def _validate_board_template(data: bytes) -> None:
+    """An uploaded board template must be a valid `board-template/1` (the pydantic model, unknown
+    keys refused) — a malformed one is a 422 here, never a blank page on a tablet."""
+    try:
+        tpl = json.loads(data)
+    except (ValueError, TypeError) as e:
+        raise HTTPException(status_code=422, detail=f"Vorlage ist kein gültiges JSON: {e}") from e
+    problem = board_template_problem(tpl)
     if problem:
         raise HTTPException(status_code=422, detail=problem)
 
@@ -334,7 +352,8 @@ async def replace_reference(
     cl_role = _checklist_role(dataset_id)
     # octet-stream is tolerated only for JSON-backed slots (geo:/symbols:/checklist templates),
     # which are parsed below. Checklist diagram assets accept images instead.
-    is_json_slot = dataset_id.startswith(("geo:", "symbols:")) or cl_role == "template"
+    board = _is_board_template(dataset_id)
+    is_json_slot = dataset_id.startswith(("geo:", "symbols:")) or cl_role == "template" or board
     if cl_role == "asset":
         if content_type not in _ALLOWED_IMAGE_TYPES and not (content_type == "application/octet-stream"):
             raise HTTPException(
@@ -351,6 +370,8 @@ async def replace_reference(
     data = await file.read()
     if cl_role == "template":
         _validate_checklist_template(data)  # reject a malformed template with 422 before storing
+    if board:
+        _validate_board_template(data)
     # An Objektplan replacement goes through the ONE plan write path (app/plans.py · store_plan):
     # revision pinning, identical-bytes dedupe and the alignment job all live there, and this
     # route must not fork a second, revision-less way of writing the same dataset.
@@ -371,7 +392,9 @@ async def replace_reference(
                 actor_id=actor.id if actor else None,
             )
     kind = (
-        "checklists"
+        "tafel"
+        if board
+        else "checklists"
         if cl_role
         else "geojson"
         if "json" in content_type or dataset_id.startswith("geo:")
@@ -409,6 +432,23 @@ async def replace_reference(
     await db.flush()
     await db.refresh(ds)
     return ds
+
+
+@router.post("/tafel/prune")
+async def prune_board_templates(keep: list[str], _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)) -> dict:
+    """Delete every ``tafel:*`` board template whose id is NOT in ``keep`` (the manifest's), so a
+    dropped or renamed template never lingers on the tablets. Called by ``admin_board_templates
+    push``; admin-gated like the checklists' prune."""
+    keepset = set(keep)
+    rows = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id.like("tafel:%")))).scalars().all()
+    pruned: list[str] = []
+    for ds in rows:
+        if ds.id not in keepset:
+            if ds.storage_key:
+                storage.delete_after_commit(db, ds.storage_key)
+            await db.delete(ds)
+            pruned.append(ds.id)
+    return {"pruned": pruned}
 
 
 @router.post("/checklists/prune")

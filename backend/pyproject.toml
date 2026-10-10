@@ -126,6 +126,9 @@ extend-immutable-calls = [
 "app/admin_objects.py" = ["N815"]
 # Checklists manifest entries use the same camelCase contract (sourceNote)
 "app/admin_checklists.py" = ["N815"]
+# board-template/1 mirrors the client's camelCase template contract (fixedRows, addRows, sourceNote)
+"app/board_templates.py" = ["N815"]
+"app/admin_board_templates.py" = ["N815"]
 # Report payload mirrors the frontend's camelCase report JSON (reportMeta, krokiKey, …)
 "app/report_pdf.py" = ["N815"]
 # Zeitplan payload mirrors the same camelCase contract (incidentTitle, startedAt)
