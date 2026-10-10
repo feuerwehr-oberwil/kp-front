@@ -358,9 +358,10 @@
 /* ⚠️ `--available-height` is what the POSITIONER measured between the trigger and the viewport
    edge; without it in this min() the popup simply took its 60vh and hung off the bottom of the
    screen — measured at 77px past it on a phone, which put the pinned row entirely out of reach.
-   Base UI publishes the variable on `.ui-menu-pos` and it inherits down to the popup; the
+   Base UI publishes the variable on `.ui-menu-pos` and it inherits down to the popup — read here
+   as `--menu-room`, which also leaves out the safe area on that side (13-incident.css); the
    fallback keeps this honest if a positioner ever stops setting it. */
-.jc-pendenz-menu { max-height: min(60vh, 460px, var(--available-height, 60vh));
+.jc-pendenz-menu { max-height: min(60vh, 460px, var(--menu-room, 60vh));
   overflow-y: auto; overscroll-behavior: contain; }
 /* ⚠️ centred, not flex-start (20.09.2026): the row is --tap tall and its one line of text is 18px,
    so top-aligned content stood 5px above the middle of its own press wash – in «Erinnern» and in
