@@ -1,7 +1,7 @@
 {
   "$comment": "Written by `node scripts/perf-report.mjs --update` from a CI run (`just perf-accept <run-id>`). Hand-edit only `tolerance`. docs/testing/perf-journeys.md",
   "recorded": "2026-10-05",
-  "source": "CI run 37340054315",
+  "source": "CI run 37340054315; cold-start.js_kb + cold-start.precache_kb from CI run 38012467930 (main 6470c2ff, the E1 split, 10.10.)",
   "calibration": 38.4,
   "tolerance": {},
   "metrics": {
@@ -42,7 +42,7 @@
       "unit": "mb"
     },
     "cold-start.js_kb": {
-      "value": 823,
+      "value": 860.4,
       "unit": "kb"
     },
     "cold-start.listeners": {
@@ -66,7 +66,7 @@
       "unit": "ms"
     },
     "cold-start.precache_kb": {
-      "value": 2360.3,
+      "value": 2432.7,
       "unit": "kb"
     },
     "cold-start.static_requests": {
