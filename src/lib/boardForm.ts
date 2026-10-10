@@ -347,7 +347,8 @@ export function formForPdf(d: BoardFormData, words: TrendWords, locale?: string,
           ...base, trend: !!s.trend, tag: !!s.tag,
           cells: s.cells.map((c) => ({
             label: L(c.label),
-            lines: (v.lines?.[c.id] ?? []).map((l) => ({ text: l.text, trend: s.trend ? trendWord(l.trend) : '', tag: s.tag ? l.tag ?? '' : '' })),
+            // `dir` too: the paper draws the arrow itself (Helvetica has no ➚ ➘), the word is its name
+            lines: (v.lines?.[c.id] ?? []).map((l) => ({ text: l.text, trend: s.trend ? trendWord(l.trend) : '', dir: s.trend ? l.trend ?? '' : '', tag: s.tag ? l.tag ?? '' : '' })),
           })),
         }
       }

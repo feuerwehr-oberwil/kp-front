@@ -87,7 +87,9 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   its Lagekarte as the Karte at print time) and finally the Tafel's own drawing too
   («Tafel – Seiten» in the print menu). A station replaces the bundled set with its own copy
   (`board-template/1`, docs/board-templates.md): `admin_board_templates
-  validate|load|push` or `/admin › Tafel-Vorlagen`, distributed and pruned like the checklists.
+  validate|load|push [--prune]` or `/admin › Tafel-Vorlagen`, distributed like the checklists.
+  Two devices on one page merge cell by cell (a true clash keeps the later edit and writes a
+  Verlauf row), and an older build can no longer delete the pages it does not know.
 - **Station index: one address for all station data.** A station publishes an `index.json`
   next to its data files that lists them by kind with checksums (`station-index/1`,
   docs/CONFIGURATION.md §4d); KP Front gets ONE setting for it – «Stationsdaten-Index» on

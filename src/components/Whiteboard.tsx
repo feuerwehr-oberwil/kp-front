@@ -3027,8 +3027,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // show a plain, natively-scrolling multi-page PDF viewer — no tools, no stitched pan/zoom board.
   // the Tafel's page strip, on the Skizze and on every page alike
   const strip = onTafel ? (
-    <TafelPageStrip pages={pages} current={page} templates={templates} readOnly={readOnly} onPick={setPageSel} onAdd={addPage}
-      style={{ top: TOP_INSET - 8, left: side.l, right: formOpen ? side.l : side.r }} />
+    <TafelPageStrip pages={pages} current={page} templates={templates} readOnly={readOnly} onPick={setPageSel} onAdd={addPage} />
   ) : null
   // A Tafel PAGE is a form, not a drawing surface: it takes the stage, and none of the board's
   // apparatus (rails, docks, chips) is drawn over it. The hooks above still ran, so the Tafel's

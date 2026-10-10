@@ -24,10 +24,10 @@ describe('the bundled FKS «Erste Führung» — strict 1:1 with the poster', ()
     expect(EF.sections.map((s) => s.id)).toEqual(['problem', 'lagekarte', 'massnahmen', 'mittel', 'verbindungen', 'absprachen'])
     expect(EF.columns).toBe(2)
   })
-  it('switches every staging extra OFF: no header, trend, Stichwort, Erledigt, Wasserbezug / Absperrung', () => {
+  it('switches the staging extras OFF — header, Stichwort, Erledigt, Wasserbezug / Absperrung — and the Tendenz ON (owner, round 2)', () => {
     const problem = EF.sections[0]
     expect(EF.header).toBe(false)
-    expect(problem.type === 'quad' && [problem.trend, problem.tag]).toEqual([false, false])
+    expect(problem.type === 'quad' && [problem.trend, problem.tag]).toEqual([true, false])
     const mass = EF.sections.find((s) => s.id === 'massnahmen') as TableSection
     expect(mass.done).toBe(false)
     const abs = EF.sections.find((s) => s.id === 'absprachen') as TableSection
@@ -189,7 +189,7 @@ describe('the Rapport gets the page resolved, in the deployment’s words', () =
     expect(pdf.columns).toBe(2)
     expect(pdf.sections.map((s) => s.type)).toEqual(['quad', 'map', 'table', 'table', 'table', 'table'])
     const quad = pdf.sections[0] as { cells: { label: string; lines: { text: string }[] }[] }
-    expect(quad.cells[0]).toEqual({ label: 'Front', lines: [{ text: 'Rettungen Haus 19', trend: '', tag: '' }] })
+    expect(quad.cells[0]).toEqual({ label: 'Front', lines: [{ text: 'Rettungen Haus 19', trend: '', dir: '', tag: '' }] })
     const abs = pdf.sections[5] as { rows: { cells: string[] }[] }
     expect(abs.rows).toHaveLength(6)
     expect(abs.rows[5].cells).toEqual(['warteraum', 'Zone d’attente', 'Parkplatz Coop'])

@@ -252,6 +252,29 @@ class Overflow:
     rows: list[list[str]] = field(default_factory=list)
 
 
+def trend_arrow(c, direction: str, x: float, y_mid: float, size: float) -> None:
+    """The Entwicklungstendenz as the Handbuch draws it — ➚ worse (red), = unchanged, ➘ easing
+    (green) — a vector glyph in a `size` box starting at `x`, centred on `y_mid`."""
+    c.saveState()
+    c.setLineWidth(max(0.8, size / 7))
+    color = {"up": colors.HexColor("#c62828"), "down": colors.HexColor("#2e7d32")}.get(direction, RULE)
+    c.setStrokeColor(color)
+    c.setFillColor(color)
+    h = size / 2
+    if direction == "same":
+        c.line(x, y_mid + h * 0.35, x + size, y_mid + h * 0.35)
+        c.line(x, y_mid - h * 0.35, x + size, y_mid - h * 0.35)
+    elif direction in ("up", "down"):
+        sign = 1 if direction == "up" else -1
+        x0, y0 = x, y_mid - sign * h
+        x1, y1 = x + size, y_mid + sign * h
+        c.line(x0, y0, x1, y1)
+        # the head: two short strokes back from the tip
+        c.line(x1, y1, x1 - size * 0.45, y1)
+        c.line(x1, y1, x1, y1 - sign * size * 0.45)
+    c.restoreState()
+
+
 def draw_signature(c, key: str, x: float, y: float, size: float) -> None:
     """The Abspracherapport's Signaturen — the SAME shapes as components/BoardSignature.tsx, in a
     48-unit box whose origin is the top-left (SVG) — `x, y` is the box's bottom-left corner."""
@@ -404,26 +427,46 @@ class BoardPageFlowable(Flowable):
             c.setFont(FONT, 9)
             c.setFillColor(RULE)
             c.drawString(cx + 1.8 * mm, cy_top - 4.6 * mm, printable(cell.label))
-            body = "\n".join(
-                " ".join(
-                    p for p in (f"[{ln.trend}]" if ln.trend else "", ln.text, f"({ln.tag})" if ln.tag else "") if p
-                )
-                for ln in cell.lines
-            )
-            if not body:
+            if not cell.lines:
                 continue
+            arrow_w = 4.2 * mm if any(ln.dir for ln in cell.lines) else 0.0
+            text_w = cw - 3.6 * mm - arrow_w
+
+            def line_text(ln: BoardLineIn) -> str:
+                return f"{ln.text} ({ln.tag})" if ln.tag else ln.text
+
             size = _FS
             while True:
                 # measure first, draw once
-                lines = wrap(body, cw - 3.6 * mm, FONT, size)
+                n_lines = sum(len(wrap(line_text(ln), text_w, FONT, size)) for ln in cell.lines)
                 room = int((ch - 7 * mm) // (size * 1.18))
-                if len(lines) <= room or size <= _MIN_FS:
+                if n_lines <= room or size <= _MIN_FS:
                     break
                 size -= 0.5
-            left = self._text(cx, cy_top - 5.4 * mm, cw, ch - 5.4 * mm, body, size)
-            if left:
+            lead = size * 1.18
+            y = cy_top - 5.4 * mm - 1.6 * mm - size * 0.82
+            floor = cy_top - ch + 1.2 * mm
+            c.setFont(FONT, size)
+            cut = False
+            for ln in cell.lines:
+                parts = wrap(line_text(ln), text_w, FONT, size)
+                if y - (len(parts) - 1) * lead < floor:
+                    cut = True
+                    break
+                if ln.dir:
+                    trend_arrow(c, ln.dir, cx + 1.8 * mm, y + size * 0.3, 3.2 * mm)
+                c.setFillColor(RULE)
+                c.setFont(FONT, size)
+                for j, part in enumerate(parts):
+                    c.drawString(cx + 1.8 * mm + arrow_w, y - j * lead, part)
+                y -= len(parts) * lead
+            if cut:
                 self.overflow.append(
-                    Overflow(f"{s.title} · {cell.label}", [cell.label], [[ln.text] for ln in cell.lines])
+                    Overflow(
+                        f"{s.title} · {cell.label}",
+                        [cell.label, ""] if arrow_w else [cell.label],
+                        [[ln.text, ln.trend] if arrow_w else [ln.text] for ln in cell.lines],
+                    )
                 )
 
     def _map(self, bx, by, bw, bh) -> None:
@@ -481,14 +524,17 @@ class BoardPageFlowable(Flowable):
         body_h = body_top - by
         empty_rows = max(1, _default_height(s))
         n = len(s.rows)
-        slots = max(empty_rows, n) if s.adds else max(1, n)
+        # a pre-printed row stands two rulings tall (the poster's Absprachepunkte, the Traktanden)
+        weight = [2 if r.fixed else 1 for r in s.rows]
+        units = sum(weight)
+        slots = max(empty_rows, units) if s.adds else max(1, units)
         # the rows' heights: a fixed-row table shares its body out; a written one rules equal rows
         # and gives a long cell the lines it needs, shrinking the type until it all fits
         size = _FS
         while True:
             base = body_h / slots
             need = []
-            for r in s.rows:
+            for r, wgt in zip(s.rows, weight, strict=False):
                 lines = 1
                 for i, col in enumerate(cols):
                     if col.kind in ("symbol", "index"):
@@ -498,8 +544,8 @@ class BoardPageFlowable(Flowable):
                         cw = widths[i] - 2.4 * mm
                         fs = fit_size(v, cw, 9, 7) if r.fixed else fit_size(v, cw, size)
                         lines = max(lines, len(wrap(v, cw, FONT, fs)))
-                need.append(max(base, lines * size * 1.18 + 2.2 * mm))
-            used = sum(need) + base * max(0, slots - n)
+                need.append(max(base * wgt, lines * size * 1.18 + 2.2 * mm))
+            used = sum(need) + base * max(0, slots - units)
             if used <= body_h + 0.5 or size <= _MIN_FS:
                 break
             size -= 0.5
@@ -543,6 +589,8 @@ class BoardPageFlowable(Flowable):
                     draw_signature(c, v, x + (w - side) / 2, y_top - h + (h - side) / 2, side)
                 continue
             if col.kind == "index":
+                if not v:
+                    continue
                 rad = min(h, w) * 0.28
                 c.setFillColor(SIG)
                 c.circle(x + w / 2, y_top - h / 2, rad, stroke=0, fill=1)

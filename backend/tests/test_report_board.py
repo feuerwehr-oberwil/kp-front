@@ -212,6 +212,26 @@ def test_wrapping_splits_where_the_template_says():
     assert fit_size("Polycom", 9 * mm, 8.5) < 8.5
 
 
+def test_the_tendenz_prints_as_an_arrow_beside_the_problem(monkeypatch):
+    """The Erste Führung's Problemerfassung carries the trend (owner, round 2): the paper draws
+    ➚ = ➘ as vector arrows — Helvetica has none — in front of the line."""
+    import app.report_board as rb
+
+    drawn: list[str] = []
+    real = rb.trend_arrow
+    monkeypatch.setattr(rb, "trend_arrow", lambda c, d, *a: (drawn.append(d), real(c, d, *a)))
+    page = _ef()
+    page["sections"][0]["trend"] = True
+    page["sections"][0]["cells"][0]["lines"] = [
+        {"text": "Rettungen Haus 19", "trend": "wird schlimmer", "dir": "up"},
+        {"text": "Rauch", "trend": "gleich", "dir": "same"},
+        {"text": "Brand Haus 21"},
+    ]
+    text = _text(_compose(boardPages=[page]))
+    assert drawn == ["up", "same"]
+    assert "Rettungen Haus 19" in text and "Rauch" in text
+
+
 def test_the_header_line_prints_in_the_words_it_was_sent_in():
     page = _ef()
     page["head"] = [{"label": "Intervention", "value": "Feu de cuisine"}, {"label": "Adresse", "value": ""}]

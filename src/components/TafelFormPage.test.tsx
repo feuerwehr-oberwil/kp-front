@@ -75,13 +75,30 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     expect(auftrag.value).toBe('')
   })
 
-  it('the Abspracherapport is a fixed list: its Signaturen are pictures, only «Ort» is typed', () => {
-    render(<Harness onCommit={() => {}} />)
+  it('the Abspracherapport: six printed rows with their Signaturen (only «Ort» typed), and a row under them that types the rest', () => {
+    const commits: BoardFormData[] = []
+    render(<Harness onCommit={(d) => commits.push(d)} />)
     const abs = document.querySelector('[data-sec="absprachen"]')!
     expect(abs.querySelectorAll('svg').length).toBe(6)
-    expect(abs.querySelectorAll('textarea').length).toBe(6)
+    expect(abs.querySelectorAll('textarea[aria-label="Ort"]').length).toBe(7)
+    // every box drawn is writable: the row under «Warteraum» names itself (owner, round 2)
+    const bez = abs.querySelectorAll<HTMLTextAreaElement>('textarea[aria-label="Bezeichnung"]')
+    expect(bez.length).toBe(1)
     expect(abs.textContent).toContain('Sammelstelle Unverletzte')
     expect(abs.textContent).not.toContain('Wasserbezug') // a station switch, off in the FKS poster
+    act(() => { bez[0].focus() })
+    type('Helikopterlandeplatz'); key('Tab')
+    type('Sportplatz'); key('Enter')
+    const row = commits[commits.length - 1].values.absprachen.rows!.find((r) => !r.id.startsWith('patienten') && r.cells.bez)!
+    expect(row.cells).toEqual({ bez: 'Helikopterlandeplatz', ort: 'Sportplatz' })
+  })
+
+  it('every ruled empty row of a table is a live row', () => {
+    render(<Harness onCommit={() => {}} />)
+    const mass = document.querySelector('[data-sec="massnahmen"]')!
+    // 11 rulings on the poster: the trailing row and the empty ones under it are all inputs
+    expect(mass.querySelectorAll('textarea[aria-label="Was/Wo"]').length).toBe(11)
+    expect(mass.querySelectorAll('[aria-hidden="true"][role="row"]').length).toBe(0)
   })
 
   it('a focused cell that was only passed through never writes its old text back over a remote change', () => {

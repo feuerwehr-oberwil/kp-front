@@ -17,10 +17,6 @@
 
 .head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-4); }
 .title { margin: 0; flex: 1 1 auto; min-width: 0; font: var(--fw-heavy) var(--fs-6)/var(--lh-6) var(--body); letter-spacing: -0.01em; }
-.code {
-  display: inline-block; margin-right: var(--sp-3); padding-right: var(--sp-3);
-  border-right: 1px solid var(--ink-28); color: var(--ink-dim); font-weight: var(--fw-bold);
-}
 .meta { flex: none; font-size: var(--fs-micro); color: var(--ink-faint); }
 .remove { flex: none; }
 
@@ -101,7 +97,6 @@
 .doneOn { color: var(--green); }
 .tick { display: block; width: 16px; height: 16px; border: 2px solid var(--ink-45); border-radius: var(--r-xs); }
 .trDone .td > .cell { color: var(--ink-dim); text-decoration: line-through; }
-.filler { cursor: text; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
 /* ── text sections (the Konzept, the Rapport's Datum / Zeit) ── */

@@ -460,15 +460,18 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
     const adds = tableAddsRows(sec) && !readOnly
     const grid: CSSProperties = { gridTemplateColumns: [...cols.map((c) => `minmax(0, ${c.w ?? 1}fr)`), ...(sec.done ? ['auto'] : [])].join(' ') }
     const newId = ids[sec.id].newId
-    const fillers = isPhone ? 0 : Math.max(0, (sec.height ?? 0) - rows.length - (adds ? 1 : 0) - 1 - (sec.subtitle ? 1 : 0))
+    const extras = ids[sec.id].extras ?? []
     const cellFor = (r: { id: string; cells: Record<string, string> }, c: TemplateColumn, isNew: boolean) => {
       const label = labelText(c.label)
-      if (c.fixed) {
+      const fixedRow = fixedRows.has(r.id)
+      if (c.fixed && fixedRow) {
         const v = fixedRows.get(r.id)?.cells[c.id]
         if (c.type === 'symbol') return <span key={c.id} className={cx(s.td, s.sig)}><BoardSignature name={typeof v === 'string' ? v : labelText(v)} className={s.sigSvg} /></span>
         if (c.type === 'index') return <span key={c.id} className={cx(s.td, s.index)}><span className={s.disc}>{labelText(v)}</span></span>
         return <span key={c.id} className={cx(s.td, s.fixed)}>{labelText(v)}</span>
       }
+      // a written row under a fixed list has no Signatur / number of its own — the rest it types
+      if (c.fixed && (c.type === 'symbol' || c.type === 'index')) return <span key={c.id} className={s.td} />
       if (c.type === 'trend') {
         return (
           <span key={c.id} className={cx(s.td, s.trendCell)}>
@@ -508,11 +511,9 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
             {sec.done && <span className={s.td} />}
           </div>
         )}
-        {/* the ruled rows the paper has below the written ones — a tap writes in the empty row */}
-        {Array.from({ length: fillers }, (_, i) => (
-          <div key={`f${i}`} className={cx(s.tr, s.filler)} style={grid} aria-hidden="true"
-            onClick={(e) => e.currentTarget.parentElement?.querySelector<HTMLTextAreaElement>(`[data-kn="${CSS.escape(keyOf(sec.id, undefined, NEW, editableColumns(sec)[0]?.id))}"]`)?.focus()}>
-            {cols.map((c) => <span key={c.id} className={s.td} />)}
+        {extras.map((id) => (
+          <div key={id} className={cx(s.tr, s.trNew)} role="row" style={grid}>
+            {cols.map((c) => cellFor({ id, cells: {} }, c, false))}
             {sec.done && <span className={s.td} />}
           </div>
         ))}
@@ -565,7 +566,7 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
       style={{ paddingTop: inset.top, paddingLeft: inset.left, paddingRight: inset.right, paddingBottom: inset.bottom }}>
       <div className={cx(s.paper, page.paper === 'landscape' && s.landscape, cols === 1 && s.single)}>
         <header className={s.head}>
-          <h2 className={s.title}>{page.code ? <span className={s.code}>{page.code}</span> : null}{labelText(page.title)}</h2>
+          <h2 className={s.title}>{labelText(page.title)}</h2>
           <span className={s.meta} title={t.keysHint}>{fillTemplate(t.template, { title: labelText(data.tpl.title), v: data.tpl.version })}</span>
           {!readOnly && (
             <IconButton label={t.removePage} className={s.remove} onPointerDown={keep} onClick={onRemove}><Icon id="trash" /></IconButton>
