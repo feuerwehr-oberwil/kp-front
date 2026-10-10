@@ -105,6 +105,8 @@ import { findForms, formAnno, formHasContent, isFormAnno, newFormPage, type Boar
 import { labelText, type BoardTemplate, type TemplatePage } from '../lib/boardTemplate'
 import { SKIZZE, TAFEL_ID, TAFEL_STRIP_H, stepPage, useTafelPage } from '../lib/tafelPages'
 import { isTypingTarget } from '../lib/hotkeys'
+import { BUNDLED_TEMPLATES, warmBoardTemplates } from '../lib/boardTemplates'
+import type { MiniKarteProps } from './MiniKarte'
 
 const COLORS = appConfig.drawing.colors
 
@@ -340,10 +342,10 @@ interface Props {
 }
 
 export interface TafelPagesProps {
-  templates: readonly BoardTemplate[]
   /** read at the tap that adds a page */
   seed: () => FormSeed
-  renderMap?: () => React.ReactNode
+  /** what the «Lagekarte» box's mini Karte draws (components/MiniKarte) */
+  scene?: MiniKarteProps
   onOpenKarte?: () => void
 }
 
@@ -408,6 +410,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const [pageSel, setPageSel] = useTafelPage(incidentId)
   const page = onTafel && pages.some((p) => p.id === pageSel) ? pageSel : SKIZZE
   const formOpen = page !== SKIZZE
+  // the station's template set — read once the Tafel is first shown (never on the boot path);
+  // the bundled FKS set answers until it lands
+  const [templates, setTemplates] = useState<readonly BoardTemplate[]>(BUNDLED_TEMPLATES)
+  useEffect(() => {
+    if (!onTafel) return
+    let live = true
+    void warmBoardTemplates().then((t) => { if (live) setTemplates(t) })
+    return () => { live = false }
+  }, [onTafel])
   /** the top lane the fit keeps clear: the floating bar, and on the Tafel its page strip too */
   const topRes = TOP_INSET + (onTafel ? TAFEL_STRIP_H : 0)
   // The slim read-only rail (Auswahl · Messen) — never on a viewer-only or selection-only
@@ -3003,7 +3014,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // show a plain, natively-scrolling multi-page PDF viewer — no tools, no stitched pan/zoom board.
   // the Tafel's page strip, on the Skizze and on every page alike
   const strip = onTafel ? (
-    <TafelPageStrip pages={pages} current={page} templates={tafel!.templates} readOnly={readOnly} onPick={setPageSel} onAdd={addPage}
+    <TafelPageStrip pages={pages} current={page} templates={templates} readOnly={readOnly} onPick={setPageSel} onAdd={addPage}
       style={{ top: TOP_INSET - 8, left: side.l, right: formOpen ? side.l : side.r }} />
   ) : null
   // A Tafel PAGE is a form, not a drawing surface: it takes the stage, and none of the board's
@@ -3016,7 +3027,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         {strip}
         <TafelFormPage key={formPage.id} data={formPage.form} readOnly={readOnly} isPhone={isPhone}
           onChange={(next) => editPage(formPage.id, next)} onRemove={() => void removePage(formPage.id)}
-          renderMap={tafel?.renderMap} onOpenKarte={tafel?.onOpenKarte}
+          scene={tafel?.scene} onOpenKarte={tafel?.onOpenKarte}
           inset={{ top: topRes, left: isPhone ? 0 : side.l, right: isPhone ? 0 : side.l, bottom: isPhone ? 96 : 24 }} />
       </div>
     )

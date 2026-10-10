@@ -23,6 +23,10 @@ import type { BoardAnno } from '../types'
  * (`page`) keeps an open or archived Einsatz printing exactly what it was filled in against.
  */
 
+/** The Tafel's plan id — the one sheet that has pages (data/demoIncident · planDocuments). Here,
+ *  not in lib/tafelPages: the Rapport needs it too, and this module is already where they meet. */
+export const TAFEL_ID = 'tafel'
+
 export type FormTrend = 'up' | 'same' | 'down'
 /** one written line in a Problemerfassung box */
 export interface FormLine { id: string; text: string; trend?: FormTrend; tag?: string }

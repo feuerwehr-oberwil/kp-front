@@ -37,8 +37,7 @@ import type { AuditProof, ReportDraft, ReportOptions } from '../lib/report'
 import {
   defaultReportOptions, einsatzleiterFromScene, formatDateTime, hasVisiblePlanAnnotation, missingTranscriptCount, pendenzRows, proofLabel,
 } from '../lib/report'
-import { findForms } from '../lib/boardForm'
-import { TAFEL_ID } from '../lib/tafelPages'
+import { TAFEL_ID, findForms } from '../lib/boardForm'
 import { abschlussFacts, missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { controlChipLabel } from '../lib/abschlussOpen'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'

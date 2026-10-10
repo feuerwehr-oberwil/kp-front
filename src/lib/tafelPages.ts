@@ -31,7 +31,6 @@ export function stepPage(order: readonly string[], current: string, dir: 1 | -1)
   return order[j] ?? current
 }
 
-/** The Tafel's plan id — the one sheet that has pages (data/demoIncident · planDocuments). */
-export const TAFEL_ID = 'tafel'
+export { TAFEL_ID } from './boardForm'
 /** px the page strip takes under the floating top bar (09-whiteboard.css · .tps) */
 export const TAFEL_STRIP_H = 52

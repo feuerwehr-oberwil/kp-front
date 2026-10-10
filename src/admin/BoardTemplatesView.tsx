@@ -6,7 +6,9 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { downloadBlob } from '../lib/download'
 import { isBoardTemplate, labelText, type BoardTemplate } from '../lib/boardTemplate'
-import { BUNDLED_TEMPLATES } from '../lib/boardTemplates'
+// ?raw, not the JSON module: shared with the Whiteboard it became a chunk of its own on the field
+// app's path, one more request for every tablet
+import fksErsteFuehrungRaw from '../data/boardTemplates/fks-erste-fuehrung.json?raw'
 import type { ReferenceDataset } from '../lib/incidents'
 import { ActionMenu, Card, EmptyState, Table, fmtDate } from './ui'
 import { PlanSourceBadge } from './ObjectSheet'
@@ -19,6 +21,9 @@ import './stationData.css'
 // pydantic model), a delete is the prune `admin_board_templates push` uses. The bundled FKS file
 // is downloadable here, because a station copy STARTS as that file (docs/board-templates.md) —
 // and as long as nothing is stored, it is what the Tafel offers.
+
+/** the bundled set — read straight from its file (see stationDataApi · isBoardTemplateDataset) */
+const BUNDLED_TEMPLATES: BoardTemplate[] = [JSON.parse(fksErsteFuehrungRaw) as BoardTemplate]
 
 type Async<T> = { kind: 'loading' } | { kind: 'ok'; data: T } | { kind: 'error' }
 interface Row { dataset: ReferenceDataset; slug: string; template: BoardTemplate | null }

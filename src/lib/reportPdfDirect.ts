@@ -39,8 +39,7 @@ import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
 import { resolvePlanAnnos } from './lineAttachments'
 import type { JournalLink } from './journalLinks'
-import { findForms, formForPdf, isFormAnno } from './boardForm'
-import { TAFEL_ID } from './tafelPages'
+import { TAFEL_ID, findForms, formForPdf, isFormAnno } from './boardForm'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
  *  glyphs resolved to SVG strings, like the whiteboard renders them).

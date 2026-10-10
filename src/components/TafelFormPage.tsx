@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
@@ -16,6 +16,7 @@ import {
 import { NEW, navTarget, type NavAt, type NavKey, type NavSection } from '../lib/boardFormNav'
 import { IconButton } from './Button'
 import { BoardSignature } from './BoardSignature'
+import MiniKarte, { type MiniKarteProps } from './MiniKarte'
 import s from './TafelFormPage.module.css'
 
 /**
@@ -186,15 +187,15 @@ export interface TafelFormPageProps {
   isPhone: boolean
   onChange: (next: BoardFormData) => void
   onRemove: () => void
-  /** the live mini Karte for a `map` section (lazy, mounted only while this page is shown) */
-  renderMap?: () => ReactNode
+  /** what the live mini Karte of a `map` section draws — it exists only while this page is shown */
+  scene?: MiniKarteProps
   /** a tap on the mini Karte opens the Karte */
   onOpenKarte?: () => void
   /** px the floating chrome covers: top bar + page strip, the rails */
   inset: { top: number; left: number; right: number; bottom: number }
 }
 
-export function TafelFormPage({ data, readOnly, isPhone, onChange, onRemove, renderMap, onOpenKarte, inset }: TafelFormPageProps) {
+export function TafelFormPage({ data, readOnly, isPhone, onChange, onRemove, scene, onOpenKarte, inset }: TafelFormPageProps) {
   const t = T()
   const page = data.page
   const sections = shownSections(page)
@@ -456,7 +457,7 @@ export function TafelFormPage({ data, readOnly, isPhone, onChange, onRemove, ren
     <div className={s.map} style={minH(sec.height)}>
       {/* inert: the markers inside are buttons on the Karte — here they are a picture, and neither
           Tab nor the iOS ↑↓ bar may stop on them */}
-      <div className={cx(s.mapInner, 'tfp-map')} inert>{renderMap?.()}</div>
+      <div className={cx(s.mapInner, 'tfp-map')} inert>{scene && <MiniKarte {...scene} />}</div>
       <button type="button" className={s.mapOpen} aria-label={t.mapLabel} title={t.mapPrint}
         onPointerDown={keep} onClick={() => onOpenKarte?.()}>
         <span className={s.mapChip}><Icon id="map" />{t.mapOpen}</span>
