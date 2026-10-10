@@ -21,17 +21,6 @@ export function notfallWho(t: Trupp): string {
 }
 
 /**
- * The banner's headline (owner feedback 10.10.2026): what the radio calls the crew — «Trupp 1»,
- * or «Trupp Keller Anna» on a record without a number — in the place a Trupp card has its
- * leader's name. The people are the card's (and `notfallWho`'s, for the Meldeleiste row, the
- * Verlauf and the screen reader).
- */
-export function notfallName(t: Trupp): string {
-  const name = typeof t.no === 'number' ? String(t.no) : (t.name ?? '').trim()
-  return fillTemplate(appConfig.copy.atemschutz.notfall.who, { name })
-}
-
-/**
  * The facts of one Notfall as short phrases, in the order they are read out on the radio: since
  * when, where, how much air (and how old that number is), which channel. Pure, so the banner, the
  * Meldeleiste row and their tests agree by construction. `place` is the caller's

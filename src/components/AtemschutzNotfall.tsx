@@ -6,8 +6,8 @@ import { cx } from '../lib/cx'
 import { confirmDialog } from '../lib/ui'
 import { useMeldung } from '../lib/useMeldung'
 import { serverNow } from '../lib/serverClock'
-import { fmtClock, notfallFacts, safetyInside, safetyReady, truppInNotfall, truppLogName } from '../lib/atemschutz'
-import { notfallFactLine, notfallName, notfallWho } from '../lib/notfall'
+import { fmtClock, notfallFacts, safetyInside, safetyReady, truppHeadName, truppInNotfall, truppLogName } from '../lib/atemschutz'
+import { notfallFactLine, notfallWho } from '../lib/notfall'
 import { NODE_HOLD_ARM_MS, useNodeHold } from '../lib/nodeHold'
 import type { Trupp } from '../types'
 import s from './Atemschutz.module.css'
@@ -130,7 +130,8 @@ function useSecondTick(on: boolean): number {
  * rounds — the first banner was ~620 device px of kicker, clock column, wrapped names, facts,
  * notes and two rows of buttons): it is sticky, so every pixel of it covers the board, and beside
  * the cards it must read as one of them. So it IS one — the card's frame and red tone, and row 1
- * the card's own head line («⚠ Trupp 1 … 0:04 ›», the whole line «Zum Trupp»). Row 2 is ONE dim
+ * the card's own head line («⚠ Binggeli Michael … 0:04 ›» — the card's own name, so the card
+ * below reads as the same crew; the whole line «Zum Trupp»). Row 2 is ONE dim
  * line («Notfall seit 11:11 · Löschen · 300 bar (Eingangsdruck) · Kanal 11»); the people are the
  * card's. Row 3 is the one act at the banner's width, its reason as a small second line («Kein
  * Sicherungstrupp bereit» under «Sicherungstrupp bestimmen», the ready crew under «… einsetzen»).
@@ -160,7 +161,9 @@ export function NotfallBanner({ t, now, place, ready, inside, canEdit, dense = f
 }) {
   const nf = appConfig.copy.atemschutz.notfall
   const f = notfallFacts(t, now)
-  const name = notfallName(t)
+  // the name the crew's own card head shows (the card below must read as the SAME crew); the full
+  // «Trupp 1 (…)» is the alert's and the head's accessible name
+  const name = truppHeadName(t)
   // ONE dim line under the head: «Notfall seit 11:11 · Löschen · 300 bar (Eingangsdruck) · Kanal 11»
   const facts = [
     ...(t.notfallAt ? [fillTemplate(nf.stateWord, { time: formatTime(new Date(t.notfallAt)) })] : []),
@@ -200,7 +203,7 @@ export function NotfallBanner({ t, now, place, ready, inside, canEdit, dense = f
       {/* row 1: the card's own head line — ⚠ where the card has its dot, the name, the clock, and
           the chevron — and the WHOLE line is the way to the card (as the card's head is its toggle) */}
       <button type="button" className={cx(s.trowHead, s.nfHead)} onClick={() => onGo(t.id)}
-        aria-label={fillTemplate(nf.goToWho, { name })}>
+        aria-label={fillTemplate(nf.goToWho, { name: notfallWho(t) })}>
         <span className={s.trowId}>
           <span className={s.trowName}>
             <Icon id="warn" className={s.nfGlyph} />

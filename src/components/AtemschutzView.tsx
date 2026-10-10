@@ -10,7 +10,7 @@ import { Button } from './Button'
 import { Chip } from './Chip'
 import { Menu, Overlay, Popover, SheetFoot, SheetGrab } from '../lib/overlays'
 import { NotfallBanner, NotfallHold } from './AtemschutzNotfall'
-import { alarmBarFor, currentRunStart, deriveTruppLive, notfallOffered, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, entryPressureAsks, isStandDownExit, estimatePressure, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppFieldsOf, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
+import { alarmBarFor, currentRunStart, deriveTruppLive, notfallOffered, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, entryPressureAsks, isStandDownExit, estimatePressure, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
@@ -1895,7 +1895,7 @@ function SafetyRow({ t, canEdit, onDeploy, onOpen }: {
   return (
     <button type="button" className={cx(s.trow, s.trowSafety)} onClick={onOpen} aria-label={`${az.safetyTitle}: ${t.name}`}>
       <span className={s.trowId}>
-        <span className={s.trowName}><span className={s.trowNameTxt}>{t.name}</span></span>
+        <span className={s.trowName}><span className={s.trowNameTxt}>{truppHeadName(t)}</span></span>
         {t.entryPressureBar ? <span className={s.trowSafetyWho}>{t.entryPressureBar} bar</span> : null}
       </span>
       <span className={s.trowAct}>
@@ -2149,7 +2149,7 @@ function RowLine({ t, live, color, lite, tier }: { t: Trupp; live: TruppLive; co
           {/* no colour, no dot: the handed-over Tafel never shows the Lage, so a Truppfarbe there
               carries no identity (round 2 review) — and an empty 11px slot would indent the name */}
           {color && <span className={s.trowDot} style={{ background: color }} />}
-          <span className={s.trowNameTxt}>{t.name}</span>
+          <span className={s.trowNameTxt}>{truppHeadName(t)}</span>
           {/* ⚠️ Name only — no «#N», no «SiTr», on the row AND the opened card (owner, staging
               26.09. and 30.09.2026: «the group leader name needs more space … drop the number #»).
               The number stays in the TruppFinder and in the Verlauf's «Trupp N» rows. */}

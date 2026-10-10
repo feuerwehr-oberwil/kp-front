@@ -123,6 +123,17 @@ export function anyTruppInField(trupps: Trupp[]): boolean {
 }
 
 /**
+ * The name a Trupp's card head shows — the Gruppenführer (AtemschutzView · RowLine, on the phone
+ * row, the opened card and the tablet card alike) — and so the name the Atemschutznotfall's banner
+ * shows for the SAME crew (components/AtemschutzNotfall, 10.10.2026: «⚠ Trupp 1» above a card
+ * headed «Binggeli Michael» did not read as one crew). One function, so the two cannot drift; the
+ * full «Trupp 1 (…)» stays the Verlauf's and the screen reader's (`truppLogName`).
+ */
+export function truppHeadName(t: { name?: string }): string {
+  return t.name ?? ''
+}
+
+/**
  * WHO a Verlauf row about this Trupp is about — «1 (Fabich Mischa / Dürring Jan)», the number and
  * the crew, which the templates put behind the word: «Trupp 1 (Fabich Mischa / Dürring Jan):
  * Eintritt» (docs/trupp-naming.md §4).

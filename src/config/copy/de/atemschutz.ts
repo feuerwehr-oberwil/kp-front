@@ -814,7 +814,7 @@ export const atemschutzCopy = {
       sitrDefine: 'Sicherungstrupp bestimmen',
       sitrInside: 'Sicherungstrupp {name} drin seit {time}',
       goTo: 'Zum Trupp',
-      // die ganze Kopfzeile des Banners (Screenreader): «Zum Trupp 1»
+      // die ganze Kopfzeile des Banners (Screenreader): «Zum Trupp 1 (Binggeli Michael / …)»
       goToWho: 'Zum {name}',
       // die Meldeleiste
       rowTitle: 'Notfall – Trupp {name}',
