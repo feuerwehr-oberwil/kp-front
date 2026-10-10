@@ -507,6 +507,10 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
     fehlt» line waited for nobody: it stood there from the first name while the next ones were
     still being searched. It now appears when the person search is left – for the Auftrag, the
     Ziel or «Anmelden» – and its space is kept meanwhile, so the footer never moves under a press.
+  - **Menus end above the home indicator.** The Einsatz menu under the address ran over the
+    bottom bar into the home indicator, where the display's rounded corner cut its last row; it
+    now ends 8px above the bottom bar and scrolls inside. Every other menu (PDF ▾, the Verlauf
+    filter, …) leaves out the safe area on the side it opens to.
 - **A Trupp's «fällig» and «überfällig» no longer ride on colour alone.** On the phone board
   the row said them only in amber and red, which is no answer in direct sun or to a colour-blind
   reader. Under the clock it now carries a glyph: a clock for «fällig», the warning triangle for
