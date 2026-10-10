@@ -496,6 +496,10 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Fixed
 
+- **From the owner's iPhone, 10.10.2026:**
+  - **The Passung's buttons keep glyph and words together.** When «Referenzpunkte setzen» wrapped
+    onto two lines, its «+» sat at the button's far left edge; the glyph now rides on the first
+    line and every line is centred.
 - **A Trupp's «fällig» and «überfällig» no longer ride on colour alone.** On the phone board
   the row said them only in amber and red, which is no answer in direct sun or to a colour-blind
   reader. Under the clock it now carries a glyph: a clock for «fällig», the warning triangle for
