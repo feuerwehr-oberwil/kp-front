@@ -9,6 +9,8 @@
 # 2026-04-30 and this stage sat on it for three months. Keep in step with node-version in
 # .github/workflows/ci.yml and the engines field in package.json; dependabot's docker
 # ecosystem now proposes the bumps so it cannot drift silently again.
+# Named on Docker Hub, which Dependabot reads (through ECR Public it was answered with 429s).
+# CI's BuildKit resolves docker.io through mirror.gcr.io instead (.github/actions/stack).
 FROM --platform=$BUILDPLATFORM node:24-slim@sha256:a9f5f7c91a432850b2a8a7797adf5eadb6c733ceed61167806cee7ea7fbc29df AS frontend
 WORKDIR /app
 # Pin pnpm 10 (matches lockfileVersion 9.0). corepack's bundled default is incompatible

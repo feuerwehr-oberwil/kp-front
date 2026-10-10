@@ -12,14 +12,12 @@ Regenerate with `just roster-schema` in the same change that touches the models.
 
 **2. Cross-repo drift.** kp-rück holds byte-identical copies of both schema files AND of the
 code that reads them (`app/roster_snapshot.py`, `app/roster_snapshot_ingest.py`), the
-reference producer (`scripts/roster_snapshot_from_csv.py`) and its example input, pinned by the
-same checksums (`VENDORED`, `SHARED`). Neither repository may import the other
-(`docs/RUNNING-BOTH.md`), so the copies stay copies and a hash holds them together — exactly
-the arrangement `test_alarm_keywords.py` and `test_telemetry_vendored.py` already use. **What
-this cannot catch, stated plainly:** editing a file here and updating only this repository's
-hash leaves this suite green while the two copies diverge. kp-rück's `roster-schema-drift` job
-checks out both repositories and diffs every one of these files; it is the only thing that
-actually compares them.
+reference producer (`scripts/roster_snapshot_from_csv.py`) and its example input. Neither
+repository may import the other (`docs/RUNNING-BOTH.md`), so the copies stay copies, listed with
+their sha256 in `shared/MANIFEST.json` beside the telemetry sanitiser and the alarm vocabulary.
+`test_shared_files.py` holds this repository's copies to the manifest; CI's «Shared files match
+KP Rück» job checks out both repositories and compares them, and is the only thing that does.
+How to change one: `shared/README.md`.
 
 **3. A medical field.** D30 of the estate architecture says the exclusion is a property of the
 payload, "enforced by a schema test that fails on any medical-shaped key, not by doctrine:
@@ -67,7 +65,6 @@ roster-snapshot artifacts on purpose — `winfapAlias` is a legitimate, delibera
 in this product's station config, and this test says nothing about it.
 """
 
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -85,34 +82,10 @@ SNAPSHOT_SCHEMA = ROOT / "docs" / "roster-snapshot.schema.json"
 OUTCOME_SCHEMA = ROOT / "docs" / "roster-snapshot-outcome.schema.json"
 EXAMPLE_FILE = BACKEND / "roster.snapshot.example.json"
 
-#: sha256 of each file that is ALSO vendored into feuerwehr-oberwil/kp-rueck. Regenerate with:
-#:   just roster-schema && shasum -a 256 docs/roster-snapshot*.schema.json
-VENDORED = {
-    "roster-snapshot.schema.json": "85c9cfab43c64f096a6b260f4892240fe0b7890acc7741b8be544698ef102cc0",
-    "roster-snapshot-outcome.schema.json": "131cedd7246ccac71f9e1017af8e61bebe998dc09f04cc47df8d5d9bac9e78a9",
-}
-
-#: The rest of what is shared with kp-rück byte for byte: the code that reads a snapshot (so one
-#: file lands the same way in both products), the reference producer and its example input.
-#: Paths are repository-relative and identical on both sides.
-SHARED = {
-    "backend/app/roster_snapshot.py": "864258b878395e09051151fd4d7b5d96c9ae986368f04c5aed943592395452a2",
-    "backend/app/roster_snapshot_ingest.py": "103a12de8b5ecbe7257d8c8203a759a3335d14be8b8efc61882babdc84151e94",
-    "scripts/roster_snapshot_from_csv.py": "fe9c63a4ad66503f09ed3fce12e745e165f549e3418ea5effe7e5837a306e926",
-    "docs/roster-snapshot.example.csv": "3addbbc94a755b66c7350d088177ccd2e89d6d888fcd63e87b78b33ccbfeb1f7",
-}
+#: Both halves of the contract, shared byte for byte with kp-rück (`shared/MANIFEST.json`).
+SCHEMAS = ("roster-snapshot.schema.json", "roster-snapshot-outcome.schema.json")
 
 repo_only = pytest.mark.skipif(not SNAPSHOT_SCHEMA.exists(), reason="repo root not available (running from the image)")
-
-
-@repo_only
-@pytest.mark.parametrize("path", sorted(SHARED))
-def test_the_shared_reader_matches_the_recorded_hash(path: str):
-    digest = hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
-    assert digest == SHARED[path], (
-        f"{path} changed. It is byte-identical with kp-rück's copy: make the same edit there, run "
-        f"BOTH suites, and update the hash in BOTH repositories in the same change."
-    )
 
 
 # --- 1. drift against the code ----------------------------------------------------------
@@ -157,27 +130,9 @@ def test_the_example_validates_against_its_own_contract():
 
 
 # --- 2. cross-repo pin ------------------------------------------------------------------
-
-
-@repo_only
-@pytest.mark.parametrize("name", sorted(VENDORED))
-def test_vendored_schema_matches_the_recorded_hash(name: str):
-    path = ROOT / "docs" / name
-    assert path.exists(), f"{name} is missing — the vendored copy must not be deleted"
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    assert digest == VENDORED[name], (
-        f"docs/{name} no longer matches the hash recorded here.\n"
-        f"Copy the file across to kp-rueck, run BOTH test suites, and update the hash in BOTH "
-        f"repositories in the same change. Do NOT just update the hash — see this module's "
-        f"docstring for why that is not enough on its own."
-    )
-
-
-@repo_only
-def test_both_schemas_are_pinned():
-    # A guard on the guard: pinning the document but not the outcome report would leave half
-    # the contract free to move.
-    assert set(VENDORED) == {"roster-snapshot.schema.json", "roster-snapshot-outcome.schema.json"}
+# Lives in test_shared_files.py (every file in shared/MANIFEST.json, offline) and CI's «Shared
+# files match KP Rück» job (the two checkouts compared). Both schemas are in the manifest, and
+# test_shared_files.py fails if either is dropped from it.
 
 
 # --- 3. the medical exclusion -----------------------------------------------------------
@@ -432,7 +387,7 @@ def test_no_free_form_object_in_the_schema():
             for i, item in enumerate(node):
                 walk(item, f"{path}[{i}]")
 
-    for name in sorted(VENDORED):
+    for name in SCHEMAS:
         walk(json.loads((ROOT / "docs" / name).read_text(encoding="utf-8")), name)
     assert not offenders, (
         "the roster-snapshot contract grew a free-form object: "

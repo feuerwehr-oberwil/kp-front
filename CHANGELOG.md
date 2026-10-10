@@ -29,6 +29,50 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Upgrade notes
+
+Nothing in this release needs a manual step on a station that does not use the removed print
+relay: `docker compose pull && docker compose up -d` is enough. Read on if one of these applies.
+
+- **Migrations run on boot** (eleven, all automatic): floor packs (`plan_page_floors`,
+  `plan_page_floor_parts`, `plan_page_floor_marker`, `plan_alignment_marker_notes`),
+  Objektbesuche (`object_visits`, `visit_programmes`, `users.notify_object_visits`),
+  `incidents.last_closed_at`, `divera_emergencies.responses_json` / `responses_at`, the
+  Objekt's `measures` / `remarks` / `measures_source`, and **dropping `print_jobs`** together
+  with a stored print-agent secret. The downgrade recreates an empty `print_jobs`; the secret is
+  not restored.
+- **The station print relay is gone** (see Removed). A `PRINT_AGENT_SECRET` left in `.env` is
+  ignored. A print agent still polling KP Front gets 404s – remove KP Front from its
+  configuration or switch it off; KP Rück's print agent is unaffected.
+- **New optional settings** – nothing changes while they are unset: `OBJECT_VISITS_INTEGRATION_KEY`
+  and `SHAREPOINT_EXPORT_TENANT_ID` / `_CLIENT_ID` / `_CLIENT_SECRET` (Objektbesuche organizer
+  and SharePoint filing, a second app registration), `ROSTER_SNAPSHOT_SOURCE` /
+  `ROSTER_SNAPSHOT_TOKEN` (roster snapshot), `ENTRA_LOGIN_TENANT_ID` / `_CLIENT_ID` /
+  `_CLIENT_SECRET` / `_ACCOUNTS` («Mit Microsoft anmelden», a third app registration, see
+  `docs/microsoft-login.md`; `PUBLIC_URL` must match its redirect URI), and
+  `REFRESH_REUSE_GRACE_SECONDS` (default 60; `0` keeps refresh-token rotation strictly
+  one-time). The integration credentials can also be set in `/admin › Anbindungen`; new config
+  keys (`doctrine.entryPressureMin`, `doctrine.equipment`, `roster.snapshotIntervalMin`,
+  `roster.snapshotMaxDeactivatePct`, `roster.diveraResponses`, `map.buildingRegister`) all have
+  defaults (docs/CONFIGURATION.md).
+- **New outbound requests.** The Gebäude card asks the federal GWR and BFE registers about the
+  building at the Einsatzort (inside Switzerland only); set `map.buildingRegister: false` to turn
+  that off. The server now polls Divera itself (the devices no longer do).
+- **Disk.** Plan tile pyramids are written to the data volume in the background after the update
+  (about 10 MB for a dense A1 sheet; derived data, not in the backup). Replay snapshots are
+  stored gzipped from now on (about 5× smaller); older ones stay as they are. The image is about
+  20 MB larger (hidden sourcemaps for reading field crash reports).
+- **`/admin` needs a connection.** It is no longer in the offline precache.
+- **API.** Live writes into a closed Einsatz are refused with **409 `incident_closed`**;
+  `/api/print/*`, `/api/print-jobs/*` and `/api/print-agent/*` are gone. A script of your own
+  that writes into closed Einsätze or uses the print queue needs to change.
+- **Objektbesuche organizers** (fwo-admin and the like): deploy this release before an organizer
+  that schedules rounds; the organizer's domain must be allowed for the station's CARTO key.
+- **Roster snapshot / station index** (new, optional): nothing changes unless a source is set. A
+  station that set «Personenstamm-Quelle» keeps it – it is the fallback; to move to the one
+  address, publish `index.json` beside `roster.json` (`scripts/station_index_build.py`) and set
+  «Stationsdaten-Index».
+
 ### Added
 
 - **Wetter on the Karte: MeteoSwiss precipitation radar and the official warnings.** Ebenen get a
@@ -43,55 +87,14 @@ so this file – not the log – is the record of what shipped up to that point.
   algorithms are KP Rück's (R5), ported with its tests. *No action needed; `WEATHER_LAYER_ENABLED=false`
   switches it off (stations outside Switzerland or without outbound access). The image grows by
   ~17 MB (h5py; numpy was already in it).*
-
-- **Roster snapshot: read the personnel list from a file the station publishes.** Set
-  «Personenstamm-Quelle» on /admin › Anbindungen to an `https://` address (optional bearer
-  token) or an absolute path, and the deployment polls that `roster-snapshot/1` file hourly
-  (`roster.snapshotIntervalMin`) and on «Jetzt abrufen» under System › Verbindungen. People are
-  matched by the snapshot's key, then by any identity it lists (an existing Divera link is
-  reused, never rewritten), then by a unique name; a failed fetch or an invalid file changes
-  nothing; a run that would deactivate more than `roster.snapshotMaxDeactivatePct` (20 %) of
-  the active people is held until an admin applies it; the roster is never emptied and nobody
-  is deleted. The outcome report sits on System › Verbindungen. Any tool can write the file –
-  `scripts/roster_snapshot_from_csv.py` turns a spreadsheet into one, and drops every column
-  that is not part of the contract (docs/CONFIGURATION.md §4c). The reading rules are
-  byte-identical with KP Rück's. *No action needed – without a source nothing is fetched;
-  Divera and the CSV import are unchanged and stay the default.*
-- **Anleitungen – a second kind of checklist, read-only and offline.** A template with
-  `kind: "manual"` is a step-by-step guide: numbered steps, optional sub-points, «Achtung» and
-  «Tipp» lines and pictures, grouped by Gerät in the Checkliste tab. The pictures are cached on
-  the device, so a guide opens without a network. Format in docs/CONFIGURATION.md §9f; the demo
-  ships two synthetic ones. *No action needed* – a station adds its own with `admin_checklists`.
-- **«Neuer Objektbesuch» reaches only the people who should hear it.** The web push for a
-  received visit goes to the accounts an admin ticks in /admin (new column
-  `users.notify_object_visits`, nobody by default), and received visits are the first card on
-  /admin with their SharePoint filing state. Plans on a visit show their full names, «Besucht am»
-  uses the shared picker, and «Von» is remembered on the device. *Migration runs on boot; tick
-  the recipients once, otherwise nobody gets the push.*
-- **CI walks a crew's day and gates its performance.** A «Performance» job boots the production
-  container and has Chromium walk the busiest Einsatz on record: cold start through the kiosk,
-  reloads, every surface four times, Linien and Absperrkreise, Meldungen, Funkkontakte, an idle
-  minute. Requests, bytes, writes, memory left behind and interaction times are compared against
-  `e2e/perf/baseline.json`; a confirmed regression fails the PR. The table is posted on the PR as
-  one comment that every push edits in place. `just perf` runs it locally,
-  `just perf-accept <run-id>` takes a CI run as the new baseline (docs/testing/perf-journeys.md).
-- **CI compares the look against screenshots.** A «Visual» job shoots nine frozen states of the
-  production container (Karte by day and night and on a phone, Plan, Trupps on tablet and phone,
-  Verlauf, Rapport, kiosk) on a fixed clock and seeded data, and fails on more than 20 changed
-  pixels per state against `e2e/visual/baseline/`; the job summary names the states, the diffs are
-  an artifact. `just visual` runs it locally, `just visual-accept <run-id>` takes CI's pictures as
-  the new baselines (docs/testing/visual-regression.md).
-
-- **Objektbesuche: change the checklist of a draft, read the plans in the app.** The visit's ⋯
-  menu gets «Checkliste wechseln»: answers that also exist in the new checklist stay, the rest
-  are named before they are dropped, photos always stay. A plan from the «Pläne» card now opens
-  in the app's own reader (tabs for the object's other sheets, «‹» or the back gesture returns to
-  the visit). Opened from inside an Einsatz, the Übersicht offers the Einsatz's object first
-  («Im Einsatz»). The «Foto hinzufügen» tile got its padding. *No action needed.*
-- **Objektbesuche: the object's plans on the visit.** A «Pläne» card above the checklist lists the
-  object's Modul-PDFs (station code and title, in module order); a tap opens the sheet. It reads
-  the object through the offline cache, so a visit opened without a signal still lists them. No
-  card for an object without plans. *No action needed.*
+- **Station index: one address for all station data.** A station publishes an `index.json`
+  next to its data files that lists them by kind with checksums (`station-index/1`,
+  docs/CONFIGURATION.md §4d); KP Front gets ONE setting for it – «Stationsdaten-Index» on
+  /admin › Anbindungen (`STATION_INDEX_SOURCE` + optional token) – and reads the roster through
+  it. A file that does not match the index's sha256 is refused and the roster stays as it was.
+  `scripts/station_index_build.py` writes the index for a folder. `vehicles`, `groups` and
+  `keywords` are reserved kinds: listed, reported as not read yet, format documented. KP Rück
+  reads the same index with byte-identical code. *No action needed – see Upgrade notes.*
 - **Objektbesuche: visit an object without an Einsatz, offline** (module `objectVisits`, off by
   default). A member opens «Objektbesuche» from the launcher, picks an object from a work list,
   the search or «In der Nähe», answers a station checklist of the new kind `visit` (OK / Mangel /
@@ -100,89 +103,18 @@ so this file – not the log – is the record of what shipped up to that point.
   sent at save points; the server keeps every revision and the photos (backup-covered) and
   renders a PDF report. Optional one-way filing to SharePoint through a separate write
   credential (`sharepoint_export_*`) and a durable outbox; the SharePoint importer stays
-  read-only. An outside organizer (e.g. fwo-admin) can upsert objects and work lists and read a
-  change feed with its own key. Contract: [`docs/object-visits.md`](docs/object-visits.md).
-
-- **The morning after an Einsatz, one command lists what went wrong, even if nobody reported
-  it.** `admin_postcheck <incident|latest>` (`just postcheck`) lists the devices that worked the
-  incident. Per device it shows their crash reports and render storms, their HTTP errors and 409
-  bursts on the workspace, and their PIN prompts and expired sessions. It also lists Verlauf rows
-  whose own time is off the server's (the clock that jumped back to 20.09. during the Übung of
-  23.09.2026), the same event written by several devices, and the «vor Ort / verlassen» rows
-  against the vehicles' GPS track. It reads the Railway app and HTTP logs, or a post-mortem's
-  JSON dumps instead of a database, and it never writes. It exits 1 when it finds something, so
-  a cron job can run it. *No action needed.*
-- **The server observes; the devices only show** (post-mortem of the Übung on 23.09.2026). «TLF
-  vor Ort» and «hat den Einsatzort verlassen» are detected by the server's 30 s GPS sweep and
-  stamped with the tracker's own report time – not when a tablet happened to wake up (all five vehicles read
-  19:43 in the Übung; GPS said 19:23–19:28). Same rings as before (≤ 150 m, ≥ 300 m, 90 s). The
-  Verlauf gets each vehicle's first arrival and last departure; shuttle trips are counted
-  instead («3 Fahrten» in the Rapport) and a new **«Fahrzeuge GPS · live»** table under the
-  Rapport's Fahrzeugzeiten shows status, an, ab, Fahrten and how old each position is. The
-  weather at a running Einsatz is recorded once per reading by the server, and a **wind shift**
-  (≥ 45° at ≥ 10 km/h, held over two readings) writes «Wind dreht: W → NO (286° → 66°) · Lüfter
-  prüfen» into the Verlauf and onto the Meldeleiste. Übungen are included; an Einsatz nobody
-  has written to for 24 h stops being observed, with one Verlauf row saying so. The server fills
-  only the Rapport's «vor Ort»; «zurück» (back at the depot) stays the geofence's.
-- **The top bar collapses by priority, measured.** When a bar runs out of room, it gives up the
-  weather first, then the Einsatzdauer, ↷, the spacing, the Verlauf word, the alarm's name and
-  the Einsatz title — one step at a time, only as far as needed. The Einsatz pill never shrinks
-  below a readable width (it was 20 px at 360 px with all chips up), no chip is ever a bare
-  number without its icon, and the weather stays on a 1180 px bar with an alarm up.
-
-- **The Atemschutz phone board, second round (Übung 23.09.2026).** Registering a Trupp on the
-  phone no longer hides the clocks: the form is a bottom sheet, and the due and overdue Trupps
-  (at most two, most urgent first) stand above it with a live «Kontakt» that confirms without
-  leaving the form – which keeps every entry, also when pushed away. The Sicherungstrupp has one
-  fixed place, quiet until the first crew is inside and amber after; «Bestimmen» picks a waiting
-  Trupp or registers a new one on «Sichern», its Eintritt reads «Sicherungstrupp eingesetzt», and
-  «Einsatz abschliessen» asks about a Trupp still angemeldet («Zur Tafel» / «Als «nicht
-  eingesetzt» schliessen»). A Kontakt another device confirmed less than a minute ago asks
-  «… schon bestätigt (anderes Gerät). Nochmals / OK» instead of writing a second one – on the
-  tablet and the handed-over Tafel as well, with «OK» (writes nothing) as the default. A kept
-  form draft now belongs to one sortie: an abandoned re-entry no longer hands its bottle answer
-  to the next one. After a walk-through on staging (25.09.2026): an edit saves only the fields it
-  touched and says so when one of them changed on another device meanwhile; a Gast typed into the
-  Trupp form reaches the Anwesenheit only when the Trupp is saved (Enter no longer creates one,
-  «Abbrechen» leaves nothing behind); the first Druck after the Eintritt counts as a Kontakt, says
-  on the sheet that it replaces the Eingangsdruck, and never replaces one set on purpose; a double
-  tap on «Kontakt» writes one contact; «Einsatz abschliessen» asks about crews still inside first,
-  by name, with «Zur Tafel» as the default, and afterwards stays on the closed Einsatz instead of
-  opening another; the empty board has its own «Trupp anmelden», the phone head button carries a
-  word, a Sicherungstrupp wears «SiTr», and «Ändern» and a chip's ✕ are full 44 px targets. A
-  second walk-through fixed: every Gast from the Trupp form was filed twice in the Anwesenheit
-  (and the Verlauf printed ids); a crew registered on the Atemschutz-Link never reached the
-  Anwesenheit (an editor device now files it, once); «Entfernen» on a crew inside asks first and
-  every removal can be undone from its toast; «Nicht eingesetzt» is a quiet button on its own
-  row (no longer beside «Im Einsatz»), can be undone from its toast and no longer logs an
-  «Austritt»; the double-contact and low-Eingangsdruck questions are a title, one line and two
-  verbs; the Abschluss's paperwork list focuses «Zurück»; the phone board shows Trupp
-  numbers, the Link opens on the most urgent crew inside, the Eintrag «+» no longer covers a
-  crew's «Kontakt», and an edit row in the Verlauf names the whole crew. A third walk-through
-  fixed: registering a Trupp with Gäste is one ↶ again (it used to undo only the crew's Funktion
-  and leave people and Trupp standing); the Abschluss questions each land on their own safe
-  answer, so Enter no longer closes through «vermisst»; closing over a crew inside writes «beim
-  Abschluss noch drin» and the Rapport ends that sortie at the close; identical Anwesenheit
-  entries from several tablets no longer raise «abweichende Angaben»; «Trupp anmelden» is the
-  one word for registering, and the Trupp menu says «Nach oben holen»; on the Tafel the
-  Meldeleiste folds to one row, and every full page (Tafel, Anwesenheit, Rapport …) stands below
-  the strip instead of under it. The
-  Eingangsdruck of a Trupp that is out is locked in «Bearbeiten», and one below the new
-  `doctrine.entryPressureMin` (default 270 bar, Station › Doktrin) is asked about once, with the
-  value on the button. The form's three-button footer no longer wraps «Im Einsatz» at 360 px.
-  *Automatic: no config change needed; the new doctrine value is optional.*
-- **«Gelöscht / erledigt» instead of deleting a symbol.** A symbol's editor now offers
-  «Gelöscht / erledigt» as its first row – on damage and hazard symbols only (Feuer, Rauch,
-  Rettung, Gefahr …), never on a Fahrzeug, a KP Front or a Hydrant: the symbol stays on the Karte, the Plan and every Gebäude storey, greyed
-  and with the time in its corner, and it prints the same way on the Kroki and the Gebäude pages
-  of the Rapport, its legend line ending «gelöscht 20:40» (a Feuer) or «erledigt 20:40»
-  (everything else). «Wieder aktiv» takes it back; both are undoable and each writes one Verlauf
-  row («Feuer EG gelöscht»). Taking an object off the picture is now «Entfernen»
-  everywhere – the delete button on every object panel, its confirm, and the Verlauf row
-  («Feuer entfernt», «3 Objekte entfernt») on the Karte and on plans alike – so «gelöscht» only
-  ever means an extinguished fire; rows already written keep their wording. Removing a single
-  object on a plan finally writes that row too. On the Übung of 23.09.2026 the extinguished EG fire was deleted, and the
-  Rapport's plan no longer showed there had been a fire at all.
+  read-only. An outside organizer (e.g. fwo-admin) can upsert objects and work lists, read a
+  change feed with its own key, and keep **reusable routes** that it publishes as rounds on
+  calendar days; the crews see «Heute», «Noch offen», «Nächste Termine» and, for a week,
+  «Kürzlich erledigt» (older rounds stay with the organizer). On a visit, a **«Pläne» card**
+  lists the object's Modul-PDFs (offline too) and opens them in the app's own reader; the ⋯
+  menu offers **«Checkliste wechseln»** (answers that also exist in the new checklist stay, the
+  rest are named before they are dropped, photos always stay); opened from inside an Einsatz,
+  the Übersicht offers the Einsatz's object first. The web push «Neuer Objektbesuch» goes only
+  to the accounts an admin ticks in /admin (nobody by default), and received visits are the first
+  card on /admin with their SharePoint filing state. Contract:
+  [`docs/object-visits.md`](docs/object-visits.md). *Migrations run on boot; tick the push
+  recipients once.*
 - **Plans open instantly and zoom until a room label can be read.** Every plan PDF is rendered
   once on the server into a tile pyramid (PDFium, 600 dpi, lossless WebP – about 10 MB for a dense
   A1, less than the PDF itself) and the app shows tiles instead of rasterising with pdf.js: the
@@ -193,9 +125,6 @@ so this file – not the log – is the record of what shipped up to that point.
   a small sheet keeps its 8×). An object's tiles are fetched in the background for offline use.
   Tiles are derived data: regenerated on demand, excluded from backups. Sheets without a
   pyramid keep the pdf.js path. *Automatic: pyramids fill in the background after the update.*
-- **A misplaced region corner is named.** A storey whose own join tag lies outside the region its
-  `§[…` / `§…]` corners state now reads «Marker unvollständig» with the tag to check
-  (`join_outside_region`) instead of silently becoming a sliver of a storey.
 - **The Gebäude stack IS the object's building plan – one Geschoss per storey, straight from
   the PDF.** A plan revision's pages become storeys (a *floor pack*): signed index, the page
   and – on an A1 that carries several – the rectangle it is drawn in, and the point pair that
@@ -222,7 +151,8 @@ so this file – not the log – is the record of what shipped up to that point.
   wrong export says what is wrong: coded warnings land on the row, the object reads «Marker
   unvollständig», and the editor names each problem in one German sentence. Convention, icon
   set and sample sheets: `docs/plan-markers/`; `just plan-markers <pdf>` is the author's dry
-  run.
+  run. A storey whose own join tag lies outside the region its corners state reads «Marker
+  unvollständig» with the tag to check (`join_outside_region`).
 - **Objektpläne in `/admin` is object-first.** Tabs Objekte · Vorschläge · Übersicht; an object
   row opens its editor (auto-saving settings, one row per catalogue module, one primary action
   per row). The review wall takes its queue from the page that holds it, lazy-loads thumbnails
@@ -237,6 +167,140 @@ so this file – not the log – is the record of what shipped up to that point.
   the page heads print. The Rapport's own tabs dock at the foot, the compass floats on the map
   beside the wind, every bottom sheet swipes closed and carries one grab bar, and everything
   stacked above the bar keeps one 6 px channel. Tablet and desktop rails are unchanged.
+- **The server observes; the devices only show** (post-mortem of the Übung on 23.09.2026). «TLF
+  vor Ort» and «hat den Einsatzort verlassen» are detected by the server's 30 s GPS sweep and
+  stamped with the tracker's own report time – not when a tablet happened to wake up (all five
+  vehicles read 19:43 in the Übung; GPS said 19:23–19:28). Same rings as before (≤ 150 m, ≥ 300 m,
+  90 s). The Verlauf gets each vehicle's first arrival and last departure; shuttle trips are
+  counted instead («3 Fahrten» in the Rapport) and a new **«Fahrzeuge GPS · live»** table under
+  the Rapport's Fahrzeugzeiten shows status, an, ab, Fahrten and how old each position is. The
+  weather at a running Einsatz is recorded once per reading by the server, and a **wind shift** (≥
+  45° at ≥ 10 km/h, held over two readings) writes «Wind dreht: W → NO (286° → 66°) · Lüfter
+  prüfen» into the Verlauf and onto the Meldeleiste. Übungen are included; an Einsatz nobody has
+  written to for 24 h stops being observed, with one Verlauf row saying so. The server fills only
+  the Rapport's «vor Ort»; «zurück» (back at the depot) stays the geofence's.
+- **«Anrückend» – who answered the Divera alarm, in the Anwesenheit.** An Einsatz with a Divera
+  alarm starts its crew list (EL and editors) with one line of counts («9 kommen · 2 kommen nicht
+  · 3 da»), the people coming, and «kommt nicht» in a muted group of its own, ✕ and the word on
+  every row. One tap on «da» checks somebody in; an answer alone never does. Yes / no and names
+  only: no answer times, status words or notes are shown or stored. The answers ride in the
+  existing `/alarms` poll (new columns `divera_emergencies.responses_json` / `responses_at`),
+  which keeps its 30 s cadence for the first 10 min after an alarm. What a status means is read
+  off its name, and `roster.diveraResponses` overrides it (docs/divera-connector.md ›
+  Rückmeldungen). The answers are deleted once the Einsatz is closed and in any case 48 h after
+  the alarm (PRIVACY.md). *Migration runs on boot; nothing to set up.*
+- **«Auswertung» – a debrief sheet at the end of the Rapport PDF.** Key figures (Alarm bis 1.
+  Fahrzeug vor Ort, Alarm bis 1. Atemschutz-Eintritt, Funkkontakte eingehalten with the overrun
+  count, längster Atemschutz-Einsatz, Einsatzdauer – each defined in a footnote, «—» when the
+  record does not carry it), a vector swimlane timeline (Fahrzeuge, Trupps with their contacts and
+  fällig/überfällig stretches hatched so they survive a greyscale printer, checklist phases,
+  milestones). Its own landscape sheet, last, so the signed part goes out without it; «Auswertung
+  (intern)» in the PDF ▾ menu, ticked by default when a crew went in under Atemschutz. *No action
+  needed.*
+- **«Gebäude-Info» – the building at the Einsatzort, on the Karte.** A chip in the Karte's chip
+  row (and beside the Objekt chip on a tablet's plan) names the hazards it knows – «Gebäude-Info
+  · ⚠ Gas · PV» – and opens a card with the federal register facts (GWR: Geschosse, Wohnungen,
+  Baujahr, heating and hot-water energy, Schutzraum; BFE: PV and other plants, matched by EGID),
+  the Objekt's own **Sofortmassnahmen** and **Bemerkungen** (new optional fields in the
+  Verwaltung and in `admin_objects`), and the last Objektbesuch. Each source fails on its own,
+  anything missing draws nothing, and the answer is cached on the device for offline use.
+  *Migration runs on boot; `map.buildingRegister: false` keeps the registers out.*
+- **A geotagged photo can be placed on the Karte.** When a Verlauf photo carries a GPS position
+  (and a viewing direction) in its EXIF data, the row's detail sheet and the save toast offer
+  «Auf Karte setzen» with «Aufnahmeort: 120 m vom Einsatzort · Blick nach Nordost»; the marker
+  shows the view cone, opens the picture on a tap, is one ↶ step and one Verlauf row, and shows
+  read-only on georeferenced plans. Only the position, direction and time are kept from the file;
+  only pictures within 3 km of the Einsatz are offered. An iPhone camera shot taken from inside
+  the browser never carries a position (WebKit strips it). Such a photo, or any photo without
+  one that was taken just now, takes the **device's own position** instead: position only, with
+  no direction, a fix of 250 m or better, and only inside the same 3 km. This happens only after
+  the operator says yes once per device to a question that gives the reason, and
+  «Standort zu Fotos» in Einstellungen switches it either way. Denied, offline or without a fix,
+  the photo simply has no position. The record says where each position came from («Ort aus dem
+  Foto» / «Standort des Geräts», with its accuracy), and uploaded photos go up without their
+  metadata. *No action needed.*
+- **Optional «Mit Microsoft anmelden».** A station with Microsoft Entra ID can let listed members
+  sign in to their **existing** named account with Microsoft instead of the PIN. The login never
+  creates a user, never changes a role and never grants `/admin`; deactivating the account or
+  resetting its PIN ends these sessions too. An admin sets four values in `/admin › Anbindungen`
+  (or `ENTRA_LOGIN_*` in `.env`), including the allow-list `identity=username, …`; with any of
+  them missing or invalid, no button is drawn and the routes answer 404. The button is hidden
+  while the device is offline, and the PIN login is untouched (`docs/microsoft-login.md`).
+  *No action needed unless you want it.*
+- **Roster snapshot: read the personnel list from a file the station publishes.** Set
+  «Personenstamm-Quelle» on /admin › Anbindungen to an `https://` address (optional bearer
+  token) or an absolute path, and the deployment polls that `roster-snapshot/1` file hourly
+  (`roster.snapshotIntervalMin`) and on «Jetzt abrufen» under System › Verbindungen. People are
+  matched by the snapshot's key, then by any identity it lists (an existing Divera link is
+  reused, never rewritten), then by a unique name; a failed fetch or an invalid file changes
+  nothing; a run that would deactivate more than `roster.snapshotMaxDeactivatePct` (20 %) of
+  the active people is held until an admin applies it; the roster is never emptied and nobody
+  is deleted. The outcome report sits on System › Verbindungen. Any tool can write the file –
+  `scripts/roster_snapshot_from_csv.py` turns a spreadsheet into one, and drops every column
+  that is not part of the contract (docs/CONFIGURATION.md §4c). The reading rules are
+  byte-identical with KP Rück's. *No action needed – without a source nothing is fetched;
+  Divera and the CSV import are unchanged and stay the default.*
+- **Anleitungen – a second kind of checklist, read-only and offline.** A template with
+  `kind: "manual"` is a step-by-step guide: numbered steps, optional sub-points, «Achtung» and
+  «Tipp» lines and pictures, grouped by Gerät in the Checkliste tab. The pictures are cached on
+  the device, so a guide opens without a network. Format in docs/CONFIGURATION.md §9f; the demo
+  ships two synthetic ones. *No action needed* – a station adds its own with `admin_checklists`.
+- **The Atemschutz phone board, rebuilt after the Übung of 23.09.2026** (one Überwacher ran five
+  Trupps from a phone). The board has sections Drin · Sicherungstrupp · Bereit · Draussen, «Drin»
+  sorted by who is due next; a Trupp inside is two lines – name and clock, then «Druck» and
+  «Kontakt» with words. One pressure picker (20-bar steps, red at the Alarmdruck) serves Druck and
+  the new **Restdruck at «Raus melden»** on every width («Ohne Druck raus» stays), which the
+  Verlauf and the Rapport print; a re-entry within 10 min asks «Gleiche Flasche / Neue Flasche».
+  Registering a Trupp on the phone no longer hides the clocks: the form is a bottom sheet, and the
+  due and overdue Trupps (at most two, most urgent first) stand above it with a live «Kontakt»
+  that confirms without leaving the form – which keeps every entry, also when pushed away. The
+  Sicherungstrupp has one fixed place, quiet until the first crew is inside and amber after;
+  «Bestimmen» picks a waiting Trupp or registers a new one on «Sichern», its Eintritt reads
+  «Sicherungstrupp eingesetzt», and «Einsatz abschliessen» asks about a Trupp still angemeldet
+  («Zur Tafel» / «Als «nicht eingesetzt» schliessen»). A Kontakt another device confirmed less
+  than a minute ago asks «… schon bestätigt (anderes Gerät). Nochmals / OK» instead of writing a
+  second one – on the tablet and the handed-over Tafel as well, with «OK» (writes nothing) as the
+  default. A kept form draft now belongs to one sortie: an abandoned re-entry no longer hands its
+  bottle answer to the next one. After a walk-through on staging (25.09.2026): an edit saves only
+  the fields it touched and says so when one of them changed on another device meanwhile; a Gast
+  typed into the Trupp form reaches the Anwesenheit only when the Trupp is saved (Enter no longer
+  creates one, «Abbrechen» leaves nothing behind); the first Druck after the Eintritt counts as a
+  Kontakt, says on the sheet that it replaces the Eingangsdruck, and never replaces one set on
+  purpose; a double tap on «Kontakt» writes one contact; «Einsatz abschliessen» asks about crews
+  still inside first, by name, with «Zur Tafel» as the default; the empty board has its own «Trupp
+  anmelden», the phone head button carries a word, a Sicherungstrupp wears «SiTr», and «Ändern»
+  and a chip's ✕ are full 44 px targets. A second walk-through fixed: every Gast from the Trupp
+  form was filed twice in the Anwesenheit (and the Verlauf printed ids); a crew registered on the
+  Atemschutz-Link never reached the Anwesenheit (an editor device now files it, once); «Entfernen»
+  on a crew inside asks first and every removal can be undone from its toast; «Nicht eingesetzt»
+  is a quiet button on its own row (no longer beside «Im Einsatz»), can be undone from its toast
+  and no longer logs an «Austritt»; the double-contact and low-Eingangsdruck questions are a
+  title, one line and two verbs; the Abschluss's paperwork list focuses «Zurück»; the Link opens
+  on the most urgent crew inside, the Eintrag «+» no longer covers a crew's «Kontakt», and an edit
+  row in the Verlauf names the whole crew. A third walk-through fixed: registering a Trupp with
+  Gäste is one ↶ again (it used to undo only the crew's Funktion and leave people and Trupp
+  standing); the Abschluss questions each land on their own safe answer, so Enter no longer closes
+  through «vermisst»; closing over a crew inside writes «beim Abschluss noch drin» and the Rapport
+  ends that sortie at the close; identical Anwesenheit entries from several tablets no longer
+  raise «abweichende Angaben»; «Trupp anmelden» is the one word for registering, and the Trupp
+  menu says «Nach oben holen»; on the Tafel the Meldeleiste folds to one row, and every full page
+  (Tafel, Anwesenheit, Rapport …) stands below the strip instead of under it. The Eingangsdruck of
+  a Trupp that is out is locked in «Bearbeiten», and one below the new `doctrine.entryPressureMin`
+  (default 270 bar, Station › Doktrin) is asked about once, with the value on the button. The
+  form's three-button footer no longer wraps «Im Einsatz» at 360 px. *Automatic: no config change
+  needed; the new doctrine value is optional.*
+- **«Gelöscht / erledigt» instead of deleting a symbol.** A symbol's editor now offers «Gelöscht /
+  erledigt» as its first row – on damage and hazard symbols only (Feuer, Rauch, Rettung, Gefahr
+  …), never on a Fahrzeug, a KP Front or a Hydrant: the symbol stays on the Karte, the Plan and
+  every Gebäude storey, greyed and with the time in its corner, and it prints the same way on the
+  Kroki and the Gebäude pages of the Rapport, its legend line ending «gelöscht 20:40» (a Feuer) or
+  «erledigt 20:40» (everything else). «Wieder aktiv» takes it back; both are undoable and each
+  writes one Verlauf row («Feuer EG gelöscht»). Taking an object off the picture is now
+  «Entfernen» everywhere – the delete button on every object panel, its confirm, and the Verlauf
+  row («Feuer entfernt», «3 Objekte entfernt») on the Karte and on plans alike – so «gelöscht»
+  only ever means an extinguished fire; rows already written keep their wording. Removing a single
+  object on a plan finally writes that row too. On the Übung of 23.09.2026 the extinguished EG
+  fire was deleted, and the Rapport's plan no longer showed there had been a fire at all.
 - **The Kroki is the picture.** Every symbol gets a numbered legend line «Art · Bezeichnung ·
   Status» on the Kroki, plan and Gebäude pages; a Leitung attached to a vehicle ends on the
   glyph *as printed* instead of several glyph widths short of it; the server's fallback framing
@@ -253,14 +317,17 @@ so this file – not the log – is the record of what shipped up to that point.
   Trupp's marker shows a signed storey badge, and its **Spur survives its marker**: removing a
   chip, a marker or the Trupp leaves a grey ghost trail owned by the Einsatz, which offers
   «Trupp wieder platzieren» before «Spur löschen».
+- **The Verlauf has a search and a filter.** A lens in the drawer head filters rows live by text
+  and names – umlaut- and one-typo-tolerant, like the person search – and a funnel beside it
+  narrows the list by «Art des Eintrags» (Manuell, Auftrag, Sofortmassnahme, Pendenz) and
+  «Bereich» (Karte, Anwesenheit, Trupps, Material, each plan …). The filter lasts the session and
+  is never synced; the Replay always plays everything.
 - **«Bedienung» – who mans the device.** Most devices and posts take a roster field; naming a
   person marks them present with «Bedienung Lüfter» on the Anwesenheit. «VKF KP Front» gets
   the Einsatzleiter glyph's Name/Stv. rows, handover and Rapport pre-fill.
 - **The Mittel sheet counts off the Atemschutz-Tafel.** Catalogue keys `perAtemschutz`
   (`person` | `trupp`) and `equipment` seed a suggestion from live Trupps the way a placed
   symbol does. File/CLI-only, preserved by the Arbeitsmappe.
-- **The Verlauf has a search.** A lens in the drawer head filters rows live by text and names –
-  umlaut- and one-typo-tolerant, like the person search.
 - **A typo in the street still finds the address.** The backend keeps a weekly street
   dictionary for the geocoder's bounding box and retries a zero-hit query with the one street
   within a single edit («haupstrasse 12» → Hauptstrasse 12). And an object is as findable by
@@ -268,8 +335,14 @@ so this file – not the log – is the record of what shipped up to that point.
 - **A plan surfaced from the *nearest* object says so.** The object chip turns amber with
   «· 80 m entfernt», and a banner over the sheet names both addresses once per Einsatz and
   object.
-- **The plain PDF reader zooms** – ctrl/⌘ + wheel, pinch and double tap, 1× to 4×, landing where
-  the fingers were.
+- **The plain PDF reader zooms** – ctrl/⌘ + wheel, pinch, double tap and tap-and-drag, 1× to 4×,
+  landing where the fingers were, on an iPad too (a page stays under iOS's canvas limit instead
+  of going blank).
+- **The Gebäude picker preselects the outline at the Einsatzort.** In Plan › Gebäude, with no
+  building yet, the footprint containing the pin (or the one unambiguous footprint within 12 m)
+  is ticked; the operator checks it and taps «Übernehmen». Nothing is committed by itself.
+- **Plans zoom with one finger, like the Karte**: a double tap zooms in about the tap, and tap,
+  then press-and-drag zooms continuously. Drawing tools keep pinch only.
 - **«Jetzt aktualisieren» – one tap where closing the app is not enough.** A waiting build
   activates only once every client of the origin is gone, and a forgotten browser tab keeps the
   old one alive (seen on Android, 16.09.). The update banner and the menu foot carry the apply.
@@ -279,6 +352,15 @@ so this file – not the log – is the record of what shipped up to that point.
   by area, for the nightly run too.
 - **Map zoom to 21**, and a Koordinaten fold in «Einsatz erfassen» that stays shut once address
   and coordinate both stand.
+- **The morning after an Einsatz, one command lists what went wrong, even if nobody reported
+  it.** `admin_postcheck <incident|latest>` (`just postcheck`) lists the devices that worked the
+  incident. Per device it shows their crash reports and render storms, their HTTP errors and 409
+  bursts on the workspace, and their PIN prompts and expired sessions. It also lists Verlauf rows
+  whose own time is off the server's (the clock that jumped back to 20.09. during the Übung of
+  23.09.2026), the same event written by several devices, and the «vor Ort / verlassen» rows
+  against the vehicles' GPS track. It reads the Railway app and HTTP logs, or a post-mortem's
+  JSON dumps instead of a database, and it never writes. It exits 1 when it finds something, so
+  a cron job can run it. *No action needed.*
 - **CI plays the Übung of 23.09.2026 on every pull request.** A new e2e scenario
   (`e2e/field-scenario.spec.ts`) parks a fake TLF next to an Übung, couples a Leitung to it on
   the Karte, drops a Trupp, lets the fleet report for 22 s and taps the Trupp – once on one
@@ -293,15 +375,103 @@ so this file – not the log – is the record of what shipped up to that point.
   an intermittent crash cannot pass as «flaky». A third test has three devices tap «Neuer
   Trupp» at the same moment and requires three different numbers (the duplicate it first turned
   up is fixed, see «Three devices tapping «Neuer Trupp» at once» below).
+- **CI walks a crew's day and gates its performance.** A «Performance» job boots the production
+  container and has Chromium walk the busiest Einsatz on record: cold start through the kiosk,
+  reloads, every surface four times, Linien and Absperrkreise, Meldungen, Funkkontakte, an idle
+  minute. Requests, bytes, writes, memory left behind and interaction times are compared against
+  `e2e/perf/baseline.json`; a confirmed regression fails the PR. The table is posted on the PR as
+  one comment that every push edits in place. `just perf` runs it locally,
+  `just perf-accept <run-id>` takes a CI run as the new baseline (docs/testing/perf-journeys.md).
+- **CI compares the look against screenshots.** A «Visual» job shoots nine frozen states of the
+  production container (Karte by day and night and on a phone, Plan, Trupps on tablet and phone,
+  Verlauf, Rapport, kiosk) on a fixed clock and seeded data, and fails on more than 20 changed
+  pixels per state against `e2e/visual/baseline/`; the job summary names the states, the diffs are
+  an artifact. `just visual` runs it locally, `just visual-accept <run-id>` takes CI's pictures as
+  the new baselines (docs/testing/visual-regression.md).
 
 ### Changed
 
+- **Files shared with KP Rück are checked from both sides.** `shared/MANIFEST.json` lists every
+  file the two products share by copy (telemetry sanitiser, alarm vocabulary, roster contract and
+  reader, alarm intake corpus, loading snail) with its owner and sha256, and replaces the hash
+  literals in the tests. The new CI job «Shared files match KP Rück» runs
+  `scripts/check_shared.py` against kp-rueck's branch of the same name, else its `main`, so an
+  edit to a shared file now goes red in the PR that made it, here as well as there. The script,
+  the manifest and `shared/README.md` (how to change a shared file) are byte-identical in both
+  repositories. *No action needed.*
+
+- **One calmer look across the app** (UI rounds 25.09.–08.10.2026). One corner radius, one light
+  message surface for toasts and Meldungen – a failure is a dark pill with a red edge instead of
+  a red slab –, heads on one row, slimmer Trupp cards, and one token scale for type, spacing and
+  elevation behind them. Form controls use the app's font (the symbol palette
+  and the phrase chips rendered in Arial), a litre reads «L» («40 l» read as «40 1»), one rank
+  badge everywhere, and a hand-written Verlauf row shows its Art (Auftrag, Sofortmassnahme,
+  Info). The Zeitplan opens fitted to the Einsatz (alarm to now + 1 h), a plan opens with the
+  whole sheet visible, and «Wiedergabe starten» is an ordinary primary button. Wide screens cap
+  form and list bodies (Material gets a third column from 1600 px). `/admin` works on a phone
+  and a portrait iPad (tables become row cards, the sidebar a drawer), and «Zugangsdaten» is now
+  «Anbindungen». A vehicle's name stays readable on a turned glyph, at one size.
+- **Phone, rounds 24.09.–08.10.2026.** Every tile of both bottom bars is one equal share; the
+  compass and the wind arrow turn live with the map; toasts sit on one row in a lane above an open
+  sheet; sheets follow the iOS keyboard, and a modal no longer scrolls the page behind it; the
+  Meldeleiste ends above the floating row instead of under the «+»; the Einsatz pill marks an
+  Übung with one letter («Ü») and keeps the street before ↷ and the weather; photos open
+  full-screen with double-tap zoom; the MapLibre ⓘ left the phone's Karte – the map credits stand
+  at the foot of the Ebenen panel. In the Trupps, the Gruppenführer is proposed by rank, the
+  leader's name gets more room, a day-long clock reads «3d 10h», the form's Druck and Kanal rows
+  open their pickers, and an opened Trupp scrolls back into view when its status moves it.
+  «Anderes Objekt» scrolls and shows the device's position on a larger map; the Übung field is
+  Nein / Ja.
+- **The firefighter snail while the app starts, one «Shell trail» for every wait.** The boot
+  screen is a vector mascot that paints before any script and plays its arrival once; an Einsatz
+  now opens behind it – the cover stays until the symbols, the framed Karte and the plan list are
+  there, so the workspace no longer assembles in view and the launcher no longer flashes. Inside
+  the app, sync, PDFs, search, uploads, transcription, plan previews and the admin's imports
+  share one compact spinner drawn from the snail's shell; known progress keeps its percentage.
+  Reduced motion gets a still picture. Shared with KP Rück.
+- **The top bar collapses by priority, measured.** When a bar runs out of room, it gives up the
+  weather first, then the Einsatzdauer, ↷, the spacing, the Verlauf word, the alarm's name and
+  the Einsatz title — one step at a time, only as far as needed. The Einsatz pill never shrinks
+  below a readable width (it was 20 px at 360 px with all chips up), no chip is ever a bare
+  number without its icon, and the weather stays on a 1180 px bar with an alarm up.
+- **Another device's save no longer greys out ↶.** A merge from another device used to drop the
+  whole undo history, so with three devices on an Einsatz undo was hardly ever available. Now a
+  merge drops only the steps whose inverse it invalidated; an undo can never write an old value
+  over another device's newer change – that step is gone, and a toast's «Rückgängig» says «Nicht
+  mehr rückgängig machbar».
+- **A close reaches every device.** When one device closes the Einsatz, the others go read-only
+  within a second with one Meldeleiste row («Einsatz wurde auf einem anderen Gerät abgeschlossen
+  (hh:mm)») and stop their Atemschutz clocks, GPS follow and reminders; «Wieder öffnen» elsewhere
+  brings them back the same way. The server refuses live writes made after the close (409
+  `incident_closed`, judged by when they happened, with 120 s for clock skew); a Kontakt tapped
+  before the close is kept and prints as a Nachtrag. A refused entry is parked, not dropped:
+  «Einträge sichern» exports it, and it is sent again if the Einsatz is reopened.
+  *Migration runs on boot.*
+- **«+ Eintrag»: holding opens the chooser, a tap chooses.** The hold opens Sprachnotiz · Foto
+  and the chooser stays; the button becomes its ✕. This replaces slide-and-release, which can
+  never open «Foto» on iOS.
+- **Fewer one-way doors.** «Abmelden» always asks, and says when entries are still unsent;
+  «Erledigt» on a Pendenz or Erinnerung can be undone from its toast (the Verlauf gets «Pendenz
+  wieder offen»); un-ticking a milestone writes «Meilenstein zurückgenommen»; «Lokale Kopie
+  verwerfen» waits for the network; a destructive confirmation focuses «Abbrechen». The Kontrolle
+  shows one «⚠ n noch offen» chip, and the Gefahrgut card's «Absperrkreis übernehmen» is a 44 px
+  button. «Erinnern um» in the composer uses the app's one time picker (a past time cannot be
+  confirmed).
+- **A lighter start.** The capture poster (`/e/`) and `/admin` no longer download the field app
+  or the map (field-app entry 1.66 MB → 309 KB, 99 KB gzip); Plan and Rapport load on idle; a
+  burst of Verlauf rows is one storage write; live feeds and the weather pause while the app is
+  in the background and catch up on return. An update no longer reloads the page twice.
+- **«Geschoss» everywhere** the app said «Stockwerk», one file-size format («1.5 GB»), and
+  `/admin` is no longer kept in the offline precache – it needs a connection, and a stale build
+  can no longer serve it a 404.
+- **Replay snapshots are stored gzipped** – about 5× smaller on disk (a 24 h Einsatz was about
+  0.4 GB). Snapshots written before stay as they are and are still read; the Replay answers
+  exactly as before. A truncated snapshot now reads as «no workspace» instead of an error.
 - **App icon is the mark alone.** The folded map + pin now fills the tile; the «kp front»
   wordmark (set in Avenir Next, which only rendered on macOS) is gone, since the OS prints the
   name under the icon anyway. The favicon – also the default login logo – gets its own small cut
   (no shadow or hairlines, chunkier pin) on the same top-lit tile, so app icon, favicon and login
   show one mark. Pairs with KP Rück's new magnet-board icon.
-
 - **One date-and-time picker everywhere.** `DateTimeField` (day column, hour, minute, «Jetzt»,
   «OK») replaces the day/month/year wheels in the Rapport and the Objektbesuche; day labels stay
   on one line. «Zurück zum Rapport» is a filled button.
@@ -311,7 +481,6 @@ so this file – not the log – is the record of what shipped up to that point.
   list's own icon replaces 🔍, and the scroll position is remembered per list and for the list
   of checklists. The Ebenen panel lights the preset the layers match (Alle ein / Alle aus /
   Standard).
-
 - **Divera is polled by the server only**: every 30 s while no Einsatz runs, every 120 s while
   one does, backing off on HTTP 429. The devices read the pool and no longer make the server
   poll (469 Divera calls in one Übung). The webhook stays the primary intake.
@@ -339,10 +508,60 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Fixed
 
-- **Microsoft login stays hidden with an incomplete or invalid setup.** Environment values
-  now pass the same GUID and account-mapping validation as the admin form before the button
-  or login routes are enabled. Offline devices keep the PIN login available.
-
+- **A Trupp's «fällig» and «überfällig» no longer ride on colour alone.** On the phone board
+  the row said them only in amber and red, which is no answer in direct sun or to a colour-blind
+  reader. Under the clock it now carries a glyph: a clock for «fällig», the warning triangle for
+  «überfällig» and the Alarmdruck, in the space the row already had, and the row's spoken name
+  says the word. The opened card keeps the same line.
+- **From the post-mortem of the Übung of 23.09.2026** (one editor login on three devices plus an
+  `el` phone):
+  - **The Karte no longer locks up with a hose coupled to a vehicle's GPS.** A live-GPS effect
+    re-wrote the store on every run (React #185, «render storm»), and tapping a Trupp then
+    crashed the Karte; its crash card no longer offers «Zur Karte».
+  - **The map turns only after a deliberate twist** (more than 12°), like Google Maps – two
+    fingers pan and pinch without turning the plan; there is no snap-back, and «Nach Norden» on
+    the compass animates. A cancelled Gebäude orientation slider drops its preview.
+  - **The shared clock no longer jumps back days.** A cached answer taught the device's server
+    clock a time three days old, so rows were stamped in the past and overdue Atemschutz alarms
+    went silent. Only fresh answers teach the clock now, and it never steps back on one answer.
+  - **No «Referenz angepasst» row that nobody caused**: plans finishing loading are no longer
+    counted as a reference change, and linking a plan to the Karte by hand writes one row.
+  - **Turning one Lüfter no longer turns the others** (bearings like 66 735°): the Karte writes
+    a bearing back into the sheet's frame.
+  - **A Leitung dragged on the Gebäude keeps its shape and storey**, a Gebäude object shown on a
+    linked sheet stays the Gebäude's, and removing a storey no longer deletes Karte objects that
+    were merely shown on it. One tap on the Gebäude's north dial opens it, and ink is cut to its
+    storey's visible section with an edge mark instead of running into the next storey.
+  - **An alarm seen by three devices is one event**, a vehicle's «vor Ort» / «verlassen» is
+    written once, the `el` phone no longer queues Atemschutz events it may not send (its outbox
+    stayed red all evening), conflicting saves back off before retrying, and an edit made while a
+    retry was failing is no longer lost.
+  - **Records minted on two devices in the same millisecond no longer collide** – a second
+    device's Verlauf row was silently dropped, and two Mittel folded into one.
+  - **An offline Verlauf row goes out as soon as the link is back**, a reconnect is proven by an
+    answer (the «Offline» hint no longer sticks), and «Erneut versuchen» during a failing attempt
+    gets its own attempt.
+  - **A session renewal whose answer was lost is answered again** within
+    `REFRESH_REUSE_GRACE_SECONDS` instead of signing the device out; «Abmelden» ends both tokens.
+  - **Crash reports say more**: a repeated crash is counted instead of dropped, a link page can
+    report one, each report is one log line with both stacks, and the builds carry hidden
+    sourcemaps to read them (`docs/SOURCEMAPS.md`).
+- **Offline data is harder to lose.** A photo taken during an upload is no longer overwritten; a
+  failed IndexedDB read never replaces unsynced local data with the server copy; merged remote
+  records survive a failed save; a refused save is handed over without a gap; media retries are
+  bounded and then wait for «Erneut versuchen»; a picture the device could not store says so.
+  An admin's object merge makes stale saves conflict instead of writing old ids back, and the
+  demo reset deletes the media of wiped incidents.
+- **The `el` role meets no dead-end doors.** Controls that ended in a 403 or a revert («Anderes
+  Gebäude wählen», «Ref. auto», «Weitergeben», saved views, GPS reset, «Wieder öffnen» …) are
+  not drawn for it. Building outlines come from the station's snapshot before the public Overpass
+  mirrors (about half the opens answered 502), and the map's arrow and Leitungskataster icons no
+  longer go missing.
+- **↶ on Mittel, Checklisten, Rapport and Zeitplan** read a stale history: the first ↶ after
+  opening did nothing, a later one restored the wrong state.
+- **The time pickers** keep the surrounding draft open when they close, check a typed time, and
+  put «Leeren» beside «Jetzt» and «OK». Holding a Plan «Messen» point to delete it no longer pops
+  a tooltip mid-hold.
 - **The weather details showed an Open-Meteo reading 1–2 h off.** Open-Meteo sends its time in
   UTC without a zone, and the top bar's details read it as the device's local time. It is read as
   UTC now (`lib/weatherTime`); MeteoSwiss readings were never affected. *No action needed.*
@@ -368,12 +587,10 @@ so this file – not the log – is the record of what shipped up to that point.
   offered while offline, and «Wieder öffnen» says it needs the server. «Alle Einsätze» shows
   start–end and duration. Toasts no longer squeeze their text and close only on ✕; overlay menus
   stay on the screen and scroll inside (the Rapport's PDF ▾ ran off the bottom).
-
-- **«Einsatz abschliessen» lands on the launcher.** Since 25.09. the app stayed on the closed
-  Einsatz read-only, and the next launch then opened the first other open Einsatz. Now the
-  device forgets the closed Einsatz, shows the launcher, and a cold start stays there as well.
-  Only an alarm that comes in after the close opens by itself. The closed Einsatz is still one
-  tap away under «Alle Einsätze», with «Wieder öffnen».
+- **«Einsatz abschliessen» lands on the launcher.** The device forgets the closed Einsatz, shows
+  the launcher, and a cold start stays there as well. Only an alarm that comes in after the close
+  opens by itself. The closed Einsatz is still one tap away under «Alle Einsätze», with «Wieder
+  öffnen».
 - **Three devices tapping «Neuer Trupp» at once no longer make three «Trupp 1».** Each device
   drew the next number from its own view of the Einsatz, and the merge rightly kept all three
   records under one number – on the Karte, in the Verlauf and on the Rapport. The merge now
@@ -416,14 +633,6 @@ so this file – not the log – is the record of what shipped up to that point.
   pdf.js render (`lib/pdfRenderBudget`): an A1 with five storeys at dpr 3 went from 475 MB
   resident, plus a set per zoom tick, to 64 MB, zoom-invariant. Reference sheets are fetched
   once per revision and rendered pages survive a tab switch.
-- **The PDF reader zooms on an iPad.** Pinch and double tap are read from touches (Safari
-  cancelled the pointer path as a two-finger pan), a page's canvas stays under iOS's 16.7-Mpx
-  limit instead of going blank past ~1.9×, and a zoomed page scrolls to its left edge too.
-- **«Kein Geschossplan» on every storey.** A binding made before its pack was published had no
-  floors, and the floor-less side won the merge. A binding may now gain its floors – once, and
-  only from the same revision.
-- **The marker reader follows pdfium's own text objects** – a glyph without a character no longer
-  shifts every tag against its box.
 - **`admin_objects merge-duplicates` could not touch a real plan.** A folded sheet now takes its
   revisions, alignments and floor packs with it (`plan_revisions` is `ON DELETE RESTRICT`). The
   same constraint had stopped the demo's nightly reset since 0.11.0.
@@ -434,17 +643,15 @@ so this file – not the log – is the record of what shipped up to that point.
   twice.
 - **A line end snaps to a symbol only after 500 ms** (to another line or a Teilstück port at
   once) – passing a symbol was attaching by accident.
-- **Phone, three field reviews (18.–20.09.).** The top bar keeps ↶ ↷ while a Trupp is
-  überfällig; the Verlauf's search stays on screen above the keyboard; the hold → «Foto» target
-  opens on iOS (a slid touch carries no user activation, so it waits for a confirming tap); the
-  journal FAB opens the composer with keys, not only a caret; a confirm dialog's action row
-  wraps instead of pushing «Abbrechen» into the corner; the Atemschutz alarm chip's clock no
-  longer ghosts the previous second in WebKit; the night map's dark end is stretched instead of
-  squeezed; a station-approved fit reads «Verknüpft» everywhere; the folded «Rapport» tile remembers its
-  page across a reload of the installed app; every sheet's ✕ is 36 px; one shape for every
-  search placeholder.
-- **The «#N» badge leaves the marker, chip, pill and phone row** – the Trupp's name stands alone
-  there, and the card carries the number.
+- **Phone, three field reviews (18.–20.09.).** The top bar keeps ↶ ↷ while a Trupp is überfällig;
+  the Verlauf's search stays on screen above the keyboard; the journal FAB opens the composer with
+  keys, not only a caret; a confirm dialog's action row wraps instead of pushing «Abbrechen» into
+  the corner; the Atemschutz alarm chip's clock no longer ghosts the previous second in WebKit;
+  the night map's dark end is stretched instead of squeezed; a station-approved fit reads
+  «Verknüpft» everywhere; the folded «Rapport» tile remembers its page across a reload of the
+  installed app; every sheet's ✕ is 36 px; one shape for every search placeholder.
+- **The «#N» badge is gone from the Trupp's marker, chip, pill, phone row and card** – the
+  Trupp's name stands alone.
 - **Another device's edit no longer loses the merge to an entry this device never touched.** The
   server keeps the blob as JSONB, which hands every object back with its keys re-sorted, and the
   merge compared entries as JSON strings – so an untouched shift, Verlauf row, Mittel, Beilage,
@@ -464,7 +671,12 @@ so this file – not the log – is the record of what shipped up to that point.
 ### Security
 
 - **anyio 4.14.2** – three advisories published against 4.14.0.
+- **urllib3 2.8.0** – CVE-2026-97687, -97688 and -97689 against 2.7.0.
+- **PyJWT 2.15.1**, and patched floors for `brace-expansion` and `fast-uri` (build tooling).
 - **multidict 6.9.1** and **source-map-js 1.2.2** (build tooling) – advisories of 06.10.2026.
+- **Link tokens in request paths are redacted from the server log**, as credentials in query
+  strings already were, and the crash-report sink has its own per-address limit with control
+  characters escaped, so a client can no longer forge a second log record.
 
 ## [0.11.0] – 2026-09-13
 

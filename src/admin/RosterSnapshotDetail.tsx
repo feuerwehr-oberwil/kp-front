@@ -18,6 +18,13 @@ export interface RosterSnapshotCounts {
   postponed?: Array<{ display_name: string; reason: string }>
   unmatchedTotal?: number
   lastGood?: { generatedAt: string; count: number } | null
+  /** how the roster was found: through the station index, or the direct roster source */
+  via?: 'index' | 'direct'
+  /** the station index of that run (backend · station_index.summary) */
+  index?: {
+    generatedAt: string
+    files: Array<{ kind: string; schema: string; read: boolean; known: boolean }>
+  } | null
   outcome?: {
     refused?: string | null
     created?: number
@@ -50,6 +57,9 @@ export function RosterSnapshotDetail({ counts, onReload }: {
   const unmatched = (outcome?.unmatched ?? []).filter((u) => u.reason !== 'inactive_in_snapshot')
   const unmatchedTotal = counts?.unmatchedTotal ?? unmatched.length
   const unknownRanks = outcome?.unknown_ranks ?? []
+  // Kinds the index lists that this version does not read yet (vehicles, groups, …) — named,
+  // so a station publishing ahead of its apps sees it rather than wondering.
+  const notRead = (counts?.index?.files ?? []).filter((f) => !f.known).map((f) => f.kind)
 
   const run = async (force: boolean) => {
     setBusy(true)
@@ -113,6 +123,14 @@ export function RosterSnapshotDetail({ counts, onReload }: {
         <p className="adm-card-cap">{fillTemplate(C.snapFileDate, { time: fmtDateTime(counts.lastGood.generatedAt) })}</p>
       )}
       {counts?.stale && <p className="adm-card-cap">{C.snapStale}</p>}
+      {counts?.index && (
+        <p className="adm-card-cap">
+          {fillTemplate(counts.via === 'index' ? C.snapViaIndex : C.snapIndexNoRoster, {
+            time: fmtDateTime(counts.index.generatedAt),
+          })}
+          {notRead.length > 0 && ` ${fillTemplate(C.snapIndexNotRead, { kinds: notRead.join(', ') })}`}
+        </p>
+      )}
       <div className="adm-sys-actions">
         <button type="button" className="btn adm-int-btn adm-sys-nudge" disabled={busy} onClick={() => void run(false)}>
           {busy ? C.snapRunning : C.snapRunNow}

@@ -7,6 +7,8 @@
       "lat": 47.52371857249871,
       "lng": 7.570345444795164,
       "sourceNote": "Demo-Objekt (öffentliches Wahrzeichen, synthetische Pläne)",
+      "measures": "Pizza bestellen\nPrinzessin befreien",
+      "measuresSource": "Modul 1",
       "plans": [
         {
           "module": "modul1",

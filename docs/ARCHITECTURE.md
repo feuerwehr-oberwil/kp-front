@@ -161,7 +161,8 @@ all of it runs on dev and demo data.
   `deviceTime`, capped at now) inside the 30 s
   sweep (`app/vehicle_presence`), a `weather.observe` per reading and the wind-shift row
   every 10 min (`app/observations`), the Divera poll (30 s idle / 120 s while an Einsatz
-  runs, back-off on 429). Why: a device writes what it noticed WHEN it noticed — five
+  runs, but 30 s for the first 10 min after an alarm while the crew answers; back-off on
+  429). Why: a device writes what it noticed WHEN it noticed — five
   vehicles «vor Ort» at 19:43 because a tablet woke up (GPS said 19:23–19:28), one weather
   reading ×5, 469 Divera polls — and writes nothing while every screen sleeps. Devices only
   READ (the pool, the Verlauf, the `reportMeta.fahrzeuge[].gps` block behind the Rapport's

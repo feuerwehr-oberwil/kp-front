@@ -3,24 +3,14 @@
    inset edge, one row height --float-h, the one corner, 14px before the glyph, 16px glyphs. A
    STATE is a glyph colour (the warning's lamp), never an outline; «veraltet» is GREY. */
 
-/* tablet / desktop: the Karte's floating row, bottom-left beside the nav rail – the same
-   left/bottom the Plan's chip row stands on (09-whiteboard · .wb-botleft) */
-.foot { position: absolute; z-index: var(--z-map-util); left: calc(var(--rail-w) + 28px); bottom: var(--sp-4);
-  max-width: calc(100% - var(--rail-w) * 2 - 72px);
-  display: flex; align-items: center; gap: var(--float-gap); flex-wrap: wrap; pointer-events: none; }
-.foot > * { pointer-events: auto; }
-.phoneTop { display: contents; }
+/* Where the pieces stand is the Karte's ONE chip row (workspace/MapControls · `.wb-botleft wx-row`,
+   09-whiteboard): the Gebäude chip, the warning, the radar pill – one row, never two in one slot. */
 
-@media (--phone) {
-  /* THE floating row (15-mobile · --float-bottom), left of the Eintrag FAB (--fab-safe) */
-  .foot { left: max(8px, env(safe-area-inset-left)); bottom: var(--float-bottom);
-    max-width: calc(100% - 16px - var(--fab-safe, 0px)); flex-wrap: nowrap; }
-  /* the warning hangs where the phone keeps its weather: under the wind read-out (.phone-wx,
-     76px under the top), one --float-gap below it */
-  .phoneTop { display: flex; position: absolute; z-index: var(--z-map-util);
-    top: calc(76px + 52px + var(--float-gap) + env(safe-area-inset-top));
-    right: max(8px, env(safe-area-inset-right)); max-width: calc(100% - 16px); }
-}
+/* the phone's warning hangs where the phone keeps its weather: under the wind read-out
+   (.phone-wx, 76px under the top), one --float-gap below it */
+:global(.wx-phone-warn) { position: absolute; z-index: var(--z-map-util);
+  top: calc(76px + 52px + var(--float-gap) + env(safe-area-inset-top));
+  right: max(8px, env(safe-area-inset-right)); max-width: calc(100% - 16px); display: flex; }
 
 .pill { display: inline-flex; align-items: center; gap: var(--sp-2); box-sizing: border-box; min-width: 0;
   min-height: var(--float-h); padding: var(--msg-pad) var(--float-pad-x); border-radius: var(--r-sm); border: none;
@@ -30,6 +20,13 @@
 
 /* ── the radar pill: ▶ · scrubber · time ── */
 .radar { padding-left: var(--msg-pad); width: 340px; max-width: 100%; }
+@media (--phone) {
+  /* the phone's row is ONE line beside the FAB (09-whiteboard · .wb-botleft): the Gebäude chip
+     keeps its words, the radar pill is the piece that gives way – down to ▶, a short scrubber and
+     the time */
+  .radar { flex: 1 1 auto; width: auto; min-width: 0; }
+  .radar .scrub { min-width: 56px; }
+}
 .radar.quiet { padding-left: var(--float-pad-x); width: auto; }
 .play { flex: none; }
 .scrub { flex: 1 1 auto; min-width: 96px; }

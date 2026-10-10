@@ -1,6 +1,6 @@
 # Screenshot regression tests – did this change the look by accident?
 
-**Status:** CI job «Visual», since 2026-10-09 – not a required check yet (probation)
+**Status:** CI job «Visual», since 2026-10-09 – a required check since 2026-10-10 (owner decision)
 **Audience:** anyone whose PR turns the «Visual» check red, and whoever accepts a new baseline
 
 Every PR shoots nine frozen states of the app and compares them pixel by pixel with the baselines
@@ -44,7 +44,8 @@ pinned (`e2e/visual/harness.ts`):
 - **The data.** The fat incident is generated from a seeded RNG, so it is the same Einsatz every
   time, and each state gets a fresh one on a fresh stack. The theme is set explicitly (the default
   «auto» follows daylight), and so is the surface (the prefs cookie).
-- **The outside world.** Basemap tiles are one flat PNG, the weather and the building outlines are
+- **The outside world.** Basemap tiles are one flat PNG; the weather, the building outlines and the Gebäude card
+  (`/api/incidents/{id}/building`, whose registers the SERVER asks) are
   canned (`perf/harness · isolateFromOutside`, shared with the performance journeys). Nothing on
   screen comes from the internet.
 - **The device.** Fixed viewport, device pixel ratio 1, `de-CH` / `Europe/Zurich`, reduced motion,

@@ -10,9 +10,9 @@ runs on `"manual"` or `"divera"` exactly as before.
 prints its JSON Schema and prints a worked example. It does not fetch, schedule, match or write
 anything: the shared rules for that are ``roster_snapshot_ingest.py`` (fetch + reconcile, pure),
 and each product writes the result into its own tables in its own wrapper. This file, the
-ingest module and both schemas are byte-identical in KP Front and KP Rück, pinned by checksum
-on both sides and diffed by kp-rück's ``roster-schema-drift`` job — editing any of them is a
-two-repository change.
+ingest module and both schemas are byte-identical in KP Front and KP Rück, listed in
+``shared/MANIFEST.json`` and compared by both CIs' «Shared files» job — editing any of them is a
+two-repository change (``shared/README.md``).
 
 Run from ``backend/`` via ``uv run python -m app.roster_snapshot <cmd>``:
 

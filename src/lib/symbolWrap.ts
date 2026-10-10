@@ -12,7 +12,7 @@
  * context panel titles and what the server prints. An invisible U+00AD in any of those is a
  * bug that only shows up in a Rapport.
  *
- * Keyed on the German labels (config/copy/de.ts · symbolNames) — they are the compounds. A
+ * Keyed on the German labels (config/copy/de/symbols.ts · symbolNames) — they are the compounds. A
  * locale whose label is not in the table (or a station's own override) simply comes back
  * unchanged, which is the behaviour without this table at all.
  *

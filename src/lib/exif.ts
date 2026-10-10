@@ -24,8 +24,9 @@
 //     image direction. With it off (the default), no position (WebKit bug 257534).
 //   · Android Chrome: camera shots carry GPS only when the camera app's location tag is on;
 //     the system photo picker may redact location. Unverified per device.
-// So the reliable field recipe on an iPhone is: shoot with the Kamera app, attach from the
-// library with «Ortsangaben» on. A photo without a position simply offers nothing.
+// So the in-app camera's pictures take the DEVICE's position instead (lib/devicePosition,
+// 09.10.2026), once the operator agreed; a library pick with «Ortsangaben» on keeps its own,
+// with the heading. A photo without either simply offers nothing.
 
 export interface ExifPhotoMeta {
   lat?: number

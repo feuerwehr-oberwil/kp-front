@@ -311,6 +311,11 @@ class DiveraEmergency(Base):
         ForeignKey("incidents.id", ondelete="SET NULL"), nullable=True
     )
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+    # The alarm's Rückmeldungen as the poll last saw them (app/divera_responses · with_catalogue):
+    # who answered which status, who was addressed, how many read it. Personal data, so it lives
+    # here behind a logged-in read and never in the workspace blob, the export or a link.
+    responses_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    responses_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Personnel(Base):
@@ -429,6 +434,19 @@ class ObjectSite(Base):
     #: SharePoint pull and the manifest import (`folder`), backfilled from `source_note` where
     #: that names the folder; NULL = unknown, and `object_visits.object_folder` derives one.
     filing_folder: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: The object's «Sofortmassnahmen» as the station wrote them down — free text, one measure
+    #: per line («Gashaupthahn im Keller schliessen»). OPTIONAL and MANUAL: the only copy most
+    #: stations have is printed on the Modul-1 PDF, and parsing that is station-specific work
+    #: done outside this repo, then loaded with `admin_objects` (manifest key `measures`) or
+    #: typed in Verwaltung › Objektpläne. Shown on the Einsatz's Gebäude card (building_facts).
+    measures: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: The sheet's other box, «Bemerkungen» («Hohe Brandlast im Keller», «PV-Anlage auf dem
+    #: Dach»), same shape and same doors as `measures`. On the Oberwil sheets this is where most
+    #: of the writing is (52 of 122 Modul-1 sheets, against 2 with Sofortmassnahmen, 09.10.2026).
+    remarks: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: Where `measures` and `remarks` came from, in the station's words («Modul 1, Stand
+    #: 03.2024») — the card prints it beside them, because a measure without a source reads as a fact.
+    measures_source: Mapped[str | None] = mapped_column(Text, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

@@ -830,6 +830,18 @@
           },
           "title": "Externallinks",
           "type": "array"
+        },
+        "buildingRegister": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Buildingregister"
         }
       },
       "title": "MapConfig",
@@ -1760,6 +1772,18 @@
           ],
           "title": "Autosync",
           "type": "string"
+        },
+        "diveraResponses": {
+          "additionalProperties": {
+            "enum": [
+              "coming",
+              "not_coming",
+              "other"
+            ],
+            "type": "string"
+          },
+          "title": "Diveraresponses",
+          "type": "object"
         },
         "snapshotIntervalMin": {
           "default": 60,

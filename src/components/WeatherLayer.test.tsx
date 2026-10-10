@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { WeatherFloats, WeatherRadarControls, WeatherWarningChip } from './WeatherLayer'
+import { WeatherRadarControls, WeatherWarningChip } from './WeatherLayer'
 import type { ApiWeatherLayer, WeatherRadar, WeatherWarning } from '../lib/weatherLayer'
 
 // Ported from kp-rueck (R5, weather-warning-chip.test.tsx): the chip names the warning in the
@@ -105,16 +105,5 @@ describe('WeatherRadarControls', () => {
   it('without frames says so instead of showing an empty scrubber', () => {
     render(<WeatherRadarControls radar={{ ...radar, frames: [], status: { ...radar.status, last_error: 'HTTP 500' } }} frameIndex={-1} playing={false} onPick={() => {}} onTogglePlaying={() => {}} stale now={NOW} />)
     expect(screen.getByText('Radar zurzeit nicht verfügbar.')).toBeTruthy()
-  })
-})
-
-describe('WeatherFloats', () => {
-  it('shows the warning with the radar off, and the radar pill only when it is on', () => {
-    const props = { layer: layer([fireBan], radar), now: NOW, isPhone: false, radarStale: false, frameIndex: 1, playing: false, onPick: () => {}, onTogglePlaying: () => {} }
-    const { rerender } = render(<WeatherFloats {...props} radarOn={false} />)
-    expect(screen.getByRole('button', { name: /Wetterwarnungen/ })).toBeTruthy()
-    expect(screen.queryByRole('group', { name: 'Niederschlagsradar' })).toBeNull()
-    rerender(<WeatherFloats {...props} radarOn />)
-    expect(screen.getByRole('group', { name: 'Niederschlagsradar' })).toBeTruthy()
   })
 })

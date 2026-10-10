@@ -12,6 +12,12 @@
  *   it names `beforeId`: the radar lies under every line, symbol and note, above the basemap.
  * - `WeatherRadarControls` – one floating pill: ▶ over the last hour, the scrubber, the frame's
  *   time and how old it is. Calm by default (paused on the newest frame, lib/useRadarPlayback).
+ *
+ * Both floating pieces stand in the Karte's ONE chip row (workspace/MapControls · `.wb-botleft`,
+ * the Plan's row too) beside the Gebäude chip – never a row of their own, so two pieces never take
+ * the same slot. On a phone that row is one line beside the FAB: the radar pill is the piece that
+ * gives way, and the warning chip moves up under the wind read-out, where the phone keeps its
+ * weather (MapControls places it).
  * - `WeatherWarningChip` – the official warnings covering the Einsatz, one chip: the awareness
  *   lamp, the source's own event word, how long it holds, «+n». A tap opens every warning in
  *   full, EXACTLY as the source wrote it (MetO art. 5). Shown whether the radar is on or not: a
@@ -243,35 +249,4 @@ export function WeatherWarningChip({ layer, now, side = 'bottom' }: {
       <p className={s.verbatim}>{w.verbatimNote}</p>
     </Popover>
   )
-}
-
-/** Both floating pieces, placed by device (docs/ui-conventions.md · the floating row):
- *  - tablet / desktop: ONE row bottom-left, beside the nav rail – the warning, then the radar;
- *  - phone: the radar on THE floating row (left of the Eintrag FAB), the warning top-right under
- *    the wind read-out, where the phone keeps its weather. */
-export function WeatherFloats({ layer, now, isPhone, radarOn, radarStale, frameIndex, playing, onPick, onTogglePlaying }: {
-  layer: ApiWeatherLayer
-  now: number
-  isPhone: boolean
-  radarOn: boolean
-  radarStale: boolean
-  frameIndex: number
-  playing: boolean
-  onPick: (index: number) => void
-  onTogglePlaying: () => void
-}) {
-  const chip = <WeatherWarningChip layer={layer} now={now} side={isPhone ? 'bottom' : 'top'} />
-  const controls = radarOn ? (
-    <WeatherRadarControls radar={layer.radar} frameIndex={frameIndex} playing={playing}
-      onPick={onPick} onTogglePlaying={onTogglePlaying} stale={radarStale} now={now} />
-  ) : null
-  if (isPhone) {
-    return (
-      <>
-        <div className={s.phoneTop}>{chip}</div>
-        {controls && <div className={cx(s.foot, 'wx-foot')}>{controls}</div>}
-      </>
-    )
-  }
-  return <div className={cx(s.foot, 'wx-foot')}>{chip}{controls}</div>
 }
