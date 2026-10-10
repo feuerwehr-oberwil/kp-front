@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { Menu, type MenuActionItem, type MenuHeading } from '../lib/overlays'
@@ -44,10 +45,18 @@ export function TafelPageStrip({ pages, current, templates, readOnly, onPick, on
       }
     }),
   ])
+  // the open page is always in view: on a phone the pages scroll sideways, and a page opened
+  // from «+ Seite» (or restored on load) may sit past the edge
+  const ref = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const on = ref.current?.querySelector<HTMLElement>('.useg-btn.on')
+    on?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
+  }, [current, pages.length])
   return (
-    <nav className="tps" aria-label={T.strip} onPointerDown={(e) => e.stopPropagation()} data-testid="tafel-strip">
+    <nav ref={ref} className="tps" aria-label={T.strip} onPointerDown={(e) => e.stopPropagation()} data-testid="tafel-strip">
       <Segmented
         tabs
+        scroll
         ariaLabel={T.strip}
         value={current}
         onChange={onPick}

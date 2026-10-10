@@ -76,12 +76,18 @@
 .table { display: flex; flex-direction: column; flex: 1 1 auto; }
 .tr { display: grid; border-bottom: 1px solid var(--ink-28); min-height: var(--tap); }
 .tr:last-child { border-bottom: none; }
+/* a box stretched by its neighbour gives the room to its last row — a writable row, never a blank
+   strip under the ruling (owner round 2: every box drawn is a box one writes in) */
+.table > .tr:last-child:not(.thead) { flex: 1 1 auto; }
 .thead { min-height: 0; }
 .th { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-1); color: var(--ink); border-right: 1px solid var(--ink-28); }
 .td { display: flex; align-items: stretch; min-width: 0; border-right: 1px solid var(--ink-28); }
 .th:last-child, .td:last-child { border-right: none; }
 .td > .cell { flex: 1 1 auto; }
-.fixed { align-items: center; padding: var(--sp-2); font-size: var(--fs-2); line-height: var(--lh-2); }
+.fixed { align-items: center; padding: var(--sp-2); font-size: var(--fs-2); line-height: var(--lh-2); min-width: 0;
+  /* a long compound breaks at the soft hyphens the template puts at its seams (07-toolrail · why
+     not auto); `anywhere` only as the last resort, and so the flex item may shrink at all */
+  hyphens: manual; -webkit-hyphens: manual; overflow-wrap: anywhere; }
 .sig { align-items: center; justify-content: center; padding: var(--sp-1); color: var(--blue); }
 .sigSvg { width: 44px; height: 44px; }
 .sigSvg :global(.sig-text) { fill: currentColor; stroke: none; font-family: var(--body); font-weight: var(--fw-bold); }

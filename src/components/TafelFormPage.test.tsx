@@ -84,7 +84,7 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     // every box drawn is writable: the row under «Warteraum» names itself (owner, round 2)
     const bez = abs.querySelectorAll<HTMLTextAreaElement>('textarea[aria-label="Bezeichnung"]')
     expect(bez.length).toBe(1)
-    expect(abs.textContent).toContain('Sammelstelle Unverletzte')
+    expect(abs.textContent?.replace(/\u00ad/g, '')).toContain('Sammelstelle Unverletzte')
     expect(abs.textContent).not.toContain('Wasserbezug') // a station switch, off in the FKS poster
     act(() => { bez[0].focus() })
     type('Helikopterlandeplatz'); key('Tab')

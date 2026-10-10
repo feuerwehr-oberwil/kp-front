@@ -417,20 +417,21 @@
    floating bar of the TOP BAR's own make (04-topbar · .topbar: glass, hairline, --r-bar, --bar-pad)
    standing --float-gap under it on the same left edge, so the two read as one column of chrome
    (owner, staging round 2). Its controls are the 44px segmented track and a 44px quiet button.
-   The board's fit keeps its lane clear (lib/tafelPages · TAFEL_STRIP_H = the bar + the gap). It
-   scrolls sideways on a phone rather than wrapping into the sheet. */
+   The board's fit keeps its lane clear (lib/tafelPages · TAFEL_STRIP_H = the bar + the gap). On a
+   phone the PAGES scroll sideways rather than wrapping into the sheet; «+ Seite» stays in view. */
 .tps {
   position: absolute; z-index: var(--z-chrome);
   top: calc(16px + var(--tap) + 2 * var(--bar-pad) + 2px + var(--float-gap) + env(safe-area-inset-top));
   left: max(16px, env(safe-area-inset-left)); max-width: calc(100% - 32px);
-  display: flex; align-items: center; gap: var(--sp-2); overflow-x: auto; scrollbar-width: none;
+  display: flex; align-items: center; gap: var(--sp-2); overflow: hidden;
   padding: var(--bar-pad); border: 1px solid var(--glass-line); border-radius: var(--r-bar);
   background: var(--glass); -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4);
   box-shadow: var(--e4);
 }
-.tps::-webkit-scrollbar { display: none; }
 .tps > * { flex: none; }
-.tps .useg { flex-wrap: nowrap; }
+.tps .useg { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.tps .useg::-webkit-scrollbar { display: none; }
+.tps .useg > .useg-btn { flex: none; }
 .tps-item { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
 .tps-name { flex: 1 1 auto; }
 .tps-there { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--ink-faint); font-size: var(--fs-1); }
