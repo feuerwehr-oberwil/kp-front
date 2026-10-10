@@ -19,6 +19,7 @@
 .title { margin: 0; flex: 1 1 auto; min-width: 0; font: var(--fw-heavy) var(--fs-6)/var(--lh-6) var(--body); letter-spacing: -0.01em; }
 .meta { flex: none; font-size: var(--fs-micro); color: var(--ink-faint); }
 .remove { flex: none; }
+.print { flex: none; }
 
 .grid { display: grid; gap: var(--sp-4); align-items: stretch; }
 .sec { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--ink-45); }
@@ -81,9 +82,15 @@
 .table { display: flex; flex-direction: column; flex: 1 1 auto; }
 .tr { display: grid; border-bottom: 1px solid var(--ink-28); min-height: var(--tap); }
 .tr:last-child { border-bottom: none; }
-/* a box stretched by its neighbour gives the room to its last row — a writable row, never a blank
-   strip under the ruling (owner round 2: every box drawn is a box one writes in) */
-.table > .tr:last-child:not(.thead) { flex: 1 1 auto; }
+/* every ruling the standard height, never stretched (owner: «just keep things fixed»): the height
+   a taller neighbour leaves goes to `.fill` — more standard rulings (TafelFormPage ·
+   useFillCounts), or plain space when not a whole one is left. flex-basis 0 + overflow hidden:
+   what it holds never grows the box. */
+.fill { flex: 1 1 0; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.fill > .tr { flex: none; }
+/* its own bottom ruling as a shadow: shown above a sliver of plain space, clipped (overflow) when
+   the last ruling sits flush on the box's border — never a doubled line */
+.fill > .tr:last-child { box-shadow: 0 1px 0 var(--ink-28); }
 .thead { min-height: 0; }
 .th { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-1); color: var(--ink); border-right: 1px solid var(--ink-28); }
 .td { display: flex; align-items: stretch; min-width: 0; border-right: 1px solid var(--ink-28); }

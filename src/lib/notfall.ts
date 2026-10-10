@@ -43,3 +43,21 @@ export function notfallFactLine(t: Trupp, now: number, place?: string): string[]
     f.funkkanal != null ? fillTemplate(nf.kanal, { n: f.funkkanal }) : '',
   ].filter(Boolean)
 }
+
+/**
+ * Which running Notfälle a device has not MET yet — each arms a muted bell once
+ * (IncidentWorkspace · useAtemschutzMute · arm). `met` is the device's own memory and is updated
+ * in place; `running` the `${id}:${notfallAt}` of every Notfall on the board now.
+ *
+ * ⚠️ An ended Notfall is FORGOTTEN (review of #300): ↶ on «Notfall beendet», or on the «Raus»
+ * that ended it, brings it back with its ORIGINAL trigger — the same key. Remembered, it armed
+ * nothing, and a bell muted at «Zum Trupp» stayed silent over a crew that is in distress again
+ * (the bell gates the tone and the OS notification alike). Its return is a fresh one.
+ */
+export function freshNotfallKeys(met: Set<string>, running: readonly string[]): string[] {
+  const now = new Set(running)
+  for (const k of [...met]) if (!now.has(k)) met.delete(k)
+  const fresh = running.filter((k) => !met.has(k))
+  for (const k of fresh) met.add(k)
+  return fresh
+}

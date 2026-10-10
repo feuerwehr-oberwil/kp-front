@@ -918,7 +918,6 @@ class TestNotfallOnSave:
         await push_mod.check_and_push(db_session)
         assert swept == []
 
-        # «Notfall beendet» once, replacing the tray entry, with no sweep ledger behind it
         # two devices held at once: the merge moves the trigger to the EARLIER hold — the same
         # Notfall, never announced twice, and its new key is claimed against the sweep too
         await save({**base, "notfallAt": "2026-07-02T14:07:58Z"})
@@ -926,6 +925,7 @@ class TestNotfallOnSave:
         await push_mod.check_and_push(db_session)
         assert swept == []
 
+        # «Notfall beendet» once, replacing the tray entry, with no sweep ledger behind it
         await save(base)
         assert len(sent) == 2
         assert sent[1]["title"] == "Notfall beendet – Keller Anna"
@@ -933,6 +933,60 @@ class TestNotfallOnSave:
         assert sent[1]["dedup_key"] is None
         await save(base)
         assert len(sent) == 2
+
+    async def test_undo_of_the_end_pushes_the_notfall_again_at_once(self, client, editor, db_session, monkeypatch):
+        # ↶ on «Notfall beendet» (or on the «Raus» that ended it) restores the ORIGINAL notfallAt:
+        # the re-raise must push at once and take the tray entry back from «beendet» — and a second
+        # end after it says «beendet» again (review of #300)
+        import asyncio
+
+        import app.push as push_mod
+
+        push_mod._notified.clear()
+        monkeypatch.setattr(push_mod, "push_enabled", lambda: True)
+        sent: list[dict] = []
+
+        async def fake_committed(_factory, **kw):
+            sent.append(kw)
+
+        monkeypatch.setattr(push_mod, "_broadcast_committed", fake_committed)
+        r = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
+        assert r.status_code == 200
+        inc = (await client.post("/api/incidents", json={"title": "Notfall"})).json()["id"]
+        base = {"id": "tr1", "name": "Keller Anna", "status": "aktiv", "entryTime": "2026-07-02T14:00:00Z"}
+        raised = {**base, "notfallAt": "2026-07-02T14:08:00Z"}
+
+        async def save(t: dict) -> None:
+            rev = (await client.get(f"/api/incidents/{inc}/workspace")).json()["workspace_rev"]
+            r = await client.put(f"/api/incidents/{inc}/workspace/trupps", json={"trupps": [t], "base_rev": rev})
+            assert r.status_code == 200, r.text
+            await asyncio.gather(*list(push_mod._inflight))
+
+        await save(raised)
+        out = {**base, "status": "raus", "exitTime": "2026-07-02T14:20:00Z"}
+        await save(out)  # «Raus» ended it
+        await save(raised)  # ↶: back inside, the same Notfall with its original clock
+        await save(out)  # …and out again
+        assert [m["title"] for m in sent] == [
+            "Atemschutz-Notfall – Keller Anna",
+            "Notfall beendet – Keller Anna",
+            "Atemschutz-Notfall – Keller Anna",
+            "Notfall beendet – Keller Anna",
+        ]
+        assert {m["tag"] for m in sent} == {"atemschutz-tr1"}
+
+        # the sweep, meanwhile, never announces a Notfall twice: re-raised and left running, the
+        # immediate push has claimed the key again
+        await save(raised)
+        swept: list[dict] = []
+
+        async def fake_broadcast(_db, **kw):
+            swept.append(kw)
+            return 1
+
+        monkeypatch.setattr(push_mod, "broadcast", fake_broadcast)
+        await push_mod.check_and_push(db_session)
+        assert swept == []
 
     async def test_a_closed_einsatz_is_not_pushed_on_save(self, db_session, monkeypatch):
         import app.push as push_mod

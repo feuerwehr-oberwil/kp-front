@@ -17,7 +17,8 @@ import {
   type BoardFormData, type FormHead,
 } from '../lib/boardForm'
 import { NEW, navTarget, type NavAt, type NavKey, type NavSection } from '../lib/boardFormNav'
-import { IconButton } from './Button'
+import { Button, IconButton } from './Button'
+import { Menu } from '../lib/overlays'
 import { BoardSignature } from './BoardSignature'
 import MiniKarte, { type MiniKarteProps } from './MiniKarte'
 import s from './TafelFormPage.module.css'
@@ -240,6 +241,36 @@ function DoneButton({ on, readOnly, onToggle }: { on: boolean; readOnly: boolean
   )
 }
 
+/**
+ * How many standard rulings each table's leftover height holds, by section id (owner, staging:
+ * the Verbindungen beside a grown Abspracherapport had its last row stretched ~240px tall). The
+ * leftover is a `[data-fill]` box that takes only the height the grid row gives the table beyond
+ * its own rows (flex-basis 0, overflow hidden), so what it holds never feeds back into it; a
+ * ruling is as tall as the table's last empty row (the one before the fill — always an empty
+ * ruling). No ResizeObserver (jsdom, an old browser): no extra rulings, plain space.
+ */
+function useFillCounts(root: RefObject<HTMLElement | null>): Record<string, number> {
+  const [counts, setCounts] = useState<Record<string, number>>({})
+  useLayoutEffect(() => {
+    const el = root.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const boxes = [...el.querySelectorAll<HTMLElement>('[data-fill]')]
+    const measure = () => {
+      const next: Record<string, number> = {}
+      for (const f of boxes) {
+        const ruling = (f.previousElementSibling as HTMLElement | null)?.offsetHeight || 45
+        next[f.dataset.fill ?? ''] = Math.max(0, Math.floor((f.clientHeight + 1) / Math.max(24, ruling)))
+      }
+      setCounts((c) => (Object.keys(next).length === Object.keys(c).length && Object.entries(next).every(([k, n]) => c[k] === n) ? c : next))
+    }
+    const ro = new ResizeObserver(measure)
+    for (const f of boxes) ro.observe(f)
+    measure()
+    return () => ro.disconnect()
+  })
+  return counts
+}
+
 /** Focus the cell named `k` (a `data-k` or `data-kn`) once the render that creates it has landed —
  *  a key's target may be a row the very commit it triggered is making. */
 function useFocusAfterRender(root: RefObject<HTMLElement | null>): (k: string) => void {
@@ -266,6 +297,12 @@ export interface TafelFormPageProps {
   isPhone: boolean
   onChange: (next: BoardFormData) => void
   onRemove: () => void
+  /** «Drucken» (owner): this page, or `all` of the Tafel's pages, as a PDF (lib/tafelPrint) */
+  onPrint?: (all: boolean) => void
+  /** how many pages the Tafel has — past one, «Drucken» offers «Alle Seiten» too */
+  pageCount?: number
+  /** a print is being made: the button says so and waits */
+  printing?: boolean
   /** what the live mini Karte of a `map` section draws — it exists only while this page is shown */
   scene?: MiniKarteProps
   /** a tap on the mini Karte opens the Karte */
@@ -274,7 +311,7 @@ export interface TafelFormPageProps {
   inset: { top: number; left: number; right: number; bottom: number }
 }
 
-export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRemove, scene, onOpenKarte, inset }: TafelFormPageProps) {
+export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRemove, onPrint, pageCount = 1, printing = false, scene, onOpenKarte, inset }: TafelFormPageProps) {
   const t = T()
   const page = data.page
   const sections = shownSections(page)
@@ -284,6 +321,9 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
   // (React's «adjust state while rendering»: a list whose trailing id was taken by the commit
   // that just landed gets a fresh one, and the render repeats before anything is painted)
   const [pending, setPending] = useState<Record<string, string>>({})
+  // how many more standard rulings each table's leftover height holds (a taller neighbour in its
+  // grid row) — measured, never a stretched row (owner: «just keep things fixed»)
+  const fill = useFillCounts(rootRef)
   const minted: Record<string, string> = {}
   const trailing = (list: string, taken: readonly string[]): string => {
     const cur = pending[list]
@@ -297,7 +337,7 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
    *  written one included) and its empty line; a table's written area as one id per RULING, the
    *  written rows' own and a pre-minted one per empty ruling (keyed by the ruling, so the ruling
    *  typed into is the ruling the row is written on — lib/boardForm · slotted) */
-  const ids: Record<string, { lines?: Record<string, { lines: string[]; newId: string }>; slots?: string[]; written?: number }> = {}
+  const ids: Record<string, { lines?: Record<string, { lines: string[]; newId: string }>; slots?: string[]; written?: number; fill?: string[] }> = {}
   const layout: NavSection[] = []
   if (page.header) layout.push({ kind: 'text', id: HEAD_SEC, fields: HEAD_KEYS })
   for (const sec of sections) {
@@ -322,13 +362,15 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
       const room = adds && !isPhone ? Math.max(0, (sec.height ?? 0) - fixedRowIds.length * 2) : 0
       const count = adds ? Math.max(laid.length + 1, room) : laid.length
       const slots = Array.from({ length: count }, (_, j) => laid[j]?.id ?? trailing(`${sec.id}#${j}`, taken))
-      ids[sec.id] = { slots, written: laid.length }
+      // …and below them, as many more as the box's leftover height holds (useFillCounts)
+      const fillIds = adds ? Array.from({ length: fill[sec.id] ?? 0 }, (_, i) => trailing(`${sec.id}#${count + i}`, taken)) : []
+      ids[sec.id] = { slots, written: laid.length, fill: fillIds }
       const typed = (cs: TemplateColumn[]) => cs.filter((c) => c.type !== 'trend').map((c) => c.id)
       const fixed = (sec.fixedRows ?? []).map((r) => r.id)
       layout.push({
         kind: 'table', id: sec.id, cols: readOnly ? [] : typed(editableColumns(sec)),
         rows: [...fixedRowIds, ...slots.slice(0, laid.length)], adds,
-        newId: adds ? slots[laid.length] : undefined, free: adds ? slots.slice(laid.length) : undefined,
+        newId: adds ? slots[laid.length] : undefined, free: adds ? [...slots.slice(laid.length), ...fillIds] : undefined,
         fixed, writtenCols: readOnly ? [] : typed(writtenColumns(sec)),
       })
     } else if (sec.type === 'text') {
@@ -476,10 +518,17 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
     const fixedRows = new Map((sec.fixedRows ?? []).map((r) => [r.id, r]))
     const fixedList = tableRows(data, sec).slice(0, shownFixedCount(sec))
     const laid = tableSlots(data, sec)
-    const { slots = [], written = 0 } = ids[sec.id]
+    const { slots = [], written = 0, fill: fillIds = [] } = ids[sec.id]
     const grid: CSSProperties = { gridTemplateColumns: [...cols.map((c) => `minmax(0, ${c.w ?? 1}fr)`), ...(sec.done ? ['auto'] : [])].join(' ') }
     /** `slot`: the ruling of a written-area row; `alias`: the first empty row after the written
      *  ones — what «the next empty row» (NEW) resolves to */
+    /** an empty ruling of the written area: a live row on ruling `j` */
+    const emptyRow = (id: string, j: number) => (
+      <div key={id} className={cx(s.tr, s.trNew)} role="row" style={grid}>
+        {cols.map((c) => cellFor({ id, cells: {} }, c, true, j, j === written))}
+        {sec.done && <span className={s.td} />}
+      </div>
+    )
     const cellFor = (r: { id: string; cells: Record<string, string> }, c: TemplateColumn, isNew: boolean, slot?: number, alias = false) => {
       const label = labelText(c.label)
       const fixedRow = fixedRows.has(r.id)
@@ -528,14 +577,7 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
             an empty ruling above it stays an empty (live) row — lib/boardForm · slotted */}
         {slots.map((id, j) => {
           const r = laid[j]
-          if (!r) {
-            return (
-              <div key={id} className={cx(s.tr, s.trNew)} role="row" style={grid}>
-                {cols.map((c) => cellFor({ id, cells: {} }, c, true, j, j === written))}
-                {sec.done && <span className={s.td} />}
-              </div>
-            )
-          }
+          if (!r) return emptyRow(id, j)
           return (
             <div key={r.id} className={cx(s.tr, r.done && s.trDone)} role="row" style={grid}>
               {cols.map((c) => cellFor(r, c, false, j))}
@@ -545,6 +587,14 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
             </div>
           )
         })}
+        {/* the leftover height a taller neighbour leaves: more rulings of the standard height,
+            each a live row — or plain space when not a whole ruling is left (never a stretched
+            row). Takes no height of its own (flex-basis 0), so what it holds never grows the box. */}
+        {tableAddsRows(sec) && !readOnly && (
+          <div className={s.fill} data-fill={sec.id}>
+            {fillIds.map((id, i) => emptyRow(id, slots.length + i))}
+          </div>
+        )}
       </div>
     )
   }
@@ -598,6 +648,21 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
         <header className={s.head}>
           <h2 className={s.title}>{labelText(page.title)}</h2>
           <span className={s.meta} title={t.keysHint}>{fillTemplate(t.template, { title: labelText(data.tpl.title), v: data.tpl.version })}</span>
+          {/* the page on paper — the same sheet the Rapport prints; also on a closed Einsatz */}
+          {onPrint && (pageCount > 1
+            ? (
+              <Menu
+                align="end"
+                popupClassName="de-menu-pop"
+                itemClassName={() => 'de-menu-item'}
+                trigger={<Button variant="quiet" className={s.print} icon={<Icon id="printer" />} disabled={printing}>{printing ? t.printBusy : t.print}</Button>}
+                items={[
+                  { label: t.printThis, onClick: () => onPrint(false) },
+                  { label: fillTemplate(t.printAll, { n: pageCount }), onClick: () => onPrint(true) },
+                ]}
+              />
+            )
+            : <Button variant="quiet" className={s.print} icon={<Icon id="printer" />} disabled={printing} onPointerDown={keep} onClick={() => onPrint(false)}>{printing ? t.printBusy : t.print}</Button>)}
           {!readOnly && (
             <IconButton label={t.removePage} className={s.remove} onPointerDown={keep} onClick={onRemove}><Icon id="trash" /></IconButton>
           )}

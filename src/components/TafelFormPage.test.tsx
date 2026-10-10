@@ -167,6 +167,46 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     expect(lines()).toEqual(['', 'Rettung', 'Dach', ''])
   })
 
+  it('beside a taller neighbour a table gets more rulings of the standard height — live rows, never a stretched one', () => {
+    // the browser's layout, as jsdom has none: the Verbindungen' leftover is 240px, a ruling 45px
+    class RO { constructor(private cb: () => void) {} observe() {} disconnect() {} }
+    vi.stubGlobal('ResizeObserver', RO)
+    const ch = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.dataset.fill === 'verbindungen' ? 240 : this.dataset.fill ? 20 : 0
+    })
+    const oh = vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(() => 45)
+    try {
+      const commits: BoardFormData[] = []
+      render(<Harness onCommit={(d) => commits.push(d)} />)
+      const fillBox = document.querySelector('[data-fill="verbindungen"]')!
+      const kanal = fillBox.querySelectorAll<HTMLTextAreaElement>('textarea[aria-label="Kanal"]')
+      expect(kanal.length).toBe(5) // 240 / 45 → five whole rulings
+      // less than one ruling left: plain space, no row
+      expect(document.querySelector('[data-fill="massnahmen"]')!.children.length).toBe(0)
+      // no row anywhere is given a height of its own
+      expect([...document.querySelectorAll<HTMLElement>('[role="row"]')].every((r) => !r.style.height && !r.style.minHeight)).toBe(true)
+      // …and a ruling of the leftover is written ON its ruling, below the box's twelve
+      act(() => { kanal[0].focus() })
+      type('K1'); key('Enter')
+      const row = commits[commits.length - 1].values.verbindungen.rows!.find((r) => r.cells.kanal === 'K1')!
+      expect(row.slot).toBe(12)
+    } finally { ch.mockRestore(); oh.mockRestore(); vi.unstubAllGlobals() }
+  })
+
+  it('«Drucken» sits next to the delete: this page — and with more pages, «Alle Seiten» too', () => {
+    const printed: boolean[] = []
+    const data = newFormPage(FKS, EF, {}, '2026-10-10T09:24:00.000Z')
+    const props = { pageKey: 'p', data, readOnly: true, isPhone: false, onChange: () => {}, onRemove: () => {}, inset: { top: 0, left: 0, right: 0, bottom: 0 }, onPrint: (all: boolean) => printed.push(all) }
+    const { rerender } = render(<TafelFormPage {...props} pageCount={1} />)
+    // on a closed Einsatz too: the paper is a reading
+    act(() => { fireEvent.click(screen.getByRole('button', { name: /Drucken/ })) })
+    expect(printed).toEqual([false])
+    rerender(<TafelFormPage {...props} pageCount={3} />)
+    act(() => { fireEvent.click(screen.getByRole('button', { name: /Drucken/ })) })
+    act(() => { fireEvent.click(screen.getByRole('menuitem', { name: 'Alle Seiten (3)' })) })
+    expect(printed).toEqual([false, true])
+  })
+
   it('Alt+Enter is a line break inside the cell, not a move', () => {
     render(<Harness onCommit={() => {}} />)
     act(() => { box('ordnung').querySelector<HTMLTextAreaElement>('[data-kn]')!.focus() })

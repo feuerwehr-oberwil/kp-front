@@ -101,7 +101,7 @@ import { OrientSlider } from './OrientSlider'
 import { ToolRail } from './ToolRail'
 import { TafelPageStrip } from './TafelPageStrip'
 import { TafelFormPage } from './TafelFormPage'
-import { findForms, formAnno, formDelta, formHasContent, newFormPage, type BoardFormData, type FormSeed } from '../lib/boardForm'
+import { findForms, formAnno, formDelta, formHasContent, newFormPage, type BoardFormData, type FormAnno, type FormSeed } from '../lib/boardForm'
 import { isDrawnBoardKind } from '../lib/workspace'
 import { labelText, type BoardTemplate, type TemplatePage } from '../lib/boardTemplate'
 import { SKIZZE, TAFEL_ID, TAFEL_STRIP_H, stepPage, useTafelPage } from '../lib/tafelPages'
@@ -342,12 +342,17 @@ interface Props {
   tafel?: TafelPagesProps
 }
 
+/** printing a Tafel page found no server (or could not even load its print module): offline */
+class OfflineChunk extends Error {}
+
 export interface TafelPagesProps {
   /** read at the tap that adds a page */
   seed: () => FormSeed
   /** what the «Lagekarte» box's mini Karte draws (components/MiniKarte) */
   scene?: MiniKarteProps
   onOpenKarte?: () => void
+  /** the Einsatz's title as it is now — the printed pages' caption and file name */
+  title?: () => string
 }
 
 /**
@@ -1185,6 +1190,27 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     patchCommit(id, { form: next }, { form: { page: next.page.id, delta: prev ? formDelta(prev, next) : [] } })
   }
   /** a page with writing on it asks first; ↶ brings it back either way */
+  /** «Drucken» on a page (owner): this page or all of them as a PDF — the server draws the
+   *  paper (lib/tafelPrint, loaded on the tap); offline that is said calmly, never an error */
+  const [printing, setPrinting] = useState(false)
+  const printPages = async (list: FormAnno[]) => {
+    if (!incidentId || printing || !list.length) return
+    setPrinting(true)
+    try {
+      const { printTafelPages, TafelPrintOffline } = await import('../lib/tafelPrint').catch(() => { throw new OfflineChunk() })
+      try {
+        await printTafelPages(list, { id: incidentId, title: tafel?.title?.() ?? '' }, tafel?.scene)
+      } catch (e) {
+        if (e instanceof TafelPrintOffline) throw new OfflineChunk()
+        throw e
+      }
+    } catch (e) {
+      if (e instanceof OfflineChunk) toast(TP().printOffline, { icon: 'info' })
+      else toast(TP().printFailed, { icon: 'warn', tone: 'warn' })
+    } finally {
+      setPrinting(false)
+    }
+  }
   const removePage = async (id: string) => {
     const a = pages.find((x) => x.id === id)
     if (!a || readOnly) return
@@ -3039,6 +3065,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         {strip}
         <TafelFormPage key={formPage.id} pageKey={formPage.id} data={formPage.form} readOnly={readOnly} isPhone={isPhone}
           onChange={(next) => editPage(formPage.id, next)} onRemove={() => void removePage(formPage.id)}
+          onPrint={incidentId ? (all) => void printPages(all ? pages : [formPage]) : undefined} pageCount={pages.length} printing={printing}
           scene={tafel?.scene} onOpenKarte={tafel?.onOpenKarte}
           inset={{ top: topRes, left: isPhone ? 0 : side.l, right: isPhone ? 0 : side.l, bottom: isPhone ? 96 : 24 }} />
       </div>

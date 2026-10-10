@@ -9706,6 +9706,74 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/tafel/pdf": {
+      "post": {
+        "tags": [
+          "report"
+        ],
+        "summary": "Tafel Pdf",
+        "description": "The Tafel's own print (10.10.2026, owner): one page or all of them, the same sheets the\nRapport carries (app/report_board), without the Rapport around them. Read-only output like\nthe rapport, so CurrentUser: whoever may read the Tafel may print it.",
+        "operationId": "tafel_pdf_api_incidents__incident_id__tafel_pdf_post",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_tafel_pdf_api_incidents__incident_id__tafel_pdf_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/zeitplan/pdf": {
       "post": {
         "tags": [
@@ -14008,6 +14076,19 @@
           "image"
         ],
         "title": "Body_suggest_alignment_api_georef_suggest_post"
+      },
+      "Body_tafel_pdf_api_incidents__incident_id__tafel_pdf_post": {
+        "properties": {
+          "payload": {
+            "type": "string",
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "payload"
+        ],
+        "title": "Body_tafel_pdf_api_incidents__incident_id__tafel_pdf_post"
       },
       "Body_upload_branding_api_branding__slot__post": {
         "properties": {
