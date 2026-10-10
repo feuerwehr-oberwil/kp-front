@@ -1981,6 +1981,8 @@ export function IncidentWorkspace({
     // same `!isEl` rule as toggleLayer above — an EL's Ebenen are their own view
     if (!isEl) for (const l of layers) if (!l.base && l.visible !== visible) emit('layer.toggle', { id: l.id, base: false, visible })
     setLayers((ls) => ls.map((l) => (l.base || l.visible === visible ? l : { ...l, visible })))
+    // «Alle aus» takes the radar with it; «Alle ein» leaves it alone (workspace/useKarteWeather)
+    if (!visible) weather.setRadar(false)
   }
   const resetLayers = () => {
     const next = defaultLayers(incidentMeta.type)
@@ -1993,10 +1995,13 @@ export function IncidentWorkspace({
       emit('layer.toggle', { id: l.id, base: !!l.base, visible: l.visible })
     }
     setLayers(next)
+    // no Einsatz category opens with the radar on: «Standard» switches it off (10.10.2026)
+    weather.setRadar(false)
   }
   // which quick-tap the Ebenen on screen match — lit in the panel, named in the Ebenen button's
   // tooltip / accessible name (lib/layerPreset, 05.10.2026)
-  const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type)), [layers, incidentMeta.type])
+  const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type), weather.on && weather.radarOn),
+    [layers, incidentMeta.type, weather.on, weather.radarOn])
   const setOpacity = (id: LayerId, v: number) => {
     if (weather.handlesLayer(id)) { weather.setRadarOpacity(v); return }
     if (isTwinLayerId(id)) {

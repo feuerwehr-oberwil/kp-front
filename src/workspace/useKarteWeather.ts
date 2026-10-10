@@ -4,6 +4,12 @@
 // radar source), the Karte's chip row and Ebenen (MapControls). Live data only: asked for on the
 // Karte, never in the replay (whose past it is not). `on` false — WEATHER_LAYER_ENABLED=false, or
 // no answer yet — offers nothing at all.
+//
+// The quick-taps reach it too (10.10.2026, owner: «Standard» must not show the radar): «Standard»
+// and «Alle aus» switch it off (IncidentWorkspace · resetLayers / setAllLayers → `setRadar`), and
+// while it is on lib/layerPreset reads «Eigene Auswahl» — the panel never lights «Standard» over a
+// map with the radar on it. «Alle ein» leaves it alone, like the plan rasters: the radar is
+// something you look at on purpose, not one more overlay.
 
 import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
@@ -31,6 +37,8 @@ export interface KarteWeather {
   /** toggleLayer / setOpacity route this row by id, like the plan rasters (lib/georefTwins) */
   handlesLayer: (id: string) => boolean
   toggleRadar: () => void
+  /** the Ebenen quick-taps «Standard» / «Alle aus» switch it off */
+  setRadar: (on: boolean) => void
   setRadarOpacity: (v: number) => void
 }
 
@@ -71,6 +79,7 @@ export function useKarteWeather(active: boolean): KarteWeather {
       ? { radar, frameIndex: playback.frameIndex, opacity: radarOpacity, stale: radarStale } : null,
     handlesLayer: (id) => id === WEATHER_RADAR_ROW_ID,
     toggleRadar: () => setRadar(!radarOn),
+    setRadar,
     setRadarOpacity,
   }
 }

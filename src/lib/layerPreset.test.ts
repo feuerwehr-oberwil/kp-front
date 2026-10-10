@@ -22,4 +22,10 @@ describe('layerPreset', () => {
     expect(layerPreset([L('osm', true, true), L('sat', false, true), L('lage', true), L('hydranten', false), L('gefahren', false)], defaults)).toBe('custom')
     expect(layerPreset([L('osm', false, true), L('sat', true, true), L('lage', true), L('hydranten', true), L('gefahren', false)], defaults)).toBe('custom')
   })
+  it('is «custom» while the radar is on — «Standard» and «Alle aus» switch it off, «Alle ein» leaves it', () => {
+    expect(layerPreset(defaults, defaults, true)).toBe('custom')
+    const allOff = [L('osm', true, true), L('sat', false, true), L('lage', false), L('hydranten', false), L('gefahren', false)]
+    expect(layerPreset(allOff, defaults, true)).toBe('custom')
+    expect(layerPreset(defaults, defaults, false)).toBe('standard')
+  })
 })
