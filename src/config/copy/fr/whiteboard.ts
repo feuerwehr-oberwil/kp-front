@@ -3,7 +3,7 @@
 
 import type { Copy, Localizable } from '../index'
 
-export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | 'notes' | 'whiteboard'>> = {
+export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | 'notes' | 'whiteboard' | 'tafel'>> = {
   incidents: {
     migratedTitle: 'État de travail migré',
     geojsonNotJson: 'Fichier JSON non valide.',
@@ -306,5 +306,54 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
 
     groupDeletedN: '{n} objets retirés du plan',
     truppPlacedHere: 'déjà ici',
+  },
+  tafel: {
+    templateTitle: 'Modèle',
+    plakatName: 'Première affiche (CSSP)',
+    plakat: {
+      heading: 'Première conduite',
+      prefilled: 'prérempli depuis l’intervention',
+      title: 'Intervention',
+      address: 'Adresse',
+      alarm: 'Alarme',
+      el: 'Chef d’intervention',
+      problems: 'Saisie des problèmes',
+      front: 'Front',
+      ordnung: 'Ordre',
+      sanitaet: 'Sanitaire',
+      spezial: 'Problèmes spéciaux',
+      massnahmen: 'Mesures',
+      mittel: 'Moyens',
+      verbindungen: 'Liaisons',
+      absprachen: 'Points à convenir',
+      was: 'Quoi / où',
+      wer: 'Qui',
+      wann: 'Quand',
+      formation: 'Formation',
+      pers: 'Pers.',
+      wo: 'Où',
+      funktion: 'Fonction / emplacement',
+      kanal: 'Canal',
+      ruf: 'Indicatif / tél.',
+      newProblem: 'Problème …',
+      newRow: 'Nouvelle ligne …',
+      note: 'Mot-clé',
+      trendNone: 'Tendance ouverte',
+      trendUp: 's’aggrave',
+      trendSame: 'stable',
+      trendDown: 's’améliore',
+      trendTitle: 'Tendance : {trend} – toucher pour changer',
+      done: 'Fait',
+      weatherTag: 'Météo',
+      wind: 'Vent {dir} {speed} km/h',
+      absprachenDefaults: ['Emplacement de la direction d’intervention', 'Accès / axe de sauvetage', 'Zone d’attente', 'Point de rassemblement des patients', 'Alimentation en eau', 'Bouclage'],
+      inserted: 'Première affiche insérée',
+      edited: 'Affiche modifiée',
+      remove: 'Retirer l’affiche',
+      removeTitle: 'Retirer l’affiche ?',
+      removeMsg: 'Tout ce qui est inscrit sur l’affiche part avec. Annuler la ramène.',
+      removed: 'Affiche retirée',
+      reportTitle: 'Première conduite (affiche)',
+    },
   },
 }

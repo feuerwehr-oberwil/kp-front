@@ -410,8 +410,17 @@
    corner now — PlanCompass.module.css.) */
 /* blank writable sheet */
 .wb-board-blank { box-shadow: var(--e3), inset 0 0 0 1px var(--border-soft); }
+/* the Tafel's faint squared paper under the «Erstes Plakat» (08.10.2026) — a grid that zooms with
+   the sheet, in ink at 5 % so night follows */
+.wb-board-grid {
+  background-image: linear-gradient(var(--ink-5) 1px, transparent 1px), linear-gradient(90deg, var(--ink-5) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
 .wb-blank-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;
   font-family: var(--body); font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-faint); pointer-events: none; max-width: 70%; line-height: 1.4; }
+/* the empty Tafel's Vorlage list under the hint — the one part of the hint that takes a press */
+.wb-blank-vorlage { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); margin-top: var(--sp-4); pointer-events: auto; }
+.wb-blank-vorlage-t { font-size: var(--fs-1); }
 
 .wb-ink-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .wb-ink { position: absolute; inset: 0; z-index: 5; touch-action: none; }

@@ -3,7 +3,7 @@
 
 import type { Copy, Localizable } from '../index'
 
-export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | 'notes' | 'whiteboard'>> = {
+export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | 'notes' | 'whiteboard' | 'tafel'>> = {
   incidents: {
     migratedTitle: 'Stato di lavoro migrato',
     geojsonNotJson: 'File JSON non valido.',
@@ -306,5 +306,54 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
 
     groupDeletedN: '{n} oggetti rimossi dal piano',
     truppPlacedHere: 'già qui',
+  },
+  tafel: {
+    templateTitle: 'Modello',
+    plakatName: 'Primo cartellone (CSSP)',
+    plakat: {
+      heading: 'Prima condotta',
+      prefilled: 'precompilato dall’intervento',
+      title: 'Intervento',
+      address: 'Indirizzo',
+      alarm: 'Allarme',
+      el: 'Capo intervento',
+      problems: 'Rilevamento dei problemi',
+      front: 'Fronte',
+      ordnung: 'Ordine',
+      sanitaet: 'Sanitario',
+      spezial: 'Problemi speciali',
+      massnahmen: 'Misure',
+      mittel: 'Mezzi',
+      verbindungen: 'Collegamenti',
+      absprachen: 'Punti da concordare',
+      was: 'Cosa / dove',
+      wer: 'Chi',
+      wann: 'Quando',
+      formation: 'Formazione',
+      pers: 'Pers.',
+      wo: 'Dove',
+      funktion: 'Funzione / posizione',
+      kanal: 'Canale',
+      ruf: 'Nominativo / tel.',
+      newProblem: 'Problema …',
+      newRow: 'Nuova riga …',
+      note: 'Parola chiave',
+      trendNone: 'Tendenza aperta',
+      trendUp: 'peggiora',
+      trendSame: 'stabile',
+      trendDown: 'migliora',
+      trendTitle: 'Tendenza: {trend} – tocca per cambiare',
+      done: 'Fatto',
+      weatherTag: 'Meteo',
+      wind: 'Vento {dir} {speed} km/h',
+      absprachenDefaults: ['Posizione della direzione d’intervento', 'Accesso / asse di salvataggio', 'Zona d’attesa', 'Punto di raccolta pazienti', 'Approvvigionamento idrico', 'Sbarramento'],
+      inserted: 'Primo cartellone inserito',
+      edited: 'Cartellone modificato',
+      remove: 'Rimuovi cartellone',
+      removeTitle: 'Rimuovere il cartellone?',
+      removeMsg: 'Tutto ciò che è scritto sul cartellone se ne va con esso. Annulla lo riporta.',
+      removed: 'Cartellone rimosso',
+      reportTitle: 'Prima condotta (cartellone)',
+    },
   },
 }

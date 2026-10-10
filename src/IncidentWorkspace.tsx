@@ -62,6 +62,7 @@ import { consumeJustUpdated } from './lib/swUpdate'
 import { useIsPhone, useMediaQuery } from './lib/useIsPhone'
 import { onReachable } from './lib/connectivity'
 import { Splash } from './components/Splash'
+import { plakatSeedFrom } from './lib/plakatSeed'
 import { NavRail } from './components/NavRail'
 import { twinVisible, isTwinLayerId } from './lib/georefTwins'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
@@ -1329,6 +1330,17 @@ export function IncidentWorkspace({
   const displayWeather = replayActive ? (replayWs?.weather ?? null) : liveWeather.data
   // …and the Karte's weather LAYER: the MeteoSwiss radar (live only)
   const weather = useKarteWeather(mode === 'map' && !replayActive)
+  // the Tafel's «Erstes Plakat (FKS)» Vorlage pre-fills from what the Einsatz already knows — not
+  // for a link session (bound to one object)
+  const plakatSeed = linkScoped ? undefined : () => plakatSeedFrom({
+    title: incidentMeta.title, address: incidentMeta.address,
+    alarmIso: reportMeta.alarmiertAt ?? incidentMeta.started_at,
+    einsatzleiter: reportMeta.einsatzleiter,
+    weather: liveWeather.data,
+    fahrzeuge: reportMeta.fahrzeuge,
+    fleet: getDeploymentConfig().fleet?.vehicles,
+    entities: doc.entities,
+  })
 
   // The opening cover (lib/bootCover): the boot Splash's snail stays over the whole workspace
   // until its first screen is whole — the symbol pack, the Karte framed with its first view drawn
@@ -3112,7 +3124,7 @@ export function IncidentWorkspace({
         planKeys, planFocus, effTrupps, truppCounterNames, teamNameTaken, azAlarm, updateTrupp,
         askTruppEntry, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker, linkTruppLine, unlinkLine,
         linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, syncLineNoToTrupp, setMode, setPanel,
-        setTruppFocus, planScale, setPlanScale,
+        setTruppFocus, planScale, setPlanScale, plakatSeed,
       }} />
 
       {pickerOpen && (

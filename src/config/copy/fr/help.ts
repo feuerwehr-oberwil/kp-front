@@ -164,6 +164,8 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             'Dans les **Couches**, chaque feuille liée reçoit une ligne propre (« Plan (module 2) ») : la feuille elle-même, en image sous la carte. Les objets qui y sont posés n’ont plus besoin de ligne – ils appartiennent à la couche sur laquelle ils ont été posés.',
           ] },
           { kind: 'note', text: '**Dans quel sens se trouve le bâtiment ?** Un toucher sur la **flèche du nord** en haut à droite de la pile d’étages ouvre la petite fenêtre « Pivoter le bâtiment » : un curseur **Rotation** avec aperçu, plus **Nord en haut** et **Pivoter sur le grand axe** en un seul geste. Le contour tourne avec, les marquages restent où ils sont sur le bâtiment – et les pages d’étage imprimées montrent l’angle réglé.' },
+          { kind: 'note', text: '**Le Tafel vide** affiche sous « Feuille vierge » le **modèle « Première affiche (CSSP) »** – un toucher pose l’affiche sur le Tafel. Le modèle n’apparaît que tant que la feuille est vide et que « Sélection » est choisie.' },
+          { kind: 'note', text: '**Première affiche (CSSP)** – l’affiche A3 « Première conduite » en vrais champs sur le Tafel : saisie des problèmes (front · ordre · sanitaire · problèmes spéciaux, chacun avec une tendance ➚ = ➘ – toucher pour changer), mesures (quoi/où · qui · quand), moyens, liaisons, points à convenir. L’en-tête, les véhicules et le vent sont préremplis depuis l’intervention, le reste est vide. Chaque saisie est un pas ↶, l’insertion aussi. Sur téléphone, les mêmes champs en liste. Avec un outil choisi, on dessine par-dessus l’affiche. Le rapport la reprend dans sa propre section.' },
         ],
       },
       {

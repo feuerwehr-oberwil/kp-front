@@ -99,6 +99,9 @@ import { ToolDock } from './ToolDock'
 import { PlanCompass } from './PlanCompass'
 import { OrientSlider } from './OrientSlider'
 import { ToolRail } from './ToolRail'
+import { Button } from './Button'
+import { PLAKAT_BASE_W, TafelPlakat } from './TafelPlakat'
+import { findPlakat, newPlakat, plakatAnno, plakatHasContent, TAFEL_ID, type PlakatSeed } from '../lib/plakat'
 
 const COLORS = appConfig.drawing.colors
 
@@ -327,6 +330,9 @@ interface Props {
   onStepEnd?: () => void
   /** Show a plan-owned object at its projected position on the Lage map. */
   onPlanProjection?: (planId: string, annoId: string, coord: LngLat) => void
+  /** What the Einsatz already knows, for the «Erstes Plakat (FKS)» pre-fill — read at the tap.
+   *  Absent ⇒ the empty Tafel offers no Vorlage (an Einsatz-Link session). */
+  plakatSeed?: () => PlakatSeed
 }
 
 /**
@@ -350,7 +356,7 @@ export interface PlanLogExtra {
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, plakatSeed }: Props) {
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -1096,7 +1102,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // as it does on the Lage. Checkpoint once when typing starts, emit once on blur — otherwise
   // «Sicherung» is nine undo steps and nine audit rows.
   const titleLive = useRef<string | null>(null)
-  const { pushPast, set, commit, add, patch, patchCommit, removeAnno } = useBoardDoc({
+  const { pushPast, set, commit, add, patch, patchCommit, remove, removeAnno } = useBoardDoc({
     annos, onChange, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd,
   })
   // expose fit-to-view (the phone top bar's Fit button calls it; desktop uses the rail footer)
@@ -1117,7 +1123,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    * since 18.09.2026, leave a ghost trail behind that nobody ever walked.
    */
   const DUP_OFFSET_N = 0.02 // ~2 % of the plan width — the same visible nudge a detached endpoint gets
-  const DUP_PREFIX: Record<BoardKind, string> = { draw: 'l', area: 'a', circle: 'c', text: 't', symbol: 's', shape: 'sh', resource: 'r' }
+  const DUP_PREFIX: Record<BoardKind, string> = { draw: 'l', area: 'a', circle: 'c', text: 't', symbol: 's', shape: 'sh', resource: 'r', plakat: 'pk' }
   const duplicateSelection = () => {
     if (readOnly || selIds.length > 1) return
     const src = annos.find((a) => a.id === selId)
@@ -1138,6 +1144,37 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     add(copy)
     setSelId(id); setSelIds([])
     log('layers', appConfig.copy.log.duplicated, { annoId: id, x: copy.x ?? copy.pts?.[0]?.[0], y: copy.y ?? copy.pts?.[0]?.[1], floor: copy.floor })
+  }
+
+  // ── The empty Tafel: the «Leeres Blatt» hint and ONE Vorlage, «Erstes Plakat (FKS)» ─────────────
+  // (The «Womit beginnen?» starter cards were dropped 10.10.2026, owner: Objekt/Gebäude wählen
+  // were only links to doors the app already has, and «Gebäude» could replace one already set.)
+  // The Vorlage rides on the hint: there while the sheet holds nothing and Auswahl is armed, so a
+  // pen tap never lands on it, and never on a read-only sheet.
+  const onTafel = active.id === TAFEL_ID
+  const plakat = onTafel ? findPlakat(annos) : undefined
+  const vorlageShown = blank && onTafel && !!plakatSeed && annos.length === 0 && !readOnly && tool === 'pan'
+  /** «Erstes Plakat (FKS)»: ONE anno, ONE ↶ step, pre-filled from what the Einsatz already knows */
+  const insertPlakat = () => {
+    if (readOnly || !plakatSeed || findPlakat(annos)) return
+    const P = appConfig.copy.tafel.plakat
+    const a = plakatAnno(newPlakat(plakatSeed(), P.absprachenDefaults, P.weatherTag))
+    onStepLabel?.(P.inserted)
+    add(a)
+    log('doc', P.inserted, { annoId: a.id })
+  }
+  const editPlakat = (next: NonNullable<BoardAnno['plakat']>) => {
+    if (readOnly || !plakat) return
+    onStepLabel?.(appConfig.copy.tafel.plakat.edited)
+    patchCommit(plakat.id, { plakat: next })
+  }
+  const removePlakat = async () => {
+    if (readOnly || !plakat) return
+    const P = appConfig.copy.tafel.plakat
+    if (plakatHasContent(plakat.plakat) && !await confirmDialog({ title: P.removeTitle, message: P.removeMsg, confirmLabel: P.remove, cancelLabel: appConfig.copy.cancel, danger: true })) return
+    onStepLabel?.(P.removed)
+    remove(plakat.id)
+    log('trash', P.removed, { subjectId: plakat.id })
   }
 
   useEffect(() => {
@@ -2928,6 +2965,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           object they all belong to is named on the chip in the bottom-left corner */}
       {/* plan canvas + annotation layer */}
       <div className="wb-stage" ref={stageRef}>
+        {/* a phone reads and fills the Plakat as one column; arming a tool shows the paper again */}
+        {plakat && isPhone && tool === 'pan' && (
+          <TafelPlakat variant="list" topInset={TOP_INSET} data={plakat.plakat} readOnly={readOnly} onChange={editPlakat} onRemove={() => void removePlakat()} />
+        )}
         <div
           ref={setCanvas}
           className={`wb-canvas tool-${tool} ${pending || pendingShape ? 'placing' : ''}`}
@@ -2956,7 +2997,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         >
           <div
             ref={boardRef}
-            className={`wb-board ${blank ? 'wb-board-blank' : ''}`}
+            className={`wb-board ${blank ? 'wb-board-blank' : ''}${plakat ? ' wb-board-grid' : ''}`}
             // the reserved lanes are not symmetric (the rails differ), so the centre shifts by half
             // their difference — exactly what `vShift` does for the top bar (and the Gebäude's
             // chip row below)
@@ -3081,7 +3122,22 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 preselectSrc={building?.geo ? building.src : undefined} preselectGeo={building?.geo}
                 pin={incidentPos} onPick={onSelectBuilding} />
             ) : blank ? (
-              annos.length === 0 && <div className="wb-blank-hint">{appConfig.copy.whiteboard.blankHint}</div>
+              // the «Erstes Plakat» lies ON the paper, under the ink, scaled with it (and passive
+              // while a drawing tool is armed, so the pen writes over it)
+              plakat ? <TafelPlakat variant="sheet" data={plakat.plakat} readOnly={readOnly} scale={(sW || PLAKAT_BASE_W) / PLAKAT_BASE_W} fitH={sH || undefined}
+                passive={tool !== 'pan' || isPhone} onChange={editPlakat} onRemove={() => void removePlakat()} />
+                : annos.length === 0 && (
+                  <div className="wb-blank-hint">
+                    {appConfig.copy.whiteboard.blankHint}
+                    {/* the Tafel's Vorlage list — ONE entry for now (owner, 08.10.2026) */}
+                    {vorlageShown && (
+                      <div className="wb-blank-vorlage" data-testid="tafel-vorlage" onPointerDown={(e) => e.stopPropagation()}>
+                        <span className="wb-blank-vorlage-t">{appConfig.copy.tafel.templateTitle}</span>
+                        <Button variant="secondary" icon={<Icon id="doc" />} onClick={insertPlakat}>{appConfig.copy.tafel.plakatName}</Button>
+                      </div>
+                    )}
+                  </div>
+                )
             ) : (
               <PdfViewport
                 key={active.id}

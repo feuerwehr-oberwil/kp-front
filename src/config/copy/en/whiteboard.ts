@@ -3,7 +3,7 @@
 
 import type { Copy, Localizable } from '../index'
 
-export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | 'notes' | 'whiteboard'>> = {
+export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | 'notes' | 'whiteboard' | 'tafel'>> = {
   incidents: {
     migratedTitle: 'Migrated working state',
     geojsonNotJson: 'Not a valid JSON file.',
@@ -306,5 +306,54 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     orientSliderLabel: 'Rotation',
 
     groupDeletedN: '{n} objects removed from the plan',
+  },
+  tafel: {
+    templateTitle: 'Template',
+    plakatName: 'First poster (FKS)',
+    plakat: {
+      heading: 'First command',
+      prefilled: 'pre-filled from the incident',
+      title: 'Incident',
+      address: 'Address',
+      alarm: 'Alarm',
+      el: 'Incident commander',
+      problems: 'Problem assessment',
+      front: 'Front',
+      ordnung: 'Order',
+      sanitaet: 'Medical',
+      spezial: 'Special problems',
+      massnahmen: 'Measures',
+      mittel: 'Resources',
+      verbindungen: 'Communications',
+      absprachen: 'Points to agree',
+      was: 'What / where',
+      wer: 'Who',
+      wann: 'When',
+      formation: 'Unit',
+      pers: 'Crew',
+      wo: 'Where',
+      funktion: 'Function / location',
+      kanal: 'Channel',
+      ruf: 'Call sign / phone',
+      newProblem: 'Problem …',
+      newRow: 'New row …',
+      note: 'Keyword',
+      trendNone: 'Trend open',
+      trendUp: 'getting worse',
+      trendSame: 'unchanged',
+      trendDown: 'easing',
+      trendTitle: 'Trend: {trend} – tap to change',
+      done: 'Done',
+      weatherTag: 'Weather',
+      wind: 'Wind {dir} {speed} km/h',
+      absprachenDefaults: ['Command post location', 'Access / rescue route', 'Staging area', 'Casualty collection point', 'Water supply', 'Cordon'],
+      inserted: 'First poster inserted',
+      edited: 'Poster changed',
+      remove: 'Remove poster',
+      removeTitle: 'Remove poster?',
+      removeMsg: 'Everything written on the poster goes with it. Undo brings it back.',
+      removed: 'Poster removed',
+      reportTitle: 'First command (poster)',
+    },
   },
 }
