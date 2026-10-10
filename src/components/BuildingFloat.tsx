@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
+import { cx } from '../lib/cx'
 import type { BuildingInfo } from '../lib/api/building'
 import { buildingChipSummary } from '../lib/buildingCard'
 import { BuildingCard } from './BuildingCard'
@@ -43,7 +44,9 @@ export function BuildingFloat({ info, compact = false }: { info: BuildingInfo | 
     <span className={s.anchor}>
       <button
         type="button"
-        className={`wb-scale-chip ${s.chip}${open ? ' arm' : ''}${summary.hazard ? ` ${s.hazard}` : ''}`}
+        // the floating family's own chip (`.wb-scale-chip`) — the module only adds the hazard tone;
+        // it never had a `.chip` of its own, and reading one printed «undefined» into the class
+        className={cx('wb-scale-chip', open && 'arm', summary.hazard && s.hazard)}
         aria-label={summary.label}
         title={summary.label}
         aria-expanded={open}
