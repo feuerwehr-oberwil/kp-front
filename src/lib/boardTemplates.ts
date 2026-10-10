@@ -25,7 +25,9 @@ export const BUNDLED_TEMPLATES: BoardTemplate[] = [fksErsteFuehrung as BoardTemp
 export const isTafelTemplateId = (id: string): boolean =>
   id.startsWith(TAFEL_PREFIX) && /^[a-z0-9][a-z0-9-]*$/.test(id.slice(TAFEL_PREFIX.length))
 
-const hasTemplates = (v: unknown): v is BoardTemplate[] => Array.isArray(v) && v.length > 0 && v.every(isBoardTemplate)
+/** ⚠️ An EMPTY list is a valid answer here (unlike the checklists'): a station that removed its
+ *  last template is back on the bundled FKS set, not stuck on the copy it removed. */
+const isTemplateList = (v: unknown): v is BoardTemplate[] => Array.isArray(v) && v.every(isBoardTemplate)
 
 /** The template set for this deployment. NEVER throws: offline or on a fresh station the Tafel
  *  still offers the last set it saw, else the bundled FKS one. */
@@ -39,16 +41,20 @@ export async function loadBoardTemplates(): Promise<BoardTemplate[]> {
         apiGet<unknown>(`/api/reference/${id}`).then((j) => (isBoardTemplate(j) ? j : null)).catch(() => null)))
       return fetched.filter((t): t is BoardTemplate => t !== null)
     },
-    { validate: hasTemplates, fallback: () => BUNDLED_TEMPLATES, shouldFallback: () => true },
+    { validate: isTemplateList, fallback: () => [], shouldFallback: () => true },
   )
-  return value
+  return value.length ? value : BUNDLED_TEMPLATES
 }
 
-let warm: Promise<BoardTemplate[]> | null = null
-/** Loaded once per session the first time a Tafel asks; the bundle answers until it lands. */
-export function warmBoardTemplates(): Promise<BoardTemplate[]> {
-  warm ??= loadBoardTemplates()
-  return warm
+/** how long a loaded set is handed out before the registry is asked again (as the checklists') */
+const FRESH_MS = 5 * 60_000
+let warm: { at: number; list: Promise<BoardTemplate[]> } | null = null
+/** Loaded when an Einsatz opens and re-read once it is older than FRESH_MS, so a station that
+ *  published a corrected file mid-Einsatz sees it on the next open (an added page keeps its own
+ *  snapshot either way). */
+export function warmBoardTemplates(now = Date.now()): Promise<BoardTemplate[]> {
+  if (!warm || now - warm.at > FRESH_MS) warm = { at: now, list: loadBoardTemplates() }
+  return warm.list
 }
 /** test seam */
 export const resetWarmBoardTemplates = () => { warm = null }
