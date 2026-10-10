@@ -21,6 +21,11 @@ runs:
           # compose pulls ghcr.io/…:${KP_FRONT_TAG:-latest}; point it at the image built
           # below so the stack boots THIS commit instead of the last published release.
           echo "KP_FRONT_TAG=ci"
+          # The Karte's weather layer fetches MeteoSwiss radar from the backend; in CI
+          # that is outbound traffic, CPU (a radar frame takes ~1 s to render) and a picture that
+          # changes with the sky. Off here: the e2e sees «not served», and the perf + visual
+          # harnesses answer /api/weather/layer themselves with a canned layer (e2e/*/harness.ts).
+          echo "WEATHER_LAYER_ENABLED=false"
         } > .env
 
     - name: Set up Buildx

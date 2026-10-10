@@ -367,6 +367,9 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/api/traccar/positions"),
         ("GET", "/api/traccar/trails"),
         ("GET", "/api/weather"),
+        # the Karte's radar + warnings (app/weather_layer): read from memory, no outbound call
+        ("GET", "/api/weather/layer"),
+        ("GET", "/api/weather/radar/{key}.png"),
     }
 )
 

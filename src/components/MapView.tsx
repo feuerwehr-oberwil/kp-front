@@ -1,4 +1,4 @@
-import { forwardRef, Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { forwardRef, Fragment, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
 import { buzz } from '../lib/haptics'
@@ -41,6 +41,8 @@ import { useMapCanvasGestures } from './useMapCanvasGestures'
 import { LineMarker } from './LineMarker'
 import { MapMarkers } from './MapMarkers'
 import { MapLayers } from './MapLayers'
+import { WeatherRadarSource } from './weatherLazy'
+import type { WeatherRadar } from '../lib/weatherLayer'
 // long-press to delete a path vertex (touch — desktop right-click kept); the placed-object
 // move threshold lives in MapMarkers with the entity-drag logic.
 import { useNodeHold } from '../lib/nodeHold'
@@ -413,6 +415,9 @@ interface Props {
     opacity: number
     coordinates: [[number, number], [number, number], [number, number], [number, number]]
   }[]
+  /** The «Niederschlag (Radar)» layer (components/WeatherLayer), while it is on: the frame on
+   *  screen, its transparency (0–100) and whether it is stale (drawn desaturated). */
+  weatherRadar?: { radar: WeatherRadar; frameIndex: number; opacity: number; stale: boolean } | null
 }
 
 /** Whether the Karte takes its automatic coarse own-position fix (the default blue dot,
@@ -428,7 +433,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, onBasemapUnavailable, onSettled, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
-    onSelectionDone, georefPlanRasters = [] } = props
+    onSelectionDone, georefPlanRasters = [], weatherRadar = null } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
@@ -2789,6 +2794,16 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         onToggleTrail={toggleTrail}
       />
 
+      {/* The weather radar (lazy). LAST in the tree on purpose: its layer names `beforeId` (the
+          first drawings layer, WeatherLayer · WEATHER_RADAR_BEFORE), which has to exist when it
+          is added – so it lies under every line and symbol and above the basemap however late
+          its chunk and its frame arrive. */}
+      {weatherRadar && mapReady && !georefOn && (
+        <Suspense fallback={null}>
+          <WeatherRadarSource radar={weatherRadar.radar} frameIndex={weatherRadar.frameIndex}
+            opacity={weatherRadar.opacity} stale={weatherRadar.stale} />
+        </Suspense>
+      )}
     </Map>
     {/* the tool's number, fixed at the top edge while a measure vertex is being dragged — the
         per-vertex label sits under the very fingertip that changes it (the .node-del chip is

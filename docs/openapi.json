@@ -6551,6 +6551,98 @@
         }
       }
     },
+    "/api/weather/layer": {
+      "get": {
+        "tags": [
+          "weather"
+        ],
+        "summary": "Weather Layer",
+        "description": "The radar frames of the last hour, as last polled.",
+        "operationId": "weather_layer_api_weather_layer_get",
+        "parameters": [
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WeatherLayerOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/weather/radar/{key}.png": {
+      "get": {
+        "tags": [
+          "weather"
+        ],
+        "summary": "Weather Radar Frame",
+        "description": "One radar frame as a transparent PNG in Web Mercator.",
+        "operationId": "weather_radar_frame_api_weather_radar__key__png_get",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/png": {}
+            }
+          },
+          "404": {
+            "description": "Frame not (or no longer) cached"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/geocode/search": {
       "get": {
         "tags": [
@@ -19335,6 +19427,120 @@
         ],
         "title": "Publish"
       },
+      "RadarFrameOut": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "time": {
+            "type": "string",
+            "title": "Time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "time"
+        ],
+        "title": "RadarFrameOut"
+      },
+      "RadarLegendStep": {
+        "properties": {
+          "min_mm_h": {
+            "type": "number",
+            "title": "Min Mm H"
+          },
+          "color": {
+            "type": "string",
+            "title": "Color"
+          }
+        },
+        "type": "object",
+        "required": [
+          "min_mm_h",
+          "color"
+        ],
+        "title": "RadarLegendStep"
+      },
+      "RadarOut": {
+        "properties": {
+          "frames": {
+            "items": {
+              "$ref": "#/components/schemas/RadarFrameOut"
+            },
+            "type": "array",
+            "title": "Frames"
+          },
+          "coordinates": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coordinates"
+          },
+          "data_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Time"
+          },
+          "stale": {
+            "type": "boolean",
+            "title": "Stale"
+          },
+          "stale_after_seconds": {
+            "type": "integer",
+            "title": "Stale After Seconds"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WeatherSourceStatus"
+          },
+          "legend": {
+            "items": {
+              "$ref": "#/components/schemas/RadarLegendStep"
+            },
+            "type": "array",
+            "title": "Legend"
+          },
+          "attribution": {
+            "type": "string",
+            "title": "Attribution"
+          },
+          "source_url": {
+            "type": "string",
+            "title": "Source Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "frames",
+          "coordinates",
+          "data_time",
+          "stale",
+          "stale_after_seconds",
+          "status",
+          "legend",
+          "attribution",
+          "source_url"
+        ],
+        "title": "RadarOut"
+      },
       "RankConfig": {
         "properties": {
           "key": {
@@ -21045,6 +21251,101 @@
         },
         "type": "object",
         "title": "WeatherData"
+      },
+      "WeatherLayerOut": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "radar": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RadarOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "title": "WeatherLayerOut"
+      },
+      "WeatherSourceStatus": {
+        "properties": {
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_error_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error At"
+          },
+          "stale": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale"
+          }
+        },
+        "type": "object",
+        "title": "WeatherSourceStatus"
       },
       "WorkbookImportResult": {
         "properties": {

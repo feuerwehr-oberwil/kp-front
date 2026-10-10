@@ -8,6 +8,14 @@ import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
 import type { TwinLayerRow } from '../lib/georefTwins'
 import type { LayerPreset } from '../lib/layerPreset'
 
+/** The «Niederschlag (Radar)» row (components/WeatherLayer) — a device pref routed by id like a
+ *  twin, with the colour key under it while it is on. Absent when the deployment serves no
+ *  weather layer (WEATHER_LAYER_ENABLED=false): a row that can never show anything is not drawn. */
+export interface WeatherLayerRow extends TwinLayerRow {
+  attribution: string
+  legend: { min_mm_h: number; color: string }[]
+}
+
 interface Props {
   layers: LayerDef[]
   onToggle: (id: LayerDef['id']) => void
@@ -39,9 +47,11 @@ interface Props {
    *  selected, none of them for a hand-switched set (05.10.2026, owner: «ebenen should have an
    *  indication when using standard or all on / off») */
   preset?: LayerPreset
+  /** the weather radar row, last on the panel (its own group, «Wetter») */
+  weather?: WeatherLayerRow
 }
 
-export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onClose, onShowAll, onHideAll, onReset, preset }: Props) {
+export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onClose, onShowAll, onHideAll, onReset, preset, weather }: Props) {
   /* One transparency row, for a real `LayerDef` and for a Georeferenz twin alike — the twin ids
      are not `LayerDef` ids and persist elsewhere (georefTwins · isTwinLayerId → the device's
      `twinLayerOpacity`), but the row is the panel's, so both go through the same control and the
@@ -59,8 +69,9 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
   // What the map on screen is made of, credited: every VISIBLE layer's attribution, split at its
   // commas so «© OpenStreetMap-Mitwirkende» from two layers is named once. On a phone this is
   // the only place the credits show – the map's own ⓘ is hidden there (15-mobile.css).
-  const credits = [...new Set(layers.filter((l) => l.visible && l.attribution)
-    .flatMap((l) => l.attribution!.split(/,\s*/)).map((c) => c.trim()).filter(Boolean))]
+  const credits = [...new Set([...layers.filter((l) => l.visible && l.attribution).map((l) => l.attribution!),
+    ...(weather?.visible ? [weather.attribution] : [])]
+    .flatMap((a) => a.split(/,\s*/)).map((c) => c.trim()).filter(Boolean))]
     // …and a «©» never ends a line on its own: it is glued to the name it belongs to
     .map((c) => c.replace(/^©\s+/, '©\u00a0'))
   const groups = layers.filter((l) => !l.base).reduce<Record<string, LayerDef[]>>((acc, l) => {
@@ -190,6 +201,38 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
         ))}
 
         {!twinsAnchored && twinBlocks}
+
+        {/* the weather radar: its own group, last — reference data about the sky, not about the
+            Einsatz. Same row, same eye, same transparency slider as every overlay above; the
+            colour key under it while it is on, because a colour nobody can read is decoration. */}
+        {weather && (
+          <>
+            <div className="lgroup">{weather.group}</div>
+            <button
+              type="button"
+              className={`lrow lrow-twin ${weather.visible ? '' : 'off'}`}
+              style={{ appearance: 'none', WebkitAppearance: 'none', border: 'none', width: '100%', textAlign: 'left', font: 'inherit', color: 'inherit' }}
+              aria-pressed={weather.visible}
+              aria-label={`${weather.label} – ${weather.visible ? appConfig.copy.layerPanel.stateVisible : appConfig.copy.layerPanel.stateHidden}`}
+              onClick={() => onToggle(weather.id)}
+            >
+              <span className="ic"><Icon id={weather.icon} /></span>
+              <span className="name">{weather.label}{weather.sub && <small>{weather.sub}</small>}</span>
+              <span className="eye"><Icon id={weather.visible ? 'eye' : 'eyeoff'} /></span>
+            </button>
+            {weather.visible && weather.opacity !== undefined && opacityRow(weather.id, weather.opacity, weather.label)}
+            {weather.visible && weather.legend.length > 0 && (
+              <div className="lc-wx-key" aria-hidden>
+                <span className="lc-wx-ramp" style={{ background: `linear-gradient(to right, ${weather.legend.map((step) => step.color).join(', ')})` }} />
+                <span className="lc-wx-words">
+                  <span>{appConfig.copy.weatherLayer.legendLight}</span>
+                  <span>{appConfig.copy.weatherLayer.legendHeavy}</span>
+                </span>
+                <span className="lc-wx-unit">{appConfig.copy.weatherLayer.legendUnit}</span>
+              </div>
+            )}
+          </>
+        )}
 
         {credits.length > 0 && <p className="lc-credits">{credits.join(', ')}</p>}
       </div>
