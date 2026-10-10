@@ -582,6 +582,24 @@ describe('the phone row says its tier with a glyph, not colour alone', () => {
     expect(screen.getByText('Low Paula').closest(`.${s.trow}`)!.getAttribute('aria-label')).toContain(az.clockAlarmPressure)
   })
 
+  it('a crew in a NOTFALL wears the banner’s ⚠ in its dot’s place and no second glyph under the clock', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ trupps: [
+      { ...aktivTrupp(), id: 'n', name: 'Nora Notfall', lastContactTime: iso(8 * 60_000), notfallAt: iso(60_000) },
+      { ...aktivTrupp(), id: 'o', name: 'Over Otto', lastContactTime: iso(8 * 60_000) },
+    ] })
+    const row = (name: string) => [...document.querySelectorAll<HTMLElement>(`button.${s.trow}`)].find((r) => r.textContent!.includes(name))!
+    const nf = row('Nora Notfall')
+    expect(nf.querySelector(`.${s.trowName} .${s.nfGlyph} use`)!.getAttribute('href')).toBe('#warn')
+    expect(nf.querySelector(`.${s.trowDot}`)).toBeNull()
+    expect(nf.querySelector(`.${s.trowTier}`)).toBeNull()
+    // every other crew keeps its dot and its tier glyph
+    expect(row('Over Otto').querySelector(`.${s.trowTier}`)).not.toBeNull()
+    expect(row('Over Otto').querySelector(`.${s.nfGlyph}`)).toBeNull()
+    // …and the banner names the crew exactly as its row does
+    expect(document.querySelector(`section.${s.nfBanner} .${s.trowNameTxt}`)!.textContent).toBe('Nora Notfall')
+  })
+
   it('keeps the row on its two lines — the mark lives in the clock cell', () => {
     vi.mocked(useIsPhone).mockReturnValue(true)
     mount({ trupps: [{ ...aktivTrupp(), lastContactTime: iso(8 * 60_000) }] })

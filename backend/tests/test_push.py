@@ -851,6 +851,21 @@ class TestNotfallOnSave:
         assert [a["id"] for a in ended] == ["b"]
         assert notfall_changes(None, "garbage") == ([], [])
 
+    def test_raus_ends_the_notfall_like_a_held_end(self):
+        # «Raus» on a crew in a Notfall clears ``notfallAt`` in the same save (owner, 10.10.2026):
+        # the server reads it exactly as a held «Notfall beendet» — one end push, and the sweep
+        # no longer lists the Trupp
+        from app.push import due_trupps, notfall_changes
+
+        n = "2026-07-02T14:08:00Z"
+        before = [trupp("a", "2026-07-02T14:07:00Z", notfallAt=n)]
+        after = [trupp("a", "2026-07-02T14:07:00Z", status="raus", exitTime="2026-07-02T14:20:00Z")]
+        raised, ended = notfall_changes(before, after)
+        assert raised == []
+        assert [a["id"] for a in ended] == ["a"]
+        assert ended[0]["since"] == ms("2026-07-02T14:08:00+00:00")
+        assert due_trupps({"trupps": after}, {}, ms("2026-07-02T14:30:00+00:00")) == []
+
     async def test_a_saved_notfall_is_pushed_at_once_and_the_sweep_does_not_repeat_it(
         self, client, editor, db_session, monkeypatch
     ):

@@ -169,7 +169,11 @@ reworded.
   bar is the last KNOWN value, never printed as measured), ONE Verlauf row with the facts as they
   stood — place (Auftrag/Ziel + the symbol's plan/storey or Karte), last Kontakt, last Druck with
   its time, Kanal — and `atemschutz.notfall` / `.notfallEnde` events. The end row names the
-  duration; the status is untouched (out is its own report). Both are on the ↶ timeline; the
+  duration; the status is untouched. «Raus» on a crew in a Notfall ENDS it in the same act (owner,
+  10.10.2026: «draussen also means we have the emergency completed»): the `notfallEnde` reading
+  joins the exit row, «… Notfall beendet – Dauer … – Trupp draussen» stands beside the Austritt,
+  the end event and the server's end push are a held end's (`push · notfall_changes` only sees
+  `notfallAt` gone), and ONE ↶ step restores both (`setTruppStatus · endsNotfall`). Both are on the ↶ timeline; the
   trigger also raises the confirm-with-undo toast (same counter-row). A Sicherungstrupp sent in
   while a Notfall runs writes «… Sicherungstrupp eingesetzt – Notfall Trupp N (…), m:ss min nach
   Auslösung».
@@ -188,20 +192,23 @@ reworded.
   who, the clock, the facts, and the first offer «Sicherungstrupp einsetzen» — the ready
   Sicherungstrupp's ordinary Eintritt (several ⇒ a menu, none ⇒ «Sicherungstrupp bestimmen» with
   «Kein Sicherungstrupp bereit» as its second line — the «Bestimmen» door, one inside ⇒ «… drin
-  seit hh:mm»). It is a Trupp CARD in its alarm tone (owner feedback 10.10.2026, three rounds:
+  seit hh:mm»). It is a Trupp CARD in its alarm tone (owner feedback 10.10.2026, four rounds:
   the first banner was a widget of kicker, clock column, wrapped names, facts and two rows of
-  buttons, ~270 px on a 390 px phone): the phone card's frame (`.trow.trowCard.trowCrit`), and row
-  1 the card's own head line — ⚠ in the dot's place and, in red, the SAME name the crew's card
-  head shows («Binggeli Michael», `lib/atemschutz · truppHeadName`, so the card below reads as
-  the same crew — «⚠ Trupp 1» over it did not), the card's 25 px clock, a chevron › — the whole
-  line being «Zum Trupp» (aria «Zum Trupp 1 (Binggeli Michael / …)»). Row 2
-  is ONE dim line, «Notfall seit 11:11 · Löschen · 300 bar (Eingangsdruck) · Kanal 11», wrapping,
-  never cut; the people are the card's (and the aria label's, the Meldeleiste's, the Verlauf's).
-  Row 3 is the one act at the banner's width, its reason as a small second line. ~162 px on a
-  phone. A viewer gets only the head line (and the note). All banners share one sticky stack;
-  with several Notfälle each is rows 1 and 3. The board measures the stack (`--nf-h` on the port:
-  its scroll padding, and the parking scroll of the phone's opened card), so an opened card lands
-  below the banners, never under them. Elsewhere the Meldeleiste row offers
+  buttons, ~270 px on a 390 px phone): the phone card's frame (`.trow.trowCard.trowCrit`) and ⚠
+  plus the SAME name the crew's card head shows («Binggeli Michael», `lib/atemschutz ·
+  truppHeadName`; «⚠ Trupp 1» over it did not read as the same crew). *Phone*: the card's own
+  head line (⚠ name, the card's 25 px clock, ›; the whole line «Zum Trupp», aria «Zum Trupp 1
+  (Binggeli Michael / …)») and the one act at the banner's width — no facts line, the card right
+  below shows Druck and Kanal. *Wide boards* (tablet / desktop grid): ONE slim row, «⚠ name» with
+  the facts («Notfall seit 11:11 · Löschen · 300 bar (Eingangsdruck) · Kanal 11») beside it or
+  under the name when they do not fit, never cut, then the act at its own width, then the clock
+  and › — name side and clock side both lead to the card. The facts are always in the alert's
+  aria label, the Meldeleiste row and the Verlauf. The crew's OWN card wears the same ⚠ in its
+  dot's place and drops the fällig/überfällig glyph under its clock while the Notfall runs. A
+  viewer gets the head and the note only. All banners share one sticky stack; with several
+  Notfälle there are no facts. The board measures the stack (`--nf-h` on the port: its scroll
+  padding, and the parking scroll of the phone's opened card), so an opened card lands below the
+  banners, never under them. Elsewhere the Meldeleiste row offers
   the same first (exactly one ready ⇒ it goes in and the Tafel opens).
 - *Ready* is what the board models: under PA, Auftrag «Sichern», angemeldet. An Atemschutz-Trupp
   going in while none is ready gets one calm toast («Kein Sicherungstrupp bereit»), never a

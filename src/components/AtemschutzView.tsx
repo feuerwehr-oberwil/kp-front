@@ -1518,7 +1518,7 @@ export function AtemschutzView({
             sorted (F1, 08.10.2026) — the strip's row steps aside here, this is its place. Not on
             a closed Einsatz: its Tafel alarms nothing (R3). */}
         {notfallTrupps.length > 0 && <div className={s.nfStack} ref={nfStackRef}>{notfallTrupps.map((t) => (
-          <NotfallBanner key={t.id} t={t} now={now} place={placeOf?.(t)} canEdit={canEdit} dense={notfallTrupps.length > 1}
+          <NotfallBanner key={t.id} t={t} now={now} place={placeOf?.(t)} canEdit={canEdit} dense={notfallTrupps.length > 1} wide={!compact}
             ready={notfallReady} inside={notfallSafetyInside}
             onDeploySafety={(id) => { freezeOrder(); setTruppStatus(id, 'aktiv') }}
             pickSafety={(trigger) => (
@@ -2142,13 +2142,20 @@ function RowLine({ t, live, color, lite, tier }: { t: Trupp; live: TruppLive; co
   // cannot silently leak «Draussen seit» onto a work squad's row without also failing the app-only
   // wording test below.
   const clockSub = clock.sub === az.outFor ? words.outFor : clock.sub
+  const inNotfall = truppInNotfall(t)
+  // …and no tier glyph under its clock: the ⚠ before the name already says the loudest thing,
+  // a second one under the clock repeated it (fällig/überfällig stays on every other crew)
+  const tierShown = inNotfall ? null : tier
   return (
     <>
       <span className={s.trowId}>
         <span className={s.trowName}>
           {/* no colour, no dot: the handed-over Tafel never shows the Lage, so a Truppfarbe there
               carries no identity (round 2 review) — and an empty 11px slot would indent the name */}
-          {color && <span className={s.trowDot} style={{ background: color }} />}
+          {/* ⚠️ a crew in a NOTFALL wears the banner's ⚠ in the dot's place (owner round 4,
+              10.10.2026): the banner at the top and this card read as the same crew at a glance */}
+          {inNotfall ? <Icon id="warn" className={s.nfGlyph} />
+            : color && <span className={s.trowDot} style={{ background: color }} />}
           <span className={s.trowNameTxt}>{truppHeadName(t)}</span>
           {/* ⚠️ Name only — no «#N», no «SiTr», on the row AND the opened card (owner, staging
               26.09. and 30.09.2026: «the group leader name needs more space … drop the number #»).
@@ -2164,9 +2171,9 @@ function RowLine({ t, live, color, lite, tier }: { t: Trupp; live: TruppLive; co
         {/* the glyph only (owner, 09.10.2026: «Symbol only»); aria-hidden because the row's own
             aria-label and the card's status line already speak the word, and the title shows it
             on hover */}
-        {tier && (
-          <span className={cx(s.trowTier, tier.crit && s.trowTierCrit)} aria-hidden title={tier.text}>
-            <Icon id={tier.icon} />
+        {tierShown && (
+          <span className={cx(s.trowTier, tierShown.crit && s.trowTierCrit)} aria-hidden title={tierShown.text}>
+            <Icon id={tierShown.icon} />
           </span>
         )}
       </span>

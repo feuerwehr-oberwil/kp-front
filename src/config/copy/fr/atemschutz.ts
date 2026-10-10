@@ -303,6 +303,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       factBarEntry: 'pression d’entrée {bar} bar',
       factKanal: 'canal {n}',
       logEnd: 'Binôme {name} : urgence terminée – durée {dur}',
+      logEndOut: 'Binôme {name} : urgence terminée – durée {dur} – binôme sorti',
       logSafetyEntry: 'Binôme {name} : équipe de sécurité engagée – urgence binôme {target}, {dur} après le déclenchement',
       logAtClose: 'Binôme {name} : urgence non terminée à la clôture',
       toast: 'Urgence déclenchée pour le binôme {name}',

@@ -303,6 +303,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       factBarEntry: 'pressione d’entrata {bar} bar',
       factKanal: 'canale {n}',
       logEnd: 'Squadra {name}: emergenza conclusa – durata {dur}',
+      logEndOut: 'Squadra {name}: emergenza conclusa – durata {dur} – squadra fuori',
       logSafetyEntry: 'Squadra {name}: squadra di sicurezza impiegata – emergenza squadra {target}, {dur} dopo l’attivazione',
       logAtClose: 'Squadra {name}: emergenza non conclusa alla chiusura',
       toast: 'Emergenza attivata per la squadra {name}',
