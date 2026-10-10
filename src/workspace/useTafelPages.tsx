@@ -51,5 +51,6 @@ export function useTafelPages(src: TafelPagesSources): TafelPagesProps | undefin
     },
     scene,
     onOpenKarte: () => latest.current.openKarte(),
+    title: () => latest.current.title,
   } : undefined), [src.enabled, scene])
 }

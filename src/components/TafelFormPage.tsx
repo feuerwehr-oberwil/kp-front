@@ -17,7 +17,8 @@ import {
   type BoardFormData, type FormHead,
 } from '../lib/boardForm'
 import { NEW, navTarget, type NavAt, type NavKey, type NavSection } from '../lib/boardFormNav'
-import { IconButton } from './Button'
+import { Button, IconButton } from './Button'
+import { Menu } from '../lib/overlays'
 import { BoardSignature } from './BoardSignature'
 import MiniKarte, { type MiniKarteProps } from './MiniKarte'
 import s from './TafelFormPage.module.css'
@@ -296,6 +297,12 @@ export interface TafelFormPageProps {
   isPhone: boolean
   onChange: (next: BoardFormData) => void
   onRemove: () => void
+  /** «Drucken» (owner): this page, or `all` of the Tafel's pages, as a PDF (lib/tafelPrint) */
+  onPrint?: (all: boolean) => void
+  /** how many pages the Tafel has — past one, «Drucken» offers «Alle Seiten» too */
+  pageCount?: number
+  /** a print is being made: the button says so and waits */
+  printing?: boolean
   /** what the live mini Karte of a `map` section draws — it exists only while this page is shown */
   scene?: MiniKarteProps
   /** a tap on the mini Karte opens the Karte */
@@ -304,7 +311,7 @@ export interface TafelFormPageProps {
   inset: { top: number; left: number; right: number; bottom: number }
 }
 
-export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRemove, scene, onOpenKarte, inset }: TafelFormPageProps) {
+export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRemove, onPrint, pageCount = 1, printing = false, scene, onOpenKarte, inset }: TafelFormPageProps) {
   const t = T()
   const page = data.page
   const sections = shownSections(page)
@@ -641,6 +648,21 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
         <header className={s.head}>
           <h2 className={s.title}>{labelText(page.title)}</h2>
           <span className={s.meta} title={t.keysHint}>{fillTemplate(t.template, { title: labelText(data.tpl.title), v: data.tpl.version })}</span>
+          {/* the page on paper — the same sheet the Rapport prints; also on a closed Einsatz */}
+          {onPrint && (pageCount > 1
+            ? (
+              <Menu
+                align="end"
+                popupClassName="de-menu-pop"
+                itemClassName={() => 'de-menu-item'}
+                trigger={<Button variant="quiet" className={s.print} icon={<Icon id="printer" />} disabled={printing}>{printing ? t.printBusy : t.print}</Button>}
+                items={[
+                  { label: t.printThis, onClick: () => onPrint(false) },
+                  { label: fillTemplate(t.printAll, { n: pageCount }), onClick: () => onPrint(true) },
+                ]}
+              />
+            )
+            : <Button variant="quiet" className={s.print} icon={<Icon id="printer" />} disabled={printing} onPointerDown={keep} onClick={() => onPrint(false)}>{printing ? t.printBusy : t.print}</Button>)}
           {!readOnly && (
             <IconButton label={t.removePage} className={s.remove} onPointerDown={keep} onClick={onRemove}><Icon id="trash" /></IconButton>
           )}

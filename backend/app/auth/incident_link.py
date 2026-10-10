@@ -275,7 +275,8 @@ class _Denied(HTTPException):
 # stay symbolic and a typo fails loudly at match time rather than silently widening access.
 #
 # Everything here is a genuine read. Deliberate exclusions, each for a stated reason:
-#   report/pdf, zeitplan/pdf        — generate documents containing attendance + names
+#   report/pdf, zeitplan/pdf,       — generate documents containing attendance + names
+#   tafel/pdf                         (the Tafel's pages carry names, Funk, Absprachen too)
 #   push/subscriptions              — writes rows tied to a user
 #   diag/export                     — the station's own crash traces. Sanitised, but a link
 #                                     is handed to outsiders and this is internal diagnostics.

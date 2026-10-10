@@ -19,6 +19,7 @@
 .title { margin: 0; flex: 1 1 auto; min-width: 0; font: var(--fw-heavy) var(--fs-6)/var(--lh-6) var(--body); letter-spacing: -0.01em; }
 .meta { flex: none; font-size: var(--fs-micro); color: var(--ink-faint); }
 .remove { flex: none; }
+.print { flex: none; }
 
 .grid { display: grid; gap: var(--sp-4); align-items: stretch; }
 .sec { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--ink-45); }

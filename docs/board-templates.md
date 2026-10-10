@@ -76,6 +76,11 @@ replaces the bundled one.
   type into (as many as the section's `height` leaves after the written ones); there is no
   filler. Under the Abspracherapport's pre-printed rows, an added row has Bezeichnung and Ort as
   free text; its Signatur stays blank.
+- **Every ruling is the standard height**, never stretched (owner: «just keep things fixed»).
+  When a neighbour in the same grid row is taller, the leftover height gets more standard
+  rulings, each a live row (`TafelFormPage · useFillCounts`), or plain space when less than one
+  ruling is left. A box grows only when its own rulings are all written, one ruling at a time.
+  On paper the same: every table rules at the sheet's one ruling height.
 - **A row stays on the ruling it was written on**, like on paper: typed into the 8th ruling
   under three written rows, it stays the 8th, with empty rulings 4–7 above it (on screen and in
   print). Each row and each Problemerfassung line carries its `slot` (`lib/boardForm · slotted`),
@@ -104,6 +109,26 @@ It is cheap on purpose:
 
 In the Rapport, the box gets a server-side Kroki render of the scene at print time,
 auto-framed and without captions.
+
+## Printing a page
+
+«Drucken» in a page's header (next to the delete; also on a closed Einsatz) makes a PDF of that
+page — with more than one page, «Alle Seiten» too. The sheets are the Rapport's own (same
+renderer, A4 in the template's paper), composed without the Rapport around them
+(`POST /api/incidents/{id}/tafel/pdf`, `lib/tafelPrint`). The server draws the paper, so
+printing needs the connection: offline the app says so calmly, the page stays saved. An
+Einsatz-Link session cannot print it (the pages carry names, like the Rapport).
+
+## Exports
+
+- **The Rapport PDF** carries every page («Tafel – Seiten» in the print menu, on by default).
+- **«Einträge sichern»** carries the workspace saves a closed Einsatz refused — the pages ride
+  in them like every other part of the workspace — and the audit rows, each Tafel edit as the
+  cells it changed (`board.edit` · `form.delta`).
+- **The statistics export** (`/api/stats`) does NOT carry the pages: it is figures and the
+  capture-domain fields only, never the workspace's free text, and the Tafel is free text.
+- **The capture poster's Rapport** does not carry them either: its token sees the capture
+  domain only, never the workspace.
 
 ## The Rapport
 

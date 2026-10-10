@@ -193,6 +193,20 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     } finally { ch.mockRestore(); oh.mockRestore(); vi.unstubAllGlobals() }
   })
 
+  it('«Drucken» sits next to the delete: this page — and with more pages, «Alle Seiten» too', () => {
+    const printed: boolean[] = []
+    const data = newFormPage(FKS, EF, {}, '2026-10-10T09:24:00.000Z')
+    const props = { pageKey: 'p', data, readOnly: true, isPhone: false, onChange: () => {}, onRemove: () => {}, inset: { top: 0, left: 0, right: 0, bottom: 0 }, onPrint: (all: boolean) => printed.push(all) }
+    const { rerender } = render(<TafelFormPage {...props} pageCount={1} />)
+    // on a closed Einsatz too: the paper is a reading
+    act(() => { fireEvent.click(screen.getByRole('button', { name: /Drucken/ })) })
+    expect(printed).toEqual([false])
+    rerender(<TafelFormPage {...props} pageCount={3} />)
+    act(() => { fireEvent.click(screen.getByRole('button', { name: /Drucken/ })) })
+    act(() => { fireEvent.click(screen.getByRole('menuitem', { name: 'Alle Seiten (3)' })) })
+    expect(printed).toEqual([false, true])
+  })
+
   it('Alt+Enter is a line break inside the cell, not a move', () => {
     render(<Harness onCommit={() => {}} />)
     act(() => { box('ordnung').querySelector<HTMLTextAreaElement>('[data-kn]')!.focus() })
