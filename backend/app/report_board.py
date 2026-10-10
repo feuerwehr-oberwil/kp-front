@@ -280,8 +280,8 @@ def draw_signature(c, key: str, x: float, y: float, size: float) -> None:
         p.close()
         c.drawPath(p, stroke=0, fill=1)
         c.setFont(BOLD, 10 * u)
-        for cx in (9, 29):
-            px, py = pt(cx, 27.5)
+        for rx in (9.0, 29.0):
+            px, py = pt(rx, 27.5)
             c.drawCentredString(px, py, "R")
     elif key == "standort-einsatzleitung":
         line(20, 4, 20, 34)
