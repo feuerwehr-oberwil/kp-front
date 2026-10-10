@@ -114,36 +114,28 @@ describe('ReportPreflight · Auswertung default and operator choice', () => {
     return screen.getByRole('menuitemcheckbox', { name: appConfig.copy.preflight.toggleAuswertung })
   }
 
+  // ⚠️ UNTICKED whatever the record holds (owner, 10.10.2026) — it was seeded «ticked when a crew
+  // went in under PA» on 09.10.; an internal debrief sheet is asked for, not handed out
   it.each([
-    ['no-crew', [], false],
-    ['standby', [crew([{ t: '2026-09-14T08:20:00.000Z', bar: 300, kind: 'registered' }])], false],
-    ['pa-entry', [crew(entry)], true],
-    ['basic-entry', [{ ...crew(entry), kind: 'einfach' as const }], false],
-  ] as const)('seeds the print checkbox for %s', async (id, trupps, checked) => {
+    ['no-crew', []],
+    ['standby', [crew([{ t: '2026-09-14T08:20:00.000Z', bar: 300, kind: 'registered' }])]],
+    ['pa-entry', [crew(entry)]],
+    ['basic-entry', [{ ...crew(entry), kind: 'einfach' as const }]],
+  ] as const)('opens the print checkbox unticked for %s', async (id, trupps) => {
     render(sheet(`f7-default-${id}`, [...trupps]))
-    expect((await openMenu()).getAttribute('aria-checked')).toBe(String(checked))
-  })
-
-  it.each([true, false])('keeps an explicit %s choice after reopening with changed crew data', async (initial) => {
-    const id = `f7-override-${initial}`
-    const mounted = render(sheet(id, initial ? [crew(entry)] : []))
-    const toggle = await openMenu()
-    await act(async () => { fireEvent.click(toggle) })
-    expect(toggle.getAttribute('aria-checked')).toBe(String(!initial))
-    mounted.unmount()
-    render(sheet(id, initial
-      ? [{ ...crew(entry), removedAt: '2026-09-14T09:00:00.000Z' }]
-      : [crew([{ t: '2026-09-14T08:20:00.000Z', bar: 300, kind: 'registered' }])]))
-    expect((await openMenu()).getAttribute('aria-checked')).toBe(String(!initial))
-  })
-
-  it('refreshes an untouched default when a PA deployment starts between openings', async () => {
-    const id = 'f7-refresh-default'
-    const mounted = render(sheet(id, []))
     expect((await openMenu()).getAttribute('aria-checked')).toBe('false')
+  })
+
+  it.each([1, 2])('keeps the operator\'s choice after %i tap(s) across a reopening with changed crew data', async (taps) => {
+    const id = `f7-override-${taps}`
+    const mounted = render(sheet(id, []))
+    const toggle = await openMenu()
+    for (let i = 0; i < taps; i++) await act(async () => { fireEvent.click(toggle) })
+    const chosen = String(taps % 2 === 1)
+    expect(toggle.getAttribute('aria-checked')).toBe(chosen)
     mounted.unmount()
     render(sheet(id, [crew(entry)]))
-    expect((await openMenu()).getAttribute('aria-checked')).toBe('true')
+    expect((await openMenu()).getAttribute('aria-checked')).toBe(chosen)
   })
 })
 

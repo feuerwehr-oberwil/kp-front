@@ -17,6 +17,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -27,18 +28,22 @@ BACKEND = Path(__file__).resolve().parents[1]
 def _run(module: str, *args: str) -> subprocess.CompletedProcess:
     """Run one admin CLI in a fresh process with no SECRET_KEY, exactly as an operator would."""
     env = {k: v for k, v in os.environ.items() if k not in {"SECRET_KEY", "ENVIRONMENT", "APP_ENV"}}
+    # Pydantic reads .env relative to cwd even after those variables are removed.
+    # Keep the source importable, but run outside the station's configured directory.
+    env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(BACKEND), env.get("PYTHONPATH", "")]))
     # S603 suppressed: the argv is this test file's own literals plus a tmp_path — the whole
     # point is running the CLI as its own process, because "which stream did it print to" is
     # exactly what an in-process call cannot answer.
-    return subprocess.run(  # noqa: S603
-        [sys.executable, "-m", module, *args],
-        cwd=BACKEND,
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=120,
-        check=False,
-    )
+    with tempfile.TemporaryDirectory(prefix="kp-cli-test-") as cwd:
+        return subprocess.run(  # noqa: S603
+            [sys.executable, "-m", module, *args],
+            cwd=cwd,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
 
 
 @pytest.mark.parametrize(
@@ -68,6 +73,16 @@ def test_the_throwaway_key_notice_lands_on_stderr_and_disowns_the_deployment():
     assert "never stored" in r.stderr
 
 
+def test_cli_subprocess_ignores_the_local_deployment_dotenv(tmp_path, monkeypatch):
+    (tmp_path / "app").symlink_to(BACKEND / "app", target_is_directory=True)
+    (tmp_path / ".env").write_text("SECRET_KEY=test-only-local-key-0123456789abcdef\nENVIRONMENT=production\n")
+    monkeypatch.setattr(sys.modules[__name__], "BACKEND", tmp_path)
+    r = _run("app.admin_config", "example")
+    assert r.returncode == 0, r.stderr
+    json.loads(r.stdout)
+    assert "throwaway" in r.stderr
+
+
 @pytest.mark.parametrize(
     ("module", "template"),
     [
@@ -79,7 +94,7 @@ def test_the_throwaway_key_notice_lands_on_stderr_and_disowns_the_deployment():
 def test_validating_a_shipped_template_says_it_is_a_template(module: str, template: str):
     """It still fails — a template that validated by shipping stub files would be telling the
     operator their data loaded. But it now names itself, and names a manifest that does pass."""
-    r = _run(module, "validate", template)
+    r = _run(module, "validate", str(BACKEND / template))
     assert r.returncode != 0
     assert "is a TEMPLATE" in r.stderr, r.stderr
     assert "examples/demo-data/" in r.stderr

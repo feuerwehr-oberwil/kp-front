@@ -114,15 +114,14 @@ export function GeorefQuality({ fit, auto = false, approved = false, realPoints 
             residual. Calling it «Punkt 2 korrigieren» made the result depend on a calculation the
             operator could neither see nor choose. A plus icon and an adding verb say what happens. */}
         <button className="btn primary" onClick={onAddPoint}>
-          <Icon id="plus" />
-          {auto ? C.autoAddPoints : fit.n < 3 ? C.addThird : C.addMore}
+          <span className={s.qLabel}><Icon id="plus" />{auto ? C.autoAddPoints : fit.n < 3 ? C.addThird : C.addMore}</span>
         </button>
         {/* the eye is the last arbiter: a residual of half a metre still says nothing about
             whether THIS corner sits on THAT corner. Opens the split with the sheet's outline
             drawn on the map (lib/georefMode · check). */}
-        <button className="btn" onClick={onCheck}><Icon id="eye" />{C.checkFit}</button>
-        {onTransfer && <button className={`btn ${s.transferAction}`} onClick={onTransfer}><Icon id="copy" />{C.transfer}</button>}
-        <button className="btn warn" onClick={() => void reset()}><Icon id="trash" />{C.reset}</button>
+        <button className="btn" onClick={onCheck}><span className={s.qLabel}><Icon id="eye" />{C.checkFit}</span></button>
+        {onTransfer && <button className={`btn ${s.transferAction}`} onClick={onTransfer}><span className={s.qLabel}><Icon id="copy" />{C.transfer}</span></button>}
+        <button className="btn warn" onClick={() => void reset()}><span className={s.qLabel}><Icon id="trash" />{C.reset}</span></button>
       </div>
     </div>
   )
