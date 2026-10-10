@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { TafelFormPage } from './TafelFormPage'
 import { newFormPage, type BoardFormData } from '../lib/boardForm'
 import { BUNDLED_TEMPLATES } from '../lib/boardTemplates'
+import { getLocaleId } from '../config/copy'
 
 afterEach(cleanup)
 
@@ -129,6 +130,11 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
       expect(last.values.problem.lines!.front![0].trend).toBe('up')
       expect(last.t).toEqual({ [atom]: 1_005_000 })
     } finally { now.mockRestore() }
+  })
+
+  it('the page carries the deployment locale, so typed words hyphenate like the language they are in', () => {
+    render(<Harness onCommit={() => {}} />)
+    expect(document.querySelector('[data-testid="tafel-page"]')!.getAttribute('lang')).toBe(getLocaleId())
   })
 
   it('Alt+Enter is a line break inside the cell, not a move', () => {

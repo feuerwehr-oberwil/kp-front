@@ -40,6 +40,11 @@
   padding: var(--sp-2) var(--sp-2); resize: none; overflow: hidden;
   border: none; border-radius: 0; background: transparent; color: var(--ink);
   font-size: var(--fs-2); line-height: var(--lh-2);
+  /* typed words break like German on paper — «Helikopter-landeplatz», not «Helikopterland/eplatz»
+     — by the page's `lang` (the deployment locale); `break-word` only for what has no syllables
+     (a URL, a phone number). Unlike a symbol caption (07-toolrail · manual), free text has no
+     soft hyphens to go by. */
+  hyphens: auto; -webkit-hyphens: auto; overflow-wrap: break-word;
 }
 .cell::placeholder { color: var(--ink-faint); }
 .cell:focus { outline: none; background: var(--blue-8); box-shadow: inset 0 0 0 2px var(--accent); }
@@ -85,8 +90,9 @@
 .th:last-child, .td:last-child { border-right: none; }
 .td > .cell { flex: 1 1 auto; }
 .fixed { align-items: center; padding: var(--sp-2); font-size: var(--fs-2); line-height: var(--lh-2); min-width: 0;
-  /* a long compound breaks at the soft hyphens the template puts at its seams (07-toolrail · why
-     not auto); `anywhere` only as the last resort, and so the flex item may shrink at all */
+  /* a pre-printed label breaks at the soft hyphens the template puts at its compound seams
+     (07-toolrail · why not auto); `anywhere` only as the last resort, and so the flex item may
+     shrink at all */
   hyphens: manual; -webkit-hyphens: manual; overflow-wrap: anywhere; }
 .sig { align-items: center; justify-content: center; padding: var(--sp-1); color: var(--blue); }
 .sigSvg { width: 44px; height: 44px; }

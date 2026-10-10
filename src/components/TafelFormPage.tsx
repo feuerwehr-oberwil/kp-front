@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, 
 import { clearDraft, keepDraft, readDraft } from '../lib/draftKeep'
 import { useMediaQuery } from '../lib/useIsPhone'
 import { appConfig } from '../config/appConfig'
+import { getLocaleId } from '../config/copy'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
 import { fillTemplate, hhmm } from '../lib/format'
@@ -563,6 +564,8 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
   const cols = isPhone ? 1 : page.columns ?? 1
   return (
     <div ref={rootRef} className={cx(s.page, isPhone && s.phone)} data-testid="tafel-page" data-page={page.id}
+      // the deployment's language: what the cells hyphenate by (`hyphens: auto`, TafelFormPage.module.css)
+      lang={getLocaleId()}
       style={{ paddingTop: inset.top, paddingLeft: inset.left, paddingRight: inset.right, paddingBottom: inset.bottom }}>
       <div className={cx(s.paper, page.paper === 'landscape' && s.landscape, cols === 1 && s.single)}>
         <header className={s.head}>
