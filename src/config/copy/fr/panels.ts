@@ -4,7 +4,7 @@
 import type { Copy, Localizable } from '../index'
 
 type Keys =
-  | 'photoViewer' | 'photoGeo' | 'einsatzuhr' | 'mapPicker' | 'weather' | 'pdf' | 'settings'
+  | 'photoViewer' | 'photoGeo' | 'einsatzuhr' | 'mapPicker' | 'weather' | 'weatherLayer' | 'pdf' | 'settings'
   | 'feedback' | 'offline' | 'emptyApp' | 'incidentAlert'
 
 export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
@@ -39,6 +39,24 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     windShiftDismiss: 'Masquer',
 
     unavailable: 'Données météo actuellement indisponibles',
+  },
+  weatherLayer: {
+    group: 'Météo',
+    radar: 'Précipitations (radar)',
+    radarSub: 'MétéoSuisse · dernière heure',
+    attribution: 'Radar © MétéoSuisse',
+    radarTitle: 'Radar des précipitations',
+    play: 'Lire la dernière heure',
+    pause: "Arrêter (retour à l'image actuelle)",
+    frameSlider: "Choisir l'image radar",
+    frameAgo: 'il y a {minutes} min',
+    latest: 'actuel',
+    legendLight: 'faible',
+    legendUnit: 'mm/h · estimation radar',
+    legendHeavy: 'fort',
+    radarPending: "Pas encore d'image radar – chargement.",
+    radarUnavailable: 'Radar actuellement indisponible.',
+    stale: 'État {time} – obsolète',
   },
   pdf: {
     loading: 'Chargement du PDF…',

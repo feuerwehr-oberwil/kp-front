@@ -25,6 +25,8 @@ from .models import INCIDENT_ACTIVE_STATUSES
 logger = logging.getLogger(__name__)
 
 _scheduler: AsyncIOScheduler | None = None
+#: The jobs that run in EVERY serving process, leader or standby — see `_start_process_jobs`.
+_process_scheduler: AsyncIOScheduler | None = None
 _scheduler_leader_connection: AsyncConnection | None = None
 _leadership_task: asyncio.Task[None] | None = None
 
@@ -986,6 +988,57 @@ def _start_scheduler_jobs() -> None:
     logger.info("Scheduler leader running: %s", ", ".join(jobs))
 
 
+async def _weather_radar_round() -> None:
+    from .weather_layer import weather_service
+
+    await weather_service.poll_radar()
+
+
+def _start_process_jobs() -> None:
+    """The Karte's weather layer (app/weather_layer): the radar every 5 min.
+
+    ⚠️ NOT on the leader's scheduler. Everything there is an observer that WRITES the record, so
+    exactly one process may run it. The weather layer writes nothing: it is an in-memory display
+    cache, and the process that answers `GET /api/weather/layer` has to be the one holding the
+    frames — a standby replica (or the new container of a rolling deploy, which serves before the
+    old one lets go of the lock) would otherwise answer «no radar» for as long as it stands by.
+    The cost of two replicas each fetching is two polite clients; a frame is still fetched once
+    per process, never again.
+
+    Boot-gated on `WEATHER_LAYER_ENABLED` (env only, like Rück's WEATHER_ENABLED): a station
+    outside Switzerland or without outbound access switches it off and nothing is scheduled.
+    The round runs once right at boot, so a fresh process has radar within seconds."""
+    global _process_scheduler
+    from .weather_layer import weather_layer_enabled
+
+    if _process_scheduler is not None:
+        return
+    if not weather_layer_enabled():
+        logger.info("Weather layer disabled (WEATHER_LAYER_ENABLED=false)")
+        return
+    now = datetime.now(UTC)
+    _process_scheduler = AsyncIOScheduler()
+    _process_scheduler.add_job(
+        _weather_radar_round,
+        # :01:30, :06:30, … – 90 s after each 5-minute slot (MeteoSwiss publishes ~1 min after it)
+        CronTrigger(minute="1-59/5", second=30),
+        id="weather_radar",
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=120,
+        next_run_time=now,
+    )
+    _process_scheduler.start()
+    logger.info("Weather layer running in this process: radar (5 min)")
+
+
+def _stop_process_jobs() -> None:
+    global _process_scheduler
+    if _process_scheduler is not None:
+        _process_scheduler.shutdown(wait=False)
+        _process_scheduler = None
+
+
 def _stop_scheduler_jobs() -> None:
     global _scheduler
     if _scheduler is not None:
@@ -1075,6 +1128,11 @@ async def start_scheduler(app: FastAPI) -> None:
     global _leadership_task, _scheduler_leader_connection
     if _leadership_task is not None or _scheduler is not None:
         return
+    # every process, before (and whatever the outcome of) the election — see _start_process_jobs
+    try:
+        _start_process_jobs()
+    except Exception:  # noqa: BLE001 — the weather layer must never keep the app from starting
+        logger.warning("Weather layer jobs failed to start", exc_info=True)
 
     # Tests and the reloadable dev server run jobs in-process directly. Leadership is a
     # production topology concern, and keeping it off there also avoids holding a pooled
@@ -1102,5 +1160,6 @@ async def stop_scheduler() -> None:
         with suppress(asyncio.CancelledError):
             await _leadership_task
         _leadership_task = None
+    _stop_process_jobs()
     _stop_scheduler_jobs()
     await _release_scheduler_lock()
