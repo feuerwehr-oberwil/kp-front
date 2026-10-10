@@ -6,23 +6,33 @@
 /* No entry animation — same story as .pop in MapViewsMenu.module.css: the `animation: panelIn`
    here never fired, and the panel is the answer to a question the operator just asked. */
 .mp-hint { text-align: center; font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-dim); padding: 4px 0; }
-.mp-stat-row { display: flex; gap: 16px; align-items: center; }
-/* …and when the row folds the Höhenprofil, the row IS the button: full width, the --tap floor,
-   left-aligned like the readout it still is, and the app's own press wash. */
-.mp-stat-row-btn { width: 100%; min-height: var(--tap); padding: 2px 0; border: 0; border-radius: var(--r-ctl);
+.mp-stat-row { display: flex; gap: 16px; align-items: center; min-width: 0; }
+/* ── THE ONE ROW (10.10.2026): readout · adopt · ▾ ──────────────────────────────────────────
+   The fold's toggle spans the whole row UNDER the adopt button, and lays its readout and its ▾
+   out on the row's own columns (subgrid), so the adopt button — a sibling, not a child: a button
+   cannot hold a button — lands in the middle column between them. The first template is the
+   fallback for an engine without subgrid: the same three columns, only not shared. */
+.mp-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 40px; align-items: center; column-gap: var(--sp-2); }
+.mp-row-flat { grid-template-columns: minmax(0, 1fr) auto; }
+/* …and when the row folds the rest of the panel, the row IS the button: full width, the --tap
+   floor, left-aligned like the readout it still is, and the app's own press wash. */
+.mp-row-btn { grid-column: 1 / -1; grid-row: 1; display: grid; grid-template-columns: minmax(0, 1fr) auto 40px;
+  grid-template-columns: subgrid; align-items: center;
+  width: 100%; min-height: var(--tap); padding: 2px 0; border: 0; border-radius: var(--r-ctl);
   background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
   -webkit-tap-highlight-color: transparent; }
-@media (hover: hover) { .mp-stat-row-btn:hover .mp-prof-toggle { color: var(--ink); } }
-.mp-stat-row-btn:active { background-image: linear-gradient(var(--press), var(--press)); }
+.mp-row-btn > .mp-stat-row { grid-column: 1; }
+@media (hover: hover) { .mp-row-btn:hover .mp-prof-toggle { color: var(--ink); } }
+.mp-row-btn:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* the ▾ is DECORATION now — it says which way the section will go, it is not the target */
-.mp-prof-toggle { margin-left: auto; flex: none; width: 40px; height: 40px; display: grid; place-items: center;
+.mp-prof-toggle { grid-column: 3; justify-self: end; width: 40px; height: 40px; display: grid; place-items: center;
   color: var(--ink-dim); }
 /* the ▾ flip is the app-wide `.chev` (02-base.css), off this button's aria-expanded */
 .mp-prof-toggle :global(.i) { width: 18px; height: 18px; }
 .mp-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.mp-k { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-micro); font-weight: var(--fw-medium); color: var(--ink-dim); }
+.mp-k { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-micro); font-weight: var(--fw-medium); color: var(--ink-dim); }
 .mp-k :global(.i) { width: 12px; height: 12px; }
-.mp-v { font-family: var(--mono); font-size: var(--fs-3); font-weight: var(--fw-bold); color: var(--ink); letter-spacing: -.3px; }
+.mp-v { white-space: nowrap; font-family: var(--mono); font-size: var(--fs-3); font-weight: var(--fw-bold); color: var(--ink); letter-spacing: -.3px; }
 .mp-v.up { color: var(--green); }
 .mp-v.down { color: var(--red); }
 .mp-prof-title { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
@@ -48,8 +58,9 @@
 /* the descent arrow points down, the ascent arrow up (the base glyph points right) */
 .mp-prof-stats .mp-stat:nth-child(1) .mp-k :global(.i) { transform: rotate(-90deg); }
 .mp-prof-stats .mp-stat:nth-child(2) .mp-k :global(.i) { transform: rotate(90deg); }
-/* «Als Linie übernehmen» — keep the measured Strecke as a drawn line */
-.mp-adopt-btn { align-self: stretch; }
+/* «Als Linie übernehmen» — keep the measured Strecke as a drawn line: the row's middle column,
+   over the toggle that spans it (z-index) */
+.mp-adopt-btn { grid-column: 2; grid-row: 1; position: relative; z-index: 1; }
 /* Plan-only: start/redo scale calibration straight from the panel */
 .mp-cal-btn { align-self: stretch; }
 /* …and its counterpart on a sheet whose metres come from the Kartenverknüpfung: the same slot,

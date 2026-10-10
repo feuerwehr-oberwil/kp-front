@@ -87,10 +87,11 @@ export const defaultReportOptions: ReportOptions = {
   pendenzen: true,
   attachments: true,
   detailedAudit: false,
-  // ⚠️ The SHEET seeds this from the record (ReportPreflight · `hadAtemschutzDeployment`, owner
-  // 09.10.2026): ticked when a crew went in under PA, unticked otherwise. Its own last sheet, so
-  // the signed part goes out without it. The QR-Erfassung's own PDF switches it off (CaptureApp).
-  auswertung: true,
+  // ⚠️ OFF by default (owner, 10.10.2026), and the sheet no longer seeds it from the record (it
+  // was «ticked when a crew went in under PA» on 09.10.): an internal debrief is something to
+  // ASK for. Its own last sheet, so the signed part goes out without it; the operator's own tick
+  // is kept per Einsatz (ReportPreflight · optionOverrides). The QR-Erfassung's PDF has it off too.
+  auswertung: false,
 }
 
 export interface AuditProof {

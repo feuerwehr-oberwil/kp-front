@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { TimelineEvent, Trupp, TruppReading } from '../types'
 import type { ChecklistTemplate } from './checklists'
 import {
-  auswertungForPdf, computeAuswertung, contactIntervals, hadAtemschutzDeployment, phaseLanes, tickStepMin, truppStretches, verlaufMilestones,
+  auswertungForPdf, computeAuswertung, contactIntervals, phaseLanes, tickStepMin, truppStretches, verlaufMilestones,
   type AuswertungInput,
 } from './auswertung'
 
@@ -24,28 +24,31 @@ const base = (over: Partial<AuswertungInput> = {}): AuswertungInput => ({
   ...over,
 })
 
-describe('Auswertung print default · actual Atemschutz deployment', () => {
+// What counts as a WATCHED stretch under PA — it seeded the Rapport's «Auswertung» tick until
+// 10.10.2026 (the tick is off by default now, owner); the semantics stay pinned for the lanes.
+describe('truppStretches · what counts as a deployment under PA', () => {
+  const wentInUnderPa = (ts: Trupp[]) => ts.some((t) => truppStretches(t, 0).watched.length > 0)
   it('stays off for no crew, standby only, or a deployment without PA', () => {
-    expect(hadAtemschutzDeployment([])).toBe(false)
-    expect(hadAtemschutzDeployment([trupp({ readings: [r('10:00', 'registered')] })])).toBe(false)
-    expect(hadAtemschutzDeployment([trupp({ kind: 'einfach', readings: [r('10:00', 'entry'), r('10:20', 'exit')] })])).toBe(false)
+    expect(wentInUnderPa([])).toBe(false)
+    expect(wentInUnderPa([trupp({ readings: [r('10:00', 'registered')] })])).toBe(false)
+    expect(wentInUnderPa([trupp({ kind: 'einfach', readings: [r('10:00', 'entry'), r('10:20', 'exit')] })])).toBe(false)
   })
 
   it('includes open, completed and later removed PA crews', () => {
-    expect(hadAtemschutzDeployment([trupp({ status: 'aktiv', readings: [r('10:00', 'entry')] })])).toBe(true)
-    expect(hadAtemschutzDeployment([trupp({ removedAt: at('10:30'), readings: [r('10:00', 'entry'), r('10:20', 'exit')] })])).toBe(true)
-    expect(hadAtemschutzDeployment([trupp({ removedAt: at('10:30'), readings: [r('10:00', 'registered'), r('10:20', 'exit')] })])).toBe(false)
+    expect(wentInUnderPa([trupp({ status: 'aktiv', readings: [r('10:00', 'entry')] })])).toBe(true)
+    expect(wentInUnderPa([trupp({ removedAt: at('10:30'), readings: [r('10:00', 'entry'), r('10:20', 'exit')] })])).toBe(true)
+    expect(wentInUnderPa([trupp({ removedAt: at('10:30'), readings: [r('10:00', 'registered'), r('10:20', 'exit')] })])).toBe(false)
   })
 
   it('uses the historical PA interval when the current crew kind is einfach', () => {
-    expect(hadAtemschutzDeployment([trupp({ kind: 'einfach', readings: [r('10:00', 'entry'), r('10:05', 'paOn'), r('10:15', 'paOff'), r('10:20', 'exit')] })])).toBe(true)
-    expect(hadAtemschutzDeployment([trupp({ kind: 'einfach', readings: [r('10:00', 'entry'), r('10:15', 'paOff'), r('10:20', 'exit')] })])).toBe(true)
+    expect(wentInUnderPa([trupp({ kind: 'einfach', readings: [r('10:00', 'entry'), r('10:05', 'paOn'), r('10:15', 'paOff'), r('10:20', 'exit')] })])).toBe(true)
+    expect(wentInUnderPa([trupp({ kind: 'einfach', readings: [r('10:00', 'entry'), r('10:15', 'paOff'), r('10:20', 'exit')] })])).toBe(true)
   })
 
   it('recognizes legacy PA entry times but does not invent an entry from invalid timestamps', () => {
-    expect(hadAtemschutzDeployment([trupp({ readings: [], entryTime: at('10:00'), exitTime: at('10:20') })])).toBe(true)
-    expect(hadAtemschutzDeployment([trupp({ kind: 'einfach', readings: [], entryTime: at('10:00') })])).toBe(false)
-    expect(hadAtemschutzDeployment([trupp({ readings: [{ t: 'invalid', kind: 'entry', bar: 250 }] })])).toBe(false)
+    expect(wentInUnderPa([trupp({ readings: [], entryTime: at('10:00'), exitTime: at('10:20') })])).toBe(true)
+    expect(wentInUnderPa([trupp({ kind: 'einfach', readings: [], entryTime: at('10:00') })])).toBe(false)
+    expect(wentInUnderPa([trupp({ readings: [{ t: 'invalid', kind: 'entry', bar: 250 }] })])).toBe(false)
   })
 })
 
@@ -297,21 +300,6 @@ describe('review of #303', () => {
     expect(a.t1).toBeLessThanOrEqual(ms('13:00'))
     // the stray Ausgerückt a year early is off the picture, the TLF's stay is cut at the edge
     expect(a.vehicles.map((v) => v.label)).toEqual(['TLF'])
-  })
-})
-
-describe('hadAtemschutzDeployment — the default of the «Auswertung (intern)» tick', () => {
-  it('is true once a crew went in under PA — also one taken off the Tafel afterwards', () => {
-    expect(hadAtemschutzDeployment([trupp({ readings: [r('10:00', 'entry'), r('10:20', 'exit')] })])).toBe(true)
-    expect(hadAtemschutzDeployment([trupp({ removedAt: at('10:30'), readings: [r('10:00', 'entry'), r('10:20', 'exit')] })])).toBe(true)
-    // a work squad that put masks on mid-run
-    expect(hadAtemschutzDeployment([trupp({ kind: 'einfach', readings: [r('10:00', 'entry'), r('10:05', 'paOn'), r('10:20', 'exit')] })])).toBe(true)
-  })
-
-  it('is false with no Trupp, a Sicherungstrupp that never went in, or a work squad without PA', () => {
-    expect(hadAtemschutzDeployment([])).toBe(false)
-    expect(hadAtemschutzDeployment([trupp({ readings: [r('10:00', 'registered'), r('10:40', 'exit')] })])).toBe(false)
-    expect(hadAtemschutzDeployment([trupp({ kind: 'einfach', readings: [r('10:00', 'entry'), r('10:20', 'exit')] })])).toBe(false)
   })
 })
 

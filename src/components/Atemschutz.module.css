@@ -551,6 +551,10 @@
    AND eating the taps of whatever field it happened to cover (see TruppForm · `blocked`). The
    last row before the footer, inset by the body's own gutter. */
 .formBlocked { flex: none; margin: 0 var(--sp-5) var(--sp-3); }
+/* the «Auftrag fehlt» line while the person search still has the caret (TruppForm ·
+   `teamSearchFocused`): its slot is kept, so the press that leaves the search — often the one on
+   «Anmelden» — does not see the footer move under it */
+.formHintWaiting { visibility: hidden; }
 .field { display: flex; flex-direction: column; gap: var(--sp-1); }
 /* flash-ring: the module-local copy of ui-flash-ring — see the .cardFlash comment below */
 .formFlash { border-radius: var(--r-ctl); animation: flash-ring 1.9s ease-out 1; }
@@ -1013,7 +1017,8 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
      Leitung and the folded Standard row. The `assignedConflict` warning and the `blocked` line
      deliberately stay: both are about the very list on screen, and both already sit below it. */
   .modalStack:global(.is-kb):has(.teamSearch input:focus) .stack > *:not(:first-child),
-  .modalStack:global(.is-kb):has(.teamSearch input:focus) .modalFoot { display: none; }
+  .modalStack:global(.is-kb):has(.teamSearch input:focus) .modalFoot,
+  .modalStack:global(.is-kb) .formHintWaiting { display: none; }
 
   /* ── …AND THEY COME BACK GENTLY (09.09.) ───────────────────────────────────────────────────
      What the field saw as «hässliches Aufblitzen» when the search closes is two snaps, not one,

@@ -42,10 +42,10 @@ wording unchanged.
   optional «Auswertung» is the LAST sheet of the Rapport, landscape: key figures, swimlanes, and a
   pointer «Lehren / Sicherheit: siehe Seite 1» – the Lehren themselves print once, on page 1 with
   the signed record. It is internal – the signed part above it is what leaves the station, so it is the sheet
-  that comes off the stack. `ReportOptions.auswertung` is ticked for the Rapport when a crew went in under
-  Atemschutz (`auswertung · hadAtemschutzDeployment`, owner 09.10.2026 – without one three of the
-  five figures are «—»), unticked but selectable otherwise, and OFF for the
-  QR-Erfassung's own PDF; a viewer link cannot make a PDF at all.
+  that comes off the stack. `ReportOptions.auswertung` is **off by default** (owner, 10.10.2026 – it
+  was seeded «ticked when a crew went in under Atemschutz» on 2026-10-09): the operator ticks
+  «Auswertung (intern)» in the PDF ▾ menu, and that pick is kept for the Einsatz. It is OFF for the
+  QR-Erfassung's own PDF too; a viewer link cannot make a PDF at all.
 - **Derived on the client, printed by the server.** `lib/auswertung` reads the record where the
   ISO stamps are and sends minute offsets + finished strings in the deployment's language
   (`report_pdf · AuswertungIn`) – the same split as `personalSummary`. Nothing is estimated: a
