@@ -23,6 +23,7 @@ import { isDemoMode } from '../lib/deploymentConfig'
 import type { useGpsNotices, GpsEnd } from '../lib/gpsReturn'
 import { Icon } from '../lib/icons'
 import type { IncidentMeta } from '../lib/incidents'
+import type { OpenReminder } from '../lib/reminders'
 import type { useJournal } from '../lib/useJournal'
 import type { useReminders } from '../lib/useReminders'
 import type { useSymbols } from '../lib/useSymbols'
@@ -75,6 +76,10 @@ export interface WorkspaceMeldungenProps {
   azAlarmActive: boolean
   truppPlace: ReturnType<typeof useTruppActions>['truppPlace']
   setTruppStatus: ReturnType<typeof useTruppActions>['setTruppStatus']
+  snoozeReminder: (r: OpenReminder) => void
+  canLagemeldung: boolean
+  setLageOpen: Dispatch<SetStateAction<boolean>>
+  lageSub: string | undefined
 }
 
 export function WorkspaceMeldungen({
@@ -84,13 +89,16 @@ export function WorkspaceMeldungen({
   releaseOnSite, revertAll, followAll, replayActive, incidentMeta, journal, rapportReturn,
   setRapportReturn, openRapport, setInstallGuideOpen, tabLockLost, user, onTakeOverTab, needsReview,
   readOnly, intakeReviewedAt, onEditMeta, onReviewDone, azAlarmActive, truppPlace, setTruppStatus,
+  snoozeReminder, canLagemeldung, setLageOpen, lageSub,
 }: WorkspaceMeldungenProps) {
   return (
     <>
       <ReminderBanner
         due={reminders.due}
         onDone={reminders.markDone}
-        onSnooze={(r) => reminders.snooze(r, 10)}
+        onSnooze={snoozeReminder}
+        onLagemeldung={canLagemeldung ? () => setLageOpen(true) : undefined}
+        lageSub={lageSub}
         // …and the way in, on the row's TITLE (Meldeleiste · MeldungTitle) rather than a third
         // button: open the Verlauf ON the row that raised this item, not at the top
         onOpen={(r) => { setJournalOpen(true); setJournalLandOn({ id: r.rowId, nonce: Date.now() }) }}

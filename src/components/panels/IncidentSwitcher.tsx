@@ -7,6 +7,7 @@ import { applyUpdateNow, onUpdateAvailable } from '../../lib/swUpdate'
 import { canApplyInPlace } from '../../lib/updatePolicy'
 import { getInstallPlatform } from '../../lib/installPrompt'
 import { appConfig } from '../../config/appConfig'
+import { lageChipState } from '../../lib/lageRhythm'
 import { toast } from '../../lib/ui'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { runningOthers } from '../../lib/switcherLists'
@@ -31,7 +32,7 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail, lage,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -85,6 +86,9 @@ export function IncidentSwitcher({
   /** changes whenever the app navigates to another surface — closes a menu that was left
    *  open under a sheet (e.g. Rapport → Anwesenheit must not land back in the menu) */
   navKey?: string
+  /** The Lagemeldung (F3) on a PHONE, where the bar has no room for its chip: a row under the
+   *  Einsatz card, «Lagemeldung · in 4′» / «fällig». Absent for a device that may not send one. */
+  lage?: { dueAt: number | null; off: boolean; onOpen: () => void }
   /** A child sheet launched from this menu is visible. The menu stays logically open but is
    *  suspended — unrendered, so its higher z-index cannot overlap the child — on every form
    *  factor. Cancelling the sheet therefore reveals the exact parent state; the rows that
@@ -384,6 +388,19 @@ export function IncidentSwitcher({
               )}
             </div>
           )}
+          {/* the Lagemeldung on a phone (F3): the bar's chip, as the first row under the card */}
+          {active && lage && (() => {
+            const C = appConfig.copy.lagemeldung
+            const st = lageChipState(lage, now)
+            const word = st.kind === 'soon' ? fillTemplate(C.chipIn, { m: st.mins })
+              : st.kind === 'due' || st.kind === 'late' ? C.chipDue : st.kind === 'off' ? C.chipOff : C.chip
+            return (
+              <button className={`ip-menu-act ip-menu-lage ${st.kind}`} aria-label={fillTemplate(C.chipAria, { state: word })}
+                onClick={() => { setOpen(false); lage.onOpen() }}>
+                <Icon id="radio" /> {C.title}<span className="ip-menu-lage-state">{word}</span>
+              </button>
+            )
+          })()}
           {/* The Einsätze group is about moving BETWEEN Einsätze. When nothing in it can
               render — no other incident, no «Neuer Einsatz», no «Alle Einsätze» — none of it
               shows, which is what an Einsatz-Link sees: it is bound to one Einsatz and switching

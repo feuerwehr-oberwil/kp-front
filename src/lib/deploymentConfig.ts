@@ -433,7 +433,7 @@ export interface DeploymentConfig {
   roster?: DeploymentRoster
   mittel?: DeploymentMittel
   /** journal composer: station Textbausteine (quick phrases); empty → app defaults */
-  journal?: { quickPhrases?: string[] | null }
+  journal?: { quickPhrases?: string[] | null; lageRhythmMin?: number | null }
   /** station alarm groups for the Alarmierungs-/Ausrückzeiten grid — empty hides it */
   alarms?: { groups?: AlarmGroup[] | null }
   /** Einsatzrapport form presets (Partnerorganisationen checkbox row) */
@@ -653,6 +653,13 @@ export function atemschutzDoctrine() {
     cylinderLiters: d.cylinderLiters ?? a.cylinderLiters,
     estConsumptionLPerMin: d.estConsumptionLPerMin ?? a.estConsumptionLPerMin,
   }
+}
+
+/** The Führungsrhythmus of the Lagemeldung (F3, lib/lageRhythm), in minutes: the station's
+ *  `journal.lageRhythmMin`, else the national default. 0 = no rhythm. Read inside a function. */
+export function lageRhythmDefault(): number {
+  const v = resolved.journal?.lageRhythmMin
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : appConfig.lagemeldung.rhythmMin
 }
 
 /**

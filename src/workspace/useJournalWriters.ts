@@ -61,6 +61,8 @@ export interface UseJournalWritersInputs {
   running: boolean
   undoHist: UndoTimeline
   journal: ReturnType<typeof useJournal>
+  /** the Lagemeldung's derived first booking (F3, lib/lageRhythm) — computed by the workspace */
+  lageStart: Parameters<typeof useReminders>[6]
 }
 
 export function useJournalWriters({
@@ -69,6 +71,7 @@ export function useJournalWriters({
   log, setSelectedDrawingId, setSelectedId, mode, pushEvent, composerOpenedAtRef, activePlanId,
   uploadPhotoForRow, uploadMediaForRow, setComposerOpen, setNoteOn, player, timeline, running,
   undoHist, journal,
+  lageStart,
 }: UseJournalWritersInputs) {
   // navigate from a Verlauf row back to wherever the event happened, then close
   // the drawer. Plan rows switch surface + document and (when located) recenter.
@@ -296,6 +299,8 @@ export function useJournalWriters({
     incidentMeta.closed_at,
     // «Erledigt» is confirm-with-undo and joins the one timeline (useReminders · completeReminder)
     undoHist,
+    // the Lagemeldung's first booking, before any row stands for it (lib/lageRhythm)
+    lageStart,
   )
 
   // «wieder in …» on a done row (Journal · onReminderAgain): re-raise a closed item as a FRESH

@@ -3,12 +3,15 @@
 // 09.10.2026) verbatim; the rows themselves are written by the workspace (addJournal,
 // addPlayerEntry, the reminders), which hands its writers in as props.
 
-import type { Dispatch, ReactElement, ReactNode, SetStateAction } from 'react'
+import { lazy, Suspense, type Dispatch, type ReactElement, type ReactNode, type SetStateAction } from 'react'
 import { AudioPlayerSheet } from '../components/AudioPlayerSheet'
 import { Journal } from '../components/Journal'
 import { type JournalDraft, JournalComposer } from '../components/JournalComposer'
 import { JournalDeliveryNotice } from '../components/JournalDeliveryNotice'
+import type { LageSend } from '../components/LagemeldungSheet'
 import { appConfig } from '../config/appConfig'
+import type { lageRhythm } from '../lib/lageRhythm'
+import type { LageInput } from '../lib/lagemeldung'
 import { combinedSyncStatus } from '../lib/combinedSyncStatus'
 import { type IncidentMeta, uploadMedia } from '../lib/incidents'
 import type { JournalLink } from '../lib/journalLinks'
@@ -19,6 +22,11 @@ import type { useJournal } from '../lib/useJournal'
 import type { useMediaQueue } from '../lib/useMediaQueue'
 import type { useReminders } from '../lib/useReminders'
 import type { TimelineEvent, PlanDocument } from '../types'
+
+/** The Lagemeldung composer (F3) and its engine — loaded on the first tap on «Lage» (or when a
+ *  booking comes due and the Meldeleiste row wants the engine's count), never at boot. */
+const loadLagemeldung = () => import('../components/LagemeldungSheet')
+const LagemeldungSheet = lazy(() => loadLagemeldung().then((m) => ({ default: m.LagemeldungSheet })))
 
 export interface JournalLayerProps {
   journalOpen: boolean
@@ -59,6 +67,13 @@ export interface JournalLayerProps {
   composerOpen: boolean
   addJournal: (d: JournalDraft, geoSettled?: boolean) => void
   noteOn: { id: string; text: string } | null
+  lageOpen: boolean
+  canLagemeldung: boolean
+  lageInput: () => LageInput
+  lage: ReturnType<typeof lageRhythm>
+  setLageOpen: Dispatch<SetStateAction<boolean>>
+  sendLagemeldung: (r: LageSend) => void
+  lageRhythmOff: () => void
 }
 
 export function JournalLayer({
@@ -67,7 +82,7 @@ export function JournalLayer({
   setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
   enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
   tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen,
-  addJournal, noteOn,
+  addJournal, noteOn, lageOpen, canLagemeldung, lageInput, lage, setLageOpen, sendLagemeldung, lageRhythmOff,
 }: JournalLayerProps) {
   return (
     <>
@@ -151,6 +166,18 @@ export function JournalLayer({
           onClose={() => setPlayer(null)}
         />
       )}
+      {lageOpen && canLagemeldung && (
+        <Suspense fallback={null}>
+          <LagemeldungSheet
+            getInput={lageInput}
+            anchor={lage.anchor}
+            intervalMin={lage.off ? 0 : lage.intervalMin}
+            onClose={() => setLageOpen(false)}
+            onSend={sendLagemeldung}
+            onRhythmOff={!lage.off && (lage.dueAt != null || lage.derived) ? () => { lageRhythmOff(); setLageOpen(false) } : undefined}
+          />
+        </Suspense>
+      )}
       {composerOpen && (
         <JournalComposer
           // everything this Einsatz has words for — Mannschaft, Mittel, Partnerorganisationen,
@@ -168,6 +195,8 @@ export function JournalLayer({
           // sentence already names, and holds a picker for the rest.
           openPendenzen={reminders.open.map((r) => ({ id: r.id, text: r.text, urgent: !!r.urgent, createdAt: r.createdAt }))}
           onLinkPendenz={(pdz) => setNoteOn(pdz)}
+          // «Lagemeldung an Einsatzzentrale» typed → offer the composer (F3)
+          onLagemeldung={canLagemeldung ? () => { setComposerOpen(false); setNoteOn(null); setLageOpen(true) } : undefined}
           incidentStartAt={incidentMeta.started_at}
           uploadAudio={(blob, filename) => uploadMedia(incidentMeta.id, blob, 'audio', filename)}
           // generic Beilagen (PDF & Co.) ride the same endpoint under kind 'file' — the server

@@ -754,6 +754,8 @@ export const adminCopy = {
     journal: {
       quickPhrases: 'Textbausteine',
       quickPhrasesTip: 'Eine Zeile pro Baustein. Beim Tippen im Eintrag-Editor erscheinen passende Bausteine als Vervollständigung (Fuzzy-Suche). Leer = die mitgelieferten Standardbausteine.',
+      lageRhythm: 'Lagemeldung-Rhythmus (min)',
+      lageRhythmTip: 'Nach jeder Lagemeldung wird die nächste so viele Minuten später als Wiedervorlage fällig; die erste 5 Minuten nachdem das erste Fahrzeug vor Ort ist. 0 = kein Rhythmus. Die Einsatzleitung kann pro Einsatz 10, 20 oder 30 Minuten wählen.',
     },
     // Rounding of the Einsatzstunden. The rule deliberately does NOT appear on the printed
     // Rapport – it is the same on every sheet and belongs in the Weisung (docs/CONFIGURATION.md

@@ -31,6 +31,7 @@ import { panelsCopy } from './de/panels'
 import { captureCopy } from './de/capture'
 import { linksCopy } from './de/links'
 import { buildingCopy } from './de/building'
+import { lagemeldungCopy } from './de/lagemeldung'
 import { incidentCopy } from './de/incident'
 import { reportCopy } from './de/report'
 import { anwesenheitCopy } from './de/anwesenheit'
@@ -57,6 +58,7 @@ export const de = {
   ...captureCopy,
   ...linksCopy,
   ...buildingCopy,
+  ...lagemeldungCopy,
   ...incidentCopy,
   ...reportCopy,
   ...anwesenheitCopy,

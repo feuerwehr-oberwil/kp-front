@@ -1715,6 +1715,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
     journal: {
       quickPhrases: 'Phrase snippets',
       quickPhrasesTip: 'One line per snippet. While typing in the entry editor, matching snippets appear as completions (fuzzy search). Empty = the shipped default snippets, which stay in German; for English ones, enter them here.',
+      lageRhythm: 'Situation report rhythm (min)',
+      lageRhythmTip: 'After every situation report the next one comes due this many minutes later as a follow-up; the first 5 minutes after the first vehicle is on scene. 0 = no rhythm. Command can pick 10, 20 or 30 minutes per incident.',
     },
     report: {
       groupRounding: 'Deployment hours — rounding',

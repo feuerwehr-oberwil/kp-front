@@ -490,6 +490,19 @@ export interface TimelineEvent {
      *  stay in the item's thread (lib/reminders · the note branch reads the dueAt and leaves the
      *  open/closed state alone). */
     op: 'created' | 'done' | 'snoozed' | 'note' | 'reopened'; id: string; dueAt?: string
+    /** What the Wiedervorlage is FOR, when it is not an ordinary one. `lagemeldung` (F3,
+     *  09.10.2026): the Führungsrhythmus — the next Lagemeldung, booked by «Gemeldet» as a chain of
+     *  ordinary Wiedervorlagen. Its id is derived from the Lagemeldung row that booked it
+     *  (`lgm-<rowId>`, lib/lageRhythm), and only the one belonging to the NEWEST Lagemeldung is
+     *  open: a later Lagemeldung supersedes the booking without a done row (lib/reminders,
+     *  backend · push.due_reminders). Its due row offers [Lagemeldung] [+10′] instead of
+     *  [Erledigt]. The Rapport does not list it among the Pendenzen — the Lagemeldungen are in
+     *  the Verlauf themselves. */
+    purpose?: 'lagemeldung'
+    /** `lagemeldung` only: the rhythm (minutes) this booking was made with — the next one is
+     *  booked with the same interval unless the EL picks another. The LATEST event carrying it
+     *  wins. */
+    intervalMin?: number
     /** Pendenz only: sorts to the top of the list and prints a marker.
      *  ⚠️ Written by `created` alone. The composer offered it on a Meldung for a while, as a
      *  «normal / dringend» switch — but a Meldung reports on an item, and a control sitting on one
@@ -661,6 +674,24 @@ export interface TimelineEvent {
    *  everything else, and never set by this client: the app cannot vouch for its own
    *  provenance. */
   via?: 'atemschutz-link' | 'atemschutz-fix'
+  /**
+   * A sent Lagemeldung (F3, lib/lagemeldung): the fingerprint of every fact it reported (values,
+   * not hashes — the Rapport can show what was reported when), plus the facts the EL deliberately
+   * left out (`declined`). The row's `text` carries the Lagemeldung itself, as said. The newest
+   * row carrying one is the ANCHOR the next Lagemeldung diffs against («seit 21:17») — found by
+   * every device the same way, nothing per device. «↶» retracts the row like any other, and the
+   * anchor falls back to the one before.
+   */
+  lagemeldung?: LagemeldungRecord
+}
+
+/** The fact snapshot a sent Lagemeldung carries (TimelineEvent.lagemeldung). */
+export interface LagemeldungRecord {
+  v: 1
+  /** «seit» the last one (to the ELZ) or «voll» (Übergabe, Nachbarwehr, Rück) */
+  mode: 'seit' | 'voll'
+  facts: Record<string, string | number | string[]>
+  declined?: string[]
 }
 
 /** `'info'` · `'auftrag'` (Befehlsgebung) · `'sofort'` (Sofortmassnahme). See TimelineEvent. */

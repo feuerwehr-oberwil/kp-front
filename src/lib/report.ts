@@ -508,6 +508,9 @@ export function pendenzRows(events: TimelineEvent[], fallbackDate?: string): Pen
     else if (r.op === 'note') notes.set(r.id, [...(notes.get(r.id) ?? []), { timeLabel: clock(e), text: e.text }])
   }
   return [...created.entries()]
+    // the Führungsrhythmus' bookings are not Pendenzen: the Lagemeldungen themselves stand in the
+    // Verlauf, and a «Lagemeldung · erledigt» line per interval would bury the real items
+    .filter(([, e]) => e.reminder?.purpose !== 'lagemeldung')
     .map(([id, e]) => ({
       // the BARE text — the row's own text carries the «Auftrag · » tag or the «Erinnerung gesetzt
       // für …» lead-in, and the section's own heading already says what these are

@@ -93,6 +93,17 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   algorithms are KP Rück's (R5), ported with its tests. *No action needed; `WEATHER_LAYER_ENABLED=false`
   switches it off (stations outside Switzerland or without outbound access). The image grows by
   ~17 MB (h5py; numpy was already in it).*
+- **Lagemeldung auf Knopfdruck.** A «Lage» chip in the top bar (on a phone: a row in the Einsatz
+  menu) opens a draft Lagemeldung composed from the record – Trupps, map symbols, Verlauf,
+  vehicle times, Pendenzen, the Gebäude registers – in a fixed order (Zuerst · Lage · Menschen ·
+  Gefahren · Massnahmen · Mittel · Bedarf · Nächste), at most about one radio call (60 words).
+  It says what changed since the last one (Neu / Schlechter / Besser / Erledigt), always repeats
+  what is about life (a Trupp in Alarm, Vermisste), and shows everything it left out with the
+  reason. Every line can be ticked off, edited, or added back; «Funkansicht» shows it in big type
+  for the radio. Nothing is written until «Gemeldet», which writes one Verlauf row and books the
+  next Lagemeldung as an ordinary Wiedervorlage (20′ by default, 10/20/30/Übergabe per Einsatz,
+  `journal.lageRhythmMin` per station). The first one comes due 5′ after the first vehicle is
+  vor Ort. Deterministic, no AI (docs/lagemeldung.md). *Nothing to set up.*
 - **Station index: one address for all station data.** A station publishes an `index.json`
   next to its data files that lists them by kind with checksums (`station-index/1`,
   docs/CONFIGURATION.md §4d); KP Front gets ONE setting for it – «Stationsdaten-Index» on

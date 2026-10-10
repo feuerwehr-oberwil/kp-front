@@ -29,6 +29,7 @@ import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { acceptJournalSuggestion, journalSuggestions, type JournalSuggestion, type TextSelection } from '../lib/journalSuggestions'
 import { suggestPendenzen, type OpenReminder } from '../lib/reminders'
 import { startChips } from '../lib/startChips'
+import { norm } from '../lib/quickPhrases'
 import { clearDraft, keepDraft, readDraft, useKeptState } from '../lib/draftKeep'
 import { TimeField } from './TimeField'
 import { WheelPopover, type WheelValue } from './WheelPicker'
@@ -146,9 +147,13 @@ function dayLabel(day: string): string {
 // coordinate, which is the weak version of what the Wiedergabe does — scrub to the moment and
 // the entire picture is the one from back then. The row still records its surface; that is
 // addJournal's business, not this sheet's.
-export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, uploadFile, vocab = [], timeline = [], noteOn, onClearNote, openPendenzen = [], onLinkPendenz }: {
+export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, uploadFile, vocab = [], timeline = [], noteOn, onClearNote, openPendenzen = [], onLinkPendenz, onLagemeldung }: {
   onSubmit: (d: JournalDraft) => void
   onClose: () => void
+  /** The Lagemeldung composer (F3). Typing the station's «Lagemeldung an Einsatzzentrale» offers
+   *  it as a chip in the band — the bare phrase is what the Verlauf held before the Lagemeldung
+   *  could be composed from the record. An offer, never a swap: what was typed stays typed. */
+  onLagemeldung?: () => void
   /** opened from a Pendenz row: everything written here becomes a Meldung ON that item rather
    *  than a free-standing entry. Deliberately the ORDINARY composer — a Meldung then gets
    *  Textbausteine, marked names, Sprachnotiz and Foto without a line of extra code. */
@@ -281,6 +286,12 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     [text, openPendenzen, noteOn],
   )
   const canLink = openPendenzen.length > 0 && !!onLinkPendenz
+  // the Lagemeldung phrase, typed or picked: offer the composer (see `onLagemeldung`)
+  const lageHit = !!onLagemeldung && !noteOn && (() => {
+    const p = norm(appConfig.lagemeldung.phrases.lagemeldungPhrase)
+    const t = norm(text.trim())
+    return t.length >= 6 && (p.startsWith(t) || t.startsWith(p))
+  })()
   // ── the ○ opens a menu; it no longer cycles ───────────────────────────────────────────────
   // ⚠️ Three states reached by tapping the same ring in turn were a guessing game, and the way to
   // «hang this on something already open» was a long press — a gesture that cannot announce
@@ -859,7 +870,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
         </div>
 
         {/* A single ranked band; its empty row keeps the phone sheet steady while typing. */}
-        {(suggestions.length === 0 && pendenzHits.length === 0)
+        {(suggestions.length === 0 && pendenzHits.length === 0 && !lageHit)
           ? <div className="jc-phrases is-empty" aria-hidden /> : (
           // Keep the keyboard focused on mousedown (the chips' own onMouseDown); the row itself
           // scrolls NATIVELY — see .jc-phrases in 18-audio.css for why the hand-rolled pan went.
@@ -890,6 +901,14 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 onClick={() => onLinkPendenz?.({ id: r.id, text: r.text })}
               ><span className="jc-ring" />{C.noteOnLabel}{r.text}</button>
             ))}
+            {lageHit && (
+              <button
+                key="lagemeldung"
+                className="jc-phrase jc-phrase-lage"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => onLagemeldung?.()}
+              ><Icon id="radio" />{appConfig.copy.lagemeldung.phraseOffer}</button>
+            )}
           </div>
         )}
 

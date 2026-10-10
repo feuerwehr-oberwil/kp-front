@@ -265,6 +265,11 @@
    wrapper for layout.) */
 
 .ip-menu-act.danger { color: var(--red); }
+/* the Lagemeldung on a phone (F3, IncidentSwitcher): the bar's chip as a row — its state to the
+   right, amber when due, red five minutes past (the words carry it, never the colour alone) */
+.ip-menu-lage-state { margin-left: auto; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); }
+.ip-menu-lage.due .ip-menu-lage-state { color: var(--amber-strong); }
+.ip-menu-lage.late .ip-menu-lage-state { color: var(--red-strong); }
 /* app utilities (Einstellungen · Bereitschaft · Hilfe · Installieren) as one compact row of
    labeled tiles — icon + word keeps recognition (3am tenet) while taking a third of the
    height the old one-per-row list did */

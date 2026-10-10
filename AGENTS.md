@@ -396,6 +396,8 @@ to prod.
     the Sicherungstrupp, the Atemschutznotfall and the Abschluss.
   - [`docs/copy-and-wording.md`](docs/copy-and-wording.md) – which word a screen uses.
   - [`docs/rapport.md`](docs/rapport.md) – what the Rapport's figure pages carry.
+  - [`docs/lagemeldung.md`](docs/lagemeldung.md) – the Lagemeldung's anchor row and the
+    rhythm's self-superseding bookings (client, Rapport and push agree).
   - [`docs/roles-and-access.md`](docs/roles-and-access.md) – roles, the deployment admin, links.
   - [`docs/trupp-naming.md`](docs/trupp-naming.md), [`docs/verlauf-coverage.md`](docs/verlauf-coverage.md),
     [`docs/object-visits.md`](docs/object-visits.md) – Trupp identity, what reaches the Verlauf,

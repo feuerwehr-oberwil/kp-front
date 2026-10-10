@@ -1720,6 +1720,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
     journal: {
       quickPhrases: 'Frasi tipo',
       quickPhrasesTip: 'Una riga per frase. Durante la scrittura nell\'editor della voce, le frasi corrispondenti appaiono come completamenti (ricerca fuzzy). Vuoto = le frasi standard fornite, che restano in tedesco; per frasi in italiano, inseriscile qui.',
+      lageRhythm: 'Ritmo dei rapporti di situazione (min)',
+      lageRhythmTip: 'Dopo ogni rapporto di situazione il prossimo è dovuto altrettanti minuti dopo come promemoria; il primo 5 minuti dopo l\'arrivo del primo veicolo. 0 = nessun ritmo. La direzione può scegliere 10, 20 o 30 minuti per intervento.',
     },
     report: {
       groupRounding: 'Ore d\'intervento – arrotondamento',
