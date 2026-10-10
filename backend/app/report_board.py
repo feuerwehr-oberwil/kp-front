@@ -525,12 +525,12 @@ class BoardPageFlowable(Flowable):
         c.setStrokeColor(RULE)
         top = by + bh
         c.line(bx, top - head_h, bx + bw, top - head_h)
-        for i, (fs, lines) in enumerate(heads):
+        for i, (fs, head_lines) in enumerate(heads):
             c.setFont(FONT, fs)
             c.setFillColor(RULE)
-            for j, line in enumerate(lines):
+            for j, line in enumerate(head_lines):
                 # bottom-aligned, as the one-line heads always stood
-                c.drawString(xs[i] + 1.2 * mm, top - head_h + 2 * mm + (len(lines) - 1 - j) * lead, line)
+                c.drawString(xs[i] + 1.2 * mm, top - head_h + 2 * mm + (len(head_lines) - 1 - j) * lead, line)
         body_top = top - head_h
         body_h = body_top - by
         n = len(s.rows)
