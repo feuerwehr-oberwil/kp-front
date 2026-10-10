@@ -175,8 +175,15 @@ export interface PhotoGeo {
   alt?: number
   /** bearing of the lens, degrees clockwise from north [0, 360) */
   heading?: number
-  /** EXIF DateTimeOriginal, ISO-like local time (offset when the file states one) */
+  /** EXIF DateTimeOriginal, ISO-like local time (offset when the file states one) — or, for a
+   *  device position, the moment of the fix */
   takenAt?: string
+  /** WHERE the position came from: the photo's own EXIF, or the device's position at the moment
+   *  the picture arrived (lib/devicePosition — the in-app camera of an iPhone delivers none).
+   *  Absent on rows written before 09.10.2026, which are all EXIF. */
+  source?: 'exif' | 'device'
+  /** the device fix's accuracy radius in metres (device positions only) */
+  acc?: number
 }
 
 /** When a symbol was marked «gelöscht / erledigt», and by whom. `at` is an ISO instant on the

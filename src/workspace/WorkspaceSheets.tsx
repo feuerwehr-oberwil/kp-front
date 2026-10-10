@@ -9,6 +9,7 @@ import { HelpOverlay } from '../components/HelpOverlay'
 import { InstallGuide } from '../components/InstallGuide'
 import { ShareIncidentSheet, OfflineReadinessSheet, SettingsSheet, FeedbackSheet } from '../components/panels'
 import { isDemoMode } from '../lib/deploymentConfig'
+import { currentFix } from '../lib/devicePosition'
 import type { IncidentMeta, SyncStatus } from '../lib/incidents'
 import type { SymbolSurface, RailLabels } from '../lib/prefs'
 import type { PlanDatasetRef } from '../lib/useObjectPlans'
@@ -66,6 +67,11 @@ export interface WorkspaceSheetsProps {
   setShareParent: Dispatch<SetStateAction<'settings' | 'views' | 'status' | null>>
   setSharePick: Dispatch<SetStateAction<'ask' | 'pick' | 'rename' | null>>
   feedbackParent: 'settings' | null
+  /** this session writes the record — «Standort zu Fotos» is offered only then */
+  canWriteRecord: boolean
+  /** «Standort zu Fotos» (lib/devicePosition): undefined = never asked on this device */
+  photoPosition: boolean | undefined
+  setPhotoPosition: (v: boolean) => void
 }
 
 export function WorkspaceSheets({
@@ -76,7 +82,7 @@ export function WorkspaceSheets({
   setSettingsOpen, symbolScale, setSymbolScale, symbolCaptions, setSymbolCaptions, railLabels,
   setRailLabels, offlineRadiusM, setOfflineRadiusM, offlineAuto, setOfflineAuto, keepScreenOn,
   setKeepScreenOn, linkScoped, setFeedbackParent, setFeedbackOpen, share, setShareParent, setSharePick,
-  feedbackParent,
+  feedbackParent, canWriteRecord, photoPosition, setPhotoPosition,
 }: WorkspaceSheetsProps) {
   return (
     <>
@@ -132,6 +138,9 @@ export function WorkspaceSheets({
           onOfflineAuto={setOfflineAuto}
           keepScreenOn={keepScreenOn}
           onKeepScreenOn={setKeepScreenOn}
+          // «Standort zu Fotos» — switching it on here asks the browser right away, on this tap
+          photoPosition={canWriteRecord ? photoPosition === true : undefined}
+          onPhotoPosition={canWriteRecord ? (on) => { setPhotoPosition(on); if (on) void currentFix() } : undefined}
           themeCoord={incidentMeta.lng != null && incidentMeta.lat != null ? [incidentMeta.lng, incidentMeta.lat] : null}
           // Rückmeldung posts a diagnostic report — refused for a link session, so don't offer it
           onFeedback={linkScoped ? undefined : () => { setFeedbackParent('settings'); setFeedbackOpen(true) }}
