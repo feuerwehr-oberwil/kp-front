@@ -17,7 +17,6 @@
 
 .head { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-4); }
 .title { margin: 0; flex: 1 1 auto; min-width: 0; font: var(--fw-heavy) var(--fs-6)/var(--lh-6) var(--body); letter-spacing: -0.01em; }
-.meta { flex: none; font-size: var(--fs-micro); color: var(--ink-faint); }
 .remove { flex: none; }
 .print { flex: none; }
 
@@ -53,6 +52,24 @@
 .time { font-variant-numeric: tabular-nums; }
 /* the soft keyboard's missing Shift+Enter: a line-break key on the focused cell, on touch only */
 .cellBreak { padding-right: calc(var(--tap) + var(--sp-1)); }
+/* ── reordering (owner, 10.10. evening): the grip at an entry's left edge — quiet, 44px to hit
+   (it reaches into the box's edge), dragged by pointer or finger (touch-action: none, so the page
+   does not scroll instead); the entry being dragged lifts ── */
+.grip {
+  position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: calc(var(--tap) - var(--sp-4)); min-height: var(--tap); padding: 0; margin: 0; border: 0;
+  background: none; color: var(--ink-faint); cursor: grab; touch-action: none;
+}
+.grip::before { content: ''; position: absolute; inset: 0 0 0 calc(-1 * var(--sp-4)); }
+.grip svg { width: 10px; height: 16px; fill: currentColor; }
+.grip:active { cursor: grabbing; color: var(--ink); }
+.tdGrip { position: relative; }
+.tdGrip > .grip { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; }
+.tdGrip .cell { padding-left: calc(var(--tap) - var(--sp-4)); }
+.dragging { background: var(--surface); box-shadow: var(--e2); }
+/* an empty ruling under the empty row: a tap writes in the empty row (TafelFormPage · ghostRow) */
+.ghost { cursor: text; }
+.ghost > .td { min-height: var(--tap); }
 .capHint {
   position: absolute; left: 0; right: 0; top: 100%; z-index: 2; padding: var(--sp-1) var(--sp-2);
   background: var(--surface); box-shadow: var(--e2); border-radius: var(--r-sm);
@@ -97,7 +114,12 @@
    the last ruling sits flush on the box's border — never a doubled line */
 .fill > .tr:last-child { box-shadow: 0 1px 0 var(--ink-28); }
 .thead { min-height: 0; }
-.th { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-1); color: var(--ink); border-right: 1px solid var(--ink-28); }
+.th { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-1); color: var(--ink); border-right: 1px solid var(--ink-28);
+  /* a head breaks where its template says: at its soft hyphens («Entwicklungs-tendenz» — the
+     browser's own dictionary picked «Entwicklungsten-denz»), a symbol group («➚ = ➘») held by
+     its no-break spaces (owner, 10.10.); `anywhere` only for a word with no seam at all */
+  hyphens: manual; -webkit-hyphens: manual; overflow-wrap: anywhere; min-width: 0; }
+.sh, .boxLabel, .fieldLabel { hyphens: manual; -webkit-hyphens: manual; overflow-wrap: anywhere; }
 .td { display: flex; align-items: stretch; min-width: 0; border-right: 1px solid var(--ink-28); }
 .th:last-child, .td:last-child { border-right: none; }
 .td > .cell { flex: 1 1 auto; }
@@ -158,8 +180,13 @@
 
 /* ── a phone: one column, the paper edge to edge ── */
 .phone .paper { padding: var(--sp-3); border-radius: 0; box-shadow: none; margin-bottom: 0; }
-.phone .title { font-size: var(--fs-5); line-height: var(--lh-5); }
-.phone .meta { display: none; }
+.phone .title { font-size: var(--fs-5); line-height: var(--lh-5); overflow-wrap: anywhere; }
+/* on a phone the header's «Drucken» is its icon (the label says it): the title keeps the room */
+.phone .printWord { display: none; }
+/* …and a table's columns keep the width their heads need; the box scrolls sideways */
+.phone { --tafel-col-min: calc(var(--tap) * 2 + var(--sp-4)); }
+.phone .th { font-size: var(--fs-micro); }
+.phone .table { overflow-x: auto; }
 .phone .headRow { grid-template-columns: minmax(0, 1fr); }
 .phone .cell { min-height: 44px; }
 .phone .map { min-height: 220px; }

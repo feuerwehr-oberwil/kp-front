@@ -25,10 +25,19 @@ replaces the bundled one.
 
 - **A new Tafel starts empty.** The strip shows «Skizze» and «+ Seite», and nothing else. No
   page is forced on anyone, and there are no «Womit beginnen?» cards.
-- **«+ Seite»** lists the pages of the station's set, each under its template's title, by
-  title only. The FKS sheet numbers (8.1 …) stay in the template's `source` and in this doc,
-  never in the app (owner, staging round 2). A page that is already on the Tafel is marked «schon da». Tapping it goes to
-  that page instead of adding a second copy.
+- **«+ Seite»** (on a phone just «+», labelled «Seite hinzufügen») lists the pages of the
+  station's set by their titles only — no template name heading them, no sheet numbers (the FKS
+  numbers 8.1 … stay in the template's `source` and in this doc). A page that is already on the
+  Tafel is marked «schon da», and tapping it goes to that page — unless the page is
+  **repeatable** (`repeatable: true`): it stays on offer, and each tap adds a page of its own,
+  numbered in the strip, the title and on paper («Konzept», «Konzept 2», …, `lib/boardForm ·
+  pageTitles`; the numbers close up when one is removed). Each instance has its own values, its
+  own ↶ steps, its own sheet in the print, and the remembered page works per instance. The
+  bundled set repeats **Konzept** (several concepts) and **Rapport** (the next Rapport); the
+  Erste Führung, the Problemerfassung, Mittel and Verbindungen are one per Einsatz — what does
+  not fit on them continues on the «Fortsetzung».
+- A page's header carries its title only; which template file and version it came from stays in
+  its data and on the paper's footer.
 - **A page is ONE board anno** of kind `form` on the Tafel's own sheet (`board['tafel']`). The
   anno carries the page *snapshot* and everything written on it. So adding a page, every
   committed cell and removing a page are each one ↶ step on the Tafel's history, and a page syncs
@@ -68,30 +77,37 @@ replaces the bundled one.
 | Enter | Commits the cell and moves **down**: the next row, same column. In a Problemerfassung box it moves to the next line. On the last line it moves to the box's empty line. |
 | Enter on the empty trailing row | Leaves the list for the next section's first cell, so nobody gets stuck in a list. |
 | Tab / Shift+Tab | Moves **across**: the next column, or the next box to the right (Front → Ordnung → Sanität → Spezialprobleme, staying on the same line). It wraps to the next row and then to the next section. Shift+Tab is the exact way back. |
-| Shift+Enter, Alt+Enter | A line break inside the cell. On a touch screen a «Zeilenumbruch» key (↵, 44 px) sits in the focused cell. |
+| Shift+Enter, Alt+Enter | A line break inside the cell — a Problemerfassung entry too, which prints with its breaks. On a touch screen a «Zeilenumbruch» key (↵, 44 px) sits in the focused cell. |
+| Alt+↑ / Alt+↓ (⌥ on a Mac) | Moves the entry the cell belongs to up / down — a problem line, a Massnahme, a Mittel or Verbindungen row, a row written under the Abspracherapport's fixed ones (those stay fixed). One ↶ step, with what was typed in the cell. |
 | Esc | Restores the stored value. A second Esc lets go of the field. |
 
 - In a «Wann» (`time`) cell, `1124` is stored as `11:24`.
 - Enter on a row that has words and an empty Wann fills in the current time. This is part of the
   same commit, so ↶ takes it back.
 - An IME composition (Safari: `keyCode` 229) never commits or moves.
-- **Every box you see is writable.** A table's ruled empty rows on screen are real rows you can
-  type into (as many as the section's `height` leaves after the written ones); there is no
-  filler. Under the Abspracherapport's pre-printed rows, an added row has Bezeichnung and Ort as
-  free text; its Signatur stays blank.
+- **Every box you see is a tap target.** A table's ruled empty rows on screen (as many as the
+  section's `height` leaves after the entries) lead into the one empty row under the last entry:
+  a tap on any of them puts the caret there, in the same column. Under the Abspracherapport's
+  pre-printed rows, an added row has Bezeichnung and Ort as free text; its Signatur stays blank.
 - **Every ruling is the standard height**, never stretched (owner: «just keep things fixed»).
   When a neighbour in the same grid row is taller, the leftover height gets more standard
-  rulings, each a live row (`TafelFormPage · useFillCounts`), or plain space when less than one
+  rulings, each a tap target like the others (`TafelFormPage · useFillCounts`), or plain space when less than one
   ruling is left. A box grows only when its own rulings are all written, one ruling at a time.
   On paper the same: every table rules at the sheet's one ruling height.
-- **A row stays on the ruling it was written on**, like on paper: typed into the 8th ruling
-  under three written rows, it stays the 8th, with empty rulings 4–7 above it (on screen and in
-  print). Each row and each Problemerfassung line carries its `slot` (`lib/boardForm · slotted`),
-  kept through the cell merge; two devices writing two rulings keep both where they wrote them.
-  Enter after writing goes to the ruling directly below.
-- An emptied row or line leaves its ruling empty; nothing below moves up. Only the empty rulings
-  after the last written one are free, and there is always one of them. A trend or a tick on its
-  own is not content.
+- **Entries stack from the top, in the order you give them** (owner, 10.10.2026 evening: «allow
+  for manual reordering»). Writing always lands directly under the last entry, and Enter after
+  writing goes to the next free line. An emptied entry closes up: the ones below move up. A
+  trend or a tick on its own is not content.
+- **Reordering**: drag an entry by the grip at its left edge (pointer or finger, ≥ 44 px; the
+  page scrolls when the finger nears its top or bottom edge; Esc cancels), or Alt+↑ / Alt+↓.
+  Each move is one ↶ step. An entry moves within its own list; there is no dragging from one
+  Problemerfassung box into another.
+- **The order on two devices**: each entry carries an order key (`ord`, `lib/orderKey` —
+  fractional indexing), and a move writes only the moved entry's key. Two devices moving
+  different entries both keep their moves; the same entry moved on both keeps the later move
+  (a tie is settled the same on every device); two entries appended at once are both kept, in a
+  fixed order. A move is never a conflict row. Pages from the builds of 10.10.2026 (which kept a
+  `slot` per entry) read in that order with the gaps closed, and get keys on their next write.
 - DOM order is template order, so the iOS ↑↓ bar follows it. Pre-printed cells (Signatur,
   Bezeichnung, Traktandum) are text, not inputs, so neither Tab nor the iOS bar stops on them.
   `enterkeyhint` is «next», and «done» on the last field.
@@ -147,7 +163,11 @@ Einsatz-Link session cannot print it (the pages carry names, like the Rapport).
   Tafel's ink never reaches paper» gap.
 - **Switch.** Everything above sits behind one entry in the print menu, «Tafel – Seiten (n)»,
   which is on by default.
-- **Fonts.** Trend arrows (➚ = ➘) are drawn as vector arrows, because Helvetica has no glyph for them. Soft hyphens (`­`)
+- **Fonts.** Trend arrows (➚ = ➘) are drawn as vector arrows, because Helvetica has no glyph for them.
+- **Heads** take the lines they need (up to three), every line printed. A label keeps a symbol
+  group together with no-break spaces (`➚\u00a0=\u00a0➘`) and breaks a long word at its soft
+  hyphen (`Entwicklungs\u00adtendenz`) — on screen the same: heads break at their soft hyphens
+  only (the browser's dictionary picked «Entwicklungsten-denz»). Soft hyphens (`­`)
   in a label split it where the poster does, as in «Patienten-sammelstelle».
 
 ## Writing a station template
@@ -206,6 +226,7 @@ required and is the fallback.
 | `columns` | `1` or `2`. A phone always uses one column. |
 | `header` | Switch for the Einsatz · Adresse · Alarm · Einsatzleiter line. |
 | `hidden` | When true, the page is not offered. |
+| `repeatable` | When true, the page may be added more than once (see «+ Seite» above). |
 | `sections[]` | The page's sections. |
 
 **Every section** has `id`, `type` and these optional keys:

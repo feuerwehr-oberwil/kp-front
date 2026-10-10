@@ -39,7 +39,7 @@ import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
 import { resolvePlanAnnos } from './lineAttachments'
 import type { JournalLink } from './journalLinks'
-import { TAFEL_ID, findForms, formForPdf } from './boardForm'
+import { TAFEL_ID, findForms, formForPdf, pageTitles } from './boardForm'
 import { isDrawnBoardKind } from './workspace'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
@@ -415,7 +415,8 @@ export function tafelPayload(
 ): { boardPages: Record<string, unknown>[]; boardMap?: unknown; skizze?: Record<string, unknown> } {
   const annos = board?.[TAFEL_ID] ?? []
   const T = appConfig.copy.tafel
-  const pages = findForms(annos).map((a) => formForPdf(a.form, { up: T.trendUp, same: T.trendSame, down: T.trendDown }, undefined, T.head))
+  const titles = pageTitles(annos)
+  const pages = findForms(annos).map((a) => formForPdf(a.form, { up: T.trendUp, same: T.trendSame, down: T.trendDown }, undefined, T.head, titles.get(a.id)))
   const wantsMap = findForms(annos).some((a) => a.form.page.sections.some((x) => x.type === 'map' && !x.hidden))
   const map = wantsMap && scene
     ? buildKrokiPayload({
