@@ -133,3 +133,14 @@ describe('one device takes a page off while another writes on it (re-review of #
     expect(conflicts).toEqual([])
   })
 })
+
+describe('a row emptied on one device while the other stamps its time (re-review of #338)', () => {
+  it('goes — a time alone holds nothing to act on', () => {
+    const base = putRow(page(), 'massnahmen', 'm1', { cells: { was: 'Riegel', wer: 'TLF' } }, 500)
+    const emptied = putRow(base, 'massnahmen', 'm1', { cells: { was: '', wer: '' } }, 1000)
+    const stamped = putRow(base, 'massnahmen', 'm1', { cells: { wann: '17:42' } }, 1100)
+    expect(emptied.values.massnahmen.rows).toEqual([])
+    expect(mergeFormData(base, emptied, stamped).values.massnahmen.rows).toEqual([])
+    expect(mergeFormData(base, stamped, emptied).values.massnahmen.rows).toEqual([])
+  })
+})
