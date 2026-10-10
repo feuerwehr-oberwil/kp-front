@@ -101,6 +101,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             '**Zoom in/out**, **Fit** and **Capture coordinates** at the bottom of the right rail. When capturing, tap the map to fix a point (LV95 + WGS84); the compass re-aligns to north.',
             '**Wind** is shown continuously (direction + temperature) so the spread direction is immediately clear.',
             '**Vehicles** appear live via GPS (name + heading), your own position as a calm blue dot.',
+            '**Building info** at the bottom left names the hazards of the building at the incident address (⚠ gas · PV) and opens its card: hazards, **Immediate measures** and Remarks at the top, the register facts below. The first time this device opens the incident, the card opens by itself so it gets read – the map stays usable. ✕ closes it; after that the chip opens it. A different address or object with content shows it once more.',
           ] },
         ],
       },

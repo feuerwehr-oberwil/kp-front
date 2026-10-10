@@ -102,6 +102,7 @@ import { useObjectPlans, isSelectOnlySurface, railPlanTiles, BUILDING_PICK_ID } 
 import { PlanPicker } from './components/PlanPicker'
 import { fetchShareLink } from './lib/viewLink'
 import { useBuildingInfo } from './lib/useBuildingInfo'
+import { useBuildingFirstOpen } from './lib/buildingFirstOpen'
 import { useWeather } from './lib/useWeather'
 import { useKarteWeather } from './workspace/useKarteWeather'
 import { useBootCover } from './lib/bootCover'
@@ -1342,6 +1343,14 @@ export function IncidentWorkspace({
     && (mode !== 'map' || mapSettled)
     && plansSettled
     && (!!liveWeather.data || !!liveWeather.error), onOpenCoverDone)
+  // The Gebäude card opens by itself the first time THIS device shows the Karte of this Einsatz
+  // with a hazard / Sofortmassnahmen / Bemerkungen to read (lib/buildingFirstOpen): after the cover
+  // has lifted (never under the snail), on the Karte only — an Einsatz that opens on another
+  // surface shows it when the Karte is first shown — and never in a replay, a closed Einsatz or a
+  // session that cannot see the Karte (the Atemschutz-Link's Tafel). Data that arrives later
+  // (offline, then online) opens it when it arrives.
+  const buildingFirst = useBuildingFirstOpen(incidentMeta.id, buildingInfo,
+    coverPhase === 'off' && mode === 'map' && running && !replayActive && !asLink && !tabLockLost)
   const openWeatherDetails = useCallback(() => {
     const [lng, lat] = incidentView.center
     const url = appConfig.copy.weather.detailsUrl.replace('{lat}', String(lat)).replace('{lng}', String(lng))
@@ -3084,7 +3093,7 @@ export function IncidentWorkspace({
       <MapControls {...{
         mapUI, mapUtility, mapRef, view, viewsApi, readOnly, isEl, viewsOpen, toggleViews, coord, panel,
         layersPreset, togglePanel, isPhone, slimRail, displayWeather, openWeatherDetails, replayActive,
-        georefMode, buildingInfo, tool, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
+        georefMode, buildingInfo, buildingFirst, tool, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
         toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
         weather,
       }} />

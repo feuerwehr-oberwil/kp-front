@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
@@ -22,17 +22,35 @@ import s from './BuildingFloat.module.css'
  * Closed, the chip says what a crew must not miss: the hazards as glyph + WORD («⚠ Gas · PV»), else
  * just «Gebäude-Info» (not «Gebäude» + the storey glyph: that is the rail's Gebäude tile, a
  * surface of its own). Nothing to say → no chip (lib/buildingCard · hasBuildingContent).
+ *
+ * The FIRST time this device shows the Karte of an Einsatz whose building has a hazard,
+ * Sofortmassnahmen or Bemerkungen, the card opens by itself (`autoOpen`, lib/buildingFirstOpen —
+ * the workspace decides when); closing it marks it read (`onRead`). The plan's row never passes it.
  */
-export function BuildingFloat({ info, compact = false }: { info: BuildingInfo | null; compact?: boolean }) {
-  const [open, setOpen] = useState(false)
+export function BuildingFloat({ info, compact = false, autoOpen = false, onRead }: {
+  info: BuildingInfo | null
+  compact?: boolean
+  /** the card's FIRST open on this device (lib/buildingFirstOpen): it opens by itself while this
+   *  is true — still non-modal, the map stays live — and stays as the operator leaves it */
+  autoOpen?: boolean
+  /** the card was closed (✕, Esc, the chip): it has been read */
+  onRead?: () => void
+}) {
+  const [open, setOpen] = useState(autoOpen)
+  // React's «adjust state while rendering»: the moment `autoOpen` turns on, the card opens
+  const [auto, setAuto] = useState(autoOpen)
+  if (autoOpen !== auto) { setAuto(autoOpen); if (autoOpen) setOpen(true) }
   const summary = buildingChipSummary(info)
+  const read = useRef(onRead)
+  useEffect(() => { read.current = onRead })
+  const close = useCallback(() => { setOpen(false); read.current?.() }, [])
   // Esc closes it, like every other floating card
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open])
+  }, [open, close])
   if (!summary) return null
   const C = appConfig.copy.building
   // compact (a phone, where the floating row is one line beside the FAB): the hazard words only;
@@ -50,7 +68,7 @@ export function BuildingFloat({ info, compact = false }: { info: BuildingInfo | 
         aria-label={summary.label}
         title={summary.label}
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => (open ? close() : setOpen(true))}
       >
         <Icon id={summary.hazard ? 'warn' : 'info'} />
         {text && <span>{text}</span>}
@@ -59,7 +77,7 @@ export function BuildingFloat({ info, compact = false }: { info: BuildingInfo | 
       </button>
       {open && (
         <div className={s.pop} role="dialog" aria-label={C.title}>
-          <BuildingCard info={info} onClose={() => setOpen(false)} />
+          <BuildingCard info={info} onClose={close} />
         </div>
       )}
     </span>

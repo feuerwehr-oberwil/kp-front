@@ -1,5 +1,5 @@
 import { request as apiRequest, type Browser, type BrowserContext, type Page } from '@playwright/test'
-import { isolateFromOutside, retire, seedIncident, signIn, waitForWorkspace, POLL_MS, type Seeded } from '../perf/harness'
+import { buildingAlreadyRead, isolateFromOutside, retire, seedIncident, signIn, waitForWorkspace, POLL_MS, type Seeded } from '../perf/harness'
 
 // The freezing half of the screenshot regression tests (e2e/screens.visual.ts,
 // docs/testing/visual-regression.md). A screenshot test is only worth anything if the same
@@ -114,6 +114,7 @@ export async function openIncident(page: Page, baseURL: string, { surface, theme
     name: 'kp-front-prefs', url: baseURL,
     value: encodeURIComponent(JSON.stringify({ incidentId: seeded.id, incidentChosenAt: SHOT, mode: surface, modeIncidentId: seeded.id, theme })),
   }])
+  await buildingAlreadyRead(context, seeded)
   await signIn(context.request)
   await startClock(page)
   await page.goto('/')

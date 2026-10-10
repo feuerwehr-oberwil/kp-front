@@ -3,7 +3,8 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { StrictMode, useState } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { TafelFormPage } from './TafelFormPage'
-import { newFormPage, putRow, type BoardFormData } from '../lib/boardForm'
+import { newFormPage, putRow, writtenRows, type BoardFormData } from '../lib/boardForm'
+import type { TableSection } from '../lib/boardTemplate'
 import { BUNDLED_TEMPLATES } from '../lib/boardTemplates'
 import { getLocaleId } from '../config/copy'
 
@@ -279,6 +280,27 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     act(() => { was().focus() })
     type('Riegel Seite D'); key('Enter')
     expect(clashes).toHaveLength(1)
+  })
+
+  it('a drag commits against the data as it stands at the drop, not as it was at the grab (#339 review)', () => {
+    const MN = EF.sections.find((x) => x.id === 'massnahmen') as TableSection
+    let base = newFormPage(FKS, EF, {}, '2026-10-10T09:24:00.000Z')
+    for (const [id, was] of [['m1', 'A'], ['m2', 'B'], ['m3', 'C']]) base = putRow(base, 'massnahmen', id, { cells: { was } }, 1)
+    const commits: BoardFormData[] = []
+    const props = { pageKey: 'p', readOnly: false, isPhone: false, onRemove: () => {}, inset: { top: 0, left: 0, right: 0, bottom: 0 }, onChange: (d: BoardFormData) => commits.push(d) }
+    const { rerender } = render(<TafelFormPage {...props} data={base} />)
+    const grip = document.querySelector<HTMLElement>('[data-ord-list][data-ord-id="m1"] button[aria-label^="Verschieben"]')!
+    // A grabbed and dragged below C (jsdom has no layout: every row's middle is 0)
+    act(() => { fireEvent.pointerDown(grip, { clientY: 0 }) })
+    act(() => { window.dispatchEvent(new MouseEvent('pointermove', { clientY: 100 }) as PointerEvent) })
+    // …meanwhile another device rewrites B and adds D
+    const remote = putRow(putRow(base, 'massnahmen', 'm2', { cells: { was: 'B2' } }, 2), 'massnahmen', 'm4', { cells: { was: 'D' } }, 2)
+    rerender(<TafelFormPage {...props} data={remote} />)
+    act(() => { window.dispatchEvent(new MouseEvent('pointerup', { clientY: 100 }) as PointerEvent) })
+    expect(commits).toHaveLength(1)
+    const rows = writtenRows(commits[0], MN)
+    // nothing of the other device's is lost, and A lands right after C, where it was dropped
+    expect(rows.map((r) => r.cells.was)).toEqual(['B2', 'C', 'A', 'D'])
   })
 
   it('Alt+Enter is a line break inside the cell, not a move', () => {
