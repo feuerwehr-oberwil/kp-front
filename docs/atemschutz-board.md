@@ -191,8 +191,10 @@ reworded.
   seit hh:mm»). It is a Trupp CARD in its alarm tone (owner feedback 10.10.2026, three rounds:
   the first banner was a widget of kicker, clock column, wrapped names, facts and two rows of
   buttons, ~270 px on a 390 px phone): the phone card's frame (`.trow.trowCard.trowCrit`), and row
-  1 the card's own head line — «⚠ Trupp 1» in red where the card has its dot and name, the
-  card's 25 px clock, a chevron › — the whole line being «Zum Trupp» (aria «Zum Trupp 1»). Row 2
+  1 the card's own head line — ⚠ in the dot's place and, in red, the SAME name the crew's card
+  head shows («Binggeli Michael», `lib/atemschutz · truppHeadName`, so the card below reads as
+  the same crew — «⚠ Trupp 1» over it did not), the card's 25 px clock, a chevron › — the whole
+  line being «Zum Trupp» (aria «Zum Trupp 1 (Binggeli Michael / …)»). Row 2
   is ONE dim line, «Notfall seit 11:11 · Löschen · 300 bar (Eingangsdruck) · Kanal 11», wrapping,
   never cut; the people are the card's (and the aria label's, the Meldeleiste's, the Verlauf's).
   Row 3 is the one act at the banner's width, its reason as a small second line. ~162 px on a
