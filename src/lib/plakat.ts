@@ -18,6 +18,9 @@ import type {
  * Absprachepunkte as unticked rows. Everything else starts empty.
  */
 
+/** The Tafel's plan id — the one sheet the Plakat lives on. */
+export const TAFEL_ID = 'tafel'
+
 export const PLAKAT_PROBLEM_SECTIONS = ['front', 'ordnung', 'sanitaet', 'spezial'] as const
 export type PlakatProblemSection = typeof PLAKAT_PROBLEM_SECTIONS[number]
 export type PlakatListKey = PlakatProblemSection | 'massnahmen' | 'mittel' | 'verbindungen' | 'absprachen'

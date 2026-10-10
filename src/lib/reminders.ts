@@ -21,8 +21,6 @@
 
 import { appConfig } from '../config/appConfig'
 import { fuzzyScore, norm } from './quickPhrases'
-import { currentLageReminderId } from './lageRhythm'
-import { linkParts, type JournalLink } from './journalLinks'
 import type { Surface, TimelineEvent } from '../types'
 
 /** The latest Meldung on an open item — what the list shows under the item's own text. */
@@ -61,11 +59,6 @@ export interface OpenReminder {
   notes: PendenzNote[]
   /** surface it was raised on, for the Verlauf chip / jump */
   surface?: Surface
-  /** `lagemeldung`: the Führungsrhythmus' booking (lib/lageRhythm) — its due row offers
-   *  [Lagemeldung] [+10′] instead of [Erledigt] */
-  purpose?: 'lagemeldung'
-  /** `lagemeldung` only: the rhythm the booking was made with (the latest event carrying it) */
-  intervalMin?: number
 }
 
 /**
@@ -84,7 +77,6 @@ export function deriveReminders(timeline: readonly TimelineEvent[], closedAt?: s
   const created = new Map<string, TimelineEvent>()
   const latest = new Map<string, { op: 'created' | 'snoozed' | 'done' | 'reopened'; dueAt?: string }>()
   const urgency = new Map<string, boolean>()
-  const interval = new Map<string, number>()
   const notes = new Map<string, PendenzNote[]>()
 
   for (let i = timeline.length - 1; i >= 0; i--) {
@@ -96,7 +88,6 @@ export function deriveReminders(timeline: readonly TimelineEvent[], closedAt?: s
     // Meldungen was tried and pulled (see types · reminder.urgent). The tolerance stays, so the
     // action can be given its own control later without a second reducer.
     if (r.urgent !== undefined) urgency.set(r.id, r.urgent)
-    if (r.intervalMin !== undefined) interval.set(r.id, r.intervalMin)
     if (r.op === 'note') {
       // ⚠️ Does NOT touch the item's OP. A Meldung reports on an item; it never opens or closes
       // one, and it must not resurrect an item that a later `done` already closed.
@@ -121,18 +112,10 @@ export function deriveReminders(timeline: readonly TimelineEvent[], closedAt?: s
   }
 
   const closedMs = closedAt ? Date.parse(closedAt) : NaN
-  // ⚠️ The Lagemeldung's bookings supersede each other (lib/lageRhythm): only the one belonging to
-  // the newest Lagemeldung row is open — a later «Gemeldet» closes the earlier booking without a
-  // done row. Computed only when there is a booking at all (the common Einsatz has none).
-  let lageOpen: string | null = null
   const open: OpenReminder[] = []
   for (const [id, c] of created) {
     const st = latest.get(id)
     if (!st || st.op === 'done') continue
-    if (c.reminder?.purpose === 'lagemeldung') {
-      lageOpen ??= currentLageReminderId(timeline)
-      if (id !== lageOpen) continue
-    }
     const dueAt = st.dueAt ?? c.reminder?.dueAt
     // expired by closure — timed Erinnerungen only (see the doc comment)
     if (dueAt && Number.isFinite(closedMs) && Date.parse(dueAt) < closedMs) continue
@@ -143,7 +126,6 @@ export function deriveReminders(timeline: readonly TimelineEvent[], closedAt?: s
       assignee: c.reminder?.assignee,
       notes: mine,
       surface: c.surface,
-      ...(c.reminder?.purpose ? { purpose: c.reminder.purpose, intervalMin: interval.get(id) } : {}),
     })
   }
   // dringend first, then the OLDEST first: the position carries the age, so the time column can
@@ -205,35 +187,6 @@ export function suggestPendenzen<T extends Pick<OpenReminder, 'text' | 'createdA
     .sort((a, b) => b.score - a.score || a.r.createdAt.localeCompare(b.r.createdAt))
     .slice(0, limit)
     .map((m) => m.r)
-}
-
-/**
- * The open item a just-filed entry answers, if it names the same Trupp, vehicle, partner or
- * person: «Trupp 2: Frau Weber betreut» answers «Auftrag · Trupp 2: Frau Weber betreuen». The
- * workspace offers «erledigt» for it as ONE tap on the saved toast (10.10.2026, owner pick: the
- * reply suggests, nothing closes silently).
- *
- * ⚠️ Matched on the MARKED names of both sentences (lib/journalLinks), not on the stored
- * `assignee`. That is the first name only, and the Funkprotokoll shape «EL → Trupp 2: …» makes it
- * the EL — on every Auftrag at once.
- * ⚠️ …which is also why the command posts (EL, Stv. EL) never count as a shared name: they stand
- * in half the Verlauf and would tie every reply to every Auftrag.
- * ⚠️ The NEWEST shared item wins. Two open Aufträge to Trupp 2 and one «Trupp 2: erledigt» is most
- * likely about the last thing it was told, and the toast names the item, so a wrong guess is read
- * before it is tapped.
- */
-export function answeredPendenz<T extends Pick<OpenReminder, 'text' | 'createdAt'>>(text: string, vocab: JournalLink[], open: readonly T[]): T | null {
-  const A = appConfig.copy.anwesenheit
-  const posts = new Set([A.roleEinsatzleiterShort, A.roleEinsatzleiterStvShort].filter(Boolean).map(norm))
-  const names = (s: string) => new Set(linkParts(s, vocab)
-    .filter((p) => p.kind && p.kind !== 'url' && p.kind !== 'phone')
-    .map((p) => norm(p.text.trim()))
-    .filter((n) => n && !posts.has(n)))
-  const said = names(text)
-  if (!said.size) return null
-  return [...open]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .find((r) => [...names(r.text)].some((n) => said.has(n))) ?? null
 }
 
 /** …the same «must begin one of the target's words» rule the name suggestions use. */

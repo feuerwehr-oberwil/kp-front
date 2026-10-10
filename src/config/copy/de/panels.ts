@@ -88,8 +88,7 @@ export const panelsCopy = {
     windShiftDismiss: 'Ausblenden',
   },
   // The Karte's weather LAYER (components/WeatherLayer, backend app/weather_layer): the
-  // MeteoSwiss radar in Ebenen and the official warnings chip. The warnings' own words are
-  // NEVER here – they travel verbatim from the source (MetO art. 5).
+  // MeteoSwiss radar in Ebenen and its floating pill.
   weatherLayer: {
     group: 'Wetter',
     radar: 'Niederschlag (Radar)',
@@ -107,23 +106,6 @@ export const panelsCopy = {
     radarPending: 'Noch kein Radarbild – wird geladen.',
     radarUnavailable: 'Radar zurzeit nicht verfügbar.',
     stale: 'Stand {time} – veraltet',
-    chipAria: 'Wetterwarnungen ({count}): {summary}',
-    more: '+{count}',
-    from: 'ab {time}',
-    until: 'bis {time}',
-    untilRevoked: 'bis auf Widerruf',
-    validity: 'Gültig',
-    source: 'Quelle',
-    sourceMeteoswiss: 'MeteoSchweiz (via MeteoAlarm)',
-    sourceAlertswiss: '{publisher} (via Alertswiss)',
-    moreInfo: 'Mehr bei der Quelle',
-    warningStale: 'Stand {time} – Quelle zurzeit nicht erreichbar',
-    verbatimNote: 'Originaltext der Quelle, unverändert.',
-    level1: 'Information',
-    level2: 'Gelb – potenziell gefährlich',
-    level3: 'Orange – gefährlich',
-    level4: 'Rot – sehr gefährlich',
-    authorityNotice: 'Behördliche Meldung',
   },
   // PDF rendering — status line in PdfScroller + first-load placeholder in PdfViewport (Plan)
   pdf: {

@@ -1,4 +1,4 @@
-import { useState, type ReactElement, type ReactNode, type RefObject } from 'react'
+import { useState, type ReactElement, type ReactNode } from 'react'
 import { Popover as BasePopover } from '@base-ui/react/popover'
 import { usePopoverGuard } from './popoverGuard'
 
@@ -36,13 +36,9 @@ export interface PopoverProps {
   collisionPadding?: number
   open?: boolean
   onOpenChange?: (open: boolean) => void
-  /** Where focus lands on open. Base UI's default is the first tabbable element (the popup itself
-   *  on touch) — which, in a popover of prose that ends in a link, scrolls a mouse user straight
-   *  past the text to that link. Point it at the top of the content instead. */
-  initialFocus?: RefObject<HTMLElement | null>
 }
 
-export function Popover({ trigger, children, ariaLabel, popupClassName, side = 'bottom', align = 'end', sideOffset = 8, alignOffset, collisionPadding = 10, zIndex, open, onOpenChange, initialFocus }: PopoverProps) {
+export function Popover({ trigger, children, ariaLabel, popupClassName, side = 'bottom', align = 'end', sideOffset = 8, alignOffset, collisionPadding = 10, zIndex, open, onOpenChange }: PopoverProps) {
   // uncontrolled callers give us no `open` to read, so the Root reports it — a popover open over
   // a Sheet/Overlay keeps that sheet's backdrop/Esc dismissal off (popoverGuard)
   const [isOpen, setIsOpen] = useState(false)
@@ -53,7 +49,7 @@ export function Popover({ trigger, children, ariaLabel, popupClassName, side = '
       <BasePopover.Portal>
         <BasePopover.Positioner side={side} align={align} sideOffset={sideOffset} alignOffset={alignOffset} collisionPadding={collisionPadding} style={zIndex != null ? { zIndex } : undefined}>
           {/* `ui-pop`: shared exit hook — see 13-incident.css [data-ending-style] */}
-          <BasePopover.Popup className={popupClassName ? `ui-pop ${popupClassName}` : 'ui-pop'} aria-label={ariaLabel} initialFocus={initialFocus}>
+          <BasePopover.Popup className={popupClassName ? `ui-pop ${popupClassName}` : 'ui-pop'} aria-label={ariaLabel}>
             {children}
           </BasePopover.Popup>
         </BasePopover.Positioner>

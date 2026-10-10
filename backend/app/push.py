@@ -287,42 +287,9 @@ async def notify_notfall_changes(db: AsyncSession, inc: Incident, previous: obje
     return len(sends)
 
 
-#: The Lagemeldung's Führungsrhythmus (frontend lib/lageRhythm): a booking's id is derived from
-#: the Lagemeldung row that booked it, ``lgm-<rowId>`` — ``lgm-start`` before the first one.
-LAGE_ID_PREFIX = "lgm-"
-LAGE_START_ID = "lgm-start"
-
-
-def _current_lage_booking(rows: list[dict], retracted: set[str]) -> str:
-    """The booking that may be open: the one of the NEWEST Lagemeldung row (mirrors
-    lageRhythm · currentLageReminderId — a later Lagemeldung supersedes the earlier booking
-    without a done row). "Newest" is the latest ``at``; rows without one count by seq order."""
-    best_id: str | None = None
-    best_at: float | None = None
-    for e in rows:
-        lm = e.get("lagemeldung")
-        rid = e.get("id")
-        if not isinstance(lm, dict) or lm.get("v") != 1 or not isinstance(rid, str) or rid in retracted:
-            continue
-        at = _ms(e.get("at"))
-        if at is None:
-            continue
-        if best_at is None or at > best_at or (at == best_at and rid > (best_id or "")):
-            best_id, best_at = rid, at
-    return f"{LAGE_ID_PREFIX}{best_id}" if best_id else LAGE_START_ID
-
-
 def due_reminders(rows: list[dict], now_ms: float, closed_at: str | None) -> list[dict[str, Any]]:
     """Open, due Wiedervorlagen folded from journal rows (created/snoozed/done lifecycle);
-    reminders due before the Einsatzende are expired by closure (mirrors deriveReminders).
-
-    A RETRACTED row (a later patch row ``{patchOf, retracted: true}``) is gone, as on every
-    device. A Lagemeldung booking (``reminder.purpose == "lagemeldung"``) is open only when it
-    belongs to the newest Lagemeldung — the push must not ring for a superseded one."""
-    retracted: set[str] = set()
-    for e in rows:  # the LATEST retraction patch per row wins — «Rückgängig» on it un-retracts
-        if isinstance(e, dict) and isinstance(e.get("patchOf"), str) and isinstance(e.get("retracted"), bool):
-            (retracted.add if e["retracted"] else retracted.discard)(e["patchOf"])
+    reminders due before the Einsatzende are expired by closure (mirrors deriveReminders)."""
     created: dict[str, dict] = {}
     latest: dict[str, dict] = {}
     for e in rows:  # oldest→newest (seq order)
@@ -332,8 +299,6 @@ def due_reminders(rows: list[dict], now_ms: float, closed_at: str | None) -> lis
             row_id = e.get("id") if isinstance(e, dict) else None
             row_id = row_id[:128] if isinstance(row_id, str) else None
             logger.warning("Skipping malformed legacy reminder row %r: %s", row_id, exc)
-            continue
-        if e.get("id") in retracted:
             continue
         r = e.get("reminder")
         if not r or not r.get("id"):
@@ -345,17 +310,11 @@ def due_reminders(rows: list[dict], now_ms: float, closed_at: str | None) -> lis
             prev = latest.get(r["id"], {})
             latest[r["id"]] = {"op": r.get("op"), "dueAt": r.get("dueAt") or prev.get("dueAt")}
     closed_ms = _ms(closed_at)
-    lage_open: str | None = None
     out = []
     for rid, c in created.items():
         st = latest.get(rid)
         if not st or st["op"] == "done":
             continue
-        if (c.get("reminder") or {}).get("purpose") == "lagemeldung":
-            if lage_open is None:
-                lage_open = _current_lage_booking(rows, retracted)
-            if rid != lage_open:
-                continue
         due = st.get("dueAt") or (c.get("reminder") or {}).get("dueAt")
         due_ms = _ms(due)
         if due_ms is None:

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FocusEvent as ReactFocusEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime, stripUnprintable } from '../lib/format'
@@ -100,6 +100,9 @@ const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
  *  word before the bell's honest state — the ⚠ and its count stay), then «Trupp anmelden» → «Trupp»,
  *  and last «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds). */
 const HEAD_FOLD = { saved: 1, order: 2, share: 3, restore: 4, overdue: 5, bell: 6, newTrupp: 7, savedMark: 8 } as const
+
+/** The room the sticky Notfall stack takes at the top of the board's port (+ the air under it). */
+const nfInset = (el: HTMLElement | null) => (el ? el.offsetHeight + 12 : 0)
 
 export function AtemschutzView({
   trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, unlinkTruppLine, dockedAt,
@@ -935,7 +938,26 @@ export function AtemschutzView({
    * scroll against. */
   const bodyRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  /* The Notfall banners' sticky stack (AtemschutzNotfall · NotfallBanner) covers the top of the
+   * port, so «the top of the port» is BELOW it while one runs: its height (+ the air under it) is
+   * `--nf-h` on the port — the port's scroll padding for every scroll-into-view — and the parking
+   * scroll below reads it too. Before (owner screenshot 10.10.2026) the opened card parked under
+   * the banner with its name chips cut off. Measured, because the banner's height is its words. */
+  const nfStackRef = useRef<HTMLDivElement>(null)
+  const hasNotfall = notfallTrupps.length > 0
+  useLayoutEffect(() => {
+    const port = bodyRef.current, el = nfStackRef.current
+    if (!port) return
+    if (!el) { port.style.removeProperty('--nf-h'); return }
+    const set = () => port.style.setProperty('--nf-h', `${nfInset(el)}px`)
+    set()
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(set)
+    ro?.observe(el)
+    return () => ro?.disconnect()
+  }, [hasNotfall])
   const openRowStatus = trupps.find((t) => t.id === openRow)?.status
+  // pointing at the card that is already open («Zum Trupp» twice, an alarm on it) parks it again
+  const openFocusNonce = activeFocus && activeFocus.id === openRow ? activeFocus.nonce : undefined
   useEffect(() => {
     const list = listRef.current, port = bodyRef.current
     if (!list || !port) return
@@ -953,7 +975,7 @@ export function AtemschutzView({
     // events), and the window or visual viewport resizing (the FAB is `position: fixed`). Scroll
     // and resize are folded into one measurement per frame.
     const measure = () => {
-      list.style.setProperty('--az-open-pad', `${Math.max(0, port.clientHeight - card.offsetHeight - 16)}px`)
+      list.style.setProperty('--az-open-pad', `${Math.max(0, port.clientHeight - nfInset(nfStackRef.current) - card.offsetHeight - 16)}px`)
       const row = card.querySelector<HTMLElement>('[data-az-foot]')
       const fab = document.querySelector('.fab-entry')?.getBoundingClientRect()
       if (!row) return
@@ -963,7 +985,8 @@ export function AtemschutzView({
     let frame = 0
     const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure() }) }
     measure()
-    const top = port.scrollTop + card.getBoundingClientRect().top - port.getBoundingClientRect().top
+    // …parked under the Notfall banners while one runs, never beneath them (`--nf-h` above)
+    const top = port.scrollTop + card.getBoundingClientRect().top - port.getBoundingClientRect().top - nfInset(nfStackRef.current)
     if (typeof port.scrollTo === 'function') port.scrollTo({ top, behavior: 'smooth' })
     else port.scrollTop = top
     port.addEventListener('scroll', schedule, { passive: true })
@@ -979,7 +1002,7 @@ export function AtemschutzView({
       window.visualViewport?.removeEventListener('resize', schedule)
       ro?.disconnect()
     }
-  }, [compact, openRow, openRowStatus])
+  }, [compact, openRow, openRowStatus, openFocusNonce])
 
   /* WHICH cards the current pointer marks — and which one the board scrolls to.
    *
@@ -1025,7 +1048,9 @@ export function AtemschutzView({
     <TruppCard
       key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
       intervalMin={intervalMin} frozen={frozenAt != null}
-      focusNonce={nonce} focusScroll={activeFocus?.id === t.id} flashSeen={seen} onFlashed={flashed}
+      // the phone's opened row is PARKED by the board (the effect around `--az-open-pad`), below
+      // the Notfall banners — a centring scroll of its own fought that and won (10.10.2026)
+      focusNonce={nonce} focusScroll={activeFocus?.id === t.id && !(compact && !focusMode)} flashSeen={seen} onFlashed={flashed}
       onContact={(id) => { void contactTap(id) }}
       onStatus={(id, s) => { freezeOrder(); setTruppStatus(id, s) }}
       onStandDown={(id) => { freezeOrder(); setTruppStatus(id, 'raus', undefined, { undoToast: true }) }}
@@ -1492,8 +1517,8 @@ export function AtemschutzView({
         {/* The Atemschutznotfall stands at the TOP of the board, on every board, however it is
             sorted (F1, 08.10.2026) — the strip's row steps aside here, this is its place. Not on
             a closed Einsatz: its Tafel alarms nothing (R3). */}
-        {notfallTrupps.map((t) => (
-          <NotfallBanner key={t.id} t={t} now={now} place={placeOf?.(t)} canEdit={canEdit}
+        {notfallTrupps.length > 0 && <div className={s.nfStack} ref={nfStackRef}>{notfallTrupps.map((t) => (
+          <NotfallBanner key={t.id} t={t} now={now} place={placeOf?.(t)} canEdit={canEdit} dense={notfallTrupps.length > 1}
             ready={notfallReady} inside={notfallSafetyInside}
             onDeploySafety={(id) => { freezeOrder(); setTruppStatus(id, 'aktiv') }}
             pickSafety={(trigger) => (
@@ -1524,7 +1549,7 @@ export function AtemschutzView({
               setPicked(id)
               setSelfFocus({ id, nonce: Date.now() })
             }} />
-        ))}
+        ))}</div>}
         {trupps.length === 0 ? (
           <div className={s.empty}>
             <Icon id="warn" />
@@ -3284,6 +3309,18 @@ function TruppForm({
   // on the amber line says what is still missing.
   const auftragMissing = mode === 'create' && !auftragGiven
     && team.some((sl) => sl.name.trim().length > 0)
+  // ⚠️ …and not while the caret is still in the PERSON SEARCH (10.10.2026, owner's iPhone): the
+  // crew goes in one name after another, and the line stood there from the first name on, naming
+  // a gap in a part of the form the operator had not reached. It waits until the search is left —
+  // for the Auftrag, the Ziel, the footer, or a tap anywhere else — on every form factor.
+  // The slot is HELD while it waits (visibility, not unmounting, `.formHintWaiting`): the blur
+  // that reveals it is very often the press on «Anmelden» itself, and a line appearing under that
+  // finger would move the button between the press and the release (on iOS the synthetic click
+  // is hit-tested after the blur has re-rendered).
+  const [teamSearchFocused, setTeamSearchFocused] = useState(false)
+  const onTeamFocusChange = (focused: boolean) => (e: ReactFocusEvent) => {
+    if (e.target === teamSearchRef.current) setTeamSearchFocused(focused)
+  }
   // A linked person already deployed in another active Trupp blocks submit (one person, one
   // Trupp). The picker no longer OFFERS one — but an existing Trupp being edited can still carry
   // somebody who was assigned elsewhere in the meantime, and that has to be sayable.
@@ -3537,7 +3574,7 @@ function TruppForm({
   ) : null
 
   const teamFields = (
-    <div ref={teamRef} className={s.field}>
+    <div ref={teamRef} className={s.field} onFocus={onTeamFocusChange(true)} onBlur={onTeamFocusChange(false)}>
       <span>{az.sectionTeam}</span>
       {/* One list, leader first. A Trupp is valid with exactly one name (the Gruppenführer),
           so a two-person Trupp, a four-person Trupp and a mis-tap are all one tap apart —
@@ -3788,7 +3825,8 @@ function TruppForm({
           registers as «Auftrag offen». `role="status"`, not alert: it is there from the first
           render of a fresh form and must not be shouted over the field the operator is filling. */}
       {!blocked && auftragMissing && (
-        <p className={cx('form-warn form-warn-amber', s.formBlocked)} role="status">
+        <p className={cx('form-warn form-warn-amber', s.formBlocked, teamSearchFocused && s.formHintWaiting)} role="status"
+          aria-hidden={teamSearchFocused || undefined}>
           <Icon id="warn" /><span>{az.auftragMissingHint}</span>
         </p>
       )}

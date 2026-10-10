@@ -110,18 +110,6 @@ reads as a chronology instead of breaking off mid-deployment.
 the same row every few seconds; the next one is only due after a radio contact that has reset
 the clock. Sound and system notification deliberately do **not** hang off it.
 
-## The Lagemeldung (F3, 2026-10-09)
-
-| Act | Verlauf | Audit |
-|---|---|---|
-| «Gemeldet» | one row «Lagemeldung 21:37: …» carrying `lagemeldung` (the fact snapshot, `docs/lagemeldung.md`) | `journal.add` |
-| …the next one booked | one row «Nächste Lagemeldung um 21:57», a `created` reminder with `purpose: 'lagemeldung'` | `reminder.create` |
-| +10′ on the due row | the ordinary snooze row (the derived first booking: its `created` row) | `reminder.snooze` / `reminder.create` |
-| «Rhythmus ausschalten» | «Lagemeldung-Rhythmus aus» (a `done` row on the booking) | `reminder.done` |
-| «Rückgängig» / ↶ on any of these | retraction patches — the rows fold out, the record keeps both | – |
-
-Opening the composer, ticking, editing and closing it write nothing.
-
 ## Deliberately silent
 
 | Area | Why |

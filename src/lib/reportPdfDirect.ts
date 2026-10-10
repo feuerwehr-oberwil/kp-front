@@ -38,8 +38,7 @@ import { ensureUnHazard } from './unHazard'
 import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
 import { resolvePlanAnnos } from './lineAttachments'
-import { findPlakat, plakatForPdf } from './plakat'
-import { TAFEL_ID } from './tafelStart'
+import { findPlakat, plakatForPdf, TAFEL_ID } from './plakat'
 import type { JournalLink } from './journalLinks'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol

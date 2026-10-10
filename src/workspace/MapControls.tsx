@@ -9,7 +9,7 @@ import { LayerPanel } from '../components/LayerPanel'
 import { MapUtility } from '../components/MapUtility'
 import type { ViewsApi } from '../components/MapViewsMenu'
 import { WeatherBadge } from '../components/TopBar'
-import { WeatherRadarControls, WeatherWarningChip } from '../components/weatherLazy'
+import { WeatherRadarControls } from '../components/weatherLazy'
 import { appConfig } from '../config/appConfig'
 import { hasBuildingContent } from '../lib/buildingCard'
 import { fmtLV95, fmtWGS } from '../lib/geo'
@@ -57,7 +57,7 @@ export interface MapControlsProps {
   twinLayerOpacity: Record<string, number>
   setAllLayers: (visible: boolean) => void
   resetLayers: () => void
-  /** the weather layer (workspace/useKarteWeather): its chip and radar pill join the chip row */
+  /** the weather layer (workspace/useKarteWeather): its radar pill joins the chip row */
   weather: KarteWeather
 }
 
@@ -68,16 +68,12 @@ export function MapControls({
   toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
   weather,
 }: MapControlsProps) {
-  // The Karte's ONE bottom-left chip row (below): the Gebäude chip, the weather warning (tablet;
-  // a phone hangs it under the wind read-out) and the radar pill, in that order. Each piece is
-  // decided HERE, so the row exists only when one of them has something to say — its presence
-  // alone lifts the message lane (08-toasts, 15-mobile · --float-row).
+  // The Karte's ONE bottom-left chip row (below): the Gebäude chip and the radar pill, in that
+  // order. Each piece is decided HERE, so the row exists only when one of them has something to
+  // say — its presence alone lifts the message lane (08-toasts, 15-mobile · --float-row).
   const rowAllowed = !replayActive && !georefMode.planId
   const showBuilding = rowAllowed && hasBuildingContent(buildingInfo)
-  const wxLive = rowAllowed && weather.on && !!weather.layer
-  const wxChipInRow = wxLive && !isPhone && weather.hasWarnings
-  const wxChipUp = wxLive && isPhone && weather.hasWarnings
-  const wxRadarInRow = wxLive && weather.radarOn
+  const wxRadarInRow = rowAllowed && weather.on && !!weather.layer && weather.radarOn
   return (
     <>
       {mapUI && (
@@ -117,31 +113,21 @@ export function MapControls({
               <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} popAlignOffset={-5} />
             </div>
           )}
-          {/* …and under it, on a phone, the official weather warning (components/WeatherLayer):
-              the phone's floating row is one line beside the FAB, and the weather lives up here */}
-          {wxChipUp && weather.layer && (
-            <div className="wx-phone-warn">
-              <Suspense fallback={null}><WeatherWarningChip layer={weather.layer} now={weather.now} side="bottom" /></Suspense>
-            </div>
-          )}
 
           {/* coordinate readout — bottom-centre; aiming follows the cursor, set is locked.
               hidden during replay so it never stacks under the bottom-centre scrubber. The ✕ on
               its right is the same exit in both states — the mode used to be leavable only from
               the compass menu, two taps away, while it swallowed every map tap (02.09.). */}
           {/* The Karte's bottom-left chip row — the same place and recipe as the plan's
-              (Whiteboard · .wb-botleft), so Lage and Plan say it in one spot: the Gebäude chip, the
-              weather warning, the radar pill. ONE row for all of them — two rows in one slot
-              covered each other (09.10.2026). Rendered only with something to say: the row's
-              presence alone lifts the message lane. Not during replay (a past Lage, and its
-              scrubber owns the foot) or «Karte verknüpfen». On a phone it stays one line: the
+              (Whiteboard · .wb-botleft), so Lage and Plan say it in one spot: the Gebäude chip and
+              the radar pill. ONE row for both — two rows in one slot covered each other
+              (09.10.2026). Rendered only with something to say: the row's presence alone lifts
+              the message lane. Not during replay (a past Lage, and its scrubber owns the foot) or
+              «Karte verknüpfen». On a phone it stays one line: the
               Gebäude chip keeps its words, the radar pill gives way (WeatherLayer.module.css). */}
-          {(showBuilding || wxChipInRow || wxRadarInRow) && (
+          {(showBuilding || wxRadarInRow) && (
             <div className="wb-botleft wx-row">
               {showBuilding && <BuildingFloat info={buildingInfo} compact={isPhone} />}
-              {wxChipInRow && weather.layer && (
-                <Suspense fallback={null}><WeatherWarningChip layer={weather.layer} now={weather.now} side="top" /></Suspense>
-              )}
               {wxRadarInRow && (
                 <Suspense fallback={null}>
                   <WeatherRadarControls radar={weather.radar} frameIndex={weather.playback.frameIndex}

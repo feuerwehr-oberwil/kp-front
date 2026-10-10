@@ -128,7 +128,9 @@ pnpm lint    # eslint + a per-rule warning ratchet (scripts/eslint-baseline.json
 **Tests** are Vitest (node env), colocated as `*.test.ts`, focused on pure `src/lib` logic
 (plus a few components); the backend uses pytest. The backend has a ruff pre-commit hook; the
 frontend has none – so run `pnpm lint && pnpm test` before pushing, since changes go straight
-to prod.
+to prod. `just ci` runs every gate of CI's Frontend and Backend jobs locally (incl. coverage
+floor, bundle budget, audits, licenses and `just schema-check`: a throwaway Postgres migrated to
+head, then `alembic check` against the models); image, secrets, e2e, visual and perf stay CI's.
 
 - **Ratchets only go down.** The eslint warnings per rule (`scripts/eslint-baseline.json`; `pnpm
   lint` fails when a rule's count goes up, or down without `pnpm lint:update`), the style-debt
@@ -137,6 +139,12 @@ to prod.
   entry, App, maplibre, pdf-worker and CSS chunks have a +5 % budget against
   `scripts/bundle-baseline.json` (`scripts/check-bundle-size.mjs`, CI); a deliberate growth is an
   `--update` in its own commit, with the reason.
+- **`jsdom` is held on 30.0.x** (`~30.0.1`, Dependabot ignores 30.1): 30.1's blob URLs cannot
+  read the Node `Blob` Vitest supplies, so maplibre-gl 4.7 fails at import and MapView, mapTwist
+  and the IncidentWorkspace harness stop loading. Lift it with a jsdom past 30.1 or MapLibre 6
+  (#193) – never by mocking MapLibre away in those tests.
+- **CLI subprocess tests run outside `backend/`**: pydantic reads `.env` from the cwd, so a
+  station's `backend/.env` would leak into them (`tests/test_admin_cli_output.py` · `_run`).
 - **e2e** runs on the production image in CI (`e2e/README.md`); every spec takes `test` from
   `e2e/helpers`, which fails on a client error or a render storm.
 - **The look is gated too.** CI's «Visual» job shoots nine frozen states and compares them with
@@ -239,6 +247,24 @@ to prod.
   fires 12 ms on arm and only on arm, a press is the `--press` wash and nothing moves, `:hover`
   is mouse-only. The vocabulary is in [`docs/ui-conventions.md`](docs/ui-conventions.md) ·
   «Touch vocabulary».
+- **The empty Tafel offers one Vorlage, the FKS «Erstes Plakat»** (08.10.2026, staging). Under
+  main's «Leeres Blatt» hint stands the Tafel's Vorlage list – ONE entry, «Erstes Plakat (FKS)»
+  (Raumordnung/Organigramm are not approved) – while the sheet is empty, Auswahl is armed and the
+  sheet is writable (`Whiteboard · vorlageShown`). The «Womit beginnen?» starter cards (Objekt
+  wählen / Gebäude am Einsatzort) were dropped 10.10.2026 (owner: links to doors the app already
+  has, and «Gebäude» could replace a building already set) – do not bring them back. **The Plakat
+  is ONE board anno** of kind `plakat` (`BoardAnno.plakat`, `lib/plakat`) with no x/y – insert =
+  one ↶ step, each field commit (blur/Enter) = one step via `patchCommit`, and it syncs, persists
+  and works offline like any note. The sanitizer gate (`workspace · isBoardAnno`) accepts it by
+  `isPlakatData`, never by an anchor; nothing positional (bake, projection, plan print) sees it.
+  It lies on the paper under the ink, scaled from a 1000px design width, and turns passive while
+  a drawing tool is armed; a phone fills the same fields as a list (`TafelPlakat variant="list"`).
+  Pre-fill only from what the app holds (`lib/plakatSeed`): title/address, alarm time, Rapport
+  Einsatzleiter, vehicles from the Fahrzeugzeiten and the Karte, the wind as a «Wetter»
+  suggestion, the FKS Absprachepunkte as open ticks. The Rapport prints it as its own section
+  after the Aufträge (`report_pdf · _plakat_section`, trends sent as WORDS – Helvetica has no
+  ➚ ➘). ⚠️ A client older than this drops a `plakat` anno at its gate, so this must not meet
+  prod data before prod has the code.
 - **Lage and Plan should stay as close as possible in every regard** – same tools, controls,
   and behavior. Only the implementation that *must* differ because of the drawing surface /
   relative coordinate system may diverge. Shared logic lives in `ToolDock`, `DrawEditor`,
@@ -396,8 +422,6 @@ to prod.
     the Sicherungstrupp, the Atemschutznotfall and the Abschluss.
   - [`docs/copy-and-wording.md`](docs/copy-and-wording.md) – which word a screen uses.
   - [`docs/rapport.md`](docs/rapport.md) – what the Rapport's figure pages carry.
-  - [`docs/lagemeldung.md`](docs/lagemeldung.md) – the Lagemeldung's anchor row and the
-    rhythm's self-superseding bookings (client, Rapport and push agree).
   - [`docs/roles-and-access.md`](docs/roles-and-access.md) – roles, the deployment admin, links.
   - [`docs/trupp-naming.md`](docs/trupp-naming.md), [`docs/verlauf-coverage.md`](docs/verlauf-coverage.md),
     [`docs/object-visits.md`](docs/object-visits.md) – Trupp identity, what reaches the Verlauf,

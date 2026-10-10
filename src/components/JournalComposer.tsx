@@ -27,16 +27,14 @@ import {
 import type { JournalEntryType, TimelineEvent } from '../types'
 import { linkParts, type JournalLink } from '../lib/journalLinks'
 import { acceptJournalSuggestion, journalSuggestions, type JournalSuggestion, type TextSelection } from '../lib/journalSuggestions'
-import { answeredPendenz, suggestPendenzen, type OpenReminder } from '../lib/reminders'
+import { suggestPendenzen, type OpenReminder } from '../lib/reminders'
 import { startChips } from '../lib/startChips'
-import { norm } from '../lib/quickPhrases'
 import { clearDraft, keepDraft, readDraft, useKeptState } from '../lib/draftKeep'
 import { TimeField } from './TimeField'
 import { WheelPopover, type WheelValue } from './WheelPicker'
 import { dayRange } from '../lib/zeitplanFormat'
 import { keyboardMargin, useKeyboardInset } from '../lib/useKeyboardInset'
 import { nextCompact } from '../lib/composerFit'
-import { readEntryLead } from '../lib/journalEntry'
 
 // `C` (appConfig.copy.journal) is read at the top of each component below rather than captured
 // here at module-load, so the locale resolved at boot (config/copy) applies.
@@ -76,10 +74,6 @@ export interface JournalDraft {
   noteFor?: { id: string }
   /** «Wer», read off the sentence (first vocabulary name) — never typed into a field */
   assignee?: string
-  /** the open item this entry looks like the REPLY to (10.10.2026): the one it is a Meldung on,
-   *  or one naming the same Trupp, vehicle or partner (lib/reminders · answeredPendenz). The
-   *  workspace only OFFERS «erledigt» for it on the saved toast — nothing closes on its own. */
-  answers?: { id: string; text: string }
 }
 
 // Wiedervorlage due selection: a relative "+N min" chip, or an exact date + wall-clock time.
@@ -152,13 +146,9 @@ function dayLabel(day: string): string {
 // coordinate, which is the weak version of what the Wiedergabe does — scrub to the moment and
 // the entire picture is the one from back then. The row still records its surface; that is
 // addJournal's business, not this sheet's.
-export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, uploadFile, vocab = [], timeline = [], noteOn, onClearNote, openPendenzen = [], onLinkPendenz, onLagemeldung }: {
+export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudio, uploadFile, vocab = [], timeline = [], noteOn, onClearNote, openPendenzen = [], onLinkPendenz }: {
   onSubmit: (d: JournalDraft) => void
   onClose: () => void
-  /** The Lagemeldung composer (F3). Typing the station's «Lagemeldung an Einsatzzentrale» offers
-   *  it as a chip in the band — the bare phrase is what the Verlauf held before the Lagemeldung
-   *  could be composed from the record. An offer, never a swap: what was typed stays typed. */
-  onLagemeldung?: () => void
   /** opened from a Pendenz row: everything written here becomes a Meldung ON that item rather
    *  than a free-standing entry. Deliberately the ORDINARY composer — a Meldung then gets
    *  Textbausteine, marked names, Sprachnotiz and Foto without a line of extra code. */
@@ -234,22 +224,15 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     const el = appConfig.copy.anwesenheit.roleEinsatzleiterShort
     return startChips(timeline, quickPhrases, `${el} ${ARROW}`)
   }, [typed, timeline, quickPhrases])
-  // …and the Art's leads (copy · entryLeads) while the FIRST word is being typed, so «auf» Tab
-  // gives «Auftrag an ». Only there: «… auf» mid-sentence is a word, not a kind of entry.
-  const firstWord = !/\s/.test(text.trim())
-  const phrases = useMemo(() => (firstWord
-    ? [...Object.values(appConfig.copy.journal.entryLeads).map((l) => `${l[0]} `), ...quickPhrases]
-    : quickPhrases), [firstWord, quickPhrases])
   const suggestions = useMemo(() => journalSuggestions(text, selection, {
-    vocab, phrases, timeline, starters,
-  }), [text, selection, vocab, phrases, timeline, starters])
+    vocab, phrases: quickPhrases, timeline, starters,
+  }), [text, selection, vocab, quickPhrases, timeline, starters])
   const readSelection = (el: HTMLTextAreaElement) => {
     setSelection((prev) => prev.start === el.selectionStart && prev.end === el.selectionEnd
       ? prev : { start: el.selectionStart, end: el.selectionEnd })
   }
   const accept = (suggestion: JournalSuggestion) => {
     const edit = acceptJournalSuggestion(text, suggestion)
-    followLead(edit.text)
     setText(edit.text)
     setSelection({ start: edit.caret, end: edit.caret })
     requestAnimationFrame(() => {
@@ -290,7 +273,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   // line taken off the Pendenzen would keep an alarm nothing owns. Setting a time therefore opens
   // the ring, and closing the ring drops the time.
   const setDue = (sel: DueSel) => { setDueSel(sel); if (sel && openState === 0) setOpenState(1) }
-  const setOpen = (s: 0 | 1 | 2) => { setOpenState(s); autoOpened.current = false; if (s === 0) setDueSel(null) }
+  const setOpen = (s: 0 | 1 | 2) => { setOpenState(s); if (s === 0) setDueSel(null) }
   // …and the open Pendenzen this sentence already names. Offered only while writing an ordinary
   // entry: once it IS a Meldung the question is answered.
   const pendenzHits = useMemo(
@@ -298,12 +281,6 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
     [text, openPendenzen, noteOn],
   )
   const canLink = openPendenzen.length > 0 && !!onLinkPendenz
-  // the Lagemeldung phrase, typed or picked: offer the composer (see `onLagemeldung`)
-  const lageHit = !!onLagemeldung && !noteOn && (() => {
-    const p = norm(appConfig.lagemeldung.phrases.lagemeldungPhrase)
-    const t = norm(text.trim())
-    return t.length >= 6 && (p.startsWith(t) || t.startsWith(p))
-  })()
   // ── the ○ opens a menu; it no longer cycles ───────────────────────────────────────────────
   // ⚠️ Three states reached by tapping the same ring in turn were a guessing game, and the way to
   // «hang this on something already open» was a long press — a gesture that cannot announce
@@ -339,45 +316,6 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
    *  at all, exactly what an untouched composer wrote before the preselect (lib/journalEntry
    *  prints no marker for it either way). */
   const writtenType = entryType === 'info' ? undefined : entryType
-  // ── the Art, read off the sentence (lib/journalEntry · readEntryLead) ─────────────────────
-  // ⚠️ It follows the lead only when the LEAD changes, never on every keystroke: a chip tapped
-  // after «Auftrag an …» was typed is the operator's word and stays. And it writes nothing on
-  // its own — what files is still the chip; the lead is just another way of pressing it.
-  // In the two places the text changes (typing, accepting a chip), not in an effect.
-  const lead = readEntryLead(text)
-  const followLead = (next: string) => {
-    const was = lead?.type ?? null
-    const now = readEntryLead(next)?.type ?? null
-    if (was === now) return
-    if (now) pickType(now)
-    else if (was && entryType === was) pickType('info')
-  }
-  /** the open item this entry answers, if any (JournalDraft · answers). A new open item, a timed
-   *  one or another Auftrag is not a reply. Read at submit, never per keystroke. */
-  const answersFor = (): { id: string; text: string } | undefined => {
-    if (noteOn) return { id: noteOn.id, text: noteOn.text }
-    if (openState > 0 || dueSel || entryType === 'auftrag') return undefined
-    const hit = answeredPendenz(body, vocab, openPendenzen)
-    return hit ? { id: hit.id, text: hit.text } : undefined
-  }
-  /** the sentence as it files: without a lead that the chip already says (composeJournalText
-   *  prints the tag — filing both read «Auftrag · Auftrag an Trupp 2 …») */
-  const body = (lead && lead.type === entryType ? lead.rest : text).trim()
-  // ── an Auftrag stays open by default (10.10.2026, owner: «Auftrag an …») ──────────────────
-  // An order is the thing a KP loses track of; the ring is how the app keeps it, and the reply
-  // offers «erledigt» on the saved toast (reminders · answeredPendenz). The ring opens with the
-  // chip and closes again with it — but only the ring THIS opened: one the operator set by hand,
-  // or one carrying a due time, is theirs and stays.
-  // ⚠️ Here, at the composer, and never keyed off `entryType` downstream: tracking hangs off the
-  // reminder event alone (IncidentWorkspace · addJournal), so the archive's Auftrag rows stay plain.
-  const autoOpened = useRef(false)
-  /** every way the Art changes — a chip, or a lead typed or taken off */
-  const pickType = (t: JournalEntryType) => {
-    setEntryType(t)
-    if (noteOn) return
-    if (t === 'auftrag' && openState === 0) { setOpenState(1); autoOpened.current = true }
-    else if (t !== 'auftrag' && autoOpened.current && !dueSel) { setOpenState(0); autoOpened.current = false }
-  }
   const [recording, setRecording] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [clip, setClip] = useState<{ url: string; secs: number; startedAt: string } | null>(rest0.clip)
@@ -650,13 +588,12 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       filedRef.current = true
       clearDraft(draftKey); clearDraft(restKey) // filed — the next open starts empty
       onSubmit({
-        text: body, photoUrls: photos.length ? photos : undefined,
+        text: text.trim(), photoUrls: photos.length ? photos : undefined,
         entryType: writtenType,
         // …and the same three facts the typed entry carries. An imported memo used to drop them
         // silently: the ring could be set on the sheet and the row landed as an ordinary line.
         dueAt,
         assignee: parts.find((p) => p.kind)?.text,
-        answers: answersFor(),
         ...(noteOn ? { noteFor: { id: noteOn.id } } : openState > 0 ? { pendenz: { urgent: openState === 2 } } : {}),
         audioUrl: url, secs: imported.durationSec ?? undefined,
         files: attached.length ? attached : undefined,
@@ -692,7 +629,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   const canSend = imported != null
     // hard gate: an imported memo saves only with a confirmed, valid start time
     ? startConfirmed && importStartAt != null && !uploading
-    : body.length > 0 || clip != null || photos.length > 0 || files.length > 0
+    : text.trim().length > 0 || clip != null || photos.length > 0 || files.length > 0
   const submit = () => {
     if (!canSend || uploading) return
     if (imported) { void submitImported(); return } // …which clears the draft once the upload lands
@@ -704,7 +641,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
   const submitRow = (attached: { url: string; name: string }[]) => {
     clearDraft(draftKey); clearDraft(restKey) // filed — the next open starts empty
     onSubmit({
-      text: body, audioUrl: clip?.url, secs: clip?.secs, photoUrls: photos.length ? photos : undefined,
+      text: text.trim(), audioUrl: clip?.url, secs: clip?.secs, photoUrls: photos.length ? photos : undefined,
       files: attached.length ? attached : undefined,
       entryType: writtenType,
       dueAt,
@@ -712,7 +649,6 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
       // entraucht Treppenhaus» has already said who it is for, and a Trupp is titled by its
       // Gruppenführer, who is in the vocabulary anyway (lib/journalLinks).
       assignee: parts.find((p) => p.kind)?.text,
-      answers: answersFor(),
       ...(noteOn
         ? { noteFor: { id: noteOn.id } }
         : openState > 0 ? { pendenz: { urgent: openState === 2 } } : {}),
@@ -898,7 +834,6 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
           value={text}
           onChange={(e) => {
             const v = stripUnprintable(e.target.value)
-            followLead(v)
             setText(v)
             setSelection({
               start: stripUnprintable(e.target.value.slice(0, e.target.selectionStart)).length,
@@ -907,16 +842,9 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
             // …and an emptied field is a fresh start: the chips come back
             setTyped(v.trim().length > 0)
           }}
-          placeholder={phone ? C.textPlaceholder : C.textPlaceholderKeys}
+          placeholder={C.textPlaceholder}
           onKeyDown={(e) => {
-            // ⚠️ Enter FILES on a tablet or a laptop (10.10.2026, owner: the keyboard is the FU's
-            // tool), Umschalt+Enter breaks the line. Not on a phone: there the on-screen Return is
-            // the only way to a second line, and the Erfassen button sits right above it.
-            // ⚠️ Never mid-composition — Enter there commits an IME candidate, not the entry.
-            if (e.key === 'Enter' && !e.nativeEvent.isComposing && (e.metaKey || e.ctrlKey || (!phone && !e.shiftKey))) {
-              e.preventDefault()
-              submit()
-            }
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit()
             // Tab completes active typing or inserts the existing → shortcut; other offers keep focus navigation.
             else if (e.key === 'Tab' && !e.shiftKey && !e.nativeEvent.isComposing && suggestions[0]
               && suggestions[0].source !== 'starter' && suggestions[0].source !== 'next') {
@@ -931,7 +859,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
         </div>
 
         {/* A single ranked band; its empty row keeps the phone sheet steady while typing. */}
-        {(suggestions.length === 0 && pendenzHits.length === 0 && !lageHit)
+        {(suggestions.length === 0 && pendenzHits.length === 0)
           ? <div className="jc-phrases is-empty" aria-hidden /> : (
           // Keep the keyboard focused on mousedown (the chips' own onMouseDown); the row itself
           // scrolls NATIVELY — see .jc-phrases in 18-audio.css for why the hand-rolled pan went.
@@ -962,14 +890,6 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 onClick={() => onLinkPendenz?.({ id: r.id, text: r.text })}
               ><span className="jc-ring" />{C.noteOnLabel}{r.text}</button>
             ))}
-            {lageHit && (
-              <button
-                key="lagemeldung"
-                className="jc-phrase jc-phrase-lage"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => onLagemeldung?.()}
-              ><Icon id="radio" />{appConfig.copy.lagemeldung.phraseOffer}</button>
-            )}
           </div>
         )}
 
@@ -1004,7 +924,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                   // in what a screen reader reads out or a tooltip shows.
                   title={C.entryTypes[t]}
                   aria-label={C.entryTypes[t]}
-                  onClick={() => pickType(t)}
+                  onClick={() => setEntryType(t)}
                 >
                   {/* ⚠️ …the label with its break points written in (copy · entryTypesWrap), never
                       the plain one. This chip is the narrowest control on the sheet; the word that

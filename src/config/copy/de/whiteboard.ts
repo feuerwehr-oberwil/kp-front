@@ -456,26 +456,11 @@ export const whiteboardCopy = {
     orientMenuTitle: 'Gebäude drehen',
     orientSliderLabel: 'Drehung',
   },
-  // Die leere Tafel (08.10.2026): «Womit beginnen?» – Startkarten, solange das Blatt leer ist –
-  // und die Vorlage «Erstes Plakat (FKS)» (Erste Führung, A3-Plakat als echte Felder).
+  // Die Vorlage der leeren Tafel: «Erstes Plakat (FKS)» (Erste Führung, A3-Plakat als echte
+  // Felder). Die Startkarten «Womit beginnen?» sind seit 10.10.2026 weg (Besitzer).
   tafel: {
-    startTitle: 'Womit beginnen?',
-    startSub: '{title} · {address}',
-    suggestion: 'Vorschlag',
-    objectTitle: 'Objekt wählen',
-    objectBody: 'Objektpläne aus der Objektdatenbank.',
-    objectNone: 'In der Nähe ist kein Objekt erfasst.',
-    objectSearch: 'Objektdatenbank öffnen',
-    objectPick: '{name} übernehmen',
-    buildingTitle: 'Gebäude am Einsatzort',
-    buildingBody: 'Umriss aus der Karte – Geschosse stapeln und darauf skizzieren.',
-    buildingAction: 'Gebäude wählen',
     templateTitle: 'Vorlage',
     plakatName: 'Erstes Plakat (FKS)',
-    sketch: 'oder einfach losskizzieren – Werkzeuge rechts',
-    sketchPhone: 'oder einfach losskizzieren',
-    buildingRowSub: 'Umriss aus der Karte',
-    objectRowNone: 'Objektdatenbank durchsuchen',
     plakat: {
       heading: 'Erste Führung',
       prefilled: 'aus dem Einsatz vorausgefüllt',

@@ -811,20 +811,6 @@
           },
           "title": "Quickphrases",
           "type": "array"
-        },
-        "lageRhythmMin": {
-          "anyOf": [
-            {
-              "maximum": 120,
-              "minimum": 0,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Lagerhythmmin"
         }
       },
       "title": "JournalConfig",

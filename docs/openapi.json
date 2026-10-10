@@ -6557,45 +6557,9 @@
           "weather"
         ],
         "summary": "Weather Layer",
-        "description": "Radar frames + the warnings covering (lat, lng), as last polled.",
+        "description": "The radar frames of the last hour, as last polled.",
         "operationId": "weather_layer_api_weather_layer_get",
         "parameters": [
-          {
-            "name": "lat",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "number",
-                  "maximum": 90,
-                  "minimum": -90
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Lat"
-            }
-          },
-          {
-            "name": "lng",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "number",
-                  "maximum": 180,
-                  "minimum": -180
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Lng"
-            }
-          },
           {
             "name": "access_token",
             "in": "cookie",
@@ -17285,19 +17249,6 @@
             },
             "type": "array",
             "title": "Quickphrases"
-          },
-          "lageRhythmMin": {
-            "anyOf": [
-              {
-                "type": "integer",
-                "maximum": 120.0,
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Lagerhythmmin"
           }
         },
         "type": "object",
@@ -21055,67 +21006,6 @@
         "title": "ViewLinkOut",
         "description": "The Rapport's view-only link. `token` is what goes in the URL (`/l/<token>`) — the\nclient builds the full address from its own origin, so nothing here has to be told what\nthe deployment is reachable under. None whenever `enabled` is False."
       },
-      "WarningText": {
-        "properties": {
-          "event": {
-            "type": "string",
-            "title": "Event"
-          },
-          "headline": {
-            "type": "string",
-            "title": "Headline"
-          },
-          "description": {
-            "type": "string",
-            "title": "Description"
-          },
-          "instructions": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Instructions"
-          }
-        },
-        "type": "object",
-        "required": [
-          "event",
-          "headline",
-          "description",
-          "instructions"
-        ],
-        "title": "WarningText",
-        "description": "Verbatim from the source – the app must not reword an official warning (MetO art. 5)."
-      },
-      "WarningsOut": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/WeatherWarningOut"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "sources": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/WeatherSourceStatus"
-            },
-            "type": "object",
-            "title": "Sources"
-          },
-          "stale_after_seconds": {
-            "type": "integer",
-            "title": "Stale After Seconds"
-          }
-        },
-        "type": "object",
-        "required": [
-          "items",
-          "sources",
-          "stale_after_seconds"
-        ],
-        "title": "WarningsOut"
-      },
       "WeatherData": {
         "properties": {
           "wind_dir_deg": {
@@ -21221,11 +21111,6 @@
             "type": "boolean",
             "title": "Enabled"
           },
-          "point": {
-            "type": "boolean",
-            "title": "Point",
-            "default": false
-          },
           "generated_at": {
             "anyOf": [
               {
@@ -21241,16 +21126,6 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/RadarOut"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "warnings": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/WarningsOut"
               },
               {
                 "type": "null"
@@ -21324,124 +21199,6 @@
         },
         "type": "object",
         "title": "WeatherSourceStatus"
-      },
-      "WeatherWarningOut": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "title": "Id"
-          },
-          "source": {
-            "type": "string",
-            "title": "Source"
-          },
-          "level": {
-            "type": "integer",
-            "title": "Level"
-          },
-          "color": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Color"
-          },
-          "kind": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Kind"
-          },
-          "sent": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sent"
-          },
-          "onset": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Onset"
-          },
-          "expires": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expires"
-          },
-          "sender": {
-            "type": "string",
-            "title": "Sender"
-          },
-          "link": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Link"
-          },
-          "region": {
-            "type": "string",
-            "title": "Region"
-          },
-          "texts": {
-            "additionalProperties": {
-              "$ref": "#/components/schemas/WarningText"
-            },
-            "type": "object",
-            "title": "Texts"
-          },
-          "fetched_at": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Fetched At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "id",
-          "source",
-          "level",
-          "sender",
-          "region",
-          "texts"
-        ],
-        "title": "WeatherWarningOut"
       },
       "WorkbookImportResult": {
         "properties": {

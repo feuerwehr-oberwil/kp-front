@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { answeredPendenz, deriveReminders, isDue, suggestPendenzen } from './reminders'
-import type { JournalLink } from './journalLinks'
+import { deriveReminders, isDue, suggestPendenzen } from './reminders'
 import type { TimelineEvent } from '../types'
 
 // timeline is stored newest-first (App prepends), so fixtures list newest rows first.
@@ -249,38 +248,5 @@ describe('suggestPendenzen', () => {
   it('ignores single letters and empty input', () => {
     expect(suggestPendenzen('a', open)).toEqual([])
     expect(suggestPendenzen('', open)).toEqual([])
-  })
-})
-
-// The reply to an open Auftrag: the saved toast offers «erledigt» for the item the entry answers.
-describe('answeredPendenz', () => {
-  const vocab: JournalLink[] = [
-    { name: 'Trupp 1', kind: 'trupp' }, { name: 'Trupp 2', kind: 'trupp' },
-    { name: 'Polizei', kind: 'partner' }, { name: 'EL', kind: 'term' },
-  ]
-  const open = [
-    { id: 'a', text: 'Trupp 2: Frau Weber 3. OG betreuen', createdAt: '2026-10-10T02:30:00.000Z' },
-    { id: 'b', text: 'EL → Polizei: Strasse sperren', createdAt: '2026-10-10T02:31:00.000Z' },
-    { id: 'c', text: 'Trupp 1: Wohnung 2. OG absuchen', createdAt: '2026-10-10T02:28:00.000Z' },
-  ]
-
-  it('finds the item that names the same Trupp', () => {
-    expect(answeredPendenz('Trupp 2: Frau Weber betreut, ruhig', vocab, open)?.id).toBe('a')
-    expect(answeredPendenz('Polizei meldet Strasse gesperrt', vocab, open)?.id).toBe('b')
-  })
-
-  // ⚠️ The EL stands in half the Verlauf; as a shared name it would tie every reply to every item.
-  it('never matches on the command post alone', () => {
-    expect(answeredPendenz('EL vor Ort, übernimmt', vocab, open)).toBeNull()
-  })
-
-  it('takes the newest when two items name the same Trupp', () => {
-    const two = [...open, { id: 'd', text: 'Trupp 2: Lüfter stellen', createdAt: '2026-10-10T02:40:00.000Z' }]
-    expect(answeredPendenz('Trupp 2: erledigt', vocab, two)?.id).toBe('d')
-  })
-
-  it('says nothing when no name is shared or none is marked', () => {
-    expect(answeredPendenz('Wind dreht auf West', vocab, open)).toBeNull()
-    expect(answeredPendenz('Trupp 2: alles ok', vocab, [])).toBeNull()
   })
 })

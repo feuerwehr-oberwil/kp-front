@@ -4,10 +4,11 @@
 unconfigured (URLs not https), 502 on upstream failure, 404 when no provider yields data for
 the point. Auth required (editor or viewer). Mirrors api/traccar.py.
 
-`GET /weather/layer` — the Karte's radar frames and the official warnings at a point, as last
-polled (app/weather_layer). It never fetches anything itself, so it answers instantly whatever
-the feeds are doing; `enabled: false` when the deployment switched the layer off
-(WEATHER_LAYER_ENABLED=false), which the client takes as «offer no layer, show no chip».
+`GET /weather/layer` — the Karte's radar frames of the last hour (app/weather_layer), as last
+polled. It never fetches anything itself, so it answers instantly whatever the feed is doing;
+`enabled: false` when the deployment switched the layer off (WEATHER_LAYER_ENABLED=false), which
+the client takes as «offer no layer». No coordinate: the radar is the same picture for every
+Einsatz.
 
 `GET /weather/radar/{key}.png` — one frame. Deliberately without a session: it is MeteoSwiss's
 public radar image, coloured, carries nothing about the station or the Einsatz, is served from
@@ -19,10 +20,8 @@ Both layer routes are on the incident-link allowlist (auth/incident_link · LINK
 same reason the wind is: display data on the Lage map.
 """
 
-from typing import Annotated
-
 import httpx
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
 
 from ..auth.dependencies import CurrentUser
@@ -76,56 +75,18 @@ class RadarOut(BaseModel):
     source_url: str
 
 
-class WarningText(BaseModel):
-    """Verbatim from the source – the app must not reword an official warning (MetO art. 5)."""
-
-    event: str
-    headline: str
-    description: str
-    instructions: list[str]
-
-
-class WeatherWarningOut(BaseModel):
-    id: str
-    source: str  # "meteoswiss" | "alertswiss"
-    level: int  # 1 minor … 4 red
-    color: str | None = None
-    kind: str | None = None
-    sent: str | None = None
-    onset: str | None = None
-    expires: str | None = None
-    sender: str
-    link: str | None = None
-    region: str
-    texts: dict[str, WarningText]
-    fetched_at: str | None = None
-
-
-class WarningsOut(BaseModel):
-    items: list[WeatherWarningOut]
-    sources: dict[str, WeatherSourceStatus]
-    stale_after_seconds: int
-
-
 class WeatherLayerOut(BaseModel):
     enabled: bool
-    #: whether a point was given – without one (an Einsatz with no coordinate) there are no warnings
-    point: bool = False
     generated_at: str | None = None
     radar: RadarOut | None = None
-    warnings: WarningsOut | None = None
 
 
 @router.get("/layer", response_model=WeatherLayerOut)
-async def weather_layer(
-    _user: CurrentUser,
-    lat: Annotated[float | None, Query(ge=-90, le=90)] = None,
-    lng: Annotated[float | None, Query(ge=-180, le=180)] = None,
-) -> WeatherLayerOut:
-    """Radar frames + the warnings covering (lat, lng), as last polled."""
+async def weather_layer(_user: CurrentUser) -> WeatherLayerOut:
+    """The radar frames of the last hour, as last polled."""
     if not weather_layer_enabled():
         return WeatherLayerOut(enabled=False)
-    return WeatherLayerOut.model_validate(weather_service.snapshot(lat, lng))
+    return WeatherLayerOut.model_validate(weather_service.snapshot())
 
 
 @router.get(

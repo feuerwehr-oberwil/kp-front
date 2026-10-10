@@ -1425,6 +1425,43 @@ describe('a Trupp may be registered without an Auftrag', () => {
     expect((createTrupp.mock.calls[0][0] as Trupp).auftrag).toBe('retten')
   })
 
+  // ⚠️ The amber «Auftrag fehlt» line waits while the PERSON SEARCH has the caret (10.10.2026,
+  // owner's iPhone): the crew goes in one name after another, and the line stood there from the
+  // first name on. It appears once the search is left — and still before «Anmelden» is pressed.
+  it('holds the «Auftrag fehlt» line back while the person search is focused', () => {
+    mount({ trupps: [] })
+    fireEvent.click(firstBtn(az.newTrupp))
+    const search = screen.getByLabelText(az.teamSearchPlaceholder)
+    fireEvent.focus(search)
+    typeGuest('Meier Thomas')
+    typeGuest('Huber Anna')
+    // still adding people: the slot is held, but nothing is shown or announced
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.queryByText(az.auftragMissingHint)).not.toBeNull()
+    // focus moves on (to the Ziel here; the footer or anywhere else alike)
+    fireEvent.blur(search)
+    fireEvent.focus(screen.getByLabelText(az.zielLabel))
+    expect(screen.getByRole('status').textContent).toBe(az.auftragMissingHint)
+    // back in the search for one more name: it waits again
+    fireEvent.focus(search)
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  // a pick hands the caret back to the search (TruppTeam · add), so a tablet that taps names off
+  // the list waits too — and the line is there by the time the finger reaches the footer
+  it('shows the line once the focus reaches the footer, before «Anmelden» is pressed', () => {
+    const createTrupp = vi.fn()
+    mount({ createTrupp, trupps: [] })
+    fireEvent.click(firstBtn(az.newTrupp))
+    typeGuest('Meier Thomas')
+    expect(document.activeElement).toBe(screen.getByLabelText(az.teamSearchPlaceholder))
+    expect(screen.queryByRole('status')).toBeNull()
+    act(() => lastBtn(az.start).focus())
+    expect(screen.getByRole('status').textContent).toBe(az.auftragMissingHint)
+    fireEvent.click(lastBtn(az.start))
+    expect(createTrupp).toHaveBeenCalledTimes(1)
+  })
+
   // the free text alone is a complete order too — a Ziel without a tile («2OG links»)
   it('takes the Ziel text on its own', () => {
     const createTrupp = vi.fn()

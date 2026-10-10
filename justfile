@@ -198,18 +198,42 @@ demo-reset:
 # DATABASE_URL, so tests/conftest.py fell back to SQLite in-memory while ci.yml runs them
 # against Postgres 16 — and SQLite does NOT abort a transaction on a statement error, which is
 # the class of bug that difference hides. It now runs them where CI runs them, in their own
-# database so nobody's dev data is dropped. Not covered — both need more than a container:
-# the gitleaks scan and the image build.)
+# database so nobody's dev data is dropped. It now also runs the rest of CI's Frontend and
+# Backend jobs: e2e types, the coverage floor, hidden sourcemaps, the bundle budget, both
+# audits, both license checks and the schema-drift check. Not covered — they need more than
+# a container: the gitleaks scan, the image build, e2e, visual and perf.)
 # Run everything CI would fail you on, before you push.
 [group('Quality')]
-ci: test-backend
+ci: schema-check test-backend
+    pnpm lint
+    pnpm exec tsc -p tsconfig.e2e.json
+    pnpm test:coverage
     pnpm build
+    node scripts/check-sourcemaps.mjs
+    node scripts/check-bundle-size.mjs
     node site/build.mjs --check
-    pnpm test
+    pnpm audit --prod --audit-level high
+    pnpm audit --audit-level moderate
+    python3 scripts/check_licenses.py frontend
     cd backend && uv run ruff format --check .
     cd backend && uv run ruff check .
     cd backend && uv run mypy app
-    pnpm lint
+    cd backend && uv run --with pip-audit pip-audit
+    python3 scripts/check_licenses.py backend
+
+# (CI's «alembic check» step, locally: a throwaway database on the dev Postgres, migrated to
+# head, compared with the models' metadata, dropped again — your dev data is never touched.)
+# Check that the migrated schema matches the models (alembic check).
+[group('Quality')]
+schema-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    docker compose -f docker-compose.dev.yml up -d --wait
+    db="kpfront_schema_$$"
+    docker compose -f docker-compose.dev.yml exec -T db createdb -U kpfront "$db"
+    trap 'docker compose -f docker-compose.dev.yml exec -T db dropdb -U kpfront "$db"' EXIT
+    export DATABASE_URL="postgresql+asyncpg://kpfront:kpfront@localhost:5434/$db"
+    (cd backend && uv run alembic upgrade head && uv run alembic check)
 
 # (Uses its OWN database on the dev Postgres — the suite creates and drops the schema, so
 # pointing it at `kpfront` would take your dev data with it. `|| true` on the create: the

@@ -1719,8 +1719,6 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
     journal: {
       quickPhrases: 'Formules types',
       quickPhrasesTip: 'Une ligne par formule. Pendant la saisie dans l\'éditeur d\'entrée, les formules correspondantes apparaissent comme complétions (recherche floue). Vide = les formules standard livrées, qui restent en allemand ; pour des formules en français, saisis-les ici.',
-      lageRhythm: 'Rythme des messages de situation (min)',
-      lageRhythmTip: 'Après chaque message de situation, le suivant est dû autant de minutes plus tard comme rappel ; le premier 5 minutes après l\'arrivée du premier véhicule. 0 = pas de rythme. La direction peut choisir 10, 20 ou 30 minutes par intervention.',
     },
     report: {
       groupRounding: 'Heures d\'intervention – arrondi',

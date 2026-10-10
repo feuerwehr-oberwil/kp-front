@@ -1,22 +1,16 @@
-"""Weather layer: radar conversion, warning selection, staleness and failure isolation.
+"""Weather layer: radar conversion, staleness and failure handling.
 
-Ported from kp-rueck (R5, feuerwehr-oberwil/kp-rueck#167) with the same fixtures, so the two apps
-are pinned to the same picture of the same rain. KP Front differences: warnings are selected per
-request for a point (the Einsatz), not for a station at poll time; the jobs run per process.
+Ported from kp-rueck (R5, feuerwehr-oberwil/kp-rueck#167) with the same fixture, so the two apps
+are pinned to the same picture of the same rain. KP Front difference: the job runs per process.
 
-Fixtures in `fixtures/weather/` are real payloads fetched 08.10.2026, trimmed:
-- `rzc262811700vl.001.h5` – MeteoSwiss RZC precipitation radar, 17:00 UTC (CC BY 4.0,
-  «Quelle: MeteoSchweiz»). Oberwil was dry; central/eastern Switzerland was not.
-- `meteoalarm_switzerland.json` – two entries of the MeteoAlarm CH feed: a yellow «Starker Regen»
-  for Luzern-Alpnach and a green (= lifted) update.
-- `alertswiss_{de,fr}.json` – the BL fire-danger alert (covers Oberwil), a Uri alert and the
-  technical test message.
+`fixtures/weather/rzc262811700vl.001.h5` is a real MeteoSwiss RZC precipitation radar file,
+08.10.2026 17:00 UTC (CC BY 4.0, «Quelle: MeteoSchweiz»). Oberwil was dry; central/eastern
+Switzerland was not.
 
-Nothing here touches the network: the pollers get an httpx MockTransport.
+Nothing here touches the network: the poller gets an httpx MockTransport.
 """
 
 import io
-import json
 import logging
 import math
 import pathlib
@@ -28,28 +22,14 @@ import pytest
 from PIL import Image
 
 from app import weather_radar as radar
-from app import weather_warnings as warnings
-from app.geo_util import lv95_to_wgs84, point_in_ring
-from app.weather_layer import (
-    ALERTSWISS_JSON,
-    METEOALARM_ATOM,
-    METEOALARM_JSON,
-    RADAR_STALE_AFTER,
-    WARNINGS_STALE_AFTER,
-    WeatherService,
-)
+from app.geo_util import lv95_to_wgs84
+from app.weather_layer import RADAR_STALE_AFTER, WeatherService
 from app.weather_radar import lat_to_mercator_y, lon_to_mercator_x, wgs84_to_lv95
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures" / "weather"
 RZC = FIXTURES / "rzc262811700vl.001.h5"
 OBERWIL = (47.514, 7.556)
-# Inside the Luzern-Alpnach warning polygon of the MeteoAlarm fixture.
-ALPNACH = (46.9907, 8.3158)
 FIXTURE_FRAME_TIME = datetime(2026, 10, 8, 17, 0, tzinfo=UTC)
-
-
-def _json(name: str) -> dict:
-    return json.loads((FIXTURES / name).read_text())
 
 
 @pytest.fixture(scope="module")
@@ -160,55 +140,7 @@ def test_frame_url_follows_the_published_naming():
     assert radar.frame_url(late).endswith("/20261231-ch/rzc263652355vl.001.h5")
 
 
-# --- Warnings ------------------------------------------------------------------------------------
-
 NOW = datetime(2026, 10, 8, 17, 30, tzinfo=UTC)
-
-
-def test_meteoalarm_drops_green_lifted_updates_and_keeps_text_verbatim():
-    payload = _json("meteoalarm_switzerland.json")
-    candidates = warnings.meteoalarm_candidates(payload)
-    assert len(candidates) == 1  # the «1; green» update is not a warning
-    (warning,) = candidates
-    assert warning["level"] == 2 and warning["color"] == "yellow" and warning["kind"] == "rain"
-    de = next(i for i in payload["warnings"][0]["alert"]["info"] if i["language"] == "de")
-    assert warning["texts"]["de"] == {
-        "event": de["event"],
-        "headline": de["headline"],
-        "description": de["description"],
-        "instructions": [de["instruction"]],
-    }
-    assert set(warning["texts"]) == {"de", "fr", "it", "en"}
-
-
-def test_warning_filter_by_region():
-    meteo = warnings.meteoalarm_candidates(_json("meteoalarm_switzerland.json"))
-    swiss = warnings.alertswiss_candidates({"de": _json("alertswiss_de.json"), "fr": _json("alertswiss_fr.json")})
-    # Alpnach lies in the yellow-rain region; Oberwil does not.
-    (at_alpnach,) = warnings.select(meteo, *ALPNACH, NOW)
-    assert at_alpnach["region"] == "Luzern-Alpnach"
-    assert "areas" not in at_alpnach  # polygons stay on the server
-    assert warnings.select(meteo, *OBERWIL, NOW) == []
-    # Oberwil gets the BL fire-danger alert – not Uri's, and never the technical test message.
-    (at_oberwil,) = warnings.select(swiss, *OBERWIL, NOW)
-    assert at_oberwil["region"] == "Ganzer Kanton Basel-Landschaft"
-    assert at_oberwil["sender"] == "Kanton Basel-Landschaft"
-    assert set(at_oberwil["texts"]) == {"de", "fr"}
-    assert at_oberwil["expires"] is None  # «bis auf Widerruf»
-    assert not any("TEST" in c["id"] for c in swiss)
-
-
-def test_expired_warnings_are_not_shown():
-    meteo = warnings.meteoalarm_candidates(_json("meteoalarm_switzerland.json"))
-    after = datetime(2026, 10, 9, 6, 0, tzinfo=UTC)  # the fixture's `expires`
-    assert warnings.select(meteo, *ALPNACH, after) == []
-
-
-def test_point_in_ring_handles_concave_rings():
-    # A «C» opening east: the notch is outside.
-    ring = [(0, 0), (0, 3), (1, 3), (1, 1), (2, 1), (2, 3), (3, 3), (3, 0)]
-    assert point_in_ring(0.5, 2, ring)
-    assert not point_in_ring(1.5, 2, ring)
 
 
 # --- Pollers: isolation & staleness ---------------------------------------------------------------
@@ -227,21 +159,12 @@ def _router(routes: dict[str, httpx.Response | Exception], default: int = 404):
     return httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
 
-def _warning_routes(meteo_status: int = 200, swiss_status: int = 200) -> dict:
-    return {
-        METEOALARM_ATOM: httpx.Response(meteo_status, content=b"<feed/>"),
-        METEOALARM_JSON: httpx.Response(meteo_status, json=_json("meteoalarm_switzerland.json")),
-        ALERTSWISS_JSON.format(lang="de"): httpx.Response(swiss_status, json=_json("alertswiss_de.json")),
-        ALERTSWISS_JSON.format(lang="fr"): httpx.Response(swiss_status, json=_json("alertswiss_fr.json")),
-    }
-
-
 async def test_radar_poll_fetches_published_frames_and_skips_missing_ones():
     service = WeatherService()
     now = FIXTURE_FRAME_TIME + timedelta(minutes=6)  # 17:06 → slots 17:05 (not yet there) … 16:10
     async with _router({radar.frame_url(FIXTURE_FRAME_TIME): httpx.Response(200, content=RZC.read_bytes())}) as c:
         await service.poll_radar(client=c, now=now)
-    snapshot = service.snapshot(*OBERWIL, now)
+    snapshot = service.snapshot(now)
     assert [f["key"] for f in snapshot["radar"]["frames"]] == ["202610081700"]
     assert snapshot["radar"]["status"]["last_error"] is None
     assert snapshot["radar"]["stale"] is False
@@ -259,91 +182,11 @@ async def test_radar_failure_keeps_last_frames_and_marks_them_stale_later():
     later = FIXTURE_FRAME_TIME + RADAR_STALE_AFTER + timedelta(minutes=1)
     async with _router({"https://": httpx.ConnectError("down")}) as c:
         await service.poll_radar(client=c, now=later)  # must not raise
-    snapshot = service.snapshot(*OBERWIL, later)
+    snapshot = service.snapshot(later)
     assert snapshot["radar"]["status"]["last_error"] == "nicht erreichbar"
     assert snapshot["radar"]["data_time"] == FIXTURE_FRAME_TIME.isoformat()
     assert len(snapshot["radar"]["frames"]) == 1  # last-known data kept…
     assert snapshot["radar"]["stale"] is True  # …but never passed off as current
-
-
-async def test_one_failing_source_never_empties_another():
-    service = WeatherService()
-    # Radar down entirely, MeteoAlarm answering 500, Alertswiss fine.
-    async with _router({"https://data.geo.admin.ch": httpx.Response(500), **_warning_routes(meteo_status=500)}) as c:
-        await service.poll_radar(client=c, now=NOW)
-        await service.poll_warnings(client=c, now=NOW)
-    snapshot = service.snapshot(*OBERWIL, NOW)
-    assert snapshot["radar"]["status"]["last_error"] == "HTTP 500"
-    assert snapshot["warnings"]["sources"]["meteoswiss"]["last_error"] == "HTTP 500"
-    assert snapshot["warnings"]["sources"]["alertswiss"]["last_error"] is None
-    assert [w["source"] for w in snapshot["warnings"]["items"]] == ["alertswiss"]
-
-
-async def test_last_known_warnings_survive_a_failed_round_and_go_stale():
-    service = WeatherService()
-    async with _router(_warning_routes()) as c:
-        await service.poll_warnings(client=c, now=NOW)
-    assert [w["source"] for w in service.snapshot(*ALPNACH, NOW)["warnings"]["items"]] == ["meteoswiss"]
-
-    later = NOW + WARNINGS_STALE_AFTER + timedelta(minutes=1)
-    async with _router({"https://": httpx.ReadTimeout("slow")}) as c:
-        await service.poll_warnings(client=c, now=later)
-    snapshot = service.snapshot(*ALPNACH, later)
-    meteo = snapshot["warnings"]["sources"]["meteoswiss"]
-    assert meteo["last_error"] == "Zeitüberschreitung" and meteo["stale"] is True
-    (item,) = snapshot["warnings"]["items"]
-    assert item["fetched_at"] == NOW.isoformat()  # the app labels it «Stand …»
-
-
-async def test_unchanged_atom_feed_skips_the_big_json():
-    service = WeatherService()
-    calls: list[str] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        calls.append(str(request.url))
-        return _warning_routes()[next(p for p in _warning_routes() if str(request.url).startswith(p))]
-
-    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
-        await service.poll_warnings(client=c, now=NOW)
-        await service.poll_warnings(client=c, now=NOW + timedelta(minutes=10))
-    assert calls.count(METEOALARM_JSON) == 1
-    assert calls.count(METEOALARM_ATOM) == 2
-
-
-async def test_no_point_means_no_warnings_but_radar_still_works():
-    """An Einsatz without a coordinate asks without one: the radar comes, warnings do not."""
-    service = WeatherService()
-    async with _router(_warning_routes()) as c:
-        await service.poll_warnings(client=c, now=NOW)
-    snapshot = service.snapshot(None, None, NOW)
-    assert snapshot["point"] is False
-    assert snapshot["warnings"]["items"] == []
-    assert snapshot["radar"] is not None
-
-
-async def test_the_same_round_answers_each_einsatz_with_its_own_warnings():
-    """KP Front selects per request: two Einsätze in two regions, one poll, two answers."""
-    service = WeatherService()
-    async with _router(_warning_routes()) as c:
-        await service.poll_warnings(client=c, now=NOW)
-    at_alpnach = service.snapshot(*ALPNACH, NOW)["warnings"]["items"]
-    at_oberwil = service.snapshot(*OBERWIL, NOW)["warnings"]["items"]
-    assert [w["region"] for w in at_alpnach] == ["Luzern-Alpnach"]
-    assert [w["sender"] for w in at_oberwil] == ["Kanton Basel-Landschaft"]
-    # …and the per-point cache is dropped when a round brings new candidates
-    assert service._selections
-    service.state.candidates["meteoswiss"] = []
-    service.state.generation += 1
-    service._selections.clear()
-    assert service.snapshot(*ALPNACH, NOW)["warnings"]["items"] == []
-
-
-async def test_a_warning_that_expires_between_rounds_disappears_at_once():
-    service = WeatherService()
-    async with _router(_warning_routes()) as c:
-        await service.poll_warnings(client=c, now=NOW)
-    assert service.snapshot(*ALPNACH, NOW)["warnings"]["items"]  # cached for the point…
-    assert service.snapshot(*ALPNACH, datetime(2026, 10, 9, 6, 1, tzinfo=UTC))["warnings"]["items"] == []
 
 
 def test_jobs_are_not_started_when_the_deployment_switched_the_layer_off(monkeypatch):
@@ -368,11 +211,10 @@ async def test_the_layer_jobs_run_in_every_process_not_only_on_the_leader(monkey
     monkeypatch.setattr(scheduler, "_start_scheduler_jobs", lambda: None)
     monkeypatch.setattr(type(settings), "is_production", property(lambda _s: False))
     monkeypatch.setattr(scheduler, "_weather_radar_round", _noop)
-    monkeypatch.setattr(scheduler, "_weather_warnings_round", _noop)
     await scheduler.start_scheduler(FastAPI())
     try:
         assert scheduler._process_scheduler is not None
-        assert {j.id for j in scheduler._process_scheduler.get_jobs()} == {"weather_radar", "weather_warnings"}
+        assert {j.id for j in scheduler._process_scheduler.get_jobs()} == {"weather_radar"}
     finally:
         await scheduler.stop_scheduler()
     assert scheduler._process_scheduler is None
@@ -393,21 +235,9 @@ def test_snapshot_orders_frames_by_time_whatever_the_insertion_order(frame: rada
     )
     service.state.frames[frame.key] = frame
     service.state.frames[older.key] = older
-    snapshot = service.snapshot(*OBERWIL, frame.time + timedelta(minutes=3))
+    snapshot = service.snapshot(frame.time + timedelta(minutes=3))
     assert [f["key"] for f in snapshot["radar"]["frames"]] == [older.key, frame.key]
     assert snapshot["radar"]["data_time"] == frame.time.isoformat()
-
-
-def test_alertswiss_circle_only_areas_are_matched_by_distance():
-    """Uri's «Bristenstrasse» notice (live 09.10.2026) is a 267 m circle with no polygon."""
-    swiss = warnings.alertswiss_candidates({"de": _json("alertswiss_de.json"), "fr": _json("alertswiss_fr.json")})
-    bristen = next(c for c in swiss if c["id"] == "alertswiss:POA-1368907708-2")
-    ((lat, lon, radius),) = bristen["areas"][0]["circles"]
-    assert (lat, lon) == (46.7697, 8.67591) and abs(radius - 266.6) < 0.1
-    (inside,) = warnings.select([bristen], 46.7697 + 0.001, 8.67591, NOW)  # ~110 m north
-    assert inside["region"] == "Bristenstrasse"
-    assert warnings.select([bristen], 46.7697 + 0.004, 8.67591, NOW) == []  # ~450 m north
-    assert warnings.select(swiss, *OBERWIL, NOW)[0]["sender"] == "Kanton Basel-Landschaft"
 
 
 async def test_a_dead_feed_warns_once_and_says_when_it_is_back(caplog):
@@ -437,9 +267,6 @@ def one_frame(monkeypatch):
     weather_service.reset()
     frame = radar.render_frame(radar.parse_rzc(RZC.read_bytes()))
     weather_service.state.frames[frame.key] = frame
-    weather_service.state.candidates["alertswiss"] = warnings.alertswiss_candidates(
-        {"de": _json("alertswiss_de.json"), "fr": _json("alertswiss_fr.json")}
-    )
     yield frame
     weather_service.reset()
 
@@ -455,22 +282,17 @@ async def test_layer_needs_a_session(client, one_frame):
     assert (await client.get("/api/weather/layer")).status_code == 401
 
 
-async def test_a_viewer_reads_radar_and_the_warnings_at_the_einsatz(client, viewer, one_frame):
+async def test_a_viewer_reads_the_radar(client, viewer, one_frame):
     await _login(client, viewer)
-    response = await client.get("/api/weather/layer", params={"lat": OBERWIL[0], "lng": OBERWIL[1]})
+    response = await client.get("/api/weather/layer")
     assert response.status_code == 200
     body = response.json()
-    assert body["enabled"] is True and body["point"] is True
+    assert set(body) == {"enabled", "generated_at", "radar"}  # no warnings any more (10.10.2026)
+    assert body["enabled"] is True
     assert body["radar"]["frames"] == [{"key": "202610081700", "time": "2026-10-08T17:00:00+00:00"}]
     assert body["radar"]["attribution"] == "MeteoSchweiz"
     assert len(body["radar"]["coordinates"]) == 4
     assert body["radar"]["legend"][0] == {"min_mm_h": 0.1, "color": "#9bd7ff"}
-    (warning,) = body["warnings"]["items"]
-    assert warning["sender"] == "Kanton Basel-Landschaft"
-    assert "areas" not in warning  # the polygons stay on the server
-    # …and without a point, no warnings
-    bare = (await client.get("/api/weather/layer")).json()
-    assert bare["point"] is False and bare["warnings"]["items"] == []
 
 
 async def test_radar_frame_is_an_immutable_public_png(client, one_frame):
@@ -487,6 +309,6 @@ async def test_layer_switched_off_by_the_deployment(client, editor, one_frame, m
 
     await _login(client, editor)
     monkeypatch.setattr(settings, "weather_layer_enabled", False)
-    response = await client.get("/api/weather/layer", params={"lat": OBERWIL[0], "lng": OBERWIL[1]})
-    assert response.json() == {"enabled": False, "point": False, "generated_at": None, "radar": None, "warnings": None}
+    response = await client.get("/api/weather/layer")
+    assert response.json() == {"enabled": False, "generated_at": None, "radar": None}
     assert (await client.get(f"/api/weather/radar/{one_frame.key}.png")).status_code == 404

@@ -23,7 +23,7 @@ import type { BoardAnno, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, M
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { newRowId } from './lib/ids'
-import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode, lageRhythmDefault } from './lib/deploymentConfig'
+import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
 import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, formatTime } from './lib/format'
 import { circlePolygon } from './lib/geo'
@@ -63,7 +63,6 @@ import { useIsPhone, useMediaQuery } from './lib/useIsPhone'
 import { onReachable } from './lib/connectivity'
 import { Splash } from './components/Splash'
 import { plakatSeedFrom } from './lib/plakatSeed'
-import type { TafelStartInfo } from './components/TafelStart'
 import { NavRail } from './components/NavRail'
 import { twinVisible, isTwinLayerId } from './lib/georefTwins'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
@@ -75,13 +74,9 @@ import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { TabLockBanner } from './components/TabLockBanner'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
 import { RemindersHost } from './lib/useReminders'
-import { derivedStartBooking, lageReminderId, lageRhythm, LAGE_START_ID } from './lib/lageRhythm'
-import type { LageInput } from './lib/lagemeldung'
-import type { LageSend } from './components/LagemeldungSheet'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
 import { truppInNotfall, truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
-import type { OpenReminder } from './lib/reminders'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefSurfaceBridge } from './lib/georefMode'
 import { planStackTouches, type BoardHistory } from './components/useBoardDoc'
@@ -124,7 +119,7 @@ import { createPortal, flushSync } from 'react-dom'
 import type { NoteSize } from './types'
 import { TruppFinder } from './components/TruppFinder'
 import { counterNames, freshTeamLabel, markerOptions, markerSite, teamNoTaken } from './lib/placedTrupps'
-import { serverNow, serverNowIso } from './lib/serverClock'
+import { serverNowIso } from './lib/serverClock'
 import { clockRestartRowId, clocksAfterReopen } from './lib/reopenClocks'
 import { IncidentClosedMeldung, LinkRefusedMeldung } from './components/IncidentClosedMeldung'
 import { useGhostTrails } from './lib/useGhostTrails'
@@ -1086,7 +1081,7 @@ export function IncidentWorkspace({
     () => !bootGate.ws?.planBindings?.length && hasLegacyAlignmentContext(bootGate.ws),
     [],  // eslint-disable-line react-hooks/exhaustive-deps
   )
-  const { nearObjects, plansSettled, backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
+  const { plansSettled, backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
     bindings: planBindings,
     onBind: (proposed) => { if (!readOnly) setPlanBindings((prev) => fillBindingFloors(addPlanBindings(prev, proposed), proposed)) },
     legacyPlanIds,
@@ -1333,28 +1328,19 @@ export function IncidentWorkspace({
   // During replay the badge reads the folded reading.
   const liveWeather = useWeather(incidentView.center)
   const displayWeather = replayActive ? (replayWs?.weather ?? null) : liveWeather.data
-  // the empty Tafel's «Womit beginnen?» (08.10.2026, components/TafelStart) — not for a link
-  // session (bound to one object) and with no object doors for el (see onObjectSwitch)
-  const tafelStart: TafelStartInfo | undefined = linkScoped ? undefined : {
-    title: incidentMeta.title,
-    address: incidentMeta.address,
-    near: nearObjects,
-    hasLocation: incidentMeta.lng != null && incidentMeta.lat != null && (incidentMeta.lng !== 0 || incidentMeta.lat !== 0),
-    onPickObject: isEl ? undefined : pickObject,
-    onOpenObjects: isEl ? undefined : () => setPickerOpen(true),
-    onOpenBuilding: () => setActivePlanId(BUILDING_PICK_ID),
-    plakatSeed: () => plakatSeedFrom({
-      title: incidentMeta.title, address: incidentMeta.address,
-      alarmIso: reportMeta.alarmiertAt ?? incidentMeta.started_at,
-      einsatzleiter: reportMeta.einsatzleiter,
-      weather: liveWeather.data,
-      fahrzeuge: reportMeta.fahrzeuge,
-      fleet: getDeploymentConfig().fleet?.vehicles,
-      entities: doc.entities,
-    }),
-  }
-  // …and the Karte's weather LAYER: radar + the official warnings at this Einsatz (live only)
-  const weather = useKarteWeather(incidentView.center, mode === 'map' && !replayActive)
+  // …and the Karte's weather LAYER: the MeteoSwiss radar (live only)
+  const weather = useKarteWeather(mode === 'map' && !replayActive)
+  // the Tafel's «Erstes Plakat (FKS)» Vorlage pre-fills from what the Einsatz already knows — not
+  // for a link session (bound to one object)
+  const plakatSeed = linkScoped ? undefined : () => plakatSeedFrom({
+    title: incidentMeta.title, address: incidentMeta.address,
+    alarmIso: reportMeta.alarmiertAt ?? incidentMeta.started_at,
+    einsatzleiter: reportMeta.einsatzleiter,
+    weather: liveWeather.data,
+    fahrzeuge: reportMeta.fahrzeuge,
+    fleet: getDeploymentConfig().fleet?.vehicles,
+    entities: doc.entities,
+  })
 
   // The opening cover (lib/bootCover): the boot Splash's snail stays over the whole workspace
   // until its first screen is whole — the symbol pack, the Karte framed with its first view drawn
@@ -2026,6 +2012,8 @@ export function IncidentWorkspace({
     // same `!isEl` rule as toggleLayer above — an EL's Ebenen are their own view
     if (!isEl) for (const l of layers) if (!l.base && l.visible !== visible) emit('layer.toggle', { id: l.id, base: false, visible })
     setLayers((ls) => ls.map((l) => (l.base || l.visible === visible ? l : { ...l, visible })))
+    // «Alle aus» takes the radar with it; «Alle ein» leaves it alone (workspace/useKarteWeather)
+    if (!visible) weather.setRadar(false)
   }
   const resetLayers = () => {
     const next = defaultLayers(incidentMeta.type)
@@ -2038,10 +2026,13 @@ export function IncidentWorkspace({
       emit('layer.toggle', { id: l.id, base: !!l.base, visible: l.visible })
     }
     setLayers(next)
+    // no Einsatz category opens with the radar on: «Standard» switches it off (10.10.2026)
+    weather.setRadar(false)
   }
   // which quick-tap the Ebenen on screen match — lit in the panel, named in the Ebenen button's
   // tooltip / accessible name (lib/layerPreset, 05.10.2026)
-  const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type)), [layers, incidentMeta.type])
+  const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type), weather.on && weather.radarOn),
+    [layers, incidentMeta.type, weather.on, weather.radarOn])
   const setOpacity = (id: LayerId, v: number) => {
     if (weather.handlesLayer(id)) { weather.setRadarOpacity(v); return }
     if (isTwinLayerId(id)) {
@@ -2166,19 +2157,6 @@ export function IncidentWorkspace({
   // is the wall-clock instant inside the recording, so it lands (and marks) correctly.
   const [player, setPlayer] = useState<{ row: TimelineEvent; seekSec?: number } | null>(null)
 
-  // ── Lagemeldung auf Knopfdruck (F3) ──────────────────────────────────────────────────────────
-  // Who may send one: the editor and the Einsatzleiter (the journal POST is in the el allowlist),
-  // on a running Einsatz — a viewer, a link session or a closed Einsatz never sees the door.
-  const canLagemeldung = (isEditor || isEl) && !readOnly && !linkScoped
-  // the derived first «Lagemeldung fällig» — 5′ after the first vehicle is vor Ort, no row yet
-  const lageStart = useMemo(() => {
-    if (!canLagemeldung || lageRhythmDefault() <= 0) return [] as const
-    const b = derivedStartBooking(timeline, reportMeta.fahrzeuge, {
-      firstAfterMin: appConfig.lagemeldung.firstAfterVorOrtMin, text: appConfig.copy.lagemeldung.reminderText,
-    })
-    return b ? [b] : []
-  }, [canLagemeldung, timeline, reportMeta.fahrzeuge])
-
   // the Verlauf's actions: a row back to where it happened, pictures onto the Karte, the composer,
   // the player, the Wiedervorlagen, voice memo and quick photo (workspace/useJournalWriters)
   const {
@@ -2189,123 +2167,7 @@ export function IncidentWorkspace({
     focusEntity, incidentMeta, incidentView, doc, tacticalLocked, replayActive, stepLabelRef: stepLabel, commit, emit,
     log, setSelectedDrawingId, setSelectedId, mode, pushEvent, composerOpenedAtRef: composerOpenedAt, activePlanId,
     uploadPhotoForRow, uploadMediaForRow, setComposerOpen, setNoteOn, player, timeline, running, undoHist, journal,
-    lageStart,
   })
-
-  // where the Führungsrhythmus stands — the chip, the booking id, the interval (lib/lageRhythm)
-  const lage = useMemo(() => lageRhythm(timeline, reminders.open, reportMeta.fahrzeuge, {
-    defaultMin: lageRhythmDefault(), firstAfterMin: appConfig.lagemeldung.firstAfterVorOrtMin,
-  }), [timeline, reminders.open, reportMeta.fahrzeuge])
-  const [lageOpen, setLageOpen] = useState(false)
-  /** The record as the engine reads it — built only when asked (the sheet opens, a booking comes
-   *  due), never per render. Lage entities and every plan's annotations: the engine counts a record
-   *  standing on both views once (by id). */
-  const lageInput = (): LageInput => {
-    const dz = atemschutzDoctrine()
-    return {
-      now: serverNow(),
-      title: incidentMeta.title ?? '',
-      alarmText: reportMeta.alarmText,
-      symbols: [...doc.entities, ...Object.values(board ?? {}).flat()],
-      trupps: allTrupps,
-      doctrine: {
-        contactIntervalMin: azIntervalMin, contactGraceSec: azGraceSec, alarmBar: dz.alarmBar, alarmBarRueckzug: dz.alarmBarRueckzug,
-        cylinderLiters: dz.cylinderLiters, estConsumptionLPerMin: dz.estConsumptionLPerMin,
-      },
-      rows: timeline,
-      reminders: reminders.open,
-      fahrzeuge: reportMeta.fahrzeuge ?? [],
-      fleet: getDeploymentConfig().fleet?.vehicles ?? [],
-      present: Object.values(attendance).filter((a) => isPresent(a)).length,
-      building: buildingInfo,
-    }
-  }
-  const lageInputRef = useRef(lageInput)
-  useEffect(() => { lageInputRef.current = lageInput })
-  // the due row's «letzte 21:17 · 5 Änderungen, 1 dringend» — the engine's own count, loaded with
-  // the engine only once a booking is actually due
-  const lageDue = canLagemeldung && reminders.due.some((r) => r.purpose === 'lagemeldung')
-  const [lageSub, setLageSub] = useState<string | undefined>(undefined)
-  useEffect(() => {
-    if (!lageDue) return
-    let alive = true
-    void import('./lib/lagemeldung').then((m) => {
-      if (!alive) return
-      const C = appConfig.copy.lagemeldung
-      const { changes, urgent } = m.changeSummary(m.composeLagemeldung(lageInputRef.current(), { mode: 'seit', anchor: lage.anchor }))
-      setLageSub([
-        lage.anchor ? fillTemplate(C.dueLast, { t: formatTime(new Date(lage.anchor.at)) }) : C.dueNone,
-        changes === 1 ? C.dueChangesOne : fillTemplate(C.dueChanges, { n: changes }),
-        urgent ? fillTemplate(C.dueUrgent, { n: urgent }) : '',
-      ].filter(Boolean).join(' · '))
-    }).catch(() => {})
-    return () => { alive = false }
-  }, [lageDue, lage.anchor, timeline])
-  /** «Gemeldet ✓»: ONE Verlauf row carrying the Lagemeldung and its fact snapshot (the anchor),
-   *  and — unless «Übergabe» / «keine» was picked — ONE ordinary Wiedervorlage booking the next,
-   *  its id derived from the row (lib/lageRhythm). Confirm-with-undo: «Rückgängig» and ↶ retract
-   *  both rows (append-only — a patch, the originals stay in the record), ↷ restores them. */
-  const sendLagemeldung = (r: LageSend) => {
-    const C = appConfig.copy.lagemeldung
-    const nowMs = serverNow()
-    const t = formatTime(new Date(nowMs))
-    const onPlan = mode === 'plans'
-    const where = { surface: onPlan ? 'plan' as const : 'map' as const, planId: onPlan ? activePlanId : undefined }
-    const anchorId = newRowId('j')
-    pushEvent({ icon: 'radio', text: fillTemplate(r.mode === 'voll' ? C.rowVoll : C.row, { t, text: r.text }), kind: 'journal', lagemeldung: r.anchor, ...where }, anchorId)
-    emit('journal.add', { id: anchorId, kind: 'journal' })
-    const rows = [anchorId]
-    if (r.next.kind === 'every') {
-      const dueAt = new Date(nowMs + r.next.min * 60_000).toISOString()
-      const rid = lageReminderId(anchorId)
-      const bookingId = newRowId()
-      pushEvent({
-        icon: 'bell', text: fillTemplate(C.nextLog, { t: formatTime(new Date(dueAt)) }), kind: 'reminder',
-        reminder: { op: 'created', id: rid, dueAt, text: C.reminderText, purpose: 'lagemeldung', intervalMin: r.next.min }, ...where,
-      }, bookingId)
-      emit('reminder.create', { id: rid, dueAt })
-      rows.push(bookingId)
-    }
-    setLageOpen(false)
-    const label = fillTemplate(C.sentToast, { t })
-    let gone = false
-    const retract = (v: boolean) => { for (const id of rows) journal.appendPatch(id, { retracted: v }); gone = v }
-    const drop = undoHist.push({
-      domain: 'pendenz', label, touches: () => [],
-      undo: () => { if (gone) return false; retract(true); return true },
-      redo: () => { if (!gone) return false; retract(false); return true },
-    })
-    toast(label, { icon: 'radio', tone: 'success', action: { label: appConfig.copy.undo, onClick: () => { if (!gone) { retract(true); drop() } } } })
-  }
-  /** «Rhythmus ausschalten»: a done row on the current booking (the derived start included). Undo
-   *  retracts that row, which hands the booking back. */
-  const lageRhythmOff = () => {
-    const C = appConfig.copy.lagemeldung
-    const rowId = newRowId()
-    pushEvent({ icon: 'bell-off', text: C.rhythmOffLog, kind: 'reminder', reminder: { op: 'done', id: lage.reminderId } }, rowId)
-    emit('reminder.done', { id: lage.reminderId })
-    let gone = false
-    const drop = undoHist.push({
-      domain: 'pendenz', label: C.rhythmOffLog, touches: () => [],
-      undo: () => { if (gone) return false; journal.appendPatch(rowId, { retracted: true }); gone = true; return true },
-      redo: () => { if (!gone) return false; journal.appendPatch(rowId, { retracted: false }); gone = false; return true },
-    })
-    toast(C.rhythmOffLog, { icon: 'bell-off', action: { label: appConfig.copy.undo, onClick: () => { if (!gone) { journal.appendPatch(rowId, { retracted: true }); gone = true; drop() } } } })
-  }
-  /** +10′ on the Lagemeldung's due row. The derived start has no row to snooze — +10′ writes it. */
-  const snoozeReminder = (r: OpenReminder) => {
-    if (r.id === LAGE_START_ID && !r.rowId) {
-      const C = appConfig.copy.lagemeldung
-      const dueAt = new Date(serverNow() + 10 * 60_000).toISOString()
-      pushEvent({
-        icon: 'bell', text: appConfig.copy.journal.snoozeLog.replace('{mins}', '10').replace('{text}', C.reminderText), kind: 'reminder',
-        reminder: { op: 'created', id: LAGE_START_ID, dueAt, text: C.reminderText, purpose: 'lagemeldung', intervalMin: lage.intervalMin },
-      })
-      emit('reminder.create', { id: LAGE_START_ID, dueAt })
-      return
-    }
-    reminders.snooze(r, 10)
-  }
 
   // --- Atemschutzüberwachung (SCBA monitoring): Trupp mutations live in useTruppActions ---
   /** WHERE a placed Trupp's symbol stands, in words — «Gebäude · 2. OG», «M6», «Karte · bei
@@ -3171,7 +3033,7 @@ export function IncidentWorkspace({
         onSwitchIncident, onOpenHistory, onOpenObjectVisits, activeObjectId, canEditMeta, onEditMeta,
         onOpenDivera, onOpenDatenquellen, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
         setHelpOpen, setInstallGuideOpen, setOfflineReadyOpen, syncNow, media, logout, settingsOpen,
-        helpOpen, installGuideOpen, offlineReadyOpen, shareLink, canLagemeldung, lage, setLageOpen,
+        helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
       }} />
 
       <WorkspaceMeldungen {...{
@@ -3181,7 +3043,6 @@ export function IncidentWorkspace({
         releaseOnSite, revertAll, followAll, replayActive, incidentMeta, journal, rapportReturn,
         setRapportReturn, openRapport, setInstallGuideOpen, tabLockLost, user, onTakeOverTab, needsReview,
         readOnly, intakeReviewedAt, onEditMeta, onReviewDone, azAlarmActive, truppPlace, setTruppStatus,
-        snoozeReminder, canLagemeldung, setLageOpen, lageSub,
       }} />
 
       {/* single left navigation rail — all surfaces; switches Karte / object Pläne / Checkliste */}
@@ -3263,7 +3124,7 @@ export function IncidentWorkspace({
         planKeys, planFocus, effTrupps, truppCounterNames, teamNameTaken, azAlarm, updateTrupp,
         askTruppEntry, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker, linkTruppLine, unlinkLine,
         linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, syncLineNoToTrupp, setMode, setPanel,
-        setTruppFocus, planScale, setPlanScale, tafelStart,
+        setTruppFocus, planScale, setPlanScale, plakatSeed,
       }} />
 
       {pickerOpen && (
@@ -3334,7 +3195,7 @@ export function IncidentWorkspace({
         setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
         enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
         tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen,
-        addJournal, noteOn, lageOpen, canLagemeldung, lageInput, lage, setLageOpen, sendLagemeldung, lageRhythmOff,
+        addJournal, noteOn,
       }} />
       {sharePick && (
         <SharePositionSheet

@@ -40,7 +40,6 @@ import { panelsCopy } from './it/panels'
 import { captureCopy } from './it/capture'
 import { linksCopy } from './it/links'
 import { buildingCopy } from './it/building'
-import { lagemeldungCopy } from './it/lagemeldung'
 import { incidentCopy } from './it/incident'
 import { reportCopy } from './it/report'
 import { anwesenheitCopy } from './it/anwesenheit'
@@ -65,7 +64,6 @@ export const it: Localizable<Copy> = {
   ...captureCopy,
   ...linksCopy,
   ...buildingCopy,
-  ...lagemeldungCopy,
   ...incidentCopy,
   ...reportCopy,
   ...anwesenheitCopy,

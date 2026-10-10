@@ -35,7 +35,7 @@ const N = appConfig.copy.admin.numbers
 
 const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(1200) })
 const sent = () => apiPut.mock.calls[apiPut.mock.calls.length - 1]?.[1] as
-  { report?: { hoursRounding?: Record<string, unknown>; attendanceMergeGapMin?: unknown }; journal?: { lageRhythmMin?: unknown } } | undefined
+  { report?: { hoursRounding?: Record<string, unknown>; attendanceMergeGapMin?: unknown } } | undefined
 const type = (el: Element, value: string) => act(async () => { fireEvent.change(el, { target: { value } }) })
 const range = (min: number, max: number) => fillTemplate(N.integerRange, { min, max })
 
@@ -51,8 +51,7 @@ const STATION = {
   },
 }
 
-/** stepMin, graceMin, attendanceMergeGapMin — in DOM order (then the Journal group's
- *  Lagemeldung-Rhythmus, last on the page). */
+/** stepMin, graceMin, attendanceMergeGapMin — in DOM order. */
 const nums = () => Array.from(document.querySelectorAll<HTMLInputElement>('input[type="number"]'))
 
 beforeEach(() => {
@@ -64,7 +63,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 
 async function open() {
   await act(async () => { render(<ConfigProvider><ReportSection /></ConfigProvider>) })
-  await waitFor(() => expect(nums().length).toBe(4))
+  await waitFor(() => expect(nums().length).toBe(3))
 }
 
 describe('Rundung — a station that counts whole hours sets it here', () => {
@@ -146,24 +145,6 @@ describe('Rundung — a station that counts whole hours sets it here', () => {
     await type(nums()[0], '')
     await settle()
     expect(example()).toBe(before)
-  })
-})
-
-describe('journal.lageRhythmMin — the Lagemeldung\'s Führungsrhythmus (F3)', () => {
-  it('stores a whole number of minutes; 0 switches the rhythm off', async () => {
-    await open()
-    await type(nums()[3], '30')
-    await settle()
-    expect(sent()?.journal?.lageRhythmMin).toBe(30)
-    await type(nums()[3], '0')
-    await settle()
-    expect(sent()?.journal?.lageRhythmMin).toBe(0)
-  })
-  it('refuses more than two hours', async () => {
-    await open()
-    await type(nums()[3], '500')
-    await settle()
-    expect(apiPut).not.toHaveBeenCalled()
   })
 })
 

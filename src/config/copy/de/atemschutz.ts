@@ -785,13 +785,13 @@ export const atemschutzCopy = {
      * abgeleitet. Wortlaut bewusst kurz und neutral («Notfall», «Sicherungstrupp einsetzen») –
      * er bildet das AS-Notfallvorgehen (FwDV 7 / FKS) ab und wird von AS-Instruktoren geprüft. */
     notfall: {
-      // die Kachel auf der Karte – halten löst aus (lib/nodeHold, derselbe Ring)
+      // die Kachel auf der Karte – halten löst aus (lib/nodeHold; die Kachel füllt sich, bis es gilt)
       act: 'Notfall',
       actHint: 'Gedrückt halten löst den Notfall aus',
       end: 'Notfall beendet',
       endHint: 'Gedrückt halten beendet den Notfall',
-      // ein kurzer Tipp statt des Haltens
-      holdHint: 'Gedrückt halten, bis der Ring voll ist',
+      // ein blosses Tippen: die Kachel sagt es an ihrer eigenen Stelle (kurz, statt ihres Worts)
+      holdHint: 'Gedrückt halten',
       // Kopfzeile des Notfall-Banners auf der Tafel und der Zeile in der Meldeleiste
       title: 'Notfall',
       who: 'Trupp {name}',
@@ -803,6 +803,8 @@ export const atemschutzCopy = {
       bar: '{bar} bar',
       barAge: 'vor {age}',
       barEntry: 'Eingangsdruck',
+      // EIN Fakt: der Druck und woher er stammt – «300 bar (Eingangsdruck)», «220 bar (vor 5 min)»
+      barWith: '{bar} ({when})',
       kanal: 'Kanal {n}',
       contact: 'Kontakt {time}',
       // die erste angebotene Handlung
@@ -812,6 +814,8 @@ export const atemschutzCopy = {
       sitrDefine: 'Sicherungstrupp bestimmen',
       sitrInside: 'Sicherungstrupp {name} drin seit {time}',
       goTo: 'Zum Trupp',
+      // die ganze Kopfzeile des Banners (Screenreader): «Zum Trupp 1»
+      goToWho: 'Zum {name}',
       // die Meldeleiste
       rowTitle: 'Notfall – Trupp {name}',
       rowTitleMany: 'Notfall – {count} Trupps: {names}',

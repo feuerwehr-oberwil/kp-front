@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from '../lib/format'
 import { cx } from '../lib/cx'
-import { confirmDialog, toast } from '../lib/ui'
+import { confirmDialog } from '../lib/ui'
 import { useMeldung } from '../lib/useMeldung'
 import { serverNow } from '../lib/serverClock'
 import { fmtClock, notfallFacts, safetyInside, safetyReady, truppInNotfall, truppLogName } from '../lib/atemschutz'
-import { notfallFactLine, notfallWho } from '../lib/notfall'
+import { notfallFactLine, notfallName, notfallWho } from '../lib/notfall'
 import { NODE_HOLD_ARM_MS, useNodeHold } from '../lib/nodeHold'
 import type { Trupp } from '../types'
 import s from './Atemschutz.module.css'
@@ -17,8 +17,8 @@ import s from './Atemschutz.module.css'
 // Three pieces live here, because they describe the same emergency and must never word it twice:
 //  · `NotfallHold` — the held tile on the Trupp's card that raises it, and the same tile that ends
 //    it («Notfall beendet»). The hold is `lib/nodeHold`, the app's one deliberate hold (250 ms of
-//    stillness, then the ring fills to 825 ms) — a Notfall is never one brushed tap away, and
-//    neither is silencing one.
+//    stillness, then the whole tile fills to 825 ms) — a Notfall is never one brushed tap away,
+//    and neither is silencing one.
 //  · `NotfallBanner` — the top of the Tafel on every board while a Notfall runs: who, the clock,
 //    what the record last knew (place, Druck with its age, Kanal), and the first thing to do:
 //    «Sicherungstrupp einsetzen» (the board's existing Sicherungstrupp, its ordinary Eintritt).
@@ -27,15 +27,28 @@ import s from './Atemschutz.module.css'
 // The wording is deliberately neutral and short — it mirrors the AS emergency procedure
 // (FwDV 7 / FKS) and the station's AS instructors check it (copy · atemschutz.notfall).
 
+/** How long a plain tap's «Gedrückt halten» stands in the tile's place of its word. */
+export const NOTFALL_TAP_HINT_MS = 1600
+/** …and how long a completed hold shows the tile full, before it turns into its other face. */
+export const NOTFALL_FIRED_MS = 450
+
 /**
  * The held tile — «Notfall» on a crew inside, «Notfall beendet» on a crew in one.
  *
- * ⚠️ A TAP does nothing but say how (one toast, «Gedrückt halten …») — the deliberate act is the
- * hold, and a tap that raised the loudest alarm in the app would be raised by every glove that
- * brushes the card. A click with no pointer behind it (keyboard, switch access: `detail === 0`)
- * cannot hold, so it asks ONE question instead, the safe answer focused.
+ * The WHOLE TILE is the progress (owner feedback 10.10.2026 — a 24px ring around the glyph was
+ * the hold's only feedback and read as «loading»): a fill sweeps left→right across the tile's
+ * background in step with `hold.armed.progress` (`--hold`, a `scaleX` on a pseudo layer — no
+ * reflow, the word never moves), red for «Notfall», green for «Notfall beendet». A completed hold
+ * shows the tile full for a beat (`NOTFALL_FIRED_MS`, in the face that fired), so the hand sees
+ * that it counted before the tile becomes its other face.
+ *
+ * ⚠️ A TAP does nothing but say how: the tile's own word becomes «Gedrückt halten» for
+ * `NOTFALL_TAP_HINT_MS`, in place — no toast — because the deliberate act is the hold, and a tap
+ * that raised the loudest alarm in the app would be raised by every glove that brushes the card.
+ * A click with no pointer behind it (keyboard, switch access: `detail === 0`) cannot hold, so it
+ * asks ONE question instead, the safe answer focused.
  * ⚠️ `data-holdaction` rides in on the hold's props, so the app-wide hold-tooltip never claims the
- * press (AGENTS.md · touch vocabulary). The ring haloes the glyph; nothing reflows mid-hold.
+ * press (AGENTS.md · touch vocabulary).
  */
 export function NotfallHold({ end = false, onFire, className }: {
   /** the «Notfall beendet» face of the tile */
@@ -46,19 +59,34 @@ export function NotfallHold({ end = false, onFire, className }: {
   const nf = appConfig.copy.atemschutz.notfall
   const hold = useNodeHold()
   // when the press began — read in the click that ends it: a press long enough to have armed the
-  // ring was a HOLD (fired or let go), never a tap asking how
+  // fill was a HOLD (fired or let go), never a tap asking how
   const downAt = useRef(0)
+  // a tap's «Gedrückt halten» (a nonce, so a second tap restarts its time) and the fired beat
+  const [tapHint, setTapHint] = useState(0)
+  const [fired, setFired] = useState<'act' | 'end' | null>(null)
+  useEffect(() => {
+    if (!tapHint) return
+    const id = setTimeout(() => setTapHint(0), NOTFALL_TAP_HINT_MS)
+    return () => clearTimeout(id)
+  }, [tapHint])
+  useEffect(() => {
+    if (!fired) return
+    const id = setTimeout(() => setFired(null), NOTFALL_FIRED_MS)
+    return () => clearTimeout(id)
+  }, [fired])
+  // the face on screen: the one that just fired keeps the tile for its beat
+  const isEnd = fired ? fired === 'end' : end
   const label = end ? nf.end : nf.act
   const hint = end ? nf.endHint : nf.actHint
-  const press = hold.press(end ? 'notfall-end' : 'notfall', onFire)
-  const progress = hold.armed?.progress ?? 0
-  const R = 10
-  const len = 2 * Math.PI * R
+  const press = hold.press(end ? 'notfall-end' : 'notfall', () => { setFired(end ? 'end' : 'act'); onFire() })
+  const progress = fired ? 1 : hold.armed?.progress ?? 0
   return (
-    <button type="button" className={cx(s.actBtn, end ? s.actNotfallEnd : s.actNotfall, hold.armed && s.actHolding, className)}
+    <button type="button"
+      className={cx(s.actBtn, isEnd ? s.actNotfallEnd : s.actNotfall, (hold.armed || fired) && s.actHolding, fired && s.actFired, className)}
+      style={{ '--hold': progress } as CSSProperties}
       aria-label={`${label} – ${hint}`} title={hint}
       {...press}
-      onPointerDown={(e) => { downAt.current = Date.now(); press.onPointerDown(e) }}
+      onPointerDown={(e) => { downAt.current = Date.now(); setTapHint(0); press.onPointerDown(e) }}
       onClick={(e) => {
         if (e.detail !== 0 && Date.now() - downAt.current >= NODE_HOLD_ARM_MS) return // the end of a hold
         if (e.detail === 0) {
@@ -66,17 +94,11 @@ export function NotfallHold({ end = false, onFire, className }: {
             .then((ok) => { if (ok) onFire() })
           return
         }
-        toast(nf.holdHint, { icon: 'info' })
+        setTapHint((n) => n + 1)
       }}>
-      <span className={s.holdGlyph} aria-hidden>
-        <Icon id={end ? 'check' : 'warn'} />
-        <svg className={s.holdRing} viewBox="0 0 24 24">
-          <circle className={s.holdTrack} cx="12" cy="12" r={R} />
-          <circle className={s.holdFill} cx="12" cy="12" r={R}
-            strokeDasharray={len} strokeDashoffset={len * (1 - progress)} transform="rotate(-90 12 12)" />
-        </svg>
-      </span>
-      <span>{label}</span>
+      {/* the glyph keeps the 24px box the ring had, so the resting tile did not move a pixel */}
+      <span className={s.holdGlyph} aria-hidden><Icon id={isEnd ? 'check' : 'warn'} /></span>
+      <span>{tapHint && !fired ? nf.holdHint : isEnd ? nf.end : nf.act}</span>
     </button>
   )
 }
@@ -103,8 +125,19 @@ function useSecondTick(on: boolean): number {
  * «Sicherungstrupp eingesetzt – Notfall Trupp …, n min nach Auslösung»). Several ready ⇒ the
  * button asks which (`pickSafety`). None ready ⇒ it says so and offers the board's own
  * «Bestimmen» door. One already inside ⇒ it says who and since when, and offers nothing twice.
+ *
+ * ⚠️ A Trupp card in its alarm state, not a widget of its own (owner feedback 10.10.2026, three
+ * rounds — the first banner was ~620 device px of kicker, clock column, wrapped names, facts,
+ * notes and two rows of buttons): it is sticky, so every pixel of it covers the board, and beside
+ * the cards it must read as one of them. So it IS one — the card's frame and red tone, and row 1
+ * the card's own head line («⚠ Trupp 1 … 0:04 ›», the whole line «Zum Trupp»). Row 2 is ONE dim
+ * line («Notfall seit 11:11 · Löschen · 300 bar (Eingangsdruck) · Kanal 11»); the people are the
+ * card's. Row 3 is the one act at the banner's width, its reason as a small second line («Kein
+ * Sicherungstrupp bereit» under «Sicherungstrupp bestimmen», the ready crew under «… einsetzen»).
+ * Several at once (`dense`): rows 1 and 3. The board measures the stack (AtemschutzView ·
+ * `--nf-h`) so an opened card parks BELOW it, never under it.
  */
-export function NotfallBanner({ t, now, place, ready, inside, canEdit, onDeploySafety, pickSafety, defineSafety, onDefineSafety, onGo }: {
+export function NotfallBanner({ t, now, place, ready, inside, canEdit, dense = false, onDeploySafety, pickSafety, defineSafety, onDefineSafety, onGo }: {
   t: Trupp
   now: number
   place?: string
@@ -113,6 +146,9 @@ export function NotfallBanner({ t, now, place, ready, inside, canEdit, onDeployS
   /** …and the ones already sent in (safetyInside) */
   inside: Trupp[]
   canEdit: boolean
+  /** several Notfälle at once: each banner is ONE head row (who + clock) over its acts — the
+   *  people and the facts stay on the card and in the Verlauf, or two banners fill a phone */
+  dense?: boolean
   onDeploySafety: (id: string) => void
   /** several ready: the board's menu that asks which (rendered around the button) */
   pickSafety?: (trigger: ReactElement) => ReactNode
@@ -124,50 +160,60 @@ export function NotfallBanner({ t, now, place, ready, inside, canEdit, onDeployS
 }) {
   const nf = appConfig.copy.atemschutz.notfall
   const f = notfallFacts(t, now)
-  const facts = notfallFactLine(t, now, place).slice(1) // the «seit» is the clock's caption here
-  const deployBtn = (
-    <button type="button" className={cx(s.actBtn, s.actEnter, s.nfDeploy)}
-      onClick={ready.length === 1 ? () => onDeploySafety(ready[0].id) : undefined}>
-      <Icon id="flag" />
-      <span className={s.nfDeployTxt}>
-        <span>{nf.sitrDeploy}</span>
-        {ready.length === 1 && <span className={s.nfDeployWho}>{ready[0].name}</span>}
+  const name = notfallName(t)
+  // ONE dim line under the head: «Notfall seit 11:11 · Löschen · 300 bar (Eingangsdruck) · Kanal 11»
+  const facts = [
+    ...(t.notfallAt ? [fillTemplate(nf.stateWord, { time: formatTime(new Date(t.notfallAt)) })] : []),
+    ...notfallFactLine(t, now, place).slice(1),
+  ]
+  // the primary tile, with its small second line: whom it sends, or why it must be named first
+  const primary = (cls: string, word: string, sub: string | undefined, onClick: (() => void) | undefined, icon?: ReactNode) => (
+    <button type="button" className={cx(s.actBtn, cls, s.nfPrimary)} onClick={onClick}>
+      {icon}
+      <span className={s.nfPrimaryTxt}>
+        <span>{word}</span>
+        {sub && <span className={s.nfPrimarySub}>{sub}</span>}
       </span>
     </button>
   )
-  const defineBtn = (
-    <button type="button" className={cx(s.actBtn, s.nfDefine)} onClick={defineSafety ? undefined : onDefineSafety}>{nf.sitrDefine}</button>
+  const deployBtn = primary(s.actEnter, nf.sitrDeploy, ready.length === 1 ? ready[0].name : undefined,
+    ready.length === 1 ? () => onDeploySafety(ready[0].id) : undefined, <Icon id="flag" />)
+  const defineBtn = primary(s.nfDefine, nf.sitrDefine, nf.sitrNone, defineSafety ? undefined : onDefineSafety)
+  const canDefine = canEdit && !!(defineSafety || onDefineSafety)
+  const act = inside.length > 0 ? (
+    <p className={s.nfNote}>{fillTemplate(nf.sitrInside, {
+      name: inside[0].name,
+      time: inside[0].entryTime ? formatTime(new Date(inside[0].entryTime)) : '',
+    })}</p>
+  ) : ready.length > 0 ? (
+    // a device that cannot write the Tafel is not told «nobody ready» while one stands ready
+    !canEdit ? null : ready.length > 1 && pickSafety ? pickSafety(deployBtn) : deployBtn
+  ) : canDefine ? (
+    defineSafety ? defineSafety(defineBtn) : defineBtn
+  ) : (
+    <p className={s.nfNote}>{nf.sitrNone}</p>
   )
   return (
-    <section className={s.nfBanner} role="alert" aria-label={`${nf.title}: ${notfallWho(t)}`}>
-      <div className={s.nfHead}>
-        <Icon id="warn" />
-        <span className={s.nfKicker}>{nf.title}</span>
-        <span className={s.nfName}>{notfallWho(t)}</span>
-        <span className={s.nfClock}>
-          <b>{fmtClock(f.sinceSec)}</b>
-          <span>{t.notfallAt ? fillTemplate(nf.since, { time: formatTime(new Date(t.notfallAt)) }) : ''}</span>
+    // the frame IS a Trupp card in its alarm tone (`.trow.trowCard.trowCrit`), so the banner reads
+    // as one of the cards below it that came to the top, not as a widget of its own
+    <section className={cx(s.trow, s.trowCard, s.trowCrit, s.nfBanner)} role="alert" aria-label={`${nf.title}: ${notfallWho(t)}`}>
+      {/* row 1: the card's own head line — ⚠ where the card has its dot, the name, the clock, and
+          the chevron — and the WHOLE line is the way to the card (as the card's head is its toggle) */}
+      <button type="button" className={cx(s.trowHead, s.nfHead)} onClick={() => onGo(t.id)}
+        aria-label={fillTemplate(nf.goToWho, { name })}>
+        <span className={s.trowId}>
+          <span className={s.trowName}>
+            <Icon id="warn" className={s.nfGlyph} />
+            <span className={s.trowNameTxt}>{name}</span>
+          </span>
         </span>
-      </div>
-      {facts.length > 0 && <div className={s.nfFacts}>{facts.map((x) => <span key={x}>{x}</span>)}</div>}
-      <div className={s.nfActs}>
-        {inside.length > 0 ? (
-          <p className={s.nfNote}>{fillTemplate(nf.sitrInside, {
-            name: inside[0].name,
-            time: inside[0].entryTime ? formatTime(new Date(inside[0].entryTime)) : '',
-          })}</p>
-        ) : canEdit && ready.length > 0 ? (
-          ready.length > 1 && pickSafety ? pickSafety(deployBtn) : deployBtn
-        ) : (
-          <>
-            <p className={s.nfNote}>{nf.sitrNone}</p>
-            {canEdit && (defineSafety ? defineSafety(defineBtn) : onDefineSafety ? defineBtn : null)}
-          </>
-        )}
-        <button type="button" className={cx(s.actBtn, s.nfGo)} onClick={() => onGo(t.id)}>
-          <span>{nf.goTo}</span><Icon id="chevron" />
-        </button>
-      </div>
+        <span className={s.trowClock}><span className={s.trowClockVal}>{fmtClock(f.sinceSec)}</span></span>
+        <span className={s.trowChevron}><Icon id="chevron" /></span>
+      </button>
+      {/* row 2: ONE dim line, since when and what the record last knew (several at once: dropped) */}
+      {!dense && facts.length > 0 && <p className={s.nfFacts}>{facts.join(' · ')}</p>}
+      {/* row 3: the one act, the banner's width */}
+      {act && <div className={s.nfActs}>{act}</div>}
     </section>
   )
 }

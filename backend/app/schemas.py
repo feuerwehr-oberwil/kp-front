@@ -1511,11 +1511,6 @@ class JournalConfig(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
     quickPhrases: list[str] = Field(default_factory=list)
-    #: The Führungsrhythmus of the Lagemeldung (F3): minutes between two Lagemeldungen, booked
-    #: as an ordinary Wiedervorlage by «Gemeldet» (frontend lib/lageRhythm). 0 = no rhythm (the
-    #: composer still works by hand); unset = the app's national default (20). Per Einsatz the EL
-    #: picks 10/20/30 in the composer.
-    lageRhythmMin: int | None = Field(default=None, ge=0, le=120)
 
 
 class ReportConfig(BaseModel):

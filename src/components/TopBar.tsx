@@ -16,7 +16,6 @@ import { HoldChargeRing, HoldTargets } from './HoldTargets'
 import { useHeadFit } from '../lib/useHeadFit'
 import { useOnline } from '../lib/useOnline'
 import { parseWeatherTime } from '../lib/weatherTime'
-import { lageChipState } from '../lib/lageRhythm'
 
 /* ── Weather helpers ───────────────────────────────────────────────────────────────────────────
  * The wind/condition maths, kept beside its only reader. It used to live in a `WindBadge`
@@ -139,17 +138,12 @@ interface Props {
   onBackFromArchive?: () => void
   /** editors only: re-open the closed Einsatz (its own confirm lives upstream) */
   onReactivate?: () => Promise<ReactivateResult>
-  /** The Lagemeldung chip (F3): «↻ Lage», «Lage · in 4′», «Lage fällig» — the Führungsrhythmus
-   *  (lib/lageRhythm) ticked off the bar's own clock; a tap opens the composer. Absent for a
-   *  device that may not send one (viewer, link) and on a phone, where it is a row of the
-   *  Einsatz menu instead. */
-  lage?: { dueAt: number | null; off: boolean; onOpen: () => void }
 }
 
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate, lage }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
   // The deployment's clock (lib/serverClock), not the device's: the Einsatzdauer counts from a
   // timestamp another device wrote, and the Atemschutz chip below ticks off `contactAt`, which
   // the alarm fold expresses in server time. Reading those with a device clock a few seconds off
@@ -196,7 +190,6 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
   useHeadFit(barRef, [
     incident.title, incident.address, clockText.length, hasWind, gpsStale ? 1 : 0, archived ? 1 : 0,
     azAlarm?.urgent && !azChipHidden ? `${azAlarm.peak}:${azAlarm.urgent.reason}` : '', recording ? 1 : 0, reminderCount > 0 ? 1 : 0,
-    lage && !isPhone ? lageChipState(lage, now).kind : '',
   ].join('|'))
 
   return (
@@ -303,7 +296,6 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             )}
           </span>
         )}
-        {lage && !isPhone && <LageChip lage={lage} now={now} />}
         {/* Atemschutz chip — pinned at the far right so it never shifts the other controls.
             AMBER from «Kontakt fällig» on (the quiet lead used to stay board-only, so the first
             the top bar said anything was the red alarm), RED once a Trupp is überfällig or at
@@ -346,27 +338,6 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
         })()}
       </div>
     </div>
-  )
-}
-
-/** The Lagemeldung chip (F3). Neutral while counting down («Lage · in 4′»), amber when due, red
- *  five minutes past — no pulse: the pulse is the Atemschutz alarm's voice. Its words leave at
- *  the Verlauf word's step of the bar's ladder (`.tb-lage-word`, 10-journal.css); the glyph and
- *  the minutes stay. */
-function LageChip({ lage, now }: { lage: NonNullable<Props['lage']>; now: number }) {
-  const C = appConfig.copy.lagemeldung
-  const st = lageChipState(lage, now)
-  const word = st.kind === 'soon' ? fillTemplate(C.chipIn, { m: st.mins })
-    : st.kind === 'due' || st.kind === 'late' ? C.chipDue
-      : st.kind === 'off' ? C.chipOff : C.chip
-  const short = st.kind === 'soon' ? `${st.mins}′` : st.kind === 'due' || st.kind === 'late' ? '!' : ''
-  return (
-    <button type="button" className={`tb-lage ${st.kind}`} onClick={lage.onOpen}
-      title={C.chipHint} aria-label={fillTemplate(C.chipAria, { state: word })}>
-      <Icon id="radio" />
-      <span className="tb-lage-word">{word}</span>
-      {short && <span className="tb-lage-short" aria-hidden>{short}</span>}
-    </button>
   )
 }
 

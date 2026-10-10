@@ -80,8 +80,6 @@ export function completeReminder(r: OpenReminder, deps: {
   announce?.(doneText, () => { if (reopen()) drop() })
 }
 
-const NO_DERIVED: readonly OpenReminder[] = []
-
 /** Same ids in the same order — the due set is derived from an ordered `open`, so order is stable. */
 function sameIds(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((id, i) => id === b[i])
@@ -105,13 +103,8 @@ export function useReminders(
   closedAt?: string | null,
   /** the Einsatz's undo timeline — an «Erledigt» joins it (completeReminder) */
   undo?: Pick<UndoTimeline, 'push'>,
-  /** Wiedervorlagen no row stands for yet — the Lagemeldung's DERIVED first booking (lib/lageRhythm
-   *  · `lgm-start`). They ring and stand in the Meldeleiste like any other, but are not part of
-   *  `open` (the Verlauf's Pendenzen block and the count list what the record holds). */
-  derived: readonly OpenReminder[] = NO_DERIVED,
 ) {
   const open = useMemo(() => deriveReminders(timeline, closedAt), [timeline, closedAt])
-  const ringing = useMemo(() => (derived.length ? [...open, ...derived] : open), [open, derived])
   // ⚠️ Both read through refs: an undo entry and a toast outlive the render that made them, and
   // must see the item's state — and the writer — as they are when the step is TAKEN.
   const openRef = useRef(open)
@@ -122,7 +115,7 @@ export function useReminders(
   // the next tick to show the right banner
   const [dueIds, setDueIds] = useState<readonly string[]>([])
   const onDue = useCallback((ids: readonly string[]) => setDueIds((prev) => (sameIds(prev, ids) ? prev : ids)), [])
-  const due = useMemo(() => ringing.filter((r) => dueIds.includes(r.id)), [ringing, dueIds])
+  const due = useMemo(() => open.filter((r) => dueIds.includes(r.id)), [open, dueIds])
 
   // confirm-with-undo — see completeReminder above
   const { doneLog, pendenzDoneLog, reopenLog, pendenzReopenLog } = copy
@@ -152,8 +145,8 @@ export function useReminders(
   }, [onEvent, copy.snoozeLog])
 
   const host = useMemo(
-    () => ({ open: ringing, enabled, dueTitle: copy.dueTitle, onDue }),
-    [ringing, enabled, copy.dueTitle, onDue],
+    () => ({ open, enabled, dueTitle: copy.dueTitle, onDue }),
+    [open, enabled, copy.dueTitle, onDue],
   )
 
   return { open, due, openCount: open.length, dueCount: due.length, markDone, snooze, host }

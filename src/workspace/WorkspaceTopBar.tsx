@@ -2,7 +2,6 @@
 // and the per-surface actions. Split out of IncidentWorkspace (E1, 09.10.2026) verbatim; the
 // menu's doors (switch, archive, share, settings, …) stay the workspace's and come in as props.
 
-import type { lageRhythm } from '../lib/lageRhythm'
 import type { Dispatch, SetStateAction, MouseEvent as ReactMouseEvent, RefObject } from 'react'
 import { IncidentSwitcher } from '../components/panels'
 import { SharePositionPill } from '../components/SharePosition'
@@ -105,9 +104,6 @@ export interface WorkspaceTopBarProps {
   installGuideOpen: boolean
   offlineReadyOpen: boolean
   shareLink: ShareLinkKind | null
-  canLagemeldung: boolean
-  lage: ReturnType<typeof lageRhythm>
-  setLageOpen: Dispatch<SetStateAction<boolean>>
 }
 
 export function WorkspaceTopBar({
@@ -122,7 +118,6 @@ export function WorkspaceTopBar({
   onOpenDivera, onOpenDatenquellen, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
   setHelpOpen, setInstallGuideOpen, setOfflineReadyOpen, syncNow, media, logout, settingsOpen,
   helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
-  canLagemeldung, lage, setLageOpen,
 }: WorkspaceTopBarProps) {
   return (
     <>
@@ -208,8 +203,6 @@ export function WorkspaceTopBar({
         archived={incidentMeta.is_archived}
         onBackFromArchive={onBackFromArchive}
         onReactivate={onReactivateActive}
-        // the Lagemeldung chip (F3): the rhythm off the bar's own clock, a tap opens the composer
-        lage={canLagemeldung ? { dueAt: lage.dueAt, off: lage.off, onOpen: () => setLageOpen(true) } : undefined}
         // On the phone map surface the compass in the bottom bar already carries Einpassen
         // (== centerIncident) + Mein Standort, so a top-bar center button here would just
         // duplicate it AND crowd the narrow bar off its right edge (clipping the Atemschutz
@@ -223,8 +216,6 @@ export function WorkspaceTopBar({
         titleSlot={
           <IncidentSwitcher
             active={incidentMeta}
-            // the Lagemeldung's door on a PHONE — the bar has no room for its chip there (F3)
-            lage={isPhone && canLagemeldung ? { dueAt: lage.dueAt, off: lage.off, onOpen: () => setLageOpen(true) } : undefined}
             incidents={incidents}
             isEditor={isEditor}
             syncStatus={syncStatus}

@@ -385,9 +385,8 @@ class Settings(BaseSettings):
     meteoswiss_stations_url: str = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/ogd-smn_meta_stations.csv"
     # Open-Meteo current-conditions endpoint (no key required).
     open_meteo_url: str = "https://api.open-meteo.com/v1/forecast"
-    # The Karte's weather LAYER (app/weather_layer): MeteoSwiss precipitation radar every 5 min,
-    # MeteoSwiss warnings (via MeteoAlarm) and Alertswiss every 10 min, filtered to the Einsatz.
-    # Open federal data, no key. The sources cover Switzerland only, so a station elsewhere – or
+    # The Karte's weather LAYER (app/weather_layer): MeteoSwiss precipitation radar every 5 min.
+    # Open federal data, no key. The source covers Switzerland only, so a station elsewhere – or
     # one whose IT forbids outbound traffic – sets WEATHER_LAYER_ENABLED=false: nothing is
     # scheduled or fetched, and the Ebenen offer no «Niederschlag». (The wind reading above is
     # separate and unaffected.) Same switch as kp-rueck's WEATHER_ENABLED.

@@ -793,7 +793,6 @@ function ExternalLinksCard({ centre }: { centre: [number, number] | null }) {
  */
 function JournalGroup() {
   const { draft, set } = useConfig()
-  const numberField = useNumberField()
   const C = appConfig.copy.admin.journal
   // Empty deployment config means the national defaults are effective. Seed the textarea
   // with those actual values (not placeholder text), so editing one line preserves the rest.
@@ -829,12 +828,6 @@ function JournalGroup() {
           }}
         />
       </SettingRow>
-      {/* the Lagemeldung's Führungsrhythmus (F3) — station doctrine, so here and not in any
-          in-app surface; the EL still picks 10/20/30 per Einsatz in the composer */}
-      {numberField({
-        path: ['journal', 'lageRhythmMin'], label: C.lageRhythm, tip: C.lageRhythmTip,
-        guard: { kind: 'int', min: 0, max: 120, nullable: true }, fallback: appConfig.lagemeldung.rhythmMin,
-      })}
     </>
   )
 }

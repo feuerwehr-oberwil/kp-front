@@ -155,9 +155,13 @@ Wording mirrors the AS emergency procedure (FwDV 7 / FKS) and is kept neutral an
 reworded.
 
 - *Raised and ended by a HOLD* (`NotfallHold`, `lib/nodeHold` — the app's one deliberate hold,
-  250 ms arm, ring to 825 ms): «Notfall» is a full-width tile under Rückzug | Raus on an
-  Atemschutz-Trupp that is inside, framed grey like its neighbours (colour is state), red only
-  while held. A tap only says how; a click without a pointer (keyboard) asks one question.
+  250 ms arm, fired at 825 ms): «Notfall» is a full-width tile under Rückzug | Raus on an
+  Atemschutz-Trupp that is inside, framed grey like its neighbours (colour is state). While held
+  the WHOLE tile fills left→right in step with the hold (red; green for «Notfall beendet»; a
+  `scaleX` layer, no reflow, tracking the hold under reduced motion too) and shows full for a beat
+  when it fires — not a ring around the glyph (owner feedback 10.10.2026: it read as «loading»). A
+  tap only says how: the tile's word becomes «Gedrückt halten» for 1.6 s, in place, no toast; a
+  click without a pointer (keyboard) asks one question.
   «Notfall beendet» replaces it on the Trupp in one. Never on a closed Einsatz or a viewer.
 - *What it writes* (`useTruppActions · triggerNotfall / endNotfall`): `notfallAt` on the Trupp
   (the Notfall clock on every device through the trupps slice — a Link-Tafel writes it too), a
@@ -182,8 +186,20 @@ reworded.
   muted earlier in the Einsatz (`useAtemschutzMute · arm`).
 - *On the Tafel* the strip's row steps aside for a sticky banner at the top of every board:
   who, the clock, the facts, and the first offer «Sicherungstrupp einsetzen» — the ready
-  Sicherungstrupp's ordinary Eintritt (several ⇒ a menu, none ⇒ «Kein Sicherungstrupp bereit» +
-  the «Bestimmen» door, one inside ⇒ «… drin seit hh:mm»). Elsewhere the Meldeleiste row offers
+  Sicherungstrupp's ordinary Eintritt (several ⇒ a menu, none ⇒ «Sicherungstrupp bestimmen» with
+  «Kein Sicherungstrupp bereit» as its second line — the «Bestimmen» door, one inside ⇒ «… drin
+  seit hh:mm»). It is a Trupp CARD in its alarm tone (owner feedback 10.10.2026, three rounds:
+  the first banner was a widget of kicker, clock column, wrapped names, facts and two rows of
+  buttons, ~270 px on a 390 px phone): the phone card's frame (`.trow.trowCard.trowCrit`), and row
+  1 the card's own head line — «⚠ Trupp 1» in red where the card has its dot and name, the
+  card's 25 px clock, a chevron › — the whole line being «Zum Trupp» (aria «Zum Trupp 1»). Row 2
+  is ONE dim line, «Notfall seit 11:11 · Löschen · 300 bar (Eingangsdruck) · Kanal 11», wrapping,
+  never cut; the people are the card's (and the aria label's, the Meldeleiste's, the Verlauf's).
+  Row 3 is the one act at the banner's width, its reason as a small second line. ~162 px on a
+  phone. A viewer gets only the head line (and the note). All banners share one sticky stack;
+  with several Notfälle each is rows 1 and 3. The board measures the stack (`--nf-h` on the port:
+  its scroll padding, and the parking scroll of the phone's opened card), so an opened card lands
+  below the banners, never under them. Elsewhere the Meldeleiste row offers
   the same first (exactly one ready ⇒ it goes in and the Tafel opens).
 - *Ready* is what the board models: under PA, Auftrag «Sichern», angemeldet. An Atemschutz-Trupp
   going in while none is ready gets one calm toast («Kein Sicherungstrupp bereit»), never a

@@ -79,31 +79,22 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   Trupp red at the top of the alarm strip with a running Notfall clock, its last place, last Druck
   with its age and Funkkanal, and «Sicherungstrupp einsetzen» as the first offer; tone, OS
   notification and Web Push follow, the Verlauf and the Rapport record raising, the Sicherungstrupp
-  going in and «Notfall beendet» (also held, undoable). A calm hint says when an Atemschutz-Trupp
-  goes in with no Sicherungstrupp ready. *No action needed.*
-- **Wetter on the Karte: MeteoSwiss precipitation radar and the official warnings.** Ebenen get a
-  «Wetter» group with «Niederschlag (Radar)» (a device setting, off by default): the last hour of
-  MeteoSwiss radar under every line and symbol, with a floating pill to step or play through it
-  and a colour key in Ebenen. A chip names any official warning covering the Einsatz – MeteoSwiss
-  (via MeteoAlarm) or Alertswiss, e.g. a cantonal fire ban – whether the radar is on or not; a tap
-  shows the full text exactly as the source wrote it. Old data is never shown as current: a stale
-  radar is greyed with «Stand hh:mm», a source that stopped answering keeps its last warnings,
-  greyed and dated, and offline both simply age. The backend fetches nationwide files only (no
+  going in and «Notfall beendet» (also held, undoable). The held tile fills from left to right
+  while it is held (a tap says «Gedrückt halten» in its place); on the Tafel the Trupp stands at
+  the top as its own card in red – «⚠ Trupp 1», the Notfall clock, one line of facts, one
+  full-width action, the head line leading to the card – and an opened card lands below it,
+  never under it. A calm hint says when an
+  Atemschutz-Trupp goes in with no Sicherungstrupp ready. *No action needed.*
+- **Wetter on the Karte: MeteoSwiss precipitation radar.** Ebenen get a «Wetter» group with
+  «Niederschlag (Radar)» (a device setting, off by default): the last hour of MeteoSwiss radar
+  under every line and symbol, with a floating pill to step or play through it and a colour key in
+  Ebenen. «Standard» and «Alle aus» switch it off with the other layers, and while it is on the
+  Ebenen read «Eigene Auswahl». Old data is never shown as current: a stale radar is greyed with
+  «Stand hh:mm», and offline it simply ages. The backend fetches the nationwide files only (no
   coordinate leaves the station), renders each radar frame once and serves it from memory; the
   algorithms are KP Rück's (R5), ported with its tests. *No action needed; `WEATHER_LAYER_ENABLED=false`
   switches it off (stations outside Switzerland or without outbound access). The image grows by
   ~17 MB (h5py; numpy was already in it).*
-- **Lagemeldung auf Knopfdruck.** A «Lage» chip in the top bar (on a phone: a row in the Einsatz
-  menu) opens a draft Lagemeldung composed from the record – Trupps, map symbols, Verlauf,
-  vehicle times, Pendenzen, the Gebäude registers – in a fixed order (Zuerst · Lage · Menschen ·
-  Gefahren · Massnahmen · Mittel · Bedarf · Nächste), at most about one radio call (60 words).
-  It says what changed since the last one (Neu / Schlechter / Besser / Erledigt), always repeats
-  what is about life (a Trupp in Alarm, Vermisste), and shows everything it left out with the
-  reason. Every line can be ticked off, edited, or added back; «Funkansicht» shows it in big type
-  for the radio. Nothing is written until «Gemeldet», which writes one Verlauf row and books the
-  next Lagemeldung as an ordinary Wiedervorlage (20′ by default, 10/20/30/Übergabe per Einsatz,
-  `journal.lageRhythmMin` per station). The first one comes due 5′ after the first vehicle is
-  vor Ort. Deterministic, no AI (docs/lagemeldung.md). *Nothing to set up.*
 - **Station index: one address for all station data.** A station publishes an `index.json`
   next to its data files that lists them by kind with checksums (`station-index/1`,
   docs/CONFIGURATION.md §4d); KP Front gets ONE setting for it – «Stationsdaten-Index» on
@@ -212,7 +203,7 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   record does not carry it), a vector swimlane timeline (Fahrzeuge, Trupps with their contacts and
   fällig/überfällig stretches hatched so they survive a greyscale printer, checklist phases,
   milestones). Its own landscape sheet, last, so the signed part goes out without it; «Auswertung
-  (intern)» in the PDF ▾ menu, ticked by default when a crew went in under Atemschutz. *No action
+  (intern)» in the PDF ▾ menu, unticked by default – tick it when you want it. *No action
   needed.*
 - **«Gebäude-Info» – the building at the Einsatzort, on the Karte.** A chip in the Karte's chip
   row (and beside the Objekt chip on a tablet's plan) names the hazards it knows – «Gebäude-Info
@@ -525,6 +516,26 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Fixed
 
+- **From the owner's iPhone, 10.10.2026:**
+  - **The Passung's buttons keep glyph and words together.** When «Referenzpunkte setzen» wrapped
+    onto two lines, its «+» sat at the button's far left edge; the glyph now rides on the first
+    line and every line is centred.
+  - **Messen is one row.** Distanz · Schläuche · the adopt action (the pen, named «Als Linie
+    übernehmen») · ▾ share a line; the Höhenprofil and, on a Plan, «Neu kalibrieren» or the note
+    where the metres come from fold behind the ▾. The Fläche readout works the same way.
+  - **«Trupp anmelden» names the missing Auftrag only once the crew is in.** The amber «Auftrag
+    fehlt» line waited for nobody: it stood there from the first name while the next ones were
+    still being searched. It now appears when the person search is left – for the Auftrag, the
+    Ziel or «Anmelden» – and its space is kept meanwhile, so the footer never moves under a press.
+  - **Menus end above the home indicator.** The Einsatz menu under the address ran over the
+    bottom bar into the home indicator, where the display's rounded corner cut its last row; it
+    now ends 8px above the bottom bar and scrolls inside. Every other menu (PDF ▾, the Verlauf
+    filter, …) leaves out the safe area on the side it opens to.
+  - **«Neuer Eintrag»'s suggestion row scrolls sideways on an iPhone again.** The sheets' touch
+    lock judged every finger move on its own few pixels; a swipe whose first move read as vertical
+    was cancelled, and iOS then cancelled the whole pan. It now decides once per touch from the
+    travel since the finger went down, never blocks a touch that starts on the row, and still stops
+    a drag past a list's edge from rubber-banding the page.
 - **A Trupp's «fällig» and «überfällig» no longer ride on colour alone.** On the phone board
   the row said them only in amber and red, which is no answer in direct sun or to a colour-blind
   reader. Under the clock it now carries a glyph: a clock for «fällig», the warning triangle for

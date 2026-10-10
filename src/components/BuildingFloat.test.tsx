@@ -3,6 +3,7 @@
 // as glyph + WORD, a tap opens the card above it, ✕ / the chip / Esc close it, nothing → no chip.
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it } from 'vitest'
 import { BuildingFloat } from './BuildingFloat'
 import type { BuildingInfo } from '../lib/api/building'
@@ -69,4 +70,14 @@ describe('BuildingFloat', () => {
     const { container: none } = render(<BuildingFloat info={null} />)
     expect(none.innerHTML).toBe('')
   })
+})
+
+// Every `s.<name>` the chip reads has a rule in its module. Vitest hands a CSS module back as a
+// proxy that answers ANY name, so only the source can show it: on main the chip printed
+// `class="wb-scale-chip undefined"` off an `s.chip` the stylesheet never had (10.10.2026).
+it('BuildingFloat reads only classes its module defines', () => {
+  const read = (f: string) => readFileSync(`${process.cwd()}/src/components/${f}`, 'utf8')
+  const used = new Set([...read('BuildingFloat.tsx').matchAll(/\bs\.([a-zA-Z]\w*)/g)].map((m) => m[1]))
+  const css = read('BuildingFloat.module.css')
+  expect([...used].filter((n) => !new RegExp(`\\.${n}\\b`).test(css))).toEqual([])
 })

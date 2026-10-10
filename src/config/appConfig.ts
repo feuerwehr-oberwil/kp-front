@@ -768,65 +768,6 @@ const base = {
      *  Anwesenheit is deliberately NOT included: you cannot have arrived in the future. */
     planAheadHours: 168,
   },
-  /** Lagemeldung auf Knopfdruck (F3, lib/lagemeldung). Names are the pack's compatibility keys and
-   *  the national quick phrases — structural DATA, German like every other preset value. */
-  lagemeldung: {
-    /** Führungsrhythmus: minutes between two Lagemeldungen, unless the station sets
-     *  `journal.lageRhythmMin` (deployment config) — and the choices the composer offers */
-    rhythmMin: 20,
-    rhythmChoices: [10, 20, 30] as number[],
-    /** the first «Lagemeldung fällig» comes this long after the first vehicle is vor Ort */
-    firstAfterVorOrtMin: 5,
-    /** one radio call: ≈ 35 s at the pace a Lagemeldung is spoken (≈ 1.8 words a second) */
-    budgetWords: 60,
-    wordsPerSecond: 1.8,
-    /** K4: an active Trupp estimated to reach its Alarmdruck within this many minutes */
-    reliefLeadMin: 10,
-    /** K3: the Anwesenheit is only news when it moved by at least this many AdF */
-    adfDelta: 3,
-    /** H2: Erinnerungen due within this many minutes are offered (never pre-ticked) */
-    reminderLeadMin: 10,
-    /** the damage symbols that make up «Lage» (K1) — the Schadenlage category without the
-     *  Rettung (that is «Menschen») and without the Explosion (a hazard, G4) */
-    lageSymbols: ['VKF Feuer', 'VKF Rauch', 'VKF Wasser', 'VKF Unfall', 'FW Ueberschwemmung', 'FW Beschaedigung', 'FW Teilzerstoerung', 'FW Totalzerstoerung'] as string[],
-    /** the hazards (G3/G4) — the Gefahren category plus the two Schadenlage hazards */
-    hazardSymbols: ['FW Gefahr Tafel', 'FW Gefahr allgemein', 'FW Gefahr G', 'FW Gefahr C', 'FW Gefahr Radioaktiv', 'FW Gefahr W', 'FW Elektroanlage', 'FW Gefahr Ex', 'VKF Gefaehrliche Stoffe'] as string[],
-    /** symbols that move air — a wind shift beside one of them is Lage-ändernd (G6) */
-    airSymbols: ['VKF Luefter mobil', 'VKF Luefter mobil saugend'] as string[],
-    /** The quick phrases the rules read (exact match on the entry, the «Auftrag · » tag stripped;
-     *  the phrase may be followed by more words). They mirror `journal.quickPhrases`: a station
-     *  that renames a phrase renames the trigger here with it. */
-    phrases: {
-      unterKontrolle: 'Brand unter Kontrolle',
-      feuerAus: 'Feuer aus',
-      nachloesch: 'Nachlöscharbeiten laufen',
-      brandwache: 'Brandwache gestellt',
-      entrauchung: 'Entrauchung eingeleitet',
-      wasserversorgung: 'Wasserversorgung erstellt',
-      atemschutz: 'Atemschutz eingesetzt',
-      rekognoszierung: 'Rekognoszierung läuft',
-      erkundungFertig: 'Erkundung abgeschlossen',
-      pumpen: 'Pumpen eingesetzt',
-      strasseGesperrt: 'Strasse gesperrt',
-      verkehrsdienst: 'Verkehrsdienst eingerichtet',
-      oelspur: 'Ölspur gebunden',
-      retablierung: 'Retablierung läuft',
-      rueckbau: 'Rückbau eingeleitet',
-      geraeumt: 'Gebäude geräumt',
-      keinePersonen: 'Keine Personen im Gebäude',
-      gerettet: 'Person gerettet',
-      sanitaetUebergeben: 'Patient an Sanität übergeben',
-      gasAb: 'Gas abgestellt',
-      stromAb: 'Strom abgeschaltet',
-      verstaerkung: 'Verstärkung angefordert',
-      sanitaetVorOrt: 'Sanität vor Ort',
-      polizeiVorOrt: 'Polizei vor Ort',
-      nachbarVorOrt: 'Nachbarfeuerwehr vor Ort',
-      elUebernommen: 'Einsatzleitung übernommen',
-      lagemeldungPhrase: 'Lagemeldung an Einsatzzentrale',
-      uebergabe: 'Übergabe an Eigentümer',
-    },
-  },
 } as const
 
 /**

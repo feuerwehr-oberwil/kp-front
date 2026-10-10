@@ -994,14 +994,8 @@ async def _weather_radar_round() -> None:
     await weather_service.poll_radar()
 
 
-async def _weather_warnings_round() -> None:
-    from .weather_layer import weather_service
-
-    await weather_service.poll_warnings()
-
-
 def _start_process_jobs() -> None:
-    """The Karte's weather layer (app/weather_layer): radar every 5 min, warnings every 10.
+    """The Karte's weather layer (app/weather_layer): the radar every 5 min.
 
     ⚠️ NOT on the leader's scheduler. Everything there is an observer that WRITES the record, so
     exactly one process may run it. The weather layer writes nothing: it is an in-memory display
@@ -1013,9 +1007,9 @@ def _start_process_jobs() -> None:
 
     Boot-gated on `WEATHER_LAYER_ENABLED` (env only, like Rück's WEATHER_ENABLED): a station
     outside Switzerland or without outbound access switches it off and nothing is scheduled.
-    Both rounds run once right at boot, so a fresh process has weather within seconds."""
+    The round runs once right at boot, so a fresh process has radar within seconds."""
     global _process_scheduler
-    from .weather_layer import WARNINGS_INTERVAL_MINUTES, weather_layer_enabled
+    from .weather_layer import weather_layer_enabled
 
     if _process_scheduler is not None:
         return
@@ -1034,18 +1028,8 @@ def _start_process_jobs() -> None:
         misfire_grace_time=120,
         next_run_time=now,
     )
-    _process_scheduler.add_job(
-        _weather_warnings_round,
-        "interval",
-        minutes=WARNINGS_INTERVAL_MINUTES,
-        id="weather_warnings",
-        max_instances=1,
-        coalesce=True,
-        misfire_grace_time=300,
-        next_run_time=now,
-    )
     _process_scheduler.start()
-    logger.info("Weather layer running in this process: radar (5 min), warnings (%d min)", WARNINGS_INTERVAL_MINUTES)
+    logger.info("Weather layer running in this process: radar (5 min)")
 
 
 def _stop_process_jobs() -> None:
