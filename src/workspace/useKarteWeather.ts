@@ -1,9 +1,9 @@
-// The Karte's weather LAYER for one Einsatz (components/WeatherLayer, backend app/weather_layer):
-// the poll (lib/useWeatherLayer), the radar's playback (lib/useRadarPlayback) and the «Niederschlag
-// (Radar)» row's device prefs, gathered for the three places that show it — the map (MapStage →
-// MapView's radar source), the Karte's chip row and Ebenen (MapControls). Live data only: asked for
-// on the Karte, never in the replay (whose past it is not). `on` false — WEATHER_LAYER_ENABLED=false,
-// or no answer yet — offers nothing at all.
+// The Karte's weather LAYER (components/WeatherLayer, backend app/weather_layer): the poll
+// (lib/useWeatherLayer), the radar's playback (lib/useRadarPlayback) and the «Niederschlag (Radar)»
+// row's device prefs, gathered for the three places that show it — the map (MapStage → MapView's
+// radar source), the Karte's chip row and Ebenen (MapControls). Live data only: asked for on the
+// Karte, never in the replay (whose past it is not). `on` false — WEATHER_LAYER_ENABLED=false, or
+// no answer yet — offers nothing at all.
 
 import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
@@ -11,8 +11,7 @@ import type { WeatherLayerRow } from '../components/LayerPanel'
 import { loadPrefs, savePrefs } from '../lib/prefs'
 import { useRadarPlayback } from '../lib/useRadarPlayback'
 import { useWeatherLayer } from '../lib/useWeatherLayer'
-import { activeWarnings, radarIsStale, WEATHER_RADAR_ROW_ID, type ApiWeatherLayer, type WeatherRadar } from '../lib/weatherLayer'
-import type { LngLat } from '../types'
+import { radarIsStale, WEATHER_RADAR_ROW_ID, type ApiWeatherLayer, type WeatherRadar } from '../lib/weatherLayer'
 
 export interface KarteWeather {
   /** the backend serves the layer (and has answered) */
@@ -20,8 +19,6 @@ export interface KarteWeather {
   layer: ApiWeatherLayer | null
   /** the shared clock, ticking (lib/useWeatherLayer) */
   now: number
-  /** any warning in force at the Einsatz — the chip has something to say */
-  hasWarnings: boolean
   radar: WeatherRadar | null
   radarOn: boolean
   radarStale: boolean
@@ -37,8 +34,8 @@ export interface KarteWeather {
   setRadarOpacity: (v: number) => void
 }
 
-export function useKarteWeather(center: LngLat, active: boolean): KarteWeather {
-  const { data: layer, now } = useWeatherLayer(center, active)
+export function useKarteWeather(active: boolean): KarteWeather {
+  const { data: layer, now } = useWeatherLayer(active)
   const on = layer?.enabled === true
   const radar = layer?.radar ?? null
   const playback = useRadarPlayback(radar)
@@ -46,8 +43,8 @@ export function useKarteWeather(center: LngLat, active: boolean): KarteWeather {
   const [radarOn, setRadarOn] = useState(() => loadPrefs().weatherRadar === true)
   const [radarOpacity, setOpacityState] = useState(() => loadPrefs().weatherRadarOpacity ?? 75)
   const radarStale = !!radar && radarIsStale(radar, now)
-  const toggleRadar = () => {
-    const next = !radarOn
+  const setRadar = (next: boolean) => {
+    if (next === radarOn) return
     setRadarOn(next)
     savePrefs({ ...loadPrefs(), weatherRadar: next })
     if (!next) playback.reset()
@@ -61,7 +58,6 @@ export function useKarteWeather(center: LngLat, active: boolean): KarteWeather {
     on,
     layer,
     now,
-    hasWarnings: on && activeWarnings(layer, now).length > 0,
     radar,
     radarOn,
     radarStale,
@@ -74,7 +70,7 @@ export function useKarteWeather(center: LngLat, active: boolean): KarteWeather {
     mapRadar: active && on && radarOn && radar
       ? { radar, frameIndex: playback.frameIndex, opacity: radarOpacity, stale: radarStale } : null,
     handlesLayer: (id) => id === WEATHER_RADAR_ROW_ID,
-    toggleRadar,
+    toggleRadar: () => setRadar(!radarOn),
     setRadarOpacity,
   }
 }

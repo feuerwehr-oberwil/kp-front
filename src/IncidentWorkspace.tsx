@@ -1325,8 +1325,8 @@ export function IncidentWorkspace({
   // During replay the badge reads the folded reading.
   const liveWeather = useWeather(incidentView.center)
   const displayWeather = replayActive ? (replayWs?.weather ?? null) : liveWeather.data
-  // …and the Karte's weather LAYER: radar + the official warnings at this Einsatz (live only)
-  const weather = useKarteWeather(incidentView.center, mode === 'map' && !replayActive)
+  // …and the Karte's weather LAYER: the MeteoSwiss radar (live only)
+  const weather = useKarteWeather(mode === 'map' && !replayActive)
 
   // The opening cover (lib/bootCover): the boot Splash's snail stays over the whole workspace
   // until its first screen is whole — the symbol pack, the Karte framed with its first view drawn

@@ -3,15 +3,13 @@
  * app/weather_layer). Ported from kp-rueck (R5, lib/weather.ts, 08.10.2026) so both apps judge
  * the same data the same way.
  *
- * Three rules the helpers here keep:
- * - **Never old as current.** A source is stale once its data is older than the backend's
- *   `stale_after_seconds`, measured on the shared clock (`serverNow()`, lib/serverClock) – so a
- *   tablet with a wrong clock judges like the server does, and when the backend stops answering
- *   (offline) the last answer keeps aging on screen instead of freezing as «fresh».
- * - **Verbatim.** A MeteoSwiss warning may only be passed on unaltered (MetO art. 5): the texts
- *   are picked by language, never shortened or rephrased. The chip shows the source's own
- *   `event` word; the full text is one tap away.
- * - **Expired is gone, not stale.** A warning past its `expires` disappears immediately.
+ * **Never old as current.** The radar is stale once its data is older than the backend's
+ * `stale_after_seconds`, measured on the shared clock (`serverNow()`, lib/serverClock) – so a
+ * tablet with a wrong clock judges like the server does, and when the backend stops answering
+ * (offline) the last answer keeps aging on screen instead of freezing as «fresh».
+ *
+ * (The official warnings chip – MeteoAlarm / Alertswiss – is gone, 10.10.2026, owner: «drop the
+ * swissalarm thing (like the "feuerverbot") – we don't need it».)
  *
  * Pure: no React, no fetch – the hook is lib/useWeatherLayer, the surfaces
  * components/WeatherLayer (lazy).
@@ -49,55 +47,10 @@ export interface WeatherRadar {
   source_url: string
 }
 
-export interface WeatherWarningText {
-  event: string
-  headline: string
-  description: string
-  instructions: string[]
-}
-
-export type WeatherWarningSource = 'meteoswiss' | 'alertswiss'
-
-export interface WeatherWarning {
-  id: string
-  source: WeatherWarningSource
-  /** 1 minor · 2 yellow · 3 orange · 4 red */
-  level: number
-  color: string | null
-  kind: string | null
-  sent: string | null
-  onset: string | null
-  expires: string | null
-  sender: string
-  link: string | null
-  region: string
-  texts: Record<string, WeatherWarningText>
-  fetched_at: string | null
-}
-
 export interface ApiWeatherLayer {
   enabled: boolean
-  /** whether the request named a point (the Einsatz) – without one there are no warnings */
-  point: boolean
   generated_at: string | null
   radar: WeatherRadar | null
-  warnings: {
-    items: WeatherWarning[]
-    sources: Record<string, WeatherSourceStatus>
-    stale_after_seconds: number
-  } | null
-}
-
-/** MeteoAlarm's awareness colours, the ones the official warning maps use. 1 = information. */
-export const WARNING_LEVEL_COLORS: Record<number, string> = {
-  1: '#94a3b8',
-  2: '#facc15',
-  3: '#f97316',
-  4: '#dc2626',
-}
-
-export function warningLevelColor(level: number): string {
-  return WARNING_LEVEL_COLORS[Math.min(4, Math.max(1, Math.round(level)))]
 }
 
 /** Is data from `time` older than the source's limit at `now`? No time at all counts as stale. */
@@ -111,27 +64,6 @@ export function isStale(time: string | null | undefined, staleAfterSeconds: numb
 /** The backend already called it stale, or it has aged past the limit since. */
 export function radarIsStale(radar: WeatherRadar, now: number): boolean {
   return radar.stale || isStale(radar.data_time, radar.stale_after_seconds, now)
-}
-
-/** The warnings still in force (or still to come) at `now`, highest level first. */
-export function activeWarnings(layer: ApiWeatherLayer | null, now: number): WeatherWarning[] {
-  const items = layer?.warnings?.items ?? []
-  return items
-    .filter((warning) => !warning.expires || Date.parse(warning.expires) > now)
-    .sort((a, b) => b.level - a.level)
-}
-
-export function warningIsStale(layer: ApiWeatherLayer, warning: WeatherWarning, now: number): boolean {
-  return isStale(warning.fetched_at, layer.warnings?.stale_after_seconds ?? 0, now)
-}
-
-/** The source's own text in the deployment's language – German, then anything, as fallbacks. */
-export function warningText(warning: WeatherWarning, lang: string): WeatherWarningText {
-  return (
-    warning.texts[lang] ??
-    warning.texts.de ??
-    Object.values(warning.texts)[0] ?? { event: '', headline: '', description: '', instructions: [] }
-  )
 }
 
 /** The newest frame index, or -1 without frames. */
@@ -153,11 +85,6 @@ export function formatWeatherTime(iso: string, now: number, locale: string = for
   if (new Date(now).toDateString() === date.toDateString()) return time
   const day = date.toLocaleDateString(locale, { weekday: 'short' }).replace(/\.$/, '')
   return `${day} ${time}`
-}
-
-/** A warning's link as the source gave it – some carry no scheme («www.meteoswiss.admin.ch»). */
-export function warningHref(link: string): string {
-  return /^https?:\/\//i.test(link) ? link : `https://${link}`
 }
 
 /**

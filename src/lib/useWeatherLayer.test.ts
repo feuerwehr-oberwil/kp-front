@@ -8,8 +8,7 @@ import { apiGet } from './api'
 import { useWeatherLayer } from './useWeatherLayer'
 
 const get = vi.mocked(apiGet)
-const CENTER: [number, number] = [7.556, 47.514]
-const answer = (enabled: boolean) => ({ enabled, point: enabled, generated_at: '2026-10-08T17:20:00Z', radar: null, warnings: null })
+const answer = (enabled: boolean) => ({ enabled, generated_at: '2026-10-08T17:20:00Z', radar: null })
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
@@ -25,11 +24,11 @@ async function flush() {
 }
 
 describe('useWeatherLayer', () => {
-  it('asks for the Einsatz point, and keeps polling while enabled', async () => {
+  it('asks for the radar, and keeps polling while enabled', async () => {
     get.mockResolvedValue(answer(true))
-    const { result } = renderHook(() => useWeatherLayer(CENTER, true))
+    const { result } = renderHook(() => useWeatherLayer(true))
     await flush()
-    expect(get).toHaveBeenCalledWith('/api/weather/layer?lat=47.514&lng=7.556')
+    expect(get).toHaveBeenCalledWith('/api/weather/layer')
     expect(result.current.data?.enabled).toBe(true)
     await act(async () => { vi.advanceTimersByTime(2 * 60_000) })
     expect(get).toHaveBeenCalledTimes(3)
@@ -37,7 +36,7 @@ describe('useWeatherLayer', () => {
 
   it('stops for good once the deployment says the layer is off', async () => {
     get.mockResolvedValue(answer(false))
-    renderHook(() => useWeatherLayer(CENTER, true))
+    renderHook(() => useWeatherLayer(true))
     await flush()
     await act(async () => { vi.advanceTimersByTime(5 * 60_000) })
     expect(get).toHaveBeenCalledTimes(1)
@@ -45,7 +44,7 @@ describe('useWeatherLayer', () => {
 
   it('keeps the last answer through a failed poll (offline never empties the layer)', async () => {
     get.mockResolvedValueOnce(answer(true)).mockRejectedValue(new Error('offline'))
-    const { result } = renderHook(() => useWeatherLayer(CENTER, true))
+    const { result } = renderHook(() => useWeatherLayer(true))
     await flush()
     await act(async () => { vi.advanceTimersByTime(60_000) })
     await flush()
@@ -55,7 +54,7 @@ describe('useWeatherLayer', () => {
 
   it('does not ask again when the Karte is left and re-entered within half a minute', async () => {
     get.mockResolvedValue(answer(true))
-    const { rerender } = renderHook(({ on }) => useWeatherLayer(CENTER, on), { initialProps: { on: true } })
+    const { rerender } = renderHook(({ on }) => useWeatherLayer(on), { initialProps: { on: true } })
     await flush()
     rerender({ on: false })
     rerender({ on: true })
@@ -64,7 +63,7 @@ describe('useWeatherLayer', () => {
   })
 
   it('fetches nothing while inactive (another surface, the replay)', async () => {
-    renderHook(() => useWeatherLayer(CENTER, false))
+    renderHook(() => useWeatherLayer(false))
     await flush()
     expect(get).not.toHaveBeenCalled()
   })
