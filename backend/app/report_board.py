@@ -358,6 +358,8 @@ class BoardPageFlowable(Flowable):
         self.map_caption = map_caption
         self.done_label = done_label
         self.overflow: list[Overflow] = []
+        #: the sheet's standard ruling height, set when it is drawn (every table rules at it)
+        self._ruling: float = 0.0
         self._w = self._h = 0.0
 
     def wrap(self, availWidth, availHeight):  # noqa: N803 — ReportLab API
@@ -525,19 +527,18 @@ class BoardPageFlowable(Flowable):
             c.drawString(xs[i] + 1.2 * mm, top - head_h + 2 * mm, label)
         body_top = top - head_h
         body_h = body_top - by
-        empty_rows = max(1, _default_height(s))
         n = len(s.rows)
-        # the rows' heights: a fixed-row table shares its body out; a written one rules equal rows
-        # and gives a long cell the lines it needs, shrinking the type until it all fits. A
-        # pre-printed row stands two rulings tall (the poster's Absprachepunkte, the Traktanden) —
-        # unless the rows written under it would then not fit: what was written beats the look.
+        # ⚠️ every ruling is the page's STANDARD height (owner: «just keep things fixed») — never a
+        # box's height shared out over its rows: a table beside a taller neighbour gets more
+        # rulings of that height, and what is left under the last whole one stays plain paper.
+        # A long cell gets the lines it needs, the type shrinking until it all fits; a
+        # pre-printed row stands two rulings tall (the poster's Absprachepunkte, the Traktanden)
+        # unless the rows written under it would then not fit — what was written beats the look.
+        base = self._ruling or body_h / max(1, _default_height(s))
         for tall in (True, False):
             weight = [2 if r.fixed and tall else 1 for r in s.rows]
-            units = sum(weight)
-            slots = max(empty_rows, units) if s.adds else max(1, units)
             size = _FS
             while True:
-                base = body_h / slots
                 need = []
                 for r, wgt in zip(s.rows, weight, strict=False):
                     lines = 1
@@ -550,7 +551,7 @@ class BoardPageFlowable(Flowable):
                             fs = fit_size(v, cw, 9, 7) if r.fixed else fit_size(v, cw, size)
                             lines = max(lines, len(wrap(v, cw, FONT, fs)))
                     need.append(max(base * wgt, lines * size * 1.18 + 2.2 * mm))
-                used = sum(need) + base * max(0, slots - units)
+                used = sum(need)
                 if used <= body_h + 0.5 or size <= _MIN_FS:
                     break
                 size -= 0.5
@@ -568,14 +569,18 @@ class BoardPageFlowable(Flowable):
             c.setStrokeColor(RULE)
             c.line(bx, y, bx + bw, y)
             drawn += 1
-        # the ruled empty rows below the written ones, so the paper can still be filled by hand —
-        # as many as the rest of the box holds at the ruled height, sharing it out evenly
-        base = body_h / slots
-        k = max(0, round((y - by) / base))
-        for j in range(1, k):
-            c.line(bx, y - j * (y - by) / k, bx + bw, y - j * (y - by) / k)
+        # the ruled empty rows below, so the paper can still be filled by hand: as many whole
+        # rulings as the rest of the box holds — a list that adds rows only (a fixed list has
+        # none to add); a sliver under the last one stays plain, and the columns stop there
+        k = int((y - by + 0.5) // base) if s.adds else 0
+        for j in range(1, k + 1):
+            yy = y - j * base
+            if yy > by + 0.5:
+                c.line(bx, yy, bx + bw, yy)
+        foot = y - k * base
+        foot = by if foot - by < 0.5 else foot
         for xv in xs[1:-1]:
-            c.line(xv, by, xv, top)
+            c.line(xv, foot, xv, top)
         if drawn < n:
             self.overflow.append(
                 Overflow(
@@ -706,6 +711,8 @@ class BoardPageFlowable(Flowable):
         avail = top - _FOOT_H - 3 * mm - _GAP_Y * (len(rows) - 1)
         weights = [max(_units(s) for s in r) for r in rows]
         unit = avail / sum(weights)
+        # the one ruling height of this sheet: every table rules its rows at it
+        self._ruling = unit
         cols = max(1, min(2, p.columns))
         y = top
         for r, wgt in zip(rows, weights, strict=False):

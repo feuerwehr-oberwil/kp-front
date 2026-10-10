@@ -4,6 +4,7 @@ prints as its paper, nothing written is cut off, and an older client prints what
 from __future__ import annotations
 
 import io
+from itertools import pairwise
 
 import pypdfium2 as pdfium
 import pytest
@@ -282,3 +283,40 @@ def test_a_long_source_line_stays_on_the_paper():
             assert tp.get_charbox(at + 3)[2] <= doc[i].get_width()
             return
     raise AssertionError("the source line is missing")
+
+
+def test_every_ruling_is_the_standard_height_beside_a_taller_neighbour(monkeypatch):
+    """Owner: «just keep things fixed». The Massnahmen stand beside the taller Abspracherapport
+    (a subtitle, and three rows written under its six): their rulings are the sheet's standard
+    height — more of them, never stretched to fill the box — on paper as on screen."""
+    from reportlab.pdfgen.canvas import Canvas
+
+    import app.report_board as rb
+
+    lines: dict[str, list[float]] = {}
+    seen = {"sec": "", "ruling": 0.0}
+    real_line, real_table = Canvas.line, rb.BoardPageFlowable._table
+
+    def line(self, x1, y1, x2, y2):
+        if abs(y1 - y2) < 0.01 and seen["sec"]:
+            lines.setdefault(seen["sec"], []).append(round(y1, 2))
+        return real_line(self, x1, y1, x2, y2)
+
+    def table(self, bx, by, bw, bh, s):
+        seen["sec"], seen["ruling"] = s.title, self._ruling
+        try:
+            return real_table(self, bx, by, bw, bh, s)
+        finally:
+            seen["sec"] = ""
+
+    monkeypatch.setattr(Canvas, "line", line)
+    monkeypatch.setattr(rb.BoardPageFlowable, "_table", table)
+    page = _ef()
+    absprache = page["sections"][3]
+    absprache["adds"] = True
+    absprache["rows"] = absprache["rows"] + [{"cells": ["", f"Punkt {i}", "Ort"]} for i in range(3)]
+    _compose(boardPages=[page])
+    ys = sorted(set(lines["Massnahmen"]), reverse=True)
+    gaps = [a - b for a, b in pairwise(ys)][1:]  # the first is the column head
+    assert len(gaps) >= 11
+    assert all(abs(g - seen["ruling"]) < 0.5 for g in gaps), (seen["ruling"], gaps)
