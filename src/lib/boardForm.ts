@@ -58,6 +58,11 @@ export interface BoardFormData {
   /** when each written atom was last changed (`formAtoms` key → server ms) — what settles a
    *  cell two devices changed at once (lib/boardFormMerge): the later edit stands */
   t?: Record<string, number>
+  /** when the page was taken off the Tafel (server ms) — a tombstone, not a deletion (re-review
+   *  of #338): a device still writing on it meanwhile must be able to tell whether its writing
+   *  came after the removal (lib/mergeWorkspace · resolveTactical). Kept for ↶ and that merge;
+   *  never shown, printed or offered (`findForms`). */
+  removedAt?: number
 }
 export type FormAnno = BoardAnno & { kind: 'form'; form: BoardFormData }
 
@@ -112,7 +117,7 @@ export const isFormAnno = (a: BoardAnno): a is FormAnno => a.kind === 'form' && 
 
 /** The pages on a sheet, in the order they were added (the array order is the store's, not ours). */
 export const findForms = (annos: readonly BoardAnno[]): FormAnno[] =>
-  annos.filter(isFormAnno).sort((a, b) => a.form.at.localeCompare(b.form.at) || a.id.localeCompare(b.id))
+  annos.filter((a): a is FormAnno => isFormAnno(a) && a.form.removedAt == null).sort((a, b) => a.form.at.localeCompare(b.form.at) || a.id.localeCompare(b.id))
 
 // ── the gate a synced page passes (lib/workspace · isBoardAnno) ─────────────────────────────────
 
@@ -140,6 +145,7 @@ const isSectionValue = (v: unknown) => isObj(v)
 export function isFormData(v: unknown): v is BoardFormData {
   if (!isObj(v) || v.v !== 1 || typeof v.at !== 'string' || !isTemplatePage(v.page)) return false
   if (v.t !== undefined && !(isObj(v.t) && Object.values(v.t).every((x) => typeof x === 'number'))) return false
+  if (v.removedAt !== undefined && typeof v.removedAt !== 'number') return false
   const t = v.tpl
   if (!isObj(t) || typeof t.id !== 'string' || typeof t.version !== 'number' || !isLabel(t.title)) return false
   if (v.head !== undefined && !isStrMap(v.head)) return false

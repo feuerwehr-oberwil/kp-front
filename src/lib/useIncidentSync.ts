@@ -33,9 +33,13 @@ const formConflictRows = (conflicts: RecordConflict[], seen: Set<string>) =>
   conflictRows(conflicts, seen, {
     idPrefix: 'fc',
     text: (c) => {
-      const m = c.mine as { page?: string; where?: string; kept?: string }
+      const m = c.mine as { kind?: string; page?: string; where?: string; kept?: string; cells?: string }
       const t = c.theirs as { lost?: string }
-      return fillTemplate(appConfig.copy.journal.tafelConflict, { page: m.page ?? '', where: m.where ?? '', kept: m.kept ?? '', lost: t.lost ?? '' })
+      const J = appConfig.copy.journal
+      // a page removed on one device while another wrote on it (lib/mergeWorkspace · resolveTactical)
+      if (m.kind === 'removedKept') return fillTemplate(J.tafelRemovedKept, { page: m.page ?? '' })
+      if (m.kind === 'removedLost') return fillTemplate(J.tafelRemovedLost, { page: m.page ?? '', cells: m.cells ?? '' })
+      return fillTemplate(J.tafelConflict, { page: m.page ?? '', where: m.where ?? '', kept: m.kept ?? '', lost: t.lost ?? '' })
     },
   })
 

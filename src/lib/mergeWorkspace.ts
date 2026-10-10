@@ -32,8 +32,8 @@
  * sides differ in more than `noteAt`.
  */
 
-import { isFormData } from './boardForm'
-import { mergeFormData } from './boardFormMerge'
+import { formDelta, isFormData, type BoardFormData } from './boardForm'
+import { atomLabel, mergeFormData } from './boardFormMerge'
 import { labelText } from './boardTemplate'
 import { followerOnlyChange } from './gpsReturn'
 import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } from './tacticalObjects'
@@ -632,11 +632,39 @@ function resolveTactical(ancestor: TacticalObject, mine: TacticalObject, theirs:
   const page = (o: TacticalObject) => (o.sheet?.anno.kind === 'form' && isFormData(o.sheet.anno.form) ? o.sheet.anno.form : null)
   const [pa, pm, pt] = [page(ancestor), page(mine), page(theirs)]
   if (pa && pm && pt && mine.sheet && theirs.sheet) {
-    const form = mergeFormData(pa, pm, pt, (c) => onFormConflict?.({
+    const title = labelText(pm.page.title)
+    const live = ({ removedAt: _r, ...f }: BoardFormData): BoardFormData => (void _r, f)
+    let form: BoardFormData = mergeFormData(live(pa), live(pm), live(pt), (c) => onFormConflict?.({
       key: `${mine.id}|${c.atom}`,
-      mine: { page: labelText(pm.page.title), where: c.where, kept: c.kept },
-      theirs: { page: labelText(pm.page.title), where: c.where, lost: c.lost },
+      mine: { page: title, where: c.where, kept: c.kept },
+      theirs: { page: title, where: c.where, lost: c.lost },
     }))
+    // ⚠️ One device took the page off while another wrote on it (re-review of #338): the page
+    // used to vanish with the writing. A removal is a tombstone (`removedAt`), so the merge can
+    // weigh it: writing AFTER the removal keeps the page (the removal loses); writing before it
+    // loses to the removal — and either way the Verlauf says so, naming the cells.
+    const removedNow = (f: BoardFormData) => f.removedAt != null && pa.removedAt == null
+    if (removedNow(pm) !== removedNow(pt)) {
+      const [remover, writer] = removedNow(pm) ? [pm, pt] : [pt, pm]
+      const at = remover.removedAt as number
+      const changed = formDelta(live(pa), live(writer))
+      const last = Math.max(0, ...changed.map((c) => writer.t?.[c.k] ?? 0))
+      if (changed.length && last > at) {
+        onFormConflict?.({ key: `${mine.id}|removed`, mine: { kind: 'removedKept', page: title }, theirs: {} })
+      } else {
+        form = { ...form, removedAt: at }
+        if (changed.length) {
+          const cells = [...new Set(changed.map((c) => atomLabel(writer, c.k)))].join(', ')
+          onFormConflict?.({ key: `${mine.id}|removed`, mine: { kind: 'removedLost', page: title, cells }, theirs: {} })
+        }
+      }
+    } else if (pm.removedAt != null && pt.removedAt != null) {
+      form = { ...form, removedAt: Math.min(pm.removedAt, pt.removedAt) }
+    } else if (pa.removedAt != null) {
+      // removed before: whichever side brought it back (↶) brought it back
+      const back = pm.removedAt == null || pt.removedAt == null
+      if (!back) form = { ...form, removedAt: pa.removedAt }
+    }
     return { ...mine, sheet: { ...mine.sheet, anno: { ...mine.sheet.anno, form } } }
   }
   const mineMachine = followerOnlyChange(ancestor, mine)

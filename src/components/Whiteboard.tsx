@@ -40,7 +40,7 @@ import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, typ
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
 import { doneAct, doneBadge, doneOf, donePlace, offersDone } from '../lib/objectDone'
 import { annoLogName } from '../lib/drawingEdit'
-import { serverNowIso } from '../lib/serverClock'
+import { serverNow, serverNowIso } from '../lib/serverClock'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { useHazardData } from '../lib/useHazardData'
@@ -1165,7 +1165,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const boardDoc = useBoardDoc({
     annos: annosAll, onChange: onChangeAll, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd, onRestore,
   })
-  const { pushPast, add, patch, patchCommit, remove, removeAnno } = boardDoc
+  const { pushPast, add, patch, patchCommit, removeAnno } = boardDoc
   const set = (next: BoardAnno[]) => boardDoc.set(withForms(next))
   const commit = (next: BoardAnno[]) => boardDoc.commit(withForms(next))
 
@@ -1223,7 +1223,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     })) return
     const line = fillTemplate(TP().pageRemoved, { page: name })
     onStepLabel?.(line)
-    remove(a.id)
+    // a TOMBSTONE, not a deletion (re-review of #338): a device still writing on the page must be
+    // able to tell whether its writing came after this (lib/mergeWorkspace · resolveTactical).
+    // One ↶ step like any edit; findForms no longer shows, prints or offers it.
+    patchCommit(a.id, { form: { ...a.form, removedAt: serverNow() } }, { form: { page: a.form.page.id, removed: true } })
     log('trash', line, { subjectId: a.id })
     removedPage.current = a.id
     setPageSel(SKIZZE)

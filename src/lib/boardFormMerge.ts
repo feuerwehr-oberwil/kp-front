@@ -32,7 +32,7 @@ const parseLine = (v: string, id: string): FormLine => ({ id, ...(JSON.parse(v) 
 const lineText = (v: string | undefined) => (v ? (JSON.parse(v) as { text?: string }).text ?? '' : '')
 
 /** Where an atom is on the page, for the Verlauf row. */
-function atomLabel(d: BoardFormData, atom: string): string {
+export function atomLabel(d: BoardFormData, atom: string): string {
   const [kind, sec, a, b] = atom.split('|')
   if (kind === 'h') return a ?? ''
   const s = d.page.sections.find((x) => x.id === sec) as TemplateSection | undefined
