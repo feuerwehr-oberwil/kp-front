@@ -44,6 +44,8 @@ export interface MapControlsProps {
   replayActive: boolean
   georefMode: ReturnType<typeof useGeorefMode>
   buildingInfo: ReturnType<typeof useBuildingInfo>
+  /** the Gebäude card's first open on this device (lib/buildingFirstOpen) */
+  buildingFirst: { autoOpen: boolean; markRead: () => void }
   tool: string
   setPanel: Dispatch<SetStateAction<'layers' | null>>
   composerOpen: boolean
@@ -64,7 +66,7 @@ export interface MapControlsProps {
 export function MapControls({
   mapUI, mapUtility, mapRef, view, viewsApi, readOnly, isEl, viewsOpen, toggleViews, coord, panel,
   layersPreset, togglePanel, isPhone, slimRail, displayWeather, openWeatherDetails, replayActive,
-  georefMode, buildingInfo, tool, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
+  georefMode, buildingInfo, buildingFirst, tool, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
   toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
   weather,
 }: MapControlsProps) {
@@ -73,6 +75,9 @@ export function MapControls({
   // say — its presence alone lifts the message lane (08-toasts, 15-mobile · --float-row).
   const rowAllowed = !replayActive && !georefMode.planId
   const showBuilding = rowAllowed && hasBuildingContent(buildingInfo)
+  // …and it opens by itself the first time (lib/buildingFirstOpen) — not over a panel, the Verlauf
+  // or the composer the operator went to: it waits until they come back to the bare Karte
+  const buildingAutoOpen = buildingFirst.autoOpen && panel === null && !viewsOpen && !composerOpen && !journalOpen && !offlineReadyOpen
   const wxRadarInRow = rowAllowed && weather.on && !!weather.layer && weather.radarOn
   return (
     <>
@@ -127,7 +132,7 @@ export function MapControls({
               Gebäude chip keeps its words, the radar pill gives way (WeatherLayer.module.css). */}
           {(showBuilding || wxRadarInRow) && (
             <div className="wb-botleft wx-row">
-              {showBuilding && <BuildingFloat info={buildingInfo} compact={isPhone} />}
+              {showBuilding && <BuildingFloat info={buildingInfo} compact={isPhone} autoOpen={buildingAutoOpen} onRead={buildingFirst.markRead} />}
               {wxRadarInRow && (
                 <Suspense fallback={null}>
                   <WeatherRadarControls radar={weather.radar} frameIndex={weather.playback.frameIndex}

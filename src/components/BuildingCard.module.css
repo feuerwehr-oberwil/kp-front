@@ -17,6 +17,8 @@
   color: var(--ink); background: var(--ink-8); }
 .chip > span { min-width: 0; overflow-wrap: anywhere; }
 .chip svg { width: 14px; height: 14px; flex: none; }
+/* the register facts below the notes: a step apart from the notes' caption above them */
+.facts { margin-top: var(--sp-1); }
 .hazard { color: var(--amber-strong); background: var(--amber-16); }
 .sources { margin: 0; font: var(--fw-medium) var(--fs-micro)/var(--lh-micro) var(--body); color: var(--ink-faint); overflow-wrap: anywhere; }
 .notes { margin-top: var(--sp-1); }
