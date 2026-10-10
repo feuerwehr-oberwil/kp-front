@@ -49,7 +49,8 @@ replaces the bundled one.
   change an open or archived Einsatz, nor its Rapport.
 - **Switching pages**: tap a tab, or press PageUp / PageDown while no field has focus. There is
   no swipe, because a swipe pans the board. The strip is the app's segmented control in its tabs
-  form, on a bar of the top bar's make, right under it. Which page a device shows is local to
+  form, on a bar of the top bar's make, right under it — and, beside a nav rail, right of the
+  rail where the board starts (never on the rail, whatever its width). Which page a device shows is local to
   that device: remembered per Einsatz in IndexedDB (`lib/tafelPages`, never in the workspace),
   restored when the Tafel opens, «Skizze» when the page is gone.
 - **Unsaved typing is never lost**: a cell writes on blur, when the app goes to the background
@@ -75,8 +76,14 @@ replaces the bundled one.
   type into (as many as the section's `height` leaves after the written ones); there is no
   filler. Under the Abspracherapport's pre-printed rows, an added row has Bezeichnung and Ort as
   free text; its Signatur stays blank.
-- Every list has exactly one empty trailing row. A row emptied on commit is dropped. A trend or
-  a tick on its own is not content.
+- **A row stays on the ruling it was written on**, like on paper: typed into the 8th ruling
+  under three written rows, it stays the 8th, with empty rulings 4–7 above it (on screen and in
+  print). Each row and each Problemerfassung line carries its `slot` (`lib/boardForm · slotted`),
+  kept through the cell merge; two devices writing two rulings keep both where they wrote them.
+  Enter after writing goes to the ruling directly below.
+- An emptied row or line leaves its ruling empty; nothing below moves up. Only the empty rulings
+  after the last written one are free, and there is always one of them. A trend or a tick on its
+  own is not content.
 - DOM order is template order, so the iOS ↑↓ bar follows it. Pre-printed cells (Signatur,
   Bezeichnung, Traktandum) are text, not inputs, so neither Tab nor the iOS bar stops on them.
   `enterkeyhint` is «next», and «done» on the last field.

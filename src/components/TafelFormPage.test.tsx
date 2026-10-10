@@ -14,8 +14,8 @@ const EF = FKS.pages.find((p) => p.id === 'ef')!
 
 /** the page with its own state, the way the Whiteboard holds it — and every commit counted,
  *  because a commit is a ↶ step */
-function Harness({ onCommit }: { onCommit: (d: BoardFormData) => void }) {
-  const [data, setData] = useState(() => newFormPage(FKS, EF, { vehicles: ['TLF 1'] }, '2026-10-10T09:24:00.000Z'))
+function Harness({ onCommit, vehicles = ['TLF 1'] }: { onCommit: (d: BoardFormData) => void; vehicles?: string[] }) {
+  const [data, setData] = useState(() => newFormPage(FKS, EF, { vehicles }, '2026-10-10T09:24:00.000Z'))
   return (
     <TafelFormPage pageKey="fm-test" data={data} readOnly={false} isPhone={false} onRemove={() => {}}
       inset={{ top: 0, left: 0, right: 0, bottom: 0 }}
@@ -135,6 +135,36 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
   it('the page carries the deployment locale, so typed words hyphenate like the language they are in', () => {
     render(<Harness onCommit={() => {}} />)
     expect(document.querySelector('[data-testid="tafel-page"]')!.getAttribute('lang')).toBe(getLocaleId())
+  })
+
+  it('a row typed on the 8th ruling stays there (owner, staging round 2), and Enter goes to the 9th', () => {
+    const commits: BoardFormData[] = []
+    render(<Harness vehicles={['TLF', 'ADF', 'MTF']} onCommit={(d) => commits.push(d)} />)
+    const formation = () => [...document.querySelectorAll<HTMLTextAreaElement>('[data-sec="mittel"] textarea[aria-label="Formation"]')]
+    expect(formation().slice(0, 3).map((t) => t.value)).toEqual(['TLF', 'ADF', 'MTF'])
+    act(() => { formation()[7].focus() })
+    type('Test 1'); key('Enter')
+    expect(formation().map((t) => t.value).slice(0, 9)).toEqual(['TLF', 'ADF', 'MTF', '', '', '', '', 'Test 1', ''])
+    expect(active()).toBe(formation()[8]) // directly below the row just written, same column
+    type('Test 2'); key('Enter')
+    expect(formation().map((t) => t.value).slice(3, 10)).toEqual(['', '', '', '', 'Test 1', 'Test 2', ''])
+    expect(active()).toBe(formation()[9])
+    // an empty ruling ABOVE written rows is a row like any other: Enter there goes on down
+    act(() => { formation()[4].focus() })
+    key('Enter')
+    expect(active()).toBe(formation()[5])
+  })
+
+  it('a Problemerfassung line emptied in the middle leaves an empty line; the lines below stay', () => {
+    const commits: BoardFormData[] = []
+    render(<Harness onCommit={(d) => commits.push(d)} />)
+    act(() => { box('front').querySelector<HTMLTextAreaElement>('[data-kn]')!.focus() })
+    for (const t of ['Rauch', 'Rettung', 'Dach']) { type(t); key('Enter') }
+    const lines = () => [...box('front').querySelectorAll<HTMLTextAreaElement>('textarea')].map((t) => t.value)
+    expect(lines()).toEqual(['Rauch', 'Rettung', 'Dach', ''])
+    act(() => { box('front').querySelectorAll<HTMLTextAreaElement>('textarea')[0].focus() })
+    type(''); key('Enter')
+    expect(lines()).toEqual(['', 'Rettung', 'Dach', ''])
   })
 
   it('Alt+Enter is a line break inside the cell, not a move', () => {

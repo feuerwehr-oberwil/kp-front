@@ -75,7 +75,7 @@ describe('writing on a page — keyed by ids, so a rename never loses a word', (
   })
   it('a trailing line becomes a line on its first words; emptied, it goes again', () => {
     const a = putLine(fresh(), 'problem', 'front', 'l1', { text: 'Rettungen Haus 19' })
-    expect(a.values.problem.lines?.front).toEqual([{ id: 'l1', text: 'Rettungen Haus 19' }])
+    expect(a.values.problem.lines?.front).toEqual([{ id: 'l1', text: 'Rettungen Haus 19', slot: 0 }])
     expect(putLine(a, 'problem', 'front', 'l1', { text: '  ' }).values.problem.lines?.front).toEqual([])
     expect(putLine(fresh(), 'problem', 'front', 'l9', { text: '' })).toEqual(fresh()) // nothing to write
     expect(formHasContent(a)).toBe(true)
@@ -97,7 +97,7 @@ describe('writing on a page — keyed by ids, so a rename never loses a word', (
     const d = fresh(['TLF 1'])
     const id = d.values.mittel.rows![0].id
     const e = putRow(d, 'mittel', id, { cells: { auftrag: 'Riegel Seite C' } })
-    expect(e.values.mittel.rows![0]).toEqual({ id, cells: { formation: 'TLF 1', auftrag: 'Riegel Seite C' } })
+    expect(e.values.mittel.rows![0]).toEqual({ id, cells: { formation: 'TLF 1', auftrag: 'Riegel Seite C' }, slot: 0 })
   })
   it('a label renamed in a newer station file still finds every value by id', () => {
     const d = putRow(fresh(), 'massnahmen', 'r1', { cells: { was: 'Personensuche', wer: 'AS Schmid' } })
