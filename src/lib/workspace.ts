@@ -273,7 +273,10 @@ export const normalizeBoard = (board?: BoardDoc): BoardDoc => {
  *  change and add a stepwise migration in `sanitizeWorkspace` for the older versions. */
 // v2 (09.09.): the unified `objects` collection joins the blob (tmp/design-unified-objects.md).
 // The legacy collections are still written as views, so a v1 reader renders — see Saved.objects.
-export const WORKSPACE_SCHEMA_VERSION = 2
+// v3 (10.10.2026): Tafel pages (board kind `form`). A v2 build cannot keep what it cannot read in
+// every path, so the SERVER keeps a v3 kind for it: a save stamped below the version a stored
+// object's kind came with never removes that object (backend · workspace_kinds).
+export const WORKSPACE_SCHEMA_VERSION = 3
 
 /** Result of the load gate: the sanitized blob plus an honest account of what happened. */
 export interface WorkspaceGate {
@@ -345,6 +348,20 @@ export const isBoardAnno = (v: unknown): v is BoardAnno =>
     : v.kind === 'draw' || v.kind === 'area'
       ? Array.isArray(v.pts) && v.pts.length >= minPoints(v.kind) && v.pts.every(boardPt)
       : num(v.x) && num(v.y))
+/** The board kinds this build DRAWS on a sheet (a Tafel page is drawn as a page, not on it). */
+const DRAWN_BOARD_KINDS: ReadonlySet<string> = new Set([...LEGACY_BOARD_KINDS].filter((k) => k !== 'form'))
+export const isDrawnBoardKind = (kind: string): boolean => DRAWN_BOARD_KINDS.has(kind)
+/**
+ * A board object this build does not understand — a kind it has never heard of, or a Tafel page
+ * it cannot draw (lib/boardForm · isFormData) — but must KEEP. ⚠️ The rule for every board
+ * object (review of #338, 10.10.2026): such a PASSENGER rides through load, merge and save
+ * untouched and is never drawn. Dropping it at the gate made this device's next save a deletion
+ * for every device that does understand it (an older build deleting a newer build's Tafel pages).
+ * The server keeps the same promise for builds older than a kind (backend · workspace_kinds).
+ */
+export const isPassengerAnno = (v: unknown): boolean =>
+  hasId(v) && typeof v.kind === 'string' && v.kind.length > 0
+  && (!LEGACY_BOARD_KINDS.has(v.kind) || (v.kind === 'form' && !isFormData(v.form)))
 /** A Gebäude doc the floor-stack can open: at least one finite storey and a footprint of some shape. */
 export const isBuilding = (v: unknown): v is BuildingDoc =>
   isObj(v) && Array.isArray(v.floors) && v.floors.length > 0 && v.floors.every(num)
@@ -459,7 +476,8 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     if (!b) return undefined
     const out: BoardDoc = {}
     for (const [k, v] of Object.entries(b)) {
-      const annos = arr<BoardAnno>(v, isBoardAnno, (a) => fixDrawProps(a.trail == null ? a : { ...a, trail: arr<TrailPoint>(a.trail, isTrailPt) }))
+      const annos = arr<BoardAnno>(v, (a): a is BoardAnno => isBoardAnno(a) || isPassengerAnno(a),
+        (a: BoardAnno) => (isPassengerAnno(a) ? a : fixDrawProps(a.trail == null ? a : { ...a, trail: arr<TrailPoint>(a.trail, isTrailPt) })))
       if (annos) out[k] = annos
     }
     return out
@@ -503,7 +521,10 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
       const sheet = ((): TacticalObject['sheet'] => {
         if (v.sheet == null) return undefined
         const s = v.sheet as Record<string, unknown>
-        if (!isObj(s) || typeof s.planId !== 'string' || !isBoardAnno(s.anno)) { dropped++; return undefined }
+        if (!isObj(s) || typeof s.planId !== 'string') { dropped++; return undefined }
+        // a passenger is kept exactly as it came (isPassengerAnno) — no fix-up, no migration
+        if (isPassengerAnno(s.anno)) return { planId: s.planId, anno: s.anno as BoardAnno }
+        if (!isBoardAnno(s.anno)) { dropped++; return undefined }
         const anno = migrateRauchCloud(fixDrawProps(s.anno.trail == null ? s.anno : { ...s.anno, trail: arr<TrailPoint>(s.anno.trail, isTrailPt) }))
         return { planId: s.planId, anno }
       })()

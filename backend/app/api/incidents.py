@@ -43,6 +43,7 @@ from ..schemas import (
     _scrub_drawing_props,
 )
 from ..vehicle_presence import keep_server_gps
+from ..workspace_kinds import keep_newer_board_kinds
 
 logger = logging.getLogger(__name__)
 
@@ -508,6 +509,9 @@ async def apply_workspace_put(
     # The vehicles' `gps` blocks are the SERVER's (app/vehicle_presence): whatever copy a device
     # sends — stale, merged over, or none at all from an older build — the stored one stands.
     keep_server_gps(body.workspace, stored)
+    # …and a board object of a kind newer than the saving build is the server's to keep: that
+    # build dropped it at load, so its absence here is not a deletion (app/workspace_kinds)
+    keep_newer_board_kinds(body.workspace, stored)
     try:
         validate_alarm_workspace(body.workspace, previous)
     except ValueError as exc:
