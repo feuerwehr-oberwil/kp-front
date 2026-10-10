@@ -386,6 +386,8 @@ export const atemschutzCopy = {
       // (types · TruppReading). «Unter Atemschutz» trägt den Eingangsdruck der Flasche, die
       // in diesem Moment aufgedreht wurde – der Eintritt des Trupps bleibt, wo er war.
       paOn: 'Unter Atemschutz', paOff: 'Atemschutz beendet',
+      // die beiden Enden eines Atemschutznotfalls (F1, 08.10.2026) – im Protokoll des Trupps
+      notfall: 'Notfall ausgelöst', notfallEnde: 'Notfall beendet',
       // a `crew` row prints its names (AtemschutzView · readingLabel); this is the fallback word
       crew: 'Mannschaft',
     } as Record<string, string>,
@@ -778,6 +780,69 @@ export const atemschutzCopy = {
     removedToast: 'Trupp {name} entfernt',
     // «Nicht eingesetzt» vom sichtbaren Knopf der Karte – mit Rückgängig (Review 26.09.2026)
     notDeployedToast: 'Trupp {name}: nicht eingesetzt',
+    /* ── Atemschutznotfall (F1, 08.10.2026) ──────────────────────────────────────────────────
+     * EIN Trupp in Not, von einer Person gesagt (gehaltenes «Notfall»), nicht aus einer Uhr
+     * abgeleitet. Wortlaut bewusst kurz und neutral («Notfall», «Sicherungstrupp einsetzen») –
+     * er bildet das AS-Notfallvorgehen (FwDV 7 / FKS) ab und wird von AS-Instruktoren geprüft. */
+    notfall: {
+      // die Kachel auf der Karte – halten löst aus (lib/nodeHold; die Kachel füllt sich, bis es gilt)
+      act: 'Notfall',
+      actHint: 'Gedrückt halten löst den Notfall aus',
+      end: 'Notfall beendet',
+      endHint: 'Gedrückt halten beendet den Notfall',
+      // ein blosses Tippen: die Kachel sagt es an ihrer eigenen Stelle (kurz, statt ihres Worts)
+      holdHint: 'Gedrückt halten',
+      // Kopfzeile des Notfall-Banners auf der Tafel und der Zeile in der Meldeleiste
+      title: 'Notfall',
+      who: 'Trupp {name}',
+      since: 'seit {time}',
+      stateWord: 'Notfall seit {time}',
+      // die Fakten: letzter Ort, letzter Druck mit Alter, Funkkanal
+      placeMap: 'Karte',
+      placeMapAt: 'Karte · bei {host}',
+      bar: '{bar} bar',
+      barAge: 'vor {age}',
+      barEntry: 'Eingangsdruck',
+      // EIN Fakt: der Druck und woher er stammt – «300 bar (Eingangsdruck)», «220 bar (vor 5 min)»
+      barWith: '{bar} ({when})',
+      kanal: 'Kanal {n}',
+      contact: 'Kontakt {time}',
+      // die erste angebotene Handlung
+      sitrDeploy: 'Sicherungstrupp einsetzen',
+      sitrPickTitle: 'Welcher Sicherungstrupp?',
+      sitrNone: 'Kein Sicherungstrupp bereit',
+      sitrDefine: 'Sicherungstrupp bestimmen',
+      sitrInside: 'Sicherungstrupp {name} drin seit {time}',
+      goTo: 'Zum Trupp',
+      // die ganze Kopfzeile des Banners (Screenreader): «Zum Trupp 1»
+      goToWho: 'Zum {name}',
+      // die Meldeleiste
+      rowTitle: 'Notfall – Trupp {name}',
+      rowTitleMany: 'Notfall – {count} Trupps: {names}',
+      // der Verlauf (und damit das Einsatzjournal im Rapport)
+      logTrigger: 'Trupp {name}: Notfall ausgelöst',
+      factPlace: 'Ort {place}',
+      factContact: 'letzter Kontakt {time}',
+      factBar: '{bar} bar ({time})',
+      factBarEntry: 'Eingangsdruck {bar} bar',
+      factKanal: 'Kanal {n}',
+      logEnd: 'Trupp {name}: Notfall beendet – Dauer {dur}',
+      logSafetyEntry: 'Trupp {name}: Sicherungstrupp eingesetzt – Notfall Trupp {target}, {dur} nach Auslösung',
+      logAtClose: 'Trupp {name}: Notfall beim Abschluss nicht beendet',
+      // bestätigen-mit-Rückgängig: ein Fehlgriff ist billig zurückzunehmen und bleibt im Verlauf
+      toast: 'Notfall Trupp {name} ausgelöst',
+      // Benachrichtigung (Ton, OS, Web-Push)
+      notifyTitle: 'Atemschutz-Notfall – {name}',
+      notifyBody: 'Notfall seit {time} – Sicherungstrupp einsetzen.',
+      // der ruhige Hinweis beim Eintritt eines AS-Trupps, wenn niemand sichert
+      noSafetyHint: 'Kein Sicherungstrupp bereit',
+      // der Abschluss fragt zuerst danach
+      abschlussTitle: 'Notfall läuft noch',
+      abschlussMsg: '{list} – noch nicht beendet.',
+      abschlussClose: 'Trotzdem abschliessen',
+      // «Entfernen» on a Trupp in a Notfall is refused until it is ended (review of #300)
+      removeBlocked: 'Erst «Notfall beendet» halten – ein Trupp im Notfall bleibt auf der Tafel',
+    },
     // «Entfernen» auf einem Trupp, der DRIN ist: zuerst fragen, «Raus melden» ist die sichere Antwort
     removeInsideTitle: 'Trupp {name} ist drin – erst rausmelden?',
     removeInsideMsg: 'Entfernen nimmt den Trupp von der Tafel und aus jedem Alarm. Meist ist gemeint: Der Trupp ist draussen.',

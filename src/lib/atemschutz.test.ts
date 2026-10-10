@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, EARLY_PRESSURE_CORRECTION_MS, earlyEntryCorrection, entryPressureAsks, entryPressureConfirmed, estimatePressure, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, isStandDownExit, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
+import { notfallFacts, notfallOffered, safetyInside, safetyReady, truppInNotfall, alarmBarFor, anyTruppInField, contactSeverity, deriveTruppLive, EARLY_PRESSURE_CORRECTION_MS, earlyEntryCorrection, entryPressureAsks, entryPressureConfirmed, estimatePressure, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, isStandDownExit, peakAtemschutzAlarm, pressureAlarm, truppAlarm, truppCrewWithout, truppEditPatch, truppFieldGroupsChanged, truppFieldsOf, truppInField, truppLogName, truppNeverDeployed, truppStillDeployed, truppStillRegistered, truppTransferState } from './atemschutz'
 import type { Trupp } from '../types'
 
 // A Trupp that entered at a fixed reference time; its contact clock starts at entry.
@@ -805,5 +805,68 @@ describe('fmtDuration — a duration that says it is one (staging r4)', () => {
     expect(fmtDuration(3600 + 125)).toBe('1:02:05 h')
     expect(fmtDuration(2 * 86_400 + 3 * 3600)).toBe('2 d 3 h')
     expect(fmtDuration(null)).toBe('–:––')
+  })
+})
+
+describe('the Atemschutznotfall (F1, 08.10.2026)', () => {
+  const N = '2026-06-21T10:04:00Z'
+  const live = (t: Trupp, now: number) => deriveTruppLive(t, now, 5, 60)
+  const doctrine = { alarmBar: 100, alarmBarRueckzug: 50 }
+
+  it('is tier 2 with its own reason, ahead of a fresh Kontakt, a low Druck and an overdue clock', () => {
+    const fresh: Trupp = { ...base, notfallAt: N, lastContactTime: N }
+    const low: Trupp = { ...base, notfallAt: N, lastPressureBar: 40 }
+    for (const t of [fresh, low]) {
+      expect(truppAlarm(t, live(t, REF + 20 * 60_000), 5, 60, doctrine)).toMatchObject({ sev: 2, reason: 'notfall' })
+    }
+  })
+
+  it('stays loud for a crew already reported out — it ends only by «Notfall beendet»', () => {
+    const out: Trupp = { ...base, notfallAt: N, status: 'raus', exitTime: '2026-06-21T10:06:00Z' }
+    expect(truppAlarm(out, live(out, REF + 7 * 60_000), 5, 60, doctrine).reason).toBe('notfall')
+    // …but a card taken off the board is in none
+    expect(truppInNotfall({ ...out, removedAt: '2026-06-21T10:08:00Z' })).toBe(false)
+  })
+
+  it('takes the TopBar chip from every other alarm, ticking from the trigger', () => {
+    const now = REF + 30 * 60_000
+    const overdue: Trupp = { ...base, id: 'od', name: 'Lang' } // 30 min without contact
+    const low: Trupp = { ...base, id: 'lo', name: 'Tief', lastPressureBar: 30, lastContactTime: '2026-06-21T10:29:00Z' }
+    const nf: Trupp = { ...base, id: 'nf', name: 'Not', notfallAt: '2026-06-21T10:28:00Z', lastContactTime: '2026-06-21T10:29:30Z' }
+    const s = peakAtemschutzAlarm([overdue, low, nf], now, 5, 60, 100, 50)
+    expect(s.peak).toBe(2)
+    expect(s.urgent).toMatchObject({ id: 'nf', reason: 'notfall', sinceContactSec: 120, contactAt: Date.parse('2026-06-21T10:28:00Z') })
+    expect(s.severities).toEqual({ od: 2, lo: 2, nf: 2 })
+  })
+
+  it('is offered on an Atemschutz-Trupp inside only, and not twice', () => {
+    expect(notfallOffered(base)).toBe(true)
+    expect(notfallOffered({ ...base, status: 'rueckzug' })).toBe(true)
+    expect(notfallOffered({ ...base, notfallAt: N })).toBe(false)
+    expect(notfallOffered({ ...base, status: 'angemeldet', entryTime: '' })).toBe(false)
+    expect(notfallOffered({ ...base, status: 'raus', exitTime: N })).toBe(false)
+    expect(notfallOffered({ ...base, kind: 'einfach' })).toBe(false)
+  })
+
+  it('knows a READY Sicherungstrupp exactly as the board models one — «Sichern», under PA, angemeldet', () => {
+    const ready: Trupp = { ...base, id: 's1', auftrag: 'sichern', status: 'angemeldet', entryTime: '', lastContactTime: '' }
+    const others: Trupp[] = [
+      { ...ready, id: 's2', auftrag: 'loeschen' },
+      { ...ready, id: 's3', kind: 'einfach' },
+      { ...ready, id: 's4', removedAt: N },
+      { ...ready, id: 's5', status: 'raus', exitTime: N },
+    ]
+    const sentIn: Trupp = { ...ready, id: 's6', status: 'aktiv', entryTime: N, lastContactTime: N }
+    expect(safetyReady([ready, ...others, sentIn]).map((t) => t.id)).toEqual(['s1'])
+    expect(safetyInside([ready, ...others, sentIn]).map((t) => t.id)).toEqual(['s6'])
+  })
+
+  it('states what the record last KNEW — the Druck with its time, never a Schätzung', () => {
+    const t: Trupp = { ...base, notfallAt: N, lastPressureBar: 180, lastPressureTime: '2026-06-21T10:02:00Z', lastContactTime: '2026-06-21T10:03:00Z', funkkanal: 11 }
+    expect(notfallFacts(t, REF + 5 * 60_000)).toEqual({
+      sinceSec: 60, bar: 180, barAt: '2026-06-21T10:02:00Z', barAgeSec: 180, contactAt: '2026-06-21T10:03:00Z', funkkanal: 11,
+    })
+    // never reported: the Eingangsdruck, no age
+    expect(notfallFacts({ ...base, notfallAt: N }, REF + 5 * 60_000)).toMatchObject({ bar: 300, barAt: null, barAgeSec: null, funkkanal: null })
   })
 })
