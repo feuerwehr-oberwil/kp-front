@@ -54,6 +54,3 @@ export function stepPage(order: readonly string[], current: string, dir: 1 | -1)
 }
 
 export { TAFEL_ID } from './boardForm'
-/** px the page strip takes under the floating top bar: the bar (44 + 2 × 6 padding + 2 border)
- *  and the gap under it (09-whiteboard.css · .tps) */
-export const TAFEL_STRIP_H = 66

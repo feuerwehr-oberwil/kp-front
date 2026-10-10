@@ -308,7 +308,7 @@ export interface TafelFormPageProps {
   /** a tap on the mini Karte opens the Karte */
   onOpenKarte?: () => void
   /** px the floating chrome covers: top bar + page strip, the rails */
-  inset: { top: number; left: number; right: number; bottom: number }
+  inset: { top: number; left: number; right: number; bottom: number | string }
 }
 
 export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRemove, onPrint, pageCount = 1, printing = false, scene, onOpenKarte, inset }: TafelFormPageProps) {

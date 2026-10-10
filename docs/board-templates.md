@@ -49,8 +49,11 @@ replaces the bundled one.
   change an open or archived Einsatz, nor its Rapport.
 - **Switching pages**: tap a tab, or press PageUp / PageDown while no field has focus. There is
   no swipe, because a swipe pans the board. The strip is the app's segmented control in its tabs
-  form, on a bar of the top bar's make, right under it — and, beside a nav rail, right of the
-  rail where the board starts (never on the rail, whatever its width). Which page a device shows is local to
+  form, standing where every other surface says «which place»: in the bottom-left row where a
+  plan's Objekt / Massstab chips stand, in their floating look (above the phone's bars and beside
+  the FAB, right of the rail on a tablet). Many pages scroll sideways inside it, the open one in
+  view; «+ Seite» stays in view and opens upwards. A page pads its foot by that row, so its last
+  ruling scrolls above the strip. Which page a device shows is local to
   that device: remembered per Einsatz in IndexedDB (`lib/tafelPages`, never in the workspace),
   restored when the Tafel opens, «Skizze» when the page is gone.
 - **Unsaved typing is never lost**: a cell writes on blur, when the app goes to the background

@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { SKIZZE, resetTafelPageMemory, stepPage, useTafelPage } from './tafelPages'
 import { readFileSync } from 'node:fs'
-import { SIDE_INSET_L } from './whiteboard'
 
 describe('which Tafel page this device has open', () => {
   it('is remembered per Einsatz across a reload (IndexedDB), never shared', async () => {
@@ -26,21 +25,28 @@ describe('which Tafel page this device has open', () => {
   })
 })
 
-/* owner, staging (2eac58d9, ~900 wide): the strip stood at the screen's left edge under the top
- * bar and the nav rail, centred in its band, reached up into it — «›» on «Skizze». Beside a rail
- * the strip starts where the board starts, right of the rail, whatever the rail's width. */
-describe('the page strip never stands on the nav rail', () => {
+/* owner, before the release: «move the skizze/führung thing to the same place where the location
+ * change button is on the other pages». The strip stands in the plan's bottom-left row — where the
+ * Objekt chip says «which place» — which already clears the rail, the phone's bars and the FAB, and
+ * which the board's fit already keeps free; it wears that row's floating look. */
+describe('the page strip stands in the row where a plan says «which place»', () => {
   const css = readFileSync(`${process.cwd()}/src/styles/09-whiteboard.css`, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
-  const rule = (sel: string) => new RegExp(`${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? ''
-  it('starts right of the rail (16 + rail width + 12, the board\'s SIDE_INSET_L) and follows a labelled rail', () => {
-    const tps = rule('.tps')
-    expect(tps).toMatch(/left:\s*var\(--tps-l\)/)
-    expect(tps).toMatch(/--tps-l:\s*calc\(max\(16px, env\(safe-area-inset-left\)\) \+ var\(--rail-w\) \+ 12px\)/)
-    expect(css).toMatch(/:root:has\(\.navrail\.labelled:not\(\.expanded\):not\(\.dragging\)\) \.tps \{ --tps-l: [^}]*--rail-w-labelled/)
-    expect(16 + 60 + 12).toBe(SIDE_INSET_L)
+  const wb = readFileSync(`${process.cwd()}/src/components/Whiteboard.tsx`, 'utf8')
+  it('is rendered inside .wb-botleft on the Skizze and on a page, never on its own under the top bar', () => {
+    expect(wb).toMatch(/<div className="wb-botleft">\{strip\}<\/div>/) // a Tafel page
+    expect(wb).toMatch(/\{strip\}\s*\{objectChip\}/) // the Skizze: first in the plan's row
+    expect(wb).not.toMatch(/TAFEL_STRIP_H/)
   })
-  it('on a phone (no side rails) it keeps the screen edge', () => {
-    const phone = css.slice(css.indexOf('@media (--phone)', css.indexOf('.tps {')))
-    expect(phone.slice(0, 200)).toMatch(/\.tps \{ --tps-l: max\(16px, env\(safe-area-inset-left\)\)/)
+  it('wears the floating family, not a bar of its own', () => {
+    const tps = /\.tps \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    for (const t of ['--float-h', '--float-bg', '--float-edge', '--r-sm']) expect(tps).toContain(t)
+    expect(tps).not.toMatch(/position:\s*absolute|top:/)
+  })
+  it('a Tafel page pads its foot by the row, so its last ruling scrolls above the strip', () => {
+    expect(wb).toMatch(/bottom: isPhone \? 'calc\(var\(--float-bottom[^']*var\(--float-h\)[^']*' : 'calc\(16px \+ var\(--float-h\)/)
+  })
+  it('on a phone the row of a Tafel page stands on the nav bar — the page has no tool bar under it', () => {
+    const m = readFileSync(`${process.cwd()}/src/styles/15-mobile.css`, 'utf8')
+    expect(m).toMatch(/:root:has\(\.phone-tools \.wb-tafel-page\) \{ --float-base: calc\(var\(--rail-h\) \+ 8px/)
   })
 })
