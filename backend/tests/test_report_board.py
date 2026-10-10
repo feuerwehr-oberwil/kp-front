@@ -188,5 +188,7 @@ def test_wrapping_splits_where_the_template_says():
     assert wrap(f"Patienten{SHY}sammelstelle", 25 * mm, size=9) == ["Patienten-", "sammelstelle"]
     assert wrap(f"Sanitäts{SHY}hilfsstelle", 60 * mm, size=9) == ["Sanitätshilfsstelle"]  # no hyphen when it fits
     assert wrap("Erste Zeile\nzweite", 60 * mm) == ["Erste Zeile", "zweite"]
+    # Helvetica has no trend arrows: a label keeps its meaning instead of printing «?»
+    assert wrap("Entwicklungstendenz ➚ = ➘", 90 * mm) == ["Entwicklungstendenz (+) = (–)"]
     # a narrow column shrinks the type before it splits a word
     assert fit_size("Polycom", 9 * mm, 8.5) < 8.5

@@ -120,8 +120,10 @@ _FS = 8.5
 
 
 def printable(s: str | None) -> str:
-    """What Helvetica can draw: anything outside Windows-1252 becomes «?» rather than a black box."""
-    return (s or "").encode("cp1252", "replace").decode("cp1252")
+    """What Helvetica can draw: the trend arrows of a label («Entwicklungstendenz ➚ = ➘») as (+)
+    and (–), anything else outside Windows-1252 as «?» rather than a black box."""
+    t = (s or "").replace("➚", "(+)").replace("➘", "(–)").replace("→", "->").replace("←", "<-")
+    return t.encode("cp1252", "replace").decode("cp1252")
 
 
 SHY = "\u00ad"
