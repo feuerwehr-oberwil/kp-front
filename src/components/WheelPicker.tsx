@@ -122,7 +122,7 @@ function parseTyped(raw: string): [number, number] | null {
 }
 
 /** The popover itself. A day column appears when `days` holds more than one day. */
-export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shortcut, clearLabel, clearActive, days }: {
+export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shortcut, clearLabel, clearActive, days, title, note, noNow }: {
   anchor: DOMRect
   initial: Date
   onCommit: (v: WheelValue) => void
@@ -148,6 +148,19 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
    * single-day: no wheel appears, so the everyday case pays nothing.
    */
   days?: Date[]
+  /** a heading over the wheels, for a popover opened from a menu row rather than from a field
+   *  that already says what it holds — «Erinnern um» */
+  title?: string
+  /**
+   * One line under the wheels saying what the current selection MEANS — «Morgen · Fr 09.10. ·
+   * 07:30» — recomputed as the wheels move. `blocks` turns it red and disables «OK»: the value
+   * exists on the wheels but is not an answer to this question (a Wiedervorlage in the past).
+   * ⚠️ Disabled, never silently corrected: rolling a past time to tomorrow is the rule the
+   * reminder dialog dropped on purpose (JournalComposer · DueSel).
+   */
+  note?: (v: WheelValue) => { text: string; blocks?: boolean } | null
+  /** no «Jetzt»: for a time that has to lie AHEAD, «now» is never the answer */
+  noNow?: boolean
 }) {
   usePopoverGuard(true)
   const errorId = useId()
@@ -196,12 +209,18 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
     return () => { document.removeEventListener('pointerdown', onDoc, true); window.removeEventListener('keydown', onKey, true) }
   }, [onClose])
 
+  const said = note?.(v) ?? null
+  const blocked = !!said?.blocks
+
   const commit = () => {
     if (!coarse) {
       const time = parseTyped(typed)
       if (!time) { setInvalid(true); return }
-      onCommit({ ...v, h: time[0], mi: time[1] })
-    } else onCommit(v)
+      const out = { ...v, h: time[0], mi: time[1] }
+      // Enter reaches here without the button — the note's veto holds for it too
+      if (note?.(out)?.blocks) return
+      onCommit(out)
+    } else if (!blocked) onCommit(v)
   }
 
   const stampNow = () => {
@@ -214,7 +233,8 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
   // the popover grew past it, so «OK» ended up under the bottom edge of the screen with no way to
   // reach it. Measured: 9px padding ×2 + 5×44px of wheel + 40px actions + its 8px gap, plus the
   // shortcut row when there is one.
-  const height = 18 + (coarse ? 220 : 52) + 48 + (shortcut || (onClear && clearLabel) ? 52 : 0) + (invalid ? 56 : 0)
+  const height = 18 + (title ? 30 : 0) + (coarse ? 220 : 52) + 48 + (shortcut || (onClear && clearLabel) ? 52 : 0)
+    + (note ? 30 : 0) + (invalid ? 56 : 0)
   const up = window.innerHeight - anchor.bottom < height + 16
   // Leave room for all three footer actions, including longer translations such as «Maintenant».
   // A shortcut or a named state choice needs its sentence on one line; bare wheels do not.
@@ -237,7 +257,8 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
   // Making it a real modal would mean routing it through overlays/Popover, which does not do the
   // outside-tap swallow this one needs.
   return createPortal(
-    <div className="wheelpop" style={style} ref={ref} role="dialog">
+    <div className="wheelpop" style={style} ref={ref} role="dialog" aria-label={title}>
+      {title && <h3 className={w.title}>{title}</h3>}
       {/* KEYBOARD ENTRY, wherever there is a keyboard. The wheels used to be replaced wholesale by
           a bare text input on a fine pointer — which is why every feature added to this popover
           (day wheel, ab Start, noch da) simply did not exist at a desk. Now the popover is the one
@@ -308,13 +329,14 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
           </div>
         )}
       </div>
+      {said && <p className={`${w.note}${blocked ? ` ${w.noteBad}` : ''}`} aria-live="polite">{said.text}</p>}
       {invalid && <p id={errorId} className={w.error} role="alert">{C.invalidTime}</p>}
       <div className="wheelpop-actions">
         {onClear && !clearLabel && (
           <button type="button" className="wheelpop-btn" onClick={onClear}>{appConfig.copy.clear}</button>
         )}
-        <button type="button" className="wheelpop-btn" onClick={stampNow}>{C.now}</button>
-        <button type="button" className="wheelpop-btn primary" onClick={commit}>{C.ok}</button>
+        {!noNow && <button type="button" className="wheelpop-btn" onClick={stampNow}>{C.now}</button>}
+        <button type="button" className="wheelpop-btn primary" disabled={blocked} onClick={commit}>{C.ok}</button>
       </div>
     </div>,
     document.body,

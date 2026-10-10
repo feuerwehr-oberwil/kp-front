@@ -25,6 +25,16 @@ runs:
 
     - name: Set up Buildx
       uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      with:
+        # Buildx's own BuildKit container is moby/buildkit from Docker Hub unless named here, and
+        # Hub's anonymous pull limit failed this step at random (09.10.2026). mirror.gcr.io is
+        # Google's cache of Docker Hub: the same image, same digest.
+        driver-opts: image=mirror.gcr.io/moby/buildkit:buildx-stable-1
+        # The Dockerfile's base is named on Docker Hub (so Dependabot can read it); BuildKit asks
+        # Google's Hub mirror first (same digests) and falls back to Hub itself.
+        buildkitd-config-inline: |
+          [registry."docker.io"]
+            mirrors = ["mirror.gcr.io"]
 
     - name: Build image (gha-cached)
       uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
@@ -35,6 +45,19 @@ runs:
         tags: ghcr.io/feuerwehr-oberwil/kp-front:ci   # matches KP_FRONT_TAG=ci above
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+    # ECR Public serves an anonymous client about one pull per second and answers compose's
+    # parallel pulls past that with «toomanyrequests: Rate exceeded». One image at a time, retried.
+    - name: Pull the stack's registry images (one at a time, retried)
+      shell: bash
+      run: |
+        for img in $(docker compose config --images | grep -v '^ghcr.io/feuerwehr-oberwil/'); do
+          for i in 1 2 3 4 5; do
+            docker pull -q "$img" && break
+            [ "$i" = 5 ] && exit 1
+            sleep $((i * 5))
+          done
+        done
 
     - name: Boot the stack
       shell: bash

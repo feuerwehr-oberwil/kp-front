@@ -1,3 +1,9 @@
+/*
+ * *The north dial is the ONE door to «Gebäude drehen»* (29.09.2026), on every device
+ * (`PlanCompass`); it also shows the angle. The rail carries no compass tile (it opened the same
+ * popover a second way and brought a second foot hairline).
+ */
+
 import type { ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Popover } from '../lib/overlays'

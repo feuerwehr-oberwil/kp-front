@@ -14,9 +14,10 @@
 }
 
 /* the row keeps its height — the ✕ grew to 44, so its own box now supplies the padding the
-   header used to add around a 36px button (10 + 44 + 10 = the same 64px row) */
-.head { flex: none; display: flex; align-items: center; gap: 12px;
-  padding: 10px 10px 10px 18px; border-bottom: 1px solid var(--border-soft); }
+   header used to add around a 36px button (8 + 44 + 8 = a 60px row; 10/10/18 until 08.10.2026,
+   the 4/8 grid) */
+.head { flex: none; display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--border-soft); }
 /* the query field is THE search's `head` modifier (`.ui-search-head`, 13-incident.css,
    29.09.2026): glyph, 18/700 query and its ✕, with the card as its surface */
 /* The ✕ IS the global `.ip-x` (28.09.2026 — it was a bare, unfilled copy); the head is a search
@@ -26,7 +27,7 @@
 
 .list { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0; padding: 8px; list-style: none; }
 .row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
-  min-height: var(--tap); padding: 9px 12px; border: none; border-radius: var(--r-ctl);
+  min-height: var(--tap); padding: var(--sp-2) var(--sp-3); border: none; border-radius: var(--r-ctl);
   background: none; cursor: pointer; color: var(--ink); }
 .row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* ONE highlight, driven by the keyboard cursor — and the pointer moves that same cursor
@@ -35,9 +36,9 @@
 .rowRaus .name, .rowRaus .where { color: var(--ink-faint); }
 .cap { flex: none; width: 6px; align-self: stretch; border-radius: 3px; }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.name { font: var(--fw-heavy) 15.5px var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.name :global(.trupp-no) { margin-left: 6px; }
-.where { font: 600 var(--fs-1) var(--body); color: var(--ink-faint);
+.name { font: var(--fw-heavy) var(--fs-3) var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.name :global(.trupp-no) { margin-left: var(--sp-2); }
+.where { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* the crew is context, not the answer — it may be long and it yields first */
 .members { color: var(--ink-faint); }
@@ -49,13 +50,14 @@
 .go svg { width: 16px; height: 16px; }
 .rowOn .go { color: var(--blue); }
 
-.none { padding: 18px 14px; text-align: center; font: 600 13.5px var(--body); color: var(--ink-faint); }
-.empty { padding: 22px 20px 26px; display: flex; flex-direction: column; gap: 6px; }
-.empty p { margin: 0; font: var(--fw-bold) 15px var(--body); color: var(--ink); }
-.empty span { font: var(--fw-medium) 13px/1.45 var(--body); color: var(--ink-dim); }
+.none { padding: var(--sp-4); text-align: center; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-faint); }
+.empty { padding: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-2); }
+.empty p { margin: 0; font: var(--fw-bold) var(--fs-3) var(--body); color: var(--ink); }
+.empty span { font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink-dim); }
 
-.foot { flex: none; padding: 9px 18px; border-top: 1px solid var(--border-soft);
-  font: 600 11.5px var(--body); color: var(--ink-faint); }
+/* the match count («3/5») — read, never tapped (--fs-micro) */
+.foot { flex: none; padding: var(--sp-2) var(--sp-4); border-top: 1px solid var(--border-soft);
+  font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--ink-faint); }
 
 /* phone: the card takes the width it can get and sits higher, clear of the keyboard */
 @media (max-width: 560px) {

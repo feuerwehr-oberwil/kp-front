@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 // grown invisibly around the glyph so the bar does not reflow. Pinned in the phone block's CSS.
 describe('the phone lock chip', () => {
   const css = readFileSync(`${process.cwd()}/src/styles/10-journal.css`, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
-  const phone = css.slice(css.indexOf('.tb-mode { padding: 5px 8px; font-size: 0; gap: 0; }'))
+  const phone = css.slice(css.indexOf('.tb-mode { padding: var(--sp-1) var(--sp-2); font-size: 0; gap: 0; }'))
   it('has a ≥44 px hit area on the button', () => {
     const rule = /button\.tb-mode::after\s*\{([^}]*)\}/.exec(phone)?.[1] ?? ''
     expect(rule).toMatch(/width:\s*max\(100%,\s*44px\)/)

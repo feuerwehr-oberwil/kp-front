@@ -1,6 +1,15 @@
 // Per-incident sync engine: offline cache (IndexedDB) + debounced last-write-wins save with a
 // three-way merge on conflict. Split out of the incidents data layer because it's the single
 // heaviest, most stateful unit — see ./workspace for the plain get/put the engine drives.
+
+/*
+ * **409 re-merges wait a jittered moment** (`workspaceSync · conflictBackoffMs`: none before
+ * the first merge, then 125–375 · 250–750 · 500–1500 ms) so three devices do not retry in
+ * lock-step. ⚠️ An edit saved while a re-merge is in flight is built on the live view, which
+ * has not seen that merge — the resolver re-bases it onto the merge before merging again
+ * (`lastMerged`), or the next attempt reads the remote objects it lacks as local deletes
+ * (the three-device load test lost 7–14 % of edits that way, `workspaceSync.load.test.ts`).
+ */
 import { ApiError, isDenial, isUnverifiable } from '../api'
 import { idbDel, idbGet, idbKeys, idbRead, idbSet, type IdbRead } from '../idb'
 import { serverNow } from '../serverClock'

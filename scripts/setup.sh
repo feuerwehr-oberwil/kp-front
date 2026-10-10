@@ -731,13 +731,6 @@ seed_credentials() {
     return 1
   fi
 
-  # ⚠️ PRINT_AGENT_SECRET is still NOT minted, and the reason has changed: its sweep is
-  # registered unconditionally now and returns on the first line when no secret is set
-  # (app/scheduler.py), so an unused value no longer costs a background job. What it costs is
-  # on screen — this secret IS the switch that makes the relay «configured», so minting it
-  # would render «An Stationsdrucker» on the Rapport and the capture poster for every station
-  # that owns no printer, plus a permanently offline connector on the System card. And it still
-  # saves nobody anything: the agent lives on a second machine provisioned at a terminal.
   seed_push || rc=1
 
   [[ "$rc" -eq 0 ]] || warn "$(sayf "$T_CREDS_PARTIAL_FMT" "$(app_url)")"

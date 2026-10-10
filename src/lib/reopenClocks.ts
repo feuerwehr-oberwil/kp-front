@@ -15,7 +15,7 @@ import type { TimelineEvent, Trupp } from '../types'
  * so every device computes the same restart from the same fact:
  *  - the moment is the reopen row's `at` — never a device's own clock;
  *  - the Verlauf row id is derived (`azro-<reopen row>-<Trupp>`), so three tablets write ONE row
- *    (AGENTS.md · what every device OBSERVES is recorded under a DERIVED id, once);
+ *    (docs/sync-and-offline.md · what every device OBSERVES is recorded under a DERIVED id, once);
  *  - until the reopen row has arrived on this device, the alarm HOLDS (`reopenPending`) rather
  *    than ring against the old contact time for the second the Verlauf takes to catch up.
  *
@@ -66,7 +66,7 @@ export const clockRestartRowId = (reopenRowId: string, truppId: string): string 
 /**
  * The Trupps with the contact clock of every crew still inside restarted at the reopen. Only a
  * clock that last ran BEFORE the reopen moves: a Kontakt given since stands. Returns the SAME
- * array when nothing moves (a machine writer must be idempotent — AGENTS.md).
+ * array when nothing moves (a machine writer must be idempotent — lib/useGpsFollow).
  */
 export function clocksAfterReopen(trupps: Trupp[], reopen: LifecycleBoundary | null): Trupp[] {
   if (!reopen || reopen.kind !== 'reopened') return trupps
@@ -86,4 +86,29 @@ export function clocksAfterReopen(trupps: Trupp[], reopen: LifecycleBoundary | n
     }
   })
   return changed ? next : trupps
+}
+
+/**
+ * Every stretch the Einsatz stood CLOSED and was then reopened, oldest first: `[closedAt,
+ * reopenedAt]` in ms. The contact clock does not run while closed and RESTARTS at the reopen
+ * (`clocksAfterReopen`) without any Trupp reading — so a reader of the log alone (the Rapport's
+ * Auswertung) has to know these moments, or the closed time reads as an overdue crew.
+ */
+export function closedPauses(rows: readonly TimelineEvent[]): { from: number; to: number }[] {
+  const all = rows
+    .filter((row) => row.id?.startsWith('sys') && !row.patchOf)
+    .map((row) => ({ kind: row.lifecycle ?? legacyKind(row), ms: row.at ? Date.parse(row.at) : Number.NaN }))
+    .filter((b) => !!b.kind && Number.isFinite(b.ms))
+    .sort((a, b) => a.ms - b.ms)
+  const out: { from: number; to: number }[] = []
+  let closed: number | null = null
+  for (const b of all) {
+    if (b.kind === 'closed') { if (closed == null) closed = b.ms }
+    else if (b.kind === 'reopened') {
+      // a reopen without a close row before it (an older record) still restarts the clock there
+      out.push({ from: closed ?? b.ms, to: b.ms })
+      closed = null
+    }
+  }
+  return out
 }

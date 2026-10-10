@@ -22,6 +22,18 @@
  * in an isotropic frame, so a caller working in normalized page space scales first.
  */
 
+/*
+ * **Ink is cut to its storey's visible SECTION** (24.09.2026, `lib/storeyClip`): the tile's
+ * drawings, laid as `FloorPage` lays them and cut to the footprint box, or the whole tile where
+ * there is no Geschossplan. Linien, Flächen, Absperrkreise and trails are clipped to it (SVG
+ * `clipPath`, which also cuts the hit surface: only what shows can be tapped), and a crossing wears
+ * an EDGE MARK — white disc, ring and arrowhead in the stroke's colour, pointing the way it goes on.
+ * Tip, tag, markers, label and stair mark stand only on the visible part; a selected cut stroke
+ * shows its whole path as a faint dashed ghost so its outside grips stay attached. The printed
+ * stack cuts to the storey's BAND (no plan is printed) with the same mark (`reportPdfDirect ·
+ * cutToBands`). A Karte hose projected onto the 1. OG used to run on into the EG's plan.
+ */
+
 export type Pt = [number, number]
 /** convex polygons whose union is the visible section */
 export type Section = Pt[][]

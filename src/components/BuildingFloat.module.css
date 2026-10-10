@@ -1,0 +1,21 @@
+/* The Gebäude chip + its card (BuildingFloat, KP Front F5). The chip is the floating family's
+   (09-whiteboard · .wb-scale-chip); this file only adds the hazard tone and the docked card. */
+/* never the one that gives way: a hazard is glyph + WORD, so on a phone's one-line plan row the
+   Objekt chip beside it truncates its name instead (09-whiteboard · .wb-botleft) */
+.anchor { position: relative; display: inline-flex; flex: none; max-width: 100%; }
+/* a hazard: the warn glyph in amber AND the words — the tone is never the only carrier */
+.hazard svg:first-child { color: var(--amber-strong); }
+.measures { display: inline-flex; align-items: center; gap: var(--sp-1); padding-left: var(--sp-2);
+  border-left: 1px solid var(--glass-line); color: var(--ink-dim); }
+.measures svg { width: 14px; height: 14px; }
+/* docked one --float-gap above the row, like the Passung over its chip; the map stays live */
+.pop { position: absolute; left: 0; bottom: calc(100% + var(--float-gap)); z-index: 1;
+  box-sizing: border-box; width: min(380px, calc(100vw - var(--rail-w, 0px) - 44px));
+  max-height: min(64vh, 560px); overflow: auto; overscroll-behavior: contain;
+  padding: var(--sp-3); border-radius: var(--r-sm);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); }
+@media (--phone) {
+  /* the bars' width, one gap above THE floating row — the toast lane's place */
+  .pop { position: fixed; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
+    bottom: calc(var(--float-bottom) + var(--float-h) + var(--float-gap)); width: auto; max-height: 56vh; }
+}

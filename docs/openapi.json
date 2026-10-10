@@ -540,6 +540,72 @@
         }
       }
     },
+    "/api/auth/microsoft/start": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Start",
+        "operationId": "start_api_auth_microsoft_start_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/microsoft/callback": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Callback",
+        "operationId": "callback_api_auth_microsoft_callback_get",
+        "parameters": [
+          {
+            "name": "ms_login_tx",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ms Login Tx"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/session": {
       "get": {
         "tags": [
@@ -2011,7 +2077,7 @@
           "incidents"
         ],
         "summary": "Put Workspace Record",
-        "description": "Save ONLY the record domains — the one write shape the ``el`` role has.\n\nMirrors the capture endpoint's key merge: the server's own blob is the base and only\nRECORD_WORKSPACE_KEYS present in the submitted workspace are replaced, so what an ``el``\nsession can change is bounded whatever its client sends — the full PUT stays editor-only\n(AGENTS.md · role gating). Same ``base_rev`` conditional UPDATE as every other save, so a\nconcurrent editor makes this the identical 409, never a silent overwrite. Editors may use\nthe route too, and only they latch ``editor_opened_at`` — an EL following along is not\n«the KP has this incident».",
+        "description": "Save ONLY the record domains — the one write shape the ``el`` role has.\n\nMirrors the capture endpoint's key merge: the server's own blob is the base and only\nRECORD_WORKSPACE_KEYS present in the submitted workspace are replaced, so what an ``el``\nsession can change is bounded whatever its client sends — the full PUT stays editor-only\n(docs/roles-and-access.md). Same ``base_rev`` conditional UPDATE as every other save, so a\nconcurrent editor makes this the identical 409, never a silent overwrite. Editors may use\nthe route too, and only they latch ``editor_opened_at`` — an EL following along is not\n«the KP has this incident».",
         "operationId": "put_workspace_record_api_incidents__incident_id__workspace_record_put",
         "parameters": [
           {
@@ -3329,6 +3395,68 @@
         }
       }
     },
+    "/api/divera/responses/{incident_id}": {
+      "get": {
+        "tags": [
+          "divera"
+        ],
+        "summary": "Responses",
+        "description": "Who answered the Divera alarm «kommt» / «kommt nicht» — our personnel ids, nothing else.\n\nRead-only and stored: the server's own poll keeps it (divera · store_responses); this read\nnever calls Divera. Every alarm taken into the incident counts (a Nachalarm attached to it is\none more; the newer alarm's answer wins), but only alarms of the last\n:data:`~app.divera_responses.RESPONSES_MAX_AGE_SECONDS`: the answers to a dispatch that is\nhours over are not «anrückend». ``available: false`` = nothing to show (``reason: no_data``,\nor ``closed`` for an archived Einsatz), and the Anwesenheit shows nothing at all.\n\nEditor-only like the rest of /api/divera (the EL and the editors who mark attendance; a viewer\nand an Einsatz-Link session are refused). Somebody not on the Mannschaftsliste is a count.\nThe answers never enter the workspace, an export or a Rapport, and are cleared after the\nEinsatz (divera · prune_responses). A Divera answer is not presence.",
+        "operationId": "responses_api_divera_responses__incident_id__get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Responses Api Divera Responses  Incident Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/divera/pool": {
       "get": {
         "tags": [
@@ -4400,251 +4528,6 @@
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/capture/print/status": {
-      "get": {
-        "tags": [
-          "capture"
-        ],
-        "summary": "Capture Print Status",
-        "operationId": "capture_print_status_api_capture_print_status_get",
-        "parameters": [
-          {
-            "name": "x-capture-token",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Capture-Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Capture Print Status Api Capture Print Status Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/capture/incidents/{incident_id}/report/print": {
-      "post": {
-        "tags": [
-          "capture"
-        ],
-        "summary": "Capture Report Print",
-        "description": "Queue the data-only Rapport-PDF on the station printer — the phone needs no\nprinter setup, possession of the poster token is the authority (same as the PDF).",
-        "operationId": "capture_report_print_api_capture_incidents__incident_id__report_print_post",
-        "parameters": [
-          {
-            "name": "incident_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Incident Id"
-            }
-          },
-          {
-            "name": "x-capture-token",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Capture-Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/x-www-form-urlencoded": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_capture_report_print_api_capture_incidents__incident_id__report_print_post"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Capture Report Print Api Capture Incidents  Incident Id  Report Print Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/capture/print-jobs/{job_id}": {
-      "get": {
-        "tags": [
-          "capture"
-        ],
-        "summary": "Capture Print Job",
-        "description": "Poll a just-queued job's lifecycle (queued → printing → done/failed) for the live\ntoast. Token holders may only read jobs of incidents still reachable through the poster.",
-        "operationId": "capture_print_job_api_capture_print_jobs__job_id__get",
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Job Id"
-            }
-          },
-          {
-            "name": "x-capture-token",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Capture-Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Capture Print Job Api Capture Print Jobs  Job Id  Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "capture"
-        ],
-        "summary": "Capture Print Cancel",
-        "description": "Rückgängig for a just-queued job. Token holders may only touch jobs of incidents\nstill reachable through the poster (and never already-claimed ones).",
-        "operationId": "capture_print_cancel_api_capture_print_jobs__job_id__delete",
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Job Id"
-            }
-          },
-          {
-            "name": "x-capture-token",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Capture-Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Capture Print Cancel Api Capture Print Jobs  Job Id  Delete"
-                }
               }
             }
           },
@@ -6001,6 +5884,75 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PersonnelSyncResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/personnel/snapshot/sync": {
+      "post": {
+        "tags": [
+          "personnel"
+        ],
+        "summary": "Snapshot Sync",
+        "description": "Read the roster snapshot now («Jetzt abrufen» on System › Verbindungen).\n\nThe same run the scheduler makes, minus the «unchanged, skip» shortcut — pressing the\nbutton after a rank was added to the station's list must apply it. Answers the status\ndocument either way: a refused or held run is a 200 with the reason in it, because the\nreport IS the answer; only «no source configured» is an error.",
+        "operationId": "snapshot_sync_api_personnel_snapshot_sync_post",
+        "parameters": [
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RosterSnapshotSyncBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Snapshot Sync Api Personnel Snapshot Sync Post"
                 }
               }
             }
@@ -8662,6 +8614,92 @@
         }
       }
     },
+    "/api/incidents/{incident_id}/building": {
+      "get": {
+        "tags": [
+          "objects"
+        ],
+        "summary": "Incident Building",
+        "operationId": "incident_building_api_incidents__incident_id__building_get",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "object",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Object"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "de",
+              "title": "Lang"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildingOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/events": {
       "get": {
         "tags": [
@@ -9562,570 +9600,6 @@
             "content": {
               "application/json": {
                 "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/print/status": {
-      "get": {
-        "tags": [
-          "print-relay"
-        ],
-        "summary": "Get Print Status",
-        "description": "Availability + heartbeat freshness for the «An Stationsdrucker» button.\n\nReads the credential store fresh: this is what makes the button appear on the tablets\nminutes after an admin pastes the agent secret, with nothing restarted.",
-        "operationId": "get_print_status_api_print_status_get",
-        "parameters": [
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Print Status Api Print Status Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/incidents/{incident_id}/report/print": {
-      "post": {
-        "tags": [
-          "print-relay"
-        ],
-        "summary": "Report Print",
-        "operationId": "report_print_api_incidents__incident_id__report_print_post",
-        "parameters": [
-          {
-            "name": "incident_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Incident Id"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/x-www-form-urlencoded": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_report_print_api_incidents__incident_id__report_print_post"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Report Print Api Incidents  Incident Id  Report Print Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/incidents/{incident_id}/zeitplan/print": {
-      "post": {
-        "tags": [
-          "print-relay"
-        ],
-        "summary": "Zeitplan Print",
-        "description": "Queue one of the two Schichtenplanung sheets for the station printer — «Verfügbarkeiten»\nor «Schichtplan», whichever the payload names. The sheet you hang at the front. Always\nmonochrome: it is rules, marks and bars, and a colour cartridge is a consumable.",
-        "operationId": "zeitplan_print_api_incidents__incident_id__zeitplan_print_post",
-        "parameters": [
-          {
-            "name": "incident_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Incident Id"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/x-www-form-urlencoded": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_zeitplan_print_api_incidents__incident_id__zeitplan_print_post"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Zeitplan Print Api Incidents  Incident Id  Zeitplan Print Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/incidents/{incident_id}/report/print/prewarm": {
-      "post": {
-        "tags": [
-          "print-relay"
-        ],
-        "summary": "Report Print Prewarm",
-        "description": "Speculatively warm the map-tile cache when the rapport modal opens, so the real\nenqueue render is near-instant. Best-effort: no printer side effects, never fails hard.",
-        "operationId": "report_print_prewarm_api_incidents__incident_id__report_print_prewarm_post",
-        "parameters": [
-          {
-            "name": "incident_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Incident Id"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/x-www-form-urlencoded": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_report_print_prewarm_api_incidents__incident_id__report_print_prewarm_post"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Report Print Prewarm Api Incidents  Incident Id  Report Print Prewarm Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/print-jobs/{job_id}": {
-      "get": {
-        "tags": [
-          "print-relay"
-        ],
-        "summary": "Report Print Job",
-        "operationId": "report_print_job_api_print_jobs__job_id__get",
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Job Id"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Report Print Job Api Print Jobs  Job Id  Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "print-relay"
-        ],
-        "summary": "Report Print Cancel",
-        "description": "Cancel a queued job. Enqueue and status stay open to every authenticated user\n(printing a rapport is read-only output, see api/report.py) — but cancelling destroys\nsomebody ELSE's queued paper, which is an edit. So: an editor may cancel any job, a\nviewer only one they queued themselves (the Rückgängig on their own toast). The UI\ndisables the buttons for viewers too; this is the floor under that.",
-        "operationId": "report_print_cancel_api_print_jobs__job_id__delete",
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Job Id"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Report Print Cancel Api Print Jobs  Job Id  Delete"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/print-agent/claim": {
-      "post": {
-        "tags": [
-          "print-relay"
-        ],
-        "summary": "Agent Claim",
-        "description": "Long-poll: claim the oldest queued job (→ metadata JSON), or hang up to CLAIM_HANG_SEC\nand answer 204 when the queue stays idle. Woken instantly by `_job_ready` on enqueue.\nEvery call is also the heartbeat that keeps the relay «online» in the UI.",
-        "operationId": "agent_claim_api_print_agent_claim_post",
-        "parameters": [
-          {
-            "name": "x-print-agent-secret",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Print-Agent-Secret"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/print-agent/jobs/{job_id}/file": {
-      "get": {
-        "tags": [
-          "print-relay"
-        ],
-        "summary": "Agent Job File",
-        "operationId": "agent_job_file_api_print_agent_jobs__job_id__file_get",
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Job Id"
-            }
-          },
-          {
-            "name": "x-print-agent-secret",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Print-Agent-Secret"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/print-agent/jobs/{job_id}/status": {
-      "post": {
-        "tags": [
-          "print-relay"
-        ],
-        "summary": "Agent Job Status",
-        "operationId": "agent_job_status_api_print_agent_jobs__job_id__status_post",
-        "parameters": [
-          {
-            "name": "job_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Job Id"
-            }
-          },
-          {
-            "name": "x-print-agent-secret",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Print-Agent-Secret"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AgentJobStatus"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Agent Job Status Api Print Agent Jobs  Job Id  Status Post"
-                }
               }
             }
           },
@@ -13704,30 +13178,6 @@
         ],
         "title": "AdminLogin"
       },
-      "AgentJobStatus": {
-        "properties": {
-          "status": {
-            "type": "string",
-            "title": "Status"
-          },
-          "error": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Error"
-          }
-        },
-        "type": "object",
-        "required": [
-          "status"
-        ],
-        "title": "AgentJobStatus"
-      },
       "AlarmGroup": {
         "properties": {
           "id": {
@@ -14237,19 +13687,6 @@
         ],
         "title": "Body_capture_report_pdf_api_capture_incidents__incident_id__report_pdf_post"
       },
-      "Body_capture_report_print_api_capture_incidents__incident_id__report_print_post": {
-        "properties": {
-          "payload": {
-            "type": "string",
-            "title": "Payload"
-          }
-        },
-        "type": "object",
-        "required": [
-          "payload"
-        ],
-        "title": "Body_capture_report_print_api_capture_incidents__incident_id__report_print_post"
-      },
       "Body_capture_upload_media_api_capture_incidents__incident_id__media_post": {
         "properties": {
           "file": {
@@ -14400,32 +13837,6 @@
         ],
         "title": "Body_report_pdf_api_incidents__incident_id__report_pdf_post"
       },
-      "Body_report_print_api_incidents__incident_id__report_print_post": {
-        "properties": {
-          "payload": {
-            "type": "string",
-            "title": "Payload"
-          }
-        },
-        "type": "object",
-        "required": [
-          "payload"
-        ],
-        "title": "Body_report_print_api_incidents__incident_id__report_print_post"
-      },
-      "Body_report_print_prewarm_api_incidents__incident_id__report_print_prewarm_post": {
-        "properties": {
-          "payload": {
-            "type": "string",
-            "title": "Payload"
-          }
-        },
-        "type": "object",
-        "required": [
-          "payload"
-        ],
-        "title": "Body_report_print_prewarm_api_incidents__incident_id__report_print_prewarm_post"
-      },
       "Body_suggest_alignment_api_georef_suggest_post": {
         "properties": {
           "image": {
@@ -14534,18 +13945,392 @@
         ],
         "title": "Body_zeitplan_pdf_api_incidents__incident_id__zeitplan_pdf_post"
       },
-      "Body_zeitplan_print_api_incidents__incident_id__zeitplan_print_post": {
+      "BuildingGwrOut": {
         "properties": {
-          "payload": {
+          "stand": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stand"
+          },
+          "floors": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Floors"
+          },
+          "flats": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flats"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          },
+          "heating": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Heating"
+          },
+          "heating_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heating Date"
+          },
+          "hot_water": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Hot Water"
+          },
+          "shelter": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shelter"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "title": "BuildingGwrOut",
+        "description": "GWR facts about the building — keys and numbers; the words are the app's copy."
+      },
+      "BuildingObjectOut": {
+        "properties": {
+          "id": {
             "type": "string",
-            "title": "Payload"
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "address_match": {
+            "type": "boolean",
+            "title": "Address Match",
+            "default": false
+          },
+          "distance_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Distance M"
+          },
+          "measures": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          },
+          "measures_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures Source"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
           }
         },
         "type": "object",
         "required": [
-          "payload"
+          "id",
+          "name"
         ],
-        "title": "Body_zeitplan_print_api_incidents__incident_id__zeitplan_print_post"
+        "title": "BuildingObjectOut",
+        "description": "The Einsatzobjekt the card speaks for — the plan rail's object (api/objects ·\nranked_objects_near), or the one the operator picked."
+      },
+      "BuildingOut": {
+        "properties": {
+          "registers": {
+            "type": "string",
+            "enum": [
+              "on",
+              "off",
+              "outside_ch",
+              "no_location"
+            ],
+            "title": "Registers"
+          },
+          "egid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Egid"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "gwr": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuildingGwrOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gwr_status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "none",
+              "error",
+              "skipped"
+            ],
+            "title": "Gwr Status",
+            "default": "skipped"
+          },
+          "plants": {
+            "items": {
+              "$ref": "#/components/schemas/BuildingPlantOut"
+            },
+            "type": "array",
+            "title": "Plants"
+          },
+          "pv_status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "error",
+              "skipped"
+            ],
+            "title": "Pv Status",
+            "default": "skipped"
+          },
+          "registers_fetched_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registers Fetched At"
+          },
+          "object": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuildingObjectOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "visit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BuildingVisitOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "registers"
+        ],
+        "title": "BuildingOut",
+        "description": "``GET /api/incidents/{id}/building`` — the Gebäude card (app/building_facts).\n\nEvery half is optional and fails on its own: ``gwr_status``/``pv_status`` say whether the\nregister could be ASKED (``error``) as opposed to having nothing to say (``none``/``ok`` with\nan empty list). ``registers`` says why they were not asked at all."
+      },
+      "BuildingPlantOut": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "pv",
+              "other"
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "power_kw": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Power Kw"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "title": "BuildingPlantOut",
+        "description": "One registered electricity production plant on the building (BFE)."
+      },
+      "BuildingVisitOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "visited_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visited At"
+          },
+          "findings": {
+            "type": "integer",
+            "title": "Findings",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "BuildingVisitOut",
+        "description": "The object's last completed Objektbesuch."
       },
       "BuildingsRequest": {
         "properties": {
@@ -14788,6 +14573,11 @@
               }
             ],
             "title": "Cartobasemapkey"
+          },
+          "microsoftLoginConfigured": {
+            "type": "boolean",
+            "title": "Microsoftloginconfigured",
+            "default": false
           },
           "personnel": {
             "$ref": "#/components/schemas/ProviderCapability"
@@ -17495,6 +17285,17 @@
             },
             "type": "array",
             "title": "Externallinks"
+          },
+          "buildingRegister": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buildingregister"
           }
         },
         "type": "object",
@@ -18207,6 +18008,39 @@
             ],
             "title": "Source Key"
           },
+          "measures": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          },
+          "measures_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures Source"
+          },
           "updated_at": {
             "type": "string",
             "format": "date-time",
@@ -18343,6 +18177,42 @@
               }
             ],
             "title": "Refs"
+          },
+          "measures": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          },
+          "measures_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures Source"
           }
         },
         "type": "object",
@@ -18566,6 +18436,39 @@
               }
             ],
             "title": "Source Key"
+          },
+          "measures": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          },
+          "measures_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures Source"
           },
           "updated_at": {
             "type": "string",
@@ -19640,11 +19543,6 @@
             "type": "array",
             "title": "Partnerorgs"
           },
-          "reversePrintOrder": {
-            "type": "boolean",
-            "title": "Reverseprintorder",
-            "default": true
-          },
           "hoursRounding": {
             "$ref": "#/components/schemas/HoursRoundingConfig"
           },
@@ -19753,6 +19651,32 @@
             ],
             "title": "Autosync",
             "default": "safe"
+          },
+          "diveraResponses": {
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "coming",
+                "not_coming",
+                "other"
+              ]
+            },
+            "type": "object",
+            "title": "Diveraresponses"
+          },
+          "snapshotIntervalMin": {
+            "type": "integer",
+            "maximum": 1440.0,
+            "minimum": 5.0,
+            "title": "Snapshotintervalmin",
+            "default": 60
+          },
+          "snapshotMaxDeactivatePct": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Snapshotmaxdeactivatepct",
+            "default": 20
           }
         },
         "type": "object",
@@ -19885,6 +19809,18 @@
         ],
         "title": "RosterRankOption",
         "description": "One rank the station's list knows, as the mapping sheet offers it."
+      },
+      "RosterSnapshotSyncBody": {
+        "properties": {
+          "force": {
+            "type": "boolean",
+            "title": "Force",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "RosterSnapshotSyncBody",
+        "description": "``force`` releases a run the deactivation cap held — the human decision the hold waits\nfor. It never releases the other refusals (an invalid file, an older copy, an empty roster)."
       },
       "RosterUnknownRank": {
         "properties": {

@@ -80,9 +80,9 @@ offer – a container runtime, a monitor, or the browser itself:
 
 ## Integration credentials – `/api/integrations/*`
 
-The sixteen integration settings a station may set from `/admin` → Anbindungen instead of
+The fifteen integration settings a station may set from `/admin` → Anbindungen instead of
 `.env`: the three Divera keys, the Traccar trio, the VAPID trio, the four STT settings,
-`ALARM_WEBHOOK_SECRET`, `PRINT_AGENT_SECRET` and `HEALTHCHECK_PING_URL`. Stored encrypted
+`ALARM_WEBHOOK_SECRET` and `HEALTHCHECK_PING_URL`. Stored encrypted
 (AES-256-GCM, key derived from `SECRET_KEY` via HKDF) and live without a restart. Contract and
 reasoning: [`CONFIGURATION.md` §6](CONFIGURATION.md#6-environment-variables-secrets--infra--operator-not-admin).
 
@@ -107,7 +107,7 @@ Three rules the shapes encode:
 - **`.env` wins.** A field the environment supplies reports `source: "env"` and refuses both
   `PUT` and `DELETE` with **409**, naming the env var in `CredentialState.env` so the page can
   say where the value comes from. "Supplied" means *differs from the declared default* –
-  `docker-compose.yml` names all sixteen variables and materialises the app's own default for
+  `docker-compose.yml` names all fifteen variables and materialises the app's own default for
   `STT_MODEL`, `STT_LANGUAGE` and `VAPID_SUBJECT`, which is not a deployer decision.
 - **`unreadable` is not `unset`.** A row that will not decrypt (i.e. `SECRET_KEY` was rotated)
   reports `source: "unreadable"` and `configured: false`, so the operator is told to set it

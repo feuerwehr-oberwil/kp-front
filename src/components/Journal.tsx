@@ -5,6 +5,7 @@ import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
 import { InfoToggle } from './InfoToggle'
 import { EmptyState } from './EmptyState'
+import { Button } from './Button'
 import { Menu, Overlay, Sheet } from '../lib/overlays'
 import { caretToEnd, openPhoto } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
@@ -15,6 +16,7 @@ import { journalDisc } from '../lib/report'
 import { journalQuery, matchesJournalQuery } from '../lib/journalSearch'
 import { journalCategories, journalFacets, matchesJournalCategories, showsPinnedPendenzen, type JournalCategoryKind } from '../lib/journalFilter'
 import type { OpenReminder } from '../lib/reminders'
+import { cardinalIndex, fmtDistance, takenClock, type PhotoPlacement } from '../lib/photoGeo'
 
 /** HH:MM of an ISO instant — the Pendenzen block's time column and its Meldung lines. */
 function rowClock(iso: string): string {
@@ -168,7 +170,7 @@ const FILTER_DISC: Record<JournalCategoryKind, { icon?: string; surface?: 'map' 
 // The unified Verlauf — the single, append-only stream of everything that
 // happens on either surface. Rendered as a slide-over so it can open over the
 // map or the plan; a row jumps back to wherever its event happened.
-export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, onReminderNote, onReminderAgain, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice }: {
+export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose, onTranscript, onReplay, openReminders, onReminderDone, onReminderNote, onReminderAgain, mediaStatusOf, onOpenPlayer, onEditText, replayAtMs, onSeekTo, landOn, deliveryNotice, photoPlacement, onPhotoPlace, onPhotoShow }: {
   deliveryNotice?: ReactNode
   events: TimelineEvent[]
   plans: PlanDocument[]
@@ -206,6 +208,14 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
    *  Nachdokumentation in the player) and on nothing the app wrote about an action; the
    *  corrected line is marked «korrigiert HH:MM». See lib/verlauf · isHandWritten. */
   onEditText?: (id: string, text: string) => void
+  /** where picture `i` of a row was taken, and what it can do on the Karte (lib/photoGeo ·
+   *  photoPlacement). `null` for a picture without a position — the sheet then says nothing. */
+  photoPlacement?: (e: TimelineEvent, i: number) => PhotoPlacement | null
+  /** «Auf Karte setzen»: place the row's pictures that know their place. Absent where the Karte
+   *  may not be written (viewer, Einsatzleiter, replay) — the button is then not drawn. */
+  onPhotoPlace?: (e: TimelineEvent) => void
+  /** «Auf Karte zeigen»: a picture of this row is on the Karte already */
+  onPhotoShow?: (entityId: string) => void
   /**
    * The replay playhead. Set ⇒ this Verlauf is being read alongside a Wiedergabe: rows after
    * this instant are the FUTURE and render dimmed, and the row the playhead stands in is marked.
@@ -1151,8 +1161,8 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                           appended, never overwritten — and says so; a first transcript has no
                           original wording to reassure about */}
                       {e.transcript && <span className="jr-korr-hint">{C.correctHint}</span>}
-                      <button onClick={() => setEditTx(null)}>{appConfig.copy.cancel}</button>
-                      <button onClick={saveTranscript}><Icon id="check" />{C.transcriptSave}</button>
+                      <Button onClick={() => setEditTx(null)}>{appConfig.copy.cancel}</Button>
+                      <Button variant="primary" icon={<Icon id="check" />} onClick={saveTranscript}>{C.transcriptSave}</Button>
                     </div>
                   </div>
                 )}
@@ -1168,8 +1178,8 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                     />
                     <div className="jr-transcript-actions">
                       <span className="jr-korr-hint">{C.correctHint}</span>
-                      <button onClick={() => setEditRow(null)}>{appConfig.copy.cancel}</button>
-                      <button onClick={saveRowText}><Icon id="check" />{C.transcriptSave}</button>
+                      <Button onClick={() => setEditRow(null)}>{appConfig.copy.cancel}</Button>
+                      <Button variant="primary" icon={<Icon id="check" />} onClick={saveRowText}>{C.transcriptSave}</Button>
                     </div>
                   </div>
                 )}
@@ -1193,6 +1203,10 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
           const hasTx = !!e.transcript || !!e.transcriptSections?.length
           const target = targetOf(e)
           const photos = rowPhotos(e)
+          const G = appConfig.copy.photoGeo
+          const placements = photos.map((_, i) => photoPlacement?.(e, i) ?? null)
+          const toPlace = placements.filter((p) => p?.kind === 'place').length
+          const placedId = placements.find((p) => p?.kind === 'placed')
           const disc = journalDisc(e, plans)
           const repeated = repeats.counts.get(e.id) ?? 1
           const lastRepeat = repeats.lastAt.get(e.id)
@@ -1211,6 +1225,19 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
             ...(photos.length
               ? [{ k: C.detailAttachments, v: photos.length === 1 ? C.detailAttachmentsOne : fillTemplate(C.detailAttachmentsN, { n: photos.length }) }]
               : []),
+            // where each picture was taken — only for those that know it (lib/photoGeo)
+            ...placements.flatMap((p, i) => (p ? [{
+              k: photos.length > 1 ? fillTemplate(G.whereN, { n: i + 1 }) : G.where,
+              v: fillTemplate(G.distance, { d: fmtDistance(p.distanceM) }),
+              sub: p.kind === 'far' ? G.tooFar : [
+                // where the position came from — the photo's own EXIF, or the device's position
+                // when the picture arrived (lib/devicePosition), with how sure that fix was
+                p.geo.source === 'device' ? G.sourceDevice : G.sourceExif,
+                p.geo.source === 'device' && p.geo.acc != null ? fillTemplate(G.accuracy, { m: p.geo.acc }) : null,
+                p.geo.heading != null ? fillTemplate(G.facing, { dir: appConfig.copy.weather.cardinalsLong[cardinalIndex(p.geo.heading)] }) : null,
+                takenClock(p.geo.takenAt) ? fillTemplate(G.takenAt, { t: takenClock(p.geo.takenAt)! }) : null,
+              ].filter(Boolean).join(' · ') || undefined,
+            }] : [])),
             ...(e.correctedAt
               ? [{
                   k: C.detailCorrected,
@@ -1273,29 +1300,40 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
               </dl>
               <div className="jr-detail-acts">
                 {e.audioUrl && e.audioMeta && onOpenPlayer && (
-                  <button type="button" className="btn"
+                  <Button block icon={<Icon id="wave" />}
                     onClick={() => { setDetailId(null); onOpenPlayer(e) }}>
-                    <Icon id="wave" />{C.playerOpen}
-                  </button>
+                    {C.playerOpen}
+                  </Button>
                 )}
                 {e.audioUrl && onTranscript && (
-                  <button type="button" className={`btn${hasTx ? '' : ' jr-da-miss'}`}
+                  <Button block className={hasTx ? undefined : 'jr-da-miss'} icon={<Icon id={hasTx ? 'type' : 'warn'} />}
                     onClick={() => { setDetailId(null); setEditTx({ id: e.id, value: e.transcript ?? '' }) }}>
-                    <Icon id={hasTx ? 'type' : 'warn'} />{hasTx ? C.transcriptEdit : C.transcriptAdd}
-                  </button>
+                    {hasTx ? C.transcriptEdit : C.transcriptAdd}
+                  </Button>
                 )}
                 {onEditText && isHandWritten(e) && !e.audioUrl && (
-                  <button type="button" className="btn"
+                  <Button block icon={<Icon id="pen" />}
                     onClick={() => { setDetailId(null); setEditRow({ id: e.id, value: e.text }) }}>
-                    <Icon id="pen" />{C.editEntry}
-                  </button>
+                    {C.editEntry}
+                  </Button>
                 )}
+                {/* the picture's own place — offered only for a picture that knows it */}
+                {toPlace > 0 && onPhotoPlace ? (
+                  <Button block icon={<Icon id="pin" />}
+                    onClick={() => { setDetailId(null); onPhotoPlace(e) }}>
+                    {toPlace === 1 ? G.place : fillTemplate(G.placeN, { n: toPlace })}
+                  </Button>
+                ) : placedId?.kind === 'placed' && onPhotoShow ? (
+                  <Button block icon={<Icon id="pin" />}
+                    onClick={() => { setDetailId(null); onPhotoShow(placedId.entityId) }}>
+                    {G.show}
+                  </Button>
+                ) : null}
                 {target != null && (
-                  <button type="button" className="btn"
+                  <Button block icon={<Icon id={target === 'plan' ? 'flag' : 'pin'} />}
                     onClick={() => { setDetailId(null); onSelect(e) }}>
-                    <Icon id={target === 'plan' ? 'flag' : 'pin'} />
                     {target === 'plan' ? appConfig.copy.atemschutz.showOnPlan : appConfig.copy.atemschutz.showOnMap}
-                  </button>
+                  </Button>
                 )}
               </div>
             </Sheet>

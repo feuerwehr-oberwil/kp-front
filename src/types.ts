@@ -167,6 +167,25 @@ export interface SymbolProps {
   done?: ObjectDone
 }
 
+/** Where a photo was taken — the privacy-reduced EXIF of one Verlauf picture (lib/photoGeo). */
+export interface PhotoGeo {
+  lat: number
+  lng: number
+  /** metres above sea level */
+  alt?: number
+  /** bearing of the lens, degrees clockwise from north [0, 360) */
+  heading?: number
+  /** EXIF DateTimeOriginal, ISO-like local time (offset when the file states one) — or, for a
+   *  device position, the moment of the fix */
+  takenAt?: string
+  /** WHERE the position came from: the photo's own EXIF, or the device's position at the moment
+   *  the picture arrived (lib/devicePosition — the in-app camera of an iPhone delivers none).
+   *  Absent on rows written before 09.10.2026, which are all EXIF. */
+  source?: 'exif' | 'device'
+  /** the device fix's accuracy radius in metres (device positions only) */
+  acc?: number
+}
+
 /** When a symbol was marked «gelöscht / erledigt», and by whom. `at` is an ISO instant on the
  *  deployment's clock (lib/serverClock · serverNowIso), the same clock every Verlauf row uses. */
 export interface ObjectDone {
@@ -196,6 +215,18 @@ export interface Entity extends SymbolProps {
   floor?: number
   badge?: string        // short text shown in the context panel avatar
   photoUrl?: string     // for kind 'photo'
+  // --- kind 'photo' placed from a Verlauf photo («Auf Karte setzen», lib/photoGeo) ---
+  /** WHICH picture this marker shows: the Verlauf row and the photo's index on it. The row is
+   *  the photo's record; `photoUrl` above is only the URL it had when it was placed (a session
+   *  `blob:` while the upload is pending), and the map reads the row's current one through this
+   *  (lib/photoGeo · resolvePhotoUrl). Its presence is what makes a photo marker part of the
+   *  record — the legacy session-only ones without it are still dropped at the wire. */
+  photoOf?: { row: string; i: number }
+  /** the bearing the lens pointed at (EXIF GPSImgDirection), degrees clockwise from north —
+   *  drawn as a view cone. Absent = the photo said nothing about its direction. */
+  heading?: number
+  /** when the photo was taken (EXIF DateTimeOriginal, ISO-like local time) */
+  takenAt?: string
   /** kind 'note': box width in SCREEN px — map notes are pinned to a constant screen size
    *  (they don't scale with zoom, see symPx), so a ground-metre width would be wrong here.
    *  The Plan analogue is `BoardAnno.wN`. ABSENT = the legacy auto-width pill (capped by CSS
@@ -572,6 +603,12 @@ export interface TimelineEvent {
    *  to REPLACE the first. `photoUrl` above is the single-photo shape every row written before
    *  2026-08-06 carries; readers take both (see lib/verlauf · rowPhotos). */
   photoUrls?: string[]
+  /** WHERE each picture was taken, read from its EXIF before the re-encode strips it
+   *  (lib/exif, lib/photoGeo): aligned by index with the row's photos AS CAPTURED, `null` for a
+   *  picture without a position. Absent when none had one. Only position, heading and time —
+   *  never the camera, the owner or anything else the file carried. Read through
+   *  `rowPhotoGeo`, which trusts the alignment only while the photo count matches. */
+  photoGeo?: (PhotoGeo | null)[]
   /** Beilagen that are neither picture nor recording (PDF, Dokument, Tabelle): the row shows a
    *  named chip that downloads the file. The URL is ALWAYS a server url — a generic file is
    *  uploaded during save and never enters the offline queue (same rule as an imported memo,
@@ -1088,7 +1125,7 @@ export interface Trupp {
    *
    * ⚠️ Without it the filing was a reconciliation that wrote a deliberate deletion straight back:
    * somebody takes a crew member off the Anwesenheit, and the next device that observes the Trupp
-   * files them again (the ghost-trail trap, AGENTS.md). A key here means «filed once, or already
+   * files them again (the ghost-trail trap, docs/atemschutz-board.md · «The record is kept whole»). A key here means «filed once, or already
    * there when the Trupp was seen» — whatever happens to that entry afterwards is a person's
    * decision, and no device undoes it. A machine field: undo restores keep it (useTruppActions ·
    * remember / restoreTrupp), and a merge that differs only here is not a Trupp conflict.

@@ -555,3 +555,22 @@ async def test_an_unknown_dataset_id_is_refused_like_a_forbidden_one(client, edi
     r = await client.get(f"/api/reference/plan:{uuid.uuid4()}:modul1")
     assert r.status_code == 403
     assert r.json()["detail"] == DENIED_DETAIL
+
+
+async def test_view_link_reads_its_objects_plans_but_not_their_modul1_notes(client, editor, incident, db_session):
+    """The Gebäude card's Sofortmassnahmen / Bemerkungen are the station's operational notes about
+    a building, not part of the Rapport: a view link gets the object its Einsatz surfaced (for the
+    plans), with the notes left out — and may not ask for the card at all."""
+    obj, _ = await _object_with_plan(db_session, name="Werkhof", address=ADDRESS, dataset_id="plan:own:modul1")
+    obj.measures, obj.remarks, obj.measures_source = "Gas zu", "Hunde", "Modul 1"
+    await db_session.commit()
+    await _open_view_link(client, editor, incident)
+
+    listed = (await client.get(f"/api/incidents/{incident.id}/objects", headers=LINK_PAGE)).json()
+    assert [o["name"] for o in listed] == ["Werkhof"]
+    assert {listed[0][k] for k in ("measures", "remarks", "measures_source")} == {None}
+    one = (await client.get(f"/api/objects/{obj.id}", headers=LINK_PAGE)).json()
+    assert {one[k] for k in ("measures", "remarks", "measures_source")} == {None}
+
+    r = await client.get(f"/api/incidents/{incident.id}/building", headers=LINK_PAGE)
+    assert r.status_code == 403

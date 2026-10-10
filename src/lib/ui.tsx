@@ -26,12 +26,11 @@ type Tone = 'default' | 'warn' | 'success'
 type ToneStyle = 'fill' | 'edge'
 const defaultToneStyle = (tone: Tone): ToneStyle => (tone === 'warn' ? 'edge' : 'fill')
 /** Is this toast a FAILURE, as opposed to a live status that wears the warn edge? A step chain is
- *  a job still under way (the print pill while queued/printing — lib/printJobToast); its own
- *  failure drops the chain. Only a failure gets the red trace in the pill (08-toasts.css ·
+ *  a job still under way; its own failure drops the chain. Only a failure gets the red trace in the pill (08-toasts.css ·
  *  `.toast-fail`): a job queued for 90 s is not a failure and must not look like one. */
 const isFailure = (t: { tone: Tone; steps?: ToastStep[] }) => t.tone === 'warn' && !t.steps?.length
 export interface ToastAction { label: string; onClick: () => void }
-/** One stage of a multi-step toast (the live print job). `icon` omitted = an unreached step,
+/** One stage of a multi-step toast (a job followed live). `icon` omitted = an unreached step,
  * drawn as a dim pip; `printer` is the animated «paper coming out» glyph. */
 export interface ToastStep {
   label: string

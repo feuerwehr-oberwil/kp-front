@@ -12,39 +12,41 @@
    (taps pass through), so it never blocks a control; amber to read as "not a real incident". */
 .demo-ribbon { position: fixed; top: calc(15px + env(safe-area-inset-top)); left: -36px; width: 132px; z-index: var(--z-ribbon); pointer-events: none;
   transform: rotate(-45deg); background: var(--amber); color: var(--on-fill);
-  text-align: center; padding: 3px 0; font-size: var(--fs-micro); font-weight: var(--fw-heavy); letter-spacing: 2px;
-  box-shadow: 0 1px 5px rgba(20, 28, 40, .35); }
+  text-align: center; padding: var(--sp-1) 0; font-size: var(--fs-micro); font-weight: var(--fw-heavy); letter-spacing: 2px;
+  box-shadow: var(--e1); }
 /* First-visit demo welcome modal (own scrim above the DEMO ribbon so it owns the screen). */
 .dw-scrim { z-index: var(--z-tool-card-scrim); padding: 12px; }
 /* <Overlay>: backdrop is .modal-backdrop.dw-scrim; the card owns its own fixed centering */
 .dw-card { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: var(--z-tool-card);
   width: min(424px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto;
   background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-hero);
-  box-shadow: var(--e4); padding: 20px 20px 16px; animation: panelIn .16s var(--ease); }
+  box-shadow: var(--e4); padding: var(--sp-5) var(--sp-5) var(--sp-4); animation: panelIn .16s var(--ease); }
 /* the ✕ IS the global `.ip-x` (28.09.2026 — it was a 44px copy with a 16px glyph); this only
    pins it to the card's corner */
 .dw-x { position: absolute; top: 12px; right: 12px; }
-.dw-head { display: flex; align-items: center; gap: 10px; margin: 0 40px 10px 0; }
+/* the right margin keeps the title clear of the ✕ (36px at 12px from the corner, i.e. 48px of the
+   card's edge); the card's own 24px padding covers the rest */
+.dw-head { display: flex; align-items: center; gap: var(--sp-2); margin: 0 var(--sp-6) var(--sp-3) 0; }
 /* (the DEMO tag is THE tag recipe, `.ip-badge .ip-badge-exercise`, 29.09.2026 — it was an
    amber-filled round pill in 800) */
 .dw-title { margin: 0; font: var(--sheet-title); color: var(--ink); } /* the one sheet title (28.09.2026; was 19) */
-.dw-intro { margin: 0 0 12px; font-size: 13px; line-height: 1.5; color: var(--ink-dim); font-weight: var(--fw-medium); }
+.dw-intro { margin: 0 0 var(--sp-3); font-size: var(--fs-2); line-height: 1.5; color: var(--ink-dim); font-weight: var(--fw-medium); }
 /* large reload caveat — the one thing a visitor must know (edits vanish on reload) */
 /* THE form warning, amber (`.form-warn`, 13-incident · 29.09.2026 — it wore a 45% amber border
    and a 22px glyph of its own); this only places it */
-.dw-warn { margin: 0 0 13px; }
-.dw-sec { margin-bottom: 13px; }
-.dw-sec h3 { margin: 0 0 7px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.dw-sec ul { margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; list-style: none; }
-.dw-sec li { display: flex; align-items: center; gap: 8px; min-height: 28px; font-size: 13px; line-height: 1.35; color: var(--ink); font-weight: 650; }
+.dw-warn { margin: 0 0 var(--sp-3); }
+.dw-sec { margin-bottom: var(--sp-3); }
+.dw-sec h3 { margin: 0 0 var(--sp-2); font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
+.dw-sec ul { margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); list-style: none; }
+.dw-sec li { display: flex; align-items: center; gap: var(--sp-2); min-height: 28px; font-size: var(--fs-2); line-height: 1.35; color: var(--ink); font-weight: var(--fw-bold); }
 .dw-sec li .i { width: 16px; height: 16px; flex: none; color: var(--accent); stroke-width: 2.4; }
 /* (the «Los» is <Button variant="primary" size="lg" block> since 07.10.2026 — UI sweep C4; `.dw-cta`
    stays on it as the e2e's handle) */
-.dw-meta { margin: 9px 0 0; color: var(--ink-dim); font-size: 11.5px; line-height: 1.35; font-weight: 600; text-align: center; }
+.dw-meta { margin: var(--sp-2) 0 0; color: var(--ink-dim); font-size: var(--fs-micro); line-height: 1.35; font-weight: var(--fw-medium); text-align: center; }
 /* Login credential hint on a demo instance. */
-.login-demo-note { margin: 2px 0 14px; padding: 8px 12px; border-radius: var(--r-sm);
+.login-demo-note { margin: 2px 0 var(--sp-4); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm);
   background: var(--amber-16); color: var(--ink-dim);
-  font-size: var(--fs-1); font-weight: 600; line-height: 1.45; text-align: center;
+  font-size: var(--fs-1); font-weight: var(--fw-medium); line-height: 1.45; text-align: center;
   border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); }
 
 /* ── Die Meldeleiste ──────────────────────────────────────────────────────────────────────
@@ -86,7 +88,7 @@
    a row's tone is its leading glyph's colour and nothing else (AGENTS · «ONE message surface» —
    «never an edge»). Every Meldung carries an `icon` (lib/meldungen · required), so no row is left
    without its tone. Calm is the default glyph ink. */
-.ml-row { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 4px 8px 4px 16px; }
+.ml-row { display: flex; align-items: center; gap: var(--sp-3); min-height: 52px; padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-4); }
 .ml-row + .ml-row { border-top: 1px solid var(--border-soft); }
 .ml-ic { flex: none; width: 18px; height: 18px; color: var(--ink-faint); }
 .ml-row.t-alarm .ml-ic { color: var(--red); }
@@ -98,7 +100,7 @@
    glyph and the space beside them do nothing, and that narrowness is the point. */
 .ml-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px;
   align-self: center; text-align: left; }
-.ml-title { font: var(--fw-bold) 13.5px var(--body); color: var(--ink); overflow: hidden;
+.ml-title { font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); overflow: hidden;
   /* ⚠️ WRAPS, up to two lines (three on a phone, below) — 3am test r2, 25.09.2026: one ellipsised
      line read «Atemschutz überfällig – 3 Trupps: Tst Chri», cutting exactly the names the row is
      about (and «Tst Domini…» on the 820px tablet). Past the clamp the ellipsis again. */
@@ -143,29 +145,12 @@
 /* the message's OWN actions, at most two. `min-width` is not cosmetic: with every row visible
    the buttons form a column, and «Erledigt» beside «Übernehmen» used to leave a ragged right
    edge that made the shorter row look unfinished. */
-.ml-act { flex: none; display: flex; align-items: center; gap: 6px; }
-.ml-act .ml-btn { min-width: 116px; }
-/* ONE button class for the whole layer. The two 44px misses it retires came from having four:
-   .rb-btn sat at 42px — the due Wiedervorlage's own Erledigt / +10 min — and .dv-banner-x at 30. */
-.ml-btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px;
-  padding: 0 13px; border-radius: var(--r-sm); border: 1px solid var(--glass-edge); background: var(--surface-2);
-  color: var(--ink-dim); font: var(--fw-bold) var(--fs-1) var(--body); white-space: nowrap; cursor: pointer; }
-@media (hover: hover) {
-  .ml-btn:hover { color: var(--ink); background: var(--surface); border-color: color-mix(in srgb, var(--ink) 22%, var(--glass-edge)); }
-}
-.ml-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.ml-btn:disabled { opacity: var(--disabled); cursor: default; }
-.ml-btn.prim { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); font-weight: var(--fw-heavy); }
-@media (hover: hover) {
-  .ml-btn.prim:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); color: var(--on-btn-primary); }
-}
-/* the green primary (MeldungAction · go): the safe «leave it as it is» move, the Atemschutz
-   «Eintritt» fill — `--on-fill` because the night green is bright (01-tokens) */
-.ml-btn.prim.go { background: var(--green); border-color: var(--green); color: var(--on-fill); }
-@media (hover: hover) {
-  .ml-btn.prim.go:hover { background: var(--green-solid-hover); border-color: var(--green-solid-hover); color: var(--on-fill); }
-}
-.ml-btn .i { width: 15px; height: 15px; flex: none; }
+.ml-act { flex: none; display: flex; align-items: center; gap: var(--sp-2); }
+/* The buttons ARE THE button (<Button>, 13-incident · «THE button», 08.10.2026 — design-system
+   stage 2): secondary, the row's one `primary`, and the green `go` (MeldungAction · go: the safe
+   «leave it as it is» move). `.ml-btn` stays on them as the tests' handle and for this placement
+   only; it was a 12.5px copy of the house button at its own padding and fill. */
+.ml-act .ml-btn { min-width: 116px; white-space: nowrap; }
 /* the ✕ — and, on a row that may not be waved away (a due Wiedervorlage), an invisible stand-in
    holding the same 44px column open, so the buttons of all rows end on one vertical line. */
 .ml-x { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: none; background: none;
@@ -188,8 +173,8 @@
    (78px). The Karte and the plans are not pages — the strip floats over the map there, as ever. */
 .ml-more { display: none; }
 :root:has(.az-tafel) .ml-more { display: flex; align-items: center; width: 100%; min-height: 44px;
-  padding: 0 13px 0 16px; border: none; border-top: 1px solid var(--border-soft); background: none;
-  font: 600 13px var(--body); color: var(--ink-dim); text-align: left; cursor: pointer; }
+  padding: 0 var(--sp-3) 0 var(--sp-4); border: none; border-top: 1px solid var(--border-soft); background: none;
+  font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); text-align: left; cursor: pointer; }
 :root:has(.az-tafel) .ml:not(.ml-all) .ml-row ~ .ml-row { display: none; }
 :root:has(.az-tafel) .ml { max-height: min(40dvh, 320px); }
 :root:has(.ml):not(:has(.as-link-shell)) { --ml-push: calc(var(--ml-h, 0px) + 12px + env(safe-area-inset-top)); }
@@ -203,11 +188,18 @@
 @media (--phone) {
   /* the rails are gone from the sides here (the nav rail is the bottom bar), so the strip takes
      the full width — and the actions drop onto a second line per row, where they may shrink
-     below the 116px that straightens the edge on a wide screen. */
+     below the 116px that straightens the edge on a wide screen.
+     ⚠️ The strip ENDS where THE message lane starts (15-mobile · --msg-lane-bottom, 08.10.2026,
+     owner: the Eintrag FAB sat on «Jetzt aktualisieren» of a fourth row): one --float-gap above
+     the floating row while a piece stands in it (FAB, plan chips, «Zurück zum Rapport»), else
+     above the highest bar. Its cap was «one nav bar + a guess», which ran under the FAB on every
+     surface and under the tool bar on the Karte. Past that it scrolls, as on every other width. */
   .ml { top: calc(72px + env(safe-area-inset-top));
     left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right));
-    max-height: calc(100dvh - var(--rail-h) - 96px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
-  .ml-row { flex-wrap: wrap; padding-bottom: 8px; }
+    max-height: calc(100dvh - 72px - env(safe-area-inset-top) - var(--msg-lane-bottom)); }
+  /* the ✕ keeps its 44px slot beside the title, so the title's room is what the gaps leave: 8 and a
+     12px inset (not 12 and 16) keep «TLF fährt weg · 340 m vom Einsatzort» on one 14px line at 390 */
+  .ml-row { flex-wrap: wrap; column-gap: var(--sp-2); padding-bottom: 8px; padding-left: var(--sp-3); }
   /* three lines here: at 360px that holds the names of a whole board */
   .ml-title { -webkit-line-clamp: 3; line-clamp: 3; }
   /* …and a pair too long for one line (the GPS row's «Zurück auf Stand am Einsatzort» ·
@@ -291,7 +283,7 @@
    is on (Gebäude wählen, Leitung wählen …), a tool's tip, the hold-tip — wears THIS: the floating
    family's material (01-tokens · --float-*, 26.09.2026: the bars' glass — it was --surface, a
    shade lighter than the bars at night, and the chips beside it wore a third look),
-   ink text, 13/600, the ONE corner (--r-sm) like the cards and chips beside it — not the bars'
+   ink text, 14/500 (08.10.2026; it was 13/600 — a sentence, so medium on the scale), the ONE corner (--r-sm) like the cards and chips beside it — not the bars'
    bigger one, which read as a different shape (25.09.2026, maintainer). No outline of its own:
    the bars' inset hairline and the house shadow are its edge. Its buttons sit --msg-pad inside and wear the corner
    less that gap (--r-msg-in), so the two still run parallel. A tone is the colour of the glyph the
@@ -303,9 +295,9 @@
    `touch-action: pan-y` hands horizontal movement to the pill's own pointer handlers (lib/ui ·
    ToastRow) while leaving vertical panning of the stack to the browser. */
 .toast { position: relative; overflow: hidden; box-sizing: border-box; display: flex; flex: none; align-items: center;
-  gap: 9px; pointer-events: auto; min-height: var(--float-h);
+  gap: var(--sp-2); pointer-events: auto; min-height: var(--float-h);
   background: var(--float-bg); backdrop-filter: var(--float-blur); color: var(--ink); border: none; box-shadow: var(--float-edge);
-  font: 600 13px/1.35 var(--body); padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) var(--float-pad-x);
+  font: var(--fw-medium) var(--fs-2)/1.35 var(--body); padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) var(--float-pad-x);
   border-radius: var(--r-sm); white-space: nowrap; touch-action: pan-y;
   animation: toastIn .22s var(--ease); }
 /* no button at its right end (a live status, an instruction): the text keeps the left side's air */
@@ -325,11 +317,11 @@
 .toast.out { opacity: 0; transform: translateY(8px) scale(.96); pointer-events: none;
   transition: opacity .14s var(--ease), transform .14s var(--ease); }
 .toast .i { width: 16px; height: 16px; flex: none; color: var(--ink-dim); }
-/* live job as a chain of stages (printJobToast): reached ones keep their tick and step back, the
+/* live job as a chain of stages: reached ones keep their tick and step back, the
    running one carries the label, unreached ones stay visible as pips — «what still has to
    happen» is readable without opening anything. */
-.toast-steps { display: flex; align-items: center; gap: 7px; min-width: 0; }
-.toast-step { display: flex; align-items: center; gap: 5px; white-space: nowrap; opacity: .4;
+.toast-steps { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.toast-step { display: flex; align-items: center; gap: var(--sp-1); white-space: nowrap; opacity: .4;
   transition: opacity .25s var(--ease); }
 .toast-step.done { opacity: .6; }
 .toast-step.now, .toast-step.fail { opacity: 1; }
@@ -362,7 +354,7 @@
 /* inline action (confirm-with-undo): the toaster itself is pointer-events:none, so the
    button re-enables hits. The house quiet button on the pill's surface. It carries `.btn` too,
    whose hover paints --surface, so the pill-scoped rules below keep the fill. */
-.toast-action { pointer-events: auto; flex: none; align-self: center; margin-left: 4px; padding: 6px 14px; min-height: var(--tap);
+.toast-action { pointer-events: auto; flex: none; align-self: center; margin-left: var(--sp-1); padding: var(--sp-2) var(--sp-4); min-height: var(--tap);
   font: var(--fw-bold) var(--fs-1)/1.2 var(--body); color: var(--ink); border: none; border-radius: var(--r-msg-in);
   background: var(--fill-soft); cursor: pointer;
   max-width: min(240px, 60vw); white-space: normal; overflow-wrap: break-word; }
@@ -406,15 +398,15 @@
   max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; box-sizing: border-box;
   background: var(--glass); backdrop-filter: blur(16px);
-  border: 1px solid var(--glass-edge); border-radius: var(--r-hero); padding: 22px 22px 16px; box-shadow: var(--e4);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-hero); padding: var(--sp-5) var(--sp-5) var(--sp-4); box-shadow: var(--e4);
   animation: pop .16s var(--ease); }
-.confirm-title { margin: 0 0 8px; font: var(--sheet-title); color: var(--ink); } /* the one sheet title (28.09.2026; was 19) */
-.confirm-msg { margin: 0 0 10px; font: var(--fw-medium) 13px/1.45 var(--body); color: var(--ink-dim); }
+.confirm-title { margin: 0 0 var(--sp-2); font: var(--sheet-title); color: var(--ink); } /* the one sheet title (28.09.2026; was 19) */
+.confirm-msg { margin: 0 0 var(--sp-3); font: var(--fw-medium) var(--fs-2)/1.45 var(--body); color: var(--ink-dim); }
 /* The open points, as a list. «Noch offen: Zeiten, Mittel, Einsatzleiter, Kurzbericht,
    Rückmeldung ELZ. Trotzdem abschliessen? …» was one paragraph — and the half of it somebody
    has to ACT on, item by item, sat in the middle of a sentence nobody reads to the end. */
-.confirm-list { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
-.confirm-list li { position: relative; padding-left: 15px; font: var(--fw-bold) 13px/1.45 var(--body); color: var(--ink); }
+.confirm-list { margin: 0 0 var(--sp-4); padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--sp-1); }
+.confirm-list li { position: relative; padding-left: var(--sp-4); font: var(--fw-bold) var(--fs-2)/1.45 var(--body); color: var(--ink); }
 .confirm-list li::before { content: ''; position: absolute; left: 3px; top: .62em; width: 4px; height: 4px;
   border-radius: 50%; background: var(--ink-faint); }
 /* a tappable open point (ConfirmItem): the row is the target — ≥44px, edge to edge — and the
@@ -422,15 +414,15 @@
 .confirm-list-go { padding-left: 0; }
 .confirm-list-go::before { display: none; }
 .confirm-list-btn { display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  width: 100%; min-height: 44px; padding: 0 10px 0 12px; border: 1px solid var(--border);
-  border-radius: var(--r-sm); background: color-mix(in srgb, var(--ink) 4%, transparent);
-  font: var(--fw-bold) 13px/1.3 var(--body); color: var(--ink); text-align: left; cursor: pointer; }
-.confirm-list-btn:active { background: color-mix(in srgb, var(--ink) 9%, transparent); }
-.confirm-list-chev { font-size: 18px; line-height: 1; color: var(--ink-faint); }
+  width: 100%; min-height: 44px; padding: 0 var(--sp-2) 0 var(--sp-3); border: 1px solid var(--border);
+  border-radius: var(--r-sm); background: var(--ink-5);
+  font: var(--fw-bold) var(--fs-2)/1.3 var(--body); color: var(--ink); text-align: left; cursor: pointer; }
+.confirm-list-btn:active { background: var(--ink-8); }
+.confirm-list-chev { font-size: var(--fs-4); line-height: 1; color: var(--ink-faint); }
 /* …and the consequence AFTER them, where it reads as the answer to the list rather than as
    more of the same sentence */
-.confirm-note { margin: 0 0 18px; font: var(--fw-medium) var(--fs-1)/1.45 var(--body); color: var(--ink-faint); }
-.confirm-msg:last-of-type:not(:only-of-type) { margin-bottom: 18px; }
+.confirm-note { margin: 0 0 var(--sp-4); font: var(--fw-medium) var(--fs-1)/1.45 var(--body); color: var(--ink-faint); }
+.confirm-msg:last-of-type:not(:only-of-type) { margin-bottom: var(--sp-4); }
 /* ⚠️ …and it WRAPS on a wide screen too (staging walk-through 25.09.2026, N22): three long
    answers («Trotzdem abschliessen · Zur Tafel · Abbrechen») pushed «Abbrechen» out past the
    card's left edge at 1180px. A button that does not fit takes the next line, never the margin. */
@@ -459,9 +451,9 @@
    sits behind an open dialog is not one — so the stuck state comes forward and brings a surface
    with it, because at that point it is addressing the operator rather than filling a hole. */
 .loading.stuck { z-index: var(--z-popover); background: color-mix(in srgb, var(--map-bg) 82%, transparent); }
-.loading.stuck .loading-card { padding: 26px 30px; border-radius: var(--r-surface);
+.loading.stuck .loading-card { padding: var(--sp-5) var(--sp-6); border-radius: var(--r-surface);
   background: var(--glass); border: 1px solid var(--glass-edge); box-shadow: var(--e4); }
-.loading-card { display: flex; flex-direction: column; align-items: center; gap: 18px; animation: fade .3s var(--ease); }
+.loading-card { display: flex; flex-direction: column; align-items: center; gap: var(--sp-4); animation: fade .3s var(--ease); }
 .workspace-loading { display: flex; align-items: center; justify-content: center;
   height: 100%; min-height: 180px; padding: 24px; color: var(--ink-dim); pointer-events: none; }
 /* …but NOT on the pre-app cover (.login splash): its first appearance is the static boot
@@ -486,11 +478,11 @@
 /* The firefighter snail's sizing and animation live in its SVG. Vite inlines the same source
    in the boot splash; components/SnailLoader uses it once React has mounted. */
 .loading-name { font-size: var(--fs-3); font-weight: var(--fw-bold); letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
-.loading-sub { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); }
+.loading-sub { font-family: var(--mono); font-size: var(--fs-1); color: var(--ink-dim); }
 /* stalled-launch block: appears only after Splash's STUCK_MS, so it must fade in rather than
    pop, and it must never widen the centred card on a phone. */
-.loading-stuck { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 30ch; text-align: center;
-  padding-top: 14px; border-top: 1px solid var(--border-soft); animation: fade .3s var(--ease); }
+.loading-stuck { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); max-width: 30ch; text-align: center;
+  padding-top: var(--sp-4); border-top: 1px solid var(--border-soft); animation: fade .3s var(--ease); }
 /* On the pre-app cover the stuck block leaves the flow: the card is vertically centred, so a
    block that joins it — even at opacity 0, like the static splash's CSS-delayed .boot-hint,
    which sits in layout for its whole 12 s delay — pushes the snail up and makes the React
@@ -498,7 +490,7 @@
    is snail + two reserved lines ≈ 155 px tall, so 50% + 96px clears its bottom edge.
    ⚠️ index.html inlines this rule for .loading-stuck.boot-hint — keep the two in sync. */
 .login .loading-stuck { position: absolute; top: calc(50% + 96px); left: 50%; transform: translateX(-50%); width: max-content; }
-.loading-stuck-title { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.loading-stuck-title { font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); }
 .loading-stuck-hint { margin: 0; font-size: var(--fs-1); line-height: 1.45; color: var(--ink-dim); }
 /* The static boot splash's one sentence (index.html), held back much longer: a boot that has not
    mounted React after 12 s is wedged before any JS could say so (an IndexedDB open that never
@@ -522,8 +514,8 @@
    (a hydrant code, a chemical name, a pasted id) ran straight out of the paper and sat on the
    map as bare letters. White-space stays `normal` — «Einzeilig» is ONE line that simply runs
    out of room at 180px, not a place to compose paragraphs; that is what «Textfeld» is for. */
-.note-pill { background: var(--note-bg); border: 1px solid var(--note-border); color: var(--note-ink); font-size: 12px; font-weight: 600;
-  padding: 0.38em 0.7em; border-radius: 0.6em; box-shadow: 0 4px 10px rgba(30, 45, 70, .2); max-width: 180px;
+.note-pill { background: var(--note-bg); border: 1px solid var(--note-border); color: var(--note-ink); font-size: var(--fs-1); font-weight: var(--fw-medium);
+  padding: 0.38em 0.7em; border-radius: 0.6em; box-shadow: var(--e2); max-width: 180px;
   overflow-wrap: break-word; }
 /* A coloured note in the PILL look tints its paper, not its ink: the picked colour has to be
    legible from across a KP, and coloured text on a yellow pill is neither. Mixed against the
@@ -548,7 +540,7 @@
    for notes) — covers both the pill and the editable input (both carry .note-pill) */
 /* (`.twin-sel` selected a MIRRORED note; nothing carries that class any more — a plan-drawn
    note is an ordinary marker on the Karte and wears `.marker.sel` like the rest.) */
-.marker.sel .note-pill { border-color: var(--note-border-sel); box-shadow: 0 0 0 2px var(--note-ring), 0 4px 10px rgba(30, 45, 70, .2); }
+.marker.sel .note-pill { border-color: var(--note-border-sel); box-shadow: 0 0 0 2px var(--note-ring), var(--e2); }
 /* map text BOX: an explicit width (px — map notes don't scale with zoom) replaces the 180px
    auto-cap and lets the pill wrap + grow downwards. Mirrors .wb-text-label.box on the plan. */
 .note-pill.box { max-width: none; white-space: pre-wrap; overflow-wrap: break-word; line-height: 1.35; }
@@ -572,10 +564,10 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .note-done { position: absolute; right: -12px; bottom: -12px; width: 32px; height: 32px;
   padding: 0; border-radius: 50%; border: none; background: var(--green); color: var(--on-fill);
   display: grid; place-items: center; cursor: pointer; z-index: 3;
-  box-shadow: 0 3px 9px rgba(30, 45, 70, .3); }
+  box-shadow: var(--e2); }
 .note-done .i { width: 16px; height: 16px; stroke-width: 2.4; }
 .ph img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--r-ctl); }
-.ctx-photo { padding: 0 18px 10px; border: 0; background: none; width: 100%; cursor: pointer; }
+.ctx-photo { padding: 0 var(--sp-4) var(--sp-2); border: 0; background: none; width: 100%; cursor: pointer; }
 .ctx-photo img { width: 100%; border-radius: var(--r-ctl); display: block; }
 
 /* Full-size picture viewer (lib/ui · openPhoto + PhotoZoom). A document photo is worth the whole
@@ -623,9 +615,9 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 }
 
 /* swatch / width pickers — shared by the draw-style bar and the draw editor */
-.dh-swatches, .dh-widths { display: flex; align-items: center; gap: 9px; }
+.dh-swatches, .dh-widths { display: flex; align-items: center; gap: var(--sp-2); }
 .dh-color { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .5); cursor: pointer; padding: 0;
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12); } /* inner edge so a white/light swatch stays visible */
+  box-shadow: inset 0 0 0 1px var(--border); } /* inner edge so a white/light swatch stays visible (and a black one at night) */
 /* .draw-editor already overrides this pair (see below) because a white ring on a light panel is
    invisible — but the ContextPanel renders the same swatches outside .draw-editor, where the ring
    sat at ~1.1:1 in day and the selected colour was indistinguishable from the rest. */
@@ -670,7 +662,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    than half the panel drops under its own label) grow past it — min-height, not height. */
 .draw-editor { --de-h: 34px; } /* ONE control height for the whole panel — see below */
 .draw-editor .de-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-  gap: 4px 10px; min-height: 48px; padding: 2px 0; font-size: 13px; color: var(--ink-dim); font-weight: var(--fw-medium); }
+  gap: var(--sp-1) var(--sp-3); min-height: 48px; padding: 2px 0; font-size: var(--fs-2); color: var(--ink-dim); font-weight: var(--fw-medium); }
 /* ── ONE control height (01.09.) ─────────────────────────────────────────────────────────────
    The ROWS were already on a 48px rhythm; what was not on any rhythm were the controls inside
    them. A colour swatch was 30, a width/style button 38×34, a preset chip ~26, the Abschluss
@@ -685,18 +677,18 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .dh-color,
 .draw-editor .dh-width,
 .draw-editor .wb-ls { width: var(--de-h); height: var(--de-h); }
-.draw-editor .de-preset { min-height: var(--de-h); display: inline-flex; align-items: center; padding: 0 12px; }
-.draw-editor .de-input { height: var(--de-h); padding: 0 10px; }
+.draw-editor .de-preset { min-height: var(--de-h); display: inline-flex; align-items: center; padding: 0 var(--sp-3); }
+.draw-editor .de-input { height: var(--de-h); padding: 0 var(--sp-2); }
 .draw-editor .de-input-short { width: 66px; }
 .draw-editor .dh-swatches, .draw-editor .dh-widths { gap: 8px; }
 .draw-editor .useg { border-radius: var(--r-sm); padding: 2px; gap: 2px; --useg-in: calc(var(--r-sm) - 2px); }
-.draw-editor .useg-btn { min-height: calc(var(--de-h) - 4px); padding: 0 12px; }
+.draw-editor .useg-btn { min-height: calc(var(--de-h) - 4px); padding: 0 var(--sp-3); }
 .draw-editor .step-btn { width: var(--de-h); height: var(--de-h); min-height: var(--de-h); }
 .draw-editor .de-row > span:first-child { flex: 0 1 auto; min-width: 0; }
 /* duplicate-Leitung notice: a warning, never a block — a real incident sometimes needs the wrong
    thing typed for a moment, and the operator is told why it matters instead of being stopped */
-.draw-editor .de-warn { display: flex; align-items: center; gap: 6px; margin: 2px 0 6px; font-size: 12px;
-  font-weight: 600; color: var(--amber-strong, var(--amber)); }
+.draw-editor .de-warn { display: flex; align-items: center; gap: var(--sp-2); margin: 2px 0 var(--sp-2); font-size: var(--fs-1);
+  font-weight: var(--fw-medium); color: var(--amber-strong, var(--amber)); }
 .draw-editor .de-warn svg { width: 15px; height: 15px; flex: none; }
 /* a clean, always-present thin scrollbar so the panel reads as scrollable */
 .draw-editor .ctx-body { scrollbar-width: thin; scrollbar-color: var(--border) transparent; scroll-padding-bottom: 8px; }
@@ -706,14 +698,14 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 .draw-editor .dh-color { border-color: var(--border); }
 .draw-editor .dh-color.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink-tint-strong); }
 /* fill-transparency swatches (circle/area): the 0% option shows a ∅ on an empty chip */
-.de-fill { display: grid; place-items: center; font-size: 13px; font-weight: var(--fw-bold); color: var(--ink-faint); line-height: 1; }
+.de-fill { display: grid; place-items: center; font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink-faint); line-height: 1; }
 .draw-editor .dh-width { background: var(--fill-soft); }
 .draw-editor .dh-width.on { background: var(--ink-tint); }
 .draw-editor .dh-width span { background: var(--ink); }
 .draw-editor .wb-ls { --ls-ink: var(--ink); background: var(--fill-soft); }
 .draw-editor .wb-ls.on { background: var(--ink-tint); }
-.draw-editor .de-input { width: 150px; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--r-xs);
-  font-size: 13px; color: var(--ink); background: var(--surface); }
+.draw-editor .de-input { width: 150px; padding: var(--sp-1) var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-xs);
+  font-size: var(--fs-2); color: var(--ink); background: var(--surface); }
 .draw-editor .de-input-short { width: 60px; text-align: center; }
 /* the app's one field focus (01-tokens · --focus-*, 28.09.2026) — it fell back to the browser's
    2px focus outline, offset from the field */
@@ -729,7 +721,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    Segmented pair holds that edge — as the one press starting at the far left. It is a full-width
    row so the whole 48px band stays tappable; only its glyph + word move to the controls' edge. */
 .de-action { display: flex; width: 100%; justify-content: flex-end; align-items: center;
-  gap: 7px; min-height: 48px; padding: 2px 0;
+  gap: var(--sp-2); min-height: 48px; padding: 2px 0;
   border: 0; background: transparent; color: var(--ink); font-size: var(--fs-1);
   font-weight: var(--fw-bold); cursor: pointer; }
 .de-action .i { width: 16px; height: 16px; color: var(--ink-dim); }
@@ -739,9 +731,9 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 }
 .de-action:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* line-preset chips (Freihand · Messpfeil · Rettungsachse) — post-pick style switcher */
-.draw-editor .de-presets { display: inline-flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
-.draw-editor .de-preset { padding: 4px 10px; border: 1px solid var(--border); border-radius: var(--r-sm);
-  font-size: 12px; font-weight: 600; color: var(--ink-dim); background: var(--fill-soft); cursor: pointer; }
+.draw-editor .de-presets { display: inline-flex; gap: var(--sp-1); flex-wrap: wrap; justify-content: flex-end; }
+.draw-editor .de-preset { padding: var(--sp-1) var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-sm);
+  font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--ink-dim); background: var(--fill-soft); cursor: pointer; }
 .draw-editor .de-preset.on { background: var(--sel); border-color: var(--sel); color: var(--on-sel); }
 /* line-ending glyph picker (plain · arrow · Teilstück fork) uses the shared <Segmented> */
 
@@ -750,10 +742,11 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    padding has to be even or the drawing sits off-centre inside the ring. It used to be lopsided
    for every kind — which was invisible while the artwork was stretched to fill the box, and
    obvious the moment it was fitted (01.09.: the Rotation's loop hung up-and-left). */
-.shape-ph { padding: 7px; overflow: hidden; }
+.shape-ph { padding: var(--sp-2); overflow: hidden; }
 /* …the nudge belongs to the Rauch alone: its silhouette sits low-and-right inside its own viewBox
-   (airy top, flat heavy bottom), so it needs the optical correction the others must not get. */
-.shape-ph-cloud { padding: 5px 9px 9px 5px; }
+   (airy top, flat heavy bottom), so it needs the optical correction the others must not get: the
+   tile's 8px, 2px off it each way (a nudge, deliberately off the grid). */
+.shape-ph-cloud { padding: 6px 10px 10px 6px; }
 /* The size row is the shared ±stepper (components/Stepper · ScaleStepper) — the phone-reachable
    way to scale, since the corner drag-handle sits under this sheet on a phone. It used to be a
    local 40×36 pair of `.btn`s, the one control in either editor that answered a numeric question
@@ -786,10 +779,10 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
    kind of thing. Slightly wider, so most phrases stay on one line at all. */
 .hold-tip { position: fixed; z-index: var(--z-hold-tip); pointer-events: none;
   max-width: min(320px, calc(100vw - 16px));
-  padding: 8px 12px; border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm);
   /* the message surface (see «ONE message surface» above), compact: it rides beside a finger,
      so it keeps a single line's height */
   background: var(--float-bg); backdrop-filter: var(--float-blur); color: var(--ink); border: none;
-  font: 600 13px/1.35 var(--body);
+  font: var(--fw-medium) var(--fs-2)/1.35 var(--body);
   text-align: center; text-wrap: balance;
   box-shadow: var(--float-edge); }

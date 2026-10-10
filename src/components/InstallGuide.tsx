@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Icon } from '../lib/icons'
+import { Button } from './Button'
 import { appConfig } from '../config/appConfig'
 import { Sheet } from '../lib/overlays'
 import {
@@ -60,9 +61,9 @@ export function InstallSteps({ lead = true }: { lead?: boolean }) {
         <>
           {canPromptNative() && (
             <>
-              <button className="ig-install" onClick={() => { void onNative() }} disabled={busy}>
-                <Icon id="snapshot" /> {C.nativeButton}
-              </button>
+              <Button variant="primary" size="lg" block icon={<Icon id="snapshot" />} onClick={() => { void onNative() }} disabled={busy}>
+                {C.nativeButton}
+              </Button>
               <p className="ig-native-hint">{C.nativeHint}</p>
               <div className="ig-or">{C.manualIntro}</div>
             </>

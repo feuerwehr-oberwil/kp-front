@@ -11,7 +11,7 @@ import { truppRoleNote } from './roleAssignment'
  * record, and the Verlauf even claimed «… als weitere Person erfasst». Now the link writes no such
  * row, and every device that MAY write the record reads the Trupps and files what is missing.
  *
- * ⚠️ An observed fact is filed under an id every device computes identically (AGENTS.md · «what
+ * ⚠️ An observed fact is filed under an id every device computes identically (docs/sync-and-offline.md · «what
  * every device OBSERVES is recorded under a DERIVED id, once»): a roster person under their own
  * id, a Gast under `g-<truppId>-<hash of the name>`, and the one Verlauf row per Trupp under
  * `atc-<truppId>-<hash of the ids>` — so two tablets observing the same Link write converge on one
@@ -23,7 +23,7 @@ import { truppRoleNote } from './roleAssignment'
  * Trupp carries `crewFiled`, the keys of everybody the Anwesenheit has already been told about —
  * filed here, or found already there when the Trupp was seen. A key on it is never filed again,
  * so somebody taking a crew member OFF the Anwesenheit is a decision no device writes back. Built
- * like the ghost trails (AGENTS.md): derived keys, and the marker merges as a union
+ * like the ghost trails (lib/truppTrails): derived keys, and the marker merges as a union
  * (mergeWorkspace · mergeTrupp), so two devices stamping the same crew converge.
  */
 

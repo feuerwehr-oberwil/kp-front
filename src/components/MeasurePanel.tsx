@@ -7,6 +7,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
 import { ProfileChart, ProfileStats } from './ProfileChart'
+import { Button } from './Button'
 import s from './MeasurePanel.module.css'
 
 export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, showProfile = true, blocked = false, hint, onAdopt, onCalibrate, calibrateLabel, recalibrateLabel, scaleNote }: {
@@ -84,9 +85,7 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
               points as its nodes. Without it the only way to KEEP a Strecke was to draw it a
               second time by hand over the top of the one just measured. */}
           {onAdopt && (
-            <button type="button" className={cx('ip-btn', 'ghost', s['mp-adopt-btn'])} onClick={onAdopt}>
-              <Icon id="pen" />{C.adoptLine}
-            </button>
+            <Button variant="quiet" className={s['mp-adopt-btn']} icon={<Icon id="pen" />} onClick={onAdopt}>{C.adoptLine}</Button>
           )}
           {hasProfile && profileOpen && (profileLoading ? (
             <div className={s['mp-prof-msg']}><LoadingStatus>{C.profileLoading}</LoadingStatus></div>
@@ -110,16 +109,14 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
               drawn Fläche, so an outline that was just paced out can be KEPT instead of traced a
               second time by hand over the top of the measurement. */}
           {onAdopt && (
-            <button type="button" className={cx('ip-btn', 'ghost', s['mp-adopt-btn'])} onClick={onAdopt}>
-              <Icon id="area" />{C.adoptArea}
-            </button>
+            <Button variant="quiet" className={s['mp-adopt-btn']} icon={<Icon id="area" />} onClick={onAdopt}>{C.adoptArea}</Button>
           )}
         </>
       )}
       {onCalibrate ? (
-        <button type="button" className={cx('ip-btn', blocked ? 'primary' : 'ghost', s['mp-cal-btn'])} onClick={onCalibrate}>
-          <Icon id="measure" />{blocked ? calibrateLabel : recalibrateLabel}
-        </button>
+        <Button variant={blocked ? 'primary' : 'quiet'} className={s['mp-cal-btn']} icon={<Icon id="measure" />} onClick={onCalibrate}>
+          {blocked ? calibrateLabel : recalibrateLabel}
+        </Button>
       ) : scaleNote ? (
         <div className={s['mp-cal-note']} role="status"><Icon id="measure" />{scaleNote}</div>
       ) : null}

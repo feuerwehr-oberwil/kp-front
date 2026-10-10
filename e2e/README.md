@@ -13,10 +13,11 @@ mount, a wedged session, a render loop on the Karte.
 | `demo.spec.ts` | the public demo's entry fits a phone | only against a demo deployment |
 | `workspace-flows.spec.ts` | undo, timeline, keyboard, Abschluss, replay across the workspace seams | CI; locally opt-in, `E2E_WORKFLOWS=1` |
 | `journeys.journey.ts` | performance journeys: requests, bytes, writes, leaks and interaction times on a busy Einsatz, compared against `e2e/perf/baseline.json` ([docs/testing/perf-journeys.md](../docs/testing/perf-journeys.md)) | CI job «Performance», chromium; opt-in elsewhere (`PERF_JOURNEYS=1`, `just perf`) |
+| `screens.visual.ts` | screenshot regression: nine frozen states (Lage, Plan, Trupps, Verlauf, Rapport, kiosk; tablet + phone, one night) compared pixel by pixel with `e2e/visual/baseline/` ([docs/testing/visual-regression.md](../docs/testing/visual-regression.md)) | CI job «Visual», chromium; opt-in elsewhere (`VISUAL=1`, `just visual`) |
 | `touch.spec.ts` | coarse-pointer time controls at 1024×768 and 390×844, clearing, reachable actions and overflow | CI; locally opt-in, `E2E_WORKFLOWS=1` |
 
 CI's *Image* job runs the suite against the production container it has just built
-(`.github/workflows/ci.yml`); the journeys run in their own job, «Performance», against a container of their own. Only the rows marked CI actually run in «Image»: the demo spec skips
+(`.github/workflows/ci.yml`); the journeys run in their own job, «Performance», and the screenshots in «Visual», each against a container of their own. Only the rows marked CI actually run in «Image»: the demo spec skips
 on a station image. CI sets `E2E_WORKFLOWS=1` for its disposable stack; local workflow and touch tests skip without that flag. `playwright.config.ts`
 starts no servers.
 
@@ -46,6 +47,18 @@ failure while `navigator.onLine` is false (`isOfflineNetworkNoise`), because bei
 a client error. But Chromium's offline emulation reports `navigator.onLine === true` in a document
 reloaded while offline, so that drill's basemap tiles still report «error: Failed to fetch».
 The loop's own console line is never excused, and nothing turns the guard off.
+
+One report is excused without being listed: a broken basemap tile (09.10.2026). A reload while
+the Karte is still loading its tiles makes WebKit fail the in-flight tile fetches and the tile
+blobs it was decoding, and MapView reports them as «error: Load failed» and «error: An error
+occured reading the Blob argument to createImageBitmap». That turned the WebKit smoke red at
+random. The guard lets those two pass only when the same device was loading basemap tiles within
+3 s of the report (a request to a host of the service worker's `map-tiles` list in flight, ending
+or failing then), and none of its other requests failed then except by a cancel. It takes tile
+traffic, not a failed tile, as the sign: in the trace of one such failure only 3 of 15 broken tile
+fetches showed up as `requestfailed`. Such a report is decided when the test ends and goes
+into `client-errors-expected.json` with an `excused` note. Any other «Load failed» still fails
+the test.
 
 A test that needs more devices asks for `openDevice('device 2')`. That gives another browser
 context with the same base URL and viewport, guarded the same way.
@@ -123,3 +136,8 @@ file's own, which a production-mode backend refuses — hence `SEED_PIN`). After
 database again. Without `E2E_FLEET_SECRET`, the field scenario skips locally. In CI it fails instead: CI must
 never quietly drop it. It writes to its own Übung and to the server's fake fleet, so never run
 it against a station in use or a production deployment.
+
+## The six workspace workflows
+
+- CI enables the six workspace workflows and phone/tablet touch checks on its disposable stack.
+  Locally these mutations require `E2E_WORKFLOWS=1`; never target a station in use.

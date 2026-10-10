@@ -5,6 +5,15 @@ the storage root; used for media, snapshot blobs, and reference-data files. Swap
 module's internals for R2/S3 at scale without touching callers.
 """
 
+# **Backup originals are immutable.** Publish original blobs under fresh/content-addressed
+# keys before committing their SQL reference; delete obsolete files through `storage.delete`
+# (including transaction callbacks). The online backup guard retains deleted originals until
+# `app.backup` pins them; never bypass it with direct unlink or overwrite original keys in place.
+# Derived thumbnails/waveforms may be regenerated. Keep `.kp-backup` coordination files private
+# and never unlink its lock files. Corrupt deletion markers retain their pins for inspection;
+# they must not prevent other cleanup or backups. Incompatible schema rollback is an explicit restore with
+# `scripts/restore.sh --no-start`, followed by selecting the matching image; never auto-downgrade.
+
 import contextlib
 import fcntl
 import json

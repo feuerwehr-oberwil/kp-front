@@ -5,10 +5,11 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { useConfig } from './ConfigContext'
 import { SetupChecklist, type SetupState } from './SetupChecklist'
-import { fillTemplate, fmtFileSize } from '../lib/format'
+import { fillTemplate, fmtFileSize, formatTime } from '../lib/format'
 import { providerLabel, type DeploymentSharePointSource } from '../lib/deploymentConfig'
 import { Card, StatusBadge, Metric, UsageBar, ProgressBar, EmptyState, ResultChip, ConfirmButton, fmtDateTime, fmtRelTime } from './ui'
 import { useCellLabels } from './useCellLabels'
+import { RosterSnapshotDetail, type RosterSnapshotCounts } from './RosterSnapshotDetail'
 import './system.css'
 
 // ─── shapes (plain dict from GET /api/system; resilient — sections may be null) ──
@@ -94,11 +95,11 @@ function fmtCount(n: number | null | undefined): string {
 }
 
 /** Wall clock to the second — «Stand 17:49:20», the last heartbeat of the print agent.
- *  ⚠️ de-CH, like every other time in the Verwaltung (ui · fmtDate / fmtDateTime / fmtRelTime).
- *  With the browser's own locale this printed «05:49:20 PM» into a German page on any device
- *  set to en-US, which is most tablets out of the box. */
+ *  ⚠️ The DEPLOYMENT's locale (lib/format · formatTime), like every other time in the Verwaltung
+ *  (ui · fmtDate / fmtDateTime / fmtRelTime), never the browser's: that printed «05:49:20 PM»
+ *  into a German page on any device set to en-US, which is most tablets out of the box. */
 function fmtClock(d: Date): string {
-  return d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  return formatTime(d, true)
 }
 
 // ─── connector health ─────────────────────────────────────────────────────────
@@ -116,6 +117,9 @@ const STALE_AFTER_MS: Record<string, number> = {
   divera_alarms: 15 * 60_000,
   traccar: 10 * 60_000,
   divera_personnel: 2 * 24 * 60 * 60_000,
+  // Polled hourly by default (roster.snapshotIntervalMin); a quarter of a day without one
+  // success is a feed that stopped, not a slow one.
+  roster_snapshot: 6 * 60 * 60_000,
 }
 
 /** Does this connector record health at all? The polling rows do; the webhook/push rows carry
@@ -704,6 +708,17 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
     }
   }, [])
 
+  /** The same fetch without the loading card — after a button inside the page, so the page
+   *  (and the button's own result chip) stays where it is while the new numbers arrive. */
+  const reloadQuietly = useCallback(async () => {
+    try {
+      setState({ kind: 'ok', data: await apiGet<SystemResponse>('/api/system') })
+      setUpdatedAt(new Date())
+    } catch {
+      // the visible numbers stay; the toolbar's «Aktualisieren» is the loud retry
+    }
+  }, [])
+
   // Fetched here rather than inside SharePointCard: the Einrichtung checklist needs the same
   // `credentials`/`configured` facts the card renders, and a status this cheap is one fetch
   // shared by both rather than two independent ones racing each other on every page load.
@@ -810,7 +825,7 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
             <div className="adm-sys-grid">
             {/* Verbindungen — ONE table for everything this deployment talks to:
                 provider integrations (Divera/Traccar) and every consumer/producer
-                (print-relay agent with live heartbeat, capture poster, stats export,
+                (capture poster, stats export,
                 webhooks, web push, STT). Read-only; configured via env/CLI/admin. */}
             <Card title={C.connectors} tip={C.connectorsTip}>
               {state.data.integrations || state.data.connectors?.length ? (
@@ -843,7 +858,7 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                           divera_alarms: C.connDiveraAlarms,
                           traccar: C.connTraccar,
                           divera_personnel: C.connDiveraPersonnel,
-                          print_relay: C.connPrintRelay,
+                          roster_snapshot: C.connRosterSnapshot,
                           capture: C.connCapture,
                           stats: C.connStats,
                           divera_webhook: C.connDiveraWebhook,
@@ -854,7 +869,14 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                         // The polling rows are judged on their own health (last success + the
                         // per-connector staleness window); everything else still reads off the
                         // configured/state pair the server sends.
-                        const health = pollsFor(conn.id)
+                        // A run the deactivation cap HELD is not an outage: the feed works, a
+                        // person has to look at it. Its own word, and the cap's sentence below
+                        // instead of the server's English refusal line.
+                        const snapshot = conn.id === 'roster_snapshot' ? conn.counts as RosterSnapshotCounts | null | undefined : null
+                        const held = Boolean(snapshot?.held)
+                        const health = held
+                          ? { tone: 'warn' as const, state: C.snapHeld }
+                          : pollsFor(conn.id)
                           ? connectorHealth(conn, Date.now())
                           : {
                             tone: !conn.configured ? 'off' as const
@@ -873,11 +895,6 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                             <td>{conn.direction === 'in' ? C.directionIn : C.directionOut}</td>
                             <td>
                               <StatusBadge tone={health.tone} label="" state={health.state} />
-                              {conn.id === 'print_relay' && conn.detail && (
-                                <p className="adm-card-cap">
-                                  {fillTemplate(C.connLastSeen, { time: fmtClock(new Date(conn.detail)) })}
-                                </p>
-                              )}
                               {pollsFor(conn.id) && conn.configured && conn.lastSuccess && (
                                 <p className="adm-card-cap">
                                   {fillTemplate(C.connLastSuccess, { time: fmtRelTime(conn.lastSuccess) })}
@@ -886,8 +903,11 @@ export function SystemView({ onNavigate }: { onNavigate?: (id: string) => void }
                               {/* The server's own sentence — «401 Unauthorized», «name or
                                   service not known» — is the searchable half, so it is printed
                                   rather than translated into «Fehler». */}
-                              {conn.configured && conn.lastError && (
+                              {conn.configured && conn.lastError && !held && (
                                 <p className="adm-card-cap">{conn.lastError}</p>
+                              )}
+                              {conn.id === 'roster_snapshot' && conn.configured && (
+                                <RosterSnapshotDetail counts={snapshot} onReload={reloadQuietly} />
                               )}
                               {leavers > 0 && onNavigate && (
                                 <button

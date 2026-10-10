@@ -4,7 +4,8 @@
    --------------------------------------------------------------------------- */
 /* identity yields first: the switcher shrinks (title ellipsises) so the clock,
    journal actions and the Lage/Plan switch can never be pushed off the bar */
-.ip-switch { position: relative; display: flex; align-items: center; min-width: 0; flex: 0 1 auto; }
+/* no `position` here on purpose: the dropdown (.ip-menu) hangs off the whole .topbar, not the pill */
+.ip-switch { display: flex; align-items: center; min-width: 0; flex: 0 1 auto; }
 /* phone-only incident glyph in the switcher pill (title hidden ≤600px) */
 .ip-switch-glyph { display: none; place-items: center; color: var(--ink-dim); }
 .ip-switch-glyph .i { width: 17px; height: 17px; }
@@ -150,9 +151,10 @@
    24, less this row's own −12 bleed). With glyphs that is 3×38 + 2×3 + 196.0 + 30.9 = 346.9px
    against the 396px a 430px menu gives — which is why .ip-menu's max-width is 430 and not the
    380 it was before Teilen existed. Below 480px the glyphs go and the label drops to 12px:
-   267.1px, against 297px on a 360px phone and 325px on a 390px one. Only a 320px viewport
-   (260px of row) falls 7px short, and there the label ellipsises rather than wrapping — which
-   is the whole reason it is its own <span>. */
+   267.1px, against 310px on a 360px phone and 340px on a 390px one (the phone menu spans the
+   top bar, viewport − 16px, since 08.10.2026). A 320px viewport leaves 270px; should a locale
+   ever outgrow that, the label ellipsises rather than wrapping — which is the whole reason it is
+   its own <span>. */
 /* ⚠️ THREE TILES, not three bare words (27.09.2026, slim sweep · mockup 10): this was the only
    place in the app with naked text buttons side by side. Each is a `.head-tile.sm` (the family
    above — 36px inside a card, the one corner, the 1px edge). «Abschliessen» is the amber one — it
@@ -218,9 +220,14 @@
 /* small-caps section label inside the dropdown (e.g. "Dieser Einsatz") — same idiom as .set-group-t */
 .ip-menu-label { margin-top: 8px; padding: 4px 12px 2px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 
+/* ⚠️ Anchored to the .topbar (08.10.2026, owner: «can be aligned to the left of the header»), not
+   to the pill: under the pill it sat --bar-pad + 1px inside the bar's left edge and 8px below a
+   pill that is shorter than the bar, so on a tablet its top ran 6px up INTO the bar. Now its left
+   edge is the bar's outer edge (−1px: offsets start inside the bar's border), its top is 8px below
+   the bar's bottom, and it wears the bar's corner, so the two read as one stack. */
 .ip-menu {
-  position: absolute; top: calc(100% + 8px); left: 0; min-width: min(300px, 88vw); max-width: min(430px, 92vw);
-  background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-surface);
+  position: absolute; top: calc(100% + 1px + 8px); left: -1px; min-width: min(300px, 88vw); max-width: min(430px, 92vw);
+  background: var(--surface); border: 1px solid var(--glass-edge); border-radius: var(--r-bar);
   box-shadow: var(--e4); padding: 8px; z-index: var(--z-drawer-menu); max-height: calc(100dvh - 104px); overflow: auto;
 }
 .ip-menu-empty { padding: 12px; color: var(--ink-faint); font: var(--fw-medium) var(--fs-2) var(--body); }
@@ -335,7 +342,8 @@
 .or-note.or-online { color: var(--amber-strong); }
 .or-note.or-missing { color: var(--ink-dim); }
 /* browser-tab state: the readiness list is replaced by why it isn't one (see the component) */
-.or-browser { display: flex; gap: 12px; padding: 12px 16px; border-radius: var(--r-ctl);
+/* 12 round and an 8 gap: the 14px title «Offline zuverlässig als installierte App» stays one line at 375 */
+.or-browser { display: flex; gap: var(--sp-2); padding: var(--sp-3); border-radius: var(--r-ctl);
   background: var(--fill-soft); border: 1px solid var(--border); }
 .or-browser > .i { width: 17px; height: 17px; flex: none; color: var(--blue); margin-top: 2px; }
 .or-browser-t { margin: 0 0 4px; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
@@ -715,6 +723,13 @@
 @media (hover: hover) {
   .ip-btn.primary:hover { background: var(--btn-primary-hover); border-color: var(--btn-primary-hover); }
 }
+/* go: a primary whose move KEEPS things safely as they are (MeldungAction · go — «Am Einsatzort
+   lassen», D3-a), filled green like the Atemschutz «Eintritt». `--on-fill`, because the night green
+   is bright (01-tokens). Green is never «delete» and never a warning, so it cannot be misread. */
+.ip-btn.go { background: var(--green); color: var(--on-fill); border-color: var(--green); }
+@media (hover: hover) {
+  .ip-btn.go:hover { background: var(--green-solid-hover); border-color: var(--green-solid-hover); }
+}
 /* delete (Übungen in «Alle Einsätze», a confirm's destructive answer) — THE delete look
    (01-tokens · --del-*, 28.09.2026): red outline on the surface, never a solid destructive button.
    ⚠️ `.ip-btn danger` was written at a call site that predates the rename (BandGrid's
@@ -914,7 +929,8 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
 .rp-check-go { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
 /* the body starts under the LABEL, not under the dot: 16 (card pad) + 24 (dot) + 8 (gap) */
-.rp-check-extra { padding: 0 16px 16px 48px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+/* right inset 8, the chips' gap 8: two 14px columns hold «Widmer Céline · Einsatzleiter» whole at 1180 */
+.rp-check-extra { padding: 0 var(--sp-2) 16px 48px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 /* quick double-check lists (Anwesenheit names + Mittel lines): read-only chips, early
    leavers / amounts inline — corrections go through the row's Go arrow */
 /* No inner scroller. A 34vh cap put a second scroll region inside a surface that already scrolls
@@ -922,7 +938,7 @@
    `overscroll-behavior: contain`) — and it also swallowed the card's own tap area. The card grows
    and the page scrolls, which is the one behaviour there is nothing to learn about. */
 .rp-people { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 4px 16px; width: 100%; }
+  gap: var(--sp-1) var(--sp-2); width: 100%; }
 .rp-person { font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rp-person em { font-style: normal; color: var(--amber); font-weight: var(--fw-bold); }
@@ -1368,6 +1384,8 @@
 .wheelpop-btn.clear { color: var(--red); border-color: var(--del-edge); }
 .wheelpop-btn.clear svg { width: 14px; height: 14px; display: block; }
 .wheelpop-btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
+/* a note that blocks (a Wiedervorlage in the past) holds «OK» back until the wheels move */
+.wheelpop-btn:disabled { opacity: var(--disabled); cursor: default; }
 
 .cv-matgroup { display: flex; flex-direction: column; gap: 2px; }
 .cv-matgroup-head {
@@ -1793,15 +1811,6 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 /* the ladder's «close up» step: 4px apart (6 until 08.10.2026), 8px inside */
 .rp-head[data-fit-tight] .rp-head-actions { gap: 4px; }
 .rp-head[data-fit-tight] .rp-head-actions :is(.rp-state, .rp-split-main)[data-folded] { padding: 0 8px; }
-/* ⚠️ «Ausdrucken» is ONE line in every state (owner, staging 26.09.2026). It used to keep its
-   offline reason as a second line and grow to fit it: «Stationsdrucker offline» took two thirds of
-   a phone's row and stood twice as tall as the squares. The relay's dot says it (amber = offline) —
-   beside the glyph while the word stands, as a badge on the printer's corner once the tile is a
-   square — and the reason is said where it matters: a press asks «Stationsdrucker offline» before
-   it queues anything (ReportPreflight · startOutput), and it is the button's name. */
-.rp-head-actions .ip-btn.print-send.offline { flex-direction: row; align-items: center; padding-block: 0; }
-.rp-head-actions .print-send-main { position: relative; }
-.rp-head-actions .print-send[data-folded] .print-relay-dot { position: absolute; top: -3px; right: -6px; box-shadow: 0 0 0 2px var(--surface); }
 /* ⚠️ Rendered on every width, hidden everywhere but the phone — so the tab STATE is always
    there (a resize cannot land on a surface with no tab chosen) while the layout above 600px
    never sees it. Declared BEFORE the media query below, which turns it back on.

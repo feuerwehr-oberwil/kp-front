@@ -56,6 +56,7 @@ init-env:
 # Check a deployment and say what is wrong with it, in plain language.
 [group('Operations')]
 doctor *args:
+    @bash scripts/dev-behind.sh
     bash scripts/doctor.sh {{args}}
 
 # (⚠️ DESTRUCTIVE — it drops the schema and refills the asset volume. Confirmation is the typed
@@ -197,30 +198,55 @@ demo-reset:
 # DATABASE_URL, so tests/conftest.py fell back to SQLite in-memory while ci.yml runs them
 # against Postgres 16 — and SQLite does NOT abort a transaction on a statement error, which is
 # the class of bug that difference hides. It now runs them where CI runs them, in their own
-# database so nobody's dev data is dropped. Not covered — both need more than a container:
-# the gitleaks scan and the image build.)
+# database so nobody's dev data is dropped. It now also runs the rest of CI's Frontend and
+# Backend jobs: e2e types, the coverage floor, hidden sourcemaps, the bundle budget, both
+# audits, both license checks and the schema-drift check. Not covered — they need more than
+# a container: the gitleaks scan, the image build, e2e, visual and perf.)
 # Run everything CI would fail you on, before you push.
 [group('Quality')]
-ci: test-backend
+ci: schema-check test-backend
+    pnpm lint
+    pnpm exec tsc -p tsconfig.e2e.json
+    pnpm test:coverage
     pnpm build
+    node scripts/check-sourcemaps.mjs
+    node scripts/check-bundle-size.mjs
     node site/build.mjs --check
-    pnpm test
+    pnpm audit --prod --audit-level high
+    pnpm audit --audit-level moderate
+    python3 scripts/check_licenses.py frontend
     cd backend && uv run ruff format --check .
     cd backend && uv run ruff check .
     cd backend && uv run mypy app
-    pnpm lint
+    cd backend && uv run --with pip-audit pip-audit
+    python3 scripts/check_licenses.py backend
+
+# (CI's «alembic check» step, locally: a throwaway database on the dev Postgres, migrated to
+# head, compared with the models' metadata, dropped again — your dev data is never touched.)
+# Check that the migrated schema matches the models (alembic check).
+[group('Quality')]
+schema-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    docker compose -f docker-compose.dev.yml up -d --wait
+    db="kpfront_schema_$$"
+    docker compose -f docker-compose.dev.yml exec -T db createdb -U kpfront "$db"
+    trap 'docker compose -f docker-compose.dev.yml exec -T db dropdb -U kpfront "$db"' EXIT
+    export DATABASE_URL="postgresql+asyncpg://kpfront:kpfront@localhost:5434/$db"
+    (cd backend && uv run alembic upgrade head && uv run alembic check)
 
 # (Uses its OWN database on the dev Postgres — the suite creates and drops the schema, so
 # pointing it at `kpfront` would take your dev data with it. `|| true` on the create: the
-# second run is a duplicate-database error and that is the normal case.)
+# second run is a duplicate-database error and that is the normal case. Four workers like CI,
+# each in its own kpfront_test_gwN; extra args go to pytest: `just test-backend -n 0 -x tests/test_x.py`.)
 # Backend tests on Postgres, the way CI runs them (not the SQLite fallback).
 [group('Quality')]
-test-backend:
+test-backend *args:
     docker compose -f docker-compose.dev.yml up -d --wait
     -docker compose -f docker-compose.dev.yml exec -T db psql -qU kpfront -d postgres \
       -c 'create database kpfront_test' 2>/dev/null
     cd backend && DATABASE_URL=postgresql+asyncpg://kpfront:kpfront@localhost:5434/kpfront_test \
-      uv run pytest -q
+      uv run pytest -q -n 4 {{args}}
 
 # (Scope is CI's: `.`, not `app tests` — alembic/ is lint-clean too, and code CI checks but you
 # don't is code that breaks on push rather than on save. Includes the format check.)
@@ -235,7 +261,17 @@ lint:
 [group('Quality')]
 test:
     pnpm test
-    cd backend && uv run pytest -q
+    cd backend && uv run pytest -q -n 4
+
+# (Vitest's own dependency graph: a test runs when it imports — directly or not — a file that
+# differs from origin/main, committed or not. The backend has no such graph; `--lf` reruns what
+# failed last, `-n 4` runs the whole suite in a few minutes. A first look, not a gate: `just ci`
+# before you push.)
+# Only the frontend tests your branch can have affected, then the backend tests that failed last.
+[group('Quality')]
+test-changed:
+    pnpm exec vitest run --changed origin/main
+    cd backend && uv run pytest -q --lf --lfnf=none || test $? -eq 5
 
 # (A measurement, not a gate — prints a report. Presets live in src/lib/fatIncident.ts; see
 # docs/testing/fat-incident.md for what the numbers mean and the last recorded run.)
@@ -264,11 +300,41 @@ perf-accept run-id:
     PERF_SOURCE="CI run {{run-id}}" node scripts/perf-report.mjs --update $(ls -d tmp/perf-accept/run*)
     rm -rf tmp/perf-accept
 
+# (Throwaway Postgres + built app; never touches the dev database. CI's «Visual» job shoots the
+# same states and fails on a changed pixel — docs/testing/visual-regression.md.)
+# Shoot the screenshot regression states and compare them against e2e/visual/baseline/.
+[group('Quality')]
+visual *args:
+    bash scripts/visual.sh {{args}}
+
+# (A red «Visual» job or a «Visual baselines» run. A deliberate change of the look only — commit
+# the pictures on their own, saying why; never to turn the check green.)
+# Take a CI run's new pictures as the screenshot baselines.
+[group('Quality')]
+visual-accept run-id:
+    rm -rf tmp/visual-accept && gh run download {{run-id}} -n visual-results -D tmp/visual-accept
+    actual=$(find tmp/visual-accept -type d -name actual | head -1); \
+      test -n "$actual" || { echo "run {{run-id}} has no new pictures"; exit 1; }; \
+      cp "$actual"/*.png e2e/visual/baseline/
+    rm -rf tmp/visual-accept
+    git status --short e2e/visual/baseline
+
 # Type-check the frontend and the e2e specs without emitting.
 [group('Quality')]
 check:
     pnpm exec tsc --noEmit
     pnpm exec tsc -p tsconfig.e2e.json
+
+# (Read-only unless `--apply`. «Finished» = merged into origin/main, or its PR merged; a PR
+# closed unmerged only with `--closed`. `--apply` removes only what is clean (no change, no
+# untracked file, no ignored file outside the caches like node_modules), pushed, idle for 24 h,
+# and not a running process's cwd. `--keep 'p8-*'` protects a name; `--all` also lists what is
+# still in progress. Works on any repo — run it from a kp-rueck checkout too:
+# `python3 ../kp-front/scripts/wt_prune.py`.)
+# List finished worktrees and local branches — `--apply` removes the clean ones.
+[group('Development')]
+wt-prune *args:
+    python3 scripts/wt_prune.py {{args}}
 
 # --- Build & release  (tag a green main commit — see CHANGELOG.md) ------------
 
@@ -291,7 +357,7 @@ openapi: config-schema
 config-schema:
     cd backend && uv run python -m app.admin_config schema > ../docs/config.schema.json
 
-# Regenerate the committed roster-snapshot contract (schemas + example). Run it in the same
+# Regenerate the committed roster-snapshot + station-index contracts (schemas + examples). Run it in the same
 # change that touches app/roster_snapshot.py, then update the checksums recorded in
 # tests/test_roster_snapshot_contract.py AND in the kp-rueck copy. See docs/CONFIGURATION.md §4c.
 [group('Release')]
@@ -299,6 +365,8 @@ roster-schema:
     cd backend && uv run python -m app.roster_snapshot schema > ../docs/roster-snapshot.schema.json
     cd backend && uv run python -m app.roster_snapshot outcome-schema > ../docs/roster-snapshot-outcome.schema.json
     cd backend && uv run python -m app.roster_snapshot example > roster.snapshot.example.json
+    cd backend && uv run python -m app.station_index schema > ../docs/station-index.schema.json
+    cd backend && uv run python -m app.station_index example > ../docs/station-index.example.json
     @shasum -a 256 docs/roster-snapshot.schema.json docs/roster-snapshot-outcome.schema.json
 
 # (Needs no install — uvx fetches git-cliff. Add --tag vX.Y.Z to head it with a version.)

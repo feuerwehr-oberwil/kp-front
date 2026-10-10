@@ -1,3 +1,5 @@
+// Rules for this area that span modules: docs/tactical-objects.md.
+
 import type { BoardAnno, BoardPoint, Entity, LngLat } from '../types'
 import type { GeorefFit, PlanPt } from './georef'
 import { ROTATABLE } from './symbols'
@@ -251,6 +253,41 @@ export function liveOverlay(entities: Entity[], plan: PlanFit, margin = TWIN_CLI
     const p = pt(plan.fit, e.coord)
     if (!onSheet(p, e.kind === 'person' ? 0 : margin)) continue
     out.push({ id: e.id, pt: p, entity: e, rotationDeg: plan.fit.rotationDeg })
+  }
+  return out
+}
+
+/**
+ * A Verlauf photo placed on the Karte (lib/photoGeo), shown on this georeferenced sheet.
+ *
+ * ⚠️ The one RECORD a sheet draws without owning it (F16, 08.10.2026). `projectOntoSheet` keeps
+ * answering `null` for a photo — it is media, not a place on the paper, and a sheet anno for it
+ * would need a bake back through the fit for an object nobody places on paper. But «where was
+ * this taken» is exactly what a georeferenced plan can answer, so the sheet SHOWS the marker
+ * (and its view cone) read-only, and a tap opens the picture. Moving or removing it is the
+ * Karte's — the mark says so. A plan without a georeference shows nothing, and so does the
+ * Gebäude stack: a GPS fix carries no storey, and the stack's tiles are storeys.
+ */
+export interface PhotoMark {
+  id: string
+  pt: PlanPt
+  url?: string
+  /** the lens's bearing in the PAPER's frame (ground bearing + the sheet's own turn) */
+  heading?: number
+  takenAt?: string
+}
+
+export function photoOverlay(entities: readonly Entity[], plan: PlanFit, margin = TWIN_CLIP_MARGIN): PhotoMark[] {
+  if (plan.stack) return []
+  const out: PhotoMark[] = []
+  for (const e of entities) {
+    if (e.kind !== 'photo' || !e.photoOf || !Array.isArray(e.coord)) continue
+    const p = pt(plan.fit, e.coord)
+    if (!onSheet(p, margin)) continue
+    out.push({
+      id: e.id, pt: p, url: e.photoUrl, takenAt: e.takenAt,
+      ...(e.heading != null ? { heading: (((e.heading + plan.fit.rotationDeg) % 360) + 360) % 360 } : {}),
+    })
   }
   return out
 }

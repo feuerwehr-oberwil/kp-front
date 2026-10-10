@@ -12,6 +12,41 @@
  *  `TWIN_CLIP_MARGIN` is quoted by both projections; renaming either would rewrite device
  *  preferences for a word.
  */
+
+/*
+ * **Reference change or delete loses nothing.** Correcting a fit re-bakes every sheet-anchored
+ * object's map body — that correction is the whole point of correcting a fit — as ONE undo step
+ * with one Verlauf row («Referenz angepasst – n Objekte neu verortet»). A DELETED reference
+ * leaves both bodies standing: the sheet keeps its annos, the Karte keeps the ground positions
+ * the last fit baked, and neither is marked stale — last known truth, like a vehicle that
+ * stopped reporting. Nothing moves, so the re-bake honestly reports 0, and the row is therefore
+ * its own («Referenz entfernt – n Objekte behalten ihre letzte Position»): without it the
+ * Verlauf would say nothing whatever about an act somebody performed on purpose. ⚠️ It is
+ * derived from SHEET KEYS still on the rail (`georefTwins · referenceDelta`) — every
+ * Einsatzobjekt has a «Modul 2», so counting plan ids would read every object switch as a
+ * deletion. Re-linking later re-links both directions and re-bakes.
+ * ⚠️ **A reference ARRIVING is a seed, never a correction** (23.09.2026, two phantom rows in
+ * prod after a remount): the cause is decided PER SHEET KEY (`georefTwins · fitChange`). A key
+ * this session has never baked a fit for — plans listed late, a `georefKey` resolving to the
+ * binding's — bakes silently, no row, no step. Only a known key whose `fitSignature` changed is
+ * a change (its own pairs say `reference` or `measurement`); a key re-linked after «Referenz
+ * entfernt» is compared with the fit it was left on. `n` counts only GROUND relocations on those
+ * sheets (`movedOnSheets`) — never objects whose bake differs for another reason (a turn, a
+ * size, another sheet) — and `rebake` takes the undo step only when that count is > 0.
+ * A sheet with no fit linked BY HAND gets its ONE row from the act, never the re-bake
+ * (24.09.2026): the three commit points in `georefMode` (second pair placed, «Übernehmen»,
+ * «Passung übertragen») call `noteHandLink`, and `georefTwins · handLinkRow` writes «Plan mit
+ * Karte verknüpft – {plan}[ – n Objekte verortet]» unless the reader already knows that key (a
+ * re-link after «Referenz entfernt» keeps the re-bake's «Referenz angepasst»); `tacticalLocked`
+ * devices write nothing.
+ *
+ * The word «twin» survives where renaming it would cost something real: `twin:` is a persisted
+ * Ebenen-preference prefix (`lib/prefs`) and would reset every device's rows, and
+ * `TWIN_CLIP_MARGIN` is the one clip both derivations quote. Elsewhere it is only a name that
+ * has outlived its concept — the file `lib/georefTwins.ts`, `components/TwinTeamPill`, the copy
+ * keys `twinFromMap` / `twinUnnamed`, the `LayerPanel` `twins` prop — and any of those may be
+ * renamed by whoever is next in that file anyway. Nothing in the app is a twin.
+ */
 import { approvedUntouched, fitSimilarity, hasAutoPairs, residualClaim, type Georef, type GeorefFit, type GeorefPair, type PlanPt } from './georef'
 import type { PlanFit, TacticalObject } from './tacticalObjects'
 import type { PlanScale } from './planScale'
@@ -484,6 +519,8 @@ function omit<T extends object, K extends readonly (keyof T)[]>(o: T, keys: K): 
 const ENTITY_MAP_ONLY = [
   'coord', 'layer', 'kind', 'symbolSvg', 'badge', 'photoUrl', 'live', 'directed', 'noteW',
   'sizeM', 'reachM', 'truppId', 'trail', 't', 'floor',
+  // a photo marker's picture reference and EXIF facts — a photo is never a sheet anno
+  'photoOf', 'heading', 'takenAt',
 ] as const satisfies readonly (keyof Entity)[]
 type _EntityKeysAccounted = Assert<Exclude<keyof Entity, (typeof ENTITY_MAP_ONLY)[number]> extends keyof BoardAnno ? true : false>
 

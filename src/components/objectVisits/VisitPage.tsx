@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Icon } from '../../lib/icons'
+import { Button, IconButton } from '../Button'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
 import { newId } from '../../lib/ids'
@@ -380,7 +381,7 @@ export function VisitPage({ id }: { id: string }) {
         onBack={leave}
         actions={canEdit && lifecycle === 'draft' ? (
           <Menu
-            trigger={<button type="button" className={s.iconBtn} aria-label={C.menu} title={C.menu}><Icon id="more" /></button>}
+            trigger={<IconButton label={C.menu}><Icon id="more" /></IconButton>}
             popupClassName={s.menuPop}
             itemClassName={() => s.menuItem}
             // sending is automatic and «Als Datei sichern» lives in the cards that need it: the
@@ -490,8 +491,8 @@ export function VisitPage({ id }: { id: string }) {
         <div className={s.foot}>
           <div className={s.footRow}>
             {lifecycle === 'draft'
-              ? <button type="button" className="ip-btn primary" onClick={() => { void complete() }}><Icon id="check" />{C.complete}</button>
-              : <button type="button" className="ip-btn primary" onClick={() => { void finishCorrection() }}><Icon id="check" />{C.correctionDone}</button>}
+              ? <Button variant="primary" size="lg" icon={<Icon id="check" />} onClick={() => { void complete() }}>{C.complete}</Button>
+              : <Button variant="primary" size="lg" icon={<Icon id="check" />} onClick={() => { void finishCorrection() }}>{C.correctionDone}</Button>}
           </div>
         </div>
       )}

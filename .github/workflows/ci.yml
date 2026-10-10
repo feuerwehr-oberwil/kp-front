@@ -15,6 +15,12 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # The sibling product the «Shared files» job compares against. THE ONE LINE A FORK CHANGES:
+  # point it at your own kp-rueck fork to keep the check meaningful, or set it to "" to switch
+  # it off — it then skips with a notice instead of failing you against upstream's files.
+  SIBLING_REPO: "feuerwehr-oberwil/kp-rueck"
+
 jobs:
   # --- Frontend: type-check + production build --------------------------------------
   frontend:
@@ -35,7 +41,18 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint (eslint)
+      # eslint's own cache (content-hashed, node_modules/.cache/eslint): a run re-lints only the
+      # files that changed since the cached one. Keyed on the lockfile + config, so a plugin or
+      # rule change starts cold; every run saves its own entry under the sha.
+      - name: Restore eslint cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: node_modules/.cache/eslint
+          key: eslint-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.js') }}-${{ github.sha }}
+          restore-keys: eslint-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.js') }}-
+
+      # Per-rule ratchet against scripts/eslint-baseline.json (scripts/lint-ratchet.mjs).
+      - name: Lint (eslint, per-rule ratchet)
         run: pnpm lint
 
       - name: Type-check (tsc --noEmit)
@@ -45,8 +62,21 @@ jobs:
       - name: Type-check e2e (tsc -p tsconfig.e2e.json)
         run: pnpm exec tsc -p tsconfig.e2e.json
 
-      - name: Unit tests (vitest)
-        run: pnpm test
+      # ONE run, with coverage: the floor in scripts/coverage-floor.json fails it (vite.config.ts ·
+      # test.coverage). The totals go to the job summary; `pnpm coverage:raise` lifts the floor.
+      - name: Unit tests + coverage (vitest)
+        run: pnpm test:coverage
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          [ -f coverage/coverage-summary.json ] || exit 0
+          node -e '
+            const t = require("./coverage/coverage-summary.json").total
+            const f = require("./scripts/coverage-floor.json").floor
+            const rows = ["statements", "branches", "functions", "lines"].map((m) => `| ${m} | ${t[m].pct.toFixed(2)} % | ${f[m]} % |`)
+            console.log(["### Frontend coverage (vitest)", "", "| | measured | floor |", "|---|---|---|", ...rows].join("\n"))
+          ' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build SPA
         run: pnpm build
@@ -55,6 +85,11 @@ jobs:
       # no shipped file references them, and the service worker precaches none.
       - name: Sourcemaps are hidden and not precached
         run: node scripts/check-sourcemaps.mjs
+
+      # Gzipped entry / App / maplibre / pdf worker / CSS against scripts/bundle-baseline.json,
+      # +5 % budget. A growth the change buys on purpose: `--update`, own commit, with the reason.
+      - name: Bundle budget
+        run: node scripts/check-bundle-size.mjs
 
       # GitHub Pages serves site/ verbatim, so the generated pages are committed.
       # This fails if index.html / fr/index.html are behind the template or the
@@ -101,9 +136,81 @@ jobs:
         run: |
           mkdir -p /tmp/scan
           git archive HEAD | tar -x -C /tmp/scan
+          # From GHCR, the same image (same digest) as Docker Hub's zricethezav/gitleaks,
+          # without Docker Hub's anonymous pull limit.
           docker run --rm -v /tmp/scan:/repo \
-            zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
+            ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f \
             detect --source /repo --no-git --redact --exit-code 1
+
+  # --- Shared files: the copies KP Front and KP Rück hold of the same files ------------
+  # shared/MANIFEST.json lists every file the two products share by copy (telemetry sanitiser,
+  # alarm vocabulary, roster contract + reader, alarm intake corpus, loading snail, this check).
+  # backend/tests/test_shared_files.py holds THIS checkout to it, offline; this job is the only
+  # thing that reads kp-rueck, and kp-rueck runs the same script against this repository.
+  # It compares against kp-rueck's branch of the SAME NAME when one exists (on a push to main:
+  # the merged branch, read from the merge commit), else its default branch — so a change made
+  # in both repositories on equally named branches is green in both PRs at once.
+  # SKIPS with a notice when SIBLING_REPO is "" or cannot be checked out; never skips on drift.
+  # How to change a shared file: shared/README.md.
+  shared-files:
+    name: Shared files match KP Rück
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Pick the sibling's paired branch
+        id: pair
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          ref="$HEAD_REF"
+          if [ -z "$ref" ]; then
+            ref=$(printf '%s\n' "$HEAD_MESSAGE" | head -n 1 | sed -nE 's|^Merge pull request #[0-9]+ from [^/]+/(.+)$|\1|p')
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      # `continue-on-error`: no branch of that name is the normal case, not a failure.
+      - name: Check out the sibling's paired branch
+        id: paired
+        if: env.SIBLING_REPO != '' && steps.pair.outputs.ref != ''
+        continue-on-error: true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ env.SIBLING_REPO }}
+          ref: ${{ steps.pair.outputs.ref }}
+          path: .sibling
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out the sibling's default branch
+        id: default
+        if: env.SIBLING_REPO != '' && steps.paired.outcome != 'success'
+        continue-on-error: true
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: ${{ env.SIBLING_REPO }}
+          path: .sibling
+          fetch-depth: 1
+          persist-credentials: false
+
+      # The runner's own python3: the script is standard library only.
+      - name: Compare the shared files
+        env:
+          SIBLING_STATUS: ${{ steps.paired.outcome == 'success' && 'success' || steps.default.outcome }}
+          SIBLING_REF: ${{ steps.paired.outcome == 'success' && steps.pair.outputs.ref || 'its default branch' }}
+        run: |
+          if [ -z "${SIBLING_REPO:-}" ]; then
+            echo "::notice::SIBLING_REPO is empty — the shared-files check is switched off for this fork."
+            exit 0
+          fi
+          if [ "$SIBLING_STATUS" != "success" ]; then
+            echo "::notice::Could not check out ${SIBLING_REPO} (private, renamed or unreachable) — skipping."
+            echo "::notice::Set SIBLING_REPO in .github/workflows/ci.yml to a repository this workflow can read, or to ''."
+            exit 0
+          fi
+          echo "Comparing with ${SIBLING_REPO} at ${SIBLING_REF}"
+          python3 scripts/check_shared.py --sibling .sibling
 
   # --- Backend: ruff + migrations + pytest ------------------------------------------
   backend:
@@ -115,7 +222,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16@sha256:c1b3783309b6499c795eed7c20135a1a4d25cae1b575c3d52c6f536129a1b109
+        # ECR Public mirror of the Docker Official Image (same digest): Docker Hub's anonymous
+        # pull limit failed CI jobs at random (09.10.2026). Same for every image CI pulls.
+        image: public.ecr.aws/docker/library/postgres:16@sha256:c1b3783309b6499c795eed7c20135a1a4d25cae1b575c3d52c6f536129a1b109
         env:
           POSTGRES_USER: kpfront
           POSTGRES_PASSWORD: kpfront
@@ -148,9 +257,8 @@ jobs:
 
       - name: Sync dependencies (incl. dev)
         # `georef` too: without it the auto-alignment tests importorskip themselves away and
-        # the feature's load-bearing honesty rules go ungated. The PRODUCTION image still
-        # excludes the extra on purpose (the endpoint 503s and the app degrades to the
-        # manual point flow) — this is test tooling, not a deployment decision.
+        # the feature's load-bearing honesty rules go ungated. The production image installs
+        # the extra too (Dockerfile); an installation without it keeps the manual point flow.
         run: uv sync --extra dev --extra georef
 
       # Formatting is a gate, not a suggestion — same as kp-rueck. Fix locally with
@@ -182,8 +290,34 @@ jobs:
       - name: Alembic upgrade head
         run: uv run alembic upgrade head
 
+      # The migrated schema must equal the models' metadata: a column, index or constraint
+      # declared on one side only fails here instead of in the next autogenerated migration.
+      # Fix the MODEL to match what the deployed migrations built; never rewrite an old migration.
+      - name: Migrated schema matches the models (alembic check)
+        run: uv run alembic check
+
+      # A throwaway database for a test run: nothing in it has to survive a crash, so it need not
+      # wait for the disk. All three settings take effect on a reload (no restart; a service
+      # container cannot be given server flags). Building the schema went from ~1.7 s to ~0.25 s
+      # per round on a local Postgres 16 — the suite does that once per worker now, but every
+      # test still commits, and every commit waited for an fsync.
+      - name: Postgres without fsync (test database only)
+        env:
+          PGPASSWORD: kpfront
+        run: |
+          psql -h localhost -U kpfront -d kpfront -v ON_ERROR_STOP=1 \
+            -c "ALTER SYSTEM SET fsync = off" \
+            -c "ALTER SYSTEM SET synchronous_commit = off" \
+            -c "ALTER SYSTEM SET full_page_writes = off" \
+            -c "SELECT pg_reload_conf()"
+
+      # `-n 4` (pytest-xdist): this step was 14.6 of the job's 15.6 minutes, serially, on a
+      # 4-vCPU runner. Each worker gets its own database (kpfront_gw0 …, tests/conftest.py) and
+      # builds the schema once instead of per test. `-n` is not in addopts on purpose: a plain
+      # `uv run pytest` stays serial. `--durations` keeps the slowest tests in sight — one slow
+      # test now holds up a whole worker.
       - name: Pytest
-        run: uv run pytest -q
+        run: uv run pytest -q -n 4 --durations=15
 
   # --- Image: lint + build + boot + smoke the actual production container ------------
   # CI builds the real Dockerfile/compose stack that Railway and self-hosters run, so a
@@ -374,6 +508,78 @@ jobs:
           name: perf-playwright-report
           path: playwright-report/
           retention-days: 7
+
+      - name: Client errors reported by the app (on failure)
+        if: failure()
+        run: docker compose logs --no-color app | grep 'kpfront.clienterror' || echo "no client-error lines in the container log"
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
+  # --- Visual: screenshot regression tests against committed baselines ---------------------
+  # Nine frozen states of the production container (Lage, Plan, Trupps, Verlauf, Rapport, kiosk;
+  # tablet and phone, one night) compared pixel by pixel with e2e/visual/baseline/
+  # (e2e/screens.visual.ts, docs/testing/visual-regression.md). It catches what no assertion
+  # names: a merged visual pass that a later merge silently undid (#231). Its own runner, in
+  # parallel with «Image» and «Performance», so it is never on the gate's critical path; not a
+  # required check yet. A red run's verdict table is in the job summary; the pictures (expected,
+  # actual, diff) are the `visual-results` artifact, and `just visual-accept <run-id>` takes its
+  # actuals as the new baselines — for a deliberate change only, in its own commit.
+  visual:
+    name: Visual (screenshots vs baseline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SEED_PIN: '194731'   # the same throwaway values as «Image» — see the notes there
+      ADMIN_SECRET: 'ci-only-admin-secret-not-a-credential'
+      ALARM_WEBHOOK_SECRET: 'ci-only-fleet-secret-not-a-credential'
+      COMPOSE_FILE: docker-compose.yml
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Build and boot the production stack
+        uses: ./.github/actions/stack
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6; pnpm from packageManager
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install deps (Playwright)
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Screenshots vs baseline (browser → running container) + report
+        env:
+          E2E_BASE_URL: http://localhost:8000
+          E2E_PIN: ${{ env.SEED_PIN }}
+          VISUAL: '1'
+          PLAYWRIGHT_JSON_OUTPUT_NAME: visual-results/report.json
+        run: |
+          set +e
+          pnpm exec playwright test --project visual --reporter=list,json,html
+          shot=$?
+          node scripts/visual-report.mjs visual-results/report.json visual-results >> "$GITHUB_STEP_SUMMARY"
+          exit $shot
+
+      # expected / actual / diff per state, and the html report with its slider. `actual/` is what
+      # `just visual-accept <run-id>` takes as the new baselines.
+      - name: Upload the pictures (on failure)
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: visual-results
+          path: |
+            visual-results/
+            playwright-report/
+          retention-days: 14
 
       - name: Client errors reported by the app (on failure)
         if: failure()

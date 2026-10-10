@@ -2,17 +2,17 @@
    The prompt renders on the LAUNCHER only, never over an open incident — see lib/trouble.
    Styled as a calm card, not an alert: nothing here is urgent, and something that looks
    urgent on a command tablet costs attention that belongs to the Einsatz. */
-.fb-prompt { display: flex; flex-direction: column; gap: 10px; width: 100%; padding: 14px;
+.fb-prompt { display: flex; flex-direction: column; gap: var(--sp-3); width: 100%; padding: var(--sp-4);
   border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--fill-soft); }
-/* ⚠️ …and it keeps the launcher's ONE rhythm (13-incident · .ip-emptyapp-card): 18px between
-   blocks. The card carried no bottom margin at all, so the sentence under it («Eröffne einen
-   Einsatz …») started 6px below its border while everything else in that card breathes at 18 —
+/* ⚠️ …and it keeps the launcher's ONE rhythm (13-incident · .ip-emptyapp-card): 16px between
+   blocks (18 until 08.10.2026). The card carried no bottom margin at all, so the sentence under it
+   («Eröffne einen Einsatz …») started 6px below its border while everything else in that card breathed —
    the prompt read as glued to the copy it has nothing to do with (Bastian, 16.09.2026). */
-.ip-emptyapp-card .fb-prompt { margin-bottom: 18px; }
+.ip-emptyapp-card .fb-prompt { margin-bottom: var(--sp-4); }
 .fb-prompt-head { display: flex; align-items: center; gap: 8px; color: var(--ink-dim); }
 .fb-prompt-head svg { width: 15px; height: 15px; flex: none; }
 .fb-prompt-kicker { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.fb-prompt-what { font: 600 var(--fs-micro) var(--body); color: var(--ink-faint); margin-left: auto;
+.fb-prompt-what { font: var(--fw-medium) var(--fs-micro) var(--body); color: var(--ink-faint); margin-left: auto;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* `p.fb-prompt-q`, not `.fb-prompt-q`: this card mounts inside `.ip-emptyapp-card`, whose
    `.ip-emptyapp-card p` rule (13-incident.css) puts an 18px bottom margin under every <p> —
@@ -20,13 +20,13 @@
    it was winning over this `margin: 0` regardless of source order and stacking with `.fb-prompt`'s
    own 8px gap into an oversized gap before the button row. Matching its specificity here, in a
    sheet that loads after 13-incident.css, lets this rule win instead. */
-p.fb-prompt-q { margin: 0; font: 600 var(--fs-2) var(--body); color: var(--ink); }
+p.fb-prompt-q { margin: 0; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
 .fb-prompt-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 
 .fb-sheet { display: flex; flex-direction: column; gap: 12px; }
-.fb-q { margin: 0; font: var(--fw-bold) 15px var(--body); color: var(--ink); }
-.fb-intro { margin: 0; font: var(--fw-regular) 13px var(--body); color: var(--ink-dim); }
-.fb-input { width: 100%; min-height: 110px; padding: 10px 12px; resize: vertical;
+.fb-q { margin: 0; font: var(--fw-bold) var(--fs-3) var(--body); color: var(--ink); }
+.fb-intro { margin: 0; font: var(--fw-regular) var(--fs-2) var(--body); color: var(--ink-dim); }
+.fb-input { width: 100%; min-height: 110px; padding: var(--sp-2) var(--sp-3); resize: vertical;
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
   color: var(--ink); font: var(--fw-regular) var(--fs-2) var(--body); }
 /* --blue, not --accent: focus is a system signal, not brand. A station whose accent is its own
@@ -35,27 +35,27 @@ p.fb-prompt-q { margin: 0; font: 600 var(--fs-2) var(--body); color: var(--ink);
 .fb-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* Character count, shown only in the last tenth before the server's cap. Tabular so it doesn't
    jitter while typing. */
-.fb-count { margin: -6px 0 0; text-align: right; font: var(--fw-regular) 12px var(--body);
+.fb-count { margin: calc(-1 * var(--sp-2)) 0 0; text-align: right; font: var(--fw-regular) var(--fs-1) var(--body);
   color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 /* «Das wird mitgeschickt» is COLLAPSED since the sheet stopped transmitting: the operator is
    about to read the whole report in their own mail client or in a GitHub form, so the block is
    a detail on request rather than the last thing standing between them and a send. */
-.fb-tech > summary { cursor: pointer; font: 600 var(--fs-1) var(--body); color: var(--ink-dim);
+.fb-tech > summary { cursor: pointer; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim);
   min-height: 44px; display: flex; align-items: center; gap: 8px; list-style: none; }
 /* `display: flex` drops the UA marker in Chromium, so the fold had no affordance at all; it wears
    the one fold grammar now, the global `.chev` (29.09.2026) */
 .fb-tech > summary::-webkit-details-marker { display: none; }
 .fb-tech > summary > .chev { flex: none; width: 16px; height: 16px; color: var(--ink-faint); }
-.fb-tech-block { margin: 4px 0 0; padding: 10px 12px; overflow-x: auto;
+.fb-tech-block { margin: var(--sp-1) 0 0; padding: var(--sp-2) var(--sp-3); overflow-x: auto;
   border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim);
-  font: var(--fw-regular) 12px/1.6 var(--mono, ui-monospace, monospace); white-space: pre; }
-.fb-tech-note { margin: 6px 0 0; font: var(--fw-regular) 12px var(--body); color: var(--ink-faint); }
+  font: var(--fw-regular) var(--fs-1)/1.6 var(--mono, ui-monospace, monospace); white-space: pre; }
+.fb-tech-note { margin: var(--sp-1) 0 0; font: var(--fw-regular) var(--fs-1) var(--body); color: var(--ink-faint); }
 /* The two routes. Full-width cells rather than a button row: each one carries a sentence about
    what it costs (a GitHub account) and what it buys (a status you can follow), and that is the
    whole decision — a pair of bare labels would make the operator guess it. */
 .fb-routes { display: flex; flex-direction: column; gap: 8px; }
 .fb-route { display: flex; gap: 12px; align-items: flex-start; width: 100%; text-align: left;
-  padding: 12px 14px; cursor: pointer; border: 1px solid var(--glass-edge);
+  padding: var(--sp-3) var(--sp-4); cursor: pointer; border: 1px solid var(--glass-edge);
   border-radius: var(--r-sm); background: var(--surface); color: inherit; font: inherit; }
 @media (hover: hover) {
   .fb-route:hover { background: var(--fill-soft); }
@@ -65,20 +65,20 @@ p.fb-prompt-q { margin: 0; font: 600 var(--fs-2) var(--body); color: var(--ink);
 /* The chosen one carries a 2px ink border and compensates in padding, so picking a route does
    not shift the two cells by a pixel — a layout that twitches under the finger reads as a
    misfire and invites a second tap. */
-.fb-route.pick { border: 2px solid var(--ink-fill); padding: 11px 13px; }
+.fb-route.pick { border: 2px solid var(--ink-fill); padding: calc(var(--sp-3) - 1px) calc(var(--sp-4) - 1px); }
 .fb-route-ico { flex: none; display: grid; place-items: center; width: 32px; height: 32px;
   border-radius: var(--r-xs); background: var(--fill-soft); color: var(--ink); }
 .fb-route.pick .fb-route-ico { background: var(--ink-fill); color: var(--on-accent-ink); }
 .fb-route-ico svg { width: 15px; height: 15px; }
-.fb-route-body { display: flex; flex-direction: column; gap: 3px; }
+.fb-route-body { display: flex; flex-direction: column; gap: var(--sp-1); }
 .fb-route-t { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-  font: var(--fw-bold) 13.5px var(--body); color: var(--ink); }
-.fb-route-s { font: var(--fw-regular) 12px/1.5 var(--body); color: var(--ink-dim); }
+  font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
+.fb-route-s { font: var(--fw-regular) var(--fs-1)/1.5 var(--body); color: var(--ink-dim); }
 /* (the route's tag is THE tag recipe, `.ip-badge` + tone, 29.09.2026 — it was a green-filled pill) */
 /* What the file is and why it matters, directly under the routes it applies to both of. */
-.fb-diag-note { margin: -2px 0 0; padding-left: 10px; border-left: 2px solid var(--glass-edge);
-  font: var(--fw-regular) 12px/1.5 var(--body); color: var(--ink-faint); }
-.fb-privacy { display: flex; align-items: center; gap: 6px; margin: 0;
+.fb-diag-note { margin: -2px 0 0; padding-left: var(--sp-2); border-left: 2px solid var(--glass-edge);
+  font: var(--fw-regular) var(--fs-1)/1.5 var(--body); color: var(--ink-faint); }
+.fb-privacy { display: flex; align-items: center; gap: var(--sp-2); margin: 0;
   font: var(--fw-regular) var(--fs-1) var(--body); color: var(--ink-faint); }
 .fb-privacy svg { width: 14px; height: 14px; flex: none; }
 .fb-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
@@ -99,7 +99,7 @@ p.fb-prompt-q { margin: 0; font: 600 var(--fs-2) var(--body); color: var(--ink);
    strip answers by POSITION, and a tap lands on the nearest row. The strip takes the tap as a
    whole (a 44px-tall band), so the ticks themselves never need to be hit targets. */
 .jr-strip {
-  position: relative; flex: none; height: 34px; margin: 0 4px 6px; cursor: pointer;
+  position: relative; flex: none; height: 34px; margin: 0 var(--sp-1) var(--sp-2); cursor: pointer;
   border-radius: var(--r-sm); background: var(--fill-soft);
   box-shadow: inset 0 0 0 1px var(--glass-edge);
   /* it is a slider: without this a vertical flick both scrolls the drawer and jumps the log */

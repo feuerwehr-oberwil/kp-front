@@ -11,6 +11,7 @@ import { caretToEnd, toast } from '../lib/ui'
 import { Menu, Overlay, Sheet, SheetFoot } from '../lib/overlays'
 import { Combo } from './Combo'
 import { Stepper } from './Stepper'
+import { Button, IconButton } from './Button'
 import { EmptyState } from './EmptyState'
 import type { MittelEntry, MittelStatus } from '../types'
 import {
@@ -426,13 +427,12 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
               list: recommended.map((r) => (r.missing > 1 ? `${r.missing}× ${r.item.label}` : r.item.label)).join(' · '),
             })}
           </span>
-          <button type="button" className={s.recTake} onClick={recAmbiguous ? () => setPicking(true) : takeRecommended}>
+          <Button variant="primary" className={s.recTake} onClick={recAmbiguous ? () => setPicking(true) : takeRecommended}>
             {recAmbiguous ? M.lageStripCapture : M.lageStripTake}
-          </button>
-          <button type="button" className={s.recHide} onClick={() => setRecHiddenSig(recSig)}
-            title={M.lageStripHide} aria-label={M.lageStripHide}>
+          </Button>
+          <IconButton label={M.lageStripHide} className={s.recHide} onClick={() => setRecHiddenSig(recSig)}>
             <Icon id="close" />
-          </button>
+          </IconButton>
         </div>
       )}
 

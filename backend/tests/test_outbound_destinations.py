@@ -17,7 +17,7 @@ import pytest
 from PIL import Image
 
 from app import kroki as kk
-from app.report_pdf import ReportPayload, warm_report_tiles
+from app.report_pdf import _KROKI_PX_PORTRAIT, ReportPayload, _kroki_view
 
 CARTO = "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
 SWISSTOPO = "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg"
@@ -69,6 +69,18 @@ def tile_transport(monkeypatch: pytest.MonkeyPatch, tmp_path):
     return _install
 
 
+def fetch_kroki_base(payload: ReportPayload) -> None:
+    """The tile half of the composer's Kroki render (`compose_report_pdf`): the same view, the
+    same `approved_tile_template` gate, the same cache — without the drawing on top."""
+    assert payload.kroki is not None
+    kk.render_base(
+        _kroki_view(payload.kroki, *_KROKI_PX_PORTRAIT),
+        kk.approved_tile_template(payload.kroki.tiles),
+        cache=kk.get_tile_cache(),
+        max_tile_z=payload.kroki.maxTileZoom or 19,
+    )
+
+
 def _payload(tiles: str) -> ReportPayload:
     return ReportPayload.model_validate(
         {
@@ -89,7 +101,7 @@ def _payload(tiles: str) -> ReportPayload:
 def test_a_caller_chosen_destination_never_reaches_the_transport(tile_transport):
     """SEC-03: the report composer is open to every logged-in user and to the capture token."""
     seen = tile_transport(lambda _r: httpx.Response(200, content=_png()))
-    warm_report_tiles(_payload(LOOPBACK))
+    fetch_kroki_base(_payload(LOOPBACK))
     assert seen == [], "a caller-supplied tile template must not be fetched"
 
 
@@ -106,21 +118,21 @@ def test_a_caller_chosen_destination_never_reaches_the_transport(tile_transport)
 )
 def test_forbidden_tile_destinations_are_refused(tile_transport, tiles):
     seen = tile_transport(lambda _r: httpx.Response(200, content=_png()))
-    warm_report_tiles(_payload(tiles))
+    fetch_kroki_base(_payload(tiles))
     assert seen == []
 
 
 def test_only_the_zxy_slots_may_appear_in_a_template(tile_transport):
     """The template is `.format()`ed — a stray field would either raise or reach into objects."""
     seen = tile_transport(lambda _r: httpx.Response(200, content=_png()))
-    warm_report_tiles(_payload("https://a.basemaps.cartocdn.com/{z.__class__}/{x}/{y}.png"))
+    fetch_kroki_base(_payload("https://a.basemaps.cartocdn.com/{z.__class__}/{x}/{y}.png"))
     assert seen == []
 
 
 @pytest.mark.parametrize("tiles", [CARTO, SWISSTOPO, "https://tile.openstreetmap.org/{z}/{x}/{y}.png"])
 def test_the_deployments_own_basemaps_still_render(tile_transport, tiles):
     seen = tile_transport(lambda _r: httpx.Response(200, content=_png(), headers={"content-type": "image/png"}))
-    warm_report_tiles(_payload(tiles))
+    fetch_kroki_base(_payload(tiles))
     assert seen, "an approved provider must still be fetched"
     assert all(str(r.url).startswith(tiles.split("{")[0]) for r in seen)
 
@@ -134,7 +146,7 @@ def test_an_approved_host_that_resolves_inward_is_refused(tile_transport, monkey
     monkeypatch.setattr(egress, "_resolved_addresses", lambda host: ["10.0.0.5"])
     seen = tile_transport(lambda _r: httpx.Response(200, content=_png()))
     assert kk.approved_tile_template(CARTO) == "", "an approved host resolving inward must be refused"
-    warm_report_tiles(_payload(CARTO))
+    fetch_kroki_base(_payload(CARTO))
     assert seen == []
 
 
@@ -169,7 +181,7 @@ def test_a_redirect_is_never_followed(tile_transport):
             else httpx.Response(200, content=_png())
         )
     )
-    warm_report_tiles(_payload(CARTO))
+    fetch_kroki_base(_payload(CARTO))
     assert seen, "the approved provider is asked"
     assert all("cartocdn" in str(r.url) for r in seen), "the redirect target must not be fetched"
 

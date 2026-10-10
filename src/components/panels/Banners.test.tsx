@@ -33,7 +33,7 @@ const labels = (attachFirst: boolean, canAttach = true) => {
   const buttons = Array.from(document.querySelectorAll<HTMLElement>('.ml-act button'))
   return {
     order: buttons.map((b) => b.textContent?.trim()),
-    primary: buttons.find((b) => b.classList.contains('prim'))?.textContent?.trim(),
+    primary: buttons.find((b) => b.classList.contains('primary') || b.classList.contains('go'))?.textContent?.trim(),
   }
 }
 

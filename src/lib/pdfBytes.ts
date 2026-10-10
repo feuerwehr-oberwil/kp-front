@@ -21,6 +21,24 @@
  * ⚠️ The buffer handed to pdf.js is TRANSFERRED to its worker (detached), so every reader gets
  * its own copy and the cached original stays usable for the next open.
  */
+
+/*
+ * **A plan PDF is downloaded ONCE per revision, and its pages are rendered once per width**
+ * (18.09.2026). pdf.js is never handed a URL: `lib/pdfBytes` does one plain `GET` and
+ * `PdfViewport · docEntry` opens the document from `data` (a COPY — pdf.js transfers, i.e.
+ * detaches, the buffer it is given). The reason is cacheability, not tidiness: pdf.js fetches in
+ * RANGE requests, and a `206` is cacheable by nothing — not the HTTP cache, not Workbox (`200`
+ * only) — so every cold open re-downloaded tens of megabytes and offline the sheet was simply
+ * gone. `?v=N` is immutable by construction, so the backend says so
+ * (`api/reference · _download_headers`), the fetch may read it straight out of the cache, and a
+ * dedicated Workbox `reference-plans` CacheFirst route keeps it (purged with the others on an
+ * explicit denial, `public/sw-media-cache.js`). The unpinned address is always revalidated, so a
+ * replaced PDF still refreshes. The reader's rasterised pages survive its unmount in a
+ * byte-bounded LRU (`lib/pdfPageCache`, keyed document + page + CSS width, evicted bitmaps
+ * CLOSED) — the Plan surface is unmounted on every tab switch, and re-rasterising a multi-page
+ * A4 is the seconds of white column that read as «it is loading again». `evictPlan` («Erneut
+ * laden») drops bytes, pages and bitmaps together.
+ */
 import { ByteBudgetCache } from './byteBudgetCache'
 import { smallMemoryDevice } from './pdfRenderBudget'
 

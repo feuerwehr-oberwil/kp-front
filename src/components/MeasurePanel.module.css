@@ -1,12 +1,12 @@
 /* results panel — bottom-centre, above the tool rail */
 .measure-panel { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome); width: 320px;
-  display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: var(--glass);
+  display: flex; flex-direction: column; gap: 12px; padding: 16px; background: var(--glass);
   backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-surface);
   box-shadow: var(--e4); }
 /* No entry animation — same story as .pop in MapViewsMenu.module.css: the `animation: panelIn`
    here never fired, and the panel is the answer to a question the operator just asked. */
 .mp-hint { text-align: center; font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-dim); padding: 4px 0; }
-.mp-stat-row { display: flex; gap: 18px; align-items: center; }
+.mp-stat-row { display: flex; gap: 16px; align-items: center; }
 /* …and when the row folds the Höhenprofil, the row IS the button: full width, the --tap floor,
    left-aligned like the readout it still is, and the app's own press wash. */
 .mp-stat-row-btn { width: 100%; min-height: var(--tap); padding: 2px 0; border: 0; border-radius: var(--r-ctl);
@@ -20,13 +20,13 @@
 /* the ▾ flip is the app-wide `.chev` (02-base.css), off this button's aria-expanded */
 .mp-prof-toggle :global(.i) { width: 18px; height: 18px; }
 .mp-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.mp-k { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-micro); font-weight: 600; color: var(--ink-dim); }
+.mp-k { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-micro); font-weight: var(--fw-medium); color: var(--ink-dim); }
 .mp-k :global(.i) { width: 12px; height: 12px; }
-.mp-v { font-family: var(--mono); font-size: 17px; font-weight: var(--fw-bold); color: var(--ink); letter-spacing: -.3px; }
+.mp-v { font-family: var(--mono); font-size: var(--fs-3); font-weight: var(--fw-bold); color: var(--ink); letter-spacing: -.3px; }
 .mp-v.up { color: var(--green); }
 .mp-v.down { color: var(--red); }
 .mp-prof-title { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.mp-prof-msg { font-size: 12px; color: var(--ink-faint); padding: 10px 0; text-align: center; }
+.mp-prof-msg { font-size: var(--fs-1); color: var(--ink-faint); padding: 8px 0; text-align: center; }
 .mp-chart-wrap { width: 100%; }
 .mp-chart-plot { position: relative; }
 .mp-chart { width: 100%; height: 84px; display: block; }
@@ -34,32 +34,28 @@
    plot, a node dot in the map's own vocabulary – white fill, --blue ring; the two ends solid –
    and under the axis the cumulative distance the map writes beside the same node */
 .mp-chart-guide { stroke: var(--ink-16); stroke-width: 1; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
-.mp-chart-node { position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%;
+.mp-chart-node { position: absolute; width: 9px; height: 9px; translate: -50% -50%; border-radius: 50%;
   background: var(--surface); border: 2px solid var(--blue); pointer-events: none; }
 .mp-chart-node.end { background: var(--blue); }
 .mp-chart-axis { position: relative; height: 16px; margin-top: 2px; }
 .mp-chart-tick { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap;
-  font: var(--fw-bold) 10.5px var(--mono); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  font: var(--fw-bold) var(--fs-micro) var(--mono); color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 .mp-chart-tick.first { transform: none; left: 0 !important; }
 .mp-chart-tick.last { transform: none; left: auto !important; right: 0; }
-.mp-chart-fill { fill: color-mix(in srgb, var(--blue) 14%, transparent); stroke: none; }
+.mp-chart-fill { fill: var(--blue-16); stroke: none; }
 .mp-chart-line { fill: none; stroke: var(--blue); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .mp-prof-stats .mp-v { font-size: var(--fs-2); }
 /* the descent arrow points down, the ascent arrow up (the base glyph points right) */
 .mp-prof-stats .mp-stat:nth-child(1) .mp-k :global(.i) { transform: rotate(-90deg); }
 .mp-prof-stats .mp-stat:nth-child(2) .mp-k :global(.i) { transform: rotate(90deg); }
 /* «Als Linie übernehmen» — keep the measured Strecke as a drawn line */
-.mp-adopt-btn { align-self: stretch; justify-content: center; gap: 6px; }
-.mp-adopt-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.mp-adopt-btn :global(.i) { width: 14px; height: 14px; }
+.mp-adopt-btn { align-self: stretch; }
 /* Plan-only: start/redo scale calibration straight from the panel */
-.mp-cal-btn { align-self: stretch; justify-content: center; gap: 6px; }
-.mp-cal-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.mp-cal-btn :global(.i) { width: 14px; height: 14px; }
+.mp-cal-btn { align-self: stretch; }
 /* …and its counterpart on a sheet whose metres come from the Kartenverknüpfung: the same slot,
    as a reading rather than a control (there is nothing here to calibrate). */
-.mp-cal-note { align-self: stretch; display: flex; align-items: center; justify-content: center; gap: 6px;
-  font-size: 12px; color: var(--ink-dim); }
+.mp-cal-note { align-self: stretch; display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: var(--fs-1); color: var(--ink-dim); }
 .mp-cal-note :global(.i) { width: 14px; height: 14px; }
 
 /* phones: the bottom bars (nav, + tool bar when .phone-tools) plus the home

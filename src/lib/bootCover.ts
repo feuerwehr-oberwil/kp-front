@@ -1,3 +1,12 @@
+/*
+ * **An Einsatz opens behind the snail** (01.10.2026, `lib/bootCover`): a genuine open (App ·
+ * `coverId`, never a background remount or a re-select of the Einsatz on screen) keeps the
+ * pre-app Splash portalled over the whole workspace until the symbol pack, the framed Karte's
+ * first `idle`, the rail's plan tiles and the weather are in, capped at 8 s (below Splash's
+ * STUCK_MS), then fades it out. The launcher waits for the boot's pick (`bootDecided`): the list
+ * watch can fill the list first.
+ */
+
 import { useEffect, useRef, useState } from 'react'
 
 /** The longest an Einsatz's OPENING stays behind the snail. The cover exists so the operator

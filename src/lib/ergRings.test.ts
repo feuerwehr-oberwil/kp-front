@@ -5,7 +5,9 @@
 import { describe, expect, it } from 'vitest'
 import type { Entity } from '../types'
 import { appConfig } from '../config/appConfig'
-import { ergRingOverlays, ergRingsFor, isErgDay, parseErgDistance } from './ergRings'
+import { ergDayNote, ergRingOverlays, ergRingsFor, isErgDay, parseErgDistance } from './ergRings'
+import { lastSunEdge, type Coord } from './daylight'
+import { formatTime } from './format'
 // The ERG dataset is a fetched static asset now (lib/staticData) — inject it the way
 // the boot prefetch would, so the distance rows under the rings are real.
 import ergData from '../../public/erg.json'
@@ -13,8 +15,11 @@ import { __setErgData, type ErgData } from './erg'
 __setErgData(ergData as unknown as ErgData)
 
 
-const DAY = new Date('2026-09-07T12:00:00')
-const NIGHT = new Date('2026-09-07T23:00:00')
+// explicit UTC instants: the pick is the sun's, so the test machine's zone must not matter
+const DAY = new Date('2026-09-07T10:00:00Z')
+const NIGHT = new Date('2026-09-07T21:00:00Z')
+// Oberwil BL
+const OBERWIL: Coord = [7.5553, 47.5137]
 
 describe('parseErgDistance', () => {
   it('reads metres and kilometres into metres', () => {
@@ -33,11 +38,26 @@ describe('parseErgDistance', () => {
 describe('ergRingsFor', () => {
   const row = { si: '60 m', pd: '0.2 km', pn: '0.7 km', l: { li: '400 m', ld: '2.4 km', ln: '4.7 km' } }
 
-  it('the day window switches exactly at 07:00 and 19:00', () => {
-    expect(isErgDay(new Date('2026-09-07T06:59:00'))).toBe(false)
-    expect(isErgDay(new Date('2026-09-07T07:00:00'))).toBe(true)
-    expect(isErgDay(new Date('2026-09-07T18:59:00'))).toBe(true)
-    expect(isErgDay(new Date('2026-09-07T19:00:00'))).toBe(false)
+  it('day or night is the sun at the placard, not a 07–19 h clock', () => {
+    // December evening 17:30 CET: the sun set at ~16:42, so the night distance (the clock said day)
+    expect(isErgDay(new Date('2026-12-15T16:30:00Z'), OBERWIL)).toBe(false)
+    // December morning 07:30 CET: still dark (sunrise ~08:10)
+    expect(isErgDay(new Date('2026-12-15T06:30:00Z'), OBERWIL)).toBe(false)
+    // June evening 20:30 CEST: the sun is still up until ~21:30 (the clock said night)
+    expect(isErgDay(new Date('2026-06-21T18:30:00Z'), OBERWIL)).toBe(true)
+    // June morning 06:00 CEST: up since ~05:30
+    expect(isErgDay(new Date('2026-06-21T04:00:00Z'), OBERWIL)).toBe(true)
+    // midnight is night everywhere in Switzerland, midday is day
+    expect(isErgDay(new Date('2026-06-21T22:00:00Z'), OBERWIL)).toBe(false)
+    expect(isErgDay(new Date('2026-12-15T11:00:00Z'), OBERWIL)).toBe(true)
+    // no coordinate → the national fallback, still the sun
+    expect(isErgDay(new Date('2026-12-15T16:30:00Z'))).toBe(false)
+  })
+
+  it('the ring picks the night distance on a winter evening and the day one on a summer evening', () => {
+    expect(ergRingsFor(row, 'small', new Date('2026-12-15T16:30:00Z'), OBERWIL)[1]).toEqual({ kind: 'protect', radiusM: 700 })
+    expect(ergRingsFor(row, 'small', new Date('2026-06-21T18:30:00Z'), OBERWIL)[1]).toEqual({ kind: 'protect', radiusM: 200 })
+    expect(ergRingsFor(row, 'large', new Date('2026-12-15T16:30:00Z'), OBERWIL)[1]).toEqual({ kind: 'protect', radiusM: 4700 })
   })
 
   it('small spill: isolation plus the protective distance of the current half-day', () => {
@@ -99,5 +119,30 @@ describe('ergRingOverlays', () => {
     expect(ergRingOverlays([placard({ symbol: 'VKF Feuer' })], DAY)).toEqual([])
     // UN 1203 (petrol) has a guide but no TIH table
     expect(ergRingOverlays([placard({ fields: { 'UN-Nr.': '1203' } })], DAY)).toEqual([])
+  })
+})
+
+describe('ergDayNote', () => {
+  it('names the horizon crossing that made it day or night', () => {
+    const winterEvening = new Date('2026-12-15T16:30:00Z')
+    const edge = lastSunEdge(OBERWIL, winterEvening)
+    expect(edge?.kind).toBe('sunset')
+    // Basel/Oberwil sunset on 15.12.: ~16:41–16:42 CET (15:41 UTC)
+    expect(Math.abs(edge!.at.getTime() - Date.parse('2026-12-15T15:41:30Z'))).toBeLessThan(3 * 60_000)
+    expect(ergDayNote(winterEvening, OBERWIL)).toBe(`Nacht · Sonnenuntergang ${formatTime(edge!.at)}`)
+
+    const summerEvening = new Date('2026-06-21T18:30:00Z')
+    const rise = lastSunEdge(OBERWIL, summerEvening)
+    expect(rise?.kind).toBe('sunrise')
+    // sunrise on 21.06.: ~05:30 CEST (03:30 UTC)
+    expect(Math.abs(rise!.at.getTime() - Date.parse('2026-06-21T03:30:00Z'))).toBeLessThan(5 * 60_000)
+    expect(ergDayNote(summerEvening, OBERWIL)).toBe(`Tag · Sonnenaufgang ${formatTime(rise!.at)}`)
+  })
+
+  it('says only «Tag»/«Nacht» where the sun has not crossed within 24 h (polar day/night)', () => {
+    const svalbard: Coord = [19, 78] // Svalbard
+    expect(lastSunEdge(svalbard, new Date('2026-06-21T12:00:00Z'))).toBeNull()
+    expect(ergDayNote(new Date('2026-06-21T12:00:00Z'), svalbard)).toBe('Tag')
+    expect(ergDayNote(new Date('2026-12-21T12:00:00Z'), svalbard)).toBe('Nacht')
   })
 })

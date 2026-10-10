@@ -20,6 +20,7 @@ import { Sheet } from '../lib/overlays'
 import { TimeField } from './TimeField'
 import { EmptyState } from './EmptyState'
 import { ShiftConflictNotice } from './ShiftConflictNotice'
+import { Button, IconButton } from './Button'
 import s from './BandGrid.module.css'
 
 const clock = (iso: string): string => {
@@ -69,13 +70,13 @@ function ResolveSheet({ person, bandTitle: title, cell, split, onPick, onClose }
     <Sheet open onClose={onClose} fit sheetClassName={s.sheet} title={mixed ? S.resolveTitle : S.crossTitle}
       footer={
         <>
-          <button type="button" className="ip-btn" onClick={onClose}>{S.resolveCancel}</button>
-          <button type="button" className="ip-btn" onClick={() => { onPick('available'); onClose() }}>
+          <Button onClick={onClose}>{S.resolveCancel}</Button>
+          <Button onClick={() => { onPick('available'); onClose() }}>
             {S.resolveAvailable}
-          </button>
-          <button type="button" className="ip-btn primary" onClick={() => { onPick('confirmed'); onClose() }}>
+          </Button>
+          <Button variant="primary" onClick={() => { onPick('confirmed'); onClose() }}>
             {S.resolveConfirmed}
-          </button>
+          </Button>
         </>
       }
     >
@@ -227,13 +228,13 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
       footer={
         <>
           {band && (
-            <button type="button" className="ip-btn ip-btn-danger" onClick={() => { onRemove(band.id); onClose() }}>
-              <Icon id="trash" />{S.removeBand}
-            </button>
+            <Button variant="danger" icon={<Icon id="trash" />} onClick={() => { onRemove(band.id); onClose() }}>
+              {S.removeBand}
+            </Button>
           )}
-          <button type="button" className="ip-btn primary" onClick={commit}>
+          <Button variant="primary" onClick={commit}>
             {band ? S.save : S.create}
-          </button>
+          </Button>
         </>
       }
     >
@@ -352,9 +353,9 @@ export function BandGrid({
              definieren» onto three lines */
           action={canEdit ? (
             <div className={s.emptyAct}>
-              <button type="button" className="ip-btn primary" onClick={() => setSheet('new')}>
-                <Icon id="plus" />{S.addBandFirst}
-              </button>
+              <Button variant="primary" icon={<Icon id="plus" />} onClick={() => setSheet('new')}>
+                {S.addBandFirst}
+              </Button>
               <p className={s.emptyAxis}>{S.emptyAxisHint}</p>
             </div>
           ) : undefined} />
@@ -416,8 +417,8 @@ export function BandGrid({
                 no proposal, no adopting a drawn bar, no collecting anything by matching times. */}
             {canEdit
               ? (
-                <button type="button" className={s.addBand} onClick={() => setSheet('new')}
-                  title={S.addBand} aria-label={S.addBand}><Icon id="plus" /></button>
+                <IconButton variant="secondary" className={s.addBand} onClick={() => setSheet('new')}
+                  label={S.addBand}><Icon id="plus" /></IconButton>
               )
               : <span className={s.pad} aria-hidden />}
           </div>

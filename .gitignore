@@ -10,10 +10,14 @@ __pycache__/
 .mypy_cache/
 *.tsbuildinfo
 
+# vitest coverage output (`pnpm test:coverage`)
+/coverage/
+
 # Playwright e2e smoke artifacts (see e2e/, playwright.config.ts)
 /test-results/
 /playwright-report/
 /perf-results/
+/visual-results/
 /blob-report/
 /playwright/.cache/
 
@@ -33,6 +37,11 @@ __pycache__/
 
 # Local scratch (working pdfs, throwaway files) — never published
 /tmp/
+# Scratch scripts (screenshot drivers, probes) are named `.x-*` wherever they sit — 81 of them
+# sat untracked in site/, which GitHub Pages publishes, one `git add -A` away from it. A local
+# vite config for serving the dev server over the tailnet likewise.
+.x-*
+/.vite.*.config.ts
 
 # UI prototypes & screenshot harnesses (Base UI spike, rail mockups). Throwaway by design:
 # they are how a look is tried out, not how it ships — the real app is the record.

@@ -52,6 +52,26 @@ rather than at the next restart; a 30 s scheduler refresh covers any reader that
 a session of its own.
 """
 
+# **Integration credentials are settable from `/admin`, encrypted, and read through an
+# accessor — never off `settings`.** Divera / Traccar / VAPID / STT / CARTO / the two webhook secrets /
+# `HEALTHCHECK_PING_URL` live in `integration_credentials`
+# (AES-256-GCM under an HKDF key derived from `SECRET_KEY`, which stays in `.env`), and every
+# consumer reads `app.credentials.get(name)` after `await load(db)`. **`.env` still wins where
+# it is set**, so no existing deployment changes. Two rules for anything added here: a
+# scheduler job whose credential is runtime-settable is **registered unconditionally and
+# no-ops when unset** (gating registration at boot is what made this impossible before), and
+# a secret is **write-only over the API** — settable, never readable. The CARTO basemap key is
+# the explicit client-credential exception: CARTO requires it in browser tile URLs, so it is
+# readable at runtime and must be restricted to deployment domains at the provider. The
+# authenticated organizer catalogue also shares this browser key for its route map; allow
+# that organizer's domain at CARTO too. ⚠️ Readable
+# is not public — `/api/config` serves it only to a caller holding a session, and «session»
+# includes an incident LINK (`LinkApp` mounts the whole app, and a link carries no
+# `access_token`, so `actor is not None` is the wrong test). Server-side renders (Rapport/Kroki)
+# use `app/carto.py` and the deployment's own credential, never the client's copy. `SECRET_KEY`,
+# `ADMIN_SECRET`, `KP_TELEMETRY_*` and `REQUIRE_PLAN_DIGEST` stay env-only on purpose: each
+# would defeat itself in the database it gates.
+
 from __future__ import annotations
 
 import ipaddress
@@ -157,9 +177,8 @@ FIELDS: tuple[CredentialField, ...] = (
     # CARTO requires this value in every browser tile URL. It therefore is not a server
     # secret; CARTO's domain restrictions are the protection against reuse elsewhere.
     CredentialField("carto_api_key", "maps", False, "CARTO Basemap API-Key"),
-    # --- Webhooks + relay -------------------------------------------------------------
+    # --- Webhooks ---------------------------------------------------------------------
     CredentialField("alarm_webhook_secret", "webhooks", True, "Alarm-Webhook-Secret"),
-    CredentialField("print_agent_secret", "webhooks", True, "Print-Agent-Secret"),
     # --- Monitoring -------------------------------------------------------------------
     # ⚠️ Write-only, deliberately, even though it is barely a secret to this deployment.
     # api/system reports it as a BOOLEAN with the same reasoning: the ping address is a write
@@ -185,6 +204,20 @@ FIELDS: tuple[CredentialField, ...] = (
     # The organizer's bearer key for /api/integrations (docs/object-visits.md). Write-only like
     # every secret: the admin generates it, hands it to the organizer once, and can only rotate.
     CredentialField("object_visits_integration_key", "object_visits", True, "Organizer-Schlüssel"),
+    # --- Station index (docs/CONFIGURATION.md §4d) -------------------------------------
+    # ONE address for all the station's published data (owner decision X6/X7): an index.json
+    # listing roster/vehicles/… by kind with checksums. Same rules as the roster source below,
+    # which stays as the fallback for stations that set it before the index existed.
+    CredentialField("station_index_source", "station_index", False, "Stationsdaten-Index"),
+    CredentialField("station_index_token", "station_index", True, "Stationsdaten-Token"),
+    # --- Roster snapshot (docs/CONFIGURATION.md §4c) -----------------------------------
+    # WHERE the station's published roster file lives: an https:// address, or an absolute
+    # path on this server (self-hosted: a file a script drops next to the stack). Readable,
+    # like the Traccar URL — «is it pointing at the right file?» is a question an operator
+    # answers off the screen. Anything secret belongs in the token, not in the address.
+    CredentialField("roster_snapshot_source", "roster_snapshot", False, "Personenstamm-Quelle"),
+    # Sent as `Authorization: Bearer …`, and only over https (roster_snapshot_ingest.read_source).
+    CredentialField("roster_snapshot_token", "roster_snapshot", True, "Personenstamm-Token"),
     # --- SharePoint EXPORT (Objektbesuche delivery) -----------------------------------
     # ⚠️ A SECOND app registration, separate from the pull's on purpose: the pull is promised
     # read-only (`Sites.Selected` READ), and the delivery needs WRITE on one site. Sharing one
@@ -192,6 +225,15 @@ FIELDS: tuple[CredentialField, ...] = (
     CredentialField("sharepoint_export_tenant_id", "sharepoint_export", False, "Azure Tenant-ID (Ablage)"),
     CredentialField("sharepoint_export_client_id", "sharepoint_export", False, "Azure Client-ID (Ablage)"),
     CredentialField("sharepoint_export_client_secret", "sharepoint_export", True, "Azure Client-Secret (Ablage)"),
+    # --- «Mit Microsoft anmelden» (optional, auth/microsoft) --------------------------------
+    # A THIRD app registration: sign-in (delegated `openid profile`), nothing else. Neither
+    # SharePoint registration is reused — those are app-only and must never sign a person in.
+    # The allow-list is readable on purpose: «who may get in this way» is exactly what an admin
+    # has to be able to check on the screen. Format: `identity=username, …` (auth/microsoft).
+    CredentialField("entra_login_tenant_id", "microsoft_login", False, "Azure Tenant-ID (Anmeldung)"),
+    CredentialField("entra_login_client_id", "microsoft_login", False, "Azure Client-ID (Anmeldung)"),
+    CredentialField("entra_login_client_secret", "microsoft_login", True, "Azure Client-Secret (Anmeldung)"),
+    CredentialField("entra_login_accounts", "microsoft_login", False, "Zugelassene Microsoft-Konten"),
 )
 
 BY_NAME: dict[str, CredentialField] = {f.name: f for f in FIELDS}
@@ -565,6 +607,17 @@ def validate(name: str, value: str) -> str:
             raise CredentialRefusedError("Ohne «/v1» am Ende – das hängt die App selber an.")
     if name == "healthcheck_ping_url":
         v = _require_url(name, v, https_only=False, message="Die Ping-Adresse muss mit https:// beginnen.")
+    if name in ("roster_snapshot_source", "station_index_source"):
+        # A URL (https anywhere, plain http only inside the station's own network — the same
+        # rule as the STT server), or an absolute path for a file on this host.
+        if v.startswith(("https://", "http://")):
+            v = _require_url(
+                name, v, https_only=False, message="Die Quelle muss mit https:// beginnen oder ein absoluter Pfad sein."
+            )
+        elif not v.startswith(("file:///", "/")):
+            raise CredentialRefusedError(
+                "Die Quelle muss eine https://-Adresse oder ein absoluter Pfad sein (z. B. /data/roster.json)."
+            )
     if name == "vapid_subject" and not v.startswith(("mailto:", "https://")):
         raise CredentialRefusedError("Der VAPID-Kontakt muss «mailto:…» oder «https://…» sein.")
     if name == "stt_language" and not (2 <= len(v) <= 8):
@@ -574,6 +627,8 @@ def validate(name: str, value: str) -> str:
         "sharepoint_client_id",
         "sharepoint_export_tenant_id",
         "sharepoint_export_client_id",
+        "entra_login_tenant_id",
+        "entra_login_client_id",
     ):
         # Both are GUIDs in the Azure portal. Checked because the alternative failure is a
         # 400 from a token endpoint half an hour later, in a log nobody is reading — and the
@@ -585,6 +640,17 @@ def validate(name: str, value: str) -> str:
                 "Das ist keine GUID. Tenant- und Client-ID stehen im Azure-Portal unter "
                 "«App-Registrierungen › Übersicht» und sehen aus wie "
                 "«00000000-0000-0000-0000-000000000000»."
+            ) from e
+    if name == "entra_login_accounts":
+        from .auth.microsoft import parse_accounts
+
+        try:
+            if not parse_accounts(v):
+                raise ValueError(v)
+        except ValueError as e:
+            raise CredentialRefusedError(
+                "Je Eintrag «Microsoft-Konto=Benutzername», getrennt durch Kommas – z. B. "
+                "«anna.muster@feuerwehr.ch=amuster». Statt der Adresse geht auch die Objekt-ID."
             ) from e
     if name == "object_visits_integration_key" and len(v) < 24:
         # A key an organizer authenticates with over the internet: long enough that guessing it

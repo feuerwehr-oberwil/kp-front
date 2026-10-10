@@ -16,6 +16,22 @@ no secret; they are hidden only so that no browser and no tablet ever loads them
 `build=` is the build **that threw**, `srv=` the server's. They differ when a tablet has not
 restarted since a deploy: symbolicate against `build=`, never against what is deployed now.
 
+## The rules
+
+**Sourcemaps are hidden** (24.09.2026): `build.sourcemap: 'hidden'` writes a `.map` beside every
+chunk. No bundle references it, and the service worker's precache excludes `*.map`.
+`scripts/check-sourcemaps.mjs` checks all of this in CI. Never switch to `true`, and never
+precache maps. To read a field stack, see [`docs/SOURCEMAPS.md`](SOURCEMAPS.md). A client
+crash report is ONE log line (`kpfront.clienterror`, newlines as « ⏎ », each field bounded). The
+client sends a repeated signature as a counter (`repeat=×N since=…`) and never drops it
+(`src/lib/reportError.ts`). The one thing it does not report is a bare fetch failure while
+`navigator.onLine` is false (`isOfflineNetworkNoise`, 24.09.2026). That is the device being
+offline, not a crash. The reports could not leave an offline device anyway, but the counter of
+failed basemap tiles went out after reconnect as «Failed to fetch ×N». `app.admin_postcheck`
+parses these lines back per device, the morning after every Einsatz (read-only;
+[`backend/README.md`](../backend/README.md)). If you change the line's shape, update
+`parse_crash_message` and its test.
+
 ## Symbolicate
 
 `scripts/symbolicate.mjs` (no dependencies) reads the stack, and understands the « ⏎ » the

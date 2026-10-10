@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest'
-import { dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart } from './format'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
+import { applyLocale } from '../config/copy'
+import { compareText, formatLocale, localeDate, localeDateTime, dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart } from './format'
 
 describe('restoreUmlauts', () => {
   it('restores transliterated umlauts (lower + upper variants)', () => {
@@ -142,6 +145,72 @@ describe('formatTime', () => {
   it('pads single-digit hours', () => {
     const d = new Date(2026, 5, 20, 1, 2, 3)
     expect(formatTime(d)).toBe('01:02')
+  })
+})
+
+/* B5, 08.10.2026: ~29 sites spelled 'de-CH' out (and lib/format itself read the static
+ * `appConfig.locale`), so a French or Italian station got German dates and weekdays. They all go
+ * through formatLocale now; for German the output must be byte-identical to what the literal said. */
+describe('formatLocale and the locale helpers', () => {
+  afterEach(async () => { await applyLocale() })
+  const d = new Date(2026, 9, 7, 19, 5, 9) // Wed 07.10.2026, 19:05:09 local
+  const shapes: (Intl.DateTimeFormatOptions | undefined)[] = [
+    undefined,
+    { day: '2-digit', month: '2-digit' },
+    { day: '2-digit', month: '2-digit', year: 'numeric' },
+    { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' },
+    { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' },
+    { weekday: 'short', day: '2-digit', month: '2-digit' },
+    { weekday: 'long', day: 'numeric', month: 'long' },
+  ]
+
+  it('is de-CH on a German station, and every helper says exactly what the literal said', () => {
+    expect(formatLocale()).toBe('de-CH')
+    for (const o of shapes) {
+      expect(localeDate(d, o)).toBe(d.toLocaleDateString('de-CH', o))
+      expect(localeDateTime(d, o)).toBe(d.toLocaleString('de-CH', o))
+    }
+    expect(formatTime(d)).toBe(d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' }))
+    expect(formatTime(d)).toBe('19:05')
+    expect(formatTime(d, true)).toBe('19:05:09')
+    expect(localeDate(d, { day: '2-digit', month: '2-digit' })).toBe('07.10.')
+    expect(localeDateTime(d, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })).toBe('07.10., 19:05')
+    // ISO strings and epoch ms are accepted where the call sites hold them
+    expect(localeDateTime(d.toISOString())).toBe(d.toLocaleString('de-CH'))
+    expect(localeDate(d.getTime())).toBe(d.toLocaleDateString('de-CH'))
+    const names = ['Zürcher', 'Ammann', 'Äbi', 'Oberli', 'Öhler', 'brunner']
+    expect([...names].sort(compareText)).toEqual([...names].sort((a, b) => a.localeCompare(b, 'de-CH')))
+  })
+
+  it('follows the deployment language, read as its Swiss form', async () => {
+    await applyLocale('fr')
+    expect(formatLocale()).toBe('fr-CH')
+    expect(localeDate(d, { weekday: 'short' })).toBe(d.toLocaleDateString('fr-CH', { weekday: 'short' }))
+    expect(localeDate(d, { weekday: 'long' })).toMatch(/mercredi/i)
+    await applyLocale('it')
+    expect(formatLocale()).toBe('it-CH')
+    expect(localeDate(d, { weekday: 'long' })).toMatch(/mercoledì/i)
+    // a bare «en» would be the US clock («07:05 PM»); a Swiss station reads 24 h
+    await applyLocale('en')
+    expect(formatLocale()).toBe('en-CH')
+    expect(formatTime(d)).toBe('19:05')
+    // a tag that names its region is taken as written
+    await applyLocale('en-GB')
+    expect(formatLocale()).toBe('en-GB')
+    await applyLocale('de-CH')
+    expect(formatLocale()).toBe('de-CH')
+  })
+
+  it('is the only way into a date, a time or a name sort: no literal locale left in src/', () => {
+    const src = join(process.cwd(), 'src')
+    const offenders: string[] = []
+    for (const f of readdirSync(src, { recursive: true }) as string[]) {
+      if (!/\.tsx?$/.test(f) || /\.test\.tsx?$/.test(f) || f.startsWith('config/copy')) continue
+      readFileSync(join(src, f), 'utf8').split('\n').forEach((line, i) => {
+        if (/(toLocale\w*String|localeCompare|DateTimeFormat)\([^)]*['"]de-CH['"]/.test(line)) offenders.push(`${f}:${i + 1}`)
+      })
+    }
+    expect(offenders).toEqual([])
   })
 })
 

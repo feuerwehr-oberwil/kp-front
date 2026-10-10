@@ -1,4 +1,5 @@
 import { ShellLoader } from './ShellLoader'
+import { Button } from './Button'
 import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
@@ -35,7 +36,7 @@ export function JournalDeliveryNotice({ status, count, refused = 0, closedRefuse
           <strong>{closedRefused === 1 ? C.closedTitleOne : fillTemplate(C.closedTitle, { n: closedRefused })}</strong>
           <p>{C.closedBody}</p>
           <div className="jr-delivery-actions">
-            <button type="button" className="ip-btn" onClick={onExport}>{C.export}</button>
+            <Button onClick={onExport}>{C.export}</Button>
           </div>
         </div>
       )
@@ -46,7 +47,7 @@ export function JournalDeliveryNotice({ status, count, refused = 0, closedRefuse
         <strong>{refused === 1 ? C.refusedTitleOne : fillTemplate(C.refusedTitle, { n: refused })}</strong>
         <p>{C.refusedBody}</p>
         <div className="jr-delivery-actions">
-          <button type="button" className="ip-btn" onClick={onExport}>{C.export}</button>
+          <Button onClick={onExport}>{C.export}</Button>
         </div>
       </div>
     )
@@ -62,8 +63,8 @@ export function JournalDeliveryNotice({ status, count, refused = 0, closedRefuse
       <strong>{unsafe ? C.storageTitle : count === 1 ? C.failedTitleOne : fillTemplate(C.failedTitle, { n: count })}</strong>
       <p>{unsafe ? C.storageBody : status === 'offline' ? C.offlineBody : C.savedBody}</p>
       <div className="jr-delivery-actions">
-        <button type="button" className="ip-btn primary" disabled={busy} onClick={() => void run()}>{busy && <ShellLoader />}{busy ? C.retrying : C.retry}</button>
-        <button type="button" className="ip-btn" onClick={onExport}>{C.export}</button>
+        <Button variant="primary" disabled={busy} icon={busy ? <ShellLoader /> : undefined} onClick={() => void run()}>{busy ? C.retrying : C.retry}</Button>
+        <Button onClick={onExport}>{C.export}</Button>
       </div>
     </div>
   )

@@ -349,7 +349,7 @@ railway ssh keys add                          # once, for the copy below
 - **Keep `SECRET_KEY` identical** (the duplicate copies it). It peppers every PIN and seals the
   stored credentials, so with a different key nobody can log in to the copy.
 - **Give staging its own** `ADMIN_SECRET`, `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`
-  (`app.gen_vapid`), `PRINT_AGENT_SECRET` and the two inbound webhook secrets. Leave
+  (`app.gen_vapid`) and the two inbound webhook secrets. Leave
   `HEALTHCHECK_PING_URL` **empty**, because the copy would otherwise keep prod's dead-man's switch
   green. `SEED_PIN` only lets the empty first boot come up; after the copy the accounts exist.
 - **What the refresh cuts**, in the same transaction as the restore: prod's push subscriptions
@@ -382,8 +382,8 @@ automatically. For a managed Postgres, set `DATABASE_URL` directly instead. Set 
 
 ### Integration credentials are no longer an `.env`-only story
 
-Seventeen of the optional variables in `.env.example` – every Divera, Traccar, Web Push,
-speech-to-text and webhook setting, plus `CARTO_API_KEY`, `PRINT_AGENT_SECRET` and
+Sixteen of the optional variables in `.env.example` – every Divera, Traccar, Web Push,
+speech-to-text and webhook setting, plus `CARTO_API_KEY` and
 `HEALTHCHECK_PING_URL` – can
 instead be set at `/admin` → **Anbindungen**, stored encrypted in this deployment's own database
 and applied **without a restart**. `SETUP.md` §5 is the operator's version, including which

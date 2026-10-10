@@ -6,6 +6,8 @@ import { confirmDialog, toast } from '../lib/ui'
 import { cx } from '../lib/cx'
 import { newId } from '../lib/ids'
 import { Segmented } from './Segmented'
+import { Button } from './Button'
+import { Chip } from './Chip'
 import { Menu, Overlay, Popover, SheetFoot, SheetGrab } from '../lib/overlays'
 import { alarmBarFor, currentRunStart, deriveTruppLive, earlyEntryCorrection, entryPressureAsks, isStandDownExit, estimatePressure, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppFieldsOf, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
@@ -1479,10 +1481,10 @@ export function AtemschutzView({
                 is the one a first-timer taps. On the handed-over phone board «+ Trupp» is the
                 bottom rail's own cell, so it is not repeated here. */}
             {canEdit && !focusMode && (
-              <button type="button" className={cx('ip-btn primary', s.emptyAct)} onClick={() => openForm('create')}>
+              <Button variant="primary" size="lg" className={s.emptyAct} icon={<Icon id="plus-bold" />} onClick={() => openForm('create')}>
                 {/* the whole «Trupp anmelden» (newTrupp): `start` is the form's one-verb footer since 27.09.2026 */}
-                <Icon id="plus-bold" /><span>{az.newTrupp}</span>
-              </button>
+                {az.newTrupp}
+              </Button>
             )}
           </div>
         ) : focusMode ? (
@@ -1975,11 +1977,15 @@ function TruppRow({
   const sev = isAtemschutzTrupp(t) ? alarm.sev : 0
   const monitored = isAtemschutzTrupp(t)
   /* ⚠️ The row says NAME and TIME, nothing else (24.09.2026, maintainer: «drop the blabla, just
-   * the time»). The Schätzung line, the state word and the clock caption went: the row's colour
-   * and the clock's colour carry due/overdue, the section heading carries in/ready/out, and the
-   * pressure is one tap away on the card. What the row gained is the second action — «Druck» —
-   * and words on both buttons, which is why a Trupp inside takes TWO lines on the phone
-   * (`.trowTwo`): at 360px a full name, a clock and two worded buttons do not share one. */
+   * the time»). The Schätzung line, the state word and the clock caption went: the section
+   * heading carries in/ready/out, and the pressure is one tap away on the card. What the row
+   * gained is the second action — «Druck» — and words on both buttons, which is why a Trupp inside
+   * takes TWO lines on the phone (`.trowTwo`): at 360px a full name, a clock and two worded
+   * buttons do not share one.
+   * ⚠️ …except the TIER (B5, 08.10.2026): fällig / überfällig / Alarmdruck stand in colour alone,
+   * which is no answer in direct sun or to a colour-blind reader. A glyph now sits under the
+   * clock (RowLine · tierMark), inside the clock cell: no new row. Glyph only, no word (owner,
+   * 09.10.2026: «Symbol only»); the word is in the row's aria-label. */
   const acts = monitored && canEdit && inField
   // ⚠️ «Draussen» and «angemeldet» are NOT one tone. They were both `trowIdle` (blue) while the
   // list still had a «Raus»-Abschnitt to tell them apart — and that section is gone (17.08.), so a
@@ -1991,6 +1997,7 @@ function TruppRow({
   // row can truthfully say: its clock is the Einsatzzeit, not a contact clock; it carries no
   // Schätzung and no «Kontakt», because there is nothing to check in and no cylinder to run down.
   const tone = rowTone(t, status, sev)
+  const tier = tierMark(alarm, sev, true)
   const rowRef = useRef<HTMLButtonElement>(null)
   // A nonce, not a boolean: tapping the same alarm again must replay the pointing gesture.
   // `onFlashed` rides in a ref so its (per-render) identity never restarts the flash effect.
@@ -2013,8 +2020,9 @@ function TruppRow({
   }, [focusNonce, focusScroll])
   return (
     <button ref={rowRef} type="button" className={cx(s.trow, acts ? s.trowTwo : s.trowOne, tone)} onClick={onOpen}
-      aria-label={`${t.name} — ${words.status(status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status))}`}>
-      <RowLine t={t} live={live} color={color} lite={lite} />
+      aria-label={[t.name, tier?.text, words.status(status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status))]
+        .filter((w, i, all) => w && all.indexOf(w) === i).join(' — ')}>
+      <RowLine t={t} live={live} color={color} lite={lite} tier={tier} />
       {/* ⚠️ always rendered, even when there is no button in it: these are fixed grid tracks, so a
           missing cell would pull every column after it out of line on that one row */}
       <span className={cx(s.trowAct, acts && s.trowActs)}>
@@ -2041,7 +2049,9 @@ function rowTone(t: Trupp, status: TruppLive['status'], sev: number): string {
  *  opened card's head (26.09.2026, owner: «keep the same UI whether the card is collapsed or
  *  not»). One drawing, so opening a Trupp never moves, resizes or recolours the line the thumb
  *  just pressed; the chevron beside it is the caller's, because it points the other way. */
-function RowLine({ t, live, color, lite }: { t: Trupp; live: TruppLive; color?: string; lite: boolean
+function RowLine({ t, live, color, lite, tier }: { t: Trupp; live: TruppLive; color?: string; lite: boolean
+  /** the tier as glyph + word under the clock (tierMark) — null/absent while silent */
+  tier?: TierMark | null
 }) {
   const az = appConfig.copy.atemschutz
   const words = plainWords(t, lite)
@@ -2072,9 +2082,31 @@ function RowLine({ t, live, color, lite }: { t: Trupp; live: TruppLive; color?: 
       <span className={s.trowClock}>
         <span className={s.trowClockVal}><ClockVal val={clock.val} /></span>
         <span className={s.trowSub}>{clockSub}</span>
+        {/* the glyph only (owner, 09.10.2026: «Symbol only»); aria-hidden because the row's own
+            aria-label and the card's status line already speak the word, and the title shows it
+            on hover */}
+        {tier && (
+          <span className={cx(s.trowTier, tier.crit && s.trowTierCrit)} aria-hidden title={tier.text}>
+            <Icon id={tier.icon} />
+          </span>
+        )}
       </span>
     </>
   )
+}
+
+/** The tier as a GLYPH, not colour alone (B5, 08.10.2026: sunlight, colour-blind). A different
+ *  glyph per tier, so the SHAPE tells them apart: the clock for «Fällig» (the radio check is due),
+ *  the warning triangle for «Überfällig» and for the Alarmdruck. Only the glyph is drawn (owner,
+ *  09.10.2026: «Symbol only»); `text` is the word for the row's aria-label and the hover title,
+ *  and a pressure alarm never says «Überfällig» (see `TruppAlarm.reason`). `withPressure` false
+ *  where the caller says the Alarmdruck in words already (the card's state line, with its limit). */
+interface TierMark { icon: string; text: string; crit: boolean }
+function tierMark(alarm: TruppAlarm, sev: number, withPressure: boolean): TierMark | null {
+  const az = appConfig.copy.atemschutz
+  if (sev <= 0) return null
+  if (alarm.reason === 'pressure') return withPressure ? { icon: 'warn', text: az.clockAlarmPressure, crit: true } : null
+  return sev >= 2 ? { icon: 'warn', text: az.clockOverdue, crit: true } : { icon: 'clock', text: az.rowDue, crit: false }
 }
 
 /** «⌓ 240 bar» | «Kontakt» — the two things a Trupp inside needs from the phone board, drawn ONCE
@@ -2317,8 +2349,9 @@ function TruppCard({
    * stands in, and there they would be the same word twice. */
   const rowMode = !!onCollapse
   /* ⚠️ 29.09.2026 (owner on staging): «drop the überfällig – if the card is red it's pretty obvious»,
-   * and «the draussen subtitle is probably not even required». So fällig / überfällig are no
-   * longer SHOWN: the red or amber card, its red clock and its Kontakt say it, and the word stays
+   * and «the draussen subtitle is probably not even required». So fällig / überfällig are not a
+   * state LINE: since B5 (08.10.2026) they are a glyph under the clock on the card's first
+   * line (RowLine · tierMark), so colour is not the only carrier, and this line stays
    * for a screen reader only (`hidden`). An out Trupp's «Draussen» goes on every board — its card
    * is the grey one with «Wieder in den Einsatz» on it. What stays in words is what colour cannot
    * carry: the Alarmdruck with its limit, the stopped clock, «Nicht eingesetzt», «Bereit», a work
@@ -2610,9 +2643,9 @@ function TruppCard({
             Rückgängig»). The row it writes still says «nicht eingesetzt», never «Austritt». */}
         {canEdit && preEntry && monitored && (
           <div className={s.standDownRow}>
-            <button type="button" className={s.standDownBtn} onClick={() => onStandDown(t.id)}>
-              <Icon id="logout" /><span>{az.actNotDeployed}</span>
-            </button>
+            <Button variant="quiet" icon={<Icon id="logout" />} onClick={() => onStandDown(t.id)}>
+              {az.actNotDeployed}
+            </Button>
           </div>
         )}
         {canEdit && inField && (
@@ -2817,15 +2850,18 @@ function TruppCard({
    * and the one-line foot. The actions stand ABOVE the facts: what a thumb does on this card is
    * the four tiles, and they stand together under the clock.
    * ⚠️ ONE drawing on every board since 29.09.2026 — see the zone list above TruppCard. */
+  // the opened card keeps the row's line, tier mark included (B5) — but not for the Alarmdruck,
+  // which its state line already says in words with the limit; and never on a stopped clock
+  const headTier = frozen ? null : tierMark(alarm, sev, false)
   const head = rowMode ? (
     <button type="button" className={s.trowHead} aria-expanded="true" onClick={onCollapse}
       aria-label={`${t.name} — ${az.collapse}`}>
-      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} />
+      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} tier={headTier} />
       <span className={s.trowChevron}><Icon id="chevron-up" /></span>
     </button>
   ) : (
     <div className={cx(s.trowHead, s.trowHeadStatic)}>
-      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} />
+      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} tier={headTier} />
     </div>
   )
   return (
@@ -3420,10 +3456,11 @@ function TruppForm({
      `pickKind` still re-seeds the Funkkanal while it is the untouched default. */
   const kindChooser = !lite ? (
     <div className={s.kindHeadSeg} role="radiogroup" aria-label={az.kindLabel}>
-      <button type="button" role="radio" aria-checked={isPa}
-        className={cx(s.kindHeadOpt, isPa && s.on)} onClick={() => pickKind('atemschutz')}>{az.kindAtemschutz}</button>
-      <button type="button" role="radio" aria-checked={!isPa}
-        className={cx(s.kindHeadOpt, !isPa && s.on)} onClick={() => pickKind('einfach')}>{az.kindPlain}</button>
+      {/* THE choice chip (a radio here, so `aria-checked` speaks and `aria-pressed` stays off) */}
+      <Chip role="radio" selected={isPa} aria-pressed={undefined} aria-checked={isPa}
+        className={s.kindHeadOpt} onClick={() => pickKind('atemschutz')}>{az.kindAtemschutz}</Chip>
+      <Chip role="radio" selected={!isPa} aria-pressed={undefined} aria-checked={!isPa}
+        className={s.kindHeadOpt} onClick={() => pickKind('einfach')}>{az.kindPlain}</Chip>
     </div>
   ) : null
 
@@ -3570,7 +3607,7 @@ function TruppForm({
         />
       </label>
       {/* Ausrüstung — multi-select chips: selected = filled, unselected = framed, the SAME chip the
-          Trupp sheet draws (TruppSheets · TruppSheet, `.miniChip`). The tick box they wore until
+          Trupp sheet draws (TruppSheets · TruppSheet, `<Chip>`). The tick box they wore until
           27.09.2026 (mock 14.09.) was a second state mark inside a chip that already has one; the
           checkbox ROLE stays, because «several go» is what a screen reader has to hear. Only under
           Atemschutz: a work squad takes no Retthaube in. The list comes from the station
@@ -3582,10 +3619,10 @@ function TruppForm({
             {atemschutzEquipment().map((e) => {
               const on = equipment.includes(e.id)
               return (
-                <button key={e.id} type="button" role="checkbox" aria-checked={on}
-                  className={cx(s.miniChip, on && s.miniChipOn)} onClick={() => toggleEquipment(e.id)}>
+                <Chip key={e.id} role="checkbox" selected={on} aria-pressed={undefined} aria-checked={on}
+                  onClick={() => toggleEquipment(e.id)}>
                   {az.equipmentLabels[e.id] ?? e.label}
-                </button>
+                </Chip>
               )
             })}
           </div>
@@ -3747,5 +3784,5 @@ function TruppForm({
 function fmtTime(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+  return formatTime(d)
 }

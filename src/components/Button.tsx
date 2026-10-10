@@ -10,11 +10,12 @@ import s from './Button.module.css'
 //   app wants that by accident. Pass type="submit" where it does.
 // · React 19 passes `ref` as a prop, so both take one without forwardRef.
 
-export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'danger'
+export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'danger' | 'go'
 
 type ButtonProps = Omit<ComponentPropsWithRef<'button'>, 'children'> & {
   /** primary: the one action of a form/sheet · secondary (default): the others · quiet: a word on
-   *  the surface («Später») · danger: THE delete look, a red outline */
+   *  the surface («Später») · danger: THE delete look, a red outline · go: the primary whose move
+   *  KEEPS things safely as they are, filled green (the Meldeleiste's «Am Einsatzort lassen») */
   variant?: ButtonVariant
   /** md (default) = 44px, the gloved floor · lg = 52px, the one big action of a screen */
   size?: 'md' | 'lg'

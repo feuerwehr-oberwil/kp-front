@@ -1,0 +1,26 @@
+{
+  "_comment": "Gzipped sizes of the chunks scripts/check-bundle-size.mjs watches. CI fails when one grows more than budgetPercent. Raise only with --update, in its own commit, with the reason.",
+  "budgetPercent": 5,
+  "chunks": {
+    "entry": {
+      "gzip": 134740,
+      "raw": 433778
+    },
+    "App": {
+      "gzip": 286487,
+      "raw": 943669
+    },
+    "maplibre": {
+      "gzip": 208636,
+      "raw": 787998
+    },
+    "pdfWorker": {
+      "gzip": 370381,
+      "raw": 1202594
+    },
+    "css": {
+      "gzip": 68909,
+      "raw": 420102
+    }
+  }
+}

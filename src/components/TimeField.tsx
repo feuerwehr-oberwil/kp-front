@@ -5,6 +5,22 @@
 // with a mouse. Always 24h regardless of OS language: a native picker renders AM/PM on an
 // English device, which is why none is used.
 
+/*
+ * - Time popovers join the shared dismissal guard: one Escape closes only the picker. Invalid
+ *   typed times stay open with an error; optional values expose «Leeren» left of «Jetzt» and «OK»
+ *   in the action row. Named state choices such as «noch da» stay above the wheels. Hold-repeat
+ *   buttons support click-only assistive activation without doubling pointer taps.
+ * - ONE time picker: every clock entry is `TimeField`/`WheelPopover` – no per-surface ± time
+ *   stepper. The Verlauf composer's «Uhrzeit …» (Wiedervorlage) opens `WheelPopover` straight off
+ *   the clock button (`title`, a day column of today + 6 days, `noNow`, and a `note` that shows the
+ *   resolved «Morgen · Fr 09.10. · 07:30» and BLOCKS «OK» on a past instant – never rolled to
+ *   tomorrow). The imported memo's «Aufnahme begann» is a `required` `TimeField`.
+ * - ONE date+time control: `DateTimeField` (`components/TimeField`, ISO in/out). The date is a
+ *   bounded day column («Mo 05.10.», `lib/zeitplanFormat · fmtWheelDay`) from `days` – the incident's (`incidentDays`)
+ *   or by default the last 60 days – never day/month/year wheels and never a native
+ *   `datetime-local`. A bare clock with an optional day column is `TimeField` (+`days`/`valueDay`).
+ */
+
 import { useRef, useState } from 'react'
 import { WheelPopover, type WheelValue } from './WheelPicker'
 import { hhmm, pad2 } from '../lib/format'
@@ -22,7 +38,7 @@ export function parseHHMM(raw: string): string | null {
   return `${pad2(h)}:${pad2(min)}`
 }
 
-export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, clearActive, days, placeholder, token }: {
+export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, clearActive, days, placeholder, token, required }: {
   /** current value as 'HH:MM' ('' = unset) */
   value: string
   /**
@@ -63,6 +79,8 @@ export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowL
    *  beginning tied to the alarm, «noch da» for an end that has not happened. The instant behind
    *  it is still stored in full (date included) — this is how it reads, not what it is. */
   token?: { label: string; tone: 'start' | 'open' }
+  /** a value that is always there (an imported memo's recording start): no «Leeren» */
+  required?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -112,7 +130,7 @@ export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowL
           days={days}
           // a named clear is offered even on an empty field: «noch da» is a state to SET, not a
           // value to erase, so it must not vanish once the field is already empty
-          onClear={value || clearLabel ? () => { setOpen(false); onCommit(null) } : undefined}
+          onClear={!required && (value || clearLabel) ? () => { setOpen(false); onCommit(null) } : undefined}
           clearLabel={clearLabel}
           clearActive={clearActive}
           shortcut={shortcut && { ...shortcut, onPick: () => { setOpen(false); shortcut.onPick() } }}

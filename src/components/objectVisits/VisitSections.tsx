@@ -4,6 +4,7 @@
 
 import { useState } from 'react'
 import { Icon } from '../../lib/icons'
+import { Button } from '../Button'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate, unitLabel } from '../../lib/format'
 import type { Item } from '../../lib/checklists'
@@ -202,7 +203,7 @@ function ItemRow({ item, doc, readOnly, pending, onEdit, onTakePhoto, onOpenPhot
       {input === 'photo' && (
         <>
           {thumbs}
-          <button type="button" className="ip-btn" onClick={() => onTakePhoto(item.id)}><Icon id="cam" />{C.takePhoto}</button>
+          <Button icon={<Icon id="cam" />} onClick={() => onTakePhoto(item.id)}>{C.takePhoto}</Button>
         </>
       )}
       {input !== 'photo' && !(input === 'check' && a?.v === 'defect') && thumbs}

@@ -20,8 +20,9 @@ function boot(time = 0) {
   const svg = document.querySelector('svg')!
   let finish!: () => void
   let cancel!: () => void
-  const animation = {
-    animationName: 'fs-arrival', currentTime: time,
+  // A running animation: its start time is fixed (the first frame has rendered).
+  const animation: { animationName: string; currentTime: number; startTime: number | null; finished: Promise<void> } = {
+    animationName: 'fs-arrival', currentTime: time, startTime: performance.now() - time,
     finished: new Promise<void>((resolve, reject) => { finish = resolve; cancel = () => reject(new Error('Cancelled')) }),
   }
   Object.defineProperty(svg, 'getAnimations', { configurable: true, value: vi.fn(() => [animation]) })
@@ -64,9 +65,7 @@ describe('snail launch', () => {
   it('continues the same clock through React handover and later loading stages', async () => {
     boot(2_000)
     const { waitForSnailArrival, continueSnailAnimation } = await import('./snailLaunch')
-    const waiting = waitForSnailArrival()
-    await vi.advanceTimersByTimeAsync(16)
-    await waiting
+    await waitForSnailArrival() // a running clock: no frame to wait for
     // React replaces the old boot DOM; its clock must survive that replacement.
     document.body.replaceChildren()
     const first = reactSvg()
@@ -82,12 +81,28 @@ describe('snail launch', () => {
     const { svg, animation } = boot(630)
     Object.defineProperty(svg, 'getAnimations', { value: vi.fn(() => [animation, { animationName: 'fs-shell', currentTime: 2_800 }]) })
     const { waitForSnailArrival, continueSnailAnimation } = await import('./snailLaunch')
-    const waiting = waitForSnailArrival()
-    await vi.advanceTimersByTimeAsync(16)
-    await waiting
+    await waitForSnailArrival() // a running clock: no frame to wait for
     const next = reactSvg()
     continueSnailAnimation(next.svg)
     expect(next.animations.map(a => a.currentTime)).toEqual([2_800, 2_800, 2_800])
+  })
+
+  it('takes the clock from the start time, not from a frame that is still overdue', async () => {
+    // `currentTime` stands still between frames; here the last frame is long overdue.
+    const { svg, animation } = boot(400)
+    const shell = { animationName: 'fs-shell', currentTime: 400, startTime: performance.now() - 2_000 }
+    Object.defineProperty(svg, 'getAnimations', { value: vi.fn(() => [animation, shell]) })
+    const { waitForSnailArrival, continueSnailAnimation } = await import('./snailLaunch')
+    const waiting = waitForSnailArrival()
+    await vi.advanceTimersByTimeAsync(16)
+    await waiting
+    expect(vi.getTimerCount()).toBe(0) // no hold: the entrance has long ended
+    const next = reactSvg()
+    continueSnailAnimation(next.svg)
+    for (const { currentTime } of next.animations) {
+      expect(currentTime).toBeGreaterThanOrEqual(2_000)
+      expect(currentTime).toBeLessThan(2_100)
+    }
   })
 
   it('starts in-workspace loaders at the idle instead of replaying the entrance', async () => {
@@ -121,13 +136,83 @@ describe('snail launch', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  it('times the hold from the first frame when the cover has not rendered yet', async () => {
+    // WebKit (CI 09.10.2026): no animation exists until the first frame, which came ~150-300 ms
+    // after the request; timing the hold from the request handed over mid-skid.
+    const { svg, animation, finish } = boot()
+    let rendered = false
+    Object.defineProperty(svg, 'getAnimations', { value: vi.fn(() => rendered ? [animation] : []) })
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => setTimeout(() => {
+      rendered = true
+      animation.startTime = performance.now()
+      animation.currentTime = 0
+      callback(performance.now())
+    }, 300))
+    const { waitForSnailArrival } = await import('./snailLaunch')
+    let ready = false
+    const waiting = waitForSnailArrival().then(() => { ready = true })
+    await vi.advanceTimersByTimeAsync(300 + 629)
+    expect(ready).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    finish()
+    await waiting
+    expect(ready).toBe(true)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('waits for a pending start time instead of guessing it', async () => {
+    const { animation } = boot()
+    animation.startTime = null
+    let frames = 0
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => setTimeout(() => {
+      if (++frames === 2) animation.startTime = performance.now()
+      callback(performance.now())
+    }, 16))
+    const { waitForSnailArrival } = await import('./snailLaunch')
+    let ready = false
+    const waiting = waitForSnailArrival().then(() => { ready = true })
+    // the start time arrives with the second frame (32 ms); the hold runs 630 ms from there
+    await vi.advanceTimersByTimeAsync(32 + 679)
+    expect(ready).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    await waiting
+    expect(ready).toBe(true)
+  })
+
+  it('does not wait for an arrival that a rendered frame did not bring', async () => {
+    const { svg } = boot()
+    Object.defineProperty(svg, 'getAnimations', { value: vi.fn(() => []) })
+    const { waitForSnailArrival } = await import('./snailLaunch')
+    let ready = false
+    const waiting = waitForSnailArrival().then(() => { ready = true })
+    await vi.advanceTimersByTimeAsync(16 + 680)
+    await waiting
+    expect(ready).toBe(true)
+  })
+
   it('bounds the hold even if neither a frame nor an animation completion arrives', async () => {
-    boot()
+    const { animation } = boot()
+    animation.startTime = null
+    vi.stubGlobal('requestAnimationFrame', vi.fn(() => 0))
+    const { waitForSnailArrival, FIRST_FRAME_MAX_MS } = await import('./snailLaunch')
+    let ready = false
+    const waiting = waitForSnailArrival().then(() => { ready = true })
+    await vi.advanceTimersByTimeAsync(FIRST_FRAME_MAX_MS + 679)
+    expect(ready).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    await waiting
+    expect(ready).toBe(true)
+  })
+
+  it('keeps the short frame wait in a hidden document, which gets no frames', async () => {
+    const { animation } = boot()
+    animation.startTime = null
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
     vi.stubGlobal('requestAnimationFrame', vi.fn(() => 0))
     const { waitForSnailArrival } = await import('./snailLaunch')
     let ready = false
     const waiting = waitForSnailArrival().then(() => { ready = true })
-    await vi.advanceTimersByTimeAsync(729)
+    await vi.advanceTimersByTimeAsync(50 + 679)
     expect(ready).toBe(false)
     await vi.advanceTimersByTimeAsync(1)
     await waiting

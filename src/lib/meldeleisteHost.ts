@@ -10,6 +10,16 @@
  * PORTALS into the workspace's `.app` while there is one, so the ladder the tokens describe is
  * the one the browser uses.
  */
+
+/*
+ * *No page is ever under the Meldeleiste* (staging r3 + r4 W1): every full page (the shared
+ * shell — Tafel, Anwesenheit, Mittel, Checklisten, Rapport) starts below the strip
+ * (`--ml-h` → `--ml-push`, Surface.module.css); only the Karte and the plans let it float over
+ * the map. On the Tafel the strip also folds to its most urgent row plus a count (`.az-tafel`);
+ * everywhere else every row stays open. Everything the top bar opens paints OVER the strip: the
+ * strip portals into the open Einsatz's `.app` (`lib/meldeleisteHost`, staging r5 N3), because
+ * `.app` is its own stacking context and from App root the strip outranked all of it.
+ */
 type Listener = () => void
 
 let host: HTMLElement | null = null

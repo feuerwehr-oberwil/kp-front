@@ -4,6 +4,7 @@ import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { Sheet } from '../lib/overlays'
 import { TimeField } from './TimeField'
+import { Button } from './Button'
 import s from './TimeBlockSheet.module.css'
 
 
@@ -197,9 +198,9 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
           </div>
         ))}
         {addLabel && onAdd && (
-          <button type="button" className={cx('ip-btn', 'ghost', s.add)} onClick={onAdd}>
-            <Icon id="plus" />{addLabel}
-          </button>
+          <Button variant="quiet" icon={<Icon id="plus" />} className={s.add} onClick={onAdd}>
+            {addLabel}
+          </Button>
         )}
         {note && <p className={s.note}>{note}</p>}
       </div>

@@ -1,3 +1,5 @@
+// Rules for this area that span modules: docs/sync-and-offline.md · «A closed Einsatz».
+
 import { ApiError } from './api'
 import { isIncidentRunning, type IncidentMeta } from './api/incidents'
 

@@ -1,4 +1,5 @@
 import { appConfig } from '../config/appConfig'
+import { getLocaleId } from '../config/copy'
 
 const prefixPattern = new RegExp(`^(${appConfig.symbols.namePrefixes.join('|')})\\s+`, 'i')
 
@@ -135,8 +136,40 @@ export function dtLocalToIso(local: string): string | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d.toISOString()
 }
 
+/**
+ * The BCP 47 tag every date, time and name sort follows: the DEPLOYMENT's language (copy ·
+ * getLocaleId, resolved once at boot), never the device's. A bare language tag reads as its Swiss
+ * form, because that is the national default the app is built for: «en» alone formats «07:05 PM»
+ * and «10/8/2026», «en-CH» the 24-hour «19:05» and «08.10.2026» every station expects. A tag that
+ * names its region is taken as written. German is exactly what the literal 'de-CH' used to say.
+ *
+ * ⚠️ Not `appConfig.locale`: that is the static 'de-CH' of the base config and does not follow the
+ * deployment (B5, 08.10.2026: ~29 sites spelled 'de-CH' out, so a French station got German dates).
+ */
+export function formatLocale(): string {
+  const id = getLocaleId() || 'de-CH'
+  return id.includes('-') ? id : `${id}-CH`
+}
+
+/** `Date#toLocaleDateString` in the deployment's locale (formatLocale) — the options stay the
+ *  caller's, so each surface keeps its own shape («08.10.», «08.10.2026», «Mi 08.10.»). */
+export function localeDate(date: Date | string | number, opts?: Intl.DateTimeFormatOptions): string {
+  return new Date(date).toLocaleDateString(formatLocale(), opts)
+}
+
+/** `Date#toLocaleString` (date AND time) in the deployment's locale (formatLocale). */
+export function localeDateTime(date: Date | string | number, opts?: Intl.DateTimeFormatOptions): string {
+  return new Date(date).toLocaleString(formatLocale(), opts)
+}
+
+/** Text order by the deployment's language (names, catalogue labels, Gerät groups). */
+export function compareText(a: string, b: string): number {
+  return a.localeCompare(b, formatLocale())
+}
+
+/** HH:MM (24 h, two digits; with seconds on request) in the deployment's locale (formatLocale). */
 export function formatTime(date: Date, withSeconds = false): string {
-  return date.toLocaleTimeString(appConfig.locale, {
+  return date.toLocaleTimeString(formatLocale(), {
     hour: '2-digit',
     minute: '2-digit',
     ...(withSeconds ? { second: '2-digit' as const } : {}),

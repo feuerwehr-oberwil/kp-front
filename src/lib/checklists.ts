@@ -17,9 +17,23 @@
 // blob (App.tsx). This file owns the schema, the loader, and the pure logic (progress, search,
 // Divera match) so it stays unit-testable.
 
+/*
+ * **Anleitungen are a checklist kind, not a second pipeline** (05.10.2026). `kind: "manual"`
+ * rides `checklists:<id>` + `checklists:<id>:p<N>` images, the same manifest, CLI, admin page and
+ * SharePoint folder; format in [`docs/CONFIGURATION.md` §9f](docs/CONFIGURATION.md). It is READ,
+ * never ticked: no tick state, no progress, nothing in the Verlauf/Rapport — tickable means
+ * `isTickable` (action/rapport) only, so check new kind switches against it. The picker shows
+ * them in their own «Anleitungen» group, one sub-head per `device` (`manualGroups`); the reader
+ * is `ManualReader` (own CSS module). Step pictures are prefetched into the SW's
+ * `checklist-assets` cache when the templates load (`warmManualImages`), because a manual is
+ * opened when it is needed — offline, for the first time. A step image the manifest has no
+ * asset for is refused by `admin_checklists validate`.
+ */
+
 import { apiGet } from './api'
 import { readThrough } from './idb'
 import genericAction from '../data/checklists/generic-action.json'
+import { compareText } from './format'
 
 // --- template schema (matches the bundled JSON) ----------------------------------
 
@@ -389,6 +403,6 @@ export function manualGroups(templates: ChecklistTemplate[], query: string): Dev
     groups.set(device, [...(groups.get(device) ?? []), t])
   }
   return [...groups.entries()]
-    .sort(([a], [b]) => a.localeCompare(b, 'de-CH'))
+    .sort(([a], [b]) => compareText(a, b))
     .map(([device, manuals]) => ({ device, manuals }))
 }

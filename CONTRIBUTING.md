@@ -58,12 +58,23 @@ pnpm dev     # Vite dev server on http://localhost:5188 (use an http:// origin, 
              # local backend (what `just dev` sets for you).
 pnpm build   # tsc --noEmit + vite build
 pnpm test    # vitest
-pnpm lint    # eslint
+pnpm lint    # eslint, warnings held per rule to scripts/eslint-baseline.json
 ```
+
+CI runs the unit tests once, with coverage (`pnpm test:coverage`), and fails below the floor in
+`scripts/coverage-floor.json`. When your change raises coverage, `pnpm coverage:raise` lifts the
+floor (it never lowers it); commit the file.
 
 **Backend** (FastAPI + PostgreSQL, Alembic) – Python managed with [uv](https://docs.astral.sh/uv/).
 See [`backend/README.md`](backend/README.md) for setup, migrations, and the admin CLIs, and
 [`docs/API.md`](docs/API.md) for the HTTP API.
+
+**Many branches at once.** Work in a worktree per branch, always started from `origin/main`
+(`git fetch && git worktree add ../kp-front-wt/<name> -b <branch> origin/main`). `just doctor`
+warns when the checkout you are in is far behind origin/main; `just wt-prune` lists the worktrees
+and local branches whose work is merged, with age and dirty state, and `just wt-prune --apply`
+removes the clean ones (never one with uncommitted or local-only files). Scratch scripts are
+named `.x-*` and git ignores them anywhere — keep them out of `site/`, which is published.
 
 For self-hosting (Postgres + the backend serving the SPA same-origin), use the bundled
 docker-compose stack – see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
@@ -83,8 +94,8 @@ that can't be undone.** Concretely:
 - For any generated calculation, show source, timestamp, and editable assumptions, and label
   estimates as *Planungshilfe / Schätzung*.
 
-See [`AGENTS.md`](AGENTS.md) for the full conventions; it is the source of truth and should be
-kept current when a convention changes.
+See [`AGENTS.md`](AGENTS.md) for the full conventions (and the `docs/` topic pages it points
+to); it is the source of truth and should be kept current when a convention changes.
 
 ## Conventions
 
@@ -97,6 +108,11 @@ kept current when a convention changes.
   of the accent – that breaks day/night and per-station accent theming.
 - The backend has a ruff pre-commit hook; the frontend has none – so **run
   `pnpm lint && pnpm test` before pushing**.
+- **Some files are shared with KP Rück by copy** – the telemetry sanitiser, the alarm keyword
+  vocabulary, the roster-snapshot contract and reader, the alarm intake corpus, the loading
+  snail. They are listed in [`shared/MANIFEST.json`](shared/MANIFEST.json); changing one is a
+  two-repository change on equally named branches, step by step in
+  [`shared/README.md`](shared/README.md). CI's «Shared files match KP Rück» fails otherwise.
 
 ## Pull requests
 

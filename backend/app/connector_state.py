@@ -35,8 +35,13 @@ TRACCAR = "traccar"
 #: The Mannschaft sync — the nightly autosync and the hand-triggered execute.
 DIVERA_PERSONNEL = "divera_personnel"
 
+#: The roster snapshot (app/roster_snapshot_sync.py) — the scheduled poll and «Jetzt abrufen».
+#: ⚠️ The one row whose ``detail`` is read back: its ``lastGood`` is the time-travel guard and
+#: the «unchanged, skip» memo. Losing it costs one idempotent re-apply, nothing more.
+ROSTER_SNAPSHOT = "roster_snapshot"
+
 #: Every connector this table knows about, in the order a status surface reads best.
-NAMES = (DIVERA_ALARMS, TRACCAR, DIVERA_PERSONNEL)
+NAMES = (DIVERA_ALARMS, TRACCAR, DIVERA_PERSONNEL, ROSTER_SNAPSHOT)
 
 #: How long a repeated, unchanged report may be suppressed (the Traccar sweep's value).
 TRACCAR_THROTTLE_SECONDS = 300
@@ -153,7 +158,7 @@ def as_json(row: ConnectorState | None) -> dict:
     tell «never ran» from «this build does not report it» is a reader that will get it wrong.
 
     ⚠️ The stored ``detail`` column is served as ``counts``: a connector row on ``/api/system``
-    already has a ``detail``, and that one is a STRING (the print relay's last-seen stamp). Two
+    already has a ``detail``, and that one is a STRING slot (null on every row today). Two
     fields of the same name and different types in one row is how a reader ends up rendering an
     object into a date.
     """

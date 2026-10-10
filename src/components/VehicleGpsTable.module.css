@@ -9,7 +9,7 @@
 }
 .table th,
 .table td {
-  padding: 7px 4px;
+  padding: var(--sp-2) var(--sp-1);
   text-align: left;
   border-bottom: 1px solid var(--border-soft);
   white-space: nowrap;
@@ -26,18 +26,18 @@
 /* a fix older than FIX_STALE_MS: the position on the map is last known, not current */
 .stale { color: var(--amber); font-weight: var(--fw-bold); }
 /* the status folded under the name — shown only where the status column is not */
-.sub { display: none; font: var(--fw-medium) 11.5px var(--body); }
+.sub { display: none; font: var(--fw-medium) var(--fs-micro) var(--body); }
 /* A phone: six columns do not fit 360px, so «Status» becomes the name's second line (the
    component renders both; one is hidden). Measured on an iPhone 14 at 390px: «Pos.» was cut. */
 @media (max-width: 560px) {
   .status { display: none; }
   .sub { display: block; }
   .table th,
-  .table td { padding: 6px 3px; }
+  .table td { padding: var(--sp-1); }
 }
 .note {
   display: block;
   margin-top: 4px;
-  font: var(--fw-medium) 11.5px var(--body);
+  font: var(--fw-medium) var(--fs-micro) var(--body);
   color: var(--ink-faint);
 }
