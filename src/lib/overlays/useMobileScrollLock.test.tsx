@@ -142,6 +142,19 @@ describe('mobile modal scrolling · one decision per touch (10.10.2026)', () => 
     expect(touch(view.getByTestId('text'), [AXIS_SLOP_PX + 4, 0], [10, 30])).toEqual([true, true])
   })
 
+  it('leaves a dead tie at the slop undecided, and judges a locked vertical touch by each move', () => {
+    phoneMedia()
+    const view = render(<Sheet />)
+    const body = view.getByTestId('body')
+    dimensions(view.getByTestId('suggestions'), { scrollWidth: 600, clientWidth: 200, scrollLeft: 0 })
+    dimensions(body, { scrollHeight: 800, clientHeight: 400, scrollTop: 0 })
+    // (6, -6) is no axis: the row may still pan; the later clear downward pull locks to y
+    expect(touch(view.getByTestId('suggestions'), [AXIS_SLOP_PX, -AXIS_SLOP_PX], [7, -30])).toEqual([false, true])
+    // up to the body's END in one touch, then back: the way back is free although the total is still «up»
+    dimensions(body, { scrollTop: 400 })
+    expect(touch(view.getByTestId('text'), [0, 20], [0, 40], [0, 30])).toEqual([true, true, false])
+  })
+
   it('keeps the sheet body\'s vertical guard — the rubber band at its top, free in its middle', () => {
     phoneMedia()
     const view = render(<Sheet />)

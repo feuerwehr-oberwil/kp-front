@@ -16,9 +16,10 @@
  *   · until the finger has travelled `AXIS_SLOP_PX`, the touch passes if it could scroll along
  *     EITHER axis (a horizontal scroller under it, or a vertical one with room that way), and is
  *     blocked only where nothing could move;
- *   · past the slop its axis is locked for the rest of the touch, and each move is judged on that
- *     axis by the total direction — a vertical drag over a list at its top edge, or over the bare
- *     backdrop, is still cancelled (the rubber-band / chaining guard this hook exists for).
+ *   · past the slop its axis is locked for the rest of the touch (a dead tie stays undecided), and
+ *     each move is judged on that axis — vertically by that move's own direction — so a drag over
+ *     a list at its top edge, or over the bare backdrop, is still cancelled (the rubber-band /
+ *     chaining guard this hook exists for).
  * Sideways, «can scroll» means the element scrolls horizontally at all, either way: nothing behind
  * a sheet scrolls sideways, so there is no chaining to guard against, and a jittery first move
  * towards the row's start must not kill a swipe towards its end.
@@ -97,11 +98,11 @@ export function useMobileScrollLock(open: boolean) {
   useEffect(() => {
     if (!open || !phone) return
     // the touch in progress — reset on every touchstart
-    let x0 = 0, y0 = 0, target: Element | null = null, ignored = false, inModal = false
-    let locked: TouchAxis | null = null
+    let x0 = 0, y0 = 0, lastY = 0, target: Element | null = null, ignored = false, inModal = false
+    let locked: 'x' | 'y' | null = null
     const start = (e: TouchEvent) => {
       x0 = e.touches[0]?.clientX ?? 0
-      y0 = e.touches[0]?.clientY ?? 0
+      y0 = lastY = e.touches[0]?.clientY ?? 0
       target = e.target instanceof Element ? e.target : null
       ignored = !!target?.closest('[data-swipe-ignore]')
       inModal = !!target?.closest(MODAL)
@@ -111,11 +112,18 @@ export function useMobileScrollLock(open: boolean) {
       const touch = e.touches[0]
       if (!touch || e.touches.length !== 1 || ignored) return
       const dx = x0 - touch.clientX, dy = y0 - touch.clientY
-      const axis = locked ?? touchAxis(dx, dy)
-      if (!axis) return
-      if (!locked && Math.max(Math.abs(dx), Math.abs(dy)) >= AXIS_SLOP_PX) locked = axis
+      const step = lastY - touch.clientY
+      lastY = touch.clientY
+      const axis = touchAxis(dx, dy)
+      if (!locked && !axis) return
+      // a tie at the slop stays undecided — it locks on the first move that has a dominant axis
+      if (!locked && axis !== 'both' && axis && Math.max(Math.abs(dx), Math.abs(dy)) >= AXIS_SLOP_PX) locked = axis
+      // the AXIS comes from the whole travel; once it is locked, the vertical DIRECTION is this
+      // move's own (a list that hit its end on the way up must still scroll back down in the
+      // same touch), falling back to the total when the move has no vertical part
+      const along = locked === 'y' && step !== 0 ? step : dy
       const chain = inModal && target ? scrollChain(target) : []
-      if (!touchMayScroll({ axis: locked ?? 'both', dy, ignored, inModal, chain }) && e.cancelable) e.preventDefault()
+      if (!touchMayScroll({ axis: locked ?? 'both', dy: along, ignored, inModal, chain }) && e.cancelable) e.preventDefault()
     }
     document.addEventListener('touchstart', start, { passive: true })
     document.addEventListener('touchmove', move, { passive: false })
