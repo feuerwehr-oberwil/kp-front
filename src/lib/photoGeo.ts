@@ -5,6 +5,9 @@
 //      from the ORIGINAL file (lib/exif) and kept for this session by its blob: URL
 //      (`rememberPhotoGeo`) — before lib/imagePrep re-encodes it through a canvas and every
 //      byte of metadata is gone;
+//      a picture with NO position of its own that was taken just now takes the DEVICE's
+//      (lib/devicePosition, 09.10.2026 — an iPhone's in-app camera never gives one): fixed on
+//      the side, it arrives after the row and follows it as an appended `photoGeo` patch;
 //   2. the row is written with `photoGeo` beside `photoUrls` (`rowGeoFor`): position, heading
 //      and time only, and only for a picture taken NEAR THE EINSATZ — a home photo's position
 //      never reaches the append-only record. Nothing else from the file is kept (no camera, no
@@ -30,6 +33,7 @@
 
 import { readExif, type ExifPhotoMeta } from './exif'
 import { haversineM } from './geo'
+import { takenRecently } from './devicePosition'
 import { rowPhotos } from './verlauf'
 import type { Entity, LayerId, LngLat, PhotoGeo, TimelineEvent } from '../types'
 
@@ -45,7 +49,7 @@ export const PHOTO_NEAR_FALLBACK_M = 15000
  *  heading alone places nothing. */
 export function toPhotoGeo(m: ExifPhotoMeta | null): PhotoGeo | null {
   if (!m || m.lat == null || m.lng == null) return null
-  const g: PhotoGeo = { lat: round(m.lat, 7), lng: round(m.lng, 7) }
+  const g: PhotoGeo = { lat: round(m.lat, 7), lng: round(m.lng, 7), source: 'exif' }
   if (m.alt != null) g.alt = round(m.alt, 1)
   if (m.heading != null) g.heading = round(m.heading, 1)
   if (m.takenAt) g.takenAt = m.takenAt
@@ -67,21 +71,56 @@ export function validGeo(g: unknown): g is PhotoGeo {
 
 const pending = new Map<string, Promise<PhotoGeo | null>>()
 const known = new Map<string, PhotoGeo | null>()
+/** device positions still being fixed, by picture — they arrive AFTER the row is written */
+const late = new Map<string, Promise<PhotoGeo | null>>()
 
-/** Read `file`'s position and keep it under `url` for this session. Never rejects. */
+/** Where the device stands, as a photo's place — registered by the workspace for a session that
+ *  writes the record, and only there (lib/devicePosition). `null` = no device fallback. */
+type DeviceSource = () => Promise<PhotoGeo | null>
+let deviceSource: DeviceSource | null = null
+export function setDevicePositionSource(fn: DeviceSource | null) { deviceSource = fn }
+
+/**
+ * Read `file`'s position and keep it under `url` for this session. Never rejects. Resolves with
+ * the EXIF answer (milliseconds); a picture WITHOUT one that was taken just now starts a device
+ * fix on the side (`photoGeoLate`), which lands in the same cache when it arrives.
+ */
 export function rememberPhotoGeo(url: string, file: Blob): Promise<PhotoGeo | null> {
-  const p = readExif(file).then(toPhotoGeo, () => null).then((g) => {
-    if (pending.get(url) === p) { known.set(url, g); pending.delete(url) }
+  const p = readExif(file).then((meta) => {
+    const g = toPhotoGeo(meta)
+    if (pending.get(url) === p) {
+      known.set(url, g)
+      pending.delete(url)
+      if (!g && deviceSource && takenRecently(file as Blob & { lastModified?: number }, meta?.takenAt)) startDeviceFix(url, deviceSource)
+    }
     return g
-  })
+  }, () => null)
   pending.set(url, p)
   return p
+}
+
+function startDeviceFix(url: string, source: DeviceSource) {
+  const q: Promise<PhotoGeo | null> = source().catch(() => null).then((g) => {
+    if (late.get(url) === q) {
+      late.delete(url)
+      if (g) known.set(url, g)
+    }
+    return g
+  })
+  late.set(url, q)
+}
+
+/** Resolves once every device fix still running for `urls` has landed (or failed) — `null`
+ *  when none is. The workspace then patches the row it already wrote. */
+export function photoGeoLate(urls: readonly string[]): Promise<void> | null {
+  const waiting = urls.flatMap((u) => { const q = late.get(u); return q ? [q] : [] })
+  return waiting.length ? Promise.all(waiting).then(() => undefined) : null
 }
 
 /** What `rememberPhotoGeo` found for `url` — `null` for none, or while it is still reading. */
 export const photoGeoOf = (url: string): PhotoGeo | null => known.get(url) ?? null
 
-export function forgetPhotoGeo(url: string) { known.delete(url); pending.delete(url) }
+export function forgetPhotoGeo(url: string) { known.delete(url); pending.delete(url); late.delete(url) }
 
 /** Is a position near enough the Einsatz to belong to it? (`center`: the Einsatz's coordinate
  *  when it has one — `ownCoord` — else the station's default view, at the coarser radius.) */
