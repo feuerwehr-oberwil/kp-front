@@ -1173,8 +1173,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     onStepLabel?.(line)
     remove(a.id)
     log('trash', line, { subjectId: a.id })
+    removedPage.current = a.id
     setPageSel(SKIZZE)
   }
+  // …and when ↶ brings it back, the operator lands on it again rather than hunting the strip
+  const removedPage = useRef<string | null>(null)
+  useEffect(() => {
+    const back = removedPage.current
+    if (back && pages.some((p) => p.id === back)) { removedPage.current = null; setPageSel(back) }
+  }, [pages, setPageSel])
   // PageUp / PageDown walk the strip while no field has the keyboard (no swipe: that pans)
   useEffect(() => {
     if (!onTafel) return
