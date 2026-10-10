@@ -128,7 +128,9 @@ pnpm lint    # eslint + a per-rule warning ratchet (scripts/eslint-baseline.json
 **Tests** are Vitest (node env), colocated as `*.test.ts`, focused on pure `src/lib` logic
 (plus a few components); the backend uses pytest. The backend has a ruff pre-commit hook; the
 frontend has none – so run `pnpm lint && pnpm test` before pushing, since changes go straight
-to prod.
+to prod. `just ci` runs every gate of CI's Frontend and Backend jobs locally (incl. coverage
+floor, bundle budget, audits, licenses and `just schema-check`: a throwaway Postgres migrated to
+head, then `alembic check` against the models); image, secrets, e2e, visual and perf stay CI's.
 
 - **Ratchets only go down.** The eslint warnings per rule (`scripts/eslint-baseline.json`; `pnpm
   lint` fails when a rule's count goes up, or down without `pnpm lint:update`), the style-debt
@@ -137,6 +139,12 @@ to prod.
   entry, App, maplibre, pdf-worker and CSS chunks have a +5 % budget against
   `scripts/bundle-baseline.json` (`scripts/check-bundle-size.mjs`, CI); a deliberate growth is an
   `--update` in its own commit, with the reason.
+- **`jsdom` is held on 30.0.x** (`~30.0.1`, Dependabot ignores 30.1): 30.1's blob URLs cannot
+  read the Node `Blob` Vitest supplies, so maplibre-gl 4.7 fails at import and MapView, mapTwist
+  and the IncidentWorkspace harness stop loading. Lift it with a jsdom past 30.1 or MapLibre 6
+  (#193) – never by mocking MapLibre away in those tests.
+- **CLI subprocess tests run outside `backend/`**: pydantic reads `.env` from the cwd, so a
+  station's `backend/.env` would leak into them (`tests/test_admin_cli_output.py` · `_run`).
 - **e2e** runs on the production image in CI (`e2e/README.md`); every spec takes `test` from
   `e2e/helpers`, which fails on a client error or a render storm.
 - **The look is gated too.** CI's «Visual» job shoots nine frozen states and compares them with
