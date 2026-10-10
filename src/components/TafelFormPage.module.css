@@ -53,6 +53,11 @@
 .time { font-variant-numeric: tabular-nums; }
 /* the soft keyboard's missing Shift+Enter: a line-break key on the focused cell, on touch only */
 .cellBreak { padding-right: calc(var(--tap) + var(--sp-1)); }
+.capHint {
+  position: absolute; left: 0; right: 0; top: 100%; z-index: 2; padding: var(--sp-1) var(--sp-2);
+  background: var(--surface); box-shadow: var(--e2); border-radius: var(--r-sm);
+  font-size: var(--fs-1); color: var(--ink-dim);
+}
 .breakKey {
   position: absolute; top: 0; right: 0; width: var(--tap); height: var(--tap);
   display: inline-flex; align-items: center; justify-content: center;

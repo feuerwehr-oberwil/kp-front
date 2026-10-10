@@ -58,6 +58,11 @@ export interface BoardFormData {
   /** when each written atom was last changed (`formAtoms` key → server ms) — what settles a
    *  cell two devices changed at once (lib/boardFormMerge): the later edit stands */
   t?: Record<string, number>
+  /** when the page was taken off the Tafel (server ms) — a tombstone, not a deletion (re-review
+   *  of #338): a device still writing on it meanwhile must be able to tell whether its writing
+   *  came after the removal (lib/mergeWorkspace · resolveTactical). Kept for ↶ and that merge;
+   *  never shown, printed or offered (`findForms`). */
+  removedAt?: number
 }
 export type FormAnno = BoardAnno & { kind: 'form'; form: BoardFormData }
 
@@ -112,7 +117,7 @@ export const isFormAnno = (a: BoardAnno): a is FormAnno => a.kind === 'form' && 
 
 /** The pages on a sheet, in the order they were added (the array order is the store's, not ours). */
 export const findForms = (annos: readonly BoardAnno[]): FormAnno[] =>
-  annos.filter(isFormAnno).sort((a, b) => a.form.at.localeCompare(b.form.at) || a.id.localeCompare(b.id))
+  annos.filter((a): a is FormAnno => isFormAnno(a) && a.form.removedAt == null).sort((a, b) => a.form.at.localeCompare(b.form.at) || a.id.localeCompare(b.id))
 
 // ── the gate a synced page passes (lib/workspace · isBoardAnno) ─────────────────────────────────
 
@@ -140,6 +145,7 @@ const isSectionValue = (v: unknown) => isObj(v)
 export function isFormData(v: unknown): v is BoardFormData {
   if (!isObj(v) || v.v !== 1 || typeof v.at !== 'string' || !isTemplatePage(v.page)) return false
   if (v.t !== undefined && !(isObj(v.t) && Object.values(v.t).every((x) => typeof x === 'number'))) return false
+  if (v.removedAt !== undefined && typeof v.removedAt !== 'number') return false
   const t = v.tpl
   if (!isObj(t) || typeof t.id !== 'string' || typeof t.version !== 'number' || !isLabel(t.title)) return false
   if (v.head !== undefined && !isStrMap(v.head)) return false
@@ -343,6 +349,38 @@ export function formDelta(a: BoardFormData, b: BoardFormData): { k: string; old?
   for (const k of new Set([...x.keys(), ...y.keys()])) {
     if (x.get(k) !== y.get(k)) out.push({ k, ...(x.has(k) ? { old: x.get(k) } : {}), ...(y.has(k) ? { new: y.get(k) } : {}) })
   }
+  return out
+}
+
+/**
+ * A page with an audit row's `form.delta` applied (`formDelta`, the `board.edit` payload) — what
+ * the Replay scrubber folds so it shows the page as it was at that moment (re-review of #338).
+ * Through the same writers an edit uses; a row's atoms go in together, so a new row is made
+ * with all its cells at once. A row or line the page did not have yet goes after the last one
+ * (the audit names cells, not rulings).
+ */
+export function applyFormDelta(d: BoardFormData, delta: readonly { k: string; old?: string; new?: string }[]): BoardFormData {
+  let out = d
+  const rows = new Map<string, { sec: string; row: string; cells: Record<string, string>; done?: boolean }>()
+  for (const c of Array.isArray(delta) ? delta : []) {
+    if (!c || typeof c.k !== 'string') continue
+    const [kind, a, b, x] = c.k.split('|')
+    const v = typeof c.new === 'string' ? c.new : ''
+    if (kind === 'h' && a) out = putHead(out, a as keyof FormHead, v)
+    else if (kind === 'f' && a && b) out = putField(out, a, b, v)
+    else if (kind === 'l' && a && b && x) {
+      let line: Partial<FormLine> = { text: '', tag: '' }
+      if (v) { try { line = { tag: '', ...(JSON.parse(v) as Partial<FormLine>) } } catch { continue } }
+      out = putLine(out, a, b, x, { text: line.text ?? '', tag: line.tag ?? '', trend: line.trend })
+    } else if (kind === 'r' && a && b && x) {
+      const key = `${a}|${b}`
+      const r: { sec: string; row: string; cells: Record<string, string>; done?: boolean } = rows.get(key) ?? { sec: a, row: b, cells: {} }
+      if (x === '#done') r.done = !!v
+      else r.cells[x] = v
+      rows.set(key, r)
+    }
+  }
+  for (const r of rows.values()) out = putRow(out, r.sec, r.row, { cells: r.cells, ...(r.done !== undefined ? { done: r.done } : {}) })
   return out
 }
 

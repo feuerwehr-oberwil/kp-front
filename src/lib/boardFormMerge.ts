@@ -1,5 +1,5 @@
 import { formAtoms, type BoardFormData, type FormLine, type FormRow, type FormSectionValue } from './boardForm'
-import { labelText, type TemplateSection } from './boardTemplate'
+import { labelText, type TableSection, type TemplateSection } from './boardTemplate'
 
 /**
  * Two devices wrote on the same Tafel page at once (review of #338, 10.10.2026). A page is ONE
@@ -32,7 +32,7 @@ const parseLine = (v: string, id: string): FormLine => ({ id, ...(JSON.parse(v) 
 const lineText = (v: string | undefined) => (v ? (JSON.parse(v) as { text?: string }).text ?? '' : '')
 
 /** Where an atom is on the page, for the Verlauf row. */
-function atomLabel(d: BoardFormData, atom: string): string {
+export function atomLabel(d: BoardFormData, atom: string): string {
   const [kind, sec, a, b] = atom.split('|')
   if (kind === 'h') return a ?? ''
   const s = d.page.sections.find((x) => x.id === sec) as TemplateSection | undefined
@@ -99,6 +99,9 @@ export function mergeFormData(
     }
     // rows: a row is there while any of its atoms is, or while it is a seed row nobody touched
     if (tv.rows || mv.rows) {
+      const table = mine.page.sections.find((x) => x.id === sec && x.type === 'table') as TableSection | undefined
+      const fixedIds = new Set((table?.fixedRows ?? []).map((r) => r.id))
+      const bare = new Set((table?.columns ?? []).filter((c) => c.type === 'time' || c.type === 'trend').map((c) => c.id))
       const byId = new Map<string, FormRow>()
       for (const r of [...(tv.rows ?? []), ...(mv.rows ?? [])]) if (!byId.has(r.id)) byId.set(r.id, r)
       const mineById = new Map((mv.rows ?? []).map((r) => [r.id, r]))
@@ -114,6 +117,11 @@ export function mergeFormData(
           else cells[col] = v
         }
         if (!Object.keys(cells).length && !done) continue
+        // a WRITTEN row left with only a time or a trend (one device emptied it while the other
+        // stamped its «Wann», re-review of #338) holds nothing a reader could act on: it goes,
+        // as a row emptied on one device does (lib/boardForm · putRow, «a tick or a trend alone
+        // is not content»; a time alone is not either once the words are gone)
+        if (table && !fixedIds.has(id) && !done && Object.keys(cells).every((c) => bare.has(c))) continue
         const theirsRow = (tv.rows ?? []).find((x) => x.id === id)
         const slot = mineById.get(id)?.slot ?? theirsRow?.slot
         const row: FormRow = { ...(mineById.get(id) ?? r), cells, ...(slot != null ? { slot } : {}) }

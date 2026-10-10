@@ -320,3 +320,36 @@ def test_every_ruling_is_the_standard_height_beside_a_taller_neighbour(monkeypat
     gaps = [a - b for a, b in pairwise(ys)][1:]  # the first is the column head
     assert len(gaps) >= 11
     assert all(abs(g - seen["ruling"]) < 0.5 for g in gaps), (seen["ruling"], gaps)
+
+
+def test_a_cell_longer_than_a_page_prints_and_its_fortsetzung_heading_stays_with_its_table():
+    """Re-review of #338: one Massnahme of 600 words made the Tafel print AND the whole Rapport
+    500 (a table row taller than a page cannot be placed), and the «Fortsetzung» heading printed
+    alone at the foot of a page with its table on the next. Now the row splits across pages and
+    the heading is the table's own repeated first row."""
+    page = _ef()
+    page["sections"][2]["rows"] = [{"cells": [" ".join(f"Wort{i}" for i in range(600)), "TLF", "17:00"]}] + [
+        {"cells": [f"M {i}", "TLF", "17:00"]} for i in range(40)
+    ]
+    doc = pdfium.PdfDocument(io.BytesIO(_compose(boardPages=[page])))
+    texts = [doc[i].get_textpage().get_text_range() for i in range(len(doc))]
+    joined = "\n".join(texts)
+    assert "Wort599" in joined and "M 39" in joined
+    for t in texts:
+        if "Fortsetzung" in t:
+            # never the heading alone: the column heads and a row come with it on the same page
+            assert "Was/Wo" in t and ("Wort" in t or "M " in t)
+
+
+def test_a_verlauf_entry_longer_than_a_page_prints_instead_of_failing_the_rapport():
+    """The same mechanism in the Einsatzjournal (pre-existing): a pasted Lagebericht of 3000
+    words was a LayoutError for the whole Rapport. The row splits across pages."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Brand", "id": "x"},
+            "generatedAt": "10.10.2026 18:05",
+            "journal": [{"timeLabel": "12:00", "area": "Manuell", "text": " ".join(f"lang{i}" for i in range(3000))}],
+        }
+    )
+    text = _text(compose_report_pdf(payload, {}))
+    assert "lang2999" in text

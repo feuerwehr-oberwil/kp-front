@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formAnno, formDelta, newFormPage, putLine, putRow, type BoardFormData, type FormAnno } from './boardForm'
+import { findForms, formAnno, formDelta, newFormPage, putLine, putRow, type BoardFormData, type FormAnno } from './boardForm'
 import { mergeFormData } from './boardFormMerge'
 import { BUNDLED_TEMPLATES } from './boardTemplates'
 import { mergeWorkspace, type RecordConflict } from './mergeWorkspace'
@@ -96,5 +96,51 @@ describe('the audit hears a cell, not the page', () => {
     const b = putRow(a, 'massnahmen', 'm1', { cells: { was: 'Riegel', wer: 'TLF' } })
     expect(formDelta(a, b)).toEqual([{ k: 'r|massnahmen|m1|was', new: 'Riegel' }, { k: 'r|massnahmen|m1|wer', new: 'TLF' }])
     expect(JSON.stringify(formDelta(a, b)).length).toBeLessThan(200)
+  })
+})
+
+describe('one device takes a page off while another writes on it (re-review of #338)', () => {
+  const base = putRow(page(), 'massnahmen', 'm1', { cells: { was: 'Riegel' } }, 500)
+  const anno = formAnno(base) as FormAnno
+  const at = (f: BoardFormData) => ({ objects: [sheet({ ...anno, form: f })] })
+  const merge = (mine: BoardFormData, theirs: BoardFormData) => {
+    const conflicts: RecordConflict[] = []
+    const out = mergeWorkspace(at(base), at(mine), at(theirs), undefined, undefined, { onFormConflict: (c) => conflicts.push(c) }) as { objects: TacticalObject[] }
+    return { form: out.objects[0].sheet!.anno.form!, conflicts }
+  }
+  it('writing AFTER the removal keeps the page — the removal loses, and the Verlauf says so', () => {
+    const removed = { ...base, removedAt: 5_000 }
+    const written = putRow(base, 'massnahmen', 'm1', { cells: { was: 'Riegel Seite C' } }, 6_000)
+    for (const [m, t] of [[written, removed], [removed, written]] as const) {
+      const { form, conflicts } = merge(m, t)
+      expect(form.removedAt).toBeUndefined()
+      expect(form.values.massnahmen.rows?.[0].cells.was).toBe('Riegel Seite C')
+      expect(conflicts.map((c) => (c.mine as { kind?: string }).kind)).toEqual(['removedKept'])
+    }
+  })
+  it('writing BEFORE the removal loses to it — and the lost cells are named', () => {
+    const removed = { ...base, removedAt: 7_000 }
+    const written = putRow(base, 'massnahmen', 'm1', { cells: { was: 'Riegel Seite C' } }, 6_000)
+    const { form, conflicts } = merge(written, removed)
+    expect(form.removedAt).toBe(7_000)
+    expect(findForms([{ ...anno, form }])).toEqual([]) // gone from the strip, the print, the Rapport
+    expect(conflicts).toHaveLength(1)
+    expect(conflicts[0].mine).toMatchObject({ kind: 'removedLost', cells: 'Massnahmen · Was/Wo' })
+  })
+  it('a removal nobody wrote against just stands, quietly', () => {
+    const { form, conflicts } = merge(base, { ...base, removedAt: 7_000 })
+    expect(form.removedAt).toBe(7_000)
+    expect(conflicts).toEqual([])
+  })
+})
+
+describe('a row emptied on one device while the other stamps its time (re-review of #338)', () => {
+  it('goes — a time alone holds nothing to act on', () => {
+    const base = putRow(page(), 'massnahmen', 'm1', { cells: { was: 'Riegel', wer: 'TLF' } }, 500)
+    const emptied = putRow(base, 'massnahmen', 'm1', { cells: { was: '', wer: '' } }, 1000)
+    const stamped = putRow(base, 'massnahmen', 'm1', { cells: { wann: '17:42' } }, 1100)
+    expect(emptied.values.massnahmen.rows).toEqual([])
+    expect(mergeFormData(base, emptied, stamped).values.massnahmen.rows).toEqual([])
+    expect(mergeFormData(base, stamped, emptied).values.massnahmen.rows).toEqual([])
   })
 })

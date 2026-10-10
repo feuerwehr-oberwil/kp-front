@@ -50,6 +50,9 @@ import s from './TafelFormPage.module.css'
  */
 
 const T = () => appConfig.copy.tafel
+/** a cell holds a line of the paper, not a report (re-review of #338): what is longer belongs in
+ *  the Verlauf. The print copes with any length now — the cap is the calm hint that says so. */
+export const CELL_MAX = 2000
 const ARROW: Record<string, string> = { up: '➚', same: '=', down: '➘' }
 
 /** what a cell is in the form (and what it writes) */
@@ -91,10 +94,14 @@ interface CellProps {
   onCommit: (v: string) => void
   /** `changed`: the operator typed in this cell since it took the focus — only then is it written */
   onNav: (key: NavKey, draft: string, changed: boolean) => void
+  /** another device wrote THIS cell while it was being typed in, and the typing is now written
+   *  over it: last writer wins as before, but it is said (re-review of #338) — `theirs` is what
+   *  stood, `mine` what replaces it */
+  onClash?: (theirs: string, mine: string) => void
 }
 
 /** One cell: an auto-growing textarea that commits once (see the file header for the keys). */
-function Cell({ k, kn, value, label, readOnly, time = false, placeholder, className, last = false, draftKey, onCommit, onNav }: CellProps) {
+function Cell({ k, kn, value, label, readOnly, time = false, placeholder, className, last = false, draftKey, onCommit, onNav, onClash }: CellProps) {
   const T0 = T()
   const [draft, setDraft] = useState(() => (draftKey ? readDraft<string | null>(draftKey, null) : null) ?? value)
   /** typed since the focus (or a kept draft came back): the one thing that makes a cell write */
@@ -103,16 +110,25 @@ function Cell({ k, kn, value, label, readOnly, time = false, placeholder, classN
   const handled = useRef(false)
   const [focused, setFocused] = useState(false)
   const ref = useRef<HTMLTextAreaElement>(null)
+  /** the stored value the typing started from — a different one at commit time means another
+   *  device wrote this cell meanwhile */
+  const base = useRef(value)
   // an untouched cell follows the stored value — a remote change shows up even while focused
-  useEffect(() => { if (!dirty.current) setDraft(value) }, [value])
+  useEffect(() => { if (!dirty.current) { setDraft(value); base.current = value } }, [value])
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
   }, [draft])
-  const live = useRef({ draft, value, readOnly, onCommit })
-  useEffect(() => { live.current = { draft, value, readOnly, onCommit } })
+  const live = useRef({ draft, value, readOnly, onCommit, onClash })
+  useEffect(() => { live.current = { draft, value, readOnly, onCommit, onClash } })
+  /** about to write `mine` over the stored value: was that value somebody else's, meanwhile? */
+  const clashCheck = (mine: string) => {
+    const l = live.current
+    if (l.value !== base.current && mine !== l.value) l.onClash?.(l.value, mine)
+    base.current = mine
+  }
   /** write what was typed, if anything — or keep it on the device while the page is read-only */
   const flush = useCallback(() => {
     const l = live.current
@@ -121,6 +137,7 @@ function Cell({ k, kn, value, label, readOnly, time = false, placeholder, classN
     if (l.readOnly) { if (draftKey) keepDraft(draftKey, l.draft); return }
     dirty.current = false
     if (draftKey) clearDraft(draftKey)
+    clashCheck(l.draft)
     l.onCommit(l.draft)
   }, [draftKey])
   // …when the page goes away, the app is hidden, or the cell itself goes
@@ -149,6 +166,7 @@ function Cell({ k, kn, value, label, readOnly, time = false, placeholder, classN
   }
   const nav = (key: NavKey) => {
     const changed = dirty.current && draft !== value
+    if (changed) clashCheck(draft)
     handled.current = true
     dirty.current = false
     if (draftKey) clearDraft(draftKey)
@@ -200,7 +218,7 @@ function Cell({ k, kn, value, label, readOnly, time = false, placeholder, classN
         inputMode={time ? 'numeric' : undefined}
         spellCheck={!time}
         onPointerDown={keep}
-        onFocus={() => { handled.current = false; setFocused(true) }}
+        onFocus={() => { handled.current = false; setFocused(true); if (!dirty.current) base.current = value }}
         onChange={(e) => { handled.current = false; dirty.current = true; setDraft(e.target.value) }}
         onBlur={() => {
           setFocused(false)
@@ -208,7 +226,9 @@ function Cell({ k, kn, value, label, readOnly, time = false, placeholder, classN
           flush()
         }}
         onKeyDown={onKeyDown}
+        maxLength={CELL_MAX}
       />
+      {focused && draft.length >= CELL_MAX && <span className={s.capHint} role="status">{fillTemplate(T0.cellCap, { n: CELL_MAX })}</span>}
       {breakKey && !time && (
         // keeps the focus (and the keyboard) where it is: the press never reaches the textarea's blur
         <button type="button" className={s.breakKey} aria-label={T0.lineBreak} title={T0.lineBreak}
@@ -297,6 +317,9 @@ export interface TafelFormPageProps {
   isPhone: boolean
   onChange: (next: BoardFormData) => void
   onRemove: () => void
+  /** a cell this device wrote over another device's value for it, typed meanwhile — last writer
+   *  wins, and the Verlauf says so (re-review of #338): where, what stands, what it replaced */
+  onConflict?: (where: string, kept: string, lost: string) => void
   /** «Drucken» (owner): this page, or `all` of the Tafel's pages, as a PDF (lib/tafelPrint) */
   onPrint?: (all: boolean) => void
   /** how many pages the Tafel has — past one, «Drucken» offers «Alle Seiten» too */
@@ -308,10 +331,10 @@ export interface TafelFormPageProps {
   /** a tap on the mini Karte opens the Karte */
   onOpenKarte?: () => void
   /** px the floating chrome covers: top bar + page strip, the rails */
-  inset: { top: number; left: number; right: number; bottom: number }
+  inset: { top: number; left: number; right: number; bottom: number | string }
 }
 
-export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRemove, onPrint, pageCount = 1, printing = false, scene, onOpenKarte, inset }: TafelFormPageProps) {
+export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRemove, onConflict, onPrint, pageCount = 1, printing = false, scene, onOpenKarte, inset }: TafelFormPageProps) {
   const t = T()
   const page = data.page
   const sections = shownSections(page)
@@ -455,6 +478,18 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
     focusAfterRender(keyOf(target.sec, target.box, target.row, target.col))
   }
   const commit = (a: Addr) => (v: string) => put(next(a, v, false))
+  /** where a cell is, in the deployment's words — the Verlauf row of a clash names it */
+  const whereOf = (a: Addr): string => {
+    if (a.kind === 'head') return t.head[a.col]
+    const sec = sections.find((x) => x.id === a.sec)
+    const title = labelText(sec?.title)
+    if (!sec) return title
+    if ((a.kind === 'line' || a.kind === 'tag') && sec.type === 'quad') return `${title} · ${labelText(sec.cells.find((c) => c.id === a.box)?.label)}`
+    if (a.kind === 'cell' && sec.type === 'table') return `${title} · ${labelText(sec.columns.find((c) => c.id === a.col)?.label)}`
+    if (a.kind === 'field' && sec.type === 'text') return labelText(sec.fields.find((f) => f.id === a.col)?.label) || title
+    return title
+  }
+  const clash = (a: Addr) => (theirs: string, mine: string) => onConflict?.(whereOf(a), mine, theirs)
   const draftKey = (k: string) => `tafel:${pageKey}:${k}`
 
   // ── sections ───────────────────────────────────────────────────────────────────────────────
@@ -487,12 +522,12 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
                 <Cell k={keyOf(sec.id, c.id, id, undefined)} kn={alias ? keyOf(sec.id, c.id, NEW, undefined) : undefined}
                   value={text} label={label} readOnly={readOnly} className={s.grow}
                   last={keyOf(sec.id, c.id, id, undefined) === lastKey}
-                  onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(keyOf(sec.id, c.id, id, undefined))} />
+                  onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(keyOf(sec.id, c.id, id, undefined))} onClash={clash(a)} />
                 {sec.tag && !isNew && (
                   <Cell k={`${keyOf(sec.id, c.id, id, 'tag')}`} value={tag ?? ''} label={`${label} · ${t.tag}`} placeholder={t.tag}
                     readOnly={readOnly} className={s.tag}
                     onCommit={commit({ kind: 'tag', sec: sec.id, box: c.id, row: id })} onNav={(key, d, ch) => onNav({ kind: 'tag', sec: sec.id, box: c.id, row: id }, key, d, ch)}
-                    draftKey={draftKey(keyOf(sec.id, c.id, id, 'tag'))} />
+                    draftKey={draftKey(keyOf(sec.id, c.id, id, 'tag'))} onClash={clash({ kind: 'tag', sec: sec.id, box: c.id, row: id })} />
                 )}
               </div>
             )
@@ -555,7 +590,7 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
           <Cell k={k} kn={alias ? keyOf(sec.id, undefined, NEW, c.id) : undefined}
             value={r.cells[c.id] ?? ''} label={label} readOnly={readOnly} time={c.type === 'time'}
             placeholder={c.type === 'time' ? '--:--' : undefined} last={k === lastKey}
-            onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(k)} />
+            onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(k)} onClash={clash(a)} />
         </span>
       )
     }
@@ -611,7 +646,7 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
         <label key={f.id} className={cx(s.field, f.tone && s[`tone_${f.tone}`], layoutKind === 'split' && i === 0 && s.fieldMain)}>
           {(i === 0 && sec.title) || f.label ? <span className={s.fieldLabel}>{i === 0 && sec.title && !f.label ? labelText(sec.title) : labelText(f.label)}</span> : null}
           <Cell k={k} value={v[f.id] ?? ''} label={label} readOnly={readOnly} time={f.type === 'time'} className={s.fieldCell}
-            last={k === lastKey} onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(k)} />
+            last={k === lastKey} onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(k)} onClash={clash(a)} />
         </label>
       )
     }
@@ -675,7 +710,7 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
                 <label key={k} className={cx(s.field, s.headField)}>
                   <span className={s.fieldLabel}>{t.head[k]}</span>
                   <Cell k={keyOf(HEAD_SEC, undefined, undefined, k)} value={data.head?.[k] ?? ''} label={t.head[k]} readOnly={readOnly} time={k === 'alarm'}
-                    className={s.fieldCell} onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(keyOf(HEAD_SEC, undefined, undefined, k))} />
+                    className={s.fieldCell} onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(keyOf(HEAD_SEC, undefined, undefined, k))} onClash={clash(a)} />
                 </label>
               )
             })}

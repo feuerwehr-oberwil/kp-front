@@ -40,7 +40,7 @@ import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, typ
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
 import { doneAct, doneBadge, doneOf, donePlace, offersDone } from '../lib/objectDone'
 import { annoLogName } from '../lib/drawingEdit'
-import { serverNowIso } from '../lib/serverClock'
+import { serverNow, serverNowIso } from '../lib/serverClock'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { useHazardData } from '../lib/useHazardData'
@@ -104,7 +104,7 @@ import { TafelFormPage } from './TafelFormPage'
 import { findForms, formAnno, formDelta, formHasContent, newFormPage, type BoardFormData, type FormAnno, type FormSeed } from '../lib/boardForm'
 import { isDrawnBoardKind } from '../lib/workspace'
 import { labelText, type BoardTemplate, type TemplatePage } from '../lib/boardTemplate'
-import { SKIZZE, TAFEL_ID, TAFEL_STRIP_H, stepPage, useTafelPage } from '../lib/tafelPages'
+import { SKIZZE, TAFEL_ID, stepPage, useTafelPage } from '../lib/tafelPages'
 import { isTypingTarget } from '../lib/hotkeys'
 import { BUNDLED_TEMPLATES, warmBoardTemplates } from '../lib/boardTemplates'
 import type { MiniKarteProps } from './MiniKarte'
@@ -427,7 +427,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     return () => { live = false }
   }, [onTafel])
   /** the top lane the fit keeps clear: the floating bar, and on the Tafel its page strip too */
-  const topRes = TOP_INSET + (onTafel ? TAFEL_STRIP_H : 0)
+  // (the Tafel's page strip stands in the bottom row the chip reserve already keeps clear —
+  // `botRes`, lib/whiteboard · chipRowInset — so the top reserve is the top bar's alone)
+  const topRes = TOP_INSET
   // The slim read-only rail (Auswahl · Messen) — never on a viewer-only or selection-only
   // document, which has no tool rail for ANYONE, so a locked editor and a viewer keep seeing the
   // same surface.
@@ -1163,7 +1165,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const boardDoc = useBoardDoc({
     annos: annosAll, onChange: onChangeAll, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd, onRestore,
   })
-  const { pushPast, add, patch, patchCommit, remove, removeAnno } = boardDoc
+  const { pushPast, add, patch, patchCommit, removeAnno } = boardDoc
   const set = (next: BoardAnno[]) => boardDoc.set(withForms(next))
   const commit = (next: BoardAnno[]) => boardDoc.commit(withForms(next))
 
@@ -1221,7 +1223,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     })) return
     const line = fillTemplate(TP().pageRemoved, { page: name })
     onStepLabel?.(line)
-    remove(a.id)
+    // a TOMBSTONE, not a deletion (re-review of #338): a device still writing on the page must be
+    // able to tell whether its writing came after this (lib/mergeWorkspace · resolveTactical).
+    // One ↶ step like any edit; findForms no longer shows, prints or offers it.
+    patchCommit(a.id, { form: { ...a.form, removedAt: serverNow() } }, { form: { page: a.form.page.id, removed: true } })
     log('trash', line, { subjectId: a.id })
     removedPage.current = a.id
     setPageSel(SKIZZE)
@@ -3062,12 +3067,17 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   if (formPage) {
     return (
       <div className="whiteboard wb-tafel-page">
-        {strip}
+        {/* the strip in the row a plan's «which place» chips stand in (owner, before the release) */}
+        <div className="wb-botleft">{strip}</div>
         <TafelFormPage key={formPage.id} pageKey={formPage.id} data={formPage.form} readOnly={readOnly} isPhone={isPhone}
           onChange={(next) => editPage(formPage.id, next)} onRemove={() => void removePage(formPage.id)}
+          // typed over another device's value for the same cell: the later stands, the Verlauf says so
+          onConflict={(where, kept, lost) => log('warn', fillTemplate(appConfig.copy.journal.tafelConflict, { page: labelText(formPage.form.page.title), where, kept, lost }), { subjectId: formPage.id })}
           onPrint={incidentId ? (all) => void printPages(all ? pages : [formPage]) : undefined} pageCount={pages.length} printing={printing}
           scene={tafel?.scene} onOpenKarte={tafel?.onOpenKarte}
-          inset={{ top: topRes, left: isPhone ? 0 : side.l, right: isPhone ? 0 : side.l, bottom: isPhone ? 96 : 24 }} />
+          // the bottom: the strip's row and its air, so the last ruling scrolls above it — on a
+          // phone above THE floating row (15-mobile · --float-bottom), on a tablet above the row
+          inset={{ top: topRes, left: isPhone ? 0 : side.l, right: isPhone ? 0 : side.l, bottom: isPhone ? 'calc(var(--float-bottom, 72px) + var(--float-h) + 16px)' : 'calc(16px + var(--float-h) + 24px)' }} />
       </div>
     )
   }
@@ -3096,7 +3106,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       {/* the plan DOCUMENTS are picked in the global left NavRail (it is pure navigation); the
           object they all belong to is named on the chip in the bottom-left corner */}
       {/* plan canvas + annotation layer */}
-      {strip}
       <div className="wb-stage" ref={stageRef}>
         <div
           ref={setCanvas}
@@ -4595,6 +4604,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           straight back when the mode ends. On a phone the instrument is the bar instead
           (GeorefMode · GeorefModeBars), so this row simply stays empty of it. */}
       {georefArmed && !isPhone ? <GeorefInstrument mode={georef} /> : <>
+      {/* the Tafel's pages: «which sheet», in the row where a plan says «which place» (owner) */}
+      {strip}
       {objectChip}
       {buildingFloat}
       {buildingChip}

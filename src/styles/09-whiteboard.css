@@ -413,35 +413,24 @@
 .wb-blank-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;
   font-family: var(--body); font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-faint); pointer-events: none; max-width: 70%; line-height: 1.4; }
 
-/* the Tafel's page strip (10.10.2026, TafelPageStrip): «Skizze» · the pages · «+ Seite», a
-   floating bar of the TOP BAR's own make (04-topbar · .topbar: glass, hairline, --r-bar, --bar-pad)
-   standing --float-gap under it. Its controls are the 44px segmented track and a 44px quiet button.
-   The board's fit keeps its lane clear (lib/tafelPages · TAFEL_STRIP_H = the bar + the gap). On a
-   phone the PAGES scroll sideways rather than wrapping into the sheet; «+ Seite» stays in view.
-   ⚠️ Beside a rail it starts where the BOARD starts — right of the nav rail, the column a page's
-   content stands in (lib/whiteboard · SIDE_INSET_L = 16 + rail + 12; Surface.module.css · .shell
-   does the same) — and ends before the tool rail. Under the top bar at the screen's left edge it
-   sat ON the rail wherever the rail, centred in its band, reached up to it (owner, staging: the
-   rail's «›» on «Skizze» at ~900 wide). The rail's width is followed — collapsed, short labels,
-   expanded — so it never collides at any width. A phone has no side rails: the screen's edge. */
+/* the Tafel's page strip (10.10.2026, TafelPageStrip): «Skizze» · the pages · «+ Seite».
+   ⚠️ It stands where every other surface says «which place» (owner, before the release): in the
+   bottom-left row (.wb-botleft) where a plan's Objekt / Gebäude / Massstab chips stand, which
+   already clears the nav rail, the phone's bars, the FAB and the safe areas (THE floating row,
+   15-mobile · --float-bottom) and is already reserved by the board's fit (lib/whiteboard ·
+   chipRowInset). It wears that row's FLOATING family (01-tokens · --float-*: the glass, one row
+   height --float-h, --r-sm), holding the 44px segmented track and «+ Seite». Many pages scroll
+   sideways inside it (the open one scrolled into view); «+ Seite» always stays in view. A Tafel
+   PAGE pads its foot by the row (Whiteboard · inset.bottom), so its last ruling scrolls above. */
 .tps {
-  position: absolute; z-index: var(--z-chrome);
-  top: calc(16px + var(--tap) + 2 * var(--bar-pad) + 2px + var(--float-gap) + env(safe-area-inset-top));
-  --tps-l: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 12px);
-  --tps-r: calc(max(16px, env(safe-area-inset-right)) + var(--vrail-w, 60px) + 12px);
-  left: var(--tps-l); max-width: calc(100% - var(--tps-l) - var(--tps-r));
-  display: flex; align-items: center; gap: var(--sp-2); overflow: hidden;
-  padding: var(--bar-pad); border: 1px solid var(--glass-line); border-radius: var(--r-bar);
-  background: var(--glass); -webkit-backdrop-filter: blur(14px) saturate(1.4); backdrop-filter: blur(14px) saturate(1.4);
-  box-shadow: var(--e4);
+  display: flex; align-items: center; gap: var(--sp-1); box-sizing: border-box; min-width: 0; max-width: 100%;
+  min-height: var(--float-h); padding: var(--msg-pad); overflow: hidden; border-radius: var(--r-sm);
+  background: var(--float-bg); -webkit-backdrop-filter: var(--float-blur); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
 }
+.wb-botleft > .tps { flex: 0 1 auto; }
 @media (--not-phone) {
-  :root:has(.navrail.labelled:not(.expanded):not(.dragging)) .tps { --tps-l: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w-labelled, 92px) + 12px); }
-}
-/* a Tafel PAGE has no tool rail: the strip may use the width up to the screen's edge */
-.wb-tafel-page .tps { --tps-r: max(16px, env(safe-area-inset-right)); }
-@media (--phone) {
-  .tps { --tps-l: max(16px, env(safe-area-inset-left)); --tps-r: max(16px, env(safe-area-inset-right)); }
+  /* on the Skizze the right tool rail stands at the row's far end: the strip stops before it */
+  .whiteboard:not(.wb-tafel-page) .wb-botleft > .tps { max-width: calc(100vw - var(--rail-w) - 28px - var(--vrail-w, 60px) - 28px); }
 }
 .tps > * { flex: none; }
 .tps .useg { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }

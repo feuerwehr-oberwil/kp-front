@@ -148,6 +148,9 @@ VIEW_WORKSPACE_KEYS = frozenset(
         "cameraViews",
         "pickedObjectId",
         "intakeReviewedAt",
+        # which build wrote the blob: a v3 device correcting the Rapport of an Einsatz last saved
+        # by a v2 one is not an operation in it (review of #338 — every closed Einsatz on prod)
+        "schemaVersion",
     }
 )
 # ⚠️ NOT `planBindings`: a binding FREEZES which plan revision and fit this Einsatz ran on
@@ -580,6 +583,12 @@ async def put_workspace(
         inc = await get_incident_or_404(db, incident_id, lock=True)
         stored = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
         closed_at = state.lifecycle.closed_at
+        # compare what the save would actually STORE: the server's own parts put back first —
+        # the vehicles' gps, and the board objects a build older than their kind left out
+        # (review of #338: an old build's save on a closed Einsatz otherwise read as «pages
+        # deleted» and was refused before the guard that keeps them ever ran)
+        keep_server_gps(body.workspace, stored)
+        keep_newer_board_kinds(body.workspace, stored)
         if operational_keys_changed(stored, body.workspace) and happened_after_close(body.edited_at, closed_at):
             raise incident_closed(closed_at)
     saved = await apply_workspace_put(db, incident_id, body, user_id=user.id, inc=inc)

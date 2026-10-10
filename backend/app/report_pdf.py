@@ -1862,15 +1862,23 @@ def compose_tafel_pdf(payload: TafelPrintPayload) -> bytes:
 
 def _board_overflow(overflow, head, st: dict[str, ParagraphStyle], width: float) -> list:
     """The «Fortsetzung» tables for rows a Tafel box could not hold (app/report_board) — full-size
-    type, as many pages as they need (the header row repeats on each)."""
+    type, as many pages as they need.
+
+    ⚠️ The heading is the table's own first row, repeated with the column heads on every page
+    (review of #338): as a separate keep-with-next heading it printed alone at the foot of one
+    page with its table starting on the next. And a row may SPLIT across pages (`splitInRow`):
+    one cell of 600 words used to fail the Tafel print and the whole Rapport with a LayoutError."""
     out: list = []
     for ov in overflow:
-        out.extend(head(L["boardContinued"].format(t=ov.title)))
         n = max(1, len(ov.columns))
+        title = [Paragraph(f"<b>{_esc(L['boardContinued'].format(t=ov.title))}</b>", st["cell"])] + [""] * (n - 1)
         thead = [Paragraph(_esc(c), st["cellhead"]) for c in ov.columns]
         body = [[Paragraph(_esc(v), st["cell"]) for v in (list(r) + [""] * n)[:n]] for r in ov.rows]
-        tbl = Table([thead, *body], colWidths=[width / n] * n, repeatRows=1)
-        tbl.setStyle(_table_style())
+        tbl = Table([title, thead, *body], colWidths=[width / n] * n, repeatRows=2, splitInRow=1)
+        style = _table_style()
+        style.add("SPAN", (0, 0), (-1, 0))
+        style.add("BACKGROUND", (0, 1), (-1, 1), _PANEL)
+        tbl.setStyle(style)
         out.append(tbl)
         out.append(Spacer(1, 4 * mm))
     return out
@@ -2311,7 +2319,9 @@ def compose_report_pdf(
         # journal row. It was 36mm, sized for a label that still carried a comma between the date
         # and the time (see lib/report · formatDateTime); a date does not get longer, so the extra
         # 7mm was permanent white space taken from the one column that holds the entries.
-        tbl = Table([thead, *body], colWidths=[29 * mm, 24 * mm, inner_w - 53 * mm], repeatRows=1)
+        # splitInRow: an entry longer than a page (a pasted Lagebericht) splits across pages
+        # instead of failing the whole Rapport with a LayoutError (review of #338)
+        tbl = Table([thead, *body], colWidths=[29 * mm, 24 * mm, inner_w - 53 * mm], repeatRows=1, splitInRow=1)
         tbl.setStyle(_table_style())
         story.append(tbl)
 
@@ -2353,6 +2363,7 @@ def compose_report_pdf(
             [p_head, *p_body],
             colWidths=[inner_w - 74 * mm, 34 * mm, 20 * mm, 20 * mm],
             repeatRows=1,
+            splitInRow=1,
         )
         # ⚠️ `flush_left=False` — the first column keeps its 5pt like every other. The default
         # drops it to zero so a grid table lines up with the section rule above it, which is right

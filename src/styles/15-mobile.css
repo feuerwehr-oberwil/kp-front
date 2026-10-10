@@ -1038,6 +1038,9 @@
   :root { --float-base: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px)); }
   :root:has(.phone-tools) { --float-base: calc(var(--rail-h) * 2 + 14px); }
   :root:has(.phone-tools .wb-dock) { --float-base: calc(var(--rail-h) * 3 + 20px + var(--msg-dock-hint, 0px)); }
+  /* …and a Tafel PAGE has no tool bar under it (the form takes the stage, Whiteboard · formPage):
+     its row — the page strip, the FAB — stands on the nav bar like any surface without tools */
+  :root:has(.phone-tools .wb-tafel-page) { --float-base: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px)); }
   :root { --float-bottom: calc(var(--float-base) + var(--float-gap) + env(safe-area-inset-bottom)); }
   /* the row is OCCUPIED while any of its pieces is on screen: a FAB, the plan's chip row, the
      strip, the way back to the Rapport. It publishes no height because it has only one: --float-h. */

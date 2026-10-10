@@ -3,7 +3,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { StrictMode, useState } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { TafelFormPage } from './TafelFormPage'
-import { newFormPage, type BoardFormData } from '../lib/boardForm'
+import { newFormPage, putRow, type BoardFormData } from '../lib/boardForm'
 import { BUNDLED_TEMPLATES } from '../lib/boardTemplates'
 import { getLocaleId } from '../config/copy'
 
@@ -205,6 +205,33 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     act(() => { fireEvent.click(screen.getByRole('button', { name: /Drucken/ })) })
     act(() => { fireEvent.click(screen.getByRole('menuitem', { name: 'Alle Seiten (3)' })) })
     expect(printed).toEqual([false, true])
+  })
+
+  it('a cell holds 2000 characters and says so calmly when it is full (re-review of #338)', () => {
+    render(<Harness onCommit={() => {}} />)
+    const was = document.querySelector<HTMLTextAreaElement>('[data-sec="massnahmen"] [data-kn$="|was"]')!
+    expect(was.maxLength).toBe(2000)
+    act(() => { was.focus() })
+    type('x'.repeat(2000))
+    expect(screen.getByRole('status').textContent).toMatch(/2000 Zeichen/)
+  })
+
+  it('typing over a value another device wrote meanwhile: the later stands, and it is said (re-review of #338)', () => {
+    const base = putRow(newFormPage(FKS, EF, {}, '2026-10-10T09:24:00.000Z'), 'massnahmen', 'm1', { cells: { was: 'Riegel' } })
+    const clashes: string[][] = []
+    const props = { pageKey: 'p', readOnly: false, isPhone: false, onRemove: () => {}, inset: { top: 0, left: 0, right: 0, bottom: 0 }, onChange: () => {}, onConflict: (w: string, k: string, l: string) => clashes.push([w, k, l]) }
+    const { rerender } = render(<TafelFormPage {...props} data={base} />)
+    const was = () => document.querySelector<HTMLTextAreaElement>('[data-sec="massnahmen"] [data-k="massnahmen||m1|was"]')!
+    act(() => { was().focus() })
+    type('Riegel Seite C')
+    // …meanwhile the other tablet's «Riegel Seite B» lands for the same cell
+    rerender(<TafelFormPage {...props} data={putRow(base, 'massnahmen', 'm1', { cells: { was: 'Riegel Seite B' } })} />)
+    key('Enter')
+    expect(clashes).toEqual([['Massnahmen · Was/Wo', 'Riegel Seite C', 'Riegel Seite B']])
+    // a cell nobody else touched writes quietly
+    act(() => { was().focus() })
+    type('Riegel Seite D'); key('Enter')
+    expect(clashes).toHaveLength(1)
   })
 
   it('Alt+Enter is a line break inside the cell, not a move', () => {

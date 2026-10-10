@@ -143,6 +143,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'errors'>> = {
     attendanceConflictCheckedAt: 'checked {t} · {by}',
     truppConflict: 'BA crew {name}: changes from two devices merged – please review.',
     tafelConflict: 'Board «{page}» · {where}: changed on two devices at once – «{kept}» stands (later), «{lost}» overwritten. Please review.',
+    tafelRemovedKept: 'Board «{page}»: removed on one device, written on afterwards on another – the page stays. Please review.',
+    tafelRemovedLost: 'Board «{page}» removed – written on before that on another device: {cells}. Please review.',
     arrowTitle: 'Insert arrow – who to whom',
     arrowBackTitle: 'Insert arrow – who from whom',
     dueHead: 'Remind',

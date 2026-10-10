@@ -67,6 +67,7 @@ export function TafelPageStrip({ pages, current, templates, readOnly, onPick, on
       />
       {!readOnly && (
         <Menu
+          side="top"
           align="start"
           popupClassName="de-menu-pop tps-menu"
           itemClassName={() => 'de-menu-item'}

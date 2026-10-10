@@ -211,6 +211,8 @@ export const journalCopy = {
     // because two devices wrote one SCBA record at once, and that gets human eyes.
     truppConflict: 'Atemschutz {name}: Änderungen von zwei Geräten zusammengeführt – bitte prüfen.',
     tafelConflict: 'Tafel «{page}» · {where}: auf zwei Geräten gleichzeitig geändert – «{kept}» gilt (später), «{lost}» überschrieben. Bitte prüfen.',
+    tafelRemovedKept: 'Tafel «{page}»: auf einem Gerät entfernt, auf einem anderen danach noch beschrieben – die Seite bleibt. Bitte prüfen.',
+    tafelRemovedLost: 'Tafel «{page}» entfernt – auf einem anderen Gerät vorher noch geschrieben: {cells}. Bitte prüfen.',
     quickPhrasesAria: 'Textbausteine',
     typeLabel: 'Art',
     // «Info» is the normal case and prints NO badge — a badge on every row is wallpaper. The
