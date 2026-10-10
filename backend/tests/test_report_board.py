@@ -1,0 +1,192 @@
+"""The Tafel's pages in the Rapport (10.10.2026, app/report_board): every board-template page
+prints as its paper, nothing written is cut off, and an older client prints what it always did."""
+
+from __future__ import annotations
+
+import io
+
+import pypdfium2 as pdfium
+from reportlab.lib.units import mm
+
+from app.report_board import fit_size, wrap
+from app.report_pdf import ReportPayload, compose_report_pdf
+
+SHY = "­"
+
+
+def _ef(massnahmen_rows: int = 2) -> dict:
+    """The Erste Führung as the client resolves it (lib/boardForm · formForPdf), abridged."""
+    return {
+        "title": "Erste Führung",
+        "source": "FKS Plakat «Erste Führung» A3 V 1.0/10.09.2019",
+        "columns": 2,
+        "sections": [
+            {
+                "id": "problem",
+                "type": "quad",
+                "title": "Problemerfassung",
+                "height": 11,
+                "cells": [
+                    {"label": "Front", "lines": [{"text": "Rettungen Haus 19"}, {"text": "Brand Haus 21"}]},
+                    {"label": "Ordnung", "lines": [{"text": "R-Achse"}]},
+                    {"label": "Sanität", "lines": [{"text": "> 5 Patienten"}]},
+                    {"label": "Spezialprobleme", "lines": []},
+                ],
+            },
+            {"id": "lagekarte", "type": "map", "title": "Lagekarte", "height": 11},
+            {
+                "id": "massnahmen",
+                "type": "table",
+                "title": "Massnahmen",
+                "height": 11,
+                "columns": [
+                    {"label": "Was/Wo", "w": 4.2},
+                    {"label": "Wer", "w": 1.75},
+                    {"label": "Wann", "kind": "time"},
+                ],
+                "rows": [{"cells": [f"Massnahme {i + 1}", "TLF 1", "17:42"]} for i in range(massnahmen_rows)],
+            },
+            {
+                "id": "absprachen",
+                "type": "table",
+                "title": "Abspracherapport",
+                "subtitle": "Feuerwehr – Polizei – Rettungsdienst",
+                "height": 12,
+                "adds": False,
+                "columns": [
+                    {"label": "Signatur", "kind": "symbol", "w": 1.55},
+                    {"label": "Bezeichnung", "w": 1.5},
+                    {"label": "Ort", "w": 2.4},
+                ],
+                "rows": [
+                    {"fixed": True, "cells": ["patientensammelstelle", f"Patienten{SHY}sammelstelle", ""]},
+                    {"fixed": True, "cells": ["warteraum", "Warteraum", "Parkplatz Coop"]},
+                ],
+            },
+        ],
+    }
+
+
+def _text(pdf: bytes) -> str:
+    doc = pdfium.PdfDocument(io.BytesIO(pdf))
+    return "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+
+
+def _compose(**extra) -> bytes:
+    payload = ReportPayload.model_validate(
+        {"incident": {"title": "Brand Schlossgasse", "id": "x"}, "generatedAt": "10.10.2026 18:05", **extra}
+    )
+    return compose_report_pdf(payload, {})
+
+
+def test_the_erste_fuehrung_prints_as_its_poster():
+    text = _text(_compose(boardPages=[_ef()]))
+    for word in (
+        "Erste Führung",
+        "Problemerfassung",
+        "Lagekarte",
+        "Rettungen Haus 19",
+        "Feuerwehr – Polizei – Rettungsdienst",
+        "Parkplatz Coop",
+        "Massnahme 2",
+    ):
+        assert word in text, word
+    # the poster's own split, from the template's soft hyphen (pdfium reads a line-end hyphen
+    # back as U+FFFE)
+    assert ("Patienten-" in text or "Patienten\ufffe" in text) and "sammelstelle" in text
+    assert "FKS Plakat" in text  # where the page comes from, in its footer
+
+
+def test_nothing_written_is_cut_off_the_record():
+    """A box holding more than fits at a legible size continues after the page."""
+    text = _text(_compose(boardPages=[_ef(massnahmen_rows=70)]))
+    assert "Fortsetzung: Massnahmen" in text
+    assert "Massnahme 70" in text
+
+
+def test_an_older_client_prints_what_it_always_did():
+    assert "Erste Führung" not in _text(_compose())
+
+
+def test_the_operator_can_leave_the_tafel_out():
+    assert "Problemerfassung" not in _text(_compose(boardPages=[_ef()], options={"tafel": False}))
+
+
+def test_a_landscape_sheet_and_a_text_page():
+    konzept = {
+        "title": "Konzept",
+        "code": "8.9",
+        "columns": 2,
+        "sections": [
+            {
+                "id": "auftrag",
+                "type": "text",
+                "title": "Auftrag",
+                "span": 2,
+                "height": 3,
+                "fields": [{"tone": "shade", "value": "Personen retten, Ausbreitung verhindern"}],
+            },
+            {
+                "id": "v1",
+                "type": "text",
+                "title": "Variante 1",
+                "layout": "split",
+                "height": 15,
+                "fields": [
+                    {"value": "Innenangriff"},
+                    {"label": "+", "tone": "plus", "value": "schnell"},
+                    {"label": "–", "tone": "minus"},
+                ],
+            },
+            {
+                "id": "v2",
+                "type": "text",
+                "title": "Variante 2",
+                "layout": "split",
+                "height": 15,
+                "fields": [
+                    {"value": "Aussenangriff"},
+                    {"label": "+", "tone": "plus"},
+                    {"label": "–", "tone": "minus", "value": "langsam"},
+                ],
+            },
+        ],
+    }
+    tendenz = {
+        "title": "Problemerfassung",
+        "code": "8.1",
+        "landscape": True,
+        "columns": 1,
+        "sections": [
+            {
+                "id": "p",
+                "type": "table",
+                "height": 10,
+                "columns": [{"label": "Problem/Ereignis", "w": 4}, {"label": "Entwicklungstendenz", "kind": "trend"}],
+                "rows": [{"cells": ["Brand Zisternenfahrzeug", "wird schlimmer"]}],
+            }
+        ],
+    }
+    pdf = _compose(boardPages=[konzept, tendenz])
+    text = _text(pdf)
+    for word in (
+        "8.9",
+        "Konzept",
+        "Personen retten",
+        "Innenangriff",
+        "langsam",
+        "Brand Zisternenfahrzeug",
+        "wird schlimmer",
+    ):
+        assert word in text, word
+    doc = pdfium.PdfDocument(io.BytesIO(pdf))
+    sizes = [doc[i].get_size() for i in range(len(doc))]
+    assert any(w > h for w, h in sizes)  # the 8.1 sheet is landscape, like the Handbuch's
+
+
+def test_wrapping_splits_where_the_template_says():
+    assert wrap(f"Patienten{SHY}sammelstelle", 25 * mm, size=9) == ["Patienten-", "sammelstelle"]
+    assert wrap(f"Sanitäts{SHY}hilfsstelle", 60 * mm, size=9) == ["Sanitätshilfsstelle"]  # no hyphen when it fits
+    assert wrap("Erste Zeile\nzweite", 60 * mm) == ["Erste Zeile", "zweite"]
+    # a narrow column shrinks the type before it splits a word
+    assert fit_size("Polycom", 9 * mm, 8.5) < 8.5

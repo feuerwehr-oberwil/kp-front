@@ -51,7 +51,7 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     type('AS Trupp 1'); key('Enter')
     expect(active().getAttribute('aria-label')).toBe('Wer')
     expect(active().getAttribute('data-kn')).toBe('massnahmen||+new|wer')
-    const row = commits.at(-1)!.values.massnahmen.rows![0]
+    const row = commits[commits.length - 1].values.massnahmen.rows![0]
     expect(row.cells.was).toBe('Personensuche 1. OG')
     expect(row.cells.wer).toBe('AS Trupp 1')
     expect(row.cells.wann).toMatch(/^\d\d:\d\d$/)
@@ -67,7 +67,7 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     const wann = screen.getAllByLabelText('Wann')[1] as HTMLTextAreaElement // Mittel's first row (TLF 1)
     act(() => { wann.focus() })
     type('1124'); key('Tab')
-    expect(commits.at(-1)!.values.mittel.rows![0].cells.wann).toBe('11:24')
+    expect(commits[commits.length - 1].values.mittel.rows![0].cells.wann).toBe('11:24')
     const auftrag = screen.getAllByLabelText('Auftrag/Wo')[0] as HTMLTextAreaElement
     act(() => { auftrag.focus() })
     type('Riegel'); key('Escape')

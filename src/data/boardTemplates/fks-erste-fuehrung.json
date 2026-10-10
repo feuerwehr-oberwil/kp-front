@@ -82,9 +82,9 @@
             { "id": "ort", "label": { "de": "Ort", "fr": "Lieu", "it": "Luogo", "en": "Location" }, "w": 2.4 }
           ],
           "fixedRows": [
-            { "id": "patientensammelstelle", "cells": { "sig": "patientensammelstelle", "bez": { "de": "Patientensammelstelle", "fr": "Poste collecteur de patients", "it": "Nido feriti", "en": "Casualty collection point" } } },
-            { "id": "sanitaetshilfsstelle", "cells": { "sig": "sanitaetshilfsstelle", "bez": { "de": "Sanitätshilfsstelle", "fr": "Poste médical avancé", "it": "Posto di soccorso sanitario", "en": "Advanced medical post" } } },
-            { "id": "rettungsachse", "cells": { "sig": "rettungsachse", "bez": { "de": "Rettungsachse", "fr": "Axe de sauvetage", "it": "Asse del salvataggio", "en": "Rescue route" } } },
+            { "id": "patientensammelstelle", "cells": { "sig": "patientensammelstelle", "bez": { "de": "Patienten\u00adsammelstelle", "fr": "Poste collecteur de patients", "it": "Nido feriti", "en": "Casualty collection point" } } },
+            { "id": "sanitaetshilfsstelle", "cells": { "sig": "sanitaetshilfsstelle", "bez": { "de": "Sanitäts\u00adhilfsstelle", "fr": "Poste médical avancé", "it": "Posto di soccorso sanitario", "en": "Advanced medical post" } } },
+            { "id": "rettungsachse", "cells": { "sig": "rettungsachse", "bez": { "de": "Rettungs\u00adachse", "fr": "Axe de sauvetage", "it": "Asse del salvataggio", "en": "Rescue route" } } },
             { "id": "standort-einsatzleitung", "cells": { "sig": "standort-einsatzleitung", "bez": { "de": "Standort Einsatzleitung", "fr": "Poste de commandement", "it": "Posto della direzione dell’intervento", "en": "Incident command post" } } },
             { "id": "sammelstelle-unverletzte", "cells": { "sig": "sammelstelle-unverletzte", "bez": { "de": "Sammelstelle Unverletzte", "fr": "Poste collecteur de personnes non blessées", "it": "Posto collettore dei non feriti", "en": "Uninjured collection point" } } },
             { "id": "warteraum", "cells": { "sig": "warteraum", "bez": { "de": "Warteraum", "fr": "Zone d’attente", "it": "Piazza d’attesa", "en": "Staging area" } } },

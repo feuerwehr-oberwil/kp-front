@@ -288,7 +288,7 @@ export function formForPdf(d: BoardFormData, words: TrendWords, locale?: string)
         const cols = shownColumns(s)
         const fixed = new Map((s.fixedRows ?? []).map((r) => [r.id, r]))
         return {
-          ...base, done: !!s.done,
+          ...base, done: !!s.done, adds: tableAddsRows(s),
           columns: cols.map((c) => ({ label: L(c.label), kind: c.type ?? 'text', w: c.w ?? 1 })),
           rows: tableRows(d, s).map((r) => ({
             fixed: fixed.has(r.id),

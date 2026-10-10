@@ -35,8 +35,10 @@ import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } f
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { AuditProof, ReportDraft, ReportOptions } from '../lib/report'
 import {
-  defaultReportOptions, einsatzleiterFromScene, formatDateTime, missingTranscriptCount, pendenzRows, proofLabel,
+  defaultReportOptions, einsatzleiterFromScene, formatDateTime, hasVisiblePlanAnnotation, missingTranscriptCount, pendenzRows, proofLabel,
 } from '../lib/report'
+import { findForms } from '../lib/boardForm'
+import { TAFEL_ID } from '../lib/tafelPages'
 import { abschlussFacts, missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { controlChipLabel } from '../lib/abschlussOpen'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
@@ -381,6 +383,11 @@ export function ReportPreflight({
   const pendenzCount = useMemo(() => pendenzRows(events).length, [events])
   // the Gebäude section's count is its diagnostic, like the Pendenzen's: «(0)» says no storey
   // carries anything, which is why no Gebäude page will print
+  // the Tafel's pages, plus its Skizze when it carries ink (reportPdfDirect · tafelPayload)
+  const tafelPageCount = useMemo(() => {
+    const annos = board?.[TAFEL_ID] ?? []
+    return findForms(annos).length + (hasVisiblePlanAnnotation({ [TAFEL_ID]: annos }, TAFEL_ID) ? 1 : 0)
+  }, [board])
   const stackFloorCount = useMemo(() => {
     const stack = plans.find((p) => p.floorStack)
     return stack && building ? usedStackFloors(building, board?.[stack.id] ?? []).length : 0
@@ -1464,6 +1471,8 @@ export function ReportPreflight({
                   // ⚠️ NOT one of the «Pläne»: an Objektplan is reference, the Gebäude is the Einsatz's
                   // own work (Trupp positions per storey). Only storeys that carry something print.
                   { kind: 'check' as const, label: fillTemplate(P.toggleGebaeude, { n: stackFloorCount }), checked: options.gebaeude && stackFloorCount > 0, disabled: stackFloorCount === 0, onChange: (v: boolean) => patchOpt({ gebaeude: v }) },
+                  // the Tafel's pages (Erste Führung …) and its Skizze — the Einsatz's own work, ON
+                  { kind: 'check' as const, label: fillTemplate(P.toggleTafel, { n: tafelPageCount }), checked: options.tafel !== false && tafelPageCount > 0, disabled: tafelPageCount === 0, onChange: (v: boolean) => patchOpt({ tafel: v }) },
                   { kind: 'sep' as const },
                   { kind: 'check' as const, label: fillTemplate(P.toggleAtemschutz, { n: truppCount }), checked: options.atemschutz, onChange: (v: boolean) => patchOpt({ atemschutz: v }) },
                   { kind: 'check' as const, label: fillTemplate(P.toggleAttendance, { n: attendanceCount }), checked: options.attendance, onChange: (v: boolean) => patchOpt({ attendance: v }) },
