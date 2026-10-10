@@ -64,6 +64,38 @@ describe('BuildingFloat', () => {
     expect([...compact.querySelectorAll('use')].map((u) => u.getAttribute('href'))).toEqual(['#warn', '#checklist'])
   })
 
+  it('autoOpen (the first open, lib/buildingFirstOpen) opens the card by itself; any close marks it read', () => {
+    const reads: string[] = []
+    const { rerender } = render(<BuildingFloat info={base} autoOpen={false} onRead={() => reads.push('read')} />)
+    expect(screen.queryByRole('dialog')).toBeNull()
+    rerender(<BuildingFloat info={base} autoOpen onRead={() => reads.push('read')} />)
+    expect(screen.getByRole('dialog', { name: 'Gebäude' })).toBeTruthy()
+    // non-modal: the chip is still there to close it, nothing traps focus
+    expect(screen.getByRole('button', { name: /Steckbrief öffnen/ }).getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Schliessen' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(reads).toEqual(['read'])
+    // the chip reopens it; Esc and the chip are a close too
+    const chip = screen.getByRole('button', { name: /Steckbrief öffnen/ })
+    fireEvent.click(chip)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    fireEvent.click(chip)
+    fireEvent.click(chip)
+    expect(reads).toEqual(['read', 'read', 'read'])
+  })
+
+  it('Sofortmassnahmen stand right after the hazards, before the register facts', () => {
+    render(<BuildingFloat info={{ ...base, object: { ...base.object!, remarks: 'Schlüsseldepot beim Haupttor' } }} autoOpen />)
+    const text = screen.getByRole('dialog').textContent ?? ''
+    const at = (t: string) => text.indexOf(t)
+    expect(at('Heizung Gas')).toBeGreaterThan(-1)
+    expect(at('Heizung Gas')).toBeLessThan(at('Sofortmassnahmen'))
+    expect(at('PV 35.6 kW')).toBeLessThan(at('Sofortmassnahmen'))
+    expect(at('Gashaupthahn schliessen')).toBeLessThan(at('Bemerkungen'))
+    expect(at('Schlüsseldepot beim Haupttor')).toBeLessThan(at('3 Geschosse'))
+    expect(at('Sofortmassnahmen')).toBeLessThan(at('GWR'))
+  })
+
   it('nothing to say → no chip at all', () => {
     const { container } = render(<BuildingFloat info={{ ...base, gwr: null, gwr_status: 'error', plants: [], pv_status: 'skipped', object: null }} />)
     expect(container.innerHTML).toBe('')

@@ -9,6 +9,34 @@ word («⚠ Gebäude-Info · Gas · PV»), or just «Gebäude-Info». A tap open
 The card is non-modal, like the Passung: the map stays live, and ✕, the chip or Esc close it.
 Until 09.10.2026 the card sat in the incident menu; the owner wanted it «on the map directly».
 
+## It opens by itself the first time
+
+Owner, 10.10.2026: the Sofortmassnahmen must be read, not merely be one tap away. So the first
+time **this device** shows the Karte of an Einsatz whose building has something a crew must read –
+a hazard (Gas, Heizöl, PV), **Sofortmassnahmen** or **Bemerkungen** – the card opens by itself,
+still docked and non-modal: the map stays live and the operator keeps working
+(`lib/buildingFirstOpen`, wired in `IncidentWorkspace` → `MapControls` → `BuildingFloat · autoOpen`).
+Geschosse, Baujahr or a last Objektbesuch alone stay behind the chip.
+
+- **Once per device per Einsatz per building.** The flag is device-local view state in IndexedDB
+  (`kp-front-building-read:<incidentId>`), never the synced workspace: another tablet on the same
+  Einsatz has its own operator who has not read it. A building is the Einsatzort the answer was
+  asked for plus its Objekt, so an address corrected in «Bearbeiten» or a manual Objekt pick that
+  brings new content shows the card once again.
+- **Read means closed** – ✕, Esc or the chip. A card left open when the operator leaves the Karte
+  or the app is killed was not dismissed and comes back the next time the Karte is shown. The chip
+  stays to reopen it.
+- **When.** Never under the opening cover (`lib/bootCover`): it opens after the snail has faded.
+  Only on the Karte – an Einsatz that opens on another surface shows it the first time the Karte
+  is shown – and not while the operator has the Ebenen, Ansichten, the Verlauf, the composer or the
+  Offline-Vorbereitung open over it; it waits until they are back on the bare Karte. Building data
+  that arrives later (an offline open, then online) opens it when it first arrives with content.
+  Not in a replay (Wiedergabe), a closed Einsatz, a tab that lost the one-tab lock, or the
+  Atemschutz-Link, whose Tafel has no Karte. The Plan's chip row never opens it by itself.
+- **What must be read stands first**, so it is in view without scrolling (on a phone the card is
+  at most 56 % of the screen high): the hazard tags, then Sofortmassnahmen, Bemerkungen and whose
+  notes they are, then the register facts with their source line, then the last Objektbesuch.
+
 The chip is not pinned to the building on the map, for three reasons. The Lage is drawn exactly
 at the Einsatzort, so a pinned chip would cover the Brandherd and the first vehicles. It would
 move with every pan. And it would have no plan-side twin. The chip row is the same place on both
