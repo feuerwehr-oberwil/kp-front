@@ -50,6 +50,9 @@ import s from './TafelFormPage.module.css'
  */
 
 const T = () => appConfig.copy.tafel
+/** a cell holds a line of the paper, not a report (re-review of #338): what is longer belongs in
+ *  the Verlauf. The print copes with any length now — the cap is the calm hint that says so. */
+export const CELL_MAX = 2000
 const ARROW: Record<string, string> = { up: '➚', same: '=', down: '➘' }
 
 /** what a cell is in the form (and what it writes) */
@@ -208,7 +211,9 @@ function Cell({ k, kn, value, label, readOnly, time = false, placeholder, classN
           flush()
         }}
         onKeyDown={onKeyDown}
+        maxLength={CELL_MAX}
       />
+      {focused && draft.length >= CELL_MAX && <span className={s.capHint} role="status">{fillTemplate(T0.cellCap, { n: CELL_MAX })}</span>}
       {breakKey && !time && (
         // keeps the focus (and the keyboard) where it is: the press never reaches the textarea's blur
         <button type="button" className={s.breakKey} aria-label={T0.lineBreak} title={T0.lineBreak}

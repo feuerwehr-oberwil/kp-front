@@ -207,6 +207,15 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     expect(printed).toEqual([false, true])
   })
 
+  it('a cell holds 2000 characters and says so calmly when it is full (re-review of #338)', () => {
+    render(<Harness onCommit={() => {}} />)
+    const was = document.querySelector<HTMLTextAreaElement>('[data-sec="massnahmen"] [data-kn$="|was"]')!
+    expect(was.maxLength).toBe(2000)
+    act(() => { was.focus() })
+    type('x'.repeat(2000))
+    expect(screen.getByRole('status').textContent).toMatch(/2000 Zeichen/)
+  })
+
   it('Alt+Enter is a line break inside the cell, not a move', () => {
     render(<Harness onCommit={() => {}} />)
     act(() => { box('ordnung').querySelector<HTMLTextAreaElement>('[data-kn]')!.focus() })

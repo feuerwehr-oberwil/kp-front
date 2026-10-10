@@ -764,7 +764,12 @@ class Continuation(Flowable):
         # asks again, which is where the tables start
         if not self.page.overflow or availHeight < 60 * mm:
             return []
-        return list(self.make_tables(self.page.overflow, availWidth))
+        # a zero-height first piece: Platypus places the FIRST piece of a split as it is (no
+        # further split), so a table that is taller than the page must not be it — after the
+        # spacer the tables flow, and split, like any table in the story
+        from reportlab.platypus import Spacer
+
+        return [Spacer(0, 0), *self.make_tables(self.page.overflow, availWidth)]
 
     def draw(self):
         return
