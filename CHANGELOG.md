@@ -75,6 +75,17 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Added
 
+- **Atemschutznotfall for one Trupp.** Hold «Notfall» on a crew inside: every device turns that
+  Trupp red at the top of the alarm strip with a running Notfall clock, its last place, last Druck
+  with its age and Funkkanal, and «Sicherungstrupp einsetzen» as the first offer; tone, OS
+  notification and Web Push follow, the Verlauf and the Rapport record raising, the Sicherungstrupp
+  going in and «Notfall beendet» (also held, undoable). The held tile fills from left to right
+  while it is held (a tap says «Gedrückt halten» in its place); on the Tafel the Trupp stands at
+  the top as its own card in red – ⚠ and the name its card shows, the Notfall clock and the
+  Sicherungstrupp action (on a tablet one slim row with the facts) – the crew's own card wears the
+  same ⚠, and an opened card lands below the banner, never under it. «Raus» on a crew in a
+  Notfall ends the Notfall too (one undo step restores both). A calm hint says when an
+  Atemschutz-Trupp goes in with no Sicherungstrupp ready. *No action needed.*
 - **Wetter on the Karte: MeteoSwiss precipitation radar.** Ebenen get a «Wetter» group with
   «Niederschlag (Radar)» (a device setting, off by default): the last hour of MeteoSwiss radar
   under every line and symbol, with a floating pill to step or play through it and a colour key in

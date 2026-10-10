@@ -6,6 +6,7 @@
 
 import type { Dispatch, SetStateAction } from 'react'
 import { AtemschutzAlarmMeldungen } from '../components/AtemschutzAlarmMeldung'
+import { AtemschutzNotfallMeldungen } from '../components/AtemschutzNotfall'
 import { GpsFollowMeldung } from '../components/GpsFollowMeldung'
 import { InstallBanner } from '../components/InstallBanner'
 import { NoBasemapMeldung } from '../components/NoBasemapMeldung'
@@ -25,6 +26,7 @@ import type { IncidentMeta } from '../lib/incidents'
 import type { useJournal } from '../lib/useJournal'
 import type { useReminders } from '../lib/useReminders'
 import type { useSymbols } from '../lib/useSymbols'
+import type { useTruppActions } from '../lib/useTruppActions'
 import type { Trupp } from '../types'
 import type { WorkspaceMode } from './types'
 
@@ -70,6 +72,9 @@ export interface WorkspaceMeldungenProps {
   intakeReviewedAt: string | undefined
   onEditMeta: () => void
   onReviewDone: () => void
+  azAlarmActive: boolean
+  truppPlace: ReturnType<typeof useTruppActions>['truppPlace']
+  setTruppStatus: ReturnType<typeof useTruppActions>['setTruppStatus']
 }
 
 export function WorkspaceMeldungen({
@@ -78,7 +83,7 @@ export function WorkspaceMeldungen({
   setAzRowsShown, muteAtemschutz, setMode, setPanel, setTruppFocus, mapUI, tacticalLocked, gpsMeld,
   releaseOnSite, revertAll, followAll, replayActive, incidentMeta, journal, rapportReturn,
   setRapportReturn, openRapport, setInstallGuideOpen, tabLockLost, user, onTakeOverTab, needsReview,
-  readOnly, intakeReviewedAt, onEditMeta, onReviewDone,
+  readOnly, intakeReviewedAt, onEditMeta, onReviewDone, azAlarmActive, truppPlace, setTruppStatus,
 }: WorkspaceMeldungenProps) {
   return (
     <>
@@ -123,6 +128,23 @@ export function WorkspaceMeldungen({
           setTruppFocus({ id, nonce: Date.now() })
         }}
       />
+      {/* The Atemschutznotfall's row — the TOP of the strip (MELDUNG_RANK.notfall), on every
+          surface but the Tafel, whose own banner stands there instead (F1, 08.10.2026). Not while
+          the Einsatz is closed or replayed: those alarm nothing (azAlarmActive). */}
+      {azAlarmActive && (
+        <AtemschutzNotfallMeldungen
+          trupps={trupps}
+          placeOf={truppPlace}
+          canEdit={canEditTrupps}
+          onBoard={mode === 'atemschutz'}
+          onAcknowledge={muteAtemschutz}
+          onGoToTrupp={(id) => {
+            setMode('atemschutz'); setPanel(null)
+            setTruppFocus({ id, nonce: Date.now() })
+          }}
+          onDeploySafety={(id) => setTruppStatus(id, 'aktiv')}
+        />
+      )}
 
       {/* one row per GPS end with something to say — they queue behind each other instead of
           stacking (lib/gpsReturn · gpsNotices: drove off, following stopped, back on site) */}

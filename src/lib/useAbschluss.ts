@@ -6,7 +6,8 @@ import type { ReportMeta } from './workspace'
 import type { MediaQueueApi } from './useMediaQueue'
 import { abschlussFacts, missingSteps, type AbschlussStep } from './abschluss'
 import { abschlussOpenItems, abschlussOpenPoints, countsAsOpen, insideAbschlussMessage, registeredAbschlussMessage } from './abschlussOpen'
-import { truppStillDeployed, truppStillRegistered } from './atemschutz'
+import { truppInNotfall, truppLogName, truppStillDeployed, truppStillRegistered } from './atemschutz'
+import { fillTemplate } from './format'
 import { mittelLineCount } from './mittel'
 import { confirmDialog } from './ui'
 
@@ -41,6 +42,9 @@ interface Args {
    *  Abschluss closes over is SAID in the Verlauf, without inventing an Austritt. Absent (a caller
    *  that may not write the record) ⇒ nothing is written. */
   noteInsideAtClose?: (trupps: Trupp[]) => void
+  /** …and «Trupp N (…): Notfall beim Abschluss nicht beendet» for each Trupp still in an
+   *  Atemschutznotfall when the Abschluss closes over it (F1, 08.10.2026). Same contract. */
+  noteNotfallAtClose?: (trupps: Trupp[]) => void
   /** drain the Verlauf and audit outboxes — run after the media, before the handover, so what
    *  this device recorded before the close is not judged against the closed Einsatz */
   flushOutboxes?: () => Promise<void>
@@ -61,7 +65,7 @@ interface Args {
  */
 export function useAbschluss({
   reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
-  setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, flushOutboxes, markClosing,
+  setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing,
 }: Args) {
   const abschlussMissing = useMemo(
     () => missingSteps(abschlussFacts(reportMeta, Object.keys(attendance).length, mittelLineCount(mittel), openConflictCount)),
@@ -111,6 +115,24 @@ export function useAbschluss({
        and an Enter closed the Einsatz over three crews under PA who never got an Austritt. Now the
        sentence names them, «Zur Tafel» is the filled, focused answer, and closing anyway is the
        quiet one — and still writes nothing: an Austritt nobody reported is never invented. */
+    /* ⚠️ A running ATEMSCHUTZNOTFALL is asked about before anything else (F1, 08.10.2026): closing
+       the Einsatz freezes the Tafel and silences every alarm, the Notfall's included. «Zur Tafel»
+       is the filled, focused answer; closing anyway is the quiet one, and the record then says
+       the Notfall was never ended (noteNotfallAtClose) — it is not ended for anybody. */
+    const notfall = truppsRef.current.filter(truppInNotfall)
+    if (notfall.length > 0) {
+      const nf = appConfig.copy.atemschutz.notfall
+      const answer = await confirmDialog({
+        title: nf.abschlussTitle,
+        message: fillTemplate(nf.abschlussMsg, { list: notfall.map((t) => fillTemplate(nf.who, { name: truppLogName(t) })).join(', ') }),
+        confirmLabel: nf.abschlussClose,
+        altLabel: A.registeredToBoard,
+        cancelLabel: appConfig.copy.cancel,
+        safeAnswer: 'alt',
+      })
+      if (answer === 'alt') { setMode('atemschutz'); setPanel(null); return false }
+      if (answer !== true) return false
+    }
     const inside = truppsRef.current.filter(truppStillDeployed)
     if (inside.length > 0) {
       const answer = await confirmDialog({
@@ -211,6 +233,11 @@ export function useAbschluss({
       noteInsideAtClose(insideNow)
       await new Promise((r) => setTimeout(r, 0)) // committed before the handover flushes
     }
+    const notfallNow = truppsRef.current.filter(truppInNotfall)
+    if (notfallNow.length && noteNotfallAtClose) {
+      noteNotfallAtClose(notfallNow)
+      await new Promise((r) => setTimeout(r, 0))
+    }
     // ⚠️ Drain the media queue FIRST, from here. The Abschluss closes the incident and App then
     // drops what has already gone up (clearUploadedMedia) — and an upload also has to patch its
     // Verlauf row's blob: URL to the server one (useMediaQueue · onUploaded), which needs this
@@ -222,7 +249,7 @@ export function useAbschluss({
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
     return onCompleteRapport().finally(() => markClosing?.(false))
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
-  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, flushOutboxes, markClosing])
+  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing])
 
   return { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete }
 }

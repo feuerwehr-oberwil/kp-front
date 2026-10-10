@@ -401,7 +401,7 @@ head, then `alembic check` against the models); image, secrets, e2e, visual and 
     spec, the touch vocabulary.
   - [`docs/phone-layout.md`](docs/phone-layout.md) – the two bottom bars, page heads, pages.
   - [`docs/atemschutz-board.md`](docs/atemschutz-board.md) – the Trupps board, the Trupp form,
-    the Sicherungstrupp and the Abschluss.
+    the Sicherungstrupp, the Atemschutznotfall and the Abschluss.
   - [`docs/copy-and-wording.md`](docs/copy-and-wording.md) – which word a screen uses.
   - [`docs/rapport.md`](docs/rapport.md) – what the Rapport's figure pages carry.
   - [`docs/roles-and-access.md`](docs/roles-and-access.md) – roles, the deployment admin, links.
