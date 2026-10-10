@@ -675,6 +675,18 @@
           "default": null,
           "title": "Hidden"
         },
+        "repeatable": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repeatable"
+        },
         "sections": {
           "items": {
             "discriminator": {

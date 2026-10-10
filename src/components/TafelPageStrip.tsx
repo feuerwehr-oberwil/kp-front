@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
-import { Menu, type MenuActionItem, type MenuHeading } from '../lib/overlays'
+import { Menu, type MenuActionItem } from '../lib/overlays'
 import { labelText, offeredPages, type BoardTemplate, type TemplatePage } from '../lib/boardTemplate'
 import { SKIZZE } from '../lib/tafelPages'
 import type { FormAnno } from '../lib/boardForm'
@@ -18,8 +18,10 @@ import { Segmented } from './Segmented'
  * dropped «Womit beginnen?» cards stay dropped. Pages are named by their titles only; the FKS
  * sheet numbers stay in the template's metadata (owner, round 2).
  */
-export function TafelPageStrip({ pages, current, templates, readOnly, onPick, onAdd }: {
+export function TafelPageStrip({ pages, titles, current, templates, readOnly, onPick, onAdd }: {
   pages: FormAnno[]
+  /** what each page is called — «Konzept 2» for a second Konzept (lib/boardForm · pageTitles) */
+  titles?: ReadonlyMap<string, string>
   current: string
   templates: readonly BoardTemplate[]
   readOnly: boolean
@@ -29,11 +31,13 @@ export function TafelPageStrip({ pages, current, templates, readOnly, onPick, on
 }) {
   const T = appConfig.copy.tafel
   const added = new Set(pages.map((p) => `${p.form.tpl.id}/${p.form.page.id}`))
-  const items: (MenuActionItem | MenuHeading)[] = templates.flatMap((tpl) => [
-    // the template's name heads its pages — which set the station runs is part of the answer
-    { kind: 'head' as const, label: labelText(tpl.title) },
+  // just the pages, by their titles (owner, 10.10. evening: «they are just our templates that
+  // could be done in any other way» — no template name heading them). A repeatable page stays on
+  // offer after it is added (each tap a page of its own); any other is marked «schon da», and a
+  // tap goes to it.
+  const items: MenuActionItem[] = templates.flatMap((tpl) => [
     ...offeredPages(tpl).map((p) => {
-      const there = added.has(`${tpl.id}/${p.id}`)
+      const there = !p.repeatable && added.has(`${tpl.id}/${p.id}`)
       return {
         label: (
           <span className="tps-item">
@@ -62,7 +66,7 @@ export function TafelPageStrip({ pages, current, templates, readOnly, onPick, on
         onChange={onPick}
         options={[
           { value: SKIZZE, label: <><Icon id="pen" />{T.skizze}</> },
-          ...pages.map((p) => ({ value: p.id, label: <><Icon id="doc" />{labelText(p.form.page.title)}</> })),
+          ...pages.map((p) => ({ value: p.id, label: <><Icon id="doc" />{titles?.get(p.id) ?? labelText(p.form.page.title)}</> })),
         ]}
       />
       {!readOnly && (

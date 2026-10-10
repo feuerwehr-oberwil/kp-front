@@ -122,6 +122,26 @@ export const isFormAnno = (a: BoardAnno): a is FormAnno => a.kind === 'form' && 
 export const findForms = (annos: readonly BoardAnno[]): FormAnno[] =>
   annos.filter((a): a is FormAnno => isFormAnno(a) && a.form.removedAt == null).sort((a, b) => a.form.at.localeCompare(b.form.at) || a.id.localeCompare(b.id))
 
+/**
+ * What each page is called on screen and on paper (owner, 10.10. evening: «multiple pages of the
+ * same thing since there could be multiple concepts»): its title, and from the second instance
+ * of a repeatable page on, a number — «Konzept», «Konzept 2», … — in the order they were added.
+ * A number is a page's place among the pages of its kind that are there NOW (a removed one
+ * leaves no hole).
+ */
+export function pageTitles(annos: readonly BoardAnno[], locale?: string): Map<string, string> {
+  const seen = new Map<string, number>()
+  const out = new Map<string, string>()
+  for (const a of findForms(annos)) {
+    const key = `${a.form.tpl.id}/${a.form.page.id}`
+    const n = (seen.get(key) ?? 0) + 1
+    seen.set(key, n)
+    const title = labelText(a.form.page.title, locale)
+    out.set(a.id, n > 1 ? `${title} ${n}` : title)
+  }
+  return out
+}
+
 // ── the gate a synced page passes (lib/workspace · isBoardAnno) ─────────────────────────────────
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
@@ -496,12 +516,12 @@ export interface TrendWords { up: string; same: string; down: string }
  * deployment's language, every row as the strings that print, in the layout's order. The server
  * draws the paper; it never has to know a template.
  */
-export function formForPdf(d: BoardFormData, words: TrendWords, locale?: string, headLabels?: Record<'title' | 'address' | 'alarm' | 'el', string>): Record<string, unknown> {
+export function formForPdf(d: BoardFormData, words: TrendWords, locale?: string, headLabels?: Record<'title' | 'address' | 'alarm' | 'el', string>, title?: string): Record<string, unknown> {
   const L = (l: Label | undefined) => labelText(l, locale)
   const trendWord = (t: string | undefined) => (t === 'up' ? words.up : t === 'same' ? words.same : t === 'down' ? words.down : '')
   const p = d.page
   return {
-    title: L(p.title),
+    title: title ?? L(p.title),
     source: d.tpl.source ?? '',
     landscape: p.paper === 'landscape',
     columns: p.columns ?? 1,

@@ -335,6 +335,8 @@ function useFocusAfterRender(root: RefObject<HTMLElement | null>): (k: string) =
 export interface TafelFormPageProps {
   /** the page's anno id — the namespace of the drafts this device keeps for it */
   pageKey: string
+  /** what the page is called — «Konzept 2» for a second Konzept (lib/boardForm · pageTitles) */
+  title?: string
   data: BoardFormData
   readOnly: boolean
   isPhone: boolean
@@ -357,7 +359,7 @@ export interface TafelFormPageProps {
   inset: { top: number; left: number; right: number; bottom: number | string }
 }
 
-export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRemove, onConflict, onPrint, pageCount = 1, printing = false, scene, onOpenKarte, inset }: TafelFormPageProps) {
+export function TafelFormPage({ pageKey, title, data, readOnly, isPhone, onChange, onRemove, onConflict, onPrint, pageCount = 1, printing = false, scene, onOpenKarte, inset }: TafelFormPageProps) {
   const t = T()
   const page = data.page
   const sections = shownSections(page)
@@ -803,8 +805,9 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
       style={{ paddingTop: inset.top, paddingLeft: inset.left, paddingRight: inset.right, paddingBottom: inset.bottom }}>
       <div className={cx(s.paper, page.paper === 'landscape' && s.landscape, cols === 1 && s.single)}>
         <header className={s.head}>
-          <h2 className={s.title}>{labelText(page.title)}</h2>
-          <span className={s.meta} title={t.keysHint}>{fillTemplate(t.template, { title: labelText(data.tpl.title), v: data.tpl.version })}</span>
+          {/* no «Vorlage … Version …» line (owner, 10.10. evening): which file the page came from
+              stays in the data and on the paper's footer, not on the screen */}
+          <h2 className={s.title} title={t.keysHint}>{title ?? labelText(page.title)}</h2>
           {/* the page on paper — the same sheet the Rapport prints; also on a closed Einsatz */}
           {onPrint && (pageCount > 1
             ? (

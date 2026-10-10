@@ -325,7 +325,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     printFailed: 'The page could not be printed – please try again.',
     removeTitle: 'Remove page?',
     removeMsg: 'Everything written on «{page}» goes with it. Undo (↶) brings it back.',
-    template: 'Template {title}, version {v}',
     mapLabel: 'Situation map – tap to open the map',
     mapOpen: 'Open map',
     mapPrint: 'In the report: the map at the moment of printing',

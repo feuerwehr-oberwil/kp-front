@@ -25,10 +25,19 @@ replaces the bundled one.
 
 - **A new Tafel starts empty.** The strip shows «Skizze» and «+ Seite», and nothing else. No
   page is forced on anyone, and there are no «Womit beginnen?» cards.
-- **«+ Seite»** lists the pages of the station's set, each under its template's title, by
-  title only. The FKS sheet numbers (8.1 …) stay in the template's `source` and in this doc,
-  never in the app (owner, staging round 2). A page that is already on the Tafel is marked «schon da». Tapping it goes to
-  that page instead of adding a second copy.
+- **«+ Seite»** (on a phone just «+», labelled «Seite hinzufügen») lists the pages of the
+  station's set by their titles only — no template name heading them, no sheet numbers (the FKS
+  numbers 8.1 … stay in the template's `source` and in this doc). A page that is already on the
+  Tafel is marked «schon da», and tapping it goes to that page — unless the page is
+  **repeatable** (`repeatable: true`): it stays on offer, and each tap adds a page of its own,
+  numbered in the strip, the title and on paper («Konzept», «Konzept 2», …, `lib/boardForm ·
+  pageTitles`; the numbers close up when one is removed). Each instance has its own values, its
+  own ↶ steps, its own sheet in the print, and the remembered page works per instance. The
+  bundled set repeats **Konzept** (several concepts) and **Rapport** (the next Rapport); the
+  Erste Führung, the Problemerfassung, Mittel and Verbindungen are one per Einsatz — what does
+  not fit on them continues on the «Fortsetzung».
+- A page's header carries its title only; which template file and version it came from stays in
+  its data and on the paper's footer.
 - **A page is ONE board anno** of kind `form` on the Tafel's own sheet (`board['tafel']`). The
   anno carries the page *snapshot* and everything written on it. So adding a page, every
   committed cell and removing a page are each one ↶ step on the Tafel's history, and a page syncs
@@ -217,6 +226,7 @@ required and is the fallback.
 | `columns` | `1` or `2`. A phone always uses one column. |
 | `header` | Switch for the Einsatz · Adresse · Alarm · Einsatzleiter line. |
 | `hidden` | When true, the page is not offered. |
+| `repeatable` | When true, the page may be added more than once (see «+ Seite» above). |
 | `sections[]` | The page's sections. |
 
 **Every section** has `id`, `type` and these optional keys:

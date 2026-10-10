@@ -477,7 +477,6 @@ export const whiteboardCopy = {
     printFailed: 'Die Seite konnte nicht gedruckt werden – bitte nochmals versuchen.',
     removeTitle: 'Seite entfernen?',
     removeMsg: 'Alles, was auf «{page}» steht, geht mit. Rückgängig (↶) holt es zurück.',
-    template: 'Vorlage {title}, Version {v}',
     mapLabel: 'Lagekarte – tippen öffnet die Karte',
     mapOpen: 'Zur Karte',
     mapPrint: 'Im Rapport: die Karte zum Zeitpunkt des Drucks',

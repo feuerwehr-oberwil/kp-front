@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useState } from 'react'
 import {
-  findForms, formAnno, formForPdf, formHasContent, isFormData, newFormPage, nextTrend, normalizeTime, putField, putLine, putRow, tableRows,
+  findForms, formAnno, formForPdf, formHasContent, isFormData, newFormPage, nextTrend, normalizeTime, pageTitles, putField, putLine, putRow, tableRows,
   type BoardFormData,
 } from './boardForm'
 import { BUNDLED_TEMPLATES } from './boardTemplates'
@@ -200,5 +200,22 @@ describe('the Rapport gets the page resolved, in the deployment’s words', () =
     const pdf = formForPdf(d, WORDS, 'de') as { landscape: boolean; sections: { rows: { cells: string[] }[] }[] }
     expect(pdf.landscape).toBe(true)
     expect(pdf.sections[0].rows[0].cells).toEqual(['Brand Zisternenfahrzeug', 'wird schlimmer', '', ''])
+  })
+})
+
+describe('repeatable pages (owner, 10.10. evening: «multiple concepts»)', () => {
+  it('Konzept and Rapport repeat; the others are offered once', () => {
+    expect(FKS.pages.filter((p) => p.repeatable).map((p) => p.id)).toEqual(['konzept', 'rapport'])
+  })
+  it('a second instance is numbered, on screen and on paper — and the numbers close up when one goes', () => {
+    const k = FKS.pages.find((p) => p.id === 'konzept')!
+    const a = formAnno(newFormPage(FKS, k, {}, '2026-10-10T09:01:00Z'))
+    const b = formAnno(newFormPage(FKS, k, {}, '2026-10-10T09:02:00Z'))
+    const c = formAnno(newFormPage(FKS, k, {}, '2026-10-10T09:03:00Z'))
+    const titles = pageTitles([c, a, b])
+    expect([titles.get(a.id), titles.get(b.id), titles.get(c.id)]).toEqual(['Konzept', 'Konzept 2', 'Konzept 3'])
+    expect((formForPdf(b.form, WORDS, undefined, undefined, titles.get(b.id)) as { title: string }).title).toBe('Konzept 2')
+    const gone = { ...b, form: { ...b.form, removedAt: 1 } }
+    expect(pageTitles([a, gone, c]).get(c.id)).toBe('Konzept 2')
   })
 })

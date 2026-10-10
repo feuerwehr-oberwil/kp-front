@@ -154,6 +154,7 @@
     },
     {
       "id": "konzept",
+      "repeatable": true,
       "title": { "de": "Konzept", "fr": "Concept", "it": "Concetto", "en": "Concept" },
       "paper": "portrait",
       "columns": 2,
@@ -177,6 +178,7 @@
     },
     {
       "id": "rapport",
+      "repeatable": true,
       "title": { "de": "Rapport", "fr": "Rapport", "it": "Rapporto", "en": "Briefing" },
       "paper": "portrait",
       "columns": 1,

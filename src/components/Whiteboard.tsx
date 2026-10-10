@@ -101,7 +101,7 @@ import { OrientSlider } from './OrientSlider'
 import { ToolRail } from './ToolRail'
 import { TafelPageStrip } from './TafelPageStrip'
 import { TafelFormPage } from './TafelFormPage'
-import { findForms, formAnno, formDelta, formHasContent, newFormPage, type BoardFormData, type FormAnno, type FormSeed } from '../lib/boardForm'
+import { findForms, formAnno, formDelta, formHasContent, newFormPage, pageTitles, type BoardFormData, type FormAnno, type FormSeed } from '../lib/boardForm'
 import { isDrawnBoardKind } from '../lib/workspace'
 import { labelText, type BoardTemplate, type TemplatePage } from '../lib/boardTemplate'
 import { SKIZZE, TAFEL_ID, stepPage, useTafelPage } from '../lib/tafelPages'
@@ -414,6 +414,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // went away (↶, another device) falls back to the Skizze by construction.
   const onTafel = active.id === TAFEL_ID && !!tafel
   const pages = useMemo(() => (onTafel ? findForms(formAnnos) : []), [onTafel, formAnnos])
+  /** «Konzept», «Konzept 2» … — what each page is called (lib/boardForm · pageTitles) */
+  const titles = useMemo(() => pageTitles(formAnnos), [formAnnos])
   const [pageSel, setPageSel] = useTafelPage(incidentId)
   const page = onTafel && pages.some((p) => p.id === pageSel) ? pageSel : SKIZZE
   const formOpen = page !== SKIZZE
@@ -1174,11 +1176,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   /** «+ Seite»: the page, pre-filled from what the Einsatz knows — or the page itself, when it is
    *  already on the Tafel (one of each; a second «Erste Führung» would only split the record) */
   const addPage = (tpl: BoardTemplate, p: TemplatePage) => {
-    const there = pages.find((x) => x.form.tpl.id === tpl.id && x.form.page.id === p.id)
-    if (there) { setPageSel(there.id); return }
+    const same = pages.filter((x) => x.form.tpl.id === tpl.id && x.form.page.id === p.id)
+    // a page of its kind is there: go to it — unless the page may be added again (a second
+    // Konzept, the next Rapport: owner, 10.10. evening), which makes a page of its own
+    if (same.length && !p.repeatable) { setPageSel(same[0].id); return }
     if (readOnly || !tafel) return
     const a = formAnno(newFormPage(tpl, p, tafel.seed(), serverNowIso()))
-    const line = fillTemplate(TP().pageAdded, { page: labelText(p.title) })
+    const title = same.length ? `${labelText(p.title)} ${same.length + 1}` : labelText(p.title)
+    const line = fillTemplate(TP().pageAdded, { page: title })
     onStepLabel?.(line)
     add(a)
     log('doc', line, { subjectId: a.id })
@@ -1186,7 +1191,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }
   const editPage = (id: string, next: BoardFormData) => {
     if (readOnly) return
-    onStepLabel?.(fillTemplate(TP().pageEdited, { page: labelText(next.page.title) }))
+    onStepLabel?.(fillTemplate(TP().pageEdited, { page: titles.get(id) ?? labelText(next.page.title) }))
     // the audit row names the cells that changed, never the whole page again (review of #338)
     const prev = pages.find((p) => p.id === id)?.form
     patchCommit(id, { form: next }, { form: { page: next.page.id, delta: prev ? formDelta(prev, next) : [] } })
@@ -1201,7 +1206,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     try {
       const { printTafelPages, TafelPrintOffline } = await import('../lib/tafelPrint').catch(() => { throw new OfflineChunk() })
       try {
-        await printTafelPages(list, { id: incidentId, title: tafel?.title?.() ?? '' }, tafel?.scene)
+        await printTafelPages(list, { id: incidentId, title: tafel?.title?.() ?? '' }, tafel?.scene, titles)
       } catch (e) {
         if (e instanceof TafelPrintOffline) throw new OfflineChunk()
         throw e
@@ -1216,7 +1221,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const removePage = async (id: string) => {
     const a = pages.find((x) => x.id === id)
     if (!a || readOnly) return
-    const name = labelText(a.form.page.title)
+    const name = titles.get(a.id) ?? labelText(a.form.page.title)
     if (formHasContent(a.form) && !await confirmDialog({
       title: TP().removeTitle, message: fillTemplate(TP().removeMsg, { page: name }),
       confirmLabel: TP().removePage, cancelLabel: appConfig.copy.cancel, danger: true,
@@ -3058,7 +3063,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // show a plain, natively-scrolling multi-page PDF viewer — no tools, no stitched pan/zoom board.
   // the Tafel's page strip, on the Skizze and on every page alike
   const strip = onTafel ? (
-    <TafelPageStrip pages={pages} current={page} templates={templates} readOnly={readOnly} onPick={setPageSel} onAdd={addPage} />
+    <TafelPageStrip pages={pages} titles={titles} current={page} templates={templates} readOnly={readOnly} onPick={setPageSel} onAdd={addPage} />
   ) : null
   // A Tafel PAGE is a form, not a drawing surface: it takes the stage, and none of the board's
   // apparatus (rails, docks, chips) is drawn over it. The hooks above still ran, so the Tafel's
@@ -3069,10 +3074,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       <div className="whiteboard wb-tafel-page">
         {/* the strip in the row a plan's «which place» chips stand in (owner, before the release) */}
         <div className="wb-botleft">{strip}</div>
-        <TafelFormPage key={formPage.id} pageKey={formPage.id} data={formPage.form} readOnly={readOnly} isPhone={isPhone}
+        <TafelFormPage key={formPage.id} pageKey={formPage.id} title={titles.get(formPage.id)} data={formPage.form} readOnly={readOnly} isPhone={isPhone}
           onChange={(next) => editPage(formPage.id, next)} onRemove={() => void removePage(formPage.id)}
           // typed over another device's value for the same cell: the later stands, the Verlauf says so
-          onConflict={(where, kept, lost) => log('warn', fillTemplate(appConfig.copy.journal.tafelConflict, { page: labelText(formPage.form.page.title), where, kept, lost }), { subjectId: formPage.id })}
+          onConflict={(where, kept, lost) => log('warn', fillTemplate(appConfig.copy.journal.tafelConflict, { page: titles.get(formPage.id) ?? labelText(formPage.form.page.title), where, kept, lost }), { subjectId: formPage.id })}
           onPrint={incidentId ? (all) => void printPages(all ? pages : [formPage]) : undefined} pageCount={pages.length} printing={printing}
           scene={tafel?.scene} onOpenKarte={tafel?.onOpenKarte}
           // the bottom: the strip's row and its air, so the last ruling scrolls above it — on a
