@@ -330,7 +330,7 @@ export async function signIn(api: APIRequestContext) {
   if (!res.ok()) throw new Error(`station login: HTTP ${res.status()}`)
 }
 
-export interface Seeded { id: string; title: string; trupps: string[]; journalRows: number; objects: number }
+export interface Seeded { id: string; title: string; trupps: string[]; journalRows: number; objects: number; center: [number, number] }
 
 /**
  * A realistic, busy Einsatz: the `real` fat incident (src/lib/fatIncident — the busiest Einsatz on
@@ -371,6 +371,7 @@ export async function seedIncident(api: APIRequestContext, title: string, now = 
     trupps: ws.trupps.filter((t) => inside.has(t.id)).map((t) => t.name),
     journalRows: fat.journal.length,
     objects: fat.workspace.entities.length,
+    center: fat.options.center,
   }
 }
 
@@ -385,6 +386,22 @@ export async function remember(context: BrowserContext, baseURL: string, inciden
     name: 'kp-front-prefs', url: baseURL,
     value: encodeURIComponent(JSON.stringify({ incidentId, incidentChosenAt: Date.now() })),
   }])
+}
+
+/**
+ * This device has already read the Einsatz's Gebäude card (lib/buildingFirstOpen). The frozen
+ * states and the journeys stand on a device that has been working the Einsatz for hours, so the
+ * card's FIRST open — docked over the Karte's bottom-left, half the screen on a phone — is not
+ * theirs to measure or to tap around. The flag is written where lib/idb reads first (its
+ * localStorage fallback slot), before any app code runs. The key is `buildingReadKey` of the
+ * canned answer above: the Einsatzort (`buildingWhere`: no address, the point to 5 decimals) and
+ * no Objekt. Should that ever drift, the Lage baselines show the card and say so.
+ */
+export async function buildingAlreadyRead(context: BrowserContext, seeded: Pick<Seeded, 'id' | 'center'>) {
+  const [lng, lat] = seeded.center
+  const key = `|${lat.toFixed(5)}|${lng.toFixed(5)}#`
+  await context.addInitScript(([slot, value]) => { localStorage.setItem(slot, value) },
+    [`kp-idb-fb:kp-front-building-read:${seeded.id}`, JSON.stringify([key])] as const)
 }
 
 /** The Einsatz is on screen and its opening cover (lib/bootCover) has lifted. */
