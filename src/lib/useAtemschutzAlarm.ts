@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { anyTruppInField, type AtemschutzAlarmState, deriveTruppLive, peakAtemschutzAlarm, truppAlarm } from './atemschutz'
+import { anyTruppInField, type AlarmReason, type AtemschutzAlarmState, deriveTruppLive, peakAtemschutzAlarm, truppAlarm, truppInNotfall } from './atemschutz'
 import { Alarm, chime, notify } from './alarm'
-import { fillTemplate } from './format'
+import { fillTemplate, formatTime } from './format'
 import { atemschutzDoctrine, isDemoMode } from './deploymentConfig'
 import { serverNow } from './serverClock'
 import type { Trupp } from '../types'
@@ -73,7 +73,7 @@ export function useAtemschutzAlarm({
   /** Last reason/signature behind a Trupp's tier. Severity alone is insufficient: an overdue
    *  contact can stay tier 2 while a confirmed pressure reading crosses the Alarmdruck. That
    *  reason change must update the TopBar and re-post the OS notification immediately. */
-  const prevReason = useRef<Map<string, 'contact' | 'pressure' | null>>(new Map())
+  const prevReason = useRef<Map<string, AlarmReason | null>>(new Map())
   const prevPressureAlert = useRef<Map<string, string>>(new Map())
   const lastNotify = useRef<Map<string, number>>(new Map())
   /** the contact stamp a Trupp's «Überfällig» line was written FOR. One line per TURNUS: the
@@ -88,7 +88,9 @@ export function useAtemschutzAlarm({
   // rather than re-rendering the whole workspace once a second for nothing (the common idle case:
   // no SCBA deployed yet, or all Trupps already raus). A Trupp entering/leaving flips `monitoring`
   // and re-arms/clears the interval; the visibility handler below still forces a fresh eval on focus.
-  const monitoring = active && anyTruppInField(trupps)
+  // …and while a Notfall runs (F1): its clock ticks on the chip and the strip whether or not the
+  // crew still counts as «in the field» (types · Trupp.notfallAt)
+  const monitoring = active && (anyTruppInField(trupps) || trupps.some(truppInNotfall))
   useEffect(() => {
     if (!monitoring) return
     const t = setInterval(() => setNow(serverNow()), 1000)
@@ -130,7 +132,8 @@ export function useAtemschutzAlarm({
     }
     for (const t of trupps) {
       const l = deriveTruppLive(t, now, intervalMin, graceSec)
-      if ((l.status ?? t.status) === 'raus') {
+      // a Trupp in a Notfall is never «out» for the alarm, whatever its status says (F1)
+      if ((l.status ?? t.status) === 'raus' && !truppInNotfall(t)) {
         // …the Austritt included: a crew standing outside is the strongest answer an alarm can
         // get, and it is the one the record used to swallow (Fabich, 03.09. 06:50).
         closeAlarm(t)
@@ -147,6 +150,9 @@ export function useAtemschutzAlarm({
       // ONE computation, shared with the fold below and with the board itself (lib · truppAlarm).
       const { sev, reason, line } = truppAlarm(t, l, intervalMin, graceSec, { alarmBar, alarmBarRueckzug })
       const lowPressure = reason === 'pressure'
+      // the Notfall writes its OWN row when it is held (useTruppActions · triggerNotfall) — the
+      // engine records no crossing for it, and ends no contact alarm while it runs
+      const notfall = reason === 'notfall'
       // ⚠️ A CROSSING THIS APP ACTUALLY SAW — hence «have we met this Trupp before», not «is the
       // tier below 2». `prevSeverity` starts empty on every mount, so a Trupp that was ALREADY
       // überfällig read as 0 → 2 on the first evaluation and wrote another «Überfällig» line: on
@@ -171,7 +177,7 @@ export function useAtemschutzAlarm({
       // the Verlauf already carries the pressure crossing from recordPressure (logPressureAlarm),
       // so only the contact crossing is recorded here — otherwise one reading writes two lines
       const turnus = t.lastContactTime ?? t.entryTime ?? ''
-      if (!demo && justCrossed && !lowPressure && alarmedFor.current.get(t.id) !== turnus) {
+      if (!demo && justCrossed && !lowPressure && !notfall && alarmedFor.current.get(t.id) !== turnus) {
         alarmedFor.current.set(t.id, turnus)
         logAlarm(t.id, 'ueberfaellig', turnus) // crossed into overdue → record once PER TURNUS
       }
@@ -200,10 +206,14 @@ export function useAtemschutzAlarm({
           // wording now follows the reason, and it is the SAME wording the Meldeleiste row uses
           // (AtemschutzAlarmMeldung), so the tray and the screen never say different things.
           const name = t.name || az.truppFallbackName
+          const nf = az.notfall
           void notify(
-            lowPressure ? fillTemplate(az.alarmRowPressure, { name }) : az.alarmNotifyTitle,
+            notfall ? fillTemplate(nf.notifyTitle, { name })
+              : lowPressure ? fillTemplate(az.alarmRowPressure, { name }) : az.alarmNotifyTitle,
             {
-              body: lowPressure
+              body: notfall
+                ? fillTemplate(nf.notifyBody, { time: formatTime(new Date(t.notfallAt!)) })
+                : lowPressure
                 ? fillTemplate(az.alarmRowPressureSub, { bar: l.currentBar, line: line ?? '' })
                 : fillTemplate(az.alarmNotifyBody, { name }),
               tag: `atemschutz-${t.id}`,

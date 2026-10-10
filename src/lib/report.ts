@@ -631,7 +631,9 @@ export function readingBarIsMeasured(kind: TruppReading['kind']): boolean {
   // shape — the Überwachung ended, nobody read a gauge for it — while `paOn` carries the
   // Eingangsdruck of the cylinder that was just opened, which IS a reading.
   // …and a `crew` row names people, not a pressure — its bar is carried like a Kontakt's
+  // …and so do the two ends of a Notfall (F1): nobody read a gauge for them
   return kind !== 'contact' && kind !== 'rueckzug' && kind !== 'exit' && kind !== 'resume' && kind !== 'paOff' && kind !== 'crew'
+    && kind !== 'notfall' && kind !== 'notfallEnde'
 }
 
 /**
@@ -815,6 +817,9 @@ export function readingKindLabel(kind: TruppReading['kind'], standDown = false):
   // …and the two ends of the monitored stretch, where the Art was changed after the fact
   if (kind === 'paOn') return az.readingKind.paOn
   if (kind === 'paOff') return az.readingKind.paOff
+  // …and the two ends of an Atemschutznotfall (F1, 08.10.2026)
+  if (kind === 'notfall') return az.readingKind.notfall
+  if (kind === 'notfallEnde') return az.readingKind.notfallEnde
   return az.readingKind.pressure
 }
 
