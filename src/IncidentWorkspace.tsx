@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
 import { IconSprite } from './lib/icons'
@@ -19,7 +19,7 @@ import { navStops } from './lib/navRail'
 import { incident as demoIncident, planDocuments, gebaeudeDoc, preparedOverlays } from './data/demoIncident'
 import { ergRingOverlays } from './lib/ergRings'
 import { useHazardData } from './lib/useHazardData'
-import type { AttendanceState, BoardAnno, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, Person, ReactivateResult, Shift, ShiftBand, TimelineEvent, Trupp, TruppFields, BuildingDoc } from './types'
+import type { BoardAnno, Drawing, Entity, Incident, LayerDef, LayerId, LngLat, MittelEntry, ReactivateResult, TimelineEvent, Trupp, BuildingDoc } from './types'
 import { appConfig } from './config/appConfig'
 import { clearAllDrafts } from './lib/draftKeep'
 import { newRowId } from './lib/ids'
@@ -27,36 +27,27 @@ import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDem
 import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, formatTime } from './lib/format'
 import { circlePolygon } from './lib/geo'
-import { intervalsOf, isPresent, openPresence } from './lib/attendanceIntervals'
-import { mergeRoleNote, personStatusHint, roleConflictHint, rosterFieldRole, truppRoleNote, unrecordedCrewNames, type AssignableRole } from './lib/roleAssignment'
-import { stampCrewFiled, unfiledTruppCrew } from './lib/crewFiling'
+import { isPresent } from './lib/attendanceIntervals'
 import { registerMeldeleisteHost } from './lib/meldeleisteHost'
-import { useShiftActions } from './lib/useShiftActions'
-import { useBandActions } from './lib/useBandActions'
-import { buildZeitplanPayload, downloadZeitplanPdf, type ZeitplanSheet } from './lib/zeitplanPrint'
 import { conflictResolvedRow, openConflicts, type OpenConflict } from './lib/attendanceConflict'
 import { isBottomSheet, rectCenter, visibleWorkRect, type NudgeBox } from './lib/panelNudge'
 import { useMeasure } from './lib/useMeasure'
 import { useCoordPicker } from './lib/useCoordPicker'
 import { useObjectStore } from './lib/useObjectStore'
-import { fieldsOf, listById, recordByKey, recordKey, type RecordedField, type RecordKey, type RecordShape } from './lib/undoKeys'
+import { recordKey, type RecordedField, type RecordKey } from './lib/undoKeys'
 import { useGpsFollow } from './lib/useGpsFollow'
 import { freshBefore, gpsReleaseRow, gpsRevertWords, routingPatch, useGpsNotices, type GpsEnd } from './lib/gpsReturn'
 import { useUndoTimeline } from './lib/useUndoTimeline'
 import { undoCaption, type Dropper, type UndoDomain } from './lib/undoTimeline'
 import { clearUndoCaption, flashUndoCaption } from './lib/undoFlash'
 import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
-import { pushSliceStep } from './lib/sliceUndoStep'
-import { foldsIntoPrevious, keepMachineFields, REPORT_MACHINE_FIELDS, reportStep as reportStepOf } from './lib/reportUndo'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
-import { apiDelete } from './lib/api'
 import { initialMode, loadPrefs, savePrefs } from './lib/prefs'
 import { makePhotoPositionSource } from './lib/devicePosition'
 import { useAttendanceActions } from './lib/useAttendanceActions'
 import { changedAttendanceNames } from './lib/attendanceDiff'
-import { useMittelActions } from './lib/useMittelActions'
 import { useChecklistActions } from './lib/useChecklistActions'
 import { useTeamMarkerActions } from './lib/useTeamMarkerActions'
 import { useDevicePrefs } from './lib/useDevicePrefs'
@@ -75,14 +66,12 @@ import { NavRail } from './components/NavRail'
 import { twinVisible, isTwinLayerId } from './lib/georefTwins'
 import { slimTools, isMapReadOnlyTool, MAP_READONLY_TOOLS } from './lib/readOnlyTools'
 import { SHAPE_TWO_POINT } from './lib/shapes'
-import { journalVocabulary } from './lib/journalLinks'
 import { AtemschutzAlarmMeldungen } from './components/AtemschutzAlarmMeldung'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { TabLockBanner } from './components/TabLockBanner'
 import { SurfaceBoundary } from './components/SurfaceBoundary'
 import { RemindersHost } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
-import { useMediaQueue } from './lib/useMediaQueue'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
 import { truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
 import { GeorefModeBars } from './components/GeorefMode'
@@ -98,11 +87,9 @@ import {
   type IncidentMeta,
   isIncidentRunning,
 } from './lib/incidents'
-import { useExpire } from './lib/useExpire'
 import { useAuditEvents } from './lib/useAuditEvents'
 import { EL_EVENT_PREFIXES, eventScopeFor } from './lib/eventScope'
 import { combinedSyncStatus } from './lib/combinedSyncStatus'
-import { downloadBlob } from './lib/download'
 import { useMapDrawing } from './lib/useMapDrawing'
 import { resolveMapDrawings } from './lib/lineAttachments'
 import { leitungOptions } from './lib/truppLines'
@@ -122,18 +109,17 @@ import { AtemschutzView, type TruppOrder } from './components/AtemschutzView'
 import { AnwesenheitView } from './components/AnwesenheitView'
 import { MittelView } from './components/MittelView'
 import { usePersonnel } from './lib/usePersonnel'
-import { assignedPersonIds, canonicalName, linkTrupps, personIdForName, rosterIdByName as rosterIdByNameOf, truppByPersonId } from './lib/personnel'
+import { assignedPersonIds, linkTrupps, rosterIdByName as rosterIdByNameOf, truppByPersonId } from './lib/personnel'
 import { rosterWithGuests } from './lib/guests'
-import type { ChecklistState, Item } from './lib/checklists'
+import type { Item } from './lib/checklists'
 import { warmTemplates } from './lib/checklists'
 import { primeKeyboard } from './lib/keyboardPrime'
 import { createPortal, flushSync } from 'react-dom'
 import type { NoteSize } from './types'
-import { initialRapportPage, isRapportPage, writeRapportPage } from './lib/rapportPages'
 import { TruppFinder } from './components/TruppFinder'
 import { counterNames, freshTeamLabel, markerOptions, markerSite, teamNoTaken } from './lib/placedTrupps'
 import { serverNowIso } from './lib/serverClock'
-import { clockRestartRowId, clocksAfterReopen, latestLifecycle } from './lib/reopenClocks'
+import { clockRestartRowId, clocksAfterReopen } from './lib/reopenClocks'
 import { IncidentClosedMeldung, LinkRefusedMeldung } from './components/IncidentClosedMeldung'
 import { useGhostTrails } from './lib/useGhostTrails'
 import { ghostRevival, ghostTrailLabel, removeGhostTrail, restoreGhostTrail, trailPointCount, trailSources } from './lib/truppTrails'
@@ -141,7 +127,7 @@ import { annotatedPlans, changedReportMetaLines, normalizeReportMeta } from './l
 import { useAbschluss } from './lib/useAbschluss'
 import { useRowMediaUpload } from './lib/useRowMediaUpload'
 import { useGeorefFits } from './lib/useGeorefFits'
-import { createEditSettle, entityEditChanges, entityLogName, rosterFieldsToRefile, type EditSettle } from './lib/entityEdit'
+import { createEditSettle, entityEditChanges, entityLogName, type EditSettle } from './lib/entityEdit'
 import { createPlanStepLink, type PlanStepLink } from './lib/planStepLink'
 import { mittelLineCount } from './lib/mittel'
 import { autoNoteWPx } from './lib/notes'
@@ -164,7 +150,12 @@ import { MapStage } from './workspace/MapStage'
 import { useJournalWriters } from './workspace/useJournalWriters'
 import { useWorkspaceBlob } from './workspace/useWorkspaceBlob'
 import { prefs } from './workspace/bootPrefs'
+import { ATTENDANCE_RECORDS } from './workspace/recordShapes'
 import { useMapActions } from './workspace/useMapActions'
+import { useRecordSlices } from './workspace/useRecordSlices'
+import { useRosterRoles } from './workspace/useRosterRoles'
+import { useMediaOutbox } from './workspace/useMediaOutbox'
+import { useLifecycleElsewhere } from './workspace/useLifecycleElsewhere'
 
 /** How long an edit has to sit still before it earns a Verlauf row. Long enough that a sentence
  *  being typed is ONE edit, short enough that reading the Verlauf a moment later already shows
@@ -250,22 +241,10 @@ interface WorkspaceProps {
   onOpenCoverDone?: () => void
 }
 
-/** How long the «auf einem anderen Gerät abgeschlossen / wieder geöffnet» row stands (V2). */
-const LIFECYCLE_NOTICE_MS = 120_000
 
 /** One Drehung of the Gebäude is one drag, not forty slider frames — see onReorient. */
 const REORIENT_FOLD_MS = 1500
 
-/** How each undoable slice is made of records (lib/undoKeys) — the merge's own unit for each, so a
- *  remote merge keeps every step that writes records it did not change. Module-level: a shape is
- *  a constant, and the slice hooks take it as a stable argument. */
-const ATTENDANCE_RECORDS = recordByKey<AttendanceState[string]>('attendance')
-const MITTEL_RECORDS = listById<MittelEntry>('mittel')
-const CHECKLIST_RECORDS = recordByKey<ChecklistState[string]>('checklists')
-/** the app's own bookkeeping rides outside the Rapport's snapshots (lib/reportUndo), so it is no
- *  record of a step either */
-const REPORT_RECORDS = recordByKey<ReportMeta[keyof ReportMeta]>('reportMeta', REPORT_MACHINE_FIELDS) as unknown as RecordShape<ReportMeta>
-const ZEITPLAN_RECORDS = fieldsOf<{ shifts: Shift[]; bands: ShiftBand[] }>({ shifts: listById<Shift>('shifts'), bands: listById<ShiftBand>('bands') })
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
@@ -1453,54 +1432,13 @@ export function IncidentWorkspace({
   const recordsSyncStatus = combinedSyncStatus(workspaceSyncStatus, journal.syncStatus, auditDelivery.status)
 
   // --- closed (or reopened) on ANOTHER device while open here (N3, staging 25.09.2026) ---------
-  // App flips `incidentMeta` in place when the change is heard (App · onIncidentClosed /
-  // onIncidentReopened) and hands the moment down (`lifecycleElsewhere`); `running` above turns
-  // every writer off — or back on. Left for this mount: say so (one Meldeleiste row, with the
-  // time), hand what is still queued to the server once after a close — so it is refused and
-  // PARKED rather than left pending in a read-only view — and count what was parked, because
-  // «nicht übernommen, aber gesichert» is the other half of the sentence. Once the Einsatz runs
-  // again («Wieder öffnen», here or elsewhere), what was parked is SENT — it prints as Nachträge.
-  const [lifecycleHiddenAt, setLifecycleHiddenAt] = useState<number | null>(null)
-  const [workspaceRefused, setWorkspaceRefused] = useState(() => sync.refusedCount)
-  useEffect(() => sync.subscribeRefused(setWorkspaceRefused), [sync])
-  /** everything the CLOSED Einsatz refused and this device still holds (journal · audit · saves) */
-  const closedRefusedTotal = journal.refusedCount + auditDelivery.closedCount + workspaceRefused
-  useEffect(() => {
-    if (running) return
-    // the journal store drains on its own loop (outboxReadOnly keeps it delivering); these two
-    // wait for their next trigger otherwise. Both are no-ops with nothing queued.
-    void sync.flush()
-    void flushEvents()
-  }, [running, sync, flushEvents])
-  // …and once it RUNS again with anything parked — a reopen seen on screen, or a device opening
-  // an Einsatz that was reopened while it was away — the parked entries are owed again. How many
-  // went is remembered for the reopen's row («werden jetzt nachgesendet»).
-  const [resentOnReopen, setResentOnReopen] = useState(0)
-  const { requeueRefused: requeueJournal } = journal
-  const { requeueClosed: requeueAudit } = auditDelivery
-  useEffect(() => {
-    if (!running || outboxReadOnly || closedRefusedTotal === 0) return
-    const n = closedRefusedTotal
-    void Promise.all([requeueJournal(), requeueAudit(), sync.requeueRefused()]).catch(() => {}).then(() => setResentOnReopen(n))
-  }, [running, outboxReadOnly, closedRefusedTotal, requeueJournal, requeueAudit, sync])
-  /** «Einträge sichern»: everything this device still holds that the server has not taken — owed
-   *  (outbox, rejected) and refused (the closed Einsatz, a role) alike. Exporting acknowledges
-   *  nothing — but it is what lets the sync lamp stop saying «not everything is on the server»
-   *  about entries the closed Einsatz refused (see `syncStatus` below). */
-  const [exportedClosedRefused, setExportedClosedRefused] = useState(0)
-  const exportEntries = useCallback(() => {
-    const data = { ...journal.recoveryData(), audit: auditDelivery.getRecoveryData(), workspaceRefused: sync.refusedRecoveryData() }
-    downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `verlauf-${incidentMeta.id}.json`)
-    setExportedClosedRefused(closedRefusedTotal)
-  }, [journal, auditDelivery, sync, incidentMeta.id, closedRefusedTotal])
-  // the newest close/reopen boundary in the Verlauf, the server's own rows (lib/reopenClocks) —
-  // the reopen's clock restart keys on it below, and the reopen's row names ITS time (N6)
-  const lifecycleBoundary = useMemo(() => latestLifecycle(journal.rows), [journal.rows])
-  const lifecycleRefused = lifecycleElsewhere?.event === 'closed' ? closedRefusedTotal : resentOnReopen
-  // ⚠️ …and it EXPIRES (V2, staging 25.09.2026): «wieder geöffnet» sat 110 px tall on a 360 phone
-  // until somebody found the ✕. Two minutes, like every notice that only informs — unless it
-  // carries entries this device still holds, whose «Einträge sichern» must not vanish unseen.
-  useExpire(lifecycleElsewhere?.at ?? null, LIFECYCLE_NOTICE_MS, lifecycleRefused > 0, setLifecycleHiddenAt)
+  // what this device still holds, sent again after a reopen (workspace/useLifecycleElsewhere)
+  const {
+    lifecycleHiddenAt, lifecycleBoundary, lifecycleRefused, exportEntries, setLifecycleHiddenAt,
+    closedRefusedTotal, exportedClosedRefused,
+  } = useLifecycleElsewhere({
+    sync, journal, auditDelivery, running, flushEvents, outboxReadOnly, incidentMeta, lifecycleElsewhere,
+  })
   // the row matches the state on screen: a «closed» row never stands over a live Einsatz, nor a
   // «reopened» one over a closed view; a new change shows again after an earlier ✕.
   // ⚠️ Not over the Rapport (V3): the strip lay over its head and the «Einsatzrapport (PDF)»
@@ -1617,47 +1555,15 @@ export function IncidentWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- log is stable per mount
   }, [])
 
-  // Offline media queue: reattaches queued captures to their rows after a reload, retries on
-  // reconnect, and swaps a row's local blob: URL for the persistent server URL on success.
-  const swapRowMedia = useCallback((rowId: string, kind: 'photo' | 'audio', url: string, replaces?: string) => {
-    // a persistent server URL becomes an appended enrichment patch (the record stays
-    // append-only); a session blob: URL (queue restore) is a display-only overlay
-    if (kind === 'photo') {
-      // photos are a LIST: a queued upload that lands later must replace ITS OWN picture and
-      // leave the row's others alone. The store reads the current list itself — a copy taken
-      // here would be the one from whichever render created this callback (see swapPhoto).
-      swapPhoto(rowId, replaces ?? '', url)
-      return
-    }
-    if (url.startsWith('blob:')) overlayRow(rowId, { audioUrl: url })
-    else patchRow(rowId, { audioUrl: url })
-  }, [swapPhoto, overlayRow, patchRow])
-  const media = useMediaQueue({
-    incidentId: incidentMeta.id, readOnly: !canWriteRecord,
-    onUploaded: swapRowMedia, onRestore: swapRowMedia,
+  // the media queue, the one sync status the badge shows, «Jetzt synchronisieren» and the pre-close
+  // drain (workspace/useMediaOutbox)
+  const {
+    media, flushRecordOutboxes, swapRowMedia, syncStatus, closedRefusedUnexported, baseSyncStatus,
+    syncNow,
+  } = useMediaOutbox({
+    swapPhoto, overlayRow, patchRow, incidentMeta, canWriteRecord, closedRefusedTotal,
+    exportedClosedRefused, recordsSyncStatus, syncWorkspaceNow, journal, auditDelivery, sync, flushEvents,
   })
-  // ⚠️ The media queue is an operational outbox too (23.09.2026): a Foto or Sprachnotiz that has
-  // not reached the server is not saved, and one this device could not even store is `storage`.
-  // It used to be left out, so the badge said «gespeichert» over captures that lived only here.
-  // ⚠️ …and entries the CLOSED Einsatz refused keep the lamp amber (review of #235) until they
-  // are exported or sent after a reopen: not red — nobody can fix them by retrying — but not
-  // «gespeichert» either, because they are on this device only.
-  const closedRefusedUnexported = closedRefusedTotal > exportedClosedRefused
-  const baseSyncStatus = combinedSyncStatus(recordsSyncStatus, media.syncStatus)
-  const syncStatus = closedRefusedUnexported && baseSyncStatus === 'synced' ? 'pending' : baseSyncStatus
-  const syncNow = async () => {
-    await Promise.all([syncWorkspaceNow(), journal.retry(), auditDelivery.retry()])
-    await media.flush({ retry: true }).catch(() => {})
-    if (combinedSyncStatus(sync.syncStatus, journal.getStatus(), auditDelivery.getStatus(), media.getStatus()) !== 'synced') {
-      throw new Error('Operational records have not all been acknowledged')
-    }
-  }
-
-  /** the closing device's own queue, drained before the archive PATCH (useAbschluss) */
-  const { flush: flushJournal } = journal
-  const flushRecordOutboxes = useCallback(async () => {
-    await Promise.all([flushJournal(), flushEvents()]).catch(() => {})
-  }, [flushJournal, flushEvents])
 
   // --- ONE «Einsatz abschliessen» ------------------------------------------------------------
   //
@@ -2705,533 +2611,29 @@ export function IncidentWorkspace({
     return true
   }
   stepAttendanceRef.current = stepAttendance
-  /**
-   * Mittel and Checklisten join the timeline the same way the Anwesenheit does: their slice gets
-   * an undo stack (`useUndoableSlice`), every write goes through it, and the entry delegates.
-   *
-   * ⚠️ Whole-slice snapshots, not reverse patches — the same reason the Anwesenheit takes them.
-   * A Mittel save is append-only with tombstones and a Checklisten-Haken carries who ticked it
-   * and when, so «put the list back as it stood» is a statement the record can make; «un-tick
-   * item 4» is not, once a merge has been through it.
-   * ⚠️ `canEditRecord`, like the Anwesenheit: both are record surfaces an `el` may write.
-   */
-  const mittelHist = useUndoableSlice(mittel, setMittel, !canWriteRecord, undefined, MITTEL_RECORDS)
-  const checklistHist = useUndoableSlice(checklists, setChecklists, !canWriteRecord, undefined, CHECKLIST_RECORDS)
-  /** One recorded step over a slice somebody else owns. `op` is the domain-scoped audit prefix —
-   *  see `logHistStep` for why a bare `undo` would wedge an `el` session's outbox. */
-  /*  `describe` lets the domain write the step's rows itself — the Checklisten write «☑ …» /
-   *  «Meilenstein zurückgenommen: …» for a milestone, the same row a tap writes — and a `true`
-   *  from it replaces the generic «… rückgängig gemacht», so one step is never two rows. */
-  /*  ⚠️ The slice's history travels as a REF, read when the step is taken (lib/sliceUndoStep). */
-  const rememberSliceStep = <T,>(laid: boolean, domain: UndoDomain, histRef: { readonly current: UndoableSlice<T> }, label: string, op: string, icon: string, onStep?: () => void, describe?: (moved: { from: T; to: T }) => boolean) =>
-    pushSliceStep(undoHist, {
-      domain, label, laid, histRef, onStep,
-      record: (moved, dir) => {
-        if (moved && describe?.(moved)) { histSide.current.emit(`${op}${dir}`); return true }
-        return histStep(!!moved, dir, label, op, icon, 'journal')
-      },
-    })
-  const mittelSet: typeof mittelHist.set = (u) => { const laid = mittelHist.set(u); rememberSliceStep(laid, 'mittel', mittelHistRef, C_HIST.undoDomains.mittel, 'mittel.', 'box'); return laid }
-  const checklistSet: typeof checklistHist.set = (u) => { const laid = checklistHist.set(u); rememberSliceStep(laid, 'checkliste', checklistHistRef, C_HIST.undoDomains.checkliste, 'checklist.', 'check', undefined, (moved) => checklistDescribeRef.current(moved)); return laid }
-  // ⚠️ The entry outlives the render that pushed it, and `hist` closes over that render's stacks.
-  const mittelHistRef = useRef(mittelHist); mittelHistRef.current = mittelHist
-  const checklistHistRef = useRef(checklistHist); checklistHistRef.current = checklistHist
-  /** the milestone rows of a Checklisten step (useChecklistActions · describeStep), set below */
-  const checklistDescribeRef = useRef<(moved: { from: ChecklistState; to: ChecklistState }) => boolean>(() => false)
-  /**
-   * …and the Einsatzrapport, the last record surface with no way back (field report 18.09.2026:
-   * «Rettungen eingetragen, Zahl war falsch, Rückgängig macht nichts»). Same slice mechanism as
-   * Mittel and the Checklisten — but the Rapport is the only surface that persists on every
-   * KEYSTROKE, so a checkpoint per write would have filled the whole history with one
-   * Kurzbericht and made ↶ hand back a single character. `lib/reportUndo` classifies the write
-   * instead: a burst of typing in the same field is ONE step, and a value or a row appearing or
-   * disappearing (a Rettung, «Keine», a Partnerorganisation, a cleared Gruppenzeit) is its own.
-   *
-   * ⚠️ Deliberately NOT a separate pair of buttons on the sheet: the Rapport wears the same
-   * TopBar as every other surface, and its ↶ ↷ already drive this one timeline (08.09.2026).
-   */
-  // ⚠️ the machine's own bookkeeping rides OUTSIDE the snapshots (lib/reportUndo ·
-  // keepMachineFields): it lays no step of its own, so it travels inside whatever step stands —
-  // and a ↶ must not lose the «Rapport erstellt» mark to an undone sentence.
-  const reportHist = useUndoableSlice(reportMeta, setReportMeta, !canWriteRecord, keepMachineFields, REPORT_RECORDS)
-  const reportHistRef = useRef(reportHist); reportHistRef.current = reportHist
-  const reportSet: typeof reportHist.set = (u) => {
-    // ⚠️ A session that may not write the record still writes LOCALLY exactly as it did before
-    // this stack existed — it simply lays no step down. Dropping the write here instead would
-    // have made undo a silent gate on a path that never had one.
-    if (!canWriteRecord) { setReportMeta(u); return false }
-    const hist = reportHistRef.current
-    const laid = hist.set(u, {
-      coalesce: (prev, next) => {
-        const step = reportStepOf(prev, next)
-        // the app's own bookkeeping (reportMadeAt / krokiPrint) — it rides along with
-        // whatever step stands and never becomes one of its own
-        if (!step) { lastReportStep.current = null; return true }
-        const now = Date.now()
-        const fold = foldsIntoPrevious(lastReportStep.current, step, now)
-        lastReportStep.current = { key: step.key, at: now }
-        return fold
-      },
-    })
-    // ⚠️ …and the fold window closes on every ↶ ↷ (the last argument): the step it would fold
-    // into has just moved to the other stack, so typing in the same field right after an undo
-    // would lay no step of its own — and the next ↷ would overwrite it.
-    rememberSliceStep(laid, 'rapport', reportHistRef, C_HIST.undoDomains.rapport, 'report.', 'clipboard', () => { lastReportStep.current = null })
-    return laid
-  }
-  reportSetRef.current = reportSet
-  const { saveMittel } = useMittelActions({ mittel, setMittel: mittelSet, authorName: user?.display_name, log })
-  // Symbol→Mittel moved OUT of the symbol's card (28.08.): the Material surface itself now shows
-  // the «Gesetzt, aber nicht erfasst» strip, fed with every symbol standing on Lage + all plans.
-  // The «has this station mapped anything» gate lives inside mittelRecommendations.
-  // ⚠️ Deduped by id: since unified objects `entities` and `board` are two VIEWS of the same
-  // records (lib/tacticalObjects · viewsOf), so this union repeats one object once per fitting
-  // plan — and a repeated view is not a second symbol standing in the Einsatz.
-  const placedSymbols = useMemo(
-    () => [...new Map(
-      [...doc.entities, ...Object.values(board).flat()]
-        .filter((x) => !!x.symbol && !(x as { live?: boolean }).live)
-        .map((x) => [x.id, { symbol: x.symbol as string, fields: x.fields, extract: x.extract }] as const),
-    ).values()],
-    [doc.entities, board],
-  )
-  /**
-   * The Zeitplan joins the timeline as ONE slice, because a Schichtband and the Schichten in it
-   * are not two things to an operator: removing a band strips `bandId` off its shifts in the
-   * same breath, and two entries for that act would need two ↶ to take back half of what looked
-   * like one press. `shifts` + `bands` are therefore snapshotted together.
-   *
-   * ⚠️ …which is also why one GESTURE is one step: the writers here legitimately touch both
-   * lists in the same synchronous handler, so the first write of a burst lays the checkpoint and
-   * whatever follows it in the same task folds in. A microtask closes the burst, so nothing is
-   * held open across an await (the band-times question asks first and is its own decision).
-   *
-   * Before this, `addShift`, `setShiftTime`, `addBand`, `renameBand`, `setBandTimes` and every
-   * cell tap had no way back at all — the surface's only doors were the four confirm-with-undo
-   * toasts, and a toast expires.
-   */
-  const zeitplanDoc = useMemo(() => ({ shifts, bands }), [shifts, bands])
-  const zeitplanHist = useUndoableSlice(zeitplanDoc, (v) => {
-    const next = typeof v === 'function' ? v(zeitplanDoc) : v
-    setShifts(next.shifts); setBands(next.bands)
-  }, !canWriteRecord, undefined, ZEITPLAN_RECORDS)
-  const zeitplanHistRef = useRef(zeitplanHist); zeitplanHistRef.current = zeitplanHist
-  // A remote merge re-lays every slice's stack onto what it merged (applyWorkspace, far above,
-  // which runs before any of these exist — hence the ref). Called AFTER the timeline has decided
-  // which entries survive: `keep` is their step ids.
-  // `keep` null = the merge bookkeeping failed: every stack goes (undoKeys · carryUndoThroughMerge)
-  sliceRebase.current = (next, keep) => {
-    if (!keep) { for (const h of [attHist, mittelHist, checklistHist, reportHist, zeitplanHist]) h.clear(); return }
-    attHist.rebase(next.attendance, keep)
-    mittelHist.rebase(next.mittel, keep)
-    checklistHist.rebase(next.checklists, keep)
-    reportHist.rebase(next.reportMeta, keep)
-    zeitplanHist.rebase({ shifts: next.shifts, bands: next.bands }, keep)
-  }
-  const zeitplanBurst = useRef(false)
-  const zeitplanWrite = (next: (cur: { shifts: Shift[]; bands: ShiftBand[] }) => { shifts: Shift[]; bands: ShiftBand[] }) => {
-    const fold = zeitplanBurst.current
-    const laid = zeitplanHistRef.current.set(next, { coalesce: () => fold })
-    if (!zeitplanBurst.current) {
-      zeitplanBurst.current = true
-      queueMicrotask(() => { zeitplanBurst.current = false })
-    }
-    // `shift.` is on the `el` audit allowlist (backend · EL_EVENT_PREFIXES): an Einsatzleiter
-    // plans shifts, so their ↶ must not 403 the batch — see logHistStep.
-    rememberSliceStep(laid, 'zeitplan', zeitplanHistRef, C_HIST.undoDomains.zeitplan, 'shift.', 'clock')
-  }
-  const setShiftsUndoable: Dispatch<SetStateAction<Shift[]>> = (u) =>
-    zeitplanWrite((cur) => ({ ...cur, shifts: typeof u === 'function' ? u(cur.shifts) : u }))
-  const setBandsUndoable: Dispatch<SetStateAction<ShiftBand[]>> = (u) =>
-    zeitplanWrite((cur) => ({ ...cur, bands: typeof u === 'function' ? u(cur.bands) : u }))
-  // Schichtenplanung — a PLAN over the same Mannschaft; it never writes the attendance record
-  const { addShift, addShiftSpan, replaceShift, setShiftTime, removeShift } = useShiftActions({ shifts, setShifts: setShiftsUndoable, startedAt: incidentMeta.started_at })
-  // …and the Schichten reading of it: the same shifts, grouped into named windows. Creating a band
-  // writes no shift, deleting one deletes no shift — see useBandActions.
-  const bandActions = useBandActions({ bands, setBands: setBandsUndoable, shifts, setShifts: setShiftsUndoable })
-  // The Zeitplan-Führungsformular on paper: the PDF, printed through the device's own dialog.
-  const zeitplanPayload = (rowPeople: Person[], sheet: ZeitplanSheet) => buildZeitplanPayload(
-    rowPeople, attendance, shifts,
-    { title: incidentMeta.title, address: incidentMeta.address, startedAt: incidentMeta.started_at },
-    new Date().toISOString(),
-    sheet, bands,
-  )
-  const onDownloadZeitplan = (rowPeople: Person[], sheet: ZeitplanSheet) => {
-    void downloadZeitplanPdf(incidentMeta.id, zeitplanPayload(rowPeople, sheet))
-      .catch(() => toast(appConfig.copy.zeitplan.printFailed, { icon: 'warn', tone: 'warn' }))
-  }
-  // assigning someone to a Trupp implies they're on scene — mark every roster-linked member
-  // present (even at "angemeldet"). Only the newly-present are logged, so re-edits don't spam.
-  /** The linkable vocabulary of this Einsatz — Mannschaft, Mittel, Partnerorganisationen,
-   *  Fahrzeuge, Alarmgruppen (lib/journalLinks). ONE memo, shared by the composer and the
-   *  Verlauf, so the two can never mark different things. */
-  // ⚠️ The PICKABLE roster, guests included — so a Gast's name is marked in the Verlauf like
-  // anybody else's. A name the composer offers but the Verlauf then refuses to mark reads as
-  // the app not recognising somebody it just autocompleted.
-  // …and which Trupp somebody is in right now, so the composer's chip can say «Meier Anna · Trupp 2»
-  // while you type. Names only, never inserted: it answers «which of them do I mean» at that moment
-  // (see journalLinks · JournalLink.hint).
-  const truppNameOfPerson = useMemo(() => {
-    // the NUMBER where there is one («Meier Anna · Trupp 2»), the leader's name on a record that
-    // predates numbers — journalVocabulary puts the word in front either way
-    const byId = new Map(linkedTrupps.map((t) => [t.id, typeof t.no === 'number' ? String(t.no) : t.name]))
-    return new Map([...truppOfPerson].map(([personId, truppId]) => [personId, byId.get(truppId) ?? '']))
-  }, [truppOfPerson, linkedTrupps])
-  // ⚠️ …and the TRUPPS themselves, as «Trupp Meier Anna» (journalLinks · journalVocabulary). Off
-  // `allTrupps`, the unfiltered slice: a Trupp that has come out or been taken off the board is
-  // still named in the rows written while it was working, and those must keep their marking.
-  const journalVocab = useMemo(
-    () => journalVocabulary(pickablePersonnel, attendance, truppNameOfPerson, allTrupps),
-    [pickablePersonnel, attendance, truppNameOfPerson, allTrupps],
-  )
-  // active-member names feeding the symbol detail comboboxes (Einsatzleiter / Offizier / Fahrer)
-  // ⚠️ Built from the PICKABLE roster, guests included. These names fill the dropdowns on a
-  // symbol («Fahrer», «Name» on the Einsatzleiter glyph), and a Nachbarwehr driver recorded
-  // on the Anwesenheit could not be selected on the vehicle they were actually driving.
-  const rosterNames = useMemo(() => pickablePersonnel.filter((p) => p.active).map((p) => p.displayName), [pickablePersonnel])
-  // name → rank key, for the officer-first sort + "nur Offiziere" filter on leadership symbols.
-  // Guests included: they carry no Dienstgrad, and an entry MISSING from this map is what tells
-  // the picker to sort them by name alone — which is the right answer for a Nachbarwehr.
-  const rosterRank = useMemo(
-    () => Object.fromEntries(pickablePersonnel.filter((p) => p.active).map((p) => [p.displayName, p.rank])),
-    [pickablePersonnel],
-  )
-  // present crew (attendance) — offered first in the Einsatzleiter picker (mirrors Atemschutz)
-  const presentIds = useMemo(() => new Set(Object.entries(attendance).filter(([, a]) => isPresent(a)).map(([id]) => id)), [attendance])
 
-  /**
-   * PHONE: which of the Rapport's THREE pages the «Rapport» tile opens, remembered per Einsatz
-   * and per device (lib/rapportPages). The three are ordinary separate surfaces — they were tried
-   * as tabs of the Rapport on 18.09.2026 and thrown out the same day, because a whole surface
-   * mounted under the Rapport's own tab strip stacked three navigations on one screen. What the
-   * fold actually buys is a bar of five tiles whose fifth one is a DOOR to the group, plus the
-   * switcher at the foot of all three pages.
-   */
-  useEffect(() => {
-    if (phoneFold && isRapportPage(mode)) writeRapportPage(incidentMeta.id, mode)
-  }, [phoneFold, mode, incidentMeta.id])
-  /** where the bar's «Rapport» tile goes: back to the page this device left the group on, else
-   *  the first-open rule (nobody present yet → Anwesenheit, else the Rapport itself). */
-  const rapportTarget = useMemo(
-    // ⚠️ INSIDE the group the target is the page already showing: the memory is written by the
-    // effect above, i.e. AFTER this render, so reading it here named the page just left and the
-    // lit tile bounced between the last two pages. The memory only answers a tap from outside.
-    () => (isRapportPage(mode) ? mode : initialRapportPage({ incidentId: incidentMeta.id, presentCount: presentIds.size })),
-    [incidentMeta.id, presentIds.size, mode],
-  )
-
-  /** What is already known about a roster NAME — «unter AS», «Magazin», «gegangen». Shown on
-   *  the dropdown entry itself (see roleAssignment · personStatusHint). */
-  const personStatus = (name: string) => {
-    const id = personIdForName(rosterIdByName, name)
-    const hint = personStatusHint(id, attendance, linkedTrupps)
-    // …and whether they are one of ours at all. A Gast is offered in these dropdowns like anybody
-    // else (lib/guests), so the list has to SAY so — the same word the Anwesenheit badges them
-    // with. Leads whatever else is known: «Gast» changes who you think you are picking.
-    if (!(id && rosterById.get(id)?.guest)) return hint
-    const gast = appConfig.copy.anwesenheit.guestBadge
-    return { label: hint ? `${gast} · ${hint.label}` : gast, tone: hint?.tone ?? 'info' as const }
-  }
-  /** …and the contradiction a FILLED roster field already carries, per field key. ⚠️ This used
-   *  to be a toast fired once at assignment time: it appeared after the pick and then went away,
-   *  so the field it was about never said anything. */
-  const rosterFieldHints = (e: Entity | undefined): Record<string, string | undefined> | undefined => {
-    if (!e || e.kind !== 'symbol') return undefined
-    const out: Record<string, string | undefined> = {}
-    for (const [key, val] of Object.entries(e.fields ?? {})) {
-      const name = (val ?? '').trim()
-      if (!name || !ROSTER_FIELDS.includes(key)) continue
-      const role = rosterFieldRole(e.symbol, key, e.label)
-      const id = personIdForName(rosterIdByName, name)
-      out[key] = roleConflictHint(id, role.role, name, attendance, trupps)
-    }
-    return out
-  }
-
-  /**
-   * Being given a job on this Einsatz puts you on the Anwesenheit list. Whoever is named as
-   * Einsatzleiter, put in a Trupp or entered as the Fahrer of a vehicle IS on scene; a rapport
-   * that names somebody the attendance sheet has never heard of contradicts itself, and the
-   * contradiction goes to the Gemeinde on paper.
-   *
-   * `roleNote` additionally fills that person's Bemerkung («Fahrer TLF», «Einsatzleiter») — the
-   * field whose placeholder has always advertised exactly this and which nothing ever wrote. Only
-   * onto an EMPTY remark: what somebody typed there by hand outranks anything derived.
-   */
-  /**
-   * Clear a crew member's self-reported position from the command post. The dot's entity id is
-   * `pos-<personId>` (lib/usePersonPositions), which is the only handle the panel has.
-   *
-   * No `device` on the request: that parameter scopes the delete to ONE phone, which is right
-   * for «nicht mehr teilen» pressed on that phone and useless here — the whole point is that the
-   * phone is not reachable (driven home, flat battery). The backend requires an editor for the
-   * device-less form.
-   */
-  const stopPersonSharing = async (entityId: string) => {
-    const personId = entityId.replace(/^pos-/, '')
-    try {
-      await apiDelete(`/api/incidents/${incidentMeta.id}/positions/${personId}`)
-      setSelectedId(null)
-      log('people', appConfig.copy.contextPanel.stopSharing, 'team')
-    } catch {
-      toast(appConfig.copy.contextPanel.stopSharingFailed, { icon: 'warn', tone: 'warn' })
-    }
-  }
-
-  /** `groupTemplate` folds the per-person rows into ONE line naming the whole crew — see the
-   *  Trupp caller below for why. It is the TEMPLATE and not a flag because the two kinds of Trupp
-   *  read differently: «Unter AS: …» is a sentence, «Unter Trupp: …» is not.
-   *  `noteFor` overrides the Funktion for ONE of them — the Gruppenführer's «AS-GF» beside his
-   *  crew's «AS» (lib/roleAssignment · truppRoleNote). Only the note differs: the crew line still
-   *  names the whole Trupp under its own Funktion, because that is the fact being recorded. */
-  const ensurePresentForRole = (
-    ids: (string | undefined)[], roleNote?: string, groupTemplate?: string,
-    noteFor?: (id: string) => string | undefined,
-    /** Gäste the Trupp form filed a moment ago in the SAME act (fileTruppGuest): already present
-     *  — this render's `attendance` cannot know it yet — and named by the name they were filed
-     *  under, never by their id (staging N1: «Unter AS: g1790338070425-0etoa, …»). */
-    justFiled?: ReadonlyMap<string, string>,
-  ) => {
-    // Not on an Atemschutz-Link session: its Anwesenheit write is a no-op (the slice never
-    // carries attendance), and a Verlauf row claiming «anwesend · AS» over a record that never
-    // changed would be a lie on paper. The tablet marks the crew present when it takes the Trupp.
-    if (!canWriteRecord) return
-    const wanted = [...new Set(ids.filter(Boolean) as string[])]
-    const fresh = wanted.filter((id) => !justFiled?.has(id) && !isPresent(attendance[id]))
-    const nameOf = (id: string) => justFiled?.get(id) ?? rosterById.get(id)?.displayName ?? attendance[id]?.displayNameSnapshot ?? id
-    // ⚠️ APPEND, don't fill-if-empty: one person routinely holds two jobs, and the Fahrer who
-    // then goes under Atemschutz is «Fahrer Pio, AS». See lib/roleAssignment · mergeRoleNote for
-    // when a part replaces an earlier one instead of joining it.
-    const noteOf = (id: string) => noteFor?.(id) ?? roleNote
-    const needNote = roleNote
-      ? wanted.filter((id) => mergeRoleNote(attendance[id]?.note, noteOf(id)!) !== (attendance[id]?.note ?? '').trim())
-      : []
-    if (!fresh.length && !needNote.length) return
-    // through the history, like every other write to this slice — being made Fahrer or EL puts
-    // somebody on the Anwesenheit, and «that was the wrong name» is the same mistake as a tap
-    attSet((cur) => {
-      const next = { ...cur }
-      for (const id of fresh) {
-        const name = rosterById.get(id)?.displayName ?? cur[id]?.displayNameSnapshot ?? id
-        // being given the job opens a presence block: the alarm time for a first one, the real
-        // clock for someone who had already left and is being sent out again
-        const at = intervalsOf(cur[id]).length ? new Date().toISOString() : incidentMeta.started_at
-        next[id] = openPresence(cur[id], at, name)
-      }
-      // …stamped, so «wer ist jetzt EL» has an answer that does not depend on a sort order
-      // (types · AttendanceEntry.noteAt)
-      const at = new Date().toISOString()
-      for (const id of needNote) if (next[id]) next[id] = { ...next[id], note: mergeRoleNote(next[id].note, noteOf(id)!), noteAt: at }
-      return next
-    })
-    // ONE row per person, not one for the presence and a second for the remark: naming a Fahrer
-    // is a single act, and «Meier Anna anwesend» followed by «Meier Anna – Bemerkung: Fahrer TLF»
-    // reads like two things happened to her.
-    const A = appConfig.copy.anwesenheit
-    const noted = new Set(needNote)
-    // ── ONE row for a whole crew (01.09.) ──
-    // A Trupp of three wrote three near-identical lines — «X – Bemerkung: AS» ×3 — under the
-    // Trupp's own rows, which is three quarters of a screen at 3am saying one thing. Worse, the
-    // word was wrong: nobody remarked anything, the app filled a Funktion. The names are what a
-    // reader is after, so they go on one line and the field they came from is not mentioned.
-    if (groupTemplate && roleNote) {
-      const named = wanted
-        .filter((id) => fresh.includes(id) || noted.has(id))
-        .map(nameOf)
-      if (named.length) log('people', fillTemplate(groupTemplate, { role: roleNote, list: named.join(', ') }), 'team')
-      return
-    }
-    for (const id of fresh) {
-      const name = rosterById.get(id)?.displayName ?? id
-      log('people', noted.has(id) && roleNote
-        ? fillTemplate(A.logPresentAs, { name, role: noteOf(id)! })
-        : `${name} anwesend`, 'team')
-    }
-    // somebody already on the list who has just been given the job: the role is the news
-    for (const id of needNote) {
-      if (fresh.includes(id)) continue
-      log('people', fillTemplate(A.logNote, { name: rosterById.get(id)?.displayName ?? id, note: noteOf(id) ?? '–' }), 'team')
-    }
-  }
-  /** ⚠️ Being in a Trupp is a JOB, and the Anwesenheit should say so. It marked the crew present
-   *  and wrote nothing, so the list — and the Personalblatt printed from it — could not tell an
-   *  AdF who stood at the Magazin from one who was under Atemschutz. The link already existed in
-   *  one direction (the Trupp picker says «unter AS» about somebody on the list); this is the
-   *  same fact read the other way round. Like every auto-Bemerkung it only fills an EMPTY one,
-   *  so anything typed by hand survives.
-   *
-   *  ⚠️ …and the crew typed BY HAND, which this used to miss entirely (field report 02.09.). The
-   *  Trupp form's «Name eingeben (Gast/Nachbarwehr)» records a display name and no roster id, so
-   *  the id list above never saw that person: a Gast who had been under Atemschutz for the whole
-   *  Einsatz was absent from the Anwesenheit, from the headcount and from the Personalblatt
-   *  printed off it. Same route a typed name on a symbol has always taken (assignTypedName):
-   *  known to the roster → the person they are, unknown → a Gast row on THIS Einsatz. */
-  /* ⚠️ …and the Funktion says WHICH KIND of Trupp (04.09., Feldtest). Every crew member used to
-   *  be filed as «AS», the Verkehrstrupp included — and the Verlauf prints that Bemerkung behind
-   *  the name on its first mention (lib/journalLinks), so a row about a Trupp without Atemschutz
-   *  read «Müller Hans (AS)»: a statement about where somebody was, on the surface the
-   *  Personalblatt is printed from. The list itself has drawn the distinction since 03.09.
-   *  («unter AS» / «im Trupp»); this is the same fact written onto the row.
-   *  ⚠️ …and the GRUPPENFÜHRER gets the «-GF» variant of it, wherever his name came from: the
-   *  picker (`leaderPersonId`) or the keyboard (the first name `unrecordedCrewNames` returns is
-   *  `f.name`, which IS the leader — see types · Trupp.name). */
-  const ensurePresentFromTrupp = (f: Pick<TruppFields, 'name' | 'members' | 'leaderPersonId' | 'memberPersonIds' | 'kind'>) => {
-    /* ⚠️ Not on a session that cannot write the record (staging N2, 25.09.2026): on the
-       Atemschutz-Link every write below was a no-op while `addGuest` still logged «… als weitere
-       Person erfasst» — a line claiming a record that never changed. An editor device files that
-       crew when it SEES the Trupp (the observer effect below, lib/crewFiling). */
-    if (!canWriteRecord) { filedGuestsRef.current = new Map(); return }
-    const { role, leaderRole, groupTemplate } = truppRoleNote(f)
-    // the Gäste the form's save filed a moment ago (fileTruppGuest) — this render's attendance
-    // does not hold them yet, and read from it they were filed a SECOND time (staging N1)
-    const filed = filedGuestsRef.current
-    filedGuestsRef.current = new Map()
-    const ids = [f.leaderPersonId, ...(f.memberPersonIds ?? [])]
-    ensurePresentForRole(ids, role, groupTemplate, (id) => (id === f.leaderPersonId ? leaderRole : undefined), filed)
-    // 'presence': being in a Trupp contradicts nothing — the conflict check is about somebody
-    // holding a SECOND job (lib/roleAssignment · roleConflictHint)
-    const lead = f.name.trim()
-    const filedIdOf = (n: string) => [...filed].find(([, nm]) => nm === n)?.[0]
-    for (const name of unrecordedCrewNames(f, (n) => filedIdOf(n) ?? personIdForName(rosterIdByName, n))) {
-      assignTypedName(name, 'presence', name === lead ? leaderRole : role)
-    }
-  }
-  /** The Trupp form's Gast door (AtemschutzView · TruppForm · fileGuests), called at the SAVE.
-   *  A name the Mannschaft knows is that person; any other is a Gast row, filed QUIETLY — the
-   *  crew's one «Unter AS: …» row that `ensurePresentFromTrupp` writes right after names them
-   *  all — and remembered for that call (staging N1: one person, one row, one line). */
-  const filedGuestsRef = useRef<Map<string, string>>(new Map())
-  const fileTruppGuest = (name: string): string | undefined => {
-    openTruppSave()
-    const known = personIdForName(rosterIdByName, name)
-    if (known) return known
-    const id = addGuest(name, undefined, { quiet: true })
-    if (id) filedGuestsRef.current.set(id, name)
-    return id
-  }
-  /* ── A crew registered where the record cannot be written reaches it anyway (staging N2) ──
-     An Atemschutz-Link may write the Trupps and nothing else, so its crew — Gäste above all —
-     never reached the Anwesenheit. Every device that MAY write the record OBSERVES the Trupps and
-     files what is missing under ids every device derives the same way (lib/crewFiling), so two
-     tablets converge on one row per person and one Verlauf line per Trupp. A machine write: raw
-     `setAttendance`, never the undo timeline, and idempotent — once filed, nothing is left to
-     file (lib/useGpsFollow · a machine writer writes nothing when nothing changed).
-     ⚠️ ONE-SHOT per (Trupp, person): the Trupp's `crewFiled` marker is stamped in the same pass,
-     for the people filed now AND those already on the list, so somebody taken OFF the Anwesenheit
-     later stays off on every device (types · Trupp.crewFiled). */
-  useEffect(() => {
-    if (!canWriteRecord || replayActive || incidentMeta.is_archived) return
-    const todo = unfiledTruppCrew(allTrupps, attendance, (n) => personIdForName(rosterIdByName, n))
-    if (!todo.length) return
-    const files = todo.filter((f) => f.entries.length)
-    if (files.length) {
-      setAttendance((cur) => {
-        let next = cur
-        for (const f of files) for (const e of f.entries) {
-          if (next[e.id]) continue
-          next = next === cur ? { ...cur } : next
-          next[e.id] = { ...openPresence(undefined, incidentMeta.started_at, e.name), note: e.note }
-        }
-        return next
-      })
-    }
-    setTrupps((ts) => stampCrewFiled(ts, todo))
-    for (const f of files) {
-      log('people', fillTemplate(f.groupTemplate, { role: f.role, list: f.entries.map((e) => e.name).join(', ') }), 'team',
-        undefined, undefined, { rowId: f.rowId })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allTrupps, attendance, canWriteRecord, replayActive, incidentMeta.is_archived])
-
-  /** Assign a role: presence + Bemerkung, and the hint if it contradicts the record (lib ·
-   *  roleAssignment). The hint never blocks — it is shown after the assignment went through. */
-  const assignRole = (personId: string | undefined, role: AssignableRole, note?: string) => {
-    if (!personId) return
-    const name = rosterById.get(personId)?.displayName ?? attendance[personId]?.displayNameSnapshot ?? personId
-    const hint = roleConflictHint(personId, role, name, attendance, trupps)
-    ensurePresentForRole([personId], note)
-    if (hint) toast(hint, { icon: 'warn', tone: 'warn' })
-  }
-
-  /**
-   * The id a HAND-TYPED name is filed under, given the job it was typed into — the one thing
-   * every person field needs and only two of them used to have.
-   *
-   * Typing a name is the normal way a Nachbarwehr, a Gast or an AdF whose roster row never
-   * synced gets onto this Einsatz. Only the Anwesenheit's «Weitere Person» and the Trupp form
-   * recorded one; everywhere else the name stopped on the object it was typed on — a Fahrer on a
-   * vehicle, a Stv. on the Einsatzleiter glyph, the Einsatzleiter on the Rapport — so an Einsatz
-   * could be led by somebody the Anwesenheit, the Personalblatt and the Soldblatt printed from it
-   * had never heard of.
-   *
-   * ⚠️ Resolve BEFORE recording. The pickable roster already holds this Einsatz's guests, so
-   * naming the same Nachbarwehr driver on a second vehicle finds the row they already have
-   * rather than opening a second one under the same name.
-   *
-   * ⚠️ And a NEW Gast gets the job from `addGuest` itself, not from a role assignment afterwards:
-   * their row does not exist yet in this render's `attendance`/`rosterById`, so the assignment
-   * would mark a stranger present and write their raw id into the Verlauf.
-   */
-  const assignTypedName = (name: string, role: AssignableRole, note?: string): string | undefined => {
-    const known = personIdForName(rosterIdByName, name)
-    if (!known) return addGuest(name, note)
-    assignRole(known, role, note)
-    return known
-  }
-
-  /**
-   * A name typed into a symbol's roster field («Fahrer» on the TLF, «Name»/«Stv.» on the
-   * Einsatzleiter glyph) is a job handed to somebody who is standing there. It used to live
-   * ONLY on the entity: the Rapport, the Anwesenheit and the Soldblatt never learned about it,
-   * and the operator entered the same person twice. Only fields that CHANGED are considered —
-   * re-rendering the panel must not re-open a presence block somebody closed on purpose.
-   */
-  const ROSTER_FIELDS: readonly string[] = appConfig.symbols.rosterFields
-  const linkRosterFields = (prev: Entity, fields: Record<string, string>, opts?: { force?: boolean }) => {
-    // ⚠️ Which fields actually moved is a decision with edge cases (a seeded blank is not a
-    // change; a changed FUNKTION has to re-file the name beside it), so it lives in
-    // lib/entityEdit · rosterFieldsToRefile with its own tests rather than inline here.
-    for (const { key: k, value: v } of rosterFieldsToRefile(prev.fields, fields, ROSTER_FIELDS, opts)) {
-      // which job this field hands out, and what it writes into the Bemerkung — lib ·
-      // roleAssignment, so «Fahrer TLF» / «Einsatzleiter» / «Stv. Einsatzleiter» is one
-      // decision with tests rather than a chain of conditions inside the workspace
-      const { role, note } = rosterFieldRole(prev.symbol, k, prev.label, fields)
-      // ⚠️ …and a name the Mannschaftsliste has never heard of is a Gast, recorded as one
-      // rather than dropped: it was typed onto a symbol because that person is standing there.
-      assignTypedName(v, role, note)
-    }
-  }
-
-  /** Edit a Karte-owned symbol through the projection shown on a linked Modul. This is the map
-   *  editor's normal mutation path, including its single-step live title edit and roster side
-   *  effects; only the pointer happened to start on the plan. */
-
-  /**
-   * The roster's spelling of every name on a Trupp, applied ON THE WAY IN.
-   *
-   * ⚠️ The Trupp's name is what the rest of the app draws from — the card, the hose tag, the
-   * Kroki chip (through `abbreviateName`, which reads the station's name order to decide which
-   * token is the surname) and the bold in the Verlauf. Typed «Hans Müller» where the roster says
-   * «Müller Hans», all four disagreed at once: one Kroki carrying «Müller H.» beside «Peter S.»,
-   * and a Verlauf marking one Trupp's leader and not the other's. The name resolves to the same
-   * person either way (lib/personnel · personIdForName) — so it may as well be written down the
-   * way the person is spelled everywhere else. A real Gast matches nobody and is left alone.
-   */
-  const canonTrupp = <T extends TruppFields | Trupp>(t: T): T => ({
-    ...t,
-    name: canonicalName(t.name, rosterIdByName, rosterById),
-    members: t.members?.map((m) => canonicalName(m, rosterIdByName, rosterById)),
+  // the record surfaces' undo stacks and writers — Mittel, Checklisten, Rapport, Zeitplan — and their
+  // re-lay after a merge (workspace/useRecordSlices)
+  const {
+    checklistSet, checklistDescribeRef, bandActions, addShift, addShiftSpan, replaceShift, setShiftTime,
+    removeShift, onDownloadZeitplan, saveMittel, placedSymbols,
+  } = useRecordSlices({
+    mittel, setMittel, canWriteRecord, checklists, setChecklists, undoHist, histSide, histStep, C_HIST,
+    reportMeta, setReportMeta, lastReportStep, reportSetRef, user, log, doc, board, shifts, bands,
+    setShifts, setBands, sliceRebase, attHist, incidentMeta, attendance,
   })
-  // ⚠️ The CANONICALISED crew reaches the Anwesenheit too, not the raw form values: a Gast row is
-  // opened under the name that is written down everywhere else, so «Hans Müller» typed into the
-  // Trupp form cannot open a second row beside the roster's «Müller Hans».
-  // ⚠️ Each is ONE step on the timeline with the crew filing it causes (openTruppSave).
-  const createTruppA = (t: Trupp) => { openTruppSave(); const c = canonTrupp(t); createTrupp(c); ensurePresentFromTrupp(c) }
-  const editTruppA = (id: string, f: TruppFields) => { openTruppSave(); const c = canonTrupp(f); editTrupp(id, c); ensurePresentFromTrupp(c) }
-  // `standby` MUST be forwarded: this wrapper used to swallow it, so «Bereitstellen» ran the
-  // «Wieder einrücken» path — a crew standing at the vehicle with a running contact clock, which
-  // is exactly the case the standby fork exists to prevent (see useTruppActions · reactivateTrupp).
-  const reactivateTruppA = (id: string, f: TruppFields, standby?: boolean) => { openTruppSave(); const c = canonTrupp(f); reactivateTrupp(id, c, standby); ensurePresentFromTrupp(c) }
+
+  // the roster's side of the record — vocabulary, pickers' names and hints, and every door that puts
+  // somebody on the Anwesenheit because they were given a job (workspace/useRosterRoles)
+  const {
+    fileTruppGuest, createTruppA, editTruppA, reactivateTruppA, presentIds, rapportTarget,
+    linkRosterFields, rosterNames, rosterRank, personStatus, rosterFieldHints, stopPersonSharing,
+    assignTypedName, assignRole, journalVocab,
+  } = useRosterRoles({
+    linkedTrupps, truppOfPerson, pickablePersonnel, attendance, allTrupps, phoneFold, mode, incidentMeta,
+    rosterIdByName, rosterById, trupps, setSelectedId, log, canWriteRecord, attSet, openTruppSave,
+    addGuest, replayActive, setAttendance, setTrupps, createTrupp, editTrupp, reactivateTrupp,
+  })
 
   // --- checklists ---
   // Ticking is field documentation, not tactical editing, so it's gated by ROLE
