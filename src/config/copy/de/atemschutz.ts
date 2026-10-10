@@ -827,6 +827,8 @@ export const atemschutzCopy = {
       factBarEntry: 'Eingangsdruck {bar} bar',
       factKanal: 'Kanal {n}',
       logEnd: 'Trupp {name}: Notfall beendet – Dauer {dur}',
+      // «Raus» beendet einen laufenden Notfall: die Zeile neben dem Austritt
+      logEndOut: 'Trupp {name}: Notfall beendet – Dauer {dur} – Trupp draussen',
       logSafetyEntry: 'Trupp {name}: Sicherungstrupp eingesetzt – Notfall Trupp {target}, {dur} nach Auslösung',
       logAtClose: 'Trupp {name}: Notfall beim Abschluss nicht beendet',
       // bestätigen-mit-Rückgängig: ein Fehlgriff ist billig zurückzunehmen und bleibt im Verlauf

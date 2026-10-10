@@ -2657,6 +2657,38 @@ describe('useTruppActions — the Atemschutznotfall (F1, 08.10.2026)', () => {
     expect(b.state.trupps[0].readings?.map((r) => r.kind)).toEqual(['notfall'])
   })
 
+  it('«Raus» ends a running Notfall in the same act: both rows, the end reading, the end event — ONE ↶ restores both', () => {
+    for (const exitBar of [undefined, 120]) {
+      const b = board([inside()])
+      b.act().triggerNotfall('T1')
+      const at = b.state.trupps[0].notfallAt
+      b.act().setTruppStatus('T1', 'raus', exitBar)
+      const t = b.state.trupps[0]
+      expect(t.status).toBe('raus')
+      expect(t.notfallAt).toBeUndefined()
+      expect(t.readings?.map((r) => r.kind)).toEqual(['notfall', 'exit', 'notfallEnde'])
+      expect(b.rows.slice(1).map((r) => r.text)).toEqual([
+        expect.stringMatching(/^Trupp 2 \(Keller Anna \/ Frei Nina\): (Austritt|.*draussen|.*120 bar)/),
+        expect.stringMatching(/^Trupp 2 \(Keller Anna \/ Frei Nina\): Notfall beendet – Dauer \d+:\d\d min – Trupp draussen$/),
+      ])
+      expect(b.rows[2].subjectId).toBe('T1')
+      expect(b.events.map((e) => e.op)).toEqual(['atemschutz.notfall', 'atemschutz.status', 'atemschutz.notfallEnde'])
+      // one step on the timeline: back inside AND back in the Notfall, with the ORIGINAL clock
+      expect(b.timeline.peekUndo()?.label).not.toMatch(/Notfall beendet/)
+      b.timeline.undo()
+      expect(b.state.trupps[0]).toMatchObject({ status: 'aktiv', notfallAt: at })
+      expect(b.state.trupps[0].exitTime).toBeUndefined()
+      expect(b.state.trupps[0].readings?.map((r) => r.kind)).toEqual(['notfall'])
+    }
+  })
+
+  it('«Raus» on a Trupp with no Notfall writes no Notfall row', () => {
+    const b = board([inside()])
+    b.act().setTruppStatus('T1', 'raus')
+    expect(b.rows.map((r) => r.text).join('\n')).not.toMatch(/Notfall/)
+    expect(b.events.map((e) => e.op)).toEqual(['atemschutz.status'])
+  })
+
   it('a Sicherungstrupp sent in during a Notfall says whom it went in for, and how long after', () => {
     const b = board([inside({ notfallAt: new Date(Date.now() - 90_000).toISOString() }), sitr()])
     b.act().setTruppStatus('S1', 'aktiv')

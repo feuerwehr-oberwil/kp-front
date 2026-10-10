@@ -1869,9 +1869,24 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    chevron that points ON (it leads to the card, the card's own chevron folds DOWN) */
 .nfHead .trowName { color: var(--red-strong); }
 .nfGlyph { width: 18px; height: 18px; flex: none; }
+/* …and the same ⚠ in the dot's place on the crew's own card (AtemschutzView · RowLine) */
+.trowName .nfGlyph { color: var(--red-strong); }
 .nfHead .trowChevron { color: var(--red-strong); }
-/* row 2: one dim line, wrapping, never cut */
-.nfFacts { margin: var(--sp-1) 0 0; font: var(--fw-medium) var(--fs-1)/1.35 var(--body); color: var(--ink-dim); }
+/* A WIDE board (tablet / desktop grid, owner round 4): ONE slim row — «⚠ name» + the facts | the
+   act at its own width | the clock + ›. The name side and the clock side are both «Zum Trupp». */
+.trow.trowCard.nfWide { flex-direction: row; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); }
+.nfWideWho { flex: 1 1 auto; min-width: 0; min-height: 44px; display: flex; flex-wrap: wrap; align-items: baseline;
+  column-gap: var(--sp-3); row-gap: 2px; align-content: center; padding: 0; border: none; background: transparent;
+  color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.nfWideWho .trowName { align-self: center; color: var(--red-strong); }
+.nfWideWhen { flex: none; display: flex; align-items: center; gap: var(--sp-1); min-height: 44px; padding: 0; border: none;
+  background: transparent; color: var(--red-strong); font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.nfWideWhen .trowClockVal { font-size: var(--fs-5); }
+.nfWideWhen .trowChevron { width: 24px; height: 44px; color: var(--red-strong); }
+/* the facts: dim, wrapping under the name when they do not fit beside it — never cut */
+.nfFacts { flex: 0 1 auto; min-width: 0; font: var(--fw-medium) var(--fs-1)/1.35 var(--body); color: var(--ink-dim); }
+.nfWide .nfPrimary { flex: none; }
+.nfWide .nfNote { flex: 0 1 auto; max-width: 360px; }
 /* row 3: ONE act at the banner's width (beside «Zum Trupp» it wrapped to four lines) */
 .nfActs { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); }
 .nfPrimary { flex: 1 1 auto; min-width: 0; padding-block: var(--sp-1); }
@@ -1879,7 +1894,4 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .nfPrimarySub { font: var(--fw-medium) var(--fs-1)/1.2 var(--body); opacity: .85; }
 .nfDefine { color: var(--ink); }
 .nfNote { flex: 1 1 auto; min-width: 0; margin: 0; font: var(--fw-heavy) var(--fs-2)/1.35 var(--body); color: var(--ink); }
-/* a tablet's banner spans the board: the primary keeps a tile's width instead of a 1000px bar; its
-   cards stand open with no chevron, so the head's chevron only keeps the line at a 44px target
-   (12 of padding + 32) instead of adding the phone's 44px track the tablet card head never has */
-@media (--not-phone) { .nfPrimary { flex: 0 1 420px; } .nfHead .trowChevron { height: 32px; } }
+

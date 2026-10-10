@@ -315,6 +315,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       factBarEntry: 'entry pressure {bar} bar',
       factKanal: 'channel {n}',
       logEnd: 'Team {name}: emergency ended – duration {dur}',
+      logEndOut: 'Team {name}: emergency ended – duration {dur} – team out',
       logSafetyEntry: 'Team {name}: safety team deployed – emergency team {target}, {dur} after it was raised',
       logAtClose: 'Team {name}: emergency not ended at closing',
       toast: 'Emergency raised for team {name}',

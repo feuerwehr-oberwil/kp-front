@@ -122,21 +122,44 @@ describe('NotfallBanner — the first offer is the Sicherungstrupp', () => {
         onDeploySafety={(id) => deployed.push(id)} onGo={() => {}} />,
     )
     const alert = container.querySelector('[role="alert"]')!
-    expect(alert.getAttribute('aria-label')).toBe('Notfall: Trupp 2 (Keller Anna / Frei Nina)')
+    // the facts are the screen reader's on every board…
+    expect(alert.getAttribute('aria-label')).toMatch(/^Notfall: Trupp 2 \(Keller Anna \/ Frei Nina\) · Notfall seit \d\d:\d\d · 180 bar \(vor 7 min\) · Kanal 11$/)
     // the card's head line, and the WHOLE line is the way to the card
     const head = alert.querySelector('button')!
     // …named as the crew's own card head names it (the card below is the SAME crew); the full
     // log name is the accessible one
     expect(head.textContent).toBe('Keller Anna2:10')
     expect(head.getAttribute('aria-label')).toBe('Zum Trupp 2 (Keller Anna / Frei Nina)')
-    // ONE dim line: since when and what the record last knew — the people are the card's
-    expect(alert.textContent).toMatch(/Notfall seit \d\d:\d\d · 180 bar \(vor 7 min\) · Kanal 11/)
+    // …but not on the phone's face: the card right below shows Druck and Kanal; nor the people
+    expect(alert.textContent).not.toContain('Kanal 11')
     expect(alert.textContent).not.toContain('Frei Nina')
     expect(alert.textContent).not.toContain('Trupp 2')
     expect(container.textContent).toContain('2:10') // the Notfall clock
     fireEvent.click(getByText('Sicherungstrupp einsetzen'))
     expect(deployed).toEqual(['s'])
     expect(container.textContent).toContain('Meier Beat')
+  })
+
+  it('a wide board gets ONE slim row: «⚠ name» + the facts, the act, the clock — both sides lead to the card', () => {
+    const went: string[] = []
+    const { container, getByText } = render(
+      <NotfallBanner t={inNotfall} now={NOW} ready={[]} inside={[]} canEdit wide onDefineSafety={() => {}}
+        onDeploySafety={() => {}} onGo={(id) => went.push(id)} />,
+    )
+    const buttons = [...container.querySelectorAll('button')]
+    expect(buttons.map((b) => b.textContent)).toEqual([
+      expect.stringMatching(/^Keller AnnaNotfall seit \d\d:\d\d · 180 bar \(vor 7 min\) · Kanal 11$/),
+      'Sicherungstrupp bestimmenKein Sicherungstrupp bereit',
+      '2:10',
+    ])
+    expect(buttons[0].getAttribute('aria-label')).toBe('Zum Trupp 2 (Keller Anna / Frei Nina)')
+    // the clock side is the same door, out of the tab order and hidden from the screen reader
+    expect(buttons[2].tabIndex).toBe(-1)
+    expect(buttons[2].getAttribute('aria-hidden')).toBe('true')
+    fireEvent.click(buttons[0])
+    fireEvent.click(buttons[2])
+    expect(went).toEqual(['a', 'a'])
+    expect(getByText('Sicherungstrupp bestimmen')).toBeTruthy()
   })
 
   it('says when nobody is ready, and offers the board’s own «Bestimmen» door', () => {
@@ -167,8 +190,12 @@ describe('NotfallBanner — the first offer is the Sicherungstrupp', () => {
       onDefineSafety={() => {}} onDeploySafety={() => {}} onGo={() => {}} />)
     expect(container.textContent).toContain('Keller Anna')
     expect(container.textContent).not.toContain('Kanal 11')
-    expect(container.textContent).not.toContain('Notfall seit')
     expect(container.textContent).toContain('Sicherungstrupp bestimmen')
+    cleanup()
+    // …and a wide board drops the facts too when several run
+    const wide = render(<NotfallBanner t={inNotfall} now={NOW} ready={[]} inside={[]} canEdit dense wide
+      onDefineSafety={() => {}} onDeploySafety={() => {}} onGo={() => {}} />)
+    expect(wide.container.textContent).not.toContain('Kanal 11')
   })
 
   it('names a Sicherungstrupp already inside instead of offering a second one; a viewer gets no act', () => {

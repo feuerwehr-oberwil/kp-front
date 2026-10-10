@@ -992,6 +992,20 @@ export function useTruppActions(deps: Deps) {
     const now = serverNowIso()
     const isResume = status === 'aktiv' && !!tr?.entryTime // back into the field after a Rückzug
     const impliesContact = status === 'rueckzug' || isResume
+    /* ⚠️ «Raus» ENDS a running Notfall (owner, 10.10.2026: «draussen also means we have the
+     * emergency completed»). The crew is out — there is nobody left inside to rescue — so the one
+     * report says both, as ONE unit: `notfallAt` goes and a `notfallEnde` reading joins the exit
+     * row, the Verlauf gets «Notfall beendet – Dauer … – Trupp draussen» beside the Austritt, the
+     * `atemschutz.notfallEnde` event is the held «Notfall beendet»'s, and ONE ↶ step puts the
+     * crew back inside AND in the Notfall with its original clock. The server sees what it sees
+     * for a held end — `notfallAt` gone on a card still on the board (push · notfall_changes) —
+     * and pushes «Notfall beendet» once. */
+    const endsNotfall = status === 'raus' && !!tr && truppInNotfall(tr)
+    const endNotfallOf = (t: Trupp): Trupp => {
+      if (!endsNotfall || !t.notfallAt) return t
+      const { notfallAt: _end, ...rest } = t
+      return { ...rest, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'notfallEnde' }] }
+    }
     // ⚠️ Named, and reused verbatim by the timeline's ↷ (see `remember`): the whole transition —
     // status plus entryTime plus exitTime plus the reading — is ONE unit, and re-running the
     // action instead would stamp `now` a second time and move a safety clock forward.
@@ -1004,11 +1018,11 @@ export function useTruppActions(deps: Deps) {
       // out whether the crew ever came out. The clock is untouched — this only records.
       if (status === 'raus') {
         if (measuredExit) {
-          return { ...t, status, exitTime: now, lastPressureBar: exitBar, lastPressureTime: now,
+          return endNotfallOf({ ...t, status, exitTime: now, lastPressureBar: exitBar, lastPressureTime: now,
             lowestBar: Math.min(t.lowestBar ?? t.entryPressureBar, exitBar),
-            readings: [...(t.readings ?? []), { t: now, bar: exitBar, kind: 'exit', measured: true }] }
+            readings: [...(t.readings ?? []), { t: now, bar: exitBar, kind: 'exit', measured: true }] })
         }
-        return { ...t, status, exitTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'exit' }] }
+        return endNotfallOf({ ...t, status, exitTime: now, readings: [...(t.readings ?? []), { t: now, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'exit' }] })
       }
       if (impliesContact) {
         // ⚠️ A Rückzug is written down AS a Rückzug. It counts as a Funkkontakt and used to be
@@ -1061,6 +1075,13 @@ export function useTruppActions(deps: Deps) {
     // the Verlauf tell a repeated line from a second, real cycle (lib/verlauf · repeatRuns).
     if (line) log(icon, line, 'team', undefined, undefined, { subjectId: id })
     emit('atemschutz.status', measuredExit ? { id, status, bar: exitBar } : { id, status })
+    // …and the Notfall it ended, in its own row beside the Austritt (see `endsNotfall`)
+    if (endsNotfall && tr) {
+      const nf = az.notfall
+      log('flag', fillTemplate(nf.logEndOut, { name: truppLogName(tr), dur: fmtDuration(notfallFacts(tr, Date.parse(now)).sinceSec) }),
+        'team', undefined, undefined, { subjectId: id })
+      emit('atemschutz.notfallEnde', { id })
+    }
     /* ⚠️ EVERY transition is undoable, not only «Raus» (23.08.). Three of the four touch the
      * SAFETY CLOCK: «Eingerückt» stamps entryTime and starts it, «Rückzug» and «Fortsetzen»
      * reset it (see the note at the top of this function). So a mis-tap on the wrong card —
@@ -1162,7 +1183,8 @@ export function useTruppActions(deps: Deps) {
    * «Notfall beendet» — HELD too (F1): ending an emergency must cost the same deliberate act as
    * raising one, and a brushed button that silences the loudest alarm in the app is the failure
    * the hold exists to prevent. Writes the `notfallEnde` reading and ONE Verlauf row with the
-   * duration; the Trupp's status is untouched — whether the crew is out is its own report («Raus»).
+   * duration; the Trupp's status is untouched — whether the crew is out is its own report («Raus»,
+   * which ends a running Notfall too: setTruppStatus · `endsNotfall`).
    * Undoable on the ↶ timeline: the Notfall comes back with its ORIGINAL clock.
    */
   const endNotfall = (id: string) => {
