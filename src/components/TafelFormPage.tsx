@@ -424,7 +424,7 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
             return (
               <div key={id} className={cx(s.line, isNew && s.lineNew)}>
                 {sec.trend && (isNew ? <span className={s.trendGap} aria-hidden="true" />
-                  : <TrendButton trend={trend} readOnly={readOnly} onNext={() => put(putLine(data, sec.id, c.id, id, { trend: nextTrend(trend) }))} />)}
+                  : <TrendButton trend={trend} readOnly={readOnly} onNext={() => put(putLine(data, sec.id, c.id, id, { trend: nextTrend(trend) }, serverNow()))} />)}
                 <Cell k={keyOf(sec.id, c.id, id, undefined)} kn={isNew ? keyOf(sec.id, c.id, NEW, undefined) : undefined}
                   value={text} label={label} readOnly={readOnly} className={s.grow}
                   last={keyOf(sec.id, c.id, id, undefined) === lastKey}
@@ -476,7 +476,7 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
         return (
           <span key={c.id} className={cx(s.td, s.trendCell)}>
             {!isNew && <TrendButton trend={r.cells[c.id]} readOnly={readOnly}
-              onNext={() => put(putRow(data, sec.id, r.id, { cells: { [c.id]: nextTrend(r.cells[c.id]) ?? '' } }))} />}
+              onNext={() => put(putRow(data, sec.id, r.id, { cells: { [c.id]: nextTrend(r.cells[c.id]) ?? '' } }, serverNow()))} />}
           </span>
         )
       }
@@ -501,7 +501,7 @@ export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRe
           <div key={r.id} className={cx(s.tr, fixedRows.has(r.id) && s.trFixed, r.done && s.trDone)} role="row" style={grid}>
             {cols.map((c) => cellFor(r, c, false))}
             {sec.done && <span className={cx(s.td, s.doneCell)}>
-              <DoneButton on={!!r.done} readOnly={readOnly} onToggle={() => put(putRow(data, sec.id, r.id, { done: !r.done }))} />
+              <DoneButton on={!!r.done} readOnly={readOnly} onToggle={() => put(putRow(data, sec.id, r.id, { done: !r.done }, serverNow()))} />
             </span>}
           </div>
         ))}

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { StrictMode, useState } from 'react'
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { TafelFormPage } from './TafelFormPage'
@@ -111,6 +111,24 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     key('Tab', { shiftKey: true })
     act(() => { (document.activeElement as HTMLElement).blur() })
     expect(commits).toHaveLength(0)
+  })
+
+  it('every write carries its edit time — a typed line and a trend tap alike (what settles a two-device clash)', () => {
+    const commits: BoardFormData[] = []
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1_000_000)
+    try {
+      render(<Harness onCommit={(d) => commits.push(d)} />)
+      act(() => { box('front').querySelector<HTMLTextAreaElement>('[data-kn]')!.focus() })
+      type('Rauch'); key('Enter')
+      const id = commits[0].values.problem.lines!.front![0].id
+      const atom = `l|problem|front|${id}`
+      expect(commits[0].t).toEqual({ [atom]: 1_000_000 })
+      now.mockReturnValue(1_005_000)
+      act(() => { fireEvent.click(box('front').querySelector('[data-trend]')!) })
+      const last = commits[commits.length - 1]
+      expect(last.values.problem.lines!.front![0].trend).toBe('up')
+      expect(last.t).toEqual({ [atom]: 1_005_000 })
+    } finally { now.mockRestore() }
   })
 
   it('Alt+Enter is a line break inside the cell, not a move', () => {
