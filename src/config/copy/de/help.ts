@@ -124,6 +124,7 @@ export const helpCopy = {
             '**Vergrössern/Verkleinern**, **Einpassen** und **Koordinaten abgreifen** in der rechten Leiste unten. Beim Abgreifen auf die Karte tippen, um einen Punkt (LV95 + WGS84) festzuhalten; der Kompass richtet wieder nach Norden aus.',
             '**Wind** wird laufend angezeigt (Richtung + Temperatur), damit die Ausbreitungsrichtung sofort ersichtlich ist.',
             '**Fahrzeuge** erscheinen live per GPS (Name + Ausrichtung), die eigene Position als ruhiger blauer Punkt.',
+            '**Gebäude-Info** unten links nennt, was das Gebäude am Einsatzort an Gefahren hat (⚠ Gas · PV), und öffnet den Steckbrief: Gefahren, **Sofortmassnahmen** und Bemerkungen zuoberst, darunter die Register-Angaben. Beim ersten Öffnen des Einsatzes auf diesem Gerät geht er von selbst auf, damit er gelesen wird – die Karte bleibt bedienbar. ✕ schliesst ihn; danach öffnet ihn der Chip. Bei einem anderen Einsatzort oder Objekt mit Inhalt erscheint er nochmals.',
           ] },
         ],
       },

@@ -99,6 +99,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             '**Ingrandisci/Riduci**, **Adatta** e **Rileva coordinate** in basso nella barra destra. Durante il rilevamento, tocca la carta per fissare un punto (LV95 + WGS84); la bussola si riorienta a nord.',
             '**Vento** mostrato in continuo (direzione + temperatura), così la direzione di propagazione è subito chiara.',
             '**Veicoli** appaiono in tempo reale via GPS (nome + orientamento), la propria posizione come punto blu fisso.',
+            '**Info edificio** in basso a sinistra indica i pericoli dell’edificio sul luogo d’intervento (⚠ gas · PV) e apre la sua scheda: pericoli, **Misure immediate** e Osservazioni in alto, i dati dei registri sotto. La prima volta che questo dispositivo apre l’intervento, la scheda si apre da sola perché venga letta – la carta resta utilizzabile. ✕ la chiude; poi la riapre il chip. Un altro luogo o oggetto con contenuto la mostra di nuovo.',
           ] },
         ],
       },

@@ -99,6 +99,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             '**Agrandir/Réduire**, **Ajuster** et **Relever les coordonnées** en bas de la barre de droite. Lors du relevé, toucher la carte pour fixer un point (LV95 + WGS84) ; la boussole se réoriente au nord.',
             '**Vent** affiché en continu (direction + température) pour que la direction de propagation soit immédiatement visible.',
             '**Véhicules** apparaissent en direct par GPS (nom + orientation), votre propre position sous forme de point bleu discret.',
+            '**Info bâtiment** en bas à gauche indique les dangers du bâtiment sur le lieu d’intervention (⚠ gaz · PV) et ouvre sa fiche : dangers, **Mesures immédiates** et Remarques en haut, les données des registres en dessous. À la première ouverture de l’intervention sur cet appareil, la fiche s’ouvre d’elle-même pour être lue – la carte reste utilisable. ✕ la ferme ; ensuite, la puce la rouvre. Un autre lieu ou objet avec du contenu l’affiche une nouvelle fois.',
           ] },
         ],
       },

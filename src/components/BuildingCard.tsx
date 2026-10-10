@@ -2,21 +2,26 @@ import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { IconButton } from './Button'
 import type { BuildingInfo } from '../lib/api/building'
-import { buildingChips, buildingSources, hasBuildingContent, noteLines, objectCaption, visitLine } from '../lib/buildingCard'
+import { buildingChips, buildingSources, hasBuildingContent, noteLines, objectCaption, visitLine, type BuildingChip } from '../lib/buildingCard'
 import s from './BuildingCard.module.css'
 
 /**
  * «Gebäude» — the building at the Einsatzort (KP Front card F5). Opened from its chip on the Karte
  * and in the plan's chip row (BuildingFloat); `onClose` draws the card's ✕.
  *
- * Read-only tags (the card pill's look), hazards first with the warn glyph AND the word, then
- * one line of sources; the Einsatzobjekt's Sofortmassnahmen / Bemerkungen as text when the station
- * wrote some; the last Objektbesuch. Nothing to say → nothing drawn (lib/buildingCard).
+ * What must be read comes first, so it stands in view without scrolling when the card opens by
+ * itself (lib/buildingFirstOpen; on a phone the card is at most 56vh): the hazard tags (the card
+ * pill's look, the warn glyph AND the word), then the Einsatzobjekt's Sofortmassnahmen and
+ * Bemerkungen as text when the station wrote some, with whose notes they are. Below them the
+ * register facts as plain tags with their one line of sources, and the last Objektbesuch.
+ * Nothing to say → nothing drawn (lib/buildingCard).
  */
 export function BuildingCard({ info, onClose }: { info: BuildingInfo | null; onClose?: () => void }) {
   if (!info || !hasBuildingContent(info)) return null
   const C = appConfig.copy.building
   const chips = buildingChips(info)
+  const hazards = chips.filter((c) => c.hazard)
+  const facts = chips.filter((c) => !c.hazard)
   const sources = buildingSources(info)
   const measures = noteLines(info.object?.measures)
   const remarks = noteLines(info.object?.remarks)
@@ -31,21 +36,27 @@ export function BuildingCard({ info, onClose }: { info: BuildingInfo | null; onC
           <IconButton label={appConfig.copy.closeDialog} className={s.close} onClick={onClose}><Icon id="close" /></IconButton>
         )}
       </div>
-      {chips.length > 0 && (
-        <ul className={s.chips}>
-          {chips.map((c) => (
-            <li key={c.key} className={c.hazard ? `${s.chip} ${s.hazard}` : s.chip} title={c.title}>
-              {c.hazard && <Icon id="warn" />}<span>{c.text}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {sources && <p className={s.sources}>{sources}</p>}
+      <Tags chips={hazards} />
       {measures.length > 0 && <Notes label={C.measures} lines={measures} strong />}
       {remarks.length > 0 && <Notes label={C.remarks} lines={remarks} />}
       {caption && <p className={s.sources}>{caption}</p>}
+      <Tags chips={facts} className={measures.length || remarks.length ? s.facts : undefined} />
+      {sources && <p className={s.sources}>{sources}</p>}
       {visit && <p className={s.visit}><Icon id="clipboard" /><span>{visit}</span></p>}
     </section>
+  )
+}
+
+function Tags({ chips, className }: { chips: BuildingChip[]; className?: string }) {
+  if (!chips.length) return null
+  return (
+    <ul className={className ? `${s.chips} ${className}` : s.chips}>
+      {chips.map((c) => (
+        <li key={c.key} className={c.hazard ? `${s.chip} ${s.hazard}` : s.chip} title={c.title}>
+          {c.hazard && <Icon id="warn" />}<span>{c.text}</span>
+        </li>
+      ))}
+    </ul>
   )
 }
 

@@ -1,7 +1,7 @@
 import { request as apiRequest, type Page } from '@playwright/test'
 import { expect, PIN, test } from './helpers'
 import {
-  Results, blocking, calibrate, cdpFor, centre, counters, drain, instrument, isolateFromOutside, median,
+  Results, blocking, buildingAlreadyRead, calibrate, cdpFor, centre, counters, drain, instrument, isolateFromOutside, median,
   painted, recordNetwork, remember, retained, retire, routeTally, seedIncident, signIn, timeTo,
   waitForWorkspace, watchNetwork, CPU_THROTTLE, POLL_MS, type Seeded,
 } from './perf/harness'
@@ -43,6 +43,7 @@ async function open(page: Page, baseURL: string, name: string, { viaKiosk = fals
   await station.dispose()
   test.info().annotations.push({ type: 'incident', description: seeded.id })
   await remember(context, baseURL, seeded.id)
+  await buildingAlreadyRead(context, seeded)
   if (!viaKiosk) await signIn(context.request)
   await instrument(page)
   const net = watchNetwork(context, baseURL)

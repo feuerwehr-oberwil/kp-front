@@ -232,6 +232,12 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   Verwaltung and in `admin_objects`), and the last Objektbesuch. Each source fails on its own,
   anything missing draws nothing, and the answer is cached on the device for offline use.
   *Migration runs on boot; `map.buildingRegister: false` keeps the registers out.*
+- **The Gebäude card opens by itself the first time.** When a device first shows the Karte of an
+  Einsatz whose building has a hazard (Gas, Heizöl, PV), Sofortmassnahmen or Bemerkungen, the card
+  opens on its own – after the opening snail, non-modal, with the hazards and Sofortmassnahmen at
+  the top – so they are read rather than one tap away. Closing it (✕, Esc, the chip) marks it read
+  on that device; the chip reopens it, and a changed Einsatzort or Objekt with content shows it
+  once more. Never in a replay, a closed Einsatz or the Atemschutz-Link. *No action needed.*
 - **A geotagged photo can be placed on the Karte.** When a Verlauf photo carries a GPS position
   (and a viewing direction) in its EXIF data, the row's detail sheet and the save toast offer
   «Auf Karte setzen» with «Aufnahmeort: 120 m vom Einsatzort · Blick nach Nordost»; the marker
