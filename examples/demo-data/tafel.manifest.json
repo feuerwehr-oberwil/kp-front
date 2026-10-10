@@ -1,0 +1,9 @@
+{
+  "templates": [
+    {
+      "id": "fks-erste-fuehrung",
+      "file": "../../src/data/boardTemplates/fks-erste-fuehrung.json",
+      "sourceNote": "FKS Plakat «Erste Führung» + Handbuch Grossereignisse Kap. 8 (die gebündelte Vorlage)"
+    }
+  ]
+}

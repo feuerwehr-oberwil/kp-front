@@ -41,6 +41,7 @@
 
 import { apiGet } from './api'
 import { isBoardAnno, isDrawing, isEntity, sanitizeWorkspace, type Saved } from './workspace'
+import { applyFormDelta, isFormData } from './boardForm'
 import type { BoardAnno, BoardDoc, BuildingDoc, Drawing, Entity, LayerId, LngLat, WeatherData } from '../types'
 
 // --- API shapes (mirror backend schemas) --------------------------------------------
@@ -520,6 +521,20 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
     case 'board.edit': {
       const planId = typeof p.planId === 'string' ? p.planId : null
       const patch = p.patch as Partial<BoardAnno> | undefined
+      // a Tafel page's edit names the CELLS it changed, not the page (Whiteboard · editPage,
+      // review of #338): fold the delta into the page as it stood, and a removal as its tombstone
+      const fp = p.form as { delta?: unknown; removed?: unknown } | undefined
+      if (planId && id && fp && typeof fp === 'object' && !patch) {
+        ws.board = {
+          ...(ws.board ?? {}),
+          [planId]: (ws.board?.[planId] ?? []).map((a) => {
+            if (a.id !== id || a.kind !== 'form' || !isFormData(a.form)) return a
+            if (fp.removed === true) return { ...a, form: { ...a.form, removedAt: Date.parse(e.occurred_at) || 0 } }
+            return Array.isArray(fp.delta) ? { ...a, form: applyFormDelta(a.form, fp.delta as { k: string; new?: string }[]) } : a
+          }),
+        }
+        break
+      }
       if (planId && id && patch) ws.board = { ...(ws.board ?? {}), [planId]: (ws.board?.[planId] ?? []).map((a) => a.id === id ? gated(isBoardAnno, a, patch, p.replace === true) : a) }
       break
     }

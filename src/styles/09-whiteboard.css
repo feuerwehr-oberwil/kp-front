@@ -413,6 +413,40 @@
 .wb-blank-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;
   font-family: var(--body); font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-faint); pointer-events: none; max-width: 70%; line-height: 1.4; }
 
+/* the Tafel's page strip (10.10.2026, TafelPageStrip): «Skizze» · the pages · «+ Seite».
+   ⚠️ It stands where every other surface says «which place» (owner, before the release): in the
+   bottom-left row (.wb-botleft) where a plan's Objekt / Gebäude / Massstab chips stand, which
+   already clears the nav rail, the phone's bars, the FAB and the safe areas (THE floating row,
+   15-mobile · --float-bottom) and is already reserved by the board's fit (lib/whiteboard ·
+   chipRowInset). It wears that row's FLOATING family (01-tokens · --float-*: the glass, one row
+   height --float-h, --r-sm), holding the 44px segmented track and «+ Seite». Many pages scroll
+   sideways inside it (the open one scrolled into view); «+ Seite» always stays in view. A Tafel
+   PAGE pads its foot by the row (Whiteboard · inset.bottom), so its last ruling scrolls above. */
+.tps {
+  display: flex; align-items: center; gap: var(--sp-1); box-sizing: border-box; min-width: 0; max-width: 100%;
+  min-height: var(--float-h); padding: var(--msg-pad); overflow: hidden; border-radius: var(--r-sm);
+  background: var(--float-bg); -webkit-backdrop-filter: var(--float-blur); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
+}
+.wb-botleft > .tps { flex: 0 1 auto; }
+@media (--not-phone) {
+  /* on the Skizze the right tool rail stands at the row's far end: the strip stops before it */
+  .whiteboard:not(.wb-tafel-page) .wb-botleft > .tps { max-width: calc(100vw - var(--rail-w) - 28px - var(--vrail-w, 60px) - 28px); }
+}
+.tps > * { flex: none; }
+.tps .useg { flex: 0 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.tps .useg::-webkit-scrollbar { display: none; }
+.tps .useg > .useg-btn { flex: none; }
+.tps-item { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
+.tps-name { flex: 1 1 auto; }
+.tps-there { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--ink-faint); font-size: var(--fs-1); }
+.tps-there .i { width: 14px; height: 14px; }
+/* …and its «Lagekarte» box is a map of its own (components/MiniKarte): the rules above hide every
+   map while the Plan is up so the covered Karte can be dropped — not this one, which IS the picture
+   (the same exception the Kroki framing panel makes, 14-intake.css · .kf-map) */
+.app:not(.mode-map) .tfp-map .maplibregl-map { visibility: visible; }
+/* a Tafel PAGE takes the whole stage (Whiteboard · formPage) */
+.wb-tafel-page { background: var(--canvas-bg); }
+
 .wb-ink-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .wb-ink { position: absolute; inset: 0; z-index: 5; touch-action: none; }
 

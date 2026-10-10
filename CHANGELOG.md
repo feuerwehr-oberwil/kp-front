@@ -75,6 +75,23 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Added
 
+- **The Tafel gets pages: the FKS «Erste Führung» and the Handbuch sheets.** A page strip on the
+  Tafel – «Skizze» (the free board, unchanged) plus «+ Seite» – adds the FKS «Erste Führung»
+  poster 1:1 (Problemerfassung · Lagekarte · Massnahmen · Mittel · Verbindungen ·
+  Abspracherapport with its six Signaturen) and the FKS Handbuch sheets 8.1 Problemerfassung,
+  8.6 Mittel, 8.8 Verbindungen, 8.9 Konzept and 8.11 Rapport, in German, French and Italian. A new
+  Tafel starts empty. The keyboard works like a spreadsheet (Enter down, Tab across, Shift+Enter a
+  line break, Esc reverts; «1124» becomes 11:24), the Lagekarte box is a live, read-only mini
+  Karte, Mittel starts with the Einsatz's vehicles, and every edit is one ↶ step that syncs and
+  works offline. The Rapport prints each page in its own layout (the Erste Führung as the poster,
+  its Lagekarte as the Karte at print time) and finally the Tafel's own drawing too
+  («Tafel – Seiten» in the print menu). A station replaces the bundled set with its own copy
+  (`board-template/1`, docs/board-templates.md): `admin_board_templates
+  validate|load|push [--prune]` or `/admin › Tafel-Vorlagen`, distributed like the checklists.
+  Two devices on one page merge cell by cell (a true clash keeps the later edit and writes a
+  Verlauf row), and an older build can no longer delete the pages it does not know. «Drucken» on
+  a page makes a PDF of it (or of all pages) in the same layout, and a row stays on the ruling it
+  was written on, on screen and on paper.
 - **Atemschutznotfall for one Trupp.** Hold «Notfall» on a crew inside: every device turns that
   Trupp red at the top of the alarm strip with a running Notfall clock, its last place, last Druck
   with its age and Funkkanal, and «Sicherungstrupp einsetzen» as the first offer; tone, OS

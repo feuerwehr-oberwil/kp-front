@@ -410,6 +410,7 @@ async def test_explicitly_excluded_routes_are_refused(client, link_key, incident
     excluded = [
         ("POST", f"/api/incidents/{inc}/report/pdf"),
         ("POST", f"/api/incidents/{inc}/zeitplan/pdf"),
+        ("POST", f"/api/incidents/{inc}/tafel/pdf"),
         ("POST", "/api/push/subscriptions"),
         ("GET", "/api/geocode/search?q=Hauptstrasse"),
         ("POST", "/api/overpass/buildings"),

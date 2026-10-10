@@ -295,6 +295,17 @@ head, then `alembic check` against the models); image, secrets, e2e, visual and 
   `Saved` at compile time, so a field without a policy fails `tsc` instead of silently merging
   as «this device wins» (23.09.2026). (`Person`/roster is the exception – it carries
   `updatedAt` because it's pulled from Divera, not merged.)
+- ⚠️ **An object kind a build does not understand is a passenger, never dropped** (review of
+  #338, 10.10.2026). An older build that opened a Tafel with pages on it filtered the unknown
+  `form` objects out at the load gate and its next full save deleted every page. So: (1) the
+  client gate (`sanitizeWorkspace` · `isPassengerAnno`) keeps any board object of a kind it does
+  not draw, untouched, and every merge and save carries it along (`isDrawnBoardKind` splits
+  drawing from riding); (2) the server guards builds that predate the rule: a full save whose
+  `schemaVersion` is older than a kind (`app/workspace_kinds.py` · `BOARD_KIND_SINCE`) gets the
+  stored objects of that kind put back (`keep_newer_board_kinds`). A new board kind → bump
+  `WORKSPACE_SCHEMA_VERSION` (`src/lib/workspace.ts`, now 3) and add it to `BOARD_KIND_SINCE`.
+  A Tafel page is ONE object but merges **atom by atom** (`lib/boardFormMerge`: a cell, a line,
+  a field), the later edit (`t`, server clock) winning a true clash and writing a Verlauf row.
 - **IDs are prefixed timestamps, not UUIDs** – `newId(prefix)` from `src/lib/ids.ts`
   (`<prefix><ms>-<seq><rand>`) for EVERY record the app mints and syncs — Verlauf rows
   included (`newRowId(tag?)`), Mittel events, patch rows, Gäste, Pendenzen. A per-device
@@ -367,7 +378,10 @@ head, then `alembic check` against the models); image, secrets, e2e, visual and 
   plans fall back only to OSM outlines + `Tafel`, never bundled `/public` PDFs; checklist templates
   are fetched from the `checklists:<id>` reference datasets (`loadTemplates` in
   `src/lib/checklists.ts`, offline-cached), falling back to one neutral bundled example
-  (`src/data/checklists/generic-action.json`) – never a station's real lists. GeoJSON must be WGS84
+  (`src/data/checklists/generic-action.json`) – never a station's real lists. The Tafel's board
+templates ride the same pipeline (`admin_board_templates`, `tafel:<id>`); their bundled FKS set
+is public FKS material, and a station set REPLACES it rather than joining it
+([`docs/board-templates.md`](docs/board-templates.md)). GeoJSON must be WGS84
   `[lng,lat]` (LV95 is rejected).
 - **Coordinates are WGS84 `[lng, lat]` wherever the map renders.** LV95 only at the edges via
   `src/lib/geo.ts` (`wgs84ToLV95` / `lv95ToWgs84` / `fmtLV95`), the `centerLv95` config option,
@@ -404,6 +418,9 @@ head, then `alembic check` against the models); image, secrets, e2e, visual and 
     the Sicherungstrupp, the Atemschutznotfall and the Abschluss.
   - [`docs/copy-and-wording.md`](docs/copy-and-wording.md) – which word a screen uses.
   - [`docs/rapport.md`](docs/rapport.md) – what the Rapport's figure pages carry.
+  - [`docs/board-templates.md`](docs/board-templates.md) – the Tafel's pages (FKS «Erste
+    Führung» …): a page is ONE `form` board anno with its template snapshot, values keyed by id,
+    the spreadsheet keyboard, and the `board-template/1` contract a station writes against.
   - [`docs/roles-and-access.md`](docs/roles-and-access.md) – roles, the deployment admin, links.
   - [`docs/trupp-naming.md`](docs/trupp-naming.md), [`docs/verlauf-coverage.md`](docs/verlauf-coverage.md),
     [`docs/object-visits.md`](docs/object-visits.md) – Trupp identity, what reaches the Verlauf,

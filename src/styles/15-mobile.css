@@ -298,6 +298,8 @@
   /* (…and the Gebäude's chip row steps up by that row: `--msg-dock-hint` is part of
      --float-base, see «THE floating row» below) */
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
+  /* …but a Tafel PAGE is a form with no tool bar under it: it runs down to the nav bar (Whiteboard · formPage) */
+  .phone-tools .whiteboard.wb-tafel-page { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
   /* A Plan-side detail sheet is fixed, but its z-index still cannot escape the whiteboard's
      stacking context (09-whiteboard.css). Lift that surface just above the shared nav rail while
      a sheet is open; the sheet then covers both Plan rails as its Lage twin already does, while
@@ -1036,6 +1038,9 @@
   :root { --float-base: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px)); }
   :root:has(.phone-tools) { --float-base: calc(var(--rail-h) * 2 + 14px); }
   :root:has(.phone-tools .wb-dock) { --float-base: calc(var(--rail-h) * 3 + 20px + var(--msg-dock-hint, 0px)); }
+  /* …and a Tafel PAGE has no tool bar under it (the form takes the stage, Whiteboard · formPage):
+     its row — the page strip, the FAB — stands on the nav bar like any surface without tools */
+  :root:has(.phone-tools .wb-tafel-page) { --float-base: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px)); }
   :root { --float-bottom: calc(var(--float-base) + var(--float-gap) + env(safe-area-inset-bottom)); }
   /* the row is OCCUPIED while any of its pieces is on screen: a FAB, the plan's chip row, the
      strip, the way back to the Rapport. It publishes no height because it has only one: --float-h. */

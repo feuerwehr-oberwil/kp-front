@@ -3,7 +3,7 @@
 
 import type { Copy, Localizable } from '../index'
 
-export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | 'notes' | 'whiteboard'>> = {
+export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | 'notes' | 'whiteboard' | 'tafel'>> = {
   incidents: {
     migratedTitle: 'Migrated working state',
     geojsonNotJson: 'Not a valid JSON file.',
@@ -306,5 +306,39 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     orientSliderLabel: 'Rotation',
 
     groupDeletedN: '{n} objects removed from the plan',
+  },
+  tafel: {
+    strip: 'Board pages',
+    skizze: 'Sketch',
+    addPage: 'Page',
+    addPageTitle: 'Add a page',
+    alreadyThere: 'already here',
+    pageAdded: 'Page «{page}» added',
+    pageEdited: '{page} changed',
+    pageRemoved: 'Page «{page}» removed',
+    removePage: 'Remove page',
+    print: 'Print',
+    printThis: 'This page',
+    printAll: 'All pages ({n})',
+    printBusy: 'Making the PDF …',
+    printOffline: 'Printing needs the connection to the server. The page is saved – print once the device is back online.',
+    printFailed: 'The page could not be printed – please try again.',
+    removeTitle: 'Remove page?',
+    removeMsg: 'Everything written on «{page}» goes with it. Undo (↶) brings it back.',
+    template: 'Template {title}, version {v}',
+    mapLabel: 'Situation map – tap to open the map',
+    mapOpen: 'Open map',
+    mapPrint: 'In the report: the map at the moment of printing',
+    head: { title: 'Incident', address: 'Address', alarm: 'Alarm', el: 'Incident commander' },
+    tag: 'Keyword',
+    done: 'Done',
+    trendNone: 'Trend open',
+    trendUp: 'getting worse',
+    trendSame: 'unchanged',
+    trendDown: 'easing',
+    trendTitle: 'Trend: {trend} – tap to change',
+    keysHint: 'Enter: next row · Tab: next column · Shift+Enter: line break',
+    lineBreak: 'Line break',
+    cellCap: 'A field holds {n} characters – for more, write an entry in the Verlauf.',
   },
 }

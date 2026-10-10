@@ -357,6 +357,13 @@ openapi: config-schema
 config-schema:
     cd backend && uv run python -m app.admin_config schema > ../docs/config.schema.json
 
+# (The board-template/1 contract a station writes its Tafel pages against — docs/board-templates.md.
+# A pytest fails when the committed file and app/board_templates.py drift.)
+# Dump the board-template JSON Schema to docs/board-template.schema.json.
+[group('Release')]
+board-template-schema:
+    cd backend && uv run python -m app.admin_board_templates schema > ../docs/board-template.schema.json
+
 # Regenerate the committed roster-snapshot + station-index contracts (schemas + examples). Run it in the same
 # change that touches app/roster_snapshot.py, then update the checksums recorded in
 # tests/test_roster_snapshot_contract.py AND in the kp-rueck copy. See docs/CONFIGURATION.md §4c.
@@ -477,6 +484,16 @@ checklists-load file:
 [group('Deployment config')]
 checklists-push file *args:
     cd backend && uv run python -m app.admin_checklists push "{{absolute_path(file)}}" {{args}}
+
+# Load a board-templates manifest (the Tafel's pages, board-template/1) into the deployment (DATABASE_URL).
+[group('Deployment config')]
+board-templates-load file *args:
+    cd backend && uv run python -m app.admin_board_templates load "{{absolute_path(file)}}" {{args}}
+
+# Publish a board-templates manifest to a RUNNING deployment via its API (--prune deletes the rest).
+[group('Deployment config')]
+board-templates-push file *args:
+    cd backend && uv run python -m app.admin_board_templates push "{{absolute_path(file)}}" {{args}}
 
 # (Slot is one of: logo | reportLogo | favicon | iconPng192 | iconPng512 – the last two are the
 # installed PWA's home-screen icons and must be square PNGs of exactly that edge (or a larger
