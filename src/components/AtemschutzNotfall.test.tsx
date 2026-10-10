@@ -2,7 +2,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { render, cleanup, fireEvent, act } from '@testing-library/react'
 import { AtemschutzNotfallMeldungen, NOTFALL_FIRED_MS, NOTFALL_TAP_HINT_MS, NotfallBanner, NotfallHold } from './AtemschutzNotfall'
-import { ageWords, notfallFactLine } from '../lib/notfall'
+import { ageWords, freshNotfallKeys, notfallFactLine } from '../lib/notfall'
 import { atemschutzAlarmRows } from './AtemschutzAlarmMeldung'
 import { Meldeleiste } from './Meldeleiste'
 import { NODE_HOLD_ARM_MS, NODE_HOLD_FIRE_MS } from '../lib/nodeHold'
@@ -240,5 +240,16 @@ describe('the Notfall on the Meldeleiste', () => {
   it('is never ALSO an überfällig/Alarmdruck row — one emergency, one row', () => {
     const late = { ...inNotfall, lastContactTime: ago(900), lastPressureBar: 40 }
     expect(atemschutzAlarmRows([late], { a: 2 }, NOW, 5, 60, { alarmBar: 100, alarmBarRueckzug: 50 })).toEqual([])
+  })
+})
+
+describe('the bell is armed by every Notfall a device has not met — and by one that came back', () => {
+  it('arms once per Notfall, and again when ↶ restores an ended one with its original trigger', () => {
+    const met = new Set<string>()
+    expect(freshNotfallKeys(met, ['a:t1'])).toEqual(['a:t1'])
+    expect(freshNotfallKeys(met, ['a:t1'])).toEqual([]) // still running: nothing new
+    expect(freshNotfallKeys(met, [])).toEqual([]) // ended («beendet» or «Raus»)…
+    expect(freshNotfallKeys(met, ['a:t1'])).toEqual(['a:t1']) // …↶: the same key, armed again
+    expect(freshNotfallKeys(met, ['a:t1', 'b:t2'])).toEqual(['b:t2'])
   })
 })

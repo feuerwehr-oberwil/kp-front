@@ -264,6 +264,17 @@ async def notify_notfall_changes(db: AsyncSession, inc: Incident, previous: obje
         now_ms = datetime.now(UTC).timestamp() * 1000
         for key in moved:
             _should_send(key, now_ms)  # claimed, so the sweep does not announce it a second time
+        # ⚠️ An END releases that Notfall's crossing key, and a RAISE releases its end key (review
+        # of #300, CodeRabbit). ↶ on «Notfall beendet» — or on the «Raus» that ended it — restores
+        # the ORIGINAL ``notfallAt``, so the re-raise carries the very key the first push claimed:
+        # still inside its renotify window, ``_should_send`` dropped it, the sweep stayed quiet as
+        # well, and every recipient's tray kept showing «Notfall beendet» over a crew that is in
+        # distress again. The reverse is the same trap for a second «beendet» after that undo.
+        for alert in ended:
+            _release(_notfall_key(inc.id, alert))
+        for alert in raised:
+            if not alert.get("moved"):
+                _release(f"az-end:{inc.id}:{alert['id']}:{alert['since']}")
         for title, body, trupp_id, key, swept in sends:
             if not _should_send(key, now_ms):
                 continue
@@ -743,6 +754,12 @@ _notified: dict[str, float] = {}
 #: reached. Reset at the start of each new renotify round (below) so a fresh round reaches
 #: everyone again. In-memory like `_notified`: a restart re-notifies once, the safe direction.
 _delivered: dict[str, set[str]] = {}
+
+
+def _release(key: str) -> None:
+    """Forget a crossing: the next ``_should_send`` for ``key`` sends at once, to everyone."""
+    _notified.pop(key, None)
+    _delivered.pop(key, None)
 
 
 def _should_send(key: str, now_ms: float) -> bool:

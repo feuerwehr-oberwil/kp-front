@@ -187,7 +187,10 @@ reworded.
   second push; «Notfall beendet» is pushed once into the same tray entry. Not for an Übung or the
   demo. The überfällig/Alarmdruck
   row never names a Trupp in a Notfall (one emergency, one row). A NEW Notfall re-arms a bell
-  muted earlier in the Einsatz (`useAtemschutzMute · arm`).
+  muted earlier in the Einsatz (`useAtemschutzMute · arm`) — and so does an ended one that ↶
+  brings back with its original trigger (`lib/notfall · freshNotfallKeys`); on the server the end
+  releases that Notfall's crossing key (and a raise its end key), so the re-raise is pushed at
+  once and takes the tray entry back from «beendet» (`push · notify_notfall_changes`).
 - *On the Tafel* the strip's row steps aside for a sticky banner at the top of every board:
   who, the clock, the facts, and the first offer «Sicherungstrupp einsetzen» — the ready
   Sicherungstrupp's ordinary Eintritt (several ⇒ a menu, none ⇒ «Sicherungstrupp bestimmen» with

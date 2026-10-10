@@ -76,6 +76,7 @@ import { RemindersHost } from './lib/useReminders'
 import { useRenderStorm } from './lib/useRenderStorm'
 import { AtemschutzAlarmHost } from './lib/useAtemschutzAlarm'
 import { truppInNotfall, truppLogName, truppStillRegistered, type AtemschutzAlarmState } from './lib/atemschutz'
+import { freshNotfallKeys } from './lib/notfall'
 import { GeorefModeBars } from './components/GeorefMode'
 import { georefDispatch, setGeorefOpenDroppedHandler, useGeorefMode, useGeorefSurfaceBridge } from './lib/georefMode'
 import { planStackTouches, type BoardHistory } from './components/useBoardDoc'
@@ -1596,12 +1597,11 @@ export function IncidentWorkspace({
    * open) arms it once; muting again is the bell or «Zum Trupp», as for any alarm. */
   const notfallKeys = trupps.filter(truppInNotfall).map((t) => `${t.id}:${t.notfallAt}`).sort().join('|')
   const notfallMet = useRef<Set<string>>(new Set())
+  // (an ENDED one is forgotten, so ↶ bringing it back with its original trigger arms it again —
+  // lib/notfall · freshNotfallKeys)
   useEffect(() => {
-    if (!azAlarmActive || !notfallKeys) return
-    const fresh = notfallKeys.split('|').filter((k) => !notfallMet.current.has(k))
-    if (!fresh.length) return
-    for (const k of fresh) notfallMet.current.add(k)
-    armAtemschutz()
+    if (!azAlarmActive) return
+    if (freshNotfallKeys(notfallMet.current, notfallKeys ? notfallKeys.split('|') : []).length) armAtemschutz()
   }, [notfallKeys, azAlarmActive, armAtemschutz])
 
   /** the one-shot pusher, ref-held: the Beilagen handlers are `useCallback`s per mount and the
