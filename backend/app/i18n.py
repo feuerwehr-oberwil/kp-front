@@ -154,6 +154,11 @@ DETAIL_TRANSLATIONS: dict[str, dict[str, str]] = {
         "fr": "Personne introuvable",
         "it": "Persona non trovata",
     },
+    "Radarbild nicht vorhanden": {
+        "en": "Radar image not available",
+        "fr": "Image radar non disponible",
+        "it": "Immagine radar non disponibile",
+    },
     "Refresh-Token widerrufen": {
         "en": "Refresh token revoked",
         "fr": "Jeton de rafraîchissement révoqué",

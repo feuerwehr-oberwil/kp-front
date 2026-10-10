@@ -4,7 +4,7 @@
 import type { Copy, Localizable } from '../index'
 
 type Keys =
-  | 'photoViewer' | 'photoGeo' | 'einsatzuhr' | 'mapPicker' | 'weather' | 'pdf' | 'settings'
+  | 'photoViewer' | 'photoGeo' | 'einsatzuhr' | 'mapPicker' | 'weather' | 'weatherLayer' | 'pdf' | 'settings'
   | 'feedback' | 'offline' | 'emptyApp' | 'incidentAlert'
 
 export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
@@ -39,6 +39,41 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     windShiftDismiss: 'Nascondi',
 
     unavailable: 'Dati meteo attualmente non disponibili',
+  },
+  weatherLayer: {
+    group: 'Meteo',
+    radar: 'Precipitazioni (radar)',
+    radarSub: "MeteoSvizzera · ultima ora",
+    attribution: 'Radar © MeteoSvizzera',
+    radarTitle: 'Radar delle precipitazioni',
+    play: "Riproduci l'ultima ora",
+    pause: "Ferma (torna all'immagine attuale)",
+    frameSlider: "Scegli l'immagine radar",
+    frameAgo: '{minutes} min fa',
+    latest: 'attuale',
+    legendLight: 'debole',
+    legendUnit: 'mm/h · stima radar',
+    legendHeavy: 'forte',
+    radarPending: 'Nessuna immagine radar ancora – caricamento.',
+    radarUnavailable: 'Radar al momento non disponibile.',
+    stale: 'Stato {time} – non aggiornato',
+    chipAria: 'Allerte meteo ({count}): {summary}',
+    more: '+{count}',
+    from: 'dalle {time}',
+    until: 'fino alle {time}',
+    untilRevoked: 'fino a revoca',
+    validity: 'Validità',
+    source: 'Fonte',
+    sourceMeteoswiss: 'MeteoSvizzera (via MeteoAlarm)',
+    sourceAlertswiss: '{publisher} (via Alertswiss)',
+    moreInfo: 'Maggiori informazioni alla fonte',
+    warningStale: 'Stato {time} – fonte al momento non raggiungibile',
+    verbatimNote: 'Testo originale della fonte, non modificato.',
+    level1: 'Informazione',
+    level2: 'Giallo – potenzialmente pericoloso',
+    level3: 'Arancione – pericoloso',
+    level4: 'Rosso – molto pericoloso',
+    authorityNotice: 'Comunicazione delle autorità',
   },
   pdf: {
     loading: 'Caricamento del PDF…',

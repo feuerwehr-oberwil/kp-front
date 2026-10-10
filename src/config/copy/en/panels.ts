@@ -4,7 +4,7 @@
 import type { Copy, Localizable } from '../index'
 
 type Keys =
-  | 'photoViewer' | 'photoGeo' | 'einsatzuhr' | 'mapPicker' | 'weather' | 'pdf' | 'settings'
+  | 'photoViewer' | 'photoGeo' | 'einsatzuhr' | 'mapPicker' | 'weather' | 'weatherLayer' | 'pdf' | 'settings'
   | 'feedback' | 'offline' | 'emptyApp' | 'incidentAlert'
 
 export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
@@ -38,6 +38,41 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     },
     windShiftOpen: 'Open in log',
     windShiftDismiss: 'Dismiss',
+  },
+  weatherLayer: {
+    group: 'Weather',
+    radar: 'Precipitation (radar)',
+    radarSub: 'MeteoSwiss · last hour',
+    attribution: 'Radar © MeteoSwiss',
+    radarTitle: 'Precipitation radar',
+    play: 'Play the last hour',
+    pause: 'Stop (back to now)',
+    frameSlider: 'Choose radar image',
+    frameAgo: '{minutes} min ago',
+    latest: 'now',
+    legendLight: 'light',
+    legendUnit: 'mm/h · radar estimate',
+    legendHeavy: 'heavy',
+    radarPending: 'No radar image yet – loading.',
+    radarUnavailable: 'Radar currently unavailable.',
+    stale: 'As of {time} – out of date',
+    chipAria: 'Weather warnings ({count}): {summary}',
+    more: '+{count}',
+    from: 'from {time}',
+    until: 'until {time}',
+    untilRevoked: 'until revoked',
+    validity: 'Valid',
+    source: 'Source',
+    sourceMeteoswiss: 'MeteoSwiss (via MeteoAlarm)',
+    sourceAlertswiss: '{publisher} (via Alertswiss)',
+    moreInfo: 'More at the source',
+    warningStale: 'As of {time} – source currently unreachable',
+    verbatimNote: 'Original text of the source, unaltered.',
+    level1: 'Information',
+    level2: 'Yellow – potentially dangerous',
+    level3: 'Orange – dangerous',
+    level4: 'Red – very dangerous',
+    authorityNotice: 'Notice from the authorities',
   },
   pdf: {
     loading: 'Loading PDF…',

@@ -295,7 +295,7 @@ and never readable back over the API except CARTO's browser tile key.
 | **Personnel roster** | in | Divera 24/7, including Qualifikationen mapped to Dienstgrad | Synced identities are stored provider-neutrally (`personnel_external_identities`), so a second source can be added |
 | **Vehicle GPS** | in | [Traccar](https://www.traccar.org/) | Currently Traccar-specific – no abstraction yet. It can be generalised the same way as the alarm connectors |
 | **Maps & geocoding** | in | swisstopo geocoding (search, LV95); Carto, OpenStreetMap and swisstopo-satellite base maps; cantonal WMS layers | `GEOCODER_URL` plus config-driven reference layers – see [docs/geodata-architecture.md](docs/geodata-architecture.md) |
-| **Weather** | in | MeteoSwiss / Open-Meteo (wind for the spread estimate) | – |
+| **Weather** | in | MeteoSwiss / Open-Meteo (wind for the spread estimate); MeteoSwiss precipitation radar and MeteoAlarm / Alertswiss warnings on the Karte | `WEATHER_LAYER_ENABLED=false` turns the map layer off |
 | **Speech-to-text** | in | Any OpenAI-compatible `/v1/audio/transcriptions` server – Groq, OpenAI, or a self-hosted faster-whisper | Set `STT_BASE_URL`. Empty means off everywhere, and audio never leaves the instance |
 | **Push notifications** | out | Web Push (VAPID) for Atemschutz and reminder alerts when the app is killed | Unset keys disable the sweep entirely |
 | **Printing** | out | Station printer via a pull-based relay agent | Point a custom agent at the relay endpoints |

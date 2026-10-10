@@ -102,6 +102,7 @@ import { PlanPicker } from './components/PlanPicker'
 import { fetchShareLink } from './lib/viewLink'
 import { useBuildingInfo } from './lib/useBuildingInfo'
 import { useWeather } from './lib/useWeather'
+import { useKarteWeather } from './workspace/useKarteWeather'
 import { useBootCover } from './lib/bootCover'
 import { ChecklistsView } from './components/ChecklistsView'
 import { AtemschutzView, type TruppOrder } from './components/AtemschutzView'
@@ -1326,6 +1327,8 @@ export function IncidentWorkspace({
   // During replay the badge reads the folded reading.
   const liveWeather = useWeather(incidentView.center)
   const displayWeather = replayActive ? (replayWs?.weather ?? null) : liveWeather.data
+  // …and the Karte's weather LAYER: radar + the official warnings at this Einsatz (live only)
+  const weather = useKarteWeather(incidentView.center, mode === 'map' && !replayActive)
 
   // The opening cover (lib/bootCover): the boot Splash's snail stays over the whole workspace
   // until its first screen is whole — the symbol pack, the Karte framed with its first view drawn
@@ -1972,6 +1975,8 @@ export function IncidentWorkspace({
     // Ebenen panel stays ONE list with one gesture. ⚠️ The `twin:` prefix these ids carry is
     // PERSISTED on the device; it keeps its word because renaming it would reset everyone's rows.
     if (isTwinLayerId(id)) { toggleTwinLayer(id); return }
+    // …and the weather radar row, a device pref of its own (workspace/useKarteWeather)
+    if (weather.handlesLayer(id)) { weather.toggleRadar(); return }
     const target = layers.find((l) => l.id === id)
     // ⚠️ Not from an `el` session: its audit stream carries the record vocabulary only (the
     // backend refuses the whole batch otherwise), and which Ebenen an EL is looking at is
@@ -2012,6 +2017,7 @@ export function IncidentWorkspace({
   // tooltip / accessible name (lib/layerPreset, 05.10.2026)
   const layersPreset = useMemo(() => layerPreset(layers, defaultLayers(incidentMeta.type)), [layers, incidentMeta.type])
   const setOpacity = (id: LayerId, v: number) => {
+    if (weather.handlesLayer(id)) { weather.setRadarOpacity(v); return }
     if (isTwinLayerId(id)) {
       // written outside the updater — see the note on persistTwinLayers
       const next = { ...twinLayerOpacity, [id]: v }
@@ -2988,6 +2994,7 @@ export function IncidentWorkspace({
         azAlarm, setMode, setPanel, setTruppFocus, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker,
         markTeamPosition, renameTeam, clearTeamTrail, removeTeamWithTrail, trails, deleteGhostTrail, doc,
         unlinkTruppLine, patchEntity, linkTruppLine, log, mapOverlays, finishSelection, georefPlanRasters,
+        weatherRadar: mapUI && !replayActive ? weather.mapRadar : null,
         isVisible, selectedId, measure, setSelectedDrawIds, setSelectedEntityIds, onMapClick, drawings,
         draft, areaMode, lineNodes, setDraft, setDraftPointAttachment, startEntityMove, streamEntityMove,
         finishEntityMove, setVehicleOverrides, beginDrag, setDocRaw, endDrag, setView, onBasemapUnavailable,
@@ -3061,6 +3068,7 @@ export function IncidentWorkspace({
         layersPreset, togglePanel, isPhone, slimRail, displayWeather, openWeatherDetails, replayActive,
         georefMode, buildingInfo, tool, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
         toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
+        weather,
       }} />
 
       <MapDetailPanels {...{

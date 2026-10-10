@@ -96,6 +96,35 @@ export async function isolateFromOutside(context: BrowserContext, baseURL: strin
     gwr_status: 'ok', plants: [], pv_status: 'ok', registers_fetched_at: new Date(now()).toISOString(),
     object: null, visit: null,
   } }))
+  // The Karte's weather layer (backend app/weather_layer, off in CI's stack): a fixed answer, so the
+  // journeys pay for its poll and its chunk and the screenshots pin its chip — one warning as
+  // Alertswiss carried it on 08.10.2026, no radar frame (the radar row is off by default anyway).
+  await context.route('**/api/weather/layer*', (route) => route.fulfill({ json: cannedWeatherLayer(now()) }))
+}
+
+function cannedWeatherLayer(at: number) {
+  const iso = new Date(at).toISOString()
+  const status = { last_attempt_at: iso, last_success_at: iso, last_error: null, last_error_at: null, stale: false }
+  return {
+    enabled: true,
+    point: true,
+    generated_at: iso,
+    radar: {
+      frames: [], coordinates: null, data_time: null, stale: true, stale_after_seconds: 900, status,
+      legend: [{ min_mm_h: 0.1, color: '#9bd7ff' }, { min_mm_h: 10, color: '#ff9a00' }],
+      attribution: 'MeteoSchweiz', source_url: 'https://www.meteoschweiz.admin.ch',
+    },
+    warnings: {
+      items: [{
+        id: 'alertswiss:POA-1355976462-5', source: 'alertswiss', level: 2, color: null, kind: null,
+        sent: '2026-09-11T10:23:21+00:00', onset: null, expires: null, sender: 'Kanton Basel-Landschaft',
+        link: null, region: 'Ganzer Kanton Basel-Landschaft', fetched_at: iso,
+        texts: { de: { event: 'Feuerverbot', headline: 'Erhebliche Waldbrandgefahr (Stufe 3)', description: 'Im Wald und an Waldrändern ist das Feuern verboten.', instructions: [] } },
+      }],
+      sources: { meteoswiss: status, alertswiss: status },
+      stale_after_seconds: 1500,
+    },
+  }
 }
 
 // ── Network accounting ───────────────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 """Small geo helpers (no external deps)."""
 
 import math
+from collections.abc import Sequence
 
 
 def haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
@@ -28,3 +29,24 @@ def lv95_to_wgs84(east: float, north: float) -> tuple[float, float]:
         / 36.0
     )
     return lat, lng
+
+
+def point_in_ring(lat: float, lng: float, ring: Sequence[tuple[float, float]]) -> bool:
+    """Ray casting on one closed ring of (lat, lng) vertices, in plain degrees.
+
+    For the weather-warning regions (app/weather_warnings): a few tens of kilometres across,
+    where the curvature of a parallel is irrelevant. Ported from kp-rueck (R5, 08.10.2026)."""
+    inside = False
+    count = len(ring)
+    if count < 3:
+        return False
+    j = count - 1
+    for i in range(count):
+        lat_i, lng_i = ring[i]
+        lat_j, lng_j = ring[j]
+        if (lat_i > lat) != (lat_j > lat):
+            crossing = lng_i + (lat - lat_i) * (lng_j - lng_i) / (lat_j - lat_i)
+            if lng < crossing:
+                inside = not inside
+        j = i
+    return inside

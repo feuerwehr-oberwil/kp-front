@@ -350,6 +350,13 @@ html.rail-dragging .layers-card { transition: none; }
    34×18 ellipse. A descendant selector cannot be used for a row that contains a component. */
 .opacity .opacity-v { font-family: var(--mono); font-size: var(--fs-micro); color: var(--ink-dim);
   width: 34px; text-align: right; }
+/* …and under the weather radar row, its colour key (LayerPanel · weather): the ramp the radar
+   paints with, «schwach … stark» in mm/h, on the same 32px inset as the slider above it. */
+.lc-wx-key { display: grid; gap: 2px; padding: 0 var(--sp-8) var(--sp-2) var(--sp-6); }
+.lc-wx-ramp { display: block; height: 6px; border-radius: 3px; }
+.lc-wx-words, .lc-wx-unit { display: flex; justify-content: space-between; gap: var(--sp-2);
+  font-size: var(--fs-micro); color: var(--ink-faint); }
+.lc-wx-unit { justify-content: center; }
 
 /* ── «Plan wählen» / «Seite wählen» ── the list behind a folded phone-bar tile that stands for a
    GROUP (components/GroupChooser, 18.09.2026): «Pläne» for every plan document, «Rapport» for its
