@@ -37,8 +37,10 @@
 .sub { padding: var(--sp-1) var(--sp-3); font-size: var(--fs-1); border-bottom: 1px solid var(--ink-28); }
 
 /* ── one cell: an auto-growing textarea with no chrome of its own — the ruling is the frame ── */
+.cellWrap { position: relative; display: flex; flex: 1 1 auto; min-width: 0; }
+/* the touch floor (AGENTS · 3am tenet): every cell is at least --tap tall */
 .cell {
-  display: block; box-sizing: border-box; width: 100%; min-height: 40px; margin: 0;
+  display: block; box-sizing: border-box; width: 100%; min-height: var(--tap); margin: 0;
   padding: var(--sp-2) var(--sp-2); resize: none; overflow: hidden;
   border: none; border-radius: 0; background: transparent; color: var(--ink);
   font-size: var(--fs-2); line-height: var(--lh-2);
@@ -47,6 +49,14 @@
 .cell:focus { outline: none; background: var(--blue-8); box-shadow: inset 0 0 0 2px var(--accent); }
 .cell[readonly] { cursor: default; }
 .time { font-variant-numeric: tabular-nums; }
+/* the soft keyboard's missing Shift+Enter: a line-break key on the focused cell, on touch only */
+.cellBreak { padding-right: calc(var(--tap) + var(--sp-1)); }
+.breakKey {
+  position: absolute; top: 0; right: 0; width: var(--tap); height: var(--tap);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: var(--r-sm); background: var(--ink-8); color: var(--ink);
+  font-size: var(--fs-4); line-height: 1; cursor: pointer;
+}
 
 /* ── Problemerfassung: the four boxes ── */
 .quad { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1 1 auto; }
@@ -64,11 +74,11 @@
 .trend[data-trend='up'] { color: var(--red); }
 .trend[data-trend='down'] { color: var(--green); }
 .trendGap { flex: none; width: var(--tap); }
-.lineNew .cell:not(:focus) { min-height: 36px; }
+.lineNew .cell:not(:focus) { min-height: var(--tap); }
 
 /* ── tables ── */
 .table { display: flex; flex-direction: column; flex: 1 1 auto; }
-.tr { display: grid; border-bottom: 1px solid var(--ink-28); min-height: 40px; }
+.tr { display: grid; border-bottom: 1px solid var(--ink-28); min-height: var(--tap); }
 .tr:last-child { border-bottom: none; }
 .thead { min-height: 0; }
 .th { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-1); color: var(--ink); border-right: 1px solid var(--ink-28); }
@@ -80,7 +90,7 @@
 .sigSvg { width: 44px; height: 44px; }
 .sigSvg :global(.sig-text) { fill: currentColor; stroke: none; font-family: var(--body); font-weight: var(--fw-bold); }
 .sigSvg :global(.sig-fill) { fill: currentColor; stroke: none; }
-.trFixed { min-height: 56px; }
+.trFixed { min-height: calc(2 * var(--tap)); }
 .index { align-items: center; justify-content: center; }
 .disc {
   display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%;

@@ -25,12 +25,16 @@ export const NEW = '+new'
 export type NavSection =
   /** boxes row-major; `lines` = the written line ids; `newId` = the id the trailing empty line
    *  wears right now (it keeps it when it becomes a real line, so «the same row» stays findable) */
-  | { kind: 'quad'; id: string; boxes: { id: string; lines: string[]; newId?: string }[] }
-  /** `rows` = every row shown (fixed and written); `adds` = a trailing empty row follows them */
-  | { kind: 'table'; id: string; cols: string[]; rows: string[]; adds: boolean; newId?: string }
+  | { kind: 'quad'; id: string; boxes: { id: string; lines: string[]; newId?: string }[]; tag?: boolean }
+  /** `rows` = every row shown (fixed and written); `adds` = a trailing empty row follows them.
+   *  `cols` = what is typed in a FIXED row; a written row (or the empty one) may type more —
+   *  `writtenCols`, e.g. the Bezeichnung under the Abspracherapport's six (owner, round 2) */
+  | { kind: 'table'; id: string; cols: string[]; rows: string[]; adds: boolean; newId?: string; fixed?: string[]; writtenCols?: string[] }
   | { kind: 'text'; id: string; fields: string[] }
 
-/** where the cursor is: quad → box + row (a line id or NEW); table → row + col; text → col */
+/** where the cursor is: quad → box + row (a line id or NEW), col `tag` on a line's Stichwort;
+ *  table → row + col; text → col. A row id the section does not list is an empty row below the
+ *  written ones — it is treated as the trailing one. */
 export interface NavAt { sec: string; box?: string; row?: string; col?: string }
 
 export type NavKey = 'enter' | 'tab' | 'shift-tab'
@@ -42,15 +46,23 @@ const has = (s: NavSection) => s.kind === 'quad' ? s.boxes.length > 0
   : s.kind === 'table' ? s.cols.length > 0 && (s.rows.length > 0 || s.adds)
     : s.fields.length > 0
 
+/** the columns typed in a row of this table */
+const colsOf = (s: Extract<NavSection, { kind: 'table' }>, row: string | undefined): string[] =>
+  (row && s.fixed?.includes(row) ? s.cols : s.writtenCols ?? s.cols)
+
 function first(s: NavSection): NavAt {
   if (s.kind === 'quad') return { sec: s.id, box: s.boxes[0].id, row: s.boxes[0].lines[0] ?? NEW }
-  if (s.kind === 'table') return { sec: s.id, row: s.rows[0] ?? NEW, col: s.cols[0] }
+  if (s.kind === 'table') { const row = s.rows[0] ?? NEW; return { sec: s.id, row, col: colsOf(s, row)[0] } }
   return { sec: s.id, col: s.fields[0] }
 }
 
 function last(s: NavSection): NavAt {
   if (s.kind === 'quad') { const b = s.boxes[s.boxes.length - 1]; return { sec: s.id, box: b.id, row: NEW } }
-  if (s.kind === 'table') return { sec: s.id, row: s.adds ? NEW : s.rows[s.rows.length - 1], col: s.cols[s.cols.length - 1] }
+  if (s.kind === 'table') {
+    const row = s.adds ? NEW : s.rows[s.rows.length - 1]
+    const cols = colsOf(s, row)
+    return { sec: s.id, row, col: cols[cols.length - 1] }
+  }
   return { sec: s.id, col: s.fields[s.fields.length - 1] }
 }
 
@@ -85,12 +97,15 @@ export function navTarget(layout: NavSection[], at: NavAt, key: NavKey, emptyAft
     const b = s.boxes.findIndex((x) => x.id === at.box)
     const box = s.boxes[b]
     if (!box) return null
-    const isNew = at.row === NEW || (!!box.newId && at.row === box.newId)
+    const isNew = at.row === NEW || (!!box.newId && at.row === box.newId) || !box.lines.includes(at.row ?? '')
     const idx = isNew ? box.lines.length : box.lines.indexOf(at.row ?? '')
     if (key === 'enter') {
       if (isNew) return emptyAfter ? nextSection(layout, i) : { sec: s.id, box: box.id, row: NEW }
       return { sec: s.id, box: box.id, row: box.lines[idx + 1] ?? NEW }
     }
+    // a written line's Stichwort sits between its text and the next box
+    if (s.tag && !isNew && !back && at.col !== 'tag') return { sec: s.id, box: box.id, row: at.row, col: 'tag' }
+    if (s.tag && back && at.col === 'tag') return { sec: s.id, box: box.id, row: at.row }
     const to = back ? b - 1 : b + 1
     if (to < 0) return prevSection(layout, i)
     if (to >= s.boxes.length) return nextSection(layout, i)
@@ -100,32 +115,38 @@ export function navTarget(layout: NavSection[], at: NavAt, key: NavKey, emptyAft
   }
 
   // table
-  const c = s.cols.indexOf(at.col ?? '')
-  const isNew = at.row === NEW || (!!s.newId && at.row === s.newId)
+  const isNew = at.row === NEW || (!!s.newId && at.row === s.newId) || !s.rows.includes(at.row ?? '')
+  const cols = colsOf(s, isNew ? undefined : at.row)
+  const c = cols.indexOf(at.col ?? '')
   const r = isNew ? s.rows.length : s.rows.indexOf(at.row ?? '')
+  /** the column `col` in `row`, or that row's nearest one when it does not type it */
+  const cell = (row: string, col: string | undefined): NavAt => {
+    const there = colsOf(s, row === NEW ? undefined : row)
+    return { sec: s.id, row, col: col && there.includes(col) ? col : there[Math.min(Math.max(0, cols.indexOf(col ?? '')), there.length - 1)] }
+  }
   const below = (): NavTarget => {
-    if (isNew) return emptyAfter ? nextSection(layout, i) : { sec: s.id, row: NEW, col: s.cols[0] }
+    if (isNew) return emptyAfter ? nextSection(layout, i) : cell(NEW, colsOf(s, undefined)[0])
     const next = s.rows[r + 1]
-    if (next) return { sec: s.id, row: next, col: s.cols[0] }
-    return s.adds ? { sec: s.id, row: NEW, col: s.cols[0] } : nextSection(layout, i)
+    if (next) return cell(next, colsOf(s, next)[0])
+    return s.adds ? cell(NEW, colsOf(s, undefined)[0]) : nextSection(layout, i)
   }
   if (key === 'enter') {
     // the trailing row just became a real one: the NEXT trailing row, same column
-    if (isNew) return emptyAfter ? nextSection(layout, i) : { sec: s.id, row: NEW, col: at.col }
+    if (isNew) return emptyAfter ? nextSection(layout, i) : cell(NEW, at.col)
     const next = s.rows[r + 1]
-    if (next) return { sec: s.id, row: next, col: at.col }
-    return s.adds ? { sec: s.id, row: NEW, col: at.col } : nextSection(layout, i)
+    if (next) return cell(next, at.col)
+    return s.adds ? cell(NEW, at.col) : nextSection(layout, i)
   }
   // across inside the row: the row keeps its id (a trailing row that becomes real on this very
   // commit too), so the target names it, never NEW — NEW would be the NEXT empty row
   if (!back) {
-    if (c + 1 < s.cols.length) return { sec: s.id, row: at.row, col: s.cols[c + 1] }
+    if (c + 1 < cols.length) return { sec: s.id, row: at.row, col: cols[c + 1] }
     // the last column of an empty trailing row: nothing below to wrap to but the next section
     if (isNew && emptyAfter) return nextSection(layout, i)
     return below()
   }
-  if (c > 0) return { sec: s.id, row: at.row, col: s.cols[c - 1] }
+  if (c > 0) return { sec: s.id, row: at.row, col: cols[c - 1] }
   const above = r - 1
-  if (above >= 0) return { sec: s.id, row: s.rows[above], col: s.cols[s.cols.length - 1] }
+  if (above >= 0) { const up = colsOf(s, s.rows[above]); return { sec: s.id, row: s.rows[above], col: up[up.length - 1] } }
   return prevSection(layout, i)
 }

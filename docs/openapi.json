@@ -7422,7 +7422,7 @@
           "reference"
         ],
         "summary": "Prune Board Templates",
-        "description": "Delete every ``tafel:*`` board template whose id is NOT in ``keep`` (the manifest's), so a\ndropped or renamed template never lingers on the tablets. Called by ``admin_board_templates\npush``; admin-gated like the checklists' prune.",
+        "description": "Delete every ``tafel:*`` board template whose id is NOT in ``keep`` (the manifest's), so a\ndropped or renamed template never lingers on the tablets. Called by ``admin_board_templates\npush --prune``; admin-gated like the checklists' prune. Only valid board-template ids are\never deleted.",
         "operationId": "prune_board_templates_api_reference_tafel_prune_post",
         "parameters": [
           {

@@ -278,7 +278,9 @@ export const isBoardTemplateDataset = (datasetId: string): boolean =>
 /** Delete board templates through the prune door `admin_board_templates push` uses (the
  *  registry has no DELETE): re-read the registry, keep every other `tafel:*`. */
 export async function deleteBoardTemplates(ids: string[]): Promise<{ pruned: string[] }> {
-  const doomed = new Set(ids)
+  // only ever a board template — whatever else was handed in is not this door's to delete
+  const doomed = new Set(ids.filter(isBoardTemplateDataset))
+  if (!doomed.size) return { pruned: [] }
   const fresh = await listReferenceDatasets()
   const keep = fresh.filter((d) => isBoardTemplateDataset(d.id) && !doomed.has(d.id)).map((d) => d.id)
   return apiPost<{ pruned: string[] }>('/api/reference/tafel/prune', keep)

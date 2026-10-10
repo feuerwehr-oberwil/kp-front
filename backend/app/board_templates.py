@@ -3,7 +3,7 @@
 A station's board templates (the FKS «Erste Führung» poster and the Handbuch sheets, or its own
 copy of them) travel exactly like the checklists: a manifest in the private data repo,
 ``admin_board_templates push`` uploads each file as the reference dataset ``tafel:<id>`` and
-prunes what left the manifest, and the Tafel reads them through IndexedDB (src/lib/boardTemplates).
+with ``--prune`` deletes what left the manifest, and the Tafel reads them through IndexedDB (src/lib/boardTemplates).
 A station set REPLACES the bundled FKS set — it starts as a copy of
 ``src/data/boardTemplates/fks-erste-fuehrung.json``.
 

@@ -1,6 +1,6 @@
 import { newId } from './ids'
 import {
-  editableColumns, isLabel, isTemplatePage, labelText, shownColumns, shownFixedRows, shownSections, tableAddsRows,
+  editableColumns, isLabel, isTemplatePage, labelText, shownColumns, shownFixedRows, shownSections, tableAddsRows, writtenColumns,
   type BoardTemplate, type Label, type TableSection, type TemplatePage,
 } from './boardTemplate'
 import type { BoardAnno } from '../types'
@@ -53,6 +53,9 @@ export interface BoardFormData {
   /** the optional header line (page.header) */
   head?: FormHead
   values: Record<string, FormSectionValue>
+  /** when each written atom was last changed (`formAtoms` key → server ms) — what settles a
+   *  cell two devices changed at once (lib/boardFormMerge): the later edit stands */
+  t?: Record<string, number>
 }
 export type FormAnno = BoardAnno & { kind: 'form'; form: BoardFormData }
 
@@ -102,7 +105,8 @@ export function newFormPage(tpl: BoardTemplate, page: TemplatePage, seed: FormSe
 /** The anno that carries a page. */
 export const formAnno = (form: BoardFormData): FormAnno => ({ id: newId('fm'), kind: 'form', form })
 
-export const isFormAnno = (a: BoardAnno): a is FormAnno => a.kind === 'form' && !!a.form
+/** A Tafel page this build can draw (see isFormData for why that is not «kept»). */
+export const isFormAnno = (a: BoardAnno): a is FormAnno => a.kind === 'form' && isFormData(a.form)
 
 /** The pages on a sheet, in the order they were added (the array order is the store's, not ours). */
 export const findForms = (annos: readonly BoardAnno[]): FormAnno[] =>
@@ -122,9 +126,16 @@ const isSectionValue = (v: unknown) => isObj(v)
   && (v.rows === undefined || (Array.isArray(v.rows) && v.rows.every(isRow)))
   && (v.fields === undefined || isStrMap(v.fields))
 
-/** A page as it arrives from sync or storage: what fails is dropped at the gate, never drawn half. */
+/**
+ * A page this build can DRAW. ⚠️ Not the gate that decides whether it is KEPT: a page this build
+ * cannot draw (a newer template feature, a value it does not know) rides through load and save
+ * untouched as a passenger (lib/workspace · isPassengerAnno) — dropping it would make this
+ * device's next save delete it for everybody. Deliberately structural: an unknown section type
+ * or column type passes here and is merely not drawn (lib/boardTemplate · isUsableSection).
+ */
 export function isFormData(v: unknown): v is BoardFormData {
   if (!isObj(v) || v.v !== 1 || typeof v.at !== 'string' || !isTemplatePage(v.page)) return false
+  if (v.t !== undefined && !(isObj(v.t) && Object.values(v.t).every((x) => typeof x === 'number'))) return false
   const t = v.tpl
   if (!isObj(t) || typeof t.id !== 'string' || typeof t.version !== 'number' || !isLabel(t.title)) return false
   if (v.head !== undefined && !isStrMap(v.head)) return false
@@ -158,7 +169,10 @@ const lineIsEmpty = (l: FormLine) => !l.text.trim() && !(l.tag ?? '').trim()
  * drop it when the patch left it without words. Hands back the SAME object for a no-op, so the
  * caller lays no empty ↶ step.
  */
-export function putLine(d: BoardFormData, sec: string, cell: string, id: string, patch: Partial<Omit<FormLine, 'id'>>): BoardFormData {
+export function putLine(d: BoardFormData, sec: string, cell: string, id: string, patch: Partial<Omit<FormLine, 'id'>>, at?: number): BoardFormData {
+  return stamped(d, putLineRaw(d, sec, cell, id, patch), at)
+}
+function putLineRaw(d: BoardFormData, sec: string, cell: string, id: string, patch: Partial<Omit<FormLine, 'id'>>): BoardFormData {
   const v = sectionValue(d, sec)
   const list = v.lines?.[cell] ?? []
   const i = list.findIndex((l) => l.id === id)
@@ -172,8 +186,8 @@ export function putLine(d: BoardFormData, sec: string, cell: string, id: string,
   return withSection(d, sec, { ...v, lines: { ...v.lines, [cell]: next } })
 }
 
-/** The cells that decide whether a WRITTEN row is empty: every typed column but a trend. */
-const contentCols = (s: TableSection) => editableColumns(s).filter((c) => c.type !== 'trend').map((c) => c.id)
+/** The cells that decide whether a WRITTEN row is empty: every column typed there but a trend. */
+const contentCols = (s: TableSection) => writtenColumns(s).filter((c) => c.type !== 'trend').map((c) => c.id)
 
 /** Find a table section on the page snapshot. */
 export const tableOf = (d: BoardFormData, sec: string): TableSection | undefined => {
@@ -187,7 +201,10 @@ export const tableOf = (d: BoardFormData, sec: string): TableSection | undefined
  * row and dropped when the patch left all its typed cells empty (a tick or a trend alone is not
  * content). Empty cell values are not stored. Same-object return for a no-op.
  */
-export function putRow(d: BoardFormData, sec: string, id: string, patch: { cells?: Record<string, string>; done?: boolean }): BoardFormData {
+export function putRow(d: BoardFormData, sec: string, id: string, patch: { cells?: Record<string, string>; done?: boolean }, at?: number): BoardFormData {
+  return stamped(d, putRowRaw(d, sec, id, patch), at)
+}
+function putRowRaw(d: BoardFormData, sec: string, id: string, patch: { cells?: Record<string, string>; done?: boolean }): BoardFormData {
   const s = tableOf(d, sec)
   if (!s) return d
   const v = sectionValue(d, sec)
@@ -215,19 +232,65 @@ export function putRow(d: BoardFormData, sec: string, id: string, patch: { cells
 }
 
 /** Write one field of a text section (an empty one is not stored). */
-export function putField(d: BoardFormData, sec: string, field: string, value: string): BoardFormData {
+export function putField(d: BoardFormData, sec: string, field: string, value: string, at?: number): BoardFormData {
   const v = sectionValue(d, sec)
   const cur = v.fields?.[field] ?? ''
   if (cur === value) return d
   const fields = { ...v.fields, [field]: value }
   if (!value.trim()) delete fields[field]
-  return withSection(d, sec, { ...v, fields })
+  return stamped(d, withSection(d, sec, { ...v, fields }), at)
 }
 
 /** Write one header field. */
-export function putHead(d: BoardFormData, key: keyof FormHead, value: string): BoardFormData {
+export function putHead(d: BoardFormData, key: keyof FormHead, value: string, at?: number): BoardFormData {
   if ((d.head?.[key] ?? '') === value) return d
-  return { ...d, head: { ...d.head, [key]: value } }
+  return stamped(d, { ...d, head: { ...d.head, [key]: value } }, at)
+}
+
+// ── atoms: the smallest things two devices can write — what a merge and the audit speak of ───
+
+/**
+ * A page flattened to its written ATOMS: `h|<key>` (header), `f|<sec>|<field>`, `l|<sec>|<box>|<line>`
+ * (a whole line: text, trend, Stichwort), `r|<sec>|<row>|<col>` and `r|<sec>|<row>|#done`. An atom
+ * that is not in the map is empty. Values are strings (a line as its JSON), so equality is `===`.
+ */
+export function formAtoms(d: BoardFormData): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const [k, v] of Object.entries(d.head ?? {})) if (typeof v === 'string' && v) out.set(`h|${k}`, v)
+  for (const [sec, v] of Object.entries(d.values ?? {})) {
+    if (!v || typeof v !== 'object') continue
+    for (const [box, lines] of Object.entries(v.lines ?? {})) {
+      for (const l of Array.isArray(lines) ? lines : []) {
+        const { id, ...rest } = l
+        out.set(`l|${sec}|${box}|${id}`, JSON.stringify(rest))
+      }
+    }
+    for (const r of Array.isArray(v.rows) ? v.rows : []) {
+      for (const [col, x] of Object.entries(r.cells ?? {})) if (x) out.set(`r|${sec}|${r.id}|${col}`, x)
+      if (r.done) out.set(`r|${sec}|${r.id}|#done`, '1')
+    }
+    for (const [f, x] of Object.entries(v.fields ?? {})) if (x) out.set(`f|${sec}|${f}`, x)
+  }
+  return out
+}
+
+/** What changed between two versions of a page, atom by atom — the audit's `board.edit` payload
+ *  (a cell, not the whole ~5 KB page) and the input of `stamped`. */
+export function formDelta(a: BoardFormData, b: BoardFormData): { k: string; old?: string; new?: string }[] {
+  const x = formAtoms(a), y = formAtoms(b)
+  const out: { k: string; old?: string; new?: string }[] = []
+  for (const k of new Set([...x.keys(), ...y.keys()])) {
+    if (x.get(k) !== y.get(k)) out.push({ k, ...(x.has(k) ? { old: x.get(k) } : {}), ...(y.has(k) ? { new: y.get(k) } : {}) })
+  }
+  return out
+}
+
+/** `next` with the edit time of every atom it changed against `prev` — or as it is without a time. */
+function stamped(prev: BoardFormData, next: BoardFormData, at: number | undefined): BoardFormData {
+  if (next === prev || at == null) return next
+  const t = { ...prev.t }
+  for (const c of formDelta(prev, next)) t[c.k] = at
+  return { ...next, t }
 }
 
 /** The rows a table shows, in order: its shown fixed rows (written or not), then the written rows. */
@@ -265,17 +328,17 @@ export interface TrendWords { up: string; same: string; down: string }
  * deployment's language, every row as the strings that print, in the layout's order. The server
  * draws the paper; it never has to know a template.
  */
-export function formForPdf(d: BoardFormData, words: TrendWords, locale?: string): Record<string, unknown> {
+export function formForPdf(d: BoardFormData, words: TrendWords, locale?: string, headLabels?: Record<'title' | 'address' | 'alarm' | 'el', string>): Record<string, unknown> {
   const L = (l: Label | undefined) => labelText(l, locale)
   const trendWord = (t: string | undefined) => (t === 'up' ? words.up : t === 'same' ? words.same : t === 'down' ? words.down : '')
   const p = d.page
   return {
     title: L(p.title),
-    code: p.code ?? '',
     source: d.tpl.source ?? '',
     landscape: p.paper === 'landscape',
     columns: p.columns ?? 1,
-    head: p.header ? [d.head?.title ?? '', d.head?.address ?? '', d.head?.alarm ?? '', d.head?.el ?? ''] : [],
+    // the header line's labels travel in the deployment's words (the server prints no German of its own here)
+    head: p.header ? (['title', 'address', 'alarm', 'el'] as const).map((k) => ({ label: headLabels?.[k] ?? k, value: d.head?.[k] ?? '' })) : [],
     sections: shownSections(p).map((s) => {
       const base = { id: s.id, type: s.type, title: L(s.title), subtitle: L(s.subtitle), span: s.span ?? 1, height: s.height ?? 0 }
       const v = d.values[s.id] ?? {}
@@ -298,7 +361,7 @@ export function formForPdf(d: BoardFormData, words: TrendWords, locale?: string)
             fixed: fixed.has(r.id),
             done: !!r.done,
             cells: cols.map((c) => {
-              if (c.fixed) {
+              if (c.fixed && fixed.has(r.id)) {
                 const x = fixed.get(r.id)?.cells[c.id]
                 return c.type === 'symbol' ? (typeof x === 'string' ? x : L(x)) : L(x)
               }

@@ -7,7 +7,7 @@ import {
   type BoardFormData,
 } from './boardForm'
 import { BUNDLED_TEMPLATES } from './boardTemplates'
-import { isBoardTemplate, labelText, type BoardTemplate, type TableSection } from './boardTemplate'
+import { isBoardTemplate, isUsableSection, labelText, shownSections, type BoardTemplate, type TableSection } from './boardTemplate'
 import { isBoardAnno, sanitizeWorkspace } from './workspace'
 import { objectsFromLegacy, viewsOf } from './tacticalObjects'
 import { useBoardDoc, type BoardHistory } from '../components/useBoardDoc'
@@ -43,17 +43,27 @@ describe('the bundled FKS «Erste Führung» — strict 1:1 with the poster', ()
   })
 })
 
-describe('the shape check refuses what would draw half a page', () => {
-  const bad = (patch: (t: BoardTemplate) => void) => { const t = JSON.parse(JSON.stringify(FKS)) as BoardTemplate; patch(t); return isBoardTemplate(t) }
+describe('keeping and drawing are two questions (review of #338)', () => {
+  const patched = (patch: (t: BoardTemplate) => void) => { const t = JSON.parse(JSON.stringify(FKS)) as BoardTemplate; patch(t); return t }
   it.each([
     ['another schema', (t: BoardTemplate) => { (t as { schema: string }).schema = 'board-template/2' }],
     ['a page without sections', (t: BoardTemplate) => { t.pages[0].sections = [] }],
     ['duplicate section ids', (t: BoardTemplate) => { t.pages[0].sections[1].id = 'problem' }],
-    ['an unknown section type', (t: BoardTemplate) => { (t.pages[0].sections[1] as { type: string }).type = 'sketch' }],
-    ['a fixed cell for a typed column', (t: BoardTemplate) => { ((t.pages[0].sections[5] as TableSection).fixedRows![0].cells as Record<string, string>).ort = 'x' }],
     ['a label without German', (t: BoardTemplate) => { t.pages[0].title = { fr: 'x' } as never }],
-    ['an id with a capital', (t: BoardTemplate) => { t.pages[0].id = 'EF' }],
-  ])('%s', (_n, patch) => expect(bad(patch)).toBe(false))
+  ])('a file that is not a template at all is refused: %s', (_n, patch) => expect(isBoardTemplate(patched(patch))).toBe(false))
+  it.each([
+    ['an unknown section type', (t: BoardTemplate) => { (t.pages[0].sections[1] as { type: string }).type = 'sketch' }, 1],
+    ['a fixed cell for a typed column', (t: BoardTemplate) => { ((t.pages[0].sections[5] as TableSection).fixedRows![0].cells as Record<string, string>).ort = 'x' }, 5],
+  ])('a newer or odd section is KEPT and merely not drawn: %s', (_n, patch, i) => {
+    const t = patched(patch)
+    expect(isBoardTemplate(t)).toBe(true)
+    expect(isUsableSection(t.pages[0].sections[i])).toBe(false)
+    expect(shownSections(t.pages[0]).map((s) => s.id)).not.toContain(t.pages[0].sections[i].id)
+  })
+  it('an unknown column type is drawn as text, never a reason to drop the table', () => {
+    const t = patched((x) => { (x.pages[0].sections[2] as TableSection).columns[1].type = 'signature' as never })
+    expect(isUsableSection(t.pages[0].sections[2])).toBe(true)
+  })
 })
 
 describe('writing on a page — keyed by ids, so a rename never loses a word', () => {

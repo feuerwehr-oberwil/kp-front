@@ -1767,14 +1767,16 @@ def _board_map_png(pk: KrokiIn | None) -> bytes | None:
     return b.getvalue()
 
 
-def _board_overflow(overflow, head, st: dict[str, ParagraphStyle]) -> list:
-    """The «Fortsetzung» tables for rows a Tafel box could not hold (app/report_board)."""
+def _board_overflow(overflow, head, st: dict[str, ParagraphStyle], width: float) -> list:
+    """The «Fortsetzung» tables for rows a Tafel box could not hold (app/report_board) — full-size
+    type, as many pages as they need (the header row repeats on each)."""
     out: list = []
     for ov in overflow:
         out.extend(head(L["boardContinued"].format(t=ov.title)))
+        n = max(1, len(ov.columns))
         thead = [Paragraph(_esc(c), st["cellhead"]) for c in ov.columns]
-        body = [[Paragraph(_esc(v), st["cell"]) for v in r] for r in ov.rows]
-        tbl = Table([thead, *body], repeatRows=1)
+        body = [[Paragraph(_esc(v), st["cell"]) for v in (list(r) + [""] * n)[:n]] for r in ov.rows]
+        tbl = Table([thead, *body], colWidths=[width / n] * n, repeatRows=1)
         tbl.setStyle(_table_style())
         out.append(tbl)
         out.append(Spacer(1, 4 * mm))
@@ -2290,7 +2292,7 @@ def compose_report_pdf(
             )
             story.append(sheet)
             # what a box could not hold, after the sheet — nothing written is cut off the record
-            story.append(Continuation(sheet, lambda ov: _board_overflow(ov, head, st)))
+            story.append(Continuation(sheet, lambda ov, w: _board_overflow(ov, head, st, w)))
         # the sheet fills its frame, so whatever follows starts a new page by itself — portrait
         # again, and no PageBreak here (two in a row print an empty sheet)
         story.append(NextPageTemplate("portrait"))

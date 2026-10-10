@@ -30,8 +30,18 @@ from reportlab.platypus import Flowable
 
 class BoardLineIn(BaseModel):
     text: str = ""
+    #: the trend as a word («wird schlimmer») and as a direction (up · same · down) — the paper
+    #: draws the arrow itself, Helvetica has none
     trend: str = ""
+    dir: str = ""
     tag: str = ""
+
+
+class BoardHeadIn(BaseModel):
+    """One field of the optional header line, its label in the deployment's words."""
+
+    label: str = ""
+    value: str = ""
 
 
 class BoardCellIn(BaseModel):
@@ -90,12 +100,11 @@ class BoardPageIn(BaseModel):
     """One Tafel page, resolved by the client (lib/boardForm · formForPdf)."""
 
     title: str = ""
-    code: str = ""
     source: str = ""
     landscape: bool = False
     columns: int = 1
     #: the optional header line: Einsatz, Adresse, Alarm, Einsatzleiter (empty = switched off)
-    head: list[str] = []
+    head: list[BoardHeadIn] = []
     sections: list[BoardSectionIn] = []
 
 
@@ -609,18 +618,17 @@ class BoardPageFlowable(Flowable):
         # title, as large as the poster's
         c.setFillColor(RULE)
         c.setFont(BOLD, 24)
-        title = printable(f"{p.code}  {p.title}" if p.code else p.title)
+        title = printable(p.title)
         c.drawString(0, ph - 10 * mm, title)
         if self.caption:
             c.setFont(FONT, 7.5)
             c.setFillColor(DIM)
             c.drawRightString(pw, ph - 9.5 * mm, printable(self.caption))
         top = ph - _TITLE_H
-        if any(x.strip() for x in p.head):
-            labels = ("Einsatz", "Adresse", "Alarm", "Einsatzleiter")
+        if any(h.value.strip() for h in p.head):
             c.setFont(FONT, 9)
             c.setFillColor(RULE)
-            bits = [f"{a}: {b}" for a, b in zip(labels, p.head, strict=False) if b.strip()]
+            bits = [f"{h.label}: {h.value}" for h in p.head if h.value.strip()]
             c.drawString(0, top + 2 * mm, printable("   ·   ".join(bits)))
             top -= 6 * mm
         # footer: where the page comes from
@@ -664,33 +672,31 @@ def page_has_map(page: BoardPageIn) -> bool:
 
 
 class Continuation(Flowable):
-    """What the page before could not hold, as plain tables — laid out only once that page has
-    been DRAWN (Platypus wraps a flowable right before it draws it, in story order), so it knows
-    exactly which rows were left over. Nothing at all when everything fitted."""
+    """What the page before could not hold, as plain tables that FLOW over as many pages as they
+    need (review of #338: a shrink-to-fit block made row 24 of 80 microscopic and dropped the rest
+    of 350). Laid out only once that page has been DRAWN — Platypus wraps a flowable right before
+    it draws it, in story order — so it knows exactly which rows were left over.
+
+    It asks for more room than any frame has, so the frame hands it to `split`, which answers with
+    the tables themselves; those split page by page like any table. The sheet before fills its
+    frame, so they start on a fresh page. Nothing at all when everything fitted."""
 
     def __init__(self, page: BoardPageFlowable, make_tables):
         super().__init__()
         self.page = page
         self.make_tables = make_tables
-        self._inner = None
-
-    def _content(self):
-        if self._inner is None:
-            from reportlab.platypus import KeepInFrame
-
-            parts = self.make_tables(self.page.overflow)
-            self._inner = KeepInFrame(0, 0, parts, mode="shrink") if parts else None
-        return self._inner
 
     def wrap(self, availWidth, availHeight):  # noqa: N803 — ReportLab API
-        inner = self._content()
-        if inner is None:
+        if not self.page.overflow:
             return 0, 0
-        inner.maxWidth, inner.maxHeight = availWidth, availHeight
-        inner.canv = self.canv
-        return inner.wrap(availWidth, availHeight)
+        return availWidth, availHeight + 1
+
+    def split(self, availWidth, availHeight):  # noqa: N803 — ReportLab API
+        # in the sliver the sheet left: nothing here — the frame then moves on to a fresh page and
+        # asks again, which is where the tables start
+        if not self.page.overflow or availHeight < 60 * mm:
+            return []
+        return list(self.make_tables(self.page.overflow, availWidth))
 
     def draw(self):
-        inner = self._content()
-        if inner is not None:
-            inner.drawOn(self.canv, 0, 0)
+        return

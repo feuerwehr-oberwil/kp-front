@@ -16,7 +16,7 @@ const EF = FKS.pages.find((p) => p.id === 'ef')!
 function Harness({ onCommit }: { onCommit: (d: BoardFormData) => void }) {
   const [data, setData] = useState(() => newFormPage(FKS, EF, { vehicles: ['TLF 1'] }, '2026-10-10T09:24:00.000Z'))
   return (
-    <TafelFormPage data={data} readOnly={false} isPhone={false} onRemove={() => {}}
+    <TafelFormPage pageKey="fm-test" data={data} readOnly={false} isPhone={false} onRemove={() => {}}
       inset={{ top: 0, left: 0, right: 0, bottom: 0 }}
       onChange={(d) => { onCommit(d); setData(d) }} />
   )
@@ -64,11 +64,12 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
   it('«1124» in a Wann is 11:24; Esc puts the stored value back', () => {
     const commits: BoardFormData[] = []
     render(<Harness onCommit={(d) => commits.push(d)} />)
-    const wann = screen.getAllByLabelText('Wann')[1] as HTMLTextAreaElement // Mittel's first row (TLF 1)
+    const mittel = document.querySelector('[data-sec="mittel"]')!
+    const wann = mittel.querySelectorAll<HTMLTextAreaElement>('[aria-label="Wann"]')[0] // Mittel's first row (TLF 1)
     act(() => { wann.focus() })
     type('1124'); key('Tab')
     expect(commits[commits.length - 1].values.mittel.rows![0].cells.wann).toBe('11:24')
-    const auftrag = screen.getAllByLabelText('Auftrag/Wo')[0] as HTMLTextAreaElement
+    const auftrag = mittel.querySelectorAll<HTMLTextAreaElement>('[aria-label="Auftrag/Wo"]')[0]
     act(() => { auftrag.focus() })
     type('Riegel'); key('Escape')
     expect(auftrag.value).toBe('')
@@ -81,6 +82,18 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     expect(abs.querySelectorAll('textarea').length).toBe(6)
     expect(abs.textContent).toContain('Sammelstelle Unverletzte')
     expect(abs.textContent).not.toContain('Wasserbezug') // a station switch, off in the FKS poster
+  })
+
+  it('a focused cell that was only passed through never writes its old text back over a remote change', () => {
+    const commits: BoardFormData[] = []
+    const { rerender } = render(<Harness onCommit={(d) => commits.push(d)} />)
+    void rerender
+    const was = document.querySelector<HTMLTextAreaElement>('[data-sec="massnahmen"] [data-kn$="|was"]')!
+    act(() => { was.focus() })
+    key('Tab') // nothing typed: no write
+    key('Tab', { shiftKey: true })
+    act(() => { (document.activeElement as HTMLElement).blur() })
+    expect(commits).toHaveLength(0)
   })
 
   it('Alt+Enter is a line break inside the cell, not a move', () => {

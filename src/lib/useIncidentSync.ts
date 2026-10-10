@@ -27,6 +27,18 @@ const truppConflictRows = (conflicts: RecordConflict[], seen: Set<string>) =>
     },
   })
 
+/** …and for a Tafel page (mergeWorkspace · onFormConflict): one row per cell two devices changed at
+ *  once — the merge kept the later edit, the row says which value went, so nothing is lost silently. */
+const formConflictRows = (conflicts: RecordConflict[], seen: Set<string>) =>
+  conflictRows(conflicts, seen, {
+    idPrefix: 'fc',
+    text: (c) => {
+      const m = c.mine as { page?: string; where?: string; kept?: string }
+      const t = c.theirs as { lost?: string }
+      return fillTemplate(appConfig.copy.journal.tafelConflict, { page: m.page ?? '', where: m.where ?? '', kept: m.kept ?? '', lost: t.lost ?? '' })
+    },
+  })
+
 /** A held poll that answers «nothing new» faster than this did not hold (see the round). */
 const QUICK_EMPTY_ANSWER_MS = 1_000
 
@@ -114,6 +126,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // the editing side appends the note.
   const seenConflicts = useRef(new Set<string>())
   const seenTruppConflicts = useRef(new Set<string>())
+  const seenFormConflicts = useRef(new Set<string>())
   const seenRenumbered = useRef(new Set<string>())
   useEffect(() => {
     if (readOnly) return
@@ -151,11 +164,19 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
       for (const row of rows) appendJournal(row)
       if (rows.length > 0) recordTrouble('syncConflict')
     }
+    const reportForms = (conflicts: RecordConflict[]) => {
+      if (!appendJournal) return
+      const rows = formConflictRows(conflicts, seenFormConflicts.current)
+      for (const row of rows) appendJournal(row)
+      if (rows.length > 0) recordTrouble('syncConflict')
+    }
     if (appendJournal) {
       sync.onAttendanceConflicts = report
       sync.onTruppConflicts = reportTrupps
+      sync.onFormConflicts = reportForms
       report(sync.drainAttendanceConflicts()) // conflicts from init()'s cold-reopen merge
       reportTrupps(sync.drainTruppConflicts())
+      reportForms(sync.drainFormConflicts())
     }
     // ⚠️ Each cleanup below clears only ITS OWN handler: WorkspaceSync's callbacks are single
     // slots, and an unconditional `= undefined` would silently unhook whoever registered after
@@ -163,6 +184,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     return () => {
       if (sync.onAttendanceConflicts === report) sync.onAttendanceConflicts = undefined
       if (sync.onTruppConflicts === reportTrupps) sync.onTruppConflicts = undefined
+      if (sync.onFormConflicts === reportForms) sync.onFormConflicts = undefined
       if (sync.onTruppRenumbered === reportRenumbered) sync.onTruppRenumbered = undefined
     }
   }, [sync, appendJournal, appendTeamRow, readOnly])

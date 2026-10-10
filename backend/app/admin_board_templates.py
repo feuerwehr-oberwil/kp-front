@@ -14,15 +14,17 @@ Run from ``backend/`` via ``uv run python -m app.admin_board_templates <cmd>``:
     schema                 print the board-template/1 JSON Schema (the contract, docs/board-template.schema.json)
     example                print a populated example manifest you can edit
     validate <manifest>    parse the manifest + validate every template file (no DB)
-    load <manifest>        upsert the templates into the store, prune the ones that left (writes DB + storage)
-    load <manifest> --dry-run        same as validate (no write)
-    push <manifest>        upload the templates to a RUNNING deployment via its API, prune there (remote-safe)
+    load <manifest>        upsert the templates into the store (writes DB + storage)
+    load <manifest> --dry-run        validate + list what would be upserted and what --prune would delete
+    push <manifest>        upload the templates to a RUNNING deployment via its API (remote-safe)
+    … --prune              ALSO delete every stored template the manifest does not list (never implicit)
     show                   print the board templates currently stored
 
 Manifest = a JSON list of entries (or ``{"templates": [...]}``); ``file`` is relative to the
-manifest. The entry ``id`` must equal the template's own ``id``. Reruns upsert in place; a
-template whose entry left the manifest is PRUNED, so a renamed or dropped one never lingers on
-the tablets.
+manifest. The entry ``id`` must equal the template's own ``id``. Reruns upsert in place. A
+template whose entry left the manifest is only LISTED as a prune candidate — an /admin upload
+looks exactly like one — and deleted with an explicit ``--prune``. An empty manifest is refused
+(review of #338).
 """
 
 import argparse
@@ -133,12 +135,42 @@ def _load_templates(
 
 
 def expected_ids(entries: list[TemplateEntry]) -> set[str]:
-    """Every dataset the manifest owns; anything else under ``tafel:`` is stale and pruned."""
+    """Every dataset the manifest owns; anything else under ``tafel:`` is a prune candidate."""
     return {f"{PREFIX}{e.id}" for e in entries}
 
 
-async def _load(templates: list[tuple[TemplateEntry, BoardTemplate, bytes]]) -> tuple[int, int]:
+def prune_candidates(stored_ids: list[str], entries: list[TemplateEntry]) -> list[str]:
+    """What a ``--prune`` would delete: every stored board template the manifest does not list —
+    a template uploaded through /admin included, which is why pruning is never implicit."""
+    keep = expected_ids(entries)
+    return sorted(i for i in stored_ids if i.startswith(PREFIX) and i not in keep)
+
+
+def _report_stale(stale: list[str], pruned: bool) -> None:
+    if not stale:
+        return
+    if pruned:
+        print(f"  ✗ pruned {len(stale)} board template(s) not in the manifest: {', '.join(stale)}")
+    else:
+        print(
+            f"  ! {len(stale)} stored board template(s) not in the manifest, LEFT IN PLACE: {', '.join(stale)}\n"
+            "    (an /admin upload is one of them? keep it, or add --prune to delete what the manifest does not list)"
+        )
+
+
+async def _stored_ids(db) -> list[str]:
+    rows = (await db.execute(select(ReferenceDataset.id).where(ReferenceDataset.id.like(f"{PREFIX}%")))).scalars().all()
+    return list(rows)
+
+
+async def _load(
+    templates: list[tuple[TemplateEntry, BoardTemplate, bytes]], prune: bool, dry_run: bool = False
+) -> tuple[int, list[str]]:
+    entries = [e for e, _t, _r in templates]
     async with async_session_maker() as db:
+        stale = prune_candidates(await _stored_ids(db), entries)
+        if dry_run:
+            return 0, stale
         for e, tpl, raw in templates:
             await _upsert(
                 db,
@@ -151,30 +183,38 @@ async def _load(templates: list[tuple[TemplateEntry, BoardTemplate, bytes]]) -> 
                 "reference",
                 f"-tafel_{e.id}.json",
             )
-        keep = expected_ids([e for e, _t, _r in templates])
-        stale = (
-            (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id.like(f"{PREFIX}%")))).scalars().all()
-        )
-        n_pruned = 0
-        for ds in stale:
-            if ds.id not in keep:
+        if prune and stale:
+            rows = (await db.execute(select(ReferenceDataset).where(ReferenceDataset.id.in_(stale)))).scalars().all()
+            for ds in rows:
                 if ds.storage_key:
                     storage.delete_after_commit(db, ds.storage_key)
                 await db.delete(ds)
-                n_pruned += 1
         await db.commit()
-    return len(templates), n_pruned
+    return len(templates), stale
 
 
 def _push(
-    templates: list[tuple[TemplateEntry, BoardTemplate, bytes]], base: str, admin_secret: str, dry_run: bool
+    templates: list[tuple[TemplateEntry, BoardTemplate, bytes]],
+    base: str,
+    admin_secret: str,
+    dry_run: bool,
+    prune: bool,
 ) -> int:
     base = base.rstrip("/")
+    entries = [e for e, _t, _r in templates]
     with admin_client(base, admin_secret, timeout=120.0) as c:
+        listed = c.get("/api/reference")
+        if listed.status_code != 200:
+            fail(f"ERROR: cannot list the deployment's datasets ({listed.status_code}): {listed.text[:200]}")
+        stale = prune_candidates([d.get("id", "") for d in listed.json() if isinstance(d, dict)], entries)
         if dry_run:
-            print(
-                f"OK (dry-run): authenticated to {base}; would upsert {len(templates)} board template(s). Nothing written."
-            )
+            print(f"OK (dry-run): authenticated to {base}; would upsert {len(templates)} board template(s):")
+            for e, tpl, _r in templates:
+                print(f"  ↑ {PREFIX}{e.id}  {_title(tpl)} (version {tpl.version})")
+            if stale:
+                what = "would PRUNE" if prune else "would leave in place (no --prune)"
+                print(f"  {what}: {', '.join(stale)}")
+            print("Nothing written.")
             return 0
         for e, tpl, raw in templates:
             form = {"title": _title(tpl)}
@@ -186,12 +226,13 @@ def _push(
             if r.status_code != 200:
                 fail(f"ERROR: upload board template {e.id!r} failed ({r.status_code}): {r.text[:200]}")
             print(f"  ↑ {_title(tpl)}  ({len(tpl.pages)} page(s), version {tpl.version})")
-        rp = c.post("/api/reference/tafel/prune", json=sorted(expected_ids([e for e, _t, _r in templates])))
-        if rp.status_code != 200:
-            fail(f"ERROR: prune failed ({rp.status_code}): {rp.text[:200]}")
-        pruned = rp.json().get("pruned", [])
-        if pruned:
-            print(f"  ✗ pruned {len(pruned)} stale board template(s): {', '.join(pruned)}")
+        if prune and stale:
+            rp = c.post("/api/reference/tafel/prune", json=sorted(expected_ids(entries)))
+            if rp.status_code != 200:
+                fail(f"ERROR: prune failed ({rp.status_code}): {rp.text[:200]}")
+            _report_stale(rp.json().get("pruned", []), True)
+        else:
+            _report_stale(stale, False)
     return len(templates)
 
 
@@ -215,12 +256,15 @@ async def _amain(argv: list[str]) -> int:
     sub.add_parser("example", help="print a populated example manifest (no DB)")
     p_val = sub.add_parser("validate", help="validate the manifest + every template file (no DB)")
     p_val.add_argument("manifest")
-    p_load = sub.add_parser("load", help="upsert the templates into the store + prune (writes DB + storage)")
+    prune_help = "also DELETE every stored board template the manifest does not list (an /admin upload too)"
+    p_load = sub.add_parser("load", help="upsert the templates into the store (writes DB + storage)")
     p_load.add_argument("manifest")
-    p_load.add_argument("--dry-run", action="store_true", help="validate only, do not write")
-    p_push = sub.add_parser("push", help="upload the templates to a RUNNING deployment via its API + prune")
+    p_load.add_argument("--dry-run", action="store_true", help="validate + list what would change, write nothing")
+    p_load.add_argument("--prune", action="store_true", help=prune_help)
+    p_push = sub.add_parser("push", help="upload the templates to a RUNNING deployment via its API")
     p_push.add_argument("manifest")
-    add_push_args(p_push, dry_run_help="authenticate + report only, do not upload/write")
+    p_push.add_argument("--prune", action="store_true", help=prune_help)
+    add_push_args(p_push, dry_run_help="authenticate + list what would change, upload nothing")
     sub.add_parser("show", help="print the stored board templates")
     args = parser.parse_args(argv)
 
@@ -230,24 +274,33 @@ async def _amain(argv: list[str]) -> int:
     if args.cmd == "example":
         print(json.dumps(EXAMPLE_MANIFEST, indent=2, ensure_ascii=False))
         return 0
-    if args.cmd in ("validate", "load"):
+    if args.cmd in ("validate", "load", "push"):
         path = Path(args.manifest)
-        templates = _load_templates(path, _read_manifest(path))
-        if args.cmd == "validate" or args.dry_run:
-            tag = "dry-run" if args.cmd == "load" else "valid"
+        entries = _read_manifest(path)
+        # an empty manifest is never «the station has no templates»: with --prune it would delete
+        # every one of them, without it it does nothing — either way it is a mistake to say so
+        if not entries:
+            fail(f"ERROR: {path} lists no board template. (Removing them all is /admin › Tafel-Vorlagen's job.)")
+        # a malformed file is refused before anything is written or uploaded (a dry run checks it too)
+        templates = _load_templates(path, entries)
+        if args.cmd == "validate":
             pages = sum(len(t.pages) for _e, t, _r in templates)
-            print(f"OK ({tag}): {len(templates)} board template(s), {pages} page(s). Nothing written.")
+            print(f"OK (valid): {len(templates)} board template(s), {pages} page(s). Nothing written.")
             return 0
-        n, pruned = await _load(templates)
-        extra = f"; pruned {pruned} stale template(s)" if pruned else ""
-        print(f"OK: upserted {n} board template(s) into the reference store{extra}.")
-        return 0
-    if args.cmd == "push":
+        if args.cmd == "load":
+            n, stale = await _load(templates, args.prune, args.dry_run)
+            if args.dry_run:
+                print(f"OK (dry-run): would upsert {len(templates)} board template(s).")
+                if stale:
+                    what = "would PRUNE" if args.prune else "would leave in place (no --prune)"
+                    print(f"  {what}: {', '.join(stale)}")
+                print("Nothing written.")
+                return 0
+            print(f"OK: upserted {n} board template(s) into the reference store.")
+            _report_stale(stale, args.prune)
+            return 0
         require_push_target(args)
-        path = Path(args.manifest)
-        # a malformed file is refused before anything is uploaded (a dry run checks it too)
-        templates = _load_templates(path, _read_manifest(path))
-        n = _push(templates, args.base, args.admin_secret, args.dry_run)
+        n = _push(templates, args.base, args.admin_secret, args.dry_run, args.prune)
         if not args.dry_run:
             print(f"OK: upserted {n} board template(s) to {args.base}.")
         return 0

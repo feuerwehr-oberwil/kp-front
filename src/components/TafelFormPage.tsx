@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from 'react'
+import { clearDraft, keepDraft, readDraft } from '../lib/draftKeep'
+import { useMediaQuery } from '../lib/useIsPhone'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
@@ -6,7 +8,7 @@ import { fillTemplate, hhmm } from '../lib/format'
 import { newId } from '../lib/ids'
 import { serverNow } from '../lib/serverClock'
 import {
-  editableColumns, labelText, shownColumns, shownSections, tableAddsRows,
+  editableColumns, labelText, shownColumns, shownSections, tableAddsRows, writtenColumns,
   type QuadSection, type TableSection, type TemplateColumn, type TextSection,
 } from '../lib/boardTemplate'
 import {
@@ -29,9 +31,20 @@ import s from './TafelFormPage.module.css'
  * empty row of every list carries a pre-minted id, so the row it becomes on its first commit is
  * the same element and focus stays where Tab sent it.
  *
+ * ⚠️ A cell writes only what the operator CHANGED since it took the focus (review of #338): a
+ * focused cell that was merely passed through never writes its old text back over what another
+ * device wrote meanwhile, and while it is untouched it follows the remote change. Typing is never
+ * lost: it is written when the cell unmounts, when the page is hidden or closed — and when the
+ * Einsatz turned read-only under it (closed elsewhere) it is KEPT on this device (lib/draftKeep)
+ * rather than written into a closed record, and offered again once the page is writable.
+ *
+ * ⚠️ Every box drawn is a box one can write in (owner, round 2): a table's ruled empty rows are
+ * live rows, each with its own pre-minted id, and the rows written under a fixed list (the
+ * Abspracherapport) type the pre-printed text columns too.
+ *
  * DOM order is the template's order, row-major — the Tab order and the iOS ↑↓ bar follow it.
- * Pre-printed cells (Signatur, Bezeichnung, the Traktanden) are text, not inputs, so neither
- * stops on them.
+ * Pre-printed cells of a fixed row (Signatur, Bezeichnung, the Traktanden) are text, not inputs, so
+ * neither stops on them.
  */
 
 const T = () => appConfig.copy.tafel
@@ -48,7 +61,8 @@ type Addr =
 const HEAD_SEC = '__head'
 const HEAD_KEYS: (keyof FormHead)[] = ['title', 'address', 'alarm', 'el']
 const keyOf = (sec: string, box: string | undefined, row: string | undefined, col: string | undefined) => `${sec}|${box ?? ''}|${row ?? ''}|${col ?? ''}`
-const navAtOf = (a: Addr): NavAt => a.kind === 'line' || a.kind === 'tag' ? { sec: a.sec, box: a.box, row: a.row }
+const navAtOf = (a: Addr): NavAt => a.kind === 'line' ? { sec: a.sec, box: a.box, row: a.row }
+  : a.kind === 'tag' ? { sec: a.sec, box: a.box, row: a.row, col: 'tag' }
   : a.kind === 'cell' ? { sec: a.sec, row: a.row, col: a.col }
     : a.kind === 'field' ? { sec: a.sec, col: a.col } : { sec: HEAD_SEC, col: a.col }
 
@@ -66,80 +80,138 @@ interface CellProps {
   placeholder?: string
   className?: string
   last?: boolean
+  /** where a draft the read-only Einsatz could not take is kept on this device (lib/draftKeep) */
+  draftKey?: string
   onCommit: (v: string) => void
-  onNav: (key: NavKey, draft: string) => void
+  /** `changed`: the operator typed in this cell since it took the focus — only then is it written */
+  onNav: (key: NavKey, draft: string, changed: boolean) => void
 }
 
 /** One cell: an auto-growing textarea that commits once (see the file header for the keys). */
-function Cell({ k, kn, value, label, readOnly, time = false, placeholder, className, last = false, onCommit, onNav }: CellProps) {
-  const [draft, setDraft] = useState(value)
-  const typing = useRef(false)
+function Cell({ k, kn, value, label, readOnly, time = false, placeholder, className, last = false, draftKey, onCommit, onNav }: CellProps) {
+  const T0 = T()
+  const [draft, setDraft] = useState(() => (draftKey ? readDraft<string | null>(draftKey, null) : null) ?? value)
+  /** typed since the focus (or a kept draft came back): the one thing that makes a cell write */
+  const dirty = useRef(draft !== value)
   /** the key handler already committed this draft — the blur that follows must not commit again */
   const handled = useRef(false)
+  const [focused, setFocused] = useState(false)
   const ref = useRef<HTMLTextAreaElement>(null)
-  useEffect(() => { if (!typing.current) setDraft(value) }, [value])
+  // an untouched cell follows the stored value — a remote change shows up even while focused
+  useEffect(() => { if (!dirty.current) setDraft(value) }, [value])
   useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
   }, [draft])
+  const live = useRef({ draft, value, readOnly, onCommit })
+  useEffect(() => { live.current = { draft, value, readOnly, onCommit } })
+  /** write what was typed, if anything — or keep it on the device while the page is read-only */
+  const flush = useCallback(() => {
+    const l = live.current
+    if (!dirty.current) return
+    if (l.draft === l.value) { dirty.current = false; if (draftKey) clearDraft(draftKey); return }
+    if (l.readOnly) { if (draftKey) keepDraft(draftKey, l.draft); return }
+    dirty.current = false
+    if (draftKey) clearDraft(draftKey)
+    l.onCommit(l.draft)
+  }, [draftKey])
+  // …when the page goes away, the app is hidden, or the cell itself goes
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === 'hidden') flush() }
+    document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('pagehide', flush)
+    return () => {
+      document.removeEventListener('visibilitychange', onHide)
+      window.removeEventListener('pagehide', flush)
+      flush()
+    }
+  }, [flush])
+  // the Einsatz turned read-only under the typing (closed elsewhere): keep it; writable again: offer it
+  useEffect(() => {
+    if (!draftKey) return
+    if (readOnly) { if (dirty.current) keepDraft(draftKey, live.current.draft); return }
+    const kept = readDraft<string | null>(draftKey, null)
+    if (kept != null && kept !== live.current.value) { dirty.current = true; setDraft(kept) }
+  }, [readOnly, draftKey])
+  const insertBreak = (el: HTMLTextAreaElement) => {
+    const a = el.selectionStart, b = el.selectionEnd
+    dirty.current = true
+    setDraft((d) => `${d.slice(0, a)}\n${d.slice(b)}`)
+    requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = a + 1 })
+  }
+  const nav = (key: NavKey) => {
+    const changed = dirty.current && draft !== value
+    handled.current = true
+    dirty.current = false
+    if (draftKey) clearDraft(draftKey)
+    onNav(key, draft, changed)
+  }
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.nativeEvent.isComposing) return
+    // an IME still composing (Safari reports it as keyCode 229, isComposing false)
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return
     if (e.key === 'Enter' && e.altKey) {
       // Alt+Enter is a line break like Shift+Enter (Excel) — a textarea does not do it by itself
       e.preventDefault()
-      const el = e.currentTarget
-      const a = el.selectionStart, b = el.selectionEnd
-      const next = `${draft.slice(0, a)}\n${draft.slice(b)}`
-      setDraft(next)
-      requestAnimationFrame(() => { el.selectionStart = el.selectionEnd = a + 1 })
+      insertBreak(e.currentTarget)
       return
     }
     if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
       e.preventDefault()
-      handled.current = true
-      onNav('enter', draft)
+      nav('enter')
       return
     }
     if (e.key === 'Tab' && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault()
-      handled.current = true
-      onNav(e.shiftKey ? 'shift-tab' : 'tab', draft)
+      nav(e.shiftKey ? 'shift-tab' : 'tab')
       return
     }
     if (e.key === 'Escape') {
       e.preventDefault()
       e.stopPropagation()
-      if (draft !== value) setDraft(value)
+      if (draft !== value) { setDraft(value); dirty.current = false; if (draftKey) clearDraft(draftKey) }
       else e.currentTarget.blur()
     }
   }
+  // a soft keyboard has no Shift/Alt+Enter: on touch the focused cell offers the line break itself
+  const coarse = useMediaQuery('(pointer: coarse)')
+  const breakKey = coarse && focused && !readOnly
   return (
-    <textarea
-      ref={ref}
-      rows={1}
-      className={cx(s.cell, time && s.time, className)}
-      value={draft}
-      readOnly={readOnly}
-      aria-label={label}
-      placeholder={readOnly ? undefined : placeholder}
-      data-k={k}
-      data-kn={kn}
-      // the phone's return key says what Enter does here: on to the next cell, or done
-      enterKeyHint={last ? 'done' : 'next'}
-      inputMode={time ? 'numeric' : undefined}
-      spellCheck={!time}
-      onPointerDown={keep}
-      onFocus={() => { typing.current = true; handled.current = false }}
-      onChange={(e) => { handled.current = false; setDraft(e.target.value) }}
-      onBlur={() => {
-        typing.current = false
-        if (handled.current) { handled.current = false; return }
-        if (draft !== value) onCommit(draft)
-      }}
-      onKeyDown={onKeyDown}
-    />
+    <span className={s.cellWrap}>
+      <textarea
+        ref={ref}
+        rows={1}
+        className={cx(s.cell, time && s.time, breakKey && s.cellBreak, className)}
+        value={draft}
+        readOnly={readOnly}
+        aria-label={label}
+        placeholder={readOnly ? undefined : placeholder}
+        data-k={k}
+        data-kn={kn}
+        // the phone's return key says what Enter does here: on to the next cell, or done
+        enterKeyHint={last ? 'done' : 'next'}
+        inputMode={time ? 'numeric' : undefined}
+        spellCheck={!time}
+        onPointerDown={keep}
+        onFocus={() => { handled.current = false; setFocused(true) }}
+        onChange={(e) => { handled.current = false; dirty.current = true; setDraft(e.target.value) }}
+        onBlur={() => {
+          setFocused(false)
+          if (handled.current) { handled.current = false; return }
+          flush()
+        }}
+        onKeyDown={onKeyDown}
+      />
+      {breakKey && !time && (
+        // keeps the focus (and the keyboard) where it is: the press never reaches the textarea's blur
+        <button type="button" className={s.breakKey} aria-label={T0.lineBreak} title={T0.lineBreak}
+          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation() }}
+          onClick={() => { if (ref.current) insertBreak(ref.current) }}>
+          <span aria-hidden="true">↵</span>
+        </button>
+      )}
+    </span>
   )
 }
 
@@ -182,6 +254,8 @@ function useFocusAfterRender(root: RefObject<HTMLElement | null>): (k: string) =
 }
 
 export interface TafelFormPageProps {
+  /** the page's anno id — the namespace of the drafts this device keeps for it */
+  pageKey: string
   data: BoardFormData
   readOnly: boolean
   isPhone: boolean
@@ -195,7 +269,7 @@ export interface TafelFormPageProps {
   inset: { top: number; left: number; right: number; bottom: number }
 }
 
-export function TafelFormPage({ data, readOnly, isPhone, onChange, onRemove, scene, onOpenKarte, inset }: TafelFormPageProps) {
+export function TafelFormPage({ pageKey, data, readOnly, isPhone, onChange, onRemove, scene, onOpenKarte, inset }: TafelFormPageProps) {
   const t = T()
   const page = data.page
   const sections = shownSections(page)
@@ -214,7 +288,7 @@ export function TafelFormPage({ data, readOnly, isPhone, onChange, onRemove, sce
   }
 
   // ── the layout the keyboard moves through (lib/boardFormNav) ──────────────────────────────
-  const ids: Record<string, { lines?: Record<string, { lines: string[]; newId: string }>; rows?: string[]; newId?: string }> = {}
+  const ids: Record<string, { lines?: Record<string, { lines: string[]; newId: string }>; rows?: string[]; newId?: string; extras?: string[] }> = {}
   const layout: NavSection[] = []
   if (page.header) layout.push({ kind: 'text', id: HEAD_SEC, fields: HEAD_KEYS })
   for (const sec of sections) {
@@ -224,14 +298,25 @@ export function TafelFormPage({ data, readOnly, isPhone, onChange, onRemove, sce
         return { id: c.id, lines, newId: trailing(`${sec.id}/${c.id}`, lines) }
       })
       ids[sec.id] = { lines: Object.fromEntries(boxes.map((b) => [b.id, b])) }
-      layout.push({ kind: 'quad', id: sec.id, boxes: readOnly ? [] : boxes })
+      layout.push({ kind: 'quad', id: sec.id, boxes: readOnly ? [] : boxes, tag: !!sec.tag })
     } else if (sec.type === 'table') {
       const rows = tableRows(data, sec).map((r) => r.id)
       const adds = tableAddsRows(sec)
       const newRow = trailing(sec.id, rows)
-      ids[sec.id] = { rows, newId: adds ? newRow : undefined }
-      const cols = editableColumns(sec).filter((c) => c.type !== 'trend').map((c) => c.id)
-      layout.push({ kind: 'table', id: sec.id, cols: readOnly ? [] : cols, rows, adds, newId: adds ? newRow : undefined })
+      // the ruled empty rows the paper has below the written ones are LIVE rows too (owner, round
+      // 2): each its own pre-minted id, so whichever one is typed in becomes the next written row.
+      // A pre-printed row stands two rulings tall, as on the poster.
+      const fixedIds = new Set((sec.fixedRows ?? []).map((r) => r.id))
+      const units = rows.reduce((n, id) => n + (fixedIds.has(id) ? 2 : 1), 0)
+      const extraCount = !adds || readOnly || isPhone ? 0 : Math.max(0, (sec.height ?? 0) - units - 1)
+      const extras = Array.from({ length: extraCount }, (_, i) => trailing(`${sec.id}#${i}`, rows))
+      ids[sec.id] = { rows, newId: adds ? newRow : undefined, extras }
+      const typed = (cs: TemplateColumn[]) => cs.filter((c) => c.type !== 'trend').map((c) => c.id)
+      const fixed = (sec.fixedRows ?? []).map((r) => r.id)
+      layout.push({
+        kind: 'table', id: sec.id, cols: readOnly ? [] : typed(editableColumns(sec)), rows, adds, newId: adds ? newRow : undefined,
+        fixed, writtenCols: readOnly ? [] : typed(writtenColumns(sec)),
+      })
     } else if (sec.type === 'text') {
       layout.push({ kind: 'text', id: sec.id, fields: readOnly ? [] : sec.fields.map((f) => f.id) })
     }
@@ -241,7 +326,10 @@ export function TafelFormPage({ data, readOnly, isPhone, onChange, onRemove, sce
     const l = [...layout].reverse().find((x) => (x.kind === 'quad' ? x.boxes.length : x.kind === 'table' ? x.cols.length : x.fields.length))
     if (!l) return ''
     if (l.kind === 'text') return keyOf(l.id, undefined, undefined, l.fields[l.fields.length - 1])
-    if (l.kind === 'table') return keyOf(l.id, undefined, l.adds ? l.newId : l.rows[l.rows.length - 1], l.cols[l.cols.length - 1])
+    if (l.kind === 'table') {
+      const cs = l.adds ? l.writtenCols ?? l.cols : l.cols
+      return keyOf(l.id, undefined, l.adds ? l.newId : l.rows[l.rows.length - 1], cs[cs.length - 1])
+    }
     const b = l.boxes[l.boxes.length - 1]
     return keyOf(l.id, b.id, b.newId, undefined)
   })()
@@ -252,15 +340,17 @@ export function TafelFormPage({ data, readOnly, isPhone, onChange, onRemove, sce
   /** the next state for a cell commit; `stamp` = Enter finished the row, so an empty «Wann» of a
    *  row with words gets the current time (one ↶ step with the commit, so ↶ takes it back) */
   const next = (a: Addr, raw: string, stamp: boolean): BoardFormData => {
+    // every commit carries its time (server clock): what settles a cell two devices changed at once
+    const at = serverNow()
     switch (a.kind) {
-      case 'line': return putLine(data, a.sec, a.box, a.row, { text: raw })
-      case 'tag': return putLine(data, a.sec, a.box, a.row, { tag: raw })
+      case 'line': return putLine(data, a.sec, a.box, a.row, { text: raw }, at)
+      case 'tag': return putLine(data, a.sec, a.box, a.row, { tag: raw }, at)
       case 'field': {
         const sec = sections.find((x) => x.id === a.sec) as TextSection | undefined
         const f = sec?.fields.find((x) => x.id === a.col)
-        return putField(data, a.sec, a.col, f?.type === 'time' ? normalizeTime(raw) : raw)
+        return putField(data, a.sec, a.col, f?.type === 'time' ? normalizeTime(raw) : raw, at)
       }
-      case 'head': return putHead(data, a.col, a.col === 'alarm' ? normalizeTime(raw) : raw)
+      case 'head': return putHead(data, a.col, a.col === 'alarm' ? normalizeTime(raw) : raw, at)
       case 'cell': {
         const sec = sections.find((x) => x.id === a.sec) as TableSection | undefined
         if (!sec) return data
@@ -270,10 +360,10 @@ export function TafelFormPage({ data, readOnly, isPhone, onChange, onRemove, sce
         if (stamp && tc && tc.id !== a.col) {
           const row = tableRows(data, sec).find((r) => r.id === a.row)
           const merged = { ...row?.cells, ...cells }
-          const words = editableColumns(sec).some((c) => (c.type ?? 'text') === 'text' && (merged[c.id] ?? '').trim())
-          if (words && !(merged[tc.id] ?? '').trim()) cells[tc.id] = hhmm(new Date(serverNow()))
+          const words = writtenColumns(sec).some((c) => (c.type ?? 'text') === 'text' && (merged[c.id] ?? '').trim())
+          if (words && !(merged[tc.id] ?? '').trim()) cells[tc.id] = hhmm(new Date(at))
         }
-        return putRow(data, a.sec, a.row, { cells })
+        return putRow(data, a.sec, a.row, { cells }, at)
       }
     }
   }
@@ -290,22 +380,25 @@ export function TafelFormPage({ data, readOnly, isPhone, onChange, onRemove, sce
       if (!sec) return true
       const row = tableRows(data, sec).find((r) => r.id === a.row)
       const merged = { ...row?.cells, [a.col]: draft }
-      return !editableColumns(sec).some((c) => c.type !== 'trend' && (merged[c.id] ?? '').trim())
+      const cs = (sec.fixedRows ?? []).some((r) => r.id === a.row) ? editableColumns(sec) : writtenColumns(sec)
+      return !cs.some((c) => c.type !== 'trend' && (merged[c.id] ?? '').trim())
     }
     return false
   }
 
   // ── focus: where a key sent the cursor, resolved after the commit's render ───────────────────
   const focusAfterRender = useFocusAfterRender(rootRef)
-  const onNav = (a: Addr, key: NavKey, draft: string) => {
+  const onNav = (a: Addr, key: NavKey, draft: string, changed: boolean) => {
     const at = navAtOf(a)
     const target = navTarget(layout, at, key, emptyAfter(a, draft))
-    put(next(a, draft, key === 'enter'))
+    // only what was typed is written: a cell passed through never overwrites another device's change
+    if (changed) put(next(a, draft, key === 'enter'))
     if (target === null) return
     if (target === 'blur') { (document.activeElement as HTMLElement | null)?.blur(); return }
     focusAfterRender(keyOf(target.sec, target.box, target.row, target.col))
   }
   const commit = (a: Addr) => (v: string) => put(next(a, v, false))
+  const draftKey = (k: string) => `tafel:${pageKey}:${k}`
 
   // ── sections ───────────────────────────────────────────────────────────────────────────────
   const ROW_PX = isPhone ? 44 : 40
@@ -335,11 +428,12 @@ export function TafelFormPage({ data, readOnly, isPhone, onChange, onRemove, sce
                 <Cell k={keyOf(sec.id, c.id, id, undefined)} kn={isNew ? keyOf(sec.id, c.id, NEW, undefined) : undefined}
                   value={text} label={label} readOnly={readOnly} className={s.grow}
                   last={keyOf(sec.id, c.id, id, undefined) === lastKey}
-                  onCommit={commit(a)} onNav={(key, d) => onNav(a, key, d)} />
+                  onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(keyOf(sec.id, c.id, id, undefined))} />
                 {sec.tag && !isNew && (
                   <Cell k={`${keyOf(sec.id, c.id, id, 'tag')}`} value={tag ?? ''} label={`${label} · ${t.tag}`} placeholder={t.tag}
                     readOnly={readOnly} className={s.tag}
-                    onCommit={commit({ kind: 'tag', sec: sec.id, box: c.id, row: id })} onNav={(key, d) => onNav({ kind: 'tag', sec: sec.id, box: c.id, row: id }, key, d)} />
+                    onCommit={commit({ kind: 'tag', sec: sec.id, box: c.id, row: id })} onNav={(key, d, ch) => onNav({ kind: 'tag', sec: sec.id, box: c.id, row: id }, key, d, ch)}
+                    draftKey={draftKey(keyOf(sec.id, c.id, id, 'tag'))} />
                 )}
               </div>
             )
@@ -390,7 +484,7 @@ export function TafelFormPage({ data, readOnly, isPhone, onChange, onRemove, sce
           <Cell k={k} kn={isNew ? keyOf(sec.id, undefined, NEW, c.id) : undefined}
             value={r.cells[c.id] ?? ''} label={label} readOnly={readOnly} time={c.type === 'time'}
             placeholder={c.type === 'time' ? '--:--' : undefined} last={k === lastKey}
-            onCommit={commit(a)} onNav={(key, d) => onNav(a, key, d)} />
+            onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(k)} />
         </span>
       )
     }
@@ -438,7 +532,7 @@ export function TafelFormPage({ data, readOnly, isPhone, onChange, onRemove, sce
         <label key={f.id} className={cx(s.field, f.tone && s[`tone_${f.tone}`], layoutKind === 'split' && i === 0 && s.fieldMain)}>
           {(i === 0 && sec.title) || f.label ? <span className={s.fieldLabel}>{i === 0 && sec.title && !f.label ? labelText(sec.title) : labelText(f.label)}</span> : null}
           <Cell k={k} value={v[f.id] ?? ''} label={label} readOnly={readOnly} time={f.type === 'time'} className={s.fieldCell}
-            last={k === lastKey} onCommit={commit(a)} onNav={(key, d) => onNav(a, key, d)} />
+            last={k === lastKey} onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(k)} />
         </label>
       )
     }
@@ -485,7 +579,7 @@ export function TafelFormPage({ data, readOnly, isPhone, onChange, onRemove, sce
                 <label key={k} className={cx(s.field, s.headField)}>
                   <span className={s.fieldLabel}>{t.head[k]}</span>
                   <Cell k={keyOf(HEAD_SEC, undefined, undefined, k)} value={data.head?.[k] ?? ''} label={t.head[k]} readOnly={readOnly} time={k === 'alarm'}
-                    className={s.fieldCell} onCommit={commit(a)} onNav={(key, d) => onNav(a, key, d)} />
+                    className={s.fieldCell} onCommit={commit(a)} onNav={(key, d, ch) => onNav(a, key, d, ch)} draftKey={draftKey(keyOf(HEAD_SEC, undefined, undefined, k))} />
                 </label>
               )
             })}

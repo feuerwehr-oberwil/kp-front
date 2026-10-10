@@ -178,6 +178,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'errors'>> = {
     attendanceConflictOrt: 'posizione divergente',
     attendanceConflictTimes: 'orari divergenti',
     truppConflict: 'Protezione respiratoria {name}: modifiche di due dispositivi unite – controlla.',
+    tafelConflict: 'Lavagna «{page}» · {where}: modificato su due dispositivi contemporaneamente – vale «{kept}» (più recente), «{lost}» sovrascritto. Controlla.',
     attendanceConflictOther: 'voci divergenti unite',
     attendanceConflictResolved: 'Divergenza {name} verificata – {taken}, {by}',
     attendanceConflictByUnknown: 'senza nome',

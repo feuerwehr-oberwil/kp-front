@@ -6,6 +6,7 @@ from __future__ import annotations
 import io
 
 import pypdfium2 as pdfium
+import pytest
 from reportlab.lib.units import mm
 
 from app.report_board import fit_size, wrap
@@ -97,11 +98,31 @@ def test_the_erste_fuehrung_prints_as_its_poster():
     assert "FKS Plakat" in text  # where the page comes from, in its footer
 
 
-def test_nothing_written_is_cut_off_the_record():
-    """A box holding more than fits at a legible size continues after the page."""
-    text = _text(_compose(boardPages=[_ef(massnahmen_rows=70)]))
-    assert "Fortsetzung: Massnahmen" in text
-    assert "Massnahme 70" in text
+def _glyph_height(pdf: bytes, needle: str) -> float:
+    """The printed height (pt) of the first character of `needle`, wherever it lands."""
+    doc = pdfium.PdfDocument(io.BytesIO(pdf))
+    for i in range(len(doc)):
+        tp = doc[i].get_textpage()
+        found = tp.search(needle, match_whole_word=True).get_next()
+        if found:
+            left, bottom, right, top = tp.get_charbox(found[0], loose=False)
+            return top - bottom
+    raise AssertionError(f"{needle!r} is not on the paper")
+
+
+@pytest.mark.parametrize("rows", [80, 350])
+def test_nothing_written_is_cut_off_or_shrunk_away(rows):
+    """A box holding more than fits at a legible size continues after the page, at full size and
+    over as many pages as it needs — measured on the paper, not read back as text."""
+    pdf = _compose(boardPages=[_ef(massnahmen_rows=rows)])
+    assert "Fortsetzung: Massnahmen" in _text(pdf)
+    # the last row is there, and as legible as the first one on the continuation
+    last = _glyph_height(pdf, f"Massnahme {rows}")
+    assert last >= 5.0, last
+    assert abs(last - _glyph_height(pdf, "Massnahme 40")) < 0.5
+    # …which takes pages: ~45 rows a page at that size
+    pages = len(pdfium.PdfDocument(io.BytesIO(pdf)))
+    assert pages >= 2 + (rows - 20) // 60
 
 
 def test_an_older_client_prints_what_it_always_did():
@@ -115,7 +136,6 @@ def test_the_operator_can_leave_the_tafel_out():
 def test_a_landscape_sheet_and_a_text_page():
     konzept = {
         "title": "Konzept",
-        "code": "8.9",
         "columns": 2,
         "sections": [
             {
@@ -154,7 +174,6 @@ def test_a_landscape_sheet_and_a_text_page():
     }
     tendenz = {
         "title": "Problemerfassung",
-        "code": "8.1",
         "landscape": True,
         "columns": 1,
         "sections": [
@@ -170,7 +189,6 @@ def test_a_landscape_sheet_and_a_text_page():
     pdf = _compose(boardPages=[konzept, tendenz])
     text = _text(pdf)
     for word in (
-        "8.9",
         "Konzept",
         "Personen retten",
         "Innenangriff",
@@ -192,3 +210,11 @@ def test_wrapping_splits_where_the_template_says():
     assert wrap("Entwicklungstendenz ➚ = ➘", 90 * mm) == ["Entwicklungstendenz (+) = (–)"]
     # a narrow column shrinks the type before it splits a word
     assert fit_size("Polycom", 9 * mm, 8.5) < 8.5
+
+
+def test_the_header_line_prints_in_the_words_it_was_sent_in():
+    page = _ef()
+    page["head"] = [{"label": "Intervention", "value": "Feu de cuisine"}, {"label": "Adresse", "value": ""}]
+    text = _text(_compose(boardPages=[page]))
+    assert "Intervention: Feu de cuisine" in text
+    assert "Einsatz:" not in text
