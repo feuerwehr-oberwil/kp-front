@@ -3071,6 +3071,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         <div className="wb-botleft">{strip}</div>
         <TafelFormPage key={formPage.id} pageKey={formPage.id} data={formPage.form} readOnly={readOnly} isPhone={isPhone}
           onChange={(next) => editPage(formPage.id, next)} onRemove={() => void removePage(formPage.id)}
+          // typed over another device's value for the same cell: the later stands, the Verlauf says so
+          onConflict={(where, kept, lost) => log('warn', fillTemplate(appConfig.copy.journal.tafelConflict, { page: labelText(formPage.form.page.title), where, kept, lost }), { subjectId: formPage.id })}
           onPrint={incidentId ? (all) => void printPages(all ? pages : [formPage]) : undefined} pageCount={pages.length} printing={printing}
           scene={tafel?.scene} onOpenKarte={tafel?.onOpenKarte}
           // the bottom: the strip's row and its air, so the last ruling scrolls above it — on a
