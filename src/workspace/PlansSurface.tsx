@@ -10,7 +10,6 @@ import type { BoardHistory } from '../components/useBoardDoc'
 import type { BoardViews } from '../components/useBoardView'
 import { appConfig } from '../config/appConfig'
 import { gebaeudeDoc } from '../data/demoIncident'
-import type { OneShotRows } from '../IncidentWorkspace'
 import type { AtemschutzAlarmState } from '../lib/atemschutz'
 import type { AuthUser } from '../lib/auth'
 import { amendBuilding, buildingPickStep } from '../lib/buildingTransfer'
@@ -39,7 +38,7 @@ import { floorLabel } from '../lib/whiteboard'
 import type { PlanScales } from '../lib/workspace'
 import type { PlanDocument, LngLat, Incident, BoardDoc, BuildingDoc, TimelineEvent, Entity, Trupp, LineAttachment, BoardAnno, CaptionMode } from '../types'
 import { Whiteboard } from './lazySurfaces'
-import type { WorkspaceMode } from './types'
+import type { OneShotRows, WorkspaceMode } from './types'
 
 export interface PlansSurfaceProps {
   mode: WorkspaceMode
