@@ -530,6 +530,11 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 - A device still on the previous build keeps writing its own «vor Ort» rows and weather
   events; the server acknowledges and drops them, so a mixed-version day converges on the
   server's record.
+- **The demo Einsatz shows the newer surfaces filled in**: a Verlauf with Aufträge, a
+  Sofortmassnahme, one open and one closed Pendenz and checklist milestones; Ausrüstung on the
+  Atemschutz-Trupps and a Verkehrsdienst ohne Atemschutz; a part-worked «Aufgaben FU»; a planned
+  Brandwache in Zeitplan and Schichten; «Lehren» on the closed BMA; and Rapport-Links plus a
+  map link in the demo config.
 
 ### Removed
 

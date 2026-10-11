@@ -4,9 +4,9 @@ Wipes all incident data (deleting ``incidents`` cascades to people/notes/media/e
 snapshots/vehicle_samples) and the roster, upserts the two fixed demo accounts with known
 PINs, and re-seeds the prepared demo scene: one **pre-filled running incident** (a Zimmerbrand
 at Schloss Musterdorf, already worked — tactical symbols + hose lines on the map, three
-Atemschutz Trupps, logged Mittel, crew marked present) plus one closed Einsatz, so the demo
-shows both a live command picture and a finished record. No pending alarm (decision
-2026-07-20, see ``reset``).
+Atemschutz Trupps and a Verkehrsdienst, logged Mittel, crew marked present, a part-worked
+checklist and a planned Brandwache) plus one closed Einsatz, so the demo shows both a live
+command picture and a finished record. No pending alarm (decision 2026-07-20, see ``reset``).
 Reference config/geodata/objects are reloaded separately by the CLIs — see
 ``scripts/demo-reset.sh``.
 
@@ -190,24 +190,92 @@ def demo_display_name(first: str, last: str) -> str:
     return format_name("", first, last) or f"{last} {first}"
 
 
+#: Who the demo's own entries are by — the `fu` account's display name (DEMO_USERS), as the app
+#: stamps it on a Mittel line or a checklist tick.
+DEMO_FU_NAME = "Führungsunterstützung"
+
+#: The demo «Aufgaben FU» checklist and which of its items are ticked, item id → minutes before
+#: now. The ids and the milestone texts below are pinned to the template file by a test
+#: (tests/test_demo_reset.py), since the two live in different places.
+DEMO_CHECKLIST_ID = "musterdorf-fu"
+DEMO_CHECKLIST_TICKS = {
+    "anfahrt-1": 31,
+    "anfahrt-2": 30,
+    "anfahrt-3": 30,
+    "vor-ort-1": 22,
+    "vor-ort-2": 21,
+    "vor-ort-4": 16,
+}
+
 # A pre-filled Verlauf (journal) so the demo lands with a worked incident's log instead of the
-# empty "Noch keine Ereignisse erfasst" state. Each is (minutes-before-now, text); seeded as
-# human `kind: 'journal'` TimelineEvents oldest-first.
+# empty "Noch keine Ereignisse erfasst" state. Each is (minutes-before-now, text, extras); seeded
+# as human TimelineEvents oldest-first by ``demo_journal_rows``.
 #
 # ⚠️ It tells the SAME story as the rest of the seed, minute for minute: the alarm at
 # DEMO_ELAPSED_MIN, the TLF vor Ort at −25 (reportMeta.fahrzeuge), Trupp 1 (Müller, `loeschen`)
-# in at −14 and Trupp 2 (Schmid, `retten`) at −8. It was written for a 14-minute window and kept
-# when the window grew to 34, so for two months the Verlauf had the TLF arriving eleven minutes
-# before the Zeiten grid did, and each Trupp doing the other one's job.
-DEMO_JOURNAL = [
-    (DEMO_ELAPSED_MIN, "Alarmierung Zimmerbrand Schlossgasse 9, Ausrücken TLF und ADF."),
-    (25, "Eintreffen TLF. Rauch aus Fenster 2. OG, eine Person vermisst."),
-    (18, "Wasserversorgung ab Hydrant Schlossgasse sichergestellt."),
-    (14, "Angriffstrupp 1 (Müller) zur Brandbekämpfung 2. OG eingesetzt."),
-    (8, "Trupp 2 (Schmid) zur Personenrettung 2. OG Nord eingesetzt."),
-    (5, "1 Person gerettet und an Sanität übergeben."),
-    (2, "Brand unter Kontrolle, Nachlöscharbeiten laufen."),
+# in at −14, Trupp 2 (Schmid, `retten`) at −8 and the Verkehrsdienst (Bachmann, a Trupp ohne
+# Atemschutz) at −7. It was written for a 14-minute window and kept when the window grew to 34,
+# so for two months the Verlauf had the TLF arriving eleven minutes before the Zeiten grid did,
+# and each Trupp doing the other one's job.
+#
+# The extras give the Verlauf the variety a worked Einsatz has, so its Art discs and the filter
+# have more than one word to show (src/types.ts · TimelineEvent, lib/report · journalArea):
+#   - "type": the entry's Art (`auftrag` / `sofort`; plain rows are `info` and carry no tag).
+#     Written into the text as well, the way the composer does (lib/journalEntry ·
+#     composeJournalText) — the text is the record.
+#   - "pendenz": the row IS an open item (`reminder.op: created`, no due time).
+#   - "done": a later row ticking that item off, worded like lib/useReminders · completeReminder.
+#   - "milestone": the ☑ row a ticked checklist milestone writes (lib/useChecklistActions).
+DEMO_JOURNAL: list[tuple[int, str, dict[str, str]]] = [
+    (DEMO_ELAPSED_MIN, "Alarmierung Zimmerbrand Schlossgasse 9, Ausrücken TLF und ADF.", {}),
+    (25, "Eintreffen TLF. Rauch aus Fenster 2. OG, eine Person vermisst.", {}),
+    (24, "Treppenhaus geräumt, Bewohner EG und 1. OG ins Freie geführt.", {"type": "sofort"}),
+    (23, "Sanität über ELZ aufbieten, 1 Person vermisst.", {"pendenz": "demo-pnd-1"}),
+    (22, "Absprache mit Einsatzleitung", {"milestone": "vor-ort-1"}),
+    (21, "Standort Führungsunterstützung bestimmen", {"milestone": "vor-ort-2"}),
+    (18, "Wasserversorgung ab Hydrant Schlossgasse sichergestellt.", {}),
+    (14, "Trupp 1 (Müller) zur Brandbekämpfung 2. OG eingesetzt.", {"type": "auftrag"}),
+    (8, "Trupp 2 (Schmid) zur Personenrettung 2. OG Nord eingesetzt.", {"type": "auftrag"}),
+    (7, "Verkehrsdienst (Bachmann): Schlossgasse sperren, Zufahrt für Sanität freihalten.", {"type": "auftrag"}),
+    (6, "Sanität über ELZ aufbieten, 1 Person vermisst.", {"done": "demo-pnd-1"}),
+    (5, "1 Person gerettet und an Sanität übergeben.", {}),
+    (3, "Eigentümer und Gebäudeversicherung informieren.", {"type": "auftrag", "pendenz": "demo-pnd-2"}),
+    (2, "Brand unter Kontrolle, Nachlöscharbeiten laufen.", {}),
 ]
+
+# The app's own words for what DEMO_JOURNAL's extras write (src/config/copy/de/journal.ts ·
+# entryTypes, pendenzDoneLog), repeated rather than shared for the reason `_scene_roles` gives:
+# the demo dataset is German-only.
+_ENTRY_TYPE_TAG = {"auftrag": "Auftrag", "sofort": "Sofortmassnahme"}
+_PENDENZ_DONE = "Pendenz erledigt: {text}"
+
+
+def demo_journal_rows(now: datetime) -> list[dict]:
+    """The running Einsatz's Verlauf rows (``row_json``), oldest first, from DEMO_JOURNAL. Pure."""
+    rows: list[dict] = []
+    for i, (mins_ago, text, extra) in enumerate(DEMO_JOURNAL, start=1):
+        row: dict = {"id": f"demo-journal-{i}", "t": "", "at": _iso(now - timedelta(minutes=mins_ago))}
+        if "milestone" in extra:
+            row |= {"icon": "check", "text": f"☑ {text}", "kind": "journal"}
+        elif "done" in extra:
+            row |= {
+                "icon": "check",
+                "text": _PENDENZ_DONE.format(text=text),
+                "kind": "reminder",
+                "reminder": {"op": "done", "id": extra["done"]},
+            }
+        else:
+            kind = extra.get("type")
+            row |= {"icon": "type", "text": f"{_ENTRY_TYPE_TAG[kind]} · {text}" if kind else text, "kind": "journal"}
+            if kind:
+                row["entryType"] = kind
+            if "pendenz" in extra:
+                # the BARE text rides along (types · reminder.text): the Pendenzen list and the
+                # erledigt row print their own context and would otherwise stutter the tag
+                row["reminder"] = {"op": "created", "id": extra["pendenz"], "text": text}
+        rows.append(row | {"surface": "map"})
+    return rows
+
 
 #: The closed Einsatz's Verlauf — (minutes AFTER its own start, text). Short on purpose: what it
 #: demonstrates is a finished record, not a second worked incident.
@@ -218,6 +286,12 @@ DEMO_CLOSED_JOURNAL = [
     (18, "Anlage zurückgestellt, Melder 12 überbrückt. Übergabe an Liegenschaftsverwaltung."),
     (22, "Rückzug, Einsatz beendet."),
 ]
+
+#: The closed Einsatz's «Lehren» (reportMeta.lehren) — what the debrief took away from it.
+DEMO_CLOSED_LEHREN = (
+    "Melder 12 im Technikraum spricht auf Wasserdampf an: Betreiber soll einen Wärmemelder prüfen "
+    "lassen. Schlüsseldepot und Laufkarte waren aktuell, Zugang ohne Verzögerung."
+)
 
 # Who is physically present (Anwesenheit) — the nine Trupp members, the Einsatzleiter, and the
 # crew around them (Maschinist, Wasserversorgung, Verkehrsdienst, Reserve). Deliberately a SUBSET
@@ -318,7 +392,9 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
         """The roster id of a seeded demo person, or None if they were not marked present."""
         return by_name.get(demo_display_name(first, last))
 
-    # Three Trupps: two in the field with a fresh Funkkontakt, one Sicherheitstrupp angemeldet.
+    # Three Atemschutz Trupps: two in the field with a fresh Funkkontakt, one Sicherheitstrupp
+    # angemeldet — each with the Ausrüstung it carries (`equipment`, ids from the shipped default
+    # list, appConfig · atemschutz.equipment) — plus one Trupp ohne Atemschutz.
     # The first links to the floor-stack chip already placed in board.gebaeude (annoId/planId).
     ws["trupps"] = [
         {
@@ -339,6 +415,7 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "lastPressureTime": _iso(now - timedelta(minutes=2)),
             "lowestBar": 210,
             "status": "aktiv",
+            "equipment": ["wbk"],
             "annoId": "r1782915890769",
             "planId": "gebaeude",
             # Contact/pressure Verlauf shown (collapsed) on the card — the frontend rebases these
@@ -369,6 +446,7 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "lastPressureTime": _iso(now - timedelta(seconds=150)),
             "lowestBar": 250,
             "status": "aktiv",
+            "equipment": ["retthaube", "multiwarn"],
             "readings": [
                 {"t": _iso(now - timedelta(minutes=8)), "bar": 300, "kind": "entry"},
                 {"t": _iso(now - timedelta(minutes=6)), "bar": 285, "kind": "contact"},
@@ -389,8 +467,48 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "entryTime": "",
             "lastContactTime": "",
             "status": "angemeldet",
+            "equipment": ["retthaube"],
+        },
+        # A Trupp OHNE Atemschutz (`kind: "einfach"`, types · TruppKind): the Verkehrsdienst that
+        # closes the Schlossgasse for the Sanität (DEMO_JOURNAL at −7). Without one the board's
+        # second section never showed on the demo. No cylinder, so no Eingangsdruck and no
+        # `registered` reading — the shape createTrupp writes for this kind: the crew row, then
+        # the entry.
+        {
+            "id": "trupp4",
+            "kind": "einfach",
+            "name": demo_display_name("Reto", "Bachmann"),
+            "members": [demo_display_name("Fabienne", "Steiner")],
+            "leaderPersonId": _pid("Reto", "Bachmann"),
+            "memberPersonIds": [_pid("Fabienne", "Steiner")],
+            "auftrag": "verkehr",
+            "ziel": "Schlossgasse sperren, Zufahrt Sanität",
+            "funkkanal": 11,
+            "entryPressureBar": 0,
+            "entryTime": _iso(now - timedelta(minutes=7)),
+            "lastContactTime": _iso(now - timedelta(minutes=7)),
+            "lowestBar": 0,
+            "status": "aktiv",
+            "readings": [
+                {
+                    "t": _iso(now - timedelta(minutes=7)),
+                    "bar": 0,
+                    "kind": "crew",
+                    "crew": {
+                        "name": demo_display_name("Reto", "Bachmann"),
+                        "members": [demo_display_name("Fabienne", "Steiner")],
+                    },
+                },
+                {"t": _iso(now - timedelta(minutes=7)), "bar": 0, "kind": "entry"},
+            ],
         },
     ]
+    # ⚠️ The Trupp NUMBERS are seeded, not left to the load normaliser (lib/workspace ·
+    # numberTrupps), which numbers by first reading: the angemeldet Sicherheitstrupp has none, so
+    # it sorted first and became «Trupp 1» — while the Verlauf says «Trupp 1 (Müller)» and
+    # «Trupp 2 (Schmid)», and the Verlauf links those words to the Trupp carrying that number.
+    for no, t in enumerate(ws["trupps"], start=1):
+        t["no"] = no
 
     # A few logged Mittel, keyed to the demo catalogue ids so each lands in the right group and
     # shows a stock ring ("noch N"). All of them belong to THIS incident — a Zimmerbrand: lines,
@@ -453,6 +571,55 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "at": _iso(now - timedelta(minutes=3)),
             "by": "Führungsunterstützung",
         },
+    ]
+
+    # Checklisten: the demo «Aufgaben FU» (examples/demo-data/checklists/musterdorf-fu.json) part
+    # worked — the Anfahrt done, the first two milestones ticked, «Dokumentation» and the
+    # Nach-Einsatz step still open. Each milestone here has its ☑ row in DEMO_JOURNAL at the
+    # same minute, the row the app writes on a tick (lib/useChecklistActions · milestoneRow).
+    ws["checklists"] = {
+        DEMO_CHECKLIST_ID: {
+            "ticks": {
+                item: {"t": _iso(now - timedelta(minutes=mins)), "by": DEMO_FU_NAME}
+                for item, mins in DEMO_CHECKLIST_TICKS.items()
+            },
+            "activeBranch": {},
+        }
+    }
+
+    # Zeitplan (Schichtenplanung): the Brandwache after the Einsatz, planned from the crew already
+    # on site. Two Schichten as columns (bands, inert), people entered into them — confirmed ones
+    # drawn solid, an open offer hollow — and one availability drawn freihändig, so the grid, the
+    # lanes and the coverage strip all have something to show. In the FUTURE only: a plan is about
+    # time that has not happened yet, and the past of this Einsatz is the Anwesenheit's.
+    watch = (now + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+    ws["bands"] = [
+        {"id": "bd-demo-1", "label": "Brandwache 1", "from": _iso(watch), "to": _iso(watch + timedelta(hours=4))},
+        {
+            "id": "bd-demo-2",
+            "label": "Brandwache 2",
+            "from": _iso(watch + timedelta(hours=4)),
+            "to": _iso(watch + timedelta(hours=8)),
+        },
+    ]
+    shifts = [
+        ("Martin", "Zbinden", "bd-demo-1", 0, 4, True),
+        ("Simon", "Hofer", "bd-demo-1", 0, 4, True),
+        ("Jonas", "Rüegg", "bd-demo-2", 4, 8, True),
+        ("Patrick", "Amrein", "bd-demo-2", 4, 8, False),
+        ("Melanie", "Schneider", None, 2, 6, False),
+    ]
+    ws["shifts"] = [
+        {
+            "id": f"sh-demo-{i}",
+            "personId": pid,
+            "from": _iso(watch + timedelta(hours=start)),
+            "to": _iso(watch + timedelta(hours=end)),
+            "confirmed": confirmed,
+            **({"bandId": band} if band else {}),
+        }
+        for i, (first, last, band, start, end, confirmed) in enumerate(shifts, start=1)
+        if (pid := _pid(first, last))
     ]
 
     # Anwesenheit: the present crew, on the clock from the ALARM — «ab Einsatzbeginn», the button
@@ -659,27 +826,11 @@ async def reset(wipe_objects: bool = True) -> None:
         # Flush so the incident's uuid4 PK (a column default assigned at INSERT) is available for
         # the Verlauf rows' incident_id FK — same flush-then-read pattern as the Personnel ids above.
         await db.flush()
-        # Seed the pre-filled Verlauf: each row is a human `journal` TimelineEvent stored verbatim
-        # in row_json (that's the shape the append API and the frontend Verlauf renderer expect),
+        # Seed the pre-filled Verlauf: each row is a human TimelineEvent stored verbatim in
+        # row_json (that's the shape the append API and the frontend Verlauf renderer expect),
         # with a monotonic per-incident `seq` giving the display order (oldest first).
-        for i, (mins_ago, text) in enumerate(DEMO_JOURNAL, start=1):
-            at = _iso(now - timedelta(minutes=mins_ago))
-            db.add(
-                JournalEntry(
-                    incident_id=incident.id,
-                    client_id=f"demo-journal-{i}",
-                    seq=i,
-                    row_json={
-                        "id": f"demo-journal-{i}",
-                        "t": "",
-                        "at": at,
-                        "icon": "type",
-                        "text": text,
-                        "kind": "journal",
-                        "surface": "map",
-                    },
-                )
-            )
+        for i, row in enumerate(demo_journal_rows(now), start=1):
+            db.add(JournalEntry(incident_id=incident.id, client_id=row["id"], seq=i, row_json=row))
 
         # …and the closed BMA one day earlier (see DEMO_CLOSED_INCIDENT). It carries a finished
         # `reportMeta` rather than a worked map: what it exists to show is an Einsatz whose rapport
@@ -715,6 +866,9 @@ async def reset(wipe_objects: bool = True) -> None:
                         "Anlage vor Ort zurückgestellt und der Liegenschaftsverwaltung übergeben."
                     ),
                     "mittelConfirmedNone": True,
+                    # «Lehren» — the debrief line a Fehlalarm exists to produce (the Rapport and
+                    # the Auswertung print it); a finished record without one showed an empty field.
+                    "lehren": DEMO_CLOSED_LEHREN,
                 },
             },
             workspace_rev=1,
