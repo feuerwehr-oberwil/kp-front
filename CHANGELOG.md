@@ -569,6 +569,10 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   storey — or, on a plan, the whole sheet — says nothing there, so it is no longer drawn,
   labelled or lock-chipped on it; the printed Gebäude leaves that band clean too. A zone whose
   edge crosses the paper is unchanged, and the Karte still shows it.
+- **The demo Karte opens on the Schloss, not on a 100 m circle.** The demo scene drops its
+  Absperrkreis (it set the opening zoom and tinted the whole Gebäude view) and the Trupp's seeded
+  trail, and carries the Leitungen as drawn on the demo on 11.10. — the Angriffsleitung from the
+  Teilstück to Trupp Müller on the 2. OG, attached «Direkt».
 - **Saving the station settings is no longer refused over the retired print-order switch.**
   The print relay's removal left `report.reversePrintOrder` in every stored config, and the
   «würde Abschnitte leeren» guard counted it as content being emptied: every settings save

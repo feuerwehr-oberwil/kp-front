@@ -55,7 +55,7 @@ from .personnel import format_name
 
 logger = logging.getLogger(__name__)
 
-# The static map/plan scene (tactical symbols, hose lines, Absperrkreis, building floor stack).
+# The static map/plan scene (tactical symbols, hose lines, building floor stack).
 # backend/app/demo_reset.py → parents[2] is the repo root; the file is checked in and also the
 # source for local `just demo-load`, so both paths render the same command picture.
 SCENE_PATH = Path(__file__).resolve().parents[2] / "examples" / "demo-data" / "incident.workspace.json"
@@ -469,7 +469,7 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
             "auftrag": "loeschen",
             "ziel": "2. OG",
             "lineNo": 1,
-            "lineId": "d1784735796244",  # the Angriffsleitung drawn on the Lage (scene file)
+            "lineId": "d1791745870180-50ir8",  # the Angriffsleitung drawn on the Lage (scene file)
             "funkkanal": 11,
             "entryPressureBar": 300,
             "entryTime": _iso(now - timedelta(minutes=14)),
@@ -739,11 +739,16 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
         ],
     }
 
-    # Refresh the floor-stack chip's time labels so they read as fresh instead of a frozen 16:24.
+    # Refresh the Trupp chip's time label — on the storey (a `resource` on board.gebaeude) and its
+    # twin on the Karte (a `team` entity) — so it reads as fresh instead of the scene file's frozen
+    # clock. The scene carries NO trail (11.10.2026, owner: «drop the last tracked places of the
+    # trupp»): a trail is where somebody walked, and a seeded one is a walk nobody made.
     for res in ws.get("board", {}).get("gebaeude", []):
-        res["t"] = hhmm
-        for pt in res.get("trail", []):
-            pt["t"] = hhmm
+        if res.get("kind") == "resource":
+            res["t"] = hhmm
+    for ent in ws.get("entities", []):
+        if ent.get("kind") == "team":
+            ent["t"] = hhmm
     # …and the Tafel's pages, whose «Wann» cells would otherwise read the scene file's frozen clock
     _retime_tafel(ws, now)
     return ws

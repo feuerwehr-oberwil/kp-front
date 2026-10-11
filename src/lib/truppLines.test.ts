@@ -118,8 +118,8 @@ describe('the demo scene resolves to the tag an operator will see', () => {
   it('names Müller H. on Leitung 1 and leaves the feed line anonymous', async () => {
     const { readFileSync } = await import('node:fs')
     const scene = JSON.parse(readFileSync('examples/demo-data/incident.workspace.json', 'utf-8'))
-    const t = trupp('trupp1', { name: 'Müller Hans', lineNo: 1, lineId: 'd1784735796244' })
-    const angriff = scene.drawings.find((d: { id: string }) => d.id === 'd1784735796244')
+    const t = trupp('trupp1', { name: 'Müller Hans', lineNo: 1, lineId: 'd1791745870180-50ir8' })
+    const angriff = scene.drawings.find((d: { id: string }) => d.id === 'd1791745870180-50ir8')
     expect(`Ltg ${angriff.lineNo} · ${truppTagText(truppForLine(angriff, [t])!)}`).toBe('Ltg 1 · Müller H.')
     // the hydrant feed carries no Trupp — the link never spreads along the chain
     expect(truppForLine(scene.drawings.find((d: { id: string }) => d.id === 'd1784735505412'), [t])).toBeUndefined()
