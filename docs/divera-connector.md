@@ -50,13 +50,14 @@ without the other two, and KP Front tells you which one is missing.
 | Link | How | Set up with |
 |------|-----|-------------|
 | **Alarm intake – the primary one** | Divera POSTs each alarm to `/api/divera/webhook` the moment it fires | the webhook secret + a webhook in Divera (Step 3) |
-| **Alarm intake – the fallback** | KP Front polls Divera's `/alarms` every **30 s** while no Einsatz runs (every **120 s** while one does) and picks up anything it has not seen | the unit accesskey (Step 1) |
+| **Alarm intake – the fallback** | KP Front polls Divera's `/alarms` every **30 s** while no Einsatz runs and every **120 s** while one does (30 s again for the first 10 min after an alarm), and picks up anything it has not seen | the unit accesskey (Step 1) |
 | **Mannschaft** | KP Front reads the members out of Divera nightly and on demand, and derives each person's **Dienstgrad** from their Qualifikationen | the personnel accesskey + `roster.autoSync` (Step 5) |
 | **Rückmeldungen** | the same `/alarms` poll carries who answered «komme» / «komme nicht»; the Anwesenheit shows them as «Anrückend», yes / no only | nothing extra – the unit accesskey, plus the Mannschaft sync for the names ([Rückmeldungen](#rückmeldungen--anrückend-in-the-anwesenheit)) |
 
-The webhook is the one that matters: it arrives in seconds, the poll in up to 30 s (up to two
-minutes for an alarm that comes in while an Einsatz already runs). Run both – the poll is what covers the delivery that never arrived, and a station on
-the webhook alone is **not** reported as stale for it (Step 6).
+The webhook is the one that matters: it arrives in seconds, the poll within half a minute while
+no Einsatz runs (up to two minutes during one). Run both – the poll is what covers the delivery
+that never arrived, and a station on the webhook alone is **not** reported as stale for it
+(Step 6).
 
 ---
 
