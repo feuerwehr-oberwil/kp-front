@@ -19,7 +19,7 @@ This module is that logic in one place, used by the API and by the CLI:
 
 The fourth guard, «this write would EMPTY a populated section», is :func:`emptied_sections` in
 app/config_history — it lives there because the history list reads it too, and it is re-exported
-here so a write path needs one import. An HTTP caller is answered on
+here so a write path needs one import. A write path refuses on
 :func:`emptied_declared_sections` instead, which says why.
 """
 
@@ -119,11 +119,23 @@ def emptied_declared_sections(stored: dict[str, Any] | None, final: dict[str, An
     cannot put it back, and locking its configuration until somebody passes ``?force=true`` is
     not a proportionate answer to a downgrade.
 
-    The CLI's refusal needs no such filter and does not use this: it is about a FILE, and a file
-    somebody can read is a file somebody can edit.
+    ⚠️ Both levels, and the CLI too. The removal of the print relay (09.10.2026) retired ONE field,
+    ``report.reversePrintOrder``, and every stored document still carried it: the nightly demo
+    reset was refused two nights running — after its wipe, so the demo stood without its
+    Einsatzobjekt — and every save of the station settings answered 409, over a switch that no
+    longer exists. A file cannot put such a field back either (normalization strips it), so the
+    CLI's refusal is no more actionable for it than the API's.
     """
-    declared = set(DeploymentConfigIn.model_fields)
-    return [section for section in emptied_sections(stored, final) if section.split(".")[0] in declared]
+    declared = {name: _object_fields(f.annotation) for name, f in DeploymentConfigIn.model_fields.items()}
+
+    def known(section: str) -> bool:
+        key, _, sub = section.partition(".")
+        if key not in declared:
+            return False
+        subs = declared[key]
+        return not sub or subs is None or sub in subs
+
+    return [section for section in emptied_sections(stored, final) if known(section)]
 
 
 def _object_fields(annotation: Any) -> set[str] | None:
