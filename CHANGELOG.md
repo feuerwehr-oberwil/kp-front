@@ -49,7 +49,8 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   and SharePoint filing, a second app registration), `ROSTER_SNAPSHOT_SOURCE` /
   `ROSTER_SNAPSHOT_TOKEN` (roster snapshot), `ENTRA_LOGIN_TENANT_ID` / `_CLIENT_ID` /
   `_CLIENT_SECRET` / `_ACCOUNTS` («Mit Microsoft anmelden», a third app registration, see
-  `docs/microsoft-login.md`; `PUBLIC_URL` must match its redirect URI), and
+  `docs/microsoft-login.md`; `PUBLIC_URL` must match its redirect URI), `STATION_INDEX_SOURCE` /
+  `STATION_INDEX_TOKEN` («Stationsdaten-Index», see below), and
   `REFRESH_REUSE_GRACE_SECONDS` (default 60; `0` keeps refresh-token rotation strictly
   one-time). The integration credentials can also be set in `/admin › Anbindungen`; new config
   keys (`doctrine.entryPressureMin`, `doctrine.equipment`, `roster.snapshotIntervalMin`,
@@ -57,11 +58,20 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   defaults (docs/CONFIGURATION.md).
 - **New outbound requests.** The Gebäude card asks the federal GWR and BFE registers about the
   building at the Einsatzort (inside Switzerland only); set `map.buildingRegister: false` to turn
-  that off. The server now polls Divera itself (the devices no longer do).
+  that off. Every serving process fetches the MeteoSwiss precipitation radar every 5 min
+  (nationwide files, no coordinate sent) **on by default**; a station outside Switzerland or
+  without outbound access sets `WEATHER_LAYER_ENABLED=false`, and nothing is fetched or offered.
+  The server now polls Divera itself (the devices no longer do).
 - **Disk.** Plan tile pyramids are written to the data volume in the background after the update
   (about 10 MB for a dense A1 sheet; derived data, not in the backup). Replay snapshots are
   stored gzipped from now on (about 5× smaller); older ones stay as they are. The image is about
-  20 MB larger (hidden sourcemaps for reading field crash reports).
+  37 MB larger: hidden sourcemaps for reading field crash reports (about 20 MB) and `h5py` for
+  the radar (about 17 MB). The radar's frames are kept in memory only, never on disk.
+- **`docker-compose.yml` pulls `postgres` and `caddy` from AWS ECR Public**
+  (`public.ecr.aws/docker/library/postgres:16-alpine`, `…/caddy:2-alpine`, same digests) instead
+  of Docker Hub – the same official images, without Docker Hub's anonymous pull limit. Nothing to
+  migrate: `docker compose up -d` recreates the two containers once and the database stays on its
+  volume. A host whose outbound traffic goes through an allowlist needs `public.ecr.aws` on it.
 - **`/admin` needs a connection.** It is no longer in the offline precache.
 - **API.** Live writes into a closed Einsatz are refused with **409 `incident_closed`**;
   `/api/print/*`, `/api/print-jobs/*` and `/api/print-agent/*` are gone. A script of your own
@@ -92,7 +102,10 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   Verlauf row), and an older build can no longer delete the pages it does not know. «Drucken» on
   a page makes a PDF of it (or of all pages) in the same layout. Entries stack from the top and can
   be reordered by hand — drag the grip, or Alt+↑ / Alt+↓ — on screen and on paper, the same on
-  every device.
+  every device. Konzept and Rapport can be added more than once («Konzept», «Konzept 2» …; a
+  station marks its own pages with `repeatable: true`), «+ Seite» lists the page titles, PageUp /
+  PageDown switch pages when no field has focus, and on a phone a wide table scrolls sideways
+  instead of squeezing its columns.
 - **Atemschutznotfall for one Trupp.** Hold «Notfall» on a crew inside: every device turns that
   Trupp red at the top of the alarm strip with a running Notfall clock, its last place, last Druck
   with its age and Funkkanal, and «Sicherungstrupp einsetzen» as the first offer; tone, OS
@@ -103,7 +116,10 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   Sicherungstrupp action (on a tablet one slim row with the facts) – the crew's own card wears the
   same ⚠, and an opened card lands below the banner, never under it. «Raus» on a crew in a
   Notfall ends the Notfall too (one undo step restores both). A calm hint says when an
-  Atemschutz-Trupp goes in with no Sicherungstrupp ready. *No action needed.*
+  Atemschutz-Trupp goes in with no Sicherungstrupp ready. The Web Push leaves the moment the save
+  reaches the server, not on the next 30 s sweep (never for an Übung or the demo); a crew in a
+  Notfall cannot be taken off the board, and «Einsatz abschliessen» asks about a running Notfall
+  first – closing anyway writes «Notfall beim Abschluss nicht beendet». *No action needed.*
 - **Wetter on the Karte: MeteoSwiss precipitation radar.** Ebenen get a «Wetter» group with
   «Niederschlag (Radar)» (a device setting, off by default): the last hour of MeteoSwiss radar
   under every line and symbol, with a floating pill to step or play through it and a colour key in
@@ -394,6 +410,10 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   against the vehicles' GPS track. It reads the Railway app and HTTP logs, or a post-mortem's
   JSON dumps instead of a database, and it never writes. It exits 1 when it finds something, so
   a cron job can run it. *No action needed.*
+- **The landing page speaks Rumantsch Grischun** (`/rm/`), from a native speaker's translation;
+  the few strings it did not cover (the 404 page, the form, alt texts, one FAQ) are drafted in the
+  same vocabulary, and the visible notice stays until a Romansh-speaking firefighter has read it.
+  The app itself stays German, French, Italian and English.
 - **CI plays the Übung of 23.09.2026 on every pull request.** A new e2e scenario
   (`e2e/field-scenario.spec.ts`) parks a fake TLF next to an Übung, couples a Leitung to it on
   the Karte, drops a Trupp, lets the fleet report for 22 s and taps the Trupp – once on one
@@ -438,6 +458,16 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   while placing and a coupling dot at the joint afterwards, on the Karte and the plans. The
   Karte's Trupp marker shows the name only, like the Gebäude chip: the boxed Leitung number
   («Ein Etikett», 15.09.2026) is gone and the hose's own end tag carries the number again.
+- **Under the hood: the biggest files are split up, and CI no longer trips over Docker Hub.**
+  The four copy catalogues (5,700 to 7,900 lines each) are one module per surface now
+  (`src/config/copy/<locale>/<surface>.ts`), and `IncidentWorkspace.tsx` hands its surfaces,
+  the Verlauf's writers, the workspace blob, the Karte's gestures, the undo stacks and the media
+  outbox to shells and hooks in `src/workspace/` – moved test-first, without changing behaviour.
+  CI and the image build pull their base images from AWS ECR Public or through `mirror.gcr.io`
+  (the production compose file follows, see Upgrade notes), the «Visual» screenshot check is
+  required on `main` since 10.10.2026, CI fails on model ↔ migration drift (`alembic check`,
+  `just schema-check`), and the performance baseline carries the split's cold-start bytes.
+  *No action needed.*
 - **Files shared with KP Rück are checked from both sides.** `shared/MANIFEST.json` lists every
   file the two products share by copy (telemetry sanitiser, alarm vocabulary, roster contract and
   reader, alarm intake corpus, loading snail) with its owner and sha256, and replaces the hash
@@ -605,6 +635,10 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
     was cancelled, and iOS then cancelled the whole pan. It now decides once per touch from the
     travel since the finger went down, never blocks a touch that starts on the row, and still stops
     a drag past a list's edge from rubber-banding the page.
+- **The snail's entrance is no longer cut short in Safari on a fast start.** WebKit draws the
+  start cover's first frame late, and the 630 ms hold was counted from before it, so the app
+  could take over mid-skid. The hold now counts from the entrance's real start (at most 1 s
+  waiting for a frame).
 - **A Trupp's «fällig» and «überfällig» no longer ride on colour alone.** On the phone board
   the row said them only in amber and red, which is no answer in direct sun or to a colour-blind
   reader. Under the clock it now carries a glyph: a clock for «fällig», the warning triangle for
@@ -771,6 +805,8 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 - **urllib3 2.8.0** – CVE-2026-97687, -97688 and -97689 against 2.7.0.
 - **PyJWT 2.15.1**, and patched floors for `brace-expansion` and `fast-uri` (build tooling).
 - **multidict 6.9.1** and **source-map-js 1.2.2** (build tooling) – advisories of 06.10.2026.
+- **DOMPurify 3.4.16 or later**, pinned by override because it arrives through jsPDF –
+  GHSA-p98j-92pf-mc4p and GHSA-6688-9rhm-gjv2 (both low).
 - **Link tokens in request paths are redacted from the server log**, as credentials in query
   strings already were, and the crash-report sink has its own per-address limit with control
   characters escaped, so a client can no longer forge a second log record.
