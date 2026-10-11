@@ -4,8 +4,9 @@ Wipes all incident data (deleting ``incidents`` cascades to people/notes/media/e
 snapshots/vehicle_samples) and the roster, upserts the two fixed demo accounts with known
 PINs, and re-seeds the prepared demo scene: one **pre-filled running incident** (a Zimmerbrand
 at Schloss Musterdorf, already worked — tactical symbols + hose lines on the map, three
-Atemschutz Trupps, logged Mittel, crew marked present) plus one still-pending **incoming
-alarm** so the demo always shows both the live command picture and the one-tap-take flow.
+Atemschutz Trupps, logged Mittel, crew marked present) plus one closed Einsatz, so the demo
+shows both a live command picture and a finished record. No pending alarm (decision
+2026-07-20, see ``reset``).
 Reference config/geodata/objects are reloaded separately by the CLIs — see
 ``scripts/demo-reset.sh``.
 
@@ -190,13 +191,19 @@ def demo_display_name(first: str, last: str) -> str:
 
 # A pre-filled Verlauf (journal) so the demo lands with a worked incident's log instead of the
 # empty "Noch keine Ereignisse erfasst" state. Each is (minutes-before-now, text); seeded as
-# human `kind: 'journal'` TimelineEvents oldest-first. Times stay within the 14-min elapsed window.
+# human `kind: 'journal'` TimelineEvents oldest-first.
+#
+# ⚠️ It tells the SAME story as the rest of the seed, minute for minute: the alarm at
+# DEMO_ELAPSED_MIN, the TLF vor Ort at −25 (reportMeta.fahrzeuge), Trupp 1 (Müller, `loeschen`)
+# in at −14 and Trupp 2 (Schmid, `retten`) at −8. It was written for a 14-minute window and kept
+# when the window grew to 34, so for two months the Verlauf had the TLF arriving eleven minutes
+# before the Zeiten grid did, and each Trupp doing the other one's job.
 DEMO_JOURNAL = [
-    (14, "Alarmierung Zimmerbrand Schlossgasse 9, Ausrücken TLF und ADF."),
-    (13, "Eintreffen. Rauch aus Fenster 2. OG, Menschenrettung eingeleitet."),
-    (12, "Angriffstrupp 1 (Müller) zur Personenrettung 2. OG Nord eingesetzt."),
-    (10, "Wasserversorgung ab Hydrant Schlossgasse sichergestellt."),
-    (8, "Angriffstrupp 2 (Schmid) zur Brandbekämpfung 2. OG eingesetzt."),
+    (DEMO_ELAPSED_MIN, "Alarmierung Zimmerbrand Schlossgasse 9, Ausrücken TLF und ADF."),
+    (25, "Eintreffen TLF. Rauch aus Fenster 2. OG, eine Person vermisst."),
+    (18, "Wasserversorgung ab Hydrant Schlossgasse sichergestellt."),
+    (14, "Angriffstrupp 1 (Müller) zur Brandbekämpfung 2. OG eingesetzt."),
+    (8, "Trupp 2 (Schmid) zur Personenrettung 2. OG Nord eingesetzt."),
     (5, "1 Person gerettet und an Sanität übergeben."),
     (2, "Brand unter Kontrolle, Nachlöscharbeiten laufen."),
 ]
@@ -611,7 +618,7 @@ async def reset(wipe_objects: bool = True) -> None:
         await db.execute(delete(DiveraEmergency))
 
         # Station plan calibration — see DEMO_PLAN_SCALES. Written on the config singleton, which
-        # may not exist yet on a fresh instance (admin_config load creates it in the next step).
+        # may not exist yet on a fresh instance (demo-reset.sh's admin_config load creates it first).
         cfg = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
         if cfg is None:
             db.add(DeploymentConfig(id=1, plan_scales_json=DEMO_PLAN_SCALES))

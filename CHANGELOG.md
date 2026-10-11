@@ -549,6 +549,10 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 - **The demo reset can no longer leave the demo without its Einsatzobjekt.** It refused at the
   config step on 10. and 11.10. — after the wipe — so Schloss Musterdorf and its Modul 1 and 2/3
   were gone for two days. The config now loads before anything is wiped.
+- **The demo reset brings the Anleitungen and Tafel-Vorlagen too.** Only `load.sh` pushed them,
+  so the live demo still had July's two checklists — no Stromerzeuger, no Hebekissen. And the
+  demo's Verlauf now tells the same story as its Zeiten and Trupps (it had the TLF arriving
+  eleven minutes before the Zeiten grid did, and each Trupp on the other one's job).
 - **From the owner's iPhone, 10.10.2026:**
   - **The Passung's buttons keep glyph and words together.** When «Referenzpunkte setzen» wrapped
     onto two lines, its «+» sat at the button's far left edge; the glyph now rides on the first

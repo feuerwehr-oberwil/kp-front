@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Reset the DEMO deployment to a clean, known state. Wipes incident data + roster, re-ensures
-# the two demo accounts, and reloads the synthetic Musterdorf config/geodata/objects.
+# the two demo accounts, and reloads the synthetic Musterdorf config/geodata/objects/brandmark,
+# Checklisten/Anleitungen and Tafel-Vorlagen.
 #
 # Required env (the demo instance's values):
 #   DATABASE_URL      demo Postgres URL (the PUBLIC proxy URL when run off-box)
 #   SECRET_KEY        demo SECRET_KEY — MUST match the server's, or the PIN hashes this
 #                     writes won't verify (PINs are peppered with SECRET_KEY).
 #   KP_BASE_URL       demo app URL, e.g. https://kp-front-demo-production.up.railway.app
-#   KP_ADMIN_SECRET   demo ADMIN_SECRET (for admin_geodata/admin_objects push)
+#   KP_ADMIN_SECRET   demo ADMIN_SECRET (for the admin_* pushes)
 #
 # DEMO ONLY — demo_reset gates on KP_DEMO_RESET=1 so it can't hit a real station's DB.
 set -euo pipefail
@@ -93,16 +94,16 @@ retry() {
 # stood two days without its Einsatzobjekt — no Modul 1, no Modul 2/3. A refusal up here leaves
 # the demo exactly as it was. (The seed in step 2 writes only plan_scales_json, which this does
 # not touch, so the order is otherwise free.)
-echo "→ 1/5  reload deployment config"
+echo "→ 1/7  reload deployment config"
 uv run python -m app.admin_config load "$ROOT/examples/demo-data/config.json"
 
-echo "→ 2/5  wipe incidents + roster, re-ensure demo accounts"
+echo "→ 2/7  wipe incidents + roster, re-ensure demo accounts"
 KP_DEMO_RESET=1 uv run python -m app.demo_reset
 
-echo "→ 3/5  reload reference geodata (hydrants) via API push"
+echo "→ 3/7  reload reference geodata (hydrants) via API push"
 retry uv run python -m app.admin_geodata push "$ROOT/examples/demo-data/geodata.manifest.json"
 
-echo "→ 4/5  reload Einsatzobjekte via API push"
+echo "→ 4/7  reload Einsatzobjekte via API push"
 retry uv run python -m app.admin_objects push "$ROOT/examples/demo-data/objects.manifest.json"
 
 # AFTER admin_config load, never before: that step rewrites identity.assets wholesale, so a
@@ -112,8 +113,18 @@ retry uv run python -m app.admin_objects push "$ROOT/examples/demo-data/objects.
 # `logo` is the mark on the login screen and in the header. Only reportLogo was pushed here, so
 # the demo has been running without a brandmark on screen — and config.json deliberately names
 # NO asset URLs, because these two pushes are the only thing that creates the blobs behind them.
-echo "→ 5/5  reload the Brandmark (Login-Screen + Rapport-Briefkopf)"
+echo "→ 5/7  reload the Brandmark (Login-Screen + Rapport-Briefkopf)"
 retry uv run python -m app.admin_branding push logo "$ROOT/examples/demo-data/report-logo.png"
 retry uv run python -m app.admin_branding push reportLogo "$ROOT/examples/demo-data/report-logo.png"
+
+# The demo's Anleitungen and Tafel-Vorlagen. Never part of the reset until 11.10.2026 — only
+# load.sh had them — so the live demo was still on the two checklists it was given on 02.07.:
+# no Stromerzeuger, no Hebekissen. Both pushes PRUNE what the manifest no longer names, which is
+# what the demo wants: the manifest is the whole list.
+echo "→ 6/7  reload Checklisten + Anleitungen via API push"
+retry uv run python -m app.admin_checklists push "$ROOT/examples/demo-data/checklists.manifest.json"
+
+echo "→ 7/7  reload the Tafel-Vorlagen via API push"
+retry uv run python -m app.admin_board_templates push "$ROOT/examples/demo-data/tafel.manifest.json"
 
 echo "✓ Demo reset complete."
