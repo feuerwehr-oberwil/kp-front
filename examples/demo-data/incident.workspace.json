@@ -801,6 +801,964 @@
         ],
         "truppId": "trupp1"
       }
+    ],
+    "tafel": [
+      {
+        "id": "fm-demo-ef",
+        "kind": "form",
+        "form": {
+          "v": 1,
+          "tpl": {
+            "id": "fks-erste-fuehrung",
+            "version": 1,
+            "title": {
+              "de": "FKS – Erste Führung",
+              "fr": "CSSP – Première Conduite",
+              "it": "CSP – Prima coordinazione",
+              "en": "FKS – First command"
+            },
+            "source": "FKS Plakat «Erste Führung» A3 V 1.0/10.09.2019; FKS Handbuch Führung Grossereignisse 09/2022, Kap. 8 Hilfsmittel (8.1 Problemerfassung, 8.6 Mittel, 8.8 Verbindungen, 8.9 Konzept, 8.11 Rapport)"
+          },
+          "page": {
+            "id": "ef",
+            "title": {
+              "de": "Erste Führung",
+              "fr": "Première Conduite",
+              "it": "Prima coordinazione",
+              "en": "First command"
+            },
+            "paper": "portrait",
+            "columns": 2,
+            "header": false,
+            "sections": [
+              {
+                "id": "problem",
+                "type": "quad",
+                "title": {
+                  "de": "Problemerfassung",
+                  "fr": "Saisie du problème",
+                  "it": "Comprensione del problema",
+                  "en": "Problem assessment"
+                },
+                "height": 11,
+                "trend": true,
+                "tag": false,
+                "cells": [
+                  {
+                    "id": "front",
+                    "label": {
+                      "de": "Front",
+                      "fr": "Front",
+                      "it": "Fronte",
+                      "en": "Front"
+                    }
+                  },
+                  {
+                    "id": "ordnung",
+                    "label": {
+                      "de": "Ordnung",
+                      "fr": "Ordre",
+                      "it": "Ordine e sicurezza",
+                      "en": "Order"
+                    }
+                  },
+                  {
+                    "id": "sanitaet",
+                    "label": {
+                      "de": "Sanität",
+                      "fr": "Service sanitaire",
+                      "it": "Servizio sanitario",
+                      "en": "Medical"
+                    }
+                  },
+                  {
+                    "id": "spezial",
+                    "label": {
+                      "de": "Spezialprobleme",
+                      "fr": "Problèmes spéciaux",
+                      "it": "Problemi speciali",
+                      "en": "Special problems"
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "lagekarte",
+                "type": "map",
+                "title": {
+                  "de": "Lagekarte",
+                  "fr": "Carte de situation",
+                  "it": "Schizzo/carta della situazione",
+                  "en": "Situation map"
+                },
+                "height": 11
+              },
+              {
+                "id": "massnahmen",
+                "type": "table",
+                "title": {
+                  "de": "Massnahmen",
+                  "fr": "Mesures",
+                  "it": "Misure",
+                  "en": "Measures"
+                },
+                "height": 11,
+                "done": false,
+                "columns": [
+                  {
+                    "id": "was",
+                    "label": {
+                      "de": "Was/Wo",
+                      "fr": "Quoi/Où",
+                      "it": "Cosa/Dove",
+                      "en": "What/Where"
+                    },
+                    "w": 4.2
+                  },
+                  {
+                    "id": "wer",
+                    "label": {
+                      "de": "Wer",
+                      "fr": "Qui",
+                      "it": "Chi",
+                      "en": "Who"
+                    },
+                    "w": 1.75
+                  },
+                  {
+                    "id": "wann",
+                    "label": {
+                      "de": "Wann",
+                      "fr": "Quand",
+                      "it": "Quando",
+                      "en": "When"
+                    },
+                    "type": "time",
+                    "w": 1
+                  }
+                ]
+              },
+              {
+                "id": "mittel",
+                "type": "table",
+                "title": {
+                  "de": "Mittel",
+                  "fr": "Moyens",
+                  "it": "Mezzi",
+                  "en": "Resources"
+                },
+                "height": 11,
+                "seed": "vehicles",
+                "columns": [
+                  {
+                    "id": "formation",
+                    "label": {
+                      "de": "Formation",
+                      "fr": "Formation",
+                      "it": "Formazione",
+                      "en": "Unit"
+                    },
+                    "w": 2
+                  },
+                  {
+                    "id": "pers",
+                    "label": {
+                      "de": "Pers./Mittel",
+                      "fr": "Pers./Moyens",
+                      "it": "Pers./Mezzi",
+                      "en": "Staff/Equipment"
+                    },
+                    "w": 2
+                  },
+                  {
+                    "id": "auftrag",
+                    "label": {
+                      "de": "Auftrag/Wo",
+                      "fr": "Mission/Où",
+                      "it": "Missione/Dove",
+                      "en": "Task/Where"
+                    },
+                    "w": 2
+                  },
+                  {
+                    "id": "wann",
+                    "label": {
+                      "de": "Wann",
+                      "fr": "Quand",
+                      "it": "Quando",
+                      "en": "When"
+                    },
+                    "type": "time",
+                    "w": 1
+                  }
+                ]
+              },
+              {
+                "id": "verbindungen",
+                "type": "table",
+                "title": {
+                  "de": "Verbindungen",
+                  "fr": "Liaisons",
+                  "it": "Collegamenti",
+                  "en": "Communications"
+                },
+                "height": 12,
+                "columns": [
+                  {
+                    "id": "funktion",
+                    "label": {
+                      "de": "Funktion/Standort/Name",
+                      "fr": "Fonction/Site/Nom",
+                      "it": "Funzione/Luogo/Nome",
+                      "en": "Role/Location/Name"
+                    },
+                    "w": 3.3
+                  },
+                  {
+                    "id": "kanal",
+                    "label": {
+                      "de": "Kanal",
+                      "fr": "Canal",
+                      "it": "Canale",
+                      "en": "Channel"
+                    },
+                    "w": 0.9
+                  },
+                  {
+                    "id": "ruf",
+                    "label": {
+                      "de": "Rufname/Tel.-Nr.",
+                      "fr": "Nom d’appel/N° de tél.",
+                      "it": "Nome d'appello/Tel.",
+                      "en": "Call sign/Phone"
+                    },
+                    "w": 2.15
+                  },
+                  {
+                    "id": "wann",
+                    "label": {
+                      "de": "Wann",
+                      "fr": "Quand",
+                      "it": "Quando",
+                      "en": "When"
+                    },
+                    "type": "time",
+                    "w": 1
+                  }
+                ]
+              },
+              {
+                "id": "absprachen",
+                "type": "table",
+                "title": {
+                  "de": "Abspracherapport",
+                  "fr": "Accord",
+                  "it": "Rapporto di coordinazione",
+                  "en": "Coordination briefing"
+                },
+                "subtitle": {
+                  "de": "Feuerwehr – Polizei – Rettungsdienst",
+                  "fr": "Sapeurs-pompiers – police – secours",
+                  "it": "Pompieri – polizia – ambulanze",
+                  "en": "Fire service – police – ambulance"
+                },
+                "height": 12,
+                "addRows": true,
+                "columns": [
+                  {
+                    "id": "sig",
+                    "label": {
+                      "de": "Signatur",
+                      "fr": "Signature",
+                      "it": "Simbolo",
+                      "en": "Symbol"
+                    },
+                    "type": "symbol",
+                    "fixed": true,
+                    "w": 1.55
+                  },
+                  {
+                    "id": "bez",
+                    "label": {
+                      "de": "Bezeichnung",
+                      "fr": "Désignation",
+                      "it": "Designazione",
+                      "en": "Designation"
+                    },
+                    "fixed": true,
+                    "w": 1.5
+                  },
+                  {
+                    "id": "ort",
+                    "label": {
+                      "de": "Ort",
+                      "fr": "Lieu",
+                      "it": "Luogo",
+                      "en": "Location"
+                    },
+                    "w": 2.4
+                  }
+                ],
+                "fixedRows": [
+                  {
+                    "id": "patientensammelstelle",
+                    "cells": {
+                      "sig": "patientensammelstelle",
+                      "bez": {
+                        "de": "Patienten­sammelstelle",
+                        "fr": "Poste collecteur de patients",
+                        "it": "Nido feriti",
+                        "en": "Casualty collection point"
+                      }
+                    }
+                  },
+                  {
+                    "id": "sanitaetshilfsstelle",
+                    "cells": {
+                      "sig": "sanitaetshilfsstelle",
+                      "bez": {
+                        "de": "Sanitäts­hilfsstelle",
+                        "fr": "Poste médical avancé",
+                        "it": "Posto di soccorso sanitario",
+                        "en": "Advanced medical post"
+                      }
+                    }
+                  },
+                  {
+                    "id": "rettungsachse",
+                    "cells": {
+                      "sig": "rettungsachse",
+                      "bez": {
+                        "de": "Rettungs­achse",
+                        "fr": "Axe de sauvetage",
+                        "it": "Asse del salvataggio",
+                        "en": "Rescue route"
+                      }
+                    }
+                  },
+                  {
+                    "id": "standort-einsatzleitung",
+                    "cells": {
+                      "sig": "standort-einsatzleitung",
+                      "bez": {
+                        "de": "Standort Einsatz­leitung",
+                        "fr": "Poste de commandement",
+                        "it": "Posto della direzione dell’intervento",
+                        "en": "Incident command post"
+                      }
+                    }
+                  },
+                  {
+                    "id": "sammelstelle-unverletzte",
+                    "cells": {
+                      "sig": "sammelstelle-unverletzte",
+                      "bez": {
+                        "de": "Sammel­stelle Un­verletzte",
+                        "fr": "Poste collecteur de personnes non blessées",
+                        "it": "Posto collettore dei non feriti",
+                        "en": "Uninjured collection point"
+                      }
+                    }
+                  },
+                  {
+                    "id": "warteraum",
+                    "cells": {
+                      "sig": "warteraum",
+                      "bez": {
+                        "de": "Warteraum",
+                        "fr": "Zone d’attente",
+                        "it": "Piazza d’attesa",
+                        "en": "Staging area"
+                      }
+                    }
+                  },
+                  {
+                    "id": "wasserbezug",
+                    "hidden": true,
+                    "cells": {
+                      "sig": "wasserbezug",
+                      "bez": {
+                        "de": "Wasserbezug",
+                        "fr": "Prise d’eau",
+                        "it": "Presa d’acqua",
+                        "en": "Water supply"
+                      }
+                    }
+                  },
+                  {
+                    "id": "absperrung",
+                    "hidden": true,
+                    "cells": {
+                      "sig": "absperrung",
+                      "bez": {
+                        "de": "Absperrung",
+                        "fr": "Bouclage",
+                        "it": "Sbarramento",
+                        "en": "Cordon"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "at": "2026-10-11T15:25:00Z",
+          "values": {
+            "problem": {
+              "lines": {
+                "front": [
+                  {
+                    "id": "fl-demo-front-1",
+                    "text": "Zimmerbrand 2. OG",
+                    "trend": "down",
+                    "ord": "L"
+                  },
+                  {
+                    "id": "fl-demo-front-2",
+                    "text": "Rauch im Treppenhaus",
+                    "trend": "same",
+                    "ord": "f"
+                  }
+                ],
+                "ordnung": [
+                  {
+                    "id": "fl-demo-ordnung-1",
+                    "text": "Verkehr Schlossgasse",
+                    "trend": "same",
+                    "ord": "L"
+                  },
+                  {
+                    "id": "fl-demo-ordnung-2",
+                    "text": "Schaulustige Schlossplatz",
+                    "trend": "up",
+                    "ord": "f"
+                  }
+                ],
+                "sanitaet": [
+                  {
+                    "id": "fl-demo-sanitaet-1",
+                    "text": "1 Person gerettet, Rauchgas",
+                    "trend": "same",
+                    "ord": "L"
+                  },
+                  {
+                    "id": "fl-demo-sanitaet-2",
+                    "text": "Vermisste 2. OG Nord?",
+                    "trend": "same",
+                    "ord": "f"
+                  }
+                ],
+                "spezial": [
+                  {
+                    "id": "fl-demo-spezial-1",
+                    "text": "PV-Anlage Dach unter Spannung",
+                    "trend": "same",
+                    "ord": "L"
+                  },
+                  {
+                    "id": "fl-demo-spezial-2",
+                    "text": "Kulturgut, Wasserschaden",
+                    "trend": "up",
+                    "ord": "f"
+                  }
+                ]
+              }
+            },
+            "massnahmen": {
+              "rows": [
+                {
+                  "id": "fr-demo-massn-1",
+                  "cells": {
+                    "was": "WV ab Hydrant Schlossgasse",
+                    "wer": "Masch. Graf",
+                    "wann": "17:31"
+                  },
+                  "ord": "6"
+                },
+                {
+                  "id": "fr-demo-massn-2",
+                  "cells": {
+                    "was": "Brandbekämpfung 2. OG, Ltg 1",
+                    "wer": "Trupp Müller",
+                    "wann": "17:35"
+                  },
+                  "ord": "C"
+                },
+                {
+                  "id": "fr-demo-massn-3",
+                  "cells": {
+                    "was": "Sicherheitstrupp bereit",
+                    "wer": "Trupp Weber",
+                    "wann": "17:37"
+                  },
+                  "ord": "J"
+                },
+                {
+                  "id": "fr-demo-massn-4",
+                  "cells": {
+                    "was": "Absperrung Schlossgasse",
+                    "wer": "Polizei",
+                    "wann": "17:37"
+                  },
+                  "ord": "P"
+                },
+                {
+                  "id": "fr-demo-massn-5",
+                  "cells": {
+                    "was": "EW: PV-Anlage freischalten",
+                    "wer": "EL",
+                    "wann": "17:38"
+                  },
+                  "ord": "V"
+                },
+                {
+                  "id": "fr-demo-massn-6",
+                  "cells": {
+                    "was": "Personenrettung 2. OG Nord",
+                    "wer": "Trupp Schmid",
+                    "wann": "17:41"
+                  },
+                  "ord": "b"
+                },
+                {
+                  "id": "fr-demo-massn-7",
+                  "cells": {
+                    "was": "Patient an RD übergeben",
+                    "wer": "Sanität",
+                    "wann": "17:44"
+                  },
+                  "ord": "h"
+                },
+                {
+                  "id": "fr-demo-massn-8",
+                  "cells": {
+                    "was": "Überdrucklüftung Treppenhaus",
+                    "wer": "TLF",
+                    "wann": "17:45"
+                  },
+                  "ord": "o"
+                },
+                {
+                  "id": "fr-demo-massn-9",
+                  "cells": {
+                    "was": "Nachlöschen, Wärmebildkamera",
+                    "wer": "Trupp Müller",
+                    "wann": "17:47"
+                  },
+                  "ord": "u"
+                }
+              ]
+            },
+            "mittel": {
+              "rows": [
+                {
+                  "id": "fr-demo-mittel-1",
+                  "cells": {
+                    "formation": "TLF",
+                    "pers": "1+7",
+                    "auftrag": "Brandbekämpfung, WV",
+                    "wann": "17:24"
+                  },
+                  "ord": "A"
+                },
+                {
+                  "id": "fr-demo-mittel-2",
+                  "cells": {
+                    "formation": "ADF",
+                    "pers": "1+5",
+                    "auftrag": "Atemschutz, Rettung",
+                    "wann": "17:25"
+                  },
+                  "ord": "L"
+                },
+                {
+                  "id": "fr-demo-mittel-3",
+                  "cells": {
+                    "formation": "MTF",
+                    "pers": "1+4",
+                    "auftrag": "Verkehrsdienst (unterwegs)"
+                  },
+                  "ord": "V"
+                },
+                {
+                  "id": "fr-demo-mittel-4",
+                  "cells": {
+                    "formation": "Polizei",
+                    "pers": "1 Patrouille",
+                    "auftrag": "Absperrung",
+                    "wann": "17:36"
+                  },
+                  "ord": "f"
+                },
+                {
+                  "id": "fr-demo-mittel-5",
+                  "cells": {
+                    "formation": "Rettungsdienst",
+                    "pers": "1 RTW",
+                    "auftrag": "Patient, Schlossplatz",
+                    "wann": "17:43"
+                  },
+                  "ord": "q"
+                }
+              ]
+            },
+            "verbindungen": {
+              "rows": [
+                {
+                  "id": "fr-demo-verb-1",
+                  "cells": {
+                    "funktion": "EL Widmer, beim TLF",
+                    "kanal": "11",
+                    "ruf": "EL Musterdorf",
+                    "wann": "17:24"
+                  },
+                  "ord": "9"
+                },
+                {
+                  "id": "fr-demo-verb-2",
+                  "cells": {
+                    "funktion": "Einsatzzentrale",
+                    "kanal": "Tel.",
+                    "ruf": "Zentrale",
+                    "wann": "17:24"
+                  },
+                  "ord": "I"
+                },
+                {
+                  "id": "fr-demo-verb-3",
+                  "cells": {
+                    "funktion": "AS-Trupps Müller, Schmid, Weber",
+                    "kanal": "11",
+                    "ruf": "Trupp 1–3",
+                    "wann": "17:35"
+                  },
+                  "ord": "R"
+                },
+                {
+                  "id": "fr-demo-verb-4",
+                  "cells": {
+                    "funktion": "Polizei, Schlossgasse",
+                    "kanal": "–",
+                    "ruf": "direkt am KP",
+                    "wann": "17:36"
+                  },
+                  "ord": "Z"
+                },
+                {
+                  "id": "fr-demo-verb-5",
+                  "cells": {
+                    "funktion": "EW-Pikett",
+                    "kanal": "Tel.",
+                    "ruf": "via Zentrale",
+                    "wann": "17:38"
+                  },
+                  "ord": "i"
+                },
+                {
+                  "id": "fr-demo-verb-6",
+                  "cells": {
+                    "funktion": "Rettungsdienst, Schlossplatz",
+                    "kanal": "–",
+                    "ruf": "direkt",
+                    "wann": "17:43"
+                  },
+                  "ord": "r"
+                }
+              ]
+            },
+            "absprachen": {
+              "rows": [
+                {
+                  "id": "patientensammelstelle",
+                  "cells": {
+                    "ort": "Schlossplatz, beim Brunnen"
+                  }
+                },
+                {
+                  "id": "rettungsachse",
+                  "cells": {
+                    "ort": "Schlossgasse von Süden"
+                  }
+                },
+                {
+                  "id": "standort-einsatzleitung",
+                  "cells": {
+                    "ort": "Schlossgasse 7, beim TLF"
+                  }
+                },
+                {
+                  "id": "sammelstelle-unverletzte",
+                  "cells": {
+                    "ort": "Schlosspark, Eingang Ost"
+                  }
+                },
+                {
+                  "id": "warteraum",
+                  "cells": {
+                    "ort": "Parkplatz Gemeindehaus"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "fm-demo-rapport",
+        "kind": "form",
+        "form": {
+          "v": 1,
+          "tpl": {
+            "id": "fks-erste-fuehrung",
+            "version": 1,
+            "title": {
+              "de": "FKS – Erste Führung",
+              "fr": "CSSP – Première Conduite",
+              "it": "CSP – Prima coordinazione",
+              "en": "FKS – First command"
+            },
+            "source": "FKS Plakat «Erste Führung» A3 V 1.0/10.09.2019; FKS Handbuch Führung Grossereignisse 09/2022, Kap. 8 Hilfsmittel (8.1 Problemerfassung, 8.6 Mittel, 8.8 Verbindungen, 8.9 Konzept, 8.11 Rapport)"
+          },
+          "page": {
+            "id": "rapport",
+            "repeatable": true,
+            "title": {
+              "de": "Rapport",
+              "fr": "Rapport",
+              "it": "Rapporto",
+              "en": "Briefing"
+            },
+            "paper": "portrait",
+            "columns": 1,
+            "sections": [
+              {
+                "id": "traktanden",
+                "type": "table",
+                "height": 16,
+                "addRows": false,
+                "columns": [
+                  {
+                    "id": "nr",
+                    "label": "",
+                    "type": "index",
+                    "fixed": true,
+                    "w": 0.5
+                  },
+                  {
+                    "id": "traktandum",
+                    "label": {
+                      "de": "Traktanden",
+                      "fr": "Points de l’ordre du jour",
+                      "it": "Punti all’ordine del giorno/trattande",
+                      "en": "Agenda"
+                    },
+                    "fixed": true,
+                    "w": 4
+                  },
+                  {
+                    "id": "wer",
+                    "label": {
+                      "de": "Wer",
+                      "fr": "Qui",
+                      "it": "Chi",
+                      "en": "Who"
+                    },
+                    "w": 2
+                  }
+                ],
+                "fixedRows": [
+                  {
+                    "id": "eroeffnung",
+                    "cells": {
+                      "nr": "1",
+                      "traktandum": {
+                        "de": "Rapporteröffnung und Rapportziel",
+                        "fr": "Ouverture du rapport et objectif du rapport",
+                        "it": "Apertura del rapporto e obiettivi del rapporto",
+                        "en": "Opening and aim of the briefing"
+                      }
+                    }
+                  },
+                  {
+                    "id": "gesamtlage",
+                    "cells": {
+                      "nr": "2",
+                      "traktandum": {
+                        "de": "Orientierung Gesamtlage",
+                        "fr": "Information situation générale",
+                        "it": "Orientazione sulla situazione generale",
+                        "en": "Overall situation"
+                      }
+                    }
+                  },
+                  {
+                    "id": "abschnitte",
+                    "cells": {
+                      "nr": "3",
+                      "traktandum": {
+                        "de": "Orientierung der Abschnitte",
+                        "fr": "Information des différents secteurs",
+                        "it": "Orientazione sui settori",
+                        "en": "Sectors"
+                      }
+                    }
+                  },
+                  {
+                    "id": "fachbereiche",
+                    "cells": {
+                      "nr": "4",
+                      "traktandum": {
+                        "de": "Orientierung der Fachbereiche",
+                        "fr": "Information des différents services",
+                        "it": "Orientazione sugli ambiti di competenza",
+                        "en": "Specialist areas"
+                      }
+                    }
+                  },
+                  {
+                    "id": "problemerfassung",
+                    "cells": {
+                      "nr": "5",
+                      "traktandum": {
+                        "de": "Problemerfassung anpassen",
+                        "fr": "Adapter l’appréhension du problème",
+                        "it": "Comprensione del problema",
+                        "en": "Update the problem assessment"
+                      }
+                    }
+                  },
+                  {
+                    "id": "antraege",
+                    "cells": {
+                      "nr": "6",
+                      "traktandum": {
+                        "de": "Anträge und Entscheide",
+                        "fr": "Propositions et décisions",
+                        "it": "Proposte e decisioni",
+                        "en": "Proposals and decisions"
+                      }
+                    }
+                  },
+                  {
+                    "id": "umfrage",
+                    "cells": {
+                      "nr": "7",
+                      "traktandum": {
+                        "de": "Umfrage",
+                        "fr": "Questions",
+                        "it": "Domande",
+                        "en": "Round of questions"
+                      }
+                    }
+                  },
+                  {
+                    "id": "naechster",
+                    "cells": {
+                      "nr": "8",
+                      "traktandum": {
+                        "de": "Nächster Rapport",
+                        "fr": "Rapport suivant",
+                        "it": "Prossimo rapporto",
+                        "en": "Next briefing"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "naechster-rapport",
+                "type": "text",
+                "height": 3,
+                "layout": "row",
+                "fields": [
+                  {
+                    "id": "datum",
+                    "label": {
+                      "de": "Datum",
+                      "fr": "Date",
+                      "it": "Data",
+                      "en": "Date"
+                    },
+                    "tone": "shade"
+                  },
+                  {
+                    "id": "zeit",
+                    "label": {
+                      "de": "Zeit",
+                      "fr": "Heure",
+                      "it": "Ora",
+                      "en": "Time"
+                    },
+                    "tone": "shade",
+                    "type": "time"
+                  }
+                ]
+              }
+            ]
+          },
+          "at": "2026-10-11T15:46:00Z",
+          "values": {
+            "traktanden": {
+              "rows": [
+                {
+                  "id": "eroeffnung",
+                  "cells": {
+                    "wer": "EL"
+                  }
+                },
+                {
+                  "id": "gesamtlage",
+                  "cells": {
+                    "wer": "EL"
+                  }
+                },
+                {
+                  "id": "abschnitte",
+                  "cells": {
+                    "wer": "Müller, Schmid"
+                  }
+                },
+                {
+                  "id": "fachbereiche",
+                  "cells": {
+                    "wer": "Polizei, RD, Masch."
+                  }
+                },
+                {
+                  "id": "problemerfassung",
+                  "cells": {
+                    "wer": "EL"
+                  }
+                },
+                {
+                  "id": "antraege",
+                  "cells": {
+                    "wer": "alle"
+                  }
+                },
+                {
+                  "id": "umfrage",
+                  "cells": {
+                    "wer": "alle"
+                  }
+                },
+                {
+                  "id": "naechster",
+                  "cells": {
+                    "wer": "EL"
+                  }
+                }
+              ]
+            },
+            "naechster-rapport": {
+              "fields": {
+                "datum": "11.10.2026",
+                "zeit": "18:00"
+              }
+            }
+          }
+        }
+      }
     ]
   },
   "layerState": [

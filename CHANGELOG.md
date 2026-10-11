@@ -525,6 +525,9 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 - A device still on the previous build keeps writing its own «vor Ort» rows and weather
   events; the server acknowledges and drops them, so a mixed-version day converges on the
   server's record.
+- **The demo's Tafel is filled in.** The running Zimmerbrand opens with an «Erste Führung»
+  (Problemerfassung, Massnahmen, Mittel, Verbindungen, Abspracherapport) and a «Rapport» page,
+  telling the same story as its Verlauf; every «Wann» is re-stamped at each reset.
 
 ### Removed
 
