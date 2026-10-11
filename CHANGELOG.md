@@ -421,6 +421,11 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   pixels per state against `e2e/visual/baseline/`; the job summary names the states, the diffs are
   an artifact. `just visual` runs it locally, `just visual-accept <run-id>` takes CI's pictures as
   the new baselines (docs/testing/visual-regression.md).
+- **The demo shows the Objektbesuche.** The module is switched on (no SharePoint destination),
+  with a demo checklist «Objektbesuch Schlüsseldepot & BMA» and a round «Schlüsseldepots Dorfkern»
+  scheduled for today: Schloss Musterdorf already visited – one Mangel, one Korrekturvorschlag,
+  a report to open – and Gewerbestrasse 4 still open. Both resets seed it; the scripted one after
+  its object push (`app.demo_object_visits`).
 
 ### Changed
 
@@ -525,6 +530,14 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 - A device still on the previous build keeps writing its own «vor Ort» rows and weather
   events; the server acknowledges and drops them, so a mixed-version day converges on the
   server's record.
+- **The demo Einsatz shows the newer surfaces filled in**: a Verlauf with Aufträge, a
+  Sofortmassnahme, one open and one closed Pendenz and checklist milestones; Ausrüstung on the
+  Atemschutz-Trupps and a Verkehrsdienst ohne Atemschutz; a part-worked «Aufgaben FU»; a planned
+  Brandwache in Zeitplan and Schichten; «Lehren» on the closed BMA; and Rapport-Links plus a
+  map link in the demo config.
+- **The demo's Tafel is filled in.** The running Zimmerbrand opens with an «Erste Führung»
+  (Problemerfassung, Massnahmen, Mittel, Verbindungen, Abspracherapport) and a «Rapport» page,
+  telling the same story as its Verlauf; every «Wann» is re-stamped at each reset.
 
 ### Removed
 

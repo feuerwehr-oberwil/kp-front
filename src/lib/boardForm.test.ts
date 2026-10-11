@@ -219,3 +219,30 @@ describe('repeatable pages (owner, 10.10. evening: «multiple concepts»)', () =
     expect(pageTitles([a, gone, c]).get(c.id)).toBe('Konzept 2')
   })
 })
+
+// The demo's Tafel opens with pages on it (backend demo_reset · DEMO_TAFEL_MINUTES): a page the
+// gate turns into a passenger would ride along unseen, and the demo would open on an empty strip.
+describe('the demo scene’s Tafel pages', () => {
+  it('pass the gate as drawable pages, Erste Führung first, every table row in a column it has', async () => {
+    const { readFileSync } = await import('node:fs')
+    const scene = JSON.parse(readFileSync('examples/demo-data/incident.workspace.json', 'utf-8'))
+    const { ws, dropped } = sanitizeWorkspace(scene)
+    expect(dropped).toBe(0)
+    const annos = ws!.board!.tafel
+    const pages = findForms(annos)
+    expect(pages.map((a) => a.form.page.id)).toEqual(['ef', 'rapport'])
+    expect([...pageTitles(annos).values()]).toEqual(['Erste Führung', 'Rapport'])
+    for (const { form } of pages) {
+      expect(formHasContent(form)).toBe(true)
+      for (const s of form.page.sections) {
+        if (s.type !== 'table') continue
+        const ids = new Set(s.columns.map((c) => c.id))
+        for (const r of tableRows(form, s)) expect(Object.keys(r.cells).every((k) => ids.has(k))).toBe(true)
+      }
+    }
+    // the Massnahmen stack in the order they were written, the oldest on top
+    const massn = tableRows(pages[0].form, pages[0].form.page.sections.find((s) => s.id === 'massnahmen') as TableSection)
+    expect(massn[0].cells.was).toMatch(/^WV ab Hydrant/)
+    expect(massn[massn.length - 1].cells.was).toMatch(/^Nachlöschen/)
+  })
+})

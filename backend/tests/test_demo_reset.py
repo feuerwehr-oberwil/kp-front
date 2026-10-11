@@ -29,13 +29,15 @@ def _ws():
 
 def test_adds_live_collections():
     ws = _ws()
-    assert len(ws["trupps"]) == 3
+    assert len(ws["trupps"]) == 4
     assert len(ws["mittel"]) == 5
-    # two in the field (aktiv), one Sicherheitstrupp angemeldet with no clock running
-    assert [t["status"] for t in ws["trupps"]] == ["aktiv", "aktiv", "angemeldet"]
+    # two in the field (aktiv), one Sicherheitstrupp angemeldet with no clock running, and the
+    # Verkehrsdienst (ohne Atemschutz) at work
+    assert [t["status"] for t in ws["trupps"]] == ["aktiv", "aktiv", "angemeldet", "aktiv"]
     assert ws["trupps"][2]["entryTime"] == "" and ws["trupps"][2]["lastContactTime"] == ""
-    # every Trupp is 3 people: a leader (name) + two members
-    assert all(len(t["members"]) == 2 for t in ws["trupps"])
+    # every Atemschutz-Trupp is 3 people: a leader (name) + two members
+    pa = [t for t in ws["trupps"] if t.get("kind", "atemschutz") == "atemschutz"]
+    assert len(pa) == 3 and all(len(t["members"]) == 2 for t in pa)
 
 
 def test_trupp_members_carry_roster_ids():
@@ -471,3 +473,141 @@ def test_every_trupp_points_at_something_that_exists():
     # the same confusion from the other end.
     claimed = {t.get("lineNo") for t in ws["trupps"]}
     assert drawn_numbers <= claimed, f"drawn but unclaimed Leitungen: {drawn_numbers - claimed}"
+
+
+def _full_ws():
+    """The builder over the shipped scene and the whole present crew — what reset() seeds."""
+    scene = json.loads((Path(__file__).resolve().parents[2] / "examples/demo-data/incident.workspace.json").read_text())
+    present = [(f"pid-{i}", n) for i, n in enumerate(sorted(dr.DEMO_PRESENT))]
+    return build_demo_workspace(scene, present, NOW), {name: pid for pid, name in present}
+
+
+def _at(iso: str) -> datetime:
+    return datetime.fromisoformat(iso.replace("Z", "+00:00"))
+
+
+def test_the_trupps_carry_the_numbers_the_verlauf_names():
+    """The load normaliser numbers an unnumbered Trupp by its first reading, and the angemeldet
+    Sicherheitstrupp has none — so it became «Trupp 1» while the Verlauf says «Trupp 1
+    (Müller)» and «Trupp 2 (Schmid)». The seed numbers them itself, in registration order."""
+    ws, _ = _full_ws()
+    assert [(t["no"], t["name"]) for t in ws["trupps"]] == [
+        (1, dr.demo_display_name("Hans", "Müller")),
+        (2, dr.demo_display_name("Peter", "Schmid")),
+        (3, dr.demo_display_name("Marco", "Weber")),
+        (4, dr.demo_display_name("Reto", "Bachmann")),
+    ]
+    rows = dr.demo_journal_rows(NOW)
+    assert any("Trupp 1 (Müller)" in r["text"] for r in rows)
+    assert any("Trupp 2 (Schmid)" in r["text"] for r in rows)
+
+
+def test_the_plain_trupp_is_a_work_squad_without_a_cylinder():
+    """A Trupp ohne Atemschutz carries no Eingangsdruck and no `registered` reading — a
+    measurement nobody took would otherwise open its record (useTruppActions · createTrupp)."""
+    ws, by_name = _full_ws()
+    plain = [t for t in ws["trupps"] if t.get("kind") == "einfach"]
+    assert len(plain) == 1
+    t = plain[0]
+    assert t["auftrag"] == "verkehr"
+    assert t["entryPressureBar"] == 0
+    assert {r["kind"] for r in t["readings"]} == {"crew", "entry"}
+    assert all(r["bar"] == 0 for r in t["readings"])
+    assert t["leaderPersonId"] == by_name[dr.demo_display_name("Reto", "Bachmann")]
+    assert t["memberPersonIds"] == [by_name[dr.demo_display_name("Fabienne", "Steiner")]]
+    # …and no equipment on a crew that carries none in
+    assert "equipment" not in t
+
+
+def test_the_trupp_equipment_is_on_the_shipped_list():
+    """`Trupp.equipment` holds ids off the station's list; the demo config sets none, so it is the
+    shipped default (src/config/appConfig.ts · atemschutz.equipment). An unknown id prints raw."""
+    cfg = json.loads((Path(__file__).resolve().parents[2] / "examples/demo-data/config.json").read_text())
+    assert not cfg.get("doctrine", {}).get("equipment"), "a station list would replace the default"
+    ws, _ = _full_ws()
+    pa = [t for t in ws["trupps"] if t.get("kind", "atemschutz") == "atemschutz"]
+    assert all(t.get("equipment") for t in pa)
+    assert {e for t in pa for e in t["equipment"]} <= {"retthaube", "wbk", "multiwarn"}
+
+
+def test_the_verlauf_stays_inside_the_incident_and_in_order():
+    rows = dr.demo_journal_rows(NOW)
+    started = NOW - timedelta(minutes=dr.DEMO_ELAPSED_MIN)
+    stamps = [_at(r["at"]) for r in rows]
+    assert stamps == sorted(stamps), "the Verlauf is seeded oldest first"
+    assert all(started <= t <= NOW for t in stamps)
+    assert len({r["id"] for r in rows}) == len(rows)
+
+
+def test_the_verlauf_shows_every_art_and_both_pendenz_states():
+    """The Art discs and the Verlauf filter have one word per kind of row (lib/journalFilter);
+    a demo of plain rows only showed «Manuell». Typed rows carry their tag IN the text, the way
+    the composer writes them (lib/journalEntry · composeJournalText)."""
+    rows = dr.demo_journal_rows(NOW)
+    types = {r.get("entryType") for r in rows}
+    assert {"auftrag", "sofort"} <= types
+    for r in rows:
+        if r.get("entryType"):
+            assert r["text"].startswith(dr._ENTRY_TYPE_TAG[r["entryType"]] + " · ")
+
+    created = {r["reminder"]["id"]: r for r in rows if r.get("reminder", {}).get("op") == "created"}
+    done = {r["reminder"]["id"]: r for r in rows if r.get("reminder", {}).get("op") == "done"}
+    assert done and set(done) < set(created), "one Pendenz ticked off, at least one still open"
+    for pid, row in done.items():
+        assert _at(row["at"]) > _at(created[pid]["at"])
+        assert row["text"] == dr._PENDENZ_DONE.format(text=created[pid]["reminder"]["text"])
+        assert row["kind"] == "reminder"
+    # a Pendenz never carries a due time: that would make it an alarming Erinnerung
+    assert not any(r.get("reminder", {}).get("dueAt") for r in rows)
+
+
+def test_every_ticked_milestone_has_its_verlauf_row():
+    """Guards the DATASET: the ticks name items of the demo checklist file, and every ticked
+    milestone wrote its ☑ row at the minute of the tick — a ☑ in the Verlauf for an item the
+    Checklisten view shows open (or the reverse) is the contradiction the seed must not ship."""
+    tpl = json.loads(
+        (Path(__file__).resolve().parents[2] / "examples/demo-data/checklists/musterdorf-fu.json").read_text()
+    )
+    assert tpl["id"] == dr.DEMO_CHECKLIST_ID
+    items = {i["id"]: i for p in tpl["phases"] for i in p["items"]}
+    assert set(dr.DEMO_CHECKLIST_TICKS) <= set(items)
+
+    ws, _ = _full_ws()
+    ticks = ws["checklists"][dr.DEMO_CHECKLIST_ID]["ticks"]
+    assert set(ticks) == set(dr.DEMO_CHECKLIST_TICKS)
+    rows = {r["text"]: r for r in dr.demo_journal_rows(NOW) if r["icon"] == "check" and r["kind"] == "journal"}
+    ticked_milestones = {i for i in ticks if items[i].get("milestone")}
+    assert ticked_milestones, "the demo should tick at least one milestone"
+    assert set(rows) == {f"☑ {items[i]['text']}" for i in ticked_milestones}
+    for i in ticked_milestones:
+        assert rows[f"☑ {items[i]['text']}"]["at"] == ticks[i]["t"]
+    # …and something is left to do
+    assert set(items) - set(ticks)
+
+
+def test_the_brandwache_is_planned_in_the_future_for_people_on_site():
+    ws, by_name = _full_ws()
+    bands = {b["id"]: b for b in ws["bands"]}
+    assert len(bands) >= 2
+    assert all(_at(b["from"]) >= NOW and _at(b["to"]) > _at(b["from"]) for b in bands.values())
+    shifts = ws["shifts"]
+    assert {s["personId"] for s in shifts} <= set(by_name.values())
+    assert any(s["confirmed"] for s in shifts) and any(not s["confirmed"] for s in shifts)
+    assert any("bandId" not in s for s in shifts), "one availability drawn freihändig"
+    for s in shifts:
+        assert _at(s["from"]) >= NOW
+        if "bandId" in s:
+            band = bands[s["bandId"]]
+            assert (s["from"], s["to"]) == (band["from"], band["to"])
+    # nobody on a Trupp is planned for the Brandwache — they are the ones working now
+    on_trupps = {p for t in ws["trupps"] for p in [t["leaderPersonId"], *t["memberPersonIds"]]}
+    assert not on_trupps & {s["personId"] for s in shifts}
+
+
+def test_the_demo_report_links_are_https():
+    """`report.links` opens from the Rapport; the server refuses anything but http(s) anyway,
+    and a demo pointing a visitor at plain http would teach the wrong thing."""
+    cfg = json.loads((Path(__file__).resolve().parents[2] / "examples/demo-data/config.json").read_text())
+    links = cfg["report"]["links"]
+    assert links and all(link["url"].startswith("https://") for link in links)
+    assert len({link["id"] for link in links}) == len(links)
