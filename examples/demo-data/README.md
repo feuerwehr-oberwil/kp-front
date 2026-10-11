@@ -23,7 +23,7 @@ slot exists in the app, this object simply has no sheet for it. A real deploymen
 Modul-PDFs and real checklists (incl. playbook diagrams) from a private data source
 (see [`docs/objektplaene-architecture.md`](../../docs/objektplaene-architecture.md)).
 
-`load.sh` seeds the synthetic **Personal** roster (12 people, so Anwesenheit and Schichtenplanung
+`load.sh` seeds the synthetic **Personal** roster (28 people, so Anwesenheit and Schichtenplanung
 have someone to work with) but no incident and no alarm – you start those yourself. The live demo goes
 further and seeds a pre-filled *running* incident plus the two demo login accounts – that's
 `app.demo_reset` (see `scripts/demo-reset.sh`), not `load.sh`.
