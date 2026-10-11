@@ -371,6 +371,69 @@ def _scene_roles(scene: dict, present: list[tuple[str, str]]) -> dict[str, str]:
     return roles
 
 
+#: The Tafel's pages in the scene file (board['tafel']: the FKS «Erste Führung» and a «Rapport»)
+#: carry CLOCK TIMES — when each page was added, and every «Wann» an EL writes beside a
+#: Massnahme, a Mittel or a Verbindung. The scene stores them frozen (at 17:49, like the floor
+#: chip's 17:35), and `_retime_tafel` re-stamps them on every reset: page / row id → minutes
+#: before now. They follow the same story as DEMO_JOURNAL and the Zeiten grid — TLF vor Ort −25,
+#: Wasserversorgung −18, Trupp Müller −14, Trupp Schmid −8, Patient übergeben −5, Nachlöschen −2.
+#: A row with a Wann that is missing here keeps its frozen time; test_demo_tafel guards that.
+DEMO_TAFEL_MINUTES: dict[str, int] = {
+    "fm-demo-ef": 24,
+    "fm-demo-rapport": 3,
+    # Massnahmen
+    "fr-demo-massn-1": 18,
+    "fr-demo-massn-2": 14,
+    "fr-demo-massn-3": 12,
+    "fr-demo-massn-4": 12,
+    "fr-demo-massn-5": 11,
+    "fr-demo-massn-6": 8,
+    "fr-demo-massn-7": 5,
+    "fr-demo-massn-8": 4,
+    "fr-demo-massn-9": 2,
+    # Mittel (the MTF row has no Wann: it has not reported vor Ort, as in the Zeiten grid)
+    "fr-demo-mittel-1": 25,
+    "fr-demo-mittel-2": 24,
+    "fr-demo-mittel-4": 13,
+    "fr-demo-mittel-5": 6,
+    # Verbindungen
+    "fr-demo-verb-1": 25,
+    "fr-demo-verb-2": 25,
+    "fr-demo-verb-3": 14,
+    "fr-demo-verb-4": 13,
+    "fr-demo-verb-5": 11,
+    "fr-demo-verb-6": 6,
+}
+#: The next Rapport on the «Rapport» page: this far ahead, rounded up to the quarter hour.
+DEMO_NEXT_RAPPORT_MIN = 10
+
+
+def _retime_tafel(ws: dict, now: datetime) -> None:
+    """Re-stamp the Tafel pages' clock times relative to ``now`` (see DEMO_TAFEL_MINUTES)."""
+
+    def clock(dt: datetime) -> str:
+        return dt.astimezone(ZURICH).strftime("%H:%M")
+
+    nxt = now + timedelta(minutes=DEMO_NEXT_RAPPORT_MIN)
+    nxt += timedelta(minutes=-nxt.minute % 15, seconds=-nxt.second, microseconds=-nxt.microsecond)
+    for anno in ws.get("board", {}).get("tafel", []):
+        form = anno.get("form") or {}
+        if anno.get("id") in DEMO_TAFEL_MINUTES:
+            form["at"] = _iso(now - timedelta(minutes=DEMO_TAFEL_MINUTES[anno["id"]]))
+        for sec in (form.get("page") or {}).get("sections", []):
+            value = (form.get("values") or {}).get(sec.get("id")) or {}
+            # every «Wann» column the page's own snapshot declares (type `time`)
+            times = [c["id"] for c in sec.get("columns", []) if c.get("type") == "time"]
+            for row in value.get("rows", []):
+                mins = DEMO_TAFEL_MINUTES.get(row.get("id"))
+                for col in times:
+                    if mins is not None and col in row.get("cells", {}):
+                        row["cells"][col] = clock(now - timedelta(minutes=mins))
+            if sec.get("id") == "naechster-rapport" and "fields" in value:
+                value["fields"]["datum"] = nxt.astimezone(ZURICH).strftime("%d.%m.%Y")
+                value["fields"]["zeit"] = clock(nxt)
+
+
 def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datetime) -> dict:
     """Return the full incident workspace: the static map/plan ``scene`` plus the live
     operational collections (Atemschutz Trupps on the clock, logged Mittel, Anwesenheit) with
@@ -681,6 +744,8 @@ def build_demo_workspace(scene: dict, present: list[tuple[str, str]], now: datet
         res["t"] = hhmm
         for pt in res.get("trail", []):
             pt["t"] = hhmm
+    # …and the Tafel's pages, whose «Wann» cells would otherwise read the scene file's frozen clock
+    _retime_tafel(ws, now)
     return ws
 
 

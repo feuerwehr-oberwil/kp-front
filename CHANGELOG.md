@@ -535,6 +535,9 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   Atemschutz-Trupps and a Verkehrsdienst ohne Atemschutz; a part-worked «Aufgaben FU»; a planned
   Brandwache in Zeitplan and Schichten; «Lehren» on the closed BMA; and Rapport-Links plus a
   map link in the demo config.
+- **The demo's Tafel is filled in.** The running Zimmerbrand opens with an «Erste Führung»
+  (Problemerfassung, Massnahmen, Mittel, Verbindungen, Abspracherapport) and a «Rapport» page,
+  telling the same story as its Verlauf; every «Wann» is re-stamped at each reset.
 
 ### Removed
 

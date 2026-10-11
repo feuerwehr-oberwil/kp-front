@@ -26,7 +26,11 @@ Modul-PDFs and real checklists (incl. playbook diagrams) from a private data sou
 `load.sh` seeds the synthetic **Personal** roster (28 people, so Anwesenheit and Schichtenplanung
 have someone to work with) but no incident and no alarm – you start those yourself. The live demo goes
 further and seeds a pre-filled *running* incident plus the two demo login accounts – that's
-`app.demo_reset` (see `scripts/demo-reset.sh`), not `load.sh`.
+`app.demo_reset` (see `scripts/demo-reset.sh`), not `load.sh`. Its map and plan scene comes from
+`incident.workspace.json` (baked by `app.demo_export`): the symbols and lines on the Lage, the
+Trupp chip on the floor stack, and two Tafel pages written for this Zimmerbrand, the «Erste
+Führung» and a «Rapport». The pages' «Wann» cells and the next Rapport are re-stamped relative to
+the reset (`demo_reset · DEMO_TAFEL_MINUTES`), so a row added there needs an entry in that table.
 
 `config.json` also switches on the **Objektbesuche** (`objectVisits`, no SharePoint destination:
 visits stay in KP Front). The live demo seeds a round «Schlüsseldepots Dorfkern» scheduled for the
