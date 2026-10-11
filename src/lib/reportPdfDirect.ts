@@ -190,6 +190,10 @@ function cutToBands(a: BoardAnno, chunk: readonly number[], tileAR: number): { a
     // wholly on its storey: printed exactly as before
     return { annos: [{ ...a, y: a.y != null ? (k + a.y) / N : a.y, pts: a.kind === 'area' ? a.pts?.map((p): [number, number] => [p[0], (k + p[1]) / N]) : a.pts }], marks }
   }
+  // ⚠️ nothing of the outline on the band: the zone misses it, or holds ALL of it — and then it
+  // says nothing about this storey, and its fill only tinted the whole band (the screen's rule,
+  // lib/storeyClip · enclosesSection, 11.10.2026)
+  if (!c.runs.length) return { annos: [], marks }
   const piece = clipConvex(ring, band(k)[0])
   if (!piece.length) return { annos: [], marks }
   markAll(c.marks)

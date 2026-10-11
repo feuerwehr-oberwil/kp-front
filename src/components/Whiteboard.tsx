@@ -65,7 +65,7 @@ import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPre
 const FOLDED_H = 28
 import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from '../lib/stackFit'
-import { inSection, storeySections, visibleCentre } from '../lib/storeyClip'
+import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
 import type { FloorPackView } from '../lib/floorPackBinding'
 import { stackInstances } from '../lib/stackFloors'
 import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, scaleLampTone, type PlanScale } from '../lib/planScale'
@@ -2803,6 +2803,19 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const s = sections?.get(floor ?? 0)
     return !s || inSection(p, s)
   }
+  /** The zones — Absperrkreise and Flächen — whose interior holds ALL of their paper: the storey's
+   *  section on the stack, the whole sheet off it (lib/storeyClip · enclosesSection). Not drawn,
+   *  nor labelled, nor lock-chipped: everything visible is inside them, so they say nothing here,
+   *  and their wash only tinted the storey (the demo's 100 m Absperrkreis on the EG, 11.10.2026).
+   *  The record is untouched — the Karte and the Objekte list still show them. */
+  const paperZones = new Set(sW && sH ? renderAnnos.flatMap((a) => {
+    if (!((a.kind === 'circle' && (a.radiusN ?? 0) > 0) || (a.kind === 'area' && (a.pts?.length ?? 0) >= 3))) return []
+    const ring: [number, number][] = a.kind === 'circle'
+      ? circleRing((a.x ?? 0) * sW, mapY(a.floor, a.y ?? 0) * sH, (a.radiusN ?? 0) * sW)
+      : a.pts!.map(([x, y, f]) => [x * sW, mapY(f ?? a.floor, y) * sH])
+    return enclosesSection(ring, sections?.get(a.floor ?? 0) ?? [rectPoly(0, 0, sW, sH)]) ? [a.id] : []
+  }) : [])
+  const drawnAnnos = paperZones.size ? renderAnnos.filter((a) => !paperZones.has(a.id)) : renderAnnos
 
   // Rotate the Gebäudeview to `toDeg`. Re-derives the footprint view and re-glues every
   // floor-stack annotation (x/y, freehand pts, team trails) so they stay on the same
@@ -3281,12 +3294,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             )}
 
             {/* Absperrkreise — their own px-space layer, painted under the ink (WbCircleLayer) */}
-            <WbCircleLayer annos={renderAnnos} draft={circleDraft} sW={sW} sH={sH} mapY={mapY}
+            <WbCircleLayer annos={drawnAnnos} draft={circleDraft} sW={sW} sH={sH} mapY={mapY}
               color={appConfig.drawing.circleColor} selId={selId} flashId={flashId}
               onPickCircle={tool === 'pan' ? circleDown : undefined} sections={sections ?? undefined} />
 
             {/* committed drawings */}
-            <WbInkLayer annos={renderAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} hiddenTrails={hiddenTrails} mapY={mapY}
+            <WbInkLayer annos={drawnAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} hiddenTrails={hiddenTrails} mapY={mapY}
               selId={selId} flashId={flashId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined}
               truppTones={truppTones} sW={sW} sH={sH} sections={sections ?? undefined} />
             {/* «Ring lädt, dann schnappt es» — the identical pair the Lage map draws: a blue chip
@@ -3475,7 +3488,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 centroid in board px (the 1×1 ink SVG would distort text). Draggable like a line label.
                 «Auf Karte zeigen» prints the Fläche above it, exactly as the line label above prints
                 its Länge — the switch existed for a plan area but nothing rendered what it turned on. */}
-            {renderAnnos.filter((a) => a.kind === 'area' && (a.label || a.showDistance) && (a.pts?.length ?? 0) >= 3).map((a) => {
+            {drawnAnnos.filter((a) => a.kind === 'area' && (a.label || a.showDistance) && (a.pts?.length ?? 0) >= 3).map((a) => {
               const bpx = a.pts!.map(([x, y, floor]) => [x * sW, mapY(floor ?? a.floor, y) * sH] as [number, number])
               // on the stack: the centre of what is LEFT of the Fläche on its storey's section
               // (lib/storeyClip) — none when nothing of it shows
@@ -3565,7 +3578,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             {/* an Absperrkreis states its radius at the ring's top edge, exactly as the Karte does
                 (MapView · circleLabels) — in the sheet's calibrated metres. Uncalibrated there is
                 no honest number to print, so the ring simply carries none. */}
-            {calibrated && activeScale && renderAnnos.filter((a) => a.kind === 'circle' && (a.radiusN ?? 0) > 0).map((a) => {
+            {calibrated && activeScale && drawnAnnos.filter((a) => a.kind === 'circle' && (a.radiusN ?? 0) > 0).map((a) => {
               const cx = (a.x ?? 0) * sW, cy = mapY(a.floor, a.y ?? 0) * sH
               const r = (a.radiusN ?? 0) * sW
               return (
@@ -3597,7 +3610,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 MapMarkers · shape-lock-anchor). Its only job is unlocking, so it stays away where
                 editing is locked anyway. Position mirrors the map: an area is chipped at its
                 centroid, a line at its middle vertex, a shape at its centre. */}
-            {!readOnly && tool === 'pan' && renderAnnos.filter((a) => a.locked && (a.kind === 'shape' || a.kind === 'circle' || ((a.kind === 'draw' || a.kind === 'area') && a.pts?.length))).map((a) => {
+            {!readOnly && tool === 'pan' && drawnAnnos.filter((a) => a.locked && (a.kind === 'shape' || a.kind === 'circle' || ((a.kind === 'draw' || a.kind === 'area') && a.pts?.length))).map((a) => {
               const pts = a.pts ?? []
               const p = a.kind === 'shape' || a.kind === 'circle'
                 ? [a.x ?? 0, mapY(a.floor, a.y ?? 0)] as const
