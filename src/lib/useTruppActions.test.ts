@@ -2304,7 +2304,9 @@ describe('useTruppActions automatic hose ↔ Trupp join', () => {
     const marker = state.doc.entities.find((e) => e.id === 'e1')!
     expect(marker.coord).toEqual([7.51, 47.41])
     expect(marker.dockedTo).toBeUndefined()
-    expect(state.doc.drawings[0].endAttachment).toEqual({ target: { kind: 'object', id: 'e1' }, routing: 'trace' })
+    // routed «Direkt» — the default for every attachment nobody chose a routing for (11.10.2026,
+    // lib/lineAttachments · DEFAULT_OBJECT_ROUTING); «Spur» is the line editor's explicit choice
+    expect(state.doc.drawings[0].endAttachment).toEqual({ target: { kind: 'object', id: 'e1' }, routing: 'direct' })
   })
 
   it('makes a marker at the hose end for a Trupp that has none on the Karte', () => {

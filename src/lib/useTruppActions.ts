@@ -10,6 +10,7 @@ import { pickTeamColor } from './teamColors'
 import { newId } from './ids'
 import { atemschutzAuftragColors, atemschutzDoctrine } from './deploymentConfig'
 import { truppEquipmentLabels } from './report'
+import { objectAttachment } from './lineAttachments'
 import { lineTakesTrupp, resolveLinkNumber, truppForLine, truppIdForAttachment, type LinkableLine, type TruppMarker } from './truppLines'
 import { alarmBarFor, currentRunStart, earlyEntryCorrection, fmtDuration, isAtemschutzTrupp, notfallFacts, notfallOffered, safetyReady, truppAwaitsEntry, truppCrewWithout, truppInNotfall, truppLogName, truppTransferState } from './atemschutz'
 // ⚠️ Every Trupp timestamp below is stamped in the DEPLOYMENT's time, not the device's
@@ -1574,7 +1575,8 @@ export function useTruppActions(deps: Deps) {
    * hydrant because its hose starts there; that end stays the operator's geometry.
    */
   const settleAtHoseEnd = (tr: Trupp, lineId: string, planId: string | null) => {
-    const coupling = (id: string): LineAttachment => ({ target: { kind: 'object', id }, routing: 'trace' })
+    // the coupling the endpoint magnet would have written (lib/lineAttachments · DEFAULT_OBJECT_ROUTING)
+    const coupling = (id: string): LineAttachment => objectAttachment(id)
     if (!planId) {
       const line = drawings.find((d) => d.id === lineId && d.kind === 'line')
       if (!line || line.coords.length < 2) return

@@ -3,7 +3,7 @@ import type React from 'react'
 import type { BoardAnno, BoardPoint } from '../types'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { formatTime } from '../lib/format'
-import { applyRouting, nearestFreeEndpoint, type AttachableLine } from '../lib/lineAttachments'
+import { applyRouting, nearestFreeEndpoint, objectAttachment, type AttachableLine } from '../lib/lineAttachments'
 import { normalizeStackEdit } from '../lib/stackFloors'
 
 interface Args {
@@ -130,10 +130,11 @@ export function useWbChipDrag({
       (p) => [p[0] * sW, mapY(p[2] ?? 0, p[1]) * sH],
     )
     if (!join) return
-    // the chip's own trace-routed coupling, written exactly as the endpoint magnet writes one
+    // the chip's own coupling, written exactly as the endpoint magnet writes one (routed «Direkt»
+    // by default — lib/lineAttachments · DEFAULT_OBJECT_ROUTING)
     const out: Partial<BoardAnno> = join.endpoint === 'start'
-      ? { startAttachment: { target: { kind: 'object', id: d.id }, routing: 'trace' } }
-      : { endAttachment: { target: { kind: 'object', id: d.id }, routing: 'trace' } }
+      ? { startAttachment: objectAttachment(d.id) }
+      : { endAttachment: objectAttachment(d.id) }
     patch(join.lineId, out) // the drag's own checkpoint already stands — one gesture, one step
     emit('board.edit', { id: join.lineId, patch: out, planId: activeId })
     // …and the link itself, unless this hose is already anchored to this very Trupp — nudging the
