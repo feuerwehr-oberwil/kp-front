@@ -541,6 +541,14 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Fixed
 
+- **Saving the station settings is no longer refused over the retired print-order switch.**
+  The print relay's removal left `report.reversePrintOrder` in every stored config, and the
+  «würde Abschnitte leeren» guard counted it as content being emptied: every settings save
+  answered 409 and `admin_config load/push` refused. The guard now ignores fields the schema no
+  longer declares, at both levels, in the API, the CLI and the Arbeitsmappe preview.
+- **The demo reset can no longer leave the demo without its Einsatzobjekt.** It refused at the
+  config step on 10. and 11.10. — after the wipe — so Schloss Musterdorf and its Modul 1 and 2/3
+  were gone for two days. The config now loads before anything is wiped.
 - **From the owner's iPhone, 10.10.2026:**
   - **The Passung's buttons keep glyph and words together.** When «Referenzpunkte setzen» wrapped
     onto two lines, its «+» sat at the button's far left edge; the glyph now rides on the first

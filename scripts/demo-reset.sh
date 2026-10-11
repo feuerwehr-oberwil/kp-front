@@ -20,13 +20,13 @@ ROOT="$(pwd)"
 : "${KP_BASE_URL:?set KP_BASE_URL to the demo app URL}"
 : "${KP_ADMIN_SECRET:?set KP_ADMIN_SECRET to the demo admin secret}"
 
-# ⚠️ PREFLIGHT: this script publishes whatever the tree it runs in happens to hold, and step 1
+# ⚠️ PREFLIGHT: this script publishes whatever the tree it runs in happens to hold, and step 2
 # WIPES before anything is re-pushed. Twice on 09.08. the demo was reset from an old checkout —
 # the second time from v0.1.0 — which restored July's generated placeholder Objektpläne, a Modul 6
 # retired the day before, and July's deployment config, quietly and with every step reporting OK.
 # So the tree states which commit it is before it is allowed to touch the demo at all.
 #
-# Deliberately BEFORE step 1: refusing after the wipe would leave the demo empty, which is not
+# Deliberately BEFORE the wipe: refusing after the wipe would leave the demo empty, which is not
 # "nothing happened".
 #
 # `git ls-remote` is read-only and writes nothing locally. Set KP_DEMO_RESET_ALLOW_STALE=1 to
@@ -87,11 +87,17 @@ retry() {
   done
 }
 
-echo "→ 1/5  wipe incidents + roster, re-ensure demo accounts"
-KP_DEMO_RESET=1 uv run python -m app.demo_reset
-
-echo "→ 2/5  reload deployment config"
+# ⚠️ The config BEFORE the wipe — it is the one step here that can REFUSE (admin_config will not
+# empty a populated section without --force). On 10. and 11.10.2026 it ran second and refused, so
+# every night the wipe had already deleted the Schloss and the object push never came: the demo
+# stood two days without its Einsatzobjekt — no Modul 1, no Modul 2/3. A refusal up here leaves
+# the demo exactly as it was. (The seed in step 2 writes only plan_scales_json, which this does
+# not touch, so the order is otherwise free.)
+echo "→ 1/5  reload deployment config"
 uv run python -m app.admin_config load "$ROOT/examples/demo-data/config.json"
+
+echo "→ 2/5  wipe incidents + roster, re-ensure demo accounts"
+KP_DEMO_RESET=1 uv run python -m app.demo_reset
 
 echo "→ 3/5  reload reference geodata (hydrants) via API push"
 retry uv run python -m app.admin_geodata push "$ROOT/examples/demo-data/geodata.manifest.json"
