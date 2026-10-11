@@ -341,5 +341,30 @@
       "Stützpunkt",
       "ADL / HRF"
     ]
+  },
+  "objectVisits": {
+    "enabled": true,
+    "captureRoles": [
+      "editor",
+      "el"
+    ],
+    "proposalFields": [
+      {
+        "id": "owner_contact",
+        "label": "Kontakt Eigentümer"
+      },
+      {
+        "id": "key_depot",
+        "label": "Standort Schlüsseldepot"
+      },
+      {
+        "id": "access",
+        "label": "Zufahrt"
+      },
+      {
+        "id": "bma",
+        "label": "Brandmeldeanlage"
+      }
+    ]
   }
 }

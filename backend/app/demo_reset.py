@@ -48,6 +48,7 @@ from .models import (
     ReferenceDataset,
     User,
     VisitList,
+    VisitProgramme,
     WorkspaceSnapshot,
 )
 from .personnel import format_name
@@ -570,6 +571,9 @@ async def reset(wipe_objects: bool = True) -> None:
                 storage.delete_after_commit(db, key + derived)
         await db.execute(delete(ObjectVisit))
         await db.execute(delete(VisitList))
+        # …and the organizer's routes: a published round is a programme + its lists, and a
+        # programme left behind would hold the lists' refs while its rounds are gone.
+        await db.execute(delete(VisitProgramme))
         # Deleting incidents cascades to all incident-scoped tables (ON DELETE CASCADE).
         await db.execute(delete(Incident))
         # Roster is standalone (no incident FK) — clear manual/demo additions, then re-seed
@@ -752,6 +756,16 @@ async def reset(wipe_objects: bool = True) -> None:
             # added user has no id yet and no session to drop.
             if existed:
                 await revoke_sessions(db, user)
+
+        # The demo's Objektbesuche (one round, one finished visit at the Schloss). LAST, after the
+        # flush that gives the `fu` account its id — the visit is recorded under it.
+        # ⚠️ With wipe_objects=True the Schloss is gone from this very transaction, so this SKIPS
+        # and scripts/demo-reset.sh seeds them after its object push (step 4b): the visit must
+        # hang off the object the push recreates. The module doc of demo_object_visits says why.
+        from .demo_object_visits import seed_object_visits  # local: that module imports this one
+
+        await db.flush()
+        await seed_object_visits(db, now=now)
         await db.commit()
     logger.info(
         "Demo reset: seeded 1 running incident (%d Trupps, %d Mittel, %d present, %d Verlauf) "

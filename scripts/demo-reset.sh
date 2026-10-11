@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Reset the DEMO deployment to a clean, known state. Wipes incident data + roster, re-ensures
 # the two demo accounts, and reloads the synthetic Musterdorf config/geodata/objects/brandmark,
-# Checklisten/Anleitungen and Tafel-Vorlagen.
+# Checklisten/Anleitungen and Tafel-Vorlagen, then seeds the Objektbesuche onto the Schloss.
 #
 # Required env (the demo instance's values):
 #   DATABASE_URL      demo Postgres URL (the PUBLIC proxy URL when run off-box)
@@ -105,6 +105,13 @@ retry uv run python -m app.admin_geodata push "$ROOT/examples/demo-data/geodata.
 
 echo "→ 4/7  reload Einsatzobjekte via API push"
 retry uv run python -m app.admin_objects push "$ROOT/examples/demo-data/objects.manifest.json"
+
+# ⚠️ AFTER the object push, never in step 2 alone: the Objektbesuche hang off the Schloss, and
+# step 2 has just deleted it — a visit seeded there loses its object (ON DELETE SET NULL) and
+# the round reads 0/2. Step 2's own seed therefore skips; the in-process cron, which keeps the
+# Schloss, seeds inside reset(). Direct DB like step 2, so no retry: it does not touch the app.
+echo "→ 4b/7 seed the Objektbesuche (needs the Schloss from 4/7)"
+KP_DEMO_RESET=1 uv run python -m app.demo_object_visits
 
 # AFTER admin_config load, never before: that step rewrites identity.assets wholesale, so a
 # logo pushed earlier would be wiped by the same reset that is supposed to install it.

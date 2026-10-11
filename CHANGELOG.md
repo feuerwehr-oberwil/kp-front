@@ -421,6 +421,11 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   pixels per state against `e2e/visual/baseline/`; the job summary names the states, the diffs are
   an artifact. `just visual` runs it locally, `just visual-accept <run-id>` takes CI's pictures as
   the new baselines (docs/testing/visual-regression.md).
+- **The demo shows the Objektbesuche.** The module is switched on (no SharePoint destination),
+  with a demo checklist «Objektbesuch Schlüsseldepot & BMA» and a round «Schlüsseldepots Dorfkern»
+  scheduled for today: Schloss Musterdorf already visited – one Mangel, one Korrekturvorschlag,
+  a report to open – and Gewerbestrasse 4 still open. Both resets seed it; the scripted one after
+  its object push (`app.demo_object_visits`).
 
 ### Changed
 
