@@ -360,6 +360,11 @@ railway ssh keys add                          # once, for the copy below
   working, so staging sees the same alarms and vehicles.
 - **A refresh overwrites staging completely.** Prod is only read, via `pg_dump` and `tar -c`
   over `railway ssh`. `--db-only` skips the volume.
+- **Stop it between test sessions** (`just staging-down`, `just staging-up`). The scheduler and
+  the Divera poll keep it busy, so Railway's App Sleeping never kicks in and an idle staging
+  bills like a second prod. Stopping removes the running deployments only; the database volume,
+  the storage volume and the variables stay. A push to `staging` starts the app again, but not
+  its Postgres, so run `staging-up` before you test.
 - **Not cut:** the plaintext link and poster keys on `deployment_config`. A prod QR code points
   at prod's host, so it never reaches staging, but a prod link pasted onto the staging host opens
   there.
