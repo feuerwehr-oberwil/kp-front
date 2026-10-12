@@ -175,21 +175,19 @@ describe('truppIdForAttachment (a hose end docked onto a Trupp)', () => {
   })
 })
 
-// ── «Ein Etikett» (15.09.2026) ─────────────────────────────────────────────────────────────
-// The Karte draws a joined Trupp ONCE: the marker carries the Leitung's number in the hose's
-// ink, and that hose draws no end tag. Both halves of that decision come out of one call, so a
-// merged label and a suppressed tag can never disagree — and the tag is only ever suppressed for
-// the one Leitung a marker actually states.
-describe('teamLineBadges (the Leitung merged into its Trupp marker)', () => {
+// ── The Leitung a Trupp marker works ───────────────────────────────────────────────────────
+// «Ein Etikett» (15.09.2026) put the Leitung's number INTO the marker and took the hose's tag
+// away; since 11.10.2026 the marker is name-only again (owner) and every hose keeps its tag. What
+// the marker still takes from its Leitung: the ink, whether the hose ends there, the alarm tone.
+describe('teamLineBadges (the Leitung a Trupp marker works)', () => {
   const line = (id: string, extra: Partial<Parameters<typeof teamLineBadges>[0][number]> = {}) =>
     ({ id, color: '#1f6feb', tone: 'idle' as const, ...extra })
 
-  it('gives the marker the hose\'s number and ink, and takes that hose\'s tag away', () => {
-    const { byMarker, merged } = teamLineBadges(
+  it('gives the marker the hose\'s ink and number', () => {
+    const { byMarker } = teamLineBadges(
       [line('d1', { lineNo: 2, truppId: 'T1' })], [{ id: 'e1', truppId: 'T1' }],
     )
     expect(byMarker.get('e1')).toEqual({ lineId: 'd1', lineNo: 2, color: '#1f6feb', tone: 'idle', coupled: false })
-    expect([...merged]).toEqual(['d1'])
   })
 
   it('draws the coupling only where the hose really ends ON this marker', () => {
@@ -206,23 +204,21 @@ describe('teamLineBadges (the Leitung merged into its Trupp marker)', () => {
   })
 
   it('leaves a marker nobody stands on, and a Trupp with no hose, exactly as they were', () => {
-    const { byMarker, merged } = teamLineBadges(
+    const { byMarker } = teamLineBadges(
       [line('d1', { lineNo: 1, truppId: 'T2' })], [{ id: 'e1' }, { id: 'e2', truppId: 'T1' }],
     )
     expect(byMarker.size).toBe(0)
-    expect(merged.size).toBe(0)
   })
 
-  it('states ONE Leitung per marker — the coupled one — and the other hose keeps its tag', () => {
-    const { byMarker, merged } = teamLineBadges([
+  it('states ONE Leitung per marker — the coupled one', () => {
+    const { byMarker } = teamLineBadges([
       line('d1', { lineNo: 1, truppId: 'T1' }),
       line('d2', { lineNo: 7, truppId: 'T1', endObjects: ['e1', undefined] }),
     ], [{ id: 'e1', truppId: 'T1' }])
     expect(byMarker.get('e1')?.lineId).toBe('d2')
-    expect([...merged]).toEqual(['d2'])
   })
 
-  it('carries the tone across, so a merged marker can inherit the tag\'s label rank', () => {
+  it('carries the tone across, so a joined marker shares its tag\'s label rank', () => {
     const { byMarker } = teamLineBadges(
       [line('d1', { lineNo: 1, truppId: 'T1', tone: 'crit' })], [{ id: 'e1', truppId: 'T1' }],
     )

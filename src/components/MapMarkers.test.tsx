@@ -149,13 +149,13 @@ describe('what a selected Form shows on the Karte', () => {
 })
 
 /**
- * «Ein Etikett» (15.09.2026): a Trupp joined to a Leitung is ONE label on the Karte — the marker
- * carries the hose's number in the hose's ink, a coupling where the hose really ends there, and
- * a link glyph where the marker is docked onto a symbol. The hose's own end tag is then not
- * drawn at all (the suppression half is MapView's, pinned in lib/truppLines · teamLineBadges).
+ * A Trupp joined to a Leitung on the Karte. «Ein Etikett» (15.09.2026) put the hose's NUMBER into
+ * the marker; since 11.10.2026 (owner: «on the map the trupps are numbered – which we don't
+ * need … just the name») the marker is the Gebäude chip's again — the name, the hose's ink on the
+ * coupling, no number field — and the hose's own end tag says which Leitung.
  *
- * ⚠️ The order is cap/dot · Leitung · Name · #N, with the coupling out of flow: everything the
- * strip grows hangs off the RIGHT of the dot, because the dot is the coordinate.
+ * ⚠️ The order is cap/dot · Name · #N, with the coupling out of flow: everything the strip grows
+ * hangs off the RIGHT of the dot, because the dot is the coordinate.
  */
 describe('a Trupp marker that is joined, loose, or docked', () => {
   const team = (extra: Partial<Entity> = {}): Entity =>
@@ -172,9 +172,10 @@ describe('a Trupp marker that is joined, loose, or docked', () => {
       teamLines={teamLines as never} onTeamUnlink={() => {}} />,
   )
 
-  it('shows the Leitung number on the resting marker – and no coupling stub (15.09.)', () => {
+  it('shows NO Leitung number on the resting marker – just the name, and no coupling stub (11.10.2026)', () => {
     const { container } = showTeam([team()], null, badge() as never)
-    expect(container.querySelector('.team-dot .team-ltg')?.textContent).toBe('2')
+    expect(container.querySelector('.team-dot .team-ltg')).toBeNull()
+    expect(container.querySelector('.team-dot')?.textContent).not.toContain('2')
     expect(container.querySelector('.team-dot .team-coupling')).toBeNull()
     expect(container.querySelector('.team-dot b')?.textContent).toBe('Frei Nina')
   })
@@ -186,9 +187,9 @@ describe('a Trupp marker that is joined, loose, or docked', () => {
     expect(container.querySelector('.team-dot b')?.textContent).toBe('Frei Nina')
   })
 
-  it('states a link by NUMBER without claiming a coupling nobody made', () => {
+  it('a link by NUMBER alone claims no coupling nobody made — and prints no number either', () => {
     const { container } = showTeam([team()], null, badge({ coupled: false }) as never)
-    expect(container.querySelector('.team-ltg')?.textContent).toBe('2')
+    expect(container.querySelector('.team-ltg')).toBeNull()
     expect(container.querySelector('.team-coupling')).toBeNull()
   })
 
@@ -199,11 +200,11 @@ describe('a Trupp marker that is joined, loose, or docked', () => {
     expect(container.textContent).not.toContain('bei «Hydrant»')
   })
 
-  it('the selected pill carries the same three things, in the same order', () => {
+  it('the selected pill is the Gebäude chip\'s: joined ink, the name, no number field', () => {
     const { container } = showTeam([team({ dockedTo: 'h1' }), hydrant], 'e1', badge() as never)
     const pill = container.querySelector('.wb-resource-pill')!
     expect(pill.className).toContain('joined')
-    expect(pill.querySelector('.team-ltg')?.textContent).toBe('2')
+    expect(pill.querySelector('.team-ltg')).toBeNull()
     expect(pill.querySelector('.wb-resource-name b')?.textContent).toBe('Frei Nina')
     // no «#N» on the map – the number lives on the card only (14.09.)
     expect(pill.querySelector('.trupp-no')).toBeNull()

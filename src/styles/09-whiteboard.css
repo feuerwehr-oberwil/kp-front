@@ -525,34 +525,12 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-resource-raus { font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .04em; text-transform: uppercase;
   color: var(--ink-dim); background: var(--fill-soft); border-radius: var(--r-xs); padding: 2px var(--sp-1); }
 
-/* ── «Ein Etikett»: die Leitung im Truppmarker (Karte, 15.09.2026) ───────────────────────────
-   A joined Trupp carries its Leitung's number in the hose's own ink, plus a coupling stub where
-   the hose really does end at this marker — and that hose then draws no end tag at all
-   (lib/truppLines · teamLineBadges). `--line` is the hose's colour, set inline beside `--team`;
-   both are custom props so day/night and per-station accents keep working (never a frozen rgba).
-   Worn by BOTH forms of the marker: the resting `.team-dot` and the selected pill. */
-.team-ltg, .wb-resource-pill .team-ltg {
-  --line: var(--blue);
-  display: inline-flex; align-items: center; justify-content: center; flex: none;
-  /* FIXED width, not min-width: the label pass books this strip without measuring it
-     (lib/mapView · TEAM_LTG_PX), and a field that grew past its booking would cover a label
-     the pass had already cleared. Two digits fit; a third simply tightens. */
-  width: 19px; height: 19px; padding: 0 2px; box-sizing: border-box;
-  border: 1.5px solid var(--line); border-radius: 4px; color: var(--line); background: var(--surface);
-  font-family: var(--body); font-size: var(--fs-micro); font-weight: var(--fw-heavy); font-style: normal; line-height: 1;
-  font-variant-numeric: tabular-nums;
-}
-/* draussen: the entry stays — it is the record of who worked this Leitung — but dashed and grey,
-   the same thing the muted end tag said before the merge (11-measure.css · .tone-muted) */
-.team-dot.raus .team-ltg, .wb-resource-pill.raus .team-ltg {
-  border-style: dashed; border-color: var(--ink-dim); color: var(--ink-dim);
-}
-
 /* ── Das Geschoss im Truppmarker (18.09.2026) ────────────────────────────────────────────────
-   Same chip as the Leitung's number next to it, in the TRUPP's own ink, carrying the same signed
+   A small boxed chip in the TRUPP's own ink (the Leitung's number chip that stood beside it until
+   11.10.2026 went back onto the hose's end tag — MapView · teamLineBadges), carrying the same signed
    badge a Leitung's `floorTag` wears (+2 / 0 / −1, lib/symbolRender · floorBadge). On a Gebäude
    stack the tile alone says the storey only to whoever is looking at that tile; on the Karte the
-   marker had no way of saying it at all. `min-width` rather than the Leitung's fixed 19px: «−1»
+   marker had no way of saying it at all. `min-width`, not a fixed width: «−1»
    and «+12» are both possible and the badge sits at the END of the pill, outside the strip the
    label pass books for [dot][gap][name]. */
 .team-floor, .wb-resource-pill .team-floor {
@@ -613,7 +591,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 }
 /* the panel hangs under the bar, so it flips with it — one measurement, carried by the sibling */
 .wb-pill-acts[data-flip="up"] ~ .wb-resource-connections { top: auto; bottom: calc(100% + 62px); }
-.wb-resource-connections { position: absolute; top: calc(100% + 62px); left: 50%; transform: translateX(-50%); z-index: 7;
+.wb-resource-connections { position: absolute; top: calc(100% + 62px); left: 50%; z-index: 7;
+  /* the bar's sideways nudge, written by components/TwinTeamPill · useBarPlacement */
+  transform: translateX(calc(-50% + var(--acts-dx, 0px)));
   width: min(290px, 70vw); padding: var(--sp-2); border: 1px solid var(--border); border-radius: var(--r-ctl);
   background: var(--surface); box-shadow: var(--shadow-pop); color: var(--ink); }
 .wb-resource-connections .ctx-section-label { font-size: var(--fs-micro); font-weight: var(--fw-heavy); color: var(--ink-dim); }

@@ -429,6 +429,15 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Changed
 
+- **Hose lines attach «Direkt» by default, end at a Trupp chip's edge, and show their joints.** A
+  Leitung end docked onto a Trupp, symbol or vehicle (magnet, marker/chip dropped on a hose end,
+  link from the Atemschutz board) is routed «Direkt» instead of «Spur»; «Spur» stays the explicit
+  choice in the line editor and stored attachments keep their routing. On the Gebäude/Plan an
+  arrow docked onto a Trupp chip stops at the chip's measured edge instead of on its name. A line
+  begun on (or snapped to) another line's end — a Teilstück prong — shows an «angekuppelt» ring
+  while placing and a coupling dot at the joint afterwards, on the Karte and the plans. The
+  Karte's Trupp marker shows the name only, like the Gebäude chip: the boxed Leitung number
+  («Ein Etikett», 15.09.2026) is gone and the hose's own end tag carries the number again.
 - **Files shared with KP Rück are checked from both sides.** `shared/MANIFEST.json` lists every
   file the two products share by copy (telemetry sanitiser, alarm vocabulary, roster contract and
   reader, alarm intake corpus, loading snail) with its owner and sha256, and replaces the hash

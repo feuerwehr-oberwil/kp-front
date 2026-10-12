@@ -200,10 +200,10 @@ interface Props {
    *  read-only; the surface offers a delete only where `onGhostTrail` is supplied */
   ghostTrails?: TruppTrail[]
   onGhostTrail?: (id: string) => void
-  /** «Ein Etikett» (15.09.): per team-marker id, the Leitung merged into that marker — the number
-   *  in the hose's ink and, where the hose really ends there, a coupling. Resolved once per frame
-   *  by the surface (MapView · teamLineBadges), because the same pass decides which end tags are
-   *  then NOT drawn; a marker with no entry looks exactly as it always did. */
+  /** Per team-marker id, the Leitung that marker's Trupp works (MapView · teamLineBadges): the
+   *  hose's ink and, where the hose really ends there, a coupling. No number since 11.10.2026 —
+   *  the Leitung's number is the hose's own end tag, as on the Gebäude storeys; a marker with no
+   *  entry looks exactly as it always did. */
   teamLines?: ReadonlyMap<string, TeamLineBadge>
   /** «Lösen» on the selected joined pill: let go of the Leitung (useTruppActions ·
    *  unlinkTruppLine, with a confirm-with-undo toast at the call site). */
@@ -627,7 +627,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
         // ⚠️ …but NOT while it is being dragged: a marker in the hand follows the finger, or the
         // gesture that undocks it would draw nothing at all until the drop.
         const dockAnchor = draggingId === e.id ? null
-          : teamDockAnchor(e, entities, dockedSlots, zoom, symMul, e.kind === 'team' ? teamStripPx(e.label ?? '', teamLines?.get(e.id)?.lineNo != null) : undefined)
+          : teamDockAnchor(e, entities, dockedSlots, zoom, symMul, e.kind === 'team' ? teamStripPx(e.label ?? '') : undefined)
         const at = dockAnchor?.host.coord ?? e.coord
         /** …and the drag therefore STARTS from the slot, not from the stored point under it: the
          *  two are up to one dock radius apart, and grabbing a docked marker used to teleport it
@@ -778,9 +778,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               // timestamp. A Trupp marked «raus» on the Atemschutz board dims here too.
               const isRaus = !!e.truppId && !!trupps?.some((t) => t.id === e.truppId && t.status === 'raus')
               const teamCol = e.color || appConfig.drawing.teamColors[0]
-              // «Ein Etikett» (15.09.): the Leitung this Trupp works is drawn IN its marker — the
-              // number in the hose's ink, a coupling where the hose actually ends here — and the
-              // hose's own end tag is then not drawn at all (MapView · teamLineBadges). Absent
+              // The Leitung this Trupp works (MapView · teamLineBadges): its ink and, where the
+              // hose actually ends here, a coupling. ⚠️ Name only, no Leitung number (11.10.2026,
+              // owner — the Gebäude chip's look): the hose's end tag says which Leitung. Absent
               // badge = the marker it always was.
               const badge = teamLines?.get(e.id)
               if (selectedId !== e.id) {
@@ -794,17 +794,12 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     <span className={`team-dot ${isRaus ? 'raus' : ''}${badge ? ' joined' : ''}`}
                       style={{ '--team': teamCol, ...(badge ? { '--line': badge.color } : null) } as React.CSSProperties}>
                       <i />
-                      {/* ⚠️ tied to the NAME's visibility, not drawn on its own: the label pass
-                          books one box for [dot][gap][name] (MapView · labelDecisions), so a field
-                          that outlived the name would sit outside anything the pass arbitrated.
-                          Order = dot · Leitung · Name, the same order the selected pill has. */}
-                      {!nameHidden && badge?.lineNo != null && <em className="team-ltg">{badge.lineNo}</em>}
                       {!nameHidden && <b>{e.label}</b>}
                       {/* the storey (18.09.2026) — only where the marker HAS one, which on the
                           Karte means its body was baked off a Gebäude chip (lib/tacticalObjects
                           · bakeGeoBody). A Trupp dropped straight onto the map is on no storey,
                           and a «0» there would assert an EG nobody stated. Tied to the name's
-                          visibility like the Leitung chip: the label pass books one box. */}
+                          visibility: the label pass books one box for [dot][gap][name]. */}
                       {!nameHidden && e.floor != null && <em className="team-floor">{floorBadge(e.floor)}</em>}
                     </span>
                   </>
