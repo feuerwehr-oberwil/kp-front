@@ -13,11 +13,15 @@ from app.demo_reset import build_demo_workspace
 NOW = datetime(2026, 7, 19, 12, 0, 0, tzinfo=UTC)
 
 SCENE = {
-    "entities": [{"id": "brand", "kind": "symbol", "coord": [7.57, 47.52]}],
+    "entities": [
+        {"id": "brand", "kind": "symbol", "coord": [7.57, 47.52]},
+        {"id": "r1", "kind": "team", "t": "16:24", "coord": [7.57, 47.52], "truppId": "trupp1"},
+    ],
     "drawings": [{"id": "d1", "kind": "line", "coords": [[7.57, 47.52]]}],
     "board": {
         "gebaeude": [
-            {"id": "r1", "t": "16:24", "truppId": "trupp1", "trail": [{"t": "16:24", "x": 0.4, "y": 0.5, "floor": 1}]}
+            {"id": "r1", "kind": "resource", "t": "16:24", "truppId": "trupp1"},
+            {"id": "l1", "kind": "draw", "pts": [[0.4, 0.5, 1]]},
         ]
     },
 }
@@ -104,7 +108,22 @@ def test_board_chip_times_refreshed():
     ws = _ws()
     res = ws["board"]["gebaeude"][0]
     assert res["t"] != "16:24"  # rebased to a fresh HH:MM
-    assert res["trail"][0]["t"] == res["t"]
+    # the Karte's twin of the chip reads the same time; a line on the storey gets no clock
+    assert next(e for e in ws["entities"] if e["kind"] == "team")["t"] == res["t"]
+    assert "t" not in ws["board"]["gebaeude"][1]
+
+
+def test_the_shipped_scene_seeds_no_trail_and_no_absperrkreis():
+    """11.10.2026, owner: the Trupp's «last tracked places» and the Absperrkreis are gone from
+    the demo — the circle made the Karte open zoomed out and tinted the whole Gebäude view."""
+    scene = json.loads(dr.SCENE_PATH.read_text(encoding="utf-8"))
+    assert not any(e.get("trail") for e in scene["entities"])
+    assert not any(a.get("trail") for a in scene["board"]["gebaeude"])
+    assert not any(d["kind"] == "circle" for d in scene["drawings"])
+    # the seeded Trupp 1 still points at a Leitung that exists
+    line_ids = {d["id"] for d in scene["drawings"]}
+    ws = build_demo_workspace(scene, [], NOW)
+    assert ws["trupps"][0]["lineId"] in line_ids
 
 
 def test_scene_geometry_preserved():
