@@ -229,6 +229,33 @@ export function visibleCentre(pts: readonly Pt[], section: Section): Pt | null {
   return [best.reduce((s, p) => s + p[0], 0) / best.length, best.reduce((s, p) => s + p[1], 0) / best.length]
 }
 
+/** even–odd ray cast: is `p` inside the simple polygon `ring`? */
+function inRing(p: Pt, ring: readonly Pt[]): boolean {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i], b = ring[j]
+    if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < a[0] + ((p[1] - a[1]) * (b[0] - a[0])) / (b[1] - a[1])) inside = !inside
+  }
+  return inside
+}
+
+/**
+ * Does the closed `ring` (a Fläche, an Absperrkreis sampled by `circleRing`) hold the WHOLE
+ * section, its edge nowhere on it?
+ *
+ * ⚠️ Such a zone is not drawn on that paper at all (11.10.2026). Everything you can see is inside
+ * it, so it says nothing there — and its translucent wash only tinted the whole storey: the demo's
+ * 100 m Absperrkreis, projected off the Karte, turned the Gebäude's EG maroon, and the owner read
+ * the tint as something about the EG. Its edge is the only part that carries information, and
+ * the edge is off the paper. A zone that crosses the paper is unaffected.
+ */
+export function enclosesSection(ring: readonly Pt[], section: Section): boolean {
+  if (ring.length < 3 || !section.length) return false
+  // each convex window is wholly in or wholly out once the edge misses it, so its centre decides
+  if (!section.every((poly) => poly.length >= 3 && inRing([poly.reduce((s, q) => s + q[0], 0) / poly.length, poly.reduce((s, q) => s + q[1], 0) / poly.length], ring))) return false
+  return clipStroke(ring, section, true).runs.length === 0
+}
+
 /** Drop marks standing within `minGap` of one already kept — a freehand stroke that wanders
  *  along the edge would otherwise wear a row of discs. */
 export function thinMarks(marks: readonly EdgeMark[], minGap: number): EdgeMark[] {

@@ -554,6 +554,12 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Fixed
 
+- **An Absperrkreis larger than the building no longer tints a whole Gebäude storey.** The
+  demo's 100 m cordon, projected onto the floor stack, washed the EG maroon and put a lock chip
+  in the middle of the building. A zone (Absperrkreis or Fläche) whose interior holds its whole
+  storey — or, on a plan, the whole sheet — says nothing there, so it is no longer drawn,
+  labelled or lock-chipped on it; the printed Gebäude leaves that band clean too. A zone whose
+  edge crosses the paper is unchanged, and the Karte still shows it.
 - **Saving the station settings is no longer refused over the retired print-order switch.**
   The print relay's removal left `report.reversePrintOrder` in every stored config, and the
   «würde Abschnitte leeren» guard counted it as content being emptied: every settings save

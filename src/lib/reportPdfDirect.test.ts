@@ -177,15 +177,19 @@ describe('floorStackPages', () => {
       expect(outline).toHaveLength(1)
       expect(edgeMarks(pages[0].annos)).toHaveLength(2)
     })
-    it('fills only its own band with an Absperrkreis larger than the storey', () => {
+    // ⚠️ 11.10.2026: it used to fill its whole band — a maroon storey that said nothing about the
+    // storey (the demo's 100 m Absperrkreis on the EG). A zone that holds the band is not printed.
+    it('prints nothing of an Absperrkreis that holds its whole band, and nothing on the other bands', () => {
       const pages = floorStackPages(plan, building, [...onEvery([1]), { id: 'k', kind: 'circle', floor: 0, x: 0.5, y: 0.5, radiusN: 3 }])
       expect(pages[0].annos.some((x) => x.kind === 'symbol' && x.sizeN === 6)).toBe(false) // no whole-page disc
-      const fill = pages[0].annos.find((x) => x.kind === 'area' && x.color === appConfig.drawing.circleColor)!
-      const ys = (fill.pts as number[][]).map((p) => p[1])
-      expect(Math.min(...ys)).toBeCloseTo(0.5, 9)
-      expect(Math.max(...ys)).toBeCloseTo(1, 9)
-      // its ring never crosses the band, so there is nothing to mark
+      expect(pages[0].annos.some((x) => x.color === appConfig.drawing.circleColor)).toBe(false)
       expect(edgeMarks(pages[0].annos)).toHaveLength(0)
+    })
+    it('still fills the part of its band an Absperrkreis covers when its ring crosses the band', () => {
+      const pages = floorStackPages(plan, building, [...onEvery([1]), { id: 'k', kind: 'circle', floor: 0, x: 0.5, y: 0.5, radiusN: 0.6 }])
+      const fill = pages[0].annos.find((x) => x.kind === 'area' && x.color === appConfig.drawing.circleColor)!
+      expect(Math.min(...(fill.pts as number[][]).map((p) => p[1]))).toBeGreaterThanOrEqual(0.5 - 1e-9)
+      expect(pages[0].annos.some((x) => x.kind === 'draw' && x.color === appConfig.drawing.circleColor)).toBe(true)
     })
   })
 
