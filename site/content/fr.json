@@ -168,7 +168,7 @@
       {
         "alt": "Rapport d’intervention avant impression : présences et matériel déjà repris, en dessous les sections du PDF à cocher",
         "title": "Rapport",
-        "sub": "Presque terminé au retour à la caserne – contrôler, compléter, exporter en PDF, lancer l’impression"
+        "sub": "Presque terminé au retour à la caserne – contrôler, compléter, exporter en PDF et imprimer"
       }
     ]
   },
@@ -208,7 +208,7 @@
   "features": {
     "eyebrow": "Étendue des fonctions",
     "h2": "Ce qu’il y a dedans.",
-    "lede": "Né d’interventions et d’exercices réels, pas d’une liste de fonctions. Tout ce qui vient\n      de l’extérieur – alarme, GPS, imprimante – est <strong>facultatif</strong> : KP Front\n      fonctionne aussi entièrement sans ces raccordements.",
+    "lede": "Né d’interventions et d’exercices réels, pas d’une liste de fonctions. Tout ce qui vient\n      de l’extérieur – alarme, GPS, connexion Microsoft – est <strong>facultatif</strong> : KP Front\n      fonctionne aussi entièrement sans ces raccordements.",
     "groups": [
       {
         "h3": "Carte &amp; plan",
@@ -219,8 +219,10 @@
           "Mesure de distances et de surfaces, à l’échelle également sur le plan",
           "Couches : bornes hydrantes, cadastre des conduites, services cartographiques cantonaux",
           "<strong>Répertoire des matières dangereuses</strong>&nbsp;: numéros ONU, informations sur les substances et indications concernant les distances d’isolation et de protection, disponibles directement pendant l’intervention",
-          "Informations météorologiques et données sur le vent pour soutenir l’appréciation de la situation",
-          "Plans d’objet comme tableau blanc, étages superposés, tableau vierge",
+          "Informations météorologiques et données sur le vent pour soutenir l’appréciation de la situation, ainsi que le radar de précipitations de MétéoSuisse comme couche",
+          "Plans d’objet comme tableau blanc et étages superposés",
+          "<strong>Tableau avec pages CSSP</strong>&nbsp;: croquis libre, Première Conduite et feuilles du manuel – imprimés dans le rapport comme l’original",
+          "<strong>Info bâtiment</strong>&nbsp;: données du registre des bâtiments – gaz, mazout, photovoltaïque – et mesures immédiates pour l’objet",
           "<strong>Géoréférencement</strong>&nbsp;: relier un plan à la carte par des points de repère communs – un seul objet, visible sur les deux surfaces, avec une indication honnête de la précision. La caserne fait aligner ses plans à l’avance et les valide",
           "Annuler/rétablir sur chaque surface – les événements documentés restent traçables"
         ]
@@ -229,8 +231,10 @@
         "h3": "Effectif &amp; moyens",
         "items": [
           "<strong>Surveillance PR</strong> : pression, moment du repli, temps depuis le dernier contact, alarmes",
+          "<strong>Urgence PR</strong>&nbsp;: une équipe en détresse apparaît aussitôt en rouge, tout en haut, sur tous les appareils – avec chrono d’urgence et équipe de sécurité",
           "<strong>Équipes avec ou sans protection respiratoire</strong>&nbsp;: effectif, mission et chef d’équipe – sur la carte, sur le plan et dans les étages, avec leur propre couleur, la même partout",
           "Présences avec heures d’arrivée et grades",
+          "En route&nbsp;: qui a confirmé l’alarme Divera, directement au-dessus des présences",
           "<strong>Plan de relève</strong> : planifier les disponibilités et les tours par\n            personne, visualiser la couverture sur toute l’intervention et imprimer les\n            formulaires de conduite",
           "<strong>Partager sa position</strong> : qui ouvre le lien apparaît comme un point sur la\n            carte de situation – volontairement, et pour cette intervention seulement",
           "Partager l’intervention par lien ; l’accès est clairement signalé et peut être révoqué\n            à tout moment",
@@ -246,6 +250,7 @@
           "Notes vocales avec transcription, photos, rappels",
           "<strong>Rejouer</strong> : repasser l’intervention minute par minute, attentes sautées –\n            pour le débriefing",
           "Rapport d’intervention prêt au format PDF, avec effectif, matériel, horaires, journal,\n            croquis, photos et surveillance PR",
+          "<strong>Analyse</strong> pour le débriefing&nbsp;: chiffres clés et ligne du temps sur une feuille à part, à la fin du rapport",
           "Photos en annexe au rapport",
           "<strong>Contrôle final</strong>&nbsp;: avant la clôture, KP Front indique quelles informations ou clarifications manquent encore dans le rapport",
           "Organisations partenaires avec leur remarque dans le rapport",
@@ -262,7 +267,8 @@
           "Mode jour/nuit, taille des symboles, grandes zones tactiles pour la tablette",
           "Peut reprendre les alarmes de Divera ou FireHub ; d’autres systèmes d’alerte peuvent être raccordés par l’interface ouverte <span class=\"opt\">facultatif</span>",
           "Positions des véhicules par GPS <span class=\"opt\">facultatif</span>",
-          "Impression PDF à la caserne <span class=\"opt\">facultatif</span>",
+          "Connexion avec Microsoft au compte existant, en plus du PIN <span class=\"opt\">facultatif</span>",
+          "<strong>Visites d’objets</strong> sans intervention, hors ligne – check-list, photos et rapport <span class=\"opt\">facultatif</span>",
           "<strong>Espace d’administration propre</strong> à chaque corps : effectif, véhicules, checklists, couches cartographiques et modèles",
           "Interface en allemand, anglais, français ou italien – réglée une fois par corps"
         ]
@@ -272,7 +278,7 @@
   "sibling": {
     "eyebrow": "Projet apparenté",
     "h2": "KP Front conduit à l’avant. KP Rück garde la vue d’ensemble à l’arrière.",
-    "p": "<strong>KP Rück</strong> reproduit sous forme numérique le tableau magnétique du poste de\n          commandement arrière : un tableau pour le personnel, les véhicules et le matériel.\n          Application distincte, même écriture – les deux peuvent se transmettre des alarmes,\n          mais n’ont pas besoin l’une de l’autre.",
+    "p": "<strong>KP Rück</strong> reproduit sous forme numérique le tableau magnétique du poste de\n          commandement arrière : un tableau pour le personnel, les véhicules et le matériel.\n          Application distincte, même écriture – les deux reçoivent la même alarme du\n          système d’alarme et n’ont pas besoin l’une de l’autre.",
     "cta": "Découvrir KP Rück",
     "setup": {
       "h3": "Exploiter les deux – sans tout configurer deux fois",
@@ -284,10 +290,6 @@
         {
           "dt": "Accès Divera",
           "dd": "Une seule clé pour les deux – mêmes alarmes, même personnel. <span class=\"opt\">facultatif</span>"
-        },
-        {
-          "dt": "Agent d’impression",
-          "dd": "Un seul service au local dessert les deux applications et les deux types d’imprimante."
         },
         {
           "dt": "Liste du personnel",
