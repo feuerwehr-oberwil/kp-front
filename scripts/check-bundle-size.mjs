@@ -10,6 +10,7 @@
 //   App        the incident workspace (lazy, but it IS the app on an Einsatz)
 //   maplibre   its own chunk on purpose (vite.config.ts · codeSplitting); a stray import that
 //              pulled it back into the entry shows here and in the entry
+//   maplibreWorker  MapLibre 6's tile worker, its own precached asset (lib/maplibreWorker)
 //   pdfWorker  pdf.js' worker, the biggest file in the build
 //   css        the stylesheet index.html loads
 //
@@ -42,6 +43,7 @@ const CHUNKS = {
   // MapLibre 6 also emits its tile worker as `maplibre-gl-worker-<hash>.js` (lib/maplibreWorker),
   // which the bare prefix would match too: the library chunk is the one that is not the worker.
   maplibre: () => byPrefix('maplibre', '.js').filter((f) => !f.startsWith('maplibre-gl-worker-')),
+  maplibreWorker: () => byPrefix('maplibre-gl-worker', '.js'),
   pdfWorker: () => byPrefix('pdfWorkerEntry', '.js'),
   css: () => fromHtml(/<link[^>]+rel="stylesheet"[^>]+href="(\/?assets\/[^"]+\.css)"/g),
 }

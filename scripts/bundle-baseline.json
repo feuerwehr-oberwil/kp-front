@@ -11,8 +11,8 @@
       "raw": 943669
     },
     "maplibre": {
-      "gzip": 208636,
-      "raw": 787998
+      "gzip": 288119,
+      "raw": 1082642
     },
     "pdfWorker": {
       "gzip": 370381,
@@ -21,6 +21,10 @@
     "css": {
       "gzip": 68909,
       "raw": 420102
+    },
+    "maplibreWorker": {
+      "gzip": 144823,
+      "raw": 510128
     }
   }
 }
