@@ -378,7 +378,7 @@ export function VisitPage({ id }: { id: string }) {
       <Head
         title={doc.object.name}
         subNode={<StatusLine status={status} rec={rec} canSend={canEdit} onSendNow={() => { void sendNow() }} />}
-        onBack={leave}
+        onBack={() => { if (!reader.settling()) leave() }}
         actions={canEdit && lifecycle === 'draft' ? (
           <Menu
             trigger={<IconButton label={C.menu}><Icon id="more" /></IconButton>}

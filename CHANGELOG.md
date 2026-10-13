@@ -50,6 +50,14 @@ so this file – not the log – is the record of what shipped up to that point.
   unaffected. *No action needed* unless a script pushes a deliberately new set onto a populated
   deployment: add `--allow-create` there.
 
+### Fixed
+
+- **A double tap on a plan's ‹ no longer leaves the Objektbesuch.** The reader closed only when
+  the browser's back arrived, so a quick second tap went back once more – or landed on the
+  visit's own ‹ in the same spot – and the user found themselves in the overview, the visit
+  only under «Meine Entwürfe». The reader now closes at once, and the visit's ‹ ignores taps for
+  half a second after it. *No action needed.*
+
 ## [0.12.0] – 2026-10-13
 
 ### Upgrade notes
