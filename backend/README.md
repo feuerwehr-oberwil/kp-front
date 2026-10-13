@@ -232,7 +232,10 @@ as the explicit `"id"` UUID it derived. Never invent a UUID by hand.
 
 `load` and `push` always report what they did: which objects were created, which were updated,
 how many plan PDFs were attached, and – by name – any plan that did **not** land. A push that
-could not attach a plan exits non-zero.
+could not attach a plan exits non-zero. A `push` whose manifest shares **not one** object id with a
+deployment that already has objects is refused before it writes anything: it would create every
+object a second time, which is what a manifest minted under another id scheme looks like. Pass
+`--allow-create` when they really are new objects; a fresh deployment needs no flag.
 
 Each object becomes an `ObjectSite` row and each Modul-PDF a `ReferenceDataset`
 (`plan:<obj>:<module>`, blob in object storage), auto-surfaced on a nearby incident.

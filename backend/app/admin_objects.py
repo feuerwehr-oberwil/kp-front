@@ -24,7 +24,8 @@ no database file anywhere. SQLite exists solely as a pytest fallback.)
     validate <manifest>    parse the manifest + check every referenced PDF exists (no DB)
     load <manifest>        upsert objects + copy PDFs into the store (writes DB + storage)
     load <manifest> --dry-run        same as validate (no write)
-    push <manifest>        upload objects + PDFs to a RUNNING deployment via its API (remote-safe)
+    push <manifest>        upload objects + PDFs to a RUNNING deployment via its API (remote-safe);
+                           refuses a manifest none of whose ids the deployment has, unless --allow-create
     show                   print the objects + plan counts currently stored
     merge-duplicates       fold objects whose names differ only in Unicode form into one, onto the
                            id every future import mints for that name (report only)
@@ -526,14 +527,29 @@ async def _load(manifest_path: Path, objects: list[ObjectEntry]) -> WriteResult:
     return res
 
 
-def _push(manifest_path: Path, objects: list[ObjectEntry], base: str, admin_secret: str, dry_run: bool) -> WriteResult:
+def _push(
+    manifest_path: Path,
+    objects: list[ObjectEntry],
+    base: str,
+    admin_secret: str,
+    dry_run: bool,
+    *,
+    allow_create: bool = False,
+) -> WriteResult:
     """Push objects + their PDFs to a RUNNING deployment over its HTTP API. Each object is PUT to
     /api/objects/<id> and each plan PUT to /api/objects/<id>/plans/<module> (the server writes its
     OWN volume). Authenticates with the deployment ADMIN_SECRET (not an editor PIN).
 
-    Reads the deployment's current object list first — one GET — purely so the run can say which
+    Reads the deployment's current object list first — one GET — so the run can say which
     objects it CREATED and which it updated. An upsert answers 200 either way, and «upserted 3
     objects» is the sentence that hid a fresh-station install writing an object nobody expected.
+
+    ⚠️ The same list REFUSES a push that would only create (13.10.2026): when the deployment
+    already has objects and not one manifest id is among them, the manifest was minted under
+    another id scheme (kp-front-data-oberwil's importer: 154 ids, none of them prod's), and the
+    push would lay a duplicate next to every object. Refused before anything is written, dry run
+    included; ``--allow-create`` (``allow_create``) is how an operator says they really are new.
+    A fresh deployment (no objects yet) and any overlap at all push as before.
     """
     base = base.rstrip("/")
     res = WriteResult()
@@ -542,6 +558,14 @@ def _push(manifest_path: Path, objects: list[ObjectEntry], base: str, admin_secr
         if rl.status_code != 200:
             fail(f"ERROR: reading the objects already at {base} failed ({rl.status_code}): {rl.text[:200]}")
         known: set[str] = {str(o["id"]) for o in rl.json()}
+        if known and objects and not allow_create and not known & {str(o.object_id) for o in objects}:
+            fail(
+                f"ERROR: none of the manifest's {len(objects)} object id(s) is among the {len(known)} object(s) "
+                f"already at {base}, so this push would CREATE all {len(objects)} next to them. That is what a "
+                "manifest minted under a different id scheme looks like (another importer, or `key` where the "
+                "deployment's objects came with an `id`). Nothing was written. Compare its ids with "
+                "`GET /api/objects` on the deployment, or repeat with --allow-create if these really are new objects."
+            )
 
         for o in objects:
             (res.updated if str(o.object_id) in known else res.created).append(o.name)
@@ -1872,6 +1896,12 @@ async def _amain(argv: list[str]) -> int:
     p_push = sub.add_parser("push", help="upload objects + PDFs to a RUNNING deployment via its API")
     p_push.add_argument("manifest")
     add_push_args(p_push, dry_run_help="authenticate + report only, do not upload/write")
+    p_push.add_argument(
+        "--allow-create",
+        action="store_true",
+        help="push even if NONE of the manifest's object ids is on a deployment that already has objects "
+        "(see the refusal) — every object is then created new",
+    )
     sub.add_parser("show", help="print the stored objects + plan counts")
     p_merge = sub.add_parser(
         "merge-duplicates",
@@ -1930,7 +1960,7 @@ async def _amain(argv: list[str]) -> int:
         objects = _read_manifest(path)
         if not args.dry_run:
             _validate_files(path, objects)  # reject missing/non-PDF files before uploading anything
-        res = _push(path, objects, args.base, args.admin_secret, args.dry_run)
+        res = _push(path, objects, args.base, args.admin_secret, args.dry_run, allow_create=args.allow_create)
         return res.report(where=f"at {args.base}", dry_run=args.dry_run)
     if args.cmd == "merge-duplicates":
         return await _merge_duplicates(apply=args.apply)

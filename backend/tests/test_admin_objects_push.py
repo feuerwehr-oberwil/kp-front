@@ -163,3 +163,50 @@ def test_measures_travel_only_when_the_manifest_names_them(tmp_path: Path, deplo
     fake = deployment()
     assert _push(_manifest(tmp_path / "plain", modules=("modul1",))) == 0
     assert "measures" not in fake.object_bodies[0] and "measures_source" not in fake.object_bodies[0]
+
+
+# --- the id-scheme guard (13.10.2026) ---------------------------------------------------------
+# A manifest minted under another id scheme (kp-front-data-oberwil's importer: 154 ids, none of
+# them prod's) upserted cleanly — by creating 154 duplicates next to the objects it meant.
+
+
+def _foreign(n: int) -> list[dict]:
+    """`n` objects the deployment has that no manifest here addresses."""
+    return [{"id": str(object_id_for_key(f"elsewhere-{i}")), "name": f"Objekt {i}"} for i in range(n)]
+
+
+def test_a_fresh_deployment_takes_a_manifest_of_new_objects(tmp_path: Path, deployment, capsys):
+    deployment(stored=[])
+    assert _push(_manifest(tmp_path)) == 0
+    assert "1 object(s) created, 0 updated" in capsys.readouterr().out
+
+
+def test_a_manifest_that_shares_one_id_upserts_as_before(tmp_path: Path, deployment, capsys):
+    """Any overlap at all is a manifest that addresses this deployment; its other objects are new."""
+    mp = _manifest(tmp_path, modules=("modul1",))
+    doc = json.loads(mp.read_text())
+    doc["objects"].append({"key": "feuerwehrmagazin", "name": "Feuerwehrmagazin", "plans": []})
+    mp.write_text(json.dumps(doc))
+    fake = deployment(stored=[*_foreign(3), {"id": str(object_id_for_key("schulhaus-dorfmatt")), "name": "x"}])
+    assert _push(mp) == 0
+    assert "1 object(s) created, 1 updated" in capsys.readouterr().out
+    assert len(fake.object_bodies) == 2
+
+
+@pytest.mark.parametrize("extra", [(), ("--dry-run",)])
+def test_a_manifest_none_of_whose_ids_the_deployment_has_is_refused(tmp_path: Path, deployment, capsys, extra):
+    fake = deployment(stored=_foreign(3))
+    with pytest.raises(SystemExit) as exc:
+        _push(_manifest(tmp_path), *extra)
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert "none of the manifest's 1 object id(s) is among the 3 object(s) already at" in err
+    assert "different id scheme" in err and "--allow-create" in err
+    assert fake.object_bodies == [] and fake.plan_puts == [], "a refused push wrote something"
+
+
+def test_allow_create_pushes_the_manifest_anyway(tmp_path: Path, deployment, capsys):
+    fake = deployment(stored=_foreign(3))
+    assert _push(_manifest(tmp_path), "--allow-create") == 0
+    assert "1 object(s) created, 0 updated, 2 plan PDF(s) attached" in capsys.readouterr().out
+    assert len(fake.object_bodies) == 1
