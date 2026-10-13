@@ -171,7 +171,7 @@ export type Doc = { entities: Entity[]; drawings: Drawing[] }
 /** The persisted workspace blob — opaque to the backend; the frontend owns its shape. */
 export interface Saved {
   entities: Entity[]; drawings: Drawing[]; recent: string[]
-  /** The unified tactical objects (schema 2, tmp/design-unified-objects.md) — ONE record per
+  /** The unified tactical objects (schema 2, docs/tactical-objects.md) — ONE record per
    *  object, whatever surface it stands on; `entities`/`drawings`/`board` above become its
    *  derived views. Both are written on save: the views keep an un-updated device rendering
    *  (its next save drops `objects`, and the loader re-unifies from the views — only baked
@@ -271,7 +271,7 @@ export const normalizeBoard = (board?: BoardDoc): BoardDoc => {
 
 /** Version stamped into every saved blob (App's buildPayload). Bump on a breaking shape
  *  change and add a stepwise migration in `sanitizeWorkspace` for the older versions. */
-// v2 (09.09.): the unified `objects` collection joins the blob (tmp/design-unified-objects.md).
+// v2 (09.09.): the unified `objects` collection joins the blob.
 // The legacy collections are still written as views, so a v1 reader renders — see Saved.objects.
 // v3 (10.10.2026): Tafel pages (board kind `form`). A v2 build cannot keep what it cannot read in
 // every path, so the SERVER keeps a v3 kind for it: a save stamped below the version a stored

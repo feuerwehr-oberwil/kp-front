@@ -77,8 +77,8 @@ describe('a credential the server supplies', () => {
 })
 
 /** The one credential here that is NOT a secret is the VAPID public key: 87 characters of
- *  base64url, no space, no hyphen, no slash. jsdom cannot tell us whether it wraps (that is
- *  tmp/overflowcheck.cjs), but it can pin the hook the stylesheet needs — a shown value must
+ *  base64url, no space, no hyphen, no slash. jsdom cannot tell us whether it wraps (that needs
+ *  a real browser), but it can pin the hook the stylesheet needs — a shown value must
  *  carry `adm-cred-val`, never a bare `adm-mono`, or the key leaves its column and runs off the
  *  card at every width. */
 describe('a credential whose value IS shown', () => {

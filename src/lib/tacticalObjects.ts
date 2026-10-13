@@ -57,8 +57,7 @@ export interface ObjectViews {
  * list, its own drag gesture and its own panels.
  *
  * `board` stays ANCHOR-ONLY: a sheet draws its own annos natively and everything else by the
- * live map→plan projection, which is still the twin machinery (that direction is the next
- * step; see tmp/design-unified-objects.md · phasing).
+ * live map→plan projection (lib/planProjection).
  *
  * ⚠️ Order is deliberate and stable: geo-anchored first, baked after, each in store order.
  * The later half paints over the earlier one, so a symbol drawn on the Modul sheet is never
@@ -405,7 +404,7 @@ function annoAfterMapEdit(
   const widthM = plan ? planGroundWidthM(plan.fit, plan.aspect) : undefined
   /**
    * ⚠️ A MACHINE moved it, so the position crosses instead of flipping the anchor. Only a hand
-   * places an object (tmp/design-unified-objects.md · «last hand-placement owns the truth»); the
+   * places an object (the anchor rule in docs/tactical-objects.md); the
    * live-GPS pass re-routes an attached Leitung on every poll, and read as a placement it would
    * have torn plan-drawn hoses off their sheet with nobody touching anything.
    */
@@ -858,7 +857,7 @@ export function bakePlan(objects: TacticalObject[], planId: string, plan: PlanFi
 /**
  * …and every plan's, for the two moments that owe it wholesale: a store just hydrated from a
  * blob, and a georeference that has just changed (a fit correction MOVES every symbol standing
- * on that sheet — see tmp/design-unified-objects.md · «Reference change»).
+ * on that sheet).
  */
 export function bakeAll(objects: TacticalObject[], fits: ReadonlyMap<string, PlanFit>, defaultLayer: Entity['layer']): TacticalObject[] {
   return bakeEach(objects, (o) => (o.sheet ? bakeGeoBody(o, fits.get(o.sheet.planId), defaultLayer) : o))
