@@ -31,6 +31,10 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Changed
 
+- **Browser floor raised to Safari/iPadOS 15.4, Chrome/Edge 98, Firefox 94** (`build.target`).
+  That is what the app already needed (`structuredClone`, unpolyfilled) and covers MapLibre 6.
+  iPadOS 15.4+ covers every iPad that ever ran iPadOS 15, including the iPad Air 2 / mini 4 on
+  15.8. *Update an older iPad to iPadOS 15.8 or later.*
 - **maplibre-gl 4.7 → 6** (#193). The map needs WebGL2 and a browser of at least Safari/iPadOS
   15.4, Chrome/Edge 93 or Firefox 92 (MapLibre 6 calls `Object.hasOwn` and `Array.prototype.at`
   unpolyfilled). Its tile worker is now a separate, precached file. The download grows on
