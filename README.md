@@ -211,8 +211,9 @@ commit that has been carrying live incidents. Releases exist for *other* station
 
 A tablet-first PWA talks to a single FastAPI service that serves the app same-origin, owns the
 database and asset store, and is the only thing that reaches external services – one deployment
-per station. Full diagrams (data provenance, backend modules, config layers, sync flow) are in
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+per station. The one-page overview – every optional integration and the station-data CLIs
+included – and the full diagrams (data provenance, backend modules, config layers, sync flow)
+are in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ```mermaid
 flowchart TB
