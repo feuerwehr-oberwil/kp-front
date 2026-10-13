@@ -8,7 +8,7 @@ import { fitSimilarity, type GeorefPair } from './georef'
 import type { AnchorChange, PlanFit, TacticalObject } from './tacticalObjects'
 import type { BoardAnno, Entity } from '../types'
 
-/* ONE store, two documents (tmp/design-unified-objects.md · phase 2). These tests pin what the
+/* ONE store, two documents. These tests pin what the
  * adapters owe every existing mutator: the views are always derived from the live store, a write
  * to either document lands in the same collection, a plan write re-bakes the map body through
  * the fit, and a step of the history restores the OBJECTS — anchors and all. */
@@ -461,8 +461,7 @@ describe('a sheet with both kinds on it, after the Karte has been written', () =
   })
 })
 
-/* ⚠️ «Referenz zurücksetzen» — and «der Plan ist weg» (tmp/design-unified-objects.md · «Reference
- * delete», phase 3). NOTHING DISAPPEARS. That is the whole rule, and it has three halves the store
+/* ⚠️ «Referenz zurücksetzen» — and «der Plan ist weg». NOTHING DISAPPEARS. That is the whole rule, and it has three halves the store
  * has to keep on its own: a sheet-anchored object keeps its sheet body AND the ground position the
  * last fit baked for it (a vehicle that stopped reporting is still where it last was, and the
  * design says NOT to mark it stale); a geo-anchored object merely stops being lent to a sheet that
