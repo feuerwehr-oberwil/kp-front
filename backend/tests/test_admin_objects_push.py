@@ -44,6 +44,7 @@ class _FakeClient:
         self.stored = stored
         self.plan_status = plan_status
         self.plan_puts: list[str] = []
+        self.object_bodies: list[dict] = []
 
     def __enter__(self) -> "_FakeClient":
         return self
@@ -63,6 +64,7 @@ class _FakeClient:
         if "/plans/" in url:
             self.plan_puts.append(url)
             return _Resp(self.plan_status, {"detail": "Objekt nicht gefunden"} if self.plan_status != 200 else {})
+        self.object_bodies.append(_kw.get("json") or {})
         return _Resp(200, {})
 
 
@@ -143,3 +145,21 @@ def test_the_object_a_push_writes_is_the_manifest_key(tmp_path: Path, deployment
     expected = object_id_for_key("schulhaus-dorfmatt")
     assert fake.plan_puts == [f"/api/objects/{expected}/plans/modul1"]
     assert uuid.UUID(str(expected))  # a real uuid, not a placeholder string
+
+
+def test_measures_travel_only_when_the_manifest_names_them(tmp_path: Path, deployment):
+    """The Gebäude card's Sofortmassnahmen: a manifest that carries them sends them; one that does
+    not leaves the key out, so a push never wipes what Verwaltung typed."""
+    mp = _manifest(tmp_path, modules=("modul1",))
+    doc = json.loads(mp.read_text())
+    doc["objects"][0] |= {"measures": "Gas zu\nAbwart rufen", "remarks": "Brandlast", "measuresSource": "Modul 1"}
+    mp.write_text(json.dumps(doc))
+    fake = deployment()
+    assert _push(mp) == 0
+    assert fake.object_bodies[0]["measures"] == "Gas zu\nAbwart rufen"
+    assert fake.object_bodies[0]["remarks"] == "Brandlast"
+    assert fake.object_bodies[0]["measures_source"] == "Modul 1"
+
+    fake = deployment()
+    assert _push(_manifest(tmp_path / "plain", modules=("modul1",))) == 0
+    assert "measures" not in fake.object_bodies[0] and "measures_source" not in fake.object_bodies[0]

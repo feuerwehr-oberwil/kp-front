@@ -30,6 +30,11 @@ dependencies = [
     # only, `data_only=True`), write for the export. MIT.
     "openpyxl>=3.1.5",
     "anyio>=4.14.0",
+    # The map's precipitation radar (app/weather_radar): MeteoSwiss publishes it only as ODIM
+    # HDF5, and the grid is resampled onto Web Mercator server-side. numpy was already in the
+    # image through the `georef` extra; h5py (+ its bundled libhdf5) adds ~17 MB. BSD-3 both.
+    "numpy>=2.0",
+    "h5py>=3.11",
 ]
 
 [project.optional-dependencies]
@@ -126,6 +131,9 @@ extend-immutable-calls = [
 "app/admin_objects.py" = ["N815"]
 # Checklists manifest entries use the same camelCase contract (sourceNote)
 "app/admin_checklists.py" = ["N815"]
+# board-template/1 mirrors the client's camelCase template contract (fixedRows, addRows, sourceNote)
+"app/board_templates.py" = ["N815"]
+"app/admin_board_templates.py" = ["N815"]
 # Report payload mirrors the frontend's camelCase report JSON (reportMeta, krokiKey, …)
 "app/report_pdf.py" = ["N815"]
 # Zeitplan payload mirrors the same camelCase contract (incidentTitle, startedAt)
@@ -148,7 +156,7 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 # The vendored telemetry modules are byte-identical with kp-rueck's copies and pinned by
-# checksum (tests/test_telemetry_vendored.py). The fixes they'd need — a typed DML helper,
+# checksum (shared/MANIFEST.json). The fixes they'd need — a typed DML helper,
 # a widened ctx dict — cannot be shared, because the two apps have different database
 # modules, so annotating them here would break the identity the checksum protects.
 # kp-rueck excludes them for the same reason (its docs/plans/14-typing-debt.md). Their

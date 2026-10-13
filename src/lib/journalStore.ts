@@ -296,7 +296,7 @@ export class JournalStore {
   /** Later-arriving enrichment (transcript, uploaded media URL) — a NEW row, never an edit.
    *  Clearing a field sends '' (never undefined: JSON.stringify drops undefined keys, and
    *  the clear would un-apply once the outbox copy is replaced by the server row). */
-  appendPatch(targetId: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'transcriptSectionEdit' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'textEdit' | 'retracted'>>) {
+  appendPatch(targetId: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'transcriptSectionEdit' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'photoGeo' | 'textEdit' | 'retracted'>>) {
     const at = new Date().toISOString()
     const clean = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, v ?? '']))
     // two patches for one target can land in the same millisecond — on one device (newId's

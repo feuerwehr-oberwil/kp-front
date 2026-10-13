@@ -613,12 +613,13 @@ loaded, every plan in the bucket is skipped and the deployment shows none of the
 
 ⚠️ **…and if you run the pull, the objects have to come from `admin_objects` – not from the
 browser.** The pull matches on the object's recorded **`source_key`**, the folder key in the plan
-store. `admin_objects` sets it; the admin form has no field for it and the API that saves the
-form cannot carry one. So an Einsatzobjekt created in the browser is complete and usable – you
-upload its Modul-PDFs there, slot by slot – but the scheduled pull will never find it, and its
-plans are counted as skipped every night with nothing on screen to say why. The Objektpläne page
-says this at the form. Two doors, one rule: **PDFs by hand → the browser is fine; PDFs on a
-timer → the object has to have been loaded by `admin_objects`.**
+store. `admin_objects` sets it, by `load` or `push`; the admin form has no field for it and never
+sends one (a save there keeps the key a CLI wrote). So an Einsatzobjekt created in the browser is
+complete and usable – you upload its Modul-PDFs there, slot by slot – but the scheduled pull will
+never find it, and its plans are counted as skipped on every run with nothing on screen to say
+why, until a later `admin_objects load` or `push` of the same object gives it a key. The
+Objektpläne page says this at the form. Two doors, one rule: **PDFs by hand → the browser is
+fine; PDFs on a timer → the object has to have been loaded by `admin_objects`.**
 
 ⚠️ **The bucket pull covers object plans and nothing else.** `plan_pull` only ever writes
 `plan:<object>:<module>` datasets, and the deployment config has no pull path at all. Plans-only
@@ -681,20 +682,23 @@ geodata or checklists above, so an integration is never a substitute for this st
 
 Every integration is fail-closed: no credential means the feature is off, not broken.
 
-**These go in the browser now.** Sixteen settings – the three Divera keys, the Traccar trio, the
-VAPID trio, the four speech-to-text settings, `CARTO_API_KEY`,
-`ALARM_WEBHOOK_SECRET` and
-`HEALTHCHECK_PING_URL` – are set at `/admin` → **Anbindungen**. They are stored **encrypted** in
-this deployment's own database (AES-256-GCM under a key derived from `SECRET_KEY`) and take effect
-**without a restart**. Three rules, once:
+**These go in the browser now.** The integration settings – the three Divera keys, the Traccar
+trio, the VAPID trio, the four speech-to-text settings, `CARTO_API_KEY`, `ALARM_WEBHOOK_SECRET`,
+`HEALTHCHECK_PING_URL`, the Azure app registrations for the SharePoint pull, the SharePoint export
+and «Mit Microsoft anmelden», the Objektbesuche organizer key, and the station-index and
+roster-snapshot sources and tokens – are set at `/admin` → **Anbindungen**. They are stored
+**encrypted** in this deployment's own database (AES-256-GCM under a key derived from
+`SECRET_KEY`) and take effect **without a restart**. Three rules, once:
 
 - **A value in `.env` wins and locks the field.** The browser box then reports itself as
   server-set and refuses to save (409). Nothing about an existing deployment changes, and nothing
   is migrated out of its environment: fill a line in `.env` only when you want the environment,
   and nobody else, to own that value.
 - **Secrets are write-only.** An admin session can set and rotate them; nothing reads one back,
-  here or anywhere. Only the non-secret half is displayed – the Traccar URL, the VAPID public key
-  and contact, and the three STT settings that are not the key.
+  here or anywhere. Only the non-secret fields are displayed – URLs and sources (Traccar, STT,
+  station index, roster snapshot), the VAPID public key and contact, the STT model and language,
+  the CARTO browser key, the Azure tenant and client ids, the SharePoint secret's expiry date and
+  the Microsoft-login allow-list.
 - **What stays in `.env`, and why.** `SECRET_KEY` peppers the PINs in the database it would
   otherwise live in; `ADMIN_SECRET` gates writing the very document it would live in;
   `KP_TELEMETRY_ENABLED`/`_DSN` are the deployer's veto *over* the admin UI, and an admin-settable

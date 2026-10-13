@@ -49,10 +49,11 @@ async def _object(
     plans: dict[str, str | None] | None = None,
     source_key: str | None = None,
     updated_at: datetime | None = None,
+    **fields: object,
 ) -> uuid.UUID:
     """One stored Einsatzobjekt + its plan rows ({module: source_digest})."""
     oid = oid or object_id_for_key(name)
-    db.add(ObjectSite(id=oid, name=name, source_key=source_key, updated_at=updated_at or datetime.now(UTC)))
+    db.add(ObjectSite(id=oid, name=name, source_key=source_key, updated_at=updated_at or datetime.now(UTC), **fields))
     for module, digest in (plans or {}).items():
         db.add(
             ReferenceDataset(
@@ -253,6 +254,37 @@ async def test_the_survivor_is_re_keyed_onto_the_nfc_id_and_takes_everything_wit
     out = capsys.readouterr().out
     assert f"rekey  {rich} → {canonical}" in out
     assert "1 survivor(s) re-keyed to the NFC id" in out
+
+
+async def test_the_modul1_notes_survive_a_merge_and_a_re_key(db_session):
+    """The Gebäude card's Sofortmassnahmen / Bemerkungen belong to the OBJECT: folding a twin and
+    then moving the survivor onto the NFC id must lose neither, and the survivor's own text wins."""
+    loser = await _object(
+        db_session,
+        NFC_NAME,
+        oid=uuid.uuid4(),
+        plans={"modul1": "a" * 64},
+        measures="Gas zu",
+        remarks="vom Zwilling",
+        measures_source="Modul 1 (alt)",
+    )
+    survivor = await _object(
+        db_session,
+        NFC_NAME,
+        oid=uuid.uuid4(),
+        plans={"modul2": "b" * 64},
+        source_key="Kindergarten Hüsli",
+        remarks="Brandlast Keller",
+    )
+    assert loser != survivor
+
+    assert await admin_objects._merge_duplicates(apply=True) == 0
+
+    row = (await db_session.execute(select(ObjectSite))).scalar_one()
+    assert row.id == object_id_for_key(NFC_NAME)
+    assert row.measures == "Gas zu", "the twin's measures did not come over"
+    assert row.remarks == "Brandlast Keller", "the survivor's own note was overwritten"
+    assert row.measures_source == "Modul 1 (alt)"
 
 
 async def test_a_survivor_that_already_carries_the_nfc_id_is_left_alone(db_session, capsys):

@@ -1,4 +1,5 @@
-/** The live feed on a georeferenced sheet: the Karte's vehicles and shared responder positions.
+/** The live feed on a georeferenced sheet: the Karte's vehicles and shared responder positions
+ *  (and, below, the Karte's photo markers — `PlanPhotoMarks`).
  *
  *  ⚠️ Everything else the Karte holds is an OBJECT now, and a sheet draws an object with its own
  *  native chrome (lib/planProjection). What is left here is the half that is not a record: a GPS
@@ -25,7 +26,10 @@ import { softHyphenateText } from '../lib/symbolWrap'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { TacticalSymbol } from '../lib/symbolRender'
-import type { LiveMark } from '../lib/planProjection'
+import type { LiveMark, PhotoMark } from '../lib/planProjection'
+import { openPhoto } from '../lib/ui'
+import { thumbUrl } from '../lib/mediaUrl'
+import { takenClock } from '../lib/photoGeo'
 import type { CaptionMode } from '../types'
 import s from './PlanLiveLayer.module.css'
 
@@ -125,6 +129,49 @@ export const PlanLiveLayer = memo(function PlanLiveLayer({ marks, byName, sW, sH
               sizePx={sizePx} rotation={veh ? 0 : rot} count={e.count}
               caption={caption ? softHyphenateText(caption) : caption} />
           </span>
+        )
+      })}
+    </>
+  )
+})
+
+/**
+ * The Karte's PHOTO markers on a georeferenced sheet (lib/planProjection · photoOverlay): the
+ * thumbnail where the picture was taken and its view cone, in the paper's frame. Read-only —
+ * moving or removing one is the Karte's — and a tap opens the picture, which is the one thing
+ * anybody wants from it here. Same chrome as on the Karte (`.ts.photo`, 03-map.css).
+ */
+export const PlanPhotoMarks = memo(function PlanPhotoMarks({ marks, sW, sH, inert }: {
+  marks: PhotoMark[]
+  sW: number
+  sH: number
+  /** a tool is armed: the marks stay visible but stop answering */
+  inert?: boolean
+}) {
+  const G = appConfig.copy.photoGeo
+  if (!sW || !sH) return null
+  return (
+    <>
+      {marks.map((m) => {
+        const t = takenClock(m.takenAt)
+        const title = `${t ? fillTemplate(G.markerTaken, { t }) : G.marker} · ${G.planMark}`
+        return (
+          <button key={m.id} type="button" className={`${s.twin} ${inert ? s.inert : ''}`}
+            style={{ left: 0, top: 0, transform: `translate(${m.pt.x * sW}px, ${m.pt.y * sH}px) translate(-50%, -50%)` }}
+            title={title} aria-label={title}
+            onPointerDown={(ev) => ev.stopPropagation()}
+            onClick={(ev) => { ev.stopPropagation(); if (m.url) openPhoto(m.url, { caption: t ? fillTemplate(G.markerTaken, { t }) : G.marker, filename: 'foto.jpg' }) }}
+          >
+            <span className="ts photo">
+              {m.heading != null && (
+                <svg className="photo-cone" viewBox="0 0 120 120" aria-hidden
+                  style={{ transform: `translate(-50%, -50%) rotate(${m.heading}deg)` }}>
+                  <path d="M60 60 L28.4 11.4 A58 58 0 0 1 91.6 11.4 Z" />
+                </svg>
+              )}
+              <img src={thumbUrl(m.url)} alt="" decoding="async" />
+            </span>
+          </button>
         )
       })}
     </>

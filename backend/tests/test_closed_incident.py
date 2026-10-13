@@ -542,3 +542,48 @@ async def test_every_close_stamps_last_closed_at_and_the_first_stays_closed_at(c
     assert datetime.fromisoformat(second["last_closed_at"]) > datetime.fromisoformat(first["closed_at"])
     listed = next(i for i in (await client.get("/api/incidents")).json() if i["id"] == inc)
     assert listed["last_closed_at"] == second["last_closed_at"]
+
+
+PAGE = {"id": "fm1", "kind": "form", "form": {"v": 1, "at": "2026-10-10T09:00:00Z", "values": {}}}
+
+
+async def test_a_newer_build_correcting_the_rapport_of_an_older_builds_einsatz_is_not_refused(client, editor):
+    """Review of #338: every closed Einsatz on prod was last saved by a v2 build. A v3 device
+    correcting its Rapport sends `schemaVersion: 3` — which build wrote the blob is not an
+    operation in the Einsatz."""
+    await _login(client, editor)
+    inc, rev = await _seeded(client)
+    stored = (await client.get(f"/api/incidents/{inc}/workspace")).json()["workspace"]
+    r = await client.put(
+        f"/api/incidents/{inc}/workspace",
+        json={
+            "workspace": {**stored, "schemaVersion": 3, "reportMeta": {"kurzbericht": "korrigiert"}},
+            "base_rev": rev,
+        },
+    )
+    assert r.status_code == 200, r.text
+
+
+async def test_an_older_builds_rapport_correction_keeps_the_pages_and_is_not_refused(client, editor):
+    """…and the other way round: a v2 device never saw the Tafel pages a v3 one wrote. Its
+    Rapport correction on the closed Einsatz is compared AFTER the pages are put back, so it is
+    neither refused as «pages deleted» nor does it delete them."""
+    await _login(client, editor)
+    inc = await _incident(client)
+    ws = {
+        "schemaVersion": 3,
+        "reportMeta": {"kurzbericht": "Brand"},
+        "objects": [{"id": "fm1", "sheet": {"planId": "tafel", "anno": PAGE}}],
+        "board": {"tafel": [PAGE]},
+    }
+    r = await client.put(f"/api/incidents/{inc}/workspace", json={"workspace": ws, "base_rev": 0})
+    assert r.status_code == 200, r.text
+    await _close(client, inc)
+    old_build = {"schemaVersion": 2, "reportMeta": {"kurzbericht": "korrigiert"}, "objects": [], "board": {"tafel": []}}
+    r = await client.put(
+        f"/api/incidents/{inc}/workspace", json={"workspace": old_build, "base_rev": r.json()["workspace_rev"]}
+    )
+    assert r.status_code == 200, r.text
+    saved = (await client.get(f"/api/incidents/{inc}/workspace")).json()["workspace"]
+    assert saved["reportMeta"] == {"kurzbericht": "korrigiert"}
+    assert [o["id"] for o in saved["objects"]] == ["fm1"]

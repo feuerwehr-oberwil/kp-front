@@ -77,6 +77,54 @@ async def webhook(
     return {"ok": True, "new": em is not None, "incident_id": str(inc.id) if inc else None}
 
 
+@router.get("/responses/{incident_id}")
+async def responses(incident_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)) -> dict:
+    """Who answered the Divera alarm «kommt» / «kommt nicht» — our personnel ids, nothing else.
+
+    Read-only and stored: the server's own poll keeps it (divera · store_responses); this read
+    never calls Divera. Every alarm taken into the incident counts (a Nachalarm attached to it is
+    one more; the newer alarm's answer wins), but only alarms of the last
+    :data:`~app.divera_responses.RESPONSES_MAX_AGE_SECONDS`: the answers to a dispatch that is
+    hours over are not «anrückend». ``available: false`` = nothing to show (``reason: no_data``,
+    or ``closed`` for an archived Einsatz), and the Anwesenheit shows nothing at all.
+
+    Editor-only like the rest of /api/divera (the EL and the editors who mark attendance; a viewer
+    and an Einsatz-Link session are refused). Somebody not on the Mannschaftsliste is a count.
+    The answers never enter the workspace, an export or a Rapport, and are cleared after the
+    Einsatz (divera · prune_responses). A Divera answer is not presence.
+    """
+    from datetime import datetime, timedelta
+
+    from sqlalchemy import func as sa_func
+
+    from ..divera_responses import RESPONSES_MAX_AGE_SECONDS, summarise
+
+    inc = await get_incident_or_404(db, incident_id)
+    if inc.is_archived:
+        return {"available": False, "reason": "closed"}
+    now = datetime.now(UTC)
+    cutoff_ts = int(now.timestamp()) - RESPONSES_MAX_AGE_SECONDS
+    cutoff_dt = now - timedelta(seconds=RESPONSES_MAX_AGE_SECONDS)
+    blobs = (
+        (
+            await db.execute(
+                select(DiveraEmergency.responses_json)
+                .where(
+                    DiveraEmergency.taken_incident_id == incident_id,
+                    DiveraEmergency.responses_json.is_not(None),
+                    (DiveraEmergency.ts_create >= cutoff_ts)
+                    | (DiveraEmergency.ts_create.is_(None) & (DiveraEmergency.received_at >= cutoff_dt)),
+                )
+                # oldest alarm first: summarise lets the newer one's answer win
+                .order_by(sa_func.coalesce(DiveraEmergency.ts_create, 0), DiveraEmergency.received_at)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return summarise(list(blobs))
+
+
 @router.get("/pool", response_model=list[DiveraEmergencyOut])
 async def pool(_user: CurrentEditor, db: AsyncSession = Depends(get_db)):
     rows = (

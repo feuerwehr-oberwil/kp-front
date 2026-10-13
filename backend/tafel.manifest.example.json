@@ -1,0 +1,9 @@
+{
+  "templates": [
+    {
+      "id": "fks-erste-fuehrung",
+      "file": "tafel/fks-erste-fuehrung.json",
+      "sourceNote": "Stationskopie von src/data/boardTemplates/fks-erste-fuehrung.json"
+    }
+  ]
+}

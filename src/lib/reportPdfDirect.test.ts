@@ -177,15 +177,19 @@ describe('floorStackPages', () => {
       expect(outline).toHaveLength(1)
       expect(edgeMarks(pages[0].annos)).toHaveLength(2)
     })
-    it('fills only its own band with an Absperrkreis larger than the storey', () => {
+    // ⚠️ 11.10.2026: it used to fill its whole band — a maroon storey that said nothing about the
+    // storey (the demo's 100 m Absperrkreis on the EG). A zone that holds the band is not printed.
+    it('prints nothing of an Absperrkreis that holds its whole band, and nothing on the other bands', () => {
       const pages = floorStackPages(plan, building, [...onEvery([1]), { id: 'k', kind: 'circle', floor: 0, x: 0.5, y: 0.5, radiusN: 3 }])
       expect(pages[0].annos.some((x) => x.kind === 'symbol' && x.sizeN === 6)).toBe(false) // no whole-page disc
-      const fill = pages[0].annos.find((x) => x.kind === 'area' && x.color === appConfig.drawing.circleColor)!
-      const ys = (fill.pts as number[][]).map((p) => p[1])
-      expect(Math.min(...ys)).toBeCloseTo(0.5, 9)
-      expect(Math.max(...ys)).toBeCloseTo(1, 9)
-      // its ring never crosses the band, so there is nothing to mark
+      expect(pages[0].annos.some((x) => x.color === appConfig.drawing.circleColor)).toBe(false)
       expect(edgeMarks(pages[0].annos)).toHaveLength(0)
+    })
+    it('still fills the part of its band an Absperrkreis covers when its ring crosses the band', () => {
+      const pages = floorStackPages(plan, building, [...onEvery([1]), { id: 'k', kind: 'circle', floor: 0, x: 0.5, y: 0.5, radiusN: 0.6 }])
+      const fill = pages[0].annos.find((x) => x.kind === 'area' && x.color === appConfig.drawing.circleColor)!
+      expect(Math.min(...(fill.pts as number[][]).map((p) => p[1]))).toBeGreaterThanOrEqual(0.5 - 1e-9)
+      expect(pages[0].annos.some((x) => x.kind === 'draw' && x.color === appConfig.drawing.circleColor)).toBe(true)
     })
   })
 
@@ -463,5 +467,41 @@ describe('buildDirectReportPayload · the close on paper', () => {
     const exit = out.trupps[0].cycles[0].exit
     expect(exit).toBe(fillTemplate(appConfig.copy.atemschutz.cycleEndAtClose, { t: formatDateTime('2026-09-25T22:15:00.000Z') }))
     expect(exit).not.toContain(formatDateTime('2026-09-25T22:07:00.000Z'))
+  })
+})
+
+/** The Auswertung Beilage (lib/auswertung, F7): on the option, off without it, closed at the
+ *  Einsatz's own close, and the «gelöscht» symbols on the Karte and the sheets as ONE milestone. */
+describe('buildDirectReportPayload · Auswertung', () => {
+  const incident = { id: 'i1', title: 'Brand', started_at: '2026-09-25T21:36:00.000Z', closed_at: '2026-09-25T22:36:00.000Z', is_archived: true } as never
+  const fire = { id: 'f1', kind: 'symbol', layer: 'taktisch', coord: [7.5, 47.5], symbol: 'VKF Feuer', done: { at: '2026-09-25T22:10:00.000Z' } }
+  const build = (options: Record<string, unknown>) => buildDirectReportPayload({
+    incident,
+    draft: { meta: { lehren: 'Hydrant zugeparkt' }, generatedAt: '2026-09-25T22:40:00.000Z', proof: {}, options } as never,
+    trupps: [], attendance: {}, events: [], plans: [],
+    scene: { entities: [fire] as never, drawings: [], layers: [], byName: {}, center: [7.5, 47.5], view: { center: [7.5, 47.5], zoom: 17 } },
+    // the same Feuer projected onto a sheet: one fact, one diamond
+    board: { gebaeude: [{ ...fire, kind: 'symbol', x: 0.5, y: 0.5 }] as never },
+    contactIntervalMin: 5, contactGraceSec: 60,
+  }) as { auswertung?: { figures: { value: string; sub?: string }[]; timeline: { milestones: { label: string }[] } | null }; options: { auswertung?: boolean } }
+
+  it('travels only when the option is on', () => {
+    expect(build({ auswertung: false }).auswertung).toBeUndefined()
+    const out = build({ auswertung: true })
+    expect(out.options.auswertung).toBe(true)
+    // total = alarm (started_at) to the close
+    expect(out.auswertung!.figures[4].value).toBe('1 h 00')
+    // the Lehren stay on page 1; the sheet only points there
+    expect((out.auswertung as { lehrenNote?: string }).lehrenNote).toBe(appConfig.copy.auswertung.lehrenSeePage1)
+    expect(out.auswertung!.timeline!.milestones.map((m) => m.label)).toEqual([`Feuer ${appConfig.copy.objectDone.word.fire.inline}`])
+  })
+
+  it('a REOPENED Einsatz runs again — its old close time is no Einsatzende (review of #303)', () => {
+    const out = buildDirectReportPayload({
+      incident: { id: 'i1', title: 'Brand', started_at: '2026-09-25T21:36:00.000Z', closed_at: '2026-09-25T22:36:00.000Z', is_archived: false } as never,
+      draft: { meta: {}, generatedAt: '2026-09-25T23:00:00.000Z', proof: {}, options: { auswertung: true } } as never,
+      trupps: [], attendance: {}, events: [], plans: [], now: Date.parse('2026-09-25T23:00:00.000Z'),
+    }) as { auswertung: { figures: { value: string; sub?: string }[] } }
+    expect(out.auswertung.figures[4]).toMatchObject({ value: '—', sub: appConfig.copy.auswertung.totalRunning })
   })
 })

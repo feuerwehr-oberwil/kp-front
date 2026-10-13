@@ -285,6 +285,13 @@ async def load_roster_auto_sync(db: AsyncSession) -> AutoSyncLevel:
     return value if value in ("off", "safe", "full") else DEFAULT_AUTO_SYNC
 
 
+async def load_divera_response_kinds(db: AsyncSession) -> dict:
+    """The station's ``roster.diveraResponses`` override (status id/name → kind), or ``{}``."""
+    row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    value = ((row.config_json or {}).get("roster", {}) or {}).get("diveraResponses") if row else None
+    return value if isinstance(value, dict) else {}
+
+
 # ─── CSV roster import ─────────────────────────────────────────────────────────────────
 #
 # Parsing, grouping and rank adoption for the CSV import. Split out of the endpoint because the
@@ -656,6 +663,10 @@ async def fetch_divera_members(order: NameOrder = DEFAULT_NAME_ORDER) -> list[di
 
     if not data.get("success"):
         raise ValueError("Divera API returned success=false")
+    # the same response names the Rückmelde-Status — keep them, it saves the alarm poll a call
+    from .divera_responses import remember_catalogue
+
+    remember_catalogue(data)
 
     cluster = data.get("data", {}).get("cluster", {})
     # qualification catalogue: id → name (ints keyed by string ids)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { circleRing, clipConvex, clipStroke, inSection, markDeg, rectPoly, segmentSpan, storeySections, thinMarks, visibleCentre, type Pt } from './storeyClip'
+import { circleRing, clipConvex, clipStroke, enclosesSection, inSection, markDeg, rectPoly, segmentSpan, storeySections, thinMarks, visibleCentre, type Pt } from './storeyClip'
 
 // one storey's section: the square 0..100 (board px)
 const SQ = [rectPoly(0, 0, 100, 100)]
@@ -135,6 +135,33 @@ describe('thinMarks / circleRing', () => {
     const c = clipStroke(circleRing(50, 95, 20), SQ, true)
     expect(c.marks).toHaveLength(2)
     for (const m of c.marks) { expect(m.at[1]).toBeCloseTo(100, 6); expect(m.dir[1]).toBeGreaterThan(0) }
+  })
+})
+
+// ⚠️ 11.10.2026: the demo's 100 m Absperrkreis, projected onto the Gebäude, washed the whole EG
+// maroon. A zone that holds all of its paper is not drawn there (components/Whiteboard · paperZones).
+describe('enclosesSection', () => {
+  it('holds a section wholly inside an Absperrkreis whose ring never crosses it', () => {
+    expect(enclosesSection(circleRing(50, 50, 400), SQ)).toBe(true)
+  })
+  it('does not hold a section the ring crosses, nor one it misses, nor one inside the ring that it sits in', () => {
+    expect(enclosesSection(circleRing(50, 50, 60), SQ)).toBe(false) // corners stick out: the edge is on the paper
+    expect(enclosesSection(circleRing(50, 50, 20), SQ)).toBe(false) // a cordon round one room
+    expect(enclosesSection(circleRing(500, 500, 50), SQ)).toBe(false) // elsewhere entirely
+  })
+  it('weighs a Fläche the same way, concave ones included', () => {
+    expect(enclosesSection([[-50, -50], [150, -50], [150, 150], [-50, 150]], SQ)).toBe(true)
+    // a U whose notch cuts through the paper: every corner of the paper is inside, the notch is not
+    expect(enclosesSection([[-50, -50], [40, -50], [40, 150], [60, 150], [60, -50], [150, -50], [150, 200], [-50, 200]], SQ)).toBe(false)
+  })
+  it('needs every window of a two-wing storey inside', () => {
+    const wings = [rectPoly(0, 0, 100, 100), rectPoly(300, 0, 400, 100)]
+    expect(enclosesSection(circleRing(50, 50, 200), wings)).toBe(false)
+    expect(enclosesSection(circleRing(200, 50, 400), wings)).toBe(true)
+  })
+  it('holds nothing for a degenerate ring or an empty section', () => {
+    expect(enclosesSection([[0, 0], [1, 1]], SQ)).toBe(false)
+    expect(enclosesSection(circleRing(50, 50, 400), [])).toBe(false)
   })
 })
 

@@ -25,7 +25,7 @@ from ..auth.dependencies import CurrentUser
 from ..database import get_db
 from ..models import DeploymentConfig as DeploymentConfigRow
 from ..models import DiveraEmergency, Media, PlanRevision, ReferenceDataset
-from ..report_pdf import ReportPayload, compose_report_pdf
+from ..report_pdf import ReportPayload, TafelPrintPayload, compose_report_pdf, compose_tafel_pdf
 from ..schichtplan_pdf import compose_schichtplan_pdf
 from ..zeitplan_pdf import ZeitplanPayload, compose_zeitplan_pdf
 from .incidents import get_incident_or_404
@@ -367,6 +367,39 @@ async def report_pdf(
         content=pdf,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{report_filename(inc.title)}"'},
+    )
+
+
+def tafel_filename(title: str) -> str:
+    safe = "".join(c for c in title if c.isalnum() or c in " -_").strip().replace(" ", "_")[:60] or "Einsatz"
+    return f"Tafel_{safe}.pdf"
+
+
+@router.post("/incidents/{incident_id}/tafel/pdf")
+async def tafel_pdf(
+    incident_id: uuid.UUID,
+    _user: CurrentUser,
+    payload: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+) -> Response:
+    """The Tafel's own print (10.10.2026, owner): one page or all of them, the same sheets the
+    Rapport carries (app/report_board), without the Rapport around them. Read-only output like
+    the rapport, so CurrentUser: whoever may read the Tafel may print it."""
+    inc = await get_incident_or_404(db, incident_id)
+    try:
+        data = TafelPrintPayload.model_validate_json(payload)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.errors(include_url=False)) from e
+    if not data.boardPages:
+        raise HTTPException(status_code=422, detail="Keine Tafel-Seite zum Drucken.")
+    try:
+        pdf = await anyio.to_thread.run_sync(compose_tafel_pdf, data)
+    except Exception as e:  # never a silent 500
+        raise HTTPException(status_code=500, detail="Tafel-PDF konnte nicht erstellt werden.") from e
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{tafel_filename(inc.title)}"'},
     )
 
 

@@ -13,7 +13,7 @@ export { SheetGrab } from './SheetGrab'
 export { SheetFoot } from './SheetFoot'
 export { useSwipeDismiss } from './swipeDismiss'
 export { ConfirmCard } from './ConfirmCard'
-export { Menu, type MenuActionItem } from './Menu'
+export { Menu, type MenuActionItem, type MenuHeading } from './Menu'
 export { ContextMenu, type ContextMenuEntry } from './ContextMenu'
 export { Popover, PopoverClose, type PopoverProps } from './Popover'
 // a hand-rolled dropdown that can open over a Sheet/Overlay registers here, so the sheet's

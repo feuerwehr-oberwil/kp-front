@@ -1,3 +1,4 @@
+import type { BoardFormData } from './lib/boardForm'
 export type LngLat = [number, number]
 
 export type LayerId = string
@@ -167,6 +168,25 @@ export interface SymbolProps {
   done?: ObjectDone
 }
 
+/** Where a photo was taken — the privacy-reduced EXIF of one Verlauf picture (lib/photoGeo). */
+export interface PhotoGeo {
+  lat: number
+  lng: number
+  /** metres above sea level */
+  alt?: number
+  /** bearing of the lens, degrees clockwise from north [0, 360) */
+  heading?: number
+  /** EXIF DateTimeOriginal, ISO-like local time (offset when the file states one) — or, for a
+   *  device position, the moment of the fix */
+  takenAt?: string
+  /** WHERE the position came from: the photo's own EXIF, or the device's position at the moment
+   *  the picture arrived (lib/devicePosition — the in-app camera of an iPhone delivers none).
+   *  Absent on rows written before 09.10.2026, which are all EXIF. */
+  source?: 'exif' | 'device'
+  /** the device fix's accuracy radius in metres (device positions only) */
+  acc?: number
+}
+
 /** When a symbol was marked «gelöscht / erledigt», and by whom. `at` is an ISO instant on the
  *  deployment's clock (lib/serverClock · serverNowIso), the same clock every Verlauf row uses. */
 export interface ObjectDone {
@@ -196,6 +216,18 @@ export interface Entity extends SymbolProps {
   floor?: number
   badge?: string        // short text shown in the context panel avatar
   photoUrl?: string     // for kind 'photo'
+  // --- kind 'photo' placed from a Verlauf photo («Auf Karte setzen», lib/photoGeo) ---
+  /** WHICH picture this marker shows: the Verlauf row and the photo's index on it. The row is
+   *  the photo's record; `photoUrl` above is only the URL it had when it was placed (a session
+   *  `blob:` while the upload is pending), and the map reads the row's current one through this
+   *  (lib/photoGeo · resolvePhotoUrl). Its presence is what makes a photo marker part of the
+   *  record — the legacy session-only ones without it are still dropped at the wire. */
+  photoOf?: { row: string; i: number }
+  /** the bearing the lens pointed at (EXIF GPSImgDirection), degrees clockwise from north —
+   *  drawn as a view cone. Absent = the photo said nothing about its direction. */
+  heading?: number
+  /** when the photo was taken (EXIF DateTimeOriginal, ISO-like local time) */
+  takenAt?: string
   /** kind 'note': box width in SCREEN px — map notes are pinned to a constant screen size
    *  (they don't scale with zoom, see symPx), so a ground-metre width would be wrong here.
    *  The Plan analogue is `BoardAnno.wN`. ABSENT = the legacy auto-width pill (capped by CSS
@@ -588,6 +620,12 @@ export interface TimelineEvent {
    *  to REPLACE the first. `photoUrl` above is the single-photo shape every row written before
    *  2026-08-06 carries; readers take both (see lib/verlauf · rowPhotos). */
   photoUrls?: string[]
+  /** WHERE each picture was taken, read from its EXIF before the re-encode strips it
+   *  (lib/exif, lib/photoGeo): aligned by index with the row's photos AS CAPTURED, `null` for a
+   *  picture without a position. Absent when none had one. Only position, heading and time —
+   *  never the camera, the owner or anything else the file carried. Read through
+   *  `rowPhotoGeo`, which trusts the alignment only while the photo count matches. */
+  photoGeo?: (PhotoGeo | null)[]
   /** Beilagen that are neither picture nor recording (PDF, Dokument, Tabelle): the row shows a
    *  named chip that downloads the file. The URL is ALWAYS a server url — a generic file is
    *  uploaded during save and never enters the offline queue (same rule as an imported memo,
@@ -814,7 +852,9 @@ export type PreparedMapOverlay =
 /** Whiteboard annotation. All positions are normalized 0..1 in plan-image space,
  *  so they stick to the plan across zoom/pan. */
 export type BoardTool = 'pan' | 'lasso' | 'draw' | 'line' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource' | 'scale' | 'measure'
-export type BoardKind = 'draw' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource'
+/** `form` (10.10.2026): a Tafel PAGE — a board-template page with what was written on it (lib/boardForm).
+ *  Sheet-wide, no position, no map body; everything positional ignores it by having no x/y/pts. */
+export type BoardKind = 'draw' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource' | 'form'
 /** Plan point. The optional storey is backward compatible: legacy points inherit BoardAnno.floor. */
 export type BoardPoint = [x: number, y: number] | [x: number, y: number, floor: number]
 export interface BoardAnno extends SymbolProps {
@@ -906,6 +946,9 @@ export interface BoardAnno extends SymbolProps {
   /** Magnetic relationship intent at the first/last vertex (draw/line only). */
   startAttachment?: LineAttachment
   endAttachment?: LineAttachment
+  /** kind 'form' only: the Tafel page (lib/boardForm). The whole page is ONE object, so a commit
+   *  is one undo step and rides the board's own sync like any other anno. */
+  form?: BoardFormData
 }
 /** One past position of a team on a plan, in normalized 0..1 plan space. */
 /** a recorded breadcrumb. `floor` = the storey the team was on at time `t` (floor-stack
@@ -1029,9 +1072,14 @@ export interface TruppReading {
    * stays `entry`/`exit` (lib/report · truppRunTimes), because the crew's Einsatzzeit is unbroken
    * by putting a mask on.
    *
+   * ⚠️ `notfall` / `notfallEnde` are the two ends of an Atemschutznotfall (F1, 08.10.2026 —
+   * see Trupp.notfallAt). They carry the last KNOWN bar like a `contact` does, never a reading:
+   * nobody read a gauge for them. In the Trupp's own log so the Atemschutz page of the Rapport
+   * shows the emergency where the crew's record is read, not only in the Einsatzjournal.
+   *
    * Rows written before these kinds existed keep theirs — the log is append-only.
    */
-  kind: 'registered' | 'entry' | 'contact' | 'pressure' | 'alarm' | 'rueckzug' | 'exit' | 'resume' | 'paOn' | 'paOff' | 'crew'
+  kind: 'registered' | 'entry' | 'contact' | 'pressure' | 'alarm' | 'rueckzug' | 'exit' | 'resume' | 'paOn' | 'paOff' | 'crew' | 'notfall' | 'notfallEnde'
   /**
    * WHO the Trupp was at this moment — written by a `crew` row only (12.09., docs/trupp-naming.md).
    *
@@ -1181,6 +1229,19 @@ export interface Trupp {
    *  at the reopen (the restart ends it); one opened on an older contact had already been ended
    *  by this one (N4, staging 26.09.2026). */
   contactBeforeRestart?: string
+  /**
+   * Atemschutznotfall (F1, 08.10.2026): the moment somebody HELD «Notfall» on this Trupp — the
+   * Notfall clock runs from here on every device. Absent = no emergency. Set by
+   * useTruppActions · triggerNotfall, cleared by endNotfall (both hold-to-confirm, both on the ↶
+   * timeline, both a Verlauf row and a `notfall`/`notfallEnde` reading).
+   *
+   * ⚠️ Independent of `status` on purpose: a Notfall is ended by a person saying so, never by a
+   * side effect — a crew carried out and reported «raus» on an older build still shows its
+   * Notfall until somebody holds «Notfall beendet». While set, the Trupp is tier 2 with reason
+   * `notfall` (lib/atemschutz · truppAlarm), which outranks both other alarms everywhere.
+   * Merged as the EARLIER stamp when two devices triggered it at once (mergeWorkspace).
+   */
+  notfallAt?: string
   /** last recorded cylinder pressure (bar) + when (ISO) — logged for the record, never predicted */
   lastPressureBar?: number
   lastPressureTime?: string

@@ -35,7 +35,9 @@ def _timestamps(record: dict, keys: tuple[str, ...]) -> None:
 def validate_trupp(trupp: object) -> None:
     if not isinstance(trupp, dict):
         raise ValueError("Trupp muss ein Objekt sein")
-    _timestamps(trupp, ("entryTime", "lastContactTime", "lastPressureTime", "exitTime"))
+    # ``notfallAt`` — the Atemschutznotfall's trigger (F1, 08.10.2026): the push sweep keys its
+    # crossing on it, so it is a timestamp or nothing, like the contact clock it outranks
+    _timestamps(trupp, ("entryTime", "lastContactTime", "lastPressureTime", "exitTime", "notfallAt"))
     for key in ("entryPressureBar", "lastPressureBar"):
         value = trupp.get(key)
         if value is not None and not finite_nonnegative(value):

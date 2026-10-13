@@ -8,7 +8,7 @@ import type { GeorefPair } from './georef'
 import type { PlanScales } from './workspace'
 import type { IncidentPlanBinding } from './incidentPlanBindings'
 import { incidentBindingApproved } from './incidentPlanBindings'
-import { liveOverlay } from './planProjection'
+import { liveOverlay, photoOverlay } from './planProjection'
 import {
   fitChange, fitChangeRow, fitChangeUndoLabel, fitSignature, georefPlans, handLinkRow, movedOnSheets,
   planAspect, referenceDelta, sheetFits, twinPlanImageLayerId, twinPlanImageVisible, type SheetFit,
@@ -60,6 +60,9 @@ interface Args {
   liveVehicles: Entity[]
   livePeople: { people: Entity[] }
   isVisible: (layerId: string) => boolean
+  /** the Karte's entities as the map draws them (photo URLs resolved, the replay's in a replay) —
+   *  only their photo markers are read, for the sheet (planProjection · photoOverlay) */
+  mapEntities: Entity[]
 }
 
 /**
@@ -80,7 +83,7 @@ interface Args {
 export function useGeorefFits({
   planDocs, planScale, building, setBuilding, planBindings, activeObjectId, board, objects, rebake,
   planFitsRef, fitsVersion, setFitsVersion, stepLabelRef, histSide, readOnly, tacticalLocked, replayActive,
-  twinLayers, twinLayerOpacity, activePlanId, selectedId, liveVehicles, livePeople, isVisible,
+  twinLayers, twinLayerOpacity, activePlanId, selectedId, liveVehicles, livePeople, isVisible, mapEntities,
 }: Args) {
   // --- Georeferenz: which plans are tied to the ground, and how ---------------------------------
   // The fits themselves. Everything derived FROM them — a sheet's view of the Karte's objects,
@@ -106,7 +109,7 @@ export function useGeorefFits({
   // `getFits` — see the note there). aspect = widthM / scaleMPerU inverts planGroundWidthM.
   // ⚠️ And whenever a fit REALLY changes, every baked map body is re-derived: a corrected
   // georeference MOVES every symbol standing on that sheet, and correcting itself is the entire
-  // point of correcting a fit (tmp/design-unified-objects.md · «Reference change»).
+  // point of correcting a fit.
   //
   // ⚠️ «Really» is what `fitSignature` measures, and it has to: `linkedPlans` is rebuilt by any
   // render that touches planDocs or the station scales — including the one every hydrate causes —
@@ -229,7 +232,7 @@ export function useGeorefFits({
     // to tell the Verlauf — and the same holds for every sheet whose reference ARRIVES later. A
     // later change of a KNOWN sheet's fit is the operator correcting the reference, and that
     // MOVES every symbol on that sheet — one undo step and one row for the
-    // lot, because it was one gesture (tmp/design-unified-objects.md · «Reference change»).
+    // lot, because it was one gesture.
     const seeding = bakedFits.current === null
     // ⚠️ The seed bake WRITES ground positions into the record, derived from a station document
     // that is a module singleton — empty until the boot load resolves, and empty again when that
@@ -288,7 +291,7 @@ export function useGeorefFits({
     if (!seeding && dropped.size) {
       // Nothing moved, so the row counts what STAYS: the objects drawn on that sheet keep the
       // ground position the last fit gave them — last known truth, deliberately not marked stale
-      // (tmp/design-unified-objects.md · decision 2).
+      // (decided 09.09.2026).
       const kept = objects.reduce((n, o) => n + (o.sheet && dropped.has(o.sheet.planId) ? 1 : 0), 0)
       histSide.current.log('map', kept ? fillTemplate(C_LOG.referenceDroppedKept, { n: kept }) : C_LOG.referenceDropped, 'layer')
     }
@@ -367,7 +370,8 @@ export function useGeorefFits({
    * The live feed this sheet draws — vehicles and shared responder positions, projected and
    * clipped against the plan's own fit (lib/planProjection · liveOverlay).
    *
-   * ⚠️ This is ALL that is lent to a sheet now. Everything else the Karte holds is an object,
+   * ⚠️ This is ALL that is lent to a sheet now (with the photo markers below, F16). Everything
+   * else the Karte holds is an object,
    * and an object arrives in the sheet's own `annos` through the store's board view — drawn,
    * selected, edited and deleted with the sheet's native chrome. A GPS fix is the one thing that
    * cannot: nothing placed it, so there is nothing for the sheet to own.
@@ -375,17 +379,25 @@ export function useGeorefFits({
    * ⚠️ Hidden during replay, and only that: the vehicle feed is the present tense, and a past
    * picture must not carry it. The objects around it come from the recorded blob instead.
    */
-  const planLive = useMemo(() => {
-    if (replayActive || !activeLinkedPlan) return []
-    const plan = planFitsRef.current.get(activeLinkedPlan.id)
-    if (!plan) return []
+  /*
+   * …and the Karte's PHOTO markers on this sheet (F16, planProjection · photoOverlay): records,
+   * unlike the feed, but shown read-only — a tap opens the picture, moving or removing it is the
+   * Karte's. Shown in a replay too (the entities are the replay's then); the feed is not.
+   * ONE memo for both, so the fit is read in one place.
+   */
+  const { planLive, planPhotos } = useMemo(() => {
+    const plan = activeLinkedPlan ? planFitsRef.current.get(activeLinkedPlan.id) : undefined
+    if (!plan) return { planLive: [], planPhotos: [] }
     const feed = [
       ...(isVisible(appConfig.gps.layerId) ? liveVehicles : []),
       ...livePeople.people,
     ]
-    return liveOverlay(feed, plan)
+    return {
+      planLive: replayActive ? [] : liveOverlay(feed, plan),
+      planPhotos: photoOverlay(mapEntities.filter((e) => e.kind === 'photo' && isVisible(e.layer)), plan),
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [replayActive, activeLinkedPlan, liveVehicles, livePeople.people, isVisible, fitsVersion])
+  }, [replayActive, activeLinkedPlan, liveVehicles, livePeople.people, isVisible, fitsVersion, mapEntities])
 
-  return { linkedPlans, floorPack, georefPlanRasters, activeLinkedPlan, selectedPlanProjection, planLive }
+  return { linkedPlans, floorPack, georefPlanRasters, activeLinkedPlan, selectedPlanProjection, planLive, planPhotos }
 }

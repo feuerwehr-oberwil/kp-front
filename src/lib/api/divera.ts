@@ -28,3 +28,21 @@ export const takeDiveraAlarm = (diveraId: number) =>
  *  follow to this incident; the incident's own title/location stay untouched. */
 export const attachDiveraAlarm = (diveraId: number, incidentId: string) =>
   apiPost<{ ok: boolean; incident_id: string }>(`/api/divera/pool/${diveraId}/attach/${incidentId}`, {})
+
+/** Who answered the Divera alarm, yes / no and nothing else (owner, 09.10.2026). The server maps
+ *  Divera users onto OUR personnel ids and sends only those; anybody not on the Mannschaftsliste
+ *  is a count. «Andere» answers («Rückruf erbeten») are not sent at all. */
+export interface DiveraResponses {
+  /** false = nothing to show: no Divera answers on this Einsatz (`no_data`), or it is closed */
+  available: boolean
+  reason?: 'no_data' | 'closed'
+  /** personnel ids */
+  coming?: string[]
+  not_coming?: string[]
+  /** every answer, unknown people included */
+  counts?: { coming: number; not_coming: number; unmapped: number }
+}
+/** The stored Divera Rückmeldungen of one Einsatz (editor-only). READ-ONLY: the server's own
+ *  poll keeps them; this never makes the server call Divera. */
+export const getDiveraResponses = (incidentId: string) =>
+  apiGet<DiveraResponses>(`/api/divera/responses/${encodeURIComponent(incidentId)}`)

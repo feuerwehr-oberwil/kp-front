@@ -28,6 +28,7 @@ import { IncidentHistoryView } from './IncidentHistoryView'
 import { ChecklistsView } from './ChecklistsView'
 import { CredentialsView } from './CredentialsView'
 import { ObjectVisitsView } from './ObjectVisitsView'
+import { BoardTemplatesView } from './BoardTemplatesView'
 
 // Every admin destination. The sidebar is the ONE navigation surface — no in-page
 // anchor sub-nav, no giant scrolling forms. The former 7-section Konfiguration page is
@@ -35,7 +36,7 @@ import { ObjectVisitsView } from './ObjectVisitsView'
 // (see ConfigContext); everything else is one self-contained page per entry.
 type SectionId =
   | 'identitaet' | 'doktrin' | 'rapport' | 'alarme' | 'fahrzeuge' | 'material' | 'ebenen' | 'objektplaene'
-  | 'checklisten' | 'objektbesuche'
+  | 'checklisten' | 'tafel' | 'objektbesuche'
   | 'mitglieder' | 'mannschaft'
   | 'einsaetze' | 'divera' | 'traccar' | 'arbeitsmappe'
   | 'zugaenge' | 'links'
@@ -92,6 +93,8 @@ const NAV: NavGroup[] = [
       { id: 'ebenen', icon: 'layers' },
       { id: 'objektplaene', icon: 'doc' },
       { id: 'checklisten', icon: 'checklist' },
+      // the Tafel's pages travel like the checklists — so they sit beside them
+      { id: 'tafel', icon: 'pen' },
       // right under Checklisten: its visit checklists are uploaded there
       { id: 'objektbesuche', icon: 'clipboard' },
     ],
@@ -190,6 +193,8 @@ function renderSection(id: SectionId, navigate: (id: SectionId) => void) {
     // Not a CONFIG_SECTION: checklist templates are reference datasets, not config-document
     // fields, so this page needs no draft and must not sit behind the ConfigGate.
     case 'checklisten': return <ChecklistsView />
+    // reference datasets like the checklists: no config draft, outside the ConfigGate
+    case 'tafel': return <BoardTemplatesView />
     // the module's `objectVisits` config section (autosaved) plus its own admin API
     case 'objektbesuche': return <ObjectVisitsView onNavigate={go} />
     case 'mitglieder': return <MembersView />

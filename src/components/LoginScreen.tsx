@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { apiGet, ApiError } from '../lib/api'
 import { useAuth, type RosterEntry } from '../lib/auth'
 import { Brand } from './Brand'
-import { demoNote } from '../lib/deploymentConfig'
+import { demoNote, getDeploymentConfig } from '../lib/deploymentConfig'
 import { IconSprite, Icon } from '../lib/icons'
 import { fillTemplate, initials, roleLabel } from '../lib/format'
 import { appConfig } from '../config/appConfig'
@@ -25,6 +25,9 @@ export function LoginScreen() {
   // flaky fireground link it can simply fail. Without a retry the login screen was a dead end —
   // an error line with nothing to tap, escapable only by knowing to kill the app.
   const [attempt, setAttempt] = useState(0)
+  // Why a Microsoft sign-in came back without a session (backend auth/microsoft · `?msLogin=`) —
+  // read once, then taken out of the address bar so a reload does not repeat it.
+  const [msError] = useState(takeMicrosoftError)
 
   useEffect(() => {
     let alive = true
@@ -59,7 +62,40 @@ export function LoginScreen() {
         {selected
           ? <LoginPinPad user={selected} onLogin={login} onBack={() => setSelected(null)} />
           : <Roster roster={roster} error={rosterError} onPick={setSelected} onRetry={() => setAttempt((n) => n + 1)} />}
+
+        {!selected && <MicrosoftLogin error={msError} />}
       </div>
+    </div>
+  )
+}
+
+type MicrosoftError = keyof typeof appConfig.copy.login.microsoftErrors
+
+function takeMicrosoftError(): MicrosoftError | null {
+  const url = new URL(window.location.href)
+  const reason = url.searchParams.get('msLogin')
+  if (reason === null) return null
+  url.searchParams.delete('msLogin')
+  window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
+  return reason in appConfig.copy.login.microsoftErrors ? reason as MicrosoftError : 'failed'
+}
+
+/** «Mit Microsoft anmelden» — a second door onto the same named accounts, drawn ONLY when the
+ *  station set it up (`integrations.microsoftLoginConfigured`) and the device is online: it is a
+ *  round trip to Microsoft, and offline it could only fail. The PIN tiles stay the way in. */
+function MicrosoftLogin({ error }: { error: MicrosoftError | null }) {
+  if (!getDeploymentConfig().integrations?.microsoftLoginConfigured || !navigator.onLine) return null
+  const C = appConfig.copy.login
+  return (
+    <div className="login-ms">
+      {error && <p className="login-ms-error" role="alert">{C.microsoftErrors[error]}</p>}
+      <a className="ip-btn block" href="/api/auth/microsoft/start">
+        <svg viewBox="0 0 16 16" aria-hidden>
+          <rect width="7.5" height="7.5" fill="#f25022" /><rect x="8.5" width="7.5" height="7.5" fill="#7fba00" />
+          <rect y="8.5" width="7.5" height="7.5" fill="#00a4ef" /><rect x="8.5" y="8.5" width="7.5" height="7.5" fill="#ffb900" />
+        </svg>
+        {C.microsoft}
+      </a>
     </div>
   )
 }

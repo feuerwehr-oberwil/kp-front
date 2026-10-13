@@ -32,6 +32,9 @@
  * sides differ in more than `noteAt`.
  */
 
+import { formDelta, isFormData, type BoardFormData } from './boardForm'
+import { atomLabel, mergeFormData } from './boardFormMerge'
+import { labelText } from './boardTemplate'
 import { followerOnlyChange } from './gpsReturn'
 import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } from './tacticalObjects'
 import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
@@ -379,7 +382,11 @@ function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
     if (eq(m[k], a[k])) { out[k] = t[k]; continue } // only theirs changed it
     if (eq(t[k], a[k])) { out[k] = m[k]; continue } // only I changed it
     // both changed it, to different values:
-    if (TRUPP_TIME_FIELDS.has(k)) out[k] = laterIso(m[k], t[k]) ?? m[k]
+    // ⚠️ …except the Notfall's trigger (F1, 08.10.2026): two devices that held «Notfall» on the
+    // same crew within the same seconds raised ONE emergency, and it began at the EARLIER hold —
+    // the Notfall clock must never jump forward and lose the seconds the crew has been waiting
+    if (k === 'notfallAt') out[k] = laterIso(m[k], t[k]) === m[k] ? t[k] : m[k]
+    else if (TRUPP_TIME_FIELDS.has(k)) out[k] = laterIso(m[k], t[k]) ?? m[k]
     else if (k === 'lowestBar' && typeof m[k] === 'number' && typeof t[k] === 'number') {
       out[k] = Math.min(m[k] as number, t[k] as number)
     } else out[k] = m[k] // scalar divergence stays LWW-mine (conservative)
@@ -414,6 +421,15 @@ function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
   if ('readings' in m || 'readings' in t) {
     const rows = (v: unknown): Readingish[] => (Array.isArray(v) ? (v.filter(isObj) as unknown as Readingish[]) : [])
     out.readings = mergeReadings(rows(a.readings), rows(m.readings), rows(t.readings))
+    // ⚠️ Two devices holding «Notfall» at once raised ONE Notfall (the earlier hold, above) — so
+    // the losing hold's `notfall` row goes too, or the Trupp's log and the Rapport print it twice
+    // (review of #300). Only when both sides raised it: a Notfall ended and raised again keeps both.
+    const raisedBoth = typeof m.notfallAt === 'string' && typeof t.notfallAt === 'string' && m.notfallAt !== t.notfallAt
+      && !eq(m.notfallAt, a.notfallAt) && !eq(t.notfallAt, a.notfallAt)
+    if (raisedBoth) {
+      const lost = out.notfallAt === m.notfallAt ? t.notfallAt : m.notfallAt
+      out.readings = (out.readings as Readingish[]).filter((r) => !(r.kind === 'notfall' && r.t === lost))
+    }
   }
   // The crew filing's one-shot marker (types · Trupp.crewFiled) is GROW-ONLY: a union of all
   // three, never a delete — a key lost here would let a device file again somebody a person took
@@ -610,7 +626,47 @@ void everySyncedFieldHasASlot
  * another device polling the same vehicle feed would otherwise write its follower sample over a
  * «Zurück auf Stand am Einsatzort» or an «Am Einsatzort lösen», and the drive came back.
  */
-function resolveTactical(ancestor: TacticalObject, mine: TacticalObject, theirs: TacticalObject): TacticalObject {
+function resolveTactical(ancestor: TacticalObject, mine: TacticalObject, theirs: TacticalObject, onFormConflict?: (c: RecordConflict) => void): TacticalObject {
+  // …and a Tafel PAGE is merged cell by cell (lib/boardFormMerge, review of #338): two devices
+  // on one page must both keep what they wrote, and a cell both changed goes to the later edit
+  const page = (o: TacticalObject) => (o.sheet?.anno.kind === 'form' && isFormData(o.sheet.anno.form) ? o.sheet.anno.form : null)
+  const [pa, pm, pt] = [page(ancestor), page(mine), page(theirs)]
+  if (pa && pm && pt && mine.sheet && theirs.sheet) {
+    const title = labelText(pm.page.title)
+    const live = ({ removedAt: _r, ...f }: BoardFormData): BoardFormData => (void _r, f)
+    let form: BoardFormData = mergeFormData(live(pa), live(pm), live(pt), (c) => onFormConflict?.({
+      key: `${mine.id}|${c.atom}`,
+      mine: { page: title, where: c.where, kept: c.kept },
+      theirs: { page: title, where: c.where, lost: c.lost },
+    }))
+    // ⚠️ One device took the page off while another wrote on it (re-review of #338): the page
+    // used to vanish with the writing. A removal is a tombstone (`removedAt`), so the merge can
+    // weigh it: writing AFTER the removal keeps the page (the removal loses); writing before it
+    // loses to the removal — and either way the Verlauf says so, naming the cells.
+    const removedNow = (f: BoardFormData) => f.removedAt != null && pa.removedAt == null
+    if (removedNow(pm) !== removedNow(pt)) {
+      const [remover, writer] = removedNow(pm) ? [pm, pt] : [pt, pm]
+      const at = remover.removedAt as number
+      const changed = formDelta(live(pa), live(writer))
+      const last = Math.max(0, ...changed.map((c) => writer.t?.[c.k] ?? 0))
+      if (changed.length && last > at) {
+        onFormConflict?.({ key: `${mine.id}|removed`, mine: { kind: 'removedKept', page: title }, theirs: {} })
+      } else {
+        form = { ...form, removedAt: at }
+        if (changed.length) {
+          const cells = [...new Set(changed.map((c) => atomLabel(writer, c.k)))].join(', ')
+          onFormConflict?.({ key: `${mine.id}|removed`, mine: { kind: 'removedLost', page: title, cells }, theirs: {} })
+        }
+      }
+    } else if (pm.removedAt != null && pt.removedAt != null) {
+      form = { ...form, removedAt: Math.min(pm.removedAt, pt.removedAt) }
+    } else if (pa.removedAt != null) {
+      // removed before: whichever side brought it back (↶) brought it back
+      const back = pm.removedAt == null || pt.removedAt == null
+      if (!back) form = { ...form, removedAt: pa.removedAt }
+    }
+    return { ...mine, sheet: { ...mine.sheet, anno: { ...mine.sheet.anno, form } } }
+  }
   const mineMachine = followerOnlyChange(ancestor, mine)
   const theirsMachine = followerOnlyChange(ancestor, theirs)
   if (mineMachine && !theirsMachine) return theirs
@@ -656,7 +712,7 @@ export function mergeWorkspace(
   theirs: Record<string, unknown>,
   onAttendanceConflict?: (c: RecordConflict) => void,
   onTruppConflict?: (c: RecordConflict) => void,
-  opts: { numbers?: NumberScope } = {},
+  opts: { numbers?: NumberScope; onFormConflict?: (c: RecordConflict) => void } = {},
 ): Record<string, unknown> {
   // The unified objects (schema 2) are the authoritative tactical collection: each side
   // unifies FIRST (a legacy side — an un-updated device's save — derives its objects from
@@ -671,7 +727,7 @@ export function mergeWorkspace(
           asList(ws.drawings) as Drawing[],
           asBoard(ws.board) as BoardDoc,
         )
-  const objects = mergeById(objectsOf(base), objectsOf(mine), objectsOf(theirs), resolveTactical)
+  const objects = mergeById(objectsOf(base), objectsOf(mine), objectsOf(theirs), (a, m, t) => resolveTactical(a, m, t, opts.onFormConflict))
   const cx: MergeCx = { objects, views: viewsOf(objects), onAttendanceConflict, onTruppConflict }
   const out: Record<string, unknown> = { ...mine } // the 'local' rows (and keys this build doesn't know)
   for (const [k, policy] of Object.entries(MERGE_POLICY) as [keyof Saved, FieldPolicy][]) {

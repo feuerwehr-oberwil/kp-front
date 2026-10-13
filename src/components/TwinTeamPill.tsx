@@ -22,7 +22,6 @@ import { Icon } from '../lib/icons'
 import { Menu } from '../lib/overlays'
 import { MenuPick } from './MenuPick'
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from '../lib/format'
 import { floorBadge } from '../lib/symbolRender'
 import { floorLabel } from '../lib/whiteboard'
 import type { TeamLineBadge } from '../lib/truppLines'
@@ -164,11 +163,16 @@ function useBarPlacement(on: boolean) {
     // measures every rect as zero) walks the bar off the screen one pass per render.
     const minX = (stage?.left ?? 0) + EDGE_MARGIN
     const maxX = (stage?.right ?? window.innerWidth) - EDGE_MARGIN
-    const home = a.left + a.width / 2 - bar.width / 2
+    // …and sideways by the WIDER of the bar and the panel under it (11.10.2026): the Plan's
+    // «Verbundene Linien» card is wider than the bar, and on a phone it hung off the screen edge
+    // while the bar beside it had been nudged clear. Both take the one nudge (`--acts-dx`).
+    const w = Math.max(bar.width, panel?.width ?? 0)
+    const home = a.left + a.width / 2 - w / 2
     let dx = 0
-    if (home + bar.width > maxX) dx = maxX - bar.width - home
+    if (home + w > maxX) dx = maxX - w - home
     if (home + dx < minX) dx = minX - home
     dx = Math.round(dx)
+    anchor.style.setProperty('--acts-dx', `${dx}px`)
     if (placed.current.up === up && placed.current.dx === dx) return
     placed.current = { up, dx }
     setPlace(placed.current)
@@ -209,11 +213,11 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
   trailCount: number
   trailShown: boolean
   trupps: Trupp[]
-  /** The Leitung this Trupp works, merged INTO the marker — «Ein Etikett» (Karte only, 15.09.):
-   *  the number field in the hose's own ink, plus a coupling stub where the hose actually ends
-   *  here, and the hose then draws no separate end tag. ⚠️ OPTIONAL on purpose: the Plan and
-   *  both mirrors pass nothing and render exactly as they did, so the merge cannot leak onto a
-   *  sheet whose printed twin must not change (lib/truppLines · teamLineBadges). */
+  /** The Leitung this Trupp works (Karte only): the coupling stub in the hose's own ink where
+   *  the hose actually ends here, and «Lösen». ⚠️ No number field since 11.10.2026 (owner: the
+   *  Karte's pill is the Gebäude chip's — just the name); the hose's end tag carries the number.
+   *  OPTIONAL on purpose: the Plan and both mirrors pass nothing and render exactly as they did
+   *  (lib/truppLines · teamLineBadges). */
   line?: TeamLineBadge
   /** absent = pill only, no bar — a surface that may look but not write (read-only Karte,
    *  a plan board in a drawing tool) still shows the selected pill exactly as before */
@@ -264,15 +268,6 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
           anchored by, so the stub sits exactly where the line ends. Absolutely positioned: it
           must not push the cap (and with it the coordinate the pill states) sideways. */}
       <span className="wb-resource-cap" />
-      {/* ⚠️ AFTER the cap, where the mock has it before the dot. The cap/dot IS the coordinate
-          (lib/mapView · TEAM_PILL_CAP_PX): anything in front of it moves the point the marker
-          states, which is the bug the left-edge anchoring exists to prevent. The order is still
-          constant — cap · Leitung · Name · #N — so nothing has to be re-found at 3am. */}
-      {line?.lineNo != null && (
-        <span className="team-ltg" title={fillTemplate(appConfig.copy.drawingEditor.lineLabelNo, { n: line.lineNo })}>
-          {line.lineNo}
-        </span>
-      )}
       <span className="wb-resource-body">
         <span className="wb-resource-name">
           {renaming && rename
@@ -319,8 +314,8 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
           onPointerDown={(ev) => ev.stopPropagation()}>
           {/* «Lösen» (15.09.): the one explicit way to part the marker from what it hangs on – its
               Leitung, the symbol it is docked to, or both at once. A glyph, first in the bar: the
-              pill's own «1» chip already says which Leitung, and the words «Leitung 1 · Trupp 3»
-              said nothing the picture did not. */}
+              hose's own end tag says which Leitung, and the words «Leitung 1 · Trupp 3» said
+              nothing the picture did not. */}
           {((line && unlink && truppId) || undock) && (
             <button className="wb-pa wb-pa-unlink" title={appConfig.copy.contextPanel.dockedRelease} aria-label={appConfig.copy.contextPanel.dockedRelease}
               onClick={() => { if (line && truppId) unlink?.(); undock?.() }}><Icon id="unlink" /></button>

@@ -310,3 +310,9 @@
    400ms delay before snapping in — reduced motion should shorten the wait, not add one */
 @media (prefers-reduced-motion: reduce) { * { animation-duration: .001ms !important; animation-delay: 0s !important; transition-duration: .001ms !important; } }
 .ts.photo img { width: 100%; height: 100%; object-fit: cover; border-radius: var(--r-xs); display: block; }
+/* a Verlauf photo's view cone (lib/photoGeo): under the thumbnail, its tip ON the spot the photo
+   was taken from, turned to the lens's bearing in MapMarkers */
+.ts.photo img { position: relative; }
+.ts.photo .photo-cone { position: absolute; left: 50%; top: 50%; width: 176px; height: 176px; pointer-events: none;
+  transform-origin: 50% 50%; overflow: visible; }
+.ts.photo .photo-cone path { fill: var(--blue-22); stroke: var(--blue-62); stroke-width: 1.5; stroke-linejoin: round; }

@@ -74,24 +74,29 @@ pnpm lint    # eslint + a per-rule warning ratchet (scripts/eslint-baseline.json
   -a`; stage only the specific files you changed, and don't assume the tree is clean.
 - **Verification before prod (the CI gate).** Prod deploys from `main`, so a red `main` reaches
   the field. The standing flow for any non-urgent change: develop on a branch, push, let
-  `ci.yml` go **fully green**, *then* merge – never merge a red branch. `ci.yml` runs three gate
+  `ci.yml` go **fully green**, *then* merge – never merge a red branch. `ci.yml` runs seven gate
   jobs: *Frontend (tsc + build)* – eslint + `tsc --noEmit` + vitest + `vite build`; *Backend
-  (ruff + alembic + pytest)*; *Image (hadolint + build + smoke)* – builds & boots the real
-  production container and drives the Playwright e2e against it: the white-screen smoke
-  (`e2e/smoke.spec.ts`) and the field scenario of the Übung on 23.09.2026
+  (ruff + alembic + pytest)*; *Secrets (gitleaks)*; *Shared files match KP Rück*; *Image
+  (hadolint + build + smoke)* – builds & boots the real production container and drives every
+  e2e spec against it except the journeys and screenshots (`e2e/README.md`), among them the
+  white-screen smoke (`e2e/smoke.spec.ts`) and the field scenario of the Übung on 23.09.2026
   (`e2e/field-scenario.spec.ts`: a parked vehicle sending GPS, a coupled Leitung, a tapped Trupp,
-  and then three devices on one login). ⚠️ **Every e2e test fails when the app reports a client
-  error or a render storm** (`e2e/guard.ts`, 24.09.2026). A spec imports `test` from
-  `e2e/helpers`, never from `@playwright/test` (eslint enforces it). A report a test provokes on
-  purpose is listed with `expectedClientErrors`; nothing turns the guard off (`e2e/README.md`).
+  and then three devices on one login); *Performance (user journeys vs baseline)* and *Visual
+  (screenshots vs baseline)*, each on a container of its own. ⚠️ **Every e2e test fails when
+  the app reports a client error or a render storm** (`e2e/guard.ts`, 24.09.2026). A spec
+  imports `test` from `e2e/helpers`, never from `@playwright/test` (eslint enforces it). A report
+  a test provokes on purpose is listed with `expectedClientErrors`; nothing turns the guard off
+  (`e2e/README.md`).
   An **urgent prod hotfix** may still go straight to `main` (see the commit bullets / the 3am
   tenet) – but run `pnpm lint && pnpm test` (and ideally `pnpm build`) locally first. For
   interactive changes a unit test can't cover, use `/code-review` on the diff and `/verify` to
   drive the real app. Keep the house rule: every new mutating feature ships with a `src/lib` test.
-- **The gate is server-enforced.** Branch protection on `main` requires four checks to pass
+- **The gate is server-enforced.** Branch protection on `main` requires these checks to pass
   before a merge: *Frontend (tsc + build)*, *Backend (ruff + alembic + pytest)*, *Image
-  (hadolint + build + smoke)*, and *Secrets (gitleaks)*. `enforce_admins` is **off** on purpose,
-  so a 3am hotfix can still bypass it – that is the only intended bypass, not a routine one.
+  (hadolint + build + smoke)*, *Secrets (gitleaks)*, *Visual (screenshots vs baseline)*,
+  *Shared files match KP Rück* and, since 13.10.2026, *Performance (user journeys vs baseline)*.
+  `enforce_admins` is **off** on purpose, so a 3am hotfix can still bypass it – that is the only
+  intended bypass, not a routine one.
 - **Performance is gated too.** CI's «Performance» job walks real user journeys on the busiest
   Einsatz on record and fails on regressions against `e2e/perf/baseline.json`; a red check
   blocks the merge like a failing test, and a baseline is never accepted (nor a tolerance
@@ -110,6 +115,10 @@ pnpm lint    # eslint + a per-rule warning ratchet (scripts/eslint-baseline.json
   plus a GitHub Release whose body is the committed CHANGELOG section. `docker-compose.yml`
   **pulls** that image by default (`KP_FRONT_TAG`); building from source is the commented path.
 - Replace files in place – no `_v2` / `-new` / `-fixed` variants.
+- **A file in [`shared/MANIFEST.json`](shared/MANIFEST.json) is shared with KP Rück by copy**
+  (the manifest is the authoritative list: telemetry sanitiser, alarm vocabulary, roster
+  contract + reader, station index, alarm intake corpus, snail, and the shared check itself).
+  Change it in both repositories on equally named branches – [`shared/README.md`](shared/README.md).
 - Scratch scripts are named `.x-*` (git ignores them anywhere; never leave one in `site/`, which
   is published). New work starts in a worktree off `origin/main`; `just doctor` warns when a
   checkout is far behind it, `just wt-prune [--apply]` clears finished worktrees (CONTRIBUTING.md).
@@ -124,7 +133,9 @@ pnpm lint    # eslint + a per-rule warning ratchet (scripts/eslint-baseline.json
 **Tests** are Vitest (node env), colocated as `*.test.ts`, focused on pure `src/lib` logic
 (plus a few components); the backend uses pytest. The backend has a ruff pre-commit hook; the
 frontend has none – so run `pnpm lint && pnpm test` before pushing, since changes go straight
-to prod.
+to prod. `just ci` runs every gate of CI's Frontend and Backend jobs locally (incl. coverage
+floor, bundle budget, audits, licenses and `just schema-check`: a throwaway Postgres migrated to
+head, then `alembic check` against the models); image, secrets, e2e, visual and perf stay CI's.
 
 - **Ratchets only go down.** The eslint warnings per rule (`scripts/eslint-baseline.json`; `pnpm
   lint` fails when a rule's count goes up, or down without `pnpm lint:update`), the style-debt
@@ -133,8 +144,19 @@ to prod.
   entry, App, maplibre, pdf-worker and CSS chunks have a +5 % budget against
   `scripts/bundle-baseline.json` (`scripts/check-bundle-size.mjs`, CI); a deliberate growth is an
   `--update` in its own commit, with the reason.
+- **`jsdom` is held on 30.0.x** (`~30.0.1`, Dependabot ignores 30.1): 30.1's blob URLs cannot
+  read the Node `Blob` Vitest supplies, so maplibre-gl 4.7 fails at import and MapView, mapTwist
+  and the IncidentWorkspace harness stop loading. Lift it with a jsdom past 30.1 or MapLibre 6
+  (#193) – never by mocking MapLibre away in those tests.
+- **CLI subprocess tests run outside `backend/`**: pydantic reads `.env` from the cwd, so a
+  station's `backend/.env` would leak into them (`tests/test_admin_cli_output.py` · `_run`).
 - **e2e** runs on the production image in CI (`e2e/README.md`); every spec takes `test` from
   `e2e/helpers`, which fails on a client error or a render storm.
+- **The look is gated too.** CI's «Visual» job shoots nine frozen states and compares them with
+  `e2e/visual/baseline/` (`maxDiffPixels: 20`). A changed pixel you did not mean is a regression;
+  a look you changed on purpose gets new baselines from CI (`just visual-accept <run-id>`) in its
+  own commit, saying why – never to turn the check green, never shot on a laptop
+  ([`docs/testing/visual-regression.md`](docs/testing/visual-regression.md)).
 - **Large / long incidents and performance** are measured, not guessed:
   [`docs/testing/fat-incident.md`](docs/testing/fat-incident.md),
   [`docs/testing/perf-journeys.md`](docs/testing/perf-journeys.md).
@@ -153,8 +175,9 @@ to prod.
   German appears there only as domain terms and as «quoted» UI copy. User-facing text is German
   with i18n overlays (above). The gitignored internal station documents under `docs/` are the
   exception and may stay German.
-- **i18n / multilingual copy lives in `src/config/copy/`.** German (`de.ts`) is the canonical
-  base and the source of the `Copy` type; `en.ts` (full) / `fr.ts` / `it.ts` are
+- **i18n / multilingual copy lives in `src/config/copy/`.** German (`de.ts`, assembled from one
+  module per surface in `de/<surface>.ts`) is the canonical base and the source of the `Copy`
+  type; `en.ts` (full) / `fr.ts` / `it.ts` (each split the same way) are
   `Localizable<Copy>` partial overlays **deep-merged over German**, so any missing key falls
   back to the German string – a half-translated locale is always complete. `appConfig.copy` is
   a **getter** returning the active locale's catalogue (`copy/getCopy()`); read sites are
@@ -162,7 +185,7 @@ to prod.
   language), resolved **once at boot** (`/api/config` `identity.locale` → `de-CH`) by
   `applyLocale()` in `main.tsx`. It's set in deployment config (CLI/config file first; admin UI
   can inspect/basic-edit Station › Identität › Sprache), NOT per device. **Add a new string to
-  `de.ts` first** (it defines
+  `de/<surface>.ts` first** (it defines
   the shape); translate in the other locales as desired. Two caveats: (1) module-level captures
   like `const C = appConfig.copy.x` freeze the language at import – read inside the
   component/function instead; (2) a few copy values are structural DATA keys, not labels
@@ -277,6 +300,17 @@ to prod.
   `Saved` at compile time, so a field without a policy fails `tsc` instead of silently merging
   as «this device wins» (23.09.2026). (`Person`/roster is the exception – it carries
   `updatedAt` because it's pulled from Divera, not merged.)
+- ⚠️ **An object kind a build does not understand is a passenger, never dropped** (review of
+  #338, 10.10.2026). An older build that opened a Tafel with pages on it filtered the unknown
+  `form` objects out at the load gate and its next full save deleted every page. So: (1) the
+  client gate (`sanitizeWorkspace` · `isPassengerAnno`) keeps any board object of a kind it does
+  not draw, untouched, and every merge and save carries it along (`isDrawnBoardKind` splits
+  drawing from riding); (2) the server guards builds that predate the rule: a full save whose
+  `schemaVersion` is older than a kind (`app/workspace_kinds.py` · `BOARD_KIND_SINCE`) gets the
+  stored objects of that kind put back (`keep_newer_board_kinds`). A new board kind → bump
+  `WORKSPACE_SCHEMA_VERSION` (`src/lib/workspace.ts`, now 3) and add it to `BOARD_KIND_SINCE`.
+  A Tafel page is ONE object but merges **atom by atom** (`lib/boardFormMerge`: a cell, a line,
+  a field), the later edit (`t`, server clock) winning a true clash and writing a Verlauf row.
 - **IDs are prefixed timestamps, not UUIDs** – `newId(prefix)` from `src/lib/ids.ts`
   (`<prefix><ms>-<seq><rand>`) for EVERY record the app mints and syncs — Verlauf rows
   included (`newRowId(tag?)`), Mittel events, patch rows, Gäste, Pendenzen. A per-device
@@ -301,6 +335,12 @@ to prod.
   ([`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)). The closed Einsatz, derived ids for what
   every device observes, and the review regression contracts:
   [`docs/sync-and-offline.md`](docs/sync-and-offline.md).
+- ⚠️ **A Divera answer is never presence** (X1, 08.10.2026). The Anwesenheit's «Anrückend»
+  block lists who answered «komme» / «komme nicht» — yes / no and names only, nothing else
+  stored; a person is anwesend only after the explicit «da» tap. «kommt nicht» is its own muted
+  group with ✕ + the word, never colour alone. The answers are an editor-only read that never
+  enters the workspace, an export or a link:
+  [`docs/divera-connector.md`](docs/divera-connector.md) › Rückmeldungen.
 - **Time-based alerts** (Atemschutz clock, reminders) go through the shared `src/lib/alarm.ts`
   layer, not ad-hoc timers. Delivery: foreground tone/wake-lock + service-worker notification,
   plus – once the deployment sets VAPID keys (`app.gen_vapid`) – server-side Web Push for
@@ -343,7 +383,10 @@ to prod.
   plans fall back only to OSM outlines + `Tafel`, never bundled `/public` PDFs; checklist templates
   are fetched from the `checklists:<id>` reference datasets (`loadTemplates` in
   `src/lib/checklists.ts`, offline-cached), falling back to one neutral bundled example
-  (`src/data/checklists/generic-action.json`) – never a station's real lists. GeoJSON must be WGS84
+  (`src/data/checklists/generic-action.json`) – never a station's real lists. The Tafel's board
+templates ride the same pipeline (`admin_board_templates`, `tafel:<id>`); their bundled FKS set
+is public FKS material, and a station set REPLACES it rather than joining it
+([`docs/board-templates.md`](docs/board-templates.md)). GeoJSON must be WGS84
   `[lng,lat]` (LV95 is rejected).
 - **Coordinates are WGS84 `[lng, lat]` wherever the map renders.** LV95 only at the edges via
   `src/lib/geo.ts` (`wgs84ToLV95` / `lv95ToWgs84` / `fmtLV95`), the `centerLv95` config option,
@@ -377,9 +420,12 @@ to prod.
     spec, the touch vocabulary.
   - [`docs/phone-layout.md`](docs/phone-layout.md) – the two bottom bars, page heads, pages.
   - [`docs/atemschutz-board.md`](docs/atemschutz-board.md) – the Trupps board, the Trupp form,
-    the Sicherungstrupp and the Abschluss.
+    the Sicherungstrupp, the Atemschutznotfall and the Abschluss.
   - [`docs/copy-and-wording.md`](docs/copy-and-wording.md) – which word a screen uses.
   - [`docs/rapport.md`](docs/rapport.md) – what the Rapport's figure pages carry.
+  - [`docs/board-templates.md`](docs/board-templates.md) – the Tafel's pages (FKS «Erste
+    Führung» …): a page is ONE `form` board anno with its template snapshot, values keyed by id,
+    the spreadsheet keyboard, and the `board-template/1` contract a station writes against.
   - [`docs/roles-and-access.md`](docs/roles-and-access.md) – roles, the deployment admin, links.
   - [`docs/trupp-naming.md`](docs/trupp-naming.md), [`docs/verlauf-coverage.md`](docs/verlauf-coverage.md),
     [`docs/object-visits.md`](docs/object-visits.md) – Trupp identity, what reaches the Verlauf,

@@ -80,6 +80,11 @@ export interface ObjectInput {
   lat: number | null
   lng: number | null
   source_note: string | null
+  /** the Gebäude card's Modul-1 notes (KP Front F5) — one per line; null clears, ABSENT keeps
+   *  (the server writes them only when sent, so an older form never wipes them) */
+  measures?: string | null
+  remarks?: string | null
+  measures_source?: string | null
 }
 
 /** What the upsert answers: `ObjectOut`, i.e. the object WITHOUT its plans. */
@@ -260,4 +265,23 @@ export function parseChecklistTemplate(
  *  push produce the same stored document. */
 export function checklistUploadBlob(parsed: ParsedChecklist, order: number): Blob {
   return new Blob([JSON.stringify({ ...parsed.raw, order }, null, 2)], { type: 'application/json' })
+}
+
+// ─── Tafel-Vorlagen (board templates, 10.10.2026) ──────────────────────────────
+
+/** `tafel:<id>` — one board template (backend · api/reference · _is_board_template; the field
+ *  app's twin is lib/boardTemplates · isTafelTemplateId, not imported here so the admin does not
+ *  pull the Tafel's loader into a chunk of its own). */
+export const isBoardTemplateDataset = (datasetId: string): boolean =>
+  datasetId.startsWith('tafel:') && /^[a-z0-9][a-z0-9-]*$/.test(datasetId.slice('tafel:'.length))
+
+/** Delete board templates through the prune door `admin_board_templates push` uses (the
+ *  registry has no DELETE): re-read the registry, keep every other `tafel:*`. */
+export async function deleteBoardTemplates(ids: string[]): Promise<{ pruned: string[] }> {
+  // only ever a board template — whatever else was handed in is not this door's to delete
+  const doomed = new Set(ids.filter(isBoardTemplateDataset))
+  if (!doomed.size) return { pruned: [] }
+  const fresh = await listReferenceDatasets()
+  const keep = fresh.filter((d) => isBoardTemplateDataset(d.id) && !doomed.has(d.id)).map((d) => d.id)
+  return apiPost<{ pruned: string[] }>('/api/reference/tafel/prune', keep)
 }

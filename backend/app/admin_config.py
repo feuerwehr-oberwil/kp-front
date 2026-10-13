@@ -58,7 +58,7 @@ from .admin_cli import add_push_args, admin_client, fail, require_push_target
 from .config_guard import (
     RESPONSE_ONLY_FIELDS,
     carry_runtime_sections,
-    emptied_sections,
+    emptied_declared_sections,
     format_validation_errors,
     ignored_keys,
     layer_warnings,
@@ -303,7 +303,7 @@ def _push(
             remote.pop(response_only, None)
 
         carried = carry_runtime_sections(remote, doc_json)
-        dropped = emptied_sections(remote, doc_json)
+        dropped = emptied_declared_sections(remote, doc_json)
         if dropped and not force:
             print(f"REFUSED: this would EMPTY {len(dropped)} section(s) on {base}:", file=sys.stderr)
             for d in dropped:
@@ -604,7 +604,7 @@ async def _amain(argv: list[str]) -> int:
         # each time it happened. A file that legitimately clears a section (a station dropping
         # its Partnerliste) passes --force and means it.
         # carry the runtime sections FIRST, then check what the final document would empty
-        dropped = emptied_sections(stored, doc_json)
+        dropped = emptied_declared_sections(stored, doc_json)
         if dropped and not args.force:
             print(
                 f"REFUSED: {args.file} would EMPTY {len(dropped)} section(s) that currently have content:",

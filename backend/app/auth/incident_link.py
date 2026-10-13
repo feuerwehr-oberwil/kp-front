@@ -275,7 +275,8 @@ class _Denied(HTTPException):
 # stay symbolic and a typo fails loudly at match time rather than silently widening access.
 #
 # Everything here is a genuine read. Deliberate exclusions, each for a stated reason:
-#   report/pdf, zeitplan/pdf        — generate documents containing attendance + names
+#   report/pdf, zeitplan/pdf,       — generate documents containing attendance + names
+#   tafel/pdf                         (the Tafel's pages carry names, Funk, Absprachen too)
 #   push/subscriptions              — writes rows tied to a user
 #   diag/export                     — the station's own crash traces. Sanitised, but a link
 #                                     is handed to outsiders and this is internal diagnostics.
@@ -332,6 +333,10 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/api/incidents/{incident_id}/state"),
         ("GET", "/api/incidents/{incident_id}/verify"),
         ("GET", "/api/incidents/{incident_id}/objects"),
+        # the Gebäude card: register hints + the Objekt's Sofortmassnahmen (never its visits —
+        # api/building leaves those out for a link). Not on the view link: an outbound call, and
+        # nothing a finished Rapport carries.
+        ("GET", "/api/incidents/{incident_id}/building"),
         # The one write — see "THE ONE WRITE" above. The caller's own live position, in and
         # out. The GET on the same path is NOT here and must not be added.
         ("POST", "/api/incidents/{incident_id}/positions"),
@@ -362,6 +367,9 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         ("GET", "/api/traccar/positions"),
         ("GET", "/api/traccar/trails"),
         ("GET", "/api/weather"),
+        # the Karte's radar + warnings (app/weather_layer): read from memory, no outbound call
+        ("GET", "/api/weather/layer"),
+        ("GET", "/api/weather/radar/{key}.png"),
     }
 )
 

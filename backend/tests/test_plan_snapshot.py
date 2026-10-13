@@ -502,3 +502,22 @@ async def test_an_object_without_a_source_key_is_skipped_and_named(db_session, s
 
     assert res == {"status": "ok", "updated": 0, "unchanged": 0, "skipped": 1}
     assert FOLDER in caplog.text, "the log must name the source_key that found no object"
+
+
+async def test_an_object_keyed_by_admin_objects_push_is_found_by_the_pull(client, admin_login, db_session, store):
+    """`admin_objects push` sends `source_key` in its `PUT /api/objects/{id}` body. Until
+    2026-10-13 `ObjectUpsertIn` had no such field, so the server dropped it: a pushed object had
+    no key and the pull skipped every one of its plans — on the path the docs recommend. Here
+    the object starts keyless (as the browser creates it), then a push-shaped PUT keys it, as
+    `admin_objects load` would."""
+    db_session.add(ObjectSite(id=OBJ_ID, name="Schulhaus"))  # browser-created: no source_key
+    await db_session.commit()
+    await admin_login(client)
+
+    r = await client.put(f"/api/objects/{OBJ_ID}", json={"name": "Schulhaus", "source_key": FOLDER})
+    assert r.status_code == 200, r.text
+    assert r.json()["source_key"] == FOLDER
+
+    store({INDEX_URL_PATH: index(entry()), PDF_URL_PATH: PDF})
+    res = await pull_plans(db_session)
+    assert res == {"status": "ok", "updated": 1, "unchanged": 0, "skipped": 0}

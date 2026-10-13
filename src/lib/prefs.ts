@@ -104,6 +104,10 @@ export interface Prefs {
    *  command tablet at the scene must not dim mid-operation — but a personal device idling in the
    *  background may prefer to let the screen sleep, so it's a per-device toggle. */
   keepScreenOn?: boolean
+  /** «Standort zu Fotos»: a photo without its own EXIF position takes this device's position
+   *  (lib/devicePosition). ABSENT = never asked — the first such photo asks, once, with the
+   *  reason; the Einstellungen sheet switches it either way afterwards. */
+  photoPosition?: boolean
   /** last Verwaltung (admin) section id, so reopening /admin returns to the same page.
    *  Kept loose (string) so prefs.ts doesn't depend on the admin's SectionId union. */
   adminSection?: string
@@ -147,6 +151,12 @@ export interface Prefs {
   twinLayers?: Record<string, boolean>
   /** Transparency (0..100) of opt-in georeferenced plan rasters on the Lage map. */
   twinLayerOpacity?: Record<string, number>
+  /** The Karte's «Niederschlag (Radar)» row in Ebenen (components/WeatherLayer). A device pref
+   *  like the plan rasters: what this screen looks at, not the Einsatz's tactical picture.
+   *  Off by default – the radar is something you look at on purpose. */
+  weatherRadar?: boolean
+  /** its transparency (0..100), the Ebenen panel's own slider */
+  weatherRadarOpacity?: number
 }
 
 export interface SharePositionPref {

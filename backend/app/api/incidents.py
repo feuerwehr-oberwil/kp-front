@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
-from .. import audit, live_wait, storage
+from .. import audit, live_wait, push, storage
 from ..alarm_validation import ALARM_VALIDATED_KEYS, validate_alarm_workspace
 from ..alarms import is_demo_deployment
 from ..auth.dependencies import (
@@ -43,6 +43,7 @@ from ..schemas import (
     _scrub_drawing_props,
 )
 from ..vehicle_presence import keep_server_gps
+from ..workspace_kinds import keep_newer_board_kinds
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +148,9 @@ VIEW_WORKSPACE_KEYS = frozenset(
         "cameraViews",
         "pickedObjectId",
         "intakeReviewedAt",
+        # which build wrote the blob: a v3 device correcting the Rapport of an Einsatz last saved
+        # by a v2 one is not an operation in it (review of #338 — every closed Einsatz on prod)
+        "schemaVersion",
     }
 )
 # ⚠️ NOT `planBindings`: a binding FREEZES which plan revision and fit this Einsatz ran on
@@ -508,6 +512,9 @@ async def apply_workspace_put(
     # The vehicles' `gps` blocks are the SERVER's (app/vehicle_presence): whatever copy a device
     # sends — stale, merged over, or none at all from an older build — the stored one stands.
     keep_server_gps(body.workspace, stored)
+    # …and a board object of a kind newer than the saving build is the server's to keep: that
+    # build dropped it at load, so its absence here is not a deletion (app/workspace_kinds)
+    keep_newer_board_kinds(body.workspace, stored)
     try:
         validate_alarm_workspace(body.workspace, previous)
     except ValueError as exc:
@@ -528,6 +535,9 @@ async def apply_workspace_put(
         # report server_rev == your_base_rev — and it re-decodes megabytes of JSONB to do it.
         raise _workspace_revision_conflict(await _rev(db, incident_id), body.base_rev)
     new_rev = body.base_rev + 1
+    # An Atemschutznotfall raised (or ended) by this save is pushed the moment it commits — the
+    # 30 s sweep stays the fallback and shares its dedup key (app/push · notify_notfall_changes)
+    await push.notify_notfall_changes(db, inc, previous.get("trupps"), body.workspace.get("trupps"))
     # Wake the devices long-polling this incident's workspace — once this transaction commits,
     # so they re-read the blob they are being woken for (see app/live_wait).
     live_wait.notify_after_commit(db, live_wait.workspace_topic(incident_id))
@@ -573,6 +583,12 @@ async def put_workspace(
         inc = await get_incident_or_404(db, incident_id, lock=True)
         stored = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
         closed_at = state.lifecycle.closed_at
+        # compare what the save would actually STORE: the server's own parts put back first —
+        # the vehicles' gps, and the board objects a build older than their kind left out
+        # (review of #338: an old build's save on a closed Einsatz otherwise read as «pages
+        # deleted» and was refused before the guard that keeps them ever ran)
+        keep_server_gps(body.workspace, stored)
+        keep_newer_board_kinds(body.workspace, stored)
         if operational_keys_changed(stored, body.workspace) and happened_after_close(body.edited_at, closed_at):
             raise incident_closed(closed_at)
     saved = await apply_workspace_put(db, incident_id, body, user_id=user.id, inc=inc)

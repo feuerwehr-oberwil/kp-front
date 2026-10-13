@@ -49,6 +49,13 @@ export interface ReportOptions {
   /** print the Rapport-Beilagen (document/damage photos) as full-width plates at the end */
   attachments: boolean
   detailedAudit: boolean
+  /** the «Auswertung» Beilage — key figures, swimlanes, Lehren (lib/auswertung). Internal: it
+   *  prints on its own landscape sheet at the very end, after everything that gets signed. */
+  auswertung: boolean
+  /** the Tafel's pages (10.10.2026): every board-template page in its own layout, and the
+   *  Skizze when it carries ink. Optional, because a draft saved before it existed lacks it —
+   *  absent reads as ON (reportPdfDirect · `tafel !== false`). */
+  tafel?: boolean
 }
 
 export const defaultReportOptions: ReportOptions = {
@@ -84,6 +91,14 @@ export const defaultReportOptions: ReportOptions = {
   pendenzen: true,
   attachments: true,
   detailedAudit: false,
+  // ⚠️ OFF by default (owner, 10.10.2026), and the sheet no longer seeds it from the record (it
+  // was «ticked when a crew went in under PA» on 09.10.): an internal debrief is something to
+  // ASK for. Its own last sheet, so the signed part goes out without it; the operator's own tick
+  // is kept per Einsatz (ReportPreflight · optionOverrides). The QR-Erfassung's PDF has it off too.
+  auswertung: false,
+  // ON: the Erste Führung is the Einsatz's own work, like the Gebäude; a Tafel with nothing on it
+  // simply carries no page (reportPdfDirect · tafelPayload)
+  tafel: true,
 }
 
 export interface AuditProof {
@@ -624,7 +639,9 @@ export function readingBarIsMeasured(kind: TruppReading['kind']): boolean {
   // shape — the Überwachung ended, nobody read a gauge for it — while `paOn` carries the
   // Eingangsdruck of the cylinder that was just opened, which IS a reading.
   // …and a `crew` row names people, not a pressure — its bar is carried like a Kontakt's
+  // …and so do the two ends of a Notfall (F1): nobody read a gauge for them
   return kind !== 'contact' && kind !== 'rueckzug' && kind !== 'exit' && kind !== 'resume' && kind !== 'paOff' && kind !== 'crew'
+    && kind !== 'notfall' && kind !== 'notfallEnde'
 }
 
 /**
@@ -808,6 +825,9 @@ export function readingKindLabel(kind: TruppReading['kind'], standDown = false):
   // …and the two ends of the monitored stretch, where the Art was changed after the fact
   if (kind === 'paOn') return az.readingKind.paOn
   if (kind === 'paOff') return az.readingKind.paOff
+  // …and the two ends of an Atemschutznotfall (F1, 08.10.2026)
+  if (kind === 'notfall') return az.readingKind.notfall
+  if (kind === 'notfallEnde') return az.readingKind.notfallEnde
   return az.readingKind.pressure
 }
 

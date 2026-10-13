@@ -83,6 +83,22 @@ async def test_a_section_this_build_does_not_know_is_not_held_against_the_caller
     assert "symbols" not in (await _stored(client))
 
 
+async def test_a_field_this_build_retired_is_not_held_against_the_caller(client, admin_login, put_config, db_session):
+    """⚠️ Same rule one level down. The print relay's removal (09.10.2026) retired
+    `report.reversePrintOrder`; every stored document still carried it, so every save of the
+    station settings — and the demo's nightly reset — was refused over a switch that no longer
+    exists. A field the schema does not declare cannot be sent back by anybody."""
+    await admin_login(client)
+    await _seed(client, put_config)
+    row = (await db_session.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one()
+    row.config_json = {**row.config_json, "report": {**row.config_json["report"], "reversePrintOrder": True}}
+    await db_session.commit()
+
+    r = await put_config(client, STATION)
+    assert r.status_code == 200, r.text
+    assert "reversePrintOrder" not in (await _stored(client))["report"]
+
+
 async def test_force_performs_the_emptying_it_named(client, admin_login, put_config):
     """A station dropping its Partnerliste is a real edit — it just has to say so."""
     await admin_login(client)

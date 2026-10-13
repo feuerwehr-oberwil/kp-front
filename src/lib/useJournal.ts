@@ -86,7 +86,7 @@ export function useJournal({ incidentId, readOnly, legacy, slowFollow = false }:
 
   const append = useCallback((row: TimelineEvent) => store.append(row), [store])
   const appendPatch = useCallback(
-    (id: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'transcriptSectionEdit' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'textEdit' | 'retracted'>>) =>
+    (id: string, fields: Partial<Pick<TimelineEvent, 'transcript' | 'transcriptSection' | 'transcriptSectionEdit' | 'audioUrl' | 'photoUrl' | 'photoUrls' | 'photoGeo' | 'textEdit' | 'retracted'>>) =>
       store.appendPatch(id, fields),
     [store],
   )

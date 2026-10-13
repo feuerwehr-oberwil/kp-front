@@ -202,7 +202,7 @@
 /* ── menu popup (the SurfaceControls recipe) ── */
 .menuPop {
   min-width: 200px; max-width: min(320px, 92vw);
-  max-height: var(--available-height, 70dvh); overflow-y: auto; overscroll-behavior: contain;
+  max-height: var(--menu-room, 70dvh); overflow-y: auto; overscroll-behavior: contain;
   padding: var(--bar-pad); border-radius: var(--r-bar);
   background: var(--surface); box-shadow: var(--e4); border: 1px solid var(--glass-edge);
 }

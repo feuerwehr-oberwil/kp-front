@@ -40,7 +40,7 @@ const afterClose = (at: unknown) => {
   const t = typeof at === 'string' ? Date.parse(at) : Number.NaN
   return !Number.isFinite(t) || t > Date.parse(server.closedAt ?? '') + 120_000
 }
-const VIEW_KEYS = ['activePlanId', 'activeModule', 'layerState', 'recent', 'cameraViews', 'pickedObjectId', 'planBindings', 'intakeReviewedAt']
+const VIEW_KEYS = ['activePlanId', 'activeModule', 'layerState', 'recent', 'cameraViews', 'pickedObjectId', 'planBindings', 'intakeReviewedAt', 'schemaVersion']
 const refused = () => json(409, { detail: { code: 'incident_closed', message: 'Einsatz ist abgeschlossen – nicht mehr übernommen', closed_at: server.closedAt } })
 
 async function fakeFetch(input: string, init: RequestInit = {}): Promise<Response> {

@@ -54,6 +54,10 @@ os.environ.setdefault(
 # to exercise the unset / fail-closed path.
 TEST_ADMIN_SECRET = "test-admin-secret-0123456789ab"
 os.environ.setdefault("ADMIN_SECRET", TEST_ADMIN_SECRET)
+# The suite never talks to MeteoSwiss: the weather layer's jobs (app/scheduler ·
+# _start_process_jobs) would fetch at once whenever a test starts the scheduler. Its own tests
+# switch it on per test and feed the service directly (tests/test_weather_layer.py).
+os.environ.setdefault("WEATHER_LAYER_ENABLED", "false")
 
 TEST_PIN = "135790"[:6]
 

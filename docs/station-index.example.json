@@ -1,0 +1,15 @@
+{
+  "schema": "station-index/1",
+  "schema_version": 1,
+  "generated_at": "2026-10-09T04:00:00+00:00",
+  "provider": "musterdorf",
+  "files": [
+    {
+      "kind": "roster",
+      "path": "roster.json",
+      "schema": "roster-snapshot/1",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "bytes": 1234
+    }
+  ]
+}

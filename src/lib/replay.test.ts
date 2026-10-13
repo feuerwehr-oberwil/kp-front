@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { activeReplayRange, activityMoments, findGaps, fractionAtTime, gapAt, journalMoments, layoutTrack, momentAt, segmentsFromGaps, stateAt, stepMoment, timeAtFraction, vehiclesAt } from './replay'
 import type { ReplayBundle, ReplayEvent, VehicleSampleRow } from './replay'
 import type { Saved } from './workspace'
+import { findForms, formAnno, formDelta, newFormPage, putRow } from './boardForm'
+import { BUNDLED_TEMPLATES } from './boardTemplates'
 
 const iso = (ms: number) => new Date(ms).toISOString()
 
@@ -201,6 +203,20 @@ describe('attachment and Plan replay folding', () => {
     ]
     const b = bundle(events, () => ({ workspace: { ...emptyWs(), board: {} }, occurredMs: 0 }))
     expect((await stateAt(b, 3000))?.board?.gebaeude[0]).toMatchObject({ color: 'red', pts: [[0, 0, 0], [1, 1, 1]] })
+  })
+
+  it('replays a Tafel page: each edit\'s cells fold in, and a removal hides it (re-review of #338)', async () => {
+    const page = formAnno(newFormPage(BUNDLED_TEMPLATES[0], BUNDLED_TEMPLATES[0].pages[0], {}, '2026-10-10T09:00:00.000Z'))
+    const edited = putRow(page.form, 'massnahmen', 'm1', { cells: { was: 'Riegel', wer: 'TLF' } })
+    const events = [
+      ev({ seq: 1, op_type: 'board.add', occurred_at: iso(1000), payload_json: { id: page.id, planId: 'tafel', anno: page } }),
+      ev({ seq: 2, op_type: 'board.edit', occurred_at: iso(2000), payload_json: { id: page.id, planId: 'tafel', form: { page: 'ef', delta: formDelta(page.form, edited) } } }),
+      ev({ seq: 3, op_type: 'board.edit', occurred_at: iso(3000), payload_json: { id: page.id, planId: 'tafel', form: { page: 'ef', removed: true } } }),
+    ]
+    const b = bundle(events, () => ({ workspace: { ...emptyWs(), board: {} }, occurredMs: 0 }))
+    const at2 = (await stateAt(b, 2500))?.board?.tafel ?? []
+    expect(findForms(at2)[0].form.values.massnahmen.rows?.[0].cells).toEqual({ was: 'Riegel', wer: 'TLF' })
+    expect(findForms((await stateAt(b, 3500))?.board?.tafel ?? [])).toEqual([])
   })
 
   /* ⚠️ `board.move` is what the plan surface emits on every native release — a chip, a cordon, a

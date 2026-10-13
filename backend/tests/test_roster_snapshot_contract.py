@@ -10,16 +10,14 @@ A committed artifact that no longer matches the code advertises a contract that 
 in force, the same failure `docs/openapi.json` had when it went 31 endpoints out of date.
 Regenerate with `just roster-schema` in the same change that touches the models.
 
-**2. Cross-repo drift.** kp-rück holds byte-identical copies of both schema files, pinned by
-the same checksums. Neither repository may import the other (`docs/RUNNING-BOTH.md`), so the
-copies stay copies and a hash holds them together — exactly the arrangement
-`test_alarm_keywords.py` and `test_telemetry_vendored.py` already use. **What this cannot
-catch, stated plainly:** editing the schema here and updating only this repository's hash
-leaves both suites green while the two copies diverge. Only a job that checks out both
-repositories actually compares them, and **this pair is in no such job yet** — kp-rück's
-`alarm-keyword-drift` and `telemetry-drift` are the two that exist, and adding a third for a
-contract nothing implements was left out of the change that published it. Until then, "copy it
-across and update both hashes in one change" is a habit, not a guarantee.
+**2. Cross-repo drift.** kp-rück holds byte-identical copies of both schema files AND of the
+code that reads them (`app/roster_snapshot.py`, `app/roster_snapshot_ingest.py`), the
+reference producer (`scripts/roster_snapshot_from_csv.py`) and its example input. Neither
+repository may import the other (`docs/RUNNING-BOTH.md`), so the copies stay copies, listed with
+their sha256 in `shared/MANIFEST.json` beside the telemetry sanitiser and the alarm vocabulary.
+`test_shared_files.py` holds this repository's copies to the manifest; CI's «Shared files match
+KP Rück» job checks out both repositories and compares them, and is the only thing that does.
+How to change one: `shared/README.md`.
 
 **3. A medical field.** D30 of the estate architecture says the exclusion is a property of the
 payload, "enforced by a schema test that fails on any medical-shaped key, not by doctrine:
@@ -67,7 +65,6 @@ roster-snapshot artifacts on purpose — `winfapAlias` is a legitimate, delibera
 in this product's station config, and this test says nothing about it.
 """
 
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -85,12 +82,8 @@ SNAPSHOT_SCHEMA = ROOT / "docs" / "roster-snapshot.schema.json"
 OUTCOME_SCHEMA = ROOT / "docs" / "roster-snapshot-outcome.schema.json"
 EXAMPLE_FILE = BACKEND / "roster.snapshot.example.json"
 
-#: sha256 of each file that is ALSO vendored into feuerwehr-oberwil/kp-rueck. Regenerate with:
-#:   just roster-schema && shasum -a 256 docs/roster-snapshot*.schema.json
-VENDORED = {
-    "roster-snapshot.schema.json": "85c9cfab43c64f096a6b260f4892240fe0b7890acc7741b8be544698ef102cc0",
-    "roster-snapshot-outcome.schema.json": "131cedd7246ccac71f9e1017af8e61bebe998dc09f04cc47df8d5d9bac9e78a9",
-}
+#: Both halves of the contract, shared byte for byte with kp-rück (`shared/MANIFEST.json`).
+SCHEMAS = ("roster-snapshot.schema.json", "roster-snapshot-outcome.schema.json")
 
 repo_only = pytest.mark.skipif(not SNAPSHOT_SCHEMA.exists(), reason="repo root not available (running from the image)")
 
@@ -137,27 +130,9 @@ def test_the_example_validates_against_its_own_contract():
 
 
 # --- 2. cross-repo pin ------------------------------------------------------------------
-
-
-@repo_only
-@pytest.mark.parametrize("name", sorted(VENDORED))
-def test_vendored_schema_matches_the_recorded_hash(name: str):
-    path = ROOT / "docs" / name
-    assert path.exists(), f"{name} is missing — the vendored copy must not be deleted"
-    digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    assert digest == VENDORED[name], (
-        f"docs/{name} no longer matches the hash recorded here.\n"
-        f"Copy the file across to kp-rueck, run BOTH test suites, and update the hash in BOTH "
-        f"repositories in the same change. Do NOT just update the hash — see this module's "
-        f"docstring for why that is not enough on its own."
-    )
-
-
-@repo_only
-def test_both_schemas_are_pinned():
-    # A guard on the guard: pinning the document but not the outcome report would leave half
-    # the contract free to move.
-    assert set(VENDORED) == {"roster-snapshot.schema.json", "roster-snapshot-outcome.schema.json"}
+# Lives in test_shared_files.py (every file in shared/MANIFEST.json, offline) and CI's «Shared
+# files match KP Rück» job (the two checkouts compared). Both schemas are in the manifest, and
+# test_shared_files.py fails if either is dropped from it.
 
 
 # --- 3. the medical exclusion -----------------------------------------------------------
@@ -412,7 +387,7 @@ def test_no_free_form_object_in_the_schema():
             for i, item in enumerate(node):
                 walk(item, f"{path}[{i}]")
 
-    for name in sorted(VENDORED):
+    for name in SCHEMAS:
         walk(json.loads((ROOT / "docs" / name).read_text(encoding="utf-8")), name)
     assert not offenders, (
         "the roster-snapshot contract grew a free-form object: "
@@ -460,6 +435,11 @@ def test_a_document_from_another_contract_version_is_refused():
             id="dupe-identity",
         ),
         pytest.param(lambda d: d.update({"provider": "Musterdorf Personalstamm"}), "not a key", id="provider-shape"),
+        pytest.param(
+            lambda d: d["people"][0]["identities"].append({"provider": d["provider"], "external_id": "x"}),
+            "a second id under the file's own provider cannot be stored",
+            id="own-provider-identity",
+        ),
         pytest.param(lambda d: d.update({"generated_at": "2026-08-02T04:00:00"}), "no offset", id="naive-time"),
         pytest.param(lambda d: d["people"][0].update({"external_id": ""}), "blank key", id="blank-id"),
     ],
@@ -485,13 +465,19 @@ def test_roster_source_accepts_snapshot_beside_manual_and_divera():
         assert RosterConfig(source=value).source == value
 
 
-def test_the_registry_lists_the_provider_and_admits_it_is_not_built():
+def test_the_registry_lists_the_provider_and_it_is_built(monkeypatch):
+    # Flipped to True in the change that implemented the ingestion (app/roster_snapshot_sync.py).
+    from app import credentials
+
     entry = next(p for p in providers.integrations().providers if p.provider == "snapshot")
     assert entry.domain == "personnel"
-    assert entry.implemented is False, (
-        "flip this to True only in the change that actually implements snapshot ingestion — "
-        "a registry that claims a working provider is worse than one that omits it"
-    )
+    assert entry.implemented is True
+    # configured follows the source credential, and nothing else
     assert entry.configured is False and entry.active is False
-    # …and it must not have displaced the providers that do work.
+    monkeypatch.setenv("ROSTER_SNAPSHOT_SOURCE", "https://hr.example.ch/roster.json")
+    assert credentials.get("roster_snapshot_source")
+    entry = next(p for p in providers.integrations().providers if p.provider == "snapshot")
+    assert entry.configured is True and entry.active is True
+    # …and it must not have displaced the providers that do work, nor taken Divera's slot.
     assert {p.provider for p in providers.integrations().providers} >= {"divera", "traccar", "snapshot"}
+    assert providers.integrations().personnel.provider != "snapshot"

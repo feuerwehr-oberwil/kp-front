@@ -61,6 +61,7 @@ async def test_system_shape_as_admin(client, editor, admin_login):
         "sttConfigured",
         "autoAlignConfigured",
         "cartoBasemapKey",
+        "microsoftLoginConfigured",
         "personnel",
         "alarms",
         "vehicles",
@@ -93,10 +94,11 @@ async def test_system_shape_as_admin(client, editor, admin_login):
     # Connectors — every consumer/producer listed read-only, one row each.
     connectors = {c["id"]: c for c in body["connectors"]}
     assert set(connectors) == {
-        # The three POLLING connectors, which carry health as well as configuration.
+        # The four POLLING connectors, which carry health as well as configuration.
         "divera_alarms",
         "traccar",
         "divera_personnel",
+        "roster_snapshot",
         "capture",
         "stats",
         "divera_webhook",

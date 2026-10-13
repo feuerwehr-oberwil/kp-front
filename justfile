@@ -107,6 +107,27 @@ postcheck id *args:
 staging-refresh *args:
     bash scripts/railway-staging-refresh.sh {{args}}
 
+# Railway staging is stopped between test sessions: its scheduler and the Divera poll keep it
+# busy around the clock, so App Sleeping never kicks in and it bills like a second prod. The
+# project is pinned rather than taken from `railway link`, which may point at the demo.
+staging_project := "cd015874-865f-4a39-8a3c-499751a9ec15"
+
+# (Database first, so the app does not boot against nothing. The app comes from the latest
+# commit on the `staging` branch; a push there also starts it, but never the database.)
+# Start the stopped Railway staging environment.
+[group('Operations')]
+staging-up:
+    railway redeploy --from-source -p {{staging_project}} -e staging -s Postgres -y
+    railway redeploy --from-source -p {{staging_project}} -e staging -s kp-front -y
+
+# (Removes the running deployments only – database volume, storage and variables stay. A
+# service that is already stopped is skipped: `railway down` fails on it, hence the `-`.)
+# Stop the Railway staging environment so it stops billing; `just staging-up` brings it back.
+[group('Operations')]
+staging-down:
+    -railway down -p {{staging_project}} -e staging -s kp-front -y
+    -railway down -p {{staging_project}} -e staging -s Postgres -y
+
 # --- Development -------------------------------------------------------------
 
 # THE dev command: Postgres + backend + frontend in one terminal (Ctrl+C stops all).
@@ -198,18 +219,42 @@ demo-reset:
 # DATABASE_URL, so tests/conftest.py fell back to SQLite in-memory while ci.yml runs them
 # against Postgres 16 — and SQLite does NOT abort a transaction on a statement error, which is
 # the class of bug that difference hides. It now runs them where CI runs them, in their own
-# database so nobody's dev data is dropped. Not covered — both need more than a container:
-# the gitleaks scan and the image build.)
+# database so nobody's dev data is dropped. It now also runs the rest of CI's Frontend and
+# Backend jobs: e2e types, the coverage floor, hidden sourcemaps, the bundle budget, both
+# audits, both license checks and the schema-drift check. Not covered — they need more than
+# a container: the gitleaks scan, the image build, e2e, visual and perf.)
 # Run everything CI would fail you on, before you push.
 [group('Quality')]
-ci: test-backend
+ci: schema-check test-backend
+    pnpm lint
+    pnpm exec tsc -p tsconfig.e2e.json
+    pnpm test:coverage
     pnpm build
+    node scripts/check-sourcemaps.mjs
+    node scripts/check-bundle-size.mjs
     node site/build.mjs --check
-    pnpm test
+    pnpm audit --prod --audit-level high
+    pnpm audit --audit-level moderate
+    python3 scripts/check_licenses.py frontend
     cd backend && uv run ruff format --check .
     cd backend && uv run ruff check .
     cd backend && uv run mypy app
-    pnpm lint
+    cd backend && uv run --with pip-audit pip-audit
+    python3 scripts/check_licenses.py backend
+
+# (CI's «alembic check» step, locally: a throwaway database on the dev Postgres, migrated to
+# head, compared with the models' metadata, dropped again — your dev data is never touched.)
+# Check that the migrated schema matches the models (alembic check).
+[group('Quality')]
+schema-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    docker compose -f docker-compose.dev.yml up -d --wait
+    db="kpfront_schema_$$"
+    docker compose -f docker-compose.dev.yml exec -T db createdb -U kpfront "$db"
+    trap 'docker compose -f docker-compose.dev.yml exec -T db dropdb -U kpfront "$db"' EXIT
+    export DATABASE_URL="postgresql+asyncpg://kpfront:kpfront@localhost:5434/$db"
+    (cd backend && uv run alembic upgrade head && uv run alembic check)
 
 # (Uses its OWN database on the dev Postgres — the suite creates and drops the schema, so
 # pointing it at `kpfront` would take your dev data with it. `|| true` on the create: the
@@ -276,6 +321,25 @@ perf-accept run-id:
     PERF_SOURCE="CI run {{run-id}}" node scripts/perf-report.mjs --update $(ls -d tmp/perf-accept/run*)
     rm -rf tmp/perf-accept
 
+# (Throwaway Postgres + built app; never touches the dev database. CI's «Visual» job shoots the
+# same states and fails on a changed pixel — docs/testing/visual-regression.md.)
+# Shoot the screenshot regression states and compare them against e2e/visual/baseline/.
+[group('Quality')]
+visual *args:
+    bash scripts/visual.sh {{args}}
+
+# (A red «Visual» job or a «Visual baselines» run. A deliberate change of the look only — commit
+# the pictures on their own, saying why; never to turn the check green.)
+# Take a CI run's new pictures as the screenshot baselines.
+[group('Quality')]
+visual-accept run-id:
+    rm -rf tmp/visual-accept && gh run download {{run-id}} -n visual-results -D tmp/visual-accept
+    actual=$(find tmp/visual-accept -type d -name actual | head -1); \
+      test -n "$actual" || { echo "run {{run-id}} has no new pictures"; exit 1; }; \
+      cp "$actual"/*.png e2e/visual/baseline/
+    rm -rf tmp/visual-accept
+    git status --short e2e/visual/baseline
+
 # Type-check the frontend and the e2e specs without emitting.
 [group('Quality')]
 check:
@@ -314,7 +378,14 @@ openapi: config-schema
 config-schema:
     cd backend && uv run python -m app.admin_config schema > ../docs/config.schema.json
 
-# Regenerate the committed roster-snapshot contract (schemas + example). Run it in the same
+# (The board-template/1 contract a station writes its Tafel pages against — docs/board-templates.md.
+# A pytest fails when the committed file and app/board_templates.py drift.)
+# Dump the board-template JSON Schema to docs/board-template.schema.json.
+[group('Release')]
+board-template-schema:
+    cd backend && uv run python -m app.admin_board_templates schema > ../docs/board-template.schema.json
+
+# Regenerate the committed roster-snapshot + station-index contracts (schemas + examples). Run it in the same
 # change that touches app/roster_snapshot.py, then update the checksums recorded in
 # tests/test_roster_snapshot_contract.py AND in the kp-rueck copy. See docs/CONFIGURATION.md §4c.
 [group('Release')]
@@ -322,6 +393,8 @@ roster-schema:
     cd backend && uv run python -m app.roster_snapshot schema > ../docs/roster-snapshot.schema.json
     cd backend && uv run python -m app.roster_snapshot outcome-schema > ../docs/roster-snapshot-outcome.schema.json
     cd backend && uv run python -m app.roster_snapshot example > roster.snapshot.example.json
+    cd backend && uv run python -m app.station_index schema > ../docs/station-index.schema.json
+    cd backend && uv run python -m app.station_index example > ../docs/station-index.example.json
     @shasum -a 256 docs/roster-snapshot.schema.json docs/roster-snapshot-outcome.schema.json
 
 # (Needs no install — uvx fetches git-cliff. Add --tag vX.Y.Z to head it with a version.)
@@ -432,6 +505,16 @@ checklists-load file:
 [group('Deployment config')]
 checklists-push file *args:
     cd backend && uv run python -m app.admin_checklists push "{{absolute_path(file)}}" {{args}}
+
+# Load a board-templates manifest (the Tafel's pages, board-template/1) into the deployment (DATABASE_URL).
+[group('Deployment config')]
+board-templates-load file *args:
+    cd backend && uv run python -m app.admin_board_templates load "{{absolute_path(file)}}" {{args}}
+
+# Publish a board-templates manifest to a RUNNING deployment via its API (--prune deletes the rest).
+[group('Deployment config')]
+board-templates-push file *args:
+    cd backend && uv run python -m app.admin_board_templates push "{{absolute_path(file)}}" {{args}}
 
 # (Slot is one of: logo | reportLogo | favicon | iconPng192 | iconPng512 – the last two are the
 # installed PWA's home-screen icons and must be square PNGs of exactly that edge (or a larger

@@ -167,7 +167,7 @@
       {
         "alt": "Incident report before printing: attendance and material already carried over, with the sections of the PDF to tick below",
         "title": "Report",
-        "sub": "Nearly done when you head back – check it, add to it, export as PDF, send it straight to the printer"
+        "sub": "Nearly done when you head back – check it, add to it, export as PDF and print"
       }
     ]
   },
@@ -207,7 +207,7 @@
   "features": {
     "eyebrow": "Scope",
     "h2": "What is in it.",
-    "lede": "Grown at real incidents and exercises, not from a feature list. Everything that comes\n        from outside – paging, GPS, printers – is <strong>optional</strong>: KP Front runs\n        perfectly well without any of those connections.",
+    "lede": "Grown at real incidents and exercises, not from a feature list. Everything that comes\n        from outside – paging, GPS, Microsoft sign-in – is <strong>optional</strong>: KP Front runs\n        perfectly well without any of those connections.",
     "groups": [
       {
         "h3": "Map &amp; plan",
@@ -218,18 +218,22 @@
           "Measuring distance and area, to scale on the plan as well",
           "Layers: hydrants, utility cadastre, cantonal map services",
           "<strong>Hazardous materials reference</strong>: UN numbers, substance information and guidance on isolation and protective distances, available directly during the incident",
-          "Weather and wind information to support the situation assessment",
-          "Building plans as a whiteboard, stack of floors, blank board",
-          "Undo/redo on every surface – documented events remain traceable",
-          "<strong>Georeferencing</strong>: link a plan to the map through shared landmarks – one object, visible on both surfaces, with an honest read-out of the accuracy. The station has its plans aligned ahead of time and approves them"
+          "Weather and wind information to support the situation assessment, plus the MeteoSwiss precipitation radar as a layer",
+          "Building plans as a whiteboard and a stack of floors",
+          "<strong>Board with FKS pages</strong>: free sketch, First command and handbook sheets – printed in the report like the original",
+          "<strong>Building info</strong>: facts from the building register – gas, heating oil, solar PV – and the immediate measures for the object",
+          "<strong>Georeferencing</strong>: link a plan to the map through shared landmarks – one object, visible on both surfaces, with an honest read-out of the accuracy. The station has its plans aligned ahead of time and approves them",
+          "Undo/redo on every surface – documented events remain traceable"
         ]
       },
       {
         "h3": "Crew &amp; resources",
         "items": [
           "<strong>SCBA monitoring</strong>: pressure, turnaround time, contact clock, alarms",
+          "<strong>SCBA emergency</strong>: a team in trouble turns red at the top of every device at once – with an emergency clock and the safety team",
           "<strong>Teams with or without breathing apparatus</strong>: crew, assignment and team leader – on the map, on the plan and in the stack of floors, each with its own team colour, the same everywhere",
           "Attendance with arrival times and ranks",
+          "On the way: who has confirmed the Divera alert, right above attendance",
           "<strong>Shift plan</strong>: plan availability and shifts per person, see coverage\n            across the incident and print command forms",
           "<strong>Share location</strong>: whoever opens the link appears as a dot on the\n            situation map – voluntary, and only for this incident",
           "Share the incident by link; access is clearly indicated and can be revoked at any time",
@@ -245,6 +249,7 @@
           "Voice memos with transcription, photos, reminders",
           "<strong>Replay</strong>: play the incident back minute by minute, waits skipped –\n            for the debrief",
           "Ready-made incident report as a PDF, including crew, material, times, log, sketch,\n            photos and SCBA monitoring",
+          "<strong>Debrief sheet</strong> for the after-action review: key figures and a timeline on a page of its own at the end of the report",
           "Photos as attachments to the report",
           "<strong>Completion check</strong>: before closing, KP Front shows which information or clarifications are still missing from the report",
           "Partner organisations with their remarks in the report",
@@ -261,7 +266,8 @@
           "Day/night mode, symbol size, large touch targets for the tablet",
           "Can take over alerts from Divera or FireHub; further alerting systems can be connected through the open interface <span class=\"opt\">optional</span>",
           "Vehicle positions by GPS <span class=\"opt\">optional</span>",
-          "PDF printing at the station <span class=\"opt\">optional</span>",
+          "Sign in with Microsoft to an existing account, alongside the PIN <span class=\"opt\">optional</span>",
+          "<strong>Object visits</strong> without an incident, offline – checklist, photos and report <span class=\"opt\">optional</span>",
           "<strong>Your own administration area</strong> per fire brigade: crew, vehicles, checklists, map layers and templates",
           "Interface in German, English, French or Italian – set per fire brigade"
         ]
@@ -271,7 +277,7 @@
   "sibling": {
     "eyebrow": "Related project",
     "h2": "KP Front commands at the front. KP Rück keeps the overview behind it.",
-    "p": "<strong>KP Rück</strong> is the digital version of the magnetic board in the rear\n          command post: one board for personnel, vehicles and equipment. Its own app, the same\n          handwriting – the two can hand incidents over to each other, but neither needs the other.",
+    "p": "<strong>KP Rück</strong> is the digital version of the magnetic board in the rear\n          command post: one board for personnel, vehicles and equipment. Its own app, the same\n          handwriting – both take the same alarm\n          from the dispatch system, and neither needs the other.",
     "cta": "Take a look at KP Rück",
     "setup": {
       "h3": "Running both – without setting everything up twice",
@@ -283,10 +289,6 @@
         {
           "dt": "Divera access",
           "dd": "One key for both – the same alarms, the same roster. <span class=\"opt\">optional</span>"
-        },
-        {
-          "dt": "Print agent",
-          "dd": "One service in the station serves both apps and both kinds of printer."
         },
         {
           "dt": "Roster",

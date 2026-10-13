@@ -57,7 +57,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from pydantic import BaseModel
 
-from ..config_history import emptied_sections
+from ..config_guard import emptied_declared_sections
 from ..personnel import (
     DEFAULT_NAME_ORDER,
     NameOrder,
@@ -1233,7 +1233,7 @@ def plan_import(
         # …on the document that would actually be STORED, not on the raw projection: the same
         # `emptied_sections` «Letzte Änderungen» reports after the fact (config_history), said
         # before the fact, which is the only time it can still be acted on.
-        emptied=emptied_sections(base, normalized),
+        emptied=emptied_declared_sections(base, normalized),
         digest=digest,
         ok=not errors,
     )

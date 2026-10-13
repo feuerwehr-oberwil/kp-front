@@ -71,7 +71,7 @@ function solidPng(size = 256, rgb: [number, number, number] = [232, 228, 220]): 
 }
 const TILE = solidPng()
 
-export async function isolateFromOutside(context: BrowserContext, baseURL: string, external: string[]) {
+export async function isolateFromOutside(context: BrowserContext, baseURL: string, external: string[], now = () => Date.now()) {
   const own = new URL(baseURL).origin
   await context.route((url) => url.protocol.startsWith('http') && url.origin !== own, async (route) => {
     const req = route.request()
@@ -83,9 +83,36 @@ export async function isolateFromOutside(context: BrowserContext, baseURL: strin
   })
   await context.route('**/api/weather?*', (route) => route.fulfill({ json: {
     wind_dir_deg: 240, wind_speed_kmh: 9, wind_gust_kmh: 18, temp_c: 14, precip_mm: 0, weather_code: 1,
-    observed_at: new Date().toISOString(), source: 'meteoswiss', station: 'Basel-Binningen',
+    observed_at: new Date(now()).toISOString(), source: 'meteoswiss', station: 'Basel-Binningen',
   } }))
   await context.route('**/api/overpass/buildings', (route) => route.fulfill({ json: { elements: [] } }))
+  // The Gebäude chip's register half (api/building) asks geo.admin from the SERVER, so routing the
+  // page's outside calls does not reach it: the answer itself is canned — one building with gas
+  // heating, no PV, no Objekt notes — or a GWR hiccup would take the chip off the Karte's baseline.
+  await context.route('**/api/incidents/*/building?*', (route) => route.fulfill({ json: {
+    registers: 'on', egid: '1000001', address: 'Hauptstrasse 1, 9999 Musterdorf',
+    gwr: { stand: '2026-09-15', floors: 4, flats: 6, year: 1962, period: null, heating: ['gas'],
+      heating_date: '2021-03-01', hot_water: ['gas'], shelter: null, status: null },
+    gwr_status: 'ok', plants: [], pv_status: 'ok', registers_fetched_at: new Date(now()).toISOString(),
+    object: null, visit: null,
+  } }))
+  // The Karte's weather layer (backend app/weather_layer, off in CI's stack): a fixed answer, so the
+  // journeys pay for its poll – no radar frame (the radar row is off by default).
+  await context.route('**/api/weather/layer*', (route) => route.fulfill({ json: cannedWeatherLayer(now()) }))
+}
+
+function cannedWeatherLayer(at: number) {
+  const iso = new Date(at).toISOString()
+  const status = { last_attempt_at: iso, last_success_at: iso, last_error: null, last_error_at: null }
+  return {
+    enabled: true,
+    generated_at: iso,
+    radar: {
+      frames: [], coordinates: null, data_time: null, stale: true, stale_after_seconds: 900, status,
+      legend: [{ min_mm_h: 0.1, color: '#9bd7ff' }, { min_mm_h: 10, color: '#ff9a00' }],
+      attribution: 'MeteoSchweiz', source_url: 'https://www.meteoschweiz.admin.ch',
+    },
+  }
 }
 
 // ── Network accounting ───────────────────────────────────────────────────────────────────────
@@ -303,7 +330,7 @@ export async function signIn(api: APIRequestContext) {
   if (!res.ok()) throw new Error(`station login: HTTP ${res.status()}`)
 }
 
-export interface Seeded { id: string; title: string; trupps: string[]; journalRows: number; objects: number }
+export interface Seeded { id: string; title: string; trupps: string[]; journalRows: number; objects: number; center: [number, number] }
 
 /**
  * A realistic, busy Einsatz: the `real` fat incident (src/lib/fatIncident — the busiest Einsatz on
@@ -311,9 +338,9 @@ export interface Seeded { id: string; title: string; trupps: string[]; journalRo
  * now. Every journey gets a fresh one, so what one journey wrote never changes the next one's
  * numbers. Archived again by `retire()`.
  */
-export async function seedIncident(api: APIRequestContext, title: string): Promise<Seeded> {
+export async function seedIncident(api: APIRequestContext, title: string, now = Date.now()): Promise<Seeded> {
   const opts = FAT_PRESETS.real
-  const fat = fatIncident({ ...opts, start: new Date(Date.now() - opts.hours * 3_600_000).toISOString() })
+  const fat = fatIncident({ ...opts, start: new Date(now - opts.hours * 3_600_000).toISOString() })
   const created = await api.post('/api/incidents', {
     data: { title, type: 'Brand', lat: fat.options.center[1], lng: fat.options.center[0], started_at: fat.startedAt },
   })
@@ -328,7 +355,7 @@ export async function seedIncident(api: APIRequestContext, title: string): Promi
   // Trupp is long out (each works 18–30 min), so the three latest go back in: entered ten minutes
   // ago, last contact two minutes ago — none goes überfällig during a journey (an alarm banner and
   // its saves would be the journey's numbers otherwise).
-  const iso = (minAgo: number) => new Date(Date.now() - minAgo * 60_000).toISOString()
+  const iso = (minAgo: number) => new Date(now - minAgo * 60_000).toISOString()
   const trupps = [...(fat.workspace.trupps ?? [])]
   const inside = new Set(trupps.slice(-3).map((t) => t.id))
   const ws = { ...fat.workspace, trupps: trupps.map((t) => (!inside.has(t.id) ? t : {
@@ -344,6 +371,7 @@ export async function seedIncident(api: APIRequestContext, title: string): Promi
     trupps: ws.trupps.filter((t) => inside.has(t.id)).map((t) => t.name),
     journalRows: fat.journal.length,
     objects: fat.workspace.entities.length,
+    center: fat.options.center,
   }
 }
 
@@ -358,6 +386,22 @@ export async function remember(context: BrowserContext, baseURL: string, inciden
     name: 'kp-front-prefs', url: baseURL,
     value: encodeURIComponent(JSON.stringify({ incidentId, incidentChosenAt: Date.now() })),
   }])
+}
+
+/**
+ * This device has already read the Einsatz's Gebäude card (lib/buildingFirstOpen). The frozen
+ * states and the journeys stand on a device that has been working the Einsatz for hours, so the
+ * card's FIRST open — docked over the Karte's bottom-left, half the screen on a phone — is not
+ * theirs to measure or to tap around. The flag is written where lib/idb reads first (its
+ * localStorage fallback slot), before any app code runs. The key is `buildingReadKey` of the
+ * canned answer above: the Einsatzort (`buildingWhere`: no address, the point to 5 decimals) and
+ * no Objekt. Should that ever drift, the Lage baselines show the card and say so.
+ */
+export async function buildingAlreadyRead(context: BrowserContext, seeded: Pick<Seeded, 'id' | 'center'>) {
+  const [lng, lat] = seeded.center
+  const key = `|${lat.toFixed(5)}|${lng.toFixed(5)}#`
+  await context.addInitScript(([slot, value]) => { localStorage.setItem(slot, value) },
+    [`kp-idb-fb:kp-front-building-read:${seeded.id}`, JSON.stringify([key])] as const)
 }
 
 /** The Einsatz is on screen and its opening cover (lib/bootCover) has lifted. */

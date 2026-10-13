@@ -269,6 +269,31 @@ async def test_upsert_object_replaces_every_field_not_just_the_ones_given(client
     assert out["source_note"] is None
 
 
+async def test_upsert_without_source_key_keeps_the_one_the_pipeline_wrote(client, admin_login, db_session):
+    """The admin mask PUTs without `source_key`; saving there must not cut the object off from
+    the plan pull. Only a body that SENDS the key (`admin_objects push`) writes it."""
+    obj = _obj(source_key="schulhaus-dorfmatt")
+    db_session.add(obj)
+    await db_session.commit()
+    await admin_login(client)
+
+    r = await client.put(f"/api/objects/{obj.id}", json={"name": "Schulhaus Dorfmatt (korrigiert)"})
+    assert r.status_code == 200, r.text
+    assert r.json()["source_key"] == "schulhaus-dorfmatt"
+
+
+async def test_upsert_refuses_a_source_key_another_object_holds(client, admin_login, db_session):
+    """The column is unique; a second claimant gets a 409 naming the holder, not a 500."""
+    holder = _obj(name="Werkhof", source_key="werkhof")
+    db_session.add(holder)
+    await db_session.commit()
+    await admin_login(client)
+
+    r = await client.put(f"/api/objects/{uuid.uuid4()}", json={"name": "Anderes", "source_key": "werkhof"})
+    assert r.status_code == 409, r.text
+    assert str(holder.id) in r.json()["detail"]
+
+
 # --- upload_plan: the two failure branches the digest tests don't cover -------------------
 
 

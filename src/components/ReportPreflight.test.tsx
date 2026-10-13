@@ -6,6 +6,7 @@ import { Overlays } from '../lib/ui'
 import { appConfig } from '../config/appConfig'
 import type { IncidentMeta } from '../lib/incidents'
 import { downloadDirectReportPdf } from '../lib/reportPdfDirect'
+import type { Trupp } from '../types'
 
 // The «Angaben fehlen noch» ask in front of the Rapport-PDF (14.09.): it used to list the open
 // points as plain text, so the operator closed it and hunted for the section. Each point is now a
@@ -93,6 +94,48 @@ describe('ReportPreflight · the PDF with missing Mindestangaben', () => {
     expect(target?.contains(document.activeElement)).toBe(true)
     // going there is not going ahead
     expect(downloadDirectReportPdf).not.toHaveBeenCalled()
+  })
+})
+
+describe('ReportPreflight · Auswertung default and operator choice', () => {
+  const crew = (readings: Trupp['readings']): Trupp => ({
+    id: 't1', no: 1, name: 'Meier Anna', entryPressureBar: 300,
+    entryTime: '', lastContactTime: '', status: 'raus', readings,
+  })
+  const entry: Trupp['readings'] = [{ t: '2026-09-14T08:30:00.000Z', bar: 300, kind: 'entry' }]
+  function sheet(id: string, trupps: Trupp[]) {
+    return <ReportPreflight incident={{ ...incident, id }} reportMeta={{}} events={[]}
+      annotatedPlanCount={0} truppCount={trupps.length} trupps={trupps}
+      attendanceCount={0} mittelCount={0} onSaveMeta={() => {}} />
+  }
+  async function openMenu() {
+    await act(async () => {})
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: appConfig.copy.preflight.printMenu })) })
+    return screen.getByRole('menuitemcheckbox', { name: appConfig.copy.preflight.toggleAuswertung })
+  }
+
+  // ⚠️ UNTICKED whatever the record holds (owner, 10.10.2026) — it was seeded «ticked when a crew
+  // went in under PA» on 09.10.; an internal debrief sheet is asked for, not handed out
+  it.each([
+    ['no-crew', []],
+    ['standby', [crew([{ t: '2026-09-14T08:20:00.000Z', bar: 300, kind: 'registered' }])]],
+    ['pa-entry', [crew(entry)]],
+    ['basic-entry', [{ ...crew(entry), kind: 'einfach' as const }]],
+  ] as const)('opens the print checkbox unticked for %s', async (id, trupps) => {
+    render(sheet(`f7-default-${id}`, [...trupps]))
+    expect((await openMenu()).getAttribute('aria-checked')).toBe('false')
+  })
+
+  it.each([1, 2])('keeps the operator\'s choice after %i tap(s) across a reopening with changed crew data', async (taps) => {
+    const id = `f7-override-${taps}`
+    const mounted = render(sheet(id, []))
+    const toggle = await openMenu()
+    for (let i = 0; i < taps; i++) await act(async () => { fireEvent.click(toggle) })
+    const chosen = String(taps % 2 === 1)
+    expect(toggle.getAttribute('aria-checked')).toBe(chosen)
+    mounted.unmount()
+    render(sheet(id, [crew(entry)]))
+    expect((await openMenu()).getAttribute('aria-checked')).toBe(chosen)
   })
 })
 

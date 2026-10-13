@@ -17,15 +17,20 @@ import type { IncidentMeta } from './incidents'
 import { closeTimeOf } from './api/incidents'
 import type { ReportDraft } from './report'
 import {
-  annotatedPlans, einsatzleiterSuccession, formatDateTime, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppCrewHistory, truppEquipmentLabels, truppRunTimes, truppStatusLabel,
+  annotatedPlans, einsatzleiterSuccession, formatDateTime, hasVisiblePlanAnnotation, journalRows, metaExtrasForPdf, mittelFormForPdf, pendenzRows, personalForPdf, readingBarShown, readingKindLabel, spanAwareClock, truppAuftragLabel, truppCrewHistory, truppEquipmentLabels, truppRunTimes, truppStatusLabel,
 } from './report'
 import { isAtemschutzTrupp, isStandDownExit } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
-import { getDeploymentConfig } from './deploymentConfig'
+import { atemschutzDoctrine, getDeploymentConfig } from './deploymentConfig'
+import { serverNow } from './serverClock'
 import { fillTemplate } from './format'
 import { buildKrokiPayload, circleSvgString, shapeSvgString } from './krokiPayload'
 import { symbolLegendText } from './symbols'
-import { doneBadge } from './objectDone'
+import { doneBadge, doneOf, doneWord } from './objectDone'
+import { auswertungForPdf, computeAuswertung } from './auswertung'
+import { fahrzeugRows } from './alarmzeiten'
+import type { ChecklistState, ChecklistTemplate } from './checklists'
+import { formatSymbolName } from './format'
 import { SHAPE_DEFS, shapeAspect } from './shapes'
 import { placardSvgForSymbol } from './placard'
 import { ensureErg } from './erg'
@@ -34,6 +39,8 @@ import { vehicleSymbolSvg } from './useVehiclePositions'
 import { downloadReportPdf, reportFilenameHint } from './reportPdf'
 import { resolvePlanAnnos } from './lineAttachments'
 import type { JournalLink } from './journalLinks'
+import { TAFEL_ID, findForms, formForPdf, pageTitles } from './boardForm'
+import { isDrawnBoardKind } from './workspace'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
  *  glyphs resolved to SVG strings, like the whiteboard renders them).
@@ -42,7 +49,8 @@ import type { JournalLink } from './journalLinks'
  *  (IncidentWorkspace · symbolCaptions), so the printed plan is labelled the way the screen it
  *  was drawn on was. */
 export function planAnnosForPdf(annos: BoardAnno[], captionMode: CaptionMode = 'auto'): Record<string, unknown>[] {
-  return resolvePlanAnnos(annos).map((a) => {
+  // only what a sheet DRAWS: a Tafel page prints as its own page, a passenger not at all
+  return resolvePlanAnnos(annos.filter((a) => isDrawnBoardKind(a.kind))).map((a) => {
     const out: Record<string, unknown> = {
       kind: a.kind, x: a.x, y: a.y, pts: a.pts, color: a.color, width: a.width,
       // ⚠️ `hatch` rides with the fill it REPLACES — an `area` that came out washed on paper was
@@ -182,6 +190,10 @@ function cutToBands(a: BoardAnno, chunk: readonly number[], tileAR: number): { a
     // wholly on its storey: printed exactly as before
     return { annos: [{ ...a, y: a.y != null ? (k + a.y) / N : a.y, pts: a.kind === 'area' ? a.pts?.map((p): [number, number] => [p[0], (k + p[1]) / N]) : a.pts }], marks }
   }
+  // ⚠️ nothing of the outline on the band: the zone misses it, or holds ALL of it — and then it
+  // says nothing about this storey, and its fill only tinted the whole band (the screen's rule,
+  // lib/storeyClip · enclosesSection, 11.10.2026)
+  if (!c.runs.length) return { annos: [], marks }
   const piece = clipConvex(ring, band(k)[0])
   if (!piece.length) return { annos: [], marks }
   markAll(c.marks)
@@ -327,6 +339,36 @@ export interface DirectReportArgs {
   building?: BuildingDoc | null
   /** alternate endpoint/auth (capture view: poster token instead of the kiosk cookie) */
   transport?: import('./reportPdf').ReportTransport
+  /** the Checkliste tick state + its templates — the Auswertung's phase bands (lib/auswertung).
+   *  Absent = no phase lane; nothing else depends on it. */
+  checklists?: ChecklistState
+  checklistTemplates?: ChecklistTemplate[]
+  /** wall clock for what is still open on a running Einsatz (tests pin it) */
+  now?: number
+}
+
+/**
+ * The symbols marked «Gelöscht / erledigt», worded for the Auswertung's milestone lane — «Feuer
+ * gelöscht». From the Karte AND the sheets: a Feuer marked out on the Gebäude is the same
+ * milestone. A Karte object projected onto a sheet carries the same id and stamp, so one fact
+ * prints once.
+ */
+export function doneMilestones(entities: readonly Entity[] = [], board: BoardDoc = {}): { at: string; label: string }[] {
+  const seen = new Set<string>()
+  const out: { at: string; label: string }[] = []
+  const add = (id: string, symbol: string | undefined, props: Parameters<typeof doneOf>[0]) => {
+    const d = doneOf(props)
+    if (!d || !symbol) return
+    const label = `${formatSymbolName(symbol)} ${doneWord(symbol, 'inline')}`
+    const key = `${id}\u0000${d.at}`
+    const keyLabel = `${label}\u0000${d.at}`
+    if (seen.has(key) || seen.has(keyLabel)) return
+    seen.add(key); seen.add(keyLabel)
+    out.push({ at: d.at, label })
+  }
+  for (const e of entities) add(e.id, e.symbol, e)
+  for (const annos of Object.values(board)) for (const a of annos) if (a.kind === 'symbol') add(a.id, a.symbol, a)
+  return out
 }
 
 /**
@@ -358,6 +400,45 @@ export function einsatzleiterForPdf(
     if (!t) return s.name // a row without a usable timestamp still names the person
     return fillTemplate(i < spans.length - 1 ? R.einsatzleitungBis : R.einsatzleitungAb, { name: s.name, t })
   }).join(', ')
+}
+
+/**
+ * The Tafel in the Rapport (10.10.2026): every board-template page resolved for the server
+ * (lib/boardForm · formForPdf — it draws the paper, backend/app/report_board.py), and the Skizze
+ * as a blank-base plan page when it carries ink — which closes the old gap of the Tafel's
+ * drawing never reaching paper. The Lagekarte box gets the scene as a Kroki the server renders at
+ * print time: auto-framed on the Lage (never the operator's Kroki crop, which has another shape),
+ * and without captions or labels — the box has no room for the legend their numbers would need.
+ */
+export function tafelPayload(
+  board: BoardDoc | null | undefined,
+  plans: readonly PlanDocument[],
+  scene: DirectReportArgs['scene'],
+  trupps: Trupp[],
+  caption: string,
+): { boardPages: Record<string, unknown>[]; boardMap?: unknown; skizze?: Record<string, unknown> } {
+  const annos = board?.[TAFEL_ID] ?? []
+  const T = appConfig.copy.tafel
+  const titles = pageTitles(annos)
+  const pages = findForms(annos).map((a) => formForPdf(a.form, { up: T.trendUp, same: T.trendSame, down: T.trendDown }, undefined, T.head, titles.get(a.id)))
+  const wantsMap = findForms(annos).some((a) => a.form.page.sections.some((x) => x.type === 'map' && !x.hidden))
+  const map = wantsMap && scene
+    ? buildKrokiPayload({
+        entities: scene.entities, drawings: scene.drawings.map((d) => ({ ...d, label: undefined })), layers: scene.layers,
+        byName: scene.byName, center: scene.center, currentView: null, captionMode: 'off', trupps,
+      })
+    : null
+  const ink = annos.filter((a) => isDrawnBoardKind(a.kind))
+  const tafel = plans.find((p) => p.id === TAFEL_ID)
+  const skizze = tafel && hasVisiblePlanAnnotation({ [TAFEL_ID]: ink }, TAFEL_ID)
+    ? {
+        label: `${tafel.code} · ${T.skizze}`, caption,
+        // the blank sheet's own A4 shape (useMeasuredSheet · seed): h/w of a landscape sheet
+        blankAspect: tafel.orientation === 'portrait' ? 1.414 : 1 / 1.414,
+        annos: planAnnosForPdf(ink, scene?.captionMode ?? 'auto'),
+      }
+    : undefined
+  return { boardPages: pages, ...(map ? { boardMap: map } : {}), ...(skizze ? { skizze } : {}) }
 }
 
 /** The ONE payload builder behind the Rapport-PDF download. */
@@ -416,6 +497,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   // Gebäude sheet pulled out of the stapled rapport has to say what it belongs to. ⚠️ `generatedAt`,
   // not `krokiAt`: only the Kroki can be reconstructed for a past moment, a sheet's annos are now.
   const figureCaption = fillTemplate(appConfig.copy.report.krokiState, { title: incident.title, at: formatDateTime(draft.generatedAt) })
+  // (the Tafel is not one of the «Pläne»: its pages and its Skizze are their own section, below)
   const printPlans = selectedPlans.filter((p) => p.imageUrl && !p.floorStack)
   const planPages: Record<string, unknown>[] = printPlans.map((p) => ({
     label: `${p.code} · ${p.title}`,
@@ -435,6 +517,12 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       planPages.push(...floorStackPages(p, building, board?.[p.id] ?? [], scene?.captionMode ?? 'auto').map((page) => ({ ...page, caption: figureCaption })))
     }
   }
+
+  // the Tafel — its own switch, ON unless the operator took it off (an older draft has none)
+  const tafel = draft.options.tafel !== false
+    ? tafelPayload(board, plans, scene, trupps, figureCaption)
+    : { boardPages: [] as Record<string, unknown>[] }
+  if (tafel.skizze) planPages.unshift(tafel.skizze)
 
   const cfg = getDeploymentConfig()
   const catalogue = cfg.mittel?.catalogue ?? appConfig.mittel.catalogue
@@ -473,7 +561,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       endedAt: meta.endedAt ? formatDateTime(meta.endedAt) : undefined,
       partnerContacts: meta.partnerContacts,
     },
-    options: { kroki: !!kroki, atemschutz: draft.options.atemschutz, attendance: draft.options.attendance, mittel: draft.options.mittel, journal: draft.options.journal, pendenzen: draft.options.pendenzen, krokiLandscape: draft.options.krokiLandscape },
+    options: { tafel: draft.options.tafel !== false, kroki: !!kroki, atemschutz: draft.options.atemschutz, attendance: draft.options.attendance, mittel: draft.options.mittel, journal: draft.options.journal, pendenzen: draft.options.pendenzen, krokiLandscape: draft.options.krokiLandscape, auswertung: draft.options.auswertung },
     // Beilagen: only the ones actually ON the server. A blob: URL is a photo that has not
     // finished uploading, and the server cannot fetch it — printing would silently drop it, so
     // it is left out here and the preflight says so beside the row.
@@ -511,6 +599,9 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     kroki: kroki ?? undefined,
     krokiCaption: kroki ? krokiCaption : undefined,
     planPages,
+    // the Tafel's pages, each on a sheet of its own in its own layout (backend · report_board)
+    boardPages: tafel.boardPages,
+    boardMap: tafel.boardMap,
     // ⚠️ WHAT «überfällig» MEANT on this Einsatz. The sheet reconstructs an Atemschutz-Einsatz
     // from its contact log, and every judgement about that log — was a gap acceptable, when did
     // the board go red — depends on an interval the paper never named. It is a per-incident
@@ -590,6 +681,29 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     })),
     journal: draft.options.journal ? journal : [],
     pendenzen: draft.options.pendenzen ? pendenzen : [],
+    // the internal Beilage (lib/auswertung): computed HERE, where the ISO stamps are
+    auswertung: draft.options.auswertung
+      ? (() => {
+          const interval = args.contactIntervalMin ?? atemschutzDoctrine().contactIntervalMin
+          const grace = args.contactGraceSec ?? atemschutzDoctrine().contactGraceSec
+          const a = computeAuswertung({
+            alarmedAt: meta.alarmiertAt ?? incident.started_at,
+            // ⚠️ `closedAt`, not `closeTimeOf`: a REOPENED Einsatz still carries its old close
+            // time, and is running again — its open spans run to now, not to that close
+            endedAt: meta.endedAt ?? closedAt ?? null,
+            now: args.now ?? serverNow(),
+            vehicles: fahrzeugRows(cfg.fleet?.vehicles ?? [], meta.fahrzeuge).map((r) => ({ label: r.config.label, zeit: r.value })),
+            trupps,
+            contactIntervalMin: interval,
+            contactGraceSec: grace,
+            events,
+            doneMarks: doneMilestones(scene?.entities, board),
+            checklists: args.checklists,
+            templates: args.checklistTemplates,
+          })
+          return auswertungForPdf(a, { contactIntervalMin: interval, contactGraceSec: grace }, meta.lehren)
+        })()
+      : undefined,
   }
   return forPaper(payload) as Record<string, unknown>
 }

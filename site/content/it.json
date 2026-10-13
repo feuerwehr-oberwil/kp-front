@@ -168,7 +168,7 @@
       {
         "alt": "Rapporto d’intervento prima della stampa: presenze e materiale già ripresi, sotto le sezioni del PDF da spuntare",
         "title": "Rapporto",
-        "sub": "Quasi pronto al rientro – controllare, completare, esportare in PDF, mandare direttamente in stampa"
+        "sub": "Quasi pronto al rientro – controllare, completare, esportare in PDF e stampare"
       }
     ]
   },
@@ -208,7 +208,7 @@
   "features": {
     "eyebrow": "Funzionalità",
     "h2": "Cosa c’è dentro.",
-    "lede": "Cresciuta su interventi ed esercitazioni veri, non su un elenco di funzioni. Tutto ciò\n        che arriva da fuori – allertamento, GPS, stampanti – è <strong>opzionale</strong>: KP Front\n        funziona anche del tutto senza questi collegamenti.",
+    "lede": "Cresciuta su interventi ed esercitazioni veri, non su un elenco di funzioni. Tutto ciò\n        che arriva da fuori – allertamento, GPS, accesso con Microsoft – è <strong>opzionale</strong>: KP Front\n        funziona anche del tutto senza questi collegamenti.",
     "groups": [
       {
         "h3": "Mappa &amp; piano",
@@ -219,18 +219,22 @@
           "Misurazione di distanze e superfici, in scala anche sul piano",
           "Livelli: idranti, catasto delle condotte, servizi cartografici cantonali",
           "<strong>Prontuario delle sostanze pericolose</strong>: numeri ONU, informazioni sulle sostanze e indicazioni sulle distanze di isolamento e protezione, disponibili direttamente durante l’intervento",
-          "Informazioni meteorologiche e sul vento a supporto della valutazione della situazione",
-          "Piani d’oggetto come lavagna, piani sovrapposti, lavagna vuota",
-          "Annulla/ripristina su ogni superficie – le attività documentate restano tracciabili",
-          "<strong>Georeferenziazione</strong>: collegare una planimetria alla mappa tramite punti di riferimento comuni – un solo oggetto, visibile su entrambe le superfici, con un’indicazione onesta della precisione. La stazione fa allineare le planimetrie in anticipo e le approva"
+          "Informazioni meteorologiche e sul vento a supporto della valutazione della situazione, più il radar delle precipitazioni di MeteoSvizzera come livello",
+          "Piani d’oggetto come lavagna e piani sovrapposti",
+          "<strong>Lavagna con pagine CSP</strong>: schizzo libero, Prima coordinazione e fogli del manuale – stampati nel rapporto come l’originale",
+          "<strong>Info edificio</strong>: dati del registro degli edifici – gas, olio combustibile, fotovoltaico – e misure immediate per l’oggetto",
+          "<strong>Georeferenziazione</strong>: collegare una planimetria alla mappa tramite punti di riferimento comuni – un solo oggetto, visibile su entrambe le superfici, con un’indicazione onesta della precisione. La stazione fa allineare le planimetrie in anticipo e le approva",
+          "Annulla/ripristina su ogni superficie – le attività documentate restano tracciabili"
         ]
       },
       {
         "h3": "Uomini &amp; mezzi",
         "items": [
           "<strong>Sorveglianza della protezione respiratoria</strong>: pressione, tempo di rientro, orologio di contatto, allarmi",
+          "<strong>Emergenza protezione respiratoria</strong>: una squadra in difficoltà appare subito in rosso, in cima, su tutti i dispositivi – con cronometro d’emergenza e squadra di sicurezza",
           "<strong>Squadre con o senza protezione respiratoria</strong>: personale, incarico e caposquadra – sulla carta, sul piano e nei piani sovrapposti, con il proprio colore di squadra, lo stesso ovunque",
           "Presenze con orari di arrivo e gradi",
+          "In arrivo: chi ha confermato l’allarme Divera, direttamente sopra le presenze",
           "<strong>Piano turni</strong>: pianificare disponibilità e turni per persona,\n            visualizzare la copertura dell’intero intervento e stampare i formulari di condotta",
           "<strong>Condividere la posizione</strong>: chi apre il link appare come punto sulla\n            carta della situazione – volontario, e solo per questo intervento",
           "Condividere l’intervento tramite link; l’accesso è indicato chiaramente e può essere\n            revocato in qualsiasi momento",
@@ -246,6 +250,7 @@
           "Note vocali con trascrizione, foto, promemoria",
           "<strong>Viaggio nel tempo</strong>: riprodurre l’intervento minuto per minuto, con le\n            attese saltate – per il debriefing",
           "Rapporto d’intervento pronto in PDF, con personale, materiale, orari, diario, croquis,\n            foto e sorveglianza della protezione respiratoria",
+          "<strong>Analisi</strong> per il debriefing: cifre chiave e linea del tempo su un foglio a parte, alla fine del rapporto",
           "Foto come allegati al rapporto",
           "<strong>Controllo finale</strong>: prima della chiusura, KP Front mostra quali informazioni o chiarimenti mancano ancora nel rapporto",
           "Organizzazioni partner con la loro osservazione nel rapporto",
@@ -262,7 +267,8 @@
           "Modo giorno/notte, dimensione dei simboli, superfici di comando grandi per il tablet",
           "Può riprendere allarmi da Divera o FireHub; altri sistemi di allertamento possono essere collegati tramite l’interfaccia aperta <span class=\"opt\">opzionale</span>",
           "Posizioni dei veicoli via GPS <span class=\"opt\">opzionale</span>",
-          "Stampa PDF in rimessa <span class=\"opt\">opzionale</span>",
+          "Accesso con Microsoft all’account esistente, in aggiunta al PIN <span class=\"opt\">opzionale</span>",
+          "<strong>Visite agli oggetti</strong> senza intervento, offline – lista di controllo, foto e rapporto <span class=\"opt\">opzionale</span>",
           "<strong>Area amministrativa propria</strong> per ogni corpo: uomini, veicoli, liste di controllo, livelli cartografici e modelli",
           "Interfaccia in tedesco, inglese, francese o italiano – impostata per corpo"
         ]
@@ -272,7 +278,7 @@
   "sibling": {
     "eyebrow": "Progetto affine",
     "h2": "KP Front conduce davanti. KP Rück tiene la visione d’insieme dietro.",
-    "p": "<strong>KP Rück</strong> riproduce in digitale la lavagna magnetica del posto di comando\n          arretrato: una tavola per personale, veicoli e materiale. App propria, stessa grafia –\n          i due possono passarsi gli allarmi, ma non hanno bisogno l’uno dell’altro.",
+    "p": "<strong>KP Rück</strong> riproduce in digitale la lavagna magnetica del posto di comando\n          arretrato: una tavola per personale, veicoli e materiale. App propria, stessa grafia –\n          i due ricevono lo stesso allarme dal sistema di allertamento\n          e non hanno bisogno l’uno dell’altro.",
     "cta": "Guarda KP Rück",
     "setup": {
       "h3": "Gestirli entrambi – senza configurare tutto due volte",
@@ -284,10 +290,6 @@
         {
           "dt": "Accesso Divera",
           "dd": "Una sola chiave per entrambi – stessi allarmi, stesso personale. <span class=\"opt\">facoltativo</span>"
-        },
-        {
-          "dt": "Agente di stampa",
-          "dd": "Un solo servizio in rimessa serve entrambe le app e entrambi i tipi di stampante."
         },
         {
           "dt": "Elenco personale",

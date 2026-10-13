@@ -43,6 +43,13 @@
           "file": "checklists/assets/hebekissen-p1.svg"
         }
       ]
+    },
+    {
+      "id": "musterdorf-objektbesuch",
+      "kind": "visit",
+      "title": "Objektbesuch Schlüsseldepot & BMA (Demo)",
+      "file": "checklists/musterdorf-objektbesuch.json",
+      "sourceNote": "KP Front Demo — synthetische Objektbesuch-Checkliste"
     }
   ]
 }

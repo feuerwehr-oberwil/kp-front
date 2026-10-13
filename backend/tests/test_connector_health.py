@@ -259,7 +259,7 @@ async def test_every_connector_is_projected_even_before_it_has_ever_run(db_sessi
     """«Never ran» and «this build does not report it» must not be the same shape on the wire."""
     states = await connector_state.states(db_session)
 
-    assert set(states) == {"divera_alarms", "traccar", "divera_personnel"}
+    assert set(states) == {"divera_alarms", "traccar", "divera_personnel", "roster_snapshot"}
     assert states["traccar"] == {"lastAttempt": None, "lastSuccess": None, "lastError": None, "counts": None}
 
 

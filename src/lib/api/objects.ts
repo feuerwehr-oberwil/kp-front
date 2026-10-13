@@ -17,6 +17,11 @@ export interface ObjectWithPlans {
    *  without one is one that pull never touches (Verwaltung › Objektpläne says so).
    *  Optional because a payload cached before 09.2026 has no such field. */
   source_key?: string | null
+  /** Sofortmassnahmen / Bemerkungen off the Modul-1 sheet, one per line, and where they came
+   *  from (the Gebäude card, KP Front F5). Optional: absent on a server or a cache before 10.2026. */
+  measures?: string | null
+  remarks?: string | null
+  measures_source?: string | null
   updated_at: string
   plans: ReferenceDataset[]
   distance_m: number | null

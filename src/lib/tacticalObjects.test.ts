@@ -6,7 +6,7 @@ import {
 } from './tacticalObjects'
 import type { BoardAnno, Drawing, Entity } from '../types'
 
-/* The unified tactical object (tmp/design-unified-objects.md, 09.09.2026): one record per
+/* The unified tactical object (09.09.2026, docs/tactical-objects.md): one record per
  * object; the sheet body's PRESENCE is the anchor. These tests pin the contract — the views
  * both surfaces render, the migration that heals transfer duplicates, the bake that makes a
  * record self-contained (a map body computed once through the fit, no fit at read time), and

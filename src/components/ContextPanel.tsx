@@ -5,6 +5,7 @@ import { Icon } from '../lib/icons'
 import { boundedKey, normalizeSpread, tidySpread, type SpreadDir } from '../lib/spread'
 import { openPhoto } from '../lib/ui'
 import { fillTemplate, formatSymbolName, stripUnprintable } from '../lib/format'
+import { takenClock } from '../lib/photoGeo'
 import { CtxShell, SheetGrip, useSheetDrag } from './SheetGrip'
 import { appConfig } from '../config/appConfig'
 import { allStoffNames, decodeKemler, lookupUN, lookupUNByName, type UnHazardEntry } from '../lib/unHazard'
@@ -104,6 +105,9 @@ export interface SymbolView extends SymbolProps {
   floor?: number
   photoUrl?: string
   badge?: string
+  /** a photo marker placed from the Verlauf (lib/photoGeo) — map only */
+  photoOf?: { row: string; i: number }
+  takenAt?: string
 }
 
 export interface ContextPanelProps {
@@ -788,10 +792,14 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
               jumped to the field: one value in two places, and the underline read as a second
               field. The name lives in «Bezeichnung» only. */}
           <span className="ctx-title-input ctx-title-ro">
-            {isNote ? N.section : (symbolName || title || C.titlePlaceholder)}
+            {isNote ? N.section : entity.photoUrl ? appConfig.copy.photoViewer.title : (symbolName || title || C.titlePlaceholder)}
           </span>
           {/* a note's subtitle IS «Notiz», which the title above already says — one word is enough */}
           {entity.subtitle && !isNote && <p>{entity.subtitle}</p>}
+          {/* a photo placed from the Verlauf says where it came from, and when it was taken */}
+          {entity.photoOf && !entity.subtitle && (
+            <p>{takenClock(entity.takenAt) ? fillTemplate(appConfig.copy.photoGeo.markerTaken, { t: takenClock(entity.takenAt)! }) : appConfig.copy.photoGeo.marker}</p>
+          )}
         </div>
         <button className="ctx-x" onClick={onClose} title={appConfig.copy.closeDialog} aria-label={appConfig.copy.closeDialog}><Icon id="close" /></button>
       </div>

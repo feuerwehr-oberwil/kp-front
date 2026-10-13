@@ -6,6 +6,7 @@ import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
 import { downloadDirectReportPdf, usedStackFloors } from '../lib/reportPdfDirect'
+import { warmTemplates, type ChecklistState, type ChecklistTemplate } from '../lib/checklists'
 import { downloadUrl } from '../lib/download'
 import { thumbUrl } from '../lib/mediaUrl'
 import { geretteteFromLage, geretteteOffer } from '../lib/gerettete'
@@ -33,8 +34,9 @@ import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } f
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { AuditProof, ReportDraft, ReportOptions } from '../lib/report'
 import {
-  defaultReportOptions, einsatzleiterFromScene, formatDateTime, missingTranscriptCount, pendenzRows, proofLabel,
+  defaultReportOptions, einsatzleiterFromScene, formatDateTime, hasVisiblePlanAnnotation, missingTranscriptCount, pendenzRows, proofLabel,
 } from '../lib/report'
+import { TAFEL_ID, findForms } from '../lib/boardForm'
 import { abschlussFacts, missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { controlChipLabel } from '../lib/abschlussOpen'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
@@ -262,7 +264,7 @@ const keptFor = (incidentId: string) => (savedScroll.current?.incidentId === inc
 const bandDismissed: { current: Set<string> } = { current: new Set() }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, plans = [], scene, board, building, captureUsage, canEdit = true, canShare = canEdit, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts, closedHint = false,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, checklists, plans = [], scene, board, building, captureUsage, canEdit = true, canShare = canEdit, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts, closedHint = false,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -298,6 +300,9 @@ export function ReportPreflight({
    *  meant here. It is a per-incident setting, so nobody can look it up on the paper later. */
   contactIntervalMin?: number
   contactGraceSec?: number
+  /** the Checkliste tick state — the Auswertung's phase bands (lib/auswertung); the templates
+   *  that name the phases are read here, from the same warm cache the Checkliste tab uses */
+  checklists?: ChecklistState
   plans?: PlanDocument[]
   /** the Lage scene for the server-rendered Kroki (entities/drawings/layers/view) */
   scene?: {
@@ -376,14 +381,31 @@ export function ReportPreflight({
   const pendenzCount = useMemo(() => pendenzRows(events).length, [events])
   // the Gebäude section's count is its diagnostic, like the Pendenzen's: «(0)» says no storey
   // carries anything, which is why no Gebäude page will print
+  // the Tafel's pages, plus its Skizze when it carries ink (reportPdfDirect · tafelPayload)
+  const tafelPageCount = useMemo(() => {
+    const annos = board?.[TAFEL_ID] ?? []
+    return findForms(annos).length + (hasVisiblePlanAnnotation({ [TAFEL_ID]: annos }, TAFEL_ID) ? 1 : 0)
+  }, [board])
   const stackFloorCount = useMemo(() => {
     const stack = plans.find((p) => p.floorStack)
     return stack && building ? usedStackFloors(building, board?.[stack.id] ?? []).length : 0
   }, [plans, building, board])
+  // The Auswertung names its phase bands after the checklist phases: the templates are already
+  // warm (IncidentWorkspace loads them when the Einsatz opens), so this resolves at once. Until
+  // it does — or offline with nothing cached — the PDF simply carries no phase lane.
+  const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>([])
+  useEffect(() => {
+    if (!checklists) return
+    let alive = true
+    warmTemplates().list.then((l) => { if (alive) setChecklistTemplates(l) }, () => {})
+    return () => { alive = false }
+  }, [checklists])
   const [options, setOptions] = useState<ReportOptions>(() => ({
     ...defaultReportOptions,
     kroki: mapContentCount > 0,
     atemschutz: truppCount > 0,
+    // the Auswertung is NOT seeded: it stays the default's unticked (owner, 10.10.2026 — it seeded
+    // «ticked when a crew went in under PA» on 09.10.); an operator's own tick is kept below
     // The framing chosen for the LAST print of this Einsatz — the Kroki panel opens on it and
     // reports every settled pan back into this same field, so what the surface would print is
     // always what the crop on screen shows. Auto on first use: the operational extent decides
@@ -873,7 +895,7 @@ export function ReportPreflight({
     setPdfBusy(true)
     try {
       await downloadDirectReportPdf({
-        incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building,
+        incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building, checklists, checklistTemplates,
         // the printed journal marks the same terms the app marks (lib/journalLinks) — the Trupps
         // included, or the paper would mark every name in a row except the crew it is about
         vocab: journalVocabulary(personnel, attendance, undefined, trupps),
@@ -1446,6 +1468,8 @@ export function ReportPreflight({
                   // ⚠️ NOT one of the «Pläne»: an Objektplan is reference, the Gebäude is the Einsatz's
                   // own work (Trupp positions per storey). Only storeys that carry something print.
                   { kind: 'check' as const, label: fillTemplate(P.toggleGebaeude, { n: stackFloorCount }), checked: options.gebaeude && stackFloorCount > 0, disabled: stackFloorCount === 0, onChange: (v: boolean) => patchOpt({ gebaeude: v }) },
+                  // the Tafel's pages (Erste Führung …) and its Skizze — the Einsatz's own work, ON
+                  { kind: 'check' as const, label: fillTemplate(P.toggleTafel, { n: tafelPageCount }), checked: options.tafel !== false && tafelPageCount > 0, disabled: tafelPageCount === 0, onChange: (v: boolean) => patchOpt({ tafel: v }) },
                   { kind: 'sep' as const },
                   { kind: 'check' as const, label: fillTemplate(P.toggleAtemschutz, { n: truppCount }), checked: options.atemschutz, onChange: (v: boolean) => patchOpt({ atemschutz: v }) },
                   { kind: 'check' as const, label: fillTemplate(P.toggleAttendance, { n: attendanceCount }), checked: options.attendance, onChange: (v: boolean) => patchOpt({ attendance: v }) },
@@ -1459,6 +1483,10 @@ export function ReportPreflight({
                   { kind: 'check' as const, label: fillTemplate(P.toggleAttachments, { n: attachments.length }), checked: options.attachments && attachments.length > 0, disabled: attachments.length === 0, onChange: (v: boolean) => patchOpt({ attachments: v }) },
                   { kind: 'sep' as const },
                   { kind: 'check' as const, label: P.toggleDetailedAudit, checked: options.detailedAudit, onChange: (v: boolean) => patchOpt({ detailedAudit: v }) },
+                  // the internal Beilage (lib/auswertung): key figures, swimlanes, Lehren on the
+                  // LAST sheet, after everything that gets signed — so it comes off the stack
+                  // before the rapport leaves the station
+                  { kind: 'check' as const, label: P.toggleAuswertung, checked: options.auswertung, onChange: (v: boolean) => patchOpt({ auswertung: v }) },
                   { kind: 'sep' as const },
                   // the Beilagen in ORIGINAL quality — one ZIP with manifest + SHA-256 per file,
                   // for the digital Ablage. An ACTION among the section ticks, so it sits last;

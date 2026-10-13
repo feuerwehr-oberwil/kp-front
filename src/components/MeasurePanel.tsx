@@ -7,7 +7,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
 import { ProfileChart, ProfileStats } from './ProfileChart'
-import { Button } from './Button'
+import { Button, IconButton } from './Button'
 import s from './MeasurePanel.module.css'
 
 export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, showProfile = true, blocked = false, hint, onAdopt, onCalibrate, calibrateLabel, recalibrateLabel, scaleNote }: {
@@ -55,39 +55,77 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
   // opens on the ↕ toggle, so the summary bar barely covers the map.
   const [profileOpen, setProfileOpen] = useState(false)
   const hasProfile = showProfile && (profileLoading || !!profile)
+  const readout = !emptyAutomatic && !blocked && enough
+  // ⚠️ ONE ROW by default (10.10.2026, owner's iPhone: «Als Linie übernehmen» took a whole row of
+  // its own under the two numbers). Once there is a measurement the panel is the readout, the
+  // adopt action beside it and the ▾ — and everything else it can carry (the Höhenprofil, the
+  // Plan's «Neu kalibrieren» or the note where its metres come from) folds behind that ▾. Before
+  // there is a measurement the hint stands alone and the calibration stays in view: on an
+  // uncalibrated Plan it IS the next step.
+  const calibration = onCalibrate ? (
+    <Button variant={blocked ? 'primary' : 'quiet'} className={s['mp-cal-btn']} icon={<Icon id="measure" />} onClick={onCalibrate}>
+      {blocked ? calibrateLabel : recalibrateLabel}
+    </Button>
+  ) : scaleNote ? (
+    <div className={s['mp-cal-note']} role="status"><Icon id="measure" />{scaleNote}</div>
+  ) : null
+  const folds = readout && (hasProfile || !!calibration)
+  const open = folds && profileOpen
+
+  const stats = mode === 'line' ? (
+    <div className={s['mp-stat-row']}>
+      <div className={s['mp-stat']}><span className={s['mp-k']}>{C.distance}</span><b className={s['mp-v']}>{fmtDistance(lengthM)}</b></div>
+      <div className={s['mp-stat']}><span className={s['mp-k']}>{C.hoses} à {appConfig.drawing.hoseLengthM} m</span><b className={s['mp-v']}>{hoseCount(lengthM)}</b></div>
+    </div>
+  ) : (
+    <div className={s['mp-stat-row']}>
+      <div className={s['mp-stat']}><span className={s['mp-k']}>{C.area}</span><b className={s['mp-v']}>{fmtArea(areaM2)}</b></div>
+      <div className={s['mp-stat']}><span className={s['mp-k']}>{C.perimeter}</span><b className={s['mp-v']}>{fmtDistance(perimeterM)}</b></div>
+    </div>
+  )
+  // «Als Linie übernehmen» — the measured path becomes a drawn line, with the measured points as
+  // its nodes (and «Als Fläche übernehmen», its twin: the measured ring becomes a drawn Fläche).
+  // Without it the only way to KEEP a Strecke was to draw it a second time by hand over the top of
+  // the one just measured. ⚠️ On the row it is the GLYPH alone — the line tool's pen, the Fläche's
+  // own outline — with the whole sentence as its name and hold tooltip (IconButton): beside the two
+  // numbers and the ▾ even «Als Linie» left the readout no room on a 360px phone or the 320px
+  // tablet panel, and «1.23 km» broke onto two lines.
+  const adoptLabel = mode === 'line' ? C.adoptLine : C.adoptArea
+  const adopt = onAdopt && (
+    <IconButton variant="secondary" label={adoptLabel} className={s['mp-adopt-btn']} onClick={onAdopt}>
+      <Icon id={mode === 'line' ? 'pen' : 'area'} />
+    </IconButton>
+  )
 
   return (
     <div className={s['measure-panel']}>
-      {emptyAutomatic ? null : blocked || !enough ? (
-        <div className={s['mp-hint']}>{blocked && hint ? hint : mode === 'line' ? C.hintLine : C.hintArea}</div>
-      ) : mode === 'line' ? (
+      {!readout ? (
         <>
-          {/* ⚠️ The WHOLE ROW opens the Höhenprofil, not the ▾ (18.09.2026). The chevron was a
-              40px target at the far right of a 320px panel, and the two numbers beside it —
-              which is what anyone reaches for — did nothing. Where a section can be folded, the
-              header IS the button and the chevron is decoration; the same shape the Zeichnung
-              editor's «Messung» row already has (DrawEditor · .de-group-toggle). Without a
-              profile there is nothing to open, so the row stays a plain readout. */}
-          {hasProfile ? (
-            <button type="button" className={cx(s['mp-stat-row'], s['mp-stat-row-btn'])}
-              aria-expanded={profileOpen} onClick={() => setProfileOpen((o) => !o)}>
-              <div className={s['mp-stat']}><span className={s['mp-k']}>{C.distance}</span><b className={s['mp-v']}>{fmtDistance(lengthM)}</b></div>
-              <div className={s['mp-stat']}><span className={s['mp-k']}>{C.hoses} à {appConfig.drawing.hoseLengthM} m</span><b className={s['mp-v']}>{hoseCount(lengthM)}</b></div>
-              <span className={s['mp-prof-toggle']} aria-hidden><Icon id="chevron-down" className="chev" /></span>
-            </button>
-          ) : (
-            <div className={s['mp-stat-row']}>
-              <div className={s['mp-stat']}><span className={s['mp-k']}>{C.distance}</span><b className={s['mp-v']}>{fmtDistance(lengthM)}</b></div>
-              <div className={s['mp-stat']}><span className={s['mp-k']}>{C.hoses} à {appConfig.drawing.hoseLengthM} m</span><b className={s['mp-v']}>{hoseCount(lengthM)}</b></div>
-            </div>
+          {!emptyAutomatic && (
+            <div className={s['mp-hint']}>{blocked && hint ? hint : mode === 'line' ? C.hintLine : C.hintArea}</div>
           )}
-          {/* «Als Linie übernehmen» — the measured path becomes a drawn line, with the measured
-              points as its nodes. Without it the only way to KEEP a Strecke was to draw it a
-              second time by hand over the top of the one just measured. */}
-          {onAdopt && (
-            <Button variant="quiet" className={s['mp-adopt-btn']} icon={<Icon id="pen" />} onClick={onAdopt}>{C.adoptLine}</Button>
-          )}
-          {hasProfile && profileOpen && (profileLoading ? (
+          {calibration}
+        </>
+      ) : (
+        <>
+          {/* ⚠️ The WHOLE ROW opens the fold, not the ▾ (18.09.2026). The chevron was a 40px
+              target at the far right of a 320px panel, and the two numbers beside it — which is
+              what anyone reaches for — did nothing. Where a section can be folded, the header IS
+              the button and the chevron is decoration; the same shape the Zeichnung editor's
+              «Messung» row already has (DrawEditor · .de-group-toggle). The adopt button sits ON
+              that row, between the numbers and the ▾, as its own control: the toggle spans the
+              row underneath it (a subgrid, MeasurePanel.module.css · .mp-row). Nothing to fold
+              ⇒ the row stays a plain readout. */}
+          <div className={cx(s['mp-row'], !folds && s['mp-row-flat'])}>
+            {folds ? (
+              <button type="button" className={s['mp-row-btn']} aria-expanded={open} onClick={() => setProfileOpen((o) => !o)}>
+                {stats}
+                <span className={s['mp-prof-toggle']} aria-hidden><Icon id="chevron-down" className="chev" /></span>
+              </button>
+            ) : stats}
+            {adopt}
+          </div>
+          {open && hasProfile && (profileLoading ? (
             <div className={s['mp-prof-msg']}><LoadingStatus>{C.profileLoading}</LoadingStatus></div>
           ) : profile ? (
             <>
@@ -98,28 +136,9 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
           ) : (
             <div className={s['mp-prof-msg']}>{C.profileNone}</div>
           ))}
-        </>
-      ) : (
-        <>
-          <div className={s['mp-stat-row']}>
-            <div className={s['mp-stat']}><span className={s['mp-k']}>{C.area}</span><b className={s['mp-v']}>{fmtArea(areaM2)}</b></div>
-            <div className={s['mp-stat']}><span className={s['mp-k']}>{C.perimeter}</span><b className={s['mp-v']}>{fmtDistance(perimeterM)}</b></div>
-          </div>
-          {/* «Als Fläche übernehmen» — the twin of the line adopt: the measured ring becomes a
-              drawn Fläche, so an outline that was just paced out can be KEPT instead of traced a
-              second time by hand over the top of the measurement. */}
-          {onAdopt && (
-            <Button variant="quiet" className={s['mp-adopt-btn']} icon={<Icon id="area" />} onClick={onAdopt}>{C.adoptArea}</Button>
-          )}
+          {open && calibration}
         </>
       )}
-      {onCalibrate ? (
-        <Button variant={blocked ? 'primary' : 'quiet'} className={s['mp-cal-btn']} icon={<Icon id="measure" />} onClick={onCalibrate}>
-          {blocked ? calibrateLabel : recalibrateLabel}
-        </Button>
-      ) : scaleNote ? (
-        <div className={s['mp-cal-note']} role="status"><Icon id="measure" />{scaleNote}</div>
-      ) : null}
     </div>
   )
 }

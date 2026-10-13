@@ -662,6 +662,20 @@ describe('the Absperrkreis on a plan', () => {
     expect(a.y).toBeCloseTo(0.5, 6)
   })
 
+  // ⚠️ 11.10.2026: the demo's 100 m Absperrkreis washed the whole Gebäude storey maroon — the
+  // whole sheet inside it, its ring nowhere on the paper, so it said nothing there but the tint
+  it('draws nothing of a cordon that holds the whole sheet — no wash, no grab surface, no lock chip', () => {
+    const { container } = renderPlan([{ ...cordon, radiusN: 2, locked: true }])
+    expect(container.querySelectorAll('.wb-ink-svg circle')).toHaveLength(0)
+    expect(container.querySelector('.wb-lock-anchor')).toBeNull()
+  })
+
+  it('still draws a cordon whose ring crosses the sheet', () => {
+    const { container } = renderPlan([{ ...cordon, radiusN: 0.6, locked: true }])
+    expect(container.querySelectorAll('.wb-ink-svg circle').length).toBeGreaterThan(0)
+    expect(container.querySelector('.wb-lock-anchor')).not.toBeNull()
+  })
+
   it('states no metres on an uncalibrated sheet — that would be a number nobody measured', () => {
     const { container } = renderPlan([cordon])
     expect(container.querySelector('.wb-line-label')).toBeNull()

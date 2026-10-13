@@ -45,7 +45,8 @@ unchanged.
   strip's height — `--tap` + the `.useg` track's 3px + `--bar-pad` + 1px edge, top and bottom —
   plus its 6px channel. A literal 60px outlived a 4px shell padding and stood the FAB, the
   message lane, «Zurück zum Rapport» and the page's foot 10px low.
-- *ONE page-title size*: `--head-title` is 17px on a phone, set as the TOKEN in `15-mobile.css`
+- *ONE page-title size*: `--head-title` is `var(--fs-3)` = 16px on a phone (17px until
+  08.10.2026 – the type scale has no 17), set as the TOKEN in `15-mobile.css`
   — never a per-surface `font-size` on the `<h2>`, which is how «Einsatzrapport» came to stand
   19px beside «Anwesenheit» at 17. The Rapport's head carries the title and what is still open;
   the «n Personen · m Positionen» line under it is gone (19.09.2026).

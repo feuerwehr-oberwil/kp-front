@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FocusEvent as ReactFocusEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime, stripUnprintable } from '../lib/format'
@@ -9,7 +9,8 @@ import { Segmented } from './Segmented'
 import { Button } from './Button'
 import { Chip } from './Chip'
 import { Menu, Overlay, Popover, SheetFoot, SheetGrab } from '../lib/overlays'
-import { alarmBarFor, currentRunStart, deriveTruppLive, earlyEntryCorrection, entryPressureAsks, isStandDownExit, estimatePressure, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppFieldsOf, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
+import { NotfallBanner, NotfallHold } from './AtemschutzNotfall'
+import { alarmBarFor, currentRunStart, deriveTruppLive, notfallOffered, safetyInside, safetyReady, truppInNotfall, earlyEntryCorrection, entryPressureAsks, isStandDownExit, estimatePressure, truppEditPatch, truppFieldGroupsChanged, truppLogName, type TruppFieldGroup, fmtClock, fmtDuration, fmtElapsedFull, isAtemschutzTrupp, pressureAlarm, truppAlarm, truppFieldsOf, truppHeadName, truppInField, truppNeverDeployed, truppRegisteredAt, truppStillDeployed, truppTransferState, type TruppAlarm, type TruppLive, type TruppTransferState } from '../lib/atemschutz'
 import { foreignContactAgo } from '../lib/contactEcho'
 import { serverNow, serverNowIso } from '../lib/serverClock'
 import { isPresent } from '../lib/attendanceIntervals'
@@ -100,11 +101,14 @@ const FROZEN_ALARM: TruppAlarm = { sev: 0, reason: null, line: null }
  *  and last «✓ Gespeichert» keeps its ✓ (the sentence stays its `title`; a LOUD state never folds). */
 const HEAD_FOLD = { saved: 1, order: 2, share: 3, restore: 4, overdue: 5, bell: 6, newTrupp: 7, savedMark: 8 } as const
 
+/** The room the sticky Notfall stack takes at the top of the board's port (+ the air under it). */
+const nfInset = (el: HTMLElement | null) => (el ? el.offsetHeight + 12 : 0)
+
 export function AtemschutzView({
   trupps: allTrupps, truppColors, canEdit, personnel, attendance, muted, onToggleMuted, audioBlocked = false, onUnlockAudio, onAddGuest, order = 'manuell', onOrder, onMove, createTrupp, placeTrupp, placeTargets, markerOptions, adoptMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, editTrupp, transferOutOfTrupp, reactivateTrupp, deleteTrupp, restoreTrupp, removedTrupps: allRemovedTrupps = [], leitungOptions, showTruppLine, truppsWithLine, lineNoOf, unlinkTruppLine, dockedAt,
   intervalMin = atemschutzDoctrine().contactIntervalMin, graceSec = atemschutzDoctrine().contactGraceSec,
   defaultFunkkanal = atemschutzDoctrine().defaultFunkkanal,
-  focus, createRequest, onShareLink, shareLinkActive = false, lite, frozenAt,
+  focus, createRequest, onShareLink, shareLinkActive = false, lite, frozenAt, triggerNotfall, endNotfall, placeOf,
   onUndo, onRedo, canUndo = false, canRedo = false, undoLabel, redoLabel,
   syncStatus, lastSyncedAt, clockSkewMs,
 }: {
@@ -158,6 +162,12 @@ export function AtemschutzView({
    *  Gruppenführer of the Trupp being formed here, so the row it writes can say where they went.
    *  Absent ⇒ the warning keeps the plain sentence it has always had. */
   transferOutOfTrupp?: (fromId: string, personId: string, toName?: string) => boolean
+  /** The Atemschutznotfall (F1, 08.10.2026): raise it on a crew inside / end it — both HELD on
+   *  the card (AtemschutzNotfall · NotfallHold). Absent ⇒ the board offers neither. */
+  triggerNotfall?: (id: string) => void
+  endNotfall?: (id: string) => void
+  /** where a Trupp was last seen, in words (useTruppActions · truppPlace) — the Notfall's «Ort» */
+  placeOf?: (t: Trupp) => string | undefined
   /** `standby` re-registers the Trupp as Reserve (angemeldet) instead of sending it straight in */
   reactivateTrupp: (id: string, f: TruppFields, standby?: boolean) => void
   deleteTrupp: (id: string) => void
@@ -425,6 +435,8 @@ export function AtemschutzView({
     const a = alarms.get(t.id)
     const l = live.get(t.id)
     if (!a || !l) return -1
+    // a Notfall stands above every clock (F1) — and the longest-running one first
+    if (a.reason === 'notfall') return 1e12 + (t.notfallAt ? now - Date.parse(t.notfallAt) : 0)
     return a.reason === 'pressure' ? ((a.line ?? 0) - l.currentBar) * 60 : l.sinceContactSec ?? 0
   }
 
@@ -627,6 +639,12 @@ export function AtemschutzView({
   const phoneSafety = byHand(paBoard.filter((t) => t.status === 'angemeldet' && t.auftrag === 'sichern'))
   const phoneReady = byHand(paBoard.filter((t) => t.status === 'angemeldet' && t.auftrag !== 'sichern'))
   const phoneOut = byHand(paBoard.filter((t) => t.status === 'raus'))
+  /* The Atemschutznotfall (F1, 08.10.2026): who is in one, and who can go in for them — the one
+   * model of a READY Sicherungstrupp the board has (lib/atemschutz · safetyReady), in hand order.
+   * A closed Einsatz shows none: its Tafel alarms nothing (R3). */
+  const notfallTrupps = frozenAt != null ? [] : byHand(paBoard.filter(truppInNotfall))
+  const notfallReady = byHand(safetyReady(paBoard))
+  const notfallSafetyInside = safetyInside(paBoard)
 
   // Called from the card's action handlers — i.e. after render, so it simply closes over the
   // arrangement the operator is currently looking at. (A ref would have to be written during
@@ -920,7 +938,26 @@ export function AtemschutzView({
    * scroll against. */
   const bodyRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  /* The Notfall banners' sticky stack (AtemschutzNotfall · NotfallBanner) covers the top of the
+   * port, so «the top of the port» is BELOW it while one runs: its height (+ the air under it) is
+   * `--nf-h` on the port — the port's scroll padding for every scroll-into-view — and the parking
+   * scroll below reads it too. Before (owner screenshot 10.10.2026) the opened card parked under
+   * the banner with its name chips cut off. Measured, because the banner's height is its words. */
+  const nfStackRef = useRef<HTMLDivElement>(null)
+  const hasNotfall = notfallTrupps.length > 0
+  useLayoutEffect(() => {
+    const port = bodyRef.current, el = nfStackRef.current
+    if (!port) return
+    if (!el) { port.style.removeProperty('--nf-h'); return }
+    const set = () => port.style.setProperty('--nf-h', `${nfInset(el)}px`)
+    set()
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(set)
+    ro?.observe(el)
+    return () => ro?.disconnect()
+  }, [hasNotfall])
   const openRowStatus = trupps.find((t) => t.id === openRow)?.status
+  // pointing at the card that is already open («Zum Trupp» twice, an alarm on it) parks it again
+  const openFocusNonce = activeFocus && activeFocus.id === openRow ? activeFocus.nonce : undefined
   useEffect(() => {
     const list = listRef.current, port = bodyRef.current
     if (!list || !port) return
@@ -938,7 +975,7 @@ export function AtemschutzView({
     // events), and the window or visual viewport resizing (the FAB is `position: fixed`). Scroll
     // and resize are folded into one measurement per frame.
     const measure = () => {
-      list.style.setProperty('--az-open-pad', `${Math.max(0, port.clientHeight - card.offsetHeight - 16)}px`)
+      list.style.setProperty('--az-open-pad', `${Math.max(0, port.clientHeight - nfInset(nfStackRef.current) - card.offsetHeight - 16)}px`)
       const row = card.querySelector<HTMLElement>('[data-az-foot]')
       const fab = document.querySelector('.fab-entry')?.getBoundingClientRect()
       if (!row) return
@@ -948,7 +985,8 @@ export function AtemschutzView({
     let frame = 0
     const schedule = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; measure() }) }
     measure()
-    const top = port.scrollTop + card.getBoundingClientRect().top - port.getBoundingClientRect().top
+    // …parked under the Notfall banners while one runs, never beneath them (`--nf-h` above)
+    const top = port.scrollTop + card.getBoundingClientRect().top - port.getBoundingClientRect().top - nfInset(nfStackRef.current)
     if (typeof port.scrollTo === 'function') port.scrollTo({ top, behavior: 'smooth' })
     else port.scrollTop = top
     port.addEventListener('scroll', schedule, { passive: true })
@@ -964,7 +1002,7 @@ export function AtemschutzView({
       window.visualViewport?.removeEventListener('resize', schedule)
       ro?.disconnect()
     }
-  }, [compact, openRow, openRowStatus])
+  }, [compact, openRow, openRowStatus, openFocusNonce])
 
   /* WHICH cards the current pointer marks — and which one the board scrolls to.
    *
@@ -1010,7 +1048,9 @@ export function AtemschutzView({
     <TruppCard
       key={t.id} t={t} live={live.get(t.id)!} alarm={alarms.get(t.id)!} now={now} color={truppColors[t.id]} canEdit={canEdit}
       intervalMin={intervalMin} frozen={frozenAt != null}
-      focusNonce={nonce} focusScroll={activeFocus?.id === t.id} flashSeen={seen} onFlashed={flashed}
+      // the phone's opened row is PARKED by the board (the effect around `--az-open-pad`), below
+      // the Notfall banners — a centring scroll of its own fought that and won (10.10.2026)
+      focusNonce={nonce} focusScroll={activeFocus?.id === t.id && !(compact && !focusMode)} flashSeen={seen} onFlashed={flashed}
       onContact={(id) => { void contactTap(id) }}
       onStatus={(id, s) => { freezeOrder(); setTruppStatus(id, s) }}
       onStandDown={(id) => { freezeOrder(); setTruppStatus(id, 'raus', undefined, { undoToast: true }) }}
@@ -1034,6 +1074,9 @@ export function AtemschutzView({
       // this session, and a control that will fail is worse than no control (see `lite` above).
       lite={!!lite}
       onCollapse={compact && !focusMode ? () => setOpenRow(null) : undefined}
+      // the Atemschutznotfall's two held doors (F1) — a closed Einsatz raises and ends nothing
+      onNotfall={canEdit && triggerNotfall && frozenAt == null ? () => { freezeOrder(); triggerNotfall(t.id) } : undefined}
+      onNotfallEnd={canEdit && endNotfall && frozenAt == null ? () => { freezeOrder(); endNotfall(t.id) } : undefined}
     />
     )
   )})
@@ -1471,6 +1514,42 @@ export function AtemschutzView({
       </header>
 
       <div className={cx(s.body, focusMode && s.bodyFocus)} ref={bodyRef}>
+        {/* The Atemschutznotfall stands at the TOP of the board, on every board, however it is
+            sorted (F1, 08.10.2026) — the strip's row steps aside here, this is its place. Not on
+            a closed Einsatz: its Tafel alarms nothing (R3). */}
+        {notfallTrupps.length > 0 && <div className={s.nfStack} ref={nfStackRef}>{notfallTrupps.map((t) => (
+          <NotfallBanner key={t.id} t={t} now={now} place={placeOf?.(t)} canEdit={canEdit} dense={notfallTrupps.length > 1} wide={!compact}
+            ready={notfallReady} inside={notfallSafetyInside}
+            onDeploySafety={(id) => { freezeOrder(); setTruppStatus(id, 'aktiv') }}
+            pickSafety={(trigger) => (
+              <Menu trigger={trigger} popupClassName="rp-print-menu" itemClassName={() => 'rp-print-menu-item'}
+                items={[
+                  { kind: 'head' as const, label: az.notfall.sitrPickTitle },
+                  ...notfallReady.map((x) => ({
+                    label: [x.name, ...(x.members ?? [])].map((n) => n.trim()).filter(Boolean).join(' / '),
+                    onClick: () => { freezeOrder(); setTruppStatus(x.id, 'aktiv') },
+                  })),
+                ]} />
+            )}
+            onDefineSafety={safetyPickNew}
+            defineSafety={phoneReady.length === 0 ? undefined : (trigger) => (
+                <Menu trigger={trigger} popupClassName="rp-print-menu" itemClassName={() => 'rp-print-menu-item'}
+                  items={[
+                    { kind: 'head' as const, label: az.safetyPickTitle },
+                    ...phoneReady.map((x) => ({
+                      label: [x.name, ...(x.members ?? [])].map((n) => n.trim()).filter(Boolean).join(' / '),
+                      onClick: () => editTrupp(x.id, truppFieldsOf(x, { auftrag: 'sichern' })),
+                    })),
+                    { kind: 'sep' as const },
+                    { label: az.safetyPickNew, onClick: safetyPickNew },
+                  ]} />
+              )}
+            onGo={(id) => {
+              if (compact && !focusMode) setOpenRow(id)
+              setPicked(id)
+              setSelfFocus({ id, nonce: Date.now() })
+            }} />
+        ))}</div>}
         {trupps.length === 0 ? (
           <div className={s.empty}>
             <Icon id="warn" />
@@ -1816,7 +1895,7 @@ function SafetyRow({ t, canEdit, onDeploy, onOpen }: {
   return (
     <button type="button" className={cx(s.trow, s.trowSafety)} onClick={onOpen} aria-label={`${az.safetyTitle}: ${t.name}`}>
       <span className={s.trowId}>
-        <span className={s.trowName}><span className={s.trowNameTxt}>{t.name}</span></span>
+        <span className={s.trowName}><span className={s.trowNameTxt}>{truppHeadName(t)}</span></span>
         {t.entryPressureBar ? <span className={s.trowSafetyWho}>{t.entryPressureBar} bar</span> : null}
       </span>
       <span className={s.trowAct}>
@@ -1871,11 +1950,11 @@ function PinnedRow({ t, live, alarm, color, confirmed, onContact }: {
   // Bestätigt» beside an amber «0:01 Kontakt fällig» — the tier the hold kept from before the
   // tap — read as two answers at once. A pressure alarm is not answered by a Kontakt and stays.
   const done = confirmed && alarm.reason !== 'pressure'
-  const word = done ? az.clockOk : alarm.reason === 'pressure' ? az.clockAlarmPressure : sev >= 2 ? az.clockOverdue : az.clockWarn
+  const word = done ? az.clockOk : alarm.reason === 'notfall' ? az.notfall.title : alarm.reason === 'pressure' ? az.clockAlarmPressure : sev >= 2 ? az.clockOverdue : az.clockWarn
   // ⚠️ «Überfällig» / «Kontakt fällig» are not SHOWN (owner, 29.09.2026: «red is already pretty
   // obvious» — the same call as the card's state line): the row's red or amber and its Kontakt say
   // it; the word stays for a screen reader. «Alarmdruck» and «Bestätigt» stay: colour can't say those.
-  const tierOnly = !done && alarm.reason !== 'pressure'
+  const tierOnly = !done && alarm.reason !== 'pressure' && alarm.reason !== 'notfall'
   return (
     <div className={cx(s.pinRow, done ? s.pinRowDone : sev >= 2 ? s.trowCrit : s.trowWarn)}>
       <span className={s.pinName}>
@@ -1977,11 +2056,15 @@ function TruppRow({
   const sev = isAtemschutzTrupp(t) ? alarm.sev : 0
   const monitored = isAtemschutzTrupp(t)
   /* ⚠️ The row says NAME and TIME, nothing else (24.09.2026, maintainer: «drop the blabla, just
-   * the time»). The Schätzung line, the state word and the clock caption went: the row's colour
-   * and the clock's colour carry due/overdue, the section heading carries in/ready/out, and the
-   * pressure is one tap away on the card. What the row gained is the second action — «Druck» —
-   * and words on both buttons, which is why a Trupp inside takes TWO lines on the phone
-   * (`.trowTwo`): at 360px a full name, a clock and two worded buttons do not share one. */
+   * the time»). The Schätzung line, the state word and the clock caption went: the section
+   * heading carries in/ready/out, and the pressure is one tap away on the card. What the row
+   * gained is the second action — «Druck» — and words on both buttons, which is why a Trupp inside
+   * takes TWO lines on the phone (`.trowTwo`): at 360px a full name, a clock and two worded
+   * buttons do not share one.
+   * ⚠️ …except the TIER (B5, 08.10.2026): fällig / überfällig / Alarmdruck stand in colour alone,
+   * which is no answer in direct sun or to a colour-blind reader. A glyph now sits under the
+   * clock (RowLine · tierMark), inside the clock cell: no new row. Glyph only, no word (owner,
+   * 09.10.2026: «Symbol only»); the word is in the row's aria-label. */
   const acts = monitored && canEdit && inField
   // ⚠️ «Draussen» and «angemeldet» are NOT one tone. They were both `trowIdle` (blue) while the
   // list still had a «Raus»-Abschnitt to tell them apart — and that section is gone (17.08.), so a
@@ -1993,6 +2076,7 @@ function TruppRow({
   // row can truthfully say: its clock is the Einsatzzeit, not a contact clock; it carries no
   // Schätzung and no «Kontakt», because there is nothing to check in and no cylinder to run down.
   const tone = rowTone(t, status, sev)
+  const tier = tierMark(alarm, sev, true)
   const rowRef = useRef<HTMLButtonElement>(null)
   // A nonce, not a boolean: tapping the same alarm again must replay the pointing gesture.
   // `onFlashed` rides in a ref so its (per-render) identity never restarts the flash effect.
@@ -2015,8 +2099,9 @@ function TruppRow({
   }, [focusNonce, focusScroll])
   return (
     <button ref={rowRef} type="button" className={cx(s.trow, acts ? s.trowTwo : s.trowOne, tone)} onClick={onOpen}
-      aria-label={`${t.name} — ${words.status(status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status))}`}>
-      <RowLine t={t} live={live} color={color} lite={lite} />
+      aria-label={[t.name, tier?.text, words.status(status === 'raus' ? truppStatusLabel(t) : (az.status[status] ?? status))]
+        .filter((w, i, all) => w && all.indexOf(w) === i).join(' — ')}>
+      <RowLine t={t} live={live} color={color} lite={lite} tier={tier} />
       {/* ⚠️ always rendered, even when there is no button in it: these are fixed grid tracks, so a
           missing cell would pull every column after it out of line on that one row */}
       <span className={cx(s.trowAct, acts && s.trowActs)}>
@@ -2043,7 +2128,9 @@ function rowTone(t: Trupp, status: TruppLive['status'], sev: number): string {
  *  opened card's head (26.09.2026, owner: «keep the same UI whether the card is collapsed or
  *  not»). One drawing, so opening a Trupp never moves, resizes or recolours the line the thumb
  *  just pressed; the chevron beside it is the caller's, because it points the other way. */
-function RowLine({ t, live, color, lite }: { t: Trupp; live: TruppLive; color?: string; lite: boolean
+function RowLine({ t, live, color, lite, tier }: { t: Trupp; live: TruppLive; color?: string; lite: boolean
+  /** the tier as glyph + word under the clock (tierMark) — null/absent while silent */
+  tier?: TierMark | null
 }) {
   const az = appConfig.copy.atemschutz
   const words = plainWords(t, lite)
@@ -2055,14 +2142,21 @@ function RowLine({ t, live, color, lite }: { t: Trupp; live: TruppLive; color?: 
   // cannot silently leak «Draussen seit» onto a work squad's row without also failing the app-only
   // wording test below.
   const clockSub = clock.sub === az.outFor ? words.outFor : clock.sub
+  const inNotfall = truppInNotfall(t)
+  // …and no tier glyph under its clock: the ⚠ before the name already says the loudest thing,
+  // a second one under the clock repeated it (fällig/überfällig stays on every other crew)
+  const tierShown = inNotfall ? null : tier
   return (
     <>
       <span className={s.trowId}>
         <span className={s.trowName}>
           {/* no colour, no dot: the handed-over Tafel never shows the Lage, so a Truppfarbe there
               carries no identity (round 2 review) — and an empty 11px slot would indent the name */}
-          {color && <span className={s.trowDot} style={{ background: color }} />}
-          <span className={s.trowNameTxt}>{t.name}</span>
+          {/* ⚠️ a crew in a NOTFALL wears the banner's ⚠ in the dot's place (owner round 4,
+              10.10.2026): the banner at the top and this card read as the same crew at a glance */}
+          {inNotfall ? <Icon id="warn" className={s.nfGlyph} />
+            : color && <span className={s.trowDot} style={{ background: color }} />}
+          <span className={s.trowNameTxt}>{truppHeadName(t)}</span>
           {/* ⚠️ Name only — no «#N», no «SiTr», on the row AND the opened card (owner, staging
               26.09. and 30.09.2026: «the group leader name needs more space … drop the number #»).
               The number stays in the TruppFinder and in the Verlauf's «Trupp N» rows. */}
@@ -2074,9 +2168,31 @@ function RowLine({ t, live, color, lite }: { t: Trupp; live: TruppLive; color?: 
       <span className={s.trowClock}>
         <span className={s.trowClockVal}><ClockVal val={clock.val} /></span>
         <span className={s.trowSub}>{clockSub}</span>
+        {/* the glyph only (owner, 09.10.2026: «Symbol only»); aria-hidden because the row's own
+            aria-label and the card's status line already speak the word, and the title shows it
+            on hover */}
+        {tierShown && (
+          <span className={cx(s.trowTier, tierShown.crit && s.trowTierCrit)} aria-hidden title={tierShown.text}>
+            <Icon id={tierShown.icon} />
+          </span>
+        )}
       </span>
     </>
   )
+}
+
+/** The tier as a GLYPH, not colour alone (B5, 08.10.2026: sunlight, colour-blind). A different
+ *  glyph per tier, so the SHAPE tells them apart: the clock for «Fällig» (the radio check is due),
+ *  the warning triangle for «Überfällig» and for the Alarmdruck. Only the glyph is drawn (owner,
+ *  09.10.2026: «Symbol only»); `text` is the word for the row's aria-label and the hover title,
+ *  and a pressure alarm never says «Überfällig» (see `TruppAlarm.reason`). `withPressure` false
+ *  where the caller says the Alarmdruck in words already (the card's state line, with its limit). */
+interface TierMark { icon: string; text: string; crit: boolean }
+function tierMark(alarm: TruppAlarm, sev: number, withPressure: boolean): TierMark | null {
+  const az = appConfig.copy.atemschutz
+  if (sev <= 0) return null
+  if (alarm.reason === 'pressure') return withPressure ? { icon: 'warn', text: az.clockAlarmPressure, crit: true } : null
+  return sev >= 2 ? { icon: 'warn', text: az.clockOverdue, crit: true } : { icon: 'clock', text: az.rowDue, crit: false }
 }
 
 /** «⌓ 240 bar» | «Kontakt» — the two things a Trupp inside needs from the phone board, drawn ONCE
@@ -2143,7 +2259,7 @@ function TruppPair({ t, live, sev, nested = false, onPressure, onContact }: {
  * 26./27.09. and the owner reviewed that version, so it is the reference and the tablet takes it
  * whole, top to bottom:
  *
- *   1 line       dot · name · #N · the clock (RowLine) — the collapse toggle on the phone board
+ *   1 line       dot · name · the clock (RowLine) — the collapse toggle on the phone board
  *   2 tiles      «⌓ 240 bar | Kontakt» (TruppPair), then Rückzug | Raus in the same tile shape
  *   3 state      the tier in words where colour alone would say it (`stateLine`)
  *   4 Hinweis    the Alarmdruck note, for the case where only the projection has crossed
@@ -2164,8 +2280,12 @@ function TruppPair({ t, live, sev, nested = false, onPressure, onContact }: {
  * «Leitung» is exactly the knowledge that is gone after six months without practice.
  */
 function TruppCard({
-  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onStatus, onStandDown, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, headed = false, lite = false,
+  t, live, alarm, now, color, canEdit, intervalMin, frozen = false, focusNonce, focusScroll = true, flashSeen, onFlashed, onContact, onStatus, onStandDown, onAskExit, onAskPressure, onEdit, onQuick, onReenter, onDelete, onPlace, onShowPlan, onMove, onShowLine, hasLine, drawnLineNo, dockedAt, onCollapse, headed = false, lite = false, onNotfall, onNotfallEnd,
 }: {
+  /** the held «Notfall» on a crew inside, and the held «Notfall beendet» on a crew in one (F1,
+   *  AtemschutzNotfall · NotfallHold). Absent for a viewer and on a closed Einsatz. */
+  onNotfall?: () => void
+  onNotfallEnd?: () => void
   /** the mini sheets (26.09.2026 — components/TruppSheets): a tap on the Kanal opens the Kanal
    *  sheet, a tap on the Auftrag / Ziel / a missing Auftrag the Auftrag sheet, a tap on the crew or
    *  the Ausrüstung the Trupp sheet. Absent for a viewer. */
@@ -2319,13 +2439,16 @@ function TruppCard({
    * stands in, and there they would be the same word twice. */
   const rowMode = !!onCollapse
   /* ⚠️ 29.09.2026 (owner on staging): «drop the überfällig – if the card is red it's pretty obvious»,
-   * and «the draussen subtitle is probably not even required». So fällig / überfällig are no
-   * longer SHOWN: the red or amber card, its red clock and its Kontakt say it, and the word stays
+   * and «the draussen subtitle is probably not even required». So fällig / überfällig are not a
+   * state LINE: since B5 (08.10.2026) they are a glyph under the clock on the card's first
+   * line (RowLine · tierMark), so colour is not the only carrier, and this line stays
    * for a screen reader only (`hidden`). An out Trupp's «Draussen» goes on every board — its card
    * is the grey one with «Wieder in den Einsatz» on it. What stays in words is what colour cannot
    * carry: the Alarmdruck with its limit, the stopped clock, «Nicht eingesetzt», «Bereit», a work
    * squad's state. */
   const rowWord: { text: string; tone?: string; hidden?: boolean } | null = !monitored ? { text: statusLabel, tone: s.kennQuiet }
+    // the Notfall in words, with the moment it was raised — red is not enough to say «Notfall» (F1)
+    : alarm.reason === 'notfall' && t.notfallAt ? { text: fillTemplate(az.notfall.stateWord, { time: fmtTime(t.notfallAt) }), tone: s.kennCrit }
     : out ? (neverDeployed ? { text: statusLabel, tone: s.kennQuiet } : null)
     : preEntry ? (headed ? null : { text: az.phoneSectionReady, tone: s.kennQuiet })
     : frozen ? { text: az.clockFrozen, tone: s.kennQuiet }
@@ -2361,6 +2484,8 @@ function TruppCard({
   // preEntry && monitored, so it logs and prints as one). «Entfernen» stays a button away for
   // the erroneous Anmeldung; dismissing does nothing.
   const doDelete = async () => {
+    // a Trupp in a Notfall leaves the board only after «Notfall beendet» (useTruppActions · deleteTrupp)
+    if (truppInNotfall(t)) { toast(az.notfall.removeBlocked, { icon: 'warn', tone: 'warn' }); return }
     /* ⚠️ A crew that is INSIDE is asked about first (staging walk-through 25.09.2026, N4): one tap
        on «Entfernen» took a crew under PA off the board and out of every alarm, with no question.
        What the operator almost always means is «they are out» — so «Raus melden» is the filled,
@@ -2543,7 +2668,7 @@ function TruppCard({
    * (else the Auftrag sheet), the Ausrüstung → Trupp sheet (the ⋯ moved to the foot line on 29.09.2026). The one
    * thing allowed a colour is the GAP: a dashed amber «+ Auftrag» where the Auftrag is missing —
    * a Trupp with no job is a question the Überwacher must be able to see. No chip for a missing
-   * Leitung (it lives in the Auftrag sheet), no small-caps labels, no «#N» (that is on the head).
+   * Leitung (it lives in the Auftrag sheet), no small-caps labels, no «#N» (dropped 30.09.2026, see TruppNo).
    * `chip(key, node, onTap, cls)`: a button when it has somewhere to go, a plain chip otherwise
    * (a viewer's card, the lite board's jumps).
    * ⚠️ «Rückzug» leads as a FACT, and it is not a tier: a Trupp on its way out with a calm clock
@@ -2650,6 +2775,16 @@ function TruppCard({
             </button>
           </div>
         )}
+        {/* ── The Atemschutznotfall's door (F1, 08.10.2026): ONE held tile under the lifecycle row,
+            the full width — «Notfall» on a crew inside, «Notfall beendet» on a crew in one. Held,
+            never tapped (AtemschutzNotfall · NotfallHold): the loudest act on this board must not
+            be a reflex away, and neither may silencing it. Under Rückzug | Raus, never beside
+            Kontakt: the thumb working the radio checks must not land on it. */}
+        {(onNotfall && monitored && notfallOffered(t)) || (onNotfallEnd && truppInNotfall(t)) ? (
+          <div className={cx(s.actions, s.nfRow)}>
+            {truppInNotfall(t) ? <NotfallHold end onFire={onNotfallEnd!} /> : <NotfallHold onFire={onNotfall!} />}
+          </div>
+        ) : null}
         {/* No exit timestamp line here: the exit event is in the per-Trupp Verlauf and on the
             Rapport, and what the Überwacher needs NOW is the running break clock in the band. */}
         {status === 'raus' && canEdit && (
@@ -2819,15 +2954,18 @@ function TruppCard({
    * and the one-line foot. The actions stand ABOVE the facts: what a thumb does on this card is
    * the four tiles, and they stand together under the clock.
    * ⚠️ ONE drawing on every board since 29.09.2026 — see the zone list above TruppCard. */
+  // the opened card keeps the row's line, tier mark included (B5) — but not for the Alarmdruck,
+  // which its state line already says in words with the limit; and never on a stopped clock
+  const headTier = frozen ? null : tierMark(alarm, sev, false)
   const head = rowMode ? (
     <button type="button" className={s.trowHead} aria-expanded="true" onClick={onCollapse}
       aria-label={`${t.name} — ${az.collapse}`}>
-      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} />
+      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} tier={headTier} />
       <span className={s.trowChevron}><Icon id="chevron-up" /></span>
     </button>
   ) : (
     <div className={cx(s.trowHead, s.trowHeadStatic)}>
-      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} />
+      <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} tier={headTier} />
     </div>
   )
   return (
@@ -3178,6 +3316,18 @@ function TruppForm({
   // on the amber line says what is still missing.
   const auftragMissing = mode === 'create' && !auftragGiven
     && team.some((sl) => sl.name.trim().length > 0)
+  // ⚠️ …and not while the caret is still in the PERSON SEARCH (10.10.2026, owner's iPhone): the
+  // crew goes in one name after another, and the line stood there from the first name on, naming
+  // a gap in a part of the form the operator had not reached. It waits until the search is left —
+  // for the Auftrag, the Ziel, the footer, or a tap anywhere else — on every form factor.
+  // The slot is HELD while it waits (visibility, not unmounting, `.formHintWaiting`): the blur
+  // that reveals it is very often the press on «Anmelden» itself, and a line appearing under that
+  // finger would move the button between the press and the release (on iOS the synthetic click
+  // is hit-tested after the blur has re-rendered).
+  const [teamSearchFocused, setTeamSearchFocused] = useState(false)
+  const onTeamFocusChange = (focused: boolean) => (e: ReactFocusEvent) => {
+    if (e.target === teamSearchRef.current) setTeamSearchFocused(focused)
+  }
   // A linked person already deployed in another active Trupp blocks submit (one person, one
   // Trupp). The picker no longer OFFERS one — but an existing Trupp being edited can still carry
   // somebody who was assigned elsewhere in the meantime, and that has to be sayable.
@@ -3431,7 +3581,7 @@ function TruppForm({
   ) : null
 
   const teamFields = (
-    <div ref={teamRef} className={s.field}>
+    <div ref={teamRef} className={s.field} onFocus={onTeamFocusChange(true)} onBlur={onTeamFocusChange(false)}>
       <span>{az.sectionTeam}</span>
       {/* One list, leader first. A Trupp is valid with exactly one name (the Gruppenführer),
           so a two-person Trupp, a four-person Trupp and a mis-tap are all one tap apart —
@@ -3682,7 +3832,8 @@ function TruppForm({
           registers as «Auftrag offen». `role="status"`, not alert: it is there from the first
           render of a fresh form and must not be shouted over the field the operator is filling. */}
       {!blocked && auftragMissing && (
-        <p className={cx('form-warn form-warn-amber', s.formBlocked)} role="status">
+        <p className={cx('form-warn form-warn-amber', s.formBlocked, teamSearchFocused && s.formHintWaiting)} role="status"
+          aria-hidden={teamSearchFocused || undefined}>
           <Icon id="warn" /><span>{az.auftragMissingHint}</span>
         </p>
       )}

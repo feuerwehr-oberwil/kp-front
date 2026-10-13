@@ -7,12 +7,12 @@ other and no test anywhere could have said so.
 
 There is no shared package and there will not be one: `docs/RUNNING-BOTH.md` promises
 self-hosters separate databases, separate images, separate releases, no shared library and no
-runtime coupling. So the copies stay copies and this test compares them — the same trick as
-`test_telemetry_vendored.py` and the committed `openapi.json`.
+runtime coupling. So the copies stay copies: both files are listed in `shared/MANIFEST.json`
+with the telemetry sanitiser and the roster contract, and `test_shared_files.py` holds this
+repository's copies to it (how to change one: `shared/README.md`).
 
 **What this test catches.**
 
-* An edit to either vendored file on this side (the checksums).
 * The vocabulary being *un*wired — someone pasting the literal back into `divera.py` while the
   JSON sits there unread. That is the failure mode a checksum alone cannot see, and it is the
   one that turns a checked-in file into decoration.
@@ -23,11 +23,8 @@ runtime coupling. So the copies stay copies and this test compares them — the 
 * A deployment-config vocabulary changing what a station with NO override classifies. The
   shipped file is the default and must keep behaving exactly as it did.
 
-**What it does NOT catch.** It never reads kp-rueck. Edit one repository, update that
-repository's own checksum, and both suites stay green while the vocabularies diverge — which
-is exactly the drift this file exists to prevent. Only the cross-repo diff job in kp-rueck's
-`.github/workflows/ci.yml` actually compares the two checkouts. Keep both: this one is fast
-and offline, that one is true.
+**What it does NOT catch.** It never reads kp-rueck. Only CI's «Shared files match KP Rück»
+job (`scripts/check_shared.py --sibling`) compares the two checkouts.
 
 It also says nothing about *matching*. The two products' matchers genuinely differ (kp-rueck
 requires letter boundaries for GAS/VU/LIFT), that difference is recorded as data in the JSON,
@@ -36,12 +33,8 @@ and no test here asserts the two classify a given alarm the same way. They may n
 **Nor does it pin a deployment's own vocabulary.** `alarmKeywords` in the deployment config is
 per-station data, not a shared contract: it is never checksummed and never compared against
 kp-rueck. Only the shipped file is.
-
-**When this fails**, the fix is never to update a hash on its own. Copy the file across, run
-both suites, and update the hash in both repositories in the same change.
 """
 
-import hashlib
 import json
 from pathlib import Path
 
@@ -50,34 +43,6 @@ import pytest
 from app import alarm_keywords, divera
 
 APP = Path(alarm_keywords.__file__).resolve().parent
-
-# sha256 of each vendored file, as it exists in feuerwehr-oberwil/kp-front.
-# Regenerate with:  shasum -a 256 backend/app/alarm_keywords.py backend/app/data/alarm_keywords.json
-VENDORED = {
-    "alarm_keywords.py": "0cf503ae3d98d07cc4645890b41d77e93c746e4302282364c50917cb63834cdd",
-    "data/alarm_keywords.json": "7cef662c7eb41e54bab668828bad05975339f5d4de8691b1b6ca6ef0bee102de",
-}
-
-
-def _sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-@pytest.mark.parametrize("name", sorted(VENDORED))
-def test_vendored_file_matches_the_recorded_hash(name: str):
-    path = APP / name
-    assert path.exists(), f"{name} is missing — the vendored copy must not be deleted"
-    assert _sha256(path) == VENDORED[name], (
-        f"app/{name} no longer matches the hash recorded here.\n"
-        f"Copy the file across, run BOTH test suites, and update the hash in BOTH repositories "
-        f"in the same change. Do NOT just update the hash — see this module's docstring."
-    )
-
-
-def test_both_halves_are_pinned():
-    # A guard on the guard: pinning the JSON but not the loader (or the reverse) would leave
-    # half of the shared contract free to move.
-    assert set(VENDORED) == {"alarm_keywords.py", "data/alarm_keywords.json"}
 
 
 @pytest.fixture

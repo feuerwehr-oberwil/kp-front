@@ -17,8 +17,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 //   · a record's bin deletes ITS record. The name and the delete sit in the head line, rows away
 //     from the row the eye is on when it decides to click.
 //
-// What is NOT here: column widths, which jsdom has no layout engine for. They are measured in a
-// real browser — tmp/gridcheck.cjs, `.adm-records` scenario.
+// What is NOT here: column widths, which jsdom has no layout engine for. Those need a real
+// browser.
 
 import { ConfirmButton, RecordRows, RecordTable, SettingRow, SettingsNote } from './ui'
 import { appConfig } from '../config/appConfig'

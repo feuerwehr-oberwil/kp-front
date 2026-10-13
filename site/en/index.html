@@ -367,7 +367,7 @@
         </button>
         <figcaption>
           <div class="cap-t">Report</div>
-          <div class="cap-s">Nearly done when you head back – check it, add to it, export as PDF, send it straight to the printer</div>
+          <div class="cap-s">Nearly done when you head back – check it, add to it, export as PDF and print</div>
         </figcaption>
       </figure>
     </div>
@@ -402,7 +402,7 @@
       <p class="eyebrow">Scope</p>
       <h2>What is in it.</h2>
       <p>Grown at real incidents and exercises, not from a feature list. Everything that comes
-        from outside – paging, GPS, printers – is <strong>optional</strong>: KP Front runs
+        from outside – paging, GPS, Microsoft sign-in – is <strong>optional</strong>: KP Front runs
         perfectly well without any of those connections.</p>
     </div>
     <div class="feature-cols">
@@ -415,18 +415,22 @@
           <li>Measuring distance and area, to scale on the plan as well</li>
           <li>Layers: hydrants, utility cadastre, cantonal map services</li>
           <li><strong>Hazardous materials reference</strong>: UN numbers, substance information and guidance on isolation and protective distances, available directly during the incident</li>
-          <li>Weather and wind information to support the situation assessment</li>
-          <li>Building plans as a whiteboard, stack of floors, blank board</li>
-          <li>Undo/redo on every surface – documented events remain traceable</li>
+          <li>Weather and wind information to support the situation assessment, plus the MeteoSwiss precipitation radar as a layer</li>
+          <li>Building plans as a whiteboard and a stack of floors</li>
+          <li><strong>Board with FKS pages</strong>: free sketch, First command and handbook sheets – printed in the report like the original</li>
+          <li><strong>Building info</strong>: facts from the building register – gas, heating oil, solar PV – and the immediate measures for the object</li>
           <li><strong>Georeferencing</strong>: link a plan to the map through shared landmarks – one object, visible on both surfaces, with an honest read-out of the accuracy. The station has its plans aligned ahead of time and approves them</li>
+          <li>Undo/redo on every surface – documented events remain traceable</li>
         </ul>
       </div>
       <div class="fgroup">
         <h3>Crew &amp; resources</h3>
         <ul class="flist">
           <li><strong>SCBA monitoring</strong>: pressure, turnaround time, contact clock, alarms</li>
+          <li><strong>SCBA emergency</strong>: a team in trouble turns red at the top of every device at once – with an emergency clock and the safety team</li>
           <li><strong>Teams with or without breathing apparatus</strong>: crew, assignment and team leader – on the map, on the plan and in the stack of floors, each with its own team colour, the same everywhere</li>
           <li>Attendance with arrival times and ranks</li>
+          <li>On the way: who has confirmed the Divera alert, right above attendance</li>
           <li><strong>Shift plan</strong>: plan availability and shifts per person, see coverage
             across the incident and print command forms</li>
           <li><strong>Share location</strong>: whoever opens the link appears as a dot on the
@@ -446,6 +450,7 @@
             for the debrief</li>
           <li>Ready-made incident report as a PDF, including crew, material, times, log, sketch,
             photos and SCBA monitoring</li>
+          <li><strong>Debrief sheet</strong> for the after-action review: key figures and a timeline on a page of its own at the end of the report</li>
           <li>Photos as attachments to the report</li>
           <li><strong>Completion check</strong>: before closing, KP Front shows which information or clarifications are still missing from the report</li>
           <li>Partner organisations with their remarks in the report</li>
@@ -462,7 +467,8 @@
           <li>Day/night mode, symbol size, large touch targets for the tablet</li>
           <li>Can take over alerts from Divera or FireHub; further alerting systems can be connected through the open interface <span class="opt">optional</span></li>
           <li>Vehicle positions by GPS <span class="opt">optional</span></li>
-          <li>PDF printing at the station <span class="opt">optional</span></li>
+          <li>Sign in with Microsoft to an existing account, alongside the PIN <span class="opt">optional</span></li>
+          <li><strong>Object visits</strong> without an incident, offline – checklist, photos and report <span class="opt">optional</span></li>
           <li><strong>Your own administration area</strong> per fire brigade: crew, vehicles, checklists, map layers and templates</li>
           <li>Interface in German, English, French or Italian – set per fire brigade</li>
         </ul>
@@ -478,7 +484,8 @@
           <h2>KP Front commands at the front. KP Rück keeps the overview behind it.</h2>
           <p><strong>KP Rück</strong> is the digital version of the magnetic board in the rear
           command post: one board for personnel, vehicles and equipment. Its own app, the same
-          handwriting – the two can hand incidents over to each other, but neither needs the other.</p>
+          handwriting – both take the same alarm
+          from the dispatch system, and neither needs the other.</p>
           <a class="btn btn-ghost" href="https://kp-rueck.ch">Take a look at KP Rück<svg class="ico" style="width:14px;height:14px"><use href="#i-arrow"/></svg></a>
         </div>
 
@@ -492,10 +499,6 @@
             <div class="setup-row">
               <dt>Divera access</dt>
               <dd>One key for both – the same alarms, the same roster. <span class="opt">optional</span></dd>
-            </div>
-            <div class="setup-row">
-              <dt>Print agent</dt>
-              <dd>One service in the station serves both apps and both kinds of printer.</dd>
             </div>
             <div class="setup-row">
               <dt>Roster</dt>

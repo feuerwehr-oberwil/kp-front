@@ -1,0 +1,99 @@
+{
+  "$defs": {
+    "IndexFile": {
+      "additionalProperties": false,
+      "description": "One sibling file: what it is, where it is (relative to the index), what it must hash to.",
+      "properties": {
+        "kind": {
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9_-]{1,31}$",
+          "title": "Kind",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "schema": {
+          "maxLength": 64,
+          "minLength": 3,
+          "pattern": "^[a-z][a-z0-9-]*/[0-9]+$",
+          "title": "Schema",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bytes"
+        }
+      },
+      "required": [
+        "kind",
+        "path",
+        "schema",
+        "sha256"
+      ],
+      "title": "IndexFile",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A station's index of published data files, whole.",
+  "properties": {
+    "schema": {
+      "const": "station-index/1",
+      "title": "Schema",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "generated_at": {
+      "format": "date-time",
+      "title": "Generated At",
+      "type": "string"
+    },
+    "provider": {
+      "maxLength": 32,
+      "pattern": "^[a-z][a-z0-9_-]{1,31}$",
+      "title": "Provider",
+      "type": "string"
+    },
+    "files": {
+      "items": {
+        "$ref": "#/$defs/IndexFile"
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Files",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema",
+    "generated_at",
+    "provider",
+    "files"
+  ],
+  "title": "StationIndex",
+  "type": "object",
+  "$id": "station-index/1"
+}

@@ -17,10 +17,12 @@ vi.mock('../lib/api', () => ({
     constructor(public status: number, public detail: string, public retryAfter?: number, public hint?: string) { super(detail) }
   },
 }))
+const cfg = vi.hoisted(() => ({ microsoft: false }))
 vi.mock(import('../lib/deploymentConfig'), async (importOriginal) => ({
   ...(await importOriginal()),
   demoNote: () => null,
   deploymentName: () => 'Test',
+  getDeploymentConfig: () => ({ integrations: { microsoftLoginConfigured: cfg.microsoft } }),
 }))
 
 const { LoginScreen } = await import('./LoginScreen')
@@ -53,10 +55,11 @@ function installLocalStorage() {
 }
 
 beforeEach(() => {
+  cfg.microsoft = false
   installLocalStorage()
   login.mockReset().mockResolvedValue(undefined)
 })
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 describe('LoginScreen — auto-login at the remembered PIN length', () => {
   it('a first login still needs the ✓, and its length is remembered on success', async () => {
@@ -93,5 +96,43 @@ describe('LoginScreen — auto-login at the remembered PIN length', () => {
     expect(login).toHaveBeenCalledTimes(2)
     expect(login).toHaveBeenLastCalledWith('u1', '12345678')
     expect(JSON.parse(localStorage.getItem('kp.pinlen')!)).toEqual({ u1: 8 }) // re-learned
+  })
+})
+
+describe('LoginScreen — «Mit Microsoft anmelden»', () => {
+  const button = () => screen.queryByRole('link', { name: 'Mit Microsoft anmelden' })
+
+  it('is not drawn on a station that has not set it up', async () => {
+    render(<LoginScreen />)
+    await act(async () => {})
+    expect(button()).toBeNull()
+  })
+
+  it('is drawn below the roster where set up, and leaves for the backend start route', async () => {
+    cfg.microsoft = true
+    render(<LoginScreen />)
+    await act(async () => {})
+    expect(button()?.getAttribute('href')).toBe('/api/auth/microsoft/start')
+    fireEvent.click(screen.getByText('Keller Anna'))
+    expect(button()).toBeNull() // the PIN pad is the whole screen once a face is picked
+  })
+
+  it('is hidden offline even where configured, while the PIN remains available', async () => {
+    cfg.microsoft = true
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    render(<LoginScreen />)
+    await act(async () => {})
+    expect(button()).toBeNull()
+    fireEvent.click(screen.getByText('Keller Anna'))
+    expect(screen.getByRole('button', { name: 'Anmelden' })).toBeTruthy()
+  })
+
+  it('says why a sign-in came back, once, and takes the reason out of the address bar', async () => {
+    cfg.microsoft = true
+    window.history.replaceState(null, '', '/?msLogin=unknown')
+    render(<LoginScreen />)
+    await act(async () => {})
+    expect(screen.getByRole('alert').textContent).toContain('nicht freigeschaltet')
+    expect(window.location.search).toBe('')
   })
 })

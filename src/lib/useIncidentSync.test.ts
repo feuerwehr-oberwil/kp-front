@@ -32,6 +32,7 @@ function makeSync() {
     adoptServer: vi.fn(),
     drainAttendanceConflicts: vi.fn().mockReturnValue([]),
     drainTruppConflicts: vi.fn().mockReturnValue([]),
+    drainFormConflicts: vi.fn().mockReturnValue([]),
     drainTruppRenumbered: vi.fn().mockReturnValue([]),
     hasUnsynced: false,
     rev: 0,

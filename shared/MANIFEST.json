@@ -1,0 +1,169 @@
+{
+  "about": [
+    "Files KP Front and KP Rück share by copy. Byte-identical in both repositories, like",
+    "scripts/check_shared.py, which checks it, and shared/README.md, which says how to change one.",
+    "`owner` is where an edit is made first. `path` is the same in both repositories unless the",
+    "entry names a path per repository. Never edit a sha256 by hand: `python3 scripts/check_shared.py --update`."
+  ],
+  "repos": {
+    "kp-front": {
+      "name": "KP Front",
+      "marker": "vite.config.ts"
+    },
+    "kp-rueck": {
+      "name": "KP Rück",
+      "marker": "frontend/package.json"
+    }
+  },
+  "items": [
+    {
+      "id": "telemetry",
+      "title": "Telemetry sanitiser",
+      "owner": "kp-front",
+      "question": "Could one app leak what the other strips?",
+      "files": [
+        {
+          "path": "backend/app/telemetry/__init__.py",
+          "sha256": "cd0d97593af95eb29dff1ee00ffbac6cfd01cc8b183d0a1de3faa5bf8cbc7a56"
+        },
+        {
+          "path": "backend/app/telemetry/scrub.py",
+          "sha256": "fd650be000b92ad14087378e047391ca945b5401dcf6f32edaf29d78c1261121"
+        },
+        {
+          "path": "backend/app/telemetry/envelope.py",
+          "sha256": "fa581ba2ec4224426ce67750c4e575c6d44a12a5cc63a81498da2e245430995f"
+        },
+        {
+          "path": "backend/app/telemetry/outbox.py",
+          "sha256": "e59113482ba07ff52fcbe4f8cc318d1b3143993e88367298fbccc503facc428a"
+        },
+        {
+          "path": "backend/app/telemetry/forwarder.py",
+          "sha256": "7256d10b5c25c4b9056836b6c53862ece0b2836e41e1684738fa91daf0cfee13"
+        },
+        {
+          "path": "backend/app/telemetry/recent.py",
+          "sha256": "5b9c639f41964c26462090265fede37f806f3d80795d47200ec178d44f7beab4"
+        }
+      ]
+    },
+    {
+      "id": "alarm-keywords",
+      "title": "Alarm keyword vocabulary",
+      "owner": "kp-front",
+      "question": "Could the two apps classify the same alarm differently?",
+      "files": [
+        {
+          "path": "backend/app/alarm_keywords.py",
+          "sha256": "0cf503ae3d98d07cc4645890b41d77e93c746e4302282364c50917cb63834cdd"
+        },
+        {
+          "path": "backend/app/data/alarm_keywords.json",
+          "sha256": "7cef662c7eb41e54bab668828bad05975339f5d4de8691b1b6ca6ef0bee102de"
+        }
+      ]
+    },
+    {
+      "id": "roster-snapshot",
+      "title": "Roster snapshot contract and reader",
+      "owner": "kp-front",
+      "question": "Could one station's roster file be valid for one product and refused by the other, or land differently?",
+      "files": [
+        {
+          "path": "docs/roster-snapshot.schema.json",
+          "sha256": "85c9cfab43c64f096a6b260f4892240fe0b7890acc7741b8be544698ef102cc0"
+        },
+        {
+          "path": "docs/roster-snapshot-outcome.schema.json",
+          "sha256": "131cedd7246ccac71f9e1017af8e61bebe998dc09f04cc47df8d5d9bac9e78a9"
+        },
+        {
+          "path": "backend/app/roster_snapshot.py",
+          "sha256": "821259b3d45aca63b33279dbfcf1dd6306177260e04468af1632da0a2def29bf"
+        },
+        {
+          "path": "backend/app/roster_snapshot_ingest.py",
+          "sha256": "0cec68d12ac0ae0094ba67afa53ff63de41b0ba8e59714482d44b5ac1c85b30d"
+        },
+        {
+          "path": "scripts/roster_snapshot_from_csv.py",
+          "sha256": "fe9c63a4ad66503f09ed3fce12e745e165f549e3418ea5effe7e5837a306e926"
+        },
+        {
+          "path": "docs/roster-snapshot.example.csv",
+          "sha256": "3addbbc94a755b66c7350d088177ccd2e89d6d888fcd63e87b78b33ccbfeb1f7"
+        }
+      ]
+    },
+    {
+      "id": "station-index",
+      "title": "Station index",
+      "owner": "kp-front",
+      "question": "Could one station's index.json resolve to different files in the two products?",
+      "files": [
+        {
+          "path": "backend/app/station_index.py",
+          "sha256": "cb0ddf777d4f84c0d057dc0f9390a281517516e85c8a461d49f415dd5c447700"
+        },
+        {
+          "path": "scripts/station_index_build.py",
+          "sha256": "dcc96aab573692c0778bdee49f49a7c7a1b0778138eee0da547711fe88e16cce"
+        },
+        {
+          "path": "docs/station-index.schema.json",
+          "sha256": "e555a5a26b25ed51d5a5319b82c8455d122721d955596534a228504233843ba7"
+        },
+        {
+          "path": "docs/station-index.example.json",
+          "sha256": "607b30f7add0a6e8a93a61e362c5151952872e91b48737f953f0aa6e18526428"
+        }
+      ]
+    },
+    {
+      "id": "alarm-intake",
+      "title": "Alarm intake contract",
+      "owner": "kp-front",
+      "question": "Could one dispatch webhook be accepted by one app and refused by the other?",
+      "files": [
+        {
+          "path": "docs/alarm-intake-conformance.json",
+          "sha256": "606a97f28a17b62ed3c3c4cec1898e5073fa2412a6d4becb50d93bf412fd1af0"
+        }
+      ]
+    },
+    {
+      "id": "snail",
+      "title": "Loading snail",
+      "owner": "kp-front",
+      "question": "Do the two apps still show the same mascot and shell trail?",
+      "files": [
+        {
+          "kp-front": "public/firefighter-snail-loader.svg",
+          "kp-rueck": "frontend/public/firefighter-snail-loader.svg",
+          "sha256": "1e57e9d0e4a15abb56785e5ecf62474b9730eec783aa57acca652179761f62b3"
+        }
+      ]
+    },
+    {
+      "id": "shared-check",
+      "title": "This check itself",
+      "owner": "kp-front",
+      "question": "Do both repositories run the same check, with the same instructions?",
+      "files": [
+        {
+          "path": "scripts/check_shared.py",
+          "sha256": "c56d27bb215fd7aea03972da20eb2a1299e06407bdb48a09673072805aa27137"
+        },
+        {
+          "path": "shared/README.md",
+          "sha256": "f1bfd124145d6afcfad78ec2103e051d231bdfb56f33e229ecf1c301abb6279a"
+        },
+        {
+          "path": "backend/tests/test_shared_files.py",
+          "sha256": "fe684e104dbf665224c219695d4c6543f1b3a2786ecc1777510465d58c539bdf"
+        }
+      ]
+    }
+  ]
+}

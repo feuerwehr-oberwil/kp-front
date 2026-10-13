@@ -149,6 +149,9 @@ function fieldsOf(obj: ObjectWithPlans | null) {
     lat: obj?.lat != null ? String(obj.lat) : '',
     lng: obj?.lng != null ? String(obj.lng) : '',
     note: obj?.source_note ?? '',
+    measures: obj?.measures ?? '',
+    remarks: obj?.remarks ?? '',
+    measuresSource: obj?.measures_source ?? '',
   }
 }
 
@@ -186,7 +189,7 @@ export function ObjectEditor({ object, onChanged, plans }: {
   const [keyError, setKeyError] = useState<string | null>(null)
   const [flash, setFlash] = useState(false)
 
-  const { name, address, lat, lng, note } = fields
+  const { name, address, lat, lng, note, measures, remarks, measuresSource } = fields
   const set = <K extends keyof typeof fields>(field: K, value: string) => {
     setFlash(false)
     setFields((prev) => ({ ...prev, [field]: value }))
@@ -238,6 +241,9 @@ export function ObjectEditor({ object, onChanged, plans }: {
         lat: coords.lat,
         lng: coords.lng,
         source_note: note.trim() || null,
+        measures: measures.trim() || null,
+        remarks: remarks.trim() || null,
+        measures_source: measuresSource.trim() || null,
       }
       const written = await saveObject(objectId, body)
       // `PUT /api/objects/{id}` answers ObjectOut — no plans — so carry the ones we already know.
@@ -370,6 +376,17 @@ export function ObjectEditor({ object, onChanged, plans }: {
         {!coords.ok && <SettingsNote><span className="adm-state adm-state-err">{coords.error}</span></SettingsNote>}
         <SettingRow label={C.noteLabel} hint={C.noteHint}>
           <input className="adm-input" value={note} onChange={(e) => set('note', e.target.value)} onBlur={commit} />
+        </SettingRow>
+        {/* The Modul-1 sheet's two boxes, typed by hand (KP Front F5): the Einsatz's Gebäude card
+            shows them. Prose, so a textarea spanning the row like the help intro's. */}
+        <SettingRow label={C.measuresLabel} hint={C.measuresHint} span>
+          <textarea className="adm-input adm-textarea" rows={3} value={measures} onChange={(e) => set('measures', e.target.value)} onBlur={commit} />
+        </SettingRow>
+        <SettingRow label={C.remarksLabel} hint={C.remarksHint} span>
+          <textarea className="adm-input adm-textarea" rows={3} value={remarks} onChange={(e) => set('remarks', e.target.value)} onBlur={commit} />
+        </SettingRow>
+        <SettingRow label={C.measuresSourceLabel} hint={C.measuresSourceHint}>
+          <input className="adm-input" value={measuresSource} onChange={(e) => set('measuresSource', e.target.value)} onBlur={commit} />
         </SettingRow>
         {save.kind === 'error' && <SettingsNote><span className="adm-state adm-state-err">{save.detail}</span></SettingsNote>}
         {/* The one sentence the create form owes: why there are no PDF slots yet. */}

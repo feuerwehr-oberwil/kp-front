@@ -57,6 +57,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from .report_board import BoardPageFlowable, BoardPageIn, Continuation, page_has_map
+
 logger = logging.getLogger(__name__)
 
 # ReportLab defaults to ASCII85-encoding every compressed stream (`useA85`) so old PDF tools that
@@ -623,6 +625,12 @@ class ReportOptionsIn(BaseModel):
     #: Einsatzjournal is a normal choice, and the outstanding items are the last thing that should
     #: disappear with it. Defaults True so an older client that sends no option still prints them.
     pendenzen: bool = True
+    #: the «Auswertung» Beilage — printed only when the payload also carries its block, so an
+    #: older client (which sends neither) prints exactly what it always did
+    auswertung: bool = True
+    #: the Tafel's pages (10.10.2026, app/report_board) — like `auswertung`, they print only when
+    #: the payload carries them, so the default changes nothing for an older client
+    tafel: bool = True
 
 
 class PersonalSummaryIn(BaseModel):
@@ -660,6 +668,101 @@ class AttachmentIn(BaseModel):
     caption: str | None = None
 
 
+class AuswertungBarIn(BaseModel):
+    """One span on a swimlane, in MINUTES after the axis start (lib/auswertung · auswertungForPdf)."""
+
+    start: float
+    end: float
+    #: travel · scene · return (a vehicle) · as · work · standby (a Trupp) · phase (a checklist phase)
+    kind: str = "work"
+
+
+class AuswertungGapIn(BaseModel):
+    """The part of a contact interval past the Funkkontakt-Intervall: 1 fällig, 2 überfällig."""
+
+    start: float
+    end: float
+    level: int = 1
+
+
+class AuswertungLaneIn(BaseModel):
+    label: str
+    bars: list[AuswertungBarIn] = []
+    #: single known instants with no span (a vehicle that rolled and never reported vor Ort)
+    marks: list[float] = []
+    contacts: list[float] = []
+    gaps: list[AuswertungGapIn] = []
+
+
+class AuswertungGroupIn(BaseModel):
+    label: str
+    lanes: list[AuswertungLaneIn] = []
+
+
+class AuswertungTickIn(BaseModel):
+    at: float
+    label: str
+
+
+class AuswertungMilestoneIn(BaseModel):
+    at: float
+    label: str
+    time: str = ""
+
+
+class AuswertungTimelineIn(BaseModel):
+    #: the axis length in minutes; every `at`/`start`/`end` is measured from its start
+    span: float
+    ticks: list[AuswertungTickIn] = []
+    groups: list[AuswertungGroupIn] = []
+    milestonesLabel: str = "Meilensteine"
+    milestones: list[AuswertungMilestoneIn] = []
+
+
+class AuswertungFigureIn(BaseModel):
+    label: str
+    #: the finished value — «7 min», «92 %», or «—» when the record does not carry it
+    value: str
+    sub: str | None = None
+    #: the figure's definition, printed as a numbered footnote under the timeline
+    footnote: str | None = None
+    #: the one figure that is a judgement (contact overruns > 0) — its value prints in the urgent ink
+    alert: bool = False
+
+
+class AuswertungLegendIn(BaseModel):
+    travel: str = "Anfahrt"
+    scene: str = "vor Ort"
+    #: the same ink as `travel` on paper, so the two share one legend entry
+    back: str = "Rückfahrt"
+    pa: str = "unter Atemschutz"
+    work: str = "im Einsatz ohne Atemschutz"
+    standby: str = "bereit"
+    contact: str = "Funkkontakt"
+    faellig: str = "Kontakt fällig"
+    ueberfaellig: str = "überfällig"
+    milestone: str = "Meilenstein"
+    phase: str = "Phase: erster bis letzter Haken"
+
+
+class AuswertungIn(BaseModel):
+    """The «Auswertung» Beilage (F7, 09.10.2026): key figures, swimlanes, Lehren — derived on the
+    CLIENT where the ISO stamps are (src/lib/auswertung.ts) and sent as finished strings and minute
+    offsets, in the deployment's language. Printed last, on its own landscape sheet."""
+
+    heading: str = "Auswertung"
+    note: str | None = None
+    figures: list[AuswertungFigureIn] = []
+    timeline: AuswertungTimelineIn | None = None
+    #: what prints instead of the timeline when nothing on it was recorded
+    noTimeline: str | None = None
+    legend: AuswertungLegendIn = AuswertungLegendIn()
+    footnotesHead: str = "Definitionen"
+    #: «Lehren / Sicherheit: siehe Seite 1» when the Lehren are filled. A pointer, not the text:
+    #: the Lehren print on page 1 with the signed record (review of #303 — one answer, one place).
+    lehrenNote: str | None = None
+
+
 class ReportPayload(BaseModel):
     incident: IncidentFacts
     meta: ReportMetaIn = ReportMetaIn()
@@ -688,6 +791,12 @@ class ReportPayload(BaseModel):
     #: checking one line only turns back a page.
     pendenzen: list[PendenzRowIn] = []
     attachments: list[AttachmentIn] = []
+    #: the internal debrief Beilage — see AuswertungIn
+    auswertung: AuswertungIn | None = None
+    #: the Tafel's board-template pages, resolved by the client (lib/boardForm · formForPdf)
+    boardPages: list[BoardPageIn] = []
+    #: the scene for their «Lagekarte» boxes, auto-framed, rendered here at print time
+    boardMap: KrokiIn | None = None
 
 
 # ----------------------------------------------------------------------------- German labels
@@ -767,6 +876,9 @@ L = {
     "colErteilt": "Erteilt",
     "colErledigt": "Erledigt",
     "pendenzOpen": "offen",
+    # the Tafel's pages (app/report_board)
+    "boardMapAt": "Karte, Stand {t}",
+    "boardContinued": "Fortsetzung: {t}",
     "pendenzUrgent": "dringend",
     "colArea": "Bereich",
     "colEntry": "Eintrag",
@@ -1572,6 +1684,8 @@ def _legend_table(lines: list[str], width: float, st: dict[str, ParagraphStyle])
 _KROKI_PX = (2080, 1222)
 #: the same crop turned upright — a portrait Kroki page gets a portrait render, so the picture
 #: fills the sheet instead of being letterboxed into a landscape frame
+#: the Tafel's Lagekarte box (app/report_board): about the FKS poster's box shape, scaled to A4
+_BOARD_MAP_PX = (1200, 880)
 _KROKI_PX_PORTRAIT = (1300, 1820)
 
 
@@ -1616,6 +1730,158 @@ def _kroki_view(pk, kw: int, kh: int):
     view = kk.fit_view(pts, kw, kh, max_z=_kroki_fit_max_z(pts))
     view.overlay_z = view.z - math.log2(512 / kk.TILE)
     return view
+
+
+def _board_map_png(pk: KrokiIn | None) -> bytes | None:
+    """The Tafel's «Lagekarte» box: the scene rendered like the Kroki, auto-framed, at the box's
+    shape. None (an empty box to sketch in) without a pack, a base or a working render."""
+    if pk is None or not pk.tiles:
+        return None
+    from . import kroki as kk
+
+    pack = kk.get_pack()
+    if pack is None:
+        return None
+    kw, kh = _BOARD_MAP_PX
+    try:
+        view = _kroki_view(pk, kw, kh)
+        img = kk.render_kroki(
+            kk.KrokiScene(
+                entities=[e.model_dump() for e in pk.entities], drawings=[d.model_dump() for d in pk.drawings]
+            ),
+            pack,
+            kk.approved_tile_template(pk.tiles),
+            width=kw,
+            height=kh,
+            view=view,
+            cache=kk.get_tile_cache(),
+            sym_mul=kk.kroki_symbol_mul(view.overlay_z if view.overlay_z is not None else view.z),
+            max_tile_z=pk.maxTileZoom or 19,
+            attribution=pk.attribution,
+        )
+    except Exception:  # noqa: BLE001 — a failed map must not sink the rapport; the box stays blank
+        logger.warning("Tafel Lagekarte could not be rendered; box left blank", exc_info=True)
+        return None
+    b = io.BytesIO()
+    img.save(b, "PNG")
+    return b.getvalue()
+
+
+def _tafel_story(
+    pages: list[BoardPageIn], board_map: KrokiIn | None, title: str, generated_at: str, head, st, first: bool = False
+) -> list:
+    """Every Tafel page on a sheet of its own, in its own layout, each followed by its
+    «Fortsetzung» — the Rapport's Tafel part and the Tafel's own print (compose_tafel_pdf) alike.
+    `first`: the story starts with these sheets (no page break before the first one)."""
+    out: list = []
+    map_png = _board_map_png(board_map) if any(page_has_map(bp) for bp in pages) else None
+    page_caption = f"{title} · {generated_at}"
+    for i, bp in enumerate(pages):
+        out.append(NextPageTemplate("landscape" if bp.landscape else "portrait"))
+        if not (first and i == 0):
+            out.append(PageBreak())
+        sheet = BoardPageFlowable(
+            bp,
+            map_png if page_has_map(bp) else None,
+            caption=page_caption,
+            map_caption=L["boardMapAt"].format(t=generated_at),
+        )
+        out.append(sheet)
+        # what a box could not hold, after the sheet — nothing written is cut off the record
+        out.append(Continuation(sheet, lambda ov, w: _board_overflow(ov, head, st, w)))
+    # the sheet fills its frame, so whatever follows starts a new page by itself — portrait
+    # again, and no PageBreak here (two in a row print an empty sheet)
+    out.append(NextPageTemplate("portrait"))
+    return out
+
+
+class TafelPrintPayload(BaseModel):
+    """The Tafel's own print (10.10.2026, owner): one page or all of them, from the page's
+    «Drucken» — the same sheets the Rapport carries, without the Rapport around them."""
+
+    incident: IncidentFacts
+    generatedAt: str  # client-formatted
+    boardPages: list[BoardPageIn]
+    boardMap: KrokiIn | None = None
+
+
+def compose_tafel_pdf(payload: TafelPrintPayload) -> bytes:
+    """Just the Tafel pages: each on A4 in its template's paper (portrait / landscape), the
+    Erste Führung as its poster, the Fortsetzung after it — exactly as in the Rapport."""
+    st = _styles()
+    buf = io.BytesIO()
+    pw, ph = A4
+    lw, lh = landscape(A4)
+    margin = 14 * mm
+    doc = BaseDocTemplate(
+        buf,
+        pagesize=A4,
+        leftMargin=margin,
+        rightMargin=margin,
+        topMargin=margin,
+        bottomMargin=margin,
+        title=f"Tafel — {payload.incident.title}",
+        author="KP Front",
+    )
+    doc.addPageTemplates(
+        [
+            PageTemplate(
+                id="portrait",
+                frames=[Frame(margin, margin, pw - 2 * margin, ph - 2 * margin, id="p", leftPadding=0, rightPadding=0)],
+                pagesize=A4,
+            ),
+            PageTemplate(
+                id="landscape",
+                frames=[Frame(margin, margin, lw - 2 * margin, lh - 2 * margin, id="l", leftPadding=0, rightPadding=0)],
+                pagesize=landscape(A4),
+            ),
+        ]
+    )
+
+    def head(text: str) -> list:
+        hr = HRFlowable(
+            width="100%", thickness=1.1, color=colors.HexColor("#282828"), spaceBefore=0, spaceAfter=7, lineCap="butt"
+        )
+        hr.keepWithNext = 1
+        return [Paragraph(_esc(text), st["h2"]), hr]
+
+    story = _tafel_story(
+        payload.boardPages, payload.boardMap, payload.incident.title, payload.generatedAt, head, st, first=True
+    )
+    if payload.boardPages and payload.boardPages[0].landscape:
+        # the first sheet's own paper: the document starts on the portrait template otherwise
+        doc.pageTemplates.insert(0, doc.pageTemplates.pop(1))
+    label = " · ".join(x for x in (payload.incident.title, payload.generatedAt) if x)
+
+    class _Stamped(_NumberedCanvas):
+        footer_label = label
+
+    doc.build(story, canvasmaker=_Stamped)
+    return buf.getvalue()
+
+
+def _board_overflow(overflow, head, st: dict[str, ParagraphStyle], width: float) -> list:
+    """The «Fortsetzung» tables for rows a Tafel box could not hold (app/report_board) — full-size
+    type, as many pages as they need.
+
+    ⚠️ The heading is the table's own first row, repeated with the column heads on every page
+    (review of #338): as a separate keep-with-next heading it printed alone at the foot of one
+    page with its table starting on the next. And a row may SPLIT across pages (`splitInRow`):
+    one cell of 600 words used to fail the Tafel print and the whole Rapport with a LayoutError."""
+    out: list = []
+    for ov in overflow:
+        n = max(1, len(ov.columns))
+        title = [Paragraph(f"<b>{_esc(L['boardContinued'].format(t=ov.title))}</b>", st["cell"])] + [""] * (n - 1)
+        thead = [Paragraph(_esc(c), st["cellhead"]) for c in ov.columns]
+        body = [[Paragraph(_esc(v), st["cell"]) for v in (list(r) + [""] * n)[:n]] for r in ov.rows]
+        tbl = Table([title, thead, *body], colWidths=[width / n] * n, repeatRows=2, splitInRow=1)
+        style = _table_style()
+        style.add("SPAN", (0, 0), (-1, 0))
+        style.add("BACKGROUND", (0, 1), (-1, 1), _PANEL)
+        tbl.setStyle(style)
+        out.append(tbl)
+        out.append(Spacer(1, 4 * mm))
+    return out
 
 
 def compose_report_pdf(
@@ -2053,7 +2319,9 @@ def compose_report_pdf(
         # journal row. It was 36mm, sized for a label that still carried a comma between the date
         # and the time (see lib/report · formatDateTime); a date does not get longer, so the extra
         # 7mm was permanent white space taken from the one column that holds the entries.
-        tbl = Table([thead, *body], colWidths=[29 * mm, 24 * mm, inner_w - 53 * mm], repeatRows=1)
+        # splitInRow: an entry longer than a page (a pasted Lagebericht) splits across pages
+        # instead of failing the whole Rapport with a LayoutError (review of #338)
+        tbl = Table([thead, *body], colWidths=[29 * mm, 24 * mm, inner_w - 53 * mm], repeatRows=1, splitInRow=1)
         tbl.setStyle(_table_style())
         story.append(tbl)
 
@@ -2095,6 +2363,7 @@ def compose_report_pdf(
             [p_head, *p_body],
             colWidths=[inner_w - 74 * mm, 34 * mm, 20 * mm, 20 * mm],
             repeatRows=1,
+            splitInRow=1,
         )
         # ⚠️ `flush_left=False` — the first column keeps its 5pt like every other. The default
         # drops it to zero so a grid table lines up with the section rule above it, which is right
@@ -2108,6 +2377,15 @@ def compose_report_pdf(
         # says out loud — «!» sits next to the word «dringend», an indented line under an Auftrag
         # reads as belonging to it, «offen» is the word in the column — and a caption that repeats
         # its own table teaches the reader to skip captions.
+
+    # --- Die Tafel — every board-template page on a sheet of its own, in its own layout --------
+    # (10.10.2026, app/report_board). After the Aufträge: the Erste Führung is the Einsatz's own
+    # first record, not reference material, so it does not wait for the Anhang. Its Lagekarte box
+    # carries the server's own Kroki of the scene, framed on the Lage, rendered now.
+    if opt.tafel and payload.boardPages:
+        story.extend(
+            _tafel_story(payload.boardPages, payload.boardMap, payload.incident.title, payload.generatedAt, head, st)
+        )
 
     # --- Anhang: Kroki + annotated plans ALWAYS at the end (decided 2026-07-14) — the data
     # sections above are the identical main section; visual material is appended, never
@@ -2380,6 +2658,13 @@ def compose_report_pdf(
             block.append(wrapped)
             story.append(KeepTogether(block))
             story.append(Spacer(1, 6))
+
+    # Auswertung — the internal debrief Beilage, LAST, on its own landscape sheet: everything
+    # above it is the record that gets signed and handed out; this comes off the stack first.
+    if opt.auswertung and payload.auswertung is not None:
+        story.append(NextPageTemplate("landscape"))
+        story.append(PageBreak())
+        story.extend(_auswertung_story(payload.auswertung, land_inner_w, st, head))
 
     story = _collapse_breaks(story)
     # ⚠️ The page footer carries the ALARM time, not the moment the file was made. Every page
@@ -2908,3 +3193,412 @@ def _table_style() -> TableStyle:
             ("RIGHTPADDING", (0, 0), (-1, -1), 5),
         ]
     )
+
+
+# ----------------------------------------------------------------------------- Auswertung
+#
+# The internal debrief Beilage (F7, 09.10.2026; payload: AuswertungIn, derived client-side in
+# src/lib/auswertung.ts). Vector all the way — the swimlanes are canvas strokes, never a bitmap —
+# and legible in GREYSCALE, because most station printers are one: the two contact tiers carry a
+# hatch (fällig: sparse diagonal) and a cross-hatch (überfällig: dense) on top of their colour, so
+# amber and red stay two different things when both print as grey.
+
+_AW_LABEL_W = 48 * mm  # the lane-name column
+_AW_ROW_H = 4.7 * mm
+_AW_GROUP_H = 4.4 * mm
+_AW_AXIS_H = 5.5 * mm
+_AW_MILESTONE_H = 7 * mm
+_AW_BAR_H = 3.0 * mm
+
+_AW_TRAVEL = colors.HexColor("#b9c1cc")
+_AW_SCENE = colors.HexColor("#3b4656")
+_AW_AS = colors.HexColor("#2f6fd6")
+_AW_WORK = colors.HexColor("#8a94a3")
+_AW_PHASE = colors.HexColor("#c9d6ea")
+_AW_FAELLIG = colors.HexColor("#e8a317")
+_AW_UEBER = colors.HexColor("#cf3324")
+_AW_MILESTONE = colors.HexColor("#178a4a")
+_AW_DIM = colors.HexColor(_DIM_INK)
+
+
+def _aw_hatch(c, x: float, y: float, w: float, h: float, step: float, cross: bool) -> None:
+    """Diagonal hatch lines clipped to a rectangle — the greyscale half of a contact tier."""
+    if w <= 0 or h <= 0:
+        return
+    c.saveState()
+    p = c.beginPath()
+    p.rect(x, y, w, h)
+    c.clipPath(p, stroke=0, fill=0)
+    c.setStrokeColor(colors.HexColor("#141414"))
+    c.setLineWidth(0.45)
+    k = -h
+    while k < w:
+        c.line(x + k, y, x + k + h, y + h)
+        if cross:
+            c.line(x + k, y + h, x + k + h, y)
+        k += step
+    c.restoreState()
+
+
+def _aw_gap_swatch(c, x: float, y: float, w: float, h: float, level: int) -> None:
+    c.setFillColor(_AW_UEBER if level >= 2 else _AW_FAELLIG)
+    c.rect(x, y, w, h, stroke=0, fill=1)
+    _aw_hatch(c, x, y, w, h, 1.6 if level >= 2 else 2.6, cross=level >= 2)
+
+
+def _aw_diamond(c, cx: float, cy: float, r: float) -> None:
+    p = c.beginPath()
+    p.moveTo(cx, cy + r)
+    p.lineTo(cx + r, cy)
+    p.lineTo(cx, cy - r)
+    p.lineTo(cx - r, cy)
+    p.close()
+    c.setFillColor(_AW_MILESTONE)
+    c.setStrokeColor(colors.white)
+    c.setLineWidth(0.6)
+    c.drawPath(p, stroke=1, fill=1)
+
+
+class _Swimlanes(Flowable):
+    """The timeline: an axis, a milestone row, then one row per lane under its group's heading.
+
+    Splits between rows (ReportLab asks via `split`), and every part repeats the axis and the
+    milestones, so a sheet pulled out of the stack still reads on its own. A group heading never
+    ends a part — it moves to the next one with its first lane.
+    """
+
+    def __init__(
+        self, tl: AuswertungTimelineIn, rows: list[tuple[str, AuswertungLaneIn | AuswertungGroupIn]], width: float
+    ):
+        super().__init__()
+        self.tl = tl
+        self.rows = rows
+        self.width = width
+
+    @staticmethod
+    def build(tl: AuswertungTimelineIn, width: float) -> _Swimlanes:
+        rows: list[tuple[str, AuswertungLaneIn | AuswertungGroupIn]] = []
+        for g in tl.groups:
+            rows.append(("group", g))
+            rows.extend(("lane", lane) for lane in g.lanes)
+        return _Swimlanes(tl, rows, width)
+
+    def _head_h(self) -> float:
+        return _AW_AXIS_H + (_AW_MILESTONE_H if self.tl.milestones else 0)
+
+    @staticmethod
+    def _row_h(kind: str) -> float:
+        return _AW_GROUP_H if kind == "group" else _AW_ROW_H
+
+    def wrap(self, aw, ah):
+        self.height = self._head_h() + sum(self._row_h(k) for k, _ in self.rows) + 2
+        return self.width, self.height
+
+    def split(self, aw, ah):
+        room = ah - self._head_h() - 2
+        n, used = 0, 0.0
+        for kind, _ in self.rows:
+            h = self._row_h(kind)
+            if used + h > room:
+                break
+            used += h
+            n += 1
+        while n > 0 and self.rows[n - 1][0] == "group":
+            n -= 1
+        if n <= 0 or n >= len(self.rows):
+            return [] if n <= 0 else [self]
+        return [_Swimlanes(self.tl, self.rows[:n], self.width), _Swimlanes(self.tl, self.rows[n:], self.width)]
+
+    def draw(self):
+        c = self.canv
+        tl = self.tl
+        x0 = _AW_LABEL_W
+        pw = self.width - x0 - 2
+        span = max(tl.span, 1.0)
+
+        def xpos(t: float) -> float:
+            return x0 + max(0.0, min(1.0, t / span)) * pw
+
+        top = self.height
+        body_top = top - self._head_h()
+        bottom = 2.0
+        # axis: tick labels on top, faint gridlines down through every row
+        c.setFont("Helvetica", 7)
+        for tk in tl.ticks:
+            x = xpos(tk.at)
+            c.setStrokeColor(_GRID)
+            c.setLineWidth(0.4)
+            c.line(x, bottom, x, top - _AW_AXIS_H + 1)
+            c.setFillColor(_AW_DIM)
+            # a label at either end of the axis is kept inside it, not hung off the sheet's margin
+            half = _str_w(tk.label, "Helvetica", 7) / 2
+            c.drawCentredString(min(max(x, x0 + half), x0 + pw - half), top - _AW_AXIS_H + 2.2, tk.label)
+        c.setStrokeColor(_AW_DIM)
+        c.setLineWidth(0.6)
+        c.line(x0, top - _AW_AXIS_H + 1, x0 + pw, top - _AW_AXIS_H + 1)
+
+        # milestones: numbered diamonds; the words are in the list under the chart
+        if tl.milestones:
+            y = top - _AW_AXIS_H - _AW_MILESTONE_H / 2 - 0.5
+            c.setFillColor(_INK)
+            c.setFont("Helvetica-Bold", 7.5)
+            c.drawString(0, y - 2.5, _fit_text(c, tl.milestonesLabel, _AW_LABEL_W - 3 * mm, "Helvetica-Bold", 7.5))
+            for i, ms in enumerate(tl.milestones, start=1):
+                x = xpos(ms.at)
+                c.setStrokeColor(_AW_MILESTONE)
+                c.setLineWidth(0.5)
+                c.setDash(1, 1.5)
+                c.line(x, bottom, x, y)
+                c.setDash()
+                _aw_diamond(c, x, y, 1.9 * mm)
+                c.setFillColor(_INK)
+                c.setFont("Helvetica-Bold", 6.5)
+                c.drawCentredString(x, y + 2.3 * mm, str(i))
+
+        y = body_top
+        for kind, item in self.rows:
+            h = self._row_h(kind)
+            y -= h
+            if kind == "group":
+                c.setFillColor(_INK)
+                c.setFont("Helvetica-Bold", 7.5)
+                c.drawString(0, y + 1.3, _fit_text(c, item.label, _AW_LABEL_W - 3 * mm, "Helvetica-Bold", 7.5))
+                c.setStrokeColor(_GRID)
+                c.setLineWidth(0.5)
+                c.line(x0, y + 0.6, x0 + pw, y + 0.6)
+                continue
+            lane = item
+            mid = y + h / 2
+            by = mid - _AW_BAR_H / 2
+            c.setFillColor(_INK)
+            c.setFont("Helvetica", 7.5)
+            c.drawString(2.5 * mm, mid - 2.5, _fit_text(c, lane.label, _AW_LABEL_W - 5 * mm, "Helvetica", 7.5))
+            # bars, bottom layer first: standby, work, travel/return, scene, phase, AS
+            order = {"standby": 0, "work": 1, "travel": 2, "return": 2, "scene": 3, "phase": 3, "as": 4}
+            for b in sorted(lane.bars, key=lambda b: order.get(b.kind, 1)):
+                bx, ex = xpos(b.start), xpos(b.end)
+                w = max(ex - bx, 0.8)
+                if b.kind == "standby":
+                    c.setStrokeColor(_AW_WORK)
+                    c.setLineWidth(0.8)
+                    c.setDash(1.5, 1.2)
+                    c.line(bx, mid, bx + w, mid)
+                    c.setDash()
+                elif b.kind == "work":
+                    c.setStrokeColor(_AW_WORK)
+                    c.setFillColor(colors.white)
+                    c.setLineWidth(0.7)
+                    c.roundRect(bx, by, w, _AW_BAR_H, 1.2, stroke=1, fill=1)
+                elif b.kind == "phase":
+                    c.setStrokeColor(_AW_DIM)
+                    c.setFillColor(_AW_PHASE)
+                    c.setLineWidth(0.4)
+                    c.roundRect(bx, by, w, _AW_BAR_H, 1.2, stroke=1, fill=1)
+                else:
+                    c.setFillColor({"travel": _AW_TRAVEL, "return": _AW_TRAVEL, "scene": _AW_SCENE}.get(b.kind, _AW_AS))
+                    c.roundRect(bx, by, w, _AW_BAR_H, 1.2, stroke=0, fill=1)
+            for g in lane.gaps:
+                gx = xpos(g.start)
+                _aw_gap_swatch(c, gx, by, max(xpos(g.end) - gx, 0.8), _AW_BAR_H, g.level)
+            # recorded contacts: a white stroke through the bar, readable on every fill
+            c.setStrokeColor(colors.white)
+            c.setLineWidth(1.0)
+            for t in lane.contacts:
+                x = xpos(t)
+                c.line(x, by + 0.5, x, by + _AW_BAR_H - 0.5)
+            for t in lane.marks:
+                c.setStrokeColor(_AW_SCENE)
+                c.setFillColor(colors.white)
+                c.setLineWidth(0.8)
+                c.circle(xpos(t), mid, 1.1 * mm, stroke=1, fill=1)
+            c.setStrokeColor(_GRID)
+            c.setLineWidth(0.3)
+            c.line(x0, y, x0 + pw, y)
+
+
+class _AwLegend(Flowable):
+    """One line of swatches + words, wrapped to the width: says what each ink on the chart means."""
+
+    def __init__(self, items: list[tuple[str, str]], width: float):
+        super().__init__()
+        self.items = items
+        self.width = width
+        self._lines: list[list[tuple[str, str, float]]] = []
+
+    _SW = 6 * mm
+    _GAP = 4 * mm
+    _LH = 4.4 * mm
+
+    def wrap(self, aw, ah):
+        self._lines = [[]]
+        x = 0.0
+        for kind, text in self.items:
+            w = self._SW + 1.5 * mm + _str_w(text, "Helvetica", 7.5) + self._GAP
+            if x + w > self.width and self._lines[-1]:
+                self._lines.append([])
+                x = 0.0
+            self._lines[-1].append((kind, text, x))
+            x += w
+        self.height = len(self._lines) * self._LH
+        return self.width, self.height
+
+    def draw(self):
+        c = self.canv
+        bh = _AW_BAR_H * 0.8
+        for li, line in enumerate(self._lines):
+            mid = self.height - (li + 0.5) * self._LH
+            for kind, text, x in line:
+                by = mid - bh / 2
+                sw = self._SW
+                if kind == "contact":
+                    c.setFillColor(_AW_AS)
+                    c.rect(x, by, sw, bh, stroke=0, fill=1)
+                    c.setStrokeColor(colors.white)
+                    c.setLineWidth(1.0)
+                    c.line(x + sw / 2, by + 0.4, x + sw / 2, by + bh - 0.4)
+                elif kind in ("faellig", "ueberfaellig"):
+                    _aw_gap_swatch(c, x, by, sw, bh, 2 if kind == "ueberfaellig" else 1)
+                elif kind == "milestone":
+                    _aw_diamond(c, x + sw / 2, mid, 1.6 * mm)
+                elif kind == "standby":
+                    c.setStrokeColor(_AW_WORK)
+                    c.setLineWidth(0.8)
+                    c.setDash(1.5, 1.2)
+                    c.line(x, mid, x + sw, mid)
+                    c.setDash()
+                elif kind == "work":
+                    c.setStrokeColor(_AW_WORK)
+                    c.setFillColor(colors.white)
+                    c.setLineWidth(0.7)
+                    c.rect(x, by, sw, bh, stroke=1, fill=1)
+                elif kind == "phase":
+                    c.setStrokeColor(_AW_DIM)
+                    c.setFillColor(_AW_PHASE)
+                    c.setLineWidth(0.4)
+                    c.rect(x, by, sw, bh, stroke=1, fill=1)
+                else:
+                    c.setFillColor({"travel": _AW_TRAVEL, "scene": _AW_SCENE}.get(kind, _AW_AS))
+                    c.rect(x, by, sw, bh, stroke=0, fill=1)
+                c.setFillColor(_INK)
+                c.setFont("Helvetica", 7.5)
+                c.drawString(x + sw + 1.5 * mm, mid - 2.6, text)
+
+
+def _aw_legend_items(aw: AuswertungIn) -> list[tuple[str, str]]:
+    """Only the inks the chart actually carries — a legend entry for something absent is noise."""
+    lg = aw.legend
+    tl = aw.timeline
+    kinds: set[str] = set()
+    gap_levels: set[int] = set()
+    contacts = False
+    if tl is not None:
+        for g in tl.groups:
+            for lane in g.lanes:
+                kinds.update(b.kind for b in lane.bars)
+                gap_levels.update(gp.level for gp in lane.gaps)
+                contacts = contacts or bool(lane.contacts)
+    items: list[tuple[str, str]] = []
+    if kinds & {"travel", "return"}:
+        words = [w for k, w in (("travel", lg.travel), ("return", lg.back)) if k in kinds]
+        items.append(("travel", " / ".join(words)))
+    for kind, text in (
+        ("scene", lg.scene),
+        ("phase", lg.phase),
+        ("standby", lg.standby),
+        ("work", lg.work),
+        ("as", lg.pa),
+    ):
+        if kind in kinds:
+            items.append((kind, text))
+    if contacts:
+        items.append(("contact", lg.contact))
+    if 1 in gap_levels:
+        items.append(("faellig", lg.faellig))
+    if 2 in gap_levels:
+        items.append(("ueberfaellig", lg.ueberfaellig))
+    if tl is not None and tl.milestones:
+        items.append(("milestone", lg.milestone))
+    return items
+
+
+def _auswertung_story(aw: AuswertungIn, width: float, st: dict[str, ParagraphStyle], head) -> list:
+    """The Auswertung sheet: heading, the key figures, the swimlanes + legend, the milestone list,
+    the pointer to the Lehren, the figures' definitions."""
+    out: list = [*head(aw.heading)]
+    if aw.note:
+        out.append(Paragraph(_esc(aw.note), st["muted"]))
+        out.append(Spacer(1, 4))
+
+    # key figures: one tile each, the definition's number beside the label
+    lab = ParagraphStyle("aw_lab", parent=st["cellhead"], fontSize=7.5, leading=9.5)
+    val = ParagraphStyle("aw_val", parent=st["body"], fontName="Helvetica-Bold", fontSize=17, leading=20)
+    sub = ParagraphStyle("aw_sub", parent=st["muted"], fontSize=7.5, leading=9.5)
+    notes = [f for f in aw.figures if f.footnote]
+    if aw.figures:
+        n_fig = len(aw.figures)
+        gutter = 3 * mm
+        tile_w = (width - gutter * (n_fig - 1)) / n_fig
+        cells: list = []
+        widths: list[float] = []
+        note_no = 0
+        for i, f in enumerate(aw.figures):
+            ref = ""
+            if f.footnote:
+                note_no += 1
+                ref = f" <super>{note_no}</super>"
+            color = f' color="{_URGENT}"' if f.alert else ""
+            body = [Paragraph(_esc(f.label) + ref, lab), Paragraph(f"<font{color}>{_esc(f.value)}</font>", val)]
+            if f.sub:
+                body.append(Paragraph(_esc(f.sub), sub))
+            cells.append(body)
+            widths.append(tile_w)
+            if i < n_fig - 1:
+                cells.append("")
+                widths.append(gutter)
+        t = Table([cells], colWidths=widths)
+        style = [
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]
+        for i in range(0, len(cells), 2):
+            style.append(("BACKGROUND", (i, 0), (i, 0), _PANEL))
+        t.setStyle(TableStyle(style))
+        out.append(t)
+        out.append(Spacer(1, 8))
+
+    if aw.timeline is not None:
+        out.append(_Swimlanes.build(aw.timeline, width))
+        legend = _aw_legend_items(aw)
+        if legend:
+            out.append(Spacer(1, 3))
+            out.append(_AwLegend(legend, width))
+        if aw.timeline.milestones:
+            out.append(Spacer(1, 4))
+            line = " · ".join(
+                f"<b>{i}</b> {_esc(m.label)}" + (f" {_esc(m.time)}" if m.time else "")
+                for i, m in enumerate(aw.timeline.milestones, start=1)
+            )
+            out.append(Paragraph(f"<b>{_esc(aw.timeline.milestonesLabel)}:</b> {line}", st["cell"]))
+    elif aw.noTimeline:
+        out.append(Paragraph(_esc(aw.noTimeline), st["muted"]))
+
+    # the pointer to the Lehren before the definitions: the definitions are footnotes, they close
+    # the page
+    if aw.lehrenNote:
+        out.append(Spacer(1, 6))
+        out.append(Paragraph(f"<b>{_esc(aw.lehrenNote)}</b>", st["cell"]))
+
+    if notes:
+        out.append(Spacer(1, 6))
+        fn = ParagraphStyle("aw_fn", parent=st["muted"], fontSize=7.5, leading=9.5)
+        block = [Paragraph(f"<b>{_esc(aw.footnotesHead)}</b>", fn)]
+        block.extend(
+            Paragraph(f"<super>{i}</super> <b>{_esc(f.label)}</b>: {_esc(f.footnote)}", fn)
+            for i, f in enumerate(notes, start=1)
+        )
+        out.append(KeepTogether(block))
+
+    return out

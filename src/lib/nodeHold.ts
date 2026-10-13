@@ -27,6 +27,10 @@ import { useEffect, useRef, useState } from 'react'
  * `setTimeout` behind a linear bar, which meant a second duration, a second picture and — with
  * no unmount cleanup — an unlock that still fired after the chip was gone. One hold, one clock,
  * one ring: whatever the operator learns on a node handle is what the lock chip does.
+ *
+ * The Atemschutznotfall's tile (components/AtemschutzNotfall · NotfallHold) holds on the same
+ * clock but paints `progress` as the WHOLE tile filling rather than a ring (10.10.2026): on a
+ * 48px full-width tile a 24px ring read as «loading». Same numbers, same promise.
  */
 
 export const NODE_HOLD_ARM_MS = 250

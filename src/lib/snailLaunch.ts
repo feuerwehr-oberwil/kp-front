@@ -35,18 +35,42 @@ function elapsed(svg: Element, settle = true) {
   return Math.max(0, performance.now() - start)
 }
 
+/** How long the hold waits for the cover's first frame, the zero of the entrance's clock. A
+ *  visible page renders long before this; it only bounds a renderer that sends no frames. */
+export const FIRST_FRAME_MAX_MS = 1_000
+
+/** The next frame, or `bound` ms, whichever comes first: a hidden document gets no rAF. */
+function nextFrame(bound: number) {
+  return new Promise<void>(resolve => {
+    const timer = setTimeout(resolve, Math.max(0, bound))
+    requestAnimationFrame(() => { clearTimeout(timer); resolve() })
+  })
+}
+
 /** Keep the static cover until the entrance is visible in full, even on a cached launch.
  * Boot requests/chunks are already running; only React's replacement of the cover waits.
  * Reduced motion needs no hold, and missing/cancelled animations must never wedge startup. */
 export async function waitForSnailArrival() {
   const svg = document.querySelector('.boot-splash .firefighter-snail')
   if (!svg || matchMedia('(prefers-reduced-motion: reduce)').matches) return
-  // Let the browser establish the CSS animation's start time before reading its clock.
-  // A hidden document may not receive rAF, so this first-frame wait is bounded too.
-  await new Promise<void>(resolve => {
-    const timer = setTimeout(resolve, 50)
-    requestAnimationFrame(() => { clearTimeout(timer); resolve() })
-  })
+  // ⚠️ The entrance starts with the cover's FIRST FRAME, not when this runs. WebKit can hold
+  // that frame back well past the boot work: CI 09.10.2026 (run 37929169733) asked for a frame
+  // at 145 ms and got it at 290-440 ms, and until then the SVG had no animation at all. The old
+  // 50 ms wait then timed the hold from «now» and React took the cover over 12-170 ms before the
+  // skid ended (clock 459-618 of 630 ms). So wait for the arrival's start time, frame by frame:
+  // after a frame without an arrival there is none to wait for (no CSS), and a renderer that
+  // sends no frames is bounded. A hidden document gets no frames, so it keeps the short wait.
+  if (document.visibilityState === 'hidden') await nextFrame(50)
+  else {
+    const deadline = performance.now() + FIRST_FRAME_MAX_MS
+    let frames = 0
+    while (performance.now() < deadline) {
+      const clock = arrival(svg)
+      if (typeof clock?.startTime === 'number' || (frames > 0 && !clock)) break
+      await nextFrame(deadline - performance.now())
+      frames++
+    }
+  }
   const remaining = Math.max(0, duration(svg) - elapsed(svg, false))
   if (!remaining) return void elapsed(svg)
   await new Promise<void>(resolve => {

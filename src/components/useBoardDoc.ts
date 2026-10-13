@@ -100,6 +100,8 @@ interface BoardDocDeps {
    *  the Tafel. The per-plan stacks above stay the thing that answers the step itself. */
   onCheckpoint?: (planId: string, step: string) => void
   onStepEnd?: () => void
+  /** a ↶ / ↷ just put `to` in place of `from` — the Tafel goes to the page the step changed */
+  onRestore?: (from: BoardAnno[], to: BoardAnno[]) => void
 }
 
 /**
@@ -114,7 +116,7 @@ interface BoardDocDeps {
  * drag is one step. The functions stay byte-for-byte equivalent to their former inline selves; the
  * gesture handlers in Whiteboard call the returned pushPast/commit/patchCommit/… as before.
  */
-export function useBoardDoc({ annos, onChange, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd }: BoardDocDeps) {
+export function useBoardDoc({ annos, onChange, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd, onRestore }: BoardDocDeps) {
   // Per-document undo/redo, mirroring the map's history model. Every discrete
   // mutation checkpoints the previous annotation array; a continuous gesture
   // (chip drag) checkpoints once, on first movement, so a whole drag is one step.
@@ -153,7 +155,9 @@ export function useBoardDoc({ annos, onChange, emit, activeId, selId, setSelId, 
   // reconstructs the board from snapshots), so they're audit-only and safe to add.
   const add = (a: BoardAnno) => { commit([...annos, a]); emit('board.add', { id: a.id, anno: a, planId: activeId }) }
   const patch = (id: string, p: Partial<BoardAnno>) => set(annos.map((a) => (a.id === id ? { ...a, ...p } : a)))
-  const patchCommit = (id: string, p: Partial<BoardAnno>) => { commit(annos.map((a) => (a.id === id ? { ...a, ...p } : a))); emit('board.edit', { id, patch: p, planId: activeId }) }
+  // `audit` replaces the patch in the audit row where the patch is the whole object again (a Tafel
+  // page: the cell that changed, not ~5 KB of page per keystroke-commit)
+  const patchCommit = (id: string, p: Partial<BoardAnno>, audit?: Record<string, unknown>) => { commit(annos.map((a) => (a.id === id ? { ...a, ...p } : a))); emit('board.edit', { id, ...(audit ?? { patch: p }), planId: activeId }) }
   const remove = (id: string) => { commit(annos.filter((a) => a.id !== id)); emit('board.delete', { id, planId: activeId }); if (selId === id) setSelId(null); if (editId === id) setEditId(null) }
   // confirm before deleting a note that has been written (parity with the Lage map note).
   // Answers whether the object actually went: a caller that armed something on the way in
@@ -175,6 +179,7 @@ export function useBoardDoc({ annos, onChange, emit, activeId, selId, setSelId, 
     // ⚠️ a restore, not a placement: `gesture: false`, or a projection the snapshot still held at
     // an older spot would flip onto this sheet (lib/useObjectStore · setBoard, 24.09.2026)
     onChange(prev.snap, { gesture: false }); setSelId(null); setEditId(null)
+    onRestore?.(annos, prev.snap)
     // ⚠️ No Verlauf row here since 08.09.2026. This is reached ONLY through the one global
     // timeline now (IncidentWorkspace · planStepAt), which writes the row itself — and writes
     // the SAME row whether the plan happened to be open or not. Logging in both places gave a
@@ -187,6 +192,7 @@ export function useBoardDoc({ annos, onChange, emit, activeId, selId, setSelId, 
     if (!next || (expect !== undefined && next.id !== expect)) return false
     setHist((m) => { const cc = m[activeId]!; return { ...m, [activeId]: { past: [...cc.past, { id: next.id, snap: annos }], future: cc.future.slice(1) } } })
     onChange(next.snap, { gesture: false }); setSelId(null); setEditId(null)
+    onRestore?.(annos, next.snap)
     // …and the same for the way forward (see `undo` above).
     return true
   }

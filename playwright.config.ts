@@ -26,6 +26,9 @@ export default defineConfig({
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
+  // CI never writes a screenshot baseline it did not have: a missing one fails the «Visual» job,
+  // and baselines come from visual-baselines.yml (docs/testing/visual-regression.md)
+  updateSnapshots: process.env.CI ? 'none' : 'missing',
   timeout: 60_000,
   expect: { timeout: 15_000 },
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
@@ -53,5 +56,22 @@ export default defineConfig({
     // (e2e/journeys.journey.ts, docs/testing/perf-journeys.md). Skipped unless PERF_JOURNEYS is set.
     // No trace and no screenshots: both cost main-thread time inside the very numbers it measures.
     { name: 'journeys', testMatch: '**/*.journey.ts', use: { browserName: 'chromium', trace: 'off', screenshot: 'off', launchOptions: executablePath ? { executablePath } : {} } },
+    // `just visual` and CI's «Visual» job — screenshot regression tests on frozen states, compared
+    // against e2e/visual/baseline/ (e2e/screens.visual.ts, docs/testing/visual-regression.md).
+    // Skipped unless VISUAL is set. Each state builds its own context (visual/harness · frozenContext).
+    // The baselines are Linux Chromium from CI only, so the path carries no platform suffix: a local
+    // run elsewhere compares against them too, and is a look, not a verdict.
+    {
+      name: 'visual', testMatch: '**/*.visual.ts',
+      snapshotPathTemplate: '{testDir}/visual/baseline/{arg}{ext}',
+      expect: { toHaveScreenshot: {
+        animations: 'disabled', caret: 'hide', scale: 'css',
+        // ⚠️ the number docs/testing/visual-regression.md · «Threshold» explains — never raised to pass.
+        // Pixels, not a ratio: a lost pass shows as a fixed number of pixels whatever the viewport
+        // (12 → 8 px corners: 40–521 px per state, 09.10.2026), which a ratio of 0.1 % let through.
+        maxDiffPixels: 20,
+      } },
+      use: { browserName: 'chromium', trace: 'retain-on-failure', screenshot: 'off', launchOptions: executablePath ? { executablePath } : {} },
+    },
   ],
 })

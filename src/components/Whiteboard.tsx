@@ -1,4 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { BuildingFloat } from './BuildingFloat'
+import type { BuildingInfo } from '../lib/api/building'
 import { LineMarker } from './LineMarker'
 import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
 import type { BoardAnno, BoardKind, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
@@ -19,6 +21,7 @@ import { markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint
 import { minPoints } from '../lib/vertexOps'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { useWbVertexEdit, type PlanEndpointDrag } from './useWbVertexEdit'
+import { CHIP_SEL_SCALE, useWbChipSizes } from './useWbChipSizes'
 import { useWbChipDrag } from './useWbChipDrag'
 import { CIRCLE_MAX_N, useWbRotor } from './useWbRotor'
 import { SelectionBar } from './SelectionBar'
@@ -38,7 +41,7 @@ import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, typ
 import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
 import { doneAct, doneBadge, doneOf, donePlace, offersDone } from '../lib/objectDone'
 import { annoLogName } from '../lib/drawingEdit'
-import { serverNowIso } from '../lib/serverClock'
+import { serverNow, serverNowIso } from '../lib/serverClock'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import { placardSvgForSymbol } from '../lib/placard'
 import { useHazardData } from '../lib/useHazardData'
@@ -61,9 +64,9 @@ import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPre
 
 /** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
 const FOLDED_H = 28
-import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, armDwell, arrowEdgePadPx, arrowTipLeadPx, attachInsetPx, boundaryPoint, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from '../lib/stackFit'
-import { inSection, storeySections, visibleCentre } from '../lib/storeyClip'
+import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
 import type { FloorPackView } from '../lib/floorPackBinding'
 import { stackInstances } from '../lib/stackFloors'
 import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, scaleLampTone, type PlanScale } from '../lib/planScale'
@@ -85,8 +88,8 @@ import { georefForPlan, getStationPlanScales, noteMeasuredAspect, refreshStation
 import { planAspect } from '../lib/georefTwins'
 import { georefChip, georefChipTone, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, startGeorefProposal, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
 import { georefSuggestEligible, requestGeorefSuggestion, type GeorefSuggestStep } from '../lib/georefSuggest'
-import { PlanLiveLayer } from './PlanLiveLayer'
-import type { LiveMark } from '../lib/planProjection'
+import { PlanLiveLayer, PlanPhotoMarks } from './PlanLiveLayer'
+import type { LiveMark, PhotoMark } from '../lib/planProjection'
 import { MAX_SCALE, MAX_SCALE_STACK, MIN_SCALE, boardViewSignature, useBoardView, type BoardViews } from './useBoardView'
 import { newPlanStep, pushBoardPast, useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { recordKey, watchRecords } from '../lib/undoKeys'
@@ -97,6 +100,15 @@ import { ToolDock } from './ToolDock'
 import { PlanCompass } from './PlanCompass'
 import { OrientSlider } from './OrientSlider'
 import { ToolRail } from './ToolRail'
+import { TafelPageStrip } from './TafelPageStrip'
+import { TafelFormPage } from './TafelFormPage'
+import { findForms, formAnno, formDelta, formHasContent, newFormPage, pageTitles, type BoardFormData, type FormAnno, type FormSeed } from '../lib/boardForm'
+import { isDrawnBoardKind } from '../lib/workspace'
+import { labelText, type BoardTemplate, type TemplatePage } from '../lib/boardTemplate'
+import { SKIZZE, TAFEL_ID, stepPage, useTafelPage } from '../lib/tafelPages'
+import { isTypingTarget } from '../lib/hotkeys'
+import { BUNDLED_TEMPLATES, warmBoardTemplates } from '../lib/boardTemplates'
+import type { MiniKarteProps } from './MiniKarte'
 
 const COLORS = appConfig.drawing.colors
 
@@ -291,6 +303,9 @@ interface Props {
   /** set when the AUTO-surfaced object is only the nearest one with plans, not the incident's
    *  own address – the chip turns amber and reads the distance (lib/useObjectPlans) */
   objectNearby?: { distanceM: number; objectId: string } | null
+  /** the Gebäude-Steckbrief (lib/api/building) — its chip joins this row beside the Objekt chip,
+   *  the same chip the Karte's row carries (BuildingFloat, Lage ↔ Plan) */
+  buildingInfo?: BuildingInfo | null
   /** the Einsatz the banner's dismissal is remembered for, and the address it contrasts with */
   incidentId?: string
   incidentAddress?: string | null
@@ -311,6 +326,8 @@ interface Props {
    *  projected and clipped by the caller (lib/planProjection · liveOverlay). Everything else
    *  the Karte holds is an OBJECT and arrives in `annos` like the sheet's own work. */
   live?: LiveMark[]
+  /** The Karte's photo markers on this sheet, read-only (lib/planProjection · photoOverlay) */
+  photos?: PhotoMark[]
   /** Drag a live VEHICLE on this sheet: the same held-in-place override the Karte writes. */
   onPlanLiveMove?: (entityId: string, coord: LngLat, phase: 'start' | 'move' | 'end') => void
   /** ⚠️ This gesture is OVER — called from every `phase === 'end'` path below. A gesture that
@@ -320,6 +337,23 @@ interface Props {
   onStepEnd?: () => void
   /** Show a plan-owned object at its projected position on the Lage map. */
   onPlanProjection?: (planId: string, annoId: string, coord: LngLat) => void
+  /** The Tafel's pages (10.10.2026, docs/board-templates.md): the station's template set, what a
+   *  new page may be pre-filled with, and the live mini Karte for a «Lagekarte» box. Absent ⇒
+   *  the Tafel is the free sheet only (an Einsatz-Link session). */
+  tafel?: TafelPagesProps
+}
+
+/** printing a Tafel page found no server (or could not even load its print module): offline */
+class OfflineChunk extends Error {}
+
+export interface TafelPagesProps {
+  /** read at the tap that adds a page */
+  seed: () => FormSeed
+  /** what the «Lagekarte» box's mini Karte draws (components/MiniKarte) */
+  scene?: MiniKarteProps
+  onOpenKarte?: () => void
+  /** the Einsatz's title as it is now — the printed pages' caption and file name */
+  title?: () => string
 }
 
 /**
@@ -343,7 +377,17 @@ export interface PlanLogExtra {
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel }: Props) {
+  // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
+  // lib/boardForm) and any board object this build does not understand (lib/workspace ·
+  // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
+  // the sheet WITHOUT its riders — and every write is handed back with the riders put back on
+  // (`withForms`), so an ink commit can never drop one. The history (useBoardDoc) snapshots the
+  // WHOLE list, so ↶ restores both. On a sheet with no riders this is the identity.
+  const formAnnos = useMemo(() => annosAll.filter((a) => !isDrawnBoardKind(a.kind)), [annosAll])
+  const annos = useMemo(() => (formAnnos.length ? annosAll.filter((a) => isDrawnBoardKind(a.kind)) : annosAll), [annosAll, formAnnos])
+  const withForms = (next: BoardAnno[]) => (formAnnos.length ? [...next.filter((a) => isDrawnBoardKind(a.kind)), ...formAnnos] : next)
+  const onChange = (next: BoardAnno[], opts?: { gesture?: boolean }) => onChangeAll(withForms(next), opts)
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
   useHazardData()
@@ -366,6 +410,29 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // A viewer-only plan (e.g. PV/documentation PDF) is read-only regardless of role: plain
   // pan/zoom, no drawing tools or annotation surface. Folds into the existing readOnly gates.
   const readOnly = readOnlyProp || active?.viewer === true || selectOnly
+  // ── the Tafel's pages (10.10.2026): «Skizze» (this very sheet) plus the template pages added
+  // to the Einsatz. Which one THIS device looks at is device-local (lib/tafelPages); a page that
+  // went away (↶, another device) falls back to the Skizze by construction.
+  const onTafel = active.id === TAFEL_ID && !!tafel
+  const pages = useMemo(() => (onTafel ? findForms(formAnnos) : []), [onTafel, formAnnos])
+  /** «Konzept», «Konzept 2» … — what each page is called (lib/boardForm · pageTitles) */
+  const titles = useMemo(() => pageTitles(formAnnos), [formAnnos])
+  const [pageSel, setPageSel] = useTafelPage(incidentId)
+  const page = onTafel && pages.some((p) => p.id === pageSel) ? pageSel : SKIZZE
+  const formOpen = page !== SKIZZE
+  // the station's template set — read once the Tafel is first shown (never on the boot path);
+  // the bundled FKS set answers until it lands
+  const [templates, setTemplates] = useState<readonly BoardTemplate[]>(BUNDLED_TEMPLATES)
+  useEffect(() => {
+    if (!onTafel) return
+    let live = true
+    void warmBoardTemplates().then((t) => { if (live) setTemplates(t) })
+    return () => { live = false }
+  }, [onTafel])
+  /** the top lane the fit keeps clear: the floating bar, and on the Tafel its page strip too */
+  // (the Tafel's page strip stands in the bottom row the chip reserve already keeps clear —
+  // `botRes`, lib/whiteboard · chipRowInset — so the top reserve is the top bar's alone)
+  const topRes = TOP_INSET
   // The slim read-only rail (Auswahl · Messen) — never on a viewer-only or selection-only
   // document, which has no tool rail for ANYONE, so a locked editor and a viewer keep seeing the
   // same surface.
@@ -497,7 +564,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const setPlanEndpointDrag = (next: PlanEndpointDrag | null) => { planEndpointDrag.current = next; setPlanEndpointDragState(next) }
   // `first` is where the stroke went DOWN — the start's claim is kept while the finger is still
   // within STROKE_START_RADIUS_PX of it (see updatePlanDraftMagnet), exactly as on the Lage map.
-  type PlanDraftMagnet = { first: BoardPoint; atStart: boolean; point: BoardPoint; dwell: DwellState; candidate: MagneticTarget | null }
+  /** `startJoin`: the joint (board px) the stroke's START is coupled onto, held for the whole
+   *  stroke so the «Angekuppelt» ring stays on it after the finger has left (MapView twin). */
+  type PlanDraftMagnet = { first: BoardPoint; atStart: boolean; point: BoardPoint; dwell: DwellState; candidate: MagneticTarget | null; startJoin?: { key: string; point: [number, number]; color: string } }
   const [planDraftMagnetState, setPlanDraftMagnetState] = useState<PlanDraftMagnet | null>(null)
   const planDraftMagnet = useRef<PlanDraftMagnet | null>(null)
   const planDraftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -525,7 +594,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // `vShift` is where the centre of the lane between bar and row lies — the board transform,
   // the zoom focus (useBoardView) and «centre on» all read it
   const botRes = stack ? STACK_CHIP_ROW : chipRowInset(isPhone)
-  const vShift = (TOP_INSET - botRes) / 2
+  const vShift = (topRes - botRes) / 2
   // ⚠️ A sheet drawn from tiles zooms by its PAPER size (lib/planTiles · paperMaxScale): the fit it
   // is measured against is computed further down, so the ceiling lives in state and the view hook
   // reads it through a ref.
@@ -750,8 +819,8 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   const side = useMemo(() => sideInsets(vp.w, isPhone), [vp.w, isPhone])
   const fit = useMemo(() => {
     const pad = stack ? STACK_VPAD : 0
-    return containFit(vp, effAspect, { top: TOP_INSET + pad, bottom: botRes + pad, l: side.l, r: side.r })
-  }, [vp, effAspect, stack, side, botRes])
+    return containFit(vp, effAspect, { top: topRes + pad, bottom: botRes + pad, l: side.l, r: side.r })
+  }, [vp, effAspect, stack, side, botRes, topRes])
   // a storey says its density at the CURRENT zoom; the ceiling wants it at fit. Rounded, so the
   // sub-pixel wobble of a re-layout cannot move the ceiling under a finger.
   const takeStackDensity = (now: number) => {
@@ -1089,9 +1158,106 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // as it does on the Lage. Checkpoint once when typing starts, emit once on blur — otherwise
   // «Sicherung» is nine undo steps and nine audit rows.
   const titleLive = useRef<string | null>(null)
-  const { pushPast, set, commit, add, patch, patchCommit, removeAnno } = useBoardDoc({
-    annos, onChange, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd,
+  /** ↶ / ↷ on the Tafel lands where the step was: the page it changed, else the Skizze */
+  const onRestore = (from: BoardAnno[], to: BoardAnno[]) => {
+    if (!onTafel) return
+    const was = new Map(from.filter((a) => a.kind === 'form').map((a) => [a.id, JSON.stringify(a)]))
+    const changed = to.find((a) => a.kind === 'form' && was.get(a.id) !== JSON.stringify(a))
+    if (changed) { setPageSel(changed.id); return }
+    const gone = [...was.keys()].some((id) => !to.some((a) => a.id === id))
+    if (gone || formOpen) setPageSel(SKIZZE)
+  }
+  const boardDoc = useBoardDoc({
+    annos: annosAll, onChange: onChangeAll, emit, activeId, selId, setSelId, editId, setEditId, historyRef, hist, setHist, onCheckpoint, onStepEnd, onRestore,
   })
+  const { pushPast, add, patch, patchCommit, removeAnno } = boardDoc
+  const set = (next: BoardAnno[]) => boardDoc.set(withForms(next))
+  const commit = (next: BoardAnno[]) => boardDoc.commit(withForms(next))
+
+  // ── a Tafel page: added, written on, removed — each ONE ↶ step on the Tafel's own stack ────────
+  const TP = () => appConfig.copy.tafel
+  /** «+ Seite»: the page, pre-filled from what the Einsatz knows — or the page itself, when it is
+   *  already on the Tafel (one of each; a second «Erste Führung» would only split the record) */
+  const addPage = (tpl: BoardTemplate, p: TemplatePage) => {
+    const same = pages.filter((x) => x.form.tpl.id === tpl.id && x.form.page.id === p.id)
+    // a page of its kind is there: go to it — unless the page may be added again (a second
+    // Konzept, the next Rapport: owner, 10.10. evening), which makes a page of its own
+    if (same.length && !p.repeatable) { setPageSel(same[0].id); return }
+    if (readOnly || !tafel) return
+    const a = formAnno(newFormPage(tpl, p, tafel.seed(), serverNowIso()))
+    const title = same.length ? `${labelText(p.title)} ${same.length + 1}` : labelText(p.title)
+    const line = fillTemplate(TP().pageAdded, { page: title })
+    onStepLabel?.(line)
+    add(a)
+    log('doc', line, { subjectId: a.id })
+    setPageSel(a.id)
+  }
+  const editPage = (id: string, next: BoardFormData) => {
+    if (readOnly) return
+    onStepLabel?.(fillTemplate(TP().pageEdited, { page: titles.get(id) ?? labelText(next.page.title) }))
+    // the audit row names the cells that changed, never the whole page again (review of #338)
+    const prev = pages.find((p) => p.id === id)?.form
+    patchCommit(id, { form: next }, { form: { page: next.page.id, delta: prev ? formDelta(prev, next) : [] } })
+  }
+  /** a page with writing on it asks first; ↶ brings it back either way */
+  /** «Drucken» on a page (owner): this page or all of them as a PDF — the server draws the
+   *  paper (lib/tafelPrint, loaded on the tap); offline that is said calmly, never an error */
+  const [printing, setPrinting] = useState(false)
+  const printPages = async (list: FormAnno[]) => {
+    if (!incidentId || printing || !list.length) return
+    setPrinting(true)
+    try {
+      const { printTafelPages, TafelPrintOffline } = await import('../lib/tafelPrint').catch(() => { throw new OfflineChunk() })
+      try {
+        await printTafelPages(list, { id: incidentId, title: tafel?.title?.() ?? '' }, tafel?.scene, titles)
+      } catch (e) {
+        if (e instanceof TafelPrintOffline) throw new OfflineChunk()
+        throw e
+      }
+    } catch (e) {
+      if (e instanceof OfflineChunk) toast(TP().printOffline, { icon: 'info' })
+      else toast(TP().printFailed, { icon: 'warn', tone: 'warn' })
+    } finally {
+      setPrinting(false)
+    }
+  }
+  const removePage = async (id: string) => {
+    const a = pages.find((x) => x.id === id)
+    if (!a || readOnly) return
+    const name = titles.get(a.id) ?? labelText(a.form.page.title)
+    if (formHasContent(a.form) && !await confirmDialog({
+      title: TP().removeTitle, message: fillTemplate(TP().removeMsg, { page: name }),
+      confirmLabel: TP().removePage, cancelLabel: appConfig.copy.cancel, danger: true,
+    })) return
+    const line = fillTemplate(TP().pageRemoved, { page: name })
+    onStepLabel?.(line)
+    // a TOMBSTONE, not a deletion (re-review of #338): a device still writing on the page must be
+    // able to tell whether its writing came after this (lib/mergeWorkspace · resolveTactical).
+    // One ↶ step like any edit; findForms no longer shows, prints or offers it.
+    patchCommit(a.id, { form: { ...a.form, removedAt: serverNow() } }, { form: { page: a.form.page.id, removed: true } })
+    log('trash', line, { subjectId: a.id })
+    removedPage.current = a.id
+    setPageSel(SKIZZE)
+  }
+  // …and when ↶ brings it back, the operator lands on it again rather than hunting the strip
+  const removedPage = useRef<string | null>(null)
+  useEffect(() => {
+    const back = removedPage.current
+    if (back && pages.some((p) => p.id === back)) { removedPage.current = null; setPageSel(back) }
+  }, [pages, setPageSel])
+  // PageUp / PageDown walk the strip while no field has the keyboard (no swipe: that pans)
+  useEffect(() => {
+    if (!onTafel) return
+    const order = [SKIZZE, ...pages.map((p) => p.id)]
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key !== 'PageUp' && e.key !== 'PageDown') || e.metaKey || e.ctrlKey || e.altKey) return
+      if (isTypingTarget(document.activeElement)) return
+      e.preventDefault()
+      setPageSel(stepPage(order, page, e.key === 'PageDown' ? 1 : -1))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onTafel, pages, page, setPageSel])
   // expose fit-to-view (the phone top bar's Fit button calls it; desktop uses the rail footer)
   useEffect(() => { if (fitRef) fitRef.current = () => applyView(1, { x: 0, y: 0 }); return () => { if (fitRef) fitRef.current = null } })
   /**
@@ -1110,7 +1276,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    * since 18.09.2026, leave a ghost trail behind that nobody ever walked.
    */
   const DUP_OFFSET_N = 0.02 // ~2 % of the plan width — the same visible nudge a detached endpoint gets
-  const DUP_PREFIX: Record<BoardKind, string> = { draw: 'l', area: 'a', circle: 'c', text: 't', symbol: 's', shape: 'sh', resource: 'r' }
+  const DUP_PREFIX: Record<BoardKind, string> = { draw: 'l', area: 'a', circle: 'c', text: 't', symbol: 's', shape: 'sh', resource: 'r', form: 'fm' }
   const duplicateSelection = () => {
     if (readOnly || selIds.length > 1) return
     const src = annos.find((a) => a.id === selId)
@@ -1145,6 +1311,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const MAP: Record<string, BoardTool> = { select: 'pan', lasso: 'lasso', line: 'line', area: 'area', circle: 'circle', note: 'text', team: 'resource', measure: 'measure' }
     keysRef.current = {
       pickTool: (cmd) => {
+        if (formOpen) return // a Tafel PAGE is a form: no tool to arm on it
         if (selectOnly || (isPhone && active.id === 'tafel' && cmd === 'measure')) return // the Umrisse sheet arms nothing — by keyboard either (see selectOnly)
         if (cmd === 'symbol') { setTool('symbol'); setPaletteOpen(true); return }
         const id = MAP[cmd]; if (!id) return
@@ -1219,12 +1386,26 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   }, [annos, trupps, truppSeverities])
 
   const resolvedPts = new Map<string, BoardPoint[]>()
+  const { chipSizes, chipRef } = useWbChipSizes()
   /** The box a plan object offers an attaching line, in board px. A team chip is a left-anchored
-   *  STRIP — its stored point is the DOT, so its ~76×44 body hangs to the RIGHT of that point
-   *  rather than around it (see the wb-anno transform); `dx` puts the box back over the chip. */
-  const attachBox = (a: Pick<BoardAnno, 'kind'>) => (a.kind === 'resource'
-    ? { width: 76, height: 44, dx: 76 / 2 - TEAM_DOT_PX / 2 }
-    : { width: symBase, height: symBase, dx: 0 })
+   *  STRIP — its stored point is the DOT, so its body hangs to the RIGHT of that point rather than
+   *  around it (see the wb-anno transform); `dx` puts the box back over the chip. Its size is the
+   *  chip as RENDERED (useWbChipSizes, 11.10.2026): the resting strip is as wide as its name, the
+   *  selected pill is two rows under a 1.12 scale about its own centre, and the old fixed ~76×44
+   *  guess put a docked arrow's tip on the selected pill's name. 76×44 stays the fallback for a
+   *  chip not measured yet (first frame, jsdom). */
+  const attachBox = (a: Pick<BoardAnno, 'kind' | 'id'>) => {
+    if (a.kind !== 'resource') return { width: symBase, height: symBase, dx: 0 }
+    const m = chipSizes[a.id]
+    if (!m) return { width: 76, height: 44, dx: 76 / 2 - TEAM_DOT_PX / 2 }
+    const sel = selId === a.id
+    const k = sel ? CHIP_SEL_SCALE : 1
+    // the anchor offset of the wb-anno transform: the dot's centre at rest, the cap when selected
+    return { width: m.w * k, height: m.h * k, dx: m.w / 2 - (sel ? TEAM_PILL_CAP_PX : TEAM_DOT_PX / 2) }
+  }
+  /** Lines whose END wears an arrowhead — an attached arrow end stops at the glyph's edge
+   *  (lib/lineAttachments · arrowEdgePadPx) instead of tucking under it. */
+  const arrowLines = new Set(annos.flatMap((a) => (a.kind === 'draw' && a.arrow ? [a.id] : [])))
   /**
    * Every MIRRORED Karte object this sheet offers a docking Leitung — the same kinds a native
    * plan symbol/chip offers (lib/lineAttachments · MAGNET_ANNO_KINDS). A hose that reaches the
@@ -1233,7 +1414,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
    * list (MapView · twinMagnets) for what that costs: the live surfaces resolve it, print and
    * a far-side delete fall back to the stored point, which resolveLinePoints already does safely.
    */
-  const objectPoint = (id: string, toward: BoardPoint, _a: LineAttachment, source: AttachableLine<BoardPoint>): BoardPoint | null => {
+  const objectPoint = (id: string, toward: BoardPoint, attachment: LineAttachment, source: AttachableLine<BoardPoint>): BoardPoint | null => {
     const target = annos.find((a) => a.id === id && isMagnetAnno(a)) ?? null
     if (!target || target.x == null || target.y == null || !sW || !sH) return null
     const floor = target.floor ?? 0
@@ -1241,8 +1422,11 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const center: [number, number] = [target.x * sW + box.dx, mapY(floor, target.y) * sH]
     const tp: [number, number] = [toward[0] * sW, mapY(toward[2] ?? floor, toward[1]) * sH]
     // negative padding = the endpoint lands just INSIDE the glyph, so the stroke disappears
-    // under the symbol instead of stopping short of it (see attachInsetPx)
-    const p = boundaryPoint({ shape: 'rect', center, width: box.width, height: box.height, rotation: target.rotation }, tp, -attachInsetPx(source.width))
+    // under the symbol instead of stopping short of it (see attachInsetPx) — except an ARROW end:
+    // its head is painted above the objects, so it stops at the edge instead (arrowEdgePadPx)
+    const arrowEnd = attachment === source.endAttachment && arrowLines.has(source.id)
+    const pad = arrowEnd ? arrowEdgePadPx(source.width ?? 5) : -attachInsetPx(source.width)
+    const p = boundaryPoint({ shape: 'rect', center, width: box.width, height: box.height, rotation: target.rotation }, tp, pad)
     return [p[0] / sW, localY(p[1] / sH, floor), floor]
   }
   const linePoint = (target: AttachableLine<BoardPoint>, endpoint: LineEndpoint, attachment: LineAttachment, resolved: BoardPoint): BoardPoint => {
@@ -1276,7 +1460,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
         const box = attachBox(a)
         const center: [number, number] = [a.x! * sW + box.dx, mapY(a.floor, a.y!) * sH]
         const edge = boundaryPoint({ shape: 'rect', center, width: box.width, height: box.height, rotation: a.rotation }, pointer)
-        return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: a.kind === 'resource' ? 'trace' : 'direct' }
+        return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: DEFAULT_OBJECT_ROUTING }
       })
     const lines: MagneticTarget[] = renderAnnos
       .filter((a) => a.kind === 'draw' && a.id !== sourceId && (a.pts?.length ?? 0) >= 2)
@@ -1316,7 +1500,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     if (planDraftTimer.current) clearTimeout(planDraftTimer.current)
     if (phase === 'start') {
       const candidate = nearestMagneticTarget(pointer, targets)
-      setPlanDraftMagnet({ first: point, point, atStart, candidate, dwell: armDwell(candidate?.key ?? null, Date.now()) })
+      const startJoin = atStart && candidate?.target.kind === 'line'
+        ? { key: candidate.key, point: candidate.point, color: annos.find((a) => a.id === candidate.target.id)?.color || COLORS[0] } : undefined
+      setPlanDraftMagnet({ first: point, point, atStart, candidate, dwell: armDwell(candidate?.key ?? null, Date.now()), ...(startJoin ? { startJoin } : {}) })
       if (candidate) {
         draftAttachments.current = { ...draftAttachments.current, [atStart ? 'startAttachment' : 'endAttachment']: planAttachmentFor(candidate) }
         buzz()
@@ -1335,7 +1521,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const nowAtStart = cur.atStart && distance(firstPx, pointer) < STROKE_START_RADIUS_PX && !draftAttachments.current.startAttachment
     const candidate = stickyMagneticTarget(pointer, targets, cur.candidate?.key ?? null)
     const base = nowAtStart === cur.atStart ? cur.dwell : EMPTY_DWELL
-    const next: PlanDraftMagnet = { first, point, atStart: nowAtStart, candidate, dwell: advanceDwell(base, candidate, Date.now()) }
+    const next: PlanDraftMagnet = { first, point, atStart: nowAtStart, candidate, dwell: advanceDwell(base, candidate, Date.now()), ...(cur.startJoin ? { startJoin: cur.startJoin } : {}) }
     setPlanDraftMagnet(next)
     // a line target arms on acquisition (dwellFor = 0) — one buzz, as the closed ring gives
     if (next.dwell.armed && !base.armed) buzz()
@@ -1346,6 +1532,21 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       if (!now || now.candidate?.key !== candidate.key) return
       setPlanDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true } }); buzz()
     }, Math.max(0, dwellFor(candidate) - (Date.now() - next.dwell.since)))
+  }
+  /** The joints a gesture in progress is coupled onto — the «Angekuppelt» rings, the Karte's
+   *  `joinPreview` in board px: the draft's start for the whole stroke, plus an ARMED line target
+   *  under a draft end or a dragged end, ringed in the TARGET line's ink. */
+  const planJoinPreview = (): { key: string; point: [number, number]; color: string }[] => {
+    const out: { key: string; point: [number, number]; color: string }[] = []
+    const ink = (id: string) => annos.find((a) => a.id === id)?.color || COLORS[0]
+    const dm = planDraftMagnetState
+    if (dm?.startJoin) out.push(dm.startJoin)
+    for (const g of [dm, planEndpointDragState]) {
+      const c = g?.candidate
+      if (!g?.dwell.armed || c?.target.kind !== 'line' || out.some((j) => j.key === c.key)) continue
+      out.push({ key: c.key, point: c.point, color: ink(c.target.id) })
+    }
+    return out
   }
   const finishPlanDraftMagnet = () => {
     if (planDraftTimer.current) clearTimeout(planDraftTimer.current)
@@ -1741,8 +1942,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
   // --- A6 (29.08.): tap-away must not silently discard a node draft -------------------------
   // live mirrors for the auto-commit toast's «Rückgängig», which fires seconds later from outside
   // any render: the same-sheet undo must act on the annos/document of NOW, not of commit time.
-  const annosRef = useRef(annos); const activeIdRef = useRef(activeId); const onChangeRef = useRef(onChange)
-  useEffect(() => { annosRef.current = annos; activeIdRef.current = activeId; onChangeRef.current = onChange })
+  // the WHOLE sheet (pages included): these refs feed a history snapshot, and onChange puts the pages back anyway
+  const annosRef = useRef(annosAll); const activeIdRef = useRef(activeId); const onChangeRef = useRef(onChange)
+  useEffect(() => { annosRef.current = annosAll; activeIdRef.current = activeId; onChangeRef.current = onChange })
   /**
    * Whatever disarms a create tool with a draft still in the hand — picking another tool, arming
    * the Georeferenz, switching the document, leaving the surface — lands here (A6, 29.08.; the
@@ -1803,7 +2005,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             // this closure, which still points there), but a draft cannot be handed back onto a
             // document that is no longer open
             const step = newPlanStep()
-            setHist((m) => pushBoardPast(m, planId, [...annos, anno], step)); onCheckpoint?.(planId, step)
+            setHist((m) => pushBoardPast(m, planId, [...annosAll, anno], step)); onCheckpoint?.(planId, step)
             onChange(annos)
             emit('board.delete', { id: anno.id, planId })
           }
@@ -2638,6 +2840,19 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
     const s = sections?.get(floor ?? 0)
     return !s || inSection(p, s)
   }
+  /** The zones — Absperrkreise and Flächen — whose interior holds ALL of their paper: the storey's
+   *  section on the stack, the whole sheet off it (lib/storeyClip · enclosesSection). Not drawn,
+   *  nor labelled, nor lock-chipped: everything visible is inside them, so they say nothing here,
+   *  and their wash only tinted the storey (the demo's 100 m Absperrkreis on the EG, 11.10.2026).
+   *  The record is untouched — the Karte and the Objekte list still show them. */
+  const paperZones = new Set(sW && sH ? renderAnnos.flatMap((a) => {
+    if (!((a.kind === 'circle' && (a.radiusN ?? 0) > 0) || (a.kind === 'area' && (a.pts?.length ?? 0) >= 3))) return []
+    const ring: [number, number][] = a.kind === 'circle'
+      ? circleRing((a.x ?? 0) * sW, mapY(a.floor, a.y ?? 0) * sH, (a.radiusN ?? 0) * sW)
+      : a.pts!.map(([x, y, f]) => [x * sW, mapY(f ?? a.floor, y) * sH])
+    return enclosesSection(ring, sections?.get(a.floor ?? 0) ?? [rectPoly(0, 0, sW, sH)]) ? [a.id] : []
+  }) : [])
+  const drawnAnnos = paperZones.size ? renderAnnos.filter((a) => !paperZones.has(a.id)) : renderAnnos
 
   // Rotate the Gebäudeview to `toDeg`. Re-derives the footprint view and re-glues every
   // floor-stack annotation (x/y, freehand pts, team trails) so they stay on the same
@@ -2810,6 +3025,16 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
       <span>{objectChipText}</span>
     </button>
   )
+  // The Gebäude-Steckbrief's chip, beside the Objekt chip and only where that one stands with an
+  // Objekt bound: these plans are of THAT building, and the Karte's row carries the same chip.
+  // The floor stack and the Tafel drop it with the Objekt chip (`objectChipHidden`).
+  // ⚠️ Not on a PHONE's plan (09.10.2026, measured at 390px): that row is one line beside the FAB
+  // (09-whiteboard · .wb-botleft), and a hazard is glyph + WORD, so «⚠ Gas · PV» took the room the
+  // Objekt chip's name needs — the name went down to its glyph, and «which object are these
+  // plans of» stopped being answered. On a phone the Karte's row carries the chip, one tap away.
+  const buildingFloat = !isPhone && !objectChipHidden && (objectName || objectAddress)
+    ? <BuildingFloat info={buildingInfo ?? null} />
+    : null
 
 
   // The banner half of the same warning (owner, 14.09.): the chip is permanent but small, and at
@@ -2886,6 +3111,32 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
 
   // Viewer-only plan (e.g. PV / documentation PDF): bypass the annotation board entirely and
   // show a plain, natively-scrolling multi-page PDF viewer — no tools, no stitched pan/zoom board.
+  // the Tafel's page strip, on the Skizze and on every page alike
+  const strip = onTafel ? (
+    <TafelPageStrip pages={pages} titles={titles} current={page} templates={templates} readOnly={readOnly} onPick={setPageSel} onAdd={addPage} />
+  ) : null
+  // A Tafel PAGE is a form, not a drawing surface: it takes the stage, and none of the board's
+  // apparatus (rails, docks, chips) is drawn over it. The hooks above still ran, so the Tafel's
+  // history and its ↶ stay wired exactly as on the Skizze.
+  const formPage = formOpen ? pages.find((p) => p.id === page) : undefined
+  if (formPage) {
+    return (
+      <div className="whiteboard wb-tafel-page">
+        {/* the strip in the row a plan's «which place» chips stand in (owner, before the release) */}
+        <div className="wb-botleft">{strip}</div>
+        <TafelFormPage key={formPage.id} pageKey={formPage.id} title={titles.get(formPage.id)} data={formPage.form} readOnly={readOnly} isPhone={isPhone}
+          onChange={(next) => editPage(formPage.id, next)} onRemove={() => void removePage(formPage.id)}
+          // typed over another device's value for the same cell: the later stands, the Verlauf says so
+          onConflict={(where, kept, lost) => log('warn', fillTemplate(appConfig.copy.journal.tafelConflict, { page: titles.get(formPage.id) ?? labelText(formPage.form.page.title), where, kept, lost }), { subjectId: formPage.id })}
+          onPrint={incidentId ? (all) => void printPages(all ? pages : [formPage]) : undefined} pageCount={pages.length} printing={printing}
+          scene={tafel?.scene} onOpenKarte={tafel?.onOpenKarte}
+          // the bottom: the strip's row and its air, so the last ruling scrolls above it — on a
+          // phone above THE floating row (15-mobile · --float-bottom), on a tablet above the row
+          inset={{ top: topRes, left: isPhone ? 0 : side.l, right: isPhone ? 0 : side.l, bottom: isPhone ? 'calc(var(--float-bottom, 72px) + var(--float-h) + 16px)' : 'calc(16px + var(--float-h) + 24px)' }} />
+      </div>
+    )
+  }
+
   if (active?.viewer && active.imageUrl) {
     // .whiteboard is already `position:absolute; inset:0` (a containing block for the
     // absolutely-positioned scroller) — don't override it, or the container collapses to 0 height.
@@ -2895,7 +3146,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             too, or the read-out would blink out on exactly the plans nobody can annotate. No
             Maßstab beside it here: there is nothing to calibrate on a document. */}
         {nearbyBanner}
-        <div className="wb-botleft">{objectChip}</div>
+        <div className="wb-botleft">{objectChip}{buildingFloat}</div>
         <PdfScroller key={active.id} url={planUrl(active.imageUrl)} />
       </div>
     )
@@ -3080,12 +3331,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             )}
 
             {/* Absperrkreise — their own px-space layer, painted under the ink (WbCircleLayer) */}
-            <WbCircleLayer annos={renderAnnos} draft={circleDraft} sW={sW} sH={sH} mapY={mapY}
+            <WbCircleLayer annos={drawnAnnos} draft={circleDraft} sW={sW} sH={sH} mapY={mapY}
               color={appConfig.drawing.circleColor} selId={selId} flashId={flashId}
               onPickCircle={tool === 'pan' ? circleDown : undefined} sections={sections ?? undefined} />
 
             {/* committed drawings */}
-            <WbInkLayer annos={renderAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} hiddenTrails={hiddenTrails} mapY={mapY}
+            <WbInkLayer annos={drawnAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} hiddenTrails={hiddenTrails} mapY={mapY}
               selId={selId} flashId={flashId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined}
               truppTones={truppTones} sW={sW} sH={sH} sections={sections ?? undefined} />
             {/* «Ring lädt, dann schnappt es» — the identical pair the Lage map draws: a blue chip
@@ -3114,6 +3365,12 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 <ConnectRing since={planDraftMagnetState.dwell.since} armed={planDraftMagnetState.dwell.armed} />
               </span>
             )}
+            {/* «Angekuppelt» while placing — the Karte's twin (MapView · joinPreview, 11-measure.css) */}
+            {planJoinPreview().map((j) => (
+              <span key={`jp${j.key}`} className="magnet-anchor wb-magnet" style={{ left: j.point[0], top: j.point[1] }}>
+                <span className="join-coupling" style={{ '--line': j.color } as React.CSSProperties} />
+              </span>
+            ))}
             {/* …and the same ring for a Rotation, at both the end being dragged and each of the
                 two taps that lay it down (claimRotTarget) */}
             {/* the first of a Rotation's two points, while the second is still being looked for */}
@@ -3185,7 +3442,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
               const ang = Math.atan2(dyr, dxr) * 180 / Math.PI
               // push the tip a little PAST the line's visual end: clear the round cap (~half the
               // stroke width beyond the last vertex), then a few px more so the spitze leads the line
-              const fwd = (a.width ?? 5) * 0.6 + 6
+              const fwd = arrowTipLeadPx(a.width ?? 5)
               const last: [number, number] = [end[0] + (dxr / dlen) * fwd, end[1] + (dyr / dlen) * fwd]
               // `deg` rides along so an FKS chain glyph stands on the line; a letter ignores it.
               // Board px are screen px here (the board is only translated/scaled), so the bearing
@@ -3274,7 +3531,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 centroid in board px (the 1×1 ink SVG would distort text). Draggable like a line label.
                 «Auf Karte zeigen» prints the Fläche above it, exactly as the line label above prints
                 its Länge — the switch existed for a plan area but nothing rendered what it turned on. */}
-            {renderAnnos.filter((a) => a.kind === 'area' && (a.label || a.showDistance) && (a.pts?.length ?? 0) >= 3).map((a) => {
+            {drawnAnnos.filter((a) => a.kind === 'area' && (a.label || a.showDistance) && (a.pts?.length ?? 0) >= 3).map((a) => {
               const bpx = a.pts!.map(([x, y, floor]) => [x * sW, mapY(floor ?? a.floor, y) * sH] as [number, number])
               // on the stack: the centre of what is LEFT of the Fläche on its storey's section
               // (lib/storeyClip) — none when nothing of it shows
@@ -3364,7 +3621,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             {/* an Absperrkreis states its radius at the ring's top edge, exactly as the Karte does
                 (MapView · circleLabels) — in the sheet's calibrated metres. Uncalibrated there is
                 no honest number to print, so the ring simply carries none. */}
-            {calibrated && activeScale && renderAnnos.filter((a) => a.kind === 'circle' && (a.radiusN ?? 0) > 0).map((a) => {
+            {calibrated && activeScale && drawnAnnos.filter((a) => a.kind === 'circle' && (a.radiusN ?? 0) > 0).map((a) => {
               const cx = (a.x ?? 0) * sW, cy = mapY(a.floor, a.y ?? 0) * sH
               const r = (a.radiusN ?? 0) * sW
               return (
@@ -3396,7 +3653,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 MapMarkers · shape-lock-anchor). Its only job is unlocking, so it stays away where
                 editing is locked anyway. Position mirrors the map: an area is chipped at its
                 centroid, a line at its middle vertex, a shape at its centre. */}
-            {!readOnly && tool === 'pan' && renderAnnos.filter((a) => a.locked && (a.kind === 'shape' || a.kind === 'circle' || ((a.kind === 'draw' || a.kind === 'area') && a.pts?.length))).map((a) => {
+            {!readOnly && tool === 'pan' && drawnAnnos.filter((a) => a.locked && (a.kind === 'shape' || a.kind === 'circle' || ((a.kind === 'draw' || a.kind === 'area') && a.pts?.length))).map((a) => {
               const pts = a.pts ?? []
               const p = a.kind === 'shape' || a.kind === 'circle'
                 ? [a.x ?? 0, mapY(a.floor, a.y ?? 0)] as const
@@ -3429,6 +3686,7 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
             {annos.filter((a) => a.kind !== 'draw').flatMap((a) => stack ? stackInstances(a, floorsTTB) : [a]).map((a) => (
               <div
                 key={`${a.id}:${a.floor ?? 0}`}
+                ref={a.kind === 'resource' ? chipRef : undefined} data-chip-id={a.kind === 'resource' ? a.id : undefined}
                 className={`wb-anno wb-${a.kind}${relationship.objectIds.has(a.id) ? ' network' : ''} ${selId === a.id || selIds.includes(a.id) ? 'sel' : ''}`}
                 // transform positions the anchor at the (scaled) plan point. SYMBOLS hold a
                 // constant screen size (symBase, zoom-independent — 30.08.: they are pins like
@@ -3832,6 +4090,9 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
                 otherwise a reference set in June could not be found again in November. */}
             {canGeoref && (georefArmed || georefQuality) && (
               <GeorefBoardLayer pairs={georefPairs} mode={georef} armed={georefArmed} sW={sW} sH={sH} view={georefView} />
+            )}
+            {!georefArmed && photos.length > 0 && (
+              <PlanPhotoMarks marks={photos} sW={sW} sH={sH} inert={tool !== 'pan'} />
             )}
             {!georefArmed && live.length > 0 && (
               <PlanLiveLayer
@@ -4405,7 +4666,10 @@ export function Whiteboard({ plans, activeId, annos, symMul = 1, captionMode = '
           straight back when the mode ends. On a phone the instrument is the bar instead
           (GeorefMode · GeorefModeBars), so this row simply stays empty of it. */}
       {georefArmed && !isPhone ? <GeorefInstrument mode={georef} /> : <>
+      {/* the Tafel's pages: «which sheet», in the row where a plan says «which place» (owner) */}
+      {strip}
       {objectChip}
+      {buildingFloat}
       {buildingChip}
       {/* Maßstab — trust chip: shows where the active plan's scale comes from. A manually
           calibrated scale remains a control because tapping it edits that calibration. An

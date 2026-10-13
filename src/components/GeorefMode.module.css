@@ -447,7 +447,14 @@
   justify-content: center; gap: var(--sp-2); white-space: normal; line-height: 1.25; text-align: center;
 }
 .qActions:not(.qActionsFour) :global(.btn:last-child) { grid-column: 1 / -1; }
-.qActions svg { width: 15px; height: 15px; flex: none; }
+/* ⚠️ Glyph and words are ONE inline run (10.10.2026, owner's iPhone). They were two flex items, the
+   words a bare text node: once «Referenzpunkte setzen» wrapped in a 152–167px cell, that anonymous
+   item grew to the whole cell, so the «+» sat at the far left edge and the two lines centred in a
+   box of their own. A wrapped flex item never shrinks back to its longest line — so the glyph rides
+   on the first line of the text instead, and every line is centred under the button's middle. */
+.qLabel { display: block; min-width: 0; text-align: center; text-wrap: balance; }
+.qActions svg { width: 15px; height: 15px; flex: none; display: inline-block; vertical-align: -2px;
+  margin-right: var(--sp-2); }
 
 /* ── Passung auf Geschwistermodule übertragen ───────────────────────────────────────────── */
 .transferBody { margin: 0; color: var(--ink-dim); font: var(--fw-medium) var(--fs-2)/1.5 var(--body); }

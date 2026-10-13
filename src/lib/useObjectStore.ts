@@ -28,7 +28,7 @@ import { jsonEqual } from './jsonEqual'
 /**
  * THE tactical store: one collection of `TacticalObject`s, and the two legacy documents every
  * existing mutator still speaks (`Doc` for the Karte, `BoardDoc` for the plan sheets) as VIEWS
- * of it (tmp/design-unified-objects.md · phase 2).
+ * of it.
  *
  * ⚠️ This is the change that makes the unified object real at runtime, and it is deliberately
  * shaped so that nothing above it had to change: `doc`, `board`, `setDocRaw`, `setBoard`,

@@ -8,12 +8,12 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
 
 ## One object, two surfaces
 
-- **One object, two surfaces — there are no twins any more** (10.09.2026,
-  `tmp/design-unified-objects.md`). A tactical object is ONE record in one collection
-  (`src/lib/tacticalObjects.ts`), carrying up to two bodies of the same thing: `entity` XOR
-  `drawing` is what the Karte draws, `sheet {planId, anno}` is what one plan sheet draws. The
-  three legacy collections (`entities` / `drawings` / `board`) survive only as VIEWS of it, and
-  the blob still carries them so an older client can read a newer incident.
+- **One object, two surfaces — there are no twins any more** (10.09.2026). A tactical
+  object is ONE record in one collection (`src/lib/tacticalObjects.ts`), carrying up to two
+  bodies of the same thing: `entity` XOR `drawing` is what the Karte draws, `sheet {planId,
+  anno}` is what one plan sheet draws. The three legacy collections (`entities` / `drawings` /
+  `board`) survive only as VIEWS of it, and the blob still carries them so an older client can
+  read a newer incident.
   - **The sheet body's PRESENCE is the anchor.** An object hand-placed on a sheet carries
     `sheet`: the sheet coordinates are its truth, and its map body is BAKED through the plan's
     georeference (`bakeGeoBody`) and re-baked when that fit changes. An object hand-placed on the
@@ -83,6 +83,16 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   — the live vehicle and responder feed (`planProjection · liveOverlay`, `PlanLiveLayer`),
   read-only but for the one gesture it always had: dropping a Fahrzeug writes the same
   held-in-place override the Karte writes.
+
+- **A Verlauf photo on the Karte is an object; on a sheet it is only shown** (F16, 08.10.2026).
+  «Auf Karte setzen» (lib/photoGeo) places an ordinary `kind: 'photo'` entity at the position the
+  picture's EXIF names, with its view cone from `heading`; it names its picture by Verlauf row +
+  index (`photoOf`), never by URL, because a picture placed offline is a session `blob:`. The
+  projection still answers `null` for it — media, not a place on the paper — and a georeferenced
+  sheet SHOWS it read-only instead (`planProjection · photoOverlay`, `PlanPhotoMarks`): a tap
+  opens the picture, moving or removing it is the Karte's. Not on the Gebäude stack (a GPS fix
+  has no storey), and nothing at all on a sheet without a georeference. Where a phone hands over
+  a position and where it does not: the header of `lib/exif.ts`.
 
 - ⚠️ **The aspect the fit is solved in is its own stored fact** (`measuredArByPlan`), NOT
   `PlanScale.ar`. `ar` is half of a pair — a sheet's ground width is `ar · mPerU` — so

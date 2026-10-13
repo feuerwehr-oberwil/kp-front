@@ -87,6 +87,21 @@
 /* the socket on a Trupp marker's dot while a hose end is in the hand (MapView): the same ring,
    in the marker's own colour, centred on the point the magnet measures against */
 .free-coupling.team-socket { width: 30px; height: 30px; background: transparent; box-shadow: none; }
+/* ── «Angekuppelt» (11.10.2026) ────────────────────────────────────────────────────────────
+   The closed twin of «Anschluss frei»: the same 26px ring in the hose's ink, washed, with a
+   solid pip in the middle, on the joint a stroke in progress is coupled onto (a new Leitung
+   begun on a Teilstück's prong, an end that has just snapped onto another line's end). A line
+   target arms instantly and so draws no ConnectRing (lib/lineAttachments · dwellFor) — before
+   this, a joined start looked exactly like a free one lying on the node. Centred on the joint
+   (inside a zero-size .magnet-anchor); display-only, it must not eat the stroke's own pointer.
+   Once the line is placed, the small joint dot in the same ink takes over (MapView · l-draw-join,
+   WbInkLayer). */
+.join-coupling { --line: var(--blue); position: absolute; left: 0; top: 0; width: 26px; height: 26px;
+  transform: translate(-50%, -50%); box-sizing: border-box; border-radius: 50%; pointer-events: none;
+  border: 3px solid var(--line); background: color-mix(in srgb, var(--line) 22%, transparent);
+  box-shadow: 0 0 0 2px var(--surface), var(--e1); display: grid; place-items: center; }
+.join-coupling::after { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--line);
+  box-shadow: 0 0 0 2px var(--surface); }
 /* the same lock chip on the PLAN: the map hangs it off a MapLibre Marker, the board has no
    markers, so it gets a zero-size anchor positioned in board px (Whiteboard · lock chips). */
 .wb-lock-anchor { position: absolute; display: grid; place-items: center; width: 0; height: 0; z-index: 12; }

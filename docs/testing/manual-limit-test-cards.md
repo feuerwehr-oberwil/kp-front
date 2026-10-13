@@ -325,7 +325,8 @@ Steps:
   1. Open Rapportangaben.
   2. Fill required fields.
   3. Run report preflight.
-  4. Print/save PDF from browser.
+  4. Create the PDF via «Einsatzrapport (PDF)» (composed server-side, backend/app/report_pdf.py)
+     and print or save it.
   5. Review output as if it were handed in after the incident.
 Expected result:
   - Missing data warnings are understandable.
@@ -365,7 +366,7 @@ Trust:
 Follow-up issue:
 ```
 
-## Card 12 - Viewer/editor/admin boundary
+## Card 12 - Viewer/EL/editor/admin boundary
 
 **Goal:** Check that simple role boundaries are clear and do not block emergency work unexpectedly.
 
@@ -373,16 +374,23 @@ Follow-up issue:
 Scenario source: synthetic
 Setup:
   - One editor account/PIN.
+  - One el (Einsatzleiter) account/PIN.
   - One viewer account/PIN.
   - Admin access if available.
 Steps:
   1. Viewer opens incident and tries map/plan/Atemschutz/Verlauf mutations.
-  2. Editor performs the same changes.
-  3. Admin changes a basic config/user setting outside the incident workflow.
-  4. Reopen the incident as viewer and editor.
+  2. EL tries the same, then edits Anwesenheit/Zeitplan, Mittel, a Checkliste, the
+     Einsatzdaten and the Rapport.
+  3. Editor performs the same changes.
+  4. Admin changes a basic config/user setting outside the incident workflow.
+  5. Reopen the incident as viewer, EL and editor.
 Expected result:
   - Viewer cannot mutate incident state.
-  - Viewer mode explains limitations without looking broken.
+  - EL cannot change anything tactical (Karte, Plan, Atemschutz/Trupps), close or reopen the
+    incident, or share links – those doors are not drawn, not greyed out.
+  - EL can edit the record domains (Anwesenheit/Zeitplan, Mittel, Checklisten, Rapport +
+    Beilagen, Einsatzdaten), and those edits write their Verlauf rows (docs/roles-and-access.md).
+  - Viewer and EL modes explain limitations without looking broken.
   - Editor can operate normally.
   - Admin surface stays separate from incident operation.
 Observed limit:
@@ -418,23 +426,23 @@ Follow-up issue:
 
 ## Card 14 - Print under pressure
 
-**Goal:** Check whether browser/PWA printing is good enough for v1.
+**Goal:** Check whether the printed Rapport is good enough for v1.
 
 ```text
 Scenario source: tabletop or synthetic
 Setup:
   - Incident with enough data to create a 1-5 page report.
-  - Target printer or browser PDF print.
+  - Target printer (most station printers are monochrome).
 Steps:
   1. Open report preflight.
   2. Toggle sections.
-  3. Print/save PDF.
+  3. Create the PDF via «Einsatzrapport (PDF)» and print it.
   4. Repeat in portrait/landscape if relevant.
   5. Review page breaks, missing content, clipped maps/plans, and font size.
 Expected result:
   - Print output is readable.
   - Key sections are not clipped.
-  - Browser print is acceptable without a server-generated PDF.
+  - The server-composed PDF (backend/app/report_pdf.py) is legible in greyscale.
 Observed limit:
 Severity:
 Trust:
