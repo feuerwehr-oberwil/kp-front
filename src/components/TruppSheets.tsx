@@ -260,7 +260,7 @@ function FunkkanalStepper({ value, onChange }: { value: number; onChange: (v: nu
 
 /**
  * «Auftrag» — the six tiles of the Trupp's Art (the sheet's title is their label), «Ziel» over a
- * text field with the Suche's places as quick-picks under it, «Leitung» over «keine · Ltg 1 · … · Nr. …»
+ * clearable text field, «Leitung» over «keine · Ltg 1 · … · Nr. …»
  * from the hoses actually drawn, and one Speichern. The one-Leitung-one-Trupp question is the
  * board's (AtemschutzView · confirmLineTake, the same helper the form's save goes through), so
  * `onSave` resolves false when the operator said no and the sheet simply stays open.

@@ -10,7 +10,7 @@ import { GEBAEUDE_PLAN_ID } from './whiteboard'
 
 /**
  * The Karte, said in ONE sheet's own words — the second half of the unified object
- * (tmp/design-unified-objects.md, phase 2).
+ * (docs/tactical-objects.md · «One object, two surfaces»).
  *
  * An object's position is knowable on two surfaces, and it is STORED on the one it was last
  * hand-placed on. This module is the derivation for the other one: a geo-anchored object,

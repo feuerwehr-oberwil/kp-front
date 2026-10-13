@@ -8,7 +8,7 @@ import { normalizeStackEdit } from './stackFloors'
 
 /**
  * The unified tactical object — ONE record per object, whatever surface it stands on
- * (tmp/design-unified-objects.md, decided 09.09.2026). This retires «being on one side»:
+ * (decided 09.09.2026; the rules are in docs/tactical-objects.md). This retires «being on one side»:
  * an object is simply a thing in the Einsatz, rendered wherever its position is knowable.
  *
  * Two bodies, both in their surface's OWN vocabulary (the units genuinely differ — metres
