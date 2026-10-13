@@ -29,6 +29,17 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Changed
+
+- **`admin_objects push` refuses a manifest that shares no object id with the deployment.** When
+  a deployment already has Einsatzobjekte and not one of the manifest's ids is among them, the
+  push would create every object a second time – that is what a manifest minted under another id
+  scheme looks like (an importer whose 154 ids matched none of the station's would have laid 154
+  duplicates). It now stops before writing, dry run included, and names both counts.
+  `--allow-create` pushes anyway; a fresh deployment and any manifest with an overlap are
+  unaffected. *No action needed* unless a script pushes a deliberately new set onto a populated
+  deployment: add `--allow-create` there.
+
 ## [0.12.0] – 2026-10-13
 
 ### Upgrade notes
