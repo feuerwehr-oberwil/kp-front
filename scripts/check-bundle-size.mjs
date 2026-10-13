@@ -39,7 +39,9 @@ const byPrefix = (prefix, ext) => assets.filter((f) => f.startsWith(`${prefix}-`
 const CHUNKS = {
   entry: () => fromHtml(/<script[^>]+src="(\/?assets\/[^"]+\.js)"/g),
   App: () => byPrefix('App', '.js'),
-  maplibre: () => byPrefix('maplibre', '.js'),
+  // MapLibre 6 also emits its tile worker as `maplibre-gl-worker-<hash>.js` (lib/maplibreWorker),
+  // which the bare prefix would match too: the library chunk is the one that is not the worker.
+  maplibre: () => byPrefix('maplibre', '.js').filter((f) => !f.startsWith('maplibre-gl-worker-')),
   pdfWorker: () => byPrefix('pdfWorkerEntry', '.js'),
   css: () => fromHtml(/<link[^>]+rel="stylesheet"[^>]+href="(\/?assets\/[^"]+\.css)"/g),
 }
