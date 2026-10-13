@@ -138,7 +138,7 @@ flowchart TD
 | Path | Runs | Use when |
 | --- | --- | --- |
 | `load <manifest>` | **server-side** (storage = the server volume) | first seeding a deployment from a shell that has the data |
-| `push <manifest> --base URL` | workstation → server **API** (the deployment's `ADMIN_SECRET`, not the editor PIN – `--admin-secret` / `KP_ADMIN_SECRET`) | **refresh a live deployment** from your machine (`just push-objects`) |
+| `push <manifest> --base URL` | workstation → server **API** (the deployment's `ADMIN_SECRET`, not the editor PIN – `--admin-secret` / `KP_ADMIN_SECRET`) | **refresh a live deployment** from your machine (`just objects-push`) |
 
 ```bash
 uv run python -m app.admin_objects validate <manifest>    # parse + check every PDF exists (no DB)
@@ -153,7 +153,8 @@ server can't see. So from a workstation use `push` – files go through the API 
 writes its own volume.
 
 **Module mapping** (done by the importer in the private repo): `Modul 1`→`modul1`,
-`Modul 2`→`modul2`, combined `Modul 2-3`→`modul2`, `Modul 3`→`modul3`, `Modul 6`→`modul6`.
+`Modul 2`→`modul2`, combined `Modul 2-3`→`modul2-3` (`combinedWith: ["modul2", "modul3"]`),
+`Modul 3`→`modul3`, `Modul 6`→`modul6`.
 `Modul 4` and the `Modul 5 - *` sub-sheets map to **`modul4` / `modul5-wasser` / `modul5-pv` /
 `modul5-rwa`** (the sub-slot is kept distinct so Wasser/PV/RWA don't collapse onto one tile).
 `Vertrag/` and `Zusatz/` subfolders are ignored.
