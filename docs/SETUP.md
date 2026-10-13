@@ -613,12 +613,13 @@ loaded, every plan in the bucket is skipped and the deployment shows none of the
 
 ⚠️ **…and if you run the pull, the objects have to come from `admin_objects` – not from the
 browser.** The pull matches on the object's recorded **`source_key`**, the folder key in the plan
-store. `admin_objects` sets it; the admin form has no field for it and the API that saves the
-form cannot carry one. So an Einsatzobjekt created in the browser is complete and usable – you
-upload its Modul-PDFs there, slot by slot – but the scheduled pull will never find it, and its
-plans are counted as skipped every night with nothing on screen to say why. The Objektpläne page
-says this at the form. Two doors, one rule: **PDFs by hand → the browser is fine; PDFs on a
-timer → the object has to have been loaded by `admin_objects`.**
+store. `admin_objects` sets it, by `load` or `push`; the admin form has no field for it and never
+sends one (a save there keeps the key a CLI wrote). So an Einsatzobjekt created in the browser is
+complete and usable – you upload its Modul-PDFs there, slot by slot – but the scheduled pull will
+never find it, and its plans are counted as skipped on every run with nothing on screen to say
+why, until a later `admin_objects load` or `push` of the same object gives it a key. The
+Objektpläne page says this at the form. Two doors, one rule: **PDFs by hand → the browser is
+fine; PDFs on a timer → the object has to have been loaded by `admin_objects`.**
 
 ⚠️ **The bucket pull covers object plans and nothing else.** `plan_pull` only ever writes
 `plan:<object>:<module>` datasets, and the deployment config has no pull path at all. Plans-only
