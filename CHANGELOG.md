@@ -29,6 +29,19 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ## [Unreleased]
 
+### Added
+
+- **The ERG Schutzabstand runs downwind.** With a usable live wind the protective distance
+  around a Gefahrentafel is drawn as an oval leaning downwind that contains the whole ERG
+  protective action zone (a square of side D downwind of the placard, corners included); the
+  isolation circle stays. It stays the full circle – and the panel says why – without wind, with a
+  calm one (< 5 km/h), a reading older than 45 min or dated in the future, a MeteoSwiss station
+  more than 15 km away, or a forecast turn of 45°+ within 2 h (from the Open-Meteo hours the
+  weather request now also fetches, never recorded). The panel and a tag on the map name the
+  wind's source, distance and time. *No action needed.*
+
+## [0.12.0] – 2026-10-13
+
 ### Upgrade notes
 
 Nothing in this release needs a manual step on a station that does not use the removed print
@@ -52,7 +65,9 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   `docs/microsoft-login.md`; `PUBLIC_URL` must match its redirect URI), `STATION_INDEX_SOURCE` /
   `STATION_INDEX_TOKEN` («Stationsdaten-Index», see below), and
   `REFRESH_REUSE_GRACE_SECONDS` (default 60; `0` keeps refresh-token rotation strictly
-  one-time). The integration credentials can also be set in `/admin › Anbindungen`; new config
+  one-time). `docker-compose.yml` passes every one of these credentials from `.env` into the app
+  (`.env.example` lists them; see Fixed). The integration credentials can also be set in
+  `/admin › Anbindungen`; new config
   keys (`doctrine.entryPressureMin`, `doctrine.equipment`, `roster.snapshotIntervalMin`,
   `roster.snapshotMaxDeactivatePct`, `roster.diveraResponses`, `map.buildingRegister`) all have
   defaults (docs/CONFIGURATION.md).
@@ -85,14 +100,6 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Added
 
-- **The ERG Schutzabstand runs downwind.** With a usable live wind the protective distance
-  around a Gefahrentafel is drawn as an oval leaning downwind that contains the whole ERG
-  protective action zone (a square of side D downwind of the placard, corners included); the
-  isolation circle stays. It stays the full circle – and the panel says why – without wind, with a
-  calm one (< 5 km/h), a reading older than 45 min or dated in the future, a MeteoSwiss station
-  more than 15 km away, or a forecast turn of 45°+ within 2 h (from the Open-Meteo hours the
-  weather request now also fetches, never recorded). The panel and a tag on the map name the
-  wind's source, distance and time. *No action needed.*
 - **The Tafel gets pages: the FKS «Erste Führung» and the Handbuch sheets.** A page strip on the
   Tafel – «Skizze» (the free board, unchanged) plus «+ Seite» – adds the FKS «Erste Führung»
   poster 1:1 (Problemerfassung · Lagekarte · Massnahmen · Mittel · Verbindungen ·
@@ -418,6 +425,10 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   against the vehicles' GPS track. It reads the Railway app and HTTP logs, or a post-mortem's
   JSON dumps instead of a database, and it never writes. It exits 1 when it finds something, so
   a cron job can run it. *No action needed.*
+- **The landing page names what shipped and drops the print relay**, in all five languages:
+  «Mit Microsoft anmelden» replaces the printer among the optional add-ons, and the feature list
+  gains the Tafel with FKS pages, Gebäude-Info, the Atemschutznotfall, «Anrückend», the
+  «Auswertung» sheet and Objektbesuche.
 - **The landing page speaks Rumantsch Grischun** (`/rm/`), from a native speaker's translation;
   the few strings it did not cover (the 404 page, the form, alt texts, one FAQ) are drafted in the
   same vocabulary, and the visible notice stays until a Romansh-speaking firefighter has read it.
@@ -457,6 +468,11 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Changed
 
+- **Offline-Vorbereitung never bulk-downloads from `tile.openstreetmap.org`.** The OSM tile usage
+  policy forbids bulk pre-fetching. With OpenStreetMap as the base map, «Alles für offline laden»
+  and the automatic warm-up now pre-download Carto Voyager (the same OSM data) instead; viewing
+  OSM tiles is unchanged. Offline with OSM as base, the cached map shows after switching to Carto.
+  *No action needed.*
 - **Railway: no more `railway.json`.** Railway stops reading config-as-code files on 2026-12-01,
   so the builder, healthcheck (`/ready`, 300 s), restart policy (`ALWAYS`), replica count (`1`)
   and sleeping (off) now live in the service settings, not the repository. *Running this repo on
@@ -480,7 +496,9 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
   (the production compose file follows, see Upgrade notes), the «Visual» screenshot check is
   required on `main` since 10.10.2026, CI fails on model ↔ migration drift (`alembic check`,
   `just schema-check`), and the performance baseline carries the split's cold-start bytes.
-  *No action needed.*
+  Build and CI dependencies moved on (vite 8.3.4, vite-plugin-pwa 2.0 – the same service worker
+  –, Playwright 1.64, actions/cache 6.1, setup-node 7.1, upload-artifact 7.0.2, CodeQL), and the
+  Verlauf performance journey counts its requests the same on every run. *No action needed.*
 - **Files shared with KP Rück are checked from both sides.** `shared/MANIFEST.json` lists every
   file the two products share by copy (telemetry sanitiser, alarm vocabulary, roster contract and
   reader, alarm intake corpus, loading snail) with its owner and sha256, and replaces the hash
@@ -606,6 +624,15 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Fixed
 
+- **A credential set in a Compose station's `.env` now reaches the app.** Compose reads `.env`
+  for interpolation only, and the app service did not name the sixteen newer integration
+  credentials (`SHAREPOINT_*`, `SHAREPOINT_EXPORT_*`, `OBJECT_VISITS_INTEGRATION_KEY`,
+  `STATION_INDEX_*`, `ROSTER_SNAPSHOT_*`, `ENTRA_LOGIN_*`), so setting one there silently did
+  nothing. A test now fails when one is missing from `docker-compose.yml` or `.env.example`.
+- **`admin_objects push` keeps an object's `source_key`.** The server dropped the key the CLI
+  sent, so a pushed object had none and the S3 plan pull skipped all of its plans – on the path
+  the docs recommend. The admin mask never sends the key, so saving there keeps the one the CLI
+  wrote; a key another object already holds is a 409 naming it instead of a 500.
 - **An Absperrkreis larger than the building no longer tints a whole Gebäude storey.** The
   demo's 100 m cordon, projected onto the floor stack, washed the EG maroon and put a lock chip
   in the middle of the building. A zone (Absperrkreis or Fläche) whose interior holds its whole
@@ -4444,7 +4471,8 @@ toolchain on the VPS. Everything else here has been running in production since 
 - A render error on the login screen, landing list, or admin surface now shows the recoverable
   error card instead of a white screen (root-level error boundary + guarded boot init).
 
-[Unreleased]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/feuerwehr-oberwil/kp-front/compare/v0.8.0...v0.9.0
