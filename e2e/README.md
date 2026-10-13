@@ -39,18 +39,21 @@ So a spec **must import `test` from `./helpers`**, never from `@playwright/test`
 enforces this). A test that provokes a report on purpose lists it, and only it:
 
 ```ts
-test.use({ expectedClientErrors: [/^error: Failed to fetch$/] }) // matched against «kind: message»
+test.use({ expectedClientErrors: [OFFLINE_FETCH_FAILURE] }) // regexes matched against «kind: message»
 ```
 
 The offline smoke is the one user today. Since 24.09.2026 `lib/reportError` drops a bare fetch
 failure while `navigator.onLine` is false (`isOfflineNetworkNoise`), because being offline is not
 a client error. But Chromium's offline emulation reports `navigator.onLine === true` in a document
-reloaded while offline, so that drill's basemap tiles still report «error: Failed to fetch».
+reloaded while offline, so that drill's basemap tiles still report – as MapLibre 6 words it,
+«error: AJAXError: Failed to fetch (0): <tile url>», next to the bare «error: Failed to fetch» of
+our own fetches. `OFFLINE_FETCH_FAILURE` (`./guard`) matches both forms and nothing else.
 The loop's own console line is never excused, and nothing turns the guard off.
 
 One report is excused without being listed: a broken basemap tile (09.10.2026). A reload while
 the Karte is still loading its tiles makes WebKit fail the in-flight tile fetches and the tile
-blobs it was decoding, and MapView reports them as «error: Load failed» and «error: An error
+blobs it was decoding, and MapView reports them as «error: Load failed» (MapLibre 6: «error:
+AJAXError: Load failed (0): <url>», excused only for a basemap tile's url) and «error: An error
 occured reading the Blob argument to createImageBitmap». That turned the WebKit smoke red at
 random. The guard lets those two pass only when the same device was loading basemap tiles within
 3 s of the report (a request to a host of the service worker's `map-tiles` list in flight, ending
