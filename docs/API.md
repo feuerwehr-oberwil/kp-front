@@ -50,11 +50,14 @@ PIN-kiosk flow issuing JWTs as **httpOnly cookies** (single-origin, so no tokens
 | Prefix | Purpose | Auth |
 | --- | --- | --- |
 | `/api/auth/*` | login / refresh / logout / me; user CRUD (`/users`) | public · admin (user CRUD) |
-| `/api/admin/*` | admin-session login / logout / state | secret |
+| `/api/auth/microsoft/*` | optional «Mit Microsoft anmelden»: `start` redirects to the tenant, `callback` sets an ordinary account session – never an admin one ([`microsoft-login.md`](microsoft-login.md)) | public · 404 until configured |
+| `/api/admin/*` | admin-session login / logout | secret |
+| `/api/admin/session` | whether admin is configured at all and whether this browser holds an admin session – never the secret | public |
 | `/api/config`, `/api/branding`, `/api/system` | deployment config (`PUT` needs `If-Match`; `POST /validate` is the dry run; a write that would empty a populated section is 409 unless `?force=true`), branding assets, maintenance status incl. connector states and the `setup` block | read public (config) · admin (writes) |
-| `/api/integrations/*` | integration credentials + their audit trail (see below) | admin |
+| `/api/integrations/credentials*` | integration credentials + their audit trail (see below) | admin |
+| `/api/integrations/*` (the rest) | the Objektbesuche organizer API: catalogue, objects by the organizer's own ids, visit programmes and lists, the change feed, visits, reports and photos ([`object-visits.md`](object-visits.md)) | organizer key (`Authorization: Bearer`, fail-closed) |
 | `/api/station-workbook/*` | the station-data `.xlsx` – export, preview, import (see below) | admin |
-| `/api/incidents/*`, `/api/events/*` | incident CRUD, workspace sync, notes, append-only events; `PUT …/workspace/record` is the record slice an `el` session may write; whole-incident hard delete is the narrow exception | editor (mutations, incl. deleting an **Übung**) · `el` (record slice, journal, Einsatzdaten) · admin (hard delete of a real, archived Einsatz) |
+| `/api/incidents/*` | incident CRUD, workspace sync, notes, append-only events (`…/{id}/events`, `snapshot`, `samples`, `state`, `verify`); `PUT …/workspace/record` is the record slice an `el` session may write; whole-incident hard delete is the narrow exception | editor (mutations, incl. deleting an **Übung**) · `el` (record slice, journal, Einsatzdaten) · admin (hard delete of a real, archived Einsatz) |
 | `/api/objects/*`, `/api/reference/*` | object library + plans, reference geodata layers; `GET /api/reference/{id}/alignments?v=N` serves the station-approved fit of one plan revision | read auth · admin (writes) |
 | `/api/admin/plan-alignments/*` | the pre-computed plan alignments: list (metadata only – never the building outlines), outline (one sheet’s reference geometry, drawn per review tile), preview (`?thumbnail=true`), approve (with optional corrected pairs), reject, retry, undo, and `PUT …/floors` – the whole Geschoss list of one revision, replaced as one document: each row is a `page` + signed `index` + `part` (a storey drawn in several pieces – two wings of one 1. OG – has one row per drawing, each with its own `clip` and `join`; absent = 0). Nothing reaches an incident before an approval. Every row carries `marker_notes` (list and detail): what this revision's own `§` markers said – `warnings[]` as codes plus `storeys_found`/`storeys_written`/`geo_pairs`, `null` on an unmarked sheet – so a plan that prepared nothing can say why | admin |
 | `/api/plan-scales` | the station document (Massstäbe, Georeferenzen, measured sheet aspects); `PUT` carries `If-Match`, a stale token is 409 – a headerless PUT is still accepted for one release | auth |
@@ -62,10 +65,19 @@ PIN-kiosk flow issuing JWTs as **httpOnly cookies** (single-origin, so no tokens
 | `/api/media/*` | photo / audio upload + serve | editor |
 | `/api/personnel/*`, `/api/divera/*`, `/api/traccar/*` | roster, alarm/roster pull, vehicle GPS | editor |
 | `/api/weather`, `/api/geocode` | wind badge, address search (backend-proxied) | auth |
-| `/api/report/*` | report data (read-only output) | auth |
+| `/api/overpass/*` | building outlines for «Umrisse», proxied to the Overpass mirrors | auth |
+| `/api/georef/*` | `POST /suggest` – automatic plan alignment, streamed as NDJSON; 503 without the `georef` extra | editor |
+| `/api/push/*` | VAPID public key, Web-Push subscribe / unsubscribe | auth |
+| `/api/alarms`, `/api/firehub/*` | generic alarm intake (`POST /api/alarms`, `…/milestones`) and the FireHub webhook – each auto-opens an incident ([`ALARM-INTEGRATIONS.md`](ALARM-INTEGRATIONS.md)) | `ALARM_WEBHOOK_SECRET` (`?secret=` or `X-Webhook-Secret`, fail-closed) |
+| `/api/capture/*` | the Erfassungs-Poster: reachable incidents, roster, the attendance part of the workspace, journal, Rapport-Beilage; `/secret` mints, rotates or disables the poster token | poster token (fail-closed) · admin (`/secret`) |
+| `/api/stats/*` | `GET /incidents` – the read-only statistics export ([`STATS-EXPORT.md`](STATS-EXPORT.md)); `/secret` manages its token | stats token (fail-closed) · admin (`/secret`) |
+| `/api/object-visits/*` | Objektbesuche field API: catalogue, visits, attachments, revisions, report PDF | auth (writes per `objectVisits.captureRoles`; never a link session) · admin (read) |
+| `/api/admin/object-visits/*` | Objektbesuche admin view: every visit, the delivery outbox and retry, notify settings, destination test, ZIP export | admin |
+| `/api/incidents/{id}/report/pdf`, `…/tafel/pdf`, `…/zeitplan/pdf` | `POST` – render the Einsatzrapport, the Tafel and the Zeitplan as PDF (read-only output) | auth |
 | `/api/incident-link/*` | exchange an alerting system's link token for a read-only session on one incident (`/l/<token>`); the two **standing** links – the Stations-Terminal (`/l/t<secret>`, enrolls a device cookie) and the fixed Atemschutz URL (`/l/s<secret>`) – bind to whichever Einsatz is open; key management and rotation for all three | station keys (session) · admin (keys) · fail-closed |
 | `/api/diag/client-error` | client error sink (bounded, logged at WARNING) | none |
 | `/api/diag/export` | the Diagnose-Datei: the last 50 sanitised crashes, to attach to a bug report | auth (never a link session) |
+| `/api/diag/telemetry*` | telemetry status (incl. the queued payloads verbatim), consent on/off, install-id rotation | admin |
 
 The exact request/response shapes are in [`openapi.json`](openapi.json) / the live `/docs`.
 
@@ -80,9 +92,11 @@ offer – a container runtime, a monitor, or the browser itself:
 
 ## Integration credentials – `/api/integrations/*`
 
-The fifteen integration settings a station may set from `/admin` → Anbindungen instead of
-`.env`: the three Divera keys, the Traccar trio, the VAPID trio, the four STT settings,
-`ALARM_WEBHOOK_SECRET` and `HEALTHCHECK_PING_URL`. Stored encrypted
+The integration settings a station may set from `/admin` → Anbindungen instead of `.env` –
+exactly the fields in `FIELDS` in [`backend/app/credentials.py`](../backend/app/credentials.py):
+the Divera keys, Traccar, VAPID, STT, CARTO, the alarm webhook secret, the monitor ping URL, the
+three Azure app registrations (SharePoint pull, SharePoint export, Microsoft sign-in), the
+Objektbesuche organizer key, the station index and the roster snapshot. Stored encrypted
 (AES-256-GCM, key derived from `SECRET_KEY` via HKDF) and live without a restart. Contract and
 reasoning: [`CONFIGURATION.md` §6](CONFIGURATION.md#6-environment-variables-secrets--infra--operator-not-admin).
 
@@ -100,15 +114,17 @@ not the editor PIN. `{name}` is the lowercase field name (`divera_access_key`,
 Three rules the shapes encode:
 
 - **Secrets are write-only.** `CredentialState` carries `configured` and `source`
-  (`env` | `stored` | `unset` | `unreadable`), and `value` **only** for the six fields flagged
-  non-secret: `traccar_url`, `vapid_public_key`, `vapid_subject`, `stt_base_url`, `stt_model`,
-  `stt_language`. There is no admin level at which a Divera key becomes readable – setting and
+  (`env` | `stored` | `unset` | `unreadable`), and `value` **only** for a field flagged
+  non-secret (`secret: false` – URLs and sources, public keys, Azure tenant/client ids, the STT
+  model and language, the CARTO browser key, the Microsoft-login allow-list; the list is
+  `FIELDS`). There is no admin level at which a Divera key becomes readable – setting and
   rotating from a phone at 3am beats SSH, exfiltrating from one does not.
 - **`.env` wins.** A field the environment supplies reports `source: "env"` and refuses both
   `PUT` and `DELETE` with **409**, naming the env var in `CredentialState.env` so the page can
-  say where the value comes from. "Supplied" means *differs from the declared default* –
-  `docker-compose.yml` names all fifteen variables and materialises the app's own default for
-  `STT_MODEL`, `STT_LANGUAGE` and `VAPID_SUBJECT`, which is not a deployer decision.
+  say where the value comes from. "Supplied" means *differs from the declared default* – a
+  compose passthrough that materialises the app's own default (`STT_MODEL`, `STT_LANGUAGE`) is
+  not a deployer decision. Which variables `docker-compose.yml` passes:
+  [`CONFIGURATION.md` §6](CONFIGURATION.md#6-environment-variables-secrets--infra--operator-not-admin).
 - **`unreadable` is not `unset`.** A row that will not decrypt (i.e. `SECRET_KEY` was rotated)
   reports `source: "unreadable"` and `configured: false`, so the operator is told to set it
   again rather than sent looking for a setting they already made.
@@ -159,9 +175,9 @@ rather than one row (header mismatch, dropping a `Quelle` stock still points at,
 
 ## Configuration & data CLI
 
-Per-station config and reference data can be **config-as-code**, applied with five sibling CLIs
+Per-station config and reference data can be **config-as-code**, applied with six sibling CLIs
 (run from `backend/`, or prefixed with `docker compose exec app` on a Docker-only host; `just
-config-*` / `geodata-load` / `objects-load` wrap the common ones). Each of the five now also has a
+config-*` / `geodata-load` / `objects-load` wrap the common ones). Each of the six now also has a
 browser equivalent for one item at a time – see
 [`CONFIGURATION.md` §9](CONFIGURATION.md#9-loading-station-data-with-the-admin-clis) for which
 door to use when:
@@ -173,6 +189,7 @@ door to use when:
 | `python -m app.admin_geodata` | reference geodata layers (hydrants, WMS) | `just geodata-load <manifest>` |
 | `python -m app.admin_objects` | object library + Modul-PDF plans | `just objects-load <manifest>` |
 | `python -m app.admin_checklists` | checklist templates + playbook diagram assets | `validate <manifest>`, `push <manifest>` |
+| `python -m app.admin_board_templates` | the Tafel's board templates (`board-template/1`, [`board-templates.md`](board-templates.md)) | `just board-templates-load <manifest>`, `just board-templates-push <manifest>` |
 
 **Which verbs each one has:**
 
@@ -183,8 +200,9 @@ door to use when:
 | `admin_geodata` | ✅ | ✅ | ✅ | – | ✅ | ✅ | ✅ |
 | `admin_objects` | ✅ | ✅ | ✅ | – | ✅ | ✅ | ✅ |
 | `admin_checklists` | ✅ | ✅ | ✅ | – | ✅ | ✅ | ✅ |
+| `admin_board_templates` | ✅ | ✅ | ✅ | – | ✅ | ✅ | ✅ |
 
-`admin_config` also has `history` / `restore`. **All five support `push`** – `admin_config push`
+`admin_config` also has `history` / `restore`. **All six support `push`** – `admin_config push`
 landed in `55c4a94`, so nothing needs a database connection any more. Which verb to use where is
 [`CONFIGURATION.md` §9a](CONFIGURATION.md#9a-what-all-of-them-share); the short version is `push`
 for a running deployment, `load` only where the database and the storage directory are both the
