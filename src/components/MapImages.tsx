@@ -20,7 +20,7 @@ export function MapImages({ layers, byName }: { layers: readonly LayerDef[]; byN
 
   // ⚠️ A LAYOUT effect: it runs synchronously in the commit that mounts the <Layer> siblings,
   // before any macrotask — so before the worker's first image request can arrive and find no
-  // listener. A passive effect runs after paint, from a scheduler task that could lose that race
+  // resolver. A passive effect runs after paint, from a scheduler task that could lose that race
   // (CodeRabbit on #232). The listener then stays installed across style reloads.
   useLayoutEffect(() => {
     if (!map) return
@@ -36,20 +36,24 @@ export function MapImages({ layers, byName }: { layers: readonly LayerDef[]; byN
       icons.restore()
       if (a) map.triggerRepaint()
     }
-    const onMissing = (e: { id: string }) => {
-      if ((ARROW_IDS as readonly string[]).includes(e.id)) { if (ensureArrowImages(host)) map.triggerRepaint(); return }
-      if (icons.answerMissing(e.id)) return
+    // ⚠️ A resolver (`setMissingStyleImageResolver`), not a `styleimagemissing` listener: since
+    // MapLibre 6 that event is notify-only and fires after the tile's request was answered without
+    // the image, so what it added came too late for the layout that asked (lib/draw ·
+    // ensureHatchImages). The resolver is awaited first; everything below adds synchronously.
+    const resolveMissing = (id: string) => {
+      if ((ARROW_IDS as readonly string[]).includes(id)) { if (ensureArrowImages(host)) map.triggerRepaint(); return }
+      if (icons.answerMissing(id)) return
       // a colour outside the palette (a legacy drawing, a station that re-cut `drawing.colors`)
       // asks for a Schraffur tile nobody registered — a missing `fill-pattern` paints NOTHING,
       // so that Fläche would simply be gone from the Karte. Mint it the moment it is asked for.
-      const c = hatchImageColor(e.id)
-      if (c) { ensureHatchImage(map, e.id, c); map.triggerRepaint() }
+      const c = hatchImageColor(id)
+      if (c) { ensureHatchImage(map, id, c); map.triggerRepaint() }
     }
-    map.on('styleimagemissing', onMissing)
+    map.setMissingStyleImageResolver(resolveMissing)
     map.on('styledata', ensure)
     try { ensure() } catch { /* style not ready yet — `styledata` brings it */ }
     return () => {
-      map.off('styleimagemissing', onMissing)
+      map.setMissingStyleImageResolver(null)
       map.off('styledata', ensure)
       icons.dispose()
       if (registry.current === icons) registry.current = null
