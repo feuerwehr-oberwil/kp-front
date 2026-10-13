@@ -36,9 +36,10 @@ People call a Trupp by its Gruppenführer, so on the Atemschutz card, the phone 
 lite-board tab, the map/plan marker and the selected pill the **leader name stays primary**
 (bold, colour dot, as today). The number is a **small badge** next to it, for documentation –
 spelled `#1`, because a bare digit beside a name read as a count (12.09., after the first build).
-Since 14.09. the badge sits on the **Atemschutz card only**: it left the phone row and the lite
-tab strip first, then the resting Trupp marker on the Karte and the chip on the Plan, and the
-selected pill with them – on the picture the name alone is the label.
+Since 30.09.2026 the badge sits in the **TruppFinder only**: it left the phone row and the lite
+tab strip first, then (14.09.) the resting Trupp marker on the Karte, the chip on the Plan and the
+selected pill – on the picture the name alone is the label – and last (30.09.2026, owner) the
+Atemschutz card. The Verlauf rows and the Rapport spell the number out as «Trupp N».
 
 - Hose-line end tag stays the abbreviated leader («Meier A.»); no number.
 - Alarm row, finder and card crew line list the crew with the same separator as the journal
@@ -61,8 +62,8 @@ selected pill with them – on the picture the name alone is the label.
 - Every Trupp row starts with the label and the leader: `Trupp 1 (Meier Anna): …`.
 - **Safety rows** (angemeldet, Eintritt, Kontakt, Druck, Rückzug, Austritt, Alarm, Wieder
   einrücken) spell out the whole crew: `Trupp 1 (Meier Anna / Dürring Jan): Eintritt`.
-- **Housekeeping rows** (platziert, Farbe, Leitung, gelöscht, wiederhergestellt, nicht mehr
-  gesetzt) name the leader only: `Trupp 1 (Meier Anna): Farbe geändert`.
+- **Housekeeping rows** (platziert, Leitung, entfernt, wiederhergestellt, nicht mehr
+  gesetzt) name the leader only: `Trupp 1 (Meier Anna) entfernt`.
 - **Edit rows** (bearbeitet: Auftrag, Ausrüstung, Kanal …) spell out the whole crew since
   25.09.2026 (staging walk-through r2): they are read to answer «what did THIS crew do», and the
   leader alone named a different set of people than the safety rows around them.
@@ -239,7 +240,7 @@ for this door. Revisit only if the field asks for the chip's number to stick.
 | Backend accepts `no` | `backend/app/alarm_validation.py` |
 | The one crew formatter, both forms | `src/lib/atemschutz.ts` · `truppLogName(t, 'crew' \| 'leader')` |
 | Vocabulary term `Trupp N` + legacy term, GF badge on the first person | `src/lib/journalLinks.ts` |
-| The badge | `src/components/TruppNo.tsx` (`.trupp-no` in `02-base.css`), used on the card and `TruppFinder` (not the phone row, the lite tab strip, the resting map marker / plan chip, or the selected `TwinTeamPill` – all dropped 14.09.) |
+| The badge | `src/components/TruppNo.tsx` (`.trupp-no` in `02-base.css`), used only in `TruppFinder` (not the phone row, the lite tab strip, the resting map marker / plan chip, or the selected `TwinTeamPill` – all dropped 14.09. – nor the Atemschutz card, dropped 30.09.2026) |
 | The join sheet of a loose chip | `src/components/TwinTeamPill.tsx` · `TruppJoinMenu` – the ONE list of Trupps a selected marker/chip can be joined to, on both surfaces; its last row «Neuer Trupp» opens the Anmeldung (`AtemschutzView · createRequest`) and the saved Trupp adopts the marker (`IncidentWorkspace · newTruppFromMarker / adoptMarkerA`) |
 | Crew per cycle and the change lines | `src/lib/report.ts` · `truppCrewHistory`; payload in `reportPdfDirect.ts` (`no`, `leader`, `cycles`); rendered by `backend/app/report_pdf.py` (`TruppIn.cycles`, heading `Trupp N – Leader`) |
 

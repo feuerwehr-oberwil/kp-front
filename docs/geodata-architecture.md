@@ -63,7 +63,7 @@ flowchart TD
 
   subgraph A["CLI · admin_geodata"]
     L1["load<br/>(server-side)"]
-    L2["load --config-only<br/>(workstation → remote DB)"]
+    L2["load --config-only<br/>(where DATABASE_URL reaches the DB)"]
     L3["push --base URL<br/>(workstation → server API)"]
   end
   UI["/admin → Kartenebenen<br/>(GeoJSON-Ebene anlegen / Datei ersetzen)"]
@@ -83,14 +83,18 @@ flowchart TD
 | Path | Runs | Files? | Config? | Use when |
 | --- | --- | --- | --- | --- |
 | `load` | **server-side** (storage = the server volume) | ✅ | ✅ | first seeding a deployment from a shell that has the data |
-| `load --config-only` | workstation → remote DB | – | ✅ | files already on the server; you only changed colours/labels/groups |
+| `load --config-only` | wherever `DATABASE_URL` reaches the DB – inside the app container / on the server, or a managed DB with a reachable URL | – | ✅ | files already on the server; you only changed colours/labels/groups |
 | `push --base URL` | workstation → server **API**, authenticated with `--admin-secret` / `KP_ADMIN_SECRET` | ✅ | ✅ | **refresh a live deployment's data** from your machine (`just geodata-push`) |
 | `/admin` → Kartenebenen | browser → server API | ✅ (one file) | ✅ | **the everyday door**: add or replace a single layer without a terminal. A replace bumps the dataset version in place, so consumers keyed on `?v=` re-fetch. Needs an unlocked admin session – both writes are admin-only |
 
 **The storage caveat (why `push` and `--config-only` exist):** a plain `load` writes the GeoJSON
-to its *local* `MEDIA_STORAGE_DIR`. Run from a laptop against a remote DB it would point the
-DB rows at files the server can't see. So from a workstation: `push` (files go through the API,
-server writes its own volume) or `--config-only` (touch config only). GeoJSON is validated as a
+to its *local* `MEDIA_STORAGE_DIR`. Run on any host other than the server (a laptop with a
+reachable `DATABASE_URL`, say) it would point the DB rows at files the server can't see.
+`--config-only` skips the files, but it still writes the DB directly, so it runs where
+`DATABASE_URL` reaches the database – inside the app container on a compose deployment, whose
+Postgres publishes no port ([`STATION-DATA.md`](STATION-DATA.md)), or anywhere for a managed DB
+with a reachable URL. From a workstation, `push` is the path (files go through the API, server
+writes its own volume). GeoJSON is validated as a
 **WGS84 `[lng,lat]`** FeatureCollection – LV95-looking coordinates are rejected at every entry.
 
 ## Runtime render

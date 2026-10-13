@@ -11,7 +11,7 @@ private config/data repo, what the CLI validates and loads, what the admin UI vi
 the backend validates.
 
 **In a hurry?** Setting a station up for the first time: [§9](#9-loading-station-data-with-the-admin-clis)
-is the load order and the five CLIs. Looking for an environment variable:
+is the load order and the six CLIs. Looking for an environment variable:
 [§6](#6-environment-variables-secrets--infra--operator-not-admin). Looking for a field of the
 config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
 
@@ -39,7 +39,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
     [4d. The station index – one address for all station data](#4d-the-station-index--one-address-for-all-station-data)
 - [5. User accounts, roles, and deployment administration](#5-user-accounts-roles-and-deployment-administration)
 - [6. Environment variables (secrets / infra)](#6-environment-variables-secrets--infra--operator-not-admin)
-  - [The twenty-eight integration credentials – env **or** `/admin`](#the-twenty-eight-integration-credentials--env-or-admin--anbindungen)
+  - [The integration credentials – env **or** `/admin`](#the-integration-credentials--env-or-admin--anbindungen)
   - [6a. Objektplan-Pull](#6a-objektplan-pull-fetch-modul-pdfs-instead-of-having-them-pushed-in)
   - [6b. Three things that look like env vars and are not](#6b-three-things-that-look-like-env-vars-and-are-not)
   - [6c. SharePoint-Pull – the station's own folders](#6c-sharepoint-pull-the-stations-own-folders-imported-on-a-schedule)
@@ -69,7 +69,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
 |-------|------|-------|-------------|
 | **Defaults** | National/safe fallbacks (FKS doctrine, symbol presets) | `src/config/appConfig.ts` | developers |
 | **Deployment config** ← *this doc* | Per-station settings + uploaded assets | DB `deployment_config` row + asset storage | technical deployment owner – forms at `/admin`, or the same rows as a config file via CLI |
-| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the twenty-eight integration credentials – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Anbindungen for those twenty-eight. **Env wins and locks the field** (§6) |
+| **Secrets / infra** | DB URL, API keys, session secret | environment variables, **or** – for the integration credentials (🔐 in §6) – the encrypted `integration_credentials` table | operator (deploy time) · an **admin** at `/admin` → Anbindungen for those. **Env wins and locks the field** (§6) |
 | **Per-incident settings** | Live operational knobs (synced) | workspace blob (`IncidentSettings`) | any **user**, in-incident |
 
 **Resolution:** per-incident overrides deployment config overrides defaults. **An empty
@@ -181,7 +181,9 @@ both now have browser pages – §9e and §9f.
 {
   "identity": {
     "appName": "Feuerwehr Musterdorf",        // shown in title bar, login, help; default "KP Front"
-    "locale": "de-CH",                          // "de-CH" today; "fr-CH" / "it-CH" later
+    "locale": "de-CH",                          // "de-CH" | "en" | "fr" | "it" (the Sprache picker);
+                                                //    another tag resolves by its primary subtag,
+                                                //    an unknown one falls back to German
     "accentColor": "#c4161c",                   // HEX ONLY (#rgb/#rgba/#rrggbb/#rrggbbaa, `#`
                                                 //    optional on input, stored lowercase with it);
                                                 //    anything else is refused with 422. Flows
@@ -200,7 +202,10 @@ both now have browser pages – §9e and §9f.
       "iconPng512": "icon-512.png"
     },
     "helpIntro": "… ist die digitale Lage- und Einsatzführung der Feuerwehr Musterdorf …",
-    "kommandant": "Maj Hans Muster"             // pre-fills the Kommandant signature line on the Einsatzrapport
+    "kommandant": "Maj Hans Muster",            // pre-fills the Kommandant signature line on the Einsatzrapport
+    "demoNote": null                            // demo deployments only: a note on the login screen
+                                                //    (e.g. the shared PIN), shown only while
+                                                //    identity.demoMode is true
   },
 
   "map": {
@@ -271,6 +276,9 @@ both now have browser pages – §9e and §9f.
                                                   // once; 0 = never ask – see below
     "cylinderLiters": 7,                          // the two numbers behind the air estimate
     "estConsumptionLPerMin": 50,                  // («noch ≈ N bar») on the Trupp card
+    "auftragColors": null,                        // starting colour per Auftrag id, e.g.
+                                                  // { "loeschen": "#e8392b" }; null = every Trupp
+                                                  // its own colour (overridable per Trupp)
     "equipment": [                                // Ausrüstung a Trupp can take in – short labels,
       { "id": "retthaube", "label": "Retthaube" }, // printed on the card and the Rapport. Absent /
       { "id": "wbk", "label": "WBK" },             // empty = these three shipped defaults. Ids are
@@ -875,9 +883,9 @@ is the usual "the rebrand didn't work" report, and it is not fixable from the se
   | `modul6` | Gebäudepläne | floor plans |
 - Built-in, non-uploaded plan tiles (always available): `osm` (live OSM building outlines) and
   `tafel` (blank sketch sheet).
-- **Objects** (which plans belong to which building) come from the backend reference store
-  (`/api/reference/objects`); a station with no object data simply has no object plans – the
-  `osm` and `tafel` sheets still work.
+- **Objects** (which plans belong to which building) come from the backend object library
+  (`/api/objects`, and `/api/incidents/{id}/objects` for the ones near an incident); a station
+  with no object data simply has no object plans – the `osm` and `tafel` sheets still work.
 
 ---
 
@@ -1255,16 +1263,18 @@ The product role model is deliberately small:
 
 ## 6. Environment variables (secrets / infra – operator, not admin)
 
-Set at deploy time, never in the repo. **Sixteen of them are also settable from the browser** –
+Set at deploy time, never in the repo. **The 🔐 ones are also settable from the browser** –
 see the rule immediately below; everything else in the table really is deploy-time only.
 
-### The twenty-eight integration credentials – env **or** `/admin` → Anbindungen
+### The integration credentials – env **or** `/admin` → Anbindungen
 
 The station's integration settings – the three Divera keys, the Traccar trio, the VAPID trio, the
-four STT settings, the CARTO browser key, `ALARM_WEBHOOK_SECRET`,
-`HEALTHCHECK_PING_URL`, the four SharePoint fields (§6c) and the roster-snapshot source and
-token (§4c) – no longer have to come from `.env`. An admin can set and rotate them at `/admin` → **Anbindungen**,
-where they are stored **encrypted** in the `integration_credentials` table (AES-256-GCM, key
+four STT settings, the CARTO browser key, `ALARM_WEBHOOK_SECRET`, `HEALTHCHECK_PING_URL`, the
+four SharePoint-pull fields (§6c), the three SharePoint-export fields, the four «Mit Microsoft
+anmelden» fields, the Objektbesuche organizer key, and the source and token of the station index
+(§4d) and of the roster snapshot (§4c) – no longer have to come from `.env`. The authoritative
+list is `FIELDS` in `backend/app/credentials.py`. An admin can set and rotate them at `/admin` →
+**Anbindungen**, where they are stored **encrypted** in the `integration_credentials` table (AES-256-GCM, key
 derived from `SECRET_KEY` via HKDF-SHA256, the credential's own name as AAD) and take effect
 **without a restart** – the resolver re-reads the stored half every 30 s and immediately on a
 write. They are marked 🔐 in the table below.
@@ -1274,23 +1284,26 @@ Four rules, and none of them is optional reading:
 1. **A value in `.env` wins and locks the field.** The browser shows it as server-set, names the
    variable, and offers no input; the API answers **409** to a `PUT` or `DELETE`. **Existing
    deployments therefore change behaviour not at all.** "Supplied" means *different from the
-   application's own default* – `docker-compose.yml` names the sixteen original variables and materialises
-   the application default for `STT_MODEL` and `STT_LANGUAGE`, and a compose passthrough is
-   not a deployer's decision. (`VAPID_SUBJECT` is passed through **blank** for exactly this
-   reason: a fallback that differed from the declared default would have read as a choice and
-   locked VAPID-Kontakt out of the browser on every compose install. Blank means unset, and unset
-   resolves to `mailto:kp-front@localhost`.)
-2. **Secrets are write-only.** They can be set and rotated over the API, never read back. Nine
-   fields are readable because each earns it individually: `TRACCAR_URL` (a hostname the System
-   card already prints), `ROSTER_SNAPSHOT_SOURCE` and `STATION_INDEX_SOURCE` (an operator checks
-   it is the right file), `VAPID_PUBLIC_KEY` (already handed to every logged-in browser),
-   `VAPID_SUBJECT`, `STT_BASE_URL`, `STT_MODEL`, `STT_LANGUAGE`, and `CARTO_API_KEY`. The CARTO
-   key is the deliberate exception: CARTO requires it in every browser tile URL, so domain
-   restrictions in CARTO – not secrecy – prevent use elsewhere. **Readable is not public**,
-   though: `/api/config` serves it only to a caller that already holds a session (PIN user,
-   admin, or an incident link) and withholds it from anonymous ones – see the row in the table
-   below. `TRACCAR_EMAIL` is *not* readable –
-   it is half of a credential pair – and neither is `HEALTHCHECK_PING_URL`, whose one misuse is
+   application's own default* – `docker-compose.yml` materialises the application default for
+   `STT_MODEL` and `STT_LANGUAGE`, and a compose passthrough is not a deployer's decision.
+   (`VAPID_SUBJECT` is passed through **blank** for exactly this reason: a fallback that
+   differed from the declared default would have read as a choice and locked VAPID-Kontakt out
+   of the browser on every compose install. Blank means unset, and unset resolves to
+   `mailto:kp-front@localhost`.)
+2. **Secrets are write-only.** They can be set and rotated over the API, never read back. Every
+   field flagged non-secret in `FIELDS` is readable because each earns it individually:
+   `TRACCAR_URL` (a hostname the System card already prints), `ROSTER_SNAPSHOT_SOURCE` and
+   `STATION_INDEX_SOURCE` (an operator checks it is the right file), `VAPID_PUBLIC_KEY` (already
+   handed to every logged-in browser), `VAPID_SUBJECT`, `STT_BASE_URL`, `STT_MODEL`,
+   `STT_LANGUAGE`, the tenant and client ids of all three Azure app registrations (compared
+   against the Azure portal; useless without the secret), `SHAREPOINT_SECRET_EXPIRES` (a date,
+   not a credential), `ENTRA_LOGIN_ACCOUNTS` («who may get in this way» is what an admin has to
+   check), and `CARTO_API_KEY`. The CARTO key is the deliberate exception: CARTO requires it in
+   every browser tile URL, so domain restrictions in CARTO – not secrecy – prevent use
+   elsewhere. **Readable is not public**, though: `/api/config` serves it only to a caller that
+   already holds a session (PIN user, admin, or an incident link) and withholds it from
+   anonymous ones – see the row in the table below. `TRACCAR_EMAIL` is *not* readable – it is
+   half of a credential pair – and neither is `HEALTHCHECK_PING_URL`, whose one misuse is
    pinging it so the monitor believes a dead station is alive.
 3. **Rotating `SECRET_KEY` now costs more than the PINs.** It is the key the credentials are
    sealed with, so a rotation makes **every stored credential undecryptable** on top of breaking
@@ -1414,7 +1427,7 @@ is fetched, and plans stay exactly as they were loaded. Index format and the rea
 
 Each of these is a **token or key stored in the database** and managed in the admin UI, not set
 at deploy time. They are listed here because that is where people go looking for them. (Unlike
-the twenty-eight 🔐 credentials above, these three have **no** environment variable at all – there is
+the 🔐 credentials above, these three have **no** environment variable at all – there is
 nothing to put in `.env` and nothing that could outrank the stored value.)
 
 | Feature | Where it is managed | What it does |
@@ -1581,14 +1594,17 @@ A deployment with an empty config must be fully operable:
 ## 9. Loading station data with the admin CLIs
 
 Everything a station provides – the config document, its brandmark, reference layers, object
-plans, checklists – is loaded by one of five sibling CLIs in `backend/app/`.
+plans, checklists, the Tafel's board templates – is loaded by one of six sibling CLIs in
+`backend/app/`. The sixth, `admin_board_templates` (`just board-templates-load` /
+`board-templates-push`), has no section of its own here: it travels exactly like
+`admin_checklists` (§9f) and is documented in [`board-templates.md`](board-templates.md).
 
-**None of them is the only door any more.** Every one of those five now has a browser
+**None of them is the only door any more.** Every one of those six now has a browser
 equivalent for working on **one thing at a time**: the config on the Station pages, the
 brandmark on Station & Karte, a map layer on **Kartenebenen**, an Einsatzobjekt and its
-Modul-PDFs on **Objektpläne**, a checklist template and its diagram pages on **Checklisten** –
-plus the Arbeitsmappe (§9h) for the list-shaped data. That is where a station normally
-administers itself, and none of it needs a terminal.
+Modul-PDFs on **Objektpläne**, a checklist template and its diagram pages on **Checklisten**, a
+board template on **Tafel-Vorlagen** – plus the Arbeitsmappe (§9h) for the list-shaped data. That
+is where a station normally administers itself, and none of it needs a terminal.
 
 **What the CLIs are still for** is the other half of the job: a whole library in one run, a
 manifest that is reviewed and versioned in a private data repo, a station reproduced on a second

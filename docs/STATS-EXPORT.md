@@ -65,13 +65,13 @@ last-active tracker.
 | `alarm_ref` | string \| null | the reference the alerting system **printed on the alarm** – the string that reaches the paper report and can be transcribed into a record system's case-number field. Null when nothing stated one. **Not unique per incident** – see below |
 | `alarm_origin` | string \| null | where the alarm came **in** from, as the alerting system knew it – a slug like `alarmzentrale`, never a phone number. Recorded write-once at intake. Null means no origin was stated, which is the normal case and reads as *unknown*, **not** as "not a dispatch" – see below |
 | `is_archived` | bool | |
-| `is_exercise` | bool | Übung – only present when `include_exercises=1` asked for them |
+| `is_exercise` | bool | Übung – always present; `true` rows only appear when `include_exercises=1` asked for them |
 | `confirmed_at` | ISO datetime \| null | first editor open (`editor_opened_at`); null = nobody at the station ever had this incident open |
 | `rapport` | `open` \| `done` \| `changed` | derived: `changed` = anything moved after Rapport completion |
 | `report_done_at` | ISO datetime \| null | |
 | `alarmiertAt` | ISO datetime \| null | the **effective** Alarmierungszeit: the Rapport's own value if edited, else `started_at` when its provenance is known. Null when this record does not know one – see below |
 | `ausgeruecktAt`, `endedAt` | ISO datetime \| null | Rapport times (`ausgeruecktAt` = first physical departure once vehicle milestones exist) |
-| `einsatzleiter`, `kontaktperson`, `summary` | string \| null | Rapport fields |
+| `einsatzleiter`, `kontaktperson`, `kontaktpersonTelefon`, `summary` | string \| null | Rapport fields |
 | `eigentuemer` | string \| null | Eigentümer / Verursacher |
 | `gerettete` | `{personen?, tiere?}` \| null | rescued counts (absent ≠ 0) |
 | `rueckmeldungElz` | `{name?, at?}` \| null | report-back to dispatch |

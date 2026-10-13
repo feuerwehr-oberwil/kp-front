@@ -23,7 +23,7 @@ app/
   storage.py         object storage (local dir v1 = Railway volume)
   seed.py            seed users from seed_users.json
 alembic/             migrations
-tests/               pytest suite (see Tests below) + smoke_*.py scripts for a live server
+tests/               pytest suite (see Tests below)
 ```
 
 ## Local dev
@@ -238,6 +238,6 @@ Each object becomes an `ObjectSite` row and each Modul-PDF a `ReferenceDataset`
 (`plan:<obj>:<module>`, blob in object storage), auto-surfaced on a nearby incident.
 `load` writes the local storage volume (run it server-side); `push` goes through a running
 server's API so it writes its OWN volume – the way to **refresh a remote deployment** from a
-workstation. To refresh: re-run the importer in the data repo, then `just push-objects` (or the
-`push` command above). See [`../docs/objektplaene-architecture.md`](../docs/objektplaene-architecture.md).
+workstation. To refresh: re-run the importer in the data repo, then
+`just objects-push <manifest>` (or the `push` command above). See [`../docs/objektplaene-architecture.md`](../docs/objektplaene-architecture.md).
 

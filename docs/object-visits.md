@@ -1,6 +1,6 @@
 # Objektbesuche (object visits)
 
-Status: in development (feature branch `feat/object-visits`, 2026-10-03). Product rationale and
+Status: 🟢 shipped 2026-10-03 (optional module, off by default). Product rationale and
 mockups: the design pack `firefighting-app-review-2026-10-02/design/object-visits/` (PLAN.md).
 This file is the **technical contract** the backend, the field app, the admin and any outside
 organizer (e.g. fwo-admin) build against. Change it in the same change as the code.

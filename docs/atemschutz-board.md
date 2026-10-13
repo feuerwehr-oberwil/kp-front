@@ -60,10 +60,8 @@ questions, and what the record keeps (`components/AtemschutzView`). Module rules
 ## The Trupp form and its questions
 
 - *A door answers the same question the same way* (29.09.2026): the Trupp form and the Auftrag
-  sheet share their Ziel and Leitung controls — `ZielChips` under the Ziel field for EVERY
-  Auftrag, and `TruppSheets · LeitungField` («keine · Ltg n · Nr. …»). Ziel chips are
-  SHORTCUTS: a pick fills the field and the chip is never drawn as chosen (no `aria-pressed`, no
-  `--sel`); the field holds the answer.
+  sheet share their Ziel and Leitung controls — a plain `ClearableInput` for the Ziel, and
+  `TruppSheets · LeitungField` («keine · Ltg n · Nr. …») for the Leitung.
 - *The form asks Druck and Kanal in the sheets that ask them on the card* (30.09.2026, owner):
   one row each in every mode, «Eingangsdruck 300 bar ›» / «Funkkanal 11 ›», opening the Druck
   sheet (20-bar grid, the form's value filled — `PressureSheet · chosen`) or the Kanal sheet

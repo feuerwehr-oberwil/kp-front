@@ -17,14 +17,15 @@ That is a website, not the app — see [The project website](#the-project-websit
 
 ## Map and address services are a separate matter
 
-Nothing above is about the **map**. Drawing a map means asking somebody for map data, and four
+Nothing above is about the **map**. Drawing a map means asking somebody for map data, and five
 of those requests carry a location:
 
 | Service | What leaves | Who it goes to | Turn it off |
 |---|---|---|---|
 | Basemap tiles | the map tiles you are looking at, i.e. roughly where you are working | the configured tile provider, **from the browser** (so it can cache them) | choose a different `map.bases` entry, or self-host tiles |
+| Basemap tiles for printed PDFs | the tiles around the incident, to draw the map on the Rapport and the Tafel print | the same provider (Carto, OpenStreetMap or swisstopo, or a host listed in `REPORT_TILE_HOSTS`), **from the server**; cached on disk | a basemap whose host is in neither list prints a grey background instead – self-host tiles and list that host to keep the map |
 | Building outlines («Umrisse») | a bounding box around the incident | public [Overpass](https://wiki.openstreetmap.org/wiki/Overpass_API) mirrors, **from the server** | `OVERPASS_MIRRORS=` (empty disables the surface) or point it at your own Overpass |
-| Address search / geocoding | the text you type, or a clicked coordinate | the configured geocoder (swisstopo by default), **from the server** | `GEOCODER_URL` |
+| Address search / geocoding, Gebäude-Steckbrief | the text you type, a clicked coordinate, or the incident point for the federal building registers (GWR, BFE) | the configured geocoder host (swisstopo's geo.admin.ch by default), **from the server** | `GEOCODER_URL` |
 | Weather layer (radar) | nothing about you: the backend downloads the nationwide MeteoSwiss radar files | [MeteoSwiss open data](https://opendatadocs.meteoswiss.ch/), **from the server** | `WEATHER_LAYER_ENABLED=false` |
 | Weather / wind | the incident coordinate for the point-based weather code and fallback; MeteoSwiss observation downloads themselves are national, not point queries | [Open-Meteo](https://open-meteo.com/), **from the server** | `OPEN_METEO_URL=` (empty disables weather) |
 
@@ -60,8 +61,28 @@ Where a station does configure one, two things are worth being deliberate about:
 
 Neither of these sends anything to the maintainer, and neither is affected by the telemetry
 switch below — this is your Wehr's own configuration talking to your Wehr's own choice of form
-provider. It is documented here because it is the one place in the app where incident text can
-leave the instance without an operator realising it.
+provider. It is documented at this length because a link can carry incident text off the
+instance without an operator realising it. The other optional integrations that can carry
+incident data are listed in the next section.
+
+## Optional integrations a station connects
+
+Each of these is off until the station configures it, each talks to a destination the station
+chose, and none of them sends anything to the maintainer. Requests go from the server unless
+noted.
+
+| Integration | What leaves | Who it goes to | Turn it off |
+|---|---|---|---|
+| Incident webhooks | when an Einsatz opens: its title, type, priority, address, coordinates, alarm source and id, start time and – if `PUBLIC_URL` is set – its `/e/<token>` capture link, which opens that Einsatz's capture page for whoever holds it; when an alarm is attached to an Einsatz: the Einsatz id and title and the alarm's source and id | every URL in `alarms.webhooks`, without an auth header | leave `alarms.webhooks` empty |
+| Web Push | the notification's title and text – e.g. «Neuer Einsatz» with title and address, an Atemschutz alert naming the Trupp, a Wiedervorlage's text, an Objektbesuch summary with names – encrypted to the subscribed browser's own keys | the push service of each subscribed browser's vendor (e.g. Google, Mozilla, Apple), which relays it without being able to read it, but sees when and to which subscription | leave the `VAPID_*` keys unset |
+| Speech-to-text | the audio of one recording, when an editor taps «Transkribieren» | the server at `STT_BASE_URL` (OpenAI, Groq, or self-hosted) | leave `STT_BASE_URL` empty |
+| Objektbesuche filing | each visit's full record (object, who visited, checklist answers, Bemerkungen, Korrekturvorschläge) as PDF and JSON, plus its photos – one way, nothing deleted remotely | the station's own SharePoint folder via Microsoft Graph, under a separate app registration | disable the destination in `objectVisits`, or leave `SHAREPOINT_EXPORT_*` unset |
+| SharePoint pull | only the requests for the configured folders – read-only, nothing is written | the station's own Microsoft 365 tenant via Graph | empty `sharepoint.sources`, or clear the `SHAREPOINT_*` credentials |
+| «Mit Microsoft anmelden» | the person signing in is sent to Microsoft by their browser; the server redeems the one-time code with the app's client credentials and fetches Microsoft's signing keys | the station's Entra ID tenant | leave the `ENTRA_LOGIN_*` credentials unset |
+| Divera 24/7 | the station's access key with each read of alarms, answers and roster; nothing is written back | Divera | leave `DIVERA_ACCESS_KEY` empty |
+| Traccar | the station's Traccar login; vehicle positions are only read | the station's Traccar server | leave `TRACCAR_URL` empty |
+| Station-data sources | the station's own read credential, if any; nothing is written | the configured S3 plan bucket, station index or roster snapshot | leave the `PLANS_S3_*`, `STATION_INDEX_SOURCE` and `ROSTER_SNAPSHOT_SOURCE` settings empty |
+| Heartbeat | a bare GET every 60 s, with no content | the monitor at `HEALTHCHECK_PING_URL` | leave it empty |
 
 ## Sharing your own location during an Einsatz
 
@@ -110,7 +131,7 @@ Everything below is about the maintainer channels.
 | --- | --- | --- |
 | Who starts it | An operator, in the **Rückmeldung** sheet | The app, after a crash |
 | Default | Always available | **Off** |
-| Consent | Saving the file and attaching it | An admin switches it on in **System & Wartung** |
+| Consent | Saving the file and attaching it | An admin sets it through the admin API (`PUT /api/diag/telemetry/consent`); there is no switch in the UI |
 | Can be disabled entirely | It never leaves on its own | Yes, `KP_TELEMETRY_ENABLED=0` |
 | Content | The technical block, plus this server's sanitised crash traces since its last restart | A sanitised crash |
 | Where it goes | Wherever the operator sends it — an e-mail, a GitHub issue — and nowhere else | **Nowhere**, unless a deployer set `KP_TELEMETRY_DSN` to an ingest of their own |
@@ -254,10 +275,10 @@ there is no analytics provider, no tracking script and no consent banner, becaus
 nothing here to consent to.
 
 **How.** Opening a page sends one small request to the demo server naming which page it was
-(the language, or «404»). Inside the demo, switching to a section — Lage, Plan, Atemschutz,
-Anwesenheit, Mittel, Rapport — sends the section's name the same way. That is the entire
-payload: no identifier, no cookie, nothing written to your browser's storage, nothing about
-what is on the screen.
+(the language, or «404»). Inside the demo, switching to a section — Lage, Plan, Checklisten,
+Atemschutz, Anwesenheit, Mittel, Rapport — sends the section's name the same way. That is the
+entire payload: no identifier, no cookie, nothing written to your browser's storage, nothing
+about what is on the screen.
 
 **What is stored.** Counters, and only counters: one row per day, per kind, per name, holding
 a number of visits and a number of visitors. There is no table of individual visits anywhere
@@ -286,9 +307,10 @@ rather than believing this section.
 
 ## Legal
 
-Your fire service is the data controller for everything in its instance. Switching on background
-error reports makes the maintainer a recipient of the (sanitised, non-personal) data described
-above. That decision belongs to the organisation, which is why the switch lives behind
+Your fire service is the data controller for everything in its instance. Background error
+reports have no maintainer recipient: with consent on and `KP_TELEMETRY_DSN` set, the recipient
+of the (sanitised, non-personal) data described above is the deployer's own ingest, and without
+a DSN there is none. That decision belongs to the organisation, which is why consent lives behind
 `ADMIN_SECRET` and not in the operator's settings sheet — and why nothing is enabled by an
 upgrade.
 

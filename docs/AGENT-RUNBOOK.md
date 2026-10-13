@@ -159,7 +159,9 @@ uv run python -m app.admin_checklists load    ../station/checklists.manifest.jso
 Personnel comes last, and comes from Divera (`roster.autoSync`), a CSV import, or hand entry.
 
 Every one of those CLIs shares the same verbs (`schema`, `example`, `validate`, `load`, `push`,
-`show`) and the same `--base` / `--admin-secret` (`KP_BASE_URL` / `KP_ADMIN_SECRET`) flags.
+`show`) and the same `--base` / `--admin-secret` (`KP_BASE_URL` / `KP_ADMIN_SECRET`) flags –
+except `admin_branding`, whose input is an image rather than a document: it has only `load`,
+`push` and `show`.
 **The runnable exemplar of the whole sequence is [`examples/demo-data/load.sh`](../examples/demo-data/load.sh)** – a
 complete synthetic station, idempotent, safe against a fresh instance. Read it before writing
 your own loader.
@@ -173,9 +175,10 @@ curl -fsS -b /tmp/kp.jar -X PUT \
 ```
 
 Stored encrypted, live without a restart, and **write-only** – `GET /api/integrations/credentials`
-returns state (set / not set / server-set), never a value. A name whose variable is set in `.env`
-is owned by the environment and answers **409**; leave those lines blank unless the deployer is
-meant to own them. `DELETE` the same path clears one.
+returns state (set / not set / server-set), never a secret value – only the fields flagged
+non-secret (URLs, sources, public keys, Azure tenant/client ids, …) come back with theirs. A name
+whose variable is set in `.env` is owned by the environment and answers **409**; leave those
+lines blank unless the deployer is meant to own them. `DELETE` the same path clears one.
 
 ### 8. Ask whether it is done
 
@@ -249,8 +252,11 @@ curl -fsS -b /tmp/kp.jar https://front.example.ch/api/system          # connecto
 curl -fsS -b /tmp/kp.jar https://front.example.ch/api/sharepoint/status
 ```
 
-`connectors[]` carries `sharepoint`, `divera_alarms`, `traccar` and `divera_personnel`, each with
-`lastAttempt`, `lastSuccess`, `lastError` and `counts`. **The two timestamps are separate on
+`connectors[]` carries one row per connector. The polling ones – `divera_alarms`, `traccar`,
+`divera_personnel` and `roster_snapshot` – record health in `lastAttempt`, `lastSuccess`,
+`lastError` and `counts`; the configuration-only rows (`capture`, `stats`, `divera_webhook`,
+`alarm_webhook`, `push`, `stt`) carry the same keys as `null`. SharePoint is not a row there:
+its status per area is `/api/sharepoint/status`. **The two timestamps are separate on
 purpose:** a failed run never moves `lastSuccess`, so alert on the gap between them rather than
 on `state` alone. `lastError` never carries a credential. The human view of the same data is
 `/admin` → **System & Wartung**.

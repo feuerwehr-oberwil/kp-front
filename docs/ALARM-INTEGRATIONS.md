@@ -96,7 +96,7 @@ payloads have drifted. If you are writing one sender for both, stay inside the p
 | `title` | ✅ required by both | KP Rück caps it at 255 characters |
 | `source` | ✅ | Keep it ≤16 chars and matching `^[a-z0-9][a-z0-9_-]*$` – KP Front is the stricter of the two |
 | `source_id` | ✅ **always send it** | Optional in both since 2026-08 – it used to be required here, which is exactly why one relay could not feed both. Optional is not "skip it": without it neither app can dedupe your retries |
-| `text`, `address` | ✅ | KP Rück caps them at 5000 / 500 characters |
+| `text`, `address` | ✅ | KP Rück caps them at 5000 / 500 characters; KP Front caps `address` at 255 – keep it ≤255 |
 | `lat` + `lng` | ✅ | WGS84, both or neither |
 | `type`, `priority`, `started_at` | KP Front only | Ignored by KP Rück |
 | `number` | KP Rück only | Ignored by KP Front |
@@ -272,7 +272,7 @@ come from. Everything a sender holds pending for `alarm.source_ref` now belongs 
 
 ## 3. The Erfassungs-Poster (station capture)
 
-The admin UI (Personen › Erfassungsblatt) prints a **static A4
+The admin UI (System › Links & Zugänge, the «Erfassung» row) prints a **static A4
 poster** for the Magazin wall. Scanning it opens `/e/<token>` – attendance, material,
 Einsatzende and notes for incidents of the last `alarms.captureWindowHours` (default 12),
 no login. Trust model: access to the station = permission, like the clipboard it replaces.
@@ -374,8 +374,8 @@ The station key can do exactly one thing: ask for a link session. It is delibera
 sessions, so an alerting system holding it could issue itself deployment-admin access without
 ever knowing `ADMIN_SECRET`.
 
-KP Front generates the key; the admin copies it into the alerting system (admin UI: Daten ›
-Einsatz-Link – enable/rotate/delete). Three admin endpoints
+KP Front generates the key; the admin copies it into the alerting system (admin UI: System ›
+Anbindungen, the «Von KP Front erzeugt» sheet – enable/rotate/delete). Three admin endpoints
 (`ADMIN_SECRET` session, not the editor role – handing this key out grants read sessions on every
 incident the station will ever have): `GET /api/incident-link/secret` shows the current one,
 `POST /api/incident-link/secret/rotate` mints a fresh one, `DELETE /api/incident-link/secret`

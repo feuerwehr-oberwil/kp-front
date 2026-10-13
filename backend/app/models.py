@@ -1,8 +1,9 @@
 """SQLAlchemy ORM models for the whole kp-front backend.
 
 All tables for Phases 1–7 plus the audit-trail capture substrate (sub-phase A) are
-defined here so migrations stay coherent as features land. Roles are exactly two:
-``editor`` (edit) and ``viewer`` (read-only).
+defined here so migrations stay coherent as features land. Roles are exactly three:
+``editor`` (edit), ``viewer`` (read-only) and ``el`` (Einsatzleiter: reads everything,
+writes only the operational record – docs/roles-and-access.md).
 """
 
 import uuid
