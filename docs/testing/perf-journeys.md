@@ -47,6 +47,13 @@ journey called. When a request count moves, the report shows which routes change
   stalled, and a raf-polled check sat for minutes over a surface that had switched in 266 ms.
 - **Time budgets follow the machine.** `env.calibration` times a fixed workload. The report scales
   every `ms` budget by today's calibration over the baseline's, clamped to ×0.67–1.5.
+- **A journey that counts requests waits for the app's own timers, not a fixed time.** The
+  `verlauf` count moved 26–30 for the same build (2026-10-08): ten Meldungen typed back to back
+  sometimes fell into the long poll's 250 ms re-arm gap and woke nothing, the audit outbox
+  (flushed 4 s after the last act) landed on either side of a 2 s settle, and the 15 s positions
+  poll could tick inside the window. The journey now starts right after a positions tick, waits
+  for the long poll to re-arm after each Meldung (untimed), and waits for the audit POST. Each
+  Meldung then costs one POST, one pull and one long-poll wake.
 - **A regression is confirmed before it fails.** If the first run regresses, CI walks the journeys
   again, and every number takes its best of the two runs. Noise only ever makes a number worse,
   so a regression in both runs is real.
