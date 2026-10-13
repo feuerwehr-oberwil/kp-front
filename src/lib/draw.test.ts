@@ -56,7 +56,7 @@ describe('Schraffur', () => {
     expect(HATCH_CHIP_VB / HATCH_PERIOD_PX).toBeGreaterThanOrEqual(3)
   })
 
-  // `styleimagemissing` hands back the id; a Fläche in a colour outside the palette can only be
+  // the missing-image resolver hands back the id; a Fläche in a colour outside the palette can only be
   // minted if the colour is still readable from it. A missing pattern paints NOTHING on a map.
   it('reads the colour back out of a tile id, and ignores foreign ids', () => {
     for (const c of ['#1f6feb', '#e8392b']) expect(hatchImageColor(hatchImageId(c))).toBe(c)

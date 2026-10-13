@@ -169,10 +169,36 @@ describe('reportClientError — offline network noise', () => {
     expect(apiBeacon).not.toHaveBeenCalled()
   })
 
+  it('drops MapLibre 6\'s status-0 wrap of the same failure while offline (a tile fetch that got no answer)', () => {
+    setOnline(false)
+    const tile = 'https://a.basemaps.cartocdn.com/light_all/15/17005/11535.png'
+    for (const m of ['Failed to fetch', 'Load failed', 'NetworkError when attempting to fetch resource.']) {
+      reportClientError(new Error(`AJAXError: ${m} (0): ${tile}`), { kind: 'error' })
+    }
+    vi.advanceTimersByTime(REPEAT_EVERY_MS * 2)
+    expect(apiBeacon).not.toHaveBeenCalled()
+  })
+
+  it('still reports a MapLibre AJAXError that is not a dead network while offline', () => {
+    setOnline(false)
+    const tile = 'https://a.basemaps.cartocdn.com/light_all/15/17005/11535.png'
+    reportClientError(new Error(`AJAXError: Not Found (404): ${tile}`), { kind: 'error' })
+    reportClientError(new Error('AJAXError: Failed to fetch (0): '), { kind: 'error' })
+    reportClientError(new Error(`AJAXError: Failed to fetch (0): ${tile} while decoding`), { kind: 'error' })
+    reportClientError(new Error(`AJAXError: Failed to fetch (0): ${tile}`), { kind: 'render' })
+    expect(sent().map((r) => r.message)).toEqual([
+      `AJAXError: Not Found (404): ${tile}`,
+      'AJAXError: Failed to fetch (0): ',
+      `AJAXError: Failed to fetch (0): ${tile} while decoding`,
+      `AJAXError: Failed to fetch (0): ${tile}`,
+    ])
+  })
+
   it('still reports the same failure while online: a dead route the browser calls online is news', () => {
     setOnline(true)
     reportClientError(new TypeError('Failed to fetch'), { kind: 'error' })
-    expect(sent().map((r) => r.message)).toEqual(['Failed to fetch'])
+    reportClientError(new Error('AJAXError: Failed to fetch (0): https://a.basemaps.cartocdn.com/x.png'), { kind: 'error' })
+    expect(sent().map((r) => r.message)).toEqual(['Failed to fetch', 'AJAXError: Failed to fetch (0): https://a.basemaps.cartocdn.com/x.png'])
   })
 
   it('still reports anything else while offline: a render throw, or a message that only mentions a fetch', () => {

@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import { expect } from './guard'
 
 // Specs take `test` and `expect` from here: `test` carries the client-error guard (./guard.ts).
-export { test, expect, expectNoClientErrors, type ClientErrorReport } from './guard'
+export { test, expect, expectNoClientErrors, OFFLINE_FETCH_FAILURE, type ClientErrorReport } from './guard'
 
 // The login / open-an-incident steps every flow spec starts with — moved here verbatim from
 // smoke.spec.ts (23.09.2026) so workspace-flows.spec.ts reuses them instead of copying them.

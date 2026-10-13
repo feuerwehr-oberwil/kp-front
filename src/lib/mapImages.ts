@@ -9,8 +9,9 @@
  * exists, and a GeoJSON source is laid out in the worker straight away — so the first tile asks
  * for its icons before `onLoad` has run, i.e. before the effects that used to register them.
  * MapLibre then logs the warning and draws the symbol without its icon until something re-lays the
- * tile. The one hook that is always early enough is `styleimagemissing`: an image added
- * SYNCHRONOUSLY inside it is used for that very layout. So everything here can answer that event
+ * tile. The one hook that is always early enough is the missing-image resolver
+ * (`setMissingStyleImageResolver`; before MapLibre 6, the `styleimagemissing` event): an image
+ * added SYNCHRONOUSLY inside it is used for that very layout. So everything here can answer that request
  * on the spot:
  *   · an arrowhead is drawn on a canvas — synchronous, done;
  *   · a point symbol is an SVG that decodes ASYNCHRONOUSLY, so the event gets a transparent
@@ -38,7 +39,7 @@ export const POINT_ICON_PX = 64
 export interface PointIconVariant { id: string; svg: string }
 
 /** Every point-symbol image the given layers will ask for, day and night — pure, so the list the
- *  pre-registration walks and the list `styleimagemissing` answers from can never disagree. A
+ *  pre-registration walks and the list the missing-image resolver answers from can never disagree. A
  *  layer whose symbol the pack does not (yet) know yields nothing: its image is answered with the
  *  placeholder until the pack arrives. */
 export function pointIconVariants(
@@ -81,7 +82,7 @@ export function arrowImage(stop: boolean): ImageDataLike | null {
   return { width: S, height: S, data: d.data }
 }
 
-/** Register whichever arrowhead is missing. Synchronous — safe inside `styleimagemissing`. */
+/** Register whichever arrowhead is missing. Synchronous — safe inside the missing-image resolver. */
 export function ensureArrowImages(map: MapImageHost): boolean {
   let added = false
   for (const id of ARROW_IDS) {
@@ -98,14 +99,14 @@ const placeholder = (): ImageDataLike => ({
 
 /**
  * Point icons for ONE map instance (images are per map). `sync(variants)` registers what it can
- * and swaps decoded pictures in for stand-ins; `answerMissing(id)` is the `styleimagemissing`
- * half and never leaves an asked-for icon unanswered; `restore()` puts every known picture back
+ * and swaps decoded pictures in for stand-ins; `answerMissing(id)` is the missing-image
+ * resolver's half and never leaves an asked-for icon unanswered; `restore()` puts every known picture back
  * after a style reload dropped them.
  *
  * ⚠️ Decoded pictures are KEPT (keyed by their svg), and «what does the map hold for this id» is
  * read off the map itself (`hasImage`), never off a record of what was once registered: a style
  * reload empties the map, and a registry that remembered «decoded, done» answered the next
- * `styleimagemissing` with a transparent stand-in that nothing ever replaced (review of #232).
+ * missing-image request with a transparent stand-in that nothing ever replaced (review of #232).
  */
 export function pointIconRegistry(map: MapImageHost, decode: (svg: string) => Promise<HTMLImageElement | ImageDataLike> = decodeSvg) {
   /** decoded pictures by the svg they were drawn from — a changed tint is a different svg */
@@ -168,7 +169,7 @@ export function pointIconRegistry(map: MapImageHost, decode: (svg: string) => Pr
       for (const [id, svg] of variants) if (pictures.has(svg) && !map.hasImage(id)) changed = show(id) || changed
       if (changed) map.triggerRepaint()
     },
-    /** `styleimagemissing`: the picture when it is decoded, else a transparent stand-in NOW (that
+    /** the missing-image resolver: the picture when it is decoded, else a transparent stand-in NOW (that
      *  is what silences the warning and lets the tile lay out) and the picture as soon as it
      *  decodes. Returns false for ids that are not point icons, so the caller can try its other
      *  families. */

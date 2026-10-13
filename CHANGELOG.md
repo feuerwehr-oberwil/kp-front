@@ -31,6 +31,16 @@ so this file – not the log – is the record of what shipped up to that point.
 
 ### Changed
 
+- **Browser floor raised to Safari/iPadOS 15.4, Chrome/Edge 98, Firefox 94** (`build.target`).
+  That is what the app already needed (`structuredClone`, unpolyfilled) and covers MapLibre 6.
+  iPadOS 15.4+ covers every iPad that ever ran iPadOS 15, including the iPad Air 2 / mini 4 on
+  15.8. *Update an older iPad to iPadOS 15.8 or later.*
+- **maplibre-gl 4.7 → 6** (#193). The map needs WebGL2 and a browser of at least Safari/iPadOS
+  15.4, Chrome/Edge 93 or Firefox 92 (MapLibre 6 calls `Object.hasOwn` and `Array.prototype.at`
+  unpolyfilled). Its tile worker is now a separate, precached file. The download grows on
+  purpose: the map chunk by about 38 % (gzip), plus about 141 KB gzip for the worker – the
+  price of a maintained map engine that also fixes GHSA-jrc7-96c5-q579. Drag-rotate now pivots
+  on the screen centre, and an icon's offset no longer scales with it. *No action needed.*
 - **`admin_objects push` refuses a manifest that shares no object id with the deployment.** When
   a deployment already has Einsatzobjekte and not one of the manifest's ids is among them, the
   push would create every object a second time – that is what a manifest minted under another id

@@ -15,7 +15,7 @@ import { test as base, expect, type BrowserContext, type Page, type Request, typ
 // is there even when the report is still waiting for lib/reportError's budget.
 //
 // A test that provokes a report ON PURPOSE names it, report by report, with
-// `test.use({ expectedClientErrors: [/^error: Failed to fetch$/] })` — matched against
+// `test.use({ expectedClientErrors: [OFFLINE_FETCH_FAILURE] })` — matched against
 // «kind: message» of the report body. Nothing else is excused. A crash is never excused, whatever
 // the list says: not the kinds render / surface-recrash / render-storm, and not the console /
 // uncaught line of a render loop. There is deliberately no switch that turns the guard off.
@@ -62,10 +62,18 @@ const NEVER_EXCUSED = new Set(['render', 'surface-recrash', 'render-storm'])
 
 /** The basemap tile hosts — the same list as the service worker's `map-tiles` rule (vite.config.ts). */
 const BASEMAP_TILE = /^https:\/\/([a-d]\.)?(basemaps\.cartocdn\.com|tile\.openstreetmap\.org|[a-c]\.tile\.opentopomap\.org|server\.arcgisonline\.com|wmts\.geo\.admin\.ch|geowms\.bl\.ch)\//
-/** «kind: message» of what a broken tile reports: WebKit's words for a fetch that failed and for
- *  a tile blob cut off while it was being decoded. Chromium's «Failed to fetch» is not here — no
- *  Chromium run has shown it outside the offline drills, which list it themselves. */
-const TILE_BREAK = /^error: (Load failed|An error occured reading the Blob argument to createImageBitmap)$/
+/** «kind: message» of what a broken tile reports: WebKit's words for a fetch that failed (bare, or
+ *  as MapLibre 6 wraps it: `AJAXError: Load failed (0): <url>`, and then only for a basemap tile's
+ *  url) and for a tile blob cut off while it was being decoded. Chromium's «Failed to fetch» is
+ *  not here — no Chromium run has shown it outside the offline drills, which list it themselves. */
+const TILE_BREAK = new RegExp(
+  '^error: (?:Load failed|An error occured reading the Blob argument to createImageBitmap' +
+  `|AJAXError: Load failed \\(0\\): ${BASEMAP_TILE.source.slice(1)}\\S*)$`,
+)
+/** For `expectedClientErrors` in an offline drill: the fetch failure Chromium reports while its
+ *  offline emulation still says `navigator.onLine === true` — bare (our own fetches), or as
+ *  MapLibre 6 wraps it for a tile (`AJAXError: Failed to fetch (0): <url>`). */
+export const OFFLINE_FETCH_FAILURE = /^error: (?:Failed to fetch|AJAXError: Failed to fetch \(0\): \S+)$/
 /** how far from the report the device's tile traffic may be */
 const TILE_BREAK_WINDOW_MS = 3000
 /** how long a tile request that never reported an end counts as loading */
