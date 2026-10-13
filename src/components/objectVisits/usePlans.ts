@@ -40,10 +40,18 @@ export function usePlanReader(): {
 } {
   const [index, setIndex] = useState<number | null>(null)
   const pushed = useRef(false)
+  /** close()'s history.back() has not landed yet; a reopen meanwhile pushes once it has, or that
+   *  late popstate would close the reopened reader and leave it without an entry */
+  const backing = useRef(false)
+  const reopened = useRef(false)
   const closedAt = useRef(0)
+  const push = () => { pushAppEntry(window.location.href, { [READER_STATE]: true }); pushed.current = true }
   useEffect(() => {
     const onPop = () => {
-      if (pushed.current) { pushed.current = false; closedAt.current = Date.now(); setIndex(null) }
+      if (backing.current) {
+        backing.current = false
+        if (reopened.current) { reopened.current = false; push() }
+      } else if (pushed.current) { pushed.current = false; closedAt.current = Date.now(); setIndex(null) }
     }
     window.addEventListener('popstate', onPop)
     // ⚠️ No history.back() on unmount: the surface is also left by a taken alarm, and App ·
@@ -53,17 +61,17 @@ export function usePlanReader(): {
   }, [])
   const open = useCallback((i: number) => {
     // the same address: the visit's route does not change, only a back gesture has somewhere to go
-    if (!pushed.current) { pushAppEntry(window.location.href, { [READER_STATE]: true }); pushed.current = true }
+    if (backing.current) reopened.current = true
+    else if (!pushed.current) push()
     setIndex(i)
   }, [])
   const close = useCallback(() => {
     // closed at once, not on the popstate: a second tap before it arrived used to call back()
     // twice and leave the visit (reported on v0.12.0)
-    const wasPushed = pushed.current
-    pushed.current = false
+    reopened.current = false
+    if (pushed.current) { pushed.current = false; backing.current = true; window.history.back() }
     closedAt.current = Date.now()
     setIndex(null)
-    if (wasPushed) window.history.back()
   }, [])
   const settling = useCallback(() => Date.now() - closedAt.current < CLOSE_SETTLE_MS, [])
   return { index, open, show: setIndex, close, settling }

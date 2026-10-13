@@ -28,4 +28,19 @@ describe('usePlanReader', () => {
     vi.advanceTimersByTime(600)
     expect(result.current.settling()).toBe(false)
   })
+
+  it('a reopen before the back has landed stays open and gets its own entry afterwards', () => {
+    vi.spyOn(window.history, 'back').mockImplementation(() => {})
+    const push = vi.spyOn(window.history, 'pushState')
+    const { result } = renderHook(() => usePlanReader())
+    act(() => result.current.open(0))
+    act(() => result.current.close())
+    act(() => result.current.open(1))
+    expect(push).toHaveBeenCalledTimes(1) // not yet: the old entry is still on top
+    act(() => { window.dispatchEvent(new PopStateEvent('popstate')) }) // close()'s back lands
+    expect(result.current.index).toBe(1)
+    expect(push).toHaveBeenCalledTimes(2)
+    act(() => { window.dispatchEvent(new PopStateEvent('popstate')) }) // the back gesture
+    expect(result.current.index).toBeNull()
+  })
 })
