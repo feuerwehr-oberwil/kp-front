@@ -207,6 +207,32 @@ services:
       # no blank-is-off coercion, so the value here must always parse as a boolean. Never
       # `${REQUIRE_PLAN_DIGEST:-}`.
       REQUIRE_PLAN_DIGEST: ${REQUIRE_PLAN_DIGEST:-false}
+      # The credentials added after the credential store existed (app/credentials.py · FIELDS).
+      # Normally set in /admin → Anbindungen; listed here so a value in .env reaches the process
+      # at all (it wins and locks the browser field, like every credential above). They have no
+      # Settings field and are read straight off the environment, so blank = unset and needs no
+      # fallback. A guard test (test_integration_credentials) fails when one is missing here.
+      # SharePoint pull (read-only app registration) + the date its client secret lapses.
+      SHAREPOINT_TENANT_ID: ${SHAREPOINT_TENANT_ID:-}
+      SHAREPOINT_CLIENT_ID: ${SHAREPOINT_CLIENT_ID:-}
+      SHAREPOINT_CLIENT_SECRET: ${SHAREPOINT_CLIENT_SECRET:-}
+      SHAREPOINT_SECRET_EXPIRES: ${SHAREPOINT_SECRET_EXPIRES:-}
+      # Objektbesuche: the organizer's bearer key, and the SECOND (write) app registration the
+      # visit reports are filed with.
+      OBJECT_VISITS_INTEGRATION_KEY: ${OBJECT_VISITS_INTEGRATION_KEY:-}
+      SHAREPOINT_EXPORT_TENANT_ID: ${SHAREPOINT_EXPORT_TENANT_ID:-}
+      SHAREPOINT_EXPORT_CLIENT_ID: ${SHAREPOINT_EXPORT_CLIENT_ID:-}
+      SHAREPOINT_EXPORT_CLIENT_SECRET: ${SHAREPOINT_EXPORT_CLIENT_SECRET:-}
+      # The station's published data: the index, and the direct roster source it supersedes.
+      STATION_INDEX_SOURCE: ${STATION_INDEX_SOURCE:-}
+      STATION_INDEX_TOKEN: ${STATION_INDEX_TOKEN:-}
+      ROSTER_SNAPSHOT_SOURCE: ${ROSTER_SNAPSHOT_SOURCE:-}
+      ROSTER_SNAPSHOT_TOKEN: ${ROSTER_SNAPSHOT_TOKEN:-}
+      # «Mit Microsoft anmelden»: the THIRD app registration (sign-in only) + its allow-list.
+      ENTRA_LOGIN_TENANT_ID: ${ENTRA_LOGIN_TENANT_ID:-}
+      ENTRA_LOGIN_CLIENT_ID: ${ENTRA_LOGIN_CLIENT_ID:-}
+      ENTRA_LOGIN_CLIENT_SECRET: ${ENTRA_LOGIN_CLIENT_SECRET:-}
+      ENTRA_LOGIN_ACCOUNTS: ${ENTRA_LOGIN_ACCOUNTS:-}
       # Multipart upload cap in MB — keep above the media endpoint's 100 MB per-file cap.
       # (Numeric default here on purpose: an empty value would break int parsing.)
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-110}
