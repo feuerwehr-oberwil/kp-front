@@ -49,9 +49,17 @@ station, one incident, one operator**, not scaled down from dispatch-center soft
 ## Highlights
 
 - **Karte:** MapLibre map, tactical symbols, drawing, sectors, radii, notes, photos, and audio.
+- **Gebäude-Info:** The building at the Einsatzort – federal GWR and BFE register facts
+  (Geschosse, Baujahr, heating energy, Schutzraum, PV) next to the Objekt's own
+  **Sofortmassnahmen** and Bemerkungen, cached for offline use. When the building has a hazard,
+  Sofortmassnahmen or Bemerkungen, the card opens by itself the first time a device shows the
+  Einsatz.
 - **Plan:** Image-backed whiteboards with symbols, resources, scale calibration, measurement,
   and georeferencing – pairing a plan to the map with reference points, or approving the
   alignment the station computed ahead of time; one object, drawn on both surfaces.
+- **Tafel:** A free sketch board plus pages – the FKS «Erste Führung» poster and the FKS
+  Handbuch sheets, filled in like a spreadsheet and printed on the Rapport in their own layout. A
+  station can replace the bundled set with its own ([`docs/board-templates.md`](docs/board-templates.md)).
 - **Einsatz-Intake:** Guided incident creation from Divera, an address, an object, or the map.
 - **Checklisten:** The brigade's own command checklists, phase by phase, with direct jumps to
   the plan, the Verlauf, and the tools – loaded from station data like everything else. Next to
@@ -59,21 +67,32 @@ station, one incident, one operator**, not scaled down from dispatch-center soft
   offline.
 - **Trupps:** every Trupp on one board – Atemschutz or not – with its Auftragsliste; AS-Trupps
   add pressure and return estimates, alarms, map links, and the Überwachungs-Log.
+- **Atemschutznotfall:** Hold «Notfall» on one Trupp and every device turns it red at the top,
+  with a running clock, its last place and Druck, and «Sicherungstrupp einsetzen» as the first
+  offer – plus tone, OS notification and Web Push. Raising and ending it land in the Verlauf and
+  the Rapport.
 - **Anwesenheit:** Divera or manual attendance against the station's Personal roster, and
-  assignments.
+  assignments. **«Anrückend»** lists who answered the Divera alarm «komme» / «komme nicht»; only
+  a «da» tap checks somebody in.
 - **Material:** The station's Material catalogue on a stepper list – what was used, from which
   source, with remarks that print on the Rapport.
 - **Zeitplan:** Shift planning for long incidents – availability and assignment per person, a
   coverage curve across the span, printable as the «Zeitplan» Führungsformular.
-- **Reference data:** ADR lookup, wind, hydrants, utility lines, and Traccar vehicle positions.
+- **Reference data:** ADR lookup, wind, the MeteoSwiss precipitation radar, hydrants, utility
+  lines, and Traccar vehicle positions.
 - **Verlauf:** Append-only incident journal – entries, Meldungen, photos and voice memos with
   transcripts. An entry can stay open as a **Pendenz** until somebody ticks it off, or carry a
   **Fälligkeit**; a typo can be corrected and the line says that it was.
-- **Einsatzrapport:** The station's own Erfassungsblatt, pre-filled from the record and printed
-  server-side – Verlauf, Aufträge/Pendenzen, Atemschutz-Journal, Kroki with a Massstab, photos as
-  Beilagen, and the Wehr's own forms as a list to tick off.
+- **Einsatzrapport:** The station's own Erfassungsblatt, pre-filled from the record and composed
+  server-side into a PDF that prints from the device – Verlauf, Aufträge/Pendenzen,
+  Atemschutz-Journal, Kroki with a Massstab, the Tafel pages, photos as Beilagen, and the Wehr's
+  own forms as a list to tick off. An optional **«Auswertung»** sheet at the end adds key figures
+  and a timeline for the debrief.
 - **Wiedergabe:** Scrub back through an incident as it unfolded – the map, the Verlauf and the
   attendance at any point in time, from the same append-only record the Rapport is built from.
+- **Objektbesuche (optional):** Visit an object without an Einsatz, offline – a station
+  checklist, photos and Korrekturvorschläge, a PDF report, and optional filing to SharePoint
+  ([`docs/object-visits.md`](docs/object-visits.md)).
 - **Statistik-Export:** Aggregate incident data for the annual report, with WinFAP matching –
   see [`docs/STATS-EXPORT.md`](docs/STATS-EXPORT.md).
 - **Resilience:** Undo/redo, append-only records, sync status, offline readiness, and day/night UI.
@@ -299,13 +318,13 @@ and never readable back over the API except CARTO's browser tile key.
 |-----------|-----------|------------------|----------------|
 | **Alarm intake** | in | **Any** alerting system via the open `POST /api/alarms` webhook (idempotent on source + id, auto-opens an incident); native [Divera 24/7](https://www.divera247.com/) and FireHub (Tercero) adapters | Already open – POST the documented JSON, no code needed. See [docs/ALARM-INTEGRATIONS.md](docs/ALARM-INTEGRATIONS.md) |
 | **Incident relay** | out | Any endpoint that accepts the incident JSON. The payload is a nested envelope sent without an auth header, so feeding KP Rück's `/api/alarms` needs a short adapter – it is not drop-in | Point a URL at it; the core knows nothing about the receiver |
-| **Personnel roster** | in | Divera 24/7, including Qualifikationen mapped to Dienstgrad | Synced identities are stored provider-neutrally (`personnel_external_identities`), so a second source can be added |
+| **Personnel roster** | in | Divera 24/7, including Qualifikationen mapped to Dienstgrad; or a `roster-snapshot/1` file the station publishes, directly or through a station index (`station-index/1`) | Any tool can write the snapshot – see [docs/CONFIGURATION.md](docs/CONFIGURATION.md) §4c/§4d. Synced identities are stored provider-neutrally (`personnel_external_identities`), so a second source can be added |
 | **Vehicle GPS** | in | [Traccar](https://www.traccar.org/) | Currently Traccar-specific – no abstraction yet. It can be generalised the same way as the alarm connectors |
 | **Maps & geocoding** | in | swisstopo geocoding (search, LV95); Carto, OpenStreetMap and swisstopo-satellite base maps; cantonal WMS layers | `GEOCODER_URL` plus config-driven reference layers – see [docs/geodata-architecture.md](docs/geodata-architecture.md) |
 | **Weather** | in | MeteoSwiss / Open-Meteo (wind for the spread estimate); MeteoSwiss precipitation radar on the Karte | `WEATHER_LAYER_ENABLED=false` turns the map layer off |
 | **Speech-to-text** | out | Any OpenAI-compatible `/v1/audio/transcriptions` server – Groq, OpenAI, or a self-hosted faster-whisper | Set `STT_BASE_URL`. Empty means off everywhere, and audio never leaves the instance |
-| **Push notifications** | out | Web Push (VAPID) for Atemschutz and reminder alerts when the app is killed | Unset keys disable the sweep entirely |
-| **Station data** | in | Reference geodata, object plans, and checklists loaded from a private data repo via `admin_geodata` / `admin_objects` / `admin_checklists` | GeoJSON must be WGS84. See [docs/STATION-DATA.md](docs/STATION-DATA.md) |
+| **Push notifications** | out | Web Push (VAPID) for Atemschutz alarms – including an Atemschutznotfall – and reminders when the app is killed, «Neuer Einsatz» for a new Divera alarm, and «Neuer Objektbesuch» to the accounts an admin picks | Unset keys disable the sweep entirely |
+| **Station data** | in | Reference geodata, object plans, checklists, and Tafel pages loaded from a private data repo via `admin_geodata` / `admin_objects` / `admin_checklists` / `admin_board_templates` | GeoJSON must be WGS84. See [docs/STATION-DATA.md](docs/STATION-DATA.md) |
 | **SharePoint** | in (out for Objektbesuche) | Microsoft 365 via Graph: a scheduled, read-only pull of Objektpläne, Geodaten, Checklisten and the Arbeitsmappe; optionally, Objektbesuche filed one-way into a SharePoint folder under a separate app registration | Set the `sharepoint_*` credentials and `sharepoint.sources`. See [docs/sharepoint-connector.md](docs/sharepoint-connector.md) |
 | **Microsoft login** | in | Optional «Mit Microsoft anmelden» via Entra ID onto existing accounts only – never creates users or changes roles | Set the four `ENTRA_LOGIN_*` credentials (tenant, client, secret, allow-list). See [docs/microsoft-login.md](docs/microsoft-login.md) |
 | **Rückmeldung (Telemetrie)** | out | Sanitised crash reports. With no maintainer ingest any more, they are sent **nowhere** unless `KP_TELEMETRY_DSN` points at the station's own GlitchTip/Sentry. **Off by default, and there is no switch in the admin UI** – the consent card was removed on 2026-09-10, so consent stays off unless it is set through the admin API; the deployer can also veto it outright with `KP_TELEMETRY_ENABLED=0` | Point `KP_TELEMETRY_DSN` at your own GlitchTip, or leave it empty. Full detail in [PRIVACY.md](PRIVACY.md) |
@@ -317,6 +336,11 @@ New connectors are welcome contributions – the alarm seam is the model to copy
 - Offline persistence requires IndexedDB; restricted browser modes may fall back to less durable
   storage.
 - Simultaneous edits to the same object can overwrite one another.
+- Central sign-in is Microsoft Entra ID only, and only on top of the PIN: the optional «Mit
+  Microsoft anmelden» signs listed members into their existing named accounts, never creates a
+  user and never grants `/admin` (see the tradeoff above and
+  [`docs/microsoft-login.md`](docs/microsoft-login.md)). Other identity providers have no path
+  today.
 - The UI ships in German, French, Italian, and English. All four catalogues are complete and a
   half-translated one fails the build, but German is the canonical one and the other three have
   **not been read by a firefighter who speaks the language** – terminology follows the national
@@ -365,17 +389,21 @@ tracking personnel, vehicles, materials, and incidents – see its companion
 ([live demo](https://demo.kp-rueck.ch)).
 
 The two grew out of the same brigade and share a design language, but they are **completely
-independent** codebases and deployments – neither requires the other. Both expose a generic `POST /api/alarms` webhook, but they are not plug-compatible: the
-payloads and auth differ, so KP Front can feed KP Rück through a short adapter you write,
-and KP Rück has no outbound webhook to push the other way. Nothing else connects them –
-separate databases, separate auth, separate deployments. See
-[`docs/ALARM-INTEGRATIONS.md`](docs/ALARM-INTEGRATIONS.md).
+independent** codebases and deployments – neither requires the other. Both accept the same
+`POST /api/alarms` payload with the same auth (`?secret=` or `X-Webhook-Secret`); since
+2026-08-19 the portable subset is pinned by
+[`docs/alarm-intake-conformance.json`](docs/alarm-intake-conformance.json), byte-identical in
+both repositories. So a dispatch integration is built once and delivered twice – one webhook per
+app, each with its own URL and its own secret. KP Front's outbound incident relay is a different
+envelope and still needs an adapter to feed KP Rück, and KP Rück has no outbound webhook to push
+the other way. Nothing else connects them – separate databases, separate auth, separate
+deployments. See [`docs/ALARM-INTEGRATIONS.md`](docs/ALARM-INTEGRATIONS.md).
 
 **Running both on one host?** Read
 [`RUNNING-BOTH.md`](https://github.com/feuerwehr-oberwil/kp-rueck/blob/main/docs/RUNNING-BOTH.md) first. Independent
 does not mean they can't collide: both stacks ship a Caddy that wants port 443, both have a
-`PUBLIC_URL` that means something different, and their `/api/alarms` payloads overlap without
-being interchangeable. Three traps, all silent, all cheaper to read about than to debug.
+`PUBLIC_URL` that means something different, and the one `/api/alarms` payload still needs two
+webhooks with two secrets. Three traps, all silent, all cheaper to read about than to debug.
 
 ## Contributing
 
