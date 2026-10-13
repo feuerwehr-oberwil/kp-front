@@ -8552,6 +8552,7 @@
           "objects"
         ],
         "summary": "Upsert Object",
+        "description": "Create-or-update by id. Callers: the admin's object mask and ``admin_objects push``. The\n``ObjectIn`` fields are replaced; the ``ObjectUpsertIn`` extras only when sent (see there).",
         "operationId": "upsert_object_api_objects__object_id__put",
         "parameters": [
           {
@@ -18390,6 +18391,18 @@
             ],
             "title": "Source Note"
           },
+          "source_key": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Key"
+          },
           "filing_folder": {
             "anyOf": [
               {
@@ -18459,7 +18472,7 @@
           "name"
         ],
         "title": "ObjectUpsertIn",
-        "description": "``PUT /api/objects/{id}`` — ``ObjectIn`` plus the two OPTIONAL fields the manifest push\ncarries for Objektbesuche: where the object's documents are filed, and its outside ids. Both\nare written only when SENT, so a caller that does not know them (the admin's object mask)\nnever clears them; ``refs`` are added, never removed."
+        "description": "``PUT /api/objects/{id}`` — ``ObjectIn`` plus the OPTIONAL fields the manifest push\n(``admin_objects push``) carries: the station key the plan pull matches on, where the object's\ndocuments are filed, its outside ids and its Modul-1 notes. All are written only when SENT, so\na caller that does not know them (the admin's object mask) never clears them; ``refs`` are\nadded, never removed."
       },
       "ObjectVisitDestination": {
         "properties": {

@@ -103,13 +103,17 @@ deployment fetching plans for itself, «Pull» further down.)
 > object somebody created by hand updates it instead of duplicating it.
 >
 > ⚠️ **One thing the browser door does not set: `source_key`.** That column is what the scheduled
-> **Pull** matches on, and only `admin_objects` writes it – `PUT /api/objects/{id}` has no field
-> for it, by design or otherwise. An object created in the browser is therefore complete and
-> usable for the PDFs you upload there, and **invisible to the pull**: its plans are counted as
-> `skipped` on every run, with nothing on screen to say why. Running `admin_objects` over the
-> same `key` afterwards repairs it in place (it sets `source_key` on the existing row) – so the
-> rule is: **PDFs by hand → the browser is enough; PDFs on a timer → the object has to have come
-> through `admin_objects` at least once.**
+> **Pull** matches on, and only `admin_objects` writes it – `load` directly, `push` through
+> `PUT /api/objects/{id}`, which writes `source_key` only when the body sends it. The form never
+> sends it: saving there keeps a key the CLI wrote, and cannot create one. An object created in
+> the browser is therefore complete and usable for the PDFs you upload there, and **invisible to
+> the pull**: its plans are counted as `skipped` on every run, with nothing on screen to say why.
+> Running `admin_objects` (`load` or `push`) over the same `key` with a `sourceKey` afterwards
+> repairs it in place – it sets `source_key` on the existing row, replacing any older one; a key
+> another object already holds is refused. Both commands write the manifest's `sourceKey` as
+> given, so an entry *without* one clears the key. The rule: **PDFs by hand → the browser is
+> enough; PDFs on a timer → the object has to have come through `admin_objects` with a
+> `sourceKey` at least once.**
 >
 > The manifest stays the answer for **a library at once**, for anything an importer regenerates,
 > and for a station reproduced on a second deployment.
@@ -307,7 +311,7 @@ plans/<object-id>/<module>.pdf    the PDF itself
 
 **`folder` is what a row is matched on**, and it is **required** – a row without it refuses the
 whole index. It is the station's own human key for the object (`schulhaus-dorfmatt`), and it is
-resolved against **`ObjectSite.source_key`**, which only `admin_objects` writes. `object_id` is
+resolved against **`ObjectSite.source_key`**, which only `admin_objects` (`load` or `push`) writes. `object_id` is
 the **publisher's** id and is used for one thing: locating the bytes at
 `plans/<object_id>/<filename>`. The dataset id `plan:<obj>:<module>` is then built from the
 **local** object, so both doors mint the same id for the same plan. `module` is a slug from the
@@ -324,7 +328,7 @@ log line about a skipped plan names an object a human recognises.
 | **Nothing is ever deleted.** A plan that disappears from the index stays. | The likeliest reason a plan vanishes from an index is a broken publish, not a decision. Removing a plan stays a deliberate act. |
 | **The upload cap applies** (`MAX_UPLOAD_MB`), checked against the index *and* the bytes arriving. | A plan the admin UI would have rejected must not enter through the back door; a lying index must not be able to fill the disk. |
 | **Only PDFs, only matching bytes.** The download must hash to what the index promised and start with `%PDF-`, or it is skipped and the existing plan kept. | An error page served with HTTP 200 is a real failure mode of object stores behind proxies. |
-| **Objects are not invented.** A plan whose `folder` matches no `ObjectSite.source_key` is skipped and logged, by key. | The index carries an address, not a name or coordinates; objects come from the object path. ⚠️ An object created in the browser has **no** `source_key`, so it never matches – see the caveat under «Ingest» above. |
+| **Objects are not invented.** A plan whose `folder` matches no `ObjectSite.source_key` is skipped and logged, by key. | The index carries an address, not a name or coordinates; objects come from the object path. ⚠️ An object created in the browser has **no** `source_key` until an `admin_objects` run with a `sourceKey` gives it one, so until then it never matches – see the caveat under «Ingest» above. |
 
 **Fail-closed:** with no `PLANS_S3_ENDPOINT` / bucket / key / secret the job is never scheduled
 and none of this code runs – the deployment behaves exactly as it did before, and the push path
