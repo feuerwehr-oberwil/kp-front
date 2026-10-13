@@ -449,6 +449,11 @@ relay: `docker compose pull && docker compose up -d` is enough. Read on if one o
 
 ### Changed
 
+- **Railway: no more `railway.json`.** Railway stops reading config-as-code files on 2026-12-01,
+  so the builder, healthcheck (`/ready`, 300 s), restart policy (`ALWAYS`), replica count (`1`)
+  and sleeping (off) now live in the service settings, not the repository. *Running this repo on
+  Railway yourself: set those five on your service before your next deploy from this version* –
+  docs/DEPLOYMENT.md §3a lists them. Compose stations are not affected.
 - **Hose lines attach «Direkt» by default, end at a Trupp chip's edge, and show their joints.** A
   Leitung end docked onto a Trupp, symbol or vehicle (magnet, marker/chip dropped on a hose end,
   link from the Atemschutz board) is routed «Direkt» instead of «Spur»; «Spur» stays the explicit
