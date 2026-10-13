@@ -755,11 +755,17 @@ class ObjectRefIn(BaseModel):
 
 
 class ObjectUpsertIn(ObjectIn):
-    """``PUT /api/objects/{id}`` — ``ObjectIn`` plus the two OPTIONAL fields the manifest push
-    carries for Objektbesuche: where the object's documents are filed, and its outside ids. Both
-    are written only when SENT, so a caller that does not know them (the admin's object mask)
-    never clears them; ``refs`` are added, never removed."""
+    """``PUT /api/objects/{id}`` — ``ObjectIn`` plus the OPTIONAL fields the manifest push
+    (``admin_objects push``) carries: the station key the plan pull matches on, where the object's
+    documents are filed, its outside ids and its Modul-1 notes. All are written only when SENT, so
+    a caller that does not know them (the admin's object mask) never clears them; ``refs`` are
+    added, never removed."""
 
+    #: ``ObjectSite.source_key`` — the key the scheduled Planspeicher-Abgleich matches on
+    #: (plans.py · pull_plans). Written only when SENT, with ``admin_objects load``'s semantics:
+    #: the value replaces whatever the object had (null clears it). The browser mask never sends
+    #: it, so editing an object there keeps the key. A key another object holds is a 409.
+    source_key: str | None = Field(default=None, max_length=300)
     filing_folder: str | None = Field(default=None, max_length=300)
     refs: list[ObjectRefIn] | None = Field(default=None, max_length=50)
     #: The object's Sofortmassnahmen and Bemerkungen (free text, one per line) and where they
@@ -776,8 +782,9 @@ class ObjectOut(ObjectIn):
     id: uuid.UUID
     #: The plan-library folder this object's documents are filed under (Objektbesuche delivery).
     filing_folder: str | None = None
-    #: The station's own key for this object, read-only here – deliberately absent from
-    #: ``ObjectIn``, so only ``admin_objects`` (and the plan pipelines) can write it. It is
+    #: The station's own key for this object – deliberately absent from ``ObjectIn``, so the
+    #: browser cannot set it; only ``admin_objects`` (``load`` directly, ``push`` through
+    #: ``ObjectUpsertIn``) and the plan pipelines write it. It is
     #: the object's provenance: a key means «loaded by the pipeline», no key means «typed in
     #: the browser», and the scheduled Planspeicher-Abgleich matches on nothing else
     #: (plans.py · pull_plans), so an object without one is one it never touches.
