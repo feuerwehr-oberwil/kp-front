@@ -176,20 +176,23 @@ anything. The procedure in order is
 
 **Getting your data in.** A fresh deployment is meant to be run empty – Carto base map, no
 layers, no plans, no roster, and nothing errors – then filled in whichever way suits you. There are
-two doors, and it is worth knowing which is which:
+three doors, and it is worth knowing which is which:
 
 - **Manifest + `admin_*` CLI, or the same thing one file at a time in the admin UI.** These are
   not alternatives to "the JSON files" – *the manifest is what the CLI reads*. All of them write
   through one code path, so the browser and the CLI mint the same dataset ids and cannot drift.
-- **A scheduled pull from an S3-compatible bucket** – the only option where no other system needs
-  a credential for this one. ⚠️ Covers **object plans only**; geodata and checklists are CLI or UI.
+- **A scheduled pull from an S3-compatible bucket** – no other system needs a credential for this
+  one. ⚠️ Covers **object plans only**; geodata and checklists are CLI, UI or SharePoint.
+- **A scheduled pull from the station's own SharePoint folders** – Objektpläne, Geodaten,
+  Checklisten and the Arbeitsmappe, read-only via Microsoft Graph and fed through the same
+  importers as the CLI. See [`docs/sharepoint-connector.md`](docs/sharepoint-connector.md).
 
-Both doors are built in – the pull is a first-class feature reading any S3-compatible bucket with a
-documented index, not a bridge to some particular product.
+All three doors are built in – the S3 pull reads any S3-compatible bucket with a documented index,
+not a bridge to some particular product.
 
-Either way the bytes land in **your** deployment's storage and are served from there; a bucket is a
-source, not a runtime dependency. WMS layers store nothing at all – the browser fetches cantonal
-tiles directly. Roster and incidents are a separate axis, covered by the integrations below.
+Whichever door, the bytes land in **your** deployment's storage and are served from there; a
+bucket or SharePoint is a source, not a runtime dependency. WMS layers store nothing at all – the
+browser fetches cantonal tiles directly. Roster and incidents are a separate axis, covered by the integrations below.
 
 Oberwil regenerates its manifests nightly from a plan library, but **that pipeline is not part of
 this product** – `admin_objects schema` and `admin_objects example` give you the contract, and four
@@ -260,12 +263,15 @@ and supports Railway and Docker Compose deployments.
 **Deliberate tradeoffs:**
 
 - **Single-tenant:** one station per deployment keeps ownership and isolation simple.
-- **Local PIN login, on purpose:** incident roles are `editor` (may mutate incident state) and
-  `viewer` (read-only), authenticated by a PIN held in the deployment's own database. There is no
-  SSO on the way into an incident, and that is a design decision rather than a missing feature –
-  an identity-provider round-trip is a network dependency on the one path that has to work at 3am
-  in a cellar with no signal. Deployment administration is separated behind its own
-  `ADMIN_SECRET`, fail-closed.
+- **Local PIN login, on purpose:** incident roles are `editor` (may mutate incident state), `el`
+  (Einsatzleiter – writes only the record) and `viewer` (read-only), authenticated by a PIN held
+  in the deployment's own database ([`docs/roles-and-access.md`](docs/roles-and-access.md)). The
+  PIN is never replaced by an identity provider – an IdP round-trip is a network dependency on the
+  one path that has to work at 3am in a cellar with no signal. An optional «Mit Microsoft
+  anmelden» (Entra ID) is a second door onto the same existing accounts: it never creates a user
+  or changes a role, and is off unless configured
+  ([`docs/microsoft-login.md`](docs/microsoft-login.md)). Deployment administration is separated
+  behind its own `ADMIN_SECRET`, fail-closed.
 - **Task-scoped sync:** collections merge by item; simultaneous edits to one item use a simple
   conflict model.
 - **Append-only history:** operational records are corrected with new events, not rewritten.
@@ -281,10 +287,10 @@ configuration, nothing that can't be undone.
 
 Every external service is proxied by the backend – the one deliberate exception is basemap
 tiles, which the browser fetches directly so it can cache them (shown in the architecture
-diagram). Each connector is
-**optional** – the app runs fully without any of them, and each one is fail-closed: no
-credential configured means the feature is off, not degraded. Server-only secrets
-(`SECRET_KEY`, `ADMIN_SECRET`, …) stay environment-only; integration credentials (Divera,
+diagram); the server fetches tiles itself only to draw the map into its PDFs (Rapport, Tafel
+print). Each connector is **optional** – the app runs fully without any of them, and each one
+is fail-closed: no credential configured means the feature is off, not degraded. Server-only
+secrets (`SECRET_KEY`, `ADMIN_SECRET`, …) stay environment-only; integration credentials (Divera,
 Traccar, VAPID, STT, CARTO, webhook secrets, …) are settable from `/admin` and stored encrypted
 at rest (AES-256-GCM under a key derived from `SECRET_KEY`) – never plaintext in the database,
 and never readable back over the API except CARTO's browser tile key.
@@ -297,11 +303,12 @@ and never readable back over the API except CARTO's browser tile key.
 | **Vehicle GPS** | in | [Traccar](https://www.traccar.org/) | Currently Traccar-specific – no abstraction yet. It can be generalised the same way as the alarm connectors |
 | **Maps & geocoding** | in | swisstopo geocoding (search, LV95); Carto, OpenStreetMap and swisstopo-satellite base maps; cantonal WMS layers | `GEOCODER_URL` plus config-driven reference layers – see [docs/geodata-architecture.md](docs/geodata-architecture.md) |
 | **Weather** | in | MeteoSwiss / Open-Meteo (wind for the spread estimate); MeteoSwiss precipitation radar on the Karte | `WEATHER_LAYER_ENABLED=false` turns the map layer off |
-| **Speech-to-text** | in | Any OpenAI-compatible `/v1/audio/transcriptions` server – Groq, OpenAI, or a self-hosted faster-whisper | Set `STT_BASE_URL`. Empty means off everywhere, and audio never leaves the instance |
+| **Speech-to-text** | out | Any OpenAI-compatible `/v1/audio/transcriptions` server – Groq, OpenAI, or a self-hosted faster-whisper | Set `STT_BASE_URL`. Empty means off everywhere, and audio never leaves the instance |
 | **Push notifications** | out | Web Push (VAPID) for Atemschutz and reminder alerts when the app is killed | Unset keys disable the sweep entirely |
-| **Printing** | out | Station printer via a pull-based relay agent | Point a custom agent at the relay endpoints |
 | **Station data** | in | Reference geodata, object plans, and checklists loaded from a private data repo via `admin_geodata` / `admin_objects` / `admin_checklists` | GeoJSON must be WGS84. See [docs/STATION-DATA.md](docs/STATION-DATA.md) |
-| **Rückmeldung (Telemetrie)** | out | Crash reports and, separately, an optional feature ping to the maintainer's GlitchTip. **Off by default, and there is no longer a switch in the admin UI** – the consent card was removed on 2026-09-10, so consent stays off unless it is set through the API; the deployer can also veto it outright with `KP_TELEMETRY_ENABLED=0` | Point `KP_TELEMETRY_DSN` at your own GlitchTip, or blank it to disable. Full detail in [PRIVACY.md](PRIVACY.md) |
+| **SharePoint** | in (out for Objektbesuche) | Microsoft 365 via Graph: a scheduled, read-only pull of Objektpläne, Geodaten, Checklisten and the Arbeitsmappe; optionally, Objektbesuche filed one-way into a SharePoint folder under a separate app registration | Set the `sharepoint_*` credentials and `sharepoint.sources`. See [docs/sharepoint-connector.md](docs/sharepoint-connector.md) |
+| **Microsoft login** | in | Optional «Mit Microsoft anmelden» via Entra ID onto existing accounts only – never creates users or changes roles | Set the four `ENTRA_LOGIN_*` credentials (tenant, client, secret, allow-list). See [docs/microsoft-login.md](docs/microsoft-login.md) |
+| **Rückmeldung (Telemetrie)** | out | Sanitised crash reports. With no maintainer ingest any more, they are sent **nowhere** unless `KP_TELEMETRY_DSN` points at the station's own GlitchTip/Sentry. **Off by default, and there is no switch in the admin UI** – the consent card was removed on 2026-09-10, so consent stays off unless it is set through the admin API; the deployer can also veto it outright with `KP_TELEMETRY_ENABLED=0` | Point `KP_TELEMETRY_DSN` at your own GlitchTip, or leave it empty. Full detail in [PRIVACY.md](PRIVACY.md) |
 
 New connectors are welcome contributions – the alarm seam is the model to copy.
 
@@ -310,8 +317,6 @@ New connectors are welcome contributions – the alarm seam is the model to copy
 - Offline persistence requires IndexedDB; restricted browser modes may fall back to less durable
   storage.
 - Simultaneous edits to the same object can overwrite one another.
-- There is no SSO. See the tradeoff above – this is deliberate for the incident login, but a
-  station whose IT department mandates central identity has no path today.
 - The UI ships in German, French, Italian, and English. All four catalogues are complete and a
   half-translated one fails the build, but German is the canonical one and the other three have
   **not been read by a firefighter who speaks the language** – terminology follows the national
