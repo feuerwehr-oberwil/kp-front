@@ -281,8 +281,9 @@ test('verlauf: ten Meldungen, the full Verlauf, another device\'s entry', async 
   await waitForWorkspace(page)
   await page.waitForTimeout(1_500)
   // ⚠️ The live positions poll ticks every 15 s (usePersonPositions · pollMs). Start right after a
-  // tick, so the walk (~10 s) holds none of them, rather than one or none by where in the cycle
-  // it happened to start. Waited for, not required: no tick in 20 s is no tick to count.
+  // tick, so the walk holds at most the next one: with the untimed waits below it runs close to
+  // 15 s, and CI counted that tick in one of two runs (32 / 33, 13.10.2026) – the best-of-two takes
+  // the 32. Waited for, not required: no tick in 20 s is no tick to count.
   await page.waitForEvent('requestfinished', { predicate: (r) => /\/positions$/.test(new URL(r.url()).pathname), timeout: 20_000 }).catch(() => null)
   await drain(page)
   const from = Date.now()
