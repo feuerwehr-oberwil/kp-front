@@ -475,7 +475,7 @@ export function VisitPage({ id }: { id: string }) {
                       <button key={v.id} type="button" className={s.row} onClick={() => ov.go({ kind: 'visit', id: v.id })}>
                         <Icon id="checklist" className={s.rowGlyph} />
                         <span className={s.rowMain}>
-                          <span className={s.rowTitle}>{v.checklist === undefined ? doc.object.name : v.checklist?.title || C.noChecklist}</span>
+                          <span className={s.rowTitle}>{v.checklist === undefined ? doc.object.name : v.checklist === null ? C.noChecklist : v.checklist.title || v.checklist.id}</span>
                           <span className={s.rowSub}>{[fmtWhen(v.visitedAt), lifecycleLabel(v.lifecycle as Lifecycle)].filter(Boolean).join(' · ')}</span>
                         </span>
                         <Icon id="chevron" className={s.chev} />

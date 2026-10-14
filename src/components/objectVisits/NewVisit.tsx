@@ -38,10 +38,11 @@ export function NewVisit({ objectKey, workRef }: { objectKey: string; workRef: s
       .filter((v) => v.lifecycle === 'completed' && v.checklist !== undefined)
       .map((v) => v.checklist?.id ?? null),
   ), [ov.locals, ov.summaries, object?.id, objectKey, workRef])
-  // one checklist (or none) needs no question; several ask «Welche Checkliste?»
+  // one checklist (or none) needs no question; several ask «Welche Checkliste?» — and so does the
+  // one, once it is completed at this stop: «Weitere Checkliste» must not silently repeat it
   const choice = useMemo<{ t: VisitTemplate | null } | null>(
-    () => chosen ?? (templates.length <= 1 ? { t: templates[0] ?? null } : null),
-    [chosen, templates],
+    () => chosen ?? (templates.length <= 1 && !doneHere.has(templates[0]?.id ?? null) ? { t: templates[0] ?? null } : null),
+    [chosen, templates, doneHere],
   )
   const step = decideNewVisit({
     localsLoaded: ov.localsLoaded, localsOk: ov.localsOk, catalogueLoaded: ov.cat !== null,
