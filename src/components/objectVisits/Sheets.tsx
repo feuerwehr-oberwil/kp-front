@@ -178,7 +178,7 @@ export function ChecklistSheet({ templates, current, onPick, onClose }: {
     (t?.id ?? null) === (current?.id ?? null) && (t == null || (t.version ?? 0) === (current?.version ?? 0))
   const row = (t: VisitTemplate | null) => (
     <button key={t?.id ?? '__none__'} type="button" className={s.row} onClick={() => onPick(t)} aria-current={isCurrent(t) || undefined}>
-      {t && <Icon id="checklist" className={s.rowGlyph} />}
+      {t ? <Icon id="checklist" className={s.rowGlyph} /> : <span className={s.rowGlyph} aria-hidden />}
       <span className={s.rowMain}>
         <span className={s.rowTitle}>{t ? t.title : C.noChecklist}</span>
         {t?.subtitle && <span className={s.rowSub}>{t.subtitle}</span>}

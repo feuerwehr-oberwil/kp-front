@@ -17,7 +17,7 @@ import { Menu } from '../../lib/overlays'
 import { localThumb, prepareUploadImage } from '../../lib/imagePrep'
 import { LoadingStatus } from '../ShellLoader'
 import { getRevisions, getVisit, sha256Hex } from '../../objectVisits/api'
-import { knownVisits, lastSeen, listProgress, resolveObject, visitTemplates } from '../../objectVisits/catalogue'
+import { knownVisits, lastSeen, listProgress, resolveObject, visitTemplates, visitsAtStop } from '../../objectVisits/catalogue'
 import { answerStats, checklistItems, stripServer, switchChecklist, syncPhotoAnswers } from '../../objectVisits/doc'
 import { resolveConflict, type Resolution } from '../../objectVisits/merge'
 import {
@@ -28,7 +28,7 @@ import { deriveStatus } from '../../objectVisits/status'
 import {
   forgetVisit, isVisitDurable, onVisitChanged, putAttachment, readVisit, retryHeld, updateVisit, type LocalVisit,
 } from '../../objectVisits/store'
-import { personName, type Revision, type ServerVisit, type VisitDoc, type VisitPhoto, type VisitProposal, type VisitTemplate } from '../../objectVisits/types'
+import { personName, type Lifecycle, type Revision, type ServerVisit, type VisitDoc, type VisitPhoto, type VisitProposal, type VisitTemplate } from '../../objectVisits/types'
 import { Head } from './common'
 import { fmtDate, fmtWhen, lifecycleLabel, plural } from './ovFormat'
 import { ChecklistSheet, PhotoSheet, ProposalSheet } from './Sheets'
@@ -352,12 +352,18 @@ export function VisitPage({ id }: { id: string }) {
   const photo = photoSheet?.attId ? doc.photos.find((p) => p.id === photoSheet.attId) ?? null : null
   const sheetItems = checklistItems(doc.checklist)
   const templates = catalogue ? visitTemplates(catalogue) : []
+  const known = knownVisits(ov.locals, ov.summaries)
+  // the other visits at this stop (same object, same list): a second checklist done here
+  const siblings = visitsAtStop(known, doc.object.id, doc.workRef).filter((v) => v.id !== doc.id)
+  // «Weitere Checkliste»: a new visit beside this one — the route resumes this person's open
+  // draft for the stop instead, so a second tap never makes a third visit
+  const canAnother = canEdit && lifecycle === 'completed' && !list?.archived
 
   // the next stop of the work list: the first object after this one without a completed visit
   const next = (() => {
     if (!list || !catalogue || lifecycle !== 'completed') return null
     // done = a completed visit for this list, or the organizer's prior completion
-    const stops = listProgress(list, knownVisits(ov.locals, ov.summaries)).stops
+    const stops = listProgress(list, known).stops
     const at = list.objectIds.indexOf(doc.object.id)
     const order = [...list.objectIds.slice(at + 1), ...list.objectIds.slice(0, Math.max(0, at))]
     const id2 = order.find((oid) => oid !== doc.object.id && !stops.get(oid)?.done && catalogue.objects.some((o) => o.id === oid))
@@ -429,6 +435,16 @@ export function VisitPage({ id }: { id: string }) {
                     <Icon id="chevron" className={s.chev} />
                   </button>
                 )}
+                {canAnother && (
+                  <button type="button" className={s.row} onClick={() => ov.go({ kind: 'new', object: doc.object.id, ref: doc.workRef ?? null })}>
+                    <Icon id="plus" className={s.rowGlyph} />
+                    <span className={s.rowMain}>
+                      <span className={s.rowTitle}>{C.anotherVisit}</span>
+                      <span className={s.rowSub}>{C.anotherVisitSub}</span>
+                    </span>
+                    <Icon id="chevron" className={s.chev} />
+                  </button>
+                )}
                 {revision != null && (
                   <button type="button" className={s.row} onClick={openRevisions} aria-expanded={!!revisions && revisions !== 'failed'}>
                     <Icon id="history" className={s.rowGlyph} />
@@ -436,7 +452,7 @@ export function VisitPage({ id }: { id: string }) {
                       <span className={s.rowTitle}>{C.history}</span>
                       {revisions === 'failed' && <span className={s.rowSub}>{C.historyFailed}</span>}
                     </span>
-                    <Icon id="chevron-down" className="chev" />
+                    <Icon id="chevron-down" className={s.chev} />
                   </button>
                 )}
                 {revisions === 'loading' && <div className={s.loadingLine}><LoadingStatus>{C.visitLoading}</LoadingStatus></div>}
@@ -451,6 +467,23 @@ export function VisitPage({ id }: { id: string }) {
                   </button>
                 ))}
               </div>
+              {siblings.length > 0 && (
+                <>
+                  <h2 className={s.sec}>{C.alsoHere}</h2>
+                  <div className={s.card}>
+                    {siblings.map((v) => (
+                      <button key={v.id} type="button" className={s.row} onClick={() => ov.go({ kind: 'visit', id: v.id })}>
+                        <Icon id="checklist" className={s.rowGlyph} />
+                        <span className={s.rowMain}>
+                          <span className={s.rowTitle}>{v.checklist === undefined ? doc.object.name : v.checklist === null ? C.noChecklist : v.checklist.title || v.checklist.id}</span>
+                          <span className={s.rowSub}>{[fmtWhen(v.visitedAt), lifecycleLabel(v.lifecycle as Lifecycle)].filter(Boolean).join(' · ')}</span>
+                        </span>
+                        <Icon id="chevron" className={s.chev} />
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
               {next === 'done' && <p className={s.secNote}>{C.listDone}</p>}
               {next && next !== 'done' && (
                 <>

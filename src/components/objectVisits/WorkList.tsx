@@ -5,7 +5,7 @@ import { useMemo } from 'react'
 import { Icon } from '../../lib/icons'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
-import { knownVisits, lastSeen, listProgress } from '../../objectVisits/catalogue'
+import { knownVisits, lastSeen, listProgress, visitsAtStop } from '../../objectVisits/catalogue'
 import { pendingUploads } from '../../objectVisits/outbox'
 import { Head } from './common'
 import { fmtDate, fmtDayShort } from './ovFormat'
@@ -68,7 +68,11 @@ export function WorkList({ listRef }: { listRef: string }) {
                   : prior ? <span className="ip-badge ip-badge-ok">{fillTemplate(C.stateDone, { date: priorText })}</span>
                     : null
               const seen = catalogue ? lastSeen(catalogue, o) : null
+              // a stop with a second checklist says so; the row opens the newest finished one,
+              // whose page lists the others («Auch hier erfasst»)
+              const here = visitsAtStop(known, id, list.ref).length
               const subLine = [
+                here > 1 ? fillTemplate(C.stopVisits, { n: here }) : null,
                 o.address,
                 v && prior ? [C.listDoneElsewhere, fmtDate(prior.at), prior.source, prior.by].filter(Boolean).join(' ')
                   : seen ? fillTemplate(C.lastVisit, { date: fmtDate(seen.at) }) : C.neverVisited,

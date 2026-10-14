@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { ApiError } from '../lib/api'
 import { __resetIdbForTests, idbGet } from '../lib/idb'
 import {
-  CATALOGUE_KEY, distanceM, knownVisits, lastSeen, listProgress, loadCatalogue, loadSummaries, nearestObjects, resolveObject, visitTemplates,
+  CATALOGUE_KEY, distanceM, knownVisits, lastSeen, listProgress, loadCatalogue, loadSummaries, nearestObjects, resolveObject, visitTemplates, visitsAtStop,
 } from './catalogue'
 import type { Catalogue } from './types'
 
@@ -95,6 +95,23 @@ describe('catalogue helpers', () => {
     expect(p).toMatchObject({ done: 1, total: 3 })
     expect(p.byObject.get('u2')?.lifecycle).toBe('draft')
     expect(p.byObject.has('u3')).toBe(false)
+  })
+  it('a stop holds every visit for the object with the list reference: a second checklist beside the first', () => {
+    const visits = knownVisits(
+      [{ doc: { id: 'ov3', object: { id: 'u1' }, workRef: 'B4', lifecycle: 'draft', visitedAt: '2026-10-13T19:00', checklist: { id: 'fahrschule', title: 'Fahrschule' } } }],
+      [
+        { id: 'ov1', objectId: 'u1', workRef: 'B4', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-13T18:40', objectName: 'G', checklist: { id: 'depot', title: 'Depot' } },
+        { id: 'ov2', objectId: 'u1', workRef: 'B4', lifecycle: 'discarded', revision: 1, ready: true, visitedAt: '2026-10-13T18:50', objectName: 'G' },
+        { id: 'ov4', objectId: 'u1', workRef: null, lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-13T20:00', objectName: 'G' },
+        { id: 'ov5', objectId: 'u2', workRef: 'B4', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-13T20:00', objectName: 'H' },
+      ],
+    )
+    const here = visitsAtStop(visits, 'u1', 'B4')
+    expect(here.map((v) => v.id)).toEqual(['ov3', 'ov1']) // newest first; discarded, other list and other object never
+    expect(here.map((v) => v.checklist?.title)).toEqual(['Fahrschule', 'Depot'])
+    expect(visitsAtStop(visits, 'u1', '').map((v) => v.id)).toEqual(['ov4']) // «no list» is a stop of its own
+    // the list still counts the object once
+    expect(listProgress({ ref: 'B4', objectIds: ['u1'] }, visits)).toMatchObject({ done: 1, total: 1 })
   })
   it('prior completions from the organizer count as done; a real completed visit wins', () => {
     const list = { ref: 'B4', objectIds: ['u1', 'u2', 'u3'], done: {

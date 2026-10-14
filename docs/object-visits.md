@@ -165,7 +165,7 @@ Refusals carry a `code` at the top of the body **and** a German `detail`:
 | Route | Answer |
 |---|---|
 | `GET /catalogue` | `{generatedAt, canCapture, objects:[{id,name,address,lat,lng,folder,refs,hasPlans,lastVisit:{id,visitedAt,lifecycle}\|null}], templates:[visit templates], lists:[{ref,title,note,closesAt,scheduledOn,archived,objectIds:[…],unresolved:[{source,id}],done:{"<objectId>":{at,by?,source?,note?}}}], proposalFields:[{id,label}]}` |
-| `GET /?object=&workRef=&mine=1&lifecycle=&limit=` | `[{id,objectId,objectName,workRef,lifecycle,revision,ready,visitedAt,updatedAt,by,with,findings}]` newest first (`with`: the document's people, `[string]`) |
+| `GET /?object=&workRef=&mine=1&lifecycle=&limit=` | `[{id,objectId,objectName,workRef,lifecycle,revision,ready,visitedAt,updatedAt,by,with,findings,checklist}]` newest first (`with`: the document's people, `[string]`; `checklist`: `{id,title}` of the visit's checklist, null without one) |
 | `GET /{id}` | the visit (document + server fields) |
 | `PUT /{id}` | body `{opId, baseRevision: int\|null, doc}` → `200 {revision, ready, missing, visit}` · `409 {code:"revision_conflict", revision, visit}` · `422` · same `opId` again ⇒ the stored first answer (idempotent replay, even if newer revisions exist) |
 | `PUT /{id}/attachments/{attId}` | raw bytes; headers `Content-Type`, `X-Content-SHA256` (hex). `201 {id, sha256, size}` new · `200` same id+hash already stored · `409 {code:"attachment_conflict"}` same id other hash · `422` hash/body mismatch, type not jpeg/png/webp (magic bytes), > 15 MB. The visit must exist (send the doc first). |
@@ -254,6 +254,13 @@ as `workRef` and lifecycle `completed` exists for its object — that real visit
 display (its date, its people, its report). Only where none exists does the organizer's `done`
 show the stop as complete («erledigt 14.10.2025 · SchlüHü · Frei Nina»). A draft for the stop does
 not hide a `done`; the stop then reads as done-before and in progress.
+
+**Several visits at one stop** (14.10.2026). A stop may hold more than one visit — typically a
+second checklist after the first was the wrong one. A completed visit offers «Weitere Checkliste»
+(a new visit, same object, same `workRef`; the route resumes this person's open draft for the stop
+instead, so it never makes a third). The stop counts once; its row says «n Besuche» and opens the
+newest completed visit, whose page lists the others («Auch hier erfasst», titled by the summary's
+`checklist`). The checklist chooser marks the checklists already completed at the stop.
 
 **Who.** Accounts are generic (a station tablet, «fu»), so the document's free-text people
 (`with`, wire key unchanged) are the primary «who»: the report prints «Von: <with>» and the

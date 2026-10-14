@@ -170,13 +170,39 @@ export function lastSeen(c: Catalogue, o: CatalogueObject): { at: string; source
   return best
 }
 
+export interface KnownVisit {
+  id: string
+  objectId: string
+  workRef?: string | null
+  lifecycle: string
+  visitedAt?: string
+  /** undefined: not known (a server row from before the field); null: «Ohne Checkliste» */
+  checklist?: { id: string; title?: string | null } | null
+}
+
 /** Every visit this device knows of — device copies over server rows (for list progress). */
 export function knownVisits(
-  locals: { doc: { id: string; object: { id: string }; workRef?: string | null; lifecycle: string; visitedAt: string } }[],
+  locals: { doc: { id: string; object: { id: string }; workRef?: string | null; lifecycle: string; visitedAt: string; checklist?: { id: string; title?: string } | null } }[],
   summaries: VisitSummary[] | null,
-): { id: string; objectId: string; workRef?: string | null; lifecycle: string; visitedAt?: string }[] {
-  const map = new Map<string, { id: string; objectId: string; workRef?: string | null; lifecycle: string; visitedAt?: string }>()
+): KnownVisit[] {
+  const map = new Map<string, KnownVisit>()
   for (const v of summaries ?? []) map.set(v.id, v)
-  for (const l of locals) map.set(l.doc.id, { id: l.doc.id, objectId: l.doc.object.id, workRef: l.doc.workRef ?? null, lifecycle: l.doc.lifecycle, visitedAt: l.doc.visitedAt })
+  for (const l of locals) {
+    const c = l.doc.checklist
+    map.set(l.doc.id, {
+      id: l.doc.id, objectId: l.doc.object.id, workRef: l.doc.workRef ?? null, lifecycle: l.doc.lifecycle, visitedAt: l.doc.visitedAt,
+      checklist: c ? { id: c.id, title: c.title ?? null } : null,
+    })
+  }
   return [...map.values()]
+}
+
+/** The visits made at one stop — this object WITH this work reference (or both without one) —
+ *  newest first, discarded ones never. A stop can hold several: a second checklist for the same
+ *  object (owner, 14.10.2026: «he did the wrong checklist and could not add the right one»). */
+export function visitsAtStop(visits: KnownVisit[], objectId: string, workRef: string | null | undefined): KnownVisit[] {
+  const ref = workRef || null
+  return visits
+    .filter((v) => v.objectId === objectId && (v.workRef || null) === ref && v.lifecycle !== 'discarded')
+    .sort((a, b) => ((a.visitedAt ?? '') < (b.visitedAt ?? '') ? 1 : -1))
 }

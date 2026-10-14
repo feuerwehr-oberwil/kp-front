@@ -7,7 +7,7 @@ import { Icon } from '../../lib/icons'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
 import { LoadingStatus } from '../ShellLoader'
-import { resolveObject, visitTemplates } from '../../objectVisits/catalogue'
+import { knownVisits, resolveObject, visitTemplates, visitsAtStop } from '../../objectVisits/catalogue'
 import { newVisitDoc, objectSnapshot } from '../../objectVisits/doc'
 import { createLocalVisit, findOpenDraft } from '../../objectVisits/store'
 import { decideNewVisit } from '../../objectVisits/newVisit'
@@ -23,19 +23,26 @@ export function NewVisit({ objectKey, workRef }: { objectKey: string; workRef: s
   const [chosen, setChosen] = useState<{ t: VisitTemplate | null } | null>(null)
   const [failed, setFailed] = useState(false)
   const started = useRef(false)
-  const back = () => ov.go({ kind: 'overview' }, { replace: true })
-
   const catalogue = ov.cat && (ov.cat.state === 'ready' || ov.cat.state === 'stale') ? ov.cat.catalogue : null
+  // back where the stop came from: its work list, else the overview
+  const back = () => ov.go(workRef && catalogue?.lists.some((l) => l.ref === workRef) ? { kind: 'list', ref: workRef } : { kind: 'overview' }, { replace: true })
   const object: CatalogueObject | null = catalogue ? resolveObject(catalogue, objectKey) : null
   // a draft for a bare object id resolves even without a catalogue on this device
   const draft = ov.localsLoaded
     ? findOpenDraft(ov.locals, object?.id ?? objectKey, workRef, ov.userId)
     : null
   const templates = useMemo(() => (catalogue ? visitTemplates(catalogue) : []), [catalogue])
-  // one checklist (or none) needs no question; several ask «Welche Checkliste?»
+  // the checklists already completed at this stop («Weitere Checkliste» from a finished visit)
+  const doneHere = useMemo(() => new Set(
+    visitsAtStop(knownVisits(ov.locals, ov.summaries), object?.id ?? objectKey, workRef)
+      .filter((v) => v.lifecycle === 'completed' && v.checklist !== undefined)
+      .map((v) => v.checklist?.id ?? null),
+  ), [ov.locals, ov.summaries, object?.id, objectKey, workRef])
+  // one checklist (or none) needs no question; several ask «Welche Checkliste?» — and so does the
+  // one, once it is completed at this stop: «Weitere Checkliste» must not silently repeat it
   const choice = useMemo<{ t: VisitTemplate | null } | null>(
-    () => chosen ?? (templates.length <= 1 ? { t: templates[0] ?? null } : null),
-    [chosen, templates],
+    () => chosen ?? (templates.length <= 1 && !doneHere.has(templates[0]?.id ?? null) ? { t: templates[0] ?? null } : null),
+    [chosen, templates, doneHere],
   )
   const step = decideNewVisit({
     localsLoaded: ov.localsLoaded, localsOk: ov.localsOk, catalogueLoaded: ov.cat !== null,
@@ -99,11 +106,15 @@ export function NewVisit({ objectKey, workRef }: { objectKey: string; workRef: s
                   <span className={s.rowTitle}>{t.title}</span>
                   {t.subtitle && <span className={s.rowSub}>{t.subtitle}</span>}
                 </span>
+                {doneHere.has(t.id) && <span className="ip-badge ip-badge-ok">{C.checklistDone}</span>}
                 <Icon id="chevron" className={s.chev} />
               </button>
             ))}
             <button type="button" className={s.row} onClick={() => setChosen({ t: null })}>
+              {/* the glyph's room, so the title lines up with the checklists above */}
+              <span className={s.rowGlyph} aria-hidden />
               <span className={s.rowMain}><span className={s.rowTitle}>{C.noChecklist}</span></span>
+              {doneHere.has(null) && <span className="ip-badge ip-badge-ok">{C.checklistDone}</span>}
               <Icon id="chevron" className={s.chev} />
             </button>
           </div>
