@@ -104,6 +104,7 @@ async def test_create_read_and_revise(client, editor, on, obj):
 
     listed = (await client.get("/api/object-visits", params={"object": str(obj.id)})).json()
     assert listed[0]["id"] == vid and listed[0]["findings"] == 1 and listed[0]["by"]["name"] == "Cmd"
+    assert listed[0]["checklist"] == {"id": TEMPLATE["id"], "title": TEMPLATE["title"]}
     assert (await client.get("/api/object-visits", params={"lifecycle": "completed"})).json() == []
     assert len((await client.get("/api/object-visits", params={"mine": 1})).json()) == 1
 

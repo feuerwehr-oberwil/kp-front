@@ -20,9 +20,12 @@
   min-height: calc(var(--tap) + 2 * var(--head-pad-y));
   padding: var(--head-pad-y) max(var(--sp-3), env(safe-area-inset-right)) var(--head-pad-y) max(var(--sp-2), env(safe-area-inset-left));
 }
-.headTitles { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.headTitles { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: var(--head-sub-gap); }
 .headTitles h1 { margin: 0; font: var(--head-title); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.headTitles p { margin: 0; font: var(--head-sub); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ⚠️ --head-sub is a SIZE, not a font: as `font:` the rule was dropped and the line fell back to
+   16px — the head was 60px on the overview and 62 on a visit (14.10.2026). The sub line and the
+   visit's status line are one 16px line box, so every head of the surface has the same height. */
+.headTitles p { margin: 0; font: var(--fw-medium) var(--head-sub)/16px var(--body); color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* back and «⋯» are <IconButton> (08.10.2026, stage 2) */
 
 /* ── the scrolling body ── */
@@ -34,10 +37,11 @@
   width: min(680px, 100%); margin: 0 auto; display: flex; flex-direction: column; gap: var(--sp-3);
   padding: var(--sp-3) max(var(--sp-3), env(safe-area-inset-right)) calc(var(--sp-5) + env(safe-area-inset-bottom)) max(var(--sp-3), env(safe-area-inset-left));
 }
-/* the foot of a visit (Abschliessen): sticky, the sheet-foot insets */
+/* the foot of a visit (Abschliessen): sticky; its button has the cards' edges (the column's
+   gutter) and the sheet foot's 16px above the home indicator (15-mobile · .ui-sheet-foot) */
 .foot {
   flex: none; background: var(--surface); box-shadow: inset 0 1px 0 var(--glass-edge);
-  padding: var(--sp-3) max(var(--sp-4), env(safe-area-inset-right)) calc(var(--sp-3) + env(safe-area-inset-bottom)) max(var(--sp-4), env(safe-area-inset-left));
+  padding: var(--sp-3) max(var(--sp-3), env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(var(--sp-3), env(safe-area-inset-left));
 }
 /* «Abschliessen» is <Button variant="primary" size="lg"> (52px, 08.10.2026), the row's width */
 .footRow { width: min(680px, 100%); margin: 0 auto; display: flex; gap: var(--sp-3); }
@@ -52,6 +56,8 @@
   display: inline-grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--r-xs);
   font: var(--fw-heavy) var(--fs-micro) var(--body); letter-spacing: 0; background: var(--ink-fill); color: var(--on-accent-ink);
 }
+/* the column's first eyebrow sits at the column's own top padding, like the first card of a list */
+.col > .sec:first-child { margin-top: 0; }
 .secNote { margin: 0 4px; font: var(--fw-medium) var(--fs-1)/1.45 var(--body); color: var(--ink-faint); }
 .lead { margin: 4px 4px 0; font: var(--fw-medium) var(--fs-2)/1.45 var(--body); color: var(--ink-dim); }
 
@@ -234,13 +240,13 @@
 
 /* the status as the head's second line (owner, staging 03.10.2026: no separate box) */
 .headStatus {
-  display: flex; align-items: center; gap: 2px var(--sp-2); min-width: 0; max-width: 100%; min-height: 24px;
-  margin: 0; padding: 0; border: none; background: none; cursor: pointer; text-align: left;
-  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); white-space: nowrap; overflow: hidden;
-  -webkit-tap-highlight-color: transparent; position: relative;
+  /* a 16px line in the layout, a 44px tap: the button is --tap tall and gives back the rest in
+     margin (a ::after hit area was clipped to the line by the overflow below) */
+  display: flex; align-items: center; gap: 2px var(--sp-2); min-width: 0; max-width: 100%; height: var(--tap);
+  margin: calc((16px - var(--tap)) / 2) 0; padding: 0; border: none; background: none; cursor: pointer; text-align: left;
+  font: var(--fw-medium) var(--head-sub)/16px var(--body); color: var(--ink-dim); white-space: nowrap; overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
-/* a 44px hit area around a 24px line */
-.headStatus::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap); transform: translateY(-50%); }
 .headStatus .seg { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .headStatus .seg:last-child { flex: 0 1 auto; }
 /* «Entwurf» / «Abgeschlossen» is the one word that must never be cut («Entwur», iPhone 03.10.2026) */

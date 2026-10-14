@@ -558,6 +558,15 @@ def with_names(doc: dict[str, Any]) -> list[str]:
     return [p for p in doc.get("with") or [] if isinstance(p, str) and p.strip()]
 
 
+def checklist_ref(doc: dict[str, Any]) -> dict[str, Any] | None:
+    """`{id, title}` of the checklist a visit was made with — so a stop with two visits (a second
+    checklist for the same object) can tell them apart in a list. None for «Ohne Checkliste»."""
+    c = doc.get("checklist")
+    if not isinstance(c, dict) or not isinstance(c.get("id"), str):
+        return None
+    return {"id": c["id"], "title": c.get("title") if isinstance(c.get("title"), str) else None}
+
+
 def summary(visit: ObjectVisit) -> dict[str, Any]:
     obj = visit.doc.get("object") or {}
     return {
@@ -573,6 +582,7 @@ def summary(visit: ObjectVisit) -> dict[str, Any]:
         "by": _who(visit.created_by, visit.created_by_name),
         "with": with_names(visit.doc),
         "findings": visit.findings,
+        "checklist": checklist_ref(visit.doc),
     }
 
 

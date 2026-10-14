@@ -203,7 +203,7 @@ function ItemRow({ item, doc, readOnly, pending, onEdit, onTakePhoto, onOpenPhot
       {input === 'photo' && (
         <>
           {thumbs}
-          <Button icon={<Icon id="cam" />} onClick={() => onTakePhoto(item.id)}>{C.takePhoto}</Button>
+          <Button icon={<Icon id="cam" />} onClick={() => onTakePhoto(item.id)}>{C.addPhoto}</Button>
         </>
       )}
       {input !== 'photo' && !(input === 'check' && a?.v === 'defect') && thumbs}
