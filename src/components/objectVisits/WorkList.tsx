@@ -89,7 +89,7 @@ export function WorkList({ listRef }: { listRef: string }) {
               const door = !!v || (ov.canCapture && !list.archived)
               const inner = (
                 <>
-                  <span className={stop.done ? `${s.num} ${s.numDone}` : s.num} aria-label={stop.done ? `${i + 1} · ${C.listDoneElsewhere}` : undefined}>
+                  <span className={stop.done ? `${s.num} ${s.numDone}` : s.num} {...(stop.done ? { role: 'img', 'aria-label': `${i + 1} · ${C.listDoneElsewhere}` } : {})}>
                     {stop.done ? <Icon id="check" /> : i + 1}
                   </span>
                   <span className={s.rowMain}>
