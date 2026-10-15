@@ -1,25 +1,14 @@
 /* «Rapport unterschreiben» (SignatureSheet.tsx). A form sheet: what is signed, who signs, the pad. */
 .sheet { width: min(640px, 100%); }
-.what {
-  display: grid; grid-template-columns: auto 1fr; gap: var(--sp-1) var(--sp-3); align-items: baseline;
-  margin: 0 0 var(--sp-3); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--ink) 5%, transparent); font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body);
-}
-.what dt { color: var(--ink-dim); font-weight: var(--fw-bold); }
-.what dd { margin: 0; color: var(--ink); }
-.whatHead { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3);
-  font: var(--field-label); color: var(--ink-dim); }
-/* the phone's one-line summary (SignatureSheet · phone) */
-.whatLine { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin: 0 0 var(--sp-2);
-  font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink-dim); }
-.whatLine > span { min-width: 0; }
-/* a link-shaped action, kept at the tap floor */
-.whatPdf { flex: none; white-space: nowrap; min-height: var(--tap); padding: 0; border: 0; background: none; color: var(--ink);
-  font: var(--fw-bold) var(--fs-2) var(--body); text-decoration: underline; cursor: pointer; }
+/* what is signed: the Einsatz on one line, what it covers on the next, the PDF button beside
+   both — never a link wrapping onto two lines */
+.whatLine { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin: 0 0 var(--sp-3); }
+.whatText { min-width: 0; display: flex; flex-direction: column; font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink-dim); }
+.whatText b { font-weight: var(--fw-bold); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.whatLine :global(.ip-btn) { flex: none; }
 .field { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0 0 var(--sp-3); }
 .field :global(.useg) { display: flex; width: 100%; }
 .field :global(.useg-btn) { flex: 1; }
 .label { font: var(--field-label); color: var(--ink-dim); }
 .hint { font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-faint); }
 .done { font-weight: var(--fw-medium); opacity: .75; }
-.note { margin: var(--sp-3) 0 0; font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-faint); }

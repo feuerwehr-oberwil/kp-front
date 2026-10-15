@@ -1,5 +1,5 @@
-/* The signature pad (SignaturePad.tsx) — the line of the paper form on a white field: «×», the rule,
-   and under it the role and «Ort, Datum». White in both themes: it is paper, and the ink is the
+/* The signature pad (SignaturePad.tsx) — the line of the paper form on a white field, and under it
+   one row: who, where, when, and «Löschen». White in both themes: it is paper, and the ink is the
    ink of a pen. */
 .pad { position: relative; display: flex; flex-direction: column; gap: var(--sp-1); }
 .surface {
@@ -7,16 +7,18 @@
   border: 1.5px solid var(--ink-tint-strong); background: #fff;
   touch-action: none; user-select: none; -webkit-user-select: none; cursor: crosshair;
 }
+/* a phone's sheet must stand on one screen */
+.compact { height: 150px; }
 /* the hand lands on the lower half, where the line is — the pad is taller than a signature so a
    big hand has room above it */
 .rule { position: absolute; left: var(--sp-5); right: var(--sp-5); bottom: var(--sp-6); border-bottom: 1.5px solid #6c7686; }
-.cross { position: absolute; left: var(--sp-5); bottom: calc(var(--sp-6) + var(--sp-1)); font: var(--fw-regular) var(--fs-5)/1 var(--body); color: #6c7686; }
 .hint { position: absolute; inset: 0 0 var(--sp-7); display: grid; place-items: center; font: var(--fw-medium) var(--fs-3) var(--body); color: #6c7686; pointer-events: none; }
 .ink { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .ink path { fill: none; stroke: #1b2330; stroke-width: 3px; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
-.caption { display: flex; justify-content: space-between; gap: var(--sp-3); padding: 0 var(--sp-1); font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-faint); }
+.caption { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); min-height: var(--tap);
+  padding: 0 0 0 var(--sp-1); font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-faint); }
 .caption span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.clear { position: absolute; top: var(--sp-2); right: var(--sp-2); }
+.clear { flex: none; }
 
 .thumb { display: block; width: 96px; height: 36px; flex: none; }
 .thumbInk { fill: none; stroke: var(--ink); stroke-width: 2px; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }

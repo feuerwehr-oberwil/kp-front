@@ -2,29 +2,30 @@ import { useCallback, useRef, useState } from 'react'
 import { rdpIndices } from '../lib/lineStyle'
 import { isBlank, strokesPath, type SignatureStrokes } from '../lib/reportSignature'
 import { Button } from './Button'
+import { cx } from '../lib/cx'
 import s from './SignaturePad.module.css'
 
 // The pad a signature is drawn on (Rapport · Unterschriften). A finger, a pen or a mouse draws on
 // it; what is kept is the SHAPE of each stroke, thinned and rounded into a fixed box — no timing, no
-// pressure (that would be biometric data). It looks like the line on the paper form: «×», a rule,
-// the role under it on the left and «Ort, Datum» on the right.
+// pressure (that would be biometric data). It looks like the line on the paper form: a white field
+// with one rule, and under it «Ort, Datum».
 
 /** the stored box is this wide; its height follows the pad's aspect at the first stroke */
 const BOX_W = 1000
 /** how far a thinned stroke may stray from the drawn one, in screen px */
 const SIMPLIFY_PX = 1.2
 
-export function SignaturePad({ value, onChange, caption, placeDate, clearLabel, hint, ariaLabel }: {
+export function SignaturePad({ value, onChange, placeDate, clearLabel, hint, ariaLabel, compact }: {
   value: SignatureStrokes | null
   onChange: (next: SignatureStrokes | null) => void
-  /** under the rule, left — «Unterschrift Einsatzleiter» */
-  caption: string
-  /** under the rule, right — «Oberwil, 15.10.2026» */
+  /** under the line — «Oberwil, 15.10.2026» (the role is chosen above the pad, not repeated) */
   placeDate: string
   clearLabel: string
   /** the empty pad's invitation */
   hint: string
   ariaLabel: string
+  /** a little shorter, so a phone's sheet stands on one screen */
+  compact?: boolean
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
   // the stroke being drawn, in screen px relative to the pad — kept out of state until it ends so
@@ -78,7 +79,7 @@ export function SignaturePad({ value, onChange, caption, placeDate, clearLabel, 
     <div className={s.pad}>
       <div
         ref={boxRef}
-        className={s.surface}
+        className={cx(s.surface, compact && s.compact)}
         role="img"
         aria-label={ariaLabel}
         onPointerDown={onDown}
@@ -87,20 +88,19 @@ export function SignaturePad({ value, onChange, caption, placeDate, clearLabel, 
         onPointerCancel={onUp}
       >
         {blank && !livePath && <span className={s.hint}>{hint}</span>}
-        <span className={s.cross} aria-hidden>×</span>
         <span className={s.rule} aria-hidden />
         <svg className={s.ink} viewBox={`0 0 ${BOX_W} ${h}`} preserveAspectRatio="xMinYMin meet" aria-hidden>
           {value && <path d={strokesPath(value)} />}
           {livePath && <path d={livePath} />}
         </svg>
       </div>
-      <div className={s.caption} aria-hidden>
-        <span>{caption}</span>
+      {/* ONE row under the field (owner, 15.10.2026): «Ort, Datum» on the left, and — once
+          something is drawn — the one way to start over on the right. Nothing inside the field but
+          the line: no «×», no button to land a stroke on. */}
+      <div className={s.caption}>
         <span>{placeDate}</span>
+        {!blank && <Button variant="quiet" className={s.clear} onClick={() => onChange(null)}>{clearLabel}</Button>}
       </div>
-      {!blank && (
-        <Button className={s.clear} onClick={() => onChange(null)}>{clearLabel}</Button>
-      )}
     </div>
   )
 }

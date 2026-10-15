@@ -6,6 +6,7 @@ import type { SignatureRole, SignatureStrokes } from '../lib/reportSignature'
 import { isBlank } from '../lib/reportSignature'
 import type { Person } from '../types'
 import { Button } from './Button'
+import { Icon } from '../lib/icons'
 import { PersonField, type Slot } from './PersonField'
 import { Segmented } from './Segmented'
 import { useIsPhone } from '../lib/useIsPhone'
@@ -50,7 +51,6 @@ export function SignatureSheet({
   const [names, setNames] = useState<Record<SignatureRole, Slot>>({ el: elName, kdt: kdtName })
   const [strokes, setStrokes] = useState<SignatureStrokes | null>(null)
   const [busy, setBusy] = useState(false)
-  const roleLabel = role === 'el' ? S.roleEl : S.roleKdt
   const slot = names[role]
   const ready = !isBlank(strokes) && !!slot.name.trim() && !busy
 
@@ -64,8 +64,8 @@ export function SignatureSheet({
     }
   }
 
-  // on a phone the pad must be on screen without scrolling: the summary shrinks to one line and
-  // the name's hint goes (the picker still says which name it is)
+  // on a phone the pad must be on screen without scrolling: the name's hint goes (the picker still
+  // says which name it is) and the PDF button says «PDF»
   const phone = useIsPhone()
   const NO_IDS = new Set<string>()
   return (
@@ -75,23 +75,16 @@ export function SignatureSheet({
         <Button variant="primary" disabled={!ready} onClick={() => void submit()}>{S.confirm}</Button>
       </>}
     >
-      {phone ? (
-        <p className={s.whatLine}>
-          <span>{[summary.einsatz, fillTemplate(S.personen, { n: summary.personen }), fillTemplate(S.positionen, { n: summary.positionen })].join(' · ')}</span>
-          {onViewPdf && <button type="button" className={s.whatPdf} onClick={onViewPdf}>{S.viewPdf}</button>}
-        </p>
-      ) : (
-      <dl className={s.what}>
-        <div className={s.whatHead}>
-          <span>{S.whatHead}</span>
-          {onViewPdf && <button type="button" className={s.whatPdf} onClick={onViewPdf}>{S.viewPdf}</button>}
-        </div>
-        <dt>{S.whatEinsatz}</dt><dd>{summary.einsatz}</dd>
-        {summary.zeiten && <><dt>{S.whatZeiten}</dt><dd>{summary.zeiten}</dd></>}
-        <dt>{S.whatPersonal}</dt><dd>{fillTemplate(S.personen, { n: summary.personen })}</dd>
-        <dt>{S.whatMaterial}</dt><dd>{fillTemplate(S.positionen, { n: summary.positionen })}</dd>
-      </dl>
-      )}
+      {/* What is signed, in two lines beside the PDF it prints as — the same on every device
+          (owner, 15.10.2026: one compact block, a real button instead of an underlined link) */}
+      <div className={s.whatLine}>
+        <span className={s.whatText}>
+          <b>{summary.einsatz}</b>
+          <span>{[phone ? undefined : summary.zeiten, fillTemplate(S.personen, { n: summary.personen }), fillTemplate(S.positionen, { n: summary.positionen })].filter(Boolean).join(' · ')}</span>
+        </span>
+        {/* «PDF», the word the Rapport head uses for the same document on a phone */}
+        {onViewPdf && <Button icon={<Icon id="doc" />} onClick={onViewPdf} aria-label={S.viewPdf}>{phone ? appConfig.copy.preflight.pdfShort : S.viewPdf}</Button>}
+      </div>
       <div className={s.field}>
         <span className={s.label}>{S.signsAs}</span>
         <Segmented<SignatureRole>
@@ -120,11 +113,9 @@ export function SignatureSheet({
       </div>
       <SignaturePad
         value={strokes} onChange={setStrokes}
-        caption={fillTemplate(S.padCaption, { role: roleLabel })}
         placeDate={placeDate}
-        clearLabel={S.clear} hint={S.padHint} ariaLabel={S.padAria}
+        clearLabel={S.clear} hint={S.padHint} ariaLabel={S.padAria} compact={phone}
       />
-      <p className={s.note}>{S.lockNote}</p>
     </Sheet>
   )
 }
