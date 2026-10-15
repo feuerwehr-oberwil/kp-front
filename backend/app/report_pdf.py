@@ -763,6 +763,41 @@ class AuswertungIn(BaseModel):
     lehrenNote: str | None = None
 
 
+#: one stroke list of a drawn signature is bounded so a payload can never make the composer draw
+#: millions of segments: a real signature is a few dozen strokes of a few hundred points
+_SIG_MAX_STROKES = 200
+_SIG_MAX_COORDS = 4000
+
+
+class SignatureStrokesIn(BaseModel):
+    """The SHAPE of a drawn signature (lib/reportSignature · SignatureStrokes): integer points
+    in a `w`×`h` box, y down, flattened x,y,x,y… per stroke. No timing, no pressure."""
+
+    w: int
+    h: int
+    d: list[list[int]] = []
+
+    @field_validator("d")
+    @classmethod
+    def _bounded(cls, v: list[list[int]]) -> list[list[int]]:
+        return [s[: _SIG_MAX_COORDS - (_SIG_MAX_COORDS % 2)] for s in v[:_SIG_MAX_STROKES] if len(s) >= 2]
+
+
+class SignatureIn(BaseModel):
+    """A digital signature that still holds, as the client decided (a signature that no longer
+    matches the Rapport is simply not sent — its line prints empty)."""
+
+    role: str  # "el" | "kdt"
+    name: str = ""
+    #: «Oberwil, 15.10.2026» — printed as the value of the row's «Ort, Datum»
+    placeDate: str = ""
+    #: «15.10.2026 04:12»
+    at: str = ""
+    #: «3fa9 c210 7be1» — the first digits of the SHA-256 over the signed part
+    checksum: str = ""
+    strokes: SignatureStrokesIn
+
+
 class ReportPayload(BaseModel):
     incident: IncidentFacts
     meta: ReportMetaIn = ReportMetaIn()
@@ -797,6 +832,8 @@ class ReportPayload(BaseModel):
     boardPages: list[BoardPageIn] = []
     #: the scene for their «Lagekarte» boxes, auto-framed, rendered here at print time
     boardMap: KrokiIn | None = None
+    #: drawn signatures on the Visum lines (15.10.2026) — at most one per role, the last wins
+    signatures: list[SignatureIn] = []
 
 
 # ----------------------------------------------------------------------------- German labels
@@ -895,6 +932,8 @@ L = {
     "signoff": "Unterschriften",
     "sigOrtDatum": "Ort, Datum",
     "sigKommandant": "Kommandant",
+    # the small line under a drawn signature: when it was made and what it covers
+    "sigDigital": "Digital unterschrieben {at} · Prüfsumme {sum}",
     "generatedAt": "Erstellt",
     "mittel": "Material",
     # «Gerettet», not «Gerettete»: the box is a form label followed by what was rescued
@@ -1390,6 +1429,50 @@ def _link_tel_on_canvas(c, text: str, x: float, y: float, size: float) -> None:
         c.linkURL(_tel(text[start:end]), (x0, y - 0.25 * size, x1, y + 0.75 * size), relative=1)
 
 
+def _draw_signature(c, strokes: SignatureStrokesIn, x0: float, x1: float, base_y: float, max_h: float) -> None:
+    """Draw a signature's strokes so their lowest point sits just under `base_y` (the rule) and
+    they fill at most `x1 - x0` × `max_h`, aspect kept. The same curve the app draws
+    (lib/reportSignature · strokesPath): quadratic segments through the midpoints, each written
+    as the cubic it equals."""
+    pts = [(s[i], s[i + 1]) for s in strokes.d for i in range(0, len(s) - 1, 2)]
+    if not pts or x1 <= x0:
+        return
+    minx = min(p[0] for p in pts)
+    maxx = max(p[0] for p in pts)
+    miny = min(p[1] for p in pts)
+    maxy = max(p[1] for p in pts)
+    k = min((x1 - x0) / max(maxx - minx, 1), max_h / max(maxy - miny, 1))
+    # a hand dips a little below the line, never into the small line under it
+    bottom = base_y - 0.4 * mm
+
+    def tx(px: float, py: float) -> tuple[float, float]:
+        return x0 + (px - minx) * k, bottom + (maxy - py) * k
+
+    c.saveState()
+    c.setStrokeColor(colors.HexColor("#1b2330"))
+    c.setLineWidth(0.9)
+    c.setLineCap(1)
+    c.setLineJoin(1)
+    path = c.beginPath()
+    for s in strokes.d:
+        n = len(s) // 2
+        if n < 2:
+            continue
+        p = [tx(s[2 * i], s[2 * i + 1]) for i in range(n)]
+        path.moveTo(*p[0])
+        cur = p[0]
+        for i in range(1, n - 1):
+            q = p[i]
+            end = ((p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2)
+            c1 = (cur[0] + 2 / 3 * (q[0] - cur[0]), cur[1] + 2 / 3 * (q[1] - cur[1]))
+            c2 = (end[0] + 2 / 3 * (q[0] - end[0]), end[1] + 2 / 3 * (q[1] - end[1]))
+            path.curveTo(*c1, *c2, *end)
+            cur = end
+        path.lineTo(*p[-1])
+    c.drawPath(path, stroke=1, fill=0)
+    c.restoreState()
+
+
 class _FormRows(Flowable):
     """Dotted-leader form fields exactly like the jsPDF Erfassungsblatt: `Label: ······`,
     with a recorded value printed ON the line (as handwriting would be). Each row is a list
@@ -1417,12 +1500,16 @@ class _FormRows(Flowable):
         # through the box frame. One computation, read by both.
         self._geom = [self._row_fields(row, inner) for row in self.rows]
         self._extra = [max((len(g[4]) for g in row), default=1) - 1 for row in self._geom]
+        # a drawn signature's small line hangs under its rule; under the LAST row it needs room of
+        # its own, or it would print into whatever follows the block
+        self._foot_pad = 3.2 * mm if rows and any(f.get("foot") for f in rows[-1]) else 0.0
         self.height = (
             len(rows) * self.pitch
             + sum(self._extra) * _WRAP_LEAD
             + self.pad
             + self.pad_top
             - (2.5 * mm if not boxed else 0)
+            + self._foot_pad
         )
 
     def wrap(self, availWidth: float, availHeight: float):  # noqa: N803 — ReportLab API
@@ -1519,6 +1606,17 @@ class _FormRows(Flowable):
                         c.setDash(0.8, 0.8)
                         c.line(start, rule_y, x + w - 2 * mm, rule_y)
                         c.restoreState()
+                        # a DRAWN signature (15.10.2026) sits on that rule, where a pen would
+                        # have written it; its small line runs under the whole field, from the
+                        # label — after the name there is not room for it
+                        if f.get("ink") is not None:
+                            _draw_signature(c, f["ink"], start + 1 * mm, x + w - 3 * mm, rule_y, 7.5 * mm)
+                        if f.get("foot"):
+                            c.saveState()
+                            c.setFont("Helvetica", 6.5)
+                            c.setFillColor(_LABEL)
+                            c.drawString(x, rule_y - 3.2 * mm, _fit_text(c, f["foot"], w - 2 * mm))
+                            c.restoreState()
                     if drawn:
                         c.setFont("Helvetica", 9)
                         c.setFillColor(_INK)
@@ -2221,20 +2319,39 @@ def compose_report_pdf(
     # the label it made the colon land after the name and the signature line start past it.
     # `line` keeps the rule under a filled field here — unlike the Details box, this one is
     # signed on the line whether or not the name above it is already known.
+    #
+    # A DRAWN signature (15.10.2026) changes none of that: it is put on the same line a pen would
+    # use, «Ort, Datum» is filled in for it, and the paper that comes out is still what gets filed.
+    # Only signatures that still hold arrive here; a line without one prints empty, as always.
+    signed = {g.role: g for g in payload.signatures}
+
+    def visum(role: str, label: str, default_name: str | None) -> list[dict]:
+        g = signed.get(role)
+        if g is None:
+            return [
+                # «Ort, Datum: ______» is written ON its line like every other field on the sheet —
+                # it is a value somebody fills in, not a signature. Only the NAME field signs
+                # underneath, because that is the one that needs empty paper beneath it.
+                {"label": L["sigOrtDatum"], "w": 0.4},
+                {"label": label, "w": 0.6, "value": default_name, "sign": True},
+            ]
+        return [
+            {"label": L["sigOrtDatum"], "w": 0.4, "value": g.placeDate or None},
+            {
+                "label": label,
+                "w": 0.6,
+                "value": g.name or default_name,
+                "sign": True,
+                "ink": g.strokes,
+                "foot": L["sigDigital"].format(at=g.at, sum=g.checksum),
+            },
+        ]
+
     sig = _FormRows(
         inner_w,
         [
-            # «Ort, Datum: ______» is written ON its line like every other field on the sheet —
-            # it is a value somebody fills in, not a signature. Only the NAME field signs
-            # underneath, because that is the one that needs empty paper beneath it.
-            [
-                {"label": L["sigOrtDatum"], "w": 0.4},
-                {"label": L["einsatzleiter"], "w": 0.6, "value": m.einsatzleiter, "sign": True},
-            ],
-            [
-                {"label": L["sigOrtDatum"], "w": 0.4},
-                {"label": L["sigKommandant"], "w": 0.6, "value": m.kommandant, "sign": True},
-            ],
+            visum("el", L["einsatzleiter"], m.einsatzleiter),
+            visum("kdt", L["sigKommandant"], m.kommandant),
         ],
         # Room to sign BESIDE the name, not under it — the rule is on the row's own line now,
         # so the pitch only has to keep the two Visum rows from crowding each other.

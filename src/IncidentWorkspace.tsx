@@ -26,6 +26,7 @@ import { newRowId } from './lib/ids'
 import { atemschutzDoctrine, getDeploymentConfig, deploymentDefaultCenter, isDemoMode } from './lib/deploymentConfig'
 import { countSurface } from './lib/visitBeacon'
 import { fillTemplate, formatTime } from './lib/format'
+import { addSignature, shortChecksum, voidAll, type ReportSignature } from './lib/reportSignature'
 import { circlePolygon } from './lib/geo'
 import { isPresent } from './lib/attendanceIntervals'
 import { registerMeldeleisteHost } from './lib/meldeleisteHost'
@@ -606,7 +607,7 @@ export function IncidentWorkspace({
   // is a view of the tactical store above.
   const {
     incidentSettings, setIncidentSettings, checklists, setChecklists,
-    trupps: allTrupps, setTrupps, attendance, setAttendance, mittel, setMittel, shifts, setShifts, bands, setBands, cameraViews, setCameraViews, trails, setTrails, attachments, setAttachments,
+    trupps: allTrupps, setTrupps, attendance, setAttendance, mittel, setMittel, shifts, setShifts, bands, setBands, cameraViews, setCameraViews, trails, setTrails, attachments, setAttachments, reportSignatures, setReportSignatures,
     planScale, setPlanScale, reportMeta, setReportMeta, building, setBuilding,
     planBindings, setPlanBindings,
     activePlanId, setActivePlanId, pickedObjectId, setPickedObjectId,
@@ -621,7 +622,7 @@ export function IncidentWorkspace({
   // (typed against undoKeys · RecordedField: a recorded slice missing here fails tsc — the objects
   // are the one exception, read live from the store)
   const liveSlices: Record<Exclude<RecordedField, 'objects'>, unknown> = {
-    trupps: allTrupps, mittel, shifts, bands, cameraViews, trails, attachments, vehicleOverrides, checklists,
+    trupps: allTrupps, mittel, shifts, bands, cameraViews, trails, attachments, reportSignatures, vehicleOverrides, checklists,
     attendance, planScale, settings: incidentSettings, reportMeta, planBindings, building, pickedObjectId, intakeReviewedAt,
   }
   liveWs.current = liveSlices
@@ -1373,12 +1374,12 @@ export function IncidentWorkspace({
   const { buildPayload, applyWorkspace, ghostReseedRef, sliceRebase } = useWorkspaceBlob({
     bootGate, incidentMeta, setLayers, journal, setRecent, setBuilding, setVehicleOverrides, setChecklists,
     setTrupps, setAttendance, setMittel, setShifts, setBands, setCameraViews, setTrails, setPlanScale,
-    setReportMeta, setAttachments, setIncidentSettings, setPlanBindings, setPickedObjectId,
+    setReportMeta, setAttachments, setReportSignatures, setIncidentSettings, setPlanBindings, setPickedObjectId,
     setIntakeReviewedAt, undoHist, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
     setPlanHistory, lastReportStepRef: lastReportStep, lastCaptionStepRef: lastCaptionStep,
     lastReorientRef: lastReorient, setSelectedId, setSelectedDrawingId, setSelectedDrawIds, objects, recent,
     activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel,
-    shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, incidentSettings, planBindings,
+    shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, reportSignatures, incidentSettings, planBindings,
     intakeReviewedAt, layers,
   })
 
@@ -1839,6 +1840,23 @@ export function IncidentWorkspace({
   // plan events carry document + (optional) team / coordinate context for jump-back
   const logPlan = (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number; subjectId?: string }) =>
     pushEvent({ icon, text, kind: extra?.kind ?? 'symbol', surface: 'plan', planId: activePlanId, annoId: extra?.annoId, px: extra?.x, py: extra?.y, floor: extra?.floor, subjectId: extra?.subjectId })
+  // Rapport signatures (15.10.2026, lib/reportSignature). Appended / voided through the functional
+  // setter and NOT through undo: a step that takes a signature away again would be the one edit
+  // the lock exists to prevent. Each says so twice — a Verlauf row for people (a Nachtrag on a
+  // closed Einsatz, which is when signing happens) and a hash-chained audit event for the proof.
+  const signRapport = (sig: ReportSignature) => {
+    const S = appConfig.copy.signature
+    setReportSignatures((list) => addSignature(list, sig))
+    emit('report.signature.add', { id: sig.id, role: sig.role, name: sig.name, scope: sig.scope })
+    pushEvent({ icon: 'check', text: fillTemplate(S.logSigned, { role: sig.role === 'el' ? S.roleEl : S.roleKdt, name: sig.name, sum: shortChecksum(sig.scope) }) })
+  }
+  const voidSignatures = () => {
+    const ids = reportSignatures.filter((g) => !g.voidedAt).map((g) => g.id)
+    if (!ids.length) return
+    setReportSignatures((list) => voidAll(list, serverNowIso(), 'aendern'))
+    emit('report.signature.void', { ids, reason: 'aendern' })
+    pushEvent({ icon: 'pen', text: appConfig.copy.signature.logVoided })
+  }
   // …and now that both exist, hand them to the timeline's entries (see `histSide` far above:
   // an entry is pushed long before this line runs and pressed long after it).
   histSide.current = { log, emit }
@@ -3197,7 +3215,9 @@ export function IncidentWorkspace({
         attachments, canEditRapport, addAttachments, captionAttachment, removeAttachment, canShareLink,
         running, assignRole, assignTypedName, saveReportMeta, canEditMeta, onEditMeta, setMode,
         setRapportReturn, canWriteRecord, resolveAttendanceConflict, canEditIncident, readOnly,
-        confirmAndComplete, setJournalOpen, setJournalFromRapport,
+        confirmAndComplete, setJournalOpen, setJournalFromRapport, reportSignatures,
+        signRapport: canEditRapport ? signRapport : undefined,
+        voidSignatures: canEditRapport ? voidSignatures : undefined,
       }} />
       <JournalLayer {...{
         journalOpen, guarded, journal, auditDelivery, closedRefusedTotal, exportEntries, journalVocab,

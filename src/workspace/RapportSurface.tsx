@@ -15,6 +15,7 @@ import type { AssignableRole } from '../lib/roleAssignment'
 import type { useMediaQueue } from '../lib/useMediaQueue'
 import type { useSymbols } from '../lib/useSymbols'
 import type { ReportMeta } from '../lib/workspace'
+import type { ReportSignature } from '../lib/reportSignature'
 import type { Person, TimelineEvent, Trupp, AttendanceState, MittelEntry, Entity, Drawing, PlanDocument, LayerDef, Incident, LngLat, BoardDoc, BuildingDoc, ReportAttachment, CaptionMode } from '../types'
 import { ReportPreflight } from './lazySurfaces'
 import type { WorkspaceMode } from './types'
@@ -67,6 +68,9 @@ export interface RapportSurfaceProps {
   confirmAndComplete: () => Promise<boolean>
   setJournalOpen: Dispatch<SetStateAction<boolean>>
   setJournalFromRapport: Dispatch<SetStateAction<boolean>>
+  reportSignatures: ReportSignature[]
+  signRapport?: (sig: ReportSignature) => void
+  voidSignatures?: () => void
 }
 
 export function RapportSurface({
@@ -76,7 +80,7 @@ export function RapportSurface({
   attachments, canEditRapport, addAttachments, captionAttachment, removeAttachment, canShareLink,
   running, assignRole, assignTypedName, saveReportMeta, canEditMeta, onEditMeta, setMode,
   setRapportReturn, canWriteRecord, resolveAttendanceConflict, canEditIncident, readOnly,
-  confirmAndComplete, setJournalOpen, setJournalFromRapport,
+  confirmAndComplete, setJournalOpen, setJournalFromRapport, reportSignatures, signRapport, voidSignatures,
 }: RapportSurfaceProps) {
   return (
     <>
@@ -127,6 +131,11 @@ export function RapportSurface({
           canShare={canShareLink}
           // a closed Einsatz's Rapport says so at the top: the changes are Nachträge (F10)
           closedHint={!running && canEditRapport}
+          // the Unterschriften card (lib/reportSignature): signed only on a closed Einsatz
+          closed={!running}
+          reportSignatures={reportSignatures}
+          onSign={signRapport}
+          onVoidSignatures={voidSignatures}
           onRolePicked={assignRole}
           // the Einsatzleiter / Rückmeldung pickers: a typed name is a Gast, so the EL named on
           // the front page of the rapport is on the Anwesenheit behind it even for a Nachbarwehr

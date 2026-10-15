@@ -23,6 +23,7 @@ import { boardViewOf } from '../lib/useObjectStore'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
 import { type WorkspaceGate, type PlanScales, type ReportMeta, type IncidentSettings, type Saved, type InitialState, sanitizeWorkspace, deriveInitial, applyInitialState, WORKSPACE_SCHEMA_VERSION } from '../lib/workspace'
 import type { LayerDef, BuildingDoc, Trupp, AttendanceState, MittelEntry, Shift, ShiftBand, CameraView, ReportAttachment, BoardDoc } from '../types'
+import type { ReportSignature } from '../lib/reportSignature'
 
 export interface UseWorkspaceBlobInputs {
   bootGate: WorkspaceGate
@@ -43,6 +44,7 @@ export interface UseWorkspaceBlobInputs {
   setPlanScale: Dispatch<SetStateAction<PlanScales>>
   setReportMeta: Dispatch<SetStateAction<ReportMeta>>
   setAttachments: Dispatch<SetStateAction<ReportAttachment[]>>
+  setReportSignatures: Dispatch<SetStateAction<ReportSignature[]>>
   setIncidentSettings: Dispatch<SetStateAction<IncidentSettings>>
   setPlanBindings: Dispatch<SetStateAction<IncidentPlanBinding[]>>
   setPickedObjectId: Dispatch<SetStateAction<string | undefined>>
@@ -78,6 +80,7 @@ export interface UseWorkspaceBlobInputs {
   planScale: PlanScales
   reportMeta: ReportMeta
   attachments: ReportAttachment[]
+  reportSignatures: ReportSignature[]
   incidentSettings: IncidentSettings
   planBindings: IncidentPlanBinding[]
   intakeReviewedAt: string | undefined
@@ -87,12 +90,12 @@ export interface UseWorkspaceBlobInputs {
 export function useWorkspaceBlob({
   bootGate, incidentMeta, setLayers, journal, setRecent, setBuilding, setVehicleOverrides,
   setChecklists, setTrupps, setAttendance, setMittel, setShifts, setBands, setCameraViews, setTrails,
-  setPlanScale, setReportMeta, setAttachments, setIncidentSettings, setPlanBindings, setPickedObjectId,
+  setPlanScale, setReportMeta, setAttachments, setReportSignatures, setIncidentSettings, setPlanBindings, setPickedObjectId,
   setIntakeReviewedAt, undoHist, liveWs, liveObjects, boardRef, getFits, rebaseObjects, replaceObjects,
   setPlanHistory, lastReportStepRef, lastCaptionStepRef, lastReorientRef, setSelectedId, setSelectedDrawingId,
   setSelectedDrawIds, objects, recent, activePlanId, pickedObjectId, building, vehicleOverrides,
   checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta,
-  attachments, incidentSettings, planBindings, intakeReviewedAt, layers,
+  attachments, reportSignatures, incidentSettings, planBindings, intakeReviewedAt, layers,
 }: UseWorkspaceBlobInputs) {
   // Honest reporting for the workspace load gate — once per incident mount, so a persistently
   // malformed server blob (re-applied on every poll) nudges the operator once, not endlessly.
@@ -137,7 +140,7 @@ export function useWorkspaceBlob({
       objects: () => {},
       layers: setLayers, timeline: journal.ingestLegacy,
       recent: setRecent, building: setBuilding,
-      vehicleOverrides: setVehicleOverrides, checklists: setChecklists, trupps: setTrupps, attendance: setAttendance, mittel: setMittel, shifts: setShifts, bands: setBands, cameraViews: setCameraViews, trails: setTrails, planScale: setPlanScale, reportMeta: setReportMeta, attachments: setAttachments, settings: setIncidentSettings, planBindings: setPlanBindings, pickedObjectId: setPickedObjectId, intakeReviewedAt: setIntakeReviewedAt,
+      vehicleOverrides: setVehicleOverrides, checklists: setChecklists, trupps: setTrupps, attendance: setAttendance, mittel: setMittel, shifts: setShifts, bands: setBands, cameraViews: setCameraViews, trails: setTrails, planScale: setPlanScale, reportMeta: setReportMeta, attachments: setAttachments, reportSignatures: setReportSignatures, settings: setIncidentSettings, planBindings: setPlanBindings, pickedObjectId: setPickedObjectId, intakeReviewedAt: setIntakeReviewedAt,
     })
     /* ⚠️ WHAT THE MERGE CHANGED, record by record — and the undo timeline keeps everything else
      * (25.09.2026, reversing 08.09.: this path used to drop the whole timeline, and with three
@@ -200,7 +203,7 @@ export function useWorkspaceBlob({
     return {
     objects: persisted,
     entities: views.entities,
-    drawings: views.drawings, recent, board: views.board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, settings: incidentSettings, planBindings, intakeReviewedAt,
+    drawings: views.drawings, recent, board: views.board, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, trupps: allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, reportSignatures, settings: incidentSettings, planBindings, intakeReviewedAt,
     // ⚠️ NOT `layers` — the Ebenen this device is looking at stay on this device (see
     // syncedLayerState above and lib/layerPrefs). The record's own value goes back unchanged.
     layerState: syncedLayerState.current,
@@ -209,7 +212,7 @@ export function useWorkspaceBlob({
     timeline: journal.blobTimeline,
     schemaVersion: WORKSPACE_SCHEMA_VERSION,
   }
-  }, [objects, journal.blobTimeline, recent, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, incidentSettings, planBindings, intakeReviewedAt])
+  }, [objects, journal.blobTimeline, recent, activePlanId, pickedObjectId, building, vehicleOverrides, checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta, attachments, reportSignatures, incidentSettings, planBindings, intakeReviewedAt])
 
   // …and they are remembered here instead, per incident, on this device only. Written on every
   // change (not just on a deliberate toggle) so the set derived at boot — including the

@@ -422,7 +422,7 @@ is public FKS material, and a station set REPLACES it rather than joining it
   - [`docs/atemschutz-board.md`](docs/atemschutz-board.md) – the Trupps board, the Trupp form,
     the Sicherungstrupp, the Atemschutznotfall and the Abschluss.
   - [`docs/copy-and-wording.md`](docs/copy-and-wording.md) – which word a screen uses.
-  - [`docs/rapport.md`](docs/rapport.md) – what the Rapport's figure pages carry.
+  - [`docs/rapport.md`](docs/rapport.md) – what the Rapport's figure pages carry, and how it is signed on the screen.
   - [`docs/board-templates.md`](docs/board-templates.md) – the Tafel's pages (FKS «Erste
     Führung» …): a page is ONE `form` board anno with its template snapshot, values keyed by id,
     the spreadsheet keyboard, and the `board-template/1` contract a station writes against.

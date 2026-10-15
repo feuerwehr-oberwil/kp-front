@@ -947,6 +947,30 @@
    Quelle («· TLF»). Same weight as the line, quieter colour — it answers a second question,
    and at 3am the name and the amount are the first one. */
 .rp-person i { font-style: normal; color: var(--ink-faint); }
+/* Unterschriften (15.10.2026, ReportPreflight · lib/reportSignature): one row per line of the
+   paper's Visum — who, the drawn signature, the time. No rules between the rows, like every other
+   card in this column (owner, round 3). */
+.rp-sign { align-items: stretch; gap: var(--sp-1); }
+.rp-sign-hint { margin: 0; font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink-faint); }
+.rp-sign-row { display: flex; align-items: center; gap: var(--sp-3); min-height: var(--tap); width: 100%;
+  padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: left; }
+button.rp-sign-row { cursor: pointer; border-radius: var(--r-xs); }
+button.rp-sign-row:disabled { cursor: default; }
+.rp-sign-who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rp-sign-role { font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-faint); }
+.rp-sign-name { font: var(--fw-bold) var(--fs-3)/var(--lh-3) var(--body); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-sign-img { display: block; width: 96px; height: 36px; flex: none; }
+.rp-sign-img path { fill: none; stroke: var(--ink); stroke-width: 2px; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.rp-sign-time { flex: none; min-width: 44px; text-align: right; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-faint); }
+/* a signature that no longer holds: faded, «ungültig», and the whole row signs anew */
+.rp-sign-void .rp-sign-img { opacity: .35; }
+.rp-sign-bad { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1);
+  font: var(--fw-bold) var(--fs-2) var(--body); color: var(--amber-strong); }
+.rp-sign-bad svg { width: 16px; height: 16px; }
+.rp-sign-go { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
+.rp-sign-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-1); }
+.rp-sign-locked { display: inline-flex; align-items: center; gap: var(--sp-2); font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-dim); }
+.rp-sign-locked svg { width: 20px; height: 20px; }
 @media (max-width: 520px) {
   .rp-check-extra { padding-left: 12px; }
 }

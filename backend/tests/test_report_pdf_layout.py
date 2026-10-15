@@ -1074,3 +1074,74 @@ def test_a_long_lane_list_splits_and_every_part_repeats_the_axis():
 def test_an_auswertung_with_nothing_on_the_timeline_says_so():
     pdf = _with_auswertung(_auswertung(timeline=None, noTimeline="Keine Zeiten erfasst."))
     assert "Keine Zeiten erfasst." in _text(pdf, len(pdfium.PdfDocument(pdf)) - 1)
+
+
+def _signature_payload(signatures: list[dict]):
+    return ReportPayload.model_validate(
+        {
+            "incident": {"title": "Zimmerbrand", "id": "i"},
+            "generatedAt": "15.10.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "meta": {"einsatzleiter": "Widmer Céline", "kommandant": "Keller Urs"},
+            "signatures": signatures,
+        }
+    )
+
+
+_STROKES = {"w": 1000, "h": 300, "d": [[10, 200, 60, 120, 120, 210, 200, 150, 260, 220, 330, 140]]}
+
+
+def _signoff_page(pdf: bytes):
+    doc = pdfium.PdfDocument(pdf)
+    return next(p for p in (doc[i] for i in range(len(doc))) if "Unterschriften" in p.get_textpage().get_text_range())
+
+
+def test_a_drawn_signature_prints_on_its_line_with_ort_datum_and_its_small_line():
+    """Digital signatures (15.10.2026): a signature that still holds is drawn ON the Einsatzleiter's
+    line beside the name, «Ort, Datum» is filled in for it, and a small line says when it was made
+    and what it covers. The Kommandant's line, unsigned, prints exactly as before — empty."""
+    payload = _signature_payload(
+        [
+            {
+                "role": "el",
+                "name": "Widmer Céline",
+                "placeDate": "Oberwil, 15.10.2026",
+                "at": "15.10.2026 04:12",
+                "checksum": "3fa9 c210 7be1",
+                "strokes": _STROKES,
+            }
+        ]
+    )
+    page = _signoff_page(compose_report_pdf(payload, {}))
+    text = page.get_textpage().get_text_range()
+    assert "Oberwil, 15.10.2026" in text
+    assert "Digital unterschrieben 15.10.2026 04:12 · Prüfsumme 3fa9 c210 7be1" in text
+    # exactly one signature: the Kommandant's line has no small line of its own
+    assert text.count("Digital unterschrieben") == 1
+
+    # ink right of the name, on the Einsatzleiter's row (the strokes are paths, not text)
+    tp = page.get_textpage()
+    name = next(tp.get_rect(i) for i in range(tp.count_rects()) if "Widmer" in tp.get_text_bounded(*tp.get_rect(i)))
+    scale = 3
+    img = page.render(scale=scale).to_pil().convert("L")
+    px = img.load()
+    y0 = int((page.get_height() - name[3]) * scale) - 30
+    y1 = int((page.get_height() - name[1]) * scale) + 10
+    x0 = int(name[2] * scale) + 40
+    dark = sum(1 for y in range(y0, y1) for x in range(x0, img.size[0] - 60) if px[x, y] < 120)
+    assert dark > 50
+
+
+def test_an_unsigned_rapport_prints_no_digital_line():
+    page = _signoff_page(compose_report_pdf(_signature_payload([]), {}))
+    assert "Digital unterschrieben" not in page.get_textpage().get_text_range()
+
+
+def test_signature_strokes_are_bounded():
+    """A payload can never make the composer draw an unbounded number of segments."""
+    huge = {"w": 1000, "h": 300, "d": [[1, 2] * 5000] * 500 + [[1]]}
+    payload = _signature_payload([{"role": "el", "strokes": huge}])
+    d = payload.signatures[0].strokes.d
+    assert len(d) == 200
+    assert max(len(s) for s in d) == 4000
+    compose_report_pdf(payload, {})  # and it still composes
