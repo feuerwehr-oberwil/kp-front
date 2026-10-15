@@ -125,6 +125,14 @@ attendance: nobody is marked present because of it.
 
 Everything below is about the maintainer channels.
 
+## Signing the Einsatzrapport on the screen
+
+The Rapport can be signed with a finger on the screen. What is kept is the **shape** of the
+strokes – a picture of the signature, as on paper. The app does **not** record how fast or how
+hard the line was drawn, so it holds no biometric data. The signature is stored with the Einsatz
+on your own server, with the signer's name and the time, and printed on the Rapport. It is never
+sent anywhere else.
+
 ## The short version
 
 | | Diagnostics export | Background error reports |

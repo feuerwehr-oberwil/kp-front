@@ -564,6 +564,12 @@ export const MERGE_POLICY = {
   // Rapport-Beilagen (document/damage photos) — merge by id like any other collection: two
   // devices each adding one keeps both, and a delete beats a concurrent caption edit.
   attachments: byId,
+  // digital signatures: appended, never deleted; the only edit is a void, and two devices voiding
+  // the same one keep the EARLIER moment it stopped counting (lib/reportSignature)
+  reportSignatures: (b, m, t) => mergeById(asList(b), asList(m), asList(t), (_a, mi, th) => {
+    const mv = (mi as { voidedAt?: string }).voidedAt, tv = (th as { voidedAt?: string }).voidedAt
+    return !tv || (mv && mv <= tv) ? mi : th
+  }),
   board: (_b, _m, _t, cx) => cx.views.board,
   vehicleOverrides: byKey, // by entity id
   checklists: byKey, // by template id

@@ -223,7 +223,7 @@ function truppSlice(ws: Workspace): readonly Trupp[] {
 /** The keys of the `el` role's record slice — MUST mirror the server's allowlist
  *  (backend api/incidents · RECORD_WORKSPACE_KEYS); anything else would be silently dropped
  *  there, so sending it would only fake a successful save. Absent keys mean «no change». */
-const RECORD_SLICE_KEYS = ['attendance', 'shifts', 'bands', 'mittel', 'checklists', 'reportMeta', 'attachments'] as const
+const RECORD_SLICE_KEYS = ['attendance', 'shifts', 'bands', 'mittel', 'checklists', 'reportMeta', 'attachments', 'reportSignatures'] as const
 
 function recordSlice(ws: Workspace): Workspace {
   const out: Workspace = {}

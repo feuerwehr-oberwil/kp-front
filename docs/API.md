@@ -33,7 +33,7 @@ PIN-kiosk flow issuing JWTs as **httpOnly cookies** (single-origin, so no tokens
 
 - **Incident role** – `editor` (can mutate incident state), `el` (Einsatzleiter function,
   since 2026-09-07: reads everything, writes ONLY the record domains – attendance/shifts/bands,
-  mittel, checklists, reportMeta/attachments – through `PUT …/workspace/record`, plus journal
+  mittel, checklists, reportMeta/attachments/reportSignatures – through `PUT …/workspace/record`, plus journal
   rows, record-vocabulary events, media uploads and, since 2026-09-10, the Einsatzdaten
   correction: `PATCH /incidents/{id}` restricted to `EL_META_FIELDS` (title, type, priority,
   text, address, lat, lng, started_at, is_exercise) – the lifecycle fields `status`,

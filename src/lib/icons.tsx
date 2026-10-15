@@ -122,6 +122,11 @@ export function IconSprite() {
           fact rather than as one more button that could still be pressed. */}
       <symbol id="star" viewBox="0 0 24 24"><path d="m12 3.8 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" stroke-linejoin="round" /></symbol>
       <symbol id="checklist" viewBox="0 0 24 24"><rect x="3.5" y="6.5" width="14" height="14" rx="2" /><path d="M8 3.5h10.5a2 2 0 0 1 2 2V16" /><path d="M6.8 12.4l1.5 1.5 2.7-3M13.2 13h2" /><path d="M6.8 17.2l1.5 1.5 2.7-3M13.2 17.8h2" /></symbol>
+      {/* the Rapport's signature (15.10.2026): a handwritten stroke on its line — not a pen, which
+          already means «bearbeiten» everywhere; and the same stroke with a padlock for «signed,
+          so locked» */}
+      <symbol id="signature" viewBox="0 0 24 24"><path d="M3 15c1.5-5 3-8 4-7.5s-1 6.5.5 6.5S10 9 11 9.5s-.5 5 1 5 2-2.5 3-2.5.5 2 2 2 2.5-1 3.5-2" /><path d="M3 19.5h18" /></symbol>
+      <symbol id="signature-lock" viewBox="0 0 24 24"><path d="M2 14c1.3-4.5 2.6-7 3.5-6.6S4.6 13.5 6 13.5 8.2 8.5 9 9s-.4 4.5.9 4.5 1.2-1.5 2-1.8" /><path d="M2 18.5h10" /><rect x="14" y="11.5" width="8" height="7" rx="1.6" /><path d="M15.9 11.5V9.6a2.1 2.1 0 0 1 4.2 0v1.9" /></symbol>
       <symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.2" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" /></symbol>
       {/* «Einsatz abschliessen»: a lid, a box, and the thing going down into it — the action
           stamps the rapport done and ARCHIVES the Einsatz, which is what this says. It wore a

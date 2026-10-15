@@ -27,7 +27,7 @@ const server = vi.hoisted(() => ({
   online: true,
   recordPuts: 0,
 }))
-const RECORD_KEYS = ['attendance', 'shifts', 'bands', 'mittel', 'checklists', 'reportMeta', 'attachments']
+const RECORD_KEYS = ['attendance', 'shifts', 'bands', 'mittel', 'checklists', 'reportMeta', 'attachments', 'reportSignatures']
 const RECORD_EVENTS = ['attendance.', 'checklist.', 'mittel.', 'report.', 'journal.', 'reminder.', 'weather.', 'shift.']
 const LIVE_KINDS = ['team', 'symbol', 'layer', 'vehicle']
 
