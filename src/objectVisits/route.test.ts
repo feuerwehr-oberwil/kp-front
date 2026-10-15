@@ -6,6 +6,8 @@ describe('Objektbesuche routes', () => {
     expect(parseOvRoute('/besuche', '')).toEqual({ kind: 'overview' })
     expect(parseOvRoute('/besuche/', '')).toEqual({ kind: 'overview' })
     expect(parseOvRoute('/besuche/ov1759473240123-0kf9', '')).toEqual({ kind: 'visit', id: 'ov1759473240123-0kf9' })
+    expect(parseOvRoute('/besuche/ov1-ab', '?bearbeiten=1')).toEqual({ kind: 'visit', id: 'ov1-ab', edit: true })
+    expect(parseOvRoute('/besuche/ov1-ab/antworten', '')).toEqual({ kind: 'answers', id: 'ov1-ab' })
     expect(parseOvRoute('/besuche/neu', '?object=fwo-schlue%3Aabc&ref=fwo-admin%3Afu-2026%2FB4'))
       .toEqual({ kind: 'new', object: 'fwo-schlue:abc', ref: 'fwo-admin:fu-2026/B4' })
     expect(parseOvRoute('/besuche', '?liste=fu%2FB4')).toEqual({ kind: 'list', ref: 'fu/B4' })
@@ -14,7 +16,7 @@ describe('Objektbesuche routes', () => {
   })
   it('writes them back', () => {
     for (const r of [
-      { kind: 'overview' as const }, { kind: 'list' as const, ref: 'fu/B4' }, { kind: 'visit' as const, id: 'ov1-ab' },
+      { kind: 'overview' as const }, { kind: 'list' as const, ref: 'fu/B4' }, { kind: 'visit' as const, id: 'ov1-ab' }, { kind: 'visit' as const, id: 'ov1-ab', edit: true }, { kind: 'answers' as const, id: 'ov1-ab' },
       { kind: 'new' as const, object: 'fwo-schlue:abc', ref: 'x/y' }, { kind: 'new' as const, object: 'u1', ref: null },
     ]) {
       const href = ovHref(r)

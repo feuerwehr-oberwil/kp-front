@@ -178,6 +178,8 @@ export interface KnownVisit {
   visitedAt?: string
   /** undefined: not known (a server row from before the field); null: «Ohne Checkliste» */
   checklist?: { id: string; title?: string | null } | null
+  /** Mängel, from the server's row (a device copy counts its own answers) */
+  findings?: number
 }
 
 /** Every visit this device knows of — device copies over server rows (for list progress). */

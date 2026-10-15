@@ -6,9 +6,10 @@ import { Icon } from '../../lib/icons'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
 import { knownVisits, lastSeen, listProgress, visitsAtStop } from '../../objectVisits/catalogue'
+import { answerStats } from '../../objectVisits/doc'
 import { pendingUploads } from '../../objectVisits/outbox'
 import { Head } from './common'
-import { fmtDate, fmtDayShort } from './ovFormat'
+import { fmtDate, fmtDayShort, plural } from './ovFormat'
 import { useOv } from './ovContext'
 import s from './ObjectVisits.module.css'
 
@@ -57,25 +58,29 @@ export function WorkList({ listRef }: { listRef: string }) {
               const local = v ? ov.locals.find((l) => l.doc.id === v.id) : undefined
               const photosOut = local ? pendingUploads(local).length > 0 || local.sent?.ready === false : false
               const prior = stop.prior
-              const priorText = prior ? [fmtDayShort(prior.at), prior.source].filter(Boolean).join(' · ') : ''
-              // a real completed visit wins; else a draft says «Entwurf» (the organizer's earlier
-              // completion moves to the line below); else the organizer's completion is the chip
-              const chip = v?.lifecycle === 'completed'
-                ? (photosOut
-                  ? <span className="ip-badge ip-badge-todo">{C.statePhotos}</span>
-                  : <span className="ip-badge ip-badge-ok">{fillTemplate(C.stateDone, { date: fmtDayShort(v.visitedAt) })}</span>)
-                : v ? <span className="ip-badge ip-badge-todo">{C.stateDraft}</span>
-                  : prior ? <span className="ip-badge ip-badge-ok">{fillTemplate(C.stateDone, { date: priorText })}</span>
+              const atStop = visitsAtStop(known, id, list.ref)
+              const findings = atStop.filter((x) => x.lifecycle === 'completed').reduce((n, x) => {
+                const l = ov.locals.find((y) => y.doc.id === x.id)
+                return n + (l ? answerStats(l.doc).defects : x.findings ?? 0)
+              }, 0)
+              // done is the green number; the chip is what still needs an eye — photos on the way,
+              // Mängel, a draft — never the date again (owner, 15.10.2026: «zuletzt 13.10.» beside
+              // «✓ 13.10.» was one fact twice)
+              const chip = photosOut ? <span className="ip-badge ip-badge-todo">{C.statePhotos}</span>
+                : findings > 0 ? <span className="ip-badge ip-badge-todo">{plural(findings, C.defectsOne, C.defectsMany)}</span>
+                  : v && v.lifecycle !== 'completed' ? <span className="ip-badge ip-badge-arch">{C.stateDraft}</span>
                     : null
               const seen = catalogue ? lastSeen(catalogue, o) : null
-              // a stop with a second checklist says so; the row opens the newest finished one,
-              // whose page lists the others («Auch hier erfasst»)
-              const here = visitsAtStop(known, id, list.ref).length
+              const real = v?.lifecycle === 'completed' ? v : null
               const subLine = [
-                here > 1 ? fillTemplate(C.stopVisits, { n: here }) : null,
+                atStop.length > 1 ? fillTemplate(C.stopChecklists, { n: atStop.length }) : null,
                 o.address,
-                v && prior ? [C.listDoneElsewhere, fmtDate(prior.at), prior.source, prior.by].filter(Boolean).join(' ')
-                  : seen ? fillTemplate(C.lastVisit, { date: fmtDate(seen.at) }) : C.neverVisited,
+                // a date only where it is not the round's own day (a list without a day: always)
+                real?.visitedAt && real.visitedAt.slice(0, 10) !== list.scheduledOn ? fmtDayShort(real.visitedAt) : null,
+                // the organizer's completion, where no visit of this list stands for it
+                !real && prior ? [C.listDoneElsewhere, fmtDayShort(prior.at), prior.source].filter(Boolean).join(' ') : null,
+                // an open stop: when it was last done anywhere — the one date worth planning by
+                stop.done ? null : seen ? fillTemplate(C.lastVisit, { date: fmtDate(seen.at) }) : C.neverVisited,
               ].filter(Boolean).join(' · ')
               const open = () => {
                 if (v) ov.go({ kind: 'visit', id: v.id })
@@ -84,12 +89,15 @@ export function WorkList({ listRef }: { listRef: string }) {
               const door = !!v || (ov.canCapture && !list.archived)
               const inner = (
                 <>
-                  <span className={s.num}>{i + 1}</span>
+                  <span className={stop.done ? `${s.num} ${s.numDone}` : s.num} {...(stop.done ? { role: 'img', 'aria-label': `${i + 1} · ${C.listDoneElsewhere}` } : {})}>
+                    {stop.done ? <Icon id="check" /> : i + 1}
+                  </span>
                   <span className={s.rowMain}>
                     <span className={s.rowTitle}>{o.name}</span>
                     <span className={s.rowSub}>{subLine}</span>
                   </span>
-                  {chip ?? (door && <Icon id="chevron" className={s.chev} />)}
+                  {chip}
+                  {door && <Icon id="chevron" className={s.chev} />}
                 </>
               )
               return door

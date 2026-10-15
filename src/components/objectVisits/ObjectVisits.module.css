@@ -143,9 +143,6 @@
 .wide :global(.useg-btn) { flex: 1 1 0; min-height: 40px; justify-content: center; font-size: var(--fs-2); }
 .wide :global(.useg:has(> :nth-child(5))) { flex-wrap: wrap; }
 .wide :global(.useg:has(> :nth-child(5)) > .useg-btn) { flex: 0 1 auto; }
-.answerRead { font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink); }
-.answerRead.defect { color: var(--red-strong); }
-.answerRead.open { color: var(--ink-faint); font-weight: var(--fw-medium); }
 .defect { display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
 .defect textarea { width: 100%; }
 .inline { display: flex; align-items: center; gap: 8px; }
@@ -220,8 +217,39 @@
 /* ── completed view ── */
 .sumHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .sumTitle { font: var(--fw-bold) var(--fs-3) var(--body); }
-.sumText { margin: 0; font: var(--fw-medium) var(--fs-2)/1.5 var(--body); color: var(--ink-dim); }
-.histList { display: flex; flex-direction: column; }
+.sumText { display: block; margin: 0; font: var(--fw-medium) var(--fs-2)/1.5 var(--body); color: var(--ink-dim); }
+/* the visit card's head: one tap opens its answers (AnswersPage) — the whole head is the target,
+   to the card's edges */
+.sumToggle {
+  display: flex; align-items: center; gap: var(--sp-3); width: calc(100% + 2 * var(--sp-3)); min-height: var(--tap);
+  margin: calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)) 0; padding: var(--sp-3);
+  border: none; background: none; color: var(--ink); text-align: left; font: inherit; -webkit-tap-highlight-color: transparent;
+}
+button.sumToggle { cursor: pointer; }
+button.sumToggle:active { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) { button.sumToggle:hover { background-color: var(--hover); } }
+.sumHeadText { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+/* the visit card's result: the Mängel by name (a red dot each), or «Keine Mängel» */
+.findList { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.findList li { display: flex; gap: var(--sp-2); font: var(--fw-bold) var(--fs-2)/1.4 var(--body); color: var(--ink); }
+.findList li::before { content: ''; flex: none; width: 8px; height: 8px; margin-top: calc((1.4em - 8px) / 2); border-radius: 50%; background: var(--red); }
+.findNote { font-weight: var(--fw-medium); color: var(--ink-dim); }
+.allOk { display: flex; align-items: center; gap: var(--sp-2); margin: 0; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--green-strong); }
+.allOk :global(.i), .allOk svg { flex: none; width: 16px; height: 16px; }
+.allOkMore { font-weight: var(--fw-medium); color: var(--ink-dim); }
+/* the card's own actions: flush rows at its foot, the card's hairline above */
+.cardRows { margin: 0 calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)); box-shadow: inset 0 1px 0 var(--glass-edge); }
+.rowQuiet .rowSub { font-size: var(--fs-2); color: var(--ink-dim); }
+
+/* the checklist's read view: one line per question, the answer on the right */
+.line { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); }
+.line + .line { box-shadow: inset 0 1px 0 var(--glass-edge); }
+.lineRow { display: flex; align-items: baseline; gap: var(--sp-3); }
+.lineQ { flex: 1 1 auto; min-width: 0; font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); }
+.lineA { flex: none; max-width: 45%; text-align: right; font: var(--fw-bold) var(--fs-2)/1.35 var(--body); color: var(--ink-dim); overflow-wrap: anywhere; }
+.lineA.lineBad { color: var(--red-strong); }
+.lineA.lineOpen { color: var(--ink-faint); font-weight: var(--fw-medium); }
+.lineNote { display: block; margin-top: 2px; font: var(--fw-medium) var(--fs-1)/1.4 var(--body); color: var(--red-strong); }
 .loadingLine { display: flex; align-items: center; gap: 8px; margin: 16px 4px; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-dim); }
 
 /* tablet & desktop: a little more air around the column */
@@ -253,7 +281,6 @@
 .headStatus .seg:first-child { flex: none; }
 /* the filing glyph needs no separator dot: a little air is enough, and it never shrinks away */
 .segIcon { flex: none; margin-left: 4px; }
-.headStatus .segIcon.toneOk :global(.i), .headStatus .segIcon.toneOk svg { color: var(--green); }
 .headStatus .segIcon.toneBad :global(.i), .headStatus .segIcon.toneBad svg { color: var(--red); }
 .place { display: flex; align-items: center; gap: var(--sp-2); margin: 0 4px; font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink-dim); }
 .place :global(.i), .place svg { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
@@ -270,3 +297,8 @@
 }
 .planTabs > * { width: min(680px, 100%); margin: 0 auto; }
 .planBody { position: relative; flex: 1 1 auto; min-height: 0; background: var(--app-bg); }
+
+/* a work list's finished stop: its number turns into a green tick (the chip stays for what still
+   needs an eye — Mängel, photos on the way, a draft) */
+.numDone { background: var(--green-16); color: var(--green-strong); }
+.numDone :global(.i), .numDone svg { width: 14px; height: 14px; }

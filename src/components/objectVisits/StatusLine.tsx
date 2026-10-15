@@ -42,6 +42,7 @@ export function StatusLine({ status, rec, canSend, onSendNow }: {
   const filing = deliveryLabel(delivery)
   const lc = lifecycle === 'completed' ? `${s.lcDot} ${s.done}` : lifecycle === 'discarded' ? `${s.lcDot} ${s.gone}` : s.lcDot
   const line = [lifecycleLabel(lifecycle), syncLabel(sync), filing].filter(Boolean).join(' · ')
+  const quiet = lifecycle === 'completed' && sync.kind === 'saved'
 
   const deviceText = (): string[] => {
     const out: string[] = []
@@ -62,11 +63,15 @@ export function StatusLine({ status, rec, canSend, onSendNow }: {
       {/* the second line of the page head: compact, one tap to the sheet */}
       <button type="button" className={s.headStatus} aria-label={`${C.statusOpen}: ${line}`} onClick={() => setOpen(true)}>
         <span className={s.seg}><span className={lc} aria-hidden />{lifecycleLabel(lifecycle)}</span>
-        <span className={s.sep} aria-hidden>·</span>
-        <span className={`${s.seg} ${syncTone(sync.kind) ?? ''}`}><Icon id={syncIcon(sync.kind)} />{syncShort(sync)}</span>
-        {/* filing: the glyph alone, in its state's tone — the words are in the sheet and the label */}
-        {filing && (
-          <span className={`${s.seg} ${s.segIcon} ${delivery.kind === 'failed' ? s.toneBad : delivery.kind === 'delivered' ? s.toneOk : ''}`} title={filing}>
+        {/* a finished visit that is on the server says only that (owner, 15.10.2026: the save time
+            beside «Abgeschlossen» read as a second date); anything still owed is said in its tone */}
+        {!quiet && <>
+          <span className={s.sep} aria-hidden>·</span>
+          <span className={`${s.seg} ${syncTone(sync.kind) ?? ''}`}><Icon id={syncIcon(sync.kind)} />{syncShort(sync)}</span>
+        </>}
+        {/* filing: only when it failed — waiting and filed are the sheet's business */}
+        {filing && delivery.kind === 'failed' && (
+          <span className={`${s.seg} ${s.segIcon} ${s.toneBad}`} title={filing}>
             <Icon id="archive" />
           </span>
         )}
