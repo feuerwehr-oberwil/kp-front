@@ -16,7 +16,7 @@ import { confirmDialog, toast, undoToast } from '../../lib/ui'
 import { Menu } from '../../lib/overlays'
 import { localThumb, prepareUploadImage } from '../../lib/imagePrep'
 import { LoadingStatus } from '../ShellLoader'
-import { getRevisions, getVisit, sha256Hex } from '../../objectVisits/api'
+import { getVisit, sha256Hex } from '../../objectVisits/api'
 import { knownVisits, lastSeen, listProgress, resolveObject, visitTemplates, visitsAtStop } from '../../objectVisits/catalogue'
 import { answerStats, checklistItems, stripServer, switchChecklist, syncPhotoAnswers } from '../../objectVisits/doc'
 import { resolveConflict, type Resolution } from '../../objectVisits/merge'
@@ -28,15 +28,17 @@ import { deriveStatus } from '../../objectVisits/status'
 import {
   forgetVisit, isVisitDurable, onVisitChanged, putAttachment, readVisit, retryHeld, updateVisit, type LocalVisit,
 } from '../../objectVisits/store'
-import { personName, type Lifecycle, type Revision, type ServerVisit, type VisitDoc, type VisitPhoto, type VisitProposal, type VisitTemplate } from '../../objectVisits/types'
+import { personName, type ServerVisit, type VisitDoc, type VisitPhoto, type VisitProposal, type VisitTemplate } from '../../objectVisits/types'
 import { Head } from './common'
-import { fmtDate, fmtWhen, lifecycleLabel, plural } from './ovFormat'
+import { fmtDate, plural } from './ovFormat'
 import { ChecklistSheet, PhotoSheet, ProposalSheet } from './Sheets'
 import { PlanReader, PlansCard } from './PlansCard'
 import { usePlanReader, useVisitPlans } from './usePlans'
 import { AuthCard, ConflictCards, RefusedCard, UnsavedCard } from './StateCards'
 import { StatusLine } from './StatusLine'
 import { ChecklistSection, DetailsCard, NotesSection, PhotosSection, ProposalsSection, SummaryCard } from './VisitSections'
+import { CardRow, VisitHistory } from './StopCards'
+import { useStopDocs } from './useStopDocs'
 import { useOv } from './ovContext'
 import s from './ObjectVisits.module.css'
 
@@ -47,19 +49,24 @@ export const QUIET_SAVE_MS = 20_000
 /** how often an open, sent visit asks the server about its filing while that is pending */
 const DELIVERY_POLL_MS = 60_000
 
-export function VisitPage({ id }: { id: string }) {
+export function VisitPage({ id, edit: editOnOpen = false }: { id: string; edit?: boolean }) {
   const ov = useOv()
   const C = appConfig.copy.objectVisits
   const [rec, setRec] = useState<LocalVisit | null>(null)
   const [phase, setPhase] = useState<'loading' | 'ready' | 'missing' | 'unreadable'>('loading')
   const [remote, setRemote] = useState<ServerVisit | null>(null)
   const [durable, setDurable] = useState(true)
-  const [correcting, setCorrecting] = useState(false)
+  // «Bearbeiten» on another visit's card opens that visit straight into the correction
+  const [correcting, setCorrecting] = useState(editOnOpen)
+  useEffect(() => {
+    // taken: a reload of the address is the visit, not a second «Bearbeiten»
+    if (editOnOpen) ov.go({ kind: 'visit', id }, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [photoSheet, setPhotoSheet] = useState<{ attId: string | null; preparing: boolean; stored: boolean | null } | null>(null)
   const [proposalSheet, setProposalSheet] = useState<{ p: VisitProposal | null } | null>(null)
   const [checklistSheet, setChecklistSheet] = useState(false)
   const reader = usePlanReader()
-  const [revisions, setRevisions] = useState<Revision[] | 'loading' | 'failed' | null>(null)
   const flushing = useSyncExternalStore(subscribeFlushing, () => isFlushing(id), () => false)
   const pendingEdits = useRef(0)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -121,6 +128,13 @@ export function VisitPage({ id }: { id: string }) {
   const doc: VisitDoc | null = rec?.doc ?? (remote ? stripServer(remote) : null)
   const status = deriveStatus({ rec, durable, flushing, sessionExpired: ov.sessionExpired, remote })
   const plans = useVisitPlans(doc?.object.id)
+  // the other visits at this stop, for a finished visit's read view (StopCards)
+  const stopDocs = useStopDocs(
+    doc && doc.lifecycle === 'completed'
+      ? visitsAtStop(knownVisits(ov.locals, ov.summaries), doc.object.id, doc.workRef).map((v) => v.id).filter((x) => x !== id)
+      : [],
+    ov.locals,
+  )
 
   // ── while the filing is pending, ask now and then (the worker runs every 30 s) ──
   const pollDelivery = !!rec?.base && (status.delivery.kind === 'waiting')
@@ -353,8 +367,12 @@ export function VisitPage({ id }: { id: string }) {
   const sheetItems = checklistItems(doc.checklist)
   const templates = catalogue ? visitTemplates(catalogue) : []
   const known = knownVisits(ov.locals, ov.summaries)
-  // the other visits at this stop (same object, same list): a second checklist done here
-  const siblings = visitsAtStop(known, doc.object.id, doc.workRef).filter((v) => v.id !== doc.id)
+  // the read view shows the whole stop: every visit at it (same object, same list), oldest first
+  const showStop = lifecycle === 'completed' && !(correcting && canEdit)
+  const stop = (() => {
+    const here = [...visitsAtStop(known, doc.object.id, doc.workRef)].reverse()
+    return here.some((v) => v.id === doc.id) ? here : [{ id: doc.id }, ...here]
+  })()
   // «Weitere Checkliste»: a new visit beside this one — the route resumes this person's open
   // draft for the stop instead, so a second tap never makes a third visit
   const canAnother = canEdit && lifecycle === 'completed' && !list?.archived
@@ -371,12 +389,7 @@ export function VisitPage({ id }: { id: string }) {
     return { index: list.objectIds.indexOf(id2) + 1, object: catalogue.objects.find((o) => o.id === id2)! }
   })()
 
-  const openRevisions = () => {
-    if (revisions && revisions !== 'failed') { setRevisions(null); return }
-    setRevisions('loading')
-    void getRevisions(id).then((r) => setRevisions([...r].sort((a, b) => b.revision - a.revision))).catch(() => setRevisions('failed'))
-  }
-  const report = (n?: number) => { void downloadReport(doc, n).catch(() => toast(C.reportFailed, { icon: 'warn', tone: 'warn' })) }
+  const report = (d: VisitDoc, n?: number) => { void downloadReport(d, n).catch(() => toast(C.reportFailed, { icon: 'warn', tone: 'warn' })) }
 
 
   return (
@@ -411,31 +424,39 @@ export function VisitPage({ id }: { id: string }) {
           {status.sync.kind === 'error' && status.sync.error && <RefusedCard error={status.sync.error} onSaveFile={() => { void saveFile() }} />}
           <ConflictCards doc={doc} readOnly={!canEdit} viewer={ov.userId} onResolve={resolve} />
 
-          {lifecycle === 'completed' && !correcting && (
+          {showStop && (
             <>
-              <SummaryCard doc={doc} byName={byName} />
-              <div className={s.card}>
-                {revision != null && (
-                  <button type="button" className={s.row} onClick={() => report()}>
-                    <Icon id="doc" className={s.rowGlyph} />
-                    <span className={s.rowMain}>
-                      <span className={s.rowTitle}>{C.report}</span>
-                      <span className={s.rowSub}>{fillTemplate(C.reportSub, { n: revision })}</span>
-                    </span>
-                    <Icon id="chevron" className={s.chev} />
-                  </button>
-                )}
-                {canEdit && (
-                  <button type="button" className={s.row} onClick={() => setCorrecting(true)}>
-                    <Icon id="pen" className={s.rowGlyph} />
-                    <span className={s.rowMain}>
-                      <span className={s.rowTitle}>{C.edit}</span>
-                      <span className={s.rowSub}>{C.editSub}</span>
-                    </span>
-                    <Icon id="chevron" className={s.chev} />
-                  </button>
-                )}
-                {canAnother && (
+              {/* one card per visit at this stop — a second checklist is a second card (owner,
+                  15.10.2026); the visit on this address is the one «Bearbeiten» opens in place */}
+              {stop.map((v) => {
+                if (v.id === doc.id) {
+                  return (
+                    <SummaryCard key={v.id} doc={doc} byName={byName} onOpen={() => ov.go({ kind: 'answers', id: doc.id })}>
+                      {canEdit && <CardRow icon="pen" title={C.edit} onClick={() => setCorrecting(true)} />}
+                      {revision != null && <CardRow icon="doc" title={C.report} onClick={() => report(doc)} />}
+                      {revision != null && <VisitHistory visitId={doc.id} onReport={(n) => report(doc, n)} />}
+                    </SummaryCard>
+                  )
+                }
+                const sib = stopDocs.get(v.id)
+                if (!sib) return null
+                const draft = sib.doc.lifecycle === 'draft'
+                return (
+                  <SummaryCard key={v.id} doc={sib.doc} byName={sib.byName}
+                    // a draft's answers are its own page, still being filled in
+                    onOpen={() => ov.go(draft ? { kind: 'visit', id: v.id } : { kind: 'answers', id: v.id })}
+                    badge={draft ? <span className="ip-badge ip-badge-todo">{C.stateDraft}</span> : undefined}>
+                    {ov.canCapture && (draft
+                      ? <CardRow icon="pen" title={C.continueDraft} onClick={() => ov.go({ kind: 'visit', id: v.id })} />
+                      : <CardRow icon="pen" title={C.edit} onClick={() => ov.go({ kind: 'visit', id: v.id, edit: true })} />)}
+                    {!draft && <CardRow icon="doc" title={C.report} onClick={() => report(sib.doc)} />}
+                    {!draft && <VisitHistory visitId={v.id} onReport={(n) => report(sib.doc, n)} />}
+                  </SummaryCard>
+                )
+              })}
+              {/* in addition: another checklist at this object */}
+              {canAnother && (
+                <div className={s.card}>
                   <button type="button" className={s.row} onClick={() => ov.go({ kind: 'new', object: doc.object.id, ref: doc.workRef ?? null })}>
                     <Icon id="plus" className={s.rowGlyph} />
                     <span className={s.rowMain}>
@@ -444,45 +465,7 @@ export function VisitPage({ id }: { id: string }) {
                     </span>
                     <Icon id="chevron" className={s.chev} />
                   </button>
-                )}
-                {revision != null && (
-                  <button type="button" className={s.row} onClick={openRevisions} aria-expanded={!!revisions && revisions !== 'failed'}>
-                    <Icon id="history" className={s.rowGlyph} />
-                    <span className={s.rowMain}>
-                      <span className={s.rowTitle}>{C.history}</span>
-                      {revisions === 'failed' && <span className={s.rowSub}>{C.historyFailed}</span>}
-                    </span>
-                    <Icon id="chevron-down" className={s.chev} />
-                  </button>
-                )}
-                {revisions === 'loading' && <div className={s.loadingLine}><LoadingStatus>{C.visitLoading}</LoadingStatus></div>}
-                {Array.isArray(revisions) && revisions.map((r) => (
-                  <button key={r.revision} type="button" className={s.row} onClick={() => report(r.revision)}>
-                    <span className={s.num}>{r.revision}</span>
-                    <span className={s.rowMain}>
-                      <span className={s.rowTitle}>{fillTemplate(C.historyRow, { n: r.revision, time: `${fmtDate(r.acceptedAt)} ${fmtWhen(r.acceptedAt).split(' ').pop()}` })}</span>
-                      <span className={s.rowSub}>{[lifecycleLabel(r.lifecycle), personName(r.acceptedBy)].filter(Boolean).join(' · ')}</span>
-                    </span>
-                    <Icon id="doc" className={s.chev} />
-                  </button>
-                ))}
-              </div>
-              {siblings.length > 0 && (
-                <>
-                  <h2 className={s.sec}>{C.alsoHere}</h2>
-                  <div className={s.card}>
-                    {siblings.map((v) => (
-                      <button key={v.id} type="button" className={s.row} onClick={() => ov.go({ kind: 'visit', id: v.id })}>
-                        <Icon id="checklist" className={s.rowGlyph} />
-                        <span className={s.rowMain}>
-                          <span className={s.rowTitle}>{v.checklist === undefined ? doc.object.name : v.checklist === null ? C.noChecklist : v.checklist.title || v.checklist.id}</span>
-                          <span className={s.rowSub}>{[fmtWhen(v.visitedAt), lifecycleLabel(v.lifecycle as Lifecycle)].filter(Boolean).join(' · ')}</span>
-                        </span>
-                        <Icon id="chevron" className={s.chev} />
-                      </button>
-                    ))}
-                  </div>
-                </>
+                </div>
               )}
               {next === 'done' && <p className={s.secNote}>{C.listDone}</p>}
               {next && next !== 'done' && (
@@ -500,23 +483,28 @@ export function VisitPage({ id }: { id: string }) {
                   </div>
                 </>
               )}
+              <PlansCard rows={plans} onOpen={reader.open} />
             </>
           )}
 
-          {correcting && (
+          {correcting && canEdit && (
             <p className="form-warn form-warn-amber form-warn-compact"><Icon id="pen" /><span className="form-warn-text">{C.correctionNote}</span></p>
           )}
 
           <DetailsCard doc={doc} readOnly={readView} onEdit={(fn) => { void edit(fn) }} />
-          <PlansCard rows={plans} onOpen={reader.open} />
-          <ChecklistSection doc={doc} readOnly={readView} pending={pending}
-            onEdit={(fn) => { void edit(fn) }} onTakePhoto={takePhoto}
-            onOpenPhoto={(attId) => setPhotoSheet({ attId, preparing: false, stored: null })} />
-          <NotesSection doc={doc} readOnly={readView} onEdit={(fn) => { void edit(fn) }} />
-          <PhotosSection doc={doc} readOnly={readView} pending={pending} onTakePhoto={takePhoto}
-            onOpenPhoto={(attId) => setPhotoSheet({ attId, preparing: false, stored: null })} />
-          <ProposalsSection doc={doc} readOnly={readView}
-            onOpen={(p) => setProposalSheet({ p })} onAdd={() => setProposalSheet({ p: null })} />
+          {!showStop && <PlansCard rows={plans} onOpen={reader.open} />}
+          {!showStop && (
+            <>
+              <ChecklistSection doc={doc} readOnly={readView} pending={pending}
+                onEdit={(fn) => { void edit(fn) }} onTakePhoto={takePhoto}
+                onOpenPhoto={(attId) => setPhotoSheet({ attId, preparing: false, stored: null })} />
+              <NotesSection doc={doc} readOnly={readView} onEdit={(fn) => { void edit(fn) }} />
+              <PhotosSection doc={doc} readOnly={readView} pending={pending} onTakePhoto={takePhoto}
+                onOpenPhoto={(attId) => setPhotoSheet({ attId, preparing: false, stored: null })} />
+              <ProposalsSection doc={doc} readOnly={readView}
+                onOpen={(p) => setProposalSheet({ p })} onAdd={() => setProposalSheet({ p: null })} />
+            </>
+          )}
         </div>
       </div>
 

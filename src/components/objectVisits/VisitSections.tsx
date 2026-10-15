@@ -2,7 +2,7 @@
 // Korrekturvorschläge — editable for a capture role on a draft (or a correction), read-only
 // everywhere else. Every edit goes through `onEdit`, which stores it on the device at once.
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Icon } from '../../lib/icons'
 import { Button } from '../Button'
 import { appConfig } from '../../config/appConfig'
@@ -10,11 +10,11 @@ import { fillTemplate, unitLabel } from '../../lib/format'
 import type { Item } from '../../lib/checklists'
 import { Segmented } from '../Segmented'
 import { DateTimeField } from '../TimeField'
-import { answerStats, inputOf, isAnswered, localIso } from '../../objectVisits/doc'
+import { answerStats, checklistItems, inputOf, isAnswered, localIso } from '../../objectVisits/doc'
 import { rememberWith, splitPeople } from '../../objectVisits/devicePrefs'
 import type { Answer, VisitDoc, VisitPhoto, VisitProposal } from '../../objectVisits/types'
 import { Section, Thumb } from './common'
-import { answerText, fmtDate, fmtWhen, plural } from './ovFormat'
+import { answerText, fmtDate, fmtWhen } from './ovFormat'
 import s from './ObjectVisits.module.css'
 
 type Edit = (fn: (d: VisitDoc) => VisitDoc) => void
@@ -73,8 +73,10 @@ function WithField({ value, label, placeholder, onCommit }: { value: string; lab
 
 // ─── the checklist ─────────────────────────────────────────────────────────────────────────
 
-export function ChecklistSection({ doc, readOnly, pending, onEdit, onTakePhoto, onOpenPhoto }: {
+export function ChecklistSection({ doc, readOnly, pending, onEdit, onTakePhoto, onOpenPhoto, title }: {
   doc: VisitDoc
+  /** the section's eyebrow; the checklist's own title by default */
+  title?: string
   readOnly: boolean
   /** photo ids not yet on the server (their tile wears the upload badge) */
   pending: Set<string>
@@ -87,7 +89,7 @@ export function ChecklistSection({ doc, readOnly, pending, onEdit, onTakePhoto, 
   const st = answerStats(doc)
   const phases = t.phases ?? []
   return (
-    <Section title={t.title} aside={`${st.answered}/${st.total}`}>
+    <Section title={title ?? t.title} aside={`${st.answered}/${st.total}`}>
       <div className={s.card}>
         {phases.map((p) => (
           <div key={p.id}>
@@ -150,12 +152,19 @@ function ItemRow({ item, doc, readOnly, pending, onEdit, onTakePhoto, onOpenPhot
     </div>
   )
 
+  // the read view: one line per question, the answer on the right (owner, 15.10.2026) — a Mangel's
+  // note under its question, in its colour; a photo item is its thumbnails
   if (readOnly) {
-    const cls = !answered ? `${s.answerRead} ${s.open}` : a?.v === 'defect' ? `${s.answerRead} ${s.defect}` : s.answerRead
+    const cls = !answered ? `${s.lineA} ${s.lineOpen}` : a?.v === 'defect' ? `${s.lineA} ${s.lineBad}` : s.lineA
     return (
-      <div className={s.ck}>
-        {head}
-        {input !== 'photo' && <span className={cls}>{answerText(item, a)}{a?.note ? ` · ${a.note}` : ''}</span>}
+      <div className={s.line}>
+        <div className={s.lineRow}>
+          <span className={s.lineQ}>
+            {item.text}
+            {a?.v === 'defect' && a.note && <span className={s.lineNote}>{a.note}</span>}
+          </span>
+          {(input !== 'photo' || !linked.length) && <span className={cls}>{answered ? answerText(item, a) : input === 'photo' ? C.photoMissing : C.notChecked}</span>}
+        </div>
         {thumbs}
       </div>
     )
@@ -327,30 +336,60 @@ export function ProposalsSection({ doc, readOnly, onOpen, onAdd }: {
   )
 }
 
-// ─── the completed summary ─────────────────────────────────────────────────────────────────
+// ─── the visit card (the read view's top) ──────────────────────────────────────────────────
 
-export function SummaryCard({ doc, byName }: { doc: VisitDoc; byName?: string | null }) {
+/** One visit as its result: checklist · when · who · which Mängel (or «Keine Mängel»). Its own
+ *  actions (Bearbeiten, the completion/correction line) come in as `children`, flush rows at the
+ *  card's foot — the card IS the visit (owner, 15.10.2026: Bearbeiten, Verlauf and «Auch hier
+ *  erfasst» were three places for one thing). */
+export function SummaryCard({ doc, byName, badge, onOpen, children }: {
+  doc: VisitDoc
+  byName?: string | null
+  badge?: ReactNode
+  /** the head opens the visit's answers (AnswersPage) */
+  onOpen?: () => void
+  children?: ReactNode
+}) {
   const C = appConfig.copy.objectVisits
   const st = answerStats(doc)
   // «Von» is who visited (typed); the signed-in account only where nobody was typed
   const people = (doc.with ?? []).length ? (doc.with ?? []).join(', ') : (byName ?? '')
-  const parts = [
-    st.total ? fillTemplate(C.countOk, { n: st.ok }) : null,
-    st.defects ? plural(st.defects, C.defectsOne, C.defectsMany) : null,
-    st.open ? fillTemplate(C.countOpen, { n: st.open }) : null,
-    doc.photos.length ? plural(doc.photos.length, C.photosOne, C.photosMany) : null,
-    doc.proposals.length ? plural(doc.proposals.length, C.proposalsOne, C.proposalsMany) : null,
-  ].filter(Boolean)
+  const defects = checklistItems(doc.checklist).filter((i) => doc.answers[i.id]?.v === 'defect')
+  const finished = doc.lifecycle === 'completed'
   return (
     <div className={`${s.card} ${s.cardPad}`}>
-      <div className={s.sumHead}>
-        <span className={s.sumTitle}>{doc.checklist?.title ?? C.title}</span>
-        {st.defects > 0 && <span className="ip-badge ip-badge-todo">{plural(st.defects, C.defectsOne, C.defectsMany)}</span>}
-      </div>
-      <p className={s.sumText}>
-        {`${fmtDate(doc.visitedAt)} ${fmtWhen(doc.visitedAt).split(' ').pop()}`}{people ? ` · ${people}` : ''}
-        {parts.length > 0 && <><br />{parts.join(' · ')}</>}
-      </p>
+      {(() => {
+        const head = (
+          <>
+            <span className={s.sumHeadText}>
+              <span className={s.sumHead}>
+                <span className={s.sumTitle}>{doc.checklist?.title ?? C.noChecklist}</span>
+                {badge}
+              </span>
+              <span className={s.sumText}>{`${fmtDate(doc.visitedAt)} ${fmtWhen(doc.visitedAt).split(' ').pop()}`}{people ? ` · ${people}` : ''}</span>
+            </span>
+            {onOpen && <Icon id="chevron" className={s.chev} />}
+          </>
+        )
+        return onOpen
+          ? <button type="button" className={s.sumToggle} onClick={onOpen} aria-label={`${C.answersShow}: ${doc.checklist?.title ?? C.noChecklist}`}>{head}</button>
+          : <div className={s.sumToggle}>{head}</div>
+      })()}
+      {defects.length > 0 && (
+        <ul className={s.findList}>
+          {defects.map((i) => {
+            const note = doc.answers[i.id]?.note
+            return <li key={i.id}><span><b>{i.text}</b>{note ? <span className={s.findNote}>{` · ${note}`}</span> : null}</span></li>
+          })}
+        </ul>
+      )}
+      {finished && defects.length === 0 && doc.checklist && (
+        <p className={s.allOk}>
+          <Icon id="check" />{C.noDefects}
+          {st.open > 0 && <span className={s.allOkMore}>{` · ${fillTemplate(C.openCount, { n: st.open })}`}</span>}
+        </p>
+      )}
+      {children && <div className={s.cardRows}>{children}</div>}
     </div>
   )
 }

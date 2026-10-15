@@ -258,9 +258,24 @@ not hide a `done`; the stop then reads as done-before and in progress.
 **Several visits at one stop** (14.10.2026). A stop may hold more than one visit — typically a
 second checklist after the first was the wrong one. A completed visit offers «Weitere Checkliste»
 (a new visit, same object, same `workRef`; the route resumes this person's open draft for the stop
-instead, so it never makes a third). The stop counts once; its row says «n Besuche» and opens the
-newest completed visit, whose page lists the others («Auch hier erfasst», titled by the summary's
-`checklist`). The checklist chooser marks the checklists already completed at the stop.
+instead, so it never makes a third). The stop counts once; its row says «n Checklisten» and opens
+the newest completed visit, whose page shows every visit at the stop as its own card (below). The
+checklist chooser marks the checklists already completed at the stop.
+
+**The read view** (15.10.2026, owner: «just the information we care about»). A work list's row is
+the stop: a finished stop's number turns into a green tick, the chip says only what still needs an
+eye (Mängel, photos on the way, a draft), and a date appears only where it is not the round's own
+day; an open stop keeps «zuletzt …/noch nie besucht». A finished visit's page is one card per visit
+at the stop, oldest first — checklist, when, who, the Mängel by name or «Keine Mängel» — with its
+own rows: «Bearbeiten» (on another visit's card: that visit, opened straight into the correction,
+`?bearbeiten=1`), «Bericht (PDF)», and ONE line: «Abgeschlossen …», or «Korrigiert …» once
+corrected, which opens the completed revisions, each its report. The drafts' save points before
+the completion are not history. The card's head opens the visit's answers on a screen of their own
+(`/besuche/<id>/antworten`: the checklist one line per question, then Bemerkungen, Fotos,
+Vorschläge) — they are off the visit page because the full output usually leaves through the
+filing. Under the cards: «Weitere Checkliste», the next stop, the plans. The head says only
+«Abgeschlossen» while the visit is on the server; anything still owed (not sent, photos, a failed
+filing) shows there in its tone.
 
 **Who.** Accounts are generic (a station tablet, «fu»), so the document's free-text people
 (`with`, wire key unchanged) are the primary «who»: the report prints «Von: <with>» and the

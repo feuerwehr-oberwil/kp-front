@@ -20,7 +20,10 @@ import { useSyncExternalStore } from 'react'
 export type OvRoute =
   | { kind: 'overview' }
   | { kind: 'list'; ref: string }
-  | { kind: 'visit'; id: string }
+  /** `edit`: open straight into «Bearbeiten» (`?bearbeiten=1`, from a sibling's card) */
+  | { kind: 'visit'; id: string; edit?: boolean }
+  /** a finished visit's answers on a screen of their own (`/besuche/<id>/antworten`) */
+  | { kind: 'answers'; id: string }
   | { kind: 'new'; object: string; ref: string | null }
 
 export const OV_BASE = '/besuche'
@@ -39,16 +42,19 @@ export function parseOvRoute(pathname: string, search: string): OvRoute | null {
   }
   if (rest === 'neu') return { kind: 'new', object: q.get('object') ?? '', ref: q.get('ref') || null }
   // a malformed escape (`/besuche/%E0`) is an unknown visit, never a thrown URIError at boot
-  let id = rest.split('/')[0]
+  const [first, sub] = rest.split('/')
+  let id = first
   try { id = decodeURIComponent(id) } catch { /* keep it as typed */ }
-  return { kind: 'visit', id }
+  if (sub === 'antworten') return { kind: 'answers', id }
+  return q.get('bearbeiten') === '1' ? { kind: 'visit', id, edit: true } : { kind: 'visit', id }
 }
 
 export function ovHref(r: OvRoute): string {
   switch (r.kind) {
     case 'overview': return OV_BASE
     case 'list': return `${OV_BASE}?liste=${encodeURIComponent(r.ref)}`
-    case 'visit': return `${OV_BASE}/${encodeURIComponent(r.id)}`
+    case 'visit': return `${OV_BASE}/${encodeURIComponent(r.id)}${r.edit ? '?bearbeiten=1' : ''}`
+    case 'answers': return `${OV_BASE}/${encodeURIComponent(r.id)}/antworten`
     case 'new': {
       const q = new URLSearchParams({ object: r.object })
       if (r.ref) q.set('ref', r.ref)

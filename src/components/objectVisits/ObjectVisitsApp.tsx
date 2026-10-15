@@ -19,6 +19,7 @@ import { Overview } from './Overview'
 import { WorkList } from './WorkList'
 import { VisitPage } from './VisitPage'
 import { NewVisit } from './NewVisit'
+import { AnswersPage } from './AnswersPage'
 import s from './ObjectVisits.module.css'
 
 export default function ObjectVisitsApp({ onExit, suggestedObjectId = null }: { onExit: () => void; suggestedObjectId?: string | null }) {
@@ -106,7 +107,8 @@ export default function ObjectVisitsApp({ onExit, suggestedObjectId = null }: { 
         {route.kind === 'overview' && <Overview />}
         {route.kind === 'list' && <WorkList listRef={route.ref} />}
         {route.kind === 'new' && <NewVisit objectKey={route.object} workRef={route.ref} />}
-        {route.kind === 'visit' && <VisitPage key={route.id} id={route.id} />}
+        {route.kind === 'visit' && <VisitPage key={route.id} id={route.id} edit={route.edit} />}
+        {route.kind === 'answers' && <AnswersPage key={route.id} id={route.id} />}
       </div>
     </OvContext.Provider>
   )
