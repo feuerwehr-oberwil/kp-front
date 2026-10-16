@@ -140,6 +140,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
       leadOnline: 'Ce qui serait disponible sans connexion.',
       catalogue: 'Catalogue d’objets',
       catalogueSub: '{n} objets · recherche hors ligne',
+      catalogueSubOne: '1 objet · recherche hors ligne',
       catalogueStand: 'état {d}',
       catalogueNone: 'Pas encore sur cet appareil – ouvrir une fois avec connexion',
       map: 'Carte',

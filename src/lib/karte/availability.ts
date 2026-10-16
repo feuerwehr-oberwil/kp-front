@@ -166,7 +166,7 @@ export interface DeviceRow { key: string; lamp: Lamp; title: string; sub: string
 
 /** The copy the rows are made of (appConfig.copy.karte.device). */
 export interface DeviceCopy {
-  catalogue: string; catalogueSub: string; catalogueNone: string; catalogueStand: string
+  catalogue: string; catalogueSub: string; catalogueSubOne: string; catalogueNone: string; catalogueStand: string
   map: string; mapAll: string; mapPart: string; mapPartOffline: string; mapNone: string; mapFar: string; mapUnknown: string
   plans: string; plansAll: string; plansPart: string; plansNone: string; plansEmpty: string; plansUnknown: string
   buildings: string; buildingsSome: string; buildingsOne: string; buildingsNone: string
@@ -188,7 +188,7 @@ const fill = (t: string, v: Record<string, string | number>) => t.replace(/\{(\w
 export function deviceRows(f: DeviceFacts, C: DeviceCopy, fmt: { day: (iso: string) => string; size: (bytes: number) => string }): DeviceRow[] {
   const rows: DeviceRow[] = []
   rows.push(f.catalogue
-    ? { key: 'catalogue', lamp: 'device', title: C.catalogue, sub: [fill(C.catalogueSub, { n: f.catalogue.count }), f.catalogue.generatedAt ? fill(C.catalogueStand, { d: fmt.day(f.catalogue.generatedAt) }) : ''].filter(Boolean).join(' · ') }
+    ? { key: 'catalogue', lamp: 'device', title: C.catalogue, sub: [fill(f.catalogue.count === 1 ? C.catalogueSubOne : C.catalogueSub, { n: f.catalogue.count }), f.catalogue.generatedAt ? fill(C.catalogueStand, { d: fmt.day(f.catalogue.generatedAt) }) : ''].filter(Boolean).join(' · ') }
     : { key: 'catalogue', lamp: 'online', title: C.catalogue, sub: C.catalogueNone })
   if (f.map === null) rows.push({ key: 'map', lamp: 'online', title: C.map, sub: C.mapUnknown })
   else if (f.map === 'far') rows.push({ key: 'map', lamp: 'part', title: C.map, sub: C.mapFar })

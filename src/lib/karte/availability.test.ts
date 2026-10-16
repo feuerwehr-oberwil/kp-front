@@ -171,6 +171,10 @@ describe('«Auf diesem Gerät» rows', () => {
     expect(r.storage).toBeUndefined()
   })
 
+  it('one object reads in the singular', () => {
+    expect(byKey({ ...base, catalogue: { count: 1, generatedAt: null } }).catalogue.sub).toBe('1 Objekt · suchbar ohne Netz')
+  })
+
   it('the register is never fully on the device: one building is still «part»', () => {
     expect(byKey({ ...base, buildings: 1 }).buildings).toMatchObject({ lamp: 'part', sub: C.buildingsOne })
   })

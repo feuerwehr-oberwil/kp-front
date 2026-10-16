@@ -153,9 +153,10 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
                 type="fill"
                 layout={vis(isVisible(overlay.layer))}
                 // a hatched overlay paints the Schraffur tile of its colour (registered on demand by
-                // MapImages' missing-image resolver, like a hatched Fläche)
+                // MapImages' missing-image resolver, like a hatched Fläche). No antialiasing: the
+                // rings are adjacent tiles, and antialiased edges drew a seam along every one.
                 paint={overlay.kind === 'polygons' && overlay.hatch
-                  ? { 'fill-pattern': hatchImageId(overlay.color), 'fill-opacity': overlay.fillOpacity ?? 1 }
+                  ? { 'fill-pattern': hatchImageId(overlay.color), 'fill-opacity': overlay.fillOpacity ?? 1, 'fill-antialias': false }
                   : { 'fill-color': overlay.color, 'fill-opacity': overlay.fillOpacity ?? 0.08 }}
               />
               <Layer

@@ -214,3 +214,5 @@ button.row:active { background: var(--press); }
 .surfaceNote { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: var(--sp-4); }
 .surfaceNote .note { max-width: 360px; }
 .floors > .note { width: min(980px, 100%); }
+/* the sheet's body scrolls; its rows never squeeze */
+.deviceSheet .list { flex: none; }

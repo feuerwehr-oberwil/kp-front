@@ -155,6 +155,7 @@ export const karteCopy = {
       leadOnline: 'Was ohne Netz zur Verfügung stünde.',
       catalogue: 'Objektkatalog',
       catalogueSub: '{n} Objekte · suchbar ohne Netz',
+      catalogueSubOne: '1 Objekt · suchbar ohne Netz',
       catalogueStand: 'Stand {d}',
       catalogueNone: 'Noch nicht auf diesem Gerät – einmal mit Netz öffnen',
       map: 'Karte',
