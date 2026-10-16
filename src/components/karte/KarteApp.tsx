@@ -12,8 +12,12 @@
 // component's state and die with it; the only things kept are its own Ebenen and where it was
 // looking (lib/karte/session). The single way it changes anything is the Objektbesuch button,
 // which hands over to the existing capture (`/besuche/neu?…&from=karte`, contract C1).
+//
+// It is HOME too (owner, 16.10.2026 · variant B): with no Einsatz open an account lands here, and
+// the old launcher card is the «Einsätze ▾» sheet at the top left — App renders its content (the
+// same rows, the same handlers: `einsaetze.render`), this file only opens and closes it.
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import { Marker } from 'react-map-gl/maplibre'
 import { appConfig } from '../../config/appConfig'
@@ -54,7 +58,7 @@ import {
 import { cellOf, cellsFor, loadCell, OUTLINE_MIN_ZOOM } from '../../lib/karte/outlines'
 import { GEBAEUDE_DOC, viewerPlanDocs } from '../../lib/karte/plans'
 import { karteHref } from '../../lib/karte/route'
-import { karteRadarStore, loadKarteView, loadViewerLayerPrefs, saveKarteView, saveViewerLayerPrefs, viewerLayers } from '../../lib/karte/session'
+import { karteRadarStore, loadKarteView, loadViewerLayerPrefs, saveKarteView, saveViewerLayerPrefs, viewerLayers, type KarteTool } from '../../lib/karte/session'
 import { KEY_BOX_SYMBOL, KeyBoxSvg } from '../../lib/karte/keyBox'
 import type { Entity, LayerDef, LayerId, LngLat, PreparedMapOverlay } from '../../types'
 import { MapView } from '../MapView'
@@ -98,8 +102,11 @@ const NO_TILES: TileXY[] = []
 const NOOP = () => {}
 
 export interface KarteAppProps {
-  /** «Einsätze» — for now: back to the start (the launcher) */
-  onLeave: () => void
+  /** «Einsätze ▾»: the launcher's content as a sheet (App owns the rows and their handlers) and
+   *  the badge on the button — running Einsätze + alarms waiting to be taken */
+  einsaetze: { badge: number; render: (close: () => void) => ReactNode }
+  /** entered from an Einsatz (its menu's «Karte & Objekte» row): say where it picked up again */
+  announceReturn?: boolean
   /** hand over to the Objektbesuche surface at this address */
   onOpenVisits: (href: string) => void
   /** the open Einsätze, the newest first (the red chip shows the first) */
@@ -107,7 +114,7 @@ export interface KarteAppProps {
   onOpenIncident: (i: IncidentMeta) => void
 }
 
-export default function KarteApp({ onLeave, onOpenVisits, running, onOpenIncident }: KarteAppProps) {
+export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisits, running, onOpenIncident }: KarteAppProps) {
   const C = appConfig.copy.karte
   const { user } = useAuth()
   const phone = useIsPhone()
@@ -205,11 +212,6 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
     const want = karteHref({ objekt: objectInUrl })
     if (`${window.location.pathname}${window.location.search}` !== want && window.location.pathname.startsWith('/karte')) navigateTo(want, { replace: true })
   }, [objectInUrl, catLoaded])
-  // …and the view is kept for the way back (an Objektbesuch, a reload)
-  useEffect(() => {
-    const surf = !openDoc ? 'karte' as const : openDoc.plan ? { plan: openDoc.plan.id } : 'gebaeude' as const
-    saveKarteView({ ...view, objectId: objectInUrl, surface: surf })
-  }, [view, objectInUrl, openDoc])
 
   // ── layers: the deployment's, minus the Einsatz-only ones, with this device's own choices ──
   const [layers, setLayers] = useState<LayerDef[]>(() => viewerLayers(defaultLayers(), loadViewerLayerPrefs()))
@@ -270,7 +272,8 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
   }, [objects, cells])
 
   // ── tools ─────────────────────────────────────────────────────────────────────────────────
-  const [tool, setToolState] = useState<Tool>(null)
+  // the open tool comes back too (only WHICH one — lib/karte/session); never the pin mode
+  const [tool, setToolState] = useState<Tool>(() => start.view?.tool ?? null)
   const measure = useMeasure(tool === 'measure')
   const [erg, setErg] = useState<{ un: string; mode: ErgRingMode; center: LngLat | null; at: Date }>(() => ({ un: '', mode: DEFAULT_ERG_RING_MODE, center: null, at: new Date() }))
   const [viewsOpen, setViewsOpen] = useState(false)
@@ -291,6 +294,47 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
     if (t === 'erg' && !erg.center) setErg((e) => ({ ...e, center: selPoint(sel) ?? view.center, at: new Date() }))
     if (phone && t && t !== 'pin') setSurface(null)
   }
+
+  // …and the view is kept for the way back (an Objektbesuch, an Einsatz, a reload) — with the
+  // words the Einsatz menu's row says it returns to («Zurück zu Schloss Musterdorf · Modul 1»)
+  const keptTool: KarteTool | null = tool === 'measure' || tool === 'erg' || tool === 'layers' ? tool : null
+  const viewLabel = selObj
+    ? [selObj.name, openDoc && (openDoc.plan ? fillTemplate(C.backPlan, { code: openDoc.doc.code }) : openDoc.doc.title)].filter(Boolean).join(' · ')
+    : null
+  // ⚠️ Not before the catalogue has answered (or failed): until then nothing is selected yet, and
+  // leaving that early would overwrite the object the session was on with «nothing».
+  useEffect(() => {
+    if (!catLoaded) return
+    const surf = !openDoc ? 'karte' as const : openDoc.plan ? { plan: openDoc.plan.id } : 'gebaeude' as const
+    saveKarteView({ ...view, objectId: objectInUrl, surface: surf, tool: keptTool, label: viewLabel })
+  }, [catLoaded, view, objectInUrl, openDoc, keptTool, viewLabel])
+  // back from an Einsatz: one line that says where it picked up (mockup j8-5), once per entry
+  const announced = useRef(false)
+  useEffect(() => {
+    // once per mount (a ref, so StrictMode's second run says nothing): the entry is what is announced
+    if (announced.current) return
+    announced.current = true
+    if (announceReturn && start.view?.label) toast(fillTemplate(C.backAt, { where: start.view.label }), { icon: 'check' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── «Einsätze ▾»: the launcher's content as a sheet under the bar ──────────────────────────
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const barRef = useRef<HTMLDivElement>(null)
+  const closeSheet = useCallback(() => setSheetOpen(false), [])
+  useEffect(() => {
+    if (!sheetOpen) return
+    // 'pointerdown' (touch fires the compat mousedown late or never) — the IncidentSwitcher's
+    // rule: a press inside a sheet or dialog opened FROM here is not «outside»
+    const onDoc = (e: PointerEvent) => {
+      const t = e.target as Element
+      if (barRef.current && !barRef.current.contains(t) && !t.closest?.('.ip-sheet, .ui-backdrop, .help-scrim, .confirm-backdrop, .toaster')) setSheetOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSheetOpen(false) }
+    document.addEventListener('pointerdown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('pointerdown', onDoc); document.removeEventListener('keydown', onKey) }
+  }, [sheetOpen])
 
   // ── search ────────────────────────────────────────────────────────────────────────────────
   const [query, setQuery] = useState('')
@@ -635,7 +679,7 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
 
   return (
     <KeyBoxSvg.Provider value={sym.byName[KEY_BOX_SYMBOL] ?? ''}>
-      <div className={cx('app mode-map', s.root, phone && s.phone, phone && 'phone-tools')} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={cancelPress} onPointerCancel={cancelPress}>
+      <div data-karte="" className={cx('app mode-map', s.root, phone && s.phone, phone && 'phone-tools')} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={cancelPress} onPointerCancel={cancelPress}>
         <IconSprite />
         <MapView
           ref={mapRef}
@@ -720,11 +764,13 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
         )}
 
         {/* the bar: NO title (owner, 16.10.2026) — Einsätze · search · weather · the running Einsatz */}
-        <div className="topbar">
-          <button type="button" className={s.einsaetze} onClick={onLeave} title={C.einsaetzeTitle}>
+        <div className="topbar" ref={barRef}>
+          <button type="button" className={cx(s.einsaetze, sheetOpen && s.open)} onClick={() => { setSheetOpen((o) => !o); setSearchOpen(false) }}
+            title={C.einsaetzeTitle} aria-haspopup="dialog" aria-expanded={sheetOpen}>
             <Icon id="flag" />
             <span className={s.einsaetzeText}>{C.einsaetze}{!phone && <small>{!running.length ? C.einsaetzeNone : running.length === 1 ? C.einsaetzeOne : fillTemplate(C.einsaetzeMany, { n: running.length })}</small>}</span>
-            <Icon id="chevron-down" />
+            <Icon id="chevron-down" className={s.chev} />
+            {einsaetze.badge > 0 && <span className={s.einsaetzeBadge} aria-label={fillTemplate(C.einsaetzeBadge, { n: einsaetze.badge })}>{einsaetze.badge}</span>}
           </button>
           <SearchField
             className={s.search}
@@ -742,8 +788,17 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
             </button>
           ) : !phone && liveWeather.data?.wind_dir_deg != null && <WeatherBadge weather={liveWeather.data} bearing={view.bearing} />}
           {!phone && runningChip}
+          {/* the launcher card's content, as the Einsatz menu hangs off its bar (13-incident ·
+              .ip-menu): running rows, alarms to take, Manueller Einsatz, Verlauf, Objektbesuche,
+              who is signed in, the device's utilities */}
+          {sheetOpen && (
+            <div className="ip-menu ip-einsaetze" role="dialog" aria-label={C.einsaetze}>
+              {einsaetze.render(closeSheet)}
+            </div>
+          )}
         </div>
-        {phone && live && <div className={s.runningStrip}>{runningChip}</div>}
+        {/* the strip stands where the «Einsätze» sheet hangs — and the sheet lists the same Einsatz */}
+        {phone && live && !sheetOpen && <div className={s.runningStrip}>{runningChip}</div>}
 
         {searchOpen && (
           <KarteSearch query={query} hits={hits} featured={featured} addresses={addrState === 'ok' ? addr.list : []} addrState={addrState}
@@ -779,7 +834,8 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
             onToggleGeoref={toggleGeoref}
             onSelectObject={(id) => selectObject(id)}
             onRetryRegister={() => setRegTry((n) => n + 1)}
-            onOpenVisit={(id) => onOpenVisits(ovHref({ kind: 'visit', id }))}
+            // `from=karte`: the visit's «Zurück» lands here again, not on the Objektbesuche list
+            onOpenVisit={(id) => onOpenVisits(`${ovHref({ kind: 'visit', id })}?from=karte`)}
             onPinBuilding={() => { if (sel?.kind === 'pin') selectBuilding(sel.at, ringAt(ringsNear(sel.at), sel.at)) }}
             onCopyCoords={copyCoords}
           />

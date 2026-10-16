@@ -2142,6 +2142,11 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .ip-foot-util .i { width: 15px; height: 15px; color: var(--ink-faint); }
 .ip-emptyapp-ver { margin-top: 16px; text-align: left; font: var(--fw-medium) var(--fs-micro) var(--mono, var(--body));
   letter-spacing: .02em; color: var(--ink-faint); }
+/* The same content as the «Einsätze ▾» sheet of «Karte & Objekte» (home since 16.10.2026,
+   components/karte/KarteApp): it hangs off the viewer's bar like the Einsatz menu (.ip-menu),
+   with the card's own breathing room and width rather than the menu's tight rows. */
+.ip-menu.ip-einsaetze { padding: var(--sp-4); width: min(388px, 92vw); }
+.ip-einsaetze .ip-emptyapp-foot { margin-top: var(--sp-5); }
 
 /* ── «Teilen»: die Links eines Einsatzes ────────────────────────────────────────────────
    One surface, opened by every «Teilen» door (and rendered inline by the Rapport's own

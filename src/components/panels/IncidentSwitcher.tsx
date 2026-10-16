@@ -16,6 +16,7 @@ import type { IncidentMeta, SyncStatus } from '../../lib/incidents'
 import { useIsPhone } from '../../lib/useIsPhone'
 import { CLOCK_ICON, useEinsatzuhr } from '../../lib/einsatzuhr'
 import { EinsatzuhrChoices } from '../Einsatzuhr'
+import { loadKarteView } from '../../lib/karte/session'
 
 // HH:MM for the positive "gespeichert" trust signal next to the sync badge.
 function fmtClock(ms: number): string {
@@ -31,7 +32,7 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -53,6 +54,8 @@ export function IncidentSwitcher({
   onHistory?: () => void
   /** Objektbesuche — set only where the station switched the module on and this is no link session */
   onObjectVisits?: () => void
+  /** «Karte & Objekte» — the station viewer over this Einsatz (App · enterKarte) */
+  onKarte?: () => void
   onDivera: () => void
   onDatenquellen: () => void
   /** Einsatzrapport (PDF / Drucken) — absent for an Einsatz-Link session, which may not
@@ -195,6 +198,8 @@ export function IncidentSwitcher({
   // neither (feedback 2026-08-26): you either switch to something that is running, or you go
   // looking for a specific old Einsatz, and the second one is not a four-row list.
   const running = runningOthers(incidents, active?.id ?? null)
+  // where «Karte & Objekte» was left, read when the menu opens (a sessionStorage read, no catalogue)
+  const karteBack = open && onKarte ? loadKarteView()?.label ?? null : null
   const showIncidents = running.length > 0 || isEditor || !!onHistory || (incidents.length === 0 && !active)
   const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   /**
@@ -428,6 +433,18 @@ export function IncidentSwitcher({
           {/* «App»: device + installation, not this Einsatz. It always has rows — Hilfe is
               unconditional — so the label never heads an empty group the way «Einsätze» can. */}
           <div className="ip-menu-label">{cp.app}</div>
+          {/* «Karte & Objekte» FIRST (owner, 16.10.2026): the way back to the station viewer this
+              device was reading before the Einsatz — its sub line names where it picks up again
+              (lib/karte/session · KarteView.label), and nothing in it touches this Einsatz */}
+          {onKarte && (
+            <button className="ip-menu-act ip-menu-act-two" onClick={() => { setOpen(false); onKarte() }}>
+              <Icon id="map" />
+              <span className="ip-menu-rowmain">
+                <span className="ip-menu-title">{appConfig.copy.karte.launcher}</span>
+                <span className="ip-menu-rowsub">{karteBack ? fillTemplate(appConfig.copy.karte.menuBack, { where: karteBack }) : appConfig.copy.karte.menuSub}</span>
+              </span>
+            </button>
+          )}
           {/* Objektbesuche is no Einsatz, so it is not under «Einsätze»: it is the app's other job.
               Here because a device that always opens its running Einsatz never sees the launcher
               (staging 03.10.2026). */}

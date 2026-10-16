@@ -4,7 +4,7 @@
 // address, a pin becomes a «Meldung» at a place, Messen offers NO «Als Linie übernehmen», and
 // nothing the viewer does writes anything but its own view keys. Synthetic Musterdorf data.
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import type { StationObjects } from '../../lib/api/stationReference'
@@ -49,9 +49,11 @@ vi.mock('../../lib/deploymentConfig', async (importOriginal) => ({
   objectVisitsConfig: () => ({ enabled: true, captureRoles: ['editor', 'el'] }),
 }))
 vi.mock('../../lib/useWeather', () => ({ useWeather: () => ({ data: null, error: null }) }))
+vi.mock('../../lib/ui', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../lib/ui')>()), toast: vi.fn() }))
 vi.mock('../../lib/useVehicleLayer', () => ({ useVehicleLayer: () => ({ liveVehicles: [] }) }))
 
-import KarteApp from './KarteApp'
+import KarteApp, { type KarteAppProps } from './KarteApp'
+import { toast } from '../../lib/ui'
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 beforeAll(() => {
@@ -67,13 +69,18 @@ beforeEach(() => {
   window.history.replaceState(null, '', '/karte')
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })))
 })
-afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.mocked(toast).mockClear() })
 
-const mount = () => {
+const mount = (over: Partial<KarteAppProps> = {}) => {
   const onOpenVisits = vi.fn()
-  const onLeave = vi.fn()
-  render(<KarteApp onLeave={onLeave} onOpenVisits={onOpenVisits} running={[]} onOpenIncident={vi.fn()} />)
-  return { onOpenVisits, onLeave }
+  // the launcher's content as App hands it in: a row that closes the sheet, like «Manueller Einsatz»
+  const launcherRow = vi.fn()
+  const einsaetze = {
+    badge: 0,
+    render: (close: () => void) => <button type="button" onClick={() => { launcherRow(); close() }}>Manueller Einsatz</button>,
+  }
+  render(<KarteApp einsaetze={einsaetze} onOpenVisits={onOpenVisits} running={[]} onOpenIncident={vi.fn()} {...over} />)
+  return { onOpenVisits, launcherRow }
 }
 
 describe('KarteApp', () => {
@@ -132,5 +139,57 @@ describe('KarteApp', () => {
     mount()
     expect(await screen.findByRole('heading', { name: 'Schlüsseldepot Schloss' })).toBeTruthy()
     expect(screen.getByText('Schlüsseldepot ohne Pläne. Kontrolliert über die Objektbesuche.')).toBeTruthy()
+  })
+
+  // home (variant B): the old launcher card is the «Einsätze ▾» sheet — App's content, opened here
+  it('opens the launcher content as the «Einsätze» sheet and shuts it when a row acts', async () => {
+    const { launcherRow } = mount({ einsaetze: { badge: 2, render: (close) => <button type="button" onClick={() => { close() }}>Manueller Einsatz</button> } })
+    void launcherRow
+    const button = screen.getByRole('button', { name: /Einsätze/ })
+    expect(screen.getByLabelText('2 offen').textContent).toBe('2')
+    expect(screen.queryByRole('dialog', { name: 'Einsätze' })).toBeNull()
+    fireEvent.click(button)
+    expect(button.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Einsätze' })).getByRole('button', { name: 'Manueller Einsatz' }))
+    expect(screen.queryByRole('dialog', { name: 'Einsätze' })).toBeNull()
+    // Escape and a press outside close it too
+    fireEvent.click(button)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('dialog', { name: 'Einsätze' })).toBeNull()
+    fireEvent.click(button)
+    fireEvent.pointerDown(screen.getByTestId('mapview'))
+    expect(screen.queryByRole('dialog', { name: 'Einsätze' })).toBeNull()
+  })
+
+  it('keeps no badge with nothing running and no alarm to take', async () => {
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    expect(screen.queryByLabelText(/offen$/)).toBeNull()
+  })
+
+  it('comes back from an Einsatz where it was left — object, plan, tool — and says so once', async () => {
+    sessionStorage.setItem('kp.karte.view', JSON.stringify({
+      center: [7.570188, 47.523773], zoom: 18, bearing: 0, objectId: 'schloss', surface: { plan: 'plan:schloss:modul1' },
+      tool: 'layers', label: 'Schloss Musterdorf · Modul 1',
+    }))
+    window.history.replaceState(null, '', '/karte')
+    mount({ announceReturn: true })
+    await waitFor(() => expect(vi.mocked(toast)).toHaveBeenCalled())
+    expect(vi.mocked(toast)).toHaveBeenCalledWith('Wieder bei Schloss Musterdorf · Modul 1', { icon: 'check' })
+    expect(vi.mocked(toast)).toHaveBeenCalledTimes(1)
+    // the tool that was open is open again, and the label the Einsatz menu reads is kept
+    await waitFor(() => expect(JSON.parse(sessionStorage.getItem('kp.karte.view')!)).toMatchObject({
+      objectId: 'schloss', surface: { plan: 'plan:schloss:modul1' }, tool: 'layers', label: 'Schloss Musterdorf · Modul 1',
+    }))
+  })
+
+  it('says nothing on a plain start (home), only after an Einsatz', async () => {
+    window.history.replaceState(null, '', '/')
+    sessionStorage.setItem('kp.karte.view', JSON.stringify({ center: [7.57, 47.52], zoom: 16, bearing: 0, objectId: 'schloss', surface: 'karte', label: 'Schloss Musterdorf' }))
+    mount()
+    expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
+    expect(vi.mocked(toast)).not.toHaveBeenCalled()
+    // home lives at `/`: the selection does not move it to /karte
+    expect(window.location.pathname).toBe('/')
   })
 })

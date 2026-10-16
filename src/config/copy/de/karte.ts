@@ -9,12 +9,17 @@ export const karteCopy = {
   karte: {
     title: 'Karte & Objekte',
     launcher: 'Karte & Objekte',
-    launcherSub: 'Objekte, Pläne, Gebäude – ohne Einsatz',
+    // the Einsatz menu's «App» row back to the viewer (panels/IncidentSwitcher) and the line on return
+    menuSub: 'Objekte, Pläne und Gebäude ansehen',
+    menuBack: 'Zurück zu {where}',
+    backAt: 'Wieder bei {where}',
+    backPlan: 'Modul {code}',
     einsaetze: 'Einsätze',
     einsaetzeNone: 'keiner offen',
     einsaetzeOne: '1 läuft',
     einsaetzeMany: '{n} laufen',
     einsaetzeTitle: 'Zu den Einsätzen',
+    einsaetzeBadge: '{n} offen',
     runningOpen: 'Einsatz öffnen: {t}',
     // search
     searchPlaceholder: 'Adresse oder Objekt suchen …',
