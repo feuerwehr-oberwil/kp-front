@@ -237,6 +237,14 @@ export default function App() {
     setOvReturn(isKartePath(window.location.pathname) ? `${window.location.pathname}${window.location.search}` : '/')
     setKarteFromEinsatz(false); setOvEntered(true); navigateTo(href)
   }, [])
+  /** Bring the open Einsatz back in front of whatever covers it — the viewer or the Objektbesuche
+   *  (an Atemschutz row's «Zum Trupp», the red chip, its row in the «Einsätze» sheet). It never
+   *  stopped running behind them, so nothing reopens: the surface just steps aside. */
+  const uncoverEinsatz = useCallback(() => {
+    setOvReturn(null); setOvEntered(false); setKarteEntered(false); setKarteFromEinsatz(false)
+    const p = window.location.pathname
+    if (isOvPath(p) || isKartePath(p)) leaveAppEntries('/')
+  }, [])
   // landing-card utilities (no incident open): device settings / help / install guide
   const [landingSheet, setLandingSheet] = useState<null | 'settings' | 'help' | 'install'>(null)
   // Rückmeldung: something went wrong recently and the cooldown has passed → ask on the
@@ -851,45 +859,11 @@ export default function App() {
     linkSession: linkScoped, visitsShown: ovShown, karteRoute: !!karteRoute || (karteEntered && !!ovRoute), karteEntered, activeId: !!activeId,
     workspaceReady: activeMeta != null, listLoaded: incidents !== null, bootDecided, bootOpening,
   })
+  /** a surface stands in front of the open Einsatz, which stays mounted behind it (covered) */
+  const einsatzBehind = screen === 'karte' || screen === 'visits'
 
   // Objektbesuche: the whole screen, home or not — and it does not wait for the Einsatz list.
   // The Meldeleiste and the toast/confirm host stay, the surface's own dialogs need them.
-  if (screen === 'visits') {
-    return (
-      <>
-        <Meldeleiste />
-        {sessionExpired && <SessionExpiredMeldung onRelogin={() => void logout()} />}
-        {/* ⚠️ An alarm reaches a member on a visit too — this is a fire brigade's app. The same
-            two messages home and the workspace carry, in the same strip; taking one leaves
-            the surface (the visit is saved on the device and sent at its save point) and opens
-            the Einsatz exactly as home would. */}
-        {isEditor && (
-          <IncomingAlarmBanner
-            alarms={poolAlarms}
-            taking={taking}
-            attachFirst={false}
-            onTake={(a) => { leaveObjectVisits('/'); void takeAndOpen(a) }}
-          />
-        )}
-        {freshIncident && poolAlarms.length === 0 && (
-          <NewIncidentBanner
-            inc={freshIncident}
-            active={!!activeId}
-            onSwitch={() => {
-              const f = freshIncident
-              dismissFreshIncident()
-              leaveObjectVisits('/')
-              void openIncident(f.id, { meta: f })
-            }}
-            onDismiss={dismissFreshIncident}
-          />
-        )}
-        <Suspense fallback={<Splash />}><ObjectVisitsApp onExit={leaveObjectVisits} suggestedObjectId={activeId ? ovSuggest : null} /></Suspense>
-        <Overlays />
-      </>
-    )
-  }
-
   // Incident list still loading after auth: keep the boot Splash up rather than a blank
   // colour flash, so the launch stays continuous from /me probe → list → workspace.
   if (screen === 'splash') return <Splash />
@@ -947,6 +921,12 @@ export default function App() {
   // an alarm taken from the viewer undoes back to it (undoTake)
   const takeBack = screen === 'karte' ? 'karte' as const : undefined
 
+  // the open Einsatz itself, while a surface covers it: step aside instead of reopening it
+  const openOrUncover = (i: IncidentMeta) => {
+    if (i.id === activeId && activeMeta && einsatzBehind) uncoverEinsatz()
+    else void openIncident(i.id, { meta: i })
+  }
+
   /** `close`: the «Einsätze» sheet shuts when one of its rows opens something over the viewer */
   const launcherBody = (close: () => void = () => {}) => (
     <>
@@ -960,7 +940,7 @@ export default function App() {
       {hasLanding ? (
         <div className="ip-launch-list">
           {openIncidents.map((i) => (
-            <button key={i.id} type="button" className="ip-launch" disabled={opening != null} onClick={() => void openIncident(i.id, { meta: i })}>
+            <button key={i.id} type="button" className="ip-launch" disabled={opening != null} onClick={() => { if (i.id === activeId) close(); openOrUncover(i) }}>
               {opening === i.id ? <ShellLoader /> : <Icon id="flag" />}
               <span className="ip-launch-main">
                 <span className="ip-launch-title">{i.title}</span>
@@ -1093,7 +1073,12 @@ export default function App() {
           the badge cannot say why. Published HERE so it shows with or without an open Einsatz;
           it ends only by signing in again, which is what its one button does. */}
       {sessionExpired && <SessionExpiredMeldung onRelogin={() => void logout()} />}
-      {screen === 'einsatz' && activeId && activeMeta && syncRef.current ? (
+      {/* ⚠️ The open Einsatz stays MOUNTED while «Karte & Objekte» or the Objektbesuche are in
+          front of it (`covered`): its sync, its live poll and its Atemschutz alarm keep running,
+          and the alarm's rows stand in the strip over that surface (IncidentWorkspace · covered;
+          lead decision 16.10.2026). One element in one place, so covering and uncovering never
+          remount it. */}
+      {(screen === 'einsatz' || (einsatzBehind && !linkScoped)) && activeId && activeMeta && syncRef.current ? (
         <ErrorBoundary
           /* Keyed on activeId ONLY (not `remount`): a background remount — the live-follow
              poll, a resolved 409 calling onServerWorkspace — must NOT reset a latched crash,
@@ -1124,6 +1109,8 @@ export default function App() {
           // «Karte & Objekte» from the Einsatz menu's «App» group: the viewer over this Einsatz,
           // which stays open behind it — never for a link session (docs/karte-objekte.md)
           onOpenKarte={linkScoped ? undefined : enterKarte}
+          covered={screen !== 'einsatz'}
+          onUncover={uncoverEinsatz}
           // «Einsatz eröffnen» goes straight to the manual wizard — the pool sheet is gone
           // (testing feedback 2026-07-18): incoming alarms are taken via home or
           // the mid-incident banner, never via a separate pool screen.
@@ -1157,6 +1144,11 @@ export default function App() {
         // the meta is in, the sync engine is not (yet, or no longer — an undone take on its way
         // out): a moment of the splash, never a flash of home
         <Splash />
+      ) : null}
+      {screen === 'visits' ? (
+        // the Objektbesuche: the whole screen, home or not — and it does not wait for the
+        // Einsatz list. The strip, the banners and the toast/confirm host are the root's.
+        <Suspense fallback={<Splash />}><ObjectVisitsApp onExit={leaveObjectVisits} suggestedObjectId={activeId ? ovSuggest : null} /></Suspense>
       ) : screen === 'karte' ? (
         // «Karte & Objekte» — home with no Einsatz open, or entered over one. It does not wait for
         // the Einsatz list (the catalogue is its own read); alarms reach it through the strip and
@@ -1167,10 +1159,10 @@ export default function App() {
             announceReturn={karteFromEinsatz}
             onOpenVisits={openVisitsFromKarte}
             running={runningNow}
-            onOpenIncident={(i) => void openIncident(i.id, { meta: i })}
+            onOpenIncident={openOrUncover}
           />
         </Suspense>
-      ) : (
+      ) : screen === 'launcher' ? (
         <div className="ip-emptyapp">
           <IconSprite />
           <div className="ip-emptyapp-card">
@@ -1178,7 +1170,7 @@ export default function App() {
             {launcherBody()}
           </div>
         </div>
-      )}
+      ) : null}
       {/* home's device utilities (no incident open): settings / help / install, and Rückmeldung */}
       {screen !== 'einsatz' && landingSheet === 'settings' && !feedbackFor && (
         <LandingSettings
@@ -1207,12 +1199,17 @@ export default function App() {
           by hand, because that is the only way its Zeiten ever fill (a manual Einsatz has no
           alarm routing times to it). Over «Karte & Objekte» there is no Einsatz being worked on
           screen, so no Anhängen there: taking opens the new one, with the 12 s «Rückgängig». */}
-      {isEditor && screen === 'karte' && (
+      {/* …and over the Objektbesuche the same: an alarm reaches a member on a visit too — this is
+          a fire brigade's app. Taking it leaves the surface (the visit is saved on the device and
+          sent at its save point) and opens the Einsatz exactly as home would. */}
+      {isEditor && (screen === 'karte' || screen === 'visits') && (
         <IncomingAlarmBanner
           alarms={poolAlarms}
           taking={taking}
           attachFirst={false}
-          onTake={(a) => void takeAndOpen(a, 'karte')}
+          onTake={(a) => {
+            if (screen === 'visits') { leaveObjectVisits('/'); void takeAndOpen(a) } else void takeAndOpen(a, 'karte')
+          }}
         />
       )}
       {isEditor && screen === 'einsatz' && activeMeta != null && (
@@ -1236,6 +1233,7 @@ export default function App() {
           onSwitch={() => {
             const f = freshIncident
             dismissFreshIncident()
+            if (screen === 'visits') leaveObjectVisits('/')
             void openIncident(f.id, { meta: f })
           }}
           onDismiss={dismissFreshIncident}

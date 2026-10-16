@@ -223,3 +223,15 @@ reworded.
   a Trupp in a Notfall cannot be removed from the board until «Notfall beendet».
 - *The Abschluss* asks about a running Notfall first («Zur Tafel» focused); closing anyway writes
   «Notfall beim Abschluss nicht beendet» per Trupp.
+
+## The alarm while another surface is in front (16.10.2026)
+
+The contact clock, the Alarmdruck, the Rückzug line and the Notfall alarm whenever an Einsatz is
+open — also while «Karte & Objekte» or the Objektbesuche stand in front of it. `IncidentWorkspace`
+stays mounted there with `covered` (App): no screen, no keys, but the same `AtemschutzAlarmHost`
+(tone, OS notification with its sound and vibration, the Verlauf rows), the same live poll that
+ends an alarm with a Funkkontakt from another device, and the same `AtemschutzAlarmMeldungen` /
+`AtemschutzNotfallMeldungen` rows over the surface in front, whose «Zum Trupp» brings the Einsatz
+back on this board at that card. Until then the Objektbesuche over an Einsatz unmounted it and
+the alarm went silent. Details: docs/karte-objekte.md · «Home»; pinned by
+`IncidentWorkspace.harness.test.tsx` · (k).

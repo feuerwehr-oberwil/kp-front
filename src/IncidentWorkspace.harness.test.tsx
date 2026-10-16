@@ -680,3 +680,54 @@ describe('(k) the workspace is where the Meldeleiste paints', () => {
     await settle(100)
   })
 })
+
+describe('(k) covered by «Karte & Objekte» / the Objektbesuche (lead decision, 16.10.2026)', () => {
+  // The viewer (or a visit) stands in front of the open Einsatz, which stays MOUNTED behind it
+  // (App · `covered`): no map, no keys — but the Atemschutz alarm rings and its row stands in the
+  // strip, and «Zum Trupp» brings the Einsatz back on the board at that card.
+  it('an active Trupp\'s timer alarm fires while the viewer is in front, and «Zum Trupp» comes back to the board', async () => {
+    const { Alarm } = await import('./lib/alarm')
+    const tone = vi.spyOn(Alarm.prototype, 'set')
+    const m = meta()
+    const longAgo = new Date(Date.now() - 60 * 60_000).toISOString()
+    const overdue = { id: 'tr-c', name: 'Tst Clara', status: 'aktiv', entryPressureBar: 300, entryTime: longAgo, lastContactTime: longAgo }
+    const sync = new WorkspaceSync(m.id)
+    const ws = { entities: [truck], trupps: [overdue] } as unknown as Saved
+    const onUncover = vi.fn()
+    const tree = (covered: boolean) => <><Meldeleiste />{workspaceTree(m, { sync, workspace: ws, covered, onUncover }).tree}</>
+    const { rerender } = render(tree(true))
+    await settle(60); await settle(1_100) // the 1 Hz alarm tick
+
+    // nothing of the Einsatz is on screen…
+    expect(document.querySelector('.app')).toBeNull()
+    expect(rec.map).toHaveLength(0)
+    // …but the alarm is: the tone at «überfällig», and the row with the Trupp and its way back
+    expect(tone).toHaveBeenLastCalledWith(2)
+    const row = [...document.querySelectorAll('.ml-row')].find((r) => r.textContent?.includes('Tst Clara'))
+    expect(row).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.atemschutz.alarmRowGo }))
+    expect(onUncover).toHaveBeenCalledTimes(1)
+    // App uncovers: the SAME mount (no remount, no reopen) shows the Atemschutz board
+    rerender(tree(false))
+    await settle(60)
+    expect(mode()).toBe('atemschutz')
+    tone.mockRestore()
+  })
+
+  it('a covered Einsatz with nobody under air stays silent, and its keys are not live', async () => {
+    const { Alarm } = await import('./lib/alarm')
+    const tone = vi.spyOn(Alarm.prototype, 'set')
+    const m = meta()
+    const sync = new WorkspaceSync(m.id)
+    const tree = (covered: boolean) => <><Meldeleiste />{workspaceTree(m, { sync, covered }).tree}</>
+    const { rerender } = render(tree(true))
+    await settle(60); await settle(1_100)
+    expect(tone).not.toHaveBeenCalledWith(2)
+    expect(document.querySelectorAll('.ml-row')).toHaveLength(0)
+    // «R» typed in the viewer's search must not switch the Einsatz behind it to the Rapport
+    key('r'); await settle()
+    rerender(tree(false)); await settle(60)
+    expect(mode()).toBe('map')
+    tone.mockRestore()
+  })
+})

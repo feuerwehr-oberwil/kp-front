@@ -200,10 +200,18 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
 - **From an Einsatz:** the Einsatz menu's «App» group starts with «Karte & Objekte», sub line
   «Zurück zu <Objekt · Modul>» when this device has a viewer state, else «Objekte, Pläne und
   Gebäude ansehen». It replaces the address with `/karte` (no history entry — the operational
-  screens have none, `objectVisits/route`), the Einsatz stays open behind it (its sync keeps
-  running, its workspace is not mounted — like the Objektbesuche over an Einsatz), and the viewer
-  says «Wieder bei …» once. The way back is the red chip or the sheet's row; opening any Einsatz
-  leaves the viewer in the same step.
+  screens have none, `objectVisits/route`), and the viewer says «Wieder bei …» once. The way
+  back is the red chip or the sheet's row, which only step the viewer aside; opening ANOTHER
+  Einsatz leaves the viewer in the same step.
+- **⚠️ The Einsatz behind stays alive — its Atemschutz alarm above all** (lead decision,
+  16.10.2026: silence on a breathing-apparatus timer is the one failure we can't have at 3am).
+  `IncidentWorkspace` stays MOUNTED with `covered` while the viewer — or the Objektbesuche, which
+  had the same hole — is in front: every hook keeps running (sync, live poll, Verlauf, mute), it
+  renders no map, plan or bars and listens to no keys, and it keeps exactly two things on: the
+  alarm host (the same tone, and the OS notification with its sound and vibration) and the alarm
+  rows in the Meldeleiste over the surface in front — overdue / Alarmdruck / Rückzug per Trupp,
+  and the Notfall. «Zum Trupp» brings the Einsatz back (`App · uncoverEinsatz`, nothing reopens)
+  on the Atemschutz board at that card. Pinned by `IncidentWorkspace.harness.test.tsx` · (k).
 - **The viewer state** (`KarteView` in sessionStorage: frame, object, open plan / Gebäude, the open
   tool by name only, and the label for «Zurück zu …») is per device and per tab session. It is
   written only after the catalogue has answered, so an early exit cannot blank it, and it never
