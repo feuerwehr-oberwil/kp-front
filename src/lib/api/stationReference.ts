@@ -9,7 +9,7 @@
 // (`buildingWhere`), so an offline tap on a building already looked at still shows its register
 // hints — and a building never wears another one's facts.
 import { apiGet } from '../api'
-import { readThrough, type ReadThroughSource } from '../idb'
+import { idbDel, idbKeys, idbRead, idbSet, readThrough, type ReadThroughSource } from '../idb'
 import { buildingWhere, isBuildingInfo, type BuildingInfo } from './building'
 
 export type StationObjectKind = 'einsatzobjekt' | 'objekt' | 'depot'
@@ -72,7 +72,50 @@ export async function loadStationObjects(): Promise<{ value: StationObjects; sou
   })
 }
 
-const BUILDING_CACHE = (where: string) => `kp-front-station-building:${where}`
+/** The catalogue as this device holds it — what «Auf diesem Gerät» counts. Null when none is
+ *  stored or the store could not be read (never «held» on a guess). */
+export async function storedStationObjects(): Promise<StationObjects | null> {
+  const r = await idbRead<unknown>(OBJECTS_CACHE)
+  return r.ok && isStationObjects(r.value) ? r.value : null
+}
+
+const BUILDING_PREFIX = 'kp-front-station-building:'
+const BUILDING_CACHE = (where: string) => `${BUILDING_PREFIX}${where}`
+/** The buildings asked for, most recent first — so the device keeps the last `BUILDING_KEEP`
+ *  and not every building anyone ever tapped (one entry is ~1–2 KB, a tap costs one). */
+const BUILDING_INDEX = 'kp-front-station-building-index'
+export const BUILDING_KEEP = 300
+
+/** The index after `where` was asked for again: it moves to the front, and whatever falls off
+ *  the end beyond `keep` is to be deleted. Pure. */
+export function noteBuildingAsked(index: readonly string[], where: string, keep = BUILDING_KEEP): { index: string[]; drop: string[] } {
+  const next = [where, ...index.filter((w) => w !== where)]
+  return { index: next.slice(0, keep), drop: next.slice(keep) }
+}
+
+/** Best-effort bookkeeping after a fresh answer was stored. An index that cannot be READ is left
+ *  alone (AGENTS.md · a failed IndexedDB read is not a miss): writing over it would orphan
+ *  every entry it named. */
+let indexLane: Promise<void> = Promise.resolve()
+/** one index update at a time — two quick taps must not each write the index the other read */
+function rememberBuilding(where: string): Promise<void> {
+  indexLane = indexLane.then(() => updateBuildingIndex(where)).catch(() => {})
+  return indexLane
+}
+async function updateBuildingIndex(where: string): Promise<void> {
+  const r = await idbRead<unknown>(BUILDING_INDEX)
+  if (!r.ok) return
+  const index = Array.isArray(r.value) ? r.value.filter((w): w is string => typeof w === 'string') : []
+  const { index: next, drop } = noteBuildingAsked(index, where)
+  if (!(await idbSet(BUILDING_INDEX, next))) return
+  for (const w of drop) await idbDel(BUILDING_CACHE(w))
+}
+
+/** How many buildings' register answers this device holds (0 when the store cannot be read). */
+export async function storedBuildingCount(): Promise<number> {
+  const r = await idbKeys(BUILDING_PREFIX)
+  return r.ok && r.value ? r.value.length : 0
+}
 
 export const stationBuildingUrl = (lat: number, lng: number, address?: string | null, lang = 'de'): string => {
   const p = new URLSearchParams({ lat: lat.toFixed(6), lng: lng.toFixed(6), lang })
@@ -89,6 +132,7 @@ export async function loadStationBuilding(lat: number, lng: number, address: str
     const r = await readThrough<BuildingInfo>(BUILDING_CACHE(where), async () => ({ ...(await apiGet<BuildingInfo>(stationBuildingUrl(lat, lng, address, lang))), where }), {
       validate: isBuildingInfo,
     })
+    if (r.source === 'network') void rememberBuilding(where)
     return r
   } catch {
     return null

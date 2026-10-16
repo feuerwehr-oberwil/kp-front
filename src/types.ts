@@ -829,6 +829,9 @@ export type PreparedMapOverlay =
       lineWidth?: number
       lineOpacity?: number
       lineDasharray?: number[]
+      /** paint the inside with the Schraffur tile of `color` (lib/draw · hatchImageId) instead of a
+       *  flat fill — the viewer hatches map area this device holds no base map for */
+      hatch?: boolean
     }
 
 /** Whiteboard annotation. All positions are normalized 0..1 in plan-image space,

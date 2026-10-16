@@ -127,3 +127,48 @@ The rules that are easy to break:
 - **Alarms** reach the viewer through the Meldeleiste and the same two banners as the
   Objektbesuche; nothing switches by itself. A running Einsatz is the red chip in the bar (a strip
   under it on a phone); a tap opens it.
+
+## Offline
+
+The viewer never downloads anything on its own for offline use; it READS what the device already
+holds and says so (`src/lib/karte/availability.ts` decides, `components/karte/useKarteOffline.ts`
+and `KarteDevice.tsx` probe). No «ganze Station herunterladen»: that would be several GB (owner,
+16.10.2026); deliberate downloads of chosen objects or areas come later.
+
+| What | Where it is kept | Filled by |
+|---|---|---|
+| object catalogue | IndexedDB `kp-front-station-objects` (one entry) | every online open of `/karte` |
+| register facts of a building | IndexedDB `kp-front-station-building:<where>`, the last 300 kept (index `kp-front-station-building-index`) | every building / object looked at online |
+| plan PDF | the service worker's `reference-plans` cache, per revision URL | opening the plan once online |
+| Gebäude storeys, aligned plan | that PDF + the revision's alignment metadata (IndexedDB, `lib/api/reference`) | opening Gebäude / the aligned plan once online |
+| base map | the service worker's `map-tiles` cache | looking at the area, or an Einsatz's Offline-Vorbereitung |
+| Gefahrgut (UN/ADR) | bundled with the app | — |
+
+What the surface shows offline:
+
+- **The bar's «Offline» chip** (a dot only on the phone) stands where the weather was and opens
+  **«Auf diesem Gerät»**: Objektkatalog · Karte (this view) · Pläne (PDFs of the whole catalogue) ·
+  Gebäuderegister · Gefahrgut · Adresssuche · Wetter/Fahrzeuge · Gerätespeicher, each with ● on
+  this device / ◐ partly / ○ only online AND the same in words. The Gebäuderegister is never ●: only
+  buildings already looked at are stored.
+- **Pläne & Module** rows carry ●/○; a plan the device does not hold is dimmed and says «Nicht auf
+  diesem Gerät gespeichert», but stays tappable – the surface then says the PDF is not stored
+  instead of a reader spinning on a dead fetch. The tablet rail dims the same tiles. Gebäude is ●
+  only when every revision's alignment metadata and every storey's PDF are stored, ◐ when some
+  storeys are (the stack then says some are missing). «Objektplan auf der Karte» is offered offline
+  only when the aligned plan's PDF and metadata are both stored.
+- **The base map:** where the device holds neither a tile nor a parent MapLibre could scale up (4
+  levels), the viewer HATCHES the tile (a `polygons` overlay with `hatch`, the Schraffur pattern),
+  so a blank area reads as «no map stored» and objects stay on top. Probed only while offline or
+  while «Auf diesem Gerät» is open, 300 ms after the map settles, at most 96 tiles a view. The
+  first base tile that fails offline also raises the Einsatz's «Keine Basiskarte» Meldung
+  (`NoBasemapMeldung`, here with its action «Verfügbarkeit»), once per visit, withdrawn when the
+  link is back.
+- **Search:** station objects are found on the device; the address search says it needs the
+  network. **Objektbesuche** say they need the network and name the catalogue's last visit.
+- The catalogue shown from the device is replaced by the server's as soon as it answers again
+  (`lib/connectivity · onReachable`, the `online` event), without touching the selection.
+
+⚠️ «●» only for what a probe actually FOUND. Without a service worker controlling the page (a dev
+server, a first visit) nothing is served from Cache Storage once the network is gone, so every
+cache-backed row reads «nur online» – never a guess. A failed IndexedDB read is not «held» either.

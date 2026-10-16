@@ -1,7 +1,7 @@
 // Reference datasets (hydrants/Leitungskataster/canton-WMS/object plans/checklists) + the
 // per-station reference-layer render config. Station data — never bundled; loaded via admin.
 import { apiGet, apiPut, apiUpload, ApiError } from '../api'
-import { idbGet, idbSet } from '../idb'
+import { idbGet, idbRead, idbSet } from '../idb'
 import { appConfig } from '../../config/appConfig'
 import type { GeorefPair } from '../georef'
 
@@ -107,6 +107,14 @@ export async function getApprovedPlanAlignments(datasetId: string, version: numb
   // Best-effort persistence: a full or unavailable IndexedDB must not cost the fresh answer.
   try { await idbSet(key, metadata) } catch { /* cache miss next time — nothing else to do */ }
   return metadata
+}
+/** What this device holds of one revision's alignment metadata — the copy
+ *  `getApprovedPlanAlignments` falls back to offline — or null when none is stored (or the store
+ *  could not be read: «cannot tell» never counts as held). «Karte & Objekte» asks it to say which
+ *  storeys and aligned plans open without a network (lib/karte/availability). */
+export async function storedPlanAlignments(datasetId: string, version: number): Promise<PlanAlignmentMetadata | null> {
+  const r = await idbRead<PlanAlignmentMetadata>(alignmentCacheKey(datasetId, version))
+  return r.ok && r.value && Array.isArray(r.value.alignments) ? r.value : null
 }
 export async function uploadReference(id: string, file: Blob, filename: string, sourceNote?: string) {
   const form = new FormData()
