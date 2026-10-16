@@ -148,6 +148,7 @@ def expand(pattern: str, values: dict[str, str]) -> list[str]:
 
 def placeholders(visit_id: str, doc: dict[str, Any], obj: ObjectSite | None) -> dict[str, str]:
     snapshot = doc.get("object") or {}
+    place = ov.doc_target(doc)
     name = (obj.name if obj else None) or snapshot.get("name") or ""
     address = (obj.address if obj else None) or snapshot.get("address") or ""
     if obj is not None:
@@ -163,7 +164,17 @@ def placeholders(visit_id: str, doc: dict[str, Any], obj: ObjectSite | None) -> 
         "date": visited.strftime("%Y-%m-%d") if visited else "ohne-datum",
         "checklist": str((checklist or {}).get("title") or "Besuch"),
         "short": visit_id[-4:],
+        "location.label": str(place.get("label") or "") if place["kind"] == "location" else str(name),
+        "location.address": str(place.get("address") or "") if place["kind"] == "location" else str(address),
     }
+
+
+def folder_segments(dest: ObjectVisitDestination, values: dict[str, str], *, at_location: bool) -> list[str]:
+    """The visit's folder below ``root``: objectFolder + visitFolder for a visit at an object, the
+    one general ``locationFolder`` (no object folder, no year) for a visit at a place."""
+    if at_location:
+        return expand(dest.locationFolder, values)
+    return expand(dest.objectFolder, values) + expand(dest.visitFolder, values)
 
 
 def photo_name(n: int, photo: dict[str, Any], content_type: str) -> str:
@@ -335,6 +346,8 @@ class Plan:
     rendered and each photo read right before its upload, one at a time."""
 
     placeholders: dict[str, str]
+    #: a visit at a place (no object): filed under the destination's ``locationFolder``
+    at_location: bool
     #: eligible revisions delivered+1 … wanted, in order (empty on a heal pass)
     history: list[int]
     current: int
@@ -386,6 +399,7 @@ async def plan(db: AsyncSession, c: Claim, dest: ObjectVisitDestination) -> Plan
     obj = await db.get(ObjectSite, visit.object_id) if visit.object_id else None
     return Plan(
         placeholders=placeholders(c.visit_id, row.doc, obj),
+        at_location=ov.doc_target(row.doc)["kind"] == "location",
         history=history,
         current=current,
         listed=listed,
@@ -426,7 +440,7 @@ async def write_remote(
     base = dest.root
     visit_path = c.remote_items.get("_path")
     if not isinstance(visit_path, str) or not visit_path:
-        segments = expand(dest.objectFolder, p.placeholders) + expand(dest.visitFolder, p.placeholders)
+        segments = folder_segments(dest, p.placeholders, at_location=p.at_location)
         folder_id = await writer.ensure_folder(drive, base, segments)
         visit_path = join_path(base, *segments)
         c.remote_items["_path"] = visit_path

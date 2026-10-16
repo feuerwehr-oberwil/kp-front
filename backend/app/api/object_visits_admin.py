@@ -156,7 +156,7 @@ async def admin_deliveries(
         {
             "destination": d.destination,
             "visitId": d.visit_id,
-            "objectName": (doc.get("object") or {}).get("name"),
+            "objectName": ov.display_name(doc),
             "wantedRevision": d.wanted_revision,
             "deliveredRevision": d.delivered_revision,
             "state": d.state,
@@ -272,6 +272,5 @@ def ov_safe(text: str) -> str:
 
 
 def ov_folder_name(visit: ObjectVisit) -> str:
-    obj = visit.doc.get("object") or {}
     date = (visit.doc.get("visitedAt") or "")[:10] or "ohne-datum"
-    return ov_safe(f"{date} {obj.get('name') or 'Objekt'} ({visit.id[-4:]})")
+    return ov_safe(f"{date} {ov.display_name(visit.doc) or 'Objekt'} ({visit.id[-4:]})")
