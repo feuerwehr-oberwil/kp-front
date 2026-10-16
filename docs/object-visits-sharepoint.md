@@ -49,7 +49,8 @@ Like every credential they are encrypted at rest and the secret is write-only.
     "siteUrl": "https://fwoberwil.sharepoint.com/sites/FWO", "library": "Dokumente",
     "root": "FÜHRUNGSUNTERSTÜTZUNG/Einsatzpläne",
     "objectFolder": "{object.folder}",
-    "visitFolder": "Objektbesuche/{date} {checklist} ({short})"
+    "visitFolder": "Objektbesuche/{date} {checklist} ({short})",
+    "locationFolder": "Allgemeine Meldungen/{date} {checklist} ({short})"   // the default
   }]
 }
 ```
@@ -67,7 +68,14 @@ Einsatzpläne/
         Fotos/01 Schlüsselhülse geöffnet (a91c).jpg …
         Verlauf/r1 2026-10-03 0912.pdf · .json …  every filed revision
         Entfernt/                                 photos a later revision removed
+  Allgemeine Meldungen/                          ← visits at a PLACE (no object): `locationFolder`
+    2026-10-16 Fehlermeldung (7f3a)/              same layout, no object folder, no year level
 ```
+
+A visit at a pin or an address the station has no object for («Fehlermeldung bei Talholzstrasse
+15») goes to `root/Allgemeine Meldungen/` by default; set `locationFolder` on the destination to
+file it elsewhere ([`object-visits.md`](object-visits.md) · «The target»). The folder is created
+like the object folders — `root` is the only folder that must exist.
 
 ## 4 – test, then watch
 

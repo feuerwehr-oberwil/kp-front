@@ -7,6 +7,7 @@
 import { ApiError, isUnverifiable } from '../lib/api'
 import { readThrough, type ReadThroughSource } from '../lib/idb'
 import { getCatalogue, listVisits } from './api'
+import { stopKeyOf, summaryStopKey, type Targeted } from './place'
 import type { Catalogue, CatalogueObject, ObjectRef, PriorDone, VisitList, VisitSummary, VisitTemplate } from './types'
 
 export const CATALOGUE_KEY = 'kp-front-ov-catalogue'
@@ -172,6 +173,8 @@ export function lastSeen(c: Catalogue, o: CatalogueObject): { at: string; source
 
 export interface KnownVisit {
   id: string
+  /** the visit's STOP: its object's id, or — a visit at a place — the visit itself (place ·
+   *  stopKeyOf). Matches a work list's object ids only for an object visit. */
   objectId: string
   workRef?: string | null
   lifecycle: string
@@ -184,15 +187,15 @@ export interface KnownVisit {
 
 /** Every visit this device knows of — device copies over server rows (for list progress). */
 export function knownVisits(
-  locals: { doc: { id: string; object: { id: string }; workRef?: string | null; lifecycle: string; visitedAt: string; checklist?: { id: string; title?: string } | null } }[],
+  locals: { doc: Targeted & { id: string; workRef?: string | null; lifecycle: string; visitedAt: string; checklist?: { id: string; title?: string } | null } }[],
   summaries: VisitSummary[] | null,
 ): KnownVisit[] {
   const map = new Map<string, KnownVisit>()
-  for (const v of summaries ?? []) map.set(v.id, v)
+  for (const v of summaries ?? []) map.set(v.id, { ...v, objectId: summaryStopKey(v) })
   for (const l of locals) {
     const c = l.doc.checklist
     map.set(l.doc.id, {
-      id: l.doc.id, objectId: l.doc.object.id, workRef: l.doc.workRef ?? null, lifecycle: l.doc.lifecycle, visitedAt: l.doc.visitedAt,
+      id: l.doc.id, objectId: stopKeyOf(l.doc), workRef: l.doc.workRef ?? null, lifecycle: l.doc.lifecycle, visitedAt: l.doc.visitedAt,
       checklist: c ? { id: c.id, title: c.title ?? null } : null,
     })
   }

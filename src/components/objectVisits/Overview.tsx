@@ -15,7 +15,7 @@ import { isVisitDurable, type LocalVisit } from '../../objectVisits/store'
 import { hasWork } from '../../objectVisits/outbox'
 import type { Catalogue, CatalogueObject } from '../../objectVisits/types'
 import { Head, Section } from './common'
-import { fmtDate, fmtDistance, fmtWhen, plural, syncLabel } from './ovFormat'
+import { fmtDate, fmtDistance, fmtWhen, plural, recentPlaceVisits, summaryTitle, syncLabel, visitTitle } from './ovFormat'
 import { useOv } from './ovContext'
 import s from './ObjectVisits.module.css'
 
@@ -35,6 +35,8 @@ export function Overview() {
     && typeof v.by === 'object' && v.by?.id === ov.userId)
   const unsent = ov.locals.filter((v) => v.doc.lifecycle === 'completed' && (hasWork(v) || v.dirty || !v.base))
   const known = useMemo(() => knownVisits(ov.locals, ov.summaries), [ov.locals, ov.summaries])
+  // finished visits at a PLACE have no object to be found under: the recent ones get a list
+  const placeVisits = recentPlaceVisits(ov.locals, ov.summaries)
 
   const [today, setToday] = useState(() => localCalendarDay())
   useEffect(() => {
@@ -106,8 +108,8 @@ export function Overview() {
       <button key={v.doc.id} type="button" className={s.row} onClick={() => ov.go({ kind: 'visit', id: v.doc.id })}>
         <span className={s.dot} aria-hidden />
         <span className={s.rowMain}>
-          <span className={s.rowTitle}>{v.doc.object.name}</span>
-          <span className={s.rowSub}>{[v.doc.object.address, fmtWhen(v.savedAt)].filter(Boolean).join(' · ')}</span>
+          <span className={s.rowTitle}>{visitTitle(v.doc)}</span>
+          <span className={s.rowSub}>{[v.doc.object?.address, fmtWhen(v.savedAt)].filter(Boolean).join(' · ')}</span>
         </span>
         <span className={`ip-badge ${tone}`}>{label}</span>
       </button>
@@ -158,7 +160,7 @@ export function Overview() {
                   <button key={v.id} type="button" className={s.row} onClick={() => ov.go({ kind: 'visit', id: v.id })}>
                     <span className={s.dot} aria-hidden />
                     <span className={s.rowMain}>
-                      <span className={s.rowTitle}>{v.objectName}</span>
+                      <span className={s.rowTitle}>{summaryTitle(v)}</span>
                       <span className={s.rowSub}>{fmtWhen(v.updatedAt ?? v.visitedAt)}</span>
                     </span>
                     <span className="ip-badge ip-badge-arch">{fillTemplate(C.sync.remote, { n: v.revision })}</span>
@@ -171,6 +173,23 @@ export function Overview() {
           {unsent.length > 0 && (
             <Section title={C.unsent} count={unsent.length}>
               <div className={s.card}>{unsent.map(draftRow)}</div>
+            </Section>
+          )}
+
+          {placeVisits.length > 0 && (
+            <Section title={C.placeRecent}>
+              <div className={s.card}>
+                {placeVisits.map((v) => (
+                  <button key={v.id} type="button" className={s.row} onClick={() => ov.go({ kind: 'visit', id: v.id })}>
+                    <Icon id="pin" className={s.rowGlyph} />
+                    <span className={s.rowMain}>
+                      <span className={s.rowTitle}>{v.label}</span>
+                      <span className={s.rowSub}>{[fmtDate(v.visitedAt), v.checklist ?? C.noChecklist, v.people].filter(Boolean).join(' · ')}</span>
+                    </span>
+                    <Icon id="chevron" className={s.chev} />
+                  </button>
+                ))}
+              </div>
             </Section>
           )}
 

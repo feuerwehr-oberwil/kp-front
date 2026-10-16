@@ -13,6 +13,10 @@ template uses ``phases`` like an action list, and its items may carry an answer 
 A ``choice`` needs at least one option, each with a unique id and a label; ``required`` and
 ``unit`` are optional. The answer VALUES are checked nowhere here — they live in a visit
 document, not in the template.
+
+A visit template may say where it can be used (16.10.2026): ``"targets": ["object", "location"]``
+— at a catalogue object, at a place (a pin or an address with no object), or both. Absent means
+``["object"]``, so every template written before stays exactly where it was.
 """
 
 from __future__ import annotations
@@ -22,6 +26,8 @@ from typing import Any
 
 TEMPLATE_KINDS = frozenset({"action", "rapport", "reference", "manual", "visit"})
 VISIT_INPUTS = frozenset({"check", "yesno", "text", "number", "choice", "photo"})
+#: Where a visit template can be used (``targets``); absent = ``["object"]``.
+VISIT_TARGETS = ("object", "location")
 
 #: An item id is a JSON key in every visit's ``answers`` — bounded so a template cannot make
 #: every answer map unreasonable.
@@ -43,10 +49,23 @@ def template_problem(tpl: Any) -> str | None:
     has_entries = isinstance(tpl.get("entries"), list) and tpl["entries"]
     if bool(has_phases) == bool(has_entries):
         return "Checkliste braucht genau eines von 'phases' (action/rapport/visit) oder 'entries' (reference)"
+    if "targets" in tpl and tpl["kind"] != "visit":
+        return "Checkliste: 'targets' gibt es nur bei kind 'visit'"
     if tpl["kind"] == "visit":
         if not has_phases:
             return "Besuchs-Checkliste braucht 'phases'"
-        return _visit_problem(tpl["phases"])
+        return _targets_problem(tpl.get("targets", ["object"])) or _visit_problem(tpl["phases"])
+    return None
+
+
+def _targets_problem(targets: Any) -> str | None:
+    if not isinstance(targets, list) or not targets:
+        return "Besuchs-Checkliste: 'targets' muss eine Liste aus 'object' und/oder 'location' sein"
+    for t in targets:
+        if t not in VISIT_TARGETS:
+            return f"Besuchs-Checkliste: unbekanntes Ziel {t!r} in 'targets' (erlaubt: object, location)"
+    if len(set(targets)) != len(targets):
+        return "Besuchs-Checkliste: ein Ziel kommt in 'targets' doppelt vor"
     return None
 
 

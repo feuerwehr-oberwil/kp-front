@@ -48,7 +48,7 @@ export function mergeVisit(
     // keyed by what collided: a later collision on the same key REPLACES the earlier card
     found.push({ id: `ovc-${key}`, key, mine: mine ?? null, theirs: theirs ?? null, at: now, ...(by ? { by } : {}), ...(device ? { device } : {}) })
 
-  const scalar = <K extends 'notes' | 'visitedAt' | 'with' | 'workRef' | 'object' | 'checklist'>(k: K): VisitDoc[K] | undefined => {
+  const scalar = <K extends 'notes' | 'visitedAt' | 'with' | 'workRef' | 'object' | 'target' | 'checklist'>(k: K): VisitDoc[K] | undefined => {
     const r = pick3(b[k], local[k], server[k])
     if (r.conflict) conflict(k, local[k], server[k])
     return r.value as VisitDoc[K] | undefined
@@ -95,12 +95,16 @@ export function mergeVisit(
   const withPeople = scalar('with')
   const workRef = scalar('workRef')
   const object = scalar('object') ?? server.object
+  // the place a visit is at (16.10.2026) — a key like any other, but never merged AWAY: a copy
+  // without one comes from a build that did not know the key, not from somebody removing it
+  const target = scalar('target') ?? server.target ?? local.target
   const checklist = scalar('checklist') ?? null
 
   const doc: VisitDoc = {
     schema: local.schema,
     id: local.id,
     object,
+    ...(target ? { target } : {}),
     ...(workRef ? { workRef } : {}),
     visitedAt,
     ...(withPeople !== undefined ? { with: withPeople } : {}),
@@ -187,9 +191,9 @@ export function resolveConflict(doc: VisitDoc, conflictId: string, how: Resoluti
     next.notes = value === 'both' ? joinText(String(c.theirs ?? ''), String(c.mine ?? '')) : String(c.mine ?? '')
     return next
   }
-  if (['visitedAt', 'with', 'workRef', 'object', 'checklist'].includes(c.key)) {
-    const k = c.key as 'visitedAt' | 'with' | 'workRef' | 'object' | 'checklist'
-    if (c.mine == null && k !== 'checklist') { const n = { ...next } as Record<string, unknown>; delete n[k]; return n as unknown as VisitDoc }
+  if (['visitedAt', 'with', 'workRef', 'object', 'target', 'checklist'].includes(c.key)) {
+    const k = c.key as 'visitedAt' | 'with' | 'workRef' | 'object' | 'target' | 'checklist'
+    if (c.mine == null && k !== 'checklist' && k !== 'object') { const n = { ...next } as Record<string, unknown>; delete n[k]; return n as unknown as VisitDoc }
     next = { ...next, [k]: c.mine } as VisitDoc
     return next
   }

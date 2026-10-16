@@ -18539,6 +18539,13 @@
             "minLength": 1,
             "title": "Visitfolder",
             "default": "Objektbesuche/{date} {checklist} ({short})"
+          },
+          "locationFolder": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Locationfolder",
+            "default": "Allgemeine Meldungen/{date} {checklist} ({short})"
           }
         },
         "type": "object",

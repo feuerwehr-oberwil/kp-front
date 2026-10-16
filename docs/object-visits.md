@@ -105,6 +105,69 @@ snapshot while the visit is a draft.
 object (`useObjectPlans · activeObjectId`) first under «Im Einsatz»; from the launcher there is
 no such row.
 
+**Where a checklist may be used** (16.10.2026). A visit template may carry
+`"targets": ["object", "location"]` — at a catalogue object, at a place (below), or both. Absent
+means `["object"]`, so every template written before stays where it was. The validator
+(`checklist_templates · template_problem`) refuses an empty list, an unknown or repeated target,
+and `targets` on a non-visit kind. The chooser of a visit at a place offers only the templates
+whose `targets` include `location`, plus «Ohne Checkliste»; «Checkliste wechseln» filters the
+same way (`src/objectVisits/place.ts · templatesFor`). A station's «Fehlermeldung» checklist is
+station data like every other (kp-front-data), never code.
+
+## The target — a visit at an object, or at a place (16.10.2026)
+
+A visit is AT a catalogue object or at a PLACE — a pin or an address the station has no object
+for («Fehlermeldung bei Talholzstrasse 15»), without registering anything permanent. Karte &
+Objekte starts the latter (`/besuche/neu?lat=&lng=&label=[&address=][&from=karte]`, below).
+
+```jsonc
+"target": { "kind": "object", "objectId": "<uuid>" }            // + "object": {…, "lat"?, "lng"?}
+"target": { "kind": "location", "label": "bei Talholzstrasse 15",
+            "address": "Talholzstrasse 15, 4103 Bottmingen" | null, "lat": 47.52015, "lng": 7.57175 }
+                                                                 // + "object": null
+```
+
+- **A place needs no object**: `object` is `null` (and the server refuses one), `label` is
+  required (≤ 200), `address` is optional — **a failed reverse geocode never blocks a pin** — and
+  `lat`/`lng` are a WGS84 position (both, finite, in range). An object target's `objectId` must be
+  the document's `object.id`. A visit keeps its kind of target: an object visit never becomes a
+  place visit or back (422).
+- **An object visit records where it was too**: the client's snapshot carries the catalogue's
+  `object.lat/lng` when known; the server stores the position on the row
+  (`object_visits.target_kind / lat / lng`, Alembic `b7c4d2e9f1a3`, which backfilled the object
+  visits on record from their objects) — the snapshot's, else the object's at the time of writing.
+- **A document without `target`** is at its `object` (every visit before 16.10.2026). ⚠️ The
+  builds before this date rebuild a document key by key on a merge and drop `target`; a PUT
+  without `target` and without an object, for a stored visit at a place, gets the stored place put
+  back (`object_visits · _check_target`) — a passenger, never a refusal of the only copy. The
+  client merge never merges `target` away either (`merge.ts`).
+- **The stop.** A place has no object id. The open draft a launch link resumes is found by the
+  place rounded to 5 decimals, ~1 m (`place.ts · draftKeyOf`), so a reload never makes a second
+  draft. But a place visit is a **stop of its own** (`stopKeyOf`): two reports that happen to sit
+  on the same pin are independent and never share a read view (lead review of #368). «Weitere
+  Checkliste» starts a new, independent visit at the same place; its chooser marks only the
+  checklist of the visit it came from (`&nach=<id>`). A place visit belongs to no work list.
+- **Screens.** The visit is called «Meldung {label}»; where an object visit shows its address
+  line, a place visit shows the **«Ort» card** — a small aerial snippet (plain raster tiles of
+  the station's «Satellit» base around the point, offline whatever the device has), the label
+  with a «Pin»/«Adresse» badge (`placeKind`: «Adresse» when the label is the address's first
+  part), LV95, and «Kein Stationsobjekt. Ablage: Allgemeine Meldungen. …» — and once finished,
+  one line «label · LV95 …». A checklist without OK/Mangel questions (a Fehlermeldung) shows what
+  was reported on the visit card («Hydrant · Neuer Hydrant fehlt im Plan»), never «Keine Mängel».
+  The Übersicht lists the finished place visits under «Meldungen an Orten» (drafts stay under
+  «Meine Entwürfe»).
+- **`from=karte`.** A launch with `&from=karte` keeps it on the visit's address
+  (`/besuche/<id>?from=karte`); «Zurück» then leaves the surface to `/karte` instead of the
+  Übersicht, and a finished visit offers «Zurück zur Karte» (route · `KARTE_PATH`).
+- **Report.** The fact panel of a place visit reads «Objekt: – (Ort ohne Stationsobjekt)», «Ort:
+  label (Pin|Adresse)», «Adresse» (when known), «Koordinaten: LV95 … · WGS84 …» and «Ablage» (the
+  folder of the first enabled destination). No map picture: the report renders on the server,
+  offline-safe, and fetching tiles there is neither.
+- **Filing**: below (`locationFolder`), `Allgemeine Meldungen/` with the normal per-visit layout
+  and no year level.
+- **Readers** get `target_kind` and `location` on every visit read, every list row and every
+  feed item (below).
+
 ## The visit document (`schema: "kp-front.object-visit/1"`)
 
 What the client PUTs as `doc` and what every reader receives (server fields added on read):
@@ -114,7 +177,9 @@ What the client PUTs as `doc` and what every reader receives (server fields adde
   "schema": "kp-front.object-visit/1",
   "id": "ov…",
   "object": { "id": "<front object uuid>", "name": "Gemeindeverwaltung", "address": "Hauptstrasse 24",
-              "folder": "Hauptstrasse 24 - Gemeindeverwaltung", "refs": [{ "source": "fwo", "id": "…" }] },
+              "folder": "Hauptstrasse 24 - Gemeindeverwaltung", "refs": [{ "source": "fwo", "id": "…" }],
+              "lat": 47.51, "lng": 7.56 },               // null for a visit at a place
+  "target": { "kind": "object", "objectId": "<front object uuid>" },  // or a place — «The target»
   "workRef": "fwo-admin:fu-2026/B4",            // optional, opaque, echoed
   "visitedAt": "2026-10-03T08:14:00+02:00",
   "with": ["Frei Nina"],                          // optional companions, free text
@@ -135,11 +200,14 @@ Server-added on read: `revision`, `ready`, `missing` (photo ids not yet stored),
 `{id, name}`, `createdAt`, `updatedAt`, `updatedBy`, `findings` (count of `defect` answers),
 `url` (`<PUBLIC_URL>/besuche/<id>`; relative `/besuche/<id>` when `PUBLIC_URL` is unset),
 `deliveries` (`[{destination, state, revision, at, error?}]` — `revision` is the delivered one,
-`error` only while `failed`/`pending`).
+`error` only while `failed`/`pending`), `target_kind` (`"object" | "location"`) and `location`
+(`{label, address, lat, lng}` — the place, or the object's name, address and position; `null`
+when nothing is known).
 
 Validation (422 with a German `detail`): no string anywhere (keys included) holds a NUL or a lone
 surrogate (Postgres cannot store either — same rule on the organizer's object/list bodies and
-path ids), schema string, id matches path, object id exists (for a NEW object reference: a visit
+path ids), schema string, id matches path, the target (see «The target»: a place has no object,
+a label and a position), object id exists (for a NEW object reference: a visit
 whose recorded object was later deleted keeps saving; its link goes to wherever a merge/re-key
 moved it, else NULL, and the document keeps the snapshot),
 `lifecycle` transitions: `draft→draft|completed|discarded`, `completed→completed` (a correction),
@@ -165,7 +233,7 @@ Refusals carry a `code` at the top of the body **and** a German `detail`:
 | Route | Answer |
 |---|---|
 | `GET /catalogue` | `{generatedAt, canCapture, objects:[{id,name,address,lat,lng,folder,refs,hasPlans,lastVisit:{id,visitedAt,lifecycle}\|null}], templates:[visit templates], lists:[{ref,title,note,closesAt,scheduledOn,archived,objectIds:[…],unresolved:[{source,id}],done:{"<objectId>":{at,by?,source?,note?}}}], proposalFields:[{id,label}]}` |
-| `GET /?object=&workRef=&mine=1&lifecycle=&limit=` | `[{id,objectId,objectName,workRef,lifecycle,revision,ready,visitedAt,updatedAt,by,with,findings,checklist}]` newest first (`with`: the document's people, `[string]`; `checklist`: `{id,title}` of the visit's checklist, null without one) |
+| `GET /?object=&workRef=&mine=1&lifecycle=&limit=` | `[{id,objectId,objectName,target_kind,location,workRef,lifecycle,revision,ready,visitedAt,updatedAt,by,with,findings,checklist}]` newest first (`with`: the document's people, `[string]`; `checklist`: `{id,title}` of the visit's checklist, null without one; `objectId`/`objectName` null for a visit at a place) |
 | `GET /{id}` | the visit (document + server fields) |
 | `PUT /{id}` | body `{opId, baseRevision: int\|null, doc}` → `200 {revision, ready, missing, visit}` · `409 {code:"revision_conflict", revision, visit}` · `422` · same `opId` again ⇒ the stored first answer (idempotent replay, even if newer revisions exist) |
 | `PUT /{id}/attachments/{attId}` | raw bytes; headers `Content-Type`, `X-Content-SHA256` (hex). `201 {id, sha256, size}` new · `200` same id+hash already stored · `409 {code:"attachment_conflict"}` same id other hash · `422` hash/body mismatch, type not jpeg/png/webp (magic bytes), > 15 MB. The visit must exist (send the doc first). |
@@ -209,7 +277,7 @@ either form arrives as the same id.
 | `GET /objects/{objectId}/plans` | the object's plans, read-only, one per Modul-Slot: `200 [{module, title, revision, contentType, size}]` (`revision` = the plan's current version) · `404` unknown object. Plan-less object ⇒ `[]` |
 | `GET /objects/{objectId}/plans/{module}[?revision=n]` | the plan bytes (`application/pdf`, inline, header `X-Plan-Revision`) — current, or the pinned revision `n` (the same immutable revision store an Einsatz pins) · `404` unknown object/module/revision |
 | `PUT /visit-lists/{ref}` | body `{title, note?, closesAt?, objects:[{source, id, done?}]}` (ordered, ≤ 500). `done` = a completion the ORGANIZER already holds for that stop (e.g. last round in SchlüHü): `{at: "YYYY-MM-DD", by?: ≤120, source?: ≤60 (e.g. "SchlüHü"), note?: ≤500}`; unknown keys, a non-date `at` or NUL/surrogates ⇒ 422. Stored as sent and shown — KP Front never turns it into a visit. Unresolved refs (and their `done`) are kept and reported. `200 {ref, objectIds, unresolved, done: {"<objectId>": {…}}}` (resolved stops only; first entry wins if two refs name one object) · `DELETE /visit-lists/{ref}` → `200 {ref, deleted}` (idempotent) |
-| `GET /object-visits/changes?after=<seq>&limit=<≤500>` | `{items:[FeedItem], nextAfter}`; `FeedItem = {seq, id, objectId, objectRefs, objectName, workRef, revision, lifecycle, ready, visitedAt, updatedAt, by, with, findings, proposals:[…], deliveries:[…], url}` — one item per visit at its latest state, ordered by `seq`. `objectRefs` is read LIVE from `object_refs`, so a ref attached later (an object upsert matching by folder) appears on the next poll. `nextAfter` = the last item's `seq`, or `after` when empty |
+| `GET /object-visits/changes?after=<seq>&limit=<≤500>` | `{items:[FeedItem], nextAfter}`; `FeedItem = {seq, id, objectId, objectRefs, objectName, workRef, revision, lifecycle, ready, visitedAt, updatedAt, by, with, findings, proposals:[…], deliveries:[…], url, target_kind, location}` — one item per visit at its latest state, ordered by `seq`. `objectRefs` is read LIVE from `object_refs`, so a ref attached later (an object upsert matching by folder) appears on the next poll. `nextAfter` = the last item's `seq`, or `after` when empty. **Downstream contract (C2, 16.10.2026):** `target_kind` is `"object"` or `"location"`; for `"location"` the object fields are null (`objectId`, `objectName`, `objectRefs: []`); `location` = `{label, address, lat, lng}` — the place as captured, or for an object visit the object's name, address and position. A reader tolerates both an item without them (an older server) and one with them |
 | `GET /object-visits/{id}` · `/report.pdf` · `/attachments/{attId}` | read-only copies for review |
 
 ### Visit programmes — reusable routes and scheduled rounds
@@ -353,10 +421,16 @@ ticked; never every account, never every installed device).
     "siteUrl": "https://fwoberwil.sharepoint.com/sites/FWO", "library": "Dokumente",
     "root": "FÜHRUNGSUNTERSTÜTZUNG/Einsatzpläne",
     "objectFolder": "{object.folder}",
-    "visitFolder": "Objektbesuche/{date} {checklist} ({short})"
+    "visitFolder": "Objektbesuche/{date} {checklist} ({short})",
+    "locationFolder": "Allgemeine Meldungen/{date} {checklist} ({short})"   // default; a visit at a place
   }]
 }
 ```
+
+A visit at a place has no object folder: it is filed under `root` / `locationFolder` instead of
+`objectFolder` / `visitFolder` — one general folder with the normal per-visit layout and **no year
+level** (`object_visit_delivery · folder_segments`). The other placeholders work there too, plus
+`{location.label}` and `{location.address}` (for an object visit they are its name and address).
 
 Placeholders: `{object.folder}` (`objects.filing_folder`, else the folder the object's
 `source_note` names — «OneDrive: Einsatzpläne/<folder>», «SchlüHü hub: Einsatzplaene/<folder>», or
@@ -436,9 +510,11 @@ entry may also carry `refs: [{source, id}]`, and `PUT /api/objects/{id}` accepts
 - Code: `src/objectVisits/` (store, outbox, merge, catalogue, api, types — each with tests) and
   `src/components/objectVisits/` (UI). Copy: `appConfig.copy.objectVisits.*` in all four locales.
 - Entry: launcher secondary button «Objektbesuche» (module on + role can capture or read);
-  routes `/besuche`, `/besuche/<id>`, `/besuche/neu?object=<source>:<id>|<uuid>&ref=<workRef>`.
-  The `neu` launch resumes this device's/user's open draft for `(object, workRef)` before
-  minting a new id; nothing is sent until the first save point.
+  routes `/besuche`, `/besuche/<id>`, `/besuche/neu?object=<source>:<id>|<uuid>&ref=<workRef>`,
+  and for a visit at a place `/besuche/neu?lat=<lat>&lng=<lng>&label=<label>[&address=<address>]`
+  (an `object=` wins over a position); any of them may carry `&from=karte` («The target»).
+  The `neu` launch resumes this device's/user's open draft for `(object, workRef)` — or for the
+  place — before minting a new id; nothing is sent until the first save point.
 - IndexedDB keys: `kp-front-ov-catalogue`, `kp-front-ov-index` (list of local visit ids),
   `kp-front-ov-<visitId>` `{doc, base:{revision, doc}|null, dirty, savedAt, sent:{revision,
   ready, missing}, lastError}`, `kp-front-ov-att-<attId>` `{blob, thumb, type, sha256, size}`.
