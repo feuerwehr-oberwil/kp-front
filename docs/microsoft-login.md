@@ -67,7 +67,7 @@ allow-list must contain valid `identity=username` pairs. Invalid environment val
 button hidden and the Microsoft routes closed, just like an incomplete setup. The identity is
 matched against the token's `oid` (the user's object id: stable, and the stronger choice) or its
 `preferred_username` (the sign-in name or UPN). Both are compared case-insensitively. The username is the KP Front `username`
-(`/admin › Benutzer`). Any active account can be listed. The role it signs in with is the
+(`/admin › Personen › Mitglieder & Zugriff`). Any active account can be listed. The role it signs in with is the
 account's own.
 
 ⚠️ A sign-in name can be renamed in the tenant. The object id cannot be. Where it matters, list

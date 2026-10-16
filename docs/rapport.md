@@ -4,6 +4,38 @@ What the printed Einsatzrapport carries (`src/lib/report.ts`, `src/lib/reportPdf
 `src/lib/auswertung.ts`, `backend/app/report_pdf.py`, `backend/app/kroki.py`). Moved here from AGENTS.md on 2026-10-08,
 wording unchanged.
 
+## Unterschriften – signing on the screen (15.10.2026)
+
+The two Visum lines (Einsatzleiter, Kommandant) can be signed with a finger instead of a pen.
+**Optional**, never asked for: the «Unterschriften» card in the right-hand column, after the
+Partnerorganisationen (the paper's order; on a phone in «Personal & Mittel»). Owner decisions and
+the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignored).
+
+- **What is signed** is the signed part of the paper form – Haupt-Rapport + Personal + Material –
+  as SHA-256 over a canonical JSON of the SAME payload the PDF is composed from, with every
+  Beilage left out (`reportPdfDirect · signedPartOf`, `reportSignature · signatureScope`). The
+  Journal is a Beilage: a late Funk row is a Nachtrag and does not touch a signature. Times,
+  Personal, Material, Kurzbericht, Einsatzleiter … do.
+- **Only on a closed Einsatz**, and a signature counts only if it was made after the LATEST close
+  (`last_closed_at`): «Wieder öffnen» ends every signature without anybody voiding it.
+- **Signed = locked.** While a signature holds, the Rapport's form is read-only. «Ändern» (one
+  confirm) voids every live signature; nothing is deleted – voided ones stay in
+  `Saved.reportSignatures` with `voidedAt`/`voidReason` and in the Verlauf.
+- **The server never refuses a save to keep a signature valid.** An offline tablet's Anwesenheit
+  must still arrive. Validity is COMPUTED on every device (hash of now vs hash at signing); a
+  signature that no longer holds shows «ungültig ›» and a tap signs anew.
+- **Who signs**: name + drawn strokes, the same trust as a pen (the login is a shared station
+  account). The Einsatzleiter's name IS the Rapport's Einsatzleiter (written back when signing);
+  the Kommandant's defaults to `identity.kommandant`, and a deputy picks themselves.
+- **Stored**: the SHAPE of the strokes only (integers in a 1000-wide box) – no timing, no pressure
+  (PRIVACY.md). Each signing writes a Verlauf row («Rapport unterschrieben: …, Prüfsumme …») and a
+  hash-chained audit event (`report.signature.add` / `.void`).
+- **On paper** (`report_pdf · _draw_signature`): the strokes sit on the line beside the name,
+  «Ort, Datum» is filled in (`map.geocoder.defaultLocality` without its postcode), and a small line
+  says «Digital unterschrieben … · Prüfsumme …». A signature that no longer holds is not sent;
+  its line prints empty. **Decision E stands**: the printed paper is the record – the strokes are
+  only how its signature got onto it. No PDF is stored, no PDF seal.
+
 ## What the figure pages carry
 
 - **What the Rapport's figure pages carry (18.09.2026).** The **Kroki is the picture**; everything

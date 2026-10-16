@@ -5,7 +5,12 @@ import { ShellLoader } from './ShellLoader'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
-import { downloadDirectReportPdf, usedStackFloors } from '../lib/reportPdfDirect'
+import { downloadDirectReportPdf, signedPartOf, usedStackFloors, type PrintedSignature } from '../lib/reportPdfDirect'
+import { activeSignatures, sha256Hex, shortChecksum, signatureState, SIGNATURE_ROLES, type ReportSignature, type SignatureRole } from '../lib/reportSignature'
+import { newId } from '../lib/ids'
+import { serverNowIso } from '../lib/serverClock'
+import { SignatureImage } from './SignaturePad'
+import { SignatureSheet, type SignSubmit } from './SignatureSheet'
 import { warmTemplates, type ChecklistState, type ChecklistTemplate } from '../lib/checklists'
 import { downloadUrl } from '../lib/download'
 import { thumbUrl } from '../lib/mediaUrl'
@@ -55,6 +60,7 @@ import { Stepper } from './Stepper'
 import { Menu, Popover } from '../lib/overlays'
 
 const NO_IDS = new Set<string>()
+const NO_SIGNATURES: ReportSignature[] = []
 /** The Rapport head's ladder (lib/pageHeadFit): «Abschliessen» gives its word first, then
  *  the Kontrolle chip keeps its ⚠ and its count («⚠ 4», the words stay its
  *  title), then the primary «Einsatzrapport (PDF)» shortens to «PDF ▾» (mockup 2), and last the
@@ -264,7 +270,8 @@ const keptFor = (incidentId: string) => (savedScroll.current?.incidentId === inc
 const bandDismissed: { current: Set<string> } = { current: new Set() }
 
 export function ReportPreflight({
-  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, checklists, plans = [], scene, board, building, captureUsage, canEdit = true, canShare = canEdit, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts, closedHint = false,
+  incident, reportMeta, personnel = [], presentIds = NO_IDS, onRolePicked, onAddGuest, events, annotatedPlanCount, truppCount, attendanceCount, mittelCount, mittel = [], mapContentCount = 1, pendingMediaCount = 0, attendance = {}, trupps = [], contactIntervalMin, contactGraceSec, checklists, plans = [], scene, board, building, captureUsage, canEdit: canEditIn = true, canShare = canEditIn, attachments = [], onAddAttachments, onCaptionAttachment, onRemoveAttachment, onSaveMeta, onEditDispatch, onOpenAnwesenheit, onOpenMittel, onResolveConflict, onComplete, onFixTranscripts, closedHint = false,
+  closed = false, reportSignatures = NO_SIGNATURES, onSign, onVoidSignatures,
 }: {
   incident: IncidentMeta
   reportMeta: ReportMeta
@@ -365,7 +372,32 @@ export function ReportPreflight({
    *  top says that the changes print as Nachträge — the Abschluss promised exactly that, and the
    *  fields looking «open» on a closed Einsatz must not read as a mistake. */
   closedHint?: boolean
+  /** the Einsatz is closed — the only time a Rapport is signed (a reopen ends every signature:
+   *  one only counts when it was made after the latest close) */
+  closed?: boolean
+  /** the Rapport's digital signatures (lib/reportSignature), history included */
+  reportSignatures?: ReportSignature[]
+  /** append a signature; omit where this session may not sign */
+  onSign?: (sig: ReportSignature) => void
+  /** «Ändern» on a signed Rapport: every live signature is voided (kept in the history) */
+  onVoidSignatures?: () => void
 }) {
+  // ── Unterschriften (15.10.2026) ──────────────────────────────────────────────────────────
+  // The signed part's hash as it stands NOW (computed below, once `meta` exists — this state
+  // carries it to the top, where the lock has to be known before anything uses `canEdit`).
+  const [scopeHash, setScopeHash] = useState<string | undefined>()
+  const closedAt = closeTimeOf(incident)
+  const liveSigs = useMemo(() => {
+    const a = activeSignatures(reportSignatures)
+    // made before the latest close = a signature of a Rapport that has since been reopened
+    for (const r of SIGNATURE_ROLES) if (a[r] && closedAt && a[r]!.at < closedAt) delete a[r]
+    return a
+  }, [reportSignatures, closedAt])
+  const sigValid = (r: SignatureRole) => !!liveSigs[r] && signatureState(liveSigs[r]!, scopeHash) === 'valid'
+  /** signed and still valid: the form is read-only until somebody chooses «Ändern» */
+  const signedLock = closed && SIGNATURE_ROLES.some(sigValid)
+  const canEdit = canEditIn && !signedLock
+
   // Defaults follow the data: a rapport-only incident (nothing drawn) prints without the
   // map/plan pages, no configuration needed; every toggle stays available as an override.
   // Personal + Material stay ON even with zero records: the rapport is a pre-filled
@@ -870,6 +902,75 @@ export function ReportPreflight({
       options: { ...options, krokiAt: krokiAt != null && pastScene ? new Date(krokiAt).toISOString() : null },
     }
   }
+  // The ONE argument list both the PDF and the signature scope are built from — so «what is
+  // signed» is «what prints», field for field.
+  const pdfArgs = (draft: ReportDraft) => ({
+    incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building, checklists, checklistTemplates,
+    // the printed journal marks the same terms the app marks (lib/journalLinks) — the Trupps
+    // included, or the paper would mark every name in a row except the crew it is about
+    vocab: journalVocabulary(personnel, attendance, undefined, trupps),
+    roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
+  })
+  // the signed part's hash, recomputed a moment after the record settles — only on a closed
+  // Einsatz, the one time there is anything to sign or to check
+  const scopeKey = closed ? JSON.stringify([meta, attendance, mittel, events.length, personnel.length, incident.title, incident.address, incident.type]) : ''
+  useEffect(() => {
+    if (!closed) return
+    let alive = true
+    const t = setTimeout(() => {
+      void sha256Hex(signedPartOf(pdfArgs(buildDraft()))).then((h) => { if (alive) setScopeHash(h) }, () => {})
+    }, 250)
+    return () => { alive = false; clearTimeout(t) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the record, not on every render's closures
+  }, [closed, scopeKey])
+  /** the valid signatures as the paper prints them; a signature that no longer holds is left
+   *  off, and its line prints empty (decision 15.10.2026) */
+  const printedSignatures = (): PrintedSignature[] => SIGNATURE_ROLES.filter((r) => closed && sigValid(r)).map((r) => {
+    const g = liveSigs[r]!
+    const date = formatDateTime(g.at)
+    return {
+      role: r, name: g.name,
+      placeDate: [g.place, date.split(' ')[0]].filter(Boolean).join(', '),
+      at: date,
+      checksum: shortChecksum(g.scope),
+      strokes: g.strokes,
+    }
+  })
+  // «Rapport unterschreiben»: which line the sheet is open for (null = closed)
+  const [signFor, setSignFor] = useState<SignatureRole | null>(null)
+  const canSign = closed && canEditIn && !!onSign
+  const kdtDefault = getDeploymentConfig().identity?.kommandant ?? ''
+  // «Ort» of «Ort, Datum»: the station's town — without the postcode the setting may carry
+  const signPlace = (getDeploymentConfig().map?.geocoder?.defaultLocality ?? '').replace(/^\d{4,5}\s+/, '').trim()
+  const doSign = async ({ role, slot, strokes }: SignSubmit): Promise<boolean> => {
+    if (!onSign) return false
+    try {
+      // the Einsatzleiter's line IS the Rapport's Einsatzleiter: a name picked in the sheet is
+      // written back (with the role on the Anwesenheit), and the scope is hashed WITH it — never
+      // while another signature already locks the Rapport, which that change would break
+      let m = meta
+      if (role === 'el' && canEdit && slot.name !== (meta.einsatzleiter ?? '')) {
+        setEinsatzleiter(slot.name)
+        persist({ einsatzleiter: slot.name })
+        onRolePicked?.(slot.personId, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter)
+        m = { ...meta, einsatzleiter: slot.name }
+      }
+      const scope = await sha256Hex(signedPartOf(pdfArgs({ ...buildDraft(), meta: m })))
+      onSign({
+        id: newId('sig'), role, name: slot.name, ...(slot.personId ? { personId: slot.personId } : {}),
+        ...(signPlace ? { place: signPlace } : {}), at: serverNowIso(), scope, strokes,
+      })
+      setScopeHash(scope)
+      return true
+    } catch {
+      toast(appConfig.copy.signature.failed, { icon: 'warn', tone: 'warn' })
+      return false
+    }
+  }
+  const changeSigned = async () => {
+    const S = appConfig.copy.signature
+    if (await confirmDialog({ title: S.changeTitle, message: S.changeMsg, confirmLabel: S.changeConfirm })) onVoidSignatures?.()
+  }
   const [pdfBusy, setPdfBusy] = useState(false)
   /** A rapport has just been produced (the PDF in hand). The blob remembers WHEN, so the Rapport can tell whoever opens it next that the
    *  paper already exists — on this device or on any other.
@@ -894,13 +995,7 @@ export function ReportPreflight({
     const draft = buildDraft()
     setPdfBusy(true)
     try {
-      await downloadDirectReportPdf({
-        incident, draft, trupps, contactIntervalMin, contactGraceSec, attendance, events, plans, mittel, attachments, scene: effScene, board, building, checklists, checklistTemplates,
-        // the printed journal marks the same terms the app marks (lib/journalLinks) — the Trupps
-        // included, or the paper would mark every name in a row except the crew it is about
-        vocab: journalVocabulary(personnel, attendance, undefined, trupps),
-        roster: personnel.filter((p) => p.active).map((p) => ({ id: p.id, name: p.displayName })),
-      })
+      await downloadDirectReportPdf({ ...pdfArgs(draft), signatures: printedSignatures() })
       // The PDF itself used to be the only feedback, and it still is the proof — but it is also
       // the moment everything except the bookkeeping is done, and nothing ever said so.
       stampReportMade(framing)
@@ -2301,6 +2396,64 @@ export function ReportPreflight({
                 </fieldset>
               </div>
             </CheckRow>
+            {/* Unterschriften (15.10.2026): after the Partnerorganisationen, where the Visum sits on
+                the paper. Optional — nothing asks for it, nothing waits for it. A signature that
+                still holds locks the form above; one that no longer holds says «ungültig» and a
+                tap signs anew (owner: no explanation box). Rows without rules, like the cards
+                above. */}
+            {(() => {
+              const S = appConfig.copy.signature
+              const stale = SIGNATURE_ROLES.filter((r) => liveSigs[r] && !sigValid(r))
+              const valid = SIGNATURE_ROLES.filter(sigValid)
+              const sub = !closed ? S.optional
+                : stale.length ? S.invalid
+                : valid.length ? fillTemplate(S.count, { n: valid.length }) : S.optional
+              const nameOf = (r: SignatureRole) => (r === 'el' ? meta.einsatzleiter || einsatzleiter : kdtDefault)
+              const roleLabel = (r: SignatureRole) => (r === 'el' ? S.roleEl : S.roleKdt)
+              return (
+                <CheckRow tab="werwas" done={closed && valid.length > 0 && !stale.length} label={S.cardTitle} sub={sub}>
+                  <div className="rp-check-extra rp-sign">
+                    {!closed ? <p className="rp-sign-hint">{S.runningHint}</p> : SIGNATURE_ROLES.map((r) => {
+                      const g = liveSigs[r]
+                      const who = (
+                        <span className="rp-sign-who">
+                          <span className="rp-sign-role">{roleLabel(r)}</span>
+                          <span className="rp-sign-name">{g?.name || nameOf(r) || '–'}</span>
+                        </span>
+                      )
+                      if (g && sigValid(r)) return (
+                        <div className="rp-sign-row" key={r}>
+                          {who}
+                          <SignatureImage strokes={g.strokes} className="rp-sign-img" />
+                          <span className="rp-sign-time">{hhmm(new Date(g.at))}</span>
+                        </div>
+                      )
+                      if (g) return (
+                        <button type="button" className="rp-sign-row rp-sign-void" key={r} disabled={!canSign}
+                          aria-label={`${roleLabel(r)} – ${S.resign}`} onClick={() => setSignFor(r)}>
+                          {who}
+                          <SignatureImage strokes={g.strokes} className="rp-sign-img" />
+                          <span className="rp-sign-bad"><Icon id="warn" />{S.invalid}</span>
+                          <Icon id="chevron" className="rp-sign-go" />
+                        </button>
+                      )
+                      return (
+                        <div className="rp-sign-row" key={r}>
+                          {who}
+                          {canSign && <Button onClick={() => setSignFor(r)}>{S.sign}</Button>}
+                        </div>
+                      )
+                    })}
+                    {signedLock && (
+                      <div className="rp-sign-foot">
+                        <span className="rp-sign-locked"><Icon id="signature-lock" />{S.locked}</span>
+                        {canEditIn && onVoidSignatures && <Button onClick={() => void changeSigned()}>{S.change}</Button>}
+                      </div>
+                    )}
+                  </div>
+                </CheckRow>
+              )
+            })()}
             {/* Beilagen sit right under Partnerorganisationen: same family, same question —
                 what else belongs to this rapport. Tapping a thumbnail opens the picture full-size
                 (lib/ui · openPhoto), because a 52px square is not something you can check. */}
@@ -2488,6 +2641,32 @@ export function ReportPreflight({
             pinning the warning would have made it possible to print past one without ever having
             seen it — the same failure the «never behind a fold» rule exists to prevent. */}
       </div>
+      {signFor && (() => {
+        const S = appConfig.copy.signature
+        const alarm = meta.alarmiertAt ?? incident.started_at ?? undefined
+        const end = meta.endedAt ?? closedAt ?? undefined
+        const day = alarm ? formatDateTime(alarm).split(' ')[0] : ''
+        return (
+          <SignatureSheet
+            open onClose={() => setSignFor(null)}
+            initialRole={signFor}
+            signedRoles={Object.fromEntries(SIGNATURE_ROLES.filter(sigValid).map((r) => [r, hhmm(new Date(liveSigs[r]!.at))]))}
+            elName={{ name: meta.einsatzleiter || einsatzleiter }}
+            kdtName={{ name: kdtDefault }}
+            summary={{
+              einsatz: [incident.title, day].filter(Boolean).join(' · '),
+              zeiten: alarm && end ? fillTemplate(S.zeiten, { from: hhmm(new Date(alarm)), to: hhmm(new Date(end)) }) : undefined,
+              personen: attendanceCount,
+              positionen: mittelCount,
+            }}
+            placeDate={[signPlace, formatDateTime(serverNowIso()).split(' ')[0]].filter(Boolean).join(', ')}
+            onViewPdf={() => void downloadPdf()}
+            onSign={doSign}
+            personnel={personnel} presentIds={presentIds} rolesById={rolesById}
+            onAddGuest={onAddGuest && ((name) => onAddGuest(name, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter))}
+          />
+        )
+      })()}
     </>
   )
 }

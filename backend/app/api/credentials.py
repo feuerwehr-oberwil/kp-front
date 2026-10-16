@@ -6,13 +6,13 @@ The contract, and the reason for each half of it:
   tablet with `/admin` unlocked, or a leaked `ADMIN_SECRET`, must not be a way to walk off
   with the station's Divera key. Rotating from a phone at 3am beats SSH; exfiltrating from a
   phone at 3am does not, so only one of the two is possible here.
-* **Six fields are readable, and each one earns it individually** (see the `secret` flag in
-  app/credentials · FIELDS): a Traccar hostname, the STT server/model/language, the VAPID
+* **Only the fields with `secret=False` are readable, and each one earns it individually** (see
+  app/credentials · FIELDS): e.g. a Traccar hostname, the STT server/model/language, the VAPID
   public key (already handed to every logged-in browser by `/api/push/vapid-key`) and the
-  VAPID contact address. Everything else — including `TRACCAR_EMAIL`, which is half of a
-  credential pair, and `HEALTHCHECK_PING_URL`, whose only misuse is pinging it to keep a
-  monitor believing a dead station is alive — answers with `configured: true` and nothing
-  more.
+  VAPID contact address, the Azure tenant and client ids. Everything else — including
+  `TRACCAR_EMAIL`, which is half of a credential pair, and `HEALTHCHECK_PING_URL`, whose only
+  misuse is pinging it to keep a monitor believing a dead station is alive — answers with
+  `configured: true` and nothing more.
 * **`.env` wins where it is set**, so an existing deployment is untouched. A field the
   environment supplies is reported with `source: "env"` and refuses writes (409) rather than
   storing a value that would then be shadowed — «I typed the key in and nothing happened» is

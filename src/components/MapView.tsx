@@ -3,6 +3,7 @@ import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from
 import type { Map as MlMap } from 'maplibre-gl'
 import { buzz } from '../lib/haptics'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import '../lib/maplibreWorker'
 import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, PreparedMapOverlay, Trupp } from '../types'
 import { appConfig } from '../config/appConfig'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
@@ -19,7 +20,7 @@ import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LTG_PX, TEAM_LABEL_STYLE, SYM_CAPTION_STYLE, SYM_CAPTION_GAP, READOUT_LABEL_STYLE, END_TAG_LABEL_STYLE } from '../lib/mapView'
+import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LABEL_STYLE, SYM_CAPTION_STYLE, SYM_CAPTION_GAP, READOUT_LABEL_STYLE, END_TAG_LABEL_STYLE } from '../lib/mapView'
 import { dockSlots, dockRadiusFor, nearestDockHost } from '../lib/docking'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
@@ -49,7 +50,7 @@ import { useNodeHold } from '../lib/nodeHold'
 import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
 import { useGlRecovery } from '../lib/useGlRecovery'
 import { useNightTheme } from '../lib/useNightTheme'
-import { uiBlue } from '../lib/themeToken'
+import { themeToken, uiBlue } from '../lib/themeToken'
 import { useIsPhone } from '../lib/useIsPhone'
 import { reportMapError } from '../lib/mapError'
 import { isTypingTarget } from '../lib/hotkeys'
@@ -58,7 +59,7 @@ import { GeorefAdjustLayer, GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks }
 import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { setLiveBearing } from '../lib/liveBearing'
-import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint, TEAM_JOIN_RADIUS_PX } from '../lib/lineAttachments'
+import { advanceDwell, armDwell, attachInsetPx, DEFAULT_OBJECT_ROUTING, lineJoints, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint, TEAM_JOIN_RADIUS_PX } from '../lib/lineAttachments'
 
 // ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
 
@@ -497,6 +498,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // flips: its `d.color || DEFAULT_INK` fallbacks below are deliberately left alone.
   const night = useNightTheme()
   const blue = uiBlue()
+  // the rim of a joint dot (l-draw-join) — the same surface tone the DOM rings wear
+  const surface = themeToken('--surface', '#ffffff')
 
   // ── «Karte verknüpfen»: the map half of the pairing mode (components/GeorefMapLayer) ────────
   // The mode is a module store, not a prop chain: on a phone the Plan surface is unmounted while
@@ -624,7 +627,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const endpointDragRef = useRef<EndpointDrag | null>(null)
   const dwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const setEndpointDrag = (next: EndpointDrag | null) => { endpointDragRef.current = next; setEndpointDragState(next) }
-  type DraftMagnet = { first: LngLat; coord: LngLat; atStart: boolean; dwell: DwellState; candidate: MagneticTarget | null; startAttachment?: LineAttachment; endAttachment?: LineAttachment }
+  /** `startJoin`: where the stroke's START is coupled onto another line's end (its prong), held for
+   *  the whole stroke so the «Angekuppelt» ring stays on the joint after the finger has left it. */
+  type DraftMagnet = { first: LngLat; coord: LngLat; atStart: boolean; dwell: DwellState; candidate: MagneticTarget | null; startAttachment?: LineAttachment; endAttachment?: LineAttachment; startJoin?: { key: string; coord: LngLat } }
   const [draftMagnetState, setDraftMagnetState] = useState<DraftMagnet | null>(null)
   const draftMagnet = useRef<DraftMagnet | null>(null)
   const draftDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -736,13 +741,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         // point of that strip's box, so an end laid over the name is «on» the marker; the
         // coupling itself still resolves to the dot (resolveLinePoints · objectPoint).
         if (e.kind === 'team') {
-          const w = teamStripPx(e.label ?? '', teamLines.get(e.id)?.lineNo != null)
+          const w = teamStripPx(e.label ?? '')
           const x0 = c.x - TEAM_DOT_PX / 2 - 6, x1 = x0 + w + 12, y0 = c.y - 16, y1 = c.y + 16
           const point: [number, number] = [Math.min(Math.max(pointer.x, x0), x1), Math.min(Math.max(pointer.y, y0), y1)]
-          return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point, defaultRouting: 'trace' as const }
+          return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point, defaultRouting: DEFAULT_OBJECT_ROUTING }
         }
         const edge = boundaryPoint({ shape: 'rect', center: [c.x, c.y], width: size, height: e.kind === 'vehicle' ? size * 0.7 : size, rotation: (e.rotation ?? 0) - bearing }, [pointer.x, pointer.y])
-        return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point: edge, defaultRouting: 'direct' as const }
+        return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point: edge, defaultRouting: DEFAULT_OBJECT_ROUTING }
       })
     const lineTargets: MagneticTarget[] = drawings
       .filter((d) => d.kind === 'line' && d.id !== sourceId && d.coords.length >= 2)
@@ -756,7 +761,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         return free.map((port) => {
           // three-port Teilstück ends fan onto the drawn fork prongs; every other endpoint is the bare tip
           const point = capacity === 3 ? forkPortPoint([p.x, p.y], [neighbor.x, neighbor.y], d.width ?? 4, port) : [p.x, p.y] as [number, number]
-          return { key: `line:${d.id}:${endpoint}:${port}`, target: { kind: 'line', id: d.id, endpoint }, point, capacity, usedPorts, port, blocked: wouldCreateCycle(attachmentLines, sourceId, d.id), defaultRouting: 'direct' as const }
+          const ll = map.unproject(point)
+          return { key: `line:${d.id}:${endpoint}:${port}`, target: { kind: 'line', id: d.id, endpoint }, point, at: [ll.lng, ll.lat] as [number, number], capacity, usedPorts, port, blocked: wouldCreateCycle(attachmentLines, sourceId, d.id), defaultRouting: 'direct' as const }
         })
       }))
     return [...objectTargets, ...lineTargets]
@@ -862,9 +868,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const candidate = nearestMagneticTarget([pp.x, pp.y], targets)
       const atStart = draftKind === 'line' && !freehand ? draft.length === 0 : true
       const attachment = candidate ? attachmentForCandidate(candidate) : undefined
+      const startJoin = atStart && candidate?.target.kind === 'line' && candidate.at
+        ? { key: candidate.key, coord: candidate.at as LngLat } : undefined
       setDraftMagnet({
         first: coord, coord, atStart, candidate, dwell: armDwell(candidate?.key ?? null, Date.now()),
         ...(attachment ? (atStart ? { startAttachment: attachment } : { endAttachment: attachment }) : {}),
+        ...(startJoin ? { startJoin } : {}),
       })
       if (candidate) buzz()
     } else if (phase === 'move') {
@@ -1207,6 +1216,18 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const bearing = (Math.atan2(dx, dy) * 180) / Math.PI // 0 = north, +clockwise
       return { type: 'Feature', geometry: { type: 'Point', coordinates: d.coords[n - 1] }, properties: { id: d.id, color: d.color || DEFAULT_INK, bearing, icon: d.arrowStop ? 'draw-arrow-stop' : 'draw-arrow' } }
     })), [drawings])
+  // «Angekuppelt» (11.10.2026): a dot in the hose's ink on every line → line joint, so a branch
+  // coupled onto a Teilstück's prong (or a line continued from another's end) says so — a line
+  // target attaches instantly and draws no ring, and a joined end looked exactly like a free end
+  // lying on the node (lib/lineAttachments · lineJoints). Resolved coords: the dot sits where the
+  // two ends actually meet. The Plan draws the same dot (WbControls · WbInkLayer).
+  const joinFC = useMemo(() => {
+    const lines = drawings.filter((d) => d.kind === 'line' && Array.isArray(d.coords) && d.coords.length >= 2)
+    const byId = new globalThis.Map(lines.map((d) => [d.id, d]))
+    return fc(lineJoints(lines.map((d) => ({ id: d.id, points: d.coords, startAttachment: d.startAttachment, endAttachment: d.endAttachment })))
+      .map((j) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: j.point },
+        properties: { id: j.lineId, color: byId.get(j.lineId)?.color || DEFAULT_INK, width: byId.get(j.lineId)?.width || 4 } })))
+  }, [drawings])
 
   // distance / free-text overlays pinned to each annotated line's midpoint (reuses the
   // measure-label HTML-marker pattern). Distance uses the SAME geodesic length the Measure
@@ -1301,17 +1322,15 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const tone = trupp ? truppLineTone(trupp, truppSeverities?.[trupp.id] ?? 0) : 'idle'
       return { d, end, anchor, angleDeg, color: d.color || DEFAULT_INK, width: d.width || 4, trupp, tone }
     })
-  // ── «Ein Etikett»: die Leitung steht im Truppmarker (Karte only, 15.09.2026) ───────────────
-  // A Trupp used to stand twice in the picture — its own marker with the leader's name, and a
-  // few pixels away the hose's end tag repeating «1 · Frei N.». One fact, two objects, two tap
-  // targets. The marker now carries the Leitung's number in the hose's ink (plus a coupling
-  // where the hose really does end there), and that hose draws NO end tag at all — not as a
-  // marker and not as a candidate in the label pass below, because a suppressed label that
-  // still books its box pushes real labels off the map.
-  // ⚠️ Karte only. `EndTag` is shared with the Plan whiteboard and with the printed Kroki
-  // (kroki.py joins the same parts with « · »), and neither of those changes here: a sheet is
-  // read on paper, where a marker two streets away is not «next to» anything.
-  const { byMarker: teamLines, merged: mergedTags } = teamLineBadges(
+  // ── The Leitung a Trupp marker works (lib/truppLines · teamLineBadges) ─────────────────────
+  // What the marker carries of it: the coupling in the hose's ink where the hose really ends
+  // there. ⚠️ No NUMBER any more (11.10.2026, owner: «on the map the trupps are numbered – which
+  // we don't need. keep the UI the same as on the building storeys … just the name»). «Ein
+  // Etikett» (15.09.) had moved the Leitung's number into the marker and taken the hose's own end
+  // tag away; the boxed «1» beside the name then read as a TRUPP number. The Karte is the Gebäude
+  // chip's twin again: the marker says who, the hose's end tag says which Leitung (it never
+  // repeats the Trupp's name — the marker beside it is that name).
+  const { byMarker: teamLines } = teamLineBadges(
     lineDecor.map((ld) => ({
       id: ld.d.id, lineNo: ld.d.lineNo, color: ld.color, truppId: ld.trupp?.id, tone: ld.tone,
       endObjects: [ld.d.startAttachment, ld.d.endAttachment]
@@ -1334,6 +1353,21 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     d.kind !== 'line' || !Array.isArray(d.coords) || d.coords.length < 2 || d.endAttachment ? []
       : [{ lineId: d.id, endpoint: 'end' as const, color: d.color || DEFAULT_INK, coord: d.coords[d.coords.length - 1] as LngLat }]
   ))
+  /** The joints a gesture in progress is coupled onto — the «Angekuppelt» rings (render below): the
+   *  draft's start for the whole stroke, plus an ARMED line target under a draft end or a dragged
+   *  end. Ringed in the TARGET line's ink, since the ring sits on its node. */
+  const joinPreview = ((): { key: string; coord: LngLat; color: string }[] => {
+    const out: { key: string; coord: LngLat; color: string }[] = []
+    const ink = (target: LineAttachment['target']) => storedDrawings.find((d) => d.id === target.id)?.color || DEFAULT_INK
+    const dm = draftMagnetState
+    if (dm?.startJoin && dm.startAttachment?.target.kind === 'line') out.push({ key: dm.startJoin.key, coord: dm.startJoin.coord, color: ink(dm.startAttachment.target) })
+    for (const g of [dm, endpointDrag]) {
+      const c = g?.candidate
+      if (!g?.dwell.armed || c?.target.kind !== 'line' || out.some((j) => j.key === c.key)) continue
+      if (c.at) out.push({ key: c.key, coord: c.at as LngLat, color: ink(c.target) })
+    }
+    return out
+  })()
   /** the hose ends the marker is being aimed at, per drag move — mirrors `trackPlaceMagnet` */
   const trackTeamJoin = (id: string, at: LngLat) => {
     const map = mapInst.current
@@ -1408,7 +1442,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     for (const e of entities) {
       if (!Array.isArray(e.coord) || !isVisible(effectiveLayer(e))) continue
       const dock = teamDockAnchor(e, entities, dockedSlots, zoom, symMul,
-        e.kind === 'team' ? teamStripPx(e.label ?? '', teamLines.get(e.id)?.lineNo != null) : undefined)
+        e.kind === 'team' ? teamStripPx(e.label ?? '') : undefined)
       const own = px(dock?.host.coord ?? e.coord)
       const p = dock ? { x: own.x + dock.dx, y: own.y + dock.dy } : own
       const g = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom, SHAPE_MAX_PX[e.shape ?? 'square'])
@@ -1427,26 +1461,21 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         const label = e.label ?? ''
         const s = cachedLabelSize(label, LABEL_STYLE.team)
         occupied.push({ x: p.x - TEAM_DOT_PX / 2, y: p.y - TEAM_DOT_PX / 2, w: TEAM_DOT_PX, h: TEAM_DOT_PX })
-        // …and since 15.09. the strip may carry two more fixed-width things that hang off the same
-        // dot: the merged Leitung field. It is booked here, not
-        // measured — both are constant-width by CSS, and a label that lies about its own box is
-        // exactly what this pass exists to stop.
+        // a marker on a due/überfällig Trupp's Leitung keeps the alarm rank its tag has
         const badge = teamLines.get(e.id)
-        const extra = badge?.lineNo != null ? TEAM_LTG_PX : 0
         // the selected Trupp shows its full pill instead of the bare name — not a candidate,
         // but its footprint still has to push everything else away
         if (label && !isSel) {
-          // ⚠️ A merged marker INHERITS the rank of the end tag it swallowed: a Leitung whose
-          // Trupp is due or overdue outranks everything but the selection, and that is the one
-          // label on the map somebody's air depends on. Merging it into a `team`-ranked name
-          // would have let an ordinary symbol caption push it off the screen.
+          // ⚠️ A joined marker shares the rank of its Leitung's tag: a Leitung whose Trupp is due
+          // or overdue outranks everything but the selection, and that is the one label on the
+          // map somebody's air depends on.
           const rank = badge && (badge.tone === 'crit' || badge.tone === 'warn')
             ? LABEL_RANK.criticalTag : LABEL_RANK.team
           // ⚠️ pinned (15.09., Bastian: «I always want to see the Trupp marker»): the name is
           // never suppressed – it books its box so everything else yields, and a docked marker
           // beside a busy symbol no longer shrinks to a bare dot.
           cands.push({ key: `team:${e.id}`, rank, pinned: true, dist: near(p),
-            box: { x: p.x + TEAM_DOT_PX / 2 + TEAM_DOT_GAP, y: p.y - s.h / 2, w: s.w + extra, h: s.h } })
+            box: { x: p.x + TEAM_DOT_PX / 2 + TEAM_DOT_GAP, y: p.y - s.h / 2, w: s.w, h: s.h } })
         }
         continue
       }
@@ -1468,9 +1497,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // Leitung end tags. A tag whose Atemschutz-Trupp is due or overdue outranks everything
       // except the selection — that is the one label on the map somebody's air depends on.
       for (const ld of lineDecor) {
-        // …unless the Karte merged this Leitung into its Trupp's marker — then there is no tag to
-        // place, and booking a box for one would push real labels off the map for nothing
-        if (mergedTags.has(ld.d.id)) continue
         const text = endTagText(ld.d)
         if (!text) continue
         const p = px(ld.d.endLabelAt ?? ld.anchor)
@@ -2045,8 +2071,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // Only the print/report instance needs its GL back-buffer preserved (it captures the canvas
       // via getCanvas().toDataURL() — see ReportPrintView / reportPdf). On the always-live field
       // map keeping the buffer around just raises the per-repaint GPU/memory cost for the whole
-      // shift, so gate it to the static instance.
-      preserveDrawingBuffer={staticView}
+      // shift, so gate it to the static instance. (A WebGL context attribute since MapLibre 5 —
+      // the rest of the object keeps MapLibre's defaults, it is merged, not replaced.)
+      canvasContextAttributes={{ preserveDrawingBuffer: staticView }}
     >
       <QuietAttributionControl />
       <MapImages layers={layers} byName={byName} />
@@ -2109,6 +2136,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         {/* the inline letter marker (e.g. R on a Rettungsachse) renders as a DOM Marker below
             — a MapLibre text-field symbol would require a `glyphs` font source this
             offline-first style intentionally omits (it would also break offline). */}
+      </Source>
+      {/* «Angekuppelt»: the joint dot (joinFC) — over the strokes it joins, under the arrowheads */}
+      <Source id="s-draw-join" type="geojson" data={joinFC}>
+        <Layer id="l-draw-join" type="circle" layout={vis(drawingsVisible && !georefOn)}
+          paint={{ 'circle-radius': ['+', ['/', ['get', 'width'], 2], 2.5], 'circle-color': ['get', 'color'], 'circle-stroke-width': 2, 'circle-stroke-color': surface }} />
       </Source>
       {/* arrowheads at the end of annotated lines (Messpfeil / Rettungsachse) — a tintable
           SDF icon rotated to the final-segment bearing */}
@@ -2389,13 +2421,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
               it the decorations of a line that runs under its own tag paint straight through
               the text, and the tag is the one thing on a Leitung that has to stay readable.
               Both levels come from the one stacking table (lib/labelPass · MARKER_Z). */}
-          {/* …and suppressed ⇒ no marker at all, never an empty one (see the dl labels above).
-              `mergedTags` is the 15.09. half of that: this Leitung's Trupp stands on this Karte,
-              so the number, the ink and the name are already in ITS marker and a second label
-              here would be the very duplication «Ein Etikett» removed. ⚠️ `endLabelAt` — the tag
-              dragged aside by hand — is deliberately left in the record untouched: nothing on the
-              Karte reads it while the tag is merged, and the Plan still does. */}
-          {(ld.d.content || ld.d.lineNo != null || ld.d.floorTag != null) && !mergedTags.has(ld.d.id) && !suppressedLabels.has(`tag:${ld.d.id}`) && (
+          {/* …and suppressed ⇒ no marker at all, never an empty one (see the dl labels above). */}
+          {(ld.d.content || ld.d.lineNo != null || ld.d.floorTag != null) && !suppressedLabels.has(`tag:${ld.d.id}`) && (
             <Marker longitude={(ld.d.endLabelAt ?? ld.anchor)[0]} latitude={(ld.d.endLabelAt ?? ld.anchor)[1]} anchor="center" offset={[0, -14]}
               // …and ABOVE the resting tactical symbols (MARKER_Z.note…team, 4–8) once its own
               // line is selected. At rest the tag stays under the symbols, so an overlapping
@@ -2536,6 +2563,15 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
           </Marker>
         )
       })()}
+      {/* «Angekuppelt» while placing (11.10.2026): the closed twin of «Anschluss frei» on the joint a
+          new stroke's start is coupled onto, for the whole stroke, and on a line end an end being
+          laid or dragged has just snapped to. A line target arms the moment it is acquired and so
+          has no ConnectRing (dwellFor = 0) — this is the picture that says «joined» instead. */}
+      {joinPreview.map((j) => (
+        <Marker key={`jp${j.key}`} longitude={j.coord[0]} latitude={j.coord[1]} anchor="center" style={{ zIndex: MARKER_Z.tag }}>
+          <span className="magnet-anchor"><span className="join-coupling" style={{ '--line': j.color } as CSSProperties} /></span>
+        </Marker>
+      ))}
       {hiddenAttachmentTargets.map((e) => <Marker key={`hidden-${e.id}`} longitude={e.coord[0]} latitude={e.coord[1]} anchor="center"><span className="hidden-attachment-marker" /></Marker>)}
 
       {/* ⚠️ On the object itself only GEOMETRY grips remain (01.09.): the node pads, the «+»

@@ -3,7 +3,7 @@
 
 import type { Copy, Localizable } from '../index'
 
-export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'wheel' | 'preflight'>> = {
+export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'wheel' | 'signature' | 'preflight'>> = {
   auswertung: {
     heading: 'Debrief',
     note: 'For the debrief – derived from the incident record, not part of the signed report.',
@@ -105,6 +105,40 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'wheel
     minute: 'Minute',
     now: 'Now',
     ok: 'OK',
+  },
+  signature: {
+    cardTitle: 'Signatures',
+    optional: 'optional',
+    count: '{n} of 2',
+    invalid: 'invalid',
+    runningHint: 'Sign here after the incident is closed – no pen and paper needed.',
+    roleEl: 'Incident commander',
+    roleKdt: 'Chief',
+    sign: 'Sign',
+    resign: 'Sign again',
+    locked: 'Report locked',
+    change: 'Change',
+    changeTitle: 'Lift the signatures?',
+    changeMsg: 'Whoever changes the report has to sign it again afterwards. The old signatures stay in the log.',
+    changeConfirm: 'Change',
+    sheetTitle: 'Sign the report',
+    viewPdf: 'View PDF',
+    zeiten: 'Alarm {from} · End {to}',
+    personen: '{n} people',
+    positionen: '{n} items',
+    signsAs: 'Signing as',
+    name: 'Name',
+    namePlaceholder: 'Choose a name',
+    elNameHint: 'The same entry as «Incident commander» in the report.',
+    kdtNameHint: 'Default from the settings – a deputy picks themselves.',
+    padHint: 'Sign here with your finger',
+    padAria: 'Signature field',
+    clear: 'Clear',
+    cancel: 'Cancel',
+    confirm: 'Sign',
+    logSigned: 'Report signed: {role} {name} (checksum {sum})',
+    logVoided: 'Signatures lifted – the report is being changed',
+    failed: 'Signature not saved – please try again',
   },
   preflight: {
     pdfFull: 'Incident report (PDF)',

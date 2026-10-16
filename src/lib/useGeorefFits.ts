@@ -109,7 +109,7 @@ export function useGeorefFits({
   // `getFits` — see the note there). aspect = widthM / scaleMPerU inverts planGroundWidthM.
   // ⚠️ And whenever a fit REALLY changes, every baked map body is re-derived: a corrected
   // georeference MOVES every symbol standing on that sheet, and correcting itself is the entire
-  // point of correcting a fit (tmp/design-unified-objects.md · «Reference change»).
+  // point of correcting a fit.
   //
   // ⚠️ «Really» is what `fitSignature` measures, and it has to: `linkedPlans` is rebuilt by any
   // render that touches planDocs or the station scales — including the one every hydrate causes —
@@ -232,7 +232,7 @@ export function useGeorefFits({
     // to tell the Verlauf — and the same holds for every sheet whose reference ARRIVES later. A
     // later change of a KNOWN sheet's fit is the operator correcting the reference, and that
     // MOVES every symbol on that sheet — one undo step and one row for the
-    // lot, because it was one gesture (tmp/design-unified-objects.md · «Reference change»).
+    // lot, because it was one gesture.
     const seeding = bakedFits.current === null
     // ⚠️ The seed bake WRITES ground positions into the record, derived from a station document
     // that is a module singleton — empty until the boot load resolves, and empty again when that
@@ -291,7 +291,7 @@ export function useGeorefFits({
     if (!seeding && dropped.size) {
       // Nothing moved, so the row counts what STAYS: the objects drawn on that sheet keep the
       // ground position the last fit gave them — last known truth, deliberately not marked stale
-      // (tmp/design-unified-objects.md · decision 2).
+      // (decided 09.09.2026).
       const kept = objects.reduce((n, o) => n + (o.sheet && dropped.has(o.sheet.planId) ? 1 : 0), 0)
       histSide.current.log('map', kept ? fillTemplate(C_LOG.referenceDroppedKept, { n: kept }) : C_LOG.referenceDropped, 'layer')
     }

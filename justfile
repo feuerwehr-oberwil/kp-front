@@ -107,6 +107,27 @@ postcheck id *args:
 staging-refresh *args:
     bash scripts/railway-staging-refresh.sh {{args}}
 
+# Railway staging is stopped between test sessions: its scheduler and the Divera poll keep it
+# busy around the clock, so App Sleeping never kicks in and it bills like a second prod. The
+# project is pinned rather than taken from `railway link`, which may point at the demo.
+staging_project := "cd015874-865f-4a39-8a3c-499751a9ec15"
+
+# (Database first, so the app does not boot against nothing. The app comes from the latest
+# commit on the `staging` branch; a push there also starts it, but never the database.)
+# Start the stopped Railway staging environment.
+[group('Operations')]
+staging-up:
+    railway redeploy --from-source -p {{staging_project}} -e staging -s Postgres -y
+    railway redeploy --from-source -p {{staging_project}} -e staging -s kp-front -y
+
+# (Removes the running deployments only – database volume, storage and variables stay. A
+# service that is already stopped is skipped: `railway down` fails on it, hence the `-`.)
+# Stop the Railway staging environment so it stops billing; `just staging-up` brings it back.
+[group('Operations')]
+staging-down:
+    -railway down -p {{staging_project}} -e staging -s kp-front -y
+    -railway down -p {{staging_project}} -e staging -s Postgres -y
+
 # --- Development -------------------------------------------------------------
 
 # THE dev command: Postgres + backend + frontend in one terminal (Ctrl+C stops all).

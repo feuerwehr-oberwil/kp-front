@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Map, { Layer, Source, type MapRef } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
+import '../lib/maplibreWorker'
 import { appConfig } from '../config/appConfig'
 import { EMPTY_STYLE, fc, lineFeat, polyFeat } from '../lib/mapView'
 import { LINE_DASH_ML } from '../lib/draw'

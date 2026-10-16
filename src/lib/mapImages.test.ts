@@ -39,7 +39,7 @@ describe('pointIconVariants — the images the Leitungskataster layers will ask 
 })
 
 describe('pointIconRegistry — no icon is ever asked for in vain', () => {
-  it('answers `styleimagemissing` synchronously with a same-size stand-in, then swaps the picture in', async () => {
+  it('answers a missing image synchronously with a same-size stand-in, then swaps the picture in', async () => {
     const { host, images, log } = fakeMap()
     let resolve!: (img: ImageDataLike) => void
     const reg = pointIconRegistry(host, () => new Promise((r) => { resolve = r }))

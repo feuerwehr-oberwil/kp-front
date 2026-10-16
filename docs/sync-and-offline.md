@@ -64,7 +64,9 @@ precondition on the close it saw (`last_closed_at`, so a later close elsewhere w
 provisional boundary for the alarm, the reopen sent BEFORE any outbox on reconnect, and closed
 signals for that Einsatz ignored until then — a design, not a patch.
 After the close the RAPPORT stays editable (`canEditRapport`, one line at its top: «Änderungen
-… erscheinen als Nachträge»); the Tafel, Karte, Anwesenheit/Mittel/Checklisten stay read-only
+… erscheinen als Nachträge») – until it is SIGNED: a signature that still holds locks the form,
+«Ändern» voids it, and a change that arrives anyway makes it «ungültig», never refused
+([`rapport.md`](rapport.md) · Unterschriften; `reportSignatures` is a record key, 15.10.2026); the Tafel, Karte, Anwesenheit/Mittel/Checklisten stay read-only
 until «Wieder öffnen». Every row the server accepts on a closed Einsatz is stamped
 `receivedAfterClose` and prints as a Nachtrag whatever its time — except a row the Abschluss
 itself wrote between the confirm and the close (`atClose`, set by `useAbschluss · markClosing`;

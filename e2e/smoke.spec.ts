@@ -10,7 +10,7 @@ import { readFile } from 'node:fs/promises'
 // Runs against a live, seeded stack (see playwright.config.ts). The German strings
 // below mirror src/config/copy/de.ts (the default de-CH deployment locale).
 
-import { test, expect, expectNoCrash, login, ensureIncidentOpen } from './helpers'
+import { test, expect, expectNoCrash, login, ensureIncidentOpen, OFFLINE_FETCH_FAILURE } from './helpers'
 
 test('core surfaces render and survive reload', async ({ page }) => {
   await login(page)
@@ -204,12 +204,13 @@ test.describe('loading snail', () => {
 
 test.describe(() => {
   // Offline, the Karte's basemap tiles fail to load and MapView reports each failure (onError →
-  // lib/reportError, kind «error», «Failed to fetch»). A real device is quiet about it:
-  // reportError drops a bare fetch failure while `navigator.onLine` is false. Chromium's offline
+  // lib/reportError, kind «error», «AJAXError: Failed to fetch (0): <url>» since MapLibre 6). A
+  // real device is quiet about it: reportError drops a bare fetch failure while `navigator.onLine`
+  // is false. Chromium's offline
   // EMULATION is not: a document reloaded while offline reads `navigator.onLine === true`
   // (measured 24.09.2026), so the tiles of the reloaded Karte still report. That one report is
   // expected here; any other still fails the test (./guard.ts).
-  test.use({ expectedClientErrors: [/^error: Failed to fetch$/] })
+  test.use({ expectedClientErrors: [OFFLINE_FETCH_FAILURE] })
 
   test('offline journal entries survive reload and reconnect', async ({ page, context, browserName }) => {
     // Playwright's service-worker support is Chromium-only (playwright.dev/docs/service-workers).

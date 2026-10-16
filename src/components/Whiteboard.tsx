@@ -21,6 +21,7 @@ import { markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint
 import { minPoints } from '../lib/vertexOps'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { useWbVertexEdit, type PlanEndpointDrag } from './useWbVertexEdit'
+import { CHIP_SEL_SCALE, useWbChipSizes } from './useWbChipSizes'
 import { useWbChipDrag } from './useWbChipDrag'
 import { CIRCLE_MAX_N, useWbRotor } from './useWbRotor'
 import { SelectionBar } from './SelectionBar'
@@ -63,9 +64,9 @@ import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPre
 
 /** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
 const FOLDED_H = 28
-import { advanceDwell, armDwell, attachInsetPx, boundaryPoint, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { advanceDwell, armDwell, arrowEdgePadPx, arrowTipLeadPx, attachInsetPx, boundaryPoint, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from '../lib/stackFit'
-import { inSection, storeySections, visibleCentre } from '../lib/storeyClip'
+import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
 import type { FloorPackView } from '../lib/floorPackBinding'
 import { stackInstances } from '../lib/stackFloors'
 import { circleRadiusM, circleRadiusN, pathMetres, polyAreaM2, scaleLampTone, type PlanScale } from '../lib/planScale'
@@ -563,7 +564,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const setPlanEndpointDrag = (next: PlanEndpointDrag | null) => { planEndpointDrag.current = next; setPlanEndpointDragState(next) }
   // `first` is where the stroke went DOWN — the start's claim is kept while the finger is still
   // within STROKE_START_RADIUS_PX of it (see updatePlanDraftMagnet), exactly as on the Lage map.
-  type PlanDraftMagnet = { first: BoardPoint; atStart: boolean; point: BoardPoint; dwell: DwellState; candidate: MagneticTarget | null }
+  /** `startJoin`: the joint (board px) the stroke's START is coupled onto, held for the whole
+   *  stroke so the «Angekuppelt» ring stays on it after the finger has left (MapView twin). */
+  type PlanDraftMagnet = { first: BoardPoint; atStart: boolean; point: BoardPoint; dwell: DwellState; candidate: MagneticTarget | null; startJoin?: { key: string; point: [number, number]; color: string } }
   const [planDraftMagnetState, setPlanDraftMagnetState] = useState<PlanDraftMagnet | null>(null)
   const planDraftMagnet = useRef<PlanDraftMagnet | null>(null)
   const planDraftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1383,12 +1386,26 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }, [annos, trupps, truppSeverities])
 
   const resolvedPts = new Map<string, BoardPoint[]>()
+  const { chipSizes, chipRef } = useWbChipSizes()
   /** The box a plan object offers an attaching line, in board px. A team chip is a left-anchored
-   *  STRIP — its stored point is the DOT, so its ~76×44 body hangs to the RIGHT of that point
-   *  rather than around it (see the wb-anno transform); `dx` puts the box back over the chip. */
-  const attachBox = (a: Pick<BoardAnno, 'kind'>) => (a.kind === 'resource'
-    ? { width: 76, height: 44, dx: 76 / 2 - TEAM_DOT_PX / 2 }
-    : { width: symBase, height: symBase, dx: 0 })
+   *  STRIP — its stored point is the DOT, so its body hangs to the RIGHT of that point rather than
+   *  around it (see the wb-anno transform); `dx` puts the box back over the chip. Its size is the
+   *  chip as RENDERED (useWbChipSizes, 11.10.2026): the resting strip is as wide as its name, the
+   *  selected pill is two rows under a 1.12 scale about its own centre, and the old fixed ~76×44
+   *  guess put a docked arrow's tip on the selected pill's name. 76×44 stays the fallback for a
+   *  chip not measured yet (first frame, jsdom). */
+  const attachBox = (a: Pick<BoardAnno, 'kind' | 'id'>) => {
+    if (a.kind !== 'resource') return { width: symBase, height: symBase, dx: 0 }
+    const m = chipSizes[a.id]
+    if (!m) return { width: 76, height: 44, dx: 76 / 2 - TEAM_DOT_PX / 2 }
+    const sel = selId === a.id
+    const k = sel ? CHIP_SEL_SCALE : 1
+    // the anchor offset of the wb-anno transform: the dot's centre at rest, the cap when selected
+    return { width: m.w * k, height: m.h * k, dx: m.w / 2 - (sel ? TEAM_PILL_CAP_PX : TEAM_DOT_PX / 2) }
+  }
+  /** Lines whose END wears an arrowhead — an attached arrow end stops at the glyph's edge
+   *  (lib/lineAttachments · arrowEdgePadPx) instead of tucking under it. */
+  const arrowLines = new Set(annos.flatMap((a) => (a.kind === 'draw' && a.arrow ? [a.id] : [])))
   /**
    * Every MIRRORED Karte object this sheet offers a docking Leitung — the same kinds a native
    * plan symbol/chip offers (lib/lineAttachments · MAGNET_ANNO_KINDS). A hose that reaches the
@@ -1397,7 +1414,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
    * list (MapView · twinMagnets) for what that costs: the live surfaces resolve it, print and
    * a far-side delete fall back to the stored point, which resolveLinePoints already does safely.
    */
-  const objectPoint = (id: string, toward: BoardPoint, _a: LineAttachment, source: AttachableLine<BoardPoint>): BoardPoint | null => {
+  const objectPoint = (id: string, toward: BoardPoint, attachment: LineAttachment, source: AttachableLine<BoardPoint>): BoardPoint | null => {
     const target = annos.find((a) => a.id === id && isMagnetAnno(a)) ?? null
     if (!target || target.x == null || target.y == null || !sW || !sH) return null
     const floor = target.floor ?? 0
@@ -1405,8 +1422,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const center: [number, number] = [target.x * sW + box.dx, mapY(floor, target.y) * sH]
     const tp: [number, number] = [toward[0] * sW, mapY(toward[2] ?? floor, toward[1]) * sH]
     // negative padding = the endpoint lands just INSIDE the glyph, so the stroke disappears
-    // under the symbol instead of stopping short of it (see attachInsetPx)
-    const p = boundaryPoint({ shape: 'rect', center, width: box.width, height: box.height, rotation: target.rotation }, tp, -attachInsetPx(source.width))
+    // under the symbol instead of stopping short of it (see attachInsetPx) — except an ARROW end:
+    // its head is painted above the objects, so it stops at the edge instead (arrowEdgePadPx)
+    const arrowEnd = attachment === source.endAttachment && arrowLines.has(source.id)
+    const pad = arrowEnd ? arrowEdgePadPx(source.width ?? 5) : -attachInsetPx(source.width)
+    const p = boundaryPoint({ shape: 'rect', center, width: box.width, height: box.height, rotation: target.rotation }, tp, pad)
     return [p[0] / sW, localY(p[1] / sH, floor), floor]
   }
   const linePoint = (target: AttachableLine<BoardPoint>, endpoint: LineEndpoint, attachment: LineAttachment, resolved: BoardPoint): BoardPoint => {
@@ -1440,7 +1460,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         const box = attachBox(a)
         const center: [number, number] = [a.x! * sW + box.dx, mapY(a.floor, a.y!) * sH]
         const edge = boundaryPoint({ shape: 'rect', center, width: box.width, height: box.height, rotation: a.rotation }, pointer)
-        return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: a.kind === 'resource' ? 'trace' : 'direct' }
+        return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: DEFAULT_OBJECT_ROUTING }
       })
     const lines: MagneticTarget[] = renderAnnos
       .filter((a) => a.kind === 'draw' && a.id !== sourceId && (a.pts?.length ?? 0) >= 2)
@@ -1480,7 +1500,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     if (planDraftTimer.current) clearTimeout(planDraftTimer.current)
     if (phase === 'start') {
       const candidate = nearestMagneticTarget(pointer, targets)
-      setPlanDraftMagnet({ first: point, point, atStart, candidate, dwell: armDwell(candidate?.key ?? null, Date.now()) })
+      const startJoin = atStart && candidate?.target.kind === 'line'
+        ? { key: candidate.key, point: candidate.point, color: annos.find((a) => a.id === candidate.target.id)?.color || COLORS[0] } : undefined
+      setPlanDraftMagnet({ first: point, point, atStart, candidate, dwell: armDwell(candidate?.key ?? null, Date.now()), ...(startJoin ? { startJoin } : {}) })
       if (candidate) {
         draftAttachments.current = { ...draftAttachments.current, [atStart ? 'startAttachment' : 'endAttachment']: planAttachmentFor(candidate) }
         buzz()
@@ -1499,7 +1521,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const nowAtStart = cur.atStart && distance(firstPx, pointer) < STROKE_START_RADIUS_PX && !draftAttachments.current.startAttachment
     const candidate = stickyMagneticTarget(pointer, targets, cur.candidate?.key ?? null)
     const base = nowAtStart === cur.atStart ? cur.dwell : EMPTY_DWELL
-    const next: PlanDraftMagnet = { first, point, atStart: nowAtStart, candidate, dwell: advanceDwell(base, candidate, Date.now()) }
+    const next: PlanDraftMagnet = { first, point, atStart: nowAtStart, candidate, dwell: advanceDwell(base, candidate, Date.now()), ...(cur.startJoin ? { startJoin: cur.startJoin } : {}) }
     setPlanDraftMagnet(next)
     // a line target arms on acquisition (dwellFor = 0) — one buzz, as the closed ring gives
     if (next.dwell.armed && !base.armed) buzz()
@@ -1510,6 +1532,21 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       if (!now || now.candidate?.key !== candidate.key) return
       setPlanDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true } }); buzz()
     }, Math.max(0, dwellFor(candidate) - (Date.now() - next.dwell.since)))
+  }
+  /** The joints a gesture in progress is coupled onto — the «Angekuppelt» rings, the Karte's
+   *  `joinPreview` in board px: the draft's start for the whole stroke, plus an ARMED line target
+   *  under a draft end or a dragged end, ringed in the TARGET line's ink. */
+  const planJoinPreview = (): { key: string; point: [number, number]; color: string }[] => {
+    const out: { key: string; point: [number, number]; color: string }[] = []
+    const ink = (id: string) => annos.find((a) => a.id === id)?.color || COLORS[0]
+    const dm = planDraftMagnetState
+    if (dm?.startJoin) out.push(dm.startJoin)
+    for (const g of [dm, planEndpointDragState]) {
+      const c = g?.candidate
+      if (!g?.dwell.armed || c?.target.kind !== 'line' || out.some((j) => j.key === c.key)) continue
+      out.push({ key: c.key, point: c.point, color: ink(c.target.id) })
+    }
+    return out
   }
   const finishPlanDraftMagnet = () => {
     if (planDraftTimer.current) clearTimeout(planDraftTimer.current)
@@ -2803,6 +2840,19 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const s = sections?.get(floor ?? 0)
     return !s || inSection(p, s)
   }
+  /** The zones — Absperrkreise and Flächen — whose interior holds ALL of their paper: the storey's
+   *  section on the stack, the whole sheet off it (lib/storeyClip · enclosesSection). Not drawn,
+   *  nor labelled, nor lock-chipped: everything visible is inside them, so they say nothing here,
+   *  and their wash only tinted the storey (the demo's 100 m Absperrkreis on the EG, 11.10.2026).
+   *  The record is untouched — the Karte and the Objekte list still show them. */
+  const paperZones = new Set(sW && sH ? renderAnnos.flatMap((a) => {
+    if (!((a.kind === 'circle' && (a.radiusN ?? 0) > 0) || (a.kind === 'area' && (a.pts?.length ?? 0) >= 3))) return []
+    const ring: [number, number][] = a.kind === 'circle'
+      ? circleRing((a.x ?? 0) * sW, mapY(a.floor, a.y ?? 0) * sH, (a.radiusN ?? 0) * sW)
+      : a.pts!.map(([x, y, f]) => [x * sW, mapY(f ?? a.floor, y) * sH])
+    return enclosesSection(ring, sections?.get(a.floor ?? 0) ?? [rectPoly(0, 0, sW, sH)]) ? [a.id] : []
+  }) : [])
+  const drawnAnnos = paperZones.size ? renderAnnos.filter((a) => !paperZones.has(a.id)) : renderAnnos
 
   // Rotate the Gebäudeview to `toDeg`. Re-derives the footprint view and re-glues every
   // floor-stack annotation (x/y, freehand pts, team trails) so they stay on the same
@@ -3281,12 +3331,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             )}
 
             {/* Absperrkreise — their own px-space layer, painted under the ink (WbCircleLayer) */}
-            <WbCircleLayer annos={renderAnnos} draft={circleDraft} sW={sW} sH={sH} mapY={mapY}
+            <WbCircleLayer annos={drawnAnnos} draft={circleDraft} sW={sW} sH={sH} mapY={mapY}
               color={appConfig.drawing.circleColor} selId={selId} flashId={flashId}
               onPickCircle={tool === 'pan' ? circleDown : undefined} sections={sections ?? undefined} />
 
             {/* committed drawings */}
-            <WbInkLayer annos={renderAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} hiddenTrails={hiddenTrails} mapY={mapY}
+            <WbInkLayer annos={drawnAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} hiddenTrails={hiddenTrails} mapY={mapY}
               selId={selId} flashId={flashId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined}
               truppTones={truppTones} sW={sW} sH={sH} sections={sections ?? undefined} />
             {/* «Ring lädt, dann schnappt es» — the identical pair the Lage map draws: a blue chip
@@ -3315,6 +3365,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 <ConnectRing since={planDraftMagnetState.dwell.since} armed={planDraftMagnetState.dwell.armed} />
               </span>
             )}
+            {/* «Angekuppelt» while placing — the Karte's twin (MapView · joinPreview, 11-measure.css) */}
+            {planJoinPreview().map((j) => (
+              <span key={`jp${j.key}`} className="magnet-anchor wb-magnet" style={{ left: j.point[0], top: j.point[1] }}>
+                <span className="join-coupling" style={{ '--line': j.color } as React.CSSProperties} />
+              </span>
+            ))}
             {/* …and the same ring for a Rotation, at both the end being dragged and each of the
                 two taps that lay it down (claimRotTarget) */}
             {/* the first of a Rotation's two points, while the second is still being looked for */}
@@ -3386,7 +3442,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
               const ang = Math.atan2(dyr, dxr) * 180 / Math.PI
               // push the tip a little PAST the line's visual end: clear the round cap (~half the
               // stroke width beyond the last vertex), then a few px more so the spitze leads the line
-              const fwd = (a.width ?? 5) * 0.6 + 6
+              const fwd = arrowTipLeadPx(a.width ?? 5)
               const last: [number, number] = [end[0] + (dxr / dlen) * fwd, end[1] + (dyr / dlen) * fwd]
               // `deg` rides along so an FKS chain glyph stands on the line; a letter ignores it.
               // Board px are screen px here (the board is only translated/scaled), so the bearing
@@ -3475,7 +3531,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 centroid in board px (the 1×1 ink SVG would distort text). Draggable like a line label.
                 «Auf Karte zeigen» prints the Fläche above it, exactly as the line label above prints
                 its Länge — the switch existed for a plan area but nothing rendered what it turned on. */}
-            {renderAnnos.filter((a) => a.kind === 'area' && (a.label || a.showDistance) && (a.pts?.length ?? 0) >= 3).map((a) => {
+            {drawnAnnos.filter((a) => a.kind === 'area' && (a.label || a.showDistance) && (a.pts?.length ?? 0) >= 3).map((a) => {
               const bpx = a.pts!.map(([x, y, floor]) => [x * sW, mapY(floor ?? a.floor, y) * sH] as [number, number])
               // on the stack: the centre of what is LEFT of the Fläche on its storey's section
               // (lib/storeyClip) — none when nothing of it shows
@@ -3565,7 +3621,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             {/* an Absperrkreis states its radius at the ring's top edge, exactly as the Karte does
                 (MapView · circleLabels) — in the sheet's calibrated metres. Uncalibrated there is
                 no honest number to print, so the ring simply carries none. */}
-            {calibrated && activeScale && renderAnnos.filter((a) => a.kind === 'circle' && (a.radiusN ?? 0) > 0).map((a) => {
+            {calibrated && activeScale && drawnAnnos.filter((a) => a.kind === 'circle' && (a.radiusN ?? 0) > 0).map((a) => {
               const cx = (a.x ?? 0) * sW, cy = mapY(a.floor, a.y ?? 0) * sH
               const r = (a.radiusN ?? 0) * sW
               return (
@@ -3597,7 +3653,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 MapMarkers · shape-lock-anchor). Its only job is unlocking, so it stays away where
                 editing is locked anyway. Position mirrors the map: an area is chipped at its
                 centroid, a line at its middle vertex, a shape at its centre. */}
-            {!readOnly && tool === 'pan' && renderAnnos.filter((a) => a.locked && (a.kind === 'shape' || a.kind === 'circle' || ((a.kind === 'draw' || a.kind === 'area') && a.pts?.length))).map((a) => {
+            {!readOnly && tool === 'pan' && drawnAnnos.filter((a) => a.locked && (a.kind === 'shape' || a.kind === 'circle' || ((a.kind === 'draw' || a.kind === 'area') && a.pts?.length))).map((a) => {
               const pts = a.pts ?? []
               const p = a.kind === 'shape' || a.kind === 'circle'
                 ? [a.x ?? 0, mapY(a.floor, a.y ?? 0)] as const
@@ -3630,6 +3686,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             {annos.filter((a) => a.kind !== 'draw').flatMap((a) => stack ? stackInstances(a, floorsTTB) : [a]).map((a) => (
               <div
                 key={`${a.id}:${a.floor ?? 0}`}
+                ref={a.kind === 'resource' ? chipRef : undefined} data-chip-id={a.kind === 'resource' ? a.id : undefined}
                 className={`wb-anno wb-${a.kind}${relationship.objectIds.has(a.id) ? ' network' : ''} ${selId === a.id || selIds.includes(a.id) ? 'sel' : ''}`}
                 // transform positions the anchor at the (scaled) plan point. SYMBOLS hold a
                 // constant screen size (symBase, zoom-independent — 30.08.: they are pins like

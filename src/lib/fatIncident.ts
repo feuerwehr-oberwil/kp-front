@@ -333,7 +333,7 @@ export function fatIncident(opts: FatOptions = {}): FatIncident {
       trupps: tr,
       attendance: Object.fromEntries(Object.entries(attendance).filter(([pid]) => born.get(pid)! <= upTo)),
       mittel: mittel.filter((m) => Date.parse(m.at) <= upTo),
-      cameraViews: cameraViews.filter(alive), checklists, shifts: [], bands: [], trails: [], attachments: [],
+      cameraViews: cameraViews.filter(alive), checklists, shifts: [], bands: [], trails: [], attachments: [], reportSignatures: [],
       planScale: {}, settings: {}, vehicleOverrides: {},
       reportMeta: { alarmText: 'Brand Mehrfamilienhaus', startedAt: iso(t0), einsatzleiter: 'Oblt Muster' },
       schemaVersion: 2,

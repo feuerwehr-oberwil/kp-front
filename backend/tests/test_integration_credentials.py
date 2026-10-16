@@ -6,6 +6,9 @@ see it» — rather than about the shape of the module, because those are the pr
 would still matter if the implementation were rewritten.
 """
 
+import re
+from pathlib import Path
+
 import pytest
 from sqlalchemy import select
 
@@ -180,6 +183,18 @@ async def test_a_compose_default_does_not_count_as_a_deployer_decision(client, a
     r = await client.put("/api/integrations/credentials/stt_model", json={"value": "whisper-tiny"})
     assert r.status_code == 200, r.text
     assert creds.get("stt_model") == "whisper-tiny"
+
+
+async def test_compose_and_env_example_name_every_credential():
+    """«.env wins» is only true on compose for a variable `docker-compose.yml` passes through:
+    compose's .env is interpolation-only, so an unlisted one never reaches the process. Sixteen
+    credentials (SharePoint, Objektbesuche, station index, roster, Microsoft login) were missing
+    there until 2026-10-13, and from `.env.example` with them."""
+    root = Path(__file__).resolve().parents[2]
+    compose = (root / "docker-compose.yml").read_text(encoding="utf-8")
+    env_example = (root / ".env.example").read_text(encoding="utf-8")
+    assert [f.env for f in creds.FIELDS if f"{f.env}: ${{{f.env}:-" not in compose] == []
+    assert [f.env for f in creds.FIELDS if not re.search(rf"^#? ?{f.env}=", env_example, re.M)] == []
 
 
 # --- live without a restart -----------------------------------------------------------

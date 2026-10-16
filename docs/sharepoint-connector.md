@@ -8,7 +8,7 @@ SharePoint, and no code in it can.
 > **One exception lives elsewhere, behind its own app registration.** The optional
 > **Objektbesuche** module can FILE visit reports into a SharePoint folder (one way, nothing ever
 > deleted). That is a separate writer (`app/object_visit_sharepoint.py`) with a separate credential
-> group («SharePoint-Ablage», `sharepoint_export_*`) and a separate `Sites.Selected` **write** grant
+> group («SharePoint (Ablage Objektbesuche)», `sharepoint_export_*`) and a separate `Sites.Selected` **write** grant
 > on one site — the importer's registration below stays read-only and is never used for writing.
 > Setting it up: [`object-visits-sharepoint.md`](object-visits-sharepoint.md).
 
@@ -416,10 +416,11 @@ cursor for that area: the next run walks the folder again and re-checks, rather 
 Freigabe» clears by itself once the cause is gone – and why it does **not** clear on its own while
 the cause is still there.
 
-**"How far is it?"** While a pull runs – by hand or as the nightly job – the card draws a progress
+**"How far is it?"** While a pull runs – by hand or as the scheduled one (every
+`sharepoint.intervalMinutes`, default 60) – the card draws a progress
 bar under the buttons: which area it is walking and how many of that area's files it has done. It
 comes from `GET /api/sharepoint/progress`, which the server answers out of memory (nothing is
-written until the run finishes, exactly as before), so opening the System page during the nightly
+written until the run finishes, exactly as before), so opening the System page during a scheduled
 run shows that run too. A deployment behind more than one worker process may find the poll landing
 on a worker that is not the one syncing; the bar then travels instead of filling, and nothing else
 changes.

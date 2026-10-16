@@ -1,6 +1,6 @@
 # The Gebäude card
 
-Status: 🟡 in review (KP Front idea F5, 2026-10-09).
+Status: 🟢 shipped (KP Front idea F5, 2026-10-09; opens by itself the first time since 2026-10-10).
 
 The **Gebäude** chip stands in the bottom-left chip row of the **Karte**, and in the **Plan**'s
 chip row beside the Objekt chip whenever an Objekt is bound (`components/BuildingFloat`). On a

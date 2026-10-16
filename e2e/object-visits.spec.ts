@@ -1,5 +1,5 @@
 import { request as pwRequest, type APIRequestContext, type Page } from '@playwright/test'
-import { expect, expectNoCrash, login, test } from './helpers'
+import { expect, expectNoCrash, login, OFFLINE_FETCH_FAILURE, test } from './helpers'
 
 // Objektbesuche on a phone, offline first (docs/object-visits.md · Device):
 //
@@ -133,7 +133,7 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
     hasTouch: true,
     // Chromium's offline emulation reads navigator.onLine === true in a document reloaded while
     // offline, so a background fetch that fails then is reported (see smoke.spec · offline drill)
-    expectedClientErrors: [/^error: Failed to fetch$/],
+    expectedClientErrors: [OFFLINE_FETCH_FAILURE],
   })
 
   test('a visit taken offline survives a reload and is saved once the server answers', async ({ page, context, browserName, baseURL }) => {

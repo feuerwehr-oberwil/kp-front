@@ -283,6 +283,7 @@ export const WORKSPACE_RECORDS = {
   cameraViews: listById('cameraViews'),
   trails: listById('trails'),
   attachments: listById('attachments'),
+  reportSignatures: listById('reportSignatures'),
   vehicleOverrides: recordByKey('vehicleOverrides'),
   checklists: recordByKey('checklists'),
   attendance: recordByKey('attendance'),

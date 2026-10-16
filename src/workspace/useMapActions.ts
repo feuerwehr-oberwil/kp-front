@@ -19,7 +19,7 @@ import type { GeorefPlan } from '../lib/georefTwins'
 import { routeHotkey } from '../lib/hotkeyRoute'
 import { resolveHotkey, isTypingTarget } from '../lib/hotkeys'
 import { newId } from '../lib/ids'
-import { applyRouting, moveLineBody } from '../lib/lineAttachments'
+import { applyRouting, moveLineBody, objectAttachment } from '../lib/lineAttachments'
 import { moduleNumbers } from '../lib/navRail'
 import { autoNoteWPx } from '../lib/notes'
 import { doneAct, donePlace } from '../lib/objectDone'
@@ -779,8 +779,9 @@ export function useMapActions({
         && (!join || lineTakesTrupp(doc.drawings.find((dr) => dr.id === join.lineId) ?? { id: join.lineId }, trupps))
         ? (join ?? null) : null
       const hoseKey = hoseJoin?.endpoint === 'start' ? 'startAttachment' : 'endAttachment'
-      // the marker's own trace-routed coupling, written exactly as the endpoint magnet writes one
-      const hoseAttachment: LineAttachment = { target: { kind: 'object', id }, routing: 'trace' }
+      // the marker's own coupling, written exactly as the endpoint magnet writes one (routed
+      // «Direkt» by default — lib/lineAttachments · DEFAULT_OBJECT_ROUTING)
+      const hoseAttachment: LineAttachment = objectAttachment(id)
       // a moved team marker re-stamps its «last moved» time; it does NOT breadcrumb
       setDocRaw((d) => ({
         ...d,

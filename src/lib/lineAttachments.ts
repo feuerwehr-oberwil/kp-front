@@ -26,6 +26,10 @@ export interface MagneticTarget {
   blocked?: boolean
   defaultRouting?: LineRoutingMode
   port?: number
+  /** `point` in the surface's STORED coordinates (the Karte's LngLat), taken when the candidate
+   *  is built — for chrome drawn at render time, where reading the live projection is not allowed
+   *  (MapView · joinPreview). A surface whose px space is its own (the Plan) leaves it out. */
+  at?: Point
 }
 
 /**
@@ -88,6 +92,36 @@ export const STROKE_START_RADIUS_PX = 10
  *  Half the stroke covers the ROUND CAP, which juts half a stroke past the endpoint; the
  *  extra 2 px swallow the chip's soft shadow. */
 export const attachInsetPx = (strokeWidth = 4) => strokeWidth / 2 + 2
+
+/** How far an ARROWHEAD's tip leads the line's last vertex (screen px): clear of the round cap
+ *  (~half the stroke past the vertex), then a few px more so the spitze leads the line. The Plan
+ *  draws its head with exactly this lead (Whiteboard · `wb-arrowhead`). */
+export const arrowTipLeadPx = (strokeWidth = 5) => strokeWidth * 0.6 + 6
+
+/** Where an attached ARROW end stops (11.10.2026, owner: «ugly»): at the glyph's EDGE, not under
+ *  it. `attachInsetPx` tucks a plain end under the glyph because the glyph paints over it; an
+ *  arrowhead is drawn ABOVE the objects on the Plan (it has to stay readable over a symbol), so
+ *  tucked in it landed on the Trupp chip's name. This positive padding leaves the end outside the
+ *  glyph by the head's own lead plus a 2 px gap, so the tip just touches the edge. Read by the
+ *  Plan's resolver; the Karte paints its arrows under the markers and keeps the tuck. */
+export const arrowEdgePadPx = (strokeWidth = 5) => arrowTipLeadPx(strokeWidth) + 2
+
+/**
+ * The routing a line end gets when it is attached to an OBJECT without anyone choosing one —
+ * the endpoint magnet, a draft stroke ending on a symbol or a Trupp, a Trupp marker dropped on a
+ * free hose end, and the link that settles a Trupp at its hose («Direkt» = the end simply
+ * follows the object; «Spur» = every move of the object is appended to the line as route).
+ *
+ * «Direkt» since 11.10.2026 (owner, on the Gebäude view: «change to direkt by default, not
+ * Spur»). Until then a Trupp marker coupled with «Spur», on the idea that the hose is laid
+ * behind the crew; in practice a chip nudged across a storey dragged a scribble of vertices
+ * behind it that nobody had drawn. «Spur» stays one tap away in the line editor (DrawEditor ·
+ * «Verlauf»), and an attachment already stored keeps the routing it was stored with.
+ * ⚠️ Not the live-GPS follow: «Weiter folgen» on a vehicle IS a trace by design (useGpsFollow).
+ */
+export const DEFAULT_OBJECT_ROUTING: LineRoutingMode = 'direct'
+/** A line end docked onto object `id`, routed the default way (`DEFAULT_OBJECT_ROUTING`). */
+export const objectAttachment = (id: string): LineAttachment => ({ target: { kind: 'object', id }, routing: DEFAULT_OBJECT_ROUTING })
 
 export const distance = (a: Point, b: Point) => Math.hypot(b[0] - a[0], b[1] - a[1])
 
@@ -281,6 +315,35 @@ export function nextFreePort<P extends Coordinate>(lines: AttachableLine<P>[], t
   const used = new Set(incomingAttachments(lines, targetId, endpoint).map((x) => x.attachment.port ?? 0))
   for (let p = 0; p < endpointCapacity(target, endpoint); p++) if (!used.has(p)) return p
   return null
+}
+
+/** One line end coupled onto another line's end — a hose joint. */
+export interface LineJoint<P extends Coordinate = Point> {
+  lineId: string
+  endpoint: LineEndpoint
+  /** the joined end, as the caller passed it — pass RESOLVED points, so this is where it is drawn */
+  point: P
+  /** the line it is coupled onto */
+  targetId: string
+}
+
+/**
+ * Every joint between two LINES (11.10.2026, owner: «when adding a line to a node … we'd ideally
+ * have an indicator that they are joined as soon as we place it»). A coupling to a line end looks
+ * exactly like a free end lying on it — a line target arms instantly and draws no ring
+ * (`dwellFor`) — so both surfaces mark each of these with a small dot in the line's ink. Only
+ * line → line: an end docked onto a symbol or a Trupp is already shown by the glyph it vanishes
+ * into. A target that no longer exists is no joint (the end falls back to its stored point).
+ */
+export function lineJoints<P extends Coordinate>(lines: AttachableLine<P>[]): LineJoint<P>[] {
+  const ids = new Set(lines.map((l) => l.id))
+  return lines.flatMap((line) => (['start', 'end'] as const).flatMap((endpoint) => {
+    const a = attachmentAt(line, endpoint)
+    const point = endpointPoint(line, endpoint)
+    return a?.target.kind === 'line' && ids.has(a.target.id) && point
+      ? [{ lineId: line.id, endpoint, point, targetId: a.target.id }]
+      : []
+  }))
 }
 
 /** Directed dependency graph: source line follows target line. Adding source→target may not

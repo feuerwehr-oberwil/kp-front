@@ -279,18 +279,19 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   - *Text actions (28.09.2026, owner pick A):* no bare blue word as an action. A verb that ends a
     row makes the WHOLE row the button — `.row-go` (13-incident): ink text, the verb in
     `--ink-dim` 12.5/700 + a 16px `chevron`, one press wash, ≥44px, `aria-label` «Verb: row text».
-    A fact that jumps inside a sentence is ink + › (`.kennGo`); anything else is a framed compact
-    button (`.wb-nearby-switch`, `.de-conn-reveal`).
+    A fact that jumps is ink + › (DrawEditor's `.de-conn-name` + `.de-conn-go`; the Atemschutz
+    card's jump chips, `.factGo`, carry a `chevron` in `--ink-dim`); anything else is a framed
+    compact button (`.wb-nearby-switch`).
   - *Fields, titles, eyebrows, warnings — one look each (28.09.2026, owner: «remove what
     contradicts»).* (1) **Focus** on anything you type into is `--focus-edge` + `--focus-halo`
     (01-tokens), the `.ip-field` look: a half-blue edge and a soft 3px halo. It is never solid ink,
     solid blue, a blue wash or an underline. A borderless field draws the edge as an inset ring
     (`box-shadow: inset 0 0 0 1px var(--focus-edge), var(--focus-halo)`). Where a box wraps a bare
     input (a search pill), the BOX takes it (`:focus-within`) and the input wears nothing. (2) A
-    **sheet or dialog title** is `--sheet-title` (800/17). The page head's `--head-title` (19) is
+    **sheet or dialog title** is `--sheet-title` (800/16, `--fs-3`). The page head's `--head-title` (19; 16 on a phone) is
     for surfaces, so a sheet never out-shouts the page it opens over; a card head (Ebenen)
     is that sheet title without a leading glyph. A **field label** is
-    `--field-label` (700/12) in `--ink-dim`, sentence case. (3) An **eyebrow**, the small
+    `--field-label` (700/12.5, `--fs-1`) in `--ink-dim`, sentence case. (3) An **eyebrow**, the small
     uppercase label over a section or a menu group, is `font: var(--eyebrow); letter-spacing:
     var(--eyebrow-track); text-transform: uppercase` in `--ink-faint` (section heads such as
     `.lgroup`, `.sym-ghead`). When the colour carries a
@@ -395,8 +396,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     moment a held gesture becomes something (tooltip appears, drag latches, chooser opens, magnet
     dwell engages). Never on taps, successes or errors; never a pattern or a second duration
     (`navigator.vibrate` is Android-only, so anything expressive is inaudible to half the fleet).
-    Older inline `navigator.vibrate?.(12)` sites (MapView/Whiteboard magnets, `nodeHold`) are the
-    same 12 ms – new call sites go through `buzz()`.
+    The one inline `navigator.vibrate?.(12)` left is `src/lib/nodeHold.ts`, the same 12 ms – new
+    call sites go through `buzz()`. (`src/lib/alarm.ts`'s vibration pattern is the Atemschutz
+    alarm, not a gesture.)
   - *One hold ring, around the icon* – `HoldChargeRing` (`src/components/HoldTargets.tsx`, also
     `NodeDeleteChip`), fed by `useTimedProgress` off the **same clock as the timer**. Never a CSS
     keyframe: it drifts against the latch and, under `prefers-reduced-motion`, paints full on the

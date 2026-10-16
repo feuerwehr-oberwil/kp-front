@@ -11,19 +11,19 @@ Verlauf that was never written there. As of 2026-09-10.
 
 | | Verlauf | Audit/replay stream |
 |---|---|---|
-| Written by | `log()` / `logPlan()` → `journal.append` | `emit(op, payload)` (`src/lib/useAuditEvents.ts:36`) |
+| Written by | `log()` / `logPlan()` → `journal.append` | `emit(op, payload)` (`src/lib/useAuditEvents.ts` · `emit`) |
 | Lands in | `POST /api/incidents/{id}/journal` | `POST /api/incidents/{id}/events` |
 | Form | plain-text rows, append-only | machine-readable, **hash-chained** |
 | Visible | in the Verlauf, on the printed Rapport | only in replay / review |
 
-`backend/app/models.py:523-532` says it itself: the audit stream is *"the hash-chained AUDIT
+`backend/app/models.py` · `JournalEntry` says it itself: the audit stream is *"the hash-chained AUDIT
 record of committed domain actions"*, the journal store *"the operational journal store"*.
 
 **Important:** `emit()` creates **no** Verlauf row. Everything listed below as *audit only* is
 legally on the record, but invisible to anyone reading the Verlauf.
 
 On top of that there is a third, small source: the server writes lifecycle rows itself
-(`append_system_row`, `backend/app/api/journal.py:96`) – incident closed, reopened,
+(`backend/app/api/journal.py` · `append_system_row`) – incident closed, reopened,
 Nachalarm, automatic archival.
 
 ## What the server observes (since 24.09.2026)
@@ -51,7 +51,7 @@ the endpoints.
 Every Trupp row names the Trupp as `Trupp N (Gruppenführer …)` since 12.09.
 ([`trupp-naming.md`](trupp-naming.md) §4): safety rows (angemeldet, Eintritt, Kontakt, Druck,
 Rückzug, Austritt, Alarm) spell out the whole crew, « / » between the names, and so do the edit
-rows («bearbeitet», since 25.09.2026); housekeeping rows (platziert, Farbe, Leitung, gelöscht,
+rows («bearbeitet», since 25.09.2026); housekeeping rows (platziert, Leitung, entfernt,
 wiederhergestellt, nicht mehr gesetzt) name the leader only. `truppLogName` in `src/lib/atemschutz.ts` is the one formatter. Rows written before
 that date keep their `Trupp {Gruppenführer}` wording – the log is append-only.
 
@@ -66,8 +66,11 @@ A newly registered Trupp creates a Verlauf row – «Trupp {name} angemeldet»
 (`useTruppActions.ts` · `logRegister`). Whoever thinks it's missing is usually just not looking
 at the Verlauf while registering: Atemschutz is its own view.
 
-**Closed since 2026-08-17** (this used to be listed here as a gap): deleting (`logRemoved`),
-restoring (`logRestored`) and the Trupp color change (`logColor`) write their row.
+**Closed since 2026-08-17** (this used to be listed here as a gap): removing (`logRemoved`,
+«Trupp {name} entfernt») and restoring (`logRestored`) write their row. A colour change is a
+clause of the edit row («Farbe geändert», `atemschutz.changeColor` in
+`useTruppActions` · `truppEditChanges`); since 04.09.2026 the Trupp form no longer offers a
+colour, so it only fires if a stored colour actually differs.
 A deleted Trupp is only soft-removed anyway (`removedAt`) and keeps printing on the
 Rapport as «Von Tafel entfernt».
 
@@ -114,7 +117,7 @@ the clock. Sound and system notification deliberately do **not** hang off it.
 
 | Area | Why |
 |---|---|
-| Zeitplan / shifts | `src/lib/useShiftActions.ts:16-19`: *«attendance is a RECORD … a plan is not, and logging each nudge of a chip would bury the operational journal under bookkeeping»* |
+| Zeitplan / shifts | `src/lib/useShiftActions.ts` · `useShiftActions` (doc comment): *«attendance is a RECORD … a plan is not, and logging each nudge of a chip would bury the operational journal under bookkeeping»* |
 | Checklists | only milestones create a row (`src/lib/useChecklistActions.ts` · `milestoneRow`): «☑ …» on a tick, and since 23.09.2026 the appended correction «Meilenstein zurückgenommen: …» (↶ glyph, Bereich «Checkliste») on an un-tick – by tap and by ↶ alike (`describeStep`), one row per step, ☑ again on a re-tick or ↷ |
 | Editing drawings (color, style, geometry) | operator action, not an event – see the doctrine note below |
 
@@ -146,11 +149,14 @@ the same rows:
 
 The review of 21.08. noted that the word **«Fläche»** did not appear on this page. The finding
 was a gap in the *docs*, not in the Verlauf – this is what the truth looks like
-(`src/lib/useMapDrawing.ts`, copy keys in `config/copy/de.ts` · `log`):
+(`src/lib/useMapDrawing.ts`, copy keys in `src/config/copy/de/drawing.ts` · `log` – the copy
+is split per surface into `src/config/copy/de/<surface>.ts` since 2026-10-09):
 
-- **Creating writes:** «Fläche gezeichnet» (`areaDrawn`), «Zeichnung erstellt»
-  (`drawingCreated`, lines/freehand), cordon circle (`circleDrawn`). On the Plan: «Fläche auf
-  Plan gezeichnet» / «Linie auf Plan gezeichnet» (`Whiteboard.tsx`) – **since 23.08. with
+- **Creating writes:** ONE row shape for every drawn shape, «{name} gezeichnet» (`shapeDrawn`,
+  since 31.08.), named by `lib/drawingEdit` · `drawingLogName` – «Fläche gezeichnet»,
+  «Absperrkreis gezeichnet», a line preset's own name or «Linie gezeichnet». On the Plan: «Fläche
+  auf Plan gezeichnet» / «Linie auf Plan gezeichnet» / «Absperrkreis auf Plan gezeichnet»
+  (`whiteboard.placeArea` / `placeLine` / `placeCircle`, written by `Whiteboard.tsx`) – **since 23.08. with
   annotation, point and floor**, so that the jump from the row selects the object instead of
   merely opening the building. Older rows stay without coordinates (append-only) and keep
   opening only the Plan, as before.

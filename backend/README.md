@@ -23,7 +23,7 @@ app/
   storage.py         object storage (local dir v1 = Railway volume)
   seed.py            seed users from seed_users.json
 alembic/             migrations
-tests/               pytest suite (see Tests below) + smoke_*.py scripts for a live server
+tests/               pytest suite (see Tests below)
 ```
 
 ## Local dev
@@ -232,12 +232,15 @@ as the explicit `"id"` UUID it derived. Never invent a UUID by hand.
 
 `load` and `push` always report what they did: which objects were created, which were updated,
 how many plan PDFs were attached, and – by name – any plan that did **not** land. A push that
-could not attach a plan exits non-zero.
+could not attach a plan exits non-zero. A `push` whose manifest shares **not one** object id with a
+deployment that already has objects is refused before it writes anything: it would create every
+object a second time, which is what a manifest minted under another id scheme looks like. Pass
+`--allow-create` when they really are new objects; a fresh deployment needs no flag.
 
 Each object becomes an `ObjectSite` row and each Modul-PDF a `ReferenceDataset`
 (`plan:<obj>:<module>`, blob in object storage), auto-surfaced on a nearby incident.
 `load` writes the local storage volume (run it server-side); `push` goes through a running
 server's API so it writes its OWN volume – the way to **refresh a remote deployment** from a
-workstation. To refresh: re-run the importer in the data repo, then `just push-objects` (or the
-`push` command above). See [`../docs/objektplaene-architecture.md`](../docs/objektplaene-architecture.md).
+workstation. To refresh: re-run the importer in the data repo, then
+`just objects-push <manifest>` (or the `push` command above). See [`../docs/objektplaene-architecture.md`](../docs/objektplaene-architecture.md).
 

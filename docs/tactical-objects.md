@@ -8,12 +8,12 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
 
 ## One object, two surfaces
 
-- **One object, two surfaces — there are no twins any more** (10.09.2026,
-  `tmp/design-unified-objects.md`). A tactical object is ONE record in one collection
-  (`src/lib/tacticalObjects.ts`), carrying up to two bodies of the same thing: `entity` XOR
-  `drawing` is what the Karte draws, `sheet {planId, anno}` is what one plan sheet draws. The
-  three legacy collections (`entities` / `drawings` / `board`) survive only as VIEWS of it, and
-  the blob still carries them so an older client can read a newer incident.
+- **One object, two surfaces — there are no twins any more** (10.09.2026). A tactical
+  object is ONE record in one collection (`src/lib/tacticalObjects.ts`), carrying up to two
+  bodies of the same thing: `entity` XOR `drawing` is what the Karte draws, `sheet {planId,
+  anno}` is what one plan sheet draws. The three legacy collections (`entities` / `drawings` /
+  `board`) survive only as VIEWS of it, and the blob still carries them so an older client can
+  read a newer incident.
   - **The sheet body's PRESENCE is the anchor.** An object hand-placed on a sheet carries
     `sheet`: the sheet coordinates are its truth, and its map body is BAKED through the plan's
     georeference (`bakeGeoBody`) and re-baked when that fit changes. An object hand-placed on the

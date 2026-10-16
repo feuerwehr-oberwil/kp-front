@@ -35,11 +35,18 @@ the latest tagged release (or `main`) and update promptly – see [`docs/DEPLOYM
   pre-login tile endpoint necessarily exposes active login-account display names, roles and
   colours; internet-facing deployments should use functional labels where personal-name
   enumeration is not acceptable. The personnel roster itself is not public.
+- **Optional «Mit Microsoft anmelden»:** a second door onto the same named accounts – an Entra ID
+  sign-in (OIDC code flow + PKCE, single tenant) is accepted only for a Microsoft account the
+  admin has listed against an existing username. It never creates a user, never changes a role,
+  is never an admin session, and nothing on the PIN path depends on it. Off unless the tenant,
+  client, secret and allow-list are all configured – see
+  [`docs/microsoft-login.md`](docs/microsoft-login.md).
 - **Sessions:** short-lived JWT access tokens + refresh tokens delivered as **httpOnly
   cookies** (Secure in production), with refresh rotation and revocation.
-- **Roles:** incident users are `editor` (FU / can mutate incident state) and
-  `viewer` (read-only). The stored backend value was migrated from the legacy `commander` name to
-  `editor` on 2026-06-30.
+- **Roles:** incident users are `editor` (FU / can mutate incident state), `el` (Einsatzleiter –
+  reads everything, writes only the record domains, enforced server-side) and `viewer`
+  (read-only). The stored backend value was migrated from the legacy `commander` name to
+  `editor` on 2026-06-30. Details: [`docs/roles-and-access.md`](docs/roles-and-access.md).
 - **Deployment admin is separated from the incident role:** the `/admin` UI and admin-write API
   (config, branding, system, user CRUD, geodata/objects) require an admin session unlocked by the
   `ADMIN_SECRET` env var – not the editor PIN. It is **fail-closed**: with `ADMIN_SECRET` unset the
@@ -47,7 +54,9 @@ the latest tagged release (or `main`) and update promptly – see [`docs/DEPLOYM
 - **Single-origin, no CORS:** one deployment = one station (single-tenant). The FastAPI
   service serves the SPA same-origin, so there is no cross-origin API surface. It proxies the
   configured integrations, geocoder, and weather; map/WMS tiles are fetched by the browser so
-  they can be cached offline.
+  they can be cached offline. The exception is the map in the server-rendered PDFs (Rapport,
+  Tafel print): the server fetches those basemap tiles itself, from a fixed list of provider
+  hosts plus any the deployer adds via `REPORT_TILE_HOSTS`.
 - **Secrets stay out of the repo:** host-root secrets (`SECRET_KEY`, `ADMIN_SECRET`,
   `DATABASE_URL`) live in environment variables. Integration credentials can live there too,
   or in the deployment's encrypted credential store managed through `/admin`; an environment
@@ -55,13 +64,10 @@ the latest tagged release (or `main`) and update promptly – see [`docs/DEPLOYM
   `openssl rand -hex 32`) – it signs JWTs, peppers PINs, and seals that credential store, so
   rotating it invalidates sessions and PIN hashes and makes stored integration credentials
   unreadable. `just init-env` generates the required host secrets for a fresh `.env`.
-- **One credential *is* in the repo, deliberately:** the telemetry DSN in
-  `backend/app/telemetry/dsn.py`. It is a Sentry **public key** – write-only by construction,
-  able to submit an event and nothing else. It cannot read stored events, reach another project,
-  or authenticate to anything. It is in the clear so that an auditor grepping this repository
-  finds it and can rule it out in thirty seconds, rather than finding it hidden behind an env var
-  and wondering. If you would still rather it did not exist on your instance, set
-  `KP_TELEMETRY_ENABLED=0` – see [`PRIVACY.md`](PRIVACY.md).
+- **No telemetry credential ships:** the default DSN in `backend/app/telemetry/dsn.py` is the
+  empty string, since the maintainer's ingest was retired. `KP_TELEMETRY_DSN` stays empty – and
+  nothing is forwarded – unless a deployer sets it to an ingest of their own;
+  `KP_TELEMETRY_ENABLED=0` vetoes the forwarder outright. See [`PRIVACY.md`](PRIVACY.md).
 
 ## Accepted single-station deployment constraints
 
@@ -92,10 +98,10 @@ controllers** for their deployment:
   [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §6).
 - **Per-station data is not in this repo** – configs (`backend/private/`) and reference geodata
   live outside it and must never be committed.
-- **Nothing is sent to the maintainer unless you switch it on.** There is no cloud account,
-  licence check or usage beacon. Map tiles, geocoding, weather, and optional integrations do
-  contact their configured providers; [`PRIVACY.md`](PRIVACY.md) documents those separately.
-  The two channels for reporting problems to the maintainer are off or manual by default and
-  show the exact payload first; the same document explains how to verify and disable them.
+- **Nothing is sent to the maintainer.** There is no cloud account, licence check or usage
+  beacon, and no maintainer-run ingest. Map tiles, geocoding, weather, and optional integrations
+  do contact their configured providers; [`PRIVACY.md`](PRIVACY.md) documents those separately.
+  A bug report reaches the maintainer only as a diagnostics file an operator attaches by hand,
+  after seeing its content; the same document explains how to verify that.
 - If you process personal or operational data, follow your canton's data-protection (DSG)
   guidance.

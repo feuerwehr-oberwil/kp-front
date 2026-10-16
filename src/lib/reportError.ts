@@ -162,14 +162,18 @@ function pump(force = false): void {
 }
 
 /** The fetch failure each engine throws when the network is gone (Chromium, Safari, Firefox). */
-const NETWORK_FAILURE = /^(Failed to fetch|Load failed|NetworkError when attempting to fetch resource\.?)$/
+const FETCH_FAILED = /(?:Failed to fetch|Load failed|NetworkError when attempting to fetch resource\.?)/.source
+/** …bare, or as MapLibre 6 wraps it for a tile (`AJAXError: <engine's words> (0): <url>`, status 0
+ *  = the fetch never got an answer). An HTTP failure (`(404)`, `(503)`) is not this and still reports. */
+const NETWORK_FAILURE = new RegExp(`^${FETCH_FAILED}$|^AJAXError: ${FETCH_FAILED} \\(0\\): \\S+$`)
 
 /**
  * A fetch that failed while the browser itself says it is offline is not a client error; it is the
  * device being offline, which the app already shows (24.09.2026). On an offline tablet the Karte's
- * basemap tiles fail one by one, and MapView reported each as «error: Failed to fetch». That is
- * noise in the post-Einsatz check, where every `kpfront.clienterror` line should be something
- * that broke. Deliberately narrow: only the bare network failure of an `error`/`unhandledrejection`,
+ * basemap tiles fail one by one, and MapView reported each as «error: Failed to fetch» (MapLibre 6:
+ * «error: AJAXError: Failed to fetch (0): <tile url>»). That is noise in the post-Einsatz check,
+ * where every `kpfront.clienterror` line should be something that broke. Deliberately narrow:
+ * only the bare network failure (or MapLibre's status-0 wrap of it) of an `error`/`unhandledrejection`,
  * and only while `navigator.onLine` is false. A render throw is never noise. A dead WLAN the
  * browser still calls online keeps reporting, because there the failure IS news.
  */

@@ -8,6 +8,7 @@ import { ToolDock } from './ToolDock'
 import { useNodeHold } from '../lib/nodeHold'
 import { vertexHandleIndices, arrowEndIndices, EXTEND_STEP_PX } from '../lib/lineStyle'
 import { NodeDeleteChip } from './NodeDeleteChip'
+import { lineJoints } from '../lib/lineAttachments'
 import { floorSections, signedFloor } from '../lib/whiteboard'
 import { fillTemplate } from '../lib/format'
 import { canDropVertex } from '../lib/vertexOps'
@@ -218,6 +219,17 @@ export function WbInkLayer({ annos, draft, draftFloor, draftClosed, color, width
         </g>
         )
       }))}
+      {/* «Angekuppelt» (11.10.2026): a dot in the hose's ink on every line → line joint — the
+          Karte's l-draw-join (MapView · joinFC). `annos` are the RESOLVED annos, so the dot sits
+          where the two ends meet; cut to the joint's storey like the stroke it ends. */}
+      {lineJoints(annos.filter((a) => a.kind === 'draw' && (a.pts?.length ?? 0) >= 2)
+        .map((a) => ({ id: a.id, points: a.pts!, startAttachment: a.startAttachment, endAttachment: a.endAttachment })))
+        .map((j) => {
+          const a = annos.find((x) => x.id === j.lineId)!
+          const [cx, cy] = toPx([j.point], a.floor)[0]
+          return <circle key={`join-${j.lineId}-${j.endpoint}`} cx={cx} cy={cy} r={(a.width || 5) / 2 + 2.5} clipPath={clipOf(j.point[2] ?? a.floor)}
+            fill={a.color || COLORS[0]} stroke="var(--surface)" strokeWidth={2} style={{ pointerEvents: 'none' }} />
+        })}
       {draft && draft.length >= 2 && (
         draftClosed && draft.length >= 3
           ? <polygon points={pointStr(draft, draftFloor)} fill={color} fillOpacity={0.12} stroke={color} strokeWidth={width} strokeDasharray={dashed ? LINE_DASH_SVG : undefined} strokeLinejoin="round" />

@@ -475,12 +475,18 @@ export default defineConfig(({ mode }) => {
       // scripts/check-sourcemaps.mjs (CI) holds all three facts: maps exist, no bundle points at
       // them, the service worker precaches none.
       sourcemap: 'hidden',
-      // Keep Vite 5's browser floor when upgrading the build tool, including older tablets.
-      target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
+      // The browser floor (13.10.2026): Safari/iPadOS 15.4, Chrome/Edge 98, Firefox 94. It is set
+      // by what the app already calls unpolyfilled — `structuredClone` in the journal, audit and
+      // workspace-sync stores — not by a wish; MapLibre 6 (`Object.hasOwn` / `Array.at`, Safari
+      // 15.4 / Chrome 93, plus WebGL2) fits under it. `color-mix()` is newer still but only
+      // degrades styling. iPadOS 15.4+ covers every iPad that ever ran iPadOS 15 (Air 2 / mini 4
+      // end on 15.8). Lowering this does not make an older device work: these APIs are not
+      // transpiled, only syntax is.
+      target: ['es2020', 'safari15.4', 'chrome98', 'edge98', 'firefox94'],
       rolldownOptions: {
         output: {
-          // Split maplibre (~800 KB) into its own chunk so it no longer bloats the initial
-          // app chunk. pdfjs deliberately has NO group here: PdfViewport's dynamic import
+          // Split maplibre (~1 MB since v6, ~800 KB in v4) into its own chunk so it no longer
+          // bloats the initial app chunk. pdfjs deliberately has NO group here: PdfViewport's dynamic import
           // already splits it into a lazy chunk on its own, and a manual group made it
           // EAGER — rolldown placed the shared module-preload helper inside the pdfjs
           // chunk, so the entry statically imported the whole 470 KB of pdf.js to reach it
@@ -491,9 +497,13 @@ export default defineConfig(({ mode }) => {
           // `.maplibregl-*` at equal specificity) now that the field app is a lazy chunk — and a
           // group that also matched the .css pulled the entry into depending on the maplibre
           // chunk, which put its 790 KB modulepreload back into index.html on every route.
+          // ⚠️ `.mjs` since MapLibre 6 (ESM-only: maplibre-gl.mjs + maplibre-gl-shared.mjs). A
+          // `.js`-only test silently matches nothing — on 23.09.2026 rolldown's own split happened
+          // to produce the same chunk anyway, but that is luck, not this rule. The worker is not
+          // in this group: lib/maplibreWorker has Vite emit it as its own self-contained asset.
           codeSplitting: {
             groups: [
-              { name: 'maplibre', test: /\/node_modules\/maplibre-gl\/.*\.js$/ },
+              { name: 'maplibre', test: /\/node_modules\/maplibre-gl\/.*\.m?js$/ },
             ],
           },
         },

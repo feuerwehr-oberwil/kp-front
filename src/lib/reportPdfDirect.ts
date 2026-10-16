@@ -41,6 +41,7 @@ import { resolvePlanAnnos } from './lineAttachments'
 import type { JournalLink } from './journalLinks'
 import { TAFEL_ID, findForms, formForPdf, pageTitles } from './boardForm'
 import { isDrawnBoardKind } from './workspace'
+import { signatureScope, type SignatureRole, type SignatureStrokes } from './reportSignature'
 
 /** Board annotations of one plan, in the server's PlanAnnoIn shape (dynamic symbol
  *  glyphs resolved to SVG strings, like the whiteboard renders them).
@@ -190,6 +191,10 @@ function cutToBands(a: BoardAnno, chunk: readonly number[], tileAR: number): { a
     // wholly on its storey: printed exactly as before
     return { annos: [{ ...a, y: a.y != null ? (k + a.y) / N : a.y, pts: a.kind === 'area' ? a.pts?.map((p): [number, number] => [p[0], (k + p[1]) / N]) : a.pts }], marks }
   }
+  // ⚠️ nothing of the outline on the band: the zone misses it, or holds ALL of it — and then it
+  // says nothing about this storey, and its fill only tinted the whole band (the screen's rule,
+  // lib/storeyClip · enclosesSection, 11.10.2026)
+  if (!c.runs.length) return { annos: [], marks }
   const piece = clipConvex(ring, band(k)[0])
   if (!piece.length) return { annos: [], marks }
   markAll(c.marks)
@@ -341,6 +346,26 @@ export interface DirectReportArgs {
   checklistTemplates?: ChecklistTemplate[]
   /** wall clock for what is still open on a running Einsatz (tests pin it) */
   now?: number
+  /** the VALID digital signatures, ready to print on their lines (lib/reportSignature). The caller
+   *  decides validity — a signature that no longer holds is simply not passed, and its line prints
+   *  empty, as if nobody had signed. */
+  signatures?: PrintedSignature[]
+  /** build only what a signature covers (signedPartOf): skips the Journal and Pendenzen, which
+   *  are Beilagen and the costly part of a fat Einsatz */
+  scopeOnly?: boolean
+}
+
+/** a signature as the paper prints it */
+export interface PrintedSignature {
+  role: SignatureRole
+  name: string
+  /** «Oberwil, 15.10.2026» — the Ort, Datum of its line */
+  placeDate: string
+  /** «15.10.2026 04:12» */
+  at: string
+  /** «3fa9 c210 7be1» */
+  checksum: string
+  strokes: SignatureStrokes
 }
 
 /**
@@ -454,7 +479,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   // (lib/report · withFileNames), so they need no field of their own here.
   // ⚠️ `truppIds` off the UNFILTERED slice: a row about a Trupp that has since been taken off the
   // board is still a crew enumeration (see journalRows · truppIds).
-  const journal = journalRows(events, plans, meta.startedAt ?? incident.started_at, incident.closed_at,
+  const journal = args.scopeOnly ? [] : journalRows(events, plans, meta.startedAt ?? incident.started_at, incident.closed_at,
     { includeBookkeeping: draft.options.detailedAudit, vocab: args.vocab, truppIds: new Set(trupps.map((t) => t.id)) })
     .map((r) => ({
       timeLabel: r.timeLabel, area: r.area, text: r.text, markup: r.markup, transcript: r.transcript || undefined,
@@ -470,7 +495,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     }))
 
   // Aufträge / Pendenzen — derived from the same rows, printed as a section right after them
-  const pendenzen = pendenzRows(events, meta.startedAt ?? incident.started_at)
+  const pendenzen = args.scopeOnly ? [] : pendenzRows(events, meta.startedAt ?? incident.started_at)
 
   const kroki = draft.options.kroki && scene
     ? buildKrokiPayload({
@@ -675,6 +700,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
           bar: rr.bar != null && readingBarShown(rr) ? String(rr.bar) : undefined,
         }))),
     })),
+    signatures: args.signatures ?? [],
     journal: draft.options.journal ? journal : [],
     pendenzen: draft.options.pendenzen ? pendenzen : [],
     // the internal Beilage (lib/auswertung): computed HERE, where the ISO stamps are
@@ -702,6 +728,18 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
       : undefined,
   }
   return forPaper(payload) as Record<string, unknown>
+}
+
+/** The signed part of this Rapport as canonical JSON (lib/reportSignature · signatureScope), built
+ *  from the same payload the PDF is — with every Beilage switched off, which is also what keeps it
+ *  cheap enough to recompute while the Rapport is being edited. */
+export function signedPartOf(args: DirectReportArgs): string {
+  const o = args.draft.options
+  const options = {
+    ...o, kroki: false, annotatedPlans: false, allPlans: false, gebaeude: false, tafel: false,
+    atemschutz: false, journal: false, pendenzen: false, attachments: false, auswertung: false,
+  }
+  return signatureScope(buildDirectReportPayload({ ...args, scene: undefined, board: undefined, building: null, signatures: undefined, scopeOnly: true, draft: { ...args.draft, options } }))
 }
 
 /**

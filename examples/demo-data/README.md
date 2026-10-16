@@ -11,7 +11,7 @@ follows the real streets. Safe to commit and to load into a throwaway deployment
 | `config.json` | deployment config: app name, map center (Musterdorf), demo flag, doctrine, and a dummy **Material** catalogue (config keys `mittel.*`) | `admin_config` |
 | `geodata.manifest.json` + `wasserleitung.geojson` + `hydrant.geojson` | water mains (LineStrings following the streets) + hydrants sampled along them | `admin_geodata` |
 | `objects.manifest.json` + `plans/` | Schloss Musterdorf at the prepared alarm address, with a hand-drawn Modul 1 (Übersicht) and combined Modul 2/3 (Zugang & Objekt) | `admin_objects` |
-| `checklists.manifest.json` + `checklists/` | a demo action list (Aufgaben FU) + tactical Stichworte (no diagram images) + two Anleitungen (Stromerzeuger, Hebekissen) with synthetic SVG step pictures in `checklists/assets/` | `admin_checklists` |
+| `checklists.manifest.json` + `checklists/` | a demo action list (Aufgaben FU) + tactical Stichworte (no diagram images) + two Anleitungen (Stromerzeuger, Hebekissen) with synthetic SVG step pictures in `checklists/assets/` + an Objektbesuch checklist (`kind: "visit"`, Schlüsseldepot & BMA) | `admin_checklists` |
 | `tafel.manifest.json` | the Tafel's pages: the bundled FKS «Erste Führung» set (`src/data/boardTemplates/`), loaded the way a station loads its own copy (docs/board-templates.md) | `admin_board_templates` |
 | `report-logo.png` | the Musterdorf brandmark – login screen (`logo`) and the printed rapport's letterhead (`reportLogo`) | `admin_branding load` (local) · `push` (demo reset) |
 | `gen_water.py` | regenerate the water GeoJSON from the Overpass street network | (run manually) |
@@ -23,10 +23,22 @@ slot exists in the app, this object simply has no sheet for it. A real deploymen
 Modul-PDFs and real checklists (incl. playbook diagrams) from a private data source
 (see [`docs/objektplaene-architecture.md`](../../docs/objektplaene-architecture.md)).
 
-`load.sh` seeds the synthetic **Personal** roster (12 people, so Anwesenheit and Schichtenplanung
+`load.sh` seeds the synthetic **Personal** roster (28 people, so Anwesenheit and Schichtenplanung
 have someone to work with) but no incident and no alarm – you start those yourself. The live demo goes
 further and seeds a pre-filled *running* incident plus the two demo login accounts – that's
-`app.demo_reset` (see `scripts/demo-reset.sh`), not `load.sh`.
+`app.demo_reset` (see `scripts/demo-reset.sh`), not `load.sh`. Its map and plan scene comes from
+`incident.workspace.json` (baked by `app.demo_export`): the symbols and lines on the Lage, the
+Trupp chip on the floor stack, and two Tafel pages written for this Zimmerbrand, the «Erste
+Führung» and a «Rapport». The pages' «Wann» cells and the next Rapport are re-stamped relative to
+the reset (`demo_reset · DEMO_TAFEL_MINUTES`), so a row added there needs an entry in that table.
+
+`config.json` also switches on the **Objektbesuche** (`objectVisits`, no SharePoint destination:
+visits stay in KP Front). The live demo seeds a round «Schlüsseldepots Dorfkern» scheduled for the
+day of the reset, with one finished visit at Schloss Musterdorf and Gewerbestrasse 4 still open –
+`app.demo_object_visits`. It hangs off the Schloss, so `scripts/demo-reset.sh` runs it after the
+object push (step 4b); the in-process reset keeps the Schloss and seeds it itself. To get it
+locally after `just demo-load`: `cd backend && KP_DEMO_RESET=1 uv run python -m
+app.demo_object_visits` (DEMO ONLY – it replaces its own round and visit, nothing else).
 
 ## Load it
 

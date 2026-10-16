@@ -127,6 +127,8 @@ export interface VisitSummary {
   /** «Von» — the people typed on the visit (the account is only the fallback) */
   with?: string[] | null
   findings?: number
+  /** the checklist the visit was made with (null: «Ohne Checkliste»; absent from an older server) */
+  checklist?: { id: string; title?: string | null } | null
   /** ADMIN list only: where the visit was filed, per destination — state, the folder path below
    *  the library (once the first delivery made it), the error while it fails */
   deliveries?: VisitFiling[]

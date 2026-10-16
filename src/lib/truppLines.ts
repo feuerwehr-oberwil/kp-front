@@ -163,28 +163,29 @@ export function truppTagText(t: Trupp): string {
   return abbreviateName(t.name)
 }
 
-// ── «Ein Etikett»: the Leitung is drawn INSIDE its Trupp's marker (Karte only, 15.09.2026) ──
+// ── The Leitung a Trupp marker works (Karte only) ─────────────────────────────────────────
 //
 // A joined Trupp used to stand twice in the picture: its own marker with the leader's name, and,
-// a few pixels away, the hose's end tag repeating «1 · Frei N.». Two objects, two tap targets,
-// two places to look for one fact. The Karte now merges them — the marker carries the Leitung's
-// number in the hose's own ink, and that hose draws no end tag at all.
-//
-// ⚠️ Karte only. `EndTag` is shared with the Plan and with the printed Kroki (kroki.py joins the
-// same parts with « · »), and both of those keep the tag exactly as it was: the sheet is read on
-// paper, where a marker two streets away is not «next to» anything.
+// a few pixels away, the hose's end tag repeating «1 · Frei N.». «Ein Etikett» (15.09.2026)
+// merged the two — the marker carried the Leitung's number in a boxed field, and the hose drew no
+// end tag at all. ⚠️ Undone on 11.10.2026 (owner: «on the map the trupps are numbered – which we
+// don't need. keep the UI the same as on the building storeys where they are clean and just the
+// name»): the boxed «1» beside the name read as a TRUPP number. The marker is name-only again,
+// and the hose keeps its own tag — which never prints the Trupp's name (the marker IS the name),
+// exactly like the Plan's and the printed Kroki's (kroki.py joins the same parts with « · »).
+// What the marker still takes from its Leitung is below: the hose's ink for the coupling stub,
+// whether the hose really ends there, and the alarm tone for the label rank.
 
-/** What a Trupp's marker says about the Leitung it works. */
+/** What a Trupp's marker takes from the Leitung it works. */
 export interface TeamLineBadge {
   lineId: string
-  /** the Leitung's number, when it has one — a hose is often drawn before it is numbered */
+  /** the Leitung's number, when it has one — not drawn on the marker (11.10.2026), kept for
+   *  the record of which Leitung a marker states */
   lineNo?: number
-  /** the hose's own ink, so the number field and the coupling read as THAT Leitung */
+  /** the hose's own ink, so the coupling reads as THAT Leitung */
   color: string
-  /** how the Leitung is doing (`truppLineTone`). It rides along because the merge TAKES the end
-   *  tag away, and a tag whose Trupp is due or overdue outranks almost every other label on the
-   *  map — so the marker that swallowed it has to inherit that rank, or a merge would quietly
-   *  drop the one label somebody's air depends on. */
+  /** how the Leitung is doing (`truppLineTone`): a marker on a due or overdue Trupp's Leitung
+   *  shares its tag's label rank (MapView · the label pass) */
   tone: LineTone
   /** the hose's end is actually docked ONTO this marker, so the picture really does show it
    *  arriving here and a coupling stub can be drawn. A Trupp linked only by NUMBER (typed on the
@@ -206,23 +207,17 @@ export interface BadgedLine {
 }
 
 /**
- * Merge every Leitung into the marker of the Trupp working it.
- *
- * Both halves of the one decision come back together, so nothing can disagree about it:
- * `byMarker` is what each Trupp marker draws, and `merged` names the lines whose separate end tag
- * the Karte must not draw — neither as a marker NOR as a candidate in the label pass, since a
- * suppressed label that still books its box pushes real labels off the map.
+ * The Leitung each Trupp marker works, by marker id (`byMarker`).
  *
  * A Trupp with several markers: each of them carries the badge, and only the one the hose
  * actually ends at gets a coupling. A Trupp on several Leitungen (a mis-entry, or a takeover
  * caught mid-merge): the coupled one wins, then the lowest number — one marker states one
- * Leitung, and only THAT one loses its tag, so the other hose keeps saying who is on it.
+ * Leitung. Every hose keeps its own end tag either way (11.10.2026, see above).
  */
 export function teamLineBadges(
   lines: readonly BadgedLine[], markers: readonly TruppMarker[],
-): { byMarker: Map<string, TeamLineBadge>; merged: Set<string> } {
+): { byMarker: Map<string, TeamLineBadge> } {
   const byMarker = new globalThis.Map<string, TeamLineBadge>()
-  const merged = new Set<string>()
   for (const m of markers) {
     if (!m.truppId) continue
     const mine = lines
@@ -234,9 +229,8 @@ export function teamLineBadges(
     const pick = mine[0]
     if (!pick) continue
     byMarker.set(m.id, { lineId: pick.l.id, lineNo: pick.l.lineNo, color: pick.l.color, tone: pick.l.tone, coupled: pick.coupled })
-    merged.add(pick.l.id)
   }
-  return { byMarker, merged }
+  return { byMarker }
 }
 
 /**

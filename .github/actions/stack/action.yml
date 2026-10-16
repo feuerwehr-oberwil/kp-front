@@ -51,12 +51,23 @@ runs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-    # ECR Public serves an anonymous client about one pull per second and answers compose's
-    # parallel pulls past that with «toomanyrequests: Rate exceeded». One image at a time, retried.
-    - name: Pull the stack's registry images (one at a time, retried)
+    # docker-compose.yml names its Docker Official Images on ECR Public, for the stations that run
+    # it. CI does not pull them there: ECR Public meters anonymous clients by source IP, GitHub's
+    # runners share theirs, and once the shared allowance is gone every pull is «toomanyrequests:
+    # Data limit exceeded» (13.10.2026; «Rate exceeded» past ~1 pull/s before that). An overlay
+    # swaps each one for the same image (same tag, same digest) on mirror.gcr.io, Google's cache
+    # of Docker Hub; COMPOSE_FILE carries it into every later compose call of the job.
+    - name: Pull the stack's registry images from mirror.gcr.io (one at a time, retried)
       shell: bash
       run: |
+        overlay="$RUNNER_TEMP/compose.mirror.json"
+        docker compose config --format json | jq '{services: (.services
+          | with_entries(select(.value.image // "" | startswith("public.ecr.aws/docker/library/"))
+            | .value = {image: (.value.image | sub("^public\\.ecr\\.aws/docker/library/"; "mirror.gcr.io/library/"))}))}' > "$overlay"
+        export COMPOSE_FILE="$COMPOSE_FILE:$overlay"
+        echo "COMPOSE_FILE=$COMPOSE_FILE" >> "$GITHUB_ENV"
         for img in $(docker compose config --images | grep -v '^ghcr.io/feuerwehr-oberwil/'); do
+          echo "pulling $img"
           for i in 1 2 3 4 5; do
             docker pull -q "$img" && break
             [ "$i" = 5 ] && exit 1

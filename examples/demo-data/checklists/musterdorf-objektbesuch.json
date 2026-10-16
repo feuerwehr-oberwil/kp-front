@@ -1,0 +1,59 @@
+{
+  "id": "musterdorf-objektbesuch",
+  "kind": "visit",
+  "version": 1,
+  "title": "Objektbesuch Schlüsseldepot & BMA (Demo)",
+  "subtitle": "Beispiel-Checkliste für Objektbesuche der Demo-Feuerwehr Musterdorf",
+  "source": "KP Front Demo",
+  "phases": [
+    {
+      "id": "zufahrt",
+      "title": "Zufahrt & Umgebung",
+      "items": [
+        { "id": "zufahrt-frei", "text": "Feuerwehrzufahrt frei befahrbar", "input": "check" },
+        { "id": "zufahrt-signalisiert", "text": "Zufahrt signalisiert", "input": "yesno" },
+        { "id": "stellflaeche", "text": "Stellfläche Hubretter frei", "input": "check" },
+        { "id": "hydranten-frei", "text": "Hydranten frei zugänglich und markiert", "input": "check" }
+      ]
+    },
+    {
+      "id": "schluesseldepot",
+      "title": "Schlüsseldepot",
+      "items": [
+        { "id": "depot-zugaenglich", "text": "Schlüsseldepot zugänglich", "input": "check" },
+        { "id": "depot-oeffnen", "text": "Lässt sich mit dem Feuerwehrschlüssel öffnen", "input": "check" },
+        { "id": "schluessel-anzahl", "text": "Anzahl Schlüssel im Depot", "input": "number", "unit": "Stk." },
+        { "id": "schluessel-schliessen", "text": "Probeschliessung Haupteingang", "input": "check" },
+        {
+          "id": "depot-zustand",
+          "text": "Zustand Schlüsseldepot",
+          "input": "choice",
+          "options": [
+            { "id": "gut", "label": "Gut" },
+            { "id": "mittel", "label": "Mittel" },
+            { "id": "schlecht", "label": "Ersetzen" }
+          ]
+        },
+        { "id": "depot-foto", "text": "Foto Schlüsseldepot (geöffnet)", "input": "photo" }
+      ]
+    },
+    {
+      "id": "bma",
+      "title": "Brandmeldeanlage",
+      "items": [
+        { "id": "bma-zentrale", "text": "BMA-Zentrale zugänglich", "input": "check" },
+        { "id": "bma-stoerung", "text": "Zentrale ohne Störung / Abschaltung", "input": "check" },
+        { "id": "laufkarten", "text": "Laufkarten vollständig und aktuell", "input": "check" },
+        { "id": "feuerwehrplan", "text": "Feuerwehrplan bei der Zentrale", "input": "yesno" }
+      ]
+    },
+    {
+      "id": "objekt",
+      "title": "Objekt",
+      "items": [
+        { "id": "ansprechperson", "text": "Ansprechperson vor Ort", "input": "text" },
+        { "id": "fluchtwege", "text": "Fluchtwege frei, Türen schliessen selbständig", "input": "check" }
+      ]
+    }
+  ]
+}

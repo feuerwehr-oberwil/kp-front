@@ -1,6 +1,6 @@
 # Objektbesuche (object visits)
 
-Status: in development (feature branch `feat/object-visits`, 2026-10-03). Product rationale and
+Status: 🟢 shipped 2026-10-03 (optional module, off by default). Product rationale and
 mockups: the design pack `firefighting-app-review-2026-10-02/design/object-visits/` (PLAN.md).
 This file is the **technical contract** the backend, the field app, the admin and any outside
 organizer (e.g. fwo-admin) build against. Change it in the same change as the code.
@@ -165,7 +165,7 @@ Refusals carry a `code` at the top of the body **and** a German `detail`:
 | Route | Answer |
 |---|---|
 | `GET /catalogue` | `{generatedAt, canCapture, objects:[{id,name,address,lat,lng,folder,refs,hasPlans,lastVisit:{id,visitedAt,lifecycle}\|null}], templates:[visit templates], lists:[{ref,title,note,closesAt,scheduledOn,archived,objectIds:[…],unresolved:[{source,id}],done:{"<objectId>":{at,by?,source?,note?}}}], proposalFields:[{id,label}]}` |
-| `GET /?object=&workRef=&mine=1&lifecycle=&limit=` | `[{id,objectId,objectName,workRef,lifecycle,revision,ready,visitedAt,updatedAt,by,with,findings}]` newest first (`with`: the document's people, `[string]`) |
+| `GET /?object=&workRef=&mine=1&lifecycle=&limit=` | `[{id,objectId,objectName,workRef,lifecycle,revision,ready,visitedAt,updatedAt,by,with,findings,checklist}]` newest first (`with`: the document's people, `[string]`; `checklist`: `{id,title}` of the visit's checklist, null without one) |
 | `GET /{id}` | the visit (document + server fields) |
 | `PUT /{id}` | body `{opId, baseRevision: int\|null, doc}` → `200 {revision, ready, missing, visit}` · `409 {code:"revision_conflict", revision, visit}` · `422` · same `opId` again ⇒ the stored first answer (idempotent replay, even if newer revisions exist) |
 | `PUT /{id}/attachments/{attId}` | raw bytes; headers `Content-Type`, `X-Content-SHA256` (hex). `201 {id, sha256, size}` new · `200` same id+hash already stored · `409 {code:"attachment_conflict"}` same id other hash · `422` hash/body mismatch, type not jpeg/png/webp (magic bytes), > 15 MB. The visit must exist (send the doc first). |
@@ -254,6 +254,28 @@ as `workRef` and lifecycle `completed` exists for its object — that real visit
 display (its date, its people, its report). Only where none exists does the organizer's `done`
 show the stop as complete («erledigt 14.10.2025 · SchlüHü · Frei Nina»). A draft for the stop does
 not hide a `done`; the stop then reads as done-before and in progress.
+
+**Several visits at one stop** (14.10.2026). A stop may hold more than one visit — typically a
+second checklist after the first was the wrong one. A completed visit offers «Weitere Checkliste»
+(a new visit, same object, same `workRef`; the route resumes this person's open draft for the stop
+instead, so it never makes a third). The stop counts once; its row says «n Checklisten» and opens
+the newest completed visit, whose page shows every visit at the stop as its own card (below). The
+checklist chooser marks the checklists already completed at the stop.
+
+**The read view** (15.10.2026, owner: «just the information we care about»). A work list's row is
+the stop: a finished stop's number turns into a green tick, the chip says only what still needs an
+eye (Mängel, photos on the way, a draft), and a date appears only where it is not the round's own
+day; an open stop keeps «zuletzt …/noch nie besucht». A finished visit's page is one card per visit
+at the stop, oldest first — checklist, when, who, the Mängel by name or «Keine Mängel» — with its
+own rows: «Bearbeiten» (on another visit's card: that visit, opened straight into the correction,
+`?bearbeiten=1`), «Bericht (PDF)», and ONE line: «Abgeschlossen …», or «Korrigiert …» once
+corrected, which opens the completed revisions, each its report. The drafts' save points before
+the completion are not history. The card's head opens the visit's answers on a screen of their own
+(`/besuche/<id>/antworten`: the checklist one line per question, then Bemerkungen, Fotos,
+Vorschläge) — they are off the visit page because the full output usually leaves through the
+filing. Under the cards: «Weitere Checkliste», the next stop, the plans. The head says only
+«Abgeschlossen» while the visit is on the server; anything still owed (not sent, photos, a failed
+filing) shows there in its tone.
 
 **Who.** Accounts are generic (a station tablet, «fu»), so the document's free-text people
 (`with`, wire key unchanged) are the primary «who»: the report prints «Von: <with>» and the

@@ -1,4 +1,5 @@
 import { nextTruppNo } from './placedTrupps'
+import type { ReportSignature } from './reportSignature'
 import { ghostCounterNames } from './truppTrails'
 import type { TruppTrail } from './truppTrails'
 import type { AttendanceState, BoardAnno, BoardDoc, BoardKind, BoardPoint, BuildingDoc, CameraView, DrawKind, Drawing, Entity, EntityKind, GeoTrailPoint, LayerDef, LayerId, LngLat, MittelEntry, ReportAttachment, Shift, ShiftBand, TimelineEvent, TrailPoint, Trupp, TruppReading, WeatherData } from '../types'
@@ -171,7 +172,7 @@ export type Doc = { entities: Entity[]; drawings: Drawing[] }
 /** The persisted workspace blob — opaque to the backend; the frontend owns its shape. */
 export interface Saved {
   entities: Entity[]; drawings: Drawing[]; recent: string[]
-  /** The unified tactical objects (schema 2, tmp/design-unified-objects.md) — ONE record per
+  /** The unified tactical objects (schema 2, docs/tactical-objects.md) — ONE record per
    *  object, whatever surface it stands on; `entities`/`drawings`/`board` above become its
    *  derived views. Both are written on save: the views keep an un-updated device rendering
    *  (its next save drops `objects`, and the loader re-unifies from the views — only baked
@@ -215,6 +216,9 @@ export interface Saved {
   reportMeta?: ReportMeta
   /** Beilagen: photos that belong to the Rapport (documents, damage) rather than to the Verlauf */
   attachments?: ReportAttachment[]
+  /** the Rapport's digital signatures (lib/reportSignature): appended, only ever voided, never
+   *  deleted — a RECORD key, so it is accepted on a closed Einsatz, where signing happens */
+  reportSignatures?: ReportSignature[]
   /** the exact plan sheets this incident opened — dataset revision + approved fit, frozen at
    *  first open so a later station replacement/approval never moves an operational backdrop
    *  (lib/incidentPlanBindings). First binding per sheet wins; corrections ride `override`. */
@@ -271,7 +275,7 @@ export const normalizeBoard = (board?: BoardDoc): BoardDoc => {
 
 /** Version stamped into every saved blob (App's buildPayload). Bump on a breaking shape
  *  change and add a stepwise migration in `sanitizeWorkspace` for the older versions. */
-// v2 (09.09.): the unified `objects` collection joins the blob (tmp/design-unified-objects.md).
+// v2 (09.09.): the unified `objects` collection joins the blob.
 // The legacy collections are still written as views, so a v1 reader renders — see Saved.objects.
 // v3 (10.10.2026): Tafel pages (board kind `form`). A v2 build cannot keep what it cannot read in
 // every path, so the SERVER keeps a v3 kind for it: a save stamped below the version a stored
@@ -328,6 +332,10 @@ const isGeoTrailPt = (v: unknown): v is GeoTrailPoint => isObj(v) && lngLat(v.co
 const isTrailPt = (v: unknown): v is TrailPoint => isObj(v) && num(v.x) && num(v.y) && typeof v.t === 'string'
 /** A ghost trail is only a trail while it still holds the points it was made of — one with
  *  neither frame filled draws nothing and would only ever be a row nobody can see or delete. */
+/** a signature that can be shown and printed: its role, signer, scope hash and strokes are there */
+const isReportSignature = (v: unknown): v is ReportSignature =>
+  hasId(v) && (v.role === 'el' || v.role === 'kdt') && typeof v.name === 'string' && typeof v.at === 'string'
+  && typeof v.scope === 'string' && isObj(v.strokes) && Array.isArray((v.strokes as { d?: unknown }).d)
 const isTruppTrail = (v: unknown): v is TruppTrail =>
   hasId(v) && typeof v.sourceId === 'string' && (Array.isArray(v.points) || Array.isArray(v.geo))
 
@@ -558,6 +566,7 @@ export function sanitizeWorkspace(raw: unknown): WorkspaceGate {
     trails: arr<TruppTrail>(raw.trails, isTruppTrail),
     reportMeta: rec<ReportMeta>(raw.reportMeta),
     attachments: arr<ReportAttachment>(raw.attachments, hasId),
+    reportSignatures: arr<ReportSignature>(raw.reportSignatures, isReportSignature),
     planBindings: arr<IncidentPlanBinding>(raw.planBindings, isIncidentPlanBinding),
     settings,
     intakeReviewedAt: str(raw.intakeReviewedAt),
@@ -580,6 +589,7 @@ export interface InitialState {
   cameraViews: CameraView[]
   trails: TruppTrail[]
   attachments: ReportAttachment[]
+  reportSignatures: ReportSignature[]
   planScale: PlanScales
   reportMeta: ReportMeta
   settings: IncidentSettings
@@ -823,6 +833,7 @@ export function deriveInitial(
     cameraViews: ws?.cameraViews ?? [],
     trails: ws?.trails ?? [],
     attachments: ws?.attachments ?? [],
+    reportSignatures: ws?.reportSignatures ?? [],
     planScale: ws?.planScale ?? {},
     reportMeta: ws?.reportMeta ?? {},
     settings: ws?.settings ?? {},

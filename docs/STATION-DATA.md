@@ -39,10 +39,12 @@ kp-front-data-muster/
   plans/<object-id>/
   checklists.manifest.json
   checklists/
-  tafel.manifest.json      the Tafel's pages (board-template/1) – a copy of the FKS set to start
-  tafel/
+  tafel.manifest.json      the Tafel's pages (board-template/1) – the example points at the bundled
+                           FKS set in src/data/boardTemplates/; your copy names its own page files
   load.sh                  the whole sequence, in order (copy examples/demo-data/load.sh)
   gen_water.py             optional source-specific importer, beside what it writes
+  incident.workspace.json  demo only: the live demo's baked Lage/Plan scene (app.demo_reset)
+  README.md                what each file is and which CLI loads it
 ```
 
 That is `examples/demo-data/` as it actually is – flat, because every manifest path is relative
@@ -187,7 +189,9 @@ for all six, which is why the block above needs neither flag.
 would **empty** a section that currently has content – that is what publishing a stale file looks
 like – and `--force` is how you say you meant it. Every write keeps the document it replaced;
 `admin_config history` / `restore <id>` is the way back. Details:
-[`CONFIGURATION.md`](CONFIGURATION.md) §9.
+[`CONFIGURATION.md`](CONFIGURATION.md) §9. `admin_objects` refuses a push none of whose object ids
+the deployment has, while it already has objects – that push would duplicate every one of them
+(a manifest from another id scheme) – and `--allow-create` is how you say they really are new.
 
 `/admin` writes the same rows through forms and uploads, and most stations do everything there.
 Object plans, geodata and checklists are **no longer terminal-only** – each has its own admin page

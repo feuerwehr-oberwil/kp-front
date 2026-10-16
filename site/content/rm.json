@@ -208,7 +208,7 @@
   "features": {
     "eyebrow": "Volumen da funcziuns",
     "h2": "Tge che fa part.",
-    "lede": "Il volumen da funcziuns è creschì en acziuns ed exercizis reals e betg sin basa d’ina glista\n        da funcziuns. Tut quai che vegn da servetschs externs – alarmaziun, GPS, stampaders – è\n        <strong>opziunal</strong>: KP Front funcziuna cumplettamain era senza questas colliaziuns.",
+    "lede": "Il volumen da funcziuns è creschì en acziuns ed exercizis reals e betg sin basa d’ina glista\n        da funcziuns. Tut quai che vegn da servetschs externs – alarmaziun, GPS, annunzia cun Microsoft – è\n        <strong>opziunal</strong>: KP Front funcziuna cumplettamain era senza questas colliaziuns.",
     "groups": [
       {
         "h3": "Charta &amp; plan",
@@ -219,8 +219,10 @@
           "Mesirar distanzas e surfatschas, era sin plans tenor scala",
           "Nivels: idrants, cataster da conducts, servetschs chantunals da chartas",
           "<strong>Register da materias privlusas</strong>: nums ONU, infurmaziuns davart substanzas e recumandaziuns per distanzas da bloccada e da protecziun, disponibel directamain durant l’acziun",
-          "Infurmaziuns meteorologicas e da vent per sustegnair la valitaziun da la situaziun",
-          "Plans d’object sco tavla da lavur, plauns superposts, tavla vida",
+          "Infurmaziuns meteorologicas e da vent per sustegnair la valitaziun da la situaziun, ed il radar da precipitaziuns da MeteoSvizra sco nivel",
+          "Plans d’object sco tavla da lavur e plauns superposts",
+          "<strong>Tavla cun paginas FKS</strong>: skizza libra, «Erste Führung» e fegls dal manual FKS – stampads en il rapport sco l’original",
+          "<strong>Infurmaziuns davart l’edifizi</strong>: datas dal register d’edifizis – gas, ieli da stgaudar, PV – e mesiras immediatas per l’object",
           "<strong>Georeferenziaziun</strong>: colliar plan e charta sur puncts da referenza cuminaivels – in object, visibel sin omaduas surfatschas, cun indicaziun da la precisiun. Il corps da pumpiers po orientar e deliberar ils plans d’object ordavant",
           "Revocar e restabilir sin mintga surfatscha – process documentads restan chapibels"
         ]
@@ -229,8 +231,10 @@
         "h3": "Persunal &amp; meds",
         "items": [
           "<strong>Surveglianza da la protecziun respiratorica</strong>: pressiun, temp da retratga, ura da contact, alarms",
+          "<strong>Urgenza da protecziun respiratorica</strong>: ina gruppa en privel cumpara immediatamain cotschna sisum sin tut ils apparats – cun ura d’urgenza e gruppa da segirezza",
           "<strong>Gruppas cun u senza protecziun respiratorica</strong>: persunal, incumbensa e persuna da direcziun – sin charta, plan e plauns cun l’atgna colur da la gruppa, dapertut la medema",
           "Preschientscha cun uras d’arriv e grads",
+          "Sin via: tgi che ha confermà l’alarm da Divera, directamain sur la preschientscha",
           "<strong>Plan da temp</strong>: planisar disponibilitads e servetschs per mintga persuna,\n            vesair la cuvrida durant l’entira acziun ed edir in formular da direcziun",
           "<strong>Cundivider la posiziun</strong>: tgi che avra il link cumpara sco punct sin la\n            charta da situaziun – voluntarmain, e mo per questa acziun",
           "Dar vinavant l’access ad in’acziun cun in link; l’access è visibel e po vegnir\n            revocà",
@@ -246,6 +250,7 @@
           "Endataziuns cun text, audio, fotografias e memoraziuns; cun in servetsch da transcripziun configurà vegnan notizias vocalas transfurmadas en text",
           "<strong>Viadi en il temp</strong>: reproducziun da l’acziun minuta per minuta, temps d’attesa\n            lungs vegnan sursiglids – per la discussiun finala",
           "Rapport d’acziun sco PDF cun persunal, material, temps, decurs, skizza,\n            fotografias e surveglianza respiratorica",
+          "<strong>Evaluaziun</strong> per la discussiun finala: cifras clav ed ina lingia dal temp sin in agen fegl a la fin dal rapport",
           "Fotografias sco annexas al rapport",
           "<strong>Controlla finala</strong> che mussa indicaziuns mancantas",
           "Organisaziuns partenarias cun remartgas",
@@ -262,7 +267,8 @@
           "Modus da di e da notg, grondezza dals simbols e surfatschas grondas per tablets",
           "Surpigliar alarms da Divera u FireHub ed integrar ulteriurs sistems d’alarmaziun sur ina interfatscha averta <span class=\"opt\">opziunal</span>",
           "Posiziuns GPS dals vehichels <span class=\"opt\">opziunal</span>",
-          "Stampa PDF en il magazin <span class=\"opt\">opziunal</span>",
+          "S’annunziar cun Microsoft en il conto existent, ultra il PIN <span class=\"opt\">opziunal</span>",
+          "<strong>Visitas d’objects</strong> senza acziun, offline – glista da controlla, fotografias e rapport <span class=\"opt\">opziunal</span>",
           "<strong>Atgna administraziun</strong> per mintga corps da pumpiers: persunal, vehichels, glistas da controlla, nivels da charta e models",
           "Interfatscha per tudestg, englais, franzos u talian – configurada per mintga corps da pumpiers"
         ]
@@ -272,7 +278,7 @@
   "sibling": {
     "eyebrow": "Project parent",
     "h2": "KP Front maina davant. KP Rück mantegna la survista davos.",
-    "p": "<strong>KP Rück</strong> è la versiun digitala da la tavla magnetica en il post da commando\n          posteriur: ina tavla per persunal, vehichels e material. Las duas applicaziuns pon\n          transmetter alarms ina a l’autra, ma funcziunan independentamain.",
+    "p": "<strong>KP Rück</strong> è la versiun digitala da la tavla magnetica en il post da commando\n          posteriur: ina tavla per persunal, vehichels e material. Las duas applicaziuns\n          survegnan il medem alarm dal sistem d’alarmaziun e funcziunan independentamain.",
     "cta": "Vesair KP Rück",
     "setup": {
       "h3": "Manar omaduas applicaziuns – senza configurar tut duas giadas",
@@ -284,10 +290,6 @@
         {
           "dt": "Access a Divera",
           "dd": "Ina clav per omaduas applicaziuns – ils medems alarms, la medema glista dal persunal. <span class=\"opt\">opziunal</span>"
-        },
-        {
-          "dt": "Agent da stampa",
-          "dd": "In servetsch en il magazin serva omaduas applicaziuns e las duas sorts da stampa: PDF e stampa directa."
         },
         {
           "dt": "Glista dal persunal",

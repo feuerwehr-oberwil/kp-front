@@ -109,8 +109,9 @@ to); it is the source of truth and should be kept current when a convention chan
 - The backend has a ruff pre-commit hook; the frontend has none – so **run
   `pnpm lint && pnpm test` before pushing**.
 - **Some files are shared with KP Rück by copy** – the telemetry sanitiser, the alarm keyword
-  vocabulary, the roster-snapshot contract and reader, the alarm intake corpus, the loading
-  snail. They are listed in [`shared/MANIFEST.json`](shared/MANIFEST.json); changing one is a
+  vocabulary, the roster-snapshot contract and reader, the station index, the alarm intake
+  corpus, the loading snail and the shared check itself.
+  [`shared/MANIFEST.json`](shared/MANIFEST.json) is the authoritative list; changing one is a
   two-repository change on equally named branches, step by step in
   [`shared/README.md`](shared/README.md). CI's «Shared files match KP Rück» fails otherwise.
 

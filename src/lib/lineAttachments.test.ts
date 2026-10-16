@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { LineAttachment } from '../types'
 import {
-  advanceDwell, applyRouting, armDwell, attachInsetPx, boundaryPoint, detachProgress,
+  advanceDwell, applyRouting, armDwell, arrowEdgePadPx, arrowTipLeadPx, attachInsetPx, boundaryPoint, DEFAULT_OBJECT_ROUTING, detachProgress, lineJoints, objectAttachment,
   DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, endpointCapacity, flipLine, MAGNET_DWELL_MS,
   forkDims, forkPortPoint, gpsGuard, incomingAttachments, isMagnetAnno, isMagnetEntity,
   materializeEndpoint, moveLineBody,
@@ -372,5 +372,48 @@ describe('nearestFreeEndpoint (a marker dropped on the end of a hose)', () => {
     expect(nearestFreeEndpoint(justOutside, lines, same, TEAM_JOIN_RADIUS_PX)?.endpoint).toBe('start')
     // …and it is still a radius, not «anywhere»: past it nothing joins
     expect(nearestFreeEndpoint([0, TEAM_JOIN_RADIUS_PX + 1], lines, same, TEAM_JOIN_RADIUS_PX)).toBeNull()
+  })
+})
+
+// ── Defaults and joints (11.10.2026, owner review of the Gebäude view) ──────────────────────
+describe('the default routing of an object attachment', () => {
+  it('is «Direkt» — an end docked onto a symbol or a Trupp follows it, it does not trace it', () => {
+    expect(DEFAULT_OBJECT_ROUTING).toBe('direct')
+    expect(objectAttachment('r1')).toEqual({ target: { kind: 'object', id: 'r1' }, routing: 'direct' })
+  })
+
+  it('leaves a stored «Spur» attachment exactly as it was when the object moves', () => {
+    // the default is for NEW attachments only; a trace someone chose keeps appending route
+    const pts: [number, number][] = [[0, 0], [10, 0]]
+    expect(applyRouting(pts, 'end', [10, 10], 'trace')).toEqual([[0, 0], [10, 0], [10, 10]])
+    expect(applyRouting(pts, 'end', [10, 10], objectAttachment('r1').routing)).toEqual([[0, 0], [10, 10]])
+  })
+})
+
+describe('an attached arrow end stops at the glyph edge', () => {
+  it('leaves room for the arrowhead lead, outside the box — a plain end still tucks in', () => {
+    expect(arrowTipLeadPx(5)).toBe(9)
+    expect(arrowEdgePadPx(5)).toBe(arrowTipLeadPx(5) + 2)
+    const box = { shape: 'rect' as const, center: [0, 0] as [number, number], width: 100, height: 40 }
+    // a line arriving from straight above: plain end 4.5 px inside the top edge, the arrow end
+    // far enough outside that its tip (lead px further on) lands 2 px short of the edge
+    expect(boundaryPoint(box, [0, -100], -attachInsetPx(5))[1]).toBeCloseTo(-20 + 4.5)
+    const end = boundaryPoint(box, [0, -100], arrowEdgePadPx(5))
+    expect(end[1] + arrowTipLeadPx(5)).toBeCloseTo(-22)
+  })
+})
+
+describe('lineJoints', () => {
+  const ln = (id: string, extra: Partial<AttachableLine> = {}): AttachableLine => ({ id, points: [[0, 0], [10, 0]], ...extra })
+  it('lists every line end coupled onto another LINE, at the end\'s own point', () => {
+    const trunk = ln('ts', { teilstueck: true })
+    const branch = ln('b', { points: [[12, 2], [30, 2]], startAttachment: { target: { kind: 'line', id: 'ts', endpoint: 'end' }, routing: 'direct', port: 0 } })
+    expect(lineJoints([trunk, branch])).toEqual([{ lineId: 'b', endpoint: 'start', point: [12, 2], targetId: 'ts' }])
+  })
+
+  it('ignores ends docked onto objects, free ends, and a target that is gone', () => {
+    const onObject = ln('o', { endAttachment: { target: { kind: 'object', id: 'sym' }, routing: 'direct' } })
+    const dangling = ln('d', { startAttachment: { target: { kind: 'line', id: 'gone', endpoint: 'end' }, routing: 'direct' } })
+    expect(lineJoints([onObject, dangling, ln('free')])).toEqual([])
   })
 })

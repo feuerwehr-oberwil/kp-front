@@ -34,10 +34,6 @@ export const TEAM_DOT_GAP = 8
 /** The selected pill's accent cap, centre-to-left-edge: 1px border + 8px padding + half of the
  *  4px cap — so selecting a Trupp swaps the chrome without moving the point it states. */
 export const TEAM_PILL_CAP_PX = 11
-/** `.team-ltg` + its gap — the merged Leitung field on a joined marker («Ein Etikett», 15.09.).
- *  Deliberately a FIXED width in CSS (tabular figures, room for two digits), so the label pass
- *  can book the strip it grows without measuring text it never renders. */
-export const TEAM_LTG_PX = 25
 /** `.team-link` + its gap — the «angedockt» glyph at the right end of the same strip. */
 /** the resting strip's name chip, as the label pass measures it (`.team-dot b` – 700 11px
  *  Sora, 4px padding each side, 15px line). ONE definition: MapView books the box with it and
@@ -55,9 +51,11 @@ export const SYM_CAPTION_GAP = 4
 export const READOUT_LABEL_STYLE = { font: '700 11px "Spline Sans Mono", ui-monospace, monospace', maxTextW: Infinity, chromeW: 16, chromeH: 4, lineH: 13.75 }
 /** `.line-end-tag` (09-whiteboard.css) — 800 --fs-micro/1, 2px/4px padding plus a 1.5px border; `inline-grid` stacks the Trupp row */
 export const END_TAG_LABEL_STYLE = { font: '800 11px Sora, system-ui, sans-serif', maxTextW: Infinity, chromeW: 11, chromeH: 7, lineH: 11 }
-/** the whole resting strip's width: [dot][gap][name][Ltg] */
-export const teamStripPx = (label: string, hasLtg: boolean): number =>
-  TEAM_DOT_PX + TEAM_DOT_GAP + cachedLabelSize(label, TEAM_LABEL_STYLE).w + (hasLtg ? TEAM_LTG_PX : 0)
+/** the whole resting strip's width: [dot][gap][name]. ⚠️ No Leitung field any more (11.10.2026,
+ *  owner: «on the map the trupps are numbered – which we don't need»): the Karte's marker is the
+ *  Gebäude chip's — name only — and the Leitung's number stays on the hose's own end tag. */
+export const teamStripPx = (label: string): number =>
+  TEAM_DOT_PX + TEAM_DOT_GAP + cachedLabelSize(label, TEAM_LABEL_STYLE).w
 
 // Symbol size tied to the real world (m), scaling with zoom — but clamped into a
 // NARROW band: at normal Einsatz zooms a symbol looks almost constant (like a map

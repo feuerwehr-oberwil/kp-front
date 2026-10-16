@@ -2259,7 +2259,7 @@ function TruppPair({ t, live, sev, nested = false, onPressure, onContact }: {
  * 26./27.09. and the owner reviewed that version, so it is the reference and the tablet takes it
  * whole, top to bottom:
  *
- *   1 line       dot · name · #N · the clock (RowLine) — the collapse toggle on the phone board
+ *   1 line       dot · name · the clock (RowLine) — the collapse toggle on the phone board
  *   2 tiles      «⌓ 240 bar | Kontakt» (TruppPair), then Rückzug | Raus in the same tile shape
  *   3 state      the tier in words where colour alone would say it (`stateLine`)
  *   4 Hinweis    the Alarmdruck note, for the case where only the projection has crossed
@@ -2668,7 +2668,7 @@ function TruppCard({
    * (else the Auftrag sheet), the Ausrüstung → Trupp sheet (the ⋯ moved to the foot line on 29.09.2026). The one
    * thing allowed a colour is the GAP: a dashed amber «+ Auftrag» where the Auftrag is missing —
    * a Trupp with no job is a question the Überwacher must be able to see. No chip for a missing
-   * Leitung (it lives in the Auftrag sheet), no small-caps labels, no «#N» (that is on the head).
+   * Leitung (it lives in the Auftrag sheet), no small-caps labels, no «#N» (dropped 30.09.2026, see TruppNo).
    * `chip(key, node, onTap, cls)`: a button when it has somewhere to go, a plain chip otherwise
    * (a viewer's card, the lite board's jumps).
    * ⚠️ «Rückzug» leads as a FACT, and it is not a tier: a Trupp on its way out with a calm clock

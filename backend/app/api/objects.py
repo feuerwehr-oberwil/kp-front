@@ -166,12 +166,31 @@ async def create_object(body: ObjectIn, _admin: CurrentAdmin, db: AsyncSession =
 async def upsert_object(
     object_id: uuid.UUID, body: ObjectUpsertIn, _admin: CurrentAdmin, db: AsyncSession = Depends(get_db)
 ) -> ObjectSite:
+    """Create-or-update by id. Callers: the admin's object mask and ``admin_objects push``. The
+    ``ObjectIn`` fields are replaced; the ``ObjectUpsertIn`` extras only when sent (see there)."""
     o = (await db.execute(select(ObjectSite).where(ObjectSite.id == object_id))).scalar_one_or_none()
+    if "source_key" in body.model_fields_set and body.source_key is not None:
+        # The column is unique: two objects claiming one station key would hand a pulled plan to
+        # whichever the query returned first. Say which object holds it instead of a bare 500.
+        holder = (
+            await db.execute(
+                select(ObjectSite).where(ObjectSite.source_key == body.source_key, ObjectSite.id != object_id)
+            )
+        ).scalar_one_or_none()
+        if holder is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=f"source_key {body.source_key!r} gehört schon zu Objekt {holder.id} ({holder.name})",
+            )
     if o is None:
         o = ObjectSite(id=object_id)
         db.add(o)
-    for k, v in body.model_dump(exclude={"filing_folder", "refs", "measures", "remarks", "measures_source"}).items():
+    for k, v in body.model_dump(
+        exclude={"source_key", "filing_folder", "refs", "measures", "remarks", "measures_source"}
+    ).items():
         setattr(o, k, v)
+    if "source_key" in body.model_fields_set:
+        o.source_key = body.source_key
     if "filing_folder" in body.model_fields_set:
         o.filing_folder = (body.filing_folder or "").strip() or None
     if "measures" in body.model_fields_set:
