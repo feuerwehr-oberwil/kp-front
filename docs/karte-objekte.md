@@ -1,7 +1,8 @@
 # Karte & Objekte
 
-Status: 🟡 in progress (from 2026-10-16). The station reads below are built; the `/karte` viewer
-and the home switch follow in their own changes.
+Status: 🟡 in progress (from 2026-10-16). The station reads and the `/karte` viewer are built; the
+home switch (Karte & Objekte as the start when no Einsatz is open), the «Einsätze» sheet, the
+Einsatz-menu entry back to the viewer and deliberate offline downloads follow in their own changes.
 
 «Karte & Objekte» is the station's reference viewer **outside an Einsatz**: a member looks at the
 station area, an object's plans and notes, the register facts of any building, and starts an
@@ -77,3 +78,52 @@ the object, under the same module rule as `lastVisit`.
 
 ⚠️ Both routes live on their own router, mounted before `api/reference`: that router's
 `/{dataset_id}` would otherwise answer `/reference/objects` as a dataset called «objects».
+
+## The viewer (`/karte`)
+
+`src/components/karte/` — its own lazy chunk, mounted by `App` for the `/karte` route (deep link:
+`/karte?objekt=<id>` selects an object; the address follows the selection without a history
+entry). Reached for now from the launcher's «Karte & Objekte» row; a deep link at start opens no
+Einsatz behind it (the same rule as `/besuche`). Not for a link session.
+
+What it reuses, so nothing forks:
+
+| Piece | Reused from |
+|---|---|
+| map, layers, vehicles, measure path, georef raster, weather radar | `MapView` (read-only, no drawings) + `MapLayers` (a `polygons` overlay kind draws the outlines) |
+| Ebenen | `LayerPanel`, under its OWN device key (`kp.layers.karte`, `lib/karte/session`), without the Einsatz-only layers (taktisch, Skizzen, Personen); the radar's choice too (`kp.karte.radar`) |
+| tools | the Einsatz's `ToolRail` (tablet) / the folded `navrail` bar (phone), `ToolDock` + `MeasurePanel` WITHOUT «Als Linie/Fläche übernehmen», `MapViewsButton` without saved views |
+| weather | `useWeather` + `WeatherBadge` |
+| plans | the NavRail classes and `PlanGlyph`, `PlanChooser` on the phone, `PdfScroller` on the current revision; the Gebäude storeys as the floor pack's page regions (`planRegionCropUrl`, what `FloorPage` draws from) |
+| register facts | `lib/buildingCard` (chips, source line), the same «Register-Hinweis» |
+| Gefahrgut | `UnHazardSection` — the Gefahrentafel's ADR/ERG block, extracted from `ContextPanel` |
+| building outlines | the Umriss picker's `/api/overpass/buildings` (station snapshot first), loaded per grid cell (`lib/karte/outlines`) |
+
+The rules that are easy to break:
+
+- **Own state, never an Einsatz's.** No workspace, no saved drawing, no plan binding, no journal
+  row. Measurements, the Gefahrgut rings and a dropped pin are component state; only the Ebenen and
+  the view (`KarteView`: frame, selected object, open plan, in sessionStorage) are kept —
+  `karteViewSnapshot` is the one door into storage (`lib/karte/karte.test.ts` pins it).
+- **A building is an object only by containment or an exact address.** An object is drawn as the
+  OSM outline that CONTAINS its own coordinate; a tapped building opens an object only when the
+  register's street + number equals the object's (`lib/karte/places`). A key box at the same door
+  is not the building. No outline under a point → no building.
+- **«In der Nähe» is distance only**, and the panel says so in a sentence.
+- **Missing is said.** A register that could not be asked, a place never looked at offline, an
+  object without notes: each gets its sentence, and «Keine Gefahrenangaben … heisst nicht …»
+  closes the panel. Nothing reads as «no hazard».
+- **Doors by role.** «Objektbesuch» / «Meldung erfassen» only for `objectVisits.captureRoles`
+  (and only where the module runs); every other account reads the visits with a one-line reason.
+- **Search** finds objects on the device first — name, address, aliases, folded umlauts, every
+  word of the query — ranked name before alias/address, plans before none, key boxes last, then
+  distance (`lib/karte/search`). Objects without coordinates are found and marked «ungefähr»
+  (their place on the map comes from geocoding the address). Addresses follow from
+  `/api/geocode/search`, online only, and say so offline.
+- **Visits hand over** to the existing capture: `/besuche/neu?object=<id>&from=karte` for an
+  object, `/besuche/neu?lat=&lng=&label=[&address=]&from=karte` for a building or a pin (contract
+  C1, label «bei <Adresse>» within 60 m of a pin, else «Gesetzter Punkt»). The viewer stays
+  «entered» while that visit is open, so the way back lands on it.
+- **Alarms** reach the viewer through the Meldeleiste and the same two banners as the
+  Objektbesuche; nothing switches by itself. A running Einsatz is the red chip in the bar (a strip
+  under it on a phone); a tap opens it.

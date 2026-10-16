@@ -36,6 +36,7 @@ import { reportCopy } from './de/report'
 import { anwesenheitCopy } from './de/anwesenheit'
 import { materialCopy } from './de/material'
 import { objectVisitsCopy } from './de/objectVisits'
+import { karteCopy } from './de/karte'
 import { adminCopy } from './de/admin'
 
 export type { HelpOnly, HelpBlock, HelpSection } from './de/help'
@@ -62,6 +63,7 @@ export const de = {
   ...anwesenheitCopy,
   ...materialCopy,
   ...objectVisitsCopy,
+  ...karteCopy,
   ...adminCopy,
 } as const
 

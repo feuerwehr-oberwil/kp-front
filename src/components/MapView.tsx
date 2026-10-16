@@ -1,4 +1,4 @@
-import { forwardRef, Fragment, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { forwardRef, Fragment, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
 import { buzz } from '../lib/haptics'
@@ -419,6 +419,12 @@ interface Props {
   /** The «Niederschlag (Radar)» layer (components/WeatherLayer), while it is on: the frame on
    *  screen, its transparency (0–100) and whether it is stale (drawn desaturated). */
   weatherRadar?: { radar: WeatherRadar; frameIndex: number; opacity: number; stale: boolean } | null
+  /** extra map content drawn last, inside the map (react-map-gl Markers): «Karte & Objekte» puts its
+   *  object name tags here (components/karte). The Einsatz passes nothing. */
+  children?: ReactNode
+  /** the quiet Einsatzort ring at `initialCenter` — off where the centre is no incident's place
+   *  («Karte & Objekte»: just where the station view opens) */
+  showOrigin?: boolean
 }
 
 /** Whether the Karte takes its automatic coarse own-position fix (the default blue dot,
@@ -434,7 +440,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, onBasemapUnavailable, onSettled, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
-    onSelectionDone, georefPlanRasters = [], weatherRadar = null } = props
+    onSelectionDone, georefPlanRasters = [], weatherRadar = null, children, showOrigin = true } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
@@ -2221,9 +2227,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
       {/* Einsatzort — a quiet ring marking the incident/object location so it stays
           findable after the map is panned away. Sits below the placed markers. */}
-      <Marker longitude={initialCenter[0]} latitude={initialCenter[1]} anchor="center">
-        <div className="map-here map-incident" title={appConfig.copy.map.incidentHere} />
-      </Marker>
+      {showOrigin && (
+        <Marker longitude={initialCenter[0]} latitude={initialCenter[1]} anchor="center">
+          <div className="map-here map-incident" title={appConfig.copy.map.incidentHere} />
+        </Marker>
+      )}
 
       {/* own live position (GPS) */}
       {userPos && (
@@ -2840,6 +2848,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
             opacity={weatherRadar.opacity} stale={weatherRadar.stale} />
         </Suspense>
       )}
+      {children}
     </Map>
     {/* the tool's number, fixed at the top edge while a measure vertex is being dragged — the
         per-vertex label sits under the very fingertip that changes it (the .node-del chip is

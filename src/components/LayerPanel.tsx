@@ -49,9 +49,11 @@ interface Props {
   preset?: LayerPreset
   /** the weather radar row, last on the panel (its own group, «Wetter») */
   weather?: WeatherLayerRow
+  /** one quiet line above the credits — «Karte & Objekte» says there that its Ebenen are its own */
+  note?: string
 }
 
-export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onClose, onShowAll, onHideAll, onReset, preset, weather }: Props) {
+export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onClose, onShowAll, onHideAll, onReset, preset, weather, note }: Props) {
   /* One transparency row, for a real `LayerDef` and for a Georeferenz twin alike — the twin ids
      are not `LayerDef` ids and persist elsewhere (georefTwins · isTwinLayerId → the device's
      `twinLayerOpacity`), but the row is the panel's, so both go through the same control and the
@@ -234,6 +236,7 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
           </>
         )}
 
+        {note && <p className="lc-credits">{note}</p>}
         {credits.length > 0 && <p className="lc-credits">{credits.join(', ')}</p>}
       </div>
     </div>
