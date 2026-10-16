@@ -925,6 +925,8 @@
      longer scrolls inside (`overflow: auto`). Same reservation as `.tb-weather-pop` above. */
   .ip-menu { max-height: calc(100dvh - 76px - env(safe-area-inset-top) - var(--rail-h) - 16px - env(safe-area-inset-bottom));
     width: calc(100% + 2px); min-width: 0; max-width: none; }
+  /* …the «Einsätze ▾» sheet of «Karte & Objekte» too (13-incident · .ip-einsaetze) */
+  .ip-menu.ip-einsaetze { width: calc(100% + 2px); }
 
   /* the plan's floating zoom (−/%/+/fit) is dropped on a phone — pinch handles zoom, and Fit is
      the bottom bar's «Einpassen» tile; a sheet with no bar keeps it in the top bar (TopBar mapNav) */

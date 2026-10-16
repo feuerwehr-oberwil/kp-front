@@ -42,3 +42,33 @@ describe('IncidentSwitcher · Objektbesuche', () => {
     expect(screen.queryByRole('button', { name: appConfig.copy.objectVisits.launcher })).toBeNull()
   })
 })
+
+// Owner 16.10.2026: «Karte & Objekte» heads the «App» group, and says where it picks up again.
+describe('IncidentSwitcher · Karte & Objekte', () => {
+  afterEach(() => sessionStorage.clear())
+
+  it('heads the App group and invites to look when the viewer was not used yet', () => {
+    const open = vi.fn()
+    renderSwitcher({ onKarte: open, onObjectVisits: () => {} })
+    const row = screen.getByRole('button', { name: /Karte & Objekte/ })
+    expect(row.textContent).toContain('Objekte, Pläne und Gebäude ansehen')
+    // first in its group: before Objektbesuche
+    const visits = screen.getByRole('button', { name: appConfig.copy.objectVisits.launcher })
+    expect(row.compareDocumentPosition(visits) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    fireEvent.click(row)
+    expect(open).toHaveBeenCalledTimes(1)
+  })
+
+  it('names where the viewer was left', () => {
+    sessionStorage.setItem('kp.karte.view', JSON.stringify({
+      center: [7.57, 47.52], zoom: 17, bearing: 0, objectId: 'schloss', surface: { plan: 'p1' }, label: 'Schloss Musterdorf · Modul 1',
+    }))
+    renderSwitcher({ onKarte: () => {} })
+    expect(screen.getByRole('button', { name: /Karte & Objekte/ }).textContent).toContain('Zurück zu Schloss Musterdorf · Modul 1')
+  })
+
+  it('draws no row for a link session (no door handed in)', () => {
+    renderSwitcher()
+    expect(screen.queryByRole('button', { name: /Karte & Objekte/ })).toBeNull()
+  })
+})

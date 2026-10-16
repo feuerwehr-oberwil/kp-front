@@ -213,6 +213,8 @@ interface WorkspaceProps {
   onOpenHistory: () => void
   /** opens the Objektbesuche surface (App · enterObjectVisits); undefined = module off */
   onOpenObjectVisits?: (objectId?: string | null) => void
+  /** opens «Karte & Objekte» over this Einsatz (App · enterKarte); undefined = a link session */
+  onOpenKarte?: () => void
   onOpenDivera: () => void
   onOpenDatenquellen: () => void
   /** freshly one-tap-taken Divera incident: show the correct-in-place review banner */
@@ -252,7 +254,7 @@ const REORIENT_FOLD_MS = 1500
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
-  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
+  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
   needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
   const { user, logout, asLink, isEl, linkRefused, roleReadOnly, isEditor, linkScoped } = useSessionRole(incidentMeta)
@@ -3058,7 +3060,7 @@ export function IncidentWorkspace({
         setPanel, setTruppFocus, mapUI, replayActive, gpsStale, gpsAgeMs, share, onShareChangeName,
         onBackFromArchive, onReactivateActive, isPhone, phoneTools, planFit, incidents, syncStatus, journal,
         auditDelivery, closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
-        onSwitchIncident, onOpenHistory, onOpenObjectVisits, activeObjectId, canEditMeta, onEditMeta,
+        onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, activeObjectId, canEditMeta, onEditMeta,
         onOpenDivera, onOpenDatenquellen, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
         setHelpOpen, setInstallGuideOpen, setOfflineReadyOpen, syncNow, media, logout, settingsOpen,
         helpOpen, installGuideOpen, offlineReadyOpen, shareLink,

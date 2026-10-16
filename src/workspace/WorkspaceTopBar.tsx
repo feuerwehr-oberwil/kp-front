@@ -84,6 +84,7 @@ export interface WorkspaceTopBarProps {
   onSwitchIncident: (i: IncidentMeta) => void
   onOpenHistory: () => void
   onOpenObjectVisits: ((objectId?: string | null) => void) | undefined
+  onOpenKarte: (() => void) | undefined
   activeObjectId: string | undefined
   canEditMeta: boolean
   onEditMeta: () => void
@@ -114,7 +115,7 @@ export function WorkspaceTopBar({
   setPanel, setTruppFocus, mapUI, replayActive, gpsStale, gpsAgeMs, share, onShareChangeName,
   onBackFromArchive, onReactivateActive, isPhone, phoneTools, planFit, incidents, syncStatus, journal,
   auditDelivery, closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
-  onSwitchIncident, onOpenHistory, onOpenObjectVisits, activeObjectId, canEditMeta, onEditMeta,
+  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, activeObjectId, canEditMeta, onEditMeta,
   onOpenDivera, onOpenDatenquellen, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
   setHelpOpen, setInstallGuideOpen, setOfflineReadyOpen, syncNow, media, logout, settingsOpen,
   helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
@@ -229,6 +230,7 @@ export function WorkspaceTopBar({
             onSwitch={onSwitchIncident}
             onHistory={linkScoped ? undefined : onOpenHistory}
             onObjectVisits={linkScoped || !onOpenObjectVisits ? undefined : () => onOpenObjectVisits(activeObjectId ?? null)}
+            onKarte={linkScoped ? undefined : onOpenKarte}
             onEditMeta={canEditMeta ? onEditMeta : undefined}
             onDivera={onOpenDivera}
             onDatenquellen={onOpenDatenquellen}
