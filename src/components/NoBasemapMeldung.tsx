@@ -5,7 +5,14 @@ import { useMeldung } from '../lib/useMeldung'
 // the map is a flat colour with symbols and lines on it, and nothing on screen said why. The row
 // names the cause and leads to the Offline-Bereitschaft sheet, where the area can be prepared for
 // next time. Once per Einsatz mount, gone the moment the link is back (IncidentWorkspace).
-export function NoBasemapMeldung({ onOpenOffline, onDismiss }: { onOpenOffline: () => void; onDismiss: () => void }) {
+// «Karte & Objekte» publishes the same row with its own second line and action: there is no
+// Einsatz to prepare an area for, so it leads to its «Auf diesem Gerät» sheet instead.
+export function NoBasemapMeldung({ onOpenOffline, onDismiss, sub, actionLabel }: {
+  onOpenOffline: () => void
+  onDismiss: () => void
+  sub?: string
+  actionLabel?: string
+}) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.map
   useMeldung({
@@ -14,8 +21,8 @@ export function NoBasemapMeldung({ onOpenOffline, onDismiss }: { onOpenOffline: 
     tone: 'warn',
     icon: 'layers',
     title: C.noTilesTitle,
-    sub: C.noTilesSub,
-    actions: [{ label: C.noTilesAction, onClick: onOpenOffline }],
+    sub: sub ?? C.noTilesSub,
+    actions: [{ label: actionLabel ?? C.noTilesAction, onClick: onOpenOffline }],
     dismiss: { label: C.noTilesDismiss, onClick: onDismiss },
   })
   return null

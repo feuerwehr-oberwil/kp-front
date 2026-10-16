@@ -4,6 +4,7 @@ import type { LayerDef, LayerId, PreparedMapOverlay } from '../types'
 import { circlePolygon } from '../lib/geo'
 import { vis, lineFeat } from '../lib/mapView'
 import { useNightTheme } from '../lib/useNightTheme'
+import { hatchImageId } from '../lib/draw'
 
 // Night mode dims the basemap so it's mostly dark without losing detail (buildings/roads stay
 // visible) — a gentle dim, NOT a full dark/black swap. Applied to the BASE raster only, so the
@@ -151,7 +152,11 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
                 source={`s-${overlay.id}`}
                 type="fill"
                 layout={vis(isVisible(overlay.layer))}
-                paint={{ 'fill-color': overlay.color, 'fill-opacity': overlay.fillOpacity ?? 0.08 }}
+                // a hatched overlay paints the Schraffur tile of its colour (registered on demand by
+                // MapImages' missing-image resolver, like a hatched Fläche)
+                paint={overlay.kind === 'polygons' && overlay.hatch
+                  ? { 'fill-pattern': hatchImageId(overlay.color), 'fill-opacity': overlay.fillOpacity ?? 1 }
+                  : { 'fill-color': overlay.color, 'fill-opacity': overlay.fillOpacity ?? 0.08 }}
               />
               <Layer
                 id={`l-${overlay.id}-line`}
