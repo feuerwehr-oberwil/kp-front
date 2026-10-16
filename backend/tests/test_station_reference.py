@@ -339,3 +339,28 @@ async def test_building_switch_box_and_bounds(client, db_session, editor, regist
     await set_config(db_session, map={"buildingRegister": False})
     off = await client.get("/api/reference/building", params={"lat": HOME[0], "lng": HOME[1]})
     assert off.json()["registers"] == "off" and calls["identify"] == 0
+
+
+async def test_a_single_page_fit_counts_without_leaking_its_page_count(client, db_session, editor, monkeypatch):
+    """A fit on page 0 of a plan with no tile manifest needs the PDF's page count to pass the
+    publish gate — that count decides `georef` only and never becomes `pages`."""
+    import app.api.station_reference as sr
+
+    obj = ObjectSite(id=uuid.uuid4(), name="Schulhaus", address="Schulweg 1", lat=47.52, lng=7.57)
+    db_session.add(obj)
+    await db_session.flush()
+    pid = f"plan:{obj.id}:modul3"
+    db_session.add(ReferenceDataset(id=pid, object_id=obj.id, module="modul3", kind="pdf", storage_key="plans/m3.pdf"))
+    await db_session.flush()
+    db_session.add(PlanRevision(dataset_id=pid, version=1, storage_key="plans/m3.pdf"))
+    await db_session.flush()
+    db_session.add(PlanAlignment(dataset_id=pid, plan_version=1, page=0, status="approved"))
+    await db_session.commit()
+
+    async def one_page(key, **_):
+        return 1
+
+    monkeypatch.setattr(sr, "revision_page_count", one_page)
+    await _login(client, editor)
+    [plan] = _by_name((await client.get("/api/reference/objects")).json())["Schulhaus"]["plans"]
+    assert plan["georef"] is True and plan["pages"] is None

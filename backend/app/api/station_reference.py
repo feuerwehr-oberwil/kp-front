@@ -186,10 +186,13 @@ async def reference_objects(db: AsyncSession, *, with_visits: bool) -> Reference
         georef = False
         if d.id in approved:
             # Same gate as api/reference · dataset_alignments: a fit counts only where the field
-            # viewer would apply it. Reading the page count costs a PDF open, so only here.
-            if count is None and key:
-                count = await revision_page_count(key)
-            georef = any(fit_publishable(count, p, floors.get(d.id, [])) for p in approved[d.id])
+            # viewer would apply it. A floor page decides without the page count; only a fit on page
+            # 0 of a plan with no manifest yet needs it, which costs a PDF open — and that count
+            # stays out of `pages`, which is the manifest's or null.
+            pack = floors.get(d.id, [])
+            georef = any(fit_publishable(count, p, pack) for p in approved[d.id])
+            if not georef and count is None and key and 0 in approved[d.id]:
+                georef = fit_publishable(await revision_page_count(key), 0, pack)
         if d.object_id is None:  # the query filtered on it; this narrows the type
             continue
         plans_by_obj.setdefault(d.object_id, []).append(
