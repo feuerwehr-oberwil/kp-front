@@ -103,9 +103,9 @@ questions, and what the record keeps (`components/AtemschutzView`). Module rules
   against the Trupps as they stand then — a crew sent in meanwhile never gets an Austritt.
   Crews still INSIDE are the Abschluss's own FIRST question, by name («2 Trupps sind noch drin:
   Trupp 1 (…), Trupp 2 (…).»), «Zur Tafel» focused, closing anyway the quiet answer — and after
-  the Abschluss the app lands on the LAUNCHER (App · completeRapport, 05.10.2026), never opens
-  another: the closed Einsatz is forgotten on the device and `prefs.landedAt` keeps a cold start
-  on the launcher too, until one is opened by hand or a NEWER alarm arrives (pickBootIncident).
+  the Abschluss the app lands on HOME (App · completeRapport, 05.10.2026; home is «Karte &
+  Objekte» since 16.10.2026), never opens another: the closed Einsatz is forgotten on the device
+  and `prefs.landedAt` keeps a cold start at home too, until one is opened by hand or a NEWER alarm arrives (pickBootIncident).
   A Sicherungstrupp wears «SiTr» on its row and card at every width, sent in or not.
 - *The record is kept whole* (staging walk-through r2, 25.09.2026): the Gäste the form files at
   its save are filed QUIETLY and named once in the crew's «Unter AS: …» row — the crew filing
@@ -223,3 +223,15 @@ reworded.
   a Trupp in a Notfall cannot be removed from the board until «Notfall beendet».
 - *The Abschluss* asks about a running Notfall first («Zur Tafel» focused); closing anyway writes
   «Notfall beim Abschluss nicht beendet» per Trupp.
+
+## The alarm while another surface is in front (16.10.2026)
+
+The contact clock, the Alarmdruck, the Rückzug line and the Notfall alarm whenever an Einsatz is
+open — also while «Karte & Objekte» or the Objektbesuche stand in front of it. `IncidentWorkspace`
+stays mounted there with `covered` (App): no screen, no keys, but the same `AtemschutzAlarmHost`
+(tone, OS notification with its sound and vibration, the Verlauf rows), the same live poll that
+ends an alarm with a Funkkontakt from another device, and the same `AtemschutzAlarmMeldungen` /
+`AtemschutzNotfallMeldungen` rows over the surface in front, whose «Zum Trupp» brings the Einsatz
+back on this board at that card. Until then the Objektbesuche over an Einsatz unmounted it and
+the alarm went silent. Details: docs/karte-objekte.md · «Home»; pinned by
+`IncidentWorkspace.harness.test.tsx` · (k).

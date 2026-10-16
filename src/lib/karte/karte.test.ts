@@ -179,18 +179,29 @@ describe('session — the temporary-measure guard', () => {
   it('persists the view and nothing temporary', () => {
     const state = {
       center: CENTER, zoom: 17, bearing: 0, objectId: 'schloss', surface: { plan: 'plan:x:modul1' },
+      tool: 'erg' as const, label: 'Schloss Musterdorf · Modul 1',
       // what the viewer holds besides the view — none of it may reach storage
       measure: { mode: 'line', path: [CENTER, [7.571, 47.524]] },
       erg: { un: '1203', ring: 'small', center: CENTER },
       pin: CENTER,
     }
-    expect(Object.keys(karteViewSnapshot(state))).toEqual(['center', 'zoom', 'bearing', 'objectId', 'surface'])
+    expect(Object.keys(karteViewSnapshot(state))).toEqual(['center', 'zoom', 'bearing', 'objectId', 'surface', 'tool', 'label'])
     saveKarteView(state)
     expect([...stores.session.keys()]).toEqual(['kp.karte.view'])
     expect([...stores.local.keys()]).toEqual([])
     const raw = stores.session.get('kp.karte.view')!
-    expect(raw).not.toMatch(/measure|erg|pin|1203/)
-    expect(loadKarteView()).toEqual({ center: CENTER, zoom: 17, bearing: 0, objectId: 'schloss', surface: { plan: 'plan:x:modul1' } })
+    // the open tool is kept by name — never what is in it
+    expect(raw).not.toMatch(/measure|path|pin|1203|small/)
+    expect(loadKarteView()).toEqual({
+      center: CENTER, zoom: 17, bearing: 0, objectId: 'schloss', surface: { plan: 'plan:x:modul1' }, tool: 'erg', label: 'Schloss Musterdorf · Modul 1',
+    })
+  })
+
+  it('restores only the tools worth reopening, and no label without a selection', () => {
+    saveKarteView({ center: CENTER, zoom: 15, bearing: 0, objectId: null, surface: 'karte', tool: 'pin' as never, label: '  ' })
+    expect(loadKarteView()).toMatchObject({ tool: null, label: null })
+    saveKarteView({ center: CENTER, zoom: 15, bearing: 0, objectId: null, surface: 'karte' })
+    expect(loadKarteView()).toMatchObject({ tool: null, label: null })
   })
 
   it('forgets a garbled view instead of throwing', () => {

@@ -83,8 +83,9 @@ the object, under the same module rule as `lastVisit`.
 
 `src/components/karte/` — its own lazy chunk, mounted by `App` for the `/karte` route (deep link:
 `/karte?objekt=<id>` selects an object; the address follows the selection without a history
-entry). Reached for now from the launcher's «Karte & Objekte» row; a deep link at start opens no
-Einsatz behind it (the same rule as `/besuche`). Not for a link session.
+entry). It is the app's home with no Einsatz open (below), and over an open one it is reached from
+the Einsatz menu; a deep link at start opens no Einsatz behind it (the same rule as `/besuche`).
+Not for a link session.
 
 What it reuses, so nothing forks:
 
@@ -122,8 +123,51 @@ The rules that are easy to break:
   `/api/geocode/search`, online only, and say so offline.
 - **Visits hand over** to the existing capture: `/besuche/neu?object=<id>&from=karte` for an
   object, `/besuche/neu?lat=&lng=&label=[&address=]&from=karte` for a building or a pin (contract
-  C1, label «bei <Adresse>» within 60 m of a pin, else «Gesetzter Punkt»). The viewer stays
-  «entered» while that visit is open, so the way back lands on it.
+  C1, label «bei <Adresse>» within 60 m of a pin, else «Gesetzter Punkt»); an existing visit opens
+  at `/besuche/<id>?from=karte`. The viewer stays «entered» while that visit is open, and a visit
+  opened from it has no Übersicht behind it: its «Zurück» (to its work list or the Übersicht)
+  lands on the viewer's own address again — read views and reports included (`App` · `ovReturn`).
 - **Alarms** reach the viewer through the Meldeleiste and the same two banners as the
   Objektbesuche; nothing switches by itself. A running Einsatz is the red chip in the bar (a strip
   under it on a phone); a tap opens it.
+
+## Home (owner, 16.10.2026 · variant B)
+
+With no Einsatz open, an **account** lands on the viewer at `/` instead of the old launcher card.
+`lib/karte/home` holds the decision and its tests:
+
+- **`bootPlan`** names what a list boot does, in the order it always did: a launch into a surface
+  (`/besuche…`, `/karte…`) opens nothing behind it; else `pickBootIncident` (a fresh alarm-created
+  Einsatz under 3 h, the remembered one, the first open one, the stay after an Abschluss, the
+  crash-loop skip) and the closed-return (`shouldReopenClosed`) — **unchanged**; only «nothing to
+  resume» is new: home. «Einsatz abschliessen» and «Zurück» from a closed Einsatz land there too.
+- **`appScreen`** picks the screen: the Objektbesuche surface, the viewer, the boot's splash, an
+  Einsatz — and the launcher card only for a **link session** whose Einsatz could not be fetched
+  (it has no station to look at). A visitor who is not signed in still gets the login screen.
+- **«Einsätze ▾»** (top left of the bar) opens the launcher's content as a sheet: running rows,
+  alarms with Öffnen / ×, «Manueller Einsatz» for editors, Verlauf, Objektbesuche, who is signed
+  in with Abmelden, settings / help / install and the build label. `App` renders those rows (one
+  `launcherBody`, the same handlers as the card); the viewer only opens and closes the sheet. The
+  badge is running Einsätze + alarms waiting to be taken.
+- **Alarms** show in the Meldeleiste and the banner (no «Anhängen»: no Einsatz is being worked on
+  screen); nothing switches by itself. Taking one keeps the 12 s «Alarm übernommen · Rückgängig»,
+  and the undo returns to the viewer, not into another open Einsatz.
+- **From an Einsatz:** the Einsatz menu's «App» group starts with «Karte & Objekte», sub line
+  «Zurück zu <Objekt · Modul>» when this device has a viewer state, else «Objekte, Pläne und
+  Gebäude ansehen». It replaces the address with `/karte` (no history entry — the operational
+  screens have none, `objectVisits/route`), and the viewer says «Wieder bei …» once. The way
+  back is the red chip or the sheet's row, which only step the viewer aside; opening ANOTHER
+  Einsatz leaves the viewer in the same step.
+- **⚠️ The Einsatz behind stays alive — its Atemschutz alarm above all** (lead decision,
+  16.10.2026: silence on a breathing-apparatus timer is the one failure we can't have at 3am).
+  `IncidentWorkspace` stays MOUNTED with `covered` while the viewer — or the Objektbesuche, which
+  had the same hole — is in front: every hook keeps running (sync, live poll, Verlauf, mute), it
+  renders no map, plan or bars and listens to no keys, and it keeps exactly two things on: the
+  alarm host (the same tone, and the OS notification with its sound and vibration) and the alarm
+  rows in the Meldeleiste over the surface in front — overdue / Alarmdruck / Rückzug per Trupp,
+  and the Notfall. «Zum Trupp» brings the Einsatz back (`App · uncoverEinsatz`, nothing reopens)
+  on the Atemschutz board at that card. Pinned by `IncidentWorkspace.harness.test.tsx` · (k).
+- **The viewer state** (`KarteView` in sessionStorage: frame, object, open plan / Gebäude, the open
+  tool by name only, and the label for «Zurück zu …») is per device and per tab session. It is
+  written only after the catalogue has answered, so an early exit cannot blank it, and it never
+  touches the Einsatz.

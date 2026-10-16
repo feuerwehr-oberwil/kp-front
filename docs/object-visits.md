@@ -8,7 +8,7 @@ organizer (e.g. fwo-admin) build against. Change it in the same change as the co
 ## What it is
 
 An optional module (`objectVisits.enabled`, off by default). A member opens **Objektbesuche** from
-the launcher — no Einsatz — picks an object (from a work list, search or «In der Nähe»), answers
+home's «Einsätze ▾» sheet (or an object in «Karte & Objekte», docs/karte-objekte.md) — no Einsatz — picks an object (from a work list, search or «In der Nähe»), answers
 a station checklist, writes Bemerkungen, takes photos and records **Korrekturvorschläge**
 (proposed master-data changes, never applied by KP Front), then «Abschliessen». Everything is
 saved on the device first (IndexedDB), sent at save points, and — if a destination is configured —
@@ -102,8 +102,11 @@ linked to an item the new checklist lacks becomes general). The server already a
 snapshot while the visit is a draft.
 
 **From an Einsatz.** Opened through the Einsatz menu, the Übersicht lists the Einsatz's active
-object (`useObjectPlans · activeObjectId`) first under «Im Einsatz»; from the launcher there is
-no such row.
+object (`useObjectPlans · activeObjectId`) first under «Im Einsatz»; from home there is
+no such row. The Einsatz stays open and MOUNTED behind the surface (`IncidentWorkspace · covered`):
+its Atemschutz alarm keeps ringing and its rows stand in the strip over the visit, «Zum Trupp»
+bringing the Einsatz back (docs/atemschutz-board.md · «The alarm while another surface is in
+front»).
 
 ## The visit document (`schema: "kp-front.object-visit/1"`)
 
@@ -435,7 +438,9 @@ entry may also carry `refs: [{source, id}]`, and `PUT /api/objects/{id}` accepts
 
 - Code: `src/objectVisits/` (store, outbox, merge, catalogue, api, types — each with tests) and
   `src/components/objectVisits/` (UI). Copy: `appConfig.copy.objectVisits.*` in all four locales.
-- Entry: launcher secondary button «Objektbesuche» (module on + role can capture or read);
+- Entry: the «Objektbesuche» button of home's «Einsätze ▾» sheet (the launcher's content since
+  16.10.2026; module on + role can capture or read), the Einsatz menu's «App» group, and
+  «Karte & Objekte» (`…&from=karte`: leaving lands on the viewer again);
   routes `/besuche`, `/besuche/<id>`, `/besuche/neu?object=<source>:<id>|<uuid>&ref=<workRef>`.
   The `neu` launch resumes this device's/user's open draft for `(object, workRef)` before
   minting a new id; nothing is sent until the first save point.
