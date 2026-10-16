@@ -23,7 +23,8 @@ export interface OvShared {
   /** the object of the Einsatz the surface was opened from (its plans are on the board) — offered
    *  first on the Übersicht; null when opened from the launcher */
   suggestedObjectId: string | null
-  exit: () => void
+  /** leave the surface — to the launcher, or to `to` (`/karte` for a launch `from=karte`) */
+  exit: (to?: string) => void
 }
 
 export const OvContext = createContext<OvShared | null>(null)

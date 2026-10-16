@@ -18,6 +18,7 @@
 import { idbDel, idbKeys, idbRead, idbSet, idbSetStrict, type IdbRead } from '../lib/idb'
 import { serialQueue } from '../lib/serialQueue'
 import { withTileEviction } from '../lib/tileEvict'
+import { stopKeyOf } from './place'
 import type { Delivery, Person, VisitDoc } from './types'
 
 export const INDEX_KEY = 'kp-front-ov-index'
@@ -275,12 +276,13 @@ export async function listLocalVisits(): Promise<{ ok: boolean; visits: LocalVis
 }
 
 /** This device's (and this person's) open draft for `(object, workRef)` — what a launch link
- *  resumes before it mints a new visit. */
-export function findOpenDraft(visits: LocalVisit[], objectId: string, workRef: string | null | undefined, owner: string | null | undefined): LocalVisit | null {
+ *  resumes before it mints a new visit. `stopKey` is an object id, or a place's key (place ·
+ *  placeKey) for a visit at a place. */
+export function findOpenDraft(visits: LocalVisit[], stopKey: string, workRef: string | null | undefined, owner: string | null | undefined): LocalVisit | null {
   const ref = workRef || null
   const hits = visits.filter((v) =>
     v.doc.lifecycle === 'draft'
-    && v.doc.object?.id === objectId
+    && stopKeyOf(v.doc) === stopKey
     && (v.doc.workRef || null) === ref
     && (!owner || !v.owner || v.owner === owner))
   hits.sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1))

@@ -180,7 +180,8 @@ export default function App() {
   }, [])
   // leaving walks BACK over the surface's own entries (route · leaveAppEntries): nothing stays
   // behind the Karte / the launcher for an iOS edge swipe to find (05.10.2026)
-  const leaveObjectVisits = useCallback(() => { setOvEntered(false); leaveAppEntries('/') }, [])
+  // (`to`: a launch from Karte & Objekte returns there — `/karte`, route · KARTE_PATH)
+  const leaveObjectVisits = useCallback((to = '/') => { setOvEntered(false); leaveAppEntries(to) }, [])
   // left by the browser's own back: the entry is spent (React's «adjust state while rendering»)
   if (!ovRoute && ovEntered) setOvEntered(false)
   // a back gesture onto /besuche over a running Einsatz: the Einsatz stays, and so does its address

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_DESTINATION, destinationLabel, destinationValid, fillFolder, objectFolderOf, previewFolder, sanitizeSegment } from './folders'
+import { DEFAULT_DESTINATION, destinationLabel, destinationValid, fillFolder, objectFolderOf, previewFolder, previewLocationFolder, sanitizeSegment } from './folders'
 
 const vars = { objectName: 'Gemeindeverwaltung', objectAddress: 'Hauptstrasse 24', date: '2026-10-03', checklist: 'Kontrolle Schlüsselhülse', visitId: 'ov1759473240123-7f3a' }
 
@@ -21,6 +21,14 @@ describe('destination folders', () => {
     expect(previewFolder({ ...DEFAULT_DESTINATION, root: 'FÜHRUNGSUNTERSTÜTZUNG/Einsatzpläne' }, vars))
       .toBe('FÜHRUNGSUNTERSTÜTZUNG/Einsatzpläne/Hauptstrasse 24 - Gemeindeverwaltung/Objektbesuche/2026-10-03 Kontrolle Schlüsselhülse (7f3a)')
   })
+  it('a visit at a place goes to one general folder below the root — no object folder, no year', () => {
+    const place = { ...vars, checklist: 'Fehlermeldung', locationLabel: 'bei Talholzstrasse 15' }
+    expect(previewLocationFolder({ ...DEFAULT_DESTINATION, root: 'FÜHRUNGSUNTERSTÜTZUNG/Einsatzpläne' }, place))
+      .toBe('FÜHRUNGSUNTERSTÜTZUNG/Einsatzpläne/Allgemeine Meldungen/2026-10-03 Fehlermeldung (7f3a)')
+    expect(previewLocationFolder({ root: '', locationFolder: 'Meldungen/{location.label}' }, place)).toBe('Meldungen/bei Talholzstrasse 15')
+    // an older stored destination without the field files under the default
+    expect(previewLocationFolder({ root: 'R' }, place)).toBe('R/Allgemeine Meldungen/2026-10-03 Fehlermeldung (7f3a)')
+  })
   it('refuses what the server would refuse — so one bad row never blocks the config save', () => {
     expect(destinationValid(DEFAULT_DESTINATION)).toBe(false) // no site yet
     const ok = { ...DEFAULT_DESTINATION, siteUrl: 'https://x.sharepoint.com/sites/FWO' }
@@ -29,6 +37,8 @@ describe('destination folders', () => {
     expect(destinationValid({ ...ok, root: 'a/../b' })).toBe(false)
     expect(destinationValid({ ...ok, visitFolder: ' ' })).toBe(false)
     expect(destinationValid({ ...ok, id: 'Bad Id' })).toBe(false)
+    expect(destinationValid({ ...ok, locationFolder: '../x' })).toBe(false)
+    expect(destinationValid({ ...ok, locationFolder: undefined })).toBe(true)
   })
   it('names a destination for a person, not by its id', () => {
     const kind = () => 'SharePoint'

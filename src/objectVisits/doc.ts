@@ -4,7 +4,7 @@ import { newId } from '../lib/ids'
 import { jsonEqual } from '../lib/jsonEqual'
 import type { Item } from '../lib/checklists'
 import {
-  VISIT_SCHEMA, type Answer, type CatalogueObject, type ItemInput, type ServerVisit, type VisitDoc,
+  VISIT_SCHEMA, type Answer, type CatalogueObject, type ItemInput, type PlaceTarget, type ServerVisit, type VisitDoc,
   type VisitObject, type VisitTemplate,
 } from './types'
 
@@ -24,22 +24,28 @@ export function objectSnapshot(o: CatalogueObject): VisitObject {
     ...(o.address ? { address: o.address } : {}),
     ...(o.folder ? { folder: o.folder } : {}),
     ...(o.refs?.length ? { refs: o.refs } : {}),
+    // where it is — a visit records the object's position too (contract C1)
+    ...(typeof o.lat === 'number' && typeof o.lng === 'number' ? { lat: o.lat, lng: o.lng } : {}),
   }
 }
 
-/** A fresh draft — nothing is sent until the first save point. */
-export function newVisitDoc({ object, workRef, checklist, people, now = new Date() }: {
-  object: VisitObject
+/** A fresh draft — nothing is sent until the first save point. At an object, or (`place`) at a
+ *  place with no object: `object: null` and the place as the target (docs/object-visits.md). */
+export function newVisitDoc({ object = null, place = null, workRef, checklist, people, now = new Date() }: {
+  object?: VisitObject | null
+  place?: PlaceTarget | null
   workRef?: string | null
   checklist: VisitTemplate | null
   /** «Von» — the people who visit (prefilled from this device's last visit) */
   people?: string[]
   now?: Date
 }): VisitDoc {
+  if (!object && !place) throw new Error('newVisitDoc: an object or a place')
   return {
     schema: VISIT_SCHEMA,
     id: newId('ov'),
-    object,
+    object: place ? null : object,
+    target: place ? { ...place } : { kind: 'object', objectId: object!.id },
     ...(workRef ? { workRef } : {}),
     visitedAt: localIso(now),
     ...(people?.length ? { with: people } : {}),

@@ -14,7 +14,7 @@ import { answerStats, checklistItems, inputOf, isAnswered, localIso } from '../.
 import { rememberWith, splitPeople } from '../../objectVisits/devicePrefs'
 import type { Answer, VisitDoc, VisitPhoto, VisitProposal } from '../../objectVisits/types'
 import { Section, Thumb } from './common'
-import { answerText, fmtDate, fmtWhen } from './ovFormat'
+import { answerDigest, answerText, fmtDate, fmtWhen } from './ovFormat'
 import s from './ObjectVisits.module.css'
 
 type Edit = (fn: (d: VisitDoc) => VisitDoc) => void
@@ -354,8 +354,12 @@ export function SummaryCard({ doc, byName, badge, onOpen, children }: {
   const st = answerStats(doc)
   // «Von» is who visited (typed); the signed-in account only where nobody was typed
   const people = (doc.with ?? []).length ? (doc.with ?? []).join(', ') : (byName ?? '')
-  const defects = checklistItems(doc.checklist).filter((i) => doc.answers[i.id]?.v === 'defect')
+  const items = checklistItems(doc.checklist)
+  const defects = items.filter((i) => doc.answers[i.id]?.v === 'defect')
   const finished = doc.lifecycle === 'completed'
+  // a checklist without OK/Mangel questions (a Fehlermeldung) says what was reported instead
+  const digest = answerDigest(doc)
+  const asksChecks = items.some((i) => inputOf(i) === 'check')
   return (
     <div className={`${s.card} ${s.cardPad}`}>
       {(() => {
@@ -383,7 +387,8 @@ export function SummaryCard({ doc, byName, badge, onOpen, children }: {
           })}
         </ul>
       )}
-      {finished && defects.length === 0 && doc.checklist && (
+      {digest && <p className={s.digest}>{digest}</p>}
+      {finished && defects.length === 0 && doc.checklist && asksChecks && (
         <p className={s.allOk}>
           <Icon id="check" />{C.noDefects}
           {st.open > 0 && <span className={s.allOkMore}>{` · ${fillTemplate(C.openCount, { n: st.open })}`}</span>}
