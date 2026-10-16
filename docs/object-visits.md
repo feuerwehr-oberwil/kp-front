@@ -103,7 +103,10 @@ snapshot while the visit is a draft.
 
 **From an Einsatz.** Opened through the Einsatz menu, the Übersicht lists the Einsatz's active
 object (`useObjectPlans · activeObjectId`) first under «Im Einsatz»; from home there is
-no such row.
+no such row. The Einsatz stays open and MOUNTED behind the surface (`IncidentWorkspace · covered`):
+its Atemschutz alarm keeps ringing and its rows stand in the strip over the visit, «Zum Trupp»
+bringing the Einsatz back (docs/atemschutz-board.md · «The alarm while another surface is in
+front»).
 
 ## The visit document (`schema: "kp-front.object-visit/1"`)
 

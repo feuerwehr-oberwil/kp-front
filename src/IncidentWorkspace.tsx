@@ -215,6 +215,12 @@ interface WorkspaceProps {
   onOpenObjectVisits?: (objectId?: string | null) => void
   /** opens «Karte & Objekte» over this Einsatz (App · enterKarte); undefined = a link session */
   onOpenKarte?: () => void
+  /** another surface («Karte & Objekte», the Objektbesuche) is in front of this Einsatz: it stays
+   *  MOUNTED — its state, sync and live poll, and above all its Atemschutz alarm — but renders
+   *  only the headless hosts and the alarm rows (see the `covered` return below) */
+  covered?: boolean
+  /** bring this Einsatz back in front (App · uncoverEinsatz) — an alarm row's «Zum Trupp» */
+  onUncover?: () => void
   onOpenDivera: () => void
   onOpenDatenquellen: () => void
   /** freshly one-tap-taken Divera incident: show the correct-in-place review banner */
@@ -255,7 +261,7 @@ const REORIENT_FOLD_MS = 1500
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
   onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
-  needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
+  covered = false, onUncover, needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
   const { user, logout, asLink, isEl, linkRefused, roleReadOnly, isEditor, linkScoped } = useSessionRole(incidentMeta)
   // Phones are a live viewer + field-capture device: lock all TACTICAL editing (tools,
@@ -1676,9 +1682,11 @@ export function IncidentWorkspace({
       else if (notePanelId) setNotePanelId(null)
       else if (selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length) { setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }
     }
+    // covered by another surface: its keys are its own (see `covered`)
+    if (covered) return
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [pending, pendingShape, coord.mode, panel, viewsOpen, tool, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [covered, pending, pendingShape, coord.mode, panel, viewsOpen, tool, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Selecting something opens its details (ContextPanel) — so the moment a NEW selection lands, drop
   // every other transient bit of map chrome that would sit over it or the tool rail: the Ebenen dock,
@@ -1717,18 +1725,21 @@ export function IncidentWorkspace({
       } else if (selectedDrawingId) { e.preventDefault(); deleteDrawing(selectedDrawingId) }
       else if (selectedId && !tacticalLocked) { e.preventDefault(); deleteEntity(selectedId) }
     }
+    // ⚠️ never while covered: a Backspace in the viewer must not delete a symbol nobody sees
+    if (covered) return
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [mode, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds, doc, tacticalLocked])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [covered, mode, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds, doc, tacticalLocked])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keyboard shortcuts (see lib/hotkeys + the "Tastaturkürzel" help section). One mount-once
   // listener delegates to hotkeyRef, which is reassigned every render with the live handlers —
   // so shortcuts always act on current state without a churn of add/removeEventListener.
   useEffect(() => {
+    if (covered) return // the surface in front owns the keyboard (see `covered`)
     const onKey = (e: KeyboardEvent) => hotkeyRef.current(e)
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [covered])
 
   // warm the OSM building-outline cache so the Umgebung sheet (and the building picker)
   // opens instantly instead of waiting on the Overpass fetch. Must use the RESOLVED docs:
@@ -2863,6 +2874,53 @@ export function IncidentWorkspace({
       frozenAt={azFrozenAt}
     />
   )
+
+  /* ── Covered: another surface is in front of this Einsatz ───────────────────────────────
+   *
+   * «Karte & Objekte» or the Objektbesuche opened over an open Einsatz (App · screen). The
+   * component stays MOUNTED, so every hook above keeps running — the sync and its live poll (a
+   * Funkkontakt entered on another device still ends an alarm here), the Verlauf, the Trupp
+   * actions, the mute — and only the screen goes: no map, no plan, no bars, no key handlers.
+   *
+   * ⚠️ What must NOT go is the Atemschutz alarm (lead decision, 16.10.2026: silence on a
+   * breathing-apparatus timer is the one failure we can't have at 3am). So the SAME alarm host
+   * runs (tone, vibration via the OS notification, the Verlauf rows), and the SAME rows stand in
+   * the Meldeleiste over the surface in front: overdue / Alarmdruck / Rückzug per Trupp, and the
+   * Notfall. Their «Zum Trupp» brings this Einsatz back, on the Atemschutz board at that card.
+   * The reminder clock keeps running too. AFTER every hook, like the link shell below. */
+  if (covered) {
+    const goToTrupp = (id: string) => {
+      onUncover?.()
+      setMode('atemschutz'); setPanel(null)
+      setTruppFocus({ id, nonce: Date.now() })
+    }
+    return (
+      <>
+        <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
+          logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
+        <RemindersHost {...reminders.host} />
+        <AtemschutzAlarmMeldungen
+          trupps={trupps}
+          severities={azAlarm.severities}
+          canEdit={canEditTrupps}
+          intervalMin={azIntervalMin}
+          graceSec={azGraceSec}
+          onAcknowledge={muteAtemschutz}
+          onGoToTrupp={goToTrupp}
+        />
+        {azAlarmActive && (
+          <AtemschutzNotfallMeldungen
+            trupps={trupps}
+            placeOf={truppPlace}
+            canEdit={canEditTrupps}
+            onAcknowledge={muteAtemschutz}
+            onGoToTrupp={goToTrupp}
+            onDeploySafety={(id) => setTruppStatus(id, 'aktiv')}
+          />
+        )}
+      </>
+    )
+  }
 
   /* ── «Tafel pur»: the Atemschutz-Link session's WHOLE app ────────────────────────────────
    *
