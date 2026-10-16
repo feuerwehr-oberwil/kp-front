@@ -141,10 +141,12 @@ Objekte starts the latter (`/besuche/neu?lat=&lng=&label=[&address=][&from=karte
   without `target` and without an object, for a stored visit at a place, gets the stored place put
   back (`object_visits · _check_target`) — a passenger, never a refusal of the only copy. The
   client merge never merges `target` away either (`merge.ts`).
-- **The stop.** A place has no object id, so whatever keyed a visit by its object — the open
-  draft a launch link resumes, the visits «at this stop», «Weitere Checkliste» — keys it by the
-  place rounded to 5 decimals, ~1 m (`place.ts · stopKeyOf / placeKey`). A place visit belongs to
-  no work list.
+- **The stop.** A place has no object id. The open draft a launch link resumes is found by the
+  place rounded to 5 decimals, ~1 m (`place.ts · draftKeyOf`), so a reload never makes a second
+  draft. But a place visit is a **stop of its own** (`stopKeyOf`): two reports that happen to sit
+  on the same pin are independent and never share a read view (lead review of #368). «Weitere
+  Checkliste» starts a new, independent visit at the same place; its chooser marks only the
+  checklist of the visit it came from (`&nach=<id>`). A place visit belongs to no work list.
 - **Screens.** The visit is called «Meldung {label}»; where an object visit shows its address
   line, a place visit shows the **«Ort» card** — a small aerial snippet (plain raster tiles of
   the station's «Satellit» base around the point, offline whatever the device has), the label

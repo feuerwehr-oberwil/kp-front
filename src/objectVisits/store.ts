@@ -18,7 +18,7 @@
 import { idbDel, idbKeys, idbRead, idbSet, idbSetStrict, type IdbRead } from '../lib/idb'
 import { serialQueue } from '../lib/serialQueue'
 import { withTileEviction } from '../lib/tileEvict'
-import { stopKeyOf } from './place'
+import { draftKeyOf } from './place'
 import type { Delivery, Person, VisitDoc } from './types'
 
 export const INDEX_KEY = 'kp-front-ov-index'
@@ -282,7 +282,7 @@ export function findOpenDraft(visits: LocalVisit[], stopKey: string, workRef: st
   const ref = workRef || null
   const hits = visits.filter((v) =>
     v.doc.lifecycle === 'draft'
-    && stopKeyOf(v.doc) === stopKey
+    && draftKeyOf(v.doc) === stopKey
     && (v.doc.workRef || null) === ref
     && (!owner || !v.owner || v.owner === owner))
   hits.sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1))

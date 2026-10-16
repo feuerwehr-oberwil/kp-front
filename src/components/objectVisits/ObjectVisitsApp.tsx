@@ -108,7 +108,7 @@ export default function ObjectVisitsApp({ onExit, suggestedObjectId = null }: { 
         {route.kind === 'overview' && <Overview />}
         {route.kind === 'list' && <WorkList listRef={route.ref} />}
         {route.kind === 'new' && <NewVisit objectKey={route.object} workRef={route.ref} from={route.from} />}
-        {route.kind === 'newPlace' && <NewVisit place={route.place} from={route.from} />}
+        {route.kind === 'newPlace' && <NewVisit place={route.place} from={route.from} after={route.after} />}
         {route.kind === 'visit' && <VisitPage key={route.id} id={route.id} edit={route.edit} from={route.from} />}
         {route.kind === 'answers' && <AnswersPage key={route.id} id={route.id} from={route.from} />}
       </div>

@@ -26,12 +26,14 @@ import { Head } from './common'
 import { useOv } from './ovContext'
 import s from './ObjectVisits.module.css'
 
-export function NewVisit({ objectKey = '', workRef = null, place = null, from }: {
+export function NewVisit({ objectKey = '', workRef = null, place = null, from, after }: {
   objectKey?: string
   workRef?: string | null
   /** a visit at a place (no object) */
   place?: PlaceQuery | null
   from?: OvFrom
+  /** «Weitere Checkliste» from this place visit (its checklist reads «erfasst») */
+  after?: string
 }) {
   const ov = useOv()
   const C = appConfig.copy.objectVisits
@@ -47,14 +49,18 @@ export function NewVisit({ objectKey = '', workRef = null, place = null, from }:
   const object: CatalogueObject | null = catalogue && !place ? resolveObject(catalogue, objectKey) : null
   const target = place ? placeTarget(place, C.placeUnnamed) : null
   const isPlace = !!target
-  // the stop: the object (a bare id resolves even without a catalogue), or the place
+  // the draft to resume: at the object (a bare id resolves even without a catalogue), or at the
+  // place (~1 m) — a reload of the link never makes a second draft
   const stopKey = place ? placeKey(place) : object?.id ?? objectKey
   const draft = ov.localsLoaded ? findOpenDraft(ov.locals, stopKey, workRef, ov.userId) : null
   const templates = useMemo(() => (catalogue ? templatesFor(visitTemplates(catalogue), isPlace ? 'location' : 'object') : []), [catalogue, isPlace])
   // the checklists already completed at this stop («Weitere Checkliste» from a finished visit)
   // (plain values, no memo: a handful of rows, and the React compiler memoizes what it can)
+  // — at a place only the visit «Weitere Checkliste» came from: another report on the same pin
+  //   is somebody else's, not this stop (place · stopKeyOf)
+  const known = knownVisits(ov.locals, ov.summaries)
   const doneHere = new Set(
-    visitsAtStop(knownVisits(ov.locals, ov.summaries), stopKey, workRef)
+    (place ? known.filter((v) => v.id === after) : visitsAtStop(known, stopKey, workRef))
       .filter((v) => v.lifecycle === 'completed' && v.checklist !== undefined)
       .map((v) => v.checklist?.id ?? null),
   )

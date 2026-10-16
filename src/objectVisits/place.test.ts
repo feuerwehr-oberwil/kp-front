@@ -3,7 +3,7 @@ import { newVisitDoc } from './doc'
 import { knownVisits, visitsAtStop } from './catalogue'
 import { mergeVisit } from './merge'
 import {
-  isPlaceKey, parsePlace, placeKey, placeKind, placeOf, placeTarget, placeTiles, stopKeyOf, summaryStopKey, targetOf,
+  draftKeyOf, isPlaceKey, parsePlace, placeKey, placeKind, placeOf, placeTarget, placeTiles, stopKeyOf, summaryStopKey, targetOf,
   templatesFor, templateTargets,
 } from './place'
 import { findOpenDraft, type LocalVisit } from './store'
@@ -22,14 +22,19 @@ describe('the visit target (contract C1)', () => {
     expect(placeOf(atPlace)).toEqual(PLACE)
     expect(placeOf(atObject)).toBeNull()
   })
-  it('a place is its own stop, ~1 m wide; an object visit stays keyed by its object', () => {
+  it('a draft at a place is found again at that pin (~1 m); a place visit is a stop of its own', () => {
     expect(placeKey(PLACE)).toBe('ort:47.52015,7.57175')
     expect(placeKey({ lat: 47.520151, lng: 7.571749 })).toBe(placeKey(PLACE))
     expect(isPlaceKey(placeKey(PLACE))).toBe(true)
-    expect(stopKeyOf(newVisitDoc({ place: PLACE, checklist: null }))).toBe(placeKey(PLACE))
-    expect(stopKeyOf({ object: { id: 'u1' } })).toBe('u1')
-    expect(summaryStopKey({ objectId: null, target_kind: 'location', location: { label: 'x', address: null, lat: 47.52015, lng: 7.57175 } })).toBe(placeKey(PLACE))
-    expect(summaryStopKey({ objectId: 'u1' })).toBe('u1') // an older server: no target_kind
+    const a = newVisitDoc({ place: PLACE, checklist: null })
+    const b = newVisitDoc({ place: PLACE, checklist: null })
+    expect(draftKeyOf(a)).toBe(placeKey(PLACE))
+    expect(draftKeyOf(b)).toBe(draftKeyOf(a))
+    // two reports on the same pin are two stops
+    expect(stopKeyOf(a)).not.toBe(stopKeyOf(b))
+    expect(stopKeyOf({ id: 'ov1', object: { id: 'u1' } })).toBe('u1')
+    expect(summaryStopKey({ id: a.id, objectId: null, target_kind: 'location' })).toBe(stopKeyOf(a))
+    expect(summaryStopKey({ id: 'ov9', objectId: 'u1' })).toBe('u1') // an older server: no target_kind
   })
   it('«Pin» or «Adresse»: picked as an address when the label IS the address', () => {
     expect(placeKind(PLACE)).toBe('pin')
@@ -68,14 +73,19 @@ describe('a place in the device list', () => {
     expect(findOpenDraft(all, 'u1', null, 'me')?.doc.id).toBe(atObject.doc.id)
     expect(findOpenDraft(all, placeKey(PLACE), null, 'someone else')).toBeNull()
   })
-  it('the visits at a place are a stop of their own', () => {
+  it('two independent reports on the same pin are never one stop (lead review of #368)', () => {
+    // the k5 capture run: one Fehlermeldung from the tablet, one from the phone, same pin
     const a = { ...newVisitDoc({ place: PLACE, checklist: null }), lifecycle: 'completed' as const }
     const known = knownVisits([rec(a)], [
       { id: 'ov-srv', objectId: null, objectName: null, target_kind: 'location', location: { label: 'x', address: null, lat: PLACE.lat, lng: PLACE.lng }, lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-15T10:00:00Z' },
       { id: 'ov-obj', objectId: 'u1', objectName: 'Schulhaus', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-15T10:00:00Z' },
+      { id: 'ov-obj2', objectId: 'u1', objectName: 'Schulhaus', lifecycle: 'completed', revision: 1, ready: true, visitedAt: '2026-10-15T11:00:00Z' },
     ])
-    expect(visitsAtStop(known, placeKey(PLACE), null).map((v) => v.id).sort()).toEqual([a.id, 'ov-srv'].sort())
-    expect(visitsAtStop(known, 'u1', null).map((v) => v.id)).toEqual(['ov-obj'])
+    expect(visitsAtStop(known, stopKeyOf(a), null).map((v) => v.id)).toEqual([a.id])
+    expect(visitsAtStop(known, summaryStopKey({ id: 'ov-srv', objectId: null, target_kind: 'location' }), null).map((v) => v.id)).toEqual(['ov-srv'])
+    expect(visitsAtStop(known, placeKey(PLACE), null)).toEqual([])
+    // an object stop is unchanged: every visit at the object
+    expect(visitsAtStop(known, 'u1', null).map((v) => v.id)).toEqual(['ov-obj2', 'ov-obj'])
   })
   it('a merge keeps the place (a key like any other)', () => {
     const base = newVisitDoc({ place: PLACE, checklist: null })

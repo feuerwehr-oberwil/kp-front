@@ -38,6 +38,7 @@ describe('Objektbesuche routes', () => {
     for (const r of [
       { kind: 'newPlace' as const, place: { lat: 47.52015, lng: 7.57175, label: 'bei Talholzstrasse 15', address: null }, from: 'karte' as const },
       { kind: 'newPlace' as const, place: { lat: 47.5, lng: 7.5, label: 'Talholzstrasse 15', address: 'Talholzstrasse 15, 4103 Bottmingen' } },
+      { kind: 'newPlace' as const, place: { lat: 47.5, lng: 7.5, label: 'x', address: null }, after: 'ov1-ab', from: 'karte' as const },
       { kind: 'visit' as const, id: 'ov1-ab', edit: true, from: 'karte' as const }, { kind: 'answers' as const, id: 'ov1-ab', from: 'karte' as const },
     ]) {
       const href = ovHref(r)

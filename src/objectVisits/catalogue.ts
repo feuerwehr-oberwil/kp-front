@@ -173,7 +173,7 @@ export function lastSeen(c: Catalogue, o: CatalogueObject): { at: string; source
 
 export interface KnownVisit {
   id: string
-  /** the visit's STOP: its object's id, or — a visit at a place — the place's key (place ·
+  /** the visit's STOP: its object's id, or — a visit at a place — the visit itself (place ·
    *  stopKeyOf). Matches a work list's object ids only for an object visit. */
   objectId: string
   workRef?: string | null

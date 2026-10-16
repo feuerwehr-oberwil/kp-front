@@ -3,9 +3,13 @@
 // so with `target: {kind: 'location', label, address, lat, lng}` and `object: null`; a document
 // without `target` is at its `object` (every visit before this date). Pure.
 //
-// ⚠️ A place has no object id, so whatever keyed a visit by its object (the open draft a launch
-// link resumes, the visits «at this stop») keys it by `stopKeyOf` instead: the object id, or the
-// place rounded to ~1 m. Never put a place key where an object id is sent to the server.
+// ⚠️ A place has no object id, so whatever keyed a visit by its object keys it differently:
+// - the open draft a launch link resumes: `draftKeyOf` — the place rounded to ~1 m, so a reload of
+//   the link never makes a second draft;
+// - the visits «at this stop» (the read view's cards, «erfasst» in the chooser): `stopKeyOf` — a
+//   place visit is a stop of its OWN. Two reports that happen to sit on the same pin are two
+//   independent reports and never one stop (lead review of #368, 16.10.2026).
+// Never put either key where an object id is sent to the server.
 
 import type { ChecklistTemplate } from '../lib/checklists'
 import type { PlaceTarget, VisitSummary, VisitTarget } from './types'
@@ -34,18 +38,22 @@ export function placeKey(p: { lat: number; lng: number }): string {
 
 export const isPlaceKey = (key: string): boolean => key.startsWith(PLACE_PREFIX)
 
-/** The «stop» a visit belongs to: its object's id, or its place's key. */
-export function stopKeyOf(doc: Targeted): string {
+/** Which open draft a launch resumes: its object's id, or its place's key (~1 m). */
+export function draftKeyOf(doc: Targeted): string {
   const t = targetOf(doc)
   return t.kind === 'location' ? placeKey(t) : t.objectId || doc.object?.id || ''
 }
 
+const OWN_PREFIX = 'besuch:'
+
+/** The «stop» a visit belongs to: its object's id — or, a visit at a place, the visit itself. */
+export function stopKeyOf(doc: Targeted & { id: string }): string {
+  return targetOf(doc).kind === 'location' ? `${OWN_PREFIX}${doc.id}` : draftKeyOf(doc)
+}
+
 /** The same key for a row of the server's list (an older server sends no `target_kind`). */
-export function summaryStopKey(v: Pick<VisitSummary, 'objectId' | 'target_kind' | 'location'>): string {
-  if (v.target_kind === 'location' && typeof v.location?.lat === 'number' && typeof v.location?.lng === 'number') {
-    return placeKey({ lat: v.location.lat, lng: v.location.lng })
-  }
-  return v.objectId ?? ''
+export function summaryStopKey(v: Pick<VisitSummary, 'id' | 'objectId' | 'target_kind'>): string {
+  return v.target_kind === 'location' ? `${OWN_PREFIX}${v.id}` : v.objectId ?? ''
 }
 
 /** Was the place picked as an ADDRESS (its label is the address's first part) or dropped as a

@@ -480,7 +480,7 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
               {canAnother && (
                 <div className={s.card}>
                   <button type="button" className={s.row} onClick={() => ov.go(place
-                    ? { kind: 'newPlace', place: { lat: place.lat, lng: place.lng, label: place.label, address: place.address }, ...(from ? { from } : {}) }
+                    ? { kind: 'newPlace', place: { lat: place.lat, lng: place.lng, label: place.label, address: place.address }, after: doc.id, ...(from ? { from } : {}) }
                     : { kind: 'new', object: doc.object?.id ?? '', ref: doc.workRef ?? null, ...(from ? { from } : {}) })}>
                     <Icon id="plus" className={s.rowGlyph} />
                     <span className={s.rowMain}>
