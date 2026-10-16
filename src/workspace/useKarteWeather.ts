@@ -42,24 +42,41 @@ export interface KarteWeather {
   setRadarOpacity: (v: number) => void
 }
 
-export function useKarteWeather(active: boolean): KarteWeather {
+/** Where the «Niederschlag (Radar)» row keeps its on/off and transparency. The Einsatz's Karte
+ *  uses the device prefs (lib/prefs); «Karte & Objekte» hands in a store of its own, so switching
+ *  the radar on there changes no Einsatz (lib/karte/session). */
+export interface RadarPrefStore {
+  load: () => { on: boolean; opacity: number | undefined }
+  save: (patch: { on?: boolean; opacity?: number }) => void
+}
+
+const devicePrefsStore: RadarPrefStore = {
+  load: () => { const p = loadPrefs(); return { on: p.weatherRadar === true, opacity: p.weatherRadarOpacity } },
+  save: (patch) => savePrefs({
+    ...loadPrefs(),
+    ...(patch.on != null ? { weatherRadar: patch.on } : {}),
+    ...(patch.opacity != null ? { weatherRadarOpacity: patch.opacity } : {}),
+  }),
+}
+
+export function useKarteWeather(active: boolean, store: RadarPrefStore = devicePrefsStore): KarteWeather {
   const { data: layer, now } = useWeatherLayer(active)
   const on = layer?.enabled === true
   const radar = layer?.radar ?? null
   const playback = useRadarPlayback(radar)
   // a device pref like the plan rasters (lib/prefs), persisted beside them, off by default
-  const [radarOn, setRadarOn] = useState(() => loadPrefs().weatherRadar === true)
-  const [radarOpacity, setOpacityState] = useState(() => loadPrefs().weatherRadarOpacity ?? 75)
+  const [radarOn, setRadarOn] = useState(() => store.load().on)
+  const [radarOpacity, setOpacityState] = useState(() => store.load().opacity ?? 75)
   const radarStale = !!radar && radarIsStale(radar, now)
   const setRadar = (next: boolean) => {
     if (next === radarOn) return
     setRadarOn(next)
-    savePrefs({ ...loadPrefs(), weatherRadar: next })
+    store.save({ on: next })
     if (!next) playback.reset()
   }
   const setRadarOpacity = (v: number) => {
     setOpacityState(v)
-    savePrefs({ ...loadPrefs(), weatherRadarOpacity: v })
+    store.save({ opacity: v })
   }
   const w = appConfig.copy.weatherLayer
   return {

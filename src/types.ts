@@ -817,6 +817,19 @@ export type PreparedMapOverlay =
       width?: number
       dasharray?: number[]
     }
+  /** filled outlines — «Karte & Objekte» draws the station's buildings with it (one overlay, many
+   *  rings, so dozens of objects stay ONE source) */
+  | {
+      id: string
+      kind: 'polygons'
+      layer: LayerId
+      rings: LngLat[][]
+      color: string
+      fillOpacity?: number
+      lineWidth?: number
+      lineOpacity?: number
+      lineDasharray?: number[]
+    }
 
 /** Whiteboard annotation. All positions are normalized 0..1 in plan-image space,
  *  so they stick to the plan across zoom/pan. */

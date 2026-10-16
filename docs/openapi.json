@@ -6954,6 +6954,189 @@
         }
       }
     },
+    "/api/reference/objects": {
+      "get": {
+        "tags": [
+          "reference"
+        ],
+        "summary": "List Reference Objects",
+        "description": "Every station object for «Karte & Objekte» — including the plan-less ones an organizer\ncreated (key boxes), which the Einsatz pickers leave out (api/objects · list_objects).\n``lastVisit`` only where the station runs Objektbesuche (or for the admin session).",
+        "operationId": "list_reference_objects_api_reference_objects_get",
+        "parameters": [
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceObjectsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reference/building": {
+      "get": {
+        "tags": [
+          "reference"
+        ],
+        "summary": "Reference Building",
+        "description": "The Gebäude card's facts for a point — no incident, nothing stored.\n\n``object`` is set only when the register's address (or the searched one) is EXACTLY a\ncatalogue object's — the viewer then opens that object instead of a bare building.",
+        "operationId": "reference_building_api_reference_building_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Lat"
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "title": "Lng"
+            }
+          },
+          {
+            "name": "address",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 300
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The searched address, if any",
+              "title": "Address"
+            },
+            "description": "The searched address, if any"
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "de",
+              "title": "Lang"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildingOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/reference": {
       "get": {
         "tags": [
@@ -19724,6 +19907,73 @@
         ],
         "title": "ReferenceDatasetOut"
       },
+      "ReferenceFloorOut": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index"
+        ],
+        "title": "ReferenceFloorOut",
+        "description": "One Geschoss of an object's floor pack: the signed order index and the station's name, if\nit gave one. The words («EG», «1. OG») are the client's copy (lib/whiteboard · floorLabel)."
+      },
+      "ReferenceLastVisitOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "checklist": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checklist"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "defects": {
+            "type": "integer",
+            "title": "Defects",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "ReferenceLastVisitOut",
+        "description": "The object's last completed Objektbesuch."
+      },
       "ReferenceLayerConfig": {
         "properties": {
           "id": {
@@ -19906,6 +20156,258 @@
         "type": "object",
         "title": "ReferenceLayerConfig",
         "description": "A station-supplied reference layer (raster WMS/WMTS or vector GeoJSON).\n\nPermissive (extra=ignore) but enforces the kind→payload invariant: raster layers\nmust carry `tiles`, geojson layers must carry `geojson`. Malformed entries reject."
+      },
+      "ReferenceObjectOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "einsatzobjekt",
+              "objekt",
+              "depot"
+            ],
+            "title": "Kind"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lng": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lng"
+          },
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Aliases"
+          },
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/ReferencePlanOut"
+            },
+            "type": "array",
+            "title": "Plans"
+          },
+          "floors": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceFloorOut"
+            },
+            "type": "array",
+            "title": "Floors"
+          },
+          "egid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Egid"
+          },
+          "footprint": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Footprint"
+          },
+          "measures": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          },
+          "measuresSource": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measuressource"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          },
+          "lastVisit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceLastVisitOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind"
+        ],
+        "title": "ReferenceObjectOut",
+        "description": "One station object for the reference viewer — Einsatzobjekt, plan-less object or key box."
+      },
+      "ReferenceObjectsOut": {
+        "properties": {
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceObjectOut"
+            },
+            "type": "array",
+            "title": "Objects"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generatedAt"
+        ],
+        "title": "ReferenceObjectsOut",
+        "description": "``GET /api/reference/objects`` — every station object, for «Karte & Objekte»."
+      },
+      "ReferencePlanOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "module": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Module"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pages"
+          },
+          "georef": {
+            "type": "boolean",
+            "title": "Georef",
+            "default": false
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "title",
+          "version"
+        ],
+        "title": "ReferencePlanOut",
+        "description": "One Modul-PDF of a station object, as «Karte & Objekte» lists it (api/station_reference)."
       },
       "ReportConfig": {
         "properties": {

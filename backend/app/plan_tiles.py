@@ -170,6 +170,22 @@ def manifest(storage_key: str) -> dict:
     return {**doc, "complete": is_complete(storage_key)}
 
 
+def stored_page_count(storage_key: str) -> int | None:
+    """The page count from a manifest ALREADY written for this revision; None when there is none.
+
+    Never opens the PDF: a station-wide listing (api/station_reference) asks this for every plan
+    at once, and the background fill writes a manifest for every revision it meets anyway."""
+    key = f"{prefix(storage_key)}/manifest.json"
+    try:
+        if not storage.exists(key):
+            return None
+        doc = json.loads(storage.get_bytes(key))
+    except (OSError, ValueError):
+        return None
+    pages = doc.get("pages") if isinstance(doc, dict) and doc.get("version") == FORMAT_VERSION else None
+    return len(pages) if isinstance(pages, list) else None
+
+
 def is_complete(storage_key: str) -> bool:
     return storage.exists(f"{prefix(storage_key)}/done")
 

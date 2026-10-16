@@ -7,6 +7,7 @@ import { demoSeedRebase, type Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
 import { shortAddress, isDemoMode, alarmProviderName, objectVisitsConfig } from './lib/deploymentConfig'
 import { isOvPath, leaveAppEntries, navigateTo, OV_BASE, ovHref, showsObjectVisits, useOvRoute } from './objectVisits/route'
+import { isKartePath, KARTE_BASE, useKarteRoute } from './lib/karte/route'
 import { startOutboxRunner } from './objectVisits/outbox'
 import { fillTemplate, initials, roleLabel } from './lib/format'
 import { Overlays, toast, confirmDialog } from './lib/ui'
@@ -58,6 +59,9 @@ import { installHoldTooltip } from './lib/holdTooltip'
 // Objektbesuche (/besuche…, docs/object-visits.md): its own lazy chunk — precached with the field
 // app, so the surface opens offline — mounted in place of the launcher while its route is on.
 const ObjectVisitsApp = lazy(() => import('./components/objectVisits/ObjectVisitsApp'))
+// «Karte & Objekte» (/karte…, docs/karte-objekte.md): the station reference viewer outside an
+// Einsatz — its own lazy chunk too, mounted in place of the launcher while its route is on.
+const KarteApp = lazy(() => import('./components/karte/KarteApp'))
 
 // ---------------------------------------------------------------------------------
 // Incident root: owns the incident list, the active selection, and the per-incident
@@ -187,6 +191,19 @@ export default function App() {
   // a back gesture onto /besuche over a running Einsatz: the Einsatz stays, and so does its address
   const ovOverEinsatz = !!ovRoute && !ovEntered && !!activeId && !linkScoped
   useEffect(() => { if (ovOverEinsatz) navigateTo('/', { replace: true }) }, [ovOverEinsatz])
+  // «Karte & Objekte» (/karte): the same «entered on purpose» rule as the Objektbesuche — a deep
+  // link at start or the launcher's row. It stays entered while a visit started FROM it is open
+  // (/besuche…, contract C1 · `from=karte`), so the way back lands on the viewer again.
+  const karteRoute = useKarteRoute()
+  const [karteEntered, setKarteEntered] = useState(() => isKartePath(window.location.pathname))
+  const enterKarte = useCallback(() => { setKarteEntered(true); navigateTo(KARTE_BASE) }, [])
+  const leaveKarte = useCallback(() => { setKarteEntered(false); leaveAppEntries('/') }, [])
+  // left by the browser's own back (neither the viewer nor a visit from it): the entry is spent
+  if (!karteRoute && !ovRoute && karteEntered) setKarteEntered(false)
+  const karteOverEinsatz = !!karteRoute && !karteEntered && !!activeId && !linkScoped
+  useEffect(() => { if (karteOverEinsatz) navigateTo('/', { replace: true }) }, [karteOverEinsatz])
+  /** a visit from the viewer: the Objektbesuche surface takes over at that address */
+  const openVisitsFromKarte = useCallback((href: string) => { setOvEntered(true); navigateTo(href) }, [])
   // landing-card utilities (no incident open): device settings / help / install guide
   const [landingSheet, setLandingSheet] = useState<null | 'settings' | 'help' | 'install'>(null)
   // Rückmeldung: something went wrong recently and the cooldown has passed → ask on the
@@ -434,9 +451,10 @@ export default function App() {
       }
       if (offline) toast(appConfig.copy.incidentSwitcher.bootOffline, { icon: 'warn' })
       setIncidents(list)
-      // A launch INTO Objektbesuche (a deep link, a reload on /besuche) opens no Einsatz behind
-      // it: leaving the surface lands on the launcher, not on yesterday's Einsatz.
-      if (isOvPath(window.location.pathname)) return
+      // A launch INTO Objektbesuche (a deep link, a reload on /besuche) — or into «Karte &
+      // Objekte» (/karte) — opens no Einsatz behind it: leaving the surface lands on the launcher,
+      // not on yesterday's Einsatz.
+      if (isOvPath(window.location.pathname) || isKartePath(window.location.pathname)) return
       // Remembered incident normally wins, but a NEWER alarm-created incident takes
       // precedence: a killed app reopens onto the live alarm, not yesterday's Einsatz.
       const bootPrefs = loadPrefs()
@@ -814,6 +832,51 @@ export default function App() {
     )
   }
 
+  // «Karte & Objekte»: the whole screen, like the Objektbesuche — and it does not wait for the
+  // Einsatz list either (the catalogue is its own read). Alarms reach it through the same strip and
+  // banners: shown, never switched to by themselves (owner, 16.10.2026).
+  const karteShown = !!karteRoute && !linkScoped && (karteEntered || !activeId)
+  if (karteShown) {
+    const runningNow = (incidents ?? []).filter((i) => isIncidentRunning(i))
+      .sort((a, b) => (b.started_at ?? '').localeCompare(a.started_at ?? ''))
+    return (
+      <>
+        <Meldeleiste />
+        {sessionExpired && <SessionExpiredMeldung onRelogin={() => void logout()} />}
+        {isEditor && (
+          <IncomingAlarmBanner
+            alarms={poolAlarms}
+            taking={taking}
+            attachFirst={false}
+            onTake={(a) => { leaveKarte(); void takeAndOpen(a) }}
+          />
+        )}
+        {freshIncident && poolAlarms.length === 0 && (
+          <NewIncidentBanner
+            inc={freshIncident}
+            active={!!activeId}
+            onSwitch={() => {
+              const f = freshIncident
+              dismissFreshIncident()
+              leaveKarte()
+              void openIncident(f.id, { meta: f })
+            }}
+            onDismiss={dismissFreshIncident}
+          />
+        )}
+        <Suspense fallback={<Splash />}>
+          <KarteApp
+            onLeave={leaveKarte}
+            onOpenVisits={openVisitsFromKarte}
+            running={runningNow}
+            onOpenIncident={(i) => { leaveKarte(); void openIncident(i.id, { meta: i }) }}
+          />
+        </Suspense>
+        <Overlays />
+      </>
+    )
+  }
+
   // Incident list still loading after auth: keep the boot Splash up rather than a blank
   // colour flash, so the launch stays continuous from /me probe → list → workspace.
   if (incidents === null || (!bootDecided && !activeId)) return <Splash />
@@ -1028,6 +1091,11 @@ export default function App() {
               {!linkScoped && (
                 <div className="ip-emptyapp-secondary">
                   <button className="ip-btn" onClick={() => setOverlay('history')}>{appConfig.copy.emptyApp.history}</button>
+                  {/* «Karte & Objekte»: every account may look (docs/karte-objekte.md) — the
+                      station's objects, plans and buildings without an Einsatz */}
+                  <button className="ip-btn" onClick={enterKarte}>
+                    <Icon id="map" />{appConfig.copy.karte.launcher}
+                  </button>
                   {/* Objektbesuche: only where the station switched the module on; every account
                       may read, the surface hides what a role may not capture */}
                   {objectVisitsConfig().enabled && (

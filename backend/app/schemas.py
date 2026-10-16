@@ -900,6 +900,77 @@ class BuildingOut(BaseModel):
     visit: BuildingVisitOut | None = None
 
 
+class ReferencePlanOut(BaseModel):
+    """One Modul-PDF of a station object, as «Karte & Objekte» lists it (api/station_reference)."""
+
+    id: str
+    #: the module key («modul1», «modul23») — the client's NavRail derives its monogram from it
+    module: str | None = None
+    #: the short code the panel prints («1», «2/3»)
+    code: str
+    title: str
+    #: pages of the current revision when already known (a written tile manifest), else None
+    pages: int | None = None
+    #: True = the current revision carries a published, approved map fit («auf der Karte»)
+    georef: bool = False
+    #: the current revision — what ``/api/reference/{id}?v=`` opens
+    version: int
+    updated_at: datetime | None = Field(default=None, serialization_alias="updatedAt")
+
+
+class ReferenceFloorOut(BaseModel):
+    """One Geschoss of an object's floor pack: the signed order index and the station's name, if
+    it gave one. The words («EG», «1. OG») are the client's copy (lib/whiteboard · floorLabel)."""
+
+    index: int
+    name: str | None = None
+
+
+class ReferenceLastVisitOut(BaseModel):
+    """The object's last completed Objektbesuch."""
+
+    id: str
+    #: the checklist's title; None for «Ohne Checkliste»
+    checklist: str | None = None
+    date: datetime | None = None
+    #: Mängel recorded on that visit
+    defects: int = 0
+
+
+class ReferenceObjectOut(BaseModel):
+    """One station object for the reference viewer — Einsatzobjekt, plan-less object or key box."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: uuid.UUID
+    name: str
+    kind: Literal["einsatzobjekt", "objekt", "depot"]
+    address: str | None = None
+    lat: float | None = None
+    lng: float | None = None
+    #: other names the object is known by (the station's plan-library folder, …) — search reads them
+    aliases: list[str] = Field(default_factory=list)
+    plans: list[ReferencePlanOut] = Field(default_factory=list)
+    floors: list[ReferenceFloorOut] = Field(default_factory=list)
+    #: the building's EGID when the station data names it; None today (no source carries one)
+    egid: str | None = None
+    #: a station-set outline (GeoJSON geometry); None = the client falls back to the map's own
+    footprint: dict[str, Any] | None = None
+    #: Sofortmassnahmen / Bemerkungen off the Modul-1 sheet and where they came from
+    measures: str | None = None
+    remarks: str | None = None
+    measures_source: str | None = Field(default=None, serialization_alias="measuresSource")
+    updated_at: datetime | None = Field(default=None, serialization_alias="updatedAt")
+    last_visit: ReferenceLastVisitOut | None = Field(default=None, serialization_alias="lastVisit")
+
+
+class ReferenceObjectsOut(BaseModel):
+    """``GET /api/reference/objects`` — every station object, for «Karte & Objekte»."""
+
+    objects: list[ReferenceObjectOut] = Field(default_factory=list)
+    generated_at: datetime = Field(serialization_alias="generatedAt")
+
+
 class PlanSourcesOut(BaseModel):
     """Which scheduled pulls can put a Modul-PDF into this deployment – not what they DID.
 

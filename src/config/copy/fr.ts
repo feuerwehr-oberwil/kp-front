@@ -45,6 +45,7 @@ import { reportCopy } from './fr/report'
 import { anwesenheitCopy } from './fr/anwesenheit'
 import { materialCopy } from './fr/material'
 import { objectVisitsCopy } from './fr/objectVisits'
+import { karteCopy } from './fr/karte'
 import { adminCopy } from './fr/admin'
 
 export const fr: Localizable<Copy> = {
@@ -69,5 +70,6 @@ export const fr: Localizable<Copy> = {
   ...anwesenheitCopy,
   ...materialCopy,
   ...objectVisitsCopy,
+  ...karteCopy,
   ...adminCopy,
 }
