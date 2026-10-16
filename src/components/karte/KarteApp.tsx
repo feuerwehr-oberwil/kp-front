@@ -24,6 +24,8 @@ import { fillTemplate } from '../../lib/format'
 import { useAuth } from '../../lib/auth'
 import { useIsPhone } from '../../lib/useIsPhone'
 import { useOnline } from '../../lib/useOnline'
+import { onReachable } from '../../lib/connectivity'
+import { useNightTheme } from '../../lib/useNightTheme'
 import { useSymbols } from '../../lib/useSymbols'
 import { useMeasure } from '../../lib/useMeasure'
 import { useVehicleLayer } from '../../lib/useVehicleLayer'
@@ -70,6 +72,10 @@ import { KartePanel, type PanelSel, type RegisterState, type VisitsState } from 
 import { KarteSearch, type AddrState } from './KarteSearch'
 import { KarteGefahrgut } from './KarteGefahrgut'
 import { KarteNavRail, KarteSurface } from './KartePlans'
+import { KarteDevice } from './KarteDevice'
+import { useMapCoverage, useObjectAvailability } from './useKarteOffline'
+import { NoBasemapMeldung } from '../NoBasemapMeldung'
+import { planKey, tileRing, type TileXY } from '../../lib/karte/availability'
 import s from './Karte.module.css'
 
 type Sel =
@@ -81,11 +87,14 @@ type Tool = null | 'pin' | 'measure' | 'erg' | 'layers'
 /** layer ids the viewer draws under that are not in the deployment's list */
 const OBJECTS_LAYER = 'karte-objekte' as LayerId
 const ALWAYS_LAYER = 'karte-immer' as LayerId
+/** the hatching over map area this device holds no base map for (offline only) */
+const UNCACHED_LAYER = 'karte-ohne-karte' as LayerId
 /** the Ebenen rows the viewer adds (LayerPanel twins) */
 const OBJECTS_ROW = 'karte:objekte'
 const GEOREF_ROW = 'karte:objektplan'
 const COUNTRY_CENTER: LngLat = [8.2275, 46.8182]
 const EMPTY_OBJECTS: StationObject[] = []
+const NO_TILES: TileXY[] = []
 const NOOP = () => {}
 
 export interface KarteAppProps {
@@ -154,11 +163,39 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
     return () => { alive = false }
     // once per mount: the start view is read once
   }, [start, C.floorsRow, flyPending])
+  // shown from the device because the server could not be asked: take the fresh one as soon as
+  // it answers again (lib/connectivity · onReachable), without touching the selection
+  const catStale = !!cat && (cat.fromDevice || cat.failed)
+  useEffect(() => {
+    if (!catStale) return
+    const refresh = () => {
+      loadStationObjects().then((r) => { if (r.source === 'network') setCat({ data: r.value, fromDevice: false, failed: false }) }).catch(() => {})
+    }
+    const offReach = onReachable(refresh)
+    window.addEventListener('online', refresh)
+    return () => { offReach(); window.removeEventListener('online', refresh) }
+  }, [catStale])
   const objects = cat?.data?.objects ?? EMPTY_OBJECTS
   const byId = useMemo(() => new Map(objects.map((o) => [o.id, o])), [objects])
   const selObj = sel?.kind === 'object' ? byId.get(sel.id) ?? null : null
   const docs = useMemo(() => (selObj ? viewerPlanDocs(selObj, C.floorsRow) : []), [selObj, C.floorsRow])
   const openDoc = surface ? docs.find((d) => d.doc.id === surface) ?? null : null
+
+  // ── offline: which of the object's plans this device holds (lib/karte/availability) ─────────
+  // Re-asked every few seconds while an open sheet is not held yet and the network is up: opening
+  // it online is what puts it in the cache, and the chip should say so once it is there.
+  const [availNonce, setAvailNonce] = useState(0)
+  const avail = useObjectAvailability(selObj, availNonce)
+  const docHeld = (d: { plan: StationObject['plans'][number] | null } | null): boolean | null => {
+    if (!d || !avail) return null
+    return d.plan ? avail.plans[planKey(d.plan)] ?? false : avail.gebaeude === 'device'
+  }
+  const openHeld = docHeld(openDoc)
+  useEffect(() => {
+    if (!openDoc || openHeld !== false || !online) return
+    const t = setInterval(() => setAvailNonce((n) => n + 1), 5000)
+    return () => clearInterval(t)
+  }, [openDoc, openHeld, online])
 
   // ── the address: /karte?objekt=<id> follows the selection (deep-linkable, no history entry) ──
   const objectInUrl = selObj?.id ?? null
@@ -181,6 +218,33 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
   const weather = useKarteWeather(true, karteRadarStore)
   const liveWeather = useWeather(view.center)
   const { liveVehicles } = useVehicleLayer({})
+
+  // ── offline: the base map this device holds for the view ─────────────────────────────────────
+  // Hatched where there is NOTHING behind the map (neither the tile nor a parent MapLibre could
+  // scale up) — asked only while offline or while «Auf diesem Gerät» is open.
+  const night = useNightTheme()
+  const [deviceOpen, setDeviceOpen] = useState(false)
+  const base = layers.find((l) => l.base && l.visible) ?? null
+  const baseTemplates = base ? (night && base.nightTiles?.length ? base.nightTiles : base.tiles ?? null) : null
+  const coverage = useMapCoverage({
+    enabled: !online || deviceOpen,
+    mapRef,
+    viewKey: `${view.center[0].toFixed(4)},${view.center[1].toFixed(4)}@${view.zoom.toFixed(1)}`,
+    templates: baseTemplates,
+    maxzoom: base?.maxzoom,
+  })
+  const uncached = useMemo(() => (!online && coverage && coverage !== 'far' ? coverage.missing : NO_TILES), [online, coverage])
+  // the «Keine Basiskarte» Meldung (MapView · onBasemapUnavailable): once per visit to the viewer,
+  // withdrawn the moment the link is back — the Einsatz's rule (IncidentWorkspace)
+  const [noBasemap, setNoBasemap] = useState(false)
+  const noBasemapSaid = useRef(false)
+  const onBasemapUnavailable = useCallback(() => {
+    if (noBasemapSaid.current) return
+    noBasemapSaid.current = true
+    setNoBasemap(true)
+  }, [])
+  const [wasOnline, setWasOnline] = useState(online)
+  if (online !== wasOnline) { setWasOnline(online); if (online) setNoBasemap(false) }
 
   // ── outlines (OSM, per cell) ──────────────────────────────────────────────────────────────
   const [cells, setCells] = useState<Record<string, LngLat[][]>>({})
@@ -394,6 +458,7 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
 
   // ── the map's content ─────────────────────────────────────────────────────────────────────
   const red = themeToken('--red', appConfig.ergRings.isolationColor)
+  const hatchInk = themeToken('--ink-faint', '#6c7686')
   const overlays = useMemo<PreparedMapOverlay[]>(() => {
     const out: PreparedMapOverlay[] = []
     const others = [...outlines.entries()].filter(([id]) => id !== selObj?.id).map(([, r]) => r)
@@ -403,6 +468,8 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
     // the building's outline — found again once its cell has loaded (a searched address flies first)
     const bRing = sel?.kind === 'building' ? sel.ring ?? ringAt(ringsNear(sel.at), sel.at) : null
     if (bRing) out.push({ id: 'karte-building', kind: 'polygons', layer: ALWAYS_LAYER, rings: [bRing], color: uiBlue(), fillOpacity: 0.16, lineWidth: 2.5, lineOpacity: 1 })
+    // offline: hatch the tiles with no base map behind them; under every other overlay (first in)
+    if (uncached.length) out.unshift({ id: 'karte-uncached', kind: 'polygons', layer: UNCACHED_LAYER, rings: uncached.map(tileRing), color: hatchInk, hatch: true, fillOpacity: 0.55, lineWidth: 0, lineOpacity: 0 })
     if (tool === 'erg' && erg.un && erg.center) {
       const row = lookupErg(erg.un)?.tih?.[0]
       for (const ring of ergRingsFor(row, erg.mode, erg.at, erg.center)) {
@@ -415,7 +482,7 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
       }
     }
     return out
-  }, [outlines, selObj, sel, tool, erg, red, ringsNear])
+  }, [outlines, selObj, sel, tool, erg, red, ringsNear, uncached, hatchInk])
   const entities = useMemo<Entity[]>(() => [
     ...liveVehicles,
     ...objects.filter((o) => o.kind === 'depot' && coordOf(o)).map((o) => ({
@@ -424,7 +491,7 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
   ], [liveVehicles, objects])
   const isVisible = useCallback((id: LayerId) => {
     if (id === OBJECTS_LAYER) return objectsOn
-    if (id === ALWAYS_LAYER) return true
+    if (id === ALWAYS_LAYER || id === UNCACHED_LAYER) return true
     return layers.find((l) => l.id === id)?.visible ?? true
   }, [layers, objectsOn])
 
@@ -613,6 +680,7 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
           onMeasureDelete={(i) => measure.setPath((pts) => pts.filter((_, j) => j !== i))}
           georefPlanRasters={georefRasters}
           weatherRadar={weather.mapRadar}
+          onBasemapUnavailable={onBasemapUnavailable}
         >
           {objectsOn && objects.map((o) => {
             if (o.kind === 'depot') return null
@@ -645,6 +713,7 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
         {openDoc && selObj && (
           <KarteSurface
             obj={selObj} doc={openDoc} phone={phone}
+            offline={!online} held={openHeld} gebaeude={avail?.gebaeude ?? null}
             onMap={() => setSurface(null)}
             onGeorefMap={openDoc.plan?.georef ? () => { setSurface(null); if (!georefOn) toggleGeoref() } : undefined}
           />
@@ -666,7 +735,12 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
             placeholder={phone ? C.searchPlaceholderShort : C.searchPlaceholder}
             aria-label={C.searchPlaceholder}
           />
-          {!phone && liveWeather.data?.wind_dir_deg != null && <WeatherBadge weather={liveWeather.data} bearing={view.bearing} />}
+          {/* offline: the chip stands where the weather was and opens «Auf diesem Gerät» */}
+          {!online ? (
+            <button type="button" className={s.offChip} onClick={() => setDeviceOpen(true)} title={C.offlineChipTitle} aria-label={C.offlineChipTitle}>
+              <span className={s.offDot} aria-hidden />{!phone && C.offlineChip}
+            </button>
+          ) : !phone && liveWeather.data?.wind_dir_deg != null && <WeatherBadge weather={liveWeather.data} bearing={view.bearing} />}
           {!phone && runningChip}
         </div>
         {phone && live && <div className={s.runningStrip}>{runningChip}</div>}
@@ -677,7 +751,8 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
         )}
 
         {railShown && selObj && (
-          <KarteNavRail obj={selObj} docs={docs} active={openDoc?.doc.id ?? null} onMap={() => setSurface(null)} onDoc={(id) => { setSurface(id); setToolState(null) }} />
+          <KarteNavRail obj={selObj} docs={docs} active={openDoc?.doc.id ?? null} onMap={() => setSurface(null)} onDoc={(id) => { setSurface(id); setToolState(null) }}
+            notHeld={!online ? new Set(docs.filter((d) => docHeld(d) === false).map((d) => d.doc.id)) : null} />
         )}
 
         {onMapSurface && panelSel && tool !== 'measure' && !(phone && (tool === 'erg' || tool === 'layers')) && (
@@ -691,6 +766,8 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
             docs={docs}
             georefOn={georefOn}
             georefAvailable={!!georefPlan}
+            offline={!online}
+            avail={avail}
             sheet={phone}
             full={full}
             withRail={railShown}
@@ -812,7 +889,15 @@ export default function KarteApp({ onLeave, onOpenVisits, running, onOpenInciden
         )}
 
         {cat?.failed && !cat.data && (
-          <div className={s.hintBar} role="status"><Icon id="warn" /><span>{C.loadFailed}</span></div>
+          <div className={s.hintBar} role="status"><Icon id="warn" /><span>{online ? C.loadFailed : C.noCatalogue}</span></div>
+        )}
+
+        {noBasemap && !online && (
+          <NoBasemapMeldung sub={C.basemapSub} actionLabel={C.basemapAction}
+            onOpenOffline={() => { setNoBasemap(false); setDeviceOpen(true) }} onDismiss={() => setNoBasemap(false)} />
+        )}
+        {deviceOpen && (
+          <KarteDevice offline={!online} objects={objects} map={coverage === 'far' ? 'far' : coverage ? { held: coverage.held, total: coverage.total } : null} onClose={() => setDeviceOpen(false)} />
         )}
       </div>
     </KeyBoxSvg.Provider>

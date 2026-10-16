@@ -17,22 +17,28 @@ import { getApprovedPlanAlignments, referenceUrl, type PlanFloor } from '../../l
 import type { StationObject } from '../../lib/api/stationReference'
 import type { ViewerPlanDoc } from '../../lib/karte/plans'
 import { floorLabel, withPdfPage } from '../../lib/whiteboard'
+import { fillTemplate } from '../../lib/format'
+import type { Lamp } from '../../lib/karte/availability'
 import { planRegionCropUrl } from '../PdfViewport'
 import { PdfScroller } from '../PdfScroller'
 import { PlanGlyph } from '../PlanGlyph'
 import { ShellLoader } from '../ShellLoader'
+import { LampDot } from './KarteDevice'
 import s from './Karte.module.css'
 
 /** The tablet's left rail for the selected object: Karte, then its documents. */
-export function KarteNavRail({ obj, docs, active, onMap, onDoc }: {
+export function KarteNavRail({ obj, docs, active, onMap, onDoc, notHeld }: {
   obj: StationObject
   docs: ViewerPlanDoc[]
   /** the open document id, or null on the Karte */
   active: string | null
   onMap: () => void
   onDoc: (id: string) => void
+  /** offline: the documents this device does not hold — dimmed, still tappable (the surface says why) */
+  notHeld?: ReadonlySet<string> | null
 }) {
   const nav = appConfig.copy.navRail
+  const C = appConfig.copy.karte
   return (
     <nav className="navrail rail" aria-label={obj.name}>
       <div className="rail-scroll-wrap">
@@ -42,12 +48,16 @@ export function KarteNavRail({ obj, docs, active, onMap, onDoc }: {
             <span className="nav-label">{nav.map}</span>
           </button>
           <div className="nav-sep" />
-          {docs.map(({ doc }) => (
-            <button key={doc.id} type="button" className={cx('nav-item', active === doc.id && 'on')} aria-pressed={active === doc.id} aria-label={doc.title} onClick={() => onDoc(doc.id)}>
+          {docs.map(({ doc }) => {
+            const off = !!notHeld?.has(doc.id)
+            const label = off ? fillTemplate(C.railNotStored, { t: doc.title }) : doc.title
+            return (
+            <button key={doc.id} type="button" className={cx('nav-item', active === doc.id && 'on', off && s.navOff)} aria-pressed={active === doc.id} aria-label={label} title={off ? label : undefined} onClick={() => onDoc(doc.id)}>
               <PlanGlyph doc={doc} />
               <span className="nav-label">{doc.code}</span>
             </button>
-          ))}
+            )
+          })}
           <span className={s.railName} aria-hidden>{obj.name}</span>
         </div>
       </div>
@@ -56,25 +66,40 @@ export function KarteNavRail({ obj, docs, active, onMap, onDoc }: {
 }
 
 /** A module PDF or the Gebäude stack, over the map. */
-export function KarteSurface({ obj, doc, phone, onMap, onGeorefMap }: {
+export function KarteSurface({ obj, doc, phone, onMap, onGeorefMap, offline = false, held = null, gebaeude = null }: {
   obj: StationObject
   doc: ViewerPlanDoc
   phone: boolean
   onMap: () => void
   /** «Auf der Karte» — only for a plan the station aligned */
   onGeorefMap?: () => void
+  /** no network right now */
+  offline?: boolean
+  /** this device holds the open document (null = not asked yet / cannot tell — no chip) */
+  held?: boolean | null
+  /** the Gebäude stack's availability, for «some storeys are missing» */
+  gebaeude?: Lamp | null
 }) {
   const C = appConfig.copy.karte
+  // offline and not on the device: say so instead of a reader that would spin on a dead fetch
+  const missing = offline && held === false
+  const partFloors = offline && !doc.plan && gebaeude === 'part'
   return (
     <div className={s.surface}>
       <div className={s.surfaceBody}>
-        {doc.plan
-          ? <PdfScroller key={doc.doc.imageUrl} url={doc.doc.imageUrl} />
-          : <KarteFloors key={obj.plans.map((p) => `${p.id}@${p.version}`).join('|')} obj={obj} />}
+        {missing
+          ? <div className={s.surfaceNote}><div className={s.note}><Icon id="info" /><span>{doc.plan ? C.planOfflineMissing : C.floorsOfflineMissing}</span></div></div>
+          : doc.plan
+            ? <PdfScroller key={doc.doc.imageUrl} url={doc.doc.imageUrl} />
+            : <KarteFloors key={obj.plans.map((p) => `${p.id}@${p.version}`).join('|')} obj={obj} partOffline={partFloors} />}
       </div>
       <div className={s.chipRow}>
         <button type="button" className={s.fchip} onClick={onMap}><Icon id="footprint" />{phone ? C.backToMap : obj.name}</button>
         {onGeorefMap && <button type="button" className={s.fchip} onClick={onGeorefMap}><Icon id="locate" />{C.onMap}</button>}
+        {/* the mockup's lamp chip: always on the tablet, on the phone only when it matters (offline) */}
+        {held != null && (!phone || offline) && (
+          <span className={s.fchip} role="status"><LampDot lamp={held ? 'device' : 'online'} />{held ? C.planOnDevice : C.planOnlineOnly}</span>
+        )}
       </div>
     </div>
   )
@@ -84,7 +109,7 @@ interface FloorDrawing { key: string; index: number; name: string | null; url: s
 
 /** Every storey the station prepared for this object, top floor first. The floor list of each plan
  *  revision comes from its published alignment metadata (offline-cached, lib/api/reference). */
-function KarteFloors({ obj }: { obj: StationObject }) {
+function KarteFloors({ obj, partOffline }: { obj: StationObject; partOffline: boolean }) {
   const C = appConfig.copy.karte
   const [drawings, setDrawings] = useState<FloorDrawing[] | null>(null)
   const [failed, setFailed] = useState(false)
@@ -117,6 +142,7 @@ function KarteFloors({ obj }: { obj: StationObject }) {
   if (!drawings) return <div className={s.floors}><div className={s.floorWait}><ShellLoader /></div></div>
   return (
     <div className={s.floors}>
+      {partOffline && <div className={cx(s.note, s.amber)}><Icon id="warn" /><span>{C.floorsPartOffline}</span></div>}
       {drawings.map((d) => (
         <section key={d.key} className={s.floor}>
           <div className={s.floorHead}>{floorLabel(d.index)}{d.name && <small>{d.name}</small>}</div>
