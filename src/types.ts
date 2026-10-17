@@ -832,6 +832,8 @@ export type PreparedMapOverlay =
       /** paint the inside with the Schraffur tile of `color` (lib/draw · hatchImageId) instead of a
        *  flat fill — the viewer hatches map area this device holds no base map for */
       hatch?: boolean
+      /** drawn only from this map zoom on (the region's underground buildings: street zoom) */
+      minzoom?: number
     }
 
 /** Whiteboard annotation. All positions are normalized 0..1 in plan-image space,

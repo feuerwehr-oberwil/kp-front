@@ -8,10 +8,10 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
-import type { StationObjects } from '../../lib/api/stationReference'
+import type { StationObjects, UndergroundSet } from '../../lib/api/stationReference'
 import type { LngLat } from '../../types'
 
-const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], phone: false, board: [] as Record<string, unknown>[], catalogue: null as null | StationObjects, rules: [] as unknown[], fakeMap: null as null | object }))
+const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], phone: false, board: [] as Record<string, unknown>[], catalogue: null as null | StationObjects, rules: [] as unknown[], fakeMap: null as null | object, underground: null as null | UndergroundSet, undergroundAsked: 0 }))
 const lastMap = () => rec.map[rec.map.length - 1] as { onMapClick: (c: LngLat) => void; measurePoints: LngLat[]; onMeasureDelete?: (i: number) => void; children?: ReactNode }
 
 const CATALOGUE: StationObjects = {
@@ -57,6 +57,7 @@ vi.mock('../../lib/api/stationReference', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/api/stationReference')>()),
   loadStationObjects: async () => ({ value: rec.catalogue ?? CATALOGUE, source: 'network' as const }),
   loadStationBuilding: async () => null,
+  loadUnderground: async () => { rec.undergroundAsked++; return rec.underground },
 }))
 vi.mock('../../objectVisits/api', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../objectVisits/api')>()), listVisits: async () => [] }))
 vi.mock('../../lib/api/geo', () => ({
@@ -96,6 +97,8 @@ beforeEach(() => {
   rec.catalogue = null
   rec.rules = []
   rec.fakeMap = null
+  rec.underground = null
+  rec.undergroundAsked = 0
   localStorage.clear(); sessionStorage.clear()
   window.history.replaceState(null, '', '/karte')
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })))
@@ -302,6 +305,68 @@ describe('KarteApp', () => {
     // a row switched by hand: none of the three is lit
     fireEvent.click(objects())
     for (const n of ['Alle ein', 'Alle aus', 'Standard']) expect(chip(n).getAttribute('aria-pressed')).toBe('false')
+  })
+
+  it('«Unterirdische Bauten»: a Station row, off and outside «Standard», asked when switched on, drawn dashed under the objects', async () => {
+    const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]
+    rec.underground = { fetchedAt: '2026-10-17T03:00:00+00:00', count: 2, geometry: { type: 'MultiPolygon', coordinates: [[sq(7.5701, 47.5237, 0.0002)], [sq(7.5710, 47.5230, 0.0001)]] } }
+    rec.catalogue = {
+      ...CATALOGUE,
+      objects: CATALOGUE.objects.map((o) => (o.id === 'schloss' ? { ...o, footprint: { type: 'MultiPolygon', coordinates: [[sq(7.5700, 47.5236, 0.0004)]] } } : o)),
+    }
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    type Ov = { id: string; color?: string; rings?: LngLat[][]; lineDasharray?: number[]; fillOpacity?: number; minzoom?: number; layer?: string }
+    const overlays = () => (lastMap() as unknown as { preparedOverlays: Ov[] }).preparedOverlays
+    const visible = (id: string) => (lastMap() as unknown as { isVisible: (l: string) => boolean }).isVisible(id)
+    fireEvent.click(screen.getByRole('button', { name: 'Ebenen' }))
+    const row = () => screen.getByRole('button', { name: /^Unterirdische Bauten – / })
+    const chip = (name: string) => screen.getByRole('button', { name })
+    // in the Station group, off, and «Standard» is lit with it off; nothing asked yet
+    const heads = [...document.querySelectorAll('.lgroup')].filter((h) => h.compareDocumentPosition(row()) & Node.DOCUMENT_POSITION_FOLLOWING)
+    expect(heads[heads.length - 1]?.textContent).toBe('Station')
+    expect(row().getAttribute('aria-pressed')).toBe('false')
+    expect(chip('Standard').getAttribute('aria-pressed')).toBe('true')
+    expect(rec.undergroundAsked).toBe(0)
+    expect(overlays().some((o) => o.id === 'karte-underground')).toBe(false)
+
+    fireEvent.click(row())
+    await waitFor(() => expect(overlays().some((o) => o.id === 'karte-underground')).toBe(true))
+    expect(rec.undergroundAsked).toBe(1)
+    expect(row().textContent).toMatch(/2 Bauten/)
+    const ov = overlays().find((o) => o.id === 'karte-underground')!
+    expect(ov.rings).toHaveLength(2)
+    expect(ov.rings![0]).toHaveLength(4) // open rings: the map closes them
+    expect(ov.lineDasharray).toBeTruthy()
+    expect(ov.fillOpacity).toBe(0)
+    expect(ov.minzoom).toBe(16)
+    expect(visible(ov.layer!)).toBe(true)
+    // neutral, never the objects' red; and UNDER them, so an object's own dashed garage stays on top
+    const objects = overlays().find((o) => o.id === 'karte-objects')!
+    expect(ov.color).not.toBe(objects.color)
+    expect(overlays().indexOf(ov)).toBeLessThan(overlays().indexOf(objects))
+    // a row switched on by hand: «Standard» is no longer lit, and puts it back off
+    expect(chip('Standard').getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(chip('Standard'))
+    expect(row().getAttribute('aria-pressed')).toBe('false')
+    await waitFor(() => expect(overlays().some((o) => o.id === 'karte-underground')).toBe(false))
+    // «Alle ein» switches it like any row — the set is kept, not asked again
+    fireEvent.click(chip('Alle ein'))
+    expect(row().getAttribute('aria-pressed')).toBe('true')
+    await waitFor(() => expect(overlays().some((o) => o.id === 'karte-underground')).toBe(true))
+    expect(rec.undergroundAsked).toBe(1)
+  })
+
+  it('«Unterirdische Bauten» says so when there is nothing to draw, and asks again next time', async () => {
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Ebenen' }))
+    const row = () => screen.getByRole('button', { name: /^Unterirdische Bauten – / })
+    fireEvent.click(row())
+    await waitFor(() => expect(row().textContent).toMatch(/Nicht verfügbar/))
+    fireEvent.click(row())
+    fireEvent.click(row())
+    await waitFor(() => expect(rec.undergroundAsked).toBe(2))
   })
 
   it('opens a deep link on its object — a plan-less one as an object like any other', async () => {
