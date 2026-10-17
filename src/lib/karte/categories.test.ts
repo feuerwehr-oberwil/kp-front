@@ -33,15 +33,28 @@ describe('object categories', () => {
     expect(categoryOf(obj('einsatzobjekt', ['modul1', 'modul5-pv20']), rules)?.id).toBe('pv')
     expect(categoryOf(obj('einsatzobjekt', ['modul5-wasser2']), rules)?.id).toBe('wasser')
     expect(categoryOf(obj('einsatzobjekt', ['modul1', 'modul6']), rules)?.id).toBe('einsatz')
-    // a key box falls to the catch-all
-    expect(categoryOf(obj('depot', []), rules)?.id).toBe('rest')
+    // a plan-less object falls to the catch-all
+    expect(categoryOf(obj('objekt', []), rules)?.id).toBe('rest')
   })
 
   it('every condition a rule names must hold', () => {
-    const rules = categoryRules([{ id: 'kb', label: 'Schlüssel mit Plan', color: '#7c3aed', match: { kinds: ['depot'], modules: ['modul6'] } }])
-    expect(categoryOf(obj('depot', []), rules)).toBeNull()
-    expect(categoryOf(obj('einsatzobjekt', ['modul6']), rules)).toBeNull()
-    expect(categoryOf(obj('depot', ['modul6']), rules)?.id).toBe('kb')
+    const rules = categoryRules([{ id: 'm6', label: 'Modul 6, Einsatzobjekt', color: '#7c3aed', match: { kinds: ['einsatzobjekt'], modules: ['modul6'] } }])
+    expect(categoryOf(obj('einsatzobjekt', ['modul1']), rules)).toBeNull()
+    expect(categoryOf(obj('objekt', []), rules)).toBeNull()
+    expect(categoryOf(obj('einsatzobjekt', ['modul6']), rules)?.id).toBe('m6')
+  })
+
+  // review round 3 (17.10.2026): no key-box objects any more. A station config written for them
+  // stays valid, and its `depot` rule paints nothing — never everything
+  it('a rule for the retired «depot» kind matches no object', () => {
+    const rules = categoryRules([
+      { id: 'kb', label: 'Schlüsseldepots', color: '#7c3aed', match: { kinds: ['depot'] } },
+      { id: 'mit', label: 'Mit Plänen', color: '#dc2626', match: { kinds: ['einsatzobjekt', 'depot'] } },
+    ])
+    expect(rules[0].kinds).toEqual([])
+    expect(categoryOf(obj('objekt', []), rules)).toBeNull()
+    expect(categoryOf(obj('einsatzobjekt', ['modul1']), rules)?.id).toBe('mit')
+    expect(configRejections({ map: { objectCategories: [{ id: 'kb', label: 'K', color: '#7c3aed', match: { kinds: ['depot'] } }] } })).toEqual([])
   })
 
   it('no rules = today\'s look for everything', () => {
@@ -56,7 +69,8 @@ describe('object categories', () => {
       { id: 'b', label: 'B', color: '#112233', match: { kinds: ['nonsense' as never] } },
       { id: 'b', label: 'B2', color: '#445566' },
     ])
-    expect(rules.map((r) => [r.id, r.label, r.color, r.kinds])).toEqual([['b', 'B', '#112233', null]])
+    // an unknown kind is no kind: the rule matches nothing rather than everything
+    expect(rules.map((r) => [r.id, r.label, r.color, r.kinds])).toEqual([['b', 'B', '#112233', []]])
   })
 
   it('labels per language, German then the first one as the fallback', () => {
@@ -67,7 +81,7 @@ describe('object categories', () => {
   })
 
   it('counts per category for the Ebenen rows', () => {
-    const objs = [obj('einsatzobjekt', ['modul5-pv']), obj('einsatzobjekt', ['modul1']), obj('depot', [])] as StationObject[]
+    const objs = [obj('einsatzobjekt', ['modul5-pv']), obj('einsatzobjekt', ['modul1']), obj('objekt', [])] as StationObject[]
     const counts = categoryCounts(categorize(objs, categoryRules(FWO)))
     expect(Object.fromEntries(counts)).toEqual({ pv: 1, einsatz: 1, rest: 1 })
   })

@@ -14,13 +14,29 @@ buildings ARE this object» once per object, from three public, keyless sources:
 * **the buildings** — the cadastral survey's own footprints (amtliche Vermessung,
   Bodenbedeckung «Gebäude», with their EGID) over geodienste.ch's open AV WFS.
 
-The rule (``derive``): the object's point inside an ALLOWED use area → every building whose
-centroid lies in that area; else every building on its parcel; else the one building its point
-lies in; else nothing — and the viewer falls back to today's OSM outline by containment. A step
-is skipped when it is too big to be one object (``MAX_AREA_M2`` / ``MAX_PARCEL_M2`` /
-``MAX_BUILDINGS``: an industrial estate of unrelated firms) or when it holds ANOTHER station
+The rule (``derive_all`` / ``derive``), first match wins:
+
+1. **the addresses in the NAME** (review round 3, 17.10.2026 — owner: «outline all the houses»):
+   an object named by a row of houses («Stallenmattstrasse 2-14, Kaibmattweg 1-5 (EH)», «Auf der
+   Wacht 14&16»; app/address_ranges reads it, aliases included) is every building of every
+   register address the name covers — the cadastral survey's Gebäudeadressen (``ms:HADR``, same
+   WFS) near the point, in the town of the nearest one, then their buildings by EGID
+   (``ask_range``). Used when it finds at least one building and at most ``MAX_RANGE_BUILDINGS``
+   (more is logged and skipped: a misread name, not a row of houses);
+2. the object's point inside an ALLOWED use area → every building whose centroid lies in that
+   area;
+3. else every building on its parcel;
+4. else the one building its point lies in; else nothing — and the viewer falls back to today's
+   OSM outline by containment.
+
+Steps 2 and 3 are skipped when too big to be one object (``MAX_AREA_M2`` / ``MAX_PARCEL_M2`` /
+``MAX_BUILDINGS``: an industrial estate of unrelated firms) or when they hold ANOTHER station
 object's point (two catalogue objects on one parcel must never claim each other's buildings —
-the «never by proximity» rule of lib/karte/places, kept at the scale of a parcel).
+the «never by proximity» rule of lib/karte/places, kept at the scale of a parcel). Step 1 has no
+such guard: the name is the station's own word for which houses the object is.
+
+Every station object takes part — there is no «key box» kind any more (owner, round 3: «I think
+we can just highlight buildings / building groups»); the point stays where the station put it.
 
 ⚠️ Nothing here runs per request. The scheduler (``tick``) asks the sources for a handful of
 objects per run and stores the answers in ``reference/object-footprints.json`` beside the
@@ -56,14 +72,14 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import geocode, mvt, storage
+from . import address_ranges, geocode, mvt, storage
 from .config import settings
 
 logger = logging.getLogger(__name__)
 
 STORE_KEY = "reference/object-footprints.json"
 #: bump when the derivation changes — every stored footprint is derived again (facts are kept)
-ALGO = 1
+ALGO = 2
 
 #: the swissTLM3D use areas that ARE one object's grounds. Residential quarters, parking lots and
 #: single pitches are not; a school, a hospital, a sports ground or a cemetery (its chapel) are.
@@ -86,6 +102,11 @@ MAX_AREA_M2 = 150_000.0
 MAX_PARCEL_M2 = 60_000.0
 #: more buildings than this is not one object any more
 MAX_BUILDINGS = 15
+#: a row of houses named by its addresses may be longer (Bruderholzstrasse 90-130 …) — more than
+#: this is a name read wrong, and the name's step is skipped (logged)
+MAX_RANGE_BUILDINGS = 60
+#: the name's addresses are looked for this far around the object's point (half the box side)
+RANGE_REACH_M = 600.0
 #: a shed, a kiosk or a transformer box on the grounds is not one of the object's buildings
 #: (Hüslimatt's area holds seven of 7–14 m² beside its five houses); the object's own building
 #: always counts, whatever its size
@@ -222,7 +243,7 @@ def main_building(at: LngLat, buildings: list[Ring]) -> Ring | None:
 def derive(at: LngLat, facts: Facts, others: list[LngLat]) -> tuple[str, list[Ring]] | None:
     """``(source, buildings)`` for an object at ``at`` — the building its point is in first —
     or None when official data has no building for it. ``others``: every OTHER station object's
-    point (key boxes excluded); a step that holds one of them is not this object's alone."""
+    point; a step that holds one of them is not this object's alone."""
     main = main_building(at, facts.buildings)
 
     def members(polys: list[Polygon], max_m2: float) -> list[Ring] | None:
@@ -400,15 +421,12 @@ class Sources:
                 return polys
         return None
 
-    async def buildings(self, box: tuple[float, float, float, float]) -> list[Ring]:
-        west, south, east, north = box
+    async def _wfs(self, typename: str, conditions: list[str], count: int = 500) -> list[dict]:
+        """The AV WFS's features of one type matching every condition (FES 2.0 snippets)."""
         flt = (
             '<fes:Filter xmlns:fes="http://www.opengis.net/fes/2.0" xmlns:gml="http://www.opengis.net/gml/3.2">'
-            "<fes:And><fes:PropertyIsEqualTo><fes:ValueReference>Art</fes:ValueReference>"
-            "<fes:Literal>Gebaeude</fes:Literal></fes:PropertyIsEqualTo>"
-            '<fes:BBOX><fes:ValueReference>geometry</fes:ValueReference><gml:Envelope srsName="urn:ogc:def:crs:EPSG::4326">'
-            f"<gml:lowerCorner>{south:.7f} {west:.7f}</gml:lowerCorner><gml:upperCorner>{north:.7f} {east:.7f}</gml:upperCorner>"
-            "</gml:Envelope></fes:BBOX></fes:And></fes:Filter>"
+            + (f"<fes:And>{''.join(conditions)}</fes:And>" if len(conditions) > 1 else conditions[0])
+            + "</fes:Filter>"
         )
         r = await self.client.get(
             settings.footprint_buildings_wfs,
@@ -416,19 +434,93 @@ class Sources:
                 "SERVICE": "WFS",
                 "VERSION": "2.0.0",
                 "REQUEST": "GetFeature",
-                "TYPENAMES": "ms:LCSF",
+                "TYPENAMES": typename,
                 "SRSNAME": "urn:ogc:def:crs:EPSG::4326",
                 "OUTPUTFORMAT": "geojson",
-                "COUNT": "500",
+                "COUNT": str(count),
                 "FILTER": flt,
             },
         )
         r.raise_for_status()
-        out: list[Ring] = []
-        for f in r.json().get("features", []):
-            for poly in _geojson_polygons(f.get("geometry") or {}):
-                out.append(poly[0])
+        return list(r.json().get("features", []))
+
+    async def buildings(self, box: tuple[float, float, float, float]) -> list[Ring]:
+        return [ring for ring, _egid in await self.buildings_with_egid(box)]
+
+    async def buildings_with_egid(self, box: tuple[float, float, float, float]) -> list[tuple[Ring, str | None]]:
+        return _rings_with_egid(await self._wfs("ms:LCSF", [_IS_BUILDING, _bbox_condition(box)]))
+
+    async def buildings_by_egid(self, egids: list[str]) -> list[tuple[Ring, str | None]]:
+        """The survey's building footprints carrying these register ids (in chunks of 40)."""
+        out: list[tuple[Ring, str | None]] = []
+        for i in range(0, len(egids), 40):
+            chunk = egids[i : i + 40]
+            ors = "".join(_equals("GWR_EGID", e) for e in chunk)
+            out += _rings_with_egid(
+                await self._wfs("ms:LCSF", [_IS_BUILDING, f"<fes:Or>{ors}</fes:Or>" if len(chunk) > 1 else ors])
+            )
         return out
+
+    async def addresses(self, box: tuple[float, float, float, float], streets: list[str]) -> list[dict]:
+        """The survey's building addresses (Gebäudeadressen) on these streets inside the box:
+        ``{street, number, egid, town, at}``."""
+        ors = "".join(_equals("Strassenname", s, case=False) for s in streets)
+        feats = await self._wfs(
+            "ms:HADR", [f"<fes:Or>{ors}</fes:Or>" if len(streets) > 1 else ors, _bbox_condition(box)], count=2000
+        )
+        out: list[dict] = []
+        for f in feats:
+            p = f.get("properties") or {}
+            c = (f.get("geometry") or {}).get("coordinates") or []
+            if len(c) < 2 or not p.get("Strassenname"):
+                continue
+            egid = str(p.get("GWR_EGID") or "").strip()
+            out.append(
+                {
+                    "street": str(p["Strassenname"]),
+                    "number": str(p.get("Hausnummer") or ""),
+                    "egid": egid if egid and egid != "0" else None,
+                    "town": str(p.get("Ortschaftsname") or ""),
+                    "at": (float(c[0]), float(c[1])),
+                }
+            )
+        return out
+
+
+_IS_BUILDING = (
+    "<fes:PropertyIsEqualTo><fes:ValueReference>Art</fes:ValueReference>"
+    "<fes:Literal>Gebaeude</fes:Literal></fes:PropertyIsEqualTo>"
+)
+
+
+def _xml(s: str) -> str:
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _equals(prop: str, value: str, *, case: bool = True) -> str:
+    match = "" if case else ' matchCase="false"'
+    return (
+        f"<fes:PropertyIsEqualTo{match}><fes:ValueReference>{prop}</fes:ValueReference>"
+        f"<fes:Literal>{_xml(value)}</fes:Literal></fes:PropertyIsEqualTo>"
+    )
+
+
+def _bbox_condition(box: tuple[float, float, float, float]) -> str:
+    west, south, east, north = box
+    return (
+        '<fes:BBOX><fes:ValueReference>geometry</fes:ValueReference><gml:Envelope srsName="urn:ogc:def:crs:EPSG::4326">'
+        f"<gml:lowerCorner>{south:.7f} {west:.7f}</gml:lowerCorner><gml:upperCorner>{north:.7f} {east:.7f}</gml:upperCorner>"
+        "</gml:Envelope></fes:BBOX>"
+    )
+
+
+def _rings_with_egid(features: list[dict]) -> list[tuple[Ring, str | None]]:
+    out: list[tuple[Ring, str | None]] = []
+    for f in features:
+        egid = str((f.get("properties") or {}).get("GWR_EGID") or "").strip() or None
+        for poly in _geojson_polygons(f.get("geometry") or {}):
+            out.append((poly[0], egid))
+    return out
 
 
 def _geojson_polygons(g: dict) -> list[Polygon]:
@@ -470,6 +562,49 @@ async def ask(src: Sources, at: LngLat) -> Facts:
         parcel = None
     buildings = await src.buildings(_span_box(at, [area, parcel]))
     return Facts(area_class=cls if area else None, area=area, parcel=parcel, buildings=buildings)
+
+
+def _box_around(at: LngLat, half_m: float) -> tuple[float, float, float, float]:
+    lng, lat = at
+    dy = half_m / 110_540
+    dx = half_m / (111_320 * math.cos(math.radians(lat)))
+    return (lng - dx, lat - dy, lng + dx, lat + dy)
+
+
+async def ask_range(src: Sources, at: LngLat, specs: list[address_ranges.Spec]) -> list[Ring]:
+    """Every building of every register address the name's specs cover (rule step 1).
+
+    The addresses come from the survey's Gebäudeadressen on the named streets within
+    ``RANGE_REACH_M`` of the point, kept only in the town of the one nearest the point (a
+    Bruderholzstrasse runs through four towns); each address's building is the footprint with
+    its EGID, else — an address the survey keeps without one — the footprint its door point lies
+    in. ``[]`` = asked, nothing matched. Raises when a source could not be asked."""
+    streets = sorted({c for s in specs for c in address_ranges.query_names(s.street)})
+    near = await src.addresses(_box_around(at, RANGE_REACH_M), streets)
+    specs = address_ranges.settle(specs, [a["street"] for a in near])
+    found = [a for a in near if address_ranges.covers(specs, a["street"], a["number"])]
+    if not found:
+        return []
+    kx = 111_320.0 * math.cos(math.radians(at[1]))
+    nearest = min(found, key=lambda a: math.hypot((a["at"][0] - at[0]) * kx, (a["at"][1] - at[1]) * 110_540.0))
+    found = [a for a in found if a["town"] == nearest["town"]]
+    egids = sorted({a["egid"] for a in found if a["egid"]})
+    rings: list[Ring] = []
+    have: set[str] = set()
+    for ring, egid in await src.buildings_by_egid(egids) if egids else []:
+        rings.append(ring)
+        if egid:
+            have.add(egid)
+    loose = [a["at"] for a in found if not a["egid"] or a["egid"] not in have]
+    if loose:
+        pad = 5 / 110_540
+        w = min(p[0] for p in loose) - pad * 1.5
+        e = max(p[0] for p in loose) + pad * 1.5
+        box = (w, min(p[1] for p in loose) - pad, e, max(p[1] for p in loose) + pad)
+        for ring, _egid in await src.buildings_with_egid(box):
+            if any(_in_ring(ring, p) for p in loose) and ring not in rings:
+                rings.append(ring)
+    return rings
 
 
 # --- the store ----------------------------------------------------------------------------------
@@ -533,47 +668,78 @@ def place_at(lat: float | None, lng: float | None) -> dict | None:
 #: when a point's last ask failed — retried after RETRY_S, per process
 _failed: dict[str, float] = {}
 _place_failed: dict[str, float] = {}
+_range_failed: dict[str, float] = {}
 
 
-async def _station_points(db: AsyncSession) -> tuple[dict[str, LngLat], dict[str, str], list[LngLat]]:
-    """Every station object with a point, key boxes left out (they are no building's owner);
-    the station's outline choice per object (only where it is not automatic); and EVERY object's
-    point, key boxes included, for the register address at the pin."""
-    from .api.station_reference import object_kind
-    from .models import ObjectSite, ReferenceDataset
-    from .object_visits import refs_by_object
+@dataclass
+class Station:
+    """What the tick needs of the catalogue: every object's point, the station's outline choice
+    (only where it is not automatic) and the address specs its name holds (only where it holds
+    a range or a list — app/address_ranges)."""
 
-    with_plans = set(
-        (await db.execute(select(ReferenceDataset.object_id).where(ReferenceDataset.object_id.is_not(None)))).scalars()
-    )
-    refs = await refs_by_object(db)
-    out: dict[str, LngLat] = {}
-    modes: dict[str, str] = {}
-    every: list[LngLat] = []
+    points: dict[str, LngLat]
+    modes: dict[str, str]
+    specs: dict[str, list[address_ranges.Spec]]
+
+
+async def _station_points(db: AsyncSession) -> Station:
+    """Every station object with a point — all of them: there is no key-box kind that owns no
+    building any more (review round 3, 17.10.2026)."""
+    from .models import ObjectSite
+
+    out = Station({}, {}, {})
     for o in (
         await db.execute(select(ObjectSite).where(ObjectSite.lat.is_not(None), ObjectSite.lng.is_not(None)))
     ).scalars():
-        at = (float(o.lng), float(o.lat))  # type: ignore[arg-type]
-        every.append(at)
-        if object_kind(o, o.id in with_plans, [r["source"] for r in refs.get(o.id, [])]) == "depot":
-            continue
-        out[str(o.id)] = at
+        oid = str(o.id)
+        out.points[oid] = (float(o.lng), float(o.lat))  # type: ignore[arg-type]
         if o.outline in ("building", "none"):
-            modes[str(o.id)] = o.outline
-    return out, modes, every
+            out.modes[oid] = o.outline
+        specs = address_ranges.parse(o.name, o.filing_folder)
+        if specs:
+            out.specs[oid] = specs
+    return out
+
+
+def _range_key(at: LngLat, specs: list[address_ranges.Spec]) -> str:
+    return f"{_point_key(at[1], at[0])}|{address_ranges.specs_key(specs)}"
+
+
+def range_set(at: LngLat, rings: list[Ring]) -> list[Ring]:
+    """The name's buildings, the one the point lies in first (as_geojson's order)."""
+    main = main_building(at, rings)
+    return ([main] if main is not None else []) + [r for r in rings if r is not main]
 
 
 def derive_all(
-    points: dict[str, LngLat], facts: dict[str, Facts], modes: dict[str, str] | None = None
+    points: dict[str, LngLat],
+    facts: dict[str, Facts],
+    modes: dict[str, str] | None = None,
+    ranges: dict[str, list[Ring]] | None = None,
 ) -> dict[str, dict]:
     """Every object's footprint from the facts at hand (no network). ``modes``: the station's
     outline choice per object — ``none`` derives nothing, ``building`` only the building at
-    the pin (the rule's area and parcel steps are skipped)."""
+    the pin (the name, area and parcel steps are skipped). ``ranges``: the buildings of the
+    addresses an object's name covers (``ask_range``), the rule's first step."""
     out: dict[str, dict] = {}
     modes = modes or {}
+    ranges = ranges or {}
     for oid, at in points.items():
+        if modes.get(oid) == "none":
+            continue
+        named = ranges.get(oid) if modes.get(oid) != "building" else None
+        if named and len(named) <= MAX_RANGE_BUILDINGS:
+            out[oid] = {"at": _point_key(at[1], at[0]), "source": "name", "footprint": as_geojson(range_set(at, named))}
+            continue
+        if named:
+            logger.warning(
+                "object footprint: %s names %d buildings (more than %d) — its name is not used",
+                oid,
+                len(named),
+                MAX_RANGE_BUILDINGS,
+            )
         f = facts.get(_point_key(at[1], at[0]))
-        if f is None or modes.get(oid) == "none":
+        if f is None:
             continue
         if modes.get(oid) == "building":
             main = main_building(at, f.buildings)
@@ -587,40 +753,62 @@ def derive_all(
     return out
 
 
-def _signature(points: dict[str, LngLat], facts_keys: set[str], modes: dict[str, str] | None = None) -> str:
+def _signature(
+    points: dict[str, LngLat],
+    facts_keys: set[str],
+    modes: dict[str, str] | None = None,
+    range_keys: dict[str, str] | None = None,
+) -> str:
     h = hashlib.sha256(f"{ALGO}|".encode())
     for oid in sorted(points):
-        h.update(f"{oid}={_point_key(points[oid][1], points[oid][0])}{(modes or {}).get(oid, '')};".encode())
+        h.update(
+            f"{oid}={_point_key(points[oid][1], points[oid][0])}{(modes or {}).get(oid, '')}"
+            f"{(range_keys or {}).get(oid, '')};".encode()
+        )
     h.update("|".join(sorted(facts_keys)).encode())
     return h.hexdigest()
 
 
 async def tick(db: AsyncSession, *, client: httpx.AsyncClient | None = None) -> int:
-    """Ask the sources for up to ``BATCH`` points not asked yet, then re-derive when anything
-    changed. Returns how many points were asked. Idle (one query, one small file read) once
-    every object has its facts."""
+    """Ask the sources for up to ``BATCH`` points (and named rows of houses) not asked yet, then
+    re-derive when anything changed. Returns how many points were asked. Idle (one query, one
+    small file read) once every object has its facts."""
     global _read
     if not enabled():
         return 0
-    points, modes, every = await _station_points(db)
+    station = await _station_points(db)
+    points, modes = station.points, station.modes
     data = _load()
     facts = {k: Facts.from_json(v) for k, v in (data.get("facts") or {}).items()}
     places: dict[str, dict] = dict(data.get("places") or {})
+    ranges: dict[str, list[Ring]] = {
+        k: [[(float(p[0]), float(p[1])) for p in r] for r in v] for k, v in (data.get("ranges") or {}).items()
+    }
+    range_keys = {oid: _range_key(points[oid], sp) for oid, sp in station.specs.items()}
     now = time.monotonic()
+
+    def due(key: str, failed: dict[str, float]) -> bool:
+        return now - failed.get(key, -math.inf) > RETRY_S
+
     todo = [
         at
         for at in {_point_key(p[1], p[0]): p for p in points.values()}.values()
-        if _point_key(at[1], at[0]) not in facts and now - _failed.get(_point_key(at[1], at[0]), -math.inf) > RETRY_S
+        if _point_key(at[1], at[0]) not in facts and due(_point_key(at[1], at[0]), _failed)
     ][:BATCH]
     todo_places = [
         at
-        for at in {_point_key(p[1], p[0]): p for p in every}.values()
-        if _point_key(at[1], at[0]) not in places
-        and now - _place_failed.get(_point_key(at[1], at[0]), -math.inf) > RETRY_S
+        for at in {_point_key(p[1], p[0]): p for p in points.values()}.values()
+        if _point_key(at[1], at[0]) not in places and due(_point_key(at[1], at[0]), _place_failed)
+    ][:BATCH]
+    todo_ranges = [
+        (key, points[oid], station.specs[oid])
+        for key, oid in {k: o for o, k in range_keys.items()}.items()
+        if key not in ranges and due(key, _range_failed)
     ][:BATCH]
     asked = 0
     asked_places = 0
-    if todo or todo_places:
+    asked_ranges = 0
+    if todo or todo_places or todo_ranges:
         own = client is None
         cli = client or httpx.AsyncClient(timeout=TIMEOUT_S, headers={"User-Agent": _USER_AGENT})
         src = Sources(cli)
@@ -648,21 +836,44 @@ async def tick(db: AsyncSession, *, client: httpx.AsyncClient | None = None) -> 
                     _place_failed[key] = time.monotonic()
                     logger.warning("object place: could not ask the register at %s: %s", key, e)
 
+        async def named(key: str, at: LngLat, specs: list[address_ranges.Spec]) -> None:
+            nonlocal asked_ranges
+            async with sem:
+                try:
+                    ranges[key] = await ask_range(src, at, specs)
+                    asked_ranges += 1
+                except (httpx.HTTPError, ValueError, KeyError, TypeError, RuntimeError) as e:
+                    _range_failed[key] = time.monotonic()
+                    logger.warning("object footprint: could not ask the addresses for %s: %s", key, e)
+
         try:
             # sequential tiles are fine: they are cached in `src` and shared between the points
-            await asyncio.gather(*(one(at) for at in todo), *(place(at) for at in todo_places))
+            await asyncio.gather(
+                *(one(at) for at in todo),
+                *(place(at) for at in todo_places),
+                *(named(*t) for t in todo_ranges),
+            )
         finally:
             if own:
                 await cli.aclose()
-    # facts for points no object stands on any more are dropped
+    # answers for points (and names) no object has any more are dropped
     live = {_point_key(p[1], p[0]) for p in points.values()}
     facts = {k: v for k, v in facts.items() if k in live}
-    every_live = {_point_key(p[1], p[0]) for p in every}
-    places = {k: v for k, v in places.items() if k in every_live}
-    sig = _signature(points, set(facts), modes)
-    if sig == data.get("sig") and not asked and not asked_places and set(places) == set(data.get("places") or {}):
+    places = {k: v for k, v in places.items() if k in live}
+    live_ranges = set(range_keys.values())
+    ranges = {k: v for k, v in ranges.items() if k in live_ranges}
+    sig = _signature(points, set(facts), modes, {o: k for o, k in range_keys.items() if k in ranges})
+    if (
+        sig == data.get("sig")
+        and not asked
+        and not asked_places
+        and not asked_ranges
+        and set(places) == set(data.get("places") or {})
+        and set(ranges) == set(data.get("ranges") or {})
+    ):
         return 0
-    footprints = derive_all(points, facts, modes)
+    by_object = {oid: ranges[k] for oid, k in range_keys.items() if k in ranges}
+    footprints = derive_all(points, facts, modes, by_object)
     out = {
         "version": ALGO,
         "sig": sig,
@@ -670,10 +881,13 @@ async def tick(db: AsyncSession, *, client: httpx.AsyncClient | None = None) -> 
         "facts": {k: v.to_json() for k, v in facts.items()},
         "footprints": footprints,
         "places": places,
+        "ranges": {k: [[list(p) for p in r] for r in v] for k, v in ranges.items()},
     }
     await asyncio.to_thread(storage.put_bytes, STORE_KEY, json.dumps(out, separators=(",", ":")).encode())
     _read = None
-    logger.info("object footprints: %d asked, %d objects with buildings", asked, len(footprints))
+    logger.info(
+        "object footprints: %d asked, %d names asked, %d objects with buildings", asked, asked_ranges, len(footprints)
+    )
     return asked
 
 
@@ -682,3 +896,4 @@ def clear_cache() -> None:
     _read = None
     _failed.clear()
     _place_failed.clear()
+    _range_failed.clear()

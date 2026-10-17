@@ -1,7 +1,7 @@
 """Station reference reads OUTSIDE an Einsatz — «Karte & Objekte» (docs/karte-objekte.md).
 
-* ``GET /api/reference/objects`` — every station object (Einsatzobjekte, plan-less catalogue
-  objects, key boxes) with its plans, floors and last Objektbesuch, in ONE payload the viewer
+* ``GET /api/reference/objects`` — every station object (Einsatzobjekte and plan-less catalogue
+  objects) with its plans, floors and last Objektbesuch, in ONE payload the viewer
   can search client-side and keep for offline.
 * ``GET /api/reference/building?lat=&lng=`` — the Gebäude card's facts (app/building_facts,
   via api/building · fill_registers) for any point, without an incident.
@@ -38,7 +38,7 @@ from ..auth.incident_link import link_page_owns_session, read_link_session
 from ..building_facts import _street_of
 from ..database import get_db
 from ..models import ObjectSite, ObjectVisit, PlanAlignment, PlanPageFloor, PlanRevision, ReferenceDataset, User
-from ..object_visits import checklist_ref, ov_config, refs_by_object
+from ..object_visits import checklist_ref, ov_config
 from ..plan_floors import PlanFloor, fit_publishable
 from ..plan_revision_info import revision_page_count
 from ..schemas import (
@@ -95,20 +95,18 @@ StationReader = Annotated[User | None, Depends(get_station_reader)]
 
 # --- the objects ------------------------------------------------------------------------------
 
-#: A plan-less object whose name says «Schlüssel…» (Schlüsseldepot, -hülse, -rohr, -kasten) is a
-#: key box, and the map draws it as the FKS «GB Schluesseldepot» symbol. The data has no kind
-#: column; the organizer's own source for key boxes (``fwo-schlue``) counts as well.
-_KEY_BOX = re.compile(r"schl(?:ü|ue|u)ssel", re.IGNORECASE)
-_KEY_BOX_SOURCES = ("schlue",)
 
+def object_kind(has_plans: bool) -> str:
+    """``einsatzobjekt`` (carries Modul-PDFs) · ``objekt`` (the rest).
 
-def object_kind(obj: ObjectSite, has_plans: bool, ref_sources: list[str]) -> str:
-    """``einsatzobjekt`` (carries Modul-PDFs) · ``depot`` (a key box) · ``objekt`` (the rest)."""
-    if has_plans:
-        return "einsatzobjekt"
-    if _KEY_BOX.search(obj.name or "") or any(k in s for s in ref_sources for k in _KEY_BOX_SOURCES):
-        return "depot"
-    return "objekt"
+    ⚠️ There is no ``depot`` (key box) any more (owner, review round 3, 17.10.2026: «Mühlemattstrasse
+    24 doesn't have a key box … I think we can just highlight buildings / building groups»). It was
+    guessed from a ``fwo-schlue`` ref or «Schlüssel…» in the name, and that ref only says the
+    object is on the organizer's yearly Kontrollgang — plenty of objects with plans carry one. Every
+    object is a building or a group of buildings now. A client keeps reading an old cached
+    ``depot`` as ``objekt`` (lib/api/stationReference).
+    """
+    return "einsatzobjekt" if has_plans else "objekt"
 
 
 def module_code(module: str | None) -> str:
@@ -266,7 +264,6 @@ async def reference_objects(db: AsyncSession, *, with_visits: bool) -> Reference
                 id=v.id, checklist=ref.get("title") if ref else None, date=v.visited_at, defects=v.findings or 0
             )
 
-    refs = await refs_by_object(db)
     default_locality, _bbox = await geocode._resolve_bias()
     out: list[ReferenceObjectOut] = []
     for o in objects:
@@ -279,7 +276,7 @@ async def reference_objects(db: AsyncSession, *, with_visits: bool) -> Reference
             ReferenceObjectOut(
                 id=o.id,
                 name=o.name,
-                kind=object_kind(o, bool(plans), [r["source"] for r in refs.get(o.id, [])]),  # type: ignore[arg-type]
+                kind=object_kind(bool(plans)),  # type: ignore[arg-type]
                 address=address,
                 locality=locality,
                 lat=lat,
@@ -305,7 +302,7 @@ async def reference_objects(db: AsyncSession, *, with_visits: bool) -> Reference
 @router.get("/objects", response_model=ReferenceObjectsOut, response_model_by_alias=True)
 async def list_reference_objects(reader: StationReader, db: AsyncSession = Depends(get_db)) -> ReferenceObjectsOut:
     """Every station object for «Karte & Objekte» — including the plan-less ones an organizer
-    created (key boxes), which the Einsatz pickers leave out (api/objects · list_objects).
+    created (its Kontrollgang's stops), which the Einsatz pickers leave out (api/objects · list_objects).
     ``lastVisit`` only where the station runs Objektbesuche (or for the admin session)."""
     with_visits = reader is None or (await ov_config(db)).enabled
     return await reference_objects(db, with_visits=with_visits)
@@ -319,7 +316,7 @@ async def object_at_address(db: AsyncSession, address: str | None) -> ObjectSite
 
     Exact only (``Hauptstrasse 10`` = ``Hauptstrasse 10, 4104 Oberwil``): a neighbour 20 m away is
     NOT the building, and a register hint must never be dressed up as that object's facts. Two
-    objects at one door (the Einsatzobjekt and its key box) → the one with plans, then by name.
+    objects at one door → the one with plans, then by name.
     """
     street = _street_of(address)
     if not street:

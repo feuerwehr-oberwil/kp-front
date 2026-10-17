@@ -5,7 +5,7 @@ import { LABEL_MIN_ZOOM, overlaps, placeTags, samePlacement, tagRank, tagRect, t
 import { footprintRings, objectBuildings, ringAt } from './places'
 
 // Synthetic station data only.
-const tag = (id: string, x: number, y: number, rank = 0, w = 100, h = 26): TagCandidate => ({ id, x, y, w, h, anchor: 'center', rank })
+const tag = (id: string, x: number, y: number, rank = 0, w = 100, h = 26): TagCandidate => ({ id, x, y, w, h, rank })
 const VIEW = { width: 390, height: 844 }
 
 describe('name tags — which fit', () => {
@@ -45,10 +45,10 @@ describe('name tags — which fit', () => {
     expect(shown.has('big')).toBe(false) // it would cover the selected tag
   })
 
-  it('a tag under a building hangs below its anchor', () => {
-    const r = tagRect({ id: 'x', x: 100, y: 50, w: 80, h: 26, anchor: 'top', offsetY: 4, rank: 0 })
-    expect(r).toEqual({ left: 60, top: 54, right: 140, bottom: 80 })
-    expect(overlaps(r, { left: 0, top: 0, right: 200, bottom: 54 })).toBe(false)
+  it('a tag is centred on its object\'s point (owner R3: the marker never moves)', () => {
+    const r = tagRect({ id: 'x', x: 100, y: 50, w: 80, h: 26, rank: 0 })
+    expect(r).toEqual({ left: 60, top: 37, right: 140, bottom: 63 })
+    expect(overlaps(r, { left: 99, top: 49, right: 101, bottom: 51 })).toBe(true)
   })
 
   it('ranks selected › Einsatzobjekt › more plans › the rest, and what was shown wins a tie', () => {
@@ -66,10 +66,8 @@ describe('name tags — which fit', () => {
     expect([...one.keys()]).toEqual(['a']) // equal rank: by id
   })
 
-  it('an estimated tag is as tall as the CSS one and wider with its plan count', () => {
-    expect(tagSize(70, 0)).toEqual({ w: 89, h: 26 })
-    expect(tagSize(70, 3).w).toBeGreaterThan(tagSize(70, 0).w)
-    expect(tagSize(70, 3).h).toBe(31)
+  it('an estimated tag is as tall as the CSS one and carries no plan count', () => {
+    expect(tagSize(70)).toEqual({ w: 89, h: 26 })
     expect(LABEL_MIN_ZOOM).toBe(16)
   })
 })
@@ -108,8 +106,9 @@ describe('the buildings of an object', () => {
     expect(b?.main).toBeNull()
   })
 
-  it('a key box has no building; garbage is no rings', () => {
-    expect(objectBuildings(obj({ kind: 'depot', footprint: { type: 'Polygon', coordinates: [closed(HOUSE)] } }), [HOUSE])).toBeNull()
+  it('a plan-less object has its buildings like any other; garbage is no rings', () => {
+    // review round 3: no key-box kind that owns no building
+    expect(objectBuildings(obj({ kind: 'objekt', plans: [], footprint: { type: 'Polygon', coordinates: [closed(HOUSE)] } }), [])?.rings).toEqual([HOUSE])
     expect(footprintRings({ type: 'Polygon', coordinates: [closed(HOUSE)] })).toEqual([HOUSE])
     expect(footprintRings({ type: 'Point', coordinates: [7, 47] })).toEqual([])
     expect(footprintRings(null)).toEqual([])
