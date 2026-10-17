@@ -1299,6 +1299,13 @@ async def _move_object_links(db: AsyncSession, old_id: uuid.UUID, new_id: uuid.U
         .values(object_id=new_id)
         .execution_options(synchronize_session=False)
     )
+    # the station's position history goes with the object (the FK would cascade it away)
+    await db.execute(
+        update(ObjectPositionEvent)
+        .where(ObjectPositionEvent.object_id == old_id)
+        .values(object_id=new_id)
+        .execution_options(synchronize_session=False)
+    )
 
 
 def _carry_notes(survivor: ObjectSite, loser: ObjectSite) -> None:
@@ -1339,6 +1346,12 @@ async def _apply_rekey(db: AsyncSession, plan: Rekey) -> None:
         measures=old.measures,
         remarks=old.remarks,
         measures_source=old.measures_source,
+        # …and so are the station's «Lage korrigieren» answers and the town (review round 3: a
+        # renamed SharePoint folder re-keys its object, and must not reset what the station set)
+        locality=old.locality,
+        position_source=old.position_source,
+        position_set_at=old.position_set_at,
+        outline=old.outline,
     )
     db.add(fresh)
     await db.flush()
@@ -1601,13 +1614,7 @@ async def _merge_into(loser_id: uuid.UUID, survivor_id: uuid.UUID, *, apply: boo
             print("\nINCOMPLETE: conflicting sheets keep the loser — decide those by hand, nothing written.")
             await db.rollback()
             return 1
-        await db.execute(
-            update(ObjectPositionEvent)
-            .where(ObjectPositionEvent.object_id == loser.id)
-            .values(object_id=survivor.id)
-            .execution_options(synchronize_session=False)
-        )
-        await _apply_pair(db, pair)
+        await _apply_pair(db, pair)  # position history included (_move_object_links)
         for alias in aliases:
             taken = (
                 await db.execute(
