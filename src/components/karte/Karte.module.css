@@ -191,6 +191,10 @@ button.row:active { background: var(--press); }
 .keyLine { flex: none; display: flex; align-items: center; gap: var(--sp-2);
   padding: var(--sp-1) max(12px, env(safe-area-inset-right)) var(--sp-2) max(16px, env(safe-area-inset-left)); }
 .keyField { flex: 1 1 auto; min-width: 0; }
+/* the ✕ beside the field is the field's height (owner, review round 4, option B: «field and ✕ in
+   one row»): a --tap square with the sheet ✕'s look and glyph. Only here — a plain sheet head
+   (Ebenen, the object sheet) keeps the 36px `.ip-x` beside its title. */
+.keyLine :global(.lc-x) { width: var(--tap); height: var(--tap); }
 /* the UN number reads as a number: the Gefahrentafel's mono */
 .keySheet :global(#karte-un) { font: var(--fw-bold) var(--fs-4)/1 var(--mono); }
 .keyBody { display: flex; flex-direction: column; gap: var(--sp-3); }

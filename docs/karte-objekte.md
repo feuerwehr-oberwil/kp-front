@@ -395,7 +395,8 @@ The rules that are easy to break:
   being round, the (x) size …»): the phone's search button is «Einsätze ▾»'s twin (44 px, the
   one corner, its frame) with the bar's 16 px glyph; every ✕ of the viewer — object sheet, search,
   Gefahrgut, Ebenen, phone and tablet — is the global `.ip-x` (36 px, 18 px glyph), 12 px in from
-  the sheet's edge; the phone's ⊙ / compass buttons wear the floating family's row height and edge.
+  the sheet's edge — except beside a field: the search's and Gefahrgut's ✕ is the field's height
+  (44 px, owner's pick B: «field and ✕ in one row»); the phone's ⊙ / compass buttons wear the floating family's row height and edge.
 - **Gefahrgut names the substance** (owner, round 4: «we also need to know the name (show it as
   attribute)»): the readout's first row is «Stoff» — the word of the Gefahrentafel's own field —
   with the ADR Table A name (`lib/unHazard · substanceName`: the curated English name on an English
