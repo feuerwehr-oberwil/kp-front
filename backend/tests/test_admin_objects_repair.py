@@ -48,7 +48,7 @@ def _no_geocoder(monkeypatch):
     async def none(_address):
         return None
 
-    monkeypatch.setattr(admin_objects, "geocode", none)
+    monkeypatch.setattr(admin_objects, "locate_coordinates", none)
 
 
 def geocoder(monkeypatch, coords, calls=None):
@@ -59,7 +59,7 @@ def geocoder(monkeypatch, coords, calls=None):
             raise coords
         return coords
 
-    monkeypatch.setattr(admin_objects, "geocode", fake)
+    monkeypatch.setattr(admin_objects, "locate_coordinates", fake)
 
 
 async def _object(

@@ -82,7 +82,7 @@ from .config_history import keep_previous
 from .credentials import get as credential
 from .credentials import load as load_credentials
 from .deployment_config import config_row
-from .geocode import geocode
+from .geocode import locate_coordinates
 from .models import DeploymentConfig, ObjectSite, SharePointSyncState
 from .plans import plan_max_bytes, store_plan
 from .schemas import SharePointArea, SharePointConfig, SharePointSource, load_stored_config
@@ -809,7 +809,8 @@ async def _coordinates_for(address: str) -> tuple[float, float] | None:
     for them.
     """
     try:
-        return await geocode(address)
+        # exact street + number in the brigade's area only (geocode.locate) — never a fuzzy pin
+        return await locate_coordinates(address)
     except Exception as e:  # noqa: BLE001 — best-effort by contract
         logger.warning(
             "SharePoint plans: geocoding %r failed (%s) — the object is created without coordinates", address, e

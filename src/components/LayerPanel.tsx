@@ -102,7 +102,7 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
             aria-label={`${t.label} – ${t.visible ? appConfig.copy.layerPanel.stateVisible : appConfig.copy.layerPanel.stateHidden}`}
             onClick={() => onToggle(t.id)}
           >
-            <span className="ic"><Icon id={t.icon} /></span>
+            <span className="ic" style={t.swatch ? { color: t.swatch } : undefined}><Icon id={t.icon} /></span>
             <span className="name">{t.label}{t.sub && <small>{t.sub}</small>}</span>
             <span className="eye"><Icon id={t.visible ? 'eye' : 'eyeoff'} /></span>
           </button>

@@ -28,7 +28,9 @@ Every station object in one payload, which the client searches and keeps for off
   "objects": [{
     "id": "<uuid>", "name": "Schloss Musterdorf",
     "kind": "einsatzobjekt" | "objekt" | "depot",
-    "address": "Schlossgasse 9", "lat": 47.52, "lng": 7.57,      // null when the station has none
+    "address": "Schlossgasse 9", "locality": null,              // locality: the town, only when not the home town
+    "lat": 47.52, "lng": 7.57,                                    // null when the station has none
+    "outline": "auto" | "building" | "none",                      // the station's outline choice
     "aliases": ["Schlossgasse 9 - Wasserschloss"],
     "plans": [{ "id": "plan:<uuid>:modul23", "module": "modul23", "code": "2/3", "title": "…",
                 "pages": 3 | null, "georef": true, "version": 2, "updatedAt": "…" }],
@@ -49,6 +51,18 @@ How each field is derived – none of them is a new column:
   its name says «Schlüssel…» (Schlüsseldepot, -hülse, -rohr) or an organizer ref comes from the
   key-box source (`fwo-schlue`); `objekt` otherwise. The map draws a `depot` as the FKS
   «GB Schluesseldepot» symbol.
+- **`address`** — for every object where one is knowable (review round 2, 17.10.2026: three key
+  boxes and three objects sent `null` and the viewer printed the kind word): the station's own
+  address; else the NAME when it is a street + number («Mühlemattstrasse 24», «Bienenstrasse 28
+  (EH)» → «Bienenstrasse 28»); else the register's (GWR) address at the pin, which the footprint
+  job asks once per coordinate (`object_footprints · place_at`, never per view). `null` only when
+  none of the three exists. **`locality`** is the town only when it is NOT the home town
+  (`map.geocoder.defaultLocality`): the station's stored `objects.locality`, else the town of the
+  register entry at the pin. The client prints «address, locality» («Erlenstrasse 60, Therwil»);
+  the home town is never sent.
+- **`outline`** — the station's choice in /admin («Lage korrigieren», below): `auto` = the rule
+  under `footprint`; `building` = only the building at the pin; `none` = no outline at all — the
+  viewer then draws NO OSM fallback either (`lib/karte/places · objectBuildings`).
 - **`aliases`**: the plan library's folder name when it differs from the name and address.
 - **`plans`**: the object's PDF datasets with bytes, by module. `code` is the module key without
   «modul» («23» → «2/3»). `pages` comes only from a tile manifest the server already wrote
@@ -83,6 +97,37 @@ How each field is derived – none of them is a new column:
   on the point it was derived for.
 - **`lastVisit`**: the latest COMPLETED Objektbesuch (drafts and discarded visits are not visits
   that happened), only where the station runs the module or for the admin session.
+
+## Where an object is, and how the station corrects it
+
+An object's position comes from its import: the station's private importer and `admin_objects
+load/push` write the manifest's `lat`/`lng`, the SharePoint pull geocodes the folder's address
+when it creates an object, `admin_objects geocode-missing` / `repair-sharepoint-keys` fill the
+ones without. ⚠️ **None of them may take a fuzzy match** (review round 2, 17.10.2026: ARA Birsig,
+«Erlenstrasse 60» without its town — `geocode()` appended the home locality, swisstopo had no
+Erlenstrasse in Oberwil and answered «Vorderbergstrasse 60, 4104 Oberwil», 1.1 km from the real
+place in Therwil). They all go through `geocode.locate`: an EXACT street + number, inside the
+region bias's bbox (`map.geocoder.bboxLv95` — the brigade's area, never a hard-coded town list),
+the home town first; one match elsewhere in the area is taken (with its town), several towns and
+none of them home is **ambiguous** — the object is left without a position and the census /
+log names it for the station. A name that is no address finds nothing. The Einsatz's own
+`geocode()` (an operator looking at the pin a moment later) is unchanged.
+
+**«Lage korrigieren»** (Verwaltung › Objektpläne › an object › Lage; `admin/ObjectPositionSheet`):
+an aerial (SWISSIMAGE) with the pin to tap or drag, the register search (`GET
+/api/objects/position-search`, the area's exact matches first, home town first, the town said),
+a «Dorthin» offer when the register puts the object's own address more than 60 m from its pin,
+the outline the Karte draws today (dashed), and the outline choice (Automatisch / Nur Gebäude am
+Punkt / Kein Umriss). `PUT /api/objects/{id}/position` (editors and the admin session only):
+
+- marks the object `position_source = 'station'` — from then on `PUT /api/objects/{id}` (the
+  manifest push), `admin_objects load`, the SharePoint pull and an organizer keep the station's
+  `lat`/`lng`; the admin mask shows the coordinates read-only with the reason;
+- a register pick also writes the address and the town (`objects.locality`, never the home town);
+- appends `object_position_events` (before/after snapshot, who) — `GET …/position/history`;
+  `POST …/position/undo` takes the LAST correction back, mark included (one step, then 409);
+- the footprint job re-derives at the next tick (≤ 2 min): a new point is asked like any other,
+  and the outline choice is part of the job's signature.
 
 ## `GET /api/reference/building?lat=&lng=[&address=][&lang=]`
 
@@ -136,6 +181,12 @@ The rules that are easy to break:
   hangs off the building its point lies in. A tapped building opens an object otherwise only when
   the register's street + number equals the object's. A key box at the same door is not the
   building. No outline under a point → no building.
+- **A tag never hangs on another object's building** (review round 2, 17.10.2026 — Migros at
+  Mühlemattstrasse 18 and the Mühlemattcenter at 22 share a roofed passage; the «Migros» tag hung
+  under its building, i.e. on the Mühlemattcenter's roof beside its «22», while the OSM base map
+  writes «Mühlematt Center» on the Migros building: the two read as one, swapped). The tag hangs
+  under its building unless that spot lies on another object's outline; then it sits inside its
+  own building (`lib/karte/tagAnchor`).
 - **Dots, and a name only where it fits** (owner, 17.10.2026; `lib/karte/labels`). Below z16 every
   object is a small red dot (a 32 px tap target), a key box a small FKS glyph; no text. From z16
   on a tag only where it fits: one greedy pass in screen space once the map has settled, the
@@ -242,6 +293,25 @@ The rules that are easy to break:
 - **Alarms** reach the viewer through the Meldeleiste and the same two banners as the
   Objektbesuche; nothing switches by itself. A running Einsatz is the red chip in the bar (a strip
   under it on a phone); a tap opens it.
+
+## Object colours (`map.objectCategories`)
+
+Owner, 17.10.2026: colour the objects so that key boxes / plans, water plans, PV systems … are
+told apart. The station sets ordered rules in the deployment config (Verwaltung › Station &
+Karte › «Objektfarben», schema `ObjectCategoryConfig`), FIRST match wins:
+`{ id, label: "…" | { de, fr, it, en }, color: "#rrggbb", match: { kinds?: [einsatzobjekt|objekt|depot], modules?: [glob…] } }`.
+A rule matches when every condition it names holds (none named = catch-all); `modules` globs
+match the object's plan modules (`modul5-pv*` = `modul5-pv`, `-pv15`, `-pv20`). An object no rule
+takes keeps the default look: red, a key box its FKS glyph. No rules = today's map.
+
+- The map draws the object's dot, tag rim + count and outline (normal and selected) in the
+  category's colour (`lib/karte/categories`; ink on the count by luminance). A key box keeps its
+  FKS glyph, with a ring in the colour among the dots.
+- **Ebenen** has one row per rule under «Station» (glyph in the colour, «n Objekte»): off takes
+  that category's objects off the map — outline, dot, tag and tap; the selected object stays. A
+  device preference like the objects row (not kept across reloads).
+- Pick colours that stay apart for the colour-blind (no red against green) and that read on the
+  light, dark and aerial base maps.
 
 ## Offline
 

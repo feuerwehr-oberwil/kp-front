@@ -187,9 +187,10 @@ export function pinNear(hit: { label: string; lat: number; lng: number } | null,
  * sources off, nothing official at the point) the OSM outline the point lies in, as before
  * (`outlineFor`). Null = no building known: the map shows the object at its point.
  */
-export function objectBuildings(obj: Pick<StationObject, 'lat' | 'lng' | 'kind' | 'footprint'>, rings: readonly LngLat[][]): { rings: LngLat[][]; main: LngLat[] | null } | null {
+export function objectBuildings(obj: Pick<StationObject, 'lat' | 'lng' | 'kind' | 'footprint' | 'outline'>, rings: readonly LngLat[][]): { rings: LngLat[][]; main: LngLat[] | null } | null {
   const at = coordOf(obj)
-  if (!at || obj.kind === 'depot') return null
+  // the station said «no outline» (/admin · Lage korrigieren): not even the OSM fallback
+  if (!at || obj.kind === 'depot' || obj.outline === 'none') return null
   const own = footprintRings(obj.footprint)
   if (own.length) return { rings: own, main: ringAt(own, at) }
   const r = outlineFor(obj, rings)

@@ -16,6 +16,7 @@ import { AVAILABLE_LOCALES } from '../config/copy'
 import { FleetAttributesViewer } from './FleetAttributesViewer'
 import { ModulesViewer } from './ModulesViewer'
 import { ObjectPlansView } from './ObjectPlansView'
+import { ObjectCategoriesCard } from './ObjectCategoriesCard'
 import { GeodataView } from './DataView'
 import { BrandingFields } from './BrandingFields'
 import { allAuftragTypes, appConfig } from '../config/appConfig'
@@ -531,6 +532,7 @@ export function MapSection() {
     </SettingsSheet>
     <GeocoderCard centre={centreWgs84} />
     <ExternalLinksCard centre={centreWgs84} />
+    <ObjectCategoriesCard />
     </>
   )
 }

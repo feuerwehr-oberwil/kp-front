@@ -37,7 +37,7 @@ import { useMeasure } from '../../lib/useMeasure'
 import { useVehicleLayer } from '../../lib/useVehicleLayer'
 import { useWeather } from '../../lib/useWeather'
 import { useKarteWeather } from '../../workspace/useKarteWeather'
-import { deploymentDefaultCenter, objectVisitsConfig } from '../../lib/deploymentConfig'
+import { deploymentDefaultCenter, objectCategoryRules, objectVisitsConfig } from '../../lib/deploymentConfig'
 import { defaultLayers } from '../../lib/workspace'
 import { fmtLV95, fmtWGS } from '../../lib/geo'
 import { themeToken, uiBlue } from '../../lib/themeToken'
@@ -66,6 +66,8 @@ import { karteHref } from '../../lib/karte/route'
 import { applyLayerPreset, karteLayerPreset, presetFlips, type QuickTap } from '../../lib/karte/layerPresets'
 import { karteRadarStore, loadKarteView, loadViewerLayerPrefs, saveKarteView, saveViewerLayerPrefs, viewerLayers, type KarteTool } from '../../lib/karte/session'
 import { KEY_BOX_SYMBOL, KeyBoxSvg } from '../../lib/karte/keyBox'
+import { categorize, categoryCounts, categoryRules, inkOn } from '../../lib/karte/categories'
+import { tagAnchor } from '../../lib/karte/tagAnchor'
 import type { Entity, LayerDef, LayerId, LngLat, PreparedMapOverlay } from '../../types'
 import { MapView } from '../MapView'
 import { LayerPanel } from '../LayerPanel'
@@ -110,14 +112,8 @@ const NOOP = () => {}
 const SHEET_SHARE = 0.72
 /** px between a building's south edge and the tag hanging under it */
 const TAG_GAP = 4
-
-/** Where an object's name tag hangs: under the building its point lies in (the middle of its
- *  south edge), else on the point itself. */
-function tagAnchor(b: { main: LngLat[] | null } | undefined, at: LngLat): { at: LngLat; under: boolean } {
-  const r = b?.main
-  if (!r) return { at, under: false }
-  return { at: [r.reduce((a, p) => a + p[0], 0) / r.length, Math.min(...r.map((p) => p[1]))], under: true }
-}
+/** an Ebenen row per object category (lib/karte/categories) */
+const CAT_ROW = 'karte:kategorie:'
 
 export interface KarteAppProps {
   /** «Einsätze ▾»: the app menu as a sheet (App owns the rows and their handlers) and the badge
@@ -211,6 +207,14 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }, [catStale])
   const objects = cat?.data?.objects ?? EMPTY_OBJECTS
   const byId = useMemo(() => new Map(objects.map((o) => [o.id, o])), [objects])
+  // ── the station's object colours (config `map.objectCategories`, lib/karte/categories) ──────
+  // An object no rule takes keeps the default look (red; a key box its FKS glyph). Each category
+  // is an Ebenen row of its own; a hidden one takes its objects off the map (outline, dot, tag,
+  // tap) — the selected object stays, it was chosen on purpose.
+  const catRules = useMemo(() => categoryRules(objectCategoryRules(), lang), [lang])
+  const cats = useMemo(() => categorize(objects, catRules), [objects, catRules])
+  const [hiddenCats, setHiddenCats] = useState<ReadonlySet<string>>(() => new Set())
+  const catOff = useCallback((id: string) => { const c = cats.get(id); return !!c && hiddenCats.has(c.id) }, [cats, hiddenCats])
   const selObj = sel?.kind === 'object' ? byId.get(sel.id) ?? null : null
   // titled and typed by the station's module catalogue, as the Einsatz's plan chooser is
   const docs = useMemo(() => (selObj ? viewerPlanDocs(selObj, C.floorsRow, moduleCatalogue()) : []), [selObj, C.floorsRow])
@@ -299,6 +303,19 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     }
     return m
   }, [objects, cells])
+
+  /** where each object's tag hangs — never on another object's building (lib/karte/tagAnchor) */
+  const anchors = useMemo(() => {
+    const all = [...outlines.entries()]
+    const m = new Map<string, { at: LngLat; under: boolean }>()
+    for (const o of objects) {
+      const at = coordOf(o)
+      if (!at || o.kind === 'depot') continue
+      const others = all.filter(([id]) => id !== o.id).flatMap(([, b]) => b.rings)
+      m.set(o.id, tagAnchor(outlines.get(o.id), at, others))
+    }
+    return m
+  }, [objects, outlines])
 
   // ── tools ─────────────────────────────────────────────────────────────────────────────────
   // the open tool comes back too (only WHICH one — lib/karte/session); never the pin mode
@@ -542,11 +559,20 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const hatchInk = themeToken('--ink-faint', '#6c7686')
   const overlays = useMemo<PreparedMapOverlay[]>(() => {
     const out: PreparedMapOverlay[] = []
-    const others = [...outlines.entries()].filter(([id]) => id !== selObj?.id).flatMap(([, b]) => b.rings)
-    if (others.length) out.push({ id: 'karte-objects', kind: 'polygons', layer: OBJECTS_LAYER, rings: others, color: red, fillOpacity: 0.14, lineWidth: 1.6, lineOpacity: 0.85 })
-    // the selected object: EVERY one of its buildings in the strong style
+    // one overlay per colour: the default red first, then each category in the config's order
+    const byColor = new Map<string, { id: string; rings: LngLat[][] }>()
+    for (const [id, b] of outlines) {
+      if (id === selObj?.id || catOff(id)) continue
+      const c = cats.get(id)
+      const key = c?.color ?? red
+      const slot = byColor.get(key) ?? { id: c ? `karte-objects-${c.id}` : 'karte-objects', rings: [] }
+      slot.rings.push(...b.rings)
+      byColor.set(key, slot)
+    }
+    for (const [color, slot] of byColor) out.push({ id: slot.id, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.rings, color, fillOpacity: 0.14, lineWidth: 1.6, lineOpacity: 0.85 })
+    // the selected object: EVERY one of its buildings in the strong style, in its own colour
     const mine = selObj ? outlines.get(selObj.id) : null
-    if (mine) out.push({ id: 'karte-object-sel', kind: 'polygons', layer: ALWAYS_LAYER, rings: mine.rings, color: red, fillOpacity: 0.3, lineWidth: 3, lineOpacity: 1 })
+    if (mine) out.push({ id: 'karte-object-sel', kind: 'polygons', layer: ALWAYS_LAYER, rings: mine.rings, color: (selObj && cats.get(selObj.id)?.color) ?? red, fillOpacity: 0.3, lineWidth: 3, lineOpacity: 1 })
     // the building's outline — found again once its cell has loaded (a searched address flies first)
     const bRing = sel?.kind === 'building' ? sel.ring ?? ringAt(ringsNear(sel.at), sel.at) : null
     if (bRing) out.push({ id: 'karte-building', kind: 'polygons', layer: ALWAYS_LAYER, rings: [bRing], color: uiBlue(), fillOpacity: 0.16, lineWidth: 2.5, lineOpacity: 1 })
@@ -564,15 +590,15 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       }
     }
     return out
-  }, [outlines, selObj, sel, tool, erg, red, ringsNear, uncached, hatchInk])
+  }, [outlines, selObj, sel, tool, erg, red, ringsNear, uncached, hatchInk, cats, catOff])
   // key boxes are the FKS symbol from the tag zoom on; below it, a small glyph among the dots
   const tagZoom = view.zoom >= LABEL_MIN_ZOOM
   const entities = useMemo<Entity[]>(() => [
     ...liveVehicles,
-    ...objects.filter((o) => tagZoom && o.kind === 'depot' && coordOf(o)).map((o) => ({
+    ...objects.filter((o) => tagZoom && o.kind === 'depot' && coordOf(o) && (!catOff(o.id) || o.id === selObj?.id)).map((o) => ({
       id: `karte:${o.id}`, kind: 'symbol' as const, layer: OBJECTS_LAYER, coord: coordOf(o)!, symbol: KEY_BOX_SYMBOL, label: o.name,
     })),
-  ], [liveVehicles, objects, tagZoom])
+  ], [liveVehicles, objects, tagZoom, catOff, selObj?.id])
   const isVisible = useCallback((id: LayerId) => {
     if (id === OBJECTS_LAYER) return objectsOn
     if (id === ALWAYS_LAYER || id === UNCACHED_LAYER) return true
@@ -589,7 +615,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     if (searchOpen) { setSearchOpen(false); return }
     if (objectsOn) {
       // any of an object's buildings opens the object
-      for (const [id, b] of outlines) if (ringAt(b.rings, c)) { selectObject(id, false); return }
+      for (const [id, b] of outlines) if (!catOff(id) && ringAt(b.rings, c)) { selectObject(id, false); return }
     }
     const ring = ringAt(ringsNear(c), c)
     if (ring) { selectBuilding(c, ring); return }
@@ -653,6 +679,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // ── Ebenen ────────────────────────────────────────────────────────────────────────────────
   const toggleLayer = (id: string) => {
     if (id === OBJECTS_ROW) { setObjectsOn((v) => !v); return }
+    if (id.startsWith(CAT_ROW)) {
+      const cat = id.slice(CAT_ROW.length)
+      setHiddenCats((h) => { const next = new Set(h); if (!next.delete(cat)) next.add(cat); return next })
+      return
+    }
     if (id === GEOREF_ROW) { toggleGeoref(); return }
     if (weather.handlesLayer(id)) { weather.toggleRadar(); return }
     updateLayers((ls) => {
@@ -667,8 +698,15 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     if (weather.handlesLayer(id)) { weather.setRadarOpacity(v); return }
     updateLayers((ls) => ls.map((l) => (l.id === id ? { ...l, opacity: v } : l)))
   }
+  const catCount = categoryCounts(cats)
   const twins = [
     { id: OBJECTS_ROW, group: C.layerGroupStation, label: C.layerObjects, sub: C.layerObjectsSub, icon: 'footprint', visible: objectsOn },
+    // one row per category, its colour on the glyph, under «Station» (R2-BITS' Alle/Keine/Standard
+    // work over these like over any row)
+    ...catRules.map((c) => ({
+      id: `${CAT_ROW}${c.id}`, group: C.layerGroupStation, label: c.label,
+      sub: fillTemplate(C.layerCategorySub, { n: catCount.get(c.id) ?? 0 }), icon: 'footprint', swatch: c.color, visible: !hiddenCats.has(c.id),
+    })),
     ...(georefPlan && selObj ? [{
       id: GEOREF_ROW, group: C.layerGroupPlans, label: fillTemplate(C.layerPlan, { code: georefPlan.code, name: selObj.name }),
       sub: C.layerPlanSub, icon: 'doc', visible: georefOn, opacity: georefOpacity,
@@ -785,7 +823,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         const cands: TagCandidate[] = []
         for (const o of objects) {
           const at = coordOf(o)
-          if (!at) continue
+          if (!at || (catOff(o.id) && o.id !== selId)) continue
           if (o.kind === 'depot') {
             // the key box's FKS symbol is not covered by a tag
             const p = map.project(at)
@@ -793,7 +831,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             occupied.push({ left: p.x - k, top: p.y - k, right: p.x + k, bottom: p.y + k })
             continue
           }
-          const a = tagAnchor(outlines.get(o.id), at)
+          const a = anchors.get(o.id) ?? { at, under: false }
           const p = map.project(a.at)
           const n = openableCount(o)
           const { w, h } = size(o.name, n)
@@ -811,7 +849,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     const raf = requestAnimationFrame(run)
     const t = setTimeout(run, 400)
     return () => { alive = false; cancelAnimationFrame(raf); clearTimeout(t) }
-  }, [view, objects, outlines, selId, objectsOn, covered, phone, resized])
+  }, [view, objects, anchors, selId, objectsOn, covered, phone, resized, catOff])
 
   return (
     <KeyBoxSvg.Provider value={sym.byName[KEY_BOX_SYMBOL] ?? ''}>
@@ -870,28 +908,32 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             const at = coordOf(o)
             if (!at) return null
             const pick = (e: React.MouseEvent) => { e.stopPropagation(); selectObject(o.id, false) }
+            const isSel = selObj?.id === o.id
+            if (catOff(o.id) && !isSel) return null
+            // the category's colour (lib/karte/categories); none = the default red, untouched
+            const cat = cats.get(o.id)
+            const catStyle = cat ? ({ '--cat': cat.color, '--cat-ink': inkOn(cat.color) } as React.CSSProperties) : undefined
             if (o.kind === 'depot') {
               if (tagZoom) return null // MapView draws the FKS symbol (entities above)
               return (
                 <Marker key={`dot:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" style={{ zIndex: 1 }}>
-                  <button type="button" className={cx(s.dotMk, s.keyDot)} aria-label={o.name} title={o.name} onClick={pick}><KeyBoxGlyph /></button>
+                  <button type="button" className={cx(s.dotMk, s.keyDot, cat && s.cat)} style={catStyle} aria-label={o.name} title={o.name} onClick={pick}><KeyBoxGlyph /></button>
                 </Marker>
               )
             }
-            const isSel = selObj?.id === o.id
             if (!isSel && !(tagZoom && tagged?.has(o.id))) {
               return (
                 <Marker key={`dot:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" style={{ zIndex: 1 }}>
-                  <button type="button" className={s.dotMk} aria-label={o.name} title={o.name} onClick={pick} />
+                  <button type="button" className={cx(s.dotMk, cat && s.cat)} style={catStyle} aria-label={o.name} title={o.name} onClick={pick} />
                 </Marker>
               )
             }
             const n = openableCount(o)
-            const a = tagAnchor(outlines.get(o.id), at)
+            const a = anchors.get(o.id) ?? { at, under: false }
             const dx = (!isSel && tagged?.get(o.id)) || 0
             return (
               <Marker key={`tag:${o.id}`} longitude={a.at[0]} latitude={a.at[1]} anchor={a.under ? 'top' : 'center'} offset={[dx, a.under ? TAG_GAP : 0]} style={{ zIndex: isSel ? 3 : 2 }}>
-                <button type="button" className={cx(s.tagMk, isSel && s.sel)} onClick={pick}>
+                <button type="button" className={cx(s.tagMk, isSel && s.sel, cat && s.cat)} style={catStyle} onClick={pick}>
                   {o.name}{n > 0 && <span className={s.tagCount}>{n}</span>}
                 </button>
               </Marker>

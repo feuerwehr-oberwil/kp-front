@@ -4,21 +4,40 @@ import hashlib
 import re
 import unicodedata
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..auth.dependencies import CurrentAdmin, CurrentUser, OptionalUser, UserOrAdmin, _admin_session_valid
+from .. import geocode
+from ..auth.dependencies import (
+    CurrentAdmin,
+    CurrentUser,
+    EditorOrAdmin,
+    OptionalUser,
+    UserOrAdmin,
+    _admin_session_valid,
+)
 from ..building_facts import clean_measures
 from ..config import settings
 from ..database import get_db
 from ..geo_util import haversine_m
-from ..models import Incident, ObjectSite, ReferenceDataset
+from ..models import Incident, ObjectPositionEvent, ObjectSite, ReferenceDataset
 from ..object_visits import attach_refs, is_integration_only, object_ids_with_plans
 from ..plans import plans_pull_enabled, store_plan
-from ..schemas import ObjectIn, ObjectOut, ObjectUpsertIn, ObjectWithPlans, PlanSourcesOut, ReferenceDatasetOut
+from ..schemas import (
+    ObjectIn,
+    ObjectOut,
+    ObjectPositionEventOut,
+    ObjectPositionIn,
+    ObjectUpsertIn,
+    ObjectWithPlans,
+    PlaceHitOut,
+    PlanSourcesOut,
+    ReferenceDatasetOut,
+)
 from ..sharepoint_sync import sharepoint_status
 from .incidents import get_incident_or_404
 
@@ -143,6 +162,142 @@ async def plan_sources(_admin: CurrentAdmin, db: AsyncSession = Depends(get_db))
     )
 
 
+# --- «Lage korrigieren»: the station's own word on where an object is ------------------------------
+#
+# The position an import wrote can be wrong (ARA Birsig: an address without its town, geocoded
+# onto a fuzzy neighbour in the home town, review 17.10.2026). The station corrects it in /admin:
+# the pin moved on a map or picked from the register, plus how the map outlines the object. Such
+# a position is marked ``position_source = 'station'`` and no later import, push, SharePoint pull
+# or organizer overwrites it (`upsert_object` below, `admin_objects._load`). Editors and the
+# deployment admin only; every write is appended to `object_position_events`, which is also
+# what the one-step undo reads back.
+
+
+def _position_snapshot(o: ObjectSite) -> dict:
+    return {
+        "lat": float(o.lat) if o.lat is not None else None,
+        "lng": float(o.lng) if o.lng is not None else None,
+        "address": o.address,
+        "locality": o.locality,
+        "outline": o.outline,
+        "position_source": o.position_source,
+        "position_set_at": o.position_set_at.isoformat() if o.position_set_at else None,
+    }
+
+
+def _actor(user: object) -> str:
+    return str(getattr(user, "display_name", None) or getattr(user, "username", None) or "Verwaltung")
+
+
+async def _object_or_404(db: AsyncSession, object_id: uuid.UUID) -> ObjectSite:
+    o = (await db.execute(select(ObjectSite).where(ObjectSite.id == object_id))).scalar_one_or_none()
+    if o is None:
+        raise HTTPException(status_code=404, detail="Objekt nicht gefunden")
+    return o
+
+
+@router.get("/position-search", response_model=list[PlaceHitOut])
+async def position_search(
+    _who: EditorOrAdmin, q: str = Query(min_length=2, max_length=200), limit: int = Query(default=8, ge=1, le=20)
+) -> list[PlaceHitOut]:
+    """Register addresses for «Lage korrigieren» — the region-biased search, each hit with its
+    town and whether that is the home town. ⚠️ Its own route rather than /api/geocode/search:
+    that one wants a signed-in account, and /admin runs on the admin session."""
+    default_locality, _bbox = await geocode._resolve_bias()
+    out: list[PlaceHitOut] = []
+    for h in await geocode.search_area(q, limit=limit):
+        street, plz, town = geocode.split_label(h.label)
+        out.append(
+            PlaceHitOut(
+                label=f"{street}, {plz} {town}" if plz and town else h.label,
+                street=street,
+                town=town,
+                home=geocode.is_home(town, plz, default_locality),
+                lat=h.lat,
+                lng=h.lng,
+            )
+        )
+    return out
+
+
+@router.put("/{object_id}/position", response_model=ObjectOut)
+async def set_position(
+    object_id: uuid.UUID, body: ObjectPositionIn, who: EditorOrAdmin, db: AsyncSession = Depends(get_db)
+) -> ObjectSite:
+    """The station's position + outline choice for one object. Marks it station-set (never
+    overwritten by an import) and appends the change to the object's position history."""
+    o = await _object_or_404(db, object_id)
+    before = _position_snapshot(o)
+    o.lat, o.lng = body.lat, body.lng
+    o.outline = None if body.outline == "auto" else body.outline
+    if "address" in body.model_fields_set and (body.address or "").strip():
+        o.address = body.address.strip()  # type: ignore[union-attr]
+    if "locality" in body.model_fields_set:
+        default_locality, _bbox = await geocode._resolve_bias()
+        town = (body.locality or "").strip() or None
+        o.locality = None if town and geocode.is_home(town, None, default_locality) else town
+    o.position_source = "station"
+    o.position_set_at = datetime.now(UTC)
+    db.add(
+        ObjectPositionEvent(object_id=o.id, action="set", actor=_actor(who), before=before, after=_position_snapshot(o))
+    )
+    await db.flush()
+    await db.refresh(o)
+    return o
+
+
+@router.post("/{object_id}/position/undo", response_model=ObjectOut)
+async def undo_position(object_id: uuid.UUID, who: EditorOrAdmin, db: AsyncSession = Depends(get_db)) -> ObjectSite:
+    """Take the last correction back: the object says again what it said before it (the import's
+    position and mark included). One step; a second undo has nothing left to take back (409)."""
+    o = await _object_or_404(db, object_id)
+    last = (
+        await db.execute(
+            select(ObjectPositionEvent)
+            .where(ObjectPositionEvent.object_id == o.id)
+            .order_by(ObjectPositionEvent.id.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if last is None or last.action != "set":
+        raise HTTPException(status_code=409, detail="Keine Korrektur, die sich rückgängig machen lässt")
+    before = _position_snapshot(o)
+    prev = last.before
+    o.lat, o.lng = prev.get("lat"), prev.get("lng")
+    o.address = prev.get("address")
+    o.locality = prev.get("locality")
+    o.outline = prev.get("outline")
+    o.position_source = prev.get("position_source")
+    at = prev.get("position_set_at")
+    o.position_set_at = datetime.fromisoformat(at) if at else None
+    db.add(
+        ObjectPositionEvent(
+            object_id=o.id, action="undo", actor=_actor(who), before=before, after=_position_snapshot(o)
+        )
+    )
+    await db.flush()
+    await db.refresh(o)
+    return o
+
+
+@router.get("/{object_id}/position/history", response_model=list[ObjectPositionEventOut])
+async def position_history(
+    object_id: uuid.UUID, _who: EditorOrAdmin, db: AsyncSession = Depends(get_db)
+) -> list[ObjectPositionEvent]:
+    """Every correction of this object's position, the newest first."""
+    await _object_or_404(db, object_id)
+    return list(
+        (
+            await db.execute(
+                select(ObjectPositionEvent)
+                .where(ObjectPositionEvent.object_id == object_id)
+                .order_by(ObjectPositionEvent.id.desc())
+                .limit(50)
+            )
+        ).scalars()
+    )
+
+
 @router.get("/{object_id}", response_model=ObjectWithPlans)
 async def get_object(object_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)):
     o = (await db.execute(select(ObjectSite).where(ObjectSite.id == object_id))).scalar_one_or_none()
@@ -188,6 +343,8 @@ async def upsert_object(
     for k, v in body.model_dump(
         exclude={"source_key", "filing_folder", "refs", "measures", "remarks", "measures_source"}
     ).items():
+        if k in ("lat", "lng") and o.position_source == "station":
+            continue  # the station corrected it in /admin — a push never moves it back
         setattr(o, k, v)
     if "source_key" in body.model_fields_set:
         o.source_key = body.source_key
