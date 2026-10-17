@@ -492,7 +492,9 @@ What the surface shows offline:
   held are dropped once (`tilePurge` · `carto-retina-2026-10`); a 1× screen keeps them. OSM and
   swisstopo have no 2× tiles; swisstopo's swissimage goes to z20 (was capped at 19, so the closest
   zoom stretched z19 four times). Past a base's `maxzoom` (CARTO 20, OSM 19) MapLibre still
-  stretches the last level up to the map's 21.
+  stretches the last level up to the map's 21. Regression check, WebKit with the iPhone 13
+  descriptor: `node site/check-basemap-sharpness.mjs --base <app>` (red above 1.5 device px per
+  tile px or on overzoom; its header says how it stands in for CARTO's keyed tiles).
 - **Search:** station objects are found on the device; the address search says it needs the
   network. **Objektbesuche** say they need the network and name the catalogue's last visit.
 - The catalogue shown from the device is replaced by the server's as soon as it answers again
