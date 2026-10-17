@@ -29,6 +29,9 @@ no database file anywhere. SQLite exists solely as a pytest fallback.)
     show                   print the objects + plan counts currently stored
     merge-duplicates       fold objects whose names differ only in Unicode form into one, onto the
                            id every future import mints for that name (report only)
+    merge <loser> --into <survivor>
+                           fold one twin under ANOTHER name into an object (report only)
+    twins                  list likely twins: a plan-less object whose buildings are another's
     repair-sharepoint-keys fold what the SharePoint pull minted under the WHOLE folder name onto
                            the «Adresse - Name» convention, geocoding what it splits out, and list
                            every object that still has no coordinates (report only)
@@ -36,7 +39,7 @@ no database file anywhere. SQLite exists solely as a pytest fallback.)
                            by its address, or by its name when the row has no address (report only)
     remove-empty           delete objects that carry no plans and nothing points at (report only)
 
-`merge-duplicates`, `repair-sharepoint-keys`, `geocode-missing` and `remove-empty` REPORT by
+`merge-duplicates`, `merge`, `repair-sharepoint-keys`, `geocode-missing` and `remove-empty` REPORT by
 default and write only with ``--apply`` — see :func:`_merge_duplicates`,
 :func:`_repair_sharepoint_keys` and :func:`_geocode_missing`. The last two end with the same
 census, which is the read-only way to CHECK a deployment: every Einsatzobjekt that carries plans
@@ -81,6 +84,7 @@ from .models import (
     Incident,
     IncidentEvent,
     JournalEntry,
+    ObjectPositionEvent,
     ObjectRef,
     ObjectSite,
     ObjectVisit,
@@ -1510,6 +1514,178 @@ async def _merge_duplicates(*, apply: bool) -> int:
         return 1 if incomplete else 0
 
 
+# --- maintenance: one named twin onto another --------------------------------------------
+#
+# `merge-duplicates` folds rows whose NAMES are the same name. A twin under ANOTHER name needs a
+# person to say which two rows are one object (review round 3, 17.10.2026: «Stallenmattstrasse
+# 2-14, Kaibmattweg 1-5 (EH)», a plan-less row, is the plan library's «Stallenmattstrasse 1-14 …»
+# — owner: «merge number 2 onto 1 and drop 2»). `merge <loser> --into <survivor>` is that, with
+# the same planning and apply as the name merge (plans, calibration, incidents, visits, outside
+# ids, notes, folder), plus what a hand-picked twin also carries:
+#
+#   object_position_events         the station's «Lage korrigieren» history of the loser — moved
+#                                  onto the survivor as history; the survivor's own position and
+#                                  outline choice are never changed by a merge.
+#   the loser's name and folder    kept on the survivor as aliases (object_visits · ALIAS_SOURCE):
+#                                  the viewer's search still finds the old name, and an organizer
+#                                  push under that folder/name resolves to the survivor instead of
+#                                  minting the twin again.
+#
+# `twins` lists likely candidates — a plan-less object whose derived buildings (or whose point)
+# lie in another object's — and writes nothing.
+
+
+async def _merge_into(loser_id: uuid.UUID, survivor_id: uuid.UUID, *, apply: bool) -> int:
+    """Fold one object into another — REPORT ONLY unless ``apply`` (one transaction)."""
+    from .object_visits import ALIAS_SOURCE, aliases_by_object
+
+    if loser_id == survivor_id:
+        fail("merge: the two ids are the same object")
+    async with async_session_maker() as db:
+        loser = await db.get(ObjectSite, loser_id)
+        survivor = await db.get(ObjectSite, survivor_id)
+        if loser is None or survivor is None:
+            fail(f"merge: no object {loser_id if loser is None else survivor_id}")
+            return 1
+        counts = await _plan_counts(db)
+        station = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+        scales: dict[str, object] = dict(station.plan_scales_json) if station and station.plan_scales_json else {}
+        slots: dict[str, ReferenceDataset] = {
+            ds.module: ds
+            for ds in (
+                await db.execute(select(ReferenceDataset).where(ReferenceDataset.object_id == survivor.id))
+            ).scalars()
+            if ds.module
+        }
+        refs = list((await db.execute(select(ObjectRef).where(ObjectRef.object_id == loser.id))).scalars())
+        visits = int(
+            (
+                await db.execute(select(func.count()).select_from(ObjectVisit).where(ObjectVisit.object_id == loser.id))
+            ).scalar_one()
+        )
+        moves = int(
+            (
+                await db.execute(
+                    select(func.count())
+                    .select_from(ObjectPositionEvent)
+                    .where(ObjectPositionEvent.object_id == loser.id)
+                )
+            ).scalar_one()
+        )
+        have = {a.casefold() for a in (await aliases_by_object(db)).get(survivor.id, [])}
+        have |= {(survivor.name or "").casefold(), (survivor.filing_folder or "").strip().casefold()}
+        aliases: list[str] = []
+        for alias in (loser.name, (loser.filing_folder or "").strip()):
+            if alias and alias.casefold() not in have and alias.casefold() not in {a.casefold() for a in aliases}:
+                aliases.append(alias)
+
+        print(f"\nmerge {loser.id} → {survivor.id}")
+        print(f"  the loser:    {_spelling(loser.name)}")
+        print(f"                created by: {loser.source_note or '(no source note)'}")
+        print(
+            f"                address {loser.address!r} · folder {loser.filing_folder!r} · source_key {loser.source_key!r}"
+        )
+        print(f"                outside ids: {', '.join(f'{r.source}:{r.external_id}' for r in refs) or 'none'}")
+        print(f"  the survivor: {_spelling(survivor.name)} (keeps its name, position and outline choice)")
+        pair = await _plan_merge(db, survivor, loser, counts=counts, slots=slots, scales=scales)
+        _print_pair(pair)
+        if pair.deletable:
+            print(f"       → {visits} Objektbesuch(e) and {len(refs)} outside id(s) move to the survivor")
+            print(f"       → {moves} position correction(s) move to the survivor's history")
+            for alias in aliases:
+                print(f"       → alias {alias!r} on the survivor (search; an organizer push under it resolves there)")
+        if not apply:
+            print("\nOK (dry-run): nothing written. Repeat with --apply to perform it.")
+            return 0
+        if not pair.deletable:
+            print("\nINCOMPLETE: conflicting sheets keep the loser — decide those by hand, nothing written.")
+            await db.rollback()
+            return 1
+        await db.execute(
+            update(ObjectPositionEvent)
+            .where(ObjectPositionEvent.object_id == loser.id)
+            .values(object_id=survivor.id)
+            .execution_options(synchronize_session=False)
+        )
+        await _apply_pair(db, pair)
+        for alias in aliases:
+            taken = (
+                await db.execute(
+                    select(ObjectRef).where(ObjectRef.source == ALIAS_SOURCE, ObjectRef.external_id == alias)
+                )
+            ).scalar_one_or_none()
+            if taken is None:
+                db.add(ObjectRef(object_id=survivor.id, source=ALIAS_SOURCE, external_id=alias))
+            elif taken.object_id != survivor.id:
+                taken.object_id = survivor.id
+        scales, _, _ = _retarget_scales(scales, loser.id, survivor.id)
+        if station is not None and scales != (station.plan_scales_json or {}):
+            station.plan_scales_json = scales
+        await db.commit()
+        print(f"\nOK: {loser.id} merged into {survivor.id} and deleted.")
+        return 0
+
+
+def _ring_keys(footprint: dict | None) -> set[tuple[tuple[float, float], ...]]:
+    """A stored footprint's buildings as comparable keys (the survey's own vertices, rounded)."""
+    out: set[tuple[tuple[float, float], ...]] = set()
+    for poly in (footprint or {}).get("coordinates") or []:
+        if poly and poly[0]:
+            out.add(tuple(sorted((round(p[0], 6), round(p[1], 6)) for p in poly[0])))
+    return out
+
+
+async def _report_twins() -> int:
+    """Likely twins — REPORT ONLY: a plan-less object whose derived buildings mostly coincide
+    with another object's (or whose point lies in one of them). Prints the `merge` dry-run
+    command for each; deciding which row survives stays a person's call."""
+    from . import object_footprints
+    from .object_footprints import _in_ring
+
+    async with async_session_maker() as db:
+        rows = list((await db.execute(select(ObjectSite).order_by(ObjectSite.name))).scalars())
+        counts = await _plan_counts(db)
+    stored = object_footprints.stored()
+    fp: dict[uuid.UUID, dict | None] = {}
+    for o in rows:
+        lat = float(o.lat) if o.lat is not None else None
+        lng = float(o.lng) if o.lng is not None else None
+        fp[o.id] = object_footprints.footprint_for(str(o.id), lat, lng) if str(o.id) in stored else None
+    found = 0
+    for a in rows:
+        if counts.get(a.id, 0):
+            continue  # only a plan-less row is a candidate loser
+        mine = _ring_keys(fp[a.id])
+        for b in rows:
+            if b.id == a.id:
+                continue
+            theirs = _ring_keys(fp[b.id])
+            share = len(mine & theirs) / len(mine) if mine else 0.0
+            inside = (
+                not mine
+                and a.lat is not None
+                and a.lng is not None
+                and any(
+                    _in_ring([(p[0], p[1]) for p in poly[0]], (float(a.lng), float(a.lat)))
+                    for poly in (fp[b.id] or {}).get("coordinates") or []
+                )
+            )
+            if share < 0.5 and not inside:
+                continue
+            found += 1
+            why = (
+                f"{share:.0%} of its {len(mine)} building(s) are the other's"
+                if mine
+                else "its point is in the other's building"
+            )
+            print(f"\n{_spelling(a.name)} (no plans) ↔ {_spelling(b.name)} ({counts.get(b.id, 0)} plan(s)) — {why}")
+            print(f"  dry run: uv run python -m app.admin_objects merge {a.id} --into {b.id}")
+    print(
+        f"\n{found} likely twin(s) among {len(rows)} object(s). Nothing written — `merge` decides one pair at a time."
+    )
+    return 0
+
+
 # --- maintenance: the two object-key conventions -----------------------------------------
 
 
@@ -1915,6 +2091,18 @@ async def _amain(argv: list[str]) -> int:
         help="fold objects whose names are the same name (NFD/NFC twins, exact duplicates) into one",
     )
     p_merge.add_argument("--apply", action="store_true", help="perform the merge (default: report only, no writes)")
+    p_into = sub.add_parser(
+        "merge",
+        help="fold ONE object into another (a twin under another name): plans, visits, outside ids, "
+        "position history; the loser's name stays as an alias on the survivor",
+    )
+    p_into.add_argument("loser", type=uuid.UUID, help="the object that goes away")
+    p_into.add_argument("--into", dest="survivor", type=uuid.UUID, required=True, help="the object that stays")
+    p_into.add_argument("--apply", action="store_true", help="perform the merge (default: report only, no writes)")
+    sub.add_parser(
+        "twins",
+        help="list likely twins: a plan-less object whose derived buildings are another's (report only)",
+    )
     p_repair = sub.add_parser(
         "repair-sharepoint-keys",
         help="fold objects the SharePoint pull keyed on a whole «Adresse - Name» folder name onto the "
@@ -1971,6 +2159,10 @@ async def _amain(argv: list[str]) -> int:
         return res.report(where=f"at {args.base}", dry_run=args.dry_run)
     if args.cmd == "merge-duplicates":
         return await _merge_duplicates(apply=args.apply)
+    if args.cmd == "merge":
+        return await _merge_into(args.loser, args.survivor, apply=args.apply)
+    if args.cmd == "twins":
+        return await _report_twins()
     if args.cmd == "repair-sharepoint-keys":
         return await _repair_sharepoint_keys(apply=args.apply, do_geocode=not args.no_geocode)
     if args.cmd == "geocode-missing":
