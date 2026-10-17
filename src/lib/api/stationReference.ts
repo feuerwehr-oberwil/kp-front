@@ -37,9 +37,16 @@ export interface StationObject {
   id: string
   name: string
   kind: StationObjectKind
+  /** an address for every object where one is knowable (the station's, else the name when it is
+   *  a street + number, else the register's at the pin — docs/karte-objekte.md) */
   address: string | null
+  /** the town, only when it is NOT the home town («Therwil»): print «address, locality» */
+  locality?: string | null
   lat: number | null
   lng: number | null
+  /** the station's outline choice («Lage korrigieren» in /admin): `none` = draw no outline at all,
+   *  not even the OSM building at the point; absent (an older server) = `auto` */
+  outline?: 'auto' | 'building' | 'none'
   aliases: string[]
   plans: StationPlan[]
   floors: StationFloor[]

@@ -5,7 +5,7 @@ import math
 import re
 import uuid
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
@@ -793,7 +793,48 @@ class ObjectOut(ObjectIn):
     measures: str | None = None
     remarks: str | None = None
     measures_source: str | None = None
+    #: the town when it is not the home town («Therwil») — see ``ObjectSite.locality``
+    locality: str | None = None
+    #: ``'station'`` = the station corrected the position in /admin; no import overwrites it
+    position_source: str | None = None
+    position_set_at: datetime | None = None
+    #: the station's outline choice: NULL = automatic, ``building``, ``none``
+    outline: str | None = None
     updated_at: datetime
+
+
+class ObjectPositionIn(BaseModel):
+    """``PUT /api/objects/{id}/position`` — «Lage korrigieren» in /admin. The pin, how the map
+    outlines the object, and (when the station picked it from the register) its address + town."""
+
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    outline: Literal["auto", "building", "none"] = "auto"
+    #: replaces the stored address only when SENT (picked from the register)
+    address: str | None = Field(default=None, max_length=300)
+    #: the town; written when sent (null/"" clears it). The home town is never stored.
+    locality: str | None = Field(default=None, max_length=120)
+
+
+class ObjectPositionEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    action: str
+    actor: str | None = None
+    before: dict[str, Any]
+    after: dict[str, Any]
+    created_at: datetime
+
+
+class PlaceHitOut(BaseModel):
+    """One register address for the «Lage korrigieren» picker."""
+
+    label: str
+    street: str
+    town: str | None = None
+    home: bool = False
+    lat: float
+    lng: float
 
 
 class ReferenceDatasetOut(BaseModel):
@@ -945,9 +986,18 @@ class ReferenceObjectOut(BaseModel):
     id: uuid.UUID
     name: str
     kind: Literal["einsatzobjekt", "objekt", "depot"]
+    #: where it is, for every object where that is knowable (docs/karte-objekte.md · address): the
+    #: station's address; else the name when it IS a street + number; else the register's
+    #: address at the pin. None only when none of the three exists.
     address: str | None = None
+    #: the town, ONLY when it is not the home town («Therwil»); the client prints «address, locality»
+    locality: str | None = None
     lat: float | None = None
     lng: float | None = None
+    #: the station's outline choice: ``auto`` (the footprint rule, else the OSM building at the
+    #: point), ``building`` (only the building at the pin), ``none`` (no outline at all — the
+    #: viewer must not fall back to OSM either)
+    outline: Literal["auto", "building", "none"] = "auto"
     #: other names the object is known by (the station's plan-library folder, …) — search reads them
     aliases: list[str] = Field(default_factory=list)
     plans: list[ReferencePlanOut] = Field(default_factory=list)
@@ -1218,11 +1268,46 @@ class MapExternalLink(BaseModel):
     urlTemplate: str | None = None
 
 
+class ObjectCategoryMatch(BaseModel):
+    """When an object belongs to a category: every condition NAMED holds (none named = always)."""
+
+    model_config = ConfigDict(extra="ignore")
+    #: the object's kind is one of these
+    kinds: list[Literal["einsatzobjekt", "objekt", "depot"]] | None = None
+    #: one of the object's plan modules matches one of these globs (``modul5-pv*``, ``modul6``)
+    modules: list[Annotated[str, Field(min_length=1, max_length=60)]] | None = Field(default=None, max_length=30)
+
+
+class ObjectCategoryConfig(BaseModel):
+    """One colour rule for «Karte & Objekte» (src/lib/karte/categories.ts). Ordered, first match
+    wins; an object no rule matches keeps the default look (red, a key box its FKS glyph)."""
+
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(min_length=1, max_length=40, pattern=r"^[a-z0-9][a-z0-9_-]*$")
+    #: one string, or one per language (``{"de": "Photovoltaik", "fr": "Photovoltaïque"}``)
+    label: str | dict[Literal["de", "fr", "it", "en"], str]
+    #: ``#rrggbb``
+    color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
+    match: ObjectCategoryMatch = Field(default_factory=ObjectCategoryMatch)
+
+
 class MapConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     defaultView: MapDefaultView = Field(default_factory=MapDefaultView)
     geocoder: MapGeocoder = Field(default_factory=MapGeocoder)
     externalLinks: list[MapExternalLink] = Field(default_factory=list)
+    # «Karte & Objekte»: the station's object colours (docs/karte-objekte.md · Categories). Empty
+    # = every object red, as before.
+    objectCategories: list[ObjectCategoryConfig] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def _unique_category_ids(self) -> "MapConfig":
+        ids = [c.id for c in self.objectCategories]
+        dupes = sorted({i for i in ids if ids.count(i) > 1})
+        if dupes:
+            raise ValueError(f"map.objectCategories: id(s) {dupes} used twice")
+        return self
+
     # The Gebäude card's federal-register half (app/building_facts: GWR + BFE, both Swiss). Unset
     # = on wherever the Einsatzort lies in Switzerland; false = never ask them (a station that does
     # not want it, or one outside CH that wants to say so). The Objekt's Sofortmassnahmen are the

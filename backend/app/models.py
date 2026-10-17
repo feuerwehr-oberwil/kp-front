@@ -448,9 +448,40 @@ class ObjectSite(Base):
     #: Where `measures` and `remarks` came from, in the station's words («Modul 1, Stand
     #: 03.2024») — the card prints it beside them, because a measure without a source reads as a fact.
     measures_source: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: The town when it is not the home town («Therwil» for «Erlenstrasse 60»), as the register
+    #: or the station named it. NULL = the home town, or not known; the catalogue then serves
+    #: the town at the pin (app/object_footprints · place_at). Shown after the address.
+    locality: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: ``'station'`` once the station corrected the position in /admin («Lage korrigieren»,
+    #: api/objects · set_position). ⚠️ Such a position is never overwritten — not by
+    #: ``PUT /api/objects/{id}`` (admin_objects push), ``admin_objects load``, the SharePoint pull
+    #: or an organizer: they all keep the station's lat/lng/locality. NULL = whatever imported it.
+    position_source: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    position_set_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: How the map outlines the object: NULL = automatic (use area / parcel / building, see
+    #: app/object_footprints), ``'building'`` = only the building at the pin, ``'none'`` = no
+    #: outline at all (not even the viewer's OSM fallback). Set with the position correction.
+    outline: Mapped[str | None] = mapped_column(String(16), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class ObjectPositionEvent(Base):
+    """Append-only history of the station's position/outline corrections of one object
+    (``set`` / ``undo``), with what the object said before and after."""
+
+    __tablename__ = "object_position_events"
+    __table_args__ = (Index("ix_object_position_events_object_id", "object_id"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    object_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("objects.id", ondelete="CASCADE"), nullable=False)
+    action: Mapped[str] = mapped_column(String(24), nullable=False)
+    #: who: the account's display name, or «Verwaltung» for the admin-secret session
+    actor: Mapped[str | None] = mapped_column(Text, nullable=True)
+    before: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    after: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class ObjectRef(Base):

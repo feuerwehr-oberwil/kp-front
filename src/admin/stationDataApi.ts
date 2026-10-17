@@ -95,6 +95,34 @@ export type SavedObject = Omit<ObjectWithPlans, 'plans' | 'distance_m'>
 export const saveObject = (id: string, body: ObjectInput) =>
   apiPut<SavedObject>(`/api/objects/${encodeURIComponent(id)}`, body)
 
+// ─── «Lage korrigieren» (backend api/objects · set_position) ─────────────────────
+
+export type OutlineMode = 'auto' | 'building' | 'none'
+
+export interface PositionInput {
+  lat: number
+  lng: number
+  outline: OutlineMode
+  /** sent only when picked from the register: replaces the stored address */
+  address?: string
+  /** the town; the server stores nothing for the home town */
+  locality?: string | null
+}
+
+/** One register address for the picker (the region-biased search, with its town). */
+export interface PlaceHit { label: string; street: string; town: string | null; home: boolean; lat: number; lng: number }
+
+/** The station's position for an object: station-set from now on, audited server-side. */
+export const setObjectPosition = (id: string, body: PositionInput) =>
+  apiPut<SavedObject>(`/api/objects/${encodeURIComponent(id)}/position`, body)
+
+/** Take the last correction back (one step). */
+export const undoObjectPosition = (id: string) =>
+  apiPost<SavedObject>(`/api/objects/${encodeURIComponent(id)}/position/undo`, {})
+
+export const searchPlaces = (q: string) =>
+  apiGet<PlaceHit[]>(`/api/objects/position-search?q=${encodeURIComponent(q)}`)
+
 /** Upload one Modul-PDF. Writes `plan:<object>:<module>` — the id is derived from the module,
  *  so re-uploading a corrected sheet REPLACES the plan and bumps its version instead of adding
  *  a second one (backend/app/plans.py · store_plan). No `sha256` is sent: the digest is only

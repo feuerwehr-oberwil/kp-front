@@ -137,6 +137,7 @@ export const karteCopy = {
     layerGroupStation: 'Station',
     layerObjects: 'Stationsobjekte',
     layerObjectsSub: 'Einsatzobjekte · Schlüsseldepots',
+    layerCategorySub: '{n} Objekte',
     layerGroupPlans: 'Pläne',
     layerPlan: 'Plan {code} · {name}',
     layerPlanSub: 'Von der Station freigegeben',

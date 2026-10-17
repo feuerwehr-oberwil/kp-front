@@ -96,6 +96,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `identity.assets` | ✅ | the branding uploads – **not** part of this document (see the ⚠️ below and §3a) |
 | `map.defaultView`, `map.geocoder.*` | ✅ | Station › **Station & Karte** |
 | `map.buildingRegister` | ❌ | config-as-code only (`admin_config`); unset = on in CH ([`building-card.md`](building-card.md)) |
+| `map.objectCategories` | ✅ | Station › **Station & Karte** › «Objektfarben» ([`karte-objekte.md`](karte-objekte.md) · Object colours) |
 | `map.externalLinks` | ✅ | Station › **Station & Karte** – ⚠️ editable, but as shipped its only renderer is the field app's «Datenquellen» panel, which is **unreachable**. Configuring it changes nothing anybody can see today |
 | `referenceLayers` – raster (WMS/WMTS) and GeoJSON, incl. the file upload | ✅ | Station › **Kartenebenen** (§2) |
 | `referenceLayers[].nightColor` · `.opacity` · `.maxzoom` · `.symbol` · `.autoActivate` | ❌ | file only – the forms **merge** over the stored row, so a CLI-set value survives an edit |
@@ -224,9 +225,17 @@ both now have browser pages – §9e and §9f.
                                                  //  the backend caches to retry a typo –
                                                  //  «haupstrasse 12» → «Hauptstrasse 12»)
     },
-    "buildingRegister": null                     // the Gebäude card's federal-register half (GWR + BFE):
+    "buildingRegister": null,                    // the Gebäude card's federal-register half (GWR + BFE):
                                                  // null = on wherever the Einsatzort lies in CH,
                                                  // false = never ask them (docs/building-card.md)
+    "objectCategories": [                        // «Karte & Objekte»: the station's object colours.
+      {                                          // Ordered, FIRST match wins; [] = every object red
+        "id": "pv",                              // [a-z0-9_-], unique
+        "label": { "de": "Photovoltaik", "fr": "Photovoltaïque" },  // or one string
+        "color": "#f59e0b",                      // #rrggbb: dot, tag rim/count, outline
+        "match": { "modules": ["modul5-pv*"] }   // kinds? ["einsatzobjekt"|"objekt"|"depot"],
+      }                                          // modules? globs (* any run, ? one char);
+    ]                                            // both named = both must hold; none = catch-all
   },
 
   "referenceLayers": [ /* see §2 – entirely station-supplied, none bundled */ ],

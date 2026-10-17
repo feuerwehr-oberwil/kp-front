@@ -32,7 +32,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, s
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import object_footprints, plan_tiles
+from .. import geocode, object_footprints, plan_tiles
 from ..auth.dependencies import _admin_session_valid, get_current_user
 from ..auth.incident_link import link_page_owns_session, read_link_session
 from ..building_facts import _street_of
@@ -127,6 +127,39 @@ def aliases_of(obj: ObjectSite) -> list[str]:
     if folder and folder.casefold() not in {(obj.name or "").casefold(), (obj.address or "").casefold()}:
         return [folder]
     return []
+
+
+_TRAILING_NOTE = re.compile(r"\s*\([^)]*\)\s*$")
+
+
+def object_address(obj: ObjectSite, place: dict | None, default_locality: str) -> tuple[str | None, str | None]:
+    """``(address, locality)`` for the catalogue — an address for every object where one is
+    knowable (owner, 17.10.2026: three key boxes and three objects sent ``null`` and the viewer
+    printed «Schlüsseldepot» where the address belonged):
+
+    1. the station's own ``address``;
+    2. else the NAME when it is a street + number («Mühlemattstrasse 24», «Bienenstrasse 28 (EH)»
+       → «Bienenstrasse 28»): those rows are addresses the import never split;
+    3. else the register's address at the pin (``object_footprints.place_at``, asked once by the
+       scheduler — never per view).
+
+    ``locality`` is the town only when it is NOT the home town: the station's stored one, else the
+    town of the register entry at the pin. The home town is never sent (every row would repeat it).
+    """
+    address = (obj.address or "").strip() or None
+    if address is None:
+        bare = _TRAILING_NOTE.sub("", obj.name or "").strip()
+        if geocode.has_house_number(bare):
+            address = bare
+    if address is None and place and place.get("street"):
+        address = place["street"]
+    town = (obj.locality or "").strip() or None
+    plz = None
+    if town is None and place and place.get("town"):
+        town, plz = place["town"], place.get("plz")
+    if town and geocode.is_home(town, plz, default_locality):
+        town = None
+    return address, town
 
 
 def _page_counts(keys: list[str]) -> dict[str, int | None]:
@@ -234,24 +267,29 @@ async def reference_objects(db: AsyncSession, *, with_visits: bool) -> Reference
             )
 
     refs = await refs_by_object(db)
+    default_locality, _bbox = await geocode._resolve_bias()
     out: list[ReferenceObjectOut] = []
     for o in objects:
         plans = plans_by_obj.get(o.id, [])
         lat = float(o.lat) if o.lat is not None else None
         lng = float(o.lng) if o.lng is not None else None
+        address, locality = object_address(o, object_footprints.place_at(lat, lng), default_locality)
+        outline = o.outline if o.outline in ("building", "none") else "auto"
         out.append(
             ReferenceObjectOut(
                 id=o.id,
                 name=o.name,
                 kind=object_kind(o, bool(plans), [r["source"] for r in refs.get(o.id, [])]),  # type: ignore[arg-type]
-                address=o.address,
+                address=address,
+                locality=locality,
                 lat=lat,
                 lng=lng,
+                outline=outline,  # type: ignore[arg-type]
                 aliases=aliases_of(o),
                 # every building the object stands for, derived by the scheduler from official
                 # data (app/object_footprints); None = the viewer draws the OSM building its
                 # point lies in
-                footprint=object_footprints.footprint_for(str(o.id), lat, lng),
+                footprint=None if outline == "none" else object_footprints.footprint_for(str(o.id), lat, lng),
                 plans=plans,
                 floors=[ReferenceFloorOut(index=i, name=n) for i, n in sorted(floors_by_obj.get(o.id, {}).items())],
                 measures=o.measures,

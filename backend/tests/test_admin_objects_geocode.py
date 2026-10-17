@@ -40,7 +40,7 @@ def geocoder(monkeypatch, answers: dict[str, tuple[float, float]] | Exception, a
             raise answers
         return answers.get(address)
 
-    monkeypatch.setattr(admin_objects, "geocode", fake)
+    monkeypatch.setattr(admin_objects, "locate_coordinates", fake)
 
 
 async def _object(

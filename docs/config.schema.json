@@ -831,6 +831,14 @@
           "title": "Externallinks",
           "type": "array"
         },
+        "objectCategories": {
+          "items": {
+            "$ref": "#/$defs/ObjectCategoryConfig"
+          },
+          "maxItems": 20,
+          "title": "Objectcategories",
+          "type": "array"
+        },
         "buildingRegister": {
           "anyOf": [
             {
@@ -1273,6 +1281,100 @@
         "id"
       ],
       "title": "ModuleConfig",
+      "type": "object"
+    },
+    "ObjectCategoryConfig": {
+      "description": "One colour rule for «Karte & Objekte» (src/lib/karte/categories.ts). Ordered, first match\nwins; an object no rule matches keeps the default look (red, a key box its FKS glyph).",
+      "properties": {
+        "id": {
+          "maxLength": 40,
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9_-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "propertyNames": {
+                "enum": [
+                  "de",
+                  "fr",
+                  "it",
+                  "en"
+                ]
+              },
+              "type": "object"
+            }
+          ],
+          "title": "Label"
+        },
+        "color": {
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "title": "Color",
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/$defs/ObjectCategoryMatch"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "color"
+      ],
+      "title": "ObjectCategoryConfig",
+      "type": "object"
+    },
+    "ObjectCategoryMatch": {
+      "description": "When an object belongs to a category: every condition NAMED holds (none named = always).",
+      "properties": {
+        "kinds": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "einsatzobjekt",
+                  "objekt",
+                  "depot"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kinds"
+        },
+        "modules": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 60,
+                "minLength": 1,
+                "type": "string"
+              },
+              "maxItems": 30,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Modules"
+        }
+      },
+      "title": "ObjectCategoryMatch",
       "type": "object"
     },
     "ObjectVisitDestination": {
