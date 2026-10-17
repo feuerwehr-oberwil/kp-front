@@ -75,14 +75,17 @@ pnpm lint    # eslint + a per-rule warning ratchet (scripts/eslint-baseline.json
 - **Verification before prod (the CI gate).** Prod deploys from `main`, so a red `main` reaches
   the field. The standing flow for any non-urgent change: develop on a branch, push, let
   `ci.yml` go **fully green**, *then* merge – never merge a red branch. `ci.yml` runs seven gate
-  jobs: *Frontend (tsc + build)* – eslint + `tsc --noEmit` + vitest + `vite build`; *Backend
+  checks: *Frontend (tsc + build)* – parallel static/build and full-coverage jobs; *Backend
   (ruff + alembic + pytest)*; *Secrets (gitleaks)*; *Shared files match KP Rück*; *Image
-  (hadolint + build + smoke)* – builds & boots the real production container and drives every
+  (hadolint + build + smoke)* – builds the real production image once, then drives every
   e2e spec against it except the journeys and screenshots (`e2e/README.md`), among them the
   white-screen smoke (`e2e/smoke.spec.ts`) and the field scenario of the Übung on 23.09.2026
   (`e2e/field-scenario.spec.ts`: a parked vehicle sending GPS, a coupled Leitung, a tapped Trupp,
   and then three devices on one login); *Performance (user journeys vs baseline)* and *Visual
-  (screenshots vs baseline)*, each on a container of its own. ⚠️ **Every e2e test fails when
+  (screenshots vs baseline)*, each on a container of its own. The Image check requires all three
+  isolated browser suites to pass; existing required-check names remain stable. Before changing
+  CI execution or local validation, read [`docs/testing/ci.md`](docs/testing/ci.md).
+  ⚠️ **Every e2e test fails when
   the app reports a client error or a render storm** (`e2e/guard.ts`, 24.09.2026). A spec
   imports `test` from `e2e/helpers`, never from `@playwright/test` (eslint enforces it). A report
   a test provokes on purpose is listed with `expectedClientErrors`; nothing turns the guard off
@@ -131,9 +134,9 @@ pnpm lint    # eslint + a per-rule warning ratchet (scripts/eslint-baseline.json
 ## Testing
 
 **Tests** are Vitest (node env), colocated as `*.test.ts`, focused on pure `src/lib` logic
-(plus a few components); the backend uses pytest. The backend has a ruff pre-commit hook; the
-frontend has none – so run `pnpm lint && pnpm test` before pushing, since changes go straight
-to prod. `just ci` runs every gate of CI's Frontend and Backend jobs locally (incl. coverage
+(plus a few components); the backend uses pytest. Pre-commit covers backend Ruff and staged
+frontend ESLint, not the full gate. Run `pnpm lint && pnpm test` before pushing.
+`just ci` runs independent frontend static, full-coverage and backend checks in parallel (incl. coverage
 floor, bundle budget, audits, licenses and `just schema-check`: a throwaway Postgres migrated to
 head, then `alembic check` against the models); image, secrets, e2e, visual and perf stay CI's.
 

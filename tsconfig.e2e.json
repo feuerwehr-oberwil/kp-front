@@ -9,6 +9,8 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    "incremental": true,
+    "tsBuildInfoFile": "node_modules/.cache/typescript/e2e.tsbuildinfo",
     "isolatedModules": true,
     // e2e/fat-incident.perf.ts imports the fat-incident generator, and through its types a slice
     // of src/ – which reads import.meta.env and has .tsx modules

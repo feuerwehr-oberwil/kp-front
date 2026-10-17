@@ -16,8 +16,16 @@ mount, a wedged session, a render loop on the Karte.
 | `screens.visual.ts` | screenshot regression: nine frozen states (Lage, Plan, Trupps, Verlauf, Rapport, kiosk; tablet + phone, one night) compared pixel by pixel with `e2e/visual/baseline/` ([docs/testing/visual-regression.md](../docs/testing/visual-regression.md)) | CI job «Visual», chromium; opt-in elsewhere (`VISUAL=1`, `just visual`) |
 | `touch.spec.ts` | coarse-pointer time controls at 1024×768 and 390×844, clearing, reachable actions and overflow | CI; locally opt-in, `E2E_WORKFLOWS=1` |
 
-CI's *Image* job runs the suite against the production container it has just built
-(`.github/workflows/ci.yml`); the journeys run in their own job, «Performance», and the screenshots in «Visual», each against a container of their own. Only the rows marked CI actually run in «Image»: the demo spec skips
+CI builds one production image and shares its archive within that workflow run. The required
+*Image* check waits for three isolated browser suites: `field` (GPS/multi-device), `recovery`
+(object visits, WebKit and touch), and `workspace` (remaining Chromium specs). Each has its own
+database, app, fake fleet and one browser worker; they share no mutable state. New ordinary specs
+go to `workspace` by default. `node scripts/check-e2e-suites.mjs` verifies that every ordinary
+case appears exactly once, and an unknown `E2E_SUITE` fails configuration. See
+[`docs/testing/ci.md`](../docs/testing/ci.md).
+
+The journeys run in their own job, «Performance», and the screenshots in «Visual», each against
+a container of their own loaded from the same image. Only the rows marked CI actually run in «Image»: the demo spec skips
 on a station image. CI sets `E2E_WORKFLOWS=1` for its disposable stack; local workflow and touch tests skip without that flag. `playwright.config.ts`
 starts no servers.
 

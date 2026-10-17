@@ -9,7 +9,7 @@ backend/data
 .DS_Store
 docs/design-concepts
 
-# Secrets must not enter the build context. `Dockerfile` does `COPY . .`, and the ROOT `.env`
+# Secrets must not enter the build context or any exported layer cache. The ROOT `.env`
 # is the file docker-compose.yml and docs/DEPLOYMENT.md tell every operator to create
 # (`cp .env.example .env`) — it holds SECRET_KEY, POSTGRES_PASSWORD, ADMIN_SECRET,
 # DIVERA_ACCESS_KEY, TRACCAR_PASSWORD, VAPID_PRIVATE_KEY and STT_API_KEY. Only `backend/.env`
