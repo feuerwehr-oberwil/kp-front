@@ -20,10 +20,11 @@ const CATALOGUE: StationObjects = {
     { id: 'schloss', name: 'Schloss Musterdorf', kind: 'einsatzobjekt', address: 'Schlossgasse 9, 9999 Musterdorf', lat: 47.523773, lng: 7.570188,
       aliases: ['Wasserschloss'], plans: [{ id: 'plan:schloss:modul1', module: 'modul1', code: '1', title: 'Modul 1 · Übersicht', pages: 2, georef: false, version: 1 }],
       floors: [], egid: null, footprint: null, lastVisit: null, measures: 'Zufahrt nur über Schlossgasse', measuresSource: 'Modul 1' },
-    { id: 'depot', name: 'Schlüsseldepot Schloss', kind: 'depot', address: 'Schlossgasse 9', lat: 47.52402, lng: 7.56985,
+    // plan-less, at the Schloss's door (a «Schlüsseldepot» kind of its own until review round 3)
+    { id: 'depot', name: 'Remise Schloss', kind: 'objekt', address: 'Schlossgasse 9', lat: 47.52402, lng: 7.56985,
       aliases: [], plans: [], floors: [], egid: null, footprint: null, lastVisit: null },
     // named by its address, with none stored (review round 2: the lists said «Schlüsseldepot» there)
-    { id: 'box', name: 'Starenstrasse 7', kind: 'depot', address: null, lat: 47.5232, lng: 7.5712,
+    { id: 'box', name: 'Starenstrasse 7', kind: 'objekt', address: null, lat: 47.5232, lng: 7.5712,
       aliases: [], plans: [], floors: [], egid: null, footprint: null, lastVisit: null },
   ],
 }
@@ -46,7 +47,12 @@ vi.mock('../MapView', async () => {
     },
   }
 })
-vi.mock('react-map-gl/maplibre', () => ({ Marker: ({ children }: { children: ReactNode }) => <div>{children}</div> }))
+// a marker says where it stands (lng/lat), how it hangs there and how far it slid
+vi.mock('react-map-gl/maplibre', () => ({
+  Marker: ({ children, longitude, latitude, anchor, offset }: { children: ReactNode; longitude: number; latitude: number; anchor?: string; offset?: [number, number] }) => (
+    <div data-marker="" data-lng={longitude} data-lat={latitude} data-anchor={anchor ?? ''} data-offset={(offset ?? [0, 0]).join(',')}>{children}</div>
+  ),
+}))
 vi.mock('../../lib/api/stationReference', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/api/stationReference')>()),
   loadStationObjects: async () => ({ value: rec.catalogue ?? CATALOGUE, source: 'network' as const }),
@@ -137,8 +143,8 @@ describe('KarteApp', () => {
     fireEvent.click(row)
     await waitFor(() => expect(overlays().some((o) => o.id === 'karte-objects-m1')).toBe(false))
     expect(screen.queryByRole('button', { name: /^Schloss Musterdorf/ })).toBeNull()
-    // the key box (no category) stays
-    expect(screen.getByRole('button', { name: /Schlüsseldepot Schloss/ })).toBeTruthy()
+    // the plan-less object (no category) stays
+    expect(screen.getByRole('button', { name: /Remise Schloss/ })).toBeTruthy()
   })
 
   it('opens an object from its tag and hands a visit over at the contract address', async () => {
@@ -153,6 +159,40 @@ describe('KarteApp', () => {
     // «Melden» (owner R2): the same visit, with the station's Fehlermeldung asked for
     fireEvent.click(screen.getByRole('button', { name: 'Melden' }))
     expect(onOpenVisits).toHaveBeenLastCalledWith('/besuche/neu?object=schloss&checkliste=fehlermeldung&from=karte')
+  })
+
+  // owner R3 (17.10.2026): «do not move the location of the marker» — the tag sits ON the object's
+  // point even when its building's south edge (round 1) or the inside of it (round 2) is elsewhere,
+  // and it names the object without a plan count
+  it('draws the tag on the object\'s point, centred, with no plan count', async () => {
+    const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]
+    rec.catalogue = {
+      ...CATALOGUE,
+      objects: CATALOGUE.objects.map((o) => (o.id === 'schloss'
+        ? { ...o, footprint: { type: 'MultiPolygon', coordinates: [[sq(7.5700, 47.5236, 0.0004)]] }, plans: [...o.plans, { ...o.plans[0], id: 'plan:schloss:modul2', module: 'modul2', code: '2' }] }
+        : o)),
+    }
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
+    await screen.findByRole('heading', { name: 'Schloss Musterdorf' })
+    const tag = screen.getAllByRole('button', { name: 'Schloss Musterdorf' }).find((b) => b.closest('[data-marker]'))!
+    expect(tag.textContent).toBe('Schloss Musterdorf')
+    const m = tag.closest('[data-marker]') as HTMLElement
+    expect([Number(m.dataset.lng), Number(m.dataset.lat)]).toEqual([7.570188, 47.523773])
+    expect(m.dataset.anchor).toBe('center')
+    expect(m.dataset.offset).toBe('0,0')
+  })
+
+  it('without categories, an object without plans is told apart by its look, not a number', async () => {
+    rec.catalogue = {
+      ...CATALOGUE,
+      objects: [...CATALOGUE.objects, { id: 'halle', name: 'Lagerhalle Feld', kind: 'objekt', address: 'Feldweg 2', lat: 47.5245, lng: 7.5690, aliases: [], plans: [], floors: [], egid: null, footprint: null, lastVisit: null }],
+    }
+    mount()
+    const bare = await screen.findByRole('button', { name: 'Lagerhalle Feld' })
+    const planned = screen.getByRole('button', { name: 'Schloss Musterdorf' })
+    expect(bare.className).not.toBe(planned.className)
+    expect(planned.textContent + bare.textContent).not.toMatch(/\d/)
   })
 
   it('measures without offering to keep it, and stores nothing of it', async () => {
@@ -222,7 +262,7 @@ describe('KarteApp', () => {
     fireEvent.change(screen.getByPlaceholderText('Adresse oder Objekt suchen …', PLAIN), { target: { value: 'schloss' } })
     const options = await screen.findAllByRole('option')
     expect(options[0].textContent).toMatch(/Schloss Musterdorf/)
-    expect(options[1].textContent).toMatch(/Schlüsseldepot Schloss/)
+    expect(options[1].textContent).toMatch(/Remise Schloss/)
   })
 
   it('lists an object as glyph · name · address, without its plan count (review round 2)', async () => {
@@ -237,7 +277,7 @@ describe('KarteApp', () => {
     const [box] = await screen.findAllByRole('option')
     // the name IS the address: printed once, the kind quietly under it — never in its place
     expect(within(box).getByText('Starenstrasse 7')).toBeTruthy()
-    expect(within(box).getByText('Schlüsseldepot')).toBeTruthy()
+    expect(within(box).getByText('Stationsobjekt')).toBeTruthy()
     expect(box.textContent).not.toMatch(/keine Pläne/)
   })
 
@@ -264,11 +304,14 @@ describe('KarteApp', () => {
     for (const n of ['Alle ein', 'Alle aus', 'Standard']) expect(chip(n).getAttribute('aria-pressed')).toBe('false')
   })
 
-  it('opens a deep link on its object', async () => {
+  it('opens a deep link on its object — a plan-less one as an object like any other', async () => {
     window.history.replaceState(null, '', '/karte?objekt=depot')
     mount()
-    expect(await screen.findByRole('heading', { name: 'Schlüsseldepot Schloss' })).toBeTruthy()
-    expect(screen.getByText('Schlüsseldepot ohne Pläne. Kontrolliert über die Objektbesuche.')).toBeTruthy()
+    expect(await screen.findByRole('heading', { name: 'Remise Schloss' })).toBeTruthy()
+    // owner R3: no «Schlüsseldepot» kicker, note or glyph — the kind word and the register
+    expect(screen.getAllByText('Stationsobjekt').length).toBeGreaterThan(0)
+    expect(document.body.textContent).not.toMatch(/Schlüsseldepot/)
+    expect(document.querySelector('[data-section="register"]')).not.toBeNull()
   })
 
   // home (variant B): the old launcher card is the «Einsätze ▾» sheet — App's content, opened here

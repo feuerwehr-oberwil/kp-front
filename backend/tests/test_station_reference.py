@@ -227,7 +227,9 @@ async def test_the_object_shapes(client, db_session, editor):
     assert schloss["lastVisit"]["date"].startswith("2026-10-15")
 
     depot = objs["Schlüsseldepot Schloss"]
-    assert depot["kind"] == "depot" and depot["plans"] == [] and depot["lastVisit"] is None
+    # no key-box kind any more (review round 3): a plan-less object on the Kontrollgang, its
+    # `fwo-schlue` ref and its «Schlüssel…» name notwithstanding, is an object like any other
+    assert depot["kind"] == "objekt" and depot["plans"] == [] and depot["lastVisit"] is None
     assert objs["Kindergarten Blauen"]["kind"] == "objekt"
     # no coordinates is still an object — the viewer finds it by search and marks it «ungefähr»
     assert objs["Pumpwerk Burggarten"]["lat"] is None and objs["Pumpwerk Burggarten"]["lng"] is None
@@ -255,11 +257,9 @@ def test_module_codes_and_kinds():
     assert module_code("modul23") == "2/3"
     assert module_code("modul5-wasser2") == "5-wasser2"
     assert module_code(None) == "?"
-    box = ObjectSite(name="Schlüsselhülse Einstellhalle")
-    assert object_kind(box, False, []) == "depot"
-    assert object_kind(ObjectSite(name="Box Allmend"), False, ["fwo-schlue"]) == "depot"
-    assert object_kind(ObjectSite(name="Tramdepot"), False, []) == "objekt"
-    assert object_kind(box, True, []) == "einsatzobjekt"  # plans win: it is something to open
+    # plans or none — nothing else: «depot» is retired (review round 3, 17.10.2026)
+    assert object_kind(False) == "objekt"
+    assert object_kind(True) == "einsatzobjekt"
 
 
 # --- the building at a point ------------------------------------------------------------------------

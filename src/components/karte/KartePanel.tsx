@@ -45,7 +45,6 @@ import type { VisitSummary } from '../../objectVisits/types'
 import type { LngLat } from '../../types'
 import { Button, IconButton } from '../Button'
 import { PlanGlyph } from '../PlanGlyph'
-import { KeyBoxGlyph } from './KeyBoxGlyph'
 import { LampDot } from './KarteDevice'
 import s from './Karte.module.css'
 
@@ -100,7 +99,7 @@ export function KartePanel(p: {
     const o = sel.obj
     head = (
       <>
-        <span className={cx(s.glyph, o.kind === 'einsatzobjekt' && s.ein)}>{o.kind === 'depot' ? <KeyBoxGlyph /> : <Icon id={o.kind === 'einsatzobjekt' ? 'footprint' : 'station'} />}</span>
+        <span className={cx(s.glyph, o.kind === 'einsatzobjekt' && s.ein)}><Icon id={o.kind === 'einsatzobjekt' ? 'footprint' : 'station'} /></span>
         <div>
           <div className={s.eyebrow}>{C.kind[o.kind]}</div>
           <h2 className={s.title}>{o.name}</h2>
@@ -115,8 +114,7 @@ export function KartePanel(p: {
         )}
         <StationWord obj={o} />
         <Plans obj={o} docs={p.docs} onOpenDoc={p.onOpenDoc} avail={p.offline ? p.avail ?? null : undefined} />
-        {o.kind === 'depot' && !o.plans.length && <Quiet>{C.depotNote}</Quiet>}
-        {o.kind !== 'depot' && <Register reg={p.register} address={o.address} onRetry={p.onRetryRegister} />}
+        <Register reg={p.register} address={o.address} onRetry={p.onRetryRegister} />
         <Nearby nearby={p.nearby} hydrants={p.hydrants} onSelectObject={p.onSelectObject} />
         <Visits visits={p.visits} canCapture={p.canCapture} empty={C.visitsNever} onOpenVisit={p.onOpenVisit} offline={p.offline} last={o.lastVisit} />
         {!noteLines(o.measures).length && !noteLines(o.remarks).length && <div className={s.src}>{C.missing}</div>}
@@ -371,7 +369,7 @@ function Nearby({ nearby, hydrants, onSelectObject }: { nearby: Near<StationObje
         <div className={s.list}>
           {nearby.map(({ item: o, distanceM }) => (
             <button key={o.id} type="button" className={s.row} onClick={() => onSelectObject(o.id)}>
-              <span className={s.rowLead}>{o.kind === 'depot' ? <KeyBoxGlyph /> : <Icon id="footprint" />}</span>
+              <span className={s.rowLead}><Icon id="footprint" /></span>
               <span className={s.rowText}><b>{o.name}</b><span>{objectRowSub(o, C.kind[o.kind])}</span></span>
               <span className={s.rowEnd}>{fmtDistance(distanceM)}<Icon id="chevron" className={s.chev} /></span>
             </button>

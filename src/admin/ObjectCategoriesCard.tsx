@@ -12,7 +12,7 @@ import { RecordRows, RecordTable, SettingRow, SettingsNote } from './ui'
 // reason and is not written, the ExternalLinksCard's rule.
 
 const HEX = /^#[0-9a-fA-F]{6}$/
-const KINDS: ObjectKind[] = ['einsatzobjekt', 'objekt', 'depot']
+const KINDS: ObjectKind[] = ['einsatzobjekt', 'objekt'] // «depot» is retired (lib/karte/categories)
 const NEW_COLOR = '#64748b'
 
 export function ObjectCategoriesCard() {

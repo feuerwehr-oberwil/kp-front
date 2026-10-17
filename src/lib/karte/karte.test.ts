@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import type { LngLat, LayerDef } from '../../types'
-import type { StationObject } from '../api/stationReference'
+import { withRetiredKinds, type StationObject } from '../api/stationReference'
 import type { DeploymentModule } from '../deploymentConfig'
 import { normText, openableCount, searchObjects } from './search'
 import {
@@ -18,7 +18,8 @@ const obj = (o: Partial<StationObject> & Pick<StationObject, 'id' | 'name'>): St
 })
 const plan = (code: string) => ({ id: `plan:x:modul${code}`, module: `modul${code}`, code, title: `Modul ${code}`, pages: null, georef: false, version: 1 })
 const SCHLOSS = obj({ id: 'schloss', name: 'Schloss Musterdorf', kind: 'einsatzobjekt', address: 'Schlossgasse 9', lat: 47.523773, lng: 7.570188, aliases: ['Wasserschloss'], plans: [plan('1'), plan('6')], floors: [{ index: 0, name: null }] })
-const DEPOT = obj({ id: 'depot', name: 'Schlüsseldepot Schloss', kind: 'depot', address: 'Schlossgasse 9', lat: 47.52402, lng: 7.56985 })
+// plan-less, at the Schloss's door (until review round 3 this was a «key box» kind of its own)
+const DEPOT = obj({ id: 'depot', name: 'Gärtnerei Schloss', address: 'Schlossgasse 9', lat: 47.52402, lng: 7.56985 })
 const SCHULE = obj({ id: 'schule', name: 'Schulhaus Lindenhof', kind: 'einsatzobjekt', address: 'Schulstrasse 5, 9999 Musterdorf', lat: 47.521982, lng: 7.572289, plans: [plan('1')] })
 const PUMPWERK = obj({ id: 'pump', name: 'Pumpwerk Burggarten', address: 'Burggartenstrasse 15a', aliases: ['Filterhaus'] })
 const MAGAZIN = obj({ id: 'mag', name: 'Feuerwehrmagazin', address: 'Therwilerstrasse 14a', lat: 47.522901, lng: 7.570679 })
@@ -32,14 +33,14 @@ describe('search', () => {
 
   it('ranks the name before the alias before the address, objects with plans first', () => {
     const names = searchObjects(ALL, 'Schloss', CENTER).map((h) => h.obj.id)
-    // both names START with the word; the one with plans comes first, the key box last
+    // the Schloss's name starts with the word, the Gärtnerei has it as a word; plans first
     expect(names).toEqual(['schloss', 'depot'])
     expect(searchObjects(ALL, 'wasserschloss').map((h) => h.obj.id)).toEqual(['schloss'])
     expect(searchObjects(ALL, 'schlossgasse').map((h) => h.obj.id)).toEqual(['schloss', 'depot'])
   })
 
-  it('finds a key box by its word and an umlaut typed without one', () => {
-    expect(searchObjects(ALL, 'Schlussel').map((h) => h.obj.id)).toEqual(['depot'])
+  it('finds an object by its word and an umlaut typed without one', () => {
+    expect(searchObjects(ALL, 'Gartnerei').map((h) => h.obj.id)).toEqual(['depot'])
   })
 
   it('needs every word of a multi-word query', () => {
@@ -77,10 +78,11 @@ describe('places', () => {
     expect(streetKey('Mühlemattstrasse 22')).toBe(streetKey('Muhlemattstrasse 22'))
   })
 
-  it('names an object only on an exact address, never the key box at the same door', () => {
+  it('names an object only on an exact address; two at one door → the one with plans', () => {
     expect(objectAtAddress(ALL, 'Schlossgasse 9, 9999 Musterdorf')?.id).toBe('schloss')
     expect(objectAtAddress(ALL, 'Schlossgasse 11, 9999 Musterdorf')).toBeNull()
-    expect(objectAtAddress([DEPOT], 'Schlossgasse 9')).toBeNull()
+    // a plan-less object is an object like any other (no key-box kind left out since round 3)
+    expect(objectAtAddress([DEPOT], 'Schlossgasse 9')?.id).toBe('depot')
     expect(objectAtAddress(ALL, '')).toBeNull()
   })
 
@@ -121,7 +123,9 @@ describe('places', () => {
     expect(outlineFor(SCHLOSS, [big, small, neighbour])).toBe(small)
     // a ring that is merely close is not the building
     expect(outlineFor(SCHLOSS, [neighbour])).toBeNull()
-    expect(outlineFor(DEPOT, [square(DEPOT.lng!, DEPOT.lat!, 0.001)])).toBeNull()
+    // a plan-less object is outlined like every other (review round 3: no key-box kind)
+    const own = square(DEPOT.lng!, DEPOT.lat!, 0.001)
+    expect(outlineFor(DEPOT, [own])).toBe(own)
     expect(outlineFor(PUMPWERK, [big])).toBeNull()
     expect(ringAt([small], [7.5, 47.5])).toBeNull()
   })
@@ -155,7 +159,7 @@ describe('places', () => {
 })
 
 describe('an object\'s address (review round 2: the address, never «Schlüsseldepot» in its place)', () => {
-  const KIND = 'Schlüsseldepot'
+  const KIND = 'Stationsobjekt'
   it('knows a name that is an address', () => {
     for (const n of ['Mühlemattstrasse 24', 'Schulstrasse 4', 'Bienenstrasse 28 (EH)', 'Hauptstr. 10a', 'Im Gwidum 3']) expect(nameIsAddress(n), n).toBe(true)
     for (const n of ['Gemeindehaus Musterdorf', 'Schlüsseldepot Schloss', 'ARA Birsig', '', '24 Mühlemattstrasse']) expect(nameIsAddress(n), n).toBe(false)
@@ -180,8 +184,8 @@ describe('an object\'s address (review round 2: the address, never «Schlüsseld
   it('prints a list row: the address, or once in the title with the place and the kind under it', () => {
     expect(objectRowSub(DEPOT, KIND)).toBe('Schlossgasse 9')
     expect(objectRowSub({ name: 'Mühlemattstrasse 24', address: null }, KIND)).toBe(KIND)
-    expect(objectRowSub({ name: 'Mühlemattstrasse 24', address: 'Mühlemattstrasse 24, 4104 Oberwil' }, KIND)).toBe('4104 Oberwil · Schlüsseldepot')
-    expect(objectRowSub({ name: 'ARA Birsig', address: null }, 'Stationsobjekt')).toBe('Stationsobjekt')
+    expect(objectRowSub({ name: 'Mühlemattstrasse 24', address: 'Mühlemattstrasse 24, 4104 Oberwil' }, KIND)).toBe('4104 Oberwil · Stationsobjekt')
+    expect(objectRowSub({ name: 'ARA Birsig', address: null }, 'Einsatzobjekt')).toBe('Einsatzobjekt')
   })
   it('prints the head (whose kicker says the kind): the address, the place alone, or nothing', () => {
     expect(objectHeadSub(SCHULE)).toBe('Schulstrasse 5, 9999 Musterdorf')
@@ -343,5 +347,15 @@ describe('outline cells', () => {
     expect(47.523773).toBeGreaterThanOrEqual(b.south)
     expect(47.523773).toBeLessThan(b.north)
     expect(keys).toContain(c)
+  })
+})
+
+describe('the retired «depot» kind (review round 3, 17.10.2026)', () => {
+  it('reads an older catalogue\'s key box as the plan-less object it is', () => {
+    const old = { generatedAt: 'x', objects: [SCHLOSS, { ...DEPOT, kind: 'depot' as unknown as 'objekt' }] }
+    const read = withRetiredKinds(old)
+    expect(read.objects.map((o) => o.kind)).toEqual(['einsatzobjekt', 'objekt'])
+    const fresh = { generatedAt: 'x', objects: [SCHLOSS, DEPOT] }
+    expect(withRetiredKinds(fresh)).toBe(fresh) // nothing to map: the same catalogue
   })
 })

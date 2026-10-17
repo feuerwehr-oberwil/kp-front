@@ -103,14 +103,12 @@ export function normAddress(label: string | null | undefined): string {
 
 /**
  * The catalogue object whose address IS this address — exact street + number, never «close».
- * A key box at the same door is not the building: it is left out, so tapping a house opens the
- * house's Einsatzobjekt and not the Schlüsseldepot beside its entrance. Two candidates → the one
- * with plans, then by name.
+ * Two candidates → the one with plans, then by name.
  */
 export function objectAtAddress(objects: readonly StationObject[], address: string | null | undefined): StationObject | null {
   const key = streetKey(address)
   if (!key) return null
-  const hits = objects.filter((o) => o.kind !== 'depot' && streetKey(o.address) === key)
+  const hits = objects.filter((o) => streetKey(o.address) === key)
   hits.sort((a, b) => Number(b.plans.length > 0) - Number(a.plans.length > 0) || a.name.localeCompare(b.name, 'de'))
   return hits[0] ?? null
 }
@@ -185,18 +183,21 @@ export function pinNear(hit: { label: string; lat: number; lng: number } | null,
  *
  * First the server's set (`footprint`, backend app/object_footprints, review 17.10.2026): every
  * building on the object's official use area (a school campus) or parcel, derived from the
- * cadastral survey — never a neighbour's, never by distance. Without one (not derived yet, the
+ * cadastral survey — never a neighbour's, never by distance. `under` are the object's structures
+ * without a surface building (a named row's underground garage, review round 3), drawn dashed. Without one (not derived yet, the
  * sources off, nothing official at the point) the OSM outline the point lies in, as before
  * (`outlineFor`). Null = no building known: the map shows the object at its point.
  */
-export function objectBuildings(obj: Pick<StationObject, 'lat' | 'lng' | 'kind' | 'footprint' | 'outline'>, rings: readonly LngLat[][]): { rings: LngLat[][]; main: LngLat[] | null } | null {
+export function objectBuildings(obj: Pick<StationObject, 'lat' | 'lng' | 'kind' | 'footprint' | 'outline' | 'underground'>, rings: readonly LngLat[][]): { rings: LngLat[][]; main: LngLat[] | null; under: LngLat[][] } | null {
   const at = coordOf(obj)
   // the station said «no outline» (/admin · Lage korrigieren): not even the OSM fallback
-  if (!at || obj.kind === 'depot' || obj.outline === 'none') return null
+  if (!at || obj.outline === 'none') return null
   const own = footprintRings(obj.footprint)
-  if (own.length) return { rings: own, main: ringAt(own, at) }
+  // underground garages / shelters of a named row (review round 3): part of the object, dashed
+  const under = footprintRings(obj.underground)
+  if (own.length) return { rings: own, main: ringAt(own, at), under }
   const r = outlineFor(obj, rings)
-  return r ? { rings: [r], main: r } : null
+  return r ? { rings: [r], main: r, under } : null
 }
 
 /** A GeoJSON Polygon / MultiPolygon as outer rings in [lng, lat], without the closing vertex.
@@ -222,7 +223,7 @@ export function footprintRings(g: unknown): LngLat[][] {
  */
 export function outlineFor(obj: Pick<StationObject, 'lat' | 'lng' | 'kind'>, rings: readonly LngLat[][]): LngLat[] | null {
   const at = coordOf(obj)
-  if (!at || obj.kind === 'depot') return null
+  if (!at) return null
   return ringAt(rings, at)
 }
 

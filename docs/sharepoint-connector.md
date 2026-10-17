@@ -202,8 +202,16 @@ are** – the names a brigade already gives its scans are the names KP Front rea
   at the address *Hauptstrasse 24*, and the **name** is what the stable key is derived from – the
   same split and the same key the `admin_objects` manifests use, so both doors address one
   object. A folder with no ` - ` in it (`Föhrenstrasse 17/`) is all name and carries no address.
-  Use the name as it reads on the door; spaces, case and umlauts are all fine. Rename the folder
-  and KP Front will treat it as a different object, so pick it once.
+  Use the name as it reads on the door; spaces, case and umlauts are all fine.
+  **Renaming a folder** (since review round 3, 17.10.2026): the next pull recognises a rename by
+  its files – a folder gone from the listing whose files ALL reappear, same names and unchanged
+  content, as the whole of exactly one new folder – and re-keys the existing object onto the new
+  name (`sharepoint_sync · _follow_renames`). Plans, Objektbesuche, outside ids, the station's
+  «Lage korrigieren» position and outline choice and its calibration stay on it, nothing is
+  downloaded again, and the old name stays as an alias (search, organizer pushes). So rename
+  **only** – do not edit or add a PDF in the same go, and let one pull run in between. A rename
+  the pull cannot be sure of mints a new object as before; fold the old one in with
+  `uv run python -m app.admin_objects merge <old-id> --into <new-id>` (dry run; `--apply`).
   ⚠️ Until 11.09.2026 the whole folder string was keyed instead, which minted a second,
   address-less object beside every one a station had loaded by hand. A deployment that synced
   before that repairs itself with
