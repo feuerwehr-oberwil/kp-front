@@ -53,9 +53,11 @@ import { fitSimilarity } from '../../lib/georef'
 import { withPdfPage } from '../../lib/whiteboard'
 import { coordOf, openableCount, searchObjects } from '../../lib/karte/search'
 import {
-  nearbyObjects, nearestPoints, objectAtAddress, objectVisitHref, outlineFor, pinNear, placeVisitHref,
+  nearbyObjects, nearestPoints, objectAtAddress, objectBuildings, objectVisitHref, pinNear, placeVisitHref,
   normAddress, pointsFromGeoJson, ringAt, splitAddress, type NamedPoint,
 } from '../../lib/karte/places'
+import { LABEL_MIN_ZOOM, placeTags, samePlacement, tagRank, tagSize, type Rect, type TagCandidate } from '../../lib/karte/labels'
+import { symPx } from '../../lib/mapView'
 import { cellOf, cellsFor, loadCell, OUTLINE_MIN_ZOOM } from '../../lib/karte/outlines'
 import { GEBAEUDE_DOC, viewerPlanDocs } from '../../lib/karte/plans'
 import { karteHref } from '../../lib/karte/route'
@@ -76,6 +78,7 @@ import { KarteSearch, type AddrState } from './KarteSearch'
 import { KarteGefahrgut } from './KarteGefahrgut'
 import { KarteNavRail, KarteSurface } from './KartePlans'
 import { KarteDevice } from './KarteDevice'
+import { KeyBoxGlyph } from './KeyBoxGlyph'
 import { useMapCoverage, useObjectAvailability } from './useKarteOffline'
 import { NoBasemapMeldung } from '../NoBasemapMeldung'
 import { planKey, tileRing, type TileXY } from '../../lib/karte/availability'
@@ -99,6 +102,16 @@ const COUNTRY_CENTER: LngLat = [8.2275, 46.8182]
 const EMPTY_OBJECTS: StationObject[] = []
 const NO_TILES: TileXY[] = []
 const NOOP = () => {}
+/** px between a building's south edge and the tag hanging under it */
+const TAG_GAP = 4
+
+/** Where an object's name tag hangs: under the building its point lies in (the middle of its
+ *  south edge), else on the point itself. */
+function tagAnchor(b: { main: LngLat[] | null } | undefined, at: LngLat): { at: LngLat; under: boolean } {
+  const r = b?.main
+  if (!r) return { at, under: false }
+  return { at: [r.reduce((a, p) => a + p[0], 0) / r.length, Math.min(...r.map((p) => p[1]))], under: true }
+}
 
 export interface KarteAppProps {
   /** «Einsätze ▾»: the app menu as a sheet (App owns the rows and their handlers) and the badge
@@ -259,14 +272,15 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     }
   }, [])
   const ringsNear = useCallback((at: LngLat) => cells[cellOf(at)] ?? [], [cells])
-  /** each station object's own building outline, by containment only (lib/karte/places) */
+  /** each station object's buildings — the server's official set, else the OSM outline its point
+   *  lies in (lib/karte/places · objectBuildings) — and the one its tag hangs off */
   const outlines = useMemo(() => {
-    const m = new Map<string, LngLat[]>()
+    const m = new Map<string, { rings: LngLat[][]; main: LngLat[] | null }>()
     for (const o of objects) {
       const at = coordOf(o)
       if (!at || o.kind === 'depot') continue
-      const r = outlineFor(o, cells[cellOf(at)] ?? [])
-      if (r) m.set(o.id, r)
+      const b = objectBuildings(o, cells[cellOf(at)] ?? [])
+      if (b) m.set(o.id, b)
     }
     return m
   }, [objects, cells])
@@ -506,10 +520,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const hatchInk = themeToken('--ink-faint', '#6c7686')
   const overlays = useMemo<PreparedMapOverlay[]>(() => {
     const out: PreparedMapOverlay[] = []
-    const others = [...outlines.entries()].filter(([id]) => id !== selObj?.id).map(([, r]) => r)
+    const others = [...outlines.entries()].filter(([id]) => id !== selObj?.id).flatMap(([, b]) => b.rings)
     if (others.length) out.push({ id: 'karte-objects', kind: 'polygons', layer: OBJECTS_LAYER, rings: others, color: red, fillOpacity: 0.14, lineWidth: 1.6, lineOpacity: 0.85 })
+    // the selected object: EVERY one of its buildings in the strong style
     const mine = selObj ? outlines.get(selObj.id) : null
-    if (mine) out.push({ id: 'karte-object-sel', kind: 'polygons', layer: ALWAYS_LAYER, rings: [mine], color: red, fillOpacity: 0.3, lineWidth: 3, lineOpacity: 1 })
+    if (mine) out.push({ id: 'karte-object-sel', kind: 'polygons', layer: ALWAYS_LAYER, rings: mine.rings, color: red, fillOpacity: 0.3, lineWidth: 3, lineOpacity: 1 })
     // the building's outline — found again once its cell has loaded (a searched address flies first)
     const bRing = sel?.kind === 'building' ? sel.ring ?? ringAt(ringsNear(sel.at), sel.at) : null
     if (bRing) out.push({ id: 'karte-building', kind: 'polygons', layer: ALWAYS_LAYER, rings: [bRing], color: uiBlue(), fillOpacity: 0.16, lineWidth: 2.5, lineOpacity: 1 })
@@ -528,12 +543,14 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     }
     return out
   }, [outlines, selObj, sel, tool, erg, red, ringsNear, uncached, hatchInk])
+  // key boxes are the FKS symbol from the tag zoom on; below it, a small glyph among the dots
+  const tagZoom = view.zoom >= LABEL_MIN_ZOOM
   const entities = useMemo<Entity[]>(() => [
     ...liveVehicles,
-    ...objects.filter((o) => o.kind === 'depot' && coordOf(o)).map((o) => ({
+    ...objects.filter((o) => tagZoom && o.kind === 'depot' && coordOf(o)).map((o) => ({
       id: `karte:${o.id}`, kind: 'symbol' as const, layer: OBJECTS_LAYER, coord: coordOf(o)!, symbol: KEY_BOX_SYMBOL, label: o.name,
     })),
-  ], [liveVehicles, objects])
+  ], [liveVehicles, objects, tagZoom])
   const isVisible = useCallback((id: LayerId) => {
     if (id === OBJECTS_LAYER) return objectsOn
     if (id === ALWAYS_LAYER || id === UNCACHED_LAYER) return true
@@ -549,7 +566,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     if (tool === 'erg' && erg.mode !== 'off') { setErg((e) => ({ ...e, center: c, at: new Date() })); return }
     if (searchOpen) { setSearchOpen(false); return }
     if (objectsOn) {
-      for (const [id, r] of outlines) if (ringAt([r], c)) { selectObject(id, false); return }
+      // any of an object's buildings opens the object
+      for (const [id, b] of outlines) if (ringAt(b.rings, c)) { selectObject(id, false); return }
     }
     const ring = ringAt(ringsNear(c), c)
     if (ring) { selectBuilding(c, ring); return }
@@ -677,10 +695,98 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   ]
   const approxAt = sel?.kind === 'object' && selObj && !coordOf(selObj) ? sel.approxAt ?? null : null
 
+  // ── which objects carry their name tag (lib/karte/labels) ─────────────────────────────────
+  // One greedy pass once the map has settled (`view` moves on moveend), again when what covers
+  // the map changes (panel, sheet, search, a tool), and once more after a panel has slid in.
+  const rootRef = useRef<HTMLDivElement>(null)
+  const measureRef = useRef<HTMLSpanElement>(null)
+  const sizes = useRef(new Map<string, { w: number; h: number }>())
+  /** id → how far its tag slides sideways to stay on the map */
+  const [tagged, setTagged] = useState<Map<string, number> | null>(null)
+  const taggedRef = useRef<Map<string, number> | null>(null)
+  const [resized, setResized] = useState(0)
+  useEffect(() => {
+    const on = () => setResized((n) => n + 1)
+    window.addEventListener('resize', on)
+    return () => window.removeEventListener('resize', on)
+  }, [])
+  const selId = selObj?.id ?? null
+  const covered = `${!!panelSel}|${full}|${tool}|${searchOpen}|${sheetOpen}|${!!openDoc}|${railShown}`
+  useEffect(() => {
+    if (!objectsOn) return
+    let alive = true
+    /** a tag's real size: the off-screen twin measured once per name (jsdom: an estimate) */
+    const size = (name: string, n: number) => {
+      const key = `${name}|${n}`
+      const hit = sizes.current.get(key)
+      if (hit) return hit
+      const el = measureRef.current
+      let box = { w: 0, h: 0 }
+      if (el) {
+        el.firstChild!.textContent = name
+        ;(el.lastChild as HTMLElement).style.display = n > 0 ? '' : 'none'
+        ;(el.lastChild as HTMLElement).textContent = String(n)
+        const r = el.getBoundingClientRect()
+        box = { w: Math.ceil(r.width), h: Math.ceil(r.height) }
+      }
+      if (!box.w) box = tagSize(name.length * 7, n)
+      sizes.current.set(key, box)
+      return box
+    }
+    const run = () => {
+      const map = mapRef.current
+      const root = rootRef.current
+      if (!alive || !map || !root) return
+      let next = new Map<string, number>()
+      if (map.getZoom() >= LABEL_MIN_ZOOM) {
+        const box = map.getContainer().getBoundingClientRect()
+        // the chrome: every piece of the surface that is not the map itself and not a full-screen
+        // layer (an open plan) — the bars, the rails, an open panel or sheet, the hint bars
+        const occupied: Rect[] = []
+        for (const el of Array.from(root.children)) {
+          if (!(el instanceof HTMLElement) || el.querySelector('.maplibregl-canvas')) continue
+          const r = el.getBoundingClientRect()
+          if (r.width < 1 || r.height < 1 || r.width * r.height > box.width * box.height * 0.6) continue
+          occupied.push({ left: r.left - box.left, top: r.top - box.top, right: r.right - box.left, bottom: r.bottom - box.top })
+        }
+        const zoom = map.getZoom()
+        const cands: TagCandidate[] = []
+        for (const o of objects) {
+          const at = coordOf(o)
+          if (!at) continue
+          if (o.kind === 'depot') {
+            // the key box's FKS symbol is not covered by a tag
+            const p = map.project(at)
+            const k = symPx('symbol', at[1], zoom) / 2
+            occupied.push({ left: p.x - k, top: p.y - k, right: p.x + k, bottom: p.y + k })
+            continue
+          }
+          const a = tagAnchor(outlines.get(o.id), at)
+          const p = map.project(a.at)
+          const n = openableCount(o)
+          const { w, h } = size(o.name, n)
+          cands.push({
+            id: o.id, x: p.x, y: p.y, anchor: a.under ? 'top' : 'center', offsetY: TAG_GAP, w, h,
+            rank: tagRank({ kind: o.kind, plans: n, selected: o.id === selId, wasShown: !!taggedRef.current?.has(o.id) }),
+          })
+        }
+        next = placeTags(cands, { width: box.width, height: box.height, occupied, always: selId })
+      }
+      if (samePlacement(taggedRef.current, next)) return
+      taggedRef.current = next
+      setTagged(next)
+    }
+    const raf = requestAnimationFrame(run)
+    const t = setTimeout(run, 400)
+    return () => { alive = false; cancelAnimationFrame(raf); clearTimeout(t) }
+  }, [view, objects, outlines, selId, objectsOn, covered, phone, resized])
+
   return (
     <KeyBoxSvg.Provider value={sym.byName[KEY_BOX_SYMBOL] ?? ''}>
-      <div data-karte="" className={cx('app mode-map', s.root, phone && s.phone, phone && 'phone-tools')} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={cancelPress} onPointerCancel={cancelPress}>
+      <div data-karte="" ref={rootRef} className={cx('app mode-map', s.root, phone && s.phone, phone && 'phone-tools')} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={cancelPress} onPointerCancel={cancelPress}>
         <IconSprite />
+        {/* the name tag's off-screen twin: what a tag measures before it is placed */}
+        <span ref={measureRef} className={cx(s.tagMk, s.measure)} aria-hidden><span /><span className={s.tagCount} /></span>
         <MapView
           ref={mapRef}
           entities={entities}
@@ -726,17 +832,34 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           weatherRadar={weather.mapRadar}
           onBasemapUnavailable={onBasemapUnavailable}
         >
+          {/* every object: a dot, or its name tag where the tag fits (lib/karte/labels) — the
+              outline carries the object, the tag only names it */}
           {objectsOn && objects.map((o) => {
-            if (o.kind === 'depot') return null
             const at = coordOf(o)
             if (!at) return null
-            const ring = outlines.get(o.id)
+            const pick = (e: React.MouseEvent) => { e.stopPropagation(); selectObject(o.id, false) }
+            if (o.kind === 'depot') {
+              if (tagZoom) return null // MapView draws the FKS symbol (entities above)
+              return (
+                <Marker key={`dot:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" style={{ zIndex: 1 }}>
+                  <button type="button" className={cx(s.dotMk, s.keyDot)} aria-label={o.name} title={o.name} onClick={pick}><KeyBoxGlyph /></button>
+                </Marker>
+              )
+            }
+            const isSel = selObj?.id === o.id
+            if (!isSel && !(tagZoom && tagged?.has(o.id))) {
+              return (
+                <Marker key={`dot:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" style={{ zIndex: 1 }}>
+                  <button type="button" className={s.dotMk} aria-label={o.name} title={o.name} onClick={pick} />
+                </Marker>
+              )
+            }
             const n = openableCount(o)
-            // the outline carries the object; the tag below it only names it
-            const anchorAt: LngLat = ring ? [ring.reduce((a, p) => a + p[0], 0) / ring.length, Math.min(...ring.map((p) => p[1]))] : at
+            const a = tagAnchor(outlines.get(o.id), at)
+            const dx = (!isSel && tagged?.get(o.id)) || 0
             return (
-              <Marker key={o.id} longitude={anchorAt[0]} latitude={anchorAt[1]} anchor={ring ? 'top' : 'center'} offset={ring ? [0, 4] : [0, 0]}>
-                <button type="button" className={cx(s.tagMk, selObj?.id === o.id && s.sel)} onClick={(e) => { e.stopPropagation(); selectObject(o.id, false) }}>
+              <Marker key={`tag:${o.id}`} longitude={a.at[0]} latitude={a.at[1]} anchor={a.under ? 'top' : 'center'} offset={[dx, a.under ? TAG_GAP : 0]} style={{ zIndex: isSel ? 3 : 2 }}>
+                <button type="button" className={cx(s.tagMk, isSel && s.sel)} onClick={pick}>
                   {o.name}{n > 0 && <span className={s.tagCount}>{n}</span>}
                 </button>
               </Marker>

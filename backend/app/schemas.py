@@ -954,7 +954,9 @@ class ReferenceObjectOut(BaseModel):
     floors: list[ReferenceFloorOut] = Field(default_factory=list)
     #: the building's EGID when the station data names it; None today (no source carries one)
     egid: str | None = None
-    #: a station-set outline (GeoJSON geometry); None = the client falls back to the map's own
+    #: the object's buildings as ONE GeoJSON MultiPolygon, the building its point lies in first —
+    #: derived from the use area / parcel / cadastral survey (app/object_footprints); None = the
+    #: client falls back to the OSM building its point lies in
     footprint: dict[str, Any] | None = None
     #: Sofortmassnahmen / Bemerkungen off the Modul-1 sheet and where they came from
     measures: str | None = None

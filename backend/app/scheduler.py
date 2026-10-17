@@ -221,6 +221,19 @@ async def _auto_archive_sweep() -> None:
             logger.exception("Auto-archive sweep failed")
 
 
+async def _object_footprints_tick() -> None:
+    """«Karte & Objekte»: ask the official sources about objects that have no buildings yet
+    (app/object_footprints). Idle once every object has been asked; off when either source URL
+    is empty."""
+    from .object_footprints import tick
+
+    async with async_session_maker() as db:
+        try:
+            await tick(db)
+        except Exception:
+            logger.exception("Object footprint tick failed")
+
+
 async def _plan_pull() -> None:
     from .plans import pull_plans
 
@@ -942,6 +955,18 @@ def _start_scheduler_jobs() -> None:
         coalesce=True,
     )
     jobs.append("visit dedup sweep (24h)")
+    from .object_footprints import TICK_SECONDS as FOOTPRINT_TICK_SECONDS
+
+    _scheduler.add_job(
+        _object_footprints_tick,
+        "interval",
+        seconds=FOOTPRINT_TICK_SECONDS,
+        id="object_footprints",
+        max_instances=1,
+        coalesce=True,
+        next_run_time=datetime.now(UTC) + timedelta(seconds=90),
+    )
+    jobs.append(f"object footprints ({FOOTPRINT_TICK_SECONDS}s, idle once every object is asked)")
     # Always on, and a no-op unless an admin has opted in — see _telemetry_flush.
     _scheduler.add_job(
         _telemetry_flush,

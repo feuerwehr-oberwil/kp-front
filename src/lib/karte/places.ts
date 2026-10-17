@@ -2,9 +2,10 @@
 // what is near a point, what a dropped pin is called, and the addresses the viewer links to.
 //
 // ⚠️ Two rules that are easy to break and expensive at 3am:
-//   · a building is an object ONLY on an exact street + number match (`objectAtAddress`) or when
-//     the object's own coordinate lies INSIDE its outline (`outlineFor`) — never by proximity
-//     alone, because a neighbour's gas valve reads exactly like this one's;
+//   · a building is an object ONLY on an exact street + number match (`objectAtAddress`), when
+//     the object's own coordinate lies INSIDE its outline (`outlineFor`), or when official data
+//     puts it on the object's own use area / parcel (`objectBuildings`, derived server-side) —
+//     never by proximity alone, because a neighbour's gas valve reads exactly like this one's;
 //   · «In der Nähe» is distance and nothing else (`nearbyObjects`): the panel lists it under its
 //     own heading with the sentence that it does not belong to the selected building.
 
@@ -117,7 +118,41 @@ export function pinNear(hit: { label: string; lat: number; lng: number } | null,
 }
 
 /**
- * The outline that IS an object's building: the smallest ring containing the object's own
+ * Every building that IS an object, and the one its point lies in (`main`, where the tag hangs).
+ *
+ * First the server's set (`footprint`, backend app/object_footprints, review 17.10.2026): every
+ * building on the object's official use area (a school campus) or parcel, derived from the
+ * cadastral survey — never a neighbour's, never by distance. Without one (not derived yet, the
+ * sources off, nothing official at the point) the OSM outline the point lies in, as before
+ * (`outlineFor`). Null = no building known: the map shows the object at its point.
+ */
+export function objectBuildings(obj: Pick<StationObject, 'lat' | 'lng' | 'kind' | 'footprint'>, rings: readonly LngLat[][]): { rings: LngLat[][]; main: LngLat[] | null } | null {
+  const at = coordOf(obj)
+  if (!at || obj.kind === 'depot') return null
+  const own = footprintRings(obj.footprint)
+  if (own.length) return { rings: own, main: ringAt(own, at) }
+  const r = outlineFor(obj, rings)
+  return r ? { rings: [r], main: r } : null
+}
+
+/** A GeoJSON Polygon / MultiPolygon as outer rings in [lng, lat], without the closing vertex.
+ *  Anything else (null, a point, garbage) is no rings. */
+export function footprintRings(g: unknown): LngLat[][] {
+  const geo = g as { type?: string; coordinates?: unknown } | null
+  const polys = geo?.type === 'Polygon' ? [geo.coordinates] : geo?.type === 'MultiPolygon' && Array.isArray(geo.coordinates) ? geo.coordinates : []
+  const out: LngLat[][] = []
+  for (const p of polys as unknown[]) {
+    const outer = Array.isArray(p) ? p[0] : null
+    if (!Array.isArray(outer)) continue
+    const ring = outer.filter((c): c is [number, number] => Array.isArray(c) && typeof c[0] === 'number' && typeof c[1] === 'number').map((c) => [c[0], c[1]] as LngLat)
+    if (ring.length > 1 && ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1]) ring.pop()
+    if (ring.length >= 3) out.push(ring)
+  }
+  return out
+}
+
+/**
+ * The OSM outline that IS an object's building: the smallest ring containing the object's own
  * coordinate. No ring contains it → no outline (the map then shows a tag at the point). A ring that
  * merely lies close is NOT taken — that is exactly the guess this rule exists to forbid.
  */
