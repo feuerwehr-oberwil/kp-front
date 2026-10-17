@@ -1,5 +1,5 @@
 import { ShellLoader } from './ShellLoader'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type * as PdfjsLib from 'pdfjs-dist'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { appConfig } from '../config/appConfig'
@@ -21,6 +21,7 @@ import { FLOOR_PAGE_SIDE, pageCanvasBudget, rasterSide, regionRaster, renderScal
 import { dropTileManifest, loadTileManifest, tileSource, type TileManifest } from '../lib/planTiles'
 import { PlanTileLayer } from './PlanTileLayer'
 import { composeTiles } from '../lib/planTileRaster'
+import { PlanSharpnessContext } from '../lib/planSharpness'
 
 // The worker asset's URL, remembered for the diagnosis path: when a PDF fails, whether that
 // file is still being served is the single most telling fact we can gather (lib/pdfDiagnosis).
@@ -761,6 +762,10 @@ function PdfJsViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: Props)
   const { status, setStatus, fail, setFail, attempt, slow, retry } = usePdfLoad(url)
   const [statusUrl, setStatusUrl] = useState(url)
   if (url !== statusUrl) { setStatusUrl(url); setStatus('loading'); setFail(null) }
+  // soft on the glass (lib/planSharpness): the prewarm's small preview while the full bake is
+  // still coming, or a deep zoom whose sharp refine pass has not landed (or gave up) yet
+  const [soft, setSoft] = useState(false)
+  const [refineMiss, setRefineMiss] = useState<string | null>(null)
 
   // base — blit the baked bitmap (instant if cached/prewarmed; a single render otherwise).
   // A plan the prewarm only holds as a small preview paints THAT first, so the switch shows the
@@ -783,14 +788,17 @@ function PdfJsViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: Props)
     }
     const stale = cachedBake(url)
     const fresh = bake(url, vw, vh)
-    if (stale && stale !== fresh) stale.then((b) => { if (!cancelled && !painted) paint(b) }).catch(() => {})
+    if (stale && stale !== fresh) stale.then((b) => { if (!cancelled && !painted) { paint(b); setSoft(true) } }).catch(() => {})
     fresh
       .then((b) => {
-        if (cancelled || painted === b) return // the reused crisp bake is already on the canvas
+        if (cancelled) return
+        setSoft(false)
+        if (painted === b) return // the reused crisp bake is already on the canvas
         paint(b)
       })
       .catch((err: unknown) => {
         if (cancelled) return
+        setSoft(false)
         setStatus('error')
         void diagnosePdfFailure(err, pdfWorkerUrl()).then((f) => { if (!cancelled) setFail(f) })
       })
@@ -799,6 +807,8 @@ function PdfJsViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: Props)
 
   // refine — visible region at full zoom resolution, on settle, only when zoomed deep (single-page
   // plans only; a stitched multi-page plan stays on its base bitmap)
+  const refineWanted = scale > REFINE_FROM && pages <= 1 && !!vw && !!vh && !!fitW
+  const viewKey = `${url}|${scale}|${pos.x}|${pos.y}|${vw}|${vh}|${fitW}|${fitH}`
   useEffect(() => {
     // The refine canvas is positioned in absolute scaled px, so the instant the view
     // changes (pinch/pan) its old rect is misaligned with the freshly laid-out base —
@@ -806,8 +816,9 @@ function PdfJsViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: Props)
     // view change; the base shows underneath (never blanks) and the sharp overlay
     // reappears only once it's re-rendered at the new scale/pos below.
     setRect(null)
-    if (scale <= REFINE_FROM || pages > 1 || !vw || !vh || !fitW) return
+    if (!refineWanted) return
     let cancelled = false
+    const miss = () => { if (!cancelled) setRefineMiss(viewKey) }
     const t = setTimeout(() => {
       loadDoc(url)
         .then(async (pdf) => {
@@ -818,16 +829,16 @@ function PdfJsViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: Props)
           const nx1 = clamp01((vw / 2 - pos.x) / (scale * fitW) + 0.5)
           const ny0 = clamp01((-vh / 2 - pos.y) / (scale * fitH) + 0.5)
           const ny1 = clamp01((vh / 2 - pos.y) / (scale * fitH) + 0.5)
-          if (nx1 <= nx0 || ny1 <= ny0) return
+          if (nx1 <= nx0 || ny1 <= ny0) { miss(); return }
           const canvas = refineRef.current
-          if (!canvas) return
+          if (!canvas) { miss(); return }
           const dpr = DPR()
           const pageScaleDev = (scale * fitW / base.width) * dpr
           const vp = page.getViewport({ scale: pageScaleDev, offsetX: -nx0 * fitW * scale * dpr, offsetY: -ny0 * fitH * scale * dpr })
           canvas.width = Math.round((nx1 - nx0) * fitW * scale * dpr)
           canvas.height = Math.round((ny1 - ny0) * fitH * scale * dpr)
           const ctx = canvas.getContext('2d')
-          if (!ctx) return
+          if (!ctx) { miss(); return }
           refineTask.current?.cancel()
           const task = page.render({ canvas, canvasContext: ctx, viewport: vp })
           refineTask.current = task
@@ -837,10 +848,15 @@ function PdfJsViewport({ url, fitW, fitH, scale, pos, vw, vh, onAspect }: Props)
           // canvas is positioned in those scaled px — not the unscaled fit px
           setRect({ left: nx0 * fitW * scale, top: ny0 * fitH * scale, width: (nx1 - nx0) * fitW * scale, height: (ny1 - ny0) * fitH * scale })
         })
-        .catch(() => {})
+        .catch(miss)
     }, SETTLE_MS)
     return () => { cancelled = true; clearTimeout(t); refineTask.current?.cancel() }
-  }, [url, pages, scale, pos.x, pos.y, vw, vh, fitW, fitH])
+  }, [url, pages, scale, pos.x, pos.y, vw, vh, fitW, fitH, refineWanted, viewKey])
+
+  const sharpness = useContext(PlanSharpnessContext)
+  const sharp = status !== 'ready' ? 'sharp' : soft || (refineWanted && !rect && refineMiss !== viewKey) ? 'loading' : 'sharp'
+  useEffect(() => { sharpness?.report(sharp) }, [sharpness, sharp])
+  useEffect(() => () => sharpness?.report('sharp'), [sharpness])
 
   return (
     <>

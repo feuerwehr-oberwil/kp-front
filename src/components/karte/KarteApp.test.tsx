@@ -11,8 +11,8 @@ import type { ReactNode } from 'react'
 import type { StationObjects } from '../../lib/api/stationReference'
 import type { LngLat } from '../../types'
 
-const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], phone: false, board: [] as Record<string, unknown>[], catalogue: null as null | StationObjects, rules: [] as unknown[] }))
-const lastMap = () => rec.map[rec.map.length - 1] as { onMapClick: (c: LngLat) => void; measurePoints: LngLat[]; children?: ReactNode }
+const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], phone: false, board: [] as Record<string, unknown>[], catalogue: null as null | StationObjects, rules: [] as unknown[], fakeMap: null as null | object }))
+const lastMap = () => rec.map[rec.map.length - 1] as { onMapClick: (c: LngLat) => void; measurePoints: LngLat[]; onMeasureDelete?: (i: number) => void; children?: ReactNode }
 
 const CATALOGUE: StationObjects = {
   generatedAt: '2026-10-16T10:00:00Z',
@@ -34,9 +34,18 @@ vi.mock('../../lib/auth', async (importOriginal) => {
   return { ...mod, useAuth: () => value }
 })
 vi.mock('../../lib/useSymbols', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../lib/useSymbols')>()), useSymbols: () => ({ ready: true, error: false, reload: () => {}, order: [], symbols: [], byName: {} }) }))
-vi.mock('../MapView', () => ({
-  MapView: (p: Record<string, unknown> & { children?: ReactNode }) => { rec.map.push(p); return <div data-testid="mapview">{p.children}</div> },
-}))
+vi.mock('../MapView', async () => {
+  const { useImperativeHandle } = await import('react')
+  return {
+    // the map's handle is null unless a test hands in a stand-in (React 19: `ref` is a prop); the
+    // canvas container's class is what the surface's pointer handlers look for
+    MapView: (p: Record<string, unknown> & { children?: ReactNode; ref?: React.Ref<unknown> }) => {
+      rec.map.push(p)
+      useImperativeHandle(p.ref, () => rec.fakeMap, [])
+      return <div data-testid="mapview" className="maplibregl-canvas-container">{p.children}</div>
+    },
+  }
+})
 vi.mock('react-map-gl/maplibre', () => ({ Marker: ({ children }: { children: ReactNode }) => <div>{children}</div> }))
 vi.mock('../../lib/api/stationReference', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/api/stationReference')>()),
@@ -80,6 +89,7 @@ beforeEach(() => {
   rec.phone = false
   rec.catalogue = null
   rec.rules = []
+  rec.fakeMap = null
   localStorage.clear(); sessionStorage.clear()
   window.history.replaceState(null, '', '/karte')
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })))
@@ -158,6 +168,33 @@ describe('KarteApp', () => {
     expect(Object.keys(sessionStorage)).toEqual(['kp.karte.view'])
     expect(sessionStorage.getItem('kp.karte.view')).not.toMatch(/7\.5708/)
     expect(Object.keys(localStorage).filter((k) => !k.startsWith('kp.karte') && k !== 'kp.layers.karte')).toEqual([])
+  })
+
+  // owner R3-9 (17.10.2026): «I can't delete nodes when measuring because it wants to create a
+  // point» — a long press anywhere dropped a pin (and left Messen), and holding a measure node is
+  // how a node is removed. The pin is the ⊙ tool's only, and a held node is the node's.
+  it('a long press on the map drops no pin — Messen keeps holding a node to remove it', async () => {
+    const el = document.createElement('div')
+    rec.fakeMap = {
+      getContainer: () => el, getZoom: () => 10, unproject: () => ({ lng: 7.5712, lat: 47.5232 }), project: () => ({ x: 200, y: 200 }),
+      easeTo: () => {}, jumpTo: () => {}, fitBounds: () => {},
+    }
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Messen' }))
+    act(() => lastMap().onMapClick([7.570188, 47.523773]))
+    act(() => lastMap().onMapClick([7.5708, 47.52455]))
+    act(() => lastMap().onMapClick([7.5712, 47.5232]))
+    await waitFor(() => expect(lastMap().measurePoints).toHaveLength(3))
+    // the finger stays down on the middle node (MapView's own hold removes it) …
+    const node = screen.getByTestId('mapview')
+    fireEvent.pointerDown(node, { isPrimary: true, pointerId: 1, clientX: 200, clientY: 200 })
+    await act(() => new Promise((r) => setTimeout(r, 700)))
+    act(() => lastMap().onMeasureDelete?.(1))
+    fireEvent.pointerUp(node, { isPrimary: true, pointerId: 1, clientX: 200, clientY: 200 })
+    // … and the surface did not drop a pin under it, nor leave Messen
+    expect(screen.queryByText('Gesetzter Punkt')).toBeNull()
+    expect(lastMap().measurePoints).toEqual([[7.570188, 47.523773], [7.5712, 47.5232]])
   })
 
   it('drops a pin with the tool and files a Meldung at that place', async () => {

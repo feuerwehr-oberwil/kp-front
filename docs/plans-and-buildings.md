@@ -101,7 +101,10 @@ AGENTS.md on 2026-10-08, wording unchanged.
   layout — ⚠️ which must never drift from `PdfViewport · render`, ink is stored in it);
   `PlanTileLayer` (board) and `FloorPage · TiledFloorPage` (Gebäude storeys) mount an always-there
   small UNDERLAY plus the on-screen tiles of the level the zoom asks for, so a device holds about
-  two screenfuls of pixels for any sheet at any depth. Tile overlap against seams is half a
+  two screenfuls of pixels for any sheet at any depth. A surface that provides
+  `lib/planSharpness · PlanSharpnessContext` (only the Karte's reader, 17.10.2026) hears whether
+  the current view's detail is still loading or could not be had, and has the next level over the
+  same area fetched ahead; without it the board behaves as before. Tile overlap against seams is half a
   PIXEL, never a constant of the unit square. `lib/planTileRaster · composeTiles` gives the
   Karte backdrop, the auto-align upload and the ink scan their pixels without a bake, and a
   tiled sheet is never pre-baked. `lib/planTilePrefetch` fetches an object's complete pyramids

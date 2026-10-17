@@ -81,7 +81,10 @@ export const karteCopy = {
     floorsRowSub: '{n} Geschosse vorbereitet · {list}',
     floorsRowSubOne: '1 Geschoss vorbereitet · {list}',
     backToMap: 'Zur Karte',
-    onMap: 'Auf der Karte',
+    // over an open plan (lib/planSharpness): the sharper picture of this view is still coming / cannot come
+    planSharpening: 'Schärfere Ansicht wird geladen …',
+    planSharpOffline: 'Schärfere Ansicht nur mit Netz',
+    planSharpFailed: 'Schärfere Ansicht konnte nicht geladen werden',
     floorsLoading: 'Geschosse werden geladen …',
     floorsFailed: 'Die Geschosse liessen sich nicht laden.',
     floorFailed: 'Dieses Geschoss liess sich nicht zeichnen.',
@@ -126,7 +129,7 @@ export const karteCopy = {
     visitsLast: 'Zuletzt: {c} · {d}',
     // tools
     tools: { pin: 'Punkt setzen', measure: 'Messen', erg: 'Gefahrgut', layers: 'Ebenen', map: 'Karte' },
-    pinHint: 'Auf die Karte tippen, um einen Punkt zu setzen. Lange drücken geht immer.',
+    pinHint: 'Auf die Karte tippen, um einen Punkt zu setzen.',
     ergUn: 'UN-Nr.',
     ergPlaceholder: 'z. B. 1203',
     ergOffline: 'Offline verfügbar – UN/ADR und ERG liegen auf dem Gerät.',
