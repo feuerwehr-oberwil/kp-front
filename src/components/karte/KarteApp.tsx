@@ -244,7 +244,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     if (noBasemapSaid.current) return
     noBasemapSaid.current = true
     setNoBasemap(true)
-  }, [])
+  }, [setNoBasemap])
   const [wasOnline, setWasOnline] = useState(online)
   if (online !== wasOnline) { setWasOnline(online); if (online) setNoBasemap(false) }
 
