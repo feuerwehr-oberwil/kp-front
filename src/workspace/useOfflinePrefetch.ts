@@ -11,7 +11,7 @@ import { fillTemplate, fmtFileSize } from '../lib/format'
 import { isStorageDegraded } from '../lib/idb'
 import { isStandalone } from '../lib/installPrompt'
 import { bulkFetchAllowed, fillTileTemplate, predownloadArea, tilesForBounds } from '../lib/offlineTiles'
-import { WARM_BYTES, estimateStorage, fittedTileCap, prefetchFit } from '../lib/storageBudget'
+import { WARM_BYTES, estimateStorage, fittedTileCap, prefetchFit, tileBytesFor } from '../lib/storageBudget'
 import { confirmDialog, toast } from '../lib/ui'
 import { useOnline } from '../lib/useOnline'
 import type { LayerDef, LngLat } from '../types'
@@ -89,13 +89,15 @@ export function useOfflinePrefetch({ incidentId, center, offlineRadiusM, offline
     const coverageTileCount = Math.min(tilesForBounds(bounds, 14, 17).length, HARD_CAP)
     const rasterSourceCount = 1 + rasterOverlays.length
     const tileCount = coverageTileCount * rasterSourceCount
+    // a retina base costs ~3× per tile (lib/storageBudget · tileBytesFor): the mean over the stack
+    const bytesPerTile = [templates, ...rasterOverlays].reduce((sum, t) => sum + tileBytesFor(t), 0) / rasterSourceCount
     const extraBytes = warmUrls.length * WARM_BYTES
     const budget = await estimateStorage()
-    const fit = prefetchFit(budget, tileCount, extraBytes)
+    const fit = prefetchFit(budget, tileCount, extraBytes, bytesPerTile)
     let cap = HARD_CAP
     if (!fit.fits && budget) {
       const co = appConfig.copy.offline
-      const reducedTotal = fittedTileCap(budget, HARD_CAP * rasterSourceCount, extraBytes)
+      const reducedTotal = fittedTileCap(budget, HARD_CAP * rasterSourceCount, extraBytes, bytesPerTile)
       const reduced = Math.floor(reducedTotal / rasterSourceCount)
       if (reduced === 0) {
         // not even the plans fit — nothing useful to offer but the honest refusal
