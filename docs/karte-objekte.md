@@ -27,7 +27,7 @@ Every station object in one payload, which the client searches and keeps for off
 {
   "objects": [{
     "id": "<uuid>", "name": "Schloss Musterdorf",
-    "kind": "einsatzobjekt" | "objekt" | "depot",
+    "kind": "einsatzobjekt" | "objekt",
     "address": "Schlossgasse 9", "locality": null,              // locality: the town, only when not the home town
     "lat": 47.52, "lng": 7.57,                                    // null when the station has none
     "outline": "auto" | "building" | "none",                      // the station's outline choice
@@ -36,6 +36,7 @@ Every station object in one payload, which the client searches and keeps for off
                 "pages": 3 | null, "georef": true, "version": 2, "updatedAt": "…" }],
     "floors": [{ "index": -1, "name": null }, { "index": 0, "name": "Hauptebene" }],
     "egid": null, "footprint": { "type": "MultiPolygon", "coordinates": [ … ] } | null,
+    "underground": { "type": "MultiPolygon", … } | null,          // a named row's garages/shelters, drawn dashed
     "measures": "…", "remarks": "…", "measuresSource": "Modul 1 · Stand 03.2026", "updatedAt": "…",
     "lastVisit": { "id": "ov-…", "checklist": "Kontrolle Schlüsselhülse", "date": "…", "defects": 1 } | null
   }],
@@ -45,14 +46,20 @@ Every station object in one payload, which the client searches and keeps for off
 
 How each field is derived – none of them is a new column:
 
-- **All objects**, including the plan-less ones an Objektbesuche organizer created (key boxes).
-  The Einsatz pickers (`/api/objects`) leave those out on purpose; the viewer lists them.
-- **`kind`**: `einsatzobjekt` when the object carries a Modul-PDF; `depot` when it carries none and
-  its name says «Schlüssel…» (Schlüsseldepot, -hülse, -rohr) or an organizer ref comes from the
-  key-box source (`fwo-schlue`); `objekt` otherwise. The map draws a `depot` as the FKS
-  «GB Schluesseldepot» symbol.
-- **`address`** — for every object where one is knowable (review round 2, 17.10.2026: three key
-  boxes and three objects sent `null` and the viewer printed the kind word): the station's own
+- **All objects**, including the plan-less ones an Objektbesuche organizer created (the stops of
+  its Kontrollgang). The Einsatz pickers (`/api/objects`) leave those out on purpose; the viewer
+  lists them.
+- **`kind`**: `einsatzobjekt` when the object carries a Modul-PDF, `objekt` otherwise.
+  ⚠️ **There is no `depot` (key box) any more** (owner, review round 3, 17.10.2026: «Mühlematt-
+  strasse 24 doesn't have a key box … I think we can just highlight buildings / building groups»).
+  It was guessed from a `fwo-schlue` ref or «Schlüssel…» in the name — but that ref only says the
+  object is on the organizer's yearly Kontrollgang (FWO Admin's FU tours of 2026 carry a SchlüHü
+  id for their stops, Einsatzobjekte with plans among them). Every object is a building or a group of
+  buildings now, drawn like every other. The API never sends `depot`; a client reads an older
+  server's or an older cached catalogue's `depot` as `objekt` (`lib/api/stationReference ·
+  withRetiredKinds`).
+- **`address`** — for every object where one is knowable (review round 2, 17.10.2026: six plan-less
+  objects sent `null` and the viewer printed the kind word): the station's own
   address; else the NAME when it is a street + number («Mühlemattstrasse 24», «Bienenstrasse 28
   (EH)» → «Bienenstrasse 28»); else the register's (GWR) address at the pin, which the footprint
   job asks once per coordinate (`object_footprints · place_at`, never per view). `null` only when
@@ -63,7 +70,8 @@ How each field is derived – none of them is a new column:
 - **`outline`** — the station's choice in /admin («Lage korrigieren», below): `auto` = the rule
   under `footprint`; `building` = only the building at the pin; `none` = no outline at all — the
   viewer then draws NO OSM fallback either (`lib/karte/places · objectBuildings`).
-- **`aliases`**: the plan library's folder name when it differs from the name and address.
+- **`aliases`**: the plan library's folder name when it differs from the name and address, and
+  the names of objects merged into this one (`admin_objects merge`, docs/AGENT-RUNBOOK.md).
 - **`plans`**: the object's PDF datasets with bytes, by module. `code` is the module key without
   «modul» («23» → «2/3»). `pages` comes only from a tile manifest the server already wrote
   (`plan_tiles.stored_page_count`) – the listing never opens every PDF – so it is `null` when
@@ -75,25 +83,50 @@ How each field is derived – none of them is a new column:
 - **`footprint`**: EVERY building the object stands for, as one MultiPolygon, the building its
   point lies in first (review 17.10.2026: Schulhaus Hüslimatt is five buildings on several parcels,
   and only one was red). Derived by the scheduler, never per request, from official data
-  (`app/object_footprints`), and only read here:
-  1. the object's point in an allowed swissTLM3D **use area** (school, college/university,
+  (`app/object_footprints`), for every object, and only read here — first match wins:
+  1. **the addresses in its NAME** (review round 3, 17.10.2026 — owner: «outline all the
+     houses»): an object named by a row of houses («Stallenmattstrasse 2-14, Kaibmattweg 1-5
+     (EH)», «Hohestrasse 136-158», «Auf der Wacht 14&16») is every building of every address the
+     name covers. `app/address_ranges` reads the name and the plan folder alias («<address> -
+     <name>»): street + numbers, ranges («2-14»), lists («14&16», «2, 4»), letters («128a-b»,
+     «134f»). It counts only when the name holds a range or a list — «Sägestrasse 9» or «Hof
+     Thürkauf, Im Buech 15, Im Buech 20» are left to the steps below. A number covers its
+     lettered siblings (14 → 14, 14a) and a range the numbers in it that EXIST — **one side of
+     the street when both ends have one parity** (owner, round 3: «you can assume that it's only
+     the same side»: 136-158 → the even numbers, 27-29 → 27, 27a, 29), both sides when they differ
+     (1-16). The register is the cadastral survey's
+     Gebäudeadressen (`ms:HADR` on the same AV WFS) on those streets within 600 m of the point,
+     in the town of the one nearest the point; each address's building is the survey footprint
+     with its EGID, else the footprint its door point lies in. An address with no surface
+     building is, in the survey, mostly an underground garage («(EH)» = Einstellhalle) or a
+     shelter: its Einzelobjekt (`ms:SOSF`, «unterirdisches Gebäude» / «Unterstand», same open AV
+     WFS) is served apart as **`underground`** and the viewer draws it as a DASHED outline in the
+     object's colour — part of the object, tappable (owner, round 3: «if the garages are …
+     accessible … in the default maps that we are using, it would be cool»; the station's Modul 1
+     shows them too). Used when it finds at least one surface building and at most 60
+     (`MAX_RANGE_BUILDINGS`, counting houses, not garages; more is logged — a name read wrong). No
+     neighbour guard: the name is the station's own word for which houses the object is;
+  2. the object's point in an allowed swissTLM3D **use area** (school, college/university,
      hospital, sports ground, swimming pool, cemetery, zoo, substation — the `landuse` layer of
      swisstopo's base vector tiles, z14) → every building whose centroid lies in it;
-  2. else its cadastral **parcel** (geo.admin identify, `ch.swisstopo-vd.amtliche-vermessung`) →
+  3. else its cadastral **parcel** (geo.admin identify, `ch.swisstopo-vd.amtliche-vermessung`) →
      every building on it;
-  3. else the one building its point lies in.
+  4. else the one building its point lies in.
   The buildings are the cadastral survey's own footprints (amtliche Vermessung, Bodenbedeckung
-  «Gebäude», geodienste.ch's open AV WFS). A step is skipped when it is too big to be one object
+  «Gebäude», geodienste.ch's open AV WFS, served in WGS84 — measured 17.10.2026 against swisstopo
+  REFRAME on the LV95 originals: ≤ 1.3 cm). Steps 2 and 3 are skipped when too big to be one object
   (area > 150 000 m², parcel > 60 000 m², more than 15 buildings — an estate of unrelated firms)
-  or when it holds ANOTHER station object's point (key boxes aside): two catalogue objects on one
-  parcel never claim each other's buildings. Sheds under 30 m² on the grounds are not the
+  or when they hold ANOTHER station object's point: two catalogue objects on one parcel never
+  claim each other's buildings (why «Stallenmattstrasse 1-14 …» and its near-duplicate «2-14 …»,
+  points 55 m apart on one 8 100 m² parcel and in no building, had no outline before step 1). Sheds under 30 m² on the grounds are not the
   object's. `null` (nothing official at the point, not derived yet, a source switched off with
   `FOOTPRINT_AREA_TILES=` / `FOOTPRINT_BUILDINGS_WFS=`) → the viewer outlines the OSM building
   that CONTAINS the object's coordinate, as before. Never a building by proximity alone.
   What a source said is stored per coordinate (`reference/object-footprints.json` beside the
   building snapshot), so a moved or new object is asked once (≤ 20 points per two-minute tick),
   a catalogue change re-derives without asking anybody, and a failed ask is retried after an hour
-  and never stored as «nothing there». A footprint is served only while the object still stands
+  and never stored as «nothing there». A name's addresses are stored the same way, per point and
+  per what the name says (`ranges`), so a renamed object is asked again and nothing else is. A footprint is served only while the object still stands
   on the point it was derived for.
 - **`lastVisit`**: the latest COMPLETED Objektbesuch (drafts and discarded visits are not visits
   that happened), only where the station runs the module or for the admin session.
@@ -138,7 +171,7 @@ same source and date fields for «Register-Hinweis».
 
 `object` is set **only on an exact street + number match**: the register's address of the building
 found (or, when the register has none, the searched `address`) equals a catalogue object's. Two
-objects at one door (an Einsatzobjekt and its key box) → the one with plans. A neighbour ten metres
+objects at one door → the one with plans. A neighbour ten metres
 away is never «the building», because its gas valve would read exactly like this one's. `visit` follows
 the object, under the same module rule as `lastVisit`.
 
@@ -175,25 +208,32 @@ The rules that are easy to break:
   the view (`KarteView`: frame, selected object, open plan, in sessionStorage) are kept —
   `karteViewSnapshot` is the one door into storage (`lib/karte/karte.test.ts` pins it).
 - **A building is an object only by official data, containment or an exact address.** An object
-  is drawn as its `footprint` (every building of its use area / parcel, above), else as the OSM
-  outline that CONTAINS its own coordinate (`lib/karte/places · objectBuildings`); a tap on ANY of
-  its buildings opens it, the selected object's buildings all wear the strong style, and its tag
-  hangs off the building its point lies in. A tapped building opens an object otherwise only when
-  the register's street + number equals the object's. A key box at the same door is not the
-  building. No outline under a point → no building.
-- **A tag never hangs on another object's building** (review round 2, 17.10.2026 — Migros at
-  Mühlemattstrasse 18 and the Mühlemattcenter at 22 share a roofed passage; the «Migros» tag hung
-  under its building, i.e. on the Mühlemattcenter's roof beside its «22», while the OSM base map
-  writes «Mühlematt Center» on the Migros building: the two read as one, swapped). The tag hangs
-  under its building unless that spot lies on another object's outline; then it sits inside its
-  own building (`lib/karte/tagAnchor`).
+  is drawn as its `footprint` (the buildings its name, use area or parcel give, above), else as
+  the OSM outline that CONTAINS its own coordinate (`lib/karte/places · objectBuildings`); a tap
+  on ANY of its buildings opens it (a building two objects claim — a named row and a house of it
+  that is an object of its own — opens the one whose point stands in it), and the selected
+  object's buildings all wear the strong style. A tapped building opens an object otherwise only
+  when the register's street + number equals the object's. No outline under a point → no
+  building.
+- ⚠️ **The tag sits ON the object's point** (owner, review round 3, 17.10.2026: «do not move the
+  location of the marker»). Centred on the coordinate the station set, exactly where the dot is;
+  the placement pass decides only WHETHER it shows, and a tag at a side edge slides inward at most
+  until 16 px of it still cover the point. Round 1 hung the tag under its building's south edge,
+  round 2 moved it inside its own building when that spot was another object's — both put the
+  name somewhere the point is not, and that read as a moved marker.
+- **A tag is the name, never a plan count** (owner, round 3: «we just care that there are
+  plans»). Whether an object has plans is its colour: the station's category (below), or, with
+  no categories configured, the default look — red rim and dot with plans, an ink-grey rim and
+  dot without (`Karte.module.css · .bare`). No count on any tag or row; the sheet's plan rows are
+  the only list of plans.
 - **Dots, and a name only where it fits** (owner, 17.10.2026; `lib/karte/labels`). Below z16 every
-  object is a small red dot (a 32 px tap target), a key box a small FKS glyph; no text. From z16
-  on a tag only where it fits: one greedy pass in screen space once the map has settled, the
-  selected object first (always tagged), then Einsatzobjekte, then more plans; a tag that would
-  cover another tag, a key box or the chrome (top bar, bottom bar, an open panel or sheet, the
-  rails — every child of the surface but the map) stays a dot. A tag at a side edge slides inward
-  as long as it still hangs over its building. Outlines draw from z15 as before.
+  object is a small dot (a 32 px tap target); no text. From z16 on a tag only where it fits: one
+  greedy pass in screen space once the map has settled, the selected object first (always
+  tagged), then Einsatzobjekte, then more plans; a tag that would cover another tag or the chrome
+  (top bar, bottom bar, an open panel or sheet, the rails — every child of the surface but the
+  map) stays a dot. Outlines draw from z15 as before.
+- **No key boxes on the map** (owner, round 3): no FKS «Schlüsseldepot» symbol, kicker, note or
+  mark. The objects once drawn that way are objects like any other — outline, dot, tag, colour.
 - **«In der Nähe» is distance only**, and the panel says so in a sentence.
 - **The panel, in one order** (owner, 17.10.2026 · review round 2), the same for an object on
   the phone and on the tablet: head (kind, name, address, ✕) · the station's word
@@ -201,8 +241,8 @@ The rules that are easy to break:
   Pläne & Module as rows (code, title, pages, offline the «auf diesem Gerät» mark) · Gebäude laut
   Register · In der Nähe · Objektbesuche · the closing «Keine Gefahrenangaben …» · the actions
   LAST, «Objektbesuch» and «Melden». A plain building or a dropped pin keeps that order with what
-  it has (Register, In der Nähe, Melden; a pin also «Koordinaten kopieren»), a key box too (no
-  Register, its note one quiet line). No «Messen ab hier» (Messen is the bar's / the rail's) and no
+  it has (Register, In der Nähe, Melden; a pin also «Koordinaten kopieren»), a plan-less object
+  too (no plan rows). No «Messen ab hier» (Messen is the bar's / the rail's) and no
   «Objektplan auf der Karte» row: the aligned plan is switched in Ebenen (`Pläne` group, the
   viewer's `karte:objektplan` twin), which keeps the capability. Section titles are the sheet's
   group heads (eyebrow, no glyph); a missing or quiet fact is a line, not a box — only a warning
@@ -247,14 +287,13 @@ The rules that are easy to break:
 - **Doors by role.** «Objektbesuch» / «Melden» only for `objectVisits.captureRoles`
   (and only where the module runs); every other account reads the visits with a one-line reason.
 - **Search** finds objects on the device first — name, address, aliases, folded umlauts, every
-  word of the query — ranked name before alias/address, plans before none, key boxes last, then
-  distance (`lib/karte/search`). Objects without coordinates are found and marked «ungefähr»
+  word of the query — ranked name before alias/address, plans before none, then distance (`lib/karte/search`). Objects without coordinates are found and marked «ungefähr»
   (their place on the map comes from geocoding the address). Addresses follow from
   `/api/geocode/search`, online only, and say so offline. A row is glyph · name · address
   (· distance for a hit) — no plan count (owner, review round 2, 17.10.2026: «just the address is
-  enough»; the sheet lists the plans, the map tag keeps its count).
-- **The address, never the kind word in its place** (review round 2). Key boxes and plain objects
-  are often named by their address with none stored; an object's address is the stored one, else
+  enough»; the sheet lists the plans; since round 3 the map tag carries no count either).
+- **The address, never the kind word in its place** (review round 2). Plain objects are often
+  named by their address with none stored; an object's address is the stored one, else
   its name when the name is street + number, else none (`lib/karte/places · objectAddress`). A
   name that already says it is printed once, as the title: a list row then reads «<place> ·
   <kind>» under it (`objectRowSub`), the head only the place (`objectHeadSub` — its kicker says
@@ -296,17 +335,24 @@ The rules that are easy to break:
 
 ## Object colours (`map.objectCategories`)
 
-Owner, 17.10.2026: colour the objects so that key boxes / plans, water plans, PV systems … are
+Owner, 17.10.2026: colour the objects so that objects with plans, water plans, PV systems … are
 told apart. The station sets ordered rules in the deployment config (Verwaltung › Station &
 Karte › «Objektfarben», schema `ObjectCategoryConfig`), FIRST match wins:
-`{ id, label: "…" | { de, fr, it, en }, color: "#rrggbb", match: { kinds?: [einsatzobjekt|objekt|depot], modules?: [glob…] } }`.
+`{ id, label: "…" | { de, fr, it, en }, color: "#rrggbb", match: { kinds?: [einsatzobjekt|objekt], modules?: [glob…] } }`.
 A rule matches when every condition it names holds (none named = catch-all); `modules` globs
 match the object's plan modules (`modul5-pv*` = `modul5-pv`, `-pv15`, `-pv20`). An object no rule
-takes keeps the default look: red, a key box its FKS glyph. No rules = today's map.
+takes keeps the default look: red, ink-grey without plans. No rules = that default map.
 
-- The map draws the object's dot, tag rim + count and outline (normal and selected) in the
-  category's colour (`lib/karte/categories`; ink on the count by luminance). A key box keeps its
-  FKS glyph, with a ring in the colour among the dots.
+- ⚠️ `kinds: ["depot"]` is **retired** (review round 3): the schema still accepts it, so an
+  existing config stays valid, and it matches NO object — a rule naming only `depot` paints
+  nothing (it must never turn into a catch-all); beside other kinds it is ignored. The admin
+  card no longer offers it.
+- The proposal for a station (staging, review rounds 2–3): «Mit Plänen» red `#dc2626`
+  `{ kinds: [einsatzobjekt] }`, then «Ohne Pläne» grey `#64748b` `{ kinds: [objekt] }`, with the
+  module rules (PV, Wasser) above them. A «Schlüsseldepots» rule has nothing left to colour —
+  drop it.
+- The map draws the object's dot, tag rim and outline (normal and selected) in the category's
+  colour (`lib/karte/categories`).
 - **Ebenen** has one row per rule under «Station» (glyph in the colour, «n Objekte»): off takes
   that category's objects off the map — outline, dot, tag and tap; the selected object stays. A
   device preference like the objects row (not kept across reloads).

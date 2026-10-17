@@ -88,6 +88,14 @@ class FakeTenant:
         self._store.pop(path, None)
         self.delta_changes = None
 
+    def rename_folder(self, old: str, new: str) -> None:
+        """A folder renamed in SharePoint: the same files (same cTags — the bytes did not change)
+        under a new parent name."""
+        self._seq += 1
+        for path in [p for p in self._store if p.startswith(f"{old}/")]:
+            self._store[f"{new}/{path[len(old) + 1 :]}"] = self._store.pop(path)
+        self.delta_changes = None
+
     def quiet(self) -> None:
         """Nothing has changed, whatever token the caller resumes from."""
         self.delta_changes = []

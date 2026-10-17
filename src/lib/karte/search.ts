@@ -11,7 +11,7 @@
 //   4. it is somewhere in the name
 //   5. it is somewhere in an alias or the address
 // Every word of a multi-word query has to match somewhere («schloss 9»). Within a rank an object
-// with plans comes before a plan-less one and a key box last (objects first – «sie haben Pläne»),
+// with plans comes before a plan-less one (objects first – «sie haben Pläne»),
 // then the nearer one (when the map centre is known), then the name.
 // Objects WITHOUT coordinates are found like every other one and flagged `approx` — their place
 // on the map comes from the address and is only roughly right.
@@ -43,7 +43,7 @@ export interface ObjectHit {
   approx: boolean
 }
 
-const KIND_ORDER: Record<StationObject['kind'], number> = { einsatzobjekt: 0, objekt: 1, depot: 2 }
+const KIND_ORDER: Record<StationObject['kind'], number> = { einsatzobjekt: 0, objekt: 1 }
 
 function rankToken(tok: string, name: string, others: string[]): number | null {
   if (name.startsWith(tok)) return 1

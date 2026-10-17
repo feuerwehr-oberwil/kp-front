@@ -15,7 +15,6 @@ import type { GeoHit } from '../../lib/api/geo'
 import type { StationObject } from '../../lib/api/stationReference'
 import type { ObjectHit } from '../../lib/karte/search'
 import { objectRowSub, splitAddress } from '../../lib/karte/places'
-import { KeyBoxGlyph } from './KeyBoxGlyph'
 import s from './Karte.module.css'
 
 export type AddrState = 'idle' | 'short' | 'loading' | 'ok' | 'offline' | 'error'
@@ -32,7 +31,7 @@ export function KarteSearch({ query, hits, featured, addresses, addrState, onPic
 }) {
   const C = appConfig.copy.karte
   const q = query.trim()
-  const lead = (o: StationObject) => <span className={s.rowLead}>{o.kind === 'depot' ? <KeyBoxGlyph /> : <Icon id="footprint" />}</span>
+  const lead = () => <span className={s.rowLead}><Icon id="footprint" /></span>
   return (
     <div className={s.results} role="listbox" aria-label={C.searchObjects}>
       <div className={s.grp}>{C.searchObjects}</div>
@@ -42,7 +41,7 @@ export function KarteSearch({ query, hits, featured, addresses, addrState, onPic
             <div className={s.list}>
               {featured.map((o) => (
                 <button key={o.id} type="button" role="option" aria-selected={false} className={s.row} onClick={() => onPickObject(o.id)}>
-                  {lead(o)}
+                  {lead()}
                   <span className={s.rowText}><b>{o.name}</b><span>{objectRowSub(o, C.kind[o.kind])}</span></span>
                   <Icon id="chevron" className={s.chev} />
                 </button>
@@ -55,7 +54,7 @@ export function KarteSearch({ query, hits, featured, addresses, addrState, onPic
         <div className={s.list}>
           {hits.map(({ obj: o, distanceM, approx }) => (
             <button key={o.id} type="button" role="option" aria-selected={false} className={s.row} onClick={() => onPickObject(o.id)}>
-              {lead(o)}
+              {lead()}
               <span className={s.rowText}><b>{o.name}</b><span>{objectRowSub(o, C.kind[o.kind])}</span></span>
               <span className={cx(s.rowEnd, s.mono)}>{approx ? C.noCoords : distanceM != null ? fmtDistance(distanceM) : ''}</span>
             </button>

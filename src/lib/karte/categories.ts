@@ -5,10 +5,13 @@
 // The rules live in the deployment config (`map.objectCategories`, edited in /admin › Karte, typed
 // and validated by backend schemas.py · ObjectCategoryConfig). Ordered, FIRST MATCH WINS; a rule
 // matches an object when every condition it names holds:
-//   · `kinds`   — the object's kind is one of them (einsatzobjekt · objekt · depot)
+//   · `kinds`   — the object's kind is one of them (einsatzobjekt · objekt). `depot` (a key box) is
+//                 RETIRED (owner, review round 3, 17.10.2026): an existing config naming it stays
+//                 valid, and it never matches — a rule naming only `depot` matches nothing (it
+//                 must not turn into a catch-all and paint every object).
 //   · `modules` — one of the object's plan modules matches one of the globs (`modul5-pv*`)
 // A rule naming neither matches everything (a catch-all at the end). An object no rule matches
-// keeps today's look: red, and a key box its FKS glyph. No rules at all = today's look everywhere.
+// keeps today's look: red, grey without plans. No rules at all = today's look everywhere.
 //
 // Pure: the map (KarteApp) colours dots, tags and outlines with `categoryOf(…).color`, Ebenen gets
 // one row per rule, and these functions are what the tests pin.
@@ -23,7 +26,7 @@ export interface ObjectCategoryRule {
   label: string | Record<string, string>
   /** `#rrggbb` */
   color: string
-  match?: { kinds?: ObjectKind[] | null; modules?: string[] | null } | null
+  match?: { kinds?: (ObjectKind | 'depot')[] | null; modules?: string[] | null } | null
 }
 
 export interface ObjectCategory {
@@ -35,7 +38,7 @@ export interface ObjectCategory {
 }
 
 const HEX = /^#[0-9a-fA-F]{6}$/
-const KINDS: readonly ObjectKind[] = ['einsatzobjekt', 'objekt', 'depot']
+const KINDS: readonly ObjectKind[] = ['einsatzobjekt', 'objekt']
 
 /** `modul5-pv*` → /^modul5-pv.*$/i — `*` any run, `?` one character, everything else literal. */
 export function globToRegExp(glob: string): RegExp {
@@ -63,13 +66,15 @@ export function categoryRules(raw: readonly ObjectCategoryRule[] | null | undefi
   for (const r of raw) {
     if (!r || typeof r.id !== 'string' || !r.id.trim() || seen.has(r.id) || !HEX.test(r.color ?? '')) continue
     seen.add(r.id)
-    const kinds = Array.isArray(r.match?.kinds) ? r.match.kinds.filter((k: ObjectKind) => KINDS.includes(k)) : null
+    const named = Array.isArray(r.match?.kinds) && r.match.kinds.length > 0
+    // only retired kinds named (`[depot]`): an empty list, which matches nothing
+    const kinds = named ? r.match!.kinds!.filter((k: string): k is ObjectKind => KINDS.includes(k as ObjectKind)) : null
     const mods = Array.isArray(r.match?.modules) ? r.match.modules.filter((m: unknown): m is string => typeof m === 'string' && !!m.trim()) : null
     out.push({
       id: r.id,
       label: categoryLabel(r.label, lang, r.id),
       color: r.color,
-      kinds: kinds && kinds.length ? kinds : null,
+      kinds,
       modules: mods && mods.length ? mods.map(globToRegExp) : null,
     })
   }

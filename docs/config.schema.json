@@ -1284,7 +1284,7 @@
       "type": "object"
     },
     "ObjectCategoryConfig": {
-      "description": "One colour rule for «Karte & Objekte» (src/lib/karte/categories.ts). Ordered, first match\nwins; an object no rule matches keeps the default look (red, a key box its FKS glyph).",
+      "description": "One colour rule for «Karte & Objekte» (src/lib/karte/categories.ts). Ordered, first match\nwins; an object no rule matches keeps the default look (red, grey without plans).",
       "properties": {
         "id": {
           "maxLength": 40,
