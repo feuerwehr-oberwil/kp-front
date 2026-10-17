@@ -10,7 +10,7 @@ import { LoadingStatus } from '../ShellLoader'
 import { knownVisits, resolveObject, visitTemplates, visitsAtStop } from '../../objectVisits/catalogue'
 import { newVisitDoc, objectSnapshot } from '../../objectVisits/doc'
 import { createLocalVisit, findOpenDraft } from '../../objectVisits/store'
-import { decideNewVisit } from '../../objectVisits/newVisit'
+import { autoChoice, decideNewVisit } from '../../objectVisits/newVisit'
 import { lastWith } from '../../objectVisits/devicePrefs'
 import type { CatalogueObject, VisitTemplate } from '../../objectVisits/types'
 import { Head } from './common'
@@ -48,9 +48,10 @@ export function NewVisit({ objectKey, workRef, checklist = null }: {
   ), [ov.locals, ov.summaries, object?.id, objectKey, workRef])
   // one checklist (or none) needs no question; several ask «Welche Checkliste?» — and so does the
   // one, once it is completed at this stop: «Weitere Checkliste» must not silently repeat it
+  // (newVisit · autoChoice: an asked-for checklist the station lacks asks instead of guessing)
   const choice = useMemo<{ t: VisitTemplate | null } | null>(
-    () => chosen ?? (asked ? { t: asked } : templates.length <= 1 && !doneHere.has(templates[0]?.id ?? null) ? { t: templates[0] ?? null } : null),
-    [chosen, asked, templates, doneHere],
+    () => chosen ?? autoChoice({ asked: checklist, templates, doneHere }),
+    [chosen, checklist, templates, doneHere],
   )
   const step = decideNewVisit({
     localsLoaded: ov.localsLoaded, localsOk: ov.localsOk, catalogueLoaded: ov.cat !== null,

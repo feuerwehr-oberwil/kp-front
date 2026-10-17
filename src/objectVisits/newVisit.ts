@@ -37,3 +37,20 @@ export function decideNewVisit(s: {
   if (!s.choice) return { kind: 'choose' }
   return { kind: 'create', template: s.choice.t }
 }
+
+/** The checklist taken without asking «Welche Checkliste?», or null to ask. One checklist (or none)
+ *  needs no question — unless it is already completed at this stop («Weitere Checkliste» must not
+ *  silently repeat it). A checklist ASKED for up front (`?checkliste=`, the Karte's «Melden») is
+ *  taken when the catalogue has it; when it does not, the question is asked — the station's one
+ *  other checklist («Kontrolle Schlüsselhülse») is never started in its place. */
+export function autoChoice(s: {
+  asked: string | null
+  templates: readonly VisitTemplate[]
+  doneHere: ReadonlySet<string | null>
+}): { t: VisitTemplate | null } | null {
+  if (s.asked) {
+    const t = s.templates.find((x) => x.id === s.asked)
+    return t ? { t } : null
+  }
+  return s.templates.length <= 1 && !s.doneHere.has(s.templates[0]?.id ?? null) ? { t: s.templates[0] ?? null } : null
+}
