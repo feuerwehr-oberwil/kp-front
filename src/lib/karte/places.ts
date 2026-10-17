@@ -32,6 +32,67 @@ export function streetKey(address: string | null | undefined): string {
   return head.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
+// --- an object's address, as every list and head prints it (review round 2, 17.10.2026) --------
+//
+// Owner: «why do we have the keybox labelled in some places instead of the address?». Key boxes
+// and plain `objekt`s are often NAMED by their address («Mühlemattstrasse 24», «Bienenstrasse 28
+// (EH)») with `address: null`, and the lists fell back to the KIND word («Schlüsseldepot») where
+// the address belongs. ⚠️ The kind word is never a stand-in for an address: an address is the
+// stored one, else the name when the name is one, else none — and when the name already says it,
+// it is printed once, as the title.
+
+/** Folded for comparing two spellings of one street: no accents, lower case, single spaces. */
+function foldWords(s: string): string {
+  return s.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
+
+/** «Mühlemattstrasse 24», «Schulstrasse 4», «Bienenstrasse 28 (EH)», «Hauptstr. 10a»: a street
+ *  (a word of 4+ letters, more words allowed) and a house number, maybe a letter and a note after
+ *  it. «Gemeindehaus Musterdorf» is not one. */
+const ADDRESS_NAME = /^\p{L}[\p{L}\p{M}'’.\- ]{3,}?\s\d{1,4}\s?[a-zA-Z]?(?=$|[\s,(/])/u
+
+export function nameIsAddress(name: string | null | undefined): boolean {
+  return ADDRESS_NAME.test((name ?? '').trim())
+}
+
+/** The object's address: the stored one, else its name when the name IS an address, else null. */
+export function objectAddress(o: { name: string; address: string | null }): string | null {
+  const a = o.address?.trim()
+  if (a) return a
+  return nameIsAddress(o.name) ? o.name.trim() : null
+}
+
+/** Whether the object's name already says its street and number («Therwilerstrasse 18 (EH)»
+ *  says «Therwilerstrasse 18»; «Therwilerstrasse 18a» does not). */
+export function nameSaysAddress(o: { name: string; address: string | null }): boolean {
+  const a = objectAddress(o)
+  if (!a) return false
+  const name = foldWords(o.name)
+  const street = foldWords(splitAddress(a)[0])
+  return !!street && (name === street || (name.startsWith(street) && name[street.length] === ' '))
+}
+
+/**
+ * The line under an object's name in a list (search, In der Nähe): its address — or, when the
+ * name already is the address, only what the name does not say (the place, if the address has
+ * one) and the kind word, quietly, so the row still says what it is. An object with no address
+ * at all is described by its kind (a description, not an address).
+ */
+export function objectRowSub(o: { name: string; address: string | null }, kindWord: string): string {
+  const a = objectAddress(o)
+  if (!a) return kindWord
+  if (!nameSaysAddress(o)) return a
+  return [splitAddress(a)[1], kindWord].filter(Boolean).join(' · ')
+}
+
+/** The line under the name in the panel's head, whose kicker already says the kind: the address,
+ *  or the place alone when the name is the address, or nothing. */
+export function objectHeadSub(o: { name: string; address: string | null }): string | null {
+  const a = objectAddress(o)
+  if (!a) return null
+  return nameSaysAddress(o) ? splitAddress(a)[1] || null : a
+}
+
 /** The label as «street, place» — the shape the server's own addresses have. */
 export function normAddress(label: string | null | undefined): string {
   const [a, b] = splitAddress(label)

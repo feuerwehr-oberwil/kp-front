@@ -33,7 +33,7 @@ import { buildingChips, buildingSources, fmtDay, noteLines } from '../../lib/bui
 import type { BuildingInfo } from '../../lib/api/building'
 import type { StationObject } from '../../lib/api/stationReference'
 import type { Near, NamedPoint } from '../../lib/karte/places'
-import { splitAddress, streetKey } from '../../lib/karte/places'
+import { objectHeadSub, objectRowSub, splitAddress, streetKey } from '../../lib/karte/places'
 import type { ViewerPlanDoc } from '../../lib/karte/plans'
 import { planKey, type ObjectAvailability } from '../../lib/karte/availability'
 import { floorLabel } from '../../lib/whiteboard'
@@ -108,7 +108,7 @@ export function KartePanel(p: {
         <div>
           <div className={s.eyebrow}>{C.kind[o.kind]}</div>
           <h2 className={s.title}>{o.name}</h2>
-          {o.address && <div className={s.sub}>{o.address}</div>}
+          {objectHeadSub(o) && <div className={s.sub}>{objectHeadSub(o)}</div>}
         </div>
       </>
     )
@@ -388,7 +388,7 @@ function Nearby({ nearby, hydrants, onSelectObject }: { nearby: Near<StationObje
           {nearby.map(({ item: o, distanceM }) => (
             <button key={o.id} type="button" className={s.row} onClick={() => onSelectObject(o.id)}>
               <span className={s.rowLead}>{o.kind === 'depot' ? <KeyBoxGlyph /> : <Icon id="footprint" />}</span>
-              <span className={s.rowText}><b>{o.name}</b><span>{[C.kind[o.kind], o.address].filter(Boolean).join(' · ')}</span></span>
+              <span className={s.rowText}><b>{o.name}</b><span>{objectRowSub(o, C.kind[o.kind])}</span></span>
               <span className={s.rowEnd}>{fmtDistance(distanceM)}<Icon id="chevron" className={s.chev} /></span>
             </button>
           ))}

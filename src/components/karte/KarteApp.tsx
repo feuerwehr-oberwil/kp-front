@@ -31,6 +31,7 @@ import { useIsPhone } from '../../lib/useIsPhone'
 import { useOnline } from '../../lib/useOnline'
 import { onReachable } from '../../lib/connectivity'
 import { useNightTheme } from '../../lib/useNightTheme'
+import { useViewportPan } from '../../lib/useViewportPan'
 import { useSymbols } from '../../lib/useSymbols'
 import { useMeasure } from '../../lib/useMeasure'
 import { useVehicleLayer } from '../../lib/useVehicleLayer'
@@ -61,6 +62,7 @@ import { symPx } from '../../lib/mapView'
 import { cellOf, cellsFor, loadCell, OUTLINE_MIN_ZOOM } from '../../lib/karte/outlines'
 import { GEBAEUDE_DOC, viewerPlanDocs } from '../../lib/karte/plans'
 import { karteHref } from '../../lib/karte/route'
+import { applyLayerPreset, karteLayerPreset, presetFlips, type QuickTap } from '../../lib/karte/layerPresets'
 import { karteRadarStore, loadKarteView, loadViewerLayerPrefs, saveKarteView, saveViewerLayerPrefs, viewerLayers, type KarteTool } from '../../lib/karte/session'
 import { KEY_BOX_SYMBOL, KeyBoxSvg } from '../../lib/karte/keyBox'
 import type { Entity, LayerDef, LayerId, LngLat, PreparedMapOverlay } from '../../types'
@@ -137,6 +139,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const ov = objectVisitsConfig()
   const canCapture = ov.enabled && !!user && ov.captureRoles.includes(user.role)
   const lang = getLocaleId().slice(0, 2).toLowerCase()
+  // the keyboard on a phone (owner-r2-keyboard): the visible band as CSS (`--vv-pan`, `--vv-foot`,
+  // `html[data-kb]`), the Einsatz's one hook — the bars stay on the screen, and a card with a field
+  // stands on the keys (Karte.module.css · «the keyboard»)
+  useViewportPan()
 
   // ── where to start: the last view of this session, else the station ───────────────────────
   const [start] = useState(() => {
@@ -657,6 +663,17 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     }] : []),
   ]
 
+  // «Alle ein» / «Alle aus» / «Standard» (lib/karte/layerPresets): the viewer's own layers, and
+  // every station row (Stationsobjekte, …) as a layer — never the aligned plan, like the Einsatz
+  const karteDefaults = useMemo(() => viewerLayers(defaultLayers(), undefined), [])
+  const presetRows = twins.filter((t) => t.id !== GEOREF_ROW).map((t) => ({ id: t.id, visible: t.visible }))
+  const layersPreset = karteLayerPreset(layers, karteDefaults, presetRows, weather.on && weather.radarOn)
+  const quickTap = (tap: QuickTap) => {
+    updateLayers((ls) => applyLayerPreset(ls, karteDefaults, tap))
+    for (const id of presetFlips(presetRows, tap)) toggleLayer(id)
+    if (tap !== 'all') weather.setRadar(false)
+  }
+
   // ── the compass menu: no saved views here (they are an Einsatz's), the rest as on the Karte ──
   const viewsApi: ViewsApi = {
     list: [], current: view, onGo: NOOP, onSave: NOOP, onRename: NOOP, onDelete: NOOP,
@@ -1046,6 +1063,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             onOpacity={setOpacity}
             twins={twins}
             weather={weather.row}
+            onShowAll={() => quickTap('all')}
+            onHideAll={() => quickTap('none')}
+            onReset={() => quickTap('standard')}
+            preset={layersPreset}
             note={C.layersOwn}
             onClose={() => setTool('layers')}
           />

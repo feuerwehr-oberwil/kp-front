@@ -38,7 +38,8 @@ interface Props {
   /** round ✕ in the title row — dock chrome parity with the views popover / tool docks */
   onClose?: () => void
   /** Ebenen quick-taps (field ask 07.09.): flip every overlay at once / return to the Einsatz
-   *  category's default set. Karte panel only — the Plan panel's rows are lent twins with their
+   *  category's default set. Karte panels only (the Einsatz's and «Karte & Objekte»'s, there over
+   *  its own default set — lib/karte/layerPresets) — the Plan panel's rows are lent twins with their
    *  own persistence, where «alle» has nothing coherent to mean. All three or none. */
   onShowAll?: () => void
   onHideAll?: () => void

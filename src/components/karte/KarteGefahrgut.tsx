@@ -28,17 +28,24 @@ export function KarteGefahrgut({ un, onUn, mode, onMode, center, onClose }: {
         <h3>{C.tools.erg}</h3>
         <IconButton label={appConfig.copy.closeDialog} variant="secondary" onClick={onClose}><Icon id="close" /></IconButton>
       </div>
-      <div className={s.toolBody}>
+      {/* the field stays put above the readout, outside its scroller: typing never scrolls it away,
+          and with the keyboard up the card stands on the keys with the field at its top */}
+      <div className={s.toolField}>
         <label className={s.fieldLabel} htmlFor="karte-un">{C.ergUn}</label>
         <input
           id="karte-un" className={s.field} inputMode="numeric" autoComplete="off" maxLength={4}
           placeholder={C.ergPlaceholder} value={un} onChange={(e) => onUn(e.target.value.replace(/\D/g, '').slice(0, 4))}
         />
+      </div>
+      <div className={s.toolBody}>
         {!un && <div className={s.src}>{C.ergOffline}</div>}
+        {/* «Auf die Karte tippen …» first, where the eye is after typing — under the readout it was
+            below the fold of the phone's card (review round 2), the one line that says the rings
+            can be moved */}
+        {un && mode !== 'off' && !!lookupErg(un)?.tih?.length && <div className={s.toolHint}><Icon id="pin" /><span>{center ? C.ergCenter : C.ergCenterFirst}</span></div>}
         {un && (
           <UnHazardSection un={un} ringMode={mode} onRingMode={onMode} ergCoord={center ?? undefined} />
         )}
-        {un && mode !== 'off' && !!lookupErg(un)?.tih?.length && <div className={s.src}>{center ? C.ergCenter : C.ergCenterFirst}</div>}
       </div>
     </section>
   )
