@@ -1,0 +1,191 @@
+/* «Karte & Objekte» (components/karte, docs/karte-objekte.md). The surface wears the Einsatz's
+   chrome where it can — the .app frame, .topbar glass, the NavRail and ToolRail pills, the Ebenen
+   card, the measure dock — and this file only adds what the viewer has of its own: the bar's
+   contents, the one panel (left on a tablet, a sheet on a phone), the search results, the
+   Gefahrgut card, the name tags and the plan surface. Scales and tokens only (01-tokens). */
+
+/* ── top bar contents ─────────────────────────────────────────────────────────────────────── */
+.einsaetze { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3);
+  border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
+  font: var(--fw-bold) var(--fs-2)/1.1 var(--body); cursor: pointer; flex: none; }
+.einsaetze small { display: block; font: var(--fw-medium) var(--fs-micro)/1.2 var(--body); color: var(--ink-dim); }
+.einsaetzeText { display: flex; flex-direction: column; align-items: flex-start; }
+.einsaetze:active { background: var(--press); }
+.search { flex: 1 1 320px; min-width: 0; max-width: 360px; }
+.running { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3);
+  border: none; border-radius: var(--r-sm); background: var(--red); color: var(--on-fill, #fff);
+  font: var(--fw-bold) var(--fs-2)/1.15 var(--body); cursor: pointer; max-width: 280px; flex: 0 1 auto; text-align: left; }
+.running small { display: block; font: var(--fw-medium) var(--fs-micro)/1.2 var(--body); opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.runningText { min-width: 0; overflow: hidden; }
+.runningText b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; animation: koPulse 1.4s infinite; }
+@keyframes koPulse { 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+/* the phone: the running Einsatz is a strip of its own under the bar */
+.runningStrip { position: absolute; top: calc(88px + env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
+  z-index: var(--z-topbar); display: flex; }
+.runningStrip .running { max-width: none; flex: 1; }
+
+/* ── search results ───────────────────────────────────────────────────────────────────────── */
+.results { position: absolute; top: calc(84px + env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); width: 470px; max-width: calc(100vw - 32px);
+  max-height: calc(100% - 100px); overflow: auto; z-index: var(--z-floating-card);
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-bar);
+  box-shadow: var(--e4); padding: var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-1); }
+.grp { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-dim); padding: var(--sp-2) var(--sp-2) var(--sp-1); }
+.quiet { font: var(--fw-medium) var(--fs-1)/var(--lh-1, 1.35) var(--body); color: var(--ink-dim); padding: 0 var(--sp-2); }
+
+/* ── a list of rows (search, Pläne, In der Nähe, Objektbesuche) ───────────────────────────── */
+.list { display: flex; flex-direction: column; border: 1px solid var(--border-soft); border-radius: var(--r-sm); background: var(--surface); overflow: hidden; }
+.row { display: flex; align-items: center; gap: var(--sp-3); min-height: 56px; padding: var(--sp-2) var(--sp-3); border: none; border-top: 1px solid var(--border-soft);
+  background: none; color: var(--ink); text-align: left; font: inherit; width: 100%; }
+.row:first-child { border-top: none; }
+button.row { cursor: pointer; }
+button.row:active { background: var(--press); }
+.rowLead { width: 28px; display: grid; place-items: center; flex: none; color: var(--ink-dim); }
+.rowLead svg { width: 20px; height: 20px; }
+.rowLead.hydrant { color: var(--blue); }
+.rowText { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rowText b { font: var(--fw-bold) var(--fs-2)/1.25 var(--body); }
+.rowText span { font: var(--fw-medium) var(--fs-1)/1.3 var(--body); color: var(--ink-dim); }
+.rowEnd { display: flex; align-items: center; gap: var(--sp-2); color: var(--ink-dim); font: var(--fw-medium) var(--fs-1)/1.2 var(--body); flex: none; }
+.rowEnd.stack { flex-direction: column; align-items: flex-end; gap: 2px; }
+.mono { font-family: var(--mono); font-size: var(--fs-micro); }
+.plansCount { color: var(--blue-strong); font-weight: var(--fw-bold); }
+.chev { width: 16px; height: 16px; color: var(--ink-faint); }
+
+/* ── the one panel ────────────────────────────────────────────────────────────────────────── */
+.panel { position: absolute; top: calc(88px + env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); bottom: 16px; width: 404px; height: max-content;
+  max-height: calc(100% - 104px - env(safe-area-inset-top)); z-index: var(--z-chrome); display: flex; flex-direction: column;
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
+/* beside the NavRail when the object has plans (05-navrail · .navrail is 16px in, --rail-w wide) */
+.panel.withRail { left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w, 60px) + 16px); }
+.head { display: grid; grid-template-columns: 44px 1fr auto; gap: var(--sp-3); align-items: start; padding: var(--sp-4) var(--sp-4) var(--sp-2); }
+.glyph { width: 44px; height: 44px; display: grid; place-items: center; border-radius: var(--r-sm); background: var(--surface); border: 1px solid var(--border-soft); color: var(--ink-dim); }
+.glyph svg { width: 22px; height: 22px; }
+.glyph.ein { color: var(--red); }
+.glyph.pin { color: var(--red); }
+.glyph :global(.fks) { width: 30px; height: 30px; }
+.glyph :global(.fks) svg, .rowLead :global(.fks) svg { width: 100%; height: 100%; display: block; }
+/* the pack's art is black ink on paper, like every placed symbol: it keeps its white ground at night */
+:is(.glyph, .rowLead) :global(.fks) { background: #fff; border-radius: var(--r-xs); }
+.rowLead :global(.fks) { width: 24px; height: 24px; }
+.rowLead.plan { width: 46px; }
+.eyebrow { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-dim); }
+.title { font: var(--fw-heavy) var(--fs-4)/1.25 var(--body); color: var(--ink); margin: 0; overflow-wrap: anywhere; }
+.sub { font: var(--fw-medium) var(--fs-1)/1.35 var(--body); color: var(--ink-dim); }
+.coords { font-family: var(--mono); font-size: var(--fs-1); line-height: 1.5; color: var(--ink-dim); }
+.body { overflow: auto; padding: 0 var(--sp-4) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); overscroll-behavior: contain; }
+.quick { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.quick.one { grid-template-columns: 1fr; }
+.sec { display: flex; flex-direction: column; gap: var(--sp-2); }
+.secHead { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding-top: var(--sp-2); }
+.secHead .eyebrow { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.secHead .eyebrow svg { width: 14px; height: 14px; }
+.hint { display: inline-flex; align-items: center; gap: var(--sp-1); font: var(--fw-medium) var(--fs-micro)/1.2 var(--body); color: var(--ink-dim); }
+.hint svg { width: 12px; height: 12px; }
+.card { border: 1px solid var(--border-soft); border-radius: var(--r-sm); background: var(--surface); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+.cardTitle { font: var(--fw-bold) var(--fs-2)/1.3 var(--body); color: var(--ink); }
+.bullets { margin: 0; padding-left: var(--sp-5); font: var(--fw-medium) var(--fs-3)/1.4 var(--body); color: var(--ink); }
+.bullets.quietList { font-size: var(--fs-2); color: var(--ink-dim); }
+.src { font: var(--fw-medium) var(--fs-micro)/1.4 var(--body); color: var(--ink-dim); }
+.src b { color: var(--ink); }
+.note { display: flex; gap: var(--sp-2); align-items: flex-start; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--ink-5);
+  font: var(--fw-medium) var(--fs-1)/1.4 var(--body); color: var(--ink); }
+.note svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--ink-dim); }
+.note.amber { background: var(--amber-12); }
+.note.amber svg { color: var(--amber-strong); }
+.tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.tag { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 28px; padding: 0 var(--sp-2); border-radius: var(--r-xs);
+  background: var(--ink-8); color: var(--ink); font: var(--fw-bold) var(--fs-1)/1.2 var(--body); }
+.tag.warn { background: var(--amber-16); color: var(--amber-strong); }
+.tag svg { width: 14px; height: 14px; }
+.badge { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 2px var(--sp-2); border-radius: var(--r-xs); font: var(--fw-bold) var(--fs-micro)/1.3 var(--body); }
+.badge.green { background: var(--green-12); color: var(--green-strong); }
+.badge.amber { background: var(--amber-16); color: var(--amber-strong); }
+.badge.ink { background: var(--ink-8); color: var(--ink-dim); }
+.monoChip { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 var(--sp-1); border: 1px solid var(--border); border-radius: var(--r-xs);
+  font: var(--fw-heavy) var(--fs-2)/1 var(--body); background: var(--surface); color: var(--ink); }
+.switch { width: 44px; height: 26px; border-radius: 13px; background: var(--ink-22); position: relative; flex: none; transition: background .15s var(--ease); }
+.switch::after { content: ''; position: absolute; left: 2px; top: 2px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); box-shadow: var(--e1); transition: transform .15s var(--ease); }
+.switch.on { background: var(--blue); }
+.switch.on::after { transform: translateX(18px); }
+.skeleton { height: 14px; border-radius: var(--r-xs); background: var(--ink-8); }
+.retry { align-self: flex-start; }
+
+/* ── phone: the panel is a sheet over the bottom bar ──────────────────────────────────────── */
+.phone .panel, .panel.sheet { top: auto; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto;
+  bottom: calc(var(--rail-h, 60px) + 16px + env(safe-area-inset-bottom)); max-height: 52%; }
+.panel.sheet.full { max-height: calc(100% - 120px - env(safe-area-inset-top)); }
+.grab { display: block; width: 100%; height: 20px; border: none; background: none; padding: 0; cursor: grab; position: relative; flex: none; }
+.grab::after { content: ''; position: absolute; left: calc(50% - 20px); top: 8px; width: 40px; height: 4px; border-radius: 2px; background: var(--ink-22); }
+.panel.sheet .head { padding-top: 0; }
+
+/* ── name tags + key boxes on the map ─────────────────────────────────────────────────────── */
+.tagMk { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 4px var(--sp-2); border-radius: var(--r-xs); border: 1.5px solid var(--red-45);
+  background: var(--surface); color: var(--ink); font: var(--fw-bold) var(--fs-1)/1.2 var(--body); white-space: nowrap; box-shadow: var(--e2); cursor: pointer; }
+.tagMk.sel { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-22), var(--e2); }
+.tagMk.approx { border-style: dashed; border-color: var(--amber-strong); }
+.tagCount { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 4px; border-radius: var(--r-xs); background: var(--red); color: var(--on-fill, #fff); font: var(--fw-heavy) var(--fs-micro)/1 var(--body); }
+.pinMk { width: 34px; height: 44px; display: block; filter: drop-shadow(0 2px 2px var(--ink-28)); }
+.ergLbl { padding: 2px var(--sp-2); border-radius: var(--r-xs); background: var(--surface); border: 1px solid var(--amber-45); color: var(--amber-strong);
+  font: var(--fw-bold) var(--fs-micro)/1.3 var(--body); white-space: nowrap; box-shadow: var(--e1); }
+
+/* ── tool cards (Gefahrgut) ───────────────────────────────────────────────────────────────── */
+.toolCard { position: absolute; top: calc(88px + env(safe-area-inset-top)); right: calc(var(--vrail-w, 60px) + 32px); width: 300px; max-height: calc(100% - 104px);
+  z-index: var(--z-floating-card); display: flex; flex-direction: column; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
+.phone .toolCard { top: auto; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto;
+  bottom: calc(var(--rail-h, 60px) + 16px + env(safe-area-inset-bottom)); max-height: 60%; }
+.toolHead { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-3) var(--sp-3) var(--sp-2) var(--sp-4); }
+.toolHead h3 { margin: 0; font: var(--sheet-title); }
+.toolBody { overflow: auto; padding: 0 var(--sp-4) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
+.field { min-height: var(--tap); padding: 0 var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
+  font: var(--fw-bold) var(--fs-4)/1 var(--mono); width: 100%; box-sizing: border-box; }
+.fieldLabel { font: var(--field-label); color: var(--ink-dim); }
+.chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+/* ── the measure readout's own line (the panel is the shared MeasurePanel) ────────────────── */
+.measureNote { position: absolute; left: 50%; bottom: calc(28px + 72px); transform: translateX(-50%); z-index: var(--z-chrome);
+  padding: var(--sp-1) var(--sp-3); border-radius: var(--r-xs); background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
+  font: var(--fw-medium) var(--fs-micro)/1.3 var(--body); color: var(--ink-dim); white-space: nowrap; }
+.phone .measureNote { bottom: calc(var(--rail-h) * 2 + 128px + env(safe-area-inset-bottom)); }
+/* the phone has ONE bar at the foot (the Einsatz has two): the measure dock sits right above it,
+   the readout above the dock (15-mobile · .phone-tools, MeasurePanel.module.css) */
+.root.phone :global(.wb-dock) { bottom: calc(var(--rail-h) + 16px + env(safe-area-inset-bottom)); }
+.root.phone :global(.measure-panel) { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
+.hintBar { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome); display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--msg-pad) var(--float-pad-x); border-radius: var(--r-sm); background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
+  font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); max-width: calc(100vw - 32px); }
+.phone .hintBar { bottom: calc(var(--rail-h, 60px) + 24px + env(safe-area-inset-bottom)); }
+
+/* ── the plan surface (a module PDF · the Gebäude floors) ─────────────────────────────────── */
+.surface { position: absolute; inset: 0; z-index: var(--z-surface); background: var(--board-bg, var(--app-bg)); display: flex; flex-direction: column; }
+.surfaceBody { flex: 1; min-height: 0; position: relative; }
+.chipRow { position: absolute; left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w, 60px) + 16px); bottom: 16px; z-index: var(--z-chrome); display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.phone .chipRow { left: max(8px, env(safe-area-inset-left)); bottom: calc(var(--rail-h, 60px) + 16px + env(safe-area-inset-bottom)); }
+.floors { position: absolute; top: calc(88px + env(safe-area-inset-top)); left: calc(var(--rail-w) + 32px); right: 0; bottom: 0; overflow: auto;
+  padding: 0 var(--sp-4) var(--sp-8); display: flex; flex-direction: column; gap: var(--sp-4); align-items: center; }
+.phone .floors { top: calc(84px + env(safe-area-inset-top)); left: 0; bottom: calc(var(--rail-h) + 16px + env(safe-area-inset-bottom)); padding: 0 var(--sp-2) var(--sp-8); }
+.floor { width: min(980px, 100%); display: flex; flex-direction: column; gap: var(--sp-2); }
+.floorHead { display: flex; align-items: baseline; gap: var(--sp-2); font: var(--fw-heavy) var(--fs-3)/1.2 var(--body); color: var(--ink); }
+.floorHead small { font: var(--fw-medium) var(--fs-1)/1.2 var(--body); color: var(--ink-dim); }
+.floorImg { width: 100%; height: auto; display: block; border-radius: var(--r-sm); background: var(--surface); box-shadow: var(--e2); }
+.floorWait { width: 100%; aspect-ratio: 4 / 3; border-radius: var(--r-sm); background: var(--ink-5); display: grid; place-items: center; color: var(--ink-dim); font: var(--fw-medium) var(--fs-1)/1.3 var(--body); }
+
+/* the vertical object name under the plan tiles (mockup: «SCHLOSS MUSTER…») */
+.railName { writing-mode: vertical-rl; transform: rotate(180deg); font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-dim);
+  max-height: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; align-self: center; padding: var(--sp-2) 0; }
+
+/* ── the surface root and the phone's map buttons ─────────────────────────────────────────── */
+.root { background: var(--map-bg); }
+.phoneUtil { position: absolute; right: max(8px, env(safe-area-inset-right)); bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); z-index: var(--z-chrome);
+  display: flex; flex-direction: column; gap: var(--sp-2); }
+.utilBtn { width: var(--tap-lg); height: var(--tap-lg); display: grid; place-items: center; border: 1px solid var(--glass-line); border-radius: var(--r-sm);
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); box-shadow: var(--e3); color: var(--ink); cursor: pointer; }
+.utilBtn svg { width: 22px; height: 22px; }
+.utilGlyph { display: grid; place-items: center; }
+/* the plan surface's floating chips (the object, «Auf der Karte») — the floating family's look */
+.fchip { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3); border: none; border-radius: var(--r-sm);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); font: var(--fw-bold) var(--fs-2)/1.2 var(--body); cursor: pointer; }
+.fchip svg { width: 16px; height: 16px; }
+.quick > * { white-space: nowrap; min-width: 0; }

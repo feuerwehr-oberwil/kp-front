@@ -53,6 +53,35 @@ async def _register_switch(db: AsyncSession) -> bool | None:
         return None
 
 
+async def fill_registers(
+    db: AsyncSession, out: BuildingOut, lat: float | None, lng: float | None, address: str | None, lang: str
+) -> None:
+    """Halves 1+2 of the card for one point: the station's switch, the CH box, then the cached
+    register answer. Shared by the Einsatz card and the station viewer (api/station_reference),
+    so «Register-Hinweis» means the same lookup on both."""
+    switch = await _register_switch(db)
+    if switch is False:
+        out.registers = "off"
+    elif lat is None or lng is None:
+        out.registers = "no_location"
+    elif not in_switzerland(lat, lng):
+        out.registers = "outside_ch"
+    else:
+        ans = await registers_cached(lat, lng, address)
+        out.registers_fetched_at = ans.fetched_at
+        out.egid, out.address = ans.egid, ans.address
+        if not ans.gwr_ok:
+            out.gwr_status = "error"
+        elif ans.gwr is None:
+            out.gwr_status = "none"
+        else:
+            out.gwr_status = "ok"
+            out.gwr = BuildingGwrOut(**{k: v for k, v in ans.gwr.items() if k != "egid"})
+        if ans.pv_asked:
+            out.pv_status = "ok" if ans.pv_ok else "error"
+            out.plants = [BuildingPlantOut(**p) for p in ans.plants(lang)]
+
+
 async def _object_for(
     db: AsyncSession, inc: Incident, object_id: uuid.UUID | None
 ) -> tuple[ObjectSite, float | None, bool] | None:
@@ -72,7 +101,7 @@ async def _object_for(
     return ranked[0] if ranked else None
 
 
-async def _last_visit(db: AsyncSession, object_id: uuid.UUID) -> ObjectVisit | None:
+async def last_visit(db: AsyncSession, object_id: uuid.UUID) -> ObjectVisit | None:
     return (
         await db.execute(
             select(ObjectVisit)
@@ -100,27 +129,14 @@ async def incident_building(
     out = BuildingOut(registers="on")
 
     # --- 1+2: the federal registers -------------------------------------------------------
-    switch = await _register_switch(db)
-    if switch is False:
-        out.registers = "off"
-    elif inc.lat is None or inc.lng is None:
-        out.registers = "no_location"
-    elif not in_switzerland(float(inc.lat), float(inc.lng)):
-        out.registers = "outside_ch"
-    else:
-        ans = await registers_cached(float(inc.lat), float(inc.lng), inc.address)
-        out.registers_fetched_at = ans.fetched_at
-        out.egid, out.address = ans.egid, ans.address
-        if not ans.gwr_ok:
-            out.gwr_status = "error"
-        elif ans.gwr is None:
-            out.gwr_status = "none"
-        else:
-            out.gwr_status = "ok"
-            out.gwr = BuildingGwrOut(**{k: v for k, v in ans.gwr.items() if k != "egid"})
-        if ans.pv_asked:
-            out.pv_status = "ok" if ans.pv_ok else "error"
-            out.plants = [BuildingPlantOut(**p) for p in ans.plants(lang)]
+    await fill_registers(
+        db,
+        out,
+        float(inc.lat) if inc.lat is not None else None,
+        float(inc.lng) if inc.lng is not None else None,
+        inc.address,
+        lang,
+    )
 
     # --- 3+4: the station's own object -----------------------------------------------------
     picked = await _object_for(db, inc, object_id)
@@ -139,6 +155,6 @@ async def incident_building(
         # The Objektbesuche are the module's own business: only where the station runs it, and
         # never for a link session (api/object_visits refuses those every visit).
         is_link = bool(getattr(user, "link_kind", None)) or bool(getattr(user, "link_scoped", False))
-        if not is_link and (await ov_config(db)).enabled and (v := await _last_visit(db, o.id)) is not None:
+        if not is_link and (await ov_config(db)).enabled and (v := await last_visit(db, o.id)) is not None:
             out.visit = BuildingVisitOut(id=v.id, visited_at=v.visited_at, findings=v.findings or 0)
     return out

@@ -21,6 +21,25 @@ const NIGHT_BASE_PAINT = { 'raster-brightness-max': 0.6, 'raster-saturation': -0
 // it near 0.14 when retuning, and the labels (≥ ~0.55 in the source) clip to white.
 const DARK_BASE_PAINT = { 'raster-brightness-min': 0.75, 'raster-contrast': 0.83 } as const
 
+/** One prepared overlay as GeoJSON: a circle's polygon, a line, or a set of outlines (each ring
+ *  its own polygon, so one source carries every station object of «Karte & Objekte»). */
+function overlayData(overlay: PreparedMapOverlay) {
+  if (overlay.kind === 'circle') {
+    return { type: 'Feature' as const, geometry: { type: 'Polygon' as const, coordinates: circlePolygon(overlay.center, overlay.radiusM) }, properties: {} }
+  }
+  if (overlay.kind === 'polygons') {
+    return {
+      type: 'FeatureCollection' as const,
+      features: overlay.rings.filter((r) => r.length >= 3).map((r) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Polygon' as const, coordinates: [[...r, r[0]]] },
+        properties: {},
+      })),
+    }
+  }
+  return lineFeat(overlay.coords)
+}
+
 interface Props {
   layers: LayerDef[]
   preparedOverlays: PreparedMapOverlay[]
@@ -123,13 +142,9 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
           key={overlay.id}
           id={`s-${overlay.id}`}
           type="geojson"
-          data={
-            overlay.kind === 'circle'
-              ? { type: 'Feature' as const, geometry: { type: 'Polygon' as const, coordinates: circlePolygon(overlay.center, overlay.radiusM) }, properties: {} }
-              : lineFeat(overlay.coords)
-          }
+          data={overlayData(overlay)}
         >
-          {overlay.kind === 'circle' ? (
+          {overlay.kind === 'circle' || overlay.kind === 'polygons' ? (
             <>
               <Layer
                 id={`l-${overlay.id}-fill`}
@@ -147,7 +162,10 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
                   'line-color': overlay.color,
                   'line-opacity': overlay.lineOpacity ?? 0.5,
                   'line-width': overlay.lineWidth ?? 2,
-                  'line-dasharray': overlay.lineDasharray ?? [2, 2.5],
+                  // an outline is solid unless it asks otherwise; a circle keeps its dashes
+                  ...(overlay.kind === 'circle' || overlay.lineDasharray
+                    ? { 'line-dasharray': overlay.lineDasharray ?? [2, 2.5] }
+                    : {}),
                 }}
               />
             </>

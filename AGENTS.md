@@ -433,6 +433,8 @@ is public FKS material, and a station set REPLACES it rather than joining it
   - [`docs/trupp-naming.md`](docs/trupp-naming.md), [`docs/verlauf-coverage.md`](docs/verlauf-coverage.md),
     [`docs/object-visits.md`](docs/object-visits.md) – Trupp identity, what reaches the Verlauf,
     Objektbesuche.
+  - [`docs/karte-objekte.md`](docs/karte-objekte.md) – «Karte & Objekte», the station viewer
+    outside an Einsatz: its own view state (never an incident's), containment-only outlines.
 - `mockups/` – historical look-and-feel explorations (not maintained; only `app-lage.html` and
   `nav-concepts.html` are tracked, the rest stays local by `.gitignore`). The former
   `docs/design-concepts/` directory is gone – superseded by the React app itself.

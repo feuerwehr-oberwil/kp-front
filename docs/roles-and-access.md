@@ -62,6 +62,15 @@ wording unchanged.
   confirms** (23.09.2026, `lib/logoutConfirm`), in one card that adds the offline and the
   unsent-entries cost when there is one.
 
+## Station reference reads
+
+«Karte & Objekte» (`/api/reference/objects`, `/api/reference/building`, since 2026-10-16) is for
+ACCOUNT sessions – `editor`, `el`, `viewer` alike – and the deployment admin. Every incident link
+and the Erfassungs-Poster's capture token get 403: a link is scoped to one Einsatz and must never
+become a door onto the station's whole register (`api/station_reference · get_station_reader`,
+and the link allowlist does not name these routes). What a role may do from there – start an
+Objektbesuch – stays `objectVisits.captureRoles`.
+
 ## Signing in with Microsoft (optional)
 
 Since 09.10.2026 a station can add «Mit Microsoft anmelden» beside the PIN tiles
