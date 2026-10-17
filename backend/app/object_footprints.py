@@ -552,16 +552,17 @@ async def tick(db: AsyncSession, *, client: httpx.AsyncClient | None = None) -> 
     sig = _signature(points, set(facts))
     if sig == data.get("sig") and not asked:
         return 0
+    footprints = derive_all(points, facts)
     out = {
         "version": ALGO,
         "sig": sig,
         "derivedAt": datetime.now(UTC).isoformat(),
         "facts": {k: v.to_json() for k, v in facts.items()},
-        "footprints": derive_all(points, facts),
+        "footprints": footprints,
     }
     await asyncio.to_thread(storage.put_bytes, STORE_KEY, json.dumps(out, separators=(",", ":")).encode())
     _read = None
-    logger.info("object footprints: %d asked, %d objects with buildings", asked, len(out["footprints"]))
+    logger.info("object footprints: %d asked, %d objects with buildings", asked, len(footprints))
     return asked
 
 

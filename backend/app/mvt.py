@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import gzip
 import struct
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 Ring = list[tuple[float, float]]
@@ -44,13 +45,14 @@ def _varint(buf: bytes, i: int) -> tuple[int, int]:
         shift += 7
 
 
-def _fields(buf: bytes):
+def _fields(buf: bytes) -> Iterator[tuple[int, int, int | bytes]]:
     """(field number, wire type, value) for every field of one message. Length-delimited values
     come back as bytes, varints as int; 32/64-bit values as their raw bytes."""
     i, n = 0, len(buf)
     while i < n:
         key, i = _varint(buf, i)
         num, wt = key >> 3, key & 7
+        v: int | bytes
         if wt == 0:
             v, i = _varint(buf, i)
         elif wt == 2:
@@ -63,6 +65,18 @@ def _fields(buf: bytes):
         else:  # groups (3/4) are not in the spec
             raise ValueError(f"unsupported wire type {wt}")
         yield num, wt, v
+
+
+def _b(v: int | bytes) -> bytes:
+    if not isinstance(v, bytes):
+        raise ValueError("expected a length-delimited field")
+    return v
+
+
+def _i(v: int | bytes) -> int:
+    if not isinstance(v, int):
+        raise ValueError("expected a varint field")
+    return v
 
 
 def _packed(buf: bytes) -> list[int]:
@@ -80,15 +94,15 @@ def _zigzag(n: int) -> int:
 def _value(buf: bytes) -> object:
     for num, _wt, v in _fields(buf):
         if num == 1:
-            return bytes(v).decode("utf-8", "replace")  # type: ignore[arg-type]
+            return _b(v).decode("utf-8", "replace")
         if num == 2:
-            return struct.unpack("<f", v)[0]  # type: ignore[arg-type]
+            return struct.unpack("<f", _b(v))[0]
         if num == 3:
-            return struct.unpack("<d", v)[0]  # type: ignore[arg-type]
+            return struct.unpack("<d", _b(v))[0]
         if num in (4, 5):
-            return v
+            return _i(v)
         if num == 6:
-            return _zigzag(v)  # type: ignore[arg-type]
+            return _zigzag(_i(v))
         if num == 7:
             return bool(v)
     return None
@@ -140,24 +154,25 @@ def read_layer(data: bytes, name: str) -> Layer | None:
     """The named layer's polygon features, or None when the tile has no such layer."""
     if data[:2] == b"\x1f\x8b":  # some servers hand out the stored gzip as-is
         data = gzip.decompress(data)
-    for num, _wt, lbuf in _fields(data):
+    for num, _wt, lraw in _fields(data):
         if num != 3:
             continue
+        lbuf = _b(lraw)
         lname, extent = "", 4096
         keys: list[str] = []
         values: list[object] = []
         raw_features: list[bytes] = []
-        for lnum, _lwt, v in _fields(lbuf):  # type: ignore[arg-type]
+        for lnum, _lwt, v in _fields(lbuf):
             if lnum == 1:
-                lname = bytes(v).decode()  # type: ignore[arg-type]
+                lname = _b(v).decode()
             elif lnum == 2:
-                raw_features.append(v)  # type: ignore[arg-type]
+                raw_features.append(_b(v))
             elif lnum == 3:
-                keys.append(bytes(v).decode())  # type: ignore[arg-type]
+                keys.append(_b(v).decode())
             elif lnum == 4:
-                values.append(_value(v))  # type: ignore[arg-type]
+                values.append(_value(_b(v)))
             elif lnum == 5:
-                extent = int(v)  # type: ignore[arg-type]
+                extent = _i(v)
         if lname != name:
             continue
         feats: list[Feature] = []
@@ -167,11 +182,11 @@ def read_layer(data: bytes, name: str) -> Layer | None:
             gtype = 0
             for fnum, _fwt, v in _fields(fbuf):
                 if fnum == 2:
-                    tags = _packed(v)  # type: ignore[arg-type]
+                    tags = _packed(_b(v))
                 elif fnum == 3:
-                    gtype = int(v)  # type: ignore[arg-type]
+                    gtype = _i(v)
                 elif fnum == 4:
-                    geom = _packed(v)  # type: ignore[arg-type]
+                    geom = _packed(_b(v))
             if gtype != 3:  # POLYGON only
                 continue
             props = {keys[tags[k]]: values[tags[k + 1]] for k in range(0, len(tags) - 1, 2)}
