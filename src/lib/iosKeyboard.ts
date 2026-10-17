@@ -1,0 +1,234 @@
+/*
+ * **Typing on an iPhone without the page moving** (review round 3, 17.10.2026 — owner on a real
+ * iPhone: «the background remains scrollable, and the whole thing is quite a mess» / «the UN
+ * number entry thingy still doesn't work properly»).
+ *
+ * Why round 2 (#375) could not have worked on the phone, although a simulated keyboard in
+ * Chromium looked right: it placed the Gefahrgut card and the search list from `--vv-pan` /
+ * `--vv-foot` (lib/useViewportPan), i.e. it trusted iOS to report its pan as
+ * `visualViewport.offsetTop` and then counter-placed the box that holds the caret. On the owner's
+ * iPhone the page moved ~ the whole keyboard (the layout's foot stood on the keys) while the top
+ * bar — translated by `--vv-pan` — never came back on screen: the shift did not arrive as
+ * `offsetTop`. iOS moves a focused page by SCROLLING it (the keyboard makes even a fixed,
+ * non-scrolling document scrollable by its own height), `position: fixed` stays where it was
+ * laid out, and a finger dragging anything that does not scroll moves that page again. A
+ * simulation that only shrinks/pans `visualViewport` models none of that.
+ *
+ * So this file does not rely on one fragile measurement. Three independent guards:
+ *   1. NO PAN TO BEGIN WITH — a field is focused with `focusWithoutPan` (Safari decides whether to
+ *      scroll at the moment of focus; for that moment the field stands far above the screen,
+ *      where there is nothing to scroll to — the react-aria `usePreventScroll` technique), and the
+ *      sheet that holds it stands on the keyboard's top edge (`keySheetBox`), so the caret is in
+ *      sight and iOS has no reason to move anything later either.
+ *   2. UNDO ANY PAN THAT HAPPENS ANYWAY — `useTypingLock` answers a window scroll or a visual
+ *      viewport offset with `window.scrollTo(0, 0)`: this page never scrolls (02-base · fixed
+ *      body), so any scroll is iOS's. Rate-limited (`mayCorrect`), so a field that really is
+ *      under the keys can never start a scroll / unscroll loop.
+ *   3. NOTHING TO DRAG — while a field has the caret, a touchmove that no scroller under the finger
+ *      can take is cancelled (`touchMayScroll`, overlays/useMobileScrollLock): the list in the
+ *      sheet scrolls, the bar and the sheet's head do not move the page.
+ */
+
+import { useEffect, type RefObject } from 'react'
+import { isTypingTarget } from './hotkeys'
+import { touchAxis, touchMayScroll, type ScrollBox } from './overlays/useMobileScrollLock'
+
+/** Below this many px between the layout's foot and the visible band's foot it is not a keyboard
+ *  (the address bar, a rounding step, the home indicator). */
+export const MIN_KEYBOARD_PX = 80
+
+/** Where the keyboard's top edge is, in layout (`position: fixed`) px from the top — or null when
+ *  no keyboard is up. Pure: the hook feeds it the readings.
+ *  · `vkHeight`: Android's VirtualKeyboard API (index.html asks for `overlays-content`, so there the
+ *    visual viewport does not shrink and this is the only true number);
+ *  · otherwise the visual viewport's bottom, `offsetTop + height` — iOS's truth, the keyboard does
+ *    not shrink `innerHeight`;
+ *  · a pinch-zoomed page (`scale` ≠ 1) has no band in layout px worth placing a sheet on: null. */
+export function keyboardTop(r: { innerHeight: number; vvHeight: number; vvOffsetTop: number; scale?: number; vkHeight?: number }): number | null {
+  if (r.vkHeight && r.vkHeight > 0) {
+    const top = r.innerHeight - r.vkHeight
+    return r.vkHeight >= MIN_KEYBOARD_PX ? Math.max(0, Math.round(top)) : null
+  }
+  if (Math.abs((r.scale ?? 1) - 1) > 0.01) return null
+  const top = Math.min(r.innerHeight, Math.max(0, r.vvOffsetTop + r.vvHeight))
+  return r.innerHeight - top >= MIN_KEYBOARD_PX ? Math.round(top) : null
+}
+
+/** The bottom sheet that holds the field, with the keyboard up: its foot ON the keyboard's top
+ *  edge (`bottom`, px from the layout's foot) and at most as tall as the room between the top bar
+ *  (`barBottom`) and the keys, less a strip of map kept in sight above it (`strip`) — never less
+ *  than `minHeight`, so the field and a row stay usable on the smallest phone. The sheet keeps its
+ *  own (Ebenen) height when that is lower: the CSS takes `min(its cap, maxHeight)`. */
+export function keySheetBox(r: { innerHeight: number; kbTop: number | null; barBottom: number; strip: number; minHeight: number }): { bottom: number; maxHeight: number } | null {
+  if (r.kbTop == null) return null
+  const bottom = Math.max(0, Math.round(r.innerHeight - r.kbTop))
+  const maxHeight = Math.max(r.minHeight, Math.round(r.kbTop - r.barBottom - r.strip))
+  return { bottom, maxHeight }
+}
+
+/** How often an iOS pan may be undone: at most `max` corrections inside `windowMs`. Past that the
+ *  field must be under the keys for real (iOS re-pans as fast as it is undone) — stop fighting and
+ *  let iOS show the caret. Pure: returns the kept history, the caller stores it. */
+export function mayCorrect(history: readonly number[], now: number, max = 6, windowMs = 1000): { ok: boolean; history: number[] } {
+  const recent = history.filter((t) => now - t < windowMs)
+  if (recent.length >= max) return { ok: false, history: recent }
+  return { ok: true, history: [...recent, now] }
+}
+
+/** Focus a field without letting Safari scroll the page to it. For the moment of focus the field
+ *  stands 2000px above the screen (nothing to scroll up to), then it is back before the next
+ *  paint; `preventScroll` says the same to every browser that honours it. Call it inside the tap
+ *  (a click / touchend handler, or an effect React flushes inside it) — iOS raises the keyboard
+ *  only for a focus made inside a user gesture. */
+export function focusWithoutPan(el: HTMLElement | null) {
+  if (!el) return
+  const prev = el.style.transform
+  el.style.transform = 'translateY(-2000px)'
+  el.focus({ preventScroll: true })
+  requestAnimationFrame(() => { el.style.transform = prev })
+}
+
+/** A tap on a field that does not have the caret yet: focused by us (`focusWithoutPan`) instead of
+ *  by Safari, which would scroll the page to it first. The tap's own click is cancelled, so the
+ *  caret lands at the end — right for the short fields this is for. */
+export function noPanTouchEnd(e: React.TouchEvent<HTMLElement>) {
+  const el = e.currentTarget
+  if (document.activeElement === el || !e.cancelable) return
+  e.preventDefault()
+  focusWithoutPan(el)
+}
+
+function scrollChain(from: Element): ScrollBox[] {
+  const chain: ScrollBox[] = []
+  for (let node: Element | null = from; node && node !== document.body; node = node.parentElement) {
+    const css = getComputedStyle(node)
+    chain.push({ overflowX: css.overflowX, overflowY: css.overflowY, top: node.scrollTop,
+      maxX: node.scrollWidth - node.clientWidth, maxY: node.scrollHeight - node.clientHeight })
+  }
+  return chain
+}
+
+/** Guards 2 and 3 (see the head of this file) for a whole surface while `enabled` (the Karte on a
+ *  phone). Idle until a text field has the caret; never re-renders anything. */
+export function useTypingLock(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return
+    const vv = window.visualViewport
+    let history: number[] = []
+    const typing = () => isTypingTarget(document.activeElement)
+    const unpan = () => {
+      const pan = Math.max(window.scrollY || 0, Math.round(vv?.offsetTop ?? 0))
+      if (pan < 1) return
+      // pinch-zoomed: the offset is the zoom's, not iOS's pan — leave it to the finger
+      if (vv && Math.abs((vv.scale || 1) - 1) > 0.01) return
+      const next = mayCorrect(history, Date.now())
+      history = next.history
+      if (next.ok) window.scrollTo(0, 0)
+    }
+    let frame = 0
+    const soon = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; unpan() }) }
+    // a focus moves the page a beat later (the keyboard's animation), and a dismissal can leave it
+    // moved with no event at all (iOS): look again after both
+    let late: ReturnType<typeof setTimeout>[] = []
+    const onFocus = () => { soon(); late.forEach(clearTimeout); late = [setTimeout(unpan, 250), setTimeout(unpan, 600)] }
+
+    // the drag: a touch that nothing under the finger can scroll does not move the page
+    let x0 = 0, y0 = 0, target: Element | null = null, free = false
+    const start = (e: TouchEvent) => {
+      x0 = e.touches[0]?.clientX ?? 0
+      y0 = e.touches[0]?.clientY ?? 0
+      target = e.target instanceof Element ? e.target : null
+      // the map pans itself (MapLibre, touch-action: none), a field selects text, and a surface that
+      // owns its gesture says so (overlays · data-swipe-ignore)
+      free = !!target?.closest('input, textarea, [contenteditable="true"], .maplibregl-canvas-container, [data-swipe-ignore]')
+    }
+    const move = (e: TouchEvent) => {
+      if (!typing() || free || !target || e.touches.length !== 1 || !e.cancelable) return
+      const t = e.touches[0]
+      const dx = x0 - t.clientX, dy = y0 - t.clientY
+      const axis = touchAxis(dx, dy)
+      if (!axis) return
+      if (!touchMayScroll({ axis, dy, ignored: false, inModal: true, chain: scrollChain(target) })) e.preventDefault()
+    }
+
+    vv?.addEventListener('scroll', soon)
+    vv?.addEventListener('resize', soon)
+    window.addEventListener('scroll', soon, { passive: true })
+    window.addEventListener('focusin', onFocus)
+    window.addEventListener('focusout', onFocus)
+    document.addEventListener('touchstart', start, { passive: true })
+    document.addEventListener('touchmove', move, { passive: false })
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      late.forEach(clearTimeout)
+      vv?.removeEventListener('scroll', soon)
+      vv?.removeEventListener('resize', soon)
+      window.removeEventListener('scroll', soon)
+      window.removeEventListener('focusin', onFocus)
+      window.removeEventListener('focusout', onFocus)
+      document.removeEventListener('touchstart', start)
+      document.removeEventListener('touchmove', move)
+    }
+  }, [enabled])
+}
+
+/** The px the top bar takes from the layout's top (its own box, not where a transform shows it). */
+function barBottomOf(sel: string): number {
+  const bar = document.querySelector<HTMLElement>(sel)
+  return bar ? bar.offsetTop + bar.offsetHeight : 0
+}
+
+/** Guard 1's placement: while a text field INSIDE `ref` has the caret and a keyboard is up, the
+ *  element gets `data-kb` and `--ks-bottom` / `--ks-max` (keySheetBox) — written per frame on the
+ *  element, never a React render. Off the keyboard both go, and the sheet is its normal self. */
+export function useKeySheet(ref: RefObject<HTMLElement | null>, { bar = '.topbar', strip = 24, minHeight = 132 } = {}) {
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const vv = window.visualViewport
+    const vk = (navigator as Navigator & { virtualKeyboard?: EventTarget & { boundingRect?: DOMRectReadOnly } }).virtualKeyboard
+    let frame = 0
+    let last = ''
+    const measure = () => {
+      frame = 0
+      const focused = el.contains(document.activeElement) && isTypingTarget(document.activeElement)
+      const kbTop = !focused ? null : keyboardTop({
+        innerHeight: window.innerHeight, vvHeight: vv?.height ?? window.innerHeight, vvOffsetTop: vv?.offsetTop ?? 0,
+        scale: vv?.scale ?? 1, vkHeight: vk?.boundingRect?.height ?? 0,
+      })
+      const box = keySheetBox({ innerHeight: window.innerHeight, kbTop, barBottom: barBottomOf(bar), strip, minHeight })
+      const key = box ? `${box.bottom}|${box.maxHeight}` : ''
+      if (key === last) return
+      last = key
+      if (box) {
+        el.style.setProperty('--ks-bottom', `${box.bottom}px`)
+        el.style.setProperty('--ks-max', `${box.maxHeight}px`)
+        el.setAttribute('data-kb', '')
+      } else {
+        el.style.removeProperty('--ks-bottom')
+        el.style.removeProperty('--ks-max')
+        el.removeAttribute('data-kb')
+      }
+    }
+    const update = () => { if (!frame) frame = requestAnimationFrame(measure) }
+    let late: ReturnType<typeof setTimeout>[] = []
+    const onFocus = () => { update(); late.forEach(clearTimeout); late = [setTimeout(update, 250), setTimeout(update, 700)] }
+    vv?.addEventListener('resize', update)
+    vv?.addEventListener('scroll', update)
+    vk?.addEventListener('geometrychange', update)
+    window.addEventListener('resize', update)
+    window.addEventListener('focusin', onFocus)
+    window.addEventListener('focusout', onFocus)
+    update()
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      late.forEach(clearTimeout)
+      vv?.removeEventListener('resize', update)
+      vv?.removeEventListener('scroll', update)
+      vk?.removeEventListener('geometrychange', update)
+      window.removeEventListener('resize', update)
+      window.removeEventListener('focusin', onFocus)
+      window.removeEventListener('focusout', onFocus)
+    }
+  }, [ref, bar, strip, minHeight])
+}
