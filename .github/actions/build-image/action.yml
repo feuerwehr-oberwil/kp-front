@@ -26,7 +26,9 @@ runs:
         load: ${{ inputs.export-path == '' }}
         outputs: ${{ inputs.export-path != '' && format('type=docker,dest={0}', inputs.export-path) || '' }}
         tags: ghcr.io/feuerwehr-oberwil/kp-front:ci
-        build-args: GIT_SHA=${{ github.sha }}
+        # CI's full revision belongs to the runtime/label. Its frontend keeps the existing
+        # test-build stamp so a backend-only revision can reuse the unchanged SPA layer.
+        build-args: RUNTIME_GIT_SHA=${{ github.sha }}
         labels: org.opencontainers.image.revision=${{ github.sha }}
         # Read the old scope during the transition; independent consumers never export it.
         cache-from: |

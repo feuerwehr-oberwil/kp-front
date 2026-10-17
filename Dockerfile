@@ -106,9 +106,13 @@ RUN chmod +x /app/backend/start.sh
 # Last in the stage on purpose: a changing sha invalidates no layer above it.
 ARG GIT_SHA=""
 ARG RAILWAY_GIT_COMMIT_SHA=""
+# CI identifies the complete image without invalidating the frontend's test-build layer.
+# Source/release deployments still use GIT_SHA / Railway's SHA in BOTH stages as before.
+ARG RUNTIME_GIT_SHA=""
 ARG BUILD_TIME=""
 ENV GIT_SHA=${GIT_SHA:-$RAILWAY_GIT_COMMIT_SHA} \
     BUILD_TIME=${BUILD_TIME}
+ENV GIT_SHA=${RUNTIME_GIT_SHA:-$GIT_SHA}
 
 USER app
 CMD ["/app/backend/start.sh"]

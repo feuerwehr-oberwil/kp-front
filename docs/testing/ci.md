@@ -56,7 +56,10 @@ still builds its own image through the same composite action.
 The frontend Docker stage copies only its actual inputs: source, public assets, package/lock
 files, TypeScript/Vite config, `index.html`, and the coverage floor read by Vite's config. Add a
 copy when introducing another build-time input. Backend/docs/workflow changes should reuse the
-SPA layer; frontend changes must invalidate it. Python dependencies are installed as the runtime
+SPA layer in CI; frontend changes must invalidate it. CI stamps the full revision in its image
+label and runtime via `RUNTIME_GIT_SHA`, leaving the frontend's existing test-build stamp alone.
+Source/release builds still stamp their full revision in both stages, so changing that revision
+also rebuilds their SPA. Python dependencies are installed as the runtime
 user so copying a new SPA does not recursively re-own the entire virtualenv.
 
 ## Browser suite selection
