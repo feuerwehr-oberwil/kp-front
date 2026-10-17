@@ -221,7 +221,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const catOff = useCallback((id: string) => { const c = cats.get(id); return !!c && hiddenCats.has(c.id) }, [cats, hiddenCats])
   const selObj = sel?.kind === 'object' ? byId.get(sel.id) ?? null : null
   // titled and typed by the station's module catalogue, as the Einsatz's plan chooser is
-  const docs = useMemo(() => (selObj ? viewerPlanDocs(selObj, C.floorsRow, moduleCatalogue()) : []), [selObj, C.floorsRow])
+  const docs = useMemo(() => (selObj ? viewerPlanDocs(selObj, C.floorsRow, moduleCatalogue(), C.planRow) : []), [selObj, C.floorsRow, C.planRow])
   const openDoc = surface ? docs.find((d) => d.doc.id === surface) ?? null : null
 
   // ── offline: which of the object's plans this device holds (lib/karte/availability) ─────────
@@ -231,7 +231,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const avail = useObjectAvailability(selObj, availNonce)
   const docHeld = (d: { plan: StationObject['plans'][number] | null } | null): boolean | null => {
     if (!d || !avail) return null
-    return d.plan ? avail.plans[planKey(d.plan)] ?? false : avail.gebaeude === 'device'
+    // opens here at all (◐ included: a soft deep zoom, storeys partly) — lib/karte/availability · planLamp
+    return (d.plan ? avail.plans[planKey(d.plan)] ?? 'online' : avail.gebaeude ?? 'online') !== 'online'
   }
   const openHeld = docHeld(openDoc)
   useEffect(() => {
