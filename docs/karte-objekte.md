@@ -84,7 +84,7 @@ the object, under the same module rule as `lastVisit`.
 `src/components/karte/` — its own lazy chunk, mounted by `App` for the `/karte` route (deep link:
 `/karte?objekt=<id>` selects an object; the address follows the selection without a history
 entry). It is the app's home with no Einsatz open (below), and over an open one it is reached from
-the Einsatz menu; a deep link at start opens no Einsatz behind it (the same rule as `/besuche`).
+the Einsatz menu's «Einsatz verlassen»; a deep link at start opens no Einsatz behind it (the same rule as `/besuche`).
 Not for a link session.
 
 What it reuses, so nothing forks:
@@ -189,17 +189,31 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
 - **`appScreen`** picks the screen: the Objektbesuche surface, the viewer, the boot's splash, an
   Einsatz — and the launcher card only for a **link session** whose Einsatz could not be fetched
   (it has no station to look at). A visitor who is not signed in still gets the login screen.
-- **«Einsätze ▾»** (top left of the bar) opens the launcher's content as a sheet: running rows,
-  alarms with Öffnen / ×, «Manueller Einsatz» for editors, Verlauf, Objektbesuche, who is signed
-  in with Abmelden, settings / help / install and the build label. `App` renders those rows (one
-  `launcherBody`, the same handlers as the card); the viewer only opens and closes the sheet. The
-  badge is running Einsätze + alarms waiting to be taken.
+- **«Einsätze ▾»** (top left of the bar) opens **the same menu as inside an Einsatz** (owner,
+  17.10.2026 — it was the old launcher card with big launch buttons): one component,
+  `panels/AppMenuRows`, renders the rows under the Einsatz menu's card (`IncidentSwitcher`) and the
+  whole of this sheet, so the two cannot drift. Here it has no card (no Einsatz is being worked
+  on): the «Einsätze» label, the running Einsätze as rows (laufende Zeit · title · short address —
+  the one the viewer covers too, whose row only steps the viewer aside), the alarms waiting to be
+  taken (bell · «Neuer Alarm» · title · address · «Öffnen», and the × that hides one on this
+  device only — both locked while a take runs), «Alle Einsätze», «Einsatz eröffnen» (editors);
+  then «App»: Objektbesuche, Einstellungen, **«Auf diesem Gerät»** (the viewer's own availability
+  sheet, in the slot the Einsatz menu gives «Offline-Bereitschaft», which is about an open
+  Einsatz), Funktionen & Hilfe, Installieren where offered; who is signed in with Abmelden, the
+  build label. With nothing running and nothing to take, one quiet line says «Keine offenen
+  Einsätze». The Rückmeldung prompt (`trouble`) heads the sheet. `App · homeMenu` hands in the
+  handlers; the viewer only opens and closes the sheet (`einsaetze.render(close, onDevice)`). The
+  badge is running Einsätze + alarms waiting to be taken. The old card (`App · launcherBody`) is
+  left only for a link session whose Einsatz could not be fetched.
 - **Alarms** show in the Meldeleiste and the banner (no «Anhängen»: no Einsatz is being worked on
   screen); nothing switches by itself. Taking one keeps the 12 s «Alarm übernommen · Rückgängig»,
   and the undo returns to the viewer, not into another open Einsatz.
-- **From an Einsatz:** the Einsatz menu's «App» group starts with «Karte & Objekte», sub line
-  «Zurück zu <Objekt · Modul>» when this device has a viewer state, else «Objekte, Pläne und
-  Gebäude ansehen». It replaces the address with `/karte` (no history entry — the operational
+- **From an Einsatz:** **«Einsatz verlassen»** (owner, 17.10.2026; it was «Karte & Objekte» in the
+  «App» group) — about this Einsatz, so in the Einsätze group as the first action under the
+  running rows, above «Alle Einsätze», with the map glyph (never the Abmelden one). «verlassen» must
+  not read as closing, so the sub line says the Einsatz runs on: «Läuft weiter · zurück zu
+  <Objekt · Modul>» when this device has a viewer state, else «Läuft weiter · zur Karte». Never
+  for a link session (no `onOpenKarte`). It replaces the address with `/karte` (no history entry — the operational
   screens have none, `objectVisits/route`), and the viewer says «Wieder bei …» once. The way
   back is the red chip or the sheet's row, which only step the viewer aside; opening ANOTHER
   Einsatz leaves the viewer in the same step.

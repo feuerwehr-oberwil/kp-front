@@ -512,8 +512,9 @@ entry may also carry `refs: [{source, id}]`, and `PUT /api/objects/{id}` accepts
 
 - Code: `src/objectVisits/` (store, outbox, merge, catalogue, api, types — each with tests) and
   `src/components/objectVisits/` (UI). Copy: `appConfig.copy.objectVisits.*` in all four locales.
-- Entry: the «Objektbesuche» button of home's «Einsätze ▾» sheet (the launcher's content since
-  16.10.2026; module on + role can capture or read), the Einsatz menu's «App» group, and
+- Entry: the «Objektbesuche» row in the «App» group of the app menu — home's «Einsätze ▾» sheet
+  and the Einsatz menu render the same rows (`panels/AppMenuRows`, 17.10.2026; module on + role
+  can capture or read) —, and
   «Karte & Objekte» (`…&from=karte`: leaving lands on the viewer again);
   routes `/besuche`, `/besuche/<id>`, `/besuche/neu?object=<source>:<id>|<uuid>&ref=<workRef>`,
   and for a visit at a place `/besuche/neu?lat=<lat>&lng=<lng>&label=<label>[&address=<address>]`

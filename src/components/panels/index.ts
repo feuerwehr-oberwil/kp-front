@@ -2,6 +2,7 @@
 export { SettingsSheet } from './SettingsSheet'
 export { OfflineReadinessSheet } from './OfflineReadinessSheet'
 export { IncidentSwitcher } from './IncidentSwitcher'
+export { AppMenuRows } from './AppMenuRows'
 export { ShareIncident, ShareIncidentSheet } from './ShareIncident'
 export { EinsatzWizard } from './EinsatzWizard'
 export { IncomingAlarmBanner, NewIncidentBanner, ReviewBanner } from './Banners'

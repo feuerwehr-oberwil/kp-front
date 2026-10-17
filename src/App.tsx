@@ -47,7 +47,7 @@ import { useDiveraWatch } from './lib/useDiveraWatch'
 import { dismissAlarm, loadDismissedAlarms } from './lib/diveraDismiss'
 import { useIncidentWatch } from './lib/useIncidentWatch'
 import { loadReviewedIncidents, needsIntakeReview, sameIncidentList, saveReviewedIncident, shouldReopenClosed } from './lib/incidentAlerts'
-import { EinsatzWizard, DatenquellenPanel, FeedbackPrompt, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, SettingsSheet } from './components/panels'
+import { AppMenuRows, EinsatzWizard, DatenquellenPanel, FeedbackPrompt, FeedbackSheet, HistoryPanel, IncomingAlarmBanner, NewIncidentBanner, SettingsSheet } from './components/panels'
 import { Meldeleiste } from './components/Meldeleiste'
 import { SessionExpiredMeldung } from './components/SessionExpiredMeldung'
 import { pickTrouble, readTrouble, recordTrouble, type TroubleEvent } from './lib/trouble'
@@ -904,10 +904,11 @@ export default function App() {
     if (await confirmLogout({ online: navigator.onLine, unsyncedEntries })) await logout()
   }
 
-  // The launcher's content: the open Einsätze to resume + the Divera alarms to take, shown
+  // The launcher card's content: the open Einsätze to resume + the Divera alarms to take, shown
   // directly (no "Kein offener Einsatz" dead-end), with manual create always on. Since variant B
-  // (16.10.2026) it is the «Einsätze ▾» sheet of «Karte & Objekte» — the SAME rows and handlers,
-  // rendered here so nothing forks; only a link session still sees it as the launch card.
+  // (16.10.2026) an account never sees the card — home is «Karte & Objekte», whose «Einsätze ▾»
+  // opens the app menu (`homeMenu` below); only a LINK session whose Einsatz could not be fetched
+  // still lands on it (lib/karte/home · appScreen), which is why its account-only rows stay.
   const openIncidents = allIncidents.filter((i) => !i.is_archived)
   // ⚠️ The alarms that will ACTUALLY render, dismissals included. `hasLanding` counted the raw
   // pool while the list below filtered out anything dismissed on this device — so once every
@@ -927,7 +928,7 @@ export default function App() {
     else void openIncident(i.id, { meta: i })
   }
 
-  /** `close`: the «Einsätze» sheet shuts when one of its rows opens something over the viewer */
+  /** `close`: kept from the days the card was also the «Einsätze» sheet (a no-op on the card) */
   const launcherBody = (close: () => void = () => {}) => (
     <>
       {trouble && !linkScoped && (
@@ -1047,6 +1048,45 @@ export default function App() {
     </>
   )
 
+  /** Home's «Einsätze ▾» (owner, 17.10.2026): the SAME menu as inside an Einsatz — the same rows
+   *  (panels/AppMenuRows), without the card, plus the alarms waiting to be taken. A row that opens
+   *  something over the viewer shuts the sheet (`close`); «Auf diesem Gerät» is the viewer's own
+   *  (`onDevice`), in the slot the Einsatz menu gives «Offline-Bereitschaft». Never for a link
+   *  session (appScreen gives it no viewer), so every account door is drawn here. */
+  const homeMenu = (close: () => void, onDevice: () => void) => (
+    <>
+      {trouble && !linkScoped && (
+        <FeedbackPrompt
+          trouble={trouble}
+          onOpen={() => { close(); setFeedbackFor(trouble); setTrouble(null) }}
+          onDismiss={() => setTrouble(null)}
+        />
+      )}
+      <AppMenuRows
+        activeId={null}
+        incidents={allIncidents}
+        isEditor={isEditor}
+        user={{ display_name: user?.display_name ?? '', color: user?.color ?? null, role: user?.role ?? 'viewer' }}
+        opening={opening}
+        alarms={landingAlarms.length > 0 ? {
+          list: landingAlarms, taking,
+          onTake: (a) => void takeAndOpen(a, takeBack),
+          onDismiss: (a) => setDismissedAlarms(dismissAlarm(a.divera_id)),
+        } : undefined}
+        // the open Einsatz behind the viewer steps aside rather than reopening (openOrUncover)
+        onSwitch={(i) => { if (i.id === activeId) close(); openOrUncover(i) }}
+        onHistory={() => { close(); setOverlay('history') }}
+        onCreate={() => { close(); setOverlay('create') }}
+        onObjectVisits={objectVisitsConfig().enabled ? () => { close(); enterObjectVisits() } : undefined}
+        onSettings={() => { close(); setLandingSheet('settings') }}
+        offline={{ label: appConfig.copy.karte.device.title, onOpen: onDevice }}
+        onHelp={() => { close(); setLandingSheet('help') }}
+        onInstall={!isStandalone() && installOffered(getInstallPlatform()) ? () => { close(); setLandingSheet('install') } : undefined}
+        onLogout={() => { close(); void askLogout() }}
+      />
+    </>
+  )
+
   // the viewer's red chip: the Einsatz it was entered from first, else the newest running one
   const runningNow = openIncidents.filter((i) => isIncidentRunning(i))
     .sort((a, b) => (a.id === activeId ? -1 : b.id === activeId ? 1 : (b.started_at ?? '').localeCompare(a.started_at ?? '')))
@@ -1155,7 +1195,7 @@ export default function App() {
         // the banners below: shown, never switched to by themselves (owner, 16.10.2026).
         <Suspense fallback={<Splash />}>
           <KarteApp
-            einsaetze={{ badge: runningNow.length + landingAlarms.length, render: launcherBody }}
+            einsaetze={{ badge: runningNow.length + landingAlarms.length, render: homeMenu }}
             announceReturn={karteFromEinsatz}
             onOpenVisits={openVisitsFromKarte}
             running={runningNow}
