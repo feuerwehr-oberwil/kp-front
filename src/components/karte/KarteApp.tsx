@@ -4,7 +4,7 @@
 // What it is: the station area on the Einsatz's map (MapView, its Ebenen, the vehicles, the
 // weather), every station object as a red outline with its name tag (a key box as the FKS
 // «Schlüsseldepot»), one panel for whatever is known about the selected place, the object's plans
-// in the NavRail grammar (on a phone: as rows in the slide-up sheet, KartePanel), and the reference
+// in the NavRail grammar (on a phone: as rows in its slide-up sheet, KartePanel), and the reference
 // tools — Punkt setzen, Messen, Gefahrgut — that need no symbol placed first.
 //
 // ⚠️ What it never is: an Einsatz. It holds NO workspace, writes no drawing, binds no plan and
@@ -53,13 +53,14 @@ import { fitSimilarity } from '../../lib/georef'
 import { withPdfPage } from '../../lib/whiteboard'
 import { coordOf, openableCount, searchObjects } from '../../lib/karte/search'
 import {
-  nearbyObjects, nearestPoints, objectAtAddress, objectBuildings, objectVisitHref, pinNear, placeVisitHref,
+  nearbyObjects, nearestPoints, objectAtAddress, objectBuildings, objectVisitHref, pinNear, placeVisitHref, REPORT_CHECKLIST,
   normAddress, pointsFromGeoJson, ringAt, splitAddress, type NamedPoint,
 } from '../../lib/karte/places'
 import { LABEL_MIN_ZOOM, placeTags, samePlacement, tagRank, tagSize, type Rect, type TagCandidate } from '../../lib/karte/labels'
 import { symPx } from '../../lib/mapView'
 import { cellOf, cellsFor, loadCell, OUTLINE_MIN_ZOOM } from '../../lib/karte/outlines'
 import { GEBAEUDE_DOC, viewerPlanDocs } from '../../lib/karte/plans'
+import { moduleCatalogue } from '../../lib/planOrder'
 import { karteHref } from '../../lib/karte/route'
 import { karteRadarStore, loadKarteView, loadViewerLayerPrefs, saveKarteView, saveViewerLayerPrefs, viewerLayers, type KarteTool } from '../../lib/karte/session'
 import { KEY_BOX_SYMBOL, KeyBoxSvg } from '../../lib/karte/keyBox'
@@ -102,6 +103,9 @@ const COUNTRY_CENTER: LngLat = [8.2275, 46.8182]
 const EMPTY_OBJECTS: StationObject[] = []
 const NO_TILES: TileXY[] = []
 const NOOP = () => {}
+/** how much of a phone's height the object sheet may cover (Ebenen's cap, 15-mobile · .layers-card):
+ *  a place framed for it stands in the strip above */
+const SHEET_SHARE = 0.72
 /** px between a building's south edge and the tag hanging under it */
 const TAG_GAP = 4
 
@@ -150,10 +154,14 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
 
   // a frame asked for before the map exists (a deep link resolves faster than MapLibre loads)
   const pendingFly = useRef<LngLat | null>(null)
+  // read by the (once-per-mount) deep-link frame, which must not re-run when the layout flips
+  const phoneRef = useRef(phone)
+  useEffect(() => { phoneRef.current = phone }, [phone])
   const flyPending = useCallback(() => {
     const map = mapRef.current
     if (!map || !pendingFly.current) return
-    map.jumpTo({ center: pendingFly.current, zoom: 17.6 })
+    // on a phone the sheet opens over the lower part: frame the object in the strip above it
+    map.jumpTo({ center: pendingFly.current, zoom: 17.6, ...(phoneRef.current ? { padding: { top: 80, bottom: window.innerHeight * SHEET_SHARE, left: 0, right: 0 } } : {}) })
     pendingFly.current = null
   }, [])
 
@@ -175,7 +183,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         const surf = start.view?.objectId === o.id ? start.view.surface : 'karte'
         if (surf === 'gebaeude') setSurface(GEBAEUDE_DOC)
         else if (typeof surf === 'object') {
-          const d = viewerPlanDocs(o, C.floorsRow).find((x) => x.plan?.id === surf.plan)
+          const d = viewerPlanDocs(o, C.floorsRow, moduleCatalogue()).find((x) => x.plan?.id === surf.plan)
           if (d) setSurface(d.doc.id)
         }
       }
@@ -198,7 +206,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const objects = cat?.data?.objects ?? EMPTY_OBJECTS
   const byId = useMemo(() => new Map(objects.map((o) => [o.id, o])), [objects])
   const selObj = sel?.kind === 'object' ? byId.get(sel.id) ?? null : null
-  const docs = useMemo(() => (selObj ? viewerPlanDocs(selObj, C.floorsRow) : []), [selObj, C.floorsRow])
+  // titled and typed by the station's module catalogue, as the Einsatz's plan chooser is
+  const docs = useMemo(() => (selObj ? viewerPlanDocs(selObj, C.floorsRow, moduleCatalogue()) : []), [selObj, C.floorsRow])
   const openDoc = surface ? docs.find((d) => d.doc.id === surface) ?? null : null
 
   // ── offline: which of the object's plans this device holds (lib/karte/availability) ─────────
@@ -291,7 +300,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const measure = useMeasure(tool === 'measure')
   const [erg, setErg] = useState<{ un: string; mode: ErgRingMode; center: LngLat | null; at: Date }>(() => ({ un: '', mode: DEFAULT_ERG_RING_MODE, center: null, at: new Date() }))
   const [viewsOpen, setViewsOpen] = useState(false)
-  const [full, setFull] = useState(false)
+  // the phone sheet pushed away / ✕ while its place stays selected (outline, tag, pin): a tap on
+  // the place again brings it back (owner R2). Every new selection opens it.
+  const [sheetShut, setSheetShut] = useState(false)
   const selPoint = (x: Sel | null): LngLat | null => {
     if (!x) return null
     if (x.kind !== 'object') return x.at
@@ -370,24 +381,26 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const featured = useMemo(() => objects.filter((o) => o.kind === 'einsatzobjekt').slice(0, 6), [objects])
 
   // ── selecting ─────────────────────────────────────────────────────────────────────────────
-  const panelPad = () => (phone ? { top: 80, bottom: window.innerHeight * 0.5, left: 0, right: 0 } : { top: 80, bottom: 0, left: 440, right: 0 })
+  // on a phone the sheet is Ebenen's (up to ~72 % of the height): the place goes in the strip above
+  const panelPad = () => (phone ? { top: 80, bottom: window.innerHeight * SHEET_SHARE, left: 0, right: 0 } : { top: 80, bottom: 0, left: 440, right: 0 })
   const flyTo = (at: LngLat, zoom = 17.6) => mapRef.current?.easeTo({ center: at, zoom: Math.max(view.zoom, zoom), padding: panelPad(), duration: 700 })
   /** keep the tapped place visible beside / above the panel, without changing the zoom */
   const reveal = (at: LngLat) => {
     const map = mapRef.current
     if (!map) return
     const p = map.project(at)
-    const hidden = phone ? p.y > window.innerHeight * 0.45 : p.x < 440
+    const hidden = phone ? p.y > window.innerHeight * (1 - SHEET_SHARE) - 16 || p.y < 90 : p.x < 440
     if (hidden) map.easeTo({ center: at, padding: panelPad(), duration: 500 })
   }
   const selectObject = (id: string, fly = true) => {
     const o = byId.get(id)
     if (!o) return
     setSel({ kind: 'object', id })
-    setSurface(null); setSearchOpen(false); setFull(false)
+    setSurface(null); setSearchOpen(false); setSheetShut(false)
     if (tool !== 'measure' && tool !== 'erg') setToolState(null)
     const at = coordOf(o)
-    if (at) { if (fly) flyTo(at) } else if (o.address && online) {
+    // a tapped object is revealed beside / above the panel like a tapped building
+    if (at) { if (fly) flyTo(at); else reveal(at) } else if (o.address && online) {
       // no coordinates in the catalogue: the address says roughly where — marked «ungefähr»
       geocodeSearch(o.address, 1).then(([hit]) => {
         if (!hit) return
@@ -399,16 +412,19 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }
   const selectBuilding = (at: LngLat, ring: LngLat[] | null, address: string | null = null) => {
     setSel({ kind: 'building', at, ring, address })
-    setSurface(null); setSearchOpen(false); setFull(false)
+    setSurface(null); setSearchOpen(false); setSheetShut(false)
     if (tool !== 'measure' && tool !== 'erg') setToolState(null)
     reveal(at)
   }
   const dropPin = (at: LngLat) => {
     setSel({ kind: 'pin', at })
-    setSurface(null); setSearchOpen(false); setFull(false); setToolState(null)
+    setSurface(null); setSearchOpen(false); setSheetShut(false); setToolState(null)
     reveal(at)
   }
-  const deselect = () => { setSel(null); setSurface(null); setFull(false) }
+  const deselect = () => { setSel(null); setSurface(null); setSheetShut(false) }
+  // ✕ / pushed down: on the tablet the panel IS the selection; on a phone the sheet only covers
+  // the map, so it goes and the place stays selected for a second look
+  const closePanel = () => { if (phone) setSheetShut(true); else deselect() }
 
   const pickAddress = (hit: GeoHit) => {
     setSearchOpen(false); setQuery(splitAddress(hit.label)[0])
@@ -604,27 +620,23 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   useEffect(() => () => cancelPress(), [])
 
   // ── actions from the panel ────────────────────────────────────────────────────────────────
-  const startVisit = () => {
+  /** «Objektbesuch» (the chooser) or «Melden» (`checklist` = the station's Fehlermeldung, asked
+   *  for up front — objectVisits/NewVisit falls back to the chooser where there is none) */
+  const startVisit = (checklist?: string) => {
     if (!sel) return
-    if (sel.kind === 'object') { onOpenVisits(objectVisitHref(sel.id)); return }
+    if (sel.kind === 'object') { onOpenVisits(objectVisitHref(sel.id, checklist)); return }
     if (sel.kind === 'building') {
       const address = register.info?.address ?? sel.address
       const street = splitAddress(address)[0]
-      onOpenVisits(placeVisitHref({ at: sel.at, label: street || C.building, address }))
+      onOpenVisits(placeVisitHref({ at: sel.at, label: street || C.building, address, checklist }))
       return
     }
     onOpenVisits(placeVisitHref({
       at: sel.at,
       label: pinNearHit ? fillTemplate(C.pinLabelNear, { a: pinNearHit.label }) : C.pin,
       address: pinNearHit && pinHit?.hit ? normAddress(pinHit.hit.label) : null,
+      checklist,
     }))
-  }
-  const measureHere = () => {
-    const at = point
-    setToolState('measure')
-    measure.setMode('line')
-    measure.reset()
-    if (at) measure.setPath(() => [at])
   }
   const copyCoords = () => {
     if (sel?.kind !== 'pin') return
@@ -687,6 +699,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           nearState: !online && !pinHit ? 'offline' : !pinHit ? 'loading' : pinNearHit ? 'ok' : 'none',
         }
   const onMapSurface = !openDoc
+  /** the panel is on screen: on the map, not under Messen, and on a phone not under a tool's own
+   *  card nor pushed away */
+  const panelShown = onMapSurface && !!panelSel && tool !== 'measure' && !(phone && (tool === 'erg' || tool === 'layers' || sheetShut))
   const railShown = !phone && !!selObj && docs.length > 0
   const tabletTools = [
     { id: 'pin', icon: 'pin', label: C.tools.pin },
@@ -711,7 +726,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     return () => window.removeEventListener('resize', on)
   }, [])
   const selId = selObj?.id ?? null
-  const covered = `${!!panelSel}|${full}|${tool}|${searchOpen}|${sheetOpen}|${!!openDoc}|${railShown}`
+  const covered = `${!!panelSel}|${sheetShut}|${tool}|${searchOpen}|${sheetOpen}|${!!openDoc}|${railShown}`
   useEffect(() => {
     if (!objectsOn) return
     let alive = true
@@ -871,7 +886,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             </Marker>
           )}
           {sel?.kind === 'pin' && (
-            <Marker longitude={sel.at[0]} latitude={sel.at[1]} anchor="bottom">
+            // the pin is the place: a tap on it brings back the sheet that was pushed away
+            <Marker longitude={sel.at[0]} latitude={sel.at[1]} anchor="bottom" onClick={(e) => { e.originalEvent.stopPropagation(); setSheetShut(false) }}>
               <svg className={s.pinMk} viewBox="0 0 34 44" aria-hidden><path d="M17 43C17 43 3 26 3 16a14 14 0 0 1 28 0c0 10-14 27-14 27z" fill={red} stroke="#fff" strokeWidth="2.5" /><circle cx="17" cy="16" r="5" fill="#fff" /></svg>
             </Marker>
           )}
@@ -879,7 +895,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
 
         {openDoc && selObj && (
           <KarteSurface
-            obj={selObj} doc={openDoc} phone={phone}
+            obj={selObj} doc={openDoc} phone={phone} sym={sym}
             offline={!online} held={openHeld} gebaeude={avail?.gebaeude ?? null}
             onMap={() => setSurface(null)}
             onGeorefMap={openDoc.plan?.georef ? () => { setSurface(null); if (!georefOn) toggleGeoref() } : undefined}
@@ -932,7 +948,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             notHeld={!online ? new Set(docs.filter((d) => docHeld(d) === false).map((d) => d.doc.id)) : null} />
         )}
 
-        {onMapSurface && panelSel && tool !== 'measure' && !(phone && (tool === 'erg' || tool === 'layers')) && (
+        {panelShown && panelSel && (
           <KartePanel
             sel={panelSel}
             register={register}
@@ -941,19 +957,14 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             visits={visitsState}
             canCapture={canCapture}
             docs={docs}
-            georefOn={georefOn}
-            georefAvailable={!!georefPlan}
             offline={!online}
             avail={avail}
             sheet={phone}
-            full={full}
             withRail={railShown}
-            onFull={setFull}
-            onClose={deselect}
-            onMeasureHere={measureHere}
-            onStartVisit={startVisit}
+            onClose={closePanel}
+            onStartVisit={() => startVisit()}
+            onReport={() => startVisit(REPORT_CHECKLIST)}
             onOpenDoc={(id) => { setSurface(id); setToolState(null) }}
-            onToggleGeoref={toggleGeoref}
             onSelectObject={(id) => selectObject(id)}
             onRetryRegister={() => setRegTry((n) => n + 1)}
             // `from=karte`: the visit's «Zurück» lands here again, not on the Objektbesuche list
@@ -1000,7 +1011,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
                 ))}
               </div></div>
             </nav>
-            {onMapSurface && !tool && !panelSel && (
+            {onMapSurface && !tool && !panelShown && (
               <div className={s.phoneUtil}>
                 <button type="button" className={cx(s.utilBtn)} aria-label={C.tools.pin} onClick={() => setTool('pin')}><Icon id="pin" /></button>
                 <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly variant="util" btnClassName={s.utilBtn} glyphClassName={s.utilGlyph}
@@ -1051,7 +1062,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           />
         )}
 
-        {weather.on && weather.layer && weather.radarOn && onMapSurface && !panelSel && (
+        {weather.on && weather.layer && weather.radarOn && onMapSurface && !panelShown && (
           <div className="wb-botleft wx-row">
             <Suspense fallback={null}>
               <WeatherRadarControls radar={weather.radar} frameIndex={weather.playback.frameIndex}

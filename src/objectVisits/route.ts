@@ -24,7 +24,9 @@ export type OvRoute =
   | { kind: 'visit'; id: string; edit?: boolean }
   /** a finished visit's answers on a screen of their own (`/besuche/<id>/antworten`) */
   | { kind: 'answers'; id: string }
-  | { kind: 'new'; object: string; ref: string | null }
+  /** `checklist`: «Melden» from the Karte asks for one checklist up front (`?checkliste=<id>`,
+   *  the station's «Fehlermeldung»); NewVisit falls back to its chooser when the catalogue has none */
+  | { kind: 'new'; object: string; ref: string | null; checklist?: string | null }
 
 export const OV_BASE = '/besuche'
 const EVENT = 'kp:ov-route'
@@ -40,7 +42,10 @@ export function parseOvRoute(pathname: string, search: string): OvRoute | null {
     const ref = q.get('liste')
     return ref ? { kind: 'list', ref } : { kind: 'overview' }
   }
-  if (rest === 'neu') return { kind: 'new', object: q.get('object') ?? '', ref: q.get('ref') || null }
+  if (rest === 'neu') {
+    const checklist = q.get('checkliste')
+    return { kind: 'new', object: q.get('object') ?? '', ref: q.get('ref') || null, ...(checklist ? { checklist } : {}) }
+  }
   // a malformed escape (`/besuche/%E0`) is an unknown visit, never a thrown URIError at boot
   const [first, sub] = rest.split('/')
   let id = first
@@ -58,6 +63,7 @@ export function ovHref(r: OvRoute): string {
     case 'new': {
       const q = new URLSearchParams({ object: r.object })
       if (r.ref) q.set('ref', r.ref)
+      if (r.checklist) q.set('checkliste', r.checklist)
       return `${OV_BASE}/neu?${q.toString()}`
     }
   }

@@ -83,8 +83,6 @@ button.row:active { background: var(--press); }
 .secHead .eyebrow svg { width: 14px; height: 14px; }
 .hint { display: inline-flex; align-items: center; gap: var(--sp-1); font: var(--fw-medium) var(--fs-micro)/1.2 var(--body); color: var(--ink-dim); }
 .hint svg { width: 12px; height: 12px; }
-.card { border: 1px solid var(--border-soft); border-radius: var(--r-sm); background: var(--surface); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
-.cardTitle { font: var(--fw-bold) var(--fs-2)/1.3 var(--body); color: var(--ink); }
 .bullets { margin: 0; padding-left: var(--sp-5); font: var(--fw-medium) var(--fs-3)/1.4 var(--body); color: var(--ink); }
 .bullets.quietList { font-size: var(--fs-2); color: var(--ink-dim); }
 .src { font: var(--fw-medium) var(--fs-micro)/1.4 var(--body); color: var(--ink-dim); }
@@ -94,6 +92,8 @@ button.row:active { background: var(--press); }
 .note svg { width: 16px; height: 16px; flex: none; margin-top: 1px; color: var(--ink-dim); }
 .note.amber { background: var(--amber-12); }
 .note.amber svg { color: var(--amber-strong); }
+/* a missing or quiet fact: a line in the sheet's rhythm, not a box (owner R2) */
+.quietLine { margin: 0; font: var(--fw-medium) var(--fs-1)/1.4 var(--body); color: var(--ink-dim); }
 .tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
 .tag { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 28px; padding: 0 var(--sp-2); border-radius: var(--r-xs);
   background: var(--ink-8); color: var(--ink); font: var(--fw-bold) var(--fs-1)/1.2 var(--body); }
@@ -105,10 +105,6 @@ button.row:active { background: var(--press); }
 .badge.ink { background: var(--ink-8); color: var(--ink-dim); }
 .monoChip { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 var(--sp-1); border: 1px solid var(--border); border-radius: var(--r-xs);
   font: var(--fw-heavy) var(--fs-2)/1 var(--body); background: var(--surface); color: var(--ink); }
-.switch { width: 44px; height: 26px; border-radius: 13px; background: var(--ink-22); position: relative; flex: none; transition: background .15s var(--ease); }
-.switch::after { content: ''; position: absolute; left: 2px; top: 2px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); box-shadow: var(--e1); transition: transform .15s var(--ease); }
-.switch.on { background: var(--blue); }
-.switch.on::after { transform: translateX(18px); }
 .skeleton { height: 14px; border-radius: var(--r-xs); background: var(--ink-8); }
 /* the head while its name is looked up: the bars stand where the title and the address line will */
 .headSkeleton { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-1) 0 2px; }
@@ -116,26 +112,20 @@ button.row:active { background: var(--press); }
 .skSub { height: 12px; width: 40%; }
 .retry { align-self: flex-start; }
 
-/* ── phone: the panel is ONE slide-up sheet over the bottom bar (R1, 17.10.2026) ────────────
-   Two heights. PEEK: the grab bar, the head and the actions — the body is not drawn, so the
-   sheet hugs them. FULL: from under the top bar (where the tablet panel starts) down to the bar,
-   the body scrolling. While a finger drags (SheetGrip · useSheetDrag sets .sheet-dragging and
-   --sheet-h) the body is drawn and the height follows the finger 1:1. */
-.phone .panel, .panel.sheet { top: auto; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto;
-  bottom: calc(var(--rail-h, 60px) + 16px + env(safe-area-inset-bottom)); height: var(--sheet-h, auto);
-  max-height: calc(100% - var(--rail-h, 60px) - 16px - env(safe-area-inset-bottom) - 88px - env(safe-area-inset-top));
-  transition: height .22s var(--ease); }
-.panel.sheet.full { height: var(--sheet-h, calc(100% - var(--rail-h, 60px) - 16px - env(safe-area-inset-bottom) - 88px - env(safe-area-inset-top))); }
-.panel.sheet:global(.sheet-dragging) { transition: none; }
-.panel.sheet:not(.full):not(:global(.sheet-dragging)) .body { display: none; }
-.panel.sheet .body { flex: 1 1 auto; min-height: 0; }
-.grab { display: block; width: 100%; height: 24px; border: none; background: none; padding: 0; cursor: grab; position: relative; flex: none; touch-action: none; }
-.grab::after { content: ''; position: absolute; left: calc(50% - 20px); top: 8px; width: 40px; height: 5px; border-radius: var(--r-pill); background: var(--ink-22); }
-/* the head is a handle too (the finger pushes the head, not the 40px bar); its ✕ stays a button */
-.panel.sheet .head { padding-top: 0; touch-action: none; cursor: grab; }
-.panel.sheet .head button { touch-action: auto; cursor: pointer; }
-/* the actions belong to the peek: under the head, outside the scroller */
-.actions { flex: none; padding: 0 var(--sp-4) var(--sp-4); }
+/* ── phone: the panel is the Ebenen sheet (R2, 17.10.2026) ──────────────────────────────────────
+   KartePanel wears `.layers-card` on a phone, so the frame IS Ebenen's (15-mobile · flush with the
+   bottom edge and both sides, over the bar, the hero corner, hugging its content up to the same
+   cap, the same entrance) — one height, no peek. Only what differs is here: its contents, and
+   its layer — over the bar (--z-chrome) but under the top bar, so the «Einsätze» menu and the
+   search results hung from it still open over the sheet (the doubled class outweighs the card's
+   own z-index whichever stylesheet comes first). */
+.sheet.sheet { z-index: var(--z-chrome-raised); }
+/* the grab bar stands above the head, as over Ebenen's title (15-mobile · .layers-card) */
+.sheet > :global(.ui-sheet-grab) { margin-bottom: -4px; }
+/* the head is the sheet's handle (overlays/swipeDismiss); its ✕ stays a button */
+.sheet .head { padding-top: var(--sp-1); touch-action: none; }
+.sheet .head button { touch-action: auto; }
+.sheet .body { flex: 1 1 auto; min-height: 0; padding: 0 max(var(--sp-4), env(safe-area-inset-right)) var(--sp-4) max(var(--sp-4), env(safe-area-inset-left)); }
 
 /* ── name tags + key boxes on the map ─────────────────────────────────────────────────────── */
 .tagMk { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 4px var(--sp-2); border-radius: var(--r-xs); border: 1.5px solid var(--red-45);
@@ -188,6 +178,14 @@ button.row:active { background: var(--press); }
 /* ── the plan surface (a module PDF · the Gebäude floors) ─────────────────────────────────── */
 .surface { position: absolute; inset: 0; z-index: var(--z-surface); background: var(--board-bg, var(--app-bg)); display: flex; flex-direction: column; }
 .surfaceBody { flex: 1; min-height: 0; position: relative; }
+/* the Einsatz's plan reader (KartePlans · KartePlanBoard) in this surface: its bottom-left row
+   (the object read-out, the Maßstab) would stand on the chip row's corner, and here the chip row
+   already names the object and is the way back — one row in that corner, the Karte's. On a phone
+   the reader ends above that row and the ONE bar (`.phone-tools` lifts it over an Einsatz's two). */
+.surface :global(.wb-botleft) { display: none; }
+/* …and one ground under it: the reader's own (.whiteboard · --app-bg) down to the bar */
+.surface.reader { background: var(--app-bg); }
+.root.phone .surface :global(.whiteboard) { bottom: calc(var(--rail-h) + 16px + var(--tap) + var(--sp-2) + env(safe-area-inset-bottom)); }
 .chipRow { position: absolute; left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w, 60px) + 16px); bottom: 16px; z-index: var(--z-chrome); display: flex; gap: var(--sp-2); flex-wrap: wrap; }
 .phone .chipRow { left: max(8px, env(safe-area-inset-left)); bottom: calc(var(--rail-h, 60px) + 16px + env(safe-area-inset-bottom)); }
 .floors { position: absolute; top: calc(88px + env(safe-area-inset-top)); left: calc(var(--rail-w) + 32px); right: 0; bottom: 0; overflow: auto;

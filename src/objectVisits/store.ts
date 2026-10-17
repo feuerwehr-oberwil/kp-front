@@ -276,12 +276,15 @@ export async function listLocalVisits(): Promise<{ ok: boolean; visits: LocalVis
 
 /** This device's (and this person's) open draft for `(object, workRef)` — what a launch link
  *  resumes before it mints a new visit. */
-export function findOpenDraft(visits: LocalVisit[], objectId: string, workRef: string | null | undefined, owner: string | null | undefined): LocalVisit | null {
+/** `checklist`: only a draft OF that checklist counts — «Melden» from the Karte resumes an open
+ *  Fehlermeldung, never an unrelated Objektbesuch left open at the same object. */
+export function findOpenDraft(visits: LocalVisit[], objectId: string, workRef: string | null | undefined, owner: string | null | undefined, checklist?: string | null): LocalVisit | null {
   const ref = workRef || null
   const hits = visits.filter((v) =>
     v.doc.lifecycle === 'draft'
     && v.doc.object?.id === objectId
     && (v.doc.workRef || null) === ref
+    && (!checklist || v.doc.checklist?.id === checklist)
     && (!owner || !v.owner || v.owner === owner))
   hits.sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1))
   return hits[0] ?? null

@@ -27,9 +27,9 @@ const ok: RegisterState = { state: 'ok', info: INFO, cached: false }
 const panel = (over: Partial<Parameters<typeof KartePanel>[0]> = {}) => render(
   <KartePanel
     sel={{ kind: 'object', obj: SCHLOSS }} register={ok} nearby={[]} hydrants={[]} visits={{ state: 'ok', list: [] }}
-    canCapture docs={[]} georefOn={false} georefAvailable={false} sheet={false} full={false} withRail={false}
-    onFull={vi.fn()} onClose={vi.fn()} onMeasureHere={vi.fn()} onStartVisit={vi.fn()} onOpenDoc={vi.fn()}
-    onToggleGeoref={vi.fn()} onSelectObject={vi.fn()} onRetryRegister={vi.fn()} onOpenVisit={vi.fn()}
+    canCapture docs={[]} sheet={false} withRail={false}
+    onClose={vi.fn()} onStartVisit={vi.fn()} onReport={vi.fn()} onOpenDoc={vi.fn()}
+    onSelectObject={vi.fn()} onRetryRegister={vi.fn()} onOpenVisit={vi.fn()}
     onPinBuilding={vi.fn()} onCopyCoords={vi.fn()} {...over}
   />,
 )
@@ -66,10 +66,10 @@ describe('KartePanel', () => {
     expect(screen.getByText('Registereintrag Schlossgasse 11, nicht Schlossgasse 9')).toBeTruthy()
   })
 
-  it('offers a pin «Meldung erfassen» and the coordinates', () => {
+  it('offers a pin «Melden» and the coordinates', () => {
     panel({ sel: { kind: 'pin', at: [7.57175, 47.52015], near: { label: 'Starenstrasse 19', distanceM: null }, nearState: 'ok', onBuilding: false } })
     expect(screen.getByText('bei Starenstrasse 19')).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Meldung erfassen/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /^Melden$/ })).toBeTruthy()
     expect(screen.getByText(/LV95/)).toBeTruthy()
   })
 
@@ -110,57 +110,91 @@ describe('KartePanel', () => {
   })
 })
 
-describe('KartePanel · the phone sheet', () => {
-  const PLAN = { id: 'plan:schloss:modul1', module: 'modul1', code: '1', title: 'Schloss – Übersicht', pages: 2, georef: false, version: 1, updatedAt: null }
-  const DOCS = [{ doc: { id: 'd1', code: '1', title: 'Schloss – Übersicht', imageUrl: '/x.pdf' }, plan: PLAN }] as unknown as ViewerPlanDoc[]
-  const WITH_PLANS = { ...SCHLOSS, plans: [PLAN] } as unknown as StationObject
+// owner R2 (17.10.2026): the station's word first, the plans, then the rest, the actions LAST —
+// «Objektbesuch» AND «Melden», no «Messen ab hier», no «Objektplan auf der Karte»; on a phone the
+// Ebenen sheet's own frame, one height
+describe('KartePanel · order and actions (R2)', () => {
+  const PLAN = { id: 'plan:schloss:modul1', module: 'modul1', code: '1', title: 'Schloss – Übersicht', pages: 2, georef: true, version: 1, updatedAt: null }
+  const DOCS = [{ doc: { id: 'd1', code: '1', title: 'Übersicht', imageUrl: '/x.pdf' }, plan: PLAN }] as unknown as ViewerPlanDoc[]
+  const WITH_PLANS = { ...SCHLOSS, plans: [PLAN], remarks: 'Schlüssel beim Hauswart' } as unknown as StationObject
+  const order = (c: HTMLElement) => [...c.querySelectorAll('[data-section]')].map((e) => e.getAttribute('data-section'))
 
-  it('lists the plans right under the actions, before the station word', () => {
-    const { container } = panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet: true })
-    const text = container.textContent ?? ''
-    expect(text.indexOf('Schloss – Übersicht')).toBeGreaterThan(text.indexOf('Messen ab hier'))
-    expect(text.indexOf('Schloss – Übersicht')).toBeLessThan(text.indexOf('Sofortmassnahmen'))
-    cleanup()
-    // the tablet keeps its order (the plans are in its rail as well)
-    const tab = panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS })
-    const t2 = tab.container.textContent ?? ''
-    expect(t2.indexOf('Schloss – Übersicht')).toBeGreaterThan(t2.indexOf('Sofortmassnahmen'))
+  it('runs station word · plans · register · nearby · visits · actions, on the phone and the tablet', () => {
+    for (const sheet of [true, false]) {
+      const { container } = panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet })
+      expect(order(container)).toEqual(['station', 'plans', 'register', 'nearby', 'visits', 'actions'])
+      cleanup()
+    }
   })
 
-  it('opens a plan from its row', () => {
+  it('a building and a pin keep the same order with what they have', () => {
+    let r = panel({ sel: { kind: 'building', at: [7.5708, 47.5228], address: null } })
+    expect(order(r.container)).toEqual(['register', 'nearby', 'visits', 'actions'])
+    cleanup()
+    r = panel({ sel: { kind: 'pin', at: [7.57175, 47.52015], near: null, nearState: 'none', onBuilding: false } })
+    expect(order(r.container)).toEqual(['nearby', 'actions'])
+    cleanup()
+    // a key box: no register, its note a quiet line, the actions still last
+    r = panel({ sel: { kind: 'object', obj: { ...SCHLOSS, kind: 'depot', measures: null, measuresSource: null } } })
+    expect(order(r.container)).toEqual(['nearby', 'visits', 'actions'])
+    expect(screen.getByText('Schlüsseldepot ohne Pläne. Kontrolliert über die Objektbesuche.').tagName).toBe('P')
+  })
+
+  it('shows «Objektbesuch» and «Melden» to a capture role only, and starts each', () => {
+    const onStartVisit = vi.fn()
+    const onReport = vi.fn()
+    panel({ onStartVisit, onReport })
+    fireEvent.click(screen.getByRole('button', { name: 'Objektbesuch' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Melden' }))
+    expect(onStartVisit).toHaveBeenCalledTimes(1)
+    expect(onReport).toHaveBeenCalledTimes(1)
+    cleanup()
+    const { container } = panel({ canCapture: false })
+    expect(screen.queryByRole('button', { name: 'Objektbesuch' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Melden' })).toBeNull()
+    expect(order(container)).not.toContain('actions')
+    cleanup()
+    // a building: «Melden» alone, no Objektbesuch without an object
+    panel({ sel: { kind: 'building', at: [7.5708, 47.5228], address: null } })
+    expect(screen.getByRole('button', { name: 'Melden' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Objektbesuch' })).toBeNull()
+  })
+
+  it('has no «Messen ab hier» and no «Objektplan auf der Karte» row', () => {
+    for (const sel of [
+      { kind: 'object' as const, obj: WITH_PLANS },
+      { kind: 'building' as const, at: [7.5708, 47.5228] as [number, number], address: null },
+      { kind: 'pin' as const, at: [7.5708, 47.5228] as [number, number], near: null, nearState: 'none' as const, onBuilding: false },
+    ]) {
+      const { container } = panel({ sel, docs: DOCS, sheet: true })
+      expect(container.textContent).not.toMatch(/Messen ab hier|Objektplan auf der Karte/)
+      expect(container.querySelector('[role="switch"]')).toBeNull()
+      cleanup()
+    }
+  })
+
+  it('a plan row says the document\'s title and opens it', () => {
     const onOpenDoc = vi.fn()
     panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet: true, onOpenDoc })
-    fireEvent.click(screen.getByRole('button', { name: /Schloss – Übersicht/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Übersicht/ }))
     expect(onOpenDoc).toHaveBeenCalledWith('d1')
+    expect(screen.queryByText('Schloss – Übersicht')).toBeNull()
   })
 
-  it('grows from the peek on a tap of the grab bar or the head; ✕ closes', () => {
-    Element.prototype.setPointerCapture ??= () => {}
-    const onFull = vi.fn()
+  it('on a phone wears the Ebenen sheet: its frame and grab bar, no peek; ✕ closes', () => {
     const onClose = vi.fn()
-    panel({ sheet: true, onFull, onClose })
-    const grab = screen.getByRole('button', { name: 'Detailhöhe anpassen' })
-    expect(grab.getAttribute('aria-expanded')).toBe('false')
-    fireEvent.pointerDown(grab, { clientY: 500, pointerId: 1 })
-    fireEvent.pointerUp(grab, { clientY: 500, pointerId: 1 })
-    expect(onFull).toHaveBeenLastCalledWith(true)
-    const head = screen.getByRole('heading', { name: 'Schloss Musterdorf' })
-    fireEvent.pointerDown(head, { clientY: 520, pointerId: 2 })
-    fireEvent.pointerUp(head, { clientY: 520, pointerId: 2 })
-    expect(onFull).toHaveBeenCalledTimes(2)
+    const { container } = panel({ sheet: true, onClose })
+    const sheet = container.querySelector('section')!
+    expect(sheet.classList.contains('layers-card')).toBe(true)
+    expect(sheet.querySelector(':scope > .ui-sheet-grab')).toBeTruthy()
+    // one height: no grip that toggles a peek
+    expect(screen.queryByRole('button', { name: 'Detailhöhe anpassen' })).toBeNull()
     const closes = screen.getAllByRole('button', { name: 'Schliessen' })
     fireEvent.click(closes[closes.length - 1])
     expect(onClose).toHaveBeenCalledTimes(1)
-    expect(onFull).toHaveBeenCalledTimes(2)
-  })
-
-  it('folds back to the peek from full on a tap of the grab bar', () => {
-    Element.prototype.setPointerCapture ??= () => {}
-    const onFull = vi.fn()
-    panel({ sheet: true, full: true, onFull })
-    const grab = screen.getByRole('button', { name: 'Detailhöhe anpassen' })
-    fireEvent.pointerDown(grab, { clientY: 100, pointerId: 1 })
-    fireEvent.pointerUp(grab, { clientY: 100, pointerId: 1 })
-    expect(onFull).toHaveBeenLastCalledWith(false)
+    cleanup()
+    // the tablet keeps its own left panel
+    const tab = panel()
+    expect(tab.container.querySelector('section')!.classList.contains('layers-card')).toBe(false)
   })
 })

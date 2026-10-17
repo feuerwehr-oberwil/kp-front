@@ -444,7 +444,9 @@ entry may also carry `refs: [{source, id}]`, and `PUT /api/objects/{id}` accepts
   «Karte & Objekte» (`…&from=karte`: leaving lands on the viewer again);
   routes `/besuche`, `/besuche/<id>`, `/besuche/neu?object=<source>:<id>|<uuid>&ref=<workRef>`.
   The `neu` launch resumes this device's/user's open draft for `(object, workRef)` before
-  minting a new id; nothing is sent until the first save point.
+  minting a new id; nothing is sent until the first save point. `&checkliste=<id>` (the Karte's
+  «Melden», 17.10.2026: `fehlermeldung`) asks for that checklist up front: taken when the
+  catalogue has it — and then only an open draft OF it is resumed — else the chooser as without.
 - IndexedDB keys: `kp-front-ov-catalogue`, `kp-front-ov-index` (list of local visit ids),
   `kp-front-ov-<visitId>` `{doc, base:{revision, doc}|null, dirty, savedAt, sent:{revision,
   ready, missing}, lastError}`, `kp-front-ov-att-<attId>` `{blob, thumb, type, sha256, size}`.
