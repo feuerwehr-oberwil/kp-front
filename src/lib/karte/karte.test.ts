@@ -325,6 +325,27 @@ describe('plans as the rail documents', () => {
     expect(planTitle(p('modul4', ''), STATION)).toBe('Modul 4')
   })
 
+  it('a plan row says «Modul …» only — every module key of the station (owner, review round 4)', async () => {
+    const { planRowLabel } = await import('./plans')
+    const want: Record<string, string> = {
+      modul1: 'Modul 1', modul2: 'Modul 2', 'modul2-3': 'Modul 2-3', modul23: 'Modul 2-3', modul3: 'Modul 3',
+      modul4: 'Modul 4', modul5: 'Modul 5', 'modul5-adressen': 'Modul 5-Adressen', 'modul5-aeh': 'Modul 5-AEH',
+      'modul5-evak': 'Modul 5-Evak', 'modul5-pv': 'Modul 5-PV', 'modul5-pv15': 'Modul 5-PV 15',
+      'modul5-pv20': 'Modul 5-PV 20', 'modul5-rwa': 'Modul 5-RWA', 'modul5-wasser': 'Modul 5-Wasser',
+      'modul5-wasser1': 'Modul 5-Wasser 1', 'modul5-wasser2': 'Modul 5-Wasser 2', 'modul5-wasser3': 'Modul 5-Wasser 3',
+      'modul5-zusatz': 'Modul 5-Zusatz', modul6: 'Modul 6',
+    }
+    for (const [key, label] of Object.entries(want)) {
+      // the file-name title and the catalogue's word never reach the row
+      expect(planRowLabel(p(key, `Migros – ${key}`), STATION)).toBe(label)
+      expect(planRowLabel(p(key, 'Übersicht'), STATION)).toBe(label)
+    }
+    // the copy's word, in another language
+    expect(planRowLabel(p('modul5-pv', ''), STATION, 'Module {m}')).toBe('Module 5-PV')
+    // no module key at all: the plan's own title, never an empty row
+    expect(planRowLabel({ id: 'plan:x:extra', module: '', title: 'Zufahrt' }, STATION)).toBe('Zufahrt')
+  })
+
   it('the rail documents carry the rule and the catalogue\'s plain reader', async () => {
     const { viewerPlanDocs } = await import('./plans')
     const o = obj({ id: 'o', name: 'O', plans: [{ ...plan('2'), title: 'Migros – modul2' }, { ...plan('5-pv'), title: 'Migros – modul5-pv' }], floors: [] })

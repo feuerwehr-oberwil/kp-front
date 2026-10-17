@@ -9,8 +9,12 @@
 //     plan's CURRENT revision. It is handed no Einsatz: no annotations, no writer, no binding, no
 //     calibration, no Passung (`KartePlanBoard`, pinned by KarteApp.test) — the viewer binds
 //     nothing (lib/karte/plans);
-//   · «Gebäude» lays the station's prepared storeys one under the other, each storey the region
-//     of its page the floor pack names (the same region bake FloorPage draws from), read-only;
+//   · «Gebäude» is THE Einsatz's Gebäude (owner, review round 4: «literally 1:1 the same as in the
+//     normal incident just without editing»): the same Whiteboard on its floor stack, fed with the
+//     object's floor pack instead of an incident's binding (lib/karte/gebaeude), read-only like a
+//     module — storey labels, the stack, its zoom; no picking, no storey added or removed, no
+//     drawing, no calibration. Only when no pack can be built from what is published (no page
+//     aspect) does the plain storey list of round 2 stand in (`KarteFloors`);
 //   · the chip row at the foot: back to the object on the Karte — the one way back (owner,
 //     review round 3: «Auf der Karte» beside it was struck; the aligned plan stays in Ebenen);
 //   · over the plan, a calm chip while the sharper picture of THIS view is still coming over the
@@ -22,17 +26,21 @@ import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
 import { cx } from '../../lib/cx'
 import { getApprovedPlanAlignments, referenceUrl, type PlanFloor } from '../../lib/api/reference'
+import { floorPackOf, packBuildingDoc, PACK_TRIM_MS, trimmedPackFrame, type FloorPackView } from '../../lib/floorPackBinding'
+import { objectFloorBinding } from '../../lib/karte/gebaeude'
+import { planKey, planPdfUrl } from '../../lib/karte/availability'
+import { loadTileManifest, tileSource, type TileManifest } from '../../lib/planTiles'
 import type { StationObject } from '../../lib/api/stationReference'
 import type { ViewerPlanDoc } from '../../lib/karte/plans'
 import { floorLabel, withPdfPage } from '../../lib/whiteboard'
 import { fillTemplate } from '../../lib/format'
 import type { Lamp } from '../../lib/karte/availability'
-import { planRegionCropUrl } from '../PdfViewport'
+import { planRegionCropUrl, regionInkBox } from '../PdfViewport'
 import { PlanGlyph } from '../PlanGlyph'
 import { LoadingStatus, ShellLoader } from '../ShellLoader'
 import type { BoardHistory } from '../useBoardDoc'
 import type { useSymbols } from '../../lib/useSymbols'
-import type { BoardAnno } from '../../types'
+import type { BoardAnno, BuildingDoc } from '../../types'
 import { delayedSharpness, PlanSharpnessContext, sharpChip, type PlanSharpness, type PlanSharpnessHooks } from '../../lib/planSharpness'
 import { Whiteboard } from '../../workspace/lazySurfaces'
 import { LampDot } from './KarteDevice'
@@ -97,13 +105,13 @@ export function KarteSurface({ obj, doc, phone, sym, onMap, offline = false, hel
   const missing = offline && held === false
   const partFloors = offline && !doc.plan && gebaeude === 'part'
   return (
-    <div className={cx(s.surface, doc.plan && !missing && s.reader)}>
+    <div className={cx(s.surface, !missing && s.reader)}>
       <div className={s.surfaceBody}>
         {missing
           ? <div className={s.surfaceNote}><div className={s.note}><Icon id="info" /><span>{doc.plan ? C.planOfflineMissing : C.floorsOfflineMissing}</span></div></div>
           : doc.plan
             ? <KartePlanBoard key={doc.doc.imageUrl} obj={obj} doc={doc} sym={sym} offline={offline} />
-            : <KarteFloors key={obj.plans.map((p) => `${p.id}@${p.version}`).join('|')} obj={obj} partOffline={partFloors} />}
+            : <KarteGebaeudeBoard key={obj.plans.map((p) => `${p.id}@${p.version}`).join('|')} obj={obj} doc={doc} sym={sym} offline={offline} partOffline={partFloors} />}
       </div>
       <div className={s.chipRow}>
         <button type="button" className={s.fchip} onClick={onMap}><Icon id="footprint" />{phone ? C.backToMap : obj.name}</button>
@@ -128,7 +136,14 @@ const NOTHING = () => {}
  * history. No `onCalibrate`, no `onObjectSwitch`, no `incidentId` — so nothing can be stored
  * under an Einsatz, because there is none.
  */
-export function KartePlanBoard({ obj, doc, sym, offline = false }: { obj: StationObject; doc: ViewerPlanDoc; sym: ReturnType<typeof useSymbols>; offline?: boolean }) {
+export function KartePlanBoard({ obj, doc, sym, offline = false, building = null, floorPack = null, note = null }: {
+  obj: StationObject; doc: ViewerPlanDoc; sym: ReturnType<typeof useSymbols>; offline?: boolean
+  /** the Gebäude: the stack the object's floor pack seeds (KarteGebaeudeBoard) — null for a module */
+  building?: BuildingDoc | null
+  floorPack?: FloorPackView | null
+  /** a quiet line over the board instead of the sharpness chip (the Gebäude offline: storeys missing) */
+  note?: string | null
+}) {
   // the reader keeps its own (always empty) undo stacks in its caller's state
   const [hist, setHist] = useState<BoardHistory>({})
   // how sharp the reader's current view is (lib/planSharpness): the first «not yet» waits a moment,
@@ -139,7 +154,7 @@ export function KartePlanBoard({ obj, doc, sym, offline = false }: { obj: Statio
   const hooks = useMemo<PlanSharpnessHooks>(() => ({ report: delayed.report, prefetchNext: true }), [delayed])
   return (
     <PlanSharpnessContext.Provider value={hooks}>
-    <PlanSharpChip state={sharpChip(sharp, offline)} />
+    {note ? <div className={cx(s.sharpChip, s.sharpOff)} role="status"><span className={s.sharpText}><Icon id="warn" />{note}</span></div> : <PlanSharpChip state={sharpChip(sharp, offline)} />}
     <Suspense fallback={<div className="whiteboard"><div className="workspace-loading"><LoadingStatus size="surface">{appConfig.copy.loading}</LoadingStatus></div></div>}>
       <Whiteboard
         plans={[doc.doc]}
@@ -149,7 +164,8 @@ export function KartePlanBoard({ obj, doc, sym, offline = false }: { obj: Statio
         readOnly
         slimTools={false}
         linkViewer
-        building={null}
+        building={building}
+        floorPack={floorPack}
         onSelectBuilding={NOTHING}
         onAddFloor={NOTHING}
         onRemoveFloor={NOTHING}
@@ -167,6 +183,54 @@ export function KartePlanBoard({ obj, doc, sym, offline = false }: { obj: Statio
     </Suspense>
     </PlanSharpnessContext.Provider>
   )
+}
+
+type GebaeudeState = { building: BuildingDoc; view: FloorPackView } | 'list' | null
+
+/**
+ * The object's Gebäude in the Einsatz's own Whiteboard (owner, review round 4). The floor pack is
+ * bound in memory exactly as an Einsatz binds it (lib/karte/gebaeude · objectFloorBinding — never
+ * stored), turned into the pack view (lib/floorPackBinding · floorPackOf) and the stack
+ * (`packBuildingDoc`) with the frame measured off the pages like the Einsatz's seed
+ * (`trimmedPackFrame`, bounded by `PACK_TRIM_MS`). Handed to `KartePlanBoard`, whose read-only
+ * Whiteboard has no door to an edit: no building pick (`onBuildingFace` absent), no storey added or
+ * removed (`readOnly` + a pack stack), no compass turn (`onReorient` absent), no tools.
+ */
+function KarteGebaeudeBoard({ obj, doc, sym, offline, partOffline }: {
+  obj: StationObject; doc: ViewerPlanDoc; sym: ReturnType<typeof useSymbols>; offline: boolean; partOffline: boolean
+}) {
+  const C = appConfig.copy.karte
+  const [state, setState] = useState<GebaeudeState>(null)
+  // keyed by the plans' identity from the caller, so a different object mounts afresh
+  useEffect(() => {
+    let alive = true
+    void (async () => {
+      const rs = await Promise.allSettled(obj.plans.map(async (p) => [planKey(p), await getApprovedPlanAlignments(p.id, p.version)] as const))
+      const metas = new Map(rs.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : [])))
+      // a pack the station has not aligned yet: the page's own size stands in for the fit's aspect
+      const pages = new Map<string, TileManifest | null>()
+      await Promise.all(obj.plans.filter((p) => metas.get(planKey(p))?.floors?.length).map(async (p) => {
+        const source = tileSource(planPdfUrl(p))
+        pages.set(planKey(p), source ? await loadTileManifest(source).catch(() => null) : null)
+      }))
+      const binding = objectFloorBinding(obj, metas, (k, page) => {
+        const pg = pages.get(k)?.pages.find((x) => x.page === page)
+        return pg && pg.heightPt > 0 ? pg.widthPt / pg.heightPt : null
+      })
+      const view = binding ? floorPackOf([binding], obj.id) : null
+      if (!binding || !view) { if (alive) setState('list'); return }
+      const frame = await Promise.race([
+        trimmedPackFrame(view, regionInkBox).catch(() => view.frame),
+        new Promise<[number, number, number, number]>((done) => setTimeout(() => done(view.frame), PACK_TRIM_MS)),
+      ])
+      const building = packBuildingDoc(view, frame, binding.id)
+      if (alive) setState(building ? { building, view } : 'list')
+    })()
+    return () => { alive = false }
+  }, [obj])
+  if (state === 'list') return <KarteFloors obj={obj} partOffline={partOffline} />
+  if (!state) return <div className="whiteboard"><div className="workspace-loading"><LoadingStatus size="surface">{appConfig.copy.loading}</LoadingStatus></div></div>
+  return <KartePlanBoard obj={obj} doc={doc} sym={sym} offline={offline} building={state.building} floorPack={state.view} note={partOffline ? C.floorsPartOffline : null} />
 }
 
 /** «Schärfere Ansicht wird geladen …» over the plan — the Shell trail every in-app wait wears —

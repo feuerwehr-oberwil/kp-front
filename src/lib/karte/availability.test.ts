@@ -4,8 +4,9 @@ import { noteBuildingAsked } from '../api/stationReference'
 import { karteCopy } from '../../config/copy/de/karte'
 import {
   MAX_VIEW_TILES, PARENT_DEPTH, STORAGE_LOW_BYTES, deviceRows, missingTiles, objectAvailability, planKey,
-  rasterTileZoom, shareLamp, tileRing, tileUrls, viewTiles, type DeviceFacts, type PlanHeld, type TileXY,
+  planLamp, planPdfUrl, rasterTileZoom, shareLamp, tileRing, tileUrls, tilesHeld, viewTiles, type DeviceFacts, type PlanHeld, type TileXY,
 } from './availability'
+import { tileSource, type TileManifest } from '../planTiles'
 
 // Synthetic station data only (the mockup's Musterdorf).
 const plan = (code: string, o: Partial<StationPlan> = {}): StationPlan => ({
@@ -18,15 +19,35 @@ const OBJ: Pick<StationObject, 'plans' | 'floors'> = { plans: [M1, M23, M6], flo
 const held = (m: Record<string, PlanHeld>) => m
 
 describe('objectAvailability — what opens without a network', () => {
-  it('a plan is held only when its PDF is in the cache; an unasked plan is not held', () => {
+  it('a plan with its PDF in the cache is held; an unasked plan is not', () => {
     const a = objectAvailability(OBJ, held({ [planKey(M1)]: { pdf: true, meta: null }, [planKey(M6)]: { pdf: false, meta: null } }))
-    expect(a.plans).toEqual({ [planKey(M1)]: true, [planKey(M23)]: false, [planKey(M6)]: false })
+    expect(a.plans).toEqual({ [planKey(M1)]: 'device', [planKey(M23)]: 'online', [planKey(M6)]: 'online' })
+  })
+
+  // the bug of review round 3: a tiled plan opened online stores its tiles, never its PDF
+  it('a TILED plan opened online is held by its tiles — no PDF needed (review round 3)', () => {
+    const a = objectAvailability(OBJ, held({
+      [planKey(M1)]: { pdf: false, tiles: 'all', meta: null },
+      [planKey(M23)]: { pdf: false, tiles: 'underlay', meta: null },
+      [planKey(M6)]: { pdf: false, tiles: 'none', meta: null },
+    }))
+    expect(a.plans).toEqual({ [planKey(M1)]: 'device', [planKey(M23)]: 'part', [planKey(M6)]: 'online' })
+  })
+
+  it('planLamp: the PDF or the whole pyramid → ●, the underlay alone → ◐, else ○', () => {
+    expect(planLamp(undefined)).toBe('online')
+    expect(planLamp({ pdf: true, meta: null })).toBe('device')
+    expect(planLamp({ pdf: true, tiles: 'none', meta: null })).toBe('device')
+    expect(planLamp({ pdf: false, tiles: 'all', meta: null })).toBe('device')
+    expect(planLamp({ pdf: false, tiles: 'underlay', meta: null })).toBe('part')
+    expect(planLamp({ pdf: false, tiles: 'none', meta: null })).toBe('online')
+    expect(planLamp({ pdf: false, tiles: null, meta: { floors: 2 } })).toBe('online')
   })
 
   it('the plan key carries the revision: an older revision in the cache is not this one', () => {
     expect(planKey(M23)).toBe('plan:schloss:modul23@2')
     const a = objectAvailability(OBJ, held({ 'plan:schloss:modul23@1': { pdf: true, meta: { floors: 0 } } }))
-    expect(a.plans[planKey(M23)]).toBe(false)
+    expect(a.plans[planKey(M23)]).toBe('online')
   })
 
   it('Gebäude is on the device only when every revision\'s metadata AND every storey PDF is', () => {
@@ -57,6 +78,13 @@ describe('objectAvailability — what opens without a network', () => {
     expect(some.gebaeude).toBe('part')
   })
 
+  it('Gebäude from tiles: a whole pyramid counts like the PDF, an underlay only is «part»', () => {
+    const base = { [planKey(M1)]: { pdf: false, meta: { floors: 0 } }, [planKey(M23)]: { pdf: false, meta: { floors: 0 } } }
+    expect(objectAvailability(OBJ, held({ ...base, [planKey(M6)]: { pdf: false, tiles: 'all', meta: { floors: 2 } } })).gebaeude).toBe('device')
+    expect(objectAvailability(OBJ, held({ ...base, [planKey(M6)]: { pdf: false, tiles: 'underlay', meta: { floors: 2 } } })).gebaeude).toBe('part')
+    expect(objectAvailability(OBJ, held({ ...base, [planKey(M6)]: { pdf: false, tiles: 'none', meta: { floors: 2 } } })).gebaeude).toBe('online')
+  })
+
   it('nothing known at all → only online; an object without storeys has no Gebäude lamp', () => {
     expect(objectAvailability(OBJ, {}).gebaeude).toBe('online')
     expect(objectAvailability({ plans: [M1], floors: [] }, {}).gebaeude).toBeNull()
@@ -67,6 +95,38 @@ describe('objectAvailability — what opens without a network', () => {
     expect(objectAvailability(OBJ, held({ [planKey(M23)]: { pdf: false, meta: { floors: 0 } } })).georef).toBe(false)
     expect(objectAvailability(OBJ, held({ [planKey(M23)]: { pdf: true, meta: { floors: 0 } } })).georef).toBe(true)
     expect(objectAvailability({ plans: [M1], floors: [] }, held({ [planKey(M1)]: { pdf: true, meta: { floors: 0 } } })).georef).toBe(false)
+    // …or with its tiles instead of the PDF
+    expect(objectAvailability(OBJ, held({ [planKey(M23)]: { pdf: false, tiles: 'all', meta: { floors: 0 } } })).georef).toBe(true)
+  })
+})
+
+describe('tilesHeld — which of a pyramid this device holds', () => {
+  // synthetic: one A4 page, three levels; the underlay is the largest level ≤ 1280 px
+  const SOURCE = tileSource(planPdfUrl(M1))!
+  const page = { page: 0, widthPt: 595, heightPt: 842, levels: [
+    { z: 0, width: 310, height: 439, cols: 1, rows: 1 },
+    { z: 1, width: 620, height: 877, cols: 2, rows: 2 },
+    { z: 2, width: 1860, height: 2632, cols: 4, rows: 6 },
+  ] }
+  const MANIFEST: TileManifest = { tileSize: 512, pages: [page], complete: true }
+  const at = (z: number) => (url: string) => new RegExp(`/tiles/1/0/${z}/`).test(url)
+
+  it('every tile → all; the underlay level whole → underlay; less → none', () => {
+    expect(SOURCE).not.toBeNull()
+    expect(tilesHeld(MANIFEST, SOURCE, () => true)).toBe('all')
+    // the underlay is level 1 here (877 px ≤ 1280 < 2632): its four tiles open the sheet
+    expect(tilesHeld(MANIFEST, SOURCE, (u) => at(0)(u) || at(1)(u))).toBe('underlay')
+    expect(tilesHeld(MANIFEST, SOURCE, (u) => at(1)(u))).toBe('underlay')
+    // three of the underlay's four tiles is not a sheet
+    expect(tilesHeld(MANIFEST, SOURCE, (u) => at(1)(u) && !u.endsWith('/1/1'))).toBe('none')
+    expect(tilesHeld(MANIFEST, SOURCE, () => false)).toBe('none')
+  })
+
+  it('asks for the revision the plan names, at the reader\'s own tile addresses', () => {
+    const asked: string[] = []
+    tilesHeld(MANIFEST, SOURCE, (u) => { asked.push(u); return true })
+    expect(asked[0]).toBe('/api/reference/plan%3Aschloss%3Amodul1/tiles/1/0/0/0/0')
+    expect(asked).toHaveLength(1 + 4 + 24)
   })
 })
 
@@ -150,7 +210,7 @@ describe('«Auf diesem Gerät» rows', () => {
     const r = byKey(base)
     expect(r.catalogue).toMatchObject({ lamp: 'device', sub: '9 Objekte · suchbar ohne Netz · Stand 2026-10-16' })
     expect(r.map).toMatchObject({ lamp: 'part', sub: C.mapPartOffline })
-    expect(r.plans).toMatchObject({ lamp: 'part', sub: '6 von 9 PDFs · zuletzt angesehene' })
+    expect(r.plans).toMatchObject({ lamp: 'part', sub: '6 von 9 Plänen · zuletzt angesehene' })
     expect(r.buildings).toMatchObject({ lamp: 'part', sub: '4 zuletzt angesehene Gebäude' })
     expect(r.storage).toMatchObject({ lamp: 'device', sub: '2100 MB frei' })
   })
@@ -182,7 +242,7 @@ describe('«Auf diesem Gerät» rows', () => {
   it('a whole view and every plan held read «device»; a zoomed-out view asks to zoom in', () => {
     const r = byKey({ ...base, map: { held: 6, total: 6 }, plans: { held: 9, total: 9 } })
     expect(r.map).toMatchObject({ lamp: 'device', sub: C.mapAll })
-    expect(r.plans).toMatchObject({ lamp: 'device', sub: 'alle 9 PDFs' })
+    expect(r.plans).toMatchObject({ lamp: 'device', sub: 'alle 9 Pläne' })
     expect(byKey({ ...base, map: 'far' }).map).toMatchObject({ lamp: 'part', sub: C.mapFar })
     expect(byKey({ ...base, map: { held: 0, total: 6 } }).map).toMatchObject({ lamp: 'online', sub: C.mapNone })
   })

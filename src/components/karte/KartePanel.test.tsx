@@ -39,9 +39,19 @@ describe('KartePanel', () => {
     panel()
     expect(screen.getByText('Zufahrt nur über Schlossgasse')).toBeTruthy()
     expect(screen.getByText('Station · Modul 1 · Stand 03.2026')).toBeTruthy()
-    expect(screen.getByText('Register-Hinweis')).toBeTruthy()
     expect(screen.getByText('Heizung Gas')).toBeTruthy()
+    // owner, review round 4: the source line (GWR, Stand …) is folded behind «Register-Hinweis»
+    expect(screen.queryByText(/GWR Schlossgasse 9 · Stand 07.10.2026/)).toBeNull()
+    const hint = screen.getByRole('button', { name: /Register-Hinweis/ })
+    expect(hint.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(hint)
+    expect(hint.getAttribute('aria-expanded')).toBe('true')
     expect(screen.getByText(/GWR Schlossgasse 9 · Stand 07.10.2026/)).toBeTruthy()
+    expect(screen.getByText(/Aus den Bundesregistern \(GWR, BFE\)/)).toBeTruthy()
+    // the chips stand either way; a second tap folds it again
+    expect(screen.getByText('Heizung Gas')).toBeTruthy()
+    fireEvent.click(hint)
+    expect(screen.queryByText(/GWR Schlossgasse 9/)).toBeNull()
     // the disclaimer under «In der Nähe» stands even with nothing near
     expect(screen.getByText(/Ein Objekt in der Nähe gehört nicht unbedingt zu diesem Gebäude/)).toBeTruthy()
   })
@@ -63,6 +73,7 @@ describe('KartePanel', () => {
 
   it('names a register entry at another address as exactly that', () => {
     panel({ register: { state: 'ok', info: { ...INFO, address: 'Schlossgasse 11, 9999 Musterdorf' }, cached: true } })
+    fireEvent.click(screen.getByRole('button', { name: /Register-Hinweis/ }))
     expect(screen.getByText('Registereintrag Schlossgasse 11, nicht Schlossgasse 9')).toBeTruthy()
   })
 
@@ -115,7 +126,10 @@ describe('KartePanel', () => {
 // Ebenen sheet's own frame, one height
 describe('KartePanel · order and actions (R2)', () => {
   const PLAN = { id: 'plan:schloss:modul1', module: 'modul1', code: '1', title: 'Schloss – Übersicht', pages: 2, georef: true, version: 1, updatedAt: null }
-  const DOCS = [{ doc: { id: 'd1', code: '1', title: 'Übersicht', imageUrl: '/x.pdf' }, plan: PLAN }] as unknown as ViewerPlanDoc[]
+  const DOCS = [
+    { doc: { id: 'd1', code: '1', title: 'Übersicht', imageUrl: '/x.pdf' }, plan: PLAN, row: 'Modul 1' },
+    { doc: { id: 'gebaeude', code: 'Gebäude', title: 'Gebäude', imageUrl: '', floorStack: true }, plan: null, row: 'Gebäude' },
+  ] as unknown as ViewerPlanDoc[]
   const WITH_PLANS = { ...SCHLOSS, plans: [PLAN], remarks: 'Schlüssel beim Hauswart' } as unknown as StationObject
   const order = (c: HTMLElement) => [...c.querySelectorAll('[data-section]')].map((e) => e.getAttribute('data-section'))
 
@@ -175,12 +189,30 @@ describe('KartePanel · order and actions (R2)', () => {
     }
   })
 
-  it('a plan row says the document\'s title and opens it', () => {
+  // owner, review round 4: «just "modul 1", "modul 2", etc. is enough» — no title, no
+  // «PDF · 2 Seiten · auf Karte ausgerichtet», no number badge; «Gebäude» stays «Gebäude»
+  it('a plan row says «Modul 1» and nothing else, and opens the plan', () => {
     const onOpenDoc = vi.fn()
-    panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet: true, onOpenDoc })
-    fireEvent.click(screen.getByRole('button', { name: /Übersicht/ }))
+    const { container } = panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet: true, onOpenDoc })
+    const rows = [...container.querySelectorAll('[data-section="plans"] button')]
+    expect(rows.map((r) => r.textContent)).toEqual(['Modul 1', 'Gebäude'])
+    // one shape for every row: the words, the chevron — no lead glyph, no second line
+    for (const r of rows) {
+      expect(r.querySelectorAll('b')).toHaveLength(1)
+      expect(r.querySelector('[class*="rowLead"]')).toBeNull()
+    }
+    expect(container.textContent).not.toMatch(/Übersicht|PDF|ausgerichtet|Geschosse vorbereitet/)
+    fireEvent.click(screen.getByRole('button', { name: 'Modul 1' }))
     expect(onOpenDoc).toHaveBeenCalledWith('d1')
-    expect(screen.queryByText('Schloss – Übersicht')).toBeNull()
+  })
+
+  it('offline, the «auf diesem Gerät» mark trails the row', () => {
+    const avail = { plans: { 'plan:schloss:modul1@1': 'part' as const }, gebaeude: 'online' as const, georef: false }
+    const { container } = panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet: true, offline: true, avail })
+    const rows = [...container.querySelectorAll('[data-section="plans"] button')]
+    expect(rows.map((r) => r.getAttribute('aria-label'))).toEqual(['Modul 1 · teilweise auf diesem Gerät', 'Gebäude · Nicht auf diesem Gerät gespeichert'])
+    expect(rows[1].className).toMatch(/off/)
+    expect(rows[0].className).not.toMatch(/off/)
   })
 
   it('on a phone wears the Ebenen sheet: its frame and grab bar, no peek; ✕ closes', () => {
