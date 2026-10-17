@@ -5,9 +5,16 @@
 //   · below `LABEL_MIN_ZOOM` every object is a small dot — no text at all;
 //   · from it on, a tag only where it FITS: one greedy pass in screen space after the map has
 //     settled, the most important object first (`tagRank`: selected › Einsatzobjekt › more plans
-//     › the rest). A tag that would overlap a tag already placed, a key box, or the chrome (top
+//     › the rest). A tag that would overlap a tag already placed or the chrome (top
 //     bar, bottom bar, an open panel or sheet) stays a dot — it is still there and still tappable.
 //   · the SELECTED object always carries its tag, at any zoom and wherever it lands.
+//   · ⚠️ a tag sits ON its object's point, centred (owner, review round 3, 17.10.2026: «do not
+//     move the location of the marker»): the pass decides only WHETHER it shows, and slides it
+//     sideways only at the map's edge (`TAG_KEEP_OVER_ANCHOR`). Round 2 hung a tag inside its own
+//     building when the street below was another object's — the point and its name then sat
+//     apart, and that is what the owner read as a moved marker.
+//   · a tag carries the NAME only — never a plan count (owner, round 3: «we just care that there
+//     are plans»; the colour category, or the default look's rim, says that).
 //
 // Pure: positions and sizes come in, the set of tagged ids goes out. The surface measures the
 // chrome and the text (components/karte/KarteApp); this file never touches the DOM.
@@ -19,13 +26,9 @@ export interface Rect { left: number; top: number; right: number; bottom: number
 
 export interface TagCandidate {
   id: string
-  /** the tag's anchor on screen (px, map container coordinates) */
+  /** the object's point on screen (px, map container coordinates) — the tag's centre */
   x: number
   y: number
-  /** 'top': the tag hangs BELOW the point (under its building outline); 'center': on it */
-  anchor: 'top' | 'center'
-  /** px below the anchor for a 'top' tag */
-  offsetY?: number
   w: number
   h: number
   /** higher goes first (`tagRank`) */
@@ -35,7 +38,7 @@ export interface TagCandidate {
 /** The screen box a tag takes, `dx` px slid sideways. */
 export function tagRect(c: TagCandidate, dx = 0): Rect {
   const left = c.x + dx - c.w / 2
-  const top = c.anchor === 'top' ? c.y + (c.offsetY ?? 0) : c.y - c.h / 2
+  const top = c.y - c.h / 2
   return { left, top, right: left + c.w, bottom: top + c.h }
 }
 
@@ -44,7 +47,7 @@ export function overlaps(a: Rect, b: Rect, gap = 0): boolean {
 }
 
 /** The order tags are placed in: the selected object first, then Einsatzobjekte, then by how
- *  many plans open from the tag; ties broken by what was tagged a moment ago (no flicker when a
+ *  many plans the object has (an order only — no count is ever drawn); ties broken by what was tagged a moment ago (no flicker when a
  *  pan settles), then by name for a stable answer. */
 export function tagRank(o: { kind: string; plans: number; selected: boolean; wasShown: boolean }): number {
   if (o.selected) return Number.MAX_SAFE_INTEGER
@@ -57,7 +60,7 @@ export const TAG_KEEP_OVER_ANCHOR = 16
 
 /**
  * The ids that carry their tag, each with how far it slides sideways (px; 0 = centred on its
- * anchor). `occupied` are screen boxes no tag may cover (the chrome, key boxes); `width`/`height`
+ * anchor). `occupied` are screen boxes no tag may cover (the chrome); `width`/`height`
  * the map's own size — a tag near a side edge slides inward rather than being cut off (never so
  * far that it leaves its anchor), one that would still run off the map is not placed. `always` is
  * placed whatever it covers (the selected object).
@@ -89,10 +92,9 @@ export function placeTags(
 }
 
 /** A tag's size without a DOM: the name's measured width (or ~7 px a character) plus the tag's
- *  padding and border, and the plan-count chip when it has one (Karte.module.css · .tagMk). */
-export function tagSize(textWidth: number, count: number): { w: number; h: number } {
-  const chip = count > 0 ? 4 + Math.max(20, 8 + 7 * String(count).length) : 0
-  return { w: Math.ceil(textWidth + 16 + 3 + chip), h: count > 0 ? 31 : 26 }
+ *  padding and border (Karte.module.css · .tagMk). */
+export function tagSize(textWidth: number): { w: number; h: number } {
+  return { w: Math.ceil(textWidth + 16 + 3), h: 26 }
 }
 
 export function samePlacement(a: ReadonlyMap<string, number> | null, b: ReadonlyMap<string, number> | null): boolean {

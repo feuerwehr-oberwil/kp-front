@@ -111,6 +111,117 @@ def test_a_hole_in_the_ground_is_not_the_ground():
     assert GYM not in rings and HALL in rings
 
 
+# --- the name's addresses (review round 3, 17.10.2026: «outline all the houses») ------------------
+
+# a row of houses along «Musterweg», the object's point on the lawn between them (in no building) —
+# like «Stallenmattstrasse 2-14, Kaibmattweg 1-5 (EH)», whose point stands between its houses and
+# shares its parcel with a near-duplicate object, so the parcel step refuses and nothing is drawn
+ROW = [box(10 + 25 * i, 0, 28 + 25 * i, 14) for i in range(8)]  # Musterweg 1 … 8
+LAWN = at(60, 25)
+GARAGE = box(10, 20, 90, 40)  # «(EH)»: the row's underground garage (AV Einzelobjekt)
+
+
+def test_the_names_houses_come_first_whatever_the_parcel_says():
+    f = facts(area=None, parcel=[[box(0, -10, 220, 60)]], buildings=ROW)
+    # without the name: the parcel holds the other object's point, and the point is in no house
+    assert of.derive(LAWN, f, others=[at(70, 30)]) is None
+    got = of.derive_all(
+        {"a": LAWN, "b": at(70, 30)}, {of._point_key(LAWN[1], LAWN[0]): f}, ranges={"a": of.Named(ROW[:5], [])}
+    )
+    assert got["a"]["source"] == "name" and len(got["a"]["footprint"]["coordinates"]) == 5
+    assert "b" not in got  # the other object is not asked yet: nothing
+
+
+def test_the_name_puts_the_point_s_house_first_and_waits_for_nobody():
+    # no facts at the point yet: the name's houses are drawn all the same
+    got = of.derive_all({"a": at(20, 7)}, {}, ranges={"a": of.Named([ROW[3], ROW[0], ROW[1]], [])})["a"]
+    first = got["footprint"]["coordinates"][0][0]
+    assert of._in_ring([tuple(p) for p in first], at(20, 7))  # ROW[0] holds the point: first
+
+
+def test_the_name_yields_to_the_station_and_to_the_cap(caplog):
+    f = facts(area=None, parcel=None, buildings=[HOUSE])
+    pk = {of._point_key(POINT[1], POINT[0]): f}
+    # «Lage korrigieren › nur dieses Gebäude» / «kein Umriss» beat the name
+    row = {"a": of.Named(ROW, [])}
+    assert of.derive_all({"a": POINT}, pk, {"a": "building"}, row)["a"]["source"] == "station"
+    assert of.derive_all({"a": POINT}, pk, {"a": "none"}, row) == {}
+    # more than MAX_RANGE_BUILDINGS is a name read wrong: logged, and the rule goes on as before
+    many = [box(i * 3, 200, i * 3 + 2, 202) for i in range(of.MAX_RANGE_BUILDINGS + 1)]
+    with caplog.at_level("WARNING"):
+        got = of.derive_all({"a": POINT}, pk, ranges={"a": of.Named(many, [])})["a"]
+    assert got["source"] == "building" and "its name is not used" in caplog.text
+    # exactly the cap is still a row of houses
+    assert of.derive_all({"a": POINT}, pk, ranges={"a": of.Named(many[:-1], [])})["a"]["source"] == "name"
+    # a name whose addresses are ONLY underground structures draws nothing of its own: the rule goes on
+    assert of.derive_all({"a": POINT}, pk, ranges={"a": of.Named([], [GARAGE])})["a"]["source"] == "building"
+
+
+def test_the_name_s_underground_structures_ride_along_dashed():
+    got = of.derive_all({"a": LAWN}, {}, ranges={"a": of.Named(ROW[:2], [GARAGE])})["a"]
+    assert len(got["footprint"]["coordinates"]) == 2
+    assert got["underground"]["type"] == "MultiPolygon" and len(got["underground"]["coordinates"]) == 1
+    # stored and read back in the same shape; an older stored answer (a bare list) is asked again
+    back = of.Named.from_json(of.Named(ROW[:2], [GARAGE]).to_json())
+    assert back is not None and back.underground == [GARAGE] and len(back.buildings) == 2
+    assert of.Named.from_json([[[7.0, 47.0]]]) is None
+
+
+def _hadr(street: str, number: str, egid: str | None, town: str, p: tuple[float, float]) -> dict:
+    return {
+        "geometry": {"type": "Point", "coordinates": list(p)},
+        "properties": {"Strassenname": street, "Hausnummer": number, "GWR_EGID": egid or "0", "Ortschaftsname": town},
+    }
+
+
+async def test_ask_range_reads_the_register_s_addresses_and_their_buildings():
+    asked: list[str] = []
+
+    def gj(r):
+        return {"type": "Polygon", "coordinates": [[list(p) for p in [*r, r[0]]]]}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        tn, flt = request.url.params["TYPENAMES"], request.url.params["FILTER"]
+        asked.append(tn)
+        if tn == "ms:HADR":
+            assert "Strassenname" in flt and 'matchCase="false"' in flt and "Musterweg" in flt
+            centre = lambda r: of.centroid(r)  # noqa: E731
+            feats = [_hadr("Musterweg", str(i + 1), f"10{i}", "Musterdorf", centre(ROW[i])) for i in range(8)]
+            feats.append(_hadr("Musterweg", "2a", None, "Musterdorf", at(52, 10)))  # no EGID: by its door
+            feats.append(_hadr("Musterweg", "3a", "900", "Musterdorf", at(80, 25)))  # the garage («EH»)
+            feats.append(_hadr("Musterweg", "3", "999", "Nachbarort", at(400, 400)))  # same name, next town
+            return httpx.Response(200, json={"features": feats})
+        if tn == "ms:SOSF":
+            assert "<fes:Literal>900</fes:Literal>" in flt and "<fes:Literal>100</fes:Literal>" not in flt
+            return httpx.Response(
+                200,
+                json={
+                    "features": [
+                        {"geometry": gj(GARAGE), "properties": {"GWR_EGID": "900", "Art": "unterirdisches_Gebaeude"}}
+                    ]
+                },
+            )
+        assert tn == "ms:LCSF" and "Gebaeude" in flt
+        if "GWR_EGID" in flt:
+            wanted = [i for i in range(8) if f"<fes:Literal>10{i}</fes:Literal>" in flt]
+            assert "999" not in flt  # the other town's «Musterweg 3» is not asked for
+            return httpx.Response(
+                200, json={"features": [{"geometry": gj(ROW[i]), "properties": {"GWR_EGID": f"10{i}"}} for i in wanted]}
+            )
+        # the box around the door without an EGID: the house it stands in, and its neighbour
+        return httpx.Response(200, json={"features": [{"geometry": gj(r), "properties": {}} for r in (ROW[1], ROW[2])]})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+        named = await of.ask_range(of.Sources(c), LAWN, of.address_ranges.parse("Musterweg 1-4, Feldweg 9"))
+    rings = named.buildings
+    assert len(rings) == 4 and all(r in ROW[:4] for r in rings)  # 1 … 4 — and 2a's house is 2's
+    assert named.underground == [GARAGE]  # 3a has no surface building: its garage, apart
+    assert asked == ["ms:HADR", "ms:LCSF", "ms:SOSF", "ms:LCSF"]
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
+        assert await of.ask_range(of.Sources(c), LAWN, of.address_ranges.parse("Musterweg 20-30")) == of.Named([], [])
+
+
 def test_geojson_is_one_multipolygon_with_closed_rings():
     g = of.as_geojson([HOUSE, GYM])
     assert g["type"] == "MultiPolygon" and len(g["coordinates"]) == 2
@@ -264,8 +375,10 @@ def _sources(monkeypatch, *, wfs_down: bool = False) -> dict[str, int]:
 
 async def _objects(db) -> dict[str, ObjectSite]:
     school = ObjectSite(id=uuid.uuid4(), name="Schulhaus Feld", address="Feldweg 1", lat=POINT[1], lng=POINT[0])
+    # on the organizer's Kontrollgang (a `fwo-schlue` ref) and once drawn as a «key box» that owned
+    # no building — an object like any other since review round 3; it stands off the school's ground
     depot = ObjectSite(
-        id=uuid.uuid4(), name="Schlüsseldepot Feld", address="Feldweg 1", lat=at(30, 5)[1], lng=at(30, 5)[0]
+        id=uuid.uuid4(), name="Scheune Feld", address="Feldweg 7", lat=at(300, 300)[1], lng=at(300, 300)[0]
     )
     db.add_all([school, depot])
     await db.flush()
@@ -277,8 +390,9 @@ async def _objects(db) -> dict[str, ObjectSite]:
 async def test_the_tick_asks_once_and_the_catalogue_carries_the_buildings(client, db_session, editor, monkeypatch):
     calls = _sources(monkeypatch)
     objs = await _objects(db_session)
-    assert await of.tick(db_session) == 1  # one point asked: the key box is no building's owner
-    assert calls["identify"] == 1 and calls["wfs"] == 1
+    # both points asked: the former key box is an object like any other (review round 3)
+    assert await of.tick(db_session) == 2
+    assert calls["identify"] == 2 and calls["wfs"] == 2
     stored = json.loads(storage.get_bytes(of.STORE_KEY))
     assert stored["footprints"][str(objs["school"].id)]["source"] == "area"
 
@@ -287,9 +401,9 @@ async def test_the_tick_asks_once_and_the_catalogue_carries_the_buildings(client
     by = {o["name"]: o for o in body["objects"]}
     fp = by["Schulhaus Feld"]["footprint"]
     assert fp["type"] == "MultiPolygon" and len(fp["coordinates"]) == 3  # house, gym, hall
-    assert by["Schlüsseldepot Feld"]["footprint"] is None
+    assert by["Scheune Feld"]["footprint"] is None  # asked like the school; no building at its point
 
-    # the register's address at both pins (the key box's too) was asked once and is kept
+    # the register's address at both pins was asked once and is kept
     assert calls["gwr"] == 2
     assert of.place_at(objs["school"].lat, objs["school"].lng) == {
         "street": "Feldweg 1",
@@ -302,7 +416,7 @@ async def test_the_tick_asks_once_and_the_catalogue_carries_the_buildings(client
 
     # idle: a second tick asks nobody
     assert await of.tick(db_session) == 0
-    assert calls["identify"] == 1 and calls["gwr"] == 2
+    assert calls["identify"] == 2 and calls["gwr"] == 2
 
     # the object moved: its old buildings are not shown while the new point is unasked
     objs["school"].lat, objs["school"].lng = at(500, 500)[1], at(500, 500)[0]
@@ -316,12 +430,12 @@ async def test_a_failed_source_is_never_stored_as_nothing(db_session, monkeypatc
     calls = _sources(monkeypatch, wfs_down=True)
     await _objects(db_session)
     assert await of.tick(db_session) == 0
-    assert calls["wfs"] == 1
+    assert calls["wfs"] == 2  # one ask per point
     stored = json.loads(storage.get_bytes(of.STORE_KEY)) if storage.exists(of.STORE_KEY) else {}
     assert not stored.get("facts")
     # and it is not asked again on the next tick (an hour's pause), so a down source is not hammered
     await of.tick(db_session)
-    assert calls["wfs"] == 1
+    assert calls["wfs"] == 2
 
 
 async def test_off_when_a_source_is_unset(db_session, monkeypatch):
@@ -330,3 +444,66 @@ async def test_off_when_a_source_is_unset(db_session, monkeypatch):
     await _objects(db_session)
     assert await of.tick(db_session) == 0
     assert calls == {"tile": 0, "identify": 0, "wfs": 0, "gwr": 0}
+
+
+async def test_the_tick_asks_a_named_row_once_and_the_catalogue_draws_every_house(
+    client, db_session, editor, monkeypatch
+):
+    calls = {"hadr": 0}
+
+    def gj(r):
+        return {"type": "Polygon", "coordinates": [[list(p) for p in [*r, r[0]]]]}
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if str(request.url).endswith(".pbf") or request.url.path.endswith("/identify"):
+            return (
+                httpx.Response(404) if str(request.url).endswith(".pbf") else httpx.Response(200, json={"results": []})
+            )
+        tn, flt = request.url.params["TYPENAMES"], request.url.params["FILTER"]
+        if tn == "ms:HADR":
+            calls["hadr"] += 1
+            return httpx.Response(
+                200,
+                json={
+                    "features": [
+                        _hadr("Musterweg", str(i + 1), f"10{i}", "Musterdorf", of.centroid(ROW[i])) for i in range(8)
+                    ]
+                },
+            )
+        feats = [(r, f"10{i}") for i, r in enumerate(ROW)]
+        if "GWR_EGID" in flt:
+            feats = [(r, e) for r, e in feats if f"<fes:Literal>{e}</fes:Literal>" in flt]
+        return httpx.Response(
+            200, json={"features": [{"geometry": gj(r), "properties": {"GWR_EGID": e}} for r, e in feats]}
+        )
+
+    orig_init = httpx.AsyncClient.__init__
+
+    def patched_init(self, *args, **kwargs):
+        kwargs["transport"] = httpx.MockTransport(handler)
+        orig_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(httpx.AsyncClient, "__init__", patched_init)
+    monkeypatch.setattr(of.geocode, "_GEOCODER_OK", True)
+    row = ObjectSite(id=uuid.uuid4(), name="Musterweg 2-5 (EH)", lat=LAWN[1], lng=LAWN[0])
+    db_session.add(row)
+    await db_session.commit()
+
+    await of.tick(db_session)
+    assert calls["hadr"] == 1
+    stored = json.loads(storage.get_bytes(of.STORE_KEY))
+    assert stored["footprints"][str(row.id)]["source"] == "name"
+    await _login(client, editor)
+    body = (await client.get("/api/reference/objects")).json()
+    fp = {o["name"]: o for o in body["objects"]}["Musterweg 2-5 (EH)"]["footprint"]
+    assert len(fp["coordinates"]) == 4  # 2, 3, 4, 5
+    # idle afterwards; a renamed row is asked again
+    await of.tick(db_session)
+    assert calls["hadr"] == 1
+    row.name = "Musterweg 2-7 (EH)"
+    await db_session.commit()
+    await of.tick(db_session)
+    assert calls["hadr"] == 2
+    of.clear_cache()
+    body = (await client.get("/api/reference/objects")).json()
+    assert len({o["name"]: o for o in body["objects"]}["Musterweg 2-7 (EH)"]["footprint"]["coordinates"]) == 6

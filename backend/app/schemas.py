@@ -979,13 +979,14 @@ class ReferenceLastVisitOut(BaseModel):
 
 
 class ReferenceObjectOut(BaseModel):
-    """One station object for the reference viewer — Einsatzobjekt, plan-less object or key box."""
+    """One station object for the reference viewer — an Einsatzobjekt or a plan-less object."""
 
     model_config = ConfigDict(populate_by_name=True)
 
     id: uuid.UUID
     name: str
-    kind: Literal["einsatzobjekt", "objekt", "depot"]
+    #: ``depot`` (key box) is retired (review round 3, 17.10.2026) and never sent
+    kind: Literal["einsatzobjekt", "objekt"]
     #: where it is, for every object where that is knowable (docs/karte-objekte.md · address): the
     #: station's address; else the name when it IS a street + number; else the register's
     #: address at the pin. None only when none of the three exists.
@@ -1008,6 +1009,9 @@ class ReferenceObjectOut(BaseModel):
     #: derived from the use area / parcel / cadastral survey (app/object_footprints); None = the
     #: client falls back to the OSM building its point lies in
     footprint: dict[str, Any] | None = None
+    #: the survey's structures (AV Einzelobjekte — underground garages, shelters) of the addresses an
+    #: object's name covers that have no surface building, one MultiPolygon; None = none known
+    underground: dict[str, Any] | None = None
     #: Sofortmassnahmen / Bemerkungen off the Modul-1 sheet and where they came from
     measures: str | None = None
     remarks: str | None = None
@@ -1272,7 +1276,9 @@ class ObjectCategoryMatch(BaseModel):
     """When an object belongs to a category: every condition NAMED holds (none named = always)."""
 
     model_config = ConfigDict(extra="ignore")
-    #: the object's kind is one of these
+    #: the object's kind is one of these. ``depot`` is RETIRED (review round 3, 17.10.2026: there
+    #: are no key-box objects any more): still accepted so an existing config stays valid, it
+    #: never matches — a rule naming only ``depot`` matches nothing (lib/karte/categories)
     kinds: list[Literal["einsatzobjekt", "objekt", "depot"]] | None = None
     #: one of the object's plan modules matches one of these globs (``modul5-pv*``, ``modul6``)
     modules: list[Annotated[str, Field(min_length=1, max_length=60)]] | None = Field(default=None, max_length=30)
@@ -1280,7 +1286,7 @@ class ObjectCategoryMatch(BaseModel):
 
 class ObjectCategoryConfig(BaseModel):
     """One colour rule for «Karte & Objekte» (src/lib/karte/categories.ts). Ordered, first match
-    wins; an object no rule matches keeps the default look (red, a key box its FKS glyph)."""
+    wins; an object no rule matches keeps the default look (red, grey without plans)."""
 
     model_config = ConfigDict(extra="ignore")
     id: str = Field(min_length=1, max_length=40, pattern=r"^[a-z0-9][a-z0-9_-]*$")

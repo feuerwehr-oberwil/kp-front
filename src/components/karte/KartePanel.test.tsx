@@ -134,10 +134,12 @@ describe('KartePanel · order and actions (R2)', () => {
     r = panel({ sel: { kind: 'pin', at: [7.57175, 47.52015], near: null, nearState: 'none', onBuilding: false } })
     expect(order(r.container)).toEqual(['nearby', 'actions'])
     cleanup()
-    // a key box: no register, its note a quiet line, the actions still last
-    r = panel({ sel: { kind: 'object', obj: { ...SCHLOSS, kind: 'depot', measures: null, measuresSource: null } } })
-    expect(order(r.container)).toEqual(['nearby', 'visits', 'actions'])
-    expect(screen.getByText('Schlüsseldepot ohne Pläne. Kontrolliert über die Objektbesuche.').tagName).toBe('P')
+    // a plan-less object (once a «Schlüsseldepot», review round 3): the same order as any object —
+    // its register, never a key-box note — with the plans left out
+    r = panel({ sel: { kind: 'object', obj: { ...SCHLOSS, kind: 'objekt', plans: [], measures: null, measuresSource: null } } })
+    expect(order(r.container)).toEqual(['register', 'nearby', 'visits', 'actions'])
+    expect(screen.getByText('Stationsobjekt')).toBeTruthy()
+    expect(r.container.textContent).not.toMatch(/Schlüsseldepot/)
   })
 
   it('shows «Objektbesuch» and «Melden» to a capture role only, and starts each', () => {

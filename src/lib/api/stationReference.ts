@@ -1,7 +1,7 @@
 // «Karte & Objekte» — the station reference reads outside an Einsatz (backend
 // app/api/station_reference.py, docs/karte-objekte.md):
 //
-//   GET /api/reference/objects            every station object, key boxes included, in one payload
+//   GET /api/reference/objects            every station object, in one payload
 //   GET /api/reference/building?lat&lng   the Gebäude card's facts for any point, no incident
 //
 // Both are kept on the device (lib/idb · readThrough): the catalogue as ONE entry, so the objects
@@ -12,7 +12,10 @@ import { apiGet } from '../api'
 import { idbDel, idbKeys, idbRead, idbSet, readThrough, type ReadThroughSource } from '../idb'
 import { buildingWhere, isBuildingInfo, type BuildingInfo } from './building'
 
-export type StationObjectKind = 'einsatzobjekt' | 'objekt' | 'depot'
+/** `einsatzobjekt` carries plans, `objekt` does not. ⚠️ No `depot` (key box) any more (owner,
+ *  review round 3, 17.10.2026: every object is a building or a group of buildings): an older
+ *  server's or an older cached catalogue's `depot` is read as `objekt` (`withRetiredKinds`). */
+export type StationObjectKind = 'einsatzobjekt' | 'objekt'
 
 export interface StationPlan {
   /** the reference dataset id (`plan:<object>:<module>`) — `/api/reference/{id}?v=` opens it */
@@ -55,6 +58,10 @@ export interface StationObject {
    *  from the use area / parcel / cadastral survey — backend app/object_footprints); null = the
    *  map's own OSM building its point lies in is used (lib/karte/places · objectBuildings) */
   footprint: unknown
+  /** a named row's addresses that have no surface building — the survey's underground garages
+   *  and shelters (backend app/object_footprints · ask_range), one MultiPolygon; drawn dashed.
+   *  Absent from an older server. */
+  underground?: unknown
   measures?: string | null
   remarks?: string | null
   measuresSource?: string | null
@@ -76,9 +83,17 @@ const OBJECTS_CACHE = 'kp-front-station-objects'
  *  A refusal (401/403) still throws — a session that may not read the station must not be shown
  *  yesterday's copy of it. */
 export async function loadStationObjects(): Promise<{ value: StationObjects; source: ReadThroughSource }> {
-  return readThrough<StationObjects>(OBJECTS_CACHE, () => apiGet<StationObjects>('/api/reference/objects'), {
+  const r = await readThrough<StationObjects>(OBJECTS_CACHE, () => apiGet<StationObjects>('/api/reference/objects'), {
     validate: isStationObjects,
   })
+  return { ...r, value: withRetiredKinds(r.value) }
+}
+
+/** The retired `depot` kind (a key box, until review round 3) read as the plan-less `objekt` it
+ *  always was. Pure; the same catalogue back when there is nothing to map. */
+export function withRetiredKinds(c: StationObjects): StationObjects {
+  if (!c.objects.some((o) => (o.kind as string) === 'depot')) return c
+  return { ...c, objects: c.objects.map((o) => ((o.kind as string) === 'depot' ? { ...o, kind: 'objekt' as const } : o)) }
 }
 
 /** The catalogue as this device holds it — what «Auf diesem Gerät» counts. Null when none is
