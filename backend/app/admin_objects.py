@@ -75,7 +75,7 @@ from .admin_cli import add_push_args, admin_client, fail, require_push_target
 from .admin_manifest import template_hint
 from .building_facts import clean_measures
 from .database import async_session_maker, execute_dml
-from .geocode import geocode
+from .geocode import locate_coordinates
 from .models import (
     DeploymentConfig,
     Incident,
@@ -481,8 +481,9 @@ async def _load(manifest_path: Path, objects: list[ObjectEntry]) -> WriteResult:
                 res.updated.append(o.name)
             existing.name = o.name
             existing.address = o.address
-            existing.lat = o.lat
-            existing.lng = o.lng
+            if existing.position_source != "station":  # «Lage korrigieren» in /admin wins over a reload
+                existing.lat = o.lat
+                existing.lng = o.lng
             existing.source_key = o.sourceKey
             existing.source_note = o.sourceNote
             if o.folder is not None:
@@ -1555,10 +1556,15 @@ class Repair:
 
 
 async def _lookup_coordinates(address: str) -> tuple[float, float] | None:
-    """Best-effort geocode for the repair. Never raises: a repair that cannot reach swisstopo
-    still merges and re-keys, and the census at the end says which objects still have none."""
+    """Best-effort position for the repair. Never raises: a repair that cannot reach swisstopo
+    still merges and re-keys, and the census at the end says which objects still have none.
+
+    ⚠️ `locate`, not `geocode`: only an EXACT street + number in the brigade's area, home town
+    first — never the fuzzy neighbour `geocode` would answer with (ARA Birsig, 17.10.2026: an
+    «Erlenstrasse 60» without its town landed on «Vorderbergstrasse 60» in the home town). An
+    address found in several towns stays without a position, for the station to set."""
     try:
-        return await geocode(address)
+        return await locate_coordinates(address)
     except Exception as e:  # noqa: BLE001 — best-effort by contract
         print(f"  ? geocoding {address!r} failed ({type(e).__name__}: {e}) — left without coordinates", file=sys.stderr)
         return None
@@ -1597,9 +1603,10 @@ async def _geocode_missing(*, apply: bool) -> int:
 
     What is geocoded is the ``address`` where the row has one, and otherwise the ``name``. That
     is not a fallback for its own sake: those 52 rows ARE addresses — «Benkenstrasse 66a» stands
-    in the name column because the import that wrote them never split the folder — and the
-    geocoder is region-biased (`app/geocode`), so a bare street number resolves in the brigade's
-    own villages. An object whose name is not an address simply finds nothing and stays on the
+    in the name column because the import that wrote them never split the folder — and
+    `geocode.locate` takes only an EXACT street + number inside the brigade's area, home town
+    first, so a bare street number resolves in the brigade's own villages and never onto a fuzzy
+    neighbour; one several towns of the area share is left for the station. An object whose name is not an address simply finds nothing and stays on the
     list; nothing is invented for it.
 
     Never overwrites a position the station already has: the query only ever returns rows that

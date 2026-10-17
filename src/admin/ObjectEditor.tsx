@@ -1,5 +1,5 @@
 import { ShellLoader } from '../components/ShellLoader'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { caretToEnd } from '../lib/ui'
 import { ApiError } from '../lib/api'
 import { Icon } from '../lib/icons'
@@ -19,6 +19,9 @@ import {
   type ObjectInput,
 } from './stationDataApi'
 import './stationData.css'
+
+// «Lage korrigieren»: its own lazy chunk, so MapLibre ships only when somebody opens it
+const ObjectPositionSheet = lazy(() => import('./ObjectPositionSheet'))
 
 // The Einsatzobjekt editor — the object's own fields plus its Modul-PDF slots. It is the BODY
 // of two surfaces and owns no frame of its own: the Objektpläne detail page renders it inline
@@ -188,6 +191,9 @@ export function ObjectEditor({ object, onChanged, plans }: {
   const [save, setSave] = useState<Save>({ kind: 'idle' })
   const [keyError, setKeyError] = useState<string | null>(null)
   const [flash, setFlash] = useState(false)
+  const [posOpen, setPosOpen] = useState(false)
+  /** the station corrected the position («Lage korrigieren»): the raw fields only show it */
+  const stationSet = saved?.position_source === 'station'
 
   const { name, address, lat, lng, note, measures, remarks, measuresSource } = fields
   const set = <K extends keyof typeof fields>(field: K, value: string) => {
@@ -358,6 +364,7 @@ export function ObjectEditor({ object, onChanged, plans }: {
             className="adm-input adm-input-mono"
             inputMode="decimal"
             value={lat}
+            readOnly={stationSet}
             onChange={(e) => set('lat', e.target.value)}
             onBlur={commit}
             placeholder="47.4712"
@@ -368,12 +375,42 @@ export function ObjectEditor({ object, onChanged, plans }: {
             className="adm-input adm-input-mono"
             inputMode="decimal"
             value={lng}
+            readOnly={stationSet}
             onChange={(e) => set('lng', e.target.value)}
             onBlur={commit}
             placeholder="7.5501"
           />
         </SettingRow>
         {!coords.ok && <SettingsNote><span className="adm-state adm-state-err">{coords.error}</span></SettingsNote>}
+        {/* where the object stands, who said so, and the door to correct it (Karte & Objekte,
+            review round 2): a station-set position is never moved by an import again */}
+        {saved && (
+          <SettingRow label={C.positionLabel} tip={C.positionTip}>
+            <span className="adm-obj-idline">
+              <span className="adm-fleet-badge adm-view-badge-muted">
+                {stationSet ? fillTemplate(C.positionStation, { date: fmtDate(saved.position_set_at ?? saved.updated_at) }) : C.positionImported}
+              </span>
+              {saved.outline === 'building' && <span className="adm-fleet-badge adm-view-badge-muted">{C.positionOutlineBuilding}</span>}
+              {saved.outline === 'none' && <span className="adm-fleet-badge adm-view-badge-muted">{C.positionOutlineNone}</span>}
+              <button type="button" className="btn adm-int-btn" onClick={() => setPosOpen(true)}><Icon id="pin" />{C.positionFix}</button>
+            </span>
+          </SettingRow>
+        )}
+        {stationSet && <SettingsNote>{C.positionLocked}</SettingsNote>}
+        {posOpen && saved && (
+          <Suspense fallback={null}>
+            <ObjectPositionSheet
+              object={saved}
+              onClose={() => setPosOpen(false)}
+              onSaved={(w) => {
+                const merged: ObjectWithPlans = { ...saved, ...w, plans: saved.plans, distance_m: null }
+                setSaved(merged)
+                setFields(fieldsOf(merged))
+                onChanged(merged)
+              }}
+            />
+          </Suspense>
+        )}
         <SettingRow label={C.noteLabel} hint={C.noteHint}>
           <input className="adm-input" value={note} onChange={(e) => set('note', e.target.value)} onBlur={commit} />
         </SettingRow>

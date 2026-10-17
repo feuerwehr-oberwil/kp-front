@@ -22,6 +22,14 @@ export interface ObjectWithPlans {
   measures?: string | null
   remarks?: string | null
   measures_source?: string | null
+  /** the town when it is not the home town («Therwil»); absent on older servers */
+  locality?: string | null
+  /** `'station'` once the station corrected the position in /admin («Lage korrigieren») — no
+   *  import, push or pull overwrites it then */
+  position_source?: string | null
+  position_set_at?: string | null
+  /** the station's outline choice: null = automatic, `building`, `none` */
+  outline?: 'building' | 'none' | null
   updated_at: string
   plans: ReferenceDataset[]
   distance_m: number | null
