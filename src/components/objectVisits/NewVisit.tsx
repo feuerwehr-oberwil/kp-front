@@ -19,7 +19,7 @@ import { newVisitDoc, objectSnapshot } from '../../objectVisits/doc'
 import { placeKey, placeTarget, templatesFor, type PlaceQuery } from '../../objectVisits/place'
 import { KARTE_PATH, type OvFrom } from '../../objectVisits/route'
 import { createLocalVisit, findOpenDraft } from '../../objectVisits/store'
-import { decideNewVisit } from '../../objectVisits/newVisit'
+import { autoChoice, decideNewVisit } from '../../objectVisits/newVisit'
 import { lastWith } from '../../objectVisits/devicePrefs'
 import type { CatalogueObject, VisitTemplate } from '../../objectVisits/types'
 import { Head } from './common'
@@ -71,9 +71,8 @@ export function NewVisit({ objectKey = '', workRef = null, place = null, from, a
   )
   // one checklist (or none) needs no question; several ask «Welche Checkliste?» — and so does the
   // one, once it is completed at this stop: «Weitere Checkliste» must not silently repeat it
-  // (asked for up front — «Melden» — it is taken without the question)
-  const choice: { t: VisitTemplate | null } | null =
-    chosen ?? (asked ? { t: asked } : templates.length <= 1 && !doneHere.has(templates[0]?.id ?? null) ? { t: templates[0] ?? null } : null)
+  // (newVisit · autoChoice: an asked-for checklist the station lacks asks instead of guessing)
+  const choice: { t: VisitTemplate | null } | null = chosen ?? autoChoice({ asked: checklist, templates, doneHere })
   const step = decideNewVisit({
     localsLoaded: ov.localsLoaded, localsOk: ov.localsOk, catalogueLoaded: ov.cat !== null,
     hasCatalogue: !!catalogue, object, place: !!target, draft, canCapture: ov.canCapture, choice,
