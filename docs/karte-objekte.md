@@ -93,9 +93,9 @@ What it reuses, so nothing forks:
 |---|---|
 | map, layers, vehicles, measure path, georef raster, weather radar | `MapView` (read-only, no drawings) + `MapLayers` (a `polygons` overlay kind draws the outlines) |
 | Ebenen | `LayerPanel`, under its OWN device key (`kp.layers.karte`, `lib/karte/session`), without the Einsatz-only layers (taktisch, Skizzen, Personen); the radar's choice too (`kp.karte.radar`) |
-| tools | the Einsatz's `ToolRail` (tablet) / the folded `navrail` bar (phone), `ToolDock` + `MeasurePanel` WITHOUT «Als Linie/Fläche übernehmen», `MapViewsButton` without saved views |
+| tools | the Einsatz's `ToolRail` (tablet) / the folded `navrail` bar (phone: Karte · Messen · Gefahrgut · Ebenen), `ToolDock` + `MeasurePanel` WITHOUT «Als Linie/Fläche übernehmen» (and without a line saying it is not saved — nothing here is), stacked on the phone like an Einsatz's: dock 6px above the bar, readout 6px above the dock, one bar lower because the Karte has no tool bar, `MapViewsButton` without saved views |
 | weather | `useWeather` + `WeatherBadge` |
-| plans | the NavRail classes and `PlanGlyph`, `PlanChooser` on the phone, `PdfScroller` on the current revision; the Gebäude storeys as the floor pack's page regions (`planRegionCropUrl`, what `FloorPage` draws from) |
+| plans | the NavRail classes and `PlanGlyph` (tablet rail), rows in the object's sheet on the phone, `PdfScroller` on the current revision; the Gebäude storeys as the floor pack's page regions (`planRegionCropUrl`, what `FloorPage` draws from) |
 | register facts | `lib/buildingCard` (chips, source line), the same «Register-Hinweis» |
 | Gefahrgut | `UnHazardSection` — the Gefahrentafel's ADR/ERG block, extracted from `ContextPanel` |
 | building outlines | the Umriss picker's `/api/overpass/buildings` (station snapshot first), loaded per grid cell (`lib/karte/outlines`) |
@@ -111,6 +111,19 @@ The rules that are easy to break:
   register's street + number equals the object's (`lib/karte/places`). A key box at the same door
   is not the building. No outline under a point → no building.
 - **«In der Nähe» is distance only**, and the panel says so in a sentence.
+- **On a phone the panel is ONE slide-up sheet** (owner, 17.10.2026). Its PEEK is the head
+  (kicker, name, address, ✕) and the actions; FULL runs from under the top bar to the bottom bar.
+  The grab bar and the head drag it (`SheetGrip · useSheetDrag`, the `.ctx` editors' gesture with
+  the height held as state): up or a tap → full, down → peek, down again or ✕ → closed. The order
+  in it: head · actions · Pläne & Module (with «Objektplan auf der Karte» and Gebäude) · the
+  station's word · Gebäude laut Register · In der Nähe · Objektbesuche. There is no «Pläne» tab in
+  the bar: the sheet's rows are the way to a plan, and the plan's «Zur Karte» chip (or the Karte
+  tab) the way back to the sheet. The tablet keeps the left panel, its rail and its order.
+- **A head that is still being looked up is a skeleton**, never «Gebäude» or «…» in place of a
+  name: a tapped building until the register answers (a searched address is named at once), a
+  dropped pin until its address is known. A plain building carries no «Kein Stationsobjekt …»
+  box — the kicker says «Gebäude», the line under the name says «Kein Stationsobjekt» once known,
+  and the closing «Keine Gefahrenangaben …» sentence still stands.
 - **Missing is said.** A register that could not be asked, a place never looked at offline, an
   object without notes: each gets its sentence, and «Keine Gefahrenangaben … heisst nicht …»
   closes the panel. Nothing reads as «no hazard».

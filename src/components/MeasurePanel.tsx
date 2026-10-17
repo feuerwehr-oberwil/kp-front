@@ -10,7 +10,7 @@ import { ProfileChart, ProfileStats } from './ProfileChart'
 import { Button, IconButton } from './Button'
 import s from './MeasurePanel.module.css'
 
-export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, showProfile = true, blocked = false, hint, onAdopt, onCalibrate, calibrateLabel, recalibrateLabel, scaleNote }: {
+export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, showProfile = true, blocked = false, hint, onAdopt, onCalibrate, calibrateLabel, recalibrateLabel, scaleNote, className }: {
   mode: 'line' | 'area'
   coords: LngLat[]
   profile: ProfileResult | null
@@ -37,6 +37,9 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
    *  reading in place of the button, so a sheet that is already tied to the map does not offer
    *  «Neu kalibrieren» — which reads as «this is not calibrated» on a plan that is. */
   scaleNote?: string
+  /** the host's own placement (the Karte's phone stack has one bar fewer than an Einsatz's) —
+   *  `.measure-panel` is a hashed module class, so a host cannot reach it by name */
+  className?: string
 }) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.measure
@@ -98,7 +101,7 @@ export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, s
   )
 
   return (
-    <div className={s['measure-panel']}>
+    <div className={cx(s['measure-panel'], className)}>
       {!readout ? (
         <>
           {!emptyAutomatic && (
