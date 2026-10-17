@@ -450,8 +450,13 @@ jobs:
       - name: Install deps (Playwright)
         run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright Chromium and WebKit
-        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Install the suite's browsers
+        env:
+          SUITE: ${{ matrix.suite }}
+        run: |
+          browsers=(chromium)
+          if [ "$SUITE" = recovery ]; then browsers+=(webkit); fi
+          pnpm exec playwright install --with-deps "${browsers[@]}"
 
       - name: E2E smoke + field scenario (browser → running container)
         env:
@@ -593,9 +598,9 @@ jobs:
   # Nine frozen states of the production container (Lage, Plan, Trupps, Verlauf, Rapport, kiosk;
   # tablet and phone, one night) compared pixel by pixel with e2e/visual/baseline/
   # (e2e/screens.visual.ts, docs/testing/visual-regression.md). It catches what no assertion
-  # names: a merged visual pass that a later merge silently undid (#231). Its own runner, in
-  # parallel with «Image» and «Performance», so it is never on the gate's critical path; a
-  # required check since 2026-10-10. A red run's verdict table is in the job summary; the
+  # names: a merged visual pass that a later merge silently undid (#231). Its own runner loads
+  # the shared image alongside the browser and performance suites; a required check since
+  # 2026-10-10. A red run's verdict table is in the job summary; the
   # pictures (expected, actual, diff) are the `visual-results` artifact, and `just visual-accept <run-id>` takes its
   # actuals as the new baselines — for a deliberate change only, in its own commit.
   visual:
