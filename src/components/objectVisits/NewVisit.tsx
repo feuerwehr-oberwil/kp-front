@@ -26,7 +26,7 @@ import { Head } from './common'
 import { useOv } from './ovContext'
 import s from './ObjectVisits.module.css'
 
-export function NewVisit({ objectKey = '', workRef = null, place = null, from, after }: {
+export function NewVisit({ objectKey = '', workRef = null, place = null, from, after, checklist = null }: {
   objectKey?: string
   workRef?: string | null
   /** a visit at a place (no object) */
@@ -34,6 +34,9 @@ export function NewVisit({ objectKey = '', workRef = null, place = null, from, a
   from?: OvFrom
   /** «Weitere Checkliste» from this place visit (its checklist reads «erfasst») */
   after?: string
+  /** asked for up front (`?checkliste=`, «Melden» on the Karte): taken when the catalogue has it,
+   *  else the chooser as without it — a station that never loaded it loses nothing */
+  checklist?: string | null
 }) {
   const ov = useOv()
   const C = appConfig.copy.objectVisits
@@ -49,11 +52,13 @@ export function NewVisit({ objectKey = '', workRef = null, place = null, from, a
   const object: CatalogueObject | null = catalogue && !place ? resolveObject(catalogue, objectKey) : null
   const target = place ? placeTarget(place, C.placeUnnamed) : null
   const isPlace = !!target
-  // the draft to resume: at the object (a bare id resolves even without a catalogue), or at the
-  // place (~1 m) — a reload of the link never makes a second draft
-  const stopKey = place ? placeKey(place) : object?.id ?? objectKey
-  const draft = ov.localsLoaded ? findOpenDraft(ov.locals, stopKey, workRef, ov.userId) : null
   const templates = useMemo(() => (catalogue ? templatesFor(visitTemplates(catalogue), isPlace ? 'location' : 'object') : []), [catalogue, isPlace])
+  const asked = useMemo(() => (checklist ? templates.find((t) => t.id === checklist) ?? null : null), [checklist, templates])
+  // the draft to resume: at the object (a bare id resolves even without a catalogue), or at the
+  // place (~1 m) — a reload of the link never makes a second draft; with a checklist asked for,
+  // only a draft of it is «the open one» (store · findOpenDraft)
+  const stopKey = place ? placeKey(place) : object?.id ?? objectKey
+  const draft = ov.localsLoaded ? findOpenDraft(ov.locals, stopKey, workRef, ov.userId, asked?.id) : null
   // the checklists already completed at this stop («Weitere Checkliste» from a finished visit)
   // (plain values, no memo: a handful of rows, and the React compiler memoizes what it can)
   // — at a place only the visit «Weitere Checkliste» came from: another report on the same pin
@@ -66,8 +71,10 @@ export function NewVisit({ objectKey = '', workRef = null, place = null, from, a
   )
   // one checklist (or none) needs no question; several ask «Welche Checkliste?» — and so does the
   // one, once it is completed at this stop: «Weitere Checkliste» must not silently repeat it
-  const choice: { t: VisitTemplate | null } | null =
-    chosen ?? (templates.length <= 1 && !doneHere.has(templates[0]?.id ?? null) ? { t: templates[0] ?? null } : null)
+  const choice = useMemo<{ t: VisitTemplate | null } | null>(
+    () => chosen ?? (asked ? { t: asked } : templates.length <= 1 && !doneHere.has(templates[0]?.id ?? null) ? { t: templates[0] ?? null } : null),
+    [chosen, asked, templates, doneHere],
+  )
   const step = decideNewVisit({
     localsLoaded: ov.localsLoaded, localsOk: ov.localsOk, catalogueLoaded: ov.cat !== null,
     hasCatalogue: !!catalogue, object, place: !!target, draft, canCapture: ov.canCapture, choice,

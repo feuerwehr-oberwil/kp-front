@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 // «Karte & Objekte» end to end on the surface, with the map as a prop recorder (like the
 // IncidentWorkspace harness): an object opens the panel, «Objektbesuch» hands over at the C1
-// address, a pin becomes a «Meldung» at a place, Messen offers NO «Als Linie übernehmen», and
+// address and «Melden» asks for the station's Fehlermeldung, a pin becomes a «Meldung» at a place,
+// Messen offers NO «Als Linie übernehmen», a plan opens in the Einsatz's reader read-only, and
 // nothing the viewer does writes anything but its own view keys. Synthetic Musterdorf data.
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
@@ -10,7 +11,7 @@ import type { ReactNode } from 'react'
 import type { StationObjects } from '../../lib/api/stationReference'
 import type { LngLat } from '../../types'
 
-const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], phone: false }))
+const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], phone: false, board: [] as Record<string, unknown>[] }))
 const lastMap = () => rec.map[rec.map.length - 1] as { onMapClick: (c: LngLat) => void; measurePoints: LngLat[]; children?: ReactNode }
 
 const CATALOGUE: StationObjects = {
@@ -54,7 +55,11 @@ vi.mock('../../lib/deploymentConfig', async (importOriginal) => ({
 vi.mock('../../lib/useWeather', () => ({ useWeather: () => ({ data: null, error: null }) }))
 vi.mock('../../lib/ui', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../lib/ui')>()), toast: vi.fn() }))
 vi.mock('../../lib/useVehicleLayer', () => ({ useVehicleLayer: () => ({ liveVehicles: [] }) }))
-vi.mock('../PdfScroller', () => ({ PdfScroller: ({ url }: { url: string }) => <div data-testid="pdf">{url}</div> }))
+// the Einsatz's plan reader (Whiteboard, lazy) as a prop recorder: what the Karte hands it IS the
+// proof that it can write nothing
+vi.mock('../../workspace/lazySurfaces', () => ({
+  Whiteboard: (p: Record<string, unknown> & { plans: { imageUrl: string }[] }) => { rec.board.push(p); return <div data-testid="pdf">{p.plans[0].imageUrl}</div> },
+}))
 
 import KarteApp, { type KarteAppProps } from './KarteApp'
 import { toast } from '../../lib/ui'
@@ -70,6 +75,7 @@ beforeAll(() => {
 })
 beforeEach(() => {
   rec.map.length = 0
+  rec.board.length = 0
   rec.phone = false
   localStorage.clear(); sessionStorage.clear()
   window.history.replaceState(null, '', '/karte')
@@ -99,13 +105,18 @@ describe('KarteApp', () => {
     await waitFor(() => expect(window.location.search).toBe('?objekt=schloss'))
     fireEvent.click(screen.getByRole('button', { name: /Objektbesuch/ }))
     expect(onOpenVisits).toHaveBeenCalledWith('/besuche/neu?object=schloss&from=karte')
+    // «Melden» (owner R2): the same visit, with the station's Fehlermeldung asked for
+    fireEvent.click(screen.getByRole('button', { name: 'Melden' }))
+    expect(onOpenVisits).toHaveBeenLastCalledWith('/besuche/neu?object=schloss&checkliste=fehlermeldung&from=karte')
   })
 
-  it('measures from an object without offering to keep it, and stores nothing of it', async () => {
+  it('measures without offering to keep it, and stores nothing of it', async () => {
     mount()
     fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
-    fireEvent.click(await screen.findByRole('button', { name: /Messen ab hier/ }))
-    await waitFor(() => expect(lastMap().measurePoints).toHaveLength(1))
+    // no «Messen ab hier» in the panel any more (owner R2): Messen is the tool's
+    expect(screen.queryByRole('button', { name: /Messen ab hier/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Messen' }))
+    act(() => lastMap().onMapClick([7.570188, 47.523773]))
     act(() => lastMap().onMapClick([7.5708, 47.52455]))
     await waitFor(() => expect(lastMap().measurePoints).toHaveLength(2))
     expect(screen.queryByRole('button', { name: /übernehmen/ })).toBeNull()
@@ -123,13 +134,14 @@ describe('KarteApp', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Punkt setzen' }))
     act(() => lastMap().onMapClick([7.57175, 47.52015]))
     expect(await screen.findByText('bei Starenstrasse 19')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: /Meldung erfassen/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Melden' }))
     const href = onOpenVisits.mock.calls[0][0] as string
     const q = new URLSearchParams(href.split('?')[1])
     expect(href.startsWith('/besuche/neu?')).toBe(true)
     expect(q.get('label')).toBe('bei Starenstrasse 19')
     expect(q.get('address')).toBe('Starenstrasse 19, 9999 Musterdorf')
     expect(q.get('from')).toBe('karte')
+    expect(q.get('checkliste')).toBe('fehlermeldung')
   })
 
   it('searches the catalogue on the device, objects with plans first', async () => {
@@ -263,5 +275,51 @@ describe('KarteApp', () => {
     fireEvent.click(screen.getByRole('button', { name: /Zur Karte/ }))
     expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
     expect(screen.queryByTestId('pdf')).toBeNull()
+  })
+
+  // owner R2: «using the normal pdf viewer we have just without the annotation» — the Einsatz's
+  // plan reader, and nothing it could write with
+  it('opens a plan in the Einsatz\'s reader, read-only, with no writer behind it', async () => {
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
+    const fetchBefore = vi.mocked(fetch).mock.calls.length
+    // the panel's row (the tablet's rail names the same document)
+    fireEvent.click(within(await screen.findByRole('region', { name: 'Karte & Objekte' })).getByRole('button', { name: /Modul 1 · Übersicht/ }))
+    expect(await screen.findByTestId('pdf')).toBeTruthy()
+    const p = rec.board[rec.board.length - 1] as Record<string, unknown> & { plans: { id: string; imageUrl: string }[] }
+    expect(p.readOnly).toBe(true)
+    expect(p.slimTools).toBe(false)
+    expect(p.linkViewer).toBe(true)
+    expect(p.annos).toEqual([])
+    expect(p.plans.map((d) => d.imageUrl)).toEqual(['/api/reference/plan%3Aschloss%3Amodul1?v=1'])
+    // no door to anything stored under an Einsatz: none of these is handed in
+    for (const k of ['incidentId', 'onCalibrate', 'onObjectSwitch', 'onReorient', 'onPlanLiveMove', 'onLinkTrupp', 'onTeamTrupp', 'tafel', 'historyRef', 'keysRef']) expect(p[k]).toBeUndefined()
+    // …and what it must be handed writes nothing
+    const keys = () => [Object.keys(localStorage).sort(), Object.keys(sessionStorage).sort()]
+    const stored = keys()
+    ;(p.onChange as (a: unknown[]) => void)([{ id: 'x', kind: 'text', x: 0.5, y: 0.5 }])
+    ;(p.log as (i: string, t: string) => void)('pen', 'gezeichnet')
+    ;(p.emit as (op: string) => void)('board.add')
+    ;(p.onAddFloor as (d: number) => void)(1)
+    expect(keys()).toEqual(stored)
+    expect(vi.mocked(fetch).mock.calls.slice(fetchBefore).filter(([, init]) => (init as RequestInit | undefined)?.method && (init as RequestInit).method !== 'GET')).toEqual([])
+    expect((rec.board[rec.board.length - 1] as { annos: unknown[] }).annos).toEqual([])
+  })
+
+  // owner R2: closing the phone sheet returns to the map with the place still selected, and a
+  // second tap on it brings the sheet back
+  it('on a phone: ✕ shuts the sheet, the object stays selected, a tap on it reopens', async () => {
+    rec.phone = true
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
+    const sheet = await screen.findByRole('region', { name: 'Karte & Objekte' })
+    expect(sheet.classList.contains('layers-card')).toBe(true)
+    const closes = within(sheet).getAllByRole('button', { name: 'Schliessen' })
+    fireEvent.click(closes[closes.length - 1])
+    expect(screen.queryByRole('heading', { name: 'Schloss Musterdorf' })).toBeNull()
+    // still selected: the address keeps it, the tag stays drawn
+    expect(window.location.search).toBe('?objekt=schloss')
+    fireEvent.click(screen.getByRole('button', { name: /Schloss Musterdorf/ }))
+    expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
   })
 })

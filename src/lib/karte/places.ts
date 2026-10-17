@@ -259,15 +259,25 @@ export function ringsFromOverpass(data: unknown): LngLat[][] {
 
 // --- addresses the viewer links to (contract C1) -----------------------------------------------
 
-/** A new Objektbesuch at a catalogue object, coming from the viewer. */
-export function objectVisitHref(objectId: string): string {
-  return `/besuche/neu?${new URLSearchParams({ object: objectId, from: 'karte' })}`
+/** The checklist «Melden» asks for (owner, 17.10.2026 · R2): the station's «Fehlermeldung» —
+ *  something is wrong or missing here. Station data (kp-front-data), never bundled: a deployment
+ *  without it gets the visit chooser instead (components/objectVisits/NewVisit). */
+export const REPORT_CHECKLIST = 'fehlermeldung'
+
+/** A new Objektbesuch at a catalogue object, coming from the viewer — with `checklist` already
+ *  chosen for «Melden» (`?checkliste=`, objectVisits/route). */
+export function objectVisitHref(objectId: string, checklist?: string): string {
+  const q = new URLSearchParams({ object: objectId })
+  if (checklist) q.set('checkliste', checklist)
+  q.set('from', 'karte')
+  return `/besuche/neu?${q}`
 }
 
 /** A new Objektbesuch / Meldung at a place without an object (C1). `address` only when known. */
-export function placeVisitHref(p: { at: LngLat; label: string; address?: string | null }): string {
+export function placeVisitHref(p: { at: LngLat; label: string; address?: string | null; checklist?: string }): string {
   const q = new URLSearchParams({ lat: p.at[1].toFixed(6), lng: p.at[0].toFixed(6), label: p.label })
   if (p.address?.trim()) q.set('address', p.address.trim())
+  if (p.checklist) q.set('checkliste', p.checklist)
   q.set('from', 'karte')
   return `/besuche/neu?${q}`
 }

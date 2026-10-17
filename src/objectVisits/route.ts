@@ -30,10 +30,12 @@ export type OvRoute =
   | { kind: 'visit'; id: string; edit?: boolean; from?: OvFrom }
   /** a finished visit's answers on a screen of their own (`/besuche/<id>/antworten`) */
   | { kind: 'answers'; id: string; from?: OvFrom }
-  | { kind: 'new'; object: string; ref: string | null; from?: OvFrom }
+  /** `checklist`: «Melden» from the Karte asks for one checklist up front (`?checkliste=<id>`,
+   *  the station's «Fehlermeldung»); NewVisit falls back to its chooser when the catalogue has none */
+  | { kind: 'new'; object: string; ref: string | null; from?: OvFrom; checklist?: string | null }
   /** a visit at a place with no catalogue object (contract C1); `after`: «Weitere Checkliste»
    *  from that visit (`&nach=<id>`) — its checklist is marked done in the chooser */
-  | { kind: 'newPlace'; place: PlaceQuery; from?: OvFrom; after?: string }
+  | { kind: 'newPlace'; place: PlaceQuery; from?: OvFrom; after?: string; checklist?: string | null }
 
 export const OV_BASE = '/besuche'
 /** Karte & Objekte — where `from=karte` returns to */
@@ -55,9 +57,11 @@ export function parseOvRoute(pathname: string, search: string): OvRoute | null {
   }
   if (rest === 'neu') {
     // an object wins; without one, a position makes it a visit at that place
+    const checklist = q.get('checkliste')
+    const asked = checklist ? { checklist } : {}
     const place = q.get('object') ? null : parsePlace(q)
-    if (place) return { kind: 'newPlace', place, ...fromOf(q), ...(q.get('nach') ? { after: q.get('nach')! } : {}) }
-    return { kind: 'new', object: q.get('object') ?? '', ref: q.get('ref') || null, ...fromOf(q) }
+    if (place) return { kind: 'newPlace', place, ...fromOf(q), ...(q.get('nach') ? { after: q.get('nach')! } : {}), ...asked }
+    return { kind: 'new', object: q.get('object') ?? '', ref: q.get('ref') || null, ...fromOf(q), ...asked }
   }
   // a malformed escape (`/besuche/%E0`) is an unknown visit, never a thrown URIError at boot
   const [first, sub] = rest.split('/')
@@ -81,12 +85,14 @@ export function ovHref(r: OvRoute): string {
     case 'new': {
       const q = new URLSearchParams({ object: r.object })
       if (r.ref) q.set('ref', r.ref)
+      if (r.checklist) q.set('checkliste', r.checklist)
       return withQuery(`${OV_BASE}/neu`, q)
     }
     case 'newPlace': {
       const q = new URLSearchParams({ lat: String(r.place.lat), lng: String(r.place.lng), label: r.place.label })
       if (r.place.address) q.set('address', r.place.address)
       if (r.after) q.set('nach', r.after)
+      if (r.checklist) q.set('checkliste', r.checklist)
       return withQuery(`${OV_BASE}/neu`, q)
     }
   }
