@@ -10,7 +10,7 @@ import type { ReactNode } from 'react'
 import type { StationObjects } from '../../lib/api/stationReference'
 import type { LngLat } from '../../types'
 
-const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[] }))
+const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], phone: false }))
 const lastMap = () => rec.map[rec.map.length - 1] as { onMapClick: (c: LngLat) => void; measurePoints: LngLat[]; children?: ReactNode }
 
 const CATALOGUE: StationObjects = {
@@ -51,6 +51,7 @@ vi.mock('../../lib/deploymentConfig', async (importOriginal) => ({
 vi.mock('../../lib/useWeather', () => ({ useWeather: () => ({ data: null, error: null }) }))
 vi.mock('../../lib/ui', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../lib/ui')>()), toast: vi.fn() }))
 vi.mock('../../lib/useVehicleLayer', () => ({ useVehicleLayer: () => ({ liveVehicles: [] }) }))
+vi.mock('../PdfScroller', () => ({ PdfScroller: ({ url }: { url: string }) => <div data-testid="pdf">{url}</div> }))
 
 import KarteApp, { type KarteAppProps } from './KarteApp'
 import { toast } from '../../lib/ui'
@@ -59,12 +60,13 @@ class RO { observe() {} unobserve() {} disconnect() {} }
 beforeAll(() => {
   ;(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver ??= RO
   window.matchMedia = ((q: string) => ({
-    matches: false, media: q, onchange: null, addListener: () => {}, removeListener: () => {},
+    matches: rec.phone, media: q, onchange: null, addListener: () => {}, removeListener: () => {},
     addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia
 })
 beforeEach(() => {
   rec.map.length = 0
+  rec.phone = false
   localStorage.clear(); sessionStorage.clear()
   window.history.replaceState(null, '', '/karte')
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })))
@@ -103,7 +105,8 @@ describe('KarteApp', () => {
     act(() => lastMap().onMapClick([7.5708, 47.52455]))
     await waitFor(() => expect(lastMap().measurePoints).toHaveLength(2))
     expect(screen.queryByRole('button', { name: /übernehmen/ })).toBeNull()
-    expect(screen.getByText('Nur zum Nachschauen – wird nicht gespeichert')).toBeTruthy()
+    // …and no line saying so either (owner-6, 17.10.2026): nothing on this surface is ever saved
+    expect(screen.queryByText(/Nur zum Nachschauen/)).toBeNull()
     // only the viewer's own view keys were written — no workspace, no drawing, no measure
     expect(Object.keys(sessionStorage)).toEqual(['kp.karte.view'])
     expect(sessionStorage.getItem('kp.karte.view')).not.toMatch(/7\.5708/)
@@ -191,5 +194,22 @@ describe('KarteApp', () => {
     expect(vi.mocked(toast)).not.toHaveBeenCalled()
     // home lives at `/`: the selection does not move it to /karte
     expect(window.location.pathname).toBe('/')
+  })
+
+  // owner-4 (17.10.2026): on a phone the plans are rows in the object's sheet — the bar has no
+  // «Pläne» tab — and an open plan goes back to the map with its «Zur Karte» chip
+  it('on a phone: no Pläne tab, the plan opens from the sheet and goes back to it', async () => {
+    rec.phone = true
+    mount()
+    const nav = await screen.findByRole('navigation', { name: 'Karte & Objekte' })
+    expect(within(nav).queryByRole('button', { name: /Pläne/ })).toBeNull()
+    expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual(['Karte', 'Messen', 'Gefahrgut', 'Ebenen'])
+    fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
+    fireEvent.click(await screen.findByRole('button', { name: /Modul 1 · Übersicht/ }))
+    expect(await screen.findByTestId('pdf')).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: 'Schloss Musterdorf' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Zur Karte/ }))
+    expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
+    expect(screen.queryByTestId('pdf')).toBeNull()
   })
 })

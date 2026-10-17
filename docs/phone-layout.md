@@ -34,6 +34,11 @@ unchanged.
 - Every BAR stacked above the nav bar keeps ONE 6px channel (`--rail-h + 14px`: the tool bar,
   `.rp-tabs`, the page card in `Surface.module.css`); the floating row above the bars keeps the
   family's `--float-gap` (8px) — the gap its pieces keep from each other and from the edge.
+- *Karte & Objekte has ONE bar* (Karte · Messen · Gefahrgut · Ebenen, no tool bar and no «Pläne»
+  tab — 17.10.2026): Messen keeps the same 6px steps, only from the nav bar (dock at `--rail-h +
+  14px`, readout 6px above it), and a selected place is one slide-up sheet whose rows are the
+  object's plans ([`karte-objekte.md`](karte-objekte.md) · «On a phone the panel is ONE slide-up
+  sheet»).
 - Tried and thrown out the same day, so nobody rebuilds them: a «Zeichnen» tile with a flyout, the
   same tile opening the GroupChooser behind a last-used first tap, and a «Karte» tile folding
   Ansichten + Ebenen. The vertical rails (tablet/desktop) are unchanged throughout.
