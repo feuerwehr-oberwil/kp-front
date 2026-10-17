@@ -265,6 +265,27 @@
    wrapper for layout.) */
 
 .ip-menu-act.danger { color: var(--red); }
+/* every row locks while an Einsatz is being opened or an alarm taken (home's sheet: App · opening /
+   taking) — the one it is happening on carries the Shell trail */
+.ip-menu-row:disabled, .ip-menu-alarm-x:disabled { opacity: var(--disabled); cursor: default; }
+/* A Divera alarm waiting to be taken — home's «Einsätze ▾» only (panels/AppMenuRows; inside an
+   Einsatz the banner carries it). A running row in the alarm's red: the bell stands in the
+   laufende-Zeit column, «Neuer Alarm» over the title, «Öffnen» at the end; the row's body takes,
+   the × beside it hides the alarm on this device. A red tint, not a border: a menu row has none. */
+.ip-menu-alarm { display: flex; align-items: stretch; min-width: 0; border-radius: var(--r-ctl); background: var(--red-8); }
+.ip-menu-alarm .ip-menu-row { flex: 1 1 auto; align-items: center; }
+.ip-menu-alarm-mark { display: flex; align-items: center; color: var(--red-strong); }
+.ip-menu-alarm-mark svg { width: 18px; height: 18px; }
+.ip-menu-kicker { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red-strong); }
+.ip-menu-alarm-go { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--red-strong); }
+.ip-menu-alarm-x { flex: none; display: grid; place-items: center; width: var(--tap); border: none; background: none;
+  border-radius: var(--r-ctl); cursor: pointer; color: var(--ink-faint); }
+@media (hover: hover) {
+  .ip-menu-alarm .ip-menu-row:hover:not(:disabled) { background: var(--red-8); }
+  .ip-menu-alarm-x:hover:not(:disabled) { color: var(--ink); background: var(--red-8); }
+}
+.ip-menu-alarm-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.ip-menu-alarm-x svg { width: 16px; height: 16px; }
 /* app utilities (Einstellungen · Bereitschaft · Hilfe · Installieren) as one compact row of
    labeled tiles — icon + word keeps recognition (3am tenet) while taking a third of the
    height the old one-per-row list did */
@@ -2142,11 +2163,13 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .ip-foot-util .i { width: 15px; height: 15px; color: var(--ink-faint); }
 .ip-emptyapp-ver { margin-top: 16px; text-align: left; font: var(--fw-medium) var(--fs-micro) var(--mono, var(--body));
   letter-spacing: .02em; color: var(--ink-faint); }
-/* The same content as the «Einsätze ▾» sheet of «Karte & Objekte» (home since 16.10.2026,
-   components/karte/KarteApp): it hangs off the viewer's bar like the Einsatz menu (.ip-menu),
-   with the card's own breathing room and width rather than the menu's tight rows. */
-.ip-menu.ip-einsaetze { padding: var(--sp-4); width: min(388px, 92vw); }
-.ip-einsaetze .ip-emptyapp-foot { margin-top: var(--sp-5); }
+/* The «Einsätze ▾» sheet of «Karte & Objekte» (home since 16.10.2026, components/karte/KarteApp)
+   is the Einsatz menu without its card (panels/AppMenuRows, 17.10.2026): the menu's own padding
+   and rows. Only a steady width — with no card to size it, the rows alone would shrink it to the
+   menu's minimum and it would change width with every Einsatz that starts. */
+.ip-menu.ip-einsaetze { width: min(388px, 92vw); }
+/* the Rückmeldung prompt heads it, one row-gap above the first group */
+.ip-einsaetze .fb-prompt { margin-bottom: var(--sp-2); }
 
 /* ── «Teilen»: die Links eines Einsatzes ────────────────────────────────────────────────
    One surface, opened by every «Teilen» door (and rendered inline by the Rapport's own

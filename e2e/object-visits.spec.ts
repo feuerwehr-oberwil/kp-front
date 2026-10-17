@@ -71,7 +71,7 @@ async function prepare(api: Api, objectName: string): Promise<() => Promise<void
 /** Sign in, open Objektbesuche online (the catalogue lands on the device), wait for the SW. */
 async function openSurface(page: Page) {
   await login(page)
-  // signed in: home («Karte & Objekte», whose «Einsätze ▾» sheet has the Objektbesuche button), or
+  // signed in: home («Karte & Objekte», whose «Einsätze ▾» menu has the Objektbesuche row), or
   // an Einsatz the boot reopened
   await page.locator('[data-karte], nav.navrail').first().waitFor({ state: 'visible' })
   if (await page.locator('[data-karte]').isVisible().catch(() => false)) {
