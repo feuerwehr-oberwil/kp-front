@@ -12,7 +12,7 @@ describe('Objektbesuche routes', () => {
       .toEqual({ kind: 'new', object: 'fwo-schlue:abc', ref: 'fwo-admin:fu-2026/B4' })
     // «Melden» on the Karte asks for its checklist up front
     expect(parseOvRoute('/besuche/neu', '?object=u1&checkliste=fehlermeldung&from=karte'))
-      .toEqual({ kind: 'new', object: 'u1', ref: null, checklist: 'fehlermeldung' })
+      .toEqual({ kind: 'new', object: 'u1', ref: null, checklist: 'fehlermeldung', from: 'karte' })
     expect(parseOvRoute('/besuche', '?liste=fu%2FB4')).toEqual({ kind: 'list', ref: 'fu/B4' })
     expect(parseOvRoute('/', '')).toBeNull()
     expect(parseOvRoute('/besucherzahl', '')).toBeNull()

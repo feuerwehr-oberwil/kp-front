@@ -56,15 +56,17 @@ export function nameIsAddress(name: string | null | undefined): boolean {
 }
 
 /** The object's address: the stored one, else its name when the name IS an address, else null. */
-export function objectAddress(o: { name: string; address: string | null }): string | null {
-  const a = o.address?.trim()
-  if (a) return a
-  return nameIsAddress(o.name) ? o.name.trim() : null
+export function objectAddress(o: { name: string; address: string | null; locality?: string | null }): string | null {
+  const a = o.address?.trim() || (nameIsAddress(o.name) ? o.name.trim() : null)
+  if (!a) return null
+  // the server names the town only when it is not the home town («Erlenstrasse 60, Therwil»)
+  const town = o.locality?.trim()
+  return town && !foldWords(a).includes(foldWords(town)) ? `${a}, ${town}` : a
 }
 
 /** Whether the object's name already says its street and number («Therwilerstrasse 18 (EH)»
  *  says «Therwilerstrasse 18»; «Therwilerstrasse 18a» does not). */
-export function nameSaysAddress(o: { name: string; address: string | null }): boolean {
+export function nameSaysAddress(o: { name: string; address: string | null; locality?: string | null }): boolean {
   const a = objectAddress(o)
   if (!a) return false
   const name = foldWords(o.name)
@@ -78,7 +80,7 @@ export function nameSaysAddress(o: { name: string; address: string | null }): bo
  * one) and the kind word, quietly, so the row still says what it is. An object with no address
  * at all is described by its kind (a description, not an address).
  */
-export function objectRowSub(o: { name: string; address: string | null }, kindWord: string): string {
+export function objectRowSub(o: { name: string; address: string | null; locality?: string | null }, kindWord: string): string {
   const a = objectAddress(o)
   if (!a) return kindWord
   if (!nameSaysAddress(o)) return a
@@ -87,7 +89,7 @@ export function objectRowSub(o: { name: string; address: string | null }, kindWo
 
 /** The line under the name in the panel's head, whose kicker already says the kind: the address,
  *  or the place alone when the name is the address, or nothing. */
-export function objectHeadSub(o: { name: string; address: string | null }): string | null {
+export function objectHeadSub(o: { name: string; address: string | null; locality?: string | null }): string | null {
   const a = objectAddress(o)
   if (!a) return null
   return nameSaysAddress(o) ? splitAddress(a)[1] || null : a

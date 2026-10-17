@@ -71,10 +71,9 @@ export function NewVisit({ objectKey = '', workRef = null, place = null, from, a
   )
   // one checklist (or none) needs no question; several ask «Welche Checkliste?» — and so does the
   // one, once it is completed at this stop: «Weitere Checkliste» must not silently repeat it
-  const choice = useMemo<{ t: VisitTemplate | null } | null>(
-    () => chosen ?? (asked ? { t: asked } : templates.length <= 1 && !doneHere.has(templates[0]?.id ?? null) ? { t: templates[0] ?? null } : null),
-    [chosen, asked, templates, doneHere],
-  )
+  // (asked for up front — «Melden» — it is taken without the question)
+  const choice: { t: VisitTemplate | null } | null =
+    chosen ?? (asked ? { t: asked } : templates.length <= 1 && !doneHere.has(templates[0]?.id ?? null) ? { t: templates[0] ?? null } : null)
   const step = decideNewVisit({
     localsLoaded: ov.localsLoaded, localsOk: ov.localsOk, catalogueLoaded: ov.cat !== null,
     hasCatalogue: !!catalogue, object, place: !!target, draft, canCapture: ov.canCapture, choice,
