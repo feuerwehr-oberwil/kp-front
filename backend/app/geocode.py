@@ -11,7 +11,8 @@ settings when the config is absent/empty. With no config and empty settings the 
 unbiased (national) — a fresh/public deployment behaves neutrally.
 
 `geocode()` returns the single best match (used on manual create and Divera take when
-coords are missing); `search()` returns a ranked list for the intake autocomplete. Both
+coords are missing); `locate()` is the strict twin for station OBJECTS (exact street + number in
+the brigade's area, never a fuzzy neighbour — see its block below); `search()` returns a ranked list for the intake autocomplete. Both
 return empty/None on no match or upstream failure (caller falls back to map-click). A miss is
 retried once with a typo-corrected street name (see street_dictionary) when a bbox is set.
 """
@@ -291,3 +292,195 @@ async def reverse(lat: float, lng: float) -> GeoHit | None:
         if label:
             return GeoHit(label=label, lat=lat, lng=lng)
     return None
+
+
+# --- an object's place: exact street + number, in the brigade's area -----------------------------
+#
+# `geocode()` above is right for an Einsatz: the operator typed an address a moment ago and looks
+# at the pin it gives. It is WRONG for a catalogue object, which is geocoded once, unattended, and
+# then drawn on the station's map for years. «Erlenstrasse 60» (ARA Birsig, review 17.10.2026)
+# carried no town; `_bias` appended the home locality, swisstopo had no Erlenstrasse in Oberwil
+# and answered with its nearest fuzzy neighbour, «Vorderbergstrasse 60, 4104 Oberwil» — 1.1 km
+# from the real place in Therwil, and nothing said so. `locate` takes only an EXACT street +
+# number, prefers the home town, accepts exactly one match elsewhere in the brigade's area (the
+# region bias's bbox) and calls several of them ambiguous instead of picking one.
+
+_PLZ_TOWN = re.compile(r"^(?P<street>.*?)[\s,]+(?P<plz>\d{4})\s+(?P<town>.+)$")
+_CANTON_SUFFIX = re.compile(r"\s*(\([A-Z]{2}\)|\b[A-Z]{2})\s*$")
+
+
+def _fold(s: str) -> str:
+    import unicodedata
+
+    folded = unicodedata.normalize("NFKD", s.lower())
+    return "".join(c for c in folded if not unicodedata.combining(c))
+
+
+def street_key(text: str | None) -> str:
+    """«Mühlemattstr. 18», «Muehlemattstrasse 18, 4104 Oberwil» → «muhlemattstrasse18» — the street
+    and house number only (the part before a comma or a postal code), folded for comparison."""
+    s = (text or "").split(",")[0]
+    m = _PLZ_TOWN.match(s.strip())
+    if m:
+        s = m.group("street")
+    s = _fold(s).replace("ue", "u").replace("oe", "o").replace("ae", "a")
+    s = re.sub(r"str\.?(?=\s|\d|$)", "strasse", s)
+    return re.sub(r"[^a-z0-9]", "", s)
+
+
+def has_house_number(text: str | None) -> bool:
+    """True when the text reads as «Street 12[a]» — a street word and a house number."""
+    s = (text or "").split(",")[0].strip()
+    return bool(re.fullmatch(r"[^\d,]*[A-Za-zÀ-ÿ][^\d,]*\s\d{1,4}\s?[a-zA-Z]?", s))
+
+
+def town_key(text: str | None) -> str:
+    """«4104 Oberwil BL», «Oberwil (BL)», «Oberwil» → «oberwil»."""
+    s = _CANTON_SUFFIX.sub("", (text or "").strip())
+    s = re.sub(r"\b\d{4}\b", "", s)
+    return re.sub(r"[^a-z]", "", _fold(s))
+
+
+def town_of(locality: str | None) -> str | None:
+    """«4106 Therwil» / «Oberwil BL» / «Oberwil (BL)» → the town as it is written («Therwil»)."""
+    s = _CANTON_SUFFIX.sub("", re.sub(r"\b\d{4}\b", "", locality or "")).strip(" ,")
+    return s or None
+
+
+def split_label(label: str) -> tuple[str, str | None, str | None]:
+    """A register label → (street + number, postal code, town). «Erlenstrasse 60 4106 Therwil» →
+    («Erlenstrasse 60», «4106», «Therwil»); a label without a postal code stays whole."""
+    first = label.split(",")[0].strip() if "," in label else label.strip()
+    rest = label.split(",", 1)[1].strip() if "," in label else ""
+    m = _PLZ_TOWN.match(f"{first} {rest}".strip() if rest else first)
+    if not m:
+        return first, None, None
+    return m.group("street").strip(), m.group("plz"), town_of(m.group("town"))
+
+
+@dataclass(frozen=True)
+class Located:
+    """An exact register match for an object's address."""
+
+    label: str
+    lat: float
+    lng: float
+    street: str
+    town: str | None
+    #: the home locality (``map.geocoder.defaultLocality``)
+    home: bool
+
+
+@dataclass(frozen=True)
+class Location:
+    """What `locate` found: ``hit`` when exactly one place is the address, else why not —
+    ``none`` (no exact match in the area), ``ambiguous`` (several towns, none of them home; the
+    station decides), ``unavailable`` (the geocoder could not be asked), ``not_an_address``."""
+
+    hit: Located | None
+    status: str
+    candidates: tuple[Located, ...] = ()
+
+
+def _in_bbox(attrs: dict, bbox: str) -> bool:
+    try:
+        w, s, e, n = (float(v) for v in bbox.split(","))
+        x, y = float(attrs["y"]), float(attrs["x"])  # swisstopo: y = easting, x = northing
+    except (KeyError, TypeError, ValueError):
+        return True  # no usable bbox or no LV95 on the hit: the region pass already filtered
+    return w <= x <= e and s <= y <= n
+
+
+def is_home(town: str | None, plz: str | None, default_locality: str) -> bool:
+    if not default_locality.strip():
+        return False
+    home_plz = _HAS_PLZ.search(default_locality)
+    if plz and home_plz and plz == home_plz.group(0):
+        return True
+    return bool(town) and town_key(town) == town_key(default_locality)
+
+
+async def locate(address: str) -> Location:
+    """The ONE place an object's address names, or why there is none (see the block comment)."""
+    if not has_house_number(address):
+        return Location(None, "not_an_address")
+    if not _GEOCODER_OK:
+        return Location(None, "unavailable")
+    default_locality, bbox = await _resolve_bias()
+    want = street_key(address)
+    _street, want_plz, want_town = split_label(address.replace(",", " "))
+    try:
+        results = await _upstream(address.strip(), bbox, 20)
+    except (httpx.HTTPError, ValueError) as e:
+        logger.warning("locate failed for %r: %s", address, e)
+        return Location(None, "unavailable")
+    found: dict[str, Located] = {}
+    for r in results:
+        attrs = r.get("attrs", {})
+        if attrs.get("origin", "address") != "address" or attrs.get("lat") is None or attrs.get("lon") is None:
+            continue
+        label = _TAGS.sub("", attrs.get("label") or "").strip()
+        street, plz, town = split_label(label)
+        if street_key(street) != want or (bbox and not _in_bbox(attrs, bbox)):
+            continue
+        if want_plz and plz and plz != want_plz:
+            continue
+        if want_town and town and not want_plz and town_key(town) != town_key(want_town):
+            continue
+        key = f"{plz}|{town_key(town)}"
+        found.setdefault(
+            key,
+            Located(
+                label=f"{street}, {plz} {town}" if plz and town else label,
+                lat=float(attrs["lat"]),
+                lng=float(attrs["lon"]),
+                street=street,
+                town=town,
+                home=is_home(town, plz, default_locality),
+            ),
+        )
+    hits = tuple(found.values())
+    home = [h for h in hits if h.home]
+    if home:
+        return Location(home[0], "exact", hits)
+    if len(hits) == 1:
+        return Location(hits[0], "exact", hits)
+    return Location(None, "ambiguous" if hits else "none", hits)
+
+
+async def search_area(address: str, limit: int = 8) -> list[GeoHit]:
+    """The address picker of «Lage korrigieren»: what the text names in the brigade's area, the
+    exact street + number first and the home town first among them. Unlike `search`, the home
+    locality is NOT appended — that is what turned «Erlenstrasse 60» into Oberwil's
+    «Vorderbergstrasse 60». Then `search`'s own hits behind, for a half-typed street."""
+    if not address or not address.strip() or not _GEOCODER_OK:
+        return []
+    default_locality, bbox = await _resolve_bias()
+    try:
+        results = await _upstream(address.strip(), bbox, max(limit, 10))
+    except (httpx.HTTPError, ValueError) as e:
+        logger.warning("Area search failed for %r: %s", address, e)
+        results = []
+    want = street_key(address)
+    hits = _parse(results)
+    exact = [h for h in hits if street_key(h.label) == want]
+    rest = [h for h in hits if street_key(h.label) != want]
+    out = _home_first(exact, default_locality) + _home_first(rest, default_locality)
+    seen = {h.label for h in out}
+    out += [h for h in await search(address, limit=limit) if h.label not in seen]
+    return out[:limit]
+
+
+async def locate_coordinates(address: str) -> tuple[float, float] | None:
+    """`locate` as a coordinate, for the unattended object paths (import, repair, SharePoint) —
+    None unless exactly one place is the address."""
+    loc = await locate(address)
+    if loc.hit is None:
+        if loc.status == "ambiguous":
+            logger.warning(
+                "object address %r is ambiguous in the area (%s) — left without a position for the station",
+                address,
+                "; ".join(h.label for h in loc.candidates),
+            )
+        return None
+    return loc.hit.lat, loc.hit.lng

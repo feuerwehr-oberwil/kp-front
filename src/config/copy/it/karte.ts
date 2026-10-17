@@ -125,6 +125,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     layerGroupStation: 'Corpo',
     layerObjects: 'Oggetti del corpo',
     layerObjectsSub: 'Oggetti pianificati · depositi chiavi',
+    layerCategorySub: '{n} oggetti',
     layerGroupPlans: 'Piani',
     layerPlan: 'Piano {code} · {name}',
     layerPlanSub: 'Rilasciato dal corpo',

@@ -46,7 +46,7 @@ def no_geocoder(monkeypatch):
     mints an object, so without this every plans test would make a real HTTP request (and the
     fake tenant's MockTransport does not cover the geocoder's own client). The tests that care
     about geocoding patch it themselves with `geocoder(...)`."""
-    monkeypatch.setattr(sharepoint_sync, "geocode", _none_geocode)
+    monkeypatch.setattr(sharepoint_sync, "locate_coordinates", _none_geocode)
 
 
 async def _none_geocode(_address):
@@ -63,7 +63,7 @@ def geocoder(monkeypatch, coords, calls=None):
             raise coords
         return coords
 
-    monkeypatch.setattr(sharepoint_sync, "geocode", fake)
+    monkeypatch.setattr(sharepoint_sync, "locate_coordinates", fake)
 
 
 @pytest.fixture

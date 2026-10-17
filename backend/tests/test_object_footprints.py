@@ -198,7 +198,7 @@ def _tile_coords(p: tuple[float, float]) -> tuple[int, int, int, int]:
 
 
 def _sources(monkeypatch, *, wfs_down: bool = False) -> dict[str, int]:
-    calls = {"tile": 0, "identify": 0, "wfs": 0}
+    calls = {"tile": 0, "identify": 0, "wfs": 0, "gwr": 0}
     ring_px = []
     for p in SCHOOL:
         tx, ty, px, py = _tile_coords(p)
@@ -215,6 +215,26 @@ def _sources(monkeypatch, *, wfs_down: bool = False) -> dict[str, int]:
         if url.endswith(".pbf"):
             calls["tile"] += 1
             return httpx.Response(200, content=tile) if f"/14/{tx}/{ty}.pbf" in url else httpx.Response(404)
+        if request.url.path.endswith("/identify") and "gebaeude_wohnungs_register" in request.url.params["layers"]:
+            # the register's address at the pin (ONE ask per coordinate, beside the footprint's)
+            calls["gwr"] += 1
+            lng, lat = (float(v) for v in request.url.params["geometry"].split(","))
+            return httpx.Response(
+                200,
+                json={
+                    "results": [
+                        {
+                            "geometry": {"type": "Point", "coordinates": [lng + 0.0001, lat]},
+                            "properties": {
+                                "strname_deinr": "Feldweg 1",
+                                "dplz4": 4106,
+                                "dplzname": "Therwil",
+                                "egid": 9,
+                            },
+                        }
+                    ]
+                },
+            )
         if request.url.path.endswith("/identify"):
             calls["identify"] += 1
             assert request.url.params["layers"] == "all:ch.swisstopo-vd.amtliche-vermessung"
@@ -269,9 +289,20 @@ async def test_the_tick_asks_once_and_the_catalogue_carries_the_buildings(client
     assert fp["type"] == "MultiPolygon" and len(fp["coordinates"]) == 3  # house, gym, hall
     assert by["Schlüsseldepot Feld"]["footprint"] is None
 
+    # the register's address at both pins (the key box's too) was asked once and is kept
+    assert calls["gwr"] == 2
+    assert of.place_at(objs["school"].lat, objs["school"].lng) == {
+        "street": "Feldweg 1",
+        "plz": "4106",
+        "town": "Therwil",
+        "egid": "9",
+    }
+    # …and the catalogue names the town, which is not the home town (none is configured here)
+    assert by["Schulhaus Feld"]["locality"] == "Therwil"
+
     # idle: a second tick asks nobody
     assert await of.tick(db_session) == 0
-    assert calls["identify"] == 1
+    assert calls["identify"] == 1 and calls["gwr"] == 2
 
     # the object moved: its old buildings are not shown while the new point is unasked
     objs["school"].lat, objs["school"].lng = at(500, 500)[1], at(500, 500)[0]
@@ -298,4 +329,4 @@ async def test_off_when_a_source_is_unset(db_session, monkeypatch):
     monkeypatch.setattr(of.settings, "footprint_buildings_wfs", "")
     await _objects(db_session)
     assert await of.tick(db_session) == 0
-    assert calls == {"tile": 0, "identify": 0, "wfs": 0}
+    assert calls == {"tile": 0, "identify": 0, "wfs": 0, "gwr": 0}

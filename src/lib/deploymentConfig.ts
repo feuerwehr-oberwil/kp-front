@@ -10,6 +10,7 @@
 // Contract (camelCase, every field optional/possibly-empty — a fresh deployment returns
 // mostly-empty objects). This type mirrors the backend response exactly; keep in sync.
 
+import type { ObjectCategoryRule } from './karte/categories'
 import { isOpenableUrl, type ReportLink } from './reportLinks'
 
 export interface DeploymentAssets {
@@ -53,6 +54,9 @@ export interface DeploymentMap {
   defaultView?: DeploymentDefaultView | null
   geocoder?: DeploymentGeocoder | null
   externalLinks?: DeploymentExternalLink[] | null
+  /** «Karte & Objekte»: the station's object colours — ordered rules, first match wins
+   *  (lib/karte/categories). Unset = every object red, a key box its FKS glyph. */
+  objectCategories?: ObjectCategoryRule[] | null
 }
 
 export interface DeploymentReferenceLayer {
@@ -711,6 +715,13 @@ export function reportLinks(): ReportLink[] {
 
 /** The Objektbesuche module as this device knows it: on/off and who may capture. The catalogue's
  *  own `canCapture` is the server's word and wins where it is known (objectVisits/catalogue). */
+/** The station's object categories for «Karte & Objekte» (`map.objectCategories`, raw — read
+ *  through lib/karte/categories · categoryRules). */
+export function objectCategoryRules(): ObjectCategoryRule[] {
+  const raw = resolved.map?.objectCategories
+  return Array.isArray(raw) ? raw : []
+}
+
 export function objectVisitsConfig(): { enabled: boolean; captureRoles: string[] } {
   const ov = resolved.objectVisits
   const roles = Array.isArray(ov?.captureRoles) ? ov.captureRoles.filter((r) => typeof r === 'string') : null

@@ -29,6 +29,15 @@ therefore never makes a geo.admin call to draw the map, and the outlines ride in
 the viewer keeps for offline (#370). What a source said is kept per COORDINATE (``facts``), so a
 catalogue change re-derives without asking anybody again; a failed ask is retried an hour later
 and never stored as «nothing there».
+
+Two more answers ride the same tick (review round 2, 17.10.2026):
+
+* **the station's outline choice** (``ObjectSite.outline``, set with «Lage korrigieren» in /admin):
+  ``building`` keeps only the building at the pin, ``none`` derives nothing — the station's word
+  beats the rule, and a moved pin re-derives like any other move;
+* **the register's address at the pin** (``places``, GWR over the same identify host, ONE ask
+  per coordinate, kept like the facts): the catalogue serves it as an object's address when the
+  station has none, and the town at the pin when it is not the home town (``place_at``).
 """
 
 from __future__ import annotations
@@ -91,6 +100,10 @@ CONCURRENCY = 4
 RETRY_S = 3600.0
 TIMEOUT_S = 15.0
 TICK_SECONDS = 120
+#: a register entrance farther from the pin than this is not «the address at the pin»
+PLACE_MAX_M = 45.0
+#: the station's outline choices (ObjectSite.outline); NULL = the automatic rule
+OUTLINE_MODES = ("auto", "building", "none")
 
 _USER_AGENT = "kp-front (+https://github.com/feuerwehr-oberwil/kp-front)"
 
@@ -314,6 +327,52 @@ class Sources:
                             pieces.append(q)
         return cls, pieces
 
+    async def place(self, lng: float, lat: float) -> dict:
+        """The register's (GWR) address nearest the point, within ~45 m — ``{street, plz, town,
+        egid}``, or ``{}`` when no entry is that close. Raises when the register could not be asked."""
+        base = geocode._IDENTIFY_URL if geocode._GEOCODER_OK else None
+        if not base:
+            raise RuntimeError("no geocoder host")
+        d = 0.0015
+        r = await self.client.get(
+            base,
+            params={
+                "geometry": f"{lng},{lat}",
+                "geometryType": "esriGeometryPoint",
+                "geometryFormat": "geojson",
+                "sr": "4326",
+                "tolerance": "100",
+                "mapExtent": f"{lng - d},{lat - d},{lng + d},{lat + d}",
+                "imageDisplay": "500,500,96",
+                "layers": f"all:{geocode._ADDR_LAYER}",
+                "returnGeometry": "true",
+                "lang": "de",
+                "limit": "20",
+            },
+        )
+        r.raise_for_status()
+        best: tuple[float, dict] | None = None
+        kx = 111_320.0 * math.cos(math.radians(lat))
+        for res in r.json().get("results", []):
+            attrs = res.get("properties") or res.get("attributes") or {}
+            coords = (res.get("geometry") or {}).get("coordinates") or []
+            street = str(attrs.get("strname_deinr") or "").strip()
+            if len(coords) < 2 or not street:
+                continue
+            dist = math.hypot((float(coords[0]) - lng) * kx, (float(coords[1]) - lat) * 110_540.0)
+            if dist <= PLACE_MAX_M and (best is None or dist < best[0]):
+                best = (dist, attrs)
+        if best is None:
+            return {}
+        a = best[1]
+        town = geocode.town_of(str(a.get("dplzname") or a.get("ggdename") or ""))
+        return {
+            "street": str(a.get("strname_deinr")).strip(),
+            "plz": str(a.get("dplz4") or "").strip() or None,
+            "town": town,
+            "egid": str(a.get("egid")) if a.get("egid") else None,
+        }
+
     async def parcel(self, lng: float, lat: float) -> list[Polygon] | None:
         base = geocode._IDENTIFY_URL if geocode._GEOCODER_OK else None
         if not base:
@@ -460,12 +519,26 @@ def footprint_for(object_id: str, lat: float | None, lng: float | None) -> dict 
     return hit.get("footprint")
 
 
+def place_at(lat: float | None, lng: float | None) -> dict | None:
+    """The register's address at this exact pin as last asked (``{street, plz, town, egid}``),
+    ``None`` when not asked yet or nothing is that close. Never asks."""
+    if lat is None or lng is None:
+        return None
+    stored()  # refreshes `_read` at most once a minute
+    places = (_read[1] if _read else {}).get("places") or {}
+    hit = places.get(_point_key(float(lat), float(lng)))
+    return hit or None
+
+
 #: when a point's last ask failed — retried after RETRY_S, per process
 _failed: dict[str, float] = {}
+_place_failed: dict[str, float] = {}
 
 
-async def _station_points(db: AsyncSession) -> dict[str, LngLat]:
-    """Every station object with a point, key boxes left out (they are no building's owner)."""
+async def _station_points(db: AsyncSession) -> tuple[dict[str, LngLat], dict[str, str], list[LngLat]]:
+    """Every station object with a point, key boxes left out (they are no building's owner);
+    the station's outline choice per object (only where it is not automatic); and EVERY object's
+    point, key boxes included, for the register address at the pin."""
     from .api.station_reference import object_kind
     from .models import ObjectSite, ReferenceDataset
     from .object_visits import refs_by_object
@@ -475,21 +548,37 @@ async def _station_points(db: AsyncSession) -> dict[str, LngLat]:
     )
     refs = await refs_by_object(db)
     out: dict[str, LngLat] = {}
+    modes: dict[str, str] = {}
+    every: list[LngLat] = []
     for o in (
         await db.execute(select(ObjectSite).where(ObjectSite.lat.is_not(None), ObjectSite.lng.is_not(None)))
     ).scalars():
+        at = (float(o.lng), float(o.lat))  # type: ignore[arg-type]
+        every.append(at)
         if object_kind(o, o.id in with_plans, [r["source"] for r in refs.get(o.id, [])]) == "depot":
             continue
-        out[str(o.id)] = (float(o.lng), float(o.lat))  # type: ignore[arg-type]
-    return out
+        out[str(o.id)] = at
+        if o.outline in ("building", "none"):
+            modes[str(o.id)] = o.outline
+    return out, modes, every
 
 
-def derive_all(points: dict[str, LngLat], facts: dict[str, Facts]) -> dict[str, dict]:
-    """Every object's footprint from the facts at hand (no network)."""
+def derive_all(
+    points: dict[str, LngLat], facts: dict[str, Facts], modes: dict[str, str] | None = None
+) -> dict[str, dict]:
+    """Every object's footprint from the facts at hand (no network). ``modes``: the station's
+    outline choice per object — ``none`` derives nothing, ``building`` only the building at
+    the pin (the rule's area and parcel steps are skipped)."""
     out: dict[str, dict] = {}
+    modes = modes or {}
     for oid, at in points.items():
         f = facts.get(_point_key(at[1], at[0]))
-        if f is None:
+        if f is None or modes.get(oid) == "none":
+            continue
+        if modes.get(oid) == "building":
+            main = main_building(at, f.buildings)
+            if main is not None:
+                out[oid] = {"at": _point_key(at[1], at[0]), "source": "station", "footprint": as_geojson([main])}
             continue
         others = [p for k, p in points.items() if k != oid]
         got = derive(at, f, others)
@@ -498,10 +587,10 @@ def derive_all(points: dict[str, LngLat], facts: dict[str, Facts]) -> dict[str, 
     return out
 
 
-def _signature(points: dict[str, LngLat], facts_keys: set[str]) -> str:
+def _signature(points: dict[str, LngLat], facts_keys: set[str], modes: dict[str, str] | None = None) -> str:
     h = hashlib.sha256(f"{ALGO}|".encode())
     for oid in sorted(points):
-        h.update(f"{oid}={_point_key(points[oid][1], points[oid][0])};".encode())
+        h.update(f"{oid}={_point_key(points[oid][1], points[oid][0])}{(modes or {}).get(oid, '')};".encode())
     h.update("|".join(sorted(facts_keys)).encode())
     return h.hexdigest()
 
@@ -513,17 +602,25 @@ async def tick(db: AsyncSession, *, client: httpx.AsyncClient | None = None) -> 
     global _read
     if not enabled():
         return 0
-    points = await _station_points(db)
+    points, modes, every = await _station_points(db)
     data = _load()
     facts = {k: Facts.from_json(v) for k, v in (data.get("facts") or {}).items()}
+    places: dict[str, dict] = dict(data.get("places") or {})
     now = time.monotonic()
     todo = [
         at
         for at in {_point_key(p[1], p[0]): p for p in points.values()}.values()
         if _point_key(at[1], at[0]) not in facts and now - _failed.get(_point_key(at[1], at[0]), -math.inf) > RETRY_S
     ][:BATCH]
+    todo_places = [
+        at
+        for at in {_point_key(p[1], p[0]): p for p in every}.values()
+        if _point_key(at[1], at[0]) not in places
+        and now - _place_failed.get(_point_key(at[1], at[0]), -math.inf) > RETRY_S
+    ][:BATCH]
     asked = 0
-    if todo:
+    asked_places = 0
+    if todo or todo_places:
         own = client is None
         cli = client or httpx.AsyncClient(timeout=TIMEOUT_S, headers={"User-Agent": _USER_AGENT})
         src = Sources(cli)
@@ -540,25 +637,39 @@ async def tick(db: AsyncSession, *, client: httpx.AsyncClient | None = None) -> 
                     _failed[key] = time.monotonic()
                     logger.warning("object footprint: could not ask the sources at %s: %s", key, e)
 
+        async def place(at: LngLat) -> None:
+            nonlocal asked_places
+            key = _point_key(at[1], at[0])
+            async with sem:
+                try:
+                    places[key] = await src.place(at[0], at[1])
+                    asked_places += 1
+                except (httpx.HTTPError, ValueError, KeyError, TypeError, RuntimeError) as e:
+                    _place_failed[key] = time.monotonic()
+                    logger.warning("object place: could not ask the register at %s: %s", key, e)
+
         try:
             # sequential tiles are fine: they are cached in `src` and shared between the points
-            await asyncio.gather(*(one(at) for at in todo))
+            await asyncio.gather(*(one(at) for at in todo), *(place(at) for at in todo_places))
         finally:
             if own:
                 await cli.aclose()
     # facts for points no object stands on any more are dropped
     live = {_point_key(p[1], p[0]) for p in points.values()}
     facts = {k: v for k, v in facts.items() if k in live}
-    sig = _signature(points, set(facts))
-    if sig == data.get("sig") and not asked:
+    every_live = {_point_key(p[1], p[0]) for p in every}
+    places = {k: v for k, v in places.items() if k in every_live}
+    sig = _signature(points, set(facts), modes)
+    if sig == data.get("sig") and not asked and not asked_places and set(places) == set(data.get("places") or {}):
         return 0
-    footprints = derive_all(points, facts)
+    footprints = derive_all(points, facts, modes)
     out = {
         "version": ALGO,
         "sig": sig,
         "derivedAt": datetime.now(UTC).isoformat(),
         "facts": {k: v.to_json() for k, v in facts.items()},
         "footprints": footprints,
+        "places": places,
     }
     await asyncio.to_thread(storage.put_bytes, STORE_KEY, json.dumps(out, separators=(",", ":")).encode())
     _read = None
@@ -570,3 +681,4 @@ def clear_cache() -> None:
     global _read
     _read = None
     _failed.clear()
+    _place_failed.clear()

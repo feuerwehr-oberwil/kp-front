@@ -10,7 +10,7 @@ import type { ReactNode } from 'react'
 import type { StationObjects } from '../../lib/api/stationReference'
 import type { LngLat } from '../../types'
 
-const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], phone: false }))
+const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], phone: false, catalogue: null as null | StationObjects, rules: [] as unknown[] }))
 const lastMap = () => rec.map[rec.map.length - 1] as { onMapClick: (c: LngLat) => void; measurePoints: LngLat[]; children?: ReactNode }
 
 const CATALOGUE: StationObjects = {
@@ -36,7 +36,7 @@ vi.mock('../MapView', () => ({
 vi.mock('react-map-gl/maplibre', () => ({ Marker: ({ children }: { children: ReactNode }) => <div>{children}</div> }))
 vi.mock('../../lib/api/stationReference', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/api/stationReference')>()),
-  loadStationObjects: async () => ({ value: CATALOGUE, source: 'network' as const }),
+  loadStationObjects: async () => ({ value: rec.catalogue ?? CATALOGUE, source: 'network' as const }),
   loadStationBuilding: async () => null,
 }))
 vi.mock('../../objectVisits/api', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../objectVisits/api')>()), listVisits: async () => [] }))
@@ -47,6 +47,7 @@ vi.mock('../../lib/api/geo', () => ({
 vi.mock('../../lib/deploymentConfig', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/deploymentConfig')>()),
   objectVisitsConfig: () => ({ enabled: true, captureRoles: ['editor', 'el'] }),
+  objectCategoryRules: () => rec.rules,
 }))
 vi.mock('../../lib/useWeather', () => ({ useWeather: () => ({ data: null, error: null }) }))
 vi.mock('../../lib/ui', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../lib/ui')>()), toast: vi.fn() }))
@@ -68,6 +69,8 @@ beforeAll(() => {
 beforeEach(() => {
   rec.map.length = 0
   rec.phone = false
+  rec.catalogue = null
+  rec.rules = []
   localStorage.clear(); sessionStorage.clear()
   window.history.replaceState(null, '', '/karte')
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })))
@@ -87,6 +90,35 @@ const mount = (over: Partial<KarteAppProps> = {}) => {
 }
 
 describe('KarteApp', () => {
+  it('colours an object by its category and gives the category an Ebenen row that hides it', async () => {
+    // the Schloss stands in a square building of its own (a server footprint) and carries Modul 1
+    const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]
+    rec.catalogue = {
+      ...CATALOGUE,
+      objects: CATALOGUE.objects.map((o) => (o.id === 'schloss' ? { ...o, footprint: { type: 'MultiPolygon', coordinates: [[sq(7.5700, 47.5236, 0.0004)]] } } : o)),
+    }
+    rec.rules = [{ id: 'm1', label: { de: 'Mit Übersichtsplan', fr: 'Avec plan' }, color: '#2563eb', match: { modules: ['modul1*'] } }]
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    type Ov = { id: string; color?: string }
+    const overlays = () => (lastMap() as unknown as { preparedOverlays: Ov[] }).preparedOverlays
+    await waitFor(() => expect(overlays().find((o) => o.id === 'karte-objects-m1')?.color).toBe('#2563eb'))
+    // the default red overlay is gone: the only outlined object is in the category
+    expect(overlays().some((o) => o.id === 'karte-objects')).toBe(false)
+    // its marker wears the colour
+    const marker = screen.getByRole('button', { name: /Schloss Musterdorf/ })
+    expect(marker.style.getPropertyValue('--cat')).toBe('#2563eb')
+
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.karte.tools.layers }))
+    const row = await screen.findByRole('button', { name: /Mit Übersichtsplan/ })
+    expect(row.textContent).toMatch(/1 Objekte/)
+    fireEvent.click(row)
+    await waitFor(() => expect(overlays().some((o) => o.id === 'karte-objects-m1')).toBe(false))
+    expect(screen.queryByRole('button', { name: /^Schloss Musterdorf/ })).toBeNull()
+    // the key box (no category) stays
+    expect(screen.getByRole('button', { name: /Schlüsseldepot Schloss/ })).toBeTruthy()
+  })
+
   it('opens an object from its tag and hands a visit over at the contract address', async () => {
     const { onOpenVisits } = mount()
     fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
