@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { Sheet } from './Sheet'
+import { useSwipeDismiss } from './swipeDismiss'
 
 afterEach(cleanup)
 
@@ -121,5 +122,31 @@ describe('a phone bottom sheet closes by being pushed down', () => {
     body.style.overflowY = 'auto'
     swipe(popup, body, 160)
     expect(onClose).not.toHaveBeenCalled()
+  })
+})
+
+// `headOnly` (the Karte's search and Gefahrgut sheets, owner review round 4: «ensure it only scrolls
+// the listed objects»): a pull on the result list — even at its top, where an ordinary sheet's body
+// hands the gesture to the sheet — never moves the sheet; the head still closes it.
+describe('headOnly: only the head drags the sheet', () => {
+  function KeySheet({ onClose }: { onClose: () => void }) {
+    const swipe = useSwipeDismiss({ onClose, headOnly: true })
+    return (
+      <section data-testid="sheet" {...swipe}>
+        <div data-sheet-head="">Feld</div>
+        <div style={{ overflowY: 'auto' }}><p>Treffer</p></div>
+      </section>
+    )
+  }
+  it('a pull over the list is the list\'s, a pull on the head closes', () => {
+    const onClose = vi.fn()
+    render(<KeySheet onClose={onClose} />)
+    const sheet = screen.getByTestId('sheet')
+    asBottomSheet(sheet)
+    swipe(sheet, screen.getByText('Treffer'), 140)
+    expect(onClose).not.toHaveBeenCalled()
+    expect(sheet.style.transform).toBe('')
+    swipe(sheet, screen.getByText('Feld'), 140)
+    expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,6 +1,7 @@
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
-import { decodeKemler, lookupUN, type UnHazardEntry } from '../lib/unHazard'
+import { decodeKemler, lookupUN, substanceName, type UnHazardEntry } from '../lib/unHazard'
+import { getLocaleId } from '../config/copy'
 import { ergVersionLabel, lookupErg, type ErgEntry } from '../lib/erg'
 import { useHazardData } from '../lib/useHazardData'
 import { ergDayNote, parseErgDistance, type ErgRingMode } from '../lib/ergRings'
@@ -13,9 +14,14 @@ import { Segmented } from './Segmented'
  * (ContextPanel, rings around the placed symbol) and the Gefahrgut lookup of «Karte & Objekte»
  * (components/karte, rings that are only looked at and never stored). Each caller owns what the
  * ring switch and «Absperrkreis übernehmen» DO — absent props draw no switch and no button.
+ * `nameRow` puts the substance's ADR name first, as a «Stoff» row (owner, review round 4: «for the
+ * gefahrgut stuff we also need to know the name») — the Karte's lookup asks for it; a Gefahrentafel
+ * already shows the name in its own «Stoff» field, so it does not.
  */
-export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRadius }: {
+export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRadius, nameRow = false }: {
   un: string
+  /** the substance's name as the first row (lib/unHazard · substanceName) */
+  nameRow?: boolean
   /** the ring switch's value — absent ⇒ no switch */
   ringMode?: ErgRingMode
   onRingMode?: (mode: ErgRingMode) => void
@@ -39,6 +45,7 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
     const m = C.adrMeanings[code]
     return m ? `${code} – ${m}` : code
   }
+  const name = nameRow ? substanceName(unHit, getLocaleId()) : null
   const hazRows: { k: string; v: string }[] = unHit
     ? [
         { k: C.unClass, v: unHit.class ? adrMeaning(unHit.class) : '' },
@@ -71,6 +78,13 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
   return (
     <div className="ctx-section un-haz">
       <span className="ctx-section-label">{C.unHazardTitle}</span>
+      {/* the name first: what the number IS, before what it does */}
+      {name && (
+        <div className="un-haz-row un-haz-name">
+          <span className="un-haz-k">{C.unSubstance}</span>
+          <span className="un-haz-v">{name}</span>
+        </div>
+      )}
       {/* the tactical hazard read from the Gefahrnummer: water reactivity first
           (can we extinguish?), then what else is dangerous about it. */}
       {kemler?.reactsWithWater && (

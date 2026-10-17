@@ -10,6 +10,9 @@
   font: var(--fw-bold) var(--fs-2)/1.1 var(--body); cursor: pointer; flex: none; }
 .einsaetze small { display: block; font: var(--fw-medium) var(--fs-micro)/1.2 var(--body); color: var(--ink-dim); }
 .einsaetzeText { display: flex; flex-direction: column; align-items: flex-start; }
+/* one glyph size in the bar (owner, review round 4: the search glyph was 20px, the flag 14px): the
+   Einsatz bar's 16px (13-incident · .ip-switch-btn svg) */
+.einsaetze > :global(.i) { width: 16px; height: 16px; flex: none; }
 .einsaetze:active, .einsaetze.open { background: var(--press); }
 .search { flex: 1 1 320px; min-width: 0; max-width: 360px; }
 .running { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3);
@@ -122,6 +125,8 @@ button.row:active { background: var(--press); }
 .sheet > :global(.ui-sheet-grab) { margin-bottom: -4px; }
 /* the head is the sheet's handle (overlays/swipeDismiss); its ✕ stays a button */
 .sheet .head { padding-top: var(--sp-1); touch-action: none; }
+/* …its ✕ stands where Ebenen's and the search's stand: 12px in from the edge (15-mobile · .lc-title) */
+.sheet .head { padding-right: max(12px, env(safe-area-inset-right)); }
 .sheet .head button { touch-action: auto; }
 .sheet .body { flex: 1 1 auto; min-height: 0; padding: 0 max(var(--sp-4), env(safe-area-inset-right)) var(--sp-4) max(var(--sp-4), env(safe-area-inset-left)); }
 
@@ -189,13 +194,26 @@ button.row:active { background: var(--press); }
 /* the UN number reads as a number: the Gefahrentafel's mono */
 .keySheet :global(#karte-un) { font: var(--fw-bold) var(--fs-4)/1 var(--mono); }
 .keyBody { display: flex; flex-direction: column; gap: var(--sp-3); }
+/* only the body scrolls (owner, review round 4: «ensure it only scrolls the listed objects»): the
+   field line is the sheet's handle like Ebenen's title (no native pan starts there), the body pans
+   vertically with its own momentum and neither bounces nor hands a scroll on to the page at its
+   ends (`none`, not the cards' `contain`: contain still rubber-bands the list, and the headers and
+   the foot line travel with it) */
+.keySheet .keyLine { touch-action: none; }
+.keySheet .keyBody { overscroll-behavior: none; touch-action: pan-y; }
+/* the search: its full height from the first frame — a result list that grows or shrinks under the
+   typing never lifts or drops the field (Ebenen's cap; on the keys, the room above them) */
+.keySheet.fill { height: min(72dvh, calc(100dvh - 84px - env(safe-area-inset-top))); }
+.keySheet.fill[data-kb] { height: min(72dvh, var(--ks-max, 72dvh)); }
 .resultsIn { display: flex; flex-direction: column; gap: var(--sp-1); }
 .keySheet[data-kb] { bottom: var(--ks-bottom, 0px); max-height: min(72dvh, var(--ks-max, 72dvh)); padding-bottom: 0;
   border-radius: var(--r-hero); }
-/* the bar's round search button (phone): «Einsätze ▾» left, this right — no long field on a phone */
+/* the bar's search button (phone): «Einsätze ▾» left, this right — no long field on a phone. The
+   SAME button as «Einsätze ▾» beside it (owner, review round 4: «the search icon being round»):
+   its height, frame, corner and glyph size; a square because it holds only the glyph */
 .searchBtn { flex: none; margin-left: auto; width: var(--tap); height: var(--tap); display: grid; place-items: center; padding: 0;
-  border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--ink); cursor: pointer; }
-.searchBtn svg { width: 20px; height: 20px; }
+  border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); cursor: pointer; }
+.searchBtn svg { width: 16px; height: 16px; }
 .searchBtn:active, .searchBtn.open { background: var(--press); }
 
 /* ── Messen on the phone: the Einsatz's stack, one bar lower ──────────────────────────────────
@@ -208,9 +226,14 @@ button.row:active { background: var(--press); }
 .root.phone :global(.wb-dock) { bottom: calc(var(--rail-h) + 14px + env(safe-area-inset-bottom)); }
 .root.phone .measurePanel { bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom)); }
 .hintBar { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome); display: flex; align-items: center; gap: var(--sp-2);
-  padding: var(--msg-pad) var(--float-pad-x); border-radius: var(--r-sm); background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
+  box-sizing: border-box; min-height: var(--float-h); padding: var(--sp-2) var(--float-pad-x); border-radius: var(--r-sm);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
   font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); width: max-content; max-width: min(640px, calc(100vw - 32px)); }
-.hintBar svg { flex: none; }
+/* the floating family's row (01-tokens · --float-*: one row height, 14px of air before the glyph,
+   16px glyphs). Its words never touch the edge (owner, review round 4: «the padding for the "auf die
+   karte tippen"»): a message with no button in it takes --sp-2 above and below, not the --msg-pad a
+   toast's own buttons stand in — on two lines the text sat 4px from the rim */
+.hintBar svg { flex: none; width: 16px; height: 16px; color: var(--ink-dim); }
 /* «Auf die Karte tippen …» (owner, review round 2: «make it wider – currently a bit ugly»). Centred by
    `left: 50%` the pill's shrink-to-fit width was only HALF the screen, so a sentence wrapped into a
    narrow tall bubble. Width is said outright (max-content up to the cap); on the phone it is the
@@ -259,8 +282,10 @@ button.row:active { background: var(--press); }
 .root { background: var(--map-bg); }
 .phoneUtil { position: absolute; right: max(8px, env(safe-area-inset-right)); bottom: calc(var(--rail-h) + 24px + env(safe-area-inset-bottom)); z-index: var(--z-chrome);
   display: flex; flex-direction: column; gap: var(--sp-2); }
-.utilBtn { width: var(--tap-lg); height: var(--tap-lg); display: grid; place-items: center; border: 1px solid var(--glass-line); border-radius: var(--r-sm);
-  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); box-shadow: var(--e3); color: var(--ink); cursor: pointer; }
+/* the floating family's piece (01-tokens · --float-*): its row height, its inset edge and shadow —
+   it wore a border and a lighter shadow of its own beside the hint and the chips (review round 4) */
+.utilBtn { width: var(--float-h); height: var(--float-h); display: grid; place-items: center; border: none; border-radius: var(--r-sm);
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); cursor: pointer; }
 .utilBtn svg { width: 22px; height: 22px; }
 .utilGlyph { display: grid; place-items: center; }
 /* the plan surface's floating chips (the way back, the lamp) — the floating family's look */
@@ -300,3 +325,8 @@ button.row:active { background: var(--press); }
 .einsaetzeBadge { position: absolute; top: calc(-1 * var(--sp-2)); right: calc(-1 * var(--sp-2)); min-width: 20px; height: 20px; padding: 0 var(--sp-1);
   display: grid; place-items: center; border-radius: var(--r-pill); background: var(--red); color: var(--on-fill, #fff);
   font: var(--fw-heavy) var(--fs-micro)/1 var(--body); box-shadow: 0 0 0 2px var(--surface); }
+
+/* ── a tap tool armed (Messen, Punkt setzen, Gefahrgut's centre — lib/karte/camera · toolTakesTaps):
+   the objects stay drawn, but their dots and tags let the finger through to the map (owner, review
+   round 4: «measure on top of objects, not have the objects get highlighted») */
+.through { pointer-events: none; cursor: inherit; }

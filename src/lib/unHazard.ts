@@ -94,6 +94,17 @@ export function lookupUN(un: string): UnHazardEntry | null {
   return unIndex().get(normalizeUN(un)) ?? null
 }
 
+/** The substance's official ADR name in the UI's language (`lang`: «de», «en», …): the table's
+ *  English name when the UI reads English and the table has one, else the German — Table A is
+ *  German, and French/Italian names are not in it (and are never machine-translated, above).
+ *  The table holds ONE row per UN number (unHazard.test · «has no duplicate UN numbers»), so
+ *  there is one name to show. Null for an unknown number or a nameless row. */
+export function substanceName(e: UnHazardEntry | null, lang: string): string | null {
+  if (!e) return null
+  const en = lang.toLowerCase().startsWith('en') ? e.name_en?.trim() : ''
+  return en || e.name_de?.trim() || null
+}
+
 /** The full normalised dataset (read-only; empty until the load lands). */
 export function allEntries(): readonly UnHazardEntry[] {
   return entriesNow()

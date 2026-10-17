@@ -291,6 +291,22 @@ The rules that are easy to break:
   drop one too, and it fired under a held measure node — the hold that removes the node
   (`MapView · vertexPress`) — dropping a pin and leaving Messen. The surface has no long-press
   handler now, on the phone or the tablet; `KarteApp.test` holds a node and checks.
+- **A tool that waits for a tap takes every tap** (owner, review round 4, 17.10.2026: «while
+  measuring we should also be able to measure on top of objects (not have the objects get
+  highlighted)»). While Messen, «Punkt setzen» or Gefahrgut's centre (rings on) is armed, a tap on
+  an object's outline, dot or name tag is a tap on the map at that spot: the dots and tags let the
+  finger through (`pointer-events: none`), nothing is selected or highlighted, no sheet opens; the
+  objects stay drawn (`lib/karte/camera · toolTakesTaps`).
+- **Closing a selection gives the camera back** (owner, round 4: «… revert the position again so
+  it doesn't constantly push the map south»). Selecting frames the place in the strip above the
+  phone's sheet (beside the tablet's panel) with MapLibre's camera padding, which stays on the map
+  after the move — so each select/close used to leave the map a sheet's height further south. The
+  camera before the selection (centre, zoom, padding) is kept and eased back to (350 ms) when the
+  sheet closes (✕, pushed down, a tap on empty map); a second selection while one is open keeps
+  the first one's camera; a move the user makes themselves (a MapLibre `movestart` with an
+  `originalEvent`) drops it, and the map stays where they put it. A pick from the search is a
+  deliberate jump: closing it keeps the place and only drops the padding (centred on the whole
+  map). The rule is pure: `lib/karte/camera · returnOnSelect / cameraOnClose`.
 - **Plan titles** (`lib/karte/plans · planTitle`): many sheets in the real catalogue are titled by
   their file name, «<object> – <module key>» («Migros – modul2», «Sägestrasse 8 - Schulhaus
   Hüslimatt – modul2-3»). Such a title gives way to the catalogue's title for the key («Wie komme
@@ -328,8 +344,12 @@ The rules that are easy to break:
   is named in the code. The aligned plan on the map is not (a plan backdrop is switched on on
   purpose, and the Einsatz's chips leave plan rasters alone too). The radar: off with «Standard»
   and «Alle aus», left by «Alle ein», no chip lit while it is on. Transparencies stay.
+- **Ebenen: «Station» first** (owner, review round 4: «it's the most relevant one in this case»):
+  the station group — Stationsobjekte and the colour categories — stands under the three chips and
+  above Grundkarte, Inhalte, Wasser and Wetter (`LayerPanel · leadTwinGroups`). The Einsatz's
+  Ebenen keep their order.
 - **Typing on a phone** (review round 3, 17.10.2026 — round 2's keyboard handling did nothing on
-  the owner's real iPhone). The bar is «Einsätze ▾» + a round **search button**; the tablet keeps
+  the owner's real iPhone). The bar is «Einsätze ▾» + a **search button** (its twin since round 4); the tablet keeps
   its field. Search and **Gefahrgut** are slide-ups with Ebenen's frame (`KarteKeySheet`): the field
   is the first line with the ✕ beside it, the results / the readout scroll under it. The search
   opens with the keyboard up (`primeKeyboard` inside the tap); a pick closes it and selects; it
@@ -349,6 +369,13 @@ The rules that are easy to break:
     technique), any pan that still happens is undone with `scrollTo(0, 0)` (rate-limited:
     `mayCorrect`), and while a field has the caret a touchmove nothing under the finger can scroll
     is cancelled (`useTypingLock`).
+  - **Only the list scrolls** (owner, review round 4: «scrolling in the main search bar is rather
+    ugly and moves everything»). The grab bar and the field line are the sheet's handle; a drag
+    over the results is the list's alone — it never pulls the sheet, even at the list's top
+    (`useSwipeDismiss · headOnly`), and the list neither rubber-bands nor hands its scroll on to
+    the page at its ends (`overscroll-behavior: none`). The search sheet stands at its full
+    height from the first frame (`KarteKeySheet · fill`), so a result list that grows or shrinks
+    under the typing never moves the field. The iOS page lock above stays.
   - No «AutoFill Contact»: both fields come from one helper (`lib/typingField`) — a `search-…`
     name (Safari offers no contact AutoFill on a search), autocomplete / autocorrect /
     autocapitalise / spell check off, `enterKeyHint`, numeric for the UN field, and their label /
@@ -361,7 +388,19 @@ The rules that are easy to break:
     AutoFill heuristics are only proven on the iPhone.
 - **Hints use the width they need** (review round 2): «Auf die Karte tippen …» is one pill as wide
   as the bottom bar on a phone (max-content up to 640 px on a tablet), one or two lines; the
-  Gefahrgut card says where its rings stand first, right under the UN field.
+  Gefahrgut card says where its rings stand first, right under the UN field. The pill is the
+  floating family's piece (01-tokens · `--float-*`): its row height, 14 px before a 16 px glyph,
+  and 8 px above and below the words (round 4: the text sat 4 px from the rim on two lines).
+- **The bar's and the sheets' controls are the app's** (owner, review round 4: «the search icon
+  being round, the (x) size …»): the phone's search button is «Einsätze ▾»'s twin (44 px, the
+  one corner, its frame) with the bar's 16 px glyph; every ✕ of the viewer — object sheet, search,
+  Gefahrgut, Ebenen, phone and tablet — is the global `.ip-x` (36 px, 18 px glyph), 12 px in from
+  the sheet's edge; the phone's ⊙ / compass buttons wear the floating family's row height and edge.
+- **Gefahrgut names the substance** (owner, round 4: «we also need to know the name (show it as
+  attribute)»): the readout's first row is «Stoff» — the word of the Gefahrentafel's own field —
+  with the ADR Table A name (`lib/unHazard · substanceName`: the curated English name on an English
+  UI, else the German; Table A has no French or Italian names). The table holds one row per UN
+  number. The Gefahrentafel's readout does not repeat it: its «Stoff» field already shows it.
 - **Visits hand over** to the existing capture: `/besuche/neu?object=<id>&from=karte` for an
   object, `/besuche/neu?lat=&lng=&label=[&address=]&from=karte` for a building or a pin (contract
   C1, label «bei <Adresse>» within 60 m of a pin, else «Gesetzter Punkt»). **«Melden»** (something

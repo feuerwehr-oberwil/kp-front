@@ -16,6 +16,8 @@ export interface WeatherLayerRow extends TwinLayerRow {
   legend: { min_mm_h: number; color: string }[]
 }
 
+const NO_GROUPS: readonly string[] = []
+
 interface Props {
   layers: LayerDef[]
   onToggle: (id: LayerDef['id']) => void
@@ -35,6 +37,11 @@ interface Props {
    *  Gefahren. Absent ⇒ the twin groups go last, which is right on the Plan surface (where the
    *  only other groups are the sheet's own). */
   twinsAfterGroup?: string
+  /** twin groups, by name, that go FIRST — under the quick-taps, above «Grundkarte». «Karte &
+   *  Objekte» puts its «Station» group there (owner, review round 4, 17.10.2026: «move "station" up
+   *  in ebenen all the way to the top — it's the most relevant one in this case»); the Einsatz
+   *  passes none, so its order is unchanged. */
+  leadTwinGroups?: readonly string[]
   /** round ✕ in the title row — dock chrome parity with the views popover / tool docks */
   onClose?: () => void
   /** Ebenen quick-taps (field ask 07.09.): flip every overlay at once / return to the Einsatz
@@ -54,7 +61,7 @@ interface Props {
   note?: string
 }
 
-export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onClose, onShowAll, onHideAll, onReset, preset, weather, note }: Props) {
+export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, leadTwinGroups = NO_GROUPS, onClose, onShowAll, onHideAll, onReset, preset, weather, note }: Props) {
   /* One transparency row, for a real `LayerDef` and for a Georeferenz twin alike — the twin ids
      are not `LayerDef` ids and persist elsewhere (georefTwins · isTwinLayerId → the device's
      `twinLayerOpacity`), but the row is the panel's, so both go through the same control and the
@@ -89,7 +96,7 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
      second line names the fit, because «gespiegelt» without «wie gut» is a claim without a
      measurement (see georefTwins · twinFitNote). Built once and dropped in wherever
      `twinsAfterGroup` says they belong. */
-  const twinBlocks = Object.entries(twinGroups).map(([group, rows]) => (
+  const twinBlock = ([group, rows]: [string, TwinLayerRow[]]) => (
     <Fragment key={`twin:${group}`}>
       <div className="lgroup">{group}</div>
       {rows.map((t) => (
@@ -110,7 +117,10 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
         </Fragment>
       ))}
     </Fragment>
-  ))
+  )
+  const twinEntries = Object.entries(twinGroups)
+  const leadBlocks = twinEntries.filter(([g]) => leadTwinGroups.includes(g)).map(twinBlock)
+  const twinBlocks = twinEntries.filter(([g]) => !leadTwinGroups.includes(g)).map(twinBlock)
   /* …unless the anchor group is not on this panel at all (a deployment without it, or the Plan
      surface): then they still have to appear, so they go last. */
   const twinsAnchored = !!twinsAfterGroup && twinBlocks.length > 0 && twinsAfterGroup in groups
@@ -146,6 +156,8 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
             <Chip selected={preset === 'standard'} onClick={onReset}>{appConfig.copy.layerPanel.reset}</Chip>
           </div>
         )}
+
+        {leadBlocks}
 
         {/* Basiskarte as the panel's first group — the base IS a layer; this replaced the separate
             BaseSwitcher popover so one pinned button covers all of it. A ONE-OF-N choice between

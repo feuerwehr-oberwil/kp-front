@@ -168,3 +168,28 @@ describe('LayerPanel · phone sheet', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 })
+
+// «Karte & Objekte» puts its «Station» group first (owner, review round 4): above «Grundkarte» and
+// every deployment group, under the quick-taps. Without `leadTwinGroups` the twins stay last.
+describe('LayerPanel · leadTwinGroups', () => {
+  const base: LayerDef = { id: 'base-osm', group: 'Grundkarte', label: 'OSM', icon: 'map', visible: true, base: true }
+  const water: LayerDef = { id: 'hydranten', group: 'Wasser', label: 'Hydranten', icon: 'layers', visible: true }
+  const station: TwinLayerRow = { id: 'karte:objekte', group: 'Station', label: 'Stationsobjekte', icon: 'footprint', visible: true }
+  const plans: TwinLayerRow = { id: 'karte:objektplan', group: 'Pläne', label: 'Modul 1', icon: 'doc', visible: false }
+  const heads = () => [...document.querySelectorAll('.lgroup')].map((el) => el.textContent)
+  const all = { onShowAll: noop, onHideAll: noop, onReset: noop }
+
+  it('draws the named group first, the other twins where they were', () => {
+    render(<LayerPanel layers={[base, water]} twins={[station, plans]} leadTwinGroups={['Station']} onToggle={noop} onOpacity={noop} {...all} />)
+    expect(heads()).toEqual(['Station', appConfig.copy.baseMap, 'Wasser', 'Pläne'])
+    // the quick-taps stay above everything
+    const quick = document.querySelector('.lc-quick')!
+    const first = document.querySelector('.lgroup')!
+    expect(quick.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('keeps the old order without it (the Einsatz)', () => {
+    render(<LayerPanel layers={[base, water]} twins={[station, plans]} onToggle={noop} onOpacity={noop} />)
+    expect(heads()).toEqual([appConfig.copy.baseMap, 'Wasser', 'Station', 'Pläne'])
+  })
+})
