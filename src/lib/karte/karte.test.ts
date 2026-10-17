@@ -165,6 +165,10 @@ describe('an object\'s address (review round 2: the address, never «Schlüsseld
     expect(objectAddress({ name: 'Mühlemattstrasse 24', address: null })).toBe('Mühlemattstrasse 24')
     expect(objectAddress({ name: 'Mühlemattstrasse 24', address: '  ' })).toBe('Mühlemattstrasse 24')
     expect(objectAddress({ name: 'ARA Birsig', address: null })).toBeNull()
+    // the town only when the server says it is not the home town, never twice
+    expect(objectAddress({ name: 'ARA Birsig', address: 'Erlenstrasse 60', locality: 'Therwil' })).toBe('Erlenstrasse 60, Therwil')
+    expect(objectAddress({ name: 'ARA Birsig', address: 'Erlenstrasse 60, 4106 Therwil', locality: 'Therwil' })).toBe('Erlenstrasse 60, 4106 Therwil')
+    expect(objectHeadSub({ name: 'Erlenstrasse 60', address: null, locality: 'Therwil' })).toBe('Therwil')
   })
   it('sees when the name already says the street and number', () => {
     expect(nameSaysAddress({ name: 'Mühlemattstrasse 24', address: 'Muehlemattstrasse 24, 4104 Oberwil' })).toBe(false) // ü ≠ ue: printed both
