@@ -408,4 +408,24 @@ describe('KarteApp', () => {
     expect(within(sheet).queryByText(appConfig.copy.karte.ergOffline)).toBeNull()
     expect(sheet.querySelector('input')).toBe(field)
   })
+  // owner (review round 3): a tap on «Gefahrgut» with no number opens the sheet with the caret in
+  // the UN field (the number pad up); with a number already set it opens on the result, no keyboard
+  it('on a phone: Gefahrgut opens with the caret in the UN field, or on its result without one', async () => {
+    rec.phone = true
+    mount()
+    const nav = await screen.findByRole('navigation', { name: 'Karte & Objekte' })
+    const tab = within(nav).getByRole('button', { name: /Gefahrgut/ })
+    fireEvent.click(tab)
+    let sheet = await screen.findByRole('region', { name: 'Gefahrgut' })
+    const field = sheet.querySelector('input') as HTMLInputElement
+    expect(document.activeElement).toBe(field)
+    fireEvent.change(field, { target: { value: '1203' } })
+    field.blur()
+    fireEvent.click(tab)
+    expect(screen.queryByRole('region', { name: 'Gefahrgut' })).toBeNull()
+    fireEvent.click(tab)
+    sheet = await screen.findByRole('region', { name: 'Gefahrgut' })
+    expect((sheet.querySelector('input') as HTMLInputElement).value).toBe('1203')
+    expect(document.activeElement).not.toBe(sheet.querySelector('input'))
+  })
 })

@@ -273,7 +273,10 @@ The rules that are easy to break:
   is the first line with the ✕ beside it, the results / the readout scroll under it. The search
   opens with the keyboard up (`primeKeyboard` inside the tap); a pick closes it and selects; it
   stays (at its Ebenen height) when the keyboard goes, until a pick or ✕ — a tap on the map then
-  only lets the keyboard go. Gefahrgut likewise stays with its result after ✓.
+  only lets the keyboard go. Gefahrgut likewise stays with its result after ✓; a tap on its tab
+  with no UN number opens it with the caret in the field and the number pad up, with a number set
+  it opens on the result without the keyboard (a Gefahrgut restored with the session never takes
+  the caret — only a tap may raise iOS's keyboard). The map is not moved for the rings.
   - With the keyboard up the sheet keeps its height but stands **on the keyboard's top edge**,
     never taller than the room under the top bar less a 24 px strip of map
     (`lib/iosKeyboard · useKeySheet`, pure `keyboardTop` / `keySheetBox`).

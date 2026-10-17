@@ -9,6 +9,7 @@
 // The field is one iOS must not take for a contact form (lib/typingField) and is focused without
 // letting Safari move the page (lib/iosKeyboard · noPanTouchEnd).
 
+import { useLayoutEffect, useRef } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
 import type { ErgRingMode } from '../../lib/ergRings'
@@ -17,12 +18,12 @@ import { IconButton } from '../Button'
 import { UnHazardSection } from '../UnHazardSection'
 import { SearchField } from '../SearchField'
 import { defuseAutofill, typingFieldProps } from '../../lib/typingField'
-import { noPanTouchEnd } from '../../lib/iosKeyboard'
+import { focusWithoutPan, noPanTouchEnd } from '../../lib/iosKeyboard'
 import type { LngLat } from '../../types'
 import { KarteKeySheet } from './KarteKeySheet'
 import s from './Karte.module.css'
 
-export function KarteGefahrgut({ un, onUn, mode, onMode, center, onClose, phone = false }: {
+export function KarteGefahrgut({ un, onUn, mode, onMode, center, onClose, phone = false, focusOnOpen = false }: {
   un: string
   onUn: (v: string) => void
   mode: ErgRingMode
@@ -32,8 +33,15 @@ export function KarteGefahrgut({ un, onUn, mode, onMode, center, onClose, phone 
   onClose: () => void
   /** the phone's slide-up instead of the tablet's card */
   phone?: boolean
+  /** opened by a tap with no number yet: the caret in the field at once, the number pad up —
+   *  focused without letting Safari move the page (lib/iosKeyboard · focusWithoutPan) */
+  focusOnOpen?: boolean
 }) {
   const C = appConfig.copy.karte
+  const fieldRef = useRef<HTMLInputElement>(null)
+  // on mount only: a sheet already open never grabs the caret back
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => { if (phone && focusOnOpen) focusWithoutPan(fieldRef.current) }, [])
   const digits = (v: string) => onUn(v.replace(/\D/g, '').slice(0, 4))
   const body = (
     <>
@@ -55,7 +63,7 @@ export function KarteGefahrgut({ un, onUn, mode, onMode, center, onClose, phone 
         field={(
           <SearchField
             {...typingFieldProps('number', 'karte-un')}
-            id="karte-un" className={s.keyField} icon="warn" noClear maxLength={4}
+            ref={fieldRef} id="karte-un" className={s.keyField} icon="warn" noClear maxLength={4}
             placeholder={defuseAutofill(C.ergUnLong)} aria-label={defuseAutofill(C.ergUn)}
             value={un} onChange={digits} onTouchEnd={noPanTouchEnd}
           />

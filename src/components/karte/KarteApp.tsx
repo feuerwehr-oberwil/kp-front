@@ -331,6 +331,17 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const measure = useMeasure(tool === 'measure')
   const [erg, setErg] = useState<{ un: string; mode: ErgRingMode; center: LngLat | null; at: Date }>(() => ({ un: '', mode: DEFAULT_ERG_RING_MODE, center: null, at: new Date() }))
   const [viewsOpen, setViewsOpen] = useState(false)
+  // the phone's Gefahrgut opened by a TAP with no UN number yet: the number pad comes up at once
+  // (owner, review round 3); with a number set it opens on the result, no keyboard. Only a tap may
+  // raise it (iOS), so a Gefahrgut restored with the session never takes the caret.
+  const [ergKeys, setErgKeys] = useState(false)
+  const openPhoneTool = (t: 'measure' | 'erg' | 'layers') => {
+    const keys = t === 'erg' && tool !== 'erg' && !erg.un
+    // inside the tap: iOS raises the keyboard only for a focus made in it (lib/keyboardPrime)
+    if (keys) primeKeyboard()
+    setErgKeys(keys)
+    setTool(t)
+  }
   // the phone sheet pushed away / ✕ while its place stays selected (outline, tag, pin): a tap on
   // the place again brings it back (owner R2). Every new selection opens it.
   const [sheetShut, setSheetShut] = useState(false)
@@ -1119,7 +1130,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
                   <span className="nav-glyph"><Icon id="map" /></span><span className="nav-label">{C.tools.map}</span>
                 </button>
                 {(['measure', 'erg', 'layers'] as const).map((t) => (
-                  <button key={t} type="button" className={cx('nav-item', tool === t && 'on')} aria-pressed={tool === t} onClick={() => setTool(t)}>
+                  <button key={t} type="button" className={cx('nav-item', tool === t && 'on')} aria-pressed={tool === t} onClick={() => openPhoneTool(t)}>
                     <span className="nav-glyph"><Icon id={t === 'erg' ? 'warn' : t} /></span><span className="nav-label">{C.tools[t]}</span>
                   </button>
                 ))}
@@ -1160,7 +1171,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           <KarteGefahrgut
             un={erg.un} onUn={(un) => setErg((e) => ({ ...e, un, center: e.center ?? selPoint(sel) ?? view.center, at: new Date() }))}
             mode={erg.mode} onMode={(mode) => setErg((e) => ({ ...e, mode, at: new Date() }))}
-            center={erg.center} onClose={() => setTool('erg')} phone={phone}
+            center={erg.center} onClose={() => setTool('erg')} phone={phone} focusOnOpen={phone && ergKeys}
           />
         )}
 

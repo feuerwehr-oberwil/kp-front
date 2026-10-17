@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, renderHook } from '@testing-library/react'
-import { MIN_KEYBOARD_PX, keySheetBox, keyboardTop, mayCorrect, useTypingLock } from './iosKeyboard'
+import { MIN_KEYBOARD_PX, focusWithoutPan, keySheetBox, keyboardTop, mayCorrect, useTypingLock } from './iosKeyboard'
 
 /* Review round 3 (owner's iPhone, 17.10.2026): the phone's field sheets stand on the keyboard by
  * their own measurement, and the page never moves while a field has the caret. */
@@ -47,6 +47,23 @@ describe('mayCorrect — undoing iOS\'s pan never becomes a loop', () => {
     for (let i = 0; i < 8; i++) { const r = mayCorrect(h, 1000 + i * 10); h = r.history; oks.push(r.ok) }
     expect(oks).toEqual([true, true, true, true, true, true, false, false])
     expect(mayCorrect(h, 3000).ok).toBe(true)
+  })
+})
+
+describe('focusWithoutPan', () => {
+  it('focuses, and gives the field its own transform back even when called twice in one frame (StrictMode)', () => {
+    vi.useFakeTimers()
+    const el = document.createElement('input')
+    el.style.transform = 'scale(1)'
+    document.body.append(el)
+    focusWithoutPan(el)
+    focusWithoutPan(el)
+    expect(document.activeElement).toBe(el)
+    expect(el.style.transform).toBe('translateY(-2000px)')
+    vi.advanceTimersByTime(50)
+    expect(el.style.transform).toBe('scale(1)')
+    vi.useRealTimers()
+    el.remove()
   })
 })
 

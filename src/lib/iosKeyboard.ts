@@ -82,11 +82,19 @@ export function mayCorrect(history: readonly number[], now: number, max = 6, win
  *  only for a focus made inside a user gesture. */
 export function focusWithoutPan(el: HTMLElement | null) {
   if (!el) return
-  const prev = el.style.transform
+  // a second call inside the same frame (StrictMode's double effect, a re-render) must restore the
+  // field's OWN transform, not the lift the first call put there
+  const prev = lifted.get(el) ?? el.style.transform
+  lifted.set(el, prev)
   el.style.transform = 'translateY(-2000px)'
   el.focus({ preventScroll: true })
-  requestAnimationFrame(() => { el.style.transform = prev })
+  requestAnimationFrame(() => {
+    if (!lifted.has(el)) return
+    el.style.transform = lifted.get(el) ?? ''
+    lifted.delete(el)
+  })
 }
+const lifted = new WeakMap<HTMLElement, string>()
 
 /** A tap on a field that does not have the caret yet: focused by us (`focusWithoutPan`) instead of
  *  by Safari, which would scroll the page to it first. The tap's own click is cancelled, so the
