@@ -23,6 +23,7 @@ import { applyLocale } from './config/copy'
 import { ensureErg } from './lib/erg'
 import { ensureUnHazard } from './lib/unHazard'
 import { whenIdle } from './lib/idle'
+import { purgeStaleTiles } from './lib/tilePurge'
 import { waitForSnailArrival } from './lib/snailLaunch'
 
 // zoom applies only to the map/plan, not the UI chrome (app feel, not a web page)
@@ -122,6 +123,9 @@ function withBudget<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
 // (getDeploymentConfig) is already populated when read sites run. Budgeted: a slow/stalled
 // network serves the offline-cached config instead of holding the blank page.
 void (async () => {
+  // Base tiles a provider has since re-rendered under the same URL go before the map asks for
+  // them (lib/tilePurge — the «seam» of 17.10.2026). Once per device, online only, not awaited.
+  void purgeStaleTiles()
   try {
     // Move operational state (workspace caches, incident list, roster, config, outlines) from
     // localStorage into IndexedDB once, BEFORE anything reads its cache — loadDeploymentConfig's

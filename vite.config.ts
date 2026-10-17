@@ -325,6 +325,11 @@ export default defineConfig(({ mode }) => {
               handler: 'CacheFirst',
               options: {
                 cacheName: 'map-tiles',
+                // A miss here is fetched past the browser's own HTTP cache (revalidated, a 304 when
+                // nothing changed): CARTO serves its tiles `immutable` for 30 days, so after a
+                // provider re-renders its map (lib/tilePurge, 17.10.2026) a purged tile would
+                // otherwise come straight back in the old look from the HTTP cache.
+                fetchOptions: { cache: 'no-cache' },
                 cacheableResponse: { statuses: [0, 200] },
                 expiration: { maxEntries: 4000, maxAgeSeconds: 60 * 60 * 24 * 30 },
               },

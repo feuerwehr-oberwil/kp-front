@@ -32,7 +32,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, s
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import plan_tiles
+from .. import object_footprints, plan_tiles
 from ..auth.dependencies import _admin_session_valid, get_current_user
 from ..auth.incident_link import link_page_owns_session, read_link_session
 from ..building_facts import _street_of
@@ -237,15 +237,21 @@ async def reference_objects(db: AsyncSession, *, with_visits: bool) -> Reference
     out: list[ReferenceObjectOut] = []
     for o in objects:
         plans = plans_by_obj.get(o.id, [])
+        lat = float(o.lat) if o.lat is not None else None
+        lng = float(o.lng) if o.lng is not None else None
         out.append(
             ReferenceObjectOut(
                 id=o.id,
                 name=o.name,
                 kind=object_kind(o, bool(plans), [r["source"] for r in refs.get(o.id, [])]),  # type: ignore[arg-type]
                 address=o.address,
-                lat=float(o.lat) if o.lat is not None else None,
-                lng=float(o.lng) if o.lng is not None else None,
+                lat=lat,
+                lng=lng,
                 aliases=aliases_of(o),
+                # every building the object stands for, derived by the scheduler from official
+                # data (app/object_footprints); None = the viewer draws the OSM building its
+                # point lies in
+                footprint=object_footprints.footprint_for(str(o.id), lat, lng),
                 plans=plans,
                 floors=[ReferenceFloorOut(index=i, name=n) for i, n in sorted(floors_by_obj.get(o.id, {}).items())],
                 measures=o.measures,
