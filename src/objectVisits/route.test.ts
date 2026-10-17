@@ -10,6 +10,9 @@ describe('Objektbesuche routes', () => {
     expect(parseOvRoute('/besuche/ov1-ab/antworten', '')).toEqual({ kind: 'answers', id: 'ov1-ab' })
     expect(parseOvRoute('/besuche/neu', '?object=fwo-schlue%3Aabc&ref=fwo-admin%3Afu-2026%2FB4'))
       .toEqual({ kind: 'new', object: 'fwo-schlue:abc', ref: 'fwo-admin:fu-2026/B4' })
+    // «Melden» on the Karte asks for its checklist up front
+    expect(parseOvRoute('/besuche/neu', '?object=u1&checkliste=fehlermeldung&from=karte'))
+      .toEqual({ kind: 'new', object: 'u1', ref: null, checklist: 'fehlermeldung' })
     expect(parseOvRoute('/besuche', '?liste=fu%2FB4')).toEqual({ kind: 'list', ref: 'fu/B4' })
     expect(parseOvRoute('/', '')).toBeNull()
     expect(parseOvRoute('/besucherzahl', '')).toBeNull()
@@ -18,6 +21,7 @@ describe('Objektbesuche routes', () => {
     for (const r of [
       { kind: 'overview' as const }, { kind: 'list' as const, ref: 'fu/B4' }, { kind: 'visit' as const, id: 'ov1-ab' }, { kind: 'visit' as const, id: 'ov1-ab', edit: true }, { kind: 'answers' as const, id: 'ov1-ab' },
       { kind: 'new' as const, object: 'fwo-schlue:abc', ref: 'x/y' }, { kind: 'new' as const, object: 'u1', ref: null },
+      { kind: 'new' as const, object: 'u1', ref: null, checklist: 'fehlermeldung' },
     ]) {
       const href = ovHref(r)
       const i = href.indexOf('?')

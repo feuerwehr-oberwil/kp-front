@@ -40,8 +40,9 @@ function parseModuleId(id: string): { num: number | null; suffix: string | null 
 const SUB_SLOT_SIBLING = /^(modul\d+-\D+)\d+$/
 
 /** The catalogue entry a plan's module id belongs to: itself, the slot a numbered sibling is a
- *  copy of, or the family whose prefix it carries. Undefined = off-catalogue. */
-function entryFor(catalogue: readonly DeploymentModule[], id: string): DeploymentModule | undefined {
+ *  copy of, or the family whose prefix it carries. Undefined = off-catalogue. Exported for the
+ *  Karte's plan titles (lib/karte/plans · planTitle), which name a sheet by this same entry. */
+export function entryFor(catalogue: readonly DeploymentModule[], id: string): DeploymentModule | undefined {
   const exact = catalogue.find((m) => m.id === id)
   if (exact) return exact
   const base = SUB_SLOT_SIBLING.exec(id)?.[1]

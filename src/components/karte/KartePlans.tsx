@@ -2,14 +2,19 @@
 //
 //   · the tablet's left rail: Karte · the module monograms · Gebäude, with the object's name
 //     standing under them (the NavRail's classes and glyphs — components/PlanGlyph);
-//   · a module opens in the PDF reader the Plan surface uses for viewer documents (PdfScroller),
-//     on the plan's CURRENT revision — the viewer binds nothing (lib/karte/plans);
+//   · a module opens in THE Einsatz's plan reader (owner, 17.10.2026 · R2: «the normal pdf viewer
+//     we have just without the annotation»): the Plan surface's own `Whiteboard`, read-only — the
+//     same page, pan/zoom and ± / Einpassen a locked device reads a plan with, and for a module
+//     the catalogue marks `viewer` the same scrolling reader the Einsatz opens there — on the
+//     plan's CURRENT revision. It is handed no Einsatz: no annotations, no writer, no binding, no
+//     calibration, no Passung (`KartePlanBoard`, pinned by KarteApp.test) — the viewer binds
+//     nothing (lib/karte/plans);
 //   · «Gebäude» lays the station's prepared storeys one under the other, each storey the region
 //     of its page the floor pack names (the same region bake FloorPage draws from), read-only;
 //   · the chip row at the foot: back to the object on the Karte, and — for an aligned plan —
 //     straight onto the map with «Auf der Karte».
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
 import { cx } from '../../lib/cx'
@@ -20,9 +25,12 @@ import { floorLabel, withPdfPage } from '../../lib/whiteboard'
 import { fillTemplate } from '../../lib/format'
 import type { Lamp } from '../../lib/karte/availability'
 import { planRegionCropUrl } from '../PdfViewport'
-import { PdfScroller } from '../PdfScroller'
 import { PlanGlyph } from '../PlanGlyph'
-import { ShellLoader } from '../ShellLoader'
+import { LoadingStatus, ShellLoader } from '../ShellLoader'
+import type { BoardHistory } from '../useBoardDoc'
+import type { useSymbols } from '../../lib/useSymbols'
+import type { BoardAnno } from '../../types'
+import { Whiteboard } from '../../workspace/lazySurfaces'
 import { LampDot } from './KarteDevice'
 import s from './Karte.module.css'
 
@@ -66,10 +74,12 @@ export function KarteNavRail({ obj, docs, active, onMap, onDoc, notHeld }: {
 }
 
 /** A module PDF or the Gebäude stack, over the map. */
-export function KarteSurface({ obj, doc, phone, onMap, onGeorefMap, offline = false, held = null, gebaeude = null }: {
+export function KarteSurface({ obj, doc, phone, sym, onMap, onGeorefMap, offline = false, held = null, gebaeude = null }: {
   obj: StationObject
   doc: ViewerPlanDoc
   phone: boolean
+  /** the symbol pack the Einsatz's plan reader is handed (it draws none here — nothing is placed) */
+  sym: ReturnType<typeof useSymbols>
   onMap: () => void
   /** «Auf der Karte» — only for a plan the station aligned */
   onGeorefMap?: () => void
@@ -85,12 +95,12 @@ export function KarteSurface({ obj, doc, phone, onMap, onGeorefMap, offline = fa
   const missing = offline && held === false
   const partFloors = offline && !doc.plan && gebaeude === 'part'
   return (
-    <div className={s.surface}>
+    <div className={cx(s.surface, doc.plan && !missing && s.reader)}>
       <div className={s.surfaceBody}>
         {missing
           ? <div className={s.surfaceNote}><div className={s.note}><Icon id="info" /><span>{doc.plan ? C.planOfflineMissing : C.floorsOfflineMissing}</span></div></div>
           : doc.plan
-            ? <PdfScroller key={doc.doc.imageUrl} url={doc.doc.imageUrl} />
+            ? <KartePlanBoard key={doc.doc.imageUrl} obj={obj} doc={doc} sym={sym} />
             : <KarteFloors key={obj.plans.map((p) => `${p.id}@${p.version}`).join('|')} obj={obj} partOffline={partFloors} />}
       </div>
       <div className={s.chipRow}>
@@ -102,6 +112,50 @@ export function KarteSurface({ obj, doc, phone, onMap, onGeorefMap, offline = fa
         )}
       </div>
     </div>
+  )
+}
+
+const NO_ANNOS: BoardAnno[] = []
+const NOTHING = () => {}
+
+/**
+ * One module in the Einsatz's plan reader with no Einsatz behind it. ⚠️ What makes it read-only
+ * is not a flag alone but what it is NOT handed: `readOnly` folds every drawing tool, editor and
+ * floor control away (and the slim rail too — `slimTools` off: no Auswahl over an empty sheet),
+ * `linkViewer` drops the Maßstab / Passung chips (the doors to a calibration and to «Karte
+ * verknüpfen»), and every writer the reader has is a no-op: `onChange`, `log`, `emit`, the
+ * history. No `onCalibrate`, no `onObjectSwitch`, no `incidentId` — so nothing can be stored
+ * under an Einsatz, because there is none.
+ */
+export function KartePlanBoard({ obj, doc, sym }: { obj: StationObject; doc: ViewerPlanDoc; sym: ReturnType<typeof useSymbols> }) {
+  // the reader keeps its own (always empty) undo stacks in its caller's state
+  const [hist, setHist] = useState<BoardHistory>({})
+  return (
+    <Suspense fallback={<div className="whiteboard"><div className="workspace-loading"><LoadingStatus size="surface">{appConfig.copy.loading}</LoadingStatus></div></div>}>
+      <Whiteboard
+        plans={[doc.doc]}
+        activeId={doc.doc.id}
+        annos={NO_ANNOS}
+        onChange={NOTHING}
+        readOnly
+        slimTools={false}
+        linkViewer
+        building={null}
+        onSelectBuilding={NOTHING}
+        onAddFloor={NOTHING}
+        onRemoveFloor={NOTHING}
+        sym={sym}
+        onRecent={NOTHING}
+        log={NOTHING}
+        emit={NOTHING}
+        hist={hist}
+        setHist={setHist}
+        focus={null}
+        // the chip over the sheet names the object these plans are of, as in an Einsatz
+        objectName={obj.name}
+        objectAddress={obj.address}
+      />
+    </Suspense>
   )
 }
 

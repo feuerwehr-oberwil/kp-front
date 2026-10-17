@@ -116,7 +116,9 @@ What it reuses, so nothing forks:
 | Ebenen | `LayerPanel`, under its OWN device key (`kp.layers.karte`, `lib/karte/session`), without the Einsatz-only layers (taktisch, Skizzen, Personen); the radar's choice too (`kp.karte.radar`) |
 | tools | the Einsatz's `ToolRail` (tablet) / the folded `navrail` bar (phone: Karte · Messen · Gefahrgut · Ebenen), `ToolDock` + `MeasurePanel` WITHOUT «Als Linie/Fläche übernehmen» (and without a line saying it is not saved — nothing here is), stacked on the phone like an Einsatz's: dock 6px above the bar, readout 6px above the dock, one bar lower because the Karte has no tool bar, `MapViewsButton` without saved views |
 | weather | `useWeather` + `WeatherBadge` |
-| plans | the NavRail classes and `PlanGlyph` (tablet rail), rows in the object's sheet on the phone, `PdfScroller` on the current revision; the Gebäude storeys as the floor pack's page regions (`planRegionCropUrl`, what `FloorPage` draws from) |
+| plans | the NavRail classes and `PlanGlyph` (tablet rail), rows in the object's panel; a module opens in the Einsatz's plan reader — the Plan surface's `Whiteboard`, read-only, on the current revision (below); the Gebäude storeys as the floor pack's page regions (`planRegionCropUrl`, what `FloorPage` draws from) |
+| plan titles | the module catalogue the Einsatz's plan chooser labels its tiles from (`lib/planOrder · moduleCatalogue`), through `lib/karte/plans · planTitle` (below) |
+| the phone sheet | Ebenen's own: `.layers-card`, `overlays/SheetGrab`, `overlays/useSwipeDismiss` |
 | register facts | `lib/buildingCard` (chips, source line), the same «Register-Hinweis» |
 | Gefahrgut | `UnHazardSection` — the Gefahrentafel's ADR/ERG block, extracted from `ContextPanel` |
 | building outlines | the object's own `footprint` (above); for every other building and an object without one, the Umriss picker's `/api/overpass/buildings` (station snapshot first), loaded per grid cell (`lib/karte/outlines`) |
@@ -142,14 +144,47 @@ The rules that are easy to break:
   rails — every child of the surface but the map) stays a dot. A tag at a side edge slides inward
   as long as it still hangs over its building. Outlines draw from z15 as before.
 - **«In der Nähe» is distance only**, and the panel says so in a sentence.
-- **On a phone the panel is ONE slide-up sheet** (owner, 17.10.2026). Its PEEK is the head
-  (kicker, name, address, ✕) and the actions; FULL runs from under the top bar to the bottom bar.
-  The grab bar and the head drag it (`SheetGrip · useSheetDrag`, the `.ctx` editors' gesture with
-  the height held as state): up or a tap → full, down → peek, down again or ✕ → closed. The order
-  in it: head · actions · Pläne & Module (with «Objektplan auf der Karte» and Gebäude) · the
-  station's word · Gebäude laut Register · In der Nähe · Objektbesuche. There is no «Pläne» tab in
-  the bar: the sheet's rows are the way to a plan, and the plan's «Zur Karte» chip (or the Karte
-  tab) the way back to the sheet. The tablet keeps the left panel, its rail and its order.
+- **The panel, in one order** (owner, 17.10.2026 · review round 2), the same for an object on
+  the phone and on the tablet: head (kind, name, address, ✕) · the station's word
+  (Sofortmassnahmen, then Bemerkungen, with their source — what matters most in a hurry) ·
+  Pläne & Module as rows (code, title, pages, offline the «auf diesem Gerät» mark) · Gebäude laut
+  Register · In der Nähe · Objektbesuche · the closing «Keine Gefahrenangaben …» · the actions
+  LAST, «Objektbesuch» and «Melden». A plain building or a dropped pin keeps that order with what
+  it has (Register, In der Nähe, Melden; a pin also «Koordinaten kopieren»), a key box too (no
+  Register, its note one quiet line). No «Messen ab hier» (Messen is the bar's / the rail's) and no
+  «Objektplan auf der Karte» row: the aligned plan is switched in Ebenen (`Pläne` group, the
+  viewer's `karte:objektplan` twin), which keeps the capability. Section titles are the sheet's
+  group heads (eyebrow, no glyph); a missing or quiet fact is a line, not a box — only a warning
+  (no coordinates, the register unreachable) keeps its box.
+- **On a phone the panel is the Ebenen sheet** (owner, 17.10.2026 · R2: «a full slide-up like for
+  "ebenen" and not this half thing»). `KartePanel` wears `.layers-card` there, so it IS that sheet:
+  flush with the bottom edge and both sides, over the bar, the hero corner, hugging its content up
+  to Ebenen's cap, the grab bar on top, pushed down to close (`useSwipeDismiss`; the head is the
+  handle, a scrolled body scrolls), the toasts moved out of its way like for Ebenen. One height,
+  no peek. It sits over the bar but under the top bar (`--z-chrome-raised`), so «Einsätze» and the
+  search still open over it. ✕ or a push down closes the SHEET only: the place stays selected —
+  outline, tag, pin, `?objekt=` — and a tap on it again brings the sheet back; a tap on empty map
+  deselects. A place selected on a phone is framed in the strip above the sheet (the deep link's
+  first frame too). The tablet keeps the left panel, its rail and ✕ = deselect.
+- **A plan opens in the Einsatz's plan reader, read-only** (owner R2: «the normal pdf viewer we
+  have just without the annotation»). `KartePlans · KartePlanBoard` mounts the Plan surface's own
+  `Whiteboard` (the lazy chunk, `workspace/lazySurfaces`) on the plan's current revision: the page,
+  pan/zoom and the floating ± / Einpassen a locked device reads a plan with — and for a module the
+  catalogue marks `viewer` (Modul 6, PV) the same scrolling reader the Einsatz opens there. It is
+  handed no Einsatz: `readOnly` (no tools, editors or floor controls), `slimTools` off (no Auswahl
+  on an empty sheet), `linkViewer` (no Maßstab / Passung chips — no door to a calibration or to
+  «Karte verknüpfen»), no annotations, and every writer a no-op (`onChange`, `log`, `emit`, the
+  history); no `incidentId`, `onCalibrate` or `onObjectSwitch`. Its bottom-left row is hidden: the
+  Karte's chip row («Zur Karte» on the phone, the object's name on the tablet) is the way back,
+  and so is the bar's Karte tab. `KarteApp.test` pins what is handed in. The Gebäude stack stays
+  the Karte's own storey list (an Einsatz's Gebäude needs an incident's building pick).
+- **Plan titles** (`lib/karte/plans · planTitle`): many sheets in the real catalogue are titled by
+  their file name, «<object> – <module key>» («Migros – modul2», «Sägestrasse 8 - Schulhaus
+  Hüslimatt – modul2-3»). Such a title gives way to the catalogue's title for the key («Wie komme
+  ich herein», «Zugang & Objekt», «Photovoltaik»); a clean title («Übersicht», «Gemeindehaus –
+  Übersicht») stays. A family sub-slot without an entry says its own name («Wasser»), a numbered
+  sibling keeps its number («Wasser 2»), an unknown key reads «Modul N». The panel's rows, the
+  tablet rail's labels and the view label all read the document's title.
 - **A head that is still being looked up is a skeleton**, never «Gebäude» or «…» in place of a
   name: a tapped building until the register answers (a searched address is named at once), a
   dropped pin until its address is known. A plain building carries no «Kein Stationsobjekt …»
@@ -158,7 +193,7 @@ The rules that are easy to break:
 - **Missing is said.** A register that could not be asked, a place never looked at offline, an
   object without notes: each gets its sentence, and «Keine Gefahrenangaben … heisst nicht …»
   closes the panel. Nothing reads as «no hazard».
-- **Doors by role.** «Objektbesuch» / «Meldung erfassen» only for `objectVisits.captureRoles`
+- **Doors by role.** «Objektbesuch» / «Melden» only for `objectVisits.captureRoles`
   (and only where the module runs); every other account reads the visits with a one-line reason.
 - **Search** finds objects on the device first — name, address, aliases, folded umlauts, every
   word of the query — ranked name before alias/address, plans before none, key boxes last, then
@@ -194,7 +229,13 @@ The rules that are easy to break:
   Gefahrgut card says where its rings stand first, right under the UN field.
 - **Visits hand over** to the existing capture: `/besuche/neu?object=<id>&from=karte` for an
   object, `/besuche/neu?lat=&lng=&label=[&address=]&from=karte` for a building or a pin (contract
-  C1, label «bei <Adresse>» within 60 m of a pin, else «Gesetzter Punkt»); an existing visit opens
+  C1, label «bei <Adresse>» within 60 m of a pin, else «Gesetzter Punkt»). **«Melden»** (something
+  is wrong or missing here: hydrant, access, key box, plan …) is the same hand-over with
+  `&checkliste=fehlermeldung` (`lib/karte/places · REPORT_CHECKLIST`): the new-visit screen takes
+  the station's «Fehlermeldung» checklist when the catalogue has it — station data
+  (kp-front-data), never bundled — and falls back to its chooser when not; a reload resumes an
+  open Fehlermeldung draft, never an unrelated draft at the same object
+  (`objectVisits/store · findOpenDraft`). An existing visit opens
   at `/besuche/<id>?from=karte`. The viewer stays «entered» while that visit is open, and a visit
   opened from it has no Übersicht behind it: its «Zurück» (to its work list or the Übersicht)
   lands on the viewer's own address again — read views and reports included (`App` · `ovReturn`).

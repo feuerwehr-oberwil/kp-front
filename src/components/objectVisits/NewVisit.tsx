@@ -10,14 +10,20 @@ import { LoadingStatus } from '../ShellLoader'
 import { knownVisits, resolveObject, visitTemplates, visitsAtStop } from '../../objectVisits/catalogue'
 import { newVisitDoc, objectSnapshot } from '../../objectVisits/doc'
 import { createLocalVisit, findOpenDraft } from '../../objectVisits/store'
-import { decideNewVisit } from '../../objectVisits/newVisit'
+import { autoChoice, decideNewVisit } from '../../objectVisits/newVisit'
 import { lastWith } from '../../objectVisits/devicePrefs'
 import type { CatalogueObject, VisitTemplate } from '../../objectVisits/types'
 import { Head } from './common'
 import { useOv } from './ovContext'
 import s from './ObjectVisits.module.css'
 
-export function NewVisit({ objectKey, workRef }: { objectKey: string; workRef: string | null }) {
+export function NewVisit({ objectKey, workRef, checklist = null }: {
+  objectKey: string
+  workRef: string | null
+  /** asked for up front (`?checkliste=`, «Melden» on the Karte): taken when the catalogue has it,
+   *  else the chooser as without it — a station that never loaded it loses nothing */
+  checklist?: string | null
+}) {
   const ov = useOv()
   const C = appConfig.copy.objectVisits
   const [chosen, setChosen] = useState<{ t: VisitTemplate | null } | null>(null)
@@ -28,10 +34,12 @@ export function NewVisit({ objectKey, workRef }: { objectKey: string; workRef: s
   const back = () => ov.go(workRef && catalogue?.lists.some((l) => l.ref === workRef) ? { kind: 'list', ref: workRef } : { kind: 'overview' }, { replace: true })
   const object: CatalogueObject | null = catalogue ? resolveObject(catalogue, objectKey) : null
   // a draft for a bare object id resolves even without a catalogue on this device
-  const draft = ov.localsLoaded
-    ? findOpenDraft(ov.locals, object?.id ?? objectKey, workRef, ov.userId)
-    : null
   const templates = useMemo(() => (catalogue ? visitTemplates(catalogue) : []), [catalogue])
+  const asked = useMemo(() => (checklist ? templates.find((t) => t.id === checklist) ?? null : null), [checklist, templates])
+  // with a checklist asked for, only a draft of it is «the open one» (store · findOpenDraft)
+  const draft = ov.localsLoaded
+    ? findOpenDraft(ov.locals, object?.id ?? objectKey, workRef, ov.userId, asked?.id)
+    : null
   // the checklists already completed at this stop («Weitere Checkliste» from a finished visit)
   const doneHere = useMemo(() => new Set(
     visitsAtStop(knownVisits(ov.locals, ov.summaries), object?.id ?? objectKey, workRef)
@@ -40,9 +48,10 @@ export function NewVisit({ objectKey, workRef }: { objectKey: string; workRef: s
   ), [ov.locals, ov.summaries, object?.id, objectKey, workRef])
   // one checklist (or none) needs no question; several ask «Welche Checkliste?» — and so does the
   // one, once it is completed at this stop: «Weitere Checkliste» must not silently repeat it
+  // (newVisit · autoChoice: an asked-for checklist the station lacks asks instead of guessing)
   const choice = useMemo<{ t: VisitTemplate | null } | null>(
-    () => chosen ?? (templates.length <= 1 && !doneHere.has(templates[0]?.id ?? null) ? { t: templates[0] ?? null } : null),
-    [chosen, templates, doneHere],
+    () => chosen ?? autoChoice({ asked: checklist, templates, doneHere }),
+    [chosen, checklist, templates, doneHere],
   )
   const step = decideNewVisit({
     localsLoaded: ov.localsLoaded, localsOk: ov.localsOk, catalogueLoaded: ov.cat !== null,

@@ -106,7 +106,7 @@ export default function ObjectVisitsApp({ onExit, suggestedObjectId = null }: { 
         <IconSprite />
         {route.kind === 'overview' && <Overview />}
         {route.kind === 'list' && <WorkList listRef={route.ref} />}
-        {route.kind === 'new' && <NewVisit objectKey={route.object} workRef={route.ref} />}
+        {route.kind === 'new' && <NewVisit objectKey={route.object} workRef={route.ref} checklist={route.checklist ?? null} />}
         {route.kind === 'visit' && <VisitPage key={route.id} id={route.id} edit={route.edit} />}
         {route.kind === 'answers' && <AnswersPage key={route.id} id={route.id} />}
       </div>
