@@ -311,6 +311,9 @@
 .un-haz-row { display: flex; gap: 8px; padding: 4px 0; font-size: var(--fs-2); }
 .un-haz-k { flex: 0 0 44%; color: var(--ink-dim); font-weight: var(--fw-medium); }
 .un-haz-v { flex: 1; color: var(--ink); font-family: var(--mono); }
+/* the substance's name (the Karte's Gefahrgut, UnHazardSection · nameRow): words, not a code — the
+   body face, bold, wrapping like any long name */
+.un-haz-name .un-haz-v { font-family: var(--body); font-weight: var(--fw-bold); overflow-wrap: anywhere; }
 .un-haz-water { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 8px; border-radius: var(--r-xs);
   background: var(--red); color: var(--on-fill); font-size: var(--fs-1); font-weight: var(--fw-bold); }
 .un-haz-water svg { width: 15px; height: 15px; flex: none; }

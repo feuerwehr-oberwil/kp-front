@@ -43,7 +43,7 @@ import { planKey, type ObjectAvailability } from '../../lib/karte/availability'
 import { floorLabel } from '../../lib/whiteboard'
 import type { VisitSummary } from '../../objectVisits/types'
 import type { LngLat } from '../../types'
-import { Button, IconButton } from '../Button'
+import { Button } from '../Button'
 import { PlanGlyph } from '../PlanGlyph'
 import { LampDot } from './KarteDevice'
 import s from './Karte.module.css'
@@ -192,7 +192,8 @@ export function KartePanel(p: {
       {p.sheet && <SheetGrab />}
       <div className={s.head}>
         {head}
-        <IconButton label={appConfig.copy.closeDialog} variant="secondary" onClick={p.onClose}><Icon id="close" /></IconButton>
+        {/* THE sheet ✕ (docs/ui-conventions · Close: `.ip-x`, 36px), as Ebenen's — it was a 44px framed IconButton (review round 4) */}
+        <button type="button" className="ip-x" aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog} onClick={p.onClose}><Icon id="close" /></button>
       </div>
       <div className={s.body}>{body}</div>
     </section>

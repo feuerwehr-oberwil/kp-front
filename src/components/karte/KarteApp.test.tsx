@@ -80,6 +80,8 @@ vi.mock('../../workspace/lazySurfaces', () => ({
 import KarteApp, { type KarteAppProps } from './KarteApp'
 import { toast } from '../../lib/ui'
 import { appConfig } from '../../config/appConfig'
+import { __setUnHazardData, type UnHazardEntry } from '../../lib/unHazard'
+import adr from '../../../public/un-hazard.json'
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 beforeAll(() => {
@@ -507,5 +509,90 @@ describe('KarteApp', () => {
     sheet = await screen.findByRole('region', { name: 'Gefahrgut' })
     expect((sheet.querySelector('input') as HTMLInputElement).value).toBe('1203')
     expect(document.activeElement).not.toBe(sheet.querySelector('input'))
+  })
+
+  // owner R4-6 (17.10.2026): «while measuring we should also be able to measure on top of objects
+  // (not have the objects get highlighted)» — a tap tool takes the tap on a tag or dot too
+  it('measures over an object: its tag lets the tap through, nothing is selected', async () => {
+    mount()
+    const tag = await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Messen' }))
+    const marker = screen.getByRole('button', { name: /Schloss Musterdorf/ })
+    expect(marker.className).toMatch(/through/)
+    // a click that reaches it anyway (a keyboard) is the tool's, at the object's point
+    fireEvent.click(marker)
+    act(() => lastMap().onMapClick([7.5708, 47.52455]))
+    await waitFor(() => expect(lastMap().measurePoints).toEqual([[7.570188, 47.523773], [7.5708, 47.52455]]))
+    expect(screen.queryByRole('heading', { name: 'Schloss Musterdorf' })).toBeNull()
+    expect(window.location.search).toBe('')
+    // Messen off: the object is the object's again
+    fireEvent.click(screen.getByRole('button', { name: 'Messen' }))
+    expect(screen.getByRole('button', { name: /Schloss Musterdorf/ }).className).not.toMatch(/through/)
+    expect(tag).toBeTruthy()
+  })
+
+  // owner R4-7: «after closing … revert the position again so it doesn't constantly push the map
+  // south» (the rule itself: lib/karte/camera.test)
+  it('on a phone: closing the sheet eases the camera back to where it was, unless the user moved it', async () => {
+    rec.phone = true
+    let cam = { center: { lng: 7.56, lat: 47.52 }, zoom: 15.5, padding: { top: 0, bottom: 0, left: 0, right: 0 } }
+    const handlers: Record<string, (e: unknown) => void> = {}
+    const easeTo = vi.fn((o: { center?: LngLat; zoom?: number; padding?: typeof cam.padding }) => {
+      cam = { center: o.center ? { lng: o.center[0], lat: o.center[1] } : cam.center, zoom: o.zoom ?? cam.zoom, padding: o.padding ?? cam.padding }
+    })
+    const map = {
+      getContainer: () => document.createElement('div'), getZoom: () => cam.zoom, getCenter: () => cam.center, getPadding: () => cam.padding,
+      unproject: () => ({ lng: 7.56, lat: 47.52 }), project: () => ({ x: 200, y: 700 }), getBounds: () => ({ getWest: () => 7.5, getSouth: () => 47.5, getEast: () => 7.6, getNorth: () => 47.6 }),
+      easeTo, jumpTo: () => {}, fitBounds: () => {},
+    }
+    rec.fakeMap = { ...map, getMap: () => ({ on: (ev: string, h: (e: unknown) => void) => { handlers[ev] = h } }) }
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    act(() => (lastMap() as unknown as { onSettled: () => void }).onSettled())
+    const start = { ...cam }
+    fireEvent.click(screen.getByRole('button', { name: /Schloss Musterdorf/ }))
+    await screen.findByRole('region', { name: 'Karte & Objekte' })
+    // the tap framed it in the strip above the sheet (padding) …
+    expect(cam.padding.bottom).toBeGreaterThan(0)
+    // … another object from «In der Nähe» while it is open keeps the FIRST camera as the way back
+    fireEvent.click(screen.getAllByRole('button', { name: /Starenstrasse 7/ }).find((b) => !b.closest('[data-marker]'))!)
+    await screen.findByRole('heading', { name: 'Starenstrasse 7' })
+    let sheet = screen.getByRole('region', { name: 'Karte & Objekte' })
+    const close = within(sheet).getAllByRole('button', { name: appConfig.copy.closeDialog })
+    fireEvent.click(close[close.length - 1])
+    expect(easeTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [start.center.lng, start.center.lat], zoom: start.zoom, padding: start.padding }))
+
+    // the user pans while the sheet is open: closing leaves the map where they put it
+    fireEvent.click(screen.getByRole('button', { name: /Schloss Musterdorf/ }))
+    sheet = await screen.findByRole('region', { name: 'Karte & Objekte' })
+    act(() => handlers.movestart({ originalEvent: new Event('touchstart') }))
+    const calls = easeTo.mock.calls.length
+    const closeAgain = within(sheet).getAllByRole('button', { name: appConfig.copy.closeDialog })
+    fireEvent.click(closeAgain[closeAgain.length - 1])
+    expect(easeTo.mock.calls.length).toBe(calls)
+  })
+
+  // owner R4-3: «for the gefahrgut stuff we also need to know the name (show it as attribute)»
+  it('on a phone: Gefahrgut names the substance first («Stoff»)', async () => {
+    __setUnHazardData(adr as UnHazardEntry[])
+    rec.phone = true
+    mount()
+    const nav = await screen.findByRole('navigation', { name: 'Karte & Objekte' })
+    fireEvent.click(within(nav).getByRole('button', { name: /Gefahrgut/ }))
+    const sheet = await screen.findByRole('region', { name: 'Gefahrgut' })
+    fireEvent.change(sheet.querySelector('input') as HTMLInputElement, { target: { value: '1203' } })
+    const row = await within(sheet).findByText('BENZIN oder OTTOKRAFTSTOFF')
+    expect(row.previousElementSibling?.textContent).toBe(appConfig.copy.contextPanel.unSubstance)
+    // the first row of the readout
+    expect(sheet.querySelector('.un-haz-row')).toBe(row.parentElement)
+  })
+
+  // owner R4-1: «move "station" up in ebenen all the way to the top»
+  it('lists the «Station» group first in its Ebenen', async () => {
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.karte.tools.layers }))
+    const first = document.querySelector('.layers-card .lgroup')
+    expect(first?.textContent).toBe(appConfig.copy.karte.layerGroupStation)
   })
 })

@@ -115,9 +115,14 @@ export interface SwipeDismissOptions {
   onClose: () => void
   /** Off for a surface that owns the vertical gesture itself. Default on. */
   enabled?: boolean
+  /** Only the head (and the grab bar) drags the sheet — never its body, not even at the top of
+   *  its scroller. For a sheet whose body is a RESULT LIST under a field (the Karte's search and
+   *  Gefahrgut, components/karte/KarteKeySheet — owner, review round 4: «ensure it only scrolls the
+   *  listed objects»): a drag over the list is the list's, whichever way and wherever it stands. */
+  headOnly?: boolean
 }
 
-export function useSwipeDismiss({ onClose, enabled = true }: SwipeDismissOptions) {
+export function useSwipeDismiss({ onClose, enabled = true, headOnly = false }: SwipeDismissOptions) {
   const drag = useRef<Drag | null>(null)
 
   const settle = (el: HTMLElement, animate: boolean) => {
@@ -152,8 +157,10 @@ export function useSwipeDismiss({ onClose, enabled = true }: SwipeDismissOptions
       // rule 3 — a control is a control, and so is a surface that pans under the finger
       if (target?.closest(NO_DRAG_SEL)) return
       // rule 2 — the header always drags; over a scroller only while it is at the very top
-      // (`.lc-title`: the head of the phone's non-modal map sheets — Ebenen, the Suche card)
-      const onHead = !!target?.closest('.ip-head, .ui-sheet-grab, .lc-title')
+      // (`.lc-title`: the head of the phone's non-modal map sheets — Ebenen, the Suche card;
+      // `[data-sheet-head]`: a head of another shape, the Karte's field line)
+      const onHead = !!target?.closest('.ip-head, .ui-sheet-grab, .lc-title, [data-sheet-head]')
+      if (headOnly && !onHead) return
       const scroller = onHead ? null : scrollerWithin(target, el)
       if (!onHead && scroller && scroller.scrollTop > 0) return
       drag.current = {
