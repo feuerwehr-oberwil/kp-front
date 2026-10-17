@@ -24,12 +24,14 @@ import type { StationObject } from '../../lib/api/stationReference'
 import type { Near, NamedPoint } from '../../lib/karte/places'
 import { splitAddress, streetKey } from '../../lib/karte/places'
 import type { ViewerPlanDoc } from '../../lib/karte/plans'
+import { planKey, type ObjectAvailability } from '../../lib/karte/availability'
 import { floorLabel } from '../../lib/whiteboard'
 import type { VisitSummary } from '../../objectVisits/types'
 import type { LngLat } from '../../types'
 import { Button, IconButton } from '../Button'
 import { PlanGlyph } from '../PlanGlyph'
 import { KeyBoxGlyph } from './KeyBoxGlyph'
+import { LampDot } from './KarteDevice'
 import s from './Karte.module.css'
 
 export type PanelSel =
@@ -56,6 +58,10 @@ export function KartePanel(p: {
   docs: ViewerPlanDoc[]
   georefOn: boolean
   georefAvailable: boolean
+  /** no network: the plan rows say what this device holds (● / ○, docs/karte-objekte.md · Offline) */
+  offline?: boolean
+  /** what this device holds of the selected object's plans; null = not asked yet */
+  avail?: ObjectAvailability | null
   sheet: boolean
   full: boolean
   withRail: boolean
@@ -94,11 +100,12 @@ export function KartePanel(p: {
           <div className={cx(s.note, s.amber)}><Icon id="warn" /><span><b>{C.approxHead}</b> {C.approxBody}</span></div>
         )}
         <StationWord obj={o} />
-        <Plans obj={o} docs={p.docs} georefOn={p.georefOn} georefAvailable={p.georefAvailable} onOpenDoc={p.onOpenDoc} onToggleGeoref={p.onToggleGeoref} />
+        <Plans obj={o} docs={p.docs} georefOn={p.georefOn} georefAvailable={p.georefAvailable} onOpenDoc={p.onOpenDoc} onToggleGeoref={p.onToggleGeoref}
+          avail={p.offline ? p.avail ?? null : undefined} />
         {o.kind === 'depot' && !o.plans.length && <div className={s.note}><Icon id="info" /><span>{C.depotNote}</span></div>}
         {o.kind !== 'depot' && <Register reg={p.register} address={o.address} onRetry={p.onRetryRegister} />}
         <Nearby nearby={p.nearby} hydrants={p.hydrants} onSelectObject={p.onSelectObject} />
-        <Visits visits={p.visits} canCapture={p.canCapture} empty={C.visitsNever} onOpenVisit={p.onOpenVisit} />
+        <Visits visits={p.visits} canCapture={p.canCapture} empty={C.visitsNever} onOpenVisit={p.onOpenVisit} offline={p.offline} last={o.lastVisit} />
         {!noteLines(o.measures).length && !noteLines(o.remarks).length && <div className={s.src}>{C.missing}</div>}
       </>
     )
@@ -209,40 +216,59 @@ function StationWord({ obj }: { obj: StationObject }) {
   )
 }
 
-function Plans({ obj, docs, georefOn, georefAvailable, onOpenDoc, onToggleGeoref }: {
+function Plans({ obj, docs, georefOn, georefAvailable, onOpenDoc, onToggleGeoref, avail }: {
   obj: StationObject; docs: ViewerPlanDoc[]; georefOn: boolean; georefAvailable: boolean
   onOpenDoc: (id: string) => void; onToggleGeoref: () => void
+  /** offline only: what this device holds (null = still asking; undefined = online, no lamps) */
+  avail?: ObjectAvailability | null
 }) {
   const C = appConfig.copy.karte
   if (!docs.length) return null
   const floorNames = obj.floors.map((f) => f.name || floorLabel(f.index))
+  const offline = avail !== undefined
+  // the lamp a row carries offline; a row is dimmed only once a probe said «not here»
+  const lampOf = (plan: ViewerPlanDoc['plan']) => !avail ? null
+    : plan ? (avail.plans[planKey(plan)] ? 'device' as const : 'online' as const) : avail.gebaeude
+  const word = (l: 'device' | 'part' | 'online') => C.device.lampWord[l]
+  const georefOff = !!avail && !avail.georef && !georefOn
   return (
     <div className={s.sec}>
-      <div className={s.secHead}><span className={s.eyebrow}><Icon id="doc" />{C.plansTitle}</span></div>
+      <div className={s.secHead}>
+        <span className={s.eyebrow}><Icon id="doc" />{C.plansTitle}</span>
+        {offline && <span className={s.legend}><span className={s.lamp} aria-hidden />{C.onDevice}</span>}
+      </div>
       <div className={s.list}>
-        {docs.map(({ doc, plan }) => plan ? (
-          <button key={doc.id} type="button" className={s.row} onClick={() => onOpenDoc(doc.id)}>
-            <span className={cx(s.rowLead, s.plan)}><PlanGlyph doc={doc} /></span>
-            <span className={s.rowText}>
-              <b>{plan.title}</b>
-              <span>{[plan.pages == null ? C.planPdf : plan.pages === 1 ? C.planPagesOne : fillTemplate(C.planPages, { n: plan.pages }), plan.georef ? C.planGeoref : ''].filter(Boolean).join(' · ')}</span>
-            </span>
-            <Icon id="chevron" className={s.chev} />
-          </button>
-        ) : (
-          <button key={doc.id} type="button" className={s.row} onClick={() => onOpenDoc(doc.id)}>
-            <span className={s.rowLead}><Icon id="floors" /></span>
-            <span className={s.rowText}>
-              <b>{C.floorsRow}</b>
-              <span>{fillTemplate(floorNames.length === 1 ? C.floorsRowSubOne : C.floorsRowSub, { n: floorNames.length, list: floorNames.join(' · ') })}</span>
-            </span>
-            <Icon id="chevron" className={s.chev} />
-          </button>
-        ))}
+        {docs.map(({ doc, plan }) => {
+          const lamp = lampOf(plan)
+          const off = lamp === 'online'
+          return plan ? (
+            <button key={doc.id} type="button" className={cx(s.row, off && s.off)} onClick={() => onOpenDoc(doc.id)}>
+              <span className={cx(s.rowLead, s.plan)}><PlanGlyph doc={doc} /></span>
+              <span className={s.rowText}>
+                <b>{plan.title}</b>
+                <span>{off ? C.planNotStored : [plan.pages == null ? C.planPdf : plan.pages === 1 ? C.planPagesOne : fillTemplate(C.planPages, { n: plan.pages }), plan.georef ? C.planGeoref : ''].filter(Boolean).join(' · ')}</span>
+              </span>
+              {lamp && <><LampDot lamp={lamp} /><span className="sr-only">{word(lamp)}</span></>}
+              <Icon id="chevron" className={s.chev} />
+            </button>
+          ) : (
+            <button key={doc.id} type="button" className={cx(s.row, off && s.off)} onClick={() => onOpenDoc(doc.id)}>
+              <span className={s.rowLead}><Icon id="floors" /></span>
+              <span className={s.rowText}>
+                <b>{C.floorsRow}</b>
+                <span>{off ? C.planNotStored : fillTemplate(floorNames.length === 1 ? C.floorsRowSubOne : C.floorsRowSub, { n: floorNames.length, list: floorNames.join(' · ') })}</span>
+              </span>
+              {lamp && <><LampDot lamp={lamp} /><span className="sr-only">{word(lamp)}</span></>}
+              <Icon id="chevron" className={s.chev} />
+            </button>
+          )
+        })}
         {georefAvailable && (
-          <button type="button" className={s.row} role="switch" aria-checked={georefOn} onClick={onToggleGeoref}>
+          // offline without the plan on the device it cannot be laid on the map: said, not offered
+          // (an overlay already on stays switchable off)
+          <button type="button" className={cx(s.row, georefOff && s.off)} role="switch" aria-checked={georefOn} disabled={georefOff} onClick={onToggleGeoref}>
             <span className={s.rowLead}><Icon id="layers" /></span>
-            <span className={s.rowText}><b>{C.georefRow}</b><span>{C.georefRowSub}</span></span>
+            <span className={s.rowText}><b>{C.georefRow}</b><span>{georefOff ? C.georefOffline : C.georefRowSub}</span></span>
             <span className={cx(s.switch, georefOn && s.on)} aria-hidden />
           </button>
         )}
@@ -330,14 +356,24 @@ function Nearby({ nearby, hydrants, onSelectObject }: { nearby: Near<StationObje
   )
 }
 
-function Visits({ visits, canCapture, empty, onOpenVisit }: { visits: VisitsState; canCapture: boolean; empty: string; onOpenVisit: (id: string) => void }) {
+function Visits({ visits, canCapture, empty, onOpenVisit, offline, last }: {
+  visits: VisitsState; canCapture: boolean; empty: string; onOpenVisit: (id: string) => void
+  /** offline the list cannot be asked: say so, with the catalogue's last visit when it names one */
+  offline?: boolean
+  last?: StationObject['lastVisit']
+}) {
   const C = appConfig.copy.karte
   if (visits.state === 'off') return null
   return (
     <div className={s.sec}>
       <div className={s.secHead}><span className={s.eyebrow}><Icon id="clipboard" />{C.visitsTitle}</span></div>
       {visits.state === 'loading' ? <div className={s.skeleton} style={{ width: '60%' }} />
-        : visits.state === 'error' ? <div className={s.note}><Icon id="info" /><span>{C.visitsUnavailable}</span></div>
+        : visits.state === 'error' ? (
+          <div className={s.note}><Icon id="info" /><span>
+            {offline ? C.visitsOffline : C.visitsUnavailable}
+            {offline && last?.date && <> {fillTemplate(C.visitsLast, { c: last.checklist ?? C.visitNoChecklist, d: fmtDay(last.date) })}</>}
+          </span></div>
+        )
           : visits.list.length ? (
             <div className={s.list}>
               {visits.list.map((v) => {

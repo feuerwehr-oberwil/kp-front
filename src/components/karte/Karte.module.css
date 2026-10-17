@@ -190,6 +190,33 @@ button.row:active { background: var(--press); }
 .fchip svg { width: 16px; height: 16px; }
 .quick > * { white-space: nowrap; min-width: 0; }
 
+/* ── offline: what this device holds (docs/karte-objekte.md · Offline, mockup s-j7-*) ─────────
+   ● on this device (green) · ◐ partly (amber, half filled) · ○ only online (an empty ring). The
+   lamp never carries the meaning alone: every row says it in words too. */
+.lamp { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--green); box-sizing: border-box; }
+.lampPart { background: linear-gradient(90deg, var(--amber) 50%, transparent 50%); border: 1.5px solid var(--amber); }
+.lampOff { background: transparent; border: 1.5px solid var(--ink-faint); }
+.legend { display: inline-flex; align-items: center; gap: var(--sp-1); font: var(--fw-medium) var(--fs-micro)/1.2 var(--body); color: var(--ink-dim); }
+.legend .lamp { width: 7px; height: 7px; background: var(--ink-dim); }
+/* a plan the device does not hold, while offline: still tappable (the surface says why), dimmed */
+.row.off .rowText, .row.off .rowLead { opacity: .5; }
+:global(.nav-item).navOff { opacity: .45; }
+/* the bar's chip: the switcher's offline pill (13-incident · .ip-offline-chip), at tap size */
+.offChip { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3); flex: none;
+  border: none; border-radius: var(--r-sm); background: var(--amber-16); color: var(--amber-strong); cursor: pointer;
+  font: var(--fw-bold) var(--fs-2)/1 var(--body); }
+.offChip:active { background: var(--amber-22); }
+.offDot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+.deviceSheet { max-width: 520px; }
+.deviceLead { margin: 0 0 var(--sp-3); font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink-dim); }
+.deviceSheet .list + .note, .deviceSheet .list + .src, .deviceSheet .note + .src { margin-top: var(--sp-3); }
+/* offline, the open document not on this device: the sentence instead of the reader */
+.surfaceNote { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: var(--sp-4); }
+.surfaceNote .note { max-width: 360px; }
+.floors > .note { width: min(980px, 100%); }
+/* the sheet's body scrolls; its rows never squeeze */
+.deviceSheet .list { flex: none; }
+
 /* ── «Einsätze ▾»: its count (running + alarms to take) ─────────────────────────────────────── */
 .einsaetzeBadge { position: absolute; top: calc(-1 * var(--sp-2)); right: calc(-1 * var(--sp-2)); min-width: 20px; height: 20px; padding: 0 var(--sp-1);
   display: grid; place-items: center; border-radius: var(--r-pill); background: var(--red); color: var(--on-fill, #fff);
