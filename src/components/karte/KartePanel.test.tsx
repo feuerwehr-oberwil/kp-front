@@ -3,11 +3,12 @@
 // that says where it came from, «In der Nähe» with its disclaimer, and missing data said, never
 // read as «no hazard». Synthetic Musterdorf data only.
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { KartePanel, type RegisterState } from './KartePanel'
 import type { StationObject } from '../../lib/api/stationReference'
 import type { BuildingInfo } from '../../lib/api/building'
+import type { ViewerPlanDoc } from '../../lib/karte/plans'
 
 afterEach(cleanup)
 
@@ -27,7 +28,7 @@ const panel = (over: Partial<Parameters<typeof KartePanel>[0]> = {}) => render(
   <KartePanel
     sel={{ kind: 'object', obj: SCHLOSS }} register={ok} nearby={[]} hydrants={[]} visits={{ state: 'ok', list: [] }}
     canCapture docs={[]} georefOn={false} georefAvailable={false} sheet={false} full={false} withRail={false}
-    onToggleFull={vi.fn()} onClose={vi.fn()} onMeasureHere={vi.fn()} onStartVisit={vi.fn()} onOpenDoc={vi.fn()}
+    onFull={vi.fn()} onClose={vi.fn()} onMeasureHere={vi.fn()} onStartVisit={vi.fn()} onOpenDoc={vi.fn()}
     onToggleGeoref={vi.fn()} onSelectObject={vi.fn()} onRetryRegister={vi.fn()} onOpenVisit={vi.fn()}
     onPinBuilding={vi.fn()} onCopyCoords={vi.fn()} {...over}
   />,
@@ -70,5 +71,96 @@ describe('KartePanel', () => {
     expect(screen.getByText('bei Starenstrasse 19')).toBeTruthy()
     expect(screen.getByRole('button', { name: /Meldung erfassen/ })).toBeTruthy()
     expect(screen.getByText(/LV95/)).toBeTruthy()
+  })
+
+  // owner-5 (17.10.2026): a tapped building whose address is still being looked up read
+  // «Gebäude» / «…» — the head is skeleton bars until the register answers, then the address
+  it('shows a skeleton head, not «Gebäude», while a tapped building is looked up', () => {
+    const loading: RegisterState = { state: 'loading', info: null, cached: false }
+    panel({ sel: { kind: 'building', at: [7.5708, 47.5228], address: null }, register: loading })
+    expect(screen.getByTestId('karte-head-loading')).toBeTruthy()
+    expect(screen.getByText('Adresse wird gesucht …')).toBeTruthy()
+    expect(screen.queryByRole('heading')).toBeNull()
+    expect(screen.queryByText('…')).toBeNull()
+    cleanup()
+    panel({ sel: { kind: 'building', at: [7.5708, 47.5228], address: null }, register: ok })
+    expect(screen.queryByTestId('karte-head-loading')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Schlossgasse 9' })).toBeTruthy()
+    expect(screen.getByText('9999 Musterdorf')).toBeTruthy()
+  })
+
+  it('names a searched address at once, without waiting for the register', () => {
+    panel({ sel: { kind: 'building', at: [7.5708, 47.5228], address: 'Schlossgasse 9, 9999 Musterdorf' }, register: { state: 'loading', info: null, cached: false } })
+    expect(screen.queryByTestId('karte-head-loading')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Schlossgasse 9' })).toBeTruthy()
+  })
+
+  it('shows a skeleton head while a dropped pin is looked up, with its coordinates', () => {
+    panel({ sel: { kind: 'pin', at: [7.57175, 47.52015], near: null, nearState: 'loading', onBuilding: false } })
+    expect(screen.getByTestId('karte-head-loading')).toBeTruthy()
+    expect(screen.queryByRole('heading')).toBeNull()
+    expect(screen.getByText(/LV95/)).toBeTruthy()
+  })
+
+  // owner-4: no boxed «Kein Stationsobjekt an dieser Adresse» — but missing still is not «safe»
+  it('keeps the building quiet: no box, the closing sentence stays', () => {
+    panel({ sel: { kind: 'building', at: [7.5708, 47.5228], address: null } })
+    expect(screen.queryByText(/Kein Stationsobjekt an dieser Adresse/)).toBeNull()
+    expect(screen.getByText('Keine Gefahrenangaben der Station erfasst. Das heisst nicht, dass es keine gibt.')).toBeTruthy()
+  })
+})
+
+describe('KartePanel · the phone sheet', () => {
+  const PLAN = { id: 'plan:schloss:modul1', module: 'modul1', code: '1', title: 'Schloss – Übersicht', pages: 2, georef: false, version: 1, updatedAt: null }
+  const DOCS = [{ doc: { id: 'd1', code: '1', title: 'Schloss – Übersicht', imageUrl: '/x.pdf' }, plan: PLAN }] as unknown as ViewerPlanDoc[]
+  const WITH_PLANS = { ...SCHLOSS, plans: [PLAN] } as unknown as StationObject
+
+  it('lists the plans right under the actions, before the station word', () => {
+    const { container } = panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet: true })
+    const text = container.textContent ?? ''
+    expect(text.indexOf('Schloss – Übersicht')).toBeGreaterThan(text.indexOf('Messen ab hier'))
+    expect(text.indexOf('Schloss – Übersicht')).toBeLessThan(text.indexOf('Sofortmassnahmen'))
+    cleanup()
+    // the tablet keeps its order (the plans are in its rail as well)
+    const tab = panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS })
+    const t2 = tab.container.textContent ?? ''
+    expect(t2.indexOf('Schloss – Übersicht')).toBeGreaterThan(t2.indexOf('Sofortmassnahmen'))
+  })
+
+  it('opens a plan from its row', () => {
+    const onOpenDoc = vi.fn()
+    panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet: true, onOpenDoc })
+    fireEvent.click(screen.getByRole('button', { name: /Schloss – Übersicht/ }))
+    expect(onOpenDoc).toHaveBeenCalledWith('d1')
+  })
+
+  it('grows from the peek on a tap of the grab bar or the head; ✕ closes', () => {
+    Element.prototype.setPointerCapture ??= () => {}
+    const onFull = vi.fn()
+    const onClose = vi.fn()
+    panel({ sheet: true, onFull, onClose })
+    const grab = screen.getByRole('button', { name: 'Detailhöhe anpassen' })
+    expect(grab.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.pointerDown(grab, { clientY: 500, pointerId: 1 })
+    fireEvent.pointerUp(grab, { clientY: 500, pointerId: 1 })
+    expect(onFull).toHaveBeenLastCalledWith(true)
+    const head = screen.getByRole('heading', { name: 'Schloss Musterdorf' })
+    fireEvent.pointerDown(head, { clientY: 520, pointerId: 2 })
+    fireEvent.pointerUp(head, { clientY: 520, pointerId: 2 })
+    expect(onFull).toHaveBeenCalledTimes(2)
+    const closes = screen.getAllByRole('button', { name: 'Schliessen' })
+    fireEvent.click(closes[closes.length - 1])
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(onFull).toHaveBeenCalledTimes(2)
+  })
+
+  it('folds back to the peek from full on a tap of the grab bar', () => {
+    Element.prototype.setPointerCapture ??= () => {}
+    const onFull = vi.fn()
+    panel({ sheet: true, full: true, onFull })
+    const grab = screen.getByRole('button', { name: 'Detailhöhe anpassen' })
+    fireEvent.pointerDown(grab, { clientY: 100, pointerId: 1 })
+    fireEvent.pointerUp(grab, { clientY: 100, pointerId: 1 })
+    expect(onFull).toHaveBeenLastCalledWith(false)
   })
 })
