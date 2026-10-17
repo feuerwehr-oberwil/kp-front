@@ -96,6 +96,9 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.mocked(toast).mockClear() })
 
+/** the fields' words carry invisible word joiners against iOS's contact AutoFill (lib/typingField) */
+const PLAIN = { normalizer: (t: string) => t.replace(/\u2060/g, '') }
+
 const mount = (over: Partial<KarteAppProps> = {}) => {
   const onOpenVisits = vi.fn()
   // the launcher's content as App hands it in: a row that closes the sheet, like «Manueller Einsatz»
@@ -216,7 +219,7 @@ describe('KarteApp', () => {
   it('searches the catalogue on the device, objects with plans first', async () => {
     mount()
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
-    fireEvent.change(screen.getByPlaceholderText('Adresse oder Objekt suchen …'), { target: { value: 'schloss' } })
+    fireEvent.change(screen.getByPlaceholderText('Adresse oder Objekt suchen …', PLAIN), { target: { value: 'schloss' } })
     const options = await screen.findAllByRole('option')
     expect(options[0].textContent).toMatch(/Schloss Musterdorf/)
     expect(options[1].textContent).toMatch(/Schlüsseldepot Schloss/)
@@ -225,7 +228,7 @@ describe('KarteApp', () => {
   it('lists an object as glyph · name · address, without its plan count (review round 2)', async () => {
     mount()
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
-    const field = screen.getByPlaceholderText('Adresse oder Objekt suchen …')
+    const field = screen.getByPlaceholderText('Adresse oder Objekt suchen …', PLAIN)
     fireEvent.focus(field)
     const featured = await screen.findAllByRole('option')
     expect(featured[0].textContent).toContain('Schlossgasse 9, 9999 Musterdorf')
@@ -390,5 +393,76 @@ describe('KarteApp', () => {
     expect(window.location.search).toBe('?objekt=schloss')
     fireEvent.click(screen.getByRole('button', { name: /Schloss Musterdorf/ }))
     expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
+  })
+  // review round 3 (owner's iPhone): the phone's bar has a round search button, the field lives in
+  // an Ebenen-style slide-up whose first line it is; picking a row closes it and selects
+  it('on a phone: the search is a button that opens a sheet with the field first, focused, no contact AutoFill', async () => {
+    rec.phone = true
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    expect(screen.queryByPlaceholderText('Adresse oder Objekt suchen …', PLAIN)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Suchen' }))
+    const sheet = await screen.findByRole('region', { name: 'Suchen' })
+    const field = within(sheet).getByPlaceholderText('Adresse oder Objekt', PLAIN) as HTMLInputElement
+    expect(document.activeElement).toBe(field)
+    expect(field.name).toBe('search-karte')
+    expect(field.getAttribute('autocomplete')).toBe('off')
+    expect(field.getAttribute('autocorrect')).toBe('off')
+    expect(field.placeholder).not.toContain('Adresse')
+    fireEvent.change(field, { target: { value: 'schloss' } })
+    const [first] = await within(sheet).findAllByRole('option')
+    fireEvent.click(first)
+    expect(screen.queryByRole('region', { name: 'Suchen' })).toBeNull()
+    expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
+  })
+
+  it('on a phone: the search sheet stays when the keyboard goes, and ✕ closes it', async () => {
+    rec.phone = true
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: 'Suchen' }))
+    const sheet = await screen.findByRole('region', { name: 'Suchen' })
+    ;(document.activeElement as HTMLElement).blur()
+    expect(screen.getByRole('region', { name: 'Suchen' })).toBe(sheet)
+    fireEvent.click(within(sheet).getByRole('button', { name: appConfig.copy.closeDialog }))
+    expect(screen.queryByRole('region', { name: 'Suchen' })).toBeNull()
+  })
+
+  it('on a phone: Gefahrgut is a slide-up with the UN field as its first line, a number field iOS will not autofill', async () => {
+    rec.phone = true
+    mount()
+    const nav = await screen.findByRole('navigation', { name: 'Karte & Objekte' })
+    fireEvent.click(within(nav).getByRole('button', { name: /Gefahrgut/ }))
+    const sheet = await screen.findByRole('region', { name: 'Gefahrgut' })
+    expect(sheet.classList.contains('layers-card')).toBe(true)
+    const field = sheet.querySelector('input') as HTMLInputElement
+    expect(field.id).toBe('karte-un')
+    expect(field).toMatchObject({ name: 'search-karte-un', inputMode: 'numeric' })
+    expect(field.getAttribute('autocomplete')).toBe('off')
+    expect(field.getAttribute('spellcheck')).toBe('false')
+    fireEvent.change(field, { target: { value: '12a03' } })
+    expect(field.value).toBe('1203')
+    // the readout replaces the empty card's offline line, under the field
+    expect(within(sheet).queryByText(appConfig.copy.karte.ergOffline)).toBeNull()
+    expect(sheet.querySelector('input')).toBe(field)
+  })
+  // owner (review round 3): a tap on «Gefahrgut» with no number opens the sheet with the caret in
+  // the UN field (the number pad up); with a number already set it opens on the result, no keyboard
+  it('on a phone: Gefahrgut opens with the caret in the UN field, or on its result without one', async () => {
+    rec.phone = true
+    mount()
+    const nav = await screen.findByRole('navigation', { name: 'Karte & Objekte' })
+    const tab = within(nav).getByRole('button', { name: /Gefahrgut/ })
+    fireEvent.click(tab)
+    let sheet = await screen.findByRole('region', { name: 'Gefahrgut' })
+    const field = sheet.querySelector('input') as HTMLInputElement
+    expect(document.activeElement).toBe(field)
+    fireEvent.change(field, { target: { value: '1203' } })
+    field.blur()
+    fireEvent.click(tab)
+    expect(screen.queryByRole('region', { name: 'Gefahrgut' })).toBeNull()
+    fireEvent.click(tab)
+    sheet = await screen.findByRole('region', { name: 'Gefahrgut' })
+    expect((sheet.querySelector('input') as HTMLInputElement).value).toBe('1203')
+    expect(document.activeElement).not.toBe(sheet.querySelector('input'))
   })
 })

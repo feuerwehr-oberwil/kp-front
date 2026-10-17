@@ -156,8 +156,6 @@ button.row:active { background: var(--press); }
 .toolCard { position: absolute; top: calc(88px + env(safe-area-inset-top)); right: calc(var(--vrail-w, 60px) + 32px); width: 300px; max-height: calc(100% - 104px);
   z-index: var(--z-floating-card); display: flex; flex-direction: column; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
-.phone .toolCard { top: auto; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto;
-  bottom: calc(var(--rail-h, 60px) + 16px + env(safe-area-inset-bottom)); max-height: 60%; }
 .toolHead { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-3) var(--sp-3) var(--sp-2) var(--sp-4); }
 .toolHead h3 { margin: 0; font: var(--sheet-title); }
 .toolBody { overflow: auto; padding: 0 var(--sp-4) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
@@ -171,21 +169,36 @@ button.row:active { background: var(--press); }
 .fieldLabel { font: var(--field-label); color: var(--ink-dim); }
 .chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 
-/* ── the keyboard (review round 2, owner-r2-keyboard.png) ──────────────────────────────────────
-   iOS lays the keyboard OVER the layout viewport and pans the page to reveal the caret; the
-   Gefahrgut card, anchored over the bottom bar and growing upwards with its readout, ended with
-   its field above the screen, the bar on the keys and the map between them. KarteApp publishes the
-   visible band the Einsatz's way (lib/useViewportPan: `--vv-pan` its top, `--vv-foot` the hidden
-   foot, `html[data-kb]` while a field has the keyboard): the bars ride back to the screen's edges
-   (15-mobile · .topbar/.navrail), the bottom bar steps aside, and the card fills the band from
-   under the top bar down to the keys — its field at the top, the readout scrolling under it. The
-   top adds the pan and the foot is the keyboard LESS the pan, so on SCREEN the field stands still
-   whatever iOS does — the box holding the caret is never moved under the keys (the re-aim loop,
-   lib/useKeyboardInset). The search results end on the keys too, so the last row can be reached. */
+/* ── the keyboard (review round 3, 17.10.2026 — owner-r3-*-keyboard.png) ──────────────────────────
+   Round 2 placed the phone's Gefahrgut card and search list from `--vv-pan` / `--vv-foot`, i.e. from
+   iOS reporting its pan as `visualViewport.offsetTop` — on the real iPhone the page moved without
+   that number ever saying so (lib/iosKeyboard explains). On a phone both fields now live in a
+   slide-up (KarteKeySheet, below) that stands on the keyboard by its own measurement, while the page
+   cannot move (useTypingLock). What stays from round 2: the bottom bar steps aside while a field has
+   the keyboard, and the TABLET's list (an iPad keyboard) ends on the keys. */
 :global(:root[data-kb]) .root.phone :global(.navrail) { visibility: hidden; }
-:global(:root[data-kb]) .phone .toolCard { top: calc(88px + env(safe-area-inset-top) + var(--vv-pan, 0px)); bottom: calc(var(--vv-foot, 0px) + var(--sp-2)); max-height: none; }
 :global(:root[data-kb]) .results { max-height: calc(100% - 84px - env(safe-area-inset-top) - var(--vv-pan, 0px) - var(--vv-foot, 0px) - var(--sp-2)); }
-:global(:root[data-kb]) .phone .results { top: calc(84px + env(safe-area-inset-top) + var(--vv-pan, 0px)); }
+
+/* ── the phone's field sheets: search and Gefahrgut (KarteKeySheet, review round 3) ──────────────
+   Ebenen's frame (`.layers-card` + `.sheet`, above); the first line is the field and the ✕, the
+   body scrolls under it. With the keyboard up (`data-kb`, written by lib/iosKeyboard · useKeySheet)
+   its foot stands ON the keyboard's top edge (`--ks-bottom`) and it is never taller than the room
+   under the top bar less a strip of map (`--ks-max`) — its own Ebenen height when that is lower.
+   All four corners round there: it floats on the keys, it no longer meets the screen's edge. */
+.keyLine { flex: none; display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-1) max(12px, env(safe-area-inset-right)) var(--sp-2) max(16px, env(safe-area-inset-left)); }
+.keyField { flex: 1 1 auto; min-width: 0; }
+/* the UN number reads as a number: the Gefahrentafel's mono */
+.keySheet :global(#karte-un) { font: var(--fw-bold) var(--fs-4)/1 var(--mono); }
+.keyBody { display: flex; flex-direction: column; gap: var(--sp-3); }
+.resultsIn { display: flex; flex-direction: column; gap: var(--sp-1); }
+.keySheet[data-kb] { bottom: var(--ks-bottom, 0px); max-height: min(72dvh, var(--ks-max, 72dvh)); padding-bottom: 0;
+  border-radius: var(--r-hero); }
+/* the bar's round search button (phone): «Einsätze ▾» left, this right — no long field on a phone */
+.searchBtn { flex: none; margin-left: auto; width: var(--tap); height: var(--tap); display: grid; place-items: center; padding: 0;
+  border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--ink); cursor: pointer; }
+.searchBtn svg { width: 20px; height: 20px; }
+.searchBtn:active, .searchBtn.open { background: var(--press); }
 
 /* ── Messen on the phone: the Einsatz's stack, one bar lower ──────────────────────────────────
    In an Einsatz the dock stands 6px above the tool bar and the readout 6px above the dock
