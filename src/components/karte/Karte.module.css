@@ -48,9 +48,7 @@ button.row:active { background: var(--press); }
 .rowText b { font: var(--fw-bold) var(--fs-2)/1.25 var(--body); }
 .rowText span { font: var(--fw-medium) var(--fs-1)/1.3 var(--body); color: var(--ink-dim); }
 .rowEnd { display: flex; align-items: center; gap: var(--sp-2); color: var(--ink-dim); font: var(--fw-medium) var(--fs-1)/1.2 var(--body); flex: none; }
-.rowEnd.stack { flex-direction: column; align-items: flex-end; gap: 2px; }
 .mono { font-family: var(--mono); font-size: var(--fs-micro); }
-.plansCount { color: var(--blue-strong); font-weight: var(--fw-bold); }
 .chev { width: 16px; height: 16px; color: var(--ink-faint); }
 
 /* ── the one panel ────────────────────────────────────────────────────────────────────────── */
@@ -166,10 +164,31 @@ button.row:active { background: var(--press); }
 .toolHead { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-3) var(--sp-3) var(--sp-2) var(--sp-4); }
 .toolHead h3 { margin: 0; font: var(--sheet-title); }
 .toolBody { overflow: auto; padding: 0 var(--sp-4) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
+/* the card's «Auf die Karte tippen …»: the hint pill's words and glyph, as a line of the card */
+.toolHint { display: flex; align-items: center; gap: var(--sp-2); font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); }
+.toolHint svg { width: 16px; height: 16px; flex: none; color: var(--ink-dim); }
+/* the card's field: above the scroller, never scrolled away by the readout under it */
+.toolField { flex: none; padding: 0 var(--sp-4) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3); }
 .field { min-height: var(--tap); padding: 0 var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
   font: var(--fw-bold) var(--fs-4)/1 var(--mono); width: 100%; box-sizing: border-box; }
 .fieldLabel { font: var(--field-label); color: var(--ink-dim); }
 .chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+/* ── the keyboard (review round 2, owner-r2-keyboard.png) ──────────────────────────────────────
+   iOS lays the keyboard OVER the layout viewport and pans the page to reveal the caret; the
+   Gefahrgut card, anchored over the bottom bar and growing upwards with its readout, ended with
+   its field above the screen, the bar on the keys and the map between them. KarteApp publishes the
+   visible band the Einsatz's way (lib/useViewportPan: `--vv-pan` its top, `--vv-foot` the hidden
+   foot, `html[data-kb]` while a field has the keyboard): the bars ride back to the screen's edges
+   (15-mobile · .topbar/.navrail), the bottom bar steps aside, and the card fills the band from
+   under the top bar down to the keys — its field at the top, the readout scrolling under it. The
+   top adds the pan and the foot is the keyboard LESS the pan, so on SCREEN the field stands still
+   whatever iOS does — the box holding the caret is never moved under the keys (the re-aim loop,
+   lib/useKeyboardInset). The search results end on the keys too, so the last row can be reached. */
+:global(:root[data-kb]) .root.phone :global(.navrail) { visibility: hidden; }
+:global(:root[data-kb]) .phone .toolCard { top: calc(88px + env(safe-area-inset-top) + var(--vv-pan, 0px)); bottom: calc(var(--vv-foot, 0px) + var(--sp-2)); max-height: none; }
+:global(:root[data-kb]) .results { max-height: calc(100% - 84px - env(safe-area-inset-top) - var(--vv-pan, 0px) - var(--vv-foot, 0px) - var(--sp-2)); }
+:global(:root[data-kb]) .phone .results { top: calc(84px + env(safe-area-inset-top) + var(--vv-pan, 0px)); }
 
 /* ── Messen on the phone: the Einsatz's stack, one bar lower ──────────────────────────────────
    In an Einsatz the dock stands 6px above the tool bar and the readout 6px above the dock
@@ -182,8 +201,14 @@ button.row:active { background: var(--press); }
 .root.phone .measurePanel { bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom)); }
 .hintBar { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome); display: flex; align-items: center; gap: var(--sp-2);
   padding: var(--msg-pad) var(--float-pad-x); border-radius: var(--r-sm); background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
-  font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); max-width: calc(100vw - 32px); }
-.phone .hintBar { bottom: calc(var(--rail-h, 60px) + 24px + env(safe-area-inset-bottom)); }
+  font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); width: max-content; max-width: min(640px, calc(100vw - 32px)); }
+.hintBar svg { flex: none; }
+/* «Auf die Karte tippen …» (owner, review round 2: «make it wider – currently a bit ugly»). Centred by
+   `left: 50%` the pill's shrink-to-fit width was only HALF the screen, so a sentence wrapped into a
+   narrow tall bubble. Width is said outright (max-content up to the cap); on the phone it is the
+   bottom bar's own width and lane, like the Messen readout above the same bar (one or two lines). */
+.phone .hintBar { left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); transform: none; width: auto; max-width: none;
+  bottom: calc(var(--rail-h, 60px) + 24px + env(safe-area-inset-bottom)); }
 
 /* ── the plan surface (a module PDF · the Gebäude floors) ─────────────────────────────────── */
 .surface { position: absolute; inset: 0; z-index: var(--z-surface); background: var(--board-bg, var(--app-bg)); display: flex; flex-direction: column; }

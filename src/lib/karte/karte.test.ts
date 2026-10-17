@@ -5,6 +5,7 @@ import { normText, openableCount, searchObjects } from './search'
 import {
   nearbyObjects, nearestPoints, normAddress, objectAtAddress, splitAddress, objectVisitHref, outlineFor, pinNear, placeVisitHref,
   pointsFromGeoJson, ringAt, ringsFromOverpass, streetKey,
+  nameIsAddress, nameSaysAddress, objectAddress, objectHeadSub, objectRowSub,
 } from './places'
 import { isKartePath, karteHref, parseKarteRoute } from './route'
 import { KARTE_LAYER_PREFS_ID, karteViewSnapshot, loadKarteView, saveKarteView, saveViewerLayerPrefs, viewerLayers } from './session'
@@ -146,6 +147,39 @@ describe('places', () => {
     expect(q.get('address')).toBe('Talholzstrasse 15, 4103 Bottmingen')
     expect(q.get('from')).toBe('karte')
     expect(new URLSearchParams(placeVisitHref({ at: [7, 47], label: 'Gesetzter Punkt' }).split('?')[1]).has('address')).toBe(false)
+  })
+})
+
+describe('an object\'s address (review round 2: the address, never «Schlüsseldepot» in its place)', () => {
+  const KIND = 'Schlüsseldepot'
+  it('knows a name that is an address', () => {
+    for (const n of ['Mühlemattstrasse 24', 'Schulstrasse 4', 'Bienenstrasse 28 (EH)', 'Hauptstr. 10a', 'Im Gwidum 3']) expect(nameIsAddress(n), n).toBe(true)
+    for (const n of ['Gemeindehaus Musterdorf', 'Schlüsseldepot Schloss', 'ARA Birsig', '', '24 Mühlemattstrasse']) expect(nameIsAddress(n), n).toBe(false)
+  })
+  it('takes the stored address, else the name when it is one, else none', () => {
+    expect(objectAddress({ name: 'Schloss Musterdorf', address: 'Schlossgasse 9' })).toBe('Schlossgasse 9')
+    expect(objectAddress({ name: 'Mühlemattstrasse 24', address: null })).toBe('Mühlemattstrasse 24')
+    expect(objectAddress({ name: 'Mühlemattstrasse 24', address: '  ' })).toBe('Mühlemattstrasse 24')
+    expect(objectAddress({ name: 'ARA Birsig', address: null })).toBeNull()
+  })
+  it('sees when the name already says the street and number', () => {
+    expect(nameSaysAddress({ name: 'Mühlemattstrasse 24', address: 'Muehlemattstrasse 24, 4104 Oberwil' })).toBe(false) // ü ≠ ue: printed both
+    expect(nameSaysAddress({ name: 'Mühlemattstrasse 24', address: 'Mühlemattstrasse 24, 4104 Oberwil' })).toBe(true)
+    expect(nameSaysAddress({ name: 'Bienenstrasse 28 (EH)', address: 'Bienenstrasse 28' })).toBe(true)
+    expect(nameSaysAddress({ name: 'Therwilerstrasse 18a', address: 'Therwilerstrasse 18' })).toBe(false)
+    expect(nameSaysAddress({ name: 'Schlüsseldepot Schloss', address: 'Schlossgasse 9' })).toBe(false)
+  })
+  it('prints a list row: the address, or once in the title with the place and the kind under it', () => {
+    expect(objectRowSub(DEPOT, KIND)).toBe('Schlossgasse 9')
+    expect(objectRowSub({ name: 'Mühlemattstrasse 24', address: null }, KIND)).toBe(KIND)
+    expect(objectRowSub({ name: 'Mühlemattstrasse 24', address: 'Mühlemattstrasse 24, 4104 Oberwil' }, KIND)).toBe('4104 Oberwil · Schlüsseldepot')
+    expect(objectRowSub({ name: 'ARA Birsig', address: null }, 'Stationsobjekt')).toBe('Stationsobjekt')
+  })
+  it('prints the head (whose kicker says the kind): the address, the place alone, or nothing', () => {
+    expect(objectHeadSub(SCHULE)).toBe('Schulstrasse 5, 9999 Musterdorf')
+    expect(objectHeadSub({ name: 'Erlenstrasse 60', address: 'Erlenstrasse 60, 4106 Therwil' })).toBe('4106 Therwil')
+    expect(objectHeadSub({ name: 'Schulstrasse 4', address: null })).toBeNull()
+    expect(objectHeadSub({ name: 'ARA Birsig', address: null })).toBeNull()
   })
 })
 

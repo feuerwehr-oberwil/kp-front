@@ -21,6 +21,9 @@ const CATALOGUE: StationObjects = {
       floors: [], egid: null, footprint: null, lastVisit: null, measures: 'Zufahrt nur über Schlossgasse', measuresSource: 'Modul 1' },
     { id: 'depot', name: 'Schlüsseldepot Schloss', kind: 'depot', address: 'Schlossgasse 9', lat: 47.52402, lng: 7.56985,
       aliases: [], plans: [], floors: [], egid: null, footprint: null, lastVisit: null },
+    // named by its address, with none stored (review round 2: the lists said «Schlüsseldepot» there)
+    { id: 'box', name: 'Starenstrasse 7', kind: 'depot', address: null, lat: 47.5232, lng: 7.5712,
+      aliases: [], plans: [], floors: [], egid: null, footprint: null, lastVisit: null },
   ],
 }
 
@@ -136,6 +139,45 @@ describe('KarteApp', () => {
     const options = await screen.findAllByRole('option')
     expect(options[0].textContent).toMatch(/Schloss Musterdorf/)
     expect(options[1].textContent).toMatch(/Schlüsseldepot Schloss/)
+  })
+
+  it('lists an object as glyph · name · address, without its plan count (review round 2)', async () => {
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    const field = screen.getByPlaceholderText('Adresse oder Objekt suchen …')
+    fireEvent.focus(field)
+    const featured = await screen.findAllByRole('option')
+    expect(featured[0].textContent).toContain('Schlossgasse 9, 9999 Musterdorf')
+    expect(featured[0].textContent).not.toMatch(/Plan|Pläne/)
+    fireEvent.change(field, { target: { value: 'starenstrasse' } })
+    const [box] = await screen.findAllByRole('option')
+    // the name IS the address: printed once, the kind quietly under it — never in its place
+    expect(within(box).getByText('Starenstrasse 7')).toBeTruthy()
+    expect(within(box).getByText('Schlüsseldepot')).toBeTruthy()
+    expect(box.textContent).not.toMatch(/keine Pläne/)
+  })
+
+  it('switches every Ebene, the station objects included, with «Alle aus» / «Alle ein» / «Standard»', async () => {
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Ebenen' }))
+    const objects = () => screen.getByRole('button', { name: /^Stationsobjekte – / })
+    const chip = (name: string) => screen.getByRole('button', { name })
+    expect(chip('Standard').getAttribute('aria-pressed')).toBe('true')
+    expect(objects().getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(chip('Alle aus'))
+    expect(objects().getAttribute('aria-pressed')).toBe('false')
+    expect(chip('Alle aus').getAttribute('aria-pressed')).toBe('true')
+    // the objects are off the map: no tag to tap
+    expect(screen.queryByRole('button', { name: /^Schloss Musterdorf/ })).toBeNull()
+    fireEvent.click(chip('Alle ein'))
+    expect(objects().getAttribute('aria-pressed')).toBe('true')
+    expect(chip('Alle ein').getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(chip('Standard'))
+    expect(chip('Standard').getAttribute('aria-pressed')).toBe('true')
+    // a row switched by hand: none of the three is lit
+    fireEvent.click(objects())
+    for (const n of ['Alle ein', 'Alle aus', 'Standard']) expect(chip(n).getAttribute('aria-pressed')).toBe('false')
   })
 
   it('opens a deep link on its object', async () => {

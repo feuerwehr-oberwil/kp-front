@@ -1,15 +1,20 @@
 // «Karte & Objekte» — the search results under the bar: station objects first (found on the
 // device, offline too — lib/karte/search), then addresses from the geocoder (online only).
 // An empty query offers the Einsatzobjekte, which is what a member opening the search looks for.
+//
+// A row is glyph · name · address (· distance for a hit) — no plan count (owner, review round 2:
+// «we don't need the number of modules on the index. just the address is enough»; the sheet
+// lists the plans). The address line is lib/karte/places · objectRowSub: never the kind word
+// standing in for an address, and a name that IS the address is not printed twice.
 
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
-import { fillTemplate } from '../../lib/format'
+import { cx } from '../../lib/cx'
 import { fmtDistance } from '../../lib/geo'
 import type { GeoHit } from '../../lib/api/geo'
 import type { StationObject } from '../../lib/api/stationReference'
-import { openableCount, type ObjectHit } from '../../lib/karte/search'
-import { splitAddress } from '../../lib/karte/places'
+import type { ObjectHit } from '../../lib/karte/search'
+import { objectRowSub, splitAddress } from '../../lib/karte/places'
 import { KeyBoxGlyph } from './KeyBoxGlyph'
 import s from './Karte.module.css'
 
@@ -27,10 +32,6 @@ export function KarteSearch({ query, hits, featured, addresses, addrState, onPic
 }) {
   const C = appConfig.copy.karte
   const q = query.trim()
-  const plans = (o: StationObject) => {
-    const n = openableCount(o)
-    return n === 0 ? <span>{C.plansNone}</span> : <span className={s.plansCount}>{n === 1 ? C.plansOne : fillTemplate(C.plansMany, { n })}</span>
-  }
   const lead = (o: StationObject) => <span className={s.rowLead}>{o.kind === 'depot' ? <KeyBoxGlyph /> : <Icon id="footprint" />}</span>
   return (
     <div className={s.results} role="listbox" aria-label={C.searchObjects}>
@@ -42,8 +43,8 @@ export function KarteSearch({ query, hits, featured, addresses, addrState, onPic
               {featured.map((o) => (
                 <button key={o.id} type="button" role="option" aria-selected={false} className={s.row} onClick={() => onPickObject(o.id)}>
                   {lead(o)}
-                  <span className={s.rowText}><b>{o.name}</b><span>{o.address ?? C.kind[o.kind]}</span></span>
-                  <span className={s.rowEnd}>{plans(o)}<Icon id="chevron" className={s.chev} /></span>
+                  <span className={s.rowText}><b>{o.name}</b><span>{objectRowSub(o, C.kind[o.kind])}</span></span>
+                  <Icon id="chevron" className={s.chev} />
                 </button>
               ))}
             </div>
@@ -55,11 +56,8 @@ export function KarteSearch({ query, hits, featured, addresses, addrState, onPic
           {hits.map(({ obj: o, distanceM, approx }) => (
             <button key={o.id} type="button" role="option" aria-selected={false} className={s.row} onClick={() => onPickObject(o.id)}>
               {lead(o)}
-              <span className={s.rowText}><b>{o.name}</b><span>{[o.address, C.kind[o.kind]].filter(Boolean).join(' · ')}</span></span>
-              <span className={`${s.rowEnd} ${s.stack}`}>
-                <span className={s.mono}>{approx ? C.noCoords : distanceM != null ? fmtDistance(distanceM) : ''}</span>
-                {plans(o)}
-              </span>
+              <span className={s.rowText}><b>{o.name}</b><span>{objectRowSub(o, C.kind[o.kind])}</span></span>
+              <span className={cx(s.rowEnd, s.mono)}>{approx ? C.noCoords : distanceM != null ? fmtDistance(distanceM) : ''}</span>
             </button>
           ))}
         </div>

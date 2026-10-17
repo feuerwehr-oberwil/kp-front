@@ -164,7 +164,34 @@ The rules that are easy to break:
   word of the query — ranked name before alias/address, plans before none, key boxes last, then
   distance (`lib/karte/search`). Objects without coordinates are found and marked «ungefähr»
   (their place on the map comes from geocoding the address). Addresses follow from
-  `/api/geocode/search`, online only, and say so offline.
+  `/api/geocode/search`, online only, and say so offline. A row is glyph · name · address
+  (· distance for a hit) — no plan count (owner, review round 2, 17.10.2026: «just the address is
+  enough»; the sheet lists the plans, the map tag keeps its count).
+- **The address, never the kind word in its place** (review round 2). Key boxes and plain objects
+  are often named by their address with none stored; an object's address is the stored one, else
+  its name when the name is street + number, else none (`lib/karte/places · objectAddress`). A
+  name that already says it is printed once, as the title: a list row then reads «<place> ·
+  <kind>» under it (`objectRowSub`), the head only the place (`objectHeadSub` — its kicker says
+  the kind). An object with no address at all is described by its kind in a list.
+- **Ebenen: «Alle ein» / «Alle aus» / «Standard»** (review round 2), the Einsatz's three chips
+  over the viewer's own layers (`lib/karte/layerPresets`). «Standard» is the deployment's default
+  set as the viewer opens with no device choice, the Basiskarte included; «Alle» / «Keine» switch
+  every overlay, never the Basiskarte. The viewer's station rows (Stationsobjekte, category rows)
+  are layers here: on in «Standard», switched by both chips — whatever rows the panel lists, none
+  is named in the code. The aligned plan on the map is not (a plan backdrop is switched on on
+  purpose, and the Einsatz's chips leave plan rasters alone too). The radar: off with «Standard»
+  and «Alle aus», left by «Alle ein», no chip lit while it is on. Transparencies stay.
+- **The keyboard on a phone** (review round 2, owner-r2-keyboard). iOS lays the keyboard over the
+  page and pans it to show the caret; the viewer publishes the visible band like an Einsatz
+  (`lib/useViewportPan`: `--vv-pan`, `--vv-foot`, `html[data-kb]`), so the bars stay on the screen,
+  the bottom bar steps aside, the Gefahrgut card fills the band from under the top bar down to the
+  keys with its UN field at the top (outside the readout's scroller), and the search results end
+  on the keys. Playwright raises no iOS keyboard: the shots simulate one (a visualViewport shrunk
+  and panned by the keyboard's height, as the owner's screenshot shows iOS doing); the real
+  iPhone is the check.
+- **Hints use the width they need** (review round 2): «Auf die Karte tippen …» is one pill as wide
+  as the bottom bar on a phone (max-content up to 640 px on a tablet), one or two lines; the
+  Gefahrgut card says where its rings stand first, right under the UN field.
 - **Visits hand over** to the existing capture: `/besuche/neu?object=<id>&from=karte` for an
   object, `/besuche/neu?lat=&lng=&label=[&address=]&from=karte` for a building or a pin (contract
   C1, label «bei <Adresse>» within 60 m of a pin, else «Gesetzter Punkt»); an existing visit opens
