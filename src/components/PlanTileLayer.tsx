@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import {
   pickLevel, sheetLayout, sourcePages, tileUrl, underlayLevel, visibleTiles,
   type PageBox, type Tile, type TileManifest, type TileSource,
 } from '../lib/planTiles'
+import { PlanSharpnessContext, tileSetSharpness, warmTiles } from '../lib/planSharpness'
 import s from './PdfViewport.module.css'
 
 interface Props {
@@ -57,6 +58,10 @@ const remember = (url: string) => {
  *
  * What this device holds is therefore about two screenfuls of decoded tiles at any zoom and for
  * any sheet – an A1 at 600 dpi costs what an A4 costs.
+ *
+ * A surface that provides `PlanSharpnessContext` (the Karte, lib/planSharpness) hears whether the
+ * CURRENT set is still loading or could not be had – the soft underlay alone looks the same in
+ * both cases – and may have the tiles a 2× zoom of the same area asks for fetched ahead.
  */
 export function PlanTileLayer({ source, manifest, fitW, fitH, scale, pos, vw, vh, onAspect, onReady, onFail }: Props) {
   const layout = useMemo(() => sheetLayout(sourcePages(manifest, source)), [manifest, source])
@@ -80,6 +85,17 @@ export function PlanTileLayer({ source, manifest, fitW, fitH, scale, pos, vw, vh
   const [retained, setRetained] = useState<TileSet | null>(null)
   const currentRef = useRef<TileSet | null>(null)
   const pending = useRef(new Set<string>())
+  // the current set's progress, for a surface that listens (lib/planSharpness)
+  const sharpness = useContext(PlanSharpnessContext)
+  const [detail, setDetail] = useState({ pending: 0, failed: 0 })
+  /** the tiles a 2× zoom of this view would show — asked for ahead once the view is sharp */
+  const ahead = useRef<string[]>([])
+  // …never before the sheet itself (the underlay) and THIS view are on the glass: they come first
+  const warmAhead = () => {
+    if (!ahead.current.length || underlayLeft.current !== 0 || pending.current.size) return
+    warmTiles(ahead.current)
+    ahead.current = []
+  }
 
   useEffect(() => {
     if (!vw || !vh || !fitW || !fitH) return
@@ -96,15 +112,31 @@ export function PlanTileLayer({ source, manifest, fitW, fitH, scale, pos, vw, vh
         ]
         return place(box, level.z, visibleTiles(level, manifest.tileSize, rect, 1))
       })
+      // the next level over the same area (no ring), for the zoom that most likely comes next —
+      // asked for once nothing of THIS view is pending any more
+      ahead.current = sharpness?.prefetchNext
+        ? layout.boxes.flatMap((box) => {
+          const level = pickLevel(box.page, fitW * scale * 2 * box.width * DPR())
+          const now = pickLevel(box.page, fitW * scale * box.width * DPR())
+          if (level.z <= Math.max(now.z, underlayLevel(box.page).z)) return []
+          const rect: [number, number, number, number] = [
+            clamp01((bx0 - box.left) / box.width), clamp01((by0 - box.top) / box.height),
+            clamp01((bx1 - box.left) / box.width), clamp01((by1 - box.top) / box.height),
+          ]
+          return place(box, level.z, visibleTiles(level, manifest.tileSize, rect)).map((p) => p.url)
+        })
+        : []
       const id = tiles.map((p) => p.key).join('|')
-      if (id === (currentRef.current?.id ?? '')) return
+      if (id === (currentRef.current?.id ?? '')) { warmAhead(); return }
       const previous = currentRef.current
       const next = { id, tiles }
       currentRef.current = next
       pending.current = new Set(tiles.filter((p) => !seen.has(p.url)).map((p) => p.url))
       setCurrent(next)
+      setDetail({ pending: pending.current.size, failed: 0 })
       // keep the old set under the new one only while the new one has something left to load
       setRetained(pending.current.size && previous?.tiles.length ? previous : null)
+      warmAhead()
     }, SETTLE_MS)
     return () => clearTimeout(t)
   }, [layout, manifest.tileSize, scale, pos.x, pos.y, vw, vh, fitW, fitH]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -117,19 +149,34 @@ export function PlanTileLayer({ source, manifest, fitW, fitH, scale, pos, vw, vh
 
   const underlayLeft = useRef(-1)
   if (underlayLeft.current < 0) underlayLeft.current = underlay.filter((p) => !seen.has(p.url)).length
+  // the same answer as state, for the sharpness report (a cold underlay is the reader's own «lädt»)
+  const [ready, setReady] = useState(() => underlay.every((p) => seen.has(p.url)))
   useEffect(() => { if (underlayLeft.current === 0) onReady() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const status = tileSetSharpness(ready, detail.pending, detail.failed)
+  useEffect(() => { sharpness?.report(status) }, [sharpness, status])
+  useEffect(() => () => sharpness?.report('sharp'), [sharpness])
 
   const loaded = (p: Placed, isUnderlay: boolean) => {
     const first = !seen.has(p.url)
     remember(p.url)
-    if (isUnderlay && first && --underlayLeft.current === 0) onReady()
-    if (pending.current.delete(p.url) && pending.current.size === 0) setRetained(null)
+    if (isUnderlay && first && --underlayLeft.current === 0) { setReady(true); onReady(); warmAhead() }
+    if (pending.current.delete(p.url)) {
+      const left = pending.current.size
+      setDetail((d) => ({ ...d, pending: left }))
+      if (left === 0) { setRetained(null); warmAhead() }
+    }
   }
   // A failed DETAIL tile just stays soft (the underlay shows through) and stops blocking the
-  // hand-over; a failed UNDERLAY tile means there is no sheet to show, and pdf.js gets its turn.
+  // hand-over – and is counted, so a listening surface can say why the view stays soft; a failed
+  // UNDERLAY tile means there is no sheet to show, and pdf.js gets its turn.
   const failed = (p: Placed, isUnderlay: boolean) => {
     if (isUnderlay) onFail()
-    else if (pending.current.delete(p.url) && pending.current.size === 0) setRetained(null)
+    else if (pending.current.delete(p.url)) {
+      const left = pending.current.size
+      setDetail((d) => ({ pending: left, failed: d.failed + 1 }))
+      if (left === 0) setRetained(null)
+    }
   }
 
   const img = (p: Placed, isUnderlay = false) => (

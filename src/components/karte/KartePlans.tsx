@@ -11,10 +11,13 @@
 //     nothing (lib/karte/plans);
 //   · «Gebäude» lays the station's prepared storeys one under the other, each storey the region
 //     of its page the floor pack names (the same region bake FloorPage draws from), read-only;
-//   · the chip row at the foot: back to the object on the Karte, and — for an aligned plan —
-//     straight onto the map with «Auf der Karte».
+//   · the chip row at the foot: back to the object on the Karte — the one way back (owner,
+//     review round 3: «Auf der Karte» beside it was struck; the aligned plan stays in Ebenen);
+//   · over the plan, a calm chip while the sharper picture of THIS view is still coming over the
+//     network — and, when it cannot come (offline, not stored), that it needs the network instead
+//     of staying soft without a word (owner, review round 3, lib/planSharpness).
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
 import { cx } from '../../lib/cx'
@@ -30,6 +33,7 @@ import { LoadingStatus, ShellLoader } from '../ShellLoader'
 import type { BoardHistory } from '../useBoardDoc'
 import type { useSymbols } from '../../lib/useSymbols'
 import type { BoardAnno } from '../../types'
+import { delayedSharpness, PlanSharpnessContext, sharpChip, type PlanSharpness, type PlanSharpnessHooks } from '../../lib/planSharpness'
 import { Whiteboard } from '../../workspace/lazySurfaces'
 import { LampDot } from './KarteDevice'
 import s from './Karte.module.css'
@@ -74,15 +78,13 @@ export function KarteNavRail({ obj, docs, active, onMap, onDoc, notHeld }: {
 }
 
 /** A module PDF or the Gebäude stack, over the map. */
-export function KarteSurface({ obj, doc, phone, sym, onMap, onGeorefMap, offline = false, held = null, gebaeude = null }: {
+export function KarteSurface({ obj, doc, phone, sym, onMap, offline = false, held = null, gebaeude = null }: {
   obj: StationObject
   doc: ViewerPlanDoc
   phone: boolean
   /** the symbol pack the Einsatz's plan reader is handed (it draws none here — nothing is placed) */
   sym: ReturnType<typeof useSymbols>
   onMap: () => void
-  /** «Auf der Karte» — only for a plan the station aligned */
-  onGeorefMap?: () => void
   /** no network right now */
   offline?: boolean
   /** this device holds the open document (null = not asked yet / cannot tell — no chip) */
@@ -100,12 +102,11 @@ export function KarteSurface({ obj, doc, phone, sym, onMap, onGeorefMap, offline
         {missing
           ? <div className={s.surfaceNote}><div className={s.note}><Icon id="info" /><span>{doc.plan ? C.planOfflineMissing : C.floorsOfflineMissing}</span></div></div>
           : doc.plan
-            ? <KartePlanBoard key={doc.doc.imageUrl} obj={obj} doc={doc} sym={sym} />
+            ? <KartePlanBoard key={doc.doc.imageUrl} obj={obj} doc={doc} sym={sym} offline={offline} />
             : <KarteFloors key={obj.plans.map((p) => `${p.id}@${p.version}`).join('|')} obj={obj} partOffline={partFloors} />}
       </div>
       <div className={s.chipRow}>
         <button type="button" className={s.fchip} onClick={onMap}><Icon id="footprint" />{phone ? C.backToMap : obj.name}</button>
-        {onGeorefMap && <button type="button" className={s.fchip} onClick={onGeorefMap}><Icon id="locate" />{C.onMap}</button>}
         {/* the mockup's lamp chip: always on the tablet, on the phone only when it matters (offline) */}
         {held != null && (!phone || offline) && (
           <span className={s.fchip} role="status"><LampDot lamp={held ? 'device' : 'online'} />{held ? C.planOnDevice : C.planOnlineOnly}</span>
@@ -127,10 +128,18 @@ const NOTHING = () => {}
  * history. No `onCalibrate`, no `onObjectSwitch`, no `incidentId` — so nothing can be stored
  * under an Einsatz, because there is none.
  */
-export function KartePlanBoard({ obj, doc, sym }: { obj: StationObject; doc: ViewerPlanDoc; sym: ReturnType<typeof useSymbols> }) {
+export function KartePlanBoard({ obj, doc, sym, offline = false }: { obj: StationObject; doc: ViewerPlanDoc; sym: ReturnType<typeof useSymbols>; offline?: boolean }) {
   // the reader keeps its own (always empty) undo stacks in its caller's state
   const [hist, setHist] = useState<BoardHistory>({})
+  // how sharp the reader's current view is (lib/planSharpness): the first «not yet» waits a moment,
+  // so a quick load never flashes the chip
+  const [sharp, setSharp] = useState<PlanSharpness>('sharp')
+  const delayed = useMemo(() => delayedSharpness(setSharp), [])
+  useEffect(() => () => delayed.cancel(), [delayed])
+  const hooks = useMemo<PlanSharpnessHooks>(() => ({ report: delayed.report, prefetchNext: true }), [delayed])
   return (
+    <PlanSharpnessContext.Provider value={hooks}>
+    <PlanSharpChip state={sharpChip(sharp, offline)} />
     <Suspense fallback={<div className="whiteboard"><div className="workspace-loading"><LoadingStatus size="surface">{appConfig.copy.loading}</LoadingStatus></div></div>}>
       <Whiteboard
         plans={[doc.doc]}
@@ -156,6 +165,22 @@ export function KartePlanBoard({ obj, doc, sym }: { obj: StationObject; doc: Vie
         objectAddress={obj.address}
       />
     </Suspense>
+    </PlanSharpnessContext.Provider>
+  )
+}
+
+/** «Schärfere Ansicht wird geladen …» over the plan — the Shell trail every in-app wait wears —
+ *  or, when the sharper tiles cannot be had, why. Says nothing while the view is sharp. */
+function PlanSharpChip({ state }: { state: ReturnType<typeof sharpChip> }) {
+  const C = appConfig.copy.karte
+  if (!state) return null
+  return (
+    // offline wears the bar's own offline dot and amber (the «Offline» chip), a failure the warn glyph
+    <div className={cx(s.sharpChip, state === 'offline' && s.sharpOff)} data-sharp={state}>
+      {state === 'loading'
+        ? <LoadingStatus>{C.planSharpening}</LoadingStatus>
+        : <span className={s.sharpText} role="status">{state === 'offline' ? <span className={s.offDot} aria-hidden /> : <Icon id="warn" />}{state === 'offline' ? C.planSharpOffline : C.planSharpFailed}</span>}
+    </div>
   )
 }
 

@@ -220,6 +220,17 @@ button.row:active { background: var(--press); }
 .root.phone .surface :global(.whiteboard) { bottom: calc(var(--rail-h) + 16px + var(--tap) + var(--sp-2) + env(safe-area-inset-bottom)); }
 .chipRow { position: absolute; left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w, 60px) + 16px); bottom: 16px; z-index: var(--z-chrome); display: flex; gap: var(--sp-2); flex-wrap: wrap; }
 .phone .chipRow { left: max(8px, env(safe-area-inset-left)); bottom: calc(var(--rail-h, 60px) + 16px + env(safe-area-inset-bottom)); }
+/* «Schärfere Ansicht wird geladen …» (owner, review round 3: zoomed in fast, the plan was a blurry
+   upscale with no word why): top centre of the plan, under the bar, the floating family's look and
+   the Shell trail; it never takes a tap — the plan under it keeps panning (KartePlans · PlanSharpChip). */
+.sharpChip { position: absolute; top: calc(88px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: var(--z-chrome);
+  display: flex; align-items: center; min-height: 36px; padding: var(--sp-1) var(--sp-3); border-radius: var(--r-sm); pointer-events: none;
+  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink);
+  font: var(--fw-bold) var(--fs-2)/1.2 var(--body); width: max-content; max-width: calc(100vw - 32px); }
+.phone .sharpChip { top: calc(84px + env(safe-area-inset-top)); }
+.sharpText { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.sharpText svg { width: 16px; height: 16px; flex: none; color: var(--amber-strong); }
+.sharpChip.sharpOff .offDot { color: var(--amber-strong); }
 .floors { position: absolute; top: calc(88px + env(safe-area-inset-top)); left: calc(var(--rail-w) + 32px); right: 0; bottom: 0; overflow: auto;
   padding: 0 var(--sp-4) var(--sp-8); display: flex; flex-direction: column; gap: var(--sp-4); align-items: center; }
 .phone .floors { top: calc(84px + env(safe-area-inset-top)); left: 0; bottom: calc(var(--rail-h) + 16px + env(safe-area-inset-bottom)); padding: 0 var(--sp-2) var(--sp-8); }
@@ -241,7 +252,7 @@ button.row:active { background: var(--press); }
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); box-shadow: var(--e3); color: var(--ink); cursor: pointer; }
 .utilBtn svg { width: 22px; height: 22px; }
 .utilGlyph { display: grid; place-items: center; }
-/* the plan surface's floating chips (the object, «Auf der Karte») — the floating family's look */
+/* the plan surface's floating chips (the way back, the lamp) — the floating family's look */
 .fchip { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3); border: none; border-radius: var(--r-sm);
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); font: var(--fw-bold) var(--fs-2)/1.2 var(--body); cursor: pointer; }
 .fchip svg { width: 16px; height: 16px; }

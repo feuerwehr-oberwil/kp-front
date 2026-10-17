@@ -606,9 +606,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }, [layers, objectsOn])
 
   // ── taps ──────────────────────────────────────────────────────────────────────────────────
-  const suppressClick = useRef(false)
+  // ⚠️ No long press drops a pin (owner, review round 3, 17.10.2026: «I can't delete nodes when
+  // measuring because it wants to create a point»). Holding a measure node is how Messen removes it
+  // (MapView · vertexPress), and a hold anywhere on the map dropped a pin under the finger and left
+  // Messen. A pin is set with the ⊙ tool and a tap — the one way, on the phone and the tablet.
   const onMapClick = (c: LngLat) => {
-    if (suppressClick.current) { suppressClick.current = false; return }
     if (tool === 'measure') { measure.setPath((pts) => [...pts, c]); return }
     if (tool === 'pin') { dropPin(c); return }
     if (tool === 'erg' && erg.mode !== 'off') { setErg((e) => ({ ...e, center: c, at: new Date() })); return }
@@ -625,31 +627,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     if (tool === 'measure') { measure.setPath((pts) => [...pts, e.coord]); return }
     if (e.id.startsWith('karte:')) selectObject(e.id.slice('karte:'.length), false)
   }
-  // long press anywhere on the map drops a pin (the pin tool is the discoverable twin)
-  const press = useRef<{ x: number; y: number; t: ReturnType<typeof setTimeout> } | null>(null)
-  const cancelPress = () => { if (press.current) { clearTimeout(press.current.t); press.current = null } }
-  const onPointerDown = (e: React.PointerEvent) => {
-    cancelPress()
-    if (!e.isPrimary || !(e.target instanceof Element) || !e.target.closest('.maplibregl-canvas-container')) return
-    const x = e.clientX, y = e.clientY
-    press.current = {
-      x, y,
-      t: setTimeout(() => {
-        press.current = null
-        const map = mapRef.current
-        if (!map) return
-        const r = map.getContainer().getBoundingClientRect()
-        const ll = map.unproject([x - r.left, y - r.top])
-        suppressClick.current = true
-        navigator.vibrate?.(12)
-        dropPin([ll.lng, ll.lat])
-      }, 500),
-    }
-  }
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (press.current && Math.hypot(e.clientX - press.current.x, e.clientY - press.current.y) > 8) cancelPress()
-  }
-  useEffect(() => () => cancelPress(), [])
 
   // ── actions from the panel ────────────────────────────────────────────────────────────────
   /** «Objektbesuch» (the chooser) or «Melden» (`checklist` = the station's Fehlermeldung, asked
@@ -853,7 +830,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
 
   return (
     <KeyBoxSvg.Provider value={sym.byName[KEY_BOX_SYMBOL] ?? ''}>
-      <div data-karte="" ref={rootRef} className={cx('app mode-map', s.root, phone && s.phone, phone && 'phone-tools')} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={cancelPress} onPointerCancel={cancelPress}>
+      <div data-karte="" ref={rootRef} className={cx('app mode-map', s.root, phone && s.phone, phone && 'phone-tools')}>
         <IconSprite />
         {/* the name tag's off-screen twin: what a tag measures before it is placed */}
         <span ref={measureRef} className={cx(s.tagMk, s.measure)} aria-hidden><span /><span className={s.tagCount} /></span>
@@ -957,7 +934,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             obj={selObj} doc={openDoc} phone={phone} sym={sym}
             offline={!online} held={openHeld} gebaeude={avail?.gebaeude ?? null}
             onMap={() => setSurface(null)}
-            onGeorefMap={openDoc.plan?.georef ? () => { setSurface(null); if (!georefOn) toggleGeoref() } : undefined}
           />
         )}
 

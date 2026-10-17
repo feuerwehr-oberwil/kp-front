@@ -227,8 +227,30 @@ The rules that are easy to break:
   «Karte verknüpfen»), no annotations, and every writer a no-op (`onChange`, `log`, `emit`, the
   history); no `incidentId`, `onCalibrate` or `onObjectSwitch`. Its bottom-left row is hidden: the
   Karte's chip row («Zur Karte» on the phone, the object's name on the tablet) is the way back,
-  and so is the bar's Karte tab. `KarteApp.test` pins what is handed in. The Gebäude stack stays
-  the Karte's own storey list (an Einsatz's Gebäude needs an incident's building pick).
+  and so is the bar's Karte tab. No «Auf der Karte» beside it (owner, review round 3,
+  17.10.2026: struck as not needed — the aligned plan stays switchable in Ebenen). `KarteApp.test`
+  pins what is handed in. The Gebäude stack stays the Karte's own storey list (an Einsatz's
+  Gebäude needs an incident's building pick).
+- **The plan says when it is still sharpening** (owner, review round 3: «if you zoom in quickly
+  before things have loaded, everything is blurry … we're obviously not fully offline like with a
+  normal incident»). In an Einsatz the tiles are on the device ahead of time; here they come over
+  the network on demand, and the soft underlay looks the same whether the detail is on its way or
+  will never come. `KartePlanBoard` provides `lib/planSharpness · PlanSharpnessContext`, and the
+  reader reports the CURRENT view: `PlanTileLayer` from its pending/failed detail tiles (quiet while
+  the underlay itself is cold — the reader's own «PDF wird geladen …» speaks then), the pdf.js path
+  from a preview standing in for the full bake or a deep-zoom refine pass not yet landed. The chip
+  stands top centre under the bar, never takes a tap, and shows only after 300 ms of «not sharp»
+  (a quick load never flashes): «Schärfere Ansicht wird geladen …» with the Shell trail, «Schärfere
+  Ansicht nur mit Netz» when a tile could not be had offline, «Schärfere Ansicht konnte nicht
+  geladen werden» online. Once the view is sharp and the device online, the reader fetches the
+  tiles a 2× zoom of the SAME area would ask for (at most 48, low priority, each once — never a
+  whole plan), so a quick zoom is sharp sooner; the service worker keeps them (`plan-tiles`). The
+  Einsatz's Plan surface provides no context: no chip, no fetching ahead there.
+- **A pin is set with the ⊙ tool and a tap — nothing else** (owner, review round 3: «I can't
+  delete nodes when measuring because it wants to create a point»). A long press anywhere used to
+  drop one too, and it fired under a held measure node — the hold that removes the node
+  (`MapView · vertexPress`) — dropping a pin and leaving Messen. The surface has no long-press
+  handler now, on the phone or the tablet; `KarteApp.test` holds a node and checks.
 - **Plan titles** (`lib/karte/plans · planTitle`): many sheets in the real catalogue are titled by
   their file name, «<object> – <module key>» («Migros – modul2», «Sägestrasse 8 - Schulhaus
   Hüslimatt – modul2-3»). Such a title gives way to the catalogue's title for the key («Wie komme
