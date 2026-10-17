@@ -36,6 +36,7 @@ Every station object in one payload, which the client searches and keeps for off
                 "pages": 3 | null, "georef": true, "version": 2, "updatedAt": "…" }],
     "floors": [{ "index": -1, "name": null }, { "index": 0, "name": "Hauptebene" }],
     "egid": null, "footprint": { "type": "MultiPolygon", "coordinates": [ … ] } | null,
+    "underground": { "type": "MultiPolygon", … } | null,          // a named row's garages/shelters, drawn dashed
     "measures": "…", "remarks": "…", "measuresSource": "Modul 1 · Stand 03.2026", "updatedAt": "…",
     "lastVisit": { "id": "ov-…", "checklist": "Kontrolle Schlüsselhülse", "date": "…", "defects": 1 } | null
   }],
@@ -69,7 +70,8 @@ How each field is derived – none of them is a new column:
 - **`outline`** — the station's choice in /admin («Lage korrigieren», below): `auto` = the rule
   under `footprint`; `building` = only the building at the pin; `none` = no outline at all — the
   viewer then draws NO OSM fallback either (`lib/karte/places · objectBuildings`).
-- **`aliases`**: the plan library's folder name when it differs from the name and address.
+- **`aliases`**: the plan library's folder name when it differs from the name and address, and
+  the names of objects merged into this one (`admin_objects merge`, docs/AGENT-RUNBOOK.md).
 - **`plans`**: the object's PDF datasets with bytes, by module. `code` is the module key without
   «modul» («23» → «2/3»). `pages` comes only from a tile manifest the server already wrote
   (`plan_tiles.stored_page_count`) – the listing never opens every PDF – so it is `null` when
@@ -89,12 +91,20 @@ How each field is derived – none of them is a new column:
      <name>»): street + numbers, ranges («2-14»), lists («14&16», «2, 4»), letters («128a-b»,
      «134f»). It counts only when the name holds a range or a list — «Sägestrasse 9» or «Hof
      Thürkauf, Im Buech 15, Im Buech 20» are left to the steps below. A number covers its
-     lettered siblings (14 → 14, 14a) and a range every number in it that EXISTS (1-14 → 2, 2a,
-     3 …, 10a, 14; never assumed odd or even). The register is the cadastral survey's
+     lettered siblings (14 → 14, 14a) and a range the numbers in it that EXIST — **one side of
+     the street when both ends have one parity** (owner, round 3: «you can assume that it's only
+     the same side»: 136-158 → the even numbers, 27-29 → 27, 27a, 29), both sides when they differ
+     (1-16). The register is the cadastral survey's
      Gebäudeadressen (`ms:HADR` on the same AV WFS) on those streets within 600 m of the point,
      in the town of the one nearest the point; each address's building is the survey footprint
-     with its EGID, else the footprint its door point lies in. Used when it finds at least one
-     building and at most 60 (`MAX_RANGE_BUILDINGS`; more is logged — a name read wrong). No
+     with its EGID, else the footprint its door point lies in. An address with no surface
+     building is, in the survey, mostly an underground garage («(EH)» = Einstellhalle) or a
+     shelter: its Einzelobjekt (`ms:SOSF`, «unterirdisches Gebäude» / «Unterstand», same open AV
+     WFS) is served apart as **`underground`** and the viewer draws it as a DASHED outline in the
+     object's colour — part of the object, tappable (owner, round 3: «if the garages are …
+     accessible … in the default maps that we are using, it would be cool»; the station's Modul 1
+     shows them too). Used when it finds at least one surface building and at most 60
+     (`MAX_RANGE_BUILDINGS`, counting houses, not garages; more is logged — a name read wrong). No
      neighbour guard: the name is the station's own word for which houses the object is;
   2. the object's point in an allowed swissTLM3D **use area** (school, college/university,
      hospital, sports ground, swimming pool, cemetery, zoo, substation — the `landuse` layer of

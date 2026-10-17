@@ -95,8 +95,18 @@ describe('the buildings of an object', () => {
 
   it('without one: the OSM outline the point lies in, as before — never a neighbour', () => {
     const b = objectBuildings(obj({}), [GYM, HOUSE])
-    expect(b).toEqual({ rings: [HOUSE], main: HOUSE })
+    expect(b).toEqual({ rings: [HOUSE], main: HOUSE, under: [] })
     expect(objectBuildings(obj({ lat: 47.5300 }), [GYM, HOUSE])).toBeNull()
+  })
+
+  it('a named row\'s underground garage rides along apart, to be drawn dashed (review round 3)', () => {
+    const fp = { type: 'MultiPolygon', coordinates: [[closed(HOUSE)]] }
+    const garage = sq(7.5700, 47.5198, 0.0004)
+    const b = objectBuildings(obj({ footprint: fp, underground: { type: 'MultiPolygon', coordinates: [[closed(garage)]] } }), [])
+    expect(b?.rings).toEqual([HOUSE])
+    expect(b?.under).toEqual([garage])
+    // a tap on the garage finds the object too (KarteApp · onMapClick reads ringAt over `under`)
+    expect(ringAt(b!.under, [7.5702, 47.5199])).toEqual(garage)
   })
 
   it('a point on the grounds but in none of the buildings still draws them, with no main', () => {

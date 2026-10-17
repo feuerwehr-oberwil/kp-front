@@ -118,20 +118,23 @@ def test_a_hole_in_the_ground_is_not_the_ground():
 # shares its parcel with a near-duplicate object, so the parcel step refuses and nothing is drawn
 ROW = [box(10 + 25 * i, 0, 28 + 25 * i, 14) for i in range(8)]  # Musterweg 1 … 8
 LAWN = at(60, 25)
+GARAGE = box(10, 20, 90, 40)  # «(EH)»: the row's underground garage (AV Einzelobjekt)
 
 
 def test_the_names_houses_come_first_whatever_the_parcel_says():
     f = facts(area=None, parcel=[[box(0, -10, 220, 60)]], buildings=ROW)
     # without the name: the parcel holds the other object's point, and the point is in no house
     assert of.derive(LAWN, f, others=[at(70, 30)]) is None
-    got = of.derive_all({"a": LAWN, "b": at(70, 30)}, {of._point_key(LAWN[1], LAWN[0]): f}, ranges={"a": ROW[:5]})
+    got = of.derive_all(
+        {"a": LAWN, "b": at(70, 30)}, {of._point_key(LAWN[1], LAWN[0]): f}, ranges={"a": of.Named(ROW[:5], [])}
+    )
     assert got["a"]["source"] == "name" and len(got["a"]["footprint"]["coordinates"]) == 5
     assert "b" not in got  # the other object is not asked yet: nothing
 
 
 def test_the_name_puts_the_point_s_house_first_and_waits_for_nobody():
     # no facts at the point yet: the name's houses are drawn all the same
-    got = of.derive_all({"a": at(20, 7)}, {}, ranges={"a": [ROW[3], ROW[0], ROW[1]]})["a"]
+    got = of.derive_all({"a": at(20, 7)}, {}, ranges={"a": of.Named([ROW[3], ROW[0], ROW[1]], [])})["a"]
     first = got["footprint"]["coordinates"][0][0]
     assert of._in_ring([tuple(p) for p in first], at(20, 7))  # ROW[0] holds the point: first
 
@@ -140,15 +143,28 @@ def test_the_name_yields_to_the_station_and_to_the_cap(caplog):
     f = facts(area=None, parcel=None, buildings=[HOUSE])
     pk = {of._point_key(POINT[1], POINT[0]): f}
     # «Lage korrigieren › nur dieses Gebäude» / «kein Umriss» beat the name
-    assert of.derive_all({"a": POINT}, pk, {"a": "building"}, {"a": ROW})["a"]["source"] == "station"
-    assert of.derive_all({"a": POINT}, pk, {"a": "none"}, {"a": ROW}) == {}
+    row = {"a": of.Named(ROW, [])}
+    assert of.derive_all({"a": POINT}, pk, {"a": "building"}, row)["a"]["source"] == "station"
+    assert of.derive_all({"a": POINT}, pk, {"a": "none"}, row) == {}
     # more than MAX_RANGE_BUILDINGS is a name read wrong: logged, and the rule goes on as before
     many = [box(i * 3, 200, i * 3 + 2, 202) for i in range(of.MAX_RANGE_BUILDINGS + 1)]
     with caplog.at_level("WARNING"):
-        got = of.derive_all({"a": POINT}, pk, ranges={"a": many})["a"]
+        got = of.derive_all({"a": POINT}, pk, ranges={"a": of.Named(many, [])})["a"]
     assert got["source"] == "building" and "its name is not used" in caplog.text
     # exactly the cap is still a row of houses
-    assert of.derive_all({"a": POINT}, pk, ranges={"a": many[:-1]})["a"]["source"] == "name"
+    assert of.derive_all({"a": POINT}, pk, ranges={"a": of.Named(many[:-1], [])})["a"]["source"] == "name"
+    # a name whose addresses are ONLY underground structures draws nothing of its own: the rule goes on
+    assert of.derive_all({"a": POINT}, pk, ranges={"a": of.Named([], [GARAGE])})["a"]["source"] == "building"
+
+
+def test_the_name_s_underground_structures_ride_along_dashed():
+    got = of.derive_all({"a": LAWN}, {}, ranges={"a": of.Named(ROW[:2], [GARAGE])})["a"]
+    assert len(got["footprint"]["coordinates"]) == 2
+    assert got["underground"]["type"] == "MultiPolygon" and len(got["underground"]["coordinates"]) == 1
+    # stored and read back in the same shape; an older stored answer (a bare list) is asked again
+    back = of.Named.from_json(of.Named(ROW[:2], [GARAGE]).to_json())
+    assert back is not None and back.underground == [GARAGE] and len(back.buildings) == 2
+    assert of.Named.from_json([[[7.0, 47.0]]]) is None
 
 
 def _hadr(street: str, number: str, egid: str | None, town: str, p: tuple[float, float]) -> dict:
@@ -172,8 +188,19 @@ async def test_ask_range_reads_the_register_s_addresses_and_their_buildings():
             centre = lambda r: of.centroid(r)  # noqa: E731
             feats = [_hadr("Musterweg", str(i + 1), f"10{i}", "Musterdorf", centre(ROW[i])) for i in range(8)]
             feats.append(_hadr("Musterweg", "2a", None, "Musterdorf", at(52, 10)))  # no EGID: by its door
+            feats.append(_hadr("Musterweg", "3a", "900", "Musterdorf", at(80, 25)))  # the garage («EH»)
             feats.append(_hadr("Musterweg", "3", "999", "Nachbarort", at(400, 400)))  # same name, next town
             return httpx.Response(200, json={"features": feats})
+        if tn == "ms:SOSF":
+            assert "<fes:Literal>900</fes:Literal>" in flt and "<fes:Literal>100</fes:Literal>" not in flt
+            return httpx.Response(
+                200,
+                json={
+                    "features": [
+                        {"geometry": gj(GARAGE), "properties": {"GWR_EGID": "900", "Art": "unterirdisches_Gebaeude"}}
+                    ]
+                },
+            )
         assert tn == "ms:LCSF" and "Gebaeude" in flt
         if "GWR_EGID" in flt:
             wanted = [i for i in range(8) if f"<fes:Literal>10{i}</fes:Literal>" in flt]
@@ -185,12 +212,14 @@ async def test_ask_range_reads_the_register_s_addresses_and_their_buildings():
         return httpx.Response(200, json={"features": [{"geometry": gj(r), "properties": {}} for r in (ROW[1], ROW[2])]})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
-        rings = await of.ask_range(of.Sources(c), LAWN, of.address_ranges.parse("Musterweg 1-3, Feldweg 9"))
-    assert len(rings) == 3 and all(r in ROW[:3] for r in rings)  # 1, 2, 3 — and 2a's house is 2's
-    assert asked == ["ms:HADR", "ms:LCSF", "ms:LCSF"]
+        named = await of.ask_range(of.Sources(c), LAWN, of.address_ranges.parse("Musterweg 1-4, Feldweg 9"))
+    rings = named.buildings
+    assert len(rings) == 4 and all(r in ROW[:4] for r in rings)  # 1 … 4 — and 2a's house is 2's
+    assert named.underground == [GARAGE]  # 3a has no surface building: its garage, apart
+    assert asked == ["ms:HADR", "ms:LCSF", "ms:SOSF", "ms:LCSF"]
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as c:
-        assert await of.ask_range(of.Sources(c), LAWN, of.address_ranges.parse("Musterweg 20-30")) == []
+        assert await of.ask_range(of.Sources(c), LAWN, of.address_ranges.parse("Musterweg 20-30")) == of.Named([], [])
 
 
 def test_geojson_is_one_multipolygon_with_closed_rings():

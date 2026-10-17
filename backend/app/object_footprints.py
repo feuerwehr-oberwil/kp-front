@@ -21,8 +21,11 @@ The rule (``derive_all`` / ``derive``), first match wins:
    Wacht 14&16»; app/address_ranges reads it, aliases included) is every building of every
    register address the name covers — the cadastral survey's Gebäudeadressen (``ms:HADR``, same
    WFS) near the point, in the town of the nearest one, then their buildings by EGID
-   (``ask_range``). Used when it finds at least one building and at most ``MAX_RANGE_BUILDINGS``
-   (more is logged and skipped: a misread name, not a row of houses);
+   (``ask_range``). A range whose ends have one parity is one side of the street (app/
+   address_ranges). An address with no surface building is mostly an underground garage or a
+   shelter: its Einzelobjekt (``ms:SOSF``) rides along as ``underground``, drawn dashed. Used when
+   it finds at least one building and at most ``MAX_RANGE_BUILDINGS`` (more is logged and
+   skipped: a misread name, not a row of houses);
 2. the object's point inside an ALLOWED use area → every building whose centroid lies in that
    area;
 3. else every building on its parcel;
@@ -79,7 +82,7 @@ logger = logging.getLogger(__name__)
 
 STORE_KEY = "reference/object-footprints.json"
 #: bump when the derivation changes — every stored footprint is derived again (facts are kept)
-ALGO = 2
+ALGO = 3
 
 #: the swissTLM3D use areas that ARE one object's grounds. Residential quarters, parking lots and
 #: single pitches are not; a school, a hospital, a sports ground or a cemetery (its chapel) are.
@@ -461,6 +464,16 @@ class Sources:
             )
         return out
 
+    async def structures_by_egid(self, egids: list[str]) -> list[tuple[Ring, str | None]]:
+        """The survey's Einzelobjekte (``ms:SOSF``: unterirdisches Gebäude, Unterstand …)
+        carrying these register ids — what an address with no surface building is."""
+        out: list[tuple[Ring, str | None]] = []
+        for i in range(0, len(egids), 40):
+            chunk = egids[i : i + 40]
+            ors = "".join(_equals("GWR_EGID", e) for e in chunk)
+            out += _rings_with_egid(await self._wfs("ms:SOSF", [f"<fes:Or>{ors}</fes:Or>" if len(chunk) > 1 else ors]))
+        return out
+
     async def addresses(self, box: tuple[float, float, float, float], streets: list[str]) -> list[dict]:
         """The survey's building addresses (Gebäudeadressen) on these streets inside the box:
         ``{street, number, egid, town, at}``."""
@@ -571,20 +584,51 @@ def _box_around(at: LngLat, half_m: float) -> tuple[float, float, float, float]:
     return (lng - dx, lat - dy, lng + dx, lat + dy)
 
 
-async def ask_range(src: Sources, at: LngLat, specs: list[address_ranges.Spec]) -> list[Ring]:
+@dataclass
+class Named:
+    """What a name's addresses are on the ground: the surface buildings, and the survey's
+    structures for the addresses that have none (an underground garage, a shelter — AV
+    Einzelobjekte, drawn dashed by the viewer)."""
+
+    buildings: list[Ring]
+    underground: list[Ring]
+
+    def to_json(self) -> dict:
+        return {
+            "b": [[list(p) for p in r] for r in self.buildings],
+            "u": [[list(p) for p in r] for r in self.underground],
+        }
+
+    @classmethod
+    def from_json(cls, d: Any) -> Named | None:
+        """``None`` for anything that is not a stored answer of this shape (ask again)."""
+        if not isinstance(d, dict):
+            return None
+
+        def rings(v: Any) -> list[Ring]:
+            return [[(float(p[0]), float(p[1])) for p in r] for r in v or []]
+
+        return cls(rings(d.get("b")), rings(d.get("u")))
+
+
+async def ask_range(src: Sources, at: LngLat, specs: list[address_ranges.Spec]) -> Named:
     """Every building of every register address the name's specs cover (rule step 1).
 
     The addresses come from the survey's Gebäudeadressen on the named streets within
     ``RANGE_REACH_M`` of the point, kept only in the town of the one nearest the point (a
-    Bruderholzstrasse runs through four towns); each address's building is the footprint with
-    its EGID, else — an address the survey keeps without one — the footprint its door point lies
-    in. ``[]`` = asked, nothing matched. Raises when a source could not be asked."""
+    Bruderholzstrasse runs through four towns); each address's building is the surface footprint
+    with its EGID (Bodenbedeckung «Gebäude»). An address with none is, in the survey, mostly an
+    UNDERGROUND garage («(EH)» = Einstellhalle) or a shelter — an Einzelobjekt with that EGID
+    (``ms:SOSF``, same open WFS): it is returned apart, in ``underground`` (owner, review round 3:
+    «if the garages are … accessible … in the default maps that we are using, it would be cool»).
+    An address with neither keeps the surface footprint its door point lies in. Nothing found =
+    both empty. Raises when a source could not be asked."""
     streets = sorted({c for s in specs for c in address_ranges.query_names(s.street)})
     near = await src.addresses(_box_around(at, RANGE_REACH_M), streets)
     specs = address_ranges.settle(specs, [a["street"] for a in near])
     found = [a for a in near if address_ranges.covers(specs, a["street"], a["number"])]
     if not found:
-        return []
+        return Named([], [])
     kx = 111_320.0 * math.cos(math.radians(at[1]))
     nearest = min(found, key=lambda a: math.hypot((a["at"][0] - at[0]) * kx, (a["at"][1] - at[1]) * 110_540.0))
     found = [a for a in found if a["town"] == nearest["town"]]
@@ -593,6 +637,12 @@ async def ask_range(src: Sources, at: LngLat, specs: list[address_ranges.Spec]) 
     have: set[str] = set()
     for ring, egid in await src.buildings_by_egid(egids) if egids else []:
         rings.append(ring)
+        if egid:
+            have.add(egid)
+    under: list[Ring] = []
+    missing = sorted({a["egid"] for a in found if a["egid"] and a["egid"] not in have})
+    for ring, egid in await src.structures_by_egid(missing) if missing else []:
+        under.append(ring)
         if egid:
             have.add(egid)
     loose = [a["at"] for a in found if not a["egid"] or a["egid"] not in have]
@@ -604,7 +654,7 @@ async def ask_range(src: Sources, at: LngLat, specs: list[address_ranges.Spec]) 
         for ring, _egid in await src.buildings_with_egid(box):
             if any(_in_ring(ring, p) for p in loose) and ring not in rings:
                 rings.append(ring)
-    return rings
+    return Named(rings, under)
 
 
 # --- the store ----------------------------------------------------------------------------------
@@ -652,6 +702,17 @@ def footprint_for(object_id: str, lat: float | None, lng: float | None) -> dict 
     if not hit or hit.get("at") != _point_key(lat, lng):
         return None
     return hit.get("footprint")
+
+
+def underground_for(object_id: str, lat: float | None, lng: float | None) -> dict | None:
+    """The stored underground structures of a named row (``ask_range``), under the same rule as
+    ``footprint_for``: only while the object still stands where they were derived for."""
+    if lat is None or lng is None:
+        return None
+    hit = stored().get(object_id)
+    if not hit or hit.get("at") != _point_key(lat, lng):
+        return None
+    return hit.get("underground")
 
 
 def place_at(lat: float | None, lng: float | None) -> dict | None:
@@ -715,7 +776,7 @@ def derive_all(
     points: dict[str, LngLat],
     facts: dict[str, Facts],
     modes: dict[str, str] | None = None,
-    ranges: dict[str, list[Ring]] | None = None,
+    ranges: dict[str, Named] | None = None,
 ) -> dict[str, dict]:
     """Every object's footprint from the facts at hand (no network). ``modes``: the station's
     outline choice per object — ``none`` derives nothing, ``building`` only the building at
@@ -728,14 +789,21 @@ def derive_all(
         if modes.get(oid) == "none":
             continue
         named = ranges.get(oid) if modes.get(oid) != "building" else None
-        if named and len(named) <= MAX_RANGE_BUILDINGS:
-            out[oid] = {"at": _point_key(at[1], at[0]), "source": "name", "footprint": as_geojson(range_set(at, named))}
+        size = len(named.buildings) if named else 0  # the cap counts houses, not their garages
+        if named and named.buildings and size <= MAX_RANGE_BUILDINGS:
+            out[oid] = {
+                "at": _point_key(at[1], at[0]),
+                "source": "name",
+                "footprint": as_geojson(range_set(at, named.buildings)),
+            }
+            if named.underground:
+                out[oid]["underground"] = as_geojson(named.underground)
             continue
-        if named:
+        if size > MAX_RANGE_BUILDINGS:
             logger.warning(
                 "object footprint: %s names %d buildings (more than %d) — its name is not used",
                 oid,
-                len(named),
+                size,
                 MAX_RANGE_BUILDINGS,
             )
         f = facts.get(_point_key(at[1], at[0]))
@@ -781,8 +849,8 @@ async def tick(db: AsyncSession, *, client: httpx.AsyncClient | None = None) -> 
     data = _load()
     facts = {k: Facts.from_json(v) for k, v in (data.get("facts") or {}).items()}
     places: dict[str, dict] = dict(data.get("places") or {})
-    ranges: dict[str, list[Ring]] = {
-        k: [[(float(p[0]), float(p[1])) for p in r] for r in v] for k, v in (data.get("ranges") or {}).items()
+    ranges: dict[str, Named] = {
+        k: n for k, v in (data.get("ranges") or {}).items() if (n := Named.from_json(v)) is not None
     }
     range_keys = {oid: _range_key(points[oid], sp) for oid, sp in station.specs.items()}
     now = time.monotonic()
@@ -881,7 +949,7 @@ async def tick(db: AsyncSession, *, client: httpx.AsyncClient | None = None) -> 
         "facts": {k: v.to_json() for k, v in facts.items()},
         "footprints": footprints,
         "places": places,
-        "ranges": {k: [[list(p) for p in r] for r in v] for k, v in ranges.items()},
+        "ranges": {k: v.to_json() for k, v in ranges.items()},
     }
     await asyncio.to_thread(storage.put_bytes, STORE_KEY, json.dumps(out, separators=(",", ":")).encode())
     _read = None

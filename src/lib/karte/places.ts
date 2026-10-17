@@ -183,18 +183,21 @@ export function pinNear(hit: { label: string; lat: number; lng: number } | null,
  *
  * First the server's set (`footprint`, backend app/object_footprints, review 17.10.2026): every
  * building on the object's official use area (a school campus) or parcel, derived from the
- * cadastral survey — never a neighbour's, never by distance. Without one (not derived yet, the
+ * cadastral survey — never a neighbour's, never by distance. `under` are the object's structures
+ * without a surface building (a named row's underground garage, review round 3), drawn dashed. Without one (not derived yet, the
  * sources off, nothing official at the point) the OSM outline the point lies in, as before
  * (`outlineFor`). Null = no building known: the map shows the object at its point.
  */
-export function objectBuildings(obj: Pick<StationObject, 'lat' | 'lng' | 'kind' | 'footprint' | 'outline'>, rings: readonly LngLat[][]): { rings: LngLat[][]; main: LngLat[] | null } | null {
+export function objectBuildings(obj: Pick<StationObject, 'lat' | 'lng' | 'kind' | 'footprint' | 'outline' | 'underground'>, rings: readonly LngLat[][]): { rings: LngLat[][]; main: LngLat[] | null; under: LngLat[][] } | null {
   const at = coordOf(obj)
   // the station said «no outline» (/admin · Lage korrigieren): not even the OSM fallback
   if (!at || obj.outline === 'none') return null
   const own = footprintRings(obj.footprint)
-  if (own.length) return { rings: own, main: ringAt(own, at) }
+  // underground garages / shelters of a named row (review round 3): part of the object, dashed
+  const under = footprintRings(obj.underground)
+  if (own.length) return { rings: own, main: ringAt(own, at), under }
   const r = outlineFor(obj, rings)
-  return r ? { rings: [r], main: r } : null
+  return r ? { rings: [r], main: r, under } : null
 }
 
 /** A GeoJSON Polygon / MultiPolygon as outer rings in [lng, lat], without the closing vertex.

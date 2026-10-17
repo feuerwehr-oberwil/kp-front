@@ -16,9 +16,12 @@ Pure — no I/O. The rules (tests/test_address_ranges.py pins them on the statio
   «Hof Thürkauf, Im Buech 15, Im Buech 20» or «Sägestrasse 9»: single addresses are the point's
   business — the area/parcel/building rule — not a row of houses). Once one item is a range or
   a list, every item of the name counts («Amselstrasse 24-32, Auf der Wacht 2» → 2 as well);
-* a number covers its lettered siblings (``14`` → 14, 14a, 14b …), a range every number in it
-  that EXISTS (``1-14`` → 2, 2a, 3 …, 10a, 14 — never assumed odd or even), a lettered end only
-  its letters (``128a-b`` → 128a, 128b; ``134f`` → 134f only);
+* a number covers its lettered siblings (``14`` → 14, 14a, 14b …) and a range the numbers in it
+  that EXISTS, lettered ones included. ⚠️ ONE SIDE OF THE STREET when both ends are on it (owner,
+  review round 3, 17.10.2026: «usually only the same side … you can assume that it's only the
+  same side»): ``136-158`` → the even numbers only, ``27-29`` → 27, 27a …, 29 (not 28); a range
+  whose ends differ in parity takes both sides (``1-14`` → 2, 2a, 3 …, 10a, 14). A lettered end
+  covers only its letters (``128a-b`` → 128a, 128b; ``134f`` → 134f only);
 * a street matches the register's street name case- and accent-insensitively, «str.» read as
   «strasse»; words in front of the street («Garage Keigel Sägestrasse 2») are tried away
   (``street_candidates``).
@@ -61,6 +64,8 @@ class Numbers:
     def covers(self, number: int, letter: str) -> bool:
         if not self.lo <= number <= self.hi:
             return False
+        if self.hi > self.lo and self.lo % 2 == self.hi % 2 and number % 2 != self.lo % 2:
+            return False  # «136-158»: one side of the street (both ends even)
         return self.letters is None or letter.lower() in self.letters
 
     @property
@@ -196,6 +201,10 @@ def covers(specs: list[Spec], street: str, number: str | None) -> bool:
     return any(fold(spec.street) == s and any(n.covers(*h) for n in spec.numbers) for spec in specs)
 
 
+#: bump when what a spec COVERS changes — every stored answer is asked for again
+RULES = 2  # 2: same-parity ranges take one side of the street
+
+
 def specs_key(specs: list[Spec]) -> str:
-    """One stable string for a set of specs (what a stored answer was asked for)."""
-    return ";".join(sorted(s.key() for s in specs))
+    """One stable string for a set of specs (what a stored answer was asked for, under ``RULES``)."""
+    return f"r{RULES}:" + ";".join(sorted(s.key() for s in specs))

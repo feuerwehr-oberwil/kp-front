@@ -20941,6 +20941,18 @@
             ],
             "title": "Footprint"
           },
+          "underground": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Underground"
+          },
           "measures": {
             "anyOf": [
               {

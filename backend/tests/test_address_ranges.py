@@ -74,7 +74,7 @@ def test_the_folder_alias_adds_its_address():
     assert ar.parse("Gemeindeverwaltung", "Hauptstrasse 24 - Gemeindeverwaltung") == []
 
 
-def test_a_range_covers_what_exists_with_its_letters_never_odd_or_even():
+def test_a_mixed_range_covers_both_sides_with_their_letters():
     specs = ar.parse("Stallenmattstrasse 1-14, Kaibmattweg 1-5 (EH)")
     register = ["1", "2", "2a", "2b", "3", "7", "10a", "14", "15", "16", "40a"]
     assert [n for n in register if ar.covers(specs, "Stallenmattstrasse", n)] == [
@@ -91,6 +91,41 @@ def test_a_range_covers_what_exists_with_its_letters_never_odd_or_even():
     assert not ar.covers(specs, "Kaibmattweg", "6")
     assert not ar.covers(specs, "Stallenstrasse", "3")  # another street
     assert not ar.covers(specs, "Stallenmattstrasse", "")  # no number
+
+
+def test_a_range_with_ends_of_one_parity_is_one_side_of_the_street():
+    # owner R3: «you can assume that it's only the same side»
+    hohe = ar.parse("Hohestrasse 136-158")
+    register = ["135", "136", "136a", "137", "145", "146", "152", "152a", "153", "158", "159", "160"]
+    assert [n for n in register if ar.covers(hohe, "Hohestrasse", n)] == ["136", "136a", "146", "152", "152a", "158"]
+    therwil = ar.parse("Therwilerstrasse 27-29")
+    assert [
+        n
+        for n in ("27", "27a", "27d", "28", "28a", "28h", "29", "29a", "30")
+        if ar.covers(therwil, "Therwilerstrasse", n)
+    ] == [
+        "27",
+        "27a",
+        "27d",
+        "29",
+        "29a",
+    ]
+    even = ar.parse("Stallenmattstrasse 2-14, Kaibmattweg 1-5 (EH)")
+    assert [n for n in ("1", "2", "2a", "3", "8", "11", "14") if ar.covers(even, "Stallenmattstrasse", n)] == [
+        "2",
+        "2a",
+        "8",
+        "14",
+    ]
+    assert [n for n in ("1", "2", "3", "4", "5") if ar.covers(even, "Kaibmattweg", n)] == ["1", "3", "5"]
+    # mixed ends: both sides
+    assert ar.covers(ar.parse("Storchenweg 1-16"), "Storchenweg", "7") and ar.covers(
+        ar.parse("Storchenweg 1-16"), "Storchenweg", "8"
+    )
+    assert ar.covers(ar.parse("Im Wasen 1-8"), "Im Wasen", "6a")
+    # a list is what it says, a letter range stays on its number
+    assert ar.covers(ar.parse("Auf der Wacht 14&16"), "Auf der Wacht", "16")
+    assert ar.covers(ar.parse("Hohestrasse 128a-b"), "Hohestrasse", "128b")
 
 
 def test_letters_and_lists():
@@ -123,7 +158,7 @@ def test_streets_compare_folded_and_without_words_in_front():
     wacht = ar.settle(ar.parse("Auf der Wacht 14&16"), ["Wacht", "Auf der Wacht"])
     assert ar.covers(wacht, "Auf der Wacht", "14") and not ar.covers(wacht, "Wacht", "14")
     # «str.» written out; a street the register does not know is dropped
-    assert ar.covers(ar.settle(ar.parse("Hauptstr. 3-5"), ["Hauptstrasse"]), "Hauptstrasse", "4")
+    assert ar.covers(ar.settle(ar.parse("Hauptstr. 3-5"), ["Hauptstrasse"]), "Hauptstrasse", "5")
     assert ar.settle(ar.parse("Binnningerstrasse 13-17"), ["Binningerstrasse"]) == []
 
 
@@ -131,7 +166,7 @@ def test_the_key_is_stable():
     # what a stored answer was asked for: the same specs in any order, any spelling of the street
     a = ar.parse("Storchenweg 1-16, Bertschenackerstrasse 11-19")
     b = ar.parse("Bertschenackerstrasse 11–19, STORCHENWEG 1-16")
-    assert ar.specs_key(a) == ar.specs_key(b) == "bertschenackerstrasse:11-19;storchenweg:1-16"
+    assert ar.specs_key(a) == ar.specs_key(b) == f"r{ar.RULES}:bertschenackerstrasse:11-19;storchenweg:1-16"
 
 
 def test_what_the_register_is_asked_for():

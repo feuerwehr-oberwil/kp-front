@@ -58,6 +58,10 @@ export interface StationObject {
    *  from the use area / parcel / cadastral survey — backend app/object_footprints); null = the
    *  map's own OSM building its point lies in is used (lib/karte/places · objectBuildings) */
   footprint: unknown
+  /** a named row's addresses that have no surface building — the survey's underground garages
+   *  and shelters (backend app/object_footprints · ask_range), one MultiPolygon; drawn dashed.
+   *  Absent from an older server. */
+  underground?: unknown
   measures?: string | null
   remarks?: string | null
   measuresSource?: string | null

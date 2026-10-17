@@ -106,6 +106,8 @@ const NOOP = () => {}
 /** how much of a phone's height the object sheet may cover (Ebenen's cap, 15-mobile · .layers-card):
  *  a place framed for it stands in the strip above */
 const SHEET_SHARE = 0.72
+/** the dash of a structure with no surface building (an underground garage), in line widths */
+const UNDER_DASH = [2, 1.5]
 /** an Ebenen row per object category (lib/karte/categories) */
 const CAT_ROW = 'karte:kategorie:'
 
@@ -288,7 +290,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   /** each station object's buildings — the server's official set, else the OSM outline its point
    *  lies in (lib/karte/places · objectBuildings) */
   const outlines = useMemo(() => {
-    const m = new Map<string, { rings: LngLat[][]; main: LngLat[] | null }>()
+    const m = new Map<string, { rings: LngLat[][]; main: LngLat[] | null; under: LngLat[][] }>()
     for (const o of objects) {
       const at = coordOf(o)
       if (!at) continue
@@ -542,19 +544,25 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const overlays = useMemo<PreparedMapOverlay[]>(() => {
     const out: PreparedMapOverlay[] = []
     // one overlay per colour: the default red first, then each category in the config's order
-    const byColor = new Map<string, { id: string; rings: LngLat[][] }>()
+    const byColor = new Map<string, { id: string; rings: LngLat[][]; under: LngLat[][] }>()
     for (const [id, b] of outlines) {
       if (id === selObj?.id || catOff(id)) continue
       const c = cats.get(id)
       const key = c?.color ?? red
-      const slot = byColor.get(key) ?? { id: c ? `karte-objects-${c.id}` : 'karte-objects', rings: [] }
+      const slot = byColor.get(key) ?? { id: c ? `karte-objects-${c.id}` : 'karte-objects', rings: [], under: [] }
       slot.rings.push(...b.rings)
+      slot.under.push(...b.under)
       byColor.set(key, slot)
     }
+    // underground garages / shelters (a named row's, review round 3): dashed, barely filled —
+    // under the buildings, so a house drawn over its garage keeps its solid line
+    for (const [color, slot] of byColor) if (slot.under.length) out.push({ id: `${slot.id}-under`, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.under, color, fillOpacity: 0.05, lineWidth: 1.6, lineOpacity: 0.85, lineDasharray: UNDER_DASH })
     for (const [color, slot] of byColor) out.push({ id: slot.id, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.rings, color, fillOpacity: 0.14, lineWidth: 1.6, lineOpacity: 0.85 })
     // the selected object: EVERY one of its buildings in the strong style, in its own colour
     const mine = selObj ? outlines.get(selObj.id) : null
-    if (mine) out.push({ id: 'karte-object-sel', kind: 'polygons', layer: ALWAYS_LAYER, rings: mine.rings, color: (selObj && cats.get(selObj.id)?.color) ?? red, fillOpacity: 0.3, lineWidth: 3, lineOpacity: 1 })
+    const mineColor = (selObj && cats.get(selObj.id)?.color) ?? red
+    if (mine?.under.length) out.push({ id: 'karte-object-sel-under', kind: 'polygons', layer: ALWAYS_LAYER, rings: mine.under, color: mineColor, fillOpacity: 0.1, lineWidth: 2.5, lineOpacity: 1, lineDasharray: UNDER_DASH })
+    if (mine) out.push({ id: 'karte-object-sel', kind: 'polygons', layer: ALWAYS_LAYER, rings: mine.rings, color: mineColor, fillOpacity: 0.3, lineWidth: 3, lineOpacity: 1 })
     // the building's outline — found again once its cell has loaded (a searched address flies first)
     const bRing = sel?.kind === 'building' ? sel.ring ?? ringAt(ringsNear(sel.at), sel.at) : null
     if (bRing) out.push({ id: 'karte-building', kind: 'polygons', layer: ALWAYS_LAYER, rings: [bRing], color: uiBlue(), fillOpacity: 0.16, lineWidth: 2.5, lineOpacity: 1 })
@@ -595,7 +603,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       // the one whose point stands in it
       let hit: string | null = null
       for (const [id, b] of outlines) {
-        if (catOff(id) || !ringAt(b.rings, c)) continue
+        if (catOff(id) || !(ringAt(b.rings, c) || ringAt(b.under, c))) continue
         if (b.main && ringAt([b.main], c)) { hit = id; break }
         hit ??= id
       }

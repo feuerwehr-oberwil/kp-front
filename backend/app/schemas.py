@@ -1009,6 +1009,9 @@ class ReferenceObjectOut(BaseModel):
     #: derived from the use area / parcel / cadastral survey (app/object_footprints); None = the
     #: client falls back to the OSM building its point lies in
     footprint: dict[str, Any] | None = None
+    #: the survey's structures (AV Einzelobjekte — underground garages, shelters) of the addresses an
+    #: object's name covers that have no surface building, one MultiPolygon; None = none known
+    underground: dict[str, Any] | None = None
     #: Sofortmassnahmen / Bemerkungen off the Modul-1 sheet and where they came from
     measures: str | None = None
     remarks: str | None = None

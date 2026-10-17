@@ -38,7 +38,7 @@ from ..auth.incident_link import link_page_owns_session, read_link_session
 from ..building_facts import _street_of
 from ..database import get_db
 from ..models import ObjectSite, ObjectVisit, PlanAlignment, PlanPageFloor, PlanRevision, ReferenceDataset, User
-from ..object_visits import checklist_ref, ov_config
+from ..object_visits import aliases_by_object, checklist_ref, ov_config
 from ..plan_floors import PlanFloor, fit_publishable
 from ..plan_revision_info import revision_page_count
 from ..schemas import (
@@ -118,13 +118,17 @@ def module_code(module: str | None) -> str:
     return rest or m or "?"
 
 
-def aliases_of(obj: ObjectSite) -> list[str]:
+def aliases_of(obj: ObjectSite, merged: list[str] | None = None) -> list[str]:
     """Other names for the object a member might type: the plan library's folder
-    («Hauptstrasse 24 - Gemeindeverwaltung») when it is not just the name again."""
-    folder = (obj.filing_folder or "").strip()
-    if folder and folder.casefold() not in {(obj.name or "").casefold(), (obj.address or "").casefold()}:
-        return [folder]
-    return []
+    («Hauptstrasse 24 - Gemeindeverwaltung») when it is not just the name again, and the names
+    of objects merged into it (``admin_objects merge``, object_visits · ALIAS_SOURCE)."""
+    out: list[str] = []
+    seen = {(obj.name or "").casefold(), (obj.address or "").casefold()}
+    for alias in [(obj.filing_folder or "").strip(), *(merged or [])]:
+        if alias and alias.casefold() not in seen:
+            out.append(alias)
+            seen.add(alias.casefold())
+    return out
 
 
 _TRAILING_NOTE = re.compile(r"\s*\([^)]*\)\s*$")
@@ -264,6 +268,7 @@ async def reference_objects(db: AsyncSession, *, with_visits: bool) -> Reference
                 id=v.id, checklist=ref.get("title") if ref else None, date=v.visited_at, defects=v.findings or 0
             )
 
+    merged = await aliases_by_object(db)
     default_locality, _bbox = await geocode._resolve_bias()
     out: list[ReferenceObjectOut] = []
     for o in objects:
@@ -282,11 +287,14 @@ async def reference_objects(db: AsyncSession, *, with_visits: bool) -> Reference
                 lat=lat,
                 lng=lng,
                 outline=outline,  # type: ignore[arg-type]
-                aliases=aliases_of(o),
+                aliases=aliases_of(o, merged.get(o.id)),
                 # every building the object stands for, derived by the scheduler from official
                 # data (app/object_footprints); None = the viewer draws the OSM building its
                 # point lies in
                 footprint=None if outline == "none" else object_footprints.footprint_for(str(o.id), lat, lng),
+                # a named row's addresses with no surface building (underground garages, shelters —
+                # app/object_footprints · ask_range); the viewer draws them dashed
+                underground=None if outline == "none" else object_footprints.underground_for(str(o.id), lat, lng),
                 plans=plans,
                 floors=[ReferenceFloorOut(index=i, name=n) for i, n in sorted(floors_by_obj.get(o.id, {}).items())],
                 measures=o.measures,
