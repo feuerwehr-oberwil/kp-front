@@ -404,6 +404,35 @@ takes keeps the default look: red, ink-grey without plans. No rules = that defau
 - Pick colours that stay apart for the colour-blind (no red against green) and that read on the
   light, dark and aerial base maps.
 
+## «Unterirdische Bauten» (owner, review round 4)
+
+«can we show all subterraneous objects through our firegis database?» — FireGIS's
+`av_gebunterird` is the official survey's underground buildings; the same features are in the
+open AV WFS (geodienste.ch, Einzelobjekte `ms:SOSF`, `Art = unterirdisches_Gebaeude`), so no
+FireGIS file is needed and every deployment gets it.
+
+- **Ebenen row** «Unterirdische Bauten» under «Station», OFF by default and off in «Standard»
+  (`PresetRow.standard: false`); «Alle ein» switches it like any row. Not kept across reloads,
+  like the other Station rows.
+- **On the map:** every underground structure of the region as a dashed outline in the neutral
+  ink (`--ink-dim`, never an object's red or a category colour), no fill, from z16 (street zoom),
+  under the objects — an object's own dashed garage keeps its colour on top. Not tappable: a tap
+  goes to whatever is above or under it, as before.
+- **Data:** `app/underground` asks the WFS for the deployment's region — the geocoder's
+  `map.geocoder.bboxLv95` (else `GEOCODER_BBOX_LV95`), else the station's objects plus 1.5 km — in
+  3 km cells (a full cell is split), keeps each building once, and stores ONE compact GeoJSON
+  MultiPolygon (`reference/underground.json`). It rides the footprint job (`scheduler` ·
+  `_object_footprints_tick`): asked once, then weekly or when the area/source changes; a failed
+  ask keeps the stored set and waits an hour. FWO's region (27 × 18 km, 17.10.2026): 14 901
+  buildings, 3.7 MB, 0.9 MB gzipped, 8 s for the 54 cells. No device ever asks the WFS.
+- **`GET /api/reference/underground[?have=<fetchedAt>]`** (same readers as the catalogue):
+  `{enabled, fetchedAt, count, geometry}`; `enabled: false` when off, `fetchedAt: null` before the
+  first ask, `unchanged: true` without geometry when the device already holds that set. The
+  device keeps it in IndexedDB (`lib/api/stationReference` · `loadUnderground`), asks the first
+  time the row goes on per visit, and draws its copy offline; the service worker leaves the route
+  alone (`NetworkOnly`, vite.config). A refusal (401/403) never shows the copy.
+- **Off:** `UNDERGROUND_WFS=` (empty).
+
 ## Offline
 
 The viewer never downloads anything on its own for offline use; it READS what the device already
@@ -418,6 +447,7 @@ and `KarteDevice.tsx` probe). No «ganze Station herunterladen»: that would be 
 | plan PDF | the service worker's `reference-plans` cache, per revision URL | opening the plan once online |
 | Gebäude storeys, aligned plan | that PDF + the revision's alignment metadata (IndexedDB, `lib/api/reference`) | opening Gebäude / the aligned plan once online |
 | base map | the service worker's `map-tiles` cache | looking at the area, or an Einsatz's Offline-Vorbereitung |
+| Unterirdische Bauten | IndexedDB `kp-front-station-underground` (one entry, ~4 MB for FWO's region) | switching the row on once online |
 | Gefahrgut (UN/ADR) | bundled with the app | — |
 
 What the surface shows offline:
@@ -449,6 +479,22 @@ What the surface shows offline:
   fetched past the HTTP cache (`fetchOptions: { cache: 'no-cache' }`, vite.config) so CARTO's
   `immutable` answer cannot bring the old tile straight back. A provider changes its look again →
   add a purge entry.
+- **A sharp base map on a retina screen** (owner, review round 4: «check why the map is so
+  blurry»). The base rasters are 256 px tiles on MapLibre's 512 px zoom grid (`MapLayers` ·
+  `tileSize={256}`), so each tile covers 256 CSS px: on a 3× iPhone every source pixel was blown up
+  three times. A screen with `devicePixelRatio > 1` now asks CARTO for its `@2x` tile (512 px, the
+  same area and label size; `lib/carto` · `withCartoRetina`): 1.5× on a phone, 1:1 on an iPad. It is
+  decided where the layer list is derived (`workspace` · `builtinAndConfigLayers`), so the map,
+  the Einsatz's offline download, the coverage probe and the readiness sheet all name the same
+  tile — this is the Einsatz's map too. The Rapport's compositor gets the 1× template
+  (`krokiPayload`, it lays 256 px). A 2× tile costs ~3× the bytes: the Offline-Vorbereitung's
+  pre-flight prices it so (`storageBudget` · `tileBytesFor`). The 1× CARTO tiles a retina device
+  held are dropped once (`tilePurge` · `carto-retina-2026-10`); a 1× screen keeps them. OSM and
+  swisstopo have no 2× tiles; swisstopo's swissimage goes to z20 (was capped at 19, so the closest
+  zoom stretched z19 four times). Past a base's `maxzoom` (CARTO 20, OSM 19) MapLibre still
+  stretches the last level up to the map's 21. Regression check, WebKit with the iPhone 13
+  descriptor: `node site/check-basemap-sharpness.mjs --base <app>` (red above 1.5 device px per
+  tile px or on overzoom; its header says how it stands in for CARTO's keyed tiles).
 - **Search:** station objects are found on the device; the address search says it needs the
   network. **Objektbesuche** say they need the network and name the catalogue's last visit.
 - The catalogue shown from the device is replaced by the server's as soon as it answers again

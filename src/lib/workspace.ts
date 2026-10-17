@@ -6,7 +6,7 @@ import type { AttendanceState, BoardAnno, BoardDoc, BoardKind, BoardPoint, Build
 import { appConfig } from '../config/appConfig'
 import { layers as initialLayers, planDocuments } from '../data/demoIncident'
 import { referenceLayersFromConfig } from './deploymentConfig'
-import { keyCartoTileTemplates } from './carto'
+import { keyCartoTileTemplates, retinaCartoTileTemplates } from './carto'
 import { loadLayerPrefs } from './layerPrefs'
 import { isSafeColor } from './shapes'
 import { sanitizeSvgResult } from './sanitizeSvg'
@@ -742,7 +742,9 @@ export function demoSeedRebase(ws: Saved, incidentId: string, rev: number, now: 
 function builtinAndConfigLayers(): LayerDef[] {
   const seen = new Set(initialLayers.map((l) => l.id))
   return [...initialLayers, ...referenceLayersFromConfig().filter((l) => !seen.has(l.id))]
-    .map(keyCartoTileTemplates)
+    // the screen's tile resolution first (lib/carto · wantsRetinaTiles: 2× tiles on a retina
+    // screen — the blurry map of review round 4), then the key: one address per tile everywhere
+    .map((l) => keyCartoTileTemplates(retinaCartoTileTemplates(l)))
 }
 
 /** The layer list an Einsatz of this category opens with when no device/blob state exists —

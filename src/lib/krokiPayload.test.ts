@@ -115,6 +115,13 @@ describe('buildKrokiPayload', () => {
     expect(p!.center).toBeUndefined()
   })
 
+  // review round 4: a retina screen draws CARTO's @2x tiles; the server's compositor lays 256 px
+  it('names the base at 1× and without the key — the server keys it and lays a 256 px grid', () => {
+    const retina = layers.map((l) => (l.base ? { ...l, tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png?key=k'] } : l))
+    const p = buildKrokiPayload({ entities, drawings, layers: retina, byName: {}, center: [7.55, 47.51] })
+    expect(p!.tiles).toBe('https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png')
+  })
+
   it('sends the live view for «aktuelle Ansicht» and drops drawings on a hidden markup layer', () => {
     const hidden = layers.map((l) => (l.id === 'markup' ? { ...l, visible: false } : l))
     const p = buildKrokiPayload({
