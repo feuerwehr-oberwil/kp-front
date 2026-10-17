@@ -74,11 +74,12 @@ export async function ensureIncidentOpen(page: Page) {
   }
 
   // Nothing open → open a manual incident (no Divera, no coordinate needed). With no Einsatz
-  // open an account lands on «Karte & Objekte» (16.10.2026), and the old launcher card is its
-  // «Einsätze ▾» sheet; "Manueller Einsatz" there opens the create wizard form directly.
+  // open an account lands on «Karte & Objekte» (16.10.2026), whose «Einsätze ▾» opens the app
+  // menu (17.10.2026: the same rows as the Einsatz menu); «Einsatz eröffnen» there opens the
+  // create wizard form directly.
   await page.locator('[data-karte]').waitFor({ state: 'visible' })
   await page.getByRole('button', { name: /^Einsätze/ }).click()
-  await page.getByRole('button', { name: 'Manueller Einsatz' }).click()
+  await page.getByRole('button', { name: 'Einsatz eröffnen' }).click()
   await page.getByPlaceholder('z. B. Gebäudebrand Schulhaus').fill('E2E Smoke Test')
   await page.getByRole('button', { name: 'Einsatz öffnen' }).click()
   await expect(navrail).toBeVisible()

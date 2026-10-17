@@ -6,9 +6,9 @@ import type { Copy, Localizable } from '../index'
 export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
   karte: {
     title: 'Carte & objets',
-    launcher: 'Carte & objets',
-    menuSub: 'Voir les objets, plans et bâtiments',
-    menuBack: 'Retour à {where}',
+    leave: 'Quitter l’intervention',
+    leaveSub: 'Continue · vers la carte',
+    leaveBack: 'Continue · retour à {where}',
     backAt: 'De retour à {where}',
     backPlan: 'Module {code}',
     einsaetze: 'Interventions',

@@ -54,6 +54,7 @@ vi.mock('../../lib/useVehicleLayer', () => ({ useVehicleLayer: () => ({ liveVehi
 
 import KarteApp, { type KarteAppProps } from './KarteApp'
 import { toast } from '../../lib/ui'
+import { appConfig } from '../../config/appConfig'
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 beforeAll(() => {
@@ -159,6 +160,15 @@ describe('KarteApp', () => {
     fireEvent.click(button)
     fireEvent.pointerDown(screen.getByTestId('mapview'))
     expect(screen.queryByRole('dialog', { name: 'Einsätze' })).toBeNull()
+  })
+
+  // the app menu's offline row on home is the viewer's own «Auf diesem Gerät» (panels/AppMenuRows)
+  it('hands the sheet a door to «Auf diesem Gerät», which shuts the sheet and opens it', async () => {
+    mount({ einsaetze: { badge: 0, render: (_close, onDevice) => <button type="button" onClick={onDevice}>Gerät</button> } })
+    fireEvent.click(screen.getByRole('button', { name: /Einsätze/ }))
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Einsätze' })).getByRole('button', { name: 'Gerät' }))
+    expect(screen.queryByRole('dialog', { name: 'Einsätze' })).toBeNull()
+    expect(await screen.findByRole('dialog', { name: appConfig.copy.karte.device.title })).toBeTruthy()
   })
 
   it('keeps no badge with nothing running and no alarm to take', async () => {

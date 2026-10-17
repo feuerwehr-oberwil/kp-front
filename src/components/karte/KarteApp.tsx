@@ -14,8 +14,9 @@
 // which hands over to the existing capture (`/besuche/neu?…&from=karte`, contract C1).
 //
 // It is HOME too (owner, 16.10.2026 · variant B): with no Einsatz open an account lands here, and
-// the old launcher card is the «Einsätze ▾» sheet at the top left — App renders its content (the
-// same rows, the same handlers: `einsaetze.render`), this file only opens and closes it.
+// the «Einsätze ▾» at the top left opens the app menu — the same rows as the Einsatz menu
+// (panels/AppMenuRows, owner 17.10.2026). App renders them (`einsaetze.render`, its handlers);
+// this file only opens and closes the sheet, and hands in its own «Auf diesem Gerät».
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
@@ -102,9 +103,10 @@ const NO_TILES: TileXY[] = []
 const NOOP = () => {}
 
 export interface KarteAppProps {
-  /** «Einsätze ▾»: the launcher's content as a sheet (App owns the rows and their handlers) and
-   *  the badge on the button — running Einsätze + alarms waiting to be taken */
-  einsaetze: { badge: number; render: (close: () => void) => ReactNode }
+  /** «Einsätze ▾»: the app menu as a sheet (App owns the rows and their handlers) and the badge
+   *  on the button — running Einsätze + alarms waiting to be taken. `onDevice` opens this
+   *  viewer's «Auf diesem Gerät», the menu's offline row on home. */
+  einsaetze: { badge: number; render: (close: () => void, onDevice: () => void) => ReactNode }
   /** entered from an Einsatz (its menu's «Karte & Objekte» row): say where it picked up again */
   announceReturn?: boolean
   /** hand over to the Objektbesuche surface at this address */
@@ -318,10 +320,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── «Einsätze ▾»: the launcher's content as a sheet under the bar ──────────────────────────
+  // ── «Einsätze ▾»: the app menu as a sheet under the bar ─────────────────────────────────────
   const [sheetOpen, setSheetOpen] = useState(false)
   const barRef = useRef<HTMLDivElement>(null)
   const closeSheet = useCallback(() => setSheetOpen(false), [])
+  const openDevice = () => { setSheetOpen(false); setDeviceOpen(true) }
   useEffect(() => {
     if (!sheetOpen) return
     // 'pointerdown' (touch fires the compat mousedown late or never) — the IncidentSwitcher's
@@ -788,12 +791,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             </button>
           ) : !phone && liveWeather.data?.wind_dir_deg != null && <WeatherBadge weather={liveWeather.data} bearing={view.bearing} />}
           {!phone && runningChip}
-          {/* the launcher card's content, as the Einsatz menu hangs off its bar (13-incident ·
-              .ip-menu): running rows, alarms to take, Manueller Einsatz, Verlauf, Objektbesuche,
-              who is signed in, the device's utilities */}
+          {/* the app menu, hung off the bar as the Einsatz menu hangs off its own (13-incident ·
+              .ip-menu) — the same rows (panels/AppMenuRows), without the Einsatz card */}
           {sheetOpen && (
             <div className="ip-menu ip-einsaetze" role="dialog" aria-label={C.einsaetze}>
-              {einsaetze.render(closeSheet)}
+              {einsaetze.render(closeSheet, openDevice)}
             </div>
           )}
         </div>

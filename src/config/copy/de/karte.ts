@@ -8,10 +8,11 @@ export const karteCopy = {
   // register fact carries «Register-Hinweis», and missing data never reads as «no hazard».
   karte: {
     title: 'Karte & Objekte',
-    launcher: 'Karte & Objekte',
-    // the Einsatz menu's «App» row back to the viewer (panels/IncidentSwitcher) and the line on return
-    menuSub: 'Objekte, Pläne und Gebäude ansehen',
-    menuBack: 'Zurück zu {where}',
+    // «Einsatz verlassen» (owner, 17.10.2026): the Einsatz menu's door to the viewer (panels/AppMenuRows).
+    // «verlassen» must never read as closing — the sub line says the Einsatz runs on.
+    leave: 'Einsatz verlassen',
+    leaveSub: 'Läuft weiter · zur Karte',
+    leaveBack: 'Läuft weiter · zurück zu {where}',
     backAt: 'Wieder bei {where}',
     backPlan: 'Modul {code}',
     einsaetze: 'Einsätze',
