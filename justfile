@@ -223,12 +223,17 @@ demo-reset:
 # Backend jobs: e2e types, the coverage floor, hidden sourcemaps, the bundle budget, both
 # audits, both license checks and the schema-drift check. Not covered — they need more than
 # a container: the gitleaks scan, the image build, e2e, visual and perf.)
-# Run everything CI would fail you on, before you push.
+# Run the frontend, coverage and backend gates together (just >=1.56); --jobs 1 runs them serially.
 [group('Quality')]
-ci: schema-check test-backend
+[parallel]
+ci: ci-frontend ci-unit ci-backend
+
+# Frontend static checks and production build (application tsc is part of pnpm build).
+[group('Quality')]
+ci-frontend:
     pnpm lint
     pnpm exec tsc -p tsconfig.e2e.json
-    pnpm test:coverage
+    node scripts/check-e2e-suites.mjs
     pnpm build
     node scripts/check-sourcemaps.mjs
     node scripts/check-bundle-size.mjs
@@ -236,6 +241,15 @@ ci: schema-check test-backend
     pnpm audit --prod --audit-level high
     pnpm audit --audit-level moderate
     python3 scripts/check_licenses.py frontend
+
+# Full frontend suite and unchanged coverage floor; leave cores for tsc and pytest beside it.
+[group('Quality')]
+ci-unit:
+    pnpm test:coverage --maxWorkers=4
+
+# Backend checks against disposable Postgres databases, including migration/model drift.
+[group('Quality')]
+ci-backend: schema-check test-backend
     cd backend && uv run ruff format --check .
     cd backend && uv run ruff check .
     cd backend && uv run mypy app
@@ -256,18 +270,20 @@ schema-check:
     export DATABASE_URL="postgresql+asyncpg://kpfront:kpfront@localhost:5434/$db"
     (cd backend && uv run alembic upgrade head && uv run alembic check)
 
-# (Uses its OWN database on the dev Postgres — the suite creates and drops the schema, so
-# pointing it at `kpfront` would take your dev data with it. `|| true` on the create: the
-# second run is a duplicate-database error and that is the normal case. Four workers like CI,
-# each in its own kpfront_test_gwN; extra args go to pytest: `just test-backend -n 0 -x tests/test_x.py`.)
+# (One database per invocation: concurrent worktrees must not drop each other's xdist databases.
+# The suite creates and drops its schema, so never point it at the dev database. Four workers
+# like CI; extra args go to pytest: `just test-backend -n 0 -x tests/test_x.py`.)
 # Backend tests on Postgres, the way CI runs them (not the SQLite fallback).
 [group('Quality')]
 test-backend *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
     docker compose -f docker-compose.dev.yml up -d --wait
-    -docker compose -f docker-compose.dev.yml exec -T db psql -qU kpfront -d postgres \
-      -c 'create database kpfront_test' 2>/dev/null
-    cd backend && DATABASE_URL=postgresql+asyncpg://kpfront:kpfront@localhost:5434/kpfront_test \
-      uv run pytest -q -n 4 {{args}}
+    db="kpfront_test_$$"
+    docker compose -f docker-compose.dev.yml exec -T db createdb -U kpfront "$db"
+    trap 'docker compose -f docker-compose.dev.yml exec -T db dropdb -U kpfront "$db"' EXIT
+    (cd backend && DATABASE_URL="postgresql+asyncpg://kpfront:kpfront@localhost:5434/$db" \
+      uv run pytest -q -n 4 {{args}})
 
 # (Scope is CI's: `.`, not `app tests` — alembic/ is lint-clean too, and code CI checks but you
 # don't is code that breaks on push rather than on save. Includes the format check.)

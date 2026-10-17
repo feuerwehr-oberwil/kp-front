@@ -119,7 +119,7 @@ Interested in using or contributing to KP Front? Start a
 **Setting up a station, not hacking on the code? Skip to [Self-host](#self-host)** – this
 section is the developer machine.
 
-Recipes use [`just`](https://github.com/casey/just) (`brew install just`). See the
+Recipes use [`just`](https://github.com/casey/just) 1.56 or later (`brew install just`). See the
 [`justfile`](justfile) for the underlying commands.
 
 ### Development stack
@@ -157,6 +157,9 @@ Run `just` without an argument to list every recipe.
 | `just dev` | the whole stack: database + backend + frontend |
 | `just db-stop` / `just db-reset` | stop the dev database / wipe its volume |
 | `just lint` / `just test` | lint / test both stacks |
+| `just test-changed` | short frontend feedback loop plus backend last failures; not a full gate |
+| `just ci` | independent static, coverage and backend gates in parallel; `just --jobs 1 ci` runs serially |
+| `just test-backend <pytest args…>` | backend tests on a disposable PostgreSQL database |
 | `just build` | type-check + production build |
 | `just config-example` | print a starting deployment config (copy & edit) |
 | `just config-validate <file>` / `just config-load <file>` | validate / apply a config |
@@ -166,6 +169,10 @@ Run `just` without an argument to list every recipe.
 The React frontend can run alone. The FastAPI backend adds authentication, workspace sync,
 history, integrations, and reference data. Deployment configuration is managed as code; see
 [`Configuration`](docs/CONFIGURATION.md) and [`API`](docs/API.md).
+
+TypeScript caches repeated checks per checkout under `node_modules/.cache/typescript/`.
+The [CI and local validation guide](docs/testing/ci.md) explains the fast loop, complete gate,
+isolated browser suites and cache behavior.
 
 ## Self-host
 

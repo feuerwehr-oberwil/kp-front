@@ -11,6 +11,9 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
+    // Cache belongs to this checkout, never the source tree or another worktree.
+    "incremental": true,
+    "tsBuildInfoFile": "node_modules/.cache/typescript/app.tsbuildinfo",
     "jsx": "react-jsx",
     "strict": true,
     "noUnusedLocals": false,

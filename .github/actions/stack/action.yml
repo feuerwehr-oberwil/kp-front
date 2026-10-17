@@ -1,9 +1,12 @@
 name: Boot the production stack
 description: >-
-  Build THIS commit's production image and boot docker-compose with it on :8000 (db + app,
-  migrated and seeded), the stack Railway and self-hosters run. Shared by ci.yml's «Image» and
-  «Performance» jobs. Reads SEED_PIN, ADMIN_SECRET, ALARM_WEBHOOK_SECRET and COMPOSE_FILE from the
-  job's env.
+  Load this run's image artifact (or build it for a standalone workflow), then boot an isolated
+  docker-compose stack on :8000, migrated and seeded. Reads SEED_PIN, ADMIN_SECRET,
+  ALARM_WEBHOOK_SECRET and COMPOSE_FILE from the job's env.
+inputs:
+  image-artifact:
+    description: Image artifact from this workflow run (empty builds locally)
+    default: ''
 runs:
   using: composite
   steps:
@@ -28,28 +31,27 @@ runs:
           echo "WEATHER_LAYER_ENABLED=false"
         } > .env
 
-    - name: Set up Buildx
-      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+    - name: Download this run's production image
+      if: inputs.image-artifact != ''
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
       with:
-        # Buildx's own BuildKit container is moby/buildkit from Docker Hub unless named here, and
-        # Hub's anonymous pull limit failed this step at random (09.10.2026). mirror.gcr.io is
-        # Google's cache of Docker Hub: the same image, same digest.
-        driver-opts: image=mirror.gcr.io/moby/buildkit:buildx-stable-1
-        # The Dockerfile's base is named on Docker Hub (so Dependabot can read it); BuildKit asks
-        # Google's Hub mirror first (same digests) and falls back to Hub itself.
-        buildkitd-config-inline: |
-          [registry."docker.io"]
-            mirrors = ["mirror.gcr.io"]
+        name: ${{ inputs.image-artifact }}
+        path: ${{ runner.temp }}/kp-front-image
 
-    - name: Build image (gha-cached)
-      uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
-      with:
-        context: .
-        file: Dockerfile
-        load: true            # load into the local daemon; do not push
-        tags: ghcr.io/feuerwehr-oberwil/kp-front:ci   # matches KP_FRONT_TAG=ci above
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+    - name: Load this run's production image
+      if: inputs.image-artifact != ''
+      shell: bash
+      run: zstd --decompress --stdout "$RUNNER_TEMP/kp-front-image/kp-front-image.tar.zst" | docker load
+
+    - name: Build the production image (standalone workflow)
+      if: inputs.image-artifact == ''
+      uses: ./.github/actions/build-image
+
+    - name: Verify the loaded image belongs to this revision
+      shell: bash
+      run: |
+        revision=$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' ghcr.io/feuerwehr-oberwil/kp-front:ci)
+        test "$revision" = "$GITHUB_SHA"
 
     # docker-compose.yml names its Docker Official Images on ECR Public, for the stations that run
     # it. CI does not pull them there: ECR Public meters anonymous clients by source IP, GitHub's
@@ -77,4 +79,4 @@ runs:
 
     - name: Boot the stack
       shell: bash
-      run: docker compose up -d --wait   # waits for db + app healthchecks (migrations + seed)
+      run: docker compose up -d --wait --wait-timeout 180   # migrations + seed + readiness

@@ -18,7 +18,12 @@ WORKDIR /app
 RUN npm install -g pnpm@10.18.3
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
-COPY . .
+# Only SPA inputs: a backend, workflow or docs edit must not rebuild the frontend. Vite also
+# reads the coverage floor while resolving its config, even for a production build.
+COPY index.html vite.config.ts tsconfig.json ./
+COPY scripts/coverage-floor.json ./scripts/coverage-floor.json
+COPY src ./src
+COPY public ./public
 # .git is dockerignored, so the build stamp's sha comes in as a build arg: Railway passes
 # RAILWAY_GIT_COMMIT_SHA automatically for declared ARGs; other builders may pass GIT_SHA.
 # Falls back to 'dev' in the label — update detection doesn't depend on it (swUpdate.ts).
@@ -61,38 +66,39 @@ RUN echo "deb [signed-by=/etc/apt/keyrings/pgdg.asc] https://apt.postgresql.org/
     && apt-get update && apt-get install -y --no-install-recommends "postgresql-client-${PG_CLIENT_MAJOR}" ffmpeg fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
+# Install the environment as its runtime owner. A late recursive chown of /app copied the
+# whole venv into another image layer on every SPA change (24–49 s on Railway).
+RUN useradd --uid 10001 --create-home app \
+    && install -d -o app -g app /app/backend /data/storage /mnt/data/storage
+USER app
+
 # Install Python deps first from the lockfile alone, so editing backend code doesn't
 # re-resolve/re-download every dependency (this layer is cached unless deps change).
 # `--extra georef` ships the CV alignment stack (cv2/numpy/scipy, ~60 MB): without it the
 # server reports autoAlignConfigured=false and «Automatisch ausrichten» plus the alignment
 # worker are silently absent from the deployment (observed on FWO prod 11.09.2026).
-COPY backend/pyproject.toml backend/uv.lock /app/backend/
-RUN uv sync --no-dev --no-install-project --extra georef
+COPY --chown=app:app backend/pyproject.toml backend/uv.lock /app/backend/
+RUN uv sync --locked --no-dev --no-install-project --extra georef
 
 # Then the app code (+ install the project itself into the existing venv).
-COPY backend/ /app/backend/
-RUN uv sync --no-dev --extra georef
+COPY --chown=app:app backend/ /app/backend/
+RUN uv sync --locked --no-dev --extra georef
 
 # SPA build + public assets (plans, leitungskataster, symbols seed source).
-COPY --from=frontend /app/dist /app/dist
-COPY public /app/public
+COPY --from=frontend --chown=app:app /app/dist /app/dist
+COPY --chown=app:app public /app/public
 # Synthetic demo dataset (Musterdorf) — small (~276K). Needed in-image so the demo deployment's
 # in-process auto-reset (DEMO_RESET_SECONDS) can read examples/demo-data/incident.workspace.json.
-COPY examples /app/examples
+COPY --chown=app:app examples /app/examples
 
 ENV SPA_DIR=/app/dist
 # Railway volume mount for media / snapshots / reference files.
 ENV MEDIA_STORAGE_DIR=/mnt/data/storage
 ENV SEED_DATABASE=true
 
-# Run as a non-root user. Pre-create both storage roots (compose mounts /data/storage,
-# Railway /mnt/data/storage) owned by the app user, so an EMPTY named volume inherits the
-# ownership on first mount. If the platform mounts a volume root-owned anyway, /ready flags
-# storage as not writable and a gated deploy fails fast instead of losing media silently.
-RUN useradd --uid 10001 --create-home app \
-    && mkdir -p /data/storage /mnt/data/storage \
-    && chown -R app:app /app /data /mnt/data \
-    && chmod +x /app/backend/start.sh
+# Empty compose volumes inherit the app-owned storage directories created above. Railway's
+# root-owned mount still needs its documented override; /ready checks actual writability.
+RUN chmod +x /app/backend/start.sh
 # Which build is this? A release number cannot tell a from-source build of `main` apart from a
 # published image of the same tag. .git is dockerignored, so the sha comes in as a build arg
 # (release.yml passes GIT_SHA; Railway passes RAILWAY_GIT_COMMIT_SHA for a declared ARG).
