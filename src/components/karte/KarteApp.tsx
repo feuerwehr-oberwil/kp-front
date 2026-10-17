@@ -4,8 +4,8 @@
 // What it is: the station area on the Einsatz's map (MapView, its Ebenen, the vehicles, the
 // weather), every station object as a red outline with its name tag (a key box as the FKS
 // «Schlüsseldepot»), one panel for whatever is known about the selected place, the object's plans
-// in the NavRail grammar, and the reference tools — Punkt setzen, Messen, Gefahrgut — that need no
-// symbol placed first.
+// in the NavRail grammar (on a phone: as rows in the slide-up sheet, KartePanel), and the reference
+// tools — Punkt setzen, Messen, Gefahrgut — that need no symbol placed first.
 //
 // ⚠️ What it never is: an Einsatz. It holds NO workspace, writes no drawing, binds no plan and
 // moves nothing in any incident. Measurements, the Gefahrgut rings and a dropped pin live in this
@@ -71,8 +71,6 @@ import { MapViewsButton, type ViewsApi } from '../MapViewsMenu'
 import { WeatherBadge } from '../TopBar'
 import { WeatherRadarControls } from '../weatherLazy'
 import { SearchField } from '../SearchField'
-import { PlanChooser } from '../PlanChooser'
-import { PlanGlyph } from '../PlanGlyph'
 import { KartePanel, type PanelSel, type RegisterState, type VisitsState } from './KartePanel'
 import { KarteSearch, type AddrState } from './KarteSearch'
 import { KarteGefahrgut } from './KarteGefahrgut'
@@ -246,7 +244,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     if (noBasemapSaid.current) return
     noBasemapSaid.current = true
     setNoBasemap(true)
-  }, [setNoBasemap])
+  }, [setNoBasemap]) // the setter named: the React Compiler infers it (lint ratchet)
   const [wasOnline, setWasOnline] = useState(online)
   if (online !== wasOnline) { setWasOnline(online); if (online) setNoBasemap(false) }
 
@@ -677,7 +675,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     { id: 'measure', icon: 'measure', label: C.tools.measure },
     { id: 'erg', icon: 'warn', label: C.tools.erg },
   ]
-  const [planChooser, setPlanChooser] = useState(false)
   const approxAt = sel?.kind === 'object' && selObj && !coordOf(selObj) ? sel.approxAt ?? null : null
 
   return (
@@ -828,7 +825,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             sheet={phone}
             full={full}
             withRail={railShown}
-            onToggleFull={() => setFull((f) => !f)}
+            onFull={setFull}
             onClose={deselect}
             onMeasureHere={measureHere}
             onStartVisit={startVisit}
@@ -863,17 +860,15 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           />
         )}
 
-        {/* the phone: Karte · Pläne · Messen · Gefahrgut · Ebenen at the foot, pin + compass above it */}
+        {/* the phone: Karte · Messen · Gefahrgut · Ebenen at the foot, pin + compass above it. No
+            «Pläne» tab (owner, 17.10.2026): an object's plans are rows in its sheet, and an open
+            plan goes back with its «Zur Karte» chip or the Karte tab */}
         {phone && (
           <>
             <nav className="navrail rail folded labelled" aria-label={C.title}>
               <div className="rail-scroll-wrap"><div className="nav-scroll rail-scroll">
                 <button type="button" className={cx('nav-item', onMapSurface && !tool && 'on')} onClick={() => { setSurface(null); setToolState(null) }}>
                   <span className="nav-glyph"><Icon id="map" /></span><span className="nav-label">{C.tools.map}</span>
-                </button>
-                <button type="button" className={cx('nav-item nav-plans', !!openDoc && 'on')} disabled={!docs.length} onClick={() => setPlanChooser(true)}>
-                  {openDoc ? <PlanGlyph doc={openDoc.doc} /> : <span className="nav-glyph">{docs.length ? <span className="nav-mono-chip">{docs.length}</span> : <Icon id="doc" />}</span>}
-                  <span className="nav-label">{C.tools.plans}</span>
                 </button>
                 {(['measure', 'erg', 'layers'] as const).map((t) => (
                   <button key={t} type="button" className={cx('nav-item', tool === t && 'on')} aria-pressed={tool === t} onClick={() => setTool(t)}>
@@ -888,9 +883,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
                 <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly variant="util" btnClassName={s.utilBtn} glyphClassName={s.utilGlyph}
                   open={viewsOpen} onOpenChange={setViewsOpen} />
               </div>
-            )}
-            {planChooser && selObj && (
-              <PlanChooser docs={docs.map((d) => d.doc)} activeId={openDoc?.doc.id ?? ''} onPick={(id) => { setSurface(id); setToolState(null); setPlanChooser(false) }} onClose={() => setPlanChooser(false)} />
             )}
           </>
         )}
@@ -910,9 +902,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
               [{ type: 'action', icon: 'trash', label: appConfig.copy.measure.clear, disabled: !measure.path.length, onClick: () => measure.setPath(() => []) }],
               [{ type: 'info', text: appConfig.copy.dockHints.measure }],
             ]} />
-            {/* temporary by construction: no «Als Linie/Fläche übernehmen» (no onAdopt) */}
-            <MeasurePanel mode={measure.mode} coords={measure.path} profile={measure.profile} profileLoading={measure.loading} />
-            <div className={s.measureNote}>{C.measureTemp}</div>
+            {/* temporary by construction: no «Als Linie/Fläche übernehmen» (no onAdopt) — and no
+                line saying so either (owner-6): nothing on this surface is ever saved */}
+            <MeasurePanel mode={measure.mode} coords={measure.path} profile={measure.profile} profileLoading={measure.loading} className={s.measurePanel} />
           </>
         )}
 
