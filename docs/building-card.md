@@ -82,6 +82,11 @@ out for every link session, and the Rapport view link may not ask at all. The ob
 (`/api/objects…`, `…/{id}/objects`) leave `measures`/`remarks`/`measures_source` out for every link
 session, because the view link reaches them for its Rapport's plans, not for the station's notes.
 
+Outside an Einsatz, «Karte & Objekte» asks the same registers for any point:
+`GET /api/reference/building?lat=&lng=[&address=]` answers the same `BuildingOut` through the same
+lookup (`api/building · fill_registers`), and names an `object` only on an EXACT street + number
+match, never by distance ([`karte-objekte.md`](karte-objekte.md)).
+
 The building is the GWR entry within 60 m (`MAX_DISTANCE_M`) of the Einsatzort; among those, one
 whose street + number equals the incident's wins, otherwise the nearest. identify's search radius
 is in pixels of a pretend image, so `identify_tolerance_px` sizes it to reach 60 m east–west, and the
