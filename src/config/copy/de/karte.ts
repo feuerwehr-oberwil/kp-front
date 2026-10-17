@@ -25,6 +25,7 @@ export const karteCopy = {
     // search
     searchPlaceholder: 'Adresse oder Objekt suchen …',
     searchPlaceholderShort: 'Adresse oder Objekt',
+    searchOpen: 'Suchen',
     searchObjects: 'Stationsobjekte',
     searchAddresses: 'Adressen',
     searchNoObject: 'Kein Stationsobjekt gefunden.',
@@ -129,6 +130,7 @@ export const karteCopy = {
     pinHint: 'Auf die Karte tippen, um einen Punkt zu setzen. Lange drücken geht immer.',
     ergUn: 'UN-Nr.',
     ergPlaceholder: 'z. B. 1203',
+    ergUnLong: 'UN-Nummer, z. B. 1203',
     ergOffline: 'Offline verfügbar – UN/ADR und ERG liegen auf dem Gerät.',
     ergCenter: 'Auf die Karte tippen, um den Mittelpunkt zu versetzen.',
     ergCenterFirst: 'Auf die Karte tippen für den Mittelpunkt.',

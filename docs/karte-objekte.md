@@ -267,14 +267,37 @@ The rules that are easy to break:
   is named in the code. The aligned plan on the map is not (a plan backdrop is switched on on
   purpose, and the Einsatz's chips leave plan rasters alone too). The radar: off with «Standard»
   and «Alle aus», left by «Alle ein», no chip lit while it is on. Transparencies stay.
-- **The keyboard on a phone** (review round 2, owner-r2-keyboard). iOS lays the keyboard over the
-  page and pans it to show the caret; the viewer publishes the visible band like an Einsatz
-  (`lib/useViewportPan`: `--vv-pan`, `--vv-foot`, `html[data-kb]`), so the bars stay on the screen,
-  the bottom bar steps aside, the Gefahrgut card fills the band from under the top bar down to the
-  keys with its UN field at the top (outside the readout's scroller), and the search results end
-  on the keys. Playwright raises no iOS keyboard: the shots simulate one (a visualViewport shrunk
-  and panned by the keyboard's height, as the owner's screenshot shows iOS doing); the real
-  iPhone is the check.
+- **Typing on a phone** (review round 3, 17.10.2026 — round 2's keyboard handling did nothing on
+  the owner's real iPhone). The bar is «Einsätze ▾» + a round **search button**; the tablet keeps
+  its field. Search and **Gefahrgut** are slide-ups with Ebenen's frame (`KarteKeySheet`): the field
+  is the first line with the ✕ beside it, the results / the readout scroll under it. The search
+  opens with the keyboard up (`primeKeyboard` inside the tap); a pick closes it and selects; it
+  stays (at its Ebenen height) when the keyboard goes, until a pick or ✕ — a tap on the map then
+  only lets the keyboard go. Gefahrgut likewise stays with its result after ✓; a tap on its tab
+  with no UN number opens it with the caret in the field and the number pad up, with a number set
+  it opens on the result without the keyboard (a Gefahrgut restored with the session never takes
+  the caret — only a tap may raise iOS's keyboard). The map is not moved for the rings.
+  - With the keyboard up the sheet keeps its height but stands **on the keyboard's top edge**,
+    never taller than the room under the top bar less a 24 px strip of map
+    (`lib/iosKeyboard · useKeySheet`, pure `keyboardTop` / `keySheetBox`).
+  - Why round 2 failed: it trusted iOS to report its pan as `visualViewport.offsetTop` and
+    counter-placed the card from that (`--vv-pan`). On the iPhone the page moved by ~the keyboard
+    without that number saying so (the top bar, translated by it, never came back), and a drag on
+    anything not scrolling moved it again. Now three guards that do not depend on one reading:
+    the field is focused without a pan (`focusWithoutPan` / `noPanTouchEnd`, the react-aria
+    technique), any pan that still happens is undone with `scrollTo(0, 0)` (rate-limited:
+    `mayCorrect`), and while a field has the caret a touchmove nothing under the finger can scroll
+    is cancelled (`useTypingLock`).
+  - No «AutoFill Contact»: both fields come from one helper (`lib/typingField`) — a `search-…`
+    name (Safari offers no contact AutoFill on a search), autocomplete / autocorrect /
+    autocapitalise / spell check off, `enterKeyHint`, numeric for the UN field, and their label /
+    placeholder words broken by an invisible word joiner (`defuseAutofill`) so Safari's keyword
+    guess («Adresse», «Nr.») finds nothing. Messen, Ebenen and the Einsätze menu have no text field.
+  - What is proven where: the shots run Playwright **WebKit** (iPhone 13 descriptor) with an iOS
+    stand-in that shrinks the visual viewport, moves the page on focus (both as a window scroll
+    and as an `offsetTop` pan) and moves it again under an uncancelled drag; the round-2 code
+    reproduces the owner's screenshots there. The real keyboard, Safari's focus scroll and its
+    AutoFill heuristics are only proven on the iPhone.
 - **Hints use the width they need** (review round 2): «Auf die Karte tippen …» is one pill as wide
   as the bottom bar on a phone (max-content up to 640 px on a tablet), one or two lines; the
   Gefahrgut card says where its rings stand first, right under the UN field.
