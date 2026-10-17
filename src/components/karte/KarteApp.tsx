@@ -18,7 +18,7 @@
 // (panels/AppMenuRows, owner 17.10.2026). App renders them (`einsaetze.render`, its handlers);
 // this file only opens and closes the sheet, and hands in its own «Auf diesem Gerät».
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import { Marker } from 'react-map-gl/maplibre'
 import { appConfig } from '../../config/appConfig'
@@ -32,6 +32,9 @@ import { useOnline } from '../../lib/useOnline'
 import { onReachable } from '../../lib/connectivity'
 import { useNightTheme } from '../../lib/useNightTheme'
 import { useViewportPan } from '../../lib/useViewportPan'
+import { focusWithoutPan, useTypingLock } from '../../lib/iosKeyboard'
+import { primeKeyboard } from '../../lib/keyboardPrime'
+import { defuseAutofill, typingFieldProps } from '../../lib/typingField'
 import { useSymbols } from '../../lib/useSymbols'
 import { useMeasure } from '../../lib/useMeasure'
 import { useVehicleLayer } from '../../lib/useVehicleLayer'
@@ -81,6 +84,7 @@ import { SearchField } from '../SearchField'
 import { KartePanel, type PanelSel, type RegisterState, type VisitsState } from './KartePanel'
 import { KarteSearch, type AddrState } from './KarteSearch'
 import { KarteGefahrgut } from './KarteGefahrgut'
+import { KarteKeySheet } from './KarteKeySheet'
 import { KarteNavRail, KarteSurface } from './KartePlans'
 import { KarteDevice } from './KarteDevice'
 import { KeyBoxGlyph } from './KeyBoxGlyph'
@@ -143,6 +147,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // `html[data-kb]`), the Einsatz's one hook — the bars stay on the screen, and a card with a field
   // stands on the keys (Karte.module.css · «the keyboard»)
   useViewportPan()
+  // …and on a phone the page itself never moves while a field has the caret (review round 3: the
+  // real iPhone moved it anyway — lib/iosKeyboard): any iOS pan is undone, a drag that nothing
+  // under the finger can scroll is cancelled
+  useTypingLock(phone)
 
   // ── where to start: the last view of this session, else the station ───────────────────────
   const [start] = useState(() => {
@@ -323,6 +331,17 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const measure = useMeasure(tool === 'measure')
   const [erg, setErg] = useState<{ un: string; mode: ErgRingMode; center: LngLat | null; at: Date }>(() => ({ un: '', mode: DEFAULT_ERG_RING_MODE, center: null, at: new Date() }))
   const [viewsOpen, setViewsOpen] = useState(false)
+  // the phone's Gefahrgut opened by a TAP with no UN number yet: the number pad comes up at once
+  // (owner, review round 3); with a number set it opens on the result, no keyboard. Only a tap may
+  // raise it (iOS), so a Gefahrgut restored with the session never takes the caret.
+  const [ergKeys, setErgKeys] = useState(false)
+  const openPhoneTool = (t: 'measure' | 'erg' | 'layers') => {
+    const keys = t === 'erg' && tool !== 'erg' && !erg.un
+    // inside the tap: iOS raises the keyboard only for a focus made in it (lib/keyboardPrime)
+    if (keys) primeKeyboard()
+    setErgKeys(keys)
+    setTool(t)
+  }
   // the phone sheet pushed away / ✕ while its place stays selected (outline, tag, pin): a tap on
   // the place again brings it back (owner R2). Every new selection opens it.
   const [sheetShut, setSheetShut] = useState(false)
@@ -340,7 +359,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     })
     setViewsOpen(false)
     if (t === 'erg' && !erg.center) setErg((e) => ({ ...e, center: selPoint(sel) ?? view.center, at: new Date() }))
-    if (phone && t && t !== 'pin') setSurface(null)
+    if (phone && t && t !== 'pin') { setSurface(null); setSearchOpen(false) }
   }
 
   // …and the view is kept for the way back (an Objektbesuch, an Einsatz, a reload) — with the
@@ -369,7 +388,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // ── «Einsätze ▾»: the app menu as a sheet under the bar ─────────────────────────────────────
   const [sheetOpen, setSheetOpen] = useState(false)
   const barRef = useRef<HTMLDivElement>(null)
-  const closeSheet = useCallback(() => setSheetOpen(false), [])
+  const closeSheet = useCallback(() => setSheetOpen(false), [setSheetOpen])
   const openDevice = () => { setSheetOpen(false); setDeviceOpen(true) }
   useEffect(() => {
     if (!sheetOpen) return
@@ -388,6 +407,20 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // ── search ────────────────────────────────────────────────────────────────────────────────
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  // the phone: the bar has a round search button, the field lives in a slide-up (review round 3,
+  // owner: «Einsätze ▾ + a search button», the sheet «like Ebenen», the keyboard right away)
+  const sheetFieldRef = useRef<HTMLInputElement>(null)
+  const openPhoneSearch = () => {
+    // inside the tap: iOS raises the keyboard only for a focus made in it (lib/keyboardPrime)
+    primeKeyboard()
+    setSearchOpen(true)
+    setSheetOpen(false)
+    // one sheet at a time at the foot: Ebenen / Gefahrgut give way (the measure stays armed)
+    setToolState((t) => (t === 'layers' || t === 'erg' ? null : t))
+  }
+  useLayoutEffect(() => {
+    if (phone && searchOpen) focusWithoutPan(sheetFieldRef.current)
+  }, [phone, searchOpen])
   const [addr, setAddr] = useState<{ q: string; state: 'ok' | 'error'; list: GeoHit[] }>({ q: '', state: 'ok', list: [] })
   const q = query.trim()
   useEffect(() => {
@@ -614,7 +647,12 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     if (tool === 'measure') { measure.setPath((pts) => [...pts, c]); return }
     if (tool === 'pin') { dropPin(c); return }
     if (tool === 'erg' && erg.mode !== 'off') { setErg((e) => ({ ...e, center: c, at: new Date() })); return }
-    if (searchOpen) { setSearchOpen(false); return }
+    // the phone's search sheet stays until a pick or its ✕ (owner, review round 3): a tap on the
+    // map only lets the keyboard go; the tablet's list hung from the bar closes as before
+    if (searchOpen && phone) {
+      const a = document.activeElement
+      if (a instanceof HTMLElement && sheetFieldRef.current === a) { a.blur(); return }
+    } else if (searchOpen) { setSearchOpen(false); return }
     if (objectsOn) {
       // any of an object's buildings opens the object
       for (const [id, b] of outlines) if (!catOff(id) && ringAt(b.rings, c)) { selectObject(id, false); return }
@@ -733,7 +771,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const onMapSurface = !openDoc
   /** the panel is on screen: on the map, not under Messen, and on a phone not under a tool's own
    *  card nor pushed away */
-  const panelShown = onMapSurface && !!panelSel && tool !== 'measure' && !(phone && (tool === 'erg' || tool === 'layers' || sheetShut))
+  const panelShown = onMapSurface && !!panelSel && tool !== 'measure' && !(phone && (tool === 'erg' || tool === 'layers' || sheetShut || searchOpen))
   const railShown = !phone && !!selObj && docs.length > 0
   const tabletTools = [
     { id: 'pin', icon: 'pin', label: C.tools.pin },
@@ -946,15 +984,18 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             <Icon id="chevron-down" className={s.chev} />
             {einsaetze.badge > 0 && <span className={s.einsaetzeBadge} aria-label={fillTemplate(C.einsaetzeBadge, { n: einsaetze.badge })}>{einsaetze.badge}</span>}
           </button>
-          <SearchField
-            className={s.search}
-            value={query}
-            onChange={(v) => { setQuery(v); setSearchOpen(true) }}
-            onFocus={() => setSearchOpen(true)}
-            onKeyDown={(e) => { if (e.key === 'Escape') setSearchOpen(false) }}
-            placeholder={phone ? C.searchPlaceholderShort : C.searchPlaceholder}
-            aria-label={C.searchPlaceholder}
-          />
+          {!phone && (
+            <SearchField
+              {...typingFieldProps('search', 'karte')}
+              className={s.search}
+              value={query}
+              onChange={(v) => { setQuery(v); setSearchOpen(true) }}
+              onFocus={() => setSearchOpen(true)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setSearchOpen(false) }}
+              placeholder={defuseAutofill(C.searchPlaceholder)}
+              aria-label={defuseAutofill(C.searchPlaceholder)}
+            />
+          )}
           {/* offline: the chip stands where the weather was and opens «Auf diesem Gerät» */}
           {!online ? (
             <button type="button" className={s.offChip} onClick={() => setDeviceOpen(true)} title={C.offlineChipTitle} aria-label={C.offlineChipTitle}>
@@ -962,6 +1003,12 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             </button>
           ) : !phone && liveWeather.data?.wind_dir_deg != null && <WeatherBadge weather={liveWeather.data} bearing={view.bearing} />}
           {!phone && runningChip}
+          {phone && (
+            <button type="button" className={cx(s.searchBtn, searchOpen && s.open)} onClick={() => (searchOpen ? setSearchOpen(false) : openPhoneSearch())}
+              aria-label={C.searchOpen} title={C.searchOpen} aria-expanded={searchOpen} data-karte-search-open="">
+              <Icon id="search" />
+            </button>
+          )}
           {/* the app menu, hung off the bar as the Einsatz menu hangs off its own (13-incident ·
               .ip-menu) — the same rows (panels/AppMenuRows), without the Einsatz card */}
           {sheetOpen && (
@@ -973,9 +1020,28 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         {/* the strip stands where the «Einsätze» sheet hangs — and the sheet lists the same Einsatz */}
         {phone && live && !sheetOpen && <div className={s.runningStrip}>{runningChip}</div>}
 
-        {searchOpen && (
+        {searchOpen && !phone && (
           <KarteSearch query={query} hits={hits} featured={featured} addresses={addrState === 'ok' ? addr.list : []} addrState={addrState}
             onPickObject={(id) => { setQuery(byId.get(id)?.name ?? ''); selectObject(id) }} onPickAddress={pickAddress} />
+        )}
+        {searchOpen && phone && (
+          <KarteKeySheet
+            label={C.searchOpen}
+            onClose={() => setSearchOpen(false)}
+            field={(
+              <SearchField
+                {...typingFieldProps('search', 'karte')}
+                ref={sheetFieldRef} className={s.keyField} noClear value={query}
+                onChange={setQuery}
+                onKeyDown={(e) => { if (e.key === 'Escape') setSearchOpen(false); else if (e.key === 'Enter') e.currentTarget.blur() }}
+                placeholder={defuseAutofill(C.searchPlaceholderShort)}
+                aria-label={defuseAutofill(C.searchPlaceholder)}
+              />
+            )}
+          >
+            <KarteSearch inSheet query={query} hits={hits} featured={featured} addresses={addrState === 'ok' ? addr.list : []} addrState={addrState}
+              onPickObject={(id) => { setQuery(byId.get(id)?.name ?? ''); selectObject(id) }} onPickAddress={pickAddress} />
+          </KarteKeySheet>
         )}
 
         {railShown && selObj && (
@@ -1040,13 +1106,13 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
                   <span className="nav-glyph"><Icon id="map" /></span><span className="nav-label">{C.tools.map}</span>
                 </button>
                 {(['measure', 'erg', 'layers'] as const).map((t) => (
-                  <button key={t} type="button" className={cx('nav-item', tool === t && 'on')} aria-pressed={tool === t} onClick={() => setTool(t)}>
+                  <button key={t} type="button" className={cx('nav-item', tool === t && 'on')} aria-pressed={tool === t} onClick={() => openPhoneTool(t)}>
                     <span className="nav-glyph"><Icon id={t === 'erg' ? 'warn' : t} /></span><span className="nav-label">{C.tools[t]}</span>
                   </button>
                 ))}
               </div></div>
             </nav>
-            {onMapSurface && !tool && !panelShown && (
+            {onMapSurface && !tool && !panelShown && !searchOpen && (
               <div className={s.phoneUtil}>
                 <button type="button" className={cx(s.utilBtn)} aria-label={C.tools.pin} onClick={() => setTool('pin')}><Icon id="pin" /></button>
                 <MapViewsButton api={viewsApi} bearing={view.bearing} readOnly variant="util" btnClassName={s.utilBtn} glyphClassName={s.utilGlyph}
@@ -1081,7 +1147,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           <KarteGefahrgut
             un={erg.un} onUn={(un) => setErg((e) => ({ ...e, un, center: e.center ?? selPoint(sel) ?? view.center, at: new Date() }))}
             mode={erg.mode} onMode={(mode) => setErg((e) => ({ ...e, mode, at: new Date() }))}
-            center={erg.center} onClose={() => setTool('erg')}
+            center={erg.center} onClose={() => setTool('erg')} phone={phone} focusOnOpen={phone && ergKeys}
           />
         )}
 

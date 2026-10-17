@@ -6,6 +6,9 @@
 // «we don't need the number of modules on the index. just the address is enough»; the sheet
 // lists the plans). The address line is lib/karte/places · objectRowSub: never the kind word
 // standing in for an address, and a name that IS the address is not printed twice.
+//
+// On a phone the list is the body of the search's slide-up (`inSheet`, KarteApp · KarteKeySheet,
+// review round 3) rather than a card hung from the bar: the sheet is its frame and its scroller.
 
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
@@ -20,7 +23,7 @@ import s from './Karte.module.css'
 
 export type AddrState = 'idle' | 'short' | 'loading' | 'ok' | 'offline' | 'error'
 
-export function KarteSearch({ query, hits, featured, addresses, addrState, onPickObject, onPickAddress }: {
+export function KarteSearch({ query, hits, featured, addresses, addrState, onPickObject, onPickAddress, inSheet = false }: {
   query: string
   hits: ObjectHit[]
   /** shown while nothing is typed */
@@ -29,12 +32,14 @@ export function KarteSearch({ query, hits, featured, addresses, addrState, onPic
   addrState: AddrState
   onPickObject: (id: string) => void
   onPickAddress: (hit: GeoHit) => void
+  /** inside the phone's search sheet: no frame of its own */
+  inSheet?: boolean
 }) {
   const C = appConfig.copy.karte
   const q = query.trim()
   const lead = (o: StationObject) => <span className={s.rowLead}>{o.kind === 'depot' ? <KeyBoxGlyph /> : <Icon id="footprint" />}</span>
   return (
-    <div className={s.results} role="listbox" aria-label={C.searchObjects}>
+    <div className={inSheet ? s.resultsIn : s.results} role="listbox" aria-label={C.searchObjects}>
       <div className={s.grp}>{C.searchObjects}</div>
       {!q ? (
         <>
