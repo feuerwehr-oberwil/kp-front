@@ -44,7 +44,9 @@ export interface StationObject {
   plans: StationPlan[]
   floors: StationFloor[]
   egid: string | null
-  /** a station-set outline (GeoJSON geometry); null today — the map's own building is used */
+  /** every building the object stands for, as one GeoJSON MultiPolygon (the server derives it
+   *  from the use area / parcel / cadastral survey — backend app/object_footprints); null = the
+   *  map's own OSM building its point lies in is used (lib/karte/places · objectBuildings) */
   footprint: unknown
   measures?: string | null
   remarks?: string | null

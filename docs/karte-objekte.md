@@ -33,7 +33,7 @@ Every station object in one payload, which the client searches and keeps for off
     "plans": [{ "id": "plan:<uuid>:modul23", "module": "modul23", "code": "2/3", "title": "…",
                 "pages": 3 | null, "georef": true, "version": 2, "updatedAt": "…" }],
     "floors": [{ "index": -1, "name": null }, { "index": 0, "name": "Hauptebene" }],
-    "egid": null, "footprint": null,
+    "egid": null, "footprint": { "type": "MultiPolygon", "coordinates": [ … ] } | null,
     "measures": "…", "remarks": "…", "measuresSource": "Modul 1 · Stand 03.2026", "updatedAt": "…",
     "lastVisit": { "id": "ov-…", "checklist": "Kontrolle Schlüsselhülse", "date": "…", "defects": 1 } | null
   }],
@@ -57,9 +57,30 @@ How each field is derived – none of them is a new column:
   gate as `GET /api/reference/{id}/alignments` (`plan_floors.fit_publishable`).
 - **`floors`**: the Geschosse of the current revisions' floor packs, by signed index; the words
   («EG», «1. OG») are the client's copy (`lib/whiteboard · floorLabel`), the station's own name wins.
-- **`egid` / `footprint`**: no station source carries either today, so both are `null`. The viewer
-  then outlines the map building that CONTAINS the object's coordinate. It never picks a building
-  by proximity alone.
+- **`egid`**: no station source carries one today, so it is `null`.
+- **`footprint`**: EVERY building the object stands for, as one MultiPolygon, the building its
+  point lies in first (review 17.10.2026: Schulhaus Hüslimatt is five buildings on several parcels,
+  and only one was red). Derived by the scheduler, never per request, from official data
+  (`app/object_footprints`), and only read here:
+  1. the object's point in an allowed swissTLM3D **use area** (school, college/university,
+     hospital, sports ground, swimming pool, cemetery, zoo, substation — the `landuse` layer of
+     swisstopo's base vector tiles, z14) → every building whose centroid lies in it;
+  2. else its cadastral **parcel** (geo.admin identify, `ch.swisstopo-vd.amtliche-vermessung`) →
+     every building on it;
+  3. else the one building its point lies in.
+  The buildings are the cadastral survey's own footprints (amtliche Vermessung, Bodenbedeckung
+  «Gebäude», geodienste.ch's open AV WFS). A step is skipped when it is too big to be one object
+  (area > 150 000 m², parcel > 60 000 m², more than 15 buildings — an estate of unrelated firms)
+  or when it holds ANOTHER station object's point (key boxes aside): two catalogue objects on one
+  parcel never claim each other's buildings. Sheds under 30 m² on the grounds are not the
+  object's. `null` (nothing official at the point, not derived yet, a source switched off with
+  `FOOTPRINT_AREA_TILES=` / `FOOTPRINT_BUILDINGS_WFS=`) → the viewer outlines the OSM building
+  that CONTAINS the object's coordinate, as before. Never a building by proximity alone.
+  What a source said is stored per coordinate (`reference/object-footprints.json` beside the
+  building snapshot), so a moved or new object is asked once (≤ 20 points per two-minute tick),
+  a catalogue change re-derives without asking anybody, and a failed ask is retried after an hour
+  and never stored as «nothing there». A footprint is served only while the object still stands
+  on the point it was derived for.
 - **`lastVisit`**: the latest COMPLETED Objektbesuch (drafts and discarded visits are not visits
   that happened), only where the station runs the module or for the admin session.
 
@@ -98,7 +119,7 @@ What it reuses, so nothing forks:
 | plans | the NavRail classes and `PlanGlyph`, `PlanChooser` on the phone, `PdfScroller` on the current revision; the Gebäude storeys as the floor pack's page regions (`planRegionCropUrl`, what `FloorPage` draws from) |
 | register facts | `lib/buildingCard` (chips, source line), the same «Register-Hinweis» |
 | Gefahrgut | `UnHazardSection` — the Gefahrentafel's ADR/ERG block, extracted from `ContextPanel` |
-| building outlines | the Umriss picker's `/api/overpass/buildings` (station snapshot first), loaded per grid cell (`lib/karte/outlines`) |
+| building outlines | the object's own `footprint` (above); for every other building and an object without one, the Umriss picker's `/api/overpass/buildings` (station snapshot first), loaded per grid cell (`lib/karte/outlines`) |
 
 The rules that are easy to break:
 
@@ -106,10 +127,20 @@ The rules that are easy to break:
   row. Measurements, the Gefahrgut rings and a dropped pin are component state; only the Ebenen and
   the view (`KarteView`: frame, selected object, open plan, in sessionStorage) are kept —
   `karteViewSnapshot` is the one door into storage (`lib/karte/karte.test.ts` pins it).
-- **A building is an object only by containment or an exact address.** An object is drawn as the
-  OSM outline that CONTAINS its own coordinate; a tapped building opens an object only when the
-  register's street + number equals the object's (`lib/karte/places`). A key box at the same door
-  is not the building. No outline under a point → no building.
+- **A building is an object only by official data, containment or an exact address.** An object
+  is drawn as its `footprint` (every building of its use area / parcel, above), else as the OSM
+  outline that CONTAINS its own coordinate (`lib/karte/places · objectBuildings`); a tap on ANY of
+  its buildings opens it, the selected object's buildings all wear the strong style, and its tag
+  hangs off the building its point lies in. A tapped building opens an object otherwise only when
+  the register's street + number equals the object's. A key box at the same door is not the
+  building. No outline under a point → no building.
+- **Dots, and a name only where it fits** (owner, 17.10.2026; `lib/karte/labels`). Below z16 every
+  object is a small red dot (a 32 px tap target), a key box a small FKS glyph; no text. From z16
+  on a tag only where it fits: one greedy pass in screen space once the map has settled, the
+  selected object first (always tagged), then Einsatzobjekte, then more plans; a tag that would
+  cover another tag, a key box or the chrome (top bar, bottom bar, an open panel or sheet, the
+  rails — every child of the surface but the map) stays a dot. A tag at a side edge slides inward
+  as long as it still hangs over its building. Outlines draw from z15 as before.
 - **«In der Nähe» is distance only**, and the panel says so in a sentence.
 - **Missing is said.** A register that could not be asked, a place never looked at offline, an
   object without notes: each gets its sentence, and «Keine Gefahrenangaben … heisst nicht …»
@@ -167,6 +198,15 @@ What the surface shows offline:
   first base tile that fails offline also raises the Einsatz's «Keine Basiskarte» Meldung
   (`NoBasemapMeldung`, here with its action «Verfügbarkeit»), once per visit, withdrawn when the
   link is back.
+- **A base map in two looks is a stale cache, not two maps** (the «seam», review 17.10.2026). The
+  `map-tiles` cache is cache-first for 30 days under the tile's URL; when a provider re-renders
+  under the same URL (CARTO's GL-rendered Dark Matter, autumn 2026: buildings now LIGHTER than the
+  ground, blue-grey roads), a device shows old tiles where it holds them and new ones elsewhere,
+  with a sharp edge at the tile border. `lib/tilePurge` names each such change and deletes its
+  tiles once per device, on the first boot ONLINE (offline the old look beats no map); a miss is
+  fetched past the HTTP cache (`fetchOptions: { cache: 'no-cache' }`, vite.config) so CARTO's
+  `immutable` answer cannot bring the old tile straight back. A provider changes its look again →
+  add a purge entry.
 - **Search:** station objects are found on the device; the address search says it needs the
   network. **Objektbesuche** say they need the network and name the catalogue's last visit.
 - The catalogue shown from the device is replaced by the server's as soon as it answers again
