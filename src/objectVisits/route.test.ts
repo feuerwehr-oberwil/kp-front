@@ -24,6 +24,28 @@ describe('Objektbesuche routes', () => {
       expect(parseOvRoute(i < 0 ? href : href.slice(0, i), i < 0 ? '' : href.slice(i))).toEqual(r)
     }
   })
+  it('reads a visit at a place and where it came from (contract C1)', () => {
+    expect(parseOvRoute('/besuche/neu', '?lat=47.52015&lng=7.57175&label=bei%20Talholzstrasse%2015&address=Talholzstrasse%2015%2C%204103%20Bottmingen&from=karte'))
+      .toEqual({ kind: 'newPlace', from: 'karte', place: { lat: 47.52015, lng: 7.57175, label: 'bei Talholzstrasse 15', address: 'Talholzstrasse 15, 4103 Bottmingen' } })
+    // no address (reverse geocoding failed) and no label are still a place
+    expect(parseOvRoute('/besuche/neu', '?lat=47.5&lng=7.5')).toEqual({ kind: 'newPlace', place: { lat: 47.5, lng: 7.5, label: '', address: null } })
+    // a position that is not one is no place; an object wins over a position
+    expect(parseOvRoute('/besuche/neu', '?lat=470&lng=7.5')).toEqual({ kind: 'new', object: '', ref: null })
+    expect(parseOvRoute('/besuche/neu', '?lat=&lng=7.5')).toEqual({ kind: 'new', object: '', ref: null })
+    expect(parseOvRoute('/besuche/neu', '?object=u1&lat=47.5&lng=7.5&from=karte')).toEqual({ kind: 'new', object: 'u1', ref: null, from: 'karte' })
+    expect(parseOvRoute('/besuche/ov1-ab', '?from=karte')).toEqual({ kind: 'visit', id: 'ov1-ab', from: 'karte' })
+    expect(parseOvRoute('/besuche/ov1-ab', '?from=elsewhere')).toEqual({ kind: 'visit', id: 'ov1-ab' })
+    for (const r of [
+      { kind: 'newPlace' as const, place: { lat: 47.52015, lng: 7.57175, label: 'bei Talholzstrasse 15', address: null }, from: 'karte' as const },
+      { kind: 'newPlace' as const, place: { lat: 47.5, lng: 7.5, label: 'Talholzstrasse 15', address: 'Talholzstrasse 15, 4103 Bottmingen' } },
+      { kind: 'newPlace' as const, place: { lat: 47.5, lng: 7.5, label: 'x', address: null }, after: 'ov1-ab', from: 'karte' as const },
+      { kind: 'visit' as const, id: 'ov1-ab', edit: true, from: 'karte' as const }, { kind: 'answers' as const, id: 'ov1-ab', from: 'karte' as const },
+    ]) {
+      const href = ovHref(r)
+      const i = href.indexOf('?')
+      expect(parseOvRoute(href.slice(0, i), href.slice(i))).toEqual(r)
+    }
+  })
   it('a malformed address does not throw', () => {
     expect(parseOvRoute('/besuche/%E0', '')).toEqual({ kind: 'visit', id: '%E0' })
   })

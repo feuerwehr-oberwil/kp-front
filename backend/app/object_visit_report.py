@@ -40,6 +40,7 @@ from reportlab.platypus import (
 )
 
 from .checklist_templates import visit_items
+from .geo_util import wgs84_to_lv95
 
 logger = logging.getLogger("kpfront.objectvisits")
 
@@ -219,8 +220,10 @@ def render_visit_pdf(
     url: str,
     created_by: str | None,
     photos: dict[str, bytes | None],
+    filing: str | None = None,
 ) -> bytes:
-    """One revision's report. ``photos`` maps attachment id → bytes (None = not stored yet).
+    """One revision's report. ``photos`` maps attachment id → bytes (None = not stored yet);
+    ``filing`` is where a visit at a place is filed («Allgemeine Meldungen/…»), printed as «Ablage».
 
     Rendered with tables; should a document still defeat the layout (a value no rule above
     anticipated), it is rendered again as plain flowing text — a report that prints everything
@@ -228,10 +231,44 @@ def render_visit_pdf(
     """
     args = (doc, revision, stand, station, url, created_by, photos)
     try:
-        return _render(*args, plain=False)
+        return _render(*args, plain=False, filing=filing)
     except LayoutError:
         logger.warning("object visit %s r%s: table layout failed — rendered as plain text", doc.get("id"), revision)
-        return _render(*args, plain=True)
+        return _render(*args, plain=True, filing=filing)
+
+
+def answer_digest(items: list[dict[str, Any]], answers: dict[str, Any], limit: int = 400) -> str:
+    """The answered choices and texts of a checklist, in order: «Hydrant · Neuer Hydrant fehlt»."""
+    parts: list[str] = []
+    for item in items:
+        if item.get("input") not in ("choice", "text"):
+            continue
+        answer = answers.get(item["id"])
+        if isinstance(answer, dict) and answer.get("v") not in (None, ""):
+            parts.append(" ".join(answer_text(item, answer).split()))
+    line = " · ".join(parts)
+    return line if len(line) <= limit else line[: limit - 1].rstrip() + "…"
+
+
+def place_kind(target: dict[str, Any]) -> str:
+    """«Adresse» when the place was picked as an address (its label IS the address's first part),
+    else «Pin» — the client's badge, same rule (src/objectVisits/place.ts · placeKind)."""
+    label = " ".join(str(target.get("label") or "").split()).casefold()
+    address = " ".join(str(target.get("address") or "").split()).casefold()
+    return "Adresse" if label and address and address.split(",")[0].strip() == label else "Pin"
+
+
+def fmt_ch(value: float) -> str:
+    """2610027 → «2'610'027» (the Swiss grouping LV95 is read in)."""
+    return f"{round(value):,}".replace(",", "’")
+
+
+def coordinates_text(lat: Any, lng: Any) -> str | None:
+    """«LV95 2'610'027 / 1'263'276 · WGS84 47.52015, 7.57175», or None without a position."""
+    if not isinstance(lat, (int, float)) or not isinstance(lng, (int, float)) or isinstance(lat, bool):
+        return None
+    east, north = wgs84_to_lv95(float(lat), float(lng))
+    return f"LV95 {fmt_ch(east)} / {fmt_ch(north)} · WGS84 {float(lat):.5f}, {float(lng):.5f}"
 
 
 def _render(
@@ -244,6 +281,7 @@ def _render(
     photos: dict[str, bytes | None],
     *,
     plain: bool,
+    filing: str | None = None,
 ) -> bytes:
     st = _styles()
     buf = io.BytesIO()
@@ -272,7 +310,7 @@ def _render(
         rightMargin=15 * mm,
         topMargin=14 * mm,
         bottomMargin=16 * mm,
-        title=f"Objektbesuch {obj.get('name') or ''}".strip(),
+        title=f"Objektbesuch {obj.get('name') or (doc.get('target') or {}).get('label') or ''}".strip(),
         author=station,
     )
     width = A4[0] - 30 * mm
@@ -307,9 +345,24 @@ def _render(
     # for «Von» only when nobody was named.
     names = [p.strip() for p in doc.get("with") or [] if isinstance(p, str) and p.strip()]
     account = created_by.strip() if isinstance(created_by, str) and created_by.strip() else None
-    facts: list[tuple[str, str, str]] = [
-        ("Objekt", obj.get("name") or "–", "body"),
-        ("Adresse", obj.get("address") or "–", "body"),
+    target: dict[str, Any] = doc["target"] if isinstance(doc.get("target"), dict) else {}
+    if target.get("kind") == "location":
+        # a visit at a place: no station object, and the place itself travels with the report
+        facts: list[tuple[str, str, str]] = [
+            ("Objekt", "– (Ort ohne Stationsobjekt)", "body"),
+            ("Ort", f"{target.get('label') or '–'} ({place_kind(target)})", "body"),
+        ]
+        if target.get("address"):
+            facts.append(("Adresse", str(target["address"]), "body"))
+        facts.append(("Koordinaten", coordinates_text(target.get("lat"), target.get("lng")) or "–", "body"))
+        if filing:
+            facts.append(("Ablage", filing, "body"))
+    else:
+        facts = [
+            ("Objekt", obj.get("name") or "–", "body"),
+            ("Adresse", obj.get("address") or "–", "body"),
+        ]
+    facts += [
         ("Besucht", _fmt(doc.get("visitedAt")), "body"),
         ("Von", ", ".join(names) or account or "–", "body"),
     ]
@@ -356,6 +409,10 @@ def _render(
                 st["body"],
             )
         )
+    elif items and not any(i.get("input", "check") == "check" for i in items):
+        # a checklist without OK/Mangel questions (a Fehlermeldung) is a report: say what was
+        # reported, never «Keine Mängel» (the visit card does the same — ovFormat · answerDigest)
+        story.append(Paragraph(_esc(answer_digest(items, answers)) or "–", st["body"]))
     else:
         story.append(Paragraph("Keine Mängel erfasst.", st["body"]))
     if checklist and unanswered:

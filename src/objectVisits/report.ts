@@ -4,6 +4,8 @@
 import { downloadBlob } from '../lib/download'
 import { attachmentUrl, fetchBlob, OV_ROUTES } from './api'
 import { checklistItems, fileSafe } from './doc'
+import { fmtLV95, fmtWGS } from '../lib/geo'
+import { placeOf } from './place'
 import { readAttachment, type LocalVisit } from './store'
 import type { VisitDoc } from './types'
 import { buildZip, type ZipEntry } from './zip'
@@ -12,7 +14,15 @@ const datePart = (iso: string) => (iso || '').slice(0, 10)
 
 /** «Objektbesuch 2026-10-03 Gemeindeverwaltung» — the stem every file of one visit shares. */
 export function visitFileStem(doc: VisitDoc): string {
-  return fileSafe(`Objektbesuch ${datePart(doc.visitedAt)} ${doc.object?.name ?? ''}`.trim(), 80)
+  return fileSafe(`Objektbesuch ${datePart(doc.visitedAt)} ${doc.object?.name ?? placeOf(doc)?.label ?? ''}`.trim(), 80)
+}
+
+/** The export's first line: the object and its address — or the place, its address and where it
+ *  is («bei Talholzstrasse 15 · Talholzstrasse 15, 4103 Bottmingen · LV95 2'610'027 / 1'263'276»). */
+function headLine(doc: VisitDoc): string {
+  const place = placeOf(doc)
+  if (!place) return `${doc.object?.name ?? ''}${doc.object?.address ? ` · ${doc.object.address}` : ''}`
+  return [place.label, place.address, `LV95 ${fmtLV95(place.lng, place.lat)}`, `WGS84 ${fmtWGS(place.lng, place.lat)}`].filter(Boolean).join(' · ')
 }
 
 /** Fetch the report of a revision (latest by default) and save it. Throws on failure. */
@@ -30,7 +40,7 @@ export function photoFileName(index: number, caption: string, attId: string, typ
 
 /** A plain-text reading of the visit, for a person opening the export without any tool. */
 export function visitText(doc: VisitDoc, words: { check: Record<string, string>; open: string; notes: string; proposals: string }): string {
-  const lines: string[] = [`${doc.object?.name ?? ''}${doc.object?.address ? ` · ${doc.object.address}` : ''}`, doc.visitedAt, '']
+  const lines: string[] = [headLine(doc), doc.visitedAt, '']
   for (const it of checklistItems(doc.checklist)) {
     const a = doc.answers[it.id]
     const v = a == null ? words.open : typeof a.v === 'string' && words.check[a.v] ? words.check[a.v] : String(a.v)

@@ -28,4 +28,11 @@ describe('decideNewVisit', () => {
     expect(decideNewVisit({ ...base, choice: null }).kind).toBe('choose')
     expect(decideNewVisit(base)).toEqual({ kind: 'create', template: null })
   })
+  it('a place needs no object, and a reader has nothing to open there', () => {
+    const place = { ...base, object: null, place: true }
+    expect(decideNewVisit(place)).toEqual({ kind: 'create', template: null })
+    expect(decideNewVisit({ ...place, canCapture: false }).kind).toBe('readOnly')
+    expect(decideNewVisit({ ...place, hasCatalogue: false }).kind).toBe('notPrepared')
+    expect(decideNewVisit({ ...place, choice: null }).kind).toBe('choose')
+  })
 })

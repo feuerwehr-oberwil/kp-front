@@ -11,8 +11,9 @@ import { getVisit } from '../../objectVisits/api'
 import { checklistItems, stripServer } from '../../objectVisits/doc'
 import { pendingUploads } from '../../objectVisits/outbox'
 import type { VisitDoc } from '../../objectVisits/types'
+import type { OvFrom } from '../../objectVisits/route'
 import { Head } from './common'
-import { fmtDate, fmtWhen } from './ovFormat'
+import { fmtDate, fmtWhen, visitTitle } from './ovFormat'
 import { PhotoSheet } from './Sheets'
 import { ChecklistSection, NotesSection, PhotosSection, ProposalsSection } from './VisitSections'
 import { useOv } from './ovContext'
@@ -20,7 +21,7 @@ import s from './ObjectVisits.module.css'
 
 const noop = () => {}
 
-export function AnswersPage({ id }: { id: string }) {
+export function AnswersPage({ id, from }: { id: string; from?: OvFrom }) {
   const ov = useOv()
   const C = appConfig.copy.objectVisits
   const local = ov.locals.find((l) => l.doc.id === id) ?? null
@@ -36,7 +37,7 @@ export function AnswersPage({ id }: { id: string }) {
   }, [id, hasLocal])
 
   const doc = local?.doc ?? remote
-  const back = () => ov.go({ kind: 'visit', id })
+  const back = () => ov.go({ kind: 'visit', id, ...(from ? { from } : {}) })
 
   if (!doc) {
     return (
@@ -63,7 +64,7 @@ export function AnswersPage({ id }: { id: string }) {
 
   return (
     <>
-      <Head title={doc.checklist?.title ?? C.noChecklist} sub={`${doc.object.name} · ${when}`} onBack={back} />
+      <Head title={doc.checklist?.title ?? C.noChecklist} sub={`${visitTitle(doc)} · ${when}`} onBack={back} />
       <div className={s.body}>
         <div className={s.col}>
           {empty && <p className={s.lead}>{C.answersNone}</p>}
