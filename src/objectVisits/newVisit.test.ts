@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { decideNewVisit } from './newVisit'
+import { autoChoice, decideNewVisit } from './newVisit'
 import type { LocalVisit } from './store'
+import type { VisitTemplate } from './types'
 
 const base = {
   localsLoaded: true, localsOk: true, catalogueLoaded: true, hasCatalogue: true,
@@ -27,5 +28,23 @@ describe('decideNewVisit', () => {
     expect(decideNewVisit({ ...base, canCapture: false, object: { id: 'u1', name: 'O' } }).kind).toBe('readOnly')
     expect(decideNewVisit({ ...base, choice: null }).kind).toBe('choose')
     expect(decideNewVisit(base)).toEqual({ kind: 'create', template: null })
+  })
+})
+
+describe('autoChoice', () => {
+  const fm = { id: 'fehlermeldung' } as VisitTemplate
+  const sh = { id: 'fu-schluesselhuelse' } as VisitTemplate
+  const none = new Set<string | null>()
+  it('takes the checklist asked for when the station has it', () => {
+    expect(autoChoice({ asked: 'fehlermeldung', templates: [sh, fm], doneHere: none })).toEqual({ t: fm })
+  })
+  it('asks when the station lacks it — never starts its one other checklist instead', () => {
+    expect(autoChoice({ asked: 'fehlermeldung', templates: [sh], doneHere: none })).toBeNull()
+  })
+  it('without an ask: one checklist is taken, several ask, a completed one asks again', () => {
+    expect(autoChoice({ asked: null, templates: [sh], doneHere: none })).toEqual({ t: sh })
+    expect(autoChoice({ asked: null, templates: [sh, fm], doneHere: none })).toBeNull()
+    expect(autoChoice({ asked: null, templates: [sh], doneHere: new Set(['fu-schluesselhuelse']) })).toBeNull()
+    expect(autoChoice({ asked: null, templates: [], doneHere: none })).toEqual({ t: null })
   })
 })

@@ -1,29 +1,33 @@
 // «Karte & Objekte» — the ONE panel: whatever is known about the selected place, in one order
-// for an object, a building and a dropped pin (docs/karte-objekte.md · The panel):
+// for an object, a building and a dropped pin (owner, 17.10.2026 · R2; docs/karte-objekte.md ·
+// The panel):
 //
-//   quick actions (Messen ab hier · Objektbesuch / Meldung erfassen — capture roles only)
-//   → the station's own word (Sofortmassnahmen, Bemerkungen, with their source)
-//   → Pläne & Module (+ «Objektplan auf der Karte» for an aligned plan, + Gebäude)
+//   head (kind, name, address, ✕)
+//   → the station's own word (Sofortmassnahmen, Bemerkungen, with their source) — read first
+//   → Pläne & Module as rows (a row opens the Einsatz's plan reader, read-only — KartePlans)
 //   → Gebäude laut Register («Register-Hinweis», source and Stand on every line)
 //   → In der Nähe (distance only, and a sentence saying so)
 //   → Objektbesuche (rows open the existing read view; a read-only line for other roles)
 //   → «Keine Gefahrenangaben … heisst nicht …»
+//   → the actions LAST: «Objektbesuch» and «Melden» (capture roles only)
 //
-// Missing data is SAID, never silently left out, and never as «no hazard». Presentational only:
-// the surface (KarteApp) owns the loads and passes their states in.
+// No «Messen ab hier» (Messen is the bar's) and no «Objektplan auf der Karte» row (the aligned
+// plan is switched in Ebenen). Missing data is SAID, never silently left out, and never as «no
+// hazard» — as a quiet line, not a box; only a warning keeps its box. Presentational only: the
+// surface (KarteApp) owns the loads and passes their states in.
 //
-// On a PHONE it is one slide-up sheet with two heights (owner, 17.10.2026 · R1): a PEEK — the
-// head and the quick actions, nothing else — and FULL, with the object's plans right under the
-// actions as menu rows (the bar has no «Pläne» tab any more, so this list IS the way to a plan).
-// Drag the grab bar or the head up (or tap either) for full, down for the peek, down again or ✕
-// to close: the `.ctx` editors' gesture (components/SheetGrip · useSheetDrag), with the height
-// held here as state instead of their DOM class. The tablet keeps its left panel and its order.
+// On a PHONE it is the slide-up sheet Ebenen is (owner, 17.10.2026 · R2: «a full slide-up like
+// for "ebenen" and not this half thing»): the SAME frame — `.layers-card` (15-mobile · flush with
+// the bottom edge and both sides, over the bar, the hero corner, its height cap), the grab bar
+// (`overlays/SheetGrab`) and push-down-to-close (`overlays/useSwipeDismiss`) — one height, the
+// whole panel, scrolling. Closing it leaves the place selected on the map (KarteApp). The tablet
+// keeps its left panel.
 //
 // A head whose address is still being looked up is a SKELETON, never «Gebäude» / «…» standing in
 // for a name (owner-5): the kicker already says what it is.
 
 import type { ReactNode } from 'react'
-import { useSheetDrag } from '../SheetGrip'
+import { SheetGrab, useSwipeDismiss } from '../../lib/overlays'
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
 import { cx } from '../../lib/cx'
@@ -67,22 +71,19 @@ export function KartePanel(p: {
   visits: VisitsState
   canCapture: boolean
   docs: ViewerPlanDoc[]
-  georefOn: boolean
-  georefAvailable: boolean
   /** no network: the plan rows say what this device holds (● / ○, docs/karte-objekte.md · Offline) */
   offline?: boolean
   /** what this device holds of the selected object's plans; null = not asked yet */
   avail?: ObjectAvailability | null
+  /** a phone: the Ebenen sheet's frame instead of the tablet's left panel */
   sheet: boolean
-  full: boolean
   withRail: boolean
-  /** the phone sheet asks for its full height (true) or its peek (false) */
-  onFull: (full: boolean) => void
   onClose: () => void
-  onMeasureHere: () => void
+  /** «Objektbesuch»: the visit chooser at this object */
   onStartVisit: () => void
+  /** «Melden»: something is wrong or missing here — the station's Fehlermeldung, preselected */
+  onReport: () => void
   onOpenDoc: (docId: string) => void
-  onToggleGeoref: () => void
   onSelectObject: (id: string) => void
   onRetryRegister: () => void
   onOpenVisit: (visitId: string) => void
@@ -91,14 +92,9 @@ export function KartePanel(p: {
 }) {
   const C = appConfig.copy.karte
   const { sel } = p
-  // the phone sheet's gesture: the grab bar toggles on a tap, the head opens a peek on a tap
-  const grabDrag = useSheetDrag({ onClose: p.onClose, tapToggles: true, sheet: SHEET_SEL, full: p.full, onFull: p.onFull, closeBelow: CLOSE_BELOW })
-  const headDrag = useSheetDrag({
-    onClose: p.onClose, tapToggles: false, sheet: SHEET_SEL, full: p.full, onFull: p.onFull, closeBelow: CLOSE_BELOW,
-    onTap: () => { if (!p.full) p.onFull(true) },
-  })
+  // the phone sheet goes when it is pushed down, like Ebenen (measured: only ever on a bottom sheet)
+  const swipe = useSwipeDismiss({ onClose: p.onClose, enabled: p.sheet })
   let head: ReactNode
-  let actions: ReactNode
   let body: ReactNode
   if (sel.kind === 'object') {
     const o = sel.obj
@@ -112,25 +108,19 @@ export function KartePanel(p: {
         </div>
       </>
     )
-    actions = <Quick canCapture={p.canCapture} word={C.startVisit} primary={false} onMeasure={p.onMeasureHere} onVisit={p.onStartVisit} />
-    const plans = (
-      <Plans obj={o} docs={p.docs} georefOn={p.georefOn} georefAvailable={p.georefAvailable} onOpenDoc={p.onOpenDoc} onToggleGeoref={p.onToggleGeoref}
-        avail={p.offline ? p.avail ?? null : undefined} />
-    )
     body = (
       <>
         {(o.lat == null || o.lng == null) && (
           <div className={cx(s.note, s.amber)}><Icon id="warn" /><span><b>{C.approxHead}</b> {C.approxBody}</span></div>
         )}
-        {/* the phone sheet: the plans right under the actions — they are its menu (no Pläne tab) */}
-        {p.sheet && plans}
         <StationWord obj={o} />
-        {!p.sheet && plans}
-        {o.kind === 'depot' && !o.plans.length && <div className={s.note}><Icon id="info" /><span>{C.depotNote}</span></div>}
+        <Plans obj={o} docs={p.docs} onOpenDoc={p.onOpenDoc} avail={p.offline ? p.avail ?? null : undefined} />
+        {o.kind === 'depot' && !o.plans.length && <Quiet>{C.depotNote}</Quiet>}
         {o.kind !== 'depot' && <Register reg={p.register} address={o.address} onRetry={p.onRetryRegister} />}
         <Nearby nearby={p.nearby} hydrants={p.hydrants} onSelectObject={p.onSelectObject} />
         <Visits visits={p.visits} canCapture={p.canCapture} empty={C.visitsNever} onOpenVisit={p.onOpenVisit} offline={p.offline} last={o.lastVisit} />
         {!noteLines(o.measures).length && !noteLines(o.remarks).length && <div className={s.src}>{C.missing}</div>}
+        <Actions canCapture={p.canCapture} onVisit={p.onStartVisit} onReport={p.onReport} />
       </>
     )
   } else if (sel.kind === 'building') {
@@ -152,7 +142,6 @@ export function KartePanel(p: {
         </div>
       </>
     )
-    actions = <Quick canCapture={p.canCapture} word={C.startReport} primary onMeasure={p.onMeasureHere} onVisit={p.onStartVisit} />
     // no «Kein Stationsobjekt …» box (owner-4): the kicker says «Gebäude», the line under the head
     // says «Kein Stationsobjekt» once it is known, and the closing sentence still says missing ≠ safe
     body = (
@@ -161,6 +150,7 @@ export function KartePanel(p: {
         <Nearby nearby={p.nearby} hydrants={p.hydrants} onSelectObject={p.onSelectObject} />
         <Visits visits={{ state: 'ok', list: [] }} canCapture={p.canCapture} empty={C.visitsNoneHere} onOpenVisit={p.onOpenVisit} />
         <div className={s.src}>{C.missing}</div>
+        <Actions canCapture={p.canCapture} onReport={p.onReport} />
       </>
     )
   } else {
@@ -178,10 +168,9 @@ export function KartePanel(p: {
         </div>
       </>
     )
-    actions = <Quick canCapture={p.canCapture} word={C.startReport} primary onMeasure={p.onMeasureHere} onVisit={p.onStartVisit} />
     body = (
       <>
-        <div className={s.note}><Icon id="info" /><span>{empty ? C.pinEmpty : C.pinNote}</span></div>
+        <Quiet>{empty ? C.pinEmpty : C.pinNote}</Quiet>
         {sel.onBuilding && (
           <div className={s.list}>
             <button type="button" className={s.row} onClick={p.onPinBuilding}>
@@ -192,32 +181,30 @@ export function KartePanel(p: {
           </div>
         )}
         <Nearby nearby={p.nearby} hydrants={p.hydrants} onSelectObject={p.onSelectObject} />
-        <div className={cx(s.quick, s.one)}>
-          <Button variant="quiet" icon={<Icon id="copy" />} onClick={p.onCopyCoords}>{C.copyCoords}</Button>
-        </div>
+        <Actions canCapture={p.canCapture} onReport={p.onReport}
+          extra={<Button key="copy" variant="secondary" icon={<Icon id="copy" />} onClick={p.onCopyCoords}>{C.copyCoords}</Button>} />
       </>
     )
   }
   return (
-    <section className={cx(s.panel, p.sheet && s.sheet, p.full && s.full, p.withRail && !p.sheet && s.withRail)} aria-label={appConfig.copy.karte.title}
-      data-karte-sheet={p.sheet ? '' : undefined}>
-      {p.sheet && <button type="button" className={s.grab} aria-label={appConfig.copy.sheetGrip} aria-expanded={p.full} {...grabDrag} />}
-      <div className={s.head} {...(p.sheet ? headDrag : {})}>
+    // ⚠️ `layers-card` on the phone is not a borrowed look but the Ebenen sheet itself: its frame,
+    // and the app's rules for an open bottom sheet (15-mobile · the toasts move up out of its way)
+    <section className={cx(p.sheet ? cx('layers-card', s.sheet) : s.panel, p.withRail && !p.sheet && s.withRail)} aria-label={appConfig.copy.karte.title}
+      data-karte-sheet={p.sheet ? '' : undefined} {...swipe}>
+      {p.sheet && <SheetGrab />}
+      <div className={s.head}>
         {head}
         <IconButton label={appConfig.copy.closeDialog} variant="secondary" onClick={p.onClose}><Icon id="close" /></IconButton>
       </div>
-      {/* the sheet's peek is the head and the actions; the body joins at full height (CSS) */}
-      {p.sheet
-        ? <><div className={s.actions}>{actions}</div><div className={s.body}>{body}</div></>
-        : <div className={s.body}>{actions}{body}</div>}
+      <div className={s.body}>{body}</div>
     </section>
   )
 }
 
-/** the root the phone sheet's drag resizes (SheetGrip · useSheetDrag) */
-const SHEET_SEL = '[data-karte-sheet]'
-/** a full sheet pulled this low closes outright; above it, it settles on its peek */
-const CLOSE_BELOW = 0.15
+/** A missing or quiet fact, said in a line of its own — not boxed (owner R2: no boxed notes). */
+function Quiet({ children }: { children: ReactNode }) {
+  return <p className={s.quietLine}>{children}</p>
+}
 
 /** The head's name (and address) while they are still being looked up: the register section's
  *  own skeleton bars, sized like the lines they stand for, and the words for a screen reader. */
@@ -231,35 +218,39 @@ function HeadSkeleton({ sub = false }: { sub?: boolean }) {
   )
 }
 
-function Quick({ canCapture, word, primary, onMeasure, onVisit }: { canCapture: boolean; word: string; primary: boolean; onMeasure: () => void; onVisit: () => void }) {
+/** The actions, LAST (owner R2: the facts first, what to do about them after): «Objektbesuch»
+ *  where there is an object, «Melden» everywhere. A door the role cannot go through is not drawn
+ *  (docs/roles-and-access.md) — without `canCapture` only `extra` (the pin's «Koordinaten
+ *  kopieren», which writes nothing) is left. */
+function Actions({ canCapture, onVisit, onReport, extra }: { canCapture: boolean; onVisit?: () => void; onReport: () => void; extra?: ReactNode }) {
   const C = appConfig.copy.karte
-  return (
-    <div className={cx(s.quick, !canCapture && s.one)}>
-      <Button variant="quiet" icon={<Icon id="measure" />} onClick={onMeasure}>{C.measureHere}</Button>
-      {/* a door the role cannot go through is not drawn (docs/roles-and-access.md) */}
-      {canCapture && <Button variant={primary ? 'primary' : 'secondary'} icon={<Icon id="clipboard" />} onClick={onVisit}>{word}</Button>}
-    </div>
-  )
+  const buttons = [
+    extra,
+    canCapture && onVisit && <Button key="visit" variant="secondary" icon={<Icon id="clipboard" />} onClick={onVisit}>{C.startVisit}</Button>,
+    canCapture && <Button key="report" variant="secondary" icon={<Icon id="warn" />} onClick={onReport}>{C.startReport}</Button>,
+  ].filter(Boolean)
+  if (!buttons.length) return null
+  return <div className={cx(s.quick, buttons.length === 1 && s.one)} data-section="actions">{buttons}</div>
 }
 
-/** The station's own word about the object: Sofortmassnahmen and Bemerkungen with their source,
- *  plus the register's hazard tags at the top — a gas valve is read before anything else. */
+/** The station's own word about the object, FIRST (owner R2: in a hurry it matters most):
+ *  Sofortmassnahmen and Bemerkungen, each a section of the sheet, then where they come from. */
 function StationWord({ obj }: { obj: StationObject }) {
   const C = appConfig.copy.karte
   const measures = noteLines(obj.measures)
   const remarks = noteLines(obj.remarks)
   if (!measures.length && !remarks.length) return null
   return (
-    <div className={s.card}>
+    <div className={s.sec} data-section="station">
       {measures.length > 0 && (
         <>
-          <div className={s.cardTitle}>{C.measures}</div>
+          <div className={s.secHead}><span className={s.eyebrow}>{C.measures}</span></div>
           <ul className={s.bullets}>{measures.map((l, i) => <li key={i}>{l}</li>)}</ul>
         </>
       )}
       {remarks.length > 0 && (
         <>
-          <div className={s.cardTitle}>{C.remarks}</div>
+          <div className={s.secHead}><span className={s.eyebrow}>{C.remarks}</span></div>
           <ul className={cx(s.bullets, s.quietList)}>{remarks.map((l, i) => <li key={i}>{l}</li>)}</ul>
         </>
       )}
@@ -268,9 +259,12 @@ function StationWord({ obj }: { obj: StationObject }) {
   )
 }
 
-function Plans({ obj, docs, georefOn, georefAvailable, onOpenDoc, onToggleGeoref, avail }: {
-  obj: StationObject; docs: ViewerPlanDoc[]; georefOn: boolean; georefAvailable: boolean
-  onOpenDoc: (id: string) => void; onToggleGeoref: () => void
+/** The object's plans as rows — code, the title (lib/karte/plans · planTitle, already on the
+ *  document), pages and, offline, what this device holds. A row opens the plan in the Einsatz's
+ *  reader, read-only (KartePlans · KarteSurface). */
+function Plans({ obj, docs, onOpenDoc, avail }: {
+  obj: StationObject; docs: ViewerPlanDoc[]
+  onOpenDoc: (id: string) => void
   /** offline only: what this device holds (null = still asking; undefined = online, no lamps) */
   avail?: ObjectAvailability | null
 }) {
@@ -282,11 +276,10 @@ function Plans({ obj, docs, georefOn, georefAvailable, onOpenDoc, onToggleGeoref
   const lampOf = (plan: ViewerPlanDoc['plan']) => !avail ? null
     : plan ? (avail.plans[planKey(plan)] ? 'device' as const : 'online' as const) : avail.gebaeude
   const word = (l: 'device' | 'part' | 'online') => C.device.lampWord[l]
-  const georefOff = !!avail && !avail.georef && !georefOn
   return (
-    <div className={s.sec}>
+    <div className={s.sec} data-section="plans">
       <div className={s.secHead}>
-        <span className={s.eyebrow}><Icon id="doc" />{C.plansTitle}</span>
+        <span className={s.eyebrow}>{C.plansTitle}</span>
         {offline && <span className={s.legend}><span className={s.lamp} aria-hidden />{C.onDevice}</span>}
       </div>
       <div className={s.list}>
@@ -297,7 +290,7 @@ function Plans({ obj, docs, georefOn, georefAvailable, onOpenDoc, onToggleGeoref
             <button key={doc.id} type="button" className={cx(s.row, off && s.off)} onClick={() => onOpenDoc(doc.id)}>
               <span className={cx(s.rowLead, s.plan)}><PlanGlyph doc={doc} /></span>
               <span className={s.rowText}>
-                <b>{plan.title}</b>
+                <b>{doc.title}</b>
                 <span>{off ? C.planNotStored : [plan.pages == null ? C.planPdf : plan.pages === 1 ? C.planPagesOne : fillTemplate(C.planPages, { n: plan.pages }), plan.georef ? C.planGeoref : ''].filter(Boolean).join(' · ')}</span>
               </span>
               {lamp && <><LampDot lamp={lamp} /><span className="sr-only">{word(lamp)}</span></>}
@@ -315,15 +308,6 @@ function Plans({ obj, docs, georefOn, georefAvailable, onOpenDoc, onToggleGeoref
             </button>
           )
         })}
-        {georefAvailable && (
-          // offline without the plan on the device it cannot be laid on the map: said, not offered
-          // (an overlay already on stays switchable off)
-          <button type="button" className={cx(s.row, georefOff && s.off)} role="switch" aria-checked={georefOn} disabled={georefOff} onClick={onToggleGeoref}>
-            <span className={s.rowLead}><Icon id="layers" /></span>
-            <span className={s.rowText}><b>{C.georefRow}</b><span>{georefOff ? C.georefOffline : C.georefRowSub}</span></span>
-            <span className={cx(s.switch, georefOn && s.on)} aria-hidden />
-          </button>
-        )}
       </div>
     </div>
   )
@@ -338,16 +322,16 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
     inner = <><div className={s.skeleton} style={{ width: '70%' }} /><div className={s.skeleton} style={{ width: '45%' }} /></>
   } else if (!info) {
     inner = reg.state === 'offline'
-      ? <div className={s.note}><Icon id="info" /><span>{C.registerOffline}</span></div>
+      ? <Quiet>{C.registerOffline}</Quiet>
       : <><div className={s.note}><Icon id="warn" /><span>{C.registerError}</span></div><Button variant="quiet" className={s.retry} onClick={onRetry}>{C.retry}</Button></>
   } else if (info.registers === 'off') {
-    inner = <div className={s.note}><Icon id="info" /><span>{C.registerOff}</span></div>
+    inner = <Quiet>{C.registerOff}</Quiet>
   } else if (info.registers === 'outside_ch' || info.registers === 'no_location') {
-    inner = <div className={s.note}><Icon id="info" /><span>{C.registerOutside}</span></div>
+    inner = <Quiet>{C.registerOutside}</Quiet>
   } else if (info.gwr_status === 'error' && !info.gwr) {
     inner = <><div className={s.note}><Icon id="warn" /><span>{C.registerError}</span></div><Button variant="quiet" className={s.retry} onClick={onRetry}>{C.retry}</Button></>
   } else if (info.gwr_status === 'none' && !info.plants.length) {
-    inner = <div className={s.note}><Icon id="info" /><span>{C.registerNone}</span></div>
+    inner = <Quiet>{C.registerNone}</Quiet>
   } else {
     const chips = buildingChips(info)
     const hazards = chips.filter((c) => c.hazard)
@@ -368,9 +352,9 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
     )
   }
   return (
-    <div className={s.sec}>
+    <div className={s.sec} data-section="register">
       <div className={s.secHead}>
-        <span className={s.eyebrow}><Icon id="floors" />{C.registerTitle}</span>
+        <span className={s.eyebrow}>{C.registerTitle}</span>
         <span className={s.hint} title={B.hintTitle}><Icon id="info" />{B.hint}</span>
       </div>
       {inner}
@@ -381,8 +365,8 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
 function Nearby({ nearby, hydrants, onSelectObject }: { nearby: Near<StationObject>[]; hydrants: Near<NamedPoint>[]; onSelectObject: (id: string) => void }) {
   const C = appConfig.copy.karte
   return (
-    <div className={s.sec}>
-      <div className={s.secHead}><span className={s.eyebrow}><Icon id="locate" />{C.nearTitle}</span></div>
+    <div className={s.sec} data-section="nearby">
+      <div className={s.secHead}><span className={s.eyebrow}>{C.nearTitle}</span></div>
       {nearby.length + hydrants.length > 0 ? (
         <div className={s.list}>
           {nearby.map(({ item: o, distanceM }) => (
@@ -401,7 +385,7 @@ function Nearby({ nearby, hydrants, onSelectObject }: { nearby: Near<StationObje
           ))}
         </div>
       ) : (
-        <div className={s.note}><Icon id="info" /><span>{C.nearNone}</span></div>
+        <Quiet>{C.nearNone}</Quiet>
       )}
       <div className={s.src}>{C.nearNote}</div>
     </div>
@@ -417,14 +401,14 @@ function Visits({ visits, canCapture, empty, onOpenVisit, offline, last }: {
   const C = appConfig.copy.karte
   if (visits.state === 'off') return null
   return (
-    <div className={s.sec}>
-      <div className={s.secHead}><span className={s.eyebrow}><Icon id="clipboard" />{C.visitsTitle}</span></div>
+    <div className={s.sec} data-section="visits">
+      <div className={s.secHead}><span className={s.eyebrow}>{C.visitsTitle}</span></div>
       {visits.state === 'loading' ? <div className={s.skeleton} style={{ width: '60%' }} />
         : visits.state === 'error' ? (
-          <div className={s.note}><Icon id="info" /><span>
+          <Quiet>
             {offline ? C.visitsOffline : C.visitsUnavailable}
             {offline && last?.date && <> {fillTemplate(C.visitsLast, { c: last.checklist ?? C.visitNoChecklist, d: fmtDay(last.date) })}</>}
-          </span></div>
+          </Quiet>
         )
           : visits.list.length ? (
             <div className={s.list}>
@@ -446,7 +430,7 @@ function Visits({ visits, canCapture, empty, onOpenVisit, offline, last }: {
                 )
               })}
             </div>
-          ) : <div className={s.note}><Icon id="info" /><span>{empty}</span></div>}
+          ) : <Quiet>{empty}</Quiet>}
       {!canCapture && <div className={s.src}>{C.visitsReadOnly}</div>}
     </div>
   )

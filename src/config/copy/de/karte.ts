@@ -50,10 +50,10 @@ export const karteCopy = {
     pinNoAddress: 'Keine Adresse in der Nähe',
     pinOffline: 'Adresse offline nicht ermittelt',
     addressLoading: 'Adresse wird gesucht …',
-    // quick actions
-    measureHere: 'Messen ab hier',
+    // the actions, last in the panel
     startVisit: 'Objektbesuch',
-    startReport: 'Meldung erfassen',
+    // «Melden» (owner R2): something is wrong or missing here — starts the station's Fehlermeldung
+    startReport: 'Melden',
     // notes and the object's own facts
     approxHead: 'Keine Koordinaten im Katalog.',
     approxBody: 'Lage aus der Adresse – ungefähr. Vor Ort prüfen.',
@@ -76,8 +76,6 @@ export const karteCopy = {
     planPages: 'PDF · {n} Seiten',
     planPdf: 'PDF',
     planGeoref: 'auf Karte ausgerichtet',
-    georefRow: 'Objektplan auf der Karte',
-    georefRowSub: 'Von der Station ausgerichtet · nur Ansicht',
     georefFailed: 'Der Objektplan liess sich nicht auf die Karte legen.',
     floorsRow: 'Gebäude',
     floorsRowSub: '{n} Geschosse vorbereitet · {list}',
@@ -96,7 +94,6 @@ export const karteCopy = {
     planOfflineMissing: 'Keine Verbindung – das PDF ist auf diesem Gerät nicht gespeichert.',
     floorsOfflineMissing: 'Keine Verbindung – die Geschosse sind auf diesem Gerät nicht gespeichert.',
     floorsPartOffline: 'Nicht alle Geschosse sind auf diesem Gerät gespeichert – hier fehlen welche.',
-    georefOffline: 'Offline nicht verfügbar – nicht auf diesem Gerät gespeichert',
     // Gebäude laut Register
     registerTitle: 'Gebäude laut Register',
     registerError: 'Gebäuderegister gerade nicht erreichbar. Das heisst nicht, dass es nichts zu wissen gibt.',

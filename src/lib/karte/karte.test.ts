@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import type { LngLat, LayerDef } from '../../types'
 import type { StationObject } from '../api/stationReference'
+import type { DeploymentModule } from '../deploymentConfig'
 import { normText, openableCount, searchObjects } from './search'
 import {
   nearbyObjects, nearestPoints, normAddress, objectAtAddress, splitAddress, objectVisitHref, outlineFor, pinNear, placeVisitHref,
@@ -137,6 +138,9 @@ describe('places', () => {
 
   it('links visits per contract C1', () => {
     expect(objectVisitHref('u-1')).toBe('/besuche/neu?object=u-1&from=karte')
+    // «Melden»: the same visit, its checklist asked for up front
+    expect(objectVisitHref('u-1', 'fehlermeldung')).toBe('/besuche/neu?object=u-1&checkliste=fehlermeldung&from=karte')
+    expect(new URLSearchParams(placeVisitHref({ at: [7, 47], label: 'Gesetzter Punkt', checklist: 'fehlermeldung' }).split('?')[1]).get('checkliste')).toBe('fehlermeldung')
     const href = placeVisitHref({ at: [7.57175, 47.52015], label: 'bei Talholzstrasse 15', address: 'Talholzstrasse 15, 4103 Bottmingen' })
     const q = new URLSearchParams(href.split('?')[1])
     expect(href.startsWith('/besuche/neu?')).toBe(true)
@@ -244,6 +248,47 @@ describe('plans as the rail documents', () => {
     expect(planGlyph(docs[1].doc)).toEqual({ mono: '2/3' })
     expect(planGlyph(docs[3].doc)).toEqual({ icon: 'floors' })
     expect(viewerPlanDocs({ plans: [], floors: [] }, 'Gebäude')).toEqual([])
+  })
+
+  // the station's real catalogue (kp-front-data · oberwil.config.json), the fields the rule reads
+  const STATION: DeploymentModule[] = [
+    { id: 'modul1', code: 'Modul 1', title: 'Übersicht' },
+    { id: 'modul2', code: 'Modul 2', title: 'Wie komme ich herein' },
+    { id: 'modul2-3', code: 'Modul 2/3', title: 'Zugang & Objekt' },
+    { id: 'modul5', code: 'M5', title: 'Spezialpläne', family: true },
+    { id: 'modul5-pv', code: 'PV', title: 'Photovoltaik', viewer: true },
+    { id: 'modul5-wasser', code: 'W', title: 'Wasser' },
+  ]
+  const p = (module: string, title: string) => ({ id: `plan:x:${module}`, module, title })
+
+  it('names a file-name title by the module catalogue (owner R2 · real titles)', async () => {
+    const { planTitle } = await import('./plans')
+    expect(planTitle(p('modul2', 'Migros – modul2'), STATION)).toBe('Wie komme ich herein')
+    expect(planTitle(p('modul5-pv', 'Bruderholzstrasse 150 – modul5-pv'), STATION)).toBe('Photovoltaik')
+    // a dash inside the object's own name is not the one before the key
+    expect(planTitle(p('modul23', 'Sägestrasse 8 - Schulhaus Hüslimatt – modul2-3'), STATION)).toBe('Zugang & Objekt')
+  })
+
+  it('keeps a clean title, and says a key the catalogue cannot name in words', async () => {
+    const { planTitle } = await import('./plans')
+    expect(planTitle(p('modul1', 'Übersicht'), STATION)).toBe('Übersicht')
+    expect(planTitle(p('modul5-pv', 'Photovoltaik'), STATION)).toBe('Photovoltaik')
+    expect(planTitle(p('modul1', 'Gemeindehaus – Übersicht'), STATION)).toBe('Gemeindehaus – Übersicht')
+    // a second waterplan keeps its number; a family sub-slot without an entry says its own name
+    expect(planTitle(p('modul5-wasser2', 'Im Wasen – modul5-wasser2'), STATION)).toBe('Wasser 2')
+    expect(planTitle(p('modul5-rwa', 'Im Wasen – modul5-rwa'), STATION)).toBe('RWA')
+    expect(planTitle(p('modul7', 'Im Wasen – modul7'), STATION)).toBe('Modul 7')
+    // no catalogue at all (and an untitled sheet): the key in words, never an empty row
+    expect(planTitle(p('modul2', 'Migros – modul2'), [])).toBe('Modul 2')
+    expect(planTitle(p('modul4', ''), STATION)).toBe('Modul 4')
+  })
+
+  it('the rail documents carry the rule and the catalogue\'s plain reader', async () => {
+    const { viewerPlanDocs } = await import('./plans')
+    const o = obj({ id: 'o', name: 'O', plans: [{ ...plan('2'), title: 'Migros – modul2' }, { ...plan('5-pv'), title: 'Migros – modul5-pv' }], floors: [] })
+    const docs = viewerPlanDocs(o, 'Gebäude', STATION)
+    expect(docs.map((d) => d.doc.title)).toEqual(['Wie komme ich herein', 'Photovoltaik'])
+    expect(docs.map((d) => !!d.doc.viewer)).toEqual([false, true])
   })
 })
 

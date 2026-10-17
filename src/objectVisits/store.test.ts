@@ -167,6 +167,19 @@ describe('findOpenDraft', () => {
     expect(findOpenDraft(visits, OBJ.id, 'fu-2027/B5', 'u1')).toBeNull()
     expect(findOpenDraft(visits, 'other', 'fu-2027/B4', 'u1')).toBeNull()
   })
+
+  it('with a checklist asked for, only a draft of it is the open one («Melden»)', async () => {
+    const tpl = (id: string) => ({ id, title: id, kind: 'visit', phases: [] }) as unknown as NonNullable<Parameters<typeof newVisitDoc>[0]['checklist']>
+    const kontrolle = { ...newVisitDoc({ object: OBJ, checklist: tpl('kontrolle'), workRef: null }), lifecycle: 'draft' as const }
+    await createLocalVisit(kontrolle, 'u1')
+    let { visits } = await listLocalVisits()
+    expect(findOpenDraft(visits, OBJ.id, null, 'u1')?.doc.id).toBe(kontrolle.id)
+    expect(findOpenDraft(visits, OBJ.id, null, 'u1', 'fehlermeldung')).toBeNull()
+    const meldung = { ...newVisitDoc({ object: OBJ, checklist: tpl('fehlermeldung'), workRef: null }), lifecycle: 'draft' as const }
+    await createLocalVisit(meldung, 'u1')
+    ;({ visits } = await listLocalVisits())
+    expect(findOpenDraft(visits, OBJ.id, null, 'u1', 'fehlermeldung')?.doc.id).toBe(meldung.id)
+  })
 })
 
 describe('attachments', () => {
