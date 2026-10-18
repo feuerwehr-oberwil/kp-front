@@ -451,7 +451,7 @@ export default defineConfig(({ mode }) => {
       // Fast, dependency-light unit tests for pure lib code. jsdom only where a test needs
       // the DOM (the hook test); most run in the default node environment.
       environment: 'node',
-      include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+      include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'scripts/**/*.test.mjs'],
       // Coverage (08.10.2026): CI runs the suite ONCE, with coverage (`pnpm test:coverage`), and
       // fails below the floor in scripts/coverage-floor.json. The floor only goes up —
       // `pnpm coverage:raise` after a run lifts it to what was measured (minus half a point of
