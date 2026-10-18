@@ -157,4 +157,8 @@ look, not a verdict. A loaded box skews every time. Counts and sizes compare as 
   `edit.kb_per_save`). Both are baselined. A change that batches them shows up as 🟢.
 - The «Eintrag erfasst» toast lands on the composer's «Erfassen» at 1280×900. Writing the next
   Meldung quickly, the tap dismisses the toast instead of filing the entry. The journey waits for
-  the toast (`harness · centre`). The overlap itself is a UX question, not a gate.
+  the toast (`harness · centre`). The overlap itself is a UX question, not a gate. Re-measured 18.10.2026:
+  one pill no longer reaches «Erfassen» at any phone or tablet size (the tablet composer is a
+  dialog at the top, the phone's lane stands on the sheet), but every Meldung STACKED another
+  pill, and a column of them grew up into the composer. Since then a new «Eintrag erfasst»
+  replaces the last one (`useJournalWriters · JOURNAL_SAVED_KIND`, e2e `workspace-flows` F8).

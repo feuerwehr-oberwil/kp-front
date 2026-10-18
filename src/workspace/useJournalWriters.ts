@@ -28,6 +28,14 @@ import type { Doc } from '../lib/workspace'
 import type { BuildingDoc, LngLat, Incident, TimelineEvent } from '../types'
 import type { WorkspaceMode, PhotoRow } from './types'
 
+/** The `kind` (lib/ui · toast) of the Verlauf's «Eintrag erfasst» family: the next one REPLACES
+ *  the last instead of stacking on it. Five Meldungen in a row stacked five pills, the column grew
+ *  upwards from the foot of the screen and, on a tablet, reached the composer's «Erfassen» — the
+ *  tap meant for the next entry hit the toast (perf journeys, 05.10.2026; 3am: a confirmation
+ *  never covers the primary action). A toast carrying an action (a photo's «Auf Karte setzen»)
+ *  keeps its own pill: replacing it would take the action away. */
+export const JOURNAL_SAVED_KIND = 'journal-saved'
+
 export interface UseJournalWritersInputs {
   building: BuildingDoc | null
   setJournalOpen: Dispatch<SetStateAction<boolean>>
@@ -253,9 +261,9 @@ export function useJournalWriters({
         icon: d.dueAt ? 'bell' : d.pendenz || d.noteFor ? 'circle' : icon, tone: 'success',
         // a picture that knows where it was taken offers its place right here, at the moment it
         // was taken — the toast is the one thing on screen (lib/photoGeo). Nothing without one.
-        action: placeablePhotos({ id: rowId, photoUrls, photoGeo }).length
-          ? { label: appConfig.copy.photoGeo.place, onClick: () => placePhotos({ id: rowId, photoUrls, photoGeo }) }
-          : undefined,
+        ...(placeablePhotos({ id: rowId, photoUrls, photoGeo }).length
+          ? { action: { label: appConfig.copy.photoGeo.place, onClick: () => placePhotos({ id: rowId, photoUrls, photoGeo }) } }
+          : { kind: JOURNAL_SAVED_KIND }),
       },
     )
   }
@@ -270,7 +278,7 @@ export function useJournalWriters({
       surface: playerRow?.surface ?? 'map', planId: playerRow?.planId,
     }, rowId)
     emit('journal.add', { id: rowId, kind: 'journal' })
-    if (!quiet) toast(appConfig.copy.journal.saved, { icon: 'type', tone: 'success' })
+    if (!quiet) toast(appConfig.copy.journal.saved, { icon: 'type', tone: 'success', kind: JOURNAL_SAVED_KIND })
     return rowId
   }
 
