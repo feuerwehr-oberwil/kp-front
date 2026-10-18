@@ -1,7 +1,8 @@
 // The Karte's phone search: only the result list scrolls (owner, review round 5, 18.10.2026,
 // iPhone: «Scrolling in the search input still messes up things and doesnt work (gefahrgut scroll
 // works though)» — «the whole sheet/page moves instead of the list, and it is worse while the
-// keyboard is open»). A device-class check, not a Playwright spec: WebKit at iPhone 13 size,
+// keyboard is open»; round 6: «when i typed it works, without typing it fails (empty state)» — a
+// list with nothing to scroll must move nothing). A device-class check, not a Playwright spec: WebKit at iPhone 13 size,
 // run by hand against a running stack (docs/karte-objekte.md · «Search: only the list scrolls»).
 //
 //   LD_LIBRARY_PATH=… node e2e/karte-search-scroll.mjs http://127.0.0.1:5130   (PIN 000000 stack)
@@ -11,7 +12,9 @@
 //     dispatched as touchstart/touchmove/touchend EVENTS, so every JS guard sees it as on the
 //     phone, and the list's native scroll is modelled — it follows the finger unless the FIRST
 //     touchmove was cancelled (iOS: a cancelled first touchmove cancels the native pan for the
-//     whole touch, see lib/overlays/useMobileScrollLock);
+//     whole touch, see lib/overlays/useMobileScrollLock) — and a first move that passes over a
+//     list with nothing to scroll counts as the page moving (`handedOn`: iOS ignores
+//     overscroll-behavior on a box that does not overflow and pans what is behind it);
 //   · no software keyboard: `visualViewport` is replaced by a stand-in whose height shrinks by the
 //     keyboard and whose `offsetTop` is iOS's pan of the page («the whole page moves»); positions
 //     are read on the SCREEN (layout px − pan). `scrollTo(0, 0)` undoes the pan as on iOS — except
@@ -69,6 +72,10 @@ function drag(moves) {
   }
   target.dispatchEvent(ev('touchstart'))
   let dead = false
+  // iOS hands the pan ON (the page pans or rubber-bands, «the whole sheet moves») when the first
+  // move passes over a list that cannot scroll at all: `overscroll-behavior` only holds on a box
+  // that overflows (review round 6: the empty search, 6 featured rows shorter than the sheet)
+  let handedOn = false
   const cancelled = []
   for (const [dx, dy] of moves) {
     x += dx; y += dy
@@ -76,11 +83,12 @@ function drag(moves) {
     target.dispatchEvent(e)
     cancelled.push(e.defaultPrevented)
     if (cancelled.length === 1 && e.defaultPrevented) dead = true
+    if (cancelled.length === 1 && !e.defaultPrevented && body.scrollHeight - body.clientHeight <= 0) handedOn = true
     // the native pan (modelled): the list follows the finger unless the touch is dead
     if (!dead && !e.defaultPrevented) body.scrollTop -= dy
   }
   target.dispatchEvent(ev('touchend'))
-  return { target: target.className || target.tagName, cancelled: cancelled.map((c) => (c ? 'X' : '.')).join(''), before, after: { ...tops(), list: body.scrollTop } }
+  return { target: target.className || target.tagName, cancelled: cancelled.map((c) => (c ? 'X' : '.')).join(''), handedOn, before, after: { ...tops(), list: body.scrollTop } }
 }
 
 const frames = (page, n = 4) => page.evaluate((n) => new Promise((ok) => { const f = (i) => (i ? requestAnimationFrame(() => f(i - 1)) : ok()); f(n) }), n)
@@ -112,13 +120,18 @@ const BACK = [[0, 3], [0, 8], [0, 12]] // and back down
 async function sheetChecks(name, open) {
   await open()
   await frames(page, 6)
-  const still = (r) => r.before.sheet === r.after.sheet && r.before.field === r.after.field
+  const still = (r) => r.before.sheet === r.after.sheet && r.before.field === r.after.field && !r.handedOn
+  const roomNow = () => page.locator('[data-karte-keysheet] .lc-body').evaluate((b) => b.scrollHeight - b.clientHeight)
+  // a list with nothing to scroll: NOTHING moves — the list stays, and no move goes on to the page
+  const scrolled = (r, room, dir = 1) => (room <= 0 ? r.after.list === r.before.list : dir * (r.after.list - r.before.list) > 0)
   // without the keyboard
   await page.locator('[data-karte-keysheet] input').evaluate((el) => el.blur())
   await frames(page)
+  let room = await roomNow()
   let r = await page.evaluate(drag, UP)
-  const room = await page.locator('[data-karte-keysheet] .lc-body').evaluate((b) => b.scrollHeight - b.clientHeight)
-  check(`${name} · no keyboard · a push up scrolls the list (${room}px to scroll), sheet + field stay`, (room <= 0 || r.after.list > r.before.list) && still(r), r)
+  check(`${name} · no keyboard · a push up ${room > 0 ? 'scrolls the list' : 'moves nothing'} (${room}px to scroll), sheet + field stay`, scrolled(r, room) && still(r), r)
+  r = await page.evaluate(drag, BACK)
+  check(`${name} · no keyboard · a pull down moves nothing but the list, sheet + field stay`, still(r), r)
   // the keyboard comes back with a tap on the field: focused WITHOUT Safari's scroll-to-field
   // (lib/iosKeyboard · noPanTouchEnd cancels the tap's native focus and focuses with the field
   // lifted out of reach) — Safari's own focus pans the page to the field, «the whole sheet moves»
@@ -135,13 +148,14 @@ async function sheetChecks(name, open) {
   await page.locator('[data-karte-keysheet] input').focus()
   await page.evaluate((kb) => window.__kb({ kb, pan: 0 }), KEYBOARD)
   await frames(page, 6)
+  room = await roomNow()
   r = await page.evaluate(drag, UP)
-  check(`${name} · keyboard · a push up scrolls the list, sheet + field stay`, r.after.list > r.before.list && still(r), r)
+  check(`${name} · keyboard · a push up ${room > 0 ? 'scrolls the list' : 'moves nothing'} (${room}px to scroll), sheet + field stay`, scrolled(r, room) && still(r), r)
   r = await page.evaluate(drag, BACK)
-  check(`${name} · keyboard · and back down in a new touch`, r.after.list < r.before.list && still(r), r)
+  check(`${name} · keyboard · and back down in a new touch`, scrolled(r, room, -1) && still(r), r)
   await page.evaluate(() => { document.querySelector('[data-karte-keysheet] .lc-body').scrollTop = 0 })
   r = await page.evaluate(drag, JITTER)
-  check(`${name} · keyboard · a first move a pixel sideways still scrolls the list`, r.after.list > r.before.list && still(r), r)
+  check(`${name} · keyboard · a first move a pixel sideways still ${room > 0 ? 'scrolls the list' : 'moves nothing'}`, scrolled(r, room) && still(r), r)
   // iOS pans the page anyway (a drag it did not hand to the list, a momentum end) and ignores the
   // scrollTo(0, 0) that would undo it while the touch runs: the sheet and its field stay on the screen
   const t0 = await page.evaluate(drag, [])
@@ -154,6 +168,12 @@ async function sheetChecks(name, open) {
   await page.locator('[data-karte-keysheet]').waitFor({ state: 'detached' })
 }
 
+// nothing typed (review round 6, owner: «when i typed it works, without typing it fails (empty
+// state)»): the featured Einsatzobjekte and the hint lines — shorter than the sheet without the keys
+await sheetChecks('Suche leer', async () => {
+  await page.locator('[data-karte-search-open]').click()
+  await page.locator('[data-karte-keysheet] [role="option"]').first().waitFor()
+})
 await sheetChecks('Suche «strasse»', async () => {
   await page.locator('[data-karte-search-open]').click()
   await page.locator('[data-karte-keysheet] input').fill('strasse')

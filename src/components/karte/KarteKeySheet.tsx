@@ -15,7 +15,11 @@
 // the field line are the sheet's handle, the body is the list's alone — a drag over it never
 // pulls the sheet (useSwipeDismiss · headOnly), it never bounces or hands its scroll on to the
 // page (Karte.module.css · .keyBody), and the search sheet (`fill`) stands at its full height from
-// the start, so a growing or shrinking result list never moves the field.
+// the start, so a growing or shrinking result list never moves the field. A body with NOTHING to
+// scroll moves nothing either (review round 6, owner: the empty search «fails» — the six featured
+// rows are shorter than the sheet, and iOS hands a drag over a box that does not overflow on to the
+// page): a touchmove there that nothing under the finger can take is cancelled, keyboard or not
+// (overlays/useMobileScrollLock · useScrollOnlyIn).
 
 import { useRef, type ReactNode } from 'react'
 import { appConfig } from '../../config/appConfig'
@@ -23,6 +27,7 @@ import { Icon } from '../../lib/icons'
 import { cx } from '../../lib/cx'
 import { useKeySheet } from '../../lib/iosKeyboard'
 import { SheetGrab, useSwipeDismiss } from '../../lib/overlays'
+import { useScrollOnlyIn } from '../../lib/overlays/useMobileScrollLock'
 import s from './Karte.module.css'
 
 export function KarteKeySheet({ label, field, onClose, children, className, fill = false }: {
@@ -38,6 +43,7 @@ export function KarteKeySheet({ label, field, onClose, children, className, fill
 }) {
   const ref = useRef<HTMLElement>(null)
   useKeySheet(ref)
+  useScrollOnlyIn(ref, '.lc-body')
   const swipe = useSwipeDismiss({ onClose, headOnly: true })
   return (
     <section ref={ref} className={cx('layers-card', s.sheet, s.keySheet, fill && s.fill, className)} aria-label={label} data-karte-keysheet="" {...swipe}>
