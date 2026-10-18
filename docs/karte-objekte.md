@@ -796,7 +796,7 @@ What the surface shows offline:
   the last level 2–4×; switching to a base that ends sooner clamps the view. **Karte only**
   (`MapView` · `zoomCapAtBase`): the Einsatz map and the Tafel's Lagekarte keep 21 for precise
   symbol placement, the base soft past its last level there. Regression check, WebKit with the iPhone 13
-  descriptor: `node site/check-basemap-sharpness.mjs --base <app>` (red above 1.5 device px per
+  descriptor: `node e2e/karte-basemap-sharpness.mjs --base <app>` (red above 1.5 device px per
   tile px or on overzoom; its header says how it stands in for CARTO's keyed tiles).
 - **Search:** station objects are found on the device; the address search says it needs the
   network. **Objektbesuche** say they need the network and name the catalogue's last visit.

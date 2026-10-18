@@ -3,7 +3,7 @@
 // iPhone 13 descriptor (deviceScaleFactor 3).
 //
 //   LD_LIBRARY_PATH=… PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1 \
-//     node site/check-basemap-sharpness.mjs --base http://127.0.0.1:5188 [--runs 3] [--zoom 18.2] \
+//     node e2e/karte-basemap-sharpness.mjs --base http://127.0.0.1:5188 [--runs 3] [--zoom 18.2] \
 //       [--center 7.5575,47.5143] [--pin 000000] [--force2x] [--live]
 //
 // The app must be served with a backend that has an account (the first roster tile + `--pin`).
