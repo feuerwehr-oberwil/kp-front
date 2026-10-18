@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, renderHook } from '@testing-library/react'
-import { MIN_KEYBOARD_PX, focusWithoutPan, fullViewHeight, keySheetBox, keyboardTop, mayCorrect, useTypingLock } from './iosKeyboard'
+import { MIN_KEYBOARD_PX, focusWithoutPan, fullViewHeight, isCollapseScroll, keySheetBox, keyboardTop, mayCorrect, useTypingLock } from './iosKeyboard'
 
 /* Review round 3 (owner's iPhone, 17.10.2026): the phone's field sheets stand on the keyboard by
  * their own measurement, and the page never moves while a field has the caret. */
@@ -56,6 +56,21 @@ describe('the installed app\'s collapse (round 9)', () => {
     inner.mockReturnValue(844)
     expect(fullViewHeight()).toBe(844)
     inner.mockRestore(); client.mockRestore()
+  })
+})
+
+/* Review round 10, the owner's readout: while the finger is down iOS collapses innerHeight in
+ * steps and scrolls the window by exactly the collapse — 82 = 793 − 711, 8 = 793 − 785. */
+describe('isCollapseScroll — the installed app\'s stepped collapse (round 10)', () => {
+  it('is a scroll no larger than the shrink of innerHeight below the full height', () => {
+    expect(isCollapseScroll({ full: 793, inner: 711, pan: 82 })).toBe(true)
+    expect(isCollapseScroll({ full: 793, inner: 785, pan: 8 })).toBe(true)
+    expect(isCollapseScroll({ full: 793, inner: 424, pan: 369 })).toBe(true)
+  })
+  it('is not a pan of a full-height window (a Safari tab bringing a field into sight), nor a larger scroll', () => {
+    expect(isCollapseScroll({ full: 844, inner: 844, pan: 60 })).toBe(false)
+    expect(isCollapseScroll({ full: 793, inner: 711, pan: 200 })).toBe(false)
+    expect(isCollapseScroll({ full: 793, inner: 711, pan: 0 })).toBe(false)
   })
 })
 
@@ -181,6 +196,37 @@ describe('useTypingLock', () => {
     expect(to).toHaveBeenCalledWith(0, 0)
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
     vi.useRealTimers()
+  })
+
+  it('undoes the stepped collapse IN the scroll event, every step — not a frame later, not six and done (round 10)', () => {
+    const to = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    const inner = vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(793)
+    const client = vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(793)
+    renderHook(() => useTypingLock(true))
+    for (const h of [756, 711, 690, 666, 690, 740, 782, 785, 711, 666]) {
+      inner.mockReturnValue(h)
+      Object.defineProperty(window, 'scrollY', { configurable: true, value: 793 - h })
+      to.mockClear()
+      window.dispatchEvent(new Event('scroll'))
+      expect(to).toHaveBeenCalledWith(0, 0)
+    }
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
+    inner.mockRestore(); client.mockRestore()
+  })
+
+  it('binds the root to the live window height while on, and lets go when off (round 10)', () => {
+    const inner = vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(793)
+    const root = document.documentElement
+    const { unmount } = renderHook(() => useTypingLock(true))
+    expect(root.hasAttribute('data-typing-lock')).toBe(true)
+    expect(root.style.getPropertyValue('--live-h')).toBe('793px')
+    inner.mockReturnValue(711)
+    window.dispatchEvent(new Event('resize'))
+    expect(root.style.getPropertyValue('--live-h')).toBe('711px')
+    unmount()
+    expect(root.hasAttribute('data-typing-lock')).toBe(false)
+    expect(root.style.getPropertyValue('--live-h')).toBe('')
+    inner.mockRestore()
   })
 
   it('does nothing while disabled (the tablet)', () => {

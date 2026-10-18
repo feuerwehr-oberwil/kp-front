@@ -531,6 +531,32 @@ The rules that are easy to break:
     keeps the fixed frame at 793 while the sheet is placed (the capture shows it did with the
     placement off). Still open: `useKeyboardInset` (the root's `data-kb`, `--vv-foot`, the
     Einsatz's sheets) reads the live `innerHeight` the same way.
+  - **Round 10** (owner, installed app, 18.10.2026 20:28: «still doesn't work reliably. sometimes
+    it does»). The readout showed round 9's placement holding (`ref 793`, sheet on the keys after
+    the touch), but DURING the touch iOS collapses `innerHeight` in **steps** (793 → 756 → 711 →
+    690 → 666 … and back) and scrolls the window by exactly each step (`scrollY = 793 −
+    innerHeight`: 82, 8 …); the document stays 793 tall, so there is always room. The undo came a
+    frame late (`requestAnimationFrame`) and was rate-limited to six a second (`mayCorrect`):
+    every step painted the app ridden up for a frame, the sheet re-placed for a pan that the undo
+    had already taken back, and after six steps nothing undid it for the rest of the touch
+    («sometimes it does»). The readout's «Δ» counts the scroll twice (rects already include it,
+    round 9): the frames show the bar and the sheet off by up to ~10 px, the uncompensated map
+    behind them by the whole scroll.
+    · `useTypingLock` undoes a pan **in the scroll / resize event itself**, and a scroll that is
+    exactly the collapse (`isCollapseScroll`: `innerHeight` below the full height, the scroll no
+    larger than the shrink) is undone every time — only other pans keep `mayCorrect`.
+    · While the lock is on (the Karte on a phone), the root is as tall as the **live** window:
+    `html[data-typing-lock] { height: var(--live-h); overflow: hidden }` (02-base.css), `--live-h`
+    = `innerHeight` written in the same event. `position: fixed` and the placement are unaffected
+    (`documentElement.clientHeight` stays the full 793). Whether iOS bounds its scroll by the
+    root's box or by the initial containing block (which no CSS shrinks) only the phone can say,
+    so both guards stay.
+    · The readout's first line adds the root's computed height and its scrollTop (`html 711 top 0`).
+    · Check: the app frame runs the collapse in the capture's steps during a finger on a row and
+    reads the bar, sheet, field and map on the screen one frame after each step, with iOS's scroll
+    bounded by the root's box (`html`) and by the 793-px frame (`icb`): red on the base (37–127 px),
+    green now; each guard alone turns its own variant green (the live height `html`, the
+    same-event undo both).
   - No «AutoFill Contact»: both fields come from one helper (`lib/typingField`) — a `search-…`
     name (Safari offers no contact AutoFill on a search), autocomplete / autocorrect /
     autocapitalise / spell check off, `enterKeyHint`, numeric for the UN field, and their label /
