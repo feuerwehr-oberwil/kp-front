@@ -279,6 +279,11 @@ The rules that are easy to break:
   on a tablet). The Karte's root wears `.phone-tools` (its docks stack like an Einsatz's), so
   `Karte.module.css` must keep the reader out of that two-bar box. Round 3 ended the reader a
   whole chip row higher AND let the fit reserve the row again.
+  The box is only what the FIT measures: what is drawn is full-bleed (owner, round 4: a plan
+  dragged down «doesn't neatly go behind all of the other bottom UI elements»). On the phone the
+  stage does not clip at the box (`.wb-canvas { overflow: visible }`), so a dragged page slides on
+  under «Zur Karte» and the bar to the screen's foot, with the stage's own ground behind it; the
+  chrome floats over the plan.
 - **The Gebäude is the Einsatz's, without editing** (owner, review round 4: «literally 1:1 the
   same as in the normal incident just without editing»). `KartePlans · KarteGebaeudeBoard` binds
   the object's floor pack IN MEMORY exactly as an Einsatz binds it (`lib/karte/gebaeude ·
@@ -334,9 +339,11 @@ The rules that are easy to break:
   and the closing «Keine Gefahrenangaben …» sentence still stands.
 - **«Register-Hinweis» is tap to open** (owner, review round 4: «should be tap to open and this
   blabla (gwr, stand, etc.) should all be hidden by default»). Under «Gebäude laut Register» the
-  chips stand; the hint («Aus den Bundesregistern … Vor Ort prüfen.») and the source line (the
-  registers and their Stand, the device's copy, «Registereintrag …, nicht …») are folded behind the
-  «Register-Hinweis» toggle (`aria-expanded`), folded again for every place. The Einsatz's
+  chips stand, and so does «Registereintrag Grenzweg 7, nicht Grenzweg 1» right under them when
+  the register's building is another address's (owner: keep it visible — the chips may be about
+  the other building). The hint («Aus den Bundesregistern … Vor Ort prüfen.») and the source line
+  (the registers and their Stand, the device's copy) are folded behind the «Register-Hinweis»
+  toggle (`aria-expanded`), folded again for every place. The Einsatz's
   Gebäude card (`BuildingCard`) is a different component and keeps its hint as it was.
 - **Missing is said.** A register that could not be asked, a place never looked at offline, an
   object without notes: each gets its sentence, and «Keine Gefahrenangaben … heisst nicht …»

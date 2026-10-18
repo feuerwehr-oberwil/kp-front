@@ -73,8 +73,16 @@ describe('KartePanel', () => {
 
   it('names a register entry at another address as exactly that', () => {
     panel({ register: { state: 'ok', info: { ...INFO, address: 'Schlossgasse 11, 9999 Musterdorf' }, cached: true } })
-    fireEvent.click(screen.getByRole('button', { name: /Register-Hinweis/ }))
+    // owner, review round 4: the mismatch stays in view under the chips; only GWR · Stand fold
     expect(screen.getByText('Registereintrag Schlossgasse 11, nicht Schlossgasse 9')).toBeTruthy()
+    expect(screen.queryByText(/GWR Schlossgasse 11/)).toBeNull()
+    const section = screen.getByText('Heizung Gas').closest('[data-section="register"]')!
+    const order = [...section.querySelectorAll('ul, [data-testid="register-other"]')].map((e) => e.tagName)
+    expect(order[order.length - 1]).toBe('DIV')
+    fireEvent.click(screen.getByRole('button', { name: /Register-Hinweis/ }))
+    expect(screen.getByText(/GWR Schlossgasse 11/)).toBeTruthy()
+    // said once, not again in the folded source line
+    expect(screen.getAllByText(/nicht Schlossgasse 9/)).toHaveLength(1)
   })
 
   it('offers a pin «Melden» and the coordinates', () => {

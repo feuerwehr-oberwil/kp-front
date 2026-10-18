@@ -296,10 +296,11 @@ function Plans({ docs, onOpenDoc, avail }: {
   )
 }
 
-/** Gebäude laut Register. The chips stand; «Register-Hinweis» is a tap-to-open toggle (owner,
- *  review round 4: «tap to open and this blabla (gwr, stand, etc.) should all be hidden by
- *  default») that reveals the hint AND the source line — the registers, their Stand, the device's
- *  copy and «Registereintrag …, nicht …». Folded again for every place (keyed by the caller). */
+/** Gebäude laut Register. The chips stand, and so does «Registereintrag …, nicht …» right under
+ *  them when the register's building is another address's (owner, review round 4). «Register-
+ *  Hinweis» is a tap-to-open toggle («tap to open and this blabla (gwr, stand, etc.) should all
+ *  be hidden by default») that reveals the hint AND the source line — the registers, their Stand,
+ *  the device's copy. Folded again for every place (keyed by the caller). */
 function Register({ reg, address, onRetry }: { reg: RegisterState; address: string | null; onRetry: () => void }) {
   const C = appConfig.copy.karte
   const B = appConfig.copy.building
@@ -336,9 +337,12 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
         {facts.length > 0
           ? <ul className={s.tags}>{facts.map((c) => <li key={c.key} className={s.tag} title={c.title}>{c.text}</li>)}</ul>
           : !hazards.length && <div className={s.src}>{C.registerEmpty}</div>}
+        {/* the register's entry is ANOTHER building's: said right under the chips, never folded
+            (owner, review round 4) — the chips may be about Grenzweg 7, not this object */}
+        {other && <div className={s.src} data-testid="register-other"><b>{other}</b></div>}
       </>
     )
-    source = <div className={s.src}>{sources.filter(Boolean).join(' · ')}{other && <> · <b>{other}</b></>}</div>
+    source = <div className={s.src}>{sources.filter(Boolean).join(' · ')}</div>
   }
   return (
     <div className={s.sec} data-section="register">

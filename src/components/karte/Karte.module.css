@@ -234,8 +234,8 @@ button.row:active { background: var(--press); }
    (the object read-out, the Maßstab) would stand on the chip row's corner, and here the chip row
    already names the object and is the way back — one row in that corner, the Karte's. */
 .surface :global(.wb-botleft) { display: none; }
-/* …and one ground under it: the reader's own (.whiteboard · --app-bg) down to the bar */
-.surface.reader { background: var(--app-bg); }
+/* …and one ground under it, the plan stage's own (09-whiteboard · .wb-canvas), to the screen's edge */
+.surface.reader { background: var(--canvas-bg); }
 /* ⚠️ The plan lies out EXACTLY as an Einsatz's plan does (owner, review round 4: «use the same
    display like we have for our plans normally -> not this clipping here»): the box of an
    Einsatz's plan with no tool bar under it — on a phone it ends 18px above the ONE bar
@@ -246,6 +246,13 @@ button.row:active { background: var(--press); }
    16px off the foot beside the rail on a tablet (09-whiteboard · .wb-botleft). Round 3 ended
    the reader a whole chip row higher AND let the fit reserve the row again. */
 .root.phone .surface :global(.whiteboard) { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
+/* ⚠️ …and FULL-BLEED for what is drawn (owner, review round 4: «when you … move it down with your
+   finger, it doesn't neatly go behind all of the other bottom UI elements»). The box above is
+   only what the FIT measures (whole page between the chrome on open, the Einsatz's fit); the
+   stage does not clip at its edge, so a dragged page slides on under «Zur Karte» and the bar to
+   the screen's foot — the chrome floats over the plan. A touch on that part of the page still
+   reaches the stage (the board is its child). Pinned by site check «drag» (PR #384). */
+.root.phone .surface :global(.wb-canvas) { overflow: visible; }
 .chipRow { position: absolute; left: calc(var(--rail-w) + 28px); bottom: 16px; z-index: var(--z-chrome); display: flex; gap: var(--float-gap); flex-wrap: wrap; }
 .phone .chipRow { left: max(8px, env(safe-area-inset-left)); bottom: calc(var(--rail-h, 60px) + 16px + env(safe-area-inset-bottom)); }
 /* «Schärfere Ansicht wird geladen …» (owner, review round 3: zoomed in fast, the plan was a blurry
