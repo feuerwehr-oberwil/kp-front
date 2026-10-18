@@ -751,6 +751,21 @@ describe('the Rotation’s placement magnet pauses the board pan', () => {
     fireEvent.pointerUp(el, { clientX: 340, clientY: 340, pointerId: 1 })
     expect(shapes(onChange)).toHaveLength(0) // that second tap is only the FIRST point now
   })
+
+  // review sweep 23.09.2026: the Escape effect did not list `rotStart`, so its handler still saw
+  // the null from before the first tap — Escape skipped the half-laid Rotation, and the next tap
+  // finished a run the operator had just thrown away.
+  it('Escape throws a half-laid Rotation away: the next tap is a FIRST point again', () => {
+    const { container, onChange } = renderPlan([], { sym: symApi })
+    armRotation()
+    const el = container.querySelector('.wb-ink')!
+    fireEvent.pointerDown(el, { clientX: 60, clientY: 60, pointerId: 1 })
+    fireEvent.pointerUp(el, { clientX: 60, clientY: 60, pointerId: 1 })
+    fireEvent.keyDown(window, { key: 'Escape' })
+    fireEvent.pointerDown(el, { clientX: 340, clientY: 340, pointerId: 1 })
+    fireEvent.pointerUp(el, { clientX: 340, clientY: 340, pointerId: 1 })
+    expect(shapes(onChange)).toHaveLength(0)
+  })
 })
 
 // ── the Rotation on the Kroki ────────────────────────────────────────────────────────────────

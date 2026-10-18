@@ -70,7 +70,7 @@ describe('Combo — officer filter', () => {
 
 // A name typed into a roster field is recorded as a Gast on the Anwesenheit the moment it is
 // committed. Every keystroke used to be a commit, so «Muster Felix» would have put thirteen
-// people on the list — one per prefix. `onInput` is what separates typing from finishing.
+// people on the list — one per prefix.
 /* The free-type escape is the Gast door since 07.09. (Feldtest Manuel): no mode switch into a
  * bare input any more — the custom value is typed into the menu's search row (offered even on a
  * three-option list) and committed ONCE via the query-carrying «‹X› verwenden» row. The two
