@@ -33,6 +33,7 @@ vi.mock('../idb', () => {
 vi.mock('../tileEvict', () => ({ withTileEviction: (fn: () => Promise<boolean>) => fn() }))
 
 const { ApiError } = await import('../api')
+const { mergeWorkspace } = await import('../mergeWorkspace')
 const { idbSet } = vi.mocked(await import('../idb'))
 const { CACHE_DEBOUNCE_MS, CONFLICT_ATTEMPTS, CONFLICT_BACKOFF_MS, WorkspaceSync, conflictBackoffMs } = await import('./workspaceSync')
 
@@ -112,6 +113,127 @@ describe('WorkspaceSync · slice: «trupps»', () => {
     await sync.flush()
     expect(putWorkspace).toHaveBeenCalledWith('i1', blob, 7, expect.stringMatching(/^\d{4}-\d\d-\d\dT/))
     expect(putWorkspaceTrupps).not.toHaveBeenCalled()
+    sync.dispose()
+  })
+})
+
+// An EDITOR's save that changed only the Trupps (a Funkkontakt, a Druck, an Austritt) goes the
+// trupp slice route (18.10.2026): the full PUT sent the whole blob for one Trupp's clock. The
+// route stores the server's blob at base_rev with these Trupps in it, so this is only right
+// while the engine's ancestor IS that blob — everything else must still be the full PUT.
+describe('WorkspaceSync · an editor\'s Trupp-only save takes the trupp slice', () => {
+  const t1 = { id: 'tr1', name: 'Trupp 1', status: 'aktiv', lastContactTime: '2026-10-18T10:00:00.000Z' }
+  const kontakt = { ...t1, lastContactTime: '2026-10-18T10:05:00.000Z' }
+  const server = { trupps: [t1], cameraViews: [{ id: 'd1' }], settings: { contactIntervalMin: 10 } }
+  const iso = expect.stringMatching(/^\d{4}-\d\d-\d\dT/)
+
+  const opened = async (debounceMs = 0) => {
+    getWorkspace.mockResolvedValueOnce({ workspace: structuredClone(server), workspace_rev: 7 })
+    const sync = new WorkspaceSync('i1', { debounceMs })
+    await sync.init()
+    return sync
+  }
+
+  it('a Kontakt sends the Trupps only, at the revision the blob is based on', async () => {
+    const sync = await opened()
+    sync.save({ ...server, trupps: [kontakt] })
+    await sync.flush()
+    expect(putWorkspaceTrupps).toHaveBeenCalledWith('i1', [kontakt], 7, iso)
+    expect(putWorkspace).not.toHaveBeenCalled()
+    expect(sync.syncStatus).toBe('synced')
+    sync.dispose()
+  })
+
+  it('a save that changed anything besides the Trupps is the full document', async () => {
+    const sync = await opened()
+    const both = { ...server, trupps: [kontakt], cameraViews: [{ id: 'd1' }, { id: 'd2' }] }
+    sync.save(both)
+    await sync.flush()
+    expect(putWorkspace).toHaveBeenCalledWith('i1', both, 7, iso)
+    expect(putWorkspaceTrupps).not.toHaveBeenCalled()
+    sync.dispose()
+  })
+
+  it('a save that changed no Trupp (or dropped the list) is the full document', async () => {
+    const sync = await opened()
+    sync.save({ ...server, cameraViews: [] })
+    await sync.flush()
+    const { trupps: _, ...noList } = server
+    sync.save(noList)
+    await sync.flush()
+    expect(putWorkspace).toHaveBeenCalledTimes(2)
+    expect(putWorkspaceTrupps).not.toHaveBeenCalled()
+    sync.dispose()
+  })
+
+  it('compares against what the server holds now: after a full push, the next Kontakt is a slice again', async () => {
+    const sync = await opened()
+    const drawn = { ...server, cameraViews: [{ id: 'd1' }, { id: 'd2' }] }
+    sync.save(drawn)
+    await sync.flush() // full, → rev 8
+    putWorkspaceTrupps.mockResolvedValueOnce({ workspace: null, workspace_rev: 9 })
+    sync.save({ ...drawn, trupps: [kontakt] })
+    await sync.flush()
+    expect(putWorkspaceTrupps).toHaveBeenCalledWith('i1', [kontakt], 8, iso)
+    expect(putWorkspace).toHaveBeenCalledTimes(1)
+    sync.dispose()
+  })
+
+  it('the server\'s re-sorted keys are no change (JSONB): still the slice', async () => {
+    // JSONB hands objects back with their keys re-sorted (lib/jsonEqual)
+    getWorkspace.mockResolvedValueOnce({ workspace: { settings: { contactIntervalMin: 10 }, cameraViews: [{ id: 'd1' }], trupps: [{ status: 'aktiv', name: 'Trupp 1', lastContactTime: t1.lastContactTime, id: 'tr1' }] }, workspace_rev: 7 })
+    const sync = new WorkspaceSync('i1', { debounceMs: 0 })
+    await sync.init()
+    sync.save({ ...server, trupps: [kontakt] })
+    await sync.flush()
+    expect(putWorkspaceTrupps).toHaveBeenCalledTimes(1)
+    expect(putWorkspace).not.toHaveBeenCalled()
+    sync.dispose()
+  })
+
+  it('a 409 merges as ever, and the merge — still Trupps only against the new server copy — goes the slice', async () => {
+    const sync = await opened()
+    // another tablet saved a view meanwhile; a real server copy carries every key (the merge
+    // writes the empty ones, and an absent key against `[]` is a change, so it would go full)
+    const other = mergeWorkspace({}, { ...server, cameraViews: [{ id: 'd1' }, { id: 'dX' }] }, {})
+    putWorkspaceTrupps.mockRejectedValueOnce(new ApiError(409, 'stale')).mockResolvedValueOnce({ workspace: null, workspace_rev: 10 })
+    getWorkspace.mockResolvedValueOnce({ workspace: structuredClone(other), workspace_rev: 9 })
+    sync.save({ ...server, trupps: [kontakt] })
+    await sync.flush()
+    expect(putWorkspaceTrupps).toHaveBeenCalledTimes(2)
+    expect(putWorkspaceTrupps.mock.calls[1]).toEqual(['i1', [kontakt], 9, iso])
+    expect(putWorkspace).not.toHaveBeenCalled()
+    expect(sync.syncStatus).toBe('synced')
+    sync.dispose()
+  })
+
+  it('a 422 from the slice (a legacy Trupp only the full save keeps) falls back to the full document', async () => {
+    const sync = await opened()
+    putWorkspaceTrupps.mockRejectedValueOnce(new ApiError(422, 'Trupp ungültig'))
+    const ws = { ...server, trupps: [kontakt] }
+    sync.save(ws)
+    await sync.flush()
+    expect(putWorkspace).toHaveBeenCalledWith('i1', ws, 7, iso)
+    expect(sync.syncStatus).toBe('synced')
+    sync.dispose()
+  })
+
+  it('any other failure of the slice is the save\'s own (no second request)', async () => {
+    const sync = await opened()
+    putWorkspaceTrupps.mockRejectedValueOnce(new ApiError(0, 'offline'))
+    sync.save({ ...server, trupps: [kontakt] })
+    await sync.flush()
+    expect(putWorkspace).not.toHaveBeenCalled()
+    expect(sync.syncStatus).toBe('offline')
+    sync.dispose()
+  })
+
+  it('the teardown beacon of a Trupp-only save goes the slice route too', async () => {
+    const sync = await opened(10_000)
+    sync.save({ ...server, trupps: [kontakt] })
+    sync.flushKeepalive()
+    expect(putWorkspaceTruppsBeacon).toHaveBeenCalledWith('i1', [kontakt], 7, iso)
+    expect(putWorkspaceBeacon).not.toHaveBeenCalled()
     sync.dispose()
   })
 })
