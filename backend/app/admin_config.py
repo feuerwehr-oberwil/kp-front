@@ -73,6 +73,7 @@ from .schemas import DeploymentConfigIn
 EXAMPLE_CONFIG: dict[str, Any] = {
     "identity": {
         "appName": "Feuerwehr Musterdorf",
+        "shortName": "FWM",
         "locale": "de-CH",
         "accentColor": "#c4161c",
         "helpIntro": "Digitale Lage- und Einsatzführung der Feuerwehr Musterdorf.",

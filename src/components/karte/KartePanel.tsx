@@ -227,7 +227,7 @@ function Actions({ canCapture, onVisit, onReport, extra }: { canCapture: boolean
     canCapture && <Button key="report" variant="secondary" icon={<Icon id="warn" />} onClick={onReport}>{C.startReport}</Button>,
   ].filter(Boolean)
   if (!buttons.length) return null
-  return <div className={cx(s.quick, buttons.length === 1 && s.one)} data-section="actions">{buttons}</div>
+  return <div className={s.quick} data-section="actions">{buttons}</div>
 }
 
 /** The station's own word about the object, FIRST (owner R2: in a hurry it matters most):

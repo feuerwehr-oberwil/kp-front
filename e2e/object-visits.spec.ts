@@ -71,11 +71,11 @@ async function prepare(api: Api, objectName: string): Promise<() => Promise<void
 /** Sign in, open Objektbesuche online (the catalogue lands on the device), wait for the SW. */
 async function openSurface(page: Page) {
   await login(page)
-  // signed in: home («Karte & Objekte», whose «Einsätze ▾» menu has the Objektbesuche row), or
+  // signed in: home («Karte & Objekte», whose menu button opens the menu with the Objektbesuche row), or
   // an Einsatz the boot reopened
   await page.locator('[data-karte], nav.navrail').first().waitFor({ state: 'visible' })
   if (await page.locator('[data-karte]').isVisible().catch(() => false)) {
-    await page.getByRole('button', { name: /^Einsätze/ }).click()
+    await page.locator('[data-karte-menu]').click()
     await page.getByRole('button', { name: 'Objektbesuche' }).click()
   } else await page.goto('/besuche')
   await expect(page).toHaveURL(/\/besuche$/)

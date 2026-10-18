@@ -583,6 +583,9 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       // garder identique à admin.setup.name — la ligne « Configuration » mène droit à ce champ
       appName: 'Nom du corps',
       appNameTip: 'Affiché dans la barre de titre, le login et l’aide. Vide = « KP Front ».',
+      shortName: 'Nom court',
+      shortNameHint: 'Bouton menu de la carte, 8 caractères max.',
+      shortNameTip: 'Affiché en haut à gauche de « Carte & objets », sur le bouton qui ouvre le menu – à côté du logo s’il y en a un. 8 caractères au plus, p. ex. « FWO ». Vide = symbole de menu (ou le logo seul).',
       accentColor: 'Couleur d’accent',
       accentColorHint: 'Couleur de marque (login / splash)',
       accentColorTip: 'Couleur de marque du corps ; se propage dans tout le système de couleurs --accent (login, splash, accents). Une valeur hexadécimale comme #e8392b – ou à choisir dans le champ de couleur à gauche.',
@@ -1634,7 +1637,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       colStatus: 'Statut',    },
     branding: {
       logo: 'Logo',
-      logoHint: 'Écran de connexion',
+      logoHint: 'Écran de connexion, bouton menu de la carte',
       reportLogo: 'Logo du rapport',
       reportLogoHint: 'En-tête du rapport imprimé – vide = le logo ci-dessus',
       favicon: 'Favicon',

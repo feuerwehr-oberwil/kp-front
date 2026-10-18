@@ -1,7 +1,7 @@
 # Karte & Objekte
 
 Status: 🟡 in progress (from 2026-10-16). The station reads and the `/karte` viewer are built; the
-home switch (Karte & Objekte as the start when no Einsatz is open), the «Einsätze» sheet, the
+home switch (Karte & Objekte as the start when no Einsatz is open), the menu sheet, the
 Einsatz-menu entry back to the viewer and deliberate offline downloads follow in their own changes.
 
 «Karte & Objekte» is the station's reference viewer **outside an Einsatz**: a member looks at the
@@ -242,7 +242,10 @@ The rules that are easy to break:
   laut Register · In der Nähe · Objektbesuche · the closing «Keine Gefahrenangaben …» · the actions
   LAST, «Objektbesuch» and «Melden». A plain building or a dropped pin keeps that order with what
   it has (Register, In der Nähe, Melden; a pin also «Koordinaten kopieren»), a plan-less object
-  too (no plan rows). No «Messen ab hier» (Messen is the bar's / the rail's) and no
+  too (no plan rows). The action row is two equal halves where both labels fit; else the longer
+  label takes what it needs, and where the two do not fit one line (French/Italian at 390 px) each
+  gets a row of its own — a label is never cut (owner, review round 5: «koordinaten kopieren clips
+  the button»). No «Messen ab hier» (Messen is the bar's / the rail's) and no
   «Objektplan auf der Karte» row: the aligned plan is switched in Ebenen (`Pläne` group, the
   viewer's `karte:objektplan` twin), which keeps the capability. Section titles are the sheet's
   group heads (eyebrow, no glyph); a missing or quiet fact is a line, not a box — only a warning
@@ -252,7 +255,7 @@ The rules that are easy to break:
   flush with the bottom edge and both sides, over the bar, the hero corner, hugging its content up
   to Ebenen's cap, the grab bar on top, pushed down to close (`useSwipeDismiss`; the head is the
   handle, a scrolled body scrolls), the toasts moved out of its way like for Ebenen. One height,
-  no peek. It sits over the bar but under the top bar (`--z-chrome-raised`), so «Einsätze» and the
+  no peek. It sits over the bar but under the top bar (`--z-chrome-raised`), so the menu button and the
   search still open over it. ✕ or a push down closes the SHEET only: the place stays selected —
   outline, tag, pin, `?objekt=` — and a tap on it again brings the sheet back; a tap on empty map
   deselects. A place selected on a phone is framed in the strip above the sheet (the deep link's
@@ -391,7 +394,7 @@ The rules that are easy to break:
   tiles, then the station group — Stationsobjekte and the colour categories — above Inhalte, Wasser
   and Wetter (`LayerPanel · leadTwinGroups`). The Einsatz's Ebenen keep their order.
 - **Typing on a phone** (review round 3, 17.10.2026 — round 2's keyboard handling did nothing on
-  the owner's real iPhone). The bar is «Einsätze ▾» + a **search button** (its twin since round 4); the tablet keeps
+  the owner's real iPhone). The bar is the menu button + a **search button** (its twin since round 4); the tablet keeps
   its field. Search and **Gefahrgut** are slide-ups with Ebenen's frame (`KarteKeySheet`): the field
   is the first line with the ✕ beside it, the results / the readout scroll under it. The search
   opens with the keyboard up (`primeKeyboard` inside the tap); a pick closes it and selects; it
@@ -454,7 +457,7 @@ The rules that are easy to break:
   floating family's piece (01-tokens · `--float-*`): its row height, 14 px before a 16 px glyph,
   and 8 px above and below the words (round 4: the text sat 4 px from the rim on two lines).
 - **The bar's and the sheets' controls are the app's** (owner, review round 4: «the search icon
-  being round, the (x) size …»): the phone's search button is «Einsätze ▾»'s twin (44 px, the
+  being round, the (x) size …»): the phone's search button is the menu button's twin (44 px, the
   one corner, its frame) with the bar's 16 px glyph; every ✕ of the viewer — object sheet, search,
   Gefahrgut, Ebenen, phone and tablet — is the global `.ip-x` (36 px, 18 px glyph), 12 px in from
   the sheet's edge — except beside a field: the search's and Gefahrgut's ✕ is the field's height
@@ -666,7 +669,17 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
 - **`appScreen`** picks the screen: the Objektbesuche surface, the viewer, the boot's splash, an
   Einsatz — and the launcher card only for a **link session** whose Einsatz could not be fetched
   (it has no station to look at). A visitor who is not signed in still gets the login screen.
-- **«Einsätze ▾»** (top left of the bar) opens **the same menu as inside an Einsatz** (owner,
+- **The menu button** (top left of the bar; owner, review round 5: «i dont like the "einsätze"
+  being the main top button» — it said «Einsätze ▾» until then) wears **the station**: its
+  uploaded mark (`identity.assets.logo`, fitted to 24 px high, max. 48 px wide) and/or its short
+  name (`identity.shortName`, ≤ 8 characters, Verwaltung › Station & Karte › «Kurzname»; FWO:
+  «FWO»), then ▾. Neither set → a neutral menu symbol (☰ ▾), never the word «Einsätze»; a mark that
+  does not load steps back to the symbol. Phone and tablet alike (the tablet's «keiner offen / 1
+  läuft» sub line went with the word — the red chip beside it names the running Einsatz). A small
+  **red dot** on its corner while an Einsatz runs or an alarm waits (it was a count); the count is
+  in its accessible name: «Menü – <appName>, 2 offen». The red running-Einsatz strip under the bar
+  stays. The Einsatz's own bar (IncidentSwitcher, the title ▾) is not this button.
+- **The menu** (the button above) opens **the same menu as inside an Einsatz** (owner,
   17.10.2026 — it was the old launcher card with big launch buttons): one component,
   `panels/AppMenuRows`, renders the rows under the Einsatz menu's card (`IncidentSwitcher`) and the
   whole of this sheet, so the two cannot drift. Here it has no card (no Einsatz is being worked
@@ -680,7 +693,7 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   build label. With nothing running and nothing to take, one quiet line says «Keine offenen
   Einsätze». The Rückmeldung prompt (`trouble`) heads the sheet. `App · homeMenu` hands in the
   handlers; the viewer only opens and closes the sheet (`einsaetze.render(close, onDevice)`). The
-  badge is running Einsätze + alarms waiting to be taken. The old card (`App · launcherBody`) is
+  red dot is running Einsätze + alarms waiting to be taken. The old card (`App · launcherBody`) is
   left only for a link session whose Einsatz could not be fetched.
 - **Alarms** show in the Meldeleiste and the banner (no «Anhängen»: no Einsatz is being worked on
   screen); nothing switches by itself. Taking one keeps the 12 s «Alarm übernommen · Rückgängig»,

@@ -75,6 +75,20 @@ describe('identity.helpIntro — the paragraph every new AdF reads', () => {
   })
 })
 
+describe('identity.shortName — the Karte menu button (review round 5)', () => {
+  it('stores the label, holds it to 8 characters, and clearing it is null (the menu symbol)', async () => {
+    await setup(<IdentitySection />, () => screen.queryByRole('textbox', { name: new RegExp(I.shortName) }))
+    const box = screen.getByRole('textbox', { name: new RegExp(I.shortName) }) as HTMLInputElement
+    expect(box.maxLength).toBe(8)
+    await type(box, 'FWM')
+    await settle()
+    expect(sent()?.identity.shortName).toBe('FWM')
+    await type(box, '')
+    await settle()
+    expect(sent()?.identity.shortName).toBeNull()
+  })
+})
+
 describe('map.geocoder — without these two, address search is national', () => {
   const open = () => setup(<MapSection />, () => screen.queryByPlaceholderText(M.localityPlaceholder))
 
