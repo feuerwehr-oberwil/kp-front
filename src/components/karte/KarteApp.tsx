@@ -32,7 +32,7 @@ import { useOnline } from '../../lib/useOnline'
 import { onReachable } from '../../lib/connectivity'
 import { useNightTheme } from '../../lib/useNightTheme'
 import { useViewportPan } from '../../lib/useViewportPan'
-import { focusWithoutPan, useTypingLock } from '../../lib/iosKeyboard'
+import { focusWithoutPan, noPanTouchEnd, useTypingLock } from '../../lib/iosKeyboard'
 import { primeKeyboard } from '../../lib/keyboardPrime'
 import { defuseAutofill, typingFieldProps } from '../../lib/typingField'
 import { useSymbols } from '../../lib/useSymbols'
@@ -83,6 +83,7 @@ import { KartePanel, type PanelSel, type RegisterState, type VisitsState } from 
 import { KarteSearch, type AddrState } from './KarteSearch'
 import { KarteGefahrgut } from './KarteGefahrgut'
 import { KarteKeySheet } from './KarteKeySheet'
+import { KarteScrollDebug } from './KarteScrollDebug'
 import { KarteNavRail, KarteSurface } from './KartePlans'
 import { KarteDevice } from './KarteDevice'
 import { useMapCoverage, useObjectAvailability } from './useKarteOffline'
@@ -1085,7 +1086,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
               <SearchField
                 {...typingFieldProps('search', 'karte')}
                 ref={sheetFieldRef} className={s.keyField} noClear value={query}
-                onChange={setQuery}
+                // the keyboard back with a tap on the field: focused without Safari's scroll to it,
+                // as Gefahrgut's field (review round 5: that pan moved the whole sheet)
+                onChange={setQuery} onTouchEnd={noPanTouchEnd}
                 onKeyDown={(e) => { if (e.key === 'Escape') setSearchOpen(false); else if (e.key === 'Enter') e.currentTarget.blur() }}
                 placeholder={defuseAutofill(C.searchPlaceholderShort)}
                 aria-label={defuseAutofill(C.searchPlaceholder)}
@@ -1243,6 +1246,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         {deviceOpen && (
           <KarteDevice offline={!online} objects={objects} map={coverage === 'far' ? 'far' : coverage ? { held: coverage.held, total: coverage.total } : null} onClose={() => setDeviceOpen(false)} />
         )}
+        {/* `?debug=scroll`: the owner's iPhone capture of the search scrolling (review round 5) */}
+        <KarteScrollDebug />
       </div>
     </>
   )

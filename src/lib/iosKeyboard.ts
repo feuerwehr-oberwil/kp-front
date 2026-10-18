@@ -31,7 +31,7 @@
 
 import { useEffect, type RefObject } from 'react'
 import { isTypingTarget } from './hotkeys'
-import { touchAxis, touchMayScroll, type ScrollBox } from './overlays/useMobileScrollLock'
+import { touchGate } from './overlays/useMobileScrollLock'
 
 /** Below this many px between the layout's foot and the visible band's foot it is not a keyboard
  *  (the address bar, a rounding step, the home indicator). */
@@ -58,11 +58,19 @@ export function keyboardTop(r: { innerHeight: number; vvHeight: number; vvOffset
  *  edge (`bottom`, px from the layout's foot) and at most as tall as the room between the top bar
  *  (`barBottom`) and the keys, less a strip of map kept in sight above it (`strip`) — never less
  *  than `minHeight`, so the field and a row stay usable on the smallest phone. The sheet keeps its
- *  own (Ebenen) height when that is lower: the CSS takes `min(its cap, maxHeight)`. */
-export function keySheetBox(r: { innerHeight: number; kbTop: number | null; barBottom: number; strip: number; minHeight: number }): { bottom: number; maxHeight: number } | null {
+ *  own (Ebenen) height when that is lower: the CSS takes `min(its cap, maxHeight)`.
+ *
+ *  `pan` is how far iOS has moved the page anyway (`visualViewport.offsetTop`, layout px). The
+ *  foot follows the keys by itself (`kbTop` is in layout px, pan included), but the room above
+ *  them is the VISIBLE band's: the top bar rides back down by the pan (useViewportPan · --vv-pan),
+ *  and a cap measured from the layout's top left the sheet's top — the search field — standing
+ *  where the layout put it, i.e. slid up under the bar by the whole pan (review round 5, owner:
+ *  «the whole sheet moves instead of the list»). Less the pan, the field keeps its place on the
+ *  screen whatever iOS does, and iOS sees the caret where it was. */
+export function keySheetBox(r: { innerHeight: number; kbTop: number | null; barBottom: number; strip: number; minHeight: number; pan?: number }): { bottom: number; maxHeight: number } | null {
   if (r.kbTop == null) return null
   const bottom = Math.max(0, Math.round(r.innerHeight - r.kbTop))
-  const maxHeight = Math.max(r.minHeight, Math.round(r.kbTop - r.barBottom - r.strip))
+  const maxHeight = Math.max(r.minHeight, Math.round(r.kbTop - Math.max(0, r.pan ?? 0) - r.barBottom - r.strip))
   return { bottom, maxHeight }
 }
 
@@ -106,16 +114,6 @@ export function noPanTouchEnd(e: React.TouchEvent<HTMLElement>) {
   focusWithoutPan(el)
 }
 
-function scrollChain(from: Element): ScrollBox[] {
-  const chain: ScrollBox[] = []
-  for (let node: Element | null = from; node && node !== document.body; node = node.parentElement) {
-    const css = getComputedStyle(node)
-    chain.push({ overflowX: css.overflowX, overflowY: css.overflowY, top: node.scrollTop,
-      maxX: node.scrollWidth - node.clientWidth, maxY: node.scrollHeight - node.clientHeight })
-  }
-  return chain
-}
-
 /** Guards 2 and 3 (see the head of this file) for a whole surface while `enabled` (the Karte on a
  *  phone). Idle until a text field has the caret; never re-renders anything. */
 export function useTypingLock(enabled: boolean) {
@@ -140,23 +138,21 @@ export function useTypingLock(enabled: boolean) {
     let late: ReturnType<typeof setTimeout>[] = []
     const onFocus = () => { soon(); late.forEach(clearTimeout); late = [setTimeout(unpan, 250), setTimeout(unpan, 600)] }
 
-    // the drag: a touch that nothing under the finger can scroll does not move the page
-    let x0 = 0, y0 = 0, target: Element | null = null, free = false
+    // the drag: a touch that nothing under the finger can scroll does not move the page — judged
+    // over the touch's whole travel (overlays/useMobileScrollLock · touchGate, review round 5): a
+    // first move a pixel sideways read as «sideways, nothing scrolls that way», was cancelled, and
+    // on iOS a cancelled first touchmove kills the list's native scroll for the whole touch
+    const gate = touchGate()
     const start = (e: TouchEvent) => {
-      x0 = e.touches[0]?.clientX ?? 0
-      y0 = e.touches[0]?.clientY ?? 0
-      target = e.target instanceof Element ? e.target : null
+      const target = e.target instanceof Element ? e.target : null
       // the map pans itself (MapLibre, touch-action: none), a field selects text, and a surface that
       // owns its gesture says so (overlays · data-swipe-ignore)
-      free = !!target?.closest('input, textarea, [contenteditable="true"], .maplibregl-canvas-container, [data-swipe-ignore]')
+      const free = !!target?.closest('input, textarea, [contenteditable="true"], .maplibregl-canvas-container, [data-swipe-ignore]')
+      gate.start(e, { ignored: free, inModal: true })
     }
     const move = (e: TouchEvent) => {
-      if (!typing() || free || !target || e.touches.length !== 1 || !e.cancelable) return
-      const t = e.touches[0]
-      const dx = x0 - t.clientX, dy = y0 - t.clientY
-      const axis = touchAxis(dx, dy)
-      if (!axis) return
-      if (!touchMayScroll({ axis, dy, ignored: false, inModal: true, chain: scrollChain(target) })) e.preventDefault()
+      if (!typing() || !e.cancelable) return
+      if (gate.blocks(e)) e.preventDefault()
     }
 
     vv?.addEventListener('scroll', soon)
@@ -204,7 +200,9 @@ export function useKeySheet(ref: RefObject<HTMLElement | null>, { bar = '.topbar
         innerHeight: window.innerHeight, vvHeight: vv?.height ?? window.innerHeight, vvOffsetTop: vv?.offsetTop ?? 0,
         scale: vv?.scale ?? 1, vkHeight: vk?.boundingRect?.height ?? 0,
       })
-      const box = keySheetBox({ innerHeight: window.innerHeight, kbTop, barBottom: barBottomOf(bar), strip, minHeight })
+      // Android (VirtualKeyboard) does not pan under `overlays-content`; iOS's pan is the offset
+      const pan = vk?.boundingRect?.height ? 0 : (vv?.offsetTop ?? 0)
+      const box = keySheetBox({ innerHeight: window.innerHeight, kbTop, barBottom: barBottomOf(bar), strip, minHeight, pan })
       const key = box ? `${box.bottom}|${box.maxHeight}` : ''
       if (key === last) return
       last = key
