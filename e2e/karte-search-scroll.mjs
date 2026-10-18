@@ -26,7 +26,18 @@
 //     dispatches pointerdown/move/up (pointercancel once the modelled native pan has the touch),
 //     and the sheet's top is read after every move, not only at the end.
 // It cannot show what only the real iPhone does (where iOS decides to pan); for that the Karte has
-// `?debug=scroll` (components/karte/KarteScrollDebug).
+// `?debug=scroll` (components/karte/KarteScrollDebug), and — the installed app has no address bar —
+// five quick taps on the build line in the app menu (lib/scrollDebug).
+//
+// TWO FRAMES (review round 8, owner: «in the browser the search scroll works now but in the pwa it
+// still fails»): every check runs in the browser tab (`tab`, 390×844) and in the installed
+// home-screen app (`app`), emulated as closely as WebKit on Linux allows — `display-mode:
+// standalone` and `navigator.standalone` true (the app's own test, lib/installPrompt · isStandalone),
+// the web view BELOW the opaque status bar (index.html sets no status-bar style: 393×793 of an
+// iPhone 15's 852, safe area top 0 / bottom 34 written into the CSS in place of `env()`, which
+// desktop WebKit reads as 0) and the keyboard the owner's recording shows (362 px of that view).
+// In that frame the sheet stands where the owner's round-7 video has it before the drag (top ~92,
+// foot on the keys at 431). `KARTE_FRAMES=app` runs one frame only.
 //
 // Exit code 1 and «RED» lines when a check fails.
 import { createRequire } from 'node:module'
@@ -36,7 +47,12 @@ const require = createRequire(path.join(process.cwd(), 'package.json'))
 const { webkit, devices } = require('@playwright/test')
 const BASE = process.argv[2] ?? process.env.E2E_BASE_URL ?? 'http://127.0.0.1:5188'
 const PIN = process.env.E2E_PIN ?? '000000'
-const KEYBOARD = 336 // an iPhone 13's German keyboard with the suggestion bar, px
+// the two frames (head of this file); `kb` = the German keyboard with its bar, px of the view
+const FRAMES = {
+  tab: { viewport: { width: 390, height: 844 }, screen: { width: 390, height: 844 }, kb: 336, standalone: false },
+  app: { viewport: { width: 393, height: 793 }, screen: { width: 393, height: 852 }, kb: 362, standalone: true, safe: { top: 0, bottom: 34 } },
+}
+let KEYBOARD = 336
 
 // the keyboard stand-in, installed before the app reads `visualViewport`
 function fakeKeyboard() {
@@ -120,27 +136,54 @@ function drag(arg) {
   return { target: target.className || target.tagName, cancelled: cancelled.map((c) => (c ? 'X' : '.')).join(''), handedOn, before, during: { sheetLowest: lowest }, after: { ...tops(), list: body.scrollTop } }
 }
 
+// the installed app's own test (lib/installPrompt · isStandalone) answers «yes», as on the home screen
+function standalone() {
+  const mm = window.matchMedia.bind(window)
+  const yes = (q) => ({ matches: true, media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false })
+  window.matchMedia = (q) => (/display-mode:\s*standalone/.test(q) ? yes(q) : mm(q))
+  Object.defineProperty(navigator, 'standalone', { get: () => true })
+}
+
 const frames = (page, n = 4) => page.evaluate((n) => new Promise((ok) => { const f = (i) => (i ? requestAnimationFrame(() => f(i - 1)) : ok()); f(n) }), n)
 
 let red = 0
 const check = (label, ok, detail) => { console.log(`${ok ? 'green' : 'RED  '} ${label}${ok ? '' : `  ${JSON.stringify(detail)}`}`); if (!ok) red++ }
 
 const browser = await webkit.launch()
-const ctx = await browser.newContext({ ...devices['iPhone 13'], viewport: { width: 390, height: 844 }, screen: { width: 390, height: 844 }, baseURL: BASE, serviceWorkers: 'block' })
-await ctx.addInitScript(fakeKeyboard)
-await ctx.addInitScript(() => { try { sessionStorage.setItem('kp.karte.view', JSON.stringify({ center: [7.555, 47.515], zoom: 16, bearing: 0, objectId: null, surface: 'karte' })) } catch { /* private mode */ } })
-const page = await ctx.newPage()
-await page.goto('/')
-await page.locator('.roster-tile, [data-karte], .topbar').first().waitFor({ timeout: 30000 })
-if (await page.locator('.roster-tile').first().isVisible().catch(() => false)) {
-  await page.locator('.roster-tile').first().click()
-  await page.locator('.pinpad').waitFor()
-  for (const d of PIN) await page.keyboard.press(d)
-  await page.keyboard.press('Enter')
-  await page.locator('[data-karte], .topbar').first().waitFor({ timeout: 30000 })
+let page
+
+/** A signed-in Karte in one frame (head of this file). */
+async function openKarte(frame) {
+  const ctx = await browser.newContext({ ...devices['iPhone 13'], viewport: frame.viewport, screen: frame.screen, baseURL: BASE, serviceWorkers: 'block' })
+  if (frame.standalone) await ctx.addInitScript(standalone)
+  // the safe area: desktop WebKit reads every env(safe-area-inset-*) as 0 — the app's CSS and
+  // modules get the installed app's numbers written in their place
+  if (frame.safe) {
+    const origin = new URL(BASE).origin
+    await ctx.route((u) => u.origin === origin, async (route) => {
+      const res = await route.fetch().catch(() => null)
+      if (!res) return route.continue()
+      if (!/javascript|css|html/.test(res.headers()['content-type'] ?? '')) return route.fulfill({ response: res })
+      const body = (await res.text()).replaceAll('env(safe-area-inset-top)', `${frame.safe.top}px`).replaceAll('env(safe-area-inset-bottom)', `${frame.safe.bottom}px`)
+      return route.fulfill({ response: res, body })
+    })
+  }
+  await ctx.addInitScript(fakeKeyboard)
+  await ctx.addInitScript(() => { try { sessionStorage.setItem('kp.karte.view', JSON.stringify({ center: [7.555, 47.515], zoom: 16, bearing: 0, objectId: null, surface: 'karte' })) } catch { /* private mode */ } })
+  page = await ctx.newPage()
+  await page.goto('/')
+  await page.locator('.roster-tile, [data-karte], .topbar').first().waitFor({ timeout: 30000 })
+  if (await page.locator('.roster-tile').first().isVisible().catch(() => false)) {
+    await page.locator('.roster-tile').first().click()
+    await page.locator('.pinpad').waitFor()
+    for (const d of PIN) await page.keyboard.press(d)
+    await page.keyboard.press('Enter')
+    await page.locator('[data-karte], .topbar').first().waitFor({ timeout: 30000 })
+  }
+  await page.goto('/karte')
+  await page.locator('[data-karte-search-open]').waitFor({ timeout: 30000 })
+  return ctx
 }
-await page.goto('/karte')
-await page.locator('[data-karte-search-open]').waitFor({ timeout: 30000 })
 
 const UP = [[0, -3], [0, -8], [0, -12], [0, -12], [0, -12], [0, -12]] // a clean push up: the list scrolls on
 const JITTER = [[1, 0], [1, -2], [0, -8], [0, -12], [0, -12], [0, -12]] // the same, its first move a pixel sideways
@@ -161,7 +204,13 @@ async function sheetChecks(name, open) {
   // the grab bar is the sheet's handle: the same pull there moves the sheet, and lets it go back
   const followed = (r, back) => r.during.sheetLowest - r.before.sheet >= 20 && back.before.sheet === r.before.sheet
   // the snap back is a short transition: read the sheet's place once it has run
-  const pullGrab = async (moves) => { const r = await page.evaluate(drag, [moves, 'grab']); await page.waitForTimeout(400); return [r, await page.evaluate(drag, [])] }
+  // (up to 1.5 s: on a loaded box the 0.4 s it used to wait was not always enough — the sheet was
+  // still on its way back, red on the base without a code change)
+  const pullGrab = async (moves) => {
+    const r = await page.evaluate(drag, [moves, 'grab'])
+    await page.waitForFunction((top) => Math.round(document.querySelector('[data-karte-keysheet]').getBoundingClientRect().top - window.visualViewport.offsetTop) === top, r.before.sheet, { timeout: 1500 }).catch(() => {})
+    return [r, await page.evaluate(drag, [])]
+  }
   const roomNow = () => page.locator('[data-karte-keysheet] .lc-body').evaluate((b) => b.scrollHeight - b.clientHeight)
   // a list with nothing to scroll: NOTHING moves — the list stays, and no move goes on to the page
   const scrolled = (r, room, dir = 1) => (room <= 0 ? r.after.list === r.before.list : dir * (r.after.list - r.before.list) > 0)
@@ -195,6 +244,19 @@ async function sheetChecks(name, open) {
   await page.locator('[data-karte-keysheet] input').focus()
   await page.evaluate((kb) => window.__kb({ kb, pan: 0 }), KEYBOARD)
   await frames(page, 6)
+  // the frame with the keys up (review round 8, the installed app): the sheet stands ON the keys,
+  // its top under the bar, all of it inside the view — and nothing outside it has room to scroll
+  // (hypotheses a and c: a document taller than the view, a sheet box past the visible band)
+  const box = await page.evaluate((kb) => {
+    const sh = document.querySelector('[data-karte-keysheet]').getBoundingClientRect()
+    const bar = document.querySelector('.topbar').getBoundingClientRect()
+    const doc = document.scrollingElement, root = document.getElementById('root')
+    return { foot: Math.round(sh.bottom), keys: window.innerHeight - kb, top: Math.round(sh.top), bar: Math.round(bar.bottom), inner: window.innerHeight,
+      doc: doc.scrollHeight - doc.clientHeight, root: root.scrollHeight - root.clientHeight, body: document.body.scrollHeight - document.body.clientHeight }
+  }, KEYBOARD)
+  console.log(`[DEBUG-pwa] ${name} · keyboard · ${JSON.stringify(box)}`)
+  check(`${name} · keyboard · the sheet stands on the keys, its top under the bar`, Math.abs(box.foot - box.keys) <= 1 && box.top >= box.bar && box.foot <= box.inner, box)
+  check(`${name} · keyboard · nothing outside the sheet has room to scroll (document, body, #root)`, box.doc <= 0 && box.root <= 0 && box.body <= 0, box)
   room = await roomNow()
   r = await page.evaluate(drag, UP)
   check(`${name} · keyboard · a push up ${room > 0 ? 'scrolls the list' : 'moves nothing'} (${room}px to scroll), sheet + field stay`, scrolled(r, room) && still(r), r)
@@ -231,23 +293,31 @@ async function sheetChecks(name, open) {
   }
 }
 
-// nothing typed (review round 6, owner: «when i typed it works, without typing it fails (empty
-// state)»): the featured Einsatzobjekte and the hint lines — shorter than the sheet without the keys
-await sheetChecks('Suche leer', async () => {
-  await page.locator('[data-karte-search-open]').click()
-  await page.locator('[data-karte-keysheet] [role="option"]').first().waitFor()
-})
-await sheetChecks('Suche «strasse»', async () => {
-  await page.locator('[data-karte-search-open]').click()
-  await page.locator('[data-karte-keysheet] input').fill('strasse')
-  await page.locator('[data-karte-keysheet] [role="option"]').nth(6).waitFor()
-})
-// the green reference: Gefahrgut with a long readout (1203, Benzin)
-await sheetChecks('Gefahrgut 1203', async () => {
-  await page.locator('.nav-btn, button').filter({ hasText: /^Gefahrgut$/ }).last().click()
-  await page.locator('#karte-un').fill('1203')
-  await page.locator('[data-karte-keysheet] .lc-body').getByText(/Benzin|Gasoline|Essence|Benzina/i).first().waitFor()
-})
+for (const name of (process.env.KARTE_FRAMES ?? 'tab,app').split(',')) {
+  const frame = FRAMES[name]
+  KEYBOARD = frame.kb
+  const tag = `[${name}] `
+  const ctx = await openKarte(frame)
+  check(`${tag}the app sees itself as ${frame.standalone ? 'the installed app (standalone)' : 'a browser tab'}`, await page.evaluate(() => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true) === frame.standalone, {})
+  // nothing typed (review round 6, owner: «when i typed it works, without typing it fails (empty
+  // state)»): the featured Einsatzobjekte and the hint lines — shorter than the sheet without the keys
+  await sheetChecks(`${tag}Suche leer`, async () => {
+    await page.locator('[data-karte-search-open]').click()
+    await page.locator('[data-karte-keysheet] [role="option"]').first().waitFor()
+  })
+  await sheetChecks(`${tag}Suche «strasse»`, async () => {
+    await page.locator('[data-karte-search-open]').click()
+    await page.locator('[data-karte-keysheet] input').fill('strasse')
+    await page.locator('[data-karte-keysheet] [role="option"]').nth(6).waitFor()
+  })
+  // the green reference: Gefahrgut with a long readout (1203, Benzin)
+  await sheetChecks(`${tag}Gefahrgut 1203`, async () => {
+    await page.locator('.nav-btn, button').filter({ hasText: /^Gefahrgut$/ }).last().click()
+    await page.locator('#karte-un').fill('1203')
+    await page.locator('[data-karte-keysheet] .lc-body').getByText(/Benzin|Gasoline|Essence|Benzina/i).first().waitFor()
+  })
+  await ctx.close()
+}
 
 await browser.close()
 console.log(red ? `${red} RED` : 'all green')

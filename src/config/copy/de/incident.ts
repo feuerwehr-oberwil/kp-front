@@ -80,6 +80,9 @@ export const incidentCopy = {
     // …where only the Einsatz itself (Karte, Pläne, lists) is still unsent, no countable entry
     logoutUnsyncedChanges: 'Änderungen sind noch nicht übertragen. Sie bleiben auf diesem Gerät und werden gesendet, sobald du dich wieder anmeldest.',
     appVersion: 'App-Version (Build)',
+    // fünfmal rasch auf die Build-Zeile: die Bildlauf-Diagnose der Karte (lib/scrollDebug)
+    debugOn: 'Diagnose an',
+    debugOff: 'Diagnose aus',
   },
   // Persistentes Band, solange ein abgeschlossener Einsatz nur-lesend offen ist (ArchivedBanner).
   // ⚠️ EIN WORTPAAR für den ganzen Lebenslauf: abschliessen / wieder öffnen. «Archiviert» und

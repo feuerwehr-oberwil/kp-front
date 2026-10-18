@@ -50,6 +50,8 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     logoutUnsyncedMany: '{n} entries have not been sent yet. They stay on this device and are sent as soon as you sign in again.',
     logoutUnsyncedChanges: 'Changes have not been sent yet. They stay on this device and are sent as soon as you sign in again.',
     appVersion: 'App version (build)',
+    debugOn: 'Diagnostics on',
+    debugOff: 'Diagnostics off',
 
     editMeta: 'Edit incident details',
   },

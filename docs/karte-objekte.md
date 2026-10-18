@@ -445,9 +445,10 @@ The rules that are easy to break:
     cap: the field keeps its place on the screen and the sheet's foot stays on the keys.
     Check: `node e2e/karte-search-scroll.mjs <stack>` (WebKit, iPhone 13; synthetic touches and a
     keyboard stand-in — what it models and what it cannot is in its head), Gefahrgut as the green
-    reference. **On the iPhone**: `/karte?debug=scroll` (sticky for the tab, `?debug=off` ends it)
-    lays a live readout over the top bar — the visual viewport and iOS's pan, the sheet's and the
-    field's top on the screen, the list's scroll, and per touchmove passed / cancelled / not
+    reference. **On the iPhone**: `/karte?debug=scroll` (sticky on the device since round 8,
+    `?debug=off` ends it; in the installed app five taps on the build line, below) lays a live
+    readout over the top bar — the visual viewport and iOS's pan, the sheet's and the field's top
+    on the screen, the list's scroll, and per touchmove passed / cancelled / not
     cancelable, and since round 7 what moved during the last touch (`KarteScrollDebug`, a diagnostic
     to remove once the owner's capture is in).
   - **Round 6** (owner, 18.10.2026, `?debug=scroll`: «when i typed it works, without typing it
@@ -477,6 +478,29 @@ The rules that are easy to break:
     second after the lift, what moved (top bar, sheet, map, iOS's pan, `scrollY`), every element
     that scrolled, the sheet's own pull, `data-kb` flips and the `--ks-bottom` range — one
     screenshot after the drag names the mover.
+  - **Round 8** (owner, 18.10.2026 evening: «in the browser the search scroll works now but in the
+    pwa it still fails» — the installed home-screen app on build 131a42a, as in the round-7 video).
+    The installed app has no address bar, so `?debug=scroll` could never be switched on there.
+    **Five quick taps on the build line** at the foot of the app menu (`v… · <sha> · <date>`)
+    switch the readout on and off on this device (`lib/scrollDebug`, localStorage; a toast says
+    «Diagnose an / aus»; nothing else shows the switch is there). `?debug=scroll` / `?debug=off`
+    set the same flag. The readout's first line now names the frame: `app` (standalone) or `tab`,
+    innerWidth×innerHeight, the document's client/scroll height and scrollTop, the screen height
+    and the safe-area insets top/bottom; the «Δ» line adds how innerHeight and the visual
+    viewport's height changed during the touch. **Capture on the iPhone**: open the app menu, tap
+    the build line five times («Diagnose an»), close the menu, open the search, pull down on a row
+    as in the video, lift, take a screenshot (or a screen recording) with the readout in sight;
+    five taps again switch it off.
+    What WebKit proved: `e2e/karte-search-scroll.mjs` now runs every check in two frames — the
+    browser tab and the installed app emulated as closely as WebKit on Linux allows
+    (`display-mode: standalone` and `navigator.standalone` true, the web view below the opaque
+    status bar at 393×793 with safe area 0/34 written in for `env()`, the recording's 362 px
+    keyboard). All green in both: the app runs the same code in both frames (nothing on the
+    Karte's search path asks `isStandalone`), the sheet stands where the owner's video has it
+    before the drag (top 92, foot on the keys at 431), and neither the document, body nor
+    `#root` has room to scroll. So the mover in the installed app is iOS's own (the video's long
+    scroll indicator at the right edge is a document-sized scroller), which only the readout on
+    the owner's phone can name.
   - No «AutoFill Contact»: both fields come from one helper (`lib/typingField`) — a `search-…`
     name (Safari offers no contact AutoFill on a search), autocomplete / autocorrect /
     autocapitalise / spell check off, `enterKeyHint`, numeric for the UN field, and their label /
