@@ -224,8 +224,22 @@ button.row:active { background: var(--press); }
 .keySheet.fill { height: min(72dvh, calc(100dvh - 84px - env(safe-area-inset-top))); }
 .keySheet.fill[data-kb] { height: min(72dvh, var(--ks-max, 72dvh)); }
 .resultsIn { display: flex; flex-direction: column; gap: var(--sp-1); }
-.keySheet[data-kb] { bottom: var(--ks-bottom, 0px); max-height: min(72dvh, var(--ks-max, 72dvh)); padding-bottom: 0;
+.keySheet[data-kb] { bottom: var(--ks-bottom, 0px); max-height: min(72dvh, var(--ks-max, 72dvh));
   border-radius: var(--r-hero); }
+/* the foot (owner, review round 12: «fix the bottom margin»): the list runs to the sheet's bottom
+   edge — Ebenen's card keeps the home indicator's inset as its own padding, which here left the
+   list cut by a hard line a band above the foot. The inset is the list's own end padding instead,
+   inside the scroll, so its last line scrolls clear of the home indicator; on the keys there is
+   none to keep. (Doubled classes: 15-mobile's `.layers-card` rules come in either order.) */
+.keySheet.keySheet { padding-bottom: 0; }
+.keySheet .keyBody.keyBody { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+.keySheet[data-kb] .keyBody.keyBody { padding-bottom: 12px; }
+/* typing → scrolling as one movement (owner, review round 12): when the keys come or go the sheet
+   glides between its two places — the list inside keeps scrolling under the finger, nothing
+   re-mounts. Only for that switch (lib/iosKeyboard · useKeySheet writes `data-ks-move`); a
+   re-placement on the keys stays instant, or the field would trail iOS's pan. */
+.keySheet[data-ks-move] { transition: bottom .22s var(--ease), height .22s var(--ease), max-height .22s var(--ease), border-radius .22s var(--ease); }
+@media (prefers-reduced-motion: reduce) { .keySheet[data-ks-move] { transition: none; } }
 /* the bar's search button (phone): «Einsätze ▾» left, this right — no long field on a phone. The
    SAME button as «Einsätze ▾» beside it (owner, review round 4: «the search icon being round»):
    its height, frame, corner and glyph size; a square because it holds only the glyph */

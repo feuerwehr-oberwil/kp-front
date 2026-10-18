@@ -25,9 +25,8 @@
 //   · the sheet's own pull-down (overlays/swipeDismiss) is a POINTER gesture: every drag also
 //     dispatches pointerdown/move/up (pointercancel once the modelled native pan has the touch),
 //     and the sheet's top is read after every move, not only at the end.
-// It cannot show what only the real iPhone does (where iOS decides to pan); for that the Karte has
-// `?debug=scroll` (components/karte/KarteScrollDebug), and — the installed app has no address bar —
-// five quick taps on the build line in the app menu (lib/scrollDebug).
+// It cannot show what only the real iPhone does (where iOS decides to pan); rounds 5–11 had a live
+// readout on the phone for that (`?debug=scroll`, removed in round 12 — this check stays).
 //
 // TWO FRAMES (review round 8, owner: «in the browser the search scroll works now but in the pwa it
 // still fails»): every check runs in the browser tab (`tab`, 390×844) and in the installed
@@ -241,7 +240,34 @@ function standalone() {
   Object.defineProperty(navigator, 'standalone', { get: () => true })
 }
 
-const frames = (page, n = 4) => page.evaluate((n) => new Promise((ok) => { const f = (i) => (i ? requestAnimationFrame(() => f(i - 1)) : ok()); f(n) }), n)
+// n frames, then the sheet's glide between its two places done (review round 12, lib/iosKeyboard ·
+// useKeySheet · data-ks-move): every check reads the sheet where it comes to rest
+const frames = async (page, n = 4) => {
+  await page.evaluate((n) => new Promise((ok) => { const f = (i) => (i ? requestAnimationFrame(() => f(i - 1)) : ok()); f(n) }), n)
+  await page.waitForFunction(() => !document.querySelector('[data-ks-move]'), null, { timeout: 2000 })
+}
+
+/** The sheet's move between its two places while `act` ('blur' | 'focus': the keys going or
+ *  coming) switches it (review round 12, owner: from typing to scrolling «isn't that abrupt»).
+ *  Frames here are too slow to sample, so the sheet's own transitions are held halfway: `mid` is
+ *  its screen top there, `props` what they animate, and the transitions are then finished. */
+async function glide(act) {
+  const raf = () => new Promise((ok) => requestAnimationFrame(() => ok()))
+  const sheet = document.querySelector('[data-karte-keysheet]')
+  const top = () => Math.round(sheet.getBoundingClientRect().top - window.visualViewport.offsetTop)
+  const from = top()
+  if (act === 'blur') sheet.querySelector('input').blur()
+  else { sheet.querySelector('input').focus(); window.__kb({ kb: window.__glideKb, pan: 0 }) }
+  let moves = []
+  for (let i = 0; i < 4 && !moves.length; i++) {
+    await raf()
+    moves = sheet.getAnimations().filter((a) => a instanceof CSSTransition)
+  }
+  for (const a of moves) { a.pause(); a.currentTime = 110 }
+  const mid = top()
+  for (const a of moves) a.finish()
+  return { from, mid, to: top(), props: moves.map((a) => a.transitionProperty).join(','), ms: moves.map((a) => a.effect.getTiming().duration)[0] }
+}
 
 let red = 0
 const check = (label, ok, detail) => { console.log(`${ok ? 'green' : 'RED  '} ${label}${ok ? '' : `  ${JSON.stringify(detail)}`}`); if (!ok) red++ }
@@ -315,6 +341,19 @@ async function sheetChecks(name, open, frame) {
   // without the keyboard
   await page.locator('[data-karte-keysheet] input').evaluate((el) => el.blur())
   await frames(page)
+  // review round 12, owner: «fix the bottom margin» — the list stopped a safe-area band above the
+  // sheet's foot, cut by a hard line. It runs to the sheet's bottom edge, and scrolled to its end
+  // its last line stands clear of the home indicator (the inset is padding INSIDE the scroll)
+  const foot = await page.evaluate((safe) => {
+    const sheet = document.querySelector('[data-karte-keysheet]')
+    const body = sheet.querySelector('.lc-body')
+    body.scrollTop = body.scrollHeight
+    const last = body.lastElementChild.getBoundingClientRect().bottom
+    const r = { sheet: Math.round(sheet.getBoundingClientRect().bottom), body: Math.round(body.getBoundingClientRect().bottom), last: Math.round(last), clear: window.innerHeight - safe }
+    body.scrollTop = 0
+    return r
+  }, frame.safe?.bottom ?? 0)
+  check(`${name} · no keyboard · the list runs to the sheet's foot, its end clear of the home indicator`, foot.body >= foot.sheet - 1 && foot.last <= foot.clear, foot)
   let room = await roomNow()
   let r = await page.evaluate(drag, UP)
   check(`${name} · no keyboard · a push up ${room > 0 ? 'scrolls the list' : 'moves nothing'} (${room}px to scroll), sheet + field stay`, scrolled(r, room) && still(r), r)
@@ -389,6 +428,16 @@ async function sheetChecks(name, open, frame) {
   // the owner's video (round 7): the list at its top, a pull down on a row
   await dismisses("a pull down on a row at the list's top (owner's video)", OWNER, { list: { label: () => 'the list stays at its top', ok: (d) => d.after.list === 0 } })
   await dismisses('the same pull, first move a pixel sideways', JITTER_DOWN)
+  // round 12: the keys going and coming move the sheet in one glide — frames between its two places
+  await keysUp()
+  await page.evaluate((kb) => { window.__glideKb = kb }, KEYBOARD)
+  const glided = (g) => g.props.includes('bottom') && (g.mid - g.from) * (g.to - g.mid) > 0
+  let g = await page.evaluate(glide, 'blur')
+  await keysGone()
+  check(`${name} · the keys going: the sheet glides down to its place (halfway ${g.mid} between ${g.from} and ${g.to})`, g.to > g.from && glided(g), g)
+  g = await page.evaluate(glide, 'focus')
+  await frames(page, 6)
+  check(`${name} · the keys coming: the sheet glides up onto them (halfway ${g.mid} between ${g.from} and ${g.to})`, g.to < g.from && glided(g), g)
   // the grab bar is the sheet's handle, with the keys up too — and it keeps the caret
   await keysUp()
   ;[r, back] = await pullGrab(HANDLE)

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, renderHook } from '@testing-library/react'
-import { DRAG_SLOP_PX, MIN_KEYBOARD_PX, focusWithoutPan, fullViewHeight, isCollapseScroll, isListDrag, keySheetBox, keyboardTop, mayCorrect, useDragClosesKeyboard, useTypingLock } from './iosKeyboard'
+import { DRAG_SLOP_PX, KS_MOVE_MS, MIN_KEYBOARD_PX, focusWithoutPan, fullViewHeight, isCollapseScroll, isListDrag, keySheetBox, keyboardTop, mayCorrect, useDragClosesKeyboard, useKeySheet, useTypingLock } from './iosKeyboard'
 
 /* Review round 3 (owner's iPhone, 17.10.2026): the phone's field sheets stand on the keyboard by
  * their own measurement, and the page never moves while a field has the caret. */
@@ -311,5 +311,41 @@ describe('useDragClosesKeyboard', () => {
     expect(document.activeElement).toBe(input)
     touch(head, [0, 30])
     expect(document.activeElement).toBe(input)
+  })
+})
+
+describe('useKeySheet · the glide between the two places (review round 12)', () => {
+  afterEach(() => { cleanup(); document.body.replaceChildren(); vi.useRealTimers(); vi.unstubAllGlobals() })
+
+  it('marks data-ks-move only while the keys come or go, never for a re-placement on the keys', () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame'] })
+    // a keyboard stand-in: the visual viewport shrinks by `kb`, iOS pans it by `pan`
+    const st = { kb: 0, pan: 0 }
+    const vv = Object.defineProperties(new EventTarget(), {
+      height: { get: () => window.innerHeight - st.kb }, offsetTop: { get: () => st.pan }, scale: { value: 1 },
+    })
+    vi.stubGlobal('visualViewport', vv)
+    const kb = (patch: Partial<typeof st>) => { Object.assign(st, patch); vv.dispatchEvent(new Event('resize')); vi.advanceTimersByTime(20) }
+    const el = document.createElement('section')
+    el.innerHTML = '<input />'
+    document.body.append(el)
+    renderHook(() => useKeySheet({ current: el }))
+    vi.advanceTimersByTime(20)
+    expect(el.hasAttribute('data-ks-move')).toBe(false)
+    el.querySelector('input')!.focus()
+    kb({ kb: 336 })
+    expect(el.hasAttribute('data-kb')).toBe(true)
+    expect(el.hasAttribute('data-ks-move')).toBe(true)
+    vi.advanceTimersByTime(KS_MOVE_MS)
+    expect(el.hasAttribute('data-ks-move')).toBe(false)
+    // iOS pans the page with the keys up: the sheet re-places at once
+    kb({ pan: 90 })
+    expect(el.style.getPropertyValue('--ks-max')).not.toBe('')
+    expect(el.hasAttribute('data-ks-move')).toBe(false)
+    // the keys go (the drag on the list blurred the field)
+    el.querySelector('input')!.blur()
+    kb({ kb: 0, pan: 0 })
+    expect(el.hasAttribute('data-kb')).toBe(false)
+    expect(el.hasAttribute('data-ks-move')).toBe(true)
   })
 })
