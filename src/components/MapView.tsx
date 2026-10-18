@@ -20,7 +20,7 @@ import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LABEL_STYLE, SYM_CAPTION_STYLE, SYM_CAPTION_GAP, READOUT_LABEL_STYLE, END_TAG_LABEL_STYLE } from '../lib/mapView'
+import { EMPTY_STYLE, baseMaxMapZoom, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LABEL_STYLE, SYM_CAPTION_STYLE, SYM_CAPTION_GAP, READOUT_LABEL_STYLE, END_TAG_LABEL_STYLE } from '../lib/mapView'
 import { dockSlots, dockRadiusFor, nearestDockHost } from '../lib/docking'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
@@ -2068,12 +2068,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       cursor={picking || georefTurn ? 'crosshair' : 'default'}
       attributionControl={false}
       maxPitch={0}
-      // 21 (14.09., one more step than the tiles have): the raster SOURCES keep their own native
-      // `maxzoom` (MapLayers · the layer's `maxzoom` from the deployment config), so past it
-      // MapLibre stretches the last tile level instead of asking for tiles that do not exist.
-      // Symbols are pinned by symPx's band and a Form by shapePx's ceiling, so nothing outgrows
-      // the screen on the extra step.
-      maxZoom={21}
+      // The visible base's last SHARP level (owner on #383, review round 4, replacing the fixed 21
+      // of 14.09. — «one more step than the tiles have» stretched the last tile level 2–4× and
+      // read as a blurry map): lib/mapView · baseMaxMapZoom. Switching to a base that ends sooner
+      // (OSM) clamps the view. Symbols are pinned by symPx's band and a Form by shapePx's ceiling.
+      maxZoom={baseMaxMapZoom(layers.find((l) => l.base && isVisible(l.id)))}
       // Only the print/report instance needs its GL back-buffer preserved (it captures the canvas
       // via getCanvas().toDataURL() — see ReportPrintView / reportPdf). On the always-live field
       // map keeping the buffer around just raises the per-repaint GPU/memory cost for the whole

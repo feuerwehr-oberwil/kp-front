@@ -10,6 +10,15 @@ import type { LineTone } from './truppLines'
 
 export const EMPTY_STYLE = { version: 8 as const, sources: {}, layers: [] }
 
+/** The deepest map zoom on a base map (owner on #383, review round 4: «the map must not zoom past
+ *  the last level the current base map serves sharply»). The rasters are 256 px tiles on MapLibre's
+ *  512 px zoom grid (MapLayers · tileSize), so a base's LAST tile level `maxzoom` is drawn 1:1 at map
+ *  zoom `maxzoom − 1`; one step further would stretch it twice over (CARTO 20 → 19, swissimage 20 →
+ *  19, OSM 19 → 18). A base without a `maxzoom` keeps the old ceiling. */
+export const MAP_MAX_ZOOM = 21
+export const baseMaxMapZoom = (base: { maxzoom?: number } | null | undefined): number =>
+  base?.maxzoom != null ? Math.min(MAP_MAX_ZOOM, base.maxzoom - 1) : MAP_MAX_ZOOM
+
 export const vis = (on: boolean) => ({ visibility: (on ? 'visible' : 'none') as 'visible' | 'none' })
 
 /** Native Lage drawing chrome must leave with its canvas strokes during Karte ↔ Modul pairing. */

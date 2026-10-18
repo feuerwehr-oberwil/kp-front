@@ -73,6 +73,9 @@ async function run(browser) {
   await page.locator('canvas.maplibregl-canvas').first().waitFor({ state: 'attached', timeout: 90_000 })
   seen.length = 0
   await page.waitForTimeout(7000)
+  // the zoom the map actually stands at (the viewer keeps its view in the session — a request past
+  // the base's last sharp level is clamped there, lib/mapView · baseMaxMapZoom)
+  const zoom = await page.evaluate(() => { try { return JSON.parse(sessionStorage.getItem('kp.karte.view') ?? '{}').zoom } catch { return undefined } }) ?? ZOOM
   const canvas = await page.locator('canvas.maplibregl-canvas').first().evaluate((c) => c.width / c.getBoundingClientRect().width)
   // settled = no new tile for 1.5 s, then two crops 1 s apart that agree (a tile still fading in
   // or the arrival snail over the map reads as «blurry» once and never again)
@@ -103,10 +106,10 @@ async function run(browser) {
   const widths = [...new Set(seen.map((t) => t.width))]
   const zs = [...new Set(seen.map((t) => t.z))]
   // MapLibre's raster level for 256 px tiles on its 512 px grid, against the finest level it got
-  const want = Math.round(ZOOM + 1)
+  const want = Math.round(zoom + 1)
   const overzoom = 2 ** Math.max(0, want - Math.min(CARTO_MAXZOOM, Math.max(...zs)))
   const devPerSrc = Math.max(...seen.map((t) => (canvas * 256) / (t.width || 256)))
-  return { canvas, tiles: seen.length, retinaUrls: seen.filter((t) => t.retinaUrl).length, widths, zs, overzoom, devPerSrc, sharpness }
+  return { zoom, canvas, tiles: seen.length, retinaUrls: seen.filter((t) => t.retinaUrl).length, widths, zs, overzoom, devPerSrc, sharpness }
 }
 
 const browser = await webkit.launch()
@@ -115,7 +118,7 @@ for (let i = 0; i < RUNS; i++) {
   const r = await run(browser)
   const bad = !(r.tiles > 0) || r.devPerSrc > 1.5 || r.overzoom > 1
   red ||= bad
-  console.log(`${bad ? 'RED  ' : 'GREEN'} run ${i + 1}: canvas ${r.canvas.toFixed(2)}× · ${r.tiles} tiles z${r.zs.join('/')} (${r.retinaUrls} @2x URLs, decoded ${r.widths.join('/')} px) · ${r.devPerSrc.toFixed(2)} device px per tile px · overzoom ${r.overzoom}× · sharpness ${r.sharpness.toFixed(1)}`)
+  console.log(`${bad ? 'RED  ' : 'GREEN'} run ${i + 1}: zoom ${Number(r.zoom).toFixed(2)} · canvas ${r.canvas.toFixed(2)}× · ${r.tiles} tiles z${r.zs.join('/')} (${r.retinaUrls} @2x URLs, decoded ${r.widths.join('/')} px) · ${r.devPerSrc.toFixed(2)} device px per tile px · overzoom ${r.overzoom}× · sharpness ${r.sharpness.toFixed(1)}`)
 }
 await browser.close()
 process.exit(red ? 1 : 0)

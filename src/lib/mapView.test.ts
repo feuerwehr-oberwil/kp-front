@@ -192,3 +192,15 @@ describe('effectiveLayer', () => {
     expect(VEHICLE_SYMBOLS.has('VKF Drohne')).toBe(false)
   })
 })
+
+// owner on #383 (review round 4): never past the last level the visible base serves sharply
+describe('baseMaxMapZoom', () => {
+  it('is the base\'s last tile level drawn 1:1 — one map zoom below it on the 512 px grid', async () => {
+    const { baseMaxMapZoom, MAP_MAX_ZOOM } = await import('./mapView')
+    expect(baseMaxMapZoom({ maxzoom: 20 })).toBe(19) // CARTO, swissimage
+    expect(baseMaxMapZoom({ maxzoom: 19 })).toBe(18) // OSM
+    expect(baseMaxMapZoom({})).toBe(MAP_MAX_ZOOM) // a base that does not say keeps the old ceiling
+    expect(baseMaxMapZoom(null)).toBe(MAP_MAX_ZOOM)
+    expect(baseMaxMapZoom({ maxzoom: 24 })).toBe(MAP_MAX_ZOOM)
+  })
+})
