@@ -123,7 +123,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     layerObjectsSub: 'Edifici e gruppi di edifici del corpo',
     layerCategorySub: '{n} oggetti',
     layerUnderground: 'Costruzioni sotterranee',
-    layerUndergroundSub: 'Autorimesse, rifugi … · misurazione ufficiale · dallo zoom strada',
+    layerUndergroundSub: 'Autorimesse, rifugi, gallerie … · misurazione ufficiale · dallo zoom strada',
     layerUndergroundCount: '{n} costruzioni · misurazione ufficiale · dallo zoom strada',
     layerUndergroundLoading: 'Caricamento …',
     layerUndergroundNone: 'Non disponibile – non ancora caricato o non configurato',

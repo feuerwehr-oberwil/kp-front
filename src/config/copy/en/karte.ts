@@ -123,7 +123,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     layerObjectsSub: 'The station’s buildings and building groups',
     layerCategorySub: '{n} objects',
     layerUnderground: 'Underground structures',
-    layerUndergroundSub: 'Garages, shelters … · official survey · from street zoom',
+    layerUndergroundSub: 'Garages, shelters, tunnels … · official survey · from street zoom',
     layerUndergroundCount: '{n} structures · official survey · from street zoom',
     layerUndergroundLoading: 'Loading …',
     layerUndergroundNone: 'Not available – not loaded yet or not set up',

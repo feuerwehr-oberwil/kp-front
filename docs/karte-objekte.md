@@ -408,23 +408,32 @@ takes keeps the default look: red, ink-grey without plans. No rules = that defau
 
 «can we show all subterraneous objects through our firegis database?» — FireGIS's
 `av_gebunterird` is the official survey's underground buildings; the same features are in the
-open AV WFS (geodienste.ch, Einzelobjekte `ms:SOSF`, `Art = unterirdisches_Gebaeude`), so no
-FireGIS file is needed and every deployment gets it.
+open AV WFS (geodienste.ch, Einzelobjekte `ms:SOSF`), so no FireGIS file is needed and every
+deployment gets it. Drawn: `Art = unterirdisches_Gebaeude` and (owner on #383) the underground
+traffic structures `Tunnel_Unterfuehrung_Galerie` — the survey has no other such type, and none
+as lines. Not `Unterstand`.
 
 - **Ebenen row** «Unterirdische Bauten» under «Station», OFF by default and off in «Standard»
   (`PresetRow.standard: false`); «Alle ein» switches it like any row. Not kept across reloads,
   like the other Station rows.
-- **On the map:** every underground structure of the region as a dashed outline in the neutral
+- **On the map:** every underground structure of the Einsatzgebiet as a dashed outline in the neutral
   ink (`--ink-dim`, never an object's red or a category colour), no fill, from z16 (street zoom),
   under the objects — an object's own dashed garage keeps its colour on top. Not tappable: a tap
   goes to whatever is above or under it, as before.
-- **Data:** `app/underground` asks the WFS for the deployment's region — the geocoder's
-  `map.geocoder.bboxLv95` (else `GEOCODER_BBOX_LV95`), else the station's objects plus 1.5 km — in
-  3 km cells (a full cell is split), keeps each building once, and stores ONE compact GeoJSON
-  MultiPolygon (`reference/underground.json`). It rides the footprint job (`scheduler` ·
-  `_object_footprints_tick`): asked once, then weekly or when the area/source changes; a failed
-  ask keeps the stored set and waits an hour. FWO's region (27 × 18 km, 17.10.2026): 14 901
-  buildings, 3.7 MB, 0.9 MB gzipped, 8 s for the 54 cells. No device ever asks the WFS.
+- **The area is the Einsatzgebiet** (owner on #383, not the geocoder's 27 × 18 km box): the
+  municipalities of `map.serviceArea.municipalities` (BFS numbers), else the one the map centre
+  (`map.defaultView`) lies in, as swisstopo's official boundaries (swissBOUNDARIES3D over the
+  geocoder's host) — united with 500 m around every station object, so an object in the next
+  village (ARA Birsig in Therwil) keeps its surroundings. A structure counts when any corner lies
+  in that area.
+- **Data:** `app/underground` asks the WFS for the municipalities' box and each outside object's
+  surroundings in 3 km cells (a full cell is split), keeps each structure once, and stores ONE
+  compact GeoJSON MultiPolygon (`reference/underground.json`). It rides the footprint job
+  (`scheduler` · `_object_footprints_tick`): asked once, then weekly or when the area (a
+  municipality, the map centre, an object's point) or the source changes; a failed ask keeps the
+  stored set and waits an hour. FWO (Oberwil 2771 + the objects' surroundings, 18.10.2026): 1 058
+  structures (392 of them outside Oberwil, 99 around the ARA), 243 KB, 58 KB gzipped, 3 s. No
+  device ever asks the WFS.
 - **`GET /api/reference/underground[?have=<fetchedAt>]`** (same readers as the catalogue):
   `{enabled, fetchedAt, count, geometry}`; `enabled: false` when off, `fetchedAt: null` before the
   first ask, `unchanged: true` without geometry when the device already holds that set. The
@@ -447,7 +456,7 @@ and `KarteDevice.tsx` probe). No «ganze Station herunterladen»: that would be 
 | plan PDF | the service worker's `reference-plans` cache, per revision URL | opening the plan once online |
 | Gebäude storeys, aligned plan | that PDF + the revision's alignment metadata (IndexedDB, `lib/api/reference`) | opening Gebäude / the aligned plan once online |
 | base map | the service worker's `map-tiles` cache | looking at the area, or an Einsatz's Offline-Vorbereitung |
-| Unterirdische Bauten | IndexedDB `kp-front-station-underground` (one entry, ~4 MB for FWO's region) | switching the row on once online |
+| Unterirdische Bauten | IndexedDB `kp-front-station-underground` (one entry, ~250 KB for FWO) | switching the row on once online |
 | Gefahrgut (UN/ADR) | bundled with the app | — |
 
 What the surface shows offline:
@@ -491,8 +500,11 @@ What the surface shows offline:
   pre-flight prices it so (`storageBudget` · `tileBytesFor`). The 1× CARTO tiles a retina device
   held are dropped once (`tilePurge` · `carto-retina-2026-10`); a 1× screen keeps them. OSM and
   swisstopo have no 2× tiles; swisstopo's swissimage goes to z20 (was capped at 19, so the closest
-  zoom stretched z19 four times). Past a base's `maxzoom` (CARTO 20, OSM 19) MapLibre still
-  stretches the last level up to the map's 21. Regression check, WebKit with the iPhone 13
+  zoom stretched z19 four times). **The map stops at the visible base's last sharp level** (owner
+  on #383): its last tile level drawn 1:1, i.e. map zoom `maxzoom − 1` on the 512 px grid
+  (`lib/mapView` · `baseMaxMapZoom`: CARTO and swissimage 19, OSM 18) instead of the fixed 21 that
+  stretched the last level 2–4×; switching to a base that ends sooner clamps the view. `MapView`
+  carries it, so it holds in the Einsatz too (and the Tafel's Lagekarte box). Regression check, WebKit with the iPhone 13
   descriptor: `node site/check-basemap-sharpness.mjs --base <app>` (red above 1.5 device px per
   tile px or on overzoom; its header says how it stands in for CARTO's keyed tiles).
 - **Search:** station objects are found on the device; the address search says it needs the

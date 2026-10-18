@@ -1,37 +1,44 @@
-"""«Unterirdische Bauten» — every underground building of the station's area, for the Karte's Ebenen.
+"""«Unterirdische Bauten» — every underground building and tunnel of the Einsatzgebiet, for the Karte's Ebenen.
 
 Owner, review round 4 (17.10.2026): «can we show all subterraneous objects through our firegis
 database?» FireGIS's ``av_gebunterird`` is the official survey's (amtliche Vermessung) underground
 buildings. The same features are in the open AV WFS app/object_footprints already reads
-(geodienste.ch, Einzelobjekte ``ms:SOSF`` with ``Art = unterirdisches_Gebaeude`` — the type a named
-row's garages ride along with there): open data, no FireGIS file, so every deployment gets it.
+(geodienste.ch, Einzelobjekte ``ms:SOSF``): open data, no FireGIS file, so every deployment gets
+it. Asked for: ``Art = unterirdisches_Gebaeude`` and — owner's answer on #383 — the underground
+traffic structures ``Tunnel_Unterfuehrung_Galerie`` (tunnels, underpasses; the survey's only such
+type, and polygons only: its line elements ``ms:SOLI`` carry none). Not ``Unterstand``.
 
-* **The area** — the deployment's region, the geocoder's ``map.geocoder.bboxLv95`` (else the
-  ``GEOCODER_BBOX_LV95`` setting, the same pair app/geocode biases on); without one, the box around
-  the station's objects plus ``REACH_M``; neither → nothing to ask.
+* **The area** (owner on #383: the Einsatzgebiet, not the geocoder's 27 × 18 km box) — the
+  municipalities of ``map.serviceArea.municipalities`` (BFS numbers), else the ONE municipality the
+  station's map centre (``map.defaultView``) lies in, as their official boundaries (swisstopo
+  swissBOUNDARIES3D over the geocoder's own host); united with ``REACH_M`` around every station
+  object, so an object outside the brigade's own municipality (the ARA in the next village) still
+  has its surroundings. A structure counts when any of its corners lies in that area.
 * **Asked** by the scheduler (the footprint job, ``tick``), never by a device and never per view:
-  once, then every ``REFRESH_S`` (weekly) or when the area or the source changes. A failed ask
-  keeps the set already stored and is tried again after ``RETRY_S``. The box is asked in cells of
-  ``CELL_M``; a cell that comes back full (``CELL_COUNT``) is split in four, so no single request
-  is unbounded, and a structure two cells both return is kept once.
+  once, then every ``REFRESH_S`` (weekly) or when the area (municipalities, map centre, an object's
+  point) or the source changes. A failed ask keeps the set already stored and is tried again after
+  ``RETRY_S``. Boxes are asked in cells of ``CELL_M``; a cell that comes back full (``CELL_COUNT``)
+  is split in four, so no single request is unbounded, and a structure two cells both return is
+  kept once.
 * **Stored** as ONE compact GeoJSON MultiPolygon in ``reference/underground.json`` (outer rings,
-  coordinates to six decimals ≈ 0.1 m, no properties — the layer draws outlines only). Measured
-  for FWO's region (27 × 18 km over BL, BS, SO; 17.10.2026): 14 867 structures, 4.9 MB of JSON,
-  ~0.95 MB gzipped on the wire — one file, no vector tiles needed.
+  coordinates to six decimals ≈ 0.1 m, no properties — the layer draws outlines only).
 * **Served** by ``GET /api/reference/underground`` (api/station_reference), which only reads; a
   device that already holds the current set (``?have=<fetchedAt>``) gets no geometry back.
 * **Off**: ``UNDERGROUND_WFS=`` (settings.underground_wfs empty).
 
-What leaves the station is the region's box — the same box every geocoder search already sends.
+What leaves the station: the municipality numbers, the map centre and boxes around the station's
+objects — what the footprint job and the geocoder already send.
 """
 
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import math
 import time
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
@@ -39,16 +46,18 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from . import storage
+from . import geocode, storage
 from .config import settings
 from .geo_util import lv95_to_wgs84
-from .object_footprints import _bbox_condition, _equals, _geojson_polygons
+from .object_footprints import _bbox_condition, _equals, _geojson_polygons, in_any
 
 logger = logging.getLogger(__name__)
 
 STORE_KEY = "reference/underground.json"
-#: the survey's type for an underground building (``ms:SOSF`` · ``Art``)
-ART = "unterirdisches_Gebaeude"
+#: the survey's types drawn (``ms:SOSF`` · ``Art``): underground buildings, tunnels/underpasses
+ARTS = ("unterirdisches_Gebaeude", "Tunnel_Unterfuehrung_Galerie")
+#: swissBOUNDARIES3D's municipalities (identify by point, feature by BFS number)
+MUNICIPALITY_LAYER = "ch.swisstopo.swissboundaries3d-gemeinde-flaeche.fill"
 #: asked again after a week (the survey changes slowly; the footprint job's cadence is the tick)
 REFRESH_S = 7 * 24 * 3600.0
 #: a failed ask waits this long before the next try (per process)
@@ -58,9 +67,9 @@ CELL_M = 3000.0
 CELL_COUNT = 5000
 #: a full cell is split at most this many times (3 km → 375 m)
 MAX_SPLIT = 3
-#: no region configured: the box around the station's objects, this much wider on every side
-REACH_M = 1500.0
-#: a region wider than this is a misconfigured bbox, not a brigade's area (logged, nothing asked)
+#: the surroundings of every station object (half the side of the square around its point)
+REACH_M = 500.0
+#: municipalities wider than this together are a misconfiguration, not a brigade (logged, skipped)
 MAX_REGION_M = 60_000.0
 TIMEOUT_S = 60.0
 #: six decimals ≈ 0.1 m — the survey's own precision is a few centimetres, a screen's far less
@@ -70,6 +79,7 @@ _USER_AGENT = "kp-front (+https://github.com/feuerwehr-oberwil/kp-front)"
 
 Box = tuple[float, float, float, float]  # west, south, east, north (WGS84)
 Ring = list[tuple[float, float]]
+Polygon = list[Ring]
 
 
 def enabled() -> bool:
@@ -79,53 +89,155 @@ def enabled() -> bool:
 # --- the area -----------------------------------------------------------------------------------
 
 
-def parse_lv95_box(text: str) -> Box | None:
-    """``"minE,minN,maxE,maxN"`` (LV95) → a WGS84 box, ``None`` when it is not one."""
-    try:
-        e0, n0, e1, n1 = (float(v) for v in text.split(","))
-    except ValueError:
-        return None
-    if not (e0 < e1 and n0 < n1):
-        return None
-    corners = [lv95_to_wgs84(e, n) for e in (e0, e1) for n in (n0, n1)]
-    lats = [c[0] for c in corners]
-    lngs = [c[1] for c in corners]
-    return (min(lngs), min(lats), max(lngs), max(lats))
-
-
 def box_size_m(box: Box) -> tuple[float, float]:
     w, s, e, n = box
     return ((e - w) * 111_320.0 * math.cos(math.radians((s + n) / 2)), (n - s) * 110_540.0)
 
 
-async def region_box(db: AsyncSession) -> Box | None:
-    """The area to ask for: the geocoder's region, else the station's objects plus REACH_M."""
+def box_around(lng: float, lat: float, half_m: float = REACH_M) -> Box:
+    dl = half_m / (111_320.0 * math.cos(math.radians(lat)))
+    dp = half_m / 110_540.0
+    return (lng - dl, lat - dp, lng + dl, lat + dp)
+
+
+def bbox_of_polygons(polys: list[Polygon]) -> Box | None:
+    pts = [p for poly in polys for p in (poly[0] if poly else [])]
+    if not pts:
+        return None
+    return (min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts))
+
+
+def _in_box(p: tuple[float, float], b: Box) -> bool:
+    return b[0] <= p[0] <= b[2] and b[1] <= p[1] <= b[3]
+
+
+@dataclass
+class Area:
+    """What is asked for: the configured municipalities (or the map centre to find the one it lies
+    in) and the station's object points. ``key`` changes whenever any of them does."""
+
+    municipalities: list[int]
+    centre: tuple[float, float] | None
+    points: list[tuple[float, float]]
+    polygons: list[Polygon] = field(default_factory=list)
+
+    @property
+    def key(self) -> str:
+        h = hashlib.sha256()
+        h.update(json.dumps([sorted(self.municipalities), self.centre if not self.municipalities else None]).encode())
+        h.update(json.dumps(sorted((round(x, 6), round(y, 6)) for x, y in self.points)).encode())
+        return h.hexdigest()[:16]
+
+    @property
+    def boxes(self) -> list[Box]:
+        return [box_around(x, y) for x, y in self.points]
+
+    def holds(self, ring: Ring) -> bool:
+        """Any corner of the structure in a municipality or in an object's surroundings."""
+        boxes = self.boxes
+        return any(any(_in_box(p, b) for b in boxes) for p in ring) or any(in_any(self.polygons, p) for p in ring)
+
+
+def _centre(cfg: dict) -> tuple[float, float] | None:
+    view = (cfg.get("map") or {}).get("defaultView") or {}
+    c = view.get("center")
+    if isinstance(c, list) and len(c) == 2 and all(isinstance(v, int | float) for v in c):
+        return (float(c[0]), float(c[1]))
+    lv = view.get("centerLv95")
+    if isinstance(lv, list) and len(lv) == 2 and all(isinstance(v, int | float) for v in lv):
+        lat, lng = lv95_to_wgs84(float(lv[0]), float(lv[1]))
+        return (lng, lat)
+    return None
+
+
+async def station_area(db: AsyncSession) -> Area | None:
+    """The Einsatzgebiet as the config names it, and every station object's point. No network."""
     from .models import DeploymentConfig, ObjectSite
 
-    text = settings.geocoder_bbox_lv95
     row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-    cfg = (row.config_json or {}) if row else {}
-    geo = ((cfg.get("map") or {}).get("geocoder") or {}) if isinstance(cfg, dict) else {}
-    if str(geo.get("bboxLv95") or "").strip():
-        text = str(geo["bboxLv95"]).strip()
-    if text.strip():
-        box = parse_lv95_box(text)
-        if box:
-            return box
-        logger.warning("underground: the region bbox %r is not minE,minN,maxE,maxN", text)
+    cfg = (row.config_json or {}) if row and isinstance(row.config_json, dict) else {}
+    raw = ((cfg.get("map") or {}).get("serviceArea") or {}).get("municipalities") or []
+    municipalities = sorted({int(v) for v in raw if isinstance(v, int) and v > 0})
     pts = (
         await db.execute(
             select(ObjectSite.lng, ObjectSite.lat).where(ObjectSite.lat.is_not(None), ObjectSite.lng.is_not(None))
         )
     ).all()
-    if not pts:
+    area = Area(municipalities, _centre(cfg), [(float(p[0]), float(p[1])) for p in pts])
+    if not area.municipalities and area.centre is None and not area.points:
         return None
-    lngs = [float(p[0]) for p in pts]
-    lats = [float(p[1]) for p in pts]
-    mid = math.radians((min(lats) + max(lats)) / 2)
-    pad_lat = REACH_M / 110_540.0
-    pad_lng = REACH_M / (111_320.0 * math.cos(mid))
-    return (min(lngs) - pad_lng, min(lats) - pad_lat, max(lngs) + pad_lng, max(lats) + pad_lat)
+    return area
+
+
+def _map_server() -> str:
+    if not geocode._GEOCODER_OK:
+        raise RuntimeError("no geocoder host")
+    return geocode._IDENTIFY_URL.rsplit("/", 1)[0]
+
+
+async def municipality_at(client: httpx.AsyncClient, lng: float, lat: float) -> int | None:
+    """The BFS number of the (current) municipality this point lies in."""
+    r = await client.get(
+        f"{_map_server()}/identify",
+        params={
+            "geometry": f"{lng},{lat}",
+            "geometryType": "esriGeometryPoint",
+            "sr": "4326",
+            "tolerance": "0",
+            "layers": f"all:{MUNICIPALITY_LAYER}",
+            "returnGeometry": "false",
+        },
+    )
+    r.raise_for_status()
+    for res in r.json().get("results", []):
+        a = res.get("attributes") or res.get("properties") or {}
+        if a.get("is_current_jahr") and a.get("gde_nr"):
+            return int(a["gde_nr"])
+    return None
+
+
+async def municipality_boundary(client: httpx.AsyncClient, bfs: int) -> list[Polygon]:
+    r = await client.get(
+        f"{_map_server()}/{MUNICIPALITY_LAYER}/{bfs}",
+        params={"geometryFormat": "geojson", "sr": "4326", "returnGeometry": "true"},
+    )
+    if r.status_code == 404:
+        logger.warning("underground: no municipality %s in swissBOUNDARIES3D", bfs)
+        return []
+    r.raise_for_status()
+    return _geojson_polygons((r.json().get("feature") or {}).get("geometry") or {})
+
+
+async def resolve(client: httpx.AsyncClient, area: Area) -> Area:
+    """The area with its municipalities' boundaries (the map centre's one when none is named)."""
+    nums = list(area.municipalities)
+    if not nums and area.centre is not None:
+        home = await municipality_at(client, *area.centre)
+        nums = [home] if home else []
+    polys: list[Polygon] = []
+    for n in nums:
+        polys += await municipality_boundary(client, n)
+    bb = bbox_of_polygons(polys)
+    if bb and max(box_size_m(bb)) > MAX_REGION_M:
+        logger.warning(
+            "underground: municipalities %s span more than %.0f km — only the objects' surroundings",
+            nums,
+            MAX_REGION_M / 1000,
+        )
+        polys = []
+    return Area(nums, area.centre, area.points, polys)
+
+
+def boxes_to_ask(area: Area) -> list[Box]:
+    """The municipalities' box, and the surroundings of every object that box does not cover."""
+    out: list[Box] = []
+    bb = bbox_of_polygons(area.polygons)
+    if bb:
+        out.append(bb)
+    for b in area.boxes:
+        if not (bb and bb[0] <= b[0] and bb[1] <= b[1] and b[2] <= bb[2] and b[3] <= bb[3]):
+            out.append(b)
+    return out
 
 
 def cells(box: Box, cell_m: float = CELL_M) -> list[Box]:
@@ -150,7 +262,8 @@ def quarter(box: Box) -> list[Box]:
 async def _ask_cell(client: httpx.AsyncClient, box: Box) -> list[dict]:
     flt = (
         '<fes:Filter xmlns:fes="http://www.opengis.net/fes/2.0" xmlns:gml="http://www.opengis.net/gml/3.2">'
-        f"<fes:And>{_equals('Art', ART)}{_bbox_condition(box)}</fes:And></fes:Filter>"
+        f"<fes:And><fes:Or>{''.join(_equals('Art', a) for a in ARTS)}</fes:Or>{_bbox_condition(box)}</fes:And>"
+        "</fes:Filter>"
     )
     r = await client.get(
         settings.underground_wfs,
@@ -169,16 +282,12 @@ async def _ask_cell(client: httpx.AsyncClient, box: Box) -> list[dict]:
     return list(r.json().get("features", []))
 
 
-def _ring_key(ring: Ring) -> tuple:
-    return tuple(ring)
-
-
 def rings_of(features: list[dict]) -> list[Ring]:
-    """Every feature's outer ring(s), rounded (an underground building is drawn as its outline)."""
+    """Every feature's outer ring(s), rounded (a structure is drawn as its outline)."""
     out: list[Ring] = []
     for f in features:
-        if (f.get("properties") or {}).get("Art") not in (None, ART):
-            continue  # the filter asked for ART only; a source that ignores it does not sneak walls in
+        if (f.get("properties") or {}).get("Art") not in (None, *ARTS):
+            continue  # the filter asked for ARTS only; a source that ignores it does not sneak walls in
         for poly in _geojson_polygons(f.get("geometry") or {}):
             ring = [(round(x, DECIMALS), round(y, DECIMALS)) for x, y in poly[0]] if poly else []
             if len(ring) >= 3:
@@ -186,11 +295,11 @@ def rings_of(features: list[dict]) -> list[Ring]:
     return out
 
 
-async def fetch(client: httpx.AsyncClient, box: Box) -> list[Ring]:
-    """Every underground building in the box, each once."""
+async def fetch(client: httpx.AsyncClient, area: Area) -> list[Ring]:
+    """Every underground structure in the area (a resolved one), each once."""
     seen: set[tuple] = set()
     out: list[Ring] = []
-    todo: list[tuple[Box, int]] = [(c, 0) for c in cells(box)]
+    todo: list[tuple[Box, int]] = [(c, 0) for b in boxes_to_ask(area) for c in cells(b)]
     while todo:
         cell, depth = todo.pop(0)
         feats = await _ask_cell(client, cell)
@@ -200,8 +309,8 @@ async def fetch(client: httpx.AsyncClient, box: Box) -> list[Ring]:
         if len(feats) >= CELL_COUNT:
             logger.warning("underground: a %s cell still returns %d features; kept as returned", cell, len(feats))
         for ring in rings_of(feats):
-            k = _ring_key(ring)
-            if k not in seen:
+            k = tuple(ring)
+            if k not in seen and area.holds(ring):
                 seen.add(k)
                 out.append(ring)
     return out
@@ -229,7 +338,7 @@ def _load() -> dict | None:
 
 
 def stored() -> dict | None:
-    """The stored set (``{fetchedAt, box, source, count, geometry}``), ``None`` before the first
+    """The stored set (``{fetchedAt, area, municipalities, count, geometry}``), ``None`` before the first
     ask. Read from storage at most every ten minutes per process; never asks the source."""
     global _read
     now = time.monotonic()
@@ -260,12 +369,8 @@ def payload(have: str | None) -> bytes:
     return body
 
 
-def _due(data: dict | None, box: Box) -> bool:
-    if data is None:
-        return True
-    if data.get("source") != settings.underground_wfs or [round(v, 6) for v in data.get("box") or []] != [
-        round(v, 6) for v in box
-    ]:
+def _due(data: dict | None, area: Area) -> bool:
+    if data is None or data.get("source") != settings.underground_wfs or data.get("area") != area.key:
         return True
     try:
         at = datetime.fromisoformat(str(data.get("fetchedAt")))
@@ -275,29 +380,22 @@ def _due(data: dict | None, box: Box) -> bool:
 
 
 async def tick(db: AsyncSession, *, client: httpx.AsyncClient | None = None) -> int:
-    """Ask for the region's underground buildings when the stored set is missing, a week old, or
-    for another area/source. Returns how many were stored (0 = nothing asked or the ask failed)."""
+    """Ask for the Einsatzgebiet's underground structures when the stored set is missing, a week
+    old, or for another area/source. Returns how many were stored (0 = nothing asked or failed)."""
     global _read, _failed_at
     if not enabled():
         return 0
-    box = await region_box(db)
-    if box is None:
-        return 0
-    width, height = box_size_m(box)
-    if max(width, height) > MAX_REGION_M:
-        logger.warning(
-            "underground: the region is %.0f × %.0f m, more than one brigade's area — not asked", width, height
-        )
-        return 0
-    if not _due(_load(), box):
+    area = await station_area(db)
+    if area is None or not _due(_load(), area):
         return 0
     if _failed_at is not None and time.monotonic() - _failed_at < RETRY_S:
         return 0
     own = client is None
     cli = client or httpx.AsyncClient(timeout=TIMEOUT_S, headers={"User-Agent": _USER_AGENT})
     try:
-        rings = await fetch(cli, box)
-    except (httpx.HTTPError, ValueError, KeyError, TypeError) as e:
+        resolved = await resolve(cli, area)
+        rings = await fetch(cli, resolved)
+    except (httpx.HTTPError, ValueError, KeyError, TypeError, RuntimeError) as e:
         _failed_at = time.monotonic()
         logger.warning("underground: could not ask the survey: %s", e)
         return 0
@@ -306,16 +404,22 @@ async def tick(db: AsyncSession, *, client: httpx.AsyncClient | None = None) -> 
             await cli.aclose()
     _failed_at = None
     out: dict[str, Any] = {
-        "version": 1,
+        "version": 2,
         "fetchedAt": datetime.now(UTC).isoformat(),
         "source": settings.underground_wfs,
-        "box": list(box),
+        "area": area.key,
+        "municipalities": resolved.municipalities,
         "count": len(rings),
         "geometry": as_geojson(rings),
     }
     await asyncio.to_thread(storage.put_bytes, STORE_KEY, json.dumps(out, separators=(",", ":")).encode())
     _read = None
-    logger.info("underground: %d underground buildings stored for the region", len(rings))
+    logger.info(
+        "underground: %d structures stored (municipalities %s + %d objects' surroundings)",
+        len(rings),
+        resolved.municipalities,
+        len(area.points),
+    )
     return len(rings)
 
 

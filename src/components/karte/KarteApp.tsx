@@ -114,8 +114,8 @@ const SHEET_SHARE = 0.72
 const UNDER_DASH = [2, 1.5]
 /** an Ebenen row per object category (lib/karte/categories) */
 const CAT_ROW = 'karte:kategorie:'
-/** «Unterirdische Bauten» (owner, review round 4): every underground building of the region, from
- *  street zoom on — off by default and not part of «Standard» */
+/** «Unterirdische Bauten» (owner, review round 4): every underground building and tunnel of the
+ *  Einsatzgebiet, from street zoom on — off by default and not part of «Standard» */
 const UNDERGROUND_ROW = 'karte:unterirdisch'
 const UNDERGROUND_LAYER = 'karte-unterirdisch' as LayerId
 const UNDERGROUND_MIN_ZOOM = 16
@@ -625,7 +625,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     // the building's outline — found again once its cell has loaded (a searched address flies first)
     const bRing = sel?.kind === 'building' ? sel.ring ?? ringAt(ringsNear(sel.at), sel.at) : null
     if (bRing) out.push({ id: 'karte-building', kind: 'polygons', layer: ALWAYS_LAYER, rings: [bRing], color: uiBlue(), fillOpacity: 0.16, lineWidth: 2.5, lineOpacity: 1 })
-    // the region's underground buildings: under every object (an object's own dashed garage keeps
+    // the Einsatzgebiet's underground structures: under every object (an object's own dashed garage keeps
     // its colour on top), only while the row is on
     if (underOn && underOverlay) out.unshift(underOverlay)
     // offline: hatch the tiles with no base map behind them; under every other overlay (first in)

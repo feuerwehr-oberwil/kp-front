@@ -436,9 +436,10 @@ class Settings(BaseSettings):
     # building an object's point lies in, as before).
     footprint_area_tiles: str = "https://vectortiles.geo.admin.ch/tiles/ch.swisstopo.base.vt/v1.0.0"
     footprint_buildings_wfs: str = "https://geodienste.ch/db/av_0/deu"
-    # «Unterirdische Bauten» (app/underground): every underground building of the region (the
-    # geocoder's bbox, else around the station's objects) from the same open survey WFS, asked
-    # weekly by the scheduler and served as one file to the Karte's Ebenen. Empty = off.
+    # «Unterirdische Bauten» (app/underground): every underground building and tunnel of the
+    # Einsatzgebiet (config map.serviceArea, else the municipality at the map centre, plus the
+    # station's objects' surroundings) from the same open survey WFS, asked weekly by the scheduler
+    # and served as one file to the Karte's Ebenen. Empty = off.
     underground_wfs: str = "https://geodienste.ch/db/av_0/deu"
 
     # --- Telemetry (opt-in; see app/telemetry/) ---

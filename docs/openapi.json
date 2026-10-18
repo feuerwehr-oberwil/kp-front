@@ -18143,6 +18143,9 @@
               }
             ],
             "title": "Buildingregister"
+          },
+          "serviceArea": {
+            "$ref": "#/components/schemas/MapServiceArea"
           }
         },
         "type": "object",
@@ -18248,6 +18251,21 @@
         },
         "type": "object",
         "title": "MapGeocoder"
+      },
+      "MapServiceArea": {
+        "properties": {
+          "municipalities": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Municipalities"
+          }
+        },
+        "type": "object",
+        "title": "MapServiceArea",
+        "description": "The brigade's Einsatzgebiet as its municipalities (BFS numbers), for what the backend reads\nover the station's area (app/underground). Empty = the municipality at ``defaultView``."
       },
       "MilestoneGroup": {
         "properties": {
