@@ -194,10 +194,10 @@ What it reuses, so nothing forks:
 | Ebenen | `LayerPanel`, under its OWN device key (`kp.layers.karte`, `lib/karte/session`), without the Einsatz-only layers (taktisch, Skizzen, Personen); the radar's choice too (`kp.karte.radar`) |
 | tools | the Einsatz's `ToolRail` (tablet) / the folded `navrail` bar (phone: Karte · Messen · Gefahrgut · Ebenen), `ToolDock` + `MeasurePanel` WITHOUT «Als Linie/Fläche übernehmen» (and without a line saying it is not saved — nothing here is), stacked on the phone like an Einsatz's: dock 6px above the bar, readout 6px above the dock, one bar lower because the Karte has no tool bar, `MapViewsButton` without saved views |
 | weather | `useWeather` + `WeatherBadge` |
-| plans | the NavRail classes and `PlanGlyph` (tablet rail), rows in the object's panel; a module opens in the Einsatz's plan reader — the Plan surface's `Whiteboard`, read-only, on the current revision (below); the Gebäude storeys as the floor pack's page regions (`planRegionCropUrl`, what `FloorPage` draws from) |
+| plans | the NavRail classes and `PlanGlyph` (tablet rail), rows in the object's panel; a module opens in the Einsatz's plan reader — the Plan surface's `Whiteboard`, read-only, on the current revision (below); the Gebäude is the same `Whiteboard` on the Einsatz's floor stack (`lib/floorPackBinding · floorPackOf` / `packBuildingDoc`, below) |
 | plan titles | the module catalogue the Einsatz's plan chooser labels its tiles from (`lib/planOrder · moduleCatalogue`), through `lib/karte/plans · planTitle` (below) |
 | the phone sheet | Ebenen's own: `.layers-card`, `overlays/SheetGrab`, `overlays/useSwipeDismiss` |
-| register facts | `lib/buildingCard` (chips, source line), the same «Register-Hinweis» |
+| register facts | `lib/buildingCard` (chips, source line); «Register-Hinweis» folds the hint and the source line (below) |
 | Gefahrgut | `UnHazardSection` — the Gefahrentafel's ADR/ERG block, extracted from `ContextPanel` |
 | building outlines | the object's own `footprint` (above); for every other building and an object without one, the Umriss picker's `/api/overpass/buildings` (station snapshot first), loaded per grid cell (`lib/karte/outlines`) |
 
@@ -238,8 +238,8 @@ The rules that are easy to break:
 - **The panel, in one order** (owner, 17.10.2026 · review round 2), the same for an object on
   the phone and on the tablet: head (kind, name, address, ✕) · the station's word
   (Sofortmassnahmen, then Bemerkungen, with their source — what matters most in a hurry) ·
-  Pläne & Module as rows (code, title, pages, offline the «auf diesem Gerät» mark) · Gebäude laut
-  Register · In der Nähe · Objektbesuche · the closing «Keine Gefahrenangaben …» · the actions
+  Pläne & Module as rows (the module only, offline the «auf diesem Gerät» mark — below) · Gebäude
+  laut Register · In der Nähe · Objektbesuche · the closing «Keine Gefahrenangaben …» · the actions
   LAST, «Objektbesuch» and «Melden». A plain building or a dropped pin keeps that order with what
   it has (Register, In der Nähe, Melden; a pin also «Koordinaten kopieren»), a plan-less object
   too (no plan rows). No «Messen ab hier» (Messen is the bar's / the rail's) and no
@@ -269,8 +269,35 @@ The rules that are easy to break:
   Karte's chip row («Zur Karte» on the phone, the object's name on the tablet) is the way back,
   and so is the bar's Karte tab. No «Auf der Karte» beside it (owner, review round 3,
   17.10.2026: struck as not needed — the aligned plan stays switchable in Ebenen). `KarteApp.test`
-  pins what is handed in. The Gebäude stack stays the Karte's own storey list (an Einsatz's
-  Gebäude needs an incident's building pick).
+  pins what is handed in.
+- ⚠️ **The plan lies out exactly like an Einsatz's** (owner, review round 4, 17.10.2026: «use the
+  same display like we have for our plans normally -> not this clipping here»). The reader keeps
+  the box of an Einsatz's plan with no tool bar under it — on a phone ending 18px above the one
+  bar, on a tablet the whole surface — and its own fit (`lib/whiteboard · containFit` with
+  `chipRowInset`) keeps the floating row free; the Karte's chip row stands exactly where the
+  reader's own `.wb-botleft` would (8px above the bar on a phone, 16px off the foot beside the rail
+  on a tablet). The Karte's root wears `.phone-tools` (its docks stack like an Einsatz's), so
+  `Karte.module.css` must keep the reader out of that two-bar box. Round 3 ended the reader a
+  whole chip row higher AND let the fit reserve the row again.
+  The box is only what the FIT measures: what is drawn is full-bleed (owner, round 4: a plan
+  dragged down «doesn't neatly go behind all of the other bottom UI elements»). On the phone the
+  stage does not clip at the box (`.wb-canvas { overflow: visible }`), so a dragged page slides on
+  under «Zur Karte» and the bar to the screen's foot, with the stage's own ground behind it; the
+  chrome floats over the plan.
+- **The Gebäude is the Einsatz's, without editing** (owner, review round 4: «literally 1:1 the
+  same as in the normal incident just without editing»). `KartePlans · KarteGebaeudeBoard` binds
+  the object's floor pack IN MEMORY exactly as an Einsatz binds it (`lib/karte/gebaeude ·
+  objectFloorBinding`: the first plan whose published metadata names floors, the approval on page
+  0 else the first with an aspect — `useObjectPlans`' rule, under its sheet id), and from there
+  runs the Einsatz's own pipeline: `floorPackOf` → the frame measured off the pages
+  (`trimmedPackFrame`, bounded by `PACK_TRIM_MS`) → `packBuildingDoc` (the one builder of a pack
+  stack, which the Einsatz's seed in `useGeorefFits` calls too) → the same read-only `Whiteboard`
+  with `building` and `floorPack`. Storey labels, «Ausblenden», the stack's zoom and the compass
+  are there; no building pick (`onBuildingFace` absent), no storey added or removed (`readOnly` + a
+  pack stack), no compass turn (`onReorient` absent), no tools. A pack the station has not aligned
+  takes the page's own size (the tile manifest) for the fit's aspect — an Einsatz would show no
+  stack there; with neither, the plain storey list of round 2 stands in (`KarteFloors`). Nothing
+  of it is stored.
 - **The plan says when it is still sharpening** (owner, review round 3: «if you zoom in quickly
   before things have loaded, everything is blurry … we're obviously not fully offline like with a
   normal incident»). In an Einsatz the tiles are on the device ahead of time; here they come over
@@ -307,18 +334,33 @@ The rules that are easy to break:
   `originalEvent`) drops it, and the map stays where they put it. A pick from the search is a
   deliberate jump: closing it keeps the place and only drops the padding (centred on the whole
   map). The rule is pure: `lib/karte/camera · returnOnSelect / cameraOnClose`.
-- **Plan titles** (`lib/karte/plans · planTitle`): many sheets in the real catalogue are titled by
+- **A plan row is the module, nothing else** (owner, review round 4: «just "modul 1", "modul 2",
+  etc. is enough»; `lib/karte/plans · planRowLabel`): «Modul 1», «Modul 2-3», «Modul 5-PV»,
+  «Modul 5-Wasser 1», «Modul 5-PV 15» — the key in words, a sub-slot word of up to three letters
+  upper-cased (PV, RWA, AEH), a longer one capitalised (Wasser, Evak). No title, no «PDF · 1
+  Seite · auf Karte ausgerichtet», no number badge; the «Gebäude» row says «Gebäude». Every row has
+  one left edge and one height; offline the ●/◐/○ mark trails the words (its word for a screen
+  reader in the label). A key that is no module key says the plan's title.
+- **Plan titles** (`lib/karte/plans · planTitle`, the tablet rail and the view label): many sheets in the real catalogue are titled by
   their file name, «<object> – <module key>» («Migros – modul2», «Sägestrasse 8 - Schulhaus
   Hüslimatt – modul2-3»). Such a title gives way to the catalogue's title for the key («Wie komme
   ich herein», «Zugang & Objekt», «Photovoltaik»); a clean title («Übersicht», «Gemeindehaus –
   Übersicht») stays. A family sub-slot without an entry says its own name («Wasser»), a numbered
-  sibling keeps its number («Wasser 2»), an unknown key reads «Modul N». The panel's rows, the
-  tablet rail's labels and the view label all read the document's title.
+  sibling keeps its number («Wasser 2»), an unknown key reads «Modul N». The tablet rail's labels
+  and the view label read the document's title; the panel's rows read `planRowLabel` (above).
 - **A head that is still being looked up is a skeleton**, never «Gebäude» or «…» in place of a
   name: a tapped building until the register answers (a searched address is named at once), a
   dropped pin until its address is known. A plain building carries no «Kein Stationsobjekt …»
   box — the kicker says «Gebäude», the line under the name says «Kein Stationsobjekt» once known,
   and the closing «Keine Gefahrenangaben …» sentence still stands.
+- **«Register-Hinweis» is tap to open** (owner, review round 4: «should be tap to open and this
+  blabla (gwr, stand, etc.) should all be hidden by default»). Under «Gebäude laut Register» the
+  chips stand, and so does «Registereintrag Grenzweg 7, nicht Grenzweg 1» right under them when
+  the register's building is another address's (owner: keep it visible — the chips may be about
+  the other building). The hint («Aus den Bundesregistern … Vor Ort prüfen.») and the source line
+  (the registers and their Stand, the device's copy) are folded behind the «Register-Hinweis»
+  toggle (`aria-expanded`), folded again for every place. The Einsatz's
+  Gebäude card (`BuildingCard`) is a different component and keeps its hint as it was.
 - **Missing is said.** A register that could not be asked, a place never looked at offline, an
   object without notes: each gets its sentence, and «Keine Gefahrenangaben … heisst nicht …»
   closes the panel. Nothing reads as «no hazard».
@@ -455,8 +497,9 @@ and `KarteDevice.tsx` probe). No «ganze Station herunterladen»: that would be 
 |---|---|---|
 | object catalogue | IndexedDB `kp-front-station-objects` (one entry) | every online open of `/karte` |
 | register facts of a building | IndexedDB `kp-front-station-building:<where>`, the last 300 kept (index `kp-front-station-building-index`) | every building / object looked at online |
-| plan PDF | the service worker's `reference-plans` cache, per revision URL | opening the plan once online |
-| Gebäude storeys, aligned plan | that PDF + the revision's alignment metadata (IndexedDB, `lib/api/reference`) | opening Gebäude / the aligned plan once online |
+| plan PDF | the service worker's `reference-plans` cache, per revision URL | opening an untiled plan once online |
+| plan tiles | `plan-tile-manifests` (the manifest) + `plan-tiles` (every tile), per revision | opening a tiled plan once online (the reader fetches the whole pyramid, `lib/planTilePrefetch`) |
+| Gebäude storeys, aligned plan | the plan's pages (PDF or tiles) + the revision's alignment metadata (IndexedDB, `lib/api/reference`) | opening Gebäude / the aligned plan once online |
 | base map | the service worker's `map-tiles` cache | looking at the area, or an Einsatz's Offline-Vorbereitung |
 | Gefahrgut (UN/ADR) | bundled with the app | — |
 
@@ -464,14 +507,24 @@ What the surface shows offline:
 
 - **The bar's «Offline» chip** (a dot only on the phone) stands where the weather was and opens
   **«Auf diesem Gerät»**: Objektkatalog · Karte (this view) · Pläne (PDFs of the whole catalogue) ·
-  Gebäuderegister · Gefahrgut · Adresssuche · Wetter/Fahrzeuge · Gerätespeicher, each with ● on
+  Gebäuderegister · Gefahrgut · Adresssuche · Wetter/Fahrzeuge · Gerätespeicher (Pläne counts the
+  plans that open here, by the rule above), each with ● on
   this device / ◐ partly / ○ only online AND the same in words. The Gebäuderegister is never ●: only
   buildings already looked at are stored.
-- **Pläne & Module** rows carry ●/○; a plan the device does not hold is dimmed and says «Nicht auf
-  diesem Gerät gespeichert», but stays tappable – the surface then says the PDF is not stored
-  instead of a reader spinning on a dead fetch. The tablet rail dims the same tiles. Gebäude is ●
-  only when every revision's alignment metadata and every storey's PDF are stored, ◐ when some
-  storeys are (the stack then says some are missing). «Objektplan auf der Karte» is offered offline
+- **A plan is held when the reader that will open it has what it needs** (`availability ·
+  planLamp`): ● its PDF, or every tile of its pyramid; ◐ no PDF but the underlay tiles of every
+  page — the whole sheet opens, a deeper zoom says «Schärfere Ansicht nur mit Netz»; ○ neither.
+  ⚠️ A TILED plan opened online fetches its tiles and never its PDF (review round 3: the Karte said
+  «PDF nicht gespeichert» offline for a plan its tiles open perfectly), so the PDF alone is never
+  the rule, and no PDF is downloaded to make a lamp green. The probe reads the manifest from
+  `plan-tile-manifests` and the tile cache's keys ONCE (`openPlanTilesProbe`), never one lookup per
+  tile; `tilesHeld` decides.
+- **Pläne & Module** rows carry ●/◐/○ after the words; a plan the device does not hold is dimmed
+  (its label says «Nicht auf diesem Gerät gespeichert»), but stays tappable – the surface then says
+  the plan is not stored instead of a reader spinning on a dead fetch. The tablet rail dims the
+  same tiles. Gebäude is ● only when every revision's alignment metadata is stored and every
+  storey's pages are fully (PDF or every tile), ◐ when some storeys are, or only as underlay (the
+  stack then says some are missing). «Objektplan auf der Karte» is offered offline
   only when the aligned plan's PDF and metadata are both stored.
 - **The base map:** where the device holds neither a tile nor a parent MapLibre could scale up (4
   levels), the viewer HATCHES the tile (a `polygons` overlay with `hatch`, the Schraffur pattern),

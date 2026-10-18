@@ -14,20 +14,21 @@ import { isStandalone } from '../../lib/installPrompt'
 import { estimateStorage } from '../../lib/storageBudget'
 import { Sheet } from '../../lib/overlays'
 import { storedBuildingCount, storedStationObjects, type StationObject } from '../../lib/api/stationReference'
-import { deviceRows, openPlanProbe, planPdfUrl, type DeviceFacts, type Lamp } from '../../lib/karte/availability'
+import { cacheProbeable, deviceRows, planKey, planLamp, type DeviceFacts, type Lamp } from '../../lib/karte/availability'
+import { heldPlanPages } from './useKarteOffline'
 import s from './Karte.module.css'
 
 export function LampDot({ lamp, className }: { lamp: Lamp; className?: string }) {
   return <span className={cx(s.lamp, lamp === 'part' && s.lampPart, lamp === 'online' && s.lampOff, className)} aria-hidden />
 }
 
-/** PDFs of the whole catalogue the device holds — one Cache Storage lookup per plan revision. */
+/** Plans of the whole catalogue that open on this device — their PDF or their tiles
+ *  (lib/karte/availability · planLamp; a tiled sheet opened online never stores its PDF). */
 async function heldPlanCount(objects: readonly StationObject[]): Promise<{ held: number; total: number } | null> {
   const plans = objects.flatMap((o) => o.plans)
-  const probe = await openPlanProbe()
-  if (!probe) return null
-  const hits = await Promise.all(plans.map((p) => probe(planPdfUrl(p))))
-  return { held: hits.filter(Boolean).length, total: plans.length }
+  if (!cacheProbeable()) return null
+  const held = await heldPlanPages(plans)
+  return { held: plans.filter((p) => planLamp({ ...held[planKey(p)], meta: null }) !== 'online').length, total: plans.length }
 }
 
 export function KarteDevice({ offline, objects, map, onClose }: {

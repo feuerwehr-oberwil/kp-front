@@ -386,7 +386,7 @@ describe('KarteApp', () => {
     expect(within(nav).queryByRole('button', { name: /Pläne/ })).toBeNull()
     expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual(['Karte', 'Messen', 'Gefahrgut', 'Ebenen'])
     fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
-    fireEvent.click(await screen.findByRole('button', { name: /Modul 1 · Übersicht/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Modul 1' }))
     expect(await screen.findByTestId('pdf')).toBeTruthy()
     expect(screen.queryByRole('heading', { name: 'Schloss Musterdorf' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /Zur Karte/ }))
@@ -401,7 +401,7 @@ describe('KarteApp', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
     const fetchBefore = vi.mocked(fetch).mock.calls.length
     // the panel's row (the tablet's rail names the same document)
-    fireEvent.click(within(await screen.findByRole('region', { name: 'Karte & Objekte' })).getByRole('button', { name: /Modul 1 · Übersicht/ }))
+    fireEvent.click(within(await screen.findByRole('region', { name: 'Karte & Objekte' })).getByRole('button', { name: 'Modul 1' }))
     expect(await screen.findByTestId('pdf')).toBeTruthy()
     const p = rec.board[rec.board.length - 1] as Record<string, unknown> & { plans: { id: string; imageUrl: string }[] }
     expect(p.readOnly).toBe(true)
@@ -422,6 +422,39 @@ describe('KarteApp', () => {
     expect(vi.mocked(fetch).mock.calls.slice(fetchBefore).filter(([, init]) => (init as RequestInit | undefined)?.method && (init as RequestInit).method !== 'GET')).toEqual([])
     expect((rec.board[rec.board.length - 1] as { annos: unknown[] }).annos).toEqual([])
   })
+
+  // owner, review round 4: «gebäude should be literally 1:1 the same as in the normal incident just
+  // without editing» — the Einsatz's Whiteboard on its floor stack, fed with the object's pack
+  it('opens the Gebäude in the Einsatz\'s own stack, read-only, with no door to an edit', async () => {
+    const m6 = { id: 'plan:schloss:modul6', module: 'modul6', code: '6', title: 'Modul 6', pages: 1, georef: false, version: 2 }
+    rec.catalogue = {
+      ...CATALOGUE,
+      objects: CATALOGUE.objects.map((o) => (o.id === 'schloss' ? { ...o, plans: [...o.plans, m6], floors: [{ index: 0, name: null }, { index: 1, name: null }] } : o)),
+    }
+    const meta = {
+      dataset_id: m6.id, plan_version: 2, revision_url: '',
+      floors: [{ page: 0, index: 0, name: 'EG', clip: [0, 0, 0.5, 1] }, { page: 0, index: 1, name: null, clip: [0.5, 0, 1, 1] }],
+      alignments: [{ id: 3, page: 0, aspect: 1.414, approved_at: '2026-10-01', pairs: [
+        { plan: { x: 0.1, y: 0.1 }, lngLat: { lng: 7.57, lat: 47.524 } }, { plan: { x: 0.4, y: 0.4 }, lngLat: { lng: 7.571, lat: 47.523 } }] }],
+    }
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => (String(url).includes('modul6/alignments')
+      ? new Response(JSON.stringify(meta), { status: 200, headers: { 'content-type': 'application/json' } })
+      : new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } }))))
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
+    fireEvent.click(within(await screen.findByRole('region', { name: 'Karte & Objekte' })).getByRole('button', { name: 'Gebäude' }))
+    await waitFor(() => expect(rec.board.some((b) => (b as { building?: unknown }).building)).toBe(true), { timeout: 6000 })
+    const p = rec.board[rec.board.length - 1] as Record<string, unknown> & { plans: { id: string; floorStack?: boolean }[]; building: { floors: number[]; pack: { aspect: number }; floorNames?: Record<string, string> }; floorPack: { floors: unknown[] } }
+    expect(p.plans.map((d) => [d.id, !!d.floorStack])).toEqual([['gebaeude', true]])
+    expect(p.building.floors).toEqual([0, 1])
+    expect(p.building.floorNames).toEqual({ 0: 'EG' })
+    expect(p.building.pack.aspect).toBe(1.414)
+    expect(p.floorPack.floors).toHaveLength(2)
+    expect(p.readOnly).toBe(true)
+    expect(p.linkViewer).toBe(true)
+    // no building pick, no compass turn, no calibration, no Einsatz behind it
+    for (const k of ['onBuildingFace', 'onReorient', 'onCalibrate', 'onObjectSwitch', 'incidentId', 'tafel']) expect(p[k]).toBeUndefined()
+  }, 10000)
 
   // owner R2: closing the phone sheet returns to the map with the place still selected, and a
   // second tap on it brings the sheet back

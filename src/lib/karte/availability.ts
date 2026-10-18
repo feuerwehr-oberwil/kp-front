@@ -4,8 +4,13 @@
 //
 //   · the catalogue and the register answers of buildings looked at: IndexedDB
 //     (lib/api/stationReference — one catalogue entry, one entry per building asked for);
-//   · a plan PDF: the service worker's `reference-plans` cache, filled the first time the sheet
-//     was opened (lib/pdfBytes · one plain GET per pinned revision);
+//   · a plan: its PDF in the service worker's `reference-plans` cache (lib/pdfBytes · one plain GET
+//     per pinned revision) OR its tile pyramid — the manifest in `plan-tile-manifests`, the tiles in
+//     `plan-tiles`, which the reader fetches whole once a sheet is open online
+//     (lib/planTilePrefetch). ⚠️ A TILED sheet opened online never fetches its PDF (review round 3:
+//     the Karte then said «PDF nicht gespeichert» offline for a plan that opens perfectly from its
+//     tiles). The rule is what the reader that will open it needs: the PDF (pdf.js), or the
+//     tiles (`planLamp`) — never an extra PDF download to make a lamp green;
 //   · the Gebäude storeys and the aligned plan: that PDF plus the revision's alignment metadata
 //     (lib/api/reference · getApprovedPlanAlignments keeps it in IndexedDB);
 //   · the base map: the service worker's `map-tiles` cache — what was looked at, plus what an
@@ -19,6 +24,7 @@
 import type { LngLat } from '../../types'
 import { tilesForBounds, type LngLatBounds } from '../offlineTiles'
 import { referenceUrl } from '../api/reference'
+import { allTileUrls, sourcePages, tileManifestUrl, tileSource, tileUrl, underlayLevel, visibleTiles, type TileManifest, type TileSource } from '../planTiles'
 import type { StationObject, StationPlan } from '../api/stationReference'
 
 /** ● on this device · ◐ partly · ○ only online */
@@ -32,13 +38,45 @@ export const planKey = (p: Pick<StationPlan, 'id' | 'version'>): string => `${p.
 /** The exact address `PdfScroller` / the Gebäude bake fetch, i.e. the `reference-plans` key. */
 export const planPdfUrl = (p: Pick<StationPlan, 'id' | 'version'>): string => referenceUrl(p.id, p.version)
 
-/** What the device holds of one plan revision: the PDF, and the alignment metadata (null = not
- *  stored; else how many storeys its floor pack names). */
-export interface PlanHeld { pdf: boolean; meta: { floors: number } | null }
+/** What the device holds of a revision's tile pyramid (`tilesHeld`): `all` = every tile of every
+ *  level; `underlay` = every tile of the small level the reader always draws (lib/planTiles ·
+ *  underlayLevel) — the whole sheet opens, a deeper zoom stays soft; `none` = less; null = no
+ *  manifest stored (no pyramid known on this device). */
+export type TilesHeld = 'all' | 'underlay' | 'none' | null
+
+/** What the device holds of one plan revision: the PDF, its tiles, and the alignment metadata
+ *  (null = not stored; else how many storeys its floor pack names). */
+export interface PlanHeld { pdf: boolean; tiles?: TilesHeld; meta: { floors: number } | null }
+
+/**
+ * How one plan opens without a network — what the reader that will open it needs
+ * (components/PdfViewport: the tiles when a manifest answers, pdf.js on the PDF otherwise, and
+ * pdf.js again when a tile cannot be had):
+ *   · ● `device` — the PDF is stored, or every tile of the pyramid is;
+ *   · ◐ `part` — no PDF, but the underlay tiles of every page: the whole sheet opens, a zoom past
+ *     what is stored says «Schärfere Ansicht nur mit Netz» (lib/planSharpness);
+ *   · ○ `online` — neither.
+ */
+export function planLamp(h: PlanHeld | undefined): Lamp {
+  if (!h) return 'online'
+  if (h.pdf || h.tiles === 'all') return 'device'
+  return h.tiles === 'underlay' ? 'part' : 'online'
+}
+
+/** Which of a pyramid's tiles `has` (a stored tile address) finds. Pure. */
+export function tilesHeld(m: TileManifest, s: TileSource, has: (url: string) => boolean): Exclude<TilesHeld, null> {
+  const every = allTileUrls(m, s)
+  if (every.length && every.every(has)) return 'all'
+  const under = sourcePages(m, s).flatMap((page) => {
+    const level = underlayLevel(page)
+    return visibleTiles(level, m.tileSize, [0, 0, 1, 1]).map((t) => tileUrl(s, page.page, level.z, t.x, t.y))
+  })
+  return under.length && under.every(has) ? 'underlay' : 'none'
+}
 
 export interface ObjectAvailability {
-  /** planKey → its PDF opens without a network */
-  plans: Record<string, boolean>
+  /** planKey → how it opens without a network (`planLamp`): ● ◐ ○ */
+  plans: Record<string, Lamp>
   /** the Gebäude stack; null when the object has no prepared storeys */
   gebaeude: Lamp | null
   /** the station-aligned plan can be laid on the map without a network */
@@ -48,25 +86,27 @@ export interface ObjectAvailability {
 /**
  * The availability of one object's plans, from what the probes found.
  *
- * Gebäude needs, for EVERY revision whose floor pack names storeys, both its PDF (the storeys are
- * regions of its pages) and its alignment metadata (which says where the storeys are). A revision
- * whose metadata is not stored might hold storeys nobody can see offline, so the stack is only
- * «on this device» when every revision's metadata is there and every storey's PDF is too; some
- * storeys but not all is «part» — the surface then says that storeys are missing.
+ * Gebäude needs, for EVERY revision whose floor pack names storeys, its pages (the storeys are
+ * regions of them: the PDF or the tiles, `planLamp`) and its alignment metadata (which says where
+ * the storeys are). A revision whose metadata is not stored might hold storeys nobody can see
+ * offline, so the stack is only «on this device» when every revision's metadata is there and
+ * every storey's pages are fully stored; some storeys, or storeys only as soft underlay, is
+ * «part» — the surface then says that storeys are missing.
  */
 export function objectAvailability(obj: Pick<StationObject, 'plans' | 'floors'>, held: Record<string, PlanHeld>): ObjectAvailability {
-  const plans: Record<string, boolean> = {}
-  for (const p of obj.plans) plans[planKey(p)] = !!held[planKey(p)]?.pdf
+  const plans: Record<string, Lamp> = {}
+  for (const p of obj.plans) plans[planKey(p)] = planLamp(held[planKey(p)])
   let gebaeude: Lamp | null = null
   if (obj.floors.length) {
     const unknown = obj.plans.filter((p) => !held[planKey(p)]?.meta)
     const floorPlans = obj.plans.filter((p) => (held[planKey(p)]?.meta?.floors ?? 0) > 0)
-    const drawable = floorPlans.filter((p) => held[planKey(p)]?.pdf)
-    gebaeude = !drawable.length ? 'online' : !unknown.length && drawable.length === floorPlans.length ? 'device' : 'part'
+    const drawable = floorPlans.filter((p) => plans[planKey(p)] !== 'online')
+    const whole = drawable.filter((p) => plans[planKey(p)] === 'device')
+    gebaeude = !drawable.length ? 'online' : !unknown.length && whole.length === floorPlans.length ? 'device' : 'part'
   }
   const g = obj.plans.find((p) => p.georef)
   const gh = g ? held[planKey(g)] : undefined
-  return { plans, gebaeude, georef: !!gh?.pdf && !!gh.meta }
+  return { plans, gebaeude, georef: !!g && plans[planKey(g)] !== 'online' && !!gh?.meta }
 }
 
 // ── the base map ────────────────────────────────────────────────────────────────────────────
@@ -243,3 +283,38 @@ export async function openProbe(cacheName: string): Promise<CacheProbe | null> {
 
 export const openTileProbe = () => openProbe(TILE_CACHE)
 export const openPlanProbe = () => openProbe(PLAN_CACHE)
+
+/** The plan tile caches (vite.config · `plan-tiles`, `plan-tile-manifests`). */
+const PLAN_TILE_CACHE = 'plan-tiles'
+const PLAN_MANIFEST_CACHE = 'plan-tile-manifests'
+
+/** What the device holds of a plan's pyramid, or null when the device cannot tell. ONE
+ *  `keys()` of the tile cache answers every tile of every plan asked (a dense A1 is ~1 500
+ *  tiles — not 1 500 lookups); each manifest is one lookup. */
+export async function openPlanTilesProbe(): Promise<((p: Pick<StationPlan, 'id' | 'version'>) => Promise<TilesHeld>) | null> {
+  if (!cacheProbeable()) return null
+  try {
+    const [hasTiles, hasManifests] = await Promise.all([caches.has(PLAN_TILE_CACHE), caches.has(PLAN_MANIFEST_CACHE)])
+    if (!hasManifests) return async () => null
+    const manifests = await caches.open(PLAN_MANIFEST_CACHE)
+    const stored = new Set<string>()
+    if (hasTiles) {
+      for (const req of await (await caches.open(PLAN_TILE_CACHE)).keys()) {
+        try { const u = new URL(req.url); stored.add(u.pathname + u.search) } catch { /* not a URL — skip */ }
+      }
+    }
+    return async (p) => {
+      const source = tileSource(planPdfUrl(p))
+      if (!source) return null
+      try {
+        const res = await manifests.match(tileManifestUrl(source))
+        if (!res) return null
+        const m = (await res.json()) as TileManifest
+        if (!m.pages?.length || !(m.tileSize > 0)) return null
+        return tilesHeld(m, source, (url) => stored.has(url))
+      } catch { return null }
+    }
+  } catch {
+    return null
+  }
+}

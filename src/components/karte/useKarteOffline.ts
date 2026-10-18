@@ -11,21 +11,36 @@ import type { MapRef } from 'react-map-gl/maplibre'
 import { storedPlanAlignments } from '../../lib/api/reference'
 import type { StationObject } from '../../lib/api/stationReference'
 import {
-  missingTiles, objectAvailability, openPlanProbe, openTileProbe, planKey, planPdfUrl, viewTiles,
+  missingTiles, objectAvailability, openPlanProbe, openPlanTilesProbe, openTileProbe, planKey, planPdfUrl, viewTiles,
   type ObjectAvailability, type PlanHeld, type TileXY,
 } from '../../lib/karte/availability'
 
-/** What the device holds of these plan revisions (PDF in Cache Storage, metadata in IndexedDB). */
-export async function heldPlans(plans: StationObject['plans']): Promise<Record<string, PlanHeld>> {
-  const probe = await openPlanProbe()
-  const out: Record<string, PlanHeld> = {}
+/** What the device holds of these plan revisions' pages: the PDF and the tile pyramid (Cache
+ *  Storage) — what the reader opens a sheet from (lib/karte/availability · planLamp). */
+export async function heldPlanPages(plans: StationObject['plans']): Promise<Record<string, Omit<PlanHeld, 'meta'>>> {
+  const [pdfProbe, tilesProbe] = await Promise.all([openPlanProbe(), openPlanTilesProbe()])
+  const out: Record<string, Omit<PlanHeld, 'meta'>> = {}
   await Promise.all(plans.map(async (p) => {
-    const [pdf, meta] = await Promise.all([
-      probe ? probe(planPdfUrl(p)) : Promise.resolve(false),
-      storedPlanAlignments(p.id, p.version).catch(() => null),
+    const [pdf, tiles] = await Promise.all([
+      pdfProbe ? pdfProbe(planPdfUrl(p)) : Promise.resolve(false),
+      tilesProbe ? tilesProbe(p) : Promise.resolve(null),
     ])
-    out[planKey(p)] = { pdf, meta: meta ? { floors: meta.floors?.length ?? 0 } : null }
+    out[planKey(p)] = { pdf, tiles }
   }))
+  return out
+}
+
+/** …plus the alignment metadata (IndexedDB) the Gebäude and the aligned plan need. */
+export async function heldPlans(plans: StationObject['plans']): Promise<Record<string, PlanHeld>> {
+  const [pages, metas] = await Promise.all([
+    heldPlanPages(plans),
+    Promise.all(plans.map((p) => storedPlanAlignments(p.id, p.version).catch(() => null))),
+  ])
+  const out: Record<string, PlanHeld> = {}
+  plans.forEach((p, i) => {
+    const meta = metas[i]
+    out[planKey(p)] = { ...pages[planKey(p)], meta: meta ? { floors: meta.floors?.length ?? 0 } : null }
+  })
   return out
 }
 
