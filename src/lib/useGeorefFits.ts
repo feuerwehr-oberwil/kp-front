@@ -16,16 +16,11 @@ import {
 import { georefForPlan, getStationPlanScales, loadStationPlanScales, stationPlanScalesLoaded, takeRolledBackStationWrite } from './stationPlanScale'
 import { setGeorefLinkedHandler, useGeorefStorage } from './georefMode'
 import { planPreviewUrl, regionInkBox } from '../components/PdfViewport'
-import { bandAspect } from './footprint'
 import { stackGroundFit } from './stackFit'
-import { floorPackOf, frameAspect, packFloorNames, packStoreys, trimmedPackFrame } from './floorPackBinding'
+import { floorPackOf, packBuildingDoc, PACK_TRIM_MS, trimmedPackFrame } from './floorPackBinding'
 import { buildingPackBinding } from './buildingPackBinding'
 import { tileAspectOf } from './whiteboard'
 import { fillTemplate } from './format'
-
-/** how long the Gebäude stack waits for its frame to be measured off the pages before it comes up
- *  with the untrimmed one (lib/floorPackBinding · trimmedPackFrame) */
-const PACK_TRIM_MS = 4000
 
 interface Args {
   planDocs: PlanDocument[]
@@ -169,8 +164,6 @@ export function useGeorefFits({
     const upgrade = !!building?.pack && building.tileAR == null && !(board.gebaeude ?? []).length
     if ((building && !upgrade) || !floorPack?.floors.length || !floorPack.aspect || readOnly) return
     let alive = true
-    const names = packFloorNames(floorPack.floors)
-    const aspect = floorPack.aspect
     // ⚠️ The frame is measured BEFORE the stack exists, not corrected afterwards: tile coordinates
     // are relative to it, so a frame that moved under ink somebody had already drawn would take
     // that ink with it. The measurement reads the pages (lib/floorPackBinding · trimmedPackFrame)
@@ -178,18 +171,12 @@ export function useGeorefFits({
     // the timeout rather than leaving the Gebäude tile empty.
     const seed = (frame: [number, number, number, number]) => {
       if (!alive) return
-      const ringAspect = frameAspect(frame, aspect)
-      const pack = { bindingId: building?.pack?.bindingId ?? packBinding?.id, aspect, ...(frame.some((v, i) => v !== [0, 0, 1, 1][i]) ? { frame } : {}) }
       // the card is as tall as the trimmed frame needs – no storey spends two thirds of its band
-      // on air any more (lib/footprint · bandAspect, 16.09.2026)
-      const tileAR = bandAspect(ringAspect)
-      setBuilding(building
-        ? { ...building, ringAspect, tileAR, pack }
-        : {
-            ring: [], rings: [], ringAspect, tileAR, pack,
-            floors: packStoreys(floorPack.floors),
-            ...(Object.keys(names).length ? { floorNames: names } : {}),
-          })
+      // on air any more (lib/footprint · bandAspect, 16.09.2026); one builder, shared with the
+      // Karte's Gebäude (lib/floorPackBinding · packBuildingDoc)
+      const fresh = packBuildingDoc(floorPack, frame, building?.pack?.bindingId ?? packBinding?.id)
+      if (!fresh) return
+      setBuilding(building ? { ...building, ringAspect: fresh.ringAspect, tileAR: fresh.tileAR, pack: fresh.pack } : fresh)
     }
     const fallback = setTimeout(() => seed(floorPack.frame), PACK_TRIM_MS)
     void trimmedPackFrame(floorPack, regionInkBox)

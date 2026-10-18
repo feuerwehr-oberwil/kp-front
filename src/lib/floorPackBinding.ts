@@ -3,6 +3,8 @@ import { floorKey, joinKey, referenceUrl } from './api/reference'
 import { effectiveBindingGeoref, type IncidentPlanBinding } from './incidentPlanBindings'
 import { fitSimilarity, type GeorefFit } from './georef'
 import { withPdfPage } from './whiteboard'
+import { bandAspect } from './footprint'
+import type { BuildingDoc } from '../types'
 
 /**
  * The active object's floor pack as the Gebäude stack needs it, read from the incident's frozen
@@ -45,6 +47,10 @@ export interface FloorPackView {
 }
 
 const WHOLE: [number, number, number, number] = [0, 0, 1, 1]
+
+/** How long the frame measurement (`trimmedPackFrame`) may take before a stack is seeded with
+ *  the untrimmed frame — offline, or a sheet that will not render, never leaves a Gebäude empty. */
+export const PACK_TRIM_MS = 4000
 
 export function floorPackOf(bindings: IncidentPlanBinding[], objectId: string | null | undefined): FloorPackView | null {
   if (!objectId) return null
@@ -128,6 +134,31 @@ export function packFloorNames(floors: PlanFloor[]): Record<string, string> {
 /** the frame's h/w as the tile box draws it: a region of a landscape page can be taller than wide */
 export const frameAspect = (frame: [number, number, number, number], pageAspect: number): number =>
   (frame[3] - frame[1]) / ((frame[2] - frame[0]) * pageAspect)
+
+/**
+ * The Gebäude stack a floor pack IS (decided 14.09.2026): no footprint, no outline — the storeys
+ * from the pack's pages, each tile showing `frame` (`trimmedPackFrame`), as tall as that frame
+ * needs (lib/footprint · bandAspect). The ONE builder of a pack stack: the Einsatz seeds its
+ * building from it (useGeorefFits), and «Karte & Objekte» shows an object's floors through it
+ * without an Einsatz (review round 4, owner: «gebäude should be literally 1:1 the same as in the
+ * normal incident just without editing»). Null without the pack's page aspect (no approved fit
+ * and no page size to stand in). Pure.
+ */
+export function packBuildingDoc(
+  view: Pick<FloorPackView, 'floors' | 'aspect'>,
+  frame: [number, number, number, number],
+  bindingId?: string,
+): BuildingDoc | null {
+  if (!view.floors.length || !view.aspect) return null
+  const ringAspect = frameAspect(frame, view.aspect)
+  const names = packFloorNames(view.floors)
+  const pack = { bindingId, aspect: view.aspect, ...(frame.some((v, i) => v !== WHOLE[i]) ? { frame } : {}) }
+  return {
+    ring: [], rings: [], ringAspect, tileAR: bandAspect(ringAspect), pack,
+    floors: packStoreys(view.floors),
+    ...(Object.keys(names).length ? { floorNames: names } : {}),
+  }
+}
 
 /** the union of two rectangles, both in the same (page) coordinates */
 const union = (a: [number, number, number, number], b: [number, number, number, number]): [number, number, number, number] =>

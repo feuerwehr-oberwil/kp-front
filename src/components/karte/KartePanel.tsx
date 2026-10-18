@@ -26,7 +26,7 @@
 // A head whose address is still being looked up is a SKELETON, never «Gebäude» / «…» standing in
 // for a name (owner-5): the kicker already says what it is.
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { SheetGrab, useSwipeDismiss } from '../../lib/overlays'
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
@@ -40,11 +40,9 @@ import type { Near, NamedPoint } from '../../lib/karte/places'
 import { objectHeadSub, objectRowSub, splitAddress, streetKey } from '../../lib/karte/places'
 import type { ViewerPlanDoc } from '../../lib/karte/plans'
 import { planKey, type ObjectAvailability } from '../../lib/karte/availability'
-import { floorLabel } from '../../lib/whiteboard'
 import type { VisitSummary } from '../../objectVisits/types'
 import type { LngLat } from '../../types'
 import { Button } from '../Button'
-import { PlanGlyph } from '../PlanGlyph'
 import { LampDot } from './KarteDevice'
 import s from './Karte.module.css'
 
@@ -113,8 +111,8 @@ export function KartePanel(p: {
           <div className={cx(s.note, s.amber)}><Icon id="warn" /><span><b>{C.approxHead}</b> {C.approxBody}</span></div>
         )}
         <StationWord obj={o} />
-        <Plans obj={o} docs={p.docs} onOpenDoc={p.onOpenDoc} avail={p.offline ? p.avail ?? null : undefined} />
-        <Register reg={p.register} address={o.address} onRetry={p.onRetryRegister} />
+        <Plans docs={p.docs} onOpenDoc={p.onOpenDoc} avail={p.offline ? p.avail ?? null : undefined} />
+        <Register key={o.id} reg={p.register} address={o.address} onRetry={p.onRetryRegister} />
         <Nearby nearby={p.nearby} hydrants={p.hydrants} onSelectObject={p.onSelectObject} />
         <Visits visits={p.visits} canCapture={p.canCapture} empty={C.visitsNever} onOpenVisit={p.onOpenVisit} offline={p.offline} last={o.lastVisit} />
         {!noteLines(o.measures).length && !noteLines(o.remarks).length && <div className={s.src}>{C.missing}</div>}
@@ -144,7 +142,7 @@ export function KartePanel(p: {
     // says «Kein Stationsobjekt» once it is known, and the closing sentence still says missing ≠ safe
     body = (
       <>
-        <Register reg={p.register} address={null} onRetry={p.onRetryRegister} />
+        <Register key={sel.at.join(',')} reg={p.register} address={null} onRetry={p.onRetryRegister} />
         <Nearby nearby={p.nearby} hydrants={p.hydrants} onSelectObject={p.onSelectObject} />
         <Visits visits={{ state: 'ok', list: [] }} canCapture={p.canCapture} empty={C.visitsNoneHere} onOpenVisit={p.onOpenVisit} />
         <div className={s.src}>{C.missing}</div>
@@ -258,23 +256,23 @@ function StationWord({ obj }: { obj: StationObject }) {
   )
 }
 
-/** The object's plans as rows — code, the title (lib/karte/plans · planTitle, already on the
- *  document), pages and, offline, what this device holds. A row opens the plan in the Einsatz's
- *  reader, read-only (KartePlans · KarteSurface). */
-function Plans({ obj, docs, onOpenDoc, avail }: {
-  obj: StationObject; docs: ViewerPlanDoc[]
+/** The object's plans as rows (owner, review round 4: «just "modul 1", "modul 2", etc. is enough»):
+ *  each row is the module in words and nothing else — no title, no «PDF · 1 Seite», no number badge
+ *  (lib/karte/plans · planRowLabel) — and «Gebäude» for the stack. One left edge and one height for
+ *  every row; offline, the ●/○ «auf diesem Gerät» mark trails the words (a row the device does not
+ *  hold is dimmed). A row opens the plan in the Einsatz's reader, read-only (KartePlans). */
+function Plans({ docs, onOpenDoc, avail }: {
+  docs: ViewerPlanDoc[]
   onOpenDoc: (id: string) => void
   /** offline only: what this device holds (null = still asking; undefined = online, no lamps) */
   avail?: ObjectAvailability | null
 }) {
   const C = appConfig.copy.karte
   if (!docs.length) return null
-  const floorNames = obj.floors.map((f) => f.name || floorLabel(f.index))
   const offline = avail !== undefined
   // the lamp a row carries offline; a row is dimmed only once a probe said «not here»
   const lampOf = (plan: ViewerPlanDoc['plan']) => !avail ? null
-    : plan ? (avail.plans[planKey(plan)] ? 'device' as const : 'online' as const) : avail.gebaeude
-  const word = (l: 'device' | 'part' | 'online') => C.device.lampWord[l]
+    : plan ? avail.plans[planKey(plan)] ?? 'online' : avail.gebaeude
   return (
     <div className={s.sec} data-section="plans">
       <div className={s.secHead}>
@@ -282,27 +280,14 @@ function Plans({ obj, docs, onOpenDoc, avail }: {
         {offline && <span className={s.legend}><span className={s.lamp} aria-hidden />{C.onDevice}</span>}
       </div>
       <div className={s.list}>
-        {docs.map(({ doc, plan }) => {
+        {docs.map(({ doc, row, plan }) => {
           const lamp = lampOf(plan)
           const off = lamp === 'online'
-          return plan ? (
-            <button key={doc.id} type="button" className={cx(s.row, off && s.off)} onClick={() => onOpenDoc(doc.id)}>
-              <span className={cx(s.rowLead, s.plan)}><PlanGlyph doc={doc} /></span>
-              <span className={s.rowText}>
-                <b>{doc.title}</b>
-                <span>{off ? C.planNotStored : [plan.pages == null ? C.planPdf : plan.pages === 1 ? C.planPagesOne : fillTemplate(C.planPages, { n: plan.pages }), plan.georef ? C.planGeoref : ''].filter(Boolean).join(' · ')}</span>
-              </span>
-              {lamp && <><LampDot lamp={lamp} /><span className="sr-only">{word(lamp)}</span></>}
-              <Icon id="chevron" className={s.chev} />
-            </button>
-          ) : (
-            <button key={doc.id} type="button" className={cx(s.row, off && s.off)} onClick={() => onOpenDoc(doc.id)}>
-              <span className={s.rowLead}><Icon id="floors" /></span>
-              <span className={s.rowText}>
-                <b>{C.floorsRow}</b>
-                <span>{off ? C.planNotStored : fillTemplate(floorNames.length === 1 ? C.floorsRowSubOne : C.floorsRowSub, { n: floorNames.length, list: floorNames.join(' · ') })}</span>
-              </span>
-              {lamp && <><LampDot lamp={lamp} /><span className="sr-only">{word(lamp)}</span></>}
+          return (
+            <button key={doc.id} type="button" className={cx(s.row, s.planRow, off && s.off)} onClick={() => onOpenDoc(doc.id)}
+              aria-label={lamp ? `${row} · ${off ? C.planNotStored : C.device.lampWord[lamp]}` : undefined}>
+              <span className={s.rowText}><b>{row}</b></span>
+              {lamp && <LampDot lamp={lamp} />}
               <Icon id="chevron" className={s.chev} />
             </button>
           )
@@ -312,11 +297,18 @@ function Plans({ obj, docs, onOpenDoc, avail }: {
   )
 }
 
+/** Gebäude laut Register. The chips stand, and so does «Registereintrag …, nicht …» right under
+ *  them when the register's building is another address's (owner, review round 4). «Register-
+ *  Hinweis» is a tap-to-open toggle («tap to open and this blabla (gwr, stand, etc.) should all
+ *  be hidden by default») that reveals the hint AND the source line — the registers, their Stand,
+ *  the device's copy. Folded again for every place (keyed by the caller). */
 function Register({ reg, address, onRetry }: { reg: RegisterState; address: string | null; onRetry: () => void }) {
   const C = appConfig.copy.karte
   const B = appConfig.copy.building
   const info = reg.info
+  const [open, setOpen] = useState(false)
   let inner: ReactNode
+  let source: ReactNode = null
   if (reg.state === 'loading') {
     inner = <><div className={s.skeleton} style={{ width: '70%' }} /><div className={s.skeleton} style={{ width: '45%' }} /></>
   } else if (!info) {
@@ -346,17 +338,28 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
         {facts.length > 0
           ? <ul className={s.tags}>{facts.map((c) => <li key={c.key} className={s.tag} title={c.title}>{c.text}</li>)}</ul>
           : !hazards.length && <div className={s.src}>{C.registerEmpty}</div>}
-        <div className={s.src}>{sources.filter(Boolean).join(' · ')}{other && <> · <b>{other}</b></>}</div>
+        {/* the register's entry is ANOTHER building's: said right under the chips, never folded
+            (owner, review round 4) — the chips may be about Grenzweg 7, not this object */}
+        {other && <div className={s.src} data-testid="register-other"><b>{other}</b></div>}
       </>
     )
+    source = <div className={s.src}>{sources.filter(Boolean).join(' · ')}</div>
   }
   return (
     <div className={s.sec} data-section="register">
       <div className={s.secHead}>
         <span className={s.eyebrow}>{C.registerTitle}</span>
-        <span className={s.hint} title={B.hintTitle}><Icon id="info" />{B.hint}</span>
+        <button type="button" className={cx(s.hint, s.hintBtn, open && s.open)} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          <Icon id="info" />{B.hint}<Icon id="chevron-down" className={s.hintChev} />
+        </button>
       </div>
       {inner}
+      {open && (
+        <div className={s.hintBody} data-testid="register-hint">
+          <div className={s.src}>{B.hintTitle}</div>
+          {source}
+        </div>
+      )}
     </div>
   )
 }

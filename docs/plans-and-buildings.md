@@ -10,7 +10,9 @@ AGENTS.md on 2026-10-08, wording unchanged.
 
 - **Prepared Gebäude floors belong to their frozen plan binding.** A Modul-6 stack stores
   `pack.bindingId`; changing the selected Einsatzobjekt must not retarget its backdrop or ink.
-  Prepared floors cannot be added or deleted in the incident. Floor drawings may connect in
+  Prepared floors cannot be added or deleted in the incident. A pack stack is BUILT in one place,
+  `lib/floorPackBinding · packBuildingDoc` — the Einsatz's seed (`useGeorefFits`) and the read-only
+  Gebäude of «Karte & Objekte» (`lib/karte/gebaeude`, [`karte-objekte.md`](karte-objekte.md)) both call it. Floor drawings may connect in
   pairs across PDF pages; resolve those joins in a common frame, never independently centre
   each crop. **A storey may BE several drawings** (`PlanFloor.part`, 16.09.2026 – two wings of one
   1. OG): each drawing is a row with its own region and its own join, all on one page, and the

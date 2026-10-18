@@ -70,7 +70,9 @@ button.row:active { background: var(--press); }
 /* the pack's art is black ink on paper, like every placed symbol: it keeps its white ground at night */
 :is(.glyph, .rowLead) :global(.fks) { background: #fff; border-radius: var(--r-xs); }
 .rowLead :global(.fks) { width: 24px; height: 24px; }
-.rowLead.plan { width: 46px; }
+/* a plan row is the module in words only (owner, review round 4): one height, one left edge —
+   the Gebäude row's text starts where «Modul 1» does; the offline lamp trails before the chevron */
+.planRow { min-height: var(--tap-lg); }
 .eyebrow { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-dim); }
 .title { font: var(--fw-heavy) var(--fs-4)/1.25 var(--body); color: var(--ink); margin: 0; overflow-wrap: anywhere; }
 .sub { font: var(--fw-medium) var(--fs-1)/1.35 var(--body); color: var(--ink-dim); }
@@ -84,6 +86,13 @@ button.row:active { background: var(--press); }
 .secHead .eyebrow svg { width: 14px; height: 14px; }
 .hint { display: inline-flex; align-items: center; gap: var(--sp-1); font: var(--fw-medium) var(--fs-micro)/1.2 var(--body); color: var(--ink-dim); }
 .hint svg { width: 12px; height: 12px; }
+/* «Register-Hinweis» opens the hint and the source line (owner, review round 4): a tappable label,
+   so the type is a step up from the caption and the target 44px tall without growing the head */
+.hintBtn { min-height: var(--tap); margin-block: calc(var(--sp-3) * -1); padding: 0 var(--sp-1); border: none; background: none; font-size: var(--fs-1); cursor: pointer; }
+.hintBtn:active { background: var(--press); border-radius: var(--r-xs); }
+.hintChev { transition: transform .15s; }
+.hintBtn.open .hintChev { transform: rotate(180deg); }
+.hintBody { display: flex; flex-direction: column; gap: var(--sp-1); }
 .bullets { margin: 0; padding-left: var(--sp-5); font: var(--fw-medium) var(--fs-3)/1.4 var(--body); color: var(--ink); }
 .bullets.quietList { font-size: var(--fs-2); color: var(--ink-dim); }
 .src { font: var(--fw-medium) var(--fs-micro)/1.4 var(--body); color: var(--ink-dim); }
@@ -250,13 +259,28 @@ button.row:active { background: var(--press); }
 .surfaceBody { flex: 1; min-height: 0; position: relative; }
 /* the Einsatz's plan reader (KartePlans · KartePlanBoard) in this surface: its bottom-left row
    (the object read-out, the Maßstab) would stand on the chip row's corner, and here the chip row
-   already names the object and is the way back — one row in that corner, the Karte's. On a phone
-   the reader ends above that row and the ONE bar (`.phone-tools` lifts it over an Einsatz's two). */
+   already names the object and is the way back — one row in that corner, the Karte's. */
 .surface :global(.wb-botleft) { display: none; }
-/* …and one ground under it: the reader's own (.whiteboard · --app-bg) down to the bar */
-.surface.reader { background: var(--app-bg); }
-.root.phone .surface :global(.whiteboard) { bottom: calc(var(--rail-h) + 16px + var(--tap) + var(--sp-2) + env(safe-area-inset-bottom)); }
-.chipRow { position: absolute; left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w, 60px) + 16px); bottom: 16px; z-index: var(--z-chrome); display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+/* …and one ground under it, the plan stage's own (09-whiteboard · .wb-canvas), to the screen's edge */
+.surface.reader { background: var(--canvas-bg); }
+/* ⚠️ The plan lies out EXACTLY as an Einsatz's plan does (owner, review round 4: «use the same
+   display like we have for our plans normally -> not this clipping here»): the box of an
+   Einsatz's plan with no tool bar under it — on a phone it ends 18px above the ONE bar
+   (15-mobile · `.whiteboard`; the Karte's root wears `.phone-tools` for its docks, whose
+   two-bar box must not apply here), on a tablet it is the whole surface — and its own fit keeps
+   the floating row free (lib/whiteboard · chipRowInset). The chip row stands exactly where the
+   reader's own `.wb-botleft` would: on the floating row's baseline 8px above the bar on a phone,
+   16px off the foot beside the rail on a tablet (09-whiteboard · .wb-botleft). Round 3 ended
+   the reader a whole chip row higher AND let the fit reserve the row again. */
+.root.phone .surface :global(.whiteboard) { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
+/* ⚠️ …and FULL-BLEED for what is drawn (owner, review round 4: «when you … move it down with your
+   finger, it doesn't neatly go behind all of the other bottom UI elements»). The box above is
+   only what the FIT measures (whole page between the chrome on open, the Einsatz's fit); the
+   stage does not clip at its edge, so a dragged page slides on under «Zur Karte» and the bar to
+   the screen's foot — the chrome floats over the plan. A touch on that part of the page still
+   reaches the stage (the board is its child). Pinned by site check «drag» (PR #384). */
+.root.phone .surface :global(.wb-canvas) { overflow: visible; }
+.chipRow { position: absolute; left: calc(var(--rail-w) + 28px); bottom: 16px; z-index: var(--z-chrome); display: flex; gap: var(--float-gap); flex-wrap: wrap; }
 .phone .chipRow { left: max(8px, env(safe-area-inset-left)); bottom: calc(var(--rail-h, 60px) + 16px + env(safe-area-inset-bottom)); }
 /* «Schärfere Ansicht wird geladen …» (owner, review round 3: zoomed in fast, the plan was a blurry
    upscale with no word why): top centre of the plan, under the bar, the floating family's look and

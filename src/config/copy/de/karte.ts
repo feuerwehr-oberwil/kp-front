@@ -69,14 +69,10 @@ export const karteCopy = {
     copied: 'Koordinaten kopiert',
     // plans
     plansTitle: 'Pläne & Module',
-    planPagesOne: 'PDF · 1 Seite',
-    planPages: 'PDF · {n} Seiten',
-    planPdf: 'PDF',
-    planGeoref: 'auf Karte ausgerichtet',
     georefFailed: 'Der Objektplan liess sich nicht auf die Karte legen.',
+    // a plan row in the object's sheet: the module only (owner, review round 4; lib/karte/plans · planRowLabel)
+    planRow: 'Modul {m}',
     floorsRow: 'Gebäude',
-    floorsRowSub: '{n} Geschosse vorbereitet · {list}',
-    floorsRowSubOne: '1 Geschoss vorbereitet · {list}',
     backToMap: 'Zur Karte',
     // over an open plan (lib/planSharpness): the sharper picture of this view is still coming / cannot come
     planSharpening: 'Schärfere Ansicht wird geladen …',
@@ -91,7 +87,7 @@ export const karteCopy = {
     planOnlineOnly: 'Nur online',
     planNotStored: 'Nicht auf diesem Gerät gespeichert',
     railNotStored: '{t} – nicht auf diesem Gerät',
-    planOfflineMissing: 'Keine Verbindung – das PDF ist auf diesem Gerät nicht gespeichert.',
+    planOfflineMissing: 'Keine Verbindung – dieser Plan ist auf diesem Gerät nicht gespeichert.',
     floorsOfflineMissing: 'Keine Verbindung – die Geschosse sind auf diesem Gerät nicht gespeichert.',
     floorsPartOffline: 'Nicht alle Geschosse sind auf diesem Gerät gespeichert – hier fehlen welche.',
     // Gebäude laut Register
@@ -169,9 +165,9 @@ export const karteCopy = {
       mapFar: 'Zum Prüfen näher heranzoomen',
       mapUnknown: 'Nicht prüfbar – nur online angenommen',
       plans: 'Pläne',
-      plansAll: 'alle {total} PDFs',
-      plansPart: '{n} von {total} PDFs · zuletzt angesehene',
-      plansNone: 'keines von {total} PDFs · nur online',
+      plansAll: 'alle {total} Pläne',
+      plansPart: '{n} von {total} Plänen · zuletzt angesehene',
+      plansNone: 'keiner von {total} Plänen · nur online',
       plansEmpty: 'Keine Pläne im Katalog',
       plansUnknown: 'Nicht prüfbar – nur online angenommen',
       buildings: 'Gebäuderegister',
