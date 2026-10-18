@@ -62,7 +62,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     georefFailed: 'Non è stato possibile posare il piano sulla mappa.',
     planRow: 'Modulo {m}',
     floorsRow: 'Edificio',
-    backToMap: 'Alla mappa',
+    backToMap: 'Indietro',
     planSharpening: 'Caricamento di una vista più nitida …',
     planSharpOffline: 'Vista più nitida solo con rete',
     planSharpFailed: 'Impossibile caricare la vista più nitida',

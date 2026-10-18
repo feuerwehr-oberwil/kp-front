@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 // The Karte's plan surface (owner, review round 3, 17.10.2026):
-//   3 · «Auf der Karte» under the plan is gone — «Zur Karte» is the one way back;
+//   3 · «Auf der Karte» under the plan is gone — «Zurück» is the one way back;
 //   4 · a calm chip says when the sharper picture of the view is still loading, and — offline,
 //       not stored — that it needs the network, instead of staying blurry without a word.
 // The reader (Whiteboard) is a stand-in that hands the test the context the Karte provides.
@@ -47,11 +47,11 @@ beforeEach(() => { vi.useFakeTimers(); rec.hooks = null })
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
 describe('KarteSurface · the plan', () => {
-  it('has «Zur Karte» as its one way back — no «Auf der Karte», even for an aligned plan', async () => {
+  it('has «Zurück» as its one way back — no «Auf der Karte», even for an aligned plan', async () => {
     const { onMap } = mount()
     await act(async () => {})
     const buttons = screen.getAllByRole('button')
-    expect(buttons.map((b) => b.textContent)).toEqual(['Zur Karte'])
+    expect(buttons.map((b) => b.textContent)).toEqual(['Zurück'])
     expect(screen.queryByText('Auf der Karte')).toBeNull()
     act(() => { buttons[0].click() })
     expect(onMap).toHaveBeenCalledOnce()
@@ -90,7 +90,7 @@ describe('KarteSurface · the plan', () => {
     await act(async () => {})
     report('failed')
     wait(300)
-    // (the lamp chip beside «Zur Karte» says «Auf diesem Gerät» for the PDF itself)
+    // (the lamp chip beside «Zurück» says «Auf diesem Gerät» for the PDF itself)
     expect(screen.getByText('Schärfere Ansicht nur mit Netz').closest('[role=status]')).toBeTruthy()
   })
 

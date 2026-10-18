@@ -106,8 +106,8 @@ to); it is the source of truth and should be kept current when a convention chan
   component – add a key and reference it.
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, …)`, never a frozen `rgba()`
   of the accent – that breaks day/night and per-station accent theming.
-- The backend has a ruff pre-commit hook; the frontend has none – so **run
-  `pnpm lint && pnpm test` before pushing**.
+- Pre-commit covers backend Ruff and staged frontend ESLint, not the full gate – **run
+  `pnpm lint && pnpm test` before pushing**. See [local validation](docs/testing/ci.md).
 - **Some files are shared with KP Rück by copy** – the telemetry sanitiser, the alarm keyword
   vocabulary, the roster-snapshot contract and reader, the station index, the alarm intake
   corpus, the loading snail and the shared check itself.

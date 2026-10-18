@@ -18,8 +18,8 @@ permissions:
   contents: read
 
 jobs:
-  # The same three gate jobs as a normal push: frontend, backend, and the real container
-  # built + booted + smoke-tested.
+  # The same required checks as a normal push, including the shared image's isolated browser,
+  # visual and performance stacks. Publishing still waits for the whole gate.
   gate:
     name: CI gate
     uses: ./.github/workflows/ci.yml
@@ -121,7 +121,9 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           # Same context the gate just built, so this is mostly a cache replay.
-          cache-from: type=gha
+          cache-from: |
+            type=gha,scope=ci-amd64
+            type=gha
           cache-to: type=gha,mode=max
           build-args: |
             GIT_SHA=${{ github.sha }}

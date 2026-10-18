@@ -37,10 +37,11 @@ interface Props {
    *  Gefahren. Absent ⇒ the twin groups go last, which is right on the Plan surface (where the
    *  only other groups are the sheet's own). */
   twinsAfterGroup?: string
-  /** twin groups, by name, that go FIRST — under the quick-taps, above «Grundkarte». «Karte &
-   *  Objekte» puts its «Station» group there (owner, review round 4, 17.10.2026: «move "station" up
-   *  in ebenen all the way to the top — it's the most relevant one in this case»); the Einsatz
-   *  passes none, so its order is unchanged. */
+  /** twin groups, by name, that go FIRST after the base map — under the quick-taps and
+   *  «Grundkarte», above every other group. «Karte & Objekte» puts its «Station» group there
+   *  (owner, review round 4, 17.10.2026: «move "station" up in ebenen all the way to the top»;
+   *  round 5, 18.10.: «move grundkarte above station»); the Einsatz passes none, so its order is
+   *  unchanged. */
   leadTwinGroups?: readonly string[]
   /** round ✕ in the title row — dock chrome parity with the views popover / tool docks */
   onClose?: () => void
@@ -157,8 +158,6 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
           </div>
         )}
 
-        {leadBlocks}
-
         {/* Basiskarte as the panel's first group — the base IS a layer; this replaced the separate
             BaseSwitcher popover so one pinned button covers all of it. A ONE-OF-N choice between
             three named maps reads as a row of tiles, not as three full-width rows: it says «pick
@@ -187,6 +186,10 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
             </div>
           </>
         )}
+
+        {/* the lead twin groups («Karte & Objekte»'s «Station») right under the base map (owner,
+            review round 5, 18.10.2026: «move grundkarte above station») */}
+        {leadBlocks}
 
         {Object.entries(groups).map(([group, rows]) => (
           <Fragment key={group}>

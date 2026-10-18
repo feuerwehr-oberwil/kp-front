@@ -169,8 +169,9 @@ describe('LayerPanel · phone sheet', () => {
   })
 })
 
-// «Karte & Objekte» puts its «Station» group first (owner, review round 4): above «Grundkarte» and
-// every deployment group, under the quick-taps. Without `leadTwinGroups` the twins stay last.
+// «Karte & Objekte» puts its «Station» group first after the base map (owner, review rounds 4 + 5):
+// under the quick-taps and «Grundkarte», above every deployment group. Without `leadTwinGroups`
+// the twins stay last.
 describe('LayerPanel · leadTwinGroups', () => {
   const base: LayerDef = { id: 'base-osm', group: 'Grundkarte', label: 'OSM', icon: 'map', visible: true, base: true }
   const water: LayerDef = { id: 'hydranten', group: 'Wasser', label: 'Hydranten', icon: 'layers', visible: true }
@@ -179,9 +180,9 @@ describe('LayerPanel · leadTwinGroups', () => {
   const heads = () => [...document.querySelectorAll('.lgroup')].map((el) => el.textContent)
   const all = { onShowAll: noop, onHideAll: noop, onReset: noop }
 
-  it('draws the named group first, the other twins where they were', () => {
+  it('draws the named group right under the base map, the other twins where they were', () => {
     render(<LayerPanel layers={[base, water]} twins={[station, plans]} leadTwinGroups={['Station']} onToggle={noop} onOpacity={noop} {...all} />)
-    expect(heads()).toEqual(['Station', appConfig.copy.baseMap, 'Wasser', 'Pläne'])
+    expect(heads()).toEqual([appConfig.copy.baseMap, 'Station', 'Wasser', 'Pläne'])
     // the quick-taps stay above everything
     const quick = document.querySelector('.lc-quick')!
     const first = document.querySelector('.lgroup')!

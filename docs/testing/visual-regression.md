@@ -136,10 +136,14 @@ point `LD_LIBRARY_PATH` at Chromium's missing libraries.
 
 ## CI cost
 
-The job runs on its own runner in parallel with «Image» and «Performance» (no `needs:`), so it
-does not lengthen the gate. It builds the same gha-cached image as the other two. Measured on
-#310 (09.10.2026): the job takes about 4 minutes (3:56–4:27 over three runs, ~1 min of it the
-nine states), while «Image» takes about 9; the workflow's wall time did not change.
+The job waits for the shared production-image build, then loads that run's artifact on its own
+runner and database alongside the browser suites and «Performance». Its total path includes
+the producer and image transfer; measure the complete workflow when changing that graph
+([CI execution](ci.md)).
+
+Historical measurement on #310 (2026-10-09), before sharing the image: the independent job
+took about 4 minutes (3:56–4:27 over three runs, ~1 min of it the nine states), while «Image»
+took about 9; adding Visual did not change that workflow's wall time.
 
 ## Found on the way (09.10.2026)
 
