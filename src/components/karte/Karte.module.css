@@ -8,8 +8,10 @@
 .einsaetze { position: relative; display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3);
   border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
   font: var(--fw-bold) var(--fs-2)/1.1 var(--body); cursor: pointer; flex: none; }
-.einsaetze small { display: block; font: var(--fw-medium) var(--fs-micro)/1.2 var(--body); color: var(--ink-dim); }
-.einsaetzeText { display: flex; flex-direction: column; align-items: flex-start; }
+/* the menu button's face (review round 5): the station's mark (an uploaded logo, any aspect, fitted
+   into the glyph's row height) and/or its short name (≤ 8, identity.shortName) — never wraps */
+.menuMark { height: 24px; width: auto; max-width: 48px; object-fit: contain; flex: none; }
+.menuName { white-space: nowrap; letter-spacing: .02em; }
 /* one glyph size in the bar (owner, review round 4: the search glyph was 20px, the flag 14px): the
    Einsatz bar's 16px (13-incident · .ip-switch-btn svg) */
 .einsaetze > :global(.i) { width: 16px; height: 16px; flex: none; }
@@ -78,8 +80,11 @@ button.row:active { background: var(--press); }
 .sub { font: var(--fw-medium) var(--fs-1)/1.35 var(--body); color: var(--ink-dim); }
 .coords { font-family: var(--mono); font-size: var(--fs-1); line-height: 1.5; color: var(--ink-dim); }
 .body { overflow: auto; padding: 0 var(--sp-4) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); overscroll-behavior: contain; }
-.quick { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
-.quick.one { grid-template-columns: 1fr; }
+/* the action row: equal halves where both labels fit, else the longer one takes what it needs, and
+   where the two do not fit one line (fr/it at 390 px) each gets a row — a label is never cut
+   (owner, review round 5: «koordinaten kopieren clips the button»; it was a 1fr 1fr grid of
+   nowrap labels that ran out of their column) */
+.quick { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .sec { display: flex; flex-direction: column; gap: var(--sp-2); }
 .secHead { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding-top: var(--sp-2); }
 .secHead .eyebrow { display: inline-flex; align-items: center; gap: var(--sp-1); }
@@ -320,7 +325,7 @@ button.row:active { background: var(--press); }
 .fchip { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3); border: none; border-radius: var(--r-sm);
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); font: var(--fw-bold) var(--fs-2)/1.2 var(--body); cursor: pointer; }
 .fchip svg { width: 16px; height: 16px; }
-.quick > * { white-space: nowrap; min-width: 0; }
+.quick > * { flex: 1 1 0; min-width: max-content; white-space: nowrap; }
 
 /* ── offline: what this device holds (docs/karte-objekte.md · Offline, mockup s-j7-*) ─────────
    ● on this device (green) · ◐ partly (amber, half filled) · ○ only online (an empty ring). The
@@ -349,10 +354,10 @@ button.row:active { background: var(--press); }
 /* the sheet's body scrolls; its rows never squeeze */
 .deviceSheet .list { flex: none; }
 
-/* ── «Einsätze ▾»: its count (running + alarms to take) ─────────────────────────────────────── */
-.einsaetzeBadge { position: absolute; top: calc(-1 * var(--sp-2)); right: calc(-1 * var(--sp-2)); min-width: 20px; height: 20px; padding: 0 var(--sp-1);
-  display: grid; place-items: center; border-radius: var(--r-pill); background: var(--red); color: var(--on-fill, #fff);
-  font: var(--fw-heavy) var(--fs-micro)/1 var(--body); box-shadow: 0 0 0 2px var(--surface); }
+/* ── the menu button's red dot (owner, review round 5: «a small red dot» — it was a count): an
+   Einsatz running or an alarm waiting; the number is in the button's accessible name ──────────── */
+.einsaetzeBadge { position: absolute; top: -4px; right: -4px; width: 12px; height: 12px;
+  border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--surface); pointer-events: none; }
 
 /* ── a tap tool armed (Messen, Punkt setzen, Gefahrgut's centre — lib/karte/camera · toolTakesTaps):
    the objects stay drawn, but their dots and tags let the finger through to the map (owner, review

@@ -723,6 +723,19 @@
           "default": null,
           "title": "Appname"
         },
+        "shortName": {
+          "anyOf": [
+            {
+              "maxLength": 8,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shortname"
+        },
         "locale": {
           "anyOf": [
             {

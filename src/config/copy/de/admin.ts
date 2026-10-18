@@ -679,6 +679,9 @@ export const adminCopy = {
       // und eine Zeile, die auf ein anders benanntes Feld zeigt, lässt einen suchen.
       appName: 'Name der Wehr',
       appNameTip: 'Wird in Titelleiste, Login und Hilfe angezeigt. Leer = «KP Front».',
+      shortName: 'Kurzname',
+      shortNameHint: 'Menüknopf der Karte, max. 8 Zeichen',
+      shortNameTip: 'Steht oben links auf «Karte & Objekte» auf dem Knopf, der das Menü öffnet – neben dem Logo, falls eines hochgeladen ist. Höchstens 8 Zeichen, z. B. «FWO». Leer = Menü-Symbol (bzw. nur das Logo).',
       accentColor: 'Akzentfarbe',
       accentColorHint: 'Markenfarbe (Login / Splash)',
       accentColorTip: 'Markenfarbe der Wehr; fliesst durch das gesamte --accent-Farbsystem (Login, Splash, Akzente). Hex-Wert wie #e8392b – oder links im Farbfeld wählen.',
@@ -1968,7 +1971,7 @@ export const adminCopy = {
     },
     branding: {
       logo: 'Logo',
-      logoHint: 'Anmeldebildschirm',
+      logoHint: 'Anmeldebildschirm, Menüknopf der Karte',
       reportLogo: 'Rapport-Logo',
       reportLogoHint: 'Kopf des gedruckten Einsatzrapports – leer = Logo oben',
       favicon: 'Favicon',

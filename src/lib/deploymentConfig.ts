@@ -24,6 +24,8 @@ export interface DeploymentAssets {
 
 export interface DeploymentIdentity {
   appName?: string | null
+  /** the Karte's menu button label (≤ 8, schemas · SHORT_NAME_MAX); unset → the menu symbol */
+  shortName?: string | null
   locale?: string | null
   accentColor?: string | null
   assets?: DeploymentAssets | null
@@ -803,6 +805,18 @@ export function demoNote(): string | null {
   if (!isDemoMode()) return null
   const n = resolved.identity?.demoNote
   return n && n.trim() ? n : null
+}
+
+/**
+ * What the menu button at the top left of «Karte & Objekte» wears (review round 5, owner: the
+ * station's short name or its mark instead of «Einsätze»): the uploaded brandmark (`assets.logo`
+ * — only an UPLOADED one, never the bundled favicon fallback, which is KP Front's and not the
+ * station's) and `identity.shortName`. Both null → the caller draws a neutral menu symbol.
+ */
+export function deploymentMenuMark(): { mark: string | null; short: string | null } {
+  const id = resolved.identity
+  const short = id?.shortName?.trim()
+  return { mark: id?.assets?.logo || null, short: short || null }
 }
 
 /**

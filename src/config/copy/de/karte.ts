@@ -15,11 +15,10 @@ export const karteCopy = {
     leaveBack: 'Läuft weiter · zurück zu {where}',
     backAt: 'Wieder bei {where}',
     backPlan: 'Modul {code}',
-    einsaetze: 'Einsätze',
-    einsaetzeNone: 'keiner offen',
-    einsaetzeOne: '1 läuft',
-    einsaetzeMany: '{n} laufen',
-    einsaetzeTitle: 'Zu den Einsätzen',
+    // the menu button at the top left (review round 5, owner: not «Einsätze» — the station's short
+    // name or mark, `identity.shortName` / the uploaded logo; neither → the menu symbol)
+    menu: 'Menü',
+    menuLabel: 'Menü – {name}',
     einsaetzeBadge: '{n} offen',
     runningOpen: 'Einsatz öffnen: {t}',
     // search

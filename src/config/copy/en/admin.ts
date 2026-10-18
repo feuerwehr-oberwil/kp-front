@@ -587,6 +587,9 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       // keep identical to admin.setup.name — the «Einrichtung» row points straight at this field
       appName: 'Name of the brigade',
       appNameTip: 'Shown in the title bar, login and help. Empty = «KP Front».',
+      shortName: 'Short name',
+      shortNameHint: 'Map menu button, max. 8 characters',
+      shortNameTip: 'Shown top left on «Map & objects», on the button that opens the menu – next to the logo if one is uploaded. At most 8 characters, e.g. «FWO». Empty = menu symbol (or just the logo).',
       accentColor: 'Accent colour',
       accentColorHint: 'Brand colour (login / splash)',
       accentColorTip: 'The brigade’s brand colour; flows through the entire --accent colour system (login, splash, accents). A hex value like #e8392b – or pick it in the colour field on the left.',
@@ -1635,7 +1638,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       colStatus: 'Status',    },
     branding: {
       logo: 'Logo',
-      logoHint: 'Login screen',
+      logoHint: 'Login screen, map menu button',
       reportLogo: 'Report logo',
       reportLogoHint: 'Head of the printed Einsatzrapport – empty = the logo above',
       favicon: 'Favicon',

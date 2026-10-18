@@ -14,7 +14,8 @@
 // which hands over to the existing capture (`/besuche/neu?…&from=karte`, contract C1).
 //
 // It is HOME too (owner, 16.10.2026 · variant B): with no Einsatz open an account lands here, and
-// the «Einsätze ▾» at the top left opens the app menu — the same rows as the Einsatz menu
+// the menu button at the top left («FWO ▾», the station's short name or mark — it was «Einsätze ▾»
+// until review round 5) opens the app menu — the same rows as the Einsatz menu
 // (panels/AppMenuRows, owner 17.10.2026). App renders them (`einsaetze.render`, its handlers);
 // this file only opens and closes the sheet, and hands in its own «Auf diesem Gerät».
 
@@ -40,7 +41,7 @@ import { useMeasure } from '../../lib/useMeasure'
 import { useVehicleLayer } from '../../lib/useVehicleLayer'
 import { useWeather } from '../../lib/useWeather'
 import { useKarteWeather } from '../../workspace/useKarteWeather'
-import { deploymentDefaultCenter, objectCategoryRules, objectVisitsConfig } from '../../lib/deploymentConfig'
+import { deploymentDefaultCenter, deploymentMenuMark, deploymentName, objectCategoryRules, objectVisitsConfig } from '../../lib/deploymentConfig'
 import { defaultLayers } from '../../lib/workspace'
 import { fmtLV95, fmtWGS } from '../../lib/geo'
 import { themeToken, uiBlue } from '../../lib/themeToken'
@@ -122,8 +123,8 @@ const UNDERGROUND_ROW = 'karte:unterirdisch'
 const UNDERGROUND_LAYER = 'karte-unterirdisch' as LayerId
 
 export interface KarteAppProps {
-  /** «Einsätze ▾»: the app menu as a sheet (App owns the rows and their handlers) and the badge
-   *  on the button — running Einsätze + alarms waiting to be taken. `onDevice` opens this
+  /** the menu button: the app menu as a sheet (App owns the rows and their handlers) and the count
+   *  behind the button's red dot — running Einsätze + alarms waiting to be taken. `onDevice` opens this
    *  viewer's «Auf diesem Gerät», the menu's offline row on home. */
   einsaetze: { badge: number; render: (close: () => void, onDevice: () => void) => ReactNode }
   /** entered from an Einsatz (its menu's «Karte & Objekte» row): say where it picked up again */
@@ -381,8 +382,14 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── «Einsätze ▾»: the app menu as a sheet under the bar ─────────────────────────────────────
+  // ── the menu button («FWO ▾», review round 5 — it was «Einsätze ▾»): the app menu as a sheet ──
   const [sheetOpen, setSheetOpen] = useState(false)
+  // the station's mark and/or short name (lib/deploymentConfig · deploymentMenuMark); a mark that
+  // does not load (offline before it was ever fetched) steps back to the symbol, never a broken image
+  const brand = deploymentMenuMark()
+  const [markFailed, setMarkFailed] = useState(false)
+  const mark = markFailed ? null : brand.mark
+  const menuName = fillTemplate(C.menuLabel, { name: deploymentName() })
   const barRef = useRef<HTMLDivElement>(null)
   const closeSheet = useCallback(() => setSheetOpen(false), [setSheetOpen])
   const openDevice = () => { setSheetOpen(false); setDeviceOpen(true) }
@@ -1020,14 +1027,19 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           />
         )}
 
-        {/* the bar: NO title (owner, 16.10.2026) — Einsätze · search · weather · the running Einsatz */}
+        {/* the bar: NO title (owner, 16.10.2026) — the menu · search · weather · the running Einsatz */}
         <div className="topbar" ref={barRef}>
+          {/* the menu button (owner, review round 5: «not "Einsätze" as the main top button» → the
+              station's short name and/or mark, ▾; neither configured → the menu symbol). The red dot
+              is the old count: an Einsatz running or an alarm waiting; the number is in its name. */}
           <button type="button" className={cx(s.einsaetze, sheetOpen && s.open)} onClick={() => { setSheetOpen((o) => !o); setSearchOpen(false) }}
-            title={C.einsaetzeTitle} aria-haspopup="dialog" aria-expanded={sheetOpen}>
-            <Icon id="flag" />
-            <span className={s.einsaetzeText}>{C.einsaetze}{!phone && <small>{!running.length ? C.einsaetzeNone : running.length === 1 ? C.einsaetzeOne : fillTemplate(C.einsaetzeMany, { n: running.length })}</small>}</span>
+            title={C.menu} aria-label={einsaetze.badge > 0 ? `${menuName}, ${fillTemplate(C.einsaetzeBadge, { n: einsaetze.badge })}` : menuName}
+            aria-haspopup="dialog" aria-expanded={sheetOpen} data-karte-menu="">
+            {mark ? <img className={s.menuMark} src={mark} alt="" onError={() => setMarkFailed(true)} />
+              : !brand.short && <Icon id="menu" />}
+            {brand.short && <span className={s.menuName}>{brand.short}</span>}
             <Icon id="chevron-down" className={s.chev} />
-            {einsaetze.badge > 0 && <span className={s.einsaetzeBadge} aria-label={fillTemplate(C.einsaetzeBadge, { n: einsaetze.badge })}>{einsaetze.badge}</span>}
+            {einsaetze.badge > 0 && <span className={s.einsaetzeBadge} data-karte-menu-dot="" aria-hidden />}
           </button>
           {!phone && (
             <SearchField
@@ -1057,7 +1069,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           {/* the app menu, hung off the bar as the Einsatz menu hangs off its own (13-incident ·
               .ip-menu) — the same rows (panels/AppMenuRows), without the Einsatz card */}
           {sheetOpen && (
-            <div className="ip-menu ip-einsaetze" role="dialog" aria-label={C.einsaetze}>
+            <div className="ip-menu ip-einsaetze" role="dialog" aria-label={C.menu}>
               {einsaetze.render(closeSheet, openDevice)}
             </div>
           )}

@@ -64,8 +64,12 @@ vi.mock('../../lib/api/geo', () => ({
   geocodeSearch: async () => [],
   geocodeReverse: async (lat: number, lng: number) => ({ label: 'Starenstrasse 19, 9999 Musterdorf', lat, lng }),
 }))
+// the menu button's face (review round 5): the station's mark / short name, per test
+const brand = vi.hoisted(() => ({ mark: null as string | null, short: null as string | null, name: 'Feuerwehr Musterdorf' }))
 vi.mock('../../lib/deploymentConfig', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/deploymentConfig')>()),
+  deploymentMenuMark: () => ({ mark: brand.mark, short: brand.short }),
+  deploymentName: () => brand.name,
   objectVisitsConfig: () => ({ enabled: true, captureRoles: ['editor', 'el'] }),
   objectCategoryRules: () => rec.rules,
 }))
@@ -101,6 +105,7 @@ beforeEach(() => {
   rec.fakeMap = null
   rec.underground = null
   rec.undergroundAsked = 0
+  brand.mark = null; brand.short = null
   localStorage.clear(); sessionStorage.clear()
   window.history.replaceState(null, '', '/karte')
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })))
@@ -390,39 +395,69 @@ describe('KarteApp', () => {
     expect(document.querySelector('[data-section="register"]')).not.toBeNull()
   })
 
-  // home (variant B): the old launcher card is the «Einsätze ▾» sheet — App's content, opened here
-  it('opens the launcher content as the «Einsätze» sheet and shuts it when a row acts', async () => {
+  // home (variant B): the old launcher card is the menu sheet — App's content, opened here
+  it('opens the launcher content as the menu sheet and shuts it when a row acts', async () => {
+    brand.short = 'FWM'
     const { launcherRow } = mount({ einsaetze: { badge: 2, render: (close) => <button type="button" onClick={() => { close() }}>Manueller Einsatz</button> } })
     void launcherRow
-    const button = screen.getByRole('button', { name: /Einsätze/ })
-    expect(screen.getByLabelText('2 offen').textContent).toBe('2')
-    expect(screen.queryByRole('dialog', { name: 'Einsätze' })).toBeNull()
+    // the count is in the name; on the button it is a dot (owner, review round 5)
+    const button = screen.getByRole('button', { name: 'Menü – Feuerwehr Musterdorf, 2 offen' })
+    expect(button.querySelector('[data-karte-menu-dot]')).not.toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Menü' })).toBeNull()
     fireEvent.click(button)
     expect(button.getAttribute('aria-expanded')).toBe('true')
-    fireEvent.click(within(screen.getByRole('dialog', { name: 'Einsätze' })).getByRole('button', { name: 'Manueller Einsatz' }))
-    expect(screen.queryByRole('dialog', { name: 'Einsätze' })).toBeNull()
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Menü' })).getByRole('button', { name: 'Manueller Einsatz' }))
+    expect(screen.queryByRole('dialog', { name: 'Menü' })).toBeNull()
     // Escape and a press outside close it too
     fireEvent.click(button)
     fireEvent.keyDown(document, { key: 'Escape' })
-    expect(screen.queryByRole('dialog', { name: 'Einsätze' })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Menü' })).toBeNull()
     fireEvent.click(button)
     fireEvent.pointerDown(screen.getByTestId('mapview'))
-    expect(screen.queryByRole('dialog', { name: 'Einsätze' })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Menü' })).toBeNull()
   })
 
   // the app menu's offline row on home is the viewer's own «Auf diesem Gerät» (panels/AppMenuRows)
   it('hands the sheet a door to «Auf diesem Gerät», which shuts the sheet and opens it', async () => {
     mount({ einsaetze: { badge: 0, render: (_close, onDevice) => <button type="button" onClick={onDevice}>Gerät</button> } })
-    fireEvent.click(screen.getByRole('button', { name: /Einsätze/ }))
-    fireEvent.click(within(screen.getByRole('dialog', { name: 'Einsätze' })).getByRole('button', { name: 'Gerät' }))
-    expect(screen.queryByRole('dialog', { name: 'Einsätze' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^Menü/ }))
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Menü' })).getByRole('button', { name: 'Gerät' }))
+    expect(screen.queryByRole('dialog', { name: 'Menü' })).toBeNull()
     expect(await screen.findByRole('dialog', { name: appConfig.copy.karte.device.title })).toBeTruthy()
   })
 
-  it('keeps no badge with nothing running and no alarm to take', async () => {
+  it('keeps no dot with nothing running and no alarm to take', async () => {
     mount()
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
-    expect(screen.queryByLabelText(/offen$/)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Menü – Feuerwehr Musterdorf' })).toBeTruthy()
+    expect(document.querySelector('[data-karte-menu-dot]')).toBeNull()
+  })
+
+  // owner, review round 5: «not "Einsätze" as the main top button» → the station's short name
+  // and/or mark, ▾; with neither configured a neutral menu symbol — never the word «Einsätze»
+  it('wears the station on the menu button: short name, mark, both, or the menu symbol', () => {
+    const face = () => {
+      const b = document.querySelector('[data-karte-menu]')!
+      return { text: b.textContent, img: b.querySelector('img')?.getAttribute('src') ?? null, symbol: !!b.querySelector('use[href="#menu"]') }
+    }
+    mount()
+    expect(face()).toEqual({ text: '', img: null, symbol: true })
+    expect(document.body.textContent).not.toMatch(/Einsätze/)
+    cleanup()
+    brand.short = 'FWM'
+    mount()
+    expect(face()).toEqual({ text: 'FWM', img: null, symbol: false })
+    cleanup()
+    brand.mark = '/api/branding/file/mark.svg'
+    mount()
+    expect(face()).toEqual({ text: 'FWM', img: '/api/branding/file/mark.svg', symbol: false })
+    cleanup()
+    brand.short = null
+    mount()
+    expect(face()).toEqual({ text: '', img: '/api/branding/file/mark.svg', symbol: false })
+    // a mark that cannot load steps back to the symbol, never a broken image
+    fireEvent.error(document.querySelector('[data-karte-menu] img')!)
+    expect(face()).toEqual({ text: '', img: null, symbol: true })
   })
 
   it('comes back from an Einsatz where it was left — object, plan, tool — and says so once', async () => {

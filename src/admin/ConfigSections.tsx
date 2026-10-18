@@ -322,6 +322,17 @@ export function IdentitySection() {
           placeholder="KP Front"
         />
       </SettingRow>
+      {/* the Karte's menu button label (review round 5; schemas · SHORT_NAME_MAX). `maxLength`
+          holds the cap here so the server's 422 is only ever a hand-written document's */}
+      <SettingRow label={C.shortName} hint={C.shortNameHint} tip={C.shortNameTip}>
+        <input
+          className="adm-input"
+          type="text"
+          maxLength={8}
+          value={getPath<string>(draft, ['identity', 'shortName']) ?? ''}
+          onChange={(e) => set(['identity', 'shortName'], e.target.value || null)}
+        />
+      </SettingRow>
       <AccentColorField />
       <SettingRow label={C.language} hint={C.languageHint} tip={C.languageTip}>
         <Select

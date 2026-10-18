@@ -17170,6 +17170,18 @@
             ],
             "title": "Appname"
           },
+          "shortName": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 8
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shortname"
+          },
           "locale": {
             "anyOf": [
               {

@@ -588,6 +588,9 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       // mantenere identico a admin.setup.name — la riga «Configurazione» porta a questo campo
       appName: 'Nome del corpo',
       appNameTip: 'Mostrato nella barra del titolo, nel login e nell’aiuto. Vuoto = «KP Front».',
+      shortName: 'Nome breve',
+      shortNameHint: 'Pulsante menu della mappa, max. 8 caratteri',
+      shortNameTip: 'Mostrato in alto a sinistra su «Mappa & oggetti», sul pulsante che apre il menu – accanto al logo, se caricato. Al massimo 8 caratteri, p. es. «FWO». Vuoto = simbolo del menu (o solo il logo).',
       accentColor: 'Colore d’accento',
       accentColorHint: 'Colore del marchio (login / splash)',
       accentColorTip: 'Colore del marchio del corpo; permea l’intero sistema di colori --accent (login, splash, accenti). Un valore esadecimale come #e8392b – oppure da scegliere nel campo colore a sinistra.',
@@ -1640,7 +1643,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       colStatus: 'Stato',    },
     branding: {
       logo: 'Logo',
-      logoHint: 'Schermata di accesso',
+      logoHint: 'Schermata di accesso, pulsante menu della mappa',
       reportLogo: 'Logo del rapporto',
       reportLogoHint: 'Intestazione del rapporto stampato – vuoto = il logo sopra',
       favicon: 'Favicon',
