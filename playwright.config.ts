@@ -1,4 +1,4 @@
-import { defineConfig } from '@playwright/test'
+import { defineConfig, type PlaywrightTestConfig } from '@playwright/test'
 
 // End-to-end smoke configuration.
 //
@@ -19,6 +19,12 @@ import { defineConfig } from '@playwright/test'
 // to use it instead of downloading.
 const baseURL = process.env.E2E_BASE_URL || 'http://localhost:8000'
 const executablePath = process.env.PW_EXECUTABLE_PATH || undefined
+// CI uses three independently booted stacks. Keep the long field/offline drills out of the
+// general workspace group, and route any new ordinary spec to that group by default.
+const suite = process.env.E2E_SUITE
+if (suite && !['field', 'recovery', 'workspace'].includes(suite)) throw new Error(`Unknown E2E_SUITE: ${suite}`)
+const fieldSpec = '**/field-scenario.spec.ts'
+const visitSpec = '**/object-visits.spec.ts'
 
 export default defineConfig({
   testDir: './e2e',
@@ -39,8 +45,13 @@ export default defineConfig({
     // tablet-first app — a roomy landscape viewport mirrors the field device
     viewport: { width: 1280, height: 900 },
   },
-  projects: [
-    { name: 'chromium', testIgnore: '**/touch.spec.ts', use: { browserName: 'chromium', launchOptions: executablePath ? { executablePath } : {} } },
+  projects: ([
+    {
+      name: 'chromium',
+      testMatch: suite === 'field' ? fieldSpec : suite === 'recovery' ? visitSpec : undefined,
+      testIgnore: ['**/touch.spec.ts', ...(suite === 'workspace' ? [fieldSpec, visitSpec] : [])],
+      use: { browserName: 'chromium', launchOptions: executablePath ? { executablePath } : {} },
+    },
     ...[
       { name: 'touch-tablet', viewport: { width: 1024, height: 768 }, isMobile: false },
       { name: 'touch-phone', viewport: { width: 390, height: 844 }, isMobile: true },
@@ -73,5 +84,6 @@ export default defineConfig({
       } },
       use: { browserName: 'chromium', trace: 'retain-on-failure', screenshot: 'off', launchOptions: executablePath ? { executablePath } : {} },
     },
-  ],
+  ] satisfies NonNullable<PlaywrightTestConfig['projects']>).filter(({ name }) => !suite || name === 'chromium'
+    || (suite === 'recovery' && ['webkit', 'touch-tablet', 'touch-phone'].includes(name))),
 })
