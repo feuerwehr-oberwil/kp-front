@@ -1,8 +1,15 @@
 // DIAGNOSTIC, opt-in (review round 5, 18.10.2026 — remove once the owner's iPhone capture is in):
 // `/karte?debug=scroll` shows, live, what decides whether the phone's search sheet or the page moves
 // under a finger — what WebKit on Linux cannot show (no native touch scroll, no software keyboard;
-// e2e/karte-search-scroll.mjs models both). Sticky for the browser tab (sessionStorage) because the
-// Karte rewrites its address; `?debug=off` ends it.
+// e2e/karte-search-scroll.mjs models both). `?debug=off` ends it. Since round 8 also five quick taps
+// on the build line at the foot of the app menu switch it on and off (lib/scrollDebug): the
+// INSTALLED app has no address bar, and that is where the owner's search still failed. Sticky on
+// the device (localStorage).
+//
+// The first line says which app it is and its frame (round 8): `app` (standalone: home-screen
+// app) or `tab`, innerWidth×innerHeight, the document's client height, scroll height and scrollTop
+// (a document that can scroll is what iOS hands a drag on to), the screen's height and the
+// safe-area insets top/bottom as the CSS reads them.
 //
 // Lines: the visual viewport (height · offsetTop = iOS's pan · scale) against innerHeight and
 // window.scrollY; `data-kb` on the root and on the sheet with its --ks-bottom/--ks-max; the field's
@@ -16,31 +23,23 @@
 // only this tells which mover it is). From touchstart to a second after the lift («…» while it
 // records), then kept on screen until the next touch:
 //   «Δ» each box's screen top, lowest/highest against its place at touchstart — the top bar, the
-//       sheet, the map — and iOS's pan (vv offsetTop) and window.scrollY over the same touch;
+//       sheet, the map — and iOS's pan (vv offsetTop), window.scrollY, innerHeight and the visual
+//       viewport's height over the same touch (round 8: an installed app's frame can change size);
 //   «scrolled» every element that fired a scroll event in the touch, with its scrollTop range
 //       (a scroller carrying the sheet shows here, the list itself as `lc-body`);
 //   «sheet» the sheet's own pull (inline transform, overlays/swipeDismiss) at its largest, how
 //       often `data-kb` flipped and the --ks-bottom range; «ptr» where the pointer went down and
 //       whether iOS took the touch over (pointercancel).
 
-import { useEffect, useRef, useState } from 'react'
-
-const KEY = 'kp.debug.scroll'
-
-function wanted(): boolean {
-  try {
-    const q = new URLSearchParams(window.location.search).get('debug')
-    if (q === 'scroll') sessionStorage.setItem(KEY, '1')
-    else if (q === 'off') sessionStorage.removeItem(KEY)
-    return sessionStorage.getItem(KEY) === '1'
-  } catch { return false }
-}
+import { useEffect, useRef } from 'react'
+import { isStandalone } from '../../lib/installPrompt'
+import { useScrollDebug } from '../../lib/scrollDebug'
 
 const r = (n: number | undefined) => (n == null ? '–' : String(Math.round(n)))
 const named = (el: Element | null) => (el ? `${el.tagName.toLowerCase()}${typeof el.className === 'string' && el.className ? `.${el.className.split(' ')[0].slice(0, 18)}` : ''}` : '–')
 
 export function KarteScrollDebug() {
-  const [on] = useState(wanted)
+  const on = useScrollDebug()
   const ref = useRef<HTMLPreElement>(null)
   useEffect(() => {
     if (!on) return
@@ -58,6 +57,7 @@ export function KarteScrollDebug() {
     const fresh = () => ({
       down: false, bar: range(screenTop('.topbar')), sheet: range(screenTop('[data-karte-keysheet]')), map: range(screenTop('.maplibregl-map')),
       pan: range(window.visualViewport?.offsetTop ?? 0), sy: range(window.scrollY),
+      inner: range(window.innerHeight), vvh: range(window.visualViewport?.height ?? null),
       scrolled: new Map<string, { lo: number; hi: number }>(), pull: 0, kbFlips: 0, kb: !!sheetEl()?.hasAttribute('data-kb'),
       ks: { lo: Infinity, hi: -Infinity }, ptr: '–', cancel: false,
     })
@@ -67,6 +67,7 @@ export function KarteScrollDebug() {
     const sample = () => {
       widen(moved.bar, screenTop('.topbar')); widen(moved.sheet, screenTop('[data-karte-keysheet]')); widen(moved.map, screenTop('.maplibregl-map'))
       widen(moved.pan, window.visualViewport?.offsetTop ?? 0); widen(moved.sy, window.scrollY)
+      widen(moved.inner, window.innerHeight); widen(moved.vvh, window.visualViewport?.height ?? null)
       const sh = sheetEl()
       if (sh) {
         const m = /translateY\((-?[\d.]+)px\)/.exec(sh.style.transform)
@@ -101,6 +102,11 @@ export function KarteScrollDebug() {
     const down = (e: PointerEvent) => { if (e.pointerType === 'touch') ptr = named(e.target instanceof Element ? e.target : null) }
     const cancel = () => { moved.cancel = true }
     const d = (rg: Range | null) => (rg ? (rg.lo === 0 && rg.hi === 0 ? '0' : `${r(rg.lo)}/+${r(rg.hi)}`) : '–')
+    // the safe-area insets as the CSS reads them: a probe that takes no room and no touch
+    const probe = document.createElement('div')
+    probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)'
+    document.body.appendChild(probe)
+    const app = isStandalone() ? 'app' : 'tab'
     const draw = () => {
       frame = requestAnimationFrame(draw)
       const el = ref.current
@@ -111,13 +117,16 @@ export function KarteScrollDebug() {
       const field = sheet?.querySelector('input')
       const list = sheet?.querySelector<HTMLElement>('.lc-body')
       const top = (n: Element | null | undefined) => (n ? r(n.getBoundingClientRect().top - pan) : '–')
+      const doc = document.scrollingElement ?? document.documentElement
+      const inset = getComputedStyle(probe)
       el.textContent = [
+        `${app} ${window.innerWidth}×${window.innerHeight} · doc ${doc.clientHeight}/${doc.scrollHeight} top ${r(doc.scrollTop)} · screen ${window.screen?.height ?? '–'} · safe ${r(parseFloat(inset.paddingTop))}/${r(parseFloat(inset.paddingBottom))}`,
         `vv h ${r(vv?.height)} pan ${r(pan)} ×${vv?.scale?.toFixed(2) ?? '–'} · inner ${window.innerHeight} · scrollY ${r(window.scrollY)}`,
         `kb root ${document.documentElement.hasAttribute('data-kb') ? 'on' : 'off'} · sheet ${sheet?.hasAttribute('data-kb') ? `on ${sheet.style.getPropertyValue('--ks-bottom')}/${sheet.style.getPropertyValue('--ks-max')}` : 'off'}`,
         `screen top: sheet ${top(sheet)} field ${top(field)} · list ${list ? `${r(list.scrollTop)}/${r(list.scrollHeight - list.clientHeight)}` : '–'}`,
         `focus ${named(document.activeElement)}`,
         `touch ${touch.from} ${touch.moves}`,
-        `Δ${moved.down ? '…' : ''} bar ${d(moved.bar)} sheet ${d(moved.sheet)} map ${d(moved.map)} · pan ${d(moved.pan)} scrollY ${d(moved.sy)}`,
+        `Δ${moved.down ? '…' : ''} bar ${d(moved.bar)} sheet ${d(moved.sheet)} map ${d(moved.map)} · pan ${d(moved.pan)} scrollY ${d(moved.sy)} · inner ${d(moved.inner)} vv h ${d(moved.vvh)}`,
         `scrolled ${[...moved.scrolled].map(([k, v]) => `${k} ${v.lo}…${v.hi}`).join(', ') || '–'}`,
         `sheet pull ${r(moved.pull)} · kb flips ${moved.kbFlips} · ks ${Number.isFinite(moved.ks.lo) ? `${r(moved.ks.lo)}…${r(moved.ks.hi)}` : '–'} · ptr ${moved.ptr}${moved.cancel ? ' cancel' : ''}`,
       ].join('\n')
@@ -136,6 +145,7 @@ export function KarteScrollDebug() {
     return () => {
       cancelAnimationFrame(frame)
       clearTimeout(after)
+      probe.remove()
       document.removeEventListener('touchstart', start, { capture: true })
       window.removeEventListener('touchmove', move)
       window.removeEventListener('touchend', end)
