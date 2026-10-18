@@ -62,7 +62,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     georefFailed: 'The object plan could not be laid on the map.',
     planRow: 'Module {m}',
     floorsRow: 'Building',
-    backToMap: 'To the map',
+    backToMap: 'Back',
     planSharpening: 'Loading a sharper view …',
     planSharpOffline: 'Sharper view needs a connection',
     planSharpFailed: 'The sharper view could not be loaded',

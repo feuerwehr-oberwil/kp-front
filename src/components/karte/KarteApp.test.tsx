@@ -450,7 +450,7 @@ describe('KarteApp', () => {
   })
 
   // owner-4 (17.10.2026): on a phone the plans are rows in the object's sheet — the bar has no
-  // «Pläne» tab — and an open plan goes back to the map with its «Zur Karte» chip
+  // «Pläne» tab — and an open plan goes back to the map with its «Zurück» chip
   it('on a phone: no Pläne tab, the plan opens from the sheet and goes back to it', async () => {
     rec.phone = true
     mount()
@@ -461,7 +461,7 @@ describe('KarteApp', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Modul 1' }))
     expect(await screen.findByTestId('pdf')).toBeTruthy()
     expect(screen.queryByRole('heading', { name: 'Schloss Musterdorf' })).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /Zur Karte/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Zurück/ }))
     expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
     expect(screen.queryByTestId('pdf')).toBeNull()
   })
@@ -693,11 +693,11 @@ describe('KarteApp', () => {
   })
 
   // owner R4-1: «move "station" up in ebenen all the way to the top»
-  it('lists the «Station» group first in its Ebenen', async () => {
+  it('lists «Grundkarte» first and the «Station» group right under it in its Ebenen', async () => {
     mount()
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.karte.tools.layers }))
-    const first = document.querySelector('.layers-card .lgroup')
-    expect(first?.textContent).toBe(appConfig.copy.karte.layerGroupStation)
+    const heads = [...document.querySelectorAll('.layers-card .lgroup')].map((el) => el.textContent)
+    expect(heads.slice(0, 2)).toEqual([appConfig.copy.baseMap, appConfig.copy.karte.layerGroupStation])
   })
 })

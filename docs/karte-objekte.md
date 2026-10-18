@@ -266,7 +266,7 @@ The rules that are easy to break:
   on an empty sheet), `linkViewer` (no Maßstab / Passung chips — no door to a calibration or to
   «Karte verknüpfen»), no annotations, and every writer a no-op (`onChange`, `log`, `emit`, the
   history); no `incidentId`, `onCalibrate` or `onObjectSwitch`. Its bottom-left row is hidden: the
-  Karte's chip row («Zur Karte» on the phone, the object's name on the tablet) is the way back,
+  Karte's chip row («Zurück» on the phone, the object's name on the tablet) is the way back,
   and so is the bar's Karte tab. No «Auf der Karte» beside it (owner, review round 3,
   17.10.2026: struck as not needed — the aligned plan stays switchable in Ebenen). `KarteApp.test`
   pins what is handed in.
@@ -282,7 +282,7 @@ The rules that are easy to break:
   The box is only what the FIT measures: what is drawn is full-bleed (owner, round 4: a plan
   dragged down «doesn't neatly go behind all of the other bottom UI elements»). On the phone the
   stage does not clip at the box (`.wb-canvas { overflow: visible }`), so a dragged page slides on
-  under «Zur Karte» and the bar to the screen's foot, with the stage's own ground behind it; the
+  under «Zurück» and the bar to the screen's foot, with the stage's own ground behind it; the
   chrome floats over the plan.
 - **The Gebäude is the Einsatz's, without editing** (owner, review round 4: «literally 1:1 the
   same as in the normal incident just without editing»). `KartePlans · KarteGebaeudeBoard` binds
@@ -386,10 +386,10 @@ The rules that are easy to break:
   is named in the code. The aligned plan on the map is not (a plan backdrop is switched on on
   purpose, and the Einsatz's chips leave plan rasters alone too). The radar: off with «Standard»
   and «Alle aus», left by «Alle ein», no chip lit while it is on. Transparencies stay.
-- **Ebenen: «Station» first** (owner, review round 4: «it's the most relevant one in this case»):
-  the station group — Stationsobjekte and the colour categories — stands under the three chips and
-  above Grundkarte, Inhalte, Wasser and Wetter (`LayerPanel · leadTwinGroups`). The Einsatz's
-  Ebenen keep their order.
+- **Ebenen: Grundkarte, then «Station»** (owner, review round 4: «it's the most relevant one in
+  this case»; round 5: «move grundkarte above station»): under the three chips come the base-map
+  tiles, then the station group — Stationsobjekte and the colour categories — above Inhalte, Wasser
+  and Wetter (`LayerPanel · leadTwinGroups`). The Einsatz's Ebenen keep their order.
 - **Typing on a phone** (review round 3, 17.10.2026 — round 2's keyboard handling did nothing on
   the owner's real iPhone). The bar is «Einsätze ▾» + a **search button** (its twin since round 4); the tablet keeps
   its field. Search and **Gefahrgut** are slide-ups with Ebenen's frame (`KarteKeySheet`): the field
@@ -469,6 +469,13 @@ Karte › «Objektfarben», schema `ObjectCategoryConfig`), FIRST match wins:
 A rule matches when every condition it names holds (none named = catch-all); `modules` globs
 match the object's plan modules (`modul5-pv*` = `modul5-pv`, `-pv15`, `-pv20`). An object no rule
 takes keeps the default look: red, ink-grey without plans. No rules = that default map.
+
+- **Order = precedence.** FWO's order (owner, review round 5, 18.10.2026: «emergency plans have
+  precedence over PV or water (ie red first then blue then yellow)»): Einsatzpläne red
+  (`modul1*`, `modul2*`, `modul3*`, `modul4*`, `modul6*`) → Wasser blue (`modul5-wasser*`) →
+  Photovoltaik amber (`modul5-pv*`) → ohne Pläne grey (`kinds: [einsatzobjekt, objekt]`). An object
+  with an Einsatzplan AND a PV or water module is red. Do not use `modul*` for the red rule: it
+  also matches the `modul5-*` modules and would paint every PV/water object red.
 
 - ⚠️ `kinds: ["depot"]` is **retired** (review round 3): the schema still accepts it, so an
   existing config stays valid, and it matches NO object — a rule naming only `depot` paints

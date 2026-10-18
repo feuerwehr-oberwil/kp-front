@@ -73,7 +73,7 @@ export const karteCopy = {
     // a plan row in the object's sheet: the module only (owner, review round 4; lib/karte/plans · planRowLabel)
     planRow: 'Modul {m}',
     floorsRow: 'Gebäude',
-    backToMap: 'Zur Karte',
+    backToMap: 'Zurück',
     // over an open plan (lib/planSharpness): the sharper picture of this view is still coming / cannot come
     planSharpening: 'Schärfere Ansicht wird geladen …',
     planSharpOffline: 'Schärfere Ansicht nur mit Netz',
