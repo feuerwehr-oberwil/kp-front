@@ -75,6 +75,15 @@ vi.mock('../../lib/deploymentConfig', async (importOriginal) => ({
 }))
 vi.mock('../../lib/useWeather', () => ({ useWeather: () => ({ data: null, error: null }) }))
 vi.mock('../../lib/ui', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../lib/ui')>()), toast: vi.fn() }))
+// the service worker as a switch (review round 7): a waiting build is announced by calling the
+// subscription, the way swUpdate · onNeedRefresh does; `landed` is the boot-time «update landed» stamp
+const sw = vi.hoisted(() => ({ announce: null as null | ((a: boolean) => void), landed: false, apply: vi.fn(), platform: 'android' }))
+vi.mock('../../lib/swUpdate', () => ({
+  applyUpdateNow: () => sw.apply(),
+  onUpdateAvailable: (cb: (a: boolean) => void) => { sw.announce = cb; return () => { if (sw.announce === cb) sw.announce = null } },
+  consumeJustUpdated: () => { const v = sw.landed; sw.landed = false; return v },
+}))
+vi.mock('../../lib/installPrompt', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../lib/installPrompt')>()), getInstallPlatform: () => sw.platform }))
 vi.mock('../../lib/useVehicleLayer', () => ({ useVehicleLayer: () => ({ liveVehicles: [] }) }))
 // the Einsatz's plan reader (Whiteboard, lazy) as a prop recorder: what the Karte hands it IS the
 // proof that it can write nothing
@@ -83,6 +92,7 @@ vi.mock('../../workspace/lazySurfaces', () => ({
 }))
 
 import KarteApp, { type KarteAppProps } from './KarteApp'
+import { Meldeleiste } from '../Meldeleiste'
 import { toast } from '../../lib/ui'
 import { appConfig } from '../../config/appConfig'
 import { __setUnHazardData, type UnHazardEntry } from '../../lib/unHazard'
@@ -106,6 +116,7 @@ beforeEach(() => {
   rec.underground = null
   rec.undergroundAsked = 0
   brand.mark = null; brand.short = null
+  sw.announce = null; sw.landed = false; sw.apply.mockClear(); sw.platform = 'android'
   localStorage.clear(); sessionStorage.clear()
   window.history.replaceState(null, '', '/karte')
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })))
@@ -741,6 +752,46 @@ describe('KarteApp', () => {
   })
 
   // owner R4-1: «move "station" up in ebenen all the way to the top»
+  // review round 7, owner: «on this new landing page we don't get a notification that a new version
+  // is ready» — the Einsatz's own row, in the same strip, with the same two faces
+  it('announces a waiting build in the Meldeleiste: «Jetzt aktualisieren», dismissible, back for the next deploy', async () => {
+    mount()
+    render(<Meldeleiste />)
+    const U = appConfig.copy.update
+    expect(screen.queryByText(U.available)).toBeNull()
+    act(() => sw.announce?.(true))
+    expect(await screen.findByText(U.available)).toBeTruthy()
+    expect(screen.getByText(U.hintApply)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: U.dismiss }))
+    await waitFor(() => expect(screen.queryByText(U.available)).toBeNull())
+    // the next deploy says it again
+    act(() => sw.announce?.(true))
+    expect(await screen.findByText(U.available)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: U.apply }))
+    expect(sw.apply).toHaveBeenCalledTimes(1)
+    // an update that resolves on its own retracts the row
+    act(() => sw.announce?.(false))
+    await waitFor(() => expect(screen.queryByText(U.available)).toBeNull())
+  })
+
+  it('on iOS the waiting build reads «App schliessen & neu öffnen», with nothing to tap but ✕', async () => {
+    sw.platform = 'ios'
+    mount()
+    render(<Meldeleiste />)
+    const U = appConfig.copy.update
+    act(() => sw.announce?.(true))
+    expect(await screen.findByText(U.hint)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: U.apply })).toBeNull()
+    expect(screen.getByRole('button', { name: U.dismiss })).toBeTruthy()
+  })
+
+  it('says «Aktualisiert – v…» once after an update reload lands on the Karte', async () => {
+    sw.landed = true
+    mount()
+    await waitFor(() => expect(vi.mocked(toast)).toHaveBeenCalledWith(expect.stringContaining(appConfig.copy.update.updated.split('{v}')[0]), { icon: 'check', tone: 'success' }))
+    expect(vi.mocked(toast)).toHaveBeenCalledTimes(1)
+  })
+
   it('lists «Grundkarte» first and the «Station» group right under it in its Ebenen', async () => {
     mount()
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })

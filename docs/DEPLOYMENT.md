@@ -483,7 +483,8 @@ Two things back that doctrine beyond "please don't":
   installs and waits (`registerType: 'prompt'`, `vite.config.ts`); the only automatic, no-prompt
   activation happens in the boot window right after a page loads, before any interaction – there
   is nothing running yet to interrupt. Once someone is mid-session, a waiting build is only ever
-  surfaced as the calm «Update verfügbar» message, and nothing happens until a person decides:
+  surfaced as the calm «Update verfügbar» message (in the Einsatz and on «Karte & Objekte», the
+  home with no Einsatz open), and nothing happens until a person decides:
   either the next full close-and-reopen, or – since 16.09.2026, everywhere but iOS – one tap on
   **«Jetzt aktualisieren»** in that banner or beside the build stamp at the foot of the menu.
   The button exists because closing the app is not always enough: a waiting build activates only

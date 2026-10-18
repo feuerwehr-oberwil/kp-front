@@ -51,6 +51,9 @@ describe('UpdateBanner', () => {
     expect(screen.getByText(C.hint)).toBeTruthy()
     expect(screen.queryByRole('button', { name: C.apply })).toBeNull()
     expect(screen.getByRole('button', { name: C.dismiss })).toBeTruthy()
+    // …and that wording is what to DO, so it wraps instead of ending in «App schliess…» at 390px
+    // (owner's iPhone, review round 7) — the strip's per-row opt-in, not a strip-wide rule
+    expect(screen.getByText(C.hint).closest('.ml-row')?.classList.contains('wrap')).toBe(true)
   })
 
   it('says nothing at all while no build is waiting', () => {
