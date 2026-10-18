@@ -23,8 +23,6 @@ import { appConfig } from '../../config/appConfig'
 import { shortAddress } from '../../lib/deploymentConfig'
 import { runningOthers } from '../../lib/switcherLists'
 import { loadKarteView } from '../../lib/karte/session'
-import { useDebugTaps } from '../../lib/scrollDebug'
-import { toast } from '../../lib/ui'
 import type { DiveraAlarm, IncidentMeta } from '../../lib/incidents'
 
 export interface AppMenuAlarms {
@@ -79,9 +77,6 @@ export function AppMenuRows({
   const [applyingUpdate, setApplyingUpdate] = useState(false)
   useEffect(() => onUpdateAvailable(setUpdateWaiting), [])
   const updateReady = updateWaiting && canApplyInPlace(getInstallPlatform())
-  // five quick taps on the build line switch the Karte's scroll readout (lib/scrollDebug): the
-  // installed app has no address bar for `?debug=scroll` (review round 8). Nothing shows it is there.
-  const debugTaps = useDebugTaps((on) => toast(on ? cp.debugOn : cp.debugOff, { icon: 'info', kind: 'debug-scroll' }))
   // the laufende Zeit on each row — mounted only while the menu is open, so tick only then
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -204,7 +199,7 @@ export function AppMenuRows({
             the visibility-resume check). What IS here is the apply, and only while a build is
             actually waiting: the menu is where somebody looks when an app feels stale, which
             is exactly the state a dismissed banner leaves behind (16.09.2026). */}
-        <span className="ip-menu-ver" title={cp.appVersion} onClick={debugTaps}>{buildLabel()}</span>
+        <span className="ip-menu-ver" title={cp.appVersion}>{buildLabel()}</span>
         {updateReady && (
           <button type="button" className="ip-menu-update" disabled={applyingUpdate}
             onClick={() => { setApplyingUpdate(true); void applyUpdateNow() }}>

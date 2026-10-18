@@ -471,12 +471,10 @@ The rules that are easy to break:
     cap: the field keeps its place on the screen and the sheet's foot stays on the keys.
     Check: `node e2e/karte-search-scroll.mjs <stack>` (WebKit, iPhone 13; synthetic touches and a
     keyboard stand-in — what it models and what it cannot is in its head), Gefahrgut as the green
-    reference. **On the iPhone**: `/karte?debug=scroll` (sticky on the device since round 8,
-    `?debug=off` ends it; in the installed app five taps on the build line, below) lays a live
-    readout over the top bar — the visual viewport and iOS's pan, the sheet's and the field's top
-    on the screen, the list's scroll, and per touchmove passed / cancelled / not
-    cancelable, and since round 7 what moved during the last touch (`KarteScrollDebug`, a diagnostic
-    to remove once the owner's capture is in).
+    reference. **On the iPhone** (rounds 5–11, removed in round 12): `/karte?debug=scroll` laid a
+    live readout over the top bar — the visual viewport and iOS's pan, the sheet's and the field's
+    top on the screen, the list's scroll, and per touchmove passed / cancelled / not cancelable,
+    and since round 7 what moved during the last touch (`KarteScrollDebug`).
   - **Round 6** (owner, 18.10.2026, `?debug=scroll`: «when i typed it works, without typing it
     fails (empty state)»). With nothing typed the body holds the six featured Einsatzobjekte and
     the two hint lines — SHORTER than the full-height sheet once the keyboard is down, so the list
@@ -509,15 +507,12 @@ The rules that are easy to break:
     pwa it still fails» — the installed home-screen app on build 131a42a, as in the round-7 video).
     The installed app has no address bar, so `?debug=scroll` could never be switched on there.
     **Five quick taps on the build line** at the foot of the app menu (`v… · <sha> · <date>`)
-    switch the readout on and off on this device (`lib/scrollDebug`, localStorage; a toast says
-    «Diagnose an / aus»; nothing else shows the switch is there). `?debug=scroll` / `?debug=off`
-    set the same flag. The readout's first line now names the frame: `app` (standalone) or `tab`,
-    innerWidth×innerHeight, the document's client/scroll height and scrollTop, the screen height
-    and the safe-area insets top/bottom; the «Δ» line adds how innerHeight and the visual
-    viewport's height changed during the touch. **Capture on the iPhone**: open the app menu, tap
-    the build line five times («Diagnose an»), close the menu, open the search, pull down on a row
-    as in the video, lift, take a screenshot (or a screen recording) with the readout in sight;
-    five taps again switch it off.
+    switched the readout on and off on that device (`lib/scrollDebug`, localStorage, a toast
+    «Diagnose an / aus»; all removed in round 12); `?debug=scroll` / `?debug=off` set the same flag.
+    The readout's first line named the frame: `app` (standalone) or `tab`, innerWidth×innerHeight,
+    the document's client/scroll height and scrollTop, the screen height and the safe-area insets
+    top/bottom; the «Δ» line added how innerHeight and the visual viewport's height changed during
+    the touch.
     What WebKit proved: `e2e/karte-search-scroll.mjs` now runs every check in two frames — the
     browser tab and the installed app emulated as closely as WebKit on Linux allows
     (`display-mode: standalone` and `navigator.standalone` true, the web view below the opaque
@@ -584,6 +579,24 @@ The rules that are easy to break:
     bounded by the root's box (`html`) and by the 793-px frame (`icb`): red on the base (37–127 px),
     green now; each guard alone turns its own variant green (the live height `html`, the
     same-event undo both).
+  - **Round 12** (owner, installed app, 18.10.2026 21:30 — the last round before main; scrolling
+    works). Three closing touches, search and Gefahrgut alike:
+    · «fix the bottom margin»: the list stopped a safe-area band (34 px) above the sheet's foot,
+    cut by a hard line — Ebenen's card keeps the home indicator's inset as its own padding. The
+    key sheets drop it and carry the inset as the list's end padding instead, inside the scroll
+    (`Karte.module.css · .keySheet .keyBody`, 12 px + the inset; 12 px on the keys): the list runs
+    to the sheet's bottom edge and its last line scrolls clear of the home indicator.
+    · «a small animation when starting to scroll»: when the keys go (the drag that closes them,
+    round 11) or come (a tap on the field), the sheet glides between its two places in 0.22 s on
+    the app's `--ease` instead of jumping — `bottom`, `height`, `max-height` and the corners, on the
+    sheet itself, so the list inside keeps scrolling under the finger. Only that switch animates
+    (`lib/iosKeyboard · useKeySheet` writes `data-ks-move` for `KS_MOVE_MS` after `data-kb` comes or
+    goes); a re-placement on the keys (iOS's pan, the collapse) stays instant. Reduced motion: no glide.
+    · The scroll readout is gone (`KarteScrollDebug`, `lib/scrollDebug`, `?debug=scroll`, the five
+    taps on the build line, the localStorage flag and its «Diagnose an / aus» toast).
+    `e2e/karte-search-scroll.mjs` stays the regression check and now also checks the foot (the
+    list to the sheet's edge, its end clear of the home indicator — red on the base) and the
+    glide (the sheet's transitions held halfway: its top between its two places, both ways).
   - No «AutoFill Contact»: both fields come from one helper (`lib/typingField`) — a `search-…`
     name (Safari offers no contact AutoFill on a search), autocomplete / autocorrect /
     autocapitalise / spell check off, `enterKeyHint`, numeric for the UN field, and their label /

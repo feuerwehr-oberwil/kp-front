@@ -253,7 +253,13 @@ function barBottomOf(sel: string): number {
 
 /** Guard 1's placement: while a text field INSIDE `ref` has the caret and a keyboard is up, the
  *  element gets `data-kb` and `--ks-bottom` / `--ks-max` (keySheetBox) — written per frame on the
- *  element, never a React render. Off the keyboard both go, and the sheet is its normal self. */
+ *  element, never a React render. Off the keyboard both go, and the sheet is its normal self.
+ *  The switch between the two placements is one movement (owner, review round 12: from typing to
+ *  scrolling «isn't that abrupt»): for `KS_MOVE_MS` after `data-kb` comes or goes the element also
+ *  wears `data-ks-move`, which the CSS animates (Karte.module.css · .keySheet[data-ks-move]). Only
+ *  then — a re-placement ON the keys (iOS's pan, the installed app's collapse) stays instant. */
+export const KS_MOVE_MS = 300
+
 export function useKeySheet(ref: RefObject<HTMLElement | null>, { bar = '.topbar', strip = 24, minHeight = 132 } = {}) {
   useEffect(() => {
     const el = ref.current
@@ -262,6 +268,8 @@ export function useKeySheet(ref: RefObject<HTMLElement | null>, { bar = '.topbar
     const vk = (navigator as Navigator & { virtualKeyboard?: EventTarget & { boundingRect?: DOMRectReadOnly } }).virtualKeyboard
     let frame = 0
     let last = ''
+    let first = true
+    let move: ReturnType<typeof setTimeout> | undefined
     const measure = () => {
       frame = 0
       const focused = el.contains(document.activeElement) && isTypingTarget(document.activeElement)
@@ -274,7 +282,15 @@ export function useKeySheet(ref: RefObject<HTMLElement | null>, { bar = '.topbar
       const pan = vk?.boundingRect?.height ? 0 : (vv?.offsetTop ?? 0)
       const box = keySheetBox({ viewHeight, kbTop, barBottom: barBottomOf(bar), strip, minHeight, pan })
       const key = box ? `${box.bottom}|${box.maxHeight}` : ''
+      const wasFirst = first
+      first = false
       if (key === last) return
+      // the keys came or went (not the sheet's first frame: its entrance is its own)
+      if (!wasFirst && !last !== !key) {
+        el.setAttribute('data-ks-move', '')
+        clearTimeout(move)
+        move = setTimeout(() => el.removeAttribute('data-ks-move'), KS_MOVE_MS)
+      }
       last = key
       if (box) {
         el.style.setProperty('--ks-bottom', `${box.bottom}px`)
@@ -299,6 +315,7 @@ export function useKeySheet(ref: RefObject<HTMLElement | null>, { bar = '.topbar
     return () => {
       if (frame) cancelAnimationFrame(frame)
       late.forEach(clearTimeout)
+      clearTimeout(move)
       vv?.removeEventListener('resize', update)
       vv?.removeEventListener('scroll', update)
       vk?.removeEventListener('geometrychange', update)
