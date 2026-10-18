@@ -12,6 +12,7 @@ mount, a wedged session, a render loop on the Karte.
 | `admin-row-menu.spec.ts` | the admin row menu is on top and its actions fire | CI (needs `E2E_ADMIN_SECRET`) |
 | `demo.spec.ts` | the public demo's entry fits a phone | only against a demo deployment |
 | `workspace-flows.spec.ts` | undo, timeline, keyboard, Abschluss, replay across the workspace seams | CI; locally opt-in, `E2E_WORKFLOWS=1` |
+| `open-writes.spec.ts` | opening an Einsatz this build has already saved writes nothing: a reload and a second device send 0 writes (the first open's one-time upgrade is reported, not asserted) | CI; locally opt-in, `E2E_WORKFLOWS=1` |
 | `journeys.journey.ts` | performance journeys: requests, bytes, writes, leaks and interaction times on a busy Einsatz, compared against `e2e/perf/baseline.json` ([docs/testing/perf-journeys.md](../docs/testing/perf-journeys.md)) | CI job «Performance», chromium; opt-in elsewhere (`PERF_JOURNEYS=1`, `just perf`) |
 | `screens.visual.ts` | screenshot regression: nine frozen states (Lage, Plan, Trupps, Verlauf, Rapport, kiosk; tablet + phone, one night) compared pixel by pixel with `e2e/visual/baseline/` ([docs/testing/visual-regression.md](../docs/testing/visual-regression.md)) | CI job «Visual», chromium; opt-in elsewhere (`VISUAL=1`, `just visual`) |
 | `touch.spec.ts` | coarse-pointer time controls at 1024×768 and 390×844, clearing, reachable actions and overflow | CI; locally opt-in, `E2E_WORKFLOWS=1` |

@@ -150,7 +150,14 @@ look, not a verdict. A loaded box skews every time. Counts and sizes compare as 
   workspace never passed `createdAt` for the tie-break. Fixed in #262.
 - Opening an Einsatz writes: one workspace PUT and one journal POST per device per open
   (`cold-start.writes`). It is baselined as it stands. Whether it should be 0 is a question for
-  the save path (`docs/testing/fat-incident.md` expected 0 saves on open).
+  the save path (`docs/testing/fat-incident.md` expected 0 saves on open). **Answered
+  18.10.2026: they are a one-time upgrade of the seed, not a save per open.** The seeded Einsatz
+  is `schemaVersion` 2 (the app writes 3 and derives `planBindings`), and its Trupps' crews were
+  never filed on the Anwesenheit (`lib/crewFiling`: attendance rows, `crewFiled`, one «Unter AS»
+  Verlauf row per Trupp, all under derived ids). Each carries content, so the writes stay. The
+  same Einsatz opened again, on the same device or a second one, writes nothing: e2e `open-writes.spec.ts`
+  holds that at 0 (a count gate with an absolute tolerance of 2 could not).
+  `cold-start.writes` keeps measuring the first open of an older Einsatz.
 - The first launch downloads ~2.3 MB of precache in the background (`cold-start.precache_kb`).
 - Every Funkkontakt is a full workspace save: nine contacts sent nine PUTs and ~345 KB
   (`trupps.saves`). Twenty Karte and Tafel edits sent 10–12 saves of ~35 KB each (`edit.saves`,
