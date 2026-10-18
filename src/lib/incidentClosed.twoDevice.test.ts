@@ -83,6 +83,15 @@ async function fakeFetch(input: string, init: RequestInit = {}): Promise<Respons
     server.events.push(...events)
     return json(201, [])
   }
+  // the trupp slice (api/incidents · put_workspace_trupps): an editor's Trupp-only save goes here
+  // too (workspaceSync · onlyTruppsChanged). The close is judged FIRST, then the revision.
+  if (path === '/workspace/trupps' && method === 'PUT') {
+    if (!server.open && afterClose(body.edited_at)) return refused()
+    if (body.base_rev !== server.rev) return json(409, { detail: { message: 'Workspace wurde zwischenzeitlich geändert', server_rev: server.rev } })
+    server.ws = { ...server.ws, trupps: structuredClone(body.trupps) }
+    server.rev += 1
+    return json(200, { workspace: null, workspace_rev: server.rev })
+  }
   if (path === '/workspace/record' && method === 'PUT') {
     if (body.base_rev !== server.rev) return json(409, { detail: { message: 'Workspace wurde zwischenzeitlich geändert', server_rev: server.rev } })
     server.recordPuts++
