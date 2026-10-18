@@ -433,6 +433,17 @@ describe('KarteApp', () => {
     expect(document.querySelector('[data-karte-menu-dot]')).toBeNull()
   })
 
+  // owner, review round 6: «main dropdown fix chevron not moving» — its ▾ carries the app's shared
+  // `.chev`, which flips on [aria-expanded=true] like every other dropdown (02-base.css)
+  it('flips the menu button’s chevron while the menu is open', () => {
+    mount()
+    const b = document.querySelector('[data-karte-menu]')!
+    expect(b.querySelector('.chev')).not.toBeNull()
+    expect(b.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(b)
+    expect(b.getAttribute('aria-expanded')).toBe('true')
+  })
+
   // owner, review round 5: «not "Einsätze" as the main top button» → the station's short name
   // and/or mark, ▾; with neither configured a neutral menu symbol — never the word «Einsätze»
   it('wears the station on the menu button: short name, mark, both, or the menu symbol', () => {

@@ -43,6 +43,11 @@ interface Props {
    *  round 5, 18.10.: «move grundkarte above station»); the Einsatz passes none, so its order is
    *  unchanged. */
   leadTwinGroups?: readonly string[]
+  /** layer groups, by name, drawn right AFTER the anchored twins (`twinsAfterGroup`) instead of
+   *  where the layer list has them. The Einsatz puts its «Station» group («Unterirdische Bauten»)
+   *  there (owner, review round 6, 18.10.2026: «move unterirdische bauten below pläne in the
+   *  emergency version»). Without anchored twins the groups stay where they are. */
+  groupsAfterTwins?: readonly string[]
   /** round ✕ in the title row — dock chrome parity with the views popover / tool docks */
   onClose?: () => void
   /** Ebenen quick-taps (field ask 07.09.): flip every overlay at once / return to the Einsatz
@@ -62,7 +67,7 @@ interface Props {
   note?: string
 }
 
-export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, leadTwinGroups = NO_GROUPS, onClose, onShowAll, onHideAll, onReset, preset, weather, note }: Props) {
+export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, leadTwinGroups = NO_GROUPS, groupsAfterTwins = NO_GROUPS, onClose, onShowAll, onHideAll, onReset, preset, weather, note }: Props) {
   /* One transparency row, for a real `LayerDef` and for a Georeferenz twin alike — the twin ids
      are not `LayerDef` ids and persist elsewhere (georefTwins · isTwinLayerId → the device's
      `twinLayerOpacity`), but the row is the panel's, so both go through the same control and the
@@ -125,6 +130,16 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
   /* …unless the anchor group is not on this panel at all (a deployment without it, or the Plan
      surface): then they still have to appear, so they go last. */
   const twinsAnchored = !!twinsAfterGroup && twinBlocks.length > 0 && twinsAfterGroup in groups
+  // the groups that follow the twins: lifted out of their place and set right after the anchor
+  // group, whose fragment ends with the twins — so they read «… Lage · Pläne · Station …»
+  const groupEntries = (() => {
+    const all = Object.entries(groups)
+    if (!twinsAnchored || !groupsAfterTwins.length) return all
+    const moved = all.filter(([g]) => groupsAfterTwins.includes(g) && g !== twinsAfterGroup)
+    const rest = all.filter(([g]) => !moved.some(([m]) => m === g))
+    const at = rest.findIndex(([g]) => g === twinsAfterGroup)
+    return [...rest.slice(0, at + 1), ...moved, ...rest.slice(at + 1)]
+  })()
 
   // opening the panel (e.g. via the [[B]] shortcut) drops focus onto the first layer row so the
   // whole list is immediately Tab/Enter navigable from the keyboard — the rows are real buttons.
@@ -191,7 +206,7 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
             review round 5, 18.10.2026: «move grundkarte above station») */}
         {leadBlocks}
 
-        {Object.entries(groups).map(([group, rows]) => (
+        {groupEntries.map(([group, rows]) => (
           <Fragment key={group}>
             <div className="lgroup">{group}</div>
             {rows.map((l) => (

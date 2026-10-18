@@ -20,6 +20,7 @@ import type { useBuildingInfo } from '../lib/useBuildingInfo'
 import type { useCoordPicker } from '../lib/useCoordPicker'
 import type { useIsPhone } from '../lib/useIsPhone'
 import type { LngLat, WeatherData, LayerDef, LayerId } from '../types'
+import { undergroundLayerDef } from '../lib/underground'
 import type { LayerPreset } from '../lib/layerPreset'
 import type { KarteWeather } from './useKarteWeather'
 
@@ -180,6 +181,8 @@ export function MapControls({
           // …directly under «Lage», wherever the deployment's config calls that group: the sheet
           // a symbol was drawn on belongs beside that symbol, not past Wasser and Gefahren.
           twinsAfterGroup={layers.find((l) => l.id === appConfig.defaults.operationalLayerId)?.group}
+          // «Unterirdische Bauten» right under the plans (owner, review round 6)
+          groupsAfterTwins={[undergroundLayerDef().group]}
           onShowAll={() => setAllLayers(true)}
           onHideAll={() => setAllLayers(false)}
           onReset={resetLayers}
