@@ -500,11 +500,12 @@ What the surface shows offline:
   pre-flight prices it so (`storageBudget` · `tileBytesFor`). The 1× CARTO tiles a retina device
   held are dropped once (`tilePurge` · `carto-retina-2026-10`); a 1× screen keeps them. OSM and
   swisstopo have no 2× tiles; swisstopo's swissimage goes to z20 (was capped at 19, so the closest
-  zoom stretched z19 four times). **The map stops at the visible base's last sharp level** (owner
-  on #383): its last tile level drawn 1:1, i.e. map zoom `maxzoom − 1` on the 512 px grid
-  (`lib/mapView` · `baseMaxMapZoom`: CARTO and swissimage 19, OSM 18) instead of the fixed 21 that
-  stretched the last level 2–4×; switching to a base that ends sooner clamps the view. `MapView`
-  carries it, so it holds in the Einsatz too (and the Tafel's Lagekarte box). Regression check, WebKit with the iPhone 13
+  zoom stretched z19 four times). **The viewer stops at the visible base's last sharp level**
+  (owner on #383): its last tile level drawn 1:1, i.e. map zoom `maxzoom − 1` on the 512 px grid
+  (`lib/mapView` · `baseMaxMapZoom`: CARTO and swissimage 19, OSM 18) instead of 21, which stretched
+  the last level 2–4×; switching to a base that ends sooner clamps the view. **Karte only**
+  (`MapView` · `zoomCapAtBase`): the Einsatz map and the Tafel's Lagekarte keep 21 for precise
+  symbol placement, the base soft past its last level there. Regression check, WebKit with the iPhone 13
   descriptor: `node site/check-basemap-sharpness.mjs --base <app>` (red above 1.5 device px per
   tile px or on overzoom; its header says how it stands in for CARTO's keyed tiles).
 - **Search:** station objects are found on the device; the address search says it needs the

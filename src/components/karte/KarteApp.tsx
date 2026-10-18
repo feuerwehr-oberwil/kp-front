@@ -899,6 +899,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           initialZoom={start.zoom}
           initialBearing={start.view?.bearing ?? 0}
           showOrigin={false}
+          // never past the visible base's last sharp level (owner on #383) — the Karte only
+          zoomCapAtBase
           preparedOverlays={overlays}
           isVisible={isVisible}
           selectedId={null}

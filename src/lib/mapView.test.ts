@@ -193,8 +193,17 @@ describe('effectiveLayer', () => {
   })
 })
 
-// owner on #383 (review round 4): never past the last level the visible base serves sharply
-describe('baseMaxMapZoom', () => {
+// owner on #383 (review round 4): the Karte never zooms past the last level the visible base serves
+// sharply; the Einsatz keeps 21 for precise placement
+describe('baseMaxMapZoom / mapMaxZoom', () => {
+  it('the Einsatz (no cap asked) reaches 21 on every base; the Karte stops at the base', async () => {
+    const { mapMaxZoom } = await import('./mapView')
+    for (const maxzoom of [20, 19, undefined]) expect(mapMaxZoom({ maxzoom })).toBe(21)
+    expect(mapMaxZoom({ maxzoom: 20 }, false)).toBe(21)
+    expect(mapMaxZoom({ maxzoom: 20 }, true)).toBe(19)
+    expect(mapMaxZoom({ maxzoom: 19 }, true)).toBe(18)
+  })
+
   it('is the base\'s last tile level drawn 1:1 — one map zoom below it on the 512 px grid', async () => {
     const { baseMaxMapZoom, MAP_MAX_ZOOM } = await import('./mapView')
     expect(baseMaxMapZoom({ maxzoom: 20 })).toBe(19) // CARTO, swissimage

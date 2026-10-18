@@ -369,6 +369,13 @@ describe('KarteApp', () => {
     await waitFor(() => expect(rec.undergroundAsked).toBe(2))
   })
 
+  // owner on #383: the Karte (only) never zooms past the visible base's last sharp level
+  it('asks the map to stop at the base map\'s last sharp zoom', async () => {
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    expect((lastMap() as unknown as { zoomCapAtBase?: boolean }).zoomCapAtBase).toBe(true)
+  })
+
   it('opens a deep link on its object — a plan-less one as an object like any other', async () => {
     window.history.replaceState(null, '', '/karte?objekt=depot')
     mount()

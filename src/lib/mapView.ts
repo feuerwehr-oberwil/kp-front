@@ -10,14 +10,21 @@ import type { LineTone } from './truppLines'
 
 export const EMPTY_STYLE = { version: 8 as const, sources: {}, layers: [] }
 
-/** The deepest map zoom on a base map (owner on #383, review round 4: «the map must not zoom past
- *  the last level the current base map serves sharply»). The rasters are 256 px tiles on MapLibre's
+/** The map's own ceiling (14.09.): one step past the tiles, for placing a symbol precisely —
+ *  past a base's `maxzoom` MapLibre stretches the last tile level. The Einsatz map keeps it. */
+export const MAP_MAX_ZOOM = 21
+/** The deepest map zoom on a base map for «Karte & Objekte» (owner on #383, review round 4: «the
+ *  map must not zoom past the last level the current base map serves sharply» — the Karte ONLY; the
+ *  Einsatz keeps MAP_MAX_ZOOM for precise placement). The rasters are 256 px tiles on MapLibre's
  *  512 px zoom grid (MapLayers · tileSize), so a base's LAST tile level `maxzoom` is drawn 1:1 at map
  *  zoom `maxzoom − 1`; one step further would stretch it twice over (CARTO 20 → 19, swissimage 20 →
- *  19, OSM 19 → 18). A base without a `maxzoom` keeps the old ceiling. */
-export const MAP_MAX_ZOOM = 21
+ *  19, OSM 19 → 18). A base without a `maxzoom` keeps the map's ceiling. */
 export const baseMaxMapZoom = (base: { maxzoom?: number } | null | undefined): number =>
   base?.maxzoom != null ? Math.min(MAP_MAX_ZOOM, base.maxzoom - 1) : MAP_MAX_ZOOM
+/** MapView's `maxZoom`: the base's sharp limit where the surface asks for it (`zoomCapAtBase`,
+ *  the Karte), else the map's own ceiling (the Einsatz). */
+export const mapMaxZoom = (base: { maxzoom?: number } | null | undefined, capAtBase = false): number =>
+  capAtBase ? baseMaxMapZoom(base) : MAP_MAX_ZOOM
 
 export const vis = (on: boolean) => ({ visibility: (on ? 'visible' : 'none') as 'visible' | 'none' })
 
