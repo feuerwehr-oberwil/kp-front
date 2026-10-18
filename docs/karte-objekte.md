@@ -236,7 +236,7 @@ The rules that are easy to break:
   mark. The objects once drawn that way are objects like any other — outline, dot, tag, colour.
 - **A turn let go just off north lands on north** (owner, review round 6, 18.10.2026: «add a small
   snap to north too like other places»). Two fingers (past the twist gate's 12°) or the mouse's
-  right-drag that come to rest within `NORTH_SNAP_DEG` (5°) of north ease onto exactly north in
+  right-drag that come to rest within `NORTH_SNAP_DEG` (10°, owner round 7: «a little bit stronger»; round 6 had 5°) of north ease onto exactly north in
   200 ms; further out the map stays turned and the compass's «Nach Norden» is the way back. The
   Karte and the Einsatz alike — it lives in `MapView` (`lib/mapTwist · createNorthSnap`). Never
   mid-gesture, never for the keyboard or a programmatic bearing. MapLibre's own `bearingSnap`

@@ -2039,7 +2039,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       onZoomStart={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) { beginPanGesture(); beginSheetPeek() } }}
       onZoomEnd={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) { endPanGesture(); endSheetPeek() } }}
       // North-snap on release (18.10.2026, owner): a turn by HAND (fingers or the mouse's
-      // right-drag) that comes to rest within NORTH_SNAP_DEG (5°) of north settles on exactly
+      // right-drag) that comes to rest within NORTH_SNAP_DEG (10°) of north settles on exactly
       // north in a short ease (onRotateStart + onMoveEnd above, lib/mapTwist · createNorthSnap);
       // a clear turn further stays, and «Nach Norden» is the way back. Not the old 6° self-heal
       // (removed 24.09.2026) – that healed a twist a pan/pinch leaked in, which the twist gate
