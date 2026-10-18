@@ -448,7 +448,8 @@ The rules that are easy to break:
     reference. **On the iPhone**: `/karte?debug=scroll` (sticky for the tab, `?debug=off` ends it)
     lays a live readout over the top bar — the visual viewport and iOS's pan, the sheet's and the
     field's top on the screen, the list's scroll, and per touchmove passed / cancelled / not
-    cancelable (`KarteScrollDebug`, a diagnostic to remove once the owner's capture is in).
+    cancelable, and since round 7 what moved during the last touch (`KarteScrollDebug`, a diagnostic
+    to remove once the owner's capture is in).
   - **Round 6** (owner, 18.10.2026, `?debug=scroll`: «when i typed it works, without typing it
     fails (empty state)»). With nothing typed the body holds the six featured Einsatzobjekte and
     the two hint lines — SHORTER than the full-height sheet once the keyboard is down, so the list
@@ -461,6 +462,21 @@ The rules that are easy to break:
     the same hole and has the same fix. The check models the hand-off (a first move not cancelled
     over a list with nothing to scroll = the page moved) and runs the empty search with and
     without the keyboard.
+  - **Round 7** (owner, 18.10.2026, screen recording: empty search, keyboard up, a finger on a row
+    pulls down — the whole sheet slides down with it while the top bar holds). The rule is the
+    owner's pick: a drag on the list never moves the sheet; the list scrolls if it can, otherwise
+    nothing happens; only the grab bar (or the ✕) moves or closes the sheet. That is what the code
+    already does (`useSwipeDismiss · headOnly`, and a row is a button, which never starts the
+    pull), and the check now proves it with the sheet's own POINTER gesture in the loop: the
+    owner's pull (list at its top, down–up–down in one touch, also with a first move a pixel
+    sideways) leaves the sheet's top unchanged during and after, empty and typed, keyboard up and
+    down, Gefahrgut the same, while the same pull on the grab bar moves the sheet and a long one
+    closes it. With the pull re-enabled on the body the check goes red. In the video the map moves
+    too and a scroll indicator shows at the right edge, so the mover is native
+    (iOS), which WebKit on Linux cannot run: `?debug=scroll` now also records, per touch and for a
+    second after the lift, what moved (top bar, sheet, map, iOS's pan, `scrollY`), every element
+    that scrolled, the sheet's own pull, `data-kb` flips and the `--ks-bottom` range — one
+    screenshot after the drag names the mover.
   - No «AutoFill Contact»: both fields come from one helper (`lib/typingField`) — a `search-…`
     name (Safari offers no contact AutoFill on a search), autocomplete / autocorrect /
     autocapitalise / spell check off, `enterKeyHint`, numeric for the UN field, and their label /

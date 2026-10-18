@@ -2,8 +2,11 @@
 // iPhone: «Scrolling in the search input still messes up things and doesnt work (gefahrgut scroll
 // works though)» — «the whole sheet/page moves instead of the list, and it is worse while the
 // keyboard is open»; round 6: «when i typed it works, without typing it fails (empty state)» — a
-// list with nothing to scroll must move nothing). A device-class check, not a Playwright spec: WebKit at iPhone 13 size,
-// run by hand against a running stack (docs/karte-objekte.md · «Search: only the list scrolls»).
+// list with nothing to scroll must move nothing; round 7, the owner's video: with the list at its
+// top a finger on a row pulls DOWN and the whole sheet slides down with it — a drag on the list
+// never moves the sheet, only the grab bar (or the ✕) does, the same in Gefahrgut). A device-class
+// check, not a Playwright spec: WebKit at iPhone 13 size, run by hand against a running stack
+// (docs/karte-objekte.md · «Search: only the list scrolls»).
 //
 //   LD_LIBRARY_PATH=… node e2e/karte-search-scroll.mjs http://127.0.0.1:5130   (PIN 000000 stack)
 //
@@ -19,6 +22,9 @@
 //     keyboard and whose `offsetTop` is iOS's pan of the page («the whole page moves»); positions
 //     are read on the SCREEN (layout px − pan). `scrollTo(0, 0)` undoes the pan as on iOS — except
 //     in the «iOS ignores it» step, as iOS does during a running touch or momentum scroll.
+//   · the sheet's own pull-down (overlays/swipeDismiss) is a POINTER gesture: every drag also
+//     dispatches pointerdown/move/up (pointercancel once the modelled native pan has the touch),
+//     and the sheet's top is read after every move, not only at the end.
 // It cannot show what only the real iPhone does (where iOS decides to pan); for that the Karte has
 // `?debug=scroll` (components/karte/KarteScrollDebug).
 //
@@ -51,15 +57,30 @@ function fakeKeyboard() {
   void real
 }
 
-/** A one-finger drag over the sheet's body: `moves` are [dx, dy] steps of the finger. Returns
- *  which moves a guard cancelled and the screen tops before/after. */
-function drag(moves) {
+/** A one-finger drag over the sheet's body (or, `at: 'grab'`, its grab bar): `moves` are [dx, dy]
+ *  steps of the finger. Dispatched as on iOS: pointerdown/touchstart, then per step pointermove +
+ *  touchmove, then pointerup/touchend — so the sheet's own pull-down (overlays/swipeDismiss, a
+ *  POINTER gesture) sees the finger exactly as the touch guards do; once the native pan has the
+ *  touch, iOS sends pointercancel and no more pointer moves. Returns which moves a guard
+ *  cancelled, the screen tops before/after and the sheet's lowest screen top DURING the drag
+ *  (review round 7, owner's video: the whole sheet slid down with the finger and sprang back). */
+function drag(arg) {
+  // `moves`, or `[moves, 'grab']` (page.evaluate passes one argument)
+  const [moves, at] = typeof arg[1] === 'string' ? arg : [arg, 'list']
   const pan = window.visualViewport.offsetTop
   const sheet = document.querySelector('[data-karte-keysheet]')
   const body = sheet.querySelector('.lc-body')
   const field = sheet.querySelector('input')
-  const r = body.getBoundingClientRect()
-  let x = r.left + r.width / 2, y = r.top + Math.min(r.height * 0.5, 160)
+  let x, y
+  if (at === 'grab') {
+    const g = sheet.querySelector('.ui-sheet-grab').getBoundingClientRect()
+    x = g.left + g.width / 2; y = g.top + g.height / 2
+  } else {
+    // on a row when there is one (the owner's finger in the video), else the body's middle
+    const r = body.getBoundingClientRect()
+    const row = [...body.querySelectorAll('[role="option"]')].map((o) => o.getBoundingClientRect()).find((o) => o.top >= r.top && o.bottom <= Math.min(r.bottom, window.visualViewport.height))
+    x = r.left + r.width / 2; y = row ? row.top + row.height / 2 : r.top + Math.min(r.height * 0.5, 160)
+  }
   const target = document.elementFromPoint(x, y)
   const tops = () => ({ sheet: Math.round(sheet.getBoundingClientRect().top - window.visualViewport.offsetTop), field: Math.round(field.getBoundingClientRect().top - window.visualViewport.offsetTop) })
   const before = { ...tops(), list: body.scrollTop }
@@ -70,25 +91,33 @@ function drag(moves) {
     for (const [k, v] of Object.entries({ touches: list, targetTouches: list, changedTouches: [t] })) Object.defineProperty(e, k, { value: v })
     return e
   }
+  const pe = (type) => new PointerEvent(type, { bubbles: true, cancelable: type !== 'pointercancel', composed: true, pointerId: 7, pointerType: 'touch', isPrimary: true, clientX: x, clientY: y, screenX: x, screenY: y, button: type === 'pointermove' ? -1 : 0, buttons: type === 'pointerup' || type === 'pointercancel' ? 0 : 1 })
+  target.dispatchEvent(pe('pointerdown'))
   target.dispatchEvent(ev('touchstart'))
   let dead = false
   // iOS hands the pan ON (the page pans or rubber-bands, «the whole sheet moves») when the first
   // move passes over a list that cannot scroll at all: `overscroll-behavior` only holds on a box
   // that overflows (review round 6: the empty search, 6 featured rows shorter than the sheet)
   let handedOn = false
+  let native = false // the native pan has the touch: iOS sent pointercancel, no pointer moves follow
+  let lowest = before.sheet
   const cancelled = []
   for (const [dx, dy] of moves) {
     x += dx; y += dy
+    if (!native) target.dispatchEvent(pe('pointermove'))
     const e = ev('touchmove')
     target.dispatchEvent(e)
     cancelled.push(e.defaultPrevented)
     if (cancelled.length === 1 && e.defaultPrevented) dead = true
     if (cancelled.length === 1 && !e.defaultPrevented && body.scrollHeight - body.clientHeight <= 0) handedOn = true
+    if (cancelled.length === 1 && !e.defaultPrevented && at !== 'grab') { native = true; target.dispatchEvent(pe('pointercancel')) }
     // the native pan (modelled): the list follows the finger unless the touch is dead
     if (!dead && !e.defaultPrevented) body.scrollTop -= dy
+    lowest = Math.max(lowest, tops().sheet)
   }
+  if (!native) target.dispatchEvent(pe('pointerup'))
   target.dispatchEvent(ev('touchend'))
-  return { target: target.className || target.tagName, cancelled: cancelled.map((c) => (c ? 'X' : '.')).join(''), handedOn, before, after: { ...tops(), list: body.scrollTop } }
+  return { target: target.className || target.tagName, cancelled: cancelled.map((c) => (c ? 'X' : '.')).join(''), handedOn, before, during: { sheetLowest: lowest }, after: { ...tops(), list: body.scrollTop } }
 }
 
 const frames = (page, n = 4) => page.evaluate((n) => new Promise((ok) => { const f = (i) => (i ? requestAnimationFrame(() => f(i - 1)) : ok()); f(n) }), n)
@@ -116,11 +145,23 @@ await page.locator('[data-karte-search-open]').waitFor({ timeout: 30000 })
 const UP = [[0, -3], [0, -8], [0, -12], [0, -12], [0, -12], [0, -12]] // a clean push up: the list scrolls on
 const JITTER = [[1, 0], [1, -2], [0, -8], [0, -12], [0, -12], [0, -12]] // the same, its first move a pixel sideways
 const BACK = [[0, 3], [0, 8], [0, 12]] // and back down
+// the owner's video (review round 7): the list at its top, a finger on a row pulls DOWN, wobbles
+// back up and down again in the same touch — the sheet slid down with it and sprang back
+const OWNER = [[0, 4], [0, 10], [0, 16], [0, 20], [0, 20], [0, 10], [0, -20], [0, -20], [0, 20], [0, 20]]
+const JITTER_DOWN = [[1, 0], [1, 2], [0, 8], [0, 16], [0, 20], [0, 20]] // the same pull, its first move a pixel sideways
+const HANDLE = [[0, 6], [0, 12], [0, 16], [0, 16]] // a short pull on the grab bar: the sheet follows, then springs back
+const HANDLE_CLOSE = [[0, 10], [0, 30], [0, 40], [0, 40], [0, 40]] // a long one closes it
 
 async function sheetChecks(name, open) {
   await open()
   await frames(page, 6)
-  const still = (r) => r.before.sheet === r.after.sheet && r.before.field === r.after.field && !r.handedOn
+  // still DURING the drag too (review round 7: the sheet followed the finger and sprang back)
+  const still = (r) => r.before.sheet === r.after.sheet && r.during.sheetLowest === r.before.sheet && r.before.field === r.after.field && !r.handedOn
+  const atTop = () => page.evaluate(() => { document.querySelector('[data-karte-keysheet] .lc-body').scrollTop = 0 })
+  // the grab bar is the sheet's handle: the same pull there moves the sheet, and lets it go back
+  const followed = (r, back) => r.during.sheetLowest - r.before.sheet >= 20 && back.before.sheet === r.before.sheet
+  // the snap back is a short transition: read the sheet's place once it has run
+  const pullGrab = async (moves) => { const r = await page.evaluate(drag, [moves, 'grab']); await page.waitForTimeout(400); return [r, await page.evaluate(drag, [])] }
   const roomNow = () => page.locator('[data-karte-keysheet] .lc-body').evaluate((b) => b.scrollHeight - b.clientHeight)
   // a list with nothing to scroll: NOTHING moves — the list stays, and no move goes on to the page
   const scrolled = (r, room, dir = 1) => (room <= 0 ? r.after.list === r.before.list : dir * (r.after.list - r.before.list) > 0)
@@ -132,6 +173,12 @@ async function sheetChecks(name, open) {
   check(`${name} · no keyboard · a push up ${room > 0 ? 'scrolls the list' : 'moves nothing'} (${room}px to scroll), sheet + field stay`, scrolled(r, room) && still(r), r)
   r = await page.evaluate(drag, BACK)
   check(`${name} · no keyboard · a pull down moves nothing but the list, sheet + field stay`, still(r), r)
+  await atTop()
+  r = await page.evaluate(drag, OWNER)
+  check(`${name} · no keyboard · list at its top, a pull down on a row (owner's video): the sheet stays during and after`, still(r), r)
+  let back
+  ;[r, back] = await pullGrab(HANDLE)
+  check(`${name} · no keyboard · the same pull on the grab bar moves the sheet, and it springs back`, followed(r, back), { r, back: back.before })
   // the keyboard comes back with a tap on the field: focused WITHOUT Safari's scroll-to-field
   // (lib/iosKeyboard · noPanTouchEnd cancels the tap's native focus and focuses with the field
   // lifted out of reach) — Safari's own focus pans the page to the field, «the whole sheet moves»
@@ -156,6 +203,14 @@ async function sheetChecks(name, open) {
   await page.evaluate(() => { document.querySelector('[data-karte-keysheet] .lc-body').scrollTop = 0 })
   r = await page.evaluate(drag, JITTER)
   check(`${name} · keyboard · a first move a pixel sideways still ${room > 0 ? 'scrolls the list' : 'moves nothing'}`, scrolled(r, room) && still(r), r)
+  await atTop()
+  r = await page.evaluate(drag, OWNER)
+  check(`${name} · keyboard · list at its top, a pull down on a row (owner's video): the sheet stays during and after`, still(r) && r.after.list === 0, r)
+  await atTop()
+  r = await page.evaluate(drag, JITTER_DOWN)
+  check(`${name} · keyboard · the same pull, first move a pixel sideways: the sheet stays`, still(r) && r.after.list === 0, r)
+  ;[r, back] = await pullGrab(HANDLE)
+  check(`${name} · keyboard · the same pull on the grab bar moves the sheet, and it springs back`, followed(r, back), { r, back: back.before })
   // iOS pans the page anyway (a drag it did not hand to the list, a momentum end) and ignores the
   // scrollTo(0, 0) that would undo it while the touch runs: the sheet and its field stay on the screen
   const t0 = await page.evaluate(drag, [])
@@ -164,8 +219,16 @@ async function sheetChecks(name, open) {
   const t1 = await page.evaluate(drag, [])
   check(`${name} · keyboard · iOS pans the page by 90px: field + sheet top stay on the screen`, t0.before.field === t1.before.field && t0.before.sheet === t1.before.sheet, { before: t0.before, panned: t1.before })
   await page.evaluate(() => window.__kb({ kb: 0, pan: 0, ignoreScrollTo: false }))
-  await page.locator('[data-karte-keysheet] .lc-x').click()
-  await page.locator('[data-karte-keysheet]').waitFor({ state: 'detached' })
+  await page.locator('[data-karte-keysheet] input').evaluate((el) => el.blur())
+  await frames(page, 6)
+  // a long pull on the grab bar closes the sheet (the only drag that may)
+  await page.evaluate(drag, [HANDLE_CLOSE, 'grab'])
+  const closed = await page.locator('[data-karte-keysheet]').waitFor({ state: 'detached', timeout: 3000 }).then(() => true, () => false)
+  check(`${name} · a long pull on the grab bar closes the sheet`, closed, {})
+  if (!closed) {
+    await page.locator('[data-karte-keysheet] .lc-x').click()
+    await page.locator('[data-karte-keysheet]').waitFor({ state: 'detached' })
+  }
 }
 
 // nothing typed (review round 6, owner: «when i typed it works, without typing it fails (empty

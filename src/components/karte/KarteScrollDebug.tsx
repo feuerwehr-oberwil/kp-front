@@ -10,6 +10,18 @@
 // last touch: where it started, and per touchmove «.» passed, «X» cancelled by a guard, «-» not
 // cancelable (iOS is already scrolling). Written to the DOM per frame, never a React render; it
 // takes no touches (pointer-events: none) and lies over the top bar, riding with it (--vv-pan).
+//
+// WHAT MOVED during the last touch (review round 7, owner's video: the sheet slid down with a drag
+// on the list while the top bar held — WebKit on Linux runs the same gesture and nothing moves, so
+// only this tells which mover it is). From touchstart to a second after the lift («…» while it
+// records), then kept on screen until the next touch:
+//   «Δ» each box's screen top, lowest/highest against its place at touchstart — the top bar, the
+//       sheet, the map — and iOS's pan (vv offsetTop) and window.scrollY over the same touch;
+//   «scrolled» every element that fired a scroll event in the touch, with its scrollTop range
+//       (a scroller carrying the sheet shows here, the list itself as `lc-body`);
+//   «sheet» the sheet's own pull (inline transform, overlays/swipeDismiss) at its largest, how
+//       often `data-kb` flipped and the --ks-bottom range; «ptr» where the pointer went down and
+//       whether iOS took the touch over (pointercancel).
 
 import { useEffect, useRef, useState } from 'react'
 
@@ -34,9 +46,61 @@ export function KarteScrollDebug() {
     if (!on) return
     let frame = 0
     let touch = { from: '–', moves: '' }
-    const start = (e: TouchEvent) => { touch = { from: named(e.target instanceof Element ? e.target : null), moves: '' } }
+    // the last touch's movers (head of this file): live while the finger is down, kept after
+    const sheetEl = () => document.querySelector<HTMLElement>('[data-karte-keysheet]')
+    const screenTop = (sel: string) => {
+      const el = document.querySelector(sel)
+      return el ? el.getBoundingClientRect().top - (window.visualViewport?.offsetTop ?? 0) : null
+    }
+    type Range = { at: number; lo: number; hi: number }
+    const range = (at: number | null): Range | null => (at == null ? null : { at, lo: 0, hi: 0 })
+    const widen = (rg: Range | null, now: number | null) => { if (rg && now != null) { rg.lo = Math.min(rg.lo, now - rg.at); rg.hi = Math.max(rg.hi, now - rg.at) } }
+    const fresh = () => ({
+      down: false, bar: range(screenTop('.topbar')), sheet: range(screenTop('[data-karte-keysheet]')), map: range(screenTop('.maplibregl-map')),
+      pan: range(window.visualViewport?.offsetTop ?? 0), sy: range(window.scrollY),
+      scrolled: new Map<string, { lo: number; hi: number }>(), pull: 0, kbFlips: 0, kb: !!sheetEl()?.hasAttribute('data-kb'),
+      ks: { lo: Infinity, hi: -Infinity }, ptr: '–', cancel: false,
+    })
+    let moved = fresh()
+    // iOS sends pointerdown BEFORE touchstart: kept here, handed to the touch when it starts
+    let ptr = '–'
+    const sample = () => {
+      widen(moved.bar, screenTop('.topbar')); widen(moved.sheet, screenTop('[data-karte-keysheet]')); widen(moved.map, screenTop('.maplibregl-map'))
+      widen(moved.pan, window.visualViewport?.offsetTop ?? 0); widen(moved.sy, window.scrollY)
+      const sh = sheetEl()
+      if (sh) {
+        const m = /translateY\((-?[\d.]+)px\)/.exec(sh.style.transform)
+        if (m) moved.pull = Math.max(moved.pull, Number(m[1]))
+        const kb = sh.hasAttribute('data-kb')
+        if (kb !== moved.kb) { moved.kb = kb; moved.kbFlips++ }
+        const ks = parseFloat(sh.style.getPropertyValue('--ks-bottom'))
+        if (Number.isFinite(ks)) { moved.ks.lo = Math.min(moved.ks.lo, ks); moved.ks.hi = Math.max(moved.ks.hi, ks) }
+      }
+    }
+    const start = (e: TouchEvent) => {
+      touch = { from: named(e.target instanceof Element ? e.target : null), moves: '' }
+      moved = fresh()
+      moved.ptr = ptr
+      moved.down = true
+    }
     // on window, bubbling: after the document-level guards (useTypingLock, useMobileScrollLock) decided
-    const move = (e: TouchEvent) => { if (touch.moves.length < 40) touch.moves += !e.cancelable ? '-' : e.defaultPrevented ? 'X' : '.' }
+    const move = (e: TouchEvent) => { if (touch.moves.length < 40) touch.moves += !e.cancelable ? '-' : e.defaultPrevented ? 'X' : '.'; sample() }
+    // …and for a second after the lift: momentum, a snap back and iOS's own settling land there
+    let after: ReturnType<typeof setTimeout> | undefined
+    const end = () => { sample(); const was = moved; clearTimeout(after); after = setTimeout(() => { was.down = false }, 1000) }
+    const scrolled = (e: Event) => {
+      if (!moved.down) return
+      const t = e.target
+      const el = t instanceof Element ? t : t === document ? document.scrollingElement : null
+      const name = t === window.visualViewport ? 'vv' : el ? `${named(el)}${el.id ? `#${el.id}` : ''}` : '?'
+      const top = t === window.visualViewport ? Math.round(window.visualViewport?.offsetTop ?? 0) : Math.round(el?.scrollTop ?? 0)
+      const was = moved.scrolled.get(name)
+      moved.scrolled.set(name, was ? { lo: Math.min(was.lo, top), hi: Math.max(was.hi, top) } : { lo: top, hi: top })
+      sample()
+    }
+    const down = (e: PointerEvent) => { if (e.pointerType === 'touch') ptr = named(e.target instanceof Element ? e.target : null) }
+    const cancel = () => { moved.cancel = true }
+    const d = (rg: Range | null) => (rg ? (rg.lo === 0 && rg.hi === 0 ? '0' : `${r(rg.lo)}/+${r(rg.hi)}`) : '–')
     const draw = () => {
       frame = requestAnimationFrame(draw)
       const el = ref.current
@@ -53,15 +117,33 @@ export function KarteScrollDebug() {
         `screen top: sheet ${top(sheet)} field ${top(field)} · list ${list ? `${r(list.scrollTop)}/${r(list.scrollHeight - list.clientHeight)}` : '–'}`,
         `focus ${named(document.activeElement)}`,
         `touch ${touch.from} ${touch.moves}`,
+        `Δ${moved.down ? '…' : ''} bar ${d(moved.bar)} sheet ${d(moved.sheet)} map ${d(moved.map)} · pan ${d(moved.pan)} scrollY ${d(moved.sy)}`,
+        `scrolled ${[...moved.scrolled].map(([k, v]) => `${k} ${v.lo}…${v.hi}`).join(', ') || '–'}`,
+        `sheet pull ${r(moved.pull)} · kb flips ${moved.kbFlips} · ks ${Number.isFinite(moved.ks.lo) ? `${r(moved.ks.lo)}…${r(moved.ks.hi)}` : '–'} · ptr ${moved.ptr}${moved.cancel ? ' cancel' : ''}`,
       ].join('\n')
+      if (moved.down) sample()
     }
     document.addEventListener('touchstart', start, { passive: true, capture: true })
     window.addEventListener('touchmove', move, { passive: true })
+    window.addEventListener('touchend', end, { passive: true })
+    window.addEventListener('touchcancel', end, { passive: true })
+    // scroll events do not bubble: caught on the way down, every scroller in the document
+    document.addEventListener('scroll', scrolled, { passive: true, capture: true })
+    window.visualViewport?.addEventListener('scroll', scrolled)
+    document.addEventListener('pointerdown', down, { passive: true, capture: true })
+    document.addEventListener('pointercancel', cancel, { passive: true, capture: true })
     draw()
     return () => {
       cancelAnimationFrame(frame)
+      clearTimeout(after)
       document.removeEventListener('touchstart', start, { capture: true })
       window.removeEventListener('touchmove', move)
+      window.removeEventListener('touchend', end)
+      window.removeEventListener('touchcancel', end)
+      document.removeEventListener('scroll', scrolled, { capture: true })
+      window.visualViewport?.removeEventListener('scroll', scrolled)
+      document.removeEventListener('pointerdown', down, { capture: true })
+      document.removeEventListener('pointercancel', cancel, { capture: true })
     }
   }, [on])
   if (!on) return null
