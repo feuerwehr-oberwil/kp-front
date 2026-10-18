@@ -501,6 +501,36 @@ The rules that are easy to break:
     `#root` has room to scroll. So the mover in the installed app is iOS's own (the video's long
     scroll indicator at the right edge is a document-sized scroller), which only the readout on
     the owner's phone can name.
+  - **Round 9** (owner's capture with the readout in the installed app, 18.10.2026 19:08). It named
+    the mover: with the keyboard up, the first touch makes iOS **collapse `innerHeight` to the
+    visual viewport** (793 → 424) and **scroll the window** by the rest (`scrollY` and the visual
+    viewport's `offsetTop` 369), while the document and the frame `position: fixed` is laid out in
+    stay 793 tall (`doc 793/793`). `keyboardTop` measured the keyboard from the live
+    `innerHeight` — now 424 − (369 + 424) → «no keyboard» — so the sheet dropped its keyboard
+    placement and stood for a 793-px screen in a window scrolled by 369: its field above the
+    screen. (The readout printed −516 for the sheet; the frames show it at −147 — in the collapse
+    iOS's rects already include the scroll, so «less the pan» counted it twice. The readout now
+    also prints the raw rect.) Safari tabs never shrink `innerHeight`.
+    · The keyboard placement measures from the app's **full height** (`lib/iosKeyboard ·
+    fullViewHeight`: the larger of `innerHeight` and `documentElement.clientHeight`, which stayed
+    793 throughout the capture — stateless, follows a rotation; not the screen less the safe area:
+    852 − 0 ≠ 793 under the opaque status bar). A keyboard is up when the visual viewport is
+    clearly shorter than that, and its top edge is the visual viewport's bottom — also when the
+    pan has swallowed the whole keyboard (369 + 424 = 793: the sheet stands at `bottom: 0` and its
+    cap less the pan keeps its top at 92 on the screen, where it stood before the touch).
+    · The page lock also looks again a beat after a touch with the caret up (`useTypingLock`): the
+    collapse scrolls the window during the touch faster than the rate-limited `scrollTo(0, 0)` may
+    answer and then fires nothing. The placement no longer depends on that undo — the sheet is
+    right with the window scrolled and after iOS honours the `scrollTo`. The document is not bound
+    to the live height: that would touch every surface of the app, and the placement suffices.
+    · The readout's first line carries the reference (`ref 793`).
+    · Check: `e2e/karte-search-scroll.mjs`'s app frame models the collapse (innerHeight and
+    scrollY report it, the layout stays 793) with the capture's numbers, both with the scroll kept
+    and after a `scrollTo(0, 0)`, plus the owner's pull on a row in that state; red on the base
+    (placement off, sheet top −147, field −123), green now. What only the iPhone proves: that iOS
+    keeps the fixed frame at 793 while the sheet is placed (the capture shows it did with the
+    placement off). Still open: `useKeyboardInset` (the root's `data-kb`, `--vv-foot`, the
+    Einsatz's sheets) reads the live `innerHeight` the same way.
   - No «AutoFill Contact»: both fields come from one helper (`lib/typingField`) — a `search-…`
     name (Safari offers no contact AutoFill on a search), autocomplete / autocorrect /
     autocapitalise / spell check off, `enterKeyHint`, numeric for the UN field, and their label /
