@@ -53,6 +53,16 @@
 // its field and the map must stand where they stood at touchstart — with iOS's scroll bounded by
 // the root's box and by the full 793-px frame, as only the phone knows which.
 //
+// THE OWNER'S PICK (review round 11, after the installed app panned the VISUAL viewport under a drag
+// with the keys up and the list never scrolled): a drag on the list CLOSES THE KEYBOARD — iOS Mail's
+// search. With the keys up a push up / a pull down on a row blurs the field (the stand-in then lowers
+// the keys, as iOS does), the sheet leaves the keys, no move on the list is ever cancelled, the top
+// bar and the map stay where they were, and the list scrolls: in the same touch as modelled here (the
+// touch is never cancelled, so the native pan may go on) and, what holds either way, in the next
+// drag. A tap's wobble on a row keeps the caret; a pull on the grab bar keeps moving the sheet.
+// With nothing typed the search lists the ~30 objects nearest the map centre, so «Suche leer» has
+// room to scroll too.
+//
 // Exit code 1 and «RED» lines when a check fails.
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -183,6 +193,7 @@ function drag(arg) {
   }
   const target = document.elementFromPoint(x, y)
   const tops = () => ({ sheet: Math.round(sheet.getBoundingClientRect().top - window.visualViewport.offsetTop), field: Math.round(field.getBoundingClientRect().top - window.visualViewport.offsetTop) })
+  const caretBefore = document.activeElement === field
   const before = { ...tops(), list: body.scrollTop }
   const ev = (type) => {
     const t = { identifier: 1, target, clientX: x, clientY: y, pageX: x, pageY: y + pan, screenX: x, screenY: y }
@@ -217,7 +228,9 @@ function drag(arg) {
   }
   if (!native) target.dispatchEvent(pe('pointerup'))
   target.dispatchEvent(ev('touchend'))
-  return { target: target.className || target.tagName, cancelled: cancelled.map((c) => (c ? 'X' : '.')).join(''), handedOn, before, during: { sheetLowest: lowest }, after: { ...tops(), list: body.scrollTop } }
+  // `blurred`: the field had the caret at touchstart and lost it during the touch (round 11)
+  return { target: target.className || target.tagName, cancelled: cancelled.map((c) => (c ? 'X' : '.')).join(''), handedOn, before, during: { sheetLowest: lowest }, after: { ...tops(), list: body.scrollTop },
+    blurred: caretBefore && document.activeElement !== field, caret: document.activeElement === field }
 }
 
 // the installed app's own test (lib/installPrompt · isStandalone) answers «yes», as on the home screen
@@ -278,6 +291,7 @@ const OWNER = [[0, 4], [0, 10], [0, 16], [0, 20], [0, 20], [0, 10], [0, -20], [0
 const JITTER_DOWN = [[1, 0], [1, 2], [0, 8], [0, 16], [0, 20], [0, 20]] // the same pull, its first move a pixel sideways
 const HANDLE = [[0, 6], [0, 12], [0, 16], [0, 16]] // a short pull on the grab bar: the sheet follows, then springs back
 const HANDLE_CLOSE = [[0, 10], [0, 30], [0, 40], [0, 40], [0, 40]] // a long one closes it
+const WOBBLE = [[1, 2], [-1, 2], [0, -1]] // a tap's wobble on a row: 4 px at most, under the drag slop
 
 async function sheetChecks(name, open, frame) {
   await open()
@@ -325,9 +339,17 @@ async function sheetChecks(name, open, frame) {
   check(`${name} · a tap on the field takes the caret without Safari's pan`, tap.nativeFocusCancelled && tap.focused, tap)
   await page.evaluate(() => { document.querySelector('[data-karte-keysheet] .lc-body').scrollTop = 0 })
   // the keyboard up (the field has the caret)
-  await page.locator('[data-karte-keysheet] input').focus()
-  await page.evaluate((kb) => window.__kb({ kb, pan: 0 }), KEYBOARD)
-  await frames(page, 6)
+  const keysUp = async () => {
+    await page.locator('[data-karte-keysheet] input').focus()
+    await page.evaluate((kb) => window.__kb({ kb, pan: 0 }), KEYBOARD)
+    await frames(page, 6)
+  }
+  // iOS lowers the keys once the field has lost the caret — the stand-in cannot know: told here
+  const keysGone = async () => { await page.evaluate(() => window.__kb({ kb: 0, pan: 0, ignoreScrollTo: false, collapse: false, shrink: null })); await frames(page, 6) }
+  // the background: the top bar and the map on the screen
+  const bg = () => page.evaluate(() => [document.querySelector('.topbar'), document.querySelector('.maplibregl-map')].map((el) => Math.round(el.getBoundingClientRect().top - window.visualViewport.offsetTop)).join(','))
+  const offKeys = () => page.evaluate(() => !document.querySelector('[data-karte-keysheet]').hasAttribute('data-kb'))
+  await keysUp()
   // the frame with the keys up (review round 8, the installed app): the sheet stands ON the keys,
   // its top under the bar, all of it inside the view — and nothing outside it has room to scroll
   // (hypotheses a and c: a document taller than the view, a sheet box past the visible band)
@@ -342,21 +364,36 @@ async function sheetChecks(name, open, frame) {
   check(`${name} · keyboard · the sheet stands on the keys, its top under the bar`, Math.abs(box.foot - box.keys) <= 1 && box.top >= box.bar && box.foot <= box.inner, box)
   check(`${name} · keyboard · nothing outside the sheet has room to scroll (document, body, #root)`, box.doc <= 0 && box.root <= 0 && box.body <= 0, box)
   room = await roomNow()
+  // a tap's wobble on a row (a tap opens the row with the keys up): the caret stays, nothing cancelled
+  r = await page.evaluate(drag, WOBBLE)
+  check(`${name} · keyboard · a tap's wobble on a row keeps the caret, no move cancelled, the sheet stays`, r.caret && !r.cancelled.includes('X') && still(r), r)
+  // round 11, the owner's pick: a drag on the list closes the keyboard and the list scrolls
+  const dismisses = async (label, moves, { list } = {}) => {
+    await keysUp()
+    await atTop()
+    const bg0 = await bg()
+    const room0 = await roomNow()
+    const d = await page.evaluate(drag, moves)
+    await keysGone()
+    const after = { off: await offKeys(), bg: await bg(), bg0 }
+    check(`${name} · keyboard · ${label}: closes the keyboard (field blurred, sheet off the keys), no move cancelled, the sheet not pulled, bar + map unmoved`,
+      d.blurred && after.off && !d.cancelled.includes('X') && d.during.sheetLowest === d.before.sheet && !d.handedOn && after.bg === bg0, { d, after })
+    if (list) check(`${name} · keyboard · ${label}: ${list.label(room0)}`, list.ok(d, room0), d)
+  }
+  await dismisses('a push up on a row', UP, { list: { label: (rm) => `the list ${rm > 0 ? 'scrolls in the same touch (modelled: the touch is never cancelled)' : 'has nothing to scroll and moves nothing'} (${rm}px)`, ok: scrolled } })
+  await atTop()
+  room = await roomNow()
   r = await page.evaluate(drag, UP)
-  check(`${name} · keyboard · a push up ${room > 0 ? 'scrolls the list' : 'moves nothing'} (${room}px to scroll), sheet + field stay`, scrolled(r, room) && still(r), r)
-  r = await page.evaluate(drag, BACK)
-  check(`${name} · keyboard · and back down in a new touch`, scrolled(r, room, -1) && still(r), r)
-  await page.evaluate(() => { document.querySelector('[data-karte-keysheet] .lc-body').scrollTop = 0 })
-  r = await page.evaluate(drag, JITTER)
-  check(`${name} · keyboard · a first move a pixel sideways still ${room > 0 ? 'scrolls the list' : 'moves nothing'}`, scrolled(r, room) && still(r), r)
-  await atTop()
-  r = await page.evaluate(drag, OWNER)
-  check(`${name} · keyboard · list at its top, a pull down on a row (owner's video): the sheet stays during and after`, still(r) && r.after.list === 0, r)
-  await atTop()
-  r = await page.evaluate(drag, JITTER_DOWN)
-  check(`${name} · keyboard · the same pull, first move a pixel sideways: the sheet stays`, still(r) && r.after.list === 0, r)
+  check(`${name} · keyboard gone · the next push up ${room > 0 ? 'scrolls the list' : 'moves nothing'} (${room}px to scroll), sheet + field stay`, scrolled(r, room) && still(r), r)
+  await dismisses('a first move a pixel sideways, then up', JITTER)
+  // the owner's video (round 7): the list at its top, a pull down on a row
+  await dismisses("a pull down on a row at the list's top (owner's video)", OWNER, { list: { label: () => 'the list stays at its top', ok: (d) => d.after.list === 0 } })
+  await dismisses('the same pull, first move a pixel sideways', JITTER_DOWN)
+  // the grab bar is the sheet's handle, with the keys up too — and it keeps the caret
+  await keysUp()
   ;[r, back] = await pullGrab(HANDLE)
-  check(`${name} · keyboard · the same pull on the grab bar moves the sheet, and it springs back`, followed(r, back), { r, back: back.before })
+  check(`${name} · keyboard · a pull on the grab bar moves the sheet, it springs back, the caret stays`, followed(r, back) && r.caret && back.caret, { r, back: back.before })
+  await keysUp()
   // iOS pans the page anyway (a drag it did not hand to the list, a momentum end) and ignores the
   // scrollTo(0, 0) that would undo it while the touch runs: the sheet and its field stay on the screen
   const t0 = await page.evaluate(drag, [])
@@ -401,7 +438,9 @@ async function collapseChecks(name, { kb, pan }) {
   check(`${name} · collapse (innerHeight ${b.inner}, scrollY ${b.scrollY}): the sheet stays on the keys, its top and field under the bar on the screen`, placed(b), b)
   await page.evaluate(() => { document.querySelector('[data-karte-keysheet] .lc-body').scrollTop = 0 })
   const r = await page.evaluate(drag, OWNER)
-  check(`${name} · collapse · a pull down on a row (owner's capture): the sheet stays during and after`, r.before.sheet === r.after.sheet && r.during.sheetLowest === r.before.sheet && r.before.field === r.after.field && !r.handedOn, r)
+  // round 11: the pull closes the keyboard; the sheet is not pulled during it, no move is cancelled
+  check(`${name} · collapse · a pull down on a row (owner's capture): closes the keyboard, no move cancelled, the sheet not pulled`, r.blurred && !r.cancelled.includes('X') && r.during.sheetLowest === r.before.sheet && !r.handedOn, r)
+  await page.locator('[data-karte-keysheet] input').focus()
   // iOS honours a scrollTo(0, 0) again: the window back at the top, innerHeight still collapsed
   await page.evaluate(() => { window.__kb({ ignoreScrollTo: false }); window.scrollTo(0, 0) })
   await frames(page, 6)

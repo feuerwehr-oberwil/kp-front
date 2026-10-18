@@ -1,6 +1,7 @@
 // «Karte & Objekte» — the search results under the bar: station objects first (found on the
 // device, offline too — lib/karte/search), then addresses from the geocoder (online only).
-// An empty query offers the Einsatzobjekte, which is what a member opening the search looks for.
+// An empty query lists the station objects nearest the map centre, nearest first (lib/karte/search ·
+// nearestObjects; owner, review round 11: «have more items to scroll through»), as hit rows.
 //
 // A row is glyph · name · address (· distance for a hit) — no plan count (owner, review round 2:
 // «we don't need the number of modules on the index. just the address is enough»; the sheet
@@ -15,18 +16,17 @@ import { Icon } from '../../lib/icons'
 import { cx } from '../../lib/cx'
 import { fmtDistance } from '../../lib/geo'
 import type { GeoHit } from '../../lib/api/geo'
-import type { StationObject } from '../../lib/api/stationReference'
 import type { ObjectHit } from '../../lib/karte/search'
 import { objectRowSub, splitAddress } from '../../lib/karte/places'
 import s from './Karte.module.css'
 
 export type AddrState = 'idle' | 'short' | 'loading' | 'ok' | 'offline' | 'error'
 
-export function KarteSearch({ query, hits, featured, addresses, addrState, onPickObject, onPickAddress, inSheet = false }: {
+export function KarteSearch({ query, hits, nearest, addresses, addrState, onPickObject, onPickAddress, inSheet = false }: {
   query: string
   hits: ObjectHit[]
-  /** shown while nothing is typed */
-  featured: StationObject[]
+  /** shown while nothing is typed: the objects nearest the map centre */
+  nearest: ObjectHit[]
   addresses: GeoHit[]
   addrState: AddrState
   onPickObject: (id: string) => void
@@ -37,35 +37,27 @@ export function KarteSearch({ query, hits, featured, addresses, addrState, onPic
   const C = appConfig.copy.karte
   const q = query.trim()
   const lead = () => <span className={s.rowLead}><Icon id="footprint" /></span>
+  // a station object: glyph · name · address · distance (or «no coordinates»)
+  const objectRows = (list: ObjectHit[]) => (
+    <div className={s.list}>
+      {list.map(({ obj: o, distanceM, approx }) => (
+        <button key={o.id} type="button" role="option" aria-selected={false} className={s.row} onClick={() => onPickObject(o.id)}>
+          {lead()}
+          <span className={s.rowText}><b>{o.name}</b><span>{objectRowSub(o, C.kind[o.kind])}</span></span>
+          <span className={cx(s.rowEnd, s.mono)}>{approx ? C.noCoords : distanceM != null ? fmtDistance(distanceM) : ''}</span>
+        </button>
+      ))}
+    </div>
+  )
   return (
     <div className={inSheet ? s.resultsIn : s.results} role="listbox" aria-label={C.searchObjects}>
       <div className={s.grp}>{C.searchObjects}</div>
       {!q ? (
         <>
-          {featured.length > 0 && (
-            <div className={s.list}>
-              {featured.map((o) => (
-                <button key={o.id} type="button" role="option" aria-selected={false} className={s.row} onClick={() => onPickObject(o.id)}>
-                  {lead()}
-                  <span className={s.rowText}><b>{o.name}</b><span>{objectRowSub(o, C.kind[o.kind])}</span></span>
-                  <Icon id="chevron" className={s.chev} />
-                </button>
-              ))}
-            </div>
-          )}
+          {nearest.length > 0 && objectRows(nearest)}
           <div className={s.quiet}>{C.searchHint}</div>
         </>
-      ) : hits.length ? (
-        <div className={s.list}>
-          {hits.map(({ obj: o, distanceM, approx }) => (
-            <button key={o.id} type="button" role="option" aria-selected={false} className={s.row} onClick={() => onPickObject(o.id)}>
-              {lead()}
-              <span className={s.rowText}><b>{o.name}</b><span>{objectRowSub(o, C.kind[o.kind])}</span></span>
-              <span className={cx(s.rowEnd, s.mono)}>{approx ? C.noCoords : distanceM != null ? fmtDistance(distanceM) : ''}</span>
-            </button>
-          ))}
-        </div>
-      ) : (
+      ) : hits.length ? objectRows(hits) : (
         <div className={s.quiet}>{C.searchNoObject}</div>
       )}
       {q && (

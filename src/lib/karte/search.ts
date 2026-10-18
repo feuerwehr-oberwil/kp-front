@@ -15,6 +15,9 @@
 // then the nearer one (when the map centre is known), then the name.
 // Objects WITHOUT coordinates are found like every other one and flagged `approx` — their place
 // on the map comes from the address and is only roughly right.
+//
+// With NOTHING typed the search lists the objects nearest the map centre (`nearestObjects`, owner,
+// review round 11: «have more items to scroll through») — the same rows as a hit, with the distance.
 
 import type { LngLat } from '../../types'
 import { haversineM } from '../geo'
@@ -35,7 +38,7 @@ const words = (s: string): string[] => s.split(/[\s,./()-]+/).filter(Boolean)
 
 export interface ObjectHit {
   obj: StationObject
-  /** 1 (best) … 5, see the header */
+  /** 1 (best) … 5, see the header; 0 in the nearest list (nothing typed) */
   rank: number
   /** metres from the map centre, when both are known */
   distanceM: number | null
@@ -80,6 +83,21 @@ export function searchObjects(objects: readonly StationObject[], query: string, 
     || (a.distanceM ?? Infinity) - (b.distanceM ?? Infinity)
     || a.obj.name.localeCompare(b.obj.name, 'de'))
   return hits.slice(0, limit)
+}
+
+/** How many objects the search lists while nothing is typed. */
+export const NEAREST_LIMIT = 30
+
+/** The `limit` objects nearest `center`, nearest first (a tie by name) — what the search lists
+ *  while nothing is typed. Objects without coordinates have no distance and are left out: typing
+ *  their name finds them. */
+export function nearestObjects(objects: readonly StationObject[], center: LngLat, limit = NEAREST_LIMIT): ObjectHit[] {
+  const near = objects.flatMap((obj) => {
+    const at = coordOf(obj)
+    return at ? [{ obj, d: haversineM(center, at) }] : []
+  })
+  near.sort((a, b) => a.d - b.d || a.obj.name.localeCompare(b.obj.name, 'de'))
+  return near.slice(0, limit).map(({ obj, d }) => ({ obj, rank: 0, approx: false, distanceM: d }))
 }
 
 /** The object's own coordinate, or null when the catalogue has none. */

@@ -57,7 +57,7 @@ import { lookupErg } from '../../lib/erg'
 import { DEFAULT_ERG_RING_MODE, ergRingsFor, type ErgRingMode } from '../../lib/ergRings'
 import { fitSimilarity } from '../../lib/georef'
 import { withPdfPage } from '../../lib/whiteboard'
-import { coordOf, openableCount, searchObjects } from '../../lib/karte/search'
+import { coordOf, nearestObjects, openableCount, searchObjects } from '../../lib/karte/search'
 import {
   nearbyObjects, nearestPoints, objectAtAddress, objectBuildings, objectVisitHref, pinNear, placeVisitHref, REPORT_CHECKLIST,
   normAddress, pointsFromGeoJson, ringAt, splitAddress, type NamedPoint,
@@ -447,7 +447,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }, [q, online])
   const addrState: AddrState = !q ? 'idle' : !online ? 'offline' : q.length < 3 ? 'short' : addr.q !== q ? 'loading' : addr.state
   const hits = useMemo(() => searchObjects(objects, query, view.center), [objects, query, view.center])
-  const featured = useMemo(() => objects.filter((o) => o.kind === 'einsatzobjekt').slice(0, 6), [objects])
+  const nearest = useMemo(() => nearestObjects(objects, view.center), [objects, view.center])
 
   // ── selecting ─────────────────────────────────────────────────────────────────────────────
   // Closing gives the camera back (owner, review round 4 — lib/karte/camera): the camera before the
@@ -1089,7 +1089,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         {phone && live && !sheetOpen && <div className={s.runningStrip}>{runningChip}</div>}
 
         {searchOpen && !phone && (
-          <KarteSearch query={query} hits={hits} featured={featured} addresses={addrState === 'ok' ? addr.list : []} addrState={addrState}
+          <KarteSearch query={query} hits={hits} nearest={nearest} addresses={addrState === 'ok' ? addr.list : []} addrState={addrState}
             onPickObject={(id) => { setQuery(byId.get(id)?.name ?? ''); selectObject(id, true, 'search') }} onPickAddress={pickAddress} />
         )}
         {searchOpen && phone && (
@@ -1110,7 +1110,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
               />
             )}
           >
-            <KarteSearch inSheet query={query} hits={hits} featured={featured} addresses={addrState === 'ok' ? addr.list : []} addrState={addrState}
+            <KarteSearch inSheet query={query} hits={hits} nearest={nearest} addresses={addrState === 'ok' ? addr.list : []} addrState={addrState}
               onPickObject={(id) => { setQuery(byId.get(id)?.name ?? ''); selectObject(id, true, 'search') }} onPickAddress={pickAddress} />
           </KarteKeySheet>
         )}

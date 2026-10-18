@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import type { LngLat, LayerDef } from '../../types'
 import { withRetiredKinds, type StationObject } from '../api/stationReference'
 import type { DeploymentModule } from '../deploymentConfig'
-import { normText, openableCount, searchObjects } from './search'
+import { nearestObjects, normText, openableCount, searchObjects } from './search'
 import {
   nearbyObjects, nearestPoints, normAddress, objectAtAddress, splitAddress, objectVisitHref, outlineFor, pinNear, placeVisitHref,
   pointsFromGeoJson, ringAt, ringsFromOverpass, streetKey,
@@ -58,6 +58,17 @@ describe('search', () => {
   it('breaks a tie by distance from the map centre', () => {
     const far = obj({ id: 'far', name: 'Schulhaus Nord', address: 'Nordweg 1', lat: 47.6, lng: 7.6, kind: 'einsatzobjekt', plans: [plan('1')] })
     expect(searchObjects([far, SCHULE], 'schulhaus', CENTER).map((h) => h.obj.id)).toEqual(['schule', 'far'])
+  })
+
+  it('lists the objects nearest the map centre while nothing is typed, nearest first, with the distance', () => {
+    // the Magazin is ~36 m from CENTER, the Schloss ~75 m; the Pumpwerk has no coordinates
+    const near = nearestObjects(ALL, CENTER)
+    expect(near.map((h) => h.obj.id)).toEqual(['mag', 'schloss', 'depot', 'schule'])
+    expect(near.every((h, i) => h.distanceM != null && !h.approx && (i === 0 || h.distanceM >= (near[i - 1].distanceM ?? 0)))).toBe(true)
+    expect(nearestObjects(ALL, CENTER, 2).map((h) => h.obj.id)).toEqual(['mag', 'schloss'])
+    // a tie goes by name
+    const twin = obj({ id: 'twin', name: 'Altes Schloss', lat: SCHLOSS.lat, lng: SCHLOSS.lng })
+    expect(nearestObjects([SCHLOSS, twin], CENTER).map((h) => h.obj.id)).toEqual(['twin', 'schloss'])
   })
 
   it('says nothing for an empty query and counts what an object opens', () => {

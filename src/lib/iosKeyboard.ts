@@ -35,6 +35,14 @@
  *   3. NOTHING TO DRAG — while a field has the caret, a touchmove that no scroller under the finger
  *      can take is cancelled (`touchMayScroll`, overlays/useMobileScrollLock): the list in the
  *      sheet scrolls, the bar and the sheet's head do not move the page.
+ *
+ * A DRAG ON THE LIST CLOSES THE KEYBOARD (owner's pick, review round 11, after six rounds of
+ * fighting the installed app: iOS pans the VISUAL viewport under a drag with the keys up — not
+ * undoable from script — and the list never got the touch). Like iOS Mail's search: a vertical
+ * drag that starts on a sheet's list (`[data-drag-closes-keys]`) blurs the field once it has
+ * travelled `DRAG_SLOP_PX` (`useDragClosesKeyboard`); the keyboard goes, the sheet drops to its
+ * normal place, and the list scrolls without keys. Guard 3 leaves such a list alone — nothing
+ * there is ever cancelled — and a tap (less travel) still opens a row with the keys up.
  */
 
 import { useEffect, type RefObject } from 'react'
@@ -201,7 +209,8 @@ export function useTypingLock(enabled: boolean) {
       const target = e.target instanceof Element ? e.target : null
       // the map pans itself (MapLibre, touch-action: none), a field selects text, and a surface that
       // owns its gesture says so (overlays · data-swipe-ignore)
-      const free = !!target?.closest('input, textarea, [contenteditable="true"], .maplibregl-canvas-container, [data-swipe-ignore]')
+      // — and a list a drag on which closes the keyboard (useDragClosesKeyboard) is the list's alone
+      const free = !!target?.closest('input, textarea, [contenteditable="true"], .maplibregl-canvas-container, [data-swipe-ignore], [data-drag-closes-keys]')
       gate.start(e, { ignored: free, inModal: true })
     }
     const move = (e: TouchEvent) => {
@@ -298,4 +307,44 @@ export function useKeySheet(ref: RefObject<HTMLElement | null>, { bar = '.topbar
       window.removeEventListener('focusout', onFocus)
     }
   }, [ref, bar, strip, minHeight])
+}
+
+/** Travel (px) after which a touch on a sheet's list is a drag, not a tap: the keyboard closes.
+ *  Above iOS's own tap wobble, so a row still opens with the keys up. */
+export const DRAG_SLOP_PX = 8
+
+/** Is a touch's travel since touchstart (`dx`/`dy`, px, either sign) a vertical drag — the one that
+ *  closes the keyboard? A tap's wobble and a sideways swipe are not. Pure. */
+export function isListDrag(dx: number, dy: number, slop = DRAG_SLOP_PX): boolean {
+  return Math.abs(dy) >= slop && Math.abs(dy) > Math.abs(dx)
+}
+
+/** The owner's pick (head of this file): a vertical drag that starts on `body` (a selector inside
+ *  `ref`, marked `data-drag-closes-keys` so guard 3 leaves it alone) blurs the field inside `ref`
+ *  that has the caret — once per touch, as soon as `isListDrag` says so. Passive: the touch is never
+ *  cancelled, so iOS may go on scrolling the list with it. Used by components/karte/KarteKeySheet. */
+export function useDragClosesKeyboard(ref: RefObject<HTMLElement | null>, body: string) {
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let from: { x: number; y: number } | null = null
+    const start = (e: TouchEvent) => {
+      const t = e.touches[0]
+      const target = e.target instanceof Element ? e.target : null
+      from = t && e.touches.length === 1 && target?.closest(body) ? { x: t.clientX, y: t.clientY } : null
+    }
+    const move = (e: TouchEvent) => {
+      const t = e.touches[0]
+      if (!from || !t || !isListDrag(t.clientX - from.x, t.clientY - from.y)) return
+      from = null
+      const caret = document.activeElement
+      if (caret instanceof HTMLElement && el.contains(caret) && isTypingTarget(caret)) caret.blur()
+    }
+    el.addEventListener('touchstart', start, { passive: true })
+    el.addEventListener('touchmove', move, { passive: true })
+    return () => {
+      el.removeEventListener('touchstart', start)
+      el.removeEventListener('touchmove', move)
+    }
+  }, [ref, body])
 }
