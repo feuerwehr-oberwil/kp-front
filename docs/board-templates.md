@@ -45,7 +45,7 @@ replaces the bundled one.
   (`Whiteboard · formAnnos`). Every ink commit gets the pages put back on, so a stroke can never
   drop one. A page, or any board object of a kind a build does not know, is a **passenger**: kept
   untouched at the load gate, in every merge and save, and guarded on the server against builds
-  that predate it (AGENTS.md › Offline, sync and the record).
+  that predate it ([`sync-and-offline.md`](sync-and-offline.md#the-model)).
 - **Two devices on one page** merge cell by cell (`lib/boardFormMerge`): different cells both
   survive; the same cell changed on both keeps the later edit (each cell carries the server-clock
   time it was committed, `t`) and writes a Verlauf row naming the page, the cell and both values.

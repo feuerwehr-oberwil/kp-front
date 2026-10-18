@@ -9,6 +9,14 @@
 // somebody happens to open a Trupp-Formular. After that `startAlarm()` can fire later
 // without interaction. Whether it worked is readable via `audioUnlocked()`, so the
 // bell can say "Ton nicht freigegeben" instead of claiming to be armed.
+//
+// THE ONE ALARM LAYER (moved here from AGENTS.md, 18.10.2026): time-based alerts (Atemschutz
+// clock, reminders) go through this shared layer, not ad-hoc timers. Delivery: foreground
+// tone/wake-lock + service-worker notification, plus – once the deployment sets VAPID keys
+// (`app.gen_vapid`) – server-side Web Push for killed apps: `backend/app/push.py` re-derives
+// due-ness from the synced data (no mirror API) and also pushes «Neuer Einsatz» when a new
+// Divera alarm lands in the pool. Fail-closed: no keys → `/api/push/vapid-key` serves `null`
+// and no sweep runs. Every stamp counts in `serverNow()` (`lib/serverClock`).
 
 type AlarmLevel = 'warn' | 'critical'
 
