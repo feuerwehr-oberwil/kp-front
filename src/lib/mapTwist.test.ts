@@ -280,8 +280,8 @@ describe('installTwistGate — on the installed MapLibre\'s own rotate handler',
 })
 
 describe('northSnap — a hand turn resting just off north settles on north (18.10.2026)', () => {
-  it('is the owner\'s ≈ ±5°, below the twist gate\'s threshold', () => {
-    expect(NORTH_SNAP_DEG).toBe(5)
+  it('is the owner\'s ±10° (round 7), below the twist gate\'s threshold', () => {
+    expect(NORTH_SNAP_DEG).toBe(10)
     expect(NORTH_SNAP_DEG).toBeLessThan(TWIST_ENGAGE_DEG)
   })
   it('settles a turn 3° off north', () => expect(northSnap(3)).toBe(0))
@@ -289,9 +289,10 @@ describe('northSnap — a hand turn resting just off north settles on north (18.
     expect(northSnap(-4)).toBe(0)
     expect(northSnap(356)).toBe(0)
   })
-  it('includes the boundary itself', () => expect(northSnap(5)).toBe(0))
+  it('includes the boundary itself', () => expect(northSnap(10)).toBe(0))
+  it('reaches 8° now (round 7: «a little bit stronger»)', () => expect(northSnap(8)).toBe(0))
   it('a clear turn further stays', () => {
-    expect(northSnap(5.5)).toBeNull()
+    expect(northSnap(10.5)).toBeNull()
     expect(northSnap(12)).toBeNull()
     expect(northSnap(-45)).toBeNull()
     expect(northSnap(180)).toBeNull()

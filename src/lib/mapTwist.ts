@@ -16,7 +16,7 @@
 //
 // North-snap on release (18.10.2026, owner: «add a small snap to north too like other places»):
 // a turn by HAND — two fingers, or the mouse's right-drag — that comes to rest within
-// `NORTH_SNAP_DEG` (5°) of north settles on exactly north in a short ease; a clear turn further
+// `NORTH_SNAP_DEG` (10°) of north settles on exactly north in a short ease; a clear turn further
 // stays, and «Nach Norden» (the compass) is the way back from there. It is a convenience for
 // landing on north on purpose, not the old 6° self-heal (removed 24.09.2026), which existed only
 // for the rotation a pan or pinch leaked in — the gate above prevents that leak. Never during a
@@ -34,7 +34,7 @@
  * (gloves), past `TWIST_ENGAGE_ARC_PX` of travel along their circle. Once engaged the bearing
  * follows the fingers exactly (zoom alongside) until a finger lifts, without jumping by the
  * threshold. A hand turn (fingers or mouse right-drag) that comes to rest within
- * `NORTH_SNAP_DEG` (5°) of north settles on exactly north (`createNorthSnap`, 18.10.2026 – the
+ * `NORTH_SNAP_DEG` (10°) of north settles on exactly north (`createNorthSnap`, 18.10.2026 – the
  * owner wants to LAND on north easily); further out it stays and the compass's «Nach Norden» is
  * the way back. That is not the old 6° `snapNorth` self-heal of a leaked twist (removed
  * 24.09.2026): nothing leaks any more. MapLibre's own `bearingSnap` is off (`bearingSnap={0}`).
@@ -167,12 +167,12 @@ export function gateTouchRotation(map: { touchZoomRotate: { disableRotation: () 
  * How close to north (degrees, either side, inclusive) a turn made by hand may come to rest and
  * still settle on exactly north.
  *
- * 5° (owner's pick, 18.10.2026: «≈ ±5°»): wide enough that aiming for north by hand lands on it,
+ * 10° (owner's pick, round 6: «≈ ±5°»; round 7, 18.10.2026: «a little bit stronger» → 10°): wide enough that aiming for north by hand lands on it,
  * narrow enough that a deliberate small turn — a street a few degrees off the screen's edge —
  * stays. Below the twist gate's 12° on purpose: a turn the gate let through is at least 12° from
  * where it started, so a snap only ever answers a turn that was brought BACK towards north.
  */
-export const NORTH_SNAP_DEG = 5
+export const NORTH_SNAP_DEG = 10
 
 /** The settle ease onto north (ms): short, so it reads as a snap rather than a drift (MapLibre's
  *  own `resetNorth` takes a fixed 1 s, which is why its built-in snap went unnoticed). Through

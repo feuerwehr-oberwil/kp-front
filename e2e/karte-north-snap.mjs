@@ -89,15 +89,19 @@ check(toNorth(b) < 0.01, `release ≈3° the other way settles on north (bearing
 
 // a clear turn further stays where it was let go
 await fresh()
-await twist(24)
+await twist(30)
 b = await bearing()
-check(toNorth(b) > 8, `release ≈11° off north stays turned (bearing ${b.toFixed(2)}°)`)
+check(toNorth(b) > 14, `release ≈17° off north stays turned (bearing ${b.toFixed(2)}°)`)
 
-// …and one just outside the 5° (inside MapLibre's own 7° and the removed 6°) stays as well
+// …one ≈8° off now settles too (round 7: 10°), and one just outside the 10° stays
 await fresh()
-await twist(19)
+await twist(20)
 b = await bearing()
-check(toNorth(b) > 5, `release ≈6° off north stays turned (bearing ${b.toFixed(2)}°)`)
+check(toNorth(b) < 0.01, `release ≈8° off north settles on north (bearing ${b.toFixed(2)}°)`)
+await fresh()
+await twist(25)
+b = await bearing()
+check(toNorth(b) > 10, `release ≈13° off north stays turned (bearing ${b.toFixed(2)}°)`)
 
 await browser.close()
 console.log(red ? `${red} RED` : 'all green')

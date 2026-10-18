@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * North-snap on release, through the real MapView (owner, review round 6, 18.10.2026: «add a
- * small snap to north too like other places»; picked ±5° on release, Karte AND Einsatz — both
+ * small snap to north too like other places»; picked ±5° on release, round 7 ±10°, Karte AND Einsatz — both
  * render this MapView). `<Map>` is replaced by a stand-in that hands its props to the test, so the
  * test fires MapLibre's own event sequence at MapView's handlers: `rotatestart` with the hand's
  * event, then `moveend` when the camera comes to rest, and reads what MapView asks the map to do.
