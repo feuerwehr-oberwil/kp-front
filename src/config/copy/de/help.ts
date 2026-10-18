@@ -134,6 +134,7 @@ export const helpCopy = {
           { kind: 'lead', text: 'Über **Ebenen** blendest du die Werkleitungs- und Gefahren-Daten ein – geordnet nach Typ.' },
           { kind: 'list', items: [
             '**Inhalte** – Taktische Zeichen, Fahrzeuge, Skizzen & Notizen.',
+            '**Station** – Unterirdische Bauten (Tiefgaragen, Schutzräume, Tunnel) aus der amtlichen Vermessung, gestrichelt ab Strassenzoom; standardmässig eingeblendet.',
             'Welche Ebenen es gibt, hängt an den Geodaten dieser Wehr – nichts davon ist mitgeliefert. Üblich sind:',
             '**Abwasser** – Schmutz/Misch, Regen/Rein, Schächte / Gully.',
             '**Gas** – Leitungen.',

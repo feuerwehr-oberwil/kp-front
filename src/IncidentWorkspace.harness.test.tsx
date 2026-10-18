@@ -673,6 +673,40 @@ describe('(h) the phone FAB never sits over the Atemschutz board', () => {
   })
 })
 
+/* Karte review round 5 (owner, 18.10.2026): «activate underground by default and also show it on the
+   normal map (during an incident)» — lib/underground. */
+describe('(l) «Unterirdische Bauten» on the Einsatz map', () => {
+  it('is on without a tap: asked once, drawn first (under the ERG rings, drawings and symbols), switchable in Ebenen', async () => {
+    const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]
+    const set = { enabled: true, fetchedAt: '2026-10-18T03:00:00+00:00', count: 1, geometry: { type: 'MultiPolygon', coordinates: [[sq(7.6, 47.5, 0.0002)]] } }
+    const asked: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (u: RequestInfo | URL) => {
+      const url = String(u)
+      if (url.includes('/api/reference/underground')) { asked.push(url); return new Response(JSON.stringify(set), { status: 200, headers: { 'content-type': 'application/json' } }) }
+      return new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })
+    }))
+    await mount()
+    type Ov = { id: string; layer: string; minzoom?: number; fillOpacity?: number; lineDasharray?: number[] }
+    const overlays = () => (lastMap().preparedOverlays ?? []) as Ov[]
+    const visible = (id: string) => (lastMap().isVisible as (l: string) => boolean)(id)
+    await waitFor(() => expect(overlays()[0]?.id).toBe('underground'))
+    expect(asked).toHaveLength(1)
+    const ov = overlays()[0]
+    expect(ov).toMatchObject({ minzoom: 16, fillOpacity: 0 })
+    expect(ov.lineDasharray).toBeTruthy()
+    expect(visible(ov.layer)).toBe(true)
+    // an Ebenen row like any other: off takes it off the map, «Standard» brings it back
+    fireEvent.click(screen.getAllByRole('button', { name: /^Ebenen/ })[0])
+    const row = () => screen.getByRole('button', { name: /^Unterirdische Bauten – / })
+    expect(row().getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(row())
+    expect(visible(ov.layer)).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.layerPanel.reset }))
+    expect(visible(ov.layer)).toBe(true)
+    expect(asked).toHaveLength(1)
+  })
+})
+
 /* staging r5 N3: the Meldeleiste paints INSIDE the open Einsatz's `.app` (lib/meldeleisteHost) —
    beside it, at App root, it outranked the whole stacking context and lay over the Einsatz menu. */
 describe('(k) the workspace is where the Meldeleiste paints', () => {

@@ -309,7 +309,7 @@ describe('KarteApp', () => {
     for (const n of ['Alle ein', 'Alle aus', 'Standard']) expect(chip(n).getAttribute('aria-pressed')).toBe('false')
   })
 
-  it('«Unterirdische Bauten»: a Station row, off and outside «Standard», asked when switched on, drawn dashed under the objects', async () => {
+  it('«Unterirdische Bauten»: a Station row, ON when the viewer opens and part of «Standard», drawn dashed under the objects', async () => {
     const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]
     rec.underground = { fetchedAt: '2026-10-17T03:00:00+00:00', count: 2, geometry: { type: 'MultiPolygon', coordinates: [[sq(7.5701, 47.5237, 0.0002)], [sq(7.5710, 47.5230, 0.0001)]] } }
     rec.catalogue = {
@@ -321,20 +321,17 @@ describe('KarteApp', () => {
     type Ov = { id: string; color?: string; rings?: LngLat[][]; lineDasharray?: number[]; fillOpacity?: number; minzoom?: number; layer?: string }
     const overlays = () => (lastMap() as unknown as { preparedOverlays: Ov[] }).preparedOverlays
     const visible = (id: string) => (lastMap() as unknown as { isVisible: (l: string) => boolean }).isVisible(id)
+    // owner, review round 5: on by default — asked once as the viewer opens, drawn without a tap
+    await waitFor(() => expect(overlays().some((o) => o.id === 'karte-underground')).toBe(true))
+    expect(rec.undergroundAsked).toBe(1)
     fireEvent.click(screen.getByRole('button', { name: 'Ebenen' }))
     const row = () => screen.getByRole('button', { name: /^Unterirdische Bauten – / })
     const chip = (name: string) => screen.getByRole('button', { name })
-    // in the Station group, off, and «Standard» is lit with it off; nothing asked yet
+    // in the Station group, on, and «Standard» is lit with it on
     const heads = [...document.querySelectorAll('.lgroup')].filter((h) => h.compareDocumentPosition(row()) & Node.DOCUMENT_POSITION_FOLLOWING)
     expect(heads[heads.length - 1]?.textContent).toBe('Station')
-    expect(row().getAttribute('aria-pressed')).toBe('false')
+    expect(row().getAttribute('aria-pressed')).toBe('true')
     expect(chip('Standard').getAttribute('aria-pressed')).toBe('true')
-    expect(rec.undergroundAsked).toBe(0)
-    expect(overlays().some((o) => o.id === 'karte-underground')).toBe(false)
-
-    fireEvent.click(row())
-    await waitFor(() => expect(overlays().some((o) => o.id === 'karte-underground')).toBe(true))
-    expect(rec.undergroundAsked).toBe(1)
     expect(row().textContent).toMatch(/2 Bauten/)
     const ov = overlays().find((o) => o.id === 'karte-underground')!
     expect(ov.rings).toHaveLength(2)
@@ -347,14 +344,19 @@ describe('KarteApp', () => {
     const objects = overlays().find((o) => o.id === 'karte-objects')!
     expect(ov.color).not.toBe(objects.color)
     expect(overlays().indexOf(ov)).toBeLessThan(overlays().indexOf(objects))
-    // a row switched on by hand: «Standard» is no longer lit, and puts it back off
-    expect(chip('Standard').getAttribute('aria-pressed')).toBe('false')
-    fireEvent.click(chip('Standard'))
+    // switched off by hand: gone, and «Standard» is no longer lit — it puts it back on
+    fireEvent.click(row())
     expect(row().getAttribute('aria-pressed')).toBe('false')
     await waitFor(() => expect(overlays().some((o) => o.id === 'karte-underground')).toBe(false))
-    // «Alle ein» switches it like any row — the set is kept, not asked again
-    fireEvent.click(chip('Alle ein'))
+    expect(chip('Standard').getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(chip('Standard'))
     expect(row().getAttribute('aria-pressed')).toBe('true')
+    await waitFor(() => expect(overlays().some((o) => o.id === 'karte-underground')).toBe(true))
+    // «Alle aus» switches it like any row — the set is kept, not asked again
+    fireEvent.click(chip('Alle aus'))
+    expect(row().getAttribute('aria-pressed')).toBe('false')
+    await waitFor(() => expect(overlays().some((o) => o.id === 'karte-underground')).toBe(false))
+    fireEvent.click(chip('Alle ein'))
     await waitFor(() => expect(overlays().some((o) => o.id === 'karte-underground')).toBe(true))
     expect(rec.undergroundAsked).toBe(1)
   })
@@ -364,8 +366,8 @@ describe('KarteApp', () => {
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
     fireEvent.click(screen.getByRole('button', { name: 'Ebenen' }))
     const row = () => screen.getByRole('button', { name: /^Unterirdische Bauten – / })
-    fireEvent.click(row())
     await waitFor(() => expect(row().textContent).toMatch(/Nicht verfügbar/))
+    expect(rec.undergroundAsked).toBe(1)
     fireEvent.click(row())
     fireEvent.click(row())
     await waitFor(() => expect(rec.undergroundAsked).toBe(2))

@@ -12,6 +12,8 @@ import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionSheet } from './components/SharePosition'
 import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, type ReportMeta, type Saved } from './lib/workspace'
+import { themeToken } from './lib/themeToken'
+import { UNDERGROUND_LAYER_ID, undergroundOverlay, useUnderground } from './lib/underground'
 import { type PlanFit } from './lib/tacticalObjects'
 import { useReplay } from './lib/useReplay'
 import { isTypingTarget } from './lib/hotkeys'
@@ -677,17 +679,6 @@ export function IncidentWorkspace({
   // re-render when the fetched ADR/ERG datasets land (lib/useHazardData) — the rings and
   // baked placards below read them synchronously.
   const hazVersion = useHazardData()
-  // ERG Schutzabstand rings, derived per render from the placards on the board (lib/ergRings,
-  // Feldtest Manuel 07.09.). Joined with the prepared overlays so MapLayers needs no new prop.
-  // The day/night split is the sun at each placard (lib/daylight), read at compute time; a board
-  // left open across sunrise/sunset picks the flip up with the next re-render, which any
-  // interaction provides — a Planungshilfe does not warrant its own clock.
-  const mapOverlays = useMemo(
-    () => [...preparedOverlays, ...ergRingOverlays(entities, new Date())],
-    // hazVersion: the ERG table arrives by fetch shortly after boot (lib/useHazardData) —
-    // rings drawn from an already-typed UN appear with it.
-    [entities, hazVersion],
-  )
   const resolvedMapDrawings = useMemo(() => resolveMapDrawings(drawings, entities), [drawings, entities])
   /**
    * The ONE thing the header pair does: step the global timeline, then SAY what it stepped.
@@ -1800,6 +1791,28 @@ export function IncidentWorkspace({
     const m = new Map(mapLayers.map((l) => [l.id, l.visible]))
     return (id: LayerId) => m.get(id) ?? true
   }, [mapLayers])
+
+  // «Unterirdische Bauten» (lib/underground, review round 5): the station's underground buildings
+  // as the Karte & Objekte draws them, asked the first time the row is on — never from an incident
+  // link, which may not read the station (api/station_reference). ONE overlay object per set and
+  // theme, first in the list: under the ERG rings, the drawings and every Lage symbol.
+  const undergroundOn = !linkScoped && isVisible(UNDERGROUND_LAYER_ID)
+  const underground = useUnderground(undergroundOn)
+  const undergroundInk = themeToken('--ink-dim', '#4d586a')
+  const undergroundRings = underground?.rings
+  const undergroundMapOverlay = useMemo(() => (undergroundRings?.length ? undergroundOverlay(undergroundRings, undergroundInk, UNDERGROUND_LAYER_ID) : null),
+    [undergroundRings, undergroundInk])
+  // ERG Schutzabstand rings, derived per render from the placards on the board (lib/ergRings,
+  // Feldtest Manuel 07.09.). Joined with the prepared overlays so MapLayers needs no new prop.
+  // The day/night split is the sun at each placard (lib/daylight), read at compute time; a board
+  // left open across sunrise/sunset picks the flip up with the next re-render, which any
+  // interaction provides — a Planungshilfe does not warrant its own clock.
+  const mapOverlays = useMemo(
+    () => [...(undergroundMapOverlay ? [undergroundMapOverlay] : []), ...preparedOverlays, ...ergRingOverlays(entities, new Date())],
+    // hazVersion: the ERG table arrives by fetch shortly after boot (lib/useHazardData) —
+    // rings drawn from an already-typed UN appear with it.
+    [entities, hazVersion, undergroundMapOverlay],
+  )
 
   // the Tafel's pages (10.10.2026): the template set, the pre-fill, the live mini Karte — not for a
   // link session (bound to one object)
@@ -3171,7 +3184,9 @@ export function IncidentWorkspace({
       <MapControls {...{
         mapUI, mapUtility, mapRef, view, viewsApi, readOnly, isEl, viewsOpen, toggleViews, coord, panel,
         layersPreset, togglePanel, isPhone, slimRail, displayWeather, openWeatherDetails, replayActive,
-        georefMode, buildingInfo, buildingFirst, tool, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
+        georefMode, buildingInfo, buildingFirst, tool, setPanel, composerOpen, journalOpen, offlineReadyOpen,
+        // an incident link may not read the station: no «Unterirdische Bauten» row it could never fill
+        layers: linkScoped ? layers.filter((l) => l.id !== UNDERGROUND_LAYER_ID) : layers,
         toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
         weather,
       }} />
