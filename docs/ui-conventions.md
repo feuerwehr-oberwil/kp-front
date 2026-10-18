@@ -196,7 +196,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
     the action button acts, a sideways swipe throws it away. On a phone they share one lane (`--msg-lane-bottom`, 15-mobile): the
     bars' own width (8px in from each side), one `--float-gap` above THE floating row (below),
-    never beside a piece of it. A pill is ONE ROW (30.09.2026): the sentence wraps first, inside
+    never beside a piece of it. A repeat REPLACES (18.10.2026): a confirmation that comes again — «Eintrag erfasst» after
+    every Meldung, «Geschoss hinzugefügt» — carries a `kind` (lib/ui · toast) and takes its
+    predecessor's place instead of stacking on it; five Meldungen in a row grew a column of pills
+    up the screen into the composer's «Erfassen», and a confirmation never covers the next action
+    (`useJournalWriters · JOURNAL_SAVED_KIND`, e2e `workspace-flows` F8). A pill is ONE ROW (30.09.2026): the sentence wraps first, inside
     its column, and «Rückgängig» + ✕ stay beside it. The column has a floor of 10em (05.10.2026):
     only an action too wide to leave the sentence that much wraps under it, right-aligned. On
     the launcher the lane is the card's own column. There is no standing «Offline» row
