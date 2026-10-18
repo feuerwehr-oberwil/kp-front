@@ -380,8 +380,11 @@ The rules that are easy to break:
 - **Search** finds objects on the device first — name, address, aliases, folded umlauts, every
   word of the query — ranked name before alias/address, plans before none, then distance (`lib/karte/search`). Objects without coordinates are found and marked «ungefähr»
   (their place on the map comes from geocoding the address). Addresses follow from
-  `/api/geocode/search`, online only, and say so offline. A row is glyph · name · address
-  (· distance for a hit) — no plan count (owner, review round 2, 17.10.2026: «just the address is
+  `/api/geocode/search`, online only, and say so offline. **With nothing typed** the search lists
+  the 30 objects nearest the map centre, nearest first, each with its distance, the hint lines
+  under them (`nearestObjects`; owner, review round 11: «have more items to scroll through» — it
+  was six featured Einsatzobjekte); objects without coordinates are found by typing. A row is
+  glyph · name · address · distance — no plan count (owner, review round 2, 17.10.2026: «just the address is
   enough»; the sheet lists the plans; since round 3 the map tag carries no count either).
 - **The address, never the kind word in its place** (review round 2). Plain objects are often
   named by their address with none stored; an object's address is the stored one, else
@@ -422,6 +425,29 @@ The rules that are easy to break:
     technique), any pan that still happens is undone with `scrollTo(0, 0)` (rate-limited:
     `mayCorrect`), and while a field has the caret a touchmove nothing under the finger can scroll
     is cancelled (`useTypingLock`).
+  - **A drag on the list closes the keyboard** (owner's pick, review round 11, after rounds 5–10
+    tried to let the list scroll WITH the keyboard up — that intent is retired). Like iOS Mail's
+    search: a vertical drag that starts on the sheet's list blurs the field once it has travelled
+    8 px (`lib/iosKeyboard · useDragClosesKeyboard`, pure `isListDrag`); the keyboard goes, the
+    sheet drops to its normal place and the list scrolls without keys. A tap on a row (less
+    travel) still opens it with the keys up; a drag on the grab bar still moves and closes the
+    sheet and keeps the caret; a tap on the field brings the keys back. Search and Gefahrgut alike.
+    Why: the round-10 readout from the installed app showed #406 holding the window (`scrollY 0`)
+    but iOS panning the VISUAL viewport under the drag (`vv … pan 72`, not undoable from script)
+    and the list never scrolling (`list 0/169`); the emulation showed the page lock cancelling a
+    pull at the list's top, and on iOS a cancelled first touchmove kills the native scroll for the
+    whole touch. So nothing on the list is cancelled any more: the page lock leaves
+    `[data-drag-closes-keys]` alone (`useTypingLock`), and the sheet's own guard
+    (`overlays/useMobileScrollLock · useScrollOnlyIn`) cancels a drag only where nothing under
+    the finger can scroll at all (the background guard, round 6) — a list's ends are
+    `overscroll-behavior`'s. The keys-up placement (#405/#406) stays for typing.
+    · Check: `e2e/karte-search-scroll.mjs`, both frames, empty search (now 30 rows), typed and
+    Gefahrgut — keys up, a push up / pull down on a row: field blurred, sheet off the keys, no
+    move cancelled, the sheet not pulled, bar and map unmoved; the list scrolls in the same touch
+    (modelled) and in the next drag; a tap's wobble keeps the caret. Red on the base (18 in the
+    app frame: every move on the list cancelled, the field kept). WebKit on Linux has no native
+    touch scroll, so whether iOS keeps scrolling the list in the touch that closed the keyboard
+    only the iPhone shows; either way the next drag scrolls it.
   - **Only the list scrolls** (owner, review round 4: «scrolling in the main search bar is rather
     ugly and moves everything»). The grab bar and the field line are the sheet's handle; a drag
     over the results is the list's alone — it never pulls the sheet, even at the list's top
@@ -459,7 +485,8 @@ The rules that are easy to break:
     (it guards only while a field has the caret). Now the sheet itself cancels a touchmove over
     its body that nothing under the finger can take, keyboard or not (`KarteKeySheet` →
     `overlays/useMobileScrollLock · useScrollOnlyIn`, the same per-touch gate): a list that cannot scroll moves nothing,
-    one that can still scrolls and stops at its ends. Gefahrgut's sheet with a short readout had
+    one that can still scrolls and stops at its ends (since round 11 by `overscroll-behavior` alone:
+    a direction cancel at an end killed the touch's scroll). Gefahrgut's sheet with a short readout had
     the same hole and has the same fix. The check models the hand-off (a first move not cancelled
     over a list with nothing to scroll = the page moved) and runs the empty search with and
     without the keyboard.

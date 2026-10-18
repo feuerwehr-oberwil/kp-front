@@ -16,16 +16,21 @@
 // pulls the sheet (useSwipeDismiss · headOnly), it never bounces or hands its scroll on to the
 // page (Karte.module.css · .keyBody), and the search sheet (`fill`) stands at its full height from
 // the start, so a growing or shrinking result list never moves the field. A body with NOTHING to
-// scroll moves nothing either (review round 6, owner: the empty search «fails» — the six featured
-// rows are shorter than the sheet, and iOS hands a drag over a box that does not overflow on to the
-// page): a touchmove there that nothing under the finger can take is cancelled, keyboard or not
-// (overlays/useMobileScrollLock · useScrollOnlyIn).
+// scroll moves nothing either (review round 6, owner: the empty search «fails» — its featured
+// rows were shorter than the sheet, and iOS hands a drag over a box that does not overflow on to the
+// page): a touchmove there is cancelled when nothing under the finger can scroll at all, keyboard or
+// not (overlays/useMobileScrollLock · useScrollOnlyIn) — a list with room is never cancelled.
+//
+// A DRAG ON THE BODY CLOSES THE KEYBOARD (owner's pick, review round 11 — iOS Mail's search): past
+// a few px of vertical travel the field loses the caret, the sheet drops to its normal place and the
+// list scrolls without keys (lib/iosKeyboard · useDragClosesKeyboard). A tap on a row still opens
+// it; the grab bar still moves and closes the sheet; a tap on the field brings the keys back.
 
 import { useRef, type ReactNode } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
 import { cx } from '../../lib/cx'
-import { useKeySheet } from '../../lib/iosKeyboard'
+import { useDragClosesKeyboard, useKeySheet } from '../../lib/iosKeyboard'
 import { SheetGrab, useSwipeDismiss } from '../../lib/overlays'
 import { useScrollOnlyIn } from '../../lib/overlays/useMobileScrollLock'
 import s from './Karte.module.css'
@@ -44,6 +49,7 @@ export function KarteKeySheet({ label, field, onClose, children, className, fill
   const ref = useRef<HTMLElement>(null)
   useKeySheet(ref)
   useScrollOnlyIn(ref, '.lc-body')
+  useDragClosesKeyboard(ref, '.lc-body')
   const swipe = useSwipeDismiss({ onClose, headOnly: true })
   return (
     <section ref={ref} className={cx('layers-card', s.sheet, s.keySheet, fill && s.fill, className)} aria-label={label} data-karte-keysheet="" {...swipe}>
@@ -52,7 +58,7 @@ export function KarteKeySheet({ label, field, onClose, children, className, fill
         {field}
         <button type="button" className="ip-x lc-x" aria-label={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
       </div>
-      {children != null && <div className={cx('lc-body', s.keyBody)}>{children}</div>}
+      {children != null && <div className={cx('lc-body', s.keyBody)} data-drag-closes-keys="">{children}</div>}
     </section>
   )
 }

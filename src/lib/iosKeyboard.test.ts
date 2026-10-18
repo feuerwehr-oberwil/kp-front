@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, renderHook } from '@testing-library/react'
-import { MIN_KEYBOARD_PX, focusWithoutPan, fullViewHeight, isCollapseScroll, keySheetBox, keyboardTop, mayCorrect, useTypingLock } from './iosKeyboard'
+import { DRAG_SLOP_PX, MIN_KEYBOARD_PX, focusWithoutPan, fullViewHeight, isCollapseScroll, isListDrag, keySheetBox, keyboardTop, mayCorrect, useDragClosesKeyboard, useTypingLock } from './iosKeyboard'
 
 /* Review round 3 (owner's iPhone, 17.10.2026): the phone's field sheets stand on the keyboard by
  * their own measurement, and the page never moves while a field has the caret. */
@@ -169,6 +169,22 @@ describe('useTypingLock', () => {
     expect(touch(row, 'touchmove', 320, 100).defaultPrevented).toBe(true)
   })
 
+  it('never cancels a drag on a list that closes the keyboard on drag (round 11), even pulling down at its top', () => {
+    const list = document.createElement('div')
+    list.setAttribute('data-drag-closes-keys', '')
+    list.style.overflowY = 'auto'
+    Object.defineProperties(list, { scrollHeight: { value: 900 }, clientHeight: { value: 400 } })
+    const row = document.createElement('button')
+    list.append(row)
+    const input = document.createElement('input')
+    document.body.append(list, input)
+    renderHook(() => useTypingLock(true))
+    input.focus()
+    touch(row, 'touchstart', 300, 100)
+    expect(touch(row, 'touchmove', 302, 100).defaultPrevented).toBe(false)
+    expect(touch(row, 'touchmove', 320, 100).defaultPrevented).toBe(false)
+  })
+
   it('answers a page scroll with scrollTo(0, 0)', () => {
     vi.useFakeTimers()
     const to = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
@@ -237,5 +253,63 @@ describe('useTypingLock', () => {
     input.focus()
     touch(bar, 'touchstart', 300)
     expect(touch(bar, 'touchmove', 200).defaultPrevented).toBe(false)
+  })
+})
+
+/* Review round 11, the owner's pick: a drag on the sheet's list closes the keyboard (iOS Mail's
+ * search); a tap on a row does not. */
+describe('isListDrag — a tap, or the drag that closes the keyboard', () => {
+  it('is a drag once the finger has gone DRAG_SLOP_PX up or down, more than sideways', () => {
+    expect(isListDrag(0, DRAG_SLOP_PX)).toBe(true)
+    expect(isListDrag(2, -DRAG_SLOP_PX - 4)).toBe(true)
+  })
+  it('is no drag for a tap\'s wobble or a sideways swipe', () => {
+    expect(isListDrag(0, 0)).toBe(false)
+    expect(isListDrag(3, DRAG_SLOP_PX - 1)).toBe(false)
+    expect(isListDrag(20, 12)).toBe(false)
+    expect(isListDrag(10, -10)).toBe(false)
+  })
+})
+
+describe('useDragClosesKeyboard', () => {
+  afterEach(() => { cleanup(); document.body.replaceChildren() })
+  // a sheet: the field in its head, a row in its body
+  function sheet() {
+    const el = document.createElement('section')
+    el.innerHTML = '<div class="head"><input /></div><div class="lc-body"><button>ARA Birsig</button></div>'
+    document.body.append(el)
+    const input = el.querySelector('input')!, row = el.querySelector('button')!, head = el.querySelector('.head')!
+    renderHook(() => useDragClosesKeyboard({ current: el }, '.lc-body'))
+    input.focus()
+    return { input, row, head }
+  }
+  /** one touch from (100, 300) through `moves` (total offsets); returns whether any move was cancelled */
+  function touch(el: Element, ...moves: [number, number][]) {
+    const fire = (type: string, x: number, y: number) => {
+      const e = new Event(type, { bubbles: true, cancelable: true })
+      Object.defineProperty(e, 'touches', { value: [{ clientX: x, clientY: y }] })
+      el.dispatchEvent(e)
+      return e.defaultPrevented
+    }
+    fire('touchstart', 100, 300)
+    return moves.map(([dx, dy]) => fire('touchmove', 100 + dx, 300 + dy)).some(Boolean)
+  }
+
+  it('blurs the field on a drag over the list, either way, and never cancels the touch', () => {
+    const { input, row } = sheet()
+    expect(touch(row, [0, -3], [0, -12], [0, -30])).toBe(false)
+    expect(document.activeElement).not.toBe(input)
+    input.focus()
+    touch(row, [1, 4], [1, 10])
+    expect(document.activeElement).not.toBe(input)
+  })
+  it('keeps the caret for a tap\'s wobble on a row, a sideways swipe and a drag on the head', () => {
+    const { input, row, head } = sheet()
+    touch(row, [1, 2], [-2, 4])
+    expect(document.activeElement).toBe(input)
+    touch(row, [20, 4], [40, 6])
+    expect(document.activeElement).toBe(input)
+    touch(head, [0, 30])
+    expect(document.activeElement).toBe(input)
   })
 })

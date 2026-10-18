@@ -80,8 +80,9 @@ export function touchMayScroll({ axis, dy, ignored, inModal, chain }: {
 /** The pickers portal beside the dialog, so they share its scrolling allowance. */
 const MODAL = '[role="dialog"], [role="menu"], [role="listbox"], .combo-menu'
 
-/** The start target and its ancestors up to <body>, innermost first, as the lock reads them. */
-export function scrollChain(from: Element): ScrollBox[] {
+/** The start target and its ancestors up to <body> (or up to and including `until`), innermost
+ *  first, as the lock reads them. */
+export function scrollChain(from: Element, until?: Element): ScrollBox[] {
   const chain: ScrollBox[] = []
   let node: Element | null = from
   while (node && node !== document.body) {
@@ -90,6 +91,7 @@ export function scrollChain(from: Element): ScrollBox[] {
       overflowX: css.overflowX, overflowY: css.overflowY, top: node.scrollTop,
       maxX: node.scrollWidth - node.clientWidth, maxY: node.scrollHeight - node.clientHeight,
     })
+    if (node === until) break
     node = node.parentElement
   }
   return chain
@@ -152,29 +154,31 @@ export function useMobileScrollLock(open: boolean) {
   }, [open, phone])
 }
 
-/** The same per-touch gate for ONE sheet that is not a dialog (the Karte's search and Gefahrgut
- *  sheets, KarteKeySheet): a touch that starts in `body` (a selector inside `ref`) may pan only
- *  what can scroll under the finger, and is cancelled where nothing can — with or without a
- *  keyboard (lib/iosKeyboard · useTypingLock guards only while a field has the caret).
+/** The background guard for ONE sheet that is not a dialog (the Karte's search and Gefahrgut
+ *  sheets, KarteKeySheet): a touchmove that starts in `body` (a selector inside `ref`) is cancelled
+ *  only when NOTHING between the finger and the sheet can scroll at all — keyboard or not. A list
+ *  with room is never touched: its edges are `overscroll-behavior`'s (Karte.module.css · .keyBody).
  *
- *  Why (review round 6, owner on the iPhone, the search with nothing typed: «without typing it
- *  fails»): the six featured rows are shorter than the sheet, so the list has nothing to scroll —
- *  and `overscroll-behavior` only holds on a box that overflows. iOS handed the drag on to the page
- *  and the whole sheet moved. A list that cannot scroll now moves nothing, as one that can stops
- *  at its ends. Touches outside `body` (the grab bar, the field line) are left to their own
- *  handlers (useSwipeDismiss). */
+ *  Why the guard (review round 6, owner on the iPhone, the search with nothing typed: «without
+ *  typing it fails»): `overscroll-behavior` only holds on a box that overflows, so iOS handed a drag
+ *  over a too-short list on to the page and the whole sheet moved. Why only that (review round 11):
+ *  rounds 6–10 also cancelled a drag at a list's top or end, by direction, and on iOS a cancelled
+ *  first touchmove kills the list's native scroll for the whole touch — the owner's list «never
+ *  scrolls». Touches outside `body` (the grab bar, the field line) are left to their own handlers
+ *  (useSwipeDismiss), and so is anything marked `[data-swipe-ignore]`. */
 export function useScrollOnlyIn(ref: RefObject<HTMLElement | null>, body: string) {
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const gate = touchGate()
-    let mine = false
+    let from: Element | null = null
     const start = (e: TouchEvent) => {
       const target = e.target instanceof Element ? e.target : null
-      mine = !!target?.closest(body)
-      if (mine) gate.start(e, { ignored: !!target?.closest('[data-swipe-ignore]'), inModal: true })
+      from = target?.closest(body) && !target.closest('[data-swipe-ignore]') ? target : null
     }
-    const move = (e: TouchEvent) => { if (mine && e.cancelable && gate.blocks(e)) e.preventDefault() }
+    const move = (e: TouchEvent) => {
+      if (!from || !e.cancelable || e.touches.length !== 1) return
+      if (!touchMayScroll({ axis: 'both', dy: 0, ignored: false, inModal: true, chain: scrollChain(from, el) })) e.preventDefault()
+    }
     el.addEventListener('touchstart', start, { passive: true })
     el.addEventListener('touchmove', move, { passive: false })
     return () => {
