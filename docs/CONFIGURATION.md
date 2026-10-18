@@ -92,7 +92,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 
 | Section | Browser | Where |
 |---------|---------|-------|
-| `identity.*` (`appName`, `locale`, `accentColor`, `helpIntro`, `kommandant`) | ✅ | Station › **Station & Karte** |
+| `identity.*` (`appName`, `shortName`, `locale`, `accentColor`, `helpIntro`, `kommandant`) | ✅ | Station › **Station & Karte** |
 | `identity.assets` | ✅ | the branding uploads – **not** part of this document (see the ⚠️ below and §3a) |
 | `map.defaultView`, `map.geocoder.*` | ✅ | Station › **Station & Karte** |
 | `map.buildingRegister` | ❌ | config-as-code only (`admin_config`); unset = on in CH ([`building-card.md`](building-card.md)) |
@@ -183,6 +183,10 @@ both now have browser pages – §9e and §9f.
 {
   "identity": {
     "appName": "Feuerwehr Musterdorf",        // shown in title bar, login, help; default "KP Front"
+    "shortName": "FWM",                         // the menu button at the top left of «Karte & Objekte»
+                                                //    (≤ 8 characters, trimmed; longer → 422). Beside
+                                                //    the uploaded `assets.logo` if there is one.
+                                                //    Unset → a neutral menu symbol (or the logo alone)
     "locale": "de-CH",                          // "de-CH" | "en" | "fr" | "it" (the Sprache picker);
                                                 //    another tag resolves by its primary subtag,
                                                 //    an unknown one falls back to German

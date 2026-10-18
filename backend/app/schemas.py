@@ -1192,10 +1192,41 @@ _ACCENT_HEX = re.compile(r"^#?(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})
 _ACCENT_ERROR = "Akzentfarbe muss ein Hex-Farbwert sein, z. B. #e8392b (leer = Standardfarbe)"
 
 
+#: `identity.shortName`: the station's short label on the Karte's menu button (owner, review
+#: round 5: «a new short name like "fwo" that others can configure»). The button shares a 44 px
+#: bar with the search on a 390 px phone, so the cap is what fits there beside the mark and the ▾.
+SHORT_NAME_MAX = 8
+_SHORT_NAME_ERROR = f"Kurzname darf höchstens {SHORT_NAME_MAX} Zeichen haben, z. B. «FWO» (leer = Menü-Symbol)"
+
+
 class IdentityConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     appName: str | None = None
+    #: the menu button's label at the top left of «Karte & Objekte»; unset → a neutral menu symbol
+    shortName: str | None = Field(default=None, max_length=SHORT_NAME_MAX)
     locale: str | None = None
+
+    @field_validator("shortName", mode="before")
+    @classmethod
+    def _short_name_fits(cls, v: Any, info: ValidationInfo) -> str | None:
+        """Trim, «» → unset, and refuse a label longer than the button holds — in German, with
+        the rule in the message (it reaches the Verwaltung and `admin_config load`). A STORED
+        value longer than the cap (a row written by hand, or before a lower cap) is cut, never
+        refused: refusing would empty the whole document on read (see `_accent_is_a_colour`)."""
+        if v is None:
+            return None
+        if not isinstance(v, str):
+            raise ValueError(_SHORT_NAME_ERROR)
+        text = " ".join(v.split())
+        if not text:
+            return None
+        if len(text) > SHORT_NAME_MAX:
+            if (info.context or {}).get("stored"):
+                logger.warning("identity.shortName %r is longer than %d — serving it cut", text, SHORT_NAME_MAX)
+                return text[:SHORT_NAME_MAX].rstrip()
+            raise ValueError(_SHORT_NAME_ERROR)
+        return text
+
     accentColor: str | None = None
 
     @field_validator("accentColor", mode="before")
