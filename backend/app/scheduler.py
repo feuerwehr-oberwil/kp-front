@@ -226,12 +226,19 @@ async def _object_footprints_tick() -> None:
     (app/object_footprints). Idle once every object has been asked; off when either source URL
     is empty."""
     from .object_footprints import tick
+    from .underground import tick as underground_tick
 
     async with async_session_maker() as db:
         try:
             await tick(db)
         except Exception:
             logger.exception("Object footprint tick failed")
+        # the region's underground buildings ride the same job (app/underground): idle but for
+        # one small read until the stored set is a week old
+        try:
+            await underground_tick(db)
+        except Exception:
+            logger.exception("Underground buildings tick failed")
 
 
 async def _plan_pull() -> None:

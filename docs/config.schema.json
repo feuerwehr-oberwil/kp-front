@@ -850,6 +850,9 @@
           ],
           "default": null,
           "title": "Buildingregister"
+        },
+        "serviceArea": {
+          "$ref": "#/$defs/MapServiceArea"
         }
       },
       "title": "MapConfig",
@@ -961,6 +964,21 @@
         }
       },
       "title": "MapGeocoder",
+      "type": "object"
+    },
+    "MapServiceArea": {
+      "description": "The brigade's Einsatzgebiet as its municipalities (BFS numbers), for what the backend reads\nover the station's area (app/underground). Empty = the municipality at ``defaultView``.",
+      "properties": {
+        "municipalities": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 50,
+          "title": "Municipalities",
+          "type": "array"
+        }
+      },
+      "title": "MapServiceArea",
       "type": "object"
     },
     "MittelConfig": {

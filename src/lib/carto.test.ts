@@ -4,7 +4,7 @@ const deployment = vi.hoisted(() => ({ integrations: {} as { cartoBasemapKey?: s
 
 vi.mock('./deploymentConfig', () => ({ getDeploymentConfig: () => deployment }))
 
-import { cartoRasterTiles, keyCartoTileTemplates, withCartoBasemapKey, withoutCartoBasemapKey } from './carto'
+import { cartoRasterTiles, keyCartoTileTemplates, retinaCartoTileTemplates, wantsRetinaTiles, withCartoBasemapKey, withCartoRetina, withoutCartoBasemapKey, withoutCartoRetina } from './carto'
 
 describe('CARTO basemap key', () => {
   beforeEach(() => { deployment.integrations = {} })
@@ -61,5 +61,45 @@ describe('CARTO basemap key', () => {
     deployment.integrations.cartoBasemapKey = 'carto key/+='
     const [tpl] = cartoRasterTiles('rastertiles/voyager', ['a'])
     expect(withoutCartoBasemapKey(tpl)).toBe('https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png')
+  })
+})
+
+// Review round 4 (owner, iPhone): the map was blurry — a 256 px tile on a 3× screen is every pixel
+// blown up three times. A retina screen asks CARTO for the same tile drawn at 512 px.
+describe('CARTO retina tiles', () => {
+  const DARK = 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+
+  it('asks for @2x on a screen with more than one device pixel per CSS pixel', () => {
+    expect(wantsRetinaTiles(1)).toBe(false)
+    expect(wantsRetinaTiles(2)).toBe(true)
+    expect(wantsRetinaTiles(3)).toBe(true)
+    expect(withCartoRetina(DARK, true)).toBe('https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png')
+    expect(withCartoRetina(DARK, false)).toBe(DARK)
+  })
+
+  it('keeps the query, is idempotent, and goes back to 1× for our backend', () => {
+    const keyed = `${DARK}?key=k`
+    const retina = withCartoRetina(keyed, true)
+    expect(retina).toBe('https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png?key=k')
+    expect(withCartoRetina(retina, true)).toBe(retina)
+    expect(withoutCartoRetina(retina)).toBe(keyed)
+  })
+
+  it('leaves every other host alone — OSM and swisstopo have no 2× tiles', () => {
+    const osm = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+    expect(withCartoRetina(osm, true)).toBe(osm)
+    const layer = retinaCartoTileTemplates({ tiles: [osm], nightTiles: [DARK] }, true)
+    expect(layer.tiles).toEqual([osm])
+    expect(layer.nightTiles).toEqual(['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'])
+    // nothing to change: the same object back (no new layer list on every derivation)
+    const plain = { tiles: [osm] }
+    expect(retinaCartoTileTemplates(plain, true)).toBe(plain)
+  })
+
+  it('keys a retina template like any other', () => {
+    deployment.integrations.cartoBasemapKey = 'runtime'
+    const layer = keyCartoTileTemplates(retinaCartoTileTemplates({ tiles: [DARK] }, true))
+    expect(layer.tiles).toEqual(['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png?key=runtime'])
+    expect(withoutCartoBasemapKey(withoutCartoRetina(layer.tiles![0]))).toBe(DARK)
   })
 })

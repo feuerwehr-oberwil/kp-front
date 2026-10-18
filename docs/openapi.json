@@ -7020,6 +7020,87 @@
         }
       }
     },
+    "/api/reference/underground": {
+      "get": {
+        "tags": [
+          "reference"
+        ],
+        "summary": "Reference Underground",
+        "description": "«Unterirdische Bauten» — every underground building of the station's region as ONE GeoJSON\nMultiPolygon (``{enabled, fetchedAt, count, geometry}``), as the scheduler last stored it\n(app/underground); never asks the survey. ``enabled: false`` = switched off\n(``UNDERGROUND_WFS=``); ``fetchedAt: null`` = not asked yet. A device that names the set it\nholds (``?have=<fetchedAt>``) gets ``unchanged: true`` and no geometry.",
+        "operationId": "reference_underground_api_reference_underground_get",
+        "parameters": [
+          {
+            "name": "have",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The `fetchedAt` this device already holds",
+              "title": "Have"
+            },
+            "description": "The `fetchedAt` this device already holds"
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The stored set (app/underground)",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/reference/building": {
       "get": {
         "tags": [
@@ -18062,6 +18143,9 @@
               }
             ],
             "title": "Buildingregister"
+          },
+          "serviceArea": {
+            "$ref": "#/components/schemas/MapServiceArea"
           }
         },
         "type": "object",
@@ -18167,6 +18251,21 @@
         },
         "type": "object",
         "title": "MapGeocoder"
+      },
+      "MapServiceArea": {
+        "properties": {
+          "municipalities": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Municipalities"
+          }
+        },
+        "type": "object",
+        "title": "MapServiceArea",
+        "description": "The brigade's Einsatzgebiet as its municipalities (BFS numbers), for what the backend reads\nover the station's area (app/underground). Empty = the municipality at ``defaultView``."
       },
       "MilestoneGroup": {
         "properties": {

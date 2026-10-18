@@ -3,12 +3,14 @@
 //
 //   GET /api/reference/objects            every station object, in one payload
 //   GET /api/reference/building?lat&lng   the Gebäude card's facts for any point, no incident
+//   GET /api/reference/underground        the region's underground buildings (Ebenen row
+//                                         «Unterirdische Bauten», backend app/underground)
 //
 // Both are kept on the device (lib/idb · readThrough): the catalogue as ONE entry, so the objects
 // stay searchable without a network, and each building answer under the place it was asked for
 // (`buildingWhere`), so an offline tap on a building already looked at still shows its register
 // hints — and a building never wears another one's facts.
-import { apiGet } from '../api'
+import { apiGet, isDenial } from '../api'
 import { idbDel, idbKeys, idbRead, idbSet, readThrough, type ReadThroughSource } from '../idb'
 import { buildingWhere, isBuildingInfo, type BuildingInfo } from './building'
 
@@ -161,4 +163,73 @@ export async function loadStationBuilding(lat: number, lng: number, address: str
   } catch {
     return null
   }
+}
+
+// --- «Unterirdische Bauten» ----------------------------------------------------------------------
+
+/** The region's underground buildings as the server stored them (backend app/underground): one
+ *  GeoJSON MultiPolygon, an outer ring per building. */
+export interface UndergroundSet {
+  fetchedAt: string
+  count: number
+  geometry: { type: 'MultiPolygon'; coordinates: number[][][][] }
+}
+
+interface UndergroundAnswer {
+  enabled: boolean
+  fetchedAt?: string | null
+  count?: number
+  unchanged?: boolean
+  geometry?: UndergroundSet['geometry']
+}
+
+export const isUndergroundSet = (v: unknown): v is UndergroundSet => {
+  const u = v as UndergroundSet | null
+  return !!u && typeof u === 'object' && typeof u.fetchedAt === 'string' && !!u.geometry
+    && u.geometry.type === 'MultiPolygon' && Array.isArray(u.geometry.coordinates)
+}
+
+const UNDERGROUND_CACHE = 'kp-front-station-underground'
+
+/**
+ * The underground buildings to draw — null when there are none to draw: switched off on the
+ * server (`UNDERGROUND_WFS=`), not asked by the scheduler yet, or offline on a device that never
+ * loaded them. Kept on the device like the catalogue (IndexedDB, one entry), and asked with the
+ * set it holds (`?have=`), so an unchanged set costs one small answer instead of a megabyte. A
+ * refusal (401/403) throws: a session that may not read the station is not shown its copy.
+ */
+export async function loadUnderground(): Promise<UndergroundSet | null> {
+  const held = await idbRead<unknown>(UNDERGROUND_CACHE)
+  const mine = held.ok && isUndergroundSet(held.value) ? held.value : null
+  let r: UndergroundAnswer
+  try {
+    r = await apiGet<UndergroundAnswer>(`/api/reference/underground${mine ? `?have=${encodeURIComponent(mine.fetchedAt)}` : ''}`)
+  } catch (e) {
+    if (isDenial(e)) throw e
+    return mine
+  }
+  if (!r || r.enabled === false) {
+    if (mine) void idbDel(UNDERGROUND_CACHE) // switched off: nothing left to show offline either
+    return null
+  }
+  if (r.unchanged && mine) return mine
+  const fresh = { fetchedAt: r.fetchedAt, count: r.count ?? 0, geometry: r.geometry }
+  if (!isUndergroundSet(fresh)) return mine // not asked yet on the server: what the device has
+  void idbSet(UNDERGROUND_CACHE, fresh)
+  return fresh
+}
+
+/** The set's outlines as rings (`[lng, lat]`, open — the map closes them). Pure. */
+export function undergroundRings(set: UndergroundSet | null): [number, number][][] {
+  if (!set) return []
+  const out: [number, number][][] = []
+  for (const poly of set.geometry.coordinates) {
+    const ring = poly?.[0]
+    if (!Array.isArray(ring) || ring.length < 3) continue
+    const pts = ring.map((p) => [Number(p[0]), Number(p[1])] as [number, number])
+    const [a, z] = [pts[0], pts[pts.length - 1]]
+    const open = a[0] === z[0] && a[1] === z[1] ? pts.slice(0, -1) : pts
+    if (open.length >= 3) out.push(open)
+  }
+  return out
 }

@@ -347,6 +347,15 @@ export default defineConfig(({ mode }) => {
               handler: 'NetworkOnly',
             },
             {
+              // The region's underground buildings («Unterirdische Bauten», backend app/underground):
+              // megabytes, kept on the device in IndexedDB (lib/api/stationReference ·
+              // loadUnderground), which also asks with the set it holds. A second copy in the
+              // 50-entry `reference-data` cache below would only evict the symbols and serve an
+              // old set stale-first. ⚠️ Before the generic reference rule.
+              urlPattern: /\/api\/reference\/underground(?:\?|$)/,
+              handler: 'NetworkOnly',
+            },
+            {
               // A plan TILE (backend · app/plan_tiles, 21.09.2026): the revision is part of the
               // path, so the address is immutable and cache-first for good. Its own cache, and a
               // big one — a dense A1 is ~1 500 tiles (10 MB), an ordinary A3/A4 sheet a few

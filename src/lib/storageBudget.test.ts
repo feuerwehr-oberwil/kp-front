@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PREFETCH_BUDGET_SHARE, TILE_BYTES, estimateStorage, fittedTileCap, prefetchFit } from './storageBudget'
+import { PREFETCH_BUDGET_SHARE, RETINA_TILE_BYTES, TILE_BYTES, estimateStorage, fittedTileCap, prefetchFit, tileBytesFor } from './storageBudget'
 
 // Guards «Alles für offline laden» from filling the bucket the incident record has to write into.
 // The important asymmetry: a device that WON'T report its quota must still be allowed to try —
@@ -96,5 +96,21 @@ describe('fittedTileCap', () => {
 
   it('allows the full cap when the budget is unknown', () => {
     expect(fittedTileCap(null, 1200, 999 * 1024 ** 2)).toBe(1200)
+  })
+})
+
+// review round 4: a retina screen downloads CARTO's 2× tiles — the estimate follows the address
+describe('tileBytesFor', () => {
+  it('prices a 2× template at the retina figure and everything else at the 1× one', () => {
+    expect(tileBytesFor(['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png?key=k'])).toBe(RETINA_TILE_BYTES)
+    expect(tileBytesFor(['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'])).toBe(TILE_BYTES)
+    expect(tileBytesFor(['https://wmts.geo.admin.ch/1.0.0/x/default/current/3857/{z}/{x}/{y}.jpeg'])).toBe(TILE_BYTES)
+  })
+
+  it('a retina download needs more room and is cut sooner', () => {
+    const free = 1000 * TILE_BYTES
+    expect(prefetchFit(budget(free), 500).fits).toBe(true)
+    expect(prefetchFit(budget(free), 500, 0, RETINA_TILE_BYTES).fits).toBe(false)
+    expect(fittedTileCap(budget(free), 5000, 0, RETINA_TILE_BYTES)).toBe(Math.floor((free * PREFETCH_BUDGET_SHARE) / RETINA_TILE_BYTES))
   })
 })
