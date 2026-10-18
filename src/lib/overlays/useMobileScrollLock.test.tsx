@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render } from '@testing-library/react'
-import { AXIS_SLOP_PX, touchAxis, touchMayScroll, useMobileScrollLock, type ScrollBox } from './useMobileScrollLock'
+import { useRef } from 'react'
+import { AXIS_SLOP_PX, touchAxis, touchMayScroll, useMobileScrollLock, useScrollOnlyIn, type ScrollBox } from './useMobileScrollLock'
 
 function Sheet() {
   useMobileScrollLock(true)
@@ -69,6 +70,36 @@ describe('mobile modal scrolling', () => {
     expect(gesture(background, 0, 30)).toBe(true)
     act(() => { matches = false; change?.() })
     expect(gesture(background, 0, 30)).toBe(false)
+  })
+})
+
+// ── one sheet's body (review round 6, the Karte's empty search) ─────────────────────────────────
+function KeySheet() {
+  const ref = useRef<HTMLElement>(null)
+  useScrollOnlyIn(ref, '.lc-body')
+  return <section ref={ref}><div data-testid="head"><input data-testid="field" /></div><div className="lc-body" data-testid="body" style={{ overflowY: 'auto' }}><p data-testid="row">ARA Birsig</p></div></section>
+}
+describe('useScrollOnlyIn · only the sheet body scrolls, keyboard or not', () => {
+  it('cancels a drag over a body with nothing to scroll (iOS would hand it on to the page)', () => {
+    const view = render(<KeySheet />)
+    dimensions(view.getByTestId('body'), { scrollHeight: 300, clientHeight: 400, scrollTop: 0 })
+    expect(touch(view.getByTestId('row'), [0, 3], [0, 12])).toEqual([true, true])
+    expect(touch(view.getByTestId('row'), [0, -3])).toEqual([true])
+  })
+  it('lets a body with room scroll, and stops it at its ends', () => {
+    const view = render(<KeySheet />)
+    const body = view.getByTestId('body')
+    dimensions(body, { scrollHeight: 700, clientHeight: 400, scrollTop: 0 })
+    expect(touch(view.getByTestId('row'), [1, 0], [0, 12], [0, 24])).toEqual([false, false, false])
+    expect(touch(view.getByTestId('row'), [0, -8])).toEqual([true])
+    dimensions(body, { scrollTop: 150 })
+    expect(touch(view.getByTestId('row'), [0, -8])).toEqual([false])
+  })
+  it('leaves touches outside the body to their own handlers', () => {
+    const view = render(<KeySheet />)
+    dimensions(view.getByTestId('body'), { scrollHeight: 300, clientHeight: 400, scrollTop: 0 })
+    expect(touch(view.getByTestId('head'), [0, -20])).toEqual([false])
+    expect(touch(view.getByTestId('field'), [8, 0])).toEqual([false])
   })
 })
 
