@@ -765,7 +765,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [draft, circleDraft, qualityFor, selId, notePanelId])
+    // `rotStart` belongs here: without it the handler kept the null from before the first tap,
+    // and Escape skipped a half-laid Rotation (review sweep 23.09.2026). `clearRotMagnet` is
+    // left out on purpose: it is declared further down (useWbRotor), and every render's copy
+    // touches the same refs and setter, so an older one does the same.
+  }, [rotStart, draft, circleDraft, qualityFor, selId, notePanelId])
 
   // Stable ref callback that focuses a freshly-mounted text/resource input. The focus is
   // DEFERRED past the current placement tap: focusing synchronously on mount gets immediately

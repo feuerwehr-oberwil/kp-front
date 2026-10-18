@@ -186,8 +186,6 @@ interface Props {
 const FILL_OPACITIES = appConfig.drawing.fillOpacities
 
 export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM, perimeterM, supportsDistance = false, lengthM, profileCoords, onColor, onWidth, onDashed, onLabel, onLabelCommit, onMarker, onArrow, onEnding, onReverse, onContent, onLineNo, onFloorTag, onAbschnittLeiter, onAbschnittAuftrag, people = [], abschnittCount = 0, onTrupp, trupps = [], truppOnLine, truppOnLineOut = false, onShowTrupp, usedLineNos = [], onShowDistance, onRadius, onHatch, onToggleLock, locked, onDelete, onClose, attachmentLabels, onRouting, onDetach, onFocusAttachment, attachmentHidden, onRevealAttachment, gpsInfo, onRevertGps, onDetachHere }: Props) {
-  // free-typed Abschnitt-Leiter draft (see the Combo below): null = not typing
-  const [leiterDraft, setLeiterDraft] = useState<string | null>(null)
   // The Auftrag input is uncontrolled (see its comment), so the unmount commit reads the DOM
   // node — kept, never nulled, because React detaches element refs before passive cleanups run.
   // Same idempotence guard as ContextPanel's Notizen: blur first, unmount second, one write.
@@ -423,15 +421,13 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
                 {/* the roster picker every leader field uses (Combo) — free typing stays open
                     for the neighbour Wehr's officer, who is on nobody's list */}
                 <Combo
-                  value={leiterDraft ?? drawing.abschnittLeiter ?? ''}
+                  value={drawing.abschnittLeiter ?? ''}
                   options={people}
                   placeholder={appConfig.copy.drawingEditor.abschnittLeiterPlaceholder}
                   allowCustom
-                  // keystrokes land in the draft; the record (undo step + Verlauf row) is
-                  // written ONCE when the field is left — without onInput, Combo hands every
-                  // typed character to onChange, and a typed name was eleven journal rows
-                  onInput={setLeiterDraft}
-                  onChange={(v) => { setLeiterDraft(null); onAbschnittLeiter(v || undefined) }}
+                  // a typed name is committed ONCE, from the «‹X› verwenden» row (Combo · Gast
+                  // door), so the record (undo step + Verlauf row) is one row, never a keystroke
+                  onChange={(v) => onAbschnittLeiter(v || undefined)}
                 />
               </div>
             )}
