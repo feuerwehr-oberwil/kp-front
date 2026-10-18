@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import raw from '../../public/un-hazard.json'
-import { allEntries, lookupUN, normalizeUN, decodeKemler, lookupUNByName, allStoffNames, __setUnHazardData, type UnHazardEntry } from './unHazard'
+import { allEntries, lookupUN, normalizeUN, decodeKemler, lookupUNByName, allStoffNames, substanceName, __setUnHazardData, type UnHazardEntry } from './unHazard'
 
 // The dataset is a fetched static asset now (lib/staticData): capture the pre-load
 // behaviour first — lookups MISS, they never throw — then inject the real data the way
@@ -141,5 +141,26 @@ describe('lookupUNByName / allStoffNames', () => {
     // sorted de-CH and deduplicated
     expect([...names].sort((a, b) => a.localeCompare(b, 'de-CH'))).toEqual([...names])
     expect(new Set(names.map((n) => n.toLowerCase())).size).toBe(names.length)
+  })
+})
+
+/* The Karte's Gefahrgut shows the name as its first row (owner, review round 4). */
+describe('substanceName', () => {
+  it('is the official German name by default (1203 → BENZIN oder OTTOKRAFTSTOFF)', () => {
+    expect(substanceName(lookupUN('1203'), 'de-CH')).toBe('BENZIN oder OTTOKRAFTSTOFF')
+  })
+  it('is the curated English name on an English UI, German where the table has none', () => {
+    expect(substanceName(lookupUN('1203'), 'en')).toBe('Petrol / gasoline (motor spirit)')
+    expect(lookupUN('0004')?.name_en).toBeNull()
+    expect(substanceName(lookupUN('0004'), 'en')).toBe(lookupUN('0004')?.name_de)
+  })
+  it('falls back to German for French and Italian (Table A has no such names)', () => {
+    expect(substanceName(lookupUN('1203'), 'fr-CH')).toBe('BENZIN oder OTTOKRAFTSTOFF')
+    expect(substanceName(lookupUN('1203'), 'it')).toBe('BENZIN oder OTTOKRAFTSTOFF')
+  })
+  it('is null for an unknown number or a nameless row', () => {
+    expect(substanceName(lookupUN('9999'), 'de')).toBeNull()
+    expect(substanceName(null, 'de')).toBeNull()
+    expect(substanceName({ ...lookupUN('1203')!, name_de: '  ', name_en: null }, 'de')).toBeNull()
   })
 })

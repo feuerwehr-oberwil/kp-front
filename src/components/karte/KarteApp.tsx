@@ -68,6 +68,7 @@ import { karteHref } from '../../lib/karte/route'
 import { applyLayerPreset, karteLayerPreset, presetFlips, type QuickTap } from '../../lib/karte/layerPresets'
 import { karteRadarStore, loadKarteView, loadViewerLayerPrefs, saveKarteView, saveViewerLayerPrefs, viewerLayers, type KarteTool } from '../../lib/karte/session'
 import { categorize, categoryCounts, categoryRules, inkOn } from '../../lib/karte/categories'
+import { cameraOnClose, returnOnSelect, toolTakesTaps, type Camera, type CameraReturn } from '../../lib/karte/camera'
 import type { Entity, LayerDef, LayerId, LngLat, PreparedMapOverlay } from '../../types'
 import { MapView } from '../MapView'
 import { LayerPanel } from '../LayerPanel'
@@ -391,7 +392,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // ── search ────────────────────────────────────────────────────────────────────────────────
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
-  // the phone: the bar has a round search button, the field lives in a slide-up (review round 3,
+  // the phone: the bar has a search button («Einsätze ▾»'s twin since round 4), the field lives in a slide-up (review round 3,
   // owner: «Einsätze ▾ + a search button», the sheet «like Ebenen», the keyboard right away)
   const sheetFieldRef = useRef<HTMLInputElement>(null)
   const openPhoneSearch = () => {
@@ -421,6 +422,35 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const featured = useMemo(() => objects.filter((o) => o.kind === 'einsatzobjekt').slice(0, 6), [objects])
 
   // ── selecting ─────────────────────────────────────────────────────────────────────────────
+  // Closing gives the camera back (owner, review round 4 — lib/karte/camera): the camera before the
+  // selection is kept here, the first selection's while one stays open, and dropped the moment the
+  // user moves the map themselves (the `movestart` below, fired with an originalEvent).
+  const camBack = useRef<CameraReturn | null>(null)
+  const cameraNow = (): Camera | null => {
+    const map = mapRef.current
+    if (!map || typeof map.getPadding !== 'function') return null
+    const c = map.getCenter()
+    const p = map.getPadding()
+    return { center: [c.lng, c.lat], zoom: map.getZoom(), padding: { top: p.top ?? 0, bottom: p.bottom ?? 0, left: p.left ?? 0, right: p.right ?? 0 } }
+  }
+  const noteSelect = (how: 'tap' | 'search' = 'tap') => {
+    const now = cameraNow()
+    if (now) camBack.current = returnOnSelect(camBack.current, now, how)
+  }
+  const giveCameraBack = () => {
+    const r = camBack.current
+    camBack.current = null
+    const now = cameraNow()
+    const to = now && cameraOnClose(r, now)
+    if (to) mapRef.current?.easeTo({ center: to.center, zoom: to.zoom, padding: to.padding, duration: 350 })
+  }
+  const watchingMoves = useRef(false)
+  const watchUserMoves = useCallback(() => {
+    const map = mapRef.current?.getMap?.()
+    if (!map || watchingMoves.current) return
+    watchingMoves.current = true
+    map.on('movestart', (e) => { if ((e as { originalEvent?: unknown }).originalEvent) camBack.current = null })
+  }, [])
   // on a phone the sheet is Ebenen's (up to ~72 % of the height): the place goes in the strip above
   const panelPad = () => (phone ? { top: 80, bottom: window.innerHeight * SHEET_SHARE, left: 0, right: 0 } : { top: 80, bottom: 0, left: 440, right: 0 })
   const flyTo = (at: LngLat, zoom = 17.6) => mapRef.current?.easeTo({ center: at, zoom: Math.max(view.zoom, zoom), padding: panelPad(), duration: 700 })
@@ -432,9 +462,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     const hidden = phone ? p.y > window.innerHeight * (1 - SHEET_SHARE) - 16 || p.y < 90 : p.x < 440
     if (hidden) map.easeTo({ center: at, padding: panelPad(), duration: 500 })
   }
-  const selectObject = (id: string, fly = true) => {
+  const selectObject = (id: string, fly = true, how: 'tap' | 'search' = 'tap') => {
     const o = byId.get(id)
     if (!o) return
+    noteSelect(how)
     setSel({ kind: 'object', id })
     setSurface(null); setSearchOpen(false); setSheetShut(false)
     if (tool !== 'measure' && tool !== 'erg') setToolState(null)
@@ -451,12 +482,14 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     }
   }
   const selectBuilding = (at: LngLat, ring: LngLat[] | null, address: string | null = null) => {
+    noteSelect()
     setSel({ kind: 'building', at, ring, address })
     setSurface(null); setSearchOpen(false); setSheetShut(false)
     if (tool !== 'measure' && tool !== 'erg') setToolState(null)
     reveal(at)
   }
   const dropPin = (at: LngLat) => {
+    noteSelect()
     setSel({ kind: 'pin', at })
     setSurface(null); setSearchOpen(false); setSheetShut(false); setToolState(null)
     reveal(at)
@@ -464,13 +497,14 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const deselect = () => { setSel(null); setSurface(null); setSheetShut(false) }
   // ✕ / pushed down: on the tablet the panel IS the selection; on a phone the sheet only covers
   // the map, so it goes and the place stays selected for a second look
-  const closePanel = () => { if (phone) setSheetShut(true); else deselect() }
+  const closePanel = () => { giveCameraBack(); if (phone) setSheetShut(true); else deselect() }
 
   const pickAddress = (hit: GeoHit) => {
     setSearchOpen(false); setQuery(splitAddress(hit.label)[0])
     const at: LngLat = [hit.lng, hit.lat]
     const o = objectAtAddress(objects, hit.label)
-    if (o) { selectObject(o.id); return }
+    if (o) { selectObject(o.id, true, 'search'); return }
+    noteSelect('search')
     flyTo(at, 18)
     selectBuilding(at, ringAt(ringsNear(at), at), normAddress(hit.label))
   }
@@ -615,6 +649,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     return out
   }, [outlines, selObj, sel, tool, erg, red, ringsNear, uncached, hatchInk, cats, catOff])
   const tagZoom = view.zoom >= LABEL_MIN_ZOOM
+  // Messen / Punkt setzen / Gefahrgut's centre take every tap, on an object too (owner, review
+  // round 4 — lib/karte/camera · toolTakesTaps): its dot and tag let the finger through to the map
+  const takesTaps = toolTakesTaps(tool, erg.mode)
   const entities = liveVehicles
   const isVisible = useCallback((id: LayerId) => {
     if (id === OBJECTS_LAYER) return objectsOn
@@ -651,7 +688,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     }
     const ring = ringAt(ringsNear(c), c)
     if (ring) { selectBuilding(c, ring); return }
-    if (sel) deselect()
+    if (sel) { giveCameraBack(); deselect() }
   }
   const onEntity = (e: Entity) => {
     if (tool === 'measure') measure.setPath((pts) => [...pts, e.coord])
@@ -877,7 +914,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           onMarkerMove={NOOP}
           onMarkerDragEnd={NOOP}
           onView={(v) => { setView(v); loadOutlines() }}
-          onSettled={() => { flyPending(); loadOutlines() }}
+          onSettled={() => { flyPending(); loadOutlines(); watchUserMoves() }}
           freehand={null}
           onFreehand={NOOP}
           drawColor="#000000"
@@ -901,7 +938,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           {objectsOn && objects.map((o) => {
             const at = coordOf(o)
             if (!at) return null
-            const pick = (e: React.MouseEvent) => { e.stopPropagation(); selectObject(o.id, false) }
+            // a tap tool armed: the marker lets taps through (`.through`); one that reaches it anyway
+            // (a keyboard) is the tool's, at the object's point — never a selection
+            const pick = (e: React.MouseEvent) => { e.stopPropagation(); if (takesTaps) onMapClick(at); else selectObject(o.id, false) }
             const isSel = selObj?.id === o.id
             if (catOff(o.id) && !isSel) return null
             // the category's colour (lib/karte/categories); none = the default red, untouched
@@ -911,16 +950,16 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             const bare = !o.plans.length
             if (!isSel && !(tagZoom && tagged?.has(o.id))) {
               return (
-                <Marker key={`dot:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" style={{ zIndex: 1 }}>
-                  <button type="button" className={cx(s.dotMk, cat && s.cat, !cat && bare && s.bare)} style={catStyle} aria-label={o.name} title={o.name} onClick={pick} />
+                <Marker key={`dot:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" style={{ zIndex: 1, pointerEvents: takesTaps ? 'none' : undefined }}>
+                  <button type="button" className={cx(s.dotMk, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through)} style={catStyle} aria-label={o.name} title={o.name} onClick={pick} />
                 </Marker>
               )
             }
             // the tag takes the dot's place, on the point; the name only, no plan count (owner R3)
             const dx = (!isSel && tagged?.get(o.id)) || 0
             return (
-              <Marker key={`tag:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" offset={[dx, 0]} style={{ zIndex: isSel ? 3 : 2 }}>
-                <button type="button" className={cx(s.tagMk, isSel && s.sel, cat && s.cat, !cat && bare && s.bare)} style={catStyle} onClick={pick}>
+              <Marker key={`tag:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" offset={[dx, 0]} style={{ zIndex: isSel ? 3 : 2, pointerEvents: takesTaps ? 'none' : undefined }}>
+                <button type="button" className={cx(s.tagMk, isSel && s.sel, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through)} style={catStyle} onClick={pick}>
                   {o.name}
                 </button>
               </Marker>
@@ -994,10 +1033,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
 
         {searchOpen && !phone && (
           <KarteSearch query={query} hits={hits} featured={featured} addresses={addrState === 'ok' ? addr.list : []} addrState={addrState}
-            onPickObject={(id) => { setQuery(byId.get(id)?.name ?? ''); selectObject(id) }} onPickAddress={pickAddress} />
+            onPickObject={(id) => { setQuery(byId.get(id)?.name ?? ''); selectObject(id, true, 'search') }} onPickAddress={pickAddress} />
         )}
         {searchOpen && phone && (
           <KarteKeySheet
+            fill
             label={C.searchOpen}
             onClose={() => setSearchOpen(false)}
             field={(
@@ -1012,7 +1052,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             )}
           >
             <KarteSearch inSheet query={query} hits={hits} featured={featured} addresses={addrState === 'ok' ? addr.list : []} addrState={addrState}
-              onPickObject={(id) => { setQuery(byId.get(id)?.name ?? ''); selectObject(id) }} onPickAddress={pickAddress} />
+              onPickObject={(id) => { setQuery(byId.get(id)?.name ?? ''); selectObject(id, true, 'search') }} onPickAddress={pickAddress} />
           </KarteKeySheet>
         )}
 
@@ -1129,6 +1169,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             onToggle={toggleLayer}
             onOpacity={setOpacity}
             twins={twins}
+            // «Station» first (owner, review round 4: «it's the most relevant one in this case»)
+            leadTwinGroups={[C.layerGroupStation]}
             weather={weather.row}
             onShowAll={() => quickTap('all')}
             onHideAll={() => quickTap('none')}

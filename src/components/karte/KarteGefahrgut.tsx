@@ -14,7 +14,6 @@ import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
 import type { ErgRingMode } from '../../lib/ergRings'
 import { lookupErg } from '../../lib/erg'
-import { IconButton } from '../Button'
 import { UnHazardSection } from '../UnHazardSection'
 import { SearchField } from '../SearchField'
 import { defuseAutofill, typingFieldProps } from '../../lib/typingField'
@@ -51,7 +50,7 @@ export function KarteGefahrgut({ un, onUn, mode, onMode, center, onClose, phone 
           can be moved */}
       {un && mode !== 'off' && !!lookupErg(un)?.tih?.length && <div className={s.toolHint}><Icon id="pin" /><span>{center ? C.ergCenter : C.ergCenterFirst}</span></div>}
       {un && (
-        <UnHazardSection un={un} ringMode={mode} onRingMode={onMode} ergCoord={center ?? undefined} />
+        <UnHazardSection un={un} ringMode={mode} onRingMode={onMode} ergCoord={center ?? undefined} nameRow />
       )}
     </>
   )
@@ -77,7 +76,7 @@ export function KarteGefahrgut({ un, onUn, mode, onMode, center, onClose, phone 
     <section className={s.toolCard} aria-label={C.tools.erg}>
       <div className={s.toolHead}>
         <h3>{C.tools.erg}</h3>
-        <IconButton label={appConfig.copy.closeDialog} variant="secondary" onClick={onClose}><Icon id="close" /></IconButton>
+        <button type="button" className="ip-x" aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
       </div>
       {/* the field stays put above the readout, outside its scroller: typing never scrolls it away,
           and with the keyboard up the card stands on the keys with the field at its top */}

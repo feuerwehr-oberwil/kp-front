@@ -143,6 +143,9 @@ export const editorsCopy = {
     } as Record<string, string>,
     // Verpackungsgruppe: the danger GRADE, which the bare Roman numeral does not say.
     packingGroups: { I: 'hohe Gefahr', II: 'mittlere Gefahr', III: 'geringe Gefahr' } as Record<string, string>,
+    // the ADR name as a row of the readout — the word the Einsatz's Gefahrentafel field uses («Stoff»);
+    // only «Karte & Objekte» asks for the row (UnHazardSection · nameRow), the Tafel has its field
+    unSubstance: 'Stoff',
     unClass: 'Klasse',
     unKemler: 'Gefahrnummer',
     unLabels: 'Gefahrzettel',
