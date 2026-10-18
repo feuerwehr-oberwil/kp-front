@@ -15,6 +15,7 @@ mount, a wedged session, a render loop on the Karte.
 | `open-writes.spec.ts` | opening an Einsatz this build has already saved writes nothing: a reload and a second device send 0 writes (the first open's one-time upgrade is reported, not asserted) | CI; locally opt-in, `E2E_WORKFLOWS=1` |
 | `journeys.journey.ts` | performance journeys: requests, bytes, writes, leaks and interaction times on a busy Einsatz, compared against `e2e/perf/baseline.json` ([docs/testing/perf-journeys.md](../docs/testing/perf-journeys.md)) | CI job «Performance», chromium; opt-in elsewhere (`PERF_JOURNEYS=1`, `just perf`) |
 | `screens.visual.ts` | screenshot regression: nine frozen states (Lage, Plan, Trupps, Verlauf, Rapport, kiosk; tablet + phone, one night) compared pixel by pixel with `e2e/visual/baseline/` ([docs/testing/visual-regression.md](../docs/testing/visual-regression.md)) | CI job «Visual», chromium; opt-in elsewhere (`VISUAL=1`, `just visual`) |
+| `live-follow.spec.ts` | the live follow after a save: the saving device downloads none of its own saves; two devices on one login get each other's Kontakt and an Atemschutznotfall within 5 s, also saving at the same moment and in the gap before the re-arm | CI; locally opt-in, `E2E_WORKFLOWS=1` |
 | `touch.spec.ts` | coarse-pointer time controls at 1024×768 and 390×844, clearing, reachable actions and overflow | CI; locally opt-in, `E2E_WORKFLOWS=1` |
 
 CI builds one production image and shares its archive within that workflow run. The required

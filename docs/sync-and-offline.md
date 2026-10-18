@@ -32,6 +32,21 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   409 and merge, closed-Einsatz rule, validation and audit. A 422 from the slice (it validates
   every Trupp; the full save keeps an unchanged legacy row) falls back to the full PUT; no
   ancestor, or any other key changed, is the full PUT as before (`workspaceSync · onlyTruppsChanged`).
+- **The live follow never hands a device back its own save** (18.10.2026). Every save wakes every
+  parked follower, the saving device's own long poll too, which downloaded the whole blob it had
+  just sent (~38 KB gzipped per Funkkontakt on the busiest Einsatz on record) and threw it away.
+  Each sync engine has a `writerId` (`WorkspaceSync`, per engine — one login runs on three
+  tablets); its saves send it (`X-Workspace-Writer`) and its follow asks with it (`writer=`).
+  When every revision after the poll's `since` is a save of that engine, the server answers 304 +
+  `X-Workspace-Rev` (`live_wait · only_own_writes`) and the follow parks at that revision at once
+  (`useIncidentSync`, `{ ownRev }`) — an answer, so no ease-off. ⚠️ The server decides only from
+  what it has on record: a revision by anyone else, by a path that records no writer (capture,
+  the alarm webhook, the admin import), on another worker, before a restart or out of the
+  32-revision window is the blob, as before. So another device's change is never held back: in
+  the range → the blob; after it → the re-armed poll is already behind and is answered at once.
+  Only the engine whose state holds a save may send its id (never a save made around it, never a
+  beacon). Guarded on the real stack by `e2e/live-follow.spec.ts`, with two real engines in
+  `lib/liveFollow.twoDevice.test.ts`, and the rule in `backend/tests/test_long_poll.py`.
 - **Sync supports task-scoped collaboration.** Multiple editors may work different domains in the
   same incident (e.g. Atemschutz + Lage drawing); this is not shared-cursor co-editing of the same
   object. Cross-domain concurrent edits must merge. Mergeable collections merge three-way **by

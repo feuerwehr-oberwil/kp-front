@@ -58,7 +58,7 @@ describe('WorkspaceSync · slice: «trupps»', () => {
     await sync.init()
     sync.save(blob)
     await sync.flush()
-    expect(putWorkspaceTrupps).toHaveBeenCalledWith('i1', [trupp], 7, expect.stringMatching(/^\d{4}-\d\d-\d\dT/))
+    expect(putWorkspaceTrupps).toHaveBeenCalledWith('i1', [trupp], 7, expect.stringMatching(/^\d{4}-\d\d-\d\dT/), sync.writerId)
     expect(putWorkspace).not.toHaveBeenCalled()
     sync.dispose()
   })
@@ -88,7 +88,7 @@ describe('WorkspaceSync · slice: «trupps»', () => {
     expect(putWorkspaceRecord).toHaveBeenCalledWith('i1', {
       attendance: { p1: { status: 'present' } }, mittel: [{ id: 'm1' }], checklists: { t1: {} },
       reportMeta: { einsatzort: 'X' },
-    }, 7)
+    }, 7, sync.writerId)
     expect(putWorkspace).not.toHaveBeenCalled()
     expect(putWorkspaceTrupps).not.toHaveBeenCalled()
     sync.dispose()
@@ -111,7 +111,7 @@ describe('WorkspaceSync · slice: «trupps»', () => {
     await sync.init()
     sync.save(blob)
     await sync.flush()
-    expect(putWorkspace).toHaveBeenCalledWith('i1', blob, 7, expect.stringMatching(/^\d{4}-\d\d-\d\dT/))
+    expect(putWorkspace).toHaveBeenCalledWith('i1', blob, 7, expect.stringMatching(/^\d{4}-\d\d-\d\dT/), sync.writerId)
     expect(putWorkspaceTrupps).not.toHaveBeenCalled()
     sync.dispose()
   })
@@ -138,7 +138,7 @@ describe('WorkspaceSync · an editor\'s Trupp-only save takes the trupp slice', 
     const sync = await opened()
     sync.save({ ...server, trupps: [kontakt] })
     await sync.flush()
-    expect(putWorkspaceTrupps).toHaveBeenCalledWith('i1', [kontakt], 7, iso)
+    expect(putWorkspaceTrupps).toHaveBeenCalledWith('i1', [kontakt], 7, iso, sync.writerId)
     expect(putWorkspace).not.toHaveBeenCalled()
     expect(sync.syncStatus).toBe('synced')
     sync.dispose()
@@ -149,7 +149,7 @@ describe('WorkspaceSync · an editor\'s Trupp-only save takes the trupp slice', 
     const both = { ...server, trupps: [kontakt], cameraViews: [{ id: 'd1' }, { id: 'd2' }] }
     sync.save(both)
     await sync.flush()
-    expect(putWorkspace).toHaveBeenCalledWith('i1', both, 7, iso)
+    expect(putWorkspace).toHaveBeenCalledWith('i1', both, 7, iso, sync.writerId)
     expect(putWorkspaceTrupps).not.toHaveBeenCalled()
     sync.dispose()
   })
@@ -174,7 +174,7 @@ describe('WorkspaceSync · an editor\'s Trupp-only save takes the trupp slice', 
     putWorkspaceTrupps.mockResolvedValueOnce({ workspace: null, workspace_rev: 9 })
     sync.save({ ...drawn, trupps: [kontakt] })
     await sync.flush()
-    expect(putWorkspaceTrupps).toHaveBeenCalledWith('i1', [kontakt], 8, iso)
+    expect(putWorkspaceTrupps).toHaveBeenCalledWith('i1', [kontakt], 8, iso, sync.writerId)
     expect(putWorkspace).toHaveBeenCalledTimes(1)
     sync.dispose()
   })
@@ -201,7 +201,7 @@ describe('WorkspaceSync · an editor\'s Trupp-only save takes the trupp slice', 
     sync.save({ ...server, trupps: [kontakt] })
     await sync.flush()
     expect(putWorkspaceTrupps).toHaveBeenCalledTimes(2)
-    expect(putWorkspaceTrupps.mock.calls[1]).toEqual(['i1', [kontakt], 9, iso])
+    expect(putWorkspaceTrupps.mock.calls[1]).toEqual(['i1', [kontakt], 9, iso, sync.writerId])
     expect(putWorkspace).not.toHaveBeenCalled()
     expect(sync.syncStatus).toBe('synced')
     sync.dispose()
@@ -213,7 +213,7 @@ describe('WorkspaceSync · an editor\'s Trupp-only save takes the trupp slice', 
     const ws = { ...server, trupps: [kontakt] }
     sync.save(ws)
     await sync.flush()
-    expect(putWorkspace).toHaveBeenCalledWith('i1', ws, 7, iso)
+    expect(putWorkspace).toHaveBeenCalledWith('i1', ws, 7, iso, sync.writerId)
     expect(sync.syncStatus).toBe('synced')
     sync.dispose()
   })
@@ -409,6 +409,18 @@ describe('WorkspaceSync · keepTimer', () => {
   })
 })
 
+// The writer id every save of an engine carries, and its live follow asks with (18.10.2026): the
+// server answers a range of revisions that is only this engine's saves without the blob. Two
+// engines — two tablets on one login — must never share one, or one would take the other's save
+// for its own and never fetch it; and the backend only takes `[A-Za-z0-9_-]{1,64}`.
+describe('WorkspaceSync · writerId', () => {
+  it('is its own per engine, and in the shape the server accepts', () => {
+    const ids = Array.from({ length: 200 }, () => new WorkspaceSync('i1').writerId)
+    expect(new Set(ids).size).toBe(ids.length)
+    for (const id of ids) expect(id).toMatch(/^[A-Za-z0-9_-]{1,64}$/)
+  })
+})
+
 describe('WorkspaceSync – awaited flush', () => {
   it('joins the in-flight PUT and waits for the newer edit sent after its acknowledgement', async () => {
     vi.useFakeTimers()
@@ -434,7 +446,7 @@ describe('WorkspaceSync – awaited flush', () => {
     expect(completed).toBe(false)
     releaseSecond()
     await Promise.all([automatic, manual])
-    expect(putWorkspace).toHaveBeenLastCalledWith('i1', { n: 2 }, 8, expect.stringMatching(/^\d{4}-\d\d-\d\dT/))
+    expect(putWorkspace).toHaveBeenLastCalledWith('i1', { n: 2 }, 8, expect.stringMatching(/^\d{4}-\d\d-\d\dT/), sync.writerId)
     expect(sync.syncStatus).toBe('synced')
     sync.dispose()
   })
@@ -473,7 +485,7 @@ describe('WorkspaceSync · a flush asked for while a failing attempt is in fligh
     failInFlight()
     await Promise.all([doomed, reconnect])
     expect(putWorkspace).toHaveBeenCalledTimes(2)
-    expect(putWorkspace).toHaveBeenLastCalledWith('i1', { n: 1 }, 7, expect.stringMatching(/^\d{4}-\d\d-\d\dT/))
+    expect(putWorkspace).toHaveBeenLastCalledWith('i1', { n: 1 }, 7, expect.stringMatching(/^\d{4}-\d\d-\d\dT/), sync.writerId)
     expect(sync.hasUnsynced).toBe(false)
     expect(sync.syncStatus).toBe('synced')
     sync.dispose()

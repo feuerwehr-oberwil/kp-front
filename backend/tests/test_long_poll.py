@@ -156,3 +156,154 @@ async def test_the_wake_is_held_back_until_the_commit(db_session):
         assert await changes.wait() is False, "the wake fired before the commit"
         await db_session.commit()
         assert await changes.wait() is True
+
+
+# --- the saving device's own poll (18.10.2026) ----------------------------------------------
+# Every save woke every follower — the SAVING device's own long poll too, which then downloaded
+# the whole blob it had just sent. The saves now carry the device's writer id
+# (X-Workspace-Writer) and the follower read asks with `writer=`: a range of revisions that is
+# nothing but that device's own saves is the 304 + X-Workspace-Rev. Everything else — another
+# device on the SAME login, a save without an id, an old client — must still be the blob.
+
+A = "wsA1760800000000-1abc"
+B = "wsB1760800000000-2def"
+
+
+def _put(client, inc: str, rev: int, ws: dict, writer: str | None = None, route: str = ""):
+    headers = {"X-Workspace-Writer": writer} if writer else {}
+    body = (
+        {"trupps": ws.get("trupps", []), "base_rev": rev} if route == "/trupps" else {"workspace": ws, "base_rev": rev}
+    )
+    return client.put(f"/api/incidents/{inc}/workspace{route}", json=body, headers=headers)
+
+
+async def test_own_save_wakes_the_own_poll_without_the_blob(client, editor, _long_park):
+    await _login(client, editor)
+    inc = await _incident(client)
+
+    poll = asyncio.create_task(client.get(f"/api/incidents/{inc}/workspace?since=0&wait=1&writer={A}"))
+    await _parked()
+    assert (await _put(client, inc, 0, {"a": 1}, A)).status_code == 200
+
+    r = await asyncio.wait_for(poll, timeout=2)
+    assert r.status_code == 304, r.text
+    assert r.content == b""
+    assert r.headers["X-Workspace-Rev"] == "1"
+    assert r.headers["X-Incident-Open"] == "1", "the lifecycle rides the own-save answer too"
+    assert not live_wait._waiters
+
+
+async def test_another_device_on_the_same_login_still_gets_the_blob(client, editor, _long_park):
+    """One account on three tablets is the field's shape: the user is not the writer."""
+    await _login(client, editor)
+    inc = await _incident(client)
+
+    poll = asyncio.create_task(client.get(f"/api/incidents/{inc}/workspace?since=0&wait=1&writer={A}"))
+    await _parked()
+    assert (await _put(client, inc, 0, {"b": 1}, B)).status_code == 200
+
+    r = await asyncio.wait_for(poll, timeout=2)
+    assert r.status_code == 200
+    assert r.json() == {"workspace": {"b": 1}, "workspace_rev": 1}
+
+
+@pytest.mark.parametrize(
+    ("poll_writer", "save_writer"),
+    [(A, None), (None, A), (A, "not a writer id!"), (A, "x" * 65)],
+    ids=["save-without-id", "old-client-poll", "garbled-id", "overlong-id"],
+)
+async def test_anything_unproven_is_the_blob(client, editor, _long_park, poll_writer, save_writer):
+    await _login(client, editor)
+    inc = await _incident(client)
+
+    q = f"&writer={poll_writer}" if poll_writer else ""
+    poll = asyncio.create_task(client.get(f"/api/incidents/{inc}/workspace?since=0&wait=1{q}"))
+    await _parked()
+    assert (await _put(client, inc, 0, {"c": 1}, save_writer)).status_code == 200
+
+    r = await asyncio.wait_for(poll, timeout=2)
+    assert r.status_code == 200
+    assert r.json()["workspace_rev"] == 1
+
+
+async def test_a_foreign_save_anywhere_in_the_range_is_the_blob(client, editor):
+    """The race: this device saved, another device saved right after, and only then did this
+    device's poll ask again. The range holds a foreign revision — the blob, with both."""
+    await _login(client, editor)
+    inc = await _incident(client)
+    assert (await _put(client, inc, 0, {"mine": 1}, A)).status_code == 200
+    assert (await _put(client, inc, 1, {"mine": 1, "theirs": 1}, B)).status_code == 200
+
+    for since in (0, 1):
+        r = await client.get(f"/api/incidents/{inc}/workspace?since={since}&writer={A}")
+        assert r.status_code == 200, f"since={since}"
+        assert r.json() == {"workspace": {"mine": 1, "theirs": 1}, "workspace_rev": 2}
+    # …and the other way round: B's poll never takes A's save for its own
+    r = await client.get(f"/api/incidents/{inc}/workspace?since=0&writer={B}")
+    assert r.status_code == 200
+
+
+async def test_a_foreign_save_before_an_own_one_is_still_the_blob(client, editor):
+    """The range's NEWEST revision is this device's, an older one is not: judging only the last
+    revision would answer 304 and hide the foreign one."""
+    await _login(client, editor)
+    inc = await _incident(client)
+    assert (await _put(client, inc, 0, {"theirs": 1}, B)).status_code == 200
+    assert (await _put(client, inc, 1, {"theirs": 1, "mine": 1}, A)).status_code == 200
+
+    r = await client.get(f"/api/incidents/{inc}/workspace?since=0&writer={A}")
+    assert r.status_code == 200
+    assert r.json() == {"workspace": {"theirs": 1, "mine": 1}, "workspace_rev": 2}
+    # from rev 1 on, the range holds only A's save
+    r = await client.get(f"/api/incidents/{inc}/workspace?since=1&writer={A}")
+    assert (r.status_code, r.headers.get("X-Workspace-Rev")) == (304, "2")
+
+
+async def test_several_own_saves_in_a_row_are_still_own_and_the_next_foreign_one_is_not(client, editor):
+    await _login(client, editor)
+    inc = await _incident(client)
+    assert (await _put(client, inc, 0, {"n": 1}, A)).status_code == 200
+    assert (await _put(client, inc, 1, {"n": 2}, A)).status_code == 200
+
+    r = await client.get(f"/api/incidents/{inc}/workspace?since=0&writer={A}")
+    assert (r.status_code, r.headers.get("X-Workspace-Rev")) == (304, "2")
+
+    assert (await _put(client, inc, 2, {"n": 2, "other": 1}, B)).status_code == 200
+    r = await client.get(f"/api/incidents/{inc}/workspace?since=2&writer={A}")
+    assert r.status_code == 200
+    assert r.json()["workspace_rev"] == 3
+
+
+async def test_a_refused_save_records_nothing(client, editor):
+    """A 409 (stale base) is rolled back: the revision it would have been is another device's."""
+    await _login(client, editor)
+    inc = await _incident(client)
+    assert (await _put(client, inc, 0, {"b": 1}, B)).status_code == 200
+    assert (await _put(client, inc, 0, {"a": 1}, A)).status_code == 409
+
+    r = await client.get(f"/api/incidents/{inc}/workspace?since=0&writer={A}")
+    assert r.status_code == 200
+    assert r.json() == {"workspace": {"b": 1}, "workspace_rev": 1}
+
+
+@pytest.mark.parametrize("route", ["/trupps", "/record"])
+async def test_the_slice_routes_record_their_writer_too(client, editor, route):
+    """A Funkkontakt goes the trupp slice (#394), the EL's record the record slice."""
+    await _login(client, editor)
+    inc = await _incident(client)
+    assert (await _put(client, inc, 0, {"trupps": [], "mittel": []}, A, route)).status_code == 200
+
+    r = await client.get(f"/api/incidents/{inc}/workspace?since=0&writer={A}")
+    assert (r.status_code, r.headers.get("X-Workspace-Rev")) == (304, "1")
+
+
+async def test_only_the_newest_revisions_are_vouched_for(client, editor, monkeypatch):
+    """The record is a window, not a history: a follower further behind gets the blob."""
+    monkeypatch.setattr(live_wait, "_WRITES_KEPT", 2)
+    await _login(client, editor)
+    inc = await _incident(client)
+    for rev in range(3):
+        assert (await _put(client, inc, rev, {"n": rev}, A)).status_code == 200
+
+    assert (await client.get(f"/api/incidents/{inc}/workspace?since=1&writer={A}")).status_code == 304
+    assert (await client.get(f"/api/incidents/{inc}/workspace?since=0&writer={A}")).status_code == 200
