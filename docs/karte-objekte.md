@@ -551,8 +551,9 @@ The rules that are easy to break:
     and after a `scrollTo(0, 0)`, plus the owner's pull on a row in that state; red on the base
     (placement off, sheet top −147, field −123), green now. What only the iPhone proves: that iOS
     keeps the fixed frame at 793 while the sheet is placed (the capture shows it did with the
-    placement off). Still open: `useKeyboardInset` (the root's `data-kb`, `--vv-foot`, the
-    Einsatz's sheets) reads the live `innerHeight` the same way.
+    placement off). `useKeyboardInset` (the root's `data-kb`, `--vv-foot`, the Einsatz's sheets)
+    read the live `innerHeight` the same way — since 18.10. it measures from `fullViewHeight` too
+    (docs/ui-conventions.md, `e2e/einsatz-keyboard.mjs`).
   - **Round 10** (owner, installed app, 18.10.2026 20:28: «still doesn't work reliably. sometimes
     it does»). The readout showed round 9's placement holding (`ref 793`, sheet on the keys after
     the touch), but DURING the touch iOS collapses `innerHeight` in **steps** (793 → 756 → 711 →
