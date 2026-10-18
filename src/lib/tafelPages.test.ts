@@ -20,6 +20,20 @@ describe('which Tafel page this device has open', () => {
     const c = renderHook(() => useTafelPage('inc-2'))
     expect(c.result.current[0]).toBe(SKIZZE)
   })
+  it('a device that never picked a page sees the fallback (the demo\'s first page); a pick wins over it', async () => {
+    resetTafelPageMemory()
+    const a = renderHook(({ fb }) => useTafelPage('inc-demo', fb), { initialProps: { fb: undefined as string | undefined } })
+    expect(a.result.current[0]).toBe(SKIZZE) // a real Einsatz: no fallback given
+    a.rerender({ fb: 'fm-demo-ef' }) // the pages arrived with the workspace
+    expect(a.result.current[0]).toBe('fm-demo-ef')
+    act(() => a.result.current[1](SKIZZE)) // the visitor taps «Skizze»
+    expect(a.result.current[0]).toBe(SKIZZE)
+    a.unmount()
+    // …and a reload keeps that choice over the fallback
+    resetTafelPageMemory()
+    const b = renderHook(() => useTafelPage('inc-demo', 'fm-demo-ef'))
+    await waitFor(() => expect(b.result.current[0]).toBe(SKIZZE))
+  })
   it('PageUp / PageDown stop at the ends', () => {
     expect([stepPage(['s', 'a', 'b'], 'a', 1), stepPage(['s', 'a', 'b'], 'b', 1), stepPage(['s', 'a'], 's', -1)]).toEqual(['b', 'b', 's'])
   })

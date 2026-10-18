@@ -106,6 +106,7 @@ import { findForms, formAnno, formDelta, formHasContent, newFormPage, pageTitles
 import { isDrawnBoardKind } from '../lib/workspace'
 import { labelText, type BoardTemplate, type TemplatePage } from '../lib/boardTemplate'
 import { SKIZZE, TAFEL_ID, stepPage, useTafelPage } from '../lib/tafelPages'
+import { isDemoMode } from '../lib/deploymentConfig'
 import { isTypingTarget } from '../lib/hotkeys'
 import { BUNDLED_TEMPLATES, warmBoardTemplates } from '../lib/boardTemplates'
 import type { MiniKarteProps } from './MiniKarte'
@@ -417,7 +418,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const pages = useMemo(() => (onTafel ? findForms(formAnnos) : []), [onTafel, formAnnos])
   /** «Konzept», «Konzept 2» … — what each page is called (lib/boardForm · pageTitles) */
   const titles = useMemo(() => pageTitles(formAnnos), [formAnnos])
-  const [pageSel, setPageSel] = useTafelPage(incidentId)
+  // the public demo opens its seeded Einsatz on the first (filled) page, not the empty Skizze;
+  // every real Einsatz starts on the Skizze (lib/tafelPages · fallback)
+  const [pageSel, setPageSel] = useTafelPage(incidentId, isDemoMode() ? pages[0]?.id : undefined)
   const page = onTafel && pages.some((p) => p.id === pageSel) ? pageSel : SKIZZE
   const formOpen = page !== SKIZZE
   // the station's template set — read once the Tafel is first shown (never on the boot path);
