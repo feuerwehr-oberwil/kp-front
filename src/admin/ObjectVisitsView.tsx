@@ -20,7 +20,7 @@ import {
   adminDeliveries, adminExportUrl, adminListVisits, adminNotify, adminRetryDeliveries, adminSetNotify,
   adminTestDestination, getCatalogue, INTEGRATION_KEY_CREDENTIAL, mintIntegrationKey, OV_ROUTES,
 } from '../objectVisits/api'
-import { DEFAULT_DESTINATION, destinationValid, previewFolder } from '../objectVisits/folders'
+import { DEFAULT_DESTINATION, DEFAULT_LOCATION_FOLDER, destinationValid, previewFolder, previewLocationFolder } from '../objectVisits/folders'
 import { personName, type DeliveryRow, type NotifyState, type VisitFiling, type VisitSummary, type VisitTemplate } from '../objectVisits/types'
 import { getPath, useConfig } from './ConfigContext'
 import {
@@ -225,7 +225,11 @@ function DestinationCard({ onNavigate }: { onNavigate: (id: string) => void }) {
     objectName: T.previewObject, objectAddress: T.previewAddress, date: new Date().toISOString().slice(0, 10),
     checklist: T.previewChecklist, visitId: 'ov0000000000000-7f3a',
   })
-  const text = (key: 'siteUrl' | 'library' | 'root' | 'objectFolder' | 'visitFolder', label: string, opts: { mono?: boolean; placeholder?: string; tip?: string } = {}) => (
+  const placeExample = previewLocationFolder(dest, {
+    objectName: T.previewPlace, locationLabel: T.previewPlace, date: new Date().toISOString().slice(0, 10),
+    checklist: T.previewPlaceChecklist, visitId: 'ov0000000000000-7f3a',
+  })
+  const text = (key: 'siteUrl' | 'library' | 'root' | 'objectFolder' | 'visitFolder' | 'locationFolder', label: string, opts: { mono?: boolean; placeholder?: string; tip?: string } = {}) => (
     <SettingRow label={label} tip={opts.tip} span>
       <input className={`adm-input${opts.mono ? ' adm-input-mono' : ''}`} type="text" value={dest[key] ?? ''}
         placeholder={opts.placeholder} onChange={(e) => patch({ [key]: e.target.value })} />
@@ -254,6 +258,10 @@ function DestinationCard({ onNavigate }: { onNavigate: (id: string) => void }) {
       {text('visitFolder', T.visitFolder, { mono: true, tip: T.foldersTip })}
       <SettingRow label={T.preview} span>
         <code className="adm-mono adm-cred-val">{example}</code>
+      </SettingRow>
+      {text('locationFolder', T.locationFolder, { mono: true, tip: T.locationFolderTip, placeholder: DEFAULT_LOCATION_FOLDER })}
+      <SettingRow label={T.previewPlaceLabel} span>
+        <code className="adm-mono adm-cred-val">{placeExample}</code>
       </SettingRow>
       <SettingRow label={T.credentials} span>
         <span>{T.credentialsBody}</span>
@@ -446,7 +454,8 @@ function VisitsCard() {
           {rows.map((v) => (
               <tr key={v.id}>
                 <td>{fmtDateTime(v.visitedAt)}</td>
-                <td>{v.objectName}</td>
+                {/* a visit at a place has no object: its place's label */}
+                <td>{v.objectName ?? v.location?.label ?? ''}</td>
                 {/* «Von»: the people typed on the visit; the (shared) account only as fallback */}
                 <td>{v.with?.length ? v.with.join(', ') : personName(v.by)}</td>
                 <td>{L[v.lifecycle] ?? v.lifecycle}</td>

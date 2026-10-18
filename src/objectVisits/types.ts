@@ -29,6 +29,34 @@ export interface VisitObject {
   address?: string | null
   folder?: string | null
   refs?: ObjectRef[]
+  /** where the object is (WGS84), when the catalogue knows it */
+  lat?: number | null
+  lng?: number | null
+}
+
+/** What a visit is AT (docs/object-visits.md · «The target», 16.10.2026): a catalogue object,
+ *  or a place — a pin or an address — with no object at all. A document without `target` (an
+ *  older one) is at its `object`. */
+export type VisitTarget =
+  | { kind: 'object'; objectId: string }
+  | {
+    kind: 'location'
+    /** what a person calls the place: «bei Talholzstrasse 15», «Talholzstrasse 15», «Gesetzter Punkt» */
+    label: string
+    /** the reverse-geocoded / searched address; null when there was none (never blocks a report) */
+    address: string | null
+    lat: number
+    lng: number
+  }
+
+export type PlaceTarget = Extract<VisitTarget, { kind: 'location' }>
+
+/** Where a visit was, as the server reports it on every read (contract C2). */
+export interface VisitLocation {
+  label: string | null
+  address: string | null
+  lat: number | null
+  lng: number | null
 }
 
 export interface VisitPhoto {
@@ -56,7 +84,7 @@ export interface VisitProposal {
  *  (client bookkeeping; the server stores it opaquely). */
 export interface VisitConflict {
   id: string
-  /** what collided: `notes`, `visitedAt`, `with`, `checklist`, `workRef`, `object`,
+  /** what collided: `notes`, `visitedAt`, `with`, `checklist`, `workRef`, `object`, `target`,
    *  `answers.<itemId>`, `photos.<attId>`, `proposals.<proposalId>` */
   key: string
   /** this device's value (undefined/null = it removed it) */
@@ -73,7 +101,9 @@ export interface VisitConflict {
 export interface VisitDoc {
   schema: typeof VISIT_SCHEMA
   id: string
-  object: VisitObject
+  /** null for a visit at a place (`target.kind === 'location'`) */
+  object: VisitObject | null
+  target?: VisitTarget
   workRef?: string | null
   visitedAt: string
   with?: string[]
@@ -108,6 +138,8 @@ export interface VisitServerFields {
   findings?: number
   url?: string | null
   deliveries?: Delivery[]
+  target_kind?: VisitTarget['kind']
+  location?: VisitLocation | null
 }
 
 export type ServerVisit = VisitDoc & VisitServerFields
@@ -115,8 +147,12 @@ export type ServerVisit = VisitDoc & VisitServerFields
 /** One row of `GET /api/object-visits/?…` (newest first). */
 export interface VisitSummary {
   id: string
-  objectId: string
-  objectName: string
+  /** null for a visit at a place */
+  objectId: string | null
+  objectName: string | null
+  /** absent from an older server: an object visit */
+  target_kind?: VisitTarget['kind']
+  location?: VisitLocation | null
   workRef?: string | null
   lifecycle: Lifecycle
   revision: number

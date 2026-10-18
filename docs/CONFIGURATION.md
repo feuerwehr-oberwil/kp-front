@@ -751,7 +751,8 @@ open to whoever has the address.
 
 Off unless `objectVisits.enabled` is `true`. `captureRoles` (default `["editor","el"]`) says who may
 record a visit, `proposalFields` is the station's field list for Korrekturvorschläge, and
-`destinations[]` are the SharePoint folders the server files visits into. The full contract – the
+`destinations[]` are the SharePoint folders the server files visits into (a visit at a place, with
+no object, goes to the destination's `locationFolder`, «Allgemeine Meldungen/…» by default). The full contract – the
 visit document, the APIs, the delivery – is [`object-visits.md`](object-visits.md); setting up a
 destination is [`object-visits-sharepoint.md`](object-visits-sharepoint.md). No credential lives in
 the section (`GET /api/config` is public): the writer's app registration is the
@@ -1872,7 +1873,7 @@ lists don't linger.
 | `rapport` | the Lagerapport agenda | `phases[].items[]` | yes, per Einsatz | – |
 | `reference` | Merkblätter / tactical playbook (Stichworte) | `entries[].content[]` | no | `{"type": "image", "page": N}` blocks |
 | `manual` | an **Anleitung** for one device (05.10.2026) | `device` + `steps[]` | no | `steps[].images[].page` |
-| `visit` | an Objektbesuch checklist – [`object-visits.md`](object-visits.md) | `phases[].items[]` | answered on the visit | – |
+| `visit` | an Objektbesuch checklist – [`object-visits.md`](object-visits.md); optional `targets` (`["object"]` default, `"location"` = usable at a place without an object) | `phases[].items[]` | answered on the visit | – |
 
 Images are manifest `assets` (`{"page": N, "file": "…jpg|png|webp|svg"}`), stored as
 `checklists:<id>:p<N>`; only `reference` and `manual` entries may carry them. Each kind's

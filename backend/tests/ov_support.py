@@ -112,6 +112,54 @@ def visit_doc(visit_id: str, obj, **over: Any) -> dict[str, Any]:
     return doc
 
 
+#: A Fehlermeldung — the station's place checklist (docs/object-visits.md «The target»).
+PLACE_TEMPLATE: dict[str, Any] = {
+    "id": "fehlermeldung",
+    "kind": "visit",
+    "version": 1,
+    "title": "Fehlermeldung",
+    "targets": ["object", "location"],
+    "phases": [
+        {
+            "id": "meldung",
+            "title": "Meldung",
+            "items": [
+                {"id": "beschreibung", "text": "Beschreibung", "input": "text", "required": True},
+                {"id": "dringend", "text": "Vor dem nächsten Einsatz nötig?", "input": "yesno"},
+            ],
+        }
+    ],
+}
+
+PLACE = {
+    "kind": "location",
+    "label": "bei Talholzstrasse 15",
+    "address": "Talholzstrasse 15, 4103 Bottmingen",
+    "lat": 47.52015,
+    "lng": 7.57175,
+}
+
+
+def place_doc(visit_id: str, **over: Any) -> dict[str, Any]:
+    """A visit at a place: a ``location`` target and no object."""
+    doc: dict[str, Any] = {
+        "schema": "kp-front.object-visit/1",
+        "id": visit_id,
+        "object": None,
+        "target": dict(PLACE),
+        "visitedAt": "2026-10-16T17:21:00+02:00",
+        "with": ["Muster Max"],
+        "lifecycle": "draft",
+        "checklist": PLACE_TEMPLATE,
+        "answers": {},
+        "notes": "",
+        "photos": [],
+        "proposals": [],
+    }
+    doc.update(over)
+    return doc
+
+
 async def put(client, visit_id: str, doc: dict[str, Any], base: int | None, op: str | None = None):
     return await client.put(
         f"/api/object-visits/{visit_id}",

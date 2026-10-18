@@ -487,6 +487,9 @@ export interface ObjectVisitDestination {
   root?: string | null
   objectFolder?: string | null
   visitFolder?: string | null
+  /** where a visit at a place (no object) is filed, below `root` (default
+   *  «Allgemeine Meldungen/{date} {checklist} ({short})») */
+  locationFolder?: string | null
 }
 
 export interface DeploymentObjectVisits {
@@ -728,6 +731,17 @@ export function objectVisitsConfig(): { enabled: boolean; captureRoles: string[]
   const ov = resolved.objectVisits
   const roles = Array.isArray(ov?.captureRoles) ? ov.captureRoles.filter((r) => typeof r === 'string') : null
   return { enabled: ov?.enabled === true, captureRoles: roles ?? ['editor', 'el'] }
+}
+
+/** The general folder a visit at a place goes to — the first segment of the first enabled
+ *  destination's `locationFolder` («Allgemeine Meldungen»); null without a destination (the
+ *  visit then stays in KP Front and its export). For the «Ort» card's «Ablage» line only — the
+ *  server files (object_visit_delivery · folder_segments). */
+export function placeFilingFolder(): string | null {
+  const dest = (resolved.objectVisits?.destinations ?? []).find((d) => d && d.enabled !== false)
+  if (!dest) return null
+  const pattern = (dest.locationFolder ?? '').trim() || 'Allgemeine Meldungen/{date} {checklist} ({short})'
+  return pattern.replace(/\\/g, '/').split('/').map((p) => p.trim()).find(Boolean) ?? null
 }
 
 export function rosterNameOrder(): 'last-first' | 'first-last' {

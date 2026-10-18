@@ -22,7 +22,7 @@ import { NewVisit } from './NewVisit'
 import { AnswersPage } from './AnswersPage'
 import s from './ObjectVisits.module.css'
 
-export default function ObjectVisitsApp({ onExit, suggestedObjectId = null }: { onExit: () => void; suggestedObjectId?: string | null }) {
+export default function ObjectVisitsApp({ onExit, suggestedObjectId = null }: { onExit: (to?: string) => void; suggestedObjectId?: string | null }) {
   const { user, sessionExpired, logout } = useAuth()
   const route = useOvRoute() ?? { kind: 'overview' as const }
   const [cat, setCat] = useState<CatalogueState | null>(null)
@@ -96,7 +96,8 @@ export default function ObjectVisitsApp({ onExit, suggestedObjectId = null }: { 
     sessionExpired,
     relogin: () => { void logout() },
     go: (r, opts) => navigateTo(ovHref(r), opts),
-    exit: onExit,
+    // a Head's back button hands over its click event: only a path is a destination
+    exit: (to?: unknown) => onExit(typeof to === 'string' ? to : undefined),
     suggestedObjectId,
   }), [cat, reloadCatalogue, locals, localsLoaded, localsOk, summaries, user?.id, canCapture, sessionExpired, logout, onExit, suggestedObjectId])
 
@@ -106,9 +107,10 @@ export default function ObjectVisitsApp({ onExit, suggestedObjectId = null }: { 
         <IconSprite />
         {route.kind === 'overview' && <Overview />}
         {route.kind === 'list' && <WorkList listRef={route.ref} />}
-        {route.kind === 'new' && <NewVisit objectKey={route.object} workRef={route.ref} checklist={route.checklist ?? null} />}
-        {route.kind === 'visit' && <VisitPage key={route.id} id={route.id} edit={route.edit} />}
-        {route.kind === 'answers' && <AnswersPage key={route.id} id={route.id} />}
+        {route.kind === 'new' && <NewVisit objectKey={route.object} workRef={route.ref} from={route.from} checklist={route.checklist ?? null} />}
+        {route.kind === 'newPlace' && <NewVisit place={route.place} from={route.from} after={route.after} checklist={route.checklist ?? null} />}
+        {route.kind === 'visit' && <VisitPage key={route.id} id={route.id} edit={route.edit} from={route.from} />}
+        {route.kind === 'answers' && <AnswersPage key={route.id} id={route.id} from={route.from} />}
       </div>
     </OvContext.Provider>
   )

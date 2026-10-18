@@ -1475,6 +1475,13 @@
           "minLength": 1,
           "title": "Visitfolder",
           "type": "string"
+        },
+        "locationFolder": {
+          "default": "Allgemeine Meldungen/{date} {checklist} ({short})",
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Locationfolder",
+          "type": "string"
         }
       },
       "required": [

@@ -555,6 +555,13 @@ class ObjectVisit(Base):
         ForeignKey("objects.id", ondelete="SET NULL"), nullable=True, index=True
     )
     work_ref: Mapped[str | None] = mapped_column(Text, nullable=True, index=True)
+    #: What the visit is AT (docs/object-visits.md «The target»): ``object`` — a catalogue object
+    #: (``object_id``) — or ``location``: a pin or an address with no object at all.
+    target_kind: Mapped[str] = mapped_column(String(16), nullable=False, default="object", server_default="object")
+    #: Where it was, WGS84: the place of a location visit, the object's position (as recorded on
+    #: the visit, else the catalogue's at the time of writing) for an object visit; null when unknown.
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lng: Mapped[float | None] = mapped_column(Float, nullable=True)
     lifecycle: Mapped[str] = mapped_column(String(16), nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     ready: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

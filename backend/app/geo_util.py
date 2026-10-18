@@ -28,3 +28,13 @@ def lv95_to_wgs84(east: float, north: float) -> tuple[float, float]:
         / 36.0
     )
     return lat, lng
+
+
+def wgs84_to_lv95(lat: float, lng: float) -> tuple[float, float]:
+    """Approximate WGS84 → LV95 (EPSG:2056) (east, north), swisstopo's closed-form formula — the
+    inverse of :func:`lv95_to_wgs84`, accurate to about a metre. For printing where a visit was."""
+    phi = (lat * 3600.0 - 169028.66) / 10000.0
+    lam = (lng * 3600.0 - 26782.5) / 10000.0
+    east = 2600072.37 + 211455.93 * lam - 10938.51 * lam * phi - 0.36 * lam * phi**2 - 44.54 * lam**3
+    north = 1200147.07 + 308807.95 * phi + 3745.25 * lam**2 + 76.63 * phi**2 - 194.56 * lam**2 * phi + 119.79 * phi**3
+    return east, north

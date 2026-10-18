@@ -1,6 +1,8 @@
 // The Objektbesuche addresses (docs/object-visits.md · Device): `/besuche`, `/besuche/<id>`,
-// `/besuche/neu?object=<source>:<id>|<uuid>&ref=<workRef>`, and a work list as
-// `/besuche?liste=<ref>`. No router library: pushState + one event, the way the rest of the app
+// `/besuche/neu?object=<source>:<id>|<uuid>&ref=<workRef>`, a visit at a PLACE as
+// `/besuche/neu?lat=<lat>&lng=<lng>&label=<label>[&address=<address>]`, and a work list as
+// `/besuche?liste=<ref>`. `&from=karte` on a launch (and the visit it opens) means «came from
+// Karte & Objekte»: «Zurück» returns to `/karte` (KARTE_PATH), not to the Übersicht. No router library: pushState + one event, the way the rest of the app
 // navigates without one. Offline, the service worker answers every one of these with the
 // precached shell (vite.config · navigateFallback), so a deep link opens in a cellar too.
 
@@ -16,20 +18,31 @@
  */
 
 import { useSyncExternalStore } from 'react'
+import { parsePlace, type PlaceQuery } from './place'
+
+/** Where a launch came from — only the viewer says so today */
+export type OvFrom = 'karte'
 
 export type OvRoute =
   | { kind: 'overview' }
   | { kind: 'list'; ref: string }
   /** `edit`: open straight into «Bearbeiten» (`?bearbeiten=1`, from a sibling's card) */
-  | { kind: 'visit'; id: string; edit?: boolean }
+  | { kind: 'visit'; id: string; edit?: boolean; from?: OvFrom }
   /** a finished visit's answers on a screen of their own (`/besuche/<id>/antworten`) */
-  | { kind: 'answers'; id: string }
+  | { kind: 'answers'; id: string; from?: OvFrom }
   /** `checklist`: «Melden» from the Karte asks for one checklist up front (`?checkliste=<id>`,
    *  the station's «Fehlermeldung»); NewVisit falls back to its chooser when the catalogue has none */
-  | { kind: 'new'; object: string; ref: string | null; checklist?: string | null }
+  | { kind: 'new'; object: string; ref: string | null; from?: OvFrom; checklist?: string | null }
+  /** a visit at a place with no catalogue object (contract C1); `after`: «Weitere Checkliste»
+   *  from that visit (`&nach=<id>`) — its checklist is marked done in the chooser */
+  | { kind: 'newPlace'; place: PlaceQuery; from?: OvFrom; after?: string; checklist?: string | null }
 
 export const OV_BASE = '/besuche'
+/** Karte & Objekte — where `from=karte` returns to */
+export const KARTE_PATH = '/karte'
 const EVENT = 'kp:ov-route'
+
+const fromOf = (q: URLSearchParams): { from?: OvFrom } => (q.get('from') === 'karte' ? { from: 'karte' } : {})
 
 export const isOvPath = (pathname: string): boolean => pathname === OV_BASE || pathname.startsWith(`${OV_BASE}/`)
 
@@ -43,28 +56,44 @@ export function parseOvRoute(pathname: string, search: string): OvRoute | null {
     return ref ? { kind: 'list', ref } : { kind: 'overview' }
   }
   if (rest === 'neu') {
+    // an object wins; without one, a position makes it a visit at that place
     const checklist = q.get('checkliste')
-    return { kind: 'new', object: q.get('object') ?? '', ref: q.get('ref') || null, ...(checklist ? { checklist } : {}) }
+    const asked = checklist ? { checklist } : {}
+    const place = q.get('object') ? null : parsePlace(q)
+    if (place) return { kind: 'newPlace', place, ...fromOf(q), ...(q.get('nach') ? { after: q.get('nach')! } : {}), ...asked }
+    return { kind: 'new', object: q.get('object') ?? '', ref: q.get('ref') || null, ...fromOf(q), ...asked }
   }
   // a malformed escape (`/besuche/%E0`) is an unknown visit, never a thrown URIError at boot
   const [first, sub] = rest.split('/')
   let id = first
   try { id = decodeURIComponent(id) } catch { /* keep it as typed */ }
-  if (sub === 'antworten') return { kind: 'answers', id }
-  return q.get('bearbeiten') === '1' ? { kind: 'visit', id, edit: true } : { kind: 'visit', id }
+  if (sub === 'antworten') return { kind: 'answers', id, ...fromOf(q) }
+  return q.get('bearbeiten') === '1' ? { kind: 'visit', id, edit: true, ...fromOf(q) } : { kind: 'visit', id, ...fromOf(q) }
 }
 
 export function ovHref(r: OvRoute): string {
+  const withQuery = (path: string, q: URLSearchParams) => {
+    if ('from' in r && r.from) q.set('from', r.from)
+    const qs = q.toString()
+    return qs ? `${path}?${qs}` : path
+  }
   switch (r.kind) {
     case 'overview': return OV_BASE
     case 'list': return `${OV_BASE}?liste=${encodeURIComponent(r.ref)}`
-    case 'visit': return `${OV_BASE}/${encodeURIComponent(r.id)}${r.edit ? '?bearbeiten=1' : ''}`
-    case 'answers': return `${OV_BASE}/${encodeURIComponent(r.id)}/antworten`
+    case 'visit': return withQuery(`${OV_BASE}/${encodeURIComponent(r.id)}`, new URLSearchParams(r.edit ? { bearbeiten: '1' } : {}))
+    case 'answers': return withQuery(`${OV_BASE}/${encodeURIComponent(r.id)}/antworten`, new URLSearchParams())
     case 'new': {
       const q = new URLSearchParams({ object: r.object })
       if (r.ref) q.set('ref', r.ref)
       if (r.checklist) q.set('checkliste', r.checklist)
-      return `${OV_BASE}/neu?${q.toString()}`
+      return withQuery(`${OV_BASE}/neu`, q)
+    }
+    case 'newPlace': {
+      const q = new URLSearchParams({ lat: String(r.place.lat), lng: String(r.place.lng), label: r.place.label })
+      if (r.place.address) q.set('address', r.place.address)
+      if (r.after) q.set('nach', r.after)
+      if (r.checklist) q.set('checkliste', r.checklist)
+      return withQuery(`${OV_BASE}/neu`, q)
     }
   }
 }
@@ -116,10 +145,12 @@ export function leaveAppEntries(href: string): void {
   const d = appHistoryDepth()
   if (d === 0) { navigateTo(href, { replace: true }); return }
   // the traversal is async; the floor entry carries the address the surface was entered FROM,
-  // which is `href` in every caller today — but say so explicitly once we are there
+  // which is `href` in every caller today — but say so explicitly once we are there. Its own
+  // query stays (`/karte?objekt=…` is the object the viewer had open).
   const onPop = () => {
     window.removeEventListener('popstate', onPop)
-    if (`${window.location.pathname}${window.location.search}` !== href) navigateTo(href, { replace: true })
+    const at = `${window.location.pathname}${window.location.search}`
+    if (at !== href && !(href !== '/' && at.startsWith(`${href}?`))) navigateTo(href, { replace: true })
   }
   window.addEventListener('popstate', onPop)
   window.history.go(-d)

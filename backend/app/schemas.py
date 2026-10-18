@@ -2151,6 +2151,11 @@ class ObjectVisitDestination(BaseModel):
     root: str = Field(default="", max_length=_SHAREPOINT_PATH_MAX)
     objectFolder: str = Field(default="{object.folder}", min_length=1, max_length=200)
     visitFolder: str = Field(default="Objektbesuche/{date} {checklist} ({short})", min_length=1, max_length=200)
+    #: Where a visit at a PLACE (no catalogue object) is filed, below ``root`` and instead of
+    #: objectFolder/visitFolder: one general folder, no year subdivision (16.10.2026).
+    locationFolder: str = Field(
+        default="Allgemeine Meldungen/{date} {checklist} ({short})", min_length=1, max_length=200
+    )
 
     @model_validator(mode="after")
     def _addressable(self) -> "ObjectVisitDestination":
@@ -2167,7 +2172,7 @@ class ObjectVisitDestination(BaseModel):
             raise ValueError(f"objectVisits destination {self.id!r}: 'root' must be a plain folder path")
         self.root = root
         self.library = (self.library or "").strip() or None
-        for name in ("objectFolder", "visitFolder"):
+        for name in ("objectFolder", "visitFolder", "locationFolder"):
             value = getattr(self, name).replace("\\", "/").strip().strip("/")
             if not value or any(part.strip() in ("..", ".") for part in value.split("/")):
                 raise ValueError(f"objectVisits destination {self.id!r}: '{name}' must be a plain folder pattern")

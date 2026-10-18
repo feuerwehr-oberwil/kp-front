@@ -25,12 +25,15 @@ import {
 } from '../../objectVisits/outbox'
 import { downloadReport, exportVisitFile, visitText } from '../../objectVisits/report'
 import { deriveStatus } from '../../objectVisits/status'
+import { placeOf, stopKeyOf, templatesFor } from '../../objectVisits/place'
+import { KARTE_PATH, type OvFrom } from '../../objectVisits/route'
+import { placeFilingFolder } from '../../lib/deploymentConfig'
 import {
   forgetVisit, isVisitDurable, onVisitChanged, putAttachment, readVisit, retryHeld, updateVisit, type LocalVisit,
 } from '../../objectVisits/store'
 import { personName, type ServerVisit, type VisitDoc, type VisitPhoto, type VisitProposal, type VisitTemplate } from '../../objectVisits/types'
 import { Head } from './common'
-import { fmtDate, plural } from './ovFormat'
+import { fmtDate, plural, visitTitle } from './ovFormat'
 import { ChecklistSheet, PhotoSheet, ProposalSheet } from './Sheets'
 import { PlanReader, PlansCard } from './PlansCard'
 import { usePlanReader, useVisitPlans } from './usePlans'
@@ -38,6 +41,7 @@ import { AuthCard, ConflictCards, RefusedCard, UnsavedCard } from './StateCards'
 import { StatusLine } from './StatusLine'
 import { ChecklistSection, DetailsCard, NotesSection, PhotosSection, ProposalsSection, SummaryCard } from './VisitSections'
 import { CardRow, VisitHistory } from './StopCards'
+import { PlaceCard, PlaceLine } from './PlaceCard'
 import { useStopDocs } from './useStopDocs'
 import { useOv } from './ovContext'
 import s from './ObjectVisits.module.css'
@@ -49,7 +53,7 @@ export const QUIET_SAVE_MS = 20_000
 /** how often an open, sent visit asks the server about its filing while that is pending */
 const DELIVERY_POLL_MS = 60_000
 
-export function VisitPage({ id, edit: editOnOpen = false }: { id: string; edit?: boolean }) {
+export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; edit?: boolean; from?: OvFrom }) {
   const ov = useOv()
   const C = appConfig.copy.objectVisits
   const [rec, setRec] = useState<LocalVisit | null>(null)
@@ -60,7 +64,7 @@ export function VisitPage({ id, edit: editOnOpen = false }: { id: string; edit?:
   const [correcting, setCorrecting] = useState(editOnOpen)
   useEffect(() => {
     // taken: a reload of the address is the visit, not a second «Bearbeiten»
-    if (editOnOpen) ov.go({ kind: 'visit', id }, { replace: true })
+    if (editOnOpen) ov.go({ kind: 'visit', id, ...(from ? { from } : {}) }, { replace: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const [photoSheet, setPhotoSheet] = useState<{ attId: string | null; preparing: boolean; stored: boolean | null } | null>(null)
@@ -127,11 +131,12 @@ export function VisitPage({ id, edit: editOnOpen = false }: { id: string; edit?:
 
   const doc: VisitDoc | null = rec?.doc ?? (remote ? stripServer(remote) : null)
   const status = deriveStatus({ rec, durable, flushing, sessionExpired: ov.sessionExpired, remote })
-  const plans = useVisitPlans(doc?.object.id)
-  // the other visits at this stop, for a finished visit's read view (StopCards)
+  const plans = useVisitPlans(doc?.object?.id)
+  // the other visits at this stop — the same object, or the same place — for a finished visit's
+  // read view (StopCards)
   const stopDocs = useStopDocs(
     doc && doc.lifecycle === 'completed'
-      ? visitsAtStop(knownVisits(ov.locals, ov.summaries), doc.object.id, doc.workRef).map((v) => v.id).filter((x) => x !== id)
+      ? visitsAtStop(knownVisits(ov.locals, ov.summaries), stopKeyOf(doc), doc.workRef).map((v) => v.id).filter((x) => x !== id)
       : [],
     ov.locals,
   )
@@ -332,7 +337,9 @@ export function VisitPage({ id, edit: editOnOpen = false }: { id: string; edit?:
 
   const catalogue = ov.cat && (ov.cat.state === 'ready' || ov.cat.state === 'stale') ? ov.cat.catalogue : null
   const list = doc?.workRef ? catalogue?.lists.find((l) => l.ref === doc.workRef) ?? null : null
-  const leave = () => (list ? ov.go({ kind: 'list', ref: list.ref }) : ov.go({ kind: 'overview' }))
+  // a launch from Karte & Objekte returns there; else the work list, else the Übersicht
+  const toMap = () => ov.exit(KARTE_PATH)
+  const leave = () => (from === 'karte' ? toMap() : list ? ov.go({ kind: 'list', ref: list.ref }) : ov.go({ kind: 'overview' }))
 
   if (!doc) {
     return (
@@ -356,21 +363,25 @@ export function VisitPage({ id, edit: editOnOpen = false }: { id: string; edit?:
   const canEdit = ov.canCapture && !!rec && lifecycle !== 'discarded'
   const editable = canEdit && (lifecycle === 'draft' || correcting)
   const readView = !editable
-  const catObject = catalogue ? resolveObject(catalogue, doc.object.id) : null
+  const place = placeOf(doc)
+  const catObject = catalogue && doc.object ? resolveObject(catalogue, doc.object.id) : null
   const seen = catalogue && catObject && catObject.lastVisit?.id !== doc.id ? lastSeen(catalogue, catObject) : null
   const last = seen ? fillTemplate(C.lastVisit, { date: fmtDate(seen.at) }) : null
-  const sub = [doc.object.address, last].filter(Boolean).join(' · ')
+  const sub = place ? '' : [doc.object?.address, last].filter(Boolean).join(' · ')
+  const title = visitTitle(doc)
+  const filing = place ? placeFilingFolder() : null
   const pending = new Set(rec ? (rec.base ? pendingUploads(rec) : doc.photos.map((p) => p.id)) : [])
   const revision = rec?.base?.revision ?? remote?.revision ?? null
   const byName = personName(rec?.server?.createdBy ?? remote?.createdBy ?? null) || null
   const photo = photoSheet?.attId ? doc.photos.find((p) => p.id === photoSheet.attId) ?? null : null
   const sheetItems = checklistItems(doc.checklist)
-  const templates = catalogue ? visitTemplates(catalogue) : []
+  // «Checkliste wechseln» offers what this kind of target may use
+  const templates = catalogue ? templatesFor(visitTemplates(catalogue), place ? 'location' : 'object') : []
   const known = knownVisits(ov.locals, ov.summaries)
   // the read view shows the whole stop: every visit at it (same object, same list), oldest first
   const showStop = lifecycle === 'completed' && !(correcting && canEdit)
   const stop = (() => {
-    const here = [...visitsAtStop(known, doc.object.id, doc.workRef)].reverse()
+    const here = [...visitsAtStop(known, stopKeyOf(doc), doc.workRef)].reverse()
     return here.some((v) => v.id === doc.id) ? here : [{ id: doc.id }, ...here]
   })()
   // «Weitere Checkliste»: a new visit beside this one — the route resumes this person's open
@@ -379,12 +390,13 @@ export function VisitPage({ id, edit: editOnOpen = false }: { id: string; edit?:
 
   // the next stop of the work list: the first object after this one without a completed visit
   const next = (() => {
-    if (!list || !catalogue || lifecycle !== 'completed') return null
+    const objectId = doc.object?.id
+    if (!list || !catalogue || lifecycle !== 'completed' || !objectId) return null
     // done = a completed visit for this list, or the organizer's prior completion
     const stops = listProgress(list, known).stops
-    const at = list.objectIds.indexOf(doc.object.id)
+    const at = list.objectIds.indexOf(objectId)
     const order = [...list.objectIds.slice(at + 1), ...list.objectIds.slice(0, Math.max(0, at))]
-    const id2 = order.find((oid) => oid !== doc.object.id && !stops.get(oid)?.done && catalogue.objects.some((o) => o.id === oid))
+    const id2 = order.find((oid) => oid !== objectId && !stops.get(oid)?.done && catalogue.objects.some((o) => o.id === oid))
     if (!id2) return 'done' as const
     return { index: list.objectIds.indexOf(id2) + 1, object: catalogue.objects.find((o) => o.id === id2)! }
   })()
@@ -395,7 +407,7 @@ export function VisitPage({ id, edit: editOnOpen = false }: { id: string; edit?:
   return (
     <>
       <Head
-        title={doc.object.name}
+        title={title}
         subNode={<StatusLine status={status} rec={rec} canSend={canEdit} onSendNow={() => { void sendNow() }} />}
         onBack={() => { if (!reader.settling()) leave() }}
         actions={canEdit && lifecycle === 'draft' ? (
@@ -415,6 +427,9 @@ export function VisitPage({ id, edit: editOnOpen = false }: { id: string; edit?:
       <div className={s.body}>
         <div className={s.col}>
           {sub && <p className={s.place}><Icon id="pin" />{sub}</p>}
+          {/* a visit at a place: the place where an object visit shows its address — the whole
+              «Ort» card while it is filled in, one line once it is finished */}
+          {place && (showStop ? <PlaceLine place={place} /> : <PlaceCard place={place} filing={filing} />)}
 
           {status.sync.kind === 'unsaved' && (
             <UnsavedCard onSaveFile={() => { void saveFile() }}
@@ -435,6 +450,13 @@ export function VisitPage({ id, edit: editOnOpen = false }: { id: string; edit?:
                       {canEdit && <CardRow icon="pen" title={C.edit} onClick={() => setCorrecting(true)} />}
                       {revision != null && <CardRow icon="doc" title={C.report} onClick={() => report(doc)} />}
                       {revision != null && <VisitHistory visitId={doc.id} onReport={(n) => report(doc, n)} />}
+                      {/* a place has no object folder: say where the report goes */}
+                      {place && filing && (
+                        <div className={s.rowStatic}>
+                          <Icon id="archive" className={s.rowGlyph} />
+                          <span className={s.rowMain}><span className={s.rowSub}>{fillTemplate(C.placeFiled, { folder: filing })}</span></span>
+                        </div>
+                      )}
                     </SummaryCard>
                   )
                 }
@@ -457,7 +479,9 @@ export function VisitPage({ id, edit: editOnOpen = false }: { id: string; edit?:
               {/* in addition: another checklist at this object */}
               {canAnother && (
                 <div className={s.card}>
-                  <button type="button" className={s.row} onClick={() => ov.go({ kind: 'new', object: doc.object.id, ref: doc.workRef ?? null })}>
+                  <button type="button" className={s.row} onClick={() => ov.go(place
+                    ? { kind: 'newPlace', place: { lat: place.lat, lng: place.lng, label: place.label, address: place.address }, after: doc.id, ...(from ? { from } : {}) }
+                    : { kind: 'new', object: doc.object?.id ?? '', ref: doc.workRef ?? null, ...(from ? { from } : {}) })}>
                     <Icon id="plus" className={s.rowGlyph} />
                     <span className={s.rowMain}>
                       <span className={s.rowTitle}>{C.anotherVisit}</span>
@@ -484,6 +508,9 @@ export function VisitPage({ id, edit: editOnOpen = false }: { id: string; edit?:
                 </>
               )}
               <PlansCard rows={plans} onOpen={reader.open} />
+              {from === 'karte' && (
+                <Button variant="primary" size="lg" icon={<Icon id="map" />} onClick={toMap}>{C.backToMap}</Button>
+              )}
             </>
           )}
 
@@ -572,7 +599,7 @@ export function VisitPage({ id, edit: editOnOpen = false }: { id: string; edit?:
           onPick={(t) => { void changeChecklist(t) }} onClose={() => setChecklistSheet(false)} />
       )}
       {reader.index != null && plans.length > 0 && (
-        <PlanReader rows={plans} index={reader.index} objectName={doc.object.name} onShow={reader.show} onClose={reader.close} />
+        <PlanReader rows={plans} index={reader.index} objectName={title} onShow={reader.show} onClose={reader.close} />
       )}
     </>
   )
