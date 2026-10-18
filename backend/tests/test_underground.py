@@ -99,7 +99,11 @@ class Sources:
 
 
 @pytest.fixture(autouse=True)
-def _fresh(monkeypatch):
+def _fresh(monkeypatch, tmp_path):
+    # this test's own storage root: under xdist the workers share `data/storage`, and another
+    # worker's scheduler test wrote a real `underground.json` between the wipe and the assert
+    # (test_not_asked_yet_says_so failed only under `-n`, review round 6)
+    monkeypatch.setattr(storage, "_ROOT", str(tmp_path))
     monkeypatch.setattr(ug.settings, "underground_wfs", "https://geodienste.ch/db/av_0/deu")
     monkeypatch.setattr(ug.geocode, "_GEOCODER_OK", True)
 

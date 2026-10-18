@@ -532,7 +532,9 @@ as lines. Not `Unterstand`.
   again.
 - **The Einsatz map too** (round 5): the same layer as an Einsatz Ebenen row (`lib/underground` ·
   `undergroundLayerDef`, id `unterirdisch`), a real `LayerDef` after the deployment's reference
-  layers, in its own group named like the Karte's («Station»). ON by default and part of the
+  layers, in its own group named like the Karte's («Station»), shown right under the plans
+  («Pläne», owner, review round 6: «move unterirdische bauten below pläne in the emergency
+  version»; `LayerPanel · groupsAfterTwins`). ON by default and part of the
   Einsatz «Standard»; switched like any Einsatz layer (device prefs per Einsatz, «Alle ein / aus»,
   the replay's `layer.toggle`). An Einsatz opened before round 5 gets it on too (a layer the device
   prefs do not name keeps its default). Drawn first of the map's overlays, so under the ERG rings,

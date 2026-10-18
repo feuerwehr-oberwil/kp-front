@@ -1038,7 +1038,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             {mark ? <img className={s.menuMark} src={mark} alt="" onError={() => setMarkFailed(true)} />
               : !brand.short && <Icon id="menu" />}
             {brand.short && <span className={s.menuName}>{brand.short}</span>}
-            <Icon id="chevron-down" className={s.chev} />
+            {/* `chev` = the app's shared flip on [aria-expanded=true] (02-base.css), as every other dropdown */}
+            <Icon id="chevron-down" className={cx('chev', s.chev)} />
             {einsaetze.badge > 0 && <span className={s.einsaetzeBadge} data-karte-menu-dot="" aria-hidden />}
           </button>
           {!phone && (
