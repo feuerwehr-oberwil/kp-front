@@ -1,9 +1,20 @@
 # Undo and redo
 
-The one undo timeline: the rule itself is in [`AGENTS.md`](../AGENTS.md) («every mutating op
-should be undoable»); this page is how an act joins the timeline and what a remote merge does to
-it (`lib/undoTimeline`, `lib/undoKeys`). Moved here from AGENTS.md on 2026-10-08, wording
-unchanged.
+The one undo timeline: the rule, how an act joins the timeline and what a remote merge does to
+it (`lib/undoTimeline`, `lib/undoKeys`). Moved here from AGENTS.md on 2026-10-08 (the rule on
+2026-10-18), wording unchanged.
+
+## The rule
+
+- **Undo/redo – every mutating op should be undoable, scoped to the workspace.** ONE
+  chronological timeline for the whole Einsatz (`lib/undoTimeline`), driven by the TopBar's ↶ ↷
+  and by Cmd/Ctrl+Z on every surface – so «take back the last thing that happened» never asks
+  which surface you are standing on. Three ways to join it – delegating, closure and the
+  confirm-with-undo toast – and the choice is decided by what the domain already owns (below,
+  with what a remote merge does to the timeline).
+  Deliberately NOT undoable: append-only records (Verlauf rows, audit events – corrections are
+  new appended rows), device preferences (Ebenen, Einstellungen sheet) and server-side incident
+  metadata (`PATCH /incidents`). Add undo for new mutations; don't skip it.
 
 ## How an act joins the timeline
 
