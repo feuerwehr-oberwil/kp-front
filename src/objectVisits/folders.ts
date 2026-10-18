@@ -11,7 +11,13 @@ export interface FolderVars {
   checklist?: string | null
   /** the visit id (its last 4 characters are `{short}`) */
   visitId: string
+  /** a visit at a place: its label (`{location.label}`) and address */
+  locationLabel?: string | null
+  locationAddress?: string | null
 }
+
+/** Where a visit at a place goes when the destination names nothing else (no year level). */
+export const DEFAULT_LOCATION_FOLDER = 'Allgemeine Meldungen/{date} {checklist} ({short})'
 
 /** A path segment SharePoint accepts: `" * : < > ? / \ |` and leading/trailing dots and spaces
  *  removed. */
@@ -36,6 +42,8 @@ export function fillFolder(template: string, v: FolderVars): string[] {
     date: v.date,
     checklist: v.checklist?.trim() || 'Besuch',
     short: v.visitId.slice(-4),
+    'location.label': v.locationLabel ?? v.objectName,
+    'location.address': v.locationAddress ?? v.objectAddress ?? '',
   }
   return template.split('/')
     .map((part) => sanitizeSegment(part.replace(/\{([a-z.]+)\}/g, (m, k: string) => (k in values ? sanitizeSegment(values[k]) : m)).replace(/\s+/g, ' ')))
@@ -50,6 +58,12 @@ export function previewFolder(dest: { root?: string | null; objectFolder?: strin
   return [...root, ...obj, ...visit].join('/')
 }
 
+/** root / locationFolder — where a visit at a place (no object) is filed, as one path. */
+export function previewLocationFolder(dest: { root?: string | null; locationFolder?: string | null }, v: FolderVars): string {
+  const root = (dest.root ?? '').split('/').map(sanitizeSegment).filter(Boolean)
+  return [...root, ...fillFolder(dest.locationFolder || DEFAULT_LOCATION_FOLDER, v)].join('/')
+}
+
 /** The defaults a new SharePoint destination starts from. */
 export const DEFAULT_DESTINATION = {
   id: 'sharepoint',
@@ -61,12 +75,13 @@ export const DEFAULT_DESTINATION = {
   root: '',
   objectFolder: '{object.folder}',
   visitFolder: 'Objektbesuche/{date} {checklist} ({short})',
+  locationFolder: DEFAULT_LOCATION_FOLDER,
 }
 
 /** Would the server accept this destination (schemas · ObjectVisitDestination)? A destination
  *  that would not is kept on the admin page and NOT written: the config PUT is the whole
  *  document, and one refused row would stop every Station page from saving. */
-export function destinationValid(d: { id?: string; siteUrl?: string | null; root?: string | null; objectFolder?: string | null; visitFolder?: string | null }): boolean {
+export function destinationValid(d: { id?: string; siteUrl?: string | null; root?: string | null; objectFolder?: string | null; visitFolder?: string | null; locationFolder?: string | null }): boolean {
   const plain = (p: string, allowEmpty: boolean) => {
     const v = p.replace(/\\/g, '/').trim().replace(/^\/+|\/+$/g, '')
     if (!v) return allowEmpty
@@ -77,6 +92,8 @@ export function destinationValid(d: { id?: string; siteUrl?: string | null; root
     && plain(d.root ?? '', true)
     && plain(d.objectFolder ?? '', false)
     && plain(d.visitFolder ?? '', false)
+    // absent = the default; present must be a plain pattern (schemas · locationFolder)
+    && (d.locationFolder == null || plain(d.locationFolder, false))
 }
 
 /**

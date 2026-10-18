@@ -3,7 +3,7 @@ import Map, { Layer, Source, type MapRef } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import '../lib/maplibreWorker'
 import { appConfig } from '../config/appConfig'
-import { EMPTY_STYLE, fc, lineFeat, polyFeat } from '../lib/mapView'
+import { EMPTY_STYLE, MAP_MAX_ZOOM, fc, lineFeat, polyFeat } from '../lib/mapView'
 import { LINE_DASH_ML } from '../lib/draw'
 import { DEFAULT_INK } from '../lib/lineStyle'
 import { circlePolygon } from '../lib/geo'
@@ -82,7 +82,7 @@ export default function MiniKarte({ entities, drawings, layers, isVisible, byNam
       attributionControl={false}
       mapStyle={EMPTY_STYLE}
       initialViewState={{ longitude: center[0], latitude: center[1], zoom: 17 }}
-      maxZoom={21}
+      maxZoom={MAP_MAX_ZOOM}
       style={{ position: 'absolute', inset: 0 }}
       onLoad={() => setReady(true)}
       onMoveEnd={(e) => setZoom(e.viewState.zoom)}

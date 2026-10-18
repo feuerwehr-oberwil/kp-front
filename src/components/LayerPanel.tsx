@@ -16,6 +16,8 @@ export interface WeatherLayerRow extends TwinLayerRow {
   legend: { min_mm_h: number; color: string }[]
 }
 
+const NO_GROUPS: readonly string[] = []
+
 interface Props {
   layers: LayerDef[]
   onToggle: (id: LayerDef['id']) => void
@@ -35,10 +37,22 @@ interface Props {
    *  Gefahren. Absent ⇒ the twin groups go last, which is right on the Plan surface (where the
    *  only other groups are the sheet's own). */
   twinsAfterGroup?: string
+  /** twin groups, by name, that go FIRST after the base map — under the quick-taps and
+   *  «Grundkarte», above every other group. «Karte & Objekte» puts its «Station» group there
+   *  (owner, review round 4, 17.10.2026: «move "station" up in ebenen all the way to the top»;
+   *  round 5, 18.10.: «move grundkarte above station»); the Einsatz passes none, so its order is
+   *  unchanged. */
+  leadTwinGroups?: readonly string[]
+  /** layer groups, by name, drawn right AFTER the anchored twins (`twinsAfterGroup`) instead of
+   *  where the layer list has them. The Einsatz puts its «Station» group («Unterirdische Bauten»)
+   *  there (owner, review round 6, 18.10.2026: «move unterirdische bauten below pläne in the
+   *  emergency version»). Without anchored twins the groups stay where they are. */
+  groupsAfterTwins?: readonly string[]
   /** round ✕ in the title row — dock chrome parity with the views popover / tool docks */
   onClose?: () => void
   /** Ebenen quick-taps (field ask 07.09.): flip every overlay at once / return to the Einsatz
-   *  category's default set. Karte panel only — the Plan panel's rows are lent twins with their
+   *  category's default set. Karte panels only (the Einsatz's and «Karte & Objekte»'s, there over
+   *  its own default set — lib/karte/layerPresets) — the Plan panel's rows are lent twins with their
    *  own persistence, where «alle» has nothing coherent to mean. All three or none. */
   onShowAll?: () => void
   onHideAll?: () => void
@@ -49,9 +63,11 @@ interface Props {
   preset?: LayerPreset
   /** the weather radar row, last on the panel (its own group, «Wetter») */
   weather?: WeatherLayerRow
+  /** one quiet line above the credits — «Karte & Objekte» says there that its Ebenen are its own */
+  note?: string
 }
 
-export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, onClose, onShowAll, onHideAll, onReset, preset, weather }: Props) {
+export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfterGroup, leadTwinGroups = NO_GROUPS, groupsAfterTwins = NO_GROUPS, onClose, onShowAll, onHideAll, onReset, preset, weather, note }: Props) {
   /* One transparency row, for a real `LayerDef` and for a Georeferenz twin alike — the twin ids
      are not `LayerDef` ids and persist elsewhere (georefTwins · isTwinLayerId → the device's
      `twinLayerOpacity`), but the row is the panel's, so both go through the same control and the
@@ -86,7 +102,7 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
      second line names the fit, because «gespiegelt» without «wie gut» is a claim without a
      measurement (see georefTwins · twinFitNote). Built once and dropped in wherever
      `twinsAfterGroup` says they belong. */
-  const twinBlocks = Object.entries(twinGroups).map(([group, rows]) => (
+  const twinBlock = ([group, rows]: [string, TwinLayerRow[]]) => (
     <Fragment key={`twin:${group}`}>
       <div className="lgroup">{group}</div>
       {rows.map((t) => (
@@ -99,7 +115,7 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
             aria-label={`${t.label} – ${t.visible ? appConfig.copy.layerPanel.stateVisible : appConfig.copy.layerPanel.stateHidden}`}
             onClick={() => onToggle(t.id)}
           >
-            <span className="ic"><Icon id={t.icon} /></span>
+            <span className="ic" style={t.swatch ? { color: t.swatch } : undefined}><Icon id={t.icon} /></span>
             <span className="name">{t.label}{t.sub && <small>{t.sub}</small>}</span>
             <span className="eye"><Icon id={t.visible ? 'eye' : 'eyeoff'} /></span>
           </button>
@@ -107,10 +123,23 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
         </Fragment>
       ))}
     </Fragment>
-  ))
+  )
+  const twinEntries = Object.entries(twinGroups)
+  const leadBlocks = twinEntries.filter(([g]) => leadTwinGroups.includes(g)).map(twinBlock)
+  const twinBlocks = twinEntries.filter(([g]) => !leadTwinGroups.includes(g)).map(twinBlock)
   /* …unless the anchor group is not on this panel at all (a deployment without it, or the Plan
      surface): then they still have to appear, so they go last. */
   const twinsAnchored = !!twinsAfterGroup && twinBlocks.length > 0 && twinsAfterGroup in groups
+  // the groups that follow the twins: lifted out of their place and set right after the anchor
+  // group, whose fragment ends with the twins — so they read «… Lage · Pläne · Station …»
+  const groupEntries = (() => {
+    const all = Object.entries(groups)
+    if (!twinsAnchored || !groupsAfterTwins.length) return all
+    const moved = all.filter(([g]) => groupsAfterTwins.includes(g) && g !== twinsAfterGroup)
+    const rest = all.filter(([g]) => !moved.some(([m]) => m === g))
+    const at = rest.findIndex(([g]) => g === twinsAfterGroup)
+    return [...rest.slice(0, at + 1), ...moved, ...rest.slice(at + 1)]
+  })()
 
   // opening the panel (e.g. via the [[B]] shortcut) drops focus onto the first layer row so the
   // whole list is immediately Tab/Enter navigable from the keyboard — the rows are real buttons.
@@ -173,7 +202,11 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
           </>
         )}
 
-        {Object.entries(groups).map(([group, rows]) => (
+        {/* the lead twin groups («Karte & Objekte»'s «Station») right under the base map (owner,
+            review round 5, 18.10.2026: «move grundkarte above station») */}
+        {leadBlocks}
+
+        {groupEntries.map(([group, rows]) => (
           <Fragment key={group}>
             <div className="lgroup">{group}</div>
             {rows.map((l) => (
@@ -234,6 +267,7 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
           </>
         )}
 
+        {note && <p className="lc-credits">{note}</p>}
         {credits.length > 0 && <p className="lc-credits">{credits.join(', ')}</p>}
       </div>
     </div>

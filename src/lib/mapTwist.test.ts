@@ -4,9 +4,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { Point, TwoFingersTouchRotateHandler } from 'maplibre-gl'
 import {
+  NORTH_SNAP_DEG,
   TWIST_ENGAGE_ARC_PX,
   TWIST_ENGAGE_DEG,
+  createNorthSnap,
   createTwistGate,
+  isHandEvent,
+  northSnap,
   gateTouchRotation,
   installTwistGate,
   twistDelta,
@@ -272,5 +276,89 @@ describe('installTwistGate — on the installed MapLibre\'s own rotate handler',
     const move = (h as unknown as { _move: unknown })._move
     expect(installTwistGate(h)).toBe(true)
     expect((h as unknown as { _move: unknown })._move).toBe(move)
+  })
+})
+
+describe('northSnap — a hand turn resting just off north settles on north (18.10.2026)', () => {
+  it('is the owner\'s ±10° (round 7), below the twist gate\'s threshold', () => {
+    expect(NORTH_SNAP_DEG).toBe(10)
+    expect(NORTH_SNAP_DEG).toBeLessThan(TWIST_ENGAGE_DEG)
+  })
+  it('settles a turn 3° off north', () => expect(northSnap(3)).toBe(0))
+  it('…either side, in both of MapLibre\'s notations (−4° = 356°)', () => {
+    expect(northSnap(-4)).toBe(0)
+    expect(northSnap(356)).toBe(0)
+  })
+  it('includes the boundary itself', () => expect(northSnap(10)).toBe(0))
+  it('reaches 8° now (round 7: «a little bit stronger»)', () => expect(northSnap(8)).toBe(0))
+  it('a clear turn further stays', () => {
+    expect(northSnap(10.5)).toBeNull()
+    expect(northSnap(12)).toBeNull()
+    expect(northSnap(-45)).toBeNull()
+    expect(northSnap(180)).toBeNull()
+  })
+  it('exactly north: nothing to ease', () => {
+    expect(northSnap(0)).toBeNull()
+    expect(northSnap(360)).toBeNull()
+  })
+})
+
+describe('isHandEvent — only fingers and the mouse turn by hand', () => {
+  it('fingers and the mouse / a pointer are hands', () => {
+    expect(isHandEvent({ type: 'touchend', touches: [] })).toBe(true)
+    expect(isHandEvent({ type: 'mouseup' })).toBe(true)
+    expect(isHandEvent({ type: 'pointerup' })).toBe(true)
+  })
+  it('the keyboard and a programmatic move are not', () => {
+    expect(isHandEvent({ type: 'keydown', key: 'ArrowLeft' })).toBe(false)
+    expect(isHandEvent(undefined)).toBe(false)
+    expect(isHandEvent(null)).toBe(false)
+  })
+})
+
+describe('createNorthSnap — judged once, when the camera comes to rest', () => {
+  const map = (bearing: number, moving = false) => {
+    const m = { bearing, getBearing: () => m.bearing, isMoving: () => moving, easeTo: vi.fn((o: { bearing: number }) => { m.bearing = o.bearing }) }
+    return m
+  }
+  const finger = (type: string) => ({ type, touches: [] })
+
+  it('a two-finger turn that rests at 3° eases to 0 with the duration given', () => {
+    const snap = createNorthSnap(), m = map(3)
+    snap.rotateStart(finger('touchmove'))
+    expect(snap.moveEnd(m, finger('touchend'), 200)).toBe(true)
+    expect(m.easeTo).toHaveBeenCalledWith({ bearing: 0, duration: 200 })
+  })
+  it('…at 12° it stays', () => {
+    const snap = createNorthSnap(), m = map(12)
+    snap.rotateStart(finger('touchmove'))
+    expect(snap.moveEnd(m, finger('touchend'), 200)).toBe(false)
+    expect(m.easeTo).not.toHaveBeenCalled()
+  })
+  it('no rotate in the gesture (a pan, a pinch the gate kept flat): nothing', () => {
+    const snap = createNorthSnap(), m = map(3)
+    expect(snap.moveEnd(m, finger('touchend'), 200)).toBe(false)
+  })
+  it('a keyboard turn never arms it, and a programmatic end never fires it', () => {
+    const snap = createNorthSnap(), m = map(3)
+    snap.rotateStart({ type: 'keydown' })
+    expect(snap.moveEnd(m, { type: 'keydown' }, 200)).toBe(false)
+    snap.rotateStart(undefined)
+    expect(snap.moveEnd(m, undefined, 200)).toBe(false)
+    expect(m.easeTo).not.toHaveBeenCalled()
+  })
+  it('judges once: the snap ease\'s own end (no originalEvent) and a later plain pan do not snap again', () => {
+    const snap = createNorthSnap(), m = map(3)
+    snap.rotateStart(finger('touchmove'))
+    snap.moveEnd(m, finger('touchend'), 200)
+    m.bearing = 4
+    expect(snap.moveEnd(m, undefined, 200)).toBe(false)
+    expect(snap.moveEnd(m, finger('touchend'), 200)).toBe(false)
+    expect(m.easeTo).toHaveBeenCalledTimes(1)
+  })
+  it('a map already moving again (a new gesture took over) is left alone', () => {
+    const snap = createNorthSnap(), m = map(3, true)
+    snap.rotateStart(finger('touchmove'))
+    expect(snap.moveEnd(m, finger('touchend'), 200)).toBe(false)
   })
 })

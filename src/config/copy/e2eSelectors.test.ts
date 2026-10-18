@@ -27,6 +27,11 @@ const NOT_COPY = new Map<string, string>([
   ['E2E Smoke Test', 'the incident title the smoke test types in itself'],
   ['Schlüsselhülse zugänglich', 'a checklist item of the visit template object-visits.spec uploads itself'],
   ['Grob gereinigt', 'a checklist item of the visit template object-visits.spec uploads itself'],
+  ['Was betrifft es?', 'a checklist item of the place template (Fehlermeldung) object-visits.spec uploads itself'],
+  ['Hydrant', 'a choice option of the place template object-visits.spec uploads itself'],
+  ['Beschreibung', 'a checklist item of the place template object-visits.spec uploads itself'],
+  ['Vor dem nächsten Einsatz nötig?', 'a checklist item of the place template object-visits.spec uploads itself'],
+  ['Hydrant · Neuer Hydrant fehlt im Plan', 'the answers object-visits.spec gives the place template, as the visit card sums them up'],
   ['Perf Meldung 10', 'the Meldung the performance journeys type in themselves (e2e/journeys.journey.ts)'],
 ])
 

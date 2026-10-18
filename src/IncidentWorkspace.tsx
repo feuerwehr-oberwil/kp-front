@@ -12,6 +12,8 @@ import { useViewportPan } from './lib/useViewportPan'
 import { useScrollFocusIntoView } from './lib/useScrollFocusIntoView'
 import { SharePositionSheet } from './components/SharePosition'
 import { autoActivateLayers, defaultLayers, deriveInitial, sanitizeWorkspace, type ReportMeta, type Saved } from './lib/workspace'
+import { themeToken } from './lib/themeToken'
+import { UNDERGROUND_LAYER_ID, undergroundOverlay, useUnderground } from './lib/underground'
 import { type PlanFit } from './lib/tacticalObjects'
 import { useReplay } from './lib/useReplay'
 import { isTypingTarget } from './lib/hotkeys'
@@ -213,6 +215,14 @@ interface WorkspaceProps {
   onOpenHistory: () => void
   /** opens the Objektbesuche surface (App · enterObjectVisits); undefined = module off */
   onOpenObjectVisits?: (objectId?: string | null) => void
+  /** opens «Karte & Objekte» over this Einsatz (App · enterKarte); undefined = a link session */
+  onOpenKarte?: () => void
+  /** another surface («Karte & Objekte», the Objektbesuche) is in front of this Einsatz: it stays
+   *  MOUNTED — its state, sync and live poll, and above all its Atemschutz alarm — but renders
+   *  only the headless hosts and the alarm rows (see the `covered` return below) */
+  covered?: boolean
+  /** bring this Einsatz back in front (App · uncoverEinsatz) — an alarm row's «Zum Trupp» */
+  onUncover?: () => void
   onOpenDivera: () => void
   onOpenDatenquellen: () => void
   /** freshly one-tap-taken Divera incident: show the correct-in-place review banner */
@@ -252,8 +262,8 @@ const REORIENT_FOLD_MS = 1500
 
 export function IncidentWorkspace({
   incidentMeta, incidents, workspace, sync, forceReadOnly, tabLockLost, onTakeOverTab, onCompleteRapport,
-  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
-  needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
+  onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, onOpenDivera, onOpenDatenquellen, onReactivateActive, onBackFromArchive,
+  covered = false, onUncover, needsReview, onReviewDone, reviewedLocallyAt, onEditMeta, lifecycleElsewhere, openCover, onOpenCoverDone,
 }: WorkspaceProps) {
   const { user, logout, asLink, isEl, linkRefused, roleReadOnly, isEditor, linkScoped } = useSessionRole(incidentMeta)
   // Phones are a live viewer + field-capture device: lock all TACTICAL editing (tools,
@@ -669,17 +679,6 @@ export function IncidentWorkspace({
   // re-render when the fetched ADR/ERG datasets land (lib/useHazardData) — the rings and
   // baked placards below read them synchronously.
   const hazVersion = useHazardData()
-  // ERG Schutzabstand rings, derived per render from the placards on the board (lib/ergRings,
-  // Feldtest Manuel 07.09.). Joined with the prepared overlays so MapLayers needs no new prop.
-  // The day/night split is the sun at each placard (lib/daylight), read at compute time; a board
-  // left open across sunrise/sunset picks the flip up with the next re-render, which any
-  // interaction provides — a Planungshilfe does not warrant its own clock.
-  const mapOverlays = useMemo(
-    () => [...preparedOverlays, ...ergRingOverlays(entities, new Date())],
-    // hazVersion: the ERG table arrives by fetch shortly after boot (lib/useHazardData) —
-    // rings drawn from an already-typed UN appear with it.
-    [entities, hazVersion],
-  )
   const resolvedMapDrawings = useMemo(() => resolveMapDrawings(drawings, entities), [drawings, entities])
   /**
    * The ONE thing the header pair does: step the global timeline, then SAY what it stepped.
@@ -1674,9 +1673,11 @@ export function IncidentWorkspace({
       else if (notePanelId) setNotePanelId(null)
       else if (selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length) { setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }
     }
+    // covered by another surface: its keys are its own (see `covered`)
+    if (covered) return
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [pending, pendingShape, coord.mode, panel, viewsOpen, tool, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [covered, pending, pendingShape, coord.mode, panel, viewsOpen, tool, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Selecting something opens its details (ContextPanel) — so the moment a NEW selection lands, drop
   // every other transient bit of map chrome that would sit over it or the tool rail: the Ebenen dock,
@@ -1715,18 +1716,21 @@ export function IncidentWorkspace({
       } else if (selectedDrawingId) { e.preventDefault(); deleteDrawing(selectedDrawingId) }
       else if (selectedId && !tacticalLocked) { e.preventDefault(); deleteEntity(selectedId) }
     }
+    // ⚠️ never while covered: a Backspace in the viewer must not delete a symbol nobody sees
+    if (covered) return
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [mode, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds, doc, tacticalLocked])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [covered, mode, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds, doc, tacticalLocked])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keyboard shortcuts (see lib/hotkeys + the "Tastaturkürzel" help section). One mount-once
   // listener delegates to hotkeyRef, which is reassigned every render with the live handlers —
   // so shortcuts always act on current state without a churn of add/removeEventListener.
   useEffect(() => {
+    if (covered) return // the surface in front owns the keyboard (see `covered`)
     const onKey = (e: KeyboardEvent) => hotkeyRef.current(e)
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [covered])
 
   // warm the OSM building-outline cache so the Umgebung sheet (and the building picker)
   // opens instantly instead of waiting on the Overpass fetch. Must use the RESOLVED docs:
@@ -1787,6 +1791,28 @@ export function IncidentWorkspace({
     const m = new Map(mapLayers.map((l) => [l.id, l.visible]))
     return (id: LayerId) => m.get(id) ?? true
   }, [mapLayers])
+
+  // «Unterirdische Bauten» (lib/underground, review round 5): the station's underground buildings
+  // as the Karte & Objekte draws them, asked the first time the row is on — never from an incident
+  // link, which may not read the station (api/station_reference). ONE overlay object per set and
+  // theme, first in the list: under the ERG rings, the drawings and every Lage symbol.
+  const undergroundOn = !linkScoped && isVisible(UNDERGROUND_LAYER_ID)
+  const underground = useUnderground(undergroundOn)
+  const undergroundInk = themeToken('--ink-dim', '#4d586a')
+  const undergroundRings = underground?.rings
+  const undergroundMapOverlay = useMemo(() => (undergroundRings?.length ? undergroundOverlay(undergroundRings, undergroundInk, UNDERGROUND_LAYER_ID) : null),
+    [undergroundRings, undergroundInk])
+  // ERG Schutzabstand rings, derived per render from the placards on the board (lib/ergRings,
+  // Feldtest Manuel 07.09.). Joined with the prepared overlays so MapLayers needs no new prop.
+  // The day/night split is the sun at each placard (lib/daylight), read at compute time; a board
+  // left open across sunrise/sunset picks the flip up with the next re-render, which any
+  // interaction provides — a Planungshilfe does not warrant its own clock.
+  const mapOverlays = useMemo(
+    () => [...(undergroundMapOverlay ? [undergroundMapOverlay] : []), ...preparedOverlays, ...ergRingOverlays(entities, new Date())],
+    // hazVersion: the ERG table arrives by fetch shortly after boot (lib/useHazardData) —
+    // rings drawn from an already-typed UN appear with it.
+    [entities, hazVersion, undergroundMapOverlay],
+  )
 
   // the Tafel's pages (10.10.2026): the template set, the pre-fill, the live mini Karte — not for a
   // link session (bound to one object)
@@ -2862,6 +2888,53 @@ export function IncidentWorkspace({
     />
   )
 
+  /* ── Covered: another surface is in front of this Einsatz ───────────────────────────────
+   *
+   * «Karte & Objekte» or the Objektbesuche opened over an open Einsatz (App · screen). The
+   * component stays MOUNTED, so every hook above keeps running — the sync and its live poll (a
+   * Funkkontakt entered on another device still ends an alarm here), the Verlauf, the Trupp
+   * actions, the mute — and only the screen goes: no map, no plan, no bars, no key handlers.
+   *
+   * ⚠️ What must NOT go is the Atemschutz alarm (lead decision, 16.10.2026: silence on a
+   * breathing-apparatus timer is the one failure we can't have at 3am). So the SAME alarm host
+   * runs (tone, vibration via the OS notification, the Verlauf rows), and the SAME rows stand in
+   * the Meldeleiste over the surface in front: overdue / Alarmdruck / Rückzug per Trupp, and the
+   * Notfall. Their «Zum Trupp» brings this Einsatz back, on the Atemschutz board at that card.
+   * The reminder clock keeps running too. AFTER every hook, like the link shell below. */
+  if (covered) {
+    const goToTrupp = (id: string) => {
+      onUncover?.()
+      setMode('atemschutz'); setPanel(null)
+      setTruppFocus({ id, nonce: Date.now() })
+    }
+    return (
+      <>
+        <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
+          logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
+        <RemindersHost {...reminders.host} />
+        <AtemschutzAlarmMeldungen
+          trupps={trupps}
+          severities={azAlarm.severities}
+          canEdit={canEditTrupps}
+          intervalMin={azIntervalMin}
+          graceSec={azGraceSec}
+          onAcknowledge={muteAtemschutz}
+          onGoToTrupp={goToTrupp}
+        />
+        {azAlarmActive && (
+          <AtemschutzNotfallMeldungen
+            trupps={trupps}
+            placeOf={truppPlace}
+            canEdit={canEditTrupps}
+            onAcknowledge={muteAtemschutz}
+            onGoToTrupp={goToTrupp}
+            onDeploySafety={(id) => setTruppStatus(id, 'aktiv')}
+          />
+        )}
+      </>
+    )
+  }
+
   /* ── «Tafel pur»: the Atemschutz-Link session's WHOLE app ────────────────────────────────
    *
    * Somebody scanned the QR the FU held out and is now watching this Einsatz's Atemschutz on
@@ -3058,7 +3131,7 @@ export function IncidentWorkspace({
         setPanel, setTruppFocus, mapUI, replayActive, gpsStale, gpsAgeMs, share, onShareChangeName,
         onBackFromArchive, onReactivateActive, isPhone, phoneTools, planFit, incidents, syncStatus, journal,
         auditDelivery, closedRefusedUnexported, baseSyncStatus, lastSyncedAt, user, setSettingsOpen,
-        onSwitchIncident, onOpenHistory, onOpenObjectVisits, activeObjectId, canEditMeta, onEditMeta,
+        onSwitchIncident, onOpenHistory, onOpenObjectVisits, onOpenKarte, activeObjectId, canEditMeta, onEditMeta,
         onOpenDivera, onOpenDatenquellen, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
         setHelpOpen, setInstallGuideOpen, setOfflineReadyOpen, syncNow, media, logout, settingsOpen,
         helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
@@ -3111,7 +3184,9 @@ export function IncidentWorkspace({
       <MapControls {...{
         mapUI, mapUtility, mapRef, view, viewsApi, readOnly, isEl, viewsOpen, toggleViews, coord, panel,
         layersPreset, togglePanel, isPhone, slimRail, displayWeather, openWeatherDetails, replayActive,
-        georefMode, buildingInfo, buildingFirst, tool, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
+        georefMode, buildingInfo, buildingFirst, tool, setPanel, composerOpen, journalOpen, offlineReadyOpen,
+        // an incident link may not read the station: no «Unterirdische Bauten» row it could never fill
+        layers: linkScoped ? layers.filter((l) => l.id !== UNDERGROUND_LAYER_ID) : layers,
         toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
         weather,
       }} />

@@ -1,21 +1,15 @@
-import { ShellLoader } from '../ShellLoader'
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../lib/icons'
-import { initials, roleLabel, fillTemplate, fmtSpanShort, streetPart, formatTime } from '../../lib/format'
-import { buildLabel } from '../../lib/buildInfo'
-import { applyUpdateNow, onUpdateAvailable } from '../../lib/swUpdate'
-import { canApplyInPlace } from '../../lib/updatePolicy'
-import { getInstallPlatform } from '../../lib/installPrompt'
+import { fillTemplate, fmtSpanShort, streetPart, formatTime } from '../../lib/format'
 import { appConfig } from '../../config/appConfig'
 import { toast } from '../../lib/ui'
-import { shortAddress } from '../../lib/deploymentConfig'
-import { runningOthers } from '../../lib/switcherLists'
 import { SyncGlyph } from '../SyncGlyph'
 import { useOnline } from '../../lib/useOnline'
 import type { IncidentMeta, SyncStatus } from '../../lib/incidents'
 import { useIsPhone } from '../../lib/useIsPhone'
 import { CLOCK_ICON, useEinsatzuhr } from '../../lib/einsatzuhr'
 import { EinsatzuhrChoices } from '../Einsatzuhr'
+import { AppMenuRows } from './AppMenuRows'
 
 // HH:MM for the positive "gespeichert" trust signal next to the sync badge.
 function fmtClock(ms: number): string {
@@ -31,7 +25,7 @@ function fmtClock(ms: number): string {
 
 // --- TopBar switcher ----------------------------------------------------------------
 export function IncidentSwitcher({
-  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
+  active, incidents, isEditor, syncStatus, lastSyncedAt, user, startedAt, endedAt, onSettings, onSwitch, onHistory, onObjectVisits, onKarte, onDivera, onEditMeta, onArchive, onShare, archiveOpenCount = 0, onHelp, onInstall, onOfflineReadiness, onSyncNow, onLogout, navKey, sheetOpen = false, syncDetail,
 }: {
   active: IncidentMeta | null
   incidents: IncidentMeta[]
@@ -53,6 +47,9 @@ export function IncidentSwitcher({
   onHistory?: () => void
   /** Objektbesuche — set only where the station switched the module on and this is no link session */
   onObjectVisits?: () => void
+  /** «Einsatz verlassen» — to «Karte & Objekte», this Einsatz running on behind it (App ·
+   *  enterKarte). Absent for an Einsatz-Link session. */
+  onKarte?: () => void
   onDivera: () => void
   onDatenquellen: () => void
   /** Einsatzrapport (PDF / Drucken) — absent for an Einsatz-Link session, which may not
@@ -92,14 +89,6 @@ export function IncidentSwitcher({
   sheetOpen?: boolean
 }) {
   const cp = appConfig.copy.incidentSwitcher
-  const cu = appConfig.copy.update
-  // A waiting build, and whether this device may take it in place (iOS wedges — updatePolicy).
-  // Subscribed rather than read on open: the menu is mounted the whole time, and the button has
-  // to appear the moment a deploy lands, not only on the next open.
-  const [updateWaiting, setUpdateWaiting] = useState(false)
-  const [applyingUpdate, setApplyingUpdate] = useState(false)
-  useEffect(() => onUpdateAvailable(setUpdateWaiting), [])
-  const updateReady = updateWaiting && canApplyInPlace(getInstallPlatform())
   // «Jetzt synchronisieren» reports what it did on the button itself: Shell trail runs for the
   // round trip, then gives way to a tick. Success needs no words — a toast for «alles
   // synchronisiert» was a sentence to read for the most boring outcome there is. Offline and
@@ -148,8 +137,8 @@ export function IncidentSwitcher({
   const pillName = street || active?.title || ''
   // the inline clock choice starts folded every time the menu is opened (the switch button below)
   const [clockOpen, setClockOpen] = useState(false)
-  // Einsatzbeginn/-dauer row in the dropdown (phones hide the TopBar clocks, so the times
-  // live here) — tick once a minute while open so the Dauer stays current
+  // the card's Einsatzbeginn/-dauer pill (phones hide the TopBar clocks, so the times live here)
+  // — tick while open so the Dauer stays current
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!open) return
@@ -190,12 +179,6 @@ export function IncidentSwitcher({
     : syncStatus === 'error' || syncStatus === 'storage'
       ? <Icon id="warn" />
       : <span className="ip-status-dot" />
-  // Only the RUNNING Einsätze are listed. Everything that is over lives behind «Alle Einsätze»,
-  // where it can be searched and grouped — a handful of recent ones in the menu turned out to be
-  // neither (feedback 2026-08-26): you either switch to something that is running, or you go
-  // looking for a specific old Einsatz, and the second one is not a four-row list.
-  const running = runningOthers(incidents, active?.id ?? null)
-  const showIncidents = running.length > 0 || isEditor || !!onHistory || (incidents.length === 0 && !active)
   const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   /**
    * «Jetzt synchronisieren» — offered whenever the device has a link, not only on error: it forces a push AND an
@@ -384,88 +367,26 @@ export function IncidentSwitcher({
               )}
             </div>
           )}
-          {/* The Einsätze group is about moving BETWEEN Einsätze. When nothing in it can
-              render — no other incident, no «Neuer Einsatz», no «Alle Einsätze» — none of it
-              shows, which is what an Einsatz-Link sees: it is bound to one Einsatz and switching
-              is neither offered nor permitted. Derived rather than passed, so the menu never has
-              to know why the rows are missing. */}
-          {showIncidents && (
-            <div className="ip-rows">
-              {/* No label over the laufende rows: they sit directly under the card they are the
-                  alternatives to. Without a card there is no such context, so the group says
-                  what it is. */}
-              {!active && <div className="ip-menu-label">{cp.incidents}</div>}
-              {incidents.length === 0 && !active && <div className="ip-menu-empty">{cp.noOpenIncidents}</div>}
-              {running.map((i) => (
-                <button key={i.id} className="ip-menu-row" onClick={() => { onSwitch(i); setOpen(false) }}>
-                  <span className="ip-menu-when">{fmtSpanShort(now - Date.parse(i.started_at))}</span>
-                  <span className="ip-menu-rowmain">
-                    <span className="ip-menu-titleline">
-                      <span className="ip-menu-title">{i.title}</span>
-                      {/* beside the title, not inside it: a long Einsatzname ellipsises, and the
-                          marker that says «Übung» must not be the part that gets cut off */}
-                      {i.is_exercise && exerciseBadge}
-                    </span>
-                    {/* WHERE it is, the way the card says it for the active Einsatz — «Ölspur» is
-                        not an Einsatz you can tell apart from another «Ölspur» without it. Same
-                        shortened form as everywhere else: the own Gemeinde is left off. */}
-                    {shortAddress(i.address) && <span className="ip-menu-rowsub">{shortAddress(i.address)}</span>}
-                  </span>
-                </button>
-              ))}
-              {/* History and creation are the two doors OUT of the running list. They are peers:
-                  one opens an earlier Einsatz, one opens a new one. The old blue text link looked
-                  detached from the full-size creation row directly below it, especially on a
-                  phone, so both now use the same recognised icon+label action recipe. */}
-              {onHistory && (
-                <button className="ip-menu-act" onClick={onHistory}>
-                  <Icon id="history" /> {cp.allIncidents}
-                </button>
-              )}
-              {isEditor && <button className="ip-menu-act" onClick={onDivera}><Icon id="plus" /> {appConfig.copy.intake.titleNew}</button>}
-            </div>
-          )}
-          {/* «App»: device + installation, not this Einsatz. It always has rows — Hilfe is
-              unconditional — so the label never heads an empty group the way «Einsätze» can. */}
-          <div className="ip-menu-label">{cp.app}</div>
-          {/* Objektbesuche is no Einsatz, so it is not under «Einsätze»: it is the app's other job.
-              Here because a device that always opens its running Einsatz never sees the launcher
-              (staging 03.10.2026). */}
-          {onObjectVisits && (
-            <button className="ip-menu-act" onClick={() => { setOpen(false); onObjectVisits() }}>
-              <Icon id="clipboard" /> {appConfig.copy.objectVisits.launcher}
-            </button>
-          )}
-          {onSettings && <button className="ip-menu-act" onClick={onSettings}><Icon id="gear" /> {appConfig.copy.settings.title}</button>}
-          {active && <button className="ip-menu-act" onClick={onOfflineReadiness}><Icon id="snapshot" /> {appConfig.copy.offline.title}</button>}
-          <button className="ip-menu-act" onClick={onHelp}><Icon id="info" /> {appConfig.copy.help.menu}</button>
-          {onInstall && <button className="ip-menu-act" onClick={onInstall}><Icon id="share-ios" /> {appConfig.copy.install.menu}</button>}
-          {/* ONE hairline in this menu, above the identity row (22.09.2026): the small-caps label
-              heads «App» on its own, but the row under the actions is not an action — it is who
-              is signed in, and the rule is what says «the list ends here». */}
-          <div className="ip-menu-sep" />
-          <div className="ip-menu-user">
-            <span className="ip-menu-av" style={{ background: user.color ?? 'var(--ink-faint)' }}>{initials(user.display_name)}</span>
-            <span className="ip-menu-userinfo">
-              <span className="ip-menu-username">{user.display_name}</span>
-              <span className="ip-menu-userrole">{roleLabel(user.role)}</span>
-            </span>
-            {onLogout && <button className="ip-menu-logout" onClick={() => { onLogout(); setOpen(false) }}><Icon id="logout" /> {cp.logout}</button>}
-          </div>
-          <div className="ip-menu-foot">
-            {/* No manual "check for updates" — a fresh deploy surfaces itself (the 5-min poll and
-                the visibility-resume check). What IS here is the apply, and only while a build is
-                actually waiting: the menu is where somebody looks when an app feels stale, which
-                is exactly the state a dismissed banner leaves behind (16.09.2026). */}
-            <span className="ip-menu-ver" title={cp.appVersion}>{buildLabel()}</span>
-            {updateReady && (
-              <button className="ip-menu-update" disabled={applyingUpdate}
-                onClick={() => { setApplyingUpdate(true); void applyUpdateNow() }}>
-                {applyingUpdate ? <ShellLoader /> : <Icon id="rotate" />}
-                {applyingUpdate ? cu.applying : cu.apply}
-              </button>
-            )}
-          </div>
+          {/* Everything under the card is the app menu's rows — the SAME component home's
+              «Einsätze ▾» sheet renders (AppMenuRows; owner, 17.10.2026), so the two never drift.
+              The rows that NAVIGATE close the menu here; the ones that open a sheet leave it
+              logically open and suspended (`sheetOpen`), so cancelling that sheet reveals it. */}
+          <AppMenuRows
+            activeId={active?.id ?? null}
+            incidents={incidents}
+            isEditor={isEditor}
+            user={user}
+            onSwitch={(i) => { onSwitch(i); setOpen(false) }}
+            onLeave={onKarte && (() => { setOpen(false); onKarte() })}
+            onHistory={onHistory}
+            onCreate={onDivera}
+            onObjectVisits={onObjectVisits && (() => { setOpen(false); onObjectVisits() })}
+            onSettings={onSettings}
+            offline={active ? { label: appConfig.copy.offline.title, onOpen: onOfflineReadiness } : undefined}
+            onHelp={onHelp}
+            onInstall={onInstall}
+            onLogout={onLogout && (() => { onLogout(); setOpen(false) })}
+          />
         </div>
       )}
     </div>

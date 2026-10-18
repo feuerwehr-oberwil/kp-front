@@ -10,6 +10,7 @@
 // Contract (camelCase, every field optional/possibly-empty — a fresh deployment returns
 // mostly-empty objects). This type mirrors the backend response exactly; keep in sync.
 
+import type { ObjectCategoryRule } from './karte/categories'
 import { isOpenableUrl, type ReportLink } from './reportLinks'
 
 export interface DeploymentAssets {
@@ -23,6 +24,8 @@ export interface DeploymentAssets {
 
 export interface DeploymentIdentity {
   appName?: string | null
+  /** the Karte's menu button label (≤ 8, schemas · SHORT_NAME_MAX); unset → the menu symbol */
+  shortName?: string | null
   locale?: string | null
   accentColor?: string | null
   assets?: DeploymentAssets | null
@@ -53,6 +56,9 @@ export interface DeploymentMap {
   defaultView?: DeploymentDefaultView | null
   geocoder?: DeploymentGeocoder | null
   externalLinks?: DeploymentExternalLink[] | null
+  /** «Karte & Objekte»: the station's object colours — ordered rules, first match wins
+   *  (lib/karte/categories). Unset = every object red, a key box its FKS glyph. */
+  objectCategories?: ObjectCategoryRule[] | null
 }
 
 export interface DeploymentReferenceLayer {
@@ -481,6 +487,9 @@ export interface ObjectVisitDestination {
   root?: string | null
   objectFolder?: string | null
   visitFolder?: string | null
+  /** where a visit at a place (no object) is filed, below `root` (default
+   *  «Allgemeine Meldungen/{date} {checklist} ({short})») */
+  locationFolder?: string | null
 }
 
 export interface DeploymentObjectVisits {
@@ -711,10 +720,28 @@ export function reportLinks(): ReportLink[] {
 
 /** The Objektbesuche module as this device knows it: on/off and who may capture. The catalogue's
  *  own `canCapture` is the server's word and wins where it is known (objectVisits/catalogue). */
+/** The station's object categories for «Karte & Objekte» (`map.objectCategories`, raw — read
+ *  through lib/karte/categories · categoryRules). */
+export function objectCategoryRules(): ObjectCategoryRule[] {
+  const raw = resolved.map?.objectCategories
+  return Array.isArray(raw) ? raw : []
+}
+
 export function objectVisitsConfig(): { enabled: boolean; captureRoles: string[] } {
   const ov = resolved.objectVisits
   const roles = Array.isArray(ov?.captureRoles) ? ov.captureRoles.filter((r) => typeof r === 'string') : null
   return { enabled: ov?.enabled === true, captureRoles: roles ?? ['editor', 'el'] }
+}
+
+/** The general folder a visit at a place goes to — the first segment of the first enabled
+ *  destination's `locationFolder` («Allgemeine Meldungen»); null without a destination (the
+ *  visit then stays in KP Front and its export). For the «Ort» card's «Ablage» line only — the
+ *  server files (object_visit_delivery · folder_segments). */
+export function placeFilingFolder(): string | null {
+  const dest = (resolved.objectVisits?.destinations ?? []).find((d) => d && d.enabled !== false)
+  if (!dest) return null
+  const pattern = (dest.locationFolder ?? '').trim() || 'Allgemeine Meldungen/{date} {checklist} ({short})'
+  return pattern.replace(/\\/g, '/').split('/').map((p) => p.trim()).find(Boolean) ?? null
 }
 
 export function rosterNameOrder(): 'last-first' | 'first-last' {
@@ -778,6 +805,18 @@ export function demoNote(): string | null {
   if (!isDemoMode()) return null
   const n = resolved.identity?.demoNote
   return n && n.trim() ? n : null
+}
+
+/**
+ * What the menu button at the top left of «Karte & Objekte» wears (review round 5, owner: the
+ * station's short name or its mark instead of «Einsätze»): the uploaded brandmark (`assets.logo`
+ * — only an UPLOADED one, never the bundled favicon fallback, which is KP Front's and not the
+ * station's) and `identity.shortName`. Both null → the caller draws a neutral menu symbol.
+ */
+export function deploymentMenuMark(): { mark: string | null; short: string | null } {
+  const id = resolved.identity
+  const short = id?.shortName?.trim()
+  return { mark: id?.assets?.logo || null, short: short || null }
 }
 
 /**

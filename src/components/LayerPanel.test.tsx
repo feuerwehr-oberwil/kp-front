@@ -168,3 +168,49 @@ describe('LayerPanel · phone sheet', () => {
     expect(onClose).not.toHaveBeenCalled()
   })
 })
+
+// «Karte & Objekte» puts its «Station» group first after the base map (owner, review rounds 4 + 5):
+// under the quick-taps and «Grundkarte», above every deployment group. Without `leadTwinGroups`
+// the twins stay last.
+describe('LayerPanel · leadTwinGroups', () => {
+  const base: LayerDef = { id: 'base-osm', group: 'Grundkarte', label: 'OSM', icon: 'map', visible: true, base: true }
+  const water: LayerDef = { id: 'hydranten', group: 'Wasser', label: 'Hydranten', icon: 'layers', visible: true }
+  const station: TwinLayerRow = { id: 'karte:objekte', group: 'Station', label: 'Stationsobjekte', icon: 'footprint', visible: true }
+  const plans: TwinLayerRow = { id: 'karte:objektplan', group: 'Pläne', label: 'Modul 1', icon: 'doc', visible: false }
+  const heads = () => [...document.querySelectorAll('.lgroup')].map((el) => el.textContent)
+  const all = { onShowAll: noop, onHideAll: noop, onReset: noop }
+
+  it('draws the named group right under the base map, the other twins where they were', () => {
+    render(<LayerPanel layers={[base, water]} twins={[station, plans]} leadTwinGroups={['Station']} onToggle={noop} onOpacity={noop} {...all} />)
+    expect(heads()).toEqual([appConfig.copy.baseMap, 'Station', 'Wasser', 'Pläne'])
+    // the quick-taps stay above everything
+    const quick = document.querySelector('.lc-quick')!
+    const first = document.querySelector('.lgroup')!
+    expect(quick.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('keeps the old order without it (the Einsatz)', () => {
+    render(<LayerPanel layers={[base, water]} twins={[station, plans]} onToggle={noop} onOpacity={noop} />)
+    expect(heads()).toEqual([appConfig.copy.baseMap, 'Wasser', 'Station', 'Pläne'])
+  })
+})
+
+// The Einsatz sets its «Station» group («Unterirdische Bauten») right after the plans (owner,
+// review round 6: «move unterirdische bauten below pläne in the emergency version»).
+describe('LayerPanel · groupsAfterTwins', () => {
+  const lage: LayerDef = { id: 'lage', group: 'Inhalte', label: 'Taktische Zeichen', icon: 'layers', visible: true }
+  const water: LayerDef = { id: 'hydranten', group: 'Wasser', label: 'Hydranten', icon: 'layers', visible: true }
+  const under: LayerDef = { id: 'unterirdisch', group: 'Station', label: 'Unterirdische Bauten', icon: 'footprint', visible: true }
+  const plans: TwinLayerRow = { id: 'twin:p1', group: 'Pläne', label: 'Modul 1', icon: 'doc', visible: false }
+  const heads = () => [...document.querySelectorAll('.lgroup')].map((el) => el.textContent)
+
+  it('draws the named group right under the anchored plans', () => {
+    render(<LayerPanel layers={[lage, water, under]} twins={[plans]} twinsAfterGroup="Inhalte" groupsAfterTwins={['Station']} onToggle={noop} onOpacity={noop} />)
+    expect(heads()).toEqual(['Inhalte', 'Pläne', 'Station', 'Wasser'])
+  })
+
+  it('leaves it in place when there are no plans', () => {
+    render(<LayerPanel layers={[lage, water, under]} twinsAfterGroup="Inhalte" groupsAfterTwins={['Station']} onToggle={noop} onOpacity={noop} />)
+    expect(heads()).toEqual(['Inhalte', 'Wasser', 'Station'])
+  })
+})

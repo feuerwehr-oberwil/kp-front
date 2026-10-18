@@ -105,6 +105,8 @@ rules that break silently.
   WGS84 `[lng, lat]` wherever the map renders; credentials via `app.credentials.get`.
 - **Roles, links, admin** → [`docs/roles-and-access.md`](docs/roles-and-access.md).
 - **Plans, Gebäude, alignments, tiles** → [`docs/plans-and-buildings.md`](docs/plans-and-buildings.md).
+- **«Karte & Objekte»** (the station viewer and home outside an Einsatz: objects, outlines, the
+  phone sheets and keyboard on iOS) → [`docs/karte-objekte.md`](docs/karte-objekte.md).
 - **Atemschutz** → [`docs/atemschutz-board.md`](docs/atemschutz-board.md) · **Rapport** → [`docs/rapport.md`](docs/rapport.md)
   · **Tafel pages** → [`docs/board-templates.md`](docs/board-templates.md) · **Objektbesuche** →
   [`docs/object-visits.md`](docs/object-visits.md) · **Trupp names** → [`docs/trupp-naming.md`](docs/trupp-naming.md).

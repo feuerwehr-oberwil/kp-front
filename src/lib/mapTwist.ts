@@ -12,11 +12,20 @@
 // deliberate twist past `TWIST_ENGAGE_DEG` measured from where the two fingers came down. Once
 // engaged, the bearing follows the fingers exactly for the rest of that gesture (zoom and pan
 // keep running alongside), with no jump by the threshold it took to get there. Lifting a finger
-// ends it; the next two-finger gesture starts un-engaged again. Nothing snaps back afterwards —
-// a deliberate turn is deliberate, and «Nach Norden» (the compass) is the way back.
+// ends it; the next two-finger gesture starts un-engaged again.
 //
-// Pure gate + the one bridge into MapLibre's own rotate handler. Mouse right-drag rotation and
-// the keyboard are MapLibre's own handlers and are untouched.
+// North-snap on release (18.10.2026, owner: «add a small snap to north too like other places»):
+// a turn by HAND — two fingers, or the mouse's right-drag — that comes to rest within
+// `NORTH_SNAP_DEG` (10°) of north settles on exactly north in a short ease; a clear turn further
+// stays, and «Nach Norden» (the compass) is the way back from there. It is a convenience for
+// landing on north on purpose, not the old 6° self-heal (removed 24.09.2026), which existed only
+// for the rotation a pan or pinch leaked in — the gate above prevents that leak. Never during a
+// gesture, never for the keyboard or a programmatic bearing (the compass, a saved view, a plan's
+// alignment). MapLibre's own `bearingSnap` (7°, eased over a fixed 1 s, live unnoticed until
+// then) is switched off on the MapView, so this is the one rule.
+//
+// Pure gate + the one bridge into MapLibre's own rotate handler, and the north-snap decision.
+// Mouse right-drag rotation and the keyboard are MapLibre's own handlers and are untouched.
 
 /*
  * *The Karte turns like Google Maps, and in no other way* (24.09.2026, `lib/mapTwist`): two
@@ -24,9 +33,12 @@
  * `TWIST_ENGAGE_DEG` (12°) from where the fingers came down — and, fingers close together
  * (gloves), past `TWIST_ENGAGE_ARC_PX` of travel along their circle. Once engaged the bearing
  * follows the fingers exactly (zoom alongside) until a finger lifts, without jumping by the
- * threshold. No snap-back: the old 6° `snapNorth` self-heal is gone, because nothing leaks into
- * the bearing any more and a deliberate turn stays; the compass's «Nach Norden» is the way
- * back. The gate replaces MapLibre's own rotate handler's `_start`/`_move`/`reset` and is
+ * threshold. A hand turn (fingers or mouse right-drag) that comes to rest within
+ * `NORTH_SNAP_DEG` (10°) of north settles on exactly north (`createNorthSnap`, 18.10.2026 – the
+ * owner wants to LAND on north easily); further out it stays and the compass's «Nach Norden» is
+ * the way back. That is not the old 6° `snapNorth` self-heal of a leaked twist (removed
+ * 24.09.2026): nothing leaks any more. MapLibre's own `bearingSnap` is off (`bearingSnap={0}`).
+ * The gate replaces MapLibre's own rotate handler's `_start`/`_move`/`reset` and is
  * FAIL-CLOSED — internals not where MapLibre 4.7 keeps them ⇒ touch rotation off, never
  * un-gated (the test pins the shape). ⚠️ MapLibre's own 25 px-of-arc threshold is ~5° with
  * the fingers a hand apart, which every two-finger pan crosses: that is what turned the basemap
@@ -149,4 +161,75 @@ export function installTwistGate(handler: unknown): boolean {
 export function gateTouchRotation(map: { touchZoomRotate: { disableRotation: () => void } }): void {
   const tzr = map.touchZoomRotate as unknown as { _touchRotate?: unknown }
   if (!installTwistGate(tzr._touchRotate)) map.touchZoomRotate.disableRotation()
+}
+
+/**
+ * How close to north (degrees, either side, inclusive) a turn made by hand may come to rest and
+ * still settle on exactly north.
+ *
+ * 10° (owner's pick, round 6: «≈ ±5°»; round 7, 18.10.2026: «a little bit stronger» → 10°): wide enough that aiming for north by hand lands on it,
+ * narrow enough that a deliberate small turn — a street a few degrees off the screen's edge —
+ * stays. Below the twist gate's 12° on purpose: a turn the gate let through is at least 12° from
+ * where it started, so a snap only ever answers a turn that was brought BACK towards north.
+ */
+export const NORTH_SNAP_DEG = 10
+
+/** The settle ease onto north (ms): short, so it reads as a snap rather than a drift (MapLibre's
+ *  own `resetNorth` takes a fixed 1 s, which is why its built-in snap went unnoticed). Through
+ *  `motionDuration`, so reduced motion jumps. */
+export const NORTH_SNAP_MS = 200
+
+/** The bearing a hand turn that came to rest at `bearing` settles on: 0 within `threshold` of
+ *  north (either side, across the 0/360 seam), else `null` – stay. Exactly north is `null` too:
+ *  nothing to ease. */
+export function northSnap(bearing: number, threshold = NORTH_SNAP_DEG): 0 | null {
+  const b = ((bearing % 360) + 360) % 360
+  const off = Math.min(b, 360 - b)
+  return off > 0 && off <= threshold ? 0 : null
+}
+
+/** A turn made by hand: two fingers (TouchEvent) or the mouse's right-drag (Mouse/PointerEvent).
+ *  Not the keyboard (MapLibre's keyboard handler eases WITH its KeyboardEvent as `originalEvent`),
+ *  and not a programmatic camera move (no `originalEvent` at all). */
+export function isHandEvent(ev: unknown): boolean {
+  if (!ev || typeof ev !== 'object') return false
+  if ('touches' in ev) return true
+  const type = (ev as { type?: unknown }).type
+  return typeof type === 'string' && (type.startsWith('mouse') || type.startsWith('pointer'))
+}
+
+/** The slice of a MapLibre map the north-snap drives. */
+export interface NorthSnapMap {
+  getBearing(): number
+  isMoving(): boolean
+  easeTo(options: { bearing: number; duration: number }): unknown
+}
+
+export interface NorthSnap {
+  /** a rotate began (`rotatestart`); remembers whether a hand turned the map */
+  rotateStart(originalEvent: unknown): void
+  /** the camera came to rest (`moveend`) — AFTER MapLibre's inertia, so it judges where the map
+   *  actually stops. Eases onto north when a hand turn ends within `NORTH_SNAP_DEG` of it;
+   *  returns whether it did. */
+  moveEnd(map: NorthSnapMap, originalEvent: unknown, durationMs: number): boolean
+}
+
+/**
+ * The north-snap's state across one gesture. A `moveend` judges only a gesture whose rotate
+ * began by hand and which itself ends by hand: the ease it starts carries no `originalEvent`, so
+ * its own `moveend` never re-enters, and a keyboard turn or a «Nach Norden» never snaps. A map
+ * still moving at that moment (a new gesture already took over) is left alone.
+ */
+export function createNorthSnap(): NorthSnap {
+  let handTurn = false
+  return {
+    rotateStart(ev) { handTurn = isHandEvent(ev) },
+    moveEnd(map, ev, durationMs) {
+      if (!handTurn || !isHandEvent(ev)) return false
+      handTurn = false
+      if (map.isMoving() || northSnap(map.getBearing()) == null) return false
+      map.easeTo({ bearing: 0, duration: durationMs })
+      return true
+    },
+  }
 }

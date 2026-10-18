@@ -7,9 +7,10 @@ import { fillTemplate, hhmm, unitLabel, formatLocale } from '../../lib/format'
 import { attachmentUrl } from '../../objectVisits/api'
 import { readAttachment } from '../../objectVisits/store'
 import type { DeliveryState, SyncState } from '../../objectVisits/status'
-import type { Answer, Lifecycle, VisitConflict, VisitDoc } from '../../objectVisits/types'
+import type { Answer, Lifecycle, VisitConflict, VisitDoc, VisitSummary } from '../../objectVisits/types'
 import type { Item } from '../../lib/checklists'
 import { checklistItems } from '../../objectVisits/doc'
+import { placeOf } from '../../objectVisits/place'
 
 /** dd.mm.yyyy in the station's locale */
 export function fmtDate(iso: string | null | undefined): string {
@@ -157,5 +158,69 @@ export function conflictValue(c: VisitConflict, side: unknown, doc: VisitDoc): s
   if (typeof o.proposed === 'string') return `${o.label ?? ''}: ${o.proposed}`
   if (typeof o.title === 'string') return o.title
   if (typeof o.name === 'string') return o.name
+  if (typeof o.label === 'string') return o.label // a place (`target`)
   return JSON.stringify(side)
+}
+
+/** A row of the server's list, named like its visit (an older server: the object's name). */
+export function summaryTitle(v: Pick<VisitSummary, 'objectName' | 'target_kind' | 'location'>): string {
+  if (v.target_kind === 'location') return fillTemplate(appConfig.copy.objectVisits.placeTitle, { label: v.location?.label ?? '' })
+  return v.objectName ?? v.location?.label ?? ''
+}
+
+export interface PlaceVisitRow { id: string; label: string; visitedAt: string; checklist: string | null; people: string }
+
+/** The finished visits at a place this device knows of — its own copies over the server's rows —
+ *  newest first, at most `limit`. Drafts are under «Meine Entwürfe» already. */
+export function recentPlaceVisits(
+  locals: { doc: VisitDoc }[],
+  summaries: VisitSummary[] | null,
+  limit = 8,
+): PlaceVisitRow[] {
+  const rows = new Map<string, PlaceVisitRow>()
+  for (const v of summaries ?? []) {
+    if (v.target_kind !== 'location' || v.lifecycle !== 'completed') continue
+    rows.set(v.id, {
+      id: v.id, label: v.location?.label ?? '', visitedAt: v.visitedAt,
+      checklist: v.checklist?.title ?? null, people: (v.with ?? []).join(', '),
+    })
+  }
+  for (const l of locals) {
+    const place = placeOf(l.doc)
+    if (!place) continue
+    if (l.doc.lifecycle !== 'completed') { rows.delete(l.doc.id); continue }
+    rows.set(l.doc.id, {
+      id: l.doc.id, label: place.label, visitedAt: l.doc.visitedAt,
+      checklist: l.doc.checklist?.title ?? null, people: (l.doc.with ?? []).join(', '),
+    })
+  }
+  return [...rows.values()].sort((a, b) => (a.visitedAt < b.visitedAt ? 1 : -1)).slice(0, limit)
+}
+
+/** What the visit is called on every screen: its object's name, or — a visit at a place —
+ *  «Meldung bei Talholzstrasse 15». */
+export function visitTitle(doc: Pick<VisitDoc, 'object' | 'target'>): string {
+  const place = placeOf(doc)
+  if (!place) return doc.object?.name ?? ''
+  return fillTemplate(appConfig.copy.objectVisits.placeTitle, { label: place.label })
+}
+
+/**
+ * The visit card's result line for a checklist that asks no OK/Mangel question — a Fehlermeldung
+ * is a report, and «Keine Mängel» under it would say the opposite of what it is. Its answered
+ * choices and texts, in order, «Hydrant · Neuer Hydrant fehlt im Plan» (null when there are none).
+ */
+export function answerDigest(doc: Pick<VisitDoc, 'checklist' | 'answers'>, max = 160): string | null {
+  const items = checklistItems(doc.checklist)
+  if (items.some((i) => (i.input ?? 'check') === 'check')) return null
+  const parts = items
+    .filter((i) => i.input === 'choice' || i.input === 'text')
+    .map((i) => {
+      const a = doc.answers[i.id]
+      return a && a.v !== '' && a.v != null ? answerText(i, a).replace(/\s+/g, ' ').trim() : ''
+    })
+    .filter(Boolean)
+  if (!parts.length) return null
+  const line = parts.join(' · ')
+  return line.length > max ? `${line.slice(0, max - 1).trimEnd()}…` : line
 }

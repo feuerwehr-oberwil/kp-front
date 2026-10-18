@@ -189,11 +189,36 @@ def folder_key(folder: str | None) -> str:
     return " ".join(unicodedata.normalize("NFC", folder or "").split()).casefold()
 
 
+#: The ref source of a name an object was MERGED from (``admin_objects merge``): «Stallenmatt-
+#: strasse 2-14 …» folded into «… 1-14 …» keeps its old name as an alias on the survivor, so the
+#: viewer's search still finds it and an organizer push under the old folder/name resolves to the
+#: survivor instead of minting the twin again. The colon is outside ``SOURCE_RE``: no organizer
+#: can write, delete or even see such a ref (``refs_by_object`` leaves them out).
+ALIAS_SOURCE = ":alias"
+
+
 async def refs_by_object(db: AsyncSession) -> dict[uuid.UUID, list[dict[str, str]]]:
-    rows = (await db.execute(select(ObjectRef).order_by(ObjectRef.id))).scalars().all()
+    rows = (
+        (await db.execute(select(ObjectRef).where(ObjectRef.source != ALIAS_SOURCE).order_by(ObjectRef.id)))
+        .scalars()
+        .all()
+    )
     out: dict[uuid.UUID, list[dict[str, str]]] = {}
     for r in rows:
         out.setdefault(r.object_id, []).append({"source": r.source, "id": r.external_id})
+    return out
+
+
+async def aliases_by_object(db: AsyncSession) -> dict[uuid.UUID, list[str]]:
+    """The names objects were merged from (``ALIAS_SOURCE``), per surviving object."""
+    rows = (
+        (await db.execute(select(ObjectRef).where(ObjectRef.source == ALIAS_SOURCE).order_by(ObjectRef.id)))
+        .scalars()
+        .all()
+    )
+    out: dict[uuid.UUID, list[str]] = {}
+    for r in rows:
+        out.setdefault(r.object_id, []).append(r.external_id)
     return out
 
 
@@ -304,6 +329,68 @@ def photo_ids(doc: dict[str, Any]) -> list[str]:
     return [p["id"] for p in doc.get("photos") or [] if isinstance(p, dict) and isinstance(p.get("id"), str)]
 
 
+TARGET_KINDS = ("object", "location")
+MAX_LABEL = 200
+
+
+def _coords(lat: Any, lng: Any, what: str, *, required: bool) -> tuple[float, float] | None:
+    """A WGS84 position (both or neither) — refused (422) when it is not one."""
+    if lat is None and lng is None:
+        if required:
+            raise invalid(f"{what}: Koordinaten (lat/lng) fehlen")
+        return None
+    for label, value, bound in (("lat", lat, 90), ("lng", lng, 180)):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise invalid(f"{what}: {label} muss eine Zahl sein")
+        if abs(value) > bound:
+            raise invalid(f"{what}: {label} liegt ausserhalb von WGS84")
+    return float(lat), float(lng)
+
+
+def doc_target(doc: dict[str, Any]) -> dict[str, Any]:
+    """What a document says the visit is AT — its ``target``, or (a document from before the
+    field, 16.10.2026) an object target derived from its ``object``."""
+    target = doc.get("target")
+    if isinstance(target, dict) and target.get("kind") in TARGET_KINDS:
+        return target
+    obj: dict[str, Any] = doc["object"] if isinstance(doc.get("object"), dict) else {}
+    return {"kind": "object", "objectId": obj.get("id")}
+
+
+def _check_target(doc: dict[str, Any], current: ObjectVisit | None) -> dict[str, Any]:
+    """Refuse a target the contract refuses (docs/object-visits.md «The target»); return it.
+
+    ⚠️ A document WITHOUT ``target`` is an older build writing (its merge rebuilds the document
+    key by key and drops what it does not know). An object document derives its target from
+    ``object``; one without an object, for a stored visit at a place, gets the stored target put
+    back — a passenger, never a reason to refuse the save of a visit the old build could open.
+    """
+    target = doc.get("target")
+    if target is None:
+        stored = current.doc.get("target") if current is not None else None
+        if not isinstance(doc.get("object"), dict) and isinstance(stored, dict) and stored.get("kind") == "location":
+            doc["target"] = stored
+            doc["object"] = None
+            target = stored
+        else:
+            return doc_target(doc)
+    if not isinstance(target, dict) or target.get("kind") not in TARGET_KINDS:
+        raise invalid("target.kind muss object oder location sein")
+    if current is not None and doc_target(current.doc)["kind"] != target["kind"]:
+        raise invalid("Ein Besuch bleibt bei seinem Ziel (Objekt oder Ort)")
+    if target["kind"] == "object":
+        obj = doc.get("object")
+        if isinstance(obj, dict) and target.get("objectId") not in (None, obj.get("id")):
+            raise invalid("target.objectId passt nicht zum Objekt")
+        return target
+    if doc.get("object") is not None:
+        raise invalid("Ein Besuch an einem Ort hat kein Objekt (object: null)")
+    _text(target.get("label"), MAX_LABEL, "Ort: Bezeichnung", required=True)
+    _text(target.get("address"), 300, "Ort: Adresse")
+    _coords(target.get("lat"), target.get("lng"), "Ort", required=True)
+    return target
+
+
 async def validate_doc(db: AsyncSession, visit_id: str, doc: Any, current: ObjectVisit | None) -> uuid.UUID | None:
     """Refuse (422) what the contract refuses; return the visit's object id."""
     if not isinstance(doc, dict):
@@ -314,19 +401,24 @@ async def validate_doc(db: AsyncSession, visit_id: str, doc: Any, current: Objec
     if doc.get("id") != visit_id:
         raise invalid("Die id im Dokument passt nicht zur Adresse")
 
-    obj = doc.get("object")
-    if not isinstance(obj, dict) or not isinstance(obj.get("id"), str):
-        raise invalid("Objekt fehlt")
-    try:
-        object_id = uuid.UUID(obj["id"])
-    except ValueError as e:
-        raise invalid("Objekt-id ist ungültig") from e
-    unchanged = current is not None and (current.doc.get("object") or {}).get("id") == obj["id"]
-    exists = await db.get(ObjectSite, object_id) is not None
-    if not unchanged and not exists:
-        raise invalid("Objekt unbekannt")
-    _text(obj.get("name"), 300, "Objektname")
-    _text(obj.get("address"), 300, "Objektadresse")
+    target = _check_target(doc, current)
+    exists = False
+    object_id: uuid.UUID | None = None
+    if target["kind"] == "object":
+        obj = doc.get("object")
+        if not isinstance(obj, dict) or not isinstance(obj.get("id"), str):
+            raise invalid("Objekt fehlt")
+        try:
+            object_id = uuid.UUID(obj["id"])
+        except ValueError as e:
+            raise invalid("Objekt-id ist ungültig") from e
+        unchanged = current is not None and (current.doc.get("object") or {}).get("id") == obj["id"]
+        exists = await db.get(ObjectSite, object_id) is not None
+        if not unchanged and not exists:
+            raise invalid("Objekt unbekannt")
+        _text(obj.get("name"), 300, "Objektname")
+        _text(obj.get("address"), 300, "Objektadresse")
+        _coords(obj.get("lat"), obj.get("lng"), "Objekt", required=False)
 
     _text(doc.get("workRef"), MAX_WORK_REF, "workRef")
     visited = doc.get("visitedAt")
@@ -422,12 +514,58 @@ async def validate_doc(db: AsyncSession, visit_id: str, doc: Any, current: Objec
     conflicts = doc.get("conflicts")
     if conflicts is not None and (not isinstance(conflicts, list) or len(conflicts) > MAX_CONFLICTS):
         raise invalid("conflicts muss eine Liste sein")
+    if target["kind"] == "location":
+        return None
     if exists:
         return object_id
     # The object the visit was recorded at is gone (deleted, merged, re-keyed). The document keeps
     # its snapshot; the link stays where an admin tool moved it, else it is cleared — never a
     # dangling foreign key that fails every later save.
     return current.object_id if current is not None else None
+
+
+async def _position(
+    db: AsyncSession, doc: dict[str, Any], object_id: uuid.UUID | None
+) -> tuple[str, float | None, float | None]:
+    """(target kind, lat, lng) of a validated document: the place of a location visit; for an
+    object visit the position its snapshot recorded, else the catalogue object's right now."""
+    target = doc_target(doc)
+    if target["kind"] == "location":
+        return "location", float(target["lat"]), float(target["lng"])
+    obj: dict[str, Any] = doc["object"] if isinstance(doc.get("object"), dict) else {}
+    if obj.get("lat") is not None and obj.get("lng") is not None:
+        return "object", float(obj["lat"]), float(obj["lng"])
+    site = await db.get(ObjectSite, object_id) if object_id is not None else None
+    if site is not None and site.lat is not None and site.lng is not None:
+        return "object", float(site.lat), float(site.lng)
+    return "object", None, None
+
+
+def display_name(doc: dict[str, Any]) -> str | None:
+    """What a person calls the visit's target: the object's name, or the place's label."""
+    target = doc_target(doc)
+    if target["kind"] == "location":
+        return target.get("label")
+    return (doc.get("object") or {}).get("name")
+
+
+def location_of(visit: ObjectVisit) -> dict[str, Any] | None:
+    """The C2 ``location`` of a visit: where it was, as a reader of the feed needs it — the place
+    of a location visit; the object's name, address and position for an object visit. None when
+    nothing at all is known."""
+    doc = visit.doc or {}
+    target = doc_target(doc)
+    if target["kind"] == "location":
+        return {
+            "label": target.get("label"),
+            "address": target.get("address"),
+            "lat": visit.lat if visit.lat is not None else target.get("lat"),
+            "lng": visit.lng if visit.lng is not None else target.get("lng"),
+        }
+    obj: dict[str, Any] = doc["object"] if isinstance(doc.get("object"), dict) else {}
+    if not obj.get("name") and not obj.get("address") and visit.lat is None:
+        return None
+    return {"label": obj.get("name"), "address": obj.get("address"), "lat": visit.lat, "lng": visit.lng}
 
 
 # --- locking, the feed counter --------------------------------------------------------------
@@ -550,6 +688,8 @@ async def serialize_visit(db: AsyncSession, visit: ObjectVisit) -> dict[str, Any
         "findings": visit.findings,
         "url": visit_url(visit.id),
         "deliveries": await deliveries_for(db, visit.id),
+        "target_kind": visit.target_kind,
+        "location": location_of(visit),
     }
 
 
@@ -573,6 +713,8 @@ def summary(visit: ObjectVisit) -> dict[str, Any]:
         "id": visit.id,
         "objectId": str(visit.object_id) if visit.object_id else obj.get("id"),
         "objectName": obj.get("name"),
+        "target_kind": visit.target_kind,
+        "location": location_of(visit),
         "workRef": visit.work_ref,
         "lifecycle": visit.lifecycle,
         "revision": visit.revision,
@@ -735,6 +877,7 @@ async def apply_put(
     visit.doc = doc
     visit.lifecycle = str(doc["lifecycle"])
     visit.object_id = object_id
+    visit.target_kind, visit.lat, visit.lng = await _position(db, doc, object_id)
     visit.work_ref = doc.get("workRef") or None
     visit.visited_at = _parse_time(doc.get("visitedAt"))
     visit.findings = count_findings(doc)
@@ -766,7 +909,7 @@ async def apply_put(
         await notify_object_visit(
             db,
             visit_id=visit_id,
-            object_name=(doc.get("object") or {}).get("name"),
+            object_name=display_name(doc),
             people=with_names(doc),
             findings=visit.findings,
         )
@@ -1130,6 +1273,8 @@ async def feed(db: AsyncSession, *, after: int, limit: int) -> dict[str, Any]:
                 "proposals": list(v.doc.get("proposals") or []),
                 "deliveries": await deliveries_for(db, v.id),
                 "url": visit_url(v.id),
+                "target_kind": v.target_kind,
+                "location": location_of(v),
             }
         )
     return {"items": items, "nextAfter": items[-1]["seq"] if items else after}
@@ -1172,6 +1317,14 @@ async def upsert_integration_object(
         for candidate in (await db.execute(select(ObjectSite).order_by(ObjectSite.name))).scalars():
             if folder_key(object_folder(candidate)) == wanted:
                 obj = candidate
+                break
+    if obj is None:
+        # a folder or name an object was merged away from (admin_objects merge) is the survivor's:
+        # the organizer that minted the twin must not mint it again
+        said = {folder_key(folder), folder_key(name)} - {""}
+        for oid, names in (await aliases_by_object(db)).items():
+            if said & {folder_key(n) for n in names}:
+                obj = await db.get(ObjectSite, oid)
                 break
     if obj is None:
         obj = ObjectSite(
@@ -1387,6 +1540,7 @@ async def render_report(
     row = await revision_row(db, visit.id, n)
     photos = await photo_bytes(db, visit.id, row.doc, cache)
     station = await station_name(db)
+    filing = await location_filing(db, visit.id, row.doc)
     return await anyio.to_thread.run_sync(
         lambda: render_visit_pdf(
             row.doc,
@@ -1396,8 +1550,35 @@ async def render_report(
             url=visit_url(visit.id),
             created_by=visit.created_by_name,
             photos=photos,
+            filing=filing,
         )
     )
+
+
+async def location_filing(db: AsyncSession, visit_id: str, doc: dict[str, Any]) -> str | None:
+    """Where a visit at a place is filed — the folder its first enabled destination uses below its
+    root («Allgemeine Meldungen/2026-10-16 Fehlermeldung (7f3a)»), or None (an object visit, or no
+    destination). The path a delivery already made wins (``remote_items._path``)."""
+    if doc_target(doc)["kind"] != "location":
+        return None
+    from .object_visit_delivery import folder_segments, placeholders
+
+    dests = [d for d in (await ov_config(db)).destinations if d.enabled]
+    if not dests:
+        return None
+    dest = dests[0]
+    row = (
+        await db.execute(
+            select(ObjectVisitDelivery).where(
+                ObjectVisitDelivery.visit_id == visit_id, ObjectVisitDelivery.destination == dest.id
+            )
+        )
+    ).scalar_one_or_none()
+    made = (row.remote_items or {}).get("_path") if row is not None else None
+    root = dest.root.strip("/")
+    if isinstance(made, str) and made:
+        return made[len(root) :].strip("/") if root and made.startswith(root) else made
+    return "/".join(folder_segments(dest, placeholders(visit_id, doc, None), at_location=True))
 
 
 # --- organizer: removing an object ref, reading an object's plans ----------------------------------

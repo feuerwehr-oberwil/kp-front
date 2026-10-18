@@ -5,7 +5,7 @@ import math
 import re
 import uuid
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 
@@ -793,7 +793,48 @@ class ObjectOut(ObjectIn):
     measures: str | None = None
     remarks: str | None = None
     measures_source: str | None = None
+    #: the town when it is not the home town («Therwil») — see ``ObjectSite.locality``
+    locality: str | None = None
+    #: ``'station'`` = the station corrected the position in /admin; no import overwrites it
+    position_source: str | None = None
+    position_set_at: datetime | None = None
+    #: the station's outline choice: NULL = automatic, ``building``, ``none``
+    outline: str | None = None
     updated_at: datetime
+
+
+class ObjectPositionIn(BaseModel):
+    """``PUT /api/objects/{id}/position`` — «Lage korrigieren» in /admin. The pin, how the map
+    outlines the object, and (when the station picked it from the register) its address + town."""
+
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+    outline: Literal["auto", "building", "none"] = "auto"
+    #: replaces the stored address only when SENT (picked from the register)
+    address: str | None = Field(default=None, max_length=300)
+    #: the town; written when sent (null/"" clears it). The home town is never stored.
+    locality: str | None = Field(default=None, max_length=120)
+
+
+class ObjectPositionEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    action: str
+    actor: str | None = None
+    before: dict[str, Any]
+    after: dict[str, Any]
+    created_at: datetime
+
+
+class PlaceHitOut(BaseModel):
+    """One register address for the «Lage korrigieren» picker."""
+
+    label: str
+    street: str
+    town: str | None = None
+    home: bool = False
+    lat: float
+    lng: float
 
 
 class ReferenceDatasetOut(BaseModel):
@@ -898,6 +939,92 @@ class BuildingOut(BaseModel):
     registers_fetched_at: datetime | None = None
     object: BuildingObjectOut | None = None
     visit: BuildingVisitOut | None = None
+
+
+class ReferencePlanOut(BaseModel):
+    """One Modul-PDF of a station object, as «Karte & Objekte» lists it (api/station_reference)."""
+
+    id: str
+    #: the module key («modul1», «modul23») — the client's NavRail derives its monogram from it
+    module: str | None = None
+    #: the short code the panel prints («1», «2/3»)
+    code: str
+    title: str
+    #: pages of the current revision when already known (a written tile manifest), else None
+    pages: int | None = None
+    #: True = the current revision carries a published, approved map fit («auf der Karte»)
+    georef: bool = False
+    #: the current revision — what ``/api/reference/{id}?v=`` opens
+    version: int
+    updated_at: datetime | None = Field(default=None, serialization_alias="updatedAt")
+
+
+class ReferenceFloorOut(BaseModel):
+    """One Geschoss of an object's floor pack: the signed order index and the station's name, if
+    it gave one. The words («EG», «1. OG») are the client's copy (lib/whiteboard · floorLabel)."""
+
+    index: int
+    name: str | None = None
+
+
+class ReferenceLastVisitOut(BaseModel):
+    """The object's last completed Objektbesuch."""
+
+    id: str
+    #: the checklist's title; None for «Ohne Checkliste»
+    checklist: str | None = None
+    date: datetime | None = None
+    #: Mängel recorded on that visit
+    defects: int = 0
+
+
+class ReferenceObjectOut(BaseModel):
+    """One station object for the reference viewer — an Einsatzobjekt or a plan-less object."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    id: uuid.UUID
+    name: str
+    #: ``depot`` (key box) is retired (review round 3, 17.10.2026) and never sent
+    kind: Literal["einsatzobjekt", "objekt"]
+    #: where it is, for every object where that is knowable (docs/karte-objekte.md · address): the
+    #: station's address; else the name when it IS a street + number; else the register's
+    #: address at the pin. None only when none of the three exists.
+    address: str | None = None
+    #: the town, ONLY when it is not the home town («Therwil»); the client prints «address, locality»
+    locality: str | None = None
+    lat: float | None = None
+    lng: float | None = None
+    #: the station's outline choice: ``auto`` (the footprint rule, else the OSM building at the
+    #: point), ``building`` (only the building at the pin), ``none`` (no outline at all — the
+    #: viewer must not fall back to OSM either)
+    outline: Literal["auto", "building", "none"] = "auto"
+    #: other names the object is known by (the station's plan-library folder, …) — search reads them
+    aliases: list[str] = Field(default_factory=list)
+    plans: list[ReferencePlanOut] = Field(default_factory=list)
+    floors: list[ReferenceFloorOut] = Field(default_factory=list)
+    #: the building's EGID when the station data names it; None today (no source carries one)
+    egid: str | None = None
+    #: the object's buildings as ONE GeoJSON MultiPolygon, the building its point lies in first —
+    #: derived from the use area / parcel / cadastral survey (app/object_footprints); None = the
+    #: client falls back to the OSM building its point lies in
+    footprint: dict[str, Any] | None = None
+    #: the survey's structures (AV Einzelobjekte — underground garages, shelters) of the addresses an
+    #: object's name covers that have no surface building, one MultiPolygon; None = none known
+    underground: dict[str, Any] | None = None
+    #: Sofortmassnahmen / Bemerkungen off the Modul-1 sheet and where they came from
+    measures: str | None = None
+    remarks: str | None = None
+    measures_source: str | None = Field(default=None, serialization_alias="measuresSource")
+    updated_at: datetime | None = Field(default=None, serialization_alias="updatedAt")
+    last_visit: ReferenceLastVisitOut | None = Field(default=None, serialization_alias="lastVisit")
+
+
+class ReferenceObjectsOut(BaseModel):
+    """``GET /api/reference/objects`` — every station object, for «Karte & Objekte»."""
+
+    objects: list[ReferenceObjectOut] = Field(default_factory=list)
+    generated_at: datetime = Field(serialization_alias="generatedAt")
 
 
 class PlanSourcesOut(BaseModel):
@@ -1065,10 +1192,41 @@ _ACCENT_HEX = re.compile(r"^#?(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})
 _ACCENT_ERROR = "Akzentfarbe muss ein Hex-Farbwert sein, z. B. #e8392b (leer = Standardfarbe)"
 
 
+#: `identity.shortName`: the station's short label on the Karte's menu button (owner, review
+#: round 5: «a new short name like "fwo" that others can configure»). The button shares a 44 px
+#: bar with the search on a 390 px phone, so the cap is what fits there beside the mark and the ▾.
+SHORT_NAME_MAX = 8
+_SHORT_NAME_ERROR = f"Kurzname darf höchstens {SHORT_NAME_MAX} Zeichen haben, z. B. «FWO» (leer = Menü-Symbol)"
+
+
 class IdentityConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     appName: str | None = None
+    #: the menu button's label at the top left of «Karte & Objekte»; unset → a neutral menu symbol
+    shortName: str | None = Field(default=None, max_length=SHORT_NAME_MAX)
     locale: str | None = None
+
+    @field_validator("shortName", mode="before")
+    @classmethod
+    def _short_name_fits(cls, v: Any, info: ValidationInfo) -> str | None:
+        """Trim, «» → unset, and refuse a label longer than the button holds — in German, with
+        the rule in the message (it reaches the Verwaltung and `admin_config load`). A STORED
+        value longer than the cap (a row written by hand, or before a lower cap) is cut, never
+        refused: refusing would empty the whole document on read (see `_accent_is_a_colour`)."""
+        if v is None:
+            return None
+        if not isinstance(v, str):
+            raise ValueError(_SHORT_NAME_ERROR)
+        text = " ".join(v.split())
+        if not text:
+            return None
+        if len(text) > SHORT_NAME_MAX:
+            if (info.context or {}).get("stored"):
+                logger.warning("identity.shortName %r is longer than %d — serving it cut", text, SHORT_NAME_MAX)
+                return text[:SHORT_NAME_MAX].rstrip()
+            raise ValueError(_SHORT_NAME_ERROR)
+        return text
+
     accentColor: str | None = None
 
     @field_validator("accentColor", mode="before")
@@ -1145,16 +1303,65 @@ class MapExternalLink(BaseModel):
     urlTemplate: str | None = None
 
 
+class ObjectCategoryMatch(BaseModel):
+    """When an object belongs to a category: every condition NAMED holds (none named = always)."""
+
+    model_config = ConfigDict(extra="ignore")
+    #: the object's kind is one of these. ``depot`` is RETIRED (review round 3, 17.10.2026: there
+    #: are no key-box objects any more): still accepted so an existing config stays valid, it
+    #: never matches — a rule naming only ``depot`` matches nothing (lib/karte/categories)
+    kinds: list[Literal["einsatzobjekt", "objekt", "depot"]] | None = None
+    #: one of the object's plan modules matches one of these globs (``modul5-pv*``, ``modul6``)
+    modules: list[Annotated[str, Field(min_length=1, max_length=60)]] | None = Field(default=None, max_length=30)
+
+
+class ObjectCategoryConfig(BaseModel):
+    """One colour rule for «Karte & Objekte» (src/lib/karte/categories.ts). Ordered, first match
+    wins; an object no rule matches keeps the default look (red, grey without plans)."""
+
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(min_length=1, max_length=40, pattern=r"^[a-z0-9][a-z0-9_-]*$")
+    #: one string, or one per language (``{"de": "Photovoltaik", "fr": "Photovoltaïque"}``)
+    label: str | dict[Literal["de", "fr", "it", "en"], str]
+    #: ``#rrggbb``
+    color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
+    match: ObjectCategoryMatch = Field(default_factory=ObjectCategoryMatch)
+
+
+class MapServiceArea(BaseModel):
+    """The brigade's Einsatzgebiet as its municipalities (BFS numbers), for what the backend reads
+    over the station's area (app/underground). Empty = the municipality at ``defaultView``."""
+
+    model_config = ConfigDict(extra="ignore")
+    municipalities: list[int] = Field(default_factory=list, max_length=50)
+
+
 class MapConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     defaultView: MapDefaultView = Field(default_factory=MapDefaultView)
     geocoder: MapGeocoder = Field(default_factory=MapGeocoder)
     externalLinks: list[MapExternalLink] = Field(default_factory=list)
+    # «Karte & Objekte»: the station's object colours (docs/karte-objekte.md · Categories). Empty
+    # = every object red, as before.
+    objectCategories: list[ObjectCategoryConfig] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def _unique_category_ids(self) -> "MapConfig":
+        ids = [c.id for c in self.objectCategories]
+        dupes = sorted({i for i in ids if ids.count(i) > 1})
+        if dupes:
+            raise ValueError(f"map.objectCategories: id(s) {dupes} used twice")
+        return self
+
     # The Gebäude card's federal-register half (app/building_facts: GWR + BFE, both Swiss). Unset
     # = on wherever the Einsatzort lies in Switzerland; false = never ask them (a station that does
     # not want it, or one outside CH that wants to say so). The Objekt's Sofortmassnahmen are the
     # station's own data and show either way.
     buildingRegister: bool | None = None
+    # The Einsatzgebiet (review round 4, 17.10.2026): the municipalities whose underground buildings
+    # «Unterirdische Bauten» draws, plus the surroundings of every station object. Unset = the
+    # municipality the station's map centre (`defaultView`) lies in.
+    serviceArea: MapServiceArea = Field(default_factory=MapServiceArea)
 
 
 class ReferenceLayerConfig(BaseModel):
@@ -1944,6 +2151,11 @@ class ObjectVisitDestination(BaseModel):
     root: str = Field(default="", max_length=_SHAREPOINT_PATH_MAX)
     objectFolder: str = Field(default="{object.folder}", min_length=1, max_length=200)
     visitFolder: str = Field(default="Objektbesuche/{date} {checklist} ({short})", min_length=1, max_length=200)
+    #: Where a visit at a PLACE (no catalogue object) is filed, below ``root`` and instead of
+    #: objectFolder/visitFolder: one general folder, no year subdivision (16.10.2026).
+    locationFolder: str = Field(
+        default="Allgemeine Meldungen/{date} {checklist} ({short})", min_length=1, max_length=200
+    )
 
     @model_validator(mode="after")
     def _addressable(self) -> "ObjectVisitDestination":
@@ -1960,7 +2172,7 @@ class ObjectVisitDestination(BaseModel):
             raise ValueError(f"objectVisits destination {self.id!r}: 'root' must be a plain folder path")
         self.root = root
         self.library = (self.library or "").strip() or None
-        for name in ("objectFolder", "visitFolder"):
+        for name in ("objectFolder", "visitFolder", "locationFolder"):
             value = getattr(self, name).replace("\\", "/").strip().strip("/")
             if not value or any(part.strip() in ("..", ".") for part in value.split("/")):
                 raise ValueError(f"objectVisits destination {self.id!r}: '{name}' must be a plain folder pattern")

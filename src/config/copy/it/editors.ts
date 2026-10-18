@@ -73,6 +73,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
       '9A': 'Batterie al litio',
     } as Record<string, string>,
     packingGroups: { I: 'pericolo elevato', II: 'pericolo medio', III: 'pericolo basso' } as Record<string, string>,
+    unSubstance: 'Sostanza',
     unClass: 'Classe',
     unKemler: 'Numero di pericolo',
     unLabels: 'Etichette di pericolo',

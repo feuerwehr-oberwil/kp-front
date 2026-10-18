@@ -181,6 +181,13 @@ const openPlan = async (planId: string) => {
 const boardIds = () => (lastBoard()?.annos ?? []).map((a) => a.id)
 
 describe('(a) the keyboard routes by surface', () => {
+  // owner on #383 (review round 4): only «Karte & Objekte» stops at the base map's last sharp zoom;
+  // the Einsatz keeps 21 for precise placement (lib/mapView · mapMaxZoom without the cap)
+  it('the Einsatz map does not ask for the base map\'s zoom cap', async () => {
+    await mount()
+    expect((lastMap() as unknown as { zoomCapAtBase?: boolean }).zoomCapAtBase).toBeFalsy()
+  })
+
   it('K / C / A / R switch surfaces, each claiming the key', async () => {
     await mount()
     expect(mode()).toBe('map')
@@ -666,6 +673,40 @@ describe('(h) the phone FAB never sits over the Atemschutz board', () => {
   })
 })
 
+/* Karte review round 5 (owner, 18.10.2026): «activate underground by default and also show it on the
+   normal map (during an incident)» — lib/underground. */
+describe('(l) «Unterirdische Bauten» on the Einsatz map', () => {
+  it('is on without a tap: asked once, drawn first (under the ERG rings, drawings and symbols), switchable in Ebenen', async () => {
+    const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]
+    const set = { enabled: true, fetchedAt: '2026-10-18T03:00:00+00:00', count: 1, geometry: { type: 'MultiPolygon', coordinates: [[sq(7.6, 47.5, 0.0002)]] } }
+    const asked: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (u: RequestInfo | URL) => {
+      const url = String(u)
+      if (url.includes('/api/reference/underground')) { asked.push(url); return new Response(JSON.stringify(set), { status: 200, headers: { 'content-type': 'application/json' } }) }
+      return new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })
+    }))
+    await mount()
+    type Ov = { id: string; layer: string; minzoom?: number; fillOpacity?: number; lineDasharray?: number[] }
+    const overlays = () => (lastMap().preparedOverlays ?? []) as Ov[]
+    const visible = (id: string) => (lastMap().isVisible as (l: string) => boolean)(id)
+    await waitFor(() => expect(overlays()[0]?.id).toBe('underground'))
+    expect(asked).toHaveLength(1)
+    const ov = overlays()[0]
+    expect(ov).toMatchObject({ minzoom: 16, fillOpacity: 0 })
+    expect(ov.lineDasharray).toBeTruthy()
+    expect(visible(ov.layer)).toBe(true)
+    // an Ebenen row like any other: off takes it off the map, «Standard» brings it back
+    fireEvent.click(screen.getAllByRole('button', { name: /^Ebenen/ })[0])
+    const row = () => screen.getByRole('button', { name: /^Unterirdische Bauten – / })
+    expect(row().getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(row())
+    expect(visible(ov.layer)).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.layerPanel.reset }))
+    expect(visible(ov.layer)).toBe(true)
+    expect(asked).toHaveLength(1)
+  })
+})
+
 /* staging r5 N3: the Meldeleiste paints INSIDE the open Einsatz's `.app` (lib/meldeleisteHost) —
    beside it, at App root, it outranked the whole stacking context and lay over the Einsatz menu. */
 describe('(k) the workspace is where the Meldeleiste paints', () => {
@@ -678,5 +719,56 @@ describe('(k) the workspace is where the Meldeleiste paints', () => {
     // queue's mount flush) land while jsdom still stands — under a loaded full run they settled
     // after the teardown and failed the suite with «window is not defined» (useMediaQueue)
     await settle(100)
+  })
+})
+
+describe('(k) covered by «Karte & Objekte» / the Objektbesuche (lead decision, 16.10.2026)', () => {
+  // The viewer (or a visit) stands in front of the open Einsatz, which stays MOUNTED behind it
+  // (App · `covered`): no map, no keys — but the Atemschutz alarm rings and its row stands in the
+  // strip, and «Zum Trupp» brings the Einsatz back on the board at that card.
+  it('an active Trupp\'s timer alarm fires while the viewer is in front, and «Zum Trupp» comes back to the board', async () => {
+    const { Alarm } = await import('./lib/alarm')
+    const tone = vi.spyOn(Alarm.prototype, 'set')
+    const m = meta()
+    const longAgo = new Date(Date.now() - 60 * 60_000).toISOString()
+    const overdue = { id: 'tr-c', name: 'Tst Clara', status: 'aktiv', entryPressureBar: 300, entryTime: longAgo, lastContactTime: longAgo }
+    const sync = new WorkspaceSync(m.id)
+    const ws = { entities: [truck], trupps: [overdue] } as unknown as Saved
+    const onUncover = vi.fn()
+    const tree = (covered: boolean) => <><Meldeleiste />{workspaceTree(m, { sync, workspace: ws, covered, onUncover }).tree}</>
+    const { rerender } = render(tree(true))
+    await settle(60); await settle(1_100) // the 1 Hz alarm tick
+
+    // nothing of the Einsatz is on screen…
+    expect(document.querySelector('.app')).toBeNull()
+    expect(rec.map).toHaveLength(0)
+    // …but the alarm is: the tone at «überfällig», and the row with the Trupp and its way back
+    expect(tone).toHaveBeenLastCalledWith(2)
+    const row = [...document.querySelectorAll('.ml-row')].find((r) => r.textContent?.includes('Tst Clara'))
+    expect(row).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.atemschutz.alarmRowGo }))
+    expect(onUncover).toHaveBeenCalledTimes(1)
+    // App uncovers: the SAME mount (no remount, no reopen) shows the Atemschutz board
+    rerender(tree(false))
+    await settle(60)
+    expect(mode()).toBe('atemschutz')
+    tone.mockRestore()
+  })
+
+  it('a covered Einsatz with nobody under air stays silent, and its keys are not live', async () => {
+    const { Alarm } = await import('./lib/alarm')
+    const tone = vi.spyOn(Alarm.prototype, 'set')
+    const m = meta()
+    const sync = new WorkspaceSync(m.id)
+    const tree = (covered: boolean) => <><Meldeleiste />{workspaceTree(m, { sync, covered }).tree}</>
+    const { rerender } = render(tree(true))
+    await settle(60); await settle(1_100)
+    expect(tone).not.toHaveBeenCalledWith(2)
+    expect(document.querySelectorAll('.ml-row')).toHaveLength(0)
+    // «R» typed in the viewer's search must not switch the Einsatz behind it to the Rapport
+    key('r'); await settle()
+    rerender(tree(false)); await settle(60)
+    expect(mode()).toBe('map')
+    tone.mockRestore()
   })
 })

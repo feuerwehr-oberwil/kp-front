@@ -6,7 +6,7 @@ The config document shape is defined in docs/CONFIGURATION.md §1 and validated 
 Response contract (both GET and PUT return the SAME projection ``DeploymentConfigOut``):
 
     {
-      "identity": { "appName": null, "locale": null, "accentColor": null,
+      "identity": { "appName": null, "shortName": null, "locale": null, "accentColor": null,
                     "assets": {"logo": null, "iconPng192": null, "iconPng512": null, "favicon": null},
                     "helpIntro": null },
       "map": { "defaultView": {"center": null, "centerLv95": null, "zoom": null},

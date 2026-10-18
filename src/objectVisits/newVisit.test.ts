@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { decideNewVisit } from './newVisit'
+import { autoChoice, decideNewVisit } from './newVisit'
 import type { LocalVisit } from './store'
+import type { VisitTemplate } from './types'
 
 const base = {
   localsLoaded: true, localsOk: true, catalogueLoaded: true, hasCatalogue: true,
@@ -27,5 +28,30 @@ describe('decideNewVisit', () => {
     expect(decideNewVisit({ ...base, canCapture: false, object: { id: 'u1', name: 'O' } }).kind).toBe('readOnly')
     expect(decideNewVisit({ ...base, choice: null }).kind).toBe('choose')
     expect(decideNewVisit(base)).toEqual({ kind: 'create', template: null })
+  })
+  it('a place needs no object, and a reader has nothing to open there', () => {
+    const place = { ...base, object: null, place: true }
+    expect(decideNewVisit(place)).toEqual({ kind: 'create', template: null })
+    expect(decideNewVisit({ ...place, canCapture: false }).kind).toBe('readOnly')
+    expect(decideNewVisit({ ...place, hasCatalogue: false }).kind).toBe('notPrepared')
+    expect(decideNewVisit({ ...place, choice: null }).kind).toBe('choose')
+  })
+})
+
+describe('autoChoice', () => {
+  const fm = { id: 'fehlermeldung' } as VisitTemplate
+  const sh = { id: 'fu-schluesselhuelse' } as VisitTemplate
+  const none = new Set<string | null>()
+  it('takes the checklist asked for when the station has it', () => {
+    expect(autoChoice({ asked: 'fehlermeldung', templates: [sh, fm], doneHere: none })).toEqual({ t: fm })
+  })
+  it('asks when the station lacks it — never starts its one other checklist instead', () => {
+    expect(autoChoice({ asked: 'fehlermeldung', templates: [sh], doneHere: none })).toBeNull()
+  })
+  it('without an ask: one checklist is taken, several ask, a completed one asks again', () => {
+    expect(autoChoice({ asked: null, templates: [sh], doneHere: none })).toEqual({ t: sh })
+    expect(autoChoice({ asked: null, templates: [sh, fm], doneHere: none })).toBeNull()
+    expect(autoChoice({ asked: null, templates: [sh], doneHere: new Set(['fu-schluesselhuelse']) })).toBeNull()
+    expect(autoChoice({ asked: null, templates: [], doneHere: none })).toEqual({ t: null })
   })
 })

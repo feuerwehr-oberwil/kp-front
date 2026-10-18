@@ -13,11 +13,35 @@ import { useKeyboardInset } from '../lib/useKeyboardInset'
  * `tapToggles` separates the two surfaces: the grip is a control and nothing else, so a tap on it
  * flips half ↔ full. The header carries a title and a ✕, so a tap there must stay a tap — it only
  * resizes when the finger actually travels.
+ *
+ * The `.ctx` editors keep their height as a DOM class (`.sheet-full`, see lib/sheetPeek for why).
+ * A sheet whose height is React state instead — the Karte's object sheet (components/karte ·
+ * KartePanel, 17.10.2026) — passes `sheet` (the selector of its root), `full` and `onFull`, and
+ * the same gesture reports the snap instead of toggling the class. `onTap` is that sheet's
+ * header: a tap on its peek opens it, and the late synthesized click is swallowed like the
+ * grip's (it would land on whatever the grown sheet left under the finger).
  */
-export function useSheetDrag({ onClose, tapToggles }: { onClose?: () => void; tapToggles: boolean }) {
+export function useSheetDrag({ onClose, tapToggles, sheet = '.ctx', full, onFull, onTap, closeBelow = 0.4 }: {
+  onClose?: () => void
+  tapToggles: boolean
+  /** the sheet root the drag resizes (default: the `.ctx` editors) */
+  sheet?: string
+  /** controlled height: the sheet is full now… */
+  full?: boolean
+  /** …and the gesture asks for this height (instead of toggling `.sheet-full` on the root) */
+  onFull?: (full: boolean) => void
+  /** a tap that did not travel, on a surface that does not toggle */
+  onTap?: () => void
+  /** a full sheet pulled below this share of the screen closes at once instead of halving —
+   *  lower for a sheet whose small height is a short peek, not a half */
+  closeBelow?: number
+}) {
   const drag = useRef<{ y0: number; h0: number; el: HTMLElement; moved: boolean; full: boolean } | null>(null)
+  const tapped = useRef(false)
+  const setFull = (el: HTMLElement, f: boolean) => { if (onFull) onFull(f); else el.classList.toggle('sheet-full', f) }
 
   const down = (e: React.PointerEvent<HTMLElement>) => {
+    tapped.current = false
     // ⚠️ Never start a drag on something that is itself pressable. The header holds the close
     // button (and, on some editors, the colour swatches) — swallowing their pointerdown would
     // trade one broken gesture for another.
@@ -25,13 +49,13 @@ export function useSheetDrag({ onClose, tapToggles }: { onClose?: () => void; ta
     if (pressable && pressable !== e.currentTarget) return
     // `closest('.ctx')` rather than parentElement: the handlers now sit on two different
     // children of the sheet, and one of them is not a direct child on every editor.
-    const el = e.currentTarget.closest('.ctx') as HTMLElement | null
+    const el = e.currentTarget.closest(sheet) as HTMLElement | null
     if (!el) return
     e.currentTarget.setPointerCapture(e.pointerId)
     // while the finger is down the sheet must track it 1:1 — .sheet-dragging disables the
     // height transition; releasing re-enables it so the snap to half/full eases smoothly
     el.classList.add('sheet-dragging')
-    drag.current = { y0: e.clientY, h0: el.getBoundingClientRect().height, el, moved: false, full: el.classList.contains('sheet-full') }
+    drag.current = { y0: e.clientY, h0: el.getBoundingClientRect().height, el, moved: false, full: onFull ? !!full : el.classList.contains('sheet-full') }
   }
   const move = (e: React.PointerEvent) => {
     const d = drag.current
@@ -49,17 +73,18 @@ export function useSheetDrag({ onClose, tapToggles }: { onClose?: () => void; ta
     const h = parseFloat(d.el.style.getPropertyValue('--sheet-h')) || d.h0
     d.el.style.removeProperty('--sheet-h')
     if (!d.moved) {
-      if (tapToggles) d.el.classList.toggle('sheet-full') // tap: half ↔ full
+      if (tapToggles) setFull(d.el, !d.full) // tap: half ↔ full
+      else if (onTap) { tapped.current = true; onTap() }
       return
     }
     // DIRECTION-based snap — a short pull is enough (no need to drag the whole distance):
     // up ≥40px → full; down ≥40px → half→dismiss, full→half (or dismiss on a deep pull);
     // a smaller drift keeps the current state.
     const delta = h - d.h0
-    if (delta > 40) { d.el.classList.add('sheet-full'); return }
+    if (delta > 40) { setFull(d.el, true); return }
     if (delta < -40) {
-      if (!d.full || h < window.innerHeight * 0.4) { onClose?.(); return }
-      d.el.classList.remove('sheet-full')
+      if (!d.full || h < window.innerHeight * closeBelow) { onClose?.(); return }
+      setFull(d.el, false)
     }
   }
 
@@ -71,7 +96,10 @@ export function useSheetDrag({ onClose, tapToggles }: { onClose?: () => void; ta
     // suppress the synthesized click after touchend: the toggle resizes the sheet away
     // from under the finger, so the late click would hit the MAP at the same coords and
     // deselect — closing the sheet the user just meant to resize
-    onTouchEnd: (e: React.TouchEvent) => { if (drag.current || tapToggles) e.preventDefault() },
+    onTouchEnd: (e: React.TouchEvent) => {
+      if (drag.current || tapToggles || tapped.current) e.preventDefault()
+      tapped.current = false
+    },
   }
 }
 

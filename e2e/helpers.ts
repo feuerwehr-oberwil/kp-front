@@ -56,13 +56,13 @@ export async function login(page: Page) {
   }
 }
 
-// After login the app shows either the empty state (no open incident) or, if one is
+// After login the app shows either home (no open incident: «Karte & Objekte») or, if one is
 // already open server-side, the incident surfaces directly. Normalise to "an incident
 // is open" so the smoke is idempotent across a fresh container and a re-run.
 export async function ensureIncidentOpen(page: Page) {
   const navrail = page.locator('nav.navrail')
 
-  // The empty state can briefly FLASH before the workspace loads and swaps in an
+  // Home can briefly FLASH before the workspace loads and swaps in an
   // already-open incident, so we can't branch on the CTA being momentarily visible.
   // Instead: give the navrail a chance to appear (incident loaded); only if it never
   // does is the deployment genuinely empty — then open a manual incident.
@@ -73,10 +73,13 @@ export async function ensureIncidentOpen(page: Page) {
     /* no incident open — fall through to create one */
   }
 
-  // Empty state → open a manual incident (no Divera, no coordinate needed). The landing CTA
-  // is "Manueller Einsatz", which opens the create wizard form directly (since the landing
-  // rework — there is no intermediate "Einsatz eröffnen" chooser step on the empty state).
-  await page.getByRole('button', { name: 'Manueller Einsatz' }).click()
+  // Nothing open → open a manual incident (no Divera, no coordinate needed). With no Einsatz
+  // open an account lands on «Karte & Objekte» (16.10.2026), whose menu button («FWO ▾», round 5) opens the app
+  // menu (17.10.2026: the same rows as the Einsatz menu); «Einsatz eröffnen» there opens the
+  // create wizard form directly.
+  await page.locator('[data-karte]').waitFor({ state: 'visible' })
+  await page.locator('[data-karte-menu]').click()
+  await page.getByRole('button', { name: 'Einsatz eröffnen' }).click()
   await page.getByPlaceholder('z. B. Gebäudebrand Schulhaus').fill('E2E Smoke Test')
   await page.getByRole('button', { name: 'Einsatz öffnen' }).click()
   await expect(navrail).toBeVisible()

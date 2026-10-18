@@ -10,6 +10,16 @@
  *  middling figure, and the pre-flight rounds AGAINST the operator by adding headroom below. */
 export const TILE_BYTES = 30 * 1024
 
+/** A 2× (retina) tile — CARTO's `@2x` (lib/carto · withCartoRetina): four times the pixels of the
+ *  same area; PNG compresses the finer drawing well, so ~3× the bytes, the figure used here. An
+ *  estimate, rounded against the operator like TILE_BYTES. */
+export const RETINA_TILE_BYTES = 3 * TILE_BYTES
+
+/** What one tile of these templates costs (a group of equivalent hosts: the first decides). */
+export function tileBytesFor(templates: readonly string[]): number {
+  return templates.some((t) => /@2x\.png(?:$|[?#])/.test(t)) ? RETINA_TILE_BYTES : TILE_BYTES
+}
+
 /** Fraction of the remaining budget we are willing to spend on one prefetch. Leaves room for the
  *  incident record itself, which must never be the thing that fails to write. */
 export const PREFETCH_BUDGET_SHARE = 0.7
@@ -59,8 +69,8 @@ export interface PrefetchFit {
  * the operator asked for this, and a device that won't report its quota is not evidence of a full
  * one. The share keeps a prefetch from consuming every last byte and starving the workspace.
  */
-export function prefetchFit(budget: StorageBudget | null, tileCount: number, extraBytes = 0): PrefetchFit {
-  const needBytes = tileCount * TILE_BYTES + extraBytes
+export function prefetchFit(budget: StorageBudget | null, tileCount: number, extraBytes = 0, bytesPerTile = TILE_BYTES): PrefetchFit {
+  const needBytes = tileCount * bytesPerTile + extraBytes
   if (!budget) return { needBytes, allowBytes: null, fits: true }
   const allowBytes = Math.floor(budget.free * PREFETCH_BUDGET_SHARE)
   return { needBytes, allowBytes, fits: needBytes <= allowBytes }
@@ -76,9 +86,9 @@ export function prefetchFit(budget: StorageBudget | null, tileCount: number, ext
  *
  * Returns 0 when even the warm payload can't fit, and `hardCap` when the budget is unknown.
  */
-export function fittedTileCap(budget: StorageBudget | null, hardCap: number, extraBytes = 0): number {
+export function fittedTileCap(budget: StorageBudget | null, hardCap: number, extraBytes = 0, bytesPerTile = TILE_BYTES): number {
   if (!budget) return hardCap
   const allow = Math.floor(budget.free * PREFETCH_BUDGET_SHARE) - extraBytes
   if (allow <= 0) return 0
-  return Math.max(0, Math.min(hardCap, Math.floor(allow / TILE_BYTES)))
+  return Math.max(0, Math.min(hardCap, Math.floor(allow / bytesPerTile)))
 }

@@ -46,7 +46,7 @@ def no_geocoder(monkeypatch):
     mints an object, so without this every plans test would make a real HTTP request (and the
     fake tenant's MockTransport does not cover the geocoder's own client). The tests that care
     about geocoding patch it themselves with `geocoder(...)`."""
-    monkeypatch.setattr(sharepoint_sync, "geocode", _none_geocode)
+    monkeypatch.setattr(sharepoint_sync, "locate_coordinates", _none_geocode)
 
 
 async def _none_geocode(_address):
@@ -63,7 +63,7 @@ def geocoder(monkeypatch, coords, calls=None):
             raise coords
         return coords
 
-    monkeypatch.setattr(sharepoint_sync, "geocode", fake)
+    monkeypatch.setattr(sharepoint_sync, "locate_coordinates", fake)
 
 
 @pytest.fixture
@@ -1111,3 +1111,69 @@ async def test_the_run_reports_its_progress_and_clears_it_afterwards(db_session,
 
     assert seen == [("plans", 1, 2), ("plans", 2, 2), ("geodata", 1, 1)]
     assert sync_progress.snapshot() == {"running": False}
+
+
+# --- a renamed folder (review round 3, 17.10.2026) ---------------------------------------
+# The station renames «Stallenmattstrasse 1-14, Kaibmattweg 1-5 (EH)» so the Karte outlines the
+# right houses. The folder name IS the object's key, so the pull must follow the rename instead of
+# minting a new object and leaving the visits, the position correction and the outline choice on
+# a plan-less orphan.
+
+
+async def test_a_renamed_folder_re_keys_its_object_and_keeps_everything(db_session, blank_env, storage_root):
+    from app import object_visits as ov
+    from app.models import ObjectPositionEvent, ObjectRef, ObjectVisit
+
+    old, new = "Musterweg 1-14 (EH)", "Musterweg 2-14, Feldrain 1 (EH)"
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant({f"{old}/Modul 1.pdf": PDF, f"{old}/Modul 2-3.pdf": PDF})
+    await sync_sharepoint(db_session, transport=tenant.transport)
+    old_id, new_id = object_id_for_key(old), object_id_for_key(new)
+    obj = await db_session.get(ObjectSite, old_id)
+    obj.lat, obj.lng, obj.position_source, obj.outline = 47.52, 7.57, "station", "building"
+    db_session.add(ObjectVisit(id="ov-rename-1", object_id=old_id, lifecycle="completed", doc={}, revision=1))
+    db_session.add(ObjectRef(object_id=old_id, source="fwo", external_id=old))
+    db_session.add(ObjectPositionEvent(object_id=old_id, action="set", actor="Verwaltung", before={}, after={}))
+    await db_session.flush()
+
+    tenant.rename_folder(old, new)
+    tenant.seen.clear()
+    result = await sync_sharepoint(db_session, transport=tenant.transport)
+    await db_session.flush()
+    db_session.expire_all()
+
+    assert result["areas"]["plans"]["status"] == "ok"
+    assert [u for u in tenant.seen if "/download/" in u] == []  # the moved files are not fetched again
+    assert await db_session.get(ObjectSite, old_id) is None  # no orphan …
+    moved = await db_session.get(ObjectSite, new_id)
+    assert moved is not None and moved.name == new and moved.filing_folder == new
+    assert (float(moved.lat), float(moved.lng), moved.position_source, moved.outline) == (
+        47.52,
+        7.57,
+        "station",
+        "building",
+    )
+    assert await datasets(db_session, f"plan:{new_id}:") == [f"plan:{new_id}:modul1", f"plan:{new_id}:modul2-3"]
+    assert await datasets(db_session, f"plan:{old_id}:") == []
+    assert (await db_session.get(ObjectVisit, "ov-rename-1")).object_id == new_id
+    events = (await db_session.execute(select(ObjectPositionEvent))).scalars().all()
+    assert [e.object_id for e in events] == [new_id]
+    refs = {(r.source, r.external_id, r.object_id) for r in (await db_session.execute(select(ObjectRef))).scalars()}
+    assert ("fwo", old, new_id) in refs and (ov.ALIAS_SOURCE, old, new_id) in refs
+    # … and an organizer push under the OLD folder still lands on it
+    got = await ov.upsert_integration_object(db_session, "fwo-schlue", "k-9", {"name": old, "folder": old})
+    assert got == {"objectId": str(new_id), "created": False}
+
+
+async def test_a_rename_with_an_edited_file_is_not_guessed_at(db_session, blank_env, storage_root):
+    """A new folder whose files are not ALL the old folder's unchanged files is not a rename: the
+    pull mints the new key as always (and `admin_objects merge` folds the old object in)."""
+    await configure(db_session, [source("plans")])
+    tenant = FakeTenant({"Musterweg 1-14/Modul 1.pdf": PDF})
+    await sync_sharepoint(db_session, transport=tenant.transport)
+    tenant.rename_folder("Musterweg 1-14", "Musterweg 2-14")
+    tenant.put("Musterweg 2-14/Modul 1.pdf", b"%PDF-1.4 redrawn")
+    await sync_sharepoint(db_session, transport=tenant.transport)
+    await db_session.flush()
+    assert await db_session.get(ObjectSite, object_id_for_key("Musterweg 1-14")) is not None
+    assert await db_session.get(ObjectSite, object_id_for_key("Musterweg 2-14")) is not None

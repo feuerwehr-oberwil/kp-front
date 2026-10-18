@@ -25,4 +25,13 @@ describe('export names and text', () => {
     expect(t).toContain('- Kontakt: Brunner → Keller')
     expect(visitFileStem(doc)).toMatch(/^Objektbesuch \d{4}-\d\d-\d\d Werkhof$/)
   })
+  it('a visit at a place carries the place into the file (no object)', () => {
+    const place = { kind: 'location' as const, label: 'bei Talholzstrasse 15', address: 'Talholzstrasse 15, 4103 Bottmingen', lat: 47.52015, lng: 7.57175 }
+    const doc = newVisitDoc({ place, checklist: null })
+    expect(doc.object).toBeNull()
+    expect(doc.target).toEqual(place)
+    const t = visitText(doc, { check: {}, open: 'nicht geprüft', notes: 'Bemerkungen', proposals: 'Vorschläge' })
+    expect(t.split('\n')[0]).toMatch(/^bei Talholzstrasse 15 · Talholzstrasse 15, 4103 Bottmingen · LV95 2.610.0\d\d \/ 1.263.\d\d\d · WGS84 47\.52015, 7\.57175$/)
+    expect(visitFileStem(doc)).toMatch(/^Objektbesuch \d{4}-\d\d-\d\d bei Talholzstrasse 15$/)
+  })
 })

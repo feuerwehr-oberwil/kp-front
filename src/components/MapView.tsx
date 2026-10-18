@@ -1,4 +1,4 @@
-import { forwardRef, Fragment, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { forwardRef, Fragment, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
 import { buzz } from '../lib/haptics'
@@ -8,7 +8,7 @@ import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, L
 import { appConfig } from '../config/appConfig'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { motionDuration } from '../lib/reducedMotion'
-import { gateTouchRotation } from '../lib/mapTwist'
+import { createNorthSnap, gateTouchRotation, NORTH_SNAP_MS } from '../lib/mapTwist'
 import { Icon } from '../lib/icons'
 import { isDemoMode } from '../lib/deploymentConfig'
 import { LockChip } from './LockChip'
@@ -20,7 +20,7 @@ import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LABEL_STYLE, SYM_CAPTION_STYLE, SYM_CAPTION_GAP, READOUT_LABEL_STYLE, END_TAG_LABEL_STYLE } from '../lib/mapView'
+import { EMPTY_STYLE, mapMaxZoom, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LABEL_STYLE, SYM_CAPTION_STYLE, SYM_CAPTION_GAP, READOUT_LABEL_STYLE, END_TAG_LABEL_STYLE } from '../lib/mapView'
 import { dockSlots, dockRadiusFor, nearestDockHost } from '../lib/docking'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
@@ -419,6 +419,15 @@ interface Props {
   /** The «Niederschlag (Radar)» layer (components/WeatherLayer), while it is on: the frame on
    *  screen, its transparency (0–100) and whether it is stale (drawn desaturated). */
   weatherRadar?: { radar: WeatherRadar; frameIndex: number; opacity: number; stale: boolean } | null
+  /** extra map content drawn last, inside the map (react-map-gl Markers): «Karte & Objekte» puts its
+   *  object name tags here (components/karte). The Einsatz passes nothing. */
+  children?: ReactNode
+  /** stop at the visible base map's last sharp zoom («Karte & Objekte», owner on #383) instead
+   *  of the map's own 21 (the Einsatz: precise placement) — lib/mapView · mapMaxZoom */
+  zoomCapAtBase?: boolean
+  /** the quiet Einsatzort ring at `initialCenter` — off where the centre is no incident's place
+   *  («Karte & Objekte»: just where the station view opens) */
+  showOrigin?: boolean
 }
 
 /** Whether the Karte takes its automatic coarse own-position fix (the default blue dot,
@@ -434,7 +443,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, onBasemapUnavailable, onSettled, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
-    onSelectionDone, georefPlanRasters = [], weatherRadar = null } = props
+    onSelectionDone, georefPlanRasters = [], weatherRadar = null, children, showOrigin = true, zoomCapAtBase = false } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
@@ -455,6 +464,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // "facing south" keeps facing south when you spin the map). Streamed on every rotate frame.
   const [bearing, setBearing] = useState(initialBearing)
   const mapInst = useRef<MlMap | null>(null)
+  // a hand turn that comes to rest just off north settles on it (lib/mapTwist · createNorthSnap)
+  const [northSnap] = useState(createNorthSnap)
   // The live map transform + pan switch every dragging layer works against (MapMarkers and both
   // twin layers). Stable identities, so the memoised twin layer is not rebuilt on every render
   // just because its props are fresh lambdas.
@@ -1983,6 +1994,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         setTimeout(() => { try { m.resize() } catch { /* map gone */ } }, 400)
       }}
       onMoveEnd={(e) => {
+        // a hand turn resting within NORTH_SNAP_DEG of north settles on it (its own ease carries
+        // no originalEvent, so its moveend lands here as an ordinary settle and never re-snaps)
+        if (mapInst.current) northSnap.moveEnd(mapInst.current, e.originalEvent, motionDuration(NORTH_SNAP_MS))
         setZoom(e.viewState.zoom); setBearing(e.viewState.bearing); setLiveBearing(e.viewState.bearing); bumpLabelFrame((n) => n + 1)
         viewRef.current = { center: [e.viewState.longitude, e.viewState.latitude], zoom: e.viewState.zoom, bearing: e.viewState.bearing }
         onView({ bearing: e.viewState.bearing, center: [e.viewState.longitude, e.viewState.latitude], zoom: e.viewState.zoom })
@@ -1995,6 +2009,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // needle are the exceptions – they turn WITH the finger, through their own store
       // (lib/liveBearing), which re-renders only the two glyphs.
       onRotate={(e) => { setBearing(e.viewState.bearing); setLiveBearing(e.viewState.bearing) }}
+      onRotateStart={(e) => northSnap.rotateStart(e.originalEvent)}
       // MapLibre says a genuine pan began. That (a) opens the pan gesture the trailing click is
       // measured against (see panGesture), (b) peeks the phone detail sheet down for as long as
       // the map moves — the same shrink a dragged object already gets (lib/sheetPeek), for the
@@ -2023,10 +2038,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // one would cost the desktop operator the tap right after a zoom.
       onZoomStart={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) { beginPanGesture(); beginSheetPeek() } }}
       onZoomEnd={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) { endPanGesture(); endSheetPeek() } }}
-      // ⚠️ No north-snap on release any more (24.09.2026): the 6° self-heal only ever existed for
-      // the rotation a two-finger pan/pinch leaked in, and the twist gate (lib/mapTwist, installed
-      // in onLoad) no longer lets one leak. A turn the map does make is a deliberate twist and
-      // stays — the compass's «Nach Norden» is the way back, as in Google Maps.
+      // North-snap on release (18.10.2026, owner): a turn by HAND (fingers or the mouse's
+      // right-drag) that comes to rest within NORTH_SNAP_DEG (10°) of north settles on exactly
+      // north in a short ease (onRotateStart + onMoveEnd above, lib/mapTwist · createNorthSnap);
+      // a clear turn further stays, and «Nach Norden» is the way back. Not the old 6° self-heal
+      // (removed 24.09.2026) – that healed a twist a pan/pinch leaked in, which the twist gate
+      // now prevents; this one helps a deliberate turn LAND on north. Never mid-gesture, never
+      // for the keyboard or a programmatic bearing (compass, saved view, a plan's alignment).
       // ⚠️ A press that begins on a CROSS never starts a placement gesture: the cross's own
       // handlers (pick / drag) own it, but their native events still bubble to this container —
       // without the filter, clicking a pending cross also dropped a stray point underneath it.
@@ -2062,12 +2080,17 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       cursor={picking || georefTurn ? 'crosshair' : 'default'}
       attributionControl={false}
       maxPitch={0}
-      // 21 (14.09., one more step than the tiles have): the raster SOURCES keep their own native
-      // `maxzoom` (MapLayers · the layer's `maxzoom` from the deployment config), so past it
-      // MapLibre stretches the last tile level instead of asking for tiles that do not exist.
-      // Symbols are pinned by symPx's band and a Form by shapePx's ceiling, so nothing outgrows
-      // the screen on the extra step.
-      maxZoom={21}
+      // ⚠️ MapLibre's OWN north-snap off: its default `bearingSnap: 7` eased back over a fixed 1 s
+      // (so slowly nobody read it as a snap) and sat unseen under «no north-snap» from 24.09. to
+      // 18.10.2026. The one rule is lib/mapTwist · createNorthSnap (5°, short ease).
+      bearingSnap={0}
+      // 21 (14.09., one more step than the tiles have) for the Einsatz: precise symbol placement
+      // beats a soft base there (owner on #383). The raster SOURCES keep their own native `maxzoom`
+      // (MapLayers), so past it MapLibre stretches the last tile level. The Karte asks for the
+      // visible base's last SHARP level instead (`zoomCapAtBase`, lib/mapView · mapMaxZoom); a base
+      // that ends sooner (OSM) then clamps the view. Symbols are pinned by symPx's band and a Form
+      // by shapePx's ceiling, so nothing outgrows the screen on the extra step.
+      maxZoom={mapMaxZoom(layers.find((l) => l.base && isVisible(l.id)), zoomCapAtBase)}
       // Only the print/report instance needs its GL back-buffer preserved (it captures the canvas
       // via getCanvas().toDataURL() — see ReportPrintView / reportPdf). On the always-live field
       // map keeping the buffer around just raises the per-repaint GPU/memory cost for the whole
@@ -2221,9 +2244,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
 
       {/* Einsatzort — a quiet ring marking the incident/object location so it stays
           findable after the map is panned away. Sits below the placed markers. */}
-      <Marker longitude={initialCenter[0]} latitude={initialCenter[1]} anchor="center">
-        <div className="map-here map-incident" title={appConfig.copy.map.incidentHere} />
-      </Marker>
+      {showOrigin && (
+        <Marker longitude={initialCenter[0]} latitude={initialCenter[1]} anchor="center">
+          <div className="map-here map-incident" title={appConfig.copy.map.incidentHere} />
+        </Marker>
+      )}
 
       {/* own live position (GPS) */}
       {userPos && (
@@ -2840,6 +2865,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
             opacity={weatherRadar.opacity} stale={weatherRadar.stale} />
         </Suspense>
       )}
+      {children}
     </Map>
     {/* the tool's number, fixed at the top edge while a measure vertex is being dragged — the
         per-vertex label sits under the very fingertip that changes it (the .node-del chip is

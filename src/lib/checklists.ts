@@ -138,6 +138,9 @@ export interface ChecklistTemplate {
   keywords?: string[]
   /** manual templates */
   steps?: ManualStep[]
+  /** visit templates: where they may be used — at a catalogue object, at a place (a pin or an
+   *  address without one), or both. Absent = `['object']` (docs/object-visits.md). */
+  targets?: ('object' | 'location')[]
 }
 
 // --- per-incident tick state (lives in the Saved workspace blob) ------------------

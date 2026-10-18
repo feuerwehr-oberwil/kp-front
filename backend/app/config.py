@@ -427,6 +427,21 @@ class Settings(BaseSettings):
         )
     )
 
+    # --- «Karte & Objekte»: every building of a station object (app/object_footprints) ---
+    # Asked by the scheduler once per object coordinate, never per view and never by the
+    # browser: swisstopo's base vector tiles for the use area (school, hospital …) and the open
+    # cadastral survey (amtliche Vermessung) over geodienste.ch for the building footprints; the
+    # parcel comes from the geocoder's own host. What leaves the station is the coordinate of a
+    # station object, never an incident's. Either one empty = off (the viewer then draws the OSM
+    # building an object's point lies in, as before).
+    footprint_area_tiles: str = "https://vectortiles.geo.admin.ch/tiles/ch.swisstopo.base.vt/v1.0.0"
+    footprint_buildings_wfs: str = "https://geodienste.ch/db/av_0/deu"
+    # «Unterirdische Bauten» (app/underground): every underground building and tunnel of the
+    # Einsatzgebiet (config map.serviceArea, else the municipality at the map centre, plus the
+    # station's objects' surroundings) from the same open survey WFS, asked weekly by the scheduler
+    # and served as one file to the Karte's Ebenen. Empty = off.
+    underground_wfs: str = "https://geodienste.ch/db/av_0/deu"
+
     # --- Telemetry (opt-in; see app/telemetry/) ---
     # The DEPLOYER's half of the switch, above whatever an admin later clicks in the UI:
     # KP_TELEMETRY_ENABLED=0 (or a blank DSN) compiles the forwarder out of this process, so

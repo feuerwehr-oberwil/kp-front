@@ -136,10 +136,12 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 
 | Section | Browser | Where |
 |---------|---------|-------|
-| `identity.*` (`appName`, `locale`, `accentColor`, `helpIntro`, `kommandant`) | ✅ | Station › **Station & Karte** |
+| `identity.*` (`appName`, `shortName`, `locale`, `accentColor`, `helpIntro`, `kommandant`) | ✅ | Station › **Station & Karte** |
 | `identity.assets` | ✅ | the branding uploads – **not** part of this document (see the ⚠️ below and §3a) |
 | `map.defaultView`, `map.geocoder.*` | ✅ | Station › **Station & Karte** |
 | `map.buildingRegister` | ❌ | config-as-code only (`admin_config`); unset = on in CH ([`building-card.md`](building-card.md)) |
+| `map.serviceArea.municipalities` | ❌ | config-as-code only (`admin_config`); the Einsatzgebiet's BFS numbers for «Unterirdische Bauten» – unset = the municipality at `map.defaultView` ([`karte-objekte.md`](karte-objekte.md)) |
+| `map.objectCategories` | ✅ | Station › **Station & Karte** › «Objektfarben» ([`karte-objekte.md`](karte-objekte.md) · Object colours) |
 | `map.externalLinks` | ✅ | Station › **Station & Karte** – ⚠️ editable, but as shipped its only renderer is the field app's «Datenquellen» panel, which is **unreachable**. Configuring it changes nothing anybody can see today |
 | `referenceLayers` – raster (WMS/WMTS) and GeoJSON, incl. the file upload | ✅ | Station › **Kartenebenen** (§2) |
 | `referenceLayers[].nightColor` · `.opacity` · `.maxzoom` · `.symbol` · `.autoActivate` | ❌ | file only – the forms **merge** over the stored row, so a CLI-set value survives an edit |
@@ -225,6 +227,10 @@ both now have browser pages – §9e and §9f.
 {
   "identity": {
     "appName": "Feuerwehr Musterdorf",        // shown in title bar, login, help; default "KP Front"
+    "shortName": "FWM",                         // the menu button at the top left of «Karte & Objekte»
+                                                //    (≤ 8 characters, trimmed; longer → 422). Beside
+                                                //    the uploaded `assets.logo` if there is one.
+                                                //    Unset → a neutral menu symbol (or the logo alone)
     "locale": "de-CH",                          // "de-CH" | "en" | "fr" | "it" (the Sprache picker);
                                                 //    another tag resolves by its primary subtag,
                                                 //    an unknown one falls back to German
@@ -268,9 +274,20 @@ both now have browser pages – §9e and §9f.
                                                  //  the backend caches to retry a typo –
                                                  //  «haupstrasse 12» → «Hauptstrasse 12»)
     },
-    "buildingRegister": null                     // the Gebäude card's federal-register half (GWR + BFE):
+    "serviceArea": { "municipalities": [2771] }, // the Einsatzgebiet (BFS numbers) for «Unterirdische
+                                                 // Bauten»; [] = the municipality at defaultView. The
+                                                 // station's objects get 500 m around them either way
+    "buildingRegister": null,                    // the Gebäude card's federal-register half (GWR + BFE):
                                                  // null = on wherever the Einsatzort lies in CH,
                                                  // false = never ask them (docs/building-card.md)
+    "objectCategories": [                        // «Karte & Objekte»: the station's object colours.
+      {                                          // Ordered, FIRST match wins; [] = every object red
+        "id": "pv",                              // [a-z0-9_-], unique
+        "label": { "de": "Photovoltaik", "fr": "Photovoltaïque" },  // or one string
+        "color": "#f59e0b",                      // #rrggbb: dot, tag rim, outline
+        "match": { "modules": ["modul5-pv*"] }   // kinds? ["einsatzobjekt"|"objekt"] («depot» retired: matches nothing),
+      }                                          // modules? globs (* any run, ? one char);
+    ]                                            // both named = both must hold; none = catch-all
   },
 
   "referenceLayers": [ /* see §2 – entirely station-supplied, none bundled */ ],
@@ -778,7 +795,8 @@ open to whoever has the address.
 
 Off unless `objectVisits.enabled` is `true`. `captureRoles` (default `["editor","el"]`) says who may
 record a visit, `proposalFields` is the station's field list for Korrekturvorschläge, and
-`destinations[]` are the SharePoint folders the server files visits into. The full contract – the
+`destinations[]` are the SharePoint folders the server files visits into (a visit at a place, with
+no object, goes to the destination's `locationFolder`, «Allgemeine Meldungen/…» by default). The full contract – the
 visit document, the APIs, the delivery – is [`object-visits.md`](object-visits.md); setting up a
 destination is [`object-visits-sharepoint.md`](object-visits-sharepoint.md). No credential lives in
 the section (`GET /api/config` is public): the writer's app registration is the
@@ -1409,6 +1427,8 @@ and locks the field – see the rule above).
 | `REPORT_TILE_HOSTS` | extra tile hosts the **server** may fetch a basemap from while it renders the Kroki into the Einsatzrapport, comma-separated. The three providers the app itself offers are built in (`app/kroki.py` · `_TILE_PROVIDER_HOSTS`); this is the escape hatch for a station running its own tile server, and a Kroki naming any other host renders without a basemap instead. ⚠️ Env only on purpose: the tile template arrives in a caller's request body, so who may add a destination has to be whoever runs the deployment, not whoever is logged in |
 | `PUSH_EXTRA_HOSTS` | extra Web-Push service hosts the alarm sender may deliver to, comma-separated, matched as host suffixes. The four major browser push services are built in (`app/push.py` · `_PUSH_SERVICE_HOSTS`); a subscription naming anything else is refused. ⚠️ Env only for the same reason as `REPORT_TILE_HOSTS` – the endpoint arrives in a caller's request body (security audit SEC-09) |
 | `OVERPASS_MIRRORS` | comma-separated https Overpass endpoints behind the «Umrisse» building-outline surface, raced fastest-first. **Privacy-relevant:** the query is a bounding box around the incident, so it leaves the station – and the shipped third mirror is hosted in Russia. Called by the backend, never the browser (`app/overpass.py`), so this one variable is the whole control. Override with your own Overpass to keep it in-house, or set it **empty to switch the surface off**. ⚠️ Empty means off, not "use the default" – so `.env.example` ships the line commented out rather than blank ([`PRIVACY.md`](../PRIVACY.md)) |
+| `FOOTPRINT_AREA_TILES`, `FOOTPRINT_BUILDINGS_WFS` | where «Karte & Objekte» learns every building a station object stands for (`app/object_footprints`, [`karte-objekte.md`](karte-objekte.md)): swisstopo's base vector tiles for the use area (default `https://vectortiles.geo.admin.ch/tiles/ch.swisstopo.base.vt/v1.0.0`, the tileset root: `/{z}/{x}/{y}.pbf` is appended) and the open cadastral survey's WFS for the building footprints (default `https://geodienste.ch/db/av_0/deu`); the parcel comes from the `GEOCODER_URL` host. Asked by the scheduler once per object coordinate, never by the browser — what leaves the station is a station object's coordinate. **Either one empty = off**: the map then outlines the OSM building an object's point lies in |
+| `UNDERGROUND_WFS` | «Unterirdische Bauten» in the Karte's Ebenen (`app/underground`, [`karte-objekte.md`](karte-objekte.md)): the open cadastral survey's WFS (default `https://geodienste.ch/db/av_0/deu`) asked by the scheduler for every underground building and tunnel (`ms:SOSF`, `Art = unterirdisches_Gebaeude` / `Tunnel_Unterfuehrung_Galerie`) in the Einsatzgebiet — `map.serviceArea.municipalities`, else the municipality at `map.defaultView` (boundaries from the `GEOCODER_URL` host), plus 500 m around every station object. Once, then weekly. **Empty = off**: the row then says «nicht verfügbar» |
 | `EXPOSE_API_DOCS` | serve `/docs`, `/redoc` and `/openapi.json` on a **production** deployment (always on in dev). Default off |
 | `SEED_DATABASE`, `DEV_CREATE_ALL` | dev seeding / auto-create tables. `DEV_CREATE_ALL` does nothing in production – it is gated by `not is_production()`, so on compose (which pins `ENVIRONMENT=production`) Alembic owns the schema whatever it says |
 | `SEED_PIN` | **Required in production** when `SEED_DATABASE` is on: the 6–12-digit PIN the seeded account gets. The seed file's own PIN is public, so the backend refuses to boot without this rather than create a login anyone knows |
@@ -1897,7 +1917,7 @@ lists don't linger.
 | `rapport` | the Lagerapport agenda | `phases[].items[]` | yes, per Einsatz | – |
 | `reference` | Merkblätter / tactical playbook (Stichworte) | `entries[].content[]` | no | `{"type": "image", "page": N}` blocks |
 | `manual` | an **Anleitung** for one device (05.10.2026) | `device` + `steps[]` | no | `steps[].images[].page` |
-| `visit` | an Objektbesuch checklist – [`object-visits.md`](object-visits.md) | `phases[].items[]` | answered on the visit | – |
+| `visit` | an Objektbesuch checklist – [`object-visits.md`](object-visits.md); optional `targets` (`["object"]` default, `"location"` = usable at a place without an object) | `phases[].items[]` | answered on the visit | – |
 
 Images are manifest `assets` (`{"page": N, "file": "…jpg|png|webp|svg"}`), stored as
 `checklists:<id>:p<N>`; only `reference` and `manual` entries may carry them. Each kind's

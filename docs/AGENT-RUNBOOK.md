@@ -220,6 +220,8 @@ Run from `backend/`. **Both report only by default; `--apply` is what writes.**
 ```bash
 uv run python -m app.admin_objects show                    # what is stored, with plan counts
 uv run python -m app.admin_objects merge-duplicates        # fold NFD/NFC twins + exact duplicates
+uv run python -m app.admin_objects twins                   # likely twins under another name (report only, always)
+uv run python -m app.admin_objects merge <loser-id> --into <survivor-id>   # fold ONE such twin
 uv run python -m app.admin_objects remove-empty            # objects with no plans and no references
 uv run python -m app.admin_objects repair-sharepoint-keys  # fold pre-2026-09-11 whole-folder-key twins
 uv run python -m app.admin_objects geocode-missing         # place plan-carrying objects without coordinates
@@ -229,6 +231,17 @@ uv run python -m app.admin_objects geocode-missing         # place plan-carrying
   (NFD) filenames, so «Bürgerhaus» arrives a second time under a byte-different name. The
   survivor also moves onto the NFC id, so the next SharePoint sync finds it instead of minting a
   third.
+- `merge <loser-id> --into <survivor-id>` folds a twin under ANOTHER name that a person has
+  identified (review round 3, 17.10.2026: the plan-less «Stallenmattstrasse 2-14, Kaibmattweg 1-5
+  (EH)» onto the plan library's «… 1-14 …»). Same plans/calibration/incident/visit/outside-id
+  handling as `merge-duplicates`, plus the loser's «Lage korrigieren» history; the survivor keeps
+  its own name, position and outline choice, and the loser's name and folder become aliases on it
+  (`object_visits.ALIAS_SOURCE`, `:alias` refs no organizer can see or write): the viewer's search
+  finds the old name, and an organizer push under that folder/name resolves to the survivor
+  instead of minting the twin again. The dry run prints where the loser came from
+  (`source_note`), its outside ids, visits and corrections. `twins` lists candidates: a plan-less
+  object whose derived buildings (`object_footprints`) are mostly another object's, or whose point
+  lies in one — with the dry-run command for each.
 - `repair-sharepoint-keys` folds the other twin class: objects a pre-2026-09-11 SharePoint sync
   keyed on the whole «Adresse - Name» folder string. Each bare copy merges into the older, richer
   object (newest sheet per slot wins), survivors are re-keyed onto the corrected convention, and

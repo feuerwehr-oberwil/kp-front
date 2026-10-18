@@ -63,6 +63,7 @@ export function rejectedFieldLabel(path: string): string {
   const P = A.nav
   const known: Record<string, { field: string; page: string }> = {
     'identity.appName': { field: A.identity.appName, page: P.identitaet.title },
+    'identity.shortName': { field: A.identity.shortName, page: P.identitaet.title },
     'identity.accentColor': { field: A.identity.accentColor, page: P.identitaet.title },
     'identity.locale': { field: A.identity.language, page: P.identitaet.title },
     'identity.kommandant': { field: A.identity.kommandant, page: P.identitaet.title },

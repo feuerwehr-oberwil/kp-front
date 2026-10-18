@@ -4,6 +4,7 @@ import type { LayerDef, LayerId, PreparedMapOverlay } from '../types'
 import { circlePolygon } from '../lib/geo'
 import { vis, lineFeat } from '../lib/mapView'
 import { useNightTheme } from '../lib/useNightTheme'
+import { hatchImageId } from '../lib/draw'
 
 // Night mode dims the basemap so it's mostly dark without losing detail (buildings/roads stay
 // visible) — a gentle dim, NOT a full dark/black swap. Applied to the BASE raster only, so the
@@ -20,6 +21,36 @@ const NIGHT_BASE_PAINT = { 'raster-brightness-max': 0.6, 'raster-saturation': -0
 // DARKER than before and the roads further from it). Floor = .5 + .5·min − .5·f·(1 − min); keep
 // it near 0.14 when retuning, and the labels (≥ ~0.55 in the source) clip to white.
 const DARK_BASE_PAINT = { 'raster-brightness-min': 0.75, 'raster-contrast': 0.83 } as const
+
+/** One prepared overlay as GeoJSON — the same object for the same overlay, so a re-render hands
+ *  react-map-gl the data it already has and MapLibre is not made to re-tile it. That matters for
+ *  the big ones: the region's ~15 000 underground buildings («Karte & Objekte», one overlay kept
+ *  by identity in KarteApp) were re-sent to the worker on every pan's render without it. */
+const overlayDataCache = new WeakMap<PreparedMapOverlay, ReturnType<typeof buildOverlayData>>()
+function overlayData(overlay: PreparedMapOverlay) {
+  let data = overlayDataCache.get(overlay)
+  if (!data) { data = buildOverlayData(overlay); overlayDataCache.set(overlay, data) }
+  return data
+}
+
+/** A circle's polygon, a line, or a set of outlines (each ring its own polygon, so one source
+ *  carries every station object of «Karte & Objekte»). */
+function buildOverlayData(overlay: PreparedMapOverlay) {
+  if (overlay.kind === 'circle') {
+    return { type: 'Feature' as const, geometry: { type: 'Polygon' as const, coordinates: circlePolygon(overlay.center, overlay.radiusM) }, properties: {} }
+  }
+  if (overlay.kind === 'polygons') {
+    return {
+      type: 'FeatureCollection' as const,
+      features: overlay.rings.filter((r) => r.length >= 3).map((r) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Polygon' as const, coordinates: [[...r, r[0]]] },
+        properties: {},
+      })),
+    }
+  }
+  return lineFeat(overlay.coords)
+}
 
 interface Props {
   layers: LayerDef[]
@@ -123,31 +154,37 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
           key={overlay.id}
           id={`s-${overlay.id}`}
           type="geojson"
-          data={
-            overlay.kind === 'circle'
-              ? { type: 'Feature' as const, geometry: { type: 'Polygon' as const, coordinates: circlePolygon(overlay.center, overlay.radiusM) }, properties: {} }
-              : lineFeat(overlay.coords)
-          }
+          data={overlayData(overlay)}
         >
-          {overlay.kind === 'circle' ? (
+          {overlay.kind === 'circle' || overlay.kind === 'polygons' ? (
             <>
               <Layer
                 id={`l-${overlay.id}-fill`}
                 source={`s-${overlay.id}`}
                 type="fill"
+                {...(overlay.kind === 'polygons' && overlay.minzoom != null ? { minzoom: overlay.minzoom } : {})}
                 layout={vis(isVisible(overlay.layer))}
-                paint={{ 'fill-color': overlay.color, 'fill-opacity': overlay.fillOpacity ?? 0.08 }}
+                // a hatched overlay paints the Schraffur tile of its colour (registered on demand by
+                // MapImages' missing-image resolver, like a hatched Fläche). No antialiasing: the
+                // rings are adjacent tiles, and antialiased edges drew a seam along every one.
+                paint={overlay.kind === 'polygons' && overlay.hatch
+                  ? { 'fill-pattern': hatchImageId(overlay.color), 'fill-opacity': overlay.fillOpacity ?? 1, 'fill-antialias': false }
+                  : { 'fill-color': overlay.color, 'fill-opacity': overlay.fillOpacity ?? 0.08 }}
               />
               <Layer
                 id={`l-${overlay.id}-line`}
                 source={`s-${overlay.id}`}
                 type="line"
+                {...(overlay.kind === 'polygons' && overlay.minzoom != null ? { minzoom: overlay.minzoom } : {})}
                 layout={vis(isVisible(overlay.layer))}
                 paint={{
                   'line-color': overlay.color,
                   'line-opacity': overlay.lineOpacity ?? 0.5,
                   'line-width': overlay.lineWidth ?? 2,
-                  'line-dasharray': overlay.lineDasharray ?? [2, 2.5],
+                  // an outline is solid unless it asks otherwise; a circle keeps its dashes
+                  ...(overlay.kind === 'circle' || overlay.lineDasharray
+                    ? { 'line-dasharray': overlay.lineDasharray ?? [2, 2.5] }
+                    : {}),
                 }}
               />
             </>

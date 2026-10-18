@@ -10,7 +10,9 @@ AGENTS.md on 2026-10-08, wording unchanged.
 
 - **Prepared Gebäude floors belong to their frozen plan binding.** A Modul-6 stack stores
   `pack.bindingId`; changing the selected Einsatzobjekt must not retarget its backdrop or ink.
-  Prepared floors cannot be added or deleted in the incident. Floor drawings may connect in
+  Prepared floors cannot be added or deleted in the incident. A pack stack is BUILT in one place,
+  `lib/floorPackBinding · packBuildingDoc` — the Einsatz's seed (`useGeorefFits`) and the read-only
+  Gebäude of «Karte & Objekte» (`lib/karte/gebaeude`, [`karte-objekte.md`](karte-objekte.md)) both call it. Floor drawings may connect in
   pairs across PDF pages; resolve those joins in a common frame, never independently centre
   each crop. **A storey may BE several drawings** (`PlanFloor.part`, 16.09.2026 – two wings of one
   1. OG): each drawing is a row with its own region and its own join, all on one page, and the
@@ -101,7 +103,10 @@ AGENTS.md on 2026-10-08, wording unchanged.
   layout — ⚠️ which must never drift from `PdfViewport · render`, ink is stored in it);
   `PlanTileLayer` (board) and `FloorPage · TiledFloorPage` (Gebäude storeys) mount an always-there
   small UNDERLAY plus the on-screen tiles of the level the zoom asks for, so a device holds about
-  two screenfuls of pixels for any sheet at any depth. Tile overlap against seams is half a
+  two screenfuls of pixels for any sheet at any depth. A surface that provides
+  `lib/planSharpness · PlanSharpnessContext` (only the Karte's reader, 17.10.2026) hears whether
+  the current view's detail is still loading or could not be had, and has the next level over the
+  same area fetched ahead; without it the board behaves as before. Tile overlap against seams is half a
   PIXEL, never a constant of the unit square. `lib/planTileRaster · composeTiles` gives the
   Karte backdrop, the auto-align upload and the ink scan their pixels without a bake, and a
   tiled sheet is never pre-baked. `lib/planTilePrefetch` fetches an object's complete pyramids

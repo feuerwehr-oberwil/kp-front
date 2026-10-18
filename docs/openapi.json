@@ -7018,6 +7018,270 @@
         }
       }
     },
+    "/api/reference/objects": {
+      "get": {
+        "tags": [
+          "reference"
+        ],
+        "summary": "List Reference Objects",
+        "description": "Every station object for «Karte & Objekte» — including the plan-less ones an organizer\ncreated (its Kontrollgang's stops), which the Einsatz pickers leave out (api/objects · list_objects).\n``lastVisit`` only where the station runs Objektbesuche (or for the admin session).",
+        "operationId": "list_reference_objects_api_reference_objects_get",
+        "parameters": [
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferenceObjectsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reference/underground": {
+      "get": {
+        "tags": [
+          "reference"
+        ],
+        "summary": "Reference Underground",
+        "description": "«Unterirdische Bauten» — every underground building of the station's region as ONE GeoJSON\nMultiPolygon (``{enabled, fetchedAt, count, geometry}``), as the scheduler last stored it\n(app/underground); never asks the survey. ``enabled: false`` = switched off\n(``UNDERGROUND_WFS=``); ``fetchedAt: null`` = not asked yet. A device that names the set it\nholds (``?have=<fetchedAt>``) gets ``unchanged: true`` and no geometry.",
+        "operationId": "reference_underground_api_reference_underground_get",
+        "parameters": [
+          {
+            "name": "have",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The `fetchedAt` this device already holds",
+              "title": "Have"
+            },
+            "description": "The `fetchedAt` this device already holds"
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The stored set (app/underground)",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reference/building": {
+      "get": {
+        "tags": [
+          "reference"
+        ],
+        "summary": "Reference Building",
+        "description": "The Gebäude card's facts for a point — no incident, nothing stored.\n\n``object`` is set only when the register's address (or the searched one) is EXACTLY a\ncatalogue object's — the viewer then opens that object instead of a bare building.",
+        "operationId": "reference_building_api_reference_building_get",
+        "parameters": [
+          {
+            "name": "lat",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Lat"
+            }
+          },
+          {
+            "name": "lng",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "title": "Lng"
+            }
+          },
+          {
+            "name": "address",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 300
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The searched address, if any",
+              "title": "Address"
+            },
+            "description": "The searched address, if any"
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "de",
+              "title": "Lang"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildingOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/reference": {
       "get": {
         "tags": [
@@ -8536,6 +8800,341 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PlanSourcesOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/objects/position-search": {
+      "get": {
+        "tags": [
+          "objects"
+        ],
+        "summary": "Position Search",
+        "description": "Register addresses for «Lage korrigieren» — the region-biased search, each hit with its\ntown and whether that is the home town. ⚠️ Its own route rather than /api/geocode/search:\nthat one wants a signed-in account, and /admin runs on the admin session.",
+        "operationId": "position_search_api_objects_position_search_get",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 200,
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 1,
+              "default": 8,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlaceHitOut"
+                  },
+                  "title": "Response Position Search Api Objects Position Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/objects/{object_id}/position": {
+      "put": {
+        "tags": [
+          "objects"
+        ],
+        "summary": "Set Position",
+        "description": "The station's position + outline choice for one object. Marks it station-set (never\noverwritten by an import) and appends the change to the object's position history.",
+        "operationId": "set_position_api_objects__object_id__position_put",
+        "parameters": [
+          {
+            "name": "object_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Object Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ObjectPositionIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/objects/{object_id}/position/undo": {
+      "post": {
+        "tags": [
+          "objects"
+        ],
+        "summary": "Undo Position",
+        "description": "Take the last correction back: the object says again what it said before it (the import's\nposition and mark included). One step; a second undo has nothing left to take back (409).",
+        "operationId": "undo_position_api_objects__object_id__position_undo_post",
+        "parameters": [
+          {
+            "name": "object_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Object Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObjectOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/objects/{object_id}/position/history": {
+      "get": {
+        "tags": [
+          "objects"
+        ],
+        "summary": "Position History",
+        "description": "Every correction of this object's position, the newest first.",
+        "operationId": "position_history_api_objects__object_id__position_history_get",
+        "parameters": [
+          {
+            "name": "object_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Object Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ObjectPositionEventOut"
+                  },
+                  "title": "Response Position History Api Objects  Object Id  Position History Get"
                 }
               }
             }
@@ -16635,6 +17234,18 @@
             ],
             "title": "Appname"
           },
+          "shortName": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 8
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shortname"
+          },
           "locale": {
             "anyOf": [
               {
@@ -17590,6 +18201,14 @@
             "type": "array",
             "title": "Externallinks"
           },
+          "objectCategories": {
+            "items": {
+              "$ref": "#/components/schemas/ObjectCategoryConfig"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Objectcategories"
+          },
           "buildingRegister": {
             "anyOf": [
               {
@@ -17600,6 +18219,9 @@
               }
             ],
             "title": "Buildingregister"
+          },
+          "serviceArea": {
+            "$ref": "#/components/schemas/MapServiceArea"
           }
         },
         "type": "object",
@@ -17705,6 +18327,21 @@
         },
         "type": "object",
         "title": "MapGeocoder"
+      },
+      "MapServiceArea": {
+        "properties": {
+          "municipalities": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Municipalities"
+          }
+        },
+        "type": "object",
+        "title": "MapServiceArea",
+        "description": "The brigade's Einsatzgebiet as its municipalities (BFS numbers), for what the backend reads\nover the station's area (app/underground). Empty = the municipality at ``defaultView``."
       },
       "MilestoneGroup": {
         "properties": {
@@ -18178,6 +18815,98 @@
         "title": "ModuleConfig",
         "description": "One Objektplan module — drives BOTH the app's plan tile and the import parsing, so a\nstation configures its module set / labels / parsing in one place.\n\nDisplay: ``code`` is the short tile label ('M1', '2/3', 'Wasser'), plus title/subtitle/\norientation/order/icon. Parsing: ``match`` is a regex tested (case-insensitive) against a\nsource PDF's filename stem — the first module whose ``match`` hits claims the file.\n``combinedWith`` marks a combined sheet that also fills other slots (modul2-3 → modul2 +\nmodul3). ``family`` marks a generative module whose ``match`` has a capture group for a\nsub-slot — \"Modul 5 - Wasser\" → ``modul5-wasser`` labelled \"Wasser\".\n\n``alignment`` says how this module's sheets get onto the Karte: ``auto`` — the server\nproposes a fit for the admin to approve and the field offers «Automatisch ausrichten»;\n``manual`` — reference points by hand only (admin wall or field); ``none`` — the sheet is\nnever laid on the map. Unset = ``auto`` for modul1/modul2/modul2-3, ``none`` otherwise\n(``module_alignment`` in plan_alignment_compute is the one resolver)."
       },
+      "ObjectCategoryConfig": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9_-]*$",
+            "title": "Id"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "propertyNames": {
+                  "enum": [
+                    "de",
+                    "fr",
+                    "it",
+                    "en"
+                  ]
+                },
+                "type": "object"
+              }
+            ],
+            "title": "Label"
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$",
+            "title": "Color"
+          },
+          "match": {
+            "$ref": "#/components/schemas/ObjectCategoryMatch"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "color"
+        ],
+        "title": "ObjectCategoryConfig",
+        "description": "One colour rule for «Karte & Objekte» (src/lib/karte/categories.ts). Ordered, first match\nwins; an object no rule matches keeps the default look (red, grey without plans)."
+      },
+      "ObjectCategoryMatch": {
+        "properties": {
+          "kinds": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "einsatzobjekt",
+                    "objekt",
+                    "depot"
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kinds"
+          },
+          "modules": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string",
+                  "maxLength": 60,
+                  "minLength": 1
+                },
+                "type": "array",
+                "maxItems": 30
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modules"
+          }
+        },
+        "type": "object",
+        "title": "ObjectCategoryMatch",
+        "description": "When an object belongs to a category: every condition NAMED holds (none named = always)."
+      },
       "ObjectIn": {
         "properties": {
           "name": {
@@ -18345,6 +19074,51 @@
             ],
             "title": "Measures Source"
           },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality"
+          },
+          "position_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Source"
+          },
+          "position_set_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Set At"
+          },
+          "outline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outline"
+          },
           "updated_at": {
             "type": "string",
             "format": "date-time",
@@ -18358,6 +19132,110 @@
           "updated_at"
         ],
         "title": "ObjectOut"
+      },
+      "ObjectPositionEventOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "before": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Before"
+          },
+          "after": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "After"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "action",
+          "before",
+          "after",
+          "created_at"
+        ],
+        "title": "ObjectPositionEventOut"
+      },
+      "ObjectPositionIn": {
+        "properties": {
+          "lat": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Lat"
+          },
+          "lng": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Lng"
+          },
+          "outline": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "building",
+              "none"
+            ],
+            "title": "Outline",
+            "default": "auto"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lat",
+          "lng"
+        ],
+        "title": "ObjectPositionIn",
+        "description": "``PUT /api/objects/{id}/position`` — «Lage korrigieren» in /admin. The pin, how the map\noutlines the object, and (when the station picked it from the register) its address + town."
       },
       "ObjectRef": {
         "properties": {
@@ -18603,6 +19481,13 @@
             "minLength": 1,
             "title": "Visitfolder",
             "default": "Objektbesuche/{date} {checklist} ({short})"
+          },
+          "locationFolder": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Locationfolder",
+            "default": "Allgemeine Meldungen/{date} {checklist} ({short})"
           }
         },
         "type": "object",
@@ -18785,6 +19670,51 @@
               }
             ],
             "title": "Measures Source"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality"
+          },
+          "position_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Source"
+          },
+          "position_set_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Position Set At"
+          },
+          "outline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outline"
           },
           "updated_at": {
             "type": "string",
@@ -19141,6 +20071,51 @@
           "pin"
         ],
         "title": "PinReset"
+      },
+      "PlaceHitOut": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "street": {
+            "type": "string",
+            "title": "Street"
+          },
+          "town": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Town"
+          },
+          "home": {
+            "type": "boolean",
+            "title": "Home",
+            "default": false
+          },
+          "lat": {
+            "type": "number",
+            "title": "Lat"
+          },
+          "lng": {
+            "type": "number",
+            "title": "Lng"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "street",
+          "lat",
+          "lng"
+        ],
+        "title": "PlaceHitOut",
+        "description": "One register address for the «Lage korrigieren» picker."
       },
       "PlanPoint": {
         "properties": {
@@ -19781,6 +20756,73 @@
         ],
         "title": "ReferenceDatasetOut"
       },
+      "ReferenceFloorOut": {
+        "properties": {
+          "index": {
+            "type": "integer",
+            "title": "Index"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index"
+        ],
+        "title": "ReferenceFloorOut",
+        "description": "One Geschoss of an object's floor pack: the signed order index and the station's name, if\nit gave one. The words («EG», «1. OG») are the client's copy (lib/whiteboard · floorLabel)."
+      },
+      "ReferenceLastVisitOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "checklist": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checklist"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "defects": {
+            "type": "integer",
+            "title": "Defects",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "ReferenceLastVisitOut",
+        "description": "The object's last completed Objektbesuch."
+      },
       "ReferenceLayerConfig": {
         "properties": {
           "id": {
@@ -19963,6 +21005,290 @@
         "type": "object",
         "title": "ReferenceLayerConfig",
         "description": "A station-supplied reference layer (raster WMS/WMTS or vector GeoJSON).\n\nPermissive (extra=ignore) but enforces the kind→payload invariant: raster layers\nmust carry `tiles`, geojson layers must carry `geojson`. Malformed entries reject."
+      },
+      "ReferenceObjectOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "einsatzobjekt",
+              "objekt"
+            ],
+            "title": "Kind"
+          },
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "locality": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locality"
+          },
+          "lat": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lat"
+          },
+          "lng": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lng"
+          },
+          "outline": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "building",
+              "none"
+            ],
+            "title": "Outline",
+            "default": "auto"
+          },
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Aliases"
+          },
+          "plans": {
+            "items": {
+              "$ref": "#/components/schemas/ReferencePlanOut"
+            },
+            "type": "array",
+            "title": "Plans"
+          },
+          "floors": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceFloorOut"
+            },
+            "type": "array",
+            "title": "Floors"
+          },
+          "egid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Egid"
+          },
+          "footprint": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Footprint"
+          },
+          "underground": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Underground"
+          },
+          "measures": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measures"
+          },
+          "remarks": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remarks"
+          },
+          "measuresSource": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measuressource"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          },
+          "lastVisit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceLastVisitOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "kind"
+        ],
+        "title": "ReferenceObjectOut",
+        "description": "One station object for the reference viewer — an Einsatzobjekt or a plan-less object."
+      },
+      "ReferenceObjectsOut": {
+        "properties": {
+          "objects": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceObjectOut"
+            },
+            "type": "array",
+            "title": "Objects"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generatedAt"
+        ],
+        "title": "ReferenceObjectsOut",
+        "description": "``GET /api/reference/objects`` — every station object, for «Karte & Objekte»."
+      },
+      "ReferencePlanOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "module": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Module"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pages"
+          },
+          "georef": {
+            "type": "boolean",
+            "title": "Georef",
+            "default": false
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "title",
+          "version"
+        ],
+        "title": "ReferencePlanOut",
+        "description": "One Modul-PDF of a station object, as «Karte & Objekte» lists it (api/station_reference)."
       },
       "ReportConfig": {
         "properties": {

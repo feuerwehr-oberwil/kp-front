@@ -82,7 +82,7 @@ from .config_history import keep_previous
 from .credentials import get as credential
 from .credentials import load as load_credentials
 from .deployment_config import config_row
-from .geocode import geocode
+from .geocode import locate_coordinates
 from .models import DeploymentConfig, ObjectSite, SharePointSyncState
 from .plans import plan_max_bytes, store_plan
 from .schemas import SharePointArea, SharePointConfig, SharePointSource, load_stored_config
@@ -682,6 +682,12 @@ async def _sync_plans(
         out.status, out.detail = "refused", refusal
         return out
 
+    # A folder RENAMED in SharePoint is the same object under a new key — re-key it rather than
+    # minting a twin (review round 3, 17.10.2026). Before the import loop, so the moved files read
+    # as unchanged and nothing is downloaded again.
+    for old_folder, new_folder in await _follow_renames(db, state, usable):
+        logger.info("SharePoint plans: «%s» was renamed to «%s» — its object follows", old_folder, new_folder)
+
     # Where each object's plans LIVE (`filing_folder`, the Objektbesuche delivery files visits
     # next to them) — refreshed for every folder this listing holds, not only for changed files:
     # a folder renamed in SharePoint keeps its object (keyed on the name half) and must move the
@@ -755,6 +761,101 @@ async def _sync_plans(
     return out
 
 
+def _renames(previous: dict[str, str], usable: list[tuple[RemoteFile, FolderIdentity, str]]) -> dict[str, str]:
+    """``{old folder: new folder}`` for every plans folder that was RENAMED since the last run.
+
+    A rename is recognised by its files, never by its name: a folder that is gone from the listing
+    whose files ALL turn up — same file names, same content tags (Graph's cTag changes with the
+    bytes, not with the parent's name) — as the complete content of exactly one folder that was
+    not there before. Anything less certain (a file edited in the same go, two candidates, a
+    folder that only lost some files) is not a rename here: the pull then does what it always did
+    — a new object for the new key — and `admin_objects merge` folds the old one in by hand.
+    """
+    listed: dict[str, dict[str, str]] = {}
+    for file, _identity, _module in usable:
+        folder, name = file.path.split("/", 1)
+        listed.setdefault(folder, {})[name] = file.etag
+    before: dict[str, dict[str, str]] = {}
+    for path, etag in previous.items():
+        if path.count("/") == 1:
+            folder, name = path.split("/", 1)
+            before.setdefault(folder, {})[name] = etag
+    gone = {f: files for f, files in before.items() if f not in listed}
+    new = {f: files for f, files in listed.items() if f not in before}
+    out: dict[str, str] = {}
+    for old, files in gone.items():
+        hits = [f for f, now in new.items() if now == files]
+        if len(hits) == 1 and sum(1 for o, fs in gone.items() if fs == new[hits[0]]) == 1:
+            out[old] = hits[0]
+    return out
+
+
+async def _follow_renames(
+    db: AsyncSession, state: SharePointSyncState, usable: list[tuple[RemoteFile, FolderIdentity, str]]
+) -> list[tuple[str, str]]:
+    """Re-key the object of every renamed plans folder onto its new key (``_renames``).
+
+    The object keeps everything — plans (re-keyed with it), Objektbesuche, outside ids, the
+    station's position correction and outline choice, its calibration — through
+    ``admin_objects``' own re-key (the move a duplicate merge makes). Its name and address follow
+    the folder only where they still ARE the old folder's (nobody renamed the object by hand);
+    the old name and folder stay on it as aliases (``object_visits.ALIAS_SOURCE``), so the search
+    and an organizer push under the old folder still find it. The eTag memo moves to the new
+    paths, so the files are not downloaded again. A re-key that is blocked (something already
+    sits on the new key) is logged and left to the ordinary path.
+    """
+    from .admin_objects import _apply_rekey, _plan_rekey, _retarget_scales
+    from .models import ObjectRef
+    from .object_visits import ALIAS_SOURCE
+
+    renames = _renames(dict(state.files or {}), usable)
+    if not renames:
+        return []
+    identities = {file.path.split("/", 1)[0]: identity for file, identity, _ in usable}
+    station = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+    scales: dict[str, object] = dict(station.plan_scales_json) if station and station.plan_scales_json else {}
+    done: list[tuple[str, str]] = []
+    memo = dict(state.files or {})
+    for old_folder, new_folder in renames.items():
+        old_id = folder_identity(old_folder)
+        new_id = identities[new_folder]
+        obj = await db.get(ObjectSite, old_id.object_id)
+        if obj is None or old_id.object_id == new_id.object_id:
+            continue
+        name = new_id.name if obj.name == old_id.name else obj.name
+        address = new_id.address if obj.address in (None, old_id.address) else obj.address
+        plan = await _plan_rekey(
+            db, obj, new_id.object_id, also=[], moved_datasets=[], scales=scales, name=name, address=address
+        )
+        if plan.blocked:
+            logger.warning("SharePoint plans: «%s» → «%s» not followed: %s", old_folder, new_folder, plan.blocked)
+            continue
+        old_name, old_filing = obj.name, obj.filing_folder
+        scales, _, _ = _retarget_scales(scales, obj.id, new_id.object_id)
+        await _apply_rekey(db, plan)
+        fresh = await db.get(ObjectSite, new_id.object_id)
+        if fresh is not None:
+            fresh.filing_folder = unicodedata.normalize("NFC", new_folder).strip()
+        for alias in {old_name, old_filing or "", old_folder} - {"", name, new_folder}:
+            taken = (
+                await db.execute(
+                    select(ObjectRef).where(ObjectRef.source == ALIAS_SOURCE, ObjectRef.external_id == alias)
+                )
+            ).scalar_one_or_none()
+            if taken is None:
+                db.add(ObjectRef(object_id=new_id.object_id, source=ALIAS_SOURCE, external_id=alias))
+            else:
+                taken.object_id = new_id.object_id
+        for path in [p for p in memo if p.startswith(f"{old_folder}/")]:
+            memo[f"{new_folder}/{path.split('/', 1)[1]}"] = memo.pop(path)
+        done.append((old_folder, new_folder))
+    if station is not None and scales != (station.plan_scales_json or {}):
+        station.plan_scales_json = scales
+    state.files = memo
+    await db.flush()
+    return done
+
+
 async def _object_for(db: AsyncSession, folder: FolderIdentity, raw_folder: str | None = None) -> ObjectSite:
     """The Einsatzobjekt a plans folder addresses — created on first sight, never renamed.
 
@@ -809,7 +910,8 @@ async def _coordinates_for(address: str) -> tuple[float, float] | None:
     for them.
     """
     try:
-        return await geocode(address)
+        # exact street + number in the brigade's area only (geocode.locate) — never a fuzzy pin
+        return await locate_coordinates(address)
     except Exception as e:  # noqa: BLE001 — best-effort by contract
         logger.warning(
             "SharePoint plans: geocoding %r failed (%s) — the object is created without coordinates", address, e

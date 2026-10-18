@@ -817,6 +817,24 @@ export type PreparedMapOverlay =
       width?: number
       dasharray?: number[]
     }
+  /** filled outlines — «Karte & Objekte» draws the station's buildings with it (one overlay, many
+   *  rings, so dozens of objects stay ONE source) */
+  | {
+      id: string
+      kind: 'polygons'
+      layer: LayerId
+      rings: LngLat[][]
+      color: string
+      fillOpacity?: number
+      lineWidth?: number
+      lineOpacity?: number
+      lineDasharray?: number[]
+      /** paint the inside with the Schraffur tile of `color` (lib/draw · hatchImageId) instead of a
+       *  flat fill — the viewer hatches map area this device holds no base map for */
+      hatch?: boolean
+      /** drawn only from this map zoom on (the region's underground buildings: street zoom) */
+      minzoom?: number
+    }
 
 /** Whiteboard annotation. All positions are normalized 0..1 in plan-image space,
  *  so they stick to the plan across zoom/pan. */

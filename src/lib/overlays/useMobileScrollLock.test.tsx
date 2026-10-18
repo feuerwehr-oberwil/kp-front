@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, render } from '@testing-library/react'
-import { AXIS_SLOP_PX, touchAxis, touchMayScroll, useMobileScrollLock, type ScrollBox } from './useMobileScrollLock'
+import { useRef } from 'react'
+import { AXIS_SLOP_PX, touchAxis, touchMayScroll, useMobileScrollLock, useScrollOnlyIn, type ScrollBox } from './useMobileScrollLock'
 
 function Sheet() {
   useMobileScrollLock(true)
@@ -72,6 +73,37 @@ describe('mobile modal scrolling', () => {
   })
 })
 
+// ── one sheet's body (review round 6, the Karte's empty search) ─────────────────────────────────
+function KeySheet() {
+  const ref = useRef<HTMLElement>(null)
+  useScrollOnlyIn(ref, '.lc-body')
+  return <section ref={ref}><div data-testid="head"><input data-testid="field" /></div><div className="lc-body" data-testid="body" style={{ overflowY: 'auto' }}><p data-testid="row">ARA Birsig</p></div></section>
+}
+describe('useScrollOnlyIn · the background guard of a sheet body, keyboard or not', () => {
+  it('cancels a drag over a body with nothing to scroll (iOS would hand it on to the page)', () => {
+    const view = render(<KeySheet />)
+    dimensions(view.getByTestId('body'), { scrollHeight: 300, clientHeight: 400, scrollTop: 0 })
+    expect(touch(view.getByTestId('row'), [0, 3], [0, 12])).toEqual([true, true])
+    expect(touch(view.getByTestId('row'), [0, -3])).toEqual([true])
+  })
+  it('never cancels a drag over a body with room — not at its top, not at its end (round 11)', () => {
+    const view = render(<KeySheet />)
+    const body = view.getByTestId('body')
+    dimensions(body, { scrollHeight: 700, clientHeight: 400, scrollTop: 0 })
+    expect(touch(view.getByTestId('row'), [1, 0], [0, 12], [0, 24])).toEqual([false, false, false])
+    // pulling down at the top: overscroll-behavior's, not ours (a cancel would kill the touch's scroll)
+    expect(touch(view.getByTestId('row'), [0, -2], [0, -8])).toEqual([false, false])
+    dimensions(body, { scrollTop: 300 })
+    expect(touch(view.getByTestId('row'), [0, 8])).toEqual([false])
+  })
+  it('leaves touches outside the body to their own handlers', () => {
+    const view = render(<KeySheet />)
+    dimensions(view.getByTestId('body'), { scrollHeight: 300, clientHeight: 400, scrollTop: 0 })
+    expect(touch(view.getByTestId('head'), [0, -20])).toEqual([false])
+    expect(touch(view.getByTestId('field'), [8, 0])).toEqual([false])
+  })
+})
+
 // ── the decision, without a DOM (10.10.2026) ─────────────────────────────────────────────────
 describe('touchAxis · from the total travel since touchstart', () => {
   it('names the dominant axis, a tie as both, and nothing before the finger moved', () => {
@@ -111,6 +143,10 @@ describe('touchMayScroll', () => {
   it('passes an undecided touch when EITHER axis could move — the row under a 1px-down first move', () => {
     expect(at('both', -1, [row, bodyAtTop])).toBe(true)
     expect(at('both', -1, [bodyAtTop])).toBe(false)
+  })
+  it('passes an undecided first move with no vertical part over a list with room (round 5, the Karte search)', () => {
+    expect(at('both', 0, [bodyAtTop])).toBe(true)
+    expect(at('both', 0, [box({ overflowY: 'auto', maxY: 0 })])).toBe(false)
   })
 })
 

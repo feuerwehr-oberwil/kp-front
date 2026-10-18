@@ -109,6 +109,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: 'Via **Couches**, vous affichez les données des réseaux et des dangers – classées par type.' },
           { kind: 'list', items: [
             '**Situation** – symboles tactiques, véhicules, croquis et notes.',
+            '**Corps** – constructions souterraines (garages, abris, tunnels) de la mensuration officielle, en tirets dès le zoom rue ; affichées par défaut.',
             '**Eau** – hydrantes, conduites, vannes, sources.',
             '**Eaux usées** – eaux sales/mixtes, eaux pluviales/propres, regards / grilles.',
             '**Gaz** – conduites.',

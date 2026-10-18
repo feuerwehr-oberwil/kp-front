@@ -16,6 +16,7 @@ import { expect, expectNoCrash, login, OFFLINE_FETCH_FAILURE, test } from './hel
 const ADMIN_SECRET = process.env.E2E_ADMIN_SECRET
 
 const TEMPLATE_ID = 'e2e-objektbesuch'
+const PLACE_TEMPLATE_ID = 'e2e-fehlermeldung'
 const template = {
   id: TEMPLATE_ID,
   kind: 'visit',
@@ -71,11 +72,13 @@ async function prepare(api: Api, objectName: string): Promise<() => Promise<void
 /** Sign in, open Objektbesuche online (the catalogue lands on the device), wait for the SW. */
 async function openSurface(page: Page) {
   await login(page)
-  // signed in: the launcher, or an Einsatz the boot reopened
-  await page.locator('.ip-emptyapp-card, nav.navrail').first().waitFor({ state: 'visible' })
-  const launcher = page.getByRole('button', { name: 'Objektbesuche' })
-  if (await launcher.isVisible().catch(() => false)) await launcher.click()
-  else await page.goto('/besuche')
+  // signed in: home («Karte & Objekte», whose menu button opens the menu with the Objektbesuche row), or
+  // an Einsatz the boot reopened
+  await page.locator('[data-karte], nav.navrail').first().waitFor({ state: 'visible' })
+  if (await page.locator('[data-karte]').isVisible().catch(() => false)) {
+    await page.locator('[data-karte-menu]').click()
+    await page.getByRole('button', { name: 'Objektbesuche' }).click()
+  } else await page.goto('/besuche')
   await expect(page).toHaveURL(/\/besuche$/)
   // the catalogue is on the device once its search and «In der Nähe» are drawn
   await expect(page.getByRole('button', { name: /In der Nähe/ })).toBeVisible()
@@ -229,7 +232,7 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
     }
   })
 
-  test('a visit left offline goes up when the app is opened again online — on the launcher', async ({ page, context, browserName, baseURL }) => {
+  test('a visit left offline goes up when the app is opened again online — at home', async ({ page, context, browserName, baseURL }) => {
     test.skip(browserName !== 'chromium', 'Offline service-worker automation requires Chromium')
     test.setTimeout(150_000)
     const api = await adminContext(baseURL!)
@@ -241,13 +244,13 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       await context.setOffline(true)
       const visitId = await captureVisit(page, objectName, jpeg)
       await page.getByRole('button', { name: 'Zurück' }).click() // the save point, offline
-      await page.getByRole('button', { name: 'Zurück' }).click() // back to the launcher
+      await page.getByRole('button', { name: 'Zurück' }).click() // back home
       await expect(page).not.toHaveURL(/\/besuche/)
 
       // the app is opened again, online, and nobody opens Objektbesuche
       await context.setOffline(false)
       await page.reload({ waitUntil: 'domcontentloaded' })
-      await page.locator('.ip-emptyapp-card, nav.navrail').first().waitFor({ state: 'visible' })
+      await page.locator('[data-karte], nav.navrail').first().waitFor({ state: 'visible' })
       await expectSaved(api, visitId)
 
       await page.goto('/besuche')
@@ -255,6 +258,70 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       await expectNoCrash(page, 'object visit · start')
     } finally {
       await context.setOffline(false)
+      await restore()
+      await api.dispose()
+    }
+  })
+
+  // A report at a PLACE (16.10.2026, docs/object-visits.md · «The target»): Karte & Objekte opens
+  // `/besuche/neu?lat=…&lng=…&label=…&from=karte` for a pin no catalogue object stands on. The
+  // visit has no object, shows the «Ort» card, reaches the server with its place, and «Zurück zur
+  // Karte» goes back to /karte.
+  test('a Fehlermeldung at a pin, launched from the Karte, and back to the Karte', async ({ page, baseURL }) => {
+    test.setTimeout(120_000)
+    const api = await adminContext(baseURL!)
+    const restore = await prepare(api, `E2E Objekt ${Date.now()}`)
+    const placeTpl = {
+      id: PLACE_TEMPLATE_ID, kind: 'visit', version: 1, title: 'E2E Fehlermeldung', source: 'e2e', order: 2,
+      targets: ['object', 'location'],
+      phases: [{ id: 'meldung', title: 'Meldung', items: [
+        { id: 'was', text: 'Was betrifft es?', input: 'choice', options: [{ id: 'hydrant', label: 'Hydrant' }, { id: 'anderes', label: 'Anderes' }] },
+        { id: 'beschreibung', text: 'Beschreibung', input: 'text', required: true },
+        { id: 'dringend', text: 'Vor dem nächsten Einsatz nötig?', input: 'yesno' },
+      ] }],
+    }
+    const up = await api.put(`/api/reference/${encodeURIComponent(`checklists:${PLACE_TEMPLATE_ID}`)}`, {
+      multipart: { file: { name: 'f.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(placeTpl)) }, title: placeTpl.title },
+    })
+    expect(up.ok(), `place checklist: ${up.status()} ${await up.text()}`).toBe(true)
+    try {
+      await openSurface(page)
+      const label = `bei E2E-Weg ${Date.now() % 1000}`
+      await page.goto(`/besuche/neu?lat=47.52015&lng=7.57175&label=${encodeURIComponent(label)}&from=karte`)
+      // only the checklists that may be used at a place (+ «Ohne Checkliste») — the object one is not offered
+      const chooser = page.getByRole('button', { name: /E2E Fehlermeldung/ })
+      if (await chooser.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        await expect(page.getByRole('button', { name: new RegExp(template.title) })).toHaveCount(0)
+        await chooser.click()
+      }
+      await page.waitForURL(/\/besuche\/ov[0-9a-z-]+\?from=karte$/)
+      const visitId = new URL(page.url()).pathname.split('/').pop()!
+      await expect(page.getByRole('heading', { name: `Meldung ${label}` })).toBeVisible()
+      const card = page.getByTestId('ov-place-card')
+      await expect(card).toContainText(label)
+      await expect(card).toContainText('Pin')
+      await expect(card).toContainText(/LV95 2.610.0\d\d \/ 1.263.\d\d\d/)
+
+      await page.getByRole('group', { name: 'Was betrifft es?' }).getByRole('button', { name: 'Hydrant' }).click()
+      await page.getByLabel('Beschreibung').fill('Neuer Hydrant fehlt im Plan')
+      await page.getByRole('group', { name: 'Vor dem nächsten Einsatz nötig?' }).getByRole('button', { name: 'Nein' }).click()
+      await page.getByRole('button', { name: 'Abschliessen' }).click()
+      await expect(page.getByRole('button', { name: /^Stand anzeigen: Abgeschlossen · Gespeichert/ })).toBeVisible({ timeout: 30_000 })
+      // a report says what was reported — not «Keine Mängel»
+      await expect(page.getByText('Hydrant · Neuer Hydrant fehlt im Plan')).toBeVisible()
+      await expect(page.getByText('Keine Mängel')).toHaveCount(0)
+
+      const saved = await (await api.get(`/api/object-visits/${visitId}`)).json()
+      expect(saved).toMatchObject({ lifecycle: 'completed', object: null, target_kind: 'location' })
+      expect(saved.target).toEqual({ kind: 'location', label, address: null, lat: 47.52015, lng: 7.57175 })
+      expect(saved.location).toMatchObject({ label, lat: 47.52015, lng: 7.57175 })
+      const pdf = await api.get(`/api/object-visits/${visitId}/report.pdf`)
+      expect(pdf.ok()).toBe(true)
+
+      await page.getByRole('button', { name: 'Zurück zur Karte' }).click()
+      await expect(page).toHaveURL(/\/karte(\?.*)?$/)
+      await expectNoCrash(page, 'object visit · place')
+    } finally {
       await restore()
       await api.dispose()
     }

@@ -592,6 +592,8 @@ export interface TwinLayerRow {
   visible: boolean
   /** Raster backdrops expose the same transparency control as every other map overlay. */
   opacity?: number
+  /** a colour the row stands for (a Karte object category): the glyph wears it */
+  swatch?: string
 }
 
 /** Twin layers default ON: a georeference exists because somebody deliberately made one, and

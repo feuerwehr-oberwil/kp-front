@@ -19,6 +19,12 @@ html { background: var(--app-bg); }
    `:not(.page-scroll)` keeps the Erfassungs-Poster out of it: that one IS a page and is meant
    to scroll, bounce included. */
 html:not(.page-scroll) { overscroll-behavior: none; }
+/* The phone's Karte (lib/iosKeyboard · useTypingLock): the root is as tall as the LIVE window
+   (`--live-h` = innerHeight, written in the resize event) and does not scroll. Review round 10, the
+   installed iOS app: with the keyboard up, a touch makes iOS shrink innerHeight in steps
+   (793 → 711 → 785 …) and scroll the document by the shrink — a root still 100 % of the 793-px
+   frame always had that room. `position: fixed` is unaffected (the frame stays the full height). */
+html[data-typing-lock]:not(.page-scroll) { height: var(--live-h, 100%); overflow: hidden; }
 /* An ordinary scrolling PAGE rather than the app's fixed shell (the Erfassungs-Poster, see
    main.tsx). Without this its content was trapped under `body { overflow: hidden }` and
    everything past the viewport showed as an unpainted white band. */
