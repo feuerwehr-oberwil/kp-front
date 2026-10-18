@@ -112,6 +112,7 @@ extend-immutable-calls = [
 # (RUF012), and read fixture files straight off disk inside an async test (ASYNC230 — there
 # is no event loop to protect, the test IS the only thing running).
 "tests/**" = ["S101", "S105", "S106", "S311", "B017", "RUF059", "RUF012", "ASYNC230"]
+"tests_live/**" = ["S101"]
 # Alembic revisions are generated files: the boilerplate header and import order are the
 # tool's, not ours, and rewriting them by hand invites merge pain for zero benefit.
 "alembic/versions/**" = ["I001", "W291", "E402", "UP035", "UP006"]

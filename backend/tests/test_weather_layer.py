@@ -131,13 +131,40 @@ def test_parse_rejects_what_is_not_a_radar_file():
         radar.parse_rzc(b"<html>503</html>")
 
 
-def test_frame_url_follows_the_published_naming():
-    assert radar.frame_url(FIXTURE_FRAME_TIME) == (
-        "https://data.geo.admin.ch/ch.meteoschweiz.ogd-radar-precip/20261008-ch/rzc262811700vl.001.h5"
-    )
-    # Day folder and day-of-year are UTC: 23:55 UTC on 31.12. is still the old year.
-    late = datetime(2026, 12, 31, 23, 55, tzinfo=UTC)
-    assert radar.frame_url(late).endswith("/20261231-ch/rzc263652355vl.001.h5")
+def _item(*names: str, updated: str = "2026-10-08T17:01:00Z") -> dict[str, object]:
+    """A day's STAC item as MeteoSwiss publishes it, listing these asset files."""
+    base = f"{radar.SOURCE_BASE_URL}/20261008-ch"
+    return {"id": "20261008-ch", "assets": {n: {"href": f"{base}/{n}", "updated": updated} for n in names}}
+
+
+def test_frame_hrefs_reads_the_files_whatever_their_letter():
+    item = _item("rzc262811700vl.001.h5", "rzc262811705rl.001.h5", "cpc2628117009_00060.001.h5")
+    assert radar.frame_hrefs(item) == {
+        "202610081700": f"{radar.SOURCE_BASE_URL}/20261008-ch/rzc262811700vl.001.h5",
+        "202610081705": f"{radar.SOURCE_BASE_URL}/20261008-ch/rzc262811705rl.001.h5",
+    }
+    # Day of year is UTC: 23:55 UTC on 31.12. is day 365 of the old year.
+    assert set(radar.frame_hrefs(_item("rzc263652355pl.001.h5"))) == {"202612312355"}
+    with pytest.raises(ValueError):
+        radar.frame_hrefs({"code": 404})
+
+
+def test_frame_hrefs_takes_the_later_upload_and_only_meteoswiss_urls():
+    item = _item("rzc262811700nl.001.h5", updated="2026-10-08T17:01:00Z")
+    item["assets"] |= _item("rzc262811700vl.001.h5", updated="2026-10-08T17:02:30Z")["assets"]
+    assert radar.frame_hrefs(item)["202610081700"].endswith("/rzc262811700vl.001.h5")
+    foreign = {"assets": {"rzc262811700rl.001.h5": {"href": "https://evil.example/rzc.h5"}}}
+    assert radar.frame_hrefs(foreign) == {}
+
+
+def _published(*names: str) -> dict[str, httpx.Response | Exception]:
+    """Routes for a MeteoSwiss that lists these files on 08.10. and serves the fixture for each."""
+    routes: dict[str, httpx.Response | Exception] = {
+        radar.day_item_url(FIXTURE_FRAME_TIME.date()): httpx.Response(200, json=_item(*names)),
+    }
+    for name in names:
+        routes[f"{radar.SOURCE_BASE_URL}/20261008-ch/{name}"] = httpx.Response(200, content=RZC.read_bytes())
+    return routes
 
 
 NOW = datetime(2026, 10, 8, 17, 30, tzinfo=UTC)
@@ -162,7 +189,7 @@ def _router(routes: dict[str, httpx.Response | Exception], default: int = 404):
 async def test_radar_poll_fetches_published_frames_and_skips_missing_ones():
     service = WeatherService()
     now = FIXTURE_FRAME_TIME + timedelta(minutes=6)  # 17:06 → slots 17:05 (not yet there) … 16:10
-    async with _router({radar.frame_url(FIXTURE_FRAME_TIME): httpx.Response(200, content=RZC.read_bytes())}) as c:
+    async with _router(_published("rzc262811700rl.001.h5")) as c:
         await service.poll_radar(client=c, now=now)
     snapshot = service.snapshot(now)
     assert [f["key"] for f in snapshot["radar"]["frames"]] == ["202610081700"]
@@ -177,7 +204,7 @@ async def test_radar_poll_fetches_published_frames_and_skips_missing_ones():
 async def test_radar_failure_keeps_last_frames_and_marks_them_stale_later():
     service = WeatherService()
     now = FIXTURE_FRAME_TIME + timedelta(minutes=2)
-    async with _router({radar.frame_url(FIXTURE_FRAME_TIME): httpx.Response(200, content=RZC.read_bytes())}) as c:
+    async with _router(_published("rzc262811700rl.001.h5")) as c:
         await service.poll_radar(client=c, now=now)
     later = FIXTURE_FRAME_TIME + RADAR_STALE_AFTER + timedelta(minutes=1)
     async with _router({"https://": httpx.ConnectError("down")}) as c:
@@ -250,7 +277,7 @@ async def test_a_dead_feed_warns_once_and_says_when_it_is_back(caplog):
     assert len(warnings_logged) == 1
     caplog.clear()
     now = FIXTURE_FRAME_TIME + timedelta(minutes=2)
-    async with _router({radar.frame_url(FIXTURE_FRAME_TIME): httpx.Response(200, content=RZC.read_bytes())}) as c:
+    async with _router(_published("rzc262811700rl.001.h5")) as c:
         await service.poll_radar(client=c, now=now)
     assert any("recovered" in r.getMessage() for r in caplog.records)
 

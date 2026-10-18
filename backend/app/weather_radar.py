@@ -28,8 +28,9 @@ from __future__ import annotations
 
 import io
 import math
+import re
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache
 
 import h5py
@@ -69,6 +70,8 @@ def mercator_y_to_lat(y: NDArray[np.float64]) -> NDArray[np.float64]:
 
 
 SOURCE_BASE_URL = "https://data.geo.admin.ch/ch.meteoschweiz.ogd-radar-precip"
+#: One STAC item per UTC day lists that day's files – the only reliable way to their names.
+STAC_ITEMS_URL = "https://data.geo.admin.ch/api/stac/v1/collections/ch.meteoschweiz.ogd-radar-precip/items"
 FRAME_INTERVAL = timedelta(minutes=5)
 
 #: Precipitation colour ramp, mm/h. The usual radar progression – light blue for drizzle, through
@@ -123,10 +126,41 @@ def frame_key(time: datetime) -> str:
     return time.astimezone(UTC).strftime("%Y%m%d%H%M")
 
 
-def frame_url(time: datetime) -> str:
-    """The file for a 5-minute slot: `<day>-ch/rzc<yy><day of year><hhmm>vl.001.h5` (UTC)."""
-    t = time.astimezone(UTC)
-    return f"{SOURCE_BASE_URL}/{t:%Y%m%d}-ch/rzc{t:%y}{t.timetuple().tm_yday:03d}{t:%H%M}vl.001.h5"
+#: `rzc<yy><day of year><hhmm><x>l.001.h5` (UTC). The letter before the `l` is not stable:
+#: MeteoSwiss published `vl` until 12.10.2026, then `tl`/`pl`/`rl` – a guessed name 403s, so the
+#: names are read from the day's STAC item (`frame_hrefs`).
+_RZC_ASSET = re.compile(r"^rzc(\d{2})(\d{3})(\d{2})(\d{2})[a-z]l\.001\.h5$")
+
+
+def day_item_url(day: date) -> str:
+    """The STAC item listing one UTC day's radar files."""
+    return f"{STAC_ITEMS_URL}/{day:%Y%m%d}-ch"
+
+
+def frame_hrefs(item: object) -> dict[str, str]:
+    """frame key → file URL for every RZC frame a day's STAC item lists.
+
+    Where one slot was published twice under two letters, the later upload wins. Only URLs
+    under SOURCE_BASE_URL are taken: the item is outside data, the poller fetches what it names.
+    """
+    assets = item.get("assets") if isinstance(item, dict) else None
+    if not isinstance(assets, dict):
+        raise ValueError("STAC item without assets")
+    best: dict[str, tuple[str, str]] = {}  # key → (updated, href)
+    for name, asset in assets.items():
+        match = _RZC_ASSET.match(name)
+        if not match or not isinstance(asset, dict):
+            continue
+        href = asset.get("href")
+        if not isinstance(href, str) or not href.startswith(f"{SOURCE_BASE_URL}/"):
+            continue
+        yy, doy, hh, mm = (int(g) for g in match.groups())
+        time = datetime(2000 + yy, 1, 1, hh, mm, tzinfo=UTC) + timedelta(days=doy - 1)
+        updated = str(asset.get("updated") or "")
+        key = frame_key(time)
+        if key not in best or updated > best[key][0]:
+            best[key] = (updated, href)
+    return {key: href for key, (_, href) in best.items()}
 
 
 def floor_to_slot(time: datetime) -> datetime:
