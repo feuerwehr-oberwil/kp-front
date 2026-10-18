@@ -26,6 +26,12 @@
  *      under the keys can never start a scroll / unscroll loop. The sheet's placement does not
  *      depend on it: it is measured from the full height and the visual viewport (`keyboardTop`),
  *      so a pan iOS keeps — the installed app's collapse, review round 9 — leaves it on the keys.
+ *      The installed app's collapse comes in STEPS while the finger is down (review round 10:
+ *      innerHeight 793 → 711 → 785 …, each step scrolling the window by `793 − innerHeight`), so
+ *      the undo runs IN the event, not a frame later, and a scroll that is exactly the collapse
+ *      is always undone (`isCollapseScroll`) — six steps used up `mayCorrect` and the app rode
+ *      up for the rest of the touch. And the root is never taller than the live window
+ *      (`--live-h`, 02-base.css · html[data-typing-lock]), so a document scroll has no room.
  *   3. NOTHING TO DRAG — while a field has the caret, a touchmove that no scroller under the finger
  *      can take is cancelled (`touchMayScroll`, overlays/useMobileScrollLock): the list in the
  *      sheet scrolls, the bar and the sheet's head do not move the page.
@@ -93,6 +99,15 @@ export function keySheetBox(r: { viewHeight: number; kbTop: number | null; barBo
   return { bottom, maxHeight }
 }
 
+/** Whether a window scroll is the installed app's collapse (review round 10) rather than iOS
+ *  bringing a field into sight: `innerHeight` has shrunk below the full height and the scroll is
+ *  no more than that shrink (iOS scrolls by exactly `full − innerHeight`). Such a scroll is undone
+ *  every time — it carries the whole app with it and says nothing about a hidden caret. */
+export function isCollapseScroll(r: { full: number; inner: number; pan: number }): boolean {
+  const shrink = r.full - r.inner
+  return shrink >= 1 && r.pan >= 1 && r.pan <= shrink + 1
+}
+
 /** How often an iOS pan may be undone: at most `max` corrections inside `windowMs`. Past that the
  *  field must be under the keys for real (iOS re-pans as fast as it is undone) — stop fighting and
  *  let iOS show the caret. Pure: returns the kept history, the caller stores it. */
@@ -134,11 +149,13 @@ export function noPanTouchEnd(e: React.TouchEvent<HTMLElement>) {
 }
 
 /** Guards 2 and 3 (see the head of this file) for a whole surface while `enabled` (the Karte on a
- *  phone). Idle until a text field has the caret; never re-renders anything. */
+ *  phone). Idle until a text field has the caret; never re-renders anything — the one write is the
+ *  root's live height (`--live-h` + `data-typing-lock`, 02-base.css), which it takes back on exit. */
 export function useTypingLock(enabled: boolean) {
   useEffect(() => {
     if (!enabled) return
     const vv = window.visualViewport
+    const root = document.documentElement
     let history: number[] = []
     const typing = () => isTypingTarget(document.activeElement)
     const unpan = () => {
@@ -146,10 +163,25 @@ export function useTypingLock(enabled: boolean) {
       if (pan < 1) return
       // pinch-zoomed: the offset is the zoom's, not iOS's pan — leave it to the finger
       if (vv && Math.abs((vv.scale || 1) - 1) > 0.01) return
+      if (isCollapseScroll({ full: fullViewHeight(), inner: window.innerHeight, pan })) { window.scrollTo(0, 0); return }
       const next = mayCorrect(history, Date.now())
       history = next.history
       if (next.ok) window.scrollTo(0, 0)
     }
+    // the root as tall as the live window, written in the event that changed it (before iOS clamps
+    // its scroll to the document) — the installed app's collapse leaves no room to scroll into
+    let liveH = -1
+    const live = () => {
+      const h = window.innerHeight
+      if (h === liveH) return
+      liveH = h
+      root.style.setProperty('--live-h', `${h}px`)
+    }
+    root.setAttribute('data-typing-lock', '')
+    live()
+    // a scroll or a viewport change: the root follows, and the pan is undone in the same event —
+    // a frame later the phone has already painted the app ridden up (review round 10)
+    const now = () => { live(); unpan() }
     let frame = 0
     const soon = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; unpan() }) }
     // a focus moves the page a beat later (the keyboard's animation), and a dismissal can leave it
@@ -177,9 +209,10 @@ export function useTypingLock(enabled: boolean) {
       if (gate.blocks(e)) e.preventDefault()
     }
 
-    vv?.addEventListener('scroll', soon)
-    vv?.addEventListener('resize', soon)
-    window.addEventListener('scroll', soon, { passive: true })
+    vv?.addEventListener('scroll', now)
+    vv?.addEventListener('resize', now)
+    window.addEventListener('resize', now)
+    window.addEventListener('scroll', now, { passive: true })
     window.addEventListener('focusin', onFocus)
     window.addEventListener('focusout', onFocus)
     document.addEventListener('touchstart', start, { passive: true })
@@ -188,9 +221,12 @@ export function useTypingLock(enabled: boolean) {
     return () => {
       if (frame) cancelAnimationFrame(frame)
       late.forEach(clearTimeout)
-      vv?.removeEventListener('scroll', soon)
-      vv?.removeEventListener('resize', soon)
-      window.removeEventListener('scroll', soon)
+      vv?.removeEventListener('scroll', now)
+      vv?.removeEventListener('resize', now)
+      window.removeEventListener('resize', now)
+      window.removeEventListener('scroll', now)
+      root.removeAttribute('data-typing-lock')
+      root.style.removeProperty('--live-h')
       window.removeEventListener('focusin', onFocus)
       window.removeEventListener('focusout', onFocus)
       document.removeEventListener('touchstart', start)

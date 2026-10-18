@@ -16,7 +16,8 @@ describe('KarteScrollDebug', () => {
     const pre = container.querySelector('[data-debug-scroll]')
     expect(pre).not.toBeNull()
     // the first line names the app (installed or tab) and its frame
-    expect(pre!.textContent).toMatch(/^(app|tab) \d+×\d+ · ref \d+ · doc /)
+    // …and the root's computed height and scrollTop (round 10: the document must have no room to scroll)
+    expect(pre!.textContent).toMatch(/^(app|tab) \d+×\d+ · ref \d+ · doc \d+\/\d+ · html (\d+|–) top \d+ · /)
     act(() => setScrollDebug(false))
     expect(container.querySelector('[data-debug-scroll]')).toBeNull()
   })

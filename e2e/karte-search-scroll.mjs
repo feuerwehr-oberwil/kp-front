@@ -47,6 +47,12 @@
 // the app frame checks that the sheet stays on the keys with its field in sight — with iOS keeping
 // the scroll, and after a `scrollTo(0, 0)` it does honour.
 //
+// IN STEPS (review round 10, owner: «still doesn't work reliably. sometimes it does»): while the
+// finger is down iOS collapses innerHeight step by step (793 → 711 → 785 …) and scrolls the window
+// by each step (`__collapseTo`, `collapsingDrag`); one frame after every step the bar, the sheet,
+// its field and the map must stand where they stood at touchstart — with iOS's scroll bounded by
+// the root's box and by the full 793-px frame, as only the phone knows which.
+//
 // Exit code 1 and «RED» lines when a check fails.
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -68,7 +74,9 @@ function fakeKeyboard() {
   const real = window.visualViewport
   // `collapse` (review round 9): the installed app's innerHeight shrinks to the visual viewport and
   // the window reports iOS's scroll — the layout (and with it `position: fixed`) stays full height
-  const st = { kb: 0, pan: 0, ignoreScrollTo: false, collapse: false }
+  // `shrink`: how far the collapse has gone (review round 10: iOS collapses in steps during the
+  // touch, 793 → 711 → 785 …); null = by the whole keyboard (round 9's single step)
+  const st = { kb: 0, pan: 0, ignoreScrollTo: false, collapse: false, shrink: null }
   const own = (k) => Object.getOwnPropertyDescriptor(window, k) ?? Object.getOwnPropertyDescriptor(Window.prototype, k)
   const realInner = own('innerHeight').get.bind(window)
   const realScrollY = own('scrollY').get.bind(window)
@@ -78,7 +86,7 @@ function fakeKeyboard() {
     pageTop: () => st.pan, pageLeft: () => 0, scale: () => 1,
   })) Object.defineProperty(vv, k, { get })
   Object.defineProperty(window, 'visualViewport', { get: () => vv })
-  Object.defineProperty(window, 'innerHeight', { get: () => (st.collapse ? realInner() - st.kb : realInner()), configurable: true })
+  Object.defineProperty(window, 'innerHeight', { get: () => (st.collapse ? realInner() - (st.shrink ?? st.kb) : realInner()), configurable: true })
   for (const k of ['scrollY', 'pageYOffset']) Object.defineProperty(window, k, { get: () => (st.collapse ? st.pan : realScrollY()), configurable: true })
   const scrollTo = window.scrollTo.bind(window)
   window.scrollTo = (...a) => {
@@ -92,7 +100,61 @@ function fakeKeyboard() {
     if (resized) window.dispatchEvent(new Event('resize'))
     if (st.collapse) window.dispatchEvent(new Event('scroll'))
   }
+  // one step of the gradual collapse (review round 10, the owner's readout): innerHeight goes to
+  // `inner`, and iOS scrolls the document by the collapse, `scrollY = 793 − inner` — as far as the
+  // document lets it. `extent` is what bounds that on the phone, which WebKit on Linux cannot say:
+  // 'html' — the root's own box (bound to the live height, nothing to scroll); 'icb' — the initial
+  // containing block, which stays 793 whatever the CSS says (only an undo can help then)
+  window.__collapseTo = (inner, extent) => {
+    const full = realInner()
+    st.collapse = true
+    st.shrink = full - inner
+    window.dispatchEvent(new Event('resize')); vv.dispatchEvent(new Event('resize'))
+    const docH = extent === 'html' ? document.documentElement.getBoundingClientRect().height : full
+    const pan = Math.max(0, Math.min(full - inner, Math.round(docH - inner)))
+    if (pan !== st.pan) { st.pan = pan; vv.dispatchEvent(new Event('scroll')); window.dispatchEvent(new Event('scroll')) }
+  }
   void real
+}
+
+/** The owner's round-10 capture as a drag: a finger on a row (the list at its top) wobbles a few px
+ *  while iOS collapses the window in steps (`inners`, each through `__collapseTo`). After each step
+ *  one frame runs — the handlers' own frames included — and the screen tops of the top bar, the
+ *  sheet, its field and the map are read: what the phone paints while the finger is down. */
+async function collapsingDrag({ inners, extent }) {
+  const raf = () => new Promise((ok) => requestAnimationFrame(() => ok()))
+  const vv = window.visualViewport
+  const sheet = document.querySelector('[data-karte-keysheet]')
+  const body = sheet.querySelector('.lc-body')
+  const boxes = { bar: document.querySelector('.topbar'), sheet, field: sheet.querySelector('input'), map: document.querySelector('.maplibregl-map') }
+  const tops = () => Object.fromEntries(Object.entries(boxes).map(([k, el]) => [k, Math.round(el.getBoundingClientRect().top - vv.offsetTop)]))
+  const r = body.getBoundingClientRect()
+  const row = [...body.querySelectorAll('[role="option"]')].map((o) => o.getBoundingClientRect()).find((o) => o.top >= r.top && o.bottom <= Math.min(r.bottom, vv.height))
+  const x = r.left + r.width / 2
+  let y = row ? row.top + row.height / 2 : r.top + 40
+  const target = document.elementFromPoint(x, y)
+  const ev = (type) => {
+    const t = { identifier: 1, target, clientX: x, clientY: y, pageX: x, pageY: y, screenX: x, screenY: y }
+    const e = new Event(type, { bubbles: true, cancelable: true, composed: true })
+    const list = type === 'touchend' ? [] : [t]
+    for (const [k, v] of Object.entries({ touches: list, targetTouches: list, changedTouches: [t] })) Object.defineProperty(e, k, { value: v })
+    return e
+  }
+  const before = tops()
+  target.dispatchEvent(ev('touchstart'))
+  const worst = { bar: 0, sheet: 0, field: 0, map: 0 }
+  const steps = []
+  for (const [i, inner] of inners.entries()) {
+    y += i % 2 ? -4 : 4
+    target.dispatchEvent(ev('touchmove'))
+    window.__collapseTo(inner, extent)
+    await raf()
+    const now = tops()
+    for (const k of Object.keys(worst)) if (Math.abs(now[k] - before[k]) > Math.abs(worst[k])) worst[k] = now[k] - before[k]
+    steps.push(`${inner}:${window.scrollY}:${now.sheet - before.sheet}`)
+  }
+  target.dispatchEvent(ev('touchend'))
+  return { before, worst, steps: steps.join(' ') }
 }
 
 /** A one-finger drag over the sheet's body (or, `at: 'grab'`, its grab bar): `moves` are [dx, dy]
@@ -345,7 +407,22 @@ async function collapseChecks(name, { kb, pan }) {
   await frames(page, 6)
   b = await at()
   check(`${name} · collapse, window back at 0: the sheet stays on the keys, top and field under the bar`, placed(b) && b.scrollY === 0, b)
+  // review round 10: the collapse in STEPS while the finger is down (the owner's readout, inner
+  // 793 → 756 → 711 → 690 → 666 … and back) — at every step nothing moves on the screen, whatever
+  // bounds iOS's scroll on the phone (`__collapseTo`). On the base iOS scrolled by each step, the
+  // undo came a frame late and ran out after six (`mayCorrect`), the app rode up to ~127 px.
+  await page.evaluate(() => { window.__kb({ collapse: false, shrink: null, pan: 0 }); document.querySelector('[data-karte-keysheet] .lc-body').scrollTop = 0 })
+  await frames(page, 6)
+  for (const extent of ['icb', 'html']) {
+    const g = await page.evaluate(collapsingDrag, { inners: STEPS, extent })
+    await page.evaluate(() => window.__kb({ collapse: false, shrink: null, pan: 0 }))
+    await frames(page, 6)
+    console.log(`[DEBUG-pwa] ${name} · stepped collapse (${extent}) · ${g.steps}`)
+    check(`${name} · collapse in steps during the touch (${extent} bounds the scroll): bar, sheet, field and map hold within 2px at every step`, Object.values(g.worst).every((d) => Math.abs(d) <= 2), { worst: g.worst, steps: g.steps })
+  }
 }
+// the owner's readout, round 10: innerHeight while the finger was down (2 fps, filled in between)
+const STEPS = [756, 711, 690, 666, 690, 740, 782, 792, 785, 740, 711, 666, 711, 785, 793]
 
 for (const name of (process.env.KARTE_FRAMES ?? 'tab,app').split(',')) {
   const frame = FRAMES[name]

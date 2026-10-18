@@ -8,8 +8,10 @@
 //
 // The first line says which app it is and its frame (round 8): `app` (standalone: home-screen
 // app) or `tab`, innerWidth×innerHeight, the full height the keyboard placement measures from
-// (`ref`, lib/iosKeyboard · fullViewHeight, round 9), the document's client height, scroll height and scrollTop
-// (a document that can scroll is what iOS hands a drag on to), the screen's height and the
+// (`ref`, lib/iosKeyboard · fullViewHeight, round 9), the document's client height and scroll height,
+// the root's computed height and its scrollTop (`html … top`, round 10: the root follows the live
+// window, 02-base.css · html[data-typing-lock], so a document that can scroll — what iOS hands a
+// drag on to — shows as a height above innerHeight or a top above 0), the screen's height and the
 // safe-area insets top/bottom as the CSS reads them.
 //
 // Lines: the visual viewport (height · offsetTop = iOS's pan · scale) against innerHeight and
@@ -29,7 +31,9 @@
 //       sheet, the map — and iOS's pan (vv offsetTop), window.scrollY, innerHeight and the visual
 //       viewport's height over the same touch (round 8: an installed app's frame can change size);
 //   «scrolled» every element that fired a scroll event in the touch, with its scrollTop range
-//       (a scroller carrying the sheet shows here, the list itself as `lc-body`);
+//       (a scroller carrying the sheet shows here, the list itself as `lc-body`) — read in the
+//       event, so it also shows a scroll the page lock undid before the frame (round 10), which
+//       «Δ», read per frame, does not;
 //   «sheet» the sheet's own pull (inline transform, overlays/swipeDismiss) at its largest, how
 //       often `data-kb` flipped and the --ks-bottom range; «ptr» where the pointer went down and
 //       whether iOS took the touch over (pointercancel).
@@ -101,7 +105,8 @@ export function KarteScrollDebug() {
       const top = t === window.visualViewport ? Math.round(window.visualViewport?.offsetTop ?? 0) : Math.round(el?.scrollTop ?? 0)
       const was = moved.scrolled.get(name)
       moved.scrolled.set(name, was ? { lo: Math.min(was.lo, top), hi: Math.max(was.hi, top) } : { lo: top, hi: top })
-      sample()
+      // no «Δ» sample here: inside the event the lock has not undone the scroll yet (round 10,
+      // lib/iosKeyboard · useTypingLock) — «Δ» is read per frame, what the screen shows
     }
     const down = (e: PointerEvent) => { if (e.pointerType === 'touch') ptr = named(e.target instanceof Element ? e.target : null) }
     const cancel = () => { moved.cancel = true }
@@ -124,7 +129,7 @@ export function KarteScrollDebug() {
       const doc = document.scrollingElement ?? document.documentElement
       const inset = getComputedStyle(probe)
       el.textContent = [
-        `${app} ${window.innerWidth}×${window.innerHeight} · ref ${fullViewHeight()} · doc ${doc.clientHeight}/${doc.scrollHeight} top ${r(doc.scrollTop)} · screen ${window.screen?.height ?? '–'} · safe ${r(parseFloat(inset.paddingTop))}/${r(parseFloat(inset.paddingBottom))}`,
+        `${app} ${window.innerWidth}×${window.innerHeight} · ref ${fullViewHeight()} · doc ${doc.clientHeight}/${doc.scrollHeight} · html ${r(parseFloat(getComputedStyle(document.documentElement).height) || undefined)} top ${r(document.documentElement.scrollTop)} · screen ${window.screen?.height ?? '–'} · safe ${r(parseFloat(inset.paddingTop))}/${r(parseFloat(inset.paddingBottom))}`,
         `vv h ${r(vv?.height)} pan ${r(pan)} ×${vv?.scale?.toFixed(2) ?? '–'} · inner ${window.innerHeight} · scrollY ${r(window.scrollY)}`,
         `kb root ${document.documentElement.hasAttribute('data-kb') ? 'on' : 'off'} · sheet ${sheet?.hasAttribute('data-kb') ? `on ${sheet.style.getPropertyValue('--ks-bottom')}/${sheet.style.getPropertyValue('--ks-max')}` : 'off'}`,
         `screen top: sheet ${top(sheet)} (rect ${sheet ? r(sheet.getBoundingClientRect().top) : '–'}) field ${top(field)} · list ${list ? `${r(list.scrollTop)}/${r(list.scrollHeight - list.clientHeight)}` : '–'}`,
