@@ -45,8 +45,12 @@ journey called. When a request count moves, the report shows which routes change
   software WebGL (CPU profile 2026-10-05), with 0.5–2 s swings between Linien.
 - **Readiness is polled at 16 ms, never per animation frame.** After a few Linien the page's frames
   stalled, and a raf-polled check sat for minutes over a surface that had switched in 266 ms.
-- **Time budgets follow the machine.** `env.calibration` times a fixed workload. The report scales
-  every `ms` budget by today's calibration over the baseline's, clamped to ×0.67–1.5.
+- **Time budgets follow the machine, upwards only.** `env.calibration` times a fixed workload. The
+  report scales every `ms` budget by today's calibration over the baseline's, clamped to ×1–1.5
+  (`scripts/perf-gate.mjs · speedFactor`). A runner faster than the baseline's keeps the baseline's
+  budget: the fast kind of GitHub runner calibrates ×0.76 of the baseline's kind, but the app's
+  times there are only ×0.90 (`edit.karte_script_ms` ×0.96). The old floor of ×0.67 failed
+  unchanged builds on it seven times between 13.10. and 18.10.2026, every time on the Karte.
 - **A journey that counts requests waits for the app's own timers, not a fixed time.** The
   `verlauf` count moved 26–30 for the same build (2026-10-08): ten Meldungen typed back to back
   sometimes fell into the long poll's 250 ms re-arm gap and woke nothing, the audit outbox
@@ -57,7 +61,7 @@ journey called. When a request count moves, the report shows which routes change
 - **A regression is confirmed before it fails.** If the first run regresses, CI walks the journeys
   again, and every number takes its best of the two runs. Noise only ever makes a number worse,
   so a regression in both runs is real.
-- **Tolerances per unit** (`scripts/perf-report.mjs · TOLERANCE`): a number fails above
+- **Tolerances per unit** (`scripts/perf-gate.mjs · TOLERANCE`): a number fails above
   `baseline + max(abs, rel × baseline)`.
 
   | unit | abs | rel | Why |
@@ -67,7 +71,7 @@ journey called. When a request count moves, the report shows which routes change
   | `mb` | 1.5 | 25 % | Heap after a forced GC still varies |
   | `ms` | 60 | 50 % | A shared runner, after calibration |
 
-  Numbers that are noisy by nature get a wider band by name (`perf-report.mjs · NOISY`):
+  Numbers that are noisy by nature get a wider band by name (`perf-gate.mjs · NOISY`):
   blocking time, long-task counts, the worst interaction, save counts, and API bytes. Two runs of
   the same build differed there by up to 2.5×. A save count follows the debounce's timing, so the
   edit journey gates the bytes **per save** as well, and those are stable.
@@ -146,11 +150,22 @@ look, not a verdict. A loaded box skews every time. Counts and sizes compare as 
   workspace never passed `createdAt` for the tie-break. Fixed in #262.
 - Opening an Einsatz writes: one workspace PUT and one journal POST per device per open
   (`cold-start.writes`). It is baselined as it stands. Whether it should be 0 is a question for
-  the save path (`docs/testing/fat-incident.md` expected 0 saves on open).
+  the save path (`docs/testing/fat-incident.md` expected 0 saves on open). **Answered
+  18.10.2026: they are a one-time upgrade of the seed, not a save per open.** The seeded Einsatz
+  is `schemaVersion` 2 (the app writes 3 and derives `planBindings`), and its Trupps' crews were
+  never filed on the Anwesenheit (`lib/crewFiling`: attendance rows, `crewFiled`, one «Unter AS»
+  Verlauf row per Trupp, all under derived ids). Each carries content, so the writes stay. The
+  same Einsatz opened again, on the same device or a second one, writes nothing: e2e `open-writes.spec.ts`
+  holds that at 0 (a count gate with an absolute tolerance of 2 could not).
+  `cold-start.writes` keeps measuring the first open of an older Einsatz.
 - The first launch downloads ~2.3 MB of precache in the background (`cold-start.precache_kb`).
 - Every Funkkontakt is a full workspace save: nine contacts sent nine PUTs and ~345 KB
   (`trupps.saves`). Twenty Karte and Tafel edits sent 10–12 saves of ~35 KB each (`edit.saves`,
   `edit.kb_per_save`). Both are baselined. A change that batches them shows up as 🟢.
 - The «Eintrag erfasst» toast lands on the composer's «Erfassen» at 1280×900. Writing the next
   Meldung quickly, the tap dismisses the toast instead of filing the entry. The journey waits for
-  the toast (`harness · centre`). The overlap itself is a UX question, not a gate.
+  the toast (`harness · centre`). The overlap itself is a UX question, not a gate. Re-measured 18.10.2026:
+  one pill no longer reaches «Erfassen» at any phone or tablet size (the tablet composer is a
+  dialog at the top, the phone's lane stands on the sheet), but every Meldung STACKED another
+  pill, and a column of them grew up into the composer. Since then a new «Eintrag erfasst»
+  replaces the last one (`useJournalWriters · JOURNAL_SAVED_KIND`, e2e `workspace-flows` F8).

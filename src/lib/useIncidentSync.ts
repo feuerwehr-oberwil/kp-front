@@ -289,7 +289,9 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // round while they have unsynced local edits (their pending flush + last-write-wins owns that
   // merge — pulling mid-edit would clobber in-progress work). On a pull we `adoptServer` so the
   // sync engine rebases onto the new rev and the next local edit doesn't 409. Conditional on
-  // `> sync.rev` so we never re-hydrate our own just-pushed write.
+  // `> sync.rev` so we never re-hydrate our own just-pushed write — which the server no longer
+  // sends at all: the poll carries the engine's writer id, and a range of revisions that is only
+  // this engine's saves comes back bodyless (`ownRev`, 18.10.2026).
   //
   // A VISIBLE tab long-polls: `wait: true` makes the server hold the request until the rev moves
   // (backend app/live_wait), so the other device's edit lands here as fast as it commits and the
@@ -325,12 +327,21 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
           // ⚠️ …but it still asks whether the Einsatz is RUNNING (review of #235): a device that is
           // always a little dirty would otherwise never hear a close by the poll. A quick no-wait
           // read, whose lifecycle header is all that is used — nothing is adopted over the edits.
-          await pollWorkspaceSince(incidentId, Math.max(liveRev.current, sync.rev), { wait: false, signal, open: claimOpen(), onLifecycle }).catch(() => null)
+          await pollWorkspaceSince(incidentId, Math.max(liveRev.current, sync.rev), { wait: false, signal, open: claimOpen(), onLifecycle, writer: sync.writerId }).catch(() => null)
           return false
         }
         const since = Math.max(liveRev.current, sync.rev)
         const askedAt = Date.now()
-        const res = await pollWorkspaceSince(incidentId, since, { wait: !hidden, signal, open: claimOpen(), onLifecycle })
+        const res = await pollWorkspaceSince(incidentId, since, { wait: !hidden, signal, open: claimOpen(), onLifecycle, writer: sync.writerId })
+        // Only this engine's own saves since `since` (api/workspace · WorkspaceFollow): the server
+        // vouched that nobody else wrote in between, so there is nothing to fetch — park at its
+        // revision next. Before the dirty check on purpose: the answer often beats the save's own
+        // PUT response home, and asking about these revisions again would fetch the blob after all.
+        // An answer, not a skip: the loop stays hot, so another device's save is heard at once.
+        if (res && 'ownRev' in res) {
+          if (!signal.aborted) liveRev.current = Math.max(liveRev.current, res.ownRev)
+          return true
+        }
         // RE-CHECK after the round-trip: a local edit may have landed WHILE this poll was in
         // flight (with a held request that window is now the whole wait, so this guard matters
         // MORE, not less). Adopting the server blob now would clobber that unsaved edit — the

@@ -1,8 +1,36 @@
 # Copy and wording
 
-Which word a screen uses. The copy mechanics (`src/config/copy/`, German first, all four locales)
-are in [`AGENTS.md`](../AGENTS.md); these are the wording decisions that apply across surfaces.
-Moved here from AGENTS.md on 2026-10-08, wording unchanged.
+Where UI text lives and which word a screen uses: the copy mechanics (`src/config/copy/`, German
+first, all four locales), then the wording decisions that apply across surfaces. Moved here from
+AGENTS.md on 2026-10-08 (the wording) and 2026-10-18 (the mechanics), wording unchanged.
+
+## Copy mechanics and language
+
+- **Domain language is German** (Atemschutz, Trupp, Einsatz, Verlauf, …); keep terms
+  accurate. **All user-facing strings live in `appConfig.copy.*`** – never hard-code UI text in
+  a component; add a key and reference it.
+- **Prose language split: technical English, user-facing German.** Everything technical –
+  `docs/`, READMEs, `CHANGELOG.md`, code comments, commit messages – is written in English;
+  German appears there only as domain terms and as «quoted» UI copy. User-facing text is German
+  with i18n overlays (below). The gitignored internal station documents under `docs/` are the
+  exception and may stay German.
+- **i18n / multilingual copy lives in `src/config/copy/`.** German (`de.ts`, assembled from one
+  module per surface in `de/<surface>.ts`) is the canonical base and the source of the `Copy`
+  type; `en.ts` (full) / `fr.ts` / `it.ts` (each split the same way) are
+  `Localizable<Copy>` partial overlays **deep-merged over German**, so any missing key falls
+  back to the German string – a half-translated locale is always complete. `appConfig.copy` is
+  a **getter** returning the active locale's catalogue (`copy/getCopy()`); read sites are
+  unchanged (`appConfig.copy.x.y`). Locale is a **per-deployment** setting (one brigade = one
+  language), resolved **once at boot** (`/api/config` `identity.locale` → `de-CH`) by
+  `applyLocale()` in `main.tsx`. It's set in deployment config (CLI/config file first; admin UI
+  can inspect/basic-edit Station › Identität › Sprache), NOT per device. **Add a new string to
+  `de/<surface>.ts` first** (it defines the shape); translate in the other locales as desired.
+  Two caveats: (1) module-level captures like `const C = appConfig.copy.x` freeze the language
+  at import – read inside the component/function instead; (2) a few copy values are structural
+  DATA keys, not labels (`contextPanel.unField`/`stoffField` match the non-localized preset
+  fields, intake `kategorien`/`kategorieGuess` mirror the backend) – leave these untranslated
+  (German fallback).
+- Help text is per device (`lib/helpDevice`).
 
 ## Removing is «Entfernen», «gelöscht» is a Feuer
 

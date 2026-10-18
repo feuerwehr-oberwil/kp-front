@@ -84,13 +84,6 @@ export function classifyPick(file: { type: string; name: string }): 'photo' | 'a
   return 'file'
 }
 
-/** «2.4 MB» / «812 kB» — the one thing a Beilage chip can say about a file it cannot preview. */
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1000) return `${bytes} B`
-  if (bytes < 1000 * 1000) return `${Math.round(bytes / 1000)} kB`
-  return `${(bytes / (1000 * 1000)).toFixed(1)} MB`
-}
-
 export function validateAudioImport(
   file: { type: string; name: string; size: number },
   maxBytes: number = MAX_AUDIO_UPLOAD_BYTES,

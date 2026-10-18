@@ -7,7 +7,7 @@ import { Icon } from '../lib/icons'
 import { Menu, Overlay } from '../lib/overlays'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
-import { fillTemplate, formatTime, hhmm, pad2, stripUnprintable, formatLocale } from '../lib/format'
+import { fillTemplate, fmtFileSize, formatTime, hhmm, pad2, stripUnprintable, formatLocale } from '../lib/format'
 import { toast } from '../lib/ui'
 import { ApiError } from '../lib/api'
 import { forgetLocalThumb, mintLocalThumb, thumbUrl } from '../lib/mediaUrl'
@@ -18,7 +18,6 @@ import {
   MEDIA_IMPORT_ACCEPT,
   classifyPick,
   formatAudioDuration,
-  formatFileSize,
   probeAudioDuration,
   resolveRecordingStart,
   validateAudioImport,
@@ -1189,7 +1188,7 @@ export function JournalComposer({ onSubmit, onClose, incidentStartAt, uploadAudi
                 {/* «Beilage / Name · Grösse» — the shape .jc-clip and .jc-import already use */}
                 <span className="jc-file-name">
                   <strong>{C.attachLabel}</strong>
-                  <em>{f.name} · {formatFileSize(f.file.size)}</em>
+                  <em>{f.name} · {fmtFileSize(f.file.size)}</em>
                 </span>
                 <button className="jc-clip-x" title={C.attachDiscard} aria-label={C.attachDiscard} onClick={() => discardFile(i)}><Icon id="close" /></button>
               </span>

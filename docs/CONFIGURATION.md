@@ -18,6 +18,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
 ## Contents
 
 - [0. The four layers (recap)](#0-the-four-layers-recap)
+  - [0a. For developers – where a setting lives, station data, coordinates](#0a-for-developers--where-a-setting-lives-station-data-coordinates)
 - [1. Deployment config – the JSON document](#1-deployment-config-the-json-the-deployment-owner-edits)
   - [Where each section is edited](#where-each-section-is-edited)
   - [1a. `alarmKeywords` – the station's own alarm vocabulary](#1a-alarmkeywords--the-stations-own-alarm-vocabulary)
@@ -75,6 +76,49 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
 **Resolution:** per-incident overrides deployment config overrides defaults. **An empty
 deployment config is valid** – the app must run as a generic, empty station (see `§8 Empty
 state`).
+
+### 0a. For developers – where a setting lives, station data, coordinates
+
+The code-side rules behind the layers (moved here from AGENTS.md on 2026-10-18, wording
+unchanged):
+
+- **A setting lives in one of three places – pick by who owns it, not by what is easiest to
+  reach.** (1) *Device preference* – theme (day/night/auto), symbol scale, rail words, offline
+  radius, screen wake: cookie via `src/lib/prefs.ts`, not synced, surfaced in the **Einstellungen
+  sheet** (`src/components/panels/SettingsSheet.tsx`), which since 28.08. carries device prefs
+  plus per-device utilities and **nothing else**. (2) *Station doctrine* – Funkkontakt-Intervall,
+  Nachfrist, Funkkanal, Auftragsfarben: deployment config `doctrine.*`, edited **only** in
+  `/admin › Doktrin` (`DoctrineSection` in `src/admin/ConfigSections.tsx`) and read **only**
+  through `atemschutzDoctrine()` in `src/lib/deploymentConfig.ts`, never off
+  `appConfig.atemschutz`. These left the sheet on purpose (99c4348): station configuration
+  belongs where whoever set it up changes it, not under the finger of an unknowing operator at
+  3am – do not re-add a doctrine editor to any in-app surface. (3) *Synced per-incident state* –
+  the workspace blob (`IncidentSettings` in `src/lib/workspace.ts`: `contactIntervalMin`,
+  `contactGraceSec`, `defaultFunkkanal`, each defaulting from `doctrine`). Overrides already
+  written there keep applying as the layer above doctrine, but no surface offers new ones; add
+  here only when the value must genuinely differ *per Einsatz* and be identical on every device.
+- **One deployment = one station** (**single-tenant**, no multi-tenancy). Edit a station's
+  config as code: `cd backend && uv run python -m app.admin_config
+  <schema|example|validate|diff|load>` (§9b); it's served at `GET /api/config` and applied at
+  boot to override `appConfig` defaults. Integration credentials are read through
+  `app.credentials.get(name)`, never off `settings` (`backend/app/credentials.py`, §6).
+- **Reference geodata, object plans, and checklists are station data, never bundled.**
+  Hydrants/Leitungskataster/canton-WMS layers, Modul PDFs, and the FU/EL checklist templates +
+  playbook diagrams don't live in this repo – they're loaded into a deployment from a *private
+  data repo* via `admin_geodata` / `admin_objects` / `admin_checklists` (each a
+  `schema|example|validate|load|push|show` CLI keyed off `KP_ADMIN_SECRET`; they share their
+  flags, refusals and push session with `admin_config`/`admin_branding` via `app/admin_cli.py`;
+  §9). The frontend turns config geodata into map layers (`referenceLayersFromConfig` →
+  `deriveInitial`); missing object plans fall back only to OSM outlines + `Tafel`, never bundled
+  `/public` PDFs (§3c); checklist templates are fetched from the `checklists:<id>` reference
+  datasets, falling back to one neutral bundled example – never a station's real lists (§9f).
+  The Tafel's board templates ride the same pipeline (`admin_board_templates`, `tafel:<id>`);
+  their bundled FKS set is public FKS material, and a station set REPLACES it rather than joining
+  it ([`board-templates.md`](board-templates.md)). GeoJSON must be WGS84 `[lng,lat]` (LV95 is
+  rejected, §3b).
+- **Coordinates are WGS84 `[lng, lat]` wherever the map renders.** LV95 only at the edges via
+  `src/lib/geo.ts` (`wgs84ToLV95` / `lv95ToWgs84` / `fmtLV95`), the `centerLv95` config option,
+  and the geocoder bbox.
 
 ---
 
@@ -1379,7 +1423,7 @@ and locks the field – see the rule above).
 | `MAX_UPLOAD_MB` | request-body cap for multipart uploads (default 110 – must stay above the media endpoint's 100 MB per-file cap) |
 | `REQUIRE_PLAN_DIGEST` | make `PUT /api/objects/{id}/plans/{module}` **refuse an automated publish** (admin secret, no logged-in user – i.e. `admin_objects push`) that does not declare the SHA-256 of the bytes it carries. A declared digest is verified everywhere, always; this only decides whether one is *mandatory*, and only for machines – a person uploading a PDF in the admin UI is never affected. Unset = auto: on for the public demo (`DEMO_RESET_CRON`/`DEMO_RESET_SECONDS`), off for a station, so an older `admin_objects` keeps working. ⚠️ It is a **wrong-tree** guard, and deliberately server-side: the `sha256` pin in `objects.manifest.json` cannot catch a stale checkout, because such a checkout brings a stale manifest *and* a stale CLI. Turning it on means a publisher too old to name its own bytes is refused – which is precisely the publisher you do not want |
 | `GEOCODER_URL` | address-autocomplete endpoint (default the swisstopo SearchServer – see the caveat below) |
-| `GEOCODER_DEFAULT_LOCALITY` | locality appended to a bare street address typed without a postal code, so «Hauptstrasse 12» resolves in this brigade's own village rather than the first Hauptstrasse in the country. **The fallback only**: a station normally sets `map.geocoder.defaultLocality` in the config document ([§4](#4-the-fields)) and that wins – this matters on a deployment with no config document yet (`app/geocode.py` · `_resolve_bias`). Empty = unbiased national search |
+| `GEOCODER_DEFAULT_LOCALITY` | locality appended to a bare street address typed without a postal code, so «Hauptstrasse 12» resolves in this brigade's own village rather than the first Hauptstrasse in the country. **The fallback only**: a station normally sets `map.geocoder.defaultLocality` in the config document ([§1](#1-deployment-config-the-json-the-deployment-owner-edits)) and that wins – this matters on a deployment with no config document yet (`app/geocode.py` · `_resolve_bias`). Empty = unbiased national search |
 | `REPORT_TILE_HOSTS` | extra tile hosts the **server** may fetch a basemap from while it renders the Kroki into the Einsatzrapport, comma-separated. The three providers the app itself offers are built in (`app/kroki.py` · `_TILE_PROVIDER_HOSTS`); this is the escape hatch for a station running its own tile server, and a Kroki naming any other host renders without a basemap instead. ⚠️ Env only on purpose: the tile template arrives in a caller's request body, so who may add a destination has to be whoever runs the deployment, not whoever is logged in |
 | `PUSH_EXTRA_HOSTS` | extra Web-Push service hosts the alarm sender may deliver to, comma-separated, matched as host suffixes. The four major browser push services are built in (`app/push.py` · `_PUSH_SERVICE_HOSTS`); a subscription naming anything else is refused. ⚠️ Env only for the same reason as `REPORT_TILE_HOSTS` – the endpoint arrives in a caller's request body (security audit SEC-09) |
 | `OVERPASS_MIRRORS` | comma-separated https Overpass endpoints behind the «Umrisse» building-outline surface, raced fastest-first. **Privacy-relevant:** the query is a bounding box around the incident, so it leaves the station – and the shipped third mirror is hosted in Russia. Called by the backend, never the browser (`app/overpass.py`), so this one variable is the whole control. Override with your own Overpass to keep it in-house, or set it **empty to switch the surface off**. ⚠️ Empty means off, not "use the default" – so `.env.example` ships the line commented out rather than blank ([`PRIVACY.md`](../PRIVACY.md)) |
@@ -2105,9 +2149,6 @@ happen.
 ---
 
 ## 10. Out of scope for this doc
-- **Device preferences** (theme day/night/auto, symbol size) – per-device cookie, not synced.
-- **Per-incident settings** (`IncidentSettings`: `contactIntervalMin`, `contactGraceSec`,
-  `defaultFunkkanal`) – live in the workspace blob, default from `doctrine` above. Since
-  commit `99c4348` these three are no longer editable in-app (the Einstellungen sheet lost
-  them – station doctrine under the finger of an unknowing operator at 3am); `/admin` ›
-  Doktrin is the only place to set them. Overrides already stored in a workspace keep applying.
+- **Device preferences** and **per-incident settings** (`IncidentSettings`) – neither is part of
+  the deployment config; where each lives, and why the three doctrine values are set only at
+  `/admin` › Doktrin since commit `99c4348`: [§0a](#0a-for-developers--where-a-setting-lives-station-data-coordinates).

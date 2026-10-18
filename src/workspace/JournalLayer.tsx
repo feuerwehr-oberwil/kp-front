@@ -14,6 +14,7 @@ import { type IncidentMeta, uploadMedia } from '../lib/incidents'
 import type { JournalLink } from '../lib/journalLinks'
 import type { PhotoPlacement } from '../lib/photoGeo'
 import { toast } from '../lib/ui'
+import { JOURNAL_SAVED_KIND } from './useJournalWriters'
 import type { useAuditEvents } from '../lib/useAuditEvents'
 import type { useJournal } from '../lib/useJournal'
 import type { useMediaQueue } from '../lib/useMediaQueue'
@@ -135,7 +136,7 @@ export function JournalLayer({
           // playhead — appended like every enrichment, never edited in place
           onAddSection={!readOnly ? (atSec, text) => {
             journal.appendPatch(player.row.id, { transcriptSection: { at: atSec, text } })
-            toast(appConfig.copy.journal.saved, { icon: 'type', tone: 'success' })
+            toast(appConfig.copy.journal.saved, { icon: 'type', tone: 'success', kind: JOURNAL_SAVED_KIND })
           } : undefined}
           // fixing a section replaces its words in place ('' removes it) — the recording is
           // the original, so no «korrigiert» mark and no new Verlauf line

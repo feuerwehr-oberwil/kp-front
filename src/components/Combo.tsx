@@ -52,11 +52,6 @@ export function Combo({ value, options, groups, placeholder, searchPlaceholder, 
   /** cap the RENDERED rows (search still counts every match) — for a corpus like the full ADR
    *  substance list, where the un-searched menu would otherwise be two thousand <li>. */
   limit?: number
-  /** ⚠️ No-op since the Gast door (07.09.): the bare-input escape it streamed keystrokes for is
-   *  gone — a custom value is typed in the menu's search row and committed ONCE via the
-   *  «‹X› verwenden» row, so `onChange` already carries the whole name. Kept so existing call
-   *  sites keep compiling; remove alongside them. */
-  onInput?: (v: string) => void
   onChange: (v: string) => void
 }) {
   const [combo, { rootRef, pickRef, menuRef }] = useComboMenu(openTick)

@@ -37,6 +37,17 @@ def test_the_demo_tafel_has_its_pages_next_to_the_gebaeude_chip() -> None:
     assert NOW - timedelta(minutes=dr.DEMO_ELAPSED_MIN) < ats[0] < ats[1] < NOW
 
 
+def test_the_demo_opens_its_tafel_on_the_filled_erste_fuehrung() -> None:
+    """On the demo, a device that has not picked a Tafel page yet opens the FIRST page in the
+    strip (lib/tafelPages · fallback, Whiteboard · isDemoMode) instead of the Skizze, which the
+    scene leaves empty. So the first page by `at` must be the one with the story on it."""
+    ws = _built()
+    assert not [a for a in ws["board"]["tafel"] if a.get("kind") != "form"], "the Skizze is empty in the scene"
+    first = min(_pages(ws), key=lambda p: p["form"]["at"])
+    assert first["form"]["page"]["id"] == "ef"
+    assert len(first["form"]["values"]) >= 3, "the page the demo opens on must be filled in"
+
+
 def test_every_written_value_lands_in_a_box_the_page_has() -> None:
     """⚠️ Values are keyed by ids of the page's own snapshot. A key the snapshot does not have is
     not an error anywhere — the value is simply never drawn, and the demo quietly shows a gap."""

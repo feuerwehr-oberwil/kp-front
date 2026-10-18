@@ -28,7 +28,61 @@ named for that invocation, with a separate database per xdist worker. Parallel w
 not create/drop a shared `kpfront_test_gwN`. The parent test database is removed on exit; the
 test fixtures own worker cleanup. Development data is never the test target.
 
+## Tests, ratchets and holds
+
+Moved here from AGENTS.md on 2026-10-18, wording unchanged.
+
+**Tests** are Vitest (node env), colocated as `*.test.ts`, focused on pure `src/lib` logic
+(plus a few components); the backend uses pytest. Pre-commit covers backend Ruff and staged
+frontend ESLint, not the full gate. `just ci` also runs the coverage floor, the bundle budget,
+audits, licenses and `just schema-check` (a throwaway Postgres migrated to head, then `alembic
+check` against the models); image, secrets, e2e, visual and perf stay CI's.
+
+- **Ratchets only go down.** The eslint warnings per rule (`scripts/eslint-baseline.json`; `pnpm
+  lint` fails when a rule's count goes up, or down without `pnpm lint:update`), the style-debt
+  baseline (`src/styles/styleDebt.baseline.json`,
+  [`ui-conventions.md`](../ui-conventions.md#tokens-the-cascade-and-the-scales)) and the vitest
+  coverage floor are lowered (the floor raised) when you fix something and never moved the other
+  way to pass. The gzipped entry, App, maplibre, pdf-worker and CSS chunks have a +5 % budget
+  against `scripts/bundle-baseline.json` (`scripts/check-bundle-size.mjs`, CI); a deliberate
+  growth is an `--update` in its own commit, with the reason.
+- **`jsdom` is held on 30.0.x** (`~30.0.1`, Dependabot ignores 30.1): 30.1's blob URLs cannot
+  read the Node `Blob` Vitest supplies, so maplibre-gl 4.7 fails at import and MapView, mapTwist
+  and the IncidentWorkspace harness stop loading. Lift it with a jsdom past 30.1 or MapLibre 6
+  (#193) – never by mocking MapLibre away in those tests.
+- **CLI subprocess tests run outside `backend/`**: pydantic reads `.env` from the cwd, so a
+  station's `backend/.env` would leak into them (`tests/test_admin_cli_output.py` · `_run`).
+- **e2e** runs on the production image in CI ([`e2e/README.md`](../../e2e/README.md)). ⚠️
+  **Every e2e test fails when the app reports a client error or a render storm** (`e2e/guard.ts`,
+  24.09.2026). A spec imports `test` from `e2e/helpers`, never from `@playwright/test` (eslint
+  enforces it). A report a test provokes on purpose is listed with `expectedClientErrors`;
+  nothing turns the guard off.
+- **The look is gated too.** CI's «Visual» job shoots nine frozen states and compares them with
+  `e2e/visual/baseline/` (`maxDiffPixels: 20`). A changed pixel you did not mean is a regression;
+  a look you changed on purpose gets new baselines from CI (`just visual-accept <run-id>`) in its
+  own commit, saying why – never to turn the check green, never shot on a laptop
+  ([`visual-regression.md`](visual-regression.md)).
+- **Performance is gated too.** CI's «Performance» job walks real user journeys on the busiest
+  Einsatz on record and fails on regressions against `e2e/perf/baseline.json`; a red check
+  blocks the merge like a failing test, and a baseline is never accepted (nor a tolerance
+  loosened) to turn it green. The rules for an agent are in
+  [`perf-journeys.md`](perf-journeys.md#the-gate-is-part-of-done); read it before adding or
+  changing a journey.
+- **Large / long incidents and performance** are measured, not guessed:
+  [`fat-incident.md`](fat-incident.md), [`perf-journeys.md`](perf-journeys.md).
+- **Field crash reports** are one `kpfront.clienterror` log line; hidden sourcemaps turn their
+  stacks back into source ([`SOURCEMAPS.md`](../SOURCEMAPS.md)).
+- For interactive changes a unit test can't cover, use `/code-review` on the diff and `/verify`
+  to drive the real app.
+
 ## What runs in GitHub
+
+**Verification before prod (the CI gate).** Prod deploys from `main`, so a red `main` reaches
+the field: develop on a branch, push, let `ci.yml` go **fully green**, *then* merge – never merge
+a red branch. **The gate is server-enforced:** branch protection on `main` requires the seven
+checks below to pass before a merge – *Performance (user journeys vs baseline)* since
+13.10.2026. `enforce_admins` is **off** on purpose, so a 3am hotfix can still bypass it – that is
+the only intended bypass, not a routine one.
 
 The required checks retain their names, so branch protection needs no migration:
 
@@ -36,7 +90,7 @@ The required checks retain their names, so branch protection needs no migration:
 | --- | --- |
 | Frontend (tsc + build) | Requires both static/build checks and the complete coverage run; they start in parallel. |
 | Backend (ruff + alembic + pytest) | Locked Python install, real PostgreSQL, migrations/schema check, four-worker pytest and audits. |
-| Image (hadolint + build + smoke) | Requires the image build and all three isolated browser suites. |
+| Image (hadolint + build + smoke) | Requires the image build and all three isolated browser suites. Builds the real production image once, then drives every e2e spec against it except the journeys and screenshots – among them the white-screen smoke (`e2e/smoke.spec.ts`) and the field scenario of the Übung on 23.09.2026 (`e2e/field-scenario.spec.ts`: a parked vehicle sending GPS, a coupled Leitung, a tapped Trupp, and then three devices on one login). |
 | Visual (screenshots vs baseline) | Loads that run's image into its own stack; unchanged screenshot thresholds. |
 | Performance (user journeys vs baseline) | Loads that run's image into its own stack; unchanged journeys, calibration, confirmation and budgets. |
 | Secrets (gitleaks) | Scans the tracked tree. |
