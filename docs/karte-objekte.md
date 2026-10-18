@@ -502,6 +502,12 @@ The rules that are easy to break:
 - **Alarms** reach the viewer through the Meldeleiste and the same two banners as the
   Objektbesuche; nothing switches by itself. A running Einsatz is the red chip in the bar (a strip
   under it on a phone); a tap opens it.
+- **«Update verfügbar»** (review round 7, owner: no word of a new version on the new home): the
+  viewer mounts the Einsatz's own `UpdateBanner`, so a waiting build is the same calm row in the
+  same strip — «Jetzt aktualisieren» everywhere but iOS, «App schliessen & neu öffnen» there,
+  dismissible, back for the next deploy — and the one-shot «Aktualisiert – v…» toast follows an
+  update reload that lands here. A covered Einsatz behind the viewer paints no update row of its
+  own, and `consumeJustUpdated` is one-shot app-wide, so neither is ever said twice.
 
 ## Object colours (`map.objectCategories`)
 

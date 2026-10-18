@@ -90,6 +90,9 @@ import { KarteNavRail, KarteSurface } from './KartePlans'
 import { KarteDevice } from './KarteDevice'
 import { useMapCoverage, useObjectAvailability } from './useKarteOffline'
 import { NoBasemapMeldung } from '../NoBasemapMeldung'
+import { UpdateBanner } from '../UpdateBanner'
+import { consumeJustUpdated } from '../../lib/swUpdate'
+import { buildLabel } from '../../lib/buildInfo'
 import { planKey, tileRing, type TileXY } from '../../lib/karte/availability'
 import s from './Karte.module.css'
 
@@ -380,6 +383,13 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     announced.current = true
     if (announceReturn && start.view?.label) toast(fillTemplate(C.backAt, { where: start.view.label }), { icon: 'check' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  // …and the one-shot «Aktualisiert – v…» after an update reload, the Einsatz's toast
+  // (IncidentWorkspace): the Karte is home now, so an update that lands with no Einsatz open
+  // reloads into HERE (review round 7). consumeJustUpdated is one-shot app-wide, so a covered
+  // Einsatz behind the Karte can never say it a second time.
+  useEffect(() => {
+    if (consumeJustUpdated()) toast(fillTemplate(appConfig.copy.update.updated, { v: buildLabel() }), { icon: 'check', tone: 'success' })
   }, [])
 
   // ── the menu button («FWO ▾», review round 5 — it was «Einsätze ▾»): the app menu as a sheet ──
@@ -1248,6 +1258,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           <NoBasemapMeldung sub={C.basemapSub} actionLabel={C.basemapAction}
             onOpenOffline={() => { setNoBasemap(false); setDeviceOpen(true) }} onDismiss={() => setNoBasemap(false)} />
         )}
+        {/* «Neue Version bereit» — the Einsatz's own row (UpdateBanner), in the same strip: the Karte
+            is home with no Einsatz open, and a covered Einsatz behind it paints no rows of its own
+            but the alarms (review round 7) */}
+        <UpdateBanner />
         {deviceOpen && (
           <KarteDevice offline={!online} objects={objects} map={coverage === 'far' ? 'far' : coverage ? { held: coverage.held, total: coverage.total } : null} onClose={() => setDeviceOpen(false)} />
         )}
