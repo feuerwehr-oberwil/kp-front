@@ -418,6 +418,26 @@ The rules that are easy to break:
     the page at its ends (`overscroll-behavior: none`). The search sheet stands at its full
     height from the first frame (`KarteKeySheet · fill`), so a result list that grows or shrinks
     under the typing never moves the field. The iOS page lock above stays.
+  - **Round 5** (owner, 18.10.2026: «Scrolling in the search input still messes up things and
+    doesnt work (gefahrgut scroll works though)» — the whole sheet/page moves instead of the list,
+    worse with the keyboard up). Three causes found, each now fixed for both sheets:
+    · the search field took its caret back with Safari's own focus, which scrolls the page to the
+    field — Gefahrgut's never did (`noPanTouchEnd`, now on the search field too; the caret lands at
+    the end of the query);
+    · the page lock judged every touchmove on its own, so a first move a pixel sideways read as
+    «sideways, nothing scrolls that way» and was cancelled — on iOS that kills the list's scroll
+    for the whole touch. It now shares the modal lock's one-decision-per-touch gate
+    (`overlays/useMobileScrollLock · touchGate`), and a first move with no vertical part passes
+    over a list with room either way;
+    · when iOS panned the page anyway, the sheet's cap was measured from the layout's top, so its
+    top — the field — slid up under the bar by the whole pan. `keySheetBox` takes the pan off the
+    cap: the field keeps its place on the screen and the sheet's foot stays on the keys.
+    Check: `node e2e/karte-search-scroll.mjs <stack>` (WebKit, iPhone 13; synthetic touches and a
+    keyboard stand-in — what it models and what it cannot is in its head), Gefahrgut as the green
+    reference. **On the iPhone**: `/karte?debug=scroll` (sticky for the tab, `?debug=off` ends it)
+    lays a live readout over the top bar — the visual viewport and iOS's pan, the sheet's and the
+    field's top on the screen, the list's scroll, and per touchmove passed / cancelled / not
+    cancelable (`KarteScrollDebug`, a diagnostic to remove once the owner's capture is in).
   - No «AutoFill Contact»: both fields come from one helper (`lib/typingField`) — a `search-…`
     name (Safari offers no contact AutoFill on a search), autocomplete / autocorrect /
     autocapitalise / spell check off, `enterKeyHint`, numeric for the UN field, and their label /

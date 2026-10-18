@@ -112,6 +112,10 @@ describe('touchMayScroll', () => {
     expect(at('both', -1, [row, bodyAtTop])).toBe(true)
     expect(at('both', -1, [bodyAtTop])).toBe(false)
   })
+  it('passes an undecided first move with no vertical part over a list with room (round 5, the Karte search)', () => {
+    expect(at('both', 0, [bodyAtTop])).toBe(true)
+    expect(at('both', 0, [box({ overflowY: 'auto', maxY: 0 })])).toBe(false)
+  })
 })
 
 describe('mobile modal scrolling · one decision per touch (10.10.2026)', () => {

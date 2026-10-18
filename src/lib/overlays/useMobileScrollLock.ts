@@ -70,15 +70,18 @@ export function touchMayScroll({ axis, dy, ignored, inModal, chain }: {
   if (!inModal) return false
   const scrolls = (overflow: string) => /(auto|scroll)/.test(overflow)
   const x = () => chain.some((b) => scrolls(b.overflowX) && b.maxX > 0)
+  // no vertical travel yet (a first move a pixel sideways, review round 5): room EITHER way will do
+  // — the direction is judged on the next move, and cancelling this one would kill the pan
   const y = () => chain.some((b) => scrolls(b.overflowY) && b.maxY > 0
-    && ((dy < 0 && b.top > 0) || (dy > 0 && b.top < b.maxY)))
+    && (dy === 0 ? b.top > 0 || b.top < b.maxY : (dy < 0 && b.top > 0) || (dy > 0 && b.top < b.maxY)))
   return axis === 'x' ? x() : axis === 'y' ? y() : x() || y()
 }
 
 /** The pickers portal beside the dialog, so they share its scrolling allowance. */
 const MODAL = '[role="dialog"], [role="menu"], [role="listbox"], .combo-menu'
 
-function scrollChain(from: Element): ScrollBox[] {
+/** The start target and its ancestors up to <body>, innermost first, as the lock reads them. */
+export function scrollChain(from: Element): ScrollBox[] {
   const chain: ScrollBox[] = []
   let node: Element | null = from
   while (node && node !== document.body) {
@@ -92,30 +95,31 @@ function scrollChain(from: Element): ScrollBox[] {
   return chain
 }
 
-/** Trap touch scrolling in the open sheet and its portalled pickers, without making them inert. */
-export function useMobileScrollLock(open: boolean) {
-  const phone = useIsPhone()
-  useEffect(() => {
-    if (!open || !phone) return
-    // the touch in progress — reset on every touchstart
-    let x0 = 0, y0 = 0, lastY = 0, target: Element | null = null, ignored = false, inModal = false
-    let locked: 'x' | 'y' | null = null
-    const start = (e: TouchEvent) => {
+/** ONE touch, judged over its whole travel (the head of this file): `start` on touchstart with
+ *  what the touch started in, then `blocks` on every touchmove says whether that move must be
+ *  cancelled. Shared by this lock and the Karte's typing lock (lib/iosKeyboard · useTypingLock,
+ *  review round 5: it judged each move on its own and killed a list scroll whose first move was a
+ *  pixel sideways). */
+export function touchGate() {
+  let x0 = 0, y0 = 0, lastY = 0, target: Element | null = null, ignored = false, inModal = false
+  let locked: 'x' | 'y' | null = null
+  return {
+    start(e: TouchEvent, where: { ignored: boolean; inModal: boolean }) {
       x0 = e.touches[0]?.clientX ?? 0
       y0 = lastY = e.touches[0]?.clientY ?? 0
       target = e.target instanceof Element ? e.target : null
-      ignored = !!target?.closest('[data-swipe-ignore]')
-      inModal = !!target?.closest(MODAL)
+      ignored = where.ignored
+      inModal = where.inModal
       locked = null
-    }
-    const move = (e: TouchEvent) => {
+    },
+    blocks(e: TouchEvent): boolean {
       const touch = e.touches[0]
-      if (!touch || e.touches.length !== 1 || ignored) return
+      if (!touch || e.touches.length !== 1 || ignored) return false
       const dx = x0 - touch.clientX, dy = y0 - touch.clientY
       const step = lastY - touch.clientY
       lastY = touch.clientY
       const axis = touchAxis(dx, dy)
-      if (!locked && !axis) return
+      if (!locked && !axis) return false
       // a tie at the slop stays undecided — it locks on the first move that has a dominant axis
       if (!locked && axis !== 'both' && axis && Math.max(Math.abs(dx), Math.abs(dy)) >= AXIS_SLOP_PX) locked = axis
       // the AXIS comes from the whole travel; once it is locked, the vertical DIRECTION is this
@@ -123,8 +127,22 @@ export function useMobileScrollLock(open: boolean) {
       // same touch), falling back to the total when the move has no vertical part
       const along = locked === 'y' && step !== 0 ? step : dy
       const chain = inModal && target ? scrollChain(target) : []
-      if (!touchMayScroll({ axis: locked ?? 'both', dy: along, ignored, inModal, chain }) && e.cancelable) e.preventDefault()
+      return !touchMayScroll({ axis: locked ?? 'both', dy: along, ignored, inModal, chain })
+    },
+  }
+}
+
+/** Trap touch scrolling in the open sheet and its portalled pickers, without making them inert. */
+export function useMobileScrollLock(open: boolean) {
+  const phone = useIsPhone()
+  useEffect(() => {
+    if (!open || !phone) return
+    const gate = touchGate()
+    const start = (e: TouchEvent) => {
+      const target = e.target instanceof Element ? e.target : null
+      gate.start(e, { ignored: !!target?.closest('[data-swipe-ignore]'), inModal: !!target?.closest(MODAL) })
     }
+    const move = (e: TouchEvent) => { if (gate.blocks(e) && e.cancelable) e.preventDefault() }
     document.addEventListener('touchstart', start, { passive: true })
     document.addEventListener('touchmove', move, { passive: false })
     return () => {
