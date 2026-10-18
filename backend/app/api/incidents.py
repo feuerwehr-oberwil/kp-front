@@ -708,7 +708,12 @@ async def put_workspace_record(
     # not re-reject unchanged legacy fields (same reasoning as the trupps slice above).
     scoped = WorkspacePut.model_construct(workspace=new_ws, base_rev=body.base_rev)
     saved = await apply_workspace_put(
-        db, incident_id, scoped, user_id=user.id, source="el" if user.role == "el" else "client", inc=inc,
+        db,
+        incident_id,
+        scoped,
+        user_id=user.id,
+        source="el" if user.role == "el" else "client",
+        inc=inc,
         writer=writer,
     )
     # Only the revision goes back — the caller sent a slice and reads nothing but the rev.
