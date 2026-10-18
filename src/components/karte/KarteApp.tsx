@@ -85,7 +85,6 @@ import { KartePanel, type PanelSel, type RegisterState, type VisitsState } from 
 import { KarteSearch, type AddrState } from './KarteSearch'
 import { KarteGefahrgut } from './KarteGefahrgut'
 import { KarteKeySheet } from './KarteKeySheet'
-import { KarteScrollDebug } from './KarteScrollDebug'
 import { KarteNavRail, KarteSurface } from './KartePlans'
 import { KarteDevice } from './KarteDevice'
 import { useMapCoverage, useObjectAvailability } from './useKarteOffline'
@@ -1265,8 +1264,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         {deviceOpen && (
           <KarteDevice offline={!online} objects={objects} map={coverage === 'far' ? 'far' : coverage ? { held: coverage.held, total: coverage.total } : null} onClose={() => setDeviceOpen(false)} />
         )}
-        {/* `?debug=scroll`: the owner's iPhone capture of the search scrolling (review round 5) */}
-        <KarteScrollDebug />
       </div>
     </>
   )

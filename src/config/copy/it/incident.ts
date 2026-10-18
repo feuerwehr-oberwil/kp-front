@@ -37,8 +37,6 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     logoutUnsyncedMany: '{n} voci non sono ancora state trasmesse. Restano su questo dispositivo e saranno inviate appena accedi di nuovo.',
     logoutUnsyncedChanges: 'Alcune modifiche non sono ancora state trasmesse. Restano su questo dispositivo e saranno inviate appena accedi di nuovo.',
     appVersion: 'Versione app (build)',
-    debugOn: 'Diagnostica attiva',
-    debugOff: 'Diagnostica disattiva',
 
     startedRow: '{t} · {d}',
     startedFull: 'Inizio dell\'intervento {t} · {d}',

@@ -6,11 +6,6 @@ import { render, screen, cleanup, fireEvent, within } from '@testing-library/rea
 import { AppMenuRows, type AppMenuAlarms } from './AppMenuRows'
 import { appConfig } from '../../config/appConfig'
 import type { DiveraAlarm, IncidentMeta } from '../../lib/incidents'
-import { buildLabel } from '../../lib/buildInfo'
-import { scrollDebugOn } from '../../lib/scrollDebug'
-
-const toast = vi.hoisted(() => vi.fn())
-vi.mock('../../lib/ui', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../lib/ui')>()), toast }))
 
 afterEach(cleanup)
 
@@ -119,24 +114,5 @@ describe('AppMenuRows · alarms to take', () => {
   it('an alarm alone is not «nothing open»', () => {
     const { container } = renderHome({ alarms: alarms() })
     expect(within(container).queryByText(cs.noOpenIncidents)).toBeNull()
-  })
-})
-
-describe('AppMenuRows · the build line', () => {
-  // review round 8: the installed app has no address bar for `?debug=scroll`
-  it('five quick taps switch the Karte\'s scroll readout on and off, and say so', () => {
-    localStorage.clear()
-    toast.mockClear()
-    renderHome()
-    const line = screen.getByText(buildLabel())
-    for (let i = 0; i < 4; i++) fireEvent.click(line)
-    expect(scrollDebugOn()).toBe(false)
-    expect(toast).not.toHaveBeenCalled()
-    fireEvent.click(line)
-    expect(scrollDebugOn()).toBe(true)
-    expect(toast).toHaveBeenLastCalledWith(cs.debugOn, expect.anything())
-    for (let i = 0; i < 5; i++) fireEvent.click(line)
-    expect(scrollDebugOn()).toBe(false)
-    expect(toast).toHaveBeenLastCalledWith(cs.debugOff, expect.anything())
   })
 })
