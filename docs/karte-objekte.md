@@ -234,6 +234,14 @@ The rules that are easy to break:
   map) stays a dot. Outlines draw from z15 as before.
 - **No key boxes on the map** (owner, round 3): no FKS «Schlüsseldepot» symbol, kicker, note or
   mark. The objects once drawn that way are objects like any other — outline, dot, tag, colour.
+- **A turn let go just off north lands on north** (owner, review round 6, 18.10.2026: «add a small
+  snap to north too like other places»). Two fingers (past the twist gate's 12°) or the mouse's
+  right-drag that come to rest within `NORTH_SNAP_DEG` (5°) of north ease onto exactly north in
+  200 ms; further out the map stays turned and the compass's «Nach Norden» is the way back. The
+  Karte and the Einsatz alike — it lives in `MapView` (`lib/mapTwist · createNorthSnap`). Never
+  mid-gesture, never for the keyboard or a programmatic bearing. MapLibre's own `bearingSnap`
+  (7°, a fixed 1 s ease nobody read as a snap) is off, so this is the one rule. Check on a running
+  stack: `e2e/karte-north-snap.mjs`.
 - **«In der Nähe» is distance only**, and the panel says so in a sentence.
 - **The panel, in one order** (owner, 17.10.2026 · review round 2), the same for an object on
   the phone and on the tablet: head (kind, name, address, ✕) · the station's word

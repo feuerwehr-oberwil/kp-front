@@ -8,7 +8,7 @@ import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, L
 import { appConfig } from '../config/appConfig'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { motionDuration } from '../lib/reducedMotion'
-import { gateTouchRotation } from '../lib/mapTwist'
+import { createNorthSnap, gateTouchRotation, NORTH_SNAP_MS } from '../lib/mapTwist'
 import { Icon } from '../lib/icons'
 import { isDemoMode } from '../lib/deploymentConfig'
 import { LockChip } from './LockChip'
@@ -464,6 +464,8 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // "facing south" keeps facing south when you spin the map). Streamed on every rotate frame.
   const [bearing, setBearing] = useState(initialBearing)
   const mapInst = useRef<MlMap | null>(null)
+  // a hand turn that comes to rest just off north settles on it (lib/mapTwist · createNorthSnap)
+  const [northSnap] = useState(createNorthSnap)
   // The live map transform + pan switch every dragging layer works against (MapMarkers and both
   // twin layers). Stable identities, so the memoised twin layer is not rebuilt on every render
   // just because its props are fresh lambdas.
@@ -1992,6 +1994,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         setTimeout(() => { try { m.resize() } catch { /* map gone */ } }, 400)
       }}
       onMoveEnd={(e) => {
+        // a hand turn resting within NORTH_SNAP_DEG of north settles on it (its own ease carries
+        // no originalEvent, so its moveend lands here as an ordinary settle and never re-snaps)
+        if (mapInst.current) northSnap.moveEnd(mapInst.current, e.originalEvent, motionDuration(NORTH_SNAP_MS))
         setZoom(e.viewState.zoom); setBearing(e.viewState.bearing); setLiveBearing(e.viewState.bearing); bumpLabelFrame((n) => n + 1)
         viewRef.current = { center: [e.viewState.longitude, e.viewState.latitude], zoom: e.viewState.zoom, bearing: e.viewState.bearing }
         onView({ bearing: e.viewState.bearing, center: [e.viewState.longitude, e.viewState.latitude], zoom: e.viewState.zoom })
@@ -2004,6 +2009,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // needle are the exceptions – they turn WITH the finger, through their own store
       // (lib/liveBearing), which re-renders only the two glyphs.
       onRotate={(e) => { setBearing(e.viewState.bearing); setLiveBearing(e.viewState.bearing) }}
+      onRotateStart={(e) => northSnap.rotateStart(e.originalEvent)}
       // MapLibre says a genuine pan began. That (a) opens the pan gesture the trailing click is
       // measured against (see panGesture), (b) peeks the phone detail sheet down for as long as
       // the map moves — the same shrink a dragged object already gets (lib/sheetPeek), for the
@@ -2032,10 +2038,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // one would cost the desktop operator the tap right after a zoom.
       onZoomStart={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) { beginPanGesture(); beginSheetPeek() } }}
       onZoomEnd={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) { endPanGesture(); endSheetPeek() } }}
-      // ⚠️ No north-snap on release any more (24.09.2026): the 6° self-heal only ever existed for
-      // the rotation a two-finger pan/pinch leaked in, and the twist gate (lib/mapTwist, installed
-      // in onLoad) no longer lets one leak. A turn the map does make is a deliberate twist and
-      // stays — the compass's «Nach Norden» is the way back, as in Google Maps.
+      // North-snap on release (18.10.2026, owner): a turn by HAND (fingers or the mouse's
+      // right-drag) that comes to rest within NORTH_SNAP_DEG (5°) of north settles on exactly
+      // north in a short ease (onRotateStart + onMoveEnd above, lib/mapTwist · createNorthSnap);
+      // a clear turn further stays, and «Nach Norden» is the way back. Not the old 6° self-heal
+      // (removed 24.09.2026) – that healed a twist a pan/pinch leaked in, which the twist gate
+      // now prevents; this one helps a deliberate turn LAND on north. Never mid-gesture, never
+      // for the keyboard or a programmatic bearing (compass, saved view, a plan's alignment).
       // ⚠️ A press that begins on a CROSS never starts a placement gesture: the cross's own
       // handlers (pick / drag) own it, but their native events still bubble to this container —
       // without the filter, clicking a pending cross also dropped a stray point underneath it.
@@ -2071,6 +2080,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       cursor={picking || georefTurn ? 'crosshair' : 'default'}
       attributionControl={false}
       maxPitch={0}
+      // ⚠️ MapLibre's OWN north-snap off: its default `bearingSnap: 7` eased back over a fixed 1 s
+      // (so slowly nobody read it as a snap) and sat unseen under «no north-snap» from 24.09. to
+      // 18.10.2026. The one rule is lib/mapTwist · createNorthSnap (5°, short ease).
+      bearingSnap={0}
       // 21 (14.09., one more step than the tiles have) for the Einsatz: precise symbol placement
       // beats a soft base there (owner on #383). The raster SOURCES keep their own native `maxzoom`
       // (MapLayers), so past it MapLibre stretches the last tile level. The Karte asks for the
