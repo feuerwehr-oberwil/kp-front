@@ -1,0 +1,70 @@
+name: Upstream APIs (daily)
+
+# Calls the real outside services the app reads (MeteoSwiss radar + station readings,
+# Open-Meteo) and checks they are still shaped the way our parsers expect – backend/tests_live.
+# The PR suite mocks every one of them, so it cannot notice a change on their side: MeteoSwiss
+# renamed its radar files on 13.10.2026 and the Karte showed no radar for five days.
+#
+# Never gates a merge (a flaky outside service must not block one). A red run opens the
+# `upstream-apis` issue, or comments on the open one; the next green run closes it.
+
+on:
+  schedule:
+    - cron: "17 6 * * *" # 06:17 UTC, daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  live:
+    name: Upstream APIs (live)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Sync dependencies (incl. dev)
+        run: uv sync --locked --extra dev
+
+      - name: Live API checks
+        run: uv run pytest -q tests_live
+
+      - name: Open or update the issue
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          body="An outside API no longer looks the way the app expects ([run]($RUN_URL)). The failing test names the service; the app shows that data as missing until the parser follows."
+          open=$(gh issue list --label upstream-apis --state open --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "Still red: $RUN_URL"
+          else
+            gh label create upstream-apis --color d93f0b --description "Daily live check of outside APIs" 2>/dev/null || true
+            gh issue create --title "Upstream API check is failing" --label upstream-apis --body "$body"
+          fi
+
+      - name: Close the issue when green
+        if: success() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          for n in $(gh issue list --label upstream-apis --state open --json number --jq '.[].number'); do
+            gh issue close "$n" --comment "Green again: $RUN_URL"
+          done
