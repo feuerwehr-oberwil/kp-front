@@ -330,8 +330,9 @@ sequenceDiagram
   API->>DB: append IncidentEvent (hash-chained)
   API->>DB: store workspace + workspace_rev++
   API-->>A: 200 (new rev)
-  B->>API: GET workspace?since=rev
+  B->>API: GET workspace?since=rev&wait=1&writer=B (long poll)
   API-->>B: 200 newer blob – or 304 unchanged
+  Note over A,API: A's own poll, woken by A's save: 304 + X-Workspace-Rev (only A's saves since)
   Note over API,DB: /api/incidents/{id}/verify re-walks the chain (tamper check)
 ```
 

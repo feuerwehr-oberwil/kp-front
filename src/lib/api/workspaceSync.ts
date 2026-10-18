@@ -15,6 +15,7 @@ import { idbDel, idbGet, idbKeys, idbRead, idbSet, type IdbRead } from '../idb'
 import { serverNow } from '../serverClock'
 import { withTileEviction } from '../tileEvict'
 import { jsonEqual } from '../jsonEqual'
+import { newId } from '../ids'
 import { mergeWorkspace, type RecordConflict } from '../mergeWorkspace'
 import { truppRenumberings, type NumberScope, type TruppRenumbering } from '../truppNumbers'
 import {
@@ -281,6 +282,13 @@ export class WorkspaceSync {
    *  remount), so an auto-merged conflict surfaces the other device's edits smoothly. Falls
    *  back to onServerWorkspace (a remount) when unset. */
   onApplyMerged?: (ws: Workspace, rev: number) => void
+  /** This engine's id on every save it makes and on its live follow (api/workspace ·
+   *  pollWorkspaceSince): the server answers a range of revisions that is nothing but this
+   *  engine's own saves without the blob, instead of handing back what was just sent.
+   *  Per ENGINE, not per login or tab: one login runs on three tablets, and only the engine whose
+   *  state holds a save may call it its own. ⚠️ A collision would make another device's save
+   *  look like this one's — so newId's family plus 8 more random characters (~10¹² apart). */
+  readonly writerId = `${newId('ws')}${Math.random().toString(36).slice(2, 10).padEnd(8, '0')}`
   /** Registered by the live view to reflect the sync lifecycle in the UI (status badge).
    *  Set after construction (like onApplyMerged); read the initial value via `syncStatus`. */
   onStatus?: (status: SyncStatus) => void
@@ -883,11 +891,11 @@ export class WorkspaceSync {
    *  Both callers set `entry.base` to the server's copy at `baseRev` before they push, so an
    *  editor's save that changed only Trupps goes the slice route as well (onlyTruppsChanged). */
   private async push(workspace: Workspace, baseRev: number) {
-    if (this.opts.slice === 'trupps') return putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev, this.editedAtIso())
-    if (this.opts.slice === 'record') return putWorkspaceRecord(this.incidentId, recordSlice(workspace), baseRev)
+    if (this.opts.slice === 'trupps') return putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev, this.editedAtIso(), this.writerId)
+    if (this.opts.slice === 'record') return putWorkspaceRecord(this.incidentId, recordSlice(workspace), baseRev, this.writerId)
     if (onlyTruppsChanged(this.entry.base, workspace)) {
       try {
-        return await putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev, this.editedAtIso())
+        return await putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev, this.editedAtIso(), this.writerId)
       } catch (e) {
         // ⚠️ The slice validates EVERY Trupp it is sent; the full save keeps an unchanged legacy
         // row it would refuse (backend alarm_validation · retained rows). A 422 here may be one
@@ -895,7 +903,7 @@ export class WorkspaceSync {
         if (!(e instanceof ApiError && e.status === 422)) throw e
       }
     }
-    return putWorkspace(this.incidentId, workspace, baseRev, this.editedAtIso())
+    return putWorkspace(this.incidentId, workspace, baseRev, this.editedAtIso(), this.writerId)
   }
 
   /** `edited_at` for a push — when the newest edit in it was made (CacheEntry.editedAt) */
@@ -1091,7 +1099,7 @@ export class WorkspaceSync {
       const changed = RECORD_SLICE_KEYS.some((k) => JSON.stringify(record[k]) !== JSON.stringify(base[k]))
       if (changed) {
         try {
-          const { workspace_rev } = await putWorkspaceRecord(this.incidentId, record, baseRev)
+          const { workspace_rev } = await putWorkspaceRecord(this.incidentId, record, baseRev, this.writerId)
           landed = { workspace: { ...base, ...record }, rev: workspace_rev }
         } catch { /* parked whole — the export and a reopen still carry it */ }
         if (this.disposed) return true

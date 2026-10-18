@@ -56,6 +56,15 @@ async function open(page: Page, baseURL: string, name: string, { viaKiosk = fals
  *  would read that as «no saves») */
 const isSave = (x: { method: string; path: string }) => x.method === 'PUT' && /\/workspace(\/(trupps|record))?$/.test(x.path)
 
+/** what the live follow DOWNLOADED: the workspace reads that carried the blob. On a walk with one
+ *  device every one of them is this device's own save coming back — which the follow no longer
+ *  fetches since 18.10.2026 (the poll's `writer=`, answered 304 + X-Workspace-Rev). */
+function recordFollowPulls(r: Results, reqs: { method: string; path: string; bytes: number }[]) {
+  const pulls = reqs.filter((x) => x.method === 'GET' && /\/workspace$/.test(x.path) && x.bytes > 0)
+  r.set('workspace_pulls', pulls.length, 'count')
+  r.set('workspace_pull_kb', pulls.reduce((a, x) => a + x.bytes, 0) / 1024, 'kb')
+}
+
 const railButton = (page: Page, label: string) => page.locator('nav.navrail').getByRole('button', { name: label, exact: true })
 
 /** the surface is on: the app is in its mode and its rail button is the pressed one (Gebäude and
@@ -276,6 +285,7 @@ test('karte & tafel: draw ten Linien, drop ten Absperrkreise', async ({ page, ba
   // per save, not in total: how many saves twenty edits make depends on the debounce's timing,
   // what one save weighs does not (it grows with the blob — or with a field that should not be in it)
   j.r.set('kb_per_save', saves.length ? saves.reduce((a, x) => a + x.upBytes, 0) / 1024 / saves.length : 0, 'kb')
+  recordFollowPulls(j.r, reqs)
   recordNetwork(j.r, '', reqs)
   j.r.save({ routes: routeTally(reqs) })
 })
@@ -387,6 +397,7 @@ test('trupps: three rounds of Funkkontakt for every Trupp inside', async ({ page
   j.r.set('saves', saves.length, 'count')
   // what one Funkkontakt puts on the wire: a Trupp-only save goes the trupp slice route (18.10.2026)
   j.r.set('kb_per_save', saves.length ? saves.reduce((a, x) => a + x.upBytes, 0) / 1024 / saves.length : 0, 'kb')
+  recordFollowPulls(j.r, reqs)
   recordNetwork(j.r, '', reqs)
   j.r.save({ routes: routeTally(reqs), contacts: taps.length })
 })
