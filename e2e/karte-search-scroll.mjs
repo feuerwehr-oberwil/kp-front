@@ -39,6 +39,14 @@
 // In that frame the sheet stands where the owner's round-7 video has it before the drag (top ~92,
 // foot on the keys at 431). `KARTE_FRAMES=app` runs one frame only.
 //
+// THE COLLAPSE (review round 9, the owner's readout in the installed app): once a finger touches
+// the page with the keyboard up, iOS shrinks `innerHeight` to the visual viewport (793 → 424) and
+// scrolls the window by the rest (`scrollY` and `visualViewport.offsetTop` 369), while the
+// document and the frame `position: fixed` is laid out in stay 793 tall (`doc 793/793`). The
+// stand-in does the same (`collapse`: innerHeight and scrollY report it, the layout stays 793) and
+// the app frame checks that the sheet stays on the keys with its field in sight — with iOS keeping
+// the scroll, and after a `scrollTo(0, 0)` it does honour.
+//
 // Exit code 1 and «RED» lines when a check fails.
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -50,26 +58,40 @@ const PIN = process.env.E2E_PIN ?? '000000'
 // the two frames (head of this file); `kb` = the German keyboard with its bar, px of the view
 const FRAMES = {
   tab: { viewport: { width: 390, height: 844 }, screen: { width: 390, height: 844 }, kb: 336, standalone: false },
-  app: { viewport: { width: 393, height: 793 }, screen: { width: 393, height: 852 }, kb: 362, standalone: true, safe: { top: 0, bottom: 34 } },
+  // `collapse`: the owner's readout after the touch (review round 9) — vv h 424 of 793, pan 369
+  app: { viewport: { width: 393, height: 793 }, screen: { width: 393, height: 852 }, kb: 362, standalone: true, safe: { top: 0, bottom: 34 }, collapse: { kb: 369, pan: 369 } },
 }
 let KEYBOARD = 336
 
 // the keyboard stand-in, installed before the app reads `visualViewport`
 function fakeKeyboard() {
   const real = window.visualViewport
-  const st = { kb: 0, pan: 0, ignoreScrollTo: false }
+  // `collapse` (review round 9): the installed app's innerHeight shrinks to the visual viewport and
+  // the window reports iOS's scroll — the layout (and with it `position: fixed`) stays full height
+  const st = { kb: 0, pan: 0, ignoreScrollTo: false, collapse: false }
+  const own = (k) => Object.getOwnPropertyDescriptor(window, k) ?? Object.getOwnPropertyDescriptor(Window.prototype, k)
+  const realInner = own('innerHeight').get.bind(window)
+  const realScrollY = own('scrollY').get.bind(window)
   const vv = new EventTarget()
   for (const [k, get] of Object.entries({
-    height: () => window.innerHeight - st.kb, width: () => window.innerWidth, offsetTop: () => st.pan, offsetLeft: () => 0,
+    height: () => realInner() - st.kb, width: () => window.innerWidth, offsetTop: () => st.pan, offsetLeft: () => 0,
     pageTop: () => st.pan, pageLeft: () => 0, scale: () => 1,
   })) Object.defineProperty(vv, k, { get })
   Object.defineProperty(window, 'visualViewport', { get: () => vv })
+  Object.defineProperty(window, 'innerHeight', { get: () => (st.collapse ? realInner() - st.kb : realInner()), configurable: true })
+  for (const k of ['scrollY', 'pageYOffset']) Object.defineProperty(window, k, { get: () => (st.collapse ? st.pan : realScrollY()), configurable: true })
   const scrollTo = window.scrollTo.bind(window)
   window.scrollTo = (...a) => {
-    if (!st.ignoreScrollTo && st.pan) { st.pan = 0; vv.dispatchEvent(new Event('scroll')) }
+    if (!st.ignoreScrollTo && st.pan) { st.pan = 0; vv.dispatchEvent(new Event('scroll')); window.dispatchEvent(new Event('scroll')) }
     return scrollTo(...a)
   }
-  window.__kb = (patch) => { Object.assign(st, patch); vv.dispatchEvent(new Event('resize')); vv.dispatchEvent(new Event('scroll')) }
+  window.__kb = (patch) => {
+    const resized = 'collapse' in patch && patch.collapse !== st.collapse
+    Object.assign(st, patch)
+    vv.dispatchEvent(new Event('resize')); vv.dispatchEvent(new Event('scroll'))
+    if (resized) window.dispatchEvent(new Event('resize'))
+    if (st.collapse) window.dispatchEvent(new Event('scroll'))
+  }
   void real
 }
 
@@ -195,7 +217,7 @@ const JITTER_DOWN = [[1, 0], [1, 2], [0, 8], [0, 16], [0, 20], [0, 20]] // the s
 const HANDLE = [[0, 6], [0, 12], [0, 16], [0, 16]] // a short pull on the grab bar: the sheet follows, then springs back
 const HANDLE_CLOSE = [[0, 10], [0, 30], [0, 40], [0, 40], [0, 40]] // a long one closes it
 
-async function sheetChecks(name, open) {
+async function sheetChecks(name, open, frame) {
   await open()
   await frames(page, 6)
   // still DURING the drag too (review round 7: the sheet followed the finger and sprang back)
@@ -280,7 +302,8 @@ async function sheetChecks(name, open) {
   await frames(page, 6)
   const t1 = await page.evaluate(drag, [])
   check(`${name} · keyboard · iOS pans the page by 90px: field + sheet top stay on the screen`, t0.before.field === t1.before.field && t0.before.sheet === t1.before.sheet, { before: t0.before, panned: t1.before })
-  await page.evaluate(() => window.__kb({ kb: 0, pan: 0, ignoreScrollTo: false }))
+  if (frame.collapse) await collapseChecks(name, frame.collapse)
+  await page.evaluate(() => window.__kb({ kb: 0, pan: 0, ignoreScrollTo: false, collapse: false }))
   await page.locator('[data-karte-keysheet] input').evaluate((el) => el.blur())
   await frames(page, 6)
   // a long pull on the grab bar closes the sheet (the only drag that may)
@@ -291,6 +314,37 @@ async function sheetChecks(name, open) {
     await page.locator('[data-karte-keysheet] .lc-x').click()
     await page.locator('[data-karte-keysheet]').waitFor({ state: 'detached' })
   }
+}
+
+/** The installed app's collapse with the keyboard up (review round 9, the owner's readout — head
+ *  of this file): the sheet keeps its keyboard placement, its foot on the keys and its top and field
+ *  under the bar ON THE SCREEN, both while iOS keeps the window scrolled and after a scrollTo(0, 0)
+ *  it honours; a pull on a row in that state moves nothing. On the base the placement went off and
+ *  the search sheet stood for a 793-px screen in a window scrolled by 369 — its field above the screen. */
+async function collapseChecks(name, { kb, pan }) {
+  const at = () => page.evaluate(() => {
+    const vv = window.visualViewport
+    const sheet = document.querySelector('[data-karte-keysheet]')
+    const sh = sheet.getBoundingClientRect()
+    const screen = (y) => Math.round(y - vv.offsetTop)
+    return { kb: sheet.hasAttribute('data-kb'), inner: window.innerHeight, scrollY: window.scrollY, vvh: Math.round(vv.height), pan: Math.round(vv.offsetTop),
+      top: screen(sh.top), foot: screen(sh.bottom), field: screen(sheet.querySelector('input').getBoundingClientRect().top),
+      bar: screen(document.querySelector('.topbar').getBoundingClientRect().bottom) }
+  })
+  const placed = (b) => b.kb && Math.abs(b.foot - b.vvh) <= 1 && b.top >= b.bar && b.field >= b.bar && b.field < b.vvh
+  await page.evaluate(({ kb, pan }) => window.__kb({ kb, pan, collapse: true, ignoreScrollTo: true }), { kb, pan })
+  await frames(page, 6)
+  let b = await at()
+  console.log(`[DEBUG-pwa] ${name} · collapse · ${JSON.stringify(b)}`)
+  check(`${name} · collapse (innerHeight ${b.inner}, scrollY ${b.scrollY}): the sheet stays on the keys, its top and field under the bar on the screen`, placed(b), b)
+  await page.evaluate(() => { document.querySelector('[data-karte-keysheet] .lc-body').scrollTop = 0 })
+  const r = await page.evaluate(drag, OWNER)
+  check(`${name} · collapse · a pull down on a row (owner's capture): the sheet stays during and after`, r.before.sheet === r.after.sheet && r.during.sheetLowest === r.before.sheet && r.before.field === r.after.field && !r.handedOn, r)
+  // iOS honours a scrollTo(0, 0) again: the window back at the top, innerHeight still collapsed
+  await page.evaluate(() => { window.__kb({ ignoreScrollTo: false }); window.scrollTo(0, 0) })
+  await frames(page, 6)
+  b = await at()
+  check(`${name} · collapse, window back at 0: the sheet stays on the keys, top and field under the bar`, placed(b) && b.scrollY === 0, b)
 }
 
 for (const name of (process.env.KARTE_FRAMES ?? 'tab,app').split(',')) {
@@ -304,18 +358,18 @@ for (const name of (process.env.KARTE_FRAMES ?? 'tab,app').split(',')) {
   await sheetChecks(`${tag}Suche leer`, async () => {
     await page.locator('[data-karte-search-open]').click()
     await page.locator('[data-karte-keysheet] [role="option"]').first().waitFor()
-  })
+  }, frame)
   await sheetChecks(`${tag}Suche «strasse»`, async () => {
     await page.locator('[data-karte-search-open]').click()
     await page.locator('[data-karte-keysheet] input').fill('strasse')
     await page.locator('[data-karte-keysheet] [role="option"]').nth(6).waitFor()
-  })
+  }, frame)
   // the green reference: Gefahrgut with a long readout (1203, Benzin)
   await sheetChecks(`${tag}Gefahrgut 1203`, async () => {
     await page.locator('.nav-btn, button').filter({ hasText: /^Gefahrgut$/ }).last().click()
     await page.locator('#karte-un').fill('1203')
     await page.locator('[data-karte-keysheet] .lc-body').getByText(/Benzin|Gasoline|Essence|Benzina/i).first().waitFor()
-  })
+  }, frame)
   await ctx.close()
 }
 

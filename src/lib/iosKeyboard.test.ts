@@ -1,40 +1,73 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, renderHook } from '@testing-library/react'
-import { MIN_KEYBOARD_PX, focusWithoutPan, keySheetBox, keyboardTop, mayCorrect, useTypingLock } from './iosKeyboard'
+import { MIN_KEYBOARD_PX, focusWithoutPan, fullViewHeight, keySheetBox, keyboardTop, mayCorrect, useTypingLock } from './iosKeyboard'
 
 /* Review round 3 (owner's iPhone, 17.10.2026): the phone's field sheets stand on the keyboard by
  * their own measurement, and the page never moves while a field has the caret. */
 
 describe('keyboardTop — where the keys begin, in layout px', () => {
   it('is the visual viewport\'s bottom on iOS (the keyboard never shrinks innerHeight)', () => {
-    expect(keyboardTop({ innerHeight: 844, vvHeight: 377, vvOffsetTop: 0 })).toBe(377)
+    expect(keyboardTop({ viewHeight: 844, vvHeight: 377, vvOffsetTop: 0 })).toBe(377)
     // a pan iOS reports as offsetTop moves the band, not the keys' height
-    expect(keyboardTop({ innerHeight: 844, vvHeight: 377, vvOffsetTop: 60 })).toBe(437)
+    expect(keyboardTop({ viewHeight: 844, vvHeight: 377, vvOffsetTop: 60 })).toBe(437)
   })
   it('is null without a keyboard, for the address bar\'s few px, and on a pinch-zoomed page', () => {
-    expect(keyboardTop({ innerHeight: 844, vvHeight: 844, vvOffsetTop: 0 })).toBeNull()
-    expect(keyboardTop({ innerHeight: 844, vvHeight: 844 - MIN_KEYBOARD_PX + 1, vvOffsetTop: 0 })).toBeNull()
-    expect(keyboardTop({ innerHeight: 844, vvHeight: 300, vvOffsetTop: 0, scale: 2 })).toBeNull()
+    expect(keyboardTop({ viewHeight: 844, vvHeight: 844, vvOffsetTop: 0 })).toBeNull()
+    expect(keyboardTop({ viewHeight: 844, vvHeight: 844 - MIN_KEYBOARD_PX + 1, vvOffsetTop: 0 })).toBeNull()
+    expect(keyboardTop({ viewHeight: 844, vvHeight: 300, vvOffsetTop: 0, scale: 2 })).toBeNull()
   })
   it('takes Android\'s VirtualKeyboard height first (overlays-content: the viewport does not shrink)', () => {
-    expect(keyboardTop({ innerHeight: 800, vvHeight: 800, vvOffsetTop: 0, vkHeight: 300 })).toBe(500)
-    expect(keyboardTop({ innerHeight: 800, vvHeight: 800, vvOffsetTop: 0, vkHeight: 20 })).toBeNull()
+    expect(keyboardTop({ viewHeight: 800, vvHeight: 800, vvOffsetTop: 0, vkHeight: 300 })).toBe(500)
+    expect(keyboardTop({ viewHeight: 800, vvHeight: 800, vvOffsetTop: 0, vkHeight: 20 })).toBeNull()
   })
-  it('never reads past the layout viewport', () => {
-    expect(keyboardTop({ innerHeight: 844, vvHeight: 700, vvOffsetTop: 400 })).toBeNull()
+  it('never reads past the frame\'s foot', () => {
+    expect(keyboardTop({ viewHeight: 844, vvHeight: 700, vvOffsetTop: 400 })).toBe(844)
+  })
+})
+
+/* Review round 9, the owner's readout in the INSTALLED app (393×793 under the status bar): before
+ * the touch innerHeight 793, vv 424, pan 0; once the finger is down innerHeight 424, vv 424, pan
+ * and scrollY 369 — the document and the fixed frame still 793. */
+describe('the installed app\'s collapse (round 9)', () => {
+  const box = (kbTop: number | null, pan: number) => keySheetBox({ viewHeight: 793, kbTop, barBottom: 68, strip: 24, minHeight: 132, pan })
+  // the sheet's top on the screen: frame top (793 − bottom − height) less the pan
+  const top = (b: { bottom: number; maxHeight: number }, pan: number) => 793 - b.bottom - b.maxHeight - pan
+
+  it('read from the live innerHeight, the keyboard vanished — the sheet lost its placement', () => {
+    expect(keyboardTop({ viewHeight: 424, vvHeight: 424, vvOffsetTop: 369 })).toBeNull()
+  })
+  it('from the full height the keys stay up, before and after, and the sheet keeps its place on the screen', () => {
+    const before = keyboardTop({ viewHeight: 793, vvHeight: 424, vvOffsetTop: 0 })
+    const after = keyboardTop({ viewHeight: 793, vvHeight: 424, vvOffsetTop: 369 })
+    expect(before).toBe(424)
+    expect(after).toBe(793)
+    // the owner's readout before the touch: «sheet on 369px/332px», its top at 92 on the screen
+    expect(box(before, 0)).toEqual({ bottom: 369, maxHeight: 332 })
+    // after: its foot on the frame's foot — the keys' top edge on the screen — and the same top
+    expect(box(after, 369)).toEqual({ bottom: 0, maxHeight: 332 })
+    expect(top(box(after, 369)!, 369)).toBe(top(box(before, 0)!, 0))
+    expect(top(box(before, 0)!, 0)).toBe(92)
+  })
+  it('the full height is the larger of innerHeight and the root\'s client height', () => {
+    const inner = vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(424)
+    const client = vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(793)
+    expect(fullViewHeight()).toBe(793)
+    inner.mockReturnValue(844)
+    expect(fullViewHeight()).toBe(844)
+    inner.mockRestore(); client.mockRestore()
   })
 })
 
 describe('keySheetBox — the sheet ON the keys, under the top bar, a strip of map above it', () => {
-  const at = (kbTop: number | null) => keySheetBox({ innerHeight: 844, kbTop, barBottom: 114, strip: 24, minHeight: 132 })
+  const at = (kbTop: number | null) => keySheetBox({ viewHeight: 844, kbTop, barBottom: 114, strip: 24, minHeight: 132 })
   it('puts the sheet\'s foot on the keyboard\'s top edge and caps it at the room above', () => {
     // the owner's iPhone, numeric pad + accessory bar: 467 px of keyboard
     expect(at(377)).toEqual({ bottom: 467, maxHeight: 239 })
   })
   it('keeps the sheet\'s top where it was on the SCREEN when iOS pans the page anyway (round 5)', () => {
     // panned by 90: the keys' top edge is 90 lower in layout px, the bar rides down by 90 (--vv-pan)
-    const panned = keySheetBox({ innerHeight: 844, kbTop: 377 + 90, barBottom: 114, strip: 24, minHeight: 132, pan: 90 })
+    const panned = keySheetBox({ viewHeight: 844, kbTop: 377 + 90, barBottom: 114, strip: 24, minHeight: 132, pan: 90 })
     expect(panned).toEqual({ bottom: 467 - 90, maxHeight: 239 })
     // the top on the screen: layout top (innerHeight − bottom − height) less the pan — unchanged
     const top = (b: { bottom: number; maxHeight: number }, pan: number) => 844 - b.bottom - b.maxHeight - pan
@@ -128,6 +161,23 @@ describe('useTypingLock', () => {
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 120 })
     window.dispatchEvent(new Event('scroll'))
     vi.advanceTimersByTime(50)
+    expect(to).toHaveBeenCalledWith(0, 0)
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
+    vi.useRealTimers()
+  })
+
+  it('looks again after a touch with the caret up — the installed app\'s collapse scrolls and then fires nothing (round 9)', () => {
+    vi.useFakeTimers()
+    const to = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    const input = document.createElement('input')
+    document.body.append(input)
+    renderHook(() => useTypingLock(true))
+    input.focus()
+    vi.advanceTimersByTime(1000)
+    to.mockClear()
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 369 })
+    touch(input, 'touchend', 300)
+    vi.advanceTimersByTime(300)
     expect(to).toHaveBeenCalledWith(0, 0)
     Object.defineProperty(window, 'scrollY', { configurable: true, value: 0 })
     vi.useRealTimers()

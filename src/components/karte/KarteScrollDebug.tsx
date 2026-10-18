@@ -7,13 +7,16 @@
 // the device (localStorage).
 //
 // The first line says which app it is and its frame (round 8): `app` (standalone: home-screen
-// app) or `tab`, innerWidth×innerHeight, the document's client height, scroll height and scrollTop
+// app) or `tab`, innerWidth×innerHeight, the full height the keyboard placement measures from
+// (`ref`, lib/iosKeyboard · fullViewHeight, round 9), the document's client height, scroll height and scrollTop
 // (a document that can scroll is what iOS hands a drag on to), the screen's height and the
 // safe-area insets top/bottom as the CSS reads them.
 //
 // Lines: the visual viewport (height · offsetTop = iOS's pan · scale) against innerHeight and
 // window.scrollY; `data-kb` on the root and on the sheet with its --ks-bottom/--ks-max; the field's
-// and the sheet's top ON THE SCREEN (layout px less the pan) and the list's scrollTop/max; and the
+// and the sheet's top ON THE SCREEN (layout px less the pan) — and the sheet's raw rect top: in the
+// installed app's collapse (round 9) iOS's rects already include its window scroll, so «less the
+// pan» counted it twice (−516 where the frames show −147) — and the list's scrollTop/max; and the
 // last touch: where it started, and per touchmove «.» passed, «X» cancelled by a guard, «-» not
 // cancelable (iOS is already scrolling). Written to the DOM per frame, never a React render; it
 // takes no touches (pointer-events: none) and lies over the top bar, riding with it (--vv-pan).
@@ -33,6 +36,7 @@
 
 import { useEffect, useRef } from 'react'
 import { isStandalone } from '../../lib/installPrompt'
+import { fullViewHeight } from '../../lib/iosKeyboard'
 import { useScrollDebug } from '../../lib/scrollDebug'
 
 const r = (n: number | undefined) => (n == null ? '–' : String(Math.round(n)))
@@ -120,10 +124,10 @@ export function KarteScrollDebug() {
       const doc = document.scrollingElement ?? document.documentElement
       const inset = getComputedStyle(probe)
       el.textContent = [
-        `${app} ${window.innerWidth}×${window.innerHeight} · doc ${doc.clientHeight}/${doc.scrollHeight} top ${r(doc.scrollTop)} · screen ${window.screen?.height ?? '–'} · safe ${r(parseFloat(inset.paddingTop))}/${r(parseFloat(inset.paddingBottom))}`,
+        `${app} ${window.innerWidth}×${window.innerHeight} · ref ${fullViewHeight()} · doc ${doc.clientHeight}/${doc.scrollHeight} top ${r(doc.scrollTop)} · screen ${window.screen?.height ?? '–'} · safe ${r(parseFloat(inset.paddingTop))}/${r(parseFloat(inset.paddingBottom))}`,
         `vv h ${r(vv?.height)} pan ${r(pan)} ×${vv?.scale?.toFixed(2) ?? '–'} · inner ${window.innerHeight} · scrollY ${r(window.scrollY)}`,
         `kb root ${document.documentElement.hasAttribute('data-kb') ? 'on' : 'off'} · sheet ${sheet?.hasAttribute('data-kb') ? `on ${sheet.style.getPropertyValue('--ks-bottom')}/${sheet.style.getPropertyValue('--ks-max')}` : 'off'}`,
-        `screen top: sheet ${top(sheet)} field ${top(field)} · list ${list ? `${r(list.scrollTop)}/${r(list.scrollHeight - list.clientHeight)}` : '–'}`,
+        `screen top: sheet ${top(sheet)} (rect ${sheet ? r(sheet.getBoundingClientRect().top) : '–'}) field ${top(field)} · list ${list ? `${r(list.scrollTop)}/${r(list.scrollHeight - list.clientHeight)}` : '–'}`,
         `focus ${named(document.activeElement)}`,
         `touch ${touch.from} ${touch.moves}`,
         `Δ${moved.down ? '…' : ''} bar ${d(moved.bar)} sheet ${d(moved.sheet)} map ${d(moved.map)} · pan ${d(moved.pan)} scrollY ${d(moved.sy)} · inner ${d(moved.inner)} vv h ${d(moved.vvh)}`,

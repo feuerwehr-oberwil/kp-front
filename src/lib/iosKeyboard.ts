@@ -23,7 +23,9 @@
  *   2. UNDO ANY PAN THAT HAPPENS ANYWAY — `useTypingLock` answers a window scroll or a visual
  *      viewport offset with `window.scrollTo(0, 0)`: this page never scrolls (02-base · fixed
  *      body), so any scroll is iOS's. Rate-limited (`mayCorrect`), so a field that really is
- *      under the keys can never start a scroll / unscroll loop.
+ *      under the keys can never start a scroll / unscroll loop. The sheet's placement does not
+ *      depend on it: it is measured from the full height and the visual viewport (`keyboardTop`),
+ *      so a pan iOS keeps — the installed app's collapse, review round 9 — leaves it on the keys.
  *   3. NOTHING TO DRAG — while a field has the caret, a touchmove that no scroller under the finger
  *      can take is cancelled (`touchMayScroll`, overlays/useMobileScrollLock): the list in the
  *      sheet scrolls, the bar and the sheet's head do not move the page.
@@ -37,27 +39,44 @@ import { touchGate } from './overlays/useMobileScrollLock'
  *  (the address bar, a rounding step, the home indicator). */
 export const MIN_KEYBOARD_PX = 80
 
+/** The app's FULL height in layout px — the frame `position: fixed` is laid out in — which a
+ *  keyboard never shrinks: the larger of `innerHeight` and the root's client height (the initial
+ *  containing block). Review round 9, the owner's readout in the INSTALLED app: once a finger
+ *  touches the page with the keyboard up, iOS collapses `innerHeight` to the visual viewport
+ *  (793 → 424) and scrolls the window by the rest (369), while the document and the fixed frame
+ *  stay 793 tall (`documentElement.clientHeight` 793 throughout). A live `innerHeight` then reads
+ *  «no keyboard». Not the largest `innerHeight` seen (state, to reset on every rotation) and not
+ *  `screen.height` less the safe area (852 − 0 ≠ 793: under the opaque status bar the web view
+ *  starts 59 px down, which no inset reports). */
+export function fullViewHeight(): number {
+  return Math.max(window.innerHeight, document.documentElement.clientHeight)
+}
+
 /** Where the keyboard's top edge is, in layout (`position: fixed`) px from the top — or null when
  *  no keyboard is up. Pure: the hook feeds it the readings.
+ *  · `viewHeight`: the app's full height (`fullViewHeight`), never the live `innerHeight` alone —
+ *    the installed app collapses that to the visual viewport (review round 9);
  *  · `vkHeight`: Android's VirtualKeyboard API (index.html asks for `overlays-content`, so there the
  *    visual viewport does not shrink and this is the only true number);
- *  · otherwise the visual viewport's bottom, `offsetTop + height` — iOS's truth, the keyboard does
- *    not shrink `innerHeight`;
+ *  · otherwise a keyboard is up when the visual viewport is at least `MIN_KEYBOARD_PX` shorter than
+ *    the full height, and its top edge is the visual viewport's bottom, `offsetTop + height` — even
+ *    when iOS's pan (or the installed app's window scroll) has swallowed the whole keyboard and that
+ *    bottom is the frame's foot (round 9: 369 + 424 = 793 — the sheet stands at `bottom: 0`);
  *  · a pinch-zoomed page (`scale` ≠ 1) has no band in layout px worth placing a sheet on: null. */
-export function keyboardTop(r: { innerHeight: number; vvHeight: number; vvOffsetTop: number; scale?: number; vkHeight?: number }): number | null {
+export function keyboardTop(r: { viewHeight: number; vvHeight: number; vvOffsetTop: number; scale?: number; vkHeight?: number }): number | null {
   if (r.vkHeight && r.vkHeight > 0) {
-    const top = r.innerHeight - r.vkHeight
+    const top = r.viewHeight - r.vkHeight
     return r.vkHeight >= MIN_KEYBOARD_PX ? Math.max(0, Math.round(top)) : null
   }
   if (Math.abs((r.scale ?? 1) - 1) > 0.01) return null
-  const top = Math.min(r.innerHeight, Math.max(0, r.vvOffsetTop + r.vvHeight))
-  return r.innerHeight - top >= MIN_KEYBOARD_PX ? Math.round(top) : null
+  if (r.viewHeight - r.vvHeight < MIN_KEYBOARD_PX) return null
+  return Math.round(Math.min(r.viewHeight, Math.max(0, r.vvOffsetTop + r.vvHeight)))
 }
 
 /** The bottom sheet that holds the field, with the keyboard up: its foot ON the keyboard's top
- *  edge (`bottom`, px from the layout's foot) and at most as tall as the room between the top bar
- *  (`barBottom`) and the keys, less a strip of map kept in sight above it (`strip`) — never less
- *  than `minHeight`, so the field and a row stay usable on the smallest phone. The sheet keeps its
+ *  edge (`bottom`, px from the foot of the full-height frame, `viewHeight`) and at most as tall as
+ *  the room between the top bar (`barBottom`) and the keys, less a strip of map kept in sight above
+ *  it (`strip`) — never less than `minHeight`, so the field and a row stay usable on the smallest phone. The sheet keeps its
  *  own (Ebenen) height when that is lower: the CSS takes `min(its cap, maxHeight)`.
  *
  *  `pan` is how far iOS has moved the page anyway (`visualViewport.offsetTop`, layout px). The
@@ -67,9 +86,9 @@ export function keyboardTop(r: { innerHeight: number; vvHeight: number; vvOffset
  *  where the layout put it, i.e. slid up under the bar by the whole pan (review round 5, owner:
  *  «the whole sheet moves instead of the list»). Less the pan, the field keeps its place on the
  *  screen whatever iOS does, and iOS sees the caret where it was. */
-export function keySheetBox(r: { innerHeight: number; kbTop: number | null; barBottom: number; strip: number; minHeight: number; pan?: number }): { bottom: number; maxHeight: number } | null {
+export function keySheetBox(r: { viewHeight: number; kbTop: number | null; barBottom: number; strip: number; minHeight: number; pan?: number }): { bottom: number; maxHeight: number } | null {
   if (r.kbTop == null) return null
-  const bottom = Math.max(0, Math.round(r.innerHeight - r.kbTop))
+  const bottom = Math.max(0, Math.round(r.viewHeight - r.kbTop))
   const maxHeight = Math.max(r.minHeight, Math.round(r.kbTop - Math.max(0, r.pan ?? 0) - r.barBottom - r.strip))
   return { bottom, maxHeight }
 }
@@ -134,9 +153,12 @@ export function useTypingLock(enabled: boolean) {
     let frame = 0
     const soon = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; unpan() }) }
     // a focus moves the page a beat later (the keyboard's animation), and a dismissal can leave it
-    // moved with no event at all (iOS): look again after both
+    // moved with no event at all (iOS): look again after both — and after a touch with the caret
+    // up: the installed app's collapse (review round 9, `fullViewHeight`) scrolls the window by
+    // the keyboard during the touch, as fast as `mayCorrect` lets it be undone, then fires nothing
     let late: ReturnType<typeof setTimeout>[] = []
     const onFocus = () => { soon(); late.forEach(clearTimeout); late = [setTimeout(unpan, 250), setTimeout(unpan, 600)] }
+    const lifted = () => { if (typing()) onFocus() }
 
     // the drag: a touch that nothing under the finger can scroll does not move the page — judged
     // over the touch's whole travel (overlays/useMobileScrollLock · touchGate, review round 5): a
@@ -162,6 +184,7 @@ export function useTypingLock(enabled: boolean) {
     window.addEventListener('focusout', onFocus)
     document.addEventListener('touchstart', start, { passive: true })
     document.addEventListener('touchmove', move, { passive: false })
+    document.addEventListener('touchend', lifted, { passive: true })
     return () => {
       if (frame) cancelAnimationFrame(frame)
       late.forEach(clearTimeout)
@@ -172,6 +195,7 @@ export function useTypingLock(enabled: boolean) {
       window.removeEventListener('focusout', onFocus)
       document.removeEventListener('touchstart', start)
       document.removeEventListener('touchmove', move)
+      document.removeEventListener('touchend', lifted)
     }
   }, [enabled])
 }
@@ -196,13 +220,14 @@ export function useKeySheet(ref: RefObject<HTMLElement | null>, { bar = '.topbar
     const measure = () => {
       frame = 0
       const focused = el.contains(document.activeElement) && isTypingTarget(document.activeElement)
+      const viewHeight = fullViewHeight()
       const kbTop = !focused ? null : keyboardTop({
-        innerHeight: window.innerHeight, vvHeight: vv?.height ?? window.innerHeight, vvOffsetTop: vv?.offsetTop ?? 0,
+        viewHeight, vvHeight: vv?.height ?? viewHeight, vvOffsetTop: vv?.offsetTop ?? 0,
         scale: vv?.scale ?? 1, vkHeight: vk?.boundingRect?.height ?? 0,
       })
       // Android (VirtualKeyboard) does not pan under `overlays-content`; iOS's pan is the offset
       const pan = vk?.boundingRect?.height ? 0 : (vv?.offsetTop ?? 0)
-      const box = keySheetBox({ innerHeight: window.innerHeight, kbTop, barBottom: barBottomOf(bar), strip, minHeight, pan })
+      const box = keySheetBox({ viewHeight, kbTop, barBottom: barBottomOf(bar), strip, minHeight, pan })
       const key = box ? `${box.bottom}|${box.maxHeight}` : ''
       if (key === last) return
       last = key

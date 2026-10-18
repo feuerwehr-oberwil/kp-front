@@ -16,7 +16,7 @@ describe('KarteScrollDebug', () => {
     const pre = container.querySelector('[data-debug-scroll]')
     expect(pre).not.toBeNull()
     // the first line names the app (installed or tab) and its frame
-    expect(pre!.textContent).toMatch(/^(app|tab) \d+×\d+ · doc /)
+    expect(pre!.textContent).toMatch(/^(app|tab) \d+×\d+ · ref \d+ · doc /)
     act(() => setScrollDebug(false))
     expect(container.querySelector('[data-debug-scroll]')).toBeNull()
   })
