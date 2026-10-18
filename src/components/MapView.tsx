@@ -20,7 +20,7 @@ import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
-import { EMPTY_STYLE, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LABEL_STYLE, SYM_CAPTION_STYLE, SYM_CAPTION_GAP, READOUT_LABEL_STYLE, END_TAG_LABEL_STYLE } from '../lib/mapView'
+import { EMPTY_STYLE, mapMaxZoom, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LABEL_STYLE, SYM_CAPTION_STYLE, SYM_CAPTION_GAP, READOUT_LABEL_STYLE, END_TAG_LABEL_STYLE } from '../lib/mapView'
 import { dockSlots, dockRadiusFor, nearestDockHost } from '../lib/docking'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
@@ -422,6 +422,9 @@ interface Props {
   /** extra map content drawn last, inside the map (react-map-gl Markers): «Karte & Objekte» puts its
    *  object name tags here (components/karte). The Einsatz passes nothing. */
   children?: ReactNode
+  /** stop at the visible base map's last sharp zoom («Karte & Objekte», owner on #383) instead
+   *  of the map's own 21 (the Einsatz: precise placement) — lib/mapView · mapMaxZoom */
+  zoomCapAtBase?: boolean
   /** the quiet Einsatzort ring at `initialCenter` — off where the centre is no incident's place
    *  («Karte & Objekte»: just where the station view opens) */
   showOrigin?: boolean
@@ -440,7 +443,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onView, onBasemapUnavailable, onSettled, picking, onCursor, onPick, pickedPoint, placeMagnet = false, placeAnchor = null, freehand, onFreehand, drawColor, drawWidth, drawDashed, selectedDrawingId, flashDrawingId, onSelectDrawing, onUnlockDrawing, onUnlockShape, onDelete, measureLabels = [], measurePoints = NO_POINTS, measureKind = null, onMeasureDrag, onMeasureInsert, onMeasureDelete,
     selectedDrawing = null, onDrawingEdit, onDrawingVertexInsert, onDrawingVertexDelete, onDrawingRadius, onDrawingAttachment, onLabelMove,
     marqueeEnabled = false, selectedDrawIds = [], onMarquee, onGroupTransform, selectedEntityIds = [], circleEnabled = false, onCircle,
-    onSelectionDone, georefPlanRasters = [], weatherRadar = null, children, showOrigin = true } = props
+    onSelectionDone, georefPlanRasters = [], weatherRadar = null, children, showOrigin = true, zoomCapAtBase = false } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
   // per-team trail visibility (map-session, default all shown) — the eye in a selected
@@ -2068,12 +2071,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       cursor={picking || georefTurn ? 'crosshair' : 'default'}
       attributionControl={false}
       maxPitch={0}
-      // 21 (14.09., one more step than the tiles have): the raster SOURCES keep their own native
-      // `maxzoom` (MapLayers · the layer's `maxzoom` from the deployment config), so past it
-      // MapLibre stretches the last tile level instead of asking for tiles that do not exist.
-      // Symbols are pinned by symPx's band and a Form by shapePx's ceiling, so nothing outgrows
-      // the screen on the extra step.
-      maxZoom={21}
+      // 21 (14.09., one more step than the tiles have) for the Einsatz: precise symbol placement
+      // beats a soft base there (owner on #383). The raster SOURCES keep their own native `maxzoom`
+      // (MapLayers), so past it MapLibre stretches the last tile level. The Karte asks for the
+      // visible base's last SHARP level instead (`zoomCapAtBase`, lib/mapView · mapMaxZoom); a base
+      // that ends sooner (OSM) then clamps the view. Symbols are pinned by symPx's band and a Form
+      // by shapePx's ceiling, so nothing outgrows the screen on the extra step.
+      maxZoom={mapMaxZoom(layers.find((l) => l.base && isVisible(l.id)), zoomCapAtBase)}
       // Only the print/report instance needs its GL back-buffer preserved (it captures the canvas
       // via getCanvas().toDataURL() — see ReportPrintView / reportPdf). On the always-live field
       // map keeping the buffer around just raises the per-repaint GPU/memory cost for the whole

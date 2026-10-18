@@ -5,6 +5,8 @@
   can search client-side and keep for offline.
 * ``GET /api/reference/building?lat=&lng=`` — the Gebäude card's facts (app/building_facts,
   via api/building · fill_registers) for any point, without an incident.
+* ``GET /api/reference/underground`` — the region's underground buildings (app/underground), the
+  Ebenen row «Unterirdische Bauten».
 
 Who may come in: an ACCOUNT session (``editor``, ``el``, ``viewer``) and the deployment-admin
 session. Every incident link (alarm, view, Atemschutz, terminal) and the Erfassungs-Poster's
@@ -28,11 +30,11 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 import anyio
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import geocode, object_footprints, plan_tiles
+from .. import geocode, object_footprints, plan_tiles, underground
 from ..auth.dependencies import _admin_session_valid, get_current_user
 from ..auth.incident_link import link_page_owns_session, read_link_session
 from ..building_facts import _street_of
@@ -314,6 +316,27 @@ async def list_reference_objects(reader: StationReader, db: AsyncSession = Depen
     ``lastVisit`` only where the station runs Objektbesuche (or for the admin session)."""
     with_visits = reader is None or (await ov_config(db)).enabled
     return await reference_objects(db, with_visits=with_visits)
+
+
+# --- the region's underground buildings ---------------------------------------------------------
+
+
+@router.get(
+    "/underground",
+    response_class=Response,
+    responses={200: {"content": {"application/json": {}}, "description": "The stored set (app/underground)"}},
+)
+async def reference_underground(
+    reader: StationReader,
+    have: str | None = Query(default=None, max_length=64, description="The `fetchedAt` this device already holds"),
+) -> Response:
+    """«Unterirdische Bauten» — every underground building of the station's region as ONE GeoJSON
+    MultiPolygon (``{enabled, fetchedAt, count, geometry}``), as the scheduler last stored it
+    (app/underground); never asks the survey. ``enabled: false`` = switched off
+    (``UNDERGROUND_WFS=``); ``fetchedAt: null`` = not asked yet. A device that names the set it
+    holds (``?have=<fetchedAt>``) gets ``unchanged: true`` and no geometry."""
+    body = await anyio.to_thread.run_sync(underground.payload, have)
+    return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
 
 
 # --- the building at a point --------------------------------------------------------------------

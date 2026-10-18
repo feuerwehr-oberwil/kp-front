@@ -1297,6 +1297,14 @@ class ObjectCategoryConfig(BaseModel):
     match: ObjectCategoryMatch = Field(default_factory=ObjectCategoryMatch)
 
 
+class MapServiceArea(BaseModel):
+    """The brigade's Einsatzgebiet as its municipalities (BFS numbers), for what the backend reads
+    over the station's area (app/underground). Empty = the municipality at ``defaultView``."""
+
+    model_config = ConfigDict(extra="ignore")
+    municipalities: list[int] = Field(default_factory=list, max_length=50)
+
+
 class MapConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     defaultView: MapDefaultView = Field(default_factory=MapDefaultView)
@@ -1319,6 +1327,10 @@ class MapConfig(BaseModel):
     # not want it, or one outside CH that wants to say so). The Objekt's Sofortmassnahmen are the
     # station's own data and show either way.
     buildingRegister: bool | None = None
+    # The Einsatzgebiet (review round 4, 17.10.2026): the municipalities whose underground buildings
+    # «Unterirdische Bauten» draws, plus the surroundings of every station object. Unset = the
+    # municipality the station's map centre (`defaultView`) lies in.
+    serviceArea: MapServiceArea = Field(default_factory=MapServiceArea)
 
 
 class ReferenceLayerConfig(BaseModel):

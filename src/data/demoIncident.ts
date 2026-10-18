@@ -18,6 +18,8 @@ const at = (eastM: number, northM: number): LngLat => [
 const wmts = (l: string) => `https://wmts.geo.admin.ch/1.0.0/${l}/default/current/3857/{z}/{x}/{y}.jpeg`
 // Carto raster basemaps (a–d subdomains). Dark Matter is the night theme; it also serves as the
 // `nightTiles` swap for the light street bases so night mode shows a real dark map, not a dimmed one.
+// Written at 1× here; a retina screen gets CARTO's `@2x` tiles where the layers are derived
+// (lib/carto · withCartoRetina, via workspace · builtinAndConfigLayers).
 const carto = (style: string) => ['a', 'b', 'c', 'd'].map((s) => `https://${s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}.png`)
 const CARTO_DARK = carto('dark_all')
 
@@ -41,7 +43,9 @@ export const layers: LayerDef[] = [
   // selected falls back to Carto in deriveInitial (workspace.ts).
   { id: 'base-carto', group: 'Basis', label: 'Carto', icon: 'map', base: true, visible: true, opacity: 100, tiles: carto('rastertiles/voyager'), nightTiles: CARTO_DARK, maxzoom: 20, attribution: '© CARTO, © OpenStreetMap-Mitwirkende' },
   { id: 'base-osm', group: 'Basis', label: 'OpenStreetMap', shortLabel: 'OSM', icon: 'map', base: true, visible: false, opacity: 100, tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], maxzoom: 19, attribution: '© OpenStreetMap-Mitwirkende' },
-  { id: 'base-air', group: 'Basis', label: 'Satellit', icon: 'sat', base: true, visible: false, opacity: 100, tiles: [wmts('ch.swisstopo.swissimage')], maxzoom: 19, attribution: '© swisstopo' },
+  // swissimage has real z20 tiles (10 cm imagery; checked 17.10.2026, z21 answers 400): at 19
+  // the closest zoom stretched z19 four times over and the satellite was the blurriest base
+  { id: 'base-air', group: 'Basis', label: 'Satellit', icon: 'sat', base: true, visible: false, opacity: 100, tiles: [wmts('ch.swisstopo.swissimage')], maxzoom: 20, attribution: '© swisstopo' },
 
   // Operational layers: symbols → taktisch, vehicles → fahrzeuge, drawings/notes → markup.
   // Wind/Wetter is always shown via the TopBar's WeatherBadge (no toggle).

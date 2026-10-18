@@ -12,7 +12,7 @@
 
 const TILE_CACHE = 'map-tiles'
 /** How many tiles to drop per attempt. Big enough that one pass frees real space (≈ 15 MB at
- *  30 KB/tile), small enough that an operator who prefetched an area doesn't lose all of it. */
+ *  30 KB/tile, ≈ 45 MB of a retina screen's 2× tiles), small enough that an operator who prefetched an area doesn't lose all of it. */
 export const EVICT_BATCH = 500
 /** Minimum gap between two evictions. A burst of refused writes (every keystroke on a full
  *  device, before the cache write was debounced) used to cost one batch PER write — a 10-word

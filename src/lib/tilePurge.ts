@@ -26,12 +26,23 @@ export interface TilePurge {
   id: string
   /** the tile URLs this change made stale */
   match: RegExp
+  /** only on a device where this holds (asked again on every boot until it does) */
+  when?: (device: { retina: boolean }) => boolean
 }
 
 export const TILE_PURGES: readonly TilePurge[] = [
   // CARTO's GL-rendered Voyager / Dark Matter replaced the raster style under the same URLs
   // (seen 17.10.2026; the tiles measured on 20.09.2026 were still the old style)
   { id: 'carto-gl-2026-10', match: /^https:\/\/([a-d]\.)?basemaps\.cartocdn\.com\// },
+  // A retina screen asks CARTO for its 2× tiles now (lib/carto · withCartoRetina, review round 4:
+  // the blurry map). The 1× tiles it cached before sit under addresses the map never asks for
+  // again — up to the cache's 4000 entries of dead weight in the one origin quota the incident
+  // record shares — so they go. A 1× screen still uses them and keeps them.
+  {
+    id: 'carto-retina-2026-10',
+    match: /^https:\/\/([a-d]\.)?basemaps\.cartocdn\.com\/.*\/\d+\/\d+\/\d+\.png(?:$|[?#])/,
+    when: ({ retina }) => retina,
+  },
 ]
 
 const DONE_KEY = 'kp.tilePurges'
@@ -55,6 +66,8 @@ export async function purgeStaleTiles(env: {
   storage?: Pick<Storage, 'getItem' | 'setItem'> | null
   online?: boolean
   purges?: readonly TilePurge[]
+  /** the screen takes 2× tiles — lib/carto · wantsRetinaTiles, spelled out (boot path, above) */
+  retina?: boolean
 } = {}): Promise<number> {
   const store = env.caches !== undefined ? env.caches : typeof caches === 'undefined' ? null : caches
   let storage: Pick<Storage, 'getItem' | 'setItem'> | null
@@ -62,8 +75,9 @@ export async function purgeStaleTiles(env: {
   const online = env.online ?? (typeof navigator === 'undefined' || navigator.onLine !== false)
   const purges = env.purges ?? TILE_PURGES
   if (!store || !storage || !online) return 0
+  const retina = env.retina ?? (typeof window !== 'undefined' && (window.devicePixelRatio || 1) > 1)
   const done = readDone(storage)
-  const todo = purges.filter((p) => !done.has(p.id))
+  const todo = purges.filter((p) => !done.has(p.id) && (!p.when || p.when({ retina })))
   if (!todo.length) return 0
   let removed = 0
   try {

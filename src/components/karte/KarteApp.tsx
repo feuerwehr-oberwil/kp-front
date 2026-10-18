@@ -47,7 +47,7 @@ import { themeToken, uiBlue } from '../../lib/themeToken'
 import { toast } from '../../lib/ui'
 import { geocodeReverse, geocodeSearch, type GeoHit } from '../../lib/api/geo'
 import { getApprovedPlanAlignments, referenceUrl } from '../../lib/api/reference'
-import { loadStationBuilding, loadStationObjects, type StationObject, type StationObjects } from '../../lib/api/stationReference'
+import { loadStationBuilding, loadStationObjects, loadUnderground, undergroundRings, type StationObject, type StationObjects } from '../../lib/api/stationReference'
 import type { IncidentMeta } from '../../lib/api/incidents'
 import { listVisits } from '../../objectVisits/api'
 import { ovHref, navigateTo } from '../../objectVisits/route'
@@ -115,6 +115,11 @@ const SHEET_SHARE = 0.72
 const UNDER_DASH = [2, 1.5]
 /** an Ebenen row per object category (lib/karte/categories) */
 const CAT_ROW = 'karte:kategorie:'
+/** «Unterirdische Bauten» (owner, review round 4): every underground building and tunnel of the
+ *  Einsatzgebiet, from street zoom on — off by default and not part of «Standard» */
+const UNDERGROUND_ROW = 'karte:unterirdisch'
+const UNDERGROUND_LAYER = 'karte-unterirdisch' as LayerId
+const UNDERGROUND_MIN_ZOOM = 16
 
 export interface KarteAppProps {
   /** «Einsätze ▾»: the app menu as a sheet (App owns the rows and their handlers) and the badge
@@ -254,6 +259,19 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // ── layers: the deployment's, minus the Einsatz-only ones, with this device's own choices ──
   const [layers, setLayers] = useState<LayerDef[]>(() => viewerLayers(defaultLayers(), loadViewerLayerPrefs()))
   const [objectsOn, setObjectsOn] = useState(true)
+  // ── «Unterirdische Bauten»: asked the first time the row goes on, then kept for the visit ──────
+  const [underOn, setUnderOn] = useState(false)
+  const [under, setUnder] = useState<{ state: 'loading' | 'ok' | 'none'; rings: LngLat[][] } | null>(null)
+  const toggleUnder = () => {
+    const next = !underOn
+    setUnderOn(next)
+    // a «none» is asked again the next time the row goes on (the scheduler may have asked meanwhile)
+    if (!next || (under && under.state !== 'none')) return
+    setUnder({ state: 'loading', rings: [] })
+    loadUnderground()
+      .then((set) => { const rings = undergroundRings(set); setUnder({ state: rings.length ? 'ok' : 'none', rings }) })
+      .catch(() => setUnder({ state: 'none', rings: [] }))
+  }
   const updateLayers = (fn: (ls: LayerDef[]) => LayerDef[]) => setLayers((ls) => { const next = fn(ls); saveViewerLayerPrefs(next); return next })
   const weather = useKarteWeather(true, karteRadarStore)
   const liveWeather = useWeather(view.center)
@@ -609,6 +627,14 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // ── the map's content ─────────────────────────────────────────────────────────────────────
   const red = themeToken('--red', appConfig.ergRings.isolationColor)
   const hatchInk = themeToken('--ink-faint', '#6c7686')
+  // the underground buildings: dashed like an object's own garage, but in the neutral ink (never an
+  // object's red or a category colour) and only an outline. ONE overlay object for as long as the
+  // set and the theme stay, so MapLayers never re-sends ~15 000 rings on a re-render.
+  const underInk = themeToken('--ink-dim', '#4d586a')
+  const underRings = under?.rings
+  const underOverlay = useMemo<PreparedMapOverlay | null>(() => (underRings?.length
+    ? { id: 'karte-underground', kind: 'polygons', layer: UNDERGROUND_LAYER, rings: underRings, color: underInk, fillOpacity: 0, lineWidth: 1.4, lineOpacity: 0.9, lineDasharray: UNDER_DASH, minzoom: UNDERGROUND_MIN_ZOOM }
+    : null), [underRings, underInk])
   const overlays = useMemo<PreparedMapOverlay[]>(() => {
     const out: PreparedMapOverlay[] = []
     // one overlay per colour: the default red first, then each category in the config's order
@@ -634,6 +660,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     // the building's outline — found again once its cell has loaded (a searched address flies first)
     const bRing = sel?.kind === 'building' ? sel.ring ?? ringAt(ringsNear(sel.at), sel.at) : null
     if (bRing) out.push({ id: 'karte-building', kind: 'polygons', layer: ALWAYS_LAYER, rings: [bRing], color: uiBlue(), fillOpacity: 0.16, lineWidth: 2.5, lineOpacity: 1 })
+    // the Einsatzgebiet's underground structures: under every object (an object's own dashed garage keeps
+    // its colour on top), only while the row is on
+    if (underOn && underOverlay) out.unshift(underOverlay)
     // offline: hatch the tiles with no base map behind them; under every other overlay (first in)
     if (uncached.length) out.unshift({ id: 'karte-uncached', kind: 'polygons', layer: UNCACHED_LAYER, rings: uncached.map(tileRing), color: hatchInk, hatch: true, fillOpacity: 0.55, lineWidth: 0, lineOpacity: 0 })
     if (tool === 'erg' && erg.un && erg.center) {
@@ -648,7 +677,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       }
     }
     return out
-  }, [outlines, selObj, sel, tool, erg, red, ringsNear, uncached, hatchInk, cats, catOff])
+  }, [outlines, selObj, sel, tool, erg, red, ringsNear, uncached, hatchInk, cats, catOff, underOn, underOverlay])
   const tagZoom = view.zoom >= LABEL_MIN_ZOOM
   // Messen / Punkt setzen / Gefahrgut's centre take every tap, on an object too (owner, review
   // round 4 — lib/karte/camera · toolTakesTaps): its dot and tag let the finger through to the map
@@ -656,9 +685,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const entities = liveVehicles
   const isVisible = useCallback((id: LayerId) => {
     if (id === OBJECTS_LAYER) return objectsOn
+    if (id === UNDERGROUND_LAYER) return underOn
     if (id === ALWAYS_LAYER || id === UNCACHED_LAYER) return true
     return layers.find((l) => l.id === id)?.visible ?? true
-  }, [layers, objectsOn])
+  }, [layers, objectsOn, underOn])
 
   // ── taps ──────────────────────────────────────────────────────────────────────────────────
   // ⚠️ No long press drops a pin (owner, review round 3, 17.10.2026: «I can't delete nodes when
@@ -723,6 +753,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // ── Ebenen ────────────────────────────────────────────────────────────────────────────────
   const toggleLayer = (id: string) => {
     if (id === OBJECTS_ROW) { setObjectsOn((v) => !v); return }
+    if (id === UNDERGROUND_ROW) { toggleUnder(); return }
     if (id.startsWith(CAT_ROW)) {
       const cat = id.slice(CAT_ROW.length)
       setHiddenCats((h) => { const next = new Set(h); if (!next.delete(cat)) next.add(cat); return next })
@@ -751,6 +782,13 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       id: `${CAT_ROW}${c.id}`, group: C.layerGroupStation, label: c.label,
       sub: fillTemplate(C.layerCategorySub, { n: catCount.get(c.id) ?? 0 }), icon: 'footprint', swatch: c.color, visible: !hiddenCats.has(c.id),
     })),
+    {
+      id: UNDERGROUND_ROW, group: C.layerGroupStation, label: C.layerUnderground, icon: 'footprint', visible: underOn, standard: false,
+      sub: !underOn || !under ? C.layerUndergroundSub
+        : under.state === 'loading' ? C.layerUndergroundLoading
+          : under.state === 'none' ? C.layerUndergroundNone
+            : fillTemplate(C.layerUndergroundCount, { n: under.rings.length.toLocaleString(getLocaleId()) }),
+    },
     ...(georefPlan && selObj ? [{
       id: GEOREF_ROW, group: C.layerGroupPlans, label: fillTemplate(C.layerPlan, { code: georefPlan.code, name: selObj.name }),
       sub: C.layerPlanSub, icon: 'doc', visible: georefOn, opacity: georefOpacity,
@@ -760,7 +798,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // «Alle ein» / «Alle aus» / «Standard» (lib/karte/layerPresets): the viewer's own layers, and
   // every station row (Stationsobjekte, …) as a layer — never the aligned plan, like the Einsatz
   const karteDefaults = useMemo(() => viewerLayers(defaultLayers(), undefined), [])
-  const presetRows = twins.filter((t) => t.id !== GEOREF_ROW).map((t) => ({ id: t.id, visible: t.visible }))
+  const presetRows = twins.filter((t) => t.id !== GEOREF_ROW).map((t) => ({ id: t.id, visible: t.visible, ...('standard' in t ? { standard: t.standard } : {}) }))
   const layersPreset = karteLayerPreset(layers, karteDefaults, presetRows, weather.on && weather.radarOn)
   const quickTap = (tap: QuickTap) => {
     updateLayers((ls) => applyLayerPreset(ls, karteDefaults, tap))
@@ -899,6 +937,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           initialZoom={start.zoom}
           initialBearing={start.view?.bearing ?? 0}
           showOrigin={false}
+          // never past the visible base's last sharp level (owner on #383) — the Karte only
+          zoomCapAtBase
           preparedOverlays={overlays}
           isVisible={isVisible}
           selectedId={null}

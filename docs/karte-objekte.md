@@ -486,6 +486,44 @@ takes keeps the default look: red, ink-grey without plans. No rules = that defau
 - Pick colours that stay apart for the colour-blind (no red against green) and that read on the
   light, dark and aerial base maps.
 
+## «Unterirdische Bauten» (owner, review round 4)
+
+«can we show all subterraneous objects through our firegis database?» — FireGIS's
+`av_gebunterird` is the official survey's underground buildings; the same features are in the
+open AV WFS (geodienste.ch, Einzelobjekte `ms:SOSF`), so no FireGIS file is needed and every
+deployment gets it. Drawn: `Art = unterirdisches_Gebaeude` and (owner on #383) the underground
+traffic structures `Tunnel_Unterfuehrung_Galerie` — the survey has no other such type, and none
+as lines. Not `Unterstand`.
+
+- **Ebenen row** «Unterirdische Bauten» under «Station», OFF by default and off in «Standard»
+  (`PresetRow.standard: false`); «Alle ein» switches it like any row. Not kept across reloads,
+  like the other Station rows.
+- **On the map:** every underground structure of the Einsatzgebiet as a dashed outline in the neutral
+  ink (`--ink-dim`, never an object's red or a category colour), no fill, from z16 (street zoom),
+  under the objects — an object's own dashed garage keeps its colour on top. Not tappable: a tap
+  goes to whatever is above or under it, as before.
+- **The area is the Einsatzgebiet** (owner on #383, not the geocoder's 27 × 18 km box): the
+  municipalities of `map.serviceArea.municipalities` (BFS numbers), else the one the map centre
+  (`map.defaultView`) lies in, as swisstopo's official boundaries (swissBOUNDARIES3D over the
+  geocoder's host) — united with 500 m around every station object, so an object in the next
+  village (ARA Birsig in Therwil) keeps its surroundings. A structure counts when any corner lies
+  in that area.
+- **Data:** `app/underground` asks the WFS for the municipalities' box and each outside object's
+  surroundings in 3 km cells (a full cell is split), keeps each structure once, and stores ONE
+  compact GeoJSON MultiPolygon (`reference/underground.json`). It rides the footprint job
+  (`scheduler` · `_object_footprints_tick`): asked once, then weekly or when the area (a
+  municipality, the map centre, an object's point) or the source changes; a failed ask keeps the
+  stored set and waits an hour. FWO (Oberwil 2771 + the objects' surroundings, 18.10.2026): 1 058
+  structures (392 of them outside Oberwil, 99 around the ARA), 243 KB, 58 KB gzipped, 3 s. No
+  device ever asks the WFS.
+- **`GET /api/reference/underground[?have=<fetchedAt>]`** (same readers as the catalogue):
+  `{enabled, fetchedAt, count, geometry}`; `enabled: false` when off, `fetchedAt: null` before the
+  first ask, `unchanged: true` without geometry when the device already holds that set. The
+  device keeps it in IndexedDB (`lib/api/stationReference` · `loadUnderground`), asks the first
+  time the row goes on per visit, and draws its copy offline; the service worker leaves the route
+  alone (`NetworkOnly`, vite.config). A refusal (401/403) never shows the copy.
+- **Off:** `UNDERGROUND_WFS=` (empty).
+
 ## Offline
 
 The viewer never downloads anything on its own for offline use; it READS what the device already
@@ -501,6 +539,7 @@ and `KarteDevice.tsx` probe). No «ganze Station herunterladen»: that would be 
 | plan tiles | `plan-tile-manifests` (the manifest) + `plan-tiles` (every tile), per revision | opening a tiled plan once online (the reader fetches the whole pyramid, `lib/planTilePrefetch`) |
 | Gebäude storeys, aligned plan | the plan's pages (PDF or tiles) + the revision's alignment metadata (IndexedDB, `lib/api/reference`) | opening Gebäude / the aligned plan once online |
 | base map | the service worker's `map-tiles` cache | looking at the area, or an Einsatz's Offline-Vorbereitung |
+| Unterirdische Bauten | IndexedDB `kp-front-station-underground` (one entry, ~250 KB for FWO) | switching the row on once online |
 | Gefahrgut (UN/ADR) | bundled with the app | — |
 
 What the surface shows offline:
@@ -542,6 +581,26 @@ What the surface shows offline:
   fetched past the HTTP cache (`fetchOptions: { cache: 'no-cache' }`, vite.config) so CARTO's
   `immutable` answer cannot bring the old tile straight back. A provider changes its look again →
   add a purge entry.
+- **A sharp base map on a retina screen** (owner, review round 4: «check why the map is so
+  blurry»). The base rasters are 256 px tiles on MapLibre's 512 px zoom grid (`MapLayers` ·
+  `tileSize={256}`), so each tile covers 256 CSS px: on a 3× iPhone every source pixel was blown up
+  three times. A screen with `devicePixelRatio > 1` now asks CARTO for its `@2x` tile (512 px, the
+  same area and label size; `lib/carto` · `withCartoRetina`): 1.5× on a phone, 1:1 on an iPad. It is
+  decided where the layer list is derived (`workspace` · `builtinAndConfigLayers`), so the map,
+  the Einsatz's offline download, the coverage probe and the readiness sheet all name the same
+  tile — this is the Einsatz's map too. The Rapport's compositor gets the 1× template
+  (`krokiPayload`, it lays 256 px). A 2× tile costs ~3× the bytes: the Offline-Vorbereitung's
+  pre-flight prices it so (`storageBudget` · `tileBytesFor`). The 1× CARTO tiles a retina device
+  held are dropped once (`tilePurge` · `carto-retina-2026-10`); a 1× screen keeps them. OSM and
+  swisstopo have no 2× tiles; swisstopo's swissimage goes to z20 (was capped at 19, so the closest
+  zoom stretched z19 four times). **The viewer stops at the visible base's last sharp level**
+  (owner on #383): its last tile level drawn 1:1, i.e. map zoom `maxzoom − 1` on the 512 px grid
+  (`lib/mapView` · `baseMaxMapZoom`: CARTO and swissimage 19, OSM 18) instead of 21, which stretched
+  the last level 2–4×; switching to a base that ends sooner clamps the view. **Karte only**
+  (`MapView` · `zoomCapAtBase`): the Einsatz map and the Tafel's Lagekarte keep 21 for precise
+  symbol placement, the base soft past its last level there. Regression check, WebKit with the iPhone 13
+  descriptor: `node site/check-basemap-sharpness.mjs --base <app>` (red above 1.5 device px per
+  tile px or on overzoom; its header says how it stands in for CARTO's keyed tiles).
 - **Search:** station objects are found on the device; the address search says it needs the
   network. **Objektbesuche** say they need the network and name the catalogue's last visit.
 - The catalogue shown from the device is replaced by the server's as soon as it answers again

@@ -181,6 +181,13 @@ const openPlan = async (planId: string) => {
 const boardIds = () => (lastBoard()?.annos ?? []).map((a) => a.id)
 
 describe('(a) the keyboard routes by surface', () => {
+  // owner on #383 (review round 4): only «Karte & Objekte» stops at the base map's last sharp zoom;
+  // the Einsatz keeps 21 for precise placement (lib/mapView · mapMaxZoom without the cap)
+  it('the Einsatz map does not ask for the base map\'s zoom cap', async () => {
+    await mount()
+    expect((lastMap() as unknown as { zoomCapAtBase?: boolean }).zoomCapAtBase).toBeFalsy()
+  })
+
   it('K / C / A / R switch surfaces, each claiming the key', async () => {
     await mount()
     expect(mode()).toBe('map')

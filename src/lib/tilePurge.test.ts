@@ -25,7 +25,7 @@ describe('purgeStaleTiles', () => {
   it('deletes the stale provider tiles once and keeps every other base map', async () => {
     const c = fakeCaches([CARTO_DARK, CARTO_DAY, OSM, SWISSIMAGE])
     const st = fakeStorage()
-    expect(await purgeStaleTiles({ caches: c.api, storage: st.api, online: true })).toBe(2)
+    expect(await purgeStaleTiles({ caches: c.api, storage: st.api, online: true, retina: true })).toBe(2)
     expect([...c.held]).toEqual([OSM, SWISSIMAGE])
     expect(JSON.parse(st.m.get('kp.tilePurges')!)).toEqual(TILE_PURGES.map((p) => p.id))
     // a tile fetched afresh after the purge is the new look: never thrown away again
@@ -60,5 +60,20 @@ describe('purgeStaleTiles', () => {
 
   it('without Cache Storage nothing happens', async () => {
     expect(await purgeStaleTiles({ caches: null, storage: fakeStorage().api, online: true })).toBe(0)
+  })
+
+  // review round 4: a retina screen asks CARTO for `@2x` tiles (lib/carto · withCartoRetina); the
+  // 1× ones it held are addresses the map never asks for again
+  it('drops the 1× CARTO tiles on a retina screen only, and keeps the 2× ones', async () => {
+    const done = fakeStorage({ 'kp.tilePurges': JSON.stringify(['carto-gl-2026-10']) })
+    const RETINA = 'https://b.basemaps.cartocdn.com/dark_all/18/136574/91654@2x.png?key=k'
+    const c = fakeCaches([CARTO_DARK, CARTO_DAY, RETINA, OSM])
+    // a 1× screen still draws its 1× tiles: nothing goes, and it is asked again on the next boot
+    expect(await purgeStaleTiles({ caches: c.api, storage: done.api, online: true, retina: false })).toBe(0)
+    expect(c.held.size).toBe(4)
+    expect(JSON.parse(done.m.get('kp.tilePurges')!)).toEqual(['carto-gl-2026-10'])
+    expect(await purgeStaleTiles({ caches: c.api, storage: done.api, online: true, retina: true })).toBe(2)
+    expect([...c.held]).toEqual([RETINA, OSM])
+    expect(JSON.parse(done.m.get('kp.tilePurges')!)).toContain('carto-retina-2026-10')
   })
 })
