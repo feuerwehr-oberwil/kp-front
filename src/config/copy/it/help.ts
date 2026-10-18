@@ -109,6 +109,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: 'Tramite **Livelli** mostri i dati delle condotte e dei pericoli – ordinati per tipo.' },
           { kind: 'list', items: [
             '**Situazione** – simboli tattici, veicoli, schizzi e note.',
+            '**Corpo** – costruzioni sotterranee (autorimesse, rifugi, gallerie) dalla misurazione ufficiale, tratteggiate dallo zoom strada; visibili per impostazione predefinita.',
             '**Acqua** – idranti, condotte, saracinesche, sorgenti.',
             '**Acque reflue** – acque nere/miste, acque chiare/meteoriche, pozzetti / caditoie.',
             '**Gas** – condotte.',

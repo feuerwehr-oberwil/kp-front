@@ -6,6 +6,7 @@ import type { AttendanceState, BoardAnno, BoardDoc, BoardKind, BoardPoint, Build
 import { appConfig } from '../config/appConfig'
 import { layers as initialLayers, planDocuments } from '../data/demoIncident'
 import { referenceLayersFromConfig } from './deploymentConfig'
+import { UNDERGROUND_LAYER_ID, undergroundLayerDef } from './underground'
 import { keyCartoTileTemplates, retinaCartoTileTemplates } from './carto'
 import { loadLayerPrefs } from './layerPrefs'
 import { isSafeColor } from './shapes'
@@ -741,7 +742,11 @@ export function demoSeedRebase(ws: Saved, incidentId: string, rev: number, now: 
  *  layer can never appear twice during a transition where a def lives in both places. */
 function builtinAndConfigLayers(): LayerDef[] {
   const seen = new Set(initialLayers.map((l) => l.id))
-  return [...initialLayers, ...referenceLayersFromConfig().filter((l) => !seen.has(l.id))]
+  const config = referenceLayersFromConfig().filter((l) => !seen.has(l.id))
+  // «Unterirdische Bauten» (lib/underground, review round 5): after the deployment's own reference
+  // layers, on by default — a config layer of the same id wins, like a built-in one
+  const under = config.some((l) => l.id === UNDERGROUND_LAYER_ID) ? [] : [undergroundLayerDef()]
+  return [...initialLayers, ...config, ...under]
     // the screen's tile resolution first (lib/carto · wantsRetinaTiles: 2× tiles on a retina
     // screen — the blurry map of review round 4), then the key: one address per tile everywhere
     .map((l) => keyCartoTileTemplates(retinaCartoTileTemplates(l)))

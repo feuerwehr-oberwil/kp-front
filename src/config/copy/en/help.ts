@@ -111,6 +111,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: 'Via **Layers** you show the utility and hazard data – ordered by type.' },
           { kind: 'list', items: [
             '**Situation** – tactical symbols, vehicles, sketches & notes.',
+            '**Station** – underground structures (garages, shelters, tunnels) from the official survey, dashed from street zoom; shown by default.',
             '**Water** – hydrants, mains, valves, sources.',
             '**Sewer** – foul/combined, storm/clean, manholes / gullies.',
             '**Gas** – mains.',

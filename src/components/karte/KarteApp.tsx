@@ -47,7 +47,8 @@ import { themeToken, uiBlue } from '../../lib/themeToken'
 import { toast } from '../../lib/ui'
 import { geocodeReverse, geocodeSearch, type GeoHit } from '../../lib/api/geo'
 import { getApprovedPlanAlignments, referenceUrl } from '../../lib/api/reference'
-import { loadStationBuilding, loadStationObjects, loadUnderground, undergroundRings, type StationObject, type StationObjects } from '../../lib/api/stationReference'
+import { loadStationBuilding, loadStationObjects, type StationObject, type StationObjects } from '../../lib/api/stationReference'
+import { UNDER_DASH, undergroundOverlay, useUnderground } from '../../lib/underground'
 import type { IncidentMeta } from '../../lib/api/incidents'
 import { listVisits } from '../../objectVisits/api'
 import { ovHref, navigateTo } from '../../objectVisits/route'
@@ -111,15 +112,13 @@ const NOOP = () => {}
 /** how much of a phone's height the object sheet may cover (Ebenen's cap, 15-mobile · .layers-card):
  *  a place framed for it stands in the strip above */
 const SHEET_SHARE = 0.72
-/** the dash of a structure with no surface building (an underground garage), in line widths */
-const UNDER_DASH = [2, 1.5]
 /** an Ebenen row per object category (lib/karte/categories) */
 const CAT_ROW = 'karte:kategorie:'
-/** «Unterirdische Bauten» (owner, review round 4): every underground building and tunnel of the
- *  Einsatzgebiet, from street zoom on — off by default and not part of «Standard» */
+/** «Unterirdische Bauten» (owner, review rounds 4 + 5): every underground building and tunnel of
+ *  the Einsatzgebiet, from street zoom on — ON by default and part of «Standard» (round 5), the
+ *  Einsatz map shows the same layer (lib/underground) */
 const UNDERGROUND_ROW = 'karte:unterirdisch'
 const UNDERGROUND_LAYER = 'karte-unterirdisch' as LayerId
-const UNDERGROUND_MIN_ZOOM = 16
 
 export interface KarteAppProps {
   /** «Einsätze ▾»: the app menu as a sheet (App owns the rows and their handlers) and the badge
@@ -259,19 +258,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // ── layers: the deployment's, minus the Einsatz-only ones, with this device's own choices ──
   const [layers, setLayers] = useState<LayerDef[]>(() => viewerLayers(defaultLayers(), loadViewerLayerPrefs()))
   const [objectsOn, setObjectsOn] = useState(true)
-  // ── «Unterirdische Bauten»: asked the first time the row goes on, then kept for the visit ──────
-  const [underOn, setUnderOn] = useState(false)
-  const [under, setUnder] = useState<{ state: 'loading' | 'ok' | 'none'; rings: LngLat[][] } | null>(null)
-  const toggleUnder = () => {
-    const next = !underOn
-    setUnderOn(next)
-    // a «none» is asked again the next time the row goes on (the scheduler may have asked meanwhile)
-    if (!next || (under && under.state !== 'none')) return
-    setUnder({ state: 'loading', rings: [] })
-    loadUnderground()
-      .then((set) => { const rings = undergroundRings(set); setUnder({ state: rings.length ? 'ok' : 'none', rings }) })
-      .catch(() => setUnder({ state: 'none', rings: [] }))
-  }
+  // ── «Unterirdische Bauten»: on when the viewer opens (round 5), asked once, kept for the visit;
+  // switched off it stays off until a reload brings the default back (lib/underground) ──────────
+  const [underOn, setUnderOn] = useState(true)
+  const under = useUnderground(underOn)
+  const toggleUnder = () => setUnderOn((v) => !v)
   const updateLayers = (fn: (ls: LayerDef[]) => LayerDef[]) => setLayers((ls) => { const next = fn(ls); saveViewerLayerPrefs(next); return next })
   const weather = useKarteWeather(true, karteRadarStore)
   const liveWeather = useWeather(view.center)
@@ -633,7 +624,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const underInk = themeToken('--ink-dim', '#4d586a')
   const underRings = under?.rings
   const underOverlay = useMemo<PreparedMapOverlay | null>(() => (underRings?.length
-    ? { id: 'karte-underground', kind: 'polygons', layer: UNDERGROUND_LAYER, rings: underRings, color: underInk, fillOpacity: 0, lineWidth: 1.4, lineOpacity: 0.9, lineDasharray: UNDER_DASH, minzoom: UNDERGROUND_MIN_ZOOM }
+    ? undergroundOverlay(underRings, underInk, UNDERGROUND_LAYER, 'karte-underground')
     : null), [underRings, underInk])
   const overlays = useMemo<PreparedMapOverlay[]>(() => {
     const out: PreparedMapOverlay[] = []
@@ -783,7 +774,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       sub: fillTemplate(C.layerCategorySub, { n: catCount.get(c.id) ?? 0 }), icon: 'footprint', swatch: c.color, visible: !hiddenCats.has(c.id),
     })),
     {
-      id: UNDERGROUND_ROW, group: C.layerGroupStation, label: C.layerUnderground, icon: 'footprint', visible: underOn, standard: false,
+      id: UNDERGROUND_ROW, group: C.layerGroupStation, label: C.layerUnderground, icon: 'footprint', visible: underOn,
       sub: !underOn || !under ? C.layerUndergroundSub
         : under.state === 'loading' ? C.layerUndergroundLoading
           : under.state === 'none' ? C.layerUndergroundNone
@@ -798,7 +789,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // «Alle ein» / «Alle aus» / «Standard» (lib/karte/layerPresets): the viewer's own layers, and
   // every station row (Stationsobjekte, …) as a layer — never the aligned plan, like the Einsatz
   const karteDefaults = useMemo(() => viewerLayers(defaultLayers(), undefined), [])
-  const presetRows = twins.filter((t) => t.id !== GEOREF_ROW).map((t) => ({ id: t.id, visible: t.visible, ...('standard' in t ? { standard: t.standard } : {}) }))
+  // every station row is on in «Standard» (Unterirdische Bauten too since round 5 — PresetRow.standard)
+  const presetRows = twins.filter((t) => t.id !== GEOREF_ROW).map((t) => ({ id: t.id, visible: t.visible }))
   const layersPreset = karteLayerPreset(layers, karteDefaults, presetRows, weather.on && weather.radarOn)
   const quickTap = (tap: QuickTap) => {
     updateLayers((ls) => applyLayerPreset(ls, karteDefaults, tap))

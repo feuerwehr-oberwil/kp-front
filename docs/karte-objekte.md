@@ -191,7 +191,7 @@ What it reuses, so nothing forks:
 | Piece | Reused from |
 |---|---|
 | map, layers, vehicles, measure path, georef raster, weather radar | `MapView` (read-only, no drawings) + `MapLayers` (a `polygons` overlay kind draws the outlines) |
-| Ebenen | `LayerPanel`, under its OWN device key (`kp.layers.karte`, `lib/karte/session`), without the Einsatz-only layers (taktisch, Skizzen, Personen); the radar's choice too (`kp.karte.radar`) |
+| Ebenen | `LayerPanel`, under its OWN device key (`kp.layers.karte`, `lib/karte/session`), without the Einsatz-only layers (taktisch, Skizzen, Personen) and the catalogue's «Unterirdische Bauten» (its own Station row stands in); the radar's choice too (`kp.karte.radar`) |
 | tools | the Einsatz's `ToolRail` (tablet) / the folded `navrail` bar (phone: Karte · Messen · Gefahrgut · Ebenen), `ToolDock` + `MeasurePanel` WITHOUT «Als Linie/Fläche übernehmen» (and without a line saying it is not saved — nothing here is), stacked on the phone like an Einsatz's: dock 6px above the bar, readout 6px above the dock, one bar lower because the Karte has no tool bar, `MapViewsButton` without saved views |
 | weather | `useWeather` + `WeatherBadge` |
 | plans | the NavRail classes and `PlanGlyph` (tablet rail), rows in the object's panel; a module opens in the Einsatz's plan reader — the Plan surface's `Whiteboard`, read-only, on the current revision (below); the Gebäude is the same `Whiteboard` on the Einsatz's floor stack (`lib/floorPackBinding · floorPackOf` / `packBuildingDoc`, below) |
@@ -502,9 +502,24 @@ deployment gets it. Drawn: `Art = unterirdisches_Gebaeude` and (owner on #383) t
 traffic structures `Tunnel_Unterfuehrung_Galerie` — the survey has no other such type, and none
 as lines. Not `Unterstand`.
 
-- **Ebenen row** «Unterirdische Bauten» under «Station», OFF by default and off in «Standard»
-  (`PresetRow.standard: false`); «Alle ein» switches it like any row. Not kept across reloads,
-  like the other Station rows.
+- **Ebenen row** «Unterirdische Bauten» under «Station», **ON by default and part of «Standard»**
+  (owner, review round 5, 18.10.2026: «activate underground by default and also show it on the
+  normal map»; round 4 had it off); «Alle ein» / «Alle aus» switch it like any row. Not kept across
+  reloads, like the other Station rows: switched off it stays off for the visit, a reload shows it
+  again.
+- **The Einsatz map too** (round 5): the same layer as an Einsatz Ebenen row (`lib/underground` ·
+  `undergroundLayerDef`, id `unterirdisch`), a real `LayerDef` after the deployment's reference
+  layers, in its own group named like the Karte's («Station»). ON by default and part of the
+  Einsatz «Standard»; switched like any Einsatz layer (device prefs per Einsatz, «Alle ein / aus»,
+  the replay's `layer.toggle`). An Einsatz opened before round 5 gets it on too (a layer the device
+  prefs do not name keeps its default). Drawn first of the map's overlays, so under the ERG rings,
+  the drawings and every Lage symbol; not tappable. Never from an incident link (alarm, view,
+  Atemschutz, terminal): the route refuses those sessions, so the row is not offered there and
+  nothing is asked. «Karte & Objekte» keeps its own row (with the count and the loading state)
+  and leaves the catalogue's out (`lib/karte/session · viewerLayers`).
+- **Not on the Tafel's «Lagekarte» box nor the Rapport's Kroki**: both draw the Lage, not reference
+  data (the box passes no prepared overlays — no ERG rings either; the print renders base map +
+  Lage only).
 - **On the map:** every underground structure of the Einsatzgebiet as a dashed outline in the neutral
   ink (`--ink-dim`, never an object's red or a category colour), no fill, from z16 (street zoom),
   under the objects — an object's own dashed garage keeps its colour on top. Not tappable: a tap
@@ -527,8 +542,9 @@ as lines. Not `Unterstand`.
   `{enabled, fetchedAt, count, geometry}`; `enabled: false` when off, `fetchedAt: null` before the
   first ask, `unchanged: true` without geometry when the device already holds that set. The
   device keeps it in IndexedDB (`lib/api/stationReference` · `loadUnderground`), asks the first
-  time the row goes on per visit, and draws its copy offline; the service worker leaves the route
-  alone (`NetworkOnly`, vite.config). A refusal (401/403) never shows the copy.
+  time the row is on per visit (`lib/underground` · `useUnderground`, the Karte and the Einsatz
+  alike), and draws its copy offline; the service worker leaves the route alone (`NetworkOnly`,
+  vite.config). A refusal (401/403) never shows the copy.
 - **Off:** `UNDERGROUND_WFS=` (empty).
 
 ## Offline
@@ -546,7 +562,7 @@ and `KarteDevice.tsx` probe). No «ganze Station herunterladen»: that would be 
 | plan tiles | `plan-tile-manifests` (the manifest) + `plan-tiles` (every tile), per revision | opening a tiled plan once online (the reader fetches the whole pyramid, `lib/planTilePrefetch`) |
 | Gebäude storeys, aligned plan | the plan's pages (PDF or tiles) + the revision's alignment metadata (IndexedDB, `lib/api/reference`) | opening Gebäude / the aligned plan once online |
 | base map | the service worker's `map-tiles` cache | looking at the area, or an Einsatz's Offline-Vorbereitung |
-| Unterirdische Bauten | IndexedDB `kp-front-station-underground` (one entry, ~250 KB for FWO) | switching the row on once online |
+| Unterirdische Bauten | IndexedDB `kp-front-station-underground` (one entry, ~250 KB for FWO) | opening the Karte or an Einsatz once online with the row on (the default) |
 | Gefahrgut (UN/ADR) | bundled with the app | — |
 
 What the surface shows offline:

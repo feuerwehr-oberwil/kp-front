@@ -19,6 +19,7 @@
 import type { LayerDef, LngLat } from '../../types'
 import { appConfig } from '../../config/appConfig'
 import { loadLayerPrefs, saveLayerPrefs, type StoredLayerState } from '../layerPrefs'
+import { UNDERGROUND_LAYER_ID } from '../underground'
 
 /** The `incidentId` slot the viewer's Ebenen live under in lib/layerPrefs — not an Einsatz. */
 export const KARTE_LAYER_PREFS_ID = 'karte'
@@ -79,6 +80,9 @@ const EINSATZ_ONLY: readonly string[] = [
   appConfig.defaults.operationalLayerId,
   appConfig.defaults.drawingLayerId,
   appConfig.personGps.layerId,
+  // not Einsatz-only, but the viewer has its own row for it under «Station» (KarteApp ·
+  // UNDERGROUND_ROW, with the count and the loading state) — the catalogue's would be a twin
+  UNDERGROUND_LAYER_ID,
 ]
 
 /** The viewer's layer list: the deployment's layers without the Einsatz-only ones, with this
