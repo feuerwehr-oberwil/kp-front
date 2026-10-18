@@ -14,6 +14,7 @@ import { ApiError, isDenial, isUnverifiable } from '../api'
 import { idbDel, idbGet, idbKeys, idbRead, idbSet, type IdbRead } from '../idb'
 import { serverNow } from '../serverClock'
 import { withTileEviction } from '../tileEvict'
+import { jsonEqual } from '../jsonEqual'
 import { mergeWorkspace, type RecordConflict } from '../mergeWorkspace'
 import { truppRenumberings, type NumberScope, type TruppRenumbering } from '../truppNumbers'
 import {
@@ -218,6 +219,27 @@ export interface WorkspaceSyncOptions {
 function truppSlice(ws: Workspace): readonly Trupp[] {
   const t = ws.trupps
   return Array.isArray(t) ? (t as Trupp[]) : []
+}
+
+/**
+ * Is `ws` the server's copy `base` with only its Trupps changed? Then an EDITOR's push takes the
+ * trupp slice route too (18.10.2026): a Funkkontakt changes one Trupp, and the full PUT sent the
+ * whole blob for it — ~100 KB of JSON (~38 KB gzipped) per tap on the busiest Einsatz on record,
+ * nine taps ~345 KB (perf journey `trupps`), on the device a crew holds while it talks on the radio.
+ *
+ * Equivalent, not a new kind of save: the route stores `{...the server's blob at base_rev,
+ * trupps}` under the same conditional UPDATE, so at that revision the result IS `ws` — what the
+ * server keeps of its own on a full save (the vehicles' gps, newer board kinds) it keeps here
+ * too. Same 409 (and the same merge), same closed-Einsatz rule (a Trupp edit is operational
+ * either way), same validation, same audit and Notfall push. `base` is the ancestor the engine
+ * holds for exactly `baseRev` — no ancestor (an old cache entry) ⇒ the full PUT, as always.
+ */
+function onlyTruppsChanged(base: Workspace | undefined, ws: Workspace): boolean {
+  if (!base || !Array.isArray(ws.trupps) || jsonEqual(base.trupps, ws.trupps)) return false
+  for (const k of new Set([...Object.keys(base), ...Object.keys(ws)])) {
+    if (k !== 'trupps' && !jsonEqual(base[k], ws[k])) return false
+  }
+  return true
 }
 
 /** The keys of the `el` role's record slice — MUST mirror the server's allowlist
@@ -851,15 +873,28 @@ export class WorkspaceSync {
     if (!this.entry.dirty || this.disposed) return
     if (this.opts.slice === 'trupps') putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev, this.editedAtIso())
     else if (this.opts.slice === 'record') putWorkspaceRecordBeacon(this.incidentId, recordSlice(this.entry.workspace), this.entry.baseRev)
+    else if (onlyTruppsChanged(this.entry.base, this.entry.workspace)) putWorkspaceTruppsBeacon(this.incidentId, truppSlice(this.entry.workspace), this.entry.baseRev, this.editedAtIso())
     else putWorkspaceBeacon(this.incidentId, this.entry.workspace, this.entry.baseRev, this.editedAtIso())
   }
 
   /** The ONE write. A `slice` sends its subset on its own route; everything else about a
    *  push — when, at which base_rev, and what a 409 means — is identical, which is why the
-   *  merge/retry machinery below never has to know which session it is running in. */
-  private push(workspace: Workspace, baseRev: number) {
+   *  merge/retry machinery below never has to know which session it is running in.
+   *  Both callers set `entry.base` to the server's copy at `baseRev` before they push, so an
+   *  editor's save that changed only Trupps goes the slice route as well (onlyTruppsChanged). */
+  private async push(workspace: Workspace, baseRev: number) {
     if (this.opts.slice === 'trupps') return putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev, this.editedAtIso())
     if (this.opts.slice === 'record') return putWorkspaceRecord(this.incidentId, recordSlice(workspace), baseRev)
+    if (onlyTruppsChanged(this.entry.base, workspace)) {
+      try {
+        return await putWorkspaceTrupps(this.incidentId, truppSlice(workspace), baseRev, this.editedAtIso())
+      } catch (e) {
+        // ⚠️ The slice validates EVERY Trupp it is sent; the full save keeps an unchanged legacy
+        // row it would refuse (backend alarm_validation · retained rows). A 422 here may be one
+        // of those, so the whole document goes as it always did — and answers for itself.
+        if (!(e instanceof ApiError && e.status === 422)) throw e
+      }
+    }
     return putWorkspace(this.incidentId, workspace, baseRev, this.editedAtIso())
   }
 

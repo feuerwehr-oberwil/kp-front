@@ -51,6 +51,11 @@ async function open(page: Page, baseURL: string, name: string, { viaKiosk = fals
   return { page, seeded, r: new Results(name), net, cdp, external }
 }
 
+/** a workspace save, whichever route it takes: the whole document, or the trupp / record slice
+ *  (an editor's Trupp-only save goes the slice since 18.10.2026 — counting `/workspace` alone
+ *  would read that as «no saves») */
+const isSave = (x: { method: string; path: string }) => x.method === 'PUT' && /\/workspace(\/(trupps|record))?$/.test(x.path)
+
 const railButton = (page: Page, label: string) => page.locator('nav.navrail').getByRole('button', { name: label, exact: true })
 
 /** the surface is on: the app is in its mode and its rail button is the pressed one (Gebäude and
@@ -266,7 +271,7 @@ test('karte & tafel: draw ten Linien, drop ten Absperrkreise', async ({ page, ba
   // let every debounced save go out, then count what twenty edits cost on the wire
   await page.waitForTimeout(6_000)
   const reqs = j.net.since(from)
-  const saves = reqs.filter((x) => x.method === 'PUT' && /\/workspace$/.test(x.path))
+  const saves = reqs.filter(isSave)
   j.r.set('saves', saves.length, 'count')
   // per save, not in total: how many saves twenty edits make depends on the debounce's timing,
   // what one save weighs does not (it grows with the blob — or with a field that should not be in it)
@@ -378,7 +383,10 @@ test('trupps: three rounds of Funkkontakt for every Trupp inside', async ({ page
   j.r.set('blocking_ms', blocking(long), 'ms')
   await page.waitForTimeout(6_000)
   const reqs = j.net.since(from)
-  j.r.set('saves', reqs.filter((x) => x.method === 'PUT' && /\/workspace$/.test(x.path)).length, 'count')
+  const saves = reqs.filter(isSave)
+  j.r.set('saves', saves.length, 'count')
+  // what one Funkkontakt puts on the wire: a Trupp-only save goes the trupp slice route (18.10.2026)
+  j.r.set('kb_per_save', saves.length ? saves.reduce((a, x) => a + x.upBytes, 0) / 1024 / saves.length : 0, 'kb')
   recordNetwork(j.r, '', reqs)
   j.r.save({ routes: routeTally(reqs), contacts: taps.length })
 })
@@ -402,7 +410,7 @@ test('idle: a minute on the Karte with nobody touching it', async ({ page, baseU
   const perMin = 60_000 / IDLE_MS
   // a tablet on the table for hours: every wake-up here is battery and radio
   j.r.set('api_requests_per_min', reqs.filter((x) => x.kind === 'api').length * perMin, 'count')
-  j.r.set('saves', reqs.filter((x) => x.method === 'PUT' && /\/workspace$/.test(x.path)).length, 'count')
+  j.r.set('saves', reqs.filter(isSave).length, 'count')
   j.r.set('script_ms_per_min', (c1.ScriptDuration - c0.ScriptDuration) * 1000 * perMin, 'ms')
   j.r.set('task_ms_per_min', (c1.TaskDuration - c0.TaskDuration) * 1000 * perMin, 'ms')
   j.r.set('layouts_per_min', (c1.LayoutCount - c0.LayoutCount) * perMin, 'count')

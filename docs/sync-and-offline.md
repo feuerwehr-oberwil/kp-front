@@ -23,6 +23,15 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   a miss: every hydrate that writes back reads through `idbRead` and never writes over a slot it
   could not read. Client audit events carry a stable `client_id` through retries; a beacon does
   not acknowledge delivery.
+- **A save that changed only the Trupps travels as the trupp slice** (18.10.2026). An editor's
+  push whose blob differs from the server copy it is based on (`entry.base` at `baseRev`) in
+  `trupps` and nothing else goes `PUT …/workspace/trupps`, the Atemschutz-Link's route, instead
+  of the whole document: a Funkkontakt sent ~100 KB of JSON (~38 KB gzipped) per tap on the
+  busiest Einsatz on record. Not a new kind of save: the route stores the server's blob at that
+  revision with these Trupps, so the result is the same blob, under the same conditional UPDATE,
+  409 and merge, closed-Einsatz rule, validation and audit. A 422 from the slice (it validates
+  every Trupp; the full save keeps an unchanged legacy row) falls back to the full PUT; no
+  ancestor, or any other key changed, is the full PUT as before (`workspaceSync · onlyTruppsChanged`).
 - **Sync supports task-scoped collaboration.** Multiple editors may work different domains in the
   same incident (e.g. Atemschutz + Lage drawing); this is not shared-cursor co-editing of the same
   object. Cross-domain concurrent edits must merge. Mergeable collections merge three-way **by
