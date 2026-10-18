@@ -367,6 +367,10 @@ railway ssh keys add                          # once, for the copy below
 ./scripts/railway-staging-refresh.sh          # prod → staging: database + volume, then the cuts
 ```
 
+KP Front's own staging is `https://kp-front-staging.up.railway.app` (deployed from the `staging`
+branch, a separate PWA on prod's data, with push and webhooks cut); `just staging-refresh` runs
+the refresh above and overwrites whatever was tested there.
+
 - **Code** reaches staging through the `staging` branch: merge into it, never force-push (other work in flight lives there).
   `main` and prod are untouched, and the CI gate does not apply. Keep the branch **up to date with
   `main`** (`git merge origin/main`): the copy carries prod's migration state, and staging code

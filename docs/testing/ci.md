@@ -1,0 +1,146 @@
+# CI and local validation
+
+CI keeps the production-container, browser, visual, performance, coverage and security gates.
+Independent work runs alongside other checks; browser suites share an image, never a database
+or fake fleet. Workflow definitions live in `.github/workflows/ci.yml`.
+
+## Fast local feedback
+
+Use `just dev` for the running application, `just test-changed` while editing, and `just ci`
+before pushing a complete change. `test-changed` only reruns the backend's previously failed
+tests; a green result does not mean the backend suite passed.
+
+`just ci` requires just 1.56 or later. Its three dependencies run in parallel:
+
+- `just ci-frontend`: lint, browser-spec types and inventory, production build (including app
+  types), hidden sourcemaps, bundle/site checks, vulnerability and license audits.
+- `just ci-unit`: the whole frontend suite with its unchanged global coverage floor. It uses
+  four workers so it can coexist with TypeScript and pytest on a developer machine.
+- `just ci-backend`: migration/model drift, PostgreSQL tests, Ruff, mypy and dependency audits.
+
+Use `just --jobs 1 ci` on a memory-constrained machine or to diagnose a timing-sensitive test.
+TypeScript's incremental cache lives under `node_modules/.cache/typescript/`, with distinct app
+and browser-spec files. It is disposable and confined to the checkout; delete that directory
+to force a cold typecheck. Changed source/configuration still invalidates the relevant checks.
+
+For targeted backend checks, `just test-backend -n 0 -x tests/test_example.py` uses a database
+named for that invocation, with a separate database per xdist worker. Parallel worktrees must
+not create/drop a shared `kpfront_test_gwN`. The parent test database is removed on exit; the
+test fixtures own worker cleanup. Development data is never the test target.
+
+## Tests, ratchets and holds
+
+Moved here from AGENTS.md on 2026-10-18, wording unchanged.
+
+**Tests** are Vitest (node env), colocated as `*.test.ts`, focused on pure `src/lib` logic
+(plus a few components); the backend uses pytest. Pre-commit covers backend Ruff and staged
+frontend ESLint, not the full gate. `just ci` also runs the coverage floor, the bundle budget,
+audits, licenses and `just schema-check` (a throwaway Postgres migrated to head, then `alembic
+check` against the models); image, secrets, e2e, visual and perf stay CI's.
+
+- **Ratchets only go down.** The eslint warnings per rule (`scripts/eslint-baseline.json`; `pnpm
+  lint` fails when a rule's count goes up, or down without `pnpm lint:update`), the style-debt
+  baseline (`src/styles/styleDebt.baseline.json`,
+  [`ui-conventions.md`](../ui-conventions.md#tokens-the-cascade-and-the-scales)) and the vitest
+  coverage floor are lowered (the floor raised) when you fix something and never moved the other
+  way to pass. The gzipped entry, App, maplibre, pdf-worker and CSS chunks have a +5 % budget
+  against `scripts/bundle-baseline.json` (`scripts/check-bundle-size.mjs`, CI); a deliberate
+  growth is an `--update` in its own commit, with the reason.
+- **`jsdom` is held on 30.0.x** (`~30.0.1`, Dependabot ignores 30.1): 30.1's blob URLs cannot
+  read the Node `Blob` Vitest supplies, so maplibre-gl 4.7 fails at import and MapView, mapTwist
+  and the IncidentWorkspace harness stop loading. Lift it with a jsdom past 30.1 or MapLibre 6
+  (#193) – never by mocking MapLibre away in those tests.
+- **CLI subprocess tests run outside `backend/`**: pydantic reads `.env` from the cwd, so a
+  station's `backend/.env` would leak into them (`tests/test_admin_cli_output.py` · `_run`).
+- **e2e** runs on the production image in CI ([`e2e/README.md`](../../e2e/README.md)). ⚠️
+  **Every e2e test fails when the app reports a client error or a render storm** (`e2e/guard.ts`,
+  24.09.2026). A spec imports `test` from `e2e/helpers`, never from `@playwright/test` (eslint
+  enforces it). A report a test provokes on purpose is listed with `expectedClientErrors`;
+  nothing turns the guard off.
+- **The look is gated too.** CI's «Visual» job shoots nine frozen states and compares them with
+  `e2e/visual/baseline/` (`maxDiffPixels: 20`). A changed pixel you did not mean is a regression;
+  a look you changed on purpose gets new baselines from CI (`just visual-accept <run-id>`) in its
+  own commit, saying why – never to turn the check green, never shot on a laptop
+  ([`visual-regression.md`](visual-regression.md)).
+- **Performance is gated too.** CI's «Performance» job walks real user journeys on the busiest
+  Einsatz on record and fails on regressions against `e2e/perf/baseline.json`; a red check
+  blocks the merge like a failing test, and a baseline is never accepted (nor a tolerance
+  loosened) to turn it green. The rules for an agent are in
+  [`perf-journeys.md`](perf-journeys.md#the-gate-is-part-of-done); read it before adding or
+  changing a journey.
+- **Large / long incidents and performance** are measured, not guessed:
+  [`fat-incident.md`](fat-incident.md), [`perf-journeys.md`](perf-journeys.md).
+- **Field crash reports** are one `kpfront.clienterror` log line; hidden sourcemaps turn their
+  stacks back into source ([`SOURCEMAPS.md`](../SOURCEMAPS.md)).
+- For interactive changes a unit test can't cover, use `/code-review` on the diff and `/verify`
+  to drive the real app.
+
+## What runs in GitHub
+
+**Verification before prod (the CI gate).** Prod deploys from `main`, so a red `main` reaches
+the field: develop on a branch, push, let `ci.yml` go **fully green**, *then* merge – never merge
+a red branch. **The gate is server-enforced:** branch protection on `main` requires the seven
+checks below to pass before a merge – *Performance (user journeys vs baseline)* since
+13.10.2026. `enforce_admins` is **off** on purpose, so a 3am hotfix can still bypass it – that is
+the only intended bypass, not a routine one.
+
+The required checks retain their names, so branch protection needs no migration:
+
+| Required check | Execution |
+| --- | --- |
+| Frontend (tsc + build) | Requires both static/build checks and the complete coverage run; they start in parallel. |
+| Backend (ruff + alembic + pytest) | Locked Python install, real PostgreSQL, migrations/schema check, four-worker pytest and audits. |
+| Image (hadolint + build + smoke) | Requires the image build and all three isolated browser suites. Builds the real production image once, then drives every e2e spec against it except the journeys and screenshots – among them the white-screen smoke (`e2e/smoke.spec.ts`) and the field scenario of the Übung on 23.09.2026 (`e2e/field-scenario.spec.ts`: a parked vehicle sending GPS, a coupled Leitung, a tapped Trupp, and then three devices on one login). |
+| Visual (screenshots vs baseline) | Loads that run's image into its own stack; unchanged screenshot thresholds. |
+| Performance (user journeys vs baseline) | Loads that run's image into its own stack; unchanged journeys, calibration, confirmation and budgets. |
+| Secrets (gitleaks) | Scans the tracked tree. |
+| Shared files match KP Rück | Compares the shared manifest against the paired/default sibling branch. |
+
+The two aggregate checks run even after a dependency fails and accept only `success` from
+every child. A failed, skipped or cancelled child cannot make the required check green.
+
+The image producer exports a Docker archive, compresses it once with fast Zstandard, and stores
+it as a one-day artifact (without recompressing it in the artifact action). Consumers
+download only from their own workflow run and verify the image's revision label against
+`GITHUB_SHA` before booting. PR code receives no registry-write token. The producer is the only
+CI job exporting the `ci-amd64` layer cache. It also reads the old default scope during the
+transition; release builds can read both scopes. The standalone «Visual baselines» workflow
+still builds its own image through the same composite action.
+
+The frontend Docker stage copies only its actual inputs: source, public assets, package/lock
+files, TypeScript/Vite config, `index.html`, and the coverage floor read by Vite's config. Add a
+copy when introducing another build-time input. Backend/docs/workflow changes should reuse the
+SPA layer in CI; frontend changes must invalidate it. CI stamps the full revision in its image
+label and runtime via `RUNTIME_GIT_SHA`, leaving the frontend's existing test-build stamp alone.
+Source/release builds still stamp their full revision in both stages, so changing that revision
+also rebuilds their SPA. Python dependencies are installed as the runtime
+user so copying a new SPA does not recursively re-own the entire virtualenv.
+
+## Browser suite selection
+
+Set `E2E_SUITE=field`, `recovery`, or `workspace` only against a disposable stack configured for
+that suite. With no value, local project selection is unchanged. Do not set it for journeys or
+screenshots: those retain their separate projects and measurement environments. Run
+`node scripts/check-e2e-suites.mjs` after changing project/spec selection. It discovers the real
+Playwright inventory, including new files/projects, without launching a browser or app, and
+rejects empty suites, duplicate cases or missing cases.
+
+Every suite retains the client-error/render-storm guard, the field scenario's no-retry policy,
+and the browser's own observation windows. Parallelize by isolated stacks, not additional
+workers mutating one shared incident or fleet.
+
+## Measure the delivery path
+
+Measure PR push to mergeable, merge to server readiness, and client update activation separately.
+Sum job execution times across all attempts when estimating paid compute; do not count a
+workflow's queue, human waiting, or later manual rerun delay as runner execution. Public standard
+GitHub runners are free, while a paid provider may normalize minutes by machine size.
+
+Compare warm and cold image paths, artifact export/download/load, browser installation, tests
+and cache export separately. A shared producer saves repeated builds but introduces transfer
+and a dependency edge; retain it based on complete-workflow measurements. Job timeouts bound
+hangs and leave room for cold builds, rather than dropping checks to enforce a target duration.
+
+This workflow does not change Railway's deployment trigger, main branch protection, service
+worker update activation, or the release publication policy. A verified production deployment
+gate and promotion by tested image digest remain separate deployment changes.

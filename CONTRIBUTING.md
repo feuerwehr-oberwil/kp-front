@@ -94,8 +94,9 @@ that can't be undone.** Concretely:
 - For any generated calculation, show source, timestamp, and editable assumptions, and label
   estimates as *Planungshilfe / Schätzung*.
 
-See [`AGENTS.md`](AGENTS.md) for the full conventions (and the `docs/` topic pages it points
-to); it is the source of truth and should be kept current when a convention changes.
+See [`AGENTS.md`](AGENTS.md) for what every change needs and the `docs/` topic pages it points
+to for the full conventions; they are the source of truth and should be kept current when a
+convention changes.
 
 ## Conventions
 
@@ -106,8 +107,8 @@ to); it is the source of truth and should be kept current when a convention chan
   component – add a key and reference it.
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, …)`, never a frozen `rgba()`
   of the accent – that breaks day/night and per-station accent theming.
-- The backend has a ruff pre-commit hook; the frontend has none – so **run
-  `pnpm lint && pnpm test` before pushing**.
+- Pre-commit covers backend Ruff and staged frontend ESLint, not the full gate – **run
+  `pnpm lint && pnpm test` before pushing**. See [local validation](docs/testing/ci.md).
 - **Some files are shared with KP Rück by copy** – the telemetry sanitiser, the alarm keyword
   vocabulary, the roster-snapshot contract and reader, the station index, the alarm intake
   corpus, the loading snail and the shared check itself.
@@ -141,8 +142,10 @@ new bytes before changing that checksum.
 
 ## Releases (maintainers)
 
-Other stations run **published images**, not `main`, so a tag is a promise. A release is a
-label on a `main` commit CI already proved green – never a rushed cut.
+**Releases are for other stations, not for us.** Prod + demo deploy continuously from `main`;
+a `v*` tag exists so a self-hoster can pull a known image. Other stations run **published
+images**, not `main`, so a tag is a promise. A release is a label on a `main` commit CI already
+proved green – never a rushed cut.
 
 ```bash
 just changelog            # draft notes from the commits since the last tag
@@ -151,6 +154,13 @@ just release 0.3.0        # bump the six version/lock/contract/changelog files
 just release-tag 0.3.0    # commit only those six files + annotated tag
 git push --follow-tags    # → CI gate → GHCR image → GitHub Release
 ```
+
+`just release` bumps the version in `package.json`, `backend/pyproject.toml` and
+`backend/app/config.py` (plus `backend/uv.lock` and `docs/openapi.json`) and opens the CHANGELOG
+section; a pytest fails if those three ever drift. `git push --follow-tags` runs the CI gate and
+publishes `ghcr.io/feuerwehr-oberwil/kp-front:{X.Y.Z,X.Y,latest}` plus a GitHub Release whose
+body is the committed CHANGELOG section. `docker-compose.yml` **pulls** that image by default
+(`KP_FRONT_TAG`); building from source is the commented path.
 
 Pick the number by **what the update costs the operator**, not by how much code moved:
 PATCH = fixes only, MINOR = features with automatic migrations, MAJOR = operator action

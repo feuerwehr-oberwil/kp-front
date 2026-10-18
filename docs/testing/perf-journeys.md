@@ -45,8 +45,12 @@ journey called. When a request count moves, the report shows which routes change
   software WebGL (CPU profile 2026-10-05), with 0.5–2 s swings between Linien.
 - **Readiness is polled at 16 ms, never per animation frame.** After a few Linien the page's frames
   stalled, and a raf-polled check sat for minutes over a surface that had switched in 266 ms.
-- **Time budgets follow the machine.** `env.calibration` times a fixed workload. The report scales
-  every `ms` budget by today's calibration over the baseline's, clamped to ×0.67–1.5.
+- **Time budgets follow the machine, upwards only.** `env.calibration` times a fixed workload. The
+  report scales every `ms` budget by today's calibration over the baseline's, clamped to ×1–1.5
+  (`scripts/perf-gate.mjs · speedFactor`). A runner faster than the baseline's keeps the baseline's
+  budget: the fast kind of GitHub runner calibrates ×0.76 of the baseline's kind, but the app's
+  times there are only ×0.90 (`edit.karte_script_ms` ×0.96). The old floor of ×0.67 failed
+  unchanged builds on it seven times between 13.10. and 18.10.2026, every time on the Karte.
 - **A journey that counts requests waits for the app's own timers, not a fixed time.** The
   `verlauf` count moved 26–30 for the same build (2026-10-08): ten Meldungen typed back to back
   sometimes fell into the long poll's 250 ms re-arm gap and woke nothing, the audit outbox
@@ -57,7 +61,7 @@ journey called. When a request count moves, the report shows which routes change
 - **A regression is confirmed before it fails.** If the first run regresses, CI walks the journeys
   again, and every number takes its best of the two runs. Noise only ever makes a number worse,
   so a regression in both runs is real.
-- **Tolerances per unit** (`scripts/perf-report.mjs · TOLERANCE`): a number fails above
+- **Tolerances per unit** (`scripts/perf-gate.mjs · TOLERANCE`): a number fails above
   `baseline + max(abs, rel × baseline)`.
 
   | unit | abs | rel | Why |
@@ -67,7 +71,7 @@ journey called. When a request count moves, the report shows which routes change
   | `mb` | 1.5 | 25 % | Heap after a forced GC still varies |
   | `ms` | 60 | 50 % | A shared runner, after calibration |
 
-  Numbers that are noisy by nature get a wider band by name (`perf-report.mjs · NOISY`):
+  Numbers that are noisy by nature get a wider band by name (`perf-gate.mjs · NOISY`):
   blocking time, long-task counts, the worst interaction, save counts, and API bytes. Two runs of
   the same build differed there by up to 2.5×. A save count follows the debounce's timing, so the
   edit journey gates the bytes **per save** as well, and those are stable.
