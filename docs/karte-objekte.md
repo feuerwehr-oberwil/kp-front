@@ -441,6 +441,18 @@ The rules that are easy to break:
     lays a live readout over the top bar — the visual viewport and iOS's pan, the sheet's and the
     field's top on the screen, the list's scroll, and per touchmove passed / cancelled / not
     cancelable (`KarteScrollDebug`, a diagnostic to remove once the owner's capture is in).
+  - **Round 6** (owner, 18.10.2026, `?debug=scroll`: «when i typed it works, without typing it
+    fails (empty state)»). With nothing typed the body holds the six featured Einsatzobjekte and
+    the two hint lines — SHORTER than the full-height sheet once the keyboard is down, so the list
+    has nothing to scroll, and `overscroll-behavior` only holds on a box that overflows: iOS
+    handed the drag on to the page and the whole sheet moved. The page lock could not catch it
+    (it guards only while a field has the caret). Now the sheet itself cancels a touchmove over
+    its body that nothing under the finger can take, keyboard or not (`KarteKeySheet` →
+    `overlays/useMobileScrollLock · useScrollOnlyIn`, the same per-touch gate): a list that cannot scroll moves nothing,
+    one that can still scrolls and stops at its ends. Gefahrgut's sheet with a short readout had
+    the same hole and has the same fix. The check models the hand-off (a first move not cancelled
+    over a list with nothing to scroll = the page moved) and runs the empty search with and
+    without the keyboard.
   - No «AutoFill Contact»: both fields come from one helper (`lib/typingField`) — a `search-…`
     name (Safari offers no contact AutoFill on a search), autocomplete / autocorrect /
     autocapitalise / spell check off, `enterKeyHint`, numeric for the UN field, and their label /

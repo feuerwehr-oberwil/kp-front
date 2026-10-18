@@ -25,7 +25,7 @@
  * towards the row's start must not kill a swipe towards its end.
  */
 
-import { useEffect } from 'react'
+import { useEffect, type RefObject } from 'react'
 import { useIsPhone } from '../useIsPhone'
 
 /** Travel (px, either axis) after which a touch's axis is locked. Below it the touch is judged
@@ -150,4 +150,36 @@ export function useMobileScrollLock(open: boolean) {
       document.removeEventListener('touchmove', move)
     }
   }, [open, phone])
+}
+
+/** The same per-touch gate for ONE sheet that is not a dialog (the Karte's search and Gefahrgut
+ *  sheets, KarteKeySheet): a touch that starts in `body` (a selector inside `ref`) may pan only
+ *  what can scroll under the finger, and is cancelled where nothing can — with or without a
+ *  keyboard (lib/iosKeyboard · useTypingLock guards only while a field has the caret).
+ *
+ *  Why (review round 6, owner on the iPhone, the search with nothing typed: «without typing it
+ *  fails»): the six featured rows are shorter than the sheet, so the list has nothing to scroll —
+ *  and `overscroll-behavior` only holds on a box that overflows. iOS handed the drag on to the page
+ *  and the whole sheet moved. A list that cannot scroll now moves nothing, as one that can stops
+ *  at its ends. Touches outside `body` (the grab bar, the field line) are left to their own
+ *  handlers (useSwipeDismiss). */
+export function useScrollOnlyIn(ref: RefObject<HTMLElement | null>, body: string) {
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const gate = touchGate()
+    let mine = false
+    const start = (e: TouchEvent) => {
+      const target = e.target instanceof Element ? e.target : null
+      mine = !!target?.closest(body)
+      if (mine) gate.start(e, { ignored: !!target?.closest('[data-swipe-ignore]'), inModal: true })
+    }
+    const move = (e: TouchEvent) => { if (mine && e.cancelable && gate.blocks(e)) e.preventDefault() }
+    el.addEventListener('touchstart', start, { passive: true })
+    el.addEventListener('touchmove', move, { passive: false })
+    return () => {
+      el.removeEventListener('touchstart', start)
+      el.removeEventListener('touchmove', move)
+    }
+  }, [ref, body])
 }
