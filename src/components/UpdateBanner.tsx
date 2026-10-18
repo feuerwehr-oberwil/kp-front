@@ -41,6 +41,9 @@ export function UpdateBanner() {
     icon: 'info',
     title: C.available,
     sub: inPlace ? C.hintApply : C.hint,
+    // the sub-line IS the instruction — cut at 390px the iPhone read «Wird beim Neustart aktiv – App
+    // schliess…», losing exactly what to do (owner, review round 7). Two lines at 390 in every language.
+    wrap: true,
     ...(inPlace ? {
       actions: [{
         label: applying ? C.applying : C.apply,
