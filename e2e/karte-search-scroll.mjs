@@ -65,66 +65,15 @@
 // Exit code 1 and «RED» lines when a check fails.
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import { FRAMES, phoneContext } from './ios-standalone.mjs'
 
 const require = createRequire(path.join(process.cwd(), 'package.json'))
-const { webkit, devices } = require('@playwright/test')
+const { webkit } = require('@playwright/test')
 const BASE = process.argv[2] ?? process.env.E2E_BASE_URL ?? 'http://127.0.0.1:5188'
 const PIN = process.env.E2E_PIN ?? '000000'
-// the two frames (head of this file); `kb` = the German keyboard with its bar, px of the view
-const FRAMES = {
-  tab: { viewport: { width: 390, height: 844 }, screen: { width: 390, height: 844 }, kb: 336, standalone: false },
-  // `collapse`: the owner's readout after the touch (review round 9) — vv h 424 of 793, pan 369
-  app: { viewport: { width: 393, height: 793 }, screen: { width: 393, height: 852 }, kb: 362, standalone: true, safe: { top: 0, bottom: 34 }, collapse: { kb: 369, pan: 369 } },
-}
+// the two frames, the keyboard stand-in (`__kb`, `__collapseTo`) and the installed app: shared with
+// einsatz-keyboard.mjs (head of ios-standalone.mjs)
 let KEYBOARD = 336
-
-// the keyboard stand-in, installed before the app reads `visualViewport`
-function fakeKeyboard() {
-  const real = window.visualViewport
-  // `collapse` (review round 9): the installed app's innerHeight shrinks to the visual viewport and
-  // the window reports iOS's scroll — the layout (and with it `position: fixed`) stays full height
-  // `shrink`: how far the collapse has gone (review round 10: iOS collapses in steps during the
-  // touch, 793 → 711 → 785 …); null = by the whole keyboard (round 9's single step)
-  const st = { kb: 0, pan: 0, ignoreScrollTo: false, collapse: false, shrink: null }
-  const own = (k) => Object.getOwnPropertyDescriptor(window, k) ?? Object.getOwnPropertyDescriptor(Window.prototype, k)
-  const realInner = own('innerHeight').get.bind(window)
-  const realScrollY = own('scrollY').get.bind(window)
-  const vv = new EventTarget()
-  for (const [k, get] of Object.entries({
-    height: () => realInner() - st.kb, width: () => window.innerWidth, offsetTop: () => st.pan, offsetLeft: () => 0,
-    pageTop: () => st.pan, pageLeft: () => 0, scale: () => 1,
-  })) Object.defineProperty(vv, k, { get })
-  Object.defineProperty(window, 'visualViewport', { get: () => vv })
-  Object.defineProperty(window, 'innerHeight', { get: () => (st.collapse ? realInner() - (st.shrink ?? st.kb) : realInner()), configurable: true })
-  for (const k of ['scrollY', 'pageYOffset']) Object.defineProperty(window, k, { get: () => (st.collapse ? st.pan : realScrollY()), configurable: true })
-  const scrollTo = window.scrollTo.bind(window)
-  window.scrollTo = (...a) => {
-    if (!st.ignoreScrollTo && st.pan) { st.pan = 0; vv.dispatchEvent(new Event('scroll')); window.dispatchEvent(new Event('scroll')) }
-    return scrollTo(...a)
-  }
-  window.__kb = (patch) => {
-    const resized = 'collapse' in patch && patch.collapse !== st.collapse
-    Object.assign(st, patch)
-    vv.dispatchEvent(new Event('resize')); vv.dispatchEvent(new Event('scroll'))
-    if (resized) window.dispatchEvent(new Event('resize'))
-    if (st.collapse) window.dispatchEvent(new Event('scroll'))
-  }
-  // one step of the gradual collapse (review round 10, the owner's readout): innerHeight goes to
-  // `inner`, and iOS scrolls the document by the collapse, `scrollY = 793 − inner` — as far as the
-  // document lets it. `extent` is what bounds that on the phone, which WebKit on Linux cannot say:
-  // 'html' — the root's own box (bound to the live height, nothing to scroll); 'icb' — the initial
-  // containing block, which stays 793 whatever the CSS says (only an undo can help then)
-  window.__collapseTo = (inner, extent) => {
-    const full = realInner()
-    st.collapse = true
-    st.shrink = full - inner
-    window.dispatchEvent(new Event('resize')); vv.dispatchEvent(new Event('resize'))
-    const docH = extent === 'html' ? document.documentElement.getBoundingClientRect().height : full
-    const pan = Math.max(0, Math.min(full - inner, Math.round(docH - inner)))
-    if (pan !== st.pan) { st.pan = pan; vv.dispatchEvent(new Event('scroll')); window.dispatchEvent(new Event('scroll')) }
-  }
-  void real
-}
 
 /** The owner's round-10 capture as a drag: a finger on a row (the list at its top) wobbles a few px
  *  while iOS collapses the window in steps (`inners`, each through `__collapseTo`). After each step
@@ -232,14 +181,6 @@ function drag(arg) {
     blurred: caretBefore && document.activeElement !== field, caret: document.activeElement === field }
 }
 
-// the installed app's own test (lib/installPrompt · isStandalone) answers «yes», as on the home screen
-function standalone() {
-  const mm = window.matchMedia.bind(window)
-  const yes = (q) => ({ matches: true, media: q, onchange: null, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {}, dispatchEvent: () => false })
-  window.matchMedia = (q) => (/display-mode:\s*standalone/.test(q) ? yes(q) : mm(q))
-  Object.defineProperty(navigator, 'standalone', { get: () => true })
-}
-
 // n frames, then the sheet's glide between its two places done (review round 12, lib/iosKeyboard ·
 // useKeySheet · data-ks-move): every check reads the sheet where it comes to rest
 const frames = async (page, n = 4) => {
@@ -277,21 +218,7 @@ let page
 
 /** A signed-in Karte in one frame (head of this file). */
 async function openKarte(frame) {
-  const ctx = await browser.newContext({ ...devices['iPhone 13'], viewport: frame.viewport, screen: frame.screen, baseURL: BASE, serviceWorkers: 'block' })
-  if (frame.standalone) await ctx.addInitScript(standalone)
-  // the safe area: desktop WebKit reads every env(safe-area-inset-*) as 0 — the app's CSS and
-  // modules get the installed app's numbers written in their place
-  if (frame.safe) {
-    const origin = new URL(BASE).origin
-    await ctx.route((u) => u.origin === origin, async (route) => {
-      const res = await route.fetch().catch(() => null)
-      if (!res) return route.continue()
-      if (!/javascript|css|html/.test(res.headers()['content-type'] ?? '')) return route.fulfill({ response: res })
-      const body = (await res.text()).replaceAll('env(safe-area-inset-top)', `${frame.safe.top}px`).replaceAll('env(safe-area-inset-bottom)', `${frame.safe.bottom}px`)
-      return route.fulfill({ response: res, body })
-    })
-  }
-  await ctx.addInitScript(fakeKeyboard)
+  const ctx = await phoneContext(browser, frame, BASE)
   await ctx.addInitScript(() => { try { sessionStorage.setItem('kp.karte.view', JSON.stringify({ center: [7.555, 47.515], zoom: 16, bearing: 0, objectId: null, surface: 'karte' })) } catch { /* private mode */ } })
   page = await ctx.newPage()
   await page.goto('/')

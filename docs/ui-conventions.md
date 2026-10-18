@@ -153,6 +153,16 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   above the bars (Ebenen was one until 29.09.) is none of the three: it cannot
   be pushed away and does not belong to its tile.
 
+- **The keyboard is measured from the app's full height, never the live `innerHeight`**
+  (18.10.2026). In the INSTALLED iPhone app a touch with the keys up makes iOS collapse
+  `innerHeight` to the visual viewport (793 → 424, also in steps) and scroll the window by the
+  rest, while the frame `position: fixed` is laid out in stays full height (the Karte's review
+  rounds 9–10, docs/karte-objekte.md). `lib/useKeyboardInset` (`is-kb`, `--kb-inset`, `--jc-kb`,
+  the root's `data-kb` and `--vv-foot`) and every `bottom:` placed from the frame's foot
+  (ComboMenu's up-menus, HoldTargets, the toast lane) read `lib/iosKeyboard · fullViewHeight`.
+  Safari tabs never collapse, so there nothing changes. Check: `e2e/einsatz-keyboard.mjs` (the
+  composer, «Einsatzdaten bearbeiten», «Trupp anmelden» in the emulated installed app and a tab).
+
 - **A sheet's footer row is `SheetFoot`** (`.ui-sheet-foot`, 26.09.2026): `Sheet` draws it for
   `footer`, and a bespoke frame whose footer is its bottom edge on a phone wears it (the Trupp
   form, the Mittel note, the Georef transfer). ONE rule in 15-mobile.css insets it on a phone —

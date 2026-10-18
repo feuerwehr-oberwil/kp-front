@@ -178,3 +178,24 @@ describe('keyboardFootNow / keyboardLift — the sheet stands ON the keys', () =
     expect(keyboardMargin(300)).toBe('var(--vv-foot, 300px)')
   })
 })
+
+/* The installed iPhone app (18.10.2026, the Karte's review rounds 9–10): with the keys up a touch
+ * collapses `innerHeight` to the visual viewport and scrolls the window by the rest, while the frame
+ * `position: fixed` is laid out in (the root's client height) stays full. Measured from the live
+ * `innerHeight` that read «no keyboard» and the Einsatz sheets left the keys (e2e/einsatz-keyboard.mjs). */
+describe('the installed app collapses innerHeight', () => {
+  afterEach(() => { Reflect.deleteProperty(document.documentElement, 'clientHeight') })
+
+  it('still reads the keyboard and the foot from the full height', () => {
+    const vv = stubViewport()
+    Object.defineProperty(document.documentElement, 'clientHeight', { configurable: true, value: SCREEN })
+    focusField()
+    vv.height = SCREEN - 369
+    window.innerHeight = SCREEN - 369
+    vv.offsetTop = 369 // iOS kept its scroll: the sheet stands at the frame's foot
+    expect(keyboardInsetNow()).toBe(369)
+    expect(keyboardFootNow()).toBe(0)
+    vv.offsetTop = 0 // …and after a scrollTo(0, 0) it honours, innerHeight still collapsed
+    expect(keyboardFootNow()).toBe(369)
+  })
+})

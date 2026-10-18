@@ -8,6 +8,7 @@ import { RankBadge } from './RankBadge'
 import { matchesQuery, searchQuery } from '../lib/search'
 import { usePopoverGuard } from '../lib/overlays/popoverGuard'
 import { visibleViewportBottom } from '../lib/useKeyboardInset'
+import { fullViewHeight } from '../lib/iosKeyboard'
 import c from './ComboMenu.module.css'
 
 /**
@@ -69,7 +70,8 @@ function clipBounds(el: HTMLElement): { top: number; bottom: number } {
     }
     node = node.parentElement
   }
-  return { top: 0, bottom: window.innerHeight }
+  // the fixed frame's full height: the installed iPhone app collapses innerHeight under the keys
+  return { top: 0, bottom: fullViewHeight() }
 }
 
 export interface ComboMenuState {
@@ -334,7 +336,7 @@ export function ComboMenu<V>({ state, menuRef, classes, copy, entries, groups, s
       // position:fixed that is viewport-bottom + 4, which (together with the inline `bottom`)
       // stretched the menu into a 0-height sliver OFF-screen whenever the trigger sat low.
       // That is the phone bottom sheet's "the dropdown does nothing".
-      style={{ left: pos.left, width: pos.width, maxHeight: pos.maxH, ...(pos.up ? { top: 'auto', bottom: window.innerHeight - pos.top + 4 } : { top: pos.top + 4 }) }}>
+      style={{ left: pos.left, width: pos.width, maxHeight: pos.maxH, ...(pos.up ? { top: 'auto', bottom: fullViewHeight() - pos.top + 4 } : { top: pos.top + 4 }) }}>
       {searchShown && (
         <li className={c.searchRow}>
           <SearchField

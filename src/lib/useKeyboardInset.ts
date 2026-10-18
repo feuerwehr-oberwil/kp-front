@@ -1,5 +1,6 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import { isTypingTarget } from './hotkeys'
+import { fullViewHeight } from './iosKeyboard'
 
 /**
  * Inline style for a modal frame while the keyboard is up — `undefined` at 0, so a surface
@@ -20,7 +21,7 @@ export function keyboardLift(inset: number): CSSProperties | undefined {
  * keyboard's height, and it is only the right lift while iOS has NOT panned the page: iOS pans the
  * visual viewport by `offsetTop` to reveal a caret, and a sheet lifted by the whole keyboard then
  * stood exactly that pan above the keys, the blurred page showing between. The foot is
- * `innerHeight − offsetTop − vv.height` — the keyboard LESS the pan — so the sheet's bottom is the
+ * `full height − offsetTop − vv.height` — the keyboard LESS the pan — so the sheet's bottom is the
  * visible band's bottom whatever iOS did. The HEIGHT caps keep the whole keyboard (`--kb-inset`):
  * a sheet never taller than the band is what keeps the caret on screen, and that is what stops
  * the pan/re-aim loop the note on `useKeyboardInset` describes (it came from a cap that
@@ -35,7 +36,7 @@ export function keyboardMargin(inset: number): string {
  * 0 when no keyboard is shown. Lets a bottom sheet lift its content above the iOS/Android
  * keyboard instead of hiding behind it.
  *
- * ⚠️ It measures the KEYBOARD only — `innerHeight - visualViewport.height` — and deliberately
+ * ⚠️ It measures the KEYBOARD only — `full height - visualViewport.height` — and deliberately
  * NOT `visualViewport.offsetTop`. offsetTop is how far the visual viewport has been scrolled
  * inside the layout viewport, and iOS moves it continuously while it scrolls a focused field
  * into view. Subtracting it fed that motion straight back into the sheet's margin: the sheet
@@ -74,7 +75,7 @@ function virtualKeyboard(): VirtualKeyboardLike | undefined {
 /** The keyboard height RIGHT NOW — one reading, no subscription. VirtualKeyboard API first
  *  (the only truthful source under `overlays-content`), visual viewport otherwise.
  *
- *  ⚠️ The visual-viewport branch is a PROXY, not a measurement — `innerHeight - vv.height` is
+ *  ⚠️ The visual-viewport branch is a PROXY, not a measurement — `full height - vv.height` is
  *  «something is covering or scaling the viewport», and on iOS (the only platform that takes this
  *  branch) two things that are not a keyboard read exactly like one:
  *
@@ -89,29 +90,38 @@ function virtualKeyboard(): VirtualKeyboardLike | undefined {
  *     `100dvh - kb` and stayed in the upper half of the iPad (Feldtest 10.09.).
  *
  *  Hence the focus test: no caret in a text field, no keyboard — whatever the geometry says.
- *  It is deliberately NOT applied to the VirtualKeyboard branch, which reports the real thing. */
+ *  It is deliberately NOT applied to the VirtualKeyboard branch, which reports the real thing.
+ *
+ *  ⚠️ Measured from the app's FULL height (`fullViewHeight`, lib/iosKeyboard), never the live
+ *  `innerHeight` (18.10.2026, the installed iPhone app — the Karte's review rounds 9–10): with the
+ *  keys up, a touch makes iOS collapse `innerHeight` to the visual viewport (793 → 424, also in
+ *  steps) and scroll the window by the rest, while the frame `position: fixed` is laid out in stays
+ *  793 tall. `innerHeight − vv.height` then read 0 — «no keyboard» — and every Einsatz sheet left
+ *  the keys mid-sentence (e2e/einsatz-keyboard.mjs). Safari tabs never collapse: there both agree. */
 export function keyboardInsetNow(): number {
   const vk = virtualKeyboard()
   if (vk) return Math.max(0, Math.round(vk.boundingRect?.height ?? 0))
   const vv = window.visualViewport
   if (!vv || !isTypingTarget(document.activeElement)) return 0
-  return Math.max(0, Math.round(window.innerHeight - vv.height * (vv.scale || 1)))
+  return Math.max(0, Math.round(fullViewHeight() - vv.height * (vv.scale || 1)))
 }
 
 /** How much of the LAYOUT viewport's foot is out of sight right now: from the bottom of the layout
  *  viewport (where every `position: fixed` bottom is measured from) up to the bottom of what the
  *  screen actually shows. With the VirtualKeyboard API that is the overlaid keyboard (Android does
  *  not pan under `overlays-content`); on iOS it is the keyboard LESS the pan iOS applied to reveal
- *  the caret (`offsetTop`), i.e. `innerHeight − (offsetTop + height)`. Same focus test as
+ *  the caret (`offsetTop`), i.e. `full height − (offsetTop + height)`. Same focus test as
  *  `keyboardInsetNow` — no caret, no keyboard — and a pinch-zoomed page, where the band arithmetic
- *  does not hold in layout pixels, falls back to the keyboard's height as before. */
+ *  does not hold in layout pixels, falls back to the keyboard's height as before. The layout
+ *  viewport's bottom is the full height (`fullViewHeight`), for the same reason as there: the
+ *  installed app's collapse shrinks `innerHeight`, not the frame the sheets stand in. */
 export function keyboardFootNow(): number {
   const vk = virtualKeyboard()
   if (vk) return Math.max(0, Math.round(vk.boundingRect?.height ?? 0))
   const vv = window.visualViewport
   if (!vv || !isTypingTarget(document.activeElement)) return 0
   if (Math.abs((vv.scale || 1) - 1) > 0.01) return keyboardInsetNow()
-  return Math.max(0, Math.round(window.innerHeight - vv.offsetTop - vv.height))
+  return Math.max(0, Math.round(fullViewHeight() - vv.offsetTop - vv.height))
 }
 
 /** Where the USABLE screen ends right now, in fixed-position coordinates — the number placement

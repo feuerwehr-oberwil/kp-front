@@ -1,5 +1,6 @@
 import { type RefObject, useEffect } from 'react'
 import { visibleViewportBottom } from './useKeyboardInset'
+import { fullViewHeight } from './iosKeyboard'
 
 /**
  * Where the phone's message lane stands while a MODAL bottom sheet is open (30.09.2026).
@@ -47,7 +48,7 @@ export function openSheetTop(): number | null {
   // While it is up, the lane is the foot of the screen, as with no sheet at all.
   if (document.querySelector('.photo-view[role="dialog"]')) return null
   const vv = window.visualViewport
-  const bottoms = [window.innerHeight, vv ? vv.offsetTop + vv.height : window.innerHeight, visibleViewportBottom()]
+  const bottoms = [fullViewHeight(), vv ? vv.offsetTop + vv.height : fullViewHeight(), visibleViewportBottom()]
   let top: number | null = null
   for (const el of document.querySelectorAll<HTMLElement>(SHEET_SEL)) {
     if (el.closest('.toaster')) continue
@@ -80,7 +81,8 @@ export function useToastLane(ref: RefObject<HTMLElement | null>, active: boolean
       frame = 0
       const bar = document.querySelector('.topbar')?.getBoundingClientRect()
       const lane = laneOverSheet(openSheetTop(), {
-        layoutHeight: window.innerHeight,
+        // the fixed frame's full height, not the installed app's collapsed innerHeight (lib/iosKeyboard)
+        layoutHeight: fullViewHeight(),
         ceiling: bar && bar.height > 0 ? bar.top : 8,
         // --float-h / --float-gap are calc()s of tokens; their resolved numbers are the tokens'
         pill: px('--tap', 44) + 2 * px('--msg-pad', 4),
