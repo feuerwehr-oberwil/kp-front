@@ -249,9 +249,11 @@ The rules that are easy to break:
   location of the marker»). Centred on the coordinate the station set, exactly where the dot is;
   the placement pass decides only WHETHER it shows, and a tag at a side edge slides inward at most
   until 16 px of it still cover the point. A long name folds onto two, at most three, balanced
-  lines at 220 px (owner, Karte Haus round 2: «long labels should fold» — «Stallenmattstrasse 2-14,
+  lines at 280 px (owner, Karte Haus round 2: «long labels should fold» — «Stallenmattstrasse 2-14,
   Kaibmattweg 1-5, Stallenrain 1 (EH)» ran off both screen edges); the placement pass measures the
-  folded size on its off-screen twin. Round 1 hung the tag under its building's south edge,
+  folded size on its off-screen twin. A folded tag's box is as wide as its longest line, not the
+  280 px (Karte Haus round 3: «boxes fitted to the width»): CSS cannot shrink a wrapped box, so
+  the twin's lines are measured and the tag gets that width inline (`e2e/karte-tag-fit.mjs`). Round 1 hung the tag under its building's south edge,
   round 2 moved it inside its own building when that spot was another object's — both put the
   name somewhere the point is not, and that read as a moved marker.
 - **A tag is the name, never a plan count** (owner, round 3: «we just care that there are
@@ -422,7 +424,9 @@ The rules that are easy to break:
   the other building). The hint («Aus den Bundesregistern … Vor Ort prüfen.») and the source line
   (the registers and their Stand, the device's copy) are folded behind the «Register-Hinweis»
   toggle (`aria-expanded`), folded again for every place. The Einsatz's
-  Gebäude card (`BuildingCard`) is a different component and keeps its hint as it was.
+  Gebäude card (`BuildingCard`) is a different component and keeps its hint as it was; its tags
+  and the station's notes are the panel's own pieces (`components/BuildingFacts` · `RegisterTags`,
+  `StationNotes` – Karte Haus round 3), so the two cannot drift apart.
 - **Missing is said.** A register that could not be asked, a place never looked at offline, an
   object without notes: each gets its sentence, and «Keine Gefahrenangaben … heisst nicht …»
   closes the panel. Nothing reads as «no hazard».

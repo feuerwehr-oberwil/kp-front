@@ -2,7 +2,8 @@ import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { IconButton } from './Button'
 import type { BuildingInfo } from '../lib/api/building'
-import { buildingChips, buildingSources, hasBuildingContent, noteLines, objectCaption, visitLine, type BuildingChip } from '../lib/buildingCard'
+import { buildingChips, buildingSources, hasBuildingContent, noteLines, objectCaption, visitLine } from '../lib/buildingCard'
+import { RegisterTags, StationNotes } from './BuildingFacts'
 import s from './BuildingCard.module.css'
 
 /**
@@ -11,9 +12,10 @@ import s from './BuildingCard.module.css'
  *
  * What must be read comes first, so it stands in view without scrolling when the card opens by
  * itself (lib/buildingFirstOpen; on a phone the card is at most 56vh): the hazard tags (the card
- * pill's look, the warn glyph AND the word), then the Einsatzobjekt's Sofortmassnahmen and
- * Bemerkungen as text when the station wrote some, with whose notes they are. Below them the
- * register facts as plain tags with their one line of sources, and the last Objektbesuch.
+ * tag, the warn glyph AND the word), then the Einsatzobjekt's Sofortmassnahmen and Bemerkungen
+ * as text when the station wrote some, with whose notes they are. Below them the register facts
+ * as plain tags with their one line of sources, and the last Objektbesuch. Tags and notes are
+ * the Karte panel's own pieces (BuildingFacts), so the two surfaces cannot drift apart.
  * Nothing to say → nothing drawn (lib/buildingCard).
  */
 export function BuildingCard({ info, onClose }: { info: BuildingInfo | null; onClose?: () => void }) {
@@ -36,37 +38,11 @@ export function BuildingCard({ info, onClose }: { info: BuildingInfo | null; onC
           <IconButton label={appConfig.copy.closeDialog} className={s.close} onClick={onClose}><Icon id="close" /></IconButton>
         )}
       </div>
-      <Tags chips={hazards} />
-      {measures.length > 0 && <Notes label={C.measures} lines={measures} strong />}
-      {remarks.length > 0 && <Notes label={C.remarks} lines={remarks} />}
-      {caption && <p className={s.sources}>{caption}</p>}
-      <Tags chips={facts} className={measures.length || remarks.length ? s.facts : undefined} />
+      <RegisterTags chips={hazards} />
+      <StationNotes measures={measures} remarks={remarks} source={caption} className={s.notes} />
+      <RegisterTags chips={facts} className={measures.length || remarks.length ? s.facts : undefined} />
       {sources && <p className={s.sources}>{sources}</p>}
       {visit && <p className={s.visit}><Icon id="clipboard" /><span>{visit}</span></p>}
     </section>
-  )
-}
-
-function Tags({ chips, className }: { chips: BuildingChip[]; className?: string }) {
-  if (!chips.length) return null
-  return (
-    <ul className={className ? `${s.chips} ${className}` : s.chips}>
-      {chips.map((c) => (
-        <li key={c.key} className={c.hazard ? `${s.chip} ${s.hazard}` : s.chip} title={c.title}>
-          {c.hazard && <Icon id="warn" />}<span>{c.text}</span>
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-function Notes({ label, lines, strong = false }: { label: string; lines: string[]; strong?: boolean }) {
-  return (
-    <div className={strong ? `${s.notes} ${s.measures}` : s.notes}>
-      <div className={s.notesLabel}>{label}</div>
-      <ul className={s.lines}>
-        {lines.map((l, i) => <li key={i}>{l}</li>)}
-      </ul>
-    </div>
   )
 }

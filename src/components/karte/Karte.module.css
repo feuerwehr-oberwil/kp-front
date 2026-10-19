@@ -5,17 +5,17 @@
    Gefahrgut card, the name tags and the plan surface. Scales and tokens only (01-tokens). */
 
 /* ── top bar contents ─────────────────────────────────────────────────────────────────────── */
-.einsaetze { position: relative; display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3);
-  border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
-  font: var(--fw-bold) var(--fs-2)/1.1 var(--body); cursor: pointer; flex: none; }
+/* the menu button IS the Einsatz bar's switcher pill (13-incident · .ip-switch-btn: glass, no
+   border, its press); here only what the Karte adds – the red dot's anchor, the tap height, and it
+   never yields its width */
+.einsaetze { position: relative; min-height: var(--tap); max-width: none; flex: none; }
 /* the menu button's face (review round 5): the station's mark (an uploaded logo, any aspect, fitted
    into the glyph's row height) and/or its short name (≤ 8, identity.shortName) — never wraps */
 .menuMark { height: 24px; width: auto; max-width: 48px; object-fit: contain; flex: none; }
 .menuName { white-space: nowrap; letter-spacing: .02em; }
 /* one glyph size in the bar (owner, review round 4: the search glyph was 20px, the flag 14px): the
-   Einsatz bar's 16px (13-incident · .ip-switch-btn svg) */
-.einsaetze > :global(.i) { width: 16px; height: 16px; flex: none; }
-.einsaetze:active, .einsaetze.open { background: var(--press); }
+   Einsatz bar's 16px, which the pill brings (13-incident · .ip-switch-btn svg); open = pressed */
+.einsaetze.open, .searchBtn.open { background-image: linear-gradient(var(--press), var(--press)); }
 /* wide enough for the whole placeholder (owner, 19.10.2026: «Anleitung, Checkliste, S…»). A WIDTH,
    not a flex-basis: the bar is absolutely positioned and sizes to its content, so a basis never
    widened it – the input's own ~200px default did. It still gives way on a narrow bar (shrink, no
@@ -62,8 +62,10 @@ button.row:active { background: var(--press); }
    on the map (the row hovered or tapped, or the hydrant under the mouse) */
 .hydRow { background: var(--blue-5); }
 @media (hover: hover) { button.hydRow:hover { background: var(--blue-8); } }
-.row.hydRow.lit { background: var(--blue-16); box-shadow: inset 3px 0 0 var(--blue); }
-.badge.blue { background: var(--blue-16); color: var(--blue-strong); margin-right: var(--sp-2); vertical-align: 1px; }
+/* lit = the picked row's wash alone (ui-conventions · Selected: nothing else rides on it) */
+.row.hydRow.lit { background: var(--sel-wash); }
+/* «Nächster»: the tag recipe (.ip-badge) in the hydrant's blue – no shared tone says «nearest» */
+.nearest { background: var(--blue-16); color: var(--blue-strong); margin-right: var(--sp-2); vertical-align: 1px; }
 .chev { width: 16px; height: 16px; color: var(--ink-faint); }
 
 /* the switch «Objekt · n Pläne | <Haus>» right under the head, after a tap on one of an object's
@@ -112,11 +114,7 @@ button.row:active { background: var(--press); }
    so the type is a step up from the caption and the target 44px tall without growing the head */
 .hintBtn { min-height: var(--tap); margin-block: calc(var(--sp-3) * -1); padding: 0 var(--sp-1); border: none; background: none; font-size: var(--fs-1); cursor: pointer; }
 .hintBtn:active { background: var(--press); border-radius: var(--r-xs); }
-.hintChev { transition: transform .15s; }
-.hintBtn.open .hintChev { transform: rotate(180deg); }
 .hintBody { display: flex; flex-direction: column; gap: var(--sp-1); }
-.bullets { margin: 0; padding-left: var(--sp-5); font: var(--fw-medium) var(--fs-3)/1.4 var(--body); color: var(--ink); }
-.bullets.quietList { font-size: var(--fs-2); color: var(--ink-dim); }
 .src { font: var(--fw-medium) var(--fs-micro)/1.4 var(--body); color: var(--ink-dim); }
 .src b { color: var(--ink); }
 .note { display: flex; gap: var(--sp-2); align-items: flex-start; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--ink-5);
@@ -126,17 +124,6 @@ button.row:active { background: var(--press); }
 .note.amber svg { color: var(--amber-strong); }
 /* a missing or quiet fact: a line in the sheet's rhythm, not a box (owner R2) */
 .quietLine { margin: 0; font: var(--fw-medium) var(--fs-1)/1.4 var(--body); color: var(--ink-dim); }
-.tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
-.tag { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: 28px; padding: 0 var(--sp-2); border-radius: var(--r-xs);
-  background: var(--ink-8); color: var(--ink); font: var(--fw-bold) var(--fs-1)/1.2 var(--body); }
-.tag.warn { background: var(--amber-16); color: var(--amber-strong); }
-.tag svg { width: 14px; height: 14px; }
-.badge { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 2px var(--sp-2); border-radius: var(--r-xs); font: var(--fw-bold) var(--fs-micro)/1.3 var(--body); }
-.badge.green { background: var(--green-12); color: var(--green-strong); }
-.badge.amber { background: var(--amber-16); color: var(--amber-strong); }
-.badge.ink { background: var(--ink-8); color: var(--ink-dim); }
-.monoChip { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 var(--sp-1); border: 1px solid var(--border); border-radius: var(--r-xs);
-  font: var(--fw-heavy) var(--fs-2)/1 var(--body); background: var(--surface); color: var(--ink); }
 .skeleton { height: 14px; border-radius: var(--r-xs); background: var(--ink-8); }
 /* the head while its name is looked up: the bars stand where the title and the address line will */
 .headSkeleton { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-1) 0 2px; }
@@ -165,7 +152,9 @@ button.row:active { background: var(--press); }
 /* a long name folds onto two, at most three, balanced lines at 280px instead of running off the
    screen (owner, Karte Haus round 2: «Stallenmattstrasse 2-14, Kaibmattweg 1-5, …»); short and
    medium names («Amselstrasse 24-32, Auf der Wacht 2») stay one line. The measuring twin below
-   wears the same rules, so the placement pass collides the folded size. */
+   wears the same rules, so the placement pass collides the folded size. A folded box is as wide
+   as its longest line, not the 280px (owner, round 3): CSS cannot shrink a wrapped box, so
+   KarteApp reads the twin's lines and hands the tag that width inline (e2e/karte-tag-fit.mjs). */
 .tagMk { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
   width: max-content; max-width: 280px; text-wrap: balance; text-align: center;
   padding: 4px var(--sp-2); border-radius: var(--r-xs); border: 1.5px solid var(--red-45);
@@ -202,22 +191,20 @@ button.row:active { background: var(--press); }
 .ergLbl { padding: 2px var(--sp-2); border-radius: var(--r-xs); background: var(--surface); border: 1px solid var(--amber-45); color: var(--amber-strong);
   font: var(--fw-bold) var(--fs-micro)/1.3 var(--body); white-space: nowrap; box-shadow: var(--e1); }
 
-/* ── tool cards (Gefahrgut) ───────────────────────────────────────────────────────────────── */
-.toolCard { position: absolute; top: calc(88px + env(safe-area-inset-top)); right: calc(var(--vrail-w, 60px) + 32px); width: 300px; max-height: calc(100% - 104px);
-  z-index: var(--z-floating-card); display: flex; flex-direction: column; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-  border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
-.toolHead { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: var(--sp-3) var(--sp-3) var(--sp-2) var(--sp-4); }
-.toolHead h3 { margin: 0; font: var(--sheet-title); }
-.toolBody { overflow: auto; padding: 0 var(--sp-4) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
+/* ── tool cards (Gefahrgut, tablet) ─────────────────────────────────────────────────────────
+   Ebenen's card beside the tool rail (05-navrail · .layers-card + .lc-title/.lc-x/.lc-body, the
+   phone's KarteKeySheet wears it too). Wider for the readout, and hung under the bar rather than
+   centred: the readout grows as the number is typed, and a centred card would grow both ways */
+.toolCard.toolCard { width: 300px; top: calc(88px + env(safe-area-inset-top)); transform: none; max-height: calc(100dvh - 104px - env(safe-area-inset-top)); }
+.toolCard :global(.lc-body) { padding: 0 var(--sp-4) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
 /* the card's «Auf die Karte tippen …»: the hint pill's words and glyph, as a line of the card */
 .toolHint { display: flex; align-items: center; gap: var(--sp-2); font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); }
 .toolHint svg { width: 16px; height: 16px; flex: none; color: var(--ink-dim); }
 /* the card's field: above the scroller, never scrolled away by the readout under it */
 .toolField { flex: none; padding: 0 var(--sp-4) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-3); }
-.field { min-height: var(--tap); padding: 0 var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
-  font: var(--fw-bold) var(--fs-4)/1 var(--mono); width: 100%; box-sizing: border-box; }
+/* the UN number field: the shared .ip-input (its frame and focus ring), in the Gefahrentafel's mono */
+.unField.unField { font: var(--fw-bold) var(--fs-4)/1 var(--mono); }
 .fieldLabel { font: var(--field-label); color: var(--ink-dim); }
-.chips { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 
 /* ── the keyboard (review round 3, 17.10.2026 — owner-r3-*-keyboard.png) ──────────────────────────
    Round 2 placed the phone's Gefahrgut card and search list from `--vv-pan` / `--vv-foot`, i.e. from
@@ -276,10 +263,8 @@ button.row:active { background: var(--press); }
 /* the bar's search button (phone): «Einsätze ▾» left, this right — no long field on a phone. The
    SAME button as «Einsätze ▾» beside it (owner, review round 4: «the search icon being round»):
    its height, frame, corner and glyph size; a square because it holds only the glyph */
-.searchBtn { flex: none; margin-left: auto; width: var(--tap); height: var(--tap); display: grid; place-items: center; padding: 0;
-  border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); cursor: pointer; }
-.searchBtn svg { width: 16px; height: 16px; }
-.searchBtn:active, .searchBtn.open { background: var(--press); }
+/* (both wear .ip-switch-btn; this is the square) */
+.searchBtn.searchBtn { flex: none; margin-left: auto; width: var(--tap); height: var(--tap); justify-content: center; padding: 0; }
 
 /* ── Messen on the phone: the Einsatz's stack, one bar lower ──────────────────────────────────
    In an Einsatz the dock stands 6px above the tool bar and the readout 6px above the dock
@@ -368,10 +353,6 @@ button.row:active { background: var(--press); }
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); cursor: pointer; }
 .utilBtn svg { width: 22px; height: 22px; }
 .utilGlyph { display: grid; place-items: center; }
-/* the plan surface's floating chips (the way back, the lamp) — the floating family's look */
-.fchip { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3); border: none; border-radius: var(--r-sm);
-  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); font: var(--fw-bold) var(--fs-2)/1.2 var(--body); cursor: pointer; }
-.fchip svg { width: 16px; height: 16px; }
 .quick > * { flex: 1 1 0; min-width: max-content; white-space: nowrap; }
 
 /* ── offline: what this device holds (docs/karte-objekte.md · Offline, mockup s-j7-*) ─────────
@@ -385,10 +366,9 @@ button.row:active { background: var(--press); }
 /* a plan the device does not hold, while offline: still tappable (the surface says why), dimmed */
 .row.off .rowText, .row.off .rowLead { opacity: .5; }
 :global(.nav-item).navOff { opacity: .45; }
-/* the bar's chip: the switcher's offline pill (13-incident · .ip-offline-chip), at tap size */
-.offChip { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3); flex: none;
-  border: none; border-radius: var(--r-sm); background: var(--amber-16); color: var(--amber-strong); cursor: pointer;
-  font: var(--fw-bold) var(--fs-2)/1 var(--body); }
+/* the bar's chip IS the switcher's offline pill (13-incident · .ip-offline-chip); here a button at
+   tap size, with the bar's corner */
+.offChip.offChip { min-height: var(--tap); padding: 0 var(--sp-3); gap: var(--sp-2); border: none; border-radius: var(--r-sm); cursor: pointer; }
 .offChip:active { background: var(--amber-22); }
 .offDot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
 .deviceSheet { max-width: 520px; }

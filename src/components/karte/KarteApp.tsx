@@ -33,6 +33,7 @@ import { Marker } from 'react-map-gl/maplibre'
 import { appConfig } from '../../config/appConfig'
 import { getLocaleId } from '../../config/copy'
 import { Icon, IconSprite } from '../../lib/icons'
+import { MapPin } from '../MapPin'
 import { cx } from '../../lib/cx'
 import { fillTemplate } from '../../lib/format'
 import { useAuth } from '../../lib/auth'
@@ -1126,6 +1127,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // the map changes (panel, sheet, search, a tool), and once more after a panel has slid in.
   const measureRef = useRef<HTMLSpanElement>(null)
   const sizes = useRef(new Map<string, { w: number; h: number }>())
+  /** name → the width a FOLDED tag is given: its widest line plus its chrome (the twin's measure) */
+  const [fits, setFits] = useState<ReadonlyMap<string, number>>(() => new Map())
+  const fitsRef = useRef(fits)
   /** id → how far its tag slides sideways to stay on the map */
   const [tagged, setTagged] = useState<Map<string, number> | null>(null)
   const taggedRef = useRef<Map<string, number> | null>(null)
@@ -1140,7 +1144,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   useEffect(() => {
     if (!objectsOn) return
     let alive = true
-    /** a tag's real size: the off-screen twin measured once per name (jsdom: an estimate) */
+    /** a tag's real size: the off-screen twin measured once per name (jsdom: an estimate). A
+     *  name that folds keeps the box of its 280px cap in CSS (owner, round 3: «wrapped lines …
+     *  fitted to the width»): its lines are read off the twin and the tag is given the widest
+     *  one's width (`fit`) – measured again at that width, so the placement collides the fitted box */
+    let folded: Map<string, number> | null = null
     const size = (name: string) => {
       const hit = sizes.current.get(name)
       if (hit) return hit
@@ -1148,7 +1156,23 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       let box = { w: 0, h: 0 }
       if (el) {
         el.textContent = tagText(name)
-        const r = el.getBoundingClientRect()
+        el.style.width = ''
+        let r = el.getBoundingClientRect()
+        const range = document.createRange()
+        range.selectNodeContents(el)
+        const lines = new Map<number, number>()
+        for (const l of Array.from(range.getClientRects?.() ?? [])) lines.set(Math.round(l.top), Math.max(lines.get(Math.round(l.top)) ?? 0, l.width))
+        if (lines.size > 1) {
+          // the box is border-box: the line, its padding and border; +1 – a sub-pixel short of the
+          // line, the balanced wrap would fold one word more
+          const cs = getComputedStyle(el)
+          const chrome = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth)
+          const fit = Math.ceil(Math.max(...lines.values()) + chrome) + 1
+          el.style.width = `${fit}px`
+          r = el.getBoundingClientRect()
+          el.style.width = ''
+          ;(folded ??= new Map(fitsRef.current)).set(name, fit)
+        }
         box = { w: Math.ceil(r.width), h: Math.ceil(r.height) }
       }
       if (!box.w) box = tagSize(name.length * 7)
@@ -1185,6 +1209,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         }
         next = placeTags(cands, { width: box.width, height: box.height, occupied, always: selId })
       }
+      if (folded) { fitsRef.current = folded; setFits(folded); folded = null }
       if (samePlacement(taggedRef.current, next)) return
       taggedRef.current = next
       setTagged(next)
@@ -1272,9 +1297,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             }
             // the tag takes the dot's place, on the point; the name only, no plan count (owner R3)
             const dx = (!isSel && tagged?.get(o.id)) || 0
+            // a folded name: the box of its widest line, not of the 280px cap (the placement pass's `fits`)
+            const fit = fits.get(o.name)
             return (
               <Marker key={`tag:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" offset={[dx, 0]} style={{ zIndex: isSel ? 3 : 2, pointerEvents: takesTaps ? 'none' : undefined }}>
-                <button type="button" className={cx(s.tagMk, isSel && s.sel, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through)} style={catStyle} onClick={pick}>
+                <button type="button" className={cx(s.tagMk, isSel && s.sel, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through)} style={fit ? { ...catStyle, width: fit } : catStyle} onClick={pick}>
                   {tagText(o.name)}
                 </button>
               </Marker>
@@ -1299,7 +1326,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           {sel?.kind === 'pin' && (
             // the pin is the place: a tap on it brings back the sheet that was pushed away
             <Marker longitude={sel.at[0]} latitude={sel.at[1]} anchor="bottom" onClick={(e) => { e.originalEvent.stopPropagation(); setSheetShut(false) }}>
-              <svg className={s.pinMk} viewBox="0 0 34 44" aria-hidden><path d="M17 43C17 43 3 26 3 16a14 14 0 0 1 28 0c0 10-14 27-14 27z" fill={red} stroke="#fff" strokeWidth="2.5" /><circle cx="17" cy="16" r="5" fill="#fff" /></svg>
+              <MapPin className={s.pinMk} />
             </Marker>
           )}
         </MapView>
@@ -1326,7 +1353,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           {/* the menu button (owner, review round 5: «not "Einsätze" as the main top button» → the
               station's short name and/or mark, ▾; neither configured → the menu symbol). The red dot
               is the old count: an Einsatz running or an alarm waiting; the number is in its name. */}
-          <button type="button" className={cx(s.einsaetze, sheetOpen && s.open)} onClick={() => { setSheetOpen((o) => !o); setSearchOpen(false) }}
+          <button type="button" className={cx('ip-switch-btn', s.einsaetze, sheetOpen && s.open)} onClick={() => { setSheetOpen((o) => !o); setSearchOpen(false) }}
             title={C.menu} aria-label={einsaetze.badge > 0 ? `${menuName}, ${fillTemplate(C.einsaetzeBadge, { n: einsaetze.badge })}` : menuName}
             aria-haspopup="dialog" aria-expanded={sheetOpen} data-karte-menu="">
             {mark ? <img className={s.menuMark} src={mark} alt="" onError={() => setMarkFailed(true)} />
@@ -1365,13 +1392,13 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           )}
           {/* offline: the chip stands where the weather was and opens «Auf diesem Gerät» */}
           {!online ? (
-            <button type="button" className={s.offChip} onClick={() => setDeviceOpen(true)} title={C.offlineChipTitle} aria-label={C.offlineChipTitle}>
+            <button type="button" className={cx('ip-offline-chip', s.offChip)} onClick={() => setDeviceOpen(true)} title={C.offlineChipTitle} aria-label={C.offlineChipTitle}>
               <span className={s.offDot} aria-hidden />{!phone && C.offlineChip}
             </button>
           ) : !phone && liveWeather.data?.wind_dir_deg != null && <WeatherBadge weather={liveWeather.data} bearing={view.bearing} />}
           {!phone && runningChip}
           {phone && !onLibrary && (
-            <button type="button" className={cx(s.searchBtn, searchOpen && s.open)} onClick={() => (searchOpen ? setSearchOpen(false) : openPhoneSearch())}
+            <button type="button" className={cx('ip-switch-btn', s.searchBtn, searchOpen && s.open)} onClick={() => (searchOpen ? setSearchOpen(false) : openPhoneSearch())}
               aria-label={C.searchOpen} title={C.searchOpen} aria-expanded={searchOpen} data-karte-search-open="">
               <Icon id="search" />
             </button>
