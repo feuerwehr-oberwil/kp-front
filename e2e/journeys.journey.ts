@@ -1,5 +1,5 @@
 import { request as apiRequest, type Page } from '@playwright/test'
-import { expect, PIN, test } from './helpers'
+import { expect, PIN, test, EINSATZ_RAIL } from './helpers'
 import {
   Results, blocking, buildingAlreadyRead, calibrate, cdpFor, centre, counters, drain, instrument, isolateFromOutside, median,
   painted, recordNetwork, remember, retained, retire, routeTally, seedIncident, signIn, timeTo,
@@ -126,7 +126,7 @@ test('cold start: kiosk login → the Einsatz on the Karte', async ({ page, base
   for (const digit of PIN) await page.keyboard.press(digit)
   const loginAt = performance.now()
   await page.keyboard.press('Enter')
-  await page.locator('nav.navrail').waitFor({ state: 'visible', timeout: 60_000 })
+  await page.locator(EINSATZ_RAIL).waitFor({ state: 'visible', timeout: 60_000 })
   j.r.set('pin_to_workspace_ms', performance.now() - loginAt, 'ms')
   // the opening cover lifts once the first screen is whole — or at its 8 s cap (lib/bootCover):
   // a number near 8 000 here means something it waits for never arrived
@@ -168,7 +168,7 @@ test('warm reload: the installed app opens the Einsatz again', async ({ page, ba
     const from = Date.now()
     const t0 = performance.now()
     await page.reload()
-    await page.locator('nav.navrail').waitFor({ state: 'visible', timeout: 60_000 })
+    await page.locator(EINSATZ_RAIL).waitFor({ state: 'visible', timeout: 60_000 })
     shell.push(performance.now() - t0)
     await waitForWorkspace(page)
     ready.push(performance.now() - t0)

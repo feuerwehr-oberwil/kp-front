@@ -1,5 +1,5 @@
 import { request as apiRequest, type APIRequestContext, type Page } from '@playwright/test'
-import { test, expect, expectNoClientErrors, login, PIN, type ClientErrorReport } from './helpers'
+import { test, expect, expectNoClientErrors, login, PIN, type ClientErrorReport, EINSATZ_RAIL } from './helpers'
 
 // The field scenario of the Feueralarm-Übung on 23.09.2026 (post-mortem root cause A, process
 // follow-up #2): a Leitung coupled to a vehicle that is STANDING STILL and sending GPS, a Trupp
@@ -75,7 +75,7 @@ async function openOnKarte(page: Page, incident: Ubung, baseURL: string) {
     value: encodeURIComponent(JSON.stringify({ incidentId: incident.id, incidentChosenAt: Date.now() })),
   }])
   await login(page)
-  await expect(page.locator('nav.navrail')).toBeVisible()
+  await expect(page.locator(EINSATZ_RAIL)).toBeVisible()
   await expect(page.locator('.ip-switch-btn'), 'the device opened another Einsatz').toContainText(incident.title)
   await page.getByRole('button', { name: 'Karte', exact: true }).click()
   await expect(page.locator('canvas.maplibregl-canvas').first()).toBeVisible()
