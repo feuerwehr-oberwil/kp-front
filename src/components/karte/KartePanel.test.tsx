@@ -263,14 +263,14 @@ describe('KartePanel · order and actions (R2)', () => {
     expect(onHydrant.mock.calls).toEqual([['h1', 'enter'], ['h1', 'leave'], ['h1', 'tap']])
   })
 
-  it('the switch «Objekt | <Haus>» stands under the head and opens the other level', () => {
+  it('the switch «Objekt · n Pläne | <Haus>» stands under the head and opens the other level', () => {
     const onPick = vi.fn()
     const { container, rerender } = panel({ level: { on: 'object', plans: 3, house: null, onPick } })
     const group = screen.getByRole('group', { name: 'Objekt oder Haus' })
     // right under the head: the body's first part
     expect(container.querySelector('[data-section]')?.getAttribute('data-section')).toBe('level')
     // «Dieses Haus» until the register names the house
-    expect(group.textContent).toBe('Objekt3 PläneDieses Hausnur dieses Haus')
+    expect(group.textContent).toBe('Objekt · 3 PläneDieses Haus')
     fireEvent.click(within(group).getByRole('button', { name: /^Objekt/ }))
     expect(onPick).not.toHaveBeenCalled()
     fireEvent.click(within(group).getByRole('button', { name: /Dieses Haus/ }))

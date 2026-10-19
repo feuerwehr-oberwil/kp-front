@@ -145,6 +145,8 @@ const LIBRARY = 'karte:checkliste'
 /** how much of a phone's height the object sheet may cover (Ebenen's cap, 15-mobile · .layers-card):
  *  a place framed for it stands in the strip above */
 const SHEET_SHARE = 0.72
+/** a tag's text: a number range («1-14») never folds at its hyphen (a word joiner after it) */
+const tagText = (name: string) => name.replace(/(\d)-(?=\d)/g, '$1-\u2060')
 /** an Ebenen row per object category (lib/karte/categories) */
 const CAT_ROW = 'karte:kategorie:'
 /** «Unterirdische Bauten» (owner, review rounds 4 + 5): every underground building and tunnel of
@@ -543,8 +545,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     setSurface(null); setSearchOpen(false); setSheetShut(false)
     if (tool !== 'measure' && tool !== 'erg') setToolState(null)
     const at = coordOf(o)
-    // a tapped object is revealed beside / above the panel like a tapped building
-    if (at) { if (fly) flyTo(at); else reveal(at) } else if (o.address && online) {
+    // a tapped object is revealed beside / above the panel like a tapped building – the house that
+    // was tapped, not the object's point (its label, maybe a block away: owner, Karte Haus round 2)
+    if (at) { if (fly) flyTo(at); else reveal(hit?.at ?? at) } else if (o.address && online) {
       // no coordinates in the catalogue: the address says roughly where — marked «ungefähr»
       geocodeSearch(o.address, 1).then(([hit]) => {
         if (!hit) return
@@ -675,12 +678,18 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
 
   // ── a hydrant of In der Nähe on the map (owner, Karte Haus round 1) ───────────────────────────
   // The mouse over its row shows it while it stays there; a tap (touch) shows it until tapped
-  // again. Either way it belongs to the selection it was shown for — a new one clears it.
+  // again. Either way it belongs to the selection it was shown for — a new one clears it. A tap
+  // also switches the Hydranten Ebene on, kept like a toggle in Ebenen (owner, Karte Haus round 2);
+  // the mouse passing over a row never changes the layers.
   const [hydShown, setHydShown] = useState<{ sel: Sel; id: string; pinned: boolean } | null>(null)
   const shownHyd = hydShown && hydShown.sel === sel ? hydShown : null
   const onHydrant = (id: string, cue: HydrantCue) => {
     if (!sel) return
-    if (cue === 'tap') setHydShown(shownHyd?.id === id && shownHyd.pinned ? null : { sel, id, pinned: true })
+    if (cue === 'tap') {
+      setHydShown(shownHyd?.id === id && shownHyd.pinned ? null : { sel, id, pinned: true })
+      const layerId = hydrantLayer && !hydrantLayer.visible ? hydrantLayer.id : null
+      if (layerId) updateLayers((ls) => ls.map((l) => (l.id === layerId ? { ...l, visible: true } : l)))
+    }
     else if (cue === 'enter') { if (!shownHyd?.pinned) setHydShown({ sel, id, pinned: false }) }
     else if (shownHyd?.id === id && !shownHyd.pinned) setHydShown(null)
   }
@@ -1053,16 +1062,25 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }
 
   // ── the compass menu: no saved views here (they are an Einsatz's), the rest as on the Karte ──
+  const fitAll = () => {
+    const pts = objects.map(coordOf).filter((c): c is LngLat => !!c)
+    if (pts.length < 2) { mapRef.current?.easeTo({ center: deploymentDefaultCenter() ?? view.center, zoom: 15 }); return }
+    const lngs = pts.map((p) => p[0]), lats = pts.map((p) => p[1])
+    mapRef.current?.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 64, duration: 600 })
+  }
+  /** one GPS fix, then zoom (≥ 17) onto it; `orElse` when there is no position */
+  const locate = (orElse?: () => void) => {
+    if (!navigator.geolocation) { orElse?.(); return }
+    navigator.geolocation.getCurrentPosition((p) => mapRef.current?.easeTo({ center: [p.coords.longitude, p.coords.latitude], zoom: Math.max(view.zoom, 17) }), () => orElse?.(), { enableHighAccuracy: true, timeout: 10_000 })
+  }
   const viewsApi: ViewsApi = {
     list: [], current: view, onGo: NOOP, onSave: NOOP, onRename: NOOP, onDelete: NOOP,
     onResetNorth: () => mapRef.current?.easeTo({ bearing: 0 }),
-    onFit: () => {
-      const pts = objects.map(coordOf).filter((c): c is LngLat => !!c)
-      if (pts.length < 2) { mapRef.current?.easeTo({ center: deploymentDefaultCenter() ?? view.center, zoom: 15 }); return }
-      const lngs = pts.map((p) => p[0]), lats = pts.map((p) => p[1])
-      mapRef.current?.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 64, duration: 600 })
-    },
-    onLocate: () => navigator.geolocation?.getCurrentPosition((p) => mapRef.current?.easeTo({ center: [p.coords.longitude, p.coords.latitude], zoom: Math.max(view.zoom, 17) }), () => {}, { enableHighAccuracy: true, timeout: 10_000 }),
+    onFit: fitAll,
+    onLocate: () => locate(),
+    // holding the compass goes to where I stand – more often wanted than the whole village (owner,
+    // Karte Haus round 2); no position (denied, timed out, no GPS) fits the village as before
+    hold: { run: () => locate(fitAll), hint: C.compassHoldHint },
   }
 
   // ── chrome ────────────────────────────────────────────────────────────────────────────────
@@ -1129,7 +1147,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       const el = measureRef.current
       let box = { w: 0, h: 0 }
       if (el) {
-        el.textContent = name
+        el.textContent = tagText(name)
         const r = el.getBoundingClientRect()
         box = { w: Math.ceil(r.width), h: Math.ceil(r.height) }
       }
@@ -1257,7 +1275,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             return (
               <Marker key={`tag:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" offset={[dx, 0]} style={{ zIndex: isSel ? 3 : 2, pointerEvents: takesTaps ? 'none' : undefined }}>
                 <button type="button" className={cx(s.tagMk, isSel && s.sel, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through)} style={catStyle} onClick={pick}>
-                  {o.name}
+                  {tagText(o.name)}
                 </button>
               </Marker>
             )
