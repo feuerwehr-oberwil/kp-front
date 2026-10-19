@@ -10,13 +10,15 @@
 //     says «Register-Hinweis», because the register can be years behind the building.
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from './format'
-import type { BuildingInfo } from './api/building'
+import type { BuildingGwr, BuildingInfo, BuildingSystem } from './api/building'
 
 export interface BuildingChip {
   key: string
   text: string
   /** a hazard: drawn with the warn glyph and the amber tag */
   hazard: boolean
+  /** a hazard's one word for the closed chip («Gas», «PV») – buildingChipSummary */
+  word?: string
   title?: string
 }
 
@@ -44,6 +46,66 @@ function fmtKw(kw: number): string {
   return fillTemplate(appConfig.copy.building.kw, { n: String(n) })
 }
 
+const HEAT_PUMP_ENERGY = new Set(['air', 'geothermal', 'water'])
+
+/** The heating / hot-water systems; a device's card cached before 20.10.2026 has only the energy keys. */
+function systems(listed: BuildingSystem[] | undefined, energies: string[]): BuildingSystem[] {
+  return listed ?? energies.map((energy) => ({ energy, generator: null, shared: false }))
+}
+
+/** «Gas, Heizkessel für mehrere Gebäude» – the fuel with what burns it; null when it names nothing.
+ *  The energy words already say «Wärmepumpe (Luft)», so a heat pump on air/ground/water adds no word. */
+function systemWords(sys: BuildingSystem): string | null {
+  const C = appConfig.copy.building
+  const e = sys.energy ? energyWord(sys.energy) : null
+  const gen = sys.generator && !(sys.generator === 'heat_pump' && sys.energy && HEAT_PUMP_ENERGY.has(sys.energy))
+    ? (C.generator as Record<string, string>)[sys.generator] ?? null
+    : null
+  const detail = gen ? (sys.shared ? fillTemplate(C.generatorShared, { g: gen }) : gen) : sys.shared ? C.sharedOnly : null
+  if (e && detail) return fillTemplate(C.systemWith, { e, d: detail })
+  return e ?? gen
+}
+
+/** One system's chip – a hazard when it puts fuel on site, with that fuel as its word. */
+function systemChip(key: string, template: string, sys: BuildingSystem): BuildingChip | null {
+  const w = systemWords(sys)
+  if (!w) return null
+  const fuel = sys.energy != null && HAZARD_ENERGY.has(sys.energy) ? energyWord(sys.energy) ?? undefined : undefined
+  return { key, text: fillTemplate(template, { e: w }), hazard: !!fuel, word: fuel }
+}
+
+/** Hot water «differs» from the heating unless one heating system burns the same energy in the
+ *  same kind of generator (an unnamed generator matches any – the old cached cards). */
+const sameSystem = (a: BuildingSystem, b: BuildingSystem) =>
+  a.energy === b.energy && (a.generator == null || b.generator == null || a.generator === b.generator)
+
+/** «EG 3 · 1. OG 6 (Maisonette)» – per storey only from two flats up; one flat has no layout to read. */
+function storeyLine(g: BuildingGwr): string[] {
+  const C = appConfig.copy.building
+  const rows = g.flats_by_floor ?? []
+  if (rows.reduce((n, r) => n + r.flats, 0) < 2) return []
+  return rows.map((r) => {
+    const s = r.level === 0 ? C.storeyGround : fillTemplate(r.level > 0 ? C.storeyUp : C.storeyDown, { n: Math.abs(r.level) })
+    const p = fillTemplate(C.storeyFlats, { s, n: r.flats })
+    if (!r.maisonettes) return p
+    return r.maisonettes === r.flats ? fillTemplate(C.storeyMaisonette, { p }) : fillTemplate(C.storeyMaisonettes, { p, m: r.maisonettes })
+  })
+}
+
+/** The Wohnungen chip: the count, the flats per storey and the Zimmer range, ONE line («9 Wohnungen
+ *  · EG 3 · 1. OG 6 (Maisonette) · 2–4 Zi.»). The count drops out when the Gebäudeklasse already
+ *  says it («Einfamilienhaus» + «1 Wohnung»). */
+function flatsText(g: BuildingGwr): string | null {
+  const C = appConfig.copy.building
+  const parts: string[] = []
+  const saidByClass = (g.building_class === 'single_family' && g.flats === 1) || (g.building_class === 'two_family' && g.flats === 2)
+  if (g.flats != null && !saidByClass) parts.push(g.flats === 1 ? C.flatsOne : fillTemplate(C.flats, { n: g.flats }))
+  parts.push(...storeyLine(g))
+  const lo = g.rooms_min, hi = g.rooms_max
+  if (lo != null && hi != null) parts.push(lo === hi ? fillTemplate(C.rooms, { n: lo }) : fillTemplate(C.roomsRange, { a: lo, b: hi }))
+  return parts.length ? parts.join(' · ') : null
+}
+
 export function buildingChips(b: BuildingInfo | null): BuildingChip[] {
   if (!b) return []
   const C = appConfig.copy.building
@@ -51,18 +113,15 @@ export function buildingChips(b: BuildingInfo | null): BuildingChip[] {
   const facts: BuildingChip[] = []
   const g = b.gwr_status === 'ok' ? b.gwr : null
   if (g) {
-    for (const e of g.heating) {
-      const w = energyWord(e)
-      if (!w) continue
-      ;(HAZARD_ENERGY.has(e) ? hazards : facts).push({ key: `heat-${e}`, text: fillTemplate(C.heating, { e: w }), hazard: HAZARD_ENERGY.has(e) })
+    const heaters = systems(g.heaters, g.heating)
+    // each heating system with what makes the heat; a second one only when the register names one
+    const chips = heaters.map((sys, i) => systemChip(`heat-${i}`, C.heating, sys))
+    // hot water only when it differs from the heating – a gas boiler for the tap behind a heat
+    // pump is exactly the valve nobody would look for
+    for (const [i, sys] of systems(g.water_heaters, g.hot_water).entries()) {
+      if (!heaters.some((h) => sameSystem(h, sys))) chips.push(systemChip(`water-${i}`, C.hotWater, sys))
     }
-    // hot water only when it adds a FUEL the heating did not already name — a gas boiler for the
-    // tap behind a heat pump is exactly the valve nobody would look for
-    for (const e of g.hot_water) {
-      if (!HAZARD_ENERGY.has(e) || g.heating.includes(e)) continue
-      const w = energyWord(e)
-      if (w) hazards.push({ key: `water-${e}`, text: fillTemplate(C.hotWater, { e: w }), hazard: true })
-    }
+    for (const c of chips) if (c) (c.hazard ? hazards : facts).push(c)
   }
   if (b.pv_status === 'ok') {
     // ONE PV tag per building, however many registrations its roof has (an extension is a second
@@ -75,6 +134,7 @@ export function buildingChips(b: BuildingInfo | null): BuildingChip[] {
         key: 'pv',
         text: total != null ? fillTemplate(C.pv, { kw: fmtKw(total) }) : C.pvBare,
         hazard: true,
+        word: C.pvBare,
         title: fillTemplate(C.pvTitle, { since: first ? fillTemplate(C.pvSince, { d: fmtDay(first) }) : '' }),
       })
     }
@@ -91,8 +151,11 @@ export function buildingChips(b: BuildingInfo | null): BuildingChip[] {
       const word = (C.status as Record<string, string>)[g.status]
       if (word) lead.push({ key: 'status', text: word, hazard: false })
     }
+    const kind = g.building_class ? (C.buildingClass as Record<string, string>)[g.building_class] : undefined
+    if (kind) lead.push({ key: 'class', text: kind, hazard: false })
     if (g.floors != null) lead.push({ key: 'floors', text: g.floors === 1 ? C.floorsOne : fillTemplate(C.floors, { n: g.floors }), hazard: false })
-    if (g.flats != null) lead.push({ key: 'flats', text: g.flats === 1 ? C.flatsOne : fillTemplate(C.flats, { n: g.flats }), hazard: false })
+    const flats = flatsText(g)
+    if (flats) lead.push({ key: 'flats', text: flats, hazard: false })
     if (g.year != null) lead.push({ key: 'year', text: fillTemplate(C.year, { y: g.year }), hazard: false })
     else if (g.period) lead.push({ key: 'year', text: fillTemplate(C.period, { p: g.period }), hazard: false })
     if (g.shelter) lead.push({ key: 'shelter', text: C.shelter, hazard: false })
@@ -173,10 +236,9 @@ export function buildingChipSummary(b: BuildingInfo | null): BuildingChipSummary
   if (!b || !hasBuildingContent(b)) return null
   const C = appConfig.copy.building
   const words: string[] = []
-  const energy = C.energy as Record<string, string>
   for (const c of buildingChips(b)) {
     if (!c.hazard) continue
-    const w = c.key === 'pv' ? C.pvBare : energy[c.key.replace(/^(heat|water)-/, '')] ?? c.text
+    const w = c.word ?? c.text
     if (!words.includes(w)) words.push(w)
   }
   const measures = noteLines(b.object?.measures).length > 0
