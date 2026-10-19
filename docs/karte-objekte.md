@@ -729,6 +729,14 @@ device Anleitungen to read in peace time — the Einsatz tab's word and glyph
   template's Stichworte as a group of its own (Taktik · Stichworte, Grundlagen · Infos) — on a
   phone too, nothing folded (owner, review round 2: «keep things top level and just requiring
   some more scrolling»). A Stichwort's back row goes to the list (or to the search it came from).
+- **One list for both places** (owner, round 3, 20.10.2026: «the landing is the reference»). The
+  Einsatz Checkliste rail draws the same groups and rows (`components/ChecklistRail` on the shared
+  `ListRow` / `ListGroup`): white cards with 56px rows and device photo cards on a phone, compact
+  rows on the column's ground beside a document. The Einsatz keeps its order (Aufgaben first,
+  Anleitungen last) and its ticks (a list's «40%» at its row's end).
+- **An Anleitung's ways** (owner pick, round 3): ONE back row on top naming the level («‹ TLF»,
+  `BackRow`), nothing else up there; at the foot one row of two equal buttons «‹ 2 Kabine» |
+  «4 Saugbetrieb ›». The step text is the Taktik reader's 14px.
 - **The device pictures paint at once** on every open after the first (review round 2: they popped
   in each time). Two parts: the asset URL carries its version (`?v=`, `lib/checklists ·
   checklistAssetUrl`), answered immutable and cache-first by the service worker, so nothing asks

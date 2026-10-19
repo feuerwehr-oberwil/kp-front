@@ -11,18 +11,6 @@
 /* left rail */
 .cl-rail { flex: 0 0 248px; overflow-y: auto; scrollbar-gutter: stable; padding: var(--sp-3) var(--sp-2); background: var(--surface);
   border-right: 1px solid var(--glass-edge); display: flex; flex-direction: column; gap: 16px; }
-.cl-rail-group { display: flex; flex-direction: column; gap: 4px; }
-.cl-rail-label { padding: 2px var(--sp-2) var(--sp-1); font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.cl-rail-item { display: flex; align-items: center; gap: var(--sp-2); border: none; background: transparent; cursor: pointer;
-  font-family: var(--body); font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink-dim); text-align: left;
-  padding: var(--sp-3) var(--sp-2); border-radius: var(--r-ctl); transition: background .14s var(--ease), color .14s var(--ease); }
-.cl-rail-item :global(.i) { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
-@media (hover: hover) { .cl-rail-item:hover { background: var(--fill-soft); color: var(--ink); } }
-.cl-rail-item:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.cl-rail-item.on { background: var(--ink-fill); color: var(--on-accent-ink); }
-.cl-rail-item.on :global(.i) { color: var(--on-accent-ink); }
-.cl-rail-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cl-rail-prog { flex: none; font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-bold); opacity: .8; }
 .cl-rail-hint { display: flex; align-items: center; gap: var(--sp-2); border: none; cursor: pointer; text-align: left;
   background: var(--red-8); color: var(--red-strong); font-family: var(--body); font-size: var(--fs-1); font-weight: var(--fw-bold);
   padding: var(--sp-2); border-radius: var(--r-ctl); margin-top: 2px; }
@@ -32,14 +20,10 @@
 .cl-rail-hints { display: flex; flex-direction: column; gap: var(--sp-1); }
 .cl-rail-hints .cl-rail-hint { margin-top: 0; }
 .cl-rail-search { margin: 2px 0 4px; }   /* THE search (components/SearchField, 29.09.2026) — placement only */
-/* all groups (Aufgaben + each reference template) are peers under the search bar */
+/* all groups (Aufgaben + each reference template + the devices) are peers under the search bar –
+   THE ListGroup with the shared rows (ChecklistRail); the Stichwort's dot as a row's lead */
 .cl-rail-groups { display: flex; flex-direction: column; gap: var(--sp-4); }
-.cl-rail-entry { display: flex; align-items: center; gap: var(--sp-2); border: none; background: transparent; cursor: pointer;
-  width: 100%; text-align: left; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-ctl); font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-dim); }
-@media (hover: hover) { .cl-rail-entry:hover { background: var(--fill-soft); color: var(--ink); } }
-.cl-rail-entry.on { background: var(--ink-fill); color: var(--on-accent-ink); }
-.cl-rail-entry.on .cl-ref-chip { box-shadow: 0 0 0 2px rgba(255,255,255,.5); }
-.cl-rail-entry-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-ref-lead { display: grid; place-items: center; }
 
 /* --- reference playbook --- */
 .cl-ref-chip { box-shadow: 0 0 0 2px rgba(255,255,255,.5); }
@@ -94,9 +78,9 @@
 /* gloved field use: ticking is THE action on this surface — full 44px checkbox on touch */
 @media (pointer: coarse) {
   .cl-check { width: 44px; height: 44px; }
-  /* …and the rest of the surface's targets (22.09.2026): the rail's rows (31–37px), the
-     Stichwort hint and the deep-link chips (26px) */
-  .cl-rail-item, .cl-rail-entry, .cl-rail-hint, .cl-deeplink { min-height: var(--tap); }
+  /* …and the rest of the surface's targets (22.09.2026): the Stichwort hint and the deep-link
+     chips (26px); the rail's rows are THE list row, --tap already */
+  .cl-rail-hint, .cl-deeplink { min-height: var(--tap); }
 }
 .cl-item-body { flex: 1 1 auto; min-width: 0; }
 /* whole text body is a tap target to toggle the item (the checkbox is just the visual) */
@@ -275,8 +259,11 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
   /* while the list owns the whole surface it is the thing the FAB lands on — .cl-main got its
      clearance long ago, the rail never did, so the last checklist in the picker sat under the
      circle. Same shared reserve, 0 for a viewer. */
-  .cl-rail.cl-rail-full { max-height: none; flex: 1 1 auto; border-bottom: none;
-    padding-bottom: calc(8px + var(--fab-safe, 0px)); }
+  /* …and it is the Karte library's phone list (owner 20.10.2026: «the landing is the reference»):
+     the groups' white cards and the device cards on the page ground, a step more between groups */
+  .cl-rail.cl-rail-full { max-height: none; flex: 1 1 auto; border-bottom: none; background: transparent; gap: var(--sp-3);
+    padding: var(--sp-3) var(--head-pad-x) calc(var(--sp-3) + var(--fab-safe, 0px)); }
+  .cl-rail-full .cl-rail-groups { gap: var(--sp-5); }
   /* collapsed state: one slim row — current selection + chevron — reopens the list; the
      checklist/playbook below gets the full remaining height (the «fullsize text» ask) */
   .cl-rail-toggle { display: flex; align-items: center; gap: var(--sp-2); flex: none; width: 100%;
@@ -295,10 +282,6 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
   .cl-head-hz { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); height: 24px; padding: 0 var(--sp-2);
     border-radius: var(--r-xs); background: var(--fill-soft);
     font: var(--fw-bold) var(--fs-micro) var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
-  .cl-rail-group { gap: 2px; }
-  .cl-rail-label { padding: 2px var(--sp-2); }
-  .cl-rail-item { padding: var(--sp-2) var(--sp-3); }
-  .cl-rail-entry { padding: var(--sp-2) var(--sp-3); }
 }
 
 @media (--phone) {
@@ -338,10 +321,6 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
   .cl-phase-titles h3 { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 }
 
-/* a chapter's way back to its device page («‹ TLF», owner 19.10.2026) – the twin of the Karte
-   library's .backLink (ChecklistLibrary.module.css) */
-.cl-back { display: flex; align-items: center; gap: var(--sp-1); align-self: flex-start; min-height: var(--tap);
-  margin-bottom: var(--sp-2); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-sm); background: none; cursor: pointer;
-  font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink-dim); }
-.cl-back :global(.i) { width: 18px; height: 18px; flex: none; }
-.cl-back:active { background: var(--press); }
+/* the back row above a document in the main pane («‹ TLF», components/ListRow · BackRow, owner
+   19.10.2026) – placement only, in both hosts (ChecklistsView, ChecklistLibrary) */
+.cl-doc-back { margin-bottom: var(--sp-2); padding: 0 var(--sp-2); border-radius: var(--r-sm); }
