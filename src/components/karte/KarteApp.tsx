@@ -667,7 +667,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // ONE list by distance, objects and hydrants (lib/karte/places · nearbyPlaces); a house never
   // lists its own object
   const exceptId = selObj?.id ?? (sel?.kind === 'building' ? sel.of ?? null : null)
-  const [px, py] = point ?? [null, null]
+  // measured from the house that was tapped when there is one (owner, Karte Haus round 1: a row of 21
+  // houses is not stood at its catalogue point), else from the selection's point
+  const nearAt = hitAt ?? point
+  const [px, py] = nearAt ?? [null, null]
   const nearby = useMemo(() => (px != null && py != null ? nearbyPlaces(objects, hydrants, [px, py], { exceptId }) : []), [objects, hydrants, px, py, exceptId])
 
   // ── a hydrant of In der Nähe on the map (owner, Karte Haus round 1) ───────────────────────────
@@ -909,7 +912,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   useLayoutEffect(() => { placeTip() }, [shownHover, placeTip])
   const litHydrant = shownHover?.kind === 'hydrant' ? shownHover.id : shownHyd?.id ?? null
   /** the selected place as the hydrant label says it («… von Storchenweg 4») */
-  const placeName = selObj?.name
+  const placeName = (hitAt && hitAddr?.key === hitKey ? hitAddr.street : null) ?? selObj?.name
     ?? (sel?.kind === 'building' ? splitAddress(register.info?.address ?? sel.address)[0] || C.building : sel?.kind === 'pin' ? C.pin : null)
   let tip: ReactNode = null
   if (shownHover?.kind === 'object') {
@@ -917,8 +920,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     if (o) tip = <><span className={s.eyebrow}>{C.kind[o.kind]}</span><b>{o.name}</b></>
   } else if (shownHover?.kind === 'hydrant') {
     const h = hydrants.find((x) => x.id === shownHover.id)
-    tip = h && point && placeName
-      ? <><span className={s.eyebrow}>{C.nearHydrant}</span><b>{fillTemplate(C.hydrantFrom, { m: fmtDistance(haversineM(point, h.coord)), dir: C.compass[compass8(point, h.coord)], place: placeName })}</b></>
+    tip = h && nearAt && placeName
+      ? <><span className={s.eyebrow}>{C.nearHydrant}</span><b>{fillTemplate(C.hydrantFrom, { m: fmtDistance(haversineM(nearAt, h.coord)), dir: C.compass[compass8(nearAt, h.coord)], place: placeName })}</b></>
       : <b>{C.nearHydrant}</b>
   }
   // what the mouse is over and the hydrant shown, over the selection: their own overlays, so a
@@ -1265,13 +1268,13 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             </Marker>
           )}
           {/* the hydrant shown from In der Nähe: a ring on it, its metres at the dashed line's middle */}
-          {hydPoint && point && (
+          {hydPoint && nearAt && (
             <>
               <Marker longitude={hydPoint.coord[0]} latitude={hydPoint.coord[1]} anchor="center" style={{ zIndex: 4, pointerEvents: 'none' }}>
                 <span className={s.hydRing} data-karte-hydrant-ring="" />
               </Marker>
-              <Marker longitude={(point[0] + hydPoint.coord[0]) / 2} latitude={(point[1] + hydPoint.coord[1]) / 2} anchor="center" style={{ zIndex: 4, pointerEvents: 'none' }}>
-                <span className={s.hydDist}>{fmtDistance(haversineM(point, hydPoint.coord))}</span>
+              <Marker longitude={(nearAt[0] + hydPoint.coord[0]) / 2} latitude={(nearAt[1] + hydPoint.coord[1]) / 2} anchor="center" style={{ zIndex: 4, pointerEvents: 'none' }}>
+                <span className={s.hydDist}>{fmtDistance(haversineM(nearAt, hydPoint.coord))}</span>
               </Marker>
             </>
           )}

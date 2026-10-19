@@ -98,6 +98,7 @@ vi.mock('../ChecklistLibrary', () => ({ ChecklistLibrary: ({ query }: { query: s
 import KarteApp, { type KarteAppProps } from './KarteApp'
 import { Meldeleiste } from '../Meldeleiste'
 import { toast } from '../../lib/ui'
+import { fmtDistance, haversineM } from '../../lib/geo'
 import { appConfig } from '../../config/appConfig'
 import { __setUnHazardData, type UnHazardEntry } from '../../lib/unHazard'
 import adr from '../../../public/un-hazard.json'
@@ -167,6 +168,9 @@ describe('KarteApp', () => {
     // the tapped house dashed, its street on the switch once the register answers
     expect(overlays().find((o) => o.id === 'karte-object-hit')?.rings?.[0]).toEqual(east.slice(0, 4))
     await waitFor(() => expect(within(level()!).getByRole('button', { name: /Schlossgasse 9/ })).toBeTruthy())
+    // In der Nähe measures from the tapped house, not the object's catalogue point (owner, 19.10.)
+    const remise = within(document.querySelector('[data-section="nearby"]') as HTMLElement).getByRole('button', { name: /Remise Schloss/ })
+    expect(remise.textContent).toContain(fmtDistance(haversineM([7.5703, 47.5237], [7.56985, 47.52402])))
 
     fireEvent.click(within(level()!).getByRole('button', { name: /Schlossgasse 9/ }))
     expect(await screen.findByText('Teil von Schloss Musterdorf')).toBeTruthy()

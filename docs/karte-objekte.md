@@ -276,7 +276,9 @@ The rules that are easy to break:
   row (a tap on touch, which keeps it until tapped again) shows that hydrant on the map: a ring on
   it, a dashed line from the selected place, the metres at the line's middle; the map moves when
   it is off-screen or under the panel, and a new selection clears it. It works with the hydrant
-  layer off. A house never lists its own object.
+  layer off. A house never lists its own object. «From the selected place» is the house that was
+  tapped whenever there is one — also on object level (owner, 19.10.2026: a row of 21 houses is not
+  stood at its catalogue point) — else the object's point (search, tag, a list row).
 - **The panel, in one order** (owner, 17.10.2026 · review round 2), the same for an object on
   the phone and on the tablet: head (kind, name, address, ✕) · the station's word
   (Sofortmassnahmen, then Bemerkungen, with their source — what matters most in a hurry) ·
