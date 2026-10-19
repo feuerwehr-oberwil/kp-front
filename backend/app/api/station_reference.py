@@ -5,6 +5,8 @@
   can search client-side and keep for offline.
 * ``GET /api/reference/building?lat=&lng=`` — the Gebäude card's facts (app/building_facts,
   via api/building · fill_registers) for any point, without an incident.
+* ``GET /api/reference/houses`` — the region's houses, one cadastral footprint each (app/houses), the
+  Karte's building tap; same answers as ``/underground``.
 * ``GET /api/reference/underground`` — the region's underground buildings (app/underground), the
   Ebenen row «Unterirdische Bauten».
 
@@ -34,7 +36,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, R
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import geocode, object_footprints, plan_tiles, underground
+from .. import geocode, houses, object_footprints, plan_tiles, underground
 from ..auth.dependencies import _admin_session_valid, get_current_user
 from ..auth.incident_link import link_page_owns_session, read_link_session
 from ..building_facts import _street_of
@@ -336,6 +338,27 @@ async def reference_underground(
     (``UNDERGROUND_WFS=``); ``fetchedAt: null`` = not asked yet. A device that names the set it
     holds (``?have=<fetchedAt>``) gets ``unchanged: true`` and no geometry."""
     body = await anyio.to_thread.run_sync(underground.payload, have)
+    return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
+
+
+# --- the region's houses ------------------------------------------------------------------------
+
+
+@router.get(
+    "/houses",
+    response_class=Response,
+    responses={200: {"content": {"application/json": {}}, "description": "The stored set (app/houses)"}},
+)
+async def reference_houses(
+    reader: StationReader,
+    have: str | None = Query(default=None, max_length=64, description="The `fetchedAt` this device already holds"),
+) -> Response:
+    """The Einsatzgebiet's houses — one cadastral footprint each, as ONE GeoJSON MultiPolygon
+    (``{enabled, fetchedAt, count, geometry}``), as the scheduler last stored it (app/houses); the
+    Karte's building tap selects the house under the finger. Same answers as ``/underground``:
+    ``enabled: false`` = off (``HOUSES_WFS=``), ``fetchedAt: null`` = not asked yet,
+    ``?have=<fetchedAt>`` → ``unchanged: true`` and no geometry."""
+    body = await anyio.to_thread.run_sync(houses.payload, have)
     return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
 
 

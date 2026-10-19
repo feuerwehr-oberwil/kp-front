@@ -21,7 +21,7 @@ vi.mock('../api', () => ({
 }))
 
 import { __resetIdbForTests, idbRead } from '../idb'
-import { loadUnderground, undergroundRings, type UndergroundSet } from './stationReference'
+import { loadHouses, loadUnderground, outlineRings, type UndergroundSet } from './stationReference'
 
 const sq = (lng: number, lat: number) => [[lng, lat], [lng + 0.001, lat], [lng + 0.001, lat + 0.001], [lng, lat + 0.001], [lng, lat]]
 const SET: UndergroundSet = { fetchedAt: '2026-10-17T03:00:00+00:00', count: 2, geometry: { type: 'MultiPolygon', coordinates: [[sq(7.5, 47.5)], [sq(7.6, 47.6)]] } }
@@ -74,11 +74,24 @@ describe('loadUnderground', () => {
   })
 })
 
-describe('undergroundRings', () => {
+describe('loadHouses', () => {
+  it('is the same kind of set, asked at its own route and kept under its own key', async () => {
+    apiGet.mockResolvedValueOnce(answer())
+    expect((await loadHouses())?.count).toBe(2)
+    expect(apiGet).toHaveBeenLastCalledWith('/api/reference/houses')
+    await flush()
+    const kept = await idbRead('kp-front-station-houses')
+    expect(kept.ok && kept.value).toEqual(SET)
+    const other = await idbRead('kp-front-station-underground')
+    expect(other.ok && other.value).toBeFalsy()
+  })
+})
+
+describe('outlineRings', () => {
   it('hands the map open rings, one per building', () => {
-    const rings = undergroundRings(SET)
+    const rings = outlineRings(SET)
     expect(rings).toHaveLength(2)
     expect(rings[0]).toEqual([[7.5, 47.5], [7.501, 47.5], [7.501, 47.501], [7.5, 47.501]])
-    expect(undergroundRings(null)).toEqual([])
+    expect(outlineRings(null)).toEqual([])
   })
 })

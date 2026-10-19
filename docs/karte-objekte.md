@@ -215,6 +215,11 @@ The rules that are easy to break:
   object's buildings all wear the strong style. A tapped building opens an object otherwise only
   when the register's street + number equals the object's. No outline under a point → no
   building.
+- **A tap on a plain building selects ONE house** (Karte Haus round 1, 19.10.2026 — owner: «no
+  differentiation between Storchenweg 2, 4, or 6»): the survey's footprint under the finger
+  ([«Die Häuser»](#die-häuser-karte-haus-round-1) below), never OSM's block of a terraced row. OSM's
+  outline only where the survey's set has no house (outside the Einsatzgebiet), before the set
+  arrived, or with it off (`lib/karte/outlines · ringsAround`).
 - ⚠️ **The tag sits ON the object's point** (owner, review round 3, 17.10.2026: «do not move the
   location of the marker»). Centred on the coordinate the station set, exactly where the dot is;
   the placement pass decides only WHETHER it shows, and a tag at a side edge slides inward at most
@@ -764,6 +769,31 @@ as lines. Not `Unterstand`.
   vite.config). A refusal (401/403) never shows the copy.
 - **Off:** `UNDERGROUND_WFS=` (empty).
 
+## Die Häuser (Karte Haus round 1)
+
+A tap on a plain building used the OSM outline under the finger, and OSM maps Storchenweg 2/4/6 as
+ONE polygon; the official survey has one footprint per house (Bodenbedeckung `ms:LCSF`,
+`Art = Gebaeude` — what object footprints are made of). `app/houses` is `app/underground`'s pattern
+for that layer:
+
+- **Area, cadence, failure** exactly as «Unterirdische Bauten» (it reuses `underground ·
+  station_area / resolve / fetch`): the Einsatzgebiet ∪ 500 m around every object, asked by the
+  footprint job once, then weekly or when the area or source changes; a failed ask keeps the stored
+  set and waits an hour. ONE request at a time, in 1 km cells (a dense quarter has ~1 700 houses
+  per km²): geodienste.ch answers a burst of parallel asks with 502s. Every house kept once.
+- **Stored** as one GeoJSON MultiPolygon in `reference/houses.json`, no properties (the register
+  is asked at the tap's point, as before). FWO (Oberwil 2771 + 160 objects' surroundings,
+  19.10.2026): 6 657 houses, 1.46 MB, 319 KB gzipped, 9 s.
+- **`GET /api/reference/houses[?have=<fetchedAt>]`** answers like `/underground`. The Karte asks it
+  once per page load (`lib/karte/outlines · useHouses`, `lib/api/stationReference · loadHouses`),
+  keeps it in IndexedDB for offline and indexes it by the OSM cell grid (a house under every cell
+  its box touches).
+- **A tap** matches the cell's houses first and OSM only when no house contains the point
+  (`ringsAround`): never both, so OSM's block cannot win over the house in it. Objects keep their
+  own buildings (above); an object without any still falls back to the OSM outline at its point.
+  The Einsatz's Umriss picker keeps OSM (`/api/overpass/buildings`).
+- **Off:** `HOUSES_WFS=` (empty) — taps use OSM outlines again.
+
 ## Offline
 
 The viewer never downloads anything on its own for offline use; it READS what the device already
@@ -780,6 +810,7 @@ and `KarteDevice.tsx` probe). No «ganze Station herunterladen»: that would be 
 | Gebäude storeys, aligned plan | the plan's pages (PDF or tiles) + the revision's alignment metadata (IndexedDB, `lib/api/reference`) | opening Gebäude / the aligned plan once online |
 | base map | the service worker's `map-tiles` cache | looking at the area, or an Einsatz's Offline-Vorbereitung |
 | Unterirdische Bauten | IndexedDB `kp-front-station-underground` (one entry, ~250 KB for FWO) | opening the Karte or an Einsatz once online with the row on (the default) |
+| the houses a building tap selects | IndexedDB `kp-front-station-houses` (one entry, ~1.5 MB for FWO) | opening the Karte once online |
 | Gefahrgut (UN/ADR) | bundled with the app | — |
 
 What the surface shows offline:

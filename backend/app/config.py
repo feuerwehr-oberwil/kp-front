@@ -441,6 +441,11 @@ class Settings(BaseSettings):
     # station's objects' surroundings) from the same open survey WFS, asked weekly by the scheduler
     # and served as one file to the Karte's Ebenen. Empty = off.
     underground_wfs: str = "https://geodienste.ch/db/av_0/deu"
+    # The Einsatzgebiet's houses (app/houses): one cadastral footprint per house (``ms:LCSF``,
+    # ``Art = Gebaeude``) over the same area and the same open survey WFS, asked weekly by the
+    # scheduler; a building tap in the Karte selects the house under the finger, not OSM's block of
+    # terraced houses. Empty = off (the Karte then taps the OSM outlines, as before).
+    houses_wfs: str = "https://geodienste.ch/db/av_0/deu"
 
     # --- Telemetry (opt-in; see app/telemetry/) ---
     # The DEPLOYER's half of the switch, above whatever an admin later clicks in the UI:

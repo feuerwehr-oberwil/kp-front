@@ -19,7 +19,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { loadUnderground, undergroundRings } from './api/stationReference'
+import { loadUnderground, outlineRings } from './api/stationReference'
 import type { LayerDef, LayerId, LngLat, PreparedMapOverlay } from '../types'
 
 /** the Einsatz's layer id (persisted in the device's layer prefs and the replay's events) */
@@ -56,7 +56,7 @@ export function useUnderground(on: boolean): UndergroundState | null {
     const set = (u: UndergroundState) => { cur.current = u; setUnderState(u) }
     set({ state: 'loading', rings: [] })
     loadUnderground()
-      .then((s) => { const rings = undergroundRings(s); set({ state: rings.length ? 'ok' : 'none', rings }) })
+      .then((s) => { const rings = outlineRings(s); set({ state: rings.length ? 'ok' : 'none', rings }) })
       .catch(() => set({ state: 'none', rings: [] }))
   }, [on])
   return under

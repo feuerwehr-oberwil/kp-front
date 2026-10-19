@@ -1,16 +1,25 @@
-// Building outlines for «Karte & Objekte»: the OSM footprints the Umriss picker already uses
-// (`/api/overpass/buildings`, answered from the station's stored snapshot first — app/
-// reference_buildings), loaded per grid CELL around what is on screen, so panning the station
-// asks the server a handful of times and never twice for the same block.
+// Building outlines for «Karte & Objekte», two sources:
 //
-// Two uses, both by CONTAINMENT only (lib/karte/places · ringAt / outlineFor): a tap on the map
-// opens the building under the finger, and a station object is drawn as the outline its own
-// coordinate lies in. No outline under a point → no building, never «the nearest one».
+//   · the HOUSES (Karte Haus round 1, 19.10.2026 — owner: «no differentiation between Storchenweg
+//     2, 4, or 6»): the cadastral survey's footprints, one per house, for the whole Einsatzgebiet
+//     (backend app/houses · `GET /api/reference/houses`), loaded ONCE per visit and kept on the
+//     device for offline (lib/api/stationReference · loadHouses). `useHouses` → `HouseIndex`;
+//   · the OSM footprints the Umriss picker uses (`/api/overpass/buildings`, answered from the
+//     station's stored snapshot first — app/reference_buildings), loaded per grid CELL around what
+//     is on screen. OSM draws a terraced row as ONE block, so it is only the FALLBACK: outside the
+//     Einsatzgebiet, before the houses arrive, or with the source off (`HOUSES_WFS=`).
+//
+// `ringsAround` picks between them for a point. Every use is by CONTAINMENT only (lib/karte/places ·
+// ringAt / outlineFor): a tap on the map opens the building under the finger, and a station object
+// with no official buildings is drawn as the OSM outline its own coordinate lies in. No outline
+// under a point → no building, never «the nearest one».
 
+import { useEffect, useState } from 'react'
 import type { LngLat } from '../../types'
 import { apiPost } from '../api'
+import { loadHouses, outlineRings } from '../api/stationReference'
 import { idbGet, idbSet } from '../idb'
-import { ringsFromOverpass } from './places'
+import { ringAt, ringsFromOverpass } from './places'
 
 /** A cell is ~330 × 300 m at Swiss latitudes — a few cells cover a tablet screen at z16. */
 export const CELL_LAT = 0.003
@@ -60,4 +69,58 @@ export function loadCell(key: string): Promise<LngLat[][]> {
   loads.set(key, p)
   p.catch(() => { if (loads.get(key) === p) loads.delete(key) })
   return p
+}
+
+// --- the houses -----------------------------------------------------------------------------------
+
+/** The houses by cell (the OSM grid's): each ring under every cell its box touches, so a tap near
+ *  a cell's edge still finds the house that straddles it. */
+export type HouseIndex = ReadonlyMap<string, LngLat[][]>
+
+export function houseIndex(rings: readonly LngLat[][]): HouseIndex {
+  const m = new Map<string, LngLat[][]>()
+  for (const r of rings) {
+    let w = Infinity, s = Infinity, e = -Infinity, n = -Infinity
+    for (const [x, y] of r) { w = Math.min(w, x); e = Math.max(e, x); s = Math.min(s, y); n = Math.max(n, y) }
+    for (let ix = Math.floor(w / CELL_LNG); ix <= Math.floor(e / CELL_LNG); ix++) {
+      for (let iy = Math.floor(s / CELL_LAT); iy <= Math.floor(n / CELL_LAT); iy++) {
+        const k = cellKey(ix, iy)
+        const list = m.get(k)
+        if (list) list.push(r); else m.set(k, [r])
+      }
+    }
+  }
+  return m
+}
+
+/** The rings a point is matched against (`ringAt(ringsAround(…), at)`): the cell's houses when
+ *  one of them contains the point, else the cell's OSM outlines. Never both: OSM's block around a
+ *  house must not win over the house, nor a house's neighbour over the OSM building it misses. */
+export function ringsAround(houses: HouseIndex | null, osm: readonly LngLat[][] | undefined, at: LngLat): readonly LngLat[][] {
+  const here = houses?.get(cellOf(at))
+  if (here && ringAt(here, at)) return here
+  return osm ?? []
+}
+
+let housesLoad: Promise<HouseIndex | null> | null = null
+
+/** The Einsatzgebiet's houses, asked once per page load (a second Karte mount reuses the answer);
+ *  null until they arrive, and for good when the server has none (off, not asked yet) and the
+ *  device holds no copy — the Karte then taps OSM outlines. A failed or empty ask is asked again
+ *  on the next mount. */
+export function useHouses(): HouseIndex | null {
+  const [index, setIndex] = useState<HouseIndex | null>(null)
+  useEffect(() => {
+    let alive = true
+    const p = housesLoad ??= loadHouses().then((set) => {
+      const rings = outlineRings(set)
+      return rings.length ? houseIndex(rings) : null
+    })
+    p.then((i) => {
+      if (!i && housesLoad === p) housesLoad = null
+      if (alive) setIndex(i)
+    }, () => { if (housesLoad === p) housesLoad = null })
+    return () => { alive = false }
+  }, [])
+  return index
 }

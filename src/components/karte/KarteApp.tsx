@@ -71,7 +71,7 @@ import {
   normAddress, pointsFromGeoJson, ringAt, splitAddress, type NamedPoint,
 } from '../../lib/karte/places'
 import { LABEL_MIN_ZOOM, placeTags, samePlacement, tagRank, tagSize, type Rect, type TagCandidate } from '../../lib/karte/labels'
-import { cellOf, cellsFor, loadCell, OUTLINE_MIN_ZOOM } from '../../lib/karte/outlines'
+import { cellOf, cellsFor, loadCell, OUTLINE_MIN_ZOOM, ringsAround, useHouses } from '../../lib/karte/outlines'
 import { GEBAEUDE_DOC, viewerPlanDocs } from '../../lib/karte/plans'
 import { moduleCatalogue } from '../../lib/planOrder'
 import { karteHref } from '../../lib/karte/route'
@@ -325,7 +325,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       void loadCell(key).then((rings) => setCells((c) => (c[key] ? c : { ...c, [key]: rings }))).catch(() => {})
     }
   }, [])
-  const ringsNear = useCallback((at: LngLat) => cells[cellOf(at)] ?? [], [cells])
+  // a building tap / hover matches the survey's houses first, one per house, OSM where they have
+  // none (lib/karte/outlines · ringsAround)
+  const houses = useHouses()
+  const ringsNear = useCallback((at: LngLat) => ringsAround(houses, cells[cellOf(at)], at), [houses, cells])
   /** each station object's buildings — the server's official set, else the OSM outline its point
    *  lies in (lib/karte/places · objectBuildings) */
   const outlines = useMemo(() => {
