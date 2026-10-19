@@ -54,8 +54,6 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     approxHead: 'Pas de coordonnées dans le catalogue.',
     approxBody: 'Position tirée de l’adresse – approximative. À vérifier sur place.',
     approxTag: 'approximatif',
-    measures: 'Mesures immédiates',
-    remarks: 'Remarques',
     notesSource: 'Corps · {src}',
     notesStation: 'Corps',
     missing: 'Aucune indication de danger saisie par le corps. Cela ne veut pas dire qu’il n’y en a pas.',

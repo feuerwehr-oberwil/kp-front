@@ -70,8 +70,6 @@ export const karteCopy = {
     approxHead: 'Keine Koordinaten im Katalog.',
     approxBody: 'Lage aus der Adresse – ungefähr. Vor Ort prüfen.',
     approxTag: 'ungefähr',
-    measures: 'Sofortmassnahmen',
-    remarks: 'Bemerkungen',
     notesSource: 'Station · {src}',
     notesStation: 'Station',
     missing: 'Keine Gefahrenangaben der Station erfasst. Das heisst nicht, dass es keine gibt.',

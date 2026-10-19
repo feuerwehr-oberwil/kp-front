@@ -58,7 +58,7 @@ export function KarteSearch({ query, hits, nearest, addresses, addrState, onPick
           <div className={s.quiet}>{C.searchHint}</div>
         </>
       ) : hits.length ? objectRows(hits) : (
-        <div className={s.quiet}>{C.searchNoObject}</div>
+        <p className="no-hits">{C.searchNoObject}</p>
       )}
       {q && (
         <>
@@ -80,7 +80,7 @@ export function KarteSearch({ query, hits, nearest, addresses, addrState, onPick
                         )
                       })}
                     </div>
-                  ) : addrState === 'ok' ? <div className={s.quiet}>{C.searchNoAddress}</div> : null}
+                  ) : addrState === 'ok' ? <p className="no-hits">{C.searchNoAddress}</p> : null}
         </>
       )}
       <div className={s.quiet}>{C.searchFoot}</div>
