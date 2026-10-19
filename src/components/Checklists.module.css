@@ -118,6 +118,18 @@
 .cl-deeplink :global(.i) { width: 13px; height: 13px; }
 .cl-deeplink :global(.i):last-child { width: 11px; height: 11px; opacity: .6; }
 
+/* read, not ticked (ChecklistReader, 19.10.2026): the items stand in an <ol>, each with its
+   number where the box would be, and one quiet line above the first phase says where ticking
+   happens */
+ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
+.cl-num { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+  box-shadow: inset 0 0 0 2px var(--border); font: var(--fw-heavy) var(--fs-2) var(--body); color: var(--ink-dim);
+  font-variant-numeric: tabular-nums; }
+.cl-num + .cl-item-body { align-self: center; }
+.cl-ro-note { display: flex; align-items: center; gap: var(--sp-2); margin: 0 0 var(--sp-4); padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-ctl); background: var(--fill-soft); font-size: var(--fs-2); color: var(--ink-dim); }
+.cl-ro-note :global(.i) { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
+
 .cl-runner-foot { margin-top: var(--sp-5); padding-top: 12px; border-top: 1px solid var(--glass-edge);
   font-size: var(--fs-micro); color: var(--ink-faint); }
 .cl-empty-hint { font-size: var(--fs-2); color: var(--ink-faint); padding: var(--sp-1) 2px; }   /* no italics (29.09.2026 · C8) */
@@ -325,3 +337,11 @@
   .cl-runner-head { display: none; }
   .cl-phase-titles h3 { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 }
+
+/* a chapter's way back to its device page («‹ TLF», owner 19.10.2026) – the twin of the Karte
+   library's .backLink (ChecklistLibrary.module.css) */
+.cl-back { display: flex; align-items: center; gap: var(--sp-1); align-self: flex-start; min-height: var(--tap);
+  margin-bottom: var(--sp-2); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-sm); background: none; cursor: pointer;
+  font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink-dim); }
+.cl-back :global(.i) { width: 18px; height: 18px; flex: none; }
+.cl-back:active { background: var(--press); }

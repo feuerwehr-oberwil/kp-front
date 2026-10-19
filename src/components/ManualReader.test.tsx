@@ -10,7 +10,7 @@ import { appConfig } from '../config/appConfig'
 
 // Anleitungen (kind: manual, 05.10.2026): read-only numbered steps, grouped by device in the
 // Checkliste picker. Pinned: nothing to tick, the step pictures open the ONE picture viewer, and
-// the picker finds a manual by its device.
+// the picker shows one row per device (19.10.2026) and finds a manual by its device.
 
 vi.mock('../lib/ui', () => ({ openPhoto: vi.fn() }))
 vi.mock('../lib/checklists', async importOriginal => ({
@@ -62,20 +62,40 @@ describe('Checkliste picker · Anleitungen', () => {
     phases: [{ id: 'p', title: 'P', items: [{ id: 'i', text: 'Item' }] }],
   }
 
-  it('lists manuals in their own group, under their device, never among the tick lists', async () => {
-    await mount([FU, MANUAL])
-    expect(screen.getByText(appConfig.copy.checklists.groupManuals)).toBeTruthy()
-    const device = screen.getByRole('group', { name: 'Stromerzeuger 8 kVA' })
-    expect(device.textContent).toContain('Stromerzeuger starten')
-    expect(screen.getAllByRole('button', { name: /Stromerzeuger starten/ })).toHaveLength(1)
+  const CHAPTER = (n: number): ChecklistTemplate => ({
+    id: `ms-${n}`, kind: 'manual', title: `Kapitel-Titel ${n}`, device: 'Motorspritze', version: 1, source: 'x',
+    steps: [{ text: `Schritt aus ${n}` }],
   })
 
-  it('opens the reader on pick and finds the manual by its device', async () => {
+  it('lists one row per device, LAST, never among the tick lists', async () => {
+    const { container } = await mount([MANUAL, FU, CHAPTER(1), CHAPTER(2)])
+    const labels = [...container.querySelectorAll('nav [class*="cl-rail-label"]')].map((l) => l.textContent)
+    expect(labels[labels.length - 1]).toBe(appConfig.copy.checklists.groupManuals)
+    // the single Anleitung's device says its title, the device with chapters «2 Kapitel»
+    expect(screen.getByRole('button', { name: /Stromerzeuger 8 kVA.*Stromerzeuger starten/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Motorspritze.*2 Kapitel/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Kapitel-Titel/ })).toBeNull()
+  })
+
+  it('opens a single Anleitung directly and finds it by its device', async () => {
     await mount([FU, MANUAL])
-    fireEvent.click(screen.getByRole('button', { name: /Stromerzeuger starten/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Stromerzeuger 8 kVA/ }))
     expect(screen.getByText('Standort wählen')).toBeTruthy()
     fireEvent.change(screen.getByLabelText(appConfig.copy.checklists.searchAria), { target: { value: 'kva' } })
     expect(screen.queryByRole('button', { name: /Aufgaben FU/ })).toBeNull()
-    expect(screen.getByRole('button', { name: /Stromerzeuger starten/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Stromerzeuger 8 kVA/ })).toBeTruthy()
+  })
+
+  it('opens a device page, a chapter with «Kapitel k von n», and the next chapter from its foot', async () => {
+    await mount([FU, CHAPTER(1), CHAPTER(2)])
+    fireEvent.click(screen.getByRole('button', { name: /Motorspritze/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Kapitel-Titel 1/ }))
+    expect(screen.getByText('Schritt aus 1')).toBeTruthy()
+    expect(screen.getByText(/Kapitel 1 von 2/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Kapitel 2.*Kapitel-Titel 2/ }))
+    expect(screen.getByText('Schritt aus 2')).toBeTruthy()
+    // «‹ Motorspritze» leads back to the chapter page
+    fireEvent.click(screen.getAllByRole('button', { name: 'Motorspritze' })[0]) // the «‹ Motorspritze» row (the meta line's device link goes there too)
+    expect(screen.getByRole('list', { name: 'Motorspritze' })).toBeTruthy()
   })
 })

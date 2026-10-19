@@ -16,7 +16,11 @@
    Einsatz bar's 16px (13-incident · .ip-switch-btn svg) */
 .einsaetze > :global(.i) { width: 16px; height: 16px; flex: none; }
 .einsaetze:active, .einsaetze.open { background: var(--press); }
-.search { flex: 1 1 320px; min-width: 0; max-width: 360px; }
+/* wide enough for the whole placeholder (owner, 19.10.2026: «Anleitung, Checkliste, S…»). A WIDTH,
+   not a flex-basis: the bar is absolutely positioned and sizes to its content, so a basis never
+   widened it – the input's own ~200px default did. It still gives way on a narrow bar (shrink, no
+   min-width). */
+.search { flex: 0 1 auto; width: 380px; min-width: 0; }
 .running { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3);
   border: none; border-radius: var(--r-sm); background: var(--red); color: var(--on-fill, #fff);
   font: var(--fw-bold) var(--fs-2)/1.15 var(--body); cursor: pointer; max-width: 280px; flex: 0 1 auto; text-align: left; }
@@ -60,7 +64,7 @@ button.row:active { background: var(--press); }
 .panel { position: absolute; top: calc(88px + env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); bottom: 16px; width: 404px; height: max-content;
   max-height: calc(100% - 104px - env(safe-area-inset-top)); z-index: var(--z-chrome); display: flex; flex-direction: column;
   background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
-/* beside the NavRail when the object has plans (05-navrail · .navrail is 16px in, --rail-w wide) */
+/* beside the NavRail, which a tablet always shows (Karte · Checkliste — 05-navrail · .navrail is 16px in, --rail-w wide) */
 .panel.withRail { left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w, 60px) + 16px); }
 .head { display: grid; grid-template-columns: 44px 1fr auto; gap: var(--sp-3); align-items: start; padding: var(--sp-4) var(--sp-4) var(--sp-2); }
 .glyph { width: 44px; height: 44px; display: grid; place-items: center; border-radius: var(--r-sm); background: var(--surface); border: 1px solid var(--border-soft); color: var(--ink-dim); }
@@ -377,3 +381,28 @@ button.row:active { background: var(--press); }
    the objects stay drawn, but their dots and tags let the finger through to the map (owner, review
    round 4: «measure on top of objects, not have the objects get highlighted») */
 .through { pointer-events: none; cursor: inherit; }
+
+/* ── the Checkliste surface (owner, 19.10.2026 — KarteApp · LIBRARY) ─────────────────────────────
+   The frame is the Einsatz surfaces' own (Surface.module.css · .shell): under the bar, beside the
+   tablet's rail, above the phone's bar, pushed by the Meldeleiste (`--ml-push`) and ending on the
+   keyboard (`--vv-foot`). The library (ChecklistLibrary) fills it — it never positions itself. The
+   map stays mounted behind the app's wash, as behind the Einsatz's Checkliste (05-navrail ·
+   .mode-checklists::before), so the way back finds it where it was. */
+.library { composes: shell from '../Surface.module.css'; }
+.library > * { flex: 1 1 auto; min-width: 0; min-height: 0; }
+.root.onLibrary::before { content: ''; position: fixed; inset: 0; z-index: var(--z-surface-veil); background: var(--app-bg); }
+/* the phone's running-Einsatz strip stands under the bar: the page starts under it */
+.library.belowStrip { top: calc(96px + var(--tap) + env(safe-area-inset-top) + var(--ml-push, 0px)); }
+/* the phone's bar field takes the room the round search button had. Its words («Anleitung,
+   Checkliste, Stichwort») are wider than a 390px phone leaves at the 16px the typing needs (iOS
+   zooms into less): the PLACEHOLDER alone steps down one size and ends in «…» where it still
+   does not fit — what is typed stays 16px */
+.search.libSearch { flex: 1 1 auto; max-width: none; }
+.search.libSearch :global(.ui-search-input) { text-overflow: ellipsis; }
+.search.libSearch :global(.ui-search-input)::placeholder { font-size: var(--fs-2); }
+
+/* the hairline between the surfaces and the rest: the phone bar's │ before the map tools (mockup
+   a-map) and the tablet rail's line over a selected object's plans (mockup t-obj, «unter dem
+   Strich»). The shared .nav-sep is spacing only (05-navrail); these two paint it. */
+:global(.nav-sep).barSep { background: var(--border); align-self: center; }
+:global(.nav-sep).railSep { height: 1px; margin: var(--sp-1) var(--sp-2); background: var(--border); }

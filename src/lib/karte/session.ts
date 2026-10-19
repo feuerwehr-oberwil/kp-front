@@ -6,8 +6,8 @@
 //
 //   · its Ebenen, as a device preference under its own key (lib/layerPrefs · `kp.layers.karte`),
 //     so switching a layer off here changes no Einsatz and an Einsatz changes nothing here;
-//   · where it was looking (`KarteView`: the map's frame, the selected object, the open plan, the
-//     open tool — never its content), in sessionStorage, so coming back from an Objektbesuch or
+//   · where it was looking (`KarteView`: the map's frame, the selected object, the open plan or
+//     the Checkliste surface, the open tool — never its content), in sessionStorage, so coming back from an Objektbesuch or
 //     from an Einsatz lands on the same object, the same plan and the same frame. Its `label`
 //     («Schloss Musterdorf · Modul 2/3») is what the Einsatz menu's «Karte & Objekte» row says
 //     it returns to, read without loading the catalogue (panels/IncidentSwitcher).
@@ -31,8 +31,9 @@ export interface KarteView {
   bearing: number
   /** the selected catalogue object, if any */
   objectId: string | null
-  /** what was open: the map, one plan (its dataset id) or the Gebäude stack */
-  surface: 'karte' | 'gebaeude' | { plan: string }
+  /** what was open: the map, one plan (its dataset id), the Gebäude stack or the Checkliste
+   *  surface (ChecklistLibrary — its own selection is the library's, not kept here) */
+  surface: 'karte' | 'gebaeude' | 'checkliste' | { plan: string }
   /** the open tool — only WHICH one: a measurement, a UN number or a pin never ride along */
   tool?: KarteTool | null
   /** «<Objekt> · <Plan>» for «Zurück zu …», null with nothing selected */
@@ -45,7 +46,7 @@ const TOOLS: readonly string[] = ['measure', 'erg', 'layers']
 
 /** Only the view: whatever else the caller hands in (measure points, rings, a pin) is dropped. */
 export function karteViewSnapshot(s: KarteView & Record<string, unknown>): KarteView {
-  const surface = s.surface === 'gebaeude' ? 'gebaeude' as const
+  const surface = s.surface === 'gebaeude' || s.surface === 'checkliste' ? s.surface
     : typeof s.surface === 'object' && s.surface && typeof (s.surface as { plan?: unknown }).plan === 'string'
       ? { plan: (s.surface as { plan: string }).plan }
       : 'karte' as const

@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { crc32, deflateSync } from 'node:zlib'
 import type { APIRequestContext, BrowserContext, CDPSession, Page, Request } from '@playwright/test'
 import { FAT_PRESETS, fatIncident } from '../../src/lib/fatIncident'
-import { PIN } from '../helpers'
+import { PIN, EINSATZ_RAIL } from '../helpers'
 
 // The measuring half of the performance journeys (e2e/journeys.journey.ts, docs/testing/perf-journeys.md).
 // A journey drives the built app the way a crew does. This file turns what the browser saw into
@@ -406,6 +406,6 @@ export async function buildingAlreadyRead(context: BrowserContext, seeded: Pick<
 
 /** The Einsatz is on screen and its opening cover (lib/bootCover) has lifted. */
 export async function waitForWorkspace(page: Page, timeout = 60_000) {
-  await page.locator('nav.navrail').waitFor({ state: 'visible', timeout })
+  await page.locator(EINSATZ_RAIL).waitFor({ state: 'visible', timeout })
   await page.waitForFunction(() => !document.querySelector('.login.splash'), undefined, { timeout, polling: POLL_MS })
 }

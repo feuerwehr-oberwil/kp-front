@@ -1,12 +1,14 @@
 import { LoadingStatus } from './ShellLoader'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import type { ChecklistState, ChecklistTemplate, Item, TemplateState } from '../lib/checklists'
 import { allEntries, warmTemplates, matchDiveraEntries, searchEntries, templateProgress } from '../lib/checklists'
-import { isTickable, manualGroups } from '../lib/checklists'
+import { chapterOf, isTickable, manualGroups } from '../lib/checklists'
 import { ChecklistRunner } from './ChecklistRunner'
+import { useRememberedScroll } from '../lib/rememberedScroll'
 import { ChecklistEntryReader } from './ChecklistReference'
 import { ManualReader } from './ManualReader'
+import { DevicePage, DeviceTile } from './DeviceManuals'
 import { cx } from '../lib/cx'
 import { EmptyState } from './EmptyState'
 import { SearchField } from './SearchField'
@@ -14,41 +16,12 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { useMediaQuery } from '../lib/useIsPhone'
 import s from './Checklists.module.css'
-import m from './ManualReader.module.css'
 
 const EMPTY_STATE: TemplateState = { ticks: {}, activeBranch: {} }
 
-/* Where each list was left (05.10.2026, owner: «remember the checklist scroll position on closing
-   an open checklist»). Per Einsatz and per list — the open checklist's pane and the picker each
-   keep their own offset, so closing a list onto the picker and opening it again lands both where
-   the reader was — the chooser above all («to quickly go through potentially similar checklists»:
-   back from one list, the neighbouring one is right under the thumb). In memory only: it is a reading position for this session, not a record; a
-   reload starts at the top. Module scope because the surface unmounts whenever another tab is
-   shown (IncidentWorkspace · mode). */
-const scrollMemory = new Map<string, number>()
-/** the scroller's offset under `key`: restored when the key (or the element) appears, saved on
- *  every scroll. The returned ref goes on the element that scrolls. */
-function useRememberedScroll<T extends HTMLElement>(key: string | null) {
-  const ref = useRef<T>(null)
-  // what was last restored: only a NEW element or a NEW key puts the offset back — a tick
-  // re-renders the pane and must not jump it
-  const restored = useRef<{ node: T | null; key: string | null }>({ node: null, key: null })
-  useLayoutEffect(() => {
-    const node = ref.current
-    if (!node || key === null) return
-    if (restored.current.node !== node || restored.current.key !== key) {
-      node.scrollTop = scrollMemory.get(key) ?? 0
-      restored.current = { node, key }
-    }
-    const save = () => scrollMemory.set(key, node.scrollTop)
-    node.addEventListener('scroll', save, { passive: true })
-    return () => node.removeEventListener('scroll', save)
-  })
-  return ref
-}
-
-/** what the main pane shows: a tickable list, a Stichwort, or an Anleitung */
-type Sel = { kind: 'tpl' | 'entry' | 'manual'; id: string }
+/** what the main pane shows: a tickable list, a Stichwort, a device's chapter page (id = the
+ *  device name) or an Anleitung */
+type Sel = { kind: 'tpl' | 'entry' | 'manual' | 'device'; id: string }
 
 /* The pick (which list is open, and on a narrow screen whether the chooser or the list shows),
    per Einsatz. sessionStorage so a reload of the tab keeps it too; memory as the fallback when
@@ -114,6 +87,8 @@ export function ChecklistsView({
   const referenceTemplates = useMemo(() => templates.filter((t) => t.kind === 'reference'), [templates])
   const entries = useMemo(() => allEntries(templates), [templates])
   const manuals = useMemo(() => templates.filter((t) => t.kind === 'manual'), [templates])
+  // every device, unfiltered: a chapter's «k von n» and its neighbours do not change with the search
+  const devices = useMemo(() => manualGroups(templates, ''), [templates])
   const autoMatches = useMemo(() => matchDiveraEntries(templates, divera), [templates, divera])
 
   // selection is either an action template, a tactical entry or an Anleitung; defaults once
@@ -127,12 +102,13 @@ export function ChecklistsView({
     // a remembered pick whose list was removed since falls back to the default, like no pick
     if (sel && [...actionTemplates, ...manuals].some((t) => t.id === sel.id)) return
     if (sel?.kind === 'entry' && entries.some((e) => e.id === sel.id)) return
+    if (sel?.kind === 'device' && devices.some((g) => g.device === sel.id)) return
     if (actionTemplates[0]) setSel({ kind: 'tpl', id: actionTemplates[0].id })
     else if (entries[0]) setSel({ kind: 'entry', id: entries[0].id })
     else if (manuals[0]) setSel({ kind: 'manual', id: manuals[0].id })
     else if (sel) setSel(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setSel is a fresh closure per render
-  }, [sel, ready, actionTemplates, entries, manuals])
+  }, [sel, ready, actionTemplates, entries, manuals, devices])
 
   // The picker rail collapses to a single toggle row once something is picked, so the
   // checklist/playbook text gets the full height; tapping the row reopens the list.
@@ -161,6 +137,10 @@ export function ChecklistsView({
   const activeTemplate = sel?.kind === 'tpl' ? actionTemplates.find((t) => t.id === sel.id) ?? null : null
   const activeManual = sel?.kind === 'manual' ? manuals.find((t) => t.id === sel.id) ?? null : null
   const activeEntry = sel?.kind === 'entry' ? entries.find((e) => e.id === sel.id) ?? null : null
+  const activeDevice = sel?.kind === 'device' ? devices.find((g) => g.device === sel.id) ?? null : null
+  const chapter = activeManual ? chapterOf(devices, activeManual.id) : null
+  // the device whose row is lit: the open device, or the device of the open chapter
+  const litDevice = activeDevice?.device ?? (activeManual && devices.find((g) => g.manuals.includes(activeManual))?.device)
   // the reference template that owns the open entry — drives its diagram asset URLs
   const activeEntryTemplateId =
     sel?.kind === 'entry' ? templates.find((t) => (t.entries ?? []).some((e) => e.id === sel.id))?.id ?? null : null
@@ -176,7 +156,7 @@ export function ChecklistsView({
     )
   }
 
-  const selTitle = activeTemplate?.title ?? activeManual?.title ?? activeEntry?.title ?? CL.railLabel
+  const selTitle = activeTemplate?.title ?? activeManual?.title ?? activeDevice?.device ?? activeEntry?.title ?? CL.railLabel
   const activeProgress = activeTemplate ? templateProgress(activeTemplate, checklists[activeTemplate.id] ?? EMPTY_STATE) : null
 
   return (
@@ -190,7 +170,7 @@ export function ChecklistsView({
               category chip below instead. */}
           {activeTemplate && <Icon id={activeTemplate.kind === 'rapport' ? 'history' : 'check'} />}
           {activeEntry && !activeEntry.hazardColor && <Icon id="doc" />}
-          {activeManual && <Icon id="doc" />}
+          {(activeManual || activeDevice) && <Icon id="doc" />}
           <span className={s['cl-rail-toggle-title']}>{selTitle}</span>
           {/* the open list's «n/m» — here, in a row that stands anyway, instead of a progress row
               of its own under it (05.10.2026, owner: «don't need a progress indicator. Occupies
@@ -267,25 +247,21 @@ export function ChecklistsView({
               </div>
             )
           })}
-          {/* Anleitungen (05.10.2026): read-only device instructions, one group below the
-              checklists, a sub-head per Gerät (ManualReader) */}
+          {/* Anleitungen (05.10.2026): read-only device instructions, STILL the last group (19.10.2026,
+              owner: «least important during an active emergency») – one row per Gerät with its
+              picture, the same tile as on the Karte's Checkliste surface (DeviceManuals). A device
+              with chapters opens its page, a single Anleitung opens directly. */}
           {manualResults.length > 0 && (
             <div className={s['cl-rail-group']}>
               <div className={s['cl-rail-label']}>{CL.groupManuals}</div>
               {manualResults.map((g) => (
-                <div key={g.device} className={m['mn-rail-device']} role="group" aria-label={g.device}>
-                  <div className={m['mn-rail-device-name']}>{g.device}</div>
-                  {g.manuals.map((t) => (
-                    <button
-                      key={t.id}
-                      className={cx(s['cl-rail-item'], sel?.kind === 'manual' && sel.id === t.id && s.on)}
-                      onClick={() => pick({ kind: 'manual', id: t.id })}
-                    >
-                      <Icon id="doc" />
-                      <span className={s['cl-rail-title']}>{t.title}</span>
-                    </button>
-                  ))}
-                </div>
+                <DeviceTile
+                  key={g.device}
+                  group={g}
+                  variant="row"
+                  on={litDevice === g.device}
+                  onOpen={() => pick(g.manuals.length > 1 ? { kind: 'device', id: g.device } : { kind: 'manual', id: g.manuals[0].id })}
+                />
               ))}
             </div>
           )}
@@ -309,7 +285,25 @@ export function ChecklistsView({
               offersAction={offersAction}
             />
           ) : activeManual ? (
-            <ManualReader manual={activeManual} />
+            <>
+            {/* a chapter's way back names its device («‹ TLF») – the same row as the Karte's
+                Checkliste (ChecklistLibrary), owner 19.10.2026 */}
+            {chapter && (
+              <button type="button" className={s['cl-back']} onClick={() => setSel({ kind: 'device', id: chapter.group.device })}>
+                <Icon id="chevron-left" />{chapter.group.device}
+              </button>
+            )}
+            <ManualReader
+              manual={activeManual}
+              chapter={chapter && {
+                ...chapter,
+                onGo: (id) => setSel({ kind: 'manual', id }),
+                onDevice: () => setSel({ kind: 'device', id: chapter.group.device }),
+              }}
+            />
+            </>
+          ) : activeDevice ? (
+            <DevicePage group={activeDevice} onChapter={(id) => setSel({ kind: 'manual', id })} />
           ) : (
             <ChecklistEntryReader entry={activeEntry} templateId={activeEntryTemplateId} />
           )}

@@ -25,6 +25,8 @@ export const karteCopy = {
     searchPlaceholder: 'Adresse oder Objekt suchen …',
     searchPlaceholderShort: 'Adresse oder Objekt',
     searchOpen: 'Suchen',
+    // the Checkliste surface's field in the top bar (ChecklistLibrary · query)
+    librarySearch: 'Anleitung, Checkliste, Stichwort',
     searchObjects: 'Stationsobjekte',
     searchAddresses: 'Adressen',
     searchNoObject: 'Kein Stationsobjekt gefunden.',

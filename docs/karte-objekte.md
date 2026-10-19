@@ -192,7 +192,7 @@ What it reuses, so nothing forks:
 |---|---|
 | map, layers, vehicles, measure path, georef raster, weather radar | `MapView` (read-only, no drawings) + `MapLayers` (a `polygons` overlay kind draws the outlines) |
 | Ebenen | `LayerPanel`, under its OWN device key (`kp.layers.karte`, `lib/karte/session`), without the Einsatz-only layers (taktisch, Skizzen, Personen) and the catalogue's «Unterirdische Bauten» (its own Station row stands in); the radar's choice too (`kp.karte.radar`) |
-| tools | the Einsatz's `ToolRail` (tablet) / the folded `navrail` bar (phone: Karte · Messen · Gefahrgut · Ebenen), `ToolDock` + `MeasurePanel` WITHOUT «Als Linie/Fläche übernehmen» (and without a line saying it is not saved — nothing here is), stacked on the phone like an Einsatz's: dock 6px above the bar, readout 6px above the dock, one bar lower because the Karte has no tool bar, `MapViewsButton` without saved views |
+| tools | the Einsatz's `ToolRail` (tablet) / the folded `navrail` bar (phone: Karte · Checkliste │ Messen · Gefahrgut · Ebenen — «Checkliste» below), `ToolDock` + `MeasurePanel` WITHOUT «Als Linie/Fläche übernehmen» (and without a line saying it is not saved — nothing here is), stacked on the phone like an Einsatz's: dock 6px above the bar, readout 6px above the dock, one bar lower because the Karte has no tool bar, `MapViewsButton` without saved views |
 | weather | `useWeather` + `WeatherBadge` |
 | plans | the NavRail classes and `PlanGlyph` (tablet rail), rows in the object's panel; a module opens in the Einsatz's plan reader — the Plan surface's `Whiteboard`, read-only, on the current revision (below); the Gebäude is the same `Whiteboard` on the Einsatz's floor stack (`lib/floorPackBinding · floorPackOf` / `packBuildingDoc`, below) |
 | plan titles | the module catalogue the Einsatz's plan chooser labels its tiles from (`lib/planOrder · moduleCatalogue`), through `lib/karte/plans · planTitle` (below) |
@@ -205,7 +205,7 @@ The rules that are easy to break:
 
 - **Own state, never an Einsatz's.** No workspace, no saved drawing, no plan binding, no journal
   row. Measurements, the Gefahrgut rings and a dropped pin are component state; only the Ebenen and
-  the view (`KarteView`: frame, selected object, open plan, in sessionStorage) are kept —
+  the view (`KarteView`: frame, selected object, open plan or the Checkliste, in sessionStorage) are kept —
   `karteViewSnapshot` is the one door into storage (`lib/karte/karte.test.ts` pins it).
 - **A building is an object only by official data, containment or an exact address.** An object
   is drawn as its `footprint` (the buildings its name, use area or parcel give, above), else as
@@ -645,6 +645,35 @@ The rules that are easy to break:
   dismissible, back for the next deploy — and the one-shot «Aktualisiert – v…» toast follows an
   update reload that lands here. A covered Einsatz behind the viewer paints no update row of its
   own, and `consumeJustUpdated` is one-shot app-wide, so neither is ever said twice.
+
+## Checkliste (owner, 19.10.2026)
+
+Beside the map the viewer has a second surface, **«Checkliste»**: the station's checklists and
+device Anleitungen to read in peace time — the Einsatz tab's word and glyph
+(`appConfig.copy.modes.checklists`, `checklist`), because the same content lives there.
+
+- **Who owns what.** The Karte (`KarteApp`) hosts `<ChecklistLibrary query={…} />` and nothing
+  more: it gives it the frame and the bar's search words. Everything inside — the lists, the device
+  pages, the reader, the selection (kept per tab) — is the library's (`components/ChecklistLibrary`).
+  Read-only: nothing is ticked or stored.
+- **The frame** is the Einsatz surfaces' own (`Surface.module.css · .shell`, composed by
+  `Karte.module.css · .library`): under the bar, beside the tablet rail, above the phone bar, pushed
+  down by the Meldeleiste (`--ml-push`) and ending on the keyboard (`--vv-foot`). On a phone with an
+  Einsatz running it starts under the red strip. The library fills it and never positions itself.
+  The map stays mounted behind the app's wash, so the way back finds it where it was.
+- **Phone bar** (variant A, fixed): `Karte · Checkliste │ Messen · Gefahrgut · Ebenen` — the two
+  surfaces, a hairline, the map's tools. The bar never changes: a tool tapped on the Checkliste
+  goes back to the Karte with that tool armed. On the Checkliste the bar holds «Menü ▾» and an
+  inline field («Anleitung, Checkliste, Stichwort»); the round search button, the pin and the
+  compass are the map's.
+- **Tablet rail**: always there with Karte and Checkliste; a selected object's plans hang under a
+  hairline as before. On the Checkliste the right `ToolRail` is gone (as on a plan) and the bar's
+  field searches the library; the map's own search words are kept for the way back.
+- **Remembered** like the plan: `KarteView.surface = 'checkliste'` (`lib/karte/session`), back
+  after an Objektbesuch, an Einsatz or a reload — unless a deep link (`?objekt=`) asks for another
+  object, which opens on the map. The Einsatz menu's row then reads «… zurück zu Checkliste» and the
+  way back «Wieder bei Checkliste».
+- Opening it closes the map's tools and lists (the Karte tab's rule); the selected object stays.
 
 ## Object colours (`map.objectCategories`)
 

@@ -30,10 +30,11 @@ const TEMPLATES: ChecklistTemplate[] = [
 ]
 
 describe('manualGroups', () => {
-  it('groups by device, devices by name, manuals in template order', () => {
+  // template (= manifest) order for devices too since 19.10.2026 – it was by name
+  it('groups by device, devices and their manuals in template order', () => {
     expect(manualGroups(TEMPLATES, '').map((g) => [g.device, g.manuals.map((t) => t.id)])).toEqual([
-      ['Hebekissen', ['Hebekissen abbauen', 'Hebekissen einsetzen']],
       ['Stromerzeuger 8 kVA', ['Stromerzeuger starten']],
+      ['Hebekissen', ['Hebekissen abbauen', 'Hebekissen einsetzen']],
     ])
   })
 
