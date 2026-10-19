@@ -274,7 +274,6 @@ describe('KarteApp', () => {
 
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.karte.tools.layers }))
     const row = await screen.findByRole('button', { name: /Mit Übersichtsplan/ })
-    expect(row.textContent).toMatch(/1 Objekte/)
     fireEvent.click(row)
     await waitFor(() => expect(overlays().some((o) => o.id === 'karte-objects-m1')).toBe(false))
     expect(screen.queryByRole('button', { name: /^Schloss Musterdorf/ })).toBeNull()

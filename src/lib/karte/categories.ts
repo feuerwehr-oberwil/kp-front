@@ -102,13 +102,6 @@ export function categorize(objects: readonly StationObject[], rules: readonly Ob
   return out
 }
 
-/** How many objects each rule took — Ebenen says it on the row. */
-export function categoryCounts(byObject: ReadonlyMap<string, ObjectCategory>): Map<string, number> {
-  const out = new Map<string, number>()
-  for (const c of byObject.values()) out.set(c.id, (out.get(c.id) ?? 0) + 1)
-  return out
-}
-
 /** Readable text on a solid category colour: dark ink on light colours, white on dark ones
  *  (WCAG relative luminance, the 0.179 crossover). */
 export function inkOn(hex: string): '#111418' | '#ffffff' {

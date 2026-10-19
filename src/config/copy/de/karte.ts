@@ -152,7 +152,6 @@ export const karteCopy = {
     layerGroupStation: 'Station',
     layerObjects: 'Stationsobjekte',
     layerObjectsSub: 'Gebäude und Gebäudegruppen der Station',
-    layerCategorySub: '{n} Objekte',
     // «Unterirdische Bauten» (backend app/underground): on by default, part of «Standard» — also the
     // Einsatz's Ebenen row (lib/underground · undergroundLayerDef: label + group «Station»)
     layerUnderground: 'Unterirdische Bauten',

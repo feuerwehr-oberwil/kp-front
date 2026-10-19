@@ -77,7 +77,7 @@ import { moduleCatalogue } from '../../lib/planOrder'
 import { karteHref } from '../../lib/karte/route'
 import { applyLayerPreset, karteLayerPreset, presetFlips, type QuickTap } from '../../lib/karte/layerPresets'
 import { karteRadarStore, loadKarteView, loadViewerLayerPrefs, saveKarteView, saveViewerLayerPrefs, viewerLayers, type KarteTool } from '../../lib/karte/session'
-import { categorize, categoryCounts, categoryRules, inkOn } from '../../lib/karte/categories'
+import { categorize, categoryRules, inkOn } from '../../lib/karte/categories'
 import { cameraOnClose, returnOnSelect, toolTakesTaps, type Camera, type CameraReturn } from '../../lib/karte/camera'
 import type { Entity, LayerDef, LayerId, LngLat, PreparedMapOverlay } from '../../types'
 import { MapView } from '../MapView'
@@ -1018,14 +1018,14 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     if (weather.handlesLayer(id)) { weather.setRadarOpacity(v); return }
     updateLayers((ls) => ls.map((l) => (l.id === id ? { ...l, opacity: v } : l)))
   }
-  const catCount = categoryCounts(cats)
   const twins = [
     { id: OBJECTS_ROW, group: C.layerGroupStation, label: C.layerObjects, sub: C.layerObjectsSub, icon: 'footprint', visible: objectsOn },
     // one row per category, its colour on the glyph, under «Station» (R2-BITS' Alle/Keine/Standard
-    // work over these like over any row)
+    // work over these like over any row); no object count on them – the owner doesn't want it
+    // (20.10.2026)
     ...catRules.map((c) => ({
       id: `${CAT_ROW}${c.id}`, group: C.layerGroupStation, label: c.label,
-      sub: fillTemplate(C.layerCategorySub, { n: catCount.get(c.id) ?? 0 }), icon: 'footprint', swatch: c.color, visible: !hiddenCats.has(c.id),
+      icon: 'footprint', swatch: c.color, visible: !hiddenCats.has(c.id),
     })),
     {
       id: UNDERGROUND_ROW, group: C.layerGroupStation, label: C.layerUnderground, icon: 'footprint', visible: underOn,
