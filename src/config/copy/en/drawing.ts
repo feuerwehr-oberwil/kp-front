@@ -13,7 +13,7 @@ export const drawingCopy: Localizable<Pick<Copy, Keys>> = {
     clear: 'Reset',
     insertPoint: 'Insert point',
     extendLine: 'Extend line',
-    deleteNode: 'Press and hold to delete · right-click on a computer',
+    deleteNode: 'Press and hold to delete, right-click on a computer',
     snapConnect: 'Hold to connect',
     snapRelease: 'Pull away to release',
     distance: 'Distance',

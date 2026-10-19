@@ -142,7 +142,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     insideTitle: 'Binômes encore engagés',
     confirmBack: 'Retour',
     done: 'Rapport clos',
-    doneMediaPending: 'Rapport clôturé · {n} photo/audio pas encore envoyé – conservé et transmis à la prochaine ouverture',
+    doneMediaPending: 'Rapport clôturé. {n} photo/audio pas encore envoyé – conservé et transmis à la prochaine ouverture',
     failed: 'Échec de la clôture',
     corrected: 'Heures corrigées : {name}',
     attendanceRemoved: 'Présence de {name} retirée',

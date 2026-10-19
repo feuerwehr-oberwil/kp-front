@@ -12,7 +12,7 @@ export const drawingCopy = {
     insertPoint: 'Punkt einfügen',
     // the arrow grip past an open line end — dragging it appends one point
     extendLine: 'Linie verlängern',
-    deleteNode: 'Gedrückt halten zum Löschen · am Computer Rechtsklick',
+    deleteNode: 'Gedrückt halten zum Löschen, am Computer Rechtsklick',
     // Der blaue Ring am Ziel: er läuft, solange das Ende darüber steht, und erst wenn er voll
     // ist, klinkt die Linie ein. Wer früher loslässt, setzt den Punkt einfach dorthin.
     snapConnect: 'Halten zum Verbinden',

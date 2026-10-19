@@ -1147,7 +1147,7 @@ export function AtemschutzView({
   // button's own honest state (an / stumm / nicht freigegeben) still reads first.
   const bellLabel = (muted ? az.alarmMuted
     : audioBlocked ? (notificationsSupported() ? az.alarmBlocked : az.alarmBlockedNoFallback)
-    : az.alarmArmed) + (isDemoMode() ? ` · ${az.alarmDemoNote}` : '')
+    : az.alarmArmed) + (isDemoMode() ? ` ${az.alarmDemoNote}` : '')
 
   // What the QR beside the bell says of itself — the same rule as the bell: the state that is
   // TRUE now, not what the press would do.

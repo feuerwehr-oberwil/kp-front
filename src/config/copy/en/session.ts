@@ -148,7 +148,7 @@ export const sessionCopy: Localizable<Pick<Copy, Keys>> = {
       canTitle: 'What you can try',
       can: ['Edit the map and plan', 'Run SCBA and material', 'Open object plans and the report'],
       cta: 'Let\'s go',
-      meta: 'No real incident data · New incidents are disabled',
+      meta: 'No real incident data – new incidents are disabled',
     },
   },
 }

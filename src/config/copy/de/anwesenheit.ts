@@ -197,7 +197,7 @@ export const anwesenheitCopy = {
     blocksNone: 'Noch nicht anwesend gewesen.',
     blocksHint: 'Jede Zeile ist eine tatsächliche Anwesenheit dieser Person. Hier korrigieren, wenn eine Stempelung daneben liegt.',
     openBlocks: 'Anwesenheit von {name} öffnen',
-    openBlocksNote: 'Anwesenheit von {name} öffnen · Bemerkung erfasst',
+    openBlocksNote: 'Anwesenheit von {name} öffnen – Bemerkung erfasst',
     statusNote: 'Bemerkung',
     stillHere: 'noch da',
     // Head of the time card: what this row IS. Not a switch – an Anwesenheit is running or has
@@ -321,8 +321,8 @@ export const anwesenheitCopy = {
     done: 'Fertig',
     // direct operation on the grid – like the paper form you fill in
     fromStart: 'ab Beginn',
-    sheetHint: 'Zeiten hier anpassen · Zustand rechts umschalten · gelöscht wird nur hier.',
-    laneHint: 'Ziehen erfasst die Verfügbarkeit · Balken antippen teilt die Person ein · Ziehen verschiebt den Balken · Gedrückt halten öffnet die Schichten',
+    sheetHint: 'Zeiten hier anpassen, Zustand rechts umschalten. Gelöscht wird nur hier.',
+    laneHint: 'Ziehen erfasst die Verfügbarkeit. Balken antippen teilt die Person ein. Ziehen verschiebt den Balken. Gedrückt halten öffnet die Schichten.',
     // the (i) tap-toggle above the gesture explainer — title only, so it costs no line of its own
     laneHintShow: 'Bedienung anzeigen',
     laneHintHide: 'Bedienung ausblenden',

@@ -152,7 +152,7 @@ export const objectVisitsCopy: Localizable<Pick<Copy, 'objectVisits'>> = {
     photoCaptionPlaceholder: 'p. ex. accès nord',
     photoBelongs: 'Appartient à',
     photoGeneral: 'Général',
-    photoStored: 'Enregistrée sur cet appareil · envoyée dès qu’il y a du réseau',
+    photoStored: 'Enregistrée sur cet appareil – envoyée dès qu’il y a du réseau',
     photoNotStored: 'Non enregistrée sur l’appareil – uniquement dans cette fenêtre',
     photoAnother: 'Encore une',
     photoDone: 'Terminé',

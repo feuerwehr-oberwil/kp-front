@@ -458,7 +458,7 @@ export default function App() {
       const C = appConfig.copy.incidentSwitcher
       const text = !(e instanceof ApiError) ? C.openFailed
         : e.status === 0 ? C.openFailedNoCache
-        : e.hint ? `${e.detail} · ${e.hint}` : e.detail
+        : e.hint ? `${e.detail} – ${e.hint}` : e.detail
       toast(text, { icon: 'warn', tone: 'warn' })
     } finally {
       setOpening((cur) => (cur === id ? null : cur)) // a newer open may already own the state

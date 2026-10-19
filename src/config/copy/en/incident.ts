@@ -140,7 +140,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     insideTitle: 'Teams still inside',
     confirmBack: 'Back',
     done: 'Report completed',
-    doneMediaPending: 'Report completed · {n} photo/audio not uploaded yet – kept and sent the next time it is opened',
+    doneMediaPending: 'Report completed. {n} photo/audio not uploaded yet – kept and sent the next time it is opened',
     failed: 'Completion failed',
     corrected: 'Hours corrected: {name}',
     attendanceRemoved: '{name} attendance removed',
