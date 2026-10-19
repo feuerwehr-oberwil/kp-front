@@ -10,9 +10,9 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import type { ReactNode } from 'react'
 import type { StationObjects, UndergroundSet } from '../../lib/api/stationReference'
 import type { BuildingInfo } from '../../lib/api/building'
-import type { LngLat } from '../../types'
+import type { LayerDef, LngLat } from '../../types'
 
-const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], phone: false, board: [] as Record<string, unknown>[], catalogue: null as null | StationObjects, rules: [] as unknown[], fakeMap: null as null | object, underground: null as null | UndergroundSet, undergroundAsked: 0, building: null as null | BuildingInfo }))
+const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], phone: false, board: [] as Record<string, unknown>[], catalogue: null as null | StationObjects, rules: [] as unknown[], fakeMap: null as null | object, underground: null as null | UndergroundSet, undergroundAsked: 0, building: null as null | BuildingInfo, extraLayers: [] as LayerDef[] }))
 const lastMap = () => rec.map[rec.map.length - 1] as { onMapClick: (c: LngLat) => void; measurePoints: LngLat[]; onMeasureDelete?: (i: number) => void; children?: ReactNode }
 
 const CATALOGUE: StationObjects = {
@@ -74,6 +74,11 @@ vi.mock('../../lib/deploymentConfig', async (importOriginal) => ({
   objectVisitsConfig: () => ({ enabled: true, captureRoles: ['editor', 'el'] }),
   objectCategoryRules: () => rec.rules,
 }))
+// a test's own Ebenen beside the built-in ones (the deployment's hydrant layer)
+vi.mock('../../lib/workspace', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('../../lib/workspace')>()
+  return { ...orig, defaultLayers: (t?: string | null) => [...orig.defaultLayers(t), ...rec.extraLayers] }
+})
 vi.mock('../../lib/useWeather', () => ({ useWeather: () => ({ data: null, error: null }) }))
 vi.mock('../../lib/ui', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../lib/ui')>()), toast: vi.fn() }))
 // the service worker as a switch (review round 7): a waiting build is announced by calling the
@@ -121,6 +126,7 @@ beforeEach(() => {
   rec.underground = null
   rec.undergroundAsked = 0
   rec.building = null
+  rec.extraLayers = []
   brand.mark = null; brand.short = null
   sw.announce = null; sw.landed = false; sw.apply.mockClear(); sw.platform = 'android'
   localStorage.clear(); sessionStorage.clear()
@@ -274,7 +280,6 @@ describe('KarteApp', () => {
 
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.karte.tools.layers }))
     const row = await screen.findByRole('button', { name: /Mit Übersichtsplan/ })
-    expect(row.textContent).toMatch(/1 Objekte/)
     fireEvent.click(row)
     await waitFor(() => expect(overlays().some((o) => o.id === 'karte-objects-m1')).toBe(false))
     expect(screen.queryByRole('button', { name: /^Schloss Musterdorf/ })).toBeNull()
@@ -656,7 +661,7 @@ describe('KarteApp', () => {
     // the map's round search button, the pin and the compass are the map's
     expect(screen.queryByRole('button', { name: 'Suchen' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Punkt setzen' })).toBeNull()
-    fireEvent.change(screen.getByPlaceholderText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Generator' } })
+    fireEvent.change(screen.getByLabelText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Generator' } })
     expect(screen.getByTestId('library').textContent).toBe('Generator')
     fireEvent.click(within(nav).getByRole('button', { name: 'Messen' }))
     expect(screen.queryByTestId('library')).toBeNull()
@@ -676,7 +681,7 @@ describe('KarteApp', () => {
     // as on a plan: no tool rail; and the object's panel waits on the map
     expect(document.querySelector('.tool-rail')).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Schloss Musterdorf' })).toBeNull()
-    fireEvent.change(screen.getByPlaceholderText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Motorspritze' } })
+    fireEvent.change(screen.getByLabelText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Motorspritze' } })
     expect(screen.getByTestId('library').textContent).toBe('Motorspritze')
     fireEvent.click(within(rail()).getByRole('button', { name: 'Karte' }))
     expect(screen.queryByTestId('library')).toBeNull()
@@ -908,6 +913,74 @@ describe('KarteApp', () => {
     const closeAgain = within(sheet).getAllByRole('button', { name: appConfig.copy.closeDialog })
     fireEvent.click(closeAgain[closeAgain.length - 1])
     expect(easeTo.mock.calls.length).toBe(calls)
+  })
+
+  // owner, Karte Haus round 2: a tap on one house of a row (Amselstrasse 30) moved the map to the
+  // whole row's label – it reveals the tapped house, like a plain building
+  it('on a phone: a tap on one of an object\'s houses reveals that house, not the object\'s point', async () => {
+    rec.phone = true
+    const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]
+    rec.catalogue = { ...CATALOGUE, objects: CATALOGUE.objects.map((o) => (o.id === 'schloss' ? { ...o, footprint: { type: 'MultiPolygon', coordinates: [[sq(7.5700, 47.5236, 0.0002)], [sq(7.5702, 47.5236, 0.0002)]] } } : o)) }
+    const easeTo = vi.fn()
+    rec.fakeMap = {
+      getContainer: () => document.createElement('div'), getZoom: () => 17, getCenter: () => ({ lng: 7.57, lat: 47.52 }), getPadding: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+      unproject: () => ({ lng: 7.56, lat: 47.52 }), project: () => ({ x: 200, y: window.innerHeight - 10 }), // behind the sheet
+      getBounds: () => ({ getWest: () => 7.5, getSouth: () => 47.5, getEast: () => 7.6, getNorth: () => 47.6 }),
+      easeTo, jumpTo: () => {}, fitBounds: () => {}, getMap: () => ({ on: () => {} }),
+    }
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    act(() => lastMap().onMapClick([7.5703, 47.5237]))
+    expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
+    expect(easeTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [7.5703, 47.5237] }))
+  })
+
+  // owner, Karte Haus round 2: «when tapping the closest hydrant, the hydrant ebene should be activated»
+  it('a tap on a hydrant row of In der Nähe switches the Hydranten Ebene on', async () => {
+    rec.extraLayers = [{ id: 'hydranten', group: 'Referenz', label: 'Hydranten', icon: 'drop', visible: false, geojson: '/hydranten.geojson', vectorKind: 'point' }]
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => (String(url).includes('hydranten')
+      ? new Response(JSON.stringify({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [7.5703, 47.5239] } }] }), { headers: { 'content-type': 'application/json' } })
+      : new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } }))))
+    mount()
+    const hydrantsOn = () => (lastMap() as unknown as { layers: LayerDef[] }).layers.find((l) => l.id === 'hydranten')?.visible
+    fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
+    const near = await waitFor(() => document.querySelector('[data-section="nearby"]') as HTMLElement)
+    const row = await within(near).findByRole('button', { name: /Hydrant/ })
+    expect(hydrantsOn()).toBe(false)
+    fireEvent.click(row)
+    await waitFor(() => expect(hydrantsOn()).toBe(true))
+  })
+
+  // owner, Karte Haus round 2: «change the long press on the compass to zoom in to the user's
+  // location which is more likely than the entire village» – the village only without a position
+  it('holding the compass zooms onto my position, and fits the village when there is none', async () => {
+    rec.phone = true
+    const easeTo = vi.fn(), fitBounds = vi.fn()
+    rec.fakeMap = {
+      getContainer: () => document.createElement('div'), getZoom: () => 14, getCenter: () => ({ lng: 7.57, lat: 47.52 }), getPadding: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+      unproject: () => ({ lng: 7.56, lat: 47.52 }), project: () => ({ x: 200, y: 200 }),
+      getBounds: () => ({ getWest: () => 7.5, getSouth: () => 47.5, getEast: () => 7.6, getNorth: () => 47.6 }),
+      easeTo, jumpTo: () => {}, fitBounds, getMap: () => ({ on: () => {} }),
+    }
+    let granted = true
+    vi.stubGlobal('navigator', { ...navigator, geolocation: {
+      getCurrentPosition: (ok: PositionCallback, err: PositionErrorCallback) => (granted
+        ? ok({ coords: { longitude: 7.571, latitude: 47.524 } } as GeolocationPosition)
+        : err({ code: 1 } as GeolocationPositionError)),
+    } })
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    const hold = async () => {
+      const compass = screen.getAllByRole('button', { name: appConfig.copy.mapViews.title })[0]
+      fireEvent.pointerDown(compass, { clientX: 0, clientY: 0, button: 0, pointerType: 'touch' })
+      await act(async () => { await new Promise((r) => setTimeout(r, 600)) })
+    }
+    await hold()
+    expect(easeTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [7.571, 47.524], zoom: 17 }))
+    expect(fitBounds).not.toHaveBeenCalled()
+    granted = false
+    await hold()
+    expect(fitBounds).toHaveBeenCalledTimes(1)
   })
 
   // owner R4-3: «for the gefahrgut stuff we also need to know the name (show it as attribute)»

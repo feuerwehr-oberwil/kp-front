@@ -223,9 +223,15 @@ The rules that are easy to break:
 - **Object or house — the switch** (owner, Karte Haus round 1 · variant A, 19.10.2026: «it's very
   hard to click the underlying building if there is a plan on top of it»). A tap on one of the
   buildings of an object that HAS several opens the object as before and remembers that building
-  (dashed blue). Right under the panel head: **Objekt** («n Pläne») | **<the house's street>**
-  («nur dieses Haus»; «Dieses Haus» until the register, asked at the tapped point as a building tap
-  asks, names it). One tap switches, both ways, on the tablet and the phone sheet. The house level
+  (dashed blue). Right under the panel head, the app's `Segmented` (a CHOICE, blue fill; round 2,
+  owner: «the toggle changes height and isn't using the normal style»): **Objekt · n Pläne** |
+  **<the house's street>** («Dieses Haus» until the register, asked at the tapped point as a
+  building tap asks, names it), one line per half — a long street ends in «…», so the switch has
+  the same height on both levels and for every name. One tap switches, both ways, on the tablet
+  and the phone sheet. The map reveals the house that was TAPPED (moving only when it is under the
+  panel or sheet), not the object's point where its tag sits a block away (owner, round 2:
+  «Amselstrasse 30 … moves to the label of the entire block»); search and In der Nähe still fly to
+  the object. The house level
   is the building panel for that ONE ring (blue), «Teil von <Objekt>» under its name, the switch
   still there — and the register rule above never throws it back to the object (`Sel.of`). The
   level sticks while the taps stay on the same object (on house level another of its buildings
@@ -242,7 +248,10 @@ The rules that are easy to break:
 - ⚠️ **The tag sits ON the object's point** (owner, review round 3, 17.10.2026: «do not move the
   location of the marker»). Centred on the coordinate the station set, exactly where the dot is;
   the placement pass decides only WHETHER it shows, and a tag at a side edge slides inward at most
-  until 16 px of it still cover the point. Round 1 hung the tag under its building's south edge,
+  until 16 px of it still cover the point. A long name folds onto two, at most three, balanced
+  lines at 220 px (owner, Karte Haus round 2: «long labels should fold» — «Stallenmattstrasse 2-14,
+  Kaibmattweg 1-5, Stallenrain 1 (EH)» ran off both screen edges); the placement pass measures the
+  folded size on its off-screen twin. Round 1 hung the tag under its building's south edge,
   round 2 moved it inside its own building when that spot was another object's — both put the
   name somewhere the point is not, and that read as a moved marker.
 - **A tag is the name, never a plan count** (owner, round 3: «we just care that there are
@@ -266,6 +275,11 @@ The rules that are easy to break:
   mid-gesture, never for the keyboard or a programmatic bearing. MapLibre's own `bearingSnap`
   (7°, a fixed 1 s ease nobody read as a snap) is off, so this is the one rule. Check on a running
   stack: `e2e/karte-north-snap.mjs`.
+- **Holding the compass goes to where I stand** (owner, Karte Haus round 2: «the user's location
+  … is more likely than the entire village»). One GPS fix, then zoom ≥ 17 on it, as the menu's
+  «Mein Standort» row; no position (denied, timed out, no GPS) fits the station's objects as
+  before. The menu's «Einpassen» row stays, and its ⓘ says what the hold does (`ViewsApi.hold`).
+  The Einsatz's compass still holds to «Einpassen».
 - **«In der Nähe» is distance only**, and the panel says so in a sentence (owner, Karte Haus round
   1: «prioritize … based on proximity and not based on their type»). ONE list, nearest first, at
   most five rows: station objects within `NEARBY_RADIUS_M` (160 m) and hydrants mixed
@@ -275,8 +289,9 @@ The rules that are easy to break:
   with the compass direction from the selected place (8 directions) under it. The mouse over the
   row (a tap on touch, which keeps it until tapped again) shows that hydrant on the map: a ring on
   it, a dashed line from the selected place, the metres at the line's middle; the map moves when
-  it is off-screen or under the panel, and a new selection clears it. It works with the hydrant
-  layer off. A house never lists its own object. «From the selected place» is the house that was
+  it is off-screen or under the panel, and a new selection clears it. A TAP on a hydrant row also
+  switches the Hydranten Ebene on, kept like a toggle in Ebenen (owner, Karte Haus round 2); the
+  mouse over a row never changes the layers. A house never lists its own object. «From the selected place» is the house that was
   tapped whenever there is one — also on object level (owner, 19.10.2026: a row of 21 houses is not
   stood at its catalogue point) — else the object's point (search, tag, a list row).
 - **The panel, in one order** (owner, 17.10.2026 · review round 2), the same for an object on
@@ -710,6 +725,16 @@ device Anleitungen to read in peace time — the Einsatz tab's word and glyph
   object, which opens on the map. The Einsatz menu's row then reads «… zurück zu Checkliste» and the
   way back «Wieder bei Checkliste».
 - Opening it closes the map's tools and lists (the Karte tab's rule); the selected object stays.
+- **The home**: Geräte (photo cards on a phone), the checklists «zum Lesen», then each reference
+  template's Stichworte as a group of its own (Taktik · Stichworte, Grundlagen · Infos) — on a
+  phone too, nothing folded (owner, review round 2: «keep things top level and just requiring
+  some more scrolling»). A Stichwort's back row goes to the list (or to the search it came from).
+- **The device pictures paint at once** on every open after the first (review round 2: they popped
+  in each time). Two parts: the asset URL carries its version (`?v=`, `lib/checklists ·
+  checklistAssetUrl`), answered immutable and cache-first by the service worker, so nothing asks
+  the server again; and the cards and the device page show a held `blob:` copy
+  (`lib/heldPictures`), because with a worker WebKit hands every new `<img>` to it and paints the
+  picture after the first frame. Check: `e2e/checkliste-pictures.mjs --sw` against a built app.
 
 ## Object colours (`map.objectCategories`)
 

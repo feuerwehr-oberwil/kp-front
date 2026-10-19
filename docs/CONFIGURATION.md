@@ -1930,7 +1930,8 @@ shape is checked by `app/checklist_templates.py · template_problem` on every do
 A device's instructions – «Stromerzeuger starten», «Hebekissen einsetzen» – as big numbered
 steps. They are **read, never ticked**: no state, no progress, nothing in the Verlauf or the
 Rapport. Anleitungen are grouped by `device` (19.10.2026): one tile per device with its picture
-(the first step image of its chapters – there is no separate device photo) and «n Kapitel», or the
+(the `cover` of its first chapter that names one, otherwise the first step image of its
+chapters) and «n Kapitel», or the
 title when the device has a single Anleitung. A device with several opens a page with its
 chapters numbered in manifest `order`; a chapter shows «Kapitel k von n» and the previous and next
 chapter at its foot. Devices are listed in manifest `order` too, so the order of the manifest
@@ -1941,7 +1942,8 @@ Einsatz (`ChecklistLibrary`), devices first, where the search also covers the st
 checklist items and the Stichwort texts, and the action checklists are shown read-only.
 Pictures are prefetched into the service worker's `checklist-assets` cache as soon as the
 templates load (`warmManualImages` in `src/lib/checklists.ts`), so an Anleitung opened for the
-first time without network still shows them.
+first time without network still shows them. Their URLs carry the asset's version (`?v=`), so a
+replaced picture is fetched once under its new address and never again after.
 
 ```json
 {
@@ -1954,6 +1956,7 @@ first time without network still shows them.
   "updated": "2026-09-14",
   "source": "Bedienungsanleitung Hersteller, Kap. 4",
   "keywords": ["generator", "notstrom"],
+  "cover": 2,
   "steps": [
     { "text": "Standort im Freien wählen.",
       "warning": "Nie in geschlossenen Räumen betreiben – Kohlenmonoxid." },
@@ -1972,18 +1975,20 @@ first time without network still shows them.
 | `steps[].warning` | – | a red «Achtung:» line – what hurts people or the device |
 | `steps[].hint` | – | a quiet tip line |
 | `steps[].images[]` | – | `{ "page": N, "caption"? }` – an asset page of this entry: a photo, or a page of the device's PDF manual exported as an image (one image per PDF page) |
+| `cover` | – | the asset page shown as the device's picture (its tile and page) – a step picture, or a photo of its own no step shows; without it the first step image. The device takes the cover of its first chapter that has one |
 | `updated` | – | «Stand», `YYYY-MM-DD` |
 | `keywords` | – | extra search words (model names, «Generator») |
 | `subtitle`, `version`, `source` | – | intro line, your own version counter, «Quelle:» footer |
 
-`admin_checklists validate` refuses an Anleitung whose steps show a `page` the manifest entry
-has no asset for – a blank box where the picture should be is exactly what must not happen at
-3am. A manifest entry:
+`admin_checklists validate` refuses an Anleitung whose steps or `cover` show a `page` the
+manifest entry has no asset for – a blank box where the picture should be is exactly what must
+not happen at 3am. A manifest entry (page 2 is the cover photo above, which no step shows):
 
 ```json
 { "id": "stromerzeuger", "kind": "manual", "title": "Stromerzeuger starten",
   "file": "checklists/stromerzeuger.json", "order": 10,
-  "assets": [{ "page": 1, "file": "checklists/assets/stromerzeuger-p1.jpg" }] }
+  "assets": [{ "page": 1, "file": "checklists/assets/stromerzeuger-p1.jpg" },
+             { "page": 2, "file": "checklists/assets/stromerzeuger-geraet.jpg" }] }
 ```
 
 `examples/demo-data/` carries two worked examples (`musterdorf-stromerzeuger`,

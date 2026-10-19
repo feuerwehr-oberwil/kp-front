@@ -26,6 +26,9 @@ export const karteCopy = {
     searchPlaceholderShort: 'Adresse oder Objekt',
     searchOpen: 'Suchen',
     // the Checkliste surface's field in the top bar (ChecklistLibrary · query)
+    // its placeholder is short – the descriptive one did not fit a phone (owner 19.10.2026); the
+    // long one stays the field's name for screen readers
+    librarySearchPlaceholder: 'Suchen …',
     librarySearch: 'Anleitung, Checkliste, Stichwort',
     searchObjects: 'Stationsobjekte',
     searchAddresses: 'Adressen',
@@ -45,13 +48,13 @@ export const karteCopy = {
     buildingNoObject: 'Kein Stationsobjekt',
     // the switch under the head after a tap on an object's building (Karte Haus round 1 · variant A):
     // the whole object, or only the house that was tapped («Dieses Haus» until the register names it)
+    compassHoldHint: 'Kompass lange drücken: zum eigenen Standort (ohne Standort: ganzes Gebiet einpassen).',
     level: 'Objekt oder Haus',
     levelObject: 'Objekt',
     levelPlans: '{n} Pläne',
     levelPlansOne: '1 Plan',
     levelPlansNone: 'keine Pläne',
     levelHouse: 'Dieses Haus',
-    levelHouseSub: 'nur dieses Haus',
     partOf: 'Teil von {name}',
     pin: 'Gesetzter Punkt',
     pinNear: 'bei {a} (ca. {m} m)',
@@ -149,7 +152,6 @@ export const karteCopy = {
     layerGroupStation: 'Station',
     layerObjects: 'Stationsobjekte',
     layerObjectsSub: 'Gebäude und Gebäudegruppen der Station',
-    layerCategorySub: '{n} Objekte',
     // «Unterirdische Bauten» (backend app/underground): on by default, part of «Standard» — also the
     // Einsatz's Ebenen row (lib/underground · undergroundLayerDef: label + group «Station»)
     layerUnderground: 'Unterirdische Bauten',

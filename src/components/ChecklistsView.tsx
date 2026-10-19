@@ -142,8 +142,8 @@ export function ChecklistsView({
   // the device whose row is lit: the open device, or the device of the open chapter
   const litDevice = activeDevice?.device ?? (activeManual && devices.find((g) => g.manuals.includes(activeManual))?.device)
   // the reference template that owns the open entry — drives its diagram asset URLs
-  const activeEntryTemplateId =
-    sel?.kind === 'entry' ? templates.find((t) => (t.entries ?? []).some((e) => e.id === sel.id))?.id ?? null : null
+  const activeEntryTemplate =
+    sel?.kind === 'entry' ? templates.find((t) => (t.entries ?? []).some((e) => e.id === sel.id)) ?? null : null
 
   const railRef = useRememberedScroll<HTMLElement>(`${scrollKey}|rail`)
   const mainRef = useRememberedScroll<HTMLElement>(sel ? `${scrollKey}|${sel.kind}:${sel.id}` : null)
@@ -305,7 +305,7 @@ export function ChecklistsView({
           ) : activeDevice ? (
             <DevicePage group={activeDevice} onChapter={(id) => setSel({ kind: 'manual', id })} />
           ) : (
-            <ChecklistEntryReader entry={activeEntry} templateId={activeEntryTemplateId} />
+            <ChecklistEntryReader entry={activeEntry} template={activeEntryTemplate} />
           )}
         </main>
       )}

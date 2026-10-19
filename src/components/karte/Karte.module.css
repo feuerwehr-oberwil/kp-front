@@ -66,19 +66,12 @@ button.row:active { background: var(--press); }
 .badge.blue { background: var(--blue-16); color: var(--blue-strong); margin-right: var(--sp-2); vertical-align: 1px; }
 .chev { width: 16px; height: 16px; color: var(--ink-faint); }
 
-/* the switch «Objekt | <Haus>» right under the head, after a tap on one of an object's buildings
-   (Karte Haus round 1 · variant A): two halves, the open level raised; red = object, blue = house */
-.level { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: var(--r-sm); background: var(--ink-8); border: 1px solid var(--border-soft); }
-.levelBtn { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; min-height: var(--tap-lg); padding: 0 var(--sp-2); border: none; border-radius: var(--r-xs);
-  background: none; color: var(--ink-dim); font: inherit; text-align: left; cursor: pointer; }
-.levelBtn svg { width: 18px; height: 18px; flex: none; }
-.levelBtn.on { background: var(--surface); color: var(--ink); box-shadow: var(--e1); cursor: default; }
-.levelObj.on svg { color: var(--red); }
-.levelHouse.on svg { color: var(--blue); }
-.levelText { display: flex; flex-direction: column; min-width: 0; }
-.levelText b, .levelText small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.levelText b { font: var(--fw-bold) var(--fs-1)/1.25 var(--body); }
-.levelText small { font: var(--fw-medium) var(--fs-micro)/1.3 var(--body); color: var(--ink-faint); }
+/* the switch «Objekt · n Pläne | <Haus>» right under the head, after a tap on one of an object's
+   buildings (Karte Haus round 1 · variant A): the shared .useg track, full width, two equal halves
+   of ONE line each – a long street ellipsizes instead of growing the switch (round 2) */
+.level :global(.useg) { display: flex; width: 100%; flex-wrap: nowrap; }
+.level :global(.useg-btn) { flex: 1 1 0; min-width: 0; min-height: var(--tap); }
+.levelText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── the one panel ────────────────────────────────────────────────────────────────────────── */
 .panel { position: absolute; top: calc(88px + env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); bottom: 16px; width: 404px; height: max-content;
@@ -169,8 +162,14 @@ button.row:active { background: var(--press); }
 .sheet .body { flex: 1 1 auto; min-height: 0; padding: 0 max(var(--sp-4), env(safe-area-inset-right)) var(--sp-4) max(var(--sp-4), env(safe-area-inset-left)); }
 
 /* ── name tags on the map ─────────────────────────────────────────────────────────────────── */
-.tagMk { display: inline-flex; align-items: center; gap: var(--sp-1); padding: 4px var(--sp-2); border-radius: var(--r-xs); border: 1.5px solid var(--red-45);
-  background: var(--surface); color: var(--ink); font: var(--fw-bold) var(--fs-1)/1.2 var(--body); white-space: nowrap; box-shadow: var(--e2); cursor: pointer; }
+/* a long name folds onto two, at most three, balanced lines at 280px instead of running off the
+   screen (owner, Karte Haus round 2: «Stallenmattstrasse 2-14, Kaibmattweg 1-5, …»); short and
+   medium names («Amselstrasse 24-32, Auf der Wacht 2») stay one line. The measuring twin below
+   wears the same rules, so the placement pass collides the folded size. */
+.tagMk { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
+  width: max-content; max-width: 280px; text-wrap: balance; text-align: center;
+  padding: 4px var(--sp-2); border-radius: var(--r-xs); border: 1.5px solid var(--red-45);
+  background: var(--surface); color: var(--ink); font: var(--fw-bold) var(--fs-1)/1.2 var(--body); box-shadow: var(--e2); cursor: pointer; }
 .tagMk.sel { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-22), var(--e2); }
 .tagMk.approx { border-style: dashed; border-color: var(--amber-strong); }
 /* the measuring twin of a tag (KarteApp · the placement pass) — laid out, never seen */

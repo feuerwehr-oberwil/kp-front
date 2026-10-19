@@ -9,6 +9,23 @@ import { idbGet, readThrough } from '../idb'
 
 export type BuildingRegisters = 'on' | 'off' | 'outside_ch' | 'no_location'
 
+/** One heating or hot-water system (backend BuildingSystemOut). */
+export interface BuildingSystem {
+  /** heat_pump, solar_thermal, boiler, stove, chp, electric_storage, electric_direct, heat_exchanger, electric_boiler */
+  generator: string | null
+  /** an energy key, as in `BuildingGwr.heating` */
+  energy: string | null
+  /** serves several buildings – the generator may stand in another one */
+  shared: boolean
+}
+
+/** The existing flats whose entrance is on one storey: 0 = Parterre, 1 = 1. Stock, -1 = 1. UG. */
+export interface BuildingFloorFlats {
+  level: number
+  flats: number
+  maisonettes: number
+}
+
 export interface BuildingGwr {
   /** the register's export date for this entry (ISO date) */
   stand: string | null
@@ -22,6 +39,15 @@ export interface BuildingGwr {
   hot_water: string[]
   shelter: boolean | null
   status: string | null
+  // Added 20.10.2026 – optional because a device's cached card from before has none of them.
+  /** the Gebäudeklasse key (single_family, multi_family, home, school, hospital, …) */
+  building_class?: string | null
+  heaters?: BuildingSystem[]
+  water_heaters?: BuildingSystem[]
+  /** lowest storey first; empty when not every flat names its storey */
+  flats_by_floor?: BuildingFloorFlats[]
+  rooms_min?: number | null
+  rooms_max?: number | null
 }
 
 export interface BuildingPlant {
