@@ -495,7 +495,7 @@ export default function App() {
         // the launcher would otherwise render «keine offenen Einsätze» over a list that simply
         // failed, with nothing on screen to say so.
         const C = appConfig.copy.incidentSwitcher
-        toast(e instanceof ApiError ? `${C.bootListFailed} · ${e.detail}` : C.bootListFailed, { icon: 'warn', tone: 'warn' })
+        toast(e instanceof ApiError ? `${C.bootListFailed} – ${e.detail}` : C.bootListFailed, { icon: 'warn', tone: 'warn' })
         return { list: [] as IncidentMeta[], offline: false }
       })
       if (list.length === 0 && !offline) {

@@ -192,8 +192,8 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
     sayOutcome(out)
   }
   const sayOutcome = (out: FlushOutcome, lead?: string) => {
-    if (out === 'offline') toast(lead ? `${lead} · ${C.sendOffline}` : C.sendOffline, { icon: 'warn' })
-    else if (out === 'contended') toast(lead ? `${lead} · ${C.sendContended}` : C.sendContended, { icon: 'warn', tone: 'warn' })
+    if (out === 'offline') toast(lead ? `${lead}. ${C.sendOffline}` : C.sendOffline, { icon: 'warn' })
+    else if (out === 'contended') toast(lead ? `${lead}. ${C.sendContended}` : C.sendContended, { icon: 'warn', tone: 'warn' })
     else if (out === 'done' || out === 'nothing') toast(lead ?? C.sent, { icon: 'check', tone: 'success' })
     else if (lead) toast(lead, { icon: 'check' })
   }
