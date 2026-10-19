@@ -218,8 +218,15 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     never offered while the device is offline. While a MODAL bottom sheet is open the lane stands ON the sheet, one `--float-gap` above
     its top edge (`lib/toastLane` · `useToastLane` → `.toaster[data-lane]`); only a sheet that
     leaves no room for a pill above it sends the lane to the top of the screen, never over the
-    sheet's head. Non-modal owners of the foot (detail sheet, Ebenen, Messen, Passung) keep the
-    lane under the top bar. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
+    sheet's head. Non-modal owners of the foot (detail sheet, Ebenen) keep the lane under the top
+    bar. So does a PLACEMENT MODE, on every width (20.10.2026, owner: «the toasts sometimes block
+    things like the point placement thing»): while a mode takes the map's or a plan's taps (any
+    armed map or plan tool, Messen, the Passung, the Karte's Punkt setzen / Gefahrgut) the surface
+    that owns it calls `usePlacementLane(active)` (lib/toastLane → `<html data-placing>`), and the
+    lane moves to the top: under the bar on a phone (and under the Karte's running-Einsatz strip),
+    at the Meldeleiste's 92px on a tablet. A new mode calls the hook; it never adds a selector to
+    the lane's list. The Karte's «Auf die Karte tippen …» is a sticky toast in that lane, not a
+    pill of its own. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
     bar first, then amber / blue / grey): a row's tone is its leading glyph's colour, so every
     `Meldung` carries an `icon`. A row TITLE whose way in is the same
     move as the row's filled button (the Atemschutz «Zum Trupp» — `Meldung.onOpen.label` = the

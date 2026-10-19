@@ -1080,19 +1080,22 @@
      which beats a third copy of the state list. */
   :root:has(.ml) .toaster { --ml-reserve: calc(min(32dvh, 240px) + 8px); }
   /* Variable-height bottom owners cannot be cleared with another guessed pixel offset. While
-     alignment, a detail sheet, the Passung dock, a modal bottom sheet, Ebenen / the Suche (their
-     slide-up sheet, 29.09.2026) or Messen owns that area,
-     transient feedback moves to one bounded lane below the top bar. Thus the controls at the
-     bottom never disappear behind an undo/status pill even when their panel expands or scrolls. */
-  :root:has(.phone-georef) .toaster,
+     a detail sheet, Ebenen / the Suche (their slide-up sheet, 29.09.2026) or a placement mode owns
+     that area, transient feedback moves to one bounded lane below the top bar. Thus the controls at
+     the bottom never disappear behind an undo/status pill even when their panel expands or scrolls.
+     A placement mode (`data-placing`, lib/toastLane · usePlacementLane: any armed map or plan tool,
+     the Passung, the Karte's Punkt / Messen / Gefahrgut) also takes the map's TAPS — the pill stood
+     on the spot the next symbol goes (owner, Karte Haus round 3, 20.10.2026: «the toasts sometimes
+     block things like the point placement thing»). The tablet has the same lane (08-toasts). */
+  :root[data-placing] .toaster,
   :root:has(.app .ctx) .toaster,
-  :root:has(.wb-georef-dock) .toaster,
-  :root:has(.app.maptool-measure) .toaster,
-  :root:has(.wb-canvas.tool-measure) .toaster,
   :root:has(.app .layers-card:not([data-picking])) .toaster {
-    top: calc(72px + var(--ml-reserve, 0px) + env(safe-area-inset-top)); bottom: auto;
+    top: calc(72px + var(--ml-reserve, 0px) + var(--strip-reserve, 0px) + env(safe-area-inset-top)); bottom: auto;
     max-height: min(32dvh, 240px);
   }
+  /* …below the Karte's running-Einsatz strip (Karte.module.css · .runningStrip: 88px down, one
+     --tap tall), one --float-gap under it: the top lane lay on «● Brand Musterstrasse ›» */
+  :root:has([data-karte-running]) .toaster { --strip-reserve: calc(88px + var(--tap) + var(--float-gap) - 72px); }
   /* ⚠️ …but a MODAL bottom sheet no longer sends it up there (30.09.2026, owner, staging phone
      pass: «slightly odd positioning of the toasts» — with «Seite wählen» open the undo pill jumped
      from the foot of the list to the head of the page, over its blurred title). The sheet is the
@@ -1114,11 +1117,8 @@
   /* Persistent messages use the same upper budget during variable-height map/plan tasks. Their
      rows remain reachable by scrolling instead of extending into the active bottom controls.
      ⚠️ This is also what makes `--ml-reserve` above a true bound — keep the two lists in step. */
-  :root:has(.phone-georef) .ml,
+  :root[data-placing] .ml,
   :root:has(.app .ctx) .ml,
-  :root:has(.wb-georef-dock) .ml,
-  :root:has(.app.maptool-measure) .ml,
-  :root:has(.wb-canvas.tool-measure) .ml,
   :root:has(.app .layers-card:not([data-picking])) .ml {
     max-height: min(32dvh, 240px);
   }
