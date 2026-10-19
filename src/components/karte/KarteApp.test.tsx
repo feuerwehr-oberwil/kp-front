@@ -656,7 +656,7 @@ describe('KarteApp', () => {
     // the map's round search button, the pin and the compass are the map's
     expect(screen.queryByRole('button', { name: 'Suchen' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Punkt setzen' })).toBeNull()
-    fireEvent.change(screen.getByPlaceholderText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Generator' } })
+    fireEvent.change(screen.getByLabelText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Generator' } })
     expect(screen.getByTestId('library').textContent).toBe('Generator')
     fireEvent.click(within(nav).getByRole('button', { name: 'Messen' }))
     expect(screen.queryByTestId('library')).toBeNull()
@@ -676,7 +676,7 @@ describe('KarteApp', () => {
     // as on a plan: no tool rail; and the object's panel waits on the map
     expect(document.querySelector('.tool-rail')).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Schloss Musterdorf' })).toBeNull()
-    fireEvent.change(screen.getByPlaceholderText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Motorspritze' } })
+    fireEvent.change(screen.getByLabelText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Motorspritze' } })
     expect(screen.getByTestId('library').textContent).toBe('Motorspritze')
     fireEvent.click(within(rail()).getByRole('button', { name: 'Karte' }))
     expect(screen.queryByTestId('library')).toBeNull()

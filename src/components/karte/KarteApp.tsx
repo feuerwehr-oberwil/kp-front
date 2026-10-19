@@ -1329,7 +1329,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
               onChange={setLibQuery}
               onTouchEnd={phone ? noPanTouchEnd : undefined}
               onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-              placeholder={defuseAutofill(C.librarySearch)}
+              placeholder={defuseAutofill(C.librarySearchPlaceholder)}
               aria-label={defuseAutofill(C.librarySearch)}
             />
           ) : !phone && (

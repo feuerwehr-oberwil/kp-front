@@ -18,6 +18,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     searchPlaceholder: 'Chercher une adresse ou un objet …',
     searchPlaceholderShort: 'Adresse ou objet',
     searchOpen: 'Rechercher',
+    librarySearchPlaceholder: 'Rechercher …',
     librarySearch: 'Mode d’emploi, checklist, mot-clé',
     searchObjects: 'Objets du corps',
     searchAddresses: 'Adresses',
