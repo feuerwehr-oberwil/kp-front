@@ -16,7 +16,11 @@
    Einsatz bar's 16px (13-incident · .ip-switch-btn svg) */
 .einsaetze > :global(.i) { width: 16px; height: 16px; flex: none; }
 .einsaetze:active, .einsaetze.open { background: var(--press); }
-.search { flex: 1 1 320px; min-width: 0; max-width: 360px; }
+/* wide enough for the whole placeholder (owner, 19.10.2026: «Anleitung, Checkliste, S…»). A WIDTH,
+   not a flex-basis: the bar is absolutely positioned and sizes to its content, so a basis never
+   widened it – the input's own ~200px default did. It still gives way on a narrow bar (shrink, no
+   min-width). */
+.search { flex: 0 1 auto; width: 380px; min-width: 0; }
 .running { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3);
   border: none; border-radius: var(--r-sm); background: var(--red); color: var(--on-fill, #fff);
   font: var(--fw-bold) var(--fs-2)/1.15 var(--body); cursor: pointer; max-width: 280px; flex: 0 1 auto; text-align: left; }

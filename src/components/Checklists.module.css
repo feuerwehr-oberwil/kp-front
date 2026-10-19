@@ -337,3 +337,11 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
   .cl-runner-head { display: none; }
   .cl-phase-titles h3 { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 }
+
+/* a chapter's way back to its device page («‹ TLF», owner 19.10.2026) – the twin of the Karte
+   library's .backLink (ChecklistLibrary.module.css) */
+.cl-back { display: flex; align-items: center; gap: var(--sp-1); align-self: flex-start; min-height: var(--tap);
+  margin-bottom: var(--sp-2); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-sm); background: none; cursor: pointer;
+  font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink-dim); }
+.cl-back :global(.i) { width: 18px; height: 18px; flex: none; }
+.cl-back:active { background: var(--press); }

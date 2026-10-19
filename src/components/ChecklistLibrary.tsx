@@ -268,7 +268,16 @@ export function ChecklistLibrary({ query }: { query: string }) {
         <nav ref={listRef} className={cx(s['cl-rail'], l.column)} aria-label={appConfig.copy.modes.checklists}>
           {q ? results : home}
         </nav>
-        <main ref={docRef} className={s['cl-main']}>{doc}</main>
+        <main ref={docRef} className={s['cl-main']}>
+          {/* a chapter's way back names its device («‹ TLF», owner 19.10.2026: the device name in
+              the meta line alone was no clear way back) */}
+          {shown?.kind === 'manual' && chapter && (
+            <button type="button" className={l.backLink} onClick={() => setSel({ kind: 'device', id: chapter.group.device })}>
+              <Icon id="chevron-left" />{chapter.group.device}
+            </button>
+          )}
+          {doc}
+        </main>
       </div>
     )
   }
@@ -292,24 +301,29 @@ export function ChecklistLibrary({ query }: { query: string }) {
     : open.kind === 'manual' ? open.manual.title
     : open.kind === 'entry' ? open.entry.title
     : open.template.title
+  // the back row always names where it goes – «‹ TLF», «‹ Taktik · Stichworte», «‹ Checkliste»
+  // (owner 19.10.2026: a chapter's way back to its device must be obvious); the page's own title
+  // stands under it
+  const upLabel =
+    up?.kind === 'device' ? up.id
+    : up?.kind === 'ref' && open.kind === 'entry' ? open.template.title
+    : appConfig.copy.modes.checklists
   return (
     <div className={l.lib}>
-      {pageTitle === null ? (
-        // the device page names itself under its picture; its back row names where it goes
-        <button type="button" className={l.backLink} onClick={() => setSel(up)}>
-          <Icon id="chevron-left" />{appConfig.copy.modes.checklists}
-        </button>
-      ) : (
-        <button type="button" className={l.backHead} onClick={() => setSel(up)} aria-label={`${CL.back}: ${pageTitle}`}>
-          <Icon id="chevron-left" />
-          <span className={l.backTitle}>{pageTitle}</span>
+      <button type="button" className={l.backLink} onClick={() => setSel(up)}>
+        <Icon id="chevron-left" />{upLabel}
+      </button>
+      {/* the device page names itself under its picture */}
+      {pageTitle !== null && (
+        <div className={l.pageHead}>
+          <h2 className={l.pageTitle}>{pageTitle}</h2>
           {open.kind === 'entry' && open.entry.hazardColor && (
             <span className={cx(s['cl-head-hz'], s[`hz-${open.entry.hazardColor}`])}>
               <i className={s['cl-ref-chip']} />{CL.hazardLabels[open.entry.hazardColor] ?? open.entry.hazardColor}
             </span>
           )}
           {open.kind === 'tpl' && <span className={l.backEnd}>{fillTemplate(CL.points, { n: readingPoints(open.template) })}</span>}
-        </button>
+        </div>
       )}
       <main ref={docRef} className={cx(s['cl-main'], open.kind === 'device' && l.home)}>{doc}</main>
     </div>

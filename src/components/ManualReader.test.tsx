@@ -94,8 +94,8 @@ describe('Checkliste picker · Anleitungen', () => {
     expect(screen.getByText(/Kapitel 1 von 2/)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /Kapitel 2.*Kapitel-Titel 2/ }))
     expect(screen.getByText('Schritt aus 2')).toBeTruthy()
-    // the device name in the meta line leads back to the chapter page
-    fireEvent.click(screen.getByRole('button', { name: 'Motorspritze' }))
+    // «‹ Motorspritze» leads back to the chapter page
+    fireEvent.click(screen.getAllByRole('button', { name: 'Motorspritze' })[0]) // the «‹ Motorspritze» row (the meta line's device link goes there too)
     expect(screen.getByRole('list', { name: 'Motorspritze' })).toBeTruthy()
   })
 })

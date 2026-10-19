@@ -94,7 +94,9 @@
 .dv-row .dv-pic { width: 44px; height: 44px; border-radius: var(--r-sm); }
 .dv-row .dv-pic :global(.i) { width: 18px; height: 18px; }
 .dv-row .dv-text { flex: 1 1 auto; }
-.dv-row .dv-name { font-size: var(--fs-2); line-height: 1.3; }
+/* a long device name in the narrow Einsatz rail hyphenates («Logistik-fahrzeug») instead of
+   breaking at the last letter that fits («Logistikfahrzeu|g», owner 19.10.2026) */
+.dv-row .dv-name { font-size: var(--fs-2); line-height: 1.3; hyphens: auto; }
 .dv-row .dv-name { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .dv-row .dv-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dv-row .dv-sub { font-size: var(--fs-1); }
