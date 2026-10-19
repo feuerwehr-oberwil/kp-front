@@ -35,6 +35,7 @@ import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
 import { cx } from '../../lib/cx'
 import { fillTemplate } from '../../lib/format'
+import { Segmented } from '../Segmented'
 import { fmtDistance, fmtLV95, fmtWGS } from '../../lib/geo'
 import { buildingChips, buildingSources, fmtDay, noteLines } from '../../lib/buildingCard'
 import type { BuildingInfo } from '../../lib/api/building'
@@ -378,20 +379,21 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
   )
 }
 
-/** «Objekt | <Haus>» (Karte Haus round 1 · variant A): one tap opens the other level, both ways. */
+/** «Objekt · 2 Pläne | <Haus>» (Karte Haus round 1 · variant A): one tap opens the other level,
+ *  both ways. The app's own Segmented, a CHOICE (blue fill), one line per half – a long street
+ *  ends in «…», so the switch is the same height on both levels and for every name (round 2). */
 function LevelSwitch({ level }: { level: PanelLevel }) {
   const C = appConfig.copy.karte
   const plans = level.plans === 0 ? C.levelPlansNone : level.plans === 1 ? C.levelPlansOne : fillTemplate(C.levelPlans, { n: level.plans })
-  const part = (to: 'object' | 'house', title: string, sub: string) => (
-    <button type="button" className={cx(s.levelBtn, to === 'object' ? s.levelObj : s.levelHouse, level.on === to && s.on)}
-      aria-pressed={level.on === to} onClick={() => { if (level.on !== to) level.onPick(to) }}>
-      <Icon id="footprint" /><span className={s.levelText}><b>{title}</b><small>{sub}</small></span>
-    </button>
-  )
+  const label = (text: string) => <span className={s.levelText}>{text}</span>
   return (
-    <div className={s.level} role="group" aria-label={C.level} data-section="level">
-      {part('object', C.levelObject, plans)}
-      {part('house', level.house ?? C.levelHouse, C.levelHouseSub)}
+    <div className={s.level} data-section="level">
+      <Segmented ariaLabel={C.level} value={level.on}
+        onChange={(to) => { if (level.on !== to) level.onPick(to) }}
+        options={[
+          { value: 'object', label: label(`${C.levelObject} · ${plans}`) },
+          { value: 'house', label: label(level.house ?? C.levelHouse), title: level.house ?? C.levelHouse },
+        ]} />
     </div>
   )
 }

@@ -48,13 +48,13 @@ export const karteCopy = {
     buildingNoObject: 'Kein Stationsobjekt',
     // the switch under the head after a tap on an object's building (Karte Haus round 1 · variant A):
     // the whole object, or only the house that was tapped («Dieses Haus» until the register names it)
+    compassHoldHint: 'Kompass lange drücken: zum eigenen Standort (ohne Standort: ganzes Gebiet einpassen).',
     level: 'Objekt oder Haus',
     levelObject: 'Objekt',
     levelPlans: '{n} Pläne',
     levelPlansOne: '1 Plan',
     levelPlansNone: 'keine Pläne',
     levelHouse: 'Dieses Haus',
-    levelHouseSub: 'nur dieses Haus',
     partOf: 'Teil von {name}',
     pin: 'Gesetzter Punkt',
     pinNear: 'bei {a} (ca. {m} m)',
