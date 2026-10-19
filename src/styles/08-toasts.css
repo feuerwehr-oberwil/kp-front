@@ -257,6 +257,17 @@
     bottom: max(calc(max(28px, calc(16px + env(safe-area-inset-bottom))) + var(--stack-foot-lift, 0px)),
       calc(16px + var(--float-h) + var(--float-gap) + env(safe-area-inset-bottom))); }
 }
+/* While a placement mode takes the map's or the plan's taps (`data-placing`, lib/toastLane ·
+   usePlacementLane), the messages stand at the TOP, where the Meldeleiste starts (92px, under the
+   bar) — at the foot, centred, an undo pill lay on the spot the next symbol goes and hid the
+   Karte's «Auf die Karte tippen …» (owner, Karte Haus round 3, 20.10.2026). With a Meldeleiste up
+   both share the head as on the phone (15-mobile): the strip bounded, the lane under its cap. */
+@media (--not-phone) {
+  :root[data-placing] .toaster {
+    top: calc(92px + var(--ml-reserve, 0px) + env(safe-area-inset-top)); bottom: auto; max-height: min(32dvh, 240px); }
+  :root[data-placing]:has(.ml) .toaster { --ml-reserve: calc(min(32dvh, 240px) + 8px); }
+  :root[data-placing] .ml { max-height: min(32dvh, 240px); }
+}
 /* A desktop/tablet detail panel owns the right side of the operational surface. Messages are
    centred in the genuinely free map/plan band instead of painting over that panel's fields and
    actions. The tablet panel has a fluid width; these values mirror 06-contextpanel's `.ctx` plus
@@ -300,8 +311,11 @@
   font: var(--fw-medium) var(--fs-2)/1.35 var(--body); padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) var(--float-pad-x);
   border-radius: var(--r-sm); white-space: nowrap; touch-action: pan-y;
   animation: toastIn .22s var(--ease); }
-/* no button at its right end (a live status, an instruction): the text keeps the left side's air */
-.toast:not(:has(> .toast-x, > .toast-actions)) { padding-right: var(--float-pad-x); }
+/* no button at its right end (a live status, an instruction): the text keeps the left side's air,
+   and --sp-2 above and below, not the --msg-pad a button stands in — on two lines «Auf die Karte
+   tippen, um einen Punkt zu setzen.» sat 4px from the rim (owner, review round 4; carried over
+   from the Karte's `.hintBar` when the instruction became a toast, 20.10.2026) */
+.toast:not(:has(> .toast-x, > .toast-actions)) { padding-right: var(--float-pad-x); padding-block: var(--sp-2); }
 /* the running-out line: full at the start, empty when the pill leaves (duration inline, per toast).
    Inset by the corner on both sides, so it stays a straight line and never bends round the corner
    into something that reads as a border. */

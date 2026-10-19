@@ -47,6 +47,7 @@ import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
+import { usePlacementLane } from './lib/toastLane'
 import { initialMode, loadPrefs, savePrefs } from './lib/prefs'
 import { makePhotoPositionSource } from './lib/devicePosition'
 import { useAttendanceActions } from './lib/useAttendanceActions'
@@ -2757,6 +2758,8 @@ export function IncidentWorkspace({
   }
 
   const mapUI = mode === 'map'
+  // an armed map tool or the Passung takes the taps: the toasts give way to the top lane (lib/toastLane)
+  usePlacementLane((mapUI && tool !== 'select') || georefActive)
 
   /* ── one fault line per view (SurfaceBoundary, 02.09.) ─────────────────────────────────────
    * A throw in ANY panel — a Mittel row without a label, a Verlauf text, a building without

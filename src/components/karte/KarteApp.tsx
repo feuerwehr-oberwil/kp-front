@@ -54,7 +54,8 @@ import { deploymentDefaultCenter, deploymentMenuMark, deploymentName, objectCate
 import { defaultLayers } from '../../lib/workspace'
 import { fmtDistance, fmtLV95, fmtWGS, haversineM } from '../../lib/geo'
 import { themeToken, uiBlue } from '../../lib/themeToken'
-import { toast } from '../../lib/ui'
+import { dismissToast, toast } from '../../lib/ui'
+import { usePlacementLane } from '../../lib/toastLane'
 import { geocodeReverse, geocodeSearch, type GeoHit } from '../../lib/api/geo'
 import { getApprovedPlanAlignments, referenceUrl } from '../../lib/api/reference'
 import { loadStationBuilding, loadStationObjects, type StationObject, type StationObjects } from '../../lib/api/stationReference'
@@ -1110,6 +1111,25 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     onPick: toLevel,
   } : null
   const onMapSurface = !openDoc && !onLibrary
+  // Punkt setzen / Messen / Gefahrgut's centre take the map's taps: the toasts give way to the top
+  // lane meanwhile (lib/toastLane · usePlacementLane; owner, Karte Haus round 3: «the toasts
+  // sometimes block … the point placement thing»)
+  usePlacementLane(onMapSurface && (tool === 'pin' || tool === 'measure' || tool === 'erg'))
+  // Punkt setzen's instruction and the missing-catalogue notice are messages over the map, so they
+  // wear the ONE message surface (08-toasts): sticky toasts for as long as they hold, in the lane
+  // with the others — a pill of their own (`.hintBar`) lay under an undo toast on the tablet
+  const pinHint = onMapSurface && tool === 'pin'
+  useEffect(() => {
+    if (!pinHint) return
+    const id = toast(C.pinHint, { sticky: true, icon: 'pin' })
+    return () => dismissToast(id)
+  }, [pinHint, C.pinHint])
+  const catNote = cat?.failed && !cat.data && !onLibrary ? (online ? C.loadFailed : C.noCatalogue) : null
+  useEffect(() => {
+    if (!catNote) return
+    const id = toast(catNote, { sticky: true, icon: 'warn' })
+    return () => dismissToast(id)
+  }, [catNote])
   /** the panel is on screen: on the map, not under Messen, and on a phone not under a tool's own
    *  card nor pushed away */
   const panelShown = onMapSurface && !!panelSel && tool !== 'measure' && !(phone && (tool === 'erg' || tool === 'layers' || sheetShut || searchOpen))
@@ -1412,7 +1432,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           )}
         </div>
         {/* the strip stands where the «Einsätze» sheet hangs — and the sheet lists the same Einsatz */}
-        {phone && live && !sheetOpen && <div className={s.runningStrip}>{runningChip}</div>}
+        {phone && live && !sheetOpen && <div className={s.runningStrip} data-karte-running="">{runningChip}</div>}
 
         {searchOpen && !phone && !onLibrary && (
           <KarteSearch query={query} hits={hits} nearest={nearest} addresses={addrState === 'ok' ? addr.list : []} addrState={addrState}
@@ -1529,10 +1549,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           </>
         )}
 
-        {tool === 'pin' && (
-          <div className={s.hintBar} role="status"><Icon id="pin" /><span>{C.pinHint}</span></div>
-        )}
-
         {tool === 'measure' && (
           <>
             <ToolDock groups={[
@@ -1584,10 +1600,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
                 onTogglePlaying={weather.playback.togglePlaying} stale={weather.radarStale} now={weather.now} />
             </Suspense>
           </div>
-        )}
-
-        {cat?.failed && !cat.data && !onLibrary && (
-          <div className={s.hintBar} role="status"><Icon id="warn" /><span>{online ? C.loadFailed : C.noCatalogue}</span></div>
         )}
 
         {noBasemap && !online && (
