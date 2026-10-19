@@ -13,6 +13,14 @@
 // looking (lib/karte/session). The single way it changes anything is the Objektbesuch button,
 // which hands over to the existing capture (`/besuche/neu?…&from=karte`, contract C1).
 //
+// Beside the map it has a second surface, «Checkliste» (owner, 19.10.2026): the station's
+// checklists and device Anleitungen to READ in peace time — the Einsatz tab's word and glyph,
+// because the same content lives there. This file only hosts it (`ChecklistLibrary`, which owns
+// everything inside, the selection included) in the full-surface frame, and feeds it the top
+// bar's search. The phone's bar is fixed: Karte · Checkliste │ Messen · Gefahrgut · Ebenen — a
+// tool tapped on the Checkliste goes back to the Karte with that tool armed. The tablet's left
+// rail is always there with the two surfaces; a selected object's plans hang under them.
+//
 // It is HOME too (owner, 16.10.2026 · variant B): with no Einsatz open an account lands here, and
 // the menu button at the top left («FWO ▾», the station's short name or mark — it was «Einsätze ▾»
 // until review round 5) opens the app menu — the same rows as the Einsatz menu
@@ -81,6 +89,7 @@ import { MapViewsButton, type ViewsApi } from '../MapViewsMenu'
 import { WeatherBadge } from '../TopBar'
 import { WeatherRadarControls } from '../weatherLazy'
 import { SearchField } from '../SearchField'
+import { ChecklistLibrary } from '../ChecklistLibrary'
 import { KartePanel, type PanelSel, type RegisterState, type VisitsState } from './KartePanel'
 import { KarteSearch, type AddrState } from './KarteSearch'
 import { KarteGefahrgut } from './KarteGefahrgut'
@@ -113,6 +122,8 @@ const COUNTRY_CENTER: LngLat = [8.2275, 46.8182]
 const EMPTY_OBJECTS: StationObject[] = []
 const NO_TILES: TileXY[] = []
 const NOOP = () => {}
+/** `surface` while the Checkliste is shown (a document id never looks like this) */
+const LIBRARY = 'karte:checkliste'
 /** how much of a phone's height the object sheet may cover (Ebenen's cap, 15-mobile · .layers-card):
  *  a place framed for it stands in the strip above */
 const SHEET_SHARE = 0.72
@@ -162,8 +173,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     const v = loadKarteView()
     // the deep link (?objekt=) wins over where this session last was — read NOW, before the
     // address starts following the selection
-    const wanted = new URLSearchParams(window.location.search).get('objekt') ?? v?.objectId ?? null
-    return { view: v, wanted, center: v?.center ?? deploymentDefaultCenter() ?? COUNTRY_CENTER, zoom: v?.zoom ?? (deploymentDefaultCenter() ? 15.5 : 8) }
+    const linked = new URLSearchParams(window.location.search).get('objekt')
+    const wanted = linked ?? v?.objectId ?? null
+    // the Checkliste comes back with the session — unless a deep link asks for another object
+    const library = v?.surface === 'checkliste' && (!linked || linked === v.objectId)
+    return { view: v, wanted, library, center: v?.center ?? deploymentDefaultCenter() ?? COUNTRY_CENTER, zoom: v?.zoom ?? (deploymentDefaultCenter() ? 15.5 : 8) }
   })
   const [view, setView] = useState<{ center: LngLat; zoom: number; bearing: number }>({ center: start.center, zoom: start.zoom, bearing: start.view?.bearing ?? 0 })
 
@@ -183,7 +197,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // ── the catalogue ─────────────────────────────────────────────────────────────────────────
   const [cat, setCat] = useState<{ data: StationObjects | null; fromDevice: boolean; failed: boolean } | null>(null)
   const [sel, setSel] = useState<Sel | null>(null)
-  const [surface, setSurface] = useState<string | null>(null) // an open document id, null = the Karte
+  // what is shown over the map: an open document id, LIBRARY (the Checkliste), null = the Karte
+  const [surface, setSurface] = useState<string | null>(() => (start.library ? LIBRARY : null))
+  const onLibrary = surface === LIBRARY
   useEffect(() => {
     let alive = true
     loadStationObjects().then((r) => {
@@ -364,16 +380,17 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // …and the view is kept for the way back (an Objektbesuch, an Einsatz, a reload) — with the
   // words the Einsatz menu's row says it returns to («Zurück zu Schloss Musterdorf · Modul 1»)
   const keptTool: KarteTool | null = tool === 'measure' || tool === 'erg' || tool === 'layers' ? tool : null
-  const viewLabel = selObj
+  const viewLabel = onLibrary ? appConfig.copy.modes.checklists
+    : selObj
     ? [selObj.name, openDoc && (openDoc.plan ? fillTemplate(C.backPlan, { code: openDoc.doc.code }) : openDoc.doc.title)].filter(Boolean).join(' · ')
     : null
   // ⚠️ Not before the catalogue has answered (or failed): until then nothing is selected yet, and
   // leaving that early would overwrite the object the session was on with «nothing».
   useEffect(() => {
     if (!catLoaded) return
-    const surf = !openDoc ? 'karte' as const : openDoc.plan ? { plan: openDoc.plan.id } : 'gebaeude' as const
+    const surf = onLibrary ? 'checkliste' as const : !openDoc ? 'karte' as const : openDoc.plan ? { plan: openDoc.plan.id } : 'gebaeude' as const
     saveKarteView({ ...view, objectId: objectInUrl, surface: surf, tool: keptTool, label: viewLabel })
-  }, [catLoaded, view, objectInUrl, openDoc, keptTool, viewLabel])
+  }, [catLoaded, view, objectInUrl, openDoc, onLibrary, keptTool, viewLabel])
   // back from an Einsatz: one line that says where it picked up (mockup j8-5), once per entry
   const announced = useRef(false)
   useEffect(() => {
@@ -419,6 +436,12 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // ── search ────────────────────────────────────────────────────────────────────────────────
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
+  // the Checkliste's search: the same field in the bar, its own words (the map's stay for the way back)
+  const [libQuery, setLibQuery] = useState('')
+  /** to the Checkliste: the map's tools and lists close (the Karte tab's rule), the selection stays */
+  const openLibrary = () => {
+    setSurface(LIBRARY); setToolState(null); setSearchOpen(false); setViewsOpen(false)
+  }
   // the phone: the bar has a search button («Einsätze ▾»'s twin since round 4), the field lives in a slide-up (review round 3,
   // owner: «Einsätze ▾ + a search button», the sheet «like Ebenen», the keyboard right away)
   const sheetFieldRef = useRef<HTMLInputElement>(null)
@@ -844,11 +867,12 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           kind: 'pin', at: sel.at, near: pinNearHit, onBuilding: !!ringAt(ringsNear(sel.at), sel.at),
           nearState: !online && !pinHit ? 'offline' : !pinHit ? 'loading' : pinNearHit ? 'ok' : 'none',
         }
-  const onMapSurface = !openDoc
+  const onMapSurface = !openDoc && !onLibrary
   /** the panel is on screen: on the map, not under Messen, and on a phone not under a tool's own
    *  card nor pushed away */
   const panelShown = onMapSurface && !!panelSel && tool !== 'measure' && !(phone && (tool === 'erg' || tool === 'layers' || sheetShut || searchOpen))
-  const railShown = !phone && !!selObj && docs.length > 0
+  // the tablet's left rail is always there (owner, 19.10.2026): Karte · Checkliste, then the plans
+  const railShown = !phone
   const tabletTools = [
     { id: 'pin', icon: 'pin', label: C.tools.pin },
     { id: 'measure', icon: 'measure', label: C.tools.measure },
@@ -872,7 +896,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     return () => window.removeEventListener('resize', on)
   }, [])
   const selId = selObj?.id ?? null
-  const covered = `${!!panelSel}|${sheetShut}|${tool}|${searchOpen}|${sheetOpen}|${!!openDoc}|${railShown}`
+  const covered = `${!!panelSel}|${sheetShut}|${tool}|${searchOpen}|${sheetOpen}|${!!openDoc}|${onLibrary}|${railShown}`
   useEffect(() => {
     if (!objectsOn) return
     let alive = true
@@ -932,7 +956,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
 
   return (
     <>
-      <div data-karte="" ref={rootRef} className={cx('app mode-map', s.root, phone && s.phone, phone && 'phone-tools')}>
+      <div data-karte="" ref={rootRef} className={cx('app mode-map', s.root, phone && s.phone, phone && 'phone-tools', onLibrary && s.onLibrary)}>
         <IconSprite />
         {/* the name tag's off-screen twin: what a tag measures before it is placed */}
         <span ref={measureRef} className={cx(s.tagMk, s.measure)} aria-hidden />
@@ -1036,6 +1060,15 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           />
         )}
 
+        {/* the Checkliste: the Einsatz surfaces' frame (Surface.module.css · .shell — under the bar,
+            beside the rail, above the phone's bar, below the Meldeleiste and the keyboard); the
+            library fills it. The map stays mounted behind, for the way back. */}
+        {onLibrary && (
+          <div className={cx(s.library, phone && live && s.belowStrip)} data-karte-library-surface="">
+            <ChecklistLibrary query={libQuery} />
+          </div>
+        )}
+
         {/* the bar: NO title (owner, 16.10.2026) — the menu · search · weather · the running Einsatz */}
         <div className="topbar" ref={barRef}>
           {/* the menu button (owner, review round 5: «not "Einsätze" as the main top button» → the
@@ -1051,9 +1084,24 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             <Icon id="chevron-down" className={cx('chev', s.chev)} />
             {einsaetze.badge > 0 && <span className={s.einsaetzeBadge} data-karte-menu-dot="" aria-hidden />}
           </button>
-          {!phone && (
+          {/* the Checkliste: the bar's field searches the library (on a phone too, inline — the map's
+              round search button is the map's) */}
+          {onLibrary ? (
+            <SearchField
+              {...typingFieldProps('search', 'karte-checkliste')}
+              key="library"
+              className={cx(s.search, phone && s.libSearch)}
+              value={libQuery}
+              onChange={setLibQuery}
+              onTouchEnd={phone ? noPanTouchEnd : undefined}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
+              placeholder={defuseAutofill(C.librarySearch)}
+              aria-label={defuseAutofill(C.librarySearch)}
+            />
+          ) : !phone && (
             <SearchField
               {...typingFieldProps('search', 'karte')}
+              key="map"
               className={s.search}
               value={query}
               onChange={(v) => { setQuery(v); setSearchOpen(true) }}
@@ -1070,7 +1118,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             </button>
           ) : !phone && liveWeather.data?.wind_dir_deg != null && <WeatherBadge weather={liveWeather.data} bearing={view.bearing} />}
           {!phone && runningChip}
-          {phone && (
+          {phone && !onLibrary && (
             <button type="button" className={cx(s.searchBtn, searchOpen && s.open)} onClick={() => (searchOpen ? setSearchOpen(false) : openPhoneSearch())}
               aria-label={C.searchOpen} title={C.searchOpen} aria-expanded={searchOpen} data-karte-search-open="">
               <Icon id="search" />
@@ -1087,11 +1135,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         {/* the strip stands where the «Einsätze» sheet hangs — and the sheet lists the same Einsatz */}
         {phone && live && !sheetOpen && <div className={s.runningStrip}>{runningChip}</div>}
 
-        {searchOpen && !phone && (
+        {searchOpen && !phone && !onLibrary && (
           <KarteSearch query={query} hits={hits} nearest={nearest} addresses={addrState === 'ok' ? addr.list : []} addrState={addrState}
             onPickObject={(id) => { setQuery(byId.get(id)?.name ?? ''); selectObject(id, true, 'search') }} onPickAddress={pickAddress} />
         )}
-        {searchOpen && phone && (
+        {searchOpen && phone && !onLibrary && (
           <KarteKeySheet
             fill
             label={C.searchOpen}
@@ -1114,8 +1162,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           </KarteKeySheet>
         )}
 
-        {railShown && selObj && (
-          <KarteNavRail obj={selObj} docs={docs} active={openDoc?.doc.id ?? null} onMap={() => setSurface(null)} onDoc={(id) => { setSurface(id); setToolState(null) }}
+        {railShown && (
+          <KarteNavRail obj={selObj} docs={docs} active={onLibrary ? 'library' : openDoc ? { doc: openDoc.doc.id } : 'map'}
+            onMap={() => setSurface(null)} onLibrary={openLibrary} onDoc={(id) => { setSurface(id); setToolState(null) }}
             notHeld={!online ? new Set(docs.filter((d) => docHeld(d) === false).map((d) => d.doc.id)) : null} />
         )}
 
@@ -1165,9 +1214,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           />
         )}
 
-        {/* the phone: Karte · Messen · Gefahrgut · Ebenen at the foot, pin + compass above it. No
-            «Pläne» tab (owner, 17.10.2026): an object's plans are rows in its sheet, and an open
-            plan goes back with its «Zur Karte» chip or the Karte tab */}
+        {/* the phone: Karte · Checkliste │ Messen · Gefahrgut · Ebenen at the foot (owner, 19.10.2026 ·
+            variant A — the bar never changes: a tool tapped on the Checkliste goes back to the Karte
+            with it armed, setTool), pin + compass above it on the map. No «Pläne» tab (owner,
+            17.10.2026): an object's plans are rows in its sheet, and an open plan goes back with its
+            «Zur Karte» chip or the Karte tab */}
         {phone && (
           <>
             <nav className="navrail rail folded labelled" aria-label={C.title}>
@@ -1175,6 +1226,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
                 <button type="button" className={cx('nav-item', onMapSurface && !tool && 'on')} onClick={() => { setSurface(null); setToolState(null) }}>
                   <span className="nav-glyph"><Icon id="map" /></span><span className="nav-label">{C.tools.map}</span>
                 </button>
+                <button type="button" className={cx('nav-item', onLibrary && 'on')} aria-pressed={onLibrary} onClick={openLibrary} data-karte-library="">
+                  <span className="nav-glyph"><Icon id="checklist" /></span><span className="nav-label">{appConfig.copy.modes.checklists}</span>
+                </button>
+                {/* the surfaces │ the map's tools */}
+                <div className={cx('nav-sep', s.barSep)} aria-hidden />
                 {(['measure', 'erg', 'layers'] as const).map((t) => (
                   <button key={t} type="button" className={cx('nav-item', tool === t && 'on')} aria-pressed={tool === t} onClick={() => openPhoneTool(t)}>
                     <span className="nav-glyph"><Icon id={t === 'erg' ? 'warn' : t} /></span><span className="nav-label">{C.tools[t]}</span>
@@ -1249,7 +1305,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           </div>
         )}
 
-        {cat?.failed && !cat.data && (
+        {cat?.failed && !cat.data && !onLibrary && (
           <div className={s.hintBar} role="status"><Icon id="warn" /><span>{online ? C.loadFailed : C.noCatalogue}</span></div>
         )}
 

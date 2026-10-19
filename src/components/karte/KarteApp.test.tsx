@@ -91,6 +91,9 @@ vi.mock('../../workspace/lazySurfaces', () => ({
   Whiteboard: (p: Record<string, unknown> & { plans: { imageUrl: string }[] }) => { rec.board.push(p); return <div data-testid="pdf">{p.plans[0].imageUrl}</div> },
 }))
 
+// the Checkliste surface's library as a recorder: the Karte hosts it and hands it the bar's words
+vi.mock('../ChecklistLibrary', () => ({ ChecklistLibrary: ({ query }: { query: string }) => <div data-testid="library">{query}</div> }))
+
 import KarteApp, { type KarteAppProps } from './KarteApp'
 import { Meldeleiste } from '../Meldeleiste'
 import { toast } from '../../lib/ui'
@@ -518,7 +521,7 @@ describe('KarteApp', () => {
     mount()
     const nav = await screen.findByRole('navigation', { name: 'Karte & Objekte' })
     expect(within(nav).queryByRole('button', { name: /Pläne/ })).toBeNull()
-    expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual(['Karte', 'Messen', 'Gefahrgut', 'Ebenen'])
+    expect(within(nav).getAllByRole('button').map((b) => b.textContent)).toEqual(['Karte', 'Checkliste', 'Messen', 'Gefahrgut', 'Ebenen'])
     fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
     fireEvent.click(await screen.findByRole('button', { name: 'Modul 1' }))
     expect(await screen.findByTestId('pdf')).toBeTruthy()
@@ -526,6 +529,63 @@ describe('KarteApp', () => {
     fireEvent.click(screen.getByRole('button', { name: /Zurück/ }))
     expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
     expect(screen.queryByTestId('pdf')).toBeNull()
+  })
+
+  // owner, 19.10.2026 (Checkliste on the Karte home, variant A): the bar never changes — the two
+  // surfaces │ the map's tools; a tool tapped on the Checkliste goes back to the Karte with it armed
+  it('on a phone: Karte · Checkliste │ tools, the bar field feeds the library, a tool goes back armed', async () => {
+    rec.phone = true
+    mount()
+    const nav = await screen.findByRole('navigation', { name: 'Karte & Objekte' })
+    const sep = nav.querySelector('.nav-sep')!
+    expect(sep.previousElementSibling?.textContent).toBe('Checkliste')
+    expect(sep.nextElementSibling?.textContent).toBe('Messen')
+    fireEvent.click(within(nav).getByRole('button', { name: 'Checkliste' }))
+    expect(screen.getByTestId('library')).toBeTruthy()
+    // the map's round search button, the pin and the compass are the map's
+    expect(screen.queryByRole('button', { name: 'Suchen' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Punkt setzen' })).toBeNull()
+    fireEvent.change(screen.getByPlaceholderText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Generator' } })
+    expect(screen.getByTestId('library').textContent).toBe('Generator')
+    fireEvent.click(within(nav).getByRole('button', { name: 'Messen' }))
+    expect(screen.queryByTestId('library')).toBeNull()
+    expect(within(nav).getByRole('button', { name: 'Messen' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Suchen' })).toBeTruthy()
+  })
+
+  it('on a tablet: the rail always holds Karte and Checkliste, the plans hang under them; the bar searches the library', async () => {
+    mount()
+    const rail = () => screen.getByRole('navigation', { name: /Karte & Objekte|Schloss Musterdorf/ })
+    expect(within(rail()).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Karte', 'Checkliste'])
+    fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
+    await waitFor(() => expect(within(rail()).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Karte', 'Checkliste', 'Modul 1 · Übersicht']))
+    expect(document.querySelector('.tool-rail')).toBeTruthy()
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Checkliste' }))
+    expect(screen.getByTestId('library')).toBeTruthy()
+    // as on a plan: no tool rail; and the object's panel waits on the map
+    expect(document.querySelector('.tool-rail')).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Schloss Musterdorf' })).toBeNull()
+    fireEvent.change(screen.getByPlaceholderText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Motorspritze' } })
+    expect(screen.getByTestId('library').textContent).toBe('Motorspritze')
+    fireEvent.click(within(rail()).getByRole('button', { name: 'Karte' }))
+    expect(screen.queryByTestId('library')).toBeNull()
+    expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
+    // the map's field kept its own words (none)
+    expect((screen.getByPlaceholderText('Adresse oder Objekt suchen …', PLAIN) as HTMLInputElement).value).toBe('')
+  })
+
+  it('comes back on the Checkliste with the session, unless a deep link asks for an object', async () => {
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: 'Checkliste' }))
+    await waitFor(() => expect(JSON.parse(sessionStorage.getItem('kp.karte.view')!)).toMatchObject({ surface: 'checkliste', label: 'Checkliste' }))
+    cleanup()
+    mount()
+    expect(await screen.findByTestId('library')).toBeTruthy()
+    cleanup()
+    window.history.replaceState(null, '', '/karte?objekt=schloss')
+    mount()
+    expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
+    expect(screen.queryByTestId('library')).toBeNull()
   })
 
   // owner R2: «using the normal pdf viewer we have just without the annotation» — the Einsatz's

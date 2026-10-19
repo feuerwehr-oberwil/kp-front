@@ -1,7 +1,8 @@
 // «Karte & Objekte» — an object's plans, in the Einsatz's grammar (docs/karte-objekte.md):
 //
-//   · the tablet's left rail: Karte · the module monograms · Gebäude, with the object's name
-//     standing under them (the NavRail's classes and glyphs — components/PlanGlyph);
+//   · the tablet's left rail: Karte · Checkliste, always (owner, 19.10.2026), and under a hairline
+//     the selected object's module monograms · Gebäude, with its name standing under them (the
+//     NavRail's classes and glyphs — components/PlanGlyph);
 //   · a module opens in THE Einsatz's plan reader (owner, 17.10.2026 · R2: «the normal pdf viewer
 //     we have just without the annotation»): the Plan surface's own `Whiteboard`, read-only — the
 //     same page, pan/zoom and ± / Einpassen a locked device reads a plan with, and for a module
@@ -46,39 +47,50 @@ import { Whiteboard } from '../../workspace/lazySurfaces'
 import { LampDot } from './KarteDevice'
 import s from './Karte.module.css'
 
-/** The tablet's left rail for the selected object: Karte, then its documents. */
-export function KarteNavRail({ obj, docs, active, onMap, onDoc, notHeld }: {
-  obj: StationObject
+/** The tablet's left rail, always there (owner, 19.10.2026): the two surfaces — Karte and
+ *  Checkliste, the Einsatz tab's word and glyph — and, with an object selected, its documents
+ *  below a hairline, its name standing under them. */
+export function KarteNavRail({ obj, docs, active, onMap, onLibrary, onDoc, notHeld }: {
+  /** the selected object; null = only the two surfaces */
+  obj: StationObject | null
   docs: ViewerPlanDoc[]
-  /** the open document id, or null on the Karte */
-  active: string | null
+  /** what is open: the map, the Checkliste surface, or one of the documents */
+  active: 'map' | 'library' | { doc: string }
   onMap: () => void
+  onLibrary: () => void
   onDoc: (id: string) => void
   /** offline: the documents this device does not hold — dimmed, still tappable (the surface says why) */
   notHeld?: ReadonlySet<string> | null
 }) {
   const nav = appConfig.copy.navRail
   const C = appConfig.copy.karte
+  const library = appConfig.copy.modes.checklists
+  const plans = obj && docs.length > 0
+  const openDoc = typeof active === 'object' ? active.doc : null
   return (
-    <nav className="navrail rail" aria-label={obj.name}>
+    <nav className="navrail rail" aria-label={obj?.name ?? C.title}>
       <div className="rail-scroll-wrap">
         <div className="nav-scroll rail-scroll">
-          <button type="button" className={cx('nav-item', active === null && 'on')} aria-pressed={active === null} aria-label={nav.map} onClick={onMap}>
+          <button type="button" className={cx('nav-item', active === 'map' && 'on')} aria-pressed={active === 'map'} aria-label={nav.map} onClick={onMap}>
             <span className="nav-glyph"><Icon id="map" /></span>
             <span className="nav-label">{nav.map}</span>
           </button>
-          <div className="nav-sep" />
-          {docs.map(({ doc }) => {
+          <button type="button" className={cx('nav-item', active === 'library' && 'on')} aria-pressed={active === 'library'} aria-label={library} onClick={onLibrary} data-karte-library="">
+            <span className="nav-glyph"><Icon id="checklist" /></span>
+            <span className="nav-label">{library}</span>
+          </button>
+          {plans && <div className={cx('nav-sep', s.railSep)} />}
+          {plans && docs.map(({ doc }) => {
             const off = !!notHeld?.has(doc.id)
             const label = off ? fillTemplate(C.railNotStored, { t: doc.title }) : doc.title
             return (
-            <button key={doc.id} type="button" className={cx('nav-item', active === doc.id && 'on', off && s.navOff)} aria-pressed={active === doc.id} aria-label={label} title={off ? label : undefined} onClick={() => onDoc(doc.id)}>
+            <button key={doc.id} type="button" className={cx('nav-item', openDoc === doc.id && 'on', off && s.navOff)} aria-pressed={openDoc === doc.id} aria-label={label} title={off ? label : undefined} onClick={() => onDoc(doc.id)}>
               <PlanGlyph doc={doc} />
               <span className="nav-label">{doc.code}</span>
             </button>
             )
           })}
-          <span className={s.railName} aria-hidden>{obj.name}</span>
+          {plans && <span className={s.railName} aria-hidden>{obj.name}</span>}
         </div>
       </div>
     </nav>
