@@ -27,20 +27,22 @@ import l from './ChecklistLibrary.module.css'
 // positions itself (`.lib`), or it would be inset twice.
 //
 // «Geräte first» (owner pick): the devices with their pictures, then the checklists «zum Lesen»,
-// then the Einsatzwissen (Taktik · Stichworte, Grundlagen · Infos). A device opens its chapter
+// then the Einsatzwissen – each reference template's Stichworte as a group of its own (Taktik ·
+// Stichworte, Grundlagen · Infos), top level on a phone too (owner, review round 2: «don't fold
+// einsatzwissen … just requiring some more scrolling»). A device opens its chapter
 // page, a chapter the Anleitung with «Kapitel k von n» (DeviceManuals, ManualReader – the same
 // pieces the Einsatz rail shows). The search goes over everything (lib/checklists ·
 // searchLibrary). Phone (≤ 760px, the Einsatz rail's breakpoint): list ↔ page with a back row.
 // Tablet: a list column beside the document, the Einsatz Checkliste's layout.
 
-/** What is open: a device page (id = device name), an Anleitung, a checklist to read, a
- *  Stichwort, or (phone) the list of one reference template's Stichworte. */
-type LibSel = { kind: 'device' | 'manual' | 'tpl' | 'entry' | 'ref'; id: string }
+/** What is open: a device page (id = device name), an Anleitung, a checklist to read or a
+ *  Stichwort. */
+type LibSel = { kind: 'device' | 'manual' | 'tpl' | 'entry'; id: string }
 /** a selection resolved against the loaded templates */
 type Open =
   | { kind: 'device'; group: DeviceGroup }
   | { kind: 'manual'; manual: ChecklistTemplate }
-  | { kind: 'tpl' | 'ref'; template: ChecklistTemplate }
+  | { kind: 'tpl'; template: ChecklistTemplate }
   | { kind: 'entry'; entry: RefEntry; template: ChecklistTemplate }
 /** an open page's stable key – its scroll memory and the lit row in the list column */
 const keyOf = (o: Open) =>
@@ -128,7 +130,6 @@ export function ChecklistLibrary({ query }: { query: string }) {
       case 'device': { const group = devices.find((d) => d.device === v.id); return group ? { kind: 'device', group } : null }
       case 'manual': { const manual = manuals.find((x) => x.id === v.id); return manual ? { kind: 'manual', manual } : null }
       case 'tpl': { const template = checklists.find((x) => x.id === v.id); return template ? { kind: 'tpl', template } : null }
-      case 'ref': { const template = references.find((x) => x.id === v.id); return template ? { kind: 'ref', template } : null }
       case 'entry': {
         for (const template of references) {
           const entry = template.entries?.find((x) => x.id === v.id)
@@ -136,6 +137,7 @@ export function ChecklistLibrary({ query }: { query: string }) {
         }
         return null
       }
+      default: return null // a kind of an older build (the phone's folded Einsatzwissen, «ref»)
     }
   }
   // a remembered place whose content is gone since counts as none
@@ -216,22 +218,14 @@ export function ChecklistLibrary({ query }: { query: string }) {
           ))}
         </Group>
       )}
-      {/* the Einsatzwissen: on a phone one row per template that opens its Stichworte, in the
-          tablet's list column the Stichworte themselves, as in the Einsatz rail */}
-      {references.length > 0 && (narrow ? (
-        <Group label={CL.groupKnowledge}>
-          {references.map((t) => (
-            <Row key={t.id} icon={<Icon id="flag" />} title={t.title} end={String((t.entries ?? []).length)}
-              onOpen={() => setSel({ kind: 'ref', id: t.id })} />
-          ))}
-        </Group>
-      ) : references.map((t) => (
+      {/* the Einsatzwissen: each template's Stichworte as a group, as in the Einsatz rail */}
+      {references.map((t) => (
         <Group key={t.id} label={t.title}>
           {(t.entries ?? []).map((e) => (
             <Row key={e.id} icon={entryIcon(e)} title={e.title} on={isOn('entry', e.id)} onOpen={() => setSel({ kind: 'entry', id: e.id })} />
           ))}
         </Group>
-      )))}
+      ))}
     </>
   )
 
@@ -251,14 +245,7 @@ export function ChecklistLibrary({ query }: { query: string }) {
         />
       )
       case 'tpl': return <ChecklistReader template={shown.template} />
-      case 'entry': return <ChecklistEntryReader entry={shown.entry} templateId={shown.template.id} />
-      case 'ref': return (
-        <Group label={shown.template.title}>
-          {(shown.template.entries ?? []).map((e) => (
-            <Row key={e.id} icon={entryIcon(e)} title={e.title} onOpen={() => setSel({ kind: 'entry', id: e.id })} />
-          ))}
-        </Group>
-      )
+      case 'entry': return <ChecklistEntryReader entry={shown.entry} template={shown.template} />
     }
   })()
 
@@ -290,24 +277,17 @@ export function ChecklistLibrary({ query }: { query: string }) {
       </div>
     )
   }
-  // one step up: a chapter goes back to its device, a Stichwort to its template's list (or to the
-  // search it was found by); everything else to the list
-  const up: LibSel | null =
-    open.kind === 'manual' && chapter ? { kind: 'device', id: chapter.group.device }
-    : open.kind === 'entry' && !q ? { kind: 'ref', id: open.template.id }
-    : null
+  // one step up: a chapter goes back to its device; everything else to the list (or to the search
+  // it was found by)
+  const up: LibSel | null = open.kind === 'manual' && chapter ? { kind: 'device', id: chapter.group.device } : null
   const pageTitle =
     open.kind === 'device' ? null
     : open.kind === 'manual' ? open.manual.title
     : open.kind === 'entry' ? open.entry.title
     : open.template.title
-  // the back row always names where it goes – «‹ TLF», «‹ Taktik · Stichworte», «‹ Checkliste»
-  // (owner 19.10.2026: a chapter's way back to its device must be obvious); the page's own title
-  // stands under it
-  const upLabel =
-    up?.kind === 'device' ? up.id
-    : up?.kind === 'ref' && open.kind === 'entry' ? open.template.title
-    : appConfig.copy.modes.checklists
+  // the back row always names where it goes – «‹ TLF», «‹ Checkliste» (owner 19.10.2026: a
+  // chapter's way back to its device must be obvious); the page's own title stands under it
+  const upLabel = up?.kind === 'device' ? up.id : appConfig.copy.modes.checklists
   return (
     <div className={l.lib}>
       <button type="button" className={l.backLink} onClick={() => setSel(up)}>

@@ -76,7 +76,9 @@ def _manual_problem(tpl: dict[str, Any]) -> str | None:
     """An Anleitung: ``device`` (the rail groups by it) and a non-empty ``steps`` list, each step
     a ``text`` with optional ``details`` (sub-points, a list of strings), ``warning`` / ``hint``
     strings and optional ``images``
-    (``[{"page": 3, "caption": "…"}]`` — the ``checklists:<id>:p<N>`` assets)."""
+    (``[{"page": 3, "caption": "…"}]`` — the ``checklists:<id>:p<N>`` assets). An optional
+    ``cover`` names the asset page the device card and page show (a step picture or a photo of its
+    own); without one they show the first step picture."""
     if "phases" in tpl or "entries" in tpl:
         return "Anleitung hat 'steps', keine 'phases' oder 'entries'"
     if not isinstance(tpl.get("device"), str) or not tpl["device"].strip():
@@ -87,6 +89,9 @@ def _manual_problem(tpl: dict[str, Any]) -> str | None:
     keywords = tpl.get("keywords")
     if keywords is not None and (not isinstance(keywords, list) or not all(isinstance(k, str) for k in keywords)):
         return "Anleitung: 'keywords' muss eine Liste von Texten sein"
+    cover = tpl.get("cover")
+    if cover is not None and (not isinstance(cover, int) or isinstance(cover, bool) or cover < 0):
+        return "Anleitung: 'cover' muss eine Seitennummer >= 0 sein (ein Bild aus 'assets')"
     steps = tpl.get("steps")
     if not isinstance(steps, list) or not steps:
         return "Anleitung braucht mindestens einen Schritt in 'steps'"
@@ -118,8 +123,9 @@ def _manual_problem(tpl: dict[str, Any]) -> str | None:
 
 
 def manual_pages(tpl: dict[str, Any]) -> set[int]:
-    """Every asset page an Anleitung's steps show — the CLI checks the manifest carries them all."""
-    pages: set[int] = set()
+    """Every asset page an Anleitung shows (its steps' pictures and its ``cover``) — the CLI checks
+    the manifest carries them all."""
+    pages: set[int] = {tpl["cover"]} if isinstance(tpl.get("cover"), int) else set()
     for step in tpl.get("steps") or []:
         for img in (step.get("images") or []) if isinstance(step, dict) else []:
             if isinstance(img, dict) and isinstance(img.get("page"), int):

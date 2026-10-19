@@ -36,7 +36,6 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     chapterN: 'Chapitre {k}',
     chapterNav: 'Chapitres',
     groupChecklists: 'Check-lists',
-    groupKnowledge: 'Savoir d’intervention',
     readOnlyTag: 'en lecture',
     readOnly: 'En lecture. On coche pendant l’intervention.',
     points: '{n} points',
