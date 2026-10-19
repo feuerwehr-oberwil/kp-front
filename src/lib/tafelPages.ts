@@ -14,16 +14,22 @@ export const SKIZZE = 'skizze'
  * IndexedDB»), mirrored in a module-level map so a surface switch (the Whiteboard unmounts every
  * time) comes back on the same page without waiting for the read. A page that no longer exists
  * falls back to the Skizze by construction (Whiteboard · `page`).
+ *
+ * `fallback` is what a device that has never picked a page on this Einsatz sees: the Skizze,
+ * except on the public demo, whose seeded Einsatz opens on its filled «Erste Führung» rather than
+ * an empty sheet (Whiteboard passes the first page there, `isDemoMode`). A page the device picked
+ * — the Skizze included — always wins over it.
  */
 const memory = new Map<string, string>()
 const idbKey = (incidentId: string) => `kp-front-tafel-page:${incidentId}`
 
-export function useTafelPage(incidentId: string | undefined): [string, (page: string) => void] {
+export function useTafelPage(incidentId: string | undefined, fallback: string = SKIZZE): [string, (page: string) => void] {
   const key = incidentId ?? ''
-  const [page, setPageState] = useState(() => memory.get(key) ?? SKIZZE)
+  /** null: this device has not picked a page on this Einsatz (yet) */
+  const [page, setPageState] = useState<string | null>(() => memory.get(key) ?? null)
   const [seenKey, setSeenKey] = useState(key)
   // another Einsatz in the same component: its own memory (React's «adjust state while rendering»)
-  if (seenKey !== key) { setSeenKey(key); setPageState(memory.get(key) ?? SKIZZE) }
+  if (seenKey !== key) { setSeenKey(key); setPageState(memory.get(key) ?? null) }
   // a reload: what this device last had open on this Einsatz, once it is read
   useEffect(() => {
     if (!key || memory.has(key)) return
@@ -40,7 +46,7 @@ export function useTafelPage(incidentId: string | undefined): [string, (page: st
     setPageState(p)
     if (key) void idbSet(idbKey(key), p)
   }, [key])
-  return [page, setPage]
+  return [page ?? fallback, setPage]
 }
 
 /** test seam */

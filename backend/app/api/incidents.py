@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import NamedTuple
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Query, Response, status
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -390,6 +390,11 @@ async def _live_state(db: AsyncSession, incident_id: uuid.UUID, *, lock: bool = 
 #: reads these on every round.
 INCIDENT_OPEN_HEADER = "X-Incident-Open"
 INCIDENT_CLOSED_AT_HEADER = "X-Incident-Closed-At"
+#: Which device saved — sent with every workspace save, as the follower read's `writer=` (see
+#: `live_wait · only_own_writes`). And on a 304 that answers «only your own saves since then»:
+#: the revision the server is at, so the follower parks there next (api/workspace · pollWorkspaceSince).
+WORKSPACE_WRITER_HEADER = "X-Workspace-Writer"
+WORKSPACE_REV_HEADER = "X-Workspace-Rev"
 
 
 def _lifecycle_headers(lc: IncidentLifecycle) -> dict[str, str]:
@@ -407,9 +412,16 @@ async def get_workspace(
     since: int | None = None,
     wait: bool = False,
     open_: bool | None = Query(default=None, alias="open"),
+    writer: str | None = None,
     db: AsyncSession = Depends(get_db),
 ):
     """The workspace blob, or a 304 when the caller's `since` revision is still current.
+
+    `writer` is the asking device's id, the one its saves carry (`X-Workspace-Writer`). When every
+    revision after `since` is a save of that device, it already holds them: the answer is the 304
+    with `X-Workspace-Rev` instead of the blob it just sent (18.10.2026 — every save woke the
+    saving device's own long poll and cost it the whole blob). Any revision this process cannot
+    vouch for — another device's, an unrecorded writer's — is the blob, as before.
 
     `open` is what the CALLER believes about the lifecycle. When the Einsatz is no longer in that
     state the poll is answered at once instead of parking — a close or a reopen that committed
@@ -449,6 +461,9 @@ async def get_workspace(
                     state = await _live_state(db, incident_id)
         if since == state.rev:
             return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=_lifecycle_headers(state.lifecycle))
+        if live_wait.only_own_writes(incident_id, live_wait.writer_id(writer), since, state.rev):
+            headers = {**_lifecycle_headers(state.lifecycle), WORKSPACE_REV_HEADER: str(state.rev)}
+            return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
     inc = await get_incident_or_404(db, incident_id)
     if latch and since is None:
         await _latch_editor_opened(db, incident_id)
@@ -483,8 +498,12 @@ async def apply_workspace_put(
     user_id: uuid.UUID | None,
     source: str = "client",
     inc: Incident | None = None,
+    writer: str | None = None,
 ) -> WorkspaceOut:
     """Shared save path for the editor endpoint and the station capture endpoint.
+
+    `writer`: the saving device's id (`X-Workspace-Writer`), recorded for the follower read —
+    see `get_workspace`. None for a save no device's follower should treat as its own.
 
     Optimistic concurrency at the DB level: bump the rev only if it still equals the
     client's base_rev. A conditional UPDATE is atomic, so two editors who both read
@@ -539,7 +558,9 @@ async def apply_workspace_put(
     # 30 s sweep stays the fallback and shares its dedup key (app/push · notify_notfall_changes)
     await push.notify_notfall_changes(db, inc, previous.get("trupps"), body.workspace.get("trupps"))
     # Wake the devices long-polling this incident's workspace — once this transaction commits,
-    # so they re-read the blob they are being woken for (see app/live_wait).
+    # so they re-read the blob they are being woken for (see app/live_wait). Whose save it was
+    # goes on record first, so the saving device's own poll is not handed back its own blob.
+    live_wait.record_write_after_commit(db, incident_id, new_rev, live_wait.writer_id(writer))
     live_wait.notify_after_commit(db, live_wait.workspace_topic(incident_id))
     await audit.snapshot_workspace(db, incident_id=incident_id, workspace=body.workspace)
     # Record the save in the hash chain so workspace changes are replayable/attributable.
@@ -560,6 +581,7 @@ async def put_workspace(
     body: WorkspacePut,
     user: CurrentEditor,
     slim: bool = False,
+    writer: str | None = Header(default=None, alias=WORKSPACE_WRITER_HEADER),
     db: AsyncSession = Depends(get_db),
 ) -> WorkspaceOut:
     # Rev-only precheck: the 404 answer this route used to open with, off the cheap int column
@@ -591,7 +613,7 @@ async def put_workspace(
         keep_newer_board_kinds(body.workspace, stored)
         if operational_keys_changed(stored, body.workspace) and happened_after_close(body.edited_at, closed_at):
             raise incident_closed(closed_at)
-    saved = await apply_workspace_put(db, incident_id, body, user_id=user.id, inc=inc)
+    saved = await apply_workspace_put(db, incident_id, body, user_id=user.id, inc=inc, writer=writer)
     # `slim=1`: only the revision goes back — the caller sent the blob and reads nothing but
     # the rev (workspaceSync · pushCurrent), and echoing it doubled the wire cost of every
     # save. Opt-in per request so an older cached PWA build keeps the full echo it was built
@@ -604,6 +626,7 @@ async def put_workspace_trupps(
     incident_id: uuid.UUID,
     body: TruppsPut,
     user: CurrentAtemschutzWriter,
+    writer: str | None = Header(default=None, alias=WORKSPACE_WRITER_HEADER),
     db: AsyncSession = Depends(get_db),
 ) -> WorkspaceOut:
     """Save ONLY the Atemschutz roster — the one write shape an Atemschutz link is given.
@@ -640,6 +663,7 @@ async def put_workspace_trupps(
         user_id=None if link else user.id,
         source=atemschutz_link_source(user) if link else "client",
         inc=inc,
+        writer=writer,
     )
     # Only the revision goes back: the caller sent a slice and reads nothing but the rev
     # (workspaceSync · push), and a phone on one bar has no use for the whole blob per tap.
@@ -663,6 +687,7 @@ async def put_workspace_record(
     incident_id: uuid.UUID,
     body: WorkspacePut,
     user: CurrentRecordWriter,
+    writer: str | None = Header(default=None, alias=WORKSPACE_WRITER_HEADER),
     db: AsyncSession = Depends(get_db),
 ) -> WorkspaceOut:
     """Save ONLY the record domains — the one write shape the ``el`` role has.
@@ -683,7 +708,13 @@ async def put_workspace_record(
     # not re-reject unchanged legacy fields (same reasoning as the trupps slice above).
     scoped = WorkspacePut.model_construct(workspace=new_ws, base_rev=body.base_rev)
     saved = await apply_workspace_put(
-        db, incident_id, scoped, user_id=user.id, source="el" if user.role == "el" else "client", inc=inc
+        db,
+        incident_id,
+        scoped,
+        user_id=user.id,
+        source="el" if user.role == "el" else "client",
+        inc=inc,
+        writer=writer,
     )
     # Only the revision goes back — the caller sent a slice and reads nothing but the rev.
     return WorkspaceOut(workspace=None, workspace_rev=saved.workspace_rev)

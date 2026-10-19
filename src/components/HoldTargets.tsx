@@ -3,6 +3,7 @@ import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { useTimedProgress } from '../lib/nodeHold'
 import { HOLD_MS } from '../lib/useHoldEntry'
+import { fullViewHeight } from '../lib/iosKeyboard'
 import type { HoldAnchor, HoldTarget } from '../lib/useHoldEntry'
 
 /** Radius of the charge ring in its 20px viewBox. */
@@ -63,13 +64,15 @@ export function HoldTargets({ placement, anchor, onPick }: {
   const C = appConfig.copy.journal
   if (!anchor) return null
   // right-aligned to the button: both hosts sit against the right edge of the screen and the
-  // targets are wider than either, so they open inward, where there is room.
+  // targets are wider than either, so they open inward, where there is room. `bottom` from the
+  // fixed frame's full height (lib/iosKeyboard · fullViewHeight), which the installed app's
+  // collapsed innerHeight is not.
   const style: React.CSSProperties = {
     position: 'fixed',
     minWidth: anchor.width,
     right: Math.max(8, window.innerWidth - anchor.right),
     ...(placement === 'above'
-      ? { bottom: window.innerHeight - anchor.top + 10 }
+      ? { bottom: fullViewHeight() - anchor.top + 10 }
       : { top: anchor.bottom + 10 }),
   }
   const target = (t: HoldTarget, icon: string, label: string) => (

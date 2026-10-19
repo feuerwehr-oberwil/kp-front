@@ -7,6 +7,13 @@ import { reportIncidentClosed, reportIncidentReopened } from '../incidentClosed'
 
 export type Workspace = Record<string, unknown>
 
+/** Which sync engine saved (backend api/incidents · X-Workspace-Writer): the follower read asks
+ *  with the same id, and a range of revisions that is nothing but this engine's own saves comes
+ *  back as a bodyless 304 instead of the blob it just sent (see pollWorkspaceSince). Only the
+ *  engine whose state holds the save may send it — never a save made around it. */
+const writerHeader = (writer?: string): Record<string, string> | undefined =>
+  writer ? { 'X-Workspace-Writer': writer } : undefined
+
 export const getWorkspace = (id: string) =>
   apiGet<{ workspace: Workspace | null; workspace_rev: number }>(`/api/incidents/${id}/workspace`)
 // `slim=1`: only the revision comes back (workspace null). The engine reads nothing but the
@@ -15,12 +22,12 @@ export const getWorkspace = (id: string) =>
 // type already allows both answers.
 // `edited_at` (review of #235): when the newest edit in this save was made — a closed Einsatz
 // takes a save made before its close (backend · happened_after_close). Omitted when unknown.
-export const putWorkspace = (id: string, workspace: Workspace, base_rev: number, edited_at?: string) =>
+export const putWorkspace = (id: string, workspace: Workspace, base_rev: number, edited_at?: string, writer?: string) =>
   apiPut<{ workspace: Workspace | null; workspace_rev: number }>(`/api/incidents/${id}/workspace?slim=1`, {
     workspace,
     base_rev,
     ...(edited_at ? { edited_at } : {}),
-  })
+  }, writerHeader(writer))
 /** Fire-and-forget workspace PUT for page teardown — survives the document unloading.
  *  `slim=1` here saves only server-side serialisation: the response is never read. */
 export const putWorkspaceBeacon = (id: string, workspace: Workspace, base_rev: number, edited_at?: string) =>
@@ -33,12 +40,12 @@ export const putWorkspaceBeacon = (id: string, workspace: Workspace, base_rev: n
 // the trupps into the current blob and merges the rest itself. WorkspaceSync's `slice: 'trupps'`
 // option routes its push and its teardown beacon here; everything else about the engine is
 // unchanged.
-export const putWorkspaceTrupps = (id: string, trupps: readonly Trupp[], base_rev: number, edited_at?: string) =>
+export const putWorkspaceTrupps = (id: string, trupps: readonly Trupp[], base_rev: number, edited_at?: string, writer?: string) =>
   apiPut<{ workspace: Workspace | null; workspace_rev: number }>(`/api/incidents/${id}/workspace/trupps`, {
     trupps,
     base_rev,
     ...(edited_at ? { edited_at } : {}),
-  })
+  }, writerHeader(writer))
 /** Teardown twin of putWorkspaceTrupps — see putWorkspaceBeacon. */
 export const putWorkspaceTruppsBeacon = (id: string, trupps: readonly Trupp[], base_rev: number, edited_at?: string) =>
   apiBeacon(`/api/incidents/${id}/workspace/trupps`, { trupps, base_rev, ...(edited_at ? { edited_at } : {}) }, 'PUT')
@@ -51,11 +58,11 @@ export const putWorkspaceTruppsBeacon = (id: string, trupps: readonly Trupp[], b
 // put_workspace_record, capture.py's proven merge), so the tactical picture is bounded
 // server-side whatever this client sends. Same contract otherwise — `base_rev` in, rev out,
 // 409 on a race. WorkspaceSync's `slice: 'record'` routes here.
-export const putWorkspaceRecord = (id: string, workspace: Workspace, base_rev: number) =>
+export const putWorkspaceRecord = (id: string, workspace: Workspace, base_rev: number, writer?: string) =>
   apiPut<{ workspace: Workspace | null; workspace_rev: number }>(`/api/incidents/${id}/workspace/record`, {
     workspace,
     base_rev,
-  })
+  }, writerHeader(writer))
 /** Teardown twin of putWorkspaceRecord — see putWorkspaceBeacon. */
 export const putWorkspaceRecordBeacon = (id: string, workspace: Workspace, base_rev: number) =>
   apiBeacon(`/api/incidents/${id}/workspace/record`, { workspace, base_rev }, 'PUT')
@@ -68,6 +75,11 @@ export const putWorkspaceRecordBeacon = (id: string, workspace: Workspace, base_
 let serverTimeListener: ((iso: string) => void) | null = null
 export function onWorkspaceServerTime(fn: ((iso: string) => void) | null): void { serverTimeListener = fn }
 
+/** What one round of the live follow brought: the blob (another device saved), only this
+ *  engine's own saves (`ownRev` — the revision the server is at, held here already), or null
+ *  (unchanged). */
+export type WorkspaceFollow = { workspace: Workspace | null; workspace_rev: number } | { ownRev: number } | null
+
 /**
  * Live-follow poll: 304 → null (unchanged); 200 → the current workspace + rev.
  *
@@ -78,17 +90,25 @@ export function onWorkspaceServerTime(fn: ((iso: string) => void) | null): void 
  *
  * `signal` aborts a held request. Mandatory in practice for the waiting form: without it a
  * torn-down loop would stay pinned to a request for up to 20 s.
+ *
+ * `writer` is the asking engine's id (`WorkspaceSync · writerId`, the one its saves carry). Every
+ * save wakes every follower, the saving device's own too, which then downloaded the whole blob it
+ * had just sent (~38 KB gzipped on the busiest Einsatz on record) — on every edit (18.10.2026).
+ * With the id, a range of revisions that is nothing but this engine's saves is the 304 with
+ * `X-Workspace-Rev` → `{ ownRev }`. The server decides, and only from what it has on record:
+ * any revision it cannot vouch for as this engine's is the blob, as before.
  */
 export async function pollWorkspaceSince(
   id: string,
   sinceRev: number,
   /** `open`: whether the caller shows the Einsatz as running — the server answers at once, rather
    *  than parking, when that is no longer true (a close or reopen it would otherwise sit out) */
-  opts?: { wait?: boolean; signal?: AbortSignal; open?: boolean; onLifecycle?: (open: boolean) => void },
-): Promise<{ workspace: Workspace | null; workspace_rev: number } | null> {
+  opts?: { wait?: boolean; signal?: AbortSignal; open?: boolean; onLifecycle?: (open: boolean) => void; writer?: string },
+): Promise<WorkspaceFollow> {
   const wait = opts?.wait ?? false
   const believed = opts?.open === undefined ? '' : `&open=${opts.open ? 1 : 0}`
-  const res = await apiGetRaw(`/api/incidents/${id}/workspace?since=${sinceRev}${wait ? '&wait=1' : ''}${believed}`, {
+  const writer = opts?.writer ? `&writer=${encodeURIComponent(opts.writer)}` : ''
+  const res = await apiGetRaw(`/api/incidents/${id}/workspace?since=${sinceRev}${wait ? '&wait=1' : ''}${believed}${writer}`, {
     signal: opts?.signal,
     timeoutMs: wait ? LONG_POLL_TIMEOUT_MS : undefined,
   })
@@ -107,7 +127,12 @@ export async function pollWorkspaceSince(
     // …and «Wieder öffnen» elsewhere comes back the same way (App acts only on a closed view)
     reportIncidentReopened({ incidentId: id, source: 'poll' })
   }
-  if (res.status === 304) return null
+  if (res.status === 304) {
+    // only this engine's own saves since `sinceRev` (backend · only_own_writes): nothing to fetch,
+    // but the follow must park at the server's revision next, not ask about these again
+    const own = Number(res.headers.get('X-Workspace-Rev'))
+    return Number.isInteger(own) && own > sinceRev ? { ownRev: own } : null
+  }
   if (!res.ok) throw new ApiError(res.status, 'Workspace-Poll fehlgeschlagen')
   return res.json()
 }

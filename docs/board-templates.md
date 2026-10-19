@@ -45,7 +45,7 @@ replaces the bundled one.
   (`Whiteboard · formAnnos`). Every ink commit gets the pages put back on, so a stroke can never
   drop one. A page, or any board object of a kind a build does not know, is a **passenger**: kept
   untouched at the load gate, in every merge and save, and guarded on the server against builds
-  that predate it (AGENTS.md › Offline, sync and the record).
+  that predate it ([`sync-and-offline.md`](sync-and-offline.md#the-model)).
 - **Two devices on one page** merge cell by cell (`lib/boardFormMerge`): different cells both
   survive; the same cell changed on both keeps the later edit (each cell carries the server-clock
   time it was committed, `t`) and writes a Verlauf row naming the page, the cell and both values.
@@ -64,7 +64,10 @@ replaces the bundled one.
   view; «+ Seite» stays in view and opens upwards. A page pads its foot by that row, so its last
   ruling scrolls above the strip. Which page a device shows is local to
   that device: remembered per Einsatz in IndexedDB (`lib/tafelPages`, never in the workspace),
-  restored when the Tafel opens, «Skizze» when the page is gone.
+  restored when the Tafel opens, «Skizze» when the page is gone. A device that has not picked a
+  page on an Einsatz yet opens the Skizze — except on the public demo (`identity.demoMode`), where
+  it opens the first page in the strip, so a visitor meets the seeded, filled «Erste Führung»
+  instead of an empty sheet (`backend/tests/test_demo_tafel.py` keeps that page first).
 - **Unsaved typing is never lost**: a cell writes on blur, when the app goes to the background
   (`visibilitychange`, `pagehide`) and when it unmounts. On a closed Einsatz the draft is parked
   on the device (`lib/draftKeep`) instead of written.

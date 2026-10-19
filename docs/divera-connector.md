@@ -263,10 +263,10 @@ Since 2026-10-08 the Anwesenheit of an Einsatz with a Divera alarm (opened from 
 alarm attached to it) starts with an **«Anrückend»** block for the EL and the editors. It shows
 **yes / no and names, nothing else**: one line of counts («9 kommen · 2 kommen nicht · 3 da»), the
 people who said they are coming, and «kommt nicht» in a group of its own, muted, with ✕ and the
-word on every row. One tap on «da» checks somebody in. It shows no answer time, no status wording,
+word on every row – never colour alone. One tap on «da» checks somebody in. It shows no answer time, no status wording,
 no note and no estimated arrival (owner, 2026-10-09: «just yes/no is enough»).
 
-**⚠️ An answer is never presence.** Nobody becomes anwesend because they pressed «komme» in
+**⚠️ An answer is never presence** (X1, 08.10.2026). Nobody becomes anwesend because they pressed «komme» in
 Divera: the block lists them, a person on the scene taps «da». Once somebody is recorded, whether
 anwesend or gone again, they leave the block and stand in the list below.
 

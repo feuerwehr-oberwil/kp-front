@@ -47,7 +47,7 @@ Naming: the code domain is `object_visits` / `objectVisits` / `ov`. **`backend/a
 
 ## Ids
 
-House rule (AGENTS.md · «IDs are prefixed timestamps»): every id the client mints is
+House rule ([`sync-and-offline.md`](sync-and-offline.md#the-model) · «IDs are prefixed timestamps»): every id the client mints is
 `newId(prefix)` from `src/lib/ids.ts`.
 
 | Record | Prefix | Example |

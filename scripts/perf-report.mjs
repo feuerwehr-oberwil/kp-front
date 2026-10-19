@@ -10,14 +10,17 @@
 // makes a number worse. That is how CI confirms a regression before it fails (ci.yml · perf).
 //
 // Every time budget is scaled by how fast the machine was today (`env.calibration`, a fixed
-// workload) against the machine the baseline was taken on, clamped to ×0.67–1.5: a slow GitHub
-// runner is not a slow build. Counts and sizes are not scaled.
+// workload) against the machine the baseline was taken on, clamped to ×1–1.5: a slow GitHub
+// runner is not a slow build, and a fast one is not a faster app (perf-gate.mjs · speedFactor).
+// Counts and sizes are not scaled. The judgement of one number, the tolerances and why they are
+// what they are live in scripts/perf-gate.mjs.
 //
 // Exit 0 = nothing regressed, 1 = a regression, 2 = usage. A metric with no number (its journey
 // failed, or was filtered out) is listed but does not fail: Playwright's own exit code covers that.
 // docs/testing/perf-journeys.md has the whole picture.
 import { appendFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { judge, speedFactor } from './perf-gate.mjs'
 
 const args = process.argv.slice(2)
 const flag = (name) => { const i = args.indexOf(name); if (i < 0) return undefined; const v = args[i + 1]; args.splice(i, 2); return v }
@@ -27,34 +30,6 @@ const summaryPath = flag('--summary') ?? process.env.GITHUB_STEP_SUMMARY
 const runs = args
 if (!runs.length) { console.error('usage: perf-report.mjs [--update] [--baseline file] [--summary file] <run-dir> [run-dir …]'); process.exit(2) }
 
-/**
- * How much worse than the baseline a number may get before it fails, per unit: max(abs, rel × base).
- * A count or a size barely moves between runs; a time on a shared runner moves a lot. `warn` is the
- * share of the tolerance from which a number is flagged but passes. The baseline may override any
- * of these per metric (`tolerance: { "idle.saves": { "abs": 0 } }`).
- */
-const TOLERANCE = {
-  count: { abs: 2, rel: 0.15 },
-  kb: { abs: 5, rel: 0.05 },
-  mb: { abs: 1.5, rel: 0.25 },
-  ms: { abs: 60, rel: 0.5 },
-}
-/**
- * Wider bands for the numbers that are noisy BY NATURE, matched on the metric's name. Measured on
- * two runs of the same build (05.10.2026): a save count follows the debounce's timing (10 vs 12
- * saves for the same twenty edits), the workspace bytes a follower polls follow the saves, and a
- * maximum, a long-task count or the time blocked past 50 ms jumps on one task more or less
- * (long tasks 17 vs 10, Verlauf blocking 58 vs 145 ms). Each still catches the regression it
- * exists for — a loop that saves on every frame, a surface that blocks for a second.
- */
-const NOISY = [
-  [/blocking_ms$/, { abs: 150, rel: 1 }],
-  [/long_tasks$/, { abs: 10, rel: 0.5 }],
-  [/interaction_max_ms$/, { abs: 100, rel: 0.75 }],
-  [/\.saves$/, { abs: 3, rel: 0.25 }],
-  [/api_kb$/, { abs: 20, rel: 0.25 }],
-]
-const WARN_SHARE = 0.4
 const CALIBRATION = 'env.calibration'
 
 function readRun(dir) {
@@ -104,7 +79,7 @@ if (update) {
 
 // ── compare ──────────────────────────────────────────────────────────────────────────────────
 
-const speed = calibration && baseline.calibration ? Math.min(1.5, Math.max(0.67, calibration / baseline.calibration)) : 1
+const speed = speedFactor(calibration, baseline.calibration)
 const rows = []
 let failed = 0
 let warned = 0
@@ -115,14 +90,9 @@ for (const key of [...new Set([...Object.keys(baseline.metrics ?? {}), ...Object
   // a journey that failed to walk already failed the run (and `just perf -g …` walks only some)
   if (!now) { rows.push({ key, unit, base: base.value, now: undefined, limit: undefined, status: 'missing' }); warned++; continue }
   if (!base) { rows.push({ key, unit, base: undefined, now: now.value, limit: undefined, status: 'new' }); continue }
-  const tol = { ...TOLERANCE[unit], ...(NOISY.find(([re]) => re.test(key))?.[1] ?? {}), ...(baseline.tolerance?.[key] ?? {}) }
-  const expected = unit === 'ms' ? base.value * speed : base.value
-  const slack = Math.max(tol.abs, tol.rel * expected)
-  const limit = expected + slack
-  let status = 'ok'
-  if (now.value > limit) { status = 'regressed'; failed++ }
-  else if (now.value > expected + slack * WARN_SHARE) { status = 'warn'; warned++ }
-  else if (now.value < expected - slack) status = 'improved'
+  const { expected, limit, status } = judge({ key, unit, base: base.value, now: now.value, speed, overrides: baseline.tolerance })
+  if (status === 'regressed') failed++
+  else if (status === 'warn') warned++
   rows.push({ key, unit, base: expected, now: now.value, limit, status })
 }
 

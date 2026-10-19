@@ -32,6 +32,7 @@ API unchanged.
 """
 
 import asyncio
+import re
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -130,3 +131,51 @@ async def subscribe(topic: Topic) -> AsyncIterator[Subscription]:
             parked.discard(ev)
             if not parked:
                 _waiters.pop(topic, None)
+
+
+# --- Whose save is this revision? -------------------------------------------------------------
+#
+# Every save wakes EVERY follower of the workspace — the saving device's own long poll included,
+# which then downloaded the whole blob it had just sent (~38 KB gzipped on the busiest Einsatz on
+# record) and threw it away, on every edit (18.10.2026). So the saves say which device wrote
+# (`X-Workspace-Writer`, a random id per page load — one login is routinely open on three
+# tablets, so the user cannot be the key) and the follower read says which device asks
+# (`writer=`); a range of revisions that holds NOTHING but that device's own saves is answered
+# without the body (api/incidents · get_workspace).
+#
+# ⚠️ Conservative by construction: a revision is «own» only if it is on record here with THIS
+# writer. A revision bumped by any path that does not record (capture, the alarm webhook, the
+# admin import), recorded on another worker, before a restart, or pruned from the window counts
+# as foreign — the follower gets the body, exactly as before. Recorded after COMMIT, like the
+# wake, so a rolled-back save never counts. In-process like the waiters (module docstring).
+
+#: the newest revisions kept per incident — a follower is at most a few saves behind its own
+_WRITES_KEPT = 32
+_writes: dict[uuid.UUID, dict[int, str | None]] = {}
+_WRITER_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def writer_id(raw: str | None) -> str | None:
+    """A client's writer id, or None when absent or not one we hand out (`lib/ids · newId`)."""
+    return raw if raw is not None and _WRITER_ID.fullmatch(raw) else None
+
+
+def _record_write(incident_id: uuid.UUID, rev: int, writer: str | None) -> None:
+    revs = _writes.setdefault(incident_id, {})
+    revs[rev] = writer
+    while len(revs) > _WRITES_KEPT:
+        del revs[min(revs)]
+
+
+def record_write_after_commit(db: AsyncSession, incident_id: uuid.UUID, rev: int, writer: str | None) -> None:
+    """Note that `writer` saved revision `rev`, once this session commits. Queue it BEFORE the
+    wake (`notify_after_commit`) so a woken follower always finds it."""
+    after_commit(db, lambda: _record_write(incident_id, rev, writer))
+
+
+def only_own_writes(incident_id: uuid.UUID, writer: str | None, since: int, rev: int) -> bool:
+    """Is every revision after `since` up to `rev` a save of `writer`? False when unsure."""
+    if writer is None or rev <= since or rev - since > _WRITES_KEPT:
+        return False
+    revs = _writes.get(incident_id, {})
+    return all(revs.get(r) == writer for r in range(since + 1, rev + 1))

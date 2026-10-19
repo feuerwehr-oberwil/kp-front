@@ -16,7 +16,8 @@ Rules this file keeps, in order of importance:
    missed rounds). Last-known data is KEPT through a failure, labelled with its time, rather
    than replaced by nothing – «Stand 17:05» is more use at 3am than an empty map.
 3. **Be a polite client.** A radar frame is fetched once and never again (FSDI's terms forbid
-   re-downloading the same content at high frequency).
+   re-downloading the same content at high frequency). The day's file list (its STAC item,
+   ~250 kB) is read once a round, and only while a frame is missing.
 
 State lives in this process's memory: the backend runs one uvicorn worker (start.sh), and after
 a restart the first round refills it within seconds. ⚠️ So its job runs in EVERY serving process,
@@ -156,20 +157,29 @@ class WeatherService:
     async def _poll_radar(self, client: httpx.AsyncClient, now: datetime) -> None:
         latest = radar.floor_to_slot(now)
         slots = [latest - radar.FRAME_INTERVAL * i for i in range(RADAR_FRAMES)]
-        for slot in slots:  # newest first: the current frame matters most if the round is cut short
+        done = self.state.frames.keys() | self.state.radar_given_up
+        wanted = [s for s in slots if radar.frame_key(s) not in done]
+        # The file names come from the day's STAC item (the hour can span two UTC days).
+        hrefs: dict[str, str] = {}
+        for day in sorted({s.date() for s in wanted}, reverse=True):
+            response = await client.get(radar.day_item_url(day))
+            if response.status_code == 404:
+                continue  # the new day's item, in the first minutes after midnight UTC
+            response.raise_for_status()
+            hrefs |= radar.frame_hrefs(response.json())
+        for slot in wanted:  # newest first: the current frame matters most if the round is cut short
             key = radar.frame_key(slot)
-            if key in self.state.frames or key in self.state.radar_given_up:
-                continue
-            response = await client.get(radar.frame_url(slot))
-            if response.status_code in (403, 404):
+            href = hrefs.get(key)
+            file = await client.get(href) if href else None
+            if file is None or file.status_code in (403, 404):
                 # Not published yet (the newest slot, for a minute or so) – or skipped for good.
                 if now - slot > RADAR_GIVE_UP_AFTER:
                     self.state.radar_given_up.add(key)
                 continue
-            response.raise_for_status()
+            file.raise_for_status()
             # Decoding and rendering are CPU work: off the event loop, so the app's requests and
             # sockets never wait on a radar frame.
-            frame = await asyncio.to_thread(_decode_and_render, response.content)
+            frame = await asyncio.to_thread(_decode_and_render, file.content)
             self.state.frames[frame.key] = frame
         self.state.frames = OrderedDict(sorted(self.state.frames.items()))
         if not self.state.frames:

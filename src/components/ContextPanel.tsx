@@ -76,10 +76,9 @@ function FieldControl({ fieldKey, value, options, placeholder, officerFilter, ra
     <Combo value={value} options={options} placeholder={placeholder}
       allowCustom={isRoster}
       officerFilter={isRoster && officerFilter} rankOf={rankOf}
-      // …and a hand-typed name commits when the field is LEFT, like the plain text field above:
-      // a roster field records whoever is named on it as present (a Gast, if the roster has
-      // never heard of them), and a commit per keystroke would record every prefix of the name.
-      statusOf={isRoster ? statusOf : undefined} onInput={onInput} onChange={onCommit} />
+      // …a hand-typed name commits ONCE, from the «‹X› verwenden» row: a roster field records
+      // whoever is named on it as present (a Gast, if the roster has never heard of them).
+      statusOf={isRoster ? statusOf : undefined} onChange={onCommit} />
   )
 }
 
@@ -415,10 +414,6 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entity.fields])
   const [notes, setNotes] = useState(entity.notes ?? '')
-  // A hand-typed Fahrer while it is being typed. The committed value lives on the surface (the
-  // vehicle override), and naming one puts that person on the Anwesenheit — so the draft stays
-  // here until the field is left and exactly one name is committed. null = nothing being typed.
-  const [driverDraft, setDriverDraft] = useState<string | null>(null)
   // a note edits its content in a textarea; every other symbol's header is read-only now
   const noteTextRef = useRef<HTMLTextAreaElement>(null)
   // Follow the label when it changes OUTSIDE this panel. A note is the case that needs it: its
@@ -860,14 +855,13 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                   conflict the app warns about, and it warned only AFTER the pick. Now the row
                   says so while the finger is still over it. */}
               <Combo
-                value={driverDraft ?? driver.value}
+                value={driver.value}
                 options={driver.options}
                 allowCustom
                 placeholder={C.driverPlaceholder}
                 rankOf={rankOf ?? (rosterRank ? (n: string) => rosterRank[n] : undefined)}
                 statusOf={personStatus}
-                onInput={setDriverDraft}
-                onChange={(v) => { setDriverDraft(null); driver.onChange(v) }}
+                onChange={driver.onChange}
               />
             </label>
           )}

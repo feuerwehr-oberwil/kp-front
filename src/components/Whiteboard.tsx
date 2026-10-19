@@ -106,6 +106,7 @@ import { findForms, formAnno, formDelta, formHasContent, newFormPage, pageTitles
 import { isDrawnBoardKind } from '../lib/workspace'
 import { labelText, type BoardTemplate, type TemplatePage } from '../lib/boardTemplate'
 import { SKIZZE, TAFEL_ID, stepPage, useTafelPage } from '../lib/tafelPages'
+import { isDemoMode } from '../lib/deploymentConfig'
 import { isTypingTarget } from '../lib/hotkeys'
 import { BUNDLED_TEMPLATES, warmBoardTemplates } from '../lib/boardTemplates'
 import type { MiniKarteProps } from './MiniKarte'
@@ -417,7 +418,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const pages = useMemo(() => (onTafel ? findForms(formAnnos) : []), [onTafel, formAnnos])
   /** «Konzept», «Konzept 2» … — what each page is called (lib/boardForm · pageTitles) */
   const titles = useMemo(() => pageTitles(formAnnos), [formAnnos])
-  const [pageSel, setPageSel] = useTafelPage(incidentId)
+  // the public demo opens its seeded Einsatz on the first (filled) page, not the empty Skizze;
+  // every real Einsatz starts on the Skizze (lib/tafelPages · fallback)
+  const [pageSel, setPageSel] = useTafelPage(incidentId, isDemoMode() ? pages[0]?.id : undefined)
   const page = onTafel && pages.some((p) => p.id === pageSel) ? pageSel : SKIZZE
   const formOpen = page !== SKIZZE
   // the station's template set — read once the Tafel is first shown (never on the boot path);
@@ -765,7 +768,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [draft, circleDraft, qualityFor, selId, notePanelId])
+    // `rotStart` belongs here: without it the handler kept the null from before the first tap,
+    // and Escape skipped a half-laid Rotation (review sweep 23.09.2026). `clearRotMagnet` is
+    // left out on purpose: it is declared further down (useWbRotor), and every render's copy
+    // touches the same refs and setter, so an older one does the same.
+  }, [rotStart, draft, circleDraft, qualityFor, selId, notePanelId])
 
   // Stable ref callback that focuses a freshly-mounted text/resource input. The focus is
   // DEFERRED past the current placement tap: focusing synchronously on mount gets immediately

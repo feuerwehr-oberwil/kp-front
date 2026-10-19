@@ -1,7 +1,7 @@
 """objects: a station-set position, the outline choice, the town; object_position_events
 
 Revision ID: b2d6e8f1a3c7
-Revises: a1f5b2c3d4e5
+Revises: b7c4d2e9f1a3
 Create Date: 2026-10-17 16:00:00.000000
 
 «Lage korrigieren» (Karte & Objekte review round 2): the station moves an object's pin in
@@ -19,7 +19,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 revision: str = "b2d6e8f1a3c7"
-down_revision: str | None = "a1f5b2c3d4e5"
+down_revision: str | None = "b7c4d2e9f1a3"  # re-chained after #368 for main (both sat on a1f5b2c3d4e5)
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

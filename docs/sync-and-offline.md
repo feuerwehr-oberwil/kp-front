@@ -1,10 +1,95 @@
 # Sync, offline and the closed Einsatz
 
-Rules for the sync engine, the outboxes and the record that span modules. The short model
-(IndexedDB, «Saved», merge by id, ids, append-only) is in [`AGENTS.md`](../AGENTS.md); the
-per-module rules sit at the top of the module they concern (`lib/connectivity`, `lib/eventScope`,
-`lib/jsonEqual`, `lib/mergeWorkspace`, `lib/api/workspaceSync`, `lib/serverClock`, …). Moved here
-from AGENTS.md on 2026-10-08, wording unchanged.
+Rules for the sync engine, the outboxes and the record that span modules: the model
+(IndexedDB, «Saved», merge by id, passengers, ids, append-only, the server observing), the review
+regression contracts, the closed Einsatz and derived ids. The per-module rules sit at the top of
+the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
+`lib/mergeWorkspace`, `lib/api/workspaceSync`, `lib/serverClock`, …). Moved here from AGENTS.md on
+2026-10-08 and 2026-10-18 (the model), wording unchanged.
+
+## The model
+
+- **Operational browser state lives in IndexedDB, not localStorage.** `src/lib/idb.ts` is the
+  storage layer (localStorage only as its degradation fallback), `src/lib/storageMigration.ts`
+  moved legacy operational keys over once. IndexedDB holds incident workspaces, pending sync,
+  media queue metadata, reference/checklist/object metadata, and readiness; localStorage holds
+  only tiny device flags (update banners, install prompts, once-per-device hints) and migration
+  flags. UI copy/locale/defaults/storage keys live in `src/config/appConfig.ts`; the neutral
+  fallback incident is `src/data/demoIncident.ts`.
+- **Saved means every operational queue is acknowledged.** Workspace, journal and client audit
+  outboxes and the media upload queue contribute to the shared sync status. Preserve rejected
+  entries for retry/export; a failed IndexedDB write must never claim local durability. Hydrate
+  and merge a predecessor's queue before a promoted tab writes it. A failed IndexedDB READ is not
+  a miss: every hydrate that writes back reads through `idbRead` and never writes over a slot it
+  could not read. Client audit events carry a stable `client_id` through retries; a beacon does
+  not acknowledge delivery.
+- **A save that changed only the Trupps travels as the trupp slice** (18.10.2026). An editor's
+  push whose blob differs from the server copy it is based on (`entry.base` at `baseRev`) in
+  `trupps` and nothing else goes `PUT …/workspace/trupps`, the Atemschutz-Link's route, instead
+  of the whole document: a Funkkontakt sent ~100 KB of JSON (~38 KB gzipped) per tap on the
+  busiest Einsatz on record. Not a new kind of save: the route stores the server's blob at that
+  revision with these Trupps, so the result is the same blob, under the same conditional UPDATE,
+  409 and merge, closed-Einsatz rule, validation and audit. A 422 from the slice (it validates
+  every Trupp; the full save keeps an unchanged legacy row) falls back to the full PUT; no
+  ancestor, or any other key changed, is the full PUT as before (`workspaceSync · onlyTruppsChanged`).
+- **The live follow never hands a device back its own save** (18.10.2026). Every save wakes every
+  parked follower, the saving device's own long poll too, which downloaded the whole blob it had
+  just sent (~38 KB gzipped per Funkkontakt on the busiest Einsatz on record) and threw it away.
+  Each sync engine has a `writerId` (`WorkspaceSync`, per engine — one login runs on three
+  tablets); its saves send it (`X-Workspace-Writer`) and its follow asks with it (`writer=`).
+  When every revision after the poll's `since` is a save of that engine, the server answers 304 +
+  `X-Workspace-Rev` (`live_wait · only_own_writes`) and the follow parks at that revision at once
+  (`useIncidentSync`, `{ ownRev }`) — an answer, so no ease-off. ⚠️ The server decides only from
+  what it has on record: a revision by anyone else, by a path that records no writer (capture,
+  the alarm webhook, the admin import), on another worker, before a restart or out of the
+  32-revision window is the blob, as before. So another device's change is never held back: in
+  the range → the blob; after it → the re-armed poll is already behind and is answered at once.
+  Only the engine whose state holds a save may send its id (never a save made around it, never a
+  beacon). Guarded on the real stack by `e2e/live-follow.spec.ts`, with two real engines in
+  `lib/liveFollow.twoDevice.test.ts`, and the rule in `backend/tests/test_long_poll.py`.
+- **Sync supports task-scoped collaboration.** Multiple editors may work different domains in the
+  same incident (e.g. Atemschutz + Lage drawing); this is not shared-cursor co-editing of the same
+  object. Cross-domain concurrent edits must merge. Mergeable collections merge three-way **by
+  `id`** (`mergeById` in `mergeWorkspace.ts`; delete beats concurrent edit; server-then-local
+  order). Same-object conflicts can stay simple for now. To add a synced field: add it to
+  `Saved` and give it a row in `MERGE_POLICY` (`mergeWorkspace.ts`) – the map is checked against
+  `Saved` at compile time, so a field without a policy fails `tsc` instead of silently merging
+  as «this device wins» (23.09.2026). (`Person`/roster is the exception – it carries
+  `updatedAt` because it's pulled from Divera, not merged.)
+- ⚠️ **An object kind a build does not understand is a passenger, never dropped** (review of
+  #338, 10.10.2026). An older build that opened a Tafel with pages on it filtered the unknown
+  `form` objects out at the load gate and its next full save deleted every page. So: (1) the
+  client gate (`sanitizeWorkspace` · `isPassengerAnno`) keeps any board object of a kind it does
+  not draw, untouched, and every merge and save carries it along (`isDrawnBoardKind` splits
+  drawing from riding); (2) the server guards builds that predate the rule: a full save whose
+  `schemaVersion` is older than a kind (`app/workspace_kinds.py` · `BOARD_KIND_SINCE`) gets the
+  stored objects of that kind put back (`keep_newer_board_kinds`). A new board kind → bump
+  `WORKSPACE_SCHEMA_VERSION` (`src/lib/workspace.ts`, now 3) and add it to `BOARD_KIND_SINCE`.
+  A Tafel page is ONE object but merges **atom by atom** (`lib/boardFormMerge`: a cell, a line,
+  a field), the later edit (`t`, server clock) winning a true clash and writing a Verlauf row.
+- **IDs are prefixed timestamps, not UUIDs** – `newId(prefix)` from `src/lib/ids.ts`
+  (`<prefix><ms>-<seq><rand>`) for EVERY record the app mints and syncs — Verlauf rows
+  included (`newRowId(tag?)`), Mittel events, patch rows, Gäste, Pendenzen. A per-device
+  counter is not enough: one login on three tablets (Übung 23.09.2026) had each counter at
+  0, and the journal's idempotency-by-id silently dropped the second device's row. Ids
+  already stored keep their old shape (never rewrite them); a reader that needs to know
+  what wrote a row reads the tag (`isPlayerRowId`), never a parsed timestamp. Deliberately
+  DERIVED ids (`ght-<markerId>`, `vp-…`, `azal-`/`azcl-`) stay deterministic — two devices
+  must mint the same one ([Observed facts get derived ids](#observed-facts-get-derived-ids)).
+  Offline-friendly, no DB roundtrip; don't reach for `crypto.randomUUID()`.
+- **Incident records are append-only where it matters.** Verlauf is the human operational journal
+  plus selected meaningful system events; audit/events record committed domain actions. Don't add
+  mutate/delete shortcuts for production records; lifecycle changes (reminders, media transcripts,
+  corrections) are *new appended events* with state derived from them. **A row carries what was
+  said, not a pointer to it** (reversed 11.08.): a Notiz, a Fläche's name, a Druckmeldung print
+  their actual text/value, because the Rapport is read on paper where nothing can be clicked. The
+  row is also the ONE string the Verlauf, the Rapport and the hash chain all read – so a re-shown
+  reminder carries its bare text alongside (`reminder.text`) rather than the row being re-parsed.
+  What reaches the Verlauf: [`verlauf-coverage.md`](verlauf-coverage.md).
+- **The server observes; devices never write observations** – a fact about the outside world
+  (vehicle presence, weather, Divera alarms) is recorded once by the scheduler
+  ([`ARCHITECTURE.md`](ARCHITECTURE.md#the-server-observes-devices-never-write-observations)).
+  What the devices still observe gets a derived id (below).
 
 ## Review regression contracts (02.10.2026)
 

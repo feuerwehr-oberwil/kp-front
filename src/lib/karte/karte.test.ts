@@ -261,6 +261,13 @@ describe('session — the temporary-measure guard', () => {
     expect(loadKarteView()).toMatchObject({ tool: null, label: null })
   })
 
+  it('keeps the Checkliste surface by name, and reads an unknown surface as the map', () => {
+    saveKarteView({ center: CENTER, zoom: 15, bearing: 0, objectId: 'schloss', surface: 'checkliste' })
+    expect(loadKarteView()).toMatchObject({ objectId: 'schloss', surface: 'checkliste' })
+    saveKarteView({ center: CENTER, zoom: 15, bearing: 0, objectId: null, surface: 'nachschlagen' as never })
+    expect(loadKarteView()).toMatchObject({ surface: 'karte' })
+  })
+
   it('forgets a garbled view instead of throwing', () => {
     stores.session.set('kp.karte.view', '{"center":"x"}')
     expect(loadKarteView()).toBeNull()

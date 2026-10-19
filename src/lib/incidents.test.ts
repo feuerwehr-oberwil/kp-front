@@ -54,6 +54,8 @@ describe('WorkspaceSync.flush — happy path', () => {
     expect(apiPut).toHaveBeenCalledWith(
       `/api/incidents/${ID}/workspace?slim=1`,
       expect.objectContaining({ workspace: { a: 1 }, base_rev: 0 }),
+      // which engine saved — its live follow is not handed this blob back (api/workspace)
+      { 'X-Workspace-Writer': sync.writerId },
     )
     expect(sync.rev).toBe(5)
     expect(sync.hasUnsynced).toBe(false)

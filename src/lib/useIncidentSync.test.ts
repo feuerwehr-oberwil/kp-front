@@ -36,6 +36,7 @@ function makeSync() {
     drainTruppRenumbered: vi.fn().mockReturnValue([]),
     hasUnsynced: false,
     rev: 0,
+    writerId: 'wsTEST',
     syncStatus: 'synced' as const,
     lastSyncedAt: null,
     onAttendanceConflicts: undefined,
@@ -378,6 +379,61 @@ describe('useIncidentSync — live-follow loop', () => {
 
 // Keep both the real sync engine and its React consumer: an internal merge alone used to
 // pass while the UI kept the old blob and deleted remote data on its next ordinary edit.
+// A save wakes the saving device's own long poll too. With the engine's writer id the server
+// answers «only your own saves since then» without the blob (api/workspace · WorkspaceFollow,
+// 18.10.2026) — and the loop must treat that as an ANSWER (park at once at the server's revision,
+// no ease-off), or another device's change would sit out a backoff behind it.
+describe('useIncidentSync — the answer «only your own saves»', () => {
+  it('asks with the engine\'s writer id, adopts nothing, and parks the next round at that revision at once', async () => {
+    pollWorkspaceSince.mockResolvedValueOnce({ ownRev: 5 }).mockImplementation(() => new Promise(() => {}))
+    const sync = makeSync()
+    sync.rev = 4
+    const applyWorkspace = vi.fn()
+    renderHook(() => useIncidentSync({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      sync: sync as any, readOnly: false, incidentId: 'i1', buildPayload: () => ({}) as unknown as Saved,
+      applyWorkspace, flushEvents: vi.fn(), flushEventsBeacon: vi.fn(),
+    }))
+
+    await vi.advanceTimersByTimeAsync(appConfig.sync.livePollMs)
+    expect(pollWorkspaceSince.mock.calls[0][2].writer).toBe('wsTEST')
+    // an instant answer — and still no ease-off: the next round follows at the spacing floor
+    await vi.advanceTimersByTimeAsync(LONG_POLL_SPACING_MS)
+    expect(pollWorkspaceSince).toHaveBeenCalledTimes(2)
+    const [, since, opts] = pollWorkspaceSince.mock.calls[1]
+    expect([since, opts.wait, opts.writer]).toEqual([5, true, 'wsTEST'])
+    expect(sync.adoptServer).not.toHaveBeenCalled()
+    expect(applyWorkspace).not.toHaveBeenCalled()
+  })
+
+  it('counts while the save\'s own answer is still on its way (dirty): the next ask starts past it', async () => {
+    // the poll's answer often beats the PUT's response home; asking about those revisions again
+    // from the old one would fetch the very blob this device just sent
+    const sync = makeSync()
+    sync.rev = 4
+    pollWorkspaceSince.mockImplementationOnce(async () => { sync.hasUnsynced = true; return { ownRev: 5 } })
+      .mockResolvedValue(null)
+    mount(sync)
+    await vi.advanceTimersByTimeAsync(appConfig.sync.livePollMs)
+    await vi.advanceTimersByTimeAsync(LONG_POLL_SPACING_MS)
+    expect(pollWorkspaceSince).toHaveBeenCalledTimes(2)
+    expect(pollWorkspaceSince.mock.calls[1][1]).toBe(5)
+    expect(pollWorkspaceSince.mock.calls[1][2]).toMatchObject({ wait: false, writer: 'wsTEST' })
+  })
+
+  it('another device\'s save right after its own is adopted on the very next round', async () => {
+    pollWorkspaceSince.mockResolvedValueOnce({ ownRev: 5 })
+      .mockResolvedValueOnce({ workspace: { remote: true }, workspace_rev: 6 })
+      .mockImplementation(() => new Promise(() => {}))
+    const sync = makeSync()
+    sync.rev = 4
+    mount(sync)
+    await vi.advanceTimersByTimeAsync(appConfig.sync.livePollMs)
+    await vi.advanceTimersByTimeAsync(LONG_POLL_SPACING_MS)
+    expect(sync.adoptServer).toHaveBeenCalledWith({ remote: true }, 6)
+  })
+})
+
 describe('useIncidentSync – edit during a conflict merge', () => {
   it('hydrates the rebased union without an echo save, then preserves it on the next edit', async () => {
     vi.spyOn(idb, 'idbGet').mockResolvedValue(null)

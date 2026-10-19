@@ -1,9 +1,40 @@
 # UI conventions
 
-The look and the controls, app-wide: editor sheets, overlays, the button spec and the touch
-vocabulary. The tokens, the one corner and the style-debt ratchet are summarised in
-[`AGENTS.md`](../AGENTS.md); phone-only layout is in [`phone-layout.md`](phone-layout.md). Moved
-here from AGENTS.md on 2026-10-08, wording unchanged.
+The look and the controls, app-wide: tokens, the stylesheet cascade and the scales, editor
+sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is in
+[`phone-layout.md`](phone-layout.md). Moved here from AGENTS.md on 2026-10-08 and 2026-10-18
+(tokens, cascade, scales, overlay primitives), wording unchanged.
+
+## Tokens, the cascade and the scales
+
+- **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, ...)`, **never** a frozen
+  `rgba()` of the accent – that breaks day/night and per-station accent theming.
+- **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live
+  in **`src/styles/NN-*.css`** – one numbered file per block (tokens, base, map, chrome, one per
+  surface), listed in order by `src/app.css`, which is now a manifest of `@import`s and holds no
+  rules of its own. **The numbering is the cascade**: source order decides ties, so put a new
+  block where it belongs and renumber, rather than appending for tidiness – `20-touch-floors.css`
+  is last precisely because its `(pointer: coarse)` targets have to beat every surface above it.
+  Component-specific layout still goes in `*.module.css` files that reference `var(--token)`;
+  the admin UI uses `src/admin/admin.css`. Form controls take the page's family from ONE reset
+  in 02-base (`button, input, select, textarea { font-family: inherit }`, 07.10.2026): never add
+  a per-control `font-family: inherit`. The reset is the family only; sizes stay per rule.
+- **New CSS picks from the scales** (07.10.2026, UI sweep C1–C5; `01-tokens.css` · «THE SCALES»,
+  «THE TINTS»): type `--fs-1…7` (12.5 · 14 · 16 · 19 · 24 · 32 · 40, each with its `--lh-*`) and
+  `--fs-micro` (11, read-only captions, never a tappable label); weight `--fw-regular/medium/
+  bold/heavy` (400/500/700/800 – 600 is not a step); space `--sp-1…8` (4/8/12/16/24/32/48/64;
+  1–2px optical nudges stay literal); elevation `--e1…e5` (with night values; `--shadow-sm` and
+  `--shadow` are `--e3`/`--e4`); tints `--{blue,red,amber,green,ink}-{5,8,12,16,22,28,45,62}`
+  (= that hue at that % over transparent). The old literals move onto them surface by surface
+  (staged; the owner sees pairs for anything visible), so do not mass-convert a file on the side.
+  **The pile only shrinks**: `src/styles/styleDebt.test.ts` counts per stylesheet the literal
+  font sizes, off-step weights, off-grid spacings and literal-colour shadows against
+  `styleDebt.baseline.json` and fails when one goes up – or when one went down and the baseline
+  was not lowered (`STYLE_DEBT_UPDATE=1 pnpm vitest run src/styles/styleDebt.test.ts`, which
+  only ever lowers it). Like the lint ceiling: never raise it to pass.
+- **Breakpoints come from `src/lib/breakpoints.ts` only.** The one corner (`--r-sm`, `--r-bar`,
+  `--r-xs`) is under «Buttons follow one spec» · *Radius*, the one button family under «Button
+  components».
 
 ## Editor sheets: one control per kind of question
 
@@ -84,6 +115,20 @@ Auftrag sheet, the Schichtband edit and the Mittel pencil KEEP their Speichern /
 
 ## Overlays
 
+- **Overlays go through `src/lib/overlays/`** (`Sheet`/`SheetClose`, `Overlay`, `ConfirmCard`,
+  `Menu`, `Popover`/`PopoverClose`) – thin wrappers over **Base UI** (`@base-ui/react`, headless)
+  that supply focus trap/restore, scroll-lock, Esc, backdrop/outside-click dismissal, and ARIA,
+  painted with the existing `.ip-*`/token CSS. That package is imported **only** inside
+  `src/lib/overlays/` – every surface uses the wrappers, so behaviour/theming/a11y live in one
+  place. Base UI portals Backdrop+Popup as siblings, so scrim = `.ui-backdrop` and centering =
+  `.ip-sheet.ui-dialog` (13-incident.css). **Modal surfaces only** – the non-modal map tool-docks
+  (`MapViewsMenu` views popover, the `.ctx` tool editors, the incident `ip-menu`) stay
+  hand-rolled: a focus-trapping/scroll-locking primitive would break map interaction. The
+  tap-open picker (`ComboMenu`, worn by `Combo` and the Atemschutz `PersonField`) and the
+  tap-toggle `DockInfo`/`InfoTip` also stay bespoke (free-type + in-menu toggle / a tablet tap
+  model don't map cleanly to Base UI Select/Tooltip); the admin `Select` stays hand-rolled too,
+  keyboard-driven and unportalled.
+
 Three rules the primitives own, so no surface re-answers them (18.09.2026):
 
 - **What a surface IS on a phone — one rule, three shapes** (29.09.2026, owner: «rethink what is
@@ -107,6 +152,16 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
   (TruppFinder) hangs from the TOP edge so the keys never cover its results. A floating card
   above the bars (Ebenen was one until 29.09.) is none of the three: it cannot
   be pushed away and does not belong to its tile.
+
+- **The keyboard is measured from the app's full height, never the live `innerHeight`**
+  (18.10.2026). In the INSTALLED iPhone app a touch with the keys up makes iOS collapse
+  `innerHeight` to the visual viewport (793 → 424, also in steps) and scroll the window by the
+  rest, while the frame `position: fixed` is laid out in stays full height (the Karte's review
+  rounds 9–10, docs/karte-objekte.md). `lib/useKeyboardInset` (`is-kb`, `--kb-inset`, `--jc-kb`,
+  the root's `data-kb` and `--vv-foot`) and every `bottom:` placed from the frame's foot
+  (ComboMenu's up-menus, HoldTargets, the toast lane) read `lib/iosKeyboard · fullViewHeight`.
+  Safari tabs never collapse, so there nothing changes. Check: `e2e/einsatz-keyboard.mjs` (the
+  composer, «Einsatzdaten bearbeiten», «Trupp anmelden» in the emulated installed app and a tab).
 
 - **A sheet's footer row is `SheetFoot`** (`.ui-sheet-foot`, 26.09.2026): `Sheet` draws it for
   `footer`, and a bespoke frame whose footer is its bottom edge on a phone wears it (the Trupp
@@ -151,7 +206,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
     the action button acts, a sideways swipe throws it away. On a phone they share one lane (`--msg-lane-bottom`, 15-mobile): the
     bars' own width (8px in from each side), one `--float-gap` above THE floating row (below),
-    never beside a piece of it. A pill is ONE ROW (30.09.2026): the sentence wraps first, inside
+    never beside a piece of it. A repeat REPLACES (18.10.2026): a confirmation that comes again — «Eintrag erfasst» after
+    every Meldung, «Geschoss hinzugefügt» — carries a `kind` (lib/ui · toast) and takes its
+    predecessor's place instead of stacking on it; five Meldungen in a row grew a column of pills
+    up the screen into the composer's «Erfassen», and a confirmation never covers the next action
+    (`useJournalWriters · JOURNAL_SAVED_KIND`, e2e `workspace-flows` F8). A pill is ONE ROW (30.09.2026): the sentence wraps first, inside
     its column, and «Rückgängig» + ✕ stay beside it. The column has a floor of 10em (05.10.2026):
     only an action too wide to leave the sentence that much wraps under it, right-aligned. On
     the launcher the lane is the card's own column. There is no standing «Offline» row
