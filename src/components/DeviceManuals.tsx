@@ -5,7 +5,7 @@ import type { DeviceGroup } from '../lib/checklists'
 import { deviceCover, deviceUpdated, fmtDay } from '../lib/checklists'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import { cx } from '../lib/cx'
+import { ListRow } from './ListRow'
 import m from './ManualReader.module.css'
 
 // The Anleitungen as DEVICES (19.10.2026): one tile per Gerät – its picture, its name, and
@@ -26,7 +26,8 @@ function deviceSubtitle(group: DeviceGroup): string {
 const useHeld = (url: string | null) => useEffect(() => { if (url) holdPicture(url) }, [url])
 
 /** One device as a tappable tile. `card` = the phone library's photo card (2 per row), `row` =
- *  a list row with a thumbnail (the Einsatz rail, the tablet's list column). */
+ *  THE list row with a thumbnail lead (the Einsatz rail, the tablet's list column). `on` lights
+ *  the row only – a card never stands beside the document it opens. */
 export function DeviceTile({ group, variant, on, onOpen }: {
   group: DeviceGroup
   variant: 'card' | 'row'
@@ -39,16 +40,22 @@ export function DeviceTile({ group, variant, on, onOpen }: {
   // ⚠️ A held copy, and neither `loading="lazy"` nor `decoding="async"` (review round 2,
   // 19.10.2026): the cards popped in on every open of the Checkliste surface (lib/heldPictures,
   // e2e/checkliste-pictures.mjs). A station has a handful of devices; nothing to save by deferring.
+  const pic = (
+    <span className={m['dv-pic']} aria-hidden="true">
+      {cover ? <img src={heldPicture(cover)} alt="" /> : <Icon id="doc" />}
+    </span>
+  )
+  // a row is THE list row with the thumbnail as its lead (components/ListRow)
+  if (variant === 'row') {
+    return <ListRow className={m['dv-row']} lead={pic} title={group.device} sub={deviceSubtitle(group)} on={on} onClick={onOpen} />
+  }
   return (
-    <button type="button" className={cx(m[`dv-${variant}`], on && m.on)} onClick={onOpen} aria-current={on || undefined}>
-      <span className={m['dv-pic']} aria-hidden="true">
-        {cover ? <img src={heldPicture(cover)} alt="" /> : <Icon id="doc" />}
-      </span>
+    <button type="button" className={m['dv-card']} onClick={onOpen}>
+      {pic}
       <span className={m['dv-text']}>
         <span className={m['dv-name']}>{group.device}</span>
         <span className={m['dv-sub']}>{deviceSubtitle(group)}</span>
       </span>
-      {variant === 'row' && <Icon id="chevron" />}
     </button>
   )
 }
@@ -71,14 +78,11 @@ export function DevicePage({ group, onChapter }: { group: DeviceGroup; onChapter
         <h2>{group.device}</h2>
         <p>{meta}</p>
       </header>
+      {/* the chapters: THE list row, numbered – a place in a list, the reader's step number outlined */}
       <ol className={m['dv-chapters']} aria-label={group.device}>
         {group.manuals.map((t, i) => (
           <li key={t.id}>
-            <button type="button" className={m['dv-chapter']} onClick={() => onChapter(t.id)}>
-              <span className={m['dv-num']} aria-hidden="true">{i + 1}</span>
-              <span className={m['dv-chapter-title']}>{t.title}</span>
-              <Icon id="chevron" />
-            </button>
+            <ListRow lead={<span className={m['dv-num']} aria-hidden="true">{i + 1}</span>} title={t.title} onClick={() => onChapter(t.id)} />
           </li>
         ))}
       </ol>

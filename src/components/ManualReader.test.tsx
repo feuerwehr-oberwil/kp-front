@@ -69,7 +69,7 @@ describe('Checkliste picker · Anleitungen', () => {
 
   it('lists one row per device, LAST, never among the tick lists', async () => {
     const { container } = await mount([MANUAL, FU, CHAPTER(1), CHAPTER(2)])
-    const labels = [...container.querySelectorAll('nav [class*="cl-rail-label"]')].map((l) => l.textContent)
+    const labels = [...container.querySelectorAll('nav .list-group-label > span:first-child')].map((l) => l.textContent)
     expect(labels[labels.length - 1]).toBe(appConfig.copy.checklists.groupManuals)
     // the single Anleitung's device says its title, the device with chapters «2 Kapitel»
     expect(screen.getByRole('button', { name: /Stromerzeuger 8 kVA.*Stromerzeuger starten/ })).toBeTruthy()
@@ -95,7 +95,7 @@ describe('Checkliste picker · Anleitungen', () => {
     fireEvent.click(screen.getByRole('button', { name: /Kapitel 2.*Kapitel-Titel 2/ }))
     expect(screen.getByText('Schritt aus 2')).toBeTruthy()
     // «‹ Motorspritze» leads back to the chapter page
-    fireEvent.click(screen.getAllByRole('button', { name: 'Motorspritze' })[0]) // the «‹ Motorspritze» row (the meta line's device link goes there too)
+    fireEvent.click(screen.getByRole('button', { name: 'Motorspritze' })) // the «‹ Motorspritze» back row, the one way up
     expect(screen.getByRole('list', { name: 'Motorspritze' })).toBeTruthy()
   })
 })
