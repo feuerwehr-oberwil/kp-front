@@ -1,11 +1,11 @@
 import { Icon } from '../lib/icons'
 import type { ChecklistTemplate, Item, Phase, TemplateState } from '../lib/checklists'
-import { phaseItems, phaseProgress, templateProgress } from '../lib/checklists'
+import { phaseItems, phaseProgress, readingPoints, templateProgress } from '../lib/checklists'
 import { cx } from '../lib/cx'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { usePageHeadFit } from '../lib/pageHeadFit'
 import { Segmented } from './Segmented'
-import { formatTime } from '../lib/format'
+import { fillTemplate, formatTime } from '../lib/format'
 import { appConfig } from '../config/appConfig'
 import s from './Checklists.module.css'
 
@@ -195,6 +195,63 @@ export function ChecklistRunner({
           onAction={onAction}
           offersAction={offersAction}
         />
+      ))}
+      <footer className={s['cl-runner-foot']}>{template.source}</footer>
+    </div>
+  )
+}
+
+/**
+ * The same list to READ, outside an Einsatz (19.10.2026, owner pick: «Checklisten zum Lesen» on
+ * the Karte's Checkliste surface – ChecklistLibrary). The runner's look, but numbers where the
+ * boxes are, one quiet line saying where ticking happens, and no deep-link chips (there is no
+ * Einsatz whose Plan or Verlauf they could open). A phase's variants (ohne / mit C-FU) can be
+ * flipped to read either – a view choice in component state, nothing is stored.
+ */
+export function ChecklistReader({ template }: { template: ChecklistTemplate }) {
+  const CL = appConfig.copy.checklists
+  const [picked, setPicked] = useState<Record<string, string>>({})
+  const branchOf = (p: Phase) => picked[p.id] ?? p.branches?.[0]?.id
+  const points = readingPoints(template, picked)
+  return (
+    <div className={s['cl-runner']}>
+      <header className={s['cl-runner-head']}>
+        <div className={s['cl-runner-titles']}>
+          <h2>{template.title}</h2>
+          {template.subtitle && <p title={template.subtitle}>{template.subtitle}</p>}
+        </div>
+        <div className={s['cl-overall']}><span className={s['cl-overall-sub']}>{fillTemplate(CL.points, { n: points })}</span></div>
+      </header>
+      <p className={s['cl-ro-note']}><Icon id="eye" />{CL.readOnly}</p>
+      {(template.phases ?? []).map((p) => (
+        <section key={p.id} className={s['cl-phase']}>
+          <header className={s['cl-phase-head']}>
+            <div className={s['cl-phase-titles']}>
+              <h3>{p.title}</h3>
+              {p.role && <span className={s['cl-role']}>{p.role}</span>}
+            </div>
+          </header>
+          {p.note && <p className={s['cl-note']}>{p.note}</p>}
+          {p.branches?.length ? (
+            <Segmented
+              ariaLabel={CL.variantLabel}
+              value={branchOf(p)}
+              onChange={(id) => setPicked((v) => ({ ...v, [p.id]: id }))}
+              options={p.branches.map((b) => ({ value: b.id, label: b.title }))}
+            />
+          ) : null}
+          <ol className={s['cl-items']}>
+            {phaseItems(p, branchOf(p)).map((it, i) => (
+              <li key={it.id} className={s['cl-item']}>
+                <span className={s['cl-num']} aria-hidden="true">{i + 1}</span>
+                <div className={s['cl-item-body']}>
+                  <div className={s['cl-item-text']}>{it.text}</div>
+                  {it.when && <div className={s['cl-item-meta']}><span className={s['cl-when']}>{it.when}</span></div>}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
       ))}
       <footer className={s['cl-runner-foot']}>{template.source}</footer>
     </div>

@@ -22,9 +22,10 @@
  * rides `checklists:<id>` + `checklists:<id>:p<N>` images, the same manifest, CLI, admin page and
  * SharePoint folder; format in [`docs/CONFIGURATION.md` §9f](docs/CONFIGURATION.md). It is READ,
  * never ticked: no tick state, no progress, nothing in the Verlauf/Rapport — tickable means
- * `isTickable` (action/rapport) only, so check new kind switches against it. The picker shows
- * them in their own «Anleitungen» group, one sub-head per `device` (`manualGroups`); the reader
- * is `ManualReader` (own CSS module). Step pictures are prefetched into the SW's
+ * `isTickable` (action/rapport) only, so check new kind switches against it. They are shown as
+ * DEVICES (`manualGroups`, 19.10.2026): a tile per `device`, a page of chapters, the reader
+ * `ManualReader` with «Kapitel k von n» (`chapterOf`) – components/DeviceManuals, used by the
+ * Einsatz rail and by the Karte's Checkliste surface (ChecklistLibrary, `searchLibrary`). Step pictures are prefetched into the SW's
  * `checklist-assets` cache when the templates load (`warmManualImages`), because a manual is
  * opened when it is needed — offline, for the first time. A step image the manifest has no
  * asset for is refused by `admin_checklists validate`.
@@ -33,7 +34,6 @@
 import { apiGet } from './api'
 import { readThrough } from './idb'
 import genericAction from '../data/checklists/generic-action.json'
-import { compareText } from './format'
 
 // --- template schema (matches the bundled JSON) ----------------------------------
 
@@ -324,6 +324,12 @@ export function phaseProgress(phase: Phase, state: TemplateState): Progress {
   return progressOf(phaseItems(phase, state.activeBranch?.[phase.id]), state.ticks ?? {})
 }
 
+/** How many items a checklist shows when READ (ChecklistReader, «15 Punkte»): each phase with
+ *  the variant `picked` for it, or its first one. */
+export function readingPoints(template: ChecklistTemplate, picked: Record<string, string> = {}): number {
+  return (template.phases ?? []).reduce((n, p) => n + phaseItems(p, picked[p.id] ?? p.branches?.[0]?.id).length, 0)
+}
+
 /** Overall progress across all phases (live items only). */
 export function templateProgress(template: ChecklistTemplate, state: TemplateState): Progress {
   const phases = template.phases ?? []
@@ -394,18 +400,129 @@ export function matchDiveraEntries(
 export interface DeviceGroup { device: string; manuals: ChecklistTemplate[] }
 
 /** The Anleitungen matching a free-text query over title, device and keywords, grouped by
- *  device. Devices sort by name (Swiss German collation), manuals keep their template order —
- *  a station's «Aufbau» before «Abbau» is the station's call, made with `order`. */
+ *  device. Devices AND their chapters keep the template order (the manifest's `order`, 19.10.2026
+ *  – it was by name), so the station decides both which device leads and that «Aufbau» comes
+ *  before «Abbau». A device's chapters are numbered in this order (DevicePage). */
 export function manualGroups(templates: ChecklistTemplate[], query: string): DeviceGroup[] {
   const q = norm(query)
   const groups = new Map<string, ChecklistTemplate[]>()
   for (const t of templates) {
     if (t.kind !== 'manual') continue
-    const device = (t.device ?? '').trim() || t.title
+    const device = deviceOf(t)
     if (q && ![t.title, device, t.subtitle ?? '', ...(t.keywords ?? [])].some((w) => norm(w).includes(q))) continue
     groups.set(device, [...(groups.get(device) ?? []), t])
   }
-  return [...groups.entries()]
-    .sort(([a], [b]) => compareText(a, b))
-    .map(([device, manuals]) => ({ device, manuals }))
+  return [...groups.entries()].map(([device, manuals]) => ({ device, manuals }))
+}
+
+/** the device an Anleitung belongs to – its own title when the manifest names none */
+export const deviceOf = (t: ChecklistTemplate) => (t.device ?? '').trim() || t.title
+
+/** The device's picture for its card and row: the first step image of its chapters, in chapter
+ *  order (there is no separate device photo in the template format). null = none has a picture. */
+export function deviceCover(group: DeviceGroup): string | null {
+  for (const t of group.manuals) {
+    const img = (t.steps ?? []).flatMap((s) => s.images ?? [])[0]
+    if (img) return checklistAssetUrl(t.id, img.page)
+  }
+  return null
+}
+
+/** `2026-09-14` → `14.09.2026`; anything else verbatim (the server only lets dates through). */
+export const fmtDay = (iso: string) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : iso
+}
+
+/** The newest «Stand» among a device's chapters (`YYYY-MM-DD`), or null. */
+export function deviceUpdated(group: DeviceGroup): string | null {
+  return group.manuals.reduce<string | null>((max, t) => (t.updated && (!max || t.updated > max) ? t.updated : max), null)
+}
+
+/** Where an Anleitung stands among its device's chapters – «Kapitel k von n» and the neighbours
+ *  the reader's foot offers. null for a device with a single Anleitung: it has no chapters. */
+export function chapterOf(groups: DeviceGroup[], manualId: string):
+  { group: DeviceGroup; k: number; n: number; prev: ChecklistTemplate | null; next: ChecklistTemplate | null } | null {
+  for (const group of groups) {
+    const i = group.manuals.findIndex((t) => t.id === manualId)
+    if (i < 0) continue
+    if (group.manuals.length < 2) return null
+    return { group, k: i + 1, n: group.manuals.length, prev: group.manuals[i - 1] ?? null, next: group.manuals[i + 1] ?? null }
+  }
+  return null
+}
+
+// --- one search over everything (the Karte's Checkliste surface, ChecklistLibrary) ----------
+
+/** Why a hit matched when its title does not say so: one of its keywords, or a line of its
+ *  text (a step, a checklist item, a Stichwort's paragraph). null = the title or device did. */
+export type HitReason = { keyword: string } | { text: string } | null
+export interface LibraryHit<T> { item: T; why: HitReason }
+export interface LibraryHits {
+  manuals: LibraryHit<ChecklistTemplate>[]
+  checklists: LibraryHit<ChecklistTemplate>[]
+  /** per reference template (Taktik · Stichworte, Grundlagen · Infos), in template order */
+  references: { template: ChecklistTemplate; entries: LibraryHit<RefEntry>[] }[]
+}
+
+/** first of `texts` containing q, as a reason */
+const firstText = (texts: (string | undefined)[], q: string): HitReason => {
+  const hit = texts.find((t) => t && norm(t).includes(q))
+  return hit ? { text: hit } : null
+}
+const blockText = (b: ContentBlock): string[] =>
+  b.type === 'table' ? [...(b.head ?? []), ...b.rows.flat(), b.caption ?? ''] : b.type === 'image' ? [b.caption ?? ''] : [b.text]
+
+/** whether `t` matches q, and why: the names first, then keywords, then the body */
+function reason(names: string[], keywords: string[], body: () => (string | undefined)[], q: string): HitReason | false {
+  if (names.some((n) => norm(n).includes(q))) return null
+  const kw = keywords.find((k) => norm(k).includes(q))
+  if (kw) return { keyword: kw }
+  return firstText(body(), q) ?? false
+}
+
+/**
+ * ONE search over everything the library shows (19.10.2026, owner: «Eine Suche über alles –
+ * Gerät, Titel, Stichworte, Schritte»): an Anleitung by its title, device, keywords and step
+ * text; a checklist by its title, phases and items; a Stichwort by its title, keywords and
+ * content. Each hit says why it matched when its name does not. Empty query → nothing (the
+ * surface shows its home instead). The Einsatz rail keeps its narrower title/keyword search.
+ */
+export function searchLibrary(templates: ChecklistTemplate[], query: string): LibraryHits {
+  const q = norm(query)
+  const out: LibraryHits = { manuals: [], checklists: [], references: [] }
+  if (!q) return out
+  for (const t of templates) {
+    if (t.kind === 'manual') {
+      const why = reason([t.title, deviceOf(t)], t.keywords ?? [], () =>
+        [t.subtitle, ...(t.steps ?? []).flatMap((s) => [s.text, ...(s.details ?? []), s.warning, s.hint])], q)
+      if (why !== false) out.manuals.push({ item: t, why })
+    } else if (isTickable(t)) {
+      const why = reason([t.title], [], () =>
+        [t.subtitle, ...(t.phases ?? []).flatMap((p) => [p.title, ...[...p.items, ...(p.branches ?? []).flatMap((b) => b.items)].map((i) => i.text)])], q)
+      if (why !== false) out.checklists.push({ item: t, why })
+    } else if (t.kind === 'reference') {
+      const entries = (t.entries ?? []).flatMap((e) => {
+        const why = reason([e.title], e.keywords ?? [], () => (e.content ?? []).flatMap(blockText), q)
+        return why === false ? [] : [{ item: e, why }]
+      })
+      if (entries.length) out.references.push({ template: t, entries })
+    }
+  }
+  return out
+}
+
+/** A line of text cut to about `len` characters around the first match of q, with «…» where it
+ *  was cut – the reason a search hit shows under its title. */
+export function snippet(text: string, query: string, len = 48): string {
+  const q = norm(query)
+  const t = text.replace(/\s+/g, ' ').trim()
+  if (t.length <= len) return t
+  const at = Math.max(0, norm(t).indexOf(q))
+  let start = Math.max(0, Math.min(at - Math.floor((len - q.length) / 2), t.length - len))
+  let end = start + len
+  // whole words only: start after a space, end before one – never further in than the match
+  if (start > 0) { const sp = t.indexOf(' ', start); if (sp >= 0 && sp < at) start = sp + 1 }
+  if (end < t.length) { const sp = t.lastIndexOf(' ', end); if (sp > at + q.length) end = sp }
+  return `${start > 0 ? '…' : ''}${t.slice(start, end).trim()}${end < t.length ? '…' : ''}`
 }

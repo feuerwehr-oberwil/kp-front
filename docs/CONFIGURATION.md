@@ -1927,9 +1927,17 @@ shape is checked by `app/checklist_templates.py · template_problem` on every do
 #### Anleitungen (`kind: "manual"`)
 
 A device's instructions – «Stromerzeuger starten», «Hebekissen einsetzen» – as big numbered
-steps on the Checkliste tab, in their own **Anleitungen** group below the checklists, one
-sub-head per device. They are **read, never ticked**: no state, no progress, nothing in the
-Verlauf or the Rapport. The picker search matches the title, the `device` and the `keywords`.
+steps. They are **read, never ticked**: no state, no progress, nothing in the Verlauf or the
+Rapport. Anleitungen are grouped by `device` (19.10.2026): one tile per device with its picture
+(the first step image of its chapters – there is no separate device photo) and «n Kapitel», or the
+title when the device has a single Anleitung. A device with several opens a page with its
+chapters numbered in manifest `order`; a chapter shows «Kapitel k von n» and the previous and next
+chapter at its foot. Devices are listed in manifest `order` too, so the order of the manifest
+entries is the order on screen. Two places show them, with the same tiles and pages: the Einsatz
+**Checkliste** tab, as the last group of its rail (the picker search matches the title, the
+`device` and the `keywords`), and the **Checkliste** surface of Karte & Objekte outside an
+Einsatz (`ChecklistLibrary`), devices first, where the search also covers the steps, the
+checklist items and the Stichwort texts, and the action checklists are shown read-only.
 Pictures are prefetched into the service worker's `checklist-assets` cache as soon as the
 templates load (`warmManualImages` in `src/lib/checklists.ts`), so an Anleitung opened for the
 first time without network still shows them.
