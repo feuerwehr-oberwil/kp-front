@@ -16,7 +16,11 @@
    Einsatz bar's 16px (13-incident · .ip-switch-btn svg) */
 .einsaetze > :global(.i) { width: 16px; height: 16px; flex: none; }
 .einsaetze:active, .einsaetze.open { background: var(--press); }
-.search { flex: 1 1 320px; min-width: 0; max-width: 360px; }
+/* wide enough for the whole placeholder (owner, 19.10.2026: «Anleitung, Checkliste, S…»). A WIDTH,
+   not a flex-basis: the bar is absolutely positioned and sizes to its content, so a basis never
+   widened it – the input's own ~200px default did. It still gives way on a narrow bar (shrink, no
+   min-width). */
+.search { flex: 0 1 auto; width: 380px; min-width: 0; }
 .running { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3);
   border: none; border-radius: var(--r-sm); background: var(--red); color: var(--on-fill, #fff);
   font: var(--fw-bold) var(--fs-2)/1.15 var(--body); cursor: pointer; max-width: 280px; flex: 0 1 auto; text-align: left; }
@@ -54,7 +58,27 @@ button.row:active { background: var(--press); }
 .rowText span { font: var(--fw-medium) var(--fs-1)/1.3 var(--body); color: var(--ink-dim); }
 .rowEnd { display: flex; align-items: center; gap: var(--sp-2); color: var(--ink-dim); font: var(--fw-medium) var(--fs-1)/1.2 var(--body); flex: none; }
 .mono { font-family: var(--mono); font-size: var(--fs-micro); }
+/* a hydrant row of In der Nähe (Karte Haus round 1): tinted blue; «lit» while its hydrant is shown
+   on the map (the row hovered or tapped, or the hydrant under the mouse) */
+.hydRow { background: var(--blue-5); }
+@media (hover: hover) { button.hydRow:hover { background: var(--blue-8); } }
+.row.hydRow.lit { background: var(--blue-16); box-shadow: inset 3px 0 0 var(--blue); }
+.badge.blue { background: var(--blue-16); color: var(--blue-strong); margin-right: var(--sp-2); vertical-align: 1px; }
 .chev { width: 16px; height: 16px; color: var(--ink-faint); }
+
+/* the switch «Objekt | <Haus>» right under the head, after a tap on one of an object's buildings
+   (Karte Haus round 1 · variant A): two halves, the open level raised; red = object, blue = house */
+.level { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: var(--r-sm); background: var(--ink-8); border: 1px solid var(--border-soft); }
+.levelBtn { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; min-height: var(--tap-lg); padding: 0 var(--sp-2); border: none; border-radius: var(--r-xs);
+  background: none; color: var(--ink-dim); font: inherit; text-align: left; cursor: pointer; }
+.levelBtn svg { width: 18px; height: 18px; flex: none; }
+.levelBtn.on { background: var(--surface); color: var(--ink); box-shadow: var(--e1); cursor: default; }
+.levelObj.on svg { color: var(--red); }
+.levelHouse.on svg { color: var(--blue); }
+.levelText { display: flex; flex-direction: column; min-width: 0; }
+.levelText b, .levelText small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.levelText b { font: var(--fw-bold) var(--fs-1)/1.25 var(--body); }
+.levelText small { font: var(--fw-medium) var(--fs-micro)/1.3 var(--body); color: var(--ink-faint); }
 
 /* ── the one panel ────────────────────────────────────────────────────────────────────────── */
 .panel { position: absolute; top: calc(88px + env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); bottom: 16px; width: 404px; height: max-content;
@@ -165,6 +189,16 @@ button.row:active { background: var(--press); }
 .tagMk.bare { border-color: var(--ink-28); }
 .tagMk.bare.sel { border-color: var(--ink-62); box-shadow: 0 0 0 2px var(--ink-16), var(--e2); }
 .dotMk.bare::after { background: var(--ink-45); }
+/* the mouse's label beside the cursor (KarteApp · hover; never on touch): placed by the pointer,
+   never in its way */
+.hoverTip { position: absolute; left: 0; top: 0; z-index: var(--z-chrome-raised); pointer-events: none; max-width: 320px; padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm); background: var(--surface); border: 1px solid var(--border-soft); box-shadow: var(--e3); }
+.hoverTip b { display: block; font: var(--fw-bold) var(--fs-1)/1.25 var(--body); color: var(--ink); }
+.hoverTip small { display: block; font: var(--fw-medium) var(--fs-micro)/1.3 var(--body); color: var(--ink-dim); }
+/* the hydrant shown from In der Nähe: a ring on it and its metres at the dashed line's middle */
+.hydRing { display: block; width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--blue); background: var(--blue-16); pointer-events: none; }
+.hydDist { display: block; padding: 2px var(--sp-2); border-radius: var(--r-xs); background: var(--surface); border: 1px solid var(--blue); color: var(--ink);
+  font: var(--fw-bold) var(--fs-micro)/1.3 var(--body); white-space: nowrap; box-shadow: var(--e1); pointer-events: none; }
 .pinMk { width: 34px; height: 44px; display: block; filter: drop-shadow(0 2px 2px var(--ink-28)); }
 .ergLbl { padding: 2px var(--sp-2); border-radius: var(--r-xs); background: var(--surface); border: 1px solid var(--amber-45); color: var(--amber-strong);
   font: var(--fw-bold) var(--fs-micro)/1.3 var(--body); white-space: nowrap; box-shadow: var(--e1); }

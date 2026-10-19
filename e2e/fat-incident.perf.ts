@@ -3,7 +3,7 @@ import { gzipSync } from 'node:zlib'
 import type { APIRequestContext, Page } from '@playwright/test'
 import { FAT_PRESETS, fatIncident, type FatIncident, type FatPreset } from '../src/lib/fatIncident'
 // the guarded `test` (e2e/guard.ts): a client error or a render storm on a fat incident fails the run
-import { login, test } from './helpers'
+import { login, test, EINSATZ_RAIL } from './helpers'
 
 // How a LARGE or LONG Einsatz behaves end to end — a measurement, not a check. It plays a fat
 // incident (src/lib/fatIncident) into a real backend the way the crew would have built it up,
@@ -230,7 +230,7 @@ test('browser: open it on a throttled tablet', async ({ page, browserName }) => 
   })
   const t0 = performance.now()
   await login(page)
-  await page.locator('nav.navrail').waitFor({ state: 'visible', timeout: 120_000 })
+  await page.locator(EINSATZ_RAIL).waitFor({ state: 'visible', timeout: 120_000 })
   const shell = performance.now() - t0
   // «ready» = the Karte has put its symbols up (DOM markers, one per entity)
   const want = fat.workspace.entities.length

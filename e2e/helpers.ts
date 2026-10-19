@@ -59,8 +59,13 @@ export async function login(page: Page) {
 // After login the app shows either home (no open incident: «Karte & Objekte») or, if one is
 // already open server-side, the incident surfaces directly. Normalise to "an incident
 // is open" so the smoke is idempotent across a fresh container and a re-run.
+/** The Einsatz's rail – NOT the Karte & Objekte home's, which shares the `navrail` look and is
+ *  on screen whenever no Einsatz is open (its left rail always shows since the «Checkliste»
+ *  surface, 19.10.2026). Wait on this to know an Einsatz is open. */
+export const EINSATZ_RAIL = 'nav.navrail:not([data-karte] nav)'
+
 export async function ensureIncidentOpen(page: Page) {
-  const navrail = page.locator('nav.navrail')
+  const navrail = page.locator(EINSATZ_RAIL)
 
   // Home can briefly FLASH before the workspace loads and swaps in an
   // already-open incident, so we can't branch on the CTA being momentarily visible.

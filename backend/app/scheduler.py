@@ -225,6 +225,7 @@ async def _object_footprints_tick() -> None:
     """«Karte & Objekte»: ask the official sources about objects that have no buildings yet
     (app/object_footprints). Idle once every object has been asked; off when either source URL
     is empty."""
+    from .houses import tick as houses_tick
     from .object_footprints import tick
     from .underground import tick as underground_tick
 
@@ -239,6 +240,12 @@ async def _object_footprints_tick() -> None:
             await underground_tick(db)
         except Exception:
             logger.exception("Underground buildings tick failed")
+        # …and the region's houses, one footprint each, for a building tap (app/houses): the same
+        # area, idle the same way
+        try:
+            await houses_tick(db)
+        except Exception:
+            logger.exception("Houses tick failed")
 
 
 async def _plan_pull() -> None:

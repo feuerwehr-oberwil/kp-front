@@ -9,9 +9,10 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import type { StationObjects, UndergroundSet } from '../../lib/api/stationReference'
+import type { BuildingInfo } from '../../lib/api/building'
 import type { LngLat } from '../../types'
 
-const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], phone: false, board: [] as Record<string, unknown>[], catalogue: null as null | StationObjects, rules: [] as unknown[], fakeMap: null as null | object, underground: null as null | UndergroundSet, undergroundAsked: 0 }))
+const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], phone: false, board: [] as Record<string, unknown>[], catalogue: null as null | StationObjects, rules: [] as unknown[], fakeMap: null as null | object, underground: null as null | UndergroundSet, undergroundAsked: 0, building: null as null | BuildingInfo }))
 const lastMap = () => rec.map[rec.map.length - 1] as { onMapClick: (c: LngLat) => void; measurePoints: LngLat[]; onMeasureDelete?: (i: number) => void; children?: ReactNode }
 
 const CATALOGUE: StationObjects = {
@@ -56,7 +57,7 @@ vi.mock('react-map-gl/maplibre', () => ({
 vi.mock('../../lib/api/stationReference', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/api/stationReference')>()),
   loadStationObjects: async () => ({ value: rec.catalogue ?? CATALOGUE, source: 'network' as const }),
-  loadStationBuilding: async () => null,
+  loadStationBuilding: async () => (rec.building ? { value: rec.building, source: 'network' as const } : null),
   loadUnderground: async () => { rec.undergroundAsked++; return rec.underground },
 }))
 vi.mock('../../objectVisits/api', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../objectVisits/api')>()), listVisits: async () => [] }))
@@ -97,6 +98,7 @@ vi.mock('../ChecklistLibrary', () => ({ ChecklistLibrary: ({ query }: { query: s
 import KarteApp, { type KarteAppProps } from './KarteApp'
 import { Meldeleiste } from '../Meldeleiste'
 import { toast } from '../../lib/ui'
+import { fmtDistance, haversineM } from '../../lib/geo'
 import { appConfig } from '../../config/appConfig'
 import { __setUnHazardData, type UnHazardEntry } from '../../lib/unHazard'
 import adr from '../../../public/un-hazard.json'
@@ -118,6 +120,7 @@ beforeEach(() => {
   rec.fakeMap = null
   rec.underground = null
   rec.undergroundAsked = 0
+  rec.building = null
   brand.mark = null; brand.short = null
   sw.announce = null; sw.landed = false; sw.apply.mockClear(); sw.platform = 'android'
   localStorage.clear(); sessionStorage.clear()
@@ -142,6 +145,114 @@ const mount = (over: Partial<KarteAppProps> = {}) => {
 }
 
 describe('KarteApp', () => {
+  // Karte Haus round 1 (owner, variant A): a row of houses that is ONE object — a tap opens the
+  // object and remembers the house; the switch opens just that house, and the register's «this
+  // address is the object's» never throws it back
+  it('opens the object from one of its houses, and the switch opens only that house', async () => {
+    const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]
+    const west = sq(7.5700, 47.5236, 0.0002), east = sq(7.5702, 47.5236, 0.0002)
+    rec.catalogue = { ...CATALOGUE, objects: CATALOGUE.objects.map((o) => (o.id === 'schloss' ? { ...o, footprint: { type: 'MultiPolygon', coordinates: [[west], [east]] } } : o)) }
+    // the register names the house by the OBJECT's address — the rule that once opened the object
+    rec.building = {
+      registers: 'on', egid: '1', address: 'Schlossgasse 9, 9999 Musterdorf', gwr: null, gwr_status: 'none', plants: [], pv_status: 'ok',
+      registers_fetched_at: '2026-10-16T10:00:00Z', object: { id: 'schloss', name: 'Schloss Musterdorf' }, visit: null,
+    } as unknown as BuildingInfo
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    type Ov = { id: string; rings?: number[][][] }
+    const overlays = () => (lastMap() as unknown as { preparedOverlays: Ov[] }).preparedOverlays
+    const level = () => screen.queryByRole('group', { name: 'Objekt oder Haus' })
+
+    act(() => lastMap().onMapClick([7.5703, 47.5237]))
+    expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
+    // the tapped house dashed, its street on the switch once the register answers
+    expect(overlays().find((o) => o.id === 'karte-object-hit')?.rings?.[0]).toEqual(east.slice(0, 4))
+    await waitFor(() => expect(within(level()!).getByRole('button', { name: /Schlossgasse 9/ })).toBeTruthy())
+    // In der Nähe measures from the tapped house, not the object's catalogue point (owner, 19.10.)
+    const remise = within(document.querySelector('[data-section="nearby"]') as HTMLElement).getByRole('button', { name: /Remise Schloss/ })
+    expect(remise.textContent).toContain(fmtDistance(haversineM([7.5703, 47.5237], [7.56985, 47.52402])))
+
+    fireEvent.click(within(level()!).getByRole('button', { name: /Schlossgasse 9/ }))
+    expect(await screen.findByText('Teil von Schloss Musterdorf')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Schlossgasse 9' })).toBeTruthy()
+    // the register has answered with the object's address: still the house
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(screen.queryByRole('heading', { name: 'Schloss Musterdorf' })).toBeNull()
+    expect(overlays().find((o) => o.id === 'karte-building')?.rings?.[0]).toEqual(east.slice(0, 4))
+    // In der Nähe of a house never lists its own object
+    const near = document.querySelector('[data-section="nearby"]') as HTMLElement
+    expect(within(near).queryByText('Schloss Musterdorf')).toBeNull()
+    expect(within(near).getByText('Remise Schloss')).toBeTruthy()
+
+    // the level sticks while the taps stay on the object: the other house opens as a house
+    act(() => lastMap().onMapClick([7.5701, 47.5237]))
+    await waitFor(() => expect(overlays().find((o) => o.id === 'karte-building')?.rings?.[0]).toEqual(west.slice(0, 4)))
+    expect(screen.getByText('Teil von Schloss Musterdorf')).toBeTruthy()
+
+    // …and one tap goes back to the object
+    fireEvent.click(within(level()!).getByRole('button', { name: /^Objekt/ }))
+    expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
+    expect(within(level()!).getByRole('button', { name: /^Objekt/ }).getAttribute('aria-pressed')).toBe('true')
+
+    // from its tag there is no house: no switch
+    fireEvent.click(screen.getAllByRole('button', { name: 'Schloss Musterdorf' }).find((b) => b.closest('[data-marker]'))!)
+    await waitFor(() => expect(level()).toBeNull())
+    expect(overlays().some((o) => o.id === 'karte-object-hit')).toBe(false)
+  })
+
+  // Karte Haus round 1 (owner): «a hover state with cursor change so that I can briefly hover over
+  // objects and see that they're clickable» — the mouse's only, never a finger's, never under a tool
+  it('hovers with the mouse only: the pointer and the object named over its building', async () => {
+    const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]
+    const west = sq(7.5700, 47.5236, 0.0002), east = sq(7.5702, 47.5236, 0.0002)
+    rec.catalogue = { ...CATALOGUE, objects: CATALOGUE.objects.map((o) => (o.id === 'schloss' ? { ...o, footprint: { type: 'MultiPolygon', coordinates: [[west], [east]] } } : o)) }
+    const box = document.createElement('div')
+    const canvas = document.createElement('canvas')
+    box.appendChild(canvas)
+    document.body.appendChild(box)
+    let under = { lng: 7.5703, lat: 47.5237 }
+    rec.fakeMap = {
+      getCanvas: () => canvas, getContainer: () => box, unproject: () => under, project: () => ({ x: -999, y: -999 }), getZoom: () => 18,
+      getBounds: () => ({ getWest: () => 7.569, getSouth: () => 47.523, getEast: () => 7.571, getNorth: () => 47.524 }),
+      getMap: () => ({ on: () => {}, getCanvasContainer: () => box }),
+    }
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    act(() => (lastMap() as unknown as { onSettled: () => void }).onSettled())
+    type Ov = { id: string; rings?: number[][][] }
+    const overlays = () => (lastMap() as unknown as { preparedOverlays: Ov[] }).preparedOverlays
+    const move = async (pointerType: string) => {
+      const e = new MouseEvent('pointermove', { bubbles: true, clientX: 40, clientY: 40 })
+      Object.defineProperty(e, 'pointerType', { value: pointerType })
+      await act(async () => { canvas.dispatchEvent(e); await new Promise((r) => requestAnimationFrame(r)) })
+    }
+
+    await move('touch')
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    expect(canvas.style.cursor).toBe('')
+
+    await move('mouse')
+    expect(screen.getByRole('tooltip').textContent).toBe('EinsatzobjektSchloss Musterdorf')
+    expect(canvas.style.cursor).toBe('pointer')
+    // ALL its buildings brighten, the one under the cursor gets its own line
+    expect(overlays().find((o) => o.id === 'karte-hover-object')?.rings).toHaveLength(2)
+    expect(overlays().find((o) => o.id === 'karte-hover-house')?.rings?.[0]).toEqual(east.slice(0, 4))
+
+    under = { lng: 7.6, lat: 47.6 }
+    await move('mouse')
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    expect(canvas.style.cursor).toBe('default')
+    expect(overlays().some((o) => o.id.startsWith('karte-hover'))).toBe(false)
+
+    // Messen takes the taps: no hover over the building either
+    fireEvent.click(screen.getByRole('button', { name: 'Messen' }))
+    under = { lng: 7.5703, lat: 47.5237 }
+    await move('mouse')
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    expect(canvas.style.cursor).toBe('default')
+    box.remove()
+  })
+
   it('colours an object by its category and gives the category an Ebenen row that hides it', async () => {
     // the Schloss stands in a square building of its own (a server footprint) and carries Modul 1
     const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]

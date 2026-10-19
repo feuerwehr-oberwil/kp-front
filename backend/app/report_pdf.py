@@ -932,8 +932,10 @@ L = {
     "signoff": "Unterschriften",
     "sigOrtDatum": "Ort, Datum",
     "sigKommandant": "Kommandant",
-    # the small line under a drawn signature: when it was made and what it covers
-    "sigDigital": "Digital unterschrieben {at} · Prüfsumme {sum}",
+    # the small line under a drawn signature: when it was made and what it covers.
+    # ⚠️ Not «Digital unterschrieben»: that reads as a qualified e-signature (ZertES), and a drawn
+    # signature on a shared station login is a simple one – the same trust as a pen (19.10.2026)
+    "sigOnScreen": "Am Bildschirm unterschrieben {at} · Prüfsumme {sum}",
     "generatedAt": "Erstellt",
     "mittel": "Material",
     # «Gerettet», not «Gerettete»: the box is a form label followed by what was rescued
@@ -1615,7 +1617,7 @@ class _FormRows(Flowable):
                             c.saveState()
                             c.setFont("Helvetica", 6.5)
                             c.setFillColor(_LABEL)
-                            c.drawString(x, rule_y - 3.2 * mm, _fit_text(c, f["foot"], w - 2 * mm))
+                            c.drawString(x, rule_y - 3.2 * mm, _fit_text(c, f["foot"], w - 2 * mm, size=6.5))
                             c.restoreState()
                     if drawn:
                         c.setFont("Helvetica", 9)
@@ -2343,7 +2345,7 @@ def compose_report_pdf(
                 "value": g.name or default_name,
                 "sign": True,
                 "ink": g.strokes,
-                "foot": L["sigDigital"].format(at=g.at, sum=g.checksum),
+                "foot": L["sigOnScreen"].format(at=g.at, sum=g.checksum),
             },
         ]
 

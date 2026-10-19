@@ -215,6 +215,30 @@ The rules that are easy to break:
   object's buildings all wear the strong style. A tapped building opens an object otherwise only
   when the register's street + number equals the object's. No outline under a point → no
   building.
+- **A tap on a plain building selects ONE house** (Karte Haus round 1, 19.10.2026 — owner: «no
+  differentiation between Storchenweg 2, 4, or 6»): the survey's footprint under the finger
+  ([«Die Häuser»](#die-häuser-karte-haus-round-1) below), never OSM's block of a terraced row. OSM's
+  outline only where the survey's set has no house (outside the Einsatzgebiet), before the set
+  arrived, or with it off (`lib/karte/outlines · ringsAround`).
+- **Object or house — the switch** (owner, Karte Haus round 1 · variant A, 19.10.2026: «it's very
+  hard to click the underlying building if there is a plan on top of it»). A tap on one of the
+  buildings of an object that HAS several opens the object as before and remembers that building
+  (dashed blue). Right under the panel head: **Objekt** («n Pläne») | **<the house's street>**
+  («nur dieses Haus»; «Dieses Haus» until the register, asked at the tapped point as a building tap
+  asks, names it). One tap switches, both ways, on the tablet and the phone sheet. The house level
+  is the building panel for that ONE ring (blue), «Teil von <Objekt>» under its name, the switch
+  still there — and the register rule above never throws it back to the object (`Sel.of`). The
+  level sticks while the taps stay on the same object (on house level another of its buildings
+  opens as a house); another object opens at object level. Search, a list row or a tag open the
+  object without a house, so no switch.
+- **Hover is the mouse's** (owner, Karte Haus round 1: «a hover state with cursor change»). Only
+  `pointerType === 'mouse'` moves count — a finger never shows a hover state. The pointer cursor
+  over whatever a click opens (an object's building, a plain building, a tag), the normal one
+  elsewhere and while a tool takes the taps (Messen, Punkt, Gefahrgut's centre). Over an object's
+  building all its buildings brighten, the one under the cursor gets a white line and a label
+  beside the cursor names the object (kind + name); over a plain building a thin blue line, no
+  label. The mouse over a hydrant on the map (its layer on): «39 m südlich von <selected place>»
+  («Hydrant» with nothing selected), its In der Nähe row lights up; a hydrant stays not clickable.
 - ⚠️ **The tag sits ON the object's point** (owner, review round 3, 17.10.2026: «do not move the
   location of the marker»). Centred on the coordinate the station set, exactly where the dot is;
   the placement pass decides only WHETHER it shows, and a tag at a side edge slides inward at most
@@ -242,7 +266,19 @@ The rules that are easy to break:
   mid-gesture, never for the keyboard or a programmatic bearing. MapLibre's own `bearingSnap`
   (7°, a fixed 1 s ease nobody read as a snap) is off, so this is the one rule. Check on a running
   stack: `e2e/karte-north-snap.mjs`.
-- **«In der Nähe» is distance only**, and the panel says so in a sentence.
+- **«In der Nähe» is distance only**, and the panel says so in a sentence (owner, Karte Haus round
+  1: «prioritize … based on proximity and not based on their type»). ONE list, nearest first, at
+  most five rows: station objects within `NEARBY_RADIUS_M` (160 m) and hydrants mixed
+  (`lib/karte/places · nearbyPlaces`). The nearest hydrant is always in it, however far — in place
+  of the fifth row when five closer things fill it — and says «Nächster». A hydrant row is tinted
+  blue, titled «Hydrant» (the FireGIS export has no numbers; the old «Hydrant 632» was an index)
+  with the compass direction from the selected place (8 directions) under it. The mouse over the
+  row (a tap on touch, which keeps it until tapped again) shows that hydrant on the map: a ring on
+  it, a dashed line from the selected place, the metres at the line's middle; the map moves when
+  it is off-screen or under the panel, and a new selection clears it. It works with the hydrant
+  layer off. A house never lists its own object. «From the selected place» is the house that was
+  tapped whenever there is one — also on object level (owner, 19.10.2026: a row of 21 houses is not
+  stood at its catalogue point) — else the object's point (search, tag, a list row).
 - **The panel, in one order** (owner, 17.10.2026 · review round 2), the same for an object on
   the phone and on the tablet: head (kind, name, address, ✕) · the station's word
   (Sofortmassnahmen, then Bemerkungen, with their source — what matters most in a hurry) ·
@@ -764,6 +800,31 @@ as lines. Not `Unterstand`.
   vite.config). A refusal (401/403) never shows the copy.
 - **Off:** `UNDERGROUND_WFS=` (empty).
 
+## Die Häuser (Karte Haus round 1)
+
+A tap on a plain building used the OSM outline under the finger, and OSM maps Storchenweg 2/4/6 as
+ONE polygon; the official survey has one footprint per house (Bodenbedeckung `ms:LCSF`,
+`Art = Gebaeude` — what object footprints are made of). `app/houses` is `app/underground`'s pattern
+for that layer:
+
+- **Area, cadence, failure** exactly as «Unterirdische Bauten» (it reuses `underground ·
+  station_area / resolve / fetch`): the Einsatzgebiet ∪ 500 m around every object, asked by the
+  footprint job once, then weekly or when the area or source changes; a failed ask keeps the stored
+  set and waits an hour. ONE request at a time, in 1 km cells (a dense quarter has ~1 700 houses
+  per km²): geodienste.ch answers a burst of parallel asks with 502s. Every house kept once.
+- **Stored** as one GeoJSON MultiPolygon in `reference/houses.json`, no properties (the register
+  is asked at the tap's point, as before). FWO (Oberwil 2771 + 160 objects' surroundings,
+  19.10.2026): 6 657 houses, 1.46 MB, 319 KB gzipped, 9 s.
+- **`GET /api/reference/houses[?have=<fetchedAt>]`** answers like `/underground`. The Karte asks it
+  once per page load (`lib/karte/outlines · useHouses`, `lib/api/stationReference · loadHouses`),
+  keeps it in IndexedDB for offline and indexes it by the OSM cell grid (a house under every cell
+  its box touches).
+- **A tap** matches the cell's houses first and OSM only when no house contains the point
+  (`ringsAround`): never both, so OSM's block cannot win over the house in it. Objects keep their
+  own buildings (above); an object without any still falls back to the OSM outline at its point.
+  The Einsatz's Umriss picker keeps OSM (`/api/overpass/buildings`).
+- **Off:** `HOUSES_WFS=` (empty) — taps use OSM outlines again.
+
 ## Offline
 
 The viewer never downloads anything on its own for offline use; it READS what the device already
@@ -780,6 +841,7 @@ and `KarteDevice.tsx` probe). No «ganze Station herunterladen»: that would be 
 | Gebäude storeys, aligned plan | the plan's pages (PDF or tiles) + the revision's alignment metadata (IndexedDB, `lib/api/reference`) | opening Gebäude / the aligned plan once online |
 | base map | the service worker's `map-tiles` cache | looking at the area, or an Einsatz's Offline-Vorbereitung |
 | Unterirdische Bauten | IndexedDB `kp-front-station-underground` (one entry, ~250 KB for FWO) | opening the Karte or an Einsatz once online with the row on (the default) |
+| the houses a building tap selects | IndexedDB `kp-front-station-houses` (one entry, ~1.5 MB for FWO) | opening the Karte once online |
 | Gefahrgut (UN/ADR) | bundled with the app | — |
 
 What the surface shows offline:

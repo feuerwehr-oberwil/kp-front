@@ -34,9 +34,13 @@ const GEN: ChecklistTemplate = {
   steps: [{ text: 'Hauptschalter auf 0' }],
 }
 
-const mount = async (query = '') => {
+const TLF = (id: string, title: string): ChecklistTemplate => ({
+  id, kind: 'manual', title, device: 'TLF', version: 1, source: 'x', steps: [{ text: `${title} – Schritt` }],
+})
+
+const mount = async (query = '', extra: ChecklistTemplate[] = []) => {
   vi.mocked(useMediaQuery).mockReturnValue(true)
-  vi.mocked(warmTemplates).mockReturnValue({ list: Promise.resolve([FU, TAKTIK, GEN]), newer: null })
+  vi.mocked(warmTemplates).mockReturnValue({ list: Promise.resolve([FU, TAKTIK, GEN, ...extra]), newer: null })
   const view = render(<ChecklistLibrary query={query} />)
   await act(async () => {})
   return view
@@ -58,7 +62,7 @@ describe('ChecklistLibrary', () => {
     expect(screen.getByText('Objektplan bereitlegen')).toBeTruthy()
     expect(container.querySelector('[role="checkbox"], input')).toBeNull()
     expect(screen.queryByText(appConfig.copy.checklists.actionLabels.plan)).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: /Aufgaben FU/ })) // the back row
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.modes.checklists })) // the back row
     expect(screen.getByRole('button', { name: /Generator/ })).toBeTruthy()
   })
 
@@ -69,6 +73,16 @@ describe('ChecklistLibrary', () => {
     expect(screen.queryByRole('button', { name: /Aufgaben FU/ })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /Strom-Einspeisung/ }))
     expect(screen.getByText('Hauptschalter auf 0')).toBeTruthy()
+  })
+
+  it('goes back from a chapter to its device by name («‹ TLF»)', async () => {
+    await mount('', [TLF('t1', 'Bedienungstableau'), TLF('t2', 'Notbetrieb')])
+    fireEvent.click(screen.getByRole('button', { name: /^TLF/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Bedienungstableau/ }))
+    expect(screen.getByText('Bedienungstableau – Schritt')).toBeTruthy()
+    fireEvent.click(screen.getAllByRole('button', { name: 'TLF' })[0]) // the back row (the meta line's device link goes there too)
+    expect(screen.getByRole('button', { name: /Notbetrieb/ })).toBeTruthy()
+    expect(screen.queryByText('Bedienungstableau – Schritt')).toBeNull()
   })
 
   it('keeps the open page when the surface comes back (Karte ↔ Checkliste)', async () => {

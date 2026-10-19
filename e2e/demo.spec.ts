@@ -1,4 +1,4 @@
-import { test, expect } from './helpers'
+import { test, expect, EINSATZ_RAIL } from './helpers'
 
 test.use({ viewport: { width: 390, height: 844 } })
 
@@ -21,5 +21,5 @@ test('public demo entry fits a phone and reaches the prepared incident', async (
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
 
   await welcome.locator('.dw-cta').click()
-  await expect(page.locator('nav.navrail')).toBeVisible()
+  await expect(page.locator(EINSATZ_RAIL)).toBeVisible()
 })

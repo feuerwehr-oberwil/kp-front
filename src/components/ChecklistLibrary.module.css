@@ -53,13 +53,12 @@
    head row «‹ Title» – the reader's own title is hidden on a phone (it is said here) */
 .backLink { display: flex; align-items: center; gap: var(--sp-1); flex: none; align-self: flex-start; min-height: var(--tap);
   padding: 0 var(--head-pad-x); border: 0; background: none; cursor: pointer; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink-dim); }
-.backHead { display: flex; align-items: center; gap: var(--sp-2); flex: none; width: 100%; min-height: 56px;
-  padding: var(--sp-2) var(--head-pad-x); border: 0; cursor: pointer; text-align: left; background: var(--surface);
-  box-shadow: inset 0 -1px 0 var(--glass-edge); font: var(--head-title); color: var(--ink); }
-.backLink :global(.i), .backHead > :global(.i) { width: 18px; height: 18px; flex: none; color: var(--ink-dim); }
-.backTitle { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pageHead { display: flex; align-items: center; gap: var(--sp-2); flex: none; width: 100%; min-height: 48px;
+  padding: var(--sp-2) var(--head-pad-x); background: var(--surface); box-shadow: inset 0 -1px 0 var(--glass-edge); }
+.pageTitle { flex: 1 1 auto; min-width: 0; margin: 0; font: var(--head-title); color: var(--ink); overflow-wrap: break-word; }
+.backLink :global(.i) { width: 18px; height: 18px; flex: none; color: var(--ink-dim); }
 .backEnd { flex: none; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-dim); }
-.backHead:active, .backLink:active { background-image: linear-gradient(var(--press), var(--press)); }
+.backLink:active { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* the root FILLS the frame the Karte gives it (KarteApp · the Einsatz surfaces' .shell) – it is not
    a .shell itself, which would inset it a second time. A row like the Einsatz Checkliste (list

@@ -347,12 +347,13 @@ export default defineConfig(({ mode }) => {
               handler: 'NetworkOnly',
             },
             {
-              // The region's underground buildings («Unterirdische Bauten», backend app/underground):
+              // The region's outline sets — its underground buildings («Unterirdische Bauten»,
+              // backend app/underground) and its houses (app/houses, a Karte building tap):
               // megabytes, kept on the device in IndexedDB (lib/api/stationReference ·
-              // loadUnderground), which also asks with the set it holds. A second copy in the
+              // loadOutlineSet), which also asks with the set it holds. A second copy in the
               // 50-entry `reference-data` cache below would only evict the symbols and serve an
               // old set stale-first. ⚠️ Before the generic reference rule.
-              urlPattern: /\/api\/reference\/underground(?:\?|$)/,
+              urlPattern: /\/api\/reference\/(?:underground|houses)(?:\?|$)/,
               handler: 'NetworkOnly',
             },
             {

@@ -285,6 +285,14 @@ export function ChecklistsView({
               offersAction={offersAction}
             />
           ) : activeManual ? (
+            <>
+            {/* a chapter's way back names its device («‹ TLF») – the same row as the Karte's
+                Checkliste (ChecklistLibrary), owner 19.10.2026 */}
+            {chapter && (
+              <button type="button" className={s['cl-back']} onClick={() => setSel({ kind: 'device', id: chapter.group.device })}>
+                <Icon id="chevron-left" />{chapter.group.device}
+              </button>
+            )}
             <ManualReader
               manual={activeManual}
               chapter={chapter && {
@@ -293,6 +301,7 @@ export function ChecklistsView({
                 onDevice: () => setSel({ kind: 'device', id: chapter.group.device }),
               }}
             />
+            </>
           ) : activeDevice ? (
             <DevicePage group={activeDevice} onChapter={(id) => setSel({ kind: 'manual', id })} />
           ) : (
