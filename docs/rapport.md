@@ -32,9 +32,15 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
   hash-chained audit event (`report.signature.add` / `.void`).
 - **On paper** (`report_pdf · _draw_signature`): the strokes sit on the line beside the name,
   «Ort, Datum» is filled in (`map.geocoder.defaultLocality` without its postcode), and a small line
-  says «Digital unterschrieben … · Prüfsumme …». A signature that no longer holds is not sent;
-  its line prints empty. **Decision E stands**: the printed paper is the record – the strokes are
-  only how its signature got onto it. No PDF is stored, no PDF seal.
+  says «Am Bildschirm unterschrieben … · Prüfsumme …». A signature that no longer holds is not
+  sent; its line prints empty. **Decision E stands**: the printed paper is the record – the
+  strokes are only how its signature got onto it. No PDF is stored, no PDF seal.
+- **Legal standing (19.10.2026)**: a *simple* electronic signature – not an advanced or qualified
+  one under ZertES (SR 943.03), so it does not satisfy a statutory written form (OR Art. 14). Of
+  the advanced signature's four criteria it misses «sole control» and «uniquely linked to the
+  signer» (shared login, no key), and the Prüfsumme detects a change only inside the app (no key,
+  no outside timestamp). Hence «Am Bildschirm», never «digital», on the paper. A recipient who
+  needs the written form gets a printout signed by hand.
 
 ## What the figure pages carry
 
