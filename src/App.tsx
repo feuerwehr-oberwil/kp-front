@@ -218,9 +218,12 @@ export default function App() {
   // ⚠️ A REPLACE, not a push: the viewer is an operational screen now, and those have no history
   // entry behind them for an iOS edge swipe to find (objectVisits/route). The way back into the
   // Einsatz is its red chip / the «Einsätze» sheet.
+  // Leaving an ABGESCHLOSSENES Einsatz forgets it on this device: nothing runs behind the viewer,
+  // so no later reload or launch may bring it back (owner, 20.10.2026).
   const enterKarte = useCallback(() => {
+    if (activeMeta?.is_archived) savePrefs({ ...loadPrefs(), incidentId: undefined })
     setKarteEntered(true); setKarteFromEinsatz(true); navigateTo(KARTE_BASE, { replace: true })
-  }, [])
+  }, [activeMeta?.is_archived])
   // left by the browser's own back (neither the viewer nor a visit from it): the entry is spent
   if (!karteRoute && !ovRoute && karteEntered) { setKarteEntered(false); setKarteFromEinsatz(false) }
   const karteOverEinsatz = !!karteRoute && !karteEntered && !!activeId && !linkScoped
@@ -518,11 +521,12 @@ export default function App() {
       // `pickBootIncident` and a reload dropped the operator onto the start, which with
       // the launch card's Brand and Anmelde-Untertitel read as «ich bin abgemeldet worden». It is
       // fetched by id (it is not in the list to look up) and reopened READ-ONLY, exactly as «Alle
-      // Einsätze» opens it — «Wieder öffnen» stays the one way back to editing. Bounds:
-      // incidentAlerts · shouldReopenClosed.
+      // Einsätze» opens it — «Wieder öffnen» stays the one way back to editing. Only on a reload:
+      // a fresh launch lands at home. Bounds: incidentAlerts · shouldReopenClosed.
       if (plan.kind !== 'closed') return
       const saved = await getIncident(plan.id).catch(() => null)
-      if (saved && shouldReopenClosed(saved, { now: Date.now(), chosenAt: bootPrefs.incidentChosenAt })) {
+      const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+      if (saved && shouldReopenClosed(saved, { now: Date.now(), reload: nav?.type === 'reload', chosenAt: bootPrefs.incidentChosenAt })) {
         await bootOpen(saved, { readOnly: saved.is_archived })
       }
     } finally { setBootDecided(true) } })()
@@ -796,8 +800,10 @@ export default function App() {
     const backId = archiveReturnRef.current
     archiveReturnRef.current = null
     if (backId && (await selectIncident(backId).then(() => true).catch(() => false))) return
-    // a read-only view holds no unsaved edits — dispose without flushing
+    // a read-only view holds no unsaved edits — dispose without flushing; and forget it, or the
+    // next reload reopens the Einsatz just left
     if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
+    savePrefs({ ...loadPrefs(), incidentId: undefined })
     setActiveId(null); setActiveMeta(null); setForceReadOnly(false)
     setOverlay('history')
   }, [selectIncident])
