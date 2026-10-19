@@ -3,7 +3,7 @@
 // that says where it came from, «In der Nähe» with its disclaimer, and missing data said, never
 // read as «no hazard». Synthetic Musterdorf data only.
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { KartePanel, type RegisterState } from './KartePanel'
 import type { StationObject } from '../../lib/api/stationReference'
@@ -26,7 +26,7 @@ const ok: RegisterState = { state: 'ok', info: INFO, cached: false }
 
 const panel = (over: Partial<Parameters<typeof KartePanel>[0]> = {}) => render(
   <KartePanel
-    sel={{ kind: 'object', obj: SCHLOSS }} register={ok} nearby={[]} hydrants={[]} visits={{ state: 'ok', list: [] }}
+    sel={{ kind: 'object', obj: SCHLOSS }} register={ok} nearby={[]} visits={{ state: 'ok', list: [] }}
     canCapture docs={[]} sheet={false} withRail={false}
     onClose={vi.fn()} onStartVisit={vi.fn()} onReport={vi.fn()} onOpenDoc={vi.fn()}
     onSelectObject={vi.fn()} onRetryRegister={vi.fn()} onOpenVisit={vi.fn()}
@@ -238,5 +238,54 @@ describe('KartePanel · order and actions (R2)', () => {
     // the tablet keeps its own left panel
     const tab = panel()
     expect(tab.container.querySelector('section')!.classList.contains('layers-card')).toBe(false)
+  })
+
+  it('In der Nähe: one list by distance; a hydrant row says «Hydrant», «Nächster» and the direction, and shows it on hover or tap', () => {
+    const onHydrant = vi.fn()
+    const H = { id: 'h1', label: '632', coord: [7.5702, 47.5236] as [number, number] }
+    const nearby = [
+      { kind: 'hydrant' as const, item: H, distanceM: 25, dir: 4, nearest: true },
+      { kind: 'object' as const, item: { ...SCHLOSS, id: 'kg', name: 'Kindergarten' }, distanceM: 62 },
+    ]
+    const { container } = panel({ nearby, onHydrant, litHydrant: 'h1' })
+    const rows = [...container.querySelectorAll('[data-section="nearby"] button')]
+    expect(rows.map((r) => r.textContent)).toEqual(['NächsterHydrantsüdlich25 m', 'KindergartenSchlossgasse 9, 9999 Musterdorf62 m'])
+    // the index the FireGIS export carries is no hydrant number: never shown
+    expect(screen.queryByText(/632/)).toBeNull()
+    const row = rows[0]
+    expect(row.getAttribute('aria-pressed')).toBe('true')
+    // the mouse hovers; a finger's pointer events never do
+    fireEvent.pointerEnter(row, { pointerType: 'touch' })
+    expect(onHydrant).not.toHaveBeenCalled()
+    fireEvent.pointerEnter(row, { pointerType: 'mouse' })
+    fireEvent.pointerLeave(row, { pointerType: 'mouse' })
+    fireEvent.click(row)
+    expect(onHydrant.mock.calls).toEqual([['h1', 'enter'], ['h1', 'leave'], ['h1', 'tap']])
+  })
+
+  it('the switch «Objekt | <Haus>» stands under the head and opens the other level', () => {
+    const onPick = vi.fn()
+    const { container, rerender } = panel({ level: { on: 'object', plans: 3, house: null, onPick } })
+    const group = screen.getByRole('group', { name: 'Objekt oder Haus' })
+    // right under the head: the body's first part
+    expect(container.querySelector('[data-section]')?.getAttribute('data-section')).toBe('level')
+    // «Dieses Haus» until the register names the house
+    expect(group.textContent).toBe('Objekt3 PläneDieses Hausnur dieses Haus')
+    fireEvent.click(within(group).getByRole('button', { name: /^Objekt/ }))
+    expect(onPick).not.toHaveBeenCalled()
+    fireEvent.click(within(group).getByRole('button', { name: /Dieses Haus/ }))
+    expect(onPick).toHaveBeenCalledWith('house')
+    // the house level: its street, «Teil von …» under the head, the switch still there
+    rerender(
+      <KartePanel sel={{ kind: 'building', at: [7.57, 47.52], address: null, partOf: 'Storchenweg 1-16' }} register={ok} nearby={[]} visits={{ state: 'ok', list: [] }}
+        canCapture docs={[]} sheet withRail={false} level={{ on: 'house', plans: 1, house: 'Schlossgasse 9', onPick }}
+        onClose={vi.fn()} onStartVisit={vi.fn()} onReport={vi.fn()} onOpenDoc={vi.fn()} onSelectObject={vi.fn()} onRetryRegister={vi.fn()}
+        onOpenVisit={vi.fn()} onPinBuilding={vi.fn()} onCopyCoords={vi.fn()} />,
+    )
+    expect(screen.getByText('Teil von Storchenweg 1-16')).toBeTruthy()
+    const level = screen.getByRole('group', { name: 'Objekt oder Haus' })
+    expect(within(level).getByRole('button', { name: /Schlossgasse 9/ }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(within(level).getByRole('button', { name: /^Objekt/ }))
+    expect(onPick).toHaveBeenLastCalledWith('object')
   })
 })

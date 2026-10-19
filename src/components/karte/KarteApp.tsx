@@ -51,7 +51,7 @@ import { useWeather } from '../../lib/useWeather'
 import { useKarteWeather } from '../../workspace/useKarteWeather'
 import { deploymentDefaultCenter, deploymentMenuMark, deploymentName, objectCategoryRules, objectVisitsConfig } from '../../lib/deploymentConfig'
 import { defaultLayers } from '../../lib/workspace'
-import { fmtLV95, fmtWGS } from '../../lib/geo'
+import { fmtDistance, fmtLV95, fmtWGS, haversineM } from '../../lib/geo'
 import { themeToken, uiBlue } from '../../lib/themeToken'
 import { toast } from '../../lib/ui'
 import { geocodeReverse, geocodeSearch, type GeoHit } from '../../lib/api/geo'
@@ -67,7 +67,7 @@ import { fitSimilarity } from '../../lib/georef'
 import { withPdfPage } from '../../lib/whiteboard'
 import { coordOf, nearestObjects, openableCount, searchObjects } from '../../lib/karte/search'
 import {
-  nearbyObjects, nearestPoints, objectAtAddress, objectBuildings, objectVisitHref, pinNear, placeVisitHref, REPORT_CHECKLIST,
+  compass8, nearbyPlaces, objectAtAddress, objectBuildings, objectVisitHref, pinNear, placeVisitHref, REPORT_CHECKLIST,
   normAddress, pointsFromGeoJson, ringAt, splitAddress, type NamedPoint,
 } from '../../lib/karte/places'
 import { LABEL_MIN_ZOOM, placeTags, samePlacement, tagRank, tagSize, type Rect, type TagCandidate } from '../../lib/karte/labels'
@@ -90,7 +90,7 @@ import { WeatherBadge } from '../TopBar'
 import { WeatherRadarControls } from '../weatherLazy'
 import { SearchField } from '../SearchField'
 import { ChecklistLibrary } from '../ChecklistLibrary'
-import { KartePanel, type PanelSel, type RegisterState, type VisitsState } from './KartePanel'
+import { KartePanel, type HydrantCue, type PanelLevel, type PanelSel, type RegisterState, type VisitsState } from './KartePanel'
 import { KarteSearch, type AddrState } from './KarteSearch'
 import { KarteGefahrgut } from './KarteGefahrgut'
 import { KarteKeySheet } from './KarteKeySheet'
@@ -104,10 +104,28 @@ import { buildLabel } from '../../lib/buildInfo'
 import { planKey, tileRing, type TileXY } from '../../lib/karte/availability'
 import s from './Karte.module.css'
 
+// Karte Haus round 1 (owner, variant A): a tap on one of an object's buildings opens the object
+// and remembers that building (`hit`, drawn dashed); the panel's switch then opens just that house —
+// a `building` that knows it is part of the object (`of`), so the register rule «this address is
+// an object's → open the object» never throws it back.
 type Sel =
-  | { kind: 'object'; id: string; approxAt?: LngLat | null }
-  | { kind: 'building'; at: LngLat; ring: LngLat[] | null; address: string | null }
+  | { kind: 'object'; id: string; approxAt?: LngLat | null; hit?: { at: LngLat; ring: LngLat[] } }
+  | { kind: 'building'; at: LngLat; ring: LngLat[] | null; address: string | null; of?: string }
   | { kind: 'pin'; at: LngLat }
+/** what the mouse is over (never touch): an object's building, a plain building, or a hydrant */
+type Hover =
+  | { kind: 'object'; id: string; ring: LngLat[] | null }
+  | { kind: 'plain'; ring: LngLat[] }
+  | { kind: 'hydrant'; id: string }
+/** the same thing under the mouse as before (rings compare by identity: they come from one set) */
+function sameHover(a: Hover | null, b: Hover | null): boolean {
+  if (!a || !b) return a === b
+  if (a.kind === 'hydrant') return b.kind === 'hydrant' && a.id === b.id
+  if (a.kind === 'object') return b.kind === 'object' && a.id === b.id && a.ring === b.ring
+  return b.kind === 'plain' && a.ring === b.ring
+}
+/** how close (px) the mouse must come to a hydrant on the map to name it */
+const HYDRANT_HOVER_PX = 14
 type Tool = null | 'pin' | 'measure' | 'erg' | 'layers'
 
 /** layer ids the viewer draws under that are not in the deployment's list */
@@ -156,6 +174,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const online = useOnline()
   const sym = useSymbols()
   const mapRef = useRef<MapRef | null>(null)
+  // the surface's frame (the tag placement's chrome, the hover label's box)
+  const rootRef = useRef<HTMLDivElement>(null)
   const ov = objectVisitsConfig()
   const canCapture = ov.enabled && !!user && ov.captureRoles.includes(user.role)
   const lang = getLocaleId().slice(0, 2).toLowerCase()
@@ -512,11 +532,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     const hidden = phone ? p.y > window.innerHeight * (1 - SHEET_SHARE) - 16 || p.y < 90 : p.x < 440
     if (hidden) map.easeTo({ center: at, padding: panelPad(), duration: 500 })
   }
-  const selectObject = (id: string, fly = true, how: 'tap' | 'search' = 'tap') => {
+  const selectObject = (id: string, fly = true, how: 'tap' | 'search' = 'tap', hit?: { at: LngLat; ring: LngLat[] }) => {
     const o = byId.get(id)
     if (!o) return
     noteSelect(how)
-    setSel({ kind: 'object', id })
+    setSel(hit ? { kind: 'object', id, hit } : { kind: 'object', id })
     setSurface(null); setSearchOpen(false); setSheetShut(false)
     if (tool !== 'measure' && tool !== 'erg') setToolState(null)
     const at = coordOf(o)
@@ -531,9 +551,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       }).catch(() => {})
     }
   }
-  const selectBuilding = (at: LngLat, ring: LngLat[] | null, address: string | null = null) => {
+  const selectBuilding = (at: LngLat, ring: LngLat[] | null, address: string | null = null, of?: string) => {
     noteSelect()
-    setSel({ kind: 'building', at, ring, address })
+    setSel(of ? { kind: 'building', at, ring, address, of } : { kind: 'building', at, ring, address })
     setSurface(null); setSearchOpen(false); setSheetShut(false)
     if (tool !== 'measure' && tool !== 'erg') setToolState(null)
     reveal(at)
@@ -545,6 +565,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     reveal(at)
   }
   const deselect = () => { setSel(null); setSurface(null); setSheetShut(false) }
+  /** the switch «Objekt | <Haus>»: one tap to the other level, both ways, the camera left alone */
+  const toLevel = (to: 'object' | 'house') => {
+    if (to === 'house' && sel?.kind === 'object' && sel.hit) setSel({ kind: 'building', at: sel.hit.at, ring: sel.hit.ring, address: null, of: sel.id })
+    else if (to === 'object' && sel?.kind === 'building' && sel.of && sel.ring) setSel({ kind: 'object', id: sel.of, hit: { at: sel.at, ring: sel.ring } })
+  }
   // ✕ / pushed down: on the tablet the panel IS the selection; on a phone the sheet only covers
   // the map, so it goes and the place stays selected for a second look
   const closePanel = () => { giveCameraBack(); if (phone) setSheetShut(true); else deselect() }
@@ -571,8 +596,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     void loadStationBuilding(point[1], point[0], address, lang).then((r) => {
       if (!alive) return
       setReg({ key: regKey, state: r ? { state: 'ok', info: r.value, cached: r.source !== 'network' } : { state: navigator.onLine ? 'error' : 'offline', info: null, cached: false } })
-      // a building whose register address IS a catalogue object's opens that object instead
-      if (r && sel.kind === 'building') {
+      // a building whose register address IS a catalogue object's opens that object instead —
+      // never a house reached as one of an object's buildings (`of`: its level was chosen)
+      if (r && sel.kind === 'building' && !sel.of) {
         const o = objectAtAddress(objects, r.value.address) ?? (r.value.object ? byId.get(r.value.object.id) : null)
         if (o) setSel((cur) => (cur === sel ? { kind: 'object', id: o.id } : cur))
       }
@@ -582,6 +608,18 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regKey, regTry, lang])
   const register: RegisterState = reg && reg.key === regKey ? reg.state : { state: 'loading', info: null, cached: false }
+  // the switch names the tapped house by its register address, asked at the tapped point as a
+  // building tap asks (the same cached answer the house level then shows)
+  const hitAt = sel?.kind === 'object' ? sel.hit?.at ?? null : null
+  const hitKey = hitAt ? `${hitAt[0].toFixed(6)},${hitAt[1].toFixed(6)}` : null
+  const [hitAddr, setHitAddr] = useState<{ key: string; street: string | null } | null>(null)
+  useEffect(() => {
+    if (!hitKey || !hitAt) return
+    let alive = true
+    void loadStationBuilding(hitAt[1], hitAt[0], null, lang).then((r) => { if (alive) setHitAddr({ key: hitKey, street: splitAddress(r?.value.address)[0] || null }) })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hitKey is the point
+  }, [hitKey, lang])
 
   const [pinAddr, setPinAddr] = useState<{ key: string; hit: GeoHit | null; failed: boolean } | null>(null)
   const pinKey = sel?.kind === 'pin' ? `${sel.at[0].toFixed(6)},${sel.at[1].toFixed(6)}` : null
@@ -612,7 +650,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // hydrants for «In der Nähe»: the deployment's hydrant layer, fetched once when first needed
   const hydrantLayer = useMemo(() => layers.find((l) => l.geojson && l.vectorKind === 'point' && /hydrant/i.test(`${l.id} ${l.label} ${l.symbol ?? ''}`)), [layers])
   const [hydrants, setHydrants] = useState<NamedPoint[]>([])
-  const wantHydrants = !!sel && !!hydrantLayer?.geojson
+  // …and for the mouse over the map's hydrants while their layer is on (a label names the one under it)
+  const wantHydrants = !!hydrantLayer?.geojson && (!!sel || hydrantLayer.visible)
   useEffect(() => {
     if (!wantHydrants || !hydrantLayer?.geojson || hydrants.length) return
     let alive = true
@@ -622,8 +661,24 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       .catch(() => {})
     return () => { alive = false }
   }, [wantHydrants, hydrantLayer, hydrants.length])
-  const nearby = point ? nearbyObjects(objects, point, { exceptId: selObj?.id }) : []
-  const nearHydrants = point ? nearestPoints(hydrants, point) : []
+  // ONE list by distance, objects and hydrants (lib/karte/places · nearbyPlaces); a house never
+  // lists its own object
+  const exceptId = selObj?.id ?? (sel?.kind === 'building' ? sel.of ?? null : null)
+  const [px, py] = point ?? [null, null]
+  const nearby = useMemo(() => (px != null && py != null ? nearbyPlaces(objects, hydrants, [px, py], { exceptId }) : []), [objects, hydrants, px, py, exceptId])
+
+  // ── a hydrant of In der Nähe on the map (owner, Karte Haus round 1) ───────────────────────────
+  // The mouse over its row shows it while it stays there; a tap (touch) shows it until tapped
+  // again. Either way it belongs to the selection it was shown for — a new one clears it.
+  const [hydShown, setHydShown] = useState<{ sel: Sel; id: string; pinned: boolean } | null>(null)
+  const shownHyd = hydShown && hydShown.sel === sel ? hydShown : null
+  const onHydrant = (id: string, cue: HydrantCue) => {
+    if (!sel) return
+    if (cue === 'tap') setHydShown(shownHyd?.id === id && shownHyd.pinned ? null : { sel, id, pinned: true })
+    else if (cue === 'enter') { if (!shownHyd?.pinned) setHydShown({ sel, id, pinned: false }) }
+    else if (shownHyd?.id === id && !shownHyd.pinned) setHydShown(null)
+  }
+  const hydPoint = shownHyd ? hydrants.find((h) => h.id === shownHyd.id) ?? null : null
 
   // ── the aligned plan on the map (view only, opacity in Ebenen) ────────────────────────────
   const georefPlan = selObj?.plans.find((p) => p.georef) ?? null
@@ -688,6 +743,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     const mineColor = (selObj && cats.get(selObj.id)?.color) ?? red
     if (mine?.under.length) out.push({ id: 'karte-object-sel-under', kind: 'polygons', layer: ALWAYS_LAYER, rings: mine.under, color: mineColor, fillOpacity: 0.1, lineWidth: 2.5, lineOpacity: 1, lineDasharray: UNDER_DASH })
     if (mine) out.push({ id: 'karte-object-sel', kind: 'polygons', layer: ALWAYS_LAYER, rings: mine.rings, color: mineColor, fillOpacity: 0.3, lineWidth: 3, lineOpacity: 1 })
+    // …and the one building the tap hit, dashed in blue: what the switch's house level opens
+    if (sel?.kind === 'object' && sel.hit) out.push({ id: 'karte-object-hit', kind: 'polygons', layer: ALWAYS_LAYER, rings: [sel.hit.ring], color: uiBlue(), fillOpacity: 0, lineWidth: 2.5, lineOpacity: 1, lineDasharray: [2, 1.4] })
     // the building's outline — found again once its cell has loaded (a searched address flies first)
     const bRing = sel?.kind === 'building' ? sel.ring ?? ringAt(ringsNear(sel.at), sel.at) : null
     if (bRing) out.push({ id: 'karte-building', kind: 'polygons', layer: ALWAYS_LAYER, rings: [bRing], color: uiBlue(), fillOpacity: 0.16, lineWidth: 2.5, lineOpacity: 1 })
@@ -726,6 +783,20 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // measuring because it wants to create a point»). Holding a measure node is how Messen removes it
   // (MapView · vertexPress), and a hold anywhere on the map dropped a pin under the finger and left
   // Messen. A pin is set with the ⊙ tool and a tap — the one way, on the phone and the tablet.
+  /** The station object whose building is under `c`, and that building's ring (null when only an
+   *  underground structure of it is). A building two objects claim (a row of houses named by its
+   *  addresses, and a house of the row that is an object of its own) is the one whose point stands in it. */
+  const objectAt = (c: LngLat): { id: string; ring: LngLat[] | null } | null => {
+    let hit: { id: string; ring: LngLat[] | null } | null = null
+    for (const [id, b] of outlines) {
+      if (catOff(id)) continue
+      const ring = ringAt(b.rings, c)
+      if (!ring && !ringAt(b.under, c)) continue
+      if (b.main && ringAt([b.main], c)) return { id, ring }
+      hit ??= { id, ring }
+    }
+    return hit
+  }
   const onMapClick = (c: LngLat) => {
     if (tool === 'measure') { measure.setPath((pts) => [...pts, c]); return }
     if (tool === 'pin') { dropPin(c); return }
@@ -736,17 +807,15 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       const a = document.activeElement
       if (a instanceof HTMLElement && sheetFieldRef.current === a) { a.blur(); return }
     } else if (searchOpen) { setSearchOpen(false); return }
-    if (objectsOn) {
-      // any of an object's buildings opens the object; a building two objects claim (a row of
-      // houses named by its addresses, and a house of the row that is an object of its own) opens
-      // the one whose point stands in it
-      let hit: string | null = null
-      for (const [id, b] of outlines) {
-        if (catOff(id) || !(ringAt(b.rings, c) || ringAt(b.under, c))) continue
-        if (b.main && ringAt([b.main], c)) { hit = id; break }
-        hit ??= id
-      }
-      if (hit) { selectObject(hit, false); return }
+    // any of an object's buildings opens the object (`objectAt`), and remembers the building when
+    // the object has several — the switch's house (variant A). On house level the level sticks
+    // while the taps stay on the same object; another object opens at object level.
+    const hit = objectsOn ? objectAt(c) : null
+    if (hit) {
+      const house = hit.ring && (outlines.get(hit.id)?.rings.length ?? 0) > 1 ? { at: c, ring: hit.ring } : undefined
+      if (house && sel?.kind === 'building' && sel.of === hit.id) selectBuilding(c, house.ring, null, hit.id)
+      else selectObject(hit.id, false, 'tap', house)
+      return
     }
     const ring = ringAt(ringsNear(c), c)
     if (ring) { selectBuilding(c, ring); return }
@@ -755,6 +824,145 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const onEntity = (e: Entity) => {
     if (tool === 'measure') measure.setPath((pts) => [...pts, e.coord])
   }
+
+  // ── hover: the mouse and the trackpad only (owner, Karte Haus round 1) ─────────────────────────
+  // Touch never shows a hover state: only `pointerType === 'mouse'` moves are read (a finger's
+  // tap also sends compat mouse events, which never reach here). The pointer cursor stands over
+  // whatever a click opens — an object's building, a plain building (a tag has its own) — and
+  // the normal one elsewhere and while a tool takes the taps. Over an object's building ALL its
+  // buildings brighten, the one under the cursor gets a white line and a label beside the cursor
+  // names the object; a plain building gets a thin blue line. Over a hydrant (its layer on): the
+  // label says how far and which way it lies from the selected place, its In der Nähe row lights
+  // up — and it stays not clickable. The target is state (it changes rarely); the label follows
+  // the pointer by its style, so a mouse move re-renders nothing.
+  const [hover, setHover] = useState<Hover | null>(null)
+  const hoverNow = useRef<Hover | null>(null)
+  const tipRef = useRef<HTMLDivElement>(null)
+  const pointer = useRef<{ x: number; y: number } | null>(null)
+  const placeTip = useCallback(() => {
+    const el = tipRef.current, p = pointer.current, root = rootRef.current
+    if (!el || !p || !root) return
+    const r = root.getBoundingClientRect()
+    const x = p.x - r.left, y = p.y - r.top
+    const left = x + 16 + el.offsetWidth > r.width - 8 ? x - el.offsetWidth - 12 : x + 16
+    const top = y + 18 + el.offsetHeight > r.height - 8 ? y - el.offsetHeight - 12 : y + 18
+    el.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`
+  }, [])
+  const hydrantUnder = (map: MapRef, at: { x: number; y: number }, c: LngLat) => {
+    if (!hydrantLayer?.visible || !hydrants.length) return null
+    // only the hydrants within the hover reach (degrees, with room for a turned map) are projected
+    const edge = map.unproject([at.x + HYDRANT_HOVER_PX, at.y + HYDRANT_HOVER_PX])
+    const reach = Math.max(Math.abs(edge.lng - c[0]), Math.abs(edge.lat - c[1])) * 1.5
+    let best: string | null = null
+    let bestPx: number = HYDRANT_HOVER_PX
+    for (const h of hydrants) {
+      if (Math.abs(h.coord[0] - c[0]) > reach || Math.abs(h.coord[1] - c[1]) > reach) continue
+      const q = map.project(h.coord)
+      const d = Math.hypot(q.x - at.x, q.y - at.y)
+      if (d < bestPx) { bestPx = d; best = h.id }
+    }
+    return best
+  }
+  const onHoverMove = (e: PointerEvent | null) => {
+    const map = mapRef.current
+    const canvas = map && typeof map.getCanvas === 'function' ? map.getCanvas() : null
+    let next: Hover | null = null
+    pointer.current = e ? { x: e.clientX, y: e.clientY } : null
+    // over the canvas itself, no button held (a pan), no tool taking the taps
+    if (map && canvas && e && e.target === canvas && !e.buttons && !takesTaps) {
+      const r = canvas.getBoundingClientRect()
+      const at = { x: e.clientX - r.left, y: e.clientY - r.top }
+      const ll = map.unproject([at.x, at.y])
+      const c: LngLat = [ll.lng, ll.lat]
+      const hy = hydrantUnder(map, at, c)
+      const obj = !hy && objectsOn ? objectAt(c) : null
+      const ring = !hy && !obj ? ringAt(ringsNear(c), c) : null
+      next = hy ? { kind: 'hydrant', id: hy } : obj ? { kind: 'object', id: obj.id, ring: obj.ring } : ring ? { kind: 'plain', ring } : null
+    }
+    if (canvas) canvas.style.cursor = next && next.kind !== 'hydrant' ? 'pointer' : 'default'
+    if (!sameHover(hoverNow.current, next)) { hoverNow.current = next; setHover(next) }
+    placeTip()
+  }
+  // the listener is added once (with the map) and calls the handler of the latest render
+  const hoverMove = useRef(onHoverMove)
+  useEffect(() => { hoverMove.current = onHoverMove })
+  const watchingHover = useRef(false)
+  const watchHover = useCallback(() => {
+    const map = mapRef.current?.getMap?.()
+    if (!map || typeof map.getCanvasContainer !== 'function' || watchingHover.current) return
+    watchingHover.current = true
+    const box = map.getCanvasContainer()
+    let frame = 0
+    let last: PointerEvent | null = null
+    box.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse') return
+      last = e
+      frame ||= requestAnimationFrame(() => { frame = 0; hoverMove.current(last) })
+    })
+    box.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') hoverMove.current(null) })
+  }, [])
+  // a tool armed under a still mouse: the hover goes at once, not on the next move
+  const shownHover = takesTaps ? null : hover
+  useLayoutEffect(() => { placeTip() }, [shownHover, placeTip])
+  const litHydrant = shownHover?.kind === 'hydrant' ? shownHover.id : shownHyd?.id ?? null
+  /** the selected place as the hydrant label says it («… von Storchenweg 4») */
+  const placeName = selObj?.name
+    ?? (sel?.kind === 'building' ? splitAddress(register.info?.address ?? sel.address)[0] || C.building : sel?.kind === 'pin' ? C.pin : null)
+  let tip: ReactNode = null
+  if (shownHover?.kind === 'object') {
+    const o = byId.get(shownHover.id)
+    if (o) tip = <><span className={s.eyebrow}>{C.kind[o.kind]}</span><b>{o.name}</b></>
+  } else if (shownHover?.kind === 'hydrant') {
+    const h = hydrants.find((x) => x.id === shownHover.id)
+    tip = h && point && placeName
+      ? <><span className={s.eyebrow}>{C.nearHydrant}</span><b>{fillTemplate(C.hydrantFrom, { m: fmtDistance(haversineM(point, h.coord)), dir: C.compass[compass8(point, h.coord)], place: placeName })}</b></>
+      : <b>{C.nearHydrant}</b>
+  }
+  // what the mouse is over and the hydrant shown, over the selection: their own overlays, so a
+  // hover never rebuilds (and re-sends) the station's outlines
+  const blue = uiBlue()
+  const hoverOverlays = useMemo<PreparedMapOverlay[]>(() => {
+    const out: PreparedMapOverlay[] = []
+    if (shownHover?.kind === 'object') {
+      const b = outlines.get(shownHover.id)
+      if (b) out.push({ id: 'karte-hover-object', kind: 'polygons', layer: ALWAYS_LAYER, rings: b.rings, color: cats.get(shownHover.id)?.color ?? red, fillOpacity: 0.16, lineWidth: 2.6, lineOpacity: 1 })
+      if (shownHover.ring) out.push({ id: 'karte-hover-house', kind: 'polygons', layer: ALWAYS_LAYER, rings: [shownHover.ring], color: '#ffffff', fillOpacity: 0, lineWidth: 2.5, lineOpacity: 1 })
+    } else if (shownHover?.kind === 'plain') {
+      out.push({ id: 'karte-hover-plain', kind: 'polygons', layer: ALWAYS_LAYER, rings: [shownHover.ring], color: blue, fillOpacity: 0, lineWidth: 2, lineOpacity: 1 })
+    }
+    if (hydPoint && px != null && py != null) out.push({ id: 'karte-hydrant-line', kind: 'line', layer: ALWAYS_LAYER, coords: [[px, py], hydPoint.coord], color: blue, width: 3, dasharray: [2, 1.5] })
+    return out
+  }, [shownHover, outlines, cats, red, blue, hydPoint, px, py])
+  const mapOverlays = useMemo(() => (hoverOverlays.length ? [...overlays, ...hoverOverlays] : overlays), [overlays, hoverOverlays])
+
+  // the hydrant shown off-screen or under the panel: the map moves so both ends are in view
+  const hydId = shownHyd?.id ?? null
+  useEffect(() => {
+    const map = mapRef.current
+    const root = rootRef.current
+    if (!hydId || !hydPoint || px == null || py == null || !map || !root || typeof map.project !== 'function') return
+    const box = map.getContainer().getBoundingClientRect()
+    const panel = root.querySelector('[data-karte-panel]')?.getBoundingClientRect()
+    // the free part of the map: under the bar, beside the tablet's panel / above the phone's sheet
+    const free = { left: 0, top: 80, right: box.width - (phone ? 0 : 88), bottom: box.height }
+    if (panel && phone) free.bottom = panel.top - box.top
+    else if (panel) free.left = panel.right - box.left
+    const q = map.project(hydPoint.coord)
+    if (q.x > free.left + 24 && q.x < free.right - 24 && q.y > free.top + 24 && q.y < free.bottom - 24) return
+    // both ends into the free part, zoomed out only as far as the line needs: its middle to the
+    // free part's middle (an explicit zero padding, so the offset is the screen's own)
+    const o = map.project([px, py])
+    const fw = Math.max(40, free.right - free.left - 64), fh = Math.max(40, free.bottom - free.top - 64)
+    const scale = Math.min(1, fw / Math.max(1, Math.abs(q.x - o.x)), fh / Math.max(1, Math.abs(q.y - o.y)))
+    map.easeTo({
+      center: [(px + hydPoint.coord[0]) / 2, (py + hydPoint.coord[1]) / 2],
+      zoom: map.getZoom() + Math.log2(scale),
+      padding: { top: 0, bottom: 0, left: 0, right: 0 },
+      offset: [(free.left + free.right) / 2 - box.width / 2, (free.top + free.bottom) / 2 - box.height / 2],
+      duration: 500,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per hydrant shown
+  }, [hydId])
 
   // ── actions from the panel ────────────────────────────────────────────────────────────────
   /** «Objektbesuch» (the chooser) or «Melden» (`checklist` = the station's Fehlermeldung, asked
@@ -862,11 +1070,20 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   )
   const panelSel: PanelSel | null = !sel ? null
     : sel.kind === 'object' ? (selObj ? { kind: 'object', obj: selObj } : null)
-      : sel.kind === 'building' ? { kind: 'building', at: sel.at, address: sel.address }
+      : sel.kind === 'building' ? { kind: 'building', at: sel.at, address: sel.address, partOf: sel.of ? byId.get(sel.of)?.name ?? null : null }
         : {
           kind: 'pin', at: sel.at, near: pinNearHit, onBuilding: !!ringAt(ringsNear(sel.at), sel.at),
           nearState: !online && !pinHit ? 'offline' : !pinHit ? 'loading' : pinNearHit ? 'ok' : 'none',
         }
+  // the switch «Objekt | <Haus>»: after a tap that hit one of an object's buildings, on both levels
+  const levelObj = sel?.kind === 'object' && sel.hit ? selObj : sel?.kind === 'building' && sel.of ? byId.get(sel.of) ?? null : null
+  const level: PanelLevel | null = levelObj && sel ? {
+    on: sel.kind === 'object' ? 'object' : 'house',
+    plans: openableCount(levelObj),
+    house: sel.kind === 'object' ? (hitAddr && hitAddr.key === hitKey ? hitAddr.street : null)
+      : splitAddress(register.info?.address ?? null)[0] || null,
+    onPick: toLevel,
+  } : null
   const onMapSurface = !openDoc && !onLibrary
   /** the panel is on screen: on the map, not under Messen, and on a phone not under a tool's own
    *  card nor pushed away */
@@ -883,7 +1100,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // ── which objects carry their name tag (lib/karte/labels) ─────────────────────────────────
   // One greedy pass once the map has settled (`view` moves on moveend), again when what covers
   // the map changes (panel, sheet, search, a tool), and once more after a panel has slid in.
-  const rootRef = useRef<HTMLDivElement>(null)
   const measureRef = useRef<HTMLSpanElement>(null)
   const sizes = useRef(new Map<string, { w: number; h: number }>())
   /** id → how far its tag slides sideways to stay on the map */
@@ -960,6 +1176,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         <IconSprite />
         {/* the name tag's off-screen twin: what a tag measures before it is placed */}
         <span ref={measureRef} className={cx(s.tagMk, s.measure)} aria-hidden />
+        {tip && <div ref={tipRef} className={s.hoverTip} role="tooltip" data-karte-hover="">{tip}</div>}
         <MapView
           ref={mapRef}
           entities={entities}
@@ -972,7 +1189,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           showOrigin={false}
           // never past the visible base's last sharp level (owner on #383) — the Karte only
           zoomCapAtBase
-          preparedOverlays={overlays}
+          preparedOverlays={mapOverlays}
           isVisible={isVisible}
           selectedId={null}
           onSelect={onEntity}
@@ -988,7 +1205,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           onMarkerMove={NOOP}
           onMarkerDragEnd={NOOP}
           onView={(v) => { setView(v); loadOutlines() }}
-          onSettled={() => { flyPending(); loadOutlines(); watchUserMoves() }}
+          onSettled={() => { flyPending(); loadOutlines(); watchUserMoves(); watchHover() }}
           freehand={null}
           onFreehand={NOOP}
           drawColor="#000000"
@@ -1043,6 +1260,17 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             <Marker longitude={approxAt[0]} latitude={approxAt[1]} anchor="center">
               <span className={cx(s.tagMk, s.approx, s.sel)}>{C.approxTag} · {selObj.name}</span>
             </Marker>
+          )}
+          {/* the hydrant shown from In der Nähe: a ring on it, its metres at the dashed line's middle */}
+          {hydPoint && point && (
+            <>
+              <Marker longitude={hydPoint.coord[0]} latitude={hydPoint.coord[1]} anchor="center" style={{ zIndex: 4, pointerEvents: 'none' }}>
+                <span className={s.hydRing} data-karte-hydrant-ring="" />
+              </Marker>
+              <Marker longitude={(point[0] + hydPoint.coord[0]) / 2} latitude={(point[1] + hydPoint.coord[1]) / 2} anchor="center" style={{ zIndex: 4, pointerEvents: 'none' }}>
+                <span className={s.hydDist}>{fmtDistance(haversineM(point, hydPoint.coord))}</span>
+              </Marker>
+            </>
           )}
           {sel?.kind === 'pin' && (
             // the pin is the place: a tap on it brings back the sheet that was pushed away
@@ -1173,7 +1401,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             sel={panelSel}
             register={register}
             nearby={nearby}
-            hydrants={nearHydrants}
+            litHydrant={litHydrant}
+            onHydrant={onHydrant}
+            level={level}
             visits={visitsState}
             canCapture={canCapture}
             docs={docs}

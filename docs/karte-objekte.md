@@ -215,6 +215,25 @@ The rules that are easy to break:
   object's buildings all wear the strong style. A tapped building opens an object otherwise only
   when the register's street + number equals the object's. No outline under a point → no
   building.
+- **Object or house — the switch** (owner, Karte Haus round 1 · variant A, 19.10.2026: «it's very
+  hard to click the underlying building if there is a plan on top of it»). A tap on one of the
+  buildings of an object that HAS several opens the object as before and remembers that building
+  (dashed blue). Right under the panel head: **Objekt** («n Pläne») | **<the house's street>**
+  («nur dieses Haus»; «Dieses Haus» until the register, asked at the tapped point as a building tap
+  asks, names it). One tap switches, both ways, on the tablet and the phone sheet. The house level
+  is the building panel for that ONE ring (blue), «Teil von <Objekt>» under its name, the switch
+  still there — and the register rule above never throws it back to the object (`Sel.of`). The
+  level sticks while the taps stay on the same object (on house level another of its buildings
+  opens as a house); another object opens at object level. Search, a list row or a tag open the
+  object without a house, so no switch.
+- **Hover is the mouse's** (owner, Karte Haus round 1: «a hover state with cursor change»). Only
+  `pointerType === 'mouse'` moves count — a finger never shows a hover state. The pointer cursor
+  over whatever a click opens (an object's building, a plain building, a tag), the normal one
+  elsewhere and while a tool takes the taps (Messen, Punkt, Gefahrgut's centre). Over an object's
+  building all its buildings brighten, the one under the cursor gets a white line and a label
+  beside the cursor names the object (kind + name); over a plain building a thin blue line, no
+  label. The mouse over a hydrant on the map (its layer on): «39 m südlich von <selected place>»
+  («Hydrant» with nothing selected), its In der Nähe row lights up; a hydrant stays not clickable.
 - ⚠️ **The tag sits ON the object's point** (owner, review round 3, 17.10.2026: «do not move the
   location of the marker»). Centred on the coordinate the station set, exactly where the dot is;
   the placement pass decides only WHETHER it shows, and a tag at a side edge slides inward at most
@@ -242,7 +261,17 @@ The rules that are easy to break:
   mid-gesture, never for the keyboard or a programmatic bearing. MapLibre's own `bearingSnap`
   (7°, a fixed 1 s ease nobody read as a snap) is off, so this is the one rule. Check on a running
   stack: `e2e/karte-north-snap.mjs`.
-- **«In der Nähe» is distance only**, and the panel says so in a sentence.
+- **«In der Nähe» is distance only**, and the panel says so in a sentence (owner, Karte Haus round
+  1: «prioritize … based on proximity and not based on their type»). ONE list, nearest first, at
+  most five rows: station objects within `NEARBY_RADIUS_M` (160 m) and hydrants mixed
+  (`lib/karte/places · nearbyPlaces`). The nearest hydrant is always in it, however far — in place
+  of the fifth row when five closer things fill it — and says «Nächster». A hydrant row is tinted
+  blue, titled «Hydrant» (the FireGIS export has no numbers; the old «Hydrant 632» was an index)
+  with the compass direction from the selected place (8 directions) under it. The mouse over the
+  row (a tap on touch, which keeps it until tapped again) shows that hydrant on the map: a ring on
+  it, a dashed line from the selected place, the metres at the line's middle; the map moves when
+  it is off-screen or under the panel, and a new selection clears it. It works with the hydrant
+  layer off. A house never lists its own object.
 - **The panel, in one order** (owner, 17.10.2026 · review round 2), the same for an object on
   the phone and on the tablet: head (kind, name, address, ✕) · the station's word
   (Sofortmassnahmen, then Bemerkungen, with their source — what matters most in a hurry) ·

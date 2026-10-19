@@ -6,7 +6,7 @@
 //   → the station's own word (Sofortmassnahmen, Bemerkungen, with their source) — read first
 //   → Pläne & Module as rows (a row opens the Einsatz's plan reader, read-only — KartePlans)
 //   → Gebäude laut Register («Register-Hinweis», source and Stand on every line)
-//   → In der Nähe (distance only, and a sentence saying so)
+//   → In der Nähe (one list by distance, objects and hydrants, and a sentence saying so)
 //   → Objektbesuche (rows open the existing read view; a read-only line for other roles)
 //   → «Keine Gefahrenangaben … heisst nicht …»
 //   → the actions LAST: «Objektbesuch» and «Melden» (capture roles only)
@@ -23,6 +23,9 @@
 // whole panel, scrolling. Closing it leaves the place selected on the map (KarteApp). The tablet
 // keeps its left panel.
 //
+// After a tap on one of an object's buildings, the switch «Objekt | <the house>» stands right under
+// the head (Karte Haus round 1 · variant A, `level`): the whole object, or only the house tapped.
+//
 // A head whose address is still being looked up is a SKELETON, never «Gebäude» / «…» standing in
 // for a name (owner-5): the kicker already says what it is.
 
@@ -36,7 +39,7 @@ import { fmtDistance, fmtLV95, fmtWGS } from '../../lib/geo'
 import { buildingChips, buildingSources, fmtDay, noteLines } from '../../lib/buildingCard'
 import type { BuildingInfo } from '../../lib/api/building'
 import type { StationObject } from '../../lib/api/stationReference'
-import type { Near, NamedPoint } from '../../lib/karte/places'
+import type { NearRow } from '../../lib/karte/places'
 import { objectHeadSub, objectRowSub, splitAddress, streetKey } from '../../lib/karte/places'
 import type { ViewerPlanDoc } from '../../lib/karte/plans'
 import { planKey, type ObjectAvailability } from '../../lib/karte/availability'
@@ -48,7 +51,8 @@ import s from './Karte.module.css'
 
 export type PanelSel =
   | { kind: 'object'; obj: StationObject }
-  | { kind: 'building'; at: LngLat; address: string | null }
+  /** `partOf`: the house was reached as one of this object's buildings (its name) */
+  | { kind: 'building'; at: LngLat; address: string | null; partOf?: string | null }
   | { kind: 'pin'; at: LngLat; near: { label: string; distanceM: number | null } | null; nearState: 'loading' | 'ok' | 'none' | 'offline'; onBuilding: boolean }
 
 export interface RegisterState {
@@ -60,11 +64,21 @@ export interface RegisterState {
 
 export interface VisitsState { state: 'loading' | 'ok' | 'error' | 'off'; list: VisitSummary[] }
 
+/** The switch «Objekt | <Haus>»: which level is open, the object's plan count, the house's street
+ *  (null until the register names it) and the way to the other level. */
+export interface PanelLevel { on: 'object' | 'house'; plans: number; house: string | null; onPick: (to: 'object' | 'house') => void }
+
+/** A hydrant row hovered with the mouse (`enter` / `leave`) or tapped (`tap`, which toggles). */
+export type HydrantCue = 'enter' | 'leave' | 'tap'
+
 export function KartePanel(p: {
   sel: PanelSel
   register: RegisterState
-  nearby: Near<StationObject>[]
-  hydrants: Near<NamedPoint>[]
+  nearby: NearRow[]
+  /** the hydrant shown on the map (a row hovered or tapped, or the hydrant under the mouse) */
+  litHydrant?: string | null
+  onHydrant?: (id: string, cue: HydrantCue) => void
+  level?: PanelLevel | null
   visits: VisitsState
   canCapture: boolean
   docs: ViewerPlanDoc[]
@@ -113,7 +127,7 @@ export function KartePanel(p: {
         <StationWord obj={o} />
         <Plans docs={p.docs} onOpenDoc={p.onOpenDoc} avail={p.offline ? p.avail ?? null : undefined} />
         <Register key={o.id} reg={p.register} address={o.address} onRetry={p.onRetryRegister} />
-        <Nearby nearby={p.nearby} hydrants={p.hydrants} onSelectObject={p.onSelectObject} />
+        <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
         <Visits visits={p.visits} canCapture={p.canCapture} empty={C.visitsNever} onOpenVisit={p.onOpenVisit} offline={p.offline} last={o.lastVisit} />
         {!noteLines(o.measures).length && !noteLines(o.remarks).length && <div className={s.src}>{C.missing}</div>}
         <Actions canCapture={p.canCapture} onVisit={p.onStartVisit} onReport={p.onReport} />
@@ -132,7 +146,7 @@ export function KartePanel(p: {
           {resolving ? <HeadSkeleton sub /> : (
             <>
               <h2 className={s.title}>{street || C.buildingNoAddress}</h2>
-              <div className={s.sub}>{place || C.buildingNoObject}</div>
+              <div className={s.sub}>{sel.partOf ? fillTemplate(C.partOf, { name: sel.partOf }) : place || C.buildingNoObject}</div>
             </>
           )}
         </div>
@@ -143,7 +157,7 @@ export function KartePanel(p: {
     body = (
       <>
         <Register key={sel.at.join(',')} reg={p.register} address={null} onRetry={p.onRetryRegister} />
-        <Nearby nearby={p.nearby} hydrants={p.hydrants} onSelectObject={p.onSelectObject} />
+        <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
         <Visits visits={{ state: 'ok', list: [] }} canCapture={p.canCapture} empty={C.visitsNoneHere} onOpenVisit={p.onOpenVisit} />
         <div className={s.src}>{C.missing}</div>
         <Actions canCapture={p.canCapture} onReport={p.onReport} />
@@ -176,7 +190,7 @@ export function KartePanel(p: {
             </button>
           </div>
         )}
-        <Nearby nearby={p.nearby} hydrants={p.hydrants} onSelectObject={p.onSelectObject} />
+        <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
         <Actions canCapture={p.canCapture} onReport={p.onReport}
           extra={<Button key="copy" variant="secondary" icon={<Icon id="copy" />} onClick={p.onCopyCoords}>{C.copyCoords}</Button>} />
       </>
@@ -186,14 +200,14 @@ export function KartePanel(p: {
     // ⚠️ `layers-card` on the phone is not a borrowed look but the Ebenen sheet itself: its frame,
     // and the app's rules for an open bottom sheet (15-mobile · the toasts move up out of its way)
     <section className={cx(p.sheet ? cx('layers-card', s.sheet) : s.panel, p.withRail && !p.sheet && s.withRail)} aria-label={appConfig.copy.karte.title}
-      data-karte-sheet={p.sheet ? '' : undefined} {...swipe}>
+      data-karte-panel="" data-karte-sheet={p.sheet ? '' : undefined} {...swipe}>
       {p.sheet && <SheetGrab />}
       <div className={s.head}>
         {head}
         {/* THE sheet ✕ (docs/ui-conventions · Close: `.ip-x`, 36px), as Ebenen's — it was a 44px framed IconButton (review round 4) */}
         <button type="button" className="ip-x" aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog} onClick={p.onClose}><Icon id="close" /></button>
       </div>
-      <div className={s.body}>{body}</div>
+      <div className={s.body}>{p.level && <LevelSwitch level={p.level} />}{body}</div>
     </section>
   )
 }
@@ -364,26 +378,54 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
   )
 }
 
-function Nearby({ nearby, hydrants, onSelectObject }: { nearby: Near<StationObject>[]; hydrants: Near<NamedPoint>[]; onSelectObject: (id: string) => void }) {
+/** «Objekt | <Haus>» (Karte Haus round 1 · variant A): one tap opens the other level, both ways. */
+function LevelSwitch({ level }: { level: PanelLevel }) {
+  const C = appConfig.copy.karte
+  const plans = level.plans === 0 ? C.levelPlansNone : level.plans === 1 ? C.levelPlansOne : fillTemplate(C.levelPlans, { n: level.plans })
+  const part = (to: 'object' | 'house', title: string, sub: string) => (
+    <button type="button" className={cx(s.levelBtn, to === 'object' ? s.levelObj : s.levelHouse, level.on === to && s.on)}
+      aria-pressed={level.on === to} onClick={() => { if (level.on !== to) level.onPick(to) }}>
+      <Icon id="footprint" /><span className={s.levelText}><b>{title}</b><small>{sub}</small></span>
+    </button>
+  )
+  return (
+    <div className={s.level} role="group" aria-label={C.level} data-section="level">
+      {part('object', C.levelObject, plans)}
+      {part('house', level.house ?? C.levelHouse, C.levelHouseSub)}
+    </div>
+  )
+}
+
+/** In der Nähe: ONE list by distance (lib/karte/places · nearbyPlaces). An object row opens it; a
+ *  hydrant row is not a place to open — the mouse over it (or a tap, on touch) shows that hydrant
+ *  on the map with its distance (KarteApp), and the nearest one says «Nächster». */
+function Nearby({ rows, lit, onHydrant, onSelectObject }: { rows: NearRow[]; lit: string | null; onHydrant?: (id: string, cue: HydrantCue) => void; onSelectObject: (id: string) => void }) {
   const C = appConfig.copy.karte
   return (
     <div className={s.sec} data-section="nearby">
       <div className={s.secHead}><span className={s.eyebrow}>{C.nearTitle}</span></div>
-      {nearby.length + hydrants.length > 0 ? (
+      {rows.length > 0 ? (
         <div className={s.list}>
-          {nearby.map(({ item: o, distanceM }) => (
-            <button key={o.id} type="button" className={s.row} onClick={() => onSelectObject(o.id)}>
+          {rows.map((r) => r.kind === 'object' ? (
+            <button key={r.item.id} type="button" className={s.row} onClick={() => onSelectObject(r.item.id)}>
               <span className={s.rowLead}><Icon id="footprint" /></span>
-              <span className={s.rowText}><b>{o.name}</b><span>{objectRowSub(o, C.kind[o.kind])}</span></span>
-              <span className={s.rowEnd}>{fmtDistance(distanceM)}<Icon id="chevron" className={s.chev} /></span>
+              <span className={s.rowText}><b>{r.item.name}</b><span>{objectRowSub(r.item, C.kind[r.item.kind])}</span></span>
+              <span className={s.rowEnd}>{fmtDistance(r.distanceM)}<Icon id="chevron" className={s.chev} /></span>
             </button>
-          ))}
-          {hydrants.map(({ item: h, distanceM }) => (
-            <div key={h.id} className={s.row}>
+          ) : (
+            // hover is the mouse's only (a finger's pointerenter would pin nothing and flash the map)
+            <button key={r.item.id} type="button" className={cx(s.row, s.hydRow, lit === r.item.id && s.lit)} data-hydrant={r.item.id}
+              aria-pressed={lit === r.item.id}
+              onPointerEnter={(e) => { if (e.pointerType === 'mouse') onHydrant?.(r.item.id, 'enter') }}
+              onPointerLeave={(e) => { if (e.pointerType === 'mouse') onHydrant?.(r.item.id, 'leave') }}
+              onClick={() => onHydrant?.(r.item.id, 'tap')}>
               <span className={cx(s.rowLead, s.hydrant)}><Icon id="drop" /></span>
-              <span className={s.rowText}><b>{fillTemplate(C.nearHydrant, { n: h.label })}</b><span>{C.nearHydrantSub}</span></span>
-              <span className={s.rowEnd}>{fmtDistance(distanceM)}</span>
-            </div>
+              <span className={s.rowText}>
+                <b>{r.nearest && <span className={cx(s.badge, s.blue)}>{C.nearNearest}</span>}{C.nearHydrant}</b>
+                <span>{C.compass[r.dir]}</span>
+              </span>
+              <span className={s.rowEnd}>{fmtDistance(r.distanceM)}</span>
+            </button>
           ))}
         </div>
       ) : (

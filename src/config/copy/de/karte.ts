@@ -43,6 +43,16 @@ export const karteCopy = {
     building: 'Gebäude',
     buildingNoAddress: 'Gebäude ohne Adresse',
     buildingNoObject: 'Kein Stationsobjekt',
+    // the switch under the head after a tap on an object's building (Karte Haus round 1 · variant A):
+    // the whole object, or only the house that was tapped («Dieses Haus» until the register names it)
+    level: 'Objekt oder Haus',
+    levelObject: 'Objekt',
+    levelPlans: '{n} Pläne',
+    levelPlansOne: '1 Plan',
+    levelPlansNone: 'keine Pläne',
+    levelHouse: 'Dieses Haus',
+    levelHouseSub: 'nur dieses Haus',
+    partOf: 'Teil von {name}',
     pin: 'Gesetzter Punkt',
     pinNear: 'bei {a} (ca. {m} m)',
     pinLabelNear: 'bei {a}',
@@ -104,8 +114,12 @@ export const karteCopy = {
     retry: 'Erneut versuchen',
     // In der Nähe
     nearTitle: 'In der Nähe',
-    nearHydrant: 'Hydrant {n}',
-    nearHydrantSub: 'Station · Wasser',
+    nearHydrant: 'Hydrant',
+    // a hydrant row: «Nächster» on the nearest; its sub line the direction from the place
+    nearNearest: 'Nächster',
+    compass: ['nördlich', 'nordöstlich', 'östlich', 'südöstlich', 'südlich', 'südwestlich', 'westlich', 'nordwestlich'],
+    // the mouse over a hydrant on the map: «39 m südlich von Storchenweg 4»
+    hydrantFrom: '{m} {dir} von {place}',
     nearNote: 'Nach Luftlinie. Ein Objekt in der Nähe gehört nicht unbedingt zu diesem Gebäude.',
     nearNone: 'Keine Stationsobjekte in der Nähe.',
     // Objektbesuche
