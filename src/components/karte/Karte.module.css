@@ -162,12 +162,12 @@ button.row:active { background: var(--press); }
 .sheet .body { flex: 1 1 auto; min-height: 0; padding: 0 max(var(--sp-4), env(safe-area-inset-right)) var(--sp-4) max(var(--sp-4), env(safe-area-inset-left)); }
 
 /* ── name tags on the map ─────────────────────────────────────────────────────────────────── */
-/* a long name folds onto two, at most three, balanced lines at 220px instead of running off the
-   screen (owner, Karte Haus round 2: «Stallenmattstrasse 2-14, Kaibmattweg 1-5, …»); a short one
-   stays one line. The measuring twin below wears the same rules, so the placement pass collides
-   the folded size. */
+/* a long name folds onto two, at most three, balanced lines at 280px instead of running off the
+   screen (owner, Karte Haus round 2: «Stallenmattstrasse 2-14, Kaibmattweg 1-5, …»); short and
+   medium names («Amselstrasse 24-32, Auf der Wacht 2») stay one line. The measuring twin below
+   wears the same rules, so the placement pass collides the folded size. */
 .tagMk { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
-  width: max-content; max-width: 220px; text-wrap: balance; text-align: center;
+  width: max-content; max-width: 280px; text-wrap: balance; text-align: center;
   padding: 4px var(--sp-2); border-radius: var(--r-xs); border: 1.5px solid var(--red-45);
   background: var(--surface); color: var(--ink); font: var(--fw-bold) var(--fs-1)/1.2 var(--body); box-shadow: var(--e2); cursor: pointer; }
 .tagMk.sel { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-22), var(--e2); }
