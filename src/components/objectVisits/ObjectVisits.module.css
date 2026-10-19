@@ -200,7 +200,10 @@
 .note { margin: 0; font: var(--fw-medium) var(--fs-1)/1.45 var(--body); color: var(--ink-faint); }
 .storedOk { display: flex; align-items: center; gap: 8px; font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink-dim); }
 .storedOk :global(.i), .storedOk svg { flex: none; width: 15px; height: 15px; color: var(--green-strong); }
-.select { width: 100%; }
+/* «Gehört zu» past four options: a field-looking trigger for the Menu (Sheets · PhotoSheet) */
+.select { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); text-align: left; cursor: pointer; }
+.select > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.select > svg { flex: none; width: 14px; height: 14px; color: var(--ink-dim); }
 
 /* ── menu popup (the SurfaceControls recipe) ── */
 .menuPop {

@@ -290,21 +290,6 @@ button.row:active { background: var(--press); }
    the dock floating alone below it (owner-6). */
 .root.phone :global(.wb-dock) { bottom: calc(var(--rail-h) + 14px + env(safe-area-inset-bottom)); }
 .root.phone .measurePanel { bottom: calc(var(--rail-h) * 2 + 20px + env(safe-area-inset-bottom)); }
-.hintBar { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome); display: flex; align-items: center; gap: var(--sp-2);
-  box-sizing: border-box; min-height: var(--float-h); padding: var(--sp-2) var(--float-pad-x); border-radius: var(--r-sm);
-  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
-  font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); width: max-content; max-width: min(640px, calc(100vw - 32px)); }
-/* the floating family's row (01-tokens · --float-*: one row height, 14px of air before the glyph,
-   16px glyphs). Its words never touch the edge (owner, review round 4: «the padding for the "auf die
-   karte tippen"»): a message with no button in it takes --sp-2 above and below, not the --msg-pad a
-   toast's own buttons stand in — on two lines the text sat 4px from the rim */
-.hintBar svg { flex: none; width: 16px; height: 16px; color: var(--ink-dim); }
-/* «Auf die Karte tippen …» (owner, review round 2: «make it wider – currently a bit ugly»). Centred by
-   `left: 50%` the pill's shrink-to-fit width was only HALF the screen, so a sentence wrapped into a
-   narrow tall bubble. Width is said outright (max-content up to the cap); on the phone it is the
-   bottom bar's own width and lane, like the Messen readout above the same bar (one or two lines). */
-.phone .hintBar { left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); transform: none; width: auto; max-width: none;
-  bottom: calc(var(--rail-h, 60px) + 24px + env(safe-area-inset-bottom)); }
 
 /* ── the plan surface (a module PDF · the Gebäude floors) ─────────────────────────────────── */
 .surface { position: absolute; inset: 0; z-index: var(--z-surface); background: var(--board-bg, var(--app-bg)); display: flex; flex-direction: column; }

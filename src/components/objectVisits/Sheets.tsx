@@ -5,7 +5,8 @@ import { useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { Button } from '../Button'
 import { appConfig } from '../../config/appConfig'
-import { Sheet } from '../../lib/overlays'
+import { Menu, Sheet } from '../../lib/overlays'
+import { MenuPick } from '../MenuPick'
 import { LoadingStatus } from '../ShellLoader'
 import { Segmented } from '../Segmented'
 import type { Item } from '../../lib/checklists'
@@ -64,9 +65,18 @@ export function PhotoSheet({ visitId, photo, preparing, stored, items, readOnly,
                 {options.length <= 4
                   ? <Segmented ariaLabel={C.photoBelongs} options={options} value={current} onChange={setItem} />
                   : (
-                    <select className={`ip-input ${s.select}`} value={current} aria-label={C.photoBelongs} onChange={(e) => setItem(e.target.value)}>
-                      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+                    // past four the app's own menu, a tick on the current row — never a native
+                    // <select> (AGENTS.md; the line editor's «Gehört zu Trupp …» is the same pick)
+                    <Menu
+                      trigger={
+                        <button type="button" className={`ip-input ${s.select}`} aria-label={C.photoBelongs}>
+                          <span>{options.find((o) => o.value === current)?.label}</span>
+                          <Icon id="chevron-down" className="chev" />
+                        </button>
+                      }
+                      align="start" popupClassName={s.menuPop} itemClassName={() => s.menuItem}
+                      items={options.map((o) => ({ label: <MenuPick label={o.label} on={o.value === current} />, onClick: () => setItem(o.value) }))}
+                    />
                   )}
               </div>
             )}

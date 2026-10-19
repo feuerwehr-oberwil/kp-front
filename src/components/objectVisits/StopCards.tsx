@@ -52,7 +52,8 @@ export function VisitHistory({ visitId, onReport }: { visitId: string; onReport:
     <>
       <Icon id="history" className={s.rowGlyph} />
       <span className={s.rowMain}><span className={s.rowSub}>{label}</span></span>
-      {corr.length > 0 && <Icon id="chevron-down" className={s.chev} />}
+      {/* the app-wide `chev` turns it off the button's aria-expanded (02-base); the module's alone never turned */}
+      {corr.length > 0 && <Icon id="chevron-down" className={`${s.chev} chev`} />}
     </>
   )
   return (
