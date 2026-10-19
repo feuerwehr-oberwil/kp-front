@@ -1,34 +1,50 @@
 import { Icon } from '../lib/icons'
 import type { ChecklistTemplate } from '../lib/checklists'
-import { checklistAssetUrl } from '../lib/checklists'
+import { checklistAssetUrl, fmtDay } from '../lib/checklists'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { DiagramFigure, PhoneLinked } from './ChecklistReference'
 import s from './ManualReader.module.css'
 
+/** Where the open Anleitung stands among its device's chapters (lib/checklists · chapterOf) and
+ *  how to move: the reader says «Kapitel k von n» and offers the neighbours at its foot, so a
+ *  device is read through at the device without going back to the list (19.10.2026). */
+export interface ChapterNav {
+  k: number
+  n: number
+  prev: ChecklistTemplate | null
+  next: ChecklistTemplate | null
+  onGo: (manualId: string) => void
+  /** back to the device's page – the device name in the meta line becomes a link */
+  onDevice?: () => void
+}
+
 // Reading view for one Anleitung (kind: manual, 05.10.2026): a device's instructions as big
 // numbered steps — read, never ticked, so there is no state, no progress and nothing to undo.
 // A step may carry a red «Achtung» line, a quiet tip, and pictures (asset pages
 // `checklists:<id>:p<N>`, prefetched for offline by lib/checklists · warmManualImages) that open
-// in the app's one picture viewer, like a playbook diagram.
+// in the app's one picture viewer, like a playbook diagram. One of several chapters of a device
+// (DeviceManuals) also carries `chapter`: its place in the device and the way to the next.
 
-/** `2026-09-14` → `14.09.2026`; anything else verbatim (the server only lets dates through). */
-const fmtDay = (iso: string) => {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
-  return m ? `${m[3]}.${m[2]}.${m[1]}` : iso
-}
-
-export function ManualReader({ manual }: { manual: ChecklistTemplate }) {
+export function ManualReader({ manual, chapter }: { manual: ChecklistTemplate; chapter?: ChapterNav | null }) {
   const CL = appConfig.copy.checklists
-  const meta = [
-    manual.device,
+  const rest = [
+    chapter ? fillTemplate(CL.chapterOf, { k: chapter.k, n: chapter.n }) : null,
     manual.updated ? fillTemplate(CL.manualUpdated, { date: fmtDay(manual.updated) }) : null,
   ].filter(Boolean).join(' · ')
+  const device = manual.device && chapter?.onDevice
+    ? <button type="button" className={s['mn-device-link']} onClick={chapter.onDevice}>{manual.device}</button>
+    : manual.device
   return (
     <article className={s['mn-doc']}>
       <header className={s['mn-head']}>
         <h2>{manual.title}</h2>
-        {meta && <p className={s['mn-meta']}><Icon id="doc" />{meta}</p>}
+        {(manual.device || rest) && (
+          <p className={s['mn-meta']}>
+            <Icon id="doc" />
+            <span>{device}{manual.device && rest ? ' · ' : ''}{rest}</span>
+          </p>
+        )}
       </header>
       {manual.subtitle && <p className={s['mn-intro']}><PhoneLinked text={manual.subtitle} /></p>}
       <ol className={s['mn-steps']}>
@@ -68,6 +84,22 @@ export function ManualReader({ manual }: { manual: ChecklistTemplate }) {
         ))}
       </ol>
       {manual.source && <p className={s['mn-source']}>{fillTemplate(CL.manualSource, { source: manual.source })}</p>}
+      {chapter && (chapter.prev || chapter.next) && (
+        <nav className={s['mn-chapters']} aria-label={CL.chapterNav}>
+          {chapter.prev && (
+            <button type="button" className={s['mn-chapter-prev']} onClick={() => chapter.onGo(chapter.prev!.id)}>
+              <Icon id="chevron-left" />
+              <span><small>{fillTemplate(CL.chapterN, { k: chapter.k - 1 })}</small>{chapter.prev.title}</span>
+            </button>
+          )}
+          {chapter.next && (
+            <button type="button" className={s['mn-chapter-next']} onClick={() => chapter.onGo(chapter.next!.id)}>
+              <span><small>{fillTemplate(CL.chapterN, { k: chapter.k + 1 })}</small>{chapter.next.title}</span>
+              <Icon id="chevron" />
+            </button>
+          )}
+        </nav>
+      )}
     </article>
   )
 }

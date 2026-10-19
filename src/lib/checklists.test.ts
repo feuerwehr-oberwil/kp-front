@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  chapterOf,
   checklistAssetUrl,
+  deviceCover,
+  manualGroups,
+  readingPoints,
+  searchLibrary,
+  snippet,
   isChecklistTemplateId,
   matchDiveraEntries,
   phaseItems,
@@ -124,5 +130,75 @@ describe('matchDiveraEntries', () => {
       )) }]
     expect(matchDiveraEntries(many, { title: 'Brand' })).toHaveLength(4)
     expect(matchDiveraEntries(many, { title: 'Brand' }, 2)).toHaveLength(2)
+  })
+})
+
+// --- devices and the library search (19.10.2026) ---------------------------------------------
+
+const manual = (id: string, device: string, extra: Partial<ChecklistTemplate> = {}): ChecklistTemplate =>
+  ({ id, kind: 'manual', title: id, device, version: 1, source: 'x', steps: [{ text: `${id} Schritt` }], ...extra })
+
+describe('deviceCover', () => {
+  it('is the first step picture over the chapters in order, or null', () => {
+    const plain = manual('a', 'D')
+    const pictured = manual('b', 'D', { steps: [{ text: 's' }, { text: 't', images: [{ page: 4 }, { page: 5 }] }] })
+    expect(deviceCover({ device: 'D', manuals: [plain, pictured] })).toBe('/api/reference/checklists:b:p4')
+    expect(deviceCover({ device: 'D', manuals: [plain] })).toBeNull()
+  })
+})
+
+describe('chapterOf', () => {
+  const groups = manualGroups([manual('k1', 'MS'), manual('k2', 'MS'), manual('k3', 'MS'), manual('solo', 'Gen')], '')
+  it('says «k von n» and names the neighbours', () => {
+    const c = chapterOf(groups, 'k2')!
+    expect([c.k, c.n, c.prev?.id, c.next?.id]).toEqual([2, 3, 'k1', 'k3'])
+    expect(chapterOf(groups, 'k1')!.prev).toBeNull()
+  })
+  it('gives a device with one Anleitung no chapters', () => {
+    expect(chapterOf(groups, 'solo')).toBeNull()
+  })
+})
+
+describe('readingPoints', () => {
+  it('counts each phase with its first variant, or the picked one', () => {
+    const t: ChecklistTemplate = { id: 't', kind: 'action', title: 'T', version: 1, source: 'x', phases: [phaseWithBranch] }
+    expect(readingPoints(t)).toBe(2)
+    expect(readingPoints(t, { p1: 'mit' })).toBe(3)
+  })
+})
+
+describe('searchLibrary', () => {
+  const gen = manual('gen', 'Generator', { title: 'Strom-Einspeisung', keywords: ['Notstrom'], steps: [{ text: 'Hauptschalter auf 0' }] })
+  const xam = manual('xam', 'Multiwarn', { title: 'Begasungstest', steps: [{ text: 'Volumenstrom 0,5 L/min' }] })
+  const fk: ChecklistTemplate = { id: 'fk', kind: 'action', title: 'Führungskreis', version: 1, source: 'x',
+    phases: [{ id: 'p', title: 'P', items: [{ id: 'i', text: 'Elektrizität / Strom abstellen' }] }] }
+  const taktik: ChecklistTemplate = { id: 'tk', kind: 'reference', title: 'Taktik', version: 1, source: 'x', entries: [
+    { id: 'pv', title: 'Photovoltaik', keywords: ['Gleichstrom'], content: [] },
+    { id: 'gas', title: 'Gasleitung', keywords: [], content: [{ type: 'bullet', text: 'Gebäude stromlos machen' }] },
+    { id: 'ws', title: 'Wasserschaden', keywords: [], content: [] },
+  ] }
+  const all = [gen, xam, fk, taktik]
+
+  it('finds every kind, and says why when the name does not', () => {
+    const hits = searchLibrary(all, 'strom')
+    expect(hits.manuals.map((h) => [h.item.id, h.why])).toEqual([['gen', null], ['xam', { text: 'Volumenstrom 0,5 L/min' }]])
+    expect(hits.checklists.map((h) => h.why)).toEqual([{ text: 'Elektrizität / Strom abstellen' }])
+    expect(hits.references[0].entries.map((h) => [h.item.id, h.why])).toEqual([['pv', { keyword: 'Gleichstrom' }], ['gas', { text: 'Gebäude stromlos machen' }]])
+  })
+  it('finds an Anleitung by its device name', () => {
+    expect(searchLibrary(all, 'multiwarn').manuals.map((h) => h.item.id)).toEqual(['xam'])
+  })
+  it('finds nothing for an empty query (the surface shows its home)', () => {
+    expect(searchLibrary(all, '  ')).toEqual({ manuals: [], checklists: [], references: [] })
+  })
+})
+
+describe('snippet', () => {
+  it('keeps a short line whole and cuts a long one at word edges around the match', () => {
+    expect(snippet('Gebäude stromlos machen', 'strom')).toBe('Gebäude stromlos machen')
+    const src = 'Beim Begasungstest ist darauf zu achten, dass dabei der Volumenstrom 0,5 L/min betragen und konstant bleiben muss'
+    const cut = snippet(src, 'volumenstrom', 40)
+    expect(cut).toMatch(/^….*Volumenstrom.*…$/)
+    expect(src.split(' ')).toEqual(expect.arrayContaining(cut.slice(1, -1).split(' ')))
   })
 })
