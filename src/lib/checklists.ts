@@ -138,9 +138,15 @@ export interface ChecklistTemplate {
   keywords?: string[]
   /** manual templates */
   steps?: ManualStep[]
+  /** manual templates: the asset page the device card and page show (a step picture or a photo
+   *  no step shows) – absent = the first step picture (`deviceCover`) */
+  cover?: number
   /** visit templates: where they may be used — at a catalogue object, at a place (a pin or an
    *  address without one), or both. Absent = `['object']` (docs/object-visits.md). */
   targets?: ('object' | 'location')[]
+  /** NOT in the JSON: stamped by `loadTemplates` from the registry list – each asset page's
+   *  `current_version`, which makes its URL a fixed address (`checklistAssetUrl`) */
+  assetVersions?: Record<number, number>
 }
 
 // --- per-incident tick state (lives in the Saved workspace blob) ------------------
@@ -180,9 +186,33 @@ export function isChecklistTemplateId(id: string): boolean {
   return id.startsWith('checklists:') && !id.slice('checklists:'.length).includes(':')
 }
 
-/** Registry URL for a reference template's diagram asset (a source-PDF page). */
-export function checklistAssetUrl(templateId: string, page: number): string {
-  return `/api/reference/checklists:${templateId}:p${page}`
+/** what an asset URL needs of its template */
+export type AssetOwner = Pick<ChecklistTemplate, 'id' | 'assetVersions'>
+
+/**
+ * Registry URL of a template's image asset (a step picture, a cover, a playbook diagram).
+ *
+ * Carries the asset's version when the template knows it (`assetVersions`, review round 2,
+ * 19.10.2026): the server answers `?v=` = the current version as immutable, so the picture is
+ * fetched once and then painted from memory on every open. Without it (`no-cache`, an address
+ * whose bytes may change) every mount on the iPhone asked the service worker and the server
+ * again, and the device cards popped in on each open of the Checkliste surface. A replaced
+ * picture gets a new version, so a new address – nothing stale.
+ */
+export function checklistAssetUrl(template: AssetOwner, page: number): string {
+  const v = template.assetVersions?.[page]
+  return `/api/reference/checklists:${template.id}:p${page}${v ? `?v=${v}` : ''}`
+}
+
+/** each template with its asset pages' versions, from the registry list (`assetVersions`) */
+function stampAssetVersions(templates: ChecklistTemplate[], list: { id: string; current_version?: number }[]): ChecklistTemplate[] {
+  const byTemplate = new Map<string, Record<number, number>>()
+  for (const d of list) {
+    const m = /^checklists:([^:]+):p(\d+)$/.exec(d.id)
+    if (!m || !d.current_version) continue
+    byTemplate.set(m[1], { ...byTemplate.get(m[1]), [Number(m[2])]: d.current_version })
+  }
+  return templates.map((t) => (byTemplate.has(t.id) ? { ...t, assetVersions: byTemplate.get(t.id) } : t))
 }
 
 const rankKind = (k: ChecklistKind) => (k === 'manual' ? 2 : k === 'reference' ? 1 : 0)
@@ -205,7 +235,7 @@ export async function loadTemplates(): Promise<ChecklistTemplate[]> {
   const { value } = await readThrough<ChecklistTemplate[]>(
     CACHE_KEY,
     async () => {
-      const list = await apiGet<{ id: string }[]>('/api/reference')
+      const list = await apiGet<{ id: string; current_version?: number }[]>('/api/reference')
       const ids = (list ?? []).filter((d) => isChecklistTemplateId(d.id)).map((d) => d.id)
       const fetched = await Promise.all(
         ids.map((id) =>
@@ -217,7 +247,7 @@ export async function loadTemplates(): Promise<ChecklistTemplate[]> {
       // ⚠️ An Objektbesuch checklist is not an Einsatz checklist: it shares the distribution
       // (`checklists:<id>`), never the surface (docs/object-visits.md). Left out HERE, before the
       // cache is written, so no incident surface can ever list one.
-      return sortTemplates(fetched.filter((t): t is ChecklistTemplate => t !== null && t.kind !== 'visit'))
+      return stampAssetVersions(sortTemplates(fetched.filter((t): t is ChecklistTemplate => t !== null && t.kind !== 'visit')), list ?? [])
     },
     { validate: hasTemplates, fallback: () => FALLBACK, shouldFallback: () => true },
   )
@@ -253,16 +283,18 @@ export function warmTemplates(now = Date.now()): { list: Promise<ChecklistTempla
 /** test seam */
 export function resetWarmTemplates() { warm = null }
 
-/** Every image URL the read-only kinds show: an Anleitung's step images and a reference entry's
- *  diagrams. The templates are offline-cached as JSON; these are what `warmManualImages` fills. */
+/** Every image URL the read-only kinds show: an Anleitung's cover and step images and a
+ *  reference entry's diagrams. The templates are offline-cached as JSON; these are what
+ *  `warmManualImages` fills. */
 export function checklistImageUrls(templates: ChecklistTemplate[]): string[] {
   const urls = new Set<string>()
   for (const t of templates) {
+    if (t.kind === 'manual' && t.cover !== undefined) urls.add(checklistAssetUrl(t, t.cover))
     for (const step of t.kind === 'manual' ? t.steps ?? [] : []) {
-      for (const img of step.images ?? []) urls.add(checklistAssetUrl(t.id, img.page))
+      for (const img of step.images ?? []) urls.add(checklistAssetUrl(t, img.page))
     }
     for (const e of t.kind === 'reference' ? t.entries ?? [] : []) {
-      for (const b of e.content ?? []) if (b.type === 'image') urls.add(checklistAssetUrl(t.id, b.page))
+      for (const b of e.content ?? []) if (b.type === 'image') urls.add(checklistAssetUrl(t, b.page))
     }
   }
   return [...urls]
@@ -418,12 +450,15 @@ export function manualGroups(templates: ChecklistTemplate[], query: string): Dev
 /** the device an Anleitung belongs to – its own title when the manifest names none */
 export const deviceOf = (t: ChecklistTemplate) => (t.device ?? '').trim() || t.title
 
-/** The device's picture for its card and row: the first step image of its chapters, in chapter
- *  order (there is no separate device photo in the template format). null = none has a picture. */
+/** The device's picture for its card, row and page: the `cover` of the first chapter that names
+ *  one (review round 2, 19.10.2026 – a photo the Feldweibel picks), otherwise the first step
+ *  image of its chapters, in chapter order. null = none has a picture. */
 export function deviceCover(group: DeviceGroup): string | null {
+  const covered = group.manuals.find((t) => t.cover !== undefined)
+  if (covered?.cover !== undefined) return checklistAssetUrl(covered, covered.cover)
   for (const t of group.manuals) {
     const img = (t.steps ?? []).flatMap((s) => s.images ?? [])[0]
-    if (img) return checklistAssetUrl(t.id, img.page)
+    if (img) return checklistAssetUrl(t, img.page)
   }
   return null
 }

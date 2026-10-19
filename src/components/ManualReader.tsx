@@ -73,7 +73,7 @@ export function ManualReader({ manual, chapter }: { manual: ChecklistTemplate; c
               {(step.images ?? []).map((img) => (
                 <DiagramFigure
                   key={img.page}
-                  url={checklistAssetUrl(manual.id, img.page)}
+                  url={checklistAssetUrl(manual, img.page)}
                   caption={img.caption}
                   alt={img.caption ?? fillTemplate(CL.manualImageAlt, { n: i + 1 })}
                   openLabel={CL.manualImageOpen}

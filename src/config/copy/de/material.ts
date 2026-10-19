@@ -153,7 +153,6 @@ export const materialCopy = {
     chapterN: 'Kapitel {k}',
     chapterNav: 'Kapitel',
     groupChecklists: 'Checklisten',
-    groupKnowledge: 'Einsatzwissen',
     readOnlyTag: 'zum Lesen',
     readOnly: 'Zum Lesen. Abgehakt wird im Einsatz.',
     points: '{n} Punkte',

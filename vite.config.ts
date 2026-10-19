@@ -408,11 +408,13 @@ export default defineConfig(({ mode }) => {
               // background when the templates load (lib/checklists · warmManualImages), so an
               // Anleitung opened for the first time offline still has its pictures — and so a
               // few dozen images cannot evict the 50 symbol/geojson entries of the rule below.
-              // Stale-while-revalidate: the URL carries no version, a replaced picture arrives on
-              // the next online open. ⚠️ Before the generic reference rule; purged on an explicit
-              // denial with the others (public/sw-media-cache.js).
-              urlPattern: /\/api\/reference\/checklists(%3A|:)[^/?:%]+(%3A|:)p\d+$/i,
-              handler: 'StaleWhileRevalidate',
+              // Cache-first: the URL carries the asset's version (`?v=`, lib/checklists ·
+              // checklistAssetUrl, review round 2 19.10.2026), a replaced picture has a new
+              // address – so no request on every open (stale-while-revalidate asked the server
+              // each time, and the device cards popped in). ⚠️ Before the generic reference rule;
+              // purged on an explicit denial with the others (public/sw-media-cache.js).
+              urlPattern: /\/api\/reference\/checklists(%3A|:)[^/?:%]+(%3A|:)p\d+(\?v=\d+)?$/i,
+              handler: 'CacheFirst',
               options: {
                 cacheName: 'checklist-assets',
                 cacheableResponse: { statuses: [200] },

@@ -1,4 +1,6 @@
+import { useEffect } from 'react'
 import { Icon } from '../lib/icons'
+import { heldPicture, holdPicture } from '../lib/heldPictures'
 import type { DeviceGroup } from '../lib/checklists'
 import { deviceCover, deviceUpdated, fmtDay } from '../lib/checklists'
 import { appConfig } from '../config/appConfig'
@@ -20,6 +22,9 @@ function deviceSubtitle(group: DeviceGroup): string {
     : group.manuals[0]?.title ?? ''
 }
 
+/** hold a device picture's bytes for the next mount (lib/heldPictures) */
+const useHeld = (url: string | null) => useEffect(() => { if (url) holdPicture(url) }, [url])
+
 /** One device as a tappable tile. `card` = the phone library's photo card (2 per row), `row` =
  *  a list row with a thumbnail (the Einsatz rail, the tablet's list column). */
 export function DeviceTile({ group, variant, on, onOpen }: {
@@ -30,10 +35,14 @@ export function DeviceTile({ group, variant, on, onOpen }: {
   onOpen: () => void
 }) {
   const cover = deviceCover(group)
+  useHeld(cover)
+  // ⚠️ A held copy, and neither `loading="lazy"` nor `decoding="async"` (review round 2,
+  // 19.10.2026): the cards popped in on every open of the Checkliste surface (lib/heldPictures,
+  // e2e/checkliste-pictures.mjs). A station has a handful of devices; nothing to save by deferring.
   return (
     <button type="button" className={cx(m[`dv-${variant}`], on && m.on)} onClick={onOpen} aria-current={on || undefined}>
       <span className={m['dv-pic']} aria-hidden="true">
-        {cover ? <img src={cover} alt="" loading="lazy" decoding="async" /> : <Icon id="doc" />}
+        {cover ? <img src={heldPicture(cover)} alt="" /> : <Icon id="doc" />}
       </span>
       <span className={m['dv-text']}>
         <span className={m['dv-name']}>{group.device}</span>
@@ -49,6 +58,7 @@ export function DeviceTile({ group, variant, on, onOpen }: {
 export function DevicePage({ group, onChapter }: { group: DeviceGroup; onChapter: (manualId: string) => void }) {
   const CL = appConfig.copy.checklists
   const cover = deviceCover(group)
+  useHeld(cover)
   const updated = deviceUpdated(group)
   const meta = [
     fillTemplate(CL.chapters, { n: group.manuals.length }),
@@ -56,7 +66,7 @@ export function DevicePage({ group, onChapter }: { group: DeviceGroup; onChapter
   ].filter(Boolean).join(' · ')
   return (
     <article className={m['dv-page']}>
-      {cover && <img className={m['dv-hero']} src={cover} alt="" decoding="async" />}
+      {cover && <img className={m['dv-hero']} src={heldPicture(cover)} alt="" />}
       <header className={m['dv-head']}>
         <h2>{group.device}</h2>
         <p>{meta}</p>

@@ -710,6 +710,16 @@ device Anleitungen to read in peace time — the Einsatz tab's word and glyph
   object, which opens on the map. The Einsatz menu's row then reads «… zurück zu Checkliste» and the
   way back «Wieder bei Checkliste».
 - Opening it closes the map's tools and lists (the Karte tab's rule); the selected object stays.
+- **The home**: Geräte (photo cards on a phone), the checklists «zum Lesen», then each reference
+  template's Stichworte as a group of its own (Taktik · Stichworte, Grundlagen · Infos) — on a
+  phone too, nothing folded (owner, review round 2: «keep things top level and just requiring
+  some more scrolling»). A Stichwort's back row goes to the list (or to the search it came from).
+- **The device pictures paint at once** on every open after the first (review round 2: they popped
+  in each time). Two parts: the asset URL carries its version (`?v=`, `lib/checklists ·
+  checklistAssetUrl`), answered immutable and cache-first by the service worker, so nothing asks
+  the server again; and the cards and the device page show a held `blob:` copy
+  (`lib/heldPictures`), because with a worker WebKit hands every new `<img>` to it and paints the
+  picture after the first frame. Check: `e2e/checkliste-pictures.mjs --sw` against a built app.
 
 ## Object colours (`map.objectCategories`)
 

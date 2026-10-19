@@ -206,10 +206,11 @@ def _validate_template_json(src: Path, entry: ChecklistEntry) -> None:
     if problem:
         fail(f"ERROR: {src}: {problem}")
     if entry.kind == "manual":
-        # a step image the manifest does not upload would be a blank box on the tablet at 3am
+        # a step image (or the cover) the manifest does not upload would be a blank box on the
+        # tablet at 3am
         missing = sorted(manual_pages(tpl) - {a.page for a in entry.assets})
         if missing:
-            fail(f"ERROR: {src}: steps show image page(s) {missing} that the manifest entry has no asset for.")
+            fail(f"ERROR: {src}: steps or cover show image page(s) {missing} that the manifest entry has no asset for.")
 
 
 def _validate_files(manifest_path: Path, entries: list[ChecklistEntry]) -> tuple[int, int]:

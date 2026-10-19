@@ -51,8 +51,16 @@ describe('ChecklistLibrary', () => {
     const { container } = await mount()
     expect(warmTemplates).toHaveBeenCalled()
     const CL = appConfig.copy.checklists
+    // the Einsatzwissen unfolded: each reference template is a group of its Stichworte (review round 2)
     expect([...container.querySelectorAll('section')].map((g) => g.getAttribute('aria-label')))
-      .toEqual([CL.groupManuals, CL.groupChecklists, CL.groupKnowledge])
+      .toEqual([CL.groupManuals, CL.groupChecklists, TAKTIK.title])
+  })
+
+  it('opens a Stichwort from the home and goes back to the list', async () => {
+    await mount()
+    fireEvent.click(screen.getByRole('button', { name: /Photovoltaik/ }))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.modes.checklists })) // the back row
+    expect(screen.getByRole('button', { name: /Generator/ })).toBeTruthy()
   })
 
   it('shows a checklist to read: numbers, the quiet line, no boxes and no deep links', async () => {

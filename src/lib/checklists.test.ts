@@ -44,7 +44,11 @@ describe('isChecklistTemplateId', () => {
 
 describe('checklistAssetUrl', () => {
   it('builds the registry URL for a template diagram page', () => {
-    expect(checklistAssetUrl('el-playbook', 12)).toBe('/api/reference/checklists:el-playbook:p12')
+    expect(checklistAssetUrl({ id: 'el-playbook' }, 12)).toBe('/api/reference/checklists:el-playbook:p12')
+  })
+
+  it('names the asset version the template was stamped with – a fixed address', () => {
+    expect(checklistAssetUrl({ id: 'el-playbook', assetVersions: { 12: 3 } }, 12)).toBe('/api/reference/checklists:el-playbook:p12?v=3')
   })
 })
 
@@ -144,6 +148,12 @@ describe('deviceCover', () => {
     const pictured = manual('b', 'D', { steps: [{ text: 's' }, { text: 't', images: [{ page: 4 }, { page: 5 }] }] })
     expect(deviceCover({ device: 'D', manuals: [plain, pictured] })).toBe('/api/reference/checklists:b:p4')
     expect(deviceCover({ device: 'D', manuals: [plain] })).toBeNull()
+  })
+
+  it('prefers the first chapter that names a cover, even over an earlier step picture', () => {
+    const pictured = manual('a', 'D', { steps: [{ text: 's', images: [{ page: 1 }] }] })
+    const covered = manual('b', 'D', { cover: 9, assetVersions: { 9: 2 } })
+    expect(deviceCover({ device: 'D', manuals: [pictured, covered] })).toBe('/api/reference/checklists:b:p9?v=2')
   })
 })
 
