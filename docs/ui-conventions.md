@@ -427,6 +427,14 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     rows are `--done-opacity`, and the state word is in the row button's accessible name
     (`.sr-only`). The filter menu shows each state as a small row swatch (plain · tint · dimmed),
     the look the row has.
+    (12) **List row, back row** (20.10.2026, reuse audit): every list of things to open is
+    `components/ListRow` – `ListRow` (lead slot · title · sub · end · ›; a button with `onClick`,
+    static without), on a `ListCard` (white card with hairlines, 56px rows, 16px titles) or a
+    `ListCard look="rail"` (a list column beside a document: --tap rows, 14px titles, the one
+    corner), under a `ListGroup` eyebrow. «Where you are» is `on` (the ink pill). The way one level
+    up is `BackRow` «‹ Label», naming where it goes, never a bare «Zurück». The look is global
+    (13-incident: `.list-row`, `.list-card`, `.list-group`, `.back-row`); a surface fills the lead
+    slot and places them, never a `.row` of its own.
   - *Colour of a mention is not a state* (29.09.2026, owner pick A): every recognised word in the
     Verlauf – vehicle, partner, Trupp, person, material, group – is **bold `--ink`**
     (`.jr-link`), and in the composer one blue wash / one blue suggestion tint
