@@ -863,6 +863,28 @@ class ObjectWithPlans(ObjectOut):
     address_match: bool | None = None
 
 
+class BuildingSystemOut(BaseModel):
+    """One heating or hot-water system: what makes the heat, from what (app/building_facts)."""
+
+    #: heat_pump, solar_thermal, boiler, stove, chp, electric_storage, electric_direct,
+    #: heat_exchanger, electric_boiler – None when the register names no generator
+    generator: str | None = None
+    #: an energy key (see BuildingGwrOut.heating); None when the register names none
+    energy: str | None = None
+    #: the generator serves several buildings – it may stand in another one
+    shared: bool = False
+
+
+class BuildingFloorFlatsOut(BaseModel):
+    """The existing flats whose entrance is on one storey."""
+
+    #: 0 = Parterre, 1 = 1. Stock, -1 = 1. Untergeschoss
+    level: int
+    flats: int
+    #: of those, Maisonettes (spanning more than one storey)
+    maisonettes: int = 0
+
+
 class BuildingGwrOut(BaseModel):
     """GWR facts about the building — keys and numbers; the words are the app's copy."""
 
@@ -883,6 +905,17 @@ class BuildingGwrOut(BaseModel):
     shelter: bool | None = None
     #: only when the building is NOT simply «bestehend» (planned, under_construction, …)
     status: str | None = None
+    #: the Gebäudeklasse as a key (single_family, multi_family, home, school, hospital, …)
+    building_class: str | None = None
+    #: heating systems 1 and 2 with their generator; «kein Wärmeerzeuger» is left out
+    heaters: list[BuildingSystemOut] = Field(default_factory=list)
+    #: hot-water systems 1 and 2, the same way
+    water_heaters: list[BuildingSystemOut] = Field(default_factory=list)
+    #: existing flats per storey, lowest first; empty when not every flat names its storey
+    flats_by_floor: list[BuildingFloorFlatsOut] = Field(default_factory=list)
+    #: the Zimmer range of the existing flats
+    rooms_min: int | None = None
+    rooms_max: int | None = None
 
 
 class BuildingPlantOut(BaseModel):
