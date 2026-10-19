@@ -1115,9 +1115,9 @@ def test_a_drawn_signature_prints_on_its_line_with_ort_datum_and_its_small_line(
     page = _signoff_page(compose_report_pdf(payload, {}))
     text = page.get_textpage().get_text_range()
     assert "Oberwil, 15.10.2026" in text
-    assert "Digital unterschrieben 15.10.2026 04:12 · Prüfsumme 3fa9 c210 7be1" in text
+    assert "Am Bildschirm unterschrieben 15.10.2026 04:12 · Prüfsumme 3fa9 c210 7be1" in text
     # exactly one signature: the Kommandant's line has no small line of its own
-    assert text.count("Digital unterschrieben") == 1
+    assert text.count("Am Bildschirm unterschrieben") == 1
 
     # ink right of the name, on the Einsatzleiter's row (the strokes are paths, not text)
     tp = page.get_textpage()
@@ -1132,9 +1132,9 @@ def test_a_drawn_signature_prints_on_its_line_with_ort_datum_and_its_small_line(
     assert dark > 50
 
 
-def test_an_unsigned_rapport_prints_no_digital_line():
+def test_an_unsigned_rapport_prints_no_signature_line():
     page = _signoff_page(compose_report_pdf(_signature_payload([]), {}))
-    assert "Digital unterschrieben" not in page.get_textpage().get_text_range()
+    assert "Am Bildschirm unterschrieben" not in page.get_textpage().get_text_range()
 
 
 def test_signature_strokes_are_bounded():
