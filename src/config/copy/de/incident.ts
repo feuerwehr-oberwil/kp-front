@@ -274,6 +274,7 @@ export const incidentCopy = {
     planOne: 'Plan',
     planMany: 'Pläne',
     mapNote: 'Koordinaten teils ungenau – Liste ist massgebend.',
+    mapUnavailable: 'Kartenbild nicht verfügbar.',
     hideMap: 'Karte ausblenden',
     showMap: 'Karte einblenden',
   },

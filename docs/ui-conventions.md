@@ -9,6 +9,16 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
 
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, ...)`, **never** a frozen
   `rgba()` of the accent – that breaks day/night and per-station accent theming.
+- **`color-scheme` carries `only` in both themes** (`only light` / `only dark`, 01-tokens.css and
+  its boot-splash twin in `index.html`). It does two jobs: it tells the UA which palette our own
+  chrome is drawn in, so native surfaces it paints itself (scrollbars, the iOS keyboard accessory
+  bar) match – and the `only` keyword opts the page out of the UA's *force-dark* adjustment.
+  Without it, Blink's force-dark («Dark mode» in Samsung Internet, Auto Dark Theme in Chrome)
+  repaints a page that declares a scheme it doesn't claim to support: the owner's Samsung tablet
+  darkened all of our day chrome while the WebGL map canvas, which no filter touches, stayed
+  light (round 7, point 2). Do **not** "fix" that with `light dark`: that hands the native
+  surfaces back to the OS setting and re-opens the white-accessory-bar bug. Guarded by
+  `e2e/blink-force-dark.mjs`.
 - **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live
   in **`src/styles/NN-*.css`** – one numbered file per block (tokens, base, map, chrome, one per
   surface), listed in order by `src/app.css`, which is now a manifest of `@import`s and holds no
