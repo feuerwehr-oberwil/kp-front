@@ -152,8 +152,8 @@ export const karteCopy = {
     // «Unterirdische Bauten» (backend app/underground): on by default, part of «Standard» — also the
     // Einsatz's Ebenen row (lib/underground · undergroundLayerDef: label + group «Station»)
     layerUnderground: 'Unterirdische Bauten',
-    layerUndergroundSub: 'Tiefgaragen, Schutzräume, Tunnel … · amtliche Vermessung · ab Strassenzoom',
-    layerUndergroundCount: '{n} Bauten · amtliche Vermessung · ab Strassenzoom',
+    layerUndergroundSub: 'Tiefgaragen, Schutzräume, Tunnel … · amtliche Vermessung',
+    layerUndergroundCount: '{n} Bauten · amtliche Vermessung',
     layerUndergroundLoading: 'Wird geladen …',
     layerUndergroundNone: 'Nicht verfügbar – noch nicht geladen oder nicht eingerichtet',
     layerGroupPlans: 'Pläne',

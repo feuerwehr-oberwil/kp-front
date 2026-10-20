@@ -33,10 +33,13 @@
    20.10.2026: «the entire point of the card is to show the content»). It was the grey shell
    ground with a white document card inset in it, a card in a card with the right half empty.
    Now the pane is the list's white, the rail's hairline between them, and every reader in it
-   (ManualReader, DevicePage, the Stichwort, the runner) is ONE left-aligned column of
-   --cl-col on that white. The phone and the ≤760 one-page layout keep the page ground (below). */
+   (ManualReader, DevicePage, the Stichwort, the runner) is ONE column of
+   --cl-col on that white, CENTRED in the pane (owner 20.10.2026, after round 5: «not all to the
+   left with a huge gap to the right»). The phone and the ≤760 one-page layout keep the page
+   ground (below). */
 .cl-main { --cl-col: 760px; flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable;
   padding: var(--sp-6) clamp(var(--sp-5), 4vw, var(--sp-7)); background: var(--surface); }
+.cl-main > * { margin-inline: auto; }
 
 /* --- action / rapport runner --- */
 .cl-runner { max-width: var(--cl-col, 760px); }

@@ -314,7 +314,7 @@ The rules that are easy to break:
   (no coordinates, the register unreachable) keeps its box.
 - **One rhythm** (owner, Karte Haus review round 4: «do a ui hierarchy pass. it feels like some
   buttons are larger than others»; picked mock A, the phone sheet too): one size per role in the
-  panel. Every list row is 48px with its quiet sub on the title's line («Hydrant südlich»; it
+  panel. Every list row is 44px with a 14px title (round 6) and its quiet sub on the title's line («Hydrant südlich»; it
   wraps under the title only where the two do not fit) and its read-out one step smaller; a plan
   row leads with a document glyph (the Gebäude with the floors glyph), so its words start where
   In der Nähe's do. The switch is 36px and neutral, the ✕ 32px, the register tags 26px and
@@ -760,7 +760,7 @@ device Anleitungen to read in peace time — the Einsatz tab's word and glyph
 - **The reading pane** (owner pick A, review round 5, 20.10.2026: «the entire point of the card is
   to show the content»): beside the list column the pane IS the surface – the list's white, a
   hairline between them, no white card inset on grey. Every reader in it (Anleitung, device page
-  with its picture as a wide header, Stichwort, checklist) is ONE left-aligned column of 760px;
+  with its picture as a wide header, Stichwort, checklist) is ONE centred column of 760px;
   pictures at most 600px wide and 60% of the screen tall, at their own proportions
   (`Checklists.module.css · .cl-main`). The same in the Einsatz Checkliste (one set of
   components). The Stichwort's 2-column flow above 980px is gone with it. Phone and the ≤760px
