@@ -21,8 +21,9 @@ import { cx } from '../lib/cx'
  *  has `onClick` (with the chevron), a static `<div>` without (no chevron, no press). `on` = «where
  *  you are» (the document beside the list shows this row): the ink pill, aria-current. Density
  *  comes from the container: 56px with a 16px title on a `ListCard` (or on its own), the compact
- *  --tap row with a 14px title in a `look="rail"` card (a list column beside a document). */
-export function ListRow({ lead, title, sub, end, chevron, on, disabled, onClick, className, ...rest }: {
+ *  --tap row with a 14px title in a `look="rail"` card (a list column beside a document).
+ *  `children` go under the text, inside its column – a progress bar (Objektbesuche's rounds). */
+export function ListRow({ lead, title, sub, end, chevron, on, disabled, onClick, className, children, ...rest }: {
   /** the leading slot: a 18px glyph, a hazard chip, a thumbnail, a number – sized by itself */
   lead?: ReactNode
   title: ReactNode
@@ -36,13 +37,15 @@ export function ListRow({ lead, title, sub, end, chevron, on, disabled, onClick,
   disabled?: boolean
   onClick?: () => void
   className?: string
-} & Omit<HTMLAttributes<HTMLElement>, 'title' | 'onClick' | 'className'>) {
+  children?: ReactNode
+} & Omit<HTMLAttributes<HTMLElement>, 'title' | 'onClick' | 'className' | 'children'>) {
   const body = (
     <>
       {lead != null && <span className="list-row-lead">{lead}</span>}
       <span className="list-row-text">
         <span className="list-row-title">{title}</span>
         {sub != null && sub !== '' && <span className="list-row-sub">{sub}</span>}
+        {children}
       </span>
       {end != null && end !== '' && <span className="list-row-end">{end}</span>}
       {(chevron ?? !!onClick) && <Icon id="chevron" className="list-row-chev" />}

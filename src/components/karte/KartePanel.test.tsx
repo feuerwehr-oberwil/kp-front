@@ -206,8 +206,8 @@ describe('KartePanel · order and actions (R2)', () => {
     expect(rows.map((r) => r.textContent)).toEqual(['Modul 1', 'Gebäude'])
     // one shape for every row: the words, the chevron — no lead glyph, no second line
     for (const r of rows) {
-      expect(r.querySelectorAll('b')).toHaveLength(1)
-      expect(r.querySelector('[class*="rowLead"]')).toBeNull()
+      expect(r.querySelector('.list-row-title')).not.toBeNull()
+      expect(r.querySelector('.list-row-lead, .list-row-sub')).toBeNull()
     }
     expect(container.textContent).not.toMatch(/Übersicht|PDF|ausgerichtet|Geschosse vorbereitet/)
     fireEvent.click(screen.getByRole('button', { name: 'Modul 1' }))

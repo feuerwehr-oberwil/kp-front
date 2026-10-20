@@ -24,6 +24,7 @@ import { lastWith } from '../../objectVisits/devicePrefs'
 import type { CatalogueObject, VisitTemplate } from '../../objectVisits/types'
 import { Head } from './common'
 import { useOv } from './ovContext'
+import { ListCard, ListRow } from '../ListRow'
 import s from './ObjectVisits.module.css'
 
 export function NewVisit({ objectKey = '', workRef = null, place = null, from, after, checklist = null }: {
@@ -132,26 +133,15 @@ export function NewVisit({ objectKey = '', workRef = null, place = null, from, a
           <p className={s.lead}>
             {target ? (filing ? fillTemplate(C.placeChooseLeadFolder, { folder: filing }) : C.placeChooseLead) : C.chooseChecklistLead}
           </p>
-          <div className={s.card}>
+          <ListCard>
             {templates.map((t) => (
-              <button key={t.id} type="button" className={s.row} onClick={() => setChosen({ t })}>
-                <Icon id="checklist" className={s.rowGlyph} />
-                <span className={s.rowMain}>
-                  <span className={s.rowTitle}>{t.title}</span>
-                  {t.subtitle && <span className={s.rowSub}>{t.subtitle}</span>}
-                </span>
-                {doneHere.has(t.id) && <span className="ip-badge ip-badge-ok">{C.checklistDone}</span>}
-                <Icon id="chevron" className={s.chev} />
-              </button>
+              <ListRow key={t.id} lead={<Icon id="checklist" />} title={t.title} sub={t.subtitle} onClick={() => setChosen({ t })}
+                end={doneHere.has(t.id) && <span className="ip-badge ip-badge-ok">{C.checklistDone}</span>} />
             ))}
-            <button type="button" className={s.row} onClick={() => setChosen({ t: null })}>
-              {/* the glyph's room, so the title lines up with the checklists above */}
-              <span className={s.rowGlyph} aria-hidden />
-              <span className={s.rowMain}><span className={s.rowTitle}>{C.noChecklist}</span></span>
-              {doneHere.has(null) && <span className="ip-badge ip-badge-ok">{C.checklistDone}</span>}
-              <Icon id="chevron" className={s.chev} />
-            </button>
-          </div>
+            {/* an empty lead keeps the glyph's room, so the title lines up with the checklists above */}
+            <ListRow lead={<span aria-hidden />} title={C.noChecklist} onClick={() => setChosen({ t: null })}
+              end={doneHere.has(null) && <span className="ip-badge ip-badge-ok">{C.checklistDone}</span>} />
+          </ListCard>
         </>
       )
     }
