@@ -95,14 +95,14 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    nowrap labels that ran out of their column) */
 .quick { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 /* ── one rhythm (owner, Karte Haus review round 4: «it feels like some buttons are larger than
-   others»; picked mock A, the phone sheet too): ONE size per role in the panel – a list row 48px
-   with its quiet sub on the title's line (it wraps under the title only where the two do not fit:
+   others»; picked mock A, the phone sheet too): ONE size per role in the panel – a list row 44px with a 14px title (round 6:
+   «the text is too big for what it is»), its quiet sub on the title's line (it wraps under the title only where the two do not fit:
    a long object name), its read-out at the end one step smaller; the switch 36 (above) and the ✕
    32; the register tags 26, outlined (BuildingFacts – the Einsatz card's too); the actions the .ip-btn's 44. Compounded with the panel's
    body, so the global row (search, library, Objektbesuche) keeps its own density */
-.body :global(.list-row) { min-height: 48px; }
+.body :global(.list-row) { min-height: var(--tap); }
 .body :global(.list-row-text) { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: var(--sp-2); row-gap: 0; }
-.body :global(.list-row-title) { font-size: var(--fs-3); }
+.body :global(.list-row-title) { font-size: var(--fs-2); }
 .body :global(.list-row-end) { font-size: var(--fs-1); }
 .head :global(.ip-x) { width: 32px; height: 32px; }
 .sec { display: flex; flex-direction: column; gap: var(--sp-2); }
