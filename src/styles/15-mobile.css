@@ -252,21 +252,8 @@
        the bottom of the tool dock — under the buttons, on a control that is dragged with a thumb
        and needs no indicator to be discovered. It still scrolls. */
     scrollbar-width: none; -ms-overflow-style: none; }
-  /* Mobile tool options share the popup material. */
-  .phone-tools .wb-dock { background: var(--float-bg); backdrop-filter: var(--float-blur);
-    box-shadow: var(--float-edge); color: var(--ink);
-    --dock-control-bg: color-mix(in srgb, var(--ink) 7%, var(--surface)); }
-  .phone-tools .wb-dock .wb-dock-ic { color: var(--ink-dim); }
-  .phone-tools .wb-dock .wb-style-sep { background: var(--glass-line); }
-  .phone-tools .wb-dock .wb-ls { --ls-ink: var(--ink); }
-  .phone-tools .wb-dock .wb-ww span { background: var(--ink); }
-  .phone-tools .wb-dock .wb-sw.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--glass-line); }
-  .phone-tools .wb-dock .wb-ww.on, .phone-tools .wb-dock .wb-ls.on { background: var(--sel-wash); }
-  .phone-tools .wb-dock .wb-dock-x { background: var(--dock-control-bg); color: var(--ink-dim); }
-  .phone-tools .wb-dock .wb-dock-go { background: var(--btn-primary); color: var(--on-btn-primary); }
-  .phone-tools .wb-dock .wb-dock-tog.on { background: var(--sel-wash); color: var(--ink); }
-  .phone-tools .wb-dock .wb-dock-tog:not(.on), .phone-tools .wb-dock .wb-ww:not(.on),
-  .phone-tools .wb-dock .wb-ls:not(.on) { background: var(--dock-control-bg); color: var(--ink-dim); }
+  /* (the bar's material — the floating glass, theme inks — is the base .wb-dock's since
+     20.10.2026: one material on phone and tablet, 09-whiteboard) */
   .phone-tools .wb-dock::-webkit-scrollbar { display: none; }
   /* buttons keep their size instead of flex-shrinking when a busy dock overflows — otherwise the
      round × / ℹ squashed into ovals in line/area docks while the bar scrolled */
@@ -282,10 +269,7 @@
      buttons, 16/17/18 icons). ℹ matches (DockInfo). */
   .phone-tools .wb-dock .wb-dock-tog, .phone-tools .wb-dock .wb-dock-go,
   .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: var(--tap); min-width: var(--tap); height: var(--tap); border-radius: var(--r-sm); }
-  /* The sticky ✕ keeps its neutral fill inside the button. Surface-coloured masking shadows
-     painted a second, mismatched block over the dock's glass. */
-  .phone-tools .wb-dock .wb-dock-x { width: var(--tap); height: var(--tap); z-index: 2;
-    box-shadow: none; }
+  .phone-tools .wb-dock .wb-dock-x { width: var(--tap); height: var(--tap); }
   .phone-tools .wb-dock .i { width: 18px; height: 18px; }
   /* the armed mode's ONE line (ToolDock · hint): the dock grows a second row for it — the
      buttons stay one scrolling row above it, the words wrap never and end in an ellipsis on the

@@ -782,7 +782,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 
 /* ── the touch hold-tooltip (lib/holdTooltip) ──
    Hold an icon-only button ~500 ms and its word appears here instead of the action firing —
-   the tablet's answer to the mouse-only `title`. Same dark pill as the tool dock, so it reads
+   the tablet's answer to the mouse-only `title`. Same glass as the tool dock, so it reads
    as chrome speaking, not as content. `pointer-events: none`: it must never eat the tap it is
    explaining. */
 /* ⚠️ Centred and balanced (01.09.). It used to hold one WORD («Schaum»), so alignment never came

@@ -44,6 +44,7 @@
 }
 .vrail-nbtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .vrail-nbtn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+@media (hover: hover) { .vrail-nbtn.on:hover:not(:disabled) { background: var(--ink-fill-hover); } }
 .vrail-nbtn:disabled { opacity: var(--disabled); cursor: default; }
 /* zoom ± is a MOUSE affordance: every touch form factor pinches, so the two buttons only cost
    rail height the tools need more. Phones already drop the whole footer (15-mobile.css); this

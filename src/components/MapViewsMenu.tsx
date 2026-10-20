@@ -92,7 +92,7 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
   // Einsatz menu, which has neither ✕ nor a lone ⓘ tile — the two cost ~120px on a phone.
   return createPortal(
     <>
-      {/* same dark dock as the measure/draw ToolDock, in the same spot: centred just left of
+      {/* same spot as the measure/draw ToolDock, and the same glass: centred just left of
           the right tool rail (see .wb-dock / .wb-dock-map); the ⓘ ends the last row. */}
       <div className={cx(s.pop, s.dock, "mv-dock")} role="dialog" aria-label={cp.title}>
         <button className={cx(s.row, s.north)} onClick={() => { api.onResetNorth(); onClose() }}>
