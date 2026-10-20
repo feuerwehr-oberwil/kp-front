@@ -724,25 +724,35 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    sidebar in lightmode?»). The dock wore --ink-fill — dark in BOTH themes, the «armed mode»
    material — with hard-coded white inks; only the phone's bar was light. What is armed now reads
    from the armed button alone (.wb-dock-tog.on, the accent fill). Every ink here is a theme token.
-   --dock-control-bg is OPAQUE (mixed into --surface) because the sticky ✕ wears it. */
+   --dock-control-bg is OPAQUE (mixed into --surface) because the sticky ✕ wears it.
+   The column is the tool rail's twin (owner 20.10.: «a slightly different size compared to the
+   sidebar»): the rail's glass shell, corner, inset and 4px gap (04b-rail · .rail), and every
+   button the rail's 46px square (below) – so the two read as one pair, 60px wide each. */
 .wb-dock { position: absolute; right: 114px; top: calc(14px + env(safe-area-inset-top)); z-index: var(--z-dock-raised);
-  display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
   /* On a short viewport the stack can exceed the available height. Scroll it as ONE column
      (thin scrollbar) instead of flex-wrapping into a lopsided second column — which overflowed
      the sidebar ugly. Colour swatches stay compact via the 2-wide .wb-sw-grid. */
   flex-wrap: nowrap; max-height: calc(100dvh - 168px); overflow-y: auto; overflow-x: hidden;
   scrollbar-width: thin; scrollbar-color: var(--ink-22) transparent;
-  background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink);
-  border-radius: var(--r-surface); padding: var(--sp-2);
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink);
+  border-radius: var(--r-bar); padding: var(--bar-pad);
   --dock-control-bg: color-mix(in srgb, var(--ink) 7%, var(--surface));
   --dock-control-hover: color-mix(in srgb, var(--ink) 13%, var(--surface)); }
 .wb-dock::-webkit-scrollbar { width: 6px; }
 .wb-dock::-webkit-scrollbar-thumb { background: var(--ink-22); border-radius: 3px; }
 /* short viewports: tighten the dock so it fits without scrolling wherever it can */
+/* the column's buttons: the rail's 46px square and 22px glyph, whatever the pointer (the
+   coarse-pointer sizes below are for docks outside this column); a mode toggle is bare like a
+   rail tool until it is armed (the accent fill). The ✕ keeps its opaque fill: it is the way out,
+   and it stays readable while the column scrolls under it. The phone's row dock sets its own. */
+.wb-dock :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go) { width: 46px; height: 46px; }
+.wb-dock :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go) .i { width: 22px; height: 22px; }
+.wb-dock .wb-dock-tog:not(.on) { background: transparent; color: var(--ink); }
+@media (hover: hover) { .wb-dock .wb-dock-tog:not(.on):hover:not(:disabled) { background: var(--hover); } }
 @media (max-height: 640px) {
-  .wb-dock { gap: var(--sp-1); padding: var(--sp-2); }
-  .wb-dock-x { width: 30px; height: 30px; }
-  .wb-dock-tog, .wb-dock-go { height: 30px; }
+  .wb-dock { gap: 2px; }
+  .wb-dock :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go) { height: 34px; }
 }
 .wb-dock .wb-style-sep { width: 22px; height: 1px; } /* horizontal divider in the vertical stack */
 /* the armed mode's one-line hint (ToolDock · hint) is a PHONE row (15-mobile); the column dock
