@@ -84,7 +84,7 @@ export const sessionCopy: Localizable<Pick<Copy, Keys>> = {
     hintApply: 'One tap – the app reloads briefly.',
     apply: 'Update now',
     applying: 'Updating …',
-    dismiss: 'OK',
+    dismiss: 'Hide',
     updated: 'Updated – {v}',
   },
   install: {
@@ -92,7 +92,7 @@ export const sessionCopy: Localizable<Pick<Copy, Keys>> = {
     bannerTitle: 'Install KP Front as an app',
     bannerHint: 'Works offline, full screen, own icon.',
     bannerAction: 'How to',
-    dismiss: 'Later',
+    dismiss: 'Hide',
     title: 'Install as app',
     why: 'Installed, KP Front runs like an app: available offline at the scene, full screen without the browser bar, with its own icon on the home screen.',
     nativeButton: 'Install now',

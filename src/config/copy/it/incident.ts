@@ -67,7 +67,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     closedRefusedOne: '1 voce di questo dispositivo è arrivata dopo la chiusura e non è stata ripresa. Resta salvata su questo dispositivo.',
     closedRefused: '{n} voci di questo dispositivo sono arrivate dopo la chiusura e non sono state riprese. Restano salvate su questo dispositivo.',
     closedExport: 'Salva le voci',
-    closedDismiss: 'Nascondi avviso',
+    closedDismiss: 'Nascondi',
     reopenedElsewhere: 'L’intervento è stato riaperto su un altro dispositivo ({t})',
     rapportClosedHint: 'Intervento chiuso – le modifiche al rapporto appaiono come aggiunte.',
     linkClosedTitle: 'Intervento chiuso – questa tabella mostra soltanto',

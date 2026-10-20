@@ -67,7 +67,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     closedRefusedOne: '1 entrée de cet appareil est arrivée après la clôture et n’a pas été reprise. Elle reste enregistrée sur cet appareil.',
     closedRefused: '{n} entrées de cet appareil sont arrivées après la clôture et n’ont pas été reprises. Elles restent enregistrées sur cet appareil.',
     closedExport: 'Exporter les entrées',
-    closedDismiss: 'Masquer l’avis',
+    closedDismiss: 'Masquer',
     reopenedElsewhere: 'L’intervention a été rouverte sur un autre appareil ({t})',
     rapportClosedHint: 'Intervention close – les modifications du rapport apparaissent comme ajouts.',
     linkClosedTitle: 'Intervention close – ce tableau ne fait plus qu’afficher',

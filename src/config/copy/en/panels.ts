@@ -37,7 +37,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
       rainShowers: 'Rain showers', snowShowers: 'Snow showers', thunder: 'Thunderstorm', cloudy: 'Cloudy',
     },
     windShiftOpen: 'Open in log',
-    windShiftDismiss: 'Dismiss',
+    windShiftDismiss: 'Hide',
   },
   weatherLayer: {
     group: 'Weather',
@@ -181,7 +181,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     kicker: 'New incident',
     switch: 'Switch',
     open: 'Open',
-    later: 'Later',
+    dismiss: 'Hide',
   },
   photoViewer: {
     title: 'Photo',

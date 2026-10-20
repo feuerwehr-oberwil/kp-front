@@ -183,7 +183,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     kicker: 'Nuovo intervento',
     switch: 'Cambia',
     open: 'Apri',
-    later: 'Più tardi',
+    dismiss: 'Nascondi',
   },
   photoViewer: {
     title: 'Foto',

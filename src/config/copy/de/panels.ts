@@ -337,6 +337,8 @@ export const panelsCopy = {
     kicker: 'Neuer Einsatz',
     switch: 'Wechseln',
     open: 'Öffnen',
-    later: 'Später',
+    // the ✕'s name — it hides this Einsatz's row for good on this device (useIncidentWatch),
+    // so it is the one Meldeleiste dismiss word, not «Später» (20.10.2026, S10)
+    dismiss: 'Ausblenden',
   },
 } as const

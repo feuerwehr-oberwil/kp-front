@@ -66,7 +66,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     closedRefusedOne: '1 entry from this device arrived after the close and was not accepted. It stays saved on this device.',
     closedRefused: '{n} entries from this device arrived after the close and were not accepted. They stay saved on this device.',
     closedExport: 'Save entries',
-    closedDismiss: 'Hide notice',
+    closedDismiss: 'Hide',
     reopenedElsewhere: 'Incident was reopened on another device ({t})',
     rapportClosedHint: 'Incident closed – changes to the report are printed as addenda.',
     linkClosedTitle: 'Incident closed – this board is display only',

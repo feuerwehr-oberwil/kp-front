@@ -191,7 +191,7 @@ export function WorkspaceMeldungen({
           banner at the top of the screen»): the head's «● Offline» chip stays on screen the
           whole time, and the one-shot toast (useIncidentSync) announces the spell once. */}
 
-      {/* "Als App installieren" nudge — browser-tab only, one «Später» dismisses it for good
+      {/* "Als App installieren" nudge — browser-tab only, one ✕ dismisses it for good
           on this device (the menu keeps the permanent entry).
           Hidden on the demo: a visitor isn't installing the demo as their command app. */}
       {!isDemoMode() && <InstallBanner onOpenGuide={() => setInstallGuideOpen(true)} />}
