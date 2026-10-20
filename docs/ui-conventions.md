@@ -444,6 +444,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Karte's lists (search, Pläne, In der Nähe, Besuche, the device sheet) and every Objektbesuche
     list. What a surface may still add is meaning, compounded with `.list-row` (the hydrant's blue
     tint, a plan's --tap-lg height, a quiet fact line in the visit card) – never another size.
+    A title hyphenates ONLY where that saves a line (owner 20.10.2026, «Trink-wasser»): whole words
+    when they take as many lines, `hyphens: auto` when hyphenating is shorter or a word is wider
+    than the line on its own. CSS cannot say this, so `lib/smartHyphens` (a ref on the text: the
+    row title, the reader's chapter neighbours) lays it out both ways; never `hyphens: auto` in
+    the CSS of a title.
     `controlDebt.test.ts` is the ratchet for raw toggles, selects and search fields.
   - *Colour of a mention is not a state* (29.09.2026, owner pick A): every recognised word in the
     Verlauf – vehicle, partner, Trupp, person, material, group – is **bold `--ink`**

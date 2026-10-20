@@ -1,6 +1,7 @@
 import type { HTMLAttributes, ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
+import { smartHyphens } from '../lib/smartHyphens'
 
 // THE list row, its card and its group, and THE back row (20.10.2026, Karte Haus round 3 · reuse
 // audit `component-reuse-2026-10-19`). Four list rows were built in four weeks – the Karte's
@@ -22,7 +23,8 @@ import { cx } from '../lib/cx'
  *  you are» (the document beside the list shows this row): the ink pill, aria-current. Density
  *  comes from the container: 56px with a 16px title on a `ListCard` (or on its own), the compact
  *  --tap row with a 12.5px title in a `look="rail"` card (a list column beside a document).
- *  `children` go under the text, inside its column – a progress bar (Objektbesuche's rounds). */
+ *  `children` go under the text, inside its column – a progress bar (Objektbesuche's rounds).
+ *  The title hyphenates only where that saves a line (`lib/smartHyphens`). */
 export function ListRow({ lead, title, sub, end, chevron, on, disabled, onClick, className, children, ...rest }: {
   /** the leading slot: a 18px glyph, a hazard chip, a thumbnail, a number – sized by itself */
   lead?: ReactNode
@@ -43,7 +45,7 @@ export function ListRow({ lead, title, sub, end, chevron, on, disabled, onClick,
     <>
       {lead != null && <span className="list-row-lead">{lead}</span>}
       <span className="list-row-text">
-        <span className="list-row-title">{title}</span>
+        <span className="list-row-title" ref={smartHyphens}>{title}</span>
         {sub != null && sub !== '' && <span className="list-row-sub">{sub}</span>}
         {children}
       </span>

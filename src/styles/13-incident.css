@@ -806,7 +806,9 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
 .list-row-lead { flex: none; min-width: 20px; display: grid; place-items: center; color: var(--ink-dim); }
 .list-row-lead > .i { width: 18px; height: 18px; }
 .list-row-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.list-row-title { font: var(--fw-bold) var(--fs-3)/1.3 var(--body); overflow-wrap: break-word; hyphens: auto; overflow: hidden;
+/* no `hyphens` here: ListRow's title hyphenates only where that saves a line – lib/smartHyphens
+   measures both layouts and sets `hyphens: auto` inline (owner 20.10.2026, «Trink-wasser») */
+.list-row-title { font: var(--fw-bold) var(--fs-3)/1.3 var(--body); overflow-wrap: break-word; overflow: hidden;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .list-row-sub { font: var(--fw-medium) var(--fs-1)/1.3 var(--body); color: var(--ink-dim); overflow-wrap: break-word; overflow: hidden;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
