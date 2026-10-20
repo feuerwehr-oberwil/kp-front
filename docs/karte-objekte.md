@@ -757,6 +757,14 @@ device Anleitungen to read in peace time — the Einsatz tab's word and glyph
 - **An Anleitung's ways** (owner pick, round 3): ONE back row on top naming the level («‹ TLF»,
   `BackRow`), nothing else up there; at the foot one row of two equal buttons «‹ 2 Kabine» |
   «4 Saugbetrieb ›». The step text is the Taktik reader's 14px.
+- **The reading pane** (owner pick A, review round 5, 20.10.2026: «the entire point of the card is
+  to show the content»): beside the list column the pane IS the surface – the list's white, a
+  hairline between them, no white card inset on grey. Every reader in it (Anleitung, device page
+  with its picture as a wide header, Stichwort, checklist) is ONE left-aligned column of 760px;
+  pictures at most 600px wide and 60% of the screen tall, at their own proportions
+  (`Checklists.module.css · .cl-main`). The same in the Einsatz Checkliste (one set of
+  components). The Stichwort's 2-column flow above 980px is gone with it. Phone and the ≤760px
+  one-page layout: unchanged, the content on the page ground.
 - **The device pictures paint at once** on every open after the first (review round 2: they popped
   in each time). Two parts: the asset URL carries its version (`?v=`, `lib/checklists ·
   checklistAssetUrl`), answered immutable and cache-first by the service worker, so nothing asks
