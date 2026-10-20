@@ -673,11 +673,17 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    the two fields beside it. Nothing wraps while the bin is idle. */
 .adm-formlink-head { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
 .adm-formlink-head .adm-field { flex: 1 1 auto; min-width: 0; }
+/* The record bin. THE delete look (01-tokens · --del-*; ui-conventions › Delete): --del-ink in a
+   --del-edge outline on the surface it stands on, at rest – a grey borderless glyph that turns red
+   on hover never reads as a delete on a tablet, which has no hover. `.mv` is the same square
+   for the reorder chevrons beside a bin (Objektfarben): quiet, and never red. */
 .adm-formlink-x { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
-  padding: 0; cursor: pointer; border: none; border-radius: var(--r-ctl);
-  background: transparent; color: var(--ink-faint); }
+  padding: 0; cursor: pointer; border: 1px solid var(--del-edge); border-radius: var(--r-ctl);
+  background: var(--surface); color: var(--del-ink); }
+.adm-formlink-x.mv { border-color: transparent; background: transparent; color: var(--ink-faint); }
 @media (hover: hover) {
-  .adm-formlink-x:hover { background: var(--red-12); color: var(--red); }
+  .adm-formlink-x:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
+  .adm-formlink-x.mv:hover:not(:disabled) { background: var(--fill-soft); color: var(--ink); }
 }
 .adm-formlink-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-formlink-x .i { width: 17px; height: 17px; }
@@ -1992,11 +1998,12 @@ p.adm-sys-path { margin: 3px 0 0; }
 .adm-slist-item { display: inline-flex; align-items: center; gap: 8px; min-height: 40px;
   padding: 0 6px 0 13px; border: 1px solid var(--border); border-radius: var(--r-pill);
   background: var(--surface); font: 600 13.5px var(--body); color: var(--ink); }
+/* the chip's bin wears THE delete outline like every other bin (see .adm-formlink-x) */
 .adm-slist-x { display: grid; place-items: center; width: 26px; height: 26px; padding: 0;
-  border: none; border-radius: 50%; background: transparent; color: var(--ink-faint);
-  font-size: 15px; line-height: 1; cursor: pointer; }
+  border: 1px solid var(--del-edge); border-radius: 50%; background: var(--surface); color: var(--del-ink);
+  cursor: pointer; }
 @media (hover: hover) {
-  .adm-slist-x:hover { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
+  .adm-slist-x:hover { background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
 }
 .adm-slist-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-slist-x .i { width: 15px; height: 15px; }

@@ -144,7 +144,9 @@
   padding: 2px; border: 1px solid var(--border-soft); border-radius: var(--r-ctl); background: var(--fill-soft); }
 .adm-floors-zoom button { appearance: none; border: 0; background: transparent; border-radius: calc(var(--r-ctl) - 3px);
   width: 40px; height: 40px; display: grid; place-items: center; color: var(--ink-dim); cursor: pointer; }
-.adm-floors-zoom button:hover:not(:disabled) { background: var(--surface); color: var(--ink); }
+@media (hover: hover) {
+  .adm-floors-zoom button:hover:not(:disabled) { background: var(--surface); color: var(--ink); }
+}
 .adm-floors-zoom button:disabled { opacity: var(--disabled); cursor: default; }
 .adm-floors-zoom .i { width: 16px; height: 16px; }
 .adm-floors-zoom .adm-floors-zoom-value { width: auto; min-width: 58px; font: 600 var(--fs-1) var(--mono); font-variant-numeric: tabular-nums; }
@@ -224,10 +226,12 @@
   border: 1px solid var(--border); border-radius: var(--r-xs); background: var(--surface); color: var(--ink); }
 button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: pointer; }
 .adm-floor-index.zero { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
-/* «Geschoss entfernen» in the OPEN row's head: the page goes back to the Ablage, so it is the
-   quiet ✕ of a record row, not a red button under the inspector */
-.adm-floors .adm-floor-remove { width: var(--tap); min-height: var(--tap); padding: 0; margin-left: 2px; flex: none; color: var(--ink-dim); }
-.adm-floors .adm-floor-remove:hover:not(:disabled) { color: var(--red-strong); border-color: color-mix(in srgb, var(--red) 45%, var(--border)); }
+/* «Geschoss entfernen» in the OPEN row's head: the page goes back to the Ablage, so it is a bin
+   in a record row's head, not a red button under the inspector. THE delete outline at rest. */
+.adm-floors .adm-floor-remove { width: var(--tap); min-height: var(--tap); padding: 0; margin-left: 2px; flex: none; color: var(--del-ink); border-color: var(--del-edge); }
+@media (hover: hover) {
+  .adm-floors .adm-floor-remove:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
+}
 .adm-floor-remove .i { width: 16px; height: 16px; }
 
 /* the inspector, inside the selected row: name · the fit page · what the floor IS on the sheet */
@@ -250,7 +254,7 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
   min-height: 34px; padding: 5px 10px; text-align: left; font: var(--fw-medium) 12px var(--body); color: var(--ink);
   border: 1px solid var(--border-soft); border-radius: var(--r-ctl); background: var(--fill-soft); cursor: pointer; }
 .adm-floor-part.on .adm-floor-part-pick { border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); background: color-mix(in srgb, var(--blue) 7%, var(--surface)); }
-.adm-floors .adm-floor-part-x { flex: 0 0 auto; min-height: 34px; padding-inline: 8px; }
+.adm-floors .adm-floor-part-x { flex: 0 0 auto; min-height: 34px; padding-inline: 8px; color: var(--del-ink); border-color: var(--del-edge); }
 .adm-floor-acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .adm-floors .adm-floor-acts .btn { flex: 1 1 auto; min-height: var(--tap); }
 .adm-floor-acts .i { width: 15px; height: 15px; }
@@ -325,7 +329,9 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 .adm-editor-origin { font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink); white-space: nowrap; }
 /* «Freigabe zurücknehmen» – it belongs to the badge, not to what is being built, so it is quiet */
 .adm-plan-editor .adm-editor-quiet { border-color: transparent; background: transparent; color: var(--ink-dim); font-weight: var(--fw-medium); }
-.adm-plan-editor .adm-editor-quiet:hover:not(:disabled) { border-color: var(--border); color: var(--ink); }
+@media (hover: hover) {
+  .adm-plan-editor .adm-editor-quiet:hover:not(:disabled) { border-color: var(--border); color: var(--ink); }
+}
 .adm-editor-header-actions .btn { flex: 0 0 auto; min-height: var(--tap); padding: 8px 16px; }
 /* the hairline that separates what this sheet IS from what may be done to it */
 .adm-editor-rule { width: 1px; align-self: stretch; margin: 2px 0; background: var(--border); flex: none; }
