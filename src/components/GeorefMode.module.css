@@ -132,7 +132,8 @@
   align-items: center; gap: var(--sp-2); padding: 0 4px; color: var(--ink-dim);
   font: var(--fw-bold) var(--fs-micro) var(--body);
 }
-.checkBlend input { width: 100%; min-width: 0; height: 28px; margin: 0; accent-color: var(--blue); cursor: pointer; }
+/* the app's Slider (07-toolrail · .uslider), 44px tall like every other one */
+.checkBlend :global(.uslider) { width: 100%; }
 .dot {
   width: 9px;
   height: 9px;
@@ -639,8 +640,8 @@
 @media (hover: hover) { .gripOn:hover { background: var(--ink-fill-hover); } }
 @media (prefers-reduced-motion: reduce) { .grip { transition: none; } }
 
-/* Plangrösse — the app's Stepper grammar (07-toolrail.css · .step): bare ± buttons, a
-   tabular-nums value between them, no outer box */
+/* Plangrösse — the shared Stepper (07-toolrail.css · .step) beside its label. `.stepBtn` stays
+   for the undo square beside it. */
 .sizeStep { display: inline-flex; align-items: center; gap: var(--sp-1); flex: none; }
 .sizeLabel { font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); margin-right: 2px; white-space: nowrap; }
 .stepBtn {
@@ -652,7 +653,8 @@
 .stepBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .stepBtn:disabled { opacity: var(--disabled); cursor: default; }
 .stepBtn svg { width: 16px; height: 16px; }
-.sizeVal { min-width: 52px; text-align: center; font: var(--fw-medium) var(--fs-2) var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+/* «100 %» and «99 %» take one width, so − does not slide under the finger */
+.sizeStep :global(.step-val) { min-width: 52px; }
 .adjustAction { min-width: 0; }
 /* the desktop pill needs the quiet grammar too (it was phone-only before the proposal review) */
 .quietBtn { border-color: transparent; background: transparent; }

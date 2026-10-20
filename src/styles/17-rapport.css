@@ -218,7 +218,7 @@
 /* the slider IS the control: wide enough to aim with a gloved thumb, and the reading sits
    beside it so the value is never hidden under the finger */
 .kf-at-track { position: relative; flex: 1 1 220px; min-width: 160px; max-width: 340px; display: flex; }
-.kf-at-range { flex: 1 1 auto; min-width: 0; accent-color: var(--blue); height: var(--tap); position: relative; z-index: 1; }
+.kf-at-track .uslider { position: relative; z-index: 1; }
 /* WHEN anything happened, under the Stand track — the same BARCODE the Verlauf draws over its
    list (19-rueckmeldung.css · .jr-strip i): one 1.5px tick per recorded moment, same ink
    (--ink-faint at .7), so the two strips read as one instrument. Density IS the signal — where
@@ -228,14 +228,14 @@
    pointer-events stay off so the slider keeps every pixel of its own hit area, which is the
    one thing a gloved drag cannot afford to lose. Inset by the thumb's radius so a tick at t=0
    sits under the thumb's centre rather than at the track's very edge. */
-/* ⚠️ ABOVE the input, not below it. The range input carries z-index 1 so its own track paints
+/* ⚠️ ABOVE the slider, not below it. The slider carries z-index 1 so its own track paints
    over anything behind it — the marks were being drawn and then covered by the track, which
    looks exactly like «the marks were never added». They still take no pointer events, so the
-   slider keeps every pixel of its hit area. */
+   slider keeps every pixel of its hit area. The 9px inset is the `.uslider-track`'s own. */
 .kf-at-marks { position: absolute; inset: 50% 9px auto 9px; height: 0; pointer-events: none; z-index: 2; }
-/* top 8px = fully BELOW the ~16px thumb (its lower edge ends 8px past the centre): the marks
-   paint above the input, so a tick starting any higher would draw ON the handle */
-.kf-at-marks i { position: absolute; top: 8px; width: 1.5px; height: 12px; translate: -50% 0;
+/* top 10px = fully BELOW the 18px thumb (its lower edge ends 9px past the centre): the marks
+   paint above the slider, so a tick starting any higher would draw ON the handle */
+.kf-at-marks i { position: absolute; top: 10px; width: 1.5px; height: 12px; translate: -50% 0;
   border-radius: 1px; background: var(--ink-faint); opacity: .7; }
 .kf-at-wait { display: grid; place-items: center; width: 20px; height: 20px; flex: none; color: var(--ink-dim); }
 .kf-at-val { flex: none; min-width: 8.5em; font: var(--fw-heavy) var(--fs-2) var(--mono); color: var(--ink); }

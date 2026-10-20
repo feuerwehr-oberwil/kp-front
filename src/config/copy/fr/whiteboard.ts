@@ -128,8 +128,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
       discard: 'Abandonner',
       restore: 'Rétablir la proposition',
       planSize: 'Taille du plan',
-      sizeSmaller: 'Réduire le plan de 1 pour cent',
-      sizeBigger: 'Agrandir le plan de 1 pour cent',
       undoNudge: 'Annuler le dernier ajustement',
       rotateGrip: 'Tourner',
       hintMove: 'Glisser déplace le plan',

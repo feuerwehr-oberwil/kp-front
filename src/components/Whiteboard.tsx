@@ -2947,8 +2947,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // the popover is the board's (24.09.2026).
   const orientControls = (
     <div className="wb-orient-pop" onPointerDown={(e) => e.stopPropagation()}>
-      <label className="wb-orient-row">
-        <span className="wb-orient-lbl">{appConfig.copy.whiteboard.orientSliderLabel}</span>
+      <div className="wb-orient-row">
+        <span className="wb-orient-lbl" aria-hidden>{appConfig.copy.whiteboard.orientSliderLabel}</span>
         {/* ⚠️ a cancelled gesture (iOS: the touch became a scroll) or the popover closing drops
             the preview instead of leaving the backdrop turned uncommitted (24.09.2026) */}
         <OrientSlider
@@ -2959,7 +2959,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onAbandon={() => setDialDragDeg(null)}
         />
         <b className="wb-orient-val">{Math.round(normDeg(dialDragDeg ?? viewAngle))}°</b>
-      </label>
+      </div>
       <div className="wb-orient-chips">
         {/* «Wie gezeichnet» is the pack's own 0°: the sheet as the architect drew it, which is a
             meaningful place to come back to and is NOT north-up (that is the chip beside it) */}

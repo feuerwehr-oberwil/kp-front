@@ -127,3 +127,29 @@ describe('Stepper — snap', () => {
     expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('-47')
   })
 })
+
+// 20.10.2026: the Massstab's reference length is read off a drawing – «12.5 m» is not «13 m»
+describe('Stepper — decimals', () => {
+  const len = { min: 0, max: 10_000, decimals: 1, ariaLabel: 'Länge' }
+  const typeIn = (text: string) => {
+    fireEvent.click(screen.getByTitle('Tippen zum Eingeben'))
+    const input = screen.getByRole('textbox') as HTMLInputElement
+    fireEvent.change(input, { target: { value: text } })
+    return input
+  }
+
+  it('keeps one decimal, typed with a comma or a point', () => {
+    const onChange = vi.fn()
+    render(<Stepper {...len} value={10} onChange={onChange} />)
+    const input = typeIn('12,54')
+    expect(input.value).toBe('12.54')
+    fireEvent.blur(input)
+    expect(onChange).toHaveBeenCalledWith(12.5)
+  })
+
+  it('offers the decimal back to type over', () => {
+    render(<Stepper {...len} value={12.5} onChange={vi.fn()} />)
+    fireEvent.click(screen.getByTitle('Tippen zum Eingeben'))
+    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('12.5')
+  })
+})

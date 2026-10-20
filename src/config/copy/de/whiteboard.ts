@@ -185,8 +185,6 @@ export const whiteboardCopy = {
       discard: 'Verwerfen',
       restore: 'Vorschlag wiederherstellen',
       planSize: 'Plangrösse',
-      sizeSmaller: 'Plan um 1 Prozent verkleinern',
-      sizeBigger: 'Plan um 1 Prozent vergrössern',
       undoNudge: 'Letzte Anpassung rückgängig',
       rotateGrip: 'Drehen',
       hintMove: 'Ziehen verschiebt den Plan',

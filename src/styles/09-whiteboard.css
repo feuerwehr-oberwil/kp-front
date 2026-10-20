@@ -904,7 +904,6 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-orient-pop { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); min-width: 250px; }
 .wb-orient-row { display: flex; align-items: center; gap: var(--sp-2); }
 .wb-orient-lbl { font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--ink-dim); flex: none; }
-.wb-orient-row input[type=range] { flex: 1 1 auto; min-width: 0; height: var(--tap); accent-color: var(--blue); cursor: pointer; }
 .wb-orient-val { font-family: var(--mono); font-size: var(--fs-2); font-weight: var(--fw-bold); min-width: 42px; text-align: right; }
 /* the three presets are THE choice chip (<Chip>, 08.10.2026); this only shares the row out */
 .wb-orient-chips { display: flex; gap: 8px; }
@@ -952,19 +951,10 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-cal-chips { display: flex; gap: 8px; }
 .wb-cal-chip { flex: 1; }
 
-/* clean −/+ stepper for the real-length entry */
-.wb-cal-stepper { display: flex; align-items: stretch; gap: 8px; }
-.wb-cal-step { width: 46px; flex: none; display: grid; place-items: center; font: var(--fw-bold) var(--fs-5)/1 var(--body);
-  border: 1px solid var(--glass-edge); background: var(--surface-2, #fff); border-radius: var(--r-sm); color: var(--ink); cursor: pointer; }
-@media (hover: hover) {
-  .wb-cal-step:hover:not(:disabled) { border-color: var(--blue); }
-}
-.wb-cal-step:disabled { opacity: var(--disabled); cursor: default; }
-.wb-cal-num { flex: 1; display: flex; align-items: baseline; justify-content: center; gap: var(--sp-1);
-  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2, #fff); padding: 8px 12px; }
-.wb-cal-input { width: 100%; min-width: 0; border: none; background: none; outline: none; text-align: center;
-  font: var(--fw-bold) var(--fs-5) var(--mono); color: var(--ink); letter-spacing: -.5px; }
-.wb-cal-unit { flex: none; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink-dim); }
+/* any other length: the shared Stepper (07-toolrail · .step), centred under the chips; the value
+   slot is wide enough for «10000 m», so − and + never move while it is typed or stepped */
+.wb-cal-stepper { display: flex; justify-content: center; }
+.wb-cal-stepper .step-val { min-width: 96px; }
 .wb-cal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }
 /* ⚠️ one family (28.09.2026, owner pick A): framed «Abbrechen» at its word's width, the primary
    takes the rest — it was a ghost `.ip-btn` beside a 12.5px dock `.btn`, two families in one row */
