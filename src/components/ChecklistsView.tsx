@@ -6,6 +6,7 @@ import { allEntries, warmTemplates, matchDiveraEntries, searchEntries, templateP
 import { chapterOf, isTickable, manualGroups } from '../lib/checklists'
 import { ChecklistRunner } from './ChecklistRunner'
 import { useRememberedScroll } from '../lib/rememberedScroll'
+import { useHistoryTrail } from '../lib/historyTrail'
 import { ChecklistEntryReader } from './ChecklistReference'
 import { ManualReader } from './ManualReader'
 import { DevicePage } from './DeviceManuals'
@@ -24,6 +25,7 @@ const EMPTY_STATE: TemplateState = { ticks: {}, activeBranch: {} }
 /** what the main pane shows: a tickable list, a Stichwort, a device's chapter page (id = the
  *  device name) or an Anleitung */
 type Sel = { kind: 'tpl' | 'entry' | 'manual' | 'device'; id: string }
+const sameSel = (a: Sel | null, b: Sel | null) => a === b || (!!a && !!b && a.kind === b.kind && a.id === b.id)
 
 /* The pick (which list is open, and on a narrow screen whether the chooser or the list shows),
    per Einsatz. sessionStorage so a reload of the tab keeps it too; memory as the fallback when
@@ -93,12 +95,55 @@ export function ChecklistsView({
   const devices = useMemo(() => manualGroups(templates, ''), [templates])
   const autoMatches = useMemo(() => matchDiveraEntries(templates, divera), [templates, divera])
 
+  // The picker rail collapses to a single toggle row once something is picked, so the
+  // checklist/playbook text gets the full height; tapping the row reopens the list.
+  //
+  // ⚠️ 760px, not `useIsPhone` (600px). The rail is a FIXED 248px, so between 601 and ~730 it kept
+  // its full width while the runner column shrank to ~276px — measured at 640px (iPad Split View,
+  // half) six of eight task texts overflowed their box and painted over the Plan/Journal chip.
+  // Phones were never the problem; the band just above them was, and the collapse mechanism that
+  // fixes it already existed and simply stopped 160px short.
+  const railNarrow = useMediaQuery('(max-width: 760px)')
+
   // selection is either an action template, a tactical entry or an Anleitung; defaults once
   // templates arrive. Kept per Einsatz across tab changes and reloads (05.10.2026, owner:
   // «selected checklists don't persist and on every tab change they disappear») — the surface
   // unmounts whenever another tab is shown, so component state alone fell back to the first list.
-  const [sel, setSelState] = useState<Sel | null>(() => readPicked(scrollKey)?.sel ?? null)
-  const setSel = (v: Sel | null) => { setSelState(v); writePicked(scrollKey, { sel: v }) }
+  // …and whether the phone showed the list or the open checklist comes back the same way.
+  //
+  // The levels are history entries (lib/historyTrail, owner 20.10.2026 – the native back steps up
+  // one): on a phone the list (null) → the open item → a device's chapter, beside the list the
+  // device → its chapter. `sel` is the item the main pane shows – also while the phone's list
+  // covers it.
+  const [lastSel, setLastSel] = useState<Sel | null>(() => readPicked(scrollKey)?.sel ?? null)
+  const [restored] = useState(() => (railNarrow && (readPicked(scrollKey)?.railOpen ?? true) ? null : lastSel))
+  const nav = useHistoryTrail<Sel | null>(restored, sameSel)
+  if (nav.at && !sameSel(nav.at, lastSel)) setLastSel(nav.at)
+  const sel = nav.at ?? lastSel
+  const railOpen = nav.at === null
+  useEffect(() => writePicked(scrollKey, { sel: lastSel, railOpen }), [scrollKey, lastSel, railOpen])
+  /** the levels down to `v`, top first: a chapter under its device, on a phone everything under the list */
+  const pathTo = (v: Sel): (Sel | null)[] => {
+    const ch = v.kind === 'manual' ? chapterOf(devices, v.id) : null
+    const deep: Sel[] = ch ? [{ kind: 'device', id: ch.group.device }, v] : [v]
+    return railNarrow ? [null, ...deep] : deep
+  }
+  /** show `v` in the main pane – on a phone with the list open, behind it */
+  const setSel = (v: Sel | null) => {
+    if (!v) { setLastSel(null); if (nav.at) nav.go([null]) }
+    else if (railNarrow && railOpen) setLastSel(v)
+    else nav.go(pathTo(v))
+  }
+  const pick = (v: Sel) => nav.go(pathTo(v))
+  const setRailOpen = (open: boolean) => nav.go(open || !sel ? [null] : pathTo(sel))
+  // a restored item gets its levels back once the devices are known (a chapter's device); the
+  // levels change with the layout (the phone's list is one of them)
+  useEffect(() => {
+    if (!ready) return
+    if (railNarrow && railOpen) nav.go([null])
+    else if (sel) nav.go(pathTo(sel))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-chained on these two only; pathTo is a fresh closure
+  }, [ready, railNarrow])
   useEffect(() => {
     if (!ready) return
     // a remembered pick whose list was removed since falls back to the default, like no pick
@@ -112,19 +157,6 @@ export function ChecklistsView({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setSel is a fresh closure per render
   }, [sel, ready, actionTemplates, entries, manuals, devices])
 
-  // The picker rail collapses to a single toggle row once something is picked, so the
-  // checklist/playbook text gets the full height; tapping the row reopens the list.
-  //
-  // ⚠️ 760px, not `useIsPhone` (600px). The rail is a FIXED 248px, so between 601 and ~730 it kept
-  // its full width while the runner column shrank to ~276px — measured at 640px (iPad Split View,
-  // half) six of eight task texts overflowed their box and painted over the Plan/Journal chip.
-  // Phones were never the problem; the band just above them was, and the collapse mechanism that
-  // fixes it already existed and simply stopped 160px short.
-  const railNarrow = useMediaQuery('(max-width: 760px)')
-  // …and whether the phone showed the list or the open checklist comes back the same way
-  const [railOpen, setRailOpenState] = useState(() => readPicked(scrollKey)?.railOpen ?? true)
-  const setRailOpen = (v: boolean) => { setRailOpenState(v); writePicked(scrollKey, { railOpen: v }) }
-  const pick = (v: Sel) => { setSel(v); if (railNarrow) setRailOpen(false) }
   // the list's look: the library's phone cards while the list owns a narrow surface, the rail's
   // compact rows beside the document
   const look = railNarrow ? 'card' : 'rail'

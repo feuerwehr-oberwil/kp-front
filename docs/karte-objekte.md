@@ -757,6 +757,19 @@ device Anleitungen to read in peace time — the Einsatz tab's word and glyph
 - **An Anleitung's ways** (owner pick, round 3): ONE back row on top naming the level («‹ TLF»,
   `BackRow`), nothing else up there; at the foot one row of two equal buttons «‹ 2 Kabine» |
   «4 Saugbetrieb ›». The step text is the Taktik reader's 14px.
+- **The native back steps up one level** (owner, review round 6, 20.10.2026: «swipe from the left
+  to go back one section … if there's a native thing we can use»). Every level deeper is one
+  counted history entry (`lib/historyTrail` over `objectVisits/route · pushAppEntry`): on a phone
+  the list → a page (a device, an Anleitung, a checklist, a Stichwort) → a device's chapter; beside
+  the list column a device → its chapter. So iOS's edge swipe in the installed app (offered exactly
+  when there is an entry to go back to), Android's back gesture and the browser's ‹ pop one level,
+  and the back row is the same step (a walk back, not a second way). A chapter's «‹ 2 Kabine» |
+  «4 Saugbetrieb ›» replaces its level – no entry per neighbour. No gesture code of our own. Leaving
+  the surface (the Karte, a plan, another Einsatz tab, «Einsatz verlassen») walks its entries back
+  first, so the 05.10. rule holds: nothing behind the operational screens. A page that comes back
+  (Karte ↔ Checkliste, a reload) gets its levels pushed again. The same in the Einsatz Checkliste.
+  Known limit: a picture opened in the viewer has no entry, so a back swipe under it steps the
+  page beneath.
 - **The reading pane** (owner pick A, review round 5, 20.10.2026: «the entire point of the card is
   to show the content»): beside the list column the pane IS the surface – the list's white, a
   hairline between them, no white card inset on grey. Every reader in it (Anleitung, device page
@@ -1029,7 +1042,8 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   not read as closing, so the sub line says the Einsatz runs on: «Läuft weiter · zurück zu
   <Objekt · Modul>» when this device has a viewer state, else «Läuft weiter · zur Karte». Never
   for a link session (no `onOpenKarte`). It replaces the address with `/karte` (no history entry — the operational
-  screens have none, `objectVisits/route`), and the viewer says «Wieder bei …» once. The way
+  screens have none, `objectVisits/route`; the Einsatz's own entries, its Checkliste's levels, are
+  walked back first), and the viewer says «Wieder bei …» once. The way
   back is the red chip or the sheet's row, which only step the viewer aside; opening ANOTHER
   Einsatz leaves the viewer in the same step.
 - **⚠️ The Einsatz behind stays alive — its Atemschutz alarm above all** (lead decision,

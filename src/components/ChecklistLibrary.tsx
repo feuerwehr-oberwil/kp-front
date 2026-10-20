@@ -15,6 +15,7 @@ import { DevicePage } from './DeviceManuals'
 import { BackRow, ListGroup } from './ListRow'
 import { DeviceList, EntryRow, TemplateRow } from './ChecklistRail'
 import { useRememberedScroll } from '../lib/rememberedScroll'
+import { useHistoryTrail } from '../lib/historyTrail'
 import s from './Checklists.module.css'
 import l from './ChecklistLibrary.module.css'
 
@@ -36,6 +37,11 @@ import l from './ChecklistLibrary.module.css'
 // pieces the Einsatz rail shows). The search goes over everything (lib/checklists ·
 // searchLibrary). Phone (≤ 760px, the Einsatz rail's breakpoint): list ↔ page with a back row.
 // Tablet: a list column beside the document, the Einsatz Checkliste's layout.
+//
+// Every level deeper is a history entry (lib/historyTrail, owner 20.10.2026): the phone's list →
+// a page → a device's chapter, the tablet's device → chapter. The native back (iOS's edge swipe,
+// Android's back gesture) steps up one, the back row is the same step; a chapter's neighbours
+// replace their level. Leaving the surface walks the entries back.
 
 /** What is open: a device page (id = device name), an Anleitung, a checklist to read or a
  *  Stichwort. */
@@ -57,6 +63,7 @@ function readSel(): LibSel | null {
 function writeSel(v: LibSel | null) {
   try { sessionStorage.setItem(SEL_KEY, JSON.stringify(v)) } catch { /* the place is a convenience */ }
 }
+const sameSel = (a: LibSel | null, b: LibSel | null) => a === b || (!!a && !!b && a.kind === b.kind && a.id === b.id)
 
 /** `text` with every occurrence of `q` marked – the search hit in a result's title */
 function Marked({ text, q }: { text: string; q: string }) {
@@ -96,14 +103,30 @@ export function ChecklistLibrary({ query }: { query: string }) {
   const q = query.trim()
   const hits = useMemo(() => searchLibrary(templates, q), [templates, q])
 
-  const [stored, setStored] = useState<LibSel | null>(readSel)
-  const setSel = (v: LibSel | null) => { setStored(v); writeSel(v) }
+  const [restored] = useState(readSel)
+  const nav = useHistoryTrail<LibSel | null>(restored, sameSel)
+  const stored = nav.at
+  useEffect(() => writeSel(stored), [stored])
+  /** the levels down to `v`, top first: a chapter stands under its device, and on a phone
+   *  everything under the list (null) */
+  const pathTo = (v: LibSel | null): (LibSel | null)[] => {
+    const ch = v?.kind === 'manual' ? chapterOf(devices, v.id) : null
+    const deep: (LibSel | null)[] = ch ? [{ kind: 'device', id: ch.group.device }, v] : [v]
+    return narrow && v ? [null, ...deep] : deep
+  }
+  const setSel = (v: LibSel | null) => nav.go(pathTo(v))
+  // a restored page gets its levels back once the devices are known (a chapter's device), and
+  // the levels change with the layout (the phone's list is one of them)
+  useEffect(() => {
+    if (ready) nav.go(pathTo(stored))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-chained on these two only; pathTo is a fresh closure
+  }, [ready, narrow])
   // a new search on a phone shows its results: the open page would hide them (adjusted while
   // rendering, React's «state from a changed prop» – not in an effect, which would paint once more)
   const [searched, setSearched] = useState(q)
   if (q !== searched) {
     setSearched(q)
-    if (narrow && q) { setStored(null); writeSel(null) }
+    if (narrow && q) setSel(null)
   }
 
   const find = (v: LibSel | null): Open | null => {
