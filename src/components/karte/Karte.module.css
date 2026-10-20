@@ -54,8 +54,6 @@
 @media (hover: hover) { button.hydRow:global(.list-row):not(.lit):hover { background-color: var(--blue-8); } }
 /* lit = the picked row's wash alone (ui-conventions · Selected: nothing else rides on it) */
 button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel-wash); }
-/* «Nächster»: the tag recipe (.ip-badge) in the hydrant's blue – no shared tone says «nearest» */
-.nearest { background: var(--blue-16); color: var(--blue-strong); margin-right: var(--sp-2); vertical-align: 1px; }
 .chev { width: 16px; height: 16px; color: var(--ink-faint); }
 
 /* the switch «Objekt · n Pläne | <Haus>» right under the head, after a tap on one of an object's

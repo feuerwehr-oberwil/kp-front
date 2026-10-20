@@ -94,7 +94,6 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     retry: 'Try again',
     nearTitle: 'Nearby',
     nearHydrant: 'Hydrant',
-    nearNearest: 'Nearest',
     compass: ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'],
     hydrantFrom: '{m} {dir} of {place}',
     nearNote: 'As the crow flies. An object nearby does not necessarily belong to this building.',

@@ -106,7 +106,7 @@ describe('places', () => {
     const near = nearbyPlaces(ALL, hyd, at, { exceptId: 'schloss' })
     // the hydrant is closest, then the objects by distance; the Schulhaus (~250 m) is outside
     expect(near.map((n) => n.item.id)).toEqual(['h0', 'depot', 'mag'])
-    expect(near[0]).toMatchObject({ kind: 'hydrant', nearest: true, dir: 0 })
+    expect(near[0]).toMatchObject({ kind: 'hydrant', dir: 0 })
     expect(near.map((n) => n.distanceM)).toEqual([...near.map((n) => n.distanceM)].sort((a, b) => a - b))
   })
 
@@ -118,7 +118,7 @@ describe('places', () => {
     const near = nearbyPlaces(close, far, at)
     expect(near).toHaveLength(NEARBY_MAX)
     expect(near.map((n) => n.item.id)).toEqual(['o0', 'o1', 'o2', 'o3', 'h0'])
-    expect(near[4]).toMatchObject({ kind: 'hydrant', nearest: true, dir: 2 })
+    expect(near[4]).toMatchObject({ kind: 'hydrant', dir: 2 })
     // fewer rows than the cap: appended, nothing dropped
     expect(nearbyPlaces(close.slice(0, 2), far, at).map((n) => n.item.id)).toEqual(['o0', 'o1', 'h0'])
   })

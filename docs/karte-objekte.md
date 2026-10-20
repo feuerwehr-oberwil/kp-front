@@ -287,7 +287,7 @@ The rules that are easy to break:
   1: «prioritize … based on proximity and not based on their type»). ONE list, nearest first, at
   most five rows: station objects within `NEARBY_RADIUS_M` (160 m) and hydrants mixed
   (`lib/karte/places · nearbyPlaces`). The nearest hydrant is always in it, however far — in place
-  of the fifth row when five closer things fill it — and says «Nächster». A hydrant row is tinted
+  of the fifth row when five closer things fill it (no «Nächster» tag since 20.10.2026: the order says it). A hydrant row is tinted
   blue, titled «Hydrant» (the FireGIS export has no numbers; the old «Hydrant 632» was an index)
   with the compass direction from the selected place (8 directions) under it. The mouse over the
   row (a tap on touch, which keeps it until tapped again) shows that hydrant on the map: a ring on

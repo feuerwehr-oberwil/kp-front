@@ -116,8 +116,7 @@ export const karteCopy = {
     // In der Nähe
     nearTitle: 'In der Nähe',
     nearHydrant: 'Hydrant',
-    // a hydrant row: «Nächster» on the nearest; its sub line the direction from the place
-    nearNearest: 'Nächster',
+    // a hydrant row: its sub line the direction from the place
     compass: ['nördlich', 'nordöstlich', 'östlich', 'südöstlich', 'südlich', 'südwestlich', 'westlich', 'nordwestlich'],
     // the mouse over a hydrant on the map: «39 m südlich von Storchenweg 4»
     hydrantFrom: '{m} {dir} von {place}',
