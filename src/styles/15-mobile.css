@@ -1180,11 +1180,14 @@
     left: max(10px, env(safe-area-inset-left)); z-index: var(--z-map-util-raised); }
   /* …and the GPS caveat keeps clear of the Standort slot, reserved or not: a chip that jumps
      sideways when somebody starts sharing is worse than one that sits 52px in. */
+  /* …in the floating family's material (S6, 20.10.2026): it wore an amber outline and a shadow
+     of its own, and a STATE is a glyph colour, never an outline (docs/ui-conventions · ONE
+     floating family) — the locate glyph carries the amber, the words are ink, --tap tall */
   .tb-gps { position: fixed; top: calc(76px + env(safe-area-inset-top));
     left: calc(max(10px, env(safe-area-inset-left)) + 52px); max-width: calc(100vw - 142px); margin-right: 0;
-    background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-    border: 1px solid color-mix(in srgb, var(--amber, #b45309) 30%, transparent);
-    box-shadow: var(--e4); }
+    min-height: var(--tap); padding: 0 var(--float-pad-x) 0 var(--sp-3);
+    background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); }
+  .tb-gps .i { color: var(--amber-strong); }
   .phone-wx .tb-weather { min-height: 40px; }
 
   /* Einstellungen rows: the 3-segment controls (Farbschema, Beschriftungen) are wider than

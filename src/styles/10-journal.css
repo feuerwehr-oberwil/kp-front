@@ -131,10 +131,23 @@
    and red belongs to the überfälliger Trupp. */
 .tb-gps { display: inline-flex; align-items: center; gap: var(--sp-2); border: none; border-radius: var(--r-sm);
   font-family: var(--body); font-size: var(--fs-1); font-weight: var(--fw-bold); padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-2); margin-right: 2px;
-  flex: none; cursor: default;
+  flex: none; cursor: pointer; position: relative;
   background: var(--amber-16); color: var(--amber-strong, #b45309); }
 .tb-gps .i { width: 15px; height: 15px; flex: none; }
 .tb-gps-age { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+/* a button since S6 (20.10.2026): a tap opens its sentence. The chip keeps its in-bar size; the
+   house 44px target grows invisibly around it, as `button.tb-mode`'s does on a phone. */
+.tb-gps::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px);
+  height: max(100%, 44px); transform: translate(-50%, -50%); }
+@media (hover: hover) {
+  .tb-gps:hover { background: var(--amber-28); }
+}
+.tb-gps:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* its sentence, out of the top bar — so the bar's own glass, as every popup out of the bar */
+.tb-gps-pop { max-width: min(300px, calc(100vw - 20px)); padding: var(--sp-3) var(--sp-4);
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+  border-radius: var(--r-sm); box-shadow: var(--e4); animation: popIn .15s var(--ease); }
+.tb-gps-hint { margin: 0; font: var(--fw-medium) var(--fs-2) / var(--lh-2) var(--body); color: var(--ink); }
 @keyframes tb-az-pulse { 0%, 100% { background-color: var(--red-16); } 50% { background-color: color-mix(in srgb, var(--red) 34%, transparent); } }
 
 /* Modus-Chip beside the Einsatzname: «Einsatz abgeschlossen». It moved here out of the bottom

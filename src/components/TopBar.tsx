@@ -282,20 +282,26 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             letting them disappear would read as «abgerückt» rather than as «Feed weg». That
             is exactly why the freeze needs a visible caveat: without one, hours-old positions
             look every bit as binding as a position one minute old. */}
+        {/* ⚠️ A BUTTON, and a tap opens its sentence (S6, 20.10.2026, owner: tap-to-open). It was a
+            span whose explanation lived in `title=`, which neither a tablet nor the hold-tooltip
+            ever shows. The popover is the house one (lib/overlays · Popover): non-modal, so the
+            map stays live under it and a press elsewhere closes it. */}
         {gpsStale && (
-          <span
-            className="tb-gps"
-            title={appConfig.copy.topBar.gpsFrozenHint}
-            role="status"
+          <Popover side="bottom" align="start" popupClassName="tb-gps-pop" ariaLabel={appConfig.copy.topBar.gpsFrozen} zIndex={201}
+            trigger={
+              <button type="button" className="tb-gps">
+                {/* the app's own position glyph — a speedometer (`gauge`) named nothing about a
+                    silent position feed. The amber pill carries the caveat; the icon says WHAT. */}
+                <Icon id="locate" />
+                <span>{appConfig.copy.topBar.gpsFrozen}</span>
+                {gpsAgeMs != null && (
+                  <span className="tb-gps-age">{Math.round(gpsAgeMs / 60_000)} min</span>
+                )}
+              </button>
+            }
           >
-            {/* the app's own position glyph — a speedometer (`gauge`) named nothing about a
-                silent position feed. The amber pill carries the caveat; the icon says WHAT. */}
-            <Icon id="locate" />
-            <span>{appConfig.copy.topBar.gpsFrozen}</span>
-            {gpsAgeMs != null && (
-              <span className="tb-gps-age">{Math.round(gpsAgeMs / 60_000)} min</span>
-            )}
-          </span>
+            <p className="tb-gps-hint">{appConfig.copy.topBar.gpsFrozenHint}</p>
+          </Popover>
         )}
         {/* Atemschutz chip — pinned at the far right so it never shifts the other controls.
             AMBER from «Kontakt fällig» on (the quiet lead used to stay board-only, so the first

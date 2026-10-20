@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { TopBar, windArrowRotation } from './TopBar'
 import { appConfig } from '../config/appConfig'
 
@@ -42,5 +42,22 @@ describe('ArchivedChip', () => {
     bar({})
     const linkChip = screen.getByRole('button', { name: `${C.title} – ${C.hintViewOnly}` })
     expect(linkChip.hasAttribute('data-holdexplain')).toBe(true)
+  })
+})
+
+// S6 (20.10.2026): «GPS eingefroren» explained itself only through `title=` on a span — which no
+// tablet shows. It is a button now, and a tap opens the sentence in the house popover.
+describe('GPS-frozen chip', () => {
+  afterEach(cleanup)
+  it('opens its explanation on a tap', async () => {
+    render(
+      <TopBar incident={{ title: 'Brand', address: 'Hauptstrasse 1' } as Parameters<typeof TopBar>[0]['incident']}
+        recording={false} recStartedAt={null} journalOpen={false} onToggleJournal={() => {}}
+        onUndo={() => {}} onRedo={() => {}} canUndo={false} canRedo={false} gpsStale gpsAgeMs={7 * 60_000} />,
+    )
+    const chip = screen.getByRole('button', { name: /GPS eingefroren/ })
+    expect(screen.queryByText(appConfig.copy.topBar.gpsFrozenHint)).toBeNull()
+    fireEvent.click(chip)
+    expect(await screen.findByText(appConfig.copy.topBar.gpsFrozenHint)).toBeTruthy()
   })
 })
