@@ -28,6 +28,7 @@ import { ClearableInput } from './ClearableInput'
 import { Stepper } from './Stepper'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
+import { pointAtField } from '../lib/pointAtField'
 import { TruppTeam } from './TruppTeam'
 import s from './Atemschutz.module.css'
 
@@ -444,7 +445,8 @@ export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds,
   const teamRef = useRef<HTMLDivElement>(null)
   const isPa = t.kind !== 'einfach'
   const save = async () => {
-    if (!canSave) { teamRef.current?.scrollIntoView?.({ block: 'center' }); return }
+    // blocked: ring the crew, where the missing leader or the conflict is fixed (lib/pointAtField)
+    if (!canSave) { pointAtField(teamRef.current); return }
     // the Gäste are filed NOW, at the save — never on a tap in the picker — and their ids ride
     // over the crew's (the form's `fileCrew`, same order of operations)
     const f = truppSheetFields(t, team, equipment, atemschutzEquipment().map((e) => e.id))
@@ -457,7 +459,7 @@ export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds,
       className={s.miniSheetTall}
       footer={(
         <SheetFoot className={s.modalFoot}>
-          <button type="button" className={cx('ip-btn primary', !canSave && s.btnBlocked)} aria-disabled={!canSave} onClick={() => void save()}>{az.save}</button>
+          <button type="button" className="ip-btn primary" aria-disabled={!canSave} onClick={() => void save()}>{az.save}</button>
         </SheetFoot>
       )}>
       {/* no «Mannschaft» label over the picker: the title says it (as the Auftrag's tiles) */}

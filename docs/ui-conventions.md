@@ -307,6 +307,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     action** – it means danger/delete only. Amber = warning but not critical; red = danger,
     broken, act now; blue/grey = normal status and in-progress.
   - *Disabled:* `opacity: var(--disabled)` + `cursor: default`. Never inline the number.
+    **A save that cannot save YET is never natively `disabled`** (UX sweep F2, 20.10.2026; the
+    Trupp form since 02.09.): it is `aria-disabled` (the same dimmed look, `.ip-btn` /
+    `.wheelpop-btn` `[aria-disabled='true']`) and its tap calls `lib/pointAtField` on the field it
+    waits for — ring, scroll only if out of view, focus — instead of swallowing the tap. A press
+    already in flight (`busy`) stays natively disabled.
   - *Selected – three roles, one look each (28.09.2026, owner: «all buttons have different
     selected states» — the Trupp form alone wore four: ink outline, blue ring, ink fill, blue
     segment).* (1) A **choice** — a segment, a chip, an option tile, a toggle chip, single or

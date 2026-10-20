@@ -27,6 +27,7 @@ import {
 } from '../../lib/incidents'
 import { Modal, realCoord } from './_shared'
 import { SearchField } from '../SearchField'
+import { pointAtField } from '../../lib/pointAtField'
 
 // --- Einsatz eröffnen / Einsatzdaten korrigieren -------------------------------------
 // `ix` (appConfig.copy.intake) is read inside each function below rather than captured at
@@ -292,8 +293,15 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // Demo: a visitor may explore the whole wizard, but actually opening a new Einsatz is blocked
   // (it would write to the shared backend). Editing the demo incident stays fully open.
   const demoBlocked = isDemoMode() && !edit
+  const titleRef = useRef<HTMLLabelElement>(null)
+  const demoRef = useRef<HTMLParagraphElement>(null)
   const submit = async () => {
-    if (!effectiveTitle || busy || demoBlocked) return
+    if (busy) return
+    // Blocked — the Stichwort (an edit with it emptied) or the demo: the button stays tappable
+    // and points at what holds it back (lib/pointAtField); a grey «Speichern» with a «*» somewhere
+    // above it said nothing. `busy` stays a native disabled: that press is in flight.
+    if (!effectiveTitle) { pointAtField(titleRef.current, { focus: titleRef.current?.querySelector('input') }); return }
+    if (demoBlocked) { pointAtField(demoRef.current); return }
     setBusy(true)
     // Meldungstext/Alarmmeldung is sent on create, and on edit once the existing text has
     // been fetched (textReady) so a quick save can't blank it.
@@ -353,7 +361,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       {/* «Abbrechen» in both modes (29.09.2026): the wizard is ONE step, and closing it goes back
           to the landing without opening anything — a cancel, not a «Zurück» to a previous step */}
       <button className="ip-btn" onClick={onClose}>{ix.cancel}</button>
-      <button className="ip-btn primary" disabled={!effectiveTitle || busy || demoBlocked} onClick={submit}>
+      <button className="ip-btn primary" disabled={busy} aria-disabled={!effectiveTitle || demoBlocked} onClick={submit}>
         {busy ? <><ShellLoader /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : ix.open}
       </button>
     </>}>
@@ -446,7 +454,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
 
       {/* --- Stichwort & Kategorie --- */}
       <div className="ip-ix-head">{ix.keywordHead}</div>
-      <label className="ip-field"><span>{ix.titleLabel} *</span>
+      <label ref={titleRef} className="ip-field"><span>{ix.titleLabel} *</span>
         {/* no autofocus — the EL usually sets the location (address / object / map) first, so
             opening with the keyboard up over the Stichwort field would be in the way */}
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={ix.titlePlaceholder} />
@@ -492,7 +500,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           placeholder={textFailed ? ix.alarmTextUnavailable : ix.detailsPlaceholder} />
       </label>
 
-      {demoBlocked && <p className="ip-demo-block"><Icon id="info" /> {ix.demoBlocked}</p>}
+      {demoBlocked && <p ref={demoRef} className="ip-demo-block"><Icon id="info" /> {ix.demoBlocked}</p>}
     </Modal>
     </>
   )

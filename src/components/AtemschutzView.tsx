@@ -36,6 +36,7 @@ import { AuftragSheet, KanalPickSheet, KanalSheet, LeitungField, PressureSheet, 
 import { fileGuestSlots, teamConflict, truppSheetSub } from '../lib/truppQuickEdit'
 import { crewAfterChange, type CrewChange } from '../lib/truppLeader'
 import { rankOrder } from '../lib/rank'
+import { pointAtField } from '../lib/pointAtField'
 
 const cfg = appConfig.atemschutz // static, non-doctrine parts only (the two auftrag lists)
 // `az` (appConfig.copy.atemschutz) and the doctrine numbers (`atemschutzDoctrine()`) are read
@@ -3020,27 +3021,6 @@ function TruppCard({
  * and still automatic — the field simply stopped being asked; see `color` in `submit`.
  */
 
-/**
- * Is `el` already fully visible inside the box that scrolls it?
- *
- * ⚠️ The point is what NOT to do: a smooth `scrollIntoView` on an element that is already in
- * view still starts an animation, and iOS spends the next tap on stopping it. Ringing a field
- * that never moved therefore cost the operator their first tap on the chip beside it.
- * Falls back to the viewport when nothing above the element scrolls; an element with no layout
- * (jsdom, a sheet that has not painted yet) counts as out of view, so the scroll still happens.
- */
-function inScrollPort(el: HTMLElement): boolean {
-  const r = el.getBoundingClientRect()
-  if (r.width === 0 && r.height === 0) return false
-  for (let p = el.parentElement; p; p = p.parentElement) {
-    if (p.scrollHeight > p.clientHeight + 1) {
-      const pr = p.getBoundingClientRect()
-      return r.top >= pr.top && r.bottom <= pr.bottom
-    }
-  }
-  return r.top >= 0 && r.bottom <= window.innerHeight
-}
-
 /** What a kept edit / re-entry draft belongs to (TruppForm · draftKey): the sortie and every field
  *  the form writes, as one short string. Pure; the draft store is per session and per incident. */
 function truppDraftStamp(t: Trupp): string {
@@ -3444,23 +3424,10 @@ function TruppForm({
     : !bottleOk ? az.saveBlockedBottle
     : null
 
-  /** Retrigger the same flash-ring `focusSection` gives an opened section (`.formFlash` above),
-   *  imperatively — a second blocked tap must ring again, which a className tied to render state
-   *  alone cannot do without a remount. Mirrors the identical remove/reflow/add idiom the board's
-   *  own card flash uses (AtemschutzView · TruppCard/TruppRow) for the same reason. */
-  const flashSection = (el: HTMLElement | null) => {
-    if (!el) return
-    // ⚠️ Only when it is actually out of view (05.09.). A smooth scroll that has nowhere to go
-    // still runs, and iOS spends the next tap on stopping it — so ringing a field that was on
-    // screen all along cost the operator their first tap on it.
-    if (!inScrollPort(el)) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    el.classList.remove(s.formFlash)
-    void el.offsetWidth
-    el.classList.add(s.formFlash)
-    window.setTimeout(() => el.classList.remove(s.formFlash), 1900)
-  }
-  /** Point at the field that blocks the save — scroll it into view and ring it. (The phone
-   *  form is flat since 08.09., so there is no collapsed section left to open first.) */
+  /** Point at the field that blocks the save — scroll it into view and ring it (lib/pointAtField,
+   *  with this form's own `.formFlash`, the ring `focusSection` gives an opened section). (The
+   *  phone form is flat since 08.09., so there is no collapsed section left to open first.) */
+  const flashSection = (el: HTMLElement | null) => pointAtField(el, { className: s.formFlash })
   const pointAt = (el: () => HTMLElement | null) => flashSection(el())
   /**
    * «Speichern» while the Trupp isn't valid yet used to just sit there disabled — with Art
@@ -3855,7 +3822,7 @@ function TruppForm({
             back as Sicherungstrupp as it is sent in — and a Sicherungstrupp is by definition a
             crew standing by under Atemschutz. A work squad has one way back in. */}
         {mode === 'redeploy' && isPa && (
-          <button className={cx('ip-btn primary', !canSubmit && s.btnBlocked)} aria-disabled={!canSubmit}
+          <button className="ip-btn primary" aria-disabled={!canSubmit}
             onClick={() => attemptSubmit(true)} title={az.reenterStandbyHint}>
             {az.reenterStandby}
           </button>
@@ -3866,7 +3833,7 @@ function TruppForm({
             `attemptSubmit` decides — flash the missing field when blocked, submit when not.
             ⚠️ …and since 04.09. it is the ONLY forward control on a phone as well: there is no
             «Weiter» in front of it any more. */}
-        <button className={cx(mode === 'redeploy' && isPa ? 'ip-btn' : 'ip-btn primary', !canSubmit && s.btnBlocked)}
+        <button className={mode === 'redeploy' && isPa ? 'ip-btn' : 'ip-btn primary'}
           aria-disabled={!canSubmit} onClick={() => attemptSubmit()}>{submitLabel}</button>
       </SheetFoot>
       {pickers}

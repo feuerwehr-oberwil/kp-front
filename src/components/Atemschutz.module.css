@@ -628,13 +628,6 @@
 
 .modalFoot { flex: none; display: flex; gap: var(--sp-2); justify-content: flex-end; padding: var(--sp-3) var(--sp-5);
   border-top: 1px solid var(--glass-edge); background: var(--glass); }
-/* The submit while it is BLOCKED (canSubmit false) — `aria-disabled`, not the native `disabled`
-   attribute, so the tap still reaches `attemptSubmit` and can point at the missing field instead
-   of doing nothing (field feedback, 02.09.). Same dimmed look `.ip-btn.primary:disabled` gives a
-   real disabled button elsewhere (13-incident.css); the press feedback is switched off by hand
-   since `:active:not(:disabled)` never fires for a button that was never actually disabled. */
-.btnBlocked { opacity: var(--disabled); cursor: default; }
-.btnBlocked:active { background-image: none; }
 /* second, equally valid submit (Wieder einrücken → «Bereitstellen»): outlined rather than ghost,
    because it commits the form just like the primary does – a ghost would read as «abbrechen». */
 

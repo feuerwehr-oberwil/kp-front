@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { clearDraft, keepDraft, readDraft } from '../lib/draftKeep'
 import { scrollBehavior } from '../lib/reducedMotion'
+import { pointAtField } from '../lib/pointAtField'
 import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
 import { appConfig } from '../config/appConfig'
@@ -792,9 +793,13 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
   const [note, setNote] = useState(target.note)
 
   const valid = !target.custom || (!!label.trim() && !!unit.trim())
+  const labelRef = useRef<HTMLLabelElement>(null)
+  const unitRef = useRef<HTMLDivElement>(null)
+  // a blocked Speichern points at what it waits for (lib/pointAtField) instead of going grey
   const submit = () => {
-    if (!valid) return
-    onSave({ label, unit, sourceLabel, stock, note })
+    if (valid) { onSave({ label, unit, sourceLabel, stock, note }); return }
+    const field = !label.trim() ? labelRef.current : unitRef.current
+    pointAtField(field, { focus: field?.querySelector<HTMLElement>('input, button') })
   }
 
   return (
@@ -811,12 +816,12 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
       <div className="ip-body">
         {target.custom && (
           <>
-            <label className="ip-field">
+            <label ref={labelRef} className="ip-field">
               <span>{M.materialLabel}</span>
               <input className="ip-input" autoFocus onFocus={caretToEnd} value={label} maxLength={80} onChange={(e) => setLabel(stripUnprintable(e.target.value))} />
             </label>
             <div className={s.dialogRow}>
-              <div className="ip-field">
+              <div ref={unitRef} className="ip-field">
                 <span>{M.unitLabel}</span>
                 {/* the picker SHOWS «L» (unitLabel) but stores the catalogue's «l»: a picked «L» saved as-is
                     would be a different unit to mittelKey and split the line in two */}
@@ -863,7 +868,7 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
           </button>
         )}
         <button type="button" className="ip-btn" onClick={onClose}>{M.cancel}</button>
-        <button type="button" className="ip-btn primary" disabled={!valid} onClick={submit}>{M.save}</button>
+        <button type="button" className="ip-btn primary" aria-disabled={!valid} onClick={submit}>{M.save}</button>
       </SheetFoot>
     </Overlay>
   )
@@ -938,8 +943,16 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, se
   )
 
   const valid = !!label.trim() && !!unit.trim() && menge >= 1
+  const materialRef = useRef<HTMLDivElement>(null)
+  const unitRef = useRef<HTMLDivElement>(null)
   const submit = () => {
-    if (!valid) return
+    // blocked: ring the empty field and focus its picker (lib/pointAtField) — the Menge cannot
+    // fall below 1, so it is always one of these two
+    if (!valid) {
+      const field = !label.trim() ? materialRef.current : unitRef.current
+      pointAtField(field, { focus: field?.querySelector<HTMLElement>('input, button') })
+      return
+    }
     onSubmit({ materialId, label: label.trim(), unit: unit.trim(), sourceId, sourceLabel, menge })
     clearDraft(DRAFT_KEY) // recorded — the next «erfassen» starts empty
   }
@@ -954,11 +967,11 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, se
     <Sheet open fit title={M.composerTitle} onClose={onCancel} ariaLabel={M.composerTitle}
       footer={<>
         <button type="button" className="ip-btn" onClick={onCancel}>{M.cancel}</button>
-        <button type="button" className="ip-btn primary" disabled={!valid} onClick={submit}>{M.save}</button>
+        <button type="button" className="ip-btn primary" aria-disabled={!valid} onClick={submit}>{M.save}</button>
       </>}
     >
       <div className={s.composerFields}>
-        <div className={s.field}>
+        <div ref={materialRef} className={s.field}>
           <label>{M.materialLabel}</label>
           {/* clearable: this is the «Anderes Mittel» path, so the value here is often a name
               somebody typed and then wants to type differently. Clearing it used to mean
@@ -967,7 +980,7 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, se
             searchPlaceholder={M.materialSearchPlaceholder}
             allowCustom onChange={pickMaterial} />
         </div>
-        <div className={cx(s.field, s.fieldNarrow)}>
+        <div ref={unitRef} className={cx(s.field, s.fieldNarrow)}>
           <label>{M.unitLabel}</label>
           {/* the picker SHOWS «L» (unitLabel) but stores the catalogue's «l»: a picked «L» saved as-is
                     would be a different unit to mittelKey and split the line in two */}

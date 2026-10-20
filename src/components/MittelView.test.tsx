@@ -288,3 +288,19 @@ describe('the pencil of a hand-added line', () => {
     expect(onSave.mock.lastCall?.[0]).toMatchObject({ label: 'Kanister', stock: 1 })
   })
 })
+
+// UX sweep F2: «Speichern» was a native `disabled` — grey, mute, the tap swallowed. It now stays
+// tappable (aria-disabled) and rings the empty field it is waiting for, as the Trupp form does.
+describe('a blocked «Speichern» in the composer', () => {
+  it('records nothing and points at the empty Material field instead', () => {
+    const onSave = mount()
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(M.add) }))
+    const save = screen.getByRole('button', { name: M.save })
+    expect(save.getAttribute('aria-disabled')).toBe('true')
+    expect((save as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(save)
+    expect(onSave).not.toHaveBeenCalled()
+    const ringed = document.querySelector('.field-flash')
+    expect(ringed?.textContent).toContain(M.materialLabel)
+  })
+})
