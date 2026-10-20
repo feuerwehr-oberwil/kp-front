@@ -12,6 +12,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       enabledTip: 'Affiche « Visites d’objets » dans le lanceur et ouvre les interfaces pour les appareils et l’organisateur.',
       captureRoles: 'Qui peut saisir',
       captureRolesTip: 'Les comptes de ces rôles peuvent créer et modifier des visites. Tous les autres comptes lisent seulement.',
+      lockHours: 'Fenêtre de correction (heures)',
+      lockHoursTip: 'Durée pendant laquelle une visite peut encore être corrigée après sa clôture; ensuite elle est en consultation seule. Vide = jamais verrouiller.',
       roles: { editor: 'Édition', el: 'Conduite d’intervention', viewer: 'Consultation' },
       rolesNone: 'Au moins un rôle doit pouvoir saisir.',
       checklists: 'Listes de contrôle',

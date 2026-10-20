@@ -19733,6 +19733,20 @@
             "type": "array",
             "title": "Captureroles"
           },
+          "lockAfterHours": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 8760.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lockafterhours",
+            "default": 24
+          },
           "proposalFields": {
             "items": {
               "$ref": "#/components/schemas/ObjectVisitProposalField"

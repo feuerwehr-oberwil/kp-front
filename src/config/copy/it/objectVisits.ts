@@ -183,6 +183,7 @@ export const objectVisitsCopy: Localizable<Pick<Copy, 'objectVisits'>> = {
     report: 'Rapporto (PDF)',
     reportFailed: 'Non è stato possibile caricare il rapporto',
     edit: 'Modifica',
+    lockedSince: 'Sola lettura – bloccato dal {when}.',
     placeTitle: 'Segnalazione {label}',
     placeUnnamed: 'al punto posato',
     placeChooseLead: 'Nessun oggetto della caserma – il rapporto viene archiviato con il luogo.',

@@ -79,6 +79,9 @@ export interface LocalVisit {
     deliveries?: Delivery[]
     findings?: number
     url?: string | null
+    completedAt?: string | null
+    /** from when the server refuses corrections (objectVisits/lock) */
+    lockedAt?: string | null
   } | null
 }
 
