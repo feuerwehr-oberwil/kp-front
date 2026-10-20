@@ -5,8 +5,9 @@
    Shared by ChecklistsView / ChecklistRunner / ChecklistReference. */
 /* geometry: the shell every full surface shares (Surface.module.css). The one thing this
    surface does differently is the direction — its template rail sits BESIDE the pane, so it
-   keeps the default row and only adds the gap between the two columns. */
-.cl-surface { composes: shell from './Surface.module.css'; gap: 12px; }
+   keeps the default row. No gap between the two: the rail's hairline is the seam (owner pick A,
+   review round 5, 20.10.2026 – see .cl-main). */
+.cl-surface { composes: shell from './Surface.module.css'; }
 
 /* left rail */
 .cl-rail { flex: 0 0 248px; overflow-y: auto; scrollbar-gutter: stable; padding: var(--sp-3) var(--sp-2); background: var(--surface);
@@ -28,11 +29,17 @@
 /* --- reference playbook --- */
 .cl-ref-chip { box-shadow: 0 0 0 2px rgba(255,255,255,.5); }
 
-/* main pane */
-.cl-main { flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: var(--sp-5); }
+/* main pane – beside the rail it IS the reading surface (owner pick A, review round 5,
+   20.10.2026: «the entire point of the card is to show the content»). It was the grey shell
+   ground with a white document card inset in it, a card in a card with the right half empty.
+   Now the pane is the list's white, the rail's hairline between them, and every reader in it
+   (ManualReader, DevicePage, the Stichwort, the runner) is ONE left-aligned column of
+   --cl-col on that white. The phone and the ≤760 one-page layout keep the page ground (below). */
+.cl-main { --cl-col: 760px; flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable;
+  padding: var(--sp-6) clamp(var(--sp-5), 4vw, var(--sp-7)); background: var(--surface); }
 
 /* --- action / rapport runner --- */
-.cl-runner { max-width: 720px; margin: 0 auto; }
+.cl-runner { max-width: var(--cl-col, 760px); }
 .cl-runner-head { display: flex; align-items: center; gap: var(--head-gap); flex-wrap: nowrap; min-height: var(--tap);
   padding-bottom: var(--head-pad-y); margin-bottom: var(--sp-4); border-bottom: 1px solid var(--glass-edge); }
 /* ONE ROW, the page head's shape (tokens · --head-*, lib/pageHeadFit — ChecklistRunner): the title
@@ -133,13 +140,9 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
 .hz-yellow .cl-ref-chip { background: var(--hazard-yellow); }
 .hz-blue .cl-ref-chip { background: var(--blue); }
 
-.cl-ref-doc { max-width: 640px; background: var(--surface); border-radius: var(--r-surface); padding: var(--sp-5);
-  box-shadow: 0 0 0 1px var(--border-soft); border-top: 4px solid var(--ink-faint); }
-.cl-ref-doc.hz-red { border-top-color: var(--red); }
-.cl-ref-doc.hz-orange { border-top-color: var(--amber); }
-.cl-ref-doc.hz-green { border-top-color: var(--green); }
-.cl-ref-doc.hz-yellow { border-top-color: var(--hazard-yellow); }
-.cl-ref-doc.hz-blue { border-top-color: var(--blue); }
+/* the Stichwort: flat in the pane's reading column, no card and no coloured top edge – the
+   category badge in its head carries the colour (owner pick A, review round 5) */
+.cl-ref-doc { max-width: var(--cl-col, 760px); }
 .cl-ref-doc-head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-4); }
 .cl-ref-doc-head h2 { margin: 0; font-size: var(--fs-4); font-weight: var(--fw-heavy); color: var(--ink); }
 .cl-ref-badge { font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .03em; text-transform: uppercase;
@@ -175,7 +178,8 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
 .cl-ref-note :global(.i) { width: 14px; height: 14px; flex: none; margin-top: 1px; color: var(--ink-faint); }
 /* inline diagram from the source EL PDF page — a preview that opens full-screen (DiagramFigure).
    A Kommandoakten page shrunk into a reading column is a picture OF a diagram, not a readable
-   one, so the inline copy only has to say «there is a diagram here, tap it». */
+   one, so the inline copy only has to say «there is a diagram here, tap it». Beside the rail the
+   picture is capped in both directions (.cl-main, below). */
 .cl-ref-fig { margin: 12px 0; }
 .cl-ref-figbtn { display: block; position: relative; width: 100%; max-width: 560px; padding: 0;
   border: 0; background: none; cursor: zoom-in; border-radius: var(--r-ctl); }
@@ -219,17 +223,14 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
 @media (hover: hover) { .cl-tel:hover { border-bottom-color: var(--accent); } }
 .cl-tel:active { background-image: linear-gradient(var(--press), var(--press)); }
 
-/* wide screens: let the reference reader use the empty horizontal space with a 2-column
-   flow instead of a narrow centred column with a large dark void to the right (item 15) */
-@media (min-width: 980px) {
-  .cl-ref-doc { max-width: 940px; }
-  .cl-ref-blocks { columns: 2; column-gap: 32px; }
-  .cl-ref-blocks > * { break-inside: avoid; }
-  .cl-ref-h { break-after: avoid; }
-  /* ⚠️ A diagram or a table is the one thing a HALF column ruins — a Kommandoakten page at
-     ~450px is unreadable, and a 9-column table would scroll inside a box narrower than two of
-     its columns. Both take the full width and interrupt the flow, like a figure in print. */
-  .cl-ref-fig, .cl-ref-tablewrap { column-span: all; }
+/* A picture in the reading column (an Anleitung's step photo, a Stichwort's diagram) is at most
+   600px wide and a screen's 60% tall, at its own proportions: the button hugs the picture, so the
+   zoom hint sits on its corner. Without the height cap a portrait photo at 600px was ~800px tall,
+   one step a screen and more. (A Stichwort was a 2-column flow above 980px until the owner picked
+   ONE reading column, review round 5.) The phone keeps the column-wide picture (no cap). */
+@media (--not-phone) {
+  .cl-main .cl-ref-figbtn { width: fit-content; max-width: min(100%, 600px); }
+  .cl-main .cl-ref-fig img { width: auto; max-width: 100%; max-height: min(60vh, 520px); }
 }
 /* the text is a flex item next to the dot: without this it keeps its min-content width and a
    long line runs past the column edge instead of wrapping inside it. NOT `overflow-wrap:
@@ -250,6 +251,8 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
    these widths. Gated in React by the same threshold (ChecklistsView · railNarrow). */
 @media (max-width: 760px) {
   .cl-surface { flex-direction: column; gap: 0; }
+  /* one page, not a pane beside a list: the readers stand on the page ground, as on a phone */
+  .cl-main { background: none; }
   /* the picker rail collapses to the .cl-rail-toggle row after a pick (ChecklistsView), so
      while open it may take real height — picking is the only job of that moment */
   .cl-rail { flex: none; max-height: 44dvh; width: auto; border-right: none;
@@ -288,8 +291,9 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
   /* (the full-width inset is the shared shell's — Surface.module.css); the rail stacks above
      the pane rather than beside it */
   .cl-surface { flex-direction: column; gap: 0; }
-  /* lift the main pane clear of the Eintrag FAB (bottom-right, z55) + tighten padding */
-  .cl-main { padding: var(--sp-3) var(--head-pad-x); padding-bottom: calc(var(--sp-3) + var(--fab-safe, 0px)); }
+  /* lift the main pane clear of the Eintrag FAB (bottom-right, z55) + tighten padding; the page
+     ground, not the tablet's white pane */
+  .cl-main { padding: var(--sp-3) var(--head-pad-x); padding-bottom: calc(var(--sp-3) + var(--fab-safe, 0px)); background: none; }
   /* (the runner head is the page head's one row — its paddings are the phone tokens) */
   .cl-runner-head { margin-bottom: var(--sp-3); }
   /* ONE level (owner-r2-5, 27.09.2026: «drop the multiple nested cards»). The page was a card
@@ -298,12 +302,11 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
      before the first line of content. Now the chooser IS the page head, in the head's type and
      with the category as a word beside the title (.cl-head-hz), and the content sits directly on
      the page as flat sections under the Rapport's eyebrow heads (17-rapport.css ·
-     .report-pre-section h3), a hairline between them. The tablet keeps its document card: there
-     the rail stands beside it and the card is what separates the two. */
+     .report-pre-section h3), a hairline between them. (Beside the rail there is no document card
+     either since review round 5: the pane is the white surface – .cl-main.) */
   /* (48px, under the 60px page heads: it carries no tile, so it does not pay for a tile's row) */
   .cl-rail-toggle { padding: 12px var(--head-pad-x); font: var(--head-title); color: var(--ink); }
   .cl-ref { flex-direction: column; }
-  .cl-ref-doc { max-width: none; padding: 0; background: none; box-shadow: none; border-top: 0; border-radius: 0; }
   /* the title is the chooser's, the category is the chip beside it — nothing to say twice */
   .cl-ref-doc-head { display: none; }
   .cl-ref-h { margin: var(--sp-4) 0 var(--sp-2); padding-top: var(--sp-4); border-top: 1px solid var(--glass-edge);
