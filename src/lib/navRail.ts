@@ -93,6 +93,15 @@ export function planGlyph(doc: PlanDocument): { mono: string } | { icon: string 
   return { icon: doc.icon ?? 'doc' }
 }
 
+/** The letter count of the widest monogram chip a rail holds, for its `data-mono-max` (the
+ *  expanded glyph column is sized to it, 05-navrail.css). A fraction («2/3») or an icon does not
+ *  count; under 2 letters → undefined, the 26px column an icon needs. Used by the Einsatz's
+ *  NavRail and the Karte's rail alike. */
+export function railMonoMax(docs: readonly PlanDocument[]): number | undefined {
+  const n = docs.reduce((n, d) => { const g = planGlyph(d); return 'mono' in g && !g.mono.includes('/') ? Math.max(n, g.mono.length) : n }, 0)
+  return n > 1 ? n : undefined
+}
+
 /** the digit(s) that address this plan doc from the keyboard — the numbers in its rail glyph.
  *  A single module ("2") → [2]; a combined sheet ("2/3") → [2, 3] (either digit opens it); a
  *  sub-slot ("PV"), the Tafel and the merged Gebäude tile carry no number → [] (reach them by

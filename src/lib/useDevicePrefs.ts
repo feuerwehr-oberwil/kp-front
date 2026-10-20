@@ -1,8 +1,11 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useState, useSyncExternalStore } from 'react'
 import { clampSymbolScale, loadPrefs, railLabelsFor, savePrefs, symbolScales, type RailLabels, type SymbolSurface } from './prefs'
 import { PHONE_QUERY } from './useIsPhone'
 import { appConfig } from '../config/appConfig'
 import type { CaptionMode } from '../types'
+
+/** fired on `window` when the Einstellungen change «Beschriftung» – `useRailLabels` listens */
+const RAIL_LABELS_EVENT = 'kp:rail-labels'
 
 /** Device-local display prefs shared by the incident workspace and the landing
  *  Einstellungen: tactical-symbol size (Karte / standalone Module; linked Module follow Karte),
@@ -32,6 +35,7 @@ export function useDevicePrefs() {
   const setRailLabels = useCallback((v: RailLabels) => {
     savePrefs({ ...loadPrefs(), railLabels: v, railLabelsChosen: true })
     setLabels(v)
+    window.dispatchEvent(new Event(RAIL_LABELS_EVENT))
   }, [])
   return {
     symbolScale, setSymbolScale,
@@ -41,4 +45,16 @@ export function useDevicePrefs() {
     keepScreenOn, setKeepScreenOn,
     railLabels, setRailLabels,
   }
+}
+
+const onRailLabels = (cb: () => void) => {
+  window.addEventListener(RAIL_LABELS_EVENT, cb)
+  return () => window.removeEventListener(RAIL_LABELS_EVENT, cb)
+}
+
+/** «Beschriftung» as a surface that does not own the Einstellungen reads it – the Karte's rail
+ *  (components/karte), under the home's own settings sheet (App · LandingSettings). Live: a change
+ *  made there shows on the rail at once, without a remount. */
+export function useRailLabels(phone: boolean): RailLabels {
+  return useSyncExternalStore(onRailLabels, () => railLabelsFor(loadPrefs(), phone))
 }
