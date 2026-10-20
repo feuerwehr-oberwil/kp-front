@@ -31,7 +31,7 @@ function show(n: GpsNotice) {
 describe('GpsFollowMeldung', () => {
   it('away: names the vehicle, how far and the line, and leads with the green «Am Einsatzort lassen»', () => {
     const m = show(notice({}))
-    expect(m.title()).toBe('TLF fährt weg · 340 m vom Einsatzort')
+    expect(m.title()).toBe('TLF fährt weg, 340 m vom Einsatzort')
     expect(m.sub()).toBe('Leitung 1 endet noch am Einsatzort.')
     expect(m.buttons().map((b) => b.textContent)).toEqual(['Am Einsatzort lassen', 'Weiter folgen'])
     expect(m.buttons()[0].className).toBe('ip-btn go ml-btn')
@@ -52,7 +52,7 @@ describe('GpsFollowMeldung', () => {
   it('the distance updates live, in kilometres past one', () => {
     const m = show(notice({}))
     m.r.rerender(<><GpsFollowMeldung notice={notice({ distanceM: 1149 })} label="TLF" onKeep={m.onKeep} onRevert={m.onRevert} onFollow={m.onFollow} onDismiss={m.onDismiss} /><Meldeleiste /></>)
-    expect(m.title()).toBe('TLF fährt weg · 1.1 km vom Einsatzort')
+    expect(m.title()).toBe('TLF fährt weg, 1.1 km vom Einsatzort')
   })
 
   it('a vehicle out of the feed: no distance is invented', () => {
@@ -62,7 +62,7 @@ describe('GpsFollowMeldung', () => {
   it('stopped with the on-site line kept: «Zurück» is the primary, and the row may be waved away', () => {
     const m = show(notice({ key: 'gps-3:stopped', kind: 'stopped', distanceM: 1149, before, canRevert: true, ends: [{ drawing, endpoint: 'end', before }] }))
     expect(m.title()).toBe('TLF · 1.1 km vom Einsatzort')
-    expect(m.sub()).toBe('Folgen gestoppt · Leitung 1 zeigt die Fahrt.')
+    expect(m.sub()).toBe('Folgen gestoppt. Leitung 1 zeigt die Fahrt.')
     expect(m.buttons().map((b) => b.textContent)).toEqual(['Zurück auf Stand am Einsatzort', 'Weiter folgen'])
     fireEvent.click(m.buttons()[0])
     expect(m.onRevert).toHaveBeenCalledOnce()

@@ -294,7 +294,7 @@ export const whiteboardCopy = {
     finishShape: 'Fertig',
     cancelShape: 'Abbrechen',
     insertVertex: 'Punkt einfügen',
-    dragVertex: 'Eckpunkt ziehen · gedrückt halten zum Löschen',
+    dragVertex: 'Eckpunkt ziehen, gedrückt halten zum Löschen',
     dragRadius: 'Radius ziehen',
     groupDeleteTitle: 'Auswahl entfernen',
     groupDeleted: 'Auswahl entfernt',

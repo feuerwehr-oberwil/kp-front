@@ -199,7 +199,7 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     finishShape: 'Terminé',
     cancelShape: 'Annuler',
     insertVertex: 'Insérer un point',
-    dragVertex: 'Tirer le sommet · maintenir pour supprimer',
+    dragVertex: 'Tirer le sommet, maintenir pour supprimer',
     dragRadius: 'Faire glisser le rayon',
     groupDeleteTitle: 'Retirer la sélection',
     groupDeleted: 'Sélection retirée',

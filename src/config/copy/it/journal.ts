@@ -23,7 +23,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'errors'>> = {
     },
     open: 'Diario',
     add: 'Voce',
-    addHint: 'Tocca per una voce · tieni premuto, poi scorri su memo vocale o foto',
+    addHint: 'Tocca per una voce – tieni premuto, poi scorri su memo vocale o foto',
     title: 'Diario',
     empty: 'Nessun evento registrato',
     surfaceMap: 'Mappa',

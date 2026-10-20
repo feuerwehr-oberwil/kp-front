@@ -17,7 +17,7 @@ describe('DemoWelcome', () => {
     expect(screen.getByRole('dialog', { name: 'Willkommen bei KP Front' })).toBeTruthy()
     expect(screen.getAllByRole('listitem')).toHaveLength(3)
     expect(screen.getByText(/Alle Besucher arbeiten gemeinsam/)).toBeTruthy()
-    expect(screen.getByText(/Neue Einsätze sind gesperrt/)).toBeTruthy()
+    expect(screen.getByText(/neue Einsätze sind gesperrt/)).toBeTruthy()
     expect(screen.queryByText('Gut zu wissen')).toBeNull()
   })
 

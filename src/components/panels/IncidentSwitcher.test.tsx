@@ -80,7 +80,7 @@ describe('IncidentSwitcher · Einsatz verlassen', () => {
     const leave = vi.fn()
     renderActive({ active, incidents: [active, other], onKarte: leave, onHistory: () => {}, onObjectVisits: () => {} })
     const row = screen.getByRole('button', { name: /Einsatz verlassen/ })
-    expect(row.textContent).toContain('Läuft weiter · zur Karte')
+    expect(row.textContent).toContain('Läuft weiter – zur Karte')
     const running = screen.getByRole('button', { name: /Ölspur Hauptstrasse/ })
     const history = screen.getByRole('button', { name: appConfig.copy.incidentSwitcher.allIncidents })
     const visits = screen.getByRole('button', { name: appConfig.copy.objectVisits.launcher })
@@ -98,7 +98,7 @@ describe('IncidentSwitcher · Einsatz verlassen', () => {
       center: [7.57, 47.52], zoom: 17, bearing: 0, objectId: 'schloss', surface: { plan: 'p1' }, label: 'Schloss Musterdorf · Modul 1',
     }))
     renderActive({ active, incidents: [active], onKarte: () => {} })
-    expect(screen.getByRole('button', { name: /Einsatz verlassen/ }).textContent).toContain('Läuft weiter · zurück zu Schloss Musterdorf · Modul 1')
+    expect(screen.getByRole('button', { name: /Einsatz verlassen/ }).textContent).toContain('Läuft weiter – zurück zu Schloss Musterdorf · Modul 1')
   })
 
   it('draws no row for a link session (no door handed in), and no Einsätze group either', () => {
