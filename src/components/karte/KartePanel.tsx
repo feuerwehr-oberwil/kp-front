@@ -335,8 +335,8 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
       ? fillTemplate(C.registerOther, { a: splitAddress(info.address)[0], b: splitAddress(address)[0] }) : ''
     inner = (
       <>
-        <RegisterTags chips={hazards} className={s.regTags} />
-        {facts.length > 0 ? <RegisterTags chips={facts} className={cx(s.regTags, s.facts)} /> : !hazards.length && <div className={s.src}>{C.registerEmpty}</div>}
+        <RegisterTags chips={hazards} />
+        {facts.length > 0 ? <RegisterTags chips={facts} /> : !hazards.length && <div className={s.src}>{C.registerEmpty}</div>}
         {/* the register's entry is ANOTHER building's: said right under the chips, never folded
             (owner, review round 4) — the chips may be about Grenzweg 7, not this object */}
         {other && <div className={s.src} data-testid="register-other"><b>{other}</b></div>}
