@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest'
-import { windArrowRotation } from './TopBar'
+import { describe, it, expect, afterEach } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
+import { TopBar, windArrowRotation } from './TopBar'
+import { appConfig } from '../config/appConfig'
 
 // The bar's own «Teilen» button was removed on 06.09. — the Einsatz-Karte's «Teilen» row
 // (panels/IncidentSwitcher) is now the one door to the share sheet on every width.
@@ -18,5 +20,27 @@ describe('windArrowRotation', () => {
     expect(windArrowRotation(225, 90)).toBe(135)
     expect(windArrowRotation(45, 45)).toBe(0)
     expect(windArrowRotation(10, 40)).toBe(-30)
+  })
+})
+
+// S5 (20.10.2026): on a phone the closed-Einsatz chip is its lock alone, and the hold-tooltip
+// skipped it because the hidden word is still its text. It opts in, on both variants.
+describe('ArchivedChip', () => {
+  const bar = (extra: Partial<Parameters<typeof TopBar>[0]>) => render(
+    <TopBar incident={{ title: 'Brand', address: 'Hauptstrasse 1' } as Parameters<typeof TopBar>[0]['incident']}
+      recording={false} recStartedAt={null} journalOpen={false} onToggleJournal={() => {}}
+      onUndo={() => {}} onRedo={() => {}} canUndo={false} canRedo={false} archived {...extra} />,
+  )
+  afterEach(cleanup)
+
+  it('explains itself on a hold, with exits (menu) and without (a link session)', () => {
+    const C = appConfig.copy.archived
+    bar({ onBackFromArchive: () => {} })
+    const withExits = screen.getByRole('button', { name: `${C.title} – ${C.hint}` })
+    expect(withExits.hasAttribute('data-holdexplain')).toBe(true)
+    cleanup()
+    bar({})
+    const linkChip = screen.getByRole('button', { name: `${C.title} – ${C.hintViewOnly}` })
+    expect(linkChip.hasAttribute('data-holdexplain')).toBe(true)
   })
 })
