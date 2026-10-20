@@ -1,9 +1,10 @@
 /* A building's register tags and the station's notes (BuildingFacts) – the Karte panel's look,
    which the Einsatz's Gebäude card wears too. Read-only facts, not chips you tap: 26px, a hairline
    and no fill (owner 20.10., the Karte panel's «one rhythm» – a filled tag read as one more size
-   of button); a hazard keeps its amber fill. A long fact wraps inside its tag. */
+   of button); a hazard keeps its amber fill. A long fact wraps inside its tag, with room above and
+   below its lines (owner 20.10.2026: «29 Wohnungen · 1. OG 4 · …» touched the frame). */
 .tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
-.tag { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; max-width: 100%; min-height: 26px; padding: 0 var(--sp-2);
+.tag { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; max-width: 100%; min-height: 26px; padding: 4px var(--sp-2);
   border-radius: var(--r-xs); box-shadow: inset 0 0 0 1px var(--border); color: var(--ink); font: var(--fw-bold) var(--fs-1)/1.2 var(--body); }
 .tag > span { min-width: 0; overflow-wrap: anywhere; }
 .tag svg { width: 14px; height: 14px; flex: none; }
