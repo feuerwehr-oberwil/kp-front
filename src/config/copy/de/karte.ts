@@ -11,8 +11,8 @@ export const karteCopy = {
     // «Einsatz verlassen» (owner, 17.10.2026): the Einsatz menu's door to the viewer (panels/AppMenuRows).
     // «verlassen» must never read as closing — the sub line says the Einsatz runs on.
     leave: 'Einsatz verlassen',
-    leaveSub: 'Läuft weiter · zur Karte',
-    leaveBack: 'Läuft weiter · zurück zu {where}',
+    leaveSub: 'Läuft weiter – zur Karte',
+    leaveBack: 'Läuft weiter – zurück zu {where}',
     backAt: 'Wieder bei {where}',
     backPlan: 'Modul {code}',
     // the menu button at the top left (review round 5, owner: not «Einsätze» — the station's short
@@ -70,8 +70,6 @@ export const karteCopy = {
     approxHead: 'Keine Koordinaten im Katalog.',
     approxBody: 'Lage aus der Adresse – ungefähr. Vor Ort prüfen.',
     approxTag: 'ungefähr',
-    measures: 'Sofortmassnahmen',
-    remarks: 'Bemerkungen',
     notesSource: 'Station · {src}',
     notesStation: 'Station',
     missing: 'Keine Gefahrenangaben der Station erfasst. Das heisst nicht, dass es keine gibt.',
@@ -184,7 +182,7 @@ export const karteCopy = {
       map: 'Karte',
       mapAll: 'Dieser Ausschnitt ist gespeichert',
       mapPart: 'Dieser Ausschnitt nur teilweise',
-      mapPartOffline: 'Dieser Ausschnitt nur teilweise · ohne Karte schraffiert',
+      mapPartOffline: 'Dieser Ausschnitt nur teilweise – ohne Karte schraffiert',
       mapNone: 'Für diesen Ausschnitt keine Karte gespeichert',
       mapFar: 'Zum Prüfen näher heranzoomen',
       mapUnknown: 'Nicht prüfbar – nur online angenommen',

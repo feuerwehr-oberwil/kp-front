@@ -101,7 +101,7 @@ await cards.first().click()
 const hero = page.locator('img[class*="dv-hero"]')
 if (await hero.count()) {
   await page.waitForFunction(() => { const i = document.querySelector('img[class*="dv-hero"]'); return i && i.complete && i.naturalWidth > 0 }, null, { timeout: 15_000 })
-  const back = page.locator('button[class*="backLink"]')
+  const back = page.locator('button.back-row')
   for (let i = 1; i <= RUNS; i++) {
     results.push({ what: `device page hero, open ${i + 1}`, ...await reopen('img[class*="dv-hero"]', () => back.click(), () => cards.first().click()) })
   }

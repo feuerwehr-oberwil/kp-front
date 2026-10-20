@@ -1,38 +1,10 @@
 /* ===== The Karte's Checkliste surface (ChecklistLibrary.tsx, 19.10.2026) =========================
    The shell, the list column, the document pane and every reader are the Einsatz Checkliste's
-   (Checklists.module.css, ManualReader.module.css). What is here is the library's own: its labelled
-   groups, its rows, the phone's device cards and its back rows. */
+   (Checklists.module.css, ManualReader.module.css), its groups and rows the shared ChecklistRail's.
+   What is here is the library's own: the search hint, the column width and the phone page head. */
 
-/* a labelled group: the eyebrow with an optional count or word at its right end, then the rows on
-   one white card (or, `bare`, the device cards straight on the page) */
-.group { display: flex; flex-direction: column; gap: var(--sp-2); }
-.group + .group { margin-top: var(--sp-5); }
-.label { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); padding: 0 var(--sp-2);
-  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.labelEnd { text-transform: none; letter-spacing: 0; font-weight: var(--fw-bold); }
-.card { display: flex; flex-direction: column; background: var(--surface); border-radius: var(--r-surface);
-  box-shadow: 0 0 0 1px var(--border-soft); overflow: hidden; }
-.card > .row + .row { box-shadow: inset 0 1px 0 var(--border-soft); }
-
-/* the phone's devices: two photo cards per row (DeviceManuals · DeviceTile card) */
-.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
-.rows { display: flex; flex-direction: column; gap: 2px; }
-
-.row { display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: 56px; padding: var(--sp-2) var(--sp-4);
-  border: 0; background: none; cursor: pointer; text-align: left; font-family: var(--body); color: var(--ink); }
-.row > :global(.i) { width: 14px; height: 14px; flex: none; color: var(--ink-faint); }
-@media (hover: hover) { .row:hover { background: var(--fill-soft); } }
-.row:active { background-image: linear-gradient(var(--press), var(--press)); }
-.row.on { background: var(--ink-fill); color: var(--on-accent-ink); }
-.row.on .sub, .row.on .end, .row.on .glyph, .row.on > :global(.i) { color: var(--on-accent-ink); }
-.glyph { flex: none; width: 20px; display: grid; place-items: center; color: var(--ink-dim); }
-.glyph :global(.i) { width: 18px; height: 18px; }
-.text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.title { font-size: var(--fs-3); font-weight: var(--fw-bold); line-height: 1.3; overflow-wrap: break-word; overflow: hidden;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.sub { font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-dim); overflow-wrap: break-word; }
-.end { flex: none; font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
-.chip { display: grid; place-items: center; }
+/* the groups (ChecklistRail · THE ListGroup) stand apart by a step more than their rows */
+.lib :global(.list-group) + :global(.list-group) { margin-top: var(--sp-5); }
 .hit { background: var(--amber-22); color: inherit; border-radius: 3px; }
 .hint { display: flex; align-items: flex-start; gap: var(--sp-2); margin: var(--sp-3) var(--sp-2) 0; font-size: var(--fs-2); color: var(--ink-dim); }
 .hint :global(.i) { width: 16px; height: 16px; flex: none; margin-top: 2px; color: var(--ink-faint); }
@@ -40,25 +12,17 @@
 /* the phone's home and the device page: the content stands on the page ground, not on a card */
 .home { background: transparent; }
 
-/* the tablet's list column: wider than the Einsatz rail (it carries device rows with pictures),
-   and its groups are rows on the column's own white, without cards of their own */
+/* the tablet's list column: wider than the Einsatz rail (it carries device rows with pictures);
+   its groups are THE rail look (ChecklistRail, look="rail") */
 .column { flex-basis: 300px; gap: 0; }
-.column .card { background: none; box-shadow: none; border-radius: 0; gap: 2px; }
-.column .card > .row + .row { box-shadow: none; }
-.column .row { min-height: var(--tap); padding: var(--sp-2); border-radius: var(--r-ctl); }
-.column .title { font-size: var(--fs-2); }
-.column .group + .group { margin-top: var(--sp-4); }
+.column :global(.list-group) + :global(.list-group) { margin-top: var(--sp-4); }
 
-/* phone back rows: the device page's quiet «‹ Checkliste» link above its card, and every reader's
-   head row «‹ Title» – the reader's own title is hidden on a phone (it is said here) */
-.backLink { display: flex; align-items: center; gap: var(--sp-1); flex: none; align-self: flex-start; min-height: var(--tap);
-  padding: 0 var(--head-pad-x); border: 0; background: none; cursor: pointer; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink-dim); }
+/* the phone's page head under the back row (components/ListRow · BackRow): the page's own title
+   (the reader hides its title on a phone – it is said here) */
 .pageHead { display: flex; align-items: center; gap: var(--sp-2); flex: none; width: 100%; min-height: 48px;
   padding: var(--sp-2) var(--head-pad-x); background: var(--surface); box-shadow: inset 0 -1px 0 var(--glass-edge); }
 .pageTitle { flex: 1 1 auto; min-width: 0; margin: 0; font: var(--head-title); color: var(--ink); overflow-wrap: break-word; }
-.backLink :global(.i) { width: 18px; height: 18px; flex: none; color: var(--ink-dim); }
 .backEnd { flex: none; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-dim); }
-.backLink:active { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* the root FILLS the frame the Karte gives it (KarteApp · the Einsatz surfaces' .shell) – it is not
    a .shell itself, which would inset it a second time. A row like the Einsatz Checkliste (list

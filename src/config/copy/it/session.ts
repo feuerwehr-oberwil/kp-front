@@ -148,7 +148,7 @@ export const sessionCopy: Localizable<Pick<Copy, Keys>> = {
       canTitle: 'Cosa puoi provare',
       can: ['Modificare carta e piano', 'Condurre squadre ARA e materiale', 'Aprire piani d’oggetto e rapporto'],
       cta: 'Si parte',
-      meta: 'Nessun dato reale · La creazione di interventi è bloccata',
+      meta: 'Nessun dato reale – la creazione di interventi è bloccata',
     },
   },
 }

@@ -100,7 +100,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     funkkanal: 'Radio channel',
     funkkanalSub: 'Default for new SCBA teams',
     syncedFoot: 'Synced with all devices',
-    syncedFootViewer: ' · only the incident commander can change them',
+    syncedFootViewer: ' – only the incident commander can change them',
     utilityGroup: 'Templates',
     blankSheet: 'Blank capture sheet (PDF)',
     blankSheetSub: 'Paper sheet to fill in by hand',

@@ -43,7 +43,7 @@
     "fontSize": 2
   },
   "src/components/Checklists.module.css": {
-    "shadow": 2
+    "shadow": 1
   },
   "src/components/GeorefMode.module.css": {
     "spacing": 8,

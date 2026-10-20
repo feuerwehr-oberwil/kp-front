@@ -47,6 +47,8 @@ import { planKey, type ObjectAvailability } from '../../lib/karte/availability'
 import type { VisitSummary } from '../../objectVisits/types'
 import type { LngLat } from '../../types'
 import { Button } from '../Button'
+import { RegisterTags, StationNotes } from '../BuildingFacts'
+import { ListCard, ListRow } from '../ListRow'
 import { LampDot } from './KarteDevice'
 import s from './Karte.module.css'
 
@@ -183,13 +185,9 @@ export function KartePanel(p: {
       <>
         <Quiet>{empty ? C.pinEmpty : C.pinNote}</Quiet>
         {sel.onBuilding && (
-          <div className={s.list}>
-            <button type="button" className={s.row} onClick={p.onPinBuilding}>
-              <span className={s.rowLead}><Icon id="footprint" /></span>
-              <span className={s.rowText}><b>{C.pinBuilding}</b><span>{C.pinBuildingSub}</span></span>
-              <Icon id="chevron" className={s.chev} />
-            </button>
-          </div>
+          <ListCard>
+            <ListRow lead={<Icon id="footprint" />} title={C.pinBuilding} sub={C.pinBuildingSub} onClick={p.onPinBuilding} />
+          </ListCard>
         )}
         <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
         <Actions canCapture={p.canCapture} onReport={p.onReport}
@@ -253,20 +251,9 @@ function StationWord({ obj }: { obj: StationObject }) {
   const remarks = noteLines(obj.remarks)
   if (!measures.length && !remarks.length) return null
   return (
-    <div className={s.sec} data-section="station">
-      {measures.length > 0 && (
-        <>
-          <div className={s.secHead}><span className={s.eyebrow}>{C.measures}</span></div>
-          <ul className={s.bullets}>{measures.map((l, i) => <li key={i}>{l}</li>)}</ul>
-        </>
-      )}
-      {remarks.length > 0 && (
-        <>
-          <div className={s.secHead}><span className={s.eyebrow}>{C.remarks}</span></div>
-          <ul className={cx(s.bullets, s.quietList)}>{remarks.map((l, i) => <li key={i}>{l}</li>)}</ul>
-        </>
-      )}
-      <div className={s.src}>{obj.measuresSource ? fillTemplate(C.notesSource, { src: obj.measuresSource }) : C.notesStation}</div>
+    <div data-section="station">
+      <StationNotes measures={measures} remarks={remarks}
+        source={obj.measuresSource ? fillTemplate(C.notesSource, { src: obj.measuresSource }) : C.notesStation} />
     </div>
   )
 }
@@ -294,20 +281,17 @@ function Plans({ docs, onOpenDoc, avail }: {
         <span className={s.eyebrow}>{C.plansTitle}</span>
         {offline && <span className={s.legend}><span className={s.lamp} aria-hidden />{C.onDevice}</span>}
       </div>
-      <div className={s.list}>
+      <ListCard>
         {docs.map(({ doc, row, plan }) => {
           const lamp = lampOf(plan)
           const off = lamp === 'online'
           return (
-            <button key={doc.id} type="button" className={cx(s.row, s.planRow, off && s.off)} onClick={() => onOpenDoc(doc.id)}
-              aria-label={lamp ? `${row} · ${off ? C.planNotStored : C.device.lampWord[lamp]}` : undefined}>
-              <span className={s.rowText}><b>{row}</b></span>
-              {lamp && <LampDot lamp={lamp} />}
-              <Icon id="chevron" className={s.chev} />
-            </button>
+            <ListRow key={doc.id} className={cx(s.planRow, off && s.off)} title={row} end={lamp && <LampDot lamp={lamp} />}
+              onClick={() => onOpenDoc(doc.id)}
+              aria-label={lamp ? `${row} · ${off ? C.planNotStored : C.device.lampWord[lamp]}` : undefined} />
           )
         })}
-      </div>
+      </ListCard>
     </div>
   )
 }
@@ -349,10 +333,8 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
       ? fillTemplate(C.registerOther, { a: splitAddress(info.address)[0], b: splitAddress(address)[0] }) : ''
     inner = (
       <>
-        {hazards.length > 0 && <ul className={s.tags}>{hazards.map((c) => <li key={c.key} className={cx(s.tag, s.warn)} title={c.title}><Icon id="warn" />{c.text}</li>)}</ul>}
-        {facts.length > 0
-          ? <ul className={s.tags}>{facts.map((c) => <li key={c.key} className={s.tag} title={c.title}>{c.text}</li>)}</ul>
-          : !hazards.length && <div className={s.src}>{C.registerEmpty}</div>}
+        <RegisterTags chips={hazards} />
+        {facts.length > 0 ? <RegisterTags chips={facts} /> : !hazards.length && <div className={s.src}>{C.registerEmpty}</div>}
         {/* the register's entry is ANOTHER building's: said right under the chips, never folded
             (owner, review round 4) — the chips may be about Grenzweg 7, not this object */}
         {other && <div className={s.src} data-testid="register-other"><b>{other}</b></div>}
@@ -364,8 +346,8 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
     <div className={s.sec} data-section="register">
       <div className={s.secHead}>
         <span className={s.eyebrow}>{C.registerTitle}</span>
-        <button type="button" className={cx(s.hint, s.hintBtn, open && s.open)} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          <Icon id="info" />{B.hint}<Icon id="chevron-down" className={s.hintChev} />
+        <button type="button" className={cx(s.hint, s.hintBtn)} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          <Icon id="info" />{B.hint}<Icon id="chevron-down" className="chev" />
         </button>
       </div>
       {inner}
@@ -407,29 +389,23 @@ function Nearby({ rows, lit, onHydrant, onSelectObject }: { rows: NearRow[]; lit
     <div className={s.sec} data-section="nearby">
       <div className={s.secHead}><span className={s.eyebrow}>{C.nearTitle}</span></div>
       {rows.length > 0 ? (
-        <div className={s.list}>
+        <ListCard>
           {rows.map((r) => r.kind === 'object' ? (
-            <button key={r.item.id} type="button" className={s.row} onClick={() => onSelectObject(r.item.id)}>
-              <span className={s.rowLead}><Icon id="footprint" /></span>
-              <span className={s.rowText}><b>{r.item.name}</b><span>{objectRowSub(r.item, C.kind[r.item.kind])}</span></span>
-              <span className={s.rowEnd}>{fmtDistance(r.distanceM)}<Icon id="chevron" className={s.chev} /></span>
-            </button>
+            <ListRow key={r.item.id} lead={<Icon id="footprint" />} title={r.item.name} sub={objectRowSub(r.item, C.kind[r.item.kind])}
+              end={fmtDistance(r.distanceM)} onClick={() => onSelectObject(r.item.id)} />
           ) : (
-            // hover is the mouse's only (a finger's pointerenter would pin nothing and flash the map)
-            <button key={r.item.id} type="button" className={cx(s.row, s.hydRow, lit === r.item.id && s.lit)} data-hydrant={r.item.id}
+            // a hydrant is not a place to open: no chevron. Hover is the mouse's only (a finger's
+            // pointerenter would pin nothing and flash the map)
+            <ListRow key={r.item.id} className={cx(s.hydRow, lit === r.item.id && s.lit)} data-hydrant={r.item.id} chevron={false}
               aria-pressed={lit === r.item.id}
               onPointerEnter={(e) => { if (e.pointerType === 'mouse') onHydrant?.(r.item.id, 'enter') }}
               onPointerLeave={(e) => { if (e.pointerType === 'mouse') onHydrant?.(r.item.id, 'leave') }}
-              onClick={() => onHydrant?.(r.item.id, 'tap')}>
-              <span className={cx(s.rowLead, s.hydrant)}><Icon id="drop" /></span>
-              <span className={s.rowText}>
-                <b>{r.nearest && <span className={cx(s.badge, s.blue)}>{C.nearNearest}</span>}{C.nearHydrant}</b>
-                <span>{C.compass[r.dir]}</span>
-              </span>
-              <span className={s.rowEnd}>{fmtDistance(r.distanceM)}</span>
-            </button>
+              onClick={() => onHydrant?.(r.item.id, 'tap')}
+              lead={<Icon id="drop" />}
+              title={<>{r.nearest && <span className={cx('ip-badge', s.nearest)}>{C.nearNearest}</span>}{C.nearHydrant}</>}
+              sub={C.compass[r.dir]} end={fmtDistance(r.distanceM)} />
           ))}
-        </div>
+        </ListCard>
       ) : (
         <Quiet>{C.nearNone}</Quiet>
       )}
@@ -457,25 +433,21 @@ function Visits({ visits, canCapture, empty, onOpenVisit, offline, last }: {
           </Quiet>
         )
           : visits.list.length ? (
-            <div className={s.list}>
+            <ListCard>
               {visits.list.map((v) => {
                 const by = typeof v.by === 'string' ? v.by : v.by?.name ?? ''
                 const who = v.with?.length ? v.with.join(', ') : by
                 const n = v.findings ?? 0
                 return (
-                  <button key={v.id} type="button" className={s.row} onClick={() => onOpenVisit(v.id)}>
-                    <span className={s.rowLead}><Icon id="clipboard" /></span>
-                    <span className={s.rowText}><b>{v.checklist?.title ?? C.visitNoChecklist}</b><span>{[fmtDay(v.visitedAt), who].filter(Boolean).join(' · ')}</span></span>
-                    <span className={s.rowEnd}>
-                      {v.lifecycle === 'draft' ? <span className={cx(s.badge, s.ink)}>{C.visitDraft}</span>
-                        : n === 0 ? <span className={cx(s.badge, s.green)}><Icon id="check" />{C.visitNoDefects}</span>
-                          : <span className={cx(s.badge, s.amber)}>{n === 1 ? C.visitDefectOne : fillTemplate(C.visitDefects, { n })}</span>}
-                      <Icon id="chevron" className={s.chev} />
-                    </span>
-                  </button>
+                  <ListRow key={v.id} lead={<Icon id="clipboard" />} title={v.checklist?.title ?? C.visitNoChecklist}
+                    sub={[fmtDay(v.visitedAt), who].filter(Boolean).join(' · ')} onClick={() => onOpenVisit(v.id)}
+                    // Objektbesuche's tones for the same states (objectVisits · WorkList): draft ink, defects amber
+                    end={v.lifecycle === 'draft' ? <span className="ip-badge ip-badge-arch">{C.visitDraft}</span>
+                      : n === 0 ? <span className="ip-badge ip-badge-ok">{C.visitNoDefects}</span>
+                        : <span className="ip-badge ip-badge-todo">{n === 1 ? C.visitDefectOne : fillTemplate(C.visitDefects, { n })}</span>} />
                 )
               })}
-            </div>
+            </ListCard>
           ) : <Quiet>{empty}</Quiet>}
       {!canCapture && <div className={s.src}>{C.visitsReadOnly}</div>}
     </div>

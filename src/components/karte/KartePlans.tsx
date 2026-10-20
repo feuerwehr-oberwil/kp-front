@@ -126,10 +126,10 @@ export function KarteSurface({ obj, doc, phone, sym, onMap, offline = false, hel
             : <KarteGebaeudeBoard key={obj.plans.map((p) => `${p.id}@${p.version}`).join('|')} obj={obj} doc={doc} sym={sym} offline={offline} partOffline={partFloors} />}
       </div>
       <div className={s.chipRow}>
-        <button type="button" className={s.fchip} onClick={onMap}><Icon id="footprint" />{phone ? C.backToMap : obj.name}</button>
+        <button type="button" className="wb-scale-chip" onClick={onMap}><Icon id="footprint" />{phone ? C.backToMap : obj.name}</button>
         {/* the mockup's lamp chip: always on the tablet, on the phone only when it matters (offline) */}
         {held != null && (!phone || offline) && (
-          <span className={s.fchip} role="status"><LampDot lamp={held ? 'device' : 'online'} />{held ? C.planOnDevice : C.planOnlineOnly}</span>
+          <span className="wb-scale-chip" role="status"><LampDot lamp={held ? 'device' : 'online'} />{held ? C.planOnDevice : C.planOnlineOnly}</span>
         )}
       </div>
     </div>

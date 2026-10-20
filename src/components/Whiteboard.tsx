@@ -35,6 +35,7 @@ import { markerTakesLineEnd, truppForLine, truppIdForAttachment, truppIsOut, tru
 import { freshTeamLabel, nextTeamName, teamNoTaken } from '../lib/placedTrupps'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
+import { usePlacementLane } from '../lib/toastLane'
 import { ApiError } from '../lib/api'
 import { Menu, Overlay } from '../lib/overlays'
 import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
@@ -468,6 +469,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     }
   }, [measDragNode])
   const tool: BoardTool = selectOnly ? 'pan' : armedTool
+  // a plan tool takes the taps: the toasts give way to the top lane meanwhile (lib/toastLane)
+  usePlacementLane(tool !== 'pan' && !readOnlyProp)
   const [pending, setPending] = useState<string | null>(null)
   // a generic shape (Pfeil / Rauch / Rechteck) armed from the palette — mirror of the map's pendingShape
   const [pendingShape, setPendingShape] = useState<ShapeKind | null>(null)

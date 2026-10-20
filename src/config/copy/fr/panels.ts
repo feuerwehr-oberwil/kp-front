@@ -94,7 +94,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     funkkanal: 'Canal radio',
     funkkanalSub: 'Par défaut pour les nouveaux binômes ARI',
     syncedFoot: 'Synchronisé avec tous les appareils',
-    syncedFootViewer: ' · seul le chef d’intervention peut les modifier',
+    syncedFootViewer: ' – seul le chef d’intervention peut les modifier',
 
     symbolCaptions: 'Étiquettes',
     symbolCaptionsSub: 'La valeur clé sous le symbole',

@@ -14,6 +14,7 @@ import { LoadingStatus } from '../ShellLoader'
 import { Segmented } from '../Segmented'
 import { Overlay } from '../../lib/overlays'
 import { Head } from './common'
+import { ListCard, ListRow } from '../ListRow'
 import s from './ObjectVisits.module.css'
 
 // pdf.js only loads once somebody opens a sheet
@@ -25,18 +26,9 @@ export function PlansCard({ rows, onOpen }: { rows: VisitPlanRow[]; onOpen: (ind
   return (
     <>
       <h2 className={s.sec}>{C.plans}</h2>
-      <div className={s.card}>
-        {rows.map((r, i) => (
-          <button key={r.id} type="button" className={s.row} onClick={() => onOpen(i)}>
-            <Icon id="doc" className={s.rowGlyph} />
-            <span className={s.rowMain}>
-              <span className={`${s.rowTitle} ${s.planName}`}>{r.title}</span>
-              {r.sub && <span className={s.rowSub}>{r.sub}</span>}
-            </span>
-            <Icon id="chevron" className={s.chev} />
-          </button>
-        ))}
-      </div>
+      <ListCard>
+        {rows.map((r, i) => <ListRow key={r.id} lead={<Icon id="doc" />} title={r.title} sub={r.sub} onClick={() => onOpen(i)} />)}
+      </ListCard>
     </>
   )
 }

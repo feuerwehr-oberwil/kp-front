@@ -218,8 +218,15 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     never offered while the device is offline. While a MODAL bottom sheet is open the lane stands ON the sheet, one `--float-gap` above
     its top edge (`lib/toastLane` · `useToastLane` → `.toaster[data-lane]`); only a sheet that
     leaves no room for a pill above it sends the lane to the top of the screen, never over the
-    sheet's head. Non-modal owners of the foot (detail sheet, Ebenen, Messen, Passung) keep the
-    lane under the top bar. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
+    sheet's head. Non-modal owners of the foot (detail sheet, Ebenen) keep the lane under the top
+    bar. So does a PLACEMENT MODE, on every width (20.10.2026, owner: «the toasts sometimes block
+    things like the point placement thing»): while a mode takes the map's or a plan's taps (any
+    armed map or plan tool, Messen, the Passung, the Karte's Punkt setzen / Gefahrgut) the surface
+    that owns it calls `usePlacementLane(active)` (lib/toastLane → `<html data-placing>`), and the
+    lane moves to the top: under the bar on a phone (and under the Karte's running-Einsatz strip),
+    at the Meldeleiste's 92px on a tablet. A new mode calls the hook; it never adds a selector to
+    the lane's list. The Karte's «Auf die Karte tippen …» is a sticky toast in that lane, not a
+    pill of its own. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
     bar first, then amber / blue / grey): a row's tone is its leading glyph's colour, so every
     `Meldung` carries an `icon`. A row TITLE whose way in is the same
     move as the row's filled button (the Atemschutz «Zum Trupp» — `Meldung.onOpen.label` = the
@@ -427,6 +434,19 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     rows are `--done-opacity`, and the state word is in the row button's accessible name
     (`.sr-only`). The filter menu shows each state as a small row swatch (plain · tint · dimmed),
     the look the row has.
+    (12) **List row, back row** (20.10.2026, reuse audit): every list of things to open is
+    `components/ListRow` – `ListRow` (lead slot · title · sub · end · ›; a button with `onClick`,
+    static without), on a `ListCard` (white card with hairlines, 56px rows, 16px titles) or a
+    `ListCard look="rail"` (a list column beside a document: --tap rows, 14px titles, the one
+    corner), under a `ListGroup` eyebrow. «Where you are» is `on` (the ink pill). The way one level
+    up is `BackRow` «‹ Label», naming where it goes, never a bare «Zurück». The look is global
+    (13-incident: `.list-row`, `.list-card`, `.list-group`, `.back-row`); a surface fills the lead
+    slot and places them, never a `.row` of its own. A row's extra line under its text (a round's
+    progress bar) goes in as `children`. On it: the library, the Einsatz rail, the devices, the
+    Karte's lists (search, Pläne, In der Nähe, Besuche, the device sheet) and every Objektbesuche
+    list. What a surface may still add is meaning, compounded with `.list-row` (the hydrant's blue
+    tint, a plan's --tap-lg height, a quiet fact line in the visit card) – never another size.
+    `controlDebt.test.ts` is the ratchet for raw toggles, selects and search fields.
   - *Colour of a mention is not a state* (29.09.2026, owner pick A): every recognised word in the
     Verlauf – vehicle, partner, Trupp, person, material, group – is **bold `--ink`**
     (`.jr-link`), and in the composer one blue wash / one blue suggestion tint

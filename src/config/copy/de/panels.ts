@@ -162,7 +162,7 @@ export const panelsCopy = {
     funkkanal: 'Funkkanal',
     funkkanalSub: 'Standard für neue Atemschutz-Trupps',
     syncedFoot: 'Wird mit allen Geräten synchronisiert',
-    syncedFootViewer: ' · nur der Einsatzleiter kann sie ändern',
+    syncedFootViewer: ' – nur der Einsatzleiter kann sie ändern',
     // per-device utility: the blank paper Erfassungsblatt (hand-fill fallback), generated
     // from the current roster + Mittel catalogue — same generator as the admin's
     utilityGroup: 'Vorlagen',

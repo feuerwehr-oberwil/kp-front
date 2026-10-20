@@ -8,6 +8,7 @@
 
 import { useMemo, useState } from 'react'
 import { Icon } from '../../lib/icons'
+import { MapPin } from '../MapPin'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../../lib/format'
 import { fmtLV95 } from '../../lib/geo'
@@ -48,10 +49,7 @@ export function PlaceCard({ place, filing }: { place: PlaceTarget; filing: strin
                 onError={() => setFailed((f) => new Set(f).add(t.key))} />
             ))}
           </div>
-          <svg className={s.miniPin} viewBox="0 0 34 44" aria-hidden>
-            <path d="M17 43C17 43 3 26 3 16a14 14 0 0 1 28 0c0 10-14 27-14 27z" />
-            <circle cx="17" cy="16" r="5" />
-          </svg>
+          <MapPin className={s.miniPin} />
         </div>
       )}
       <div className={s.placeHead}>

@@ -194,7 +194,7 @@ function PersonRow({ person, shifts, blocks, span, nowMs, canEdit, conflicts, no
               clip.from && s.clipFrom, clip.to && s.clipTo, g.preview?.id === sh.id && s.dragging)}
               style={st} {...(canEdit ? g.barProps(sh, 'move') : {})}
               title={bad ? Z.conflict
-                : `${sh.confirmed ? Z.confirmed : Z.available}: ${clock(sh.from)}–${clock(sh.to)} · ${fillTemplate(Z.toggleHint, { state: next })}`}>
+                : `${sh.confirmed ? Z.confirmed : Z.available}: ${clock(sh.from)}–${clock(sh.to)}. ${fillTemplate(Z.toggleHint, { state: next })}`}>
               {/* a conflict was an outline and a hover title — neither survives a touch screen, and
                   the outline alone is colour-only. The sign says it without being asked. */}
               {bad && <Icon id="warn" />}
@@ -517,7 +517,7 @@ export function ZeitplanView({
       {nothingPlanned && (
         <div className={s.emptyNote}>
           <button type="button" className={s.emptyInfoBtn} onClick={() => setHelpOpen((v) => !v)}
-            aria-label={`${Z.emptyTitle} · ${Z.laneHintShow}`} aria-expanded={helpOpen} title={helpOpen ? Z.laneHintHide : Z.laneHintShow}>
+            aria-label={`${Z.emptyTitle} ${Z.laneHintShow}`} aria-expanded={helpOpen} title={helpOpen ? Z.laneHintHide : Z.laneHintShow}>
             <Icon id="clock" />
             <span>{Z.emptyTitle}</span>
             <Icon id="info" />

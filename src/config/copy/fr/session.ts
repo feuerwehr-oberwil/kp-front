@@ -148,7 +148,7 @@ export const sessionCopy: Localizable<Pick<Copy, Keys>> = {
       canTitle: 'Ce que tu peux essayer',
       can: ['Modifier la carte et le plan', 'Conduire les équipes ARI et le matériel', 'Ouvrir les plans d’objet et le rapport'],
       cta: 'C\'est parti',
-      meta: 'Aucune donnée réelle · La création d’interventions est bloquée',
+      meta: 'Aucune donnée réelle – la création d’interventions est bloquée',
     },
   },
 }

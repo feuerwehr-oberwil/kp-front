@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
@@ -11,7 +11,9 @@ import { LoadingStatus } from './ShellLoader'
 import { ChecklistReader } from './ChecklistRunner'
 import { ChecklistEntryReader } from './ChecklistReference'
 import { ManualReader } from './ManualReader'
-import { DevicePage, DeviceTile } from './DeviceManuals'
+import { DevicePage } from './DeviceManuals'
+import { BackRow, ListGroup } from './ListRow'
+import { DeviceList, EntryRow, TemplateRow } from './ChecklistRail'
 import { useRememberedScroll } from '../lib/rememberedScroll'
 import s from './Checklists.module.css'
 import l from './ChecklistLibrary.module.css'
@@ -68,26 +70,6 @@ function reasonText(why: HitReason, q: string): string | null {
   if (!why) return null
   return 'keyword' in why ? fillTemplate(appConfig.copy.checklists.hitKeyword, { k: why.keyword }) : `«${snippet(why.text, q)}»`
 }
-
-/** A row of the library's lists: glyph, title (+ a quiet line), a count or reason at the end. */
-function Row({ icon, title, sub, end, on, onOpen }: {
-  icon: ReactNode; title: ReactNode; sub?: string | null; end?: string | null; on?: boolean; onOpen: () => void
-}) {
-  return (
-    <button type="button" className={cx(l.row, on && l.on)} onClick={onOpen} aria-current={on || undefined}>
-      <span className={l.glyph}>{icon}</span>
-      <span className={l.text}>
-        <span className={l.title}>{title}</span>
-        {sub && <span className={l.sub}>{sub}</span>}
-      </span>
-      {end && <span className={l.end}>{end}</span>}
-      <Icon id="chevron" />
-    </button>
-  )
-}
-
-const tplIcon = (t: ChecklistTemplate) => <Icon id={t.kind === 'rapport' ? 'history' : 'check'} />
-const entryIcon = (e: RefEntry) => <span className={cx(l.chip, e.hazardColor && s[`hz-${e.hazardColor}`])}><i className={s['cl-ref-chip']} /></span>
 
 export function ChecklistLibrary({ query }: { query: string }) {
   const CL = appConfig.copy.checklists
@@ -164,33 +146,34 @@ export function ChecklistLibrary({ query }: { query: string }) {
     return <div className={l.lib}><div className="workspace-loading"><LoadingStatus>{appConfig.copy.loading}</LoadingStatus></div></div>
   }
 
-  // ---- the lists ----
+  // ---- the lists (ChecklistRail: the same groups and rows as the Einsatz rail) ----
+  const look = narrow ? 'card' : 'rail'
   const results = (
     <>
       {hits.manuals.length > 0 && (
-        <Group label={CL.groupManuals}>
+        <ListGroup label={CL.groupManuals} look={look}>
           {hits.manuals.map(({ item: t, why }) => (
-            <Row key={t.id} icon={<Icon id="doc" />} title={<Marked text={t.title} q={q} />}
+            <TemplateRow key={t.id} template={t} title={<Marked text={t.title} q={q} />}
               sub={[deviceOf(t), reasonText(why, q)].filter(Boolean).join(' · ')}
               on={isOn('manual', t.id)} onOpen={() => setSel({ kind: 'manual', id: t.id })} />
           ))}
-        </Group>
+        </ListGroup>
       )}
       {hits.checklists.length > 0 && (
-        <Group label={CL.groupChecklists}>
+        <ListGroup label={CL.groupChecklists} look={look}>
           {hits.checklists.map(({ item: t, why }) => (
-            <Row key={t.id} icon={tplIcon(t)} title={<Marked text={t.title} q={q} />} sub={reasonText(why, q)}
+            <TemplateRow key={t.id} template={t} title={<Marked text={t.title} q={q} />} sub={reasonText(why, q)}
               on={isOn('tpl', t.id)} onOpen={() => setSel({ kind: 'tpl', id: t.id })} />
           ))}
-        </Group>
+        </ListGroup>
       )}
       {hits.references.map(({ template, entries }) => (
-        <Group key={template.id} label={template.title}>
+        <ListGroup key={template.id} label={template.title} look={look}>
           {entries.map(({ item: e, why }) => (
-            <Row key={e.id} icon={entryIcon(e)} title={<Marked text={e.title} q={q} />} sub={reasonText(why, q)}
+            <EntryRow key={e.id} entry={e} title={<Marked text={e.title} q={q} />} sub={reasonText(why, q)}
               on={isOn('entry', e.id)} onOpen={() => setSel({ kind: 'entry', id: e.id })} />
           ))}
-        </Group>
+        </ListGroup>
       ))}
       {!hits.manuals.length && !hits.checklists.length && !hits.references.length
         ? <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q })}</p>
@@ -201,30 +184,26 @@ export function ChecklistLibrary({ query }: { query: string }) {
   const home = (
     <>
       {devices.length > 0 && (
-        <Group label={CL.groupManuals} end={String(manuals.length)} bare={narrow}>
-          <div className={narrow ? l.cards : l.rows}>
-            {devices.map((g) => (
-              <DeviceTile key={g.device} group={g} variant={narrow ? 'card' : 'row'} on={isOn('device', g.device)} onOpen={() => openDevice(g)} />
-            ))}
-          </div>
-        </Group>
+        <ListGroup label={CL.groupManuals} end={String(manuals.length)} look={look} bare>
+          <DeviceList groups={devices} look={look} isOn={(g) => isOn('device', g.device)} onOpen={openDevice} />
+        </ListGroup>
       )}
       {checklists.length > 0 && (
-        <Group label={CL.groupChecklists} end={CL.readOnlyTag}>
+        <ListGroup label={CL.groupChecklists} end={CL.readOnlyTag} look={look}>
           {checklists.map((t) => (
-            <Row key={t.id} icon={tplIcon(t)} title={t.title}
+            <TemplateRow key={t.id} template={t}
               end={narrow ? fillTemplate(CL.phases, { n: (t.phases ?? []).length }) : null}
               on={isOn('tpl', t.id)} onOpen={() => setSel({ kind: 'tpl', id: t.id })} />
           ))}
-        </Group>
+        </ListGroup>
       )}
       {/* the Einsatzwissen: each template's Stichworte as a group, as in the Einsatz rail */}
       {references.map((t) => (
-        <Group key={t.id} label={t.title}>
+        <ListGroup key={t.id} label={t.title} look={look}>
           {(t.entries ?? []).map((e) => (
-            <Row key={e.id} icon={entryIcon(e)} title={e.title} on={isOn('entry', e.id)} onOpen={() => setSel({ kind: 'entry', id: e.id })} />
+            <EntryRow key={e.id} entry={e} on={isOn('entry', e.id)} onOpen={() => setSel({ kind: 'entry', id: e.id })} />
           ))}
-        </Group>
+        </ListGroup>
       ))}
     </>
   )
@@ -240,7 +219,6 @@ export function ChecklistLibrary({ query }: { query: string }) {
           chapter={chapter && {
             ...chapter,
             onGo: (id) => setSel({ kind: 'manual', id }),
-            onDevice: () => setSel({ kind: 'device', id: chapter.group.device }),
           }}
         />
       )
@@ -259,9 +237,7 @@ export function ChecklistLibrary({ query }: { query: string }) {
           {/* a chapter's way back names its device («‹ TLF», owner 19.10.2026: the device name in
               the meta line alone was no clear way back) */}
           {shown?.kind === 'manual' && chapter && (
-            <button type="button" className={l.backLink} onClick={() => setSel({ kind: 'device', id: chapter.group.device })}>
-              <Icon id="chevron-left" />{chapter.group.device}
-            </button>
+            <BackRow className={s['cl-doc-back']} label={chapter.group.device} onClick={() => setSel({ kind: 'device', id: chapter.group.device })} />
           )}
           {doc}
         </main>
@@ -290,9 +266,7 @@ export function ChecklistLibrary({ query }: { query: string }) {
   const upLabel = up?.kind === 'device' ? up.id : appConfig.copy.modes.checklists
   return (
     <div className={l.lib}>
-      <button type="button" className={l.backLink} onClick={() => setSel(up)}>
-        <Icon id="chevron-left" />{upLabel}
-      </button>
+      <BackRow label={upLabel} onClick={() => setSel(up)} />
       {/* the device page names itself under its picture */}
       {pageTitle !== null && (
         <div className={l.pageHead}>
@@ -307,15 +281,5 @@ export function ChecklistLibrary({ query }: { query: string }) {
       )}
       <main ref={docRef} className={cx(s['cl-main'], open.kind === 'device' && l.home)}>{doc}</main>
     </div>
-  )
-}
-
-/** a labelled group of the lists; `bare` drops the white card (the phone's device cards) */
-function Group({ label, end, bare, children }: { label: string; end?: string; bare?: boolean; children: ReactNode }) {
-  return (
-    <section className={l.group} aria-label={label}>
-      <div className={l.label}><span>{label}</span>{end && <span className={l.labelEnd}>{end}</span>}</div>
-      {bare ? children : <div className={l.card}>{children}</div>}
-    </section>
   )
 }

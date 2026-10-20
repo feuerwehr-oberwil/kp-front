@@ -154,7 +154,7 @@ export const PlanPhotoMarks = memo(function PlanPhotoMarks({ marks, sW, sH, iner
     <>
       {marks.map((m) => {
         const t = takenClock(m.takenAt)
-        const title = `${t ? fillTemplate(G.markerTaken, { t }) : G.marker} · ${G.planMark}`
+        const title = `${t ? fillTemplate(G.markerTaken, { t }) : G.marker}. ${G.planMark}`
         return (
           <button key={m.id} type="button" className={`${s.twin} ${inert ? s.inert : ''}`}
             style={{ left: 0, top: 0, transform: `translate(${m.pt.x * sW}px, ${m.pt.y * sH}px) translate(-50%, -50%)` }}

@@ -1933,8 +1933,8 @@ Rapport. Anleitungen are grouped by `device` (19.10.2026): one tile per device w
 (the `cover` of its first chapter that names one, otherwise the first step image of its
 chapters) and «n Kapitel», or the
 title when the device has a single Anleitung. A device with several opens a page with its
-chapters numbered in manifest `order`; a chapter shows «Kapitel k von n» and the previous and next
-chapter at its foot. Devices are listed in manifest `order` too, so the order of the manifest
+chapters numbered in manifest `order`; a chapter shows «Kapitel k von n», a back row «‹ device» on
+top and the previous and next chapter at its foot («‹ 2 Kabine» | «4 Saugbetrieb ›»). Devices are listed in manifest `order` too, so the order of the manifest
 entries is the order on screen. Two places show them, with the same tiles and pages: the Einsatz
 **Checkliste** tab, as the last group of its rail (the picker search matches the title, the
 `device` and the `keywords`), and the **Checkliste** surface of Karte & Objekte outside an

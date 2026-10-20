@@ -21,6 +21,7 @@ import { getMeldeleisteHost, subscribeMeldeleisteHost } from '../lib/meldeleiste
 import type { GeorefPair, PlanPt } from '../lib/georef'
 import { InfoToggle } from './InfoToggle'
 import { Button } from './Button'
+import { Segmented } from './Segmented'
 import s from './GeorefMode.module.css'
 
 /** The loupe's magnification over the plan as it is currently displayed. */
@@ -1003,17 +1004,15 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
       )}
       {/* On a phone the two surfaces are part of this one task, so their switch belongs inside
           its card. Never disabled — free order means there is no wrong surface to be on. */}
-      {!mode.check && <div className={s.surfaceSwitch} role="group" aria-label={C.title}>
-        <button type="button" className={shownSurface === 'map' ? s.surfaceOn : ''}
-          aria-label={appConfig.copy.navRail.map} aria-pressed={shownSurface === 'map'}
-          onClick={() => georefDispatch({ type: 'goMap' })}>
-          <Icon id="map" />{appConfig.copy.navRail.map}<span>{georefSideCount(mode, 'map')}</span>
-        </button>
-        <button type="button" className={shownSurface === 'plan' ? s.surfaceOn : ''}
-          aria-label={planLabel ?? C.checkPlan} aria-pressed={shownSurface === 'plan'}
-          onClick={() => georefDispatch({ type: 'goPlan' })}>
-          <Icon id="doc" />{planLabel ?? C.checkPlan}<span>{georefSideCount(mode, 'plan')}</span>
-        </button>
+      {!mode.check && <div className={s.surfaceSwitch}>
+        {/* the shared Segmented, in its CHOICE fill rather than `tabs`: the ink pill is the primary
+            button's black, and that button stands right under it (see .surfaceSwitch) */}
+        <Segmented ariaLabel={C.title} value={shownSurface}
+          onChange={(v) => georefDispatch({ type: v === 'map' ? 'goMap' : 'goPlan' })}
+          options={[
+            { value: 'map', label: <><Icon id="map" />{appConfig.copy.navRail.map}<span className={s.surfaceCount} aria-hidden>{georefSideCount(mode, 'map')}</span></> },
+            { value: 'plan', label: <><Icon id="doc" />{planLabel ?? C.checkPlan}<span className={s.surfaceCount} aria-hidden>{georefSideCount(mode, 'plan')}</span></> },
+          ]} />
       </div>}
       {/* ── the one big action ── «Punkt setzen» places at the reticle on whichever surface is
           up — Karte or Modul, in any order; the pairing is the reducer's job, not the button's.

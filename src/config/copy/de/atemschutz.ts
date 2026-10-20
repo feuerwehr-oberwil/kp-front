@@ -519,9 +519,9 @@ export const atemschutzCopy = {
     // GERADE gilt, und nennt seine Reichweite – die Beschriftung war früher die Handlung
     // («Alarmton ausschalten», also ist er an), ein Versprechen, das der Knopf nicht halten
     // konnte: ohne freigegebenen Ton meldete er «an» über einem stummen AudioContext.
-    alarmArmed: 'Alarm an – Ton und Benachrichtigung · antippen schaltet stumm',
-    alarmMuted: 'Alarm stumm – Ton und Benachrichtigung, bis zum Ende dieses Einsatzes · antippen schaltet ein',
-    alarmBlocked: 'Ton nicht freigegeben – der Browser hat die Freigabe verweigert · antippen, sonst meldet nur die Benachrichtigung',
+    alarmArmed: 'Alarm an – Ton und Benachrichtigung. Antippen schaltet stumm.',
+    alarmMuted: 'Alarm stumm – Ton und Benachrichtigung, bis zum Ende dieses Einsatzes. Antippen schaltet ein.',
+    alarmBlocked: 'Ton nicht freigegeben – der Browser hat die Freigabe verweigert. Antippen, sonst meldet nur die Benachrichtigung.',
     // …und wo selbst DIE Benachrichtigung nicht existiert (notificationsSupported() false – ein
     // gewöhnlicher Safari-Tab auf iOS kennt keine Web Notifications): das obige Versprechen wäre
     // hier eine falsche Beruhigung, also sagt der Knopf ehrlich, dass antippen die einzige
@@ -532,7 +532,7 @@ export const atemschutzCopy = {
     // gate), so a tester pressing «Kontakt» and hearing nothing has no way to tell «broken» from
     // «deliberately quiet» without this line (field question, 02.09.: «Wie sollte dieser Alarm
     // erfolgen?»).
-    alarmDemoNote: 'Demo – Ton und Benachrichtigung sind auf dieser Instanz deaktiviert',
+    alarmDemoNote: 'Demo – Ton und Benachrichtigung sind auf dieser Instanz deaktiviert.',
     restoreMenu: 'Entfernte Trupps',
     // the bell's WORD on a wide head (22.09.2026; the honest state stays in the tooltip/aria)
     alarmWord: 'Alarmton',
@@ -854,7 +854,7 @@ export const atemschutzCopy = {
     // Eingangsdruck eines Trupps, der schon raus ist: gesperrt (Punkt 2)
     pressureLockedLabelPlain: 'Eingangsdruck',
     pressureLocked: 'Trupp ist raus',
-    pressureLockedWhyExit: 'Trupp ist raus · Restdruck {bar} bar',
+    pressureLockedWhyExit: 'Trupp ist raus, Restdruck {bar} bar',
     // …und die EINE Plausibilitätsfrage: ein Eingangsdruck unter dem Stationsminimum
     // (doctrine.entryPressureMin). Die Zahl steht auf dem Knopf.
     entryLowTitle: 'Eingangsdruck tief',

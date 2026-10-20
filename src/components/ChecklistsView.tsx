@@ -8,7 +8,9 @@ import { ChecklistRunner } from './ChecklistRunner'
 import { useRememberedScroll } from '../lib/rememberedScroll'
 import { ChecklistEntryReader } from './ChecklistReference'
 import { ManualReader } from './ManualReader'
-import { DevicePage, DeviceTile } from './DeviceManuals'
+import { DevicePage } from './DeviceManuals'
+import { BackRow, ListGroup } from './ListRow'
+import { DeviceList, EntryRow, TemplateRow } from './ChecklistRail'
 import { cx } from '../lib/cx'
 import { EmptyState } from './EmptyState'
 import { SearchField } from './SearchField'
@@ -123,6 +125,9 @@ export function ChecklistsView({
   const [railOpen, setRailOpenState] = useState(() => readPicked(scrollKey)?.railOpen ?? true)
   const setRailOpen = (v: boolean) => { setRailOpenState(v); writePicked(scrollKey, { railOpen: v }) }
   const pick = (v: Sel) => { setSel(v); if (railNarrow) setRailOpen(false) }
+  // the list's look: the library's phone cards while the list owns a narrow surface, the rail's
+  // compact rows beside the document
+  const look = railNarrow ? 'card' : 'rail'
 
   const [query, setQuery] = useState('')
   const results = useMemo(() => searchEntries(entries, query), [entries, query])
@@ -209,61 +214,39 @@ export function ChecklistsView({
             template (Taktik-Stichworte, Grundlagen-Infos). One scroll region. */}
         <div className={s['cl-rail-groups']}>
           {!ready && !templates.length && <div className="workspace-loading"><LoadingStatus>{appConfig.copy.loading}</LoadingStatus></div>}
+          {/* the groups and rows are the Karte library's (ChecklistRail, owner 20.10.2026: «the
+              landing is the reference»); this rail keeps its order – Aufgaben first, Anleitungen
+              last (19.10.2026, owner: «least important during an active emergency») – and its
+              ticks: a checklist's «40%» at its row's end. A device with chapters opens its page,
+              a single Anleitung opens directly. */}
           {actionResults.length > 0 && (
-            <div className={s['cl-rail-group']}>
-              <div className={s['cl-rail-label']}>{CL.groupTasks}</div>
+            <ListGroup label={CL.groupTasks} look={look}>
               {actionResults.map((t) => {
                 const pr = templateProgress(t, checklists[t.id] ?? EMPTY_STATE)
                 return (
-                  <button
-                    key={t.id}
-                    className={cx(s['cl-rail-item'], sel?.kind === 'tpl' && sel.id === t.id && s.on)}
-                    onClick={() => pick({ kind: 'tpl', id: t.id })}
-                  >
-                    <Icon id={t.kind === 'rapport' ? 'history' : 'check'} />
-                    <span className={s['cl-rail-title']}>{t.title}</span>
-                    {pr.total > 0 && <span className={s['cl-rail-prog']}>{pr.pct}%</span>}
-                  </button>
+                  <TemplateRow key={t.id} template={t} end={pr.total > 0 ? `${pr.pct}%` : null}
+                    on={!railNarrow && sel?.kind === 'tpl' && sel.id === t.id} onOpen={() => pick({ kind: 'tpl', id: t.id })} />
                 )
               })}
-            </div>
+            </ListGroup>
           )}
           {referenceTemplates.map((rt) => {
             const rtResults = searchEntries(rt.entries ?? [], query)
             if (!rtResults.length) return null
             return (
-              <div key={rt.id} className={s['cl-rail-group']}>
-                <div className={s['cl-rail-label']}>{rt.title}</div>
+              <ListGroup key={rt.id} label={rt.title} look={look}>
                 {rtResults.map((e) => (
-                  <button
-                    key={e.id}
-                    className={cx(s['cl-rail-entry'], sel?.kind === 'entry' && sel.id === e.id && s.on, e.hazardColor && s[`hz-${e.hazardColor}`])}
-                    onClick={() => pick({ kind: 'entry', id: e.id })}
-                  >
-                    <span className={s['cl-ref-chip']} />
-                    <span className={s['cl-rail-entry-title']}>{e.title}</span>
-                  </button>
+                  <EntryRow key={e.id} entry={e} on={!railNarrow && sel?.kind === 'entry' && sel.id === e.id}
+                    onOpen={() => pick({ kind: 'entry', id: e.id })} />
                 ))}
-              </div>
+              </ListGroup>
             )
           })}
-          {/* Anleitungen (05.10.2026): read-only device instructions, STILL the last group (19.10.2026,
-              owner: «least important during an active emergency») – one row per Gerät with its
-              picture, the same tile as on the Karte's Checkliste surface (DeviceManuals). A device
-              with chapters opens its page, a single Anleitung opens directly. */}
           {manualResults.length > 0 && (
-            <div className={s['cl-rail-group']}>
-              <div className={s['cl-rail-label']}>{CL.groupManuals}</div>
-              {manualResults.map((g) => (
-                <DeviceTile
-                  key={g.device}
-                  group={g}
-                  variant="row"
-                  on={litDevice === g.device}
-                  onOpen={() => pick(g.manuals.length > 1 ? { kind: 'device', id: g.device } : { kind: 'manual', id: g.manuals[0].id })}
-                />
-              ))}
-            </div>
+            <ListGroup label={CL.groupManuals} look={look} bare>
+              <DeviceList groups={manualResults} look={look} isOn={(g) => !railNarrow && litDevice === g.device}
+                onOpen={(g) => pick(g.manuals.length > 1 ? { kind: 'device', id: g.device } : { kind: 'manual', id: g.manuals[0].id })} />
+            </ListGroup>
           )}
           {noMatches && <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: query.trim() })}</p>}
         </div>
@@ -288,17 +271,12 @@ export function ChecklistsView({
             <>
             {/* a chapter's way back names its device («‹ TLF») – the same row as the Karte's
                 Checkliste (ChecklistLibrary), owner 19.10.2026 */}
-            {chapter && (
-              <button type="button" className={s['cl-back']} onClick={() => setSel({ kind: 'device', id: chapter.group.device })}>
-                <Icon id="chevron-left" />{chapter.group.device}
-              </button>
-            )}
+            {chapter && <BackRow className={s['cl-doc-back']} label={chapter.group.device} onClick={() => setSel({ kind: 'device', id: chapter.group.device })} />}
             <ManualReader
               manual={activeManual}
               chapter={chapter && {
                 ...chapter,
                 onGo: (id) => setSel({ kind: 'manual', id }),
-                onDevice: () => setSel({ kind: 'device', id: chapter.group.device }),
               }}
             />
             </>
