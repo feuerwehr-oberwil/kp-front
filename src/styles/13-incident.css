@@ -795,7 +795,12 @@
 .list-row { display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-width: 0; min-height: 56px; margin: 0;
   padding: var(--sp-2) var(--sp-4); border: 0; background: none; color: var(--ink); text-align: left; font: inherit; }
 button.list-row { cursor: pointer; }
-@media (hover: hover) { button.list-row:hover:not(:disabled) { background-color: var(--fill-soft); } }
+/* the hover never repaints the row that is OPEN (.on): it out-ranked the ink pill and left its
+   white words on the light wash (owner 20.10.2026, the Anleitungen list) – .on darkens instead */
+@media (hover: hover) {
+  button.list-row:hover:not(:disabled, .on) { background-color: var(--fill-soft); }
+  button.list-row.on:hover:not(:disabled) { background-color: var(--ink-fill-hover); }
+}
 button.list-row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 button.list-row:disabled { opacity: var(--disabled); cursor: default; }
 .list-row-lead { flex: none; min-width: 20px; display: grid; place-items: center; color: var(--ink-dim); }
