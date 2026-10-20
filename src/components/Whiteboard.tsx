@@ -4259,13 +4259,13 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         />
       )}
 
-      {/* symbol/shape placement — the SAME shared ToolDock the Lage map uses (close + keep-placing
-          lock + info hint), so placing on the plan feels identical to placing on the map. Rest tool
+      {/* symbol/shape placement — the SAME shared ToolDock the Lage map uses (close + «Mehrere
+          platzieren» + info hint), so placing on the plan feels identical to placing on the map. Rest tool
           is 'pan' here (the plan pans on empty canvas) vs the map's 'select'. */}
       {pending && tool === 'symbol' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPending(null); setTool('pan') } }],
-          [{ type: 'toggle', icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
+          [{ type: 'toggle', icon: 'place-repeat', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
           [{ type: 'info', text: appConfig.copy.dockHints.symbol }],
         ]} />
       )}
@@ -4275,7 +4275,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('pan') } }],
           [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color={isPhone ? 'currentColor' : '#fff'} aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
           // «mehrere nacheinander» has no meaning for a shape laid between two named places
-          ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
+          ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'place-repeat', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
           [{ type: 'info', text: !SHAPE_TWO_POINT[pendingShape] ? appConfig.copy.dockHints.shape
             : rotStart ? appConfig.copy.dockHints.rotationEnd : appConfig.copy.dockHints.rotationStart }],
         ]} />

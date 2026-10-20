@@ -128,7 +128,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'Outils de la barre de droite en mode Situation.' },
           { kind: 'list', items: [
-            '**Symbole** – le symbole tactique (FKS/VKF). Sélection rapide des symboles les plus courants ou recherche dans toute la bibliothèque. Toucher pour placer ; avec le verrou, en poser plusieurs à la suite.',
+            '**Symbole** – le symbole tactique (FKS/VKF). Sélection rapide des symboles les plus courants ou recherche dans toute la bibliothèque. Toucher pour placer ; avec « Placer plusieurs », en poser plusieurs à la suite.',
             '**Formes** – dans la même fenêtre, après les dangers : **Flèche** et **Rectangle**, pour tout ce qui n’a pas de symbole tactique. La poignée fait pivoter, le coin étire le rectangle (la flèche reste proportionnelle – une pointe déformée se lit mal). Sur la flèche, **Barre d’arrêt** ajoute la barre en travers de la pointe – la limite de propagation : jusqu’ici, et arrêté là.',
             '**Sélection** – toucher des objets, les déplacer, les ajuster dans l’éditeur.',
             '**Multiple** – toucher **Sélection** une nouvelle fois pendant qu’elle est active : le bouton passe sur Multiple (icône et mot), et tirer un cadre sélectionne plusieurs symboles/dessins à la fois. Un nouveau toucher ramène à Sélection.',

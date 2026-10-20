@@ -51,7 +51,7 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     placeSymbol: 'Touchez la carte pour placer « {name} »',
   },
   dockHints: {
-    symbol: 'Touchez la carte pour placer le symbole. Activez le verrou pour en poser plusieurs à la suite.',
+    symbol: 'Touchez la carte pour placer le symbole. Activez « Placer plusieurs » pour en poser plusieurs à la suite.',
     lasso: 'Tirez un cadre autour de plusieurs objets avec un doigt. Deux doigts déplacent toujours la carte. Toucher «Multiple» une nouvelle fois ramène à Sélection.',
     line: 'Glissez sur la carte ou touchez des points pour tracer une ligne. Couleur, épaisseur et style se choisissent ensuite dans l’éditeur.',
     lineFreehand: 'Glissez sur la carte pour tracer une ligne. Pour des points isolés : « Points ». Couleur, épaisseur et style se choisissent ensuite dans l’éditeur.',
@@ -59,7 +59,7 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     area: 'Touchez au moins trois sommets sur la carte, puis terminez avec la coche.',
     circle: 'Glissez du centre vers l’extérieur pour fixer le rayon en mètres. Ajustez ensuite le rayon et le remplissage dans l’éditeur.',
     note: 'Touchez la carte pour poser une note.',
-    shape: 'Touchez la carte pour placer la forme. Activez le verrou pour en poser plusieurs à la suite.',
+    shape: 'Touchez la carte pour placer la forme. Activez « Placer plusieurs » pour en poser plusieurs à la suite.',
     rotationStart: 'Toucher le premier point — là où l’eau est puisée. Maintenir sur un symbole jusqu’à ce que l’anneau se ferme pour poser le point dessus.',
     rotationEnd: 'Toucher le second point — le sinistre. Toucher deux fois le même point pose une Rotation de longueur standard.',
     measure: 'Touchez des points sur la carte. La distance affiche la longueur et le profil altimétrique, la surface affiche l’aire et le périmètre. Tirez les points pour déplacer, le + au milieu d’un segment insère un point intermédiaire, maintenez un point (clic droit sur ordinateur) pour le supprimer.',

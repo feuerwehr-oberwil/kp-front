@@ -128,7 +128,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'Strumenti della barra destra in modalità Situazione.' },
           { kind: 'list', items: [
-            '**Simbolo** – il segno tattico (FKS/VKF). Selezione rapida dei segni più comuni o ricerca in tutta la libreria. Tocca per posizionare; con il lucchetto ne metti più di seguito.',
+            '**Simbolo** – il segno tattico (FKS/VKF). Selezione rapida dei segni più comuni o ricerca in tutta la libreria. Tocca per posizionare; con «Posiziona più» ne metti più di seguito.',
             '**Forme** – nella stessa finestra, dopo i pericoli: **Freccia** e **Rettangolo**, per tutto ciò che non ha un segno tattico. La maniglia ruota, l’angolo allunga il rettangolo (la freccia resta proporzionale – una punta deformata si legge male). Sulla freccia, **Barra di arresto** aggiunge la barra di traverso alla punta – il limite di propagazione: fin qui, e lì fermato.',
             '**Selezione** – tocca gli oggetti, spostali, modificali nell’editor.',
             '**Multiplo** – tocca di nuovo **Selezione** mentre è attiva: il pulsante passa a Multiplo (simbolo e parola) e trascinando un riquadro selezioni più simboli/disegni in una volta. Un ulteriore tocco riporta a Selezione.',

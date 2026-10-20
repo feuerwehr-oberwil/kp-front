@@ -153,7 +153,7 @@ export const helpCopy = {
         blocks: [
           { kind: 'lead', text: 'Werkzeuge der rechten Leiste auf der Karte.' },
           { kind: 'list', items: [
-            '**Symbol** – das taktische Zeichen (FKS/VKF). Schnellwahl der häufigsten Zeichen oder Suche in der ganzen Bibliothek. Tippen platziert; mit dem Schloss mehrere nacheinander setzen.',
+            '**Symbol** – das taktische Zeichen (FKS/VKF). Schnellwahl der häufigsten Zeichen oder Suche in der ganzen Bibliothek. Tippen platziert; mit «Mehrere platzieren» mehrere nacheinander setzen.',
             '**Formen** – im selben Fenster, hinter den Gefahren: **Pfeil** und **Rechteck**, für alles, wofür es kein taktisches Zeichen gibt. Der Griff dreht, die Ecke zieht das Rechteck in die Länge (der Pfeil bleibt proportional, eine verzerrte Spitze liest sich schlecht). Beim Pfeil schaltet **Stopp-Balken** den Querbalken quer zur Spitze ein – die Entwicklungsgrenze: bis hier, und dort gestoppt.',
             '**Auswahl** – Objekte antippen, verschieben, im Editor anpassen.',
             '**Mehrfach** – nochmals auf **Auswahl** tippen, während sie aktiv ist: der Knopf wechselt auf Mehrfach (Zeichen und Wort), und ein gezogener Rahmen wählt mehrere Symbole/Zeichnungen auf einmal aus. Ein weiterer Tipp führt zurück zur Auswahl.',

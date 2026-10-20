@@ -130,7 +130,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'Tools in the right rail in Situation mode.' },
           { kind: 'list', items: [
-            '**Symbol** – the tactical symbol (FKS/VKF). Quick-pick of the most common symbols or search the whole library. Tap to place; use the lock to set several in a row.',
+            '**Symbol** – the tactical symbol (FKS/VKF). Quick-pick of the most common symbols or search the whole library. Tap to place; turn on "Place several" to set several in a row.',
             '**Shapes** – in the same window, behind the hazards: **Arrow** and **Rectangle**, for everything that has no tactical symbol. The handle rotates, the corner stretches the rectangle (the arrow stays proportional – a distorted head reads badly). On the arrow, **Stop bar** adds the bar across its tip – the spread limit: this far, and stopped there.',
             '**Select** – tap objects, move them, adjust in the editor.',
             '**Multi** – tap **Select** again while it is active: the button switches to Multi (icon and word), and dragging a frame selects several symbols/drawings at once. Another tap switches back to Select.',

@@ -86,7 +86,7 @@ export const mapCopy = {
   // help shown by the info (ℹ) button on each tool dock — the instructions
   // that used to sit in the bottom hint bar
   dockHints: {
-    symbol: 'Auf die Karte tippen, um das Zeichen zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
+    symbol: 'Auf die Karte tippen, um das Zeichen zu platzieren. «Mehrere platzieren» einschalten, um mehrere nacheinander zu setzen.',
     lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte. Nochmals auf «Mehrfach» tippen führt zurück zur Auswahl.',
     line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Farbe, Breite und Stil danach im Editor.',
     /** …per input mode, because the two take different gestures: «Freihand» draws only with a
@@ -97,7 +97,7 @@ export const mapCopy = {
     circle: 'Von der Mitte zum Rand ziehen setzt den Radius in Metern. Radius und Füllung danach im Editor anpassen.',
     note: 'Auf die Karte tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
     team: 'Auf die Karte tippen und den Trupp aus der Liste wählen. Zum Verschieben ziehen.',
-    shape: 'Auf die Karte tippen, um die Form zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
+    shape: 'Auf die Karte tippen, um die Form zu platzieren. «Mehrere platzieren» einschalten, um mehrere nacheinander zu setzen.',
     // Eine Rotation ist eine Strecke zwischen zwei Orten, also wird sie auch so gelegt:
     // erst der Wasserbezug, dann die Brandstelle. Auf einem Symbol halten, bis der Ring
     // zu ist, setzt den Punkt genau darauf.
