@@ -85,7 +85,7 @@ import { cameraOnClose, returnOnSelect, toolTakesTaps, type Camera, type CameraR
 import type { Entity, LayerDef, LayerId, LngLat, PreparedMapOverlay } from '../../types'
 import { MapView } from '../MapView'
 import { LayerPanel } from '../LayerPanel'
-import { MeasurePanel } from '../MeasurePanel'
+import { MapHint, MeasurePanel } from '../MeasurePanel'
 import { ToolDock } from '../ToolDock'
 import { ToolRail } from '../ToolRail'
 import { MapViewsButton, type ViewsApi } from '../MapViewsMenu'
@@ -1116,15 +1116,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // lane meanwhile (lib/toastLane · usePlacementLane; owner, Karte Haus round 3: «the toasts
   // sometimes block … the point placement thing»)
   usePlacementLane(onMapSurface && (tool === 'pin' || tool === 'measure' || tool === 'erg'))
-  // Punkt setzen's instruction and the missing-catalogue notice are messages over the map, so they
-  // wear the ONE message surface (08-toasts): sticky toasts for as long as they hold, in the lane
-  // with the others — a pill of their own (`.hintBar`) lay under an undo toast on the tablet
+  // Punkt setzen's instruction is a quiet line at the foot of the map, where Messen's stands
+  // (MeasurePanel · MapHint; owner 20.10.2026: at the top of the screen it was «a bit unnatural»).
+  // The missing-catalogue notice is a MESSAGE: a sticky toast in the lane with the others.
   const pinHint = onMapSurface && tool === 'pin'
-  useEffect(() => {
-    if (!pinHint) return
-    const id = toast(C.pinHint, { sticky: true, icon: 'pin' })
-    return () => dismissToast(id)
-  }, [pinHint, C.pinHint])
   const catNote = cat?.failed && !cat.data && !onLibrary ? (online ? C.loadFailed : C.noCatalogue) : null
   useEffect(() => {
     if (!catNote) return
@@ -1569,6 +1564,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             <MeasurePanel mode={measure.mode} coords={measure.path} profile={measure.profile} profileLoading={measure.loading} className={s.measurePanel} />
           </>
         )}
+        {pinHint && <MapHint className={s.measurePanel}>{C.pinHint}</MapHint>}
 
         {tool === 'erg' && (
           <KarteGefahrgut
