@@ -27,7 +27,8 @@ import { getInstallPlatform, isStandalone } from './lib/installPrompt'
 import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { useIncidentTabLock } from './lib/tabLock'
-import { clearIncidentMedia, clearUploadedMedia } from './lib/mediaQueue'
+import { clearIncidentMedia, clearUploadedMedia, listMediaQueue } from './lib/mediaQueue'
+import { MediaPendingMeldung, type ClosedMediaPending } from './components/MediaPendingMeldung'
 import { ensurePushSubscription } from './lib/push'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
@@ -172,6 +173,20 @@ export default function App() {
   // IDB sync cache); a second tab is read-only with a one-tap take-over.
   const tabLock = useIncidentTabLock(activeId)
   const [overlay, setOverlay] = useState<null | 'create' | 'history' | 'daten'>(null)
+  // closed Einsätze whose captures are still queued on this device (completeRapport) — a Meldung
+  // each while true; re-read whenever the list refreshes, gone once the queue is empty
+  const [closedMedia, setClosedMedia] = useState<ClosedMediaPending[]>([])
+  useEffect(() => {
+    if (closedMedia.length === 0) return
+    let live = true
+    void Promise.all(closedMedia.map(async (p) => ({ ...p, n: (await listMediaQueue(p.id).catch(() => [])).length })))
+      .then((next) => {
+        if (!live) return
+        const kept = next.filter((p) => p.n > 0)
+        setClosedMedia((cur) => (kept.length === cur.length && kept.every((p, i) => p.n === cur[i].n) ? cur : kept))
+      })
+    return () => { live = false }
+  }, [incidents])  // eslint-disable-line react-hooks/exhaustive-deps
   // the Objektbesuche route (/besuche…) — a surface of its own, see the render below
   const ovRoute = useOvRoute()
   // …ENTERED on purpose (the «Einsätze» sheet's button, the Einsatz menu's row, a deep link at
@@ -739,10 +754,14 @@ export default function App() {
       await archiveIncident(id)
       // …and say so when something could not go up: the operator is about to leave this incident,
       // and «kommt beim nächsten Öffnen» is only reassuring if it was said out loud.
+      // ⚠️ …and what is still queued stands as a Meldung while true, not in this toast (S3,
+      // 20.10.2026): five seconds while the screen moves to the launcher is not «said out loud»
       const stillQueued = await clearUploadedMedia(id)
-      toast(stillQueued
-        ? fillTemplate(appConfig.copy.abschluss.doneMediaPending, { n: stillQueued })
-        : appConfig.copy.abschluss.done, { icon: stillQueued ? 'warn' : 'check', tone: stillQueued ? 'warn' : 'success' })
+      toast(appConfig.copy.abschluss.done, { icon: 'check', tone: 'success' })
+      if (stillQueued) {
+        const title = (incidents ?? []).find((i) => i.id === id)?.title ?? activeMeta?.title ?? ''
+        setClosedMedia((cur) => [...cur.filter((p) => p.id !== id), { id, title, n: stillQueued }])
+      }
       if (id === activeId) {
         if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
         await refreshList()
@@ -768,7 +787,7 @@ export default function App() {
     } finally {
       if (closingLocallyRef.current === id) closingLocallyRef.current = null
     }
-  }, [activeId, refreshList])
+  }, [activeId, refreshList, incidents, activeMeta])
 
   // Close ANY incident from the «Alle Einsätze» list (per-incident, not just the active one).
   // ⚠️ It ends the same way the Rapport does — through `completeRapport` — so an Einsatz put away
@@ -1274,6 +1293,9 @@ export default function App() {
 
       {/* auto-opened / colleague-taken incident announced, never forced. Suppressed while
           untaken pool alarms exist — the take banner owns that spot and the take flow. */}
+      {closedMedia.map((p) => (
+        <MediaPendingMeldung key={p.id} pending={p} onDismiss={() => setClosedMedia((cur) => cur.filter((q) => q.id !== p.id))} />
+      ))}
       {freshIncident && poolAlarms.length === 0 && (
         <NewIncidentBanner
           inc={freshIncident}

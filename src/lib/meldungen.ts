@@ -51,18 +51,24 @@ export const MELDUNG_RANK = {
   gps: 7,
   /** the alarm source's guesses have not been checked yet */
   review: 8,
+  /** the Einsatz's saved data came from a NEWER build, or had entries the load gate skipped
+   *  (useWorkspaceBlob, S3 20.10.2026) — true for as long as this build reads that blob */
+  workspace: 9,
+  /** a closed Einsatz's Fotos / Sprachnotizen are still only on this device (App · completeRapport,
+   *  S3 20.10.2026) — stands while the queue holds them */
+  media: 10,
   /** another tab of this browser holds the edit lock */
-  tabLock: 9,
+  tabLock: 11,
   /** the tactical symbol pack failed to load — Karte and Kroki run without glyphs */
-  symbols: 10,
+  symbols: 12,
   /** offline with no cached basemap for this view — the map is a flat colour */
-  basemap: 11,
+  basemap: 13,
   /** the session cookie expired — the sync is standing still until the operator signs in again */
-  session: 12,
+  session: 14,
   /** a new build is waiting for the next app start */
-  update: 13,
+  update: 15,
   /** «KP Front als App installieren» */
-  install: 14,
+  install: 16,
 } as const
 
 export type MeldungKind = keyof typeof MELDUNG_RANK

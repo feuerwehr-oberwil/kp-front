@@ -204,7 +204,11 @@ export const incidentCopy = {
     // die sichere, fokussierte Antwort auf der Liste der offenen Punkte
     confirmBack: 'Zurück',
     done: 'Rapport abgeschlossen',
-    doneMediaPending: 'Rapport abgeschlossen. {n} Foto/Audio noch nicht hochgeladen – bleiben gespeichert und gehen beim nächsten Öffnen raus',
+    // what an Abschluss left in the media queue stands in the Meldeleiste while it is there — it
+    // was the closing toast's second half (S3, 20.10.2026; components/MediaPendingMeldung)
+    mediaPendingTitle: '{n} Foto/Audio von «{title}» noch nicht hochgeladen',
+    mediaPendingSub: 'Bleiben auf diesem Gerät gespeichert und gehen beim nächsten Öffnen raus.',
+    mediaPendingDismiss: 'Ausblenden',
     failed: 'Abschluss fehlgeschlagen',
     corrected: 'Stunden korrigiert: {name}',
     attendanceRemoved: '{name} Anwesenheit entfernt',

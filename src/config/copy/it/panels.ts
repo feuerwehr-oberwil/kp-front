@@ -171,6 +171,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     browserNoInstall: 'Questo dispositivo non offre l\'installazione. Per essere offline in intervento, installa PC Fronte sul tablet o sul telefono.',
     wsDropped: '{n} voci danneggiate ignorate al caricamento',
     wsNewer: 'I dati d\'intervento provengono da una versione più recente dell\'app – aggiorna l\'app.',
+    wsDroppedDismiss: 'Nascondi',
   },
   emptyApp: {
     title: 'Nessun intervento aperto',
