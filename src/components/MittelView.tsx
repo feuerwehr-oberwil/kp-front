@@ -787,15 +787,14 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
   const [label, setLabel] = useState(target.probe.label)
   const [unit, setUnit] = useState(target.probe.unit)
   const [sourceLabel, setSourceLabel] = useState(target.probe.sourceLabel ?? '')
-  // empty string, not 0 — «kein Bestand erfasst» and «Bestand 0» are different statements
-  const [stock, setStock] = useState(target.stock == null ? '' : String(target.stock))
+  // null, not 0 — «kein Bestand erfasst» and «Bestand 0» are different statements
+  const [stock, setStock] = useState<number | null>(target.stock ?? null)
   const [note, setNote] = useState(target.note)
 
   const valid = !target.custom || (!!label.trim() && !!unit.trim())
   const submit = () => {
     if (!valid) return
-    const n = stock.trim() === '' ? null : Math.max(0, Math.round(Number(stock)))
-    onSave({ label, unit, sourceLabel, stock: Number.isFinite(n as number) ? n : null, note })
+    onSave({ label, unit, sourceLabel, stock, note })
   }
 
   return (
@@ -823,13 +822,16 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
                     would be a different unit to mittelKey and split the line in two */}
                 <Combo value={unitLabel(unit)} options={units.map(unitLabel)} placeholder={M.unitPlaceholder} searchPlaceholder={M.unitSearchPlaceholder} allowCustom clearable={false} onChange={(v) => setUnit(v.trim() === 'L' ? 'l' : v)} />
               </div>
-              <label className="ip-field">
+              {/* the shared Stepper, as «Menge» beside it in the list (UX sweep F3): one number
+                  control per feature, not an OS spinner here and hold-to-repeat there. Optional:
+                  «–» until set, the first + lands on 1, its ✕ back to «kein Bestand erfasst».
+                  A <div>, not a <label>: a label around three buttons hands a tap on the caption
+                  to the «−». */}
+              <div className="ip-field">
                 <span>{M.stockLabel}</span>
-                <input
-                  className="ip-input" type="number" inputMode="numeric" min={0} max={9999}
-                  value={stock} placeholder={M.stockPlaceholder} onChange={(e) => setStock(e.target.value)}
-                />
-              </label>
+                <Stepper value={stock} min={0} max={9999} seed={1} ariaLabel={M.stockLabel}
+                  onChange={setStock} onClear={() => setStock(null)} canClear={stock != null} />
+              </div>
             </div>
             <div className="ip-field">
               <span>{M.sourceLabel}</span>

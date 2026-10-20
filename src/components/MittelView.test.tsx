@@ -270,3 +270,21 @@ describe('«Gesetzt, aber nicht erfasst» — unambiguous vs. ambiguous', () => 
     expect(screen.queryByText(M.lagePickTitle)).toBeNull()
   })
 })
+
+describe('the pencil of a hand-added line', () => {
+  const kanister: MittelEntry = { id: 'e1', label: 'Kanister', unit: 'Stk.', menge: 2, at: '2026-10-20T10:00:00.000Z' }
+  const openPencil = () => fireEvent.click(screen.getByRole('button', { name: `Kanister – ${M.editLabel}` }))
+
+  // UX sweep F3: Bestand is the shared Stepper like «Menge» — no native number field, «–» until set
+  it('asks Bestand with the shared Stepper, «–» until set, and saves what it was stepped to', () => {
+    const onSave = mount({ entries: [kanister] })
+    openPencil()
+    expect(screen.queryByRole('spinbutton')).toBeNull()
+    const stock = screen.getByRole('group', { name: M.stockLabel })
+    expect(stock.textContent).toContain('–')
+    fireEvent.pointerDown(stock.querySelectorAll('button')[2], { pointerId: 1 }) // the «+»
+    fireEvent.pointerUp(stock.querySelectorAll('button')[2], { pointerId: 1 })
+    fireEvent.click(screen.getByRole('button', { name: M.save }))
+    expect(onSave.mock.lastCall?.[0]).toMatchObject({ label: 'Kanister', stock: 1 })
+  })
+})
