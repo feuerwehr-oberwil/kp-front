@@ -49,7 +49,8 @@ import s from './Karte.module.css'
 
 /** The tablet's left rail, always there (owner, 19.10.2026): the two surfaces — Karte and
  *  Checkliste, the Einsatz tab's word and glyph — and, with an object selected, its documents
- *  below a hairline, its name standing under them. */
+ *  below a hairline. No object name under them (owner 20.10.2026: the plan's own bar already
+ *  names it). */
 export function KarteNavRail({ obj, docs, active, onMap, onLibrary, onDoc, notHeld }: {
   /** the selected object; null = only the two surfaces */
   obj: StationObject | null
@@ -90,7 +91,6 @@ export function KarteNavRail({ obj, docs, active, onMap, onLibrary, onDoc, notHe
             </button>
             )
           })}
-          {plans && <span className={s.railName} aria-hidden>{obj.name}</span>}
         </div>
       </div>
     </nav>
