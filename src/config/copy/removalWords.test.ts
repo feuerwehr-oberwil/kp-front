@@ -47,3 +47,12 @@ describe('removing from the picture is «entfernt», never «gelöscht»', () =>
     expect(de.objectDone.word.fire.inline).toBe('gelöscht')
   })
 })
+
+// UX sweep F4 (20.10.2026): deleting a person's stretch and deleting a whole Schichtband column
+// are two acts, so they never share a button word
+describe('two deletes on the Schichten, two names', () => {
+  it('«Schicht löschen» is one person\'s stretch; the column says «Schichtband»', () => {
+    expect(de.schichten.removeBand).not.toBe(de.zeitplan.remove)
+    expect(de.schichten.removeBand).toMatch(/Schichtband/)
+  })
+})
