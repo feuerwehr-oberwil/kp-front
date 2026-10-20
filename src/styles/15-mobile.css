@@ -1190,7 +1190,9 @@
     min-height: var(--tap); padding: 0 var(--float-pad-x) 0 var(--sp-3);
     background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); }
   .tb-gps .i { color: var(--amber-strong); }
-  .phone-wx .tb-weather { min-height: 40px; }
+  /* --tap, not 40 (UX sweep S9, 20.10.2026): at (0,2,0) this beat 20-touch-floors' coarse
+     `.tb-weather` floor, so the Karte's one wind target on a phone stayed 4px short */
+  .phone-wx .tb-weather { min-height: var(--tap); }
 
   /* Einstellungen rows: the 3-segment controls (Farbschema, Beschriftungen) are wider than
      a phone row leaves next to the label — let the control wrap onto its own right-aligned
