@@ -18,7 +18,7 @@
 /* The status filter is the QUIET control of the page (UI sweep 07.10.2026, E6): it narrows a
    list, it does not move you anywhere. It wore the same blue fill as the page tabs above it, so
    the two read as one rank. Chosen = a raised white chip on the track, in ink. */
-.aop-tools .useg-btn { padding: 4px 12px; font-size: var(--fs-1); }
+.aop-tools .useg-btn { min-height: var(--tap); padding: 4px 12px; font-size: var(--fs-1); }
 @media (pointer: fine) {
   .aop-tools .useg-btn { min-height: 34px; }
 }
