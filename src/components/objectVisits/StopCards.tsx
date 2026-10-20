@@ -1,11 +1,13 @@
 // The read view's pieces around the visit card (VisitSections · SummaryCard): the card's own
-// rows, the one line «Abgeschlossen … / Korrigiert …» that opens the earlier versions, and the
-// other visits at the same stop — a second checklist at the same object is a second card under
-// the first (owner, 15.10.2026), not a list of its own.
+// rows, the one line «Abgeschlossen … / Korrigiert …» that opens the earlier versions, the line
+// that says a visit is locked for corrections, and the other visits at the same stop — a second
+// checklist at the same object is a second card under the first (owner, 15.10.2026), not a list
+// of its own.
 
 import { useEffect, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { appConfig } from '../../config/appConfig'
+import { fillTemplate } from '../../lib/format'
 import { getRevisions } from '../../objectVisits/api'
 import { personName, type Revision } from '../../objectVisits/types'
 import { fmtDate, fmtWhen, lifecycleLabel } from './ovFormat'
@@ -19,6 +21,16 @@ export function CardRow({ icon, title, onClick }: { icon: string; title: string;
 
 const short = (iso: string) => `${fmtDate(iso).slice(0, 6)} ${fmtWhen(iso).split(' ').pop()}`
 const long = (iso: string) => `${fmtDate(iso)} ${fmtWhen(iso).split(' ').pop()}`
+
+/** Why the card has no «Bearbeiten» any more: this visit went view-only (objectVisits/lock ·
+ *  the server's `lockedAt`), and since when. Stands where the edit row stood. */
+export function LockedRow({ lockedAt }: { lockedAt: string }) {
+  const C = appConfig.copy.objectVisits
+  return (
+    <ListRow className={s.rowQuiet} lead={<Icon id="lock" />} chevron={false}
+      title={fillTemplate(C.lockedSince, { when: long(lockedAt) })} />
+  )
+}
 
 /**
  * When the visit was finished, and corrected since — one line; with corrections it opens the

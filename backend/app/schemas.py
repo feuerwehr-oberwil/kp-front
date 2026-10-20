@@ -2219,6 +2219,11 @@ class ObjectVisitsConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     enabled: bool = False
     captureRoles: list[ObjectVisitRole] = Field(default_factory=lambda: list(_DEFAULT_CAPTURE_ROLES))
+    #: Hours after the COMPLETION during which a completed visit may still be corrected; after
+    #: that it is view-only (owner, 20.10.2026 — a plan stayed open for over a week). ``0`` locks
+    #: it the moment it is completed, ``null`` never locks it. The server enforces it
+    #: (``object_visits.locked_at``); the app only draws what the server says.
+    lockAfterHours: int | None = Field(default=24, ge=0, le=8760)
     proposalFields: list[ObjectVisitProposalField] = Field(default_factory=list, max_length=50)
     destinations: list[ObjectVisitDestination] = Field(default_factory=list, max_length=5)
 

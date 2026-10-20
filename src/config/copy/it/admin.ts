@@ -12,6 +12,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       enabledTip: 'Mostra «Visite agli oggetti» nel launcher e apre le interfacce per i dispositivi e l’organizzatore.',
       captureRoles: 'Chi può registrare',
       captureRolesTip: 'Gli account con questi ruoli possono creare e modificare visite. Tutti gli altri account leggono soltanto.',
+      lockHours: 'Finestra di correzione (ore)',
+      lockHoursTip: 'Per quanto tempo dopo la chiusura una visita può ancora essere corretta; poi è in sola lettura. Vuoto = non bloccare mai.',
       roles: { editor: 'Modifica', el: 'Conduzione intervento', viewer: 'Visualizzazione' },
       rolesNone: 'Almeno un ruolo deve poter registrare.',
       checklists: 'Liste di controllo',

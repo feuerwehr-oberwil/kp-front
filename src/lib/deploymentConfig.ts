@@ -496,6 +496,9 @@ export interface DeploymentObjectVisits {
   enabled?: boolean | null
   /** account roles that may capture; the rest read (default editor + el) */
   captureRoles?: ('editor' | 'el' | 'viewer')[] | null
+  /** hours a completed visit may still be corrected before it goes view-only (default 24,
+   *  0 = at once, null = never locks). The SERVER enforces it — see objectVisits/lock. */
+  lockAfterHours?: number | null
   /** the fields a Korrekturvorschlag can name (opaque ids for the organizer) */
   proposalFields?: { id: string; label: string }[] | null
   destinations?: ObjectVisitDestination[] | null
@@ -727,6 +730,12 @@ export function objectCategoryRules(): ObjectCategoryRule[] {
   return Array.isArray(raw) ? raw : []
 }
 
+/** The window a completed Objektbesuch may still be corrected in, where the config names none —
+ *  what /admin shows in an empty field (backend `schemas.ObjectVisitsConfig.lockAfterHours`). */
+export const DEFAULT_VISIT_LOCK_HOURS = 24
+
+// ⚠️ `lockAfterHours` is deliberately NOT read here: the lock is the server's rule and every
+// visit carries the `lockedAt` it produced (objectVisits/lock). Only /admin edits the number.
 export function objectVisitsConfig(): { enabled: boolean; captureRoles: string[] } {
   const ov = resolved.objectVisits
   const roles = Array.isArray(ov?.captureRoles) ? ov.captureRoles.filter((r) => typeof r === 'string') : null

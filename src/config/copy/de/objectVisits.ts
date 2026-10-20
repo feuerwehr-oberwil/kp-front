@@ -184,6 +184,7 @@ export const objectVisitsCopy = {
     report: 'Bericht (PDF)',
     reportFailed: 'Bericht konnte nicht geladen werden',
     edit: 'Bearbeiten',
+    lockedSince: 'Nur noch Ansicht – seit {when} gesperrt.',
     // a visit at a PLACE — a pin or an address with no catalogue object (16.10.2026)
     placeTitle: 'Meldung {label}',
     placeUnnamed: 'an gesetztem Punkt',

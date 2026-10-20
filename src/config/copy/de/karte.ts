@@ -5,7 +5,9 @@
 export const karteCopy = {
   // docs/karte-objekte.md. The design (owner, 16.10.2026): no title in the bar, the one panel
   // left on a tablet and as a sheet on a phone, objects as red outlines with a name tag. Every
-  // register fact carries «Register-Hinweis», and missing data never reads as «no hazard».
+  // register fact carries «Register-Hinweis». What the station did NOT record is not said at all:
+  // the «Keine Gefahrenangaben …» closing line went (owner, 20.10.2026 — «knowing that there could
+  // be something but it isn't filled doesn't help anyone in case of an emergency»).
   karte: {
     title: 'Karte & Objekte',
     // «Einsatz verlassen» (owner, 17.10.2026): the Einsatz menu's door to the viewer (panels/AppMenuRows).
@@ -72,9 +74,8 @@ export const karteCopy = {
     approxTag: 'ungefähr',
     notesSource: 'Station · {src}',
     notesStation: 'Station',
-    missing: 'Keine Gefahrenangaben der Station erfasst. Das heisst nicht, dass es keine gibt.',
-    pinNote: 'Kein Stationsobjekt an diesem Punkt. Fehlende Angaben heissen nicht, dass es hier keine Gefahr gibt.',
-    pinEmpty: 'Hier ist nichts erfasst – keine Adresse, kein Stationsobjekt in der Nähe. Fehlende Angaben heissen nicht, dass es hier keine Gefahr gibt.',
+    pinNote: 'Kein Stationsobjekt an diesem Punkt.',
+    pinEmpty: 'Hier ist nichts erfasst – keine Adresse, kein Stationsobjekt in der Nähe.',
     pinBuilding: 'Gebäude an diesem Punkt',
     pinBuildingSub: 'Registerangaben ansehen',
     copyCoords: 'Koordinaten kopieren',

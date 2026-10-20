@@ -11,6 +11,8 @@ export interface StopDoc {
   doc: VisitDoc
   /** the account, for «Von» where nobody was typed */
   byName: string | null
+  /** from when this visit is view-only (objectVisits/lock); null where no lock applies */
+  lockedAt: string | null
 }
 
 /** A visit that cannot be read is left out — its card would be empty. */
@@ -22,7 +24,7 @@ export function useStopDocs(ids: string[], locals: LocalVisit[]): Map<string, St
     const missing = key ? key.split('|').filter((id) => !locals.some((l) => l.doc.id === id)) : []
     for (const id of missing) {
       void getVisit(id).then((v) => {
-        if (alive) setRemote((m) => new Map(m).set(id, { doc: stripServer(v), byName: personName(v.createdBy) || null }))
+        if (alive) setRemote((m) => new Map(m).set(id, { doc: stripServer(v), byName: personName(v.createdBy) || null, lockedAt: v.lockedAt ?? null }))
       }).catch(() => {})
     }
     return () => { alive = false }
@@ -32,7 +34,7 @@ export function useStopDocs(ids: string[], locals: LocalVisit[]): Map<string, St
   const out = new Map<string, StopDoc>()
   for (const id of ids) {
     const l = locals.find((x) => x.doc.id === id)
-    if (l) out.set(id, { doc: l.doc, byName: personName(l.server?.createdBy ?? null) || null })
+    if (l) out.set(id, { doc: l.doc, byName: personName(l.server?.createdBy ?? null) || null, lockedAt: l.server?.lockedAt ?? null })
     else if (remote.has(id)) out.set(id, remote.get(id)!)
   }
   return out

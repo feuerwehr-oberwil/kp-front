@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
@@ -45,6 +46,32 @@ export function StationNotes({ measures, remarks, source, className }: { measure
         </>
       )}
       {source && <p className={s.source}>{source}</p>}
+    </div>
+  )
+}
+
+/** «Register-Hinweis» — a tap-to-open disclosure, never a `title=` tooltip: a finger gets nothing
+ *  out of a tooltip (owner, 20.10.2026 · s17, on the Einsatz's Gebäude card). The label and what
+ *  it opens are two pieces, because the label sits in a head row and the body stands under it.
+ *  Each surface hands in its own classes and keeps its own rhythm; the markup, the copy and the
+ *  aria contract are ONE. */
+export function RegisterHintButton({ open, onToggle, className }: { open: boolean; onToggle: () => void; className?: string }) {
+  const C = appConfig.copy.building
+  return (
+    <button type="button" className={className} aria-expanded={open} onClick={onToggle}>
+      <Icon id="info" />{C.hint}<Icon id="chevron-down" className="chev" />
+    </button>
+  )
+}
+
+/** What «Register-Hinweis» opens: where the facts come from, and the caller's source/Stand line
+ *  (`children`) — hidden until it is asked for. */
+export function RegisterHintBody({ className, textClassName, children }: { className?: string; textClassName?: string; children?: ReactNode }) {
+  const C = appConfig.copy.building
+  return (
+    <div className={className} data-testid="register-hint">
+      <div className={textClassName}>{C.hintTitle}</div>
+      {children}
     </div>
   )
 }

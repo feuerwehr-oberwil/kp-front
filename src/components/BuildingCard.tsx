@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
+import { cx } from '../lib/cx'
 import { Icon } from '../lib/icons'
 import { IconButton } from './Button'
 import type { BuildingInfo } from '../lib/api/building'
 import { buildingChips, buildingSources, hasBuildingContent, noteLines, objectCaption, visitLine } from '../lib/buildingCard'
-import { RegisterTags, StationNotes } from './BuildingFacts'
+import { RegisterHintBody, RegisterHintButton, RegisterTags, StationNotes } from './BuildingFacts'
 import s from './BuildingCard.module.css'
 
 /**
@@ -19,6 +21,7 @@ import s from './BuildingCard.module.css'
  * Nothing to say → nothing drawn (lib/buildingCard).
  */
 export function BuildingCard({ info, onClose }: { info: BuildingInfo | null; onClose?: () => void }) {
+  const [hint, setHint] = useState(false)
   if (!info || !hasBuildingContent(info)) return null
   const C = appConfig.copy.building
   const chips = buildingChips(info)
@@ -33,7 +36,7 @@ export function BuildingCard({ info, onClose }: { info: BuildingInfo | null; onC
     <section className={s.card} aria-label={C.title}>
       <div className={s.head}>
         <span className={s.title}><Icon id="floors" />{C.title}</span>
-        {chips.length > 0 && <span className={s.hint} title={C.hintTitle}><Icon id="info" />{C.hint}</span>}
+        {chips.length > 0 && <RegisterHintButton className={cx(s.hint, s.hintBtn)} open={hint} onToggle={() => setHint((o) => !o)} />}
         {onClose && (
           <IconButton label={appConfig.copy.closeDialog} className={s.close} onClick={onClose}><Icon id="close" /></IconButton>
         )}
@@ -41,7 +44,7 @@ export function BuildingCard({ info, onClose }: { info: BuildingInfo | null; onC
       <RegisterTags chips={hazards} />
       <StationNotes measures={measures} remarks={remarks} source={caption} className={s.notes} />
       <RegisterTags chips={facts} className={measures.length || remarks.length ? s.facts : undefined} />
-      {sources && <p className={s.sources}>{sources}</p>}
+      {hint && <RegisterHintBody className={s.hintBody} textClassName={s.sources}>{sources && <div className={s.sources}>{sources}</div>}</RegisterHintBody>}
       {visit && <p className={s.visit}><Icon id="clipboard" /><span>{visit}</span></p>}
     </section>
   )

@@ -301,8 +301,7 @@ The rules that are easy to break:
   the phone and on the tablet: head (kind, name, address, ✕) · the station's word
   (Sofortmassnahmen, then Bemerkungen, with their source — what matters most in a hurry) ·
   Pläne & Module as rows (the module only, offline the «auf diesem Gerät» mark — below) · Gebäude
-  laut Register · In der Nähe · Objektbesuche · the closing «Keine Gefahrenangaben …» · the actions
-  LAST, «Objektbesuch» and «Melden». A plain building or a dropped pin keeps that order with what
+  laut Register · In der Nähe · Objektbesuche · the actions LAST, «Objektbesuch» and «Melden». A plain building or a dropped pin keeps that order with what
   it has (Register, In der Nähe, Melden; a pin also «Koordinaten kopieren»), a plan-less object
   too (no plan rows). The action row is two equal halves where both labels fit; else the longer
   label takes what it needs, and where the two do not fit one line (French/Italian at 390 px) each
@@ -453,8 +452,8 @@ The rules that are easy to break:
 - **A head that is still being looked up is a skeleton**, never «Gebäude» or «…» in place of a
   name: a tapped building until the register answers (a searched address is named at once), a
   dropped pin until its address is known. A plain building carries no «Kein Stationsobjekt …»
-  box — the kicker says «Gebäude», the line under the name says «Kein Stationsobjekt» once known,
-  and the closing «Keine Gefahrenangaben …» sentence still stands.
+  box — the kicker says «Gebäude» and the line under the name says «Kein Stationsobjekt» once
+  known. Nothing more is added about what the station did not record.
 - **«Register-Hinweis» is tap to open** (owner, review round 4: «should be tap to open and this
   blabla (gwr, stand, etc.) should all be hidden by default»). Under «Gebäude laut Register» the
   chips stand, and so does «Registereintrag Grenzweg 7, nicht Grenzweg 1» right under them when
@@ -462,12 +461,24 @@ The rules that are easy to break:
   the other building). The hint («Aus den Bundesregistern … Vor Ort prüfen.») and the source line
   (the registers and their Stand, the device's copy) are folded behind the «Register-Hinweis»
   toggle (`aria-expanded`), folded again for every place. The Einsatz's
-  Gebäude card (`BuildingCard`) is a different component and keeps its hint as it was; its tags
-  and the station's notes are the panel's own pieces (`components/BuildingFacts` · `RegisterTags`,
-  `StationNotes` – Karte Haus round 3), so the two cannot drift apart.
-- **Missing is said.** A register that could not be asked, a place never looked at offline, an
-  object without notes: each gets its sentence, and «Keine Gefahrenangaben … heisst nicht …»
-  closes the panel. Nothing reads as «no hazard».
+  Gebäude card (`BuildingCard`) wears the SAME disclosure since review round 7 — it was a `title=`
+  tooltip, which a finger never sees (owner, 20.10.2026): the button, what it opens and the aria
+  contract are `components/BuildingFacts` · `RegisterHintButton` / `RegisterHintBody`, each
+  surface in its own rhythm. Its tags and the station's notes are the panel's own pieces there too
+  (`RegisterTags`, `StationNotes` – Karte Haus round 3), so the two cannot drift apart.
+- **Missing is said – what was ASKED for and not answered.** A register that could not be asked,
+  a place never looked at offline: each gets its sentence, and nothing reads as «no hazard». What
+  the station simply never recorded is NOT announced: the closing «Keine Gefahrenangaben der
+  Station erfasst …» line went with review round 7, for objects and for plain buildings alike
+  (owner, 20.10.2026: «knowing that there could be something but it isn't filled doesn't help
+  anyone in case of an emergency»). The panel simply ends with its actions. A dropped pin keeps
+  its factual first sentence («Kein Stationsobjekt an diesem Punkt.») without the «Fehlende
+  Angaben heissen nicht …» tail.
+- **The panel remembers where it was scrolled to** (owner, 20.10.2026): leaving an Einsatzobjekt
+  for a plan, an Objektbesuch or the other level and coming back puts «Objektbesuch» back under
+  the thumb instead of the top of the sheet. Per place (`KartePanel · scrollKey`), the last 12,
+  restored once the sections that were still loading have made the body tall enough again.
+  Another object starts at the top.
 - **Doors by role.** «Objektbesuch» / «Melden» only for `objectVisits.captureRoles`
   (and only where the module runs); every other account reads the visits with a one-line reason.
 - **Search** finds objects on the device first — name, address, aliases, folded umlauts, every
