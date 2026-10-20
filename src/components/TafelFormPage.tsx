@@ -5,7 +5,7 @@ import { appConfig } from '../config/appConfig'
 import { getLocaleId } from '../config/copy'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
-import { fillTemplate, hhmm } from '../lib/format'
+import { fillTemplate, hhmm, pad2 } from '../lib/format'
 import { newId } from '../lib/ids'
 import { serverNow } from '../lib/serverClock'
 import {
@@ -19,6 +19,7 @@ import {
 import { NEW, navTarget, type NavAt, type NavKey, type NavSection } from '../lib/boardFormNav'
 import { Button, IconButton } from './Button'
 import { TickRow } from './TickRow'
+import { WheelPopover } from './WheelPicker'
 import { Menu } from '../lib/overlays'
 import { BoardSignature } from './BoardSignature'
 import MiniKarte, { type MiniKarteProps } from './MiniKarte'
@@ -112,6 +113,13 @@ function Cell({ k, kn, value, label, readOnly, time = false, placeholder, classN
   const handled = useRef(false)
   const [focused, setFocused] = useState(false)
   const ref = useRef<HTMLTextAreaElement>(null)
+  const coarse = useMediaQuery('(pointer: coarse)')
+  /** a time cell under a finger answers with THE time picker (F10, 20.10.2026, owner: «with
+   *  keyboard / desktop type, otherwise wheel»): a tap opens the wheels + «Jetzt», and the soft
+   *  keyboard stays down (`inputMode="none"`). A hardware keyboard still types into the cell,
+   *  and a mouse never sees the wheels — Tab, Enter and «1124» stay the paper-fast path. */
+  const wheel = time && coarse && !readOnly
+  const [wheelAt, setWheelAt] = useState<DOMRect | null>(null)
   /** the stored value the typing started from — a different one at commit time means another
    *  device wrote this cell meanwhile */
   const base = useRef(value)
@@ -222,8 +230,24 @@ function Cell({ k, kn, value, label, readOnly, time = false, placeholder, classN
       else e.currentTarget.blur()
     }
   }
+  /** what the wheels hand back is written at once — one ↶ step, like a cell left with Enter */
+  const commitWheel = (v: string) => {
+    setWheelAt(null)
+    handled.current = false
+    dirty.current = false
+    if (draftKey) clearDraft(draftKey)
+    setDraft(v)
+    if (v === live.current.value) return
+    clashCheck(v)
+    onCommit(v)
+  }
+  const wheelInitial = () => {
+    const d = new Date()
+    const m = /^(\d{2}):(\d{2})$/.exec(normalizeTime(draft))
+    if (m) d.setHours(Number(m[1]), Number(m[2]), 0, 0)
+    return d
+  }
   // a soft keyboard has no Shift/Alt+Enter: on touch the focused cell offers the line break itself
-  const coarse = useMediaQuery('(pointer: coarse)')
   const breakKey = coarse && focused && !readOnly
   return (
     <span className={s.cellWrap}>
@@ -239,9 +263,11 @@ function Cell({ k, kn, value, label, readOnly, time = false, placeholder, classN
         data-kn={kn}
         // the phone's return key says what Enter does here: on to the next cell, or done
         enterKeyHint={last ? 'done' : 'next'}
-        inputMode={time ? 'numeric' : undefined}
+        inputMode={wheel ? 'none' : time ? 'numeric' : undefined}
+        aria-haspopup={wheel ? 'dialog' : undefined}
         spellCheck={!time}
         onPointerDown={keep}
+        onClick={wheel ? (e) => setWheelAt(e.currentTarget.getBoundingClientRect()) : undefined}
         onFocus={() => { handled.current = false; setFocused(true); if (!dirty.current) base.current = value }}
         onChange={(e) => { handled.current = false; dirty.current = true; setDraft(e.target.value) }}
         onBlur={() => {
@@ -252,6 +278,11 @@ function Cell({ k, kn, value, label, readOnly, time = false, placeholder, classN
         onKeyDown={onKeyDown}
         maxLength={CELL_MAX}
       />
+      {wheelAt && (
+        <WheelPopover anchor={wheelAt} initial={wheelInitial()} onClose={() => setWheelAt(null)}
+          onCommit={(v) => commitWheel(`${pad2(v.h)}:${pad2(v.mi)}`)}
+          onClear={draft ? () => commitWheel('') : undefined} />
+      )}
       {focused && draft.length >= CELL_MAX && <span className={s.capHint} role="status">{fillTemplate(T0.cellCap, { n: CELL_MAX })}</span>}
       {breakKey && !time && (
         // keeps the focus (and the keyboard) where it is: the press never reaches the textarea's blur
