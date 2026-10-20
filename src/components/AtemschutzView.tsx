@@ -2850,7 +2850,7 @@ function TruppCard({
               </span>
             )) : <span><i>{az.verlauf}</i></span>}
           </span>
-          <Icon id={logOpen ? 'chevron-up' : 'chevron-down'} className={s.logChev} />
+          <Icon id="chevron-down" className={cx('chev', s.logChev)} />
         </button>
         {menu}
         </div>
@@ -2961,7 +2961,7 @@ function TruppCard({
     <button type="button" className={s.trowHead} aria-expanded="true" onClick={onCollapse}
       aria-label={`${t.name} — ${az.collapse}`}>
       <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} tier={headTier} />
-      <span className={s.trowChevron}><Icon id="chevron-up" /></span>
+      <span className={s.trowChevron}><Icon id="chevron-down" className="chev" /></span>
     </button>
   ) : (
     <div className={cx(s.trowHead, s.trowHeadStatic)}>

@@ -465,7 +465,7 @@ export function ZeitplanView({
             <button type="button" className={cx(s.who, s.whoFoot)}
               onClick={() => setCovOpen((v) => !v)} aria-expanded={covOpen}
               title={covOpen ? Z.coverageCollapse : Z.coverageExpand}>
-              <span className={s.covHead}>{Z.coverage}<Icon id={covOpen ? 'chevron-down' : 'chevron-up'} /></span>
+              <span className={s.covHead}>{Z.coverage}<Icon id="chevron-down" className="chev" /></span>
             </button>
             <div className={cx(s.track, s.coverage)} title={Z.coverageHint}>
               {/* The colour key, which used to be a legend line of its own under the grid: the same
