@@ -112,7 +112,7 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
   })
   return (
     <Modal title={h.title} onClose={onClose} wide>
-      {sorted.length === 0 && <EmptyState icon="history" title={h.empty} sub={h.emptySub} />}
+      {sorted.length === 0 && <EmptyState icon="list" title={h.empty} sub={h.emptySub} />}
       {!online && onArchive && sorted.length > 0 && <p className="ip-hist-offline"><Icon id="warn" /> {h.offlineNote}</p>}
       {sorted.length > 0 && (
         <SearchField value={query} onChange={setQuery} placeholder={h.searchPlaceholder} aria-label={h.searchPlaceholder} />

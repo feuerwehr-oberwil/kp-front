@@ -1016,7 +1016,7 @@ export default function App() {
             responder's business either */}
         {!linkScoped && (
           <div className="ip-emptyapp-secondary">
-            <button className="ip-btn" onClick={() => { close(); setOverlay('history') }}><Icon id="history" />{appConfig.copy.emptyApp.history}</button>
+            <button className="ip-btn" onClick={() => { close(); setOverlay('history') }}><Icon id="list" />{appConfig.copy.emptyApp.history}</button>
             {/* Objektbesuche: only where the station switched the module on; every account
                 may read, the surface hides what a role may not capture */}
             {objectVisitsConfig().enabled && (

@@ -135,6 +135,11 @@ export function IconSprite() {
           tick. Not `lock` either: later corrections stay possible and print as Nachträge, so a
           padlock would promise something the app does not do. */}
       <symbol id="archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4.5" rx="1.4" /><path d="M4.8 8.5v10.1a1.9 1.9 0 0 0 1.9 1.9h10.6a1.9 1.9 0 0 0 1.9-1.9V8.5" /><path d="M9.6 13.2 12 15.6l2.4-2.4M12 15.2v-4" /></symbol>
+      {/* «Alle Einsätze» (20.10.2026, owner): the register of Einsätze, a list with its row marks.
+          It wore `history`, the Verlauf's clock, one row away from the Verlauf button — and not
+          `archive` either, which is «Abschliessen» on the card right above it. Not `menu`: that
+          one has no row marks and means «more». */}
+      <symbol id="list" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11" /><circle cx="4.8" cy="6.5" r="1.3" fill="currentColor" stroke="none" /><circle cx="4.8" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="4.8" cy="17.5" r="1.3" fill="currentColor" stroke="none" /></symbol>
       <symbol id="play" viewBox="0 0 24 24"><path d="M7 4.8 19 12 7 19.2z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" /></symbol>
       <symbol id="pause" viewBox="0 0 24 24"><path d="M8 5h2.4v14H8zM13.6 5H16v14h-2.4z" fill="currentColor" /></symbol>
       <symbol id="chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></symbol>
