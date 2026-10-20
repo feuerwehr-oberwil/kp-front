@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { LayerPanel } from './LayerPanel'
 import type { LayerDef } from '../types'
 import { appConfig } from '../config/appConfig'
@@ -242,9 +242,9 @@ describe('LayerPanel · an Ebene that is still loading', () => {
     render(<LayerPanel layers={[pipes]} onToggle={onToggle} onOpacity={noop} />)
     const note = await screen.findByText(fillTemplate(L.loadingOf, { done: fmtFileSize(512), total: fmtFileSize(2048) }))
     expect(note.tagName).toBe('SMALL')
-    // the app's own loader, in the row's icon slot — not a generic spinner beside it. It is a
-    // lazy chunk (see LayerPanel · RowSnail), so it arrives a tick after the row.
-    await waitFor(() => expect(document.querySelector('.lrow .ic .snail-loader')).toBeTruthy())
+    // the app's own loader (components/ShellLoader), in the row's icon slot — not a generic
+    // spinner beside it, and not the boot mascot, whose chunk cold start would have to preload
+    expect(document.querySelector('.lrow .ic-loading svg')).toBeTruthy()
     // the bar is INSIDE the row's name column, and it is determinate
     const bar = document.querySelector<HTMLElement>('.lrow .name .lload-bar > i')
     expect(bar?.style.width).toBe('25%')
@@ -258,6 +258,6 @@ describe('LayerPanel · an Ebene that is still loading', () => {
     loadLayerData(pipes.id, pipes.geojson!)
     render(<LayerPanel layers={[pipes]} onToggle={noop} onOpacity={noop} />)
     expect(await screen.findByText(L.loadEmpty)).toBeTruthy()
-    expect(document.querySelector('.lrow .snail-loader')).toBeNull()
+    expect(document.querySelector('.lrow .ic-loading')).toBeNull()
   })
 })

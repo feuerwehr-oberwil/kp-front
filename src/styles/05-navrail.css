@@ -405,8 +405,8 @@ html.rail-dragging .layers-card { transition: none; }
    Appended at the foot of this file on purpose: the layer rows above are being edited by other
    hands this round, and this block touches none of their rules.
    The app's OWN loader in the row's icon slot, not a generic CSS spinner (owner, review round 7,
-   mock A): the snail's SVG carries `width: 120px` itself, so the row has to say otherwise. */
-.lrow .ic .snail-loader { width: 26px; }
+   mock A): `ShellLoader`, the mascot's shell spiral, in the blue its bar fills with. */
+.lrow .ic-loading { color: var(--blue); }
 /* …and the progress INSIDE the name column, under the status line — part of the row, never a
    second strip under it. Determinate only: the bar is drawn when a size is known, and the
    status line alone carries the rest. */
