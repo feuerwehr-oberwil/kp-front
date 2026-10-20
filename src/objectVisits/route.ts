@@ -11,9 +11,10 @@
  * always work as intended for modals»). iOS offers its standalone-app back swipe exactly when
  * there is an entry to go back to, and no CSS or event handler can switch it off — so the Karte,
  * the Plans and the launcher never have one. Sheets and modals do NOT push entries. The only
- * pushes are the Objektbesuche routes and the plan reader there, all through
- * `objectVisits/route` (`navigateTo` / `pushAppEntry`, counted in `history.state`), and the way
- * out is `leaveAppEntries`, which walks back over them rather than replacing the top entry
+ * pushes are the Objektbesuche routes and the plan reader there, and the Checkliste library's
+ * levels (lib/historyTrail – a device, its chapter: the native back steps up one, owner 20.10.2026),
+ * all through `objectVisits/route` (`navigateTo` / `pushAppEntry`, counted in `history.state`), and
+ * the way out is `leaveAppEntries`, which walks back over them rather than replacing the top entry
  * (which left one stale «/» behind the Karte per visit). Never call `history.pushState` directly.
  */
 
@@ -135,25 +136,61 @@ export function navigateTo(href: string, { replace = false } = {}): void {
   window.dispatchEvent(new Event(EVENT))
 }
 
+/*
+ * Walking back is ASYNC: `history.go(-n)` lands with a popstate, and until then `history.state`
+ * still says the old depth — a second walk or a push computed meanwhile would go too far (below
+ * the app's floor, out of the app in a browser tab). Every walk goes through `walkBack`; whoever
+ * walks or pushes after one waits for `whenSettled`, and a surface's own popstate listener asks
+ * `isWalkPop` whether a pop was a walk (someone leaving) or the user's back.
+ */
+let walking = 0
+let lastWalkPop: Event | null = null
+const onSettled: Array<() => void> = []
+
+/** Walk back `n` of this page's entries; `landed` runs on arrival. Call it settled (whenSettled). */
+export function walkBack(n: number, landed?: () => void): void {
+  walking++
+  const onPop = (e: Event) => {
+    window.removeEventListener('popstate', onPop)
+    walking--
+    lastWalkPop = e
+    landed?.()
+    if (!walking) onSettled.splice(0).forEach((f) => f())
+  }
+  window.addEventListener('popstate', onPop)
+  window.history.go(-n)
+}
+
+/** Run `f` now when no walk is under way, else once the last one has landed. */
+export function whenSettled(f: () => void): void {
+  if (walking) onSettled.push(f)
+  else f()
+}
+
+/** Was this popstate a walk (`walkBack`), not the user's back gesture? Right in every listener of
+ *  that event, registered before the walk began or after. */
+export const isWalkPop = (e: Event): boolean => walking > 0 || e === lastWalkPop
+
 /**
  * Leave every entry this page pushed and stand on `href` — the way OUT of a surface that was
  * entered with a push, so nothing is left behind the screen it returns to for a back swipe to
  * find. With nothing pushed (a deep link at start, a reload inside the surface) it replaces.
+ * `then` runs once it stands there.
  */
-export function leaveAppEntries(href: string): void {
+export function leaveAppEntries(href: string, then?: () => void): void {
   if (typeof window === 'undefined') return
-  const d = appHistoryDepth()
-  if (d === 0) { navigateTo(href, { replace: true }); return }
-  // the traversal is async; the floor entry carries the address the surface was entered FROM,
-  // which is `href` in every caller today — but say so explicitly once we are there. Its own
-  // query stays (`/karte?objekt=…` is the object the viewer had open).
-  const onPop = () => {
-    window.removeEventListener('popstate', onPop)
-    const at = `${window.location.pathname}${window.location.search}`
-    if (at !== href && !(href !== '/' && at.startsWith(`${href}?`))) navigateTo(href, { replace: true })
-  }
-  window.addEventListener('popstate', onPop)
-  window.history.go(-d)
+  whenSettled(() => {
+    const d = appHistoryDepth()
+    if (d === 0) { navigateTo(href, { replace: true }); then?.(); return }
+    // the floor entry carries the address the surface was entered FROM, which is `href` in every
+    // caller today — but say so explicitly once we are there. Its own query stays
+    // (`/karte?objekt=…` is the object the viewer had open).
+    walkBack(d, () => {
+      const at = `${window.location.pathname}${window.location.search}`
+      if (at !== href && !(href !== '/' && at.startsWith(`${href}?`))) navigateTo(href, { replace: true })
+      then?.()
+    })
+  })
 }
 
 function subscribe(cb: () => void): () => void {
