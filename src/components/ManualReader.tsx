@@ -3,6 +3,7 @@ import type { ChecklistTemplate } from '../lib/checklists'
 import { checklistAssetUrl, fmtDay } from '../lib/checklists'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { smartHyphens } from '../lib/smartHyphens'
 import { DiagramFigure, PhoneLinked } from './ChecklistReference'
 import s from './ManualReader.module.css'
 
@@ -104,7 +105,7 @@ function ChapterStep({ dir, k, title, onGo }: { dir: 'prev' | 'next'; k: number;
     <button type="button" className={s[`mn-chapter-${dir}`]} onClick={onGo}
       aria-label={`${fillTemplate(appConfig.copy.checklists.chapterN, { k })}: ${title}`}>
       {dir === 'prev' && <Icon id="chevron-left" />}
-      <span className={s['mn-chapter-label']}><span className={s['mn-chapter-num']}>{k}</span> {title}</span>
+      <span className={s['mn-chapter-label']} ref={smartHyphens}><span className={s['mn-chapter-num']}>{k}</span> {title}</span>
       {dir === 'next' && <Icon id="chevron" />}
     </button>
   )
