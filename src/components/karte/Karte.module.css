@@ -56,9 +56,13 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 
 /* the switch «Objekt · n Pläne | <Haus>» right under the head, after a tap on one of an object's
    buildings (Karte Haus round 1 · variant A): the shared .useg track, full width, two equal halves
-   of ONE line each – a long street ellipsizes instead of growing the switch (round 2) */
+   of ONE line each – a long street ellipsizes instead of growing the switch (round 2). A control
+   of the panel's rhythm (review round 4 · mock A, below): 36px halves, and NEUTRAL – the picked
+   half a surface pill with a hairline and a small shadow, not the blue choice fill, which made the
+   switch the loudest thing in the panel */
 .level :global(.useg) { display: flex; width: 100%; flex-wrap: nowrap; }
-.level :global(.useg-btn) { flex: 1 1 0; min-width: 0; min-height: var(--tap); }
+.level :global(.useg-btn) { flex: 1 1 0; min-width: 0; min-height: 36px; }
+.level :global(.useg-btn.on) { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--border-soft), var(--sel-shadow); }
 .levelText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── the one panel ────────────────────────────────────────────────────────────────────────── */
@@ -76,9 +80,6 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .glyph :global(.fks) svg { width: 100%; height: 100%; display: block; }
 /* the pack's art is black ink on paper, like every placed symbol: it keeps its white ground at night */
 .glyph :global(.fks) { background: #fff; border-radius: var(--r-xs); }
-/* a plan row is the module in words only (owner, review round 4): one height, one left edge —
-   the Gebäude row's text starts where «Modul 1» does; the offline lamp trails before the chevron */
-.planRow:global(.list-row) { min-height: var(--tap-lg); }
 .eyebrow { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-dim); }
 .title { font: var(--fw-heavy) var(--fs-4)/1.25 var(--body); color: var(--ink); margin: 0; overflow-wrap: anywhere; }
 .sub { font: var(--fw-medium) var(--fs-1)/1.35 var(--body); color: var(--ink-dim); }
@@ -89,6 +90,21 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    (owner, review round 5: «koordinaten kopieren clips the button»; it was a 1fr 1fr grid of
    nowrap labels that ran out of their column) */
 .quick { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+/* ── one rhythm (owner, Karte Haus review round 4: «it feels like some buttons are larger than
+   others»; picked mock A, the phone sheet too): ONE size per role in the panel – a list row 48px
+   with its quiet sub on the title's line (it wraps under the title only where the two do not fit:
+   a long object name), its read-out at the end one step smaller; the switch 36 (above) and the ✕
+   32; the register tags 26, outlined; the actions the .ip-btn's 44. Compounded with the panel's
+   body, so the global row (search, library, Objektbesuche) keeps its own density */
+.body :global(.list-row) { min-height: 48px; }
+.body :global(.list-row-text) { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: var(--sp-2); row-gap: 0; }
+.body :global(.list-row-title) { font-size: var(--fs-3); }
+.body :global(.list-row-end) { font-size: var(--fs-1); }
+.head :global(.ip-x) { width: 32px; height: 32px; }
+/* the register's tags: read-only facts, so a hairline and no fill – a tag that looked like a
+   button was one more size of «button». A hazard keeps its amber (BuildingFacts · .hazard) */
+.regTags > li { min-height: 26px; padding-block: 0; }
+.regTags.facts > li { background: none; box-shadow: inset 0 0 0 1px var(--border); }
 .sec { display: flex; flex-direction: column; gap: var(--sp-2); }
 .secHead { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding-top: var(--sp-2); }
 .secHead .eyebrow { display: inline-flex; align-items: center; gap: var(--sp-1); }

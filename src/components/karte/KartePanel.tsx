@@ -203,7 +203,8 @@ export function KartePanel(p: {
       {p.sheet && <SheetGrab />}
       <div className={s.head}>
         {head}
-        {/* THE sheet ✕ (docs/ui-conventions · Close: `.ip-x`, 36px), as Ebenen's — it was a 44px framed IconButton (review round 4) */}
+        {/* THE sheet ✕ (docs/ui-conventions · Close: `.ip-x`) — it was a 44px framed IconButton (review round 4); 32px
+            here, the panel's rhythm (Karte Haus review round 4 · mock A, Karte.module.css · «one rhythm») */}
         <button type="button" className="ip-x" aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog} onClick={p.onClose}><Icon id="close" /></button>
       </div>
       <div className={s.body}>{p.level && <LevelSwitch level={p.level} />}{body}</div>
@@ -260,9 +261,10 @@ function StationWord({ obj }: { obj: StationObject }) {
 
 /** The object's plans as rows (owner, review round 4: «just "modul 1", "modul 2", etc. is enough»):
  *  each row is the module in words and nothing else — no title, no «PDF · 1 Seite», no number badge
- *  (lib/karte/plans · planRowLabel) — and «Gebäude» for the stack. One left edge and one height for
- *  every row; offline, the ●/○ «auf diesem Gerät» mark trails the words (a row the device does not
- *  hold is dimmed). A row opens the plan in the Einsatz's reader, read-only (KartePlans). */
+ *  (lib/karte/plans · planRowLabel) — and «Gebäude» for the stack. A document glyph leads a module
+ *  (the floors glyph the Gebäude), so the words start where In der Nähe's do (Karte Haus review
+ *  round 4 · mock A); offline, the ●/○ «auf diesem Gerät» mark trails the words (a row the device
+ *  does not hold is dimmed). A row opens the plan in the Einsatz's reader, read-only (KartePlans). */
 function Plans({ docs, onOpenDoc, avail }: {
   docs: ViewerPlanDoc[]
   onOpenDoc: (id: string) => void
@@ -286,7 +288,7 @@ function Plans({ docs, onOpenDoc, avail }: {
           const lamp = lampOf(plan)
           const off = lamp === 'online'
           return (
-            <ListRow key={doc.id} className={cx(s.planRow, off && s.off)} title={row} end={lamp && <LampDot lamp={lamp} />}
+            <ListRow key={doc.id} className={off ? s.off : undefined} lead={<Icon id={plan ? 'doc' : 'floors'} />} title={row} end={lamp && <LampDot lamp={lamp} />}
               onClick={() => onOpenDoc(doc.id)}
               aria-label={lamp ? `${row} · ${off ? C.planNotStored : C.device.lampWord[lamp]}` : undefined} />
           )
@@ -333,8 +335,8 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
       ? fillTemplate(C.registerOther, { a: splitAddress(info.address)[0], b: splitAddress(address)[0] }) : ''
     inner = (
       <>
-        <RegisterTags chips={hazards} />
-        {facts.length > 0 ? <RegisterTags chips={facts} /> : !hazards.length && <div className={s.src}>{C.registerEmpty}</div>}
+        <RegisterTags chips={hazards} className={s.regTags} />
+        {facts.length > 0 ? <RegisterTags chips={facts} className={cx(s.regTags, s.facts)} /> : !hazards.length && <div className={s.src}>{C.registerEmpty}</div>}
         {/* the register's entry is ANOTHER building's: said right under the chips, never folded
             (owner, review round 4) — the chips may be about Grenzweg 7, not this object */}
         {other && <div className={s.src} data-testid="register-other"><b>{other}</b></div>}
@@ -362,8 +364,9 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
 }
 
 /** «Objekt · 2 Pläne | <Haus>» (Karte Haus round 1 · variant A): one tap opens the other level,
- *  both ways. The app's own Segmented, a CHOICE (blue fill), one line per half – a long street
- *  ends in «…», so the switch is the same height on both levels and for every name (round 2). */
+ *  both ways. The app's own Segmented, one line per half – a long street ends in «…», so the switch
+ *  is the same height on both levels and for every name (round 2); its picked half is a neutral
+ *  surface pill in the panel's rhythm, not the blue choice fill (review round 4 · Karte.module.css). */
 function LevelSwitch({ level }: { level: PanelLevel }) {
   const C = appConfig.copy.karte
   const plans = level.plans === 0 ? C.levelPlansNone : level.plans === 1 ? C.levelPlansOne : fillTemplate(C.levelPlans, { n: level.plans })
