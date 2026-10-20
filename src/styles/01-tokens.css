@@ -94,8 +94,12 @@
   --board-bg: #fff;            /* the plan "paper" itself */
   --surface: #fff;            /* solid white surfaces (buttons, inputs, paper) */
   --surface-2: rgba(255, 255, 255, .6);  /* faint glass tiles / soft fills */
-  --hover: rgba(255, 255, 255, .55);     /* recurring glass-hover fill */
-  --hover-strong: rgba(255, 255, 255, .85); /* stronger hover (white-ish) */
+  /* the recurring hover washes: an INK wash by day (owner 20.10.2026: «add small hover states like
+     for the weather … not just cursor change»). They were white (.55 / .85) – on today's white
+     glass and --surface that is white on white: the rails, the top bar pills, every .ip-btn
+     answered a mouse with nothing but the cursor. Night keeps its white washes (night block). */
+  --hover: rgba(27, 35, 48, .06);        /* recurring hover fill (≈ --fill-soft, the weather's) */
+  --hover-strong: rgba(27, 35, 48, .1);  /* stronger hover: on a control that already wears a fill */
   --border: rgba(0, 0, 0, .1);           /* recurring hairline on light chrome */
   --border-soft: rgba(0, 0, 0, .06);     /* faintest separator hairline */
   --fill-soft: rgba(0, 0, 0, .045);      /* inset field / search backgrounds */
@@ -107,8 +111,8 @@
      NOT used on --accent: that one is set per station at runtime (deploymentConfig), so nobody
      here knows whether it is light or dark, and those sites keep --on-accent-ink. */
   --on-fill: #fff;
-  --ink-fill: #1b2330;        /* dark "active pill" / tool-dock surface (= day --ink) */
-  --ink-fill-hover: #0f1722;  /* hover on dark ink-fill buttons/docks (darker in day) */
+  --ink-fill: #1b2330;        /* dark "active pill" / Trupp marker bar surface (= day --ink) */
+  --ink-fill-hover: #0f1722;  /* hover on dark ink-fill buttons (darker in day) */
   /* "strong" accent variants: a darker shade used as a hover background on an accent
      button OR as legible text on a faint accent-tint chip. Day = the literals they
      replace; night flips LIGHTER so the same role reads on dark surfaces. */
@@ -403,7 +407,7 @@
   /* white-on-accent text stays near-white but warmed a touch off pure #fff */
   --on-accent-ink: #f5f8fc;
   --on-fill: #0d1118;         /* see the day block — 7.1:1 on the night blue, 8.1:1 on the green */
-  /* "active/selected" dark pills + tool docks stay a raised dark surface in night
+  /* "active/selected" dark pills + the Trupp marker bar stay a raised dark surface in night
      (NOT the now-light --ink), so their light content keeps contrast */
   --ink-fill: #2b3545;
   --ink-fill-hover: #384354; /* hover LIFTS the dark pill in night (vs darkens in day) */

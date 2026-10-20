@@ -22,6 +22,10 @@
   border: none; border-radius: var(--r-sm); background: var(--red); color: var(--on-fill, #fff);
   font: var(--fw-bold) var(--fs-2)/1.15 var(--body); cursor: pointer; max-width: 280px; flex: 0 1 auto; text-align: left; }
 .running small { display: block; font: var(--fw-medium) var(--fs-micro)/1.2 var(--body); opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* hover / press (owner, 20.10.2026: a hover on everything that answers a click) – the red's own
+   darker step, then the house press over it */
+@media (hover: hover) { .running:hover { background: var(--red-strong); } }
+.running:active { background-image: linear-gradient(var(--press), var(--press)); }
 .runningText { min-width: 0; overflow: hidden; }
 .runningText b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; animation: koPulse 1.4s infinite; }
@@ -98,7 +102,9 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 /* «Register-Hinweis» opens the hint and the source line (owner, review round 4): a tappable label,
    so the type is a step up from the caption and the target 44px tall without growing the head */
 .hintBtn { min-height: var(--tap); margin-block: calc(var(--sp-3) * -1); padding: 0 var(--sp-1); border: none; background: none; font-size: var(--fs-1); cursor: pointer; }
-.hintBtn:active { background: var(--press); border-radius: var(--r-xs); }
+.hintBtn { border-radius: var(--r-xs); }
+@media (hover: hover) { .hintBtn:hover { background: var(--hover); color: var(--ink); } }
+.hintBtn:active { background: var(--press); }
 .hintBody { display: flex; flex-direction: column; gap: var(--sp-1); }
 .src { font: var(--fw-medium) var(--fs-micro)/1.4 var(--body); color: var(--ink-dim); }
 .src b { color: var(--ink); }
@@ -145,6 +151,11 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
   padding: 4px var(--sp-2); border-radius: var(--r-xs); border: 1.5px solid var(--red-45);
   background: var(--surface); color: var(--ink); font: var(--fw-bold) var(--fs-1)/1.2 var(--body); box-shadow: var(--e2); cursor: pointer; }
 .tagMk.sel { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-22), var(--e2); }
+/* hover: a neutral ring – the selection's ring without its colour (20.10.2026) */
+@media (hover: hover) {
+  .tagMk:not(.sel):hover { box-shadow: 0 0 0 2px var(--ink-16), var(--e2); }
+  .dotMk:hover::after { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink-16), var(--e1); }
+}
 .tagMk.approx { border-style: dashed; border-color: var(--amber-strong); }
 /* the measuring twin of a tag (KarteApp · the placement pass) — laid out, never seen */
 .tagMk.measure { position: absolute; left: -9999px; top: 0; visibility: hidden; pointer-events: none; }
@@ -321,6 +332,8 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    it wore a border and a lighter shadow of its own beside the hint and the chips (review round 4) */
 .utilBtn { width: var(--float-h); height: var(--float-h); display: grid; place-items: center; border: none; border-radius: var(--r-sm);
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); cursor: pointer; }
+@media (hover: hover) { .utilBtn:hover { background-image: linear-gradient(var(--hover), var(--hover)); } }
+.utilBtn:active { background-image: linear-gradient(var(--press), var(--press)); }
 .utilBtn svg { width: 22px; height: 22px; }
 .utilGlyph { display: grid; place-items: center; }
 .quick > * { flex: 1 1 0; min-width: max-content; white-space: nowrap; }
@@ -339,7 +352,8 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 /* the bar's chip IS the switcher's offline pill (13-incident · .ip-offline-chip); here a button at
    tap size, with the bar's corner */
 .offChip.offChip { min-height: var(--tap); padding: 0 var(--sp-3); gap: var(--sp-2); border: none; border-radius: var(--r-sm); cursor: pointer; }
-.offChip:active { background: var(--amber-22); }
+@media (hover: hover) { .offChip:hover { background: var(--amber-22); } }
+.offChip:active { background: var(--amber-22); background-image: linear-gradient(var(--press), var(--press)); }
 .offDot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
 .deviceSheet { max-width: 520px; }
 .deviceLead { margin: 0 0 var(--sp-3); font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink-dim); }

@@ -270,17 +270,16 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     OUT OF THE TOP BAR wears the bar's own glass (`--glass` + blur + `--glass-line` + `--shadow`):
     the Einsatzuhr menu, the Atemschutz head detail and the Meteo details (30.09.2026:
     `.tb-weather-pop` wore `--surface`, a lighter slate than the bar at night).
-    **On tablet/desktop, dark in both themes (`--ink-fill` + `--on-accent-ink`) is the ARMED material and nothing
-    else**: a tool dock (`.wb-dock` — something is armed, its ✕ disarms) and the Trupp marker's
-    action bar (`.wb-pill-acts` — this marker is in hand). It is the «clean selected state» of a
-    mode, so a list you read or a menu you pick from never wears it; a new surface that is dark
-    by day is a mode, or it is a bug. On a light-by-day card the ✕ is the global `.ip-x` and the
-    primary is `--btn-primary`; the on-ink ✕ (`.wb-dock-x`) and the light-fill primary
-    (`.wb-dock-go`) belong to the armed material only.
-    **Mobile tool docks use the popup material** (01.10.2026): Messen and every tool-option
-    dock wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
-    Their controls share a neutral fill and selected wash, with a centred row; the line dock
-    has no subtitle on mobile (its instructions stay behind ⓘ).
+    **Dark in both themes (`--ink-fill` + `--on-accent-ink`) is the Trupp marker's action bar
+    alone** (`.wb-pill-acts` — this marker is in hand); a new surface that is dark by day is a
+    bug. **Tool docks wear the floating material too** (`.wb-dock`, 20.10.2026, owner: «why do we
+    have a dark sidebar in lightmode?» — the phone's bar since 01.10., every dock since): Messen
+    and every tool-option dock on the Karte, the Einsatz map and the Plan/Skizze, phone and tablet,
+    wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
+    The controls share one neutral fill (`--dock-control-bg`, opaque) and hover
+    (`--dock-control-hover`); a picked width/line style is the selected wash; the ARMED toggle
+    (`.wb-dock-tog.on`) is the `--sel` fill — that fill, not the dock, says «armed». The ✓ is
+    `--btn-primary`. On phones the line dock has no subtitle (its instructions stay behind ⓘ).
     The sticky close button has no masking shadow: a solid surface patch mismatches the glass.
     The blank Tafel offers no Messen on a phone; map and scaled plans keep it. The mobile
     Ansichten popover dismisses on an outside pointer press, allowing the pressed control to act.
@@ -309,9 +308,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     choice fill (at night it is the primary button's light grey).
   - *Primary (28.09.2026):* the single action of a surface is `--btn-primary` / `--on-btn-primary`,
     14px/800 — never `--blue` (blue is «chosen», `--sel`), never `--ink-fill` directly (at night it
-    is a 1.14:1 patch on the sheet), never green. On the ARMED material (a tool dock, the Trupp
-    marker bar — dark in both themes) the primary is the LIGHT fill: `--on-accent-ink` with
-    `--ink-fill` ink (`.wb-dock-go`). The documented green «go» (`<Button variant="go">`, Atemschutz «Eintritt») is a
+    is a 1.14:1 patch on the sheet), never green. The tool dock's ✓ (`.wb-dock-go`) is THE
+    primary too, since the dock is light by day (20.10.2026). The documented green «go» (`<Button variant="go">`, Atemschutz «Eintritt») is a
     tone, not the primary, and stays. The Trupp marker's action bar (`.wb-pill-acts`) is all
     neutral wash (29.09.2026): no green «Bei den Trupps zeigen», no blue «Position markieren». A
     door to a page wears that page's nav glyph («Bei den Trupps zeigen» = the Trupps stopwatch,
@@ -409,7 +407,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Never a bare native `type=search`, never a framed white box, never a ruled band.
     (6) **ⓘ toggle**: `components/InfoToggle` (`.ui-info`) — the grey 36px chip with a 44px pad;
     OPEN is `--sel-wash` + `--blue-strong` glyph (the «open/armed» look). Never the choice fill,
-    never the ink pill, never `--accent`. The dark tool docks keep DockInfo's on-ink ⓘ.
+    never the ink pill, never `--accent`. The tool docks keep DockInfo's ⓘ in the dock's control fill.
     (7) **No hits**: one line, `.no-hits` (13/500 `--ink-faint`, centred, 20px pad, never italic),
     worded `copy.noHits` «Keine Treffer für «{q}».»; a noun of its own only where it helps («Kein
     Trupp gefunden»).
