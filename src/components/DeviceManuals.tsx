@@ -11,7 +11,7 @@ import m from './ManualReader.module.css'
 // The Anleitungen as DEVICES (19.10.2026): one tile per Gerät – its picture, its name, and
 // «n Kapitel» or the single Anleitung's title – and one page per Gerät listing its chapters.
 // ONE implementation for both places that show them: the Karte's Checkliste surface
-// (ChecklistLibrary – cards on a phone, rows in the tablet's list column) and the Einsatz
+// (ChecklistLibrary – rows on a phone's card and in the tablet's list column) and the Einsatz
 // Checkliste rail (ChecklistsView – rows, still the last group there). A device with one
 // Anleitung has no page: its tile opens the Anleitung (the caller decides, `onOpen`).
 
@@ -25,12 +25,11 @@ function deviceSubtitle(group: DeviceGroup): string {
 /** hold a device picture's bytes for the next mount (lib/heldPictures) */
 const useHeld = (url: string | null) => useEffect(() => { if (url) holdPicture(url) }, [url])
 
-/** One device as a tappable tile. `card` = the phone library's photo card (2 per row), `row` =
- *  THE list row with a thumbnail lead (the Einsatz rail, the tablet's list column). `on` lights
- *  the row only – a card never stands beside the document it opens. */
-export function DeviceTile({ group, variant, on, onOpen }: {
+/** One device as THE list row with its picture as the lead (the Einsatz rail, the tablet's list
+ *  column, the phone's card). `on` lights the row: the device (or one of its chapters) is what
+ *  the document pane shows. */
+export function DeviceTile({ group, on, onOpen }: {
   group: DeviceGroup
-  variant: 'card' | 'row'
   /** the device (or one of its chapters) is what the document pane shows */
   on?: boolean
   onOpen: () => void
@@ -45,19 +44,7 @@ export function DeviceTile({ group, variant, on, onOpen }: {
       {cover ? <img src={heldPicture(cover)} alt="" /> : <Icon id="doc" />}
     </span>
   )
-  // a row is THE list row with the thumbnail as its lead (components/ListRow)
-  if (variant === 'row') {
-    return <ListRow className={m['dv-row']} lead={pic} title={group.device} sub={deviceSubtitle(group)} on={on} onClick={onOpen} />
-  }
-  return (
-    <button type="button" className={m['dv-card']} onClick={onOpen}>
-      {pic}
-      <span className={m['dv-text']}>
-        <span className={m['dv-name']}>{group.device}</span>
-        <span className={m['dv-sub']}>{deviceSubtitle(group)}</span>
-      </span>
-    </button>
-  )
+  return <ListRow className={m['dv-row']} lead={pic} title={group.device} sub={deviceSubtitle(group)} on={on} onClick={onOpen} />
 }
 
 /** A device's page: its picture, its name, «n Kapitel · Stand …», and the chapters numbered in
