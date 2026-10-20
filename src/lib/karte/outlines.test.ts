@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { LngLat } from '../../types'
-import { CELL_LNG, cellOf, houseIndex, ringsAround } from './outlines'
+import { CELL_LNG, cellOf, houseIndex, osmBeside, ringsAround } from './outlines'
 import { ringAt } from './places'
 
 // Synthetic: a terraced row of three houses, 10 × 10 m each, that OSM maps as ONE block
@@ -38,5 +38,39 @@ describe('ringsAround — the house under the finger', () => {
     expect(cellOf(west)).not.toBe(cellOf(east))
     expect(ringAt(ringsAround(index, [], west), west)).toBe(across)
     expect(ringAt(ringsAround(index, [], east), east)).toBe(across)
+  })
+})
+
+// Karte Haus round 4 (Bottmingerstrasse 44, 55 / Talstrasse 1): OSM traces the roof, the survey
+// the walls, so OSM's outline sticks out of the house by a band, or covers two houses.
+describe('osmBeside — an OSM outline over a survey house is that house traced again', () => {
+  const HOUSE = box(0, 0, 10, 16)
+  const ROOF = box(-1, -1, 11.5, 17) // the same building, a band wider
+  const L_BLOCK: LngLat[] = [at(20, 0), at(40, 0), at(40, 10), at(30, 10), at(30, 20), at(20, 20)]
+  const PAIR = [box(20.5, 0.5, 39.5, 9.5), box(20.5, 10, 29.5, 19.5)] // the two houses under the L
+  const NEIGHBOUR = box(-12, 0, 0.3, 16) // a house the survey misses, its wall drawn 30 cm into ours
+  const houses = houseIndex([HOUSE, ...PAIR])
+  const osm = [ROOF, L_BLOCK, NEIGHBOUR, SHED]
+  const tap = (p: LngLat) => ringAt(ringsAround(houses, osm, p), p)
+
+  it('a point in the band around a house opens nothing, never the roof outline', () => {
+    expect(tap(at(10.8, 8))).toBeNull()
+    expect(tap(at(5, 8))).toBe(HOUSE)
+  })
+
+  it('an OSM block over two houses is dropped: each house alone, nothing in between', () => {
+    expect(tap(at(30, 5))).toBe(PAIR[0])
+    expect(tap(at(25, 15))).toBe(PAIR[1])
+    expect(tap(at(25, 9.8))).toBeNull()
+  })
+
+  it('keeps what only touches a house, and what the survey has nothing for', () => {
+    expect(osmBeside(houses, osm)).toEqual([NEIGHBOUR, SHED])
+    expect(tap(at(-6, 8))).toBe(NEIGHBOUR)
+    expect(tap(at(53, 3))).toBe(SHED)
+  })
+
+  it('measures a cell once per house set', () => {
+    expect(osmBeside(houses, osm)).toBe(osmBeside(houses, osm))
   })
 })
