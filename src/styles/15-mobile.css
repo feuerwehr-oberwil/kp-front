@@ -67,7 +67,7 @@
    `resizes-content` keyboard shrink did exactly that — see lib/useIsPhone). Change these here
    and in the phone blocks together. ---- */
 @media (--tablet) {
-  /* `.layers-card` needs no narrowing here any more: 264px IS its base width (05-navrail), and
+  /* `.layers-card` needs no narrowing here any more: 320px IS its base width (05-navrail), and
      it tracks --vrail-w on its own — the rule that used to sit here said nothing the base did
      not. Don't put it back. */
   /* 300px was below what the drawing editor's own rows need: «Abschluss» and «Inhalt» carry

@@ -126,7 +126,6 @@ export const karteCopy = {
     // Objektbesuche
     visitsTitle: 'Objektbesuche',
     visitsNever: 'Noch nie besucht.',
-    visitsNoneHere: 'Keine Besuche an dieser Adresse.',
     visitsReadOnly: 'Mit diesem Konto kannst du Besuche lesen, aber nicht erfassen.',
     visitsUnavailable: 'Besuche gerade nicht abrufbar.',
     visitNoDefects: 'keine Mängel',

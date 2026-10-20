@@ -7,7 +7,8 @@
 //   → Pläne & Module as rows (a row opens the Einsatz's plan reader, read-only — KartePlans)
 //   → Gebäude laut Register («Register-Hinweis», source and Stand on every line)
 //   → In der Nähe (one list by distance, objects and hydrants, and a sentence saying so)
-//   → Objektbesuche (rows open the existing read view; a read-only line for other roles)
+//   → Objektbesuche, an object's only (rows open the existing read view; a read-only line for
+//     other roles). A plain building has none to show – its always-empty line went (owner 20.10.)
 //   → «Keine Gefahrenangaben … heisst nicht …»
 //   → the actions LAST: «Objektbesuch» and «Melden» (capture roles only)
 //
@@ -161,7 +162,6 @@ export function KartePanel(p: {
       <>
         <Register key={sel.at.join(',')} reg={p.register} address={null} onRetry={p.onRetryRegister} />
         <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
-        <Visits visits={{ state: 'ok', list: [] }} canCapture={p.canCapture} empty={C.visitsNoneHere} onOpenVisit={p.onOpenVisit} />
         <div className={s.src}>{C.missing}</div>
         <Actions canCapture={p.canCapture} onReport={p.onReport} />
       </>

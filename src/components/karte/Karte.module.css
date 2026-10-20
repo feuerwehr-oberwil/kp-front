@@ -13,9 +13,6 @@
    into the glyph's row height) and/or its short name (≤ 8, identity.shortName) — never wraps */
 .menuMark { height: 24px; width: auto; max-width: 48px; object-fit: contain; flex: none; }
 .menuName { white-space: nowrap; letter-spacing: .02em; }
-/* one glyph size in the bar (owner, review round 4: the search glyph was 20px, the flag 14px): the
-   Einsatz bar's 16px, which the pill brings (13-incident · .ip-switch-btn svg); open = pressed */
-.einsaetze.open, .searchBtn.open { background-image: linear-gradient(var(--press), var(--press)); }
 /* wide enough for the whole placeholder (owner, 19.10.2026: «Anleitung, Checkliste, S…»). A WIDTH,
    not a flex-basis: the bar is absolutely positioned and sizes to its content, so a basis never
    widened it – the input's own ~200px default did. It still gives way on a narrow bar (shrink, no
@@ -181,9 +178,9 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 
 /* ── tool cards (Gefahrgut, tablet) ─────────────────────────────────────────────────────────
    Ebenen's card beside the tool rail (05-navrail · .layers-card + .lc-title/.lc-x/.lc-body, the
-   phone's KarteKeySheet wears it too). Wider for the readout, and hung under the bar rather than
+   phone's KarteKeySheet wears it too), at its width (owner 20.10.: the two the same). Hung under the bar rather than
    centred: the readout grows as the number is typed, and a centred card would grow both ways */
-.toolCard.toolCard { width: 300px; top: calc(88px + env(safe-area-inset-top)); transform: none; max-height: calc(100dvh - 104px - env(safe-area-inset-top)); }
+.toolCard.toolCard { top: calc(88px + env(safe-area-inset-top)); transform: none; max-height: calc(100dvh - 104px - env(safe-area-inset-top)); }
 .toolCard :global(.lc-body) { padding: 0 var(--sp-4) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
 /* the card's «Auf die Karte tippen …»: the hint pill's words and glyph, as a line of the card */
 .toolHint { display: flex; align-items: center; gap: var(--sp-2); font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); }
@@ -351,8 +348,6 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .surfaceNote { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: var(--sp-4); }
 .surfaceNote .note { max-width: 360px; }
 .floors > .note { width: min(980px, 100%); }
-/* the sheet's body scrolls; its rows never squeeze */
-.deviceSheet :global(.list-card) { flex: none; }
 
 /* ── the menu button's red dot (owner, review round 5: «a small red dot» — it was a count): an
    Einsatz running or an alarm waiting; the number is in the button's accessible name ──────────── */

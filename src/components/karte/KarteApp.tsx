@@ -1373,7 +1373,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           {/* the menu button (owner, review round 5: «not "Einsätze" as the main top button» → the
               station's short name and/or mark, ▾; neither configured → the menu symbol). The red dot
               is the old count: an Einsatz running or an alarm waiting; the number is in its name. */}
-          <button type="button" className={cx('ip-switch-btn', s.einsaetze, sheetOpen && s.open)} onClick={() => { setSheetOpen((o) => !o); setSearchOpen(false) }}
+          <button type="button" className={cx('ip-switch-btn', s.einsaetze)} onClick={() => { setSheetOpen((o) => !o); setSearchOpen(false) }}
             title={C.menu} aria-label={einsaetze.badge > 0 ? `${menuName}, ${fillTemplate(C.einsaetzeBadge, { n: einsaetze.badge })}` : menuName}
             aria-haspopup="dialog" aria-expanded={sheetOpen} data-karte-menu="">
             {mark ? <img className={s.menuMark} src={mark} alt="" onError={() => setMarkFailed(true)} />
@@ -1418,7 +1418,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           ) : !phone && liveWeather.data?.wind_dir_deg != null && <WeatherBadge weather={liveWeather.data} bearing={view.bearing} />}
           {!phone && runningChip}
           {phone && !onLibrary && (
-            <button type="button" className={cx('ip-switch-btn', s.searchBtn, searchOpen && s.open)} onClick={() => (searchOpen ? setSearchOpen(false) : openPhoneSearch())}
+            <button type="button" className={cx('ip-switch-btn', s.searchBtn)} onClick={() => (searchOpen ? setSearchOpen(false) : openPhoneSearch())}
               aria-label={C.searchOpen} title={C.searchOpen} aria-expanded={searchOpen} data-karte-search-open="">
               <Icon id="search" />
             </button>

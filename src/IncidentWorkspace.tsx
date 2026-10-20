@@ -2116,7 +2116,7 @@ export function IncidentWorkspace({
    *
    * ⚠️ This used to claim the toggles are "drawn ABOVE the detail panel … so nothing becomes
    * unreachable". They are drawn above it — and at the SAME coordinates: `.layers-card` (z201,
-   * 264px) lands on `.ctx` (z35, 360px), and on a phone both are bottom sheets on the same edge
+   * 320px) lands on `.ctx` (z35, 360px), and on a phone both are bottom sheets on the same edge
    * with only a z28 backdrop between them, so the buried panel stayed tappable. Keeping the
    * selection was right; concluding that the panel could therefore stay rendered was not. The
    * panel now stands down via `detailSlotFree` while a dock is up — see its note above.

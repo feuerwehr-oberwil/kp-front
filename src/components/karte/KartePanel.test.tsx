@@ -150,8 +150,9 @@ describe('KartePanel · order and actions (R2)', () => {
   })
 
   it('a building and a pin keep the same order with what they have', () => {
+    // a plain building has no Objektbesuche to list – no always-empty section (owner 20.10.2026)
     let r = panel({ sel: { kind: 'building', at: [7.5708, 47.5228], address: null } })
-    expect(order(r.container)).toEqual(['register', 'nearby', 'visits', 'actions'])
+    expect(order(r.container)).toEqual(['register', 'nearby', 'actions'])
     cleanup()
     r = panel({ sel: { kind: 'pin', at: [7.57175, 47.52015], near: null, nearState: 'none', onBuilding: false } })
     expect(order(r.container)).toEqual(['nearby', 'actions'])
