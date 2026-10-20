@@ -18,21 +18,44 @@ import { listObjects, type ObjectWithPlans } from '../lib/incidents'
 import { Overlay } from '../lib/overlays'
 import type { LngLat } from '../types'
 import { cartoRasterTiles } from '../lib/carto'
+import { defaultLayers } from '../lib/workspace'
+import { useNightTheme } from '../lib/useNightTheme'
+import { useGlRecovery } from '../lib/useGlRecovery'
 
-// Carto Voyager — the app's default basemap (see demoIncident base-carto), so the
-// mini-map matches the Lagekarte look.
-const baseStyle = () => ({
-  version: 8 as const,
-  sources: {
-    carto: {
-      type: 'raster' as const,
-      tiles: cartoRasterTiles('rastertiles/voyager', ['a', 'b']),
-      tileSize: 256,
-      attribution: '© CARTO, © OpenStreetMap-Mitwirkende',
+/** the one raster source in the mini-map's style — named, because the tile events below
+ *  have to tell OUR base map apart from anything else MapLibre reports on */
+const BASE_SOURCE = 'base'
+
+/**
+ * The mini-map's style: the SAME base layer the Lagekarte draws, at the screen's tile
+ * resolution and with the deployment's CARTO key already on it (workspace · defaultLayers →
+ * lib/carto), and its purpose-built dark raster in night mode.
+ *
+ * It used to hard-code `rastertiles/voyager` on subdomains a+b. That made the preview the one
+ * map in the app on its own tile addresses: a day basemap inside a night dialog, outside what
+ * the offline prefetch cached (`useOfflinePrefetch` warms the base layer's templates), and
+ * dependent on a CARTO key the rest of the surface may not even be using. Owner, round 7
+ * point 17: «When opening Andres Objekt the map stayed empty and looks rather sad» — with the
+ * flags drawn over it, which is what a style whose tiles never arrive looks like.
+ */
+const baseStyle = (night: boolean) => {
+  const bases = defaultLayers().filter((l) => l.base)
+  const base = bases.find((l) => l.visible) ?? bases[0]
+  const tiles = (night && base?.nightTiles?.length ? base.nightTiles : base?.tiles) ?? cartoRasterTiles('rastertiles/voyager', ['a', 'b'])
+  return {
+    version: 8 as const,
+    sources: {
+      [BASE_SOURCE]: {
+        type: 'raster' as const,
+        tiles,
+        tileSize: 256,
+        maxzoom: base?.maxzoom,
+        attribution: base?.attribution ?? '© CARTO, © OpenStreetMap-Mitwirkende',
+      },
     },
-  },
-  layers: [{ id: 'carto', type: 'raster' as const, source: 'carto' }],
-})
+    layers: [{ id: BASE_SOURCE, type: 'raster' as const, source: BASE_SOURCE }],
+  }
+}
 
 const pdfCount = (o: ObjectWithPlans) => o.plans.filter((p) => p.kind === 'pdf' && p.module).length
 
@@ -57,7 +80,8 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
   const phone = useIsPhone()
   const userPos = useGeoPosition(phone)
   const pp = appConfig.copy.planPicker
-  const style = useMemo(() => baseStyle(), [])
+  const night = useNightTheme()
+  const style = useMemo(() => baseStyle(night), [night])
   const [q, setQ] = useState('')
   const [objects, setObjects] = useState<ObjectWithPlans[]>([])
   const [loading, setLoading] = useState(true)
@@ -68,6 +92,22 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
   const [mapOpen, setMapOpen] = useState(true)
   const mapRef = useRef<MapRef>(null)
   const searchRef = useRef<HTMLInputElement>(null) // Base UI initial focus → the search box (not the close button)
+
+  // An empty preview must SAY what it is rather than look broken (owner, round 7 point 17). The
+  // pins are DOM markers, so they keep drawing over a base map that never arrived — which is
+  // exactly the «sad», half-drawn pane he screenshotted, and it reads as a crash rather than as
+  // «no tiles here». Two causes, one appearance: tiles that fail (offline in a stairwell, a
+  // withheld CARTO key, a blocked host) and a WebGL context the browser took back. Both are
+  // answered here, because from the operator's side they are the same moment.
+  const [mapReady, setMapReady] = useState(false)
+  const [baseFailed, setBaseFailed] = useState(false)
+  /** a tile of the base source actually painted — the only proof the pane is showing a map */
+  const basePainted = useRef(false)
+  const gl = useGlRecovery(() => mapRef.current?.getMap(), mapReady, () => {
+    basePainted.current = false
+    setMapReady(false)
+    setBaseFailed(false)
+  })
 
   // load near the incident so distance_m comes back ranked; the text filter is applied
   // client-side so typing is instant (the 155-object list is small).
@@ -159,11 +199,24 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
           {mapOpen && (
             <div className="pp-map">
               <Map
+                // a fresh instance (new canvas, new GL resources) is the only way back from a
+                // lost context — the same remount MapView uses (lib/useGlRecovery)
+                key={gl.generation}
                 ref={mapRef}
                 initialViewState={{ longitude: center[0], latitude: center[1], zoom: 16 }}
                 mapStyle={style}
                 attributionControl={false}
                 dragRotate={false}
+                onLoad={() => setMapReady(true)}
+                onSourceData={(e) => {
+                  if (e.sourceId !== BASE_SOURCE || !e.isSourceLoaded) return
+                  basePainted.current = true
+                  setBaseFailed(false)
+                }}
+                // MapLibre reports every failed tile here. Only a failure BEFORE the first tile
+                // painted means an empty pane — once the map is drawn, a single dropped tile at
+                // the edge is not worth a banner over it.
+                onError={() => { if (!basePainted.current) setBaseFailed(true) }}
               >
                 <QuietAttributionControl />
                 {phone && userPos && <Marker longitude={userPos[0]} latitude={userPos[1]} anchor="center">
@@ -187,6 +240,11 @@ export function PlanPicker({ center, activeObjectId, onSelect, onReset, onClose 
                   </Marker>
                 ))}
               </Map>
+              {/* …and when there is no map under the pins, the pane says so instead of looking
+                  broken. `gl.lost` is the repeated-context-loss case useGlRecovery stops healing:
+                  the operator gets the same words, because the list is the reliable path either
+                  way and there is nothing else to do here. */}
+              {(baseFailed || gl.lost) && <div className="pp-map-blank" role="status"><span>{pp.mapUnavailable}</span></div>}
               <div className="pp-map-note">{pp.mapNote}</div>
             </div>
           )}

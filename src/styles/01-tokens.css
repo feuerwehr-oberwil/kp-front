@@ -6,8 +6,19 @@
      theme, so focusing a field on a form with several inputs (Atemschutz Trupp: Auftrag/
      Ziel, Funkkanal, Druck…) popped a bright white bar above the keyboard in night mode.
      A lone field with nothing to tab to (the roster search) never gets that bar, which is
-     why it looked clean and Ziel did not. */
-  color-scheme: light;
+     why it looked clean and Ziel did not.
+
+     ⚠️ `only` is load-bearing, not decoration (review round 7, point 2, 20.10.2026). Blink's
+     force-dark ("Dark mode" in Samsung Internet's settings, Chrome's Auto Dark Theme) repaints
+     any page that declares a scheme it does NOT support — and a bare `light` is exactly that
+     declaration. The owner's Samsung tablet therefore darkened our whole day-mode chrome while
+     the WebGL map canvas, which no filter touches, stayed light: «I set it to day, the map turns
+     to light mode but everything else stayed dark». The `only` keyword (CSS Color Adjust) is the
+     standard opt-out from that UA adjustment and leaves the native-surface behaviour above
+     unchanged — which `light dark` would NOT: that hands scrollbars and the iOS accessory bar
+     back to the OS setting, re-opening the white-bar bug this comment exists for. Measured
+     with `e2e/blink-force-dark.mjs`: day chrome 26 → 242 mean luminance under auto-dark. */
+  color-scheme: only light;
   /* Field-readable glass: opaque enough to hold contrast over aerial imagery
      and in daylight, with a faint dark hairline so edges read on any base map. */
   --glass: rgba(255, 255, 255, .9);
@@ -367,7 +378,12 @@
    flips for free. Accent hues are nudged brighter so they stay legible on dark.
    --------------------------------------------------------------------------- */
 :root[data-theme="night"] {
-  color-scheme: dark;
+  /* `only` for the same reason as the day twin above: a bare `dark` already turns Chromium's
+     auto-dark off, but it only says «dark works here», not «leave my colours alone». The owner's
+     storey badges came back from the Samsung tablet as a pale chip with white digits on it
+     (round 7, point 16) — our own pairing is #232c3a on #e8edf4, 13:1, so something repainted
+     one of the two. `only dark` is the strongest statement the platform has. */
+  color-scheme: only dark;
   /* «erledigt» at night: half the ink of a dark glyph on a dark board is nothing at all (checked
      24.09.2026 on the Gebäude) — lifted and less transparent, so it recedes without vanishing */
   --done-filter: grayscale(1) brightness(1.6);
