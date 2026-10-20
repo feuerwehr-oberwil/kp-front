@@ -21,7 +21,9 @@
 .mn-num { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
   background: var(--ink-fill); color: var(--on-accent-ink); font: var(--fw-heavy) var(--fs-2) var(--body); font-variant-numeric: tabular-nums; }
 .mn-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding-top: var(--sp-1); }
-.mn-text { margin: 0; font-size: var(--fs-2); font-weight: var(--fw-medium); line-height: 1.4; color: var(--ink); overflow-wrap: break-word; }
+/* a step's sentence is its title, as a checklist item's is: the same 14px BOLD (owner 20.10.2026: at
+   medium weight the Anleitungen read smaller than Checkliste and Stichworte); its details stay regular */
+.mn-text { margin: 0; font-size: var(--fs-2); font-weight: var(--fw-bold); line-height: 1.4; color: var(--ink); overflow-wrap: break-word; }
 /* sub-points: a quieter list under the step, as the Taktik reader's second level (ink-dim) */
 .mn-details { margin: 0; padding-left: var(--sp-5); display: flex; flex-direction: column; gap: 4px;
   font-size: var(--fs-2); line-height: 1.4; color: var(--ink-dim); }
