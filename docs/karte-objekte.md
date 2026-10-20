@@ -387,11 +387,27 @@ The rules that are easy to break:
   tiles a 2× zoom of the SAME area would ask for (at most 48, low priority, each once — never a
   whole plan), so a quick zoom is sharp sooner; the service worker keeps them (`plan-tiles`). The
   Einsatz's Plan surface provides no context: no chip, no fetching ahead there.
-- **A pin is set with the ⊙ tool and a tap — nothing else** (owner, review round 3: «I can't
-  delete nodes when measuring because it wants to create a point»). A long press anywhere used to
-  drop one too, and it fired under a held measure node — the hold that removes the node
-  (`MapView · vertexPress`) — dropping a pin and leaving Messen. The surface has no long-press
-  handler now, on the phone or the tablet; `KarteApp.test` holds a node and checks.
+- **The finger's hold answers what a mouse answers on hover** (owner, review round 7, 20.10.2026:
+  «also on mobile highlight the building outlines on hold so we know what we're pressing before we
+  let go» + «the point setting option should also occur automatically if you just long press on the
+  map»). A touch has no hover, so the press itself says what it is about to open, in the mouse's
+  own outline (`KarteApp · outlined`): the building or object under the finger lights up the moment
+  it lands, and the release opens it exactly as a tap always did. On FREE map — no building, no
+  object under it — the same hold sets a point instead, after `lib/useLongPress · LONG_PRESS_MS`
+  (500 ms, the one beat every still hold in the app answers on), with the short buzz and Android's
+  context menu suppressed. The release that follows is not a tap: it would deselect the pin the
+  hold just set. Any movement past the drag tolerance is a pan and cancels both.
+  - **The split is the owner's own** (grilling, 20.10.2026): «long press sets a point only on free
+    map. On a building/object: the hold highlights the outline and releasing opens the building —
+    no point there.» It is not widened: no pin over a building, no label beside the finger.
+  - **⚠️ The hold never arms under a tool** (owner, review round 3, 17.10.2026: «I can't delete
+    nodes when measuring because it wants to create a point»). The first long-press-to-pin fired
+    everywhere, including under a held measure node — the hold that removes the node
+    (`MapView · vertexPress`) — dropping a pin and leaving Messen, and it was removed for that.
+    The gate that brought it back is the one that already existed: while Messen, «Punkt setzen» or
+    Gefahrgut's centre takes the map's taps (`lib/karte/camera · toolTakesTaps`) the surface's hold
+    does nothing at all, and neither does the outline. `KarteApp.test` holds a node under Messen
+    and checks that no pin appears and the node still goes.
 - **A tool that waits for a tap takes every tap** (owner, review round 4, 17.10.2026: «while
   measuring we should also be able to measure on top of objects (not have the objects get
   highlighted)»). While Messen, «Punkt setzen» or Gefahrgut's centre (rings on) is armed, a tap on
@@ -685,11 +701,23 @@ The rules that are easy to break:
     and as an `offsetTop` pan) and moves it again under an uncancelled drag; the round-2 code
     reproduces the owner's screenshots there. The real keyboard, Safari's focus scroll and its
     AutoFill heuristics are only proven on the iPhone.
-- **Hints use the width they need** (review round 2): «Auf die Karte tippen …» is one pill as wide
-  as the bottom bar on a phone (max-content up to 640 px on a tablet), one or two lines; the
-  Gefahrgut card says where its rings stand first, right under the UN field. The pill is the
-  floating family's piece (01-tokens · `--float-*`): its row height, 14 px before a 16 px glyph,
-  and 8 px above and below the words (round 4: the text sat 4 px from the rim on two lines).
+- **One card explains the map** (owner, review round 7: «the info tooltip at the bottom has
+  different padding and coloration from the info button that you get when measuring»). «Auf die
+  Karte tippen, um einen Punkt zu setzen.» and the Messen dock's ⓘ are the SAME surface now, not
+  two look-alikes a hand's width apart: `DockInfo · MapHelpCard`, the message surface at the foot
+  of the map (on a phone in the message lane). `MeasurePanel · MapHint` renders it with
+  `role="status"` — an instruction that appeared because a tool was armed — and the ⓘ with
+  `role="tooltip"`. Hints use the width they need (review round 2): max-content up to 440 px, the
+  bars' width on a phone.
+- **A measure readout steps off the line, not off the node** (owner, review round 7: «when
+  measuring and setting a lot of nodes close together, the distances between the nodes can be
+  clipped by the nodes themselves»). Each «18 m» stands perpendicular to the segment it ends,
+  always on that segment's left in SCREEN space, so a row of close nodes gets a readable column of
+  numbers beside the path (`lib/measureLabelPlace`, unit-tested; the map's bearing turns the
+  geographic direction into the screen one, so the chips keep their side while the map rotates).
+  The chip is anchored by the edge that faces its node, so its own width runs away from the path —
+  a segment shorter than the label cannot push it over the neighbouring node either. The area
+  mode's single centroid label has no segment and keeps its place above the point.
 - **The bar's and the sheets' controls are the app's** (owner, review round 4: «the search icon
   being round, the (x) size …»): the phone's search button is the menu button's twin (44 px, the
   one corner, its frame) with the bar's 16 px glyph; every ✕ of the viewer — object sheet, search,
