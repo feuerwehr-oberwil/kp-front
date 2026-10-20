@@ -19,6 +19,13 @@
 @media (hover: hover) { .wb-dock-info-inline .wb-dock-ibtn:hover { background: var(--ink-12); color: var(--ink); } }
 .wb-dock-info-inline .wb-dock-ibtn.on { background: var(--sel-wash); color: var(--ink); }
 @media (pointer: coarse) { .wb-dock-ibtn { width: var(--tap); height: var(--tap); } }
+/* in the tool dock's column: the rail's 46px square, like the dock's other buttons (09-whiteboard) */
+:global(.wb-dock) .wb-dock-ibtn { width: 46px; height: 46px; background: transparent; color: var(--ink); }
+:global(.wb-dock) .wb-dock-ibtn :global(.i) { width: 22px; height: 22px; }
+@media (hover: hover) { :global(.wb-dock) .wb-dock-ibtn:hover:not(.on) { background: var(--hover); } }
+/* …except the phone's row dock, where every button is the --tap square (15-mobile) */
+:global(.phone-tools .wb-dock) .wb-dock-ibtn { width: var(--tap); height: var(--tap); }
+:global(.phone-tools .wb-dock) .wb-dock-ibtn :global(.i) { width: 18px; height: 18px; }
 .wb-dock-ibtn :global(.i) { width: 18px; height: 18px; }
 /* help text always appears at the BOTTOM-centre of the screen (not floating beside the
    button), so every in-function hint shows in the same place. Fixed to the viewport. */
