@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef } from 'react'
+import { Fragment, lazy, Suspense, useEffect, useRef } from 'react'
 import type { LayerDef } from '../types'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
@@ -7,6 +7,8 @@ import { Slider } from './Slider'
 import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
 import type { TwinLayerRow } from '../lib/georefTwins'
 import type { LayerPreset } from '../lib/layerPreset'
+import { useLayerData, type LayerData } from '../lib/layerData'
+import { fillTemplate, fmtFileSize } from '../lib/format'
 
 /** The «Niederschlag (Radar)» row (components/WeatherLayer) — a device pref routed by id like a
  *  twin, with the colour key under it while it is on. Absent when the deployment serves no
@@ -15,6 +17,14 @@ export interface WeatherLayerRow extends TwinLayerRow {
   attribution: string
   legend: { min_mm_h: number; color: string }[]
 }
+
+/* The app's own loading mascot in a layer row, behind a dynamic import ON PURPOSE: imported
+   statically it becomes a module the boot splash (components/Splash) and this panel share, the
+   bundler lifts that shared cluster — the snail, `lib/snailLaunch`, `ShellLoader` and its
+   stylesheet — into the entry, and `index.html` grows a second render-blocking stylesheet
+   (scripts/check-bundle-size · css). The chunk is a couple of kilobytes and arrives while the
+   row already says what it is doing; until it does, the row keeps its own glyph. */
+const RowSnail = lazy(() => import('./SnailLoader').then((m) => ({ default: m.SnailLoader })))
 
 const NO_GROUPS: readonly string[] = []
 
@@ -81,6 +91,33 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
       <span className="opacity-v">{opacity}%</span>
     </div>
   )
+  /* What a GeoJSON Ebene is doing, in its own row (owner, review round 7: «Leitungen loads quite
+     a lot of data … I need some sort of loading state»). The app fetches those files itself
+     (lib/layerData), so the row can name the bytes and fill a bar — the app's own snail where the
+     eye looks for a loader, the figures inline in the row, nothing added under it. A loading row
+     stays a button: switching the layer off again must not wait for the download. */
+  const loads = useLayerData()
+  const L = appConfig.copy.layerPanel
+  const loadNote = (load: LayerData): { sub: string; pct: number | null } | null => {
+    if (load.state === 'loading') {
+      return {
+        sub: load.total
+          ? fillTemplate(L.loadingOf, { done: fmtFileSize(load.loaded), total: fmtFileSize(load.total) })
+          : L.loading,
+        pct: load.total ? Math.min(100, Math.round((load.loaded / load.total) * 100)) : null,
+      }
+    }
+    if (load.state === 'empty') return { sub: L.loadEmpty, pct: null }
+    if (load.state === 'failed') return { sub: L.loadFailed, pct: null }
+    return null
+  }
+  /* The row's icon slot carries the snail while its file is on the way; the status line and the
+     determinate bar sit in the name column, so the row keeps its height and its tap target. */
+  const loadRow = (l: LayerDef) => {
+    const load = l.geojson && l.visible ? loads.get(l.id) : undefined
+    const note = load ? loadNote(load) : null
+    return { loading: load?.state === 'loading', note }
+  }
   const bases = layers.filter((l) => l.base)
   // What the map on screen is made of, credited: every VISIBLE layer's attribution, split at its
   // commas so «© OpenStreetMap-Mitwirkende» from two layers is named once. On a phone this is
@@ -209,7 +246,9 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
         {groupEntries.map(([group, rows]) => (
           <Fragment key={group}>
             <div className="lgroup">{group}</div>
-            {rows.map((l) => (
+            {rows.map((l) => {
+              const { loading, note } = loadRow(l)
+              return (
               <Fragment key={l.id}>
                 {/* a real <button> so the toggle is keyboard-operable + focusable; the inline
                     resets strip native button chrome without touching .lrow's :hover rule */}
@@ -218,17 +257,31 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
                   className={`lrow ${l.visible ? '' : 'off'}`}
                   style={{ appearance: 'none', WebkitAppearance: 'none', border: 'none', width: '100%', textAlign: 'left', font: 'inherit', color: 'inherit' }}
                   aria-pressed={l.visible}
-                  aria-label={`${l.label} – ${l.visible ? appConfig.copy.layerPanel.stateVisible : appConfig.copy.layerPanel.stateHidden}`}
+                  /* …and what it is doing is part of what the row announces — the status line
+                     itself is NOT a live region: at one update per 120 ms it would read the
+                     megabytes out loud over and over. */
+                  aria-label={`${l.label} – ${l.visible ? appConfig.copy.layerPanel.stateVisible : appConfig.copy.layerPanel.stateHidden}${note ? ` – ${note.sub}` : ''}`}
                   onClick={() => onToggle(l.id)}
                 >
-                  <span className="ic"><Icon id={l.icon} /></span>
-                  <span className="name">{l.label}</span>
+                  <span className="ic">
+                    {loading
+                      ? <Suspense fallback={<Icon id={l.icon} />}><RowSnail idleOnly /></Suspense>
+                      : <Icon id={l.icon} />}
+                  </span>
+                  <span className="name">
+                    {l.label}
+                    {note && <small>{note.sub}</small>}
+                    {note?.pct != null && (
+                      <span className="lload-bar"><i style={{ width: `${note.pct}%` }} /></span>
+                    )}
+                  </span>
                   {l.locked && <span className="lock"><Icon id="lock" /></span>}
                   <span className="eye"><Icon id={l.visible ? 'eye' : 'eyeoff'} /></span>
                 </button>
                 {l.opacity !== undefined && l.visible && opacityRow(l.id, l.opacity, l.label)}
               </Fragment>
-            ))}
+              )
+            })}
             {twinsAnchored && group === twinsAfterGroup && twinBlocks}
           </Fragment>
         ))}

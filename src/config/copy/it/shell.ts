@@ -26,6 +26,10 @@ export const shellCopy: Localizable<Pick<Copy, Keys>> = {
     hideAll: 'Nascondi tutti',
     reset: 'Standard',
     custom: 'Selezione personalizzata',
+    loading: 'Caricamento …',
+    loadingOf: 'Caricamento … {done} di {total}',
+    loadEmpty: 'Nessun dato in questo livello',
+    loadFailed: 'Non caricato – disattivare e riattivare',
   },
 
   truppFinder: {
