@@ -129,8 +129,8 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
           // same kind in two different shapes, with the ✕ landing left on one and right on the
           // other. Grouped, the actions wrap as one block or not at all.
           <div key={b.key} className={cx(s.card, b.warn && s.cardWarn)}>
-            {/* THE HEAD. A container, not one big button: the ✕ cannot nest inside the toggle, so
-                the toggle takes the room it can and the delete sits beside it, aligned — instead
+            {/* THE HEAD. A container, not one big button: the bin cannot nest inside the toggle,
+                so the toggle takes the room it can and the delete sits beside it, aligned — instead
                 of floating in the block's top-right corner on no line with anything. */}
             <div className={cx(s.head, TONE[b.head.tone])}>
               {b.head.onToggle ? (
@@ -150,11 +150,15 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                 </span>
               )}
               {b.duration && <span className={s.duration}>{b.duration}</span>}
+              {/* THE delete look — the bin in its red outline, a full --tap square (UX sweep F1,
+                  20.10.2026). It was a grey 34px ✕, the twin of the sheet's own close ✕ two rows
+                  up: a tired hand closing the sheet erased somebody's stretch. A ✕ only closes.
+                  The undo toast stays the caller's (useAttendanceActions / useShiftActions). */}
               {b.onRemove && (
-                <button type="button" className={s.del} title={labels.remove}
+                <Button variant="danger" className={s.del} title={labels.remove}
                   aria-label={`${labels.remove} – ${subject}`} onClick={b.onRemove}>
-                  <Icon id="close" />
-                </button>
+                  <Icon id="trash" />
+                </Button>
               )}
             </div>
             {/* THE BODY: nothing but the two times, read as one pair. The date hangs under the

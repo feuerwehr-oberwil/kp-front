@@ -25,7 +25,7 @@
 .card + .card { margin-top: 8px; }
 .cardWarn { border-color: var(--red); }
 
-/* the head — colour, word, duration, delete. `overflow: hidden` on the card clips its tint to the
+/* the head — colour, word, duration, the bin. `overflow: hidden` on the card clips its tint to the
    card's own corners, so no inner radius has to be kept in sync. */
 .head { display: flex; align-items: center; gap: 8px; padding: 0 var(--sp-1) 0 var(--sp-3); min-height: 40px; }
 .headMain {
@@ -88,21 +88,9 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
   color: var(--green-strong); font: var(--fw-bold) var(--fs-2) var(--body);
 }
 
-.del {
-  flex: none; display: inline-grid; place-items: center;
-  min-width: 34px; min-height: 34px; border: none; border-radius: var(--r-sm); background: none;
-  color: inherit; opacity: .65; cursor: pointer; -webkit-tap-highlight-color: transparent;
-}
-.del svg { width: 15px; height: 15px; }
-/* the destructive red must not be hover-only – touch sees it on the press, before committing */
-@media (hover: hover) {
-  .del:hover { opacity: 1; color: var(--red); background: var(--red-12); }
-}
-.del:active {
-  opacity: 1; color: var(--red);
-  background-color: var(--red-12);
-  background-image: linear-gradient(var(--press), var(--press));
-}
+/* the bin: <Button variant="danger"> brings THE delete look and the 44px floor; this only makes
+   it the --tap square a glyph-only control takes */
+.del { flex: none; width: var(--tap); padding: 0; }
 
 .add { margin-top: var(--sp-2); }
 
