@@ -561,11 +561,17 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-ghost-trail-dot .wb-trail-mark, .map-ghost-trail .wb-trail-mark { background: var(--ink-dim); opacity: .7; }
 .wb-ghost-trail-dot i, .map-ghost-trail i { color: var(--ink-dim); }
 .wb-ghost-label { position: absolute; z-index: 6; transform: translate(-50%, -150%);
-  display: inline-flex; align-items: center; gap: 4px; min-height: 22px; padding: 2px var(--sp-2);
+  display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 2px var(--sp-2);
   border: 1px dashed var(--ink-dim); border-radius: var(--r-ctl);
   background: var(--label-bg); color: var(--ink-dim);
-  font-family: var(--body); font-size: var(--fs-micro); font-weight: var(--fw-bold); cursor: pointer; }
+  font-family: var(--body); font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer; }
 .wb-ghost-label .i { width: 12px; height: 12px; }
+/* a finger gets --tap of height around the 24px chip (UX sweep M12, 20.10.2026): the pad is
+   invisible, so the chip stays a label on the plan / map, not a button slab over it. ⚠️ The pad
+   needs the chip positioned – absolute on the plan, relative in the map's Marker (MapMarkers). */
+@media (pointer: coarse) {
+  .wb-ghost-label::before { content: ''; position: absolute; inset: -10px -2px; }
+}
 
 /* selected-team action bar — one compact toolbar under the pill, replacing the two
    corner orbs (mark top-left + delete top-right) that used to crowd the pill.
@@ -877,7 +883,12 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    colour, at the vertex where the line leaves/enters the tile; tapping it jumps to the other end */
 .wb-line-stair { position: absolute; left: 0; top: 0; width: 26px; height: 26px; padding: 0; border-radius: 50%;
   border: 2px solid currentColor; background: var(--on-accent-ink); color: currentColor;
-  font: var(--fw-heavy) var(--fs-micro) var(--mono); font-variant-numeric: tabular-nums; line-height: 1; cursor: pointer; touch-action: manipulation; }
+  font: var(--fw-heavy) var(--fs-1) var(--mono); font-variant-numeric: tabular-nums; line-height: 1; cursor: pointer; touch-action: manipulation; }
+/* …and a --tap target around the 26px mark under a finger (UX sweep M12): the pad, not the mark,
+   grows – a 44px disc at a Leitung's vertex would cover the very ink it marks */
+@media (pointer: coarse) {
+  .wb-line-stair::before { content: ''; position: absolute; inset: -9px; border-radius: 50%; }
+}
 /* the shared <LineMarker> span inside either wrapper — the wrapper owns the placement */
 .wb-line-mk { display: block; }
 
