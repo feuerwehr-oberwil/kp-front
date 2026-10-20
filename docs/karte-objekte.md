@@ -218,8 +218,8 @@ The rules that are easy to break:
 - **A tap on a plain building selects ONE house** (Karte Haus round 1, 19.10.2026 — owner: «no
   differentiation between Storchenweg 2, 4, or 6»): the survey's footprint under the finger
   ([«Die Häuser»](#die-häuser-karte-haus-round-1) below), never OSM's block of a terraced row. OSM's
-  outline only where the survey's set has no house (outside the Einsatzgebiet), before the set
-  arrived, or with it off (`lib/karte/outlines · ringsAround`).
+  outline only where the survey's set has no house (a shed, outside the Einsatzgebiet), before the
+  set arrived, or with it off (`lib/karte/outlines · ringsAround`).
 - **Object or house — the switch** (owner, Karte Haus round 1 · variant A, 19.10.2026: «it's very
   hard to click the underlying building if there is a plan on top of it»). A tap on one of the
   buildings of an object that HAS several opens the object as before and remembers that building
@@ -859,6 +859,14 @@ for that layer:
 - **A tap** matches the cell's houses first and OSM only when no house contains the point
   (`ringsAround`): never both, so OSM's block cannot win over the house in it. Objects keep their
   own buildings (above); an object without any still falls back to the OSM outline at its point.
+- **OSM over a house is dropped** (Karte Haus round 4, 20.10.2026 — owner: «two outlines …
+  hoverable/clickable», Bottmingerstrasse 44, 55 / Talstrasse 1). OSM traces roofs, the survey
+  walls, so most OSM outlines stick out of a house by a band, or cover two; the band opened the OSM
+  outline. `osmBeside` drops every OSM outline the houses cover by ≥ 10 %, or that covers ≥ 50 % of
+  one house, once per cell (sampled overlap; the cell's list is cached per house set). A sliver
+  along a shared wall does not count. Of the ~8 900 OSM outlines in the station's snapshot ~4 600
+  go; the ones left touch no house (sheds, carports, outside the Einsatzgebiet). Densest cell
+  ~20 ms on a desktop.
   The Einsatz's Umriss picker keeps OSM (`/api/overpass/buildings`).
 - **Off:** `HOUSES_WFS=` (empty) — taps use OSM outlines again.
 
