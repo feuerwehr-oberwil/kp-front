@@ -313,7 +313,7 @@
 .un-haz-v { flex: 1; color: var(--ink); font-family: var(--mono); }
 /* The substance's name (the Karte's Gefahrgut, UnHazardSection · nameHero) as the card's hero
    line: words, not a code, so the body face — the one thing read before anything else. */
-.un-haz-hero { margin: 2px 0 10px; font-size: var(--fs-3); font-weight: var(--fw-bold); line-height: 1.25;
+.un-haz-hero { margin: 0 0 var(--sp-2); font-size: var(--fs-3); font-weight: var(--fw-bold); line-height: 1.25;
   color: var(--ink); overflow-wrap: anywhere; }
 /* The key figures as tiles instead of a key/value table (owner, review round 7, mock B): each
    figure is one block, label over value, so nothing has to line up across a second column and no
@@ -324,8 +324,8 @@
    which leaves 264px inside the readout — two columns of 128px, where «Entzündbare» still fits on
    one line. A panel narrower than that (a phone in landscape, a future tool dock) falls back to
    one column rather than breaking a word in half. */
-.un-haz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
-.un-haz-tile { background: var(--surface); border-radius: var(--r-xs); padding: 8px 10px; min-width: 0; }
+.un-haz-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: var(--sp-2); }
+.un-haz-tile { background: var(--surface); border-radius: var(--r-xs); padding: var(--sp-2); min-width: 0; }
 .un-haz-tile-k { display: block; font-size: var(--fs-micro); line-height: var(--lh-micro); color: var(--ink-dim);
   font-weight: var(--fw-medium); }
 .un-haz-tile-v { display: block; font-size: var(--fs-2); line-height: 1.3; font-weight: var(--fw-bold);
@@ -338,7 +338,7 @@
 .un-haz-water svg { width: 15px; height: 15px; flex: none; }
 /* the Stoff's bullet points, at the foot of the card since review round 7: its own block, parted
    from the figures above it by one hairline */
-.un-haz-list { margin: 12px 0 0; padding: 10px 0 0 18px; border-top: 1px solid var(--border-soft); }
+.un-haz-list { margin: var(--sp-3) 0 0; padding: var(--sp-2) 0 0 var(--sp-4); border-top: 1px solid var(--border-soft); }
 .un-haz-list li { font-size: var(--fs-1); color: var(--ink-dim); padding: 2px 0; }
 .un-haz-none { margin: 2px 0 2px; font-size: var(--fs-1); color: var(--ink-faint); }
 /* 12.5px, the floor for interactive text (was 12, 23.09.2026) */
