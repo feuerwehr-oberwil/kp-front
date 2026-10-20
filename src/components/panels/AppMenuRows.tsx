@@ -11,7 +11,7 @@
 // handed in — a door the session cannot go through is not drawn (docs/roles-and-access.md) — and
 // the callers decide whether a row closes the menu, so this file never needs to know.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { ShellLoader } from '../ShellLoader'
 import { Icon } from '../../lib/icons'
 import { initials, roleLabel, fillTemplate, fmtSpanShort } from '../../lib/format'
@@ -34,6 +34,13 @@ export interface AppMenuAlarms {
   /** hide it on THIS device only — never an archive of a live dispatch (lib/diveraDismiss) */
   onDismiss: (a: DiveraAlarm) => void
 }
+
+/** A menu row's word. It needs an element of its own for ONE reason: a row centres its children,
+ *  and centring a line box is not the same as centring the letters in it (`.ip-menu-actlabel`,
+ *  13-incident.css — owner, review 7: «feels like it's a little bit above center»). As a bare
+ *  text node it was also an anonymous flex item, whose leading space the engine drops, so the
+ *  `<Icon /> {label}` spacing was never the space it looked like — it was the row's `gap`. */
+const ActLabel = ({ children }: { children: ReactNode }) => <span className="ip-menu-actlabel">{children}</span>
 
 export function AppMenuRows({
   activeId, incidents, isEditor, user, opening = null, alarms, onSwitch, onLeave, onHistory, onCreate,
@@ -163,10 +170,10 @@ export function AppMenuRows({
               one opens an earlier Einsatz, one opens a new one. */}
           {onHistory && (
             <button type="button" className="ip-menu-act" onClick={onHistory}>
-              <Icon id="history" /> {cp.allIncidents}
+              <Icon id="history" /><ActLabel>{cp.allIncidents}</ActLabel>
             </button>
           )}
-          {isEditor && onCreate && <button type="button" className="ip-menu-act" onClick={onCreate}><Icon id="plus" /> {ci.titleNew}</button>}
+          {isEditor && onCreate && <button type="button" className="ip-menu-act" onClick={onCreate}><Icon id="plus" /><ActLabel>{ci.titleNew}</ActLabel></button>}
         </div>
       )}
       {/* «App»: device + installation, not an Einsatz. It always has rows — Hilfe is
@@ -175,13 +182,13 @@ export function AppMenuRows({
       {/* Objektbesuche is no Einsatz, so it is not under «Einsätze»: it is the app's other job. */}
       {onObjectVisits && (
         <button type="button" className="ip-menu-act" onClick={onObjectVisits}>
-          <Icon id="clipboard" /> {appConfig.copy.objectVisits.launcher}
+          <Icon id="clipboard" /><ActLabel>{appConfig.copy.objectVisits.launcher}</ActLabel>
         </button>
       )}
-      {onSettings && <button type="button" className="ip-menu-act" onClick={onSettings}><Icon id="gear" /> {appConfig.copy.settings.title}</button>}
-      {offline && <button type="button" className="ip-menu-act" onClick={offline.onOpen}><Icon id="snapshot" /> {offline.label}</button>}
-      <button type="button" className="ip-menu-act" onClick={onHelp}><Icon id="info" /> {appConfig.copy.help.menu}</button>
-      {onInstall && <button type="button" className="ip-menu-act" onClick={onInstall}><Icon id="share-ios" /> {appConfig.copy.install.menu}</button>}
+      {onSettings && <button type="button" className="ip-menu-act" onClick={onSettings}><Icon id="gear" /><ActLabel>{appConfig.copy.settings.title}</ActLabel></button>}
+      {offline && <button type="button" className="ip-menu-act" onClick={offline.onOpen}><Icon id="snapshot" /><ActLabel>{offline.label}</ActLabel></button>}
+      <button type="button" className="ip-menu-act" onClick={onHelp}><Icon id="info" /><ActLabel>{appConfig.copy.help.menu}</ActLabel></button>
+      {onInstall && <button type="button" className="ip-menu-act" onClick={onInstall}><Icon id="share-ios" /><ActLabel>{appConfig.copy.install.menu}</ActLabel></button>}
       {/* ONE hairline in this menu, above the identity row (22.09.2026): the small-caps label
           heads «App» on its own, but the row under the actions is not an action — it is who
           is signed in, and the rule is what says «the list ends here». */}

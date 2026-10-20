@@ -241,6 +241,16 @@
   border-radius: var(--r-ctl); cursor: pointer; color: var(--ink); font: var(--fw-medium) var(--fs-2) var(--body);
 }
 .ip-menu-act svg { width: 16px; height: 16px; opacity: .65; }
+/* ⚠️ The row centres the LETTERS, not the line box (owner, review 7: «the main text … feels like
+   it's a little bit above center. Maybe the baseline is the center»). He is reading real
+   geometry: Sora's font box is top-heavy — ascent .970em against descent .290em — so a line box
+   that flex centres perfectly puts the cap-to-baseline box (cap height .7345em) above the row's
+   middle, by (cap + descent − ascent) / 2 = .0273em. `line-height` cannot fix it: half-leading
+   is symmetric around the font box, so the letters keep the same offset inside it whatever the
+   box's height. The margin is doubled because `align-items: center` centres the MARGIN box, so
+   half of it is the shift. Derived from the face's metrics, not nudged by eye; if the type ever
+   stops being Sora, re-measure rather than keep the number. */
+.ip-menu-actlabel { min-width: 0; margin-block-start: calc(2 * .0273em); }
 /* incident row — pure switch target (no destructive actions in this menu; closing another
    incident lives in «Alle Einsätze» / the Rapport). The leading FIXED-WIDTH column carries the
    laufende Zeit, so the list scans down one edge: how long has THAT one been going. */
