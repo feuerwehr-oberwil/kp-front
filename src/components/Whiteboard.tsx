@@ -95,7 +95,7 @@ import { MAX_SCALE, MAX_SCALE_STACK, MIN_SCALE, boardViewSignature, useBoardView
 import { newPlanStep, pushBoardPast, useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { recordKey, watchRecords } from '../lib/undoKeys'
 import { useBoardGestures } from './useBoardGestures'
-import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles } from './WbControls'
+import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles, type TruppFinderDoor } from './WbControls'
 import { MeasurePanel } from './MeasurePanel'
 import { ToolDock } from './ToolDock'
 import { PlanCompass } from './PlanCompass'
@@ -258,6 +258,8 @@ interface Props {
   onLinkTrupp?: (annoId: string, truppId: string) => void
   /** jump to the Atemschutz board for a linked Trupp ("show the trupp"). */
   onShowTrupp?: (truppId: string) => void
+  /** «Trupp finden» on the Trupp dock — the workspace's shared TruppFinder (WbControls) */
+  truppFinder?: TruppFinderDoor
   /** the incident's ghost «Spuren» recorded on THIS sheet (lib/truppTrails · planGhostTrails) —
    *  the searched area a removed Trupp chip left behind. Drawn read-only and grey, on the storey
    *  each point was walked on; `onGhostTrail` is the «Spur löschen» door (absent ⇒ no door). */
@@ -379,7 +381,7 @@ export interface PlanLogExtra {
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -4197,6 +4199,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           measCount={measPath.length}
           onMeasClear={() => setMeasPath(() => [])}
           onMeasClose={() => { measReset(); setTool('pan') }}
+          truppFinder={truppFinder}
         />}
       </div>
 

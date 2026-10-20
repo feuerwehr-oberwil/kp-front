@@ -3232,6 +3232,7 @@ export function IncidentWorkspace({
         askTruppEntry, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker, linkTruppLine, unlinkLine,
         linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, syncLineNoToTrupp, setMode, setPanel,
         setTruppFocus, planScale, setPlanScale, tafel,
+        truppFinder: { open: () => setFindTruppOpen(true), disabled: placed.length === 0 },
       }} />
 
       {pickerOpen && (

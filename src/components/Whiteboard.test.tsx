@@ -1792,3 +1792,23 @@ describe('«Gelöscht / erledigt» on the plan', () => {
     expect(screen.getAllByText(new RegExp(`^${O.word.fire.title} `)).length).toBeGreaterThan(0)
   })
 })
+
+// UX sweep M9 (20.10.2026): the Karte's Trupp dock had «Trupp finden», the Plan's only ✕ and ⓘ —
+// a Zugführer working on a plan could not find a Trupp from there.
+describe('the plan’s Trupp dock finds a Trupp, like the Karte’s', () => {
+  const arm = () => fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.team }))
+
+  it('opens the shared finder from the dock', () => {
+    const open = vi.fn()
+    renderPlan([], { truppFinder: { open, disabled: false } })
+    arm()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.truppFinder.title }))
+    expect(open).toHaveBeenCalledTimes(1)
+  })
+
+  it('stays on the dock, disabled, while no Trupp is placed anywhere', () => {
+    renderPlan([], { truppFinder: { open: vi.fn(), disabled: true } })
+    arm()
+    expect((screen.getByRole('button', { name: appConfig.copy.truppFinder.title }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})

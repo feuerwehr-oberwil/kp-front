@@ -544,6 +544,11 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
   )
 }
 
+/** «Trupp finden» on a Trupp dock: opens the workspace's ONE TruppFinder (IncidentWorkspace).
+ *  `disabled` while no Trupp is placed anywhere — on the tool's own dock an absent button would
+ *  read as a tool that lost one (MapToolDocks · the Karte's twin). */
+export interface TruppFinderDoor { open: () => void; disabled: boolean }
+
 interface DocksProps {
   tool: BoardTool
   lineMode: 'freehand' | 'nodes'
@@ -561,6 +566,8 @@ interface DocksProps {
   measCount: number
   onMeasClear: () => void
   onMeasClose: () => void
+  /** absent where the board has no finder to open (Karte & Objekte's plan reader) */
+  truppFinder?: TruppFinderDoor
 }
 
 /**
@@ -570,7 +577,7 @@ interface DocksProps {
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive, setTool, setLineMode, onFinish, onCancelDraft, measMode, setMeasMode, measCount, onMeasClear, onMeasClose }: DocksProps) {
+export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive, setTool, setLineMode, onFinish, onCancelDraft, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, truppFinder }: DocksProps) {
   // Read copy per render: the deployment locale is resolved after modules are imported.
   const closeDraft = () => { onCancelDraft(); setTool('pan') }
   return (
@@ -639,10 +646,15 @@ export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive
         ]} />
       )}
 
-      {/* team armed-tool — clean (×) cancel + info */}
+      {/* team armed-tool — ✕ · «Trupp finden» · ⓘ, the Karte's Trupp dock (MapToolDocks): placing
+          one and finding one are the two things reaching for this tool can mean (UX sweep M9) */}
       {tool === 'resource' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
+          ...(truppFinder ? [[{
+            type: 'action' as const, icon: 'trupp-find', label: appConfig.copy.truppFinder.title,
+            disabled: truppFinder.disabled, onClick: truppFinder.open,
+          }]] : []),
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.resource }],
         ]} />
       )}
