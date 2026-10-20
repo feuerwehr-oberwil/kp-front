@@ -636,6 +636,8 @@ export const adminCopy = {
       delete: 'Löschen',
       deleteAria: '«{title}» löschen',
       deleteQuestion: 'Verlauf, Prüfkette, Anwesenheit und alle Medien von «{title}» endgültig löschen?',
+      deleteTitle: 'Einsatz löschen',
+      deleteNote: 'Das lässt sich nicht rückgängig machen.',
       deleteOpenHint: 'Erst abschliessen',
       deleteFailed: 'Löschen fehlgeschlagen',
       actions: 'Aktionen',

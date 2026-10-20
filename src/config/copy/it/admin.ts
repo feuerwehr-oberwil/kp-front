@@ -560,6 +560,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       delete: 'Elimina',
       deleteAria: 'Elimina «{title}»',
       deleteQuestion: 'Eliminare definitivamente il diario, la catena di verifica, le presenze e tutti i media di «{title}»?',
+      deleteTitle: "Elimina intervento",
+      deleteNote: 'Non può essere annullato.',
       deleteOpenHint: 'Prima chiudere',
       deleteFailed: 'Eliminazione non riuscita',
       actions: 'Azioni',

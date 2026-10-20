@@ -1,5 +1,5 @@
 import { LoadingStatus, ShellLoader } from '../components/ShellLoader'
-import { Children, createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
+import { Children, createContext, useCallback, useContext, useEffect, useEffectEvent, useId, useLayoutEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import { apiDelete, apiGet, apiPost } from '../lib/api'
 import { Icon } from '../lib/icons'
 import { Menu } from '../lib/overlays'
@@ -682,13 +682,7 @@ export function ConfirmButton({ label, question, danger, primary, disabled, clas
   ariaLabel?: string
   onConfirm: () => void
 }) {
-  const C = appConfig.copy.admin.common
   const [armed, setArmed] = useState(false)
-  useEffect(() => {
-    if (!armed) return
-    const t = window.setTimeout(() => setArmed(false), 8000)
-    return () => window.clearTimeout(t)
-  }, [armed])
   if (!armed) {
     return (
       <button type="button" disabled={disabled} onClick={() => setArmed(true)}
@@ -698,12 +692,33 @@ export function ConfirmButton({ label, question, danger, primary, disabled, clas
       </button>
     )
   }
+  return <ConfirmPrompt question={question} danger={danger}
+    onConfirm={() => { setArmed(false); onConfirm() }} onCancel={() => setArmed(false)} />
+}
+
+/** The armed half of ConfirmButton: the question and the Ja/Abbrechen pair, calling `onCancel`
+ *  by itself after 8 s so a forgotten prompt does not sit there armed. Exported for the one
+ *  caller whose trigger is not a button of its own – an action picked from a ⋮ menu, which has
+ *  closed by the time the question is asked (LinksView). */
+export function ConfirmPrompt({ question, danger, onConfirm, onCancel }: {
+  question: string
+  danger?: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const C = appConfig.copy.admin.common
+  // an Effect Event, so the timer starts once and does not restart on every parent render
+  const timeout = useEffectEvent(onCancel)
+  useEffect(() => {
+    const t = window.setTimeout(timeout, 8000)
+    return () => window.clearTimeout(t)
+  }, [])
   return (
     <span className="adm-confirm" role="alertdialog" aria-label={question}>
       <span className="adm-confirm-q">{question}</span>
       <button type="button" className={`btn ${danger ? 'adm-danger-btn' : 'adm-save-btn'}`}
-        onClick={() => { setArmed(false); onConfirm() }}>{C.confirmYes}</button>
-      <button type="button" className="btn adm-int-btn" onClick={() => setArmed(false)}>{C.confirmNo}</button>
+        onClick={onConfirm}>{C.confirmYes}</button>
+      <button type="button" className="btn adm-int-btn" onClick={onCancel}>{C.confirmNo}</button>
     </span>
   )
 }

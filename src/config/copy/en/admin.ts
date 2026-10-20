@@ -559,6 +559,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       delete: 'Delete',
       deleteAria: 'Delete «{title}»',
       deleteQuestion: 'Permanently delete the log, audit chain, attendance and all media of «{title}»?',
+      deleteTitle: 'Delete incident',
+      deleteNote: 'This cannot be undone.',
       deleteOpenHint: 'Close it first',
       deleteFailed: 'Delete failed',
       actions: 'Actions',
