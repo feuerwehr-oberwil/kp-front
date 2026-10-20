@@ -3,7 +3,7 @@
 // What a station comes back for comes FIRST: the received visits — date, object, «Von», where each
 // was filed, the report — and who is told about a new one (owner, 05.10.2026: «where do filled out
 // object visits show»). Below them, in the order a station sets the module up: the switch and who
-// may capture; the fields a Korrekturvorschlag can name; the filing destination (one SharePoint
+// may capture and how long a completed visit stays correctable; the fields a Korrekturvorschlag can name; the filing destination (one SharePoint
 // card); the filing status with «Erneut versuchen»; the organizer's integration key. The switch,
 // fields and destination are the shared config document (the page autosaves like every Station
 // page); the rest talk to /api/admin/object-visits.
@@ -15,7 +15,7 @@ import { fillTemplate } from '../lib/format'
 import { fold } from '../lib/search'
 import { downloadUrl } from '../lib/download'
 import { Icon } from '../lib/icons'
-import type { DeploymentObjectVisits, ObjectVisitDestination } from '../lib/deploymentConfig'
+import { DEFAULT_VISIT_LOCK_HOURS, type DeploymentObjectVisits, type ObjectVisitDestination } from '../lib/deploymentConfig'
 import {
   adminDeliveries, adminExportUrl, adminListVisits, adminNotify, adminRetryDeliveries, adminSetNotify,
   adminTestDestination, getCatalogue, INTEGRATION_KEY_CREDENTIAL, mintIntegrationKey, OV_ROUTES,
@@ -106,6 +106,17 @@ function ModuleSheet({ onNavigate }: { onNavigate: (id: string) => void }) {
         </span>
       </SettingRow>
       {noRole && <SettingsNote tone="warn">{T.rolesNone}</SettingsNote>}
+      {/* how long a completed visit may still be corrected (owner, 20.10.2026); the SERVER
+          enforces it — empty is «never lock», never «lock at once» */}
+      <SettingRow label={T.lockHours} tip={T.lockHoursTip}>
+        <input className="adm-input" type="number" min={0} max={8760} step={1}
+          value={typeof ov.lockAfterHours === 'number' ? ov.lockAfterHours : ov.lockAfterHours === null ? '' : DEFAULT_VISIT_LOCK_HOURS}
+          onChange={(e) => {
+            const raw = e.target.value.trim()
+            const n = Number(raw)
+            set(['objectVisits', 'lockAfterHours'], raw === '' ? null : Number.isFinite(n) ? Math.min(8760, Math.max(0, Math.round(n))) : null)
+          }} />
+      </SettingRow>
       <SettingRow label={T.checklists} tip={T.checklistsTip} span>
         <span>{checklistText}</span>
       </SettingRow>

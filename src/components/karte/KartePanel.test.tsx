@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 // «Karte & Objekte» — the one panel: the capture door only for capture roles, a register hint
-// that says where it came from, «In der Nähe» with its disclaimer, and missing data said, never
-// read as «no hazard». Synthetic Musterdorf data only.
+// that says where it came from, «In der Nähe» with its disclaimer, what was ASKED for and not
+// answered said (never read as «no hazard»), and what the station never recorded left out.
+// Synthetic Musterdorf data only.
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -65,10 +66,20 @@ describe('KartePanel', () => {
     expect(screen.getByText('Mit diesem Konto kannst du Besuche lesen, aber nicht erfassen.')).toBeTruthy()
   })
 
-  it('says what is missing instead of drawing nothing', () => {
-    panel({ sel: { kind: 'object', obj: { ...SCHLOSS, measures: null, measuresSource: null } }, register: { state: 'offline', info: null, cached: false } })
+  it('says what was asked for and not answered — and nothing about what was never recorded', () => {
+    // owner, 20.10.2026: «if there isn't anything then it should just be empty»
+    const { container } = panel({ sel: { kind: 'object', obj: { ...SCHLOSS, measures: null, measuresSource: null } }, register: { state: 'offline', info: null, cached: false } })
     expect(screen.getByText('Registerangaben für diesen Ort sind nicht auf diesem Gerät gespeichert.')).toBeTruthy()
-    expect(screen.getByText('Keine Gefahrenangaben der Station erfasst. Das heisst nicht, dass es keine gibt.')).toBeTruthy()
+    expect(container.textContent).not.toMatch(/Gefahrenangaben/)
+  })
+
+  // owner, 20.10.2026: Sofortmassnahmen belong at the very top, above the register chips
+  it('puts the station word above the register chips', () => {
+    const { container } = panel()
+    const sections = [...container.querySelectorAll('[data-section]')].map((e) => e.getAttribute('data-section'))
+    expect(sections.indexOf('station')).toBeLessThan(sections.indexOf('register'))
+    const text = container.textContent ?? ''
+    expect(text.indexOf('Zufahrt nur über Schlossgasse')).toBeLessThan(text.indexOf('Heizung Gas'))
   })
 
   it('names a register entry at another address as exactly that', () => {
@@ -121,11 +132,60 @@ describe('KartePanel', () => {
     expect(screen.getByText(/LV95/)).toBeTruthy()
   })
 
-  // owner-4: no boxed «Kein Stationsobjekt an dieser Adresse» — but missing still is not «safe»
-  it('keeps the building quiet: no box, the closing sentence stays', () => {
-    panel({ sel: { kind: 'building', at: [7.5708, 47.5228], address: null } })
+  // owner-4: no boxed «Kein Stationsobjekt an dieser Adresse»; owner 20.10.: and no closing
+  // «Keine Gefahrenangaben …» either — for a building as for an object
+  it('keeps the building quiet: no box, and the panel simply ends', () => {
+    const { container } = panel({ sel: { kind: 'building', at: [7.5708, 47.5228], address: null } })
     expect(screen.queryByText(/Kein Stationsobjekt an dieser Adresse/)).toBeNull()
-    expect(screen.getByText('Keine Gefahrenangaben der Station erfasst. Das heisst nicht, dass es keine gibt.')).toBeTruthy()
+    expect(container.textContent).not.toMatch(/Gefahrenangaben/)
+  })
+
+  // a dropped pin keeps the FACT and loses the «Fehlende Angaben heissen nicht …» tail
+  it('keeps a pin factual without the missing-data tail', () => {
+    const at: [number, number] = [7.57175, 47.52015]
+    const { container } = panel({ sel: { kind: 'pin', at, near: null, nearState: 'none', onBuilding: false } })
+    expect(screen.getByText('Hier ist nichts erfasst – keine Adresse, kein Stationsobjekt in der Nähe.')).toBeTruthy()
+    expect(container.textContent).not.toMatch(/Fehlende Angaben/)
+  })
+})
+
+// owner, 20.10.2026 (s09): «when clicking on a plan or clicking on Objektbesuch and then going
+// back, I don't want to scroll back down again to find the button for Objektbesuch again»
+describe('KartePanel · the scroll position comes back', () => {
+  /** jsdom lays nothing out: give every element a scrollable box for the length of the test. */
+  const withScrollableBox = (fn: () => void) => {
+    const proto = HTMLElement.prototype
+    const before = {
+      scrollHeight: Object.getOwnPropertyDescriptor(proto, 'scrollHeight'),
+      clientHeight: Object.getOwnPropertyDescriptor(proto, 'clientHeight'),
+    }
+    Object.defineProperty(proto, 'scrollHeight', { configurable: true, get: () => 1200 })
+    Object.defineProperty(proto, 'clientHeight', { configurable: true, get: () => 400 })
+    try { fn() } finally {
+      for (const [k, d] of Object.entries(before)) {
+        if (d) Object.defineProperty(proto, k, d); else delete (proto as unknown as Record<string, unknown>)[k]
+      }
+    }
+  }
+  const bodyOf = (c: HTMLElement) => c.querySelector<HTMLElement>('[data-karte-body]')!
+
+  it('restores the same object and starts another at the top', () => {
+    withScrollableBox(() => {
+      const first = panel({ sel: { kind: 'object', obj: SCHLOSS } })
+      const body = bodyOf(first.container)
+      body.scrollTop = 420
+      fireEvent.scroll(body)
+      cleanup()
+
+      // back from the plan / the Objektbesuch: the same object, where it was
+      const again = panel({ sel: { kind: 'object', obj: SCHLOSS } })
+      expect(bodyOf(again.container).scrollTop).toBe(420)
+      cleanup()
+
+      // another object is another place — it starts at the top
+      const other = panel({ sel: { kind: 'object', obj: { ...SCHLOSS, id: 'turm', name: 'Turm' } } })
+      expect(bodyOf(other.container).scrollTop).toBe(0)
+    })
   })
 })
 

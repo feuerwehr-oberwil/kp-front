@@ -396,9 +396,14 @@ function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactiv
 /** The tappable wind/weather readout + its detail popover. Lives in the TopBar on
  *  desktop/tablet; on phones App floats it in the top-right .phone-wx read-out
  *  instead (the bar is too narrow — it clipped at the screen edge). */
-export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, popAlignOffset }: { weather: WeatherData; onOpenMeteo?: () => void; bearing?: number
+export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, popAlignOffset, popInset = 7 }: { weather: WeatherData; onOpenMeteo?: () => void; bearing?: number
   /** the phone's glass cluster wraps the chip in 5px of its own (padding + border) – see Popover · alignOffset */
-  popAlignOffset?: number }) {
+  popAlignOffset?: number
+  /** how far the chip's bottom sits INSIDE the visible control's bottom edge: the popover hangs
+   *  8px under that edge, as the app menu (.ip-menu) hangs 8px under the bar — not 8px under the
+   *  chip, which left it 1px below the bar (owner, 20.10.2026). Default: the bar's --bar-pad +
+   *  its 1px border; the phone's cluster passes its own 5px. */
+  popInset?: number }) {
   const cond = condition(weather.weather_code)
   // turns with the finger while the Karte is being rotated, not only once it is let go
   const liveBearing = useLiveBearing(bearing)
@@ -411,7 +416,7 @@ export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, popAlignOffset
         ariaLabel={appConfig.copy.weather.details}
         side="bottom"
         align="end"
-        sideOffset={8}
+        sideOffset={8 + popInset}
         zIndex={201}
         trigger={
           <button className="tb-weather"

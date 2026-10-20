@@ -105,7 +105,8 @@ function ChapterStep({ dir, k, title, onGo }: { dir: 'prev' | 'next'; k: number;
     <button type="button" className={s[`mn-chapter-${dir}`]} onClick={onGo}
       aria-label={`${fillTemplate(appConfig.copy.checklists.chapterN, { k })}: ${title}`}>
       {dir === 'prev' && <Icon id="chevron-left" />}
-      <span className={s['mn-chapter-label']} ref={smartHyphens}><span className={s['mn-chapter-num']}>{k}</span> {title}</span>
+      {/* no space between the two: the gap is the number's margin (ManualReader.module.css) */}
+      <span className={s['mn-chapter-label']} ref={smartHyphens}><span className={s['mn-chapter-num']}>{k}</span>{title}</span>
       {dir === 'next' && <Icon id="chevron" />}
     </button>
   )

@@ -160,6 +160,14 @@ _PINNED_CACHE_CONTROL = "private, max-age=31536000, immutable"
 _CURRENT_CACHE_CONTROL = "private, no-cache"
 
 
+#: The UNCOMPRESSED size of what follows, for a client that counts its own download.
+#: ``GZipMiddleware`` rewrites ``Content-Length`` to the COMPRESSED length while the browser's
+#: stream hands out decoded bytes, so a Leitungen layer measuring itself against that header would
+#: claim «3.4 MB von 900 KB». The Ebenen row divides by this one instead (frontend
+#: ``lib/layerData``); a response without it simply has no bar.
+_RAW_BYTES_HEADER = "X-Raw-Bytes"
+
+
 def _download_headers(pinned: bool, media_type: str | None, extra: dict[str, str] | None = None) -> dict[str, str]:
     headers = {"Cache-Control": _PINNED_CACHE_CONTROL if pinned else _CURRENT_CACHE_CONTROL}
     if (media_type or "").startswith("image/svg+xml"):
@@ -167,6 +175,14 @@ def _download_headers(pinned: bool, media_type: str | None, extra: dict[str, str
     if extra:
         headers.update(extra)
     return headers
+
+
+def _raw_bytes(storage_key: str) -> dict[str, str]:
+    """``X-Raw-Bytes`` for a stored blob — absent when its size cannot be read."""
+    try:
+        return {_RAW_BYTES_HEADER: str(storage.size(storage_key))}
+    except OSError:
+        return {}
 
 
 @router.get("/{dataset_id}")
@@ -189,7 +205,7 @@ async def download_reference(
             return FileResponse(
                 storage.local_path(revision.storage_key),
                 media_type=revision.content_type or None,
-                headers=_download_headers(True, revision.content_type),
+                headers=_download_headers(True, revision.content_type, _raw_bytes(revision.storage_key)),
             )
         has_revisions = (
             await db.execute(select(PlanRevision.version).where(PlanRevision.dataset_id == dataset_id).limit(1))
@@ -210,14 +226,16 @@ async def download_reference(
             feats = fc.get("features") if isinstance(fc, dict) else None
             if isinstance(feats, list):
                 kept = [f for f in feats if (bb := _feature_bbox(f)) is None or _overlaps(bb, qbox)]
-                return JSONResponse({**fc, "features": kept}, media_type="application/geo+json")
+                cropped = JSONResponse({**fc, "features": kept}, media_type="application/geo+json")
+                cropped.headers[_RAW_BYTES_HEADER] = str(len(cropped.body))
+                return cropped
         except (ValueError, TypeError, OSError):
             pass  # malformed bbox / unreadable → fall through to the full file
     media_type = ds.content_type or None
     return FileResponse(
         storage.local_path(ds.storage_key),
         media_type=media_type,
-        headers=_download_headers(v is not None, media_type),
+        headers=_download_headers(v is not None, media_type, _raw_bytes(ds.storage_key)),
     )
 
 

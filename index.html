@@ -73,6 +73,12 @@
     -->
     <style>
       :root {
+        /* The day/night twin of src/styles/01-tokens.css `color-scheme` — kept in sync like
+           every other declaration in this block, and needed HERE because the window this block
+           exists for (no external stylesheet yet) is a window Blink's force-dark would otherwise
+           repaint: the splash would come up inverted and then snap once the real sheet lands.
+           `only` is the opt-out, not an emphasis — see the long note in 01-tokens.css. */
+        color-scheme: only light;
         --ease: cubic-bezier(.2, .7, .3, 1);
         --accent: #e8392b;
         --ink: #1b2330;
@@ -81,6 +87,7 @@
         --app-bg: radial-gradient(120% 90% at 50% -10%, #eef3f7 0%, #dfe6ec 45%, #d3dce4 100%);
       }
       :root[data-theme="night"] {
+        color-scheme: only dark;
         --accent: #ff5a4d;
         --ink: #e8edf4;
         --ink-dim: #a4b0c2;

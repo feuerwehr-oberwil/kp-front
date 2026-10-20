@@ -301,8 +301,7 @@ The rules that are easy to break:
   the phone and on the tablet: head (kind, name, address, ✕) · the station's word
   (Sofortmassnahmen, then Bemerkungen, with their source — what matters most in a hurry) ·
   Pläne & Module as rows (the module only, offline the «auf diesem Gerät» mark — below) · Gebäude
-  laut Register · In der Nähe · Objektbesuche · the closing «Keine Gefahrenangaben …» · the actions
-  LAST, «Objektbesuch» and «Melden». A plain building or a dropped pin keeps that order with what
+  laut Register · In der Nähe · Objektbesuche · the actions LAST, «Objektbesuch» and «Melden». A plain building or a dropped pin keeps that order with what
   it has (Register, In der Nähe, Melden; a pin also «Koordinaten kopieren»), a plan-less object
   too (no plan rows). The action row is two equal halves where both labels fit; else the longer
   label takes what it needs, and where the two do not fit one line (French/Italian at 390 px) each
@@ -387,11 +386,27 @@ The rules that are easy to break:
   tiles a 2× zoom of the SAME area would ask for (at most 48, low priority, each once — never a
   whole plan), so a quick zoom is sharp sooner; the service worker keeps them (`plan-tiles`). The
   Einsatz's Plan surface provides no context: no chip, no fetching ahead there.
-- **A pin is set with the ⊙ tool and a tap — nothing else** (owner, review round 3: «I can't
-  delete nodes when measuring because it wants to create a point»). A long press anywhere used to
-  drop one too, and it fired under a held measure node — the hold that removes the node
-  (`MapView · vertexPress`) — dropping a pin and leaving Messen. The surface has no long-press
-  handler now, on the phone or the tablet; `KarteApp.test` holds a node and checks.
+- **The finger's hold answers what a mouse answers on hover** (owner, review round 7, 20.10.2026:
+  «also on mobile highlight the building outlines on hold so we know what we're pressing before we
+  let go» + «the point setting option should also occur automatically if you just long press on the
+  map»). A touch has no hover, so the press itself says what it is about to open, in the mouse's
+  own outline (`KarteApp · outlined`): the building or object under the finger lights up the moment
+  it lands, and the release opens it exactly as a tap always did. On FREE map — no building, no
+  object under it — the same hold sets a point instead, after `lib/useLongPress · LONG_PRESS_MS`
+  (500 ms, the one beat every still hold in the app answers on), with the short buzz and Android's
+  context menu suppressed. The release that follows is not a tap: it would deselect the pin the
+  hold just set. Any movement past the drag tolerance is a pan and cancels both.
+  - **The split is the owner's own** (grilling, 20.10.2026): «long press sets a point only on free
+    map. On a building/object: the hold highlights the outline and releasing opens the building —
+    no point there.» It is not widened: no pin over a building, no label beside the finger.
+  - **⚠️ The hold never arms under a tool** (owner, review round 3, 17.10.2026: «I can't delete
+    nodes when measuring because it wants to create a point»). The first long-press-to-pin fired
+    everywhere, including under a held measure node — the hold that removes the node
+    (`MapView · vertexPress`) — dropping a pin and leaving Messen, and it was removed for that.
+    The gate that brought it back is the one that already existed: while Messen, «Punkt setzen» or
+    Gefahrgut's centre takes the map's taps (`lib/karte/camera · toolTakesTaps`) the surface's hold
+    does nothing at all, and neither does the outline. `KarteApp.test` holds a node under Messen
+    and checks that no pin appears and the node still goes.
 - **A tool that waits for a tap takes every tap** (owner, review round 4, 17.10.2026: «while
   measuring we should also be able to measure on top of objects (not have the objects get
   highlighted)»). While Messen, «Punkt setzen» or Gefahrgut's centre (rings on) is armed, a tap on
@@ -437,8 +452,8 @@ The rules that are easy to break:
 - **A head that is still being looked up is a skeleton**, never «Gebäude» or «…» in place of a
   name: a tapped building until the register answers (a searched address is named at once), a
   dropped pin until its address is known. A plain building carries no «Kein Stationsobjekt …»
-  box — the kicker says «Gebäude», the line under the name says «Kein Stationsobjekt» once known,
-  and the closing «Keine Gefahrenangaben …» sentence still stands.
+  box — the kicker says «Gebäude» and the line under the name says «Kein Stationsobjekt» once
+  known. Nothing more is added about what the station did not record.
 - **«Register-Hinweis» is tap to open** (owner, review round 4: «should be tap to open and this
   blabla (gwr, stand, etc.) should all be hidden by default»). Under «Gebäude laut Register» the
   chips stand, and so does «Registereintrag Grenzweg 7, nicht Grenzweg 1» right under them when
@@ -446,12 +461,24 @@ The rules that are easy to break:
   the other building). The hint («Aus den Bundesregistern … Vor Ort prüfen.») and the source line
   (the registers and their Stand, the device's copy) are folded behind the «Register-Hinweis»
   toggle (`aria-expanded`), folded again for every place. The Einsatz's
-  Gebäude card (`BuildingCard`) is a different component and keeps its hint as it was; its tags
-  and the station's notes are the panel's own pieces (`components/BuildingFacts` · `RegisterTags`,
-  `StationNotes` – Karte Haus round 3), so the two cannot drift apart.
-- **Missing is said.** A register that could not be asked, a place never looked at offline, an
-  object without notes: each gets its sentence, and «Keine Gefahrenangaben … heisst nicht …»
-  closes the panel. Nothing reads as «no hazard».
+  Gebäude card (`BuildingCard`) wears the SAME disclosure since review round 7 — it was a `title=`
+  tooltip, which a finger never sees (owner, 20.10.2026): the button, what it opens and the aria
+  contract are `components/BuildingFacts` · `RegisterHintButton` / `RegisterHintBody`, each
+  surface in its own rhythm. Its tags and the station's notes are the panel's own pieces there too
+  (`RegisterTags`, `StationNotes` – Karte Haus round 3), so the two cannot drift apart.
+- **Missing is said – what was ASKED for and not answered.** A register that could not be asked,
+  a place never looked at offline: each gets its sentence, and nothing reads as «no hazard». What
+  the station simply never recorded is NOT announced: the closing «Keine Gefahrenangaben der
+  Station erfasst …» line went with review round 7, for objects and for plain buildings alike
+  (owner, 20.10.2026: «knowing that there could be something but it isn't filled doesn't help
+  anyone in case of an emergency»). The panel simply ends with its actions. A dropped pin keeps
+  its factual first sentence («Kein Stationsobjekt an diesem Punkt.») without the «Fehlende
+  Angaben heissen nicht …» tail.
+- **The panel remembers where it was scrolled to** (owner, 20.10.2026): leaving an Einsatzobjekt
+  for a plan, an Objektbesuch or the other level and coming back puts «Objektbesuch» back under
+  the thumb instead of the top of the sheet. Per place (`KartePanel · scrollKey`), the last 12,
+  restored once the sections that were still loading have made the body tall enough again.
+  Another object starts at the top.
 - **Doors by role.** «Objektbesuch» / «Melden» only for `objectVisits.captureRoles`
   (and only where the module runs); every other account reads the visits with a one-line reason.
 - **Search** finds objects on the device first — name, address, aliases, folded umlauts, every
@@ -685,11 +712,23 @@ The rules that are easy to break:
     and as an `offsetTop` pan) and moves it again under an uncancelled drag; the round-2 code
     reproduces the owner's screenshots there. The real keyboard, Safari's focus scroll and its
     AutoFill heuristics are only proven on the iPhone.
-- **Hints use the width they need** (review round 2): «Auf die Karte tippen …» is one pill as wide
-  as the bottom bar on a phone (max-content up to 640 px on a tablet), one or two lines; the
-  Gefahrgut card says where its rings stand first, right under the UN field. The pill is the
-  floating family's piece (01-tokens · `--float-*`): its row height, 14 px before a 16 px glyph,
-  and 8 px above and below the words (round 4: the text sat 4 px from the rim on two lines).
+- **One card explains the map** (owner, review round 7: «the info tooltip at the bottom has
+  different padding and coloration from the info button that you get when measuring»). «Auf die
+  Karte tippen, um einen Punkt zu setzen.» and the Messen dock's ⓘ are the SAME surface now, not
+  two look-alikes a hand's width apart: `DockInfo · MapHelpCard`, the message surface at the foot
+  of the map (on a phone in the message lane). `MeasurePanel · MapHint` renders it with
+  `role="status"` — an instruction that appeared because a tool was armed — and the ⓘ with
+  `role="tooltip"`. Hints use the width they need (review round 2): max-content up to 440 px, the
+  bars' width on a phone.
+- **A measure readout steps off the line, not off the node** (owner, review round 7: «when
+  measuring and setting a lot of nodes close together, the distances between the nodes can be
+  clipped by the nodes themselves»). Each «18 m» stands perpendicular to the segment it ends,
+  always on that segment's left in SCREEN space, so a row of close nodes gets a readable column of
+  numbers beside the path (`lib/measureLabelPlace`, unit-tested; the map's bearing turns the
+  geographic direction into the screen one, so the chips keep their side while the map rotates).
+  The chip is anchored by the edge that faces its node, so its own width runs away from the path —
+  a segment shorter than the label cannot push it over the neighbouring node either. The area
+  mode's single centroid label has no segment and keeps its place above the point.
 - **The bar's and the sheets' controls are the app's** (owner, review round 4: «the search icon
   being round, the (x) size …»): the phone's search button is the menu button's twin (44 px, the
   one corner, its frame) with the bar's 16 px glyph; every ✕ of the viewer — object sheet, search,
@@ -747,8 +786,9 @@ device Anleitungen to read in peace time — the Einsatz tab's word and glyph
   hairline as before. It is the Einsatz's NavRail in behaviour (owner, review round 5: «we can't
   expand the left toolbar so people might not know what it actually is»): the «Ausklappen» chevron
   on top and the grip widen it to 216px with the words beside the glyphs, open per mount like the
-  Einsatz's; «Beschriftung» (Einstellungen) puts the word under each glyph instead and drops the
-  chevron, live (`lib/useDevicePrefs · useRailLabels`). It publishes `--rail-w` through
+  Einsatz's. It always keeps the chevron and grip, including when «Beschriftung» is enabled in
+  Einstellungen (restored 2026-10-20): the toolbar preference must not replace this collapsible
+  navigation with words under the glyphs. It publishes `--rail-w` through
   `lib/useRail`, which the object panel, the plan reader, the floor list and this surface sit beside. On the Checkliste the right `ToolRail` is gone (as on a plan) and the bar's
   field searches the library; the map's own search words are kept for the way back.
 - **Remembered** like the plan: `KarteView.surface = 'checkliste'` (`lib/karte/session`), back
@@ -1028,6 +1068,23 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   **red dot** on its corner while an Einsatz runs or an alarm waits (it was a count); the count is
   in its accessible name: «Menü – <appName>, 2 offen». The red running-Einsatz strip under the bar
   stays. The Einsatz's own bar (IncidentSwitcher, the title ▾) is not this button.
+- **The arrival** (owner, 20.10.2026, after Wispr Flow's streak grid: «a very subtle loading
+  animation for the stuff that arrives» — picked «Welle» from a gallery of real-app clips). The
+  catalogue answers in one go and the dots and name tags used to land in one frame; now each
+  marker fades in a few milliseconds after its western neighbour, 420 ms across the screen and
+  260 ms per marker (`lib/karte/arrival` · `arrivalDelays`, with tests; `Karte.module.css` ·
+  `.arrive`). The wave waits for the basemap — the markers stand invisible until the map's first
+  settled frame (`onSettled`, MapLibre's `idle`; offline it comes at once) or 4 s at the latest,
+  because a wave over a blank canvas is one nobody sees. Computed ONCE from the view of that
+  moment, without the map, and only for markers mounted in the 2.5 s after it: one mounting
+  mid-wave joins where the wave stands (`waveDelay`) — a tag replacing its dot stands at once if
+  the dot had already arrived — and after the window every mount is instant, motion on an
+  interaction reads as lag. The red outlines, which answer a viewport fetch after the map, fade in over
+  280 ms when their layer first stands (`MapLayers` · `FilledOverlay`, `fadeIn`); a pan's new rings
+  update the source and never fade. The weather chip grows into the bar instead of shoving its
+  edge out (`10-journal.css` · `tb-chip-in`). Not animated, on purpose: the app menu and the search
+  rows (the owner's call, same day), and nothing on the Einsatz's Lage. Reduced motion: the
+  global zero-duration rule in `03-map.css`; the visual suite runs with it, so no baseline moved.
 - **The menu** (the button above) opens **the same menu as inside an Einsatz** (owner,
   17.10.2026 — it was the old launcher card with big launch buttons): one component,
   `panels/AppMenuRows`, renders the rows under the Einsatz menu's card (`IncidentSwitcher`) and the

@@ -368,12 +368,31 @@ describe('ContextPanel — ADR meanings and ERG «Absperrkreis übernehmen»', (
     protectedKeys: new Set(['UN-Nr.', 'Stoff']),
   })
 
-  it('prints the meaning beside class, label and packing-group codes', () => {
+  // review round 7: the words first, the code in brackets behind them — «3 – Entzündbare …» read
+  // as a code with a footnote, which is the wrong way round at 3am
+  it('prints each code as its meaning with the code in brackets', () => {
     // UN 1230 (METHANOL): class 3, labels 3 + 6.1, packing group II
     setup(tafel({ 'UN-Nr.': '1230', Stoff: '' }))
-    expect(screen.getAllByText(/3 – Entzündbare flüssige Stoffe/).length).toBeGreaterThan(0)
-    expect(screen.getByText(/6\.1 – Giftige Stoffe/)).toBeTruthy()
-    expect(screen.getByText(/II – mittlere Gefahr/)).toBeTruthy()
+    expect(screen.getAllByText(/Entzündbare flüssige Stoffe \(3\)/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Giftige Stoffe \(6\.1\)/)).toBeTruthy()
+    expect(screen.getByText(/mittlere Gefahr \(II\)/)).toBeTruthy()
+  })
+
+  // review round 7, owner: «move the bullet points of the Stoff to the very bottom» — the figures
+  // (tiles) first, the Kemler reading last, above the source line
+  it('puts the Stoff\'s bullet points after the figure tiles', () => {
+    // UN 1203 (Benzin): Gefahrnummer 33 → two Kemler bullets, five figures
+    setup(tafel({ 'UN-Nr.': '1203', Stoff: '' }))
+    const section = document.querySelector('.un-haz')!
+    const kids = [...section.children]
+    const tiles = kids.findIndex((el) => el.classList.contains('un-haz-tiles'))
+    const bullets = kids.findIndex((el) => el.classList.contains('un-haz-list'))
+    const source = kids.findIndex((el) => el.classList.contains('un-erg-src'))
+    expect(tiles).toBeGreaterThan(-1)
+    expect(bullets).toBeGreaterThan(tiles)
+    expect(source).toBeGreaterThan(bullets)
+    // the Gefahrnummer keeps its bare number, the coded figures carry their words first
+    expect(screen.getByText('33')).toBeTruthy()
   })
 
   it('«Absperrkreis übernehmen» hands the parsed distance to onAdoptRadius', () => {

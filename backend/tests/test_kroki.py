@@ -81,6 +81,18 @@ def test_sym_px_band_clamps():
     assert kk.sym_px("symbol", 47.5, 16, mul=0.5) == 14.0
 
 
+def test_sym_px_vehicle_floor_matches_the_screen():
+    """The sheet must print a vehicle on the same 34px floor the app draws it on.
+
+    The name lives inside the vehicle glyph, so it only grows with the glyph (client
+    lib/mapView.ts SYM_MIN_KIND). A server left on 28 would also place the legend disc and the
+    snapped Leitung ends for a glyph that is not the one on the picture.
+    """
+    assert kk.sym_px("vehicle", 47.5, 10) == 34.0
+    assert kk.sym_px("symbol", 47.5, 10) == 28.0  # and only the vehicle moves
+    assert kk.sym_px("vehicle", 47.5, 22) == 48.0  # shared ceiling, unchanged
+
+
 def test_kroki_symbol_mul_only_shrinks_close_up_views():
     """⚠️ The floor is 0.85 since 18.08. — held against the live map the printed symbols came out
     about half the relative size, and the shrink is only meant to stop a close-up crop merging

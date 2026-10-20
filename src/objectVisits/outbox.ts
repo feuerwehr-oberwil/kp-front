@@ -121,6 +121,8 @@ const serverMeta = (v: ServerVisit): LocalVisit['server'] => ({
   deliveries: Array.isArray(v.deliveries) ? v.deliveries : [],
   findings: v.findings,
   url: v.url ?? null,
+  completedAt: v.completedAt ?? null,
+  lockedAt: v.lockedAt ?? null,
 })
 
 /** Run `fn` under the visit's Web Lock. Another tab holding it ⇒ 'busy' (it is sending). A

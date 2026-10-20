@@ -104,14 +104,14 @@ describe('KarteSurface · the plan', () => {
 })
 
 // The Karte's left rail expands like the Einsatz's (owner, review round 5: «we can't expand the
-// left toolbar so people might not know what it actually is») and reads «Beschriftung».
+// left toolbar so people might not know what it actually is»).
 describe('KarteNavRail · expanding', () => {
   const railW = () => document.documentElement.style.getPropertyValue('--rail-w')
-  const rail = (labels: 'off' | 'short') => render(
-    <KarteNavRail obj={OBJ} docs={[DOC]} active="map" onMap={() => {}} onLibrary={() => {}} onDoc={() => {}} labels={labels} />)
+  const rail = () => render(
+    <KarteNavRail obj={OBJ} docs={[DOC]} active="map" onMap={() => {}} onLibrary={() => {}} onDoc={() => {}} />)
 
   it('the chevron widens the rail and publishes the width everything beside it follows', () => {
-    rail('off')
+    rail()
     const nav = screen.getByRole('navigation')
     expect(railW()).toBe('60px')
     fireEvent.click(screen.getByRole('button', { name: 'Ausklappen' }))
@@ -119,12 +119,5 @@ describe('KarteNavRail · expanding', () => {
     expect(railW()).toBe('216px')
     fireEvent.click(screen.getByRole('button', { name: 'Einklappen' }))
     expect(railW()).toBe('60px')
-  })
-
-  it('with «Beschriftung» on: the words under the glyphs, no chevron', () => {
-    rail('short')
-    expect(screen.getByRole('navigation').className).toContain('labelled')
-    expect(screen.queryByRole('button', { name: 'Ausklappen' })).toBeNull()
-    expect(railW()).toBe('92px')
   })
 })

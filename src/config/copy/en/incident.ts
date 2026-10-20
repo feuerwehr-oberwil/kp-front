@@ -204,6 +204,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     planOne: 'plan',
     planMany: 'plans',
     mapNote: 'Coordinates partly imprecise – the list is authoritative.',
+    mapUnavailable: 'Map image unavailable.',
     hideMap: 'Hide map',
     showMap: 'Show map',
   },

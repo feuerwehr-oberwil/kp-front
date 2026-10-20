@@ -38,7 +38,6 @@ import { cx } from '../../lib/cx'
 import { fillTemplate } from '../../lib/format'
 import { useAuth } from '../../lib/auth'
 import { useIsPhone } from '../../lib/useIsPhone'
-import { useRailLabels } from '../../lib/useDevicePrefs'
 import { useOnline } from '../../lib/useOnline'
 import { onReachable } from '../../lib/connectivity'
 import { useNightTheme } from '../../lib/useNightTheme'
@@ -50,6 +49,7 @@ import { useSymbols } from '../../lib/useSymbols'
 import { useMeasure } from '../../lib/useMeasure'
 import { useVehicleLayer } from '../../lib/useVehicleLayer'
 import { useWeather } from '../../lib/useWeather'
+import { ARRIVAL_MAP_WAIT_MS, ARRIVAL_WINDOW_MS, arrivalDelays, waveDelay } from '../../lib/karte/arrival'
 import { useKarteWeather } from '../../workspace/useKarteWeather'
 import { deploymentDefaultCenter, deploymentMenuMark, deploymentName, objectCategoryRules, objectVisitsConfig } from '../../lib/deploymentConfig'
 import { defaultLayers } from '../../lib/workspace'
@@ -86,6 +86,8 @@ import type { Entity, LayerDef, LayerId, LngLat, PreparedMapOverlay } from '../.
 import { MapView } from '../MapView'
 import { LayerPanel } from '../LayerPanel'
 import { MapHint, MeasurePanel } from '../MeasurePanel'
+import { LONG_PRESS_MOVE_TOL_PX, LONG_PRESS_MS } from '../../lib/useLongPress'
+import { buzz } from '../../lib/haptics'
 import { ToolDock } from '../ToolDock'
 import { ToolRail } from '../ToolRail'
 import { MapViewsButton, type ViewsApi } from '../MapViewsMenu'
@@ -269,6 +271,42 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }, [catStale])
   const objects = cat?.data?.objects ?? EMPTY_OBJECTS
   const byId = useMemo(() => new Map(objects.map((o) => [o.id, o])), [objects])
+  // ── the arrival (lib/karte/arrival): the markers' wave, once, when the catalogue has answered
+  // AND the basemap stands (the first settled frame, or ARRIVAL_MAP_WAIT_MS — until then the
+  // markers are mounted but invisible, `.waiting`); the window closes ARRIVAL_WINDOW_MS later and
+  // every marker mounted after it (a tag replacing its dot on zoom, a re-selection) is instant.
+  // A layout effect: the wave must be on the markers in the same paint that shows them.
+  const [mapUp, setMapUp] = useState(false)
+  useEffect(() => { const t = setTimeout(() => setMapUp(true), ARRIVAL_MAP_WAIT_MS); return () => clearTimeout(t) }, [])
+  // when the wave began and each object's place in it; what an ELEMENT (dot or tag) makes of that
+  // is decided once, on the element (arriveRef below)
+  const [arrival, setArrival] = useState<{ start: number; places: Map<string, number> } | null>(null)
+  const arrived = useRef(false)
+  useLayoutEffect(() => {
+    if (arrived.current || !objects.length || !mapUp) return
+    arrived.current = true
+    setArrival({ start: performance.now(), places: arrivalDelays(objects, view, rootRef.current?.clientWidth || window.innerWidth) })
+  }, [objects, view, mapUp])
+  useEffect(() => {
+    if (!arrival) return
+    const t = setTimeout(() => setArrival(null), ARRIVAL_WINDOW_MS)
+    return () => clearTimeout(t)
+  }, [arrival])
+  // A marker's entrance, decided ONCE on the element (ref callback: in the commit, before its first
+  // paint) — a changed animation-delay restarts a finished CSS animation, and the clock is not a
+  // thing to read in render. A tag that replaces its dot is a NEW element and joins where the wave
+  // stands (lib/karte/arrival · waveDelay): at once if the dot had already arrived. The class and
+  // the variable are not React's, so a later className change leaves the finished entrance alone.
+  const arriveRef = (id: string) => (el: HTMLButtonElement | null) => {
+    if (!el || el.dataset.arrived || !arrival) return
+    const place = arrival.places.get(id)
+    if (place == null) return
+    el.dataset.arrived = '1'
+    const wave = waveDelay(place, performance.now() - arrival.start)
+    if (wave == null) return
+    el.style.setProperty('--arrive', `${wave}ms`)
+    el.classList.add(s.arrive)
+  }
   // ── the station's object colours (config `map.objectCategories`, lib/karte/categories) ──────
   // An object no rule takes keeps the default look (red; grey without plans). Each category
   // is an Ebenen row of its own; a hidden one takes its objects off the map (outline, dot, tag,
@@ -760,8 +798,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     }
     // underground garages / shelters (a named row's, review round 3): dashed, barely filled —
     // under the buildings, so a house drawn over its garage keeps its solid line
-    for (const [color, slot] of byColor) if (slot.under.length) out.push({ id: `${slot.id}-under`, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.under, color, fillOpacity: 0.05, lineWidth: 1.6, lineOpacity: 0.85, lineDasharray: UNDER_DASH })
-    for (const [color, slot] of byColor) out.push({ id: slot.id, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.rings, color, fillOpacity: 0.14, lineWidth: 1.6, lineOpacity: 0.85 })
+    // both fade in when they first stand (MapLayers · fadeIn): the rings answer a viewport fetch
+    // after the map, and used to land in one frame
+    for (const [color, slot] of byColor) if (slot.under.length) out.push({ id: `${slot.id}-under`, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.under, color, fillOpacity: 0.05, lineWidth: 1.6, lineOpacity: 0.85, lineDasharray: UNDER_DASH, fadeIn: true })
+    for (const [color, slot] of byColor) out.push({ id: slot.id, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.rings, color, fillOpacity: 0.14, lineWidth: 1.6, lineOpacity: 0.85, fadeIn: true })
     // the selected object: EVERY one of its buildings in the strong style, in its own colour
     const mine = selObj ? outlines.get(selObj.id) : null
     const mineColor = (selObj && cats.get(selObj.id)?.color) ?? red
@@ -803,10 +843,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }, [layers, objectsOn, underOn])
 
   // ── taps ──────────────────────────────────────────────────────────────────────────────────
-  // ⚠️ No long press drops a pin (owner, review round 3, 17.10.2026: «I can't delete nodes when
-  // measuring because it wants to create a point»). Holding a measure node is how Messen removes it
-  // (MapView · vertexPress), and a hold anywhere on the map dropped a pin under the finger and left
-  // Messen. A pin is set with the ⊙ tool and a tap — the one way, on the phone and the tablet.
+  // ⚠️ A long press on the map drops a pin again (owner, review round 7, 20.10.2026) — but ONLY
+  // on free map, and only while no tool is armed. Round 3 killed the old one because it fired
+  // everywhere: «I can't delete nodes when measuring because it wants to create a point». Holding
+  // a measure node is how Messen removes it (MapView · vertexPress), so every tool that takes the
+  // map's taps (`takesTaps`) keeps its own hold and this one never arms — see `watchPress` below.
   /** The station object whose building is under `c`, and that building's ring (null when only an
    *  underground structure of it is). A building two objects claim (a row of houses named by its
    *  addresses, and a house of the row that is an object of its own) is the one whose point stands in it. */
@@ -821,7 +862,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     }
     return hit
   }
+  /** set while the hold has already answered this press: maplibre still fires its `click` on the
+   *  release, and that click — a tap on free map — would deselect the pin the hold just set. */
+  const heldClick = useRef(false)
   const onMapClick = (c: LngLat) => {
+    if (heldClick.current) { heldClick.current = false; return }
     if (tool === 'measure') { measure.setPath((pts) => [...pts, c]); return }
     if (tool === 'pin') { dropPin(c); return }
     if (tool === 'erg' && erg.mode !== 'off') { setErg((e) => ({ ...e, center: c, at: new Date() })); return }
@@ -925,6 +970,71 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     })
     box.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') hoverMove.current(null) })
   }, [])
+
+  // ── the finger's hold (owner, review round 7, points 7 + 11) ──────────────────────────────
+  // A touch has no hover, so until the finger lifts nothing on screen said WHAT it was about to
+  // open («highlight the building outlines on hold so we know what we're pressing before we let
+  // go»). Now the press itself answers, with the mouse's own outline — one highlight, two ways in:
+  //  · on a building or an object: it lights up while the finger is down, and the release opens it
+  //    exactly as a tap always did. NOT a pin — a hold there is a question, not a place.
+  //  · on free map: past the long press (lib/useLongPress · LONG_PRESS_MS, the one beat every
+  //    still hold in the app answers on) a pin drops where the finger is, as «Punkt setzen» + tap.
+  // The owner settled that split himself (grilling, 20.10.2026), so it is not widened here: no
+  // pin over a building, no highlight while a tool takes the taps.
+  //
+  // Any movement past the drag tolerance is a pan and cancels both — the map must stay a map.
+  const [pressed, setPressed] = useState<Hover | null>(null)
+  /** What this press means, decided the moment the finger lands. `null` = not ours (a mouse, a
+   *  marker, an armed tool); `pin` = free map, so the hold is a gesture and gets the timer. */
+  const onPressDown = (e: PointerEvent): { pin: (() => void) | null } | null => {
+    const map = mapRef.current
+    const canvas = map && typeof map.getCanvas === 'function' ? map.getCanvas() : null
+    // touch/pen only (a mouse has the hover), on the canvas itself (a marker, a handle and the
+    // measure nodes own their own press), and never under a tool that takes the map's taps
+    if (!map || !canvas || e.target !== canvas || takesTaps) return null
+    if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return null
+    const r = canvas.getBoundingClientRect()
+    const ll = map.unproject([e.clientX - r.left, e.clientY - r.top])
+    const c: LngLat = [ll.lng, ll.lat]
+    const obj = objectsOn ? objectAt(c) : null
+    const ring = obj ? null : ringAt(ringsNear(c), c)
+    if (obj) { setPressed({ kind: 'object', id: obj.id, ring: obj.ring }); return { pin: null } }
+    if (ring) { setPressed({ kind: 'plain', ring }); return { pin: null } }
+    // free map: the hold is the gesture, and the release that follows it is not a tap any more
+    return { pin: () => { heldClick.current = true; dropPin(c); buzz() } }
+  }
+  const pressDown = useRef(onPressDown)
+  useEffect(() => { pressDown.current = onPressDown })
+  const watchingPress = useRef(false)
+  const watchPress = useCallback(() => {
+    const map = mapRef.current?.getMap?.()
+    if (!map || typeof map.getCanvasContainer !== 'function' || watchingPress.current) return
+    watchingPress.current = true
+    const box = map.getCanvasContainer()
+    let live: { x: number; y: number; timer: number } | null = null
+    const end = () => {
+      if (live) { clearTimeout(live.timer); live = null }
+      setPressed((p) => (p ? null : p))
+    }
+    box.addEventListener('pointerdown', (e) => {
+      end()
+      const press = pressDown.current(e)
+      if (!press) return
+      const timer = press.pin ? window.setTimeout(() => { live = null; press.pin?.() }, LONG_PRESS_MS) : 0
+      live = { x: e.clientX, y: e.clientY, timer }
+    })
+    // past the tolerance the finger is panning, not pressing: the pin disarms and the lit
+    // outline goes out, or the map would answer a drag with a selection
+    box.addEventListener('pointermove', (e) => {
+      if (live && Math.hypot(e.clientX - live.x, e.clientY - live.y) > LONG_PRESS_MOVE_TOL_PX) end()
+    })
+    box.addEventListener('pointerup', end)
+    box.addEventListener('pointercancel', end)
+    // Android answers a long press with its own context menu — ours is the pin (lib/holdTooltip
+    // does the same for the buttons it explains)
+    box.addEventListener('contextmenu', (e) => { if (live || heldClick.current) e.preventDefault() })
+  }, [])
+
   // a tool armed under a still mouse: the hover goes at once, not on the next move
   const shownHover = takesTaps ? null : hover
   useLayoutEffect(() => { placeTip() }, [shownHover, placeTip])
@@ -945,18 +1055,22 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // what the mouse is over and the hydrant shown, over the selection: their own overlays, so a
   // hover never rebuilds (and re-sends) the station's outlines
   const blue = uiBlue()
+  /** what the mouse is over OR what the finger is holding (owner, review round 7, point 7): ONE
+   *  outline, so «this is what you are about to open» looks the same whichever hand lit it. Only
+   *  the label beside the cursor stays the mouse's — a finger covers the spot it would stand on. */
+  const outlined = shownHover ?? pressed
   const hoverOverlays = useMemo<PreparedMapOverlay[]>(() => {
     const out: PreparedMapOverlay[] = []
-    if (shownHover?.kind === 'object') {
-      const b = outlines.get(shownHover.id)
-      if (b) out.push({ id: 'karte-hover-object', kind: 'polygons', layer: ALWAYS_LAYER, rings: b.rings, color: cats.get(shownHover.id)?.color ?? red, fillOpacity: 0.16, lineWidth: 2.6, lineOpacity: 1 })
-      if (shownHover.ring) out.push({ id: 'karte-hover-house', kind: 'polygons', layer: ALWAYS_LAYER, rings: [shownHover.ring], color: '#ffffff', fillOpacity: 0, lineWidth: 2.5, lineOpacity: 1 })
-    } else if (shownHover?.kind === 'plain') {
-      out.push({ id: 'karte-hover-plain', kind: 'polygons', layer: ALWAYS_LAYER, rings: [shownHover.ring], color: blue, fillOpacity: 0, lineWidth: 2, lineOpacity: 1 })
+    if (outlined?.kind === 'object') {
+      const b = outlines.get(outlined.id)
+      if (b) out.push({ id: 'karte-hover-object', kind: 'polygons', layer: ALWAYS_LAYER, rings: b.rings, color: cats.get(outlined.id)?.color ?? red, fillOpacity: 0.16, lineWidth: 2.6, lineOpacity: 1 })
+      if (outlined.ring) out.push({ id: 'karte-hover-house', kind: 'polygons', layer: ALWAYS_LAYER, rings: [outlined.ring], color: '#ffffff', fillOpacity: 0, lineWidth: 2.5, lineOpacity: 1 })
+    } else if (outlined?.kind === 'plain') {
+      out.push({ id: 'karte-hover-plain', kind: 'polygons', layer: ALWAYS_LAYER, rings: [outlined.ring], color: blue, fillOpacity: 0, lineWidth: 2, lineOpacity: 1 })
     }
     if (hydPoint && px != null && py != null) out.push({ id: 'karte-hydrant-line', kind: 'line', layer: ALWAYS_LAYER, coords: [[px, py], hydPoint.coord], color: blue, width: 3, dasharray: [2, 1.5] })
     return out
-  }, [shownHover, outlines, cats, red, blue, hydPoint, px, py])
+  }, [outlined, outlines, cats, red, blue, hydPoint, px, py])
   const mapOverlays = useMemo(() => (hoverOverlays.length ? [...overlays, ...hoverOverlays] : overlays), [overlays, hoverOverlays])
 
   // the hydrant shown off-screen or under the panel: the map moves so both ends are in view
@@ -1122,8 +1236,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // lane meanwhile (lib/toastLane · usePlacementLane; owner, Karte Haus round 3: «the toasts
   // sometimes block … the point placement thing»)
   usePlacementLane(onMapSurface && (tool === 'pin' || tool === 'measure' || tool === 'erg'))
-  // Punkt setzen's instruction is a quiet line at the foot of the map, where Messen's stands
-  // (MeasurePanel · MapHint; owner 20.10.2026: at the top of the screen it was «a bit unnatural»).
+  // Punkt setzen's instruction stands at the foot of the map, where Messen's does (MeasurePanel ·
+  // MapHint; owner 20.10.2026: at the top of the screen it was «a bit unnatural») — and since
+  // review round 7 in the very card the Messen dock's ⓘ opens, not a quieter look-alike beside it.
   // The missing-catalogue notice is a MESSAGE: a sticky toast in the lane with the others.
   const pinHint = onMapSurface && tool === 'pin'
   const catNote = cat?.failed && !cat.data && !onLibrary ? (online ? C.loadFailed : C.noCatalogue) : null
@@ -1151,8 +1266,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }, [openDoc])
   // the tablet's left rail is always there (owner, 19.10.2026): Karte · Checkliste, then the plans
   const railShown = !phone
-  // «Beschriftung» from the Einstellungen, live (the home's settings sheet sits over this surface)
-  const railLabels = useRailLabels(phone)
   const tabletTools = [
     { id: 'pin', icon: 'pin', label: C.tools.pin },
     { id: 'measure', icon: 'measure', label: C.tools.measure },
@@ -1292,7 +1405,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           onMarkerMove={NOOP}
           onMarkerDragEnd={NOOP}
           onView={(v) => { setView(v); loadOutlines() }}
-          onSettled={() => { flyPending(); loadOutlines(); watchUserMoves(); watchHover() }}
+          onSettled={() => { setMapUp(true); flyPending(); loadOutlines(); watchUserMoves(); watchHover(); watchPress() }}
           freehand={null}
           onFreehand={NOOP}
           drawColor="#000000"
@@ -1329,7 +1442,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             if (!isSel && !(tagZoom && tagged?.has(o.id))) {
               return (
                 <Marker key={`dot:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" style={{ zIndex: 1, pointerEvents: takesTaps ? 'none' : undefined }}>
-                  <button type="button" className={cx(s.dotMk, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through)} style={catStyle} aria-label={o.name} title={o.name} onClick={pick} />
+                  <button type="button" ref={arriveRef(o.id)} className={cx(s.dotMk, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through, !mapUp && s.waiting)} style={catStyle} aria-label={o.name} title={o.name} onClick={pick} />
                 </Marker>
               )
             }
@@ -1339,7 +1452,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             const fit = fits.get(o.name)
             return (
               <Marker key={`tag:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" offset={[dx, 0]} style={{ zIndex: isSel ? 3 : 2, pointerEvents: takesTaps ? 'none' : undefined }}>
-                <button type="button" className={cx(s.tagMk, isSel && s.sel, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through)} style={fit ? { ...catStyle, width: fit } : catStyle} onClick={pick}>
+                <button type="button" ref={arriveRef(o.id)} className={cx(s.tagMk, isSel && s.sel, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through, !mapUp && s.waiting)} style={fit ? { ...catStyle, width: fit } : catStyle} onClick={pick}>
                   {tagText(o.name)}
                 </button>
               </Marker>
@@ -1482,8 +1595,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         {railShown && (
           <KarteNavRail obj={selObj} docs={docs} active={onLibrary ? 'library' : openDoc ? { doc: openDoc.doc.id } : 'map'}
             onMap={() => setSurface(null)} onLibrary={openLibrary} onDoc={(id) => { setSurface(id); setToolState(null) }}
-            notHeld={!online ? new Set(docs.filter((d) => docHeld(d) === false).map((d) => d.doc.id)) : null}
-            labels={railLabels} />
+            notHeld={!online ? new Set(docs.filter((d) => docHeld(d) === false).map((d) => d.doc.id)) : null} />
         )}
 
         {panelShown && panelSel && (
@@ -1584,7 +1696,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             <MeasurePanel mode={measure.mode} coords={measure.path} profile={measure.profile} profileLoading={measure.loading} className={s.measurePanel} />
           </>
         )}
-        {pinHint && <MapHint className={s.measurePanel}>{C.pinHint}</MapHint>}
+        {pinHint && <MapHint>{C.pinHint}</MapHint>}
 
         {tool === 'erg' && (
           <KarteGefahrgut
