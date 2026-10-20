@@ -1,4 +1,4 @@
-import { Fragment, lazy, Suspense, useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 import type { LayerDef } from '../types'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
@@ -8,6 +8,7 @@ import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
 import type { TwinLayerRow } from '../lib/georefTwins'
 import type { LayerPreset } from '../lib/layerPreset'
 import { useLayerData, type LayerData } from '../lib/layerData'
+import { ShellLoader } from './ShellLoader'
 import { fillTemplate, fmtFileSize } from '../lib/format'
 
 /** The «Niederschlag (Radar)» row (components/WeatherLayer) — a device pref routed by id like a
@@ -17,14 +18,6 @@ export interface WeatherLayerRow extends TwinLayerRow {
   attribution: string
   legend: { min_mm_h: number; color: string }[]
 }
-
-/* The app's own loading mascot in a layer row, behind a dynamic import ON PURPOSE: imported
-   statically it becomes a module the boot splash (components/Splash) and this panel share, the
-   bundler lifts that shared cluster — the snail, `lib/snailLaunch`, `ShellLoader` and its
-   stylesheet — into the entry, and `index.html` grows a second render-blocking stylesheet
-   (scripts/check-bundle-size · css). The chunk is a couple of kilobytes and arrives while the
-   row already says what it is doing; until it does, the row keeps its own glyph. */
-const RowSnail = lazy(() => import('./SnailLoader').then((m) => ({ default: m.SnailLoader })))
 
 const NO_GROUPS: readonly string[] = []
 
@@ -93,8 +86,8 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
   )
   /* What a GeoJSON Ebene is doing, in its own row (owner, review round 7: «Leitungen loads quite
      a lot of data … I need some sort of loading state»). The app fetches those files itself
-     (lib/layerData), so the row can name the bytes and fill a bar — the app's own snail where the
-     eye looks for a loader, the figures inline in the row, nothing added under it. A loading row
+     (lib/layerData), so the row can name the bytes and fill a bar — the app's own loader where
+     the eye looks for one, the figures inline in the row, nothing added under it. A loading row
      stays a button: switching the layer off again must not wait for the download. */
   const loads = useLayerData()
   const L = appConfig.copy.layerPanel
@@ -263,10 +256,12 @@ export function LayerPanel({ layers, onToggle, onOpacity, twins = [], twinsAfter
                   aria-label={`${l.label} – ${l.visible ? appConfig.copy.layerPanel.stateVisible : appConfig.copy.layerPanel.stateHidden}${note ? ` – ${note.sub}` : ''}`}
                   onClick={() => onToggle(l.id)}
                 >
-                  <span className="ic">
-                    {loading
-                      ? <Suspense fallback={<Icon id={l.icon} />}><RowSnail idleOnly /></Suspense>
-                      : <Icon id={l.icon} />}
+                  {/* `ShellLoader`, not the boot mascot: in-workspace activity is what it is
+                      for (components/ShellLoader, 01.10.2026) — it traces the mascot's own shell
+                      spiral, it already travels in this chunk, and the full `SnailLoader` here
+                      cost cold start two preloaded chunks for a loader nobody sees at launch. */}
+                  <span className={`ic ${loading ? 'ic-loading' : ''}`}>
+                    {loading ? <ShellLoader /> : <Icon id={l.icon} />}
                   </span>
                   <span className="name">
                     {l.label}

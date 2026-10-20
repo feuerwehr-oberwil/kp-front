@@ -122,7 +122,7 @@ the file while the layer is switched on, counts the bytes against the `Content-L
 once and hands the collection to the source. MapLibre pointed at the URL would download it a
 second time inside its worker and, worse, say nothing meanwhile: a station's «Leitungen» is
 megabytes, and the Ebenen row stood there unchanged until it was done. The row now carries the
-app's snail, «Wird geladen … 1.2 MB von 3.4 MB» and a determinate bar (`LayerPanel`). The size it
+app's own `ShellLoader`, «Wird geladen … 1.2 MB von 3.4 MB» and a determinate bar (`LayerPanel`). The size it
 divides by is the endpoint's own `X-Raw-Bytes` header, never `Content-Length`: the API gzips
 anything over 1 KB, so `Content-Length` counts compressed bytes while the browser's stream hands
 out decoded ones — dividing by it claimed «3.4 MB von 900 KB». Without a raw size the loader
