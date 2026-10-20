@@ -140,7 +140,7 @@
 /* coordinate readout — subtle, bottom-centre, shown only while picking/locked. Two columns: the
    value rows on the left, the ✕ on the right, the hint spanning under both. The glass itself
    lets pointer events through (the map under it stays pannable); only the ✕ catches them. */
-.coord-read { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome);
+.coord-read { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome-raised);
   display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px;
   padding: 8px 8px 8px 12px; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--e4); pointer-events: none; }
@@ -149,19 +149,13 @@
 .cr-row { display: flex; align-items: baseline; gap: 8px; }
 .cr-tag { font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .08em; color: var(--ink-faint); width: 42px; }
 .cr-val { font-family: var(--mono); font-size: var(--fs-1); color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.cr-hint { grid-column: 1 / -1; margin-top: 4px; font-size: var(--fs-micro); font-weight: var(--fw-medium); color: var(--ink-faint); text-align: center; }
+/* the mode's instruction: an interactive mode's text, so the --fs-1 floor and the MapHint ink */
+.cr-hint { grid-column: 1 / -1; margin-top: 4px; font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-dim); text-align: center; }
 .coord-read.aiming .cr-hint { color: var(--blue); }
-/* the one exit that is ON the readout — both states, same place. 36px inside a glass strip that
-   is itself only ~60px tall; the rail button and Esc are the 44px exits. */
-.cr-x { width: 36px; height: 36px; border-radius: var(--r-sm); border: none; background: none; color: var(--ink-dim);
-  display: grid; place-items: center; cursor: pointer; pointer-events: auto; }
-.cr-x .i { width: 18px; height: 18px; }
-.cr-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-@media (hover: hover) { .cr-x:hover { color: var(--ink); background: var(--fill-soft); } }
-/* when the measure tool is active its results panel also sits bottom-centre (z35);
-   lift the readout clear above it and keep it on top so the two never collide */
-.coord-read { z-index: var(--z-chrome-raised); }
-.coord-read-stacked { bottom: 200px; }
+/* the one exit that is ON the readout — both states, same place. It IS the global `.ip-x`
+   (13-incident: 36px, grey, the 44px pad of 02-base); this only takes it out of the glass's
+   click-through. */
+.cr-x { pointer-events: auto; }
 
 /* locked coordinate reticle on the map */
 .pick-reticle { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--blue);
