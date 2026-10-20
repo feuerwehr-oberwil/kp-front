@@ -52,7 +52,10 @@
 .adm-setup > .adm-setup-row:last-child { border-bottom: 0; padding-bottom: 0; }
 .adm-setup > .adm-setup-row:first-child { padding-top: 0; }
 .adm-setup-acts { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
-.adm-setup-acts > .btn { flex: none; padding: 6px 10px; min-height: 34px; font-size: 12px; }
+.adm-setup-acts > .btn { flex: none; padding: 6px 10px; }
+@media (pointer: fine) {
+  .adm-setup-acts > .btn { min-height: 34px; font-size: 12px; }
+}
 /* the row's own «dorthin», quiet: the page it opens is the answer, the button is only the door */
 .adm-setup-open { border-color: transparent; background: none; color: var(--ink-dim); }
 @media (hover: hover) {

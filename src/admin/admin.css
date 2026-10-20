@@ -370,8 +370,13 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   color: var(--blue);
 }
 .adm-set-grp-act { margin-left: auto; display: flex; align-items: center; gap: 6px; }
-/* the bin of a record head — the two-step ConfirmButton keeps its own width when armed */
-.adm-set-grp-act .adm-formlink-x { width: 32px; height: 32px; }
+/* the bin of a record head — the two-step ConfirmButton keeps its own width when armed.
+   ⚠️ Compact bins (here and in the three record shapes below) only where a fine pointer is doing
+   the pointing: the Kommandant fills this page in with a finger on an iPad, and `--tap` is the
+   floor there (ui-conventions › Touch). */
+@media (pointer: fine) {
+  .adm-set-grp-act .adm-formlink-x { width: 32px; height: 32px; }
+}
 .adm-set-grp-act .adm-confirm { text-transform: none; letter-spacing: normal; }
 
 /* one setting */
@@ -446,7 +451,9 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 /* two controls sharing one cell — a field and the bin that deletes its row */
 .adm-set-inline { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
 .adm-set-inline > .adm-input { flex: 1 1 auto; min-width: 0; }
-.adm-set-inline > .adm-formlink-x { flex: none; width: 34px; height: 34px; }
+@media (pointer: fine) {
+  .adm-set-inline > .adm-formlink-x { width: 34px; height: 34px; }
+}
 
 /* a list editor's «+ hinzufügen», sitting in the table rather than under it */
 .adm-settings .adm-formlink-add { margin-top: 0; }
@@ -517,7 +524,9 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
 .adm-irec-act { display: flex; align-items: center; justify-content: flex-end; }
-.adm-irec-act .adm-formlink-x { width: 34px; height: 34px; }
+@media (pointer: fine) {
+  .adm-irec-act .adm-formlink-x { width: 34px; height: 34px; }
+}
 .adm-irec-act .adm-confirm { text-transform: none; letter-spacing: normal; }
 .adm-irec-note { grid-column: 1 / -1; margin-top: -2px; font-size: 12px; line-height: 1.45; color: var(--ink-dim); }
 .adm-irec-note .adm-set-note { padding: 8px 12px; border-bottom: 0; border-radius: var(--r-sm); }
@@ -593,7 +602,9 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-rec-meta { font: var(--fw-medium) 11.5px/1.35 var(--mono); color: var(--ink-faint); overflow-wrap: anywhere; }
 /* the record's own control sits at the RIGHT edge of the head line, whatever the name's length */
 .adm-rec-act { margin-left: auto; display: flex; align-items: center; gap: 6px; }
-.adm-rec-act .adm-formlink-x { width: 32px; height: 32px; }
+@media (pointer: fine) {
+  .adm-rec-act .adm-formlink-x { width: 32px; height: 32px; }
+}
 .adm-rec-act .adm-confirm { text-transform: none; letter-spacing: normal; }
 
 /* the three columns of a record's rows */
@@ -1386,7 +1397,9 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-members-actions-col { width: 1%; white-space: nowrap; }
 .adm-members-actions { display: flex; flex-wrap: wrap; gap: 7px; }
 /* compact look, but keep a real touch target — four of these sit side by side per row */
-.adm-members-actions .adm-int-btn { padding: 7px 12px; min-height: 36px; }
+@media (pointer: fine) {
+  .adm-members-actions .adm-int-btn { padding: 7px 12px; min-height: 36px; }
+}
 .adm-members-rowerr { padding: 8px 0 0; text-align: left; }
 
 .adm-members-editrow td { background: var(--fill-soft); }
@@ -1741,7 +1754,10 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 /* «N Abgänge warten» — the one connector fact somebody has to GO somewhere to finish, so it sits
    in its own cell as a button rather than as another caption line. Compact: it lives inside a
    dense table cell, and the row is the target, not the page's main action. */
-.adm-sys-nudge { margin-top: 6px; font-size: var(--fs-1); min-height: 32px; }
+.adm-sys-nudge { margin-top: 6px; font-size: var(--fs-1); }
+@media (pointer: fine) {
+  .adm-sys-nudge { min-height: 32px; }
+}
 /* The read-only folder list under the SharePoint card – the hairline above says it is a separate
    statement from the run above it.
    ⚠️ NO margin of its own. It is a direct child of `.adm-card-body`, which is a flex column with
@@ -1823,7 +1839,9 @@ p.adm-sys-path { margin: 3px 0 0; }
 /* A row's own action is row-sized – the same compact pair the people tables use. A full-height
    button in a 12.5px table row reads as the page's main action, which deleting one line of
    history is not. */
-.adm-history-table .btn { min-height: 36px; padding: 7px 12px; }
+@media (pointer: fine) {
+  .adm-history-table .btn { min-height: 36px; padding: 7px 12px; }
+}
 /* …and its status pill is the dense one, or a 9.5px QUELLE chip stands beside a full-size badge
    in the next column and the two read as different kinds of thing. */
 .adm-history-table .adm-badge { padding: 5px 10px; }
@@ -1836,10 +1854,13 @@ p.adm-sys-path { margin: 3px 0 0; }
 .adm-menu { position: relative; display: inline-flex; }
 .adm-menu-btn {
   display: grid; place-items: center;
-  width: 36px; height: 36px; padding: 0;
+  width: var(--tap); height: var(--tap); padding: 0;
   border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--fill-soft); color: var(--ink-dim); cursor: pointer;
   transition: background .14s var(--ease), border-color .14s var(--ease), color .14s var(--ease);
+}
+@media (pointer: fine) {
+  .adm-menu-btn { width: 36px; height: 36px; }
 }
 @media (hover: hover) {
   .adm-menu-btn:hover { background: var(--surface); color: var(--ink); border-color: color-mix(in srgb, var(--blue) 30%, var(--border)); }
@@ -1971,7 +1992,10 @@ p.adm-sys-path { margin: 3px 0 0; }
    HTML, also sind es zwei Geschwister – die Navigationszeile nimmt den Rest der Breite. */
 .adm-setup-item { display: flex; align-items: center; gap: 6px; }
 .adm-setup-item > .adm-setup-row { flex: 1 1 auto; min-width: 0; }
-.adm-setup-ack { flex: none; padding: 6px 10px; min-height: 34px; font-size: 12px; }
+.adm-setup-ack { flex: none; padding: 6px 10px; min-height: var(--tap); font-size: var(--fs-1); }
+@media (pointer: fine) {
+  .adm-setup-ack { min-height: 34px; font-size: 12px; }
+}
 .adm-setup-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: var(--tap);
   padding: 6px 10px; border: none; border-radius: var(--r-ctl); background: none;
   color: inherit; text-align: left; font: inherit; cursor: pointer; }
@@ -2007,6 +2031,12 @@ p.adm-sys-path { margin: 3px 0 0; }
 }
 .adm-slist-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-slist-x .i { width: 15px; height: 15px; }
+/* a finger needs 44px, the chip is 40: the hit area grows past the pill on a touch screen only,
+   where a visible 44px circle would be a lump in a 40px chip */
+@media (pointer: coarse) {
+  .adm-slist-x { position: relative; width: 30px; height: 30px; }
+  .adm-slist-x::after { content: ''; position: absolute; inset: -7px; }
+}
 /* an armed chip (ConfirmButton's question + Ja/Abbrechen) IS the amber wash — the pill does not
    wear a second box inside itself */
 .adm-slist-item:has(.adm-confirm) { padding: 4px 8px 4px 12px; background: var(--amber-12);

@@ -18,13 +18,19 @@
 /* The status filter is the QUIET control of the page (UI sweep 07.10.2026, E6): it narrows a
    list, it does not move you anywhere. It wore the same blue fill as the page tabs above it, so
    the two read as one rank. Chosen = a raised white chip on the track, in ink. */
-.aop-tools .useg-btn { min-height: 34px; padding: 4px 12px; font-size: var(--fs-1); }
+.aop-tools .useg-btn { padding: 4px 12px; font-size: var(--fs-1); }
+@media (pointer: fine) {
+  .aop-tools .useg-btn { min-height: 34px; }
+}
 .aop-tools .useg-btn.on { background: var(--surface); color: var(--ink); box-shadow: var(--e3); }
 
-/* A record's head is a LINE, not a toolbar: its buttons match the 32–36px controls every other
-   record head carries (admin.css · .adm-rec-act), not the 44px of a page action. Only the
-   Übersicht tab still brings record cards in – the object's own surfaces are tables. */
-.adm-object-plans .adm-rec-act .adm-int-btn { min-height: 36px; padding: 7px 12px; }
+/* A record's head is a LINE, not a toolbar: with a mouse its buttons match the 32–36px controls
+   every other record head carries (admin.css · .adm-rec-act), not the 44px of a page action; a
+   finger gets the 44px. Only the Übersicht tab still brings record cards in – the object's own
+   surfaces are tables. */
+@media (pointer: fine) {
+  .adm-object-plans .adm-rec-act .adm-int-btn { min-height: 36px; padding: 7px 12px; }
+}
 
 /* the Objektstandorte map has no intrinsic height */
 .aop-map { position: relative; height: min(50dvh, 480px); min-height: 280px; }
@@ -104,7 +110,10 @@
 .adm-table.adm-vtable.aop-plantable td:last-child { width: 72px; white-space: nowrap; }
 .aop-planact { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
 /* a row with no kebab holds its place open, so every chevron stays in one line */
-.aop-act-gap { display: inline-block; width: 34px; flex: 0 0 34px; }
+.aop-act-gap { display: inline-block; width: var(--tap); flex: 0 0 var(--tap); }
+@media (pointer: fine) {
+  .aop-act-gap { width: 34px; flex-basis: 34px; }
+}
 /* the same row-is-the-control vocabulary as .aop-row: the finger gets the whole `<tr>`, a
    keyboard and a screen reader get the button spanning the Modul cell, and both light the row. */
 .aop-planrow { cursor: pointer; }

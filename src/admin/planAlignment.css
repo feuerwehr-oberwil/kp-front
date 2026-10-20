@@ -251,10 +251,14 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
 .adm-floor-parts { display: flex; flex-direction: column; gap: 4px; }
 .adm-floor-part { display: flex; align-items: stretch; gap: 4px; }
 .adm-floor-part-pick { flex: 1 1 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  min-height: 34px; padding: 5px 10px; text-align: left; font: var(--fw-medium) 12px var(--body); color: var(--ink);
+  min-height: var(--tap); padding: 5px 10px; text-align: left; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink);
   border: 1px solid var(--border-soft); border-radius: var(--r-ctl); background: var(--fill-soft); cursor: pointer; }
 .adm-floor-part.on .adm-floor-part-pick { border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); background: color-mix(in srgb, var(--blue) 7%, var(--surface)); }
-.adm-floors .adm-floor-part-x { flex: 0 0 auto; min-height: 34px; padding-inline: 8px; color: var(--del-ink); border-color: var(--del-edge); }
+.adm-floors .adm-floor-part-x { flex: 0 0 auto; min-width: var(--tap); padding-inline: 8px; color: var(--del-ink); border-color: var(--del-edge); }
+@media (pointer: fine) {
+  .adm-floor-part-pick { min-height: 34px; font-size: 12px; }
+  .adm-floors .adm-floor-part-x { min-height: 34px; min-width: 0; }
+}
 .adm-floor-acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .adm-floors .adm-floor-acts .btn { flex: 1 1 auto; min-height: var(--tap); }
 .adm-floor-acts .i { width: 15px; height: 15px; }
