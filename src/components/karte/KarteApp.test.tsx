@@ -1113,10 +1113,12 @@ describe('KarteApp', () => {
     fireEvent.click(within(nav).getByRole('button', { name: /Gefahrgut/ }))
     const sheet = await screen.findByRole('region', { name: 'Gefahrgut' })
     fireEvent.change(sheet.querySelector('input') as HTMLInputElement, { target: { value: '1203' } })
-    const row = await within(sheet).findByText('BENZIN oder OTTOKRAFTSTOFF')
-    expect(row.previousElementSibling?.textContent).toBe(appConfig.copy.contextPanel.unSubstance)
-    // the first row of the readout
-    expect(sheet.querySelector('.un-haz-row')).toBe(row.parentElement)
+    // review round 7: the name is the readout's hero line, not a «Stoff» row — first thing in
+    // the readout, with the label kept for the screen reader
+    const hero = (await within(sheet).findByText(/BENZIN oder OTTOKRAFTSTOFF/)).closest('.un-haz-hero')
+    expect(hero).toBeTruthy()
+    expect(hero?.textContent).toBe(`${appConfig.copy.contextPanel.unSubstance}: BENZIN oder OTTOKRAFTSTOFF`)
+    expect(hero?.previousElementSibling?.className).toContain('ctx-section-label')
   })
 
   // owner R4-1: «move "station" up in ebenen all the way to the top»

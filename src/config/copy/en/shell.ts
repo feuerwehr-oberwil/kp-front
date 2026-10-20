@@ -24,6 +24,12 @@ export const shellCopy: Localizable<Pick<Copy, Keys>> = {
     hideAll: 'Hide all',
     reset: 'Default',
     custom: 'Custom',
+    // a GeoJSON layer (pipes, hydrants …) downloads a multi-megabyte file: the row says how far
+    // it has got, with figures once the server sends a size, otherwise with the loader alone
+    loading: 'Loading …',
+    loadingOf: 'Loading … {done} of {total}',
+    loadEmpty: 'No data in this layer',
+    loadFailed: 'Not loaded – switch off and on to retry',
   },
 
   truppFinder: {

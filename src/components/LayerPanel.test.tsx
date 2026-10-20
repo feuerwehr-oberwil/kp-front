@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { LayerPanel } from './LayerPanel'
 import type { LayerDef } from '../types'
 import { appConfig } from '../config/appConfig'
 import { isTwinLayerId, twinPlanImageLayerId, type TwinLayerRow } from '../lib/georefTwins'
+import { __resetLayerData, loadLayerData } from '../lib/layerData'
+import { fillTemplate, fmtFileSize } from '../lib/format'
 
 afterEach(cleanup)
 
@@ -212,5 +214,50 @@ describe('LayerPanel · groupsAfterTwins', () => {
   it('leaves it in place when there are no plans', () => {
     render(<LayerPanel layers={[lage, water, under]} twinsAfterGroup="Inhalte" groupsAfterTwins={['Station']} onToggle={noop} onOpacity={noop} />)
     expect(heads()).toEqual(['Inhalte', 'Wasser', 'Station'])
+  })
+})
+
+/* A GeoJSON Ebene («Leitungen») downloads megabytes before it can draw anything. Its row says so
+ * itself — the app's own loader in the icon slot, the figures and the bar inline in the row —
+ * and stays a button while it loads (owner, review round 7, mock A). */
+describe('LayerPanel · an Ebene that is still loading', () => {
+  const pipes: LayerDef = { id: 'leitungen', group: 'Wasser', label: 'Leitungen', icon: 'layers', visible: true, geojson: '/data/leitungen.geojson' }
+  const L = appConfig.copy.layerPanel
+
+  let release: (() => void) | null = null
+  afterEach(() => { release?.(); release = null; __resetLayerData(); vi.unstubAllGlobals() })
+
+  /** a response that delivers one chunk and then hangs, so the row stands in «loading» */
+  const hanging = (first: number, total: number) => {
+    const body = new ReadableStream<Uint8Array>({
+      start(c) { c.enqueue(new Uint8Array(first)); release = () => c.close() },
+    })
+    return new Response(body, { status: 200, headers: { 'Content-Length': String(total) } })
+  }
+
+  it('shows the snail, the bytes so far and a determinate bar — and still toggles', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => hanging(512, 2048)))
+    const onToggle = vi.fn()
+    loadLayerData(pipes.id, pipes.geojson!)
+    render(<LayerPanel layers={[pipes]} onToggle={onToggle} onOpacity={noop} />)
+    const note = await screen.findByText(fillTemplate(L.loadingOf, { done: fmtFileSize(512), total: fmtFileSize(2048) }))
+    expect(note.tagName).toBe('SMALL')
+    // the app's own loader, in the row's icon slot — not a generic spinner beside it. It is a
+    // lazy chunk (see LayerPanel · RowSnail), so it arrives a tick after the row.
+    await waitFor(() => expect(document.querySelector('.lrow .ic .snail-loader')).toBeTruthy())
+    // the bar is INSIDE the row's name column, and it is determinate
+    const bar = document.querySelector<HTMLElement>('.lrow .name .lload-bar > i')
+    expect(bar?.style.width).toBe('25%')
+    // …and the row has not stopped being a switch while it loads
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(pipes.label) }))
+    expect(onToggle).toHaveBeenCalledWith(pipes.id)
+  })
+
+  it('an empty file says so instead of looking like it is still loading', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ type: 'FeatureCollection', features: [] }), { status: 200 })))
+    loadLayerData(pipes.id, pipes.geojson!)
+    render(<LayerPanel layers={[pipes]} onToggle={noop} onOpacity={noop} />)
+    expect(await screen.findByText(L.loadEmpty)).toBeTruthy()
+    expect(document.querySelector('.lrow .snail-loader')).toBeNull()
   })
 })

@@ -47,5 +47,12 @@ export const shellCopy = {
     // Ebenen-Knopf, wenn die Ebenen weder Standard noch «Alle ein/aus» sind (05.10.2026):
     // ein Punkt am Knopf, dieses Wort im Screenreader und Tooltip
     custom: 'Eigene Auswahl',
+    /* Eine GeoJSON-Ebene (Leitungen, Hydranten …) lädt eine mehrere Megabyte grosse Datei.
+       Die Zeile sagt selbst, wie weit sie ist – mit Zahlen, sobald der Server die Grösse
+       mitschickt, sonst nur mit dem Lade-Symbol (Owner, Review-Runde 7, 20.10.2026). */
+    loading: 'Wird geladen …',
+    loadingOf: 'Wird geladen … {done} von {total}',
+    loadEmpty: 'Keine Daten in dieser Ebene',
+    loadFailed: 'Nicht geladen – aus- und wieder einschalten',
   },
 } as const
