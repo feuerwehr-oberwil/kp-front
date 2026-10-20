@@ -197,6 +197,9 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     modeNodes: 'Punti',
     on: 'Attivo',
     off: 'Spento',
+    // the same pair when the row is a QUESTION («Übung?»): OnOff `question`
+    no: 'No',
+    yes: 'Sì',
     lock: 'Blocca',
     lockHint: 'Blocca la forma contro spostamenti accidentali; tieni premuto il lucchetto al centro per sbloccare.',
     unlockHold: 'Tieni premuto per sbloccare',

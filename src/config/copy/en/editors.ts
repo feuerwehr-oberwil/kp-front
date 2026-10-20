@@ -200,6 +200,9 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
     modeNodes: 'Points',
     on: 'On',
     off: 'Off',
+    // the same pair when the row is a QUESTION («Übung?»): OnOff `question`
+    no: 'No',
+    yes: 'Yes',
     lock: 'Lock',
     lockHint: 'Locks the shape against accidental moves; press and hold the lock in the center to unlock.',
     unlockHold: 'Hold to unlock',

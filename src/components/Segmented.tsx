@@ -44,21 +44,26 @@ export function Segmented<T extends string | number | boolean>({ options, value,
 }
 
 /**
- * A yes/no property, in the app's ONE binary idiom (decided 01.09.): the Segmented pair, «Aus»
- * left and «An» right. Both answers stay on screen, so «ist das an» is read rather than deduced
- * from a single chip — which, before this, showed the state it was IN on some rows and carried
- * only an icon on others, three idioms for one question inside the same two sheets.
+ * A yes/no property, in the app's ONE binary idiom (decided 01.09.): the Segmented pair, the
+ * false answer left and the true one right. Both answers stay on screen, so «ist das an» is read
+ * rather than deduced from a single chip — which, before this, showed the state it was IN on some
+ * rows and carried only an icon on others, three idioms for one question inside the same two sheets.
+ * The words follow what the row IS (20.10.2026, owner: «ja/nein everywhere» for the Übung): a
+ * setting or a property is «Aus | An»; a row that asks a QUESTION about the thing («Übung?») is
+ * `question` → «Nein | Ja». Same pair, same order, on every device.
  * ⚠️ The labels are read HERE, inside the component: captured at module level they would freeze
  * the catalogue at import time and never follow the deployment's locale (AGENTS.md · i18n).
  */
-export function OnOff({ value, onChange, ariaLabel }: {
+export function OnOff({ value, onChange, ariaLabel, question }: {
   value: boolean
   onChange: (value: boolean) => void
   ariaLabel: string
+  /** the row asks a question («Übung?»): «Nein | Ja» instead of «Aus | An» */
+  question?: boolean
 }) {
   const D = appConfig.copy.drawingEditor
   return (
     <Segmented ariaLabel={ariaLabel} value={value} onChange={onChange}
-      options={[{ value: false, label: D.off }, { value: true, label: D.on }]} />
+      options={[{ value: false, label: question ? D.no : D.off }, { value: true, label: question ? D.yes : D.on }]} />
   )
 }
