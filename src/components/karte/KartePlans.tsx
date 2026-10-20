@@ -129,7 +129,7 @@ export function KarteSurface({ obj, doc, phone, sym, onMap, offline = false, hel
         <button type="button" className="wb-scale-chip" onClick={onMap}><Icon id="footprint" />{phone ? C.backToMap : obj.name}</button>
         {/* the mockup's lamp chip: always on the tablet, on the phone only when it matters (offline) */}
         {held != null && (!phone || offline) && (
-          <span className="wb-scale-chip" role="status"><LampDot lamp={held ? 'device' : 'online'} />{held ? C.planOnDevice : C.planOnlineOnly}</span>
+          <span className="wb-scale-chip wb-scale-status" role="status"><LampDot lamp={held ? 'device' : 'online'} />{held ? C.planOnDevice : C.planOnlineOnly}</span>
         )}
       </div>
     </div>

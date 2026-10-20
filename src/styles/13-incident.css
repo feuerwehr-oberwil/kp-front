@@ -15,10 +15,14 @@
   background: var(--glass); box-shadow: var(--e3); color: var(--ink);
   font: var(--fw-bold) var(--fs-2)/1.1 var(--body); cursor: pointer;
 }
+/* hover: a wash laid OVER the glass (an image, like the press) – --surface by day was white on
+   white glass, i.e. no hover at all (20.10.2026) */
 @media (hover: hover) {
-  .ip-switch-btn:hover { background: var(--surface); }
+  .ip-switch-btn:hover { background-image: linear-gradient(var(--hover), var(--hover)); }
 }
-.ip-switch-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* pressed while held AND while its menu is open – the Einsatz switcher and the Karte's menu/search
+   pills alike (owner 20.10.: the Karte's stayed pressed, the Einsatz's did not) */
+.ip-switch-btn:is(:active:not(:disabled), [aria-expanded='true']) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-switch-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 0 1 auto; }
 .ip-switch-btn svg { width: 16px; height: 16px; opacity: .6; flex: none; }
 /* sync-status mark in the incident switcher — a FIXED 16px slot so the constant saving↔saved
@@ -628,7 +632,7 @@
 .ui-search-x { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
   padding: 0; border: none; border-radius: var(--r-sm); background: none; color: var(--ink-dim); cursor: pointer;
   -webkit-tap-highlight-color: transparent; }
-@media (hover: hover) { .ui-search-x:hover { color: var(--ink); } }
+@media (hover: hover) { .ui-search-x:hover { color: var(--ink); background: var(--hover-strong); } }
 .ui-search-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ui-search-x .i { width: 16px; height: 16px; }
 /* THE one modifier — a card whose whole head IS the search (TruppFinder): the card is the
@@ -644,7 +648,7 @@
    It had four «open» looks in three sizes: white 14→28% (dark docks), an accent-red frame
    (QR-Bogen — station red saying «help is open»), the ink «where you are» pill (Verlauf) and the
    blue choice fill (Georef). One now: the grey icon chip of the sheet ✕ (36px, 18px glyph, a 44px
-   pad), and OPEN = the blue wash with a `--blue-strong` glyph. The dark docks keep DockInfo. */
+   pad), and OPEN = the blue wash with a `--blue-strong` glyph. The tool docks keep DockInfo. */
 .ui-info { position: relative; flex: none; display: grid; place-items: center; width: 36px; height: 36px;
   padding: 0; border: none; border-radius: var(--r-sm); cursor: pointer;
   background: var(--ink-8); color: var(--ink-dim);
@@ -806,7 +810,10 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
 .list-row.on { background: var(--ink-fill); color: var(--on-accent-ink); }
 .list-row.on .list-row-sub, .list-row.on .list-row-end, .list-row.on .list-row-lead, .list-row.on .list-row-chev { color: var(--on-accent-ink); }
 
-.list-card { display: flex; flex-direction: column; background: var(--surface); border-radius: var(--r-surface);
+/* never shrinks (flex: none): its host scrolls, the card keeps every row whole. The overflow is
+   only for the corners, and it let a flex column squeeze the card and cut rows in half (the
+   Karte's search, owner 20.10.) */
+.list-card { display: flex; flex-direction: column; flex: none; background: var(--surface); border-radius: var(--r-surface);
   box-shadow: 0 0 0 1px var(--border-soft); overflow: hidden; }
 .list-card > .list-row + .list-row { box-shadow: inset 0 1px 0 var(--border-soft); }
 .list-card-rail { gap: 2px; background: none; box-shadow: none; border-radius: 0; overflow: visible; }

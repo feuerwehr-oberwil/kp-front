@@ -2,7 +2,7 @@
    scrim — the map stays draggable/clickable underneath.
    ⚠️ The floating family's material (29.09.2026, owner K8): light glass by day, dark by night —
    it wore the tool docks' solid --ink-fill in both themes. A menu you pick from is not an armed
-   mode; dark in both themes is the docks' and the Trupp marker bar's alone. Tokens only below.
+   mode; dark in both themes is the Trupp marker bar's alone (the docks went light 20.10.). Tokens only below.
    256px, not 232 (sweep K14): the last row carries the ⓘ at its end now, and at 232 «Ansicht
    speichern» ellipsised beside it («Enregistrer la vue» worse). */
 .pop { z-index: var(--z-floating-card); width: 256px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 32px); overflow-y: auto;

@@ -49,6 +49,7 @@
 }
 .nav-item:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .nav-item.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+@media (hover: hover) { .nav-item.on:hover { background: var(--ink-fill-hover); } }
 .nav-glyph { width: 46px; min-width: 46px; height: 46px; display: grid; place-items: center; font-size: var(--fs-3); font-weight: var(--fw-heavy); position: relative; }
 .nav-glyph .i { width: 22px; height: 22px; }
 .nav-glyph.mono { letter-spacing: -.02em; }
@@ -202,7 +203,7 @@
    locked to the rail edge instead of rubber-banding ~180ms behind it.
    ⚠️ The `{ transition: none }` block used to be MISSING here, so this selector list ran on into
    the next rule and `html.rail-dragging .layers-card` (0,2,1) inherited `width/height: 46px`,
-   beating `.layers-card { width: 264px }` (0,1,0): dragging the left rail's grip with Ebenen
+   beating `.layers-card { width: 320px }` (0,1,0): dragging the left rail's grip with Ebenen
    open collapsed the panel to a 46px square. */
 html.rail-dragging .layers-card { transition: none; }
 /* tap-outside catcher behind the phone's Ebenen sheet (the `.mapctl` launcher it was named for
@@ -215,13 +216,15 @@ html.rail-dragging .layers-card { transition: none; }
    ⚠️ The floating family's material (29.09.2026, owner K8): light glass by day, dark by night,
    like the context panel beside it. It wore the tool docks' solid --ink-fill in both themes, so
    by day Ebenen, the Ansichten menu and the Suche card were three dark slabs beside a light UI.
-   Dark in both themes is now the ARMED-mode material only (a tool dock, the Trupp marker bar):
-   «something is armed» — a list you read is not a mode. Every ink below is a theme token. */
+   Dark in both themes is now the Trupp marker bar's alone; the tool docks went light by day too
+   (20.10.2026, owner: «why do we have a dark sidebar in lightmode?» – 09-whiteboard · .wb-dock).
+   Every ink below is a theme token. */
 /* +26 rather than +42: the rail itself sits 16px off the right edge, so this leaves a 10px
    channel between dock and rail instead of 26px. They belong together — the dock is what the
    rail button just opened — and the old gap read as two unrelated panels. */
 .layers-card { position: fixed; right: calc(var(--vrail-w, 60px) + 26px); top: 50%; transform: translateY(-50%);
-  width: 264px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 32px);
+  /* 320 (owner 20.10.: 264 felt tight next to Gefahrgut's 300) – the Karte's Gefahrgut card wears it too */
+  width: 320px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 32px);
   /* a column: the head stands, the body (.lc-body) scrolls — see .lc-title */
   display: flex; flex-direction: column; overflow: hidden;
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge);
@@ -263,7 +266,7 @@ html.rail-dragging .layers-card { transition: none; }
    layers on screen match is drawn CHOSEN, none of the three for a hand-switched set (LayerPanel ·
    preset, 05.10.2026). Only the fit is local: words only (the glyphs left 22.09.2026 — see
    LayerPanel.tsx), and a word may take two lines inside the 44px: «Tout afficher» / «Nascondi
-   tutti» are ~85px at 12.5/700 and a third of the 264px dock is 67 — nowrap ran them past the
+   tutti» are ~85px at 12.5/700 and a third of the dock was 67 at its old 264px — nowrap ran them past the
    button's edge. */
 .lc-quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px 4px 2px; }
 .lc-quick > button { min-width: 0; padding: 0 var(--sp-1); white-space: normal; line-height: 1.1; }

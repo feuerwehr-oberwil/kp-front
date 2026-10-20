@@ -101,7 +101,6 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     nearNone: 'Nessun oggetto del corpo nelle vicinanze.',
     visitsTitle: 'Visite oggetto',
     visitsNever: 'Mai visitato.',
-    visitsNoneHere: 'Nessuna visita a questo indirizzo.',
     visitsReadOnly: 'Con questo account puoi leggere le visite ma non registrarle.',
     visitsUnavailable: 'Visite momentaneamente non disponibili.',
     visitNoDefects: 'nessun difetto',

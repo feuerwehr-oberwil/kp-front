@@ -8,8 +8,8 @@ import { cx } from '../lib/cx'
  * a choice (the `--sel` fill) nor a place (the ink pill), and never the station red: the QR-Bogen's
  * ⓘ turned `--accent` while its help was open, and Georef filled it the choice blue.
  *
- * Inline vs. floating text stays with the host, as before. The dark tool docks keep their own
- * on-ink ⓘ (DockInfo) — a grey chip on a dark dock is not the same button there.
+ * Inline vs. floating text stays with the host, as before. The tool docks keep their own ⓘ
+ * (DockInfo), sized and filled like the dock's other controls.
  */
 export function InfoToggle({ open, onToggle, label, title, className }: {
   open: boolean

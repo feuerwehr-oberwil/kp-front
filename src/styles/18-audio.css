@@ -554,7 +554,7 @@
 .tb-einsatzuhr { color: var(--ink-dim); background: none; border: none; cursor: pointer; font: inherit;
   padding: var(--sp-2) var(--sp-1); margin: -8px 0; border-radius: var(--r-sm); -webkit-tap-highlight-color: transparent; }
 @media (hover: hover) {
-  .tb-einsatzuhr:hover { color: var(--ink); }
+  .tb-einsatzuhr:hover { color: var(--ink); background: var(--fill-soft); }
 }
 .tb-einsatzuhr:active { background: var(--fill-soft); }
 .tb-einsatzuhr .i { width: 14px; height: 14px; }

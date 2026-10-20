@@ -13,9 +13,6 @@
    into the glyph's row height) and/or its short name (≤ 8, identity.shortName) — never wraps */
 .menuMark { height: 24px; width: auto; max-width: 48px; object-fit: contain; flex: none; }
 .menuName { white-space: nowrap; letter-spacing: .02em; }
-/* one glyph size in the bar (owner, review round 4: the search glyph was 20px, the flag 14px): the
-   Einsatz bar's 16px, which the pill brings (13-incident · .ip-switch-btn svg); open = pressed */
-.einsaetze.open, .searchBtn.open { background-image: linear-gradient(var(--press), var(--press)); }
 /* wide enough for the whole placeholder (owner, 19.10.2026: «Anleitung, Checkliste, S…»). A WIDTH,
    not a flex-basis: the bar is absolutely positioned and sizes to its content, so a basis never
    widened it – the input's own ~200px default did. It still gives way on a narrow bar (shrink, no
@@ -25,6 +22,10 @@
   border: none; border-radius: var(--r-sm); background: var(--red); color: var(--on-fill, #fff);
   font: var(--fw-bold) var(--fs-2)/1.15 var(--body); cursor: pointer; max-width: 280px; flex: 0 1 auto; text-align: left; }
 .running small { display: block; font: var(--fw-medium) var(--fs-micro)/1.2 var(--body); opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* hover / press (owner, 20.10.2026: a hover on everything that answers a click) – the red's own
+   darker step, then the house press over it */
+@media (hover: hover) { .running:hover { background: var(--red-strong); } }
+.running:active { background-image: linear-gradient(var(--press), var(--press)); }
 .runningText { min-width: 0; overflow: hidden; }
 .runningText b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; animation: koPulse 1.4s infinite; }
@@ -59,9 +60,13 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 
 /* the switch «Objekt · n Pläne | <Haus>» right under the head, after a tap on one of an object's
    buildings (Karte Haus round 1 · variant A): the shared .useg track, full width, two equal halves
-   of ONE line each – a long street ellipsizes instead of growing the switch (round 2) */
+   of ONE line each – a long street ellipsizes instead of growing the switch (round 2). A control
+   of the panel's rhythm (review round 4 · mock A, below): 36px halves, and NEUTRAL – the picked
+   half a surface pill with a hairline and a small shadow, not the blue choice fill, which made the
+   switch the loudest thing in the panel */
 .level :global(.useg) { display: flex; width: 100%; flex-wrap: nowrap; }
-.level :global(.useg-btn) { flex: 1 1 0; min-width: 0; min-height: var(--tap); }
+.level :global(.useg-btn) { flex: 1 1 0; min-width: 0; min-height: 36px; }
+.level :global(.useg-btn.on) { background: var(--surface); color: var(--ink); box-shadow: 0 0 0 1px var(--border-soft), var(--sel-shadow); }
 .levelText { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ── the one panel ────────────────────────────────────────────────────────────────────────── */
@@ -79,9 +84,6 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .glyph :global(.fks) svg { width: 100%; height: 100%; display: block; }
 /* the pack's art is black ink on paper, like every placed symbol: it keeps its white ground at night */
 .glyph :global(.fks) { background: #fff; border-radius: var(--r-xs); }
-/* a plan row is the module in words only (owner, review round 4): one height, one left edge —
-   the Gebäude row's text starts where «Modul 1» does; the offline lamp trails before the chevron */
-.planRow:global(.list-row) { min-height: var(--tap-lg); }
 .eyebrow { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-dim); }
 .title { font: var(--fw-heavy) var(--fs-4)/1.25 var(--body); color: var(--ink); margin: 0; overflow-wrap: anywhere; }
 .sub { font: var(--fw-medium) var(--fs-1)/1.35 var(--body); color: var(--ink-dim); }
@@ -92,6 +94,17 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    (owner, review round 5: «koordinaten kopieren clips the button»; it was a 1fr 1fr grid of
    nowrap labels that ran out of their column) */
 .quick { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+/* ── one rhythm (owner, Karte Haus review round 4: «it feels like some buttons are larger than
+   others»; picked mock A, the phone sheet too): ONE size per role in the panel – a list row 48px
+   with its quiet sub on the title's line (it wraps under the title only where the two do not fit:
+   a long object name), its read-out at the end one step smaller; the switch 36 (above) and the ✕
+   32; the register tags 26, outlined (BuildingFacts – the Einsatz card's too); the actions the .ip-btn's 44. Compounded with the panel's
+   body, so the global row (search, library, Objektbesuche) keeps its own density */
+.body :global(.list-row) { min-height: 48px; }
+.body :global(.list-row-text) { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: var(--sp-2); row-gap: 0; }
+.body :global(.list-row-title) { font-size: var(--fs-3); }
+.body :global(.list-row-end) { font-size: var(--fs-1); }
+.head :global(.ip-x) { width: 32px; height: 32px; }
 .sec { display: flex; flex-direction: column; gap: var(--sp-2); }
 .secHead { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding-top: var(--sp-2); }
 .secHead .eyebrow { display: inline-flex; align-items: center; gap: var(--sp-1); }
@@ -101,7 +114,9 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 /* «Register-Hinweis» opens the hint and the source line (owner, review round 4): a tappable label,
    so the type is a step up from the caption and the target 44px tall without growing the head */
 .hintBtn { min-height: var(--tap); margin-block: calc(var(--sp-3) * -1); padding: 0 var(--sp-1); border: none; background: none; font-size: var(--fs-1); cursor: pointer; }
-.hintBtn:active { background: var(--press); border-radius: var(--r-xs); }
+.hintBtn { border-radius: var(--r-xs); }
+@media (hover: hover) { .hintBtn:hover { background: var(--hover); color: var(--ink); } }
+.hintBtn:active { background: var(--press); }
 .hintBody { display: flex; flex-direction: column; gap: var(--sp-1); }
 .src { font: var(--fw-medium) var(--fs-micro)/1.4 var(--body); color: var(--ink-dim); }
 .src b { color: var(--ink); }
@@ -148,6 +163,11 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
   padding: 4px var(--sp-2); border-radius: var(--r-xs); border: 1.5px solid var(--red-45);
   background: var(--surface); color: var(--ink); font: var(--fw-bold) var(--fs-1)/1.2 var(--body); box-shadow: var(--e2); cursor: pointer; }
 .tagMk.sel { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-22), var(--e2); }
+/* hover: a neutral ring – the selection's ring without its colour (20.10.2026) */
+@media (hover: hover) {
+  .tagMk:not(.sel):hover { box-shadow: 0 0 0 2px var(--ink-16), var(--e2); }
+  .dotMk:hover::after { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink-16), var(--e1); }
+}
 .tagMk.approx { border-style: dashed; border-color: var(--amber-strong); }
 /* the measuring twin of a tag (KarteApp · the placement pass) — laid out, never seen */
 .tagMk.measure { position: absolute; left: -9999px; top: 0; visibility: hidden; pointer-events: none; }
@@ -181,9 +201,9 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 
 /* ── tool cards (Gefahrgut, tablet) ─────────────────────────────────────────────────────────
    Ebenen's card beside the tool rail (05-navrail · .layers-card + .lc-title/.lc-x/.lc-body, the
-   phone's KarteKeySheet wears it too). Wider for the readout, and hung under the bar rather than
+   phone's KarteKeySheet wears it too), at its width (owner 20.10.: the two the same). Hung under the bar rather than
    centred: the readout grows as the number is typed, and a centred card would grow both ways */
-.toolCard.toolCard { width: 300px; top: calc(88px + env(safe-area-inset-top)); transform: none; max-height: calc(100dvh - 104px - env(safe-area-inset-top)); }
+.toolCard.toolCard { top: calc(88px + env(safe-area-inset-top)); transform: none; max-height: calc(100dvh - 104px - env(safe-area-inset-top)); }
 .toolCard :global(.lc-body) { padding: 0 var(--sp-4) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
 /* the card's «Auf die Karte tippen …»: the hint pill's words and glyph, as a line of the card */
 .toolHint { display: flex; align-items: center; gap: var(--sp-2); font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); }
@@ -324,6 +344,8 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    it wore a border and a lighter shadow of its own beside the hint and the chips (review round 4) */
 .utilBtn { width: var(--float-h); height: var(--float-h); display: grid; place-items: center; border: none; border-radius: var(--r-sm);
   background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); cursor: pointer; }
+@media (hover: hover) { .utilBtn:hover { background-image: linear-gradient(var(--hover), var(--hover)); } }
+.utilBtn:active { background-image: linear-gradient(var(--press), var(--press)); }
 .utilBtn svg { width: 22px; height: 22px; }
 .utilGlyph { display: grid; place-items: center; }
 .quick > * { flex: 1 1 0; min-width: max-content; white-space: nowrap; }
@@ -342,7 +364,8 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 /* the bar's chip IS the switcher's offline pill (13-incident · .ip-offline-chip); here a button at
    tap size, with the bar's corner */
 .offChip.offChip { min-height: var(--tap); padding: 0 var(--sp-3); gap: var(--sp-2); border: none; border-radius: var(--r-sm); cursor: pointer; }
-.offChip:active { background: var(--amber-22); }
+@media (hover: hover) { .offChip:hover { background: var(--amber-22); } }
+.offChip:active { background: var(--amber-22); background-image: linear-gradient(var(--press), var(--press)); }
 .offDot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
 .deviceSheet { max-width: 520px; }
 .deviceLead { margin: 0 0 var(--sp-3); font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink-dim); }
@@ -351,8 +374,6 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .surfaceNote { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: var(--sp-4); }
 .surfaceNote .note { max-width: 360px; }
 .floors > .note { width: min(980px, 100%); }
-/* the sheet's body scrolls; its rows never squeeze */
-.deviceSheet :global(.list-card) { flex: none; }
 
 /* ── the menu button's red dot (owner, review round 5: «a small red dot» — it was a count): an
    Einsatz running or an alarm waiting; the number is in the button's accessible name ──────────── */
