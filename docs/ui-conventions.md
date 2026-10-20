@@ -218,9 +218,13 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     the glyph the sentence leads with – never an edge, never a fill. What goes away **by itself**
     shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
     mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
-    the action button acts, a sideways swipe throws it away. On a phone they share one lane (`--msg-lane-bottom`, 15-mobile): the
-    bars' own width (8px in from each side), one `--float-gap` above THE floating row (below),
-    never beside a piece of it. A repeat REPLACES (18.10.2026): a confirmation that comes again — «Eintrag erfasst» after
+    the action button acts, a sideways swipe throws it away. **The toasts stand under the head, on
+    every width** (20.10.2026, owner: «all notifications appear at the same place: at the top
+    cleanly below the main navbar»): where the Meldeleiste starts (92px; 72px on a phone), one 8px
+    channel under the strip while one stands (`--ml-reserve` from its measured `--ml-h`), at the
+    bars' own width on a phone (8px in from each side). A mode's instruction and a tool's tip keep
+    the phone's foot lane (`--msg-lane-bottom`, 15-mobile), one `--float-gap` above THE floating
+    row (below), never beside a piece of it. A repeat REPLACES (18.10.2026): a confirmation that comes again — «Eintrag erfasst» after
     every Meldung, «Geschoss hinzugefügt» — carries a `kind` (lib/ui · toast) and takes its
     predecessor's place instead of stacking on it; five Meldungen in a row grew a column of pills
     up the screen into the composer's «Erfassen», and a confirmation never covers the next action
@@ -229,17 +233,14 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     only an action too wide to leave the sentence that much wraps under it, right-aligned. On
     the launcher the lane is the card's own column. There is no standing «Offline» row
     (removed 05.10.2026 — the head's «● Offline» chip says it), and «Jetzt synchronisieren» is
-    never offered while the device is offline. While a MODAL bottom sheet is open the lane stands ON the sheet, one `--float-gap` above
-    its top edge (`lib/toastLane` · `useToastLane` → `.toaster[data-lane]`); only a sheet that
-    leaves no room for a pill above it sends the lane to the top of the screen, never over the
-    sheet's head. Non-modal owners of the foot (detail sheet, Ebenen) keep the lane under the top
-    bar. So does a PLACEMENT MODE, on every width (20.10.2026, owner: «the toasts sometimes block
-    things like the point placement thing»): while a mode takes the map's or a plan's taps (any
-    armed map or plan tool, Messen, the Passung, the Karte's Punkt setzen / Gefahrgut) the surface
-    that owns it calls `usePlacementLane(active)` (lib/toastLane → `<html data-placing>`), and the
-    lane moves to the top: under the bar on a phone (and under the Karte's running-Einsatz strip),
-    at the Meldeleiste's 92px on a tablet. A new mode calls the hook; it never adds a selector to
-    the lane's list. The Karte's «Auf die Karte tippen …» is a sticky toast in that lane, not a
+    never offered while the device is offline. While a MODAL bottom sheet is open on a phone the lane stands ON the sheet, one `--float-gap`
+    above its top edge (`lib/toastLane` · `useToastLane` → `.toaster[data-lane]`); only a sheet
+    that leaves no room for a pill above it sends the lane to the top of the screen, never over
+    the sheet's head. A PLACEMENT MODE (any armed map or plan tool, Messen, the Passung, the
+    Karte's Punkt setzen / Gefahrgut) calls `usePlacementLane(active)` (lib/toastLane → `<html
+    data-placing>`), which bounds the strip so the lane under it stays near the head; a new mode
+    calls the hook, it never adds a selector to a list. On the Karte the lane also clears the
+    running-Einsatz strip. The Karte's «Auf die Karte tippen …» is a sticky toast in that lane, not a
     pill of its own. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
     bar first, then amber / blue / grey): a row's tone is its leading glyph's colour, so every
     `Meldung` carries an `icon`. A row TITLE whose way in is the same

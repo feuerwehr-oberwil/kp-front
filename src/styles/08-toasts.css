@@ -228,9 +228,17 @@
    at ~5 pills) hid the pill carrying «Rückgängig» below the fold with nothing saying so. */
 .toaster { position: fixed;
   left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right));
-  bottom: calc(max(28px, calc(16px + env(safe-area-inset-bottom))) + var(--stack-foot-lift, 0px)); z-index: var(--z-toast);
+  /* ⚠️ THE lane is under the head, on every width (S3, 20.10.2026, owner: «ensure that all
+     notifications appear at the same place: at the top cleanly below the main navbar»): where
+     the Meldeleiste starts (92px), and one 8px gap under it while it stands (`--ml-reserve`, its
+     MEASURED height `--ml-h`). It was the screen's foot, centred — over the plan's chip row, the
+     Gebäude's «+ UG» and a dialog's buttons — with the top only for a placement mode. Clamped so
+     a tall strip never pushes the lane off the screen: there it stands over the strip's last
+     rows, which stay put under it, and is gone in six seconds. */
+  top: min(calc(92px + var(--ml-reserve, 0px) + env(safe-area-inset-top)), calc(100dvh - 160px));
+  bottom: auto; z-index: var(--z-toast);
   display: flex; flex-direction: column-reverse; align-items: center; gap: 8px; pointer-events: none;
-  max-height: calc(100dvh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  max-height: min(32dvh, 240px);
   overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
   /* the scroll port clips, and it clipped each pill's shadow into a grey box around its corners:
      48px of room on every side (--shadow reaches ~50px down), handed straight back by the negative
@@ -245,31 +253,13 @@
    the phone's bars-width lane (15-mobile · «THE message lane») by specificity, not by order. */
 :root:has(.ip-emptyapp-card) .toaster {
   left: max(24px, calc(50% - 204px)); right: max(24px, calc(50% - 204px)); }
-/* While the Gebäude stack shows its «+ UG» (and the chip row under it), the lane starts above
-   them: at the default fit the pill's top stands ~114px over the canvas foot (Whiteboard ·
-   STACK_CHIP_ROW + STACK_VPAD, half the pill outside), and a toast at the 28px baseline lay on it
-   — three stacked «Geschoss hinzugefügt» pills hid it completely (3am test r4, 26.09.2026). The
-   phone restates the lift for its own lane (15-mobile). */
-:root:has(.wb-floor-add-down) .toaster { --stack-foot-lift: 96px; }
-/* …and on a tablet the plan's chip row (09-whiteboard · .wb-botleft: 16px up, --float-h tall) is a
-   floating row the messages stand ABOVE, one --float-gap over it, as on a phone (26.09.2026). At
-   the 28px baseline a long toast, centred, lay across the object chip — the row is the same
-   floating family (01-tokens · --float-*), and two of its pieces never overlap. The phone has its
-   own lane (15-mobile · --msg-lane-bottom); this query is its exact complement. */
+/* the strip's measured height (Meldeleiste · `--ml-h`) + the 8px channel — the lane starts there */
+:root:has(.ml) .toaster { --ml-reserve: calc(var(--ml-h, 0px) + 8px); }
+/* (the foot's lifts over the plan's chip row and the Gebäude's «+ UG» went with the foot lane,
+   20.10.2026.) While a placement mode takes the map's or the plan's taps (`data-placing`,
+   lib/toastLane · usePlacementLane) the strip is bounded, so the lane under it stays near the
+   head (owner, Karte Haus round 3, 20.10.2026). */
 @media (--not-phone) {
-  :root:has(.wb-botleft) .toaster {
-    bottom: max(calc(max(28px, calc(16px + env(safe-area-inset-bottom))) + var(--stack-foot-lift, 0px)),
-      calc(16px + var(--float-h) + var(--float-gap) + env(safe-area-inset-bottom))); }
-}
-/* While a placement mode takes the map's or the plan's taps (`data-placing`, lib/toastLane ·
-   usePlacementLane), the messages stand at the TOP, where the Meldeleiste starts (92px, under the
-   bar) — at the foot, centred, an undo pill lay on the spot the next symbol goes and hid the
-   Karte's «Auf die Karte tippen …» (owner, Karte Haus round 3, 20.10.2026). With a Meldeleiste up
-   both share the head as on the phone (15-mobile): the strip bounded, the lane under its cap. */
-@media (--not-phone) {
-  :root[data-placing] .toaster {
-    top: calc(92px + var(--ml-reserve, 0px) + env(safe-area-inset-top)); bottom: auto; max-height: min(32dvh, 240px); }
-  :root[data-placing]:has(.ml) .toaster { --ml-reserve: calc(min(32dvh, 240px) + 8px); }
   :root[data-placing] .ml { max-height: min(32dvh, 240px); }
 }
 /* A desktop/tablet detail panel owns the right side of the operational surface. Messages are

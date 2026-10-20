@@ -1045,36 +1045,23 @@
   :root {
     --msg-lane-bottom: calc(var(--float-bottom) + var(--float-row, 0px) + var(--stack-foot-lift, 0px));
   }
+  /* ⚠️ …which the TOASTER left on 20.10.2026 (S3, owner: «all notifications at the same place:
+     at the top cleanly below the main navbar»): it stands under the bar, where the Meldeleiste
+     starts (72px), one 8px channel under the strip while one stands (`--ml-reserve`, the strip's
+     measured `--ml-h`), and under the Karte's running-Einsatz strip (`--strip-reserve`). The
+     bars' own width stays. The instruction of a pick mode and a tool's tip keep the foot lane. */
   .toaster {
     left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
-    bottom: var(--msg-lane-bottom); align-items: stretch;
-    max-height: calc(100dvh - var(--msg-lane-bottom) - 84px - env(safe-area-inset-top));
-  }
-  /* The Meldeleiste is pinned to the SAME 72px baseline as the relocated lane below, at z54
-     under the toaster's z90 — so every pill landed square on its first row and on that row's
-     «Erledigt» / «Übernehmen» buttons. That is the exact «actions unreachable behind transient
-     feedback» failure the relocation was written to fix, moved from the bottom of the screen to
-     the top. The strip publishes no height (its rows wrap on a phone and it scrolls), so the
-     reserve is its own CAP — the `min(32dvh, 240px)` the rule further down bounds it to — plus
-     an 8px channel. A one-row strip therefore leaves the pill floating lower than it strictly
-     must; that is the price of an offset that can never be too SMALL, and the pill is gone in
-     six seconds either way. Set whenever a strip exists (the bottom lane simply ignores it),
-     which beats a third copy of the state list. */
-  :root:has(.ml) .toaster { --ml-reserve: calc(min(32dvh, 240px) + 8px); }
-  /* Variable-height bottom owners cannot be cleared with another guessed pixel offset. While
-     a detail sheet, Ebenen / the Suche (their slide-up sheet, 29.09.2026) or a placement mode owns
-     that area, transient feedback moves to one bounded lane below the top bar. Thus the controls at
-     the bottom never disappear behind an undo/status pill even when their panel expands or scrolls.
-     A placement mode (`data-placing`, lib/toastLane · usePlacementLane: any armed map or plan tool,
-     the Passung, the Karte's Punkt / Messen / Gefahrgut) also takes the map's TAPS — the pill stood
-     on the spot the next symbol goes (owner, Karte Haus round 3, 20.10.2026: «the toasts sometimes
-     block things like the point placement thing»). The tablet has the same lane (08-toasts). */
-  :root[data-placing] .toaster,
-  :root:has(.app .ctx) .toaster,
-  :root:has(.app .layers-card:not([data-picking])) .toaster {
-    top: calc(72px + var(--ml-reserve, 0px) + var(--strip-reserve, 0px) + env(safe-area-inset-top)); bottom: auto;
+    top: min(calc(72px + var(--ml-reserve, 0px) + var(--strip-reserve, 0px) + env(safe-area-inset-top)), calc(100dvh - 160px));
+    bottom: auto; align-items: stretch;
     max-height: min(32dvh, 240px);
   }
+  /* The Meldeleiste hangs from the same 72px, at z54 under the toaster's z90 — so the lane starts
+     under it, never on its first row's «Erledigt» / «Übernehmen»: `--ml-reserve` is the strip's
+     MEASURED height (Meldeleiste · `--ml-h`) + an 8px channel. It used to be the strip's CAP
+     (`min(32dvh, 240px)`), from before the strip published its height, which left a pill under a
+     one-row strip floating 190px low. */
+  :root:has(.ml) .toaster { --ml-reserve: calc(var(--ml-h, 0px) + 8px); }
   /* …below the Karte's running-Einsatz strip (Karte.module.css · .runningStrip: 88px down, one
      --tap tall), one --float-gap under it: the top lane lay on «● Brand Musterstrasse ›» */
   :root:has([data-karte-running]) .toaster { --strip-reserve: calc(88px + var(--tap) + var(--float-gap) - 72px); }
