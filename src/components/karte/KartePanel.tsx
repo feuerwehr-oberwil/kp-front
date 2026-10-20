@@ -385,7 +385,7 @@ function LevelSwitch({ level }: { level: PanelLevel }) {
 
 /** In der Nähe: ONE list by distance (lib/karte/places · nearbyPlaces). An object row opens it; a
  *  hydrant row is not a place to open — the mouse over it (or a tap, on touch) shows that hydrant
- *  on the map with its distance (KarteApp), and the nearest one says «Nächster». */
+ *  on the map with its distance (KarteApp). No «Nächster» tag: the order says it (owner 20.10.2026). */
 function Nearby({ rows, lit, onHydrant, onSelectObject }: { rows: NearRow[]; lit: string | null; onHydrant?: (id: string, cue: HydrantCue) => void; onSelectObject: (id: string) => void }) {
   const C = appConfig.copy.karte
   return (
@@ -405,7 +405,7 @@ function Nearby({ rows, lit, onHydrant, onSelectObject }: { rows: NearRow[]; lit
               onPointerLeave={(e) => { if (e.pointerType === 'mouse') onHydrant?.(r.item.id, 'leave') }}
               onClick={() => onHydrant?.(r.item.id, 'tap')}
               lead={<Icon id="drop" />}
-              title={<>{r.nearest && <span className={cx('ip-badge', s.nearest)}>{C.nearNearest}</span>}{C.nearHydrant}</>}
+              title={C.nearHydrant}
               sub={C.compass[r.dir]} end={fmtDistance(r.distanceM)} />
           ))}
         </ListCard>

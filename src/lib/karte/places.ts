@@ -123,7 +123,7 @@ export interface NamedPoint { id: string; label: string; coord: LngLat }
  *  from the place (`dir`, 0 = north … 7 = north-west — `compass8`). */
 export type NearRow =
   | { kind: 'object'; item: StationObject; distanceM: number }
-  | { kind: 'hydrant'; item: NamedPoint; distanceM: number; dir: number; nearest: boolean }
+  | { kind: 'hydrant'; item: NamedPoint; distanceM: number; dir: number }
 
 /**
  * «In der Nähe» (owner, Karte Haus round 1): ONE list by distance, objects and hydrants mixed — at
@@ -142,14 +142,13 @@ export function nearbyPlaces(objects: readonly StationObject[], hydrants: readon
   }
   let nearest: Extract<NearRow, { kind: 'hydrant' }> | null = null
   for (const h of hydrants) {
-    const row = { kind: 'hydrant' as const, item: h, distanceM: haversineM(at, h.coord), dir: compass8(at, h.coord), nearest: false }
+    const row = { kind: 'hydrant' as const, item: h, distanceM: haversineM(at, h.coord), dir: compass8(at, h.coord) }
     if (!nearest || row.distanceM < nearest.distanceM) nearest = row
     if (row.distanceM <= NEARBY_RADIUS_M) rows.push(row)
   }
   rows.sort((a, b) => a.distanceM - b.distanceM)
   const out = rows.slice(0, NEARBY_MAX)
   if (nearest) {
-    nearest.nearest = true
     // farther than every row kept, so it goes last: appended, or in place of the fifth
     if (!out.includes(nearest)) out.splice(Math.min(out.length, NEARBY_MAX - 1), 1, nearest)
   }

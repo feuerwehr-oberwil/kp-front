@@ -242,16 +242,16 @@ describe('KartePanel · order and actions (R2)', () => {
     expect(tab.container.querySelector('section')!.classList.contains('layers-card')).toBe(false)
   })
 
-  it('In der Nähe: one list by distance; a hydrant row says «Hydrant», «Nächster» and the direction, and shows it on hover or tap', () => {
+  it('In der Nähe: one list by distance; a hydrant row says «Hydrant» and the direction (no «Nächster»: the order says it), and shows it on hover or tap', () => {
     const onHydrant = vi.fn()
     const H = { id: 'h1', label: '632', coord: [7.5702, 47.5236] as [number, number] }
     const nearby = [
-      { kind: 'hydrant' as const, item: H, distanceM: 25, dir: 4, nearest: true },
+      { kind: 'hydrant' as const, item: H, distanceM: 25, dir: 4 },
       { kind: 'object' as const, item: { ...SCHLOSS, id: 'kg', name: 'Kindergarten' }, distanceM: 62 },
     ]
     const { container } = panel({ nearby, onHydrant, litHydrant: 'h1' })
     const rows = [...container.querySelectorAll('[data-section="nearby"] button')]
-    expect(rows.map((r) => r.textContent)).toEqual(['NächsterHydrantsüdlich25 m', 'KindergartenSchlossgasse 9, 9999 Musterdorf62 m'])
+    expect(rows.map((r) => r.textContent)).toEqual(['Hydrantsüdlich25 m', 'KindergartenSchlossgasse 9, 9999 Musterdorf62 m'])
     // the index the FireGIS export carries is no hydrant number: never shown
     expect(screen.queryByText(/632/)).toBeNull()
     const row = rows[0]
