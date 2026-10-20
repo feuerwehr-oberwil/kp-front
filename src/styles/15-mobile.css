@@ -154,7 +154,9 @@
      The footer stays: both surfaces pin Ebenen plus their one view reset at the right edge. */
   :is(.tool-rail, .wb-tools) :is(.vrail-exp, .vrail-grip, .vrail-more, .vrail-label) { display: none; }
   /* Ebenen plus one surface reset stay pinned instead of joining the scrolling tools: Karte uses
-     its views/compass control, Plan uses Einpassen. Zoom remains a pinch gesture on both. */
+     its views/compass control, Plan uses Einpassen – and on the Gebäude the north dial beside it,
+     which wears `.vrail-views` for exactly this (PlanCompass, 20.10.2026). Zoom remains a pinch
+     gesture on both. */
   :is(.tool-rail, .wb-tools) .vrail-nav { flex: none; flex-direction: row; align-items: center; gap: 2px; }
   :is(.tool-rail, .wb-tools) .vrail-nav > :not(.vrail-layers):not(.vrail-views):not(.vrail-fit) { display: none; }
   :is(.tool-rail, .wb-tools) :is(.vrail-layers, .vrail-views, .vrail-fit) { width: 50px; min-width: 50px; flex: 0 0 auto; }

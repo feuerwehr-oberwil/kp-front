@@ -1,7 +1,21 @@
-/* North dial for the Gebäude floor stack — a fixed HUD chip in the plan viewport's top-right
-   corner (see PlanCompass.tsx for why it left the storey tile). Glass on a round 44px target,
-   the same recipe as the map's floating utilities (MapUtility · .phone-wx), so both surfaces put
-   the same kind of thing in the same corner. */
+/* The Gebäude's north dial (PlanCompass.tsx). Two homes:
+   · the RAIL tile – the plan rail's footer on a tablet, the bottom tool bar on a phone. It is a
+     `.vrail-nbtn .vrail-views` tile, so 07-toolrail and 15-mobile size and place it exactly like
+     the Karte's compass; this file only turns its glyph and quiets the read-out;
+   · the FLOAT chip below – the viewport's top-right corner, only on a plan with no rail at all.
+     Glass on a round 44px target, the map's floating utilities' recipe (MapUtility · .phone-wx). */
+
+/* no transition: the glyph follows the slider's live preview, like the Karte's needle
+   (07-toolrail · .vrail-compass) */
+.glyph { display: grid; place-items: center; }
+
+/* a read-out tile is not a door: no press wash, no hover wash, no hand (the rail tile's own hover
+   rule is `.vrail-nbtn:not(.on):hover:not(:disabled)`, so this one says as much) */
+.still { cursor: default; }
+@media (hover: hover) {
+  :global(.vrail-nbtn:not(.on)).still:hover:not(:disabled) { background: transparent; }
+}
+
 .chip {
   position: absolute; top: calc(16px + env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right));
   z-index: var(--z-map-util); width: 44px; height: 44px; padding: 0;
@@ -16,13 +30,13 @@
 /* the same dial without a claim about north: a turn arrow, quieter than the needle */
 .unknown { fill: var(--ink-dim); stroke: var(--ink-dim); }
 
-/* …and where the building can be turned, the dial IS the turn control: one visible door on the
-   surface (the rail footer keeps the other), never a hidden drag. */
+/* …and where the building can be turned, the dial IS the turn control: the one visible door,
+   never a hidden drag. (The rail tile wears the rail's own hover and press.) */
 .btn { cursor: pointer; }
 @media (hover: hover) {
-  .btn:hover { background: var(--hover-strong); }
+  .chip.btn:hover { background: var(--hover-strong); }
 }
-.btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.chip.btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* A read-only plan floats its zoom cluster in exactly this corner (09-whiteboard · .wb-zoom-float,
    rendered just before this chip) — the compass then takes the next line down instead of landing

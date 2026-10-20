@@ -416,8 +416,8 @@
 .wb-floor-add-down { bottom: calc(var(--tap) / -2); } /* straddle the bottom edge of the stack */
 
 /* (.wb-north-dial / -btn / -ring / -needle / -n are gone, 30.08.: the north dial was drawn ON the
-   topmost storey tile, so it panned and zoomed with the paper. It is a fixed chip in the viewport's
-   corner now — PlanCompass.module.css.) */
+   topmost storey tile, so it panned and zoomed with the paper. It is a tile in the plan rail's
+   footer now, like the Karte's compass — PlanCompass.module.css.) */
 /* blank writable sheet */
 .wb-board-blank { box-shadow: var(--e3), inset 0 0 0 1px var(--border-soft); }
 .wb-blank-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;
@@ -898,7 +898,7 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    overlapping symbol or Trupp own the contested pixel. */
 .line-end-tag-wrap { pointer-events: auto; touch-action: none; }
 
-/* Gebäude rotation popover (30.08.) — the one visible control both compass doors open */
+/* Gebäude rotation popover (30.08.) — what the north dial (PlanCompass), its one door, opens */
 .wb-orient-popup { background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--e4); }
 .wb-orient-pop { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); min-width: 250px; }

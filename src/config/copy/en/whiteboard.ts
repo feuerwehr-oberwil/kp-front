@@ -298,6 +298,8 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     orientLongAxis: 'Rotate to long axis',
     orientMenuTitle: 'Rotate building',
     orientSliderLabel: 'Rotation',
+    orientRail: 'Rotate',
+    northRail: 'North',
 
     groupDeletedN: '{n} objects removed from the plan',
   },

@@ -1243,7 +1243,8 @@ describe('drehen · Gebäude aus Geschossplänen', () => {
 })
 
 // Field report 24.09.2026 (iPad): «clicking the north indicator in Gebäude doesn't always toggle
-// the rotation – in fact pretty rarely». The dial sits INSIDE the board's canvas, and the canvas
+// the rotation – in fact pretty rarely». The dial sat INSIDE the board's canvas then (it is in the
+// rail's footer since 20.10.2026, and these presses still have to hold), and the canvas
 // answers every pointerdown with a one-finger pan that takes pointer capture — so the release,
 // and with it the click, landed on the canvas and never on the dial (nor, through the portal's
 // React bubbling, on the popover's «Norden oben»). jsdom neither captures nor retargets, so
@@ -1270,17 +1271,33 @@ describe('the Gebäude north dial answers one tap, every time', () => {
       hist={{}} setHist={() => {}} focus={null}
     />)
     const canvas = container.querySelector('.wb-canvas')!
-    // the viewport's dial, on the canvas
-    const dial = () => within(canvas as HTMLElement).getByRole('button', { name: TURN })
+    // the dial, in the rail's footer (UX sweep M7, 20.10.2026 – it was on the canvas, top-right)
+    const dial = () => within(container.querySelector('.wb-tools') as HTMLElement).getByRole('button', { name: TURN })
     return { onReorient, canvas, dial }
   }
   const isOpen = (dial: HTMLElement) => dial.getAttribute('aria-expanded') === 'true'
 
-  // sweep K6 (29.09.2026): the rail's compass tile opened the same popover a second way
-  it('is the ONLY door — the rail carries no «Gebäude drehen» tile', () => {
-    const { dial } = renderStack()
-    expect(dial()).toBeTruthy()
+  // sweep K6 (29.09.2026): a second compass tile opened the same popover a second way. Since
+  // 20.10.2026 (M7) the one door sits where the Karte's compass does – in the rail's footer – and
+  // the viewport's corner is empty.
+  it('is the ONLY door, in the rail footer like the Karte’s compass', () => {
+    const { dial, canvas } = renderStack()
+    expect(dial().closest('.vrail-nav')).toBeTruthy()
     expect(screen.getAllByRole('button', { name: TURN })).toHaveLength(1)
+    expect(within(canvas as HTMLElement).queryByRole('img', { name: appConfig.copy.whiteboard.northTitle })).toBeNull()
+  })
+
+  // …and a plan with no rail at all (a replay) has nowhere else to show north
+  it('without a rail (a replay) it stays a read-out in the viewport corner', () => {
+    const { container } = render(<Whiteboard
+      plans={[umrisse, gebaeudeDoc, tafel]} activeId="gebaeude" annos={[]} onChange={() => {}}
+      building={footprint} onSelectBuilding={() => {}} onBuildingFace={() => {}} onReorient={() => {}}
+      onAddFloor={() => {}} onRemoveFloor={() => {}} readOnly sym={sym} onRecent={() => {}} log={() => {}}
+      hist={{}} setHist={() => {}} focus={null}
+    />)
+    expect(container.querySelector('.wb-tools')).toBeNull()
+    expect(screen.getByRole('img', { name: appConfig.copy.whiteboard.northTitle })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: TURN })).toBeNull()
   })
 
   const commonAncestor = (a: Element, b: Element) => {

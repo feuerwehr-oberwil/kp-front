@@ -4152,14 +4152,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             </div>
           )}
 
-          {/* the Gebäude's north dial — fixed in the viewport's top-right corner, NOT on the
-              paper (PlanCompass). It reads whenever a footprint stack is on screen; where the
-              building was auto-rotated and the surface is editable it is also THE door to
-              turning it (the rail's compass tile went 29.09.2026, sweep K6 — two doors, one room).
-              Rendered AFTER the floating zoom so the chip can step below it (module CSS). */}
-          {stack && fpView && (
-            <PlanCompass deg={northDeg ?? shownAngle} northUnknown={northDeg == null}
-              controls={canOrient && !readOnly ? orientControls : undefined} />
+          {/* the Gebäude's north dial lives in the rail's footer (below). A plan with NO rail – a
+              replay, a viewer-only document – keeps it as a read-out in the viewport's top-right
+              corner, NOT on the paper. Rendered AFTER the floating zoom so the chip can step
+              below it (PlanCompass.module.css). */}
+          {stack && fpView && readOnly && !slimRail && (
+            <PlanCompass variant="float" deg={northDeg ?? shownAngle} northUnknown={northDeg == null} />
           )}
 
           {/* ONE bar for every selection this sheet has — the same component, in the same corner
@@ -4248,15 +4246,21 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
               {/* «Einpassen» — where the map rail carries its compass / views button: the one
                   control that puts the whole surface back in front of you. */}
               <button className="vrail-nbtn vrail-fit" title={appConfig.copy.nav.fit} aria-label={appConfig.copy.nav.fit} disabled={scale === 1 && pos.x === 0 && pos.y === 0} onClick={() => applyView(1, { x: 0, y: 0 })}><span className="vrail-glyph"><Icon id="cross" /></span><span className="vrail-label">{appConfig.copy.nav.fit}</span></button>
+              {/* the Gebäude's north dial (PlanCompass) – where the Karte's rail carries its compass,
+                  and on a phone in the bottom bar beside «Einpassen» (20.10.2026, UX sweep M7; it
+                  floated top-right until then). It turns with the view, and where the building can
+                  be turned it is THE door to «Gebäude drehen» on every device – one door, so the
+                  rail's old separate compass tile (gone 29.09.2026, sweep K6) does not come back. */}
+              {stack && fpView && (
+                <PlanCompass variant="rail" deg={northDeg ?? shownAngle} northUnknown={northDeg == null}
+                  controls={canOrient && !readOnly ? orientControls : undefined} />
+              )}
               {/* zoom ±: desktop only (.vrail-zoom is hidden under 1024px) — the plan pinches
                   on every touch form factor, and «Einpassen» above covers the one state that
                   matters. */}
               <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut} disabled={scale <= MIN_SCALE} onClick={() => zoom(1 / 1.3)}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomOut}</span></button>
               <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn} disabled={scale >= maxScale} onClick={() => zoom(1.3)}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomIn}</span></button>
-              {/* (no «Gebäude drehen» tile here any more — 29.09.2026, sweep K6: the north dial
-                  (PlanCompass) is the ONE door to the Drehung on every device, and it also SHOWS
-                  the angle. The rail's compass tile opened the same popover a second way and
-                  brought a second foot hairline with it.) */}
+
             </>
           }
         />

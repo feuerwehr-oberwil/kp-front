@@ -446,9 +446,12 @@ export const whiteboardCopy = {
     northUnknownTitle: 'Norden unbekannt – Plan nicht mit der Karte verknüpft',
     orientNorthUp: 'Norden oben',
     orientLongAxis: 'Auf Längsachse drehen',
-    // the rotation popover both compass doors open (30.08. – replaces the hidden dial drag)
+    // the rotation popover the north dial opens (30.08. – replaces the hidden dial drag)
     orientMenuTitle: 'Gebäude drehen',
     orientSliderLabel: 'Drehung',
+    // the dial's word in the rail (shown with «Beschriftung · Wörter»): the door, or the read-out
+    orientRail: 'Drehen',
+    northRail: 'Norden',
   },
   // the Tafel's pages (10.10.2026, docs/board-templates.md): the free «Skizze» plus the pages a
   // board template offers (FKS «Erste Führung», FKS 8.1 …) — the page strip, the «+ Seite» list,

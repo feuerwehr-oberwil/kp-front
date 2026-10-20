@@ -297,6 +297,8 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     orientLongAxis: 'Ruota sull’asse maggiore',
     orientMenuTitle: 'Ruota l’edificio',
     orientSliderLabel: 'Rotazione',
+    orientRail: 'Ruota',
+    northRail: 'Nord',
 
     groupDeletedN: '{n} oggetti rimossi dal piano',
     truppPlacedHere: 'già qui',

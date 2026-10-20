@@ -297,6 +297,8 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     orientLongAxis: 'Pivoter sur le grand axe',
     orientMenuTitle: 'Pivoter le bâtiment',
     orientSliderLabel: 'Rotation',
+    orientRail: 'Pivoter',
+    northRail: 'Nord',
 
     groupDeletedN: '{n} objets retirés du plan',
     truppPlacedHere: 'déjà ici',
