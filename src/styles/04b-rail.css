@@ -79,9 +79,14 @@
 .rail-grip { position: absolute; top: 0; width: 20px; height: 100%; border: 0; background: transparent; padding: 0;
   cursor: ew-resize; z-index: 3; display: flex; align-items: center; justify-content: center; touch-action: none; }
 .rail-grip::after { content: ""; width: 4px; height: 38px; border-radius: 3px; background: var(--border); transition: background .14s var(--ease); }
-.rail-grip.drag::after { background: color-mix(in srgb, var(--blue) 55%, transparent); }
+/* ⚠️ GRAY, not the app blue (owner, review 7: «the mobile pull … has an ugly blue color. Change
+   this to clean gray for the expansion»). Blue is this app's SELECTED/active meaning — a rail
+   being dragged wider is neither; it is the same hairline the grip rests in, just taken up a
+   step so the finger can see it has the handle. One tint for both rails, both edges, and for
+   hover as well as the live drag: the pointer that hovers it is about to drag it. */
+.rail-grip.drag::after { background: var(--ink-28); }
 @media (hover: hover) {
-  .rail-grip:hover::after { background: color-mix(in srgb, var(--blue) 55%, transparent); }
+  .rail-grip:hover::after { background: var(--ink-28); }
 }
 /* ⚠️ Kein Ziehgriff, sobald die Wörter an sind — auf JEDEM Gerät, nicht nur auf Touch.
    Der Ausklapp-Chevron ist in diesem Fall längst weg (siehe `labels !== 'short'` im TSX): mit
