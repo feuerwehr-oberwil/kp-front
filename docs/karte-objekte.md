@@ -747,8 +747,9 @@ device Anleitungen to read in peace time — the Einsatz tab's word and glyph
   hairline as before. It is the Einsatz's NavRail in behaviour (owner, review round 5: «we can't
   expand the left toolbar so people might not know what it actually is»): the «Ausklappen» chevron
   on top and the grip widen it to 216px with the words beside the glyphs, open per mount like the
-  Einsatz's; «Beschriftung» (Einstellungen) puts the word under each glyph instead and drops the
-  chevron, live (`lib/useDevicePrefs · useRailLabels`). It publishes `--rail-w` through
+  Einsatz's. It always keeps the chevron and grip, including when «Beschriftung» is enabled in
+  Einstellungen (restored 2026-10-20): the toolbar preference must not replace this collapsible
+  navigation with words under the glyphs. It publishes `--rail-w` through
   `lib/useRail`, which the object panel, the plan reader, the floor list and this surface sit beside. On the Checkliste the right `ToolRail` is gone (as on a plan) and the bar's
   field searches the library; the map's own search words are kept for the way back.
 - **Remembered** like the plan: `KarteView.surface = 'checkliste'` (`lib/karte/session`), back

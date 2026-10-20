@@ -26,8 +26,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
 import { cx } from '../../lib/cx'
-import { RAIL_COMPACT, RAIL_LABELLED, RAIL_WIDE, railMonoMax } from '../../lib/navRail'
-import type { RailLabels } from '../../lib/prefs'
+import { RAIL_COMPACT, RAIL_WIDE, railMonoMax } from '../../lib/navRail'
 import { useRail } from '../../lib/useRail'
 import { getApprovedPlanAlignments, referenceUrl, type PlanFloor } from '../../lib/api/reference'
 import { floorPackOf, packBuildingDoc, PACK_TRIM_MS, trimmedPackFrame, type FloorPackView } from '../../lib/floorPackBinding'
@@ -55,10 +54,12 @@ import s from './Karte.module.css'
  *  below a hairline. No object name under them (owner 20.10.2026: the plan's own bar already
  *  names it).
  *  It expands like the Einsatz's NavRail (owner, review round 5: «we can't expand the left toolbar
- *  so people might not know what it actually is»): the same chevron on top, grip, widths and
- *  «Beschriftung» (lib/useRail – it publishes `--rail-w`, which the object panel, the plan reader,
- *  the floor list and the Checkliste surface sit beside). Open per mount, as there. */
-export function KarteNavRail({ obj, docs, active, onMap, onLibrary, onDoc, notHeld, labels }: {
+ *  so people might not know what it actually is»): the same chevron on top, grip and widths
+ *  (lib/useRail – it publishes `--rail-w`, which the object panel, the plan reader,
+ *  the floor list and the Checkliste surface sit beside). Open per mount, as there.
+ *  Keep this navigation collapsible regardless of «Beschriftung»: applying the saved toolbar
+ *  label preference replaced its chevron and grip with stacked captions (regression 20.10.2026). */
+export function KarteNavRail({ obj, docs, active, onMap, onLibrary, onDoc, notHeld }: {
   /** the selected object; null = only the two surfaces */
   obj: StationObject | null
   docs: ViewerPlanDoc[]
@@ -69,8 +70,6 @@ export function KarteNavRail({ obj, docs, active, onMap, onLibrary, onDoc, notHe
   onDoc: (id: string) => void
   /** offline: the documents this device does not hold — dimmed, still tappable (the surface says why) */
   notHeld?: ReadonlySet<string> | null
-  /** «Beschriftung» (lib/prefs · railLabels): 'short' = the word under every glyph, no chevron */
-  labels: RailLabels
 }) {
   const nav = appConfig.copy.navRail
   const C = appConfig.copy.karte
@@ -80,11 +79,10 @@ export function KarteNavRail({ obj, docs, active, onMap, onLibrary, onDoc, notHe
   const [expanded, setExpanded] = useState(false)
   const { scrollRef, edge, dragging, nudge, apply, gripProps } = useRail({
     varName: '--rail-w',
-    compactW: labels === 'short' ? RAIL_LABELLED : RAIL_COMPACT,
+    compactW: RAIL_COMPACT,
     wideW: RAIL_WIDE,
     side: 'left',
     expanded, setExpanded,
-    labels,
     itemCount: plans ? docs.length + 2 : 2,
     activeSelector: '.nav-item.on',
     revealKey: `${openDoc ?? active}·${plans ? docs.length : 0}`,
@@ -92,14 +90,11 @@ export function KarteNavRail({ obj, docs, active, onMap, onLibrary, onDoc, notHe
   })
   const shown = plans ? docs.map((d) => d.doc) : []
   return (
-    <nav className={cx('navrail rail', expanded && 'expanded', dragging && 'dragging', labels === 'short' && 'labelled')}
+    <nav className={cx('navrail rail', expanded && 'expanded', dragging && 'dragging')}
       aria-label={obj?.name ?? C.title} data-mono-max={railMonoMax(shown)}>
-      {/* no «Ausklappen» while the words are on – they already show what it would (NavRail) */}
-      {labels !== 'short' && (
-        <button type="button" className="nav-exp rail-exp" onClick={() => apply(!expanded)} aria-expanded={expanded} aria-label={expanded ? nav.collapse : nav.expand}>
-          <span className="nav-exp-ic rail-exp-ic"><Icon id="chevron" className="chev" /></span><span className="rail-exp-t">{expanded ? nav.collapse : nav.expand}</span>
-        </button>
-      )}
+      <button type="button" className="nav-exp rail-exp" onClick={() => apply(!expanded)} aria-expanded={expanded} aria-label={expanded ? nav.collapse : nav.expand}>
+        <span className="nav-exp-ic rail-exp-ic"><Icon id="chevron" className="chev" /></span><span className="rail-exp-t">{expanded ? nav.collapse : nav.expand}</span>
+      </button>
       <div className="rail-scroll-wrap">
         {edge.top && <button type="button" className="nav-more rail-more rail-more-up" aria-label={nav.scrollMore} onClick={() => nudge(-1)}><Icon id="chevron-down" /></button>}
         {edge.bottom && <button type="button" className="nav-more rail-more rail-more-down" aria-label={nav.scrollMore} onClick={() => nudge(1)}><Icon id="chevron-down" /></button>}
