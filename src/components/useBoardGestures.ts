@@ -31,6 +31,10 @@ interface BoardGesturesDeps {
  * vertex drag) stays in Whiteboard and is reached through the manipMove/manipUp callbacks, so the
  * delicate stopPropagation/setPointerCapture grammar of those drags is untouched.
  *
+ * The node-draw tools (Linie / Fläche · Punkte) zoom with one finger too (20.10.2026): their
+ * presses land on `.wb-ink` and the draft's grips, which swallow them before stageDown, so those
+ * handlers hand each press to `tapZoomDown`.
+ *
  * The dispatch order is pinch > tap-zoom > marquee > pan, then fall through to manipulation; on release
  * every gesture's up runs (each no-ops if its ref is null). Pointer bookkeeping and the handoff
  * to the two-finger gesture happen in the CAPTURE phase (trackDown/trackUp) so they see fingers
@@ -44,9 +48,10 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
   const pinchMid = useRef<{ x: number; y: number } | null>(null)
   const marqueeRef = useRef<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   // --- one-finger zoom, the Karte's own (MapLibre's double tap + tap-and-drag) — touch and pen,
-  // selection tool only, presses on EMPTY board only (an object's own handler swallows its press
-  // before stageDown). The draw tools keep their own double tap (it finishes a Linie / Fläche on
-  // `.wb-ink`) and navigate by pinch. ---
+  // presses on EMPTY board in the selection tool (an object's own handler swallows its press
+  // before stageDown), and every press of a node-draw tool through `tapZoomDown`. A double tap
+  // finishes nothing (owner 20.10.2026: «a map function … definitely not for finishing
+  // something»); ✓ does. Freehand, whose drag IS the stroke, navigates by pinch. ---
   const [tapZoom] = useState(createTapDragZoom)
   /** the scale the tap-drag engaged at — its factor is relative to that, so it never drifts */
   const tapZoomBase = useRef<number | null>(null)
@@ -159,6 +164,18 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
     if (rem && tool === 'pan') pan.current = { x: rem.x, y: rem.y, px: posRef.current.x, py: posRef.current.y }
   }
 
+  /** A node-draw tool's press, handed over by `.wb-ink` or a draft grip. True when it is the
+   *  second press of a double tap: the zoom owns this finger from here (stageMove and trackUp
+   *  carry it on), so the caller lays no node, starts no drag and stops the event. A first press
+   *  returns false and goes on to place as ever. */
+  const tapZoomDown = (e: ReactPointerEvent): boolean => {
+    const a = tapZoom.down(sample(e))
+    if (a?.kind !== 'arm') return false
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    applyTapZoom(a)
+    return true
+  }
+
   const stageDown = (e: ReactPointerEvent) => {
     if (pinchDist.current != null) return // the capture pass handed this gesture to the pinch
     if (tool !== 'pan') applyTapZoom(tapZoom.cancel())
@@ -207,5 +224,5 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
     if (pointers.current.size === 0) { panUp(); marqueeUp(); manipUp() }
   }
 
-  return { marquee, stageDown, stageMove, stageUp, trackDown, trackUp }
+  return { marquee, stageDown, stageMove, stageUp, trackDown, trackUp, tapZoomDown }
 }

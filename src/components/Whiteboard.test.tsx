@@ -1829,3 +1829,50 @@ describe('the plan’s Trupp dock finds a Trupp, like the Karte’s', () => {
     expect((screen.getByRole('button', { name: appConfig.copy.truppFinder.title }) as HTMLButtonElement).disabled).toBe(true)
   })
 })
+
+// UX sweep M4 (20.10.2026, owner: «Double tap should be used as a map function … Definitely not for
+// finishing something»): a Punkte draft finishes on ✓ only; a double tap zooms, as on the Karte.
+describe('a double tap on a Punkte draft zooms, it finishes nothing', () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+  const W = appConfig.copy.whiteboard
+  const tapAt = (el: Element, x: number, y: number) => {
+    fireEvent.pointerDown(el, { clientX: x, clientY: y, pointerId: 1, pointerType: 'touch' })
+    fireEvent.pointerUp(el, { clientX: x, clientY: y, pointerId: 1, pointerType: 'touch' })
+  }
+  const corners = (c: HTMLElement) => {
+    fireEvent.click(screen.getByRole('button', { name: 'Fläche' }))
+    const ink = c.querySelector('.wb-ink')!
+    tapAt(ink, 100, 100); tapAt(ink, 300, 100); tapAt(ink, 200, 300)
+    return ink
+  }
+
+  it('on the board: no Fläche is closed, and the double tap leaves no corner of its own', () => {
+    const { container, onChange } = renderPlan([])
+    const ink = corners(container)
+    tapAt(ink, 100, 300); tapAt(ink, 102, 301) // the double tap
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(3)
+  })
+
+  it('on the grip the first tap just laid (where the second press lands): the same', () => {
+    const { container, onChange } = renderPlan([])
+    const ink = corners(container)
+    tapAt(ink, 100, 300)
+    const grips = screen.getAllByRole('button', { name: W.dragVertex })
+    tapAt(grips[grips.length - 1], 101, 300)
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(3)
+  })
+
+  it('✓ is the way to finish', () => {
+    const { container, onChange } = renderPlan([])
+    corners(container)
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.done }))
+    expect(onChange.mock.calls[0][0][0].kind).toBe('area')
+  })
+})

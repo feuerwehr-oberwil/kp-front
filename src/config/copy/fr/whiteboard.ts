@@ -40,8 +40,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     area: 'Surface',
     dockHints: {
       draw: 'Glissez sur le plan pour dessiner à main levée. Couleur, épaisseur et style se choisissent ensuite dans l’éditeur.',
-      line: 'Touchez les sommets. Un double appui ou « Terminé » ferme la ligne. Couleur, épaisseur et style se choisissent ensuite dans l’éditeur.',
-      area: 'Touchez les sommets (au moins 3). Un double appui ou « Terminé » ferme la surface.',
       circle: 'Glissez du centre vers l’extérieur pour fixer le rayon. Ajustez ensuite le rayon, la couleur et le remplissage dans l’éditeur – en mètres réels une fois l’échelle calibrée.',
       text: 'Touchez le plan pour poser une note.',
       resource: 'Touchez le plan pour placer une équipe. Tirez pour la déplacer.',

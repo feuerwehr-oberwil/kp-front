@@ -40,8 +40,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     area: 'Area',
     dockHints: {
       draw: 'Drag on the plan to draw freely. Pick colour, width and style afterwards in the editor.',
-      line: 'Tap corner points. Double-tap or "Done" closes the line. Pick colour, width and style afterwards in the editor.',
-      area: 'Tap corner points (at least 3). Double-tap or "Done" closes the area.',
       circle: 'Drag from the centre outward to set the radius. Adjust radius, colour and fill afterwards in the editor – in real metres once the scale is calibrated.',
       text: 'Tap the plan to drop a note.',
       resource: 'Tap the plan to place a team. Drag to move it.',

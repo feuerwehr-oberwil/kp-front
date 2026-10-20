@@ -40,8 +40,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     area: 'Superficie',
     dockHints: {
       draw: 'Trascina sul piano per disegnare liberamente. Colore, spessore e stile si scelgono poi nell’editor.',
-      line: 'Tocca i vertici. Doppio tocco o «Fatto» chiude la linea. Colore, spessore e stile si scelgono poi nell’editor.',
-      area: 'Tocca i vertici (almeno 3). Doppio tocco o «Fatto» chiude la superficie.',
       circle: 'Trascina dal centro verso il bordo per impostare il raggio. Raggio, colore e riempimento si regolano poi nell’editor – in metri reali una volta calibrata la scala.',
       text: 'Tocca il piano per inserire una nota.',
       resource: 'Tocca il piano per posizionare una squadra. Trascina per spostarla.',

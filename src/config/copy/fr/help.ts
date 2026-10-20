@@ -339,7 +339,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'sub', text: 'Toucher et glisser (tactile/iPad)' },
           { kind: 'list', items: [
             'Un doigt déplace la carte/le plan ; deux doigts zooment (pincer).',
-            'Un seul doigt zoome aussi : **toucher deux fois** zoome ; **toucher, puis appuyer de nouveau et tirer** zoome en continu – vers le bas pour agrandir, vers le haut pour réduire. Pareil sur la carte et le plan ; tant qu’un outil de dessin est actif, seuls deux doigts zooment le plan.',
+            'Un seul doigt zoome aussi : **toucher deux fois** zoome ; **toucher, puis appuyer de nouveau et tirer** zoome en continu – vers le bas pour agrandir, vers le haut pour réduire. Pareil sur la carte et le plan, aussi pendant qu’une ligne ou une surface se pose point par point – on termine avec ✓, jamais par un double appui. En dessin à main levée, seuls deux doigts zooment le plan.',
             'Toucher **Sélection** une nouvelle fois fait passer le bouton sur **Multiple** : un cadre tiré sélectionne plusieurs objets ; les objets sélectionnés se déplacent en les tirant.',
             'Un bouton qui ne porte qu’un pictogramme dit son mot quand on le **maintient enfoncé** : après un court instant, le mot apparaît en bulle au-dessus, avec une brève vibration sur tactile. Relâcher ne déclenche **pas** le bouton : demander ce qu’est une chose ne doit pas la faire en même temps. À la souris, il suffit de survoler.',
           ] },
