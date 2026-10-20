@@ -90,7 +90,7 @@ export interface TimeBlock {
  * different paddings, one with labels and one without — and at 3am two surfaces that look almost
  * alike are worse than either.
  */
-export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabel, addLabel, onAdd, note, extra, onClose, labels, days }: {
+export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabel, addLabel, onAdd, note, extra, danger, onClose, labels, days }: {
   title: string
   /** who this sheet is about — field labels read «von – Meier Anna», not «von – Schichten – …» */
   subject: string
@@ -104,17 +104,20 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
   note?: string
   /** an additional read-only section under the blocks (the Zeitplan's «tatsächlich anwesend») */
   extra?: ReactNode
+  /** the sheet's one destructive action (the Anwesenheit's «Person entfernen») — the footer's far
+   *  left, by the one footer rule; there is no Abbrechen/primary beside it, the edits are live */
+  danger?: ReactNode
   onClose: () => void
   labels: { from: string; to: string; remove: string; fromStart: string; reopen: string; flip: string }
   /** the incident's own days — the picker shows a day wheel only when there is more than one */
   days?: Date[]
 }) {
   return (
-    // NO footer (29.09.2026, owner: «everything should be auto-saved without manual
+    // NO confirm footer (29.09.2026, owner: «everything should be auto-saved without manual
     // confirmations»): every change here is live the moment it is made, so a primary «Fertig»
     // was only a second ✕ promising an action. ✕ and the swipe close it; the one quiet line
-    // at the end says the edits are already kept.
-    <Sheet open onClose={onClose} fit sheetClassName={s.sheet} title={title}>
+    // at the end says the edits are already kept. A `danger` alone takes the footer's far left.
+    <Sheet open onClose={onClose} fit sheetClassName={s.sheet} title={title} footer={danger}>
       <div className={s.group}>
         <h4 className={s.groupTitle}>{sectionTitle}</h4>
         {blocks.length === 0 && <p className={s.note}>{emptyLabel}</p>}

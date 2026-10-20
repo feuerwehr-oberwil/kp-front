@@ -716,6 +716,10 @@
    that catches every author is a missing rule, not a missing patch. Scoped to a direct child of
    .ip-sheet, so .ip-row-actions and any inline action row are untouched. */
 .ip-sheet > .ip-actions { padding: 8px 24px 16px; }
+/* ONE footer for every edit sheet (UX sweep F5, 20.10.2026): [danger far left] · Abbrechen ·
+   primary. The delete leads the row and the rest keeps to the right, so it never stands beside
+   the save; a live sheet (TimeBlockSheet) has only the danger. docs/ui-conventions · editor sheets */
+.ui-sheet-foot > :is(.ip-btn.danger, .ip-btn-danger):first-child { margin-right: auto; }
 /* demo: "opening is disabled" note above the wizard's action row */
 .ip-demo-block { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 8px 12px;
   border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim); font: var(--fw-medium) var(--fs-1) var(--body); }

@@ -105,6 +105,12 @@ laufend gespeichert.» line (`copy.savedLive`) says so (TimeBlockSheet, Personne
 Mittel erfassen) or where a typed value would otherwise write a record per keystroke — the Trupp's
 Auftrag sheet, the Schichtband edit and the Mittel pencil KEEP their Speichern / Abbrechen (owner,
 29.09.2026: save-on-close was built and taken back; do not re-introduce it without asking).
+**ONE footer, in this order** (UX sweep F5, 20.10.2026): **[danger, far left] · Abbrechen ·
+primary**. The sheet's one destructive action leads the row and stands in the FOOTER, never in
+the body (13-incident · `.ui-sheet-foot > .danger:first-child` pushes the rest right); then the
+framed «Abbrechen», then the primary. Trupp Auftrag, Trupp Mannschaft, the Kanal stepper, the
+Schichtband edit and the Mittel pencil wear it; a live sheet has no Abbrechen / primary, so its
+footer is the danger alone (TimeBlockSheet `danger` — the Anwesenheit's «Person entfernen»).
 
 **A symbol's context sheet is headed by its TYPE**, for every symbol, the generic Fahrzeug too
 («Fahrzeug» / the pack's name; 29.09.2026). A user-given name lives in its field

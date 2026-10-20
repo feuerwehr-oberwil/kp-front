@@ -232,6 +232,7 @@ function BandSheet({ band, bands, startedAt, onCreate, onSave, onRemove, onClose
               {S.removeBand}
             </Button>
           )}
+          <Button onClick={onClose}>{appConfig.copy.cancel}</Button>
           <Button variant="primary" onClick={commit}>
             {band ? S.save : S.create}
           </Button>

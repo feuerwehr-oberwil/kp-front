@@ -290,6 +290,18 @@ describe('the band sheet', () => {
     fireEvent.click(screen.getByRole('button', { name: S.removeBand }))
     expect(props.onRemoveBand).toHaveBeenCalledWith('bd1')
   })
+
+  // UX sweep F5: the one footer — [danger] · Abbrechen · primary — and «Abbrechen» changes nothing
+  it('wears the one footer, and «Abbrechen» leaves the band as it was', () => {
+    const S = appConfig.copy.schichten
+    const props = mount()
+    fireEvent.click(screen.getByText('Früh').closest('button')!)
+    const foot = screen.getByRole('button', { name: S.save }).parentElement!
+    expect([...foot.querySelectorAll('button')].map((b) => b.textContent)).toEqual([S.removeBand, appConfig.copy.cancel, S.save])
+    fireEvent.click(within(foot).getByRole('button', { name: appConfig.copy.cancel }))
+    expect(props.onSaveBand).not.toHaveBeenCalled()
+    expect(props.onRemoveBand).not.toHaveBeenCalled()
+  })
 })
 
 describe('a change that would reach past the watch', () => {

@@ -194,6 +194,7 @@ export function KanalPickSheet({ value, sub, name, takeLabel, onPick, onClose }:
     <MiniSheet title={az.funkkanalUnit} sub={sub} ariaLabel={name ? `${az.funkkanalUnit} · ${name}` : az.funkkanalUnit} onClose={onClose} className={pad ? s.miniSheetPad : undefined}
       footer={pad ? undefined : (
         <SheetFoot className={s.modalFoot}>
+          <button type="button" className="ip-btn" onClick={onClose}>{az.cancel}</button>
           <button type="button" className="ip-btn primary" onClick={() => void pick(typed)}>{takeLabel ?? az.save}</button>
         </SheetFoot>
       )}>
@@ -287,6 +288,8 @@ export function AuftragSheet({ t, leitungOptions, lite = false, onSave, onClose 
     <MiniSheet title={az.editFieldLabels.auftrag} sub={truppSheetSub(t)} ariaLabel={`${az.editFieldLabels.auftrag} · ${t.name}`} onClose={onClose}
       footer={(
         <SheetFoot className={s.modalFoot}>
+          {/* the one footer: [danger] · Abbrechen · primary (docs/ui-conventions · editor sheets) */}
+          <button type="button" className="ip-btn" onClick={onClose}>{az.cancel}</button>
           <button type="button" className="ip-btn primary" onClick={() => void save()}>{az.save}</button>
         </SheetFoot>
       )}>
@@ -459,6 +462,7 @@ export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds,
       className={s.miniSheetTall}
       footer={(
         <SheetFoot className={s.modalFoot}>
+          <button type="button" className="ip-btn" onClick={onClose}>{az.cancel}</button>
           <button type="button" className="ip-btn primary" aria-disabled={!canSave} onClick={() => void save()}>{az.save}</button>
         </SheetFoot>
       )}>

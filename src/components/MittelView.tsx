@@ -860,10 +860,11 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
         </label>
       </div>
       <SheetFoot className="ip-actions">
-        {/* destructive action to the left, away from Speichern — and only where there is
-            something the operator actually put there by hand */}
+        {/* destructive action to the left, away from Speichern (the one footer rule, 13-incident ·
+            `.ui-sheet-foot > .danger`) — and only where there is something the operator actually
+            put there by hand */}
         {target.custom && (
-          <button type="button" className="ip-btn mv-del" onClick={onDelete}>
+          <button type="button" className="ip-btn danger" onClick={onDelete}>
             <Icon id="trash" /> {M.deleteLine}
           </button>
         )}
