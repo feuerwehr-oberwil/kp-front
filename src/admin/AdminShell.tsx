@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { useAuth } from '../lib/auth'
 import { adminLogout } from './adminAuth'
@@ -237,6 +237,13 @@ export function AdminShell() {
   const [section, setSection] = useState<SectionId>(initialSection)
   // Mobile drawer open state — desktop ignores this (sidebar is always shown).
   const [navOpen, setNavOpen] = useState(false)
+  // the phone's sections drawer closes on Escape as on its scrim (S8, 20.10.2026)
+  useEffect(() => {
+    if (!navOpen) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setNavOpen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [navOpen])
 
   const active = ALL_ENTRIES.find((e) => e.id === section) ?? ALL_ENTRIES[0]
   const activeCopy = navCopy(active.id)
