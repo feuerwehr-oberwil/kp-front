@@ -217,12 +217,14 @@ export default function App() {
   const [karteFromEinsatz, setKarteFromEinsatz] = useState(false)
   // ⚠️ A REPLACE, not a push: the viewer is an operational screen now, and those have no history
   // entry behind them for an iOS edge swipe to find (objectVisits/route). The way back into the
-  // Einsatz is its red chip / the «Einsätze» sheet.
+  // Einsatz is its red chip / the «Einsätze» sheet. The Einsatz's own entries (its Checkliste's
+  // levels, lib/historyTrail) are walked back FIRST: a replace on top of them would leave them
+  // behind the viewer, and walking them back after it would land on «/» and drop the viewer.
   // Leaving an ABGESCHLOSSENES Einsatz forgets it on this device: nothing runs behind the viewer,
   // so no later reload or launch may bring it back (owner, 20.10.2026).
   const enterKarte = useCallback(() => {
     if (activeMeta?.is_archived) savePrefs({ ...loadPrefs(), incidentId: undefined })
-    setKarteEntered(true); setKarteFromEinsatz(true); navigateTo(KARTE_BASE, { replace: true })
+    leaveAppEntries('/', () => { setKarteEntered(true); setKarteFromEinsatz(true); navigateTo(KARTE_BASE, { replace: true }) })
   }, [activeMeta?.is_archived])
   // left by the browser's own back (neither the viewer nor a visit from it): the entry is spent
   if (!karteRoute && !ovRoute && karteEntered) { setKarteEntered(false); setKarteFromEinsatz(false) }
