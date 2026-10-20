@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cameraOnClose, NO_PADDING, returnOnSelect, sameCamera, toolTakesTaps, type Camera } from './camera'
+import { besidePanel, cameraOnClose, NO_PADDING, returnOnSelect, sameCamera, toolTakesTaps, type Camera } from './camera'
 
 const home: Camera = { center: [7.556, 47.512], zoom: 15.5, padding: NO_PADDING }
 // a selection framed in the strip above the phone's sheet (KarteApp · panelPad)
@@ -56,5 +56,15 @@ describe('the camera after a selection closes (owner R4: «doesn\'t constantly p
       at = cameraOnClose(r, i % 2 ? framed : other) ?? at
     }
     expect(sameCamera(at, home)).toBe(true)
+  })
+})
+
+describe('the free map beside the tablet\'s panel (owner R6: «isn\'t neatly in focus»)', () => {
+  it('starts right of the panel beside the rail, and ends at the tool rail', () => {
+    // 1440 wide: panel 92…496, tool rail 1364…1424 – the middle 930 (e2e/karte-plan-back-camera)
+    expect(besidePanel(60, 60)).toEqual({ top: 80, bottom: 0, left: 496, right: 76 })
+  })
+  it('follows the rail\'s chevron: an expanded rail pushes the free map\'s edge out by its growth', () => {
+    expect(besidePanel(196, 60).left - besidePanel(60, 60).left).toBe(136)
   })
 })

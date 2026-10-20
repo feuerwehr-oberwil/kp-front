@@ -5,6 +5,7 @@ import { ChecklistLibrary } from './ChecklistLibrary'
 import { warmTemplates, type ChecklistTemplate } from '../lib/checklists'
 import { useMediaQuery } from '../lib/useIsPhone'
 import { appConfig } from '../config/appConfig'
+import { appHistoryDepth } from '../objectVisits/route'
 
 // The Karte's Checkliste surface (19.10.2026): devices first, checklists to READ, one search over
 // everything, and the place kept per tab. Pinned on the phone layout (list ↔ page), where the
@@ -16,7 +17,10 @@ vi.mock('../lib/checklists', async (importOriginal) => ({
 }))
 vi.mock('../lib/useIsPhone', () => ({ useMediaQuery: vi.fn() }))
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); sessionStorage.clear() })
+/** the history steps the library schedules (a microtask) and their traversals (a task) */
+const settle = () => act(async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0)) })
+
+afterEach(async () => { cleanup(); await settle(); vi.clearAllMocks(); sessionStorage.clear() })
 
 const FU: ChecklistTemplate = {
   id: 'fu', kind: 'action', title: 'Aufgaben FU', version: 1, source: 'x',
@@ -51,8 +55,16 @@ describe('ChecklistLibrary', () => {
     const { container } = await mount()
     expect(warmTemplates).toHaveBeenCalled()
     const CL = appConfig.copy.checklists
+    // the Einsatzwissen unfolded: each reference template is a group of its Stichworte (review round 2)
     expect([...container.querySelectorAll('section')].map((g) => g.getAttribute('aria-label')))
-      .toEqual([CL.groupManuals, CL.groupChecklists, CL.groupKnowledge])
+      .toEqual([CL.groupManuals, CL.groupChecklists, TAKTIK.title])
+  })
+
+  it('opens a Stichwort from the home and goes back to the list', async () => {
+    await mount()
+    fireEvent.click(screen.getByRole('button', { name: /Photovoltaik/ }))
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.modes.checklists })) // the back row
+    expect(screen.getByRole('button', { name: /Generator/ })).toBeTruthy()
   })
 
   it('shows a checklist to read: numbers, the quiet line, no boxes and no deep links', async () => {
@@ -83,6 +95,52 @@ describe('ChecklistLibrary', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'TLF' })[0]) // the back row (the meta line's device link goes there too)
     expect(screen.getByRole('button', { name: /Notbetrieb/ })).toBeTruthy()
     expect(screen.queryByText('Bedienungstableau – Schritt')).toBeNull()
+  })
+
+  // owner 20.10.2026: «swipe from the left to go back one section» – the native back gestures
+  // pop a history entry, so every level deeper is one (lib/historyTrail)
+  it('the native back steps up one level: chapter → device → list, and leaving leaves nothing', async () => {
+    const { unmount } = await mount('', [TLF('t1', 'Bedienungstableau'), TLF('t2', 'Notbetrieb')])
+    fireEvent.click(screen.getByRole('button', { name: /^TLF/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Bedienungstableau/ }))
+    await settle()
+    expect(appHistoryDepth()).toBe(2)
+    // the next chapter is a sibling: no entry of its own
+    fireEvent.click(screen.getByRole('button', { name: /Notbetrieb/ }))
+    await settle()
+    expect(appHistoryDepth()).toBe(2)
+    expect(screen.getByText('Notbetrieb – Schritt')).toBeTruthy()
+    act(() => window.history.back())
+    await settle()
+    expect(screen.queryByText('Notbetrieb – Schritt')).toBeNull() // the device page
+    expect(screen.getByRole('button', { name: /Bedienungstableau/ })).toBeTruthy()
+    act(() => window.history.back())
+    await settle()
+    expect(screen.getByRole('button', { name: /Generator/ })).toBeTruthy() // the list
+    fireEvent.click(screen.getByRole('button', { name: /Generator/ }))
+    await settle()
+    unmount() // back to the Karte
+    await settle()
+    expect(appHistoryDepth()).toBe(0)
+  })
+
+  it('a page that comes back gets its levels back: «‹ TLF» and the swipe both reach the device', async () => {
+    await mount('', [TLF('t1', 'Bedienungstableau'), TLF('t2', 'Notbetrieb')])
+    fireEvent.click(screen.getByRole('button', { name: /^TLF/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Notbetrieb/ }))
+    cleanup()
+    await settle()
+    await mount('', [TLF('t1', 'Bedienungstableau'), TLF('t2', 'Notbetrieb')])
+    await settle()
+    expect(screen.getByText('Notbetrieb – Schritt')).toBeTruthy()
+    expect(appHistoryDepth()).toBe(2)
+    fireEvent.click(screen.getAllByRole('button', { name: 'TLF' })[0]) // the back row = one step back
+    await settle()
+    expect(appHistoryDepth()).toBe(1)
+    expect(screen.queryByText('Notbetrieb – Schritt')).toBeNull()
+    act(() => window.history.back())
+    await settle()
+    expect(screen.getByRole('button', { name: /Generator/ })).toBeTruthy() // the list
   })
 
   it('keeps the open page when the surface comes back (Karte ↔ Checkliste)', async () => {

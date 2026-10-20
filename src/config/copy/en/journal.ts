@@ -23,7 +23,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'errors'>> = {
     },
     open: 'Log',
     add: 'Entry',
-    addHint: 'Tap for an entry · hold, then slide onto a voice memo or a photo',
+    addHint: 'Tap for an entry – hold, then slide onto a voice memo or a photo',
     title: 'Log',
     empty: 'No events recorded yet',
     surfaceMap: 'Map',

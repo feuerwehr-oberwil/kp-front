@@ -5,6 +5,7 @@ import { ChecklistsView } from './ChecklistsView'
 import { warmTemplates, type ChecklistTemplate } from '../lib/checklists'
 import { useMediaQuery } from '../lib/useIsPhone'
 import { appConfig } from '../config/appConfig'
+import { appHistoryDepth } from '../objectVisits/route'
 
 vi.mock('../lib/checklists', async importOriginal => ({
   ...await importOriginal<typeof import('../lib/checklists')>(),
@@ -115,5 +116,30 @@ describe('Checklist chooser row and reading position', () => {
     render(view())
     await act(async () => {})
     expect(screen.getByRole('button', { name: appConfig.copy.checklists.showList }).textContent).toContain('Aufgaben FU')
+  })
+
+  // owner 20.10.2026: «swipe from the left to go back one section» – on a phone the open list is
+  // one level under the chooser, and the native back (a popped history entry) returns to it
+  it('the phone\'s back gesture returns from an open list to the chooser; the tab change leaves nothing', async () => {
+    vi.mocked(useMediaQuery).mockReturnValue(true)
+    vi.mocked(warmTemplates).mockReturnValue({ list: Promise.resolve([tpl('a', 'Aufgaben FU'), tpl('b', 'Lagerapport')]), newer: null })
+    const noop = () => {}
+    const settle = () => act(async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0)) })
+    window.history.replaceState(null, '', '/')
+    const { container, unmount } = render(<ChecklistsView checklists={{}} canTick divera={{}}
+      onTick={noop} onBranch={noop} onAction={noop} scrollKey="inc-swipe" />)
+    await settle()
+    fireEvent.click(screen.getByRole('button', { name: /Lagerapport/ }))
+    await settle()
+    expect(appHistoryDepth()).toBe(1)
+    act(() => window.history.back())
+    await settle()
+    expect(container.querySelector('nav')).toBeTruthy() // the chooser again
+    fireEvent.click(screen.getByRole('button', { name: /Aufgaben FU/ }))
+    await settle()
+    expect(appHistoryDepth()).toBe(1)
+    unmount() // another tab
+    await settle()
+    expect(appHistoryDepth()).toBe(0)
   })
 })

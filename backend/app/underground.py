@@ -38,6 +38,7 @@ import json
 import logging
 import math
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -295,20 +296,31 @@ def rings_of(features: list[dict]) -> list[Ring]:
     return out
 
 
-async def fetch(client: httpx.AsyncClient, area: Area) -> list[Ring]:
-    """Every underground structure in the area (a resolved one), each once."""
+async def fetch(
+    client: httpx.AsyncClient,
+    area: Area,
+    *,
+    ask: Callable[[httpx.AsyncClient, Box], Awaitable[list[dict]]] | None = None,
+    shape: Callable[[list[dict]], list[Ring]] | None = None,
+    cell_m: float = CELL_M,
+) -> list[Ring]:
+    """Every underground structure in the area (a resolved one), each once. One cell at a time:
+    the survey answers a burst of parallel asks with 502s. ``ask`` / ``shape`` / ``cell_m`` let
+    another survey layer walk the same area the same way (app/houses)."""
+    ask = ask or _ask_cell
+    shape = shape or rings_of
     seen: set[tuple] = set()
     out: list[Ring] = []
-    todo: list[tuple[Box, int]] = [(c, 0) for b in boxes_to_ask(area) for c in cells(b)]
+    todo: list[tuple[Box, int]] = [(c, 0) for b in boxes_to_ask(area) for c in cells(b, cell_m)]
     while todo:
         cell, depth = todo.pop(0)
-        feats = await _ask_cell(client, cell)
+        feats = await ask(client, cell)
         if len(feats) >= CELL_COUNT and depth < MAX_SPLIT:
             todo.extend((q, depth + 1) for q in quarter(cell))
             continue
         if len(feats) >= CELL_COUNT:
-            logger.warning("underground: a %s cell still returns %d features; kept as returned", cell, len(feats))
-        for ring in rings_of(feats):
+            logger.warning("survey: a %s cell still returns %d features; kept as returned", cell, len(feats))
+        for ring in shape(feats):
             k = tuple(ring)
             if k not in seen and area.holds(ring):
                 seen.add(k)

@@ -60,6 +60,27 @@ export function openSheetTop(): number | null {
   return top
 }
 
+/** How many surfaces hold a placement mode right now (a map tool and its plan twin can overlap
+ *  for a frame while one mounts and the other unmounts). */
+let placing = 0
+
+/**
+ * Marks a placement/tool mode as active (20.10.2026, owner: «the toasts sometimes block things
+ * like the point placement thing»): while any caller passes `active`, `<html>` carries
+ * `data-placing` and every width's stylesheet moves the toaster to the top lane, away from where
+ * the finger taps (08-toasts.css · 15-mobile.css). Call it from the surface that owns the mode:
+ * the Einsatz map tools, a plan's tools, the Passung, the Karte home's Punkt/Messen/Gefahrgut.
+ * A modal sheet over the mode still wins (useToastLane's `data-lane`): the map takes no taps then.
+ */
+export function usePlacementLane(active: boolean): void {
+  useEffect(() => {
+    if (!active) return
+    const root = document.documentElement
+    if (placing++ === 0) root.setAttribute('data-placing', '')
+    return () => { if (--placing === 0) root.removeAttribute('data-placing') }
+  }, [active])
+}
+
 function px(name: string, fallback: number): number {
   const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name))
   return Number.isFinite(v) ? v : fallback

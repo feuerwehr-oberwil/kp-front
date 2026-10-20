@@ -70,7 +70,7 @@ export function pickBootIncident(
   return saved ?? open[0]
 }
 
-/** How long a reload still returns to an Einsatz that is ABGESCHLOSSEN — longer than the alarm
+/** How long a reload (never a fresh launch) still returns to an Einsatz that is ABGESCHLOSSEN — longer than the alarm
  *  window, because it has to span the Einsatz you just closed plus the Rapport-Nacharbeit that
  *  follows it, and shorter than «für immer», because the next day's launch belongs on the clean
  *  launcher (see `shouldReopenClosed`). */
@@ -93,11 +93,16 @@ export const CLOSED_RETURN_MAX_AGE_MS = 12 * 60 * 60 * 1000
  *     stamps `chosenAt`, so it has no hand-chosen moment to point at).
  * Neither → the clean launcher, unchanged. A crash-looping Einsatz is never returned to either:
  * the boundary's «Einsatz schliessen» escape must not lead back in through this door.
+ *
+ * And only on a RELOAD (`reload`, App · the navigation entry's type). A fresh launch – the app
+ * closed and opened again – never comes back to a closed Einsatz: it put the owner back on the
+ * Einsatz they had just left (20.10.2026).
  */
 export function shouldReopenClosed(
   inc: IncidentMeta,
-  opts: { now: number; chosenAt?: number; crash?: CrashRecord | null },
+  opts: { now: number; reload: boolean; chosenAt?: number; crash?: CrashRecord | null },
 ): boolean {
+  if (!opts.reload) return false
   const crash = opts.crash === undefined ? readCrash() : opts.crash
   if (isLooping(crash, inc.id, opts.now)) return false
   const chosenRecently = opts.chosenAt != null && opts.now - opts.chosenAt < CLOSED_RETURN_MAX_AGE_MS

@@ -300,7 +300,7 @@ function LivePositionChip({ live, center, onShow }: {
   // and printed behind every name it became a second column of numbers competing with the name
   // — the thing the list is actually read for. The reading is not lost: it is the tooltip and
   // the accessible name, and tapping still puts the person on the map, which is the real answer.
-  const label = `${text}${onShow ? ` · ${L.tapHint}` : ''}`
+  const label = `${text}${onShow ? ` – ${L.tapHint}` : ''}`
   return (
     <button
       type="button"

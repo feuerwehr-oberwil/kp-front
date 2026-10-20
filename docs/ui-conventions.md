@@ -218,8 +218,15 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     never offered while the device is offline. While a MODAL bottom sheet is open the lane stands ON the sheet, one `--float-gap` above
     its top edge (`lib/toastLane` · `useToastLane` → `.toaster[data-lane]`); only a sheet that
     leaves no room for a pill above it sends the lane to the top of the screen, never over the
-    sheet's head. Non-modal owners of the foot (detail sheet, Ebenen, Messen, Passung) keep the
-    lane under the top bar. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
+    sheet's head. Non-modal owners of the foot (detail sheet, Ebenen) keep the lane under the top
+    bar. So does a PLACEMENT MODE, on every width (20.10.2026, owner: «the toasts sometimes block
+    things like the point placement thing»): while a mode takes the map's or a plan's taps (any
+    armed map or plan tool, Messen, the Passung, the Karte's Punkt setzen / Gefahrgut) the surface
+    that owns it calls `usePlacementLane(active)` (lib/toastLane → `<html data-placing>`), and the
+    lane moves to the top: under the bar on a phone (and under the Karte's running-Einsatz strip),
+    at the Meldeleiste's 92px on a tablet. A new mode calls the hook; it never adds a selector to
+    the lane's list. The Karte's «Auf die Karte tippen …» is a sticky toast in that lane, not a
+    pill of its own. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
     bar first, then amber / blue / grey): a row's tone is its leading glyph's colour, so every
     `Meldung` carries an `icon`. A row TITLE whose way in is the same
     move as the row's filled button (the Atemschutz «Zum Trupp» — `Meldung.onOpen.label` = the
@@ -263,17 +270,16 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     OUT OF THE TOP BAR wears the bar's own glass (`--glass` + blur + `--glass-line` + `--shadow`):
     the Einsatzuhr menu, the Atemschutz head detail and the Meteo details (30.09.2026:
     `.tb-weather-pop` wore `--surface`, a lighter slate than the bar at night).
-    **On tablet/desktop, dark in both themes (`--ink-fill` + `--on-accent-ink`) is the ARMED material and nothing
-    else**: a tool dock (`.wb-dock` — something is armed, its ✕ disarms) and the Trupp marker's
-    action bar (`.wb-pill-acts` — this marker is in hand). It is the «clean selected state» of a
-    mode, so a list you read or a menu you pick from never wears it; a new surface that is dark
-    by day is a mode, or it is a bug. On a light-by-day card the ✕ is the global `.ip-x` and the
-    primary is `--btn-primary`; the on-ink ✕ (`.wb-dock-x`) and the light-fill primary
-    (`.wb-dock-go`) belong to the armed material only.
-    **Mobile tool docks use the popup material** (01.10.2026): Messen and every tool-option
-    dock wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
-    Their controls share a neutral fill and selected wash, with a centred row; the line dock
-    has no subtitle on mobile (its instructions stay behind ⓘ).
+    **Dark in both themes (`--ink-fill` + `--on-accent-ink`) is the Trupp marker's action bar
+    alone** (`.wb-pill-acts` — this marker is in hand); a new surface that is dark by day is a
+    bug. **Tool docks wear the floating material too** (`.wb-dock`, 20.10.2026, owner: «why do we
+    have a dark sidebar in lightmode?» — the phone's bar since 01.10., every dock since): Messen
+    and every tool-option dock on the Karte, the Einsatz map and the Plan/Skizze, phone and tablet,
+    wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
+    The controls share one neutral fill (`--dock-control-bg`, opaque) and hover
+    (`--dock-control-hover`); a picked width/line style is the selected wash; the ARMED toggle
+    (`.wb-dock-tog.on`) is the `--sel` fill — that fill, not the dock, says «armed». The ✓ is
+    `--btn-primary`. On phones the line dock has no subtitle (its instructions stay behind ⓘ).
     The sticky close button has no masking shadow: a solid surface patch mismatches the glass.
     The blank Tafel offers no Messen on a phone; map and scaled plans keep it. The mobile
     Ansichten popover dismisses on an outside pointer press, allowing the pressed control to act.
@@ -302,9 +308,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     choice fill (at night it is the primary button's light grey).
   - *Primary (28.09.2026):* the single action of a surface is `--btn-primary` / `--on-btn-primary`,
     14px/800 — never `--blue` (blue is «chosen», `--sel`), never `--ink-fill` directly (at night it
-    is a 1.14:1 patch on the sheet), never green. On the ARMED material (a tool dock, the Trupp
-    marker bar — dark in both themes) the primary is the LIGHT fill: `--on-accent-ink` with
-    `--ink-fill` ink (`.wb-dock-go`). The documented green «go» (`<Button variant="go">`, Atemschutz «Eintritt») is a
+    is a 1.14:1 patch on the sheet), never green. The tool dock's ✓ (`.wb-dock-go`) is THE
+    primary too, since the dock is light by day (20.10.2026). The documented green «go» (`<Button variant="go">`, Atemschutz «Eintritt») is a
     tone, not the primary, and stays. The Trupp marker's action bar (`.wb-pill-acts`) is all
     neutral wash (29.09.2026): no green «Bei den Trupps zeigen», no blue «Position markieren». A
     door to a page wears that page's nav glyph («Bei den Trupps zeigen» = the Trupps stopwatch,
@@ -402,7 +407,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Never a bare native `type=search`, never a framed white box, never a ruled band.
     (6) **ⓘ toggle**: `components/InfoToggle` (`.ui-info`) — the grey 36px chip with a 44px pad;
     OPEN is `--sel-wash` + `--blue-strong` glyph (the «open/armed» look). Never the choice fill,
-    never the ink pill, never `--accent`. The dark tool docks keep DockInfo's on-ink ⓘ.
+    never the ink pill, never `--accent`. The tool docks keep DockInfo's ⓘ in the dock's control fill.
     (7) **No hits**: one line, `.no-hits` (13/500 `--ink-faint`, centred, 20px pad, never italic),
     worded `copy.noHits` «Keine Treffer für «{q}».»; a noun of its own only where it helps («Kein
     Trupp gefunden»).
@@ -427,6 +432,24 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     rows are `--done-opacity`, and the state word is in the row button's accessible name
     (`.sr-only`). The filter menu shows each state as a small row swatch (plain · tint · dimmed),
     the look the row has.
+    (12) **List row, back row** (20.10.2026, reuse audit): every list of things to open is
+    `components/ListRow` – `ListRow` (lead slot · title · sub · end · ›; a button with `onClick`,
+    static without), on a `ListCard` (white card with hairlines, 56px rows, 16px titles) or a
+    `ListCard look="rail"` (a list column beside a document: --tap rows, 14px titles, the one
+    corner), under a `ListGroup` eyebrow. «Where you are» is `on` (the ink pill). The way one level
+    up is `BackRow` «‹ Label», naming where it goes, never a bare «Zurück». The look is global
+    (13-incident: `.list-row`, `.list-card`, `.list-group`, `.back-row`); a surface fills the lead
+    slot and places them, never a `.row` of its own. A row's extra line under its text (a round's
+    progress bar) goes in as `children`. On it: the library, the Einsatz rail, the devices, the
+    Karte's lists (search, Pläne, In der Nähe, Besuche, the device sheet) and every Objektbesuche
+    list. What a surface may still add is meaning, compounded with `.list-row` (the hydrant's blue
+    tint, a plan's --tap-lg height, a quiet fact line in the visit card) – never another size.
+    A title hyphenates ONLY where that saves a line (owner 20.10.2026, «Trink-wasser»): whole words
+    when they take as many lines, `hyphens: auto` when hyphenating is shorter or a word is wider
+    than the line on its own. CSS cannot say this, so `lib/smartHyphens` (a ref on the text: the
+    row title, the reader's chapter neighbours) lays it out both ways; never `hyphens: auto` in
+    the CSS of a title.
+    `controlDebt.test.ts` is the ratchet for raw toggles, selects and search fields.
   - *Colour of a mention is not a state* (29.09.2026, owner pick A): every recognised word in the
     Verlauf – vehicle, partner, Trupp, person, material, group – is **bold `--ink`**
     (`.jr-link`), and in the composer one blue wash / one blue suggestion tint

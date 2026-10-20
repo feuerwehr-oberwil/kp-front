@@ -315,7 +315,7 @@ export const editorsCopy = {
     gpsDismiss: 'Ausblenden',
     gpsPause: 'Folgen stoppen',
     // ── The Meldung when a coupled vehicle drives off / comes back (GpsFollowMeldung, D3) ──
-    gpsAwayTitle: '{vehicle} fährt weg · {distance} vom Einsatzort',
+    gpsAwayTitle: '{vehicle} fährt weg, {distance} vom Einsatzort',
     gpsAwayTitleBare: '{vehicle} fährt weg',
     /** ⚠️ The sub-line is ONE line on a 360px phone (~44 characters) — keep these short */
     gpsAwaySub: '{lines} endet noch am Einsatzort.',
@@ -325,8 +325,8 @@ export const editorsCopy = {
     /** following was stopped after the line had traced the drive */
     gpsStoppedTitle: '{vehicle} · {distance} vom Einsatzort',
     gpsStoppedTitleBare: '{vehicle} · Folgen gestoppt',
-    gpsStoppedSub: 'Folgen gestoppt · {lines} zeigt die Fahrt.',
-    gpsStoppedSubMany: 'Folgen gestoppt · {lines} zeigen die Fahrt.',
+    gpsStoppedSub: 'Folgen gestoppt. {lines} zeigt die Fahrt.',
+    gpsStoppedSubMany: 'Folgen gestoppt. {lines} zeigen die Fahrt.',
     /** the vehicle is on site again while the line still follows it (TLF went to refill) */
     gpsBackTitle: '{vehicle} wieder am Einsatzort',
     gpsBackSub: '{lines} zeigt die Fahrt seit {time}.',

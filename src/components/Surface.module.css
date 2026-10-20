@@ -2,8 +2,8 @@
 
 /*
  * **Wide screens: form and list BODIES are capped, boards are not** (B1, decided 07.10.2026, revised
- * the same day). Above 1180px the body of a FORM or LIST surface (Rapport, Material, the Checkliste
- * runner, the sheets) stops at the width its content needs and stands centred on the surface
+ * the same day). Above 1180px the body of a FORM or LIST surface (Rapport, Material, the
+ * sheets) stops at the width its content needs and stands centred on the surface
  * ground. It adds columns of independent groups rather than stretching: Material has 2 columns
  * from 1200px and 3 from 1600px. A BOARD (Karte, Plan, Trupps, the Anwesenheit grid, Zeitplan)
  * stays full width. **Heads and toolbars are never capped.** The surface head and the search
@@ -15,7 +15,8 @@
  * `padding-inline: var(--content-pad-x)`. Because `--content-max` is unset at 1180 and below,
  * phones and tablets get exactly the old 22px inset. Never cap a phone or tablet layout this way.
  * A new capped body uses this token rather than a hand-rolled `max-width` + `margin: auto` box
- * (the Checkliste runner's 720px predates it). Inside a row, a control stays near its label (the
+ * (the Checkliste's readers are not a capped body: one LEFT-aligned 760px column on a white
+ * pane, owner pick 20.10.2026). Inside a row, a control stays near its label (the
  * Rapport's Gerettete steppers sit in a 320px row).
  * ⚠️ Dev-server gotcha: a module that `composes` from `Surface.module.css` (Atemschutz,
  * Anwesenheit, Mittel, Checklists) gets its OWN inlined copy of that file. `pnpm dev` does not

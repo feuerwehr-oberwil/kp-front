@@ -1,7 +1,15 @@
+import 'fake-indexeddb/auto'
+import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
+const { apiGet } = vi.hoisted(() => ({ apiGet: vi.fn() }))
+vi.mock('./api', async (orig) => ({ ...(await orig<typeof import('./api')>()), apiGet }))
+
+import { __resetIdbForTests } from './idb'
 import {
   checklistImageUrls,
   isTickable,
+  loadTemplates,
   manualGroups,
   resetWarmManualImages,
   warmManualImages,
@@ -63,6 +71,25 @@ describe('checklistImageUrls', () => {
       '/api/reference/checklists:Stromerzeuger starten:p2',
       '/api/reference/checklists:taktik:p12',
     ])
+  })
+
+  it('lists a cover too – a photo no step shows is still needed offline', () => {
+    expect(checklistImageUrls([manual('m', 'D', { cover: 7 })])).toEqual(['/api/reference/checklists:m:p7'])
+  })
+})
+
+describe('loadTemplates', () => {
+  it('stamps each template with its asset pages\' versions from the registry list', async () => {
+    globalThis.indexedDB = new IDBFactory()
+    __resetIdbForTests()
+    apiGet.mockImplementation(async (path: string) => {
+      if (path === '/api/reference') {
+        return [{ id: 'checklists:m', current_version: 1 }, { id: 'checklists:m:p1', current_version: 4 }, { id: 'checklists:m:p2', current_version: 1 }]
+      }
+      return manual('m', 'D', { steps: [{ text: 'a', images: [{ page: 1 }, { page: 2 }] }] })
+    })
+    const [m] = await loadTemplates()
+    expect(checklistImageUrls([m])).toEqual(['/api/reference/checklists:m:p1?v=4', '/api/reference/checklists:m:p2?v=1'])
   })
 })
 

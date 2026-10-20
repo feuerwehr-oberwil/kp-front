@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, cleanup, renderHook } from '@testing-library/react'
-import { laneOverSheet, openSheetTop, useToastLane } from './toastLane'
+import { laneOverSheet, openSheetTop, usePlacementLane, useToastLane } from './toastLane'
 
 /* 30.09.2026, owner («slightly odd positioning of the toasts»): a modal bottom sheet no longer
  * flips the phone's toasts to the top of the page — the lane stands one --float-gap above the
@@ -77,5 +77,21 @@ describe('useToastLane', () => {
     vv.offsetTop = 200
     act(() => { vv.dispatchEvent(new Event('scroll')); vi.advanceTimersByTime(50) })
     expect(host.style.getPropertyValue('--msg-sheet-bottom')).toBe('308px')
+  })
+})
+
+/* 20.10.2026, owner («the toasts sometimes block things like the point placement thing»): while a
+ * placement mode is on, the toasts move to the top lane — the marker must hold while ANY surface
+ * still has its mode on, not drop when the first of two lets go. */
+describe('usePlacementLane', () => {
+  it('marks <html> while any surface holds a mode', () => {
+    const root = document.documentElement
+    const a = renderHook(({ on }) => usePlacementLane(on), { initialProps: { on: true } })
+    const b = renderHook(() => usePlacementLane(true))
+    expect(root.hasAttribute('data-placing')).toBe(true)
+    a.rerender({ on: false })
+    expect(root.hasAttribute('data-placing')).toBe(true)
+    b.unmount()
+    expect(root.hasAttribute('data-placing')).toBe(false)
   })
 })

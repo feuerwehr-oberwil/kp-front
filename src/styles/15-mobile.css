@@ -67,7 +67,7 @@
    `resizes-content` keyboard shrink did exactly that — see lib/useIsPhone). Change these here
    and in the phone blocks together. ---- */
 @media (--tablet) {
-  /* `.layers-card` needs no narrowing here any more: 264px IS its base width (05-navrail), and
+  /* `.layers-card` needs no narrowing here any more: 320px IS its base width (05-navrail), and
      it tracks --vrail-w on its own — the rule that used to sit here said nothing the base did
      not. Don't put it back. */
   /* 300px was below what the drawing editor's own rows need: «Abschluss» and «Inhalt» carry
@@ -252,21 +252,8 @@
        the bottom of the tool dock — under the buttons, on a control that is dragged with a thumb
        and needs no indicator to be discovered. It still scrolls. */
     scrollbar-width: none; -ms-overflow-style: none; }
-  /* Mobile tool options share the popup material. */
-  .phone-tools .wb-dock { background: var(--float-bg); backdrop-filter: var(--float-blur);
-    box-shadow: var(--float-edge); color: var(--ink);
-    --dock-control-bg: color-mix(in srgb, var(--ink) 7%, var(--surface)); }
-  .phone-tools .wb-dock .wb-dock-ic { color: var(--ink-dim); }
-  .phone-tools .wb-dock .wb-style-sep { background: var(--glass-line); }
-  .phone-tools .wb-dock .wb-ls { --ls-ink: var(--ink); }
-  .phone-tools .wb-dock .wb-ww span { background: var(--ink); }
-  .phone-tools .wb-dock .wb-sw.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--glass-line); }
-  .phone-tools .wb-dock .wb-ww.on, .phone-tools .wb-dock .wb-ls.on { background: var(--sel-wash); }
-  .phone-tools .wb-dock .wb-dock-x { background: var(--dock-control-bg); color: var(--ink-dim); }
-  .phone-tools .wb-dock .wb-dock-go { background: var(--btn-primary); color: var(--on-btn-primary); }
-  .phone-tools .wb-dock .wb-dock-tog.on { background: var(--sel-wash); color: var(--ink); }
-  .phone-tools .wb-dock .wb-dock-tog:not(.on), .phone-tools .wb-dock .wb-ww:not(.on),
-  .phone-tools .wb-dock .wb-ls:not(.on) { background: var(--dock-control-bg); color: var(--ink-dim); }
+  /* (the bar's material — the floating glass, theme inks — is the base .wb-dock's since
+     20.10.2026: one material on phone and tablet, 09-whiteboard) */
   .phone-tools .wb-dock::-webkit-scrollbar { display: none; }
   /* buttons keep their size instead of flex-shrinking when a busy dock overflows — otherwise the
      round × / ℹ squashed into ovals in line/area docks while the bar scrolled */
@@ -282,10 +269,7 @@
      buttons, 16/17/18 icons). ℹ matches (DockInfo). */
   .phone-tools .wb-dock .wb-dock-tog, .phone-tools .wb-dock .wb-dock-go,
   .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: var(--tap); min-width: var(--tap); height: var(--tap); border-radius: var(--r-sm); }
-  /* The sticky ✕ keeps its neutral fill inside the button. Surface-coloured masking shadows
-     painted a second, mismatched block over the dock's glass. */
-  .phone-tools .wb-dock .wb-dock-x { width: var(--tap); height: var(--tap); z-index: 2;
-    box-shadow: none; }
+  .phone-tools .wb-dock .wb-dock-x { width: var(--tap); height: var(--tap); }
   .phone-tools .wb-dock .i { width: 18px; height: 18px; }
   /* the armed mode's ONE line (ToolDock · hint): the dock grows a second row for it — the
      buttons stay one scrolling row above it, the words wrap never and end in an ellipsis on the
@@ -1080,19 +1064,22 @@
      which beats a third copy of the state list. */
   :root:has(.ml) .toaster { --ml-reserve: calc(min(32dvh, 240px) + 8px); }
   /* Variable-height bottom owners cannot be cleared with another guessed pixel offset. While
-     alignment, a detail sheet, the Passung dock, a modal bottom sheet, Ebenen / the Suche (their
-     slide-up sheet, 29.09.2026) or Messen owns that area,
-     transient feedback moves to one bounded lane below the top bar. Thus the controls at the
-     bottom never disappear behind an undo/status pill even when their panel expands or scrolls. */
-  :root:has(.phone-georef) .toaster,
+     a detail sheet, Ebenen / the Suche (their slide-up sheet, 29.09.2026) or a placement mode owns
+     that area, transient feedback moves to one bounded lane below the top bar. Thus the controls at
+     the bottom never disappear behind an undo/status pill even when their panel expands or scrolls.
+     A placement mode (`data-placing`, lib/toastLane · usePlacementLane: any armed map or plan tool,
+     the Passung, the Karte's Punkt / Messen / Gefahrgut) also takes the map's TAPS — the pill stood
+     on the spot the next symbol goes (owner, Karte Haus round 3, 20.10.2026: «the toasts sometimes
+     block things like the point placement thing»). The tablet has the same lane (08-toasts). */
+  :root[data-placing] .toaster,
   :root:has(.app .ctx) .toaster,
-  :root:has(.wb-georef-dock) .toaster,
-  :root:has(.app.maptool-measure) .toaster,
-  :root:has(.wb-canvas.tool-measure) .toaster,
   :root:has(.app .layers-card:not([data-picking])) .toaster {
-    top: calc(72px + var(--ml-reserve, 0px) + env(safe-area-inset-top)); bottom: auto;
+    top: calc(72px + var(--ml-reserve, 0px) + var(--strip-reserve, 0px) + env(safe-area-inset-top)); bottom: auto;
     max-height: min(32dvh, 240px);
   }
+  /* …below the Karte's running-Einsatz strip (Karte.module.css · .runningStrip: 88px down, one
+     --tap tall), one --float-gap under it: the top lane lay on «● Brand Musterstrasse ›» */
+  :root:has([data-karte-running]) .toaster { --strip-reserve: calc(88px + var(--tap) + var(--float-gap) - 72px); }
   /* ⚠️ …but a MODAL bottom sheet no longer sends it up there (30.09.2026, owner, staging phone
      pass: «slightly odd positioning of the toasts» — with «Seite wählen» open the undo pill jumped
      from the foot of the list to the head of the page, over its blurred title). The sheet is the
@@ -1114,11 +1101,8 @@
   /* Persistent messages use the same upper budget during variable-height map/plan tasks. Their
      rows remain reachable by scrolling instead of extending into the active bottom controls.
      ⚠️ This is also what makes `--ml-reserve` above a true bound — keep the two lists in step. */
-  :root:has(.phone-georef) .ml,
+  :root[data-placing] .ml,
   :root:has(.app .ctx) .ml,
-  :root:has(.wb-georef-dock) .ml,
-  :root:has(.app.maptool-measure) .ml,
-  :root:has(.wb-canvas.tool-measure) .ml,
   :root:has(.app .layers-card:not([data-picking])) .ml {
     max-height: min(32dvh, 240px);
   }

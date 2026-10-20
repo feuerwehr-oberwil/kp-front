@@ -15,6 +15,7 @@ import { rememberWith, splitPeople } from '../../objectVisits/devicePrefs'
 import type { Answer, VisitDoc, VisitPhoto, VisitProposal } from '../../objectVisits/types'
 import { Section, Thumb } from './common'
 import { answerDigest, answerText, fmtDate, fmtWhen } from './ovFormat'
+import { ListCard, ListRow } from '../ListRow'
 import s from './ObjectVisits.module.css'
 
 type Edit = (fn: (d: VisitDoc) => VisitDoc) => void
@@ -312,26 +313,15 @@ export function ProposalsSection({ doc, readOnly, onOpen, onAdd }: {
     : fillTemplate(C.proposalRowNew, { proposed: p.proposed })
   return (
     <Section title={C.proposals} count={doc.proposals.length}>
-      <div className={s.card}>
-        {doc.proposals.map((p) => {
-          const inner = (
-            <>
-              <Icon id="pen" className={s.rowGlyph} />
-              <span className={s.rowMain}>
-                <span className={s.rowTitle}>{p.label}</span>
-                <span className={s.rowSub}>{sub(p)}{p.reason ? ` · ${p.reason}` : ''}</span>
-              </span>
-              {!readOnly && <Icon id="chevron" className={s.chev} />}
-            </>
-          )
-          return readOnly
-            ? <div key={p.id} className={s.rowStatic}>{inner}</div>
-            : <button key={p.id} type="button" className={s.row} onClick={() => onOpen(p)}>{inner}</button>
-        })}
+      <ListCard>
+        {doc.proposals.map((p) => (
+          <ListRow key={p.id} lead={<Icon id="pen" />} title={p.label} sub={<>{sub(p)}{p.reason ? ` · ${p.reason}` : ''}</>}
+            onClick={readOnly ? undefined : () => onOpen(p)} />
+        ))}
         {!readOnly && (
-          <button type="button" className={`${s.row} ${s.add}`} onClick={onAdd}><Icon id="plus" />{C.proposalAdd}</button>
+          <button type="button" className={s.add} onClick={onAdd}><Icon id="plus" />{C.proposalAdd}</button>
         )}
-      </div>
+      </ListCard>
     </Section>
   )
 }
@@ -394,7 +384,7 @@ export function SummaryCard({ doc, byName, badge, onOpen, children }: {
           {st.open > 0 && <span className={s.allOkMore}>{` · ${fillTemplate(C.openCount, { n: st.open })}`}</span>}
         </p>
       )}
-      {children && <div className={s.cardRows}>{children}</div>}
+      {children && <ListCard className={s.cardRows}>{children}</ListCard>}
     </div>
   )
 }

@@ -201,7 +201,7 @@ export const incidentCopy = {
     // die sichere, fokussierte Antwort auf der Liste der offenen Punkte
     confirmBack: 'Zurück',
     done: 'Rapport abgeschlossen',
-    doneMediaPending: 'Rapport abgeschlossen · {n} Foto/Audio noch nicht hochgeladen – bleiben gespeichert und gehen beim nächsten Öffnen raus',
+    doneMediaPending: 'Rapport abgeschlossen. {n} Foto/Audio noch nicht hochgeladen – bleiben gespeichert und gehen beim nächsten Öffnen raus',
     failed: 'Abschluss fehlgeschlagen',
     corrected: 'Stunden korrigiert: {name}',
     attendanceRemoved: '{name} Anwesenheit entfernt',

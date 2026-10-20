@@ -85,6 +85,9 @@ rules that break silently.
   tokens and scales (never a frozen `rgba()` of the accent), the numbered `src/styles/` cascade,
   one corner and one button family, overlays only through `src/lib/overlays/`, editor sheets, the
   touch vocabulary. Phone layout: [`docs/phone-layout.md`](docs/phone-layout.md).
+  A row, back row, toggle, chip, search or empty line is a `src/components` piece (`ListRow`, `BackRow`,
+  `Segmented`, `Chip`, `SearchField`, `EmptyState` …); a new local class for one names in a comment
+  the piece it could not use, and why (`controlDebt.test.ts` counts raw toggles, selects, searches).
 - **A tool, symbol or object on the Lage or the Plan** → [`docs/tactical-objects.md`](docs/tactical-objects.md):
   Lage ↔ Plan parity, the shared editors, the generated symbol pack (edit `tools/gen_symbols.py`,
   never the JSON).

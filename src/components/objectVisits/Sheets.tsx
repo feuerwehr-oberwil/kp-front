@@ -5,13 +5,15 @@ import { useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { Button } from '../Button'
 import { appConfig } from '../../config/appConfig'
-import { Sheet } from '../../lib/overlays'
+import { Menu, Sheet } from '../../lib/overlays'
+import { MenuPick } from '../MenuPick'
 import { LoadingStatus } from '../ShellLoader'
 import { Segmented } from '../Segmented'
 import type { Item } from '../../lib/checklists'
 import { newId } from '../../lib/ids'
 import type { ProposalField, VisitPhoto, VisitProposal, VisitTemplate } from '../../objectVisits/types'
 import { usePhotoUrl } from './ovFormat'
+import { ListCard, ListRow } from '../ListRow'
 import s from './ObjectVisits.module.css'
 
 export function PhotoSheet({ visitId, photo, preparing, stored, items, readOnly, onCaption, onItem, onRemove, onAnother, onClose }: {
@@ -64,9 +66,18 @@ export function PhotoSheet({ visitId, photo, preparing, stored, items, readOnly,
                 {options.length <= 4
                   ? <Segmented ariaLabel={C.photoBelongs} options={options} value={current} onChange={setItem} />
                   : (
-                    <select className={`ip-input ${s.select}`} value={current} aria-label={C.photoBelongs} onChange={(e) => setItem(e.target.value)}>
-                      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                    </select>
+                    // past four the app's own menu, a tick on the current row — never a native
+                    // <select> (AGENTS.md; the line editor's «Gehört zu Trupp …» is the same pick)
+                    <Menu
+                      trigger={
+                        <button type="button" className={`ip-input ${s.select}`} aria-label={C.photoBelongs}>
+                          <span>{options.find((o) => o.value === current)?.label}</span>
+                          <Icon id="chevron-down" className="chev" />
+                        </button>
+                      }
+                      align="start" popupClassName={s.menuPop} itemClassName={() => s.menuItem}
+                      items={options.map((o) => ({ label: <MenuPick label={o.label} on={o.value === current} />, onClick: () => setItem(o.value) }))}
+                    />
                   )}
               </div>
             )}
@@ -177,22 +188,18 @@ export function ChecklistSheet({ templates, current, onPick, onClose }: {
   const isCurrent = (t: VisitTemplate | null) =>
     (t?.id ?? null) === (current?.id ?? null) && (t == null || (t.version ?? 0) === (current?.version ?? 0))
   const row = (t: VisitTemplate | null) => (
-    <button key={t?.id ?? '__none__'} type="button" className={s.row} onClick={() => onPick(t)} aria-current={isCurrent(t) || undefined}>
-      {t ? <Icon id="checklist" className={s.rowGlyph} /> : <span className={s.rowGlyph} aria-hidden />}
-      <span className={s.rowMain}>
-        <span className={s.rowTitle}>{t ? t.title : C.noChecklist}</span>
-        {t?.subtitle && <span className={s.rowSub}>{t.subtitle}</span>}
-      </span>
-      {isCurrent(t) ? <span className="ip-badge ip-badge-ok">{C.checklistCurrent}</span> : <Icon id="chevron" className={s.chev} />}
-    </button>
+    // the current one says so in its tag, not with the ink pill (`on` is «where you are» beside a list)
+    <ListRow key={t?.id ?? '__none__'} lead={t ? <Icon id="checklist" /> : <span aria-hidden />} title={t ? t.title : C.noChecklist} sub={t?.subtitle}
+      onClick={() => onPick(t)} aria-current={isCurrent(t) || undefined} chevron={!isCurrent(t)}
+      end={isCurrent(t) && <span className="ip-badge ip-badge-ok">{C.checklistCurrent}</span>} />
   )
   return (
     <Sheet open onClose={onClose} title={C.changeChecklist}>
       <p className={s.secNote}>{C.changeChecklistLead}</p>
-      <div className={s.card}>
+      <ListCard>
         {templates.map(row)}
         {row(null)}
-      </div>
+      </ListCard>
     </Sheet>
   )
 }

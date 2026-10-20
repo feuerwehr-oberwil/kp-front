@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Icon } from '../lib/icons'
-import type { ContentBlock, RefEntry } from '../lib/checklists'
+import type { AssetOwner, ContentBlock, RefEntry } from '../lib/checklists'
 import { checklistAssetUrl } from '../lib/checklists'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
@@ -76,16 +76,16 @@ export function DiagramFigure({ url, caption, alt, openLabel }: { url: string; c
   )
 }
 
-function ContentBlockView({ block, templateId }: { block: ContentBlock; templateId: string | null }) {
+function ContentBlockView({ block, template }: { block: ContentBlock; template: AssetOwner | null }) {
   const CL = appConfig.copy.checklists
   if (block.type === 'heading') return <h4 className={s['cl-ref-h']}>{block.text}</h4>
   if (block.type === 'note') return <p className={s['cl-ref-note']}><Icon id="info" />{withPhoneLinks(block.text)}</p>
   if (block.type === 'image') {
     // an image block can only resolve when we know which template it belongs to
-    if (!templateId) return null
+    if (!template) return null
     return (
       <DiagramFigure
-        url={checklistAssetUrl(templateId, block.page)}
+        url={checklistAssetUrl(template, block.page)}
         caption={block.caption}
         alt={block.caption ?? fillTemplate(CL.diagramAlt, { page: block.page })}
       />
@@ -120,7 +120,7 @@ function ContentBlockView({ block, templateId }: { block: ContentBlock; template
   )
 }
 
-export function ChecklistEntryReader({ entry, templateId }: { entry: RefEntry | null; templateId: string | null }) {
+export function ChecklistEntryReader({ entry, template }: { entry: RefEntry | null; template: AssetOwner | null }) {
   const CL = appConfig.copy.checklists
   if (!entry) {
     return (
@@ -138,7 +138,7 @@ export function ChecklistEntryReader({ entry, templateId }: { entry: RefEntry | 
       </header>
       <div className={s['cl-ref-blocks']}>
         {entry.content.map((b, i) => (
-          <ContentBlockView key={i} block={b} templateId={templateId} />
+          <ContentBlockView key={i} block={b} template={template} />
         ))}
       </div>
     </article>

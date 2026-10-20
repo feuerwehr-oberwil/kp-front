@@ -150,7 +150,71 @@ def test_decode_gwr_reads_what_a_crew_acts_on():
         "hot_water": ["gas"],
         "shelter": None,  # 0 = no Schutzraum: never drawn
         "status": None,  # «bestehend» says nothing
+        "building_class": None,  # not in the trimmed record
+        "heaters": [{"generator": "boiler", "energy": "gas", "shared": False}],  # 7400/7500 = none
+        "water_heaters": [{"generator": None, "energy": "gas", "shared": False}],
+        "flats_by_floor": [],
+        "rooms_min": None,
+        "rooms_max": None,
     }
+
+
+#: Amselstrasse 30, Oberwil (EGID 409220) as the register answered on 20.10.2026, trimmed to the
+#: class, generator and flat fields – checked against its decoded popup.
+AMSEL_ATTRS = {
+    "egid": "409220",
+    "gklas": 1122,
+    "ganzwhg": 9,
+    "gwaerzh1": 7431,
+    "genh1": 7520,
+    "gwaerzh2": 7400,
+    "genh2": 7500,
+    "gwaerzw1": 7630,
+    "genw1": 7520,
+    "gwaerzw2": 7600,
+    "genw2": 7500,
+    "wstwk": [3100, 3100, 3100, 3101, 3101, 3101, 3101, 3101, 3101],
+    "wmehrg": [0, 0, 0, 1, 1, 1, 1, 1, 1],
+    "wstat": [3004] * 9,
+    "wazim": [2, 3, 3, 3, 3, 3, 3, 4, 4],
+}
+
+
+def test_decode_gwr_reads_class_generators_and_flats_per_storey():
+    facts = bf.decode_gwr(AMSEL_ATTRS)
+    assert facts["building_class"] == "multi_family"
+    # «Heizkessel (generisch) für mehrere Gebäude» + Gas; system 2 is «kein Wärmeerzeuger / keine»
+    assert facts["heaters"] == [{"generator": "boiler", "energy": "gas", "shared": True}]
+    assert facts["water_heaters"] == [{"generator": "boiler", "energy": "gas", "shared": False}]
+    assert facts["flats_by_floor"] == [
+        {"level": 0, "flats": 3, "maisonettes": 0},
+        {"level": 1, "flats": 6, "maisonettes": 6},
+    ]
+    assert (facts["rooms_min"], facts["rooms_max"]) == (2, 4)
+
+
+def test_flats_per_storey_counts_only_existing_flats_and_never_half_a_picture():
+    projected = {
+        **AMSEL_ATTRS,
+        "wstat": [3004] * 8 + [3001],
+        "wstwk": [3401, *AMSEL_ATTRS["wstwk"][1:]],
+        "wazim": [2, 3, 3, 3, 3, 3, 3, 4, 5],
+    }
+    facts = bf.decode_gwr(projected)
+    assert facts["flats_by_floor"] == [
+        {"level": -1, "flats": 1, "maisonettes": 0},
+        {"level": 0, "flats": 2, "maisonettes": 0},
+        {"level": 1, "flats": 5, "maisonettes": 5},
+    ]
+    assert facts["rooms_max"] == 4  # the projected 5-Zimmer flat is nobody's yet
+    unknown_floor = {**AMSEL_ATTRS, "wstwk": [None, *AMSEL_ATTRS["wstwk"][1:]]}
+    assert bf.decode_gwr(unknown_floor)["flats_by_floor"] == []
+
+
+def test_unknown_class_and_generator_codes_say_nothing():
+    facts = bf.decode_gwr({**AMSEL_ATTRS, "gklas": 1274, "gwaerzh1": 7499})
+    assert facts["building_class"] is None
+    assert facts["heaters"] == [{"generator": None, "energy": "gas", "shared": False}]
 
 
 def test_decode_gwr_falls_back_to_the_period_and_keeps_two_sources_once():

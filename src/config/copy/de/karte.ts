@@ -11,8 +11,8 @@ export const karteCopy = {
     // «Einsatz verlassen» (owner, 17.10.2026): the Einsatz menu's door to the viewer (panels/AppMenuRows).
     // «verlassen» must never read as closing — the sub line says the Einsatz runs on.
     leave: 'Einsatz verlassen',
-    leaveSub: 'Läuft weiter · zur Karte',
-    leaveBack: 'Läuft weiter · zurück zu {where}',
+    leaveSub: 'Läuft weiter – zur Karte',
+    leaveBack: 'Läuft weiter – zurück zu {where}',
     backAt: 'Wieder bei {where}',
     backPlan: 'Modul {code}',
     // the menu button at the top left (review round 5, owner: not «Einsätze» — the station's short
@@ -26,6 +26,9 @@ export const karteCopy = {
     searchPlaceholderShort: 'Adresse oder Objekt',
     searchOpen: 'Suchen',
     // the Checkliste surface's field in the top bar (ChecklistLibrary · query)
+    // its placeholder is short – the descriptive one did not fit a phone (owner 19.10.2026); the
+    // long one stays the field's name for screen readers
+    librarySearchPlaceholder: 'Suchen …',
     librarySearch: 'Anleitung, Checkliste, Stichwort',
     searchObjects: 'Stationsobjekte',
     searchAddresses: 'Adressen',
@@ -43,6 +46,16 @@ export const karteCopy = {
     building: 'Gebäude',
     buildingNoAddress: 'Gebäude ohne Adresse',
     buildingNoObject: 'Kein Stationsobjekt',
+    // the switch under the head after a tap on an object's building (Karte Haus round 1 · variant A):
+    // the whole object, or only the house that was tapped («Dieses Haus» until the register names it)
+    compassHoldHint: 'Kompass lange drücken: zum eigenen Standort (ohne Standort: ganzes Gebiet einpassen).',
+    level: 'Objekt oder Haus',
+    levelObject: 'Objekt',
+    levelPlans: '{n} Pläne',
+    levelPlansOne: '1 Plan',
+    levelPlansNone: 'keine Pläne',
+    levelHouse: 'Dieses Haus',
+    partOf: 'Teil von {name}',
     pin: 'Gesetzter Punkt',
     pinNear: 'bei {a} (ca. {m} m)',
     pinLabelNear: 'bei {a}',
@@ -57,8 +70,6 @@ export const karteCopy = {
     approxHead: 'Keine Koordinaten im Katalog.',
     approxBody: 'Lage aus der Adresse – ungefähr. Vor Ort prüfen.',
     approxTag: 'ungefähr',
-    measures: 'Sofortmassnahmen',
-    remarks: 'Bemerkungen',
     notesSource: 'Station · {src}',
     notesStation: 'Station',
     missing: 'Keine Gefahrenangaben der Station erfasst. Das heisst nicht, dass es keine gibt.',
@@ -104,14 +115,16 @@ export const karteCopy = {
     retry: 'Erneut versuchen',
     // In der Nähe
     nearTitle: 'In der Nähe',
-    nearHydrant: 'Hydrant {n}',
-    nearHydrantSub: 'Station · Wasser',
+    nearHydrant: 'Hydrant',
+    // a hydrant row: its sub line the direction from the place
+    compass: ['nördlich', 'nordöstlich', 'östlich', 'südöstlich', 'südlich', 'südwestlich', 'westlich', 'nordwestlich'],
+    // the mouse over a hydrant on the map: «39 m südlich von Storchenweg 4»
+    hydrantFrom: '{m} {dir} von {place}',
     nearNote: 'Nach Luftlinie. Ein Objekt in der Nähe gehört nicht unbedingt zu diesem Gebäude.',
     nearNone: 'Keine Stationsobjekte in der Nähe.',
     // Objektbesuche
     visitsTitle: 'Objektbesuche',
     visitsNever: 'Noch nie besucht.',
-    visitsNoneHere: 'Keine Besuche an dieser Adresse.',
     visitsReadOnly: 'Mit diesem Konto kannst du Besuche lesen, aber nicht erfassen.',
     visitsUnavailable: 'Besuche gerade nicht abrufbar.',
     visitNoDefects: 'keine Mängel',
@@ -135,12 +148,11 @@ export const karteCopy = {
     layerGroupStation: 'Station',
     layerObjects: 'Stationsobjekte',
     layerObjectsSub: 'Gebäude und Gebäudegruppen der Station',
-    layerCategorySub: '{n} Objekte',
     // «Unterirdische Bauten» (backend app/underground): on by default, part of «Standard» — also the
     // Einsatz's Ebenen row (lib/underground · undergroundLayerDef: label + group «Station»)
     layerUnderground: 'Unterirdische Bauten',
-    layerUndergroundSub: 'Tiefgaragen, Schutzräume, Tunnel … · amtliche Vermessung · ab Strassenzoom',
-    layerUndergroundCount: '{n} Bauten · amtliche Vermessung · ab Strassenzoom',
+    layerUndergroundSub: 'Tiefgaragen, Schutzräume, Tunnel … · amtliche Vermessung',
+    layerUndergroundCount: '{n} Bauten · amtliche Vermessung',
     layerUndergroundLoading: 'Wird geladen …',
     layerUndergroundNone: 'Nicht verfügbar – noch nicht geladen oder nicht eingerichtet',
     layerGroupPlans: 'Pläne',
@@ -168,7 +180,7 @@ export const karteCopy = {
       map: 'Karte',
       mapAll: 'Dieser Ausschnitt ist gespeichert',
       mapPart: 'Dieser Ausschnitt nur teilweise',
-      mapPartOffline: 'Dieser Ausschnitt nur teilweise · ohne Karte schraffiert',
+      mapPartOffline: 'Dieser Ausschnitt nur teilweise – ohne Karte schraffiert',
       mapNone: 'Für diesen Ausschnitt keine Karte gespeichert',
       mapFar: 'Zum Prüfen näher heranzoomen',
       mapUnknown: 'Nicht prüfbar – nur online angenommen',

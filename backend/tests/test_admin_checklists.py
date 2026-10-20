@@ -227,6 +227,8 @@ def test_manual_template_is_valid():
         ({"updated": "5.10.2026"}, "Datum"),
         ({"keywords": "generator"}, "keywords"),
         ({"phases": [{"id": "p"}]}, "steps"),
+        ({"cover": -1}, "cover"),
+        ({"cover": "p2"}, "cover"),
     ],
 )
 def test_manual_template_problems(patch, needle):
@@ -257,6 +259,19 @@ def test_validate_files_manual_needs_an_asset_for_every_step_image(tmp_path):
     missing = _write(tmp_path, "missing.json", [entry])
     with pytest.raises(SystemExit):
         _validate_files(missing, _read_manifest(missing))
+
+
+def test_validate_files_manual_cover_needs_its_asset(tmp_path):
+    # the cover may be a photo no step shows – but it must be uploaded like one
+    _write(tmp_path, "s.json", {**MANUAL, "cover": 2})
+    (tmp_path / "p1.svg").write_text("<svg xmlns='http://www.w3.org/2000/svg'/>", encoding="utf-8")
+    entry = {"id": "stromerzeuger", "kind": "manual", "title": "S", "file": "s.json"}
+    without = _write(tmp_path, "without.json", [{**entry, "assets": [{"page": 1, "file": "p1.svg"}]}])
+    with pytest.raises(SystemExit):
+        _validate_files(without, _read_manifest(without))
+    both = [{"page": 1, "file": "p1.svg"}, {"page": 2, "file": "p1.svg"}]
+    ok = _write(tmp_path, "ok.json", [{**entry, "assets": both}])
+    assert _validate_files(ok, _read_manifest(ok)) == (1, 2)
 
 
 def test_demo_manifest_validates():

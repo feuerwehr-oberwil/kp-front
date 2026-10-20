@@ -140,7 +140,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `identity.assets` | ✅ | the branding uploads – **not** part of this document (see the ⚠️ below and §3a) |
 | `map.defaultView`, `map.geocoder.*` | ✅ | Station › **Station & Karte** |
 | `map.buildingRegister` | ❌ | config-as-code only (`admin_config`); unset = on in CH ([`building-card.md`](building-card.md)) |
-| `map.serviceArea.municipalities` | ❌ | config-as-code only (`admin_config`); the Einsatzgebiet's BFS numbers for «Unterirdische Bauten» – unset = the municipality at `map.defaultView` ([`karte-objekte.md`](karte-objekte.md)) |
+| `map.serviceArea.municipalities` | ❌ | config-as-code only (`admin_config`); the Einsatzgebiet's BFS numbers for «Unterirdische Bauten» and the houses a building tap selects – unset = the municipality at `map.defaultView` ([`karte-objekte.md`](karte-objekte.md)) |
 | `map.objectCategories` | ✅ | Station › **Station & Karte** › «Objektfarben» ([`karte-objekte.md`](karte-objekte.md) · Object colours) |
 | `map.externalLinks` | ✅ | Station › **Station & Karte** – ⚠️ editable, but as shipped its only renderer is the field app's «Datenquellen» panel, which is **unreachable**. Configuring it changes nothing anybody can see today |
 | `referenceLayers` – raster (WMS/WMTS) and GeoJSON, incl. the file upload | ✅ | Station › **Kartenebenen** (§2) |
@@ -1429,6 +1429,7 @@ and locks the field – see the rule above).
 | `OVERPASS_MIRRORS` | comma-separated https Overpass endpoints behind the «Umrisse» building-outline surface, raced fastest-first. **Privacy-relevant:** the query is a bounding box around the incident, so it leaves the station – and the shipped third mirror is hosted in Russia. Called by the backend, never the browser (`app/overpass.py`), so this one variable is the whole control. Override with your own Overpass to keep it in-house, or set it **empty to switch the surface off**. ⚠️ Empty means off, not "use the default" – so `.env.example` ships the line commented out rather than blank ([`PRIVACY.md`](../PRIVACY.md)) |
 | `FOOTPRINT_AREA_TILES`, `FOOTPRINT_BUILDINGS_WFS` | where «Karte & Objekte» learns every building a station object stands for (`app/object_footprints`, [`karte-objekte.md`](karte-objekte.md)): swisstopo's base vector tiles for the use area (default `https://vectortiles.geo.admin.ch/tiles/ch.swisstopo.base.vt/v1.0.0`, the tileset root: `/{z}/{x}/{y}.pbf` is appended) and the open cadastral survey's WFS for the building footprints (default `https://geodienste.ch/db/av_0/deu`); the parcel comes from the `GEOCODER_URL` host. Asked by the scheduler once per object coordinate, never by the browser — what leaves the station is a station object's coordinate. **Either one empty = off**: the map then outlines the OSM building an object's point lies in |
 | `UNDERGROUND_WFS` | «Unterirdische Bauten» in the Karte's Ebenen (`app/underground`, [`karte-objekte.md`](karte-objekte.md)): the open cadastral survey's WFS (default `https://geodienste.ch/db/av_0/deu`) asked by the scheduler for every underground building and tunnel (`ms:SOSF`, `Art = unterirdisches_Gebaeude` / `Tunnel_Unterfuehrung_Galerie`) in the Einsatzgebiet — `map.serviceArea.municipalities`, else the municipality at `map.defaultView` (boundaries from the `GEOCODER_URL` host), plus 500 m around every station object. Once, then weekly. **Empty = off**: the row then says «nicht verfügbar» |
+| `HOUSES_WFS` | the houses a building tap in «Karte & Objekte» selects (`app/houses`, [`karte-objekte.md`](karte-objekte.md)): the same WFS (default `https://geodienste.ch/db/av_0/deu`) asked by the scheduler for every house footprint (`ms:LCSF`, `Art = Gebaeude`) in the same area as `UNDERGROUND_WFS`, one request at a time in 1 km cells. Once, then weekly. **Empty = off**: a tap then opens the OSM outline (a terraced row as one block) |
 | `EXPOSE_API_DOCS` | serve `/docs`, `/redoc` and `/openapi.json` on a **production** deployment (always on in dev). Default off |
 | `SEED_DATABASE`, `DEV_CREATE_ALL` | dev seeding / auto-create tables. `DEV_CREATE_ALL` does nothing in production – it is gated by `not is_production()`, so on compose (which pins `ENVIRONMENT=production`) Alembic owns the schema whatever it says |
 | `SEED_PIN` | **Required in production** when `SEED_DATABASE` is on: the 6–12-digit PIN the seeded account gets. The seed file's own PIN is public, so the backend refuses to boot without this rather than create a login anyone knows |
@@ -1929,10 +1930,11 @@ shape is checked by `app/checklist_templates.py · template_problem` on every do
 A device's instructions – «Stromerzeuger starten», «Hebekissen einsetzen» – as big numbered
 steps. They are **read, never ticked**: no state, no progress, nothing in the Verlauf or the
 Rapport. Anleitungen are grouped by `device` (19.10.2026): one tile per device with its picture
-(the first step image of its chapters – there is no separate device photo) and «n Kapitel», or the
+(the `cover` of its first chapter that names one, otherwise the first step image of its
+chapters) and «n Kapitel», or the
 title when the device has a single Anleitung. A device with several opens a page with its
-chapters numbered in manifest `order`; a chapter shows «Kapitel k von n» and the previous and next
-chapter at its foot. Devices are listed in manifest `order` too, so the order of the manifest
+chapters numbered in manifest `order`; a chapter shows «Kapitel k von n», a back row «‹ device» on
+top and the previous and next chapter at its foot («‹ 2 Kabine» | «4 Saugbetrieb ›»). Devices are listed in manifest `order` too, so the order of the manifest
 entries is the order on screen. Two places show them, with the same tiles and pages: the Einsatz
 **Checkliste** tab, as the last group of its rail (the picker search matches the title, the
 `device` and the `keywords`), and the **Checkliste** surface of Karte & Objekte outside an
@@ -1940,7 +1942,8 @@ Einsatz (`ChecklistLibrary`), devices first, where the search also covers the st
 checklist items and the Stichwort texts, and the action checklists are shown read-only.
 Pictures are prefetched into the service worker's `checklist-assets` cache as soon as the
 templates load (`warmManualImages` in `src/lib/checklists.ts`), so an Anleitung opened for the
-first time without network still shows them.
+first time without network still shows them. Their URLs carry the asset's version (`?v=`), so a
+replaced picture is fetched once under its new address and never again after.
 
 ```json
 {
@@ -1953,6 +1956,7 @@ first time without network still shows them.
   "updated": "2026-09-14",
   "source": "Bedienungsanleitung Hersteller, Kap. 4",
   "keywords": ["generator", "notstrom"],
+  "cover": 2,
   "steps": [
     { "text": "Standort im Freien wählen.",
       "warning": "Nie in geschlossenen Räumen betreiben – Kohlenmonoxid." },
@@ -1971,18 +1975,20 @@ first time without network still shows them.
 | `steps[].warning` | – | a red «Achtung:» line – what hurts people or the device |
 | `steps[].hint` | – | a quiet tip line |
 | `steps[].images[]` | – | `{ "page": N, "caption"? }` – an asset page of this entry: a photo, or a page of the device's PDF manual exported as an image (one image per PDF page) |
+| `cover` | – | the asset page shown as the device's picture (its tile and page) – a step picture, or a photo of its own no step shows; without it the first step image. The device takes the cover of its first chapter that has one |
 | `updated` | – | «Stand», `YYYY-MM-DD` |
 | `keywords` | – | extra search words (model names, «Generator») |
 | `subtitle`, `version`, `source` | – | intro line, your own version counter, «Quelle:» footer |
 
-`admin_checklists validate` refuses an Anleitung whose steps show a `page` the manifest entry
-has no asset for – a blank box where the picture should be is exactly what must not happen at
-3am. A manifest entry:
+`admin_checklists validate` refuses an Anleitung whose steps or `cover` show a `page` the
+manifest entry has no asset for – a blank box where the picture should be is exactly what must
+not happen at 3am. A manifest entry (page 2 is the cover photo above, which no step shows):
 
 ```json
 { "id": "stromerzeuger", "kind": "manual", "title": "Stromerzeuger starten",
   "file": "checklists/stromerzeuger.json", "order": 10,
-  "assets": [{ "page": 1, "file": "checklists/assets/stromerzeuger-p1.jpg" }] }
+  "assets": [{ "page": 1, "file": "checklists/assets/stromerzeuger-p1.jpg" },
+             { "page": 2, "file": "checklists/assets/stromerzeuger-geraet.jpg" }] }
 ```
 
 `examples/demo-data/` carries two worked examples (`musterdorf-stromerzeuger`,

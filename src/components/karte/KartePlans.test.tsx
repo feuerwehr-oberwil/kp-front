@@ -6,7 +6,7 @@
 // The reader (Whiteboard) is a stand-in that hands the test the context the Karte provides.
 // Synthetic Musterdorf data.
 
-import { act, cleanup, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useContext } from 'react'
 import { PlanSharpnessContext, type PlanSharpnessHooks } from '../../lib/planSharpness'
@@ -21,7 +21,7 @@ vi.mock('../../workspace/lazySurfaces', () => ({
   },
 }))
 
-import { KarteSurface } from './KartePlans'
+import { KarteNavRail, KarteSurface } from './KartePlans'
 
 const OBJ: StationObject = {
   id: 'schloss', name: 'Schloss Musterdorf', kind: 'einsatzobjekt', address: 'Schlossgasse 9, 9999 Musterdorf', lat: 47.523773, lng: 7.570188,
@@ -100,5 +100,31 @@ describe('KarteSurface · the plan', () => {
     report('failed')
     wait(300)
     expect(screen.getByText('Schärfere Ansicht konnte nicht geladen werden')).toBeTruthy()
+  })
+})
+
+// The Karte's left rail expands like the Einsatz's (owner, review round 5: «we can't expand the
+// left toolbar so people might not know what it actually is») and reads «Beschriftung».
+describe('KarteNavRail · expanding', () => {
+  const railW = () => document.documentElement.style.getPropertyValue('--rail-w')
+  const rail = (labels: 'off' | 'short') => render(
+    <KarteNavRail obj={OBJ} docs={[DOC]} active="map" onMap={() => {}} onLibrary={() => {}} onDoc={() => {}} labels={labels} />)
+
+  it('the chevron widens the rail and publishes the width everything beside it follows', () => {
+    rail('off')
+    const nav = screen.getByRole('navigation')
+    expect(railW()).toBe('60px')
+    fireEvent.click(screen.getByRole('button', { name: 'Ausklappen' }))
+    expect(nav.className).toContain('expanded')
+    expect(railW()).toBe('216px')
+    fireEvent.click(screen.getByRole('button', { name: 'Einklappen' }))
+    expect(railW()).toBe('60px')
+  })
+
+  it('with «Beschriftung» on: the words under the glyphs, no chevron', () => {
+    rail('short')
+    expect(screen.getByRole('navigation').className).toContain('labelled')
+    expect(screen.queryByRole('button', { name: 'Ausklappen' })).toBeNull()
+    expect(railW()).toBe('92px')
   })
 })

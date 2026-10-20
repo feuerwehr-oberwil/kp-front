@@ -47,6 +47,7 @@ import { useUndoableSlice, type UndoableSlice } from './lib/useUndoableSlice'
 import { useJournal } from './lib/useJournal'
 import { useWakeLock } from './lib/useWakeLock'
 import { toast, confirmDialog, undoToast } from './lib/ui'
+import { usePlacementLane } from './lib/toastLane'
 import { initialMode, loadPrefs, savePrefs } from './lib/prefs'
 import { makePhotoPositionSource } from './lib/devicePosition'
 import { useAttendanceActions } from './lib/useAttendanceActions'
@@ -2115,7 +2116,7 @@ export function IncidentWorkspace({
    *
    * ⚠️ This used to claim the toggles are "drawn ABOVE the detail panel … so nothing becomes
    * unreachable". They are drawn above it — and at the SAME coordinates: `.layers-card` (z201,
-   * 264px) lands on `.ctx` (z35, 360px), and on a phone both are bottom sheets on the same edge
+   * 320px) lands on `.ctx` (z35, 360px), and on a phone both are bottom sheets on the same edge
    * with only a z28 backdrop between them, so the buried panel stayed tappable. Keeping the
    * selection was right; concluding that the panel could therefore stay rendered was not. The
    * panel now stands down via `detailSlotFree` while a dock is up — see its note above.
@@ -2757,6 +2758,8 @@ export function IncidentWorkspace({
   }
 
   const mapUI = mode === 'map'
+  // an armed map tool or the Passung takes the taps: the toasts give way to the top lane (lib/toastLane)
+  usePlacementLane((mapUI && tool !== 'select') || georefActive)
 
   /* ── one fault line per view (SurfaceBoundary, 02.09.) ─────────────────────────────────────
    * A throw in ANY panel — a Mittel row without a label, a Verlauf text, a building without

@@ -417,8 +417,8 @@ export const reportCopy = {
     // jetzt in der Hilfe, «Rapport & Abschluss». Vor und nach dem Erstellen derselbe Satz: «bis du
     // ihn aufhebst» sagt der Knopf «Link aufheben» direkt darunter.
     shareHead: 'Weitergeben',
-    shareLede: 'Kein Login · gilt auch nach dem Abschluss.',
-    shareLiveLede: 'Kein Login · gilt auch nach dem Abschluss.',
+    shareLede: 'Kein Login, gilt auch nach dem Abschluss.',
+    shareLiveLede: 'Kein Login, gilt auch nach dem Abschluss.',
     shareCreate: 'Link erstellen',
     shareBusy: 'Link wird erstellt …',
     // Solange die Antwort noch aussteht: «noch nicht gefragt» ist nicht «gibt es keinen», und

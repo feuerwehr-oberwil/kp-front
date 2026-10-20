@@ -82,7 +82,7 @@ test('F2 · Tafel: a Fläche from three taps, auto-committed on tap-away, is one
     await page.waitForTimeout(400) // no two taps may read as the double-tap finish
   }
   // three vertex grips on the draft, then tap-away commits it (A6)
-  await expect(page.getByRole('button', { name: 'Eckpunkt ziehen · gedrückt halten zum Löschen' })).toHaveCount(3)
+  await expect(page.getByRole('button', { name: 'Eckpunkt ziehen, gedrückt halten zum Löschen' })).toHaveCount(3)
   await page.getByRole('button', { name: 'Auswahl', exact: true }).click()
   await expect(page.getByText('Fläche gespeichert')).toBeVisible()
   await expect(undoBtn(page)).toBeEnabled()

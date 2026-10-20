@@ -5,24 +5,13 @@
    Shared by ChecklistsView / ChecklistRunner / ChecklistReference. */
 /* geometry: the shell every full surface shares (Surface.module.css). The one thing this
    surface does differently is the direction — its template rail sits BESIDE the pane, so it
-   keeps the default row and only adds the gap between the two columns. */
-.cl-surface { composes: shell from './Surface.module.css'; gap: 12px; }
+   keeps the default row. No gap between the two: the rail's hairline is the seam (owner pick A,
+   review round 5, 20.10.2026 – see .cl-main). */
+.cl-surface { composes: shell from './Surface.module.css'; }
 
 /* left rail */
 .cl-rail { flex: 0 0 248px; overflow-y: auto; scrollbar-gutter: stable; padding: var(--sp-3) var(--sp-2); background: var(--surface);
   border-right: 1px solid var(--glass-edge); display: flex; flex-direction: column; gap: 16px; }
-.cl-rail-group { display: flex; flex-direction: column; gap: 4px; }
-.cl-rail-label { padding: 2px var(--sp-2) var(--sp-1); font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
-.cl-rail-item { display: flex; align-items: center; gap: var(--sp-2); border: none; background: transparent; cursor: pointer;
-  font-family: var(--body); font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink-dim); text-align: left;
-  padding: var(--sp-3) var(--sp-2); border-radius: var(--r-ctl); transition: background .14s var(--ease), color .14s var(--ease); }
-.cl-rail-item :global(.i) { width: 16px; height: 16px; flex: none; color: var(--ink-faint); }
-@media (hover: hover) { .cl-rail-item:hover { background: var(--fill-soft); color: var(--ink); } }
-.cl-rail-item:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.cl-rail-item.on { background: var(--ink-fill); color: var(--on-accent-ink); }
-.cl-rail-item.on :global(.i) { color: var(--on-accent-ink); }
-.cl-rail-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cl-rail-prog { flex: none; font-family: var(--mono); font-size: var(--fs-micro); font-weight: var(--fw-bold); opacity: .8; }
 .cl-rail-hint { display: flex; align-items: center; gap: var(--sp-2); border: none; cursor: pointer; text-align: left;
   background: var(--red-8); color: var(--red-strong); font-family: var(--body); font-size: var(--fs-1); font-weight: var(--fw-bold);
   padding: var(--sp-2); border-radius: var(--r-ctl); margin-top: 2px; }
@@ -32,23 +21,28 @@
 .cl-rail-hints { display: flex; flex-direction: column; gap: var(--sp-1); }
 .cl-rail-hints .cl-rail-hint { margin-top: 0; }
 .cl-rail-search { margin: 2px 0 4px; }   /* THE search (components/SearchField, 29.09.2026) — placement only */
-/* all groups (Aufgaben + each reference template) are peers under the search bar */
+/* all groups (Aufgaben + each reference template + the devices) are peers under the search bar –
+   THE ListGroup with the shared rows (ChecklistRail); the Stichwort's dot as a row's lead */
 .cl-rail-groups { display: flex; flex-direction: column; gap: var(--sp-4); }
-.cl-rail-entry { display: flex; align-items: center; gap: var(--sp-2); border: none; background: transparent; cursor: pointer;
-  width: 100%; text-align: left; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-ctl); font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-dim); }
-@media (hover: hover) { .cl-rail-entry:hover { background: var(--fill-soft); color: var(--ink); } }
-.cl-rail-entry.on { background: var(--ink-fill); color: var(--on-accent-ink); }
-.cl-rail-entry.on .cl-ref-chip { box-shadow: 0 0 0 2px rgba(255,255,255,.5); }
-.cl-rail-entry-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-ref-lead { display: grid; place-items: center; }
 
 /* --- reference playbook --- */
 .cl-ref-chip { box-shadow: 0 0 0 2px rgba(255,255,255,.5); }
 
-/* main pane */
-.cl-main { flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable; padding: var(--sp-5); }
+/* main pane – beside the rail it IS the reading surface (owner pick A, review round 5,
+   20.10.2026: «the entire point of the card is to show the content»). It was the grey shell
+   ground with a white document card inset in it, a card in a card with the right half empty.
+   Now the pane is the list's white, the rail's hairline between them, and every reader in it
+   (ManualReader, DevicePage, the Stichwort, the runner) is ONE column of
+   --cl-col on that white, CENTRED in the pane (owner 20.10.2026, after round 5: «not all to the
+   left with a huge gap to the right»). The phone and the ≤760 one-page layout keep the page
+   ground (below). */
+.cl-main { --cl-col: 760px; flex: 1 1 auto; min-width: 0; overflow-y: auto; scrollbar-gutter: stable;
+  padding: var(--sp-6) clamp(var(--sp-5), 4vw, var(--sp-7)); background: var(--surface); }
+.cl-main > * { margin-inline: auto; }
 
 /* --- action / rapport runner --- */
-.cl-runner { max-width: 720px; margin: 0 auto; }
+.cl-runner { max-width: var(--cl-col, 760px); }
 .cl-runner-head { display: flex; align-items: center; gap: var(--head-gap); flex-wrap: nowrap; min-height: var(--tap);
   padding-bottom: var(--head-pad-y); margin-bottom: var(--sp-4); border-bottom: 1px solid var(--glass-edge); }
 /* ONE ROW, the page head's shape (tokens · --head-*, lib/pageHeadFit — ChecklistRunner): the title
@@ -94,9 +88,9 @@
 /* gloved field use: ticking is THE action on this surface — full 44px checkbox on touch */
 @media (pointer: coarse) {
   .cl-check { width: 44px; height: 44px; }
-  /* …and the rest of the surface's targets (22.09.2026): the rail's rows (31–37px), the
-     Stichwort hint and the deep-link chips (26px) */
-  .cl-rail-item, .cl-rail-entry, .cl-rail-hint, .cl-deeplink { min-height: var(--tap); }
+  /* …and the rest of the surface's targets (22.09.2026): the Stichwort hint and the deep-link
+     chips (26px); the rail's rows are THE list row, --tap already */
+  .cl-rail-hint, .cl-deeplink { min-height: var(--tap); }
 }
 .cl-item-body { flex: 1 1 auto; min-width: 0; }
 /* whole text body is a tap target to toggle the item (the checkbox is just the visual) */
@@ -149,13 +143,9 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
 .hz-yellow .cl-ref-chip { background: var(--hazard-yellow); }
 .hz-blue .cl-ref-chip { background: var(--blue); }
 
-.cl-ref-doc { max-width: 640px; background: var(--surface); border-radius: var(--r-surface); padding: var(--sp-5);
-  box-shadow: 0 0 0 1px var(--border-soft); border-top: 4px solid var(--ink-faint); }
-.cl-ref-doc.hz-red { border-top-color: var(--red); }
-.cl-ref-doc.hz-orange { border-top-color: var(--amber); }
-.cl-ref-doc.hz-green { border-top-color: var(--green); }
-.cl-ref-doc.hz-yellow { border-top-color: var(--hazard-yellow); }
-.cl-ref-doc.hz-blue { border-top-color: var(--blue); }
+/* the Stichwort: flat in the pane's reading column, no card and no coloured top edge – the
+   category badge in its head carries the colour (owner pick A, review round 5) */
+.cl-ref-doc { max-width: var(--cl-col, 760px); }
 .cl-ref-doc-head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-4); }
 .cl-ref-doc-head h2 { margin: 0; font-size: var(--fs-4); font-weight: var(--fw-heavy); color: var(--ink); }
 .cl-ref-badge { font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .03em; text-transform: uppercase;
@@ -191,7 +181,8 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
 .cl-ref-note :global(.i) { width: 14px; height: 14px; flex: none; margin-top: 1px; color: var(--ink-faint); }
 /* inline diagram from the source EL PDF page — a preview that opens full-screen (DiagramFigure).
    A Kommandoakten page shrunk into a reading column is a picture OF a diagram, not a readable
-   one, so the inline copy only has to say «there is a diagram here, tap it». */
+   one, so the inline copy only has to say «there is a diagram here, tap it». Beside the rail the
+   picture is capped in both directions (.cl-main, below). */
 .cl-ref-fig { margin: 12px 0; }
 .cl-ref-figbtn { display: block; position: relative; width: 100%; max-width: 560px; padding: 0;
   border: 0; background: none; cursor: zoom-in; border-radius: var(--r-ctl); }
@@ -235,17 +226,14 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
 @media (hover: hover) { .cl-tel:hover { border-bottom-color: var(--accent); } }
 .cl-tel:active { background-image: linear-gradient(var(--press), var(--press)); }
 
-/* wide screens: let the reference reader use the empty horizontal space with a 2-column
-   flow instead of a narrow centred column with a large dark void to the right (item 15) */
-@media (min-width: 980px) {
-  .cl-ref-doc { max-width: 940px; }
-  .cl-ref-blocks { columns: 2; column-gap: 32px; }
-  .cl-ref-blocks > * { break-inside: avoid; }
-  .cl-ref-h { break-after: avoid; }
-  /* ⚠️ A diagram or a table is the one thing a HALF column ruins — a Kommandoakten page at
-     ~450px is unreadable, and a 9-column table would scroll inside a box narrower than two of
-     its columns. Both take the full width and interrupt the flow, like a figure in print. */
-  .cl-ref-fig, .cl-ref-tablewrap { column-span: all; }
+/* A picture in the reading column (an Anleitung's step photo, a Stichwort's diagram) is at most
+   600px wide and a screen's 60% tall, at its own proportions: the button hugs the picture, so the
+   zoom hint sits on its corner. Without the height cap a portrait photo at 600px was ~800px tall,
+   one step a screen and more. (A Stichwort was a 2-column flow above 980px until the owner picked
+   ONE reading column, review round 5.) The phone keeps the column-wide picture (no cap). */
+@media (--not-phone) {
+  .cl-main .cl-ref-figbtn { width: fit-content; max-width: min(100%, 600px); }
+  .cl-main .cl-ref-fig img { width: auto; max-width: 100%; max-height: min(60vh, 520px); }
 }
 /* the text is a flex item next to the dot: without this it keeps its min-content width and a
    long line runs past the column edge instead of wrapping inside it. NOT `overflow-wrap:
@@ -266,6 +254,8 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
    these widths. Gated in React by the same threshold (ChecklistsView · railNarrow). */
 @media (max-width: 760px) {
   .cl-surface { flex-direction: column; gap: 0; }
+  /* one page, not a pane beside a list: the readers stand on the page ground, as on a phone */
+  .cl-main { background: none; }
   /* the picker rail collapses to the .cl-rail-toggle row after a pick (ChecklistsView), so
      while open it may take real height — picking is the only job of that moment */
   .cl-rail { flex: none; max-height: 44dvh; width: auto; border-right: none;
@@ -275,8 +265,11 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
   /* while the list owns the whole surface it is the thing the FAB lands on — .cl-main got its
      clearance long ago, the rail never did, so the last checklist in the picker sat under the
      circle. Same shared reserve, 0 for a viewer. */
-  .cl-rail.cl-rail-full { max-height: none; flex: 1 1 auto; border-bottom: none;
-    padding-bottom: calc(8px + var(--fab-safe, 0px)); }
+  /* …and it is the Karte library's phone list (owner 20.10.2026: «the landing is the reference»):
+     the groups' white cards and the device cards on the page ground, a step more between groups */
+  .cl-rail.cl-rail-full { max-height: none; flex: 1 1 auto; border-bottom: none; background: transparent; gap: var(--sp-3);
+    padding: var(--sp-3) var(--head-pad-x) calc(var(--sp-3) + var(--fab-safe, 0px)); }
+  .cl-rail-full .cl-rail-groups { gap: var(--sp-5); }
   /* collapsed state: one slim row — current selection + chevron — reopens the list; the
      checklist/playbook below gets the full remaining height (the «fullsize text» ask) */
   .cl-rail-toggle { display: flex; align-items: center; gap: var(--sp-2); flex: none; width: 100%;
@@ -295,18 +288,15 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
   .cl-head-hz { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); height: 24px; padding: 0 var(--sp-2);
     border-radius: var(--r-xs); background: var(--fill-soft);
     font: var(--fw-bold) var(--fs-micro) var(--body); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-dim); }
-  .cl-rail-group { gap: 2px; }
-  .cl-rail-label { padding: 2px var(--sp-2); }
-  .cl-rail-item { padding: var(--sp-2) var(--sp-3); }
-  .cl-rail-entry { padding: var(--sp-2) var(--sp-3); }
 }
 
 @media (--phone) {
   /* (the full-width inset is the shared shell's — Surface.module.css); the rail stacks above
      the pane rather than beside it */
   .cl-surface { flex-direction: column; gap: 0; }
-  /* lift the main pane clear of the Eintrag FAB (bottom-right, z55) + tighten padding */
-  .cl-main { padding: var(--sp-3) var(--head-pad-x); padding-bottom: calc(var(--sp-3) + var(--fab-safe, 0px)); }
+  /* lift the main pane clear of the Eintrag FAB (bottom-right, z55) + tighten padding; the page
+     ground, not the tablet's white pane */
+  .cl-main { padding: var(--sp-3) var(--head-pad-x); padding-bottom: calc(var(--sp-3) + var(--fab-safe, 0px)); background: none; }
   /* (the runner head is the page head's one row — its paddings are the phone tokens) */
   .cl-runner-head { margin-bottom: var(--sp-3); }
   /* ONE level (owner-r2-5, 27.09.2026: «drop the multiple nested cards»). The page was a card
@@ -315,12 +305,11 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
      before the first line of content. Now the chooser IS the page head, in the head's type and
      with the category as a word beside the title (.cl-head-hz), and the content sits directly on
      the page as flat sections under the Rapport's eyebrow heads (17-rapport.css ·
-     .report-pre-section h3), a hairline between them. The tablet keeps its document card: there
-     the rail stands beside it and the card is what separates the two. */
+     .report-pre-section h3), a hairline between them. (Beside the rail there is no document card
+     either since review round 5: the pane is the white surface – .cl-main.) */
   /* (48px, under the 60px page heads: it carries no tile, so it does not pay for a tile's row) */
   .cl-rail-toggle { padding: 12px var(--head-pad-x); font: var(--head-title); color: var(--ink); }
   .cl-ref { flex-direction: column; }
-  .cl-ref-doc { max-width: none; padding: 0; background: none; box-shadow: none; border-top: 0; border-radius: 0; }
   /* the title is the chooser's, the category is the chip beside it — nothing to say twice */
   .cl-ref-doc-head { display: none; }
   .cl-ref-h { margin: var(--sp-4) 0 var(--sp-2); padding-top: var(--sp-4); border-top: 1px solid var(--glass-edge);
@@ -338,10 +327,6 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
   .cl-phase-titles h3 { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 }
 
-/* a chapter's way back to its device page («‹ TLF», owner 19.10.2026) – the twin of the Karte
-   library's .backLink (ChecklistLibrary.module.css) */
-.cl-back { display: flex; align-items: center; gap: var(--sp-1); align-self: flex-start; min-height: var(--tap);
-  margin-bottom: var(--sp-2); padding: 0 var(--sp-2); border: 0; border-radius: var(--r-sm); background: none; cursor: pointer;
-  font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink-dim); }
-.cl-back :global(.i) { width: 18px; height: 18px; flex: none; }
-.cl-back:active { background: var(--press); }
+/* the back row above a document in the main pane («‹ TLF», components/ListRow · BackRow, owner
+   19.10.2026) – placement only, in both hosts (ChecklistsView, ChecklistLibrary) */
+.cl-doc-back { margin-bottom: var(--sp-2); padding: 0 var(--sp-2); border-radius: var(--r-sm); }

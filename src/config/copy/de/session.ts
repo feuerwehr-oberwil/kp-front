@@ -19,7 +19,7 @@ export const sessionCopy = {
         'Objektpläne und Rapport öffnen',
       ],
       cta: 'Los geht’s',
-      meta: 'Keine echten Einsatzdaten · Neue Einsätze sind gesperrt',
+      meta: 'Keine echten Einsatzdaten – neue Einsätze sind gesperrt',
     },
   },
   login: {

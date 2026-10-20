@@ -6,9 +6,12 @@ import { allEntries, warmTemplates, matchDiveraEntries, searchEntries, templateP
 import { chapterOf, isTickable, manualGroups } from '../lib/checklists'
 import { ChecklistRunner } from './ChecklistRunner'
 import { useRememberedScroll } from '../lib/rememberedScroll'
+import { useHistoryTrail } from '../lib/historyTrail'
 import { ChecklistEntryReader } from './ChecklistReference'
 import { ManualReader } from './ManualReader'
-import { DevicePage, DeviceTile } from './DeviceManuals'
+import { DevicePage } from './DeviceManuals'
+import { BackRow, ListGroup } from './ListRow'
+import { DeviceList, EntryRow, TemplateRow } from './ChecklistRail'
 import { cx } from '../lib/cx'
 import { EmptyState } from './EmptyState'
 import { SearchField } from './SearchField'
@@ -22,6 +25,7 @@ const EMPTY_STATE: TemplateState = { ticks: {}, activeBranch: {} }
 /** what the main pane shows: a tickable list, a Stichwort, a device's chapter page (id = the
  *  device name) or an Anleitung */
 type Sel = { kind: 'tpl' | 'entry' | 'manual' | 'device'; id: string }
+const sameSel = (a: Sel | null, b: Sel | null) => a === b || (!!a && !!b && a.kind === b.kind && a.id === b.id)
 
 /* The pick (which list is open, and on a narrow screen whether the chooser or the list shows),
    per Einsatz. sessionStorage so a reload of the tab keeps it too; memory as the fallback when
@@ -91,12 +95,55 @@ export function ChecklistsView({
   const devices = useMemo(() => manualGroups(templates, ''), [templates])
   const autoMatches = useMemo(() => matchDiveraEntries(templates, divera), [templates, divera])
 
+  // The picker rail collapses to a single toggle row once something is picked, so the
+  // checklist/playbook text gets the full height; tapping the row reopens the list.
+  //
+  // ⚠️ 760px, not `useIsPhone` (600px). The rail is a FIXED 248px, so between 601 and ~730 it kept
+  // its full width while the runner column shrank to ~276px — measured at 640px (iPad Split View,
+  // half) six of eight task texts overflowed their box and painted over the Plan/Journal chip.
+  // Phones were never the problem; the band just above them was, and the collapse mechanism that
+  // fixes it already existed and simply stopped 160px short.
+  const railNarrow = useMediaQuery('(max-width: 760px)')
+
   // selection is either an action template, a tactical entry or an Anleitung; defaults once
   // templates arrive. Kept per Einsatz across tab changes and reloads (05.10.2026, owner:
   // «selected checklists don't persist and on every tab change they disappear») — the surface
   // unmounts whenever another tab is shown, so component state alone fell back to the first list.
-  const [sel, setSelState] = useState<Sel | null>(() => readPicked(scrollKey)?.sel ?? null)
-  const setSel = (v: Sel | null) => { setSelState(v); writePicked(scrollKey, { sel: v }) }
+  // …and whether the phone showed the list or the open checklist comes back the same way.
+  //
+  // The levels are history entries (lib/historyTrail, owner 20.10.2026 – the native back steps up
+  // one): on a phone the list (null) → the open item → a device's chapter, beside the list the
+  // device → its chapter. `sel` is the item the main pane shows – also while the phone's list
+  // covers it.
+  const [lastSel, setLastSel] = useState<Sel | null>(() => readPicked(scrollKey)?.sel ?? null)
+  const [restored] = useState(() => (railNarrow && (readPicked(scrollKey)?.railOpen ?? true) ? null : lastSel))
+  const nav = useHistoryTrail<Sel | null>(restored, sameSel)
+  if (nav.at && !sameSel(nav.at, lastSel)) setLastSel(nav.at)
+  const sel = nav.at ?? lastSel
+  const railOpen = nav.at === null
+  useEffect(() => writePicked(scrollKey, { sel: lastSel, railOpen }), [scrollKey, lastSel, railOpen])
+  /** the levels down to `v`, top first: a chapter under its device, on a phone everything under the list */
+  const pathTo = (v: Sel): (Sel | null)[] => {
+    const ch = v.kind === 'manual' ? chapterOf(devices, v.id) : null
+    const deep: Sel[] = ch ? [{ kind: 'device', id: ch.group.device }, v] : [v]
+    return railNarrow ? [null, ...deep] : deep
+  }
+  /** show `v` in the main pane – on a phone with the list open, behind it */
+  const setSel = (v: Sel | null) => {
+    if (!v) { setLastSel(null); if (nav.at) nav.go([null]) }
+    else if (railNarrow && railOpen) setLastSel(v)
+    else nav.go(pathTo(v))
+  }
+  const pick = (v: Sel) => nav.go(pathTo(v))
+  const setRailOpen = (open: boolean) => nav.go(open || !sel ? [null] : pathTo(sel))
+  // a restored item gets its levels back once the devices are known (a chapter's device); the
+  // levels change with the layout (the phone's list is one of them)
+  useEffect(() => {
+    if (!ready) return
+    if (railNarrow && railOpen) nav.go([null])
+    else if (sel) nav.go(pathTo(sel))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-chained on these two only; pathTo is a fresh closure
+  }, [ready, railNarrow])
   useEffect(() => {
     if (!ready) return
     // a remembered pick whose list was removed since falls back to the default, like no pick
@@ -110,19 +157,9 @@ export function ChecklistsView({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setSel is a fresh closure per render
   }, [sel, ready, actionTemplates, entries, manuals, devices])
 
-  // The picker rail collapses to a single toggle row once something is picked, so the
-  // checklist/playbook text gets the full height; tapping the row reopens the list.
-  //
-  // ⚠️ 760px, not `useIsPhone` (600px). The rail is a FIXED 248px, so between 601 and ~730 it kept
-  // its full width while the runner column shrank to ~276px — measured at 640px (iPad Split View,
-  // half) six of eight task texts overflowed their box and painted over the Plan/Journal chip.
-  // Phones were never the problem; the band just above them was, and the collapse mechanism that
-  // fixes it already existed and simply stopped 160px short.
-  const railNarrow = useMediaQuery('(max-width: 760px)')
-  // …and whether the phone showed the list or the open checklist comes back the same way
-  const [railOpen, setRailOpenState] = useState(() => readPicked(scrollKey)?.railOpen ?? true)
-  const setRailOpen = (v: boolean) => { setRailOpenState(v); writePicked(scrollKey, { railOpen: v }) }
-  const pick = (v: Sel) => { setSel(v); if (railNarrow) setRailOpen(false) }
+  // the list's look: the library's phone cards while the list owns a narrow surface, the rail's
+  // compact rows beside the document
+  const look = railNarrow ? 'card' : 'rail'
 
   const [query, setQuery] = useState('')
   const results = useMemo(() => searchEntries(entries, query), [entries, query])
@@ -142,8 +179,8 @@ export function ChecklistsView({
   // the device whose row is lit: the open device, or the device of the open chapter
   const litDevice = activeDevice?.device ?? (activeManual && devices.find((g) => g.manuals.includes(activeManual))?.device)
   // the reference template that owns the open entry — drives its diagram asset URLs
-  const activeEntryTemplateId =
-    sel?.kind === 'entry' ? templates.find((t) => (t.entries ?? []).some((e) => e.id === sel.id))?.id ?? null : null
+  const activeEntryTemplate =
+    sel?.kind === 'entry' ? templates.find((t) => (t.entries ?? []).some((e) => e.id === sel.id)) ?? null : null
 
   const railRef = useRememberedScroll<HTMLElement>(`${scrollKey}|rail`)
   const mainRef = useRememberedScroll<HTMLElement>(sel ? `${scrollKey}|${sel.kind}:${sel.id}` : null)
@@ -209,61 +246,39 @@ export function ChecklistsView({
             template (Taktik-Stichworte, Grundlagen-Infos). One scroll region. */}
         <div className={s['cl-rail-groups']}>
           {!ready && !templates.length && <div className="workspace-loading"><LoadingStatus>{appConfig.copy.loading}</LoadingStatus></div>}
+          {/* the groups and rows are the Karte library's (ChecklistRail, owner 20.10.2026: «the
+              landing is the reference»); this rail keeps its order – Aufgaben first, Anleitungen
+              last (19.10.2026, owner: «least important during an active emergency») – and its
+              ticks: a checklist's «40%» at its row's end. A device with chapters opens its page,
+              a single Anleitung opens directly. */}
           {actionResults.length > 0 && (
-            <div className={s['cl-rail-group']}>
-              <div className={s['cl-rail-label']}>{CL.groupTasks}</div>
+            <ListGroup label={CL.groupTasks} look={look}>
               {actionResults.map((t) => {
                 const pr = templateProgress(t, checklists[t.id] ?? EMPTY_STATE)
                 return (
-                  <button
-                    key={t.id}
-                    className={cx(s['cl-rail-item'], sel?.kind === 'tpl' && sel.id === t.id && s.on)}
-                    onClick={() => pick({ kind: 'tpl', id: t.id })}
-                  >
-                    <Icon id={t.kind === 'rapport' ? 'history' : 'check'} />
-                    <span className={s['cl-rail-title']}>{t.title}</span>
-                    {pr.total > 0 && <span className={s['cl-rail-prog']}>{pr.pct}%</span>}
-                  </button>
+                  <TemplateRow key={t.id} template={t} end={pr.total > 0 ? `${pr.pct}%` : null}
+                    on={!railNarrow && sel?.kind === 'tpl' && sel.id === t.id} onOpen={() => pick({ kind: 'tpl', id: t.id })} />
                 )
               })}
-            </div>
+            </ListGroup>
           )}
           {referenceTemplates.map((rt) => {
             const rtResults = searchEntries(rt.entries ?? [], query)
             if (!rtResults.length) return null
             return (
-              <div key={rt.id} className={s['cl-rail-group']}>
-                <div className={s['cl-rail-label']}>{rt.title}</div>
+              <ListGroup key={rt.id} label={rt.title} look={look}>
                 {rtResults.map((e) => (
-                  <button
-                    key={e.id}
-                    className={cx(s['cl-rail-entry'], sel?.kind === 'entry' && sel.id === e.id && s.on, e.hazardColor && s[`hz-${e.hazardColor}`])}
-                    onClick={() => pick({ kind: 'entry', id: e.id })}
-                  >
-                    <span className={s['cl-ref-chip']} />
-                    <span className={s['cl-rail-entry-title']}>{e.title}</span>
-                  </button>
+                  <EntryRow key={e.id} entry={e} on={!railNarrow && sel?.kind === 'entry' && sel.id === e.id}
+                    onOpen={() => pick({ kind: 'entry', id: e.id })} />
                 ))}
-              </div>
+              </ListGroup>
             )
           })}
-          {/* Anleitungen (05.10.2026): read-only device instructions, STILL the last group (19.10.2026,
-              owner: «least important during an active emergency») – one row per Gerät with its
-              picture, the same tile as on the Karte's Checkliste surface (DeviceManuals). A device
-              with chapters opens its page, a single Anleitung opens directly. */}
           {manualResults.length > 0 && (
-            <div className={s['cl-rail-group']}>
-              <div className={s['cl-rail-label']}>{CL.groupManuals}</div>
-              {manualResults.map((g) => (
-                <DeviceTile
-                  key={g.device}
-                  group={g}
-                  variant="row"
-                  on={litDevice === g.device}
-                  onOpen={() => pick(g.manuals.length > 1 ? { kind: 'device', id: g.device } : { kind: 'manual', id: g.manuals[0].id })}
-                />
-              ))}
-            </div>
+            <ListGroup label={CL.groupManuals} look={look} bare>
+              <DeviceList groups={manualResults} look={look} isOn={(g) => !railNarrow && litDevice === g.device}
+                onOpen={(g) => pick(g.manuals.length > 1 ? { kind: 'device', id: g.device } : { kind: 'manual', id: g.manuals[0].id })} />
+            </ListGroup>
           )}
           {noMatches && <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: query.trim() })}</p>}
         </div>
@@ -288,24 +303,19 @@ export function ChecklistsView({
             <>
             {/* a chapter's way back names its device («‹ TLF») – the same row as the Karte's
                 Checkliste (ChecklistLibrary), owner 19.10.2026 */}
-            {chapter && (
-              <button type="button" className={s['cl-back']} onClick={() => setSel({ kind: 'device', id: chapter.group.device })}>
-                <Icon id="chevron-left" />{chapter.group.device}
-              </button>
-            )}
+            {chapter && <BackRow className={s['cl-doc-back']} label={chapter.group.device} onClick={() => setSel({ kind: 'device', id: chapter.group.device })} />}
             <ManualReader
               manual={activeManual}
               chapter={chapter && {
                 ...chapter,
                 onGo: (id) => setSel({ kind: 'manual', id }),
-                onDevice: () => setSel({ kind: 'device', id: chapter.group.device }),
               }}
             />
             </>
           ) : activeDevice ? (
             <DevicePage group={activeDevice} onChapter={(id) => setSel({ kind: 'manual', id })} />
           ) : (
-            <ChecklistEntryReader entry={activeEntry} templateId={activeEntryTemplateId} />
+            <ChecklistEntryReader entry={activeEntry} template={activeEntryTemplate} />
           )}
         </main>
       )}

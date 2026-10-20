@@ -28,7 +28,9 @@
 .tb-act-history .i { transform: translateY(-1.5px); }
 .tb-act.icon { padding: var(--sp-2); min-width: 42px; background: transparent; }
 @media (hover: hover) {
-  .tb-act:hover { color: var(--ink); background: var(--fill-soft); }
+  /* --hover-strong, not --fill-soft: a filled act already wears --fill-soft, so the old hover
+     changed its ink alone (20.10.2026) */
+  .tb-act:hover { color: var(--ink); background: var(--hover-strong); }
 }
 .tb-act:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .tb-act:disabled { opacity: var(--disabled); cursor: default; }
@@ -230,7 +232,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   touch-action: none; user-select: none; min-width: 96px; }
 .tb-act-add .i { width: 16px; height: 16px; }
 @media (hover: hover) {
-  .tb-act-add:hover { background: var(--float-bg); color: var(--ink); filter: brightness(1.05); }
+  /* the wash over its glass – brightness(1.05) lifted the dark glass at night but did nothing to
+     the white one by day (20.10.2026) */
+  .tb-act-add:hover { background: var(--float-bg); background-image: linear-gradient(var(--hover), var(--hover)); color: var(--ink); }
 }
 /* ⚠️ Names the LABEL, not every span. It used to read `.tb-act-add span`, which at (0,1,1)
    also out-specified the charging cue's own `.tb-hold { position: absolute }` (0,1,0) — so on

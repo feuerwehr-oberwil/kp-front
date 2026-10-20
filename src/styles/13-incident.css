@@ -15,10 +15,14 @@
   background: var(--glass); box-shadow: var(--e3); color: var(--ink);
   font: var(--fw-bold) var(--fs-2)/1.1 var(--body); cursor: pointer;
 }
+/* hover: a wash laid OVER the glass (an image, like the press) – --surface by day was white on
+   white glass, i.e. no hover at all (20.10.2026) */
 @media (hover: hover) {
-  .ip-switch-btn:hover { background: var(--surface); }
+  .ip-switch-btn:hover { background-image: linear-gradient(var(--hover), var(--hover)); }
 }
-.ip-switch-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* pressed while held AND while its menu is open – the Einsatz switcher and the Karte's menu/search
+   pills alike (owner 20.10.: the Karte's stayed pressed, the Einsatz's did not) */
+.ip-switch-btn:is(:active:not(:disabled), [aria-expanded='true']) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-switch-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 0 1 auto; }
 .ip-switch-btn svg { width: 16px; height: 16px; opacity: .6; flex: none; }
 /* sync-status mark in the incident switcher — a FIXED 16px slot so the constant saving↔saved
@@ -628,7 +632,7 @@
 .ui-search-x { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
   padding: 0; border: none; border-radius: var(--r-sm); background: none; color: var(--ink-dim); cursor: pointer;
   -webkit-tap-highlight-color: transparent; }
-@media (hover: hover) { .ui-search-x:hover { color: var(--ink); } }
+@media (hover: hover) { .ui-search-x:hover { color: var(--ink); background: var(--hover-strong); } }
 .ui-search-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ui-search-x .i { width: 16px; height: 16px; }
 /* THE one modifier — a card whose whole head IS the search (TruppFinder): the card is the
@@ -644,7 +648,7 @@
    It had four «open» looks in three sizes: white 14→28% (dark docks), an accent-red frame
    (QR-Bogen — station red saying «help is open»), the ink «where you are» pill (Verlauf) and the
    blue choice fill (Georef). One now: the grey icon chip of the sheet ✕ (36px, 18px glyph, a 44px
-   pad), and OPEN = the blue wash with a `--blue-strong` glyph. The dark docks keep DockInfo. */
+   pad), and OPEN = the blue wash with a `--blue-strong` glyph. The tool docks keep DockInfo. */
 .ui-info { position: relative; flex: none; display: grid; place-items: center; width: 36px; height: 36px;
   padding: 0; border: none; border-radius: var(--r-sm); cursor: pointer;
   background: var(--ink-8); color: var(--ink-dim);
@@ -781,6 +785,64 @@
 .row-go-text { flex: 1 1 auto; min-width: 0; }
 .row-go-word { flex: none; display: inline-flex; align-items: center; gap: 2px; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); }
 .row-go-word .i { width: 16px; height: 16px; }
+
+/* ── THE LIST ROW, its card and group, THE back row (20.10.2026, components/ListRow) ──
+   One row for every list of things to open – lead · title/sub · end · › – where four were built
+   in four weeks (reuse audit 19.10.). The container sets the density: on a .list-card (or alone)
+   56px with a 16px title, the station library's phone look; in .list-card-rail the compact
+   --tap row with a 14px title and the one corner, a list column beside a document. `.on` = where
+   you are (the ink pill, «Selected» role 3). A surface places these, never re-skins them. */
+.list-row { display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-width: 0; min-height: 56px; margin: 0;
+  padding: var(--sp-2) var(--sp-4); border: 0; background: none; color: var(--ink); text-align: left; font: inherit; }
+button.list-row { cursor: pointer; }
+/* the hover never repaints the row that is OPEN (.on): it out-ranked the ink pill and left its
+   white words on the light wash (owner 20.10.2026, the Anleitungen list) – .on darkens instead */
+@media (hover: hover) {
+  button.list-row:hover:not(:disabled, .on) { background-color: var(--fill-soft); }
+  button.list-row.on:hover:not(:disabled) { background-color: var(--ink-fill-hover); }
+}
+button.list-row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+button.list-row:disabled { opacity: var(--disabled); cursor: default; }
+.list-row-lead { flex: none; min-width: 20px; display: grid; place-items: center; color: var(--ink-dim); }
+.list-row-lead > .i { width: 18px; height: 18px; }
+.list-row-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+/* no `hyphens` here: ListRow's title hyphenates only where that saves a line – lib/smartHyphens
+   measures both layouts and sets `hyphens: auto` inline (owner 20.10.2026, «Trink-wasser») */
+.list-row-title { font: var(--fw-bold) var(--fs-3)/1.3 var(--body); overflow-wrap: break-word; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.list-row-sub { font: var(--fw-medium) var(--fs-1)/1.3 var(--body); color: var(--ink-dim); overflow-wrap: break-word; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.list-row-end { flex: none; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.list-row-chev { flex: none; width: 14px; height: 14px; color: var(--ink-faint); }
+.list-row.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+.list-row.on .list-row-sub, .list-row.on .list-row-end, .list-row.on .list-row-lead, .list-row.on .list-row-chev { color: var(--on-accent-ink); }
+
+/* never shrinks (flex: none): its host scrolls, the card keeps every row whole. The overflow is
+   only for the corners, and it let a flex column squeeze the card and cut rows in half (the
+   Karte's search, owner 20.10.) */
+.list-card { display: flex; flex-direction: column; flex: none; background: var(--surface); border-radius: var(--r-surface);
+  box-shadow: 0 0 0 1px var(--border-soft); overflow: hidden; }
+.list-card > .list-row + .list-row { box-shadow: inset 0 1px 0 var(--border-soft); }
+.list-card-rail { gap: 2px; background: none; box-shadow: none; border-radius: 0; overflow: visible; }
+.list-card-rail > .list-row + .list-row { box-shadow: none; }
+.list-card-rail > .list-row { min-height: var(--tap); padding: var(--sp-2); border-radius: var(--r-ctl); }
+/* a list column's type is a step under the card's (owner 20.10.2026: the Anleitungen wrapped
+   over three and four lines at 14/12.5) */
+.list-card-rail .list-row-title { font-size: var(--fs-1); }
+.list-card-rail .list-row-sub { font-size: var(--fs-micro); }
+
+/* a labelled group: the eyebrow, a word or count at its right end, then the card */
+.list-group { display: flex; flex-direction: column; gap: var(--sp-2); }
+.list-group-label { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); padding: 0 var(--sp-2);
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
+.list-group-end { text-transform: none; letter-spacing: 0; font-weight: var(--fw-bold); }
+
+/* «‹ Label» – one level up, naming where it goes; quiet, no frame, at the top of its page */
+.back-row { display: flex; align-items: center; gap: var(--sp-1); flex: none; align-self: flex-start; min-height: var(--tap); margin: 0;
+  padding: 0 var(--head-pad-x); border: 0; background: none; cursor: pointer; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink-dim); }
+.back-row > .i { width: 18px; height: 18px; flex: none; }
+@media (hover: hover) { .back-row:hover { color: var(--ink); } }
+.back-row:active { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* ═══ ONE TILE FAMILY for the controls of a page head (27.09.2026, slim sweep · mockups 2 + 10) ═══
    The Rapport head wore three recipes on one row — an amber OUTLINE pill, two framed squares and

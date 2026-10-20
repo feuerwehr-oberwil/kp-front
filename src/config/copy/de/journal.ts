@@ -29,7 +29,7 @@ export const journalCopy = {
     },
     open: 'Verlauf',
     add: 'Eintrag',
-    addHint: 'Tippen für Eintrag · halten und auf Sprachnotiz oder Foto schieben',
+    addHint: 'Tippen für Eintrag, halten und auf Sprachnotiz oder Foto schieben',
     title: 'Verlauf',
     empty: 'Noch keine Ereignisse erfasst.',
     surfaceMap: 'Karte',

@@ -7165,6 +7165,87 @@
         }
       }
     },
+    "/api/reference/houses": {
+      "get": {
+        "tags": [
+          "reference"
+        ],
+        "summary": "Reference Houses",
+        "description": "The Einsatzgebiet's houses — one cadastral footprint each, as ONE GeoJSON MultiPolygon\n(``{enabled, fetchedAt, count, geometry}``), as the scheduler last stored it (app/houses); the\nKarte's building tap selects the house under the finger. Same answers as ``/underground``:\n``enabled: false`` = off (``HOUSES_WFS=``), ``fetchedAt: null`` = not asked yet,\n``?have=<fetchedAt>`` → ``unchanged: true`` and no geometry.",
+        "operationId": "reference_houses_api_reference_houses_get",
+        "parameters": [
+          {
+            "name": "have",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The `fetchedAt` this device already holds",
+              "title": "Have"
+            },
+            "description": "The `fetchedAt` this device already holds"
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          },
+          {
+            "name": "admin_session",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Admin Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The stored set (app/houses)",
+            "content": {
+              "application/json": {}
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/reference/building": {
       "get": {
         "tags": [
@@ -14848,6 +14929,30 @@
         ],
         "title": "Body_zeitplan_pdf_api_incidents__incident_id__zeitplan_pdf_post"
       },
+      "BuildingFloorFlatsOut": {
+        "properties": {
+          "level": {
+            "type": "integer",
+            "title": "Level"
+          },
+          "flats": {
+            "type": "integer",
+            "title": "Flats"
+          },
+          "maisonettes": {
+            "type": "integer",
+            "title": "Maisonettes",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "level",
+          "flats"
+        ],
+        "title": "BuildingFloorFlatsOut",
+        "description": "The existing flats whose entrance is on one storey."
+      },
       "BuildingGwrOut": {
         "properties": {
           "stand": {
@@ -14953,6 +15058,60 @@
               }
             ],
             "title": "Status"
+          },
+          "building_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Building Class"
+          },
+          "heaters": {
+            "items": {
+              "$ref": "#/components/schemas/BuildingSystemOut"
+            },
+            "type": "array",
+            "title": "Heaters"
+          },
+          "water_heaters": {
+            "items": {
+              "$ref": "#/components/schemas/BuildingSystemOut"
+            },
+            "type": "array",
+            "title": "Water Heaters"
+          },
+          "flats_by_floor": {
+            "items": {
+              "$ref": "#/components/schemas/BuildingFloorFlatsOut"
+            },
+            "type": "array",
+            "title": "Flats By Floor"
+          },
+          "rooms_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rooms Min"
+          },
+          "rooms_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rooms Max"
           }
         },
         "type": "object",
@@ -15203,6 +15362,40 @@
         ],
         "title": "BuildingPlantOut",
         "description": "One registered electricity production plant on the building (BFE)."
+      },
+      "BuildingSystemOut": {
+        "properties": {
+          "generator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generator"
+          },
+          "energy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Energy"
+          },
+          "shared": {
+            "type": "boolean",
+            "title": "Shared",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "BuildingSystemOut",
+        "description": "One heating or hot-water system: what makes the heat, from what (app/building_facts)."
       },
       "BuildingVisitOut": {
         "properties": {

@@ -24,6 +24,9 @@ export interface ViewsApi {
   onFit: () => void
   /** take a single GPS fix and fly to it (the on-demand «Mein Standort» blue dot) */
   onLocate: () => void
+  /** what holding the compass does, and the ⓘ that says so – absent: fit (`onFit`) with the
+   *  views hint. The Karte home holds to the user's own position (owner, Karte Haus round 2). */
+  hold?: { run: () => void; hint: string }
   /**
    * «Standort teilen» — reporting your own position to the command post for this Einsatz.
    *
@@ -68,6 +71,7 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
   onClose: () => void
 }) {
   const cp = appConfig.copy.mapViews
+  const hint = api.hold?.hint ?? cp.hint
   const [editingId, setEditingId] = useState<string | null>(null)
   const isPhone = useIsPhone()
   const commitRename = (id: string, name: string) => { api.onRename(id, name.trim()); setEditingId(null) }
@@ -77,7 +81,7 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
   const helpRef = useRef<HTMLParagraphElement>(null)
   useLayoutEffect(() => { if (help) helpRef.current?.scrollIntoView?.({ block: 'nearest' }) }, [help])
   const helpBtn = (
-    <button type="button" className={cx(s.mini, help && s.miniOn)} aria-label={cp.hint} title={cp.hint}
+    <button type="button" className={cx(s.mini, help && s.miniOn)} aria-label={hint} title={hint}
       aria-expanded={help} onClick={() => setHelp((v) => !v)}><Icon id="info" /></button>
   )
 
@@ -88,7 +92,7 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
   // Einsatz menu, which has neither ✕ nor a lone ⓘ tile — the two cost ~120px on a phone.
   return createPortal(
     <>
-      {/* same dark dock as the measure/draw ToolDock, in the same spot: centred just left of
+      {/* same spot as the measure/draw ToolDock, and the same glass: centred just left of
           the right tool rail (see .wb-dock / .wb-dock-map); the ⓘ ends the last row. */}
       <div className={cx(s.pop, s.dock, "mv-dock")} role="dialog" aria-label={cp.title}>
         <button className={cx(s.row, s.north)} onClick={() => { api.onResetNorth(); onClose() }}>
@@ -182,11 +186,11 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
               </button>
               {helpBtn}
             </div>
-            {help && <p ref={helpRef} className={s.help}>{cp.hint}</p>}
+            {help && <p ref={helpRef} className={s.help}>{hint}</p>}
           </>
         )}
         {/* a locked device has no «Ansicht speichern» row to end with: the ⓘ keeps its foot */}
-        {readOnly && <div className={s.foot}><DockInfo text={cp.hint} inline /></div>}
+        {readOnly && <div className={s.foot}><DockInfo text={hint} inline /></div>}
       </div>
     </>,
     document.body,
@@ -232,7 +236,7 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
   const cp = appConfig.copy.mapViews
   const glyph = <CompassGlyph bearing={bearing} className={glyphClassName} />
 
-  // Hold the compass to fit the incident into view, without going through the menu. A quiet
+  // Hold the compass to fit the incident into view (or what `api.hold` says), without going through the menu. A quiet
   // shortcut for the one row that gets used over and over — deliberately undiscoverable by
   // accident (500 ms, cancels on any movement, so a pan or a scroll of the rail never trips
   // it) and never the ONLY way there: «Einpassen» stays a plain row one tap in.
@@ -254,7 +258,7 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
   // never lands (pointercancel, a finger that slid off) would otherwise leave the flag set and
   // silently swallow the NEXT tap, turning the compass dead for one press.
   const fired = useRef(false)
-  const holdProps = hold.press(() => { fired.current = true; api.onFit() })
+  const holdProps = hold.press(() => { fired.current = true; if (api.hold) api.hold.run(); else api.onFit() })
 
   return (
     <>

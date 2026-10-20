@@ -18,6 +18,13 @@
 //    · a pick from the SEARCH is a deliberate jump somewhere else — flying back to where the search
 //      began would undo the search, so closing it only drops the padding: the place stays, centred
 //      on the whole map instead of in the strip above a sheet that is gone.
+//
+// 3. THE FREE MAP IS WHAT IS LEFT BESIDE THE TABLET'S CHROME (owner, review round 6, 20.10.2026:
+//    «When having opened a plan … and then going back to the map, sometimes the object isn't
+//    neatly in focus»). A place is framed in the middle of the map between the panel and the tool
+//    rail, under the bar — measured from the rails' published widths, so the round-5 chevron's
+//    wider rail moves the middle with it (`besidePanel`). And back from a plan the selected
+//    object is framed there again (KarteApp), however the tap that selected it left the map.
 
 import type { LngLat } from '../../types'
 
@@ -33,6 +40,14 @@ export interface Camera { center: LngLat; zoom: number; padding: Padding }
 export type CameraReturn = { to: 'camera'; cam: Camera } | { to: 'centre' }
 
 export const NO_PADDING: Padding = { top: 0, bottom: 0, left: 0, right: 0 }
+
+/** The tablet's camera padding: the free map right of the object panel and left of the tool rail,
+ *  under the bar. `railW` / `toolsW` are the rails' published widths (`--rail-w`, `--vrail-w`).
+ *  The numbers are Karte.module.css's `.panel.withRail` (16px in, beside the rail, 404px wide)
+ *  and 07-toolrail.css's `.tool-rail` (16px in from the right). */
+export function besidePanel(railW: number, toolsW: number): Padding {
+  return { top: 80, bottom: 0, left: 16 + railW + 16 + 404, right: 16 + toolsW }
+}
 
 /** A place was selected (`how`: a tap on the map / a row of «In der Nähe», or a search pick) with
  *  the camera at `now`, BEFORE the selection moves it. An open selection keeps its way back. */

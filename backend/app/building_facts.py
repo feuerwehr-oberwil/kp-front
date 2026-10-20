@@ -4,8 +4,9 @@ Two public, keyless sources on the same geo.admin host the geocoder already uses
 the same way, see geocode.py):
 
 * **GWR** (eidg. Gebäude- und Wohnungsregister, layer ``ch.bfs.gebaeude_wohnungs_register``):
-  identify at the incident point → the building's EGID plus its attributes — Geschosse,
-  Wohnungen, Baujahr/-periode, heating and hot-water energy source, Zivilschutzraum.
+  identify at the incident point → the building's EGID plus its attributes – Gebäudeklasse,
+  Geschosse, Wohnungen (and per Stockwerk, with their Zimmer), Baujahr/-periode, heating and
+  hot-water generator + energy source, Zivilschutzraum.
 * **BFE** (Elektrizitätsproduktionsanlagen, ``ch.bfe.elektrizitaetsproduktionsanlagen``): every
   registered plant carries the building's EGID, so «PV on this roof» is an exact join, not a
   distance guess.
@@ -20,9 +21,11 @@ BFE outage still shows the GWR facts. The answer is cached in-process per point 
 clean answer, two minutes when a source failed, so a blip heals by itself); the device keeps
 its own copy per Einsatz for offline (src/lib/api/building.ts).
 
-The code lists are GWR catalogue 4.x, cross-checked against the register's decoded popup
-(``…/<egid>_0/extendedHtmlPopup?lang=de``) on 08.10.2026. They are mapped to stable KEYS here
-(``gas``, ``oil``, …), and the words for those keys live in the app's copy, in all four locales.
+The code lists follow the GWR Merkmalskatalog (4.3, current on housing-stat.ch on 20.10.2026),
+cross-checked against the register's decoded popup (``…/<egid>_0/extendedHtmlPopup?lang=de``)
+on 08.10.2026 (energy, period, status) and on 20.10.2026 (Gebäudeklasse, Wärmeerzeuger,
+Stockwerk – one live building per code). They are mapped to stable KEYS here (``gas``, ``oil``,
+…), and the words for those keys live in the app's copy, in all four locales.
 """
 
 import asyncio
@@ -115,6 +118,85 @@ STATUS: dict[int, str] = {
 }
 
 
+#: gklas – the Gebäudeklasse (Eurostat CC), grouped into what a crew reads off it. Codes that
+#: say nothing (1274 «sonstige Hochbauten») or are newer than this table → no chip.
+BUILDING_CLASS: dict[int, str] = {
+    1110: "single_family",
+    1121: "two_family",
+    1122: "multi_family",
+    1130: "home",  # Wohngebäude für Gemeinschaften: Alters-, Pflege-, Studentenheime
+    1211: "hotel",
+    1212: "hotel",  # andere kurzfristige Beherbergung
+    1220: "office",
+    1230: "retail",
+    1231: "restaurant",
+    1241: "transport",  # Bahnhof, Verkehr und Nachrichten, ohne Garagen
+    1242: "garage",
+    1251: "industry",
+    1252: "storage",  # Behälter, Silos, Lager
+    1261: "culture",
+    1262: "culture",  # Museen, Bibliotheken
+    1263: "school",
+    1264: "hospital",
+    1265: "sports_hall",
+    1271: "farm",
+    1272: "church",
+    1273: "monument",
+    1275: "collective",  # andere kollektive Unterkunft
+    1276: "farm",  # Tierhaltung
+    1277: "farm",  # Pflanzenbau
+    1278: "farm",
+}
+
+#: gwaerzh1/2 (heating) and gwaerzw1/2 (hot water): the heat generator → (key, serves several
+#: buildings). «für mehrere Gebäude» matters at night: the boiler may stand next door.
+#: 7400/7600 «kein Wärmeerzeuger» and 7499/7699 «andere» are absent – they name nothing.
+GENERATOR: dict[int, tuple[str, bool]] = {
+    7410: ("heat_pump", False),
+    7411: ("heat_pump", True),
+    7420: ("solar_thermal", False),
+    7421: ("solar_thermal", True),
+    7430: ("boiler", False),
+    7431: ("boiler", True),
+    7432: ("boiler", False),
+    7433: ("boiler", True),
+    7434: ("boiler", False),
+    7435: ("boiler", True),
+    7436: ("stove", False),
+    7440: ("chp", False),
+    7441: ("chp", True),
+    7450: ("electric_storage", False),
+    7451: ("electric_storage", True),
+    7452: ("electric_direct", False),
+    7460: ("heat_exchanger", False),
+    7461: ("heat_exchanger", True),
+    7610: ("heat_pump", False),
+    7620: ("solar_thermal", False),
+    7630: ("boiler", False),
+    7632: ("boiler", False),
+    7634: ("boiler", False),
+    7640: ("chp", False),
+    7650: ("electric_boiler", False),  # zentraler Elektroboiler
+    7651: ("electric_boiler", False),  # Kleinboiler
+    7660: ("heat_exchanger", False),
+}
+
+#: wstat of a flat that stands today; projected, demolished … flats are not anybody's door.
+FLAT_EXISTING = 3004
+
+
+def floor_level(code: Any) -> int | None:
+    """wstwk → a storey number: 3100 Parterre → 0, 3101 «1. Stock» → 1, 3401 «1. UG» → -1."""
+    n = _int(code)
+    if n is None:
+        return None
+    if 3100 <= n <= 3199:
+        return n - 3100
+    if 3401 <= n <= 3419:
+        return -(n - 3400)
+    return None
+
+
 def energy_key(code: Any) -> str | None:
     """The key for a GWR energy code; None for «nothing» (no code, 7500 keine)."""
     try:
@@ -170,17 +252,65 @@ def _keys(*codes: Any) -> list[str]:
     return out
 
 
+def _systems(pairs: list[tuple[Any, Any]]) -> list[dict[str, Any]]:
+    """(generator code, energy code) per system → [{generator, energy, shared}], each distinct
+    pair once, a system that names neither («kein Wärmeerzeuger» / «keine») dropped."""
+    out: list[dict[str, Any]] = []
+    for gen_code, energy_code in pairs:
+        gen = GENERATOR.get(_int(gen_code) or 0)
+        entry = {
+            "generator": gen[0] if gen else None,
+            "energy": energy_key(energy_code),
+            "shared": bool(gen and gen[1]),
+        }
+        if (entry["generator"] or entry["energy"]) and entry not in out:
+            out.append(entry)
+    return out
+
+
+def _flats(attrs: dict[str, Any]) -> tuple[list[dict[str, int]], int | None, int | None]:
+    """The flat arrays (one entry per flat) → existing flats per storey + the Zimmer range.
+
+    Per storey only when EVERY existing flat names its storey – half a picture of where people
+    sleep reads like the whole one. A Maisonette is counted on its entrance storey (wstwk).
+    """
+    floors, states = attrs.get("wstwk"), attrs.get("wstat")
+    if not isinstance(floors, list) or not isinstance(states, list) or len(floors) != len(states):
+        return [], None, None
+    duplex, rooms = attrs.get("wmehrg"), attrs.get("wazim")
+    by_level: dict[int, dict[str, int]] = {}
+    room_counts: list[int] = []
+    complete = True
+    for i, (code, state) in enumerate(zip(floors, states, strict=True)):
+        if _int(state) != FLAT_EXISTING:
+            continue
+        if isinstance(rooms, list) and i < len(rooms) and (r := _int(rooms[i])) and r > 0:
+            room_counts.append(r)
+        level = floor_level(code)
+        if level is None:
+            complete = False
+            continue
+        row = by_level.setdefault(level, {"level": level, "flats": 0, "maisonettes": 0})
+        row["flats"] += 1
+        if isinstance(duplex, list) and i < len(duplex) and _int(duplex[i]) == 1:
+            row["maisonettes"] += 1
+    rows = [by_level[k] for k in sorted(by_level)] if complete else []
+    return rows, min(room_counts, default=None), max(room_counts, default=None)
+
+
 def decode_gwr(attrs: dict[str, Any]) -> dict[str, Any]:
     """GWR feature attributes → the card's facts (keys, numbers, dates; no words).
 
-    Only what a crew acts on: Geschosse (ladder, Atemschutz), Wohnungen (how many parties to warn),
-    Baujahr (old timber, asbestos), what burns in the cellar, and a Schutzraum.
+    Only what a crew acts on: what kind of building (a Heim, a school), Geschosse (ladder,
+    Atemschutz), Wohnungen and on which storey (how many parties to warn, where), Baujahr (old
+    timber, asbestos), what burns in the cellar and in what, and a Schutzraum.
     """
     floors = _int(attrs.get("gastw"))
     flats = _int(attrs.get("ganzwhg"))
     year = _int(attrs.get("gbauj"))
     shelter = _int(attrs.get("gschutzr"))
     status = STATUS.get(_int(attrs.get("gstat")) or 0)
+    by_floor, rooms_min, rooms_max = _flats(attrs)
     return {
         "egid": str(attrs.get("egid")) if attrs.get("egid") not in (None, "") else None,
         "stand": parse_ch_date(attrs.get("gexpdat")),
@@ -193,6 +323,14 @@ def decode_gwr(attrs: dict[str, Any]) -> dict[str, Any]:
         "hot_water": _keys(attrs.get("genw1"), attrs.get("genw2")),
         "shelter": True if shelter == 1 else None,
         "status": status,
+        "building_class": BUILDING_CLASS.get(_int(attrs.get("gklas")) or 0),
+        "heaters": _systems([(attrs.get("gwaerzh1"), attrs.get("genh1")), (attrs.get("gwaerzh2"), attrs.get("genh2"))]),
+        "water_heaters": _systems(
+            [(attrs.get("gwaerzw1"), attrs.get("genw1")), (attrs.get("gwaerzw2"), attrs.get("genw2"))]
+        ),
+        "flats_by_floor": by_floor,
+        "rooms_min": rooms_min,
+        "rooms_max": rooms_max,
     }
 
 
