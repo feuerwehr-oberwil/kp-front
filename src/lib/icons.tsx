@@ -143,6 +143,10 @@ export function IconSprite() {
           It wore `history`, the Verlauf's clock, one row away from the Verlauf button — and not
           `archive` either, which is «Abschliessen» on the card right above it. Not `menu`: that
           one has no row marks and means «more». */}
+      {/* «Speicher voll» (20.10.2026, S1): the device's store, a drum. On a phone the chip shows
+          only its glyph, and the ⚠ it wore was «Sync-Fehler»'s — the worse state (nothing saved
+          anywhere) read as the milder one. The red chip says how bad; this says WHAT. */}
+      <symbol id="storage" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="2.6" /><path d="M5 6v12c0 1.45 3.1 2.6 7 2.6s7-1.15 7-2.6V6" /><path d="M5 12c0 1.45 3.1 2.6 7 2.6s7-1.15 7-2.6" /></symbol>
       <symbol id="list" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11" /><circle cx="4.8" cy="6.5" r="1.3" fill="currentColor" stroke="none" /><circle cx="4.8" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="4.8" cy="17.5" r="1.3" fill="currentColor" stroke="none" /></symbol>
       <symbol id="play" viewBox="0 0 24 24"><path d="M7 4.8 19 12 7 19.2z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" /></symbol>
       <symbol id="pause" viewBox="0 0 24 24"><path d="M8 5h2.4v14H8zM13.6 5H16v14h-2.4z" fill="currentColor" /></symbol>

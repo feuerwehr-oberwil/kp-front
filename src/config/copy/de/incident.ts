@@ -21,6 +21,9 @@ export const incidentCopy = {
     offlineShort: 'Offline',
     errorShort: 'Sync-Fehler',
     storageShort: 'Speicher voll',
+    // …and its Meldeleiste row (S1, 20.10.2026): the state that loses work says so where messages stand
+    storageMeldung: 'Speicher voll – Änderungen nicht lokal gesichert',
+    storageMeldungSub: 'App offen lassen und Einträge sichern – beim Schliessen gehen sie sonst verloren.',
     // one-shot warning toasts (useIncidentSync) — once per episode
     syncErrorToast: 'Synchronisierung fehlgeschlagen – Änderungen sind lokal gespeichert.',
     syncOfflineToast: 'Immer noch offline – Änderungen werden lokal gespeichert.',

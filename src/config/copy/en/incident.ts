@@ -21,6 +21,8 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     offlineShort: 'Offline',
     errorShort: 'Sync error',
     storageShort: 'Storage full',
+    storageMeldung: 'Storage full – changes not saved locally',
+    storageMeldungSub: 'Keep the app open and save the entries – otherwise they are lost on close.',
     syncErrorToast: 'Sync failed – changes are saved locally.',
     syncOfflineToast: 'Still offline – changes are saved locally.',
     clockSkewToast: 'This device\'s clock is off by {n} minutes – check recorded times.',

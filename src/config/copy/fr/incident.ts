@@ -17,6 +17,8 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     badgeError: 'Échec de la synchro – enregistré localement, nouvel essai',
     badgeStorage: 'Stockage plein – les modifications ne sont PAS enregistrées localement et seront perdues à la fermeture',
     storageShort: 'Stockage plein',
+    storageMeldung: 'Stockage plein – modifications non enregistrées localement',
+    storageMeldungSub: 'Laisser l’app ouverte et sauvegarder les entrées – sinon elles seront perdues à la fermeture.',
     syncNow: 'Synchroniser maintenant',
     incidents: 'Interventions',
     app: 'Application',

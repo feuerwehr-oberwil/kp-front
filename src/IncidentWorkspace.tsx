@@ -3147,6 +3147,7 @@ export function IncidentWorkspace({
         releaseOnSite, revertAll, followAll, replayActive, incidentMeta, journal, rapportReturn,
         setRapportReturn, openRapport, setInstallGuideOpen, tabLockLost, user, onTakeOverTab, needsReview,
         readOnly, intakeReviewedAt, onEditMeta, onReviewDone, azAlarmActive, truppPlace, setTruppStatus,
+        syncStatus, exportEntries, syncNow,
       }} />
 
       {/* single left navigation rail — all surfaces; switches Karte / object Pläne / Checkliste */}

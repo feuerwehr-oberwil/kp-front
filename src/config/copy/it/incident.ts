@@ -17,6 +17,8 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     badgeError: 'Sincronizzazione non riuscita – salvato localmente, si riproverà',
     badgeStorage: 'Memoria piena – le modifiche NON sono salvate localmente e andranno perse alla chiusura',
     storageShort: 'Memoria piena',
+    storageMeldung: 'Memoria piena – modifiche non salvate localmente',
+    storageMeldungSub: 'Lasciare l’app aperta e salvare le voci – altrimenti andranno perse alla chiusura.',
     syncNow: 'Sincronizza ora',
     incidents: 'Interventi',
     app: 'App',

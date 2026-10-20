@@ -174,11 +174,15 @@ export function IncidentSwitcher({
   // one wording for one fact, the same the Trupps head shows; the time stays in the title (it
   // was «Gespeichert um 23:16»). The other states keep their words — they are warnings.
   const savedPill = syncStatus === 'synced' ? cp.saved : savedText
+  // «Speicher voll» wears its own glyph (lib/icons · #storage, S1): on a phone the chip is its
+  // glyph alone, and the ⚠ it shared with «Sync-Fehler» made the worse state read as the milder
   const statusMark = syncStatus === 'synced'
     ? <Icon id="check" />
-    : syncStatus === 'error' || syncStatus === 'storage'
-      ? <Icon id="warn" />
-      : <span className="ip-status-dot" />
+    : syncStatus === 'storage'
+      ? <Icon id="storage" />
+      : syncStatus === 'error'
+        ? <Icon id="warn" />
+        : <span className="ip-status-dot" />
   const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   /**
    * «Jetzt synchronisieren» — offered whenever the device has a link, not only on error: it forces a push AND an
@@ -246,7 +250,7 @@ export function IncidentSwitcher({
             work is safely cached on this device, this one means it is not saved ANYWHERE. */}
         {active && syncStatus === 'storage' ? (
           <span className="ip-offline-chip ip-error-chip" title={savedText} aria-label={savedText}>
-            <Icon id="warn" /><span className="ip-chip-word">{cp.storageShort}</span>
+            <Icon id="storage" /><span className="ip-chip-word">{cp.storageShort}</span>
           </span>
         ) : active && syncStatus === 'offline' ? (
           <span className="ip-offline-chip" title={savedText} aria-label={savedText}>
