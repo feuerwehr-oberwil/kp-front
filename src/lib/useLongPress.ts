@@ -1,7 +1,12 @@
 import { useEffect, useRef } from 'react'
 
-const DELAY_MS = 500       // hold this long (without moving) to fire — long enough not to clash with a drag
-const MOVE_TOL_PX = 8      // any movement past this is a drag/reshape, not a press → cancel
+/** Hold this long (without moving) to fire — long enough not to clash with a drag, and the
+ *  platform-usual long press on both Android and iOS. Exported because a hold on the map canvas
+ *  cannot use this hook (it listens on maplibre's container, not on a React element) and the app
+ *  must answer every still hold on one beat (karte/KarteApp · the map's hold). */
+export const LONG_PRESS_MS = 500
+/** any movement past this is a drag/reshape, not a press → cancel */
+export const LONG_PRESS_MOVE_TOL_PX = 8
 
 /**
  * Touch long-press, generalised from lib/useHoldEntry. Built for handles that ALSO sit
@@ -15,8 +20,8 @@ const MOVE_TOL_PX = 8      // any movement past this is a drag/reshape, not a pr
  * lets the Marker's onDrag abort the press the instant a real drag begins.
  */
 export function useLongPress(opts?: { delayMs?: number; moveTolerancePx?: number }) {
-  const delayMs = opts?.delayMs ?? DELAY_MS
-  const tol = opts?.moveTolerancePx ?? MOVE_TOL_PX
+  const delayMs = opts?.delayMs ?? LONG_PRESS_MS
+  const tol = opts?.moveTolerancePx ?? LONG_PRESS_MOVE_TOL_PX
   const st = useRef<{
     timer: number
     sx: number
