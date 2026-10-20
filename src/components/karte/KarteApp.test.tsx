@@ -693,6 +693,29 @@ describe('KarteApp', () => {
     expect((screen.getByPlaceholderText('Adresse oder Objekt suchen …', PLAIN) as HTMLInputElement).value).toBe('')
   })
 
+  // owner R6: «When having opened a plan … and then going back to the map, sometimes the object
+  // isn't neatly in focus» — a tap selects in place; back from the plan it is framed beside the
+  // panel (the pixels: e2e/karte-plan-back-camera.mjs)
+  it('on a tablet: back on the map from a plan, the object is framed in the free map beside the panel', async () => {
+    const easeTo = vi.fn()
+    rec.fakeMap = {
+      getContainer: () => document.createElement('div'), getZoom: () => 17, getCenter: () => ({ lng: 7.57, lat: 47.52 }), getPadding: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+      unproject: () => ({ lng: 7.57, lat: 47.52 }), project: () => ({ x: 1100, y: 700 }), // visible: the tap leaves it there
+      getBounds: () => ({ getWest: () => 7.5, getSouth: () => 47.5, getEast: () => 7.6, getNorth: () => 47.6 }),
+      easeTo, jumpTo: () => {}, fitBounds: () => {}, getMap: () => ({ on: () => {} }),
+    }
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
+    const panel = await screen.findByRole('region', { name: 'Karte & Objekte' })
+    expect(easeTo).not.toHaveBeenCalled()
+    fireEvent.click(within(panel).getByRole('button', { name: 'Modul 1' }))
+    expect(await screen.findByTestId('pdf')).toBeTruthy()
+    fireEvent.click(within(screen.getByRole('navigation', { name: /Schloss Musterdorf/ })).getByRole('button', { name: 'Karte' }))
+    await waitFor(() => expect(easeTo).toHaveBeenCalledTimes(1))
+    // right of the panel beside the rail, left of the tool rail (lib/karte/camera · besidePanel)
+    expect(easeTo).toHaveBeenCalledWith(expect.objectContaining({ center: [7.570188, 47.523773], padding: { top: 80, bottom: 0, left: 496, right: 76 } }))
+  })
+
   it('comes back on the Checkliste with the session, unless a deep link asks for an object', async () => {
     mount()
     fireEvent.click(await screen.findByRole('button', { name: 'Checkliste' }))

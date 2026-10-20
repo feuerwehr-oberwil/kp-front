@@ -81,7 +81,7 @@ import { karteHref } from '../../lib/karte/route'
 import { applyLayerPreset, karteLayerPreset, presetFlips, type QuickTap } from '../../lib/karte/layerPresets'
 import { karteRadarStore, loadKarteView, loadViewerLayerPrefs, saveKarteView, saveViewerLayerPrefs, viewerLayers, type KarteTool } from '../../lib/karte/session'
 import { categorize, categoryRules, inkOn } from '../../lib/karte/categories'
-import { cameraOnClose, returnOnSelect, toolTakesTaps, type Camera, type CameraReturn } from '../../lib/karte/camera'
+import { besidePanel, cameraOnClose, returnOnSelect, toolTakesTaps, type Camera, type CameraReturn, type Padding } from '../../lib/karte/camera'
 import type { Entity, LayerDef, LayerId, LngLat, PreparedMapOverlay } from '../../types'
 import { MapView } from '../MapView'
 import { LayerPanel } from '../LayerPanel'
@@ -148,6 +148,14 @@ const LIBRARY = 'karte:checkliste'
 /** how much of a phone's height the object sheet may cover (Ebenen's cap, 15-mobile · .layers-card):
  *  a place framed for it stands in the strip above */
 const SHEET_SHARE = 0.72
+/** a rail's published width (lib/useRail: `--rail-w`, `--vrail-w` on <html>), its token's 60px when none is */
+const railPx = (name: string) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || 60
+/** The camera padding that frames a place beside the panel: on a phone the strip above the sheet
+ *  (Ebenen's, up to ~72 % of the height), on a tablet the free map between the panel and the
+ *  tool rail (lib/karte/camera · besidePanel) */
+const panelPad = (phone: boolean): Padding => (phone
+  ? { top: 80, bottom: window.innerHeight * SHEET_SHARE, left: 0, right: 0 }
+  : besidePanel(railPx('--rail-w'), railPx('--vrail-w')))
 /** a tag's text: a number range («1-14») never folds at its hyphen (a word joiner after it) */
 const tagText = (name: string) => name.replace(/(\d)-(?=\d)/g, '$1-\u2060')
 /** an Ebenen row per object category (lib/karte/categories) */
@@ -214,8 +222,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const flyPending = useCallback(() => {
     const map = mapRef.current
     if (!map || !pendingFly.current) return
-    // on a phone the sheet opens over the lower part: frame the object in the strip above it
-    map.jumpTo({ center: pendingFly.current, zoom: 17.6, ...(phoneRef.current ? { padding: { top: 80, bottom: window.innerHeight * SHEET_SHARE, left: 0, right: 0 } } : {}) })
+    // the panel opens with it: the object in the strip above the phone's sheet / beside the panel
+    map.jumpTo({ center: pendingFly.current, zoom: 17.6, padding: panelPad(phoneRef.current) })
     pendingFly.current = null
   }, [])
 
@@ -529,16 +537,14 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     watchingMoves.current = true
     map.on('movestart', (e) => { if ((e as { originalEvent?: unknown }).originalEvent) camBack.current = null })
   }, [])
-  // on a phone the sheet is Ebenen's (up to ~72 % of the height): the place goes in the strip above
-  const panelPad = () => (phone ? { top: 80, bottom: window.innerHeight * SHEET_SHARE, left: 0, right: 0 } : { top: 80, bottom: 0, left: 440, right: 0 })
-  const flyTo = (at: LngLat, zoom = 17.6) => mapRef.current?.easeTo({ center: at, zoom: Math.max(view.zoom, zoom), padding: panelPad(), duration: 700 })
+  const flyTo = (at: LngLat, zoom = 17.6) => mapRef.current?.easeTo({ center: at, zoom: Math.max(view.zoom, zoom), padding: panelPad(phone), duration: 700 })
   /** keep the tapped place visible beside / above the panel, without changing the zoom */
   const reveal = (at: LngLat) => {
     const map = mapRef.current
     if (!map) return
     const p = map.project(at)
-    const hidden = phone ? p.y > window.innerHeight * (1 - SHEET_SHARE) - 16 || p.y < 90 : p.x < 440
-    if (hidden) map.easeTo({ center: at, padding: panelPad(), duration: 500 })
+    const hidden = phone ? p.y > window.innerHeight * (1 - SHEET_SHARE) - 16 || p.y < 90 : p.x < panelPad(false).left
+    if (hidden) map.easeTo({ center: at, padding: panelPad(phone), duration: 500 })
   }
   const selectObject = (id: string, fly = true, how: 'tap' | 'search' = 'tap', hit?: { at: LngLat; ring: LngLat[] }) => {
     const o = byId.get(id)
@@ -725,7 +731,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     const next = !georefOn
     setGeorefOn(next)
     const at = selObj && coordOf(selObj)
-    if (next && at) mapRef.current?.easeTo({ center: at, zoom: Math.max(view.zoom, 18), padding: panelPad(), duration: 600 })
+    if (next && at) mapRef.current?.easeTo({ center: at, zoom: Math.max(view.zoom, 18), padding: panelPad(phone), duration: 600 })
   }
 
   // ── the map's content ─────────────────────────────────────────────────────────────────────
@@ -1134,6 +1140,20 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   /** the panel is on screen: on the map, not under Messen, and on a phone not under a tool's own
    *  card nor pushed away */
   const panelShown = onMapSurface && !!panelSel && tool !== 'measure' && !(phone && (tool === 'erg' || tool === 'layers' || sheetShut || searchOpen))
+  // Back on the map from a plan, the object stands in the free map's middle again (owner, review
+  // round 6: «sometimes the object isn't neatly in focus like it should be») — a tap selects in
+  // place (`reveal`), so the object was wherever it was tapped, maybe at the bottom right. At the
+  // zoom the map had; the way back for ✕ stays (an ease carries no `originalEvent`). Not when the
+  // way back was a pick of another object, which frames itself.
+  const docWas = useRef<{ doc: string; sel: Sel | null } | null>(null)
+  useEffect(() => {
+    const was = docWas.current
+    docWas.current = openDoc ? { doc: openDoc.doc.id, sel } : null
+    if (!was || openDoc || !panelShown || was.sel !== sel) return
+    const at = selPoint(sel)
+    if (at) mapRef.current?.easeTo({ center: at, padding: panelPad(phone), duration: 500 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per way back from a document
+  }, [openDoc])
   // the tablet's left rail is always there (owner, 19.10.2026): Karte · Checkliste, then the plans
   const railShown = !phone
   // «Beschriftung» from the Einstellungen, live (the home's settings sheet sits over this surface)

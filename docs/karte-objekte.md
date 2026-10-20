@@ -408,6 +408,17 @@ The rules that are easy to break:
   `originalEvent`) drops it, and the map stays where they put it. A pick from the search is a
   deliberate jump: closing it keeps the place and only drops the padding (centred on the whole
   map). The rule is pure: `lib/karte/camera · returnOnSelect / cameraOnClose`.
+- **Back from a plan, the object is in focus** (owner, review round 6: «sometimes the object isn't
+  neatly in focus like it should be»). A tap selects in place (the map only moves when the place
+  is under the panel), so the object stood wherever it was tapped — at the bottom right, say —
+  and stayed there after a plan. Leaving a plan or the Gebäude for the map now eases the selected
+  object's point into the middle of the free map (500 ms, the zoom kept); ✕ still gives back the
+  camera from before the selection. On the tablet the free map is right of the panel and left of
+  the tool rail, under the bar, from the rails' published widths (`--rail-w`, `--vrail-w`), so the
+  expanded rail (round 5's chevron) moves it too — the fixed 440 px it replaced put a searched
+  object 68 px under an expanded rail's panel (`lib/karte/camera · besidePanel`; the same frame for
+  a search pick, a deep link and «Objektplan»). Checked in a browser by
+  `e2e/karte-plan-back-camera.mjs`.
 - **A plan row is the module, nothing else** (owner, review round 4: «just "modul 1", "modul 2",
   etc. is enough»; `lib/karte/plans · planRowLabel`): «Modul 1», «Modul 2-3», «Modul 5-PV»,
   «Modul 5-Wasser 1», «Modul 5-PV 15» — the key in words, a sub-slot word of up to three letters
