@@ -113,10 +113,13 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .hint svg { width: 12px; height: 12px; }
 /* «Register-Hinweis» opens the hint and the source line (owner, review round 4): a tappable label,
    so the type is a step up from the caption and the target 44px tall without growing the head */
-.hintBtn { min-height: var(--tap); margin-block: calc(var(--sp-3) * -1); padding: 0 var(--sp-1); border: none; background: none; font-size: var(--fs-1); cursor: pointer; }
-.hintBtn { border-radius: var(--r-xs); }
-@media (hover: hover) { .hintBtn:hover { background: var(--hover); color: var(--ink); } }
-.hintBtn:active { background: var(--press); }
+.hintBtn { position: relative; isolation: isolate; min-height: var(--tap); margin-block: calc(var(--sp-3) * -1); padding: 0 var(--sp-2);
+  border: none; background: none; font-size: var(--fs-1); cursor: pointer; }
+/* the hover/press wash is a 28px pill around the words, not the whole 44px target: the target
+   hangs over the tags under the row, and a full-height wash painted over «Baujahr …» (owner 20.10.) */
+.hintBtn::before { content: ''; position: absolute; inset: 8px 0; z-index: -1; border-radius: var(--r-xs); }
+@media (hover: hover) { .hintBtn:hover { color: var(--ink); } .hintBtn:hover::before { background: var(--hover); } }
+.hintBtn:active::before { background: var(--press); }
 .hintBody { display: flex; flex-direction: column; gap: var(--sp-1); }
 .src { font: var(--fw-medium) var(--fs-micro)/1.4 var(--body); color: var(--ink-dim); }
 .src b { color: var(--ink); }
@@ -203,7 +206,6 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    Ebenen's card beside the tool rail (05-navrail · .layers-card + .lc-title/.lc-x/.lc-body, the
    phone's KarteKeySheet wears it too), at its width (owner 20.10.: the two the same). Hung under the bar rather than
    centred: the readout grows as the number is typed, and a centred card would grow both ways */
-.toolCard.toolCard { top: calc(88px + env(safe-area-inset-top)); transform: none; max-height: calc(100dvh - 104px - env(safe-area-inset-top)); }
 .toolCard :global(.lc-body) { padding: 0 var(--sp-4) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
 /* the card's «Auf die Karte tippen …»: the hint pill's words and glyph, as a line of the card */
 .toolHint { display: flex; align-items: center; gap: var(--sp-2); font: var(--fw-medium) var(--fs-2)/1.35 var(--body); color: var(--ink); }
