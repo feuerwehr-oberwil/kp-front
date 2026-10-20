@@ -26,6 +26,9 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
 import { cx } from '../../lib/cx'
+import { RAIL_COMPACT, RAIL_LABELLED, RAIL_WIDE, railMonoMax } from '../../lib/navRail'
+import type { RailLabels } from '../../lib/prefs'
+import { useRail } from '../../lib/useRail'
 import { getApprovedPlanAlignments, referenceUrl, type PlanFloor } from '../../lib/api/reference'
 import { floorPackOf, packBuildingDoc, PACK_TRIM_MS, trimmedPackFrame, type FloorPackView } from '../../lib/floorPackBinding'
 import { objectFloorBinding } from '../../lib/karte/gebaeude'
@@ -50,8 +53,12 @@ import s from './Karte.module.css'
 /** The tablet's left rail, always there (owner, 19.10.2026): the two surfaces — Karte and
  *  Checkliste, the Einsatz tab's word and glyph — and, with an object selected, its documents
  *  below a hairline. No object name under them (owner 20.10.2026: the plan's own bar already
- *  names it). */
-export function KarteNavRail({ obj, docs, active, onMap, onLibrary, onDoc, notHeld }: {
+ *  names it).
+ *  It expands like the Einsatz's NavRail (owner, review round 5: «we can't expand the left toolbar
+ *  so people might not know what it actually is»): the same chevron on top, grip, widths and
+ *  «Beschriftung» (lib/useRail – it publishes `--rail-w`, which the object panel, the plan reader,
+ *  the floor list and the Checkliste surface sit beside). Open per mount, as there. */
+export function KarteNavRail({ obj, docs, active, onMap, onLibrary, onDoc, notHeld, labels }: {
   /** the selected object; null = only the two surfaces */
   obj: StationObject | null
   docs: ViewerPlanDoc[]
@@ -62,16 +69,41 @@ export function KarteNavRail({ obj, docs, active, onMap, onLibrary, onDoc, notHe
   onDoc: (id: string) => void
   /** offline: the documents this device does not hold — dimmed, still tappable (the surface says why) */
   notHeld?: ReadonlySet<string> | null
+  /** «Beschriftung» (lib/prefs · railLabels): 'short' = the word under every glyph, no chevron */
+  labels: RailLabels
 }) {
   const nav = appConfig.copy.navRail
   const C = appConfig.copy.karte
   const library = appConfig.copy.modes.checklists
   const plans = obj && docs.length > 0
   const openDoc = typeof active === 'object' ? active.doc : null
+  const [expanded, setExpanded] = useState(false)
+  const { scrollRef, edge, dragging, nudge, apply, gripProps } = useRail({
+    varName: '--rail-w',
+    compactW: labels === 'short' ? RAIL_LABELLED : RAIL_COMPACT,
+    wideW: RAIL_WIDE,
+    side: 'left',
+    expanded, setExpanded,
+    labels,
+    itemCount: plans ? docs.length + 2 : 2,
+    activeSelector: '.nav-item.on',
+    revealKey: `${openDoc ?? active}·${plans ? docs.length : 0}`,
+    dragClass: 'rail-dragging',
+  })
+  const shown = plans ? docs.map((d) => d.doc) : []
   return (
-    <nav className="navrail rail" aria-label={obj?.name ?? C.title}>
+    <nav className={cx('navrail rail', expanded && 'expanded', dragging && 'dragging', labels === 'short' && 'labelled')}
+      aria-label={obj?.name ?? C.title} data-mono-max={railMonoMax(shown)}>
+      {/* no «Ausklappen» while the words are on – they already show what it would (NavRail) */}
+      {labels !== 'short' && (
+        <button type="button" className="nav-exp rail-exp" onClick={() => apply(!expanded)} aria-expanded={expanded} aria-label={expanded ? nav.collapse : nav.expand}>
+          <span className="nav-exp-ic rail-exp-ic"><Icon id="chevron" className="chev" /></span><span className="rail-exp-t">{expanded ? nav.collapse : nav.expand}</span>
+        </button>
+      )}
       <div className="rail-scroll-wrap">
-        <div className="nav-scroll rail-scroll">
+        {edge.top && <button type="button" className="nav-more rail-more rail-more-up" aria-label={nav.scrollMore} onClick={() => nudge(-1)}><Icon id="chevron-down" /></button>}
+        {edge.bottom && <button type="button" className="nav-more rail-more rail-more-down" aria-label={nav.scrollMore} onClick={() => nudge(1)}><Icon id="chevron-down" /></button>}
+        <div ref={scrollRef} className={cx('nav-scroll rail-scroll', edge.top && 'more-top', edge.bottom && 'more-bottom')}>
           <button type="button" className={cx('nav-item', active === 'map' && 'on')} aria-pressed={active === 'map'} aria-label={nav.map} onClick={onMap}>
             <span className="nav-glyph"><Icon id="map" /></span>
             <span className="nav-label">{nav.map}</span>
@@ -81,18 +113,21 @@ export function KarteNavRail({ obj, docs, active, onMap, onLibrary, onDoc, notHe
             <span className="nav-label">{library}</span>
           </button>
           {plans && <div className={cx('nav-sep', s.railSep)} />}
-          {plans && docs.map(({ doc }) => {
+          {plans && docs.map(({ doc, row }) => {
             const off = !!notHeld?.has(doc.id)
             const label = off ? fillTemplate(C.railNotStored, { t: doc.title }) : doc.title
             return (
             <button key={doc.id} type="button" className={cx('nav-item', openDoc === doc.id && 'on', off && s.navOff)} aria-pressed={openDoc === doc.id} aria-label={label} title={off ? label : undefined} onClick={() => onDoc(doc.id)}>
               <PlanGlyph doc={doc} />
-              <span className="nav-label">{doc.code}</span>
+              {/* the sheet's row word («Modul 1», «Gebäude»), as the panel lists it – the bare code
+                  repeated the chip */}
+              <span className="nav-label">{row}</span>
             </button>
             )
           })}
         </div>
       </div>
+      <button type="button" className={cx('nav-grip rail-grip', dragging && 'drag')} aria-label={nav.resize} {...gripProps} />
     </nav>
   )
 }

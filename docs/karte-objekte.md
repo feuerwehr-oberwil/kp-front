@@ -420,8 +420,9 @@ The rules that are easy to break:
   Hüslimatt – modul2-3»). Such a title gives way to the catalogue's title for the key («Wie komme
   ich herein», «Zugang & Objekt», «Photovoltaik»); a clean title («Übersicht», «Gemeindehaus –
   Übersicht») stays. A family sub-slot without an entry says its own name («Wasser»), a numbered
-  sibling keeps its number («Wasser 2»), an unknown key reads «Modul N». The tablet rail's labels
-  and the view label read the document's title; the panel's rows read `planRowLabel` (above).
+  sibling keeps its number («Wasser 2»), an unknown key reads «Modul N». The tablet rail's tile
+  names (its accessible label) and the view label read the document's title; the panel's rows and
+  the expanded rail's words read `planRowLabel` (above) – the title overflows a 216px rail.
 - **A head that is still being looked up is a skeleton**, never «Gebäude» or «…» in place of a
   name: a tapped building until the register answers (a searched address is named at once), a
   dropped pin until its address is known. A plain building carries no «Kein Stationsobjekt …»
@@ -732,7 +733,12 @@ device Anleitungen to read in peace time — the Einsatz tab's word and glyph
   inline field («Anleitung, Checkliste, Stichwort»); the round search button, the pin and the
   compass are the map's.
 - **Tablet rail**: always there with Karte and Checkliste; a selected object's plans hang under a
-  hairline as before. On the Checkliste the right `ToolRail` is gone (as on a plan) and the bar's
+  hairline as before. It is the Einsatz's NavRail in behaviour (owner, review round 5: «we can't
+  expand the left toolbar so people might not know what it actually is»): the «Ausklappen» chevron
+  on top and the grip widen it to 216px with the words beside the glyphs, open per mount like the
+  Einsatz's; «Beschriftung» (Einstellungen) puts the word under each glyph instead and drops the
+  chevron, live (`lib/useDevicePrefs · useRailLabels`). It publishes `--rail-w` through
+  `lib/useRail`, which the object panel, the plan reader, the floor list and this surface sit beside. On the Checkliste the right `ToolRail` is gone (as on a plan) and the bar's
   field searches the library; the map's own search words are kept for the way back.
 - **Remembered** like the plan: `KarteView.surface = 'checkliste'` (`lib/karte/session`), back
   after an Objektbesuch, an Einsatz or a reload — unless a deep link (`?objekt=`) asks for another

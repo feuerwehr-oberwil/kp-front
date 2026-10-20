@@ -193,7 +193,8 @@ describe('KarteApp', () => {
     // the level sticks while the taps stay on the object: the other house opens as a house
     act(() => lastMap().onMapClick([7.5701, 47.5237]))
     await waitFor(() => expect(overlays().find((o) => o.id === 'karte-building')?.rings?.[0]).toEqual(west.slice(0, 4)))
-    expect(screen.getByText('Teil von Schloss Musterdorf')).toBeTruthy()
+    // (awaited: the panel's head can follow the outline by a render)
+    expect(await screen.findByText('Teil von Schloss Musterdorf')).toBeTruthy()
 
     // …and one tap goes back to the object
     fireEvent.click(within(level()!).getByRole('button', { name: /^Objekt/ }))
@@ -672,9 +673,11 @@ describe('KarteApp', () => {
   it('on a tablet: the rail always holds Karte and Checkliste, the plans hang under them; the bar searches the library', async () => {
     mount()
     const rail = () => screen.getByRole('navigation', { name: /Karte & Objekte|Schloss Musterdorf/ })
-    expect(within(rail()).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Karte', 'Checkliste'])
+    // the rail's tiles (its «Ausklappen» chevron and grip are KartePlans.test's)
+    const tiles = () => [...rail().querySelectorAll('.nav-item')].map((b) => b.getAttribute('aria-label'))
+    expect(tiles()).toEqual(['Karte', 'Checkliste'])
     fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
-    await waitFor(() => expect(within(rail()).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Karte', 'Checkliste', 'Modul 1 · Übersicht']))
+    await waitFor(() => expect(tiles()).toEqual(['Karte', 'Checkliste', 'Modul 1 · Übersicht']))
     expect(document.querySelector('.tool-rail')).toBeTruthy()
     fireEvent.click(within(rail()).getByRole('button', { name: 'Checkliste' }))
     expect(screen.getByTestId('library')).toBeTruthy()
