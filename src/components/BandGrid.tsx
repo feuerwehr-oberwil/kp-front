@@ -393,10 +393,17 @@ export function BandGrid({
             </div>
             {cols.map((b) => {
               const c = bandCounts(shifts, b)
+              // ⚠️ the «·» said «nicht ganze Schicht» only in a `title` — never seen on a tablet
+              // (UX sweep F6, 20.10.2026). Where it stands, the head says so in its name and a
+              // hold (touch) or hover (mouse) on it answers with that (lib/holdTooltip ·
+              // `data-holdexplain`), so the head drops its `title` there: one explanation.
+              const partial = c.availablePartial || c.confirmedPartial
+              const name = `${bandTitle(b)} · ${fillTemplate(S.countsAria, { available: c.available, planned: c.confirmed })}`
               return (
                 <button key={b.id} type="button" className={s.band} disabled={!canEdit}
-                  onClick={() => setSheet(b)} title={bandTitle(b)}
-                  aria-label={`${bandTitle(b)} · ${fillTemplate(S.countsAria, { available: c.available, planned: c.confirmed })}`}>
+                  onClick={() => setSheet(b)} title={partial ? undefined : bandTitle(b)}
+                  data-holdexplain={partial || undefined}
+                  aria-label={partial ? `${name} · ${S.partialHint}` : name}>
                   <b>{bandTitle(b)}</b>
                   {/* only when the label is a real name — otherwise the head would say its own
                       hours twice */}
@@ -408,8 +415,8 @@ export function BandGrid({
                     {/* «2·» — two people, but not all of them across the whole watch. Without it
                         the head said two where 07:00 has one, and staffing off that number leaves
                         the first hours short. */}
-                    <span className={s.cntAvailable}>{c.available}{c.availablePartial && <i title={S.partialHint}>·</i>}</span>
-                    <span className={s.cntConfirmed}>{c.confirmed}{c.confirmedPartial && <i title={S.partialHint}>·</i>}</span>
+                    <span className={s.cntAvailable}>{c.available}{c.availablePartial && <i aria-hidden>·</i>}</span>
+                    <span className={s.cntConfirmed}>{c.confirmed}{c.confirmedPartial && <i aria-hidden>·</i>}</span>
                   </span>
                 </button>
               )

@@ -194,6 +194,10 @@ describe('the grid', () => {
     ] })
     const head = screen.getByText('Früh').closest('button')!
     expect(within(head).getByText('2').textContent).toBe('2·')
+    // …and what the «·» means is a hold away, not a `title` a tablet never shows (UX sweep F6)
+    expect(head.hasAttribute('data-holdexplain')).toBe(true)
+    expect(head.getAttribute('aria-label')).toContain(appConfig.copy.schichten.partialHint)
+    expect(head.hasAttribute('title')).toBe(false)
   })
 
   it('opens that person\'s own times from their name — no tab change to add «kann erst ab 14:00»', () => {

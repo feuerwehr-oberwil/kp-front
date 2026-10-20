@@ -512,6 +512,12 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     `HOLD_MS`) share it, so every still hold answers alike. The holds that are not «reveal» keep
     their own documented numbers: `useHoldToDrag` arms a drag at 180 ms, `nodeHold.ts` arms at
     250 ms and fires destructively at 825 ms. Reuse a constant; don't invent a third window.
+  - *Meaning never lives in a `title` or a colour alone* (UX sweep F6, 20.10.2026): a tablet
+    never shows a `title`. Where a control's visible word does not say what matters
+    («Bereitstellen» does NOT start the contact clock, the Schichten head's «·», the Zeitplan's
+    Deckung key) it is `data-holdexplain` with the sentence in its `aria-label`, its word first,
+    and no `title`; a state (a Trupp tab's Fällig / Überfällig) carries a glyph and its word
+    (`.sr-only`) besides its tint.
   - *Buzz on arm, and only on arm* – `buzz()` from `src/lib/haptics.ts`, always 12 ms, at the
     moment a held gesture becomes something (tooltip appears, drag latches, chooser opens, magnet
     dwell engages). Never on taps, successes or errors; never a pattern or a second duration

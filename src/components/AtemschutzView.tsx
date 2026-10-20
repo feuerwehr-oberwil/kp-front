@@ -1699,7 +1699,11 @@ export function AtemschutzView({
           <div className={s.strip} role="tablist" aria-label={az.title}>
             {board.map((t) => {
               const lv = live.get(t.id)!
-              const sev = alarms.get(t.id)!.sev
+              const alarm = alarms.get(t.id)!
+              const sev = alarm.sev
+              // the tier in a glyph and a word, not tint + border alone (UX sweep F6): the row's
+              // own mark (tierMark) — clock = «Fällig», triangle = «Überfällig» / «Alarmdruck»
+              const tier = tierMark(alarm, sev, true)
               return (
                 <button
                   key={t.id} type="button" role="tab" aria-selected={t.id === focusId}
@@ -1719,7 +1723,10 @@ export function AtemschutzView({
                       not say – the badge stays on the card head, the phone row and the map. */}
                   <span className={cx(s.tabName, s.tabNameWrap)}>{t.name}</span>
                   {/* the same collapsed-time split the list row and the card make (collapsedClock) */}
-                  <span className={s.tabClock}><ClockVal val={collapsedClock(t, lv).val} /></span>
+                  <span className={s.tabClock}>
+                    {tier && <><Icon id={tier.icon} className={s.tabTier} /><span className="sr-only">{tier.text}</span></>}
+                    <ClockVal val={collapsedClock(t, lv).val} />
+                  </span>
                 </button>
               )
             })}
@@ -3822,8 +3829,11 @@ function TruppForm({
             back as Sicherungstrupp as it is sent in — and a Sicherungstrupp is by definition a
             crew standing by under Atemschutz. A work squad has one way back in. */}
         {mode === 'redeploy' && isPa && (
-          <button className="ip-btn primary" aria-disabled={!canSubmit}
-            onClick={() => attemptSubmit(true)} title={az.reenterStandbyHint}>
+          // ⚠️ «does NOT start the contact clock» is safety, and it was a `title` only — never
+          // seen on a tablet (UX sweep F6, 20.10.2026). A hold (touch) or hover (mouse) now
+          // answers with it (lib/holdTooltip · `data-holdexplain`); the name keeps its word first.
+          <button className="ip-btn primary" aria-disabled={!canSubmit} data-holdexplain
+            onClick={() => attemptSubmit(true)} aria-label={`${az.reenterStandby}: ${az.reenterStandbyHint}`}>
             {az.reenterStandby}
           </button>
         )}

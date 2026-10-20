@@ -353,6 +353,18 @@ describe('ZeitplanView', () => {
     expect(screen.queryAllByTitle(Z.now)).toHaveLength(0)
   })
 
+  // UX sweep F6: what the three lines MEAN was a `title` on the track; the key now explains it
+  // on a hold (touch) or hover (mouse), and a tap on it folds the numbers out like the head
+  it('explains the three lines from the key, and folds the numbers out on a tap', () => {
+    render(<ZeitplanView {...base} attendance={{}} shifts={[]} />)
+    const key = screen.getByRole('button', { name: new RegExp(Z.coverageHint) })
+    expect(key.hasAttribute('data-holdexplain')).toBe(true)
+    expect(key.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(key)
+    expect(key.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.queryByTitle(Z.coverageHint)).toBeNull()
+  })
+
   it('never claims to know the future: the anwesend line drops to the baseline past now', () => {
     const attendance: AttendanceState = {
       p1: { status: 'present', displayNameSnapshot: 'Meier Anna', intervals: [{ from: T(12) }] },
