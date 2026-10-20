@@ -1036,9 +1036,10 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   `.arrive`). The wave waits for the basemap — the markers stand invisible until the map's first
   settled frame (`onSettled`, MapLibre's `idle`; offline it comes at once) or 4 s at the latest,
   because a wave over a blank canvas is one nobody sees. Computed ONCE from the view of that
-  moment, without the map, and only for markers mounted in the 2.5 s after it — a tag
-  replacing its dot on a later zoom or a re-selection mounts instantly, motion on an interaction
-  reads as lag. The red outlines, which answer a viewport fetch after the map, fade in over
+  moment, without the map, and only for markers mounted in the 2.5 s after it: one mounting
+  mid-wave joins where the wave stands (`waveDelay`) — a tag replacing its dot stands at once if
+  the dot had already arrived — and after the window every mount is instant, motion on an
+  interaction reads as lag. The red outlines, which answer a viewport fetch after the map, fade in over
   280 ms when their layer first stands (`MapLayers` · `FilledOverlay`, `fadeIn`); a pan's new rings
   update the source and never fade. The weather chip grows into the bar instead of shoving its
   edge out (`10-journal.css` · `tb-chip-in`). Not animated, on purpose: the app menu and the search

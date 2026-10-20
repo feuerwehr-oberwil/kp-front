@@ -18,6 +18,8 @@ import { coordOf } from './search'
 
 /** the wave's run from the left edge of the screen to the right */
 export const ARRIVAL_SWEEP_MS = 420
+/** one marker's fade (Karte.module.css · .arrive) */
+export const ARRIVAL_FADE_MS = 260
 /** how long after the wave began a mounting marker still joins it */
 export const ARRIVAL_WINDOW_MS = 2500
 /** The wave waits for the basemap: the catalogue (IndexedDB) answers before the first tiles are
@@ -42,4 +44,14 @@ export function arrivalDelays(objects: readonly Pick<StationObject, 'id' | 'lat'
     out.set(o.id, Math.round(t * ARRIVAL_SWEEP_MS))
   }
   return out
+}
+
+/** The delay for a marker that mounts `elapsedMs` after the wave began, at `placeMs` in it: the
+ *  rest of its wait, or 0 once the wave has reached it — and null when its fade has already
+ *  passed, so a tag that replaces its dot a second into the window stands at once instead of
+ *  blinking out and fading in again (CodeRabbit on #437). Decided ONCE per element: a changed
+ *  animation-delay restarts a finished CSS animation. */
+export function waveDelay(placeMs: number, elapsedMs: number): number | null {
+  if (elapsedMs > placeMs + ARRIVAL_FADE_MS) return null
+  return Math.max(0, Math.round(placeMs - elapsedMs))
 }

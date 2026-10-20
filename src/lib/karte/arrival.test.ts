@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ARRIVAL_SWEEP_MS, arrivalDelays } from './arrival'
+import { ARRIVAL_FADE_MS, ARRIVAL_SWEEP_MS, arrivalDelays, waveDelay } from './arrival'
 
 const view = { center: [7.555, 47.515] as [number, number], zoom: 16 }
 
@@ -23,5 +23,16 @@ describe('arrivalDelays', () => {
   })
   it('skips an object without coordinates (it has no marker)', () => {
     expect(arrivalDelays([{ id: 'addr-only', lng: null, lat: null }], view, 1000).size).toBe(0)
+  })
+})
+
+describe('waveDelay', () => {
+  it('a marker mounting mid-wave waits only for the rest, then not at all', () => {
+    expect(waveDelay(300, 0)).toBe(300)
+    expect(waveDelay(300, 100)).toBe(200)
+    expect(waveDelay(300, 400)).toBe(0)
+  })
+  it('one whose fade has already passed mounts without an entrance', () => {
+    expect(waveDelay(300, 300 + ARRIVAL_FADE_MS + 1)).toBeNull()
   })
 })

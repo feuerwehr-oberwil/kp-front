@@ -176,9 +176,10 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    inside a 32 px tap target (lib/karte/labels) */
 .dotMk { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: none; background: none; cursor: pointer; }
 /* the arrival (lib/karte/arrival): a dot or tag mounted in the catalogue's first moments fades in
-   after its western neighbours — `--arrive` is its place in the wave. On the button, never the
-   Marker: the Marker's transform is MapLibre's position. Reduced motion: 03-map's global rule. */
-.waiting { opacity: 0; pointer-events: none; }   /* mounted before the basemap's first settled frame */
+   after its western neighbours — `--arrive` is its wait, both set on the element by KarteApp's
+   arriveRef, outside React's className. On the button, never the Marker: the Marker's transform
+   is MapLibre's position. Reduced motion: 03-map's global rule. */
+.waiting { visibility: hidden; }   /* mounted before the basemap's first settled frame: unseen, untappable, not in the tab order */
 .arrive { animation: arrive .26s var(--ease) both; animation-delay: var(--arrive, 0ms); }
 @keyframes arrive { from { opacity: 0; transform: translateY(4px) scale(.94); } }
 .dotMk::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--surface), var(--e1); }

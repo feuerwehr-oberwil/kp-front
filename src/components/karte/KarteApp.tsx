@@ -50,7 +50,7 @@ import { useSymbols } from '../../lib/useSymbols'
 import { useMeasure } from '../../lib/useMeasure'
 import { useVehicleLayer } from '../../lib/useVehicleLayer'
 import { useWeather } from '../../lib/useWeather'
-import { ARRIVAL_MAP_WAIT_MS, ARRIVAL_WINDOW_MS, arrivalDelays } from '../../lib/karte/arrival'
+import { ARRIVAL_MAP_WAIT_MS, ARRIVAL_WINDOW_MS, arrivalDelays, waveDelay } from '../../lib/karte/arrival'
 import { useKarteWeather } from '../../workspace/useKarteWeather'
 import { deploymentDefaultCenter, deploymentMenuMark, deploymentName, objectCategoryRules, objectVisitsConfig } from '../../lib/deploymentConfig'
 import { defaultLayers } from '../../lib/workspace'
@@ -277,18 +277,35 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // A layout effect: the wave must be on the markers in the same paint that shows them.
   const [mapUp, setMapUp] = useState(false)
   useEffect(() => { const t = setTimeout(() => setMapUp(true), ARRIVAL_MAP_WAIT_MS); return () => clearTimeout(t) }, [])
-  const [arrival, setArrival] = useState<Map<string, number> | null>(null)
+  // when the wave began and each object's place in it; what an ELEMENT (dot or tag) makes of that
+  // is decided once, on the element (arriveRef below)
+  const [arrival, setArrival] = useState<{ start: number; places: Map<string, number> } | null>(null)
   const arrived = useRef(false)
   useLayoutEffect(() => {
     if (arrived.current || !objects.length || !mapUp) return
     arrived.current = true
-    setArrival(arrivalDelays(objects, view, rootRef.current?.clientWidth || window.innerWidth))
+    setArrival({ start: performance.now(), places: arrivalDelays(objects, view, rootRef.current?.clientWidth || window.innerWidth) })
   }, [objects, view, mapUp])
   useEffect(() => {
     if (!arrival) return
     const t = setTimeout(() => setArrival(null), ARRIVAL_WINDOW_MS)
     return () => clearTimeout(t)
   }, [arrival])
+  // A marker's entrance, decided ONCE on the element (ref callback: in the commit, before its first
+  // paint) — a changed animation-delay restarts a finished CSS animation, and the clock is not a
+  // thing to read in render. A tag that replaces its dot is a NEW element and joins where the wave
+  // stands (lib/karte/arrival · waveDelay): at once if the dot had already arrived. The class and
+  // the variable are not React's, so a later className change leaves the finished entrance alone.
+  const arriveRef = (id: string) => (el: HTMLButtonElement | null) => {
+    if (!el || el.dataset.arrived || !arrival) return
+    const place = arrival.places.get(id)
+    if (place == null) return
+    el.dataset.arrived = '1'
+    const wave = waveDelay(place, performance.now() - arrival.start)
+    if (wave == null) return
+    el.style.setProperty('--arrive', `${wave}ms`)
+    el.classList.add(s.arrive)
+  }
   // ── the station's object colours (config `map.objectCategories`, lib/karte/categories) ──────
   // An object no rule takes keeps the default look (red; grey without plans). Each category
   // is an Ebenen row of its own; a hidden one takes its objects off the map (outline, dot, tag,
@@ -1345,17 +1362,13 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             if (catOff(o.id) && !isSel) return null
             // the category's colour (lib/karte/categories); none = the default red, untouched
             const cat = cats.get(o.id)
-            // the marker's place in the arrival wave (lib/karte/arrival), while the window is open
-            const wave = arrival?.get(o.id)
-            const catStyle = cat || wave != null
-              ? ({ ...(cat ? { '--cat': cat.color, '--cat-ink': inkOn(cat.color) } : {}), ...(wave != null ? { '--arrive': `${wave}ms` } : {}) } as React.CSSProperties)
-              : undefined
+            const catStyle = cat ? ({ '--cat': cat.color, '--cat-ink': inkOn(cat.color) } as React.CSSProperties) : undefined
             // without categories, «has plans» is the red; an object without any is drawn quieter
             const bare = !o.plans.length
             if (!isSel && !(tagZoom && tagged?.has(o.id))) {
               return (
                 <Marker key={`dot:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" style={{ zIndex: 1, pointerEvents: takesTaps ? 'none' : undefined }}>
-                  <button type="button" className={cx(s.dotMk, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through, !mapUp && s.waiting, wave != null && s.arrive)} style={catStyle} aria-label={o.name} title={o.name} onClick={pick} />
+                  <button type="button" ref={arriveRef(o.id)} className={cx(s.dotMk, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through, !mapUp && s.waiting)} style={catStyle} aria-label={o.name} title={o.name} onClick={pick} />
                 </Marker>
               )
             }
@@ -1365,7 +1378,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             const fit = fits.get(o.name)
             return (
               <Marker key={`tag:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" offset={[dx, 0]} style={{ zIndex: isSel ? 3 : 2, pointerEvents: takesTaps ? 'none' : undefined }}>
-                <button type="button" className={cx(s.tagMk, isSel && s.sel, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through, !mapUp && s.waiting, wave != null && s.arrive)} style={fit ? { ...catStyle, width: fit } : catStyle} onClick={pick}>
+                <button type="button" ref={arriveRef(o.id)} className={cx(s.tagMk, isSel && s.sel, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through, !mapUp && s.waiting)} style={fit ? { ...catStyle, width: fit } : catStyle} onClick={pick}>
                   {tagText(o.name)}
                 </button>
               </Marker>

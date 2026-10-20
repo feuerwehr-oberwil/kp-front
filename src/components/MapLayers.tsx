@@ -5,6 +5,7 @@ import { circlePolygon } from '../lib/geo'
 import { vis, lineFeat } from '../lib/mapView'
 import { useNightTheme } from '../lib/useNightTheme'
 import { hatchImageId } from '../lib/draw'
+import { prefersReducedMotion } from '../lib/reducedMotion'
 
 // Night mode dims the basemap so it's mostly dark without losing detail (buildings/roads stay
 // visible) — a gentle dim, NOT a full dark/black swap. Applied to the BASE raster only, so the
@@ -61,10 +62,10 @@ const FADE_IN_MS = 280
  *  paint transition — «Karte & Objekte»'s outlines, which answer a viewport fetch well after the
  *  map stands (owner, 20.10.2026: «subtle motion for what arrives»). Rings added later (a pan's
  *  new area) change the SOURCE, not the layer, so they never fade; a layer toggled off and on in
- *  Ebenen fades again, which is the same arrival. Reduced motion: MapLibre has no media query —
- *  the 280ms are short enough to be the fade a screen reader user never notices. */
+ *  Ebenen fades again, which is the same arrival. Reduced motion: MapLibre has no media query, so
+ *  the pair asks (lib/reducedMotion) and mounts opaque. */
 function FilledOverlay({ overlay, visible }: { overlay: Extract<PreparedMapOverlay, { kind: 'circle' | 'polygons' }>; visible: boolean }) {
-  const fade = overlay.kind === 'polygons' && !!overlay.fadeIn
+  const fade = overlay.kind === 'polygons' && !!overlay.fadeIn && !prefersReducedMotion()
   const [shown, setShown] = useState(!fade)
   useEffect(() => {
     if (shown) return
