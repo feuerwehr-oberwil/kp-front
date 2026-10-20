@@ -9,13 +9,23 @@
 //   → In der Nähe (one list by distance, objects and hydrants, and a sentence saying so)
 //   → Objektbesuche, an object's only (rows open the existing read view; a read-only line for
 //     other roles). A plain building has none to show – its always-empty line went (owner 20.10.)
-//   → «Keine Gefahrenangaben … heisst nicht …»
 //   → the actions LAST: «Objektbesuch» and «Melden» (capture roles only)
 //
+// The panel ENDS there. The closing «Keine Gefahrenangaben der Station erfasst …» went with
+// review round 7 (owner, 20.10.2026: «knowing that there could be something but it isn't filled
+// doesn't help anyone in case of an emergency») — where the station wrote nothing, nothing is
+// drawn. What IS known still never reads as «no hazard»: a fact the app asked for and did not
+// get (the register offline, the register silent) is still said, as a quiet line, not a box;
+// only a warning keeps its box.
+//
 // No «Messen ab hier» (Messen is the bar's) and no «Objektplan auf der Karte» row (the aligned
-// plan is switched in Ebenen). Missing data is SAID, never silently left out, and never as «no
-// hazard» — as a quiet line, not a box; only a warning keeps its box. Presentational only: the
-// surface (KarteApp) owns the loads and passes their states in.
+// plan is switched in Ebenen). Presentational only: the surface (KarteApp) owns the loads and
+// passes their states in.
+//
+// Scrolling is REMEMBERED per selection (owner, 20.10.2026 · s09): a plan or an Objektbesuch
+// takes the panel off the screen, and coming back puts «Objektbesuch» back under the thumb
+// instead of the head. Another place — the other level, the next object — starts at the top
+// (`scrollKey` below).
 //
 // On a PHONE it is the slide-up sheet Ebenen is (owner, 17.10.2026 · R2: «a full slide-up like
 // for "ebenen" and not this half thing»): the SAME frame — `.layers-card` (15-mobile · flush with
@@ -30,7 +40,7 @@
 // A head whose address is still being looked up is a SKELETON, never «Gebäude» / «…» standing in
 // for a name (owner-5): the kicker already says what it is.
 
-import { useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { SheetGrab, useSwipeDismiss } from '../../lib/overlays'
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
@@ -48,7 +58,7 @@ import { planKey, type ObjectAvailability } from '../../lib/karte/availability'
 import type { VisitSummary } from '../../objectVisits/types'
 import type { LngLat } from '../../types'
 import { Button } from '../Button'
-import { RegisterTags, StationNotes } from '../BuildingFacts'
+import { RegisterHintBody, RegisterHintButton, RegisterTags, StationNotes } from '../BuildingFacts'
 import { ListCard, ListRow } from '../ListRow'
 import { LampDot } from './KarteDevice'
 import s from './Karte.module.css'
@@ -58,6 +68,29 @@ export type PanelSel =
   /** `partOf`: the house was reached as one of this object's buildings (its name) */
   | { kind: 'building'; at: LngLat; address: string | null; partOf?: string | null }
   | { kind: 'pin'; at: LngLat; near: { label: string; distanceM: number | null } | null; nearState: 'loading' | 'ok' | 'none' | 'offline'; onBuilding: boolean }
+
+/** What the panel's scroll position is remembered under — the PLACE, so coming back to the same
+ *  object restores it and another object starts at the top. */
+function scrollKey(sel: PanelSel): string {
+  if (sel.kind === 'object') return `o:${sel.obj.id}`
+  const at = `${sel.at[0].toFixed(6)},${sel.at[1].toFixed(6)}`
+  return sel.kind === 'building' ? `b:${at}` : `p:${at}`
+}
+
+// Outside the component on purpose: opening a plan, an Objektbesuch or the Einsatz takes the
+// panel off the screen entirely, and the position must survive that (owner, 20.10.2026 · s09).
+// Bounded to the last few places — oldest out first, never a session-long log.
+const SCROLL_KEEP = 12
+const scrollMemory = new Map<string, number>()
+
+function rememberScroll(key: string, top: number): void {
+  scrollMemory.delete(key)
+  scrollMemory.set(key, top)
+  for (const old of scrollMemory.keys()) {
+    if (scrollMemory.size <= SCROLL_KEEP) break
+    scrollMemory.delete(old)
+  }
+}
 
 export interface RegisterState {
   state: 'loading' | 'ok' | 'offline' | 'error'
@@ -109,6 +142,27 @@ export function KartePanel(p: {
   const { sel } = p
   // the phone sheet goes when it is pushed down, like Ebenen (measured: only ever on a bottom sheet)
   const swipe = useSwipeDismiss({ onClose: p.onClose, enabled: p.sheet })
+  const bodyRef = useRef<HTMLDivElement | null>(null)
+  const key = scrollKey(sel)
+  const restoredFor = useRef<string | null>(null)
+  /** the offset still to be restored; 0 once it is (or once the finger moved first) */
+  const pending = useRef(0)
+  // After EVERY render, not once: the panel's sections arrive one load at a time (the register,
+  // In der Nähe, Objektbesuche), and the body can only hold the remembered offset once they have.
+  useLayoutEffect(() => {
+    const el = bodyRef.current
+    if (!el) return
+    if (restoredFor.current !== key) {
+      restoredFor.current = key
+      pending.current = scrollMemory.get(key) ?? 0
+      el.scrollTop = 0
+    }
+    const want = pending.current
+    if (want > 0 && el.scrollHeight - el.clientHeight >= want) {
+      el.scrollTop = want
+      pending.current = 0
+    }
+  })
   let head: ReactNode
   let body: ReactNode
   if (sel.kind === 'object') {
@@ -133,7 +187,6 @@ export function KartePanel(p: {
         <Register key={o.id} reg={p.register} address={o.address} onRetry={p.onRetryRegister} />
         <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
         <Visits visits={p.visits} canCapture={p.canCapture} empty={C.visitsNever} onOpenVisit={p.onOpenVisit} offline={p.offline} last={o.lastVisit} />
-        {!noteLines(o.measures).length && !noteLines(o.remarks).length && <div className={s.src}>{C.missing}</div>}
         <Actions canCapture={p.canCapture} onVisit={p.onStartVisit} onReport={p.onReport} />
       </>
     )
@@ -156,13 +209,12 @@ export function KartePanel(p: {
         </div>
       </>
     )
-    // no «Kein Stationsobjekt …» box (owner-4): the kicker says «Gebäude», the line under the head
-    // says «Kein Stationsobjekt» once it is known, and the closing sentence still says missing ≠ safe
+    // no «Kein Stationsobjekt …» box (owner-4): the kicker says «Gebäude» and the line under the
+    // head says «Kein Stationsobjekt» once it is known — nothing else is added about what is missing
     body = (
       <>
         <Register key={sel.at.join(',')} reg={p.register} address={null} onRetry={p.onRetryRegister} />
         <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
-        <div className={s.src}>{C.missing}</div>
         <Actions canCapture={p.canCapture} onReport={p.onReport} />
       </>
     )
@@ -207,7 +259,14 @@ export function KartePanel(p: {
             here, the panel's rhythm (Karte Haus review round 4 · mock A, Karte.module.css · «one rhythm») */}
         <button type="button" className="ip-x" aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog} onClick={p.onClose}><Icon id="close" /></button>
       </div>
-      <div className={s.body}>{p.level && <LevelSwitch level={p.level} />}{body}</div>
+      <div className={s.body} ref={bodyRef} data-karte-body=""
+        onScroll={(e) => {
+          const el = e.currentTarget
+          // while the body is still growing back to the remembered offset, its own 0 is not a scroll
+          if (pending.current > 0 && el.scrollTop <= 0) return
+          pending.current = 0
+          rememberScroll(key, el.scrollTop)
+        }}>{p.level && <LevelSwitch level={p.level} />}{body}</div>
     </section>
   )
 }
@@ -305,7 +364,6 @@ function Plans({ docs, onOpenDoc, avail }: {
  *  the device's copy. Folded again for every place (keyed by the caller). */
 function Register({ reg, address, onRetry }: { reg: RegisterState; address: string | null; onRetry: () => void }) {
   const C = appConfig.copy.karte
-  const B = appConfig.copy.building
   const info = reg.info
   const [open, setOpen] = useState(false)
   let inner: ReactNode
@@ -348,17 +406,10 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
     <div className={s.sec} data-section="register">
       <div className={s.secHead}>
         <span className={s.eyebrow}>{C.registerTitle}</span>
-        <button type="button" className={cx(s.hint, s.hintBtn)} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          <Icon id="info" />{B.hint}<Icon id="chevron-down" className="chev" />
-        </button>
+        <RegisterHintButton className={cx(s.hint, s.hintBtn)} open={open} onToggle={() => setOpen((o) => !o)} />
       </div>
       {inner}
-      {open && (
-        <div className={s.hintBody} data-testid="register-hint">
-          <div className={s.src}>{B.hintTitle}</div>
-          {source}
-        </div>
-      )}
+      {open && <RegisterHintBody className={s.hintBody} textClassName={s.src}>{source}</RegisterHintBody>}
     </div>
   )
 }
