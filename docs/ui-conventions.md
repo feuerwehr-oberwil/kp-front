@@ -441,7 +441,12 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     corner), under a `ListGroup` eyebrow. «Where you are» is `on` (the ink pill). The way one level
     up is `BackRow` «‹ Label», naming where it goes, never a bare «Zurück». The look is global
     (13-incident: `.list-row`, `.list-card`, `.list-group`, `.back-row`); a surface fills the lead
-    slot and places them, never a `.row` of its own.
+    slot and places them, never a `.row` of its own. A row's extra line under its text (a round's
+    progress bar) goes in as `children`. On it: the library, the Einsatz rail, the devices, the
+    Karte's lists (search, Pläne, In der Nähe, Besuche, the device sheet) and every Objektbesuche
+    list. What a surface may still add is meaning, compounded with `.list-row` (the hydrant's blue
+    tint, a plan's --tap-lg height, a quiet fact line in the visit card) – never another size.
+    `controlDebt.test.ts` is the ratchet for raw toggles, selects and search fields.
   - *Colour of a mention is not a state* (29.09.2026, owner pick A): every recognised word in the
     Verlauf – vehicle, partner, Trupp, person, material, group – is **bold `--ink`**
     (`.jr-link`), and in the composer one blue wash / one blue suggestion tint

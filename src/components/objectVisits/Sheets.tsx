@@ -13,6 +13,7 @@ import type { Item } from '../../lib/checklists'
 import { newId } from '../../lib/ids'
 import type { ProposalField, VisitPhoto, VisitProposal, VisitTemplate } from '../../objectVisits/types'
 import { usePhotoUrl } from './ovFormat'
+import { ListCard, ListRow } from '../ListRow'
 import s from './ObjectVisits.module.css'
 
 export function PhotoSheet({ visitId, photo, preparing, stored, items, readOnly, onCaption, onItem, onRemove, onAnother, onClose }: {
@@ -187,22 +188,18 @@ export function ChecklistSheet({ templates, current, onPick, onClose }: {
   const isCurrent = (t: VisitTemplate | null) =>
     (t?.id ?? null) === (current?.id ?? null) && (t == null || (t.version ?? 0) === (current?.version ?? 0))
   const row = (t: VisitTemplate | null) => (
-    <button key={t?.id ?? '__none__'} type="button" className={s.row} onClick={() => onPick(t)} aria-current={isCurrent(t) || undefined}>
-      {t ? <Icon id="checklist" className={s.rowGlyph} /> : <span className={s.rowGlyph} aria-hidden />}
-      <span className={s.rowMain}>
-        <span className={s.rowTitle}>{t ? t.title : C.noChecklist}</span>
-        {t?.subtitle && <span className={s.rowSub}>{t.subtitle}</span>}
-      </span>
-      {isCurrent(t) ? <span className="ip-badge ip-badge-ok">{C.checklistCurrent}</span> : <Icon id="chevron" className={s.chev} />}
-    </button>
+    // the current one says so in its tag, not with the ink pill (`on` is «where you are» beside a list)
+    <ListRow key={t?.id ?? '__none__'} lead={t ? <Icon id="checklist" /> : <span aria-hidden />} title={t ? t.title : C.noChecklist} sub={t?.subtitle}
+      onClick={() => onPick(t)} aria-current={isCurrent(t) || undefined} chevron={!isCurrent(t)}
+      end={isCurrent(t) && <span className="ip-badge ip-badge-ok">{C.checklistCurrent}</span>} />
   )
   return (
     <Sheet open onClose={onClose} title={C.changeChecklist}>
       <p className={s.secNote}>{C.changeChecklistLead}</p>
-      <div className={s.card}>
+      <ListCard>
         {templates.map(row)}
         {row(null)}
-      </div>
+      </ListCard>
     </Sheet>
   )
 }

@@ -44,6 +44,7 @@ import { CardRow, VisitHistory } from './StopCards'
 import { PlaceCard, PlaceLine } from './PlaceCard'
 import { useStopDocs } from './useStopDocs'
 import { useOv } from './ovContext'
+import { ListCard, ListRow } from '../ListRow'
 import s from './ObjectVisits.module.css'
 
 /** «every 2 min while dirty» */
@@ -452,10 +453,7 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
                       {revision != null && <VisitHistory visitId={doc.id} onReport={(n) => report(doc, n)} />}
                       {/* a place has no object folder: say where the report goes */}
                       {place && filing && (
-                        <div className={s.rowStatic}>
-                          <Icon id="archive" className={s.rowGlyph} />
-                          <span className={s.rowMain}><span className={s.rowSub}>{fillTemplate(C.placeFiled, { folder: filing })}</span></span>
-                        </div>
+                        <ListRow className={s.rowQuiet} lead={<Icon id="archive" />} title={fillTemplate(C.placeFiled, { folder: filing })} />
                       )}
                     </SummaryCard>
                   )
@@ -478,33 +476,21 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
               })}
               {/* in addition: another checklist at this object */}
               {canAnother && (
-                <div className={s.card}>
-                  <button type="button" className={s.row} onClick={() => ov.go(place
+                <ListCard>
+                  <ListRow lead={<Icon id="plus" />} title={C.anotherVisit} sub={C.anotherVisitSub} onClick={() => ov.go(place
                     ? { kind: 'newPlace', place: { lat: place.lat, lng: place.lng, label: place.label, address: place.address }, after: doc.id, ...(from ? { from } : {}) }
-                    : { kind: 'new', object: doc.object?.id ?? '', ref: doc.workRef ?? null, ...(from ? { from } : {}) })}>
-                    <Icon id="plus" className={s.rowGlyph} />
-                    <span className={s.rowMain}>
-                      <span className={s.rowTitle}>{C.anotherVisit}</span>
-                      <span className={s.rowSub}>{C.anotherVisitSub}</span>
-                    </span>
-                    <Icon id="chevron" className={s.chev} />
-                  </button>
-                </div>
+                    : { kind: 'new', object: doc.object?.id ?? '', ref: doc.workRef ?? null, ...(from ? { from } : {}) })} />
+                </ListCard>
               )}
               {next === 'done' && <p className={s.secNote}>{C.listDone}</p>}
               {next && next !== 'done' && (
                 <>
                   <h2 className={s.sec}>{C.nextInList}</h2>
-                  <div className={s.card}>
-                    <button type="button" className={s.row} onClick={() => ov.go({ kind: 'new', object: next.object.id, ref: list!.ref })}>
-                      <span className={s.num}>{next.index}</span>
-                      <span className={s.rowMain}>
-                        <span className={s.rowTitle}>{next.object.name}</span>
-                        <span className={s.rowSub}>{[next.object.address, next.object.lastVisit?.lifecycle === 'completed' ? fillTemplate(C.lastVisit, { date: fmtDate(next.object.lastVisit.visitedAt) }) : C.neverVisited].filter(Boolean).join(' · ')}</span>
-                      </span>
-                      <Icon id="chevron" className={s.chev} />
-                    </button>
-                  </div>
+                  <ListCard>
+                    <ListRow lead={<span className={s.num}>{next.index}</span>} title={next.object.name}
+                      sub={[next.object.address, next.object.lastVisit?.lifecycle === 'completed' ? fillTemplate(C.lastVisit, { date: fmtDate(next.object.lastVisit.visitedAt) }) : C.neverVisited].filter(Boolean).join(' · ')}
+                      onClick={() => ov.go({ kind: 'new', object: next.object.id, ref: list!.ref })} />
+                  </ListCard>
                 </>
               )}
               <PlansCard rows={plans} onOpen={reader.open} />
