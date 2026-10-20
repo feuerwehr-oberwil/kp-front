@@ -73,12 +73,11 @@ function renderItem(item: DockItem, key: string): ReactNode {
  * between them; empty groups are dropped so an absent control (e.g. the ✓ that only shows in node
  * mode) leaves no stray separator.
  *
- * `hint` is ONE line for the ARMED mode («Punkte tippen – ✓ schliesst ab»), shown on the phone
- * as the dock's second row (15-mobile.css · .wb-dock-hint). 3am test r3, 25.09.2026: what the
- * armed tool expects stood only behind ⓘ, and nobody opens ⓘ at 3am. The ⓘ keeps the full text;
- * a tablet's column dock has the hint bar of its own surface and leaves the line hidden.
+ * Controls only — no line of text (20.10.2026, owner: «Remove the line. I don't think they add
+ * any value.»). The phone's one-line hint row (3am test r3, 25.09.2026) is gone on every surface;
+ * what an armed tool expects is its ⓘ (`info` item).
  */
-export function ToolDock({ groups, hint }: { groups: DockItem[][]; hint?: string }) {
+export function ToolDock({ groups }: { groups: DockItem[][] }) {
   const visible = groups.filter((g) => g.length)
   const ref = useRef<HTMLDivElement>(null)
   const level = useRailLevel(ref, !useIsPhone())
@@ -90,7 +89,6 @@ export function ToolDock({ groups, hint }: { groups: DockItem[][]; hint?: string
           {g.map((item, ii) => renderItem(item, `${gi}-${ii}`))}
         </Fragment>
       ))}
-      {hint && <span className="wb-dock-hint" role="status">{hint}</span>}
     </div>
   )
 }

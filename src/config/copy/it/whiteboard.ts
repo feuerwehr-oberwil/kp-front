@@ -41,10 +41,6 @@ export const whiteboardCopy: Localizable<Pick<Copy, 'incidents' | 'entities' | '
     dockHints: {
       draw: 'Trascina sul piano per disegnare liberamente. Colore, spessore e stile si scelgono poi nell’editor.',
       line: 'Tocca i vertici. Doppio tocco o «Fatto» chiude la linea. Colore, spessore e stile si scelgono poi nell’editor.',
-      lineFreeShort: 'Trascina il dito sul piano',
-      lineNodesShort: 'Tocca i punti – ✓ chiude la linea',
-      areaFreeShort: 'Traccia il contorno con il dito',
-      areaNodesShort: 'Tocca almeno 3 vertici – ✓ chiude',
       area: 'Tocca i vertici (almeno 3). Doppio tocco o «Fatto» chiude la superficie.',
       circle: 'Trascina dal centro verso il bordo per impostare il raggio. Raggio, colore e riempimento si regolano poi nell’editor – in metri reali una volta calibrata la scala.',
       text: 'Tocca il piano per inserire una nota.',

@@ -265,7 +265,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     calibration stays reachable through Messen · «Massstab kalibrieren»). Where a plan cannot be
     linked, the Massstab chip stays. On a phone the pieces stand on ONE baseline,
     `--float-bottom` (15-mobile): `--float-gap` (8px) above the highest bar (nav bar · Rapport tab
-    strip · tool bar · a tool's option dock + its hint row), 8px from the screen's edge and from
+    strip · tool bar · a tool's option dock), 8px from the screen's edge and from
     each other. The FAB stays ROUND (the one-corner exception) but is `--float-h` across, on that
     baseline; `--fab-safe` is its width + the gap. A new piece in that zone joins the family and
     the row (and the `--float-row` `:has` list) — never a height, material or offset of its own.
@@ -293,7 +293,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     The controls share one neutral fill (`--dock-control-bg`, opaque) and hover
     (`--dock-control-hover`); a picked width/line style is the selected wash; the ARMED toggle
     (`.wb-dock-tog.on`) is the `--sel` fill — that fill, not the dock, says «armed». The ✓ is
-    `--btn-primary`. On phones the line dock has no subtitle (its instructions stay behind ⓘ).
+    `--btn-primary`. No dock carries a line of text, on any surface or width (20.10.2026, owner:
+    «Remove the line. I don't think they add any value.»): a tool's instructions are its ⓘ.
     The sticky close button has no masking shadow: a solid surface patch mismatches the glass.
     The blank Tafel offers no Messen on a phone; map and scaled plans keep it. The mobile
     Ansichten popover dismisses on an outside pointer press, allowing the pressed control to act.

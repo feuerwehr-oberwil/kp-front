@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-// 3am test r3, 25.09.2026: the armed line mode's hint stood only behind ⓘ, and the Gebäude picker
-// showed a field of identical outlines with nothing marking the Einsatzort.
+// 3am test r3, 25.09.2026: the Gebäude picker showed a field of identical outlines with nothing
+// marking the Einsatzort. (The dock's one-line hint from the same round was removed 20.10.2026.)
 import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { appConfig } from '../config/appConfig'
@@ -16,26 +16,9 @@ vi.mock('../lib/idb', async (importOriginal) => ({
   idbSet: async () => {},
 }))
 
-import { ToolDock } from './ToolDock'
 import { OsmOutline } from './OsmOutline'
 
 afterEach(cleanup)
-
-describe('ToolDock · the armed mode says what it expects', () => {
-  it('renders the one-line hint beside the controls, ⓘ keeps the long text', () => {
-    render(<ToolDock hint="Punkte tippen – ✓ schliesst die Linie ab" groups={[
-      [{ type: 'close', onClick: () => {} }],
-      [{ type: 'info', text: 'lang' }],
-    ]} />)
-    expect(screen.getByRole('status').textContent).toBe('Punkte tippen – ✓ schliesst die Linie ab')
-    expect(screen.getByRole('button', { name: 'lang' })).toBeTruthy()
-  })
-
-  it('no hint, no row', () => {
-    render(<ToolDock groups={[[{ type: 'close', onClick: () => {} }]]} />)
-    expect(screen.queryByRole('status')).toBeNull()
-  })
-})
 
 describe('Gebäude picker · the Einsatzort is marked', () => {
   const center: [number, number] = [7.5, 47.5]

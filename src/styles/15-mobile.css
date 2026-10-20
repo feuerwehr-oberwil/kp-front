@@ -271,16 +271,6 @@
   .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: var(--tap); min-width: var(--tap); height: var(--tap); border-radius: var(--r-sm); }
   .phone-tools .wb-dock .wb-dock-x { width: var(--tap); height: var(--tap); }
   .phone-tools .wb-dock .i { width: 18px; height: 18px; }
-  /* the armed mode's ONE line (ToolDock · hint): the dock grows a second row for it — the
-     buttons stay one scrolling row above it, the words wrap never and end in an ellipsis on the
-     narrowest phone. Only here: the tablet column dock leaves it hidden (09-whiteboard). */
-  .phone-tools .wb-dock:has(.wb-dock-hint) { flex-wrap: wrap; height: auto; max-height: none; row-gap: 2px;
-    padding-bottom: 8px; overflow: hidden; }
-  .phone-tools .wb-dock .wb-dock-hint { display: block; flex: 1 0 100%; order: 99; max-width: calc(100vw - 40px);
-    font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); opacity: .85; text-align: center;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  /* (…and the Gebäude's chip row steps up by that row: `--msg-dock-hint` is part of
-     --float-base, see «THE floating row» below) */
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
   /* …but a Tafel PAGE is a form with no tool bar under it: it runs down to the nav bar (Whiteboard · formPage) */
   .phone-tools .whiteboard.wb-tafel-page { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
@@ -1009,10 +999,6 @@
      the host is a root sibling of `.app`. Inside this media query a rendered strip is always
      shown (13-incident.css turns it on here), so the element itself is the whole condition. */
   :root:has(.app .rp-tabs) { --rp-tabs-safe: calc(var(--tap) + 2 * 3px + 2 * var(--bar-pad) + 2px + 6px); }
-  /* …and the thing that stands ON the tool bar and lifts everything above it: the armed tool's
-     hint row in the dock (ToolDock · hint, the 22px `.wb-botleft` steps up by). The lane is
-     computed on :root, which cannot read `.app`'s value, so it restates it here. */
-  :root:has(.phone-tools .wb-dock-hint) { --msg-dock-hint: 22px; }
   /* ── THE floating row (26.09.2026) ── the one line just above the bars where the phone's small
      floating pieces stand: the plan's chips (09-whiteboard · .wb-botleft) and the Eintrag FAB. They stood at three heights of their own (6px,
      14px and 14px above the tool bar) in three looks; now they are ONE family (01-tokens ·
@@ -1020,10 +1006,10 @@
      from each other and from the screen's edge, like the bars.
      --float-base is where the bars end: the nav bar (8px + rail-h) and the Rapport's docked tab
      strip on that one page; the tool bar on a drawing surface (its own 6px channel + rail-h); a
-     tool's option dock while one is out (it hides the FAB and the strip), plus its hint row. */
+     tool's option dock while one is out (it hides the FAB and the strip). */
   :root { --float-base: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px)); }
   :root:has(.phone-tools) { --float-base: calc(var(--rail-h) * 2 + 14px); }
-  :root:has(.phone-tools .wb-dock) { --float-base: calc(var(--rail-h) * 3 + 20px + var(--msg-dock-hint, 0px)); }
+  :root:has(.phone-tools .wb-dock) { --float-base: calc(var(--rail-h) * 3 + 20px); }
   /* …and a Tafel PAGE has no tool bar under it (the form takes the stage, Whiteboard · formPage):
      its row — the page strip, the FAB — stands on the nav bar like any surface without tools */
   :root:has(.phone-tools .wb-tafel-page) { --float-base: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px)); }

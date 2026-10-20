@@ -93,12 +93,6 @@ export const mapCopy = {
      *  drag (a tap does nothing), «Punkte» only with taps and ✓. */
     lineFreehand: 'Auf der Karte ziehen, um eine Linie zu zeichnen. Für einzelne Punkte: «Punkte». Farbe, Breite und Stil danach im Editor.',
     lineNodes: 'Punkte auf die Karte tippen, mit ✓ abschliessen. Farbe, Breite und Stil danach im Editor.',
-    // ONE line for the armed mode, on the phone dock itself (ToolDock · hint) — the text above
-    // stays behind ⓘ
-    lineFreeShort: 'Mit dem Finger über die Karte ziehen',
-    lineNodesShort: 'Punkte tippen – ✓ schliesst die Linie ab',
-    areaFreeShort: 'Den Umriss mit dem Finger ziehen',
-    areaNodesShort: 'Mind. 3 Eckpunkte tippen – ✓ schliesst ab',
     area: 'Ziehen zeichnet den Umriss frei – für einen Brandrand, der keine Ecken hat. Oder mindestens drei Eckpunkte tippen und mit dem Haken abschliessen.',
     circle: 'Von der Mitte zum Rand ziehen setzt den Radius in Metern. Radius und Füllung danach im Editor anpassen.',
     note: 'Auf die Karte tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',

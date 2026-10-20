@@ -104,7 +104,7 @@ export function MapToolDocks({
         ]} />
       )}
       {mapUI && tool === 'line' && (
-        <ToolDock hint={isPhone ? undefined : lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodesShort : appConfig.copy.dockHints.lineFreeShort} groups={[
+        <ToolDock groups={[
           [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
           // input mode: Freihand (drag) ↔ Punkte (tap each vertex, ✓ to finish)
           [
@@ -119,7 +119,7 @@ export function MapToolDocks({
         ]} />
       )}
       {mapUI && tool === 'area' && (
-        <ToolDock hint={areaMode === 'nodes' ? appConfig.copy.dockHints.areaNodesShort : appConfig.copy.dockHints.areaFreeShort} groups={[
+        <ToolDock groups={[
           [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); setDraft([]) } },

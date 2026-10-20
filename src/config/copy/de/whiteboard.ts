@@ -43,10 +43,6 @@ export const whiteboardCopy = {
     dockHints: {
       draw: 'Auf den Plan ziehen, um frei zu zeichnen. Farbe, Breite und Stil danach im Editor.',
       line: 'Eckpunkte antippen. Doppeltippen oder «Fertig» schliesst die Linie ab. Farbe, Breite und Stil danach im Editor.',
-      lineFreeShort: 'Mit dem Finger über den Plan ziehen',
-      lineNodesShort: 'Punkte tippen – ✓ schliesst die Linie ab',
-      areaFreeShort: 'Den Umriss mit dem Finger ziehen',
-      areaNodesShort: 'Mind. 3 Eckpunkte tippen – ✓ schliesst ab',
       area: 'Ziehen zeichnet den Umriss frei. Oder Eckpunkte antippen (mind. 3) – Doppeltippen oder «Fertig» schliesst die Fläche ab.',
       circle: 'Von der Mitte zum Rand ziehen setzt den Radius. Radius, Farbe und Füllung danach im Editor anpassen – in echten Metern, sobald der Massstab kalibriert ist.',
       text: 'Auf den Plan tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
