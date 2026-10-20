@@ -1013,8 +1013,8 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
 .rp-check-dot { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
   border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent); color: var(--ink-faint); }
 /* done is the ORDINARY state and reads by its shape — a tick where there was a dash. It was blue,
-   which put four blue rings down a column that also carries one per partner organisation; see the
-   note on .report-partner.on. Ink, not hue. */
+   which put four blue rings down a column that also carries one per partner organisation. Ink,
+   not hue: this dot is a section's STATUS, not a tick (the partner ticks are TickRow's). */
 .rp-check-dot.done { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
 .rp-check-dot svg { width: 14px; height: 14px; }
 .rp-check-label { font: var(--fw-bold) var(--fs-2) var(--body); flex: none; }

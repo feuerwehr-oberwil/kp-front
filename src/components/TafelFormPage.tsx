@@ -18,6 +18,7 @@ import {
 } from '../lib/boardForm'
 import { NEW, navTarget, type NavAt, type NavKey, type NavSection } from '../lib/boardFormNav'
 import { Button, IconButton } from './Button'
+import { TickRow } from './TickRow'
 import { Menu } from '../lib/overlays'
 import { BoardSignature } from './BoardSignature'
 import MiniKarte, { type MiniKarteProps } from './MiniKarte'
@@ -275,12 +276,13 @@ function TrendButton({ trend, readOnly, onNext }: { trend: string | undefined; r
   )
 }
 
+/** the row's «erledigt»: the shared tick box alone (TickRow, F7 20.10.2026), out of the Tab order
+ *  like the trend button — Tab walks the cells */
 function DoneButton({ on, readOnly, onToggle }: { on: boolean; readOnly: boolean; onToggle: () => void }) {
+  const label = T().done
   return (
-    <IconButton label={T().done} aria-pressed={on} disabled={readOnly} className={cx(s.done, on && s.doneOn)} tabIndex={-1}
-      onPointerDown={keep} onClick={onToggle}>
-      {on ? <Icon id="check" /> : <span className={s.tick} aria-hidden="true" />}
-    </IconButton>
+    <TickRow checked={on} onToggle={onToggle} disabled={readOnly} aria-label={label} title={label} tabIndex={-1}
+      onPointerDown={keep} />
   )
 }
 

@@ -466,6 +466,14 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     than the line on its own. CSS cannot say this, so `lib/smartHyphens` (a ref on the text: the
     row title, the reader's chapter neighbours) lays it out both ways; never `hyphens: auto` in
     the CSS of a title.
+    (13) **Tick row** (20.10.2026, UX sweep F7, owner: «shared primitive … the blue, not green»):
+    every item that is TICKED OFF — a Checkliste item, a Rapport Partnerorganisation or «Formular
+    & Link», a Tafel row's «erledigt» — is `components/TickRow`: box + label ONE button,
+    `role="checkbox"` + `aria-checked`, --tap tall; unticked an empty framed box (never a «−»),
+    ticked the choice fill (`--sel` box, `--on-sel` ✓), the row itself unwashed. Never a green
+    tick, never a box of a surface's own size. What being done MEANS stays the surface's (the
+    Checkliste fades the text, the Tafel strikes the row through). Choosing ITEMS as the answer
+    to a question (the Trupp's Ausrüstung) is a `Chip`, not a tick.
     `controlDebt.test.ts` is the ratchet for raw toggles, selects and search fields.
   - *Colour of a mention is not a state* (29.09.2026, owner pick A): every recognised word in the
     Verlauf – vehicle, partner, Trupp, person, material, group – is **bold `--ink`**

@@ -1,0 +1,31 @@
+/* THE tick row (20.10.2026, UX sweep F7) — see TickRow.tsx. One look for «this item is done /
+   was there»: a 24px box at the row's start, empty and framed until ticked, then the choice fill
+   (01-tokens · --sel) with its ✓. The row itself is quiet — no wash, no ring when ticked: a
+   column of ticked rows says «normal» and stays the calm half of the page; the box carries it.
+   The whole row is the target (--tap tall), so a glove never has to find the box. */
+
+.row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  box-sizing: border-box; min-height: var(--tap); margin: 0; padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-1);
+  border: none; border-radius: var(--r-sm);
+  background: none; color: var(--ink);
+  font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body);
+  text-align: left; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) { .row:hover:not(:disabled) { background-color: var(--hover); } }
+.row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.row:disabled { opacity: var(--disabled); cursor: default; }
+
+/* a box alone (the Tafel's «erledigt» column): the 44px square, the box in its middle */
+.solo { justify-content: center; width: var(--tap); padding: 0; }
+
+.box {
+  flex: none; display: grid; place-items: center; width: 24px; height: 24px; box-sizing: border-box;
+  border: 2px solid var(--ink-45); border-radius: var(--r-xs);
+  color: var(--on-sel);
+  transition: background-color .12s var(--ease), border-color .12s var(--ease);
+}
+.box :global(.i) { width: 16px; height: 16px; }
+.on .box { background: var(--sel); border-color: var(--sel); box-shadow: var(--sel-shadow); }
+@media (prefers-reduced-motion: reduce) { .box { transition: none; } }

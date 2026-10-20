@@ -5,6 +5,7 @@ import { cx } from '../lib/cx'
 import { useRef, useState } from 'react'
 import { usePageHeadFit } from '../lib/pageHeadFit'
 import { Segmented } from './Segmented'
+import { TickRow } from './TickRow'
 import { fillTemplate, formatTime } from '../lib/format'
 import { appConfig } from '../config/appConfig'
 import s from './Checklists.module.css'
@@ -37,33 +38,23 @@ function ItemRow({
   const CL = appConfig.copy.checklists
   return (
     <div className={cx(s['cl-item'], checked && s.done)}>
-      <button
-        className={s['cl-check']}
-        role="checkbox"
-        aria-checked={checked}
-        aria-label={item.text}
-        disabled={!canTick}
-        onClick={onToggle}
-      >
-        {checked && <Icon id="check" />}
-      </button>
-      <div
-        className={cx(s['cl-item-body'], canTick && s['cl-item-tap'])}
-        onClick={canTick ? onToggle : undefined}
-      >
-        <div className={s['cl-item-text']}>{item.text}</div>
-        <div className={s['cl-item-meta']}>
-          {item.when && <span className={s['cl-when']}>{item.when}</span>}
-          {/* the flag WITH its word (22.09.2026): alone it was a 12px glyph whose meaning lived in a
-              tooltip no tablet shows — the row now says what ticking it does */}
-          {item.milestone && <span className={s['cl-milestone']} title={CL.milestoneTitle}><Icon id="flag" />{CL.milestoneTag}</span>}
-          {checked && tickInfo && (
-            <span className={s['cl-tickinfo']}>
-              {tickTime(tickInfo.t)}{tickInfo.by ? ` · ${tickInfo.by}` : ''}
-            </span>
-          )}
-        </div>
-      </div>
+      {/* box + text + meta are ONE target, the shared tick row (F7, 20.10.2026) */}
+      <TickRow checked={checked} onToggle={onToggle} disabled={!canTick} aria-label={item.text} className={s['cl-tick']}>
+        <span className={s['cl-item-body']}>
+          <span className={s['cl-item-text']}>{item.text}</span>
+          <span className={s['cl-item-meta']}>
+            {item.when && <span className={s['cl-when']}>{item.when}</span>}
+            {/* the flag WITH its word (22.09.2026): alone it was a 12px glyph whose meaning lived in a
+                tooltip no tablet shows — the row now says what ticking it does */}
+            {item.milestone && <span className={s['cl-milestone']} title={CL.milestoneTitle}><Icon id="flag" />{CL.milestoneTag}</span>}
+            {checked && tickInfo && (
+              <span className={s['cl-tickinfo']}>
+                {tickTime(tickInfo.t)}{tickInfo.by ? ` · ${tickInfo.by}` : ''}
+              </span>
+            )}
+          </span>
+        </span>
+      </TickRow>
       {item.action && onAction && (
         <button className={s['cl-deeplink']} onClick={() => onAction(item.action!)} title={CL.actionLabels[item.action]}>
           <Icon id={actionIcon[item.action]} />

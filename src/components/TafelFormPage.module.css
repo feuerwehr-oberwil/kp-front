@@ -93,7 +93,7 @@
 .line { display: flex; align-items: flex-start; gap: var(--sp-1); padding: 0 var(--sp-1); }
 .grow { flex: 1 1 auto; min-width: 0; }
 .tag { flex: 0 0 30%; color: var(--ink-dim); }
-.trend, .done { flex: none; width: var(--tap); min-height: var(--tap); }
+.trend { flex: none; width: var(--tap); min-height: var(--tap); }
 .trend span { font-size: var(--fs-4); line-height: 1; }
 .trend[data-trend='up'] { color: var(--red); }
 .trend[data-trend='down'] { color: var(--green); }
@@ -140,8 +140,6 @@
 }
 .trendCell { align-items: center; justify-content: center; }
 .doneCell { align-items: center; justify-content: center; }
-.doneOn { color: var(--green); }
-.tick { display: block; width: 16px; height: 16px; border: 2px solid var(--ink-45); border-radius: var(--r-xs); }
 .trDone .td > .cell { color: var(--ink-dim); text-decoration: line-through; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
