@@ -1999,6 +1999,12 @@ p.adm-sys-path { margin: 3px 0 0; }
   .adm-slist-x:hover { background: color-mix(in srgb, var(--red) 14%, transparent); color: var(--red); }
 }
 .adm-slist-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+.adm-slist-x .i { width: 15px; height: 15px; }
+/* an armed chip (ConfirmButton's question + Ja/Abbrechen) IS the amber wash — the pill does not
+   wear a second box inside itself */
+.adm-slist-item:has(.adm-confirm) { padding: 4px 8px 4px 12px; background: var(--amber-12);
+  border-color: color-mix(in srgb, var(--amber) 40%, transparent); }
+.adm-slist-item .adm-confirm { padding: 0; border: 0; background: transparent; }
 /* the input is a chip-shaped gap in the row, not a form field under it — it is where the next
    one goes, and it should look like it */
 /* ⚠️ `flex: 0 1 200px`, never `min-width: 200px`. Inside a spanned settings row a hard 200px
