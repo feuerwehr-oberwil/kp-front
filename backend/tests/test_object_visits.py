@@ -198,7 +198,9 @@ async def test_a_completed_visit_locks_after_the_window(client, editor, on, obj,
     await put(client, vid, visit_doc(vid, obj), None)
     await put(client, vid, visit_doc(vid, obj, lifecycle="completed"), 1)
 
-    assert (await put(client, vid, visit_doc(vid, obj, lifecycle="completed", notes="rechtzeitig"), 2)).status_code == 200
+    assert (
+        await put(client, vid, visit_doc(vid, obj, lifecycle="completed", notes="rechtzeitig"), 2)
+    ).status_code == 200
     got = (await client.get(f"/api/object-visits/{vid}")).json()
     done, locked = datetime.fromisoformat(got["completedAt"]), datetime.fromisoformat(got["lockedAt"])
     assert locked - done == timedelta(hours=24)
@@ -210,11 +212,17 @@ async def test_a_completed_visit_locks_after_the_window(client, editor, on, obj,
     # nothing was written, and re-sending the STORED document is still the no-op answer
     after = (await client.get(f"/api/object-visits/{vid}")).json()
     assert after["revision"] == 3 and after["notes"] == "rechtzeitig"
-    assert (await put(client, vid, visit_doc(vid, obj, lifecycle="completed", notes="rechtzeitig"), 3)).status_code == 200
+    assert (
+        await put(client, vid, visit_doc(vid, obj, lifecycle="completed", notes="rechtzeitig"), 3)
+    ).status_code == 200
 
     # the admin session / the organizer writes without an account: it still corrects
     visit = await ov.get_visit(db_session, vid)
-    body = {"opId": new_id("ovo"), "baseRevision": 3, "doc": visit_doc(vid, obj, lifecycle="completed", notes="Korrektur Station")}
+    body = {
+        "opId": new_id("ovo"),
+        "baseRevision": 3,
+        "doc": visit_doc(vid, obj, lifecycle="completed", notes="Korrektur Station"),
+    }
     answer = await ov.apply_put(db_session, vid, body, ov.Actor(None, None))
     await db_session.commit()
     assert answer["revision"] == 4 and answer["visit"]["notes"] == "Korrektur Station"
