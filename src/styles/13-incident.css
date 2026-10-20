@@ -824,7 +824,10 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
 .list-card-rail { gap: 2px; background: none; box-shadow: none; border-radius: 0; overflow: visible; }
 .list-card-rail > .list-row + .list-row { box-shadow: none; }
 .list-card-rail > .list-row { min-height: var(--tap); padding: var(--sp-2); border-radius: var(--r-ctl); }
-.list-card-rail .list-row-title { font-size: var(--fs-2); }
+/* a list column's type is a step under the card's (owner 20.10.2026: the Anleitungen wrapped
+   over three and four lines at 14/12.5) */
+.list-card-rail .list-row-title { font-size: var(--fs-1); }
+.list-card-rail .list-row-sub { font-size: var(--fs-micro); }
 
 /* a labelled group: the eyebrow, a word or count at its right end, then the card */
 .list-group { display: flex; flex-direction: column; gap: var(--sp-2); }

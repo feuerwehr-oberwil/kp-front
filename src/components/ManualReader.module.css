@@ -61,33 +61,17 @@
 .mn-chapter-prev:active, .mn-chapter-next:active { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* ===== Devices (DeviceManuals.tsx, 19.10.2026) ===================================================
-   One tile per Gerät – picture, name, «n Kapitel» or the one Anleitung's title – as a photo CARD
-   (the phone's Checkliste surface, two per row) or a ROW with a thumbnail (the Einsatz rail and the
-   tablet's list column). The picture is the first step image of the device's chapters. */
-.dv-card { display: flex; border: 0; padding: 0; cursor: pointer; text-align: left; min-width: 0;
-  font-family: var(--body); color: var(--ink); }
+   One row per Gerät – picture, name, «n Kapitel» or the one Anleitung's title. The picture is the
+   first step image of the device's chapters. (Two photo cards per row on the phone until the owner
+   asked for the tablet's rows there too, 20.10.2026.) */
 .dv-pic { flex: none; display: grid; place-items: center; overflow: hidden; background: var(--fill-soft); color: var(--ink-faint); }
 .dv-pic img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.dv-text { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
-.dv-name { font-weight: var(--fw-bold); overflow-wrap: break-word; }
-.dv-sub { color: var(--ink-dim); font-weight: var(--fw-medium); overflow-wrap: break-word; }
-
-/* the phone's devices: two photo cards per row (ChecklistRail · DeviceList, card look) */
-.dv-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
-.dv-card { flex-direction: column; background: var(--surface); border-radius: var(--r-surface);
-  overflow: hidden; box-shadow: 0 0 0 1px var(--border-soft), var(--e1); }
-.dv-card .dv-pic { width: 100%; aspect-ratio: 16 / 9; }
-.dv-card .dv-pic :global(.i) { width: 28px; height: 28px; }
-.dv-card .dv-text { padding: var(--sp-3); }
-/* «Atemschutzgerät» is wider than half a phone at this size: hyphenate rather than break mid-letter */
-.dv-card .dv-name { font-size: var(--fs-3); line-height: 1.25; hyphens: auto; }
-.dv-card .dv-sub { font-size: var(--fs-2); line-height: 1.3;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.dv-card:active { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* a device ROW is THE list row (components/ListRow) with the thumbnail as its lead; the row's
    title hyphenates a long name in the narrow Einsatz rail («Logistik-fahrzeug», owner 19.10.2026) */
 .dv-row :global(.list-row-lead) > .dv-pic { width: 44px; height: 44px; border-radius: var(--r-sm); }
+/* …36px in a list column beside a document, with its compact type (13-incident · .list-card-rail) */
+:global(.list-card-rail) .dv-row :global(.list-row-lead) > .dv-pic { width: 36px; height: 36px; }
 .dv-row .dv-pic :global(.i) { width: 18px; height: 18px; }
 
 /* the device page: picture, name, «n Kapitel · Stand», the numbered chapters. Beside the rail it
