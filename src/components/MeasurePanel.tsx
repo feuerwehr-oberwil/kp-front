@@ -1,5 +1,5 @@
 import { LoadingStatus } from './ShellLoader'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { LngLat } from '../types'
 import type { ProfileResult } from '../lib/profile'
 import { pathLengthM, polygonAreaM2, fmtDistance, fmtArea, hoseCount } from '../lib/geo'
@@ -9,6 +9,15 @@ import { cx } from '../lib/cx'
 import { ProfileChart, ProfileStats } from './ProfileChart'
 import { Button, IconButton } from './Button'
 import s from './MeasurePanel.module.css'
+
+/** A placement mode's instruction («Auf die Karte tippen …») in the measure panel's frame and
+ *  its quiet hint line, at the panel's spot at the foot of the map – above the phone's bottom bar
+ *  (the host's `className` places it, as for the panel). An instruction is read when it is wanted,
+ *  so it stands low and quiet; a MESSAGE is meant to be seen at once and keeps the toast lane,
+ *  which a placement mode sends to the top (owner 20.10.2026, lib/toastLane · usePlacementLane). */
+export function MapHint({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cx(s['measure-panel'], s['mp-hint-only'], className)} role="status"><div className={s['mp-hint']}>{children}</div></div>
+}
 
 export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, showProfile = true, blocked = false, hint, onAdopt, onCalibrate, calibrateLabel, recalibrateLabel, scaleNote, className }: {
   mode: 'line' | 'area'

@@ -5,6 +5,8 @@
   box-shadow: var(--e4); }
 /* No entry animation — same story as .pop in MapViewsMenu.module.css: the `animation: panelIn`
    here never fired, and the panel is the answer to a question the operator just asked. */
+/* MapHint: the frame round ONE line – slimmer, and as wide as its sentence (up to the screen) */
+.mp-hint-only { width: auto; max-width: min(520px, calc(100vw - 32px)); padding: var(--sp-2) var(--sp-4); }
 .mp-hint { text-align: center; font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-dim); padding: 4px 0; }
 .mp-stat-row { display: flex; gap: 16px; align-items: center; min-width: 0; }
 /* ── THE ONE ROW (10.10.2026): readout · adopt · ▾ ──────────────────────────────────────────
