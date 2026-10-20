@@ -2,11 +2,11 @@
    A device's instructions as numbered steps, in the Taktik reader's type (14px, owner 20.10.2026:
    the 16px steps read bigger than everything around them) — the solid step number is what the eye
    finds at arm's length, possibly in the dark. Its own module so the checklist chrome (Checklists.module.css) stays untouched;
-   the step pictures reuse the playbook's figure (.cl-ref-fig via DiagramFigure). On a tablet the
-   document is a card beside the rail, like a Stichwort; on a phone it sits flat on the page and
-   the title is the chooser's (ChecklistsView), so the head keeps only the device line. */
-.mn-doc { max-width: 720px; background: var(--surface); border-radius: var(--r-surface); padding: var(--sp-5);
-  box-shadow: 0 0 0 1px var(--border-soft); }
+   the step pictures reuse the playbook's figure (.cl-ref-fig via DiagramFigure). Flat everywhere:
+   beside the rail it is the white pane's one reading column (Checklists.module.css · .cl-main,
+   owner pick A, review round 5); on a phone it sits on the page and the title is the chooser's
+   (ChecklistsView), so the head keeps only the device line. */
+.mn-doc { max-width: var(--cl-col, 760px); }
 .mn-head { margin-bottom: var(--sp-4); }
 .mn-head h2 { margin: 0; font-size: var(--fs-4); font-weight: var(--fw-heavy); color: var(--ink); }
 .mn-meta { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-1) 0 0; font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-dim); }
@@ -39,7 +39,6 @@
 .mn-source { margin: var(--sp-4) 0 0; padding-top: 12px; border-top: 1px solid var(--border-soft); font-size: var(--fs-1); color: var(--ink-faint); }
 
 @media (--phone) {
-  .mn-doc { max-width: none; padding: 0; background: none; box-shadow: none; border-radius: 0; }
   /* the chooser row above names the Anleitung — only the device line stays */
   .mn-head h2 { display: none; }
   .mn-meta { margin-top: 0; }
@@ -91,10 +90,17 @@
 .dv-row :global(.list-row-lead) > .dv-pic { width: 44px; height: 44px; border-radius: var(--r-sm); }
 .dv-row .dv-pic :global(.i) { width: 18px; height: 18px; }
 
-/* the device page: picture, name, «n Kapitel · Stand», the numbered chapters */
-.dv-page { max-width: 720px; background: var(--surface); border-radius: var(--r-surface); overflow: hidden;
-  box-shadow: 0 0 0 1px var(--border-soft); }
-.dv-hero { display: block; width: 100%; aspect-ratio: 16 / 7; object-fit: cover; background: var(--fill-soft); }
+/* the device page: picture, name, «n Kapitel · Stand», the numbered chapters. Beside the rail it
+   is the white pane's reading column with the picture as a wide header (owner pick A, review
+   round 5); on the one-page layouts (a phone, ≤760px) it stays the card it was on the page ground. */
+.dv-page { max-width: var(--cl-col, 760px); }
+.dv-hero { display: block; width: 100%; aspect-ratio: 16 / 7; object-fit: cover; background: var(--fill-soft);
+  border-radius: var(--r-ctl); }
+@media (--phone), (max-width: 760px) {
+  .dv-page { max-width: none; background: var(--surface); border-radius: var(--r-surface); overflow: hidden;
+    box-shadow: 0 0 0 1px var(--border-soft); }
+  .dv-hero { border-radius: 0; }
+}
 .dv-head { padding: var(--sp-4) var(--sp-4) var(--sp-3); border-bottom: 1px solid var(--border-soft); }
 .dv-head h2 { margin: 0; font-size: var(--fs-4); font-weight: var(--fw-heavy); color: var(--ink); overflow-wrap: break-word; }
 .dv-head p { margin: var(--sp-1) 0 0; font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-dim); }

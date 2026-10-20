@@ -420,8 +420,9 @@ The rules that are easy to break:
   Hüslimatt – modul2-3»). Such a title gives way to the catalogue's title for the key («Wie komme
   ich herein», «Zugang & Objekt», «Photovoltaik»); a clean title («Übersicht», «Gemeindehaus –
   Übersicht») stays. A family sub-slot without an entry says its own name («Wasser»), a numbered
-  sibling keeps its number («Wasser 2»), an unknown key reads «Modul N». The tablet rail's labels
-  and the view label read the document's title; the panel's rows read `planRowLabel` (above).
+  sibling keeps its number («Wasser 2»), an unknown key reads «Modul N». The tablet rail's tile
+  names (its accessible label) and the view label read the document's title; the panel's rows and
+  the expanded rail's words read `planRowLabel` (above) – the title overflows a 216px rail.
 - **A head that is still being looked up is a skeleton**, never «Gebäude» or «…» in place of a
   name: a tapped building until the register answers (a searched address is named at once), a
   dropped pin until its address is known. A plain building carries no «Kein Stationsobjekt …»
@@ -732,7 +733,12 @@ device Anleitungen to read in peace time — the Einsatz tab's word and glyph
   inline field («Anleitung, Checkliste, Stichwort»); the round search button, the pin and the
   compass are the map's.
 - **Tablet rail**: always there with Karte and Checkliste; a selected object's plans hang under a
-  hairline as before. On the Checkliste the right `ToolRail` is gone (as on a plan) and the bar's
+  hairline as before. It is the Einsatz's NavRail in behaviour (owner, review round 5: «we can't
+  expand the left toolbar so people might not know what it actually is»): the «Ausklappen» chevron
+  on top and the grip widen it to 216px with the words beside the glyphs, open per mount like the
+  Einsatz's; «Beschriftung» (Einstellungen) puts the word under each glyph instead and drops the
+  chevron, live (`lib/useDevicePrefs · useRailLabels`). It publishes `--rail-w` through
+  `lib/useRail`, which the object panel, the plan reader, the floor list and this surface sit beside. On the Checkliste the right `ToolRail` is gone (as on a plan) and the bar's
   field searches the library; the map's own search words are kept for the way back.
 - **Remembered** like the plan: `KarteView.surface = 'checkliste'` (`lib/karte/session`), back
   after an Objektbesuch, an Einsatz or a reload — unless a deep link (`?objekt=`) asks for another
@@ -751,6 +757,14 @@ device Anleitungen to read in peace time — the Einsatz tab's word and glyph
 - **An Anleitung's ways** (owner pick, round 3): ONE back row on top naming the level («‹ TLF»,
   `BackRow`), nothing else up there; at the foot one row of two equal buttons «‹ 2 Kabine» |
   «4 Saugbetrieb ›». The step text is the Taktik reader's 14px.
+- **The reading pane** (owner pick A, review round 5, 20.10.2026: «the entire point of the card is
+  to show the content»): beside the list column the pane IS the surface – the list's white, a
+  hairline between them, no white card inset on grey. Every reader in it (Anleitung, device page
+  with its picture as a wide header, Stichwort, checklist) is ONE left-aligned column of 760px;
+  pictures at most 600px wide and 60% of the screen tall, at their own proportions
+  (`Checklists.module.css · .cl-main`). The same in the Einsatz Checkliste (one set of
+  components). The Stichwort's 2-column flow above 980px is gone with it. Phone and the ≤760px
+  one-page layout: unchanged, the content on the page ground.
 - **The device pictures paint at once** on every open after the first (review round 2: they popped
   in each time). Two parts: the asset URL carries its version (`?v=`, `lib/checklists ·
   checklistAssetUrl`), answered immutable and cache-first by the service worker, so nothing asks
