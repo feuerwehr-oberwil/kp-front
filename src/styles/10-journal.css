@@ -189,6 +189,13 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .tb-weather-temp { padding-right: 8px; }   /* the wind wears its own arrow; no rule between the two readings (22.09.2026) */
 
 
+/* the weather answers after the first paint: the chip grows into the bar (260ms, width with
+   opacity) instead of landing in one frame and shoving the bar's right edge out (owner,
+   20.10.2026). clip-path keeps the chip inside its growing box without an overflow rule that
+   would outlive the animation; a bar re-fit (.fit-2) that brings the chip back plays it again,
+   which is the same arrival. Reduced motion: 03-map's global rule. */
+.topbar .tb-weather-wrap { animation: tb-chip-in .26s var(--ease); }
+@keyframes tb-chip-in { from { opacity: 0; max-width: 0; clip-path: inset(0); } to { opacity: 1; max-width: 240px; clip-path: inset(0); } }
 /* weather detail popover (tap the bar readout) */
 /* stretched to the bar's inner height: the popover's offset (TopBar · WeatherBadge · popInset) counts
    from the chip's bottom, and a 42px chip centred in a 44px bar would hang it 1px lower than the menu */

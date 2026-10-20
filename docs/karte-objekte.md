@@ -1028,6 +1028,22 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   **red dot** on its corner while an Einsatz runs or an alarm waits (it was a count); the count is
   in its accessible name: «Menü – <appName>, 2 offen». The red running-Einsatz strip under the bar
   stays. The Einsatz's own bar (IncidentSwitcher, the title ▾) is not this button.
+- **The arrival** (owner, 20.10.2026, after Wispr Flow's streak grid: «a very subtle loading
+  animation for the stuff that arrives» — picked «Welle» from a gallery of real-app clips). The
+  catalogue answers in one go and the dots and name tags used to land in one frame; now each
+  marker fades in a few milliseconds after its western neighbour, 420 ms across the screen and
+  260 ms per marker (`lib/karte/arrival` · `arrivalDelays`, with tests; `Karte.module.css` ·
+  `.arrive`). The wave waits for the basemap — the markers stand invisible until the map's first
+  settled frame (`onSettled`, MapLibre's `idle`; offline it comes at once) or 4 s at the latest,
+  because a wave over a blank canvas is one nobody sees. Computed ONCE from the view of that
+  moment, without the map, and only for markers mounted in the 2.5 s after it — a tag
+  replacing its dot on a later zoom or a re-selection mounts instantly, motion on an interaction
+  reads as lag. The red outlines, which answer a viewport fetch after the map, fade in over
+  280 ms when their layer first stands (`MapLayers` · `FilledOverlay`, `fadeIn`); a pan's new rings
+  update the source and never fade. The weather chip grows into the bar instead of shoving its
+  edge out (`10-journal.css` · `tb-chip-in`). Not animated, on purpose: the app menu and the search
+  rows (the owner's call, same day), and nothing on the Einsatz's Lage. Reduced motion: the
+  global zero-duration rule in `03-map.css`; the visual suite runs with it, so no baseline moved.
 - **The menu** (the button above) opens **the same menu as inside an Einsatz** (owner,
   17.10.2026 — it was the old launcher card with big launch buttons): one component,
   `panels/AppMenuRows`, renders the rows under the Einsatz menu's card (`IncidentSwitcher`) and the

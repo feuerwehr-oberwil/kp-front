@@ -50,6 +50,7 @@ import { useSymbols } from '../../lib/useSymbols'
 import { useMeasure } from '../../lib/useMeasure'
 import { useVehicleLayer } from '../../lib/useVehicleLayer'
 import { useWeather } from '../../lib/useWeather'
+import { ARRIVAL_MAP_WAIT_MS, ARRIVAL_WINDOW_MS, arrivalDelays } from '../../lib/karte/arrival'
 import { useKarteWeather } from '../../workspace/useKarteWeather'
 import { deploymentDefaultCenter, deploymentMenuMark, deploymentName, objectCategoryRules, objectVisitsConfig } from '../../lib/deploymentConfig'
 import { defaultLayers } from '../../lib/workspace'
@@ -269,6 +270,25 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }, [catStale])
   const objects = cat?.data?.objects ?? EMPTY_OBJECTS
   const byId = useMemo(() => new Map(objects.map((o) => [o.id, o])), [objects])
+  // ── the arrival (lib/karte/arrival): the markers' wave, once, when the catalogue has answered
+  // AND the basemap stands (the first settled frame, or ARRIVAL_MAP_WAIT_MS — until then the
+  // markers are mounted but invisible, `.waiting`); the window closes ARRIVAL_WINDOW_MS later and
+  // every marker mounted after it (a tag replacing its dot on zoom, a re-selection) is instant.
+  // A layout effect: the wave must be on the markers in the same paint that shows them.
+  const [mapUp, setMapUp] = useState(false)
+  useEffect(() => { const t = setTimeout(() => setMapUp(true), ARRIVAL_MAP_WAIT_MS); return () => clearTimeout(t) }, [])
+  const [arrival, setArrival] = useState<Map<string, number> | null>(null)
+  const arrived = useRef(false)
+  useLayoutEffect(() => {
+    if (arrived.current || !objects.length || !mapUp) return
+    arrived.current = true
+    setArrival(arrivalDelays(objects, view, rootRef.current?.clientWidth || window.innerWidth))
+  }, [objects, view, mapUp])
+  useEffect(() => {
+    if (!arrival) return
+    const t = setTimeout(() => setArrival(null), ARRIVAL_WINDOW_MS)
+    return () => clearTimeout(t)
+  }, [arrival])
   // ── the station's object colours (config `map.objectCategories`, lib/karte/categories) ──────
   // An object no rule takes keeps the default look (red; grey without plans). Each category
   // is an Ebenen row of its own; a hidden one takes its objects off the map (outline, dot, tag,
@@ -760,8 +780,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     }
     // underground garages / shelters (a named row's, review round 3): dashed, barely filled —
     // under the buildings, so a house drawn over its garage keeps its solid line
-    for (const [color, slot] of byColor) if (slot.under.length) out.push({ id: `${slot.id}-under`, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.under, color, fillOpacity: 0.05, lineWidth: 1.6, lineOpacity: 0.85, lineDasharray: UNDER_DASH })
-    for (const [color, slot] of byColor) out.push({ id: slot.id, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.rings, color, fillOpacity: 0.14, lineWidth: 1.6, lineOpacity: 0.85 })
+    // both fade in when they first stand (MapLayers · fadeIn): the rings answer a viewport fetch
+    // after the map, and used to land in one frame
+    for (const [color, slot] of byColor) if (slot.under.length) out.push({ id: `${slot.id}-under`, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.under, color, fillOpacity: 0.05, lineWidth: 1.6, lineOpacity: 0.85, lineDasharray: UNDER_DASH, fadeIn: true })
+    for (const [color, slot] of byColor) out.push({ id: slot.id, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.rings, color, fillOpacity: 0.14, lineWidth: 1.6, lineOpacity: 0.85, fadeIn: true })
     // the selected object: EVERY one of its buildings in the strong style, in its own colour
     const mine = selObj ? outlines.get(selObj.id) : null
     const mineColor = (selObj && cats.get(selObj.id)?.color) ?? red
@@ -1292,7 +1314,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           onMarkerMove={NOOP}
           onMarkerDragEnd={NOOP}
           onView={(v) => { setView(v); loadOutlines() }}
-          onSettled={() => { flyPending(); loadOutlines(); watchUserMoves(); watchHover() }}
+          onSettled={() => { setMapUp(true); flyPending(); loadOutlines(); watchUserMoves(); watchHover() }}
           freehand={null}
           onFreehand={NOOP}
           drawColor="#000000"
@@ -1323,13 +1345,17 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             if (catOff(o.id) && !isSel) return null
             // the category's colour (lib/karte/categories); none = the default red, untouched
             const cat = cats.get(o.id)
-            const catStyle = cat ? ({ '--cat': cat.color, '--cat-ink': inkOn(cat.color) } as React.CSSProperties) : undefined
+            // the marker's place in the arrival wave (lib/karte/arrival), while the window is open
+            const wave = arrival?.get(o.id)
+            const catStyle = cat || wave != null
+              ? ({ ...(cat ? { '--cat': cat.color, '--cat-ink': inkOn(cat.color) } : {}), ...(wave != null ? { '--arrive': `${wave}ms` } : {}) } as React.CSSProperties)
+              : undefined
             // without categories, «has plans» is the red; an object without any is drawn quieter
             const bare = !o.plans.length
             if (!isSel && !(tagZoom && tagged?.has(o.id))) {
               return (
                 <Marker key={`dot:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" style={{ zIndex: 1, pointerEvents: takesTaps ? 'none' : undefined }}>
-                  <button type="button" className={cx(s.dotMk, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through)} style={catStyle} aria-label={o.name} title={o.name} onClick={pick} />
+                  <button type="button" className={cx(s.dotMk, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through, !mapUp && s.waiting, wave != null && s.arrive)} style={catStyle} aria-label={o.name} title={o.name} onClick={pick} />
                 </Marker>
               )
             }
@@ -1339,7 +1365,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             const fit = fits.get(o.name)
             return (
               <Marker key={`tag:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" offset={[dx, 0]} style={{ zIndex: isSel ? 3 : 2, pointerEvents: takesTaps ? 'none' : undefined }}>
-                <button type="button" className={cx(s.tagMk, isSel && s.sel, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through)} style={fit ? { ...catStyle, width: fit } : catStyle} onClick={pick}>
+                <button type="button" className={cx(s.tagMk, isSel && s.sel, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through, !mapUp && s.waiting, wave != null && s.arrive)} style={fit ? { ...catStyle, width: fit } : catStyle} onClick={pick}>
                   {tagText(o.name)}
                 </button>
               </Marker>

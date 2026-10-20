@@ -828,6 +828,10 @@ export type PreparedMapOverlay =
       fillOpacity?: number
       lineWidth?: number
       lineOpacity?: number
+      /** mount transparent and let MapLibre's paint transition carry the pair to its opacity
+       *  (MapLayers · FilledOverlay) — «Karte & Objekte»'s outlines, which answer a viewport
+       *  fetch well after the map stands */
+      fadeIn?: boolean
       lineDasharray?: number[]
       /** paint the inside with the Schraffur tile of `color` (lib/draw · hatchImageId) instead of a
        *  flat fill — the viewer hatches map area this device holds no base map for */
