@@ -190,7 +190,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 
 
 /* weather detail popover (tap the bar readout) */
-.tb-weather-wrap { position: relative; display: inline-flex; }
+/* stretched to the bar's inner height: the popover's offset (TopBar · WeatherBadge · popInset) counts
+   from the chip's bottom, and a 42px chip centred in a 44px bar would hang it 1px lower than the menu */
+.tb-weather-wrap { position: relative; display: inline-flex; align-self: stretch; }
 /* position + z-index now come from the Base UI Popover Positioner (src/lib/overlays/Popover.tsx);
    the popup itself is static within it. */
 .tb-weather-pop { width: 280px;
