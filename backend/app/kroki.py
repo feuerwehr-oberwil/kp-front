@@ -9,7 +9,8 @@ This replaces the browser capture path (html2canvas + preserveDrawingBuffer) so 
 rapport can be composed server-side, with no tablet in the loop.
 
 Deliberately mirrors the client's sizing rules (src/lib/mapView.ts): symbols live in a
-28..48 px band derived from real-world metres × zoom, scaled by the Kroki multiplier (0.85..1)
+28..48 px band derived from real-world metres × zoom (floor 34 for a vehicle, whose name is
+inside the glyph), scaled by the Kroki multiplier (0.85..1)
 (ReportPrintView symMul). Rendering is supersampled 2× and downscaled for clean edges.
 """
 
@@ -53,10 +54,21 @@ def px_per_m(lat: float, z: float) -> float:
     return (2**z) / (156543.03392 * math.cos(math.radians(lat)))
 
 
+_SYM_MIN_KIND = {"vehicle": 34.0}
+
+
 def sym_px(kind: str, lat: float, z: float, mul: float = 1.0) -> float:
-    """Symbol size band (client lib/mapView.ts symPx): metres × zoom clamped to 28..48."""
+    """Symbol size band (client lib/mapView.ts symPx): metres × zoom clamped to 28..48.
+
+    A vehicle has a HIGHER floor of its own (34), because its name is baked into the glyph body
+    and can only grow with the glyph (client lib/mapView.ts SYM_MIN_KIND, 20.10.2026). The sheet
+    must use the same floor as the screen: this size also places the legend's numbered disc
+    (`_caption` / client lib/krokiLegend · discOffsetPx) and snaps attached Leitung ends to the
+    glyph rectangle (`_snap_attached_ends`), so a server that kept 28 would print the hose short
+    and the disc high on exactly the vehicles the floor was raised for.
+    """
     size_m = {"vehicle": 11, "command": 10, "hydrant": 6, "symbol": 8, "area": 8}.get(kind, 8)
-    return max(28.0, min(48.0, size_m * px_per_m(lat, z))) * mul
+    return max(_SYM_MIN_KIND.get(kind, 28.0), min(48.0, size_m * px_per_m(lat, z))) * mul
 
 
 def kroki_symbol_mul(z: float) -> float:

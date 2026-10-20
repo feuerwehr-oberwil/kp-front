@@ -173,17 +173,31 @@ describe('vehicleSymbolSvg (the name has to read at a glance)', () => {
 
   it('gives short names one size instead of scaling with the name length', () => {
     // it was 1.9 / length: «RAW» 0.63, «MOWA» 0.48, «KDO 12» 0.32
-    expect(fontSizes(vehicleSymbolSvg('RAW'))).toEqual([0.6, 0.6])
-    expect(fontSizes(vehicleSymbolSvg('TLF'))).toEqual([0.6, 0.6])
-    expect(fontSizes(vehicleSymbolSvg('MOWA'))[0]).toBeGreaterThan(0.55)
-    expect(fontSizes(vehicleSymbolSvg('KDO 12'))[0]).toBeGreaterThan(0.5)
-    expect(vehicleSymbolSvg('KDO 12')).not.toContain('textLength')
+    expect(fontSizes(vehicleSymbolSvg('RAW'))).toEqual([0.78, 0.78])
+    expect(fontSizes(vehicleSymbolSvg('TLF'))).toEqual([0.78, 0.78])
+    expect(fontSizes(vehicleSymbolSvg('MOWA'))[0]).toBeGreaterThan(0.6)
+    expect(fontSizes(vehicleSymbolSvg('KDO 12'))[0]).toBeGreaterThan(0.6)
   })
 
   it('condenses a long name to the body width instead of shrinking it to nothing', () => {
     const svg = vehicleSymbolSvg('Tanklöschfahrzeug 2')
-    expect(fontSizes(svg)).toEqual([0.48, 0.48])
+    expect(fontSizes(svg)).toEqual([0.66, 0.66])
     expect(svg).toContain('textLength="1.9"')
+  })
+
+  // The sizes the owner picked (review 7 point 3, variant D). A condensed name is pinned to
+  // NAME_MAX_W whatever its size, so the floor buys height alone — which is what was unreadable
+  // on the tablet. Both halves have to move together: the floor is only worth having if the
+  // letters still fit between the body's long edges.
+  it('keeps even the floor size inside the body, and the name taller than it used to be', () => {
+    for (const name of ['TLF', 'MOWA', 'ERSATZ', 'Tanklöschfahrzeug 2']) {
+      const fs = fontSizes(vehicleSymbolSvg(name))[0]
+      expect(fs).toBeGreaterThanOrEqual(0.66)        // the floor, up from 0.48
+      // Arial Bold caps are ~0.716em; the text sits on a baseline 0.35em below centre, and the
+      // body's inner edges are at ±0.35 (0.8 tall, 0.1 stroke).
+      expect(0.35 * fs).toBeLessThanOrEqual(0.35)                  // descender side
+      expect(0.716 * fs - 0.35 * fs).toBeLessThanOrEqual(0.35)     // cap side
+    }
   })
 
   it('puts a white outline under the name so the turned body cannot cross the letters', () => {
