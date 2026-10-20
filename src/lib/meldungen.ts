@@ -105,6 +105,11 @@ export interface Meldung {
    *  «Einsatz wurde auf einem ander…», which says nothing (N3, 25.09.2026). Every other row keeps
    *  its one line; a strip of wrapping rows would push the surface down. */
   wrap?: boolean
+  /** The sub-line IS the message — a due Wiedervorlage's task, under the generic «Erinnerung
+   *  fällig · 21:40» — so it wraps to two lines before the ellipsis, where every other sub-line
+   *  keeps one (20.10.2026, UX sweep S2: «Rückmeldung Strom an EBL: Hauptschalter …» lost the
+   *  part that says what to do). The title still opens the whole text in the Verlauf. */
+  subLines?: 2
 }
 
 /**

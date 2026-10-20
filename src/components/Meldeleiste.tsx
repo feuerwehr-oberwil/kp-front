@@ -84,7 +84,7 @@ export function Meldeleiste() {
     // over each other is what this replaces.
     <div ref={box} className={all ? 'ml ml-all' : 'ml'} role="status" aria-live="polite" aria-label={C.region}>
       {rows.map((m) => (
-        <div key={m.id} className={`ml-row t-${m.tone}${m.wrap ? ' wrap' : ''}`}>
+        <div key={m.id} className={`ml-row t-${m.tone}${m.wrap ? ' wrap' : ''}${m.subLines === 2 ? ' sub2' : ''}`}>
           <Icon id={m.icon} className="ml-ic" />
           <span className="ml-txt">
             <MeldungTitle m={m} />

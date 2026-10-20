@@ -109,6 +109,10 @@
 /* a row whose sentence IS the message (Meldung.wrap) — «Einsatz wurde auf einem anderen Gerät
    abgeschlossen (14:45)» must not lose its end to the ellipsis on a phone */
 .ml-row.wrap .ml-title, .ml-row.wrap .ml-sub { white-space: normal; overflow-wrap: anywhere; }
+/* …and a row whose SUB-line is the message (Meldung.subLines — a due Wiedervorlage's task): two
+   lines, then the ellipsis, the title's own clamp */
+.ml-row.sub2 .ml-sub { white-space: normal; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 /* the title as the row's way in: a LINK, not a button. No border, no fill, the same type as an
    inert title — a title first and a destination second, which is what «In Verlauf öffnen» stopped
    being the moment it was a third button beside Erledigt and +10 min.
