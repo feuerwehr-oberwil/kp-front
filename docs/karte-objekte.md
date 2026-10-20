@@ -223,8 +223,9 @@ The rules that are easy to break:
 - **Object or house — the switch** (owner, Karte Haus round 1 · variant A, 19.10.2026: «it's very
   hard to click the underlying building if there is a plan on top of it»). A tap on one of the
   buildings of an object that HAS several opens the object as before and remembers that building
-  (dashed blue). Right under the panel head, the app's `Segmented` (a CHOICE, blue fill; round 2,
-  owner: «the toggle changes height and isn't using the normal style»): **Objekt · n Pläne** |
+  (dashed blue). Right under the panel head, the app's `Segmented` (round 2, owner: «the toggle changes height
+  and isn't using the normal style»; its picked half a neutral surface pill since review round 4,
+  not the blue choice fill — the panel's one rhythm, below): **Objekt · n Pläne** |
   **<the house's street>** («Dieses Haus» until the register, asked at the tapped point as a
   building tap asks, names it), one line per half — a long street ends in «…», so the switch has
   the same height on both levels and for every name. One tap switches, both ways, on the tablet
@@ -311,6 +312,15 @@ The rules that are easy to break:
   viewer's `karte:objektplan` twin), which keeps the capability. Section titles are the sheet's
   group heads (eyebrow, no glyph); a missing or quiet fact is a line, not a box — only a warning
   (no coordinates, the register unreachable) keeps its box.
+- **One rhythm** (owner, Karte Haus review round 4: «do a ui hierarchy pass. it feels like some
+  buttons are larger than others»; picked mock A, the phone sheet too): one size per role in the
+  panel. Every list row is 48px with its quiet sub on the title's line («Hydrant südlich»; it
+  wraps under the title only where the two do not fit) and its read-out one step smaller; a plan
+  row leads with a document glyph (the Gebäude with the floors glyph), so its words start where
+  In der Nähe's do. The switch is 36px and neutral, the ✕ 32px, the register tags 26px and
+  outlined (read-only facts, not buttons; a hazard keeps its amber), the actions the app's 44px
+  button. All of it is the panel's own (`Karte.module.css` · «one rhythm»): the global `ListRow`
+  (search, library, Objektbesuche) and the Einsatz's Gebäude card keep their sizes.
 - **On a phone the panel is the Ebenen sheet** (owner, 17.10.2026 · R2: «a full slide-up like for
   "ebenen" and not this half thing»). `KartePanel` wears `.layers-card` there, so it IS that sheet:
   flush with the bottom edge and both sides, over the bar, the hero corner, hugging its content up

@@ -205,10 +205,11 @@ describe('KartePanel · order and actions (R2)', () => {
     const { container } = panel({ sel: { kind: 'object', obj: WITH_PLANS }, docs: DOCS, sheet: true, onOpenDoc })
     const rows = [...container.querySelectorAll('[data-section="plans"] button')]
     expect(rows.map((r) => r.textContent)).toEqual(['Modul 1', 'Gebäude'])
-    // one shape for every row: the words, the chevron — no lead glyph, no second line
+    // one shape for every row: a document glyph (round 4 · mock A: the words start where In der
+    // Nähe's do), the words, the chevron — no second line
     for (const r of rows) {
-      expect(r.querySelector('.list-row-title')).not.toBeNull()
-      expect(r.querySelector('.list-row-lead, .list-row-sub')).toBeNull()
+      expect(r.querySelector('.list-row-lead use')?.getAttribute('href')).toBe(r.textContent === 'Gebäude' ? '#floors' : '#doc')
+      expect(r.querySelector('.list-row-sub')).toBeNull()
     }
     expect(container.textContent).not.toMatch(/Übersicht|PDF|ausgerichtet|Geschosse vorbereitet/)
     fireEvent.click(screen.getByRole('button', { name: 'Modul 1' }))
