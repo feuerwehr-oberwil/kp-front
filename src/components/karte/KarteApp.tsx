@@ -38,7 +38,6 @@ import { cx } from '../../lib/cx'
 import { fillTemplate } from '../../lib/format'
 import { useAuth } from '../../lib/auth'
 import { useIsPhone } from '../../lib/useIsPhone'
-import { useRailLabels } from '../../lib/useDevicePrefs'
 import { useOnline } from '../../lib/useOnline'
 import { onReachable } from '../../lib/connectivity'
 import { useNightTheme } from '../../lib/useNightTheme'
@@ -1190,8 +1189,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }, [openDoc])
   // the tablet's left rail is always there (owner, 19.10.2026): Karte · Checkliste, then the plans
   const railShown = !phone
-  // «Beschriftung» from the Einstellungen, live (the home's settings sheet sits over this surface)
-  const railLabels = useRailLabels(phone)
   const tabletTools = [
     { id: 'pin', icon: 'pin', label: C.tools.pin },
     { id: 'measure', icon: 'measure', label: C.tools.measure },
@@ -1521,8 +1518,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         {railShown && (
           <KarteNavRail obj={selObj} docs={docs} active={onLibrary ? 'library' : openDoc ? { doc: openDoc.doc.id } : 'map'}
             onMap={() => setSurface(null)} onLibrary={openLibrary} onDoc={(id) => { setSurface(id); setToolState(null) }}
-            notHeld={!online ? new Set(docs.filter((d) => docHeld(d) === false).map((d) => d.doc.id)) : null}
-            labels={railLabels} />
+            notHeld={!online ? new Set(docs.filter((d) => docHeld(d) === false).map((d) => d.doc.id)) : null} />
         )}
 
         {panelShown && panelSel && (

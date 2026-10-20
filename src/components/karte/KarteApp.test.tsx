@@ -107,6 +107,7 @@ import { fmtDistance, haversineM } from '../../lib/geo'
 import { appConfig } from '../../config/appConfig'
 import { __setUnHazardData, type UnHazardEntry } from '../../lib/unHazard'
 import adr from '../../../public/un-hazard.json'
+import { loadPrefs, savePrefs } from '../../lib/prefs'
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 beforeAll(() => {
@@ -668,6 +669,26 @@ describe('KarteApp', () => {
     expect(screen.queryByTestId('library')).toBeNull()
     expect(within(nav).getByRole('button', { name: 'Messen' }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByRole('button', { name: 'Suchen' })).toBeTruthy()
+  })
+
+  it('keeps the tablet navigation collapsible with saved toolbar labels enabled', async () => {
+    const prefs = loadPrefs()
+    savePrefs({ ...prefs, railLabels: 'short', railLabelsChosen: true })
+    try {
+      mount()
+      const rail = screen.getByRole('navigation', { name: 'Karte & Objekte' })
+      expect(rail.classList.contains('labelled')).toBe(false)
+      expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('60px')
+      fireEvent.click(within(rail).getByRole('button', { name: 'Ausklappen' }))
+      expect(rail.classList.contains('expanded')).toBe(true)
+      expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('216px')
+      fireEvent.click(within(rail).getByRole('button', { name: 'Einklappen' }))
+      expect(rail.classList.contains('expanded')).toBe(false)
+      expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('60px')
+      await act(async () => {})
+    } finally {
+      savePrefs(prefs)
+    }
   })
 
   it('on a tablet: the rail always holds Karte and Checkliste, the plans hang under them; the bar searches the library', async () => {
