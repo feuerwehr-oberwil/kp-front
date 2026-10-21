@@ -55,6 +55,20 @@ export function withCartoRetina(url: string, retina: boolean = wantsRetinaTiles(
 /** A CARTO raster template back at 1× — for our own backend, whose compositor is 256 px. */
 export const withoutCartoRetina = (url: string): string => withCartoRetina(url, false)
 
+/** The labelled twin of each unlabelled CARTO style (other hosts and styles untouched). */
+const CARTO_NOLABELS = /\/(rastertiles\/voyager|dark|light)_nolabels\//
+const LABELLED: Record<string, string> = { 'rastertiles/voyager': 'rastertiles/voyager', dark: 'dark_all', light: 'light_all' }
+
+/**
+ * A CARTO template with the names baked in again – for the surfaces that draw the raster ALONE.
+ * The app's base is the unlabelled raster with vector names on top (lib/basemapLabels); paper
+ * (the Rapport's Kroki and the Tafel box, composited by the backend) and the plain raster pickers
+ * get no vector layer, so they ask for the labelled tiles instead.
+ */
+export function withCartoLabelsBaked(url: string): string {
+  return url.replace(CARTO_NOLABELS, (_, style: string) => `/${LABELLED[style]}/`)
+}
+
 /** Apply the screen's tile resolution to a layer's CARTO templates (day and night). */
 export function retinaCartoTileTemplates<T extends { tiles?: string[]; nightTiles?: string[] }>(layer: T, retina: boolean = wantsRetinaTiles()): T {
   const tiles = layer.tiles?.map((u) => withCartoRetina(u, retina))

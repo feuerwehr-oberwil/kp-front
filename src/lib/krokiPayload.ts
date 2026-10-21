@@ -16,7 +16,7 @@ import { endOnTarget, resolveMapDrawings } from './lineAttachments'
 import { truppForLine, truppTagText } from './truppLines'
 import { symbolLegendText } from './symbols'
 import { doneBadge } from './objectDone'
-import { withoutCartoBasemapKey, withoutCartoRetina } from './carto'
+import { withCartoLabelsBaked, withoutCartoBasemapKey, withoutCartoRetina } from './carto'
 
 export interface KrokiEntityOut {
   coord: LngLat
@@ -313,8 +313,9 @@ export function buildKrokiPayload(args: {
     bounds: args.currentView?.bounds,
     maxTileZoom: base.maxzoom,
     // unkeyed: the backend applies its own CARTO credential (lib/carto · withoutCartoBasemapKey);
-    // 1×: its compositor lays tiles on a 256 px grid (lib/carto · withoutCartoRetina)
-    tiles: withoutCartoBasemapKey(withoutCartoRetina(base.tiles[0])),
+    // 1×: its compositor lays tiles on a 256 px grid (lib/carto · withoutCartoRetina);
+    // labelled: paper gets no vector names, so the raster brings its own (withCartoLabelsBaked)
+    tiles: withCartoLabelsBaked(withoutCartoBasemapKey(withoutCartoRetina(base.tiles[0]))),
     attribution: base.attribution ?? '© CARTO, © OpenStreetMap-Mitwirkende',
   }
 }

@@ -27,7 +27,7 @@ import {
 } from '../lib/krokiLegend'
 import type { CaptionMode, Drawing, Entity, LayerDef, LngLat, Trupp } from '../types'
 import { krokiStandLabel, type KrokiView } from '../lib/report'
-import { cartoRasterTiles } from '../lib/carto'
+import { cartoRasterTiles, withCartoLabelsBaked } from '../lib/carto'
 
 // WYSIWYG framing of the printed Kroki: the auto-fit (or the last chosen crop) is just the
 // STARTING point — the operator pans/zooms and exactly this crop becomes the printed Kroki.
@@ -180,7 +180,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
   const base = scene.layers.find((l) => l.base && l.visible && l.tiles?.length) ?? scene.layers.find((l) => l.base && l.tiles?.length)
   const style = useMemo(() => ({
     version: 8 as const,
-    sources: { base: { type: 'raster' as const, tiles: base?.tiles?.length ? [base.tiles[0]] : cartoRasterTiles(CARTO_FALLBACK_STYLE, ['a']), tileSize: 256, maxzoom: base?.maxzoom } },
+    sources: { base: { type: 'raster' as const, tiles: base?.tiles?.length ? [withCartoLabelsBaked(base.tiles[0])] : cartoRasterTiles(CARTO_FALLBACK_STYLE, ['a']), tileSize: 256, maxzoom: base?.maxzoom } },
     layers: [{ id: 'base', type: 'raster' as const, source: 'base' }],
   }), [base])
 
