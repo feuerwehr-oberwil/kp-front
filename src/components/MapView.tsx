@@ -626,21 +626,25 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // would stay off for the rest of the session. Every such removal is a render, so this reopens
   // it; enable/disable are idempotent, so running it every render costs nothing.
   useEffect(() => { syncMapKeyboard(mapInst.current) })
-  // ── one-finger zoom belongs to Auswahl (UX sweep M4, owner 21.10.2026: «when using tools, they
-  // should have precedence») ── MapLibre's double tap / double click and its tap-and-drag zoom are
-  // off while a tool is armed: every tap is the tool's, and a double tap is two of them — never a
-  // zoom that the first tap's node or symbol is left under. Pinch and the wheel stay on. Tap-and-
-  // drag rides on touchZoomRotate (the pinch), so it is switched on its own, and only back on if
-  // the pinch is. Per instance: a WebGL remount builds a fresh map with both on.
+  // ── a one-finger zoom gesture works unless the armed tool uses it (UX sweep M4, owner
+  // 21.10.2026: tools have precedence, «if the underlying tool doesn't interfere» the map zooms) ──
+  // A DOUBLE TAP is off under a tap tool (Punkte, Messen, Hinzufügen, Notiz, Trupp, Koordinaten,
+  // and Kreis, whose tap drops a default-size ring): its taps are the tool's, and a double tap is
+  // two of them. Under a drag tool it zooms: a Freihand tap commits nothing (isTapStroke), and a
+  // Mehrfach tap selects, as under Auswahl. TAP-AND-DRAG belongs to Auswahl alone:
+  // it starts with a tap (a tap tool's) and goes on as a drag (a drag tool's). Pinch and the wheel
+  // stay on throughout. Tap-and-drag rides on touchZoomRotate (the pinch), so it is switched on its
+  // own, and only back on if the pinch is. Per instance: a WebGL remount builds a fresh map with
+  // both on.
+  const dragTool = !!freehand || marqueeEnabled
   useEffect(() => {
     const m = mapInst.current
     if (!mapReady || !m) return
-    if (placing) { m.doubleClickZoom.disable(); m.touchZoomRotate._tapDragZoom.disable() }
-    else {
-      m.doubleClickZoom.enable()
-      if (m.touchZoomRotate.isEnabled()) m.touchZoomRotate._tapDragZoom.enable()
-    }
-  }, [mapReady, placing])
+    if (placing && !dragTool) m.doubleClickZoom.disable()
+    else m.doubleClickZoom.enable()
+    if (placing) m.touchZoomRotate._tapDragZoom.disable()
+    else if (m.touchZoomRotate.isEnabled()) m.touchZoomRotate._tapDragZoom.enable()
+  }, [mapReady, placing, dragTool])
   // WebGL context recovery: iPadOS drops the context under memory pressure / after a long
   // background spell, and MapLibre stays blank without rebuilding. `gl.generation` keys the
   // <Map> below so recovery is a fresh instance; `viewRef` carries the CURRENT view across that

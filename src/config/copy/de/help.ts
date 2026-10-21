@@ -378,7 +378,7 @@ export const helpCopy = {
           { kind: 'sub', text: 'Tippen & Ziehen (Touch/iPad)' },
           { kind: 'list', items: [
             'Ein Finger schiebt die Karte/den Plan; zwei Finger zoomen (Pinch).',
-            'Auch mit einem Finger: **doppeltippen** zoomt hinein; **tippen, nochmals drücken und ziehen** zoomt stufenlos – nach unten hinein, nach oben hinaus. Gleich auf Karte und Plan, mit der **Auswahl**. Ist ein Werkzeug aktiv, gehört jedes Tippen dem Werkzeug – dann zoomen zwei Finger. Linie und Fläche aus Punkten schliesst ✓ ab, nie ein Doppeltippen.',
+            'Auch mit einem Finger: **doppeltippen** zoomt hinein; **tippen, nochmals drücken und ziehen** zoomt stufenlos – nach unten hinein, nach oben hinaus. Gleich auf Karte und Plan, mit der **Auswahl**. Ein Werkzeug hat Vorrang: wo es tippt (Punkte, Messen, Hinzufügen, Notiz, Kreis …), gehört jedes Tippen ihm; wo es zieht (Freihand, Mehrfach), zoomt Doppeltippen weiter. Zwei Finger zoomen immer. Linie und Fläche aus Punkten schliesst ✓ ab, nie ein Doppeltippen.',
             'Nochmals auf **Auswahl** tippen schaltet den Knopf auf **Mehrfach**: ein gezogener Rahmen wählt mehrere Objekte; ausgewählte Objekte verschiebt man durch Ziehen.',
           ] },
           { kind: 'sub', text: 'Maus', only: 'keyboard' },

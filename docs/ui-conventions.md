@@ -533,12 +533,14 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     keyframe: it drifts against the latch and, under `prefers-reduced-motion`, paints full on the
     first frame while the timer still runs. The ring haloes the glyph – never strokes across a
     label, and nothing may reflow under the finger mid-hold.
-  - *One-finger zoom belongs to Auswahl; an armed tool owns its taps* (20./21.10.2026, owner: a
-    double tap is «a map function … definitely not for finishing something», and «when using
-    tools, they should have precedence»): with Auswahl a double tap zooms and tap-and-drag zooms
-    on the Karte (MapLibre's own) and on a Plan (`lib/tapDragZoom`). While any tool is armed both
-    are off (`MapView` switches MapLibre's off; the Plan never handed them to a tool) and pinch
-    navigates. Nothing finishes on a double tap — ✓ finishes a Punkte Linie / Fläche on both.
+  - *A one-finger zoom gesture works unless the armed tool uses it* (20./21.10.2026, owner: a
+    double tap is «a map function … definitely not for finishing something»; tools «have
+    precedence», the map zooms «if the underlying tool doesn't interfere»). Same on the Karte
+    (`MapView`, MapLibre's handlers) and a Plan (`useBoardGestures`, `lib/tapDragZoom`):
+    Auswahl — double tap and tap-and-drag zoom. A drag tool (Freihand, the Mehrfach-Rahmen) —
+    double tap zooms (its taps mean nothing), tap-and-drag is off (the drag draws). A tap tool
+    (Punkte, Messen, Hinzufügen, Notiz, Trupp, Koordinaten, Kreis) — neither; its taps are its own.
+    Pinch always navigates. Nothing finishes on a double tap — ✓ finishes a Punkte Linie / Fläche.
   - *Pressed state is the `--press` wash* – `background-image: linear-gradient(var(--press),
     var(--press))` on `:active:not(:disabled)`, so it composes over any background colour.
     **Nothing moves**: no scale, no translate – motion on press reads as lag under a glove.

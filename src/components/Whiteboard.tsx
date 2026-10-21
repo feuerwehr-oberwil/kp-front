@@ -1588,6 +1588,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       inkPinch.current = inkPinchPts()?.dist ?? null
       return
     }
+    // Freihand's taps mean nothing, so a double tap on the ink zooms (useBoardGestures ·
+    // tapZoomPress); its drag stays the stroke
+    if (inking) tapZoomPress(e)
     const n = toNorm(e.clientX, e.clientY); if (!n) return
     e.stopPropagation() // placement owns this pointer — don't let the stage ALSO start a board pan
     const floor = stack ? floorAt(n[1]) : 0
@@ -2200,7 +2203,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
-  const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp } = useBoardGestures({
+  const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp, tapZoomPress } = useBoardGestures({
     tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
   })
 
