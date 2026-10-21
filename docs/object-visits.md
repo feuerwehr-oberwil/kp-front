@@ -205,7 +205,9 @@ Server-added on read: `revision`, `ready`, `missing` (photo ids not yet stored),
 `deliveries` (`[{destination, state, revision, at, error?}]` — `revision` is the delivered one,
 `error` only while `failed`/`pending`), `target_kind` (`"object" | "location"`) and `location`
 (`{label, address, lat, lng}` — the place, or the object's name, address and position; `null`
-when nothing is known).
+when nothing is known), `completedAt` (the moment the FIRST revision said `completed`; `null`
+otherwise) and `lockedAt` (from when corrections are refused — `completedAt` +
+`objectVisits.lockAfterHours`; `null` where no lock applies).
 
 Validation (422 with a German `detail`): no string anywhere (keys included) holds a NUL or a lone
 surrogate (Postgres cannot store either — same rule on the organizer's object/list bodies and
@@ -213,10 +215,32 @@ path ids), schema string, id matches path, the target (see «The target»: a pla
 a label and a position), object id exists (for a NEW object reference: a visit
 whose recorded object was later deleted keeps saving; its link goes to wherever a merge/re-key
 moved it, else NULL, and the document keeps the snapshot),
-`lifecycle` transitions: `draft→draft|completed|discarded`, `completed→completed` (a correction),
-`discarded` is terminal; **no reopen**. Photo/proposal ids unique; ≤ 200 photos, ≤ 100 proposals,
+`lifecycle` transitions: `draft→draft|completed|discarded`, `completed→completed` (a correction,
+and only while the lock window is open — see «The lock»), `discarded` is terminal; **no reopen**. Photo/proposal ids unique; ≤ 200 photos, ≤ 100 proposals,
 text fields bounded (notes ≤ 20 000 chars, caption ≤ 300). The checklist snapshot may only change
 while the visit is a draft.
+
+## The lock — a completed visit goes view-only (20.10.2026)
+
+A completed Objektbesuch may be corrected for a while and then stands as the record (owner:
+«currently open for editing indefinitely … this plan is open for more than a week and it still
+hasn't closed»). The window is `objectVisits.lockAfterHours`, **24 hours by default**; `0` locks
+the visit the moment it is completed, `null` never locks it.
+
+- It is counted from the **completion**, not from the last change: `completedAt` is the first
+  revision whose lifecycle was `completed`, so a correction never buys another day.
+- The **server** enforces it (`object_visits · refuse_locked_correction`): a `completed→completed`
+  write after `lockedAt` is refused `422 {code: "locked", detail, lockedAt}`. A resend of the
+  document the server already holds is still the no-op answer — only a real change is refused.
+- The **admin session / the organizer** (a write with no account behind it) still corrects: a
+  station must be able to fix its own record afterwards.
+- **Drafts are untouched**: a draft is not finished, and `draft→completed` is never a correction.
+- The app draws it off the server's `lockedAt` (`objectVisits/lock · visitLocked`), never off its
+  own clock-and-config arithmetic: the read view then has no «Bearbeiten» row but a line saying
+  since when the visit is view-only (`StopCards · LockedRow`). A completion the server has not
+  seen yet (finished offline) has no `lockedAt` and is not locked on the device — the correction
+  is sent and the server decides.
+- **«Weitere Checkliste» stays**: a new visit at the same object is not a correction of the old one.
 
 ## Field API — `/api/object-visits` (session; never a link/terminal/poster session)
 
@@ -228,7 +252,8 @@ without `X-Incident-Link: use`; a request carrying only the poster's `X-Capture-
 session at all ⇒ 401. The integration bearer key opens nothing here. Tests assert all of it.
 
 Refusals carry a `code` at the top of the body **and** a German `detail`:
-`{code, detail, …extra}` — `invalid` / `lifecycle` (422), `forbidden` / `link_session` (403),
+`{code, detail, …extra}` — `invalid` / `lifecycle` / `locked` (422, `locked` also carries
+`lockedAt`), `forbidden` / `link_session` (403),
 `not_found` / `visit_not_found` / `object_visits_disabled` (404), `revision_conflict` /
 `attachment_conflict` (409). `by`, `createdBy`, `updatedBy`, `acceptedBy` are always `{id, name}`
 (`by` = the visit's creator).
@@ -417,6 +442,7 @@ ticked; never every account, never every installed device).
 "objectVisits": {
   "enabled": false,
   "captureRoles": ["editor", "el"],
+  "lockAfterHours": 24,                          // see «The lock»; 0 = at once, null = never
   "proposalFields": [{ "id": "owner_contact", "label": "Kontakt Eigentümer" }],
   "destinations": [{
     "id": "sharepoint-fu", "kind": "sharepoint", "enabled": true,
@@ -451,7 +477,7 @@ The importer's credentials are never used for writing. Admin labels: group `obje
 
 Validation: destination `id` lower-case `[a-z0-9_-]`, unique; `siteUrl` https; `root`,
 `objectFolder`, `visitFolder` plain paths (no `..`); `captureRoles` ⊆ `editor, el, viewer`;
-proposal field ids unique. Nothing in the section is secret — `GET /api/config` is public.
+`lockAfterHours` an integer 0…8760 or `null`; proposal field ids unique. Nothing in the section is secret — `GET /api/config` is public.
 
 **Filing folders.** `objects.filing_folder` is set by the SharePoint plan pull — on every run,
 for every folder it lists: objects the pull created follow the folder name (a rename in

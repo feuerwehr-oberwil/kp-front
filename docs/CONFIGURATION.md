@@ -794,7 +794,10 @@ open to whoever has the address.
 ### 1e. `objectVisits` – the optional Objektbesuche module
 
 Off unless `objectVisits.enabled` is `true`. `captureRoles` (default `["editor","el"]`) says who may
-record a visit, `proposalFields` is the station's field list for Korrekturvorschläge, and
+record a visit, `lockAfterHours` (default `24`) how long after its completion a visit may still be
+corrected before it goes view-only – `0` locks it at once, `null` never locks it, and the server
+enforces it, not only the app («Station › Objektbesuche › Korrektur-Fenster»).
+`proposalFields` is the station's field list for Korrekturvorschläge, and
 `destinations[]` are the SharePoint folders the server files visits into (a visit at a place, with
 no object, goes to the destination's `locationFolder`, «Allgemeine Meldungen/…» by default). The full contract – the
 visit document, the APIs, the delivery – is [`object-visits.md`](object-visits.md); setting up a

@@ -328,5 +328,13 @@ ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
 }
 
 /* the back row above a document in the main pane («‹ TLF», components/ListRow · BackRow, owner
-   19.10.2026) – placement only, in both hosts (ChecklistsView, ChecklistLibrary) */
-.cl-doc-back { margin-bottom: var(--sp-2); padding: 0 var(--sp-2); border-radius: var(--r-sm); }
+   19.10.2026) – placement only, in both hosts (ChecklistsView, ChecklistLibrary).
+   ⚠️ It must carry the reading column's WIDTH, not just sit in the pane (owner, review 7: «the
+   back button for nested checklists isn't left-aligned»). `.cl-main > *` centres every child
+   with `margin-inline: auto`; the document below is `--cl-col` wide, so auto puts the column in
+   the middle of the pane — but this row is a flex button that hugs its label, so the same auto
+   centred the WORD over the pane and the chevron landed ~200px right of the title under it.
+   Same max-width, flush left inside it: the two now start on one edge, whatever the pane does.
+   `padding-inline: 0` is part of that – the row's own 8px inset was 8px the title does not have. */
+.cl-doc-back { width: 100%; max-width: var(--cl-col, 760px); justify-content: flex-start;
+  margin-bottom: var(--sp-2); padding-inline: 0; border-radius: var(--r-sm); }

@@ -59,6 +59,7 @@ import { GeorefAdjustLayer, GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks }
 import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { setLiveBearing } from '../lib/liveBearing'
+import { LABEL_ABOVE, measureLabelPlacement } from '../lib/measureLabelPlace'
 import { advanceDwell, armDwell, attachInsetPx, DEFAULT_OBJECT_ROUTING, lineJoints, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint, TEAM_JOIN_RADIUS_PX } from '../lib/lineAttachments'
 
 // ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
@@ -2369,17 +2370,26 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         </Marker>
       ))}
 
-      {/* measurement readouts pinned to the path (cumulative distance / area), above the handles.
+      {/* measurement readouts pinned to the path (cumulative distance / area), BESIDE the handles:
+          each one steps off its segment's left so close-together nodes cannot cover it
+          (lib/measureLabelPlace; owner, review round 7). The area's single centroid label has no
+          segment and keeps its place above the point.
           While a vertex is in the hand its own label is 12px under the fingertip — that one is
           suppressed (decided BEFORE the <Marker>, per the null-child trap below) and the fixed
           .measure-readout at the top edge carries the number instead. */}
-      {measureLabels.map((l, i) => (
-        (measureDragNode != null && measureKind === 'line' && i === measureDragNode - 1) ? null : (
-        <Marker key={`ml${i}`} longitude={l.coord[0]} latitude={l.coord[1]} anchor="bottom" offset={[0, -12]}>
-          <div className={`measure-label ${l.strong ? 'strong' : ''}`}>{l.text}</div>
-        </Marker>
+      {measureLabels.map((l, i) => {
+        if (measureDragNode != null && measureKind === 'line' && i === measureDragNode - 1) return null
+        // label i ends the segment measurePoints[i] → measurePoints[i + 1] (measureLabels drops
+        // the first point); any other shape of readout stands above its point
+        const from = measureKind === 'line' ? measurePoints[i] : undefined
+        const to = measureKind === 'line' ? measurePoints[i + 1] : undefined
+        const place = from && to ? measureLabelPlacement(from, to, bearing) : LABEL_ABOVE
+        return (
+          <Marker key={`ml${i}`} longitude={l.coord[0]} latitude={l.coord[1]} anchor={place.anchor} offset={place.offset}>
+            <div className={`measure-label ${l.strong ? 'strong' : ''}`}>{l.text}</div>
+          </Marker>
         )
-      ))}
+      })}
 
       {/* annotated-line readouts (auto distance + hose-length helper / free-text label),
           pinned to each line's midpoint — reuses the measure-label chrome */}

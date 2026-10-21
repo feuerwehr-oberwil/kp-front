@@ -12,6 +12,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       enabledTip: 'Shows «Object visits» on the launcher and opens the interfaces for devices and the organizer.',
       captureRoles: 'Who may record',
       captureRolesTip: 'Accounts with these roles may create and change visits. All other accounts only read.',
+      lockHours: 'Correction window (hours)',
+      lockHoursTip: 'How long after completion a visit may still be corrected; after that it is view only. Empty = never lock.',
       roles: { editor: 'Edit', el: 'Incident command', viewer: 'View' },
       rolesNone: 'At least one role must be allowed to record.',
       checklists: 'Checklists',

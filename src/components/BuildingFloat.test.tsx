@@ -93,7 +93,11 @@ describe('BuildingFloat', () => {
     expect(at('PV 35.6 kW')).toBeLessThan(at('Sofortmassnahmen'))
     expect(at('Gashaupthahn schliessen')).toBeLessThan(at('Bemerkungen'))
     expect(at('Schlüsseldepot beim Haupttor')).toBeLessThan(at('3 Geschosse'))
-    expect(at('Sofortmassnahmen')).toBeLessThan(at('GWR'))
+    // the source line is folded behind «Register-Hinweis» (review round 7) — and opens LAST
+    expect(at('GWR')).toBe(-1)
+    fireEvent.click(screen.getByRole('button', { name: /Register-Hinweis/ }))
+    const opened = screen.getByRole('dialog').textContent ?? ''
+    expect(opened.indexOf('Sofortmassnahmen')).toBeLessThan(opened.indexOf('GWR'))
   })
 
   it('nothing to say → no chip at all', () => {

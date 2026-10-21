@@ -1027,6 +1027,16 @@
   /* …and a Tafel PAGE has no tool bar under it (the form takes the stage, Whiteboard · formPage):
      its row — the page strip, the FAB — stands on the nav bar like any surface without tools */
   :root:has(.phone-tools .wb-tafel-page) { --float-base: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px)); }
+  /* ⚠️ …and the Karte's foot is ONE bar: its tools live IN the nav bar, so it wears .phone-tools
+     for the dock's SHAPE while having no tool bar under it. Karte.module (· «Messen on the phone»)
+     already steps the dock and the Messen readout down a rail, but this reserve is declared on
+     :root, which that module cannot reach — so a message still cleared a bar that is not there and
+     stood 74px, a whole rail, above the nav bar (owner, review round 7: the point hint «isn't flush
+     with the bottom bar»). With the dock out the stack above it is the Karte's own, and the
+     3-rail figure already lands just above the readout — only the bare case is wrong. */
+  :root:has(.phone-tools[data-karte]):not(:has(.phone-tools .wb-dock)) {
+    --float-base: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px));
+  }
   :root { --float-bottom: calc(var(--float-base) + var(--float-gap) + env(safe-area-inset-bottom)); }
   /* the row is OCCUPIED while any of its pieces is on screen: a FAB, the plan's chip row, the
      strip, the way back to the Rapport. It publishes no height because it has only one: --float-h. */

@@ -8,15 +8,18 @@ import { appConfig } from '../config/appConfig'
 import { cx } from '../lib/cx'
 import { ProfileChart, ProfileStats } from './ProfileChart'
 import { Button, IconButton } from './Button'
+import { MapHelpCard } from './DockInfo'
 import s from './MeasurePanel.module.css'
 
-/** A placement mode's instruction («Auf die Karte tippen …») in the measure panel's frame and
- *  its quiet hint line, at the panel's spot at the foot of the map – above the phone's bottom bar
- *  (the host's `className` places it, as for the panel). An instruction is read when it is wanted,
- *  so it stands low and quiet; a MESSAGE is meant to be seen at once and keeps the toast lane,
- *  which a placement mode sends to the top (owner 20.10.2026, lib/toastLane · usePlacementLane). */
-export function MapHint({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cx(s['measure-panel'], s['mp-hint-only'], className)} role="status"><div className={s['mp-hint']}>{children}</div></div>
+/** A placement mode's instruction («Auf die Karte tippen …»), in THE card a map tool explains
+ *  itself in — the very one the Messen dock's ⓘ opens (DockInfo · MapHelpCard), at the foot of
+ *  the map and in the phone's message lane. It wore a frame and a type of its own until review
+ *  round 7, which read as a lesser message beside the ⓘ card (owner, 20.10.2026).
+ *  `role="status"`: an instruction that appears because a tool was armed, not because a control
+ *  was asked. A MESSAGE still keeps the toast lane, which a placement mode sends to the top
+ *  (owner 20.10.2026, lib/toastLane · usePlacementLane). */
+export function MapHint({ children }: { children: ReactNode }) {
+  return <MapHelpCard role="status">{children}</MapHelpCard>
 }
 
 export function MeasurePanel({ mode, coords, profile, profileLoading, metrics, showProfile = true, blocked = false, hint, onAdopt, onCalibrate, calibrateLabel, recalibrateLabel, scaleNote, className }: {

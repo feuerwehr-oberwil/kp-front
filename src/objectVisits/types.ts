@@ -140,6 +140,10 @@ export interface VisitServerFields {
   deliveries?: Delivery[]
   target_kind?: VisitTarget['kind']
   location?: VisitLocation | null
+  /** when it was FINISHED — the first revision that said `completed`; null while it is not */
+  completedAt?: string | null
+  /** from when corrections are refused (objectVisits/lock); null where no lock applies */
+  lockedAt?: string | null
 }
 
 export type ServerVisit = VisitDoc & VisitServerFields

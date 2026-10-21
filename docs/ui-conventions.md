@@ -9,6 +9,16 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
 
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, ...)`, **never** a frozen
   `rgba()` of the accent – that breaks day/night and per-station accent theming.
+- **`color-scheme` carries `only` in both themes** (`only light` / `only dark`, 01-tokens.css and
+  its boot-splash twin in `index.html`). It does two jobs: it tells the UA which palette our own
+  chrome is drawn in, so native surfaces it paints itself (scrollbars, the iOS keyboard accessory
+  bar) match – and the `only` keyword opts the page out of the UA's *force-dark* adjustment.
+  Without it, Blink's force-dark («Dark mode» in Samsung Internet, Auto Dark Theme in Chrome)
+  repaints a page that declares a scheme it doesn't claim to support: the owner's Samsung tablet
+  darkened all of our day chrome while the WebGL map canvas, which no filter touches, stayed
+  light (round 7, point 2). Do **not** "fix" that with `light dark`: that hands the native
+  surfaces back to the OS setting and re-opens the white-accessory-bar bug. Guarded by
+  `e2e/blink-force-dark.mjs`.
 - **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live
   in **`src/styles/NN-*.css`** – one numbered file per block (tokens, base, map, chrome, one per
   surface), listed in order by `src/app.css`, which is now a manifest of `@import`s and holds no
@@ -437,7 +447,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     static without), on a `ListCard` (white card with hairlines, 56px rows, 16px titles) or a
     `ListCard look="rail"` (a list column beside a document: --tap rows, 14px titles, the one
     corner), under a `ListGroup` eyebrow. «Where you are» is `on` (the ink pill). The way one level
-    up is `BackRow` «‹ Label», naming where it goes, never a bare «Zurück». The look is global
+    up is `BackRow` «‹ Label», naming where it goes, never a bare «Zurück». Over a reading column it
+    takes that column's own width and sits flush left in it – it hugs its label, so a pane that
+    centres its children would otherwise centre the WORD and leave the chevron adrift from the
+    title under it (owner, review 7; `Checklists.module` · `.cl-doc-back`). The look is global
     (13-incident: `.list-row`, `.list-card`, `.list-group`, `.back-row`); a surface fills the lead
     slot and places them, never a `.row` of its own. A row's extra line under its text (a round's
     progress bar) goes in as `children`. On it: the library, the Einsatz rail, the devices, the

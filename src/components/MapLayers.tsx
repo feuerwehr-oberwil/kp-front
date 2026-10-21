@@ -1,11 +1,13 @@
 import { Fragment, useEffect, useState } from 'react'
 import { Source, Layer } from 'react-map-gl/maplibre'
 import type { LayerDef, LayerId, PreparedMapOverlay } from '../types'
+import type { LayerData } from '../lib/layerData'
 import { circlePolygon } from '../lib/geo'
 import { vis, lineFeat } from '../lib/mapView'
 import { useNightTheme } from '../lib/useNightTheme'
 import { hatchImageId } from '../lib/draw'
 import { prefersReducedMotion } from '../lib/reducedMotion'
+import { loadLayerData, useLayerData } from '../lib/layerData'
 
 // Night mode dims the basemap so it's mostly dark without losing detail (buildings/roads stay
 // visible) — a gentle dim, NOT a full dark/black swap. Applied to the BASE raster only, so the
@@ -129,6 +131,19 @@ interface Props {
 export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Props) {
   const baseLayers = layers.filter((l) => l.base)
   const night = useNightTheme()
+  /* The GeoJSON overlays (Leitungskataster) are fetched by the app, not by MapLibre: the Ebenen
+     row has to be able to say how far a multi-megabyte Leitungen file has got (lib/layerData),
+     and a source pointed at the URL would download it a second time inside the worker. Started
+     from an effect while the layer is on, so a layer nobody switched on is never fetched. */
+  const vectorLayers = layers.filter((l) => !l.base && l.geojson && isVisible(l.id))
+  const loads = useLayerData()
+  const vectorKeys = vectorLayers.map((l) => `${l.id}|${l.geojson}`).join(',')
+  useEffect(() => {
+    for (const key of vectorKeys ? vectorKeys.split(',') : []) {
+      const at = key.indexOf('|')
+      loadLayerData(key.slice(0, at), key.slice(at + 1))
+    }
+  }, [vectorKeys])
   return (
     <>
       {/* base layers (radio). In night mode a light street base swaps to its dark variant
@@ -166,10 +181,13 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
         </Source>
       ))}
 
-      {/* vector overlays from local GeoJSON (Leitungskataster). Mount only when visible
-          so the file is fetched lazily on toggle, not upfront. */}
-      {layers.filter((l) => !l.base && l.geojson && isVisible(l.id)).map((o) => (
-        <Source key={o.id} id={`s-${o.id}`} type="geojson" data={o.geojson!} attribution={o.attribution}>
+      {/* vector overlays from local GeoJSON (Leitungskataster). Mounted only once the app has
+          the collection in hand (lib/layerData), which is also when the Ebenen row stops
+          reporting progress — an empty or failed file draws nothing and says so in its row. */}
+      {vectorLayers.map((o) => [o, loads.get(o.id)] as const)
+        .filter((pair): pair is [LayerDef, Extract<LayerData, { state: 'ready' }>] => pair[1]?.state === 'ready')
+        .map(([o, load]) => (
+        <Source key={o.id} id={`s-${o.id}`} type="geojson" data={load.data} attribution={o.attribution}>
           {o.vectorKind === 'point' && o.symbol ? (
             <Layer
               id={`l-${o.id}`}

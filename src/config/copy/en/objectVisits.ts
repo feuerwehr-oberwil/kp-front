@@ -183,6 +183,7 @@ export const objectVisitsCopy: Localizable<Pick<Copy, 'objectVisits'>> = {
     report: 'Report (PDF)',
     reportFailed: 'The report could not be loaded',
     edit: 'Edit',
+    lockedSince: 'View only – locked since {when}.',
     placeTitle: 'Report {label}',
     placeUnnamed: 'at a dropped pin',
     placeChooseLead: 'No station object – the report is filed with the place.',

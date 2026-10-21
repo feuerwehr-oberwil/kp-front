@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 // The Gebäude card (KP Front F5): a hazard is the warn glyph AND its word, the Modul-1 notes are
-// text, and a card with nothing to say is not drawn at all.
+// text, «Register-Hinweis» opens on a tap, and a card with nothing to say is not drawn at all.
 
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { BuildingCard } from './BuildingCard'
 import type { BuildingInfo } from '../lib/api/building'
@@ -30,6 +30,23 @@ describe('BuildingCard', () => {
     expect(screen.getByText('Tor öffnen').tagName).toBe('LI')
     expect(screen.getByText('Schloss Musterdorf · Modul 1')).toBeTruthy()
     expect(screen.queryByText('Bemerkungen')).toBeNull()
+  })
+
+  // owner, 20.10.2026 (s17): it was a `title=` tooltip — on the tablet a finger got nothing
+  it('opens the register hint, and the source line with it, on a tap', () => {
+    render(<BuildingCard info={{ ...base, registers_fetched_at: '2026-10-16T10:00:00Z' }} />)
+    const hint = screen.getByRole('button', { name: /Register-Hinweis/ })
+    expect(hint.getAttribute('aria-expanded')).toBe('false')
+    expect(screen.queryByTestId('register-hint')).toBeNull()
+    expect(screen.queryByText(/GWR Hauptstrasse 10/)).toBeNull()
+
+    fireEvent.click(hint)
+    expect(hint.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getByText(/Aus den Bundesregistern/)).toBeTruthy()
+    expect(screen.getByText(/GWR Hauptstrasse 10/)).toBeTruthy()
+
+    fireEvent.click(hint)
+    expect(screen.queryByTestId('register-hint')).toBeNull()
   })
 
   it('draws nothing when there is nothing to say', () => {

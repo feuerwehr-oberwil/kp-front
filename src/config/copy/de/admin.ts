@@ -12,6 +12,8 @@ export const adminCopy = {
       enabledTip: 'Zeigt «Objektbesuche» im Launcher und öffnet die Schnittstellen für Geräte und den Organisator.',
       captureRoles: 'Wer darf erfassen',
       captureRolesTip: 'Konten dieser Rollen dürfen Besuche anlegen und ändern. Alle anderen Konten lesen nur.',
+      lockHours: 'Korrektur-Fenster (Stunden)',
+      lockHoursTip: 'So lange nach dem Abschluss darf ein Besuch noch korrigiert werden; danach ist er nur noch Ansicht. Leer = nie sperren.',
       roles: { editor: 'Bearbeiten', el: 'Einsatzleitung', viewer: 'Ansicht' },
       rolesNone: 'Mindestens eine Rolle muss erfassen dürfen.',
       checklists: 'Checklisten',

@@ -139,6 +139,35 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.mocked(toast).mockClear()
 /** the fields' words carry invisible word joiners against iOS's contact AutoFill (lib/typingField) */
 const PLAIN = { normalizer: (t: string) => t.replace(/\u2060/g, '') }
 
+/** a PointerEvent jsdom will not build itself — `pointerType` is the whole question for the
+ *  surface's hold, which only a finger (or a pen) ever starts */
+const touchEvent = (type: string, clientX: number, clientY: number, pointerType = 'touch') => {
+  const e = new MouseEvent(type, { bubbles: true, clientX, clientY })
+  Object.defineProperty(e, 'pointerType', { value: pointerType })
+  return e
+}
+/** a real canvas inside a real container, the way maplibre hands them out: the surface's pointer
+ *  handlers listen on `getCanvasContainer()` and only answer presses on the canvas itself. */
+const canvasHarness = (at: { lng: number; lat: number } | (() => { lng: number; lat: number })) => {
+  const box = document.createElement('div')
+  const canvas = document.createElement('canvas')
+  box.appendChild(canvas)
+  document.body.appendChild(box)
+  const where = typeof at === 'function' ? at : () => at
+  rec.fakeMap = {
+    getCanvas: () => canvas, getContainer: () => box, unproject: () => where(), project: () => ({ x: 200, y: 200 }), getZoom: () => 18,
+    getBounds: () => ({ getWest: () => 7.569, getSouth: () => 47.523, getEast: () => 7.572, getNorth: () => 47.525 }),
+    getMap: () => ({ on: () => {}, getCanvasContainer: () => box }),
+    easeTo: () => {}, jumpTo: () => {}, fitBounds: () => {},
+  }
+  return { box, canvas }
+}
+/** finger down and still for longer than the long press (lib/useLongPress · LONG_PRESS_MS) */
+const hold = async (canvas: HTMLCanvasElement, x: number, y: number) => {
+  act(() => { canvas.dispatchEvent(touchEvent('pointerdown', x, y)) })
+  await act(() => new Promise((r) => setTimeout(r, 700)))
+}
+
 const mount = (over: Partial<KarteAppProps> = {}) => {
   const onOpenVisits = vi.fn()
   // the launcher's content as App hands it in: a row that closes the sheet, like «Manueller Einsatz»
@@ -357,29 +386,74 @@ describe('KarteApp', () => {
 
   // owner R3-9 (17.10.2026): «I can't delete nodes when measuring because it wants to create a
   // point» — a long press anywhere dropped a pin (and left Messen), and holding a measure node is
-  // how a node is removed. The pin is the ⊙ tool's only, and a held node is the node's.
-  it('a long press on the map drops no pin — Messen keeps holding a node to remove it', async () => {
-    const el = document.createElement('div')
-    rec.fakeMap = {
-      getContainer: () => el, getZoom: () => 10, unproject: () => ({ lng: 7.5712, lat: 47.5232 }), project: () => ({ x: 200, y: 200 }),
-      easeTo: () => {}, jumpTo: () => {}, fitBounds: () => {},
-    }
+  // how a node is removed. The hold came back in review round 7 (20.10.2026) under a narrower
+  // rule, so this stays the regression that guards Messen: a tool that takes the map's taps
+  // (lib/karte/camera · toolTakesTaps) never arms the surface's hold.
+  it('a long press under Messen drops no pin — the held node is still the node\'s', async () => {
+    const { canvas, box } = canvasHarness({ lng: 7.5712, lat: 47.5232 })
     mount()
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    act(() => (lastMap() as unknown as { onSettled: () => void }).onSettled())
     fireEvent.click(screen.getByRole('button', { name: 'Messen' }))
     act(() => lastMap().onMapClick([7.570188, 47.523773]))
     act(() => lastMap().onMapClick([7.5708, 47.52455]))
     act(() => lastMap().onMapClick([7.5712, 47.5232]))
     await waitFor(() => expect(lastMap().measurePoints).toHaveLength(3))
     // the finger stays down on the middle node (MapView's own hold removes it) …
-    const node = screen.getByTestId('mapview')
-    fireEvent.pointerDown(node, { isPrimary: true, pointerId: 1, clientX: 200, clientY: 200 })
-    await act(() => new Promise((r) => setTimeout(r, 700)))
+    await hold(canvas, 200, 200)
     act(() => lastMap().onMeasureDelete?.(1))
-    fireEvent.pointerUp(node, { isPrimary: true, pointerId: 1, clientX: 200, clientY: 200 })
+    fireEvent(canvas, touchEvent('pointerup', 200, 200))
     // … and the surface did not drop a pin under it, nor leave Messen
     expect(screen.queryByText('Gesetzter Punkt')).toBeNull()
     expect(lastMap().measurePoints).toEqual([[7.570188, 47.523773], [7.5712, 47.5232]])
+    box.remove()
+  })
+
+  // owner, review round 7 (20.10.2026), points 7 + 11: «also on mobile highlight the building
+  // outlines on hold so we know what we're pressing before we let go» + «the point setting option
+  // should also occur automatically if you just long press on the map». His own split, in a
+  // grilling round the same day: a hold on a building only highlights, a hold on FREE map sets
+  // the point.
+  it('holds a building to light it and free map to set a point', async () => {
+    const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]
+    const house = sq(7.5700, 47.5236, 0.0002)
+    rec.catalogue = { ...CATALOGUE, objects: CATALOGUE.objects.map((o) => (o.id === 'schloss' ? { ...o, footprint: { type: 'MultiPolygon', coordinates: [[house]] } } : o)) }
+    let under = { lng: 7.5701, lat: 47.5237 }
+    const { canvas, box } = canvasHarness(() => under)
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    act(() => (lastMap() as unknown as { onSettled: () => void }).onSettled())
+    const overlays = () => (lastMap() as unknown as { preparedOverlays: { id: string }[] }).preparedOverlays
+    const lit = () => overlays().some((o) => o.id === 'karte-hover-object')
+
+    // the finger lands on the Schloss: the outline answers AT ONCE, before the hold is over
+    act(() => { canvas.dispatchEvent(touchEvent('pointerdown', 40, 40)) })
+    expect(lit()).toBe(true)
+    // …and holding it there is still no pin — the release opens the object, as a tap always did
+    await act(() => new Promise((r) => setTimeout(r, 700)))
+    expect(screen.queryByText('Gesetzter Punkt')).toBeNull()
+    act(() => { canvas.dispatchEvent(touchEvent('pointerup', 40, 40)) })
+    expect(lit()).toBe(false)
+
+    // a finger that travels is panning: the outline goes out again
+    act(() => { canvas.dispatchEvent(touchEvent('pointerdown', 40, 40)) })
+    expect(lit()).toBe(true)
+    act(() => { canvas.dispatchEvent(touchEvent('pointermove', 80, 90)) })
+    expect(lit()).toBe(false)
+    act(() => { canvas.dispatchEvent(touchEvent('pointerup', 80, 90)) })
+
+    // free map: the same hold sets the point, and its release is not a tap that undoes it
+    under = { lng: 7.57175, lat: 47.52015 }
+    await hold(canvas, 40, 40)
+    expect(await screen.findByText('bei Starenstrasse 19')).toBeTruthy()
+    act(() => { canvas.dispatchEvent(touchEvent('pointerup', 40, 40)); lastMap().onMapClick([7.57175, 47.52015]) })
+    expect(screen.getByText('bei Starenstrasse 19')).toBeTruthy()
+
+    // a mouse never holds: it has the hover (which answers a MOVE), so its press lights nothing
+    under = { lng: 7.5701, lat: 47.5237 }
+    act(() => { canvas.dispatchEvent(touchEvent('pointerdown', 40, 40, 'mouse')) })
+    expect(lit()).toBe(false)
+    box.remove()
   })
 
   it('drops a pin with the tool and files a Meldung at that place', async () => {
@@ -1039,10 +1113,12 @@ describe('KarteApp', () => {
     fireEvent.click(within(nav).getByRole('button', { name: /Gefahrgut/ }))
     const sheet = await screen.findByRole('region', { name: 'Gefahrgut' })
     fireEvent.change(sheet.querySelector('input') as HTMLInputElement, { target: { value: '1203' } })
-    const row = await within(sheet).findByText('BENZIN oder OTTOKRAFTSTOFF')
-    expect(row.previousElementSibling?.textContent).toBe(appConfig.copy.contextPanel.unSubstance)
-    // the first row of the readout
-    expect(sheet.querySelector('.un-haz-row')).toBe(row.parentElement)
+    // review round 7: the name is the readout's hero line, not a «Stoff» row — first thing in
+    // the readout, with the label kept for the screen reader
+    const hero = (await within(sheet).findByText(/BENZIN oder OTTOKRAFTSTOFF/)).closest('.un-haz-hero')
+    expect(hero).toBeTruthy()
+    expect(hero?.textContent).toBe(`${appConfig.copy.contextPanel.unSubstance}: BENZIN oder OTTOKRAFTSTOFF`)
+    expect(hero?.previousElementSibling?.className).toContain('ctx-section-label')
   })
 
   // owner R4-1: «move "station" up in ebenen all the way to the top»

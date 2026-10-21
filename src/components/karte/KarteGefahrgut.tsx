@@ -51,7 +51,7 @@ export function KarteGefahrgut({ un, onUn, mode, onMode, center, onClose, phone 
           can be moved */}
       {un && mode !== 'off' && !!lookupErg(un)?.tih?.length && <div className={s.toolHint}><Icon id="pin" /><span>{center ? C.ergCenter : C.ergCenterFirst}</span></div>}
       {un && (
-        <UnHazardSection un={un} ringMode={mode} onRingMode={onMode} ergCoord={center ?? undefined} nameRow />
+        <UnHazardSection un={un} ringMode={mode} onRingMode={onMode} ergCoord={center ?? undefined} nameHero />
       )}
     </>
   )

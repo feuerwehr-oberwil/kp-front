@@ -400,3 +400,17 @@ html.rail-dragging .layers-card { transition: none; }
    ink — blue here took the amber meaning away from «4 offen» right above the nav badge that
    carries it. An open count is amber on every row. */
 .group-choose-count.open { color: var(--amber-strong); }
+
+/* ── an Ebene that is still loading (components/LayerPanel · lib/layerData) ─────────────────
+   Appended at the foot of this file on purpose: the layer rows above are being edited by other
+   hands this round, and this block touches none of their rules.
+   The app's OWN loader in the row's icon slot, not a generic CSS spinner (owner, review round 7,
+   mock A): `ShellLoader`, the mascot's shell spiral, in the blue its bar fills with. */
+.lrow .ic-loading { color: var(--blue); }
+/* …and the progress INSIDE the name column, under the status line — part of the row, never a
+   second strip under it. Determinate only: the bar is drawn when a size is known, and the
+   status line alone carries the rest. */
+.lrow .lload-bar { display: block; height: 3px; margin-top: 4px; border-radius: 2px;
+  background: var(--fill-soft); overflow: hidden; }
+.lrow .lload-bar > i { display: block; height: 100%; border-radius: 2px; background: var(--blue);
+  transition: width .2s linear; }
