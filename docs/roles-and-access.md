@@ -65,7 +65,8 @@ wording unchanged.
 ## The viewer's window (since 2026-10-21)
 
 A `viewer` account (the «Fahrer» tile: one PIN for every driver, left signed in on vehicle
-tablets) reads the **running** Einsätze and those **last closed within 7 days** – not the
+tablets) reads the **running** Einsätze and those **last closed within
+`access.viewerHistoryDays`** (default 7; `0` = running only; CONFIGURATION.md §1f) – not the
 archive. Outside that window an Einsatz does not exist for it: `GET /incidents` leaves it out,
 and every route naming its `incident_id` – or a `media_id` of it – answers 404, never 403, so
 the tile cannot probe which Einsätze there were. One check for every route:

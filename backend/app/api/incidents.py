@@ -28,7 +28,7 @@ from ..auth.dependencies import (
     atemschutz_link_source,
     is_atemschutz_link,
 )
-from ..auth.viewer_scope import is_viewer, viewer_window_clause
+from ..auth.viewer_scope import is_viewer, viewer_history, viewer_window_clause
 from ..database import execute_dml, get_db
 from ..geocode import geocode
 from ..models import INCIDENT_ACTIVE_STATUSES, Incident, lifecycle_open
@@ -283,7 +283,7 @@ async def list_incidents(
     if archived is not None:
         q = q.where(Incident.is_archived.is_(archived))
     if user is not None and is_viewer(user):
-        q = q.where(viewer_window_clause())  # the running ones and the last week (auth/viewer_scope)
+        q = q.where(viewer_window_clause(await viewer_history(db)))  # running + the last days (auth/viewer_scope)
     q = q.order_by(Incident.started_at.desc()).limit(limit).offset(skip)
     return list((await db.execute(q)).scalars())
 

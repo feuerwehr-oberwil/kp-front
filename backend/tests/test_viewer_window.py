@@ -1,4 +1,4 @@
-"""A `viewer` account reads the running Einsätze and the last week – nothing older (auth/viewer_scope)."""
+"""A `viewer` account reads the running Einsätze and the last `access.viewerHistoryDays` (auth/viewer_scope)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app import storage
-from app.models import Incident, Media
+from app.models import DeploymentConfig, Incident, Media
 from tests.conftest import TEST_PIN
 
 NOW = datetime.now(UTC)
@@ -24,6 +24,11 @@ async def _incident(db, title: str, **kw) -> Incident:
     await db.commit()
     await db.refresh(inc)
     return inc
+
+
+async def _history_days(db, days: int) -> None:
+    db.add(DeploymentConfig(id=1, config_json={"access": {"viewerHistoryDays": days}}))
+    await db.commit()
 
 
 @pytest.fixture
@@ -90,3 +95,17 @@ async def test_an_old_einsatz_media_does_not_exist_for_a_viewer(client, viewer, 
     assert (await client.get(f"/api/media/{m.id}")).status_code == 404
     await _login(client, editor)
     assert (await client.get(f"/api/media/{m.id}")).status_code == 200
+
+
+async def test_zero_days_leaves_a_viewer_only_the_running_ones(client, db_session, viewer, einsaetze):
+    await _history_days(db_session, 0)
+    await _login(client, viewer)
+    assert {i["title"] for i in (await client.get("/api/incidents")).json()} == {"läuft", "wieder offen"}
+    assert (await client.get(f"/api/incidents/{einsaetze['last_night'].id}")).status_code == 404
+
+
+async def test_a_longer_window_reaches_further_back(client, db_session, viewer, einsaetze):
+    await _history_days(db_session, 60)
+    await _login(client, viewer)
+    assert len((await client.get("/api/incidents")).json()) == len(einsaetze)
+    assert (await client.get(f"/api/incidents/{einsaetze['old'].id}")).status_code == 200
