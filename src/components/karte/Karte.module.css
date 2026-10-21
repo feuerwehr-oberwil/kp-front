@@ -12,7 +12,17 @@
 /* the menu button's face (review round 5): the station's mark (an uploaded logo, any aspect, fitted
    into the glyph's row height) and/or its short name (≤ 8, identity.shortName) — never wraps */
 .menuMark { height: 24px; width: auto; max-width: 48px; object-fit: contain; flex: none; }
-.menuName { white-space: nowrap; letter-spacing: .02em; }
+/* ⚠️ optically centred, not box-centred (owner, review round 7: «FWO didn't feel perfectly
+   centered»). A short name is all caps, and a line box reserves descender room the word never
+   uses — Sora left 1px of slack above the caps and 2.4px below, so centring the BOX put the word
+   0.75px high, and 3px off the baseline of the search placeholder next to it. `text-box` trims
+   the box to the cap band itself, which is font-independent (it holds if Sora never loads and a
+   fallback steps in); `line-height: 1` is the same correction for a browser without it — it only
+   drops the half-leading, so nothing moves where text-box already did the work. */
+.menuName { white-space: nowrap; letter-spacing: .02em; line-height: 1; }
+@supports (text-box: trim-both cap alphabetic) {
+  .menuName { text-box: trim-both cap alphabetic; }
+}
 /* wide enough for the whole placeholder (owner, 19.10.2026: «Anleitung, Checkliste, S…»). A WIDTH,
    not a flex-basis: the bar is absolutely positioned and sizes to its content, so a basis never
    widened it – the input's own ~200px default did. It still gives way on a narrow bar (shrink, no
