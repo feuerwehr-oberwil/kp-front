@@ -210,7 +210,7 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     sheetHint: 'Le tour est créé pour toute la troupe. Chaque case commence vide.',
     create: 'Créer',
     save: 'Enregistrer',
-    removeBand: 'Supprimer la colonne du tour',
+    removeBand: 'Supprimer',
     removeBandHint: 'La suppression n\'enlève que la colonne – les heures affectées restent dans le planning comme heures libres.',
     removedBand: 'Colonne du tour «{label}» supprimée',
     moveTitle: 'Déplacer aussi les heures ?',

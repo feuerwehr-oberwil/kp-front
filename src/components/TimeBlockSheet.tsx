@@ -4,7 +4,7 @@ import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { Sheet } from '../lib/overlays'
 import { TimeField } from './TimeField'
-import { Button } from './Button'
+import { Button, IconButton } from './Button'
 import s from './TimeBlockSheet.module.css'
 
 
@@ -153,15 +153,16 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                 </span>
               )}
               {b.duration && <span className={s.duration}>{b.duration}</span>}
-              {/* THE delete look — the bin in its red outline, a full --tap square (UX sweep F1,
-                  20.10.2026). It was a grey 34px ✕, the twin of the sheet's own close ✕ two rows
-                  up: a tired hand closing the sheet erased somebody's stretch. A ✕ only closes.
-                  The undo toast stays the caller's (useAttendanceActions / useShiftActions). */}
+              {/* The bin, a full --tap square (UX sweep F1, 20.10.2026). It was a grey 34px ✕, the
+                  twin of the sheet's own close ✕ two rows up: a tired hand closing the sheet erased
+                  somebody's stretch. A ✕ only closes. Grey, like every inline row bin (Rapport rows,
+                  Ansichten) — not the red outline, which is a footer's delete (owner, F4 rework
+                  21.10.2026). The undo toast stays the caller's (useAttendanceActions / useShiftActions). */}
               {b.onRemove && (
-                <Button variant="danger" className={s.del} title={labels.remove}
-                  aria-label={`${labels.remove} – ${subject}`} onClick={b.onRemove}>
+                <IconButton className={s.del} label={`${labels.remove} – ${subject}`} title={labels.remove}
+                  onClick={b.onRemove}>
                   <Icon id="trash" />
-                </Button>
+                </IconButton>
               )}
             </div>
             {/* THE BODY: nothing but the two times, read as one pair. The date hangs under the

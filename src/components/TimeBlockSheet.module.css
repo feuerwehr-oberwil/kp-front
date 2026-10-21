@@ -88,9 +88,10 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
   color: var(--green-strong); font: var(--fw-bold) var(--fs-2) var(--body);
 }
 
-/* the bin: <Button variant="danger"> brings THE delete look and the 44px floor; this only makes
-   it the --tap square a glyph-only control takes */
-.del { flex: none; width: var(--tap); padding: 0; }
+/* the bin: the quiet <IconButton> (--tap square), in the inline row bins' grey glyph
+   (17-rapport · .report-att-x, MapViewsMenu · .mini) */
+.del { color: var(--ink-faint); }
+.del svg { width: 18px; height: 18px; }
 
 .add { margin-top: var(--sp-2); }
 

@@ -210,7 +210,7 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     sheetHint: 'Il turno è creato per tutto il corpo. Ogni cella parte vuota.',
     create: 'Crea',
     save: 'Salva',
-    removeBand: 'Elimina la colonna del turno',
+    removeBand: 'Elimina',
     removeBandHint: 'L\'eliminazione toglie solo la colonna – gli orari assegnati restano nella pianificazione come orari liberi.',
     removedBand: 'Colonna del turno «{label}» eliminata',
     moveTitle: 'Spostare anche gli orari?',

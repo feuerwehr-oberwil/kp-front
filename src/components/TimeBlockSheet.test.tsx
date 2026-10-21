@@ -21,12 +21,11 @@ function renderSheet(onRemove: () => void, onClose: () => void) {
 }
 
 describe('TimeBlockSheet · deleting a block', () => {
-  it('is the bin in the delete look, and a different control from the close ✕', () => {
+  it('is the bin, and a different control from the close ✕', () => {
     const onRemove = vi.fn()
     const onClose = vi.fn()
     renderSheet(onRemove, onClose)
     const bin = screen.getByRole('button', { name: 'Zeit löschen – Müller Hans' })
-    expect(bin.classList.contains('danger')).toBe(true)
     expect(bin.querySelector('use')?.getAttribute('href')).toBe('#trash')
     const close = screen.getByRole('button', { name: appConfig.copy.closeDialog })
     expect(close).not.toBe(bin)

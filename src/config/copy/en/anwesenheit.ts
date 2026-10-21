@@ -140,7 +140,7 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     sheetHint: 'The shift is created for the whole crew. Every cell starts empty.',
     create: 'Create',
     save: 'Save',
-    removeBand: 'Delete shift column',
+    removeBand: 'Delete',
     removeBandHint: 'Deleting removes only the column \u2013 the assigned times stay on the schedule as free-hand entries.',
     removedBand: 'Shift column \u00ab{label}\u00bb deleted',
     moveTitle: 'Move the assigned times too?',
