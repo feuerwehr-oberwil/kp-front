@@ -154,8 +154,8 @@
    banner layer (23.08.) — read-only is a property of the INCIDENT, and the incident is named in
    the head. Amber for the same reason .tb-gps is: a state to be aware of, not an alarm. Tapping
    it offers the two exits the banner used to carry (Zurück / Wieder öffnen), so nothing was lost
-   with the banner; on a link session there are no exits, and a tap only says what it is.
-   HOLDING it explains it on every width (TopBar · ArchivedChip, `data-holdexplain`, S5). */
+   with the banner, under a head sentence that says what the state means (S5); on a link session
+   there are no exits and the menu is that sentence alone. */
 .tb-mode { display: inline-flex; align-items: center; gap: var(--sp-2); flex: none; border: none; border-radius: var(--r-sm);
   font-family: var(--body); font-size: var(--fs-1); font-weight: var(--fw-bold); padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-2); white-space: nowrap;
   background: var(--amber-16); color: var(--amber-strong); }
@@ -166,8 +166,8 @@ button.tb-mode { cursor: pointer; }
 }
 button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (--phone) {
-  /* the phone bar has room for the glyph, not the word — the state stays visible, and a HOLD
-     says the sentence (lib/holdTooltip; owner 20.10.2026: no permanent label) */
+  /* the phone bar has room for the glyph, not the word — the state stays visible, and a tap
+     opens the menu whose head says it (owner 21.10.2026: no permanent label) */
   .tb-mode { padding: var(--sp-1) var(--sp-2); font-size: 0; gap: 0; }
   .tb-mode .i { width: 16px; height: 16px; }
   /* …and it is the phone's only door to «Wieder öffnen» (staging r4): the glyph stays 32×26 in

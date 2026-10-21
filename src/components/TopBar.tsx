@@ -16,7 +16,6 @@ import { HoldChargeRing, HoldTargets } from './HoldTargets'
 import { useHeadFit } from '../lib/useHeadFit'
 import { useOnline } from '../lib/useOnline'
 import { parseWeatherTime } from '../lib/weatherTime'
-import { flashUndoCaption } from '../lib/undoFlash'
 
 /* ── Weather helpers ───────────────────────────────────────────────────────────────────────────
  * The wind/condition maths, kept beside its only reader. It used to live in a `WindBadge`
@@ -352,8 +351,8 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
  *  where the incident is named. It replaces the bottom banner that used to say the same thing on
  *  the same 16px as three other cards (and, being painted last, was the only one of the four you
  *  could read). The exits come along: tapping the chip offers «Zurück» and, for editors, «Wieder
- *  öffnen» — so nothing the banner could do got lost with it.
- *  With no exits to offer (a link session) it is a plain, non-interactive chip. */
+ *  öffnen» — so nothing the banner could do got lost with it — under a head that says what the
+ *  state means. With no exits to offer (a link session) the menu is that head alone. */
 function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactivate?: () => Promise<ReactivateResult> }) {
   const C = appConfig.copy.archived
   const [open, setOpen] = useState(false)
@@ -365,26 +364,17 @@ function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactiv
   const alive = useRef(true)
   useEffect(() => () => { alive.current = false }, [])
   const label = <><Icon id="lock" />{C.title}</>
-  // ⚠️ HOLD explains it (S5, 20.10.2026, owner: keep the clean lock-only chip on a phone, no
-  // permanent label). The phone hides the word (10-journal · `.tb-mode` font-size 0), and the
-  // hold-tooltip skipped the chip because the word is still in its text — `data-holdexplain`
-  // opts it in, so a hold shows «Einsatz abgeschlossen – …» off the accessible name and does
-  // not open the menu. No `title`: a mouse gets the same bubble on hover (lib/holdTooltip).
-  // No exits = a link session: its holder can neither correct nor reopen anything (staging r3).
-  // It is a button anyway, because only a button can be held; a tap flashes the same sentence,
-  // since there is nothing else for it to do.
-  if (!onBack && !onReactivate) {
-    const said = `${C.title} – ${C.hintViewOnly}`
-    return (
-      <button type="button" className="tb-mode" data-holdexplain aria-label={said}
-        onClick={(e) => flashUndoCaption(e.currentTarget, said)}>{label}</button>
-    )
-  }
+  // ⚠️ A TAP explains it (S5 rework, 21.10.2026, owner: «they just tap on it»; a hold was the
+  // draft and nobody would find it). The phone hides the word (10-journal · `.tb-mode`
+  // font-size 0), so the menu's head says the state and what it means, above the exits.
+  // No exits = a link session: its holder can neither correct nor reopen anything (staging r3),
+  // and the same menu is the sentence alone.
   return (
     <Popover side="bottom" align="start" popupClassName="tb-uhr-menu" ariaLabel={C.title}
       open={open} onOpenChange={(next) => { if (!busy) setOpen(next) }}
-      trigger={<button type="button" className="tb-mode" data-holdexplain aria-label={`${C.title} – ${C.hint}`}>{label}</button>}
+      trigger={<button type="button" className="tb-mode" aria-label={C.title}>{label}</button>}
     >
+      <p className="tb-uhr-say"><b>{C.title}</b>{onBack || onReactivate ? C.hint : C.hintViewOnly}</p>
       {onBack && (
         <PopoverClose className="tb-uhr-row" onClick={onBack}>
           <Icon id="undo" /><span className="tb-uhr-lbl">{C.back}</span>
