@@ -85,7 +85,9 @@
   left: var(--lane-l); right: var(--lane-r);
   max-width: 860px; margin-inline: auto;
   max-height: calc(100dvh - 116px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  overscroll-behavior: contain; scrollbar-gutter: stable;
+  /* no reserved scrollbar gutter (S3 rework, 21.10.2026): a strip that does not scroll held ~12px
+     of empty gutter on a desktop pointer, which stood its ✕ that far left of the toast's under it */
+  overscroll-behavior: contain;
   background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-sm);
   box-shadow: var(--e4); animation: ml-in .16s var(--ease); }
 @keyframes ml-in { from { opacity: 0; transform: translateY(-8px); } }
@@ -321,7 +323,9 @@
    word for word and ✕ for ✕. */
 .toast { position: relative; overflow: hidden; box-sizing: border-box; display: flex; flex: none; align-items: center;
   gap: var(--sp-3); pointer-events: auto; min-height: var(--float-h);
-  background: var(--float-bg); backdrop-filter: var(--float-blur); color: var(--ink); border: none; box-shadow: var(--float-edge);
+  /* the transparent 1px border is the strip's (`.ml`'s hairline), so glyph and ✕ land on its rows'
+     columns to the pixel; the fill runs under it, the edge stays the shadow's */
+  background: var(--float-bg); backdrop-filter: var(--float-blur); color: var(--ink); border: 1px solid transparent; box-shadow: var(--float-edge);
   font: var(--fw-bold) var(--fs-2)/1.35 var(--body); padding: var(--msg-pad) var(--sp-2) var(--msg-pad) var(--sp-4);
   border-radius: var(--r-sm); white-space: nowrap; touch-action: pan-y;
   animation: toastIn .22s var(--ease); }
