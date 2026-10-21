@@ -344,7 +344,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     pressed toggle (`--sel`, like `.wb-dock-tog.on`).
   - *Delete (28.09.2026, owner pick A):* a destructive action is THE delete look — `--del-ink`
     (red-strong) text, a `--del-edge` (red 40%) border, the surface it stands on; the bin and the
-    word (a rare delete may be a square bin, still outlined). Red never fills it (`.btn.warn`,
+    word (a rare delete may be a square bin, still outlined). A bin at the end of a ROW — a time
+    block, a Rapport line, a saved Ansicht, an admin record — is the quiet grey glyph instead
+    (21.10.2026, owner, UX sweep F4/A3): the row is the context, and the admin ones ask first, their
+    armed «Ja» wearing the delete look. Red never fills it (`.btn.warn`,
     `.ip-btn-danger`/`.ip-btn.danger`, `.adm-danger-btn`, `.wb-pa-del`,
     the audio player's marker row `.ap-row-del` all wear it; `.btn.warn-solid` is gone). ✕ only
     ever closes or clears — a ✕ that deletes is a bug. The audio player's in-place editors are the
