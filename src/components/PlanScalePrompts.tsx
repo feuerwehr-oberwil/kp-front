@@ -3,7 +3,6 @@ import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { Button, IconButton } from './Button'
 import { Chip } from './Chip'
-import { Stepper } from './Stepper'
 import { Overlay } from '../lib/overlays'
 import { toast } from '../lib/ui'
 import { saveStationDefault, saveStationPlanOverride } from '../lib/stationPlanScale'
@@ -15,47 +14,46 @@ import type { PlanScale } from '../lib/planScale'
  * in the same slots as before — the order matters, they are stacked overlays.
  */
 
-/** the longest reference the Stepper offers – a plan's scale bar, not a road atlas */
-const REF_M_MAX = 10_000
-
-/** Metre entry after the two reference endpoints have been tapped: the common scale-bar lengths as
- *  chips, and the shared `Stepper` for any other (20.10.2026, UX sweep M3 – it was a native
- *  number field between two hand-made ± buttons). Tap the value to type it; it keeps one decimal,
- *  because a reference read off a drawing is often «12.5 m». */
+/** Metre entry after the two reference endpoints have been tapped. */
 export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose }: {
   refMInput: string
   setRefMInput: (v: string) => void
   onCommit: (refM: number) => void
   onClose: () => void
 }) {
-  const C = appConfig.copy.whiteboard.scale
+  const step = appConfig.drawing.planScaleStepM
   const val = parseFloat(refMInput) || 0
-  // the length is prefilled (the last reference), so the answer is usually one press: focus
-  // lands on «Übernehmen», not on the first quick-pick chip (Base UI's first-focusable default)
-  const confirmRef = useRef<HTMLButtonElement>(null)
+  const bump = (d: number) => setRefMInput(String(Math.max(0, Math.round((val + d) * 100) / 100)))
+  // the metre field is what this dialog is FOR — focus lands there, not on the first quick-pick
+  // chip (which is where Base UI's default first-focusable rule would have put it)
+  const inputRef = useRef<HTMLInputElement>(null)
   return (
     // ⚠️ Modal, so it goes through lib/overlays like every other modal surface — focus trap +
     // restore, scroll-lock, Esc and backdrop dismissal live there. The old hand-rolled
     // scrim + card had none of them, and the board's own Escape handler fired UNDERNEATH it,
     // clearing the selection behind a dialog that stayed open. (The AGENTS.md carve-out for
     // hand-rolled overlays covers the NON-modal tool docks, not this.)
-    <Overlay open onClose={onClose} className="wb-cal-pop ui-dialog" ariaLabel={C.promptTitle} initialFocus={confirmRef}>
-      <div className="wb-cal-title">{C.promptTitle}</div>
-      <div className="wb-cal-body">{C.promptBody}</div>
+    <Overlay open onClose={onClose} className="wb-cal-pop ui-dialog" ariaLabel={appConfig.copy.whiteboard.scale.promptTitle} initialFocus={inputRef}>
+      <div className="wb-cal-title">{appConfig.copy.whiteboard.scale.promptTitle}</div>
+      <div className="wb-cal-body">{appConfig.copy.whiteboard.scale.promptBody}</div>
       <div className="wb-cal-chips">
         {appConfig.drawing.planScaleDefaultsM.map((m) => (
           <Chip key={m} className="wb-cal-chip" selected={val === m} onClick={() => setRefMInput(String(m))}>{m} m</Chip>
         ))}
       </div>
       <div className="wb-cal-stepper">
-        <Stepper value={val > 0 ? val : null} min={0} max={REF_M_MAX} step={appConfig.drawing.planScaleStepM} snap decimals={1}
-          seed={appConfig.drawing.planScaleDefaultM}
-          format={(m) => `${m} ${C.unit}`} ariaLabel={C.promptTitle}
-          onChange={(m) => setRefMInput(String(m))} />
+        <button className="wb-cal-step" aria-label="−" disabled={val <= 0} onClick={() => bump(-step)}>−</button>
+        <div className="wb-cal-num">
+          <input ref={inputRef} className="wb-cal-input" type="number" inputMode="decimal" min={0} step="any" value={refMInput}
+            onChange={(e) => setRefMInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') onCommit(val) }} />
+          <span className="wb-cal-unit">{appConfig.copy.whiteboard.scale.unit}</span>
+        </div>
+        <button className="wb-cal-step" aria-label="+" onClick={() => bump(step)}>+</button>
       </div>
       <div className="wb-cal-actions">
-        <Button onClick={onClose}>{C.cancel}</Button>
-        <Button ref={confirmRef} variant="primary" disabled={!(val > 0)} onClick={() => onCommit(val)}>{C.confirm}</Button>
+        <Button onClick={onClose}>{appConfig.copy.whiteboard.scale.cancel}</Button>
+        <Button variant="primary" disabled={!(val > 0)} onClick={() => onCommit(val)}>{appConfig.copy.whiteboard.scale.confirm}</Button>
       </div>
     </Overlay>
   )

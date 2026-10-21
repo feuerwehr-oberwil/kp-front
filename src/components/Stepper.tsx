@@ -7,11 +7,6 @@ import { useHoldRepeat } from '../lib/useHoldRepeat'
  *  Untergeschoss can be written straight in («-1»). A minus that is out of the field's range is
  *  no special case: `commit` clamps it like any other number. */
 const numericDraft = (s: string) => (s.startsWith('-') ? '-' : '') + s.replace(/\D/g, '')
-/** …and with decimals, ONE separator too – a comma typed the Swiss way reads as the point */
-const decimalDraft = (s: string) => {
-  const [whole, ...rest] = s.replace(',', '.').split('.')
-  return numericDraft(whole) + (rest.length ? '.' + rest.join('').replace(/\D/g, '') : '')
-}
 
 /**
  * The canonical compact ±stepper (global `.step` chrome). Three behaviours, consistent everywhere:
@@ -24,7 +19,7 @@ const decimalDraft = (s: string) => {
  * first tap on + seeds `seed ?? min` — on − too when `seedOnDec` is set. `onChange` always
  * receives a concrete clamped number.
  */
-export function Stepper({ value, min, max, step = 1, seed, seedOnDec, snap, decimals = 0, format, placeholder = '–', onChange, onClear, canClear, readOnly, over, ariaLabel }: {
+export function Stepper({ value, min, max, step = 1, seed, seedOnDec, snap, format, placeholder = '–', onChange, onClear, canClear, readOnly, over, ariaLabel }: {
   value: number | null
   min: number
   max: number
@@ -40,9 +35,6 @@ export function Stepper({ value, min, max, step = 1, seed, seedOnDec, snap, deci
    *  value ± step (30.09.2026: a symbol turned by hand to −46.5° stepped to −31.5°, −16.5° …
    *  forever off the 15° marks). On the grid it is plain ± step. */
   snap?: boolean
-  /** decimal places a TYPED value keeps (default 0: whole numbers). For a length that is read off
-   *  a drawing – the Massstab's reference distance – where «12.5 m» is not «13 m». */
-  decimals?: number
   /** format the numeric value for display (e.g. signed floor "+2", "47 m") */
   format?: (v: number) => string
   placeholder?: string
@@ -75,15 +67,13 @@ export function Stepper({ value, min, max, step = 1, seed, seedOnDec, snap, deci
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
 
-  // a number to type over, at the field's own precision (whole unless `decimals`) — a stored
+  // a whole number to type over — the field takes whole numbers only (parseInt below), and a stored
   // −46.50917745051447 is not a thing to edit character by character
-  const places = 10 ** decimals
-  const round = (v: number) => Math.round(v * places) / places
-  const startEdit = () => { if (readOnly) return; setDraft(has ? String(round(value)) : ''); setEditing(true) }
+  const startEdit = () => { if (readOnly) return; setDraft(has ? String(Math.round(value)) : ''); setEditing(true) }
   const commit = () => {
     setEditing(false)
-    const n = decimals ? parseFloat(draft) : parseInt(draft, 10)
-    if (!Number.isNaN(n)) onChange(clamp(round(n)))
+    const n = parseInt(draft, 10)
+    if (!Number.isNaN(n)) onChange(clamp(n))
   }
   const display = has ? (format ? format(value) : String(value)) : placeholder
   const st = appConfig.copy.stepper
@@ -93,9 +83,9 @@ export function Stepper({ value, min, max, step = 1, seed, seedOnDec, snap, deci
       <button className="step-btn" disabled={readOnly || (has ? value <= min : !seedOnDec)} {...dec} aria-label={st.less}>−</button>
       {editing ? (
         <input
-          className="step-val step-input" autoFocus value={draft} inputMode={decimals ? 'decimal' : 'numeric'} type="text" aria-label={ariaLabel}
+          className="step-val step-input" autoFocus value={draft} inputMode="numeric" type="text" aria-label={ariaLabel}
           onFocus={(e) => e.currentTarget.select()}
-          onChange={(e) => setDraft(decimals ? decimalDraft(e.target.value) : numericDraft(e.target.value))} onBlur={commit}
+          onChange={(e) => setDraft(numericDraft(e.target.value))} onBlur={commit}
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); else if (e.key === 'Escape') setEditing(false) }}
         />
       ) : (

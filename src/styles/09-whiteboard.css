@@ -962,10 +962,20 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-cal-chips { display: flex; gap: 8px; }
 .wb-cal-chip { flex: 1; }
 
-/* any other length: the shared Stepper (07-toolrail · .step), centred under the chips; the value
-   slot is wide enough for «10000 m», so − and + never move while it is typed or stepped */
-.wb-cal-stepper { display: flex; justify-content: center; }
-.wb-cal-stepper .step-val { min-width: 96px; }
+/* clean −/+ stepper for the real-length entry — ITS OWN, not the shared Stepper (M3 rework,
+   21.10.2026, owner: the always-visible field reads clearer than the Stepper's tap-to-type value) */
+.wb-cal-stepper { display: flex; align-items: stretch; gap: 8px; }
+.wb-cal-step { width: 46px; flex: none; display: grid; place-items: center; font: var(--fw-bold) var(--fs-5)/1 var(--body);
+  border: 1px solid var(--glass-edge); background: var(--surface-2, #fff); border-radius: var(--r-sm); color: var(--ink); cursor: pointer; }
+@media (hover: hover) {
+  .wb-cal-step:hover:not(:disabled) { border-color: var(--blue); }
+}
+.wb-cal-step:disabled { opacity: var(--disabled); cursor: default; }
+.wb-cal-num { flex: 1; display: flex; align-items: baseline; justify-content: center; gap: var(--sp-1);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2, #fff); padding: 8px 12px; }
+.wb-cal-input { width: 100%; min-width: 0; border: none; background: none; outline: none; text-align: center;
+  font: var(--fw-bold) var(--fs-5) var(--mono); color: var(--ink); letter-spacing: -.5px; }
+.wb-cal-unit { flex: none; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink-dim); }
 .wb-cal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }
 /* ⚠️ one family (28.09.2026, owner pick A): framed «Abbrechen» at its word's width, the primary
    takes the rest — it was a ghost `.ip-btn` beside a 12.5px dock `.btn`, two families in one row */
