@@ -69,9 +69,10 @@ function renderItem(item: DockItem, key: string): ReactNode {
 }
 
 /**
- * The right-edge tool option dock. `groups` are rendered in order with a `wb-style-sep` divider
- * between them; empty groups are dropped so an absent control (e.g. the ✓ that only shows in node
- * mode) leaves no stray separator.
+ * The right-edge tool option dock. `groups` are rendered in order with a wider gap between them
+ * (`wb-dock-gap`) – no divider line (M8 rework, 21.10.2026, owner: the lines add nothing); empty
+ * groups are dropped so an absent control (e.g. the ✓ that only shows in node mode) leaves no
+ * stray gap.
  *
  * Controls only — no line of text (20.10.2026, owner: «Remove the line. I don't think they add
  * any value.»). The phone's one-line hint row (3am test r3, 25.09.2026) is gone on every surface;
@@ -85,7 +86,7 @@ export function ToolDock({ groups }: { groups: DockItem[][] }) {
     <div ref={ref} className="wb-dock wb-dock-map" style={level}>
       {visible.map((g, gi) => (
         <Fragment key={gi}>
-          {gi > 0 && <span className="wb-style-sep" />}
+          {gi > 0 && <span className="wb-dock-gap" aria-hidden />}
           {g.map((item, ii) => renderItem(item, `${gi}-${ii}`))}
         </Fragment>
       ))}

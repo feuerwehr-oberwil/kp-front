@@ -699,7 +699,6 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-meas-label { z-index: 7; font-family: var(--mono); }
 
 /* draw style picker (floats over canvas bottom) */
-.wb-style-sep { width: 1px; height: 22px; background: var(--border); }
 .wb-sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--ink-16); cursor: pointer; padding: 0; }
 .wb-sw.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink-22); }
 .wb-sw:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
@@ -770,7 +769,8 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
   .wb-dock { gap: 2px; }
   .wb-dock :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go) { height: 34px; }
 }
-.wb-dock .wb-style-sep { width: 22px; height: 1px; } /* horizontal divider in the vertical stack */
+/* between groups: 4px more air, no line (ToolDock · M8 rework) — it grows along the dock's axis */
+.wb-dock-gap { flex: none; width: 4px; height: 4px; }
 .wb-dock-ic { display: grid; place-items: center; height: 30px; color: var(--ink-dim); }
 .wb-dock-ic .i { width: 18px; height: 18px; }
 /* ⚠️ The ✕ STAYS on screen while the dock scrolls. It is the first item of the first group, so on

@@ -248,7 +248,11 @@
     /* width HUGS the content (centred) so a 2-item dock isn't stretched across the screen;
        caps at the viewport and scrolls when a busy tool (line/area) overflows */
     width: max-content; max-width: calc(100vw - 16px); height: var(--rail-h); max-height: var(--rail-h);
-    padding: var(--sp-2) var(--sp-3); overflow-x: auto; overflow-y: hidden;
+    /* the bars' own inset (04b-rail · .rail.labelled, 4px 8px) and their 46px tiles below, so the
+       buttons sit 7/9px in from the edge like the tiles under them and the 19px corner runs
+       parallel to theirs (M8 rework, 21.10.2026, owner: the dock's corner read differently — it
+       was 8/13px in round 44px buttons) */
+    padding: 4px 8px; overflow-x: auto; overflow-y: hidden;
     /* ⚠️ No visible scrollbar. The base .wb-dock is the DESKTOP column, where a thin bar is a
        useful hint on a tall stack; inherited by this horizontal bar it drew a grey rail across
        the bottom of the tool dock — under the buttons, on a control that is dragged with a thumb
@@ -260,18 +264,16 @@
   /* buttons keep their size instead of flex-shrinking when a busy dock overflows — otherwise the
      round × / ℹ squashed into ovals in line/area docks while the bar scrolled */
   .phone-tools .wb-dock > * { flex: none; }
-  /* group dividers run vertically in a horizontal bar (they're a horizontal line in the column) */
-  .phone-tools .wb-dock .wb-style-sep { width: 1px; height: 24px; }
   /* colours: a single full-size row (not a cramped 2-row grid) */
   .phone-tools .wb-dock .wb-sw-grid { display: flex; grid-template-columns: none; gap: 8px; }
   .phone-tools .wb-dock .wb-sw { width: 30px; height: 30px; }
-  /* UNIFORM button + icon size across the whole bar: every control a full --tap square (the bar
-     is --rail-h 60 with 8px padding, so 44 fits without growing it — 3am test r2, 25.09.2026:
-     ✕ · Freihand · Punkte · ✓ · ⓘ measured 40px high), every icon 18px — was a jumble (34/38
-     buttons, 16/17/18 icons). ℹ matches (DockInfo). */
+  /* UNIFORM button + icon size across the whole bar: every control the bars' 46px tile (the bar
+     is --rail-h 60 with 4px padding — 3am test r2, 25.09.2026: ✕ · Freihand · Punkte · ✓ · ⓘ
+     measured 40px high; 44 until the M8 rework), every icon 18px — was a jumble (34/38 buttons,
+     16/17/18 icons). ℹ matches (DockInfo). */
   .phone-tools .wb-dock .wb-dock-tog, .phone-tools .wb-dock .wb-dock-go,
-  .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: var(--tap); min-width: var(--tap); height: var(--tap); border-radius: var(--r-sm); }
-  .phone-tools .wb-dock .wb-dock-x { width: var(--tap); height: var(--tap); }
+  .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: 46px; min-width: 46px; height: 46px; border-radius: var(--r-sm); }
+  .phone-tools .wb-dock .wb-dock-x { width: 46px; height: 46px; }
   .phone-tools .wb-dock .i { width: 18px; height: 18px; }
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
   /* …but a Tafel PAGE is a form with no tool bar under it: it runs down to the nav bar (Whiteboard · formPage) */
