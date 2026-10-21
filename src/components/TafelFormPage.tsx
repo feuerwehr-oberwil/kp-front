@@ -247,8 +247,10 @@ function Cell({ k, kn, value, label, readOnly, time = false, placeholder, classN
     if (m) d.setHours(Number(m[1]), Number(m[2]), 0, 0)
     return d
   }
-  // a soft keyboard has no Shift/Alt+Enter: on touch the focused cell offers the line break itself
-  const breakKey = coarse && focused && !readOnly
+  // a soft keyboard has no Shift/Alt+Enter: on touch the focused cell offers the line break itself.
+  // ⚠️ Never in a time cell — its key was hidden, but its 48px reserve stayed, and the 67px
+  // «Wann» column was left 11px wide: «--:--» stood one character per line (F10 rework).
+  const breakKey = coarse && focused && !readOnly && !time
   return (
     <span className={s.cellWrap}>
       <textarea
@@ -284,7 +286,7 @@ function Cell({ k, kn, value, label, readOnly, time = false, placeholder, classN
           onClear={draft ? () => commitWheel('') : undefined} />
       )}
       {focused && draft.length >= CELL_MAX && <span className={s.capHint} role="status">{fillTemplate(T0.cellCap, { n: CELL_MAX })}</span>}
-      {breakKey && !time && (
+      {breakKey && (
         // keeps the focus (and the keyboard) where it is: the press never reaches the textarea's blur
         <button type="button" className={s.breakKey} aria-label={T0.lineBreak} title={T0.lineBreak}
           onPointerDown={(e) => { e.preventDefault(); e.stopPropagation() }}

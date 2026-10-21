@@ -8,6 +8,7 @@ import type { TableSection } from '../lib/boardTemplate'
 import { BUNDLED_TEMPLATES } from '../lib/boardTemplates'
 import { getLocaleId } from '../config/copy'
 import { appConfig } from '../config/appConfig'
+import s from './TafelFormPage.module.css'
 
 afterEach(cleanup)
 
@@ -340,6 +341,17 @@ describe('a Tafel time cell', () => {
     expect(commits).toHaveLength(1)
     expect(commits[0].values.mittel.rows![0].cells.wann).toMatch(/^\d\d:\d\d$/)
     expect(wann.value).toBe(commits[0].values.mittel.rows![0].cells.wann)
+  })
+
+  // F10 rework (21.10.2026): the line-break key's 48px reserve stayed on a focused time cell and
+  // left «--:--» one character per line in the 67px «Wann» column
+  it('keeps its width when focused on touch — no line-break reserve', () => {
+    pointer(true)
+    render(<Harness onCommit={() => {}} />)
+    const wann = firstWann()
+    fireEvent.focus(wann)
+    expect(wann.className).not.toContain(s.cellBreak)
+    expect(screen.queryByRole('button', { name: appConfig.copy.tafel.lineBreak })).toBeNull()
   })
 
   it('stays a typed cell with a fine pointer — no wheels on a click', () => {
