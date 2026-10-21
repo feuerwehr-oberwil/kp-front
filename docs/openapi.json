@@ -14136,6 +14136,20 @@
   },
   "components": {
     "schemas": {
+      "AccessConfig": {
+        "properties": {
+          "viewerHistoryDays": {
+            "type": "integer",
+            "maximum": 3650.0,
+            "minimum": 0.0,
+            "title": "Viewerhistorydays",
+            "default": 7
+          }
+        },
+        "type": "object",
+        "title": "AccessConfig",
+        "description": "How much of the record each account reads (docs/roles-and-access.md)."
+      },
       "AdminLogin": {
         "properties": {
           "secret": {
@@ -15973,6 +15987,9 @@
           },
           "objectVisits": {
             "$ref": "#/components/schemas/ObjectVisitsConfig"
+          },
+          "access": {
+            "$ref": "#/components/schemas/AccessConfig"
           }
         },
         "type": "object",
@@ -16040,6 +16057,9 @@
           },
           "objectVisits": {
             "$ref": "#/components/schemas/ObjectVisitsConfig"
+          },
+          "access": {
+            "$ref": "#/components/schemas/AccessConfig"
           },
           "integrations": {
             "$ref": "#/components/schemas/ConfigIntegrations"

@@ -805,6 +805,14 @@ destination is [`object-visits-sharepoint.md`](object-visits-sharepoint.md). No 
 the section (`GET /api/config` is public): the writer's app registration is the
 `sharepoint_export` credential group, the organizer's key `object_visits_integration_key`.
 
+### 1f. `access` – how far back a read-only account reads
+
+`access.viewerHistoryDays` (default `7`, `0`–`3650`): a `viewer` account (the «Fahrer» tile) reads
+the running Einsätze and those last closed within this many days; older ones answer 404 for it.
+`0` = only the running ones. Server-enforced on every route; `editor` and `el` always read the
+whole record. Config-as-code only – no field in `/admin`; set it with `admin_config` (show → patch
+→ load). Rules and rationale: [`roles-and-access.md`](roles-and-access.md#the-viewers-window-since-2026-10-21).
+
 ---
 
 ## 2. Reference / werkleitungs layers – **station-supplied, nothing bundled**

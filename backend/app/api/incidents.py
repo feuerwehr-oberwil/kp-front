@@ -28,6 +28,7 @@ from ..auth.dependencies import (
     atemschutz_link_source,
     is_atemschutz_link,
 )
+from ..auth.viewer_scope import is_viewer, viewer_history, viewer_window_clause
 from ..database import execute_dml, get_db
 from ..geocode import geocode
 from ..models import INCIDENT_ACTIVE_STATUSES, Incident, lifecycle_open
@@ -268,7 +269,7 @@ def operational_keys_changed(stored: dict, submitted: dict) -> list[str]:
 
 @router.get("", response_model=list[IncidentMeta])
 async def list_incidents(
-    _user: UserOrAdmin,
+    user: UserOrAdmin,
     archived: bool | None = None,
     # Bounded at the edge: a negative LIMIT/OFFSET reached Postgres, which refuses it, and
     # the caller got a 500 for a malformed query string. 500 is the most the admin history asks for.
@@ -281,6 +282,8 @@ async def list_incidents(
     q = select(Incident).options(defer(Incident.map_workspace_json), defer(Incident.details_json))
     if archived is not None:
         q = q.where(Incident.is_archived.is_(archived))
+    if user is not None and is_viewer(user):
+        q = q.where(viewer_window_clause(await viewer_history(db)))  # running + the last days (auth/viewer_scope)
     q = q.order_by(Incident.started_at.desc()).limit(limit).offset(skip)
     return list((await db.execute(q)).scalars())
 
