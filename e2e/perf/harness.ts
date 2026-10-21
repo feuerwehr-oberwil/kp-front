@@ -76,6 +76,11 @@ export async function isolateFromOutside(context: BrowserContext, baseURL: strin
   await context.route((url) => url.protocol.startsWith('http') && url.origin !== own, async (route) => {
     const req = route.request()
     external.push(new URL(req.url()).host)
+    // CARTO's vector label tiles (lib/basemapLabels): an empty body is a valid empty tile – no
+    // names, so no glyphs fetched and the baselines stay the flat stand-in map. A PNG would not decode.
+    if (/\.mvt(\?|$)/.test(req.url())) {
+      return route.fulfill({ status: 200, contentType: 'application/x-protobuf', body: Buffer.alloc(0), headers: { 'access-control-allow-origin': '*' } })
+    }
     if (req.resourceType() === 'image' || /\.(png|jpe?g|webp)(\?|$)/.test(req.url()) || /\/\d+\/\d+\/\d+(@2x)?(\.\w+)?(\?|$)/.test(req.url())) {
       return route.fulfill({ status: 200, contentType: 'image/png', body: TILE, headers: { 'access-control-allow-origin': '*' } })
     }

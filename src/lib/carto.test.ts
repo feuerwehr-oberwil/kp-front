@@ -4,7 +4,7 @@ const deployment = vi.hoisted(() => ({ integrations: {} as { cartoBasemapKey?: s
 
 vi.mock('./deploymentConfig', () => ({ getDeploymentConfig: () => deployment }))
 
-import { cartoRasterTiles, keyCartoTileTemplates, retinaCartoTileTemplates, wantsRetinaTiles, withCartoBasemapKey, withCartoRetina, withoutCartoBasemapKey, withoutCartoRetina } from './carto'
+import { cartoRasterTiles, keyCartoTileTemplates, retinaCartoTileTemplates, wantsRetinaTiles, withCartoBasemapKey, withCartoLabelsBaked, withCartoRetina, withoutCartoBasemapKey, withoutCartoRetina } from './carto'
 
 describe('CARTO basemap key', () => {
   beforeEach(() => { deployment.integrations = {} })
@@ -101,5 +101,22 @@ describe('CARTO retina tiles', () => {
     const layer = keyCartoTileTemplates(retinaCartoTileTemplates({ tiles: [DARK] }, true))
     expect(layer.tiles).toEqual(['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png?key=runtime'])
     expect(withoutCartoBasemapKey(withoutCartoRetina(layer.tiles![0]))).toBe(DARK)
+  })
+})
+
+describe('CARTO labelled twin', () => {
+  it('names each unlabelled style\'s labelled one, keeping resolution and query', () => {
+    expect(withCartoLabelsBaked('https://a.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}@2x.png?key=k'))
+      .toBe('https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png?key=k')
+    expect(withCartoLabelsBaked('https://b.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png'))
+      .toBe('https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png')
+    expect(withCartoLabelsBaked('https://c.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png'))
+      .toBe('https://c.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png')
+  })
+
+  it('leaves labelled styles and other hosts alone', () => {
+    for (const url of ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png']) {
+      expect(withCartoLabelsBaked(url)).toBe(url)
+    }
   })
 })
