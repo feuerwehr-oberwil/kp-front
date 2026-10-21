@@ -62,6 +62,18 @@ wording unchanged.
   confirms** (23.09.2026, `lib/logoutConfirm`), in one card that adds the offline and the
   unsent-entries cost when there is one.
 
+## The viewer's window (since 2026-10-21)
+
+A `viewer` account (the «Fahrer» tile: one PIN for every driver, left signed in on vehicle
+tablets) reads the **running** Einsätze and those **last closed within 7 days** – not the
+archive. Outside that window an Einsatz does not exist for it: `GET /incidents` leaves it out,
+and every route naming its `incident_id` – or a `media_id` of it – answers 404, never 403, so
+the tile cannot probe which Einsätze there were. One check for every route:
+`get_current_user` → `auth/viewer_scope · enforce_viewer_window`; the list uses
+`viewer_window_clause`, the same condition in SQL. A reopened Einsatz is running again and
+readable. `editor`, `el`, the deployment admin and link sessions are untouched. «Karte &
+Objekte» is station data, not an Einsatz, and stays fully readable.
+
 ## Station reference reads
 
 «Karte & Objekte» (`/api/reference/objects`, `/api/reference/building`, since 2026-10-16) is for

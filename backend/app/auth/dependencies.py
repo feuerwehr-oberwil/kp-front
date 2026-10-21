@@ -15,6 +15,7 @@ from ..models import User
 from .incident_link import link_page_owns_session, read_link_session
 from .security import admin_token_is_current, decode_token
 from .token_blocklist import token_blocklist
+from .viewer_scope import enforce_viewer_window
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,8 @@ async def get_current_user(
     # A cookie minted before the account's credential was rotated is not a session any more.
     if token_generation(payload) != user.auth_generation:
         raise _credentials_exc
+    # A viewer reads the running Einsätze and the last week, every route alike (viewer_scope).
+    await enforce_viewer_window(request, db, user)
     request.state.user = user
     return user
 
