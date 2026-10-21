@@ -58,7 +58,6 @@ import { QuietAttributionControl } from './MapAttribution'
 import { GeorefAdjustLayer, GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
 import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
-import { TAP_GAP_MS, TAP_MAX_MS } from '../lib/tapDragZoom'
 import { setLiveBearing } from '../lib/liveBearing'
 import { LABEL_ABOVE, measureLabelPlacement } from '../lib/measureLabelPlace'
 import { advanceDwell, armDwell, attachInsetPx, DEFAULT_OBJECT_ROUTING, lineJoints, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint, TEAM_JOIN_RADIUS_PX } from '../lib/lineAttachments'
@@ -88,18 +87,15 @@ const circleRing = (d: Drawing): LngLat[] => circlePolygon(d.coords[0], d.radius
  *  Müller H.» on a Leitung whose Trupp is out) simply did nothing. Same slop useHoldToDrag gives
  *  a marker tap (TAP_TOL_PX). */
 const TAG_TAP_TOL_PX = 16
+/** A node tap this close to the draft's last node lands on that node's own 44px handle pad: it
+ *  is the second tap of a double tap, not a corner (UX sweep M4 rework — with a tool armed a double
+ *  tap no longer zooms, and its second tap arrives before the first node's handle is there to
+ *  catch it, so it laid a zero-length segment). */
+const NODE_REPEAT_PX = 22
 /** How long after a pan/pinch a `click` still counts as the tail of that gesture. The browser
  *  synthesizes its mouse trail right after touchend, so the trailing click arrives a few ms AFTER
  *  MapLibre's dragend — but well inside this window, which no second deliberate tap fits in. */
 const PAN_CLICK_TAIL_MS = 350
-/** From a double tap's first click to the zoom it starts: the gap before the second press plus
- *  that press itself — MapLibre's numbers, mirrored in lib/tapDragZoom. */
-const TAP_ZOOM_WINDOW_MS = TAP_GAP_MS + TAP_MAX_MS
-/** A zoom MapLibre started from ONE pointer's taps: its double tap (a touchend with no finger
- *  left), its tap-and-drag (a one-finger touchmove) or the mouse's double click — never a pinch or
- *  the wheel. */
-const isTapZoom = (ev: Event): boolean =>
-  ev.type === 'dblclick' || ('touches' in ev && (ev as TouchEvent).touches.length <= 1)
 /** `.sym-caption { margin-top }` (03-map.css), held to the CSS in lib/mapView */
 const CAPTION_GAP = SYM_CAPTION_GAP
 /** the end tag's Marker `offset={[0, -14]}` (below) */
@@ -551,25 +547,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const beginPanGesture = () => { panGesture.current.active = true }
   const endPanGesture = () => { panGesture.current = { active: false, endedAt: performance.now() } }
   const clickTrailsPan = () => panGesture.current.active || performance.now() - panGesture.current.endedAt < PAN_CLICK_TAIL_MS
-  // ── a double tap zooms, it never draws (owner 20.10.2026, UX sweep M4) ──
-  // MapLibre's double tap and tap-and-drag stay the Karte's one-finger zoom while a Linie / Fläche
-  // is tapped out node by node, and ✓ is the one way to finish it (the Plan: useBoardGestures ·
-  // tapZoomDown). The SECOND tap never lays a node — MapLibre cancels its touchend, so no click
-  // follows — but the first has laid one by the time MapLibre knows it was a double tap, and a
-  // mouse double click lays two. So the zoom takes back the last one (two) laid inside its window —
-  // never more: a node tapped just before the double tap is a node.
-  // (the events' own timeStamps: one clock for the click and the zoom's DOM event)
-  const nodeTaps = useRef<number[]>([])
-  const noteNodeTap = (at: number) => {
-    nodeTaps.current = [...nodeTaps.current.filter((t) => at - t <= TAP_ZOOM_WINDOW_MS), at]
-  }
-  const undoTapZoomNodes = (ev: Event) => {
-    const laid = nodeTaps.current.filter((t) => ev.timeStamp - t <= TAP_ZOOM_WINDOW_MS).length
-    const n = Math.min(laid, ev.type === 'dblclick' ? 2 : 1, draft.length)
-    nodeTaps.current = []
-    // onDraftDelete filters one index per call, each on the state the previous one left
-    for (let i = 1; i <= n; i++) onDraftDelete?.(draft.length - i)
-  }
   /** the one place a map half of a pair is placed — true when it really was, so the touch path
    *  knows whether there is a synthetic click trail to cancel (see the note on onTouchEnd) */
   const placeGeoref = (lngLat: { lng: number; lat: number }): boolean => {
@@ -649,6 +626,21 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // would stay off for the rest of the session. Every such removal is a render, so this reopens
   // it; enable/disable are idempotent, so running it every render costs nothing.
   useEffect(() => { syncMapKeyboard(mapInst.current) })
+  // ── one-finger zoom belongs to Auswahl (UX sweep M4, owner 21.10.2026: «when using tools, they
+  // should have precedence») ── MapLibre's double tap / double click and its tap-and-drag zoom are
+  // off while a tool is armed: every tap is the tool's, and a double tap is two of them — never a
+  // zoom that the first tap's node or symbol is left under. Pinch and the wheel stay on. Tap-and-
+  // drag rides on touchZoomRotate (the pinch), so it is switched on its own, and only back on if
+  // the pinch is. Per instance: a WebGL remount builds a fresh map with both on.
+  useEffect(() => {
+    const m = mapInst.current
+    if (!mapReady || !m) return
+    if (placing) { m.doubleClickZoom.disable(); m.touchZoomRotate._tapDragZoom.disable() }
+    else {
+      m.doubleClickZoom.enable()
+      if (m.touchZoomRotate.isEnabled()) m.touchZoomRotate._tapDragZoom.enable()
+    }
+  }, [mapReady, placing])
   // WebGL context recovery: iPadOS drops the context under memory pressure / after a long
   // background spell, and MapLibre stays blank without rebuilding. `gl.generation` keys the
   // <Map> below so recovery is a fresh instance; `viewRef` carries the CURRENT view across that
@@ -1958,8 +1950,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         onSelectDrawing(best.properties!.id as string, { x: e.point.x, y: e.point.y }); return
       }
     }
-    // a node tool's tap lays a node (useMapActions · onMapClick) — remembered for undoTapZoomNodes
-    if (draftKind) noteNodeTap(e.originalEvent.timeStamp)
+    const last = draftKind ? draft[draft.length - 1] : undefined
+    const lastPx = last && mapInst.current?.project(last)
+    if (lastPx && Math.hypot(e.point.x - lastPx.x, e.point.y - lastPx.y) < NODE_REPEAT_PX) return
     onMapClick(placeMagnet ? placedCoord(lc) : lc)
   }
   const fhFC = useMemo(() => fc(fhPath && fhPath.length >= 2 ? [lineFeat(fhPath)] : []), [fhPath])
@@ -2067,11 +2060,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // A pinch that never armed drag-pan (two fingers down together) still moves the map, so it
       // closes the same gesture. Touch only: a wheel zoom leaves no click behind, and swallowing
       // one would cost the desktop operator the tap right after a zoom.
-      // …and a one-pointer tap zoom while a node draft is out takes back the nodes its taps laid
-      onZoomStart={(e) => {
-        if (e.originalEvent && 'touches' in e.originalEvent) { beginPanGesture(); beginSheetPeek() }
-        if (draftKind && e.originalEvent && isTapZoom(e.originalEvent)) undoTapZoomNodes(e.originalEvent)
-      }}
+      onZoomStart={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) { beginPanGesture(); beginSheetPeek() } }}
       onZoomEnd={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) { endPanGesture(); endSheetPeek() } }}
       // North-snap on release (18.10.2026, owner): a turn by HAND (fingers or the mouse's
       // right-drag) that comes to rest within NORTH_SNAP_DEG (10°) of north settles on exactly

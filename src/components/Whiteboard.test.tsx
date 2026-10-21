@@ -1830,9 +1830,9 @@ describe('the plan’s Trupp dock finds a Trupp, like the Karte’s', () => {
   })
 })
 
-// UX sweep M4 (20.10.2026, owner: «Double tap should be used as a map function … Definitely not for
-// finishing something»): a Punkte draft finishes on ✓ only; a double tap zooms, as on the Karte.
-describe('a double tap on a Punkte draft zooms, it finishes nothing', () => {
+// UX sweep M4 (owner 20./21.10.2026: a double tap is «a map function … definitely not for
+// finishing something», and an armed tool owns its taps): a Punkte draft finishes on ✓ only.
+describe('a double tap on a Punkte draft finishes nothing', () => {
   beforeEach(() => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
       left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, x: 0, y: 0, toJSON: () => ({}),
@@ -1851,22 +1851,14 @@ describe('a double tap on a Punkte draft zooms, it finishes nothing', () => {
     return ink
   }
 
-  it('on the board: no Fläche is closed, and the double tap leaves no corner of its own', () => {
-    const { container, onChange } = renderPlan([])
-    const ink = corners(container)
-    tapAt(ink, 100, 300); tapAt(ink, 102, 301) // the double tap
-    expect(onChange).not.toHaveBeenCalled()
-    expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(3)
-  })
-
-  it('on the grip the first tap just laid (where the second press lands): the same', () => {
+  it('closes no Fläche – its second tap lands on the grip the first just laid and adds no corner', () => {
     const { container, onChange } = renderPlan([])
     const ink = corners(container)
     tapAt(ink, 100, 300)
     const grips = screen.getAllByRole('button', { name: W.dragVertex })
     tapAt(grips[grips.length - 1], 101, 300)
     expect(onChange).not.toHaveBeenCalled()
-    expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(3)
+    expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(4)
   })
 
   it('✓ is the way to finish', () => {

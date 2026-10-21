@@ -365,7 +365,7 @@ export function WbCircleHandle({ anno, sW, sH, mapY, onRadiusDown, onMove, onUp 
  * Positions are board px; classes are the shared `.wb-vertex` / `.wb-vins`, which already sit
  * above the `.wb-ink` capture overlay (z 6/7 vs 5), so the grips stay tappable mid-tool.
  */
-export function WbDraftHandles({ pts, closed, draftFloor, sW, sH, mapY, onVertexDown, onInsert, onDeleteVertex, onPressFirst }: {
+export function WbDraftHandles({ pts, closed, draftFloor, sW, sH, mapY, onVertexDown, onInsert, onDeleteVertex }: {
   pts: BoardPoint[]
   /** area draft: the ring closes visually at ≥3 pts, so the closing edge gets a «+» too */
   closed: boolean
@@ -376,10 +376,6 @@ export function WbDraftHandles({ pts, closed, draftFloor, sW, sH, mapY, onVertex
   onVertexDown: (idx: number, e: React.PointerEvent) => void
   onInsert: (idx: number, e: React.PointerEvent) => void
   onDeleteVertex: (idx: number) => void
-  /** asked before a grip's press does anything; true = the press is taken (the second press of a
-   *  double tap is the board's one-finger zoom — Whiteboard · zoomTapNode — and it lands on the
-   *  grip the first tap just laid) */
-  onPressFirst?: (e: React.PointerEvent) => boolean
 }) {
   // still hold = delete, movement cancels into the reshape drag — the same gesture (and chip) as
   // on a finished shape, so the draft never teaches a second vocabulary.
@@ -404,7 +400,6 @@ export function WbDraftHandles({ pts, closed, draftFloor, sW, sH, mapY, onVertex
           title={appConfig.copy.whiteboard.dragVertex} aria-label={appConfig.copy.whiteboard.dragVertex} data-holdaction
           style={{ left: 0, top: 0, transform: `translate(${x}px, ${y}px) translate(-50%, -50%)` }}
           onPointerDown={(e) => {
-            if (onPressFirst?.(e)) return
             // deleting is allowed all the way down — a one-point draft deletes into no draft,
             // which is exactly what the ✕/Esc discard leaves too
             vertexPress.press(`d${i}`, () => onDeleteVertex(i), true).onPointerDown(e)

@@ -3,11 +3,13 @@
  * zooms ×2 and **tap, then press-and-drag** zooms continuously (down = in, up = out, ×2 per
  * 128 px) — MapLibre's own gestures and numbers (500 ms / 30 px), except that the drag zooms
  * about the FIRST tap instead of the screen centre. One pure state machine serves the boards
- * (`useBoardGestures`: the selection tool's presses on empty board — objects swallow their
- * own — and the node-draw tools'; the second press never pans, deselects or lays a node) and the PDF reader (`PdfScroller`: its double
+ * (`useBoardGestures`: selection tool only, presses on empty board only — objects swallow their
+ * own; the second press never pans or deselects) and the PDF reader (`PdfScroller`: its double
  * tap still toggles fit ↔ 2×). Touch and pen only: a mouse has the wheel, and a double CLICK on
- * the board opens editors. The node-draw tools take part too (20.10.2026): a double tap there
- * zooms and finishes nothing — ✓ does. A second finger cancels the gesture and the pinch takes over.
+ * the board opens editors. Every other tool keeps pinch only: while a tool is armed its taps are
+ * its own (UX sweep M4, owner 21.10.2026 — the Karte switches MapLibre's off the same way, MapView),
+ * and a double tap finishes nothing — ✓ does. A second finger cancels the gesture and the pinch
+ * takes over.
  */
 
 import { DRAG_DEADZONE_PX } from './useHoldToDrag'

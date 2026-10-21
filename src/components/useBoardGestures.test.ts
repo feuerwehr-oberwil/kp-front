@@ -110,14 +110,7 @@ describe('the board’s one-finger zoom', () => {
     const move = (x: number, y: number, o: Ev) => act(() => g().stageMove(ev(x, y, { type: 'pointermove', ...o })))
     const up = (x: number, y: number, o: Ev) => act(() => { g().trackUp(ev(x, y, { type: 'pointerup', ...o })); g().stageUp() })
     const tap = (x: number, y: number, t: number, id = 1) => { down(x, y, { id, t }); up(x, y, { id, t: t + 60 }) }
-    /** a press on `.wb-ink` / a draft grip: the stage never sees it, the capture pass and
-     *  tapZoomDown do — true when the zoom took it */
-    const inkDown = (x: number, y: number, o: Ev) => {
-      let took = false
-      act(() => { g().trackDown(ev(x, y, o)); took = g().tapZoomDown(ev(x, y, o)) })
-      return took
-    }
-    return { down, move, up, tap, inkDown, applyView, zoomTo, scaleRef, setSelId }
+    return { down, move, up, tap, applyView, zoomTo, scaleRef, setSelId }
   }
 
   it('a double tap zooms ×2 about the tap, in canvas coordinates', () => {
@@ -180,18 +173,7 @@ describe('the board’s one-finger zoom', () => {
     expect(b.applyView).toHaveBeenCalled()
   })
 
-  // owner 20.10.2026 (UX sweep M4): a double tap is a map function, never «finish» — a node tool
-  // zooms like the Karte, its first press still lays the node as ever
-  it('a node-draw tool zooms too: its second ink press is the zoom’s, the first is not', () => {
-    const b = mount('line')
-    expect(b.inkDown(110, 220, { t: 0 })).toBe(false)
-    b.up(110, 220, { t: 60 })
-    expect(b.inkDown(112, 221, { id: 2, t: 200 })).toBe(true)
-    b.up(112, 221, { id: 2, t: 260 })
-    expect(b.zoomTo).toHaveBeenCalledWith(2, 100, 200)
-  })
-
-  it('belongs to the selection tool on the stage — the lasso keeps its box', () => {
+  it('belongs to the selection tool only — the lasso keeps its box', () => {
     const b = mount('lasso')
     b.tap(110, 220, 0)
     b.tap(110, 220, 200, 2)

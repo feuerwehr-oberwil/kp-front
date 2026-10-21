@@ -529,9 +529,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   /** the FIRST of a Rotation's two points, while the second is still being looked for (lib/shapes
    *  · SHAPE_TWO_POINT). Lives and dies with one placement gesture. */
   const [rotStart, setRotStart] = useState<BoardPoint | null>(null)
-  // did the last tap of a node tool lay a node? A double tap's second press zooms (useBoardGestures
-  // · tapZoomDown) and takes that node back with it — a double tap is never two corners
-  const tapLaidNode = useRef(false)
   // h/w of the document box, plus «is that a measurement of THIS sheet or the A4 seed» — one hook,
   // keyed on the sheet rather than on the Modul slot, because the two questions go wrong together
   // (components/useMeasuredSheet). Seeded and reseeded there; nothing else may set it.
@@ -763,7 +760,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       // one gesture whose whole meaning is «weg damit», and auto-saving it would leave no
       // way to throw a half-laid shape away.
       if (rotStart) { setRotStart(null); clearRotMagnet() }
-      else if (draft) { setDraft(null); draftAttachments.current = {}; tapLaidNode.current = false }
+      else if (draft) { setDraft(null); draftAttachments.current = {} }
       else if (circleDraft) setCircleDraft(null)
       // …then the Passung dock. It is deliberately not an Overlay (it must not trap the board
       // behind a scrim while a fit is being judged), so it has no Escape of its own and would
@@ -1574,24 +1571,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     setPlanDraftMagnet(null)
   }
 
-  /** Every press of a node tool (on `.wb-ink` or a draft grip) asks the one-finger zoom first.
-   *  The second press of a double tap is the zoom's (useBoardGestures · tapZoomDown): it lays no
-   *  node, and the node its first tap laid is taken back — the Karte's MapView does the same.
-   *  True when the zoom took the press. */
-  const zoomTapNode = (e: React.PointerEvent): boolean => {
-    const laid = tapLaidNode.current
-    tapLaidNode.current = false
-    if (!tapZoomDown(e)) return false
-    e.stopPropagation()
-    if (laid && draft) {
-      if (draft.length > 1) {
-        setDraft(draft.slice(0, -1))
-        if (tool === 'line') draftAttachments.current = { ...draftAttachments.current, endAttachment: undefined }
-      } else { setDraft(null); draftAttachments.current = {} }
-    }
-    return true
-  }
-
   // --- create-tool interactions (on the ink overlay) ---
   // every created anno carries its storey (floor) and tile-local coords; on a
   // single-sheet doc that's floor 0 and coords == board-normalized.
@@ -1609,7 +1588,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       inkPinch.current = inkPinchPts()?.dist ?? null
       return
     }
-    if (noding && zoomTapNode(e)) return
     const n = toNorm(e.clientX, e.clientY); if (!n) return
     e.stopPropagation() // placement owns this pointer — don't let the stage ALSO start a board pan
     const floor = stack ? floorAt(n[1]) : 0
@@ -1703,14 +1681,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       return
     }
     if (noding) {
-      // node-based Linie / Fläche: each tap drops a vertex; ✓ («Fertig») closes the shape — a
-      // double tap zooms, as on the Karte (zoomTapNode). Lines retain the floor below each
-      // pointer; areas stay on the first floor.
+      // node-based Linie / Fläche: each tap drops a vertex; ✓ («Fertig») closes the shape, never a
+      // double tap (UX sweep M4, owner 20./21.10.2026: a double tap is a map function, and while a
+      // tool is armed the tool owns every tap). A quick second tap lands on the grip the first one
+      // just laid, so it adds no corner. Lines retain the floor below each pointer; areas stay on
+      // the first floor.
       if (!draft) draftFloor.current = floor
       const pointFloor = tool === 'line' ? floor : draftFloor.current
       const ly = localY(n[1], pointFloor)
       setDraft((d) => (d ? [...d, [n[0], ly, pointFloor]] : [[n[0], ly, pointFloor]]))
-      tapLaidNode.current = true
       return
     }
     if (tool === 'text') {
@@ -1955,18 +1934,18 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const finishShape = () => {
     const d = draft
     if (tool === 'line' && d && d.length >= minPoints('draw')) {
-      setDraft(null); tapLaidNode.current = false
+      setDraft(null)
       addLine(d)
       return
     }
     if (tool === 'area' && d && d.length >= minPoints('area')) {
-      setDraft(null); tapLaidNode.current = false
+      setDraft(null)
       addArea(d)
       return
     }
-    setDraft(null); tapLaidNode.current = false; setTool('pan')
+    setDraft(null); setTool('pan')
   }
-  const cancelShape = () => { setDraft(null); draftAttachments.current = {}; tapLaidNode.current = false }
+  const cancelShape = () => { setDraft(null); draftAttachments.current = {} }
 
   // --- A6 (29.08.): tap-away must not silently discard a node draft -------------------------
   // live mirrors for the auto-commit toast's «Rückgängig», which fires seconds later from outside
@@ -1994,10 +1973,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // its tool exactly as before.
     const kind = from === 'area' ? 'area' : from === 'line' && lineMode === 'nodes' ? 'line' : null
     if (!kind) {
-      if (from === 'line') { setDraft(null); draftAttachments.current = {}; tapLaidNode.current = false }
+      if (from === 'line') { setDraft(null); draftAttachments.current = {} }
       return
     }
-    setDraft(null); tapLaidNode.current = false
+    setDraft(null)
     if (d.length < minPoints(kind)) {
       draftAttachments.current = {}
       toast(appConfig.copy.toolDock.draftDiscarded)
@@ -2052,7 +2031,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // …and a half-dragged cordon goes with the tool: its overlay unmounts with it, so nothing
     // would ever end the gesture and the preview ring would hang on the sheet
     if (from !== tool) setCircleDraft(null)
-    tapLaidNode.current = false
   }, [tool]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- single freehand-stroke select + drag (tap the fat hit-line in WbInkLayer, pan mode) ---
@@ -2222,7 +2200,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
-  const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp, tapZoomDown } = useBoardGestures({
+  const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp } = useBoardGestures({
     tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
   })
 
@@ -4112,7 +4090,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             {noding && !!draft?.length && (
               <WbDraftHandles pts={draft} closed={tool === 'area'} draftFloor={draftFloor.current}
                 sW={sW} sH={sH} mapY={mapY}
-                onVertexDown={draftVertDown} onInsert={draftInsert} onDeleteVertex={draftDeleteVertex} onPressFirst={zoomTapNode} />
+                onVertexDown={draftVertDown} onInsert={draftInsert} onDeleteVertex={draftDeleteVertex} />
             )}
             {/* «Karte verknüpfen»: the numbered crosses live IN the board so they pan and zoom
                 with the sheet. Shown while the mode is armed, and while the Passung is open —
