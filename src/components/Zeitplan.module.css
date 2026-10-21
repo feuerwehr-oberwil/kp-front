@@ -435,7 +435,10 @@
      knows its own width; ask it. */
   max-width: calc(100cqw - var(--name-w) - 8px);
   margin: 0; padding: 0 4px; letter-spacing: 0; text-transform: none;
+  /* a <button> since F6 (the hold explains the lines): no chrome of its own, the key stays a key */
+  border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer;
 }
+.covKeys:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* 11px and --ink-dim rather than 12.5px and --ink-faint: the three German words plus their
    swatches measure 243px at 12.5px and the visible track on a 390px phone is 218px, so the key
    wrapped to a second line — which put the row's height straight back where it was before the

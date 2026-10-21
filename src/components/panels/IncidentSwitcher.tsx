@@ -163,6 +163,25 @@ export function IncidentSwitcher({
   // A sheet action that NAVIGATES (Rapport → Anwesenheit/Mittel/Verlauf) must not
   // leave the menu sitting on the new surface — any surface change closes it
   useEffect(() => { setOpen(false) }, [navKey])
+  // Escape closes the menu (S8, 20.10.2026, owner: «all dropdowns, popovers … closable by
+  // Escape») — and ONLY the menu. It stays non-modal (docs/ui-conventions · Overlays), so the key
+  // is taken in the CAPTURE phase and stopped here: the workspace's own Escape (IncidentWorkspace
+  // · «the universal bail-out») listens on window and would otherwise also peel the map's next
+  // layer — disarm a tool, drop a selection — with the same press. While a sheet opened from
+  // this menu is up the menu is suspended and the key is the sheet's. Focus goes back to the pill.
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!open || sheetOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      e.stopPropagation()
+      setOpen(false)
+      triggerRef.current?.focus()
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [open, sheetOpen])
 
   // Sync state surfaced two ways: a FIXED-WIDTH coloured mark in the header (so the constant
   // saving↔saved flip never shifts the title/chevron — no inline time/label), and the full
@@ -174,11 +193,15 @@ export function IncidentSwitcher({
   // one wording for one fact, the same the Trupps head shows; the time stays in the title (it
   // was «Gespeichert um 23:16»). The other states keep their words — they are warnings.
   const savedPill = syncStatus === 'synced' ? cp.saved : savedText
+  // «Speicher voll» wears its own glyph (lib/icons · #storage, S1): on a phone the chip is its
+  // glyph alone, and the ⚠ it shared with «Sync-Fehler» made the worse state read as the milder
   const statusMark = syncStatus === 'synced'
     ? <Icon id="check" />
-    : syncStatus === 'error' || syncStatus === 'storage'
-      ? <Icon id="warn" />
-      : <span className="ip-status-dot" />
+    : syncStatus === 'storage'
+      ? <Icon id="storage" />
+      : syncStatus === 'error'
+        ? <Icon id="warn" />
+        : <span className="ip-status-dot" />
   const exerciseBadge = <span className="ip-badge ip-badge-exercise">{appConfig.copy.exerciseBadge}</span>
   /**
    * «Jetzt synchronisieren» — offered whenever the device has a link, not only on error: it forces a push AND an
@@ -207,7 +230,7 @@ export function IncidentSwitcher({
   )
   return (
     <div className="ip-switch" ref={ref}>
-      <button className={`ip-switch-btn${twoLine ? ' ip-switch-two' : ''}`} onClick={() => { setClockOpen(false); setOpen((v) => !v) }}
+      <button ref={triggerRef} className={`ip-switch-btn${twoLine ? ' ip-switch-two' : ''}`} onClick={() => { setClockOpen(false); setOpen((v) => !v) }}
         aria-label={twoLine
           ? [street, active.title, active.is_exercise ? appConfig.copy.exerciseBadge : '', uhr.text ? `${uhr.label[uhr.mode]} ${uhr.text}` : ''].filter(Boolean).join(', ')
           : active ? active.title : cp.noIncident}
@@ -246,7 +269,7 @@ export function IncidentSwitcher({
             work is safely cached on this device, this one means it is not saved ANYWHERE. */}
         {active && syncStatus === 'storage' ? (
           <span className="ip-offline-chip ip-error-chip" title={savedText} aria-label={savedText}>
-            <Icon id="warn" /><span className="ip-chip-word">{cp.storageShort}</span>
+            <Icon id="storage" /><span className="ip-chip-word">{cp.storageShort}</span>
           </span>
         ) : active && syncStatus === 'offline' ? (
           <span className="ip-offline-chip" title={savedText} aria-label={savedText}>

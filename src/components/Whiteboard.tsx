@@ -95,7 +95,7 @@ import { MAX_SCALE, MAX_SCALE_STACK, MIN_SCALE, boardViewSignature, useBoardView
 import { newPlanStep, pushBoardPast, useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { recordKey, watchRecords } from '../lib/undoKeys'
 import { useBoardGestures } from './useBoardGestures'
-import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles } from './WbControls'
+import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles, type TruppFinderDoor } from './WbControls'
 import { MeasurePanel } from './MeasurePanel'
 import { ToolDock } from './ToolDock'
 import { PlanCompass } from './PlanCompass'
@@ -258,6 +258,8 @@ interface Props {
   onLinkTrupp?: (annoId: string, truppId: string) => void
   /** jump to the Atemschutz board for a linked Trupp ("show the trupp"). */
   onShowTrupp?: (truppId: string) => void
+  /** «Trupp finden» on the Trupp dock — the workspace's shared TruppFinder (WbControls) */
+  truppFinder?: TruppFinderDoor
   /** the incident's ghost «Spuren» recorded on THIS sheet (lib/truppTrails · planGhostTrails) —
    *  the searched area a removed Trupp chip left behind. Drawn read-only and grey, on the storey
    *  each point was walked on; `onGhostTrail` is the «Spur löschen» door (absent ⇒ no door). */
@@ -379,7 +381,7 @@ export interface PlanLogExtra {
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -527,8 +529,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   /** the FIRST of a Rotation's two points, while the second is still being looked for (lib/shapes
    *  · SHAPE_TWO_POINT). Lives and dies with one placement gesture. */
   const [rotStart, setRotStart] = useState<BoardPoint | null>(null)
-  // last node-tap (time + point) to detect a double-tap that finishes the shape
-  const lastTap = useRef<{ t: number; x: number; y: number } | null>(null)
   // h/w of the document box, plus «is that a measurement of THIS sheet or the A4 seed» — one hook,
   // keyed on the sheet rather than on the Modul slot, because the two questions go wrong together
   // (components/useMeasuredSheet). Seeded and reseeded there; nothing else may set it.
@@ -760,7 +760,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       // one gesture whose whole meaning is «weg damit», and auto-saving it would leave no
       // way to throw a half-laid shape away.
       if (rotStart) { setRotStart(null); clearRotMagnet() }
-      else if (draft) { setDraft(null); draftAttachments.current = {}; lastTap.current = null }
+      else if (draft) { setDraft(null); draftAttachments.current = {} }
       else if (circleDraft) setCircleDraft(null)
       // …then the Passung dock. It is deliberately not an Overlay (it must not trap the board
       // behind a scrim while a fit is being judged), so it has no Escape of its own and would
@@ -1588,6 +1588,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       inkPinch.current = inkPinchPts()?.dist ?? null
       return
     }
+    // Freihand's taps mean nothing, so a double tap on the ink zooms (useBoardGestures ·
+    // tapZoomPress); its drag stays the stroke
+    if (inking) tapZoomPress(e)
     const n = toNorm(e.clientX, e.clientY); if (!n) return
     e.stopPropagation() // placement owns this pointer — don't let the stage ALSO start a board pan
     const floor = stack ? floorAt(n[1]) : 0
@@ -1681,13 +1684,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       return
     }
     if (noding) {
-      // node-based Linie / Fläche: each tap drops a vertex; a double-tap (or the «Fertig» button)
-      // closes the shape. Lines retain the floor below each pointer; areas stay on the first floor.
-      const now = e.timeStamp
-      const lt = lastTap.current
-      const dbl = !!(lt && now - lt.t < 350 && Math.hypot(e.clientX - lt.x, e.clientY - lt.y) < 24)
-      lastTap.current = { t: now, x: e.clientX, y: e.clientY }
-      if (dbl) { finishShape(); return }
+      // node-based Linie / Fläche: each tap drops a vertex; ✓ («Fertig») closes the shape, never a
+      // double tap (UX sweep M4, owner 20./21.10.2026: a double tap is a map function, and while a
+      // tool is armed the tool owns every tap). A quick second tap lands on the grip the first one
+      // just laid, so it adds no corner. Lines retain the floor below each pointer; areas stay on
+      // the first floor.
       if (!draft) draftFloor.current = floor
       const pointFloor = tool === 'line' ? floor : draftFloor.current
       const ly = localY(n[1], pointFloor)
@@ -1936,18 +1937,18 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const finishShape = () => {
     const d = draft
     if (tool === 'line' && d && d.length >= minPoints('draw')) {
-      setDraft(null); lastTap.current = null
+      setDraft(null)
       addLine(d)
       return
     }
     if (tool === 'area' && d && d.length >= minPoints('area')) {
-      setDraft(null); lastTap.current = null
+      setDraft(null)
       addArea(d)
       return
     }
-    setDraft(null); lastTap.current = null; setTool('pan')
+    setDraft(null); setTool('pan')
   }
-  const cancelShape = () => { setDraft(null); draftAttachments.current = {}; lastTap.current = null }
+  const cancelShape = () => { setDraft(null); draftAttachments.current = {} }
 
   // --- A6 (29.08.): tap-away must not silently discard a node draft -------------------------
   // live mirrors for the auto-commit toast's «Rückgängig», which fires seconds later from outside
@@ -1975,10 +1976,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // its tool exactly as before.
     const kind = from === 'area' ? 'area' : from === 'line' && lineMode === 'nodes' ? 'line' : null
     if (!kind) {
-      if (from === 'line') { setDraft(null); draftAttachments.current = {}; lastTap.current = null }
+      if (from === 'line') { setDraft(null); draftAttachments.current = {} }
       return
     }
-    setDraft(null); lastTap.current = null
+    setDraft(null)
     if (d.length < minPoints(kind)) {
       draftAttachments.current = {}
       toast(appConfig.copy.toolDock.draftDiscarded)
@@ -2033,7 +2034,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // …and a half-dragged cordon goes with the tool: its overlay unmounts with it, so nothing
     // would ever end the gesture and the preview ring would hang on the sheet
     if (from !== tool) setCircleDraft(null)
-    lastTap.current = null
   }, [tool]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- single freehand-stroke select + drag (tap the fat hit-line in WbInkLayer, pan mode) ---
@@ -2203,7 +2203,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // pan / pinch-zoom / marquee multi-select + the shared stage pointer dispatcher live in
   // useBoardGestures; object manipulation is reached through manipMove/manipUp above.
-  const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp } = useBoardGestures({
+  const { marquee, stageDown, stageMove, stageUp, trackDown, trackUp, tapZoomPress } = useBoardGestures({
     tool, annos, setSelId, setSelIds, setTool, applyView, zoomTo, scaleRef, posRef, canvasRef, boardRef, mapY, manipMove, manipUp,
   })
 
@@ -2947,8 +2947,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // the popover is the board's (24.09.2026).
   const orientControls = (
     <div className="wb-orient-pop" onPointerDown={(e) => e.stopPropagation()}>
-      <label className="wb-orient-row">
-        <span className="wb-orient-lbl">{appConfig.copy.whiteboard.orientSliderLabel}</span>
+      <div className="wb-orient-row">
+        <span className="wb-orient-lbl" aria-hidden>{appConfig.copy.whiteboard.orientSliderLabel}</span>
         {/* ⚠️ a cancelled gesture (iOS: the touch became a scroll) or the popover closing drops
             the preview instead of leaving the backdrop turned uncommitted (24.09.2026) */}
         <OrientSlider
@@ -2959,7 +2959,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onAbandon={() => setDialDragDeg(null)}
         />
         <b className="wb-orient-val">{Math.round(normDeg(dialDragDeg ?? viewAngle))}°</b>
-      </label>
+      </div>
       <div className="wb-orient-chips">
         {/* «Wie gezeichnet» is the pack's own 0°: the sheet as the architect drew it, which is a
             meaningful place to come back to and is NOT north-up (that is the chip beside it) */}
@@ -4150,14 +4150,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             </div>
           )}
 
-          {/* the Gebäude's north dial — fixed in the viewport's top-right corner, NOT on the
-              paper (PlanCompass). It reads whenever a footprint stack is on screen; where the
-              building was auto-rotated and the surface is editable it is also THE door to
-              turning it (the rail's compass tile went 29.09.2026, sweep K6 — two doors, one room).
-              Rendered AFTER the floating zoom so the chip can step below it (module CSS). */}
-          {stack && fpView && (
-            <PlanCompass deg={northDeg ?? shownAngle} northUnknown={northDeg == null}
-              controls={canOrient && !readOnly ? orientControls : undefined} />
+          {/* the Gebäude's north dial lives in the rail's footer (below). A plan with NO rail – a
+              replay, a viewer-only document – keeps it as a read-out in the viewport's top-right
+              corner, NOT on the paper. Rendered AFTER the floating zoom so the chip can step
+              below it (PlanCompass.module.css). */}
+          {stack && fpView && readOnly && !slimRail && (
+            <PlanCompass variant="float" deg={northDeg ?? shownAngle} northUnknown={northDeg == null} />
           )}
 
           {/* ONE bar for every selection this sheet has — the same component, in the same corner
@@ -4197,6 +4195,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           measCount={measPath.length}
           onMeasClear={() => setMeasPath(() => [])}
           onMeasClose={() => { measReset(); setTool('pan') }}
+          truppFinder={truppFinder}
         />}
       </div>
 
@@ -4245,27 +4244,33 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
               {/* «Einpassen» — where the map rail carries its compass / views button: the one
                   control that puts the whole surface back in front of you. */}
               <button className="vrail-nbtn vrail-fit" title={appConfig.copy.nav.fit} aria-label={appConfig.copy.nav.fit} disabled={scale === 1 && pos.x === 0 && pos.y === 0} onClick={() => applyView(1, { x: 0, y: 0 })}><span className="vrail-glyph"><Icon id="cross" /></span><span className="vrail-label">{appConfig.copy.nav.fit}</span></button>
+              {/* the Gebäude's north dial (PlanCompass) – where the Karte's rail carries its compass,
+                  and on a phone in the bottom bar beside «Einpassen» (20.10.2026, UX sweep M7; it
+                  floated top-right until then). It turns with the view, and where the building can
+                  be turned it is THE door to «Gebäude drehen» on every device – one door, so the
+                  rail's old separate compass tile (gone 29.09.2026, sweep K6) does not come back. */}
+              {stack && fpView && (
+                <PlanCompass variant="rail" deg={northDeg ?? shownAngle} northUnknown={northDeg == null}
+                  controls={canOrient && !readOnly ? orientControls : undefined} />
+              )}
               {/* zoom ±: desktop only (.vrail-zoom is hidden under 1024px) — the plan pinches
                   on every touch form factor, and «Einpassen» above covers the one state that
                   matters. */}
               <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomOut} aria-label={appConfig.copy.nav.zoomOut} disabled={scale <= MIN_SCALE} onClick={() => zoom(1 / 1.3)}><span className="vrail-glyph"><Icon id="minus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomOut}</span></button>
               <button className="vrail-nbtn vrail-zoom" title={appConfig.copy.nav.zoomIn} aria-label={appConfig.copy.nav.zoomIn} disabled={scale >= maxScale} onClick={() => zoom(1.3)}><span className="vrail-glyph"><Icon id="plus" /></span><span className="vrail-label">{appConfig.copy.nav.zoomIn}</span></button>
-              {/* (no «Gebäude drehen» tile here any more — 29.09.2026, sweep K6: the north dial
-                  (PlanCompass) is the ONE door to the Drehung on every device, and it also SHOWS
-                  the angle. The rail's compass tile opened the same popover a second way and
-                  brought a second foot hairline with it.) */}
+
             </>
           }
         />
       )}
 
-      {/* symbol/shape placement — the SAME shared ToolDock the Lage map uses (close + keep-placing
-          lock + info hint), so placing on the plan feels identical to placing on the map. Rest tool
+      {/* symbol/shape placement — the SAME shared ToolDock the Lage map uses (close + «Mehrere
+          platzieren» + info hint), so placing on the plan feels identical to placing on the map. Rest tool
           is 'pan' here (the plan pans on empty canvas) vs the map's 'select'. */}
       {pending && tool === 'symbol' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPending(null); setTool('pan') } }],
-          [{ type: 'toggle', icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
+          [{ type: 'toggle', icon: 'place-repeat', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
           [{ type: 'info', text: appConfig.copy.dockHints.symbol }],
         ]} />
       )}
@@ -4275,7 +4280,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('pan') } }],
           [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color={isPhone ? 'currentColor' : '#fff'} aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
           // «mehrere nacheinander» has no meaning for a shape laid between two named places
-          ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
+          ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'place-repeat', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
           [{ type: 'info', text: !SHAPE_TWO_POINT[pendingShape] ? appConfig.copy.dockHints.shape
             : rotStart ? appConfig.copy.dockHints.rotationEnd : appConfig.copy.dockHints.rotationStart }],
         ]} />

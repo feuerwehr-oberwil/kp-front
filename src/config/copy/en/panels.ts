@@ -37,7 +37,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
       rainShowers: 'Rain showers', snowShowers: 'Snow showers', thunder: 'Thunderstorm', cloudy: 'Cloudy',
     },
     windShiftOpen: 'Open in log',
-    windShiftDismiss: 'Dismiss',
+    windShiftDismiss: 'Hide',
   },
   weatherLayer: {
     group: 'Weather',
@@ -160,6 +160,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     foot: 'Loads map, plans, symbols and utility lines for this incident onto this device. Weather and object search need a connection and are not available offline.',
     wsDropped: 'Skipped {n} corrupted entries while loading',
     wsNewer: 'Incident data was saved by a newer app version – please update the app.',
+    wsDroppedDismiss: 'Hide',
     dlDone: 'Map ready offline – {n} tiles',
     dlDoneCapped: 'Map ready offline – area limited, {n} tiles',
     dlPartial: 'Partly loaded – {n} of {total}. The map is missing at the edge of the area.',
@@ -181,7 +182,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     kicker: 'New incident',
     switch: 'Switch',
     open: 'Open',
-    later: 'Later',
+    dismiss: 'Hide',
   },
   photoViewer: {
     title: 'Photo',

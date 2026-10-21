@@ -170,7 +170,7 @@ export function AppMenuRows({
               one opens an earlier Einsatz, one opens a new one. */}
           {onHistory && (
             <button type="button" className="ip-menu-act" onClick={onHistory}>
-              <Icon id="history" /><ActLabel>{cp.allIncidents}</ActLabel>
+              <Icon id="list" /><ActLabel>{cp.allIncidents}</ActLabel>
             </button>
           )}
           {isEditor && onCreate && <button type="button" className="ip-menu-act" onClick={onCreate}><Icon id="plus" /><ActLabel>{ci.titleNew}</ActLabel></button>}

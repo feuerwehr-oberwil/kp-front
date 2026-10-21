@@ -115,7 +115,7 @@ export function AnrueckendBlock({ incidentId, people, attendance, canEdit, onMar
         </span>
         <span className={s.anrSummary}>{summary}</span>
         <span className={s.anrSource}>{R.sourceBare}</span>
-        <Icon id={open ? 'chevron-up' : 'chevron-down'} />
+        <Icon id="chevron-down" className="chev" />
       </button>
       {open && (
         <div className={s.anrBody}>

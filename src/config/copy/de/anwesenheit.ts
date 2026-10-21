@@ -366,11 +366,16 @@ export const anwesenheitCopy = {
     sheetHint: 'Die Schicht wird für das ganze Personal angelegt. Jede Zelle beginnt leer.',
     create: 'Erstellen',
     save: 'Speichern',
-    removeBand: 'Schicht löschen',
+    // the bare word (UX sweep F4 rework, 21.10.2026, owner: «Schichtband löschen» wrapped onto two
+    // lines in the footer) – the sheet's title names the band, so the button needn't; and it no
+    // longer reads «Schicht löschen», which is one person's stretch (zeitplan.remove). «löschen»,
+    // not «entfernen»: the band record itself is destroyed – what survives are the people's
+    // times, which are records of their own. The toast says «Schichtband».
+    removeBand: 'Löschen',
     // What gets deleted is the BAND, not the planning: the Schichten remain as freehand ones.
     // This is the one path on which real planning would otherwise vanish silently.
     removeBandHint: 'Gelöscht wird nur die Spalte – die eingeteilten Zeiten bleiben als freihändige im Zeitplan stehen.',
-    removedBand: 'Schicht «{label}» gelöscht',
+    removedBand: 'Schichtband «{label}» gelöscht',
     // When a band is moved: no silent coupling in either direction.
     moveTitle: 'Zeiten mitziehen?',
     moveMsg: '{n} Personen sind auf die alten Zeiten eingeteilt. Sollen ihre Zeiten mitziehen?',

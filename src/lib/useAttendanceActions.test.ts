@@ -177,3 +177,17 @@ describe('clearing a row and taking it back from the toast', () => {
     ])
   })
 })
+
+// UX sweep F1 (20.10.2026): the sheet's delete became the bin — the undo behind it stays, so a
+// stretch removed by mistake comes back verbatim from the toast
+describe('removing one recorded block', () => {
+  it('drops that block only, and the toast puts it back', () => {
+    const blocks = [{ from: STARTED, to: '2026-06-23T21:40:00.000Z' }, { from: '2026-06-23T22:10:00.000Z' }]
+    const { actions, state } = harness({ p1: { status: 'present', displayNameSnapshot: 'Meier Anna', intervals: blocks } })
+    toasts.undo.length = 0
+    actions.removeAttendanceBlock('p1', 0)
+    expect(intervalsOf(state.attendance.p1)).toEqual([blocks[1]])
+    toasts.undo[0]()
+    expect(intervalsOf(state.attendance.p1)).toEqual(blocks)
+  })
+})

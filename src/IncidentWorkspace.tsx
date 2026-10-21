@@ -35,7 +35,7 @@ import { registerMeldeleisteHost } from './lib/meldeleisteHost'
 import { conflictResolvedRow, openConflicts, type OpenConflict } from './lib/attendanceConflict'
 import { isBottomSheet, rectCenter, visibleWorkRect, type NudgeBox } from './lib/panelNudge'
 import { useMeasure } from './lib/useMeasure'
-import { useCoordPicker } from './lib/useCoordPicker'
+import { useCoordPicker, type CoordPicker } from './lib/useCoordPicker'
 import { useObjectStore } from './lib/useObjectStore'
 import { recordKey, type RecordedField, type RecordKey } from './lib/undoKeys'
 import { useGpsFollow } from './lib/useGpsFollow'
@@ -1305,7 +1305,15 @@ export function IncidentWorkspace({
   )
   const [view, setView] = useState<{ bearing: number; center: LngLat; zoom: number }>({ bearing: 0, center: incidentView.center, zoom: getDeploymentConfig().map?.defaultView?.zoom ?? 17.6 })
   // coordinate picker (one-shot crosshair + LV95/WGS84 readout) — extracted to useCoordPicker.
-  const coord = useCoordPicker(false, view.center)
+  // ⚠️ Koordinaten is a TOOL like any other on the rail (owner 20.10.2026, UX sweep M1: it stayed
+  // on under every tool and silently took the taps meant for it). Entering it puts the armed
+  // tool down (disarmMapTool — a draft is settled, never dropped); arming any tool ends it
+  // (clearMapUi). Every way in — the Ansichten row, the X key — is this one `cycle`.
+  const coordPicker = useCoordPicker(false, view.center)
+  const coord: CoordPicker = {
+    ...coordPicker,
+    cycle: () => { if (coordPicker.mode === 'off') disarmMapTool(); coordPicker.cycle() },
+  }
 
   // --- audit capture (substrate A): batch client tactical events, flush debounced (see useAuditEvents) ---
   // ⚠️ SCOPED to what this role may append (lib/eventScope, 24.09.2026): the `el` phone runs
@@ -2100,6 +2108,18 @@ export function IncidentWorkspace({
     setLayers((ls) => ls.map((l) => (l.id === id ? { ...l, opacity: v } : l)))
   }
 
+  /** Put the armed Karte tool down: back to Auswahl, its arming UI (palette, «Welcher Trupp?»)
+   *  closed. clearMapUi, the lock below and entering Koordinaten all go through here. */
+  const disarmMapTool = () => {
+    // settleDraft, not setDraft([]): leaving the map (or opening a dock) mid-draft used to be a
+    // silent discard — a committable draft auto-commits with an undo toast, a fragment says so
+    // (useMapDrawing · settleDraft; Escape stays the explicit discard).
+    setTool('select'); setPending(null); setPendingShape(null); settleDraft(); setTeamPick(null)
+    // the palette IS the arming UI for the symbol tool, so it goes with the tool it arms —
+    // otherwise leaving the map with it open silently re-opened it on the way back
+    setPaletteOpen(false)
+  }
+
   /**
    * The ONE place that drops the Lage map's transient UI. Six call sites — pick, togglePanel,
    * toggleViews, NavRail's onMode, goToModule, enterReplay — each used to hand-write its own
@@ -2122,14 +2142,11 @@ export function IncidentWorkspace({
    * panel now stands down via `detailSlotFree` while a dock is up — see its note above.
    */
   const clearMapUi = (keep?: 'selection') => {
-    // settleDraft, not setDraft([]): leaving the map (or opening a dock) mid-draft used to be a
-    // silent discard — a committable draft auto-commits with an undo toast, a fragment says so
-    // (useMapDrawing · settleDraft; Escape stays the explicit discard).
-    setTool('select'); setPending(null); setPendingShape(null); settleDraft(); setTeamPick(null)
-    // the palette IS the arming UI for the symbol tool, so it goes with the tool it arms —
-    // otherwise leaving the map with it open silently re-opened it on the way back
-    setPanel(null); setViewsOpen(false); setPaletteOpen(false)
+    disarmMapTool()
+    setPanel(null); setViewsOpen(false)
+    // the two chrome toggles keep Koordinaten too: its switch IS a row of the Ansichten menu
     if (keep === 'selection') return
+    coordPicker.setMode('off')
     setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
     setNotePanelId(null); setEditNoteId(null)
   }
@@ -2141,8 +2158,7 @@ export function IncidentWorkspace({
     if (!tacticalLocked || isMapReadOnlyTool(tool)) return
     // settleDraft under the lock cannot commit (the create funnel refuses a locked surface) —
     // but it still SAYS the draft was discarded instead of dropping it silently.
-    setTool('select'); setPending(null); setPendingShape(null); settleDraft(); setTeamPick(null)
-    setPaletteOpen(false); setEditNoteId(null)
+    disarmMapTool(); setEditNoteId(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tacticalLocked, tool])
 
@@ -2754,12 +2770,14 @@ export function IncidentWorkspace({
       setPanel(null)
       if (!goToModule(1)) setMode('plans')
     }
-    else if (a === 'draw') { setMode('map'); setTool('line') }
+    // arming the pen ends Koordinaten, as every tool does (see `coord`)
+    else if (a === 'draw') { setMode('map'); coordPicker.setMode('off'); setTool('line') }
   }
 
   const mapUI = mode === 'map'
-  // an armed map tool or the Passung takes the taps: the toasts give way to the top lane (lib/toastLane)
-  usePlacementLane((mapUI && tool !== 'select') || georefActive)
+  // an armed map tool, the aiming crosshair or the Passung takes the taps: the toasts give way to
+  // the top lane (lib/toastLane)
+  usePlacementLane((mapUI && (tool !== 'select' || coord.mode === 'aim')) || georefActive)
 
   /* ── one fault line per view (SurfaceBoundary, 02.09.) ─────────────────────────────────────
    * A throw in ANY panel — a Mittel row without a label, a Verlauf text, a building without
@@ -3147,6 +3165,7 @@ export function IncidentWorkspace({
         releaseOnSite, revertAll, followAll, replayActive, incidentMeta, journal, rapportReturn,
         setRapportReturn, openRapport, setInstallGuideOpen, tabLockLost, user, onTakeOverTab, needsReview,
         readOnly, intakeReviewedAt, onEditMeta, onReviewDone, azAlarmActive, truppPlace, setTruppStatus,
+        syncStatus, exportEntries, syncNow,
       }} />
 
       {/* single left navigation rail — all surfaces; switches Karte / object Pläne / Checkliste */}
@@ -3187,7 +3206,7 @@ export function IncidentWorkspace({
       <MapControls {...{
         mapUI, mapUtility, mapRef, view, viewsApi, readOnly, isEl, viewsOpen, toggleViews, coord, panel,
         layersPreset, togglePanel, isPhone, slimRail, displayWeather, openWeatherDetails, replayActive,
-        georefMode, buildingInfo, buildingFirst, tool, setPanel, composerOpen, journalOpen, offlineReadyOpen,
+        georefMode, buildingInfo, buildingFirst, setPanel, composerOpen, journalOpen, offlineReadyOpen,
         // an incident link may not read the station: no «Unterirdische Bauten» row it could never fill
         layers: linkScoped ? layers.filter((l) => l.id !== UNDERGROUND_LAYER_ID) : layers,
         toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
@@ -3231,6 +3250,7 @@ export function IncidentWorkspace({
         askTruppEntry, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker, linkTruppLine, unlinkLine,
         linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, syncLineNoToTrupp, setMode, setPanel,
         setTruppFocus, planScale, setPlanScale, tafel,
+        truppFinder: { open: () => setFindTruppOpen(true), disabled: placed.length === 0 },
       }} />
 
       {pickerOpen && (

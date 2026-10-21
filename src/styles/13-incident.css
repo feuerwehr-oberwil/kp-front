@@ -318,8 +318,8 @@
 .set-row .step-val { min-width: 68px; }
 /* Symbolgrösse: two sliders (Karte · Module) where an S/M/L segment used to be. Tokenised
    throughout so day and night both stay right — --blue for the track, never --accent, which is
-   the brand's alarm red and must not come to mean «this is the setting you picked». Same idiom
-   as .kf-at-range in the Kroki framing panel. */
+   the brand's alarm red and must not come to mean «this is the setting you picked». (Still the
+   native range – the last one; the Kroki's «Stand» moved onto components/Slider 20.10.2026.) */
 .set-range { display: flex; align-items: center; gap: 8px; flex: 0 1 260px; min-width: 0; }
 .set-range input[type=range] { flex: 1 1 auto; min-width: 0; height: var(--tap); accent-color: var(--blue); cursor: pointer; }
 /* fixed, tabular value slot: the two rows sit above each other, so «60 %» and «140 %» must not
@@ -716,6 +716,10 @@
    that catches every author is a missing rule, not a missing patch. Scoped to a direct child of
    .ip-sheet, so .ip-row-actions and any inline action row are untouched. */
 .ip-sheet > .ip-actions { padding: 8px 24px 16px; }
+/* ONE footer for every edit sheet (UX sweep F5, 20.10.2026): [danger far left] · Abbrechen ·
+   primary. The delete leads the row and the rest keeps to the right, so it never stands beside
+   the save; a live sheet (TimeBlockSheet) has only the danger. docs/ui-conventions · editor sheets */
+.ui-sheet-foot > :is(.ip-btn.danger, .ip-btn-danger):first-child { margin-right: auto; }
 /* demo: "opening is disabled" note above the wizard's action row */
 .ip-demo-block { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 8px 12px;
   border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim); font: var(--fw-medium) var(--fs-1) var(--body); }
@@ -744,8 +748,10 @@
 @media (hover: hover) {
   .ip-btn:hover { background: var(--hover-strong); }
 }
-.ip-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.ip-btn:disabled { opacity: var(--disabled); cursor: default; }
+.ip-btn:active:not(:disabled, [aria-disabled='true']) { background-image: linear-gradient(var(--press), var(--press)); }
+/* `aria-disabled` is a save that still TAKES the tap and points at what is missing
+   (lib/pointAtField) — it looks exactly as unavailable as a native `disabled` */
+.ip-btn:disabled, .ip-btn[aria-disabled='true'] { opacity: var(--disabled); cursor: default; }
 .ip-btn svg { width: 16px; height: 16px; flex: none; }
 /* lg: the one big action of a screen */
 .ip-btn.lg { min-height: var(--tap-lg); padding: 0 var(--sp-5); font-size: var(--fs-3); line-height: var(--lh-3); }
@@ -1013,8 +1019,8 @@ button.list-row:disabled { opacity: var(--disabled); cursor: default; }
 .rp-check-dot { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
   border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent); color: var(--ink-faint); }
 /* done is the ORDINARY state and reads by its shape — a tick where there was a dash. It was blue,
-   which put four blue rings down a column that also carries one per partner organisation; see the
-   note on .report-partner.on. Ink, not hue. */
+   which put four blue rings down a column that also carries one per partner organisation. Ink,
+   not hue: this dot is a section's STATUS, not a tick (the partner ticks are TickRow's). */
 .rp-check-dot.done { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
 .rp-check-dot svg { width: 14px; height: 14px; }
 .rp-check-label { font: var(--fw-bold) var(--fs-2) var(--body); flex: none; }
@@ -1501,8 +1507,9 @@ button.rp-sign-row:disabled { cursor: default; }
 .wheelpop-btn.clear { color: var(--red); border-color: var(--del-edge); }
 .wheelpop-btn.clear svg { width: 14px; height: 14px; display: block; }
 .wheelpop-btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
-/* a note that blocks (a Wiedervorlage in the past) holds «OK» back until the wheels move */
-.wheelpop-btn:disabled { opacity: var(--disabled); cursor: default; }
+/* a note that blocks (a Wiedervorlage in the past) holds «OK» back until the wheels move — aria-
+   disabled, so a tap on it still rings the note that says why (WheelPicker · commit) */
+.wheelpop-btn:disabled, .wheelpop-btn[aria-disabled='true'] { opacity: var(--disabled); cursor: default; }
 
 .cv-matgroup { display: flex; flex-direction: column; gap: 2px; }
 .cv-matgroup-head {

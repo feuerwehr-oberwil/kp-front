@@ -229,3 +229,34 @@ describe('alarms.webhooks — how a second system learns an Einsatz exists', () 
     expect(apiPut).not.toHaveBeenCalled()
   })
 })
+
+// The bins of a config list were one-tap deletes on a page that autosaves 700 ms later, while the
+// Fahrzeug and Raster bins beside them asked first (A1, UX sweep). Every one asks now; the
+// webhook (a plain string row) and the map portal (an object row) stand for the two row shapes.
+describe('config-list bins ask before they delete', () => {
+  it('a webhook survives the first tap and the autosave, and goes on «Ja»', async () => {
+    apiGet.mockResolvedValue({ ...structuredClone(STATION), alarms: { ...STATION.alarms, webhooks: ['https://rueck.example.ch/api/alarms'] } })
+    await setup(<AlarmsSection />, () => screen.queryByLabelText(A.webhookRemove))
+    await act(async () => { fireEvent.click(screen.getByLabelText(A.webhookRemove)) })
+    await settle()
+    expect(screen.getByText(A.webhookRemoveConfirm)).toBeTruthy()
+    expect(apiPut).not.toHaveBeenCalled()
+    await act(async () => { fireEvent.click(screen.getByText(appConfig.copy.admin.common.confirmYes)) })
+    await settle()
+    expect(sent()?.alarms.webhooks).toEqual([])
+  })
+
+  it('a map portal answers «Abbrechen» by staying', async () => {
+    apiGet.mockResolvedValue({
+      ...structuredClone(STATION),
+      map: { ...STATION.map, externalLinks: [{ label: 'GeoView BL', urlTemplate: 'https://geoview.bl.ch/?E={E}&N={N}' }] },
+    })
+    await setup(<MapSection />, () => screen.queryByLabelText(M.extRemove))
+    await act(async () => { fireEvent.click(screen.getByLabelText(M.extRemove)) })
+    expect(screen.getByText(M.extRemoveConfirm)).toBeTruthy()
+    await act(async () => { fireEvent.click(screen.getByText(appConfig.copy.admin.common.confirmNo)) })
+    await settle()
+    expect(screen.getByLabelText(M.extRemove)).toBeTruthy()
+    expect(apiPut).not.toHaveBeenCalled()
+  })
+})

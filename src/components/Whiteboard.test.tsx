@@ -1243,7 +1243,8 @@ describe('drehen · Gebäude aus Geschossplänen', () => {
 })
 
 // Field report 24.09.2026 (iPad): «clicking the north indicator in Gebäude doesn't always toggle
-// the rotation – in fact pretty rarely». The dial sits INSIDE the board's canvas, and the canvas
+// the rotation – in fact pretty rarely». The dial sat INSIDE the board's canvas then (it is in the
+// rail's footer since 20.10.2026, and these presses still have to hold), and the canvas
 // answers every pointerdown with a one-finger pan that takes pointer capture — so the release,
 // and with it the click, landed on the canvas and never on the dial (nor, through the portal's
 // React bubbling, on the popover's «Norden oben»). jsdom neither captures nor retargets, so
@@ -1270,17 +1271,33 @@ describe('the Gebäude north dial answers one tap, every time', () => {
       hist={{}} setHist={() => {}} focus={null}
     />)
     const canvas = container.querySelector('.wb-canvas')!
-    // the viewport's dial, on the canvas
-    const dial = () => within(canvas as HTMLElement).getByRole('button', { name: TURN })
+    // the dial, in the rail's footer (UX sweep M7, 20.10.2026 – it was on the canvas, top-right)
+    const dial = () => within(container.querySelector('.wb-tools') as HTMLElement).getByRole('button', { name: TURN })
     return { onReorient, canvas, dial }
   }
   const isOpen = (dial: HTMLElement) => dial.getAttribute('aria-expanded') === 'true'
 
-  // sweep K6 (29.09.2026): the rail's compass tile opened the same popover a second way
-  it('is the ONLY door — the rail carries no «Gebäude drehen» tile', () => {
-    const { dial } = renderStack()
-    expect(dial()).toBeTruthy()
+  // sweep K6 (29.09.2026): a second compass tile opened the same popover a second way. Since
+  // 20.10.2026 (M7) the one door sits where the Karte's compass does – in the rail's footer – and
+  // the viewport's corner is empty.
+  it('is the ONLY door, in the rail footer like the Karte’s compass', () => {
+    const { dial, canvas } = renderStack()
+    expect(dial().closest('.vrail-nav')).toBeTruthy()
     expect(screen.getAllByRole('button', { name: TURN })).toHaveLength(1)
+    expect(within(canvas as HTMLElement).queryByRole('img', { name: appConfig.copy.whiteboard.northTitle })).toBeNull()
+  })
+
+  // …and a plan with no rail at all (a replay) has nowhere else to show north
+  it('without a rail (a replay) it stays a read-out in the viewport corner', () => {
+    const { container } = render(<Whiteboard
+      plans={[umrisse, gebaeudeDoc, tafel]} activeId="gebaeude" annos={[]} onChange={() => {}}
+      building={footprint} onSelectBuilding={() => {}} onBuildingFace={() => {}} onReorient={() => {}}
+      onAddFloor={() => {}} onRemoveFloor={() => {}} readOnly sym={sym} onRecent={() => {}} log={() => {}}
+      hist={{}} setHist={() => {}} focus={null}
+    />)
+    expect(container.querySelector('.wb-tools')).toBeNull()
+    expect(screen.getByRole('img', { name: appConfig.copy.whiteboard.northTitle })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: TURN })).toBeNull()
   })
 
   const commonAncestor = (a: Element, b: Element) => {
@@ -1790,5 +1807,64 @@ describe('«Gelöscht / erledigt» on the plan', () => {
     open([{ ...feuer, done: { at: '2026-09-23T18:40:00.000Z' } }], { readOnly: true })
     expect(screen.queryByRole('button', { name: new RegExp(O.reopen) })).toBeNull()
     expect(screen.getAllByText(new RegExp(`^${O.word.fire.title} `)).length).toBeGreaterThan(0)
+  })
+})
+
+// UX sweep M9 (20.10.2026): the Karte's Trupp dock had «Trupp finden», the Plan's only ✕ and ⓘ —
+// a Zugführer working on a plan could not find a Trupp from there.
+describe('the plan’s Trupp dock finds a Trupp, like the Karte’s', () => {
+  const arm = () => fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.team }))
+
+  it('opens the shared finder from the dock', () => {
+    const open = vi.fn()
+    renderPlan([], { truppFinder: { open, disabled: false } })
+    arm()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.truppFinder.title }))
+    expect(open).toHaveBeenCalledTimes(1)
+  })
+
+  it('stays on the dock, disabled, while no Trupp is placed anywhere', () => {
+    renderPlan([], { truppFinder: { open: vi.fn(), disabled: true } })
+    arm()
+    expect((screen.getByRole('button', { name: appConfig.copy.truppFinder.title }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})
+
+// UX sweep M4 (owner 20./21.10.2026: a double tap is «a map function … definitely not for
+// finishing something», and an armed tool owns its taps): a Punkte draft finishes on ✓ only.
+describe('a double tap on a Punkte draft finishes nothing', () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, right: 400, bottom: 400, width: 400, height: 400, x: 0, y: 0, toJSON: () => ({}),
+    } as DOMRect)
+  })
+  afterEach(() => { vi.restoreAllMocks() })
+  const W = appConfig.copy.whiteboard
+  const tapAt = (el: Element, x: number, y: number) => {
+    fireEvent.pointerDown(el, { clientX: x, clientY: y, pointerId: 1, pointerType: 'touch' })
+    fireEvent.pointerUp(el, { clientX: x, clientY: y, pointerId: 1, pointerType: 'touch' })
+  }
+  const corners = (c: HTMLElement) => {
+    fireEvent.click(screen.getByRole('button', { name: 'Fläche' }))
+    const ink = c.querySelector('.wb-ink')!
+    tapAt(ink, 100, 100); tapAt(ink, 300, 100); tapAt(ink, 200, 300)
+    return ink
+  }
+
+  it('closes no Fläche – its second tap lands on the grip the first just laid and adds no corner', () => {
+    const { container, onChange } = renderPlan([])
+    const ink = corners(container)
+    tapAt(ink, 100, 300)
+    const grips = screen.getAllByRole('button', { name: W.dragVertex })
+    tapAt(grips[grips.length - 1], 101, 300)
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(4)
+  })
+
+  it('✓ is the way to finish', () => {
+    const { container, onChange } = renderPlan([])
+    corners(container)
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.done }))
+    expect(onChange.mock.calls[0][0][0].kind).toBe('area')
   })
 })

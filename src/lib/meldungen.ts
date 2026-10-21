@@ -36,28 +36,39 @@ export const MELDUNG_RANK = {
    *  screen just changed from live to read-only (or back) under the operator's hands, and the row
    *  says why — above everything that belongs to the Einsatz itself */
   lifecycle: 3,
+  /** local storage is full (S1, 20.10.2026): what is typed now is NOT saved on this device and is
+   *  lost when the app closes — the one state that loses work. Right after the lifecycle row and
+   *  above everything about the Einsatz's content; below the Notfall and Atemschutz rows (a
+   *  person) and a fresh dispatch (the strip's whole reason to exist). No ✕: it stays while true. */
+  storage: 4,
   /** a Wiedervorlage that has come due — persists until erledigt, never expires silently */
-  reminder: 4,
+  reminder: 5,
   /** the wind has turned (≥ 45° at ≥ 10 km/h, held over two readings) — the server observed it
    *  and wrote the Verlauf row; this is that row, once per device (24.09.2026, D2). Above the
    *  GPS-follow row: a Lüfter blowing the wrong way is about the crew inside. */
-  wind: 5,
+  wind: 6,
   /** a vehicle a drawn Leitung is attached to has driven off; its anchor is off-screen */
-  gps: 6,
+  gps: 7,
   /** the alarm source's guesses have not been checked yet */
-  review: 7,
+  review: 8,
+  /** the Einsatz's saved data came from a NEWER build, or had entries the load gate skipped
+   *  (useWorkspaceBlob, S3 20.10.2026) — true for as long as this build reads that blob */
+  workspace: 9,
+  /** a closed Einsatz's Fotos / Sprachnotizen are still only on this device (App · completeRapport,
+   *  S3 20.10.2026) — stands while the queue holds them */
+  media: 10,
   /** another tab of this browser holds the edit lock */
-  tabLock: 8,
+  tabLock: 11,
   /** the tactical symbol pack failed to load — Karte and Kroki run without glyphs */
-  symbols: 9,
+  symbols: 12,
   /** offline with no cached basemap for this view — the map is a flat colour */
-  basemap: 10,
+  basemap: 13,
   /** the session cookie expired — the sync is standing still until the operator signs in again */
-  session: 12,
+  session: 14,
   /** a new build is waiting for the next app start */
-  update: 13,
+  update: 15,
   /** «KP Front als App installieren» */
-  install: 14,
+  install: 16,
 } as const
 
 export type MeldungKind = keyof typeof MELDUNG_RANK
@@ -105,6 +116,11 @@ export interface Meldung {
    *  «Einsatz wurde auf einem ander…», which says nothing (N3, 25.09.2026). Every other row keeps
    *  its one line; a strip of wrapping rows would push the surface down. */
   wrap?: boolean
+  /** The sub-line IS the message — a due Wiedervorlage's task, under the generic «Erinnerung
+   *  fällig · 21:40» — so it wraps to two lines before the ellipsis, where every other sub-line
+   *  keeps one (20.10.2026, UX sweep S2: «Rückmeldung Strom an EBL: Hauptschalter …» lost the
+   *  part that says what to do). The title still opens the whole text in the Verlauf. */
+  subLines?: 2
 }
 
 /**

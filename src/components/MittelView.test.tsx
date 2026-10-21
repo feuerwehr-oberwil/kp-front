@@ -270,3 +270,37 @@ describe('«Gesetzt, aber nicht erfasst» — unambiguous vs. ambiguous', () => 
     expect(screen.queryByText(M.lagePickTitle)).toBeNull()
   })
 })
+
+describe('the pencil of a hand-added line', () => {
+  const kanister: MittelEntry = { id: 'e1', label: 'Kanister', unit: 'Stk.', menge: 2, at: '2026-10-20T10:00:00.000Z' }
+  const openPencil = () => fireEvent.click(screen.getByRole('button', { name: `Kanister – ${M.editLabel}` }))
+
+  // UX sweep F3: Bestand is the shared Stepper like «Menge» — no native number field, «–» until set
+  it('asks Bestand with the shared Stepper, «–» until set, and saves what it was stepped to', () => {
+    const onSave = mount({ entries: [kanister] })
+    openPencil()
+    expect(screen.queryByRole('spinbutton')).toBeNull()
+    const stock = screen.getByRole('group', { name: M.stockLabel })
+    expect(stock.textContent).toContain('–')
+    fireEvent.pointerDown(stock.querySelectorAll('button')[2], { pointerId: 1 }) // the «+»
+    fireEvent.pointerUp(stock.querySelectorAll('button')[2], { pointerId: 1 })
+    fireEvent.click(screen.getByRole('button', { name: M.save }))
+    expect(onSave.mock.lastCall?.[0]).toMatchObject({ label: 'Kanister', stock: 1 })
+  })
+})
+
+// UX sweep F2: «Speichern» was a native `disabled` — grey, mute, the tap swallowed. It now stays
+// tappable (aria-disabled) and rings the empty field it is waiting for, as the Trupp form does.
+describe('a blocked «Speichern» in the composer', () => {
+  it('records nothing and points at the empty Material field instead', () => {
+    const onSave = mount()
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(M.add) }))
+    const save = screen.getByRole('button', { name: M.save })
+    expect(save.getAttribute('aria-disabled')).toBe('true')
+    expect((save as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(save)
+    expect(onSave).not.toHaveBeenCalled()
+    const ringed = document.querySelector('.field-flash')
+    expect(ringed?.textContent).toContain(M.materialLabel)
+  })
+})

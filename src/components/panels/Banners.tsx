@@ -95,7 +95,7 @@ export function NewIncidentBanner({ inc, active, onSwitch, onDismiss }: {
     title: `${c.kicker} — ${inc.title}`,
     sub: `${shortAddress(inc.address) ?? appConfig.copy.intake.addressUnknown} · ${fmtWhen(inc.started_at)}`,
     actions: [{ label: active ? c.switch : c.open, icon: 'truck', primary: true, onClick: onSwitch }],
-    dismiss: { label: c.later, onClick: onDismiss },
+    dismiss: { label: c.dismiss, onClick: onDismiss },
   })
   return null
 }

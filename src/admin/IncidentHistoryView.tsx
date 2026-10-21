@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { deleteIncident, listIncidents, type IncidentMeta } from '../lib/incidents'
 import { appConfig } from '../config/appConfig'
-import { Card, ConfirmButton, EmptyState, StatusBadge, Table, fmtDateTime } from './ui'
+import { ConfirmCard } from '../lib/overlays/ConfirmCard'
+import { Card, EmptyState, StatusBadge, Table, fmtDateTime } from './ui'
 import { fillTemplate } from '../lib/format'
 
 type State = { kind: 'loading' } | { kind: 'error' } | { kind: 'ok'; data: IncidentMeta[] }
@@ -10,6 +11,8 @@ export function IncidentHistoryView() {
   const [state, setState] = useState<State>({ kind: 'loading' })
   const [query, setQuery] = useState('')
   const [err, setErr] = useState<string | null>(null)
+  // the Einsatz whose delete is being asked about – a modal, because this one cannot be re-created
+  const [asking, setAsking] = useState<IncidentMeta | null>(null)
   const C = appConfig.copy.admin.incidentHistory
 
   useEffect(() => {
@@ -71,12 +74,9 @@ export function IncidentHistoryView() {
                       an accident. A running Einsatz is refused server-side either way (409). */}
                   <td className="adm-c-act">
                     {closed || incident.is_exercise ? (
-                      <ConfirmButton
-                        danger
-                        label={C.delete}
-                        question={fillTemplate(C.deleteQuestion, { title: incident.title })}
-                        onConfirm={() => void remove(incident.id)}
-                      />
+                      <button type="button" className="btn adm-danger-btn"
+                        aria-label={fillTemplate(C.deleteAria, { title: incident.title })}
+                        onClick={() => setAsking(incident)}>{C.delete}</button>
                     ) : <span className="adm-ref-note">{C.deleteOpenHint}</span>}
                   </td>
                 </tr>
@@ -85,6 +85,23 @@ export function IncidentHistoryView() {
           )}
         </>
       )}
+      {/* ⚠️ A modal, not ConfirmButton's inline Ja/Nein: deleting an Einsatz takes its Verlauf,
+          Prüfkette and media with it and nothing brings them back (guard ∝ consequence – a
+          re-uploadable checklist file already gets a Sheet). The backdrop and Esc cancel. */}
+      <ConfirmCard
+        open={asking != null}
+        title={C.deleteTitle}
+        message={asking ? fillTemplate(C.deleteQuestion, { title: asking.title }) : ''}
+        note={C.deleteNote}
+        confirmLabel={C.delete}
+        cancelLabel={appConfig.copy.admin.common2.cancel}
+        danger
+        onResolve={(confirmed) => {
+          const target = asking
+          setAsking(null)
+          if (confirmed === true && target) void remove(target.id)
+        }}
+      />
     </Card>
   )
 }

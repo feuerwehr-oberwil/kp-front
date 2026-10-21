@@ -74,6 +74,18 @@ describe('ReminderBanner', () => {
     expect(document.querySelector('.ml .ml-open')).toBeNull()
   })
 
+  // S2 (20.10.2026): the task is the row's sub-line, and a one-line ellipsis cut what to do
+  it('lets the task text run to two lines — the row is marked for the sub-line clamp', () => {
+    render(
+      <>
+        <ReminderBanner due={[due('r1', 'Rückmeldung Strom an EBL: Hauptschalter Liegenschaft Nr. 14 ausgeschaltet bestätigen', '2026-08-23T10:30:00Z')]}
+          onDone={() => {}} onSnooze={() => {}} />
+        <Meldeleiste />
+      </>,
+    )
+    expect(document.querySelector('.ml .ml-row')?.classList.contains('sub2')).toBe(true)
+  })
+
   it('says nothing when nothing is due', () => {
     render(<><ReminderBanner due={[]} onDone={() => {}} onSnooze={() => {}} /><Meldeleiste /></>)
     expect(document.querySelector('.ml')).toBeNull()

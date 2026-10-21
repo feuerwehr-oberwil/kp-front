@@ -173,8 +173,22 @@ describe('the board’s one-finger zoom', () => {
     expect(b.applyView).toHaveBeenCalled()
   })
 
-  it('belongs to the selection tool only — the lasso keeps its box', () => {
+  // UX sweep M4 (owner 21.10.2026): a gesture zooms unless the armed tool uses it
+  it('under the Mehrfach-Rahmen a double tap zooms, and tap-then-drag is still the Rahmen', () => {
     const b = mount('lasso')
+    b.tap(110, 220, 0)
+    b.tap(110, 220, 200, 2)
+    expect(b.zoomTo).toHaveBeenCalledTimes(1)
+    b.tap(110, 220, 1000, 3)
+    b.down(110, 220, { id: 4, t: 1200 })
+    b.move(110, 300, { id: 4, t: 1250 })
+    b.move(200, 320, { id: 4, t: 1300 })
+    b.up(200, 320, { id: 4, t: 1350 })
+    expect(b.zoomTo).toHaveBeenCalledTimes(1)
+  })
+
+  it('a tap tool owns its taps — no zoom', () => {
+    const b = mount('symbol')
     b.tap(110, 220, 0)
     b.tap(110, 220, 200, 2)
     expect(b.zoomTo).not.toHaveBeenCalled()

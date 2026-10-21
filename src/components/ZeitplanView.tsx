@@ -465,17 +465,23 @@ export function ZeitplanView({
             <button type="button" className={cx(s.who, s.whoFoot)}
               onClick={() => setCovOpen((v) => !v)} aria-expanded={covOpen}
               title={covOpen ? Z.coverageCollapse : Z.coverageExpand}>
-              <span className={s.covHead}>{Z.coverage}<Icon id={covOpen ? 'chevron-down' : 'chevron-up'} /></span>
+              <span className={s.covHead}>{Z.coverage}<Icon id="chevron-down" className="chev" /></span>
             </button>
-            <div className={cx(s.track, s.coverage)} title={Z.coverageHint}>
+            <div className={cx(s.track, s.coverage)}>
               {/* The colour key, which used to be a legend line of its own under the grid: the same
                   three colours, now directly above the three lines that use them — and folding the
                   row out drops each state's count at «jetzt» straight into it.
                   It lives in the TRACK, not in the «Deckung» cell: a 132px name column on a phone
                   puts «verfügbar/geplant/anwesend» on three separate lines, and the key alone was
                   then taller than the chart. It sticks to the right edge of the name column, so
-                  scrolling into the night never leaves the colours behind. */}
-              <p className={s.covKeys}>
+                  scrolling into the night never leaves the colours behind.
+                  ⚠️ What the three lines MEAN («wo die grüne Linie einbricht, ist die Lücke») was a
+                  `title` on the track — never seen on a tablet (UX sweep F6, 20.10.2026). The key
+                  is now a button: hold it (touch) or hover it (mouse) and lib/holdTooltip answers
+                  with that sentence (`data-holdexplain`, no `title`); a tap folds the numbers out,
+                  as the «Deckung» head beside it does. */}
+              <button type="button" className={s.covKeys} data-holdexplain aria-label={`${Z.coverage}: ${Z.coverageHint}`}
+                aria-expanded={covOpen} onClick={() => setCovOpen((v) => !v)}>
                 {covStates.map((st) => (
                   <span key={st.key} className={s.covKey}>
                     <span className={cx(s.covDot, st.dot)} aria-hidden />
@@ -483,7 +489,7 @@ export function ZeitplanView({
                     {covOpen && nowSlot && <b className={s.covNow} title={Z.now}>{nowSlot[st.key]}</b>}
                   </span>
                 ))}
-              </p>
+              </button>
               {/* three step lines, one per state, in their own colours — a bar chart merged the
                   question «who offered» with «who is assigned» and answered neither at a glance.
                   Painted back to front, so «verfügbar» stays legible over the other two. */}

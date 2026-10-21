@@ -153,7 +153,7 @@ export const helpCopy = {
         blocks: [
           { kind: 'lead', text: 'Werkzeuge der rechten Leiste auf der Karte.' },
           { kind: 'list', items: [
-            '**Symbol** – das taktische Zeichen (FKS/VKF). Schnellwahl der häufigsten Zeichen oder Suche in der ganzen Bibliothek. Tippen platziert; mit dem Schloss mehrere nacheinander setzen.',
+            '**Symbol** – das taktische Zeichen (FKS/VKF). Schnellwahl der häufigsten Zeichen oder Suche in der ganzen Bibliothek. Tippen platziert; mit «Mehrere platzieren» mehrere nacheinander setzen.',
             '**Formen** – im selben Fenster, hinter den Gefahren: **Pfeil** und **Rechteck**, für alles, wofür es kein taktisches Zeichen gibt. Der Griff dreht, die Ecke zieht das Rechteck in die Länge (der Pfeil bleibt proportional, eine verzerrte Spitze liest sich schlecht). Beim Pfeil schaltet **Stopp-Balken** den Querbalken quer zur Spitze ein – die Entwicklungsgrenze: bis hier, und dort gestoppt.',
             '**Auswahl** – Objekte antippen, verschieben, im Editor anpassen.',
             '**Mehrfach** – nochmals auf **Auswahl** tippen, während sie aktiv ist: der Knopf wechselt auf Mehrfach (Zeichen und Wort), und ein gezogener Rahmen wählt mehrere Symbole/Zeichnungen auf einmal aus. Ein weiterer Tipp führt zurück zur Auswahl.',
@@ -378,7 +378,7 @@ export const helpCopy = {
           { kind: 'sub', text: 'Tippen & Ziehen (Touch/iPad)' },
           { kind: 'list', items: [
             'Ein Finger schiebt die Karte/den Plan; zwei Finger zoomen (Pinch).',
-            'Auch mit einem Finger: **doppeltippen** zoomt hinein; **tippen, nochmals drücken und ziehen** zoomt stufenlos – nach unten hinein, nach oben hinaus. Gleich auf Karte und Plan; während ein Zeichenwerkzeug aktiv ist, zoomen auf dem Plan nur zwei Finger.',
+            'Auch mit einem Finger: **doppeltippen** zoomt hinein; **tippen, nochmals drücken und ziehen** zoomt stufenlos – nach unten hinein, nach oben hinaus. Gleich auf Karte und Plan, mit der **Auswahl**. Ein Werkzeug hat Vorrang: wo es tippt (Punkte, Messen, Hinzufügen, Notiz, Kreis …), gehört jedes Tippen ihm; wo es zieht (Freihand, Mehrfach), zoomt Doppeltippen weiter. Zwei Finger zoomen immer. Linie und Fläche aus Punkten schliesst ✓ ab, nie ein Doppeltippen.',
             'Nochmals auf **Auswahl** tippen schaltet den Knopf auf **Mehrfach**: ein gezogener Rahmen wählt mehrere Objekte; ausgewählte Objekte verschiebt man durch Ziehen.',
           ] },
           { kind: 'sub', text: 'Maus', only: 'keyboard' },

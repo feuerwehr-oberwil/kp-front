@@ -93,7 +93,6 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     notePlaceholder: 'p. es. consegnato al deposito comunale',
     editLabel: 'Modifica la voce',
     stockLabel: 'Scorta',
-    stockPlaceholder: 'facoltativo',
     deleteLine: 'Elimina la voce',
     lageStrip: 'Posato, ma non registrato: {list}',
     lageStripTake: 'Registra',

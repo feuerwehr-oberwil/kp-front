@@ -154,7 +154,9 @@
      The footer stays: both surfaces pin Ebenen plus their one view reset at the right edge. */
   :is(.tool-rail, .wb-tools) :is(.vrail-exp, .vrail-grip, .vrail-more, .vrail-label) { display: none; }
   /* Ebenen plus one surface reset stay pinned instead of joining the scrolling tools: Karte uses
-     its views/compass control, Plan uses Einpassen. Zoom remains a pinch gesture on both. */
+     its views/compass control, Plan uses Einpassen – and on the Gebäude the north dial beside it,
+     which wears `.vrail-views` for exactly this (PlanCompass, 20.10.2026). Zoom remains a pinch
+     gesture on both. */
   :is(.tool-rail, .wb-tools) .vrail-nav { flex: none; flex-direction: row; align-items: center; gap: 2px; }
   :is(.tool-rail, .wb-tools) .vrail-nav > :not(.vrail-layers):not(.vrail-views):not(.vrail-fit) { display: none; }
   :is(.tool-rail, .wb-tools) :is(.vrail-layers, .vrail-views, .vrail-fit) { width: 50px; min-width: 50px; flex: 0 0 auto; }
@@ -246,7 +248,11 @@
     /* width HUGS the content (centred) so a 2-item dock isn't stretched across the screen;
        caps at the viewport and scrolls when a busy tool (line/area) overflows */
     width: max-content; max-width: calc(100vw - 16px); height: var(--rail-h); max-height: var(--rail-h);
-    padding: var(--sp-2) var(--sp-3); overflow-x: auto; overflow-y: hidden;
+    /* the bars' own inset (04b-rail · .rail.labelled, 4px 8px) and their 46px tiles below, so the
+       buttons sit 7/9px in from the edge like the tiles under them and the 19px corner runs
+       parallel to theirs (M8 rework, 21.10.2026, owner: the dock's corner read differently — it
+       was 8/13px in round 44px buttons) */
+    padding: 4px 8px; overflow-x: auto; overflow-y: hidden;
     /* ⚠️ No visible scrollbar. The base .wb-dock is the DESKTOP column, where a thin bar is a
        useful hint on a tall stack; inherited by this horizontal bar it drew a grey rail across
        the bottom of the tool dock — under the buttons, on a control that is dragged with a thumb
@@ -258,29 +264,17 @@
   /* buttons keep their size instead of flex-shrinking when a busy dock overflows — otherwise the
      round × / ℹ squashed into ovals in line/area docks while the bar scrolled */
   .phone-tools .wb-dock > * { flex: none; }
-  /* group dividers run vertically in a horizontal bar (they're a horizontal line in the column) */
-  .phone-tools .wb-dock .wb-style-sep { width: 1px; height: 24px; }
   /* colours: a single full-size row (not a cramped 2-row grid) */
   .phone-tools .wb-dock .wb-sw-grid { display: flex; grid-template-columns: none; gap: 8px; }
   .phone-tools .wb-dock .wb-sw { width: 30px; height: 30px; }
-  /* UNIFORM button + icon size across the whole bar: every control a full --tap square (the bar
-     is --rail-h 60 with 8px padding, so 44 fits without growing it — 3am test r2, 25.09.2026:
-     ✕ · Freihand · Punkte · ✓ · ⓘ measured 40px high), every icon 18px — was a jumble (34/38
-     buttons, 16/17/18 icons). ℹ matches (DockInfo). */
+  /* UNIFORM button + icon size across the whole bar: every control the bars' 46px tile (the bar
+     is --rail-h 60 with 4px padding — 3am test r2, 25.09.2026: ✕ · Freihand · Punkte · ✓ · ⓘ
+     measured 40px high; 44 until the M8 rework), every icon 18px — was a jumble (34/38 buttons,
+     16/17/18 icons). ℹ matches (DockInfo). */
   .phone-tools .wb-dock .wb-dock-tog, .phone-tools .wb-dock .wb-dock-go,
-  .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: var(--tap); min-width: var(--tap); height: var(--tap); border-radius: var(--r-sm); }
-  .phone-tools .wb-dock .wb-dock-x { width: var(--tap); height: var(--tap); }
+  .phone-tools .wb-dock .wb-ww, .phone-tools .wb-dock .wb-ls { width: 46px; min-width: 46px; height: 46px; border-radius: var(--r-sm); }
+  .phone-tools .wb-dock .wb-dock-x { width: 46px; height: 46px; }
   .phone-tools .wb-dock .i { width: 18px; height: 18px; }
-  /* the armed mode's ONE line (ToolDock · hint): the dock grows a second row for it — the
-     buttons stay one scrolling row above it, the words wrap never and end in an ellipsis on the
-     narrowest phone. Only here: the tablet column dock leaves it hidden (09-whiteboard). */
-  .phone-tools .wb-dock:has(.wb-dock-hint) { flex-wrap: wrap; height: auto; max-height: none; row-gap: 2px;
-    padding-bottom: 8px; overflow: hidden; }
-  .phone-tools .wb-dock .wb-dock-hint { display: block; flex: 1 0 100%; order: 99; max-width: calc(100vw - 40px);
-    font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); opacity: .85; text-align: center;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  /* (…and the Gebäude's chip row steps up by that row: `--msg-dock-hint` is part of
-     --float-base, see «THE floating row» below) */
   .phone-tools .whiteboard { bottom: calc(var(--rail-h) * 2 + 24px + env(safe-area-inset-bottom)); }
   /* …but a Tafel PAGE is a form with no tool bar under it: it runs down to the nav bar (Whiteboard · formPage) */
   .phone-tools .whiteboard.wb-tafel-page { bottom: calc(var(--rail-h) + 18px + env(safe-area-inset-bottom)); }
@@ -1009,10 +1003,6 @@
      the host is a root sibling of `.app`. Inside this media query a rendered strip is always
      shown (13-incident.css turns it on here), so the element itself is the whole condition. */
   :root:has(.app .rp-tabs) { --rp-tabs-safe: calc(var(--tap) + 2 * 3px + 2 * var(--bar-pad) + 2px + 6px); }
-  /* …and the thing that stands ON the tool bar and lifts everything above it: the armed tool's
-     hint row in the dock (ToolDock · hint, the 22px `.wb-botleft` steps up by). The lane is
-     computed on :root, which cannot read `.app`'s value, so it restates it here. */
-  :root:has(.phone-tools .wb-dock-hint) { --msg-dock-hint: 22px; }
   /* ── THE floating row (26.09.2026) ── the one line just above the bars where the phone's small
      floating pieces stand: the plan's chips (09-whiteboard · .wb-botleft) and the Eintrag FAB. They stood at three heights of their own (6px,
      14px and 14px above the tool bar) in three looks; now they are ONE family (01-tokens ·
@@ -1020,10 +1010,10 @@
      from each other and from the screen's edge, like the bars.
      --float-base is where the bars end: the nav bar (8px + rail-h) and the Rapport's docked tab
      strip on that one page; the tool bar on a drawing surface (its own 6px channel + rail-h); a
-     tool's option dock while one is out (it hides the FAB and the strip), plus its hint row. */
+     tool's option dock while one is out (it hides the FAB and the strip). */
   :root { --float-base: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px)); }
   :root:has(.phone-tools) { --float-base: calc(var(--rail-h) * 2 + 14px); }
-  :root:has(.phone-tools .wb-dock) { --float-base: calc(var(--rail-h) * 3 + 20px + var(--msg-dock-hint, 0px)); }
+  :root:has(.phone-tools .wb-dock) { --float-base: calc(var(--rail-h) * 3 + 20px); }
   /* …and a Tafel PAGE has no tool bar under it (the form takes the stage, Whiteboard · formPage):
      its row — the page strip, the FAB — stands on the nav bar like any surface without tools */
   :root:has(.phone-tools .wb-tafel-page) { --float-base: calc(var(--rail-h) + 8px + var(--rp-tabs-safe, 0px)); }
@@ -1057,36 +1047,22 @@
   :root {
     --msg-lane-bottom: calc(var(--float-bottom) + var(--float-row, 0px) + var(--stack-foot-lift, 0px));
   }
+  /* ⚠️ …which the TOASTER left on 20.10.2026 (S3, owner: «all notifications at the same place:
+     at the top cleanly below the main navbar»): it stands under the bar, where the Meldeleiste
+     starts (72px), one 8px channel under the strip while one stands (`--ml-reserve`, the strip's
+     measured `--ml-h`), and under the Karte's running-Einsatz strip (`--strip-reserve`). Its
+     edges are the strip's (08-toasts · --lane-l/--lane-r), which are the bars' 8px here. The instruction of a pick mode and a tool's tip keep the foot lane. */
   .toaster {
-    left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
-    bottom: var(--msg-lane-bottom); align-items: stretch;
-    max-height: calc(100dvh - var(--msg-lane-bottom) - 84px - env(safe-area-inset-top));
-  }
-  /* The Meldeleiste is pinned to the SAME 72px baseline as the relocated lane below, at z54
-     under the toaster's z90 — so every pill landed square on its first row and on that row's
-     «Erledigt» / «Übernehmen» buttons. That is the exact «actions unreachable behind transient
-     feedback» failure the relocation was written to fix, moved from the bottom of the screen to
-     the top. The strip publishes no height (its rows wrap on a phone and it scrolls), so the
-     reserve is its own CAP — the `min(32dvh, 240px)` the rule further down bounds it to — plus
-     an 8px channel. A one-row strip therefore leaves the pill floating lower than it strictly
-     must; that is the price of an offset that can never be too SMALL, and the pill is gone in
-     six seconds either way. Set whenever a strip exists (the bottom lane simply ignores it),
-     which beats a third copy of the state list. */
-  :root:has(.ml) .toaster { --ml-reserve: calc(min(32dvh, 240px) + 8px); }
-  /* Variable-height bottom owners cannot be cleared with another guessed pixel offset. While
-     a detail sheet, Ebenen / the Suche (their slide-up sheet, 29.09.2026) or a placement mode owns
-     that area, transient feedback moves to one bounded lane below the top bar. Thus the controls at
-     the bottom never disappear behind an undo/status pill even when their panel expands or scrolls.
-     A placement mode (`data-placing`, lib/toastLane · usePlacementLane: any armed map or plan tool,
-     the Passung, the Karte's Punkt / Messen / Gefahrgut) also takes the map's TAPS — the pill stood
-     on the spot the next symbol goes (owner, Karte Haus round 3, 20.10.2026: «the toasts sometimes
-     block things like the point placement thing»). The tablet has the same lane (08-toasts). */
-  :root[data-placing] .toaster,
-  :root:has(.app .ctx) .toaster,
-  :root:has(.app .layers-card:not([data-picking])) .toaster {
-    top: calc(72px + var(--ml-reserve, 0px) + var(--strip-reserve, 0px) + env(safe-area-inset-top)); bottom: auto;
+    top: min(calc(72px + var(--ml-reserve, 0px) + var(--strip-reserve, 0px) + env(safe-area-inset-top)), calc(100dvh - 160px));
+    bottom: auto; align-items: stretch;
     max-height: min(32dvh, 240px);
   }
+  /* The Meldeleiste hangs from the same 72px, at z54 under the toaster's z90 — so the lane starts
+     under it, never on its first row's «Erledigt» / «Übernehmen»: `--ml-reserve` is the strip's
+     MEASURED height (Meldeleiste · `--ml-h`) + an 8px channel. It used to be the strip's CAP
+     (`min(32dvh, 240px)`), from before the strip published its height, which left a pill under a
+     one-row strip floating 190px low. */
+  :root:has(.ml) .toaster { --ml-reserve: calc(var(--ml-h, 0px) + 8px); }
   /* …below the Karte's running-Einsatz strip (Karte.module.css · .runningStrip: 88px down, one
      --tap tall), one --float-gap under it: the top lane lay on «● Brand Musterstrasse ›» */
   :root:has([data-karte-running]) .toaster { --strip-reserve: calc(88px + var(--tap) + var(--float-gap) - 72px); }
@@ -1119,7 +1095,8 @@
   /* (no sideways FAB reserve any more: the lane stands above the FAB — see «THE message lane») */
   /* long toast texts wrap on phones instead of nowrap-overflowing the fixed toaster
      (same layout-viewport-widening failure mode as the banners) */
-  .toast { white-space: normal; }
+  /* …and keeps a Meldeleiste row's phone insets, as it does on a tablet (08-toasts · S3 rework) */
+  .toast { white-space: normal; column-gap: var(--sp-2); padding-left: var(--sp-3); }
   /* ⚠️ ONE ROW (30.09.2026, owner, staging phone pass: the message on row 1, «Rückgängig» + ✕
      alone on row 2 with a big empty left half). The sentence WRAPS FIRST, inside its column, and
      the action cluster stays on the row beside it, centred on the pill. The two-row shape (18.09.)
@@ -1194,12 +1171,17 @@
     left: max(10px, env(safe-area-inset-left)); z-index: var(--z-map-util-raised); }
   /* …and the GPS caveat keeps clear of the Standort slot, reserved or not: a chip that jumps
      sideways when somebody starts sharing is worse than one that sits 52px in. */
+  /* …in the floating family's material (S6, 20.10.2026): it wore an amber outline and a shadow
+     of its own, and a STATE is a glyph colour, never an outline (docs/ui-conventions · ONE
+     floating family) — the locate glyph carries the amber, the words are ink, --tap tall */
   .tb-gps { position: fixed; top: calc(76px + env(safe-area-inset-top));
     left: calc(max(10px, env(safe-area-inset-left)) + 52px); max-width: calc(100vw - 142px); margin-right: 0;
-    background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
-    border: 1px solid color-mix(in srgb, var(--amber, #b45309) 30%, transparent);
-    box-shadow: var(--e4); }
-  .phone-wx .tb-weather { min-height: 40px; }
+    min-height: var(--tap); padding: 0 var(--float-pad-x) 0 var(--sp-3);
+    background: var(--float-bg); backdrop-filter: var(--float-blur); box-shadow: var(--float-edge); color: var(--ink); }
+  .tb-gps .i { color: var(--amber-strong); }
+  /* --tap, not 40 (UX sweep S9, 20.10.2026): at (0,2,0) this beat 20-touch-floors' coarse
+     `.tb-weather` floor, so the Karte's one wind target on a phone stayed 4px short */
+  .phone-wx .tb-weather { min-height: var(--tap); }
 
   /* Einstellungen rows: the 3-segment controls (Farbschema, Beschriftungen) are wider than
      a phone row leaves next to the label — let the control wrap onto its own right-aligned

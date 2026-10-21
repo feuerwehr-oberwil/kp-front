@@ -1,12 +1,14 @@
 // @vitest-environment jsdom
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { StrictMode, useState } from 'react'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { TafelFormPage } from './TafelFormPage'
 import { newFormPage, putRow, writtenRows, type BoardFormData } from '../lib/boardForm'
 import type { TableSection } from '../lib/boardTemplate'
 import { BUNDLED_TEMPLATES } from '../lib/boardTemplates'
 import { getLocaleId } from '../config/copy'
+import { appConfig } from '../config/appConfig'
+import s from './TafelFormPage.module.css'
 
 afterEach(cleanup)
 
@@ -312,5 +314,52 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     key('Enter', { altKey: true })
     expect(active()).toBe(el)
     expect(el.value).toBe('R-Achse\n')
+  })
+})
+
+// F10 (20.10.2026, owner: «with keyboard / desktop type, otherwise wheel»): a «Wann» under a finger
+// opens THE time picker; under a mouse it stays a cell you type «1124» into
+describe('a Tafel time cell', () => {
+  const W = appConfig.copy.wheel
+  const pointer = (coarse: boolean) => vi.stubGlobal('matchMedia', (q: string) => ({
+    matches: coarse && q === '(pointer: coarse)', addEventListener: () => {}, removeEventListener: () => {},
+  }))
+  afterEach(() => vi.unstubAllGlobals())
+  const firstWann = () => document.querySelector('[data-sec="mittel"]')!.querySelectorAll<HTMLTextAreaElement>('[aria-label="Wann"]')[0]
+
+  it('opens the wheels on a tap with a coarse pointer, keeps the soft keyboard down, and «Jetzt» is one commit', () => {
+    pointer(true)
+    const commits: BoardFormData[] = []
+    render(<Harness onCommit={(d) => commits.push(d)} />)
+    const wann = firstWann()
+    expect(wann.getAttribute('inputmode')).toBe('none')
+    fireEvent.click(wann)
+    const pop = screen.getByRole('dialog')
+    expect(within(pop).getByLabelText(W.hour)).toBeTruthy()
+    fireEvent.click(within(pop).getByRole('button', { name: W.now }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(commits).toHaveLength(1)
+    expect(commits[0].values.mittel.rows![0].cells.wann).toMatch(/^\d\d:\d\d$/)
+    expect(wann.value).toBe(commits[0].values.mittel.rows![0].cells.wann)
+  })
+
+  // F10 rework (21.10.2026): the line-break key's 48px reserve stayed on a focused time cell and
+  // left «--:--» one character per line in the 67px «Wann» column
+  it('keeps its width when focused on touch — no line-break reserve', () => {
+    pointer(true)
+    render(<Harness onCommit={() => {}} />)
+    const wann = firstWann()
+    fireEvent.focus(wann)
+    expect(wann.className).not.toContain(s.cellBreak)
+    expect(screen.queryByRole('button', { name: appConfig.copy.tafel.lineBreak })).toBeNull()
+  })
+
+  it('stays a typed cell with a fine pointer — no wheels on a click', () => {
+    pointer(false)
+    render(<Harness onCommit={() => {}} />)
+    const wann = firstWann()
+    expect(wann.getAttribute('inputmode')).toBe('numeric')
+    fireEvent.click(wann)
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useIsPhone } from '../../lib/useIsPhone'
 import { Icon } from '../../lib/icons'
 import { LoadingStatus, ShellLoader } from '../ShellLoader'
 import { confirmDialog, toast } from '../../lib/ui'
@@ -8,7 +7,7 @@ import { useGeoPosition } from '../../lib/useGeoPosition'
 import { MapPicker } from '../MapPicker'
 import { DateTimeField } from '../TimeField'
 import { Combo } from '../Combo'
-import { OnOff, Segmented } from '../Segmented'
+import { OnOff } from '../Segmented'
 import { appConfig } from '../../config/appConfig'
 import { dtLocalValue, dtLocalToIso, fillTemplate } from '../../lib/format'
 import { fmtDistance, haversineM } from '../../lib/geo'
@@ -28,6 +27,7 @@ import {
 } from '../../lib/incidents'
 import { Modal, realCoord } from './_shared'
 import { SearchField } from '../SearchField'
+import { pointAtField } from '../../lib/pointAtField'
 
 // --- Einsatz eröffnen / Einsatzdaten korrigieren -------------------------------------
 // `ix` (appConfig.copy.intake) is read inside each function below rather than captured at
@@ -76,7 +76,6 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   onClose: () => void
   onCreated: (inc: IncidentFull) => void
 }) {
-  const phone = useIsPhone()
   const ix = appConfig.copy.intake // read per-render so the resolved locale applies
   const [title, setTitle] = useState(edit?.title ?? '')
   const [address, setAddress] = useState(edit?.address ?? '')
@@ -294,8 +293,15 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   // Demo: a visitor may explore the whole wizard, but actually opening a new Einsatz is blocked
   // (it would write to the shared backend). Editing the demo incident stays fully open.
   const demoBlocked = isDemoMode() && !edit
+  const titleRef = useRef<HTMLLabelElement>(null)
+  const demoRef = useRef<HTMLParagraphElement>(null)
   const submit = async () => {
-    if (!effectiveTitle || busy || demoBlocked) return
+    if (busy) return
+    // Blocked — the Stichwort (an edit with it emptied) or the demo: the button stays tappable
+    // and points at what holds it back (lib/pointAtField); a grey «Speichern» with a «*» somewhere
+    // above it said nothing. `busy` stays a native disabled: that press is in flight.
+    if (!effectiveTitle) { pointAtField(titleRef.current, { focus: titleRef.current?.querySelector('input') }); return }
+    if (demoBlocked) { pointAtField(demoRef.current); return }
     setBusy(true)
     // Meldungstext/Alarmmeldung is sent on create, and on edit once the existing text has
     // been fetched (textReady) so a quick save can't blank it.
@@ -355,7 +361,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
       {/* «Abbrechen» in both modes (29.09.2026): the wizard is ONE step, and closing it goes back
           to the landing without opening anything — a cancel, not a «Zurück» to a previous step */}
       <button className="ip-btn" onClick={onClose}>{ix.cancel}</button>
-      <button className="ip-btn primary" disabled={!effectiveTitle || busy || demoBlocked} onClick={submit}>
+      <button className="ip-btn primary" disabled={busy} aria-disabled={!effectiveTitle || demoBlocked} onClick={submit}>
         {busy ? <><ShellLoader /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : ix.open}
       </button>
     </>}>
@@ -448,7 +454,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
 
       {/* --- Stichwort & Kategorie --- */}
       <div className="ip-ix-head">{ix.keywordHead}</div>
-      <label className="ip-field"><span>{ix.titleLabel} *</span>
+      <label ref={titleRef} className="ip-field"><span>{ix.titleLabel} *</span>
         {/* no autofocus — the EL usually sets the location (address / object / map) first, so
             opening with the keyboard up over the Stichwort field would be in the way */}
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={ix.titlePlaceholder} />
@@ -467,11 +473,11 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           }}
         />
       </div>
-      {/* On a phone the question «Übung?» reads «Nein | Ja»; the wider form keeps its pair. */}
+      {/* «Übung?» is a question, so «Nein | Ja» on every device (20.10.2026) – a rotated tablet
+          once said «Aus | An» here and the phone «Nein | Ja» */}
       <div className="ip-onoff-row">
         <span className="ip-onoff-l">{ix.exerciseLabel}<small>{ix.exerciseSub}</small></span>
-        {phone ? <Segmented ariaLabel={ix.exerciseLabel} value={isExercise} onChange={setIsExercise}
-          options={[{ value: false, label: ix.exerciseNo }, { value: true, label: ix.exerciseYes }]} /> : <OnOff ariaLabel={ix.exerciseLabel} value={isExercise} onChange={setIsExercise} />}
+        <OnOff question ariaLabel={ix.exerciseLabel} value={isExercise} onChange={setIsExercise} />
       </div>
       {/* --- Alarmierung — the dispatch facts, everything before we arrived: when we were alarmed
           + the alarm message. The Rapportangaben hold the rest. ONE section in both modes
@@ -494,7 +500,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           placeholder={textFailed ? ix.alarmTextUnavailable : ix.detailsPlaceholder} />
       </label>
 
-      {demoBlocked && <p className="ip-demo-block"><Icon id="info" /> {ix.demoBlocked}</p>}
+      {demoBlocked && <p ref={demoRef} className="ip-demo-block"><Icon id="info" /> {ix.demoBlocked}</p>}
     </Modal>
     </>
   )

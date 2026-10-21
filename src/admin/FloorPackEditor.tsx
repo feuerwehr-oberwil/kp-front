@@ -223,9 +223,10 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
                     <span className="adm-floor-id">{name}{tags}</span>
                   </button>}
                 {/* the page goes back to the Ablage, so this ENTFERNT a floor – it deletes
-                    nothing – and it stands in the open row's head, where what is being edited is */}
+                    nothing – and it stands in the open row's head, where what is being edited is.
+                    A bin and not a ✕ (a ✕ only closes): it takes the floor off the pack. */}
                 {active && <button type="button" className="btn adm-floor-remove" aria-label={C.remove} title={C.remove} disabled={storeysOf(stack).length <= 1}
-                  onClick={(e) => { e.stopPropagation(); setStack((s) => dropFromStack(s, entry.key)); setMode(null) }}><Icon id="close" /></button>}
+                  onClick={(e) => { e.stopPropagation(); setStack((s) => dropFromStack(s, entry.key)); setMode(null) }}><Icon id="trash" /></button>}
               </div>
               {active && <div className="adm-floor-body">
                 <input className="adm-input adm-floor-name" value={drawing.name}
@@ -247,7 +248,7 @@ export function FloorPackEditor({ item, onDraft, view, tabs, historyRef, onUndoS
                         </span>
                       </button>
                       {n > 0 && <button type="button" className="btn adm-floor-part-x" aria-label={C.removePart} title={C.removePart}
-                        onClick={(e) => { e.stopPropagation(); setSelected(entry.key); setStack((st) => dropFromStack(st, piece.key)); setMode(null) }}><Icon id="close" /></button>}
+                        onClick={(e) => { e.stopPropagation(); setSelected(entry.key); setStack((st) => dropFromStack(st, piece.key)); setMode(null) }}><Icon id="trash" /></button>}
                     </div>
                   })}
                 </div>}

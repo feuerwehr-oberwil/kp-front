@@ -93,7 +93,7 @@ export function MapToolDocks({
       {mapUI && tool === 'symbol' && pending && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPending(null); setTool('select') } }],
-          [{ type: 'toggle', icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
+          [{ type: 'toggle', icon: 'place-repeat', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
           [{ type: 'info', text: appConfig.copy.dockHints.symbol }],
         ]} />
       )}
@@ -104,7 +104,7 @@ export function MapToolDocks({
         ]} />
       )}
       {mapUI && tool === 'line' && (
-        <ToolDock hint={isPhone ? undefined : lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodesShort : appConfig.copy.dockHints.lineFreeShort} groups={[
+        <ToolDock groups={[
           [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
           // input mode: Freihand (drag) ↔ Punkte (tap each vertex, ✓ to finish)
           [
@@ -119,7 +119,7 @@ export function MapToolDocks({
         ]} />
       )}
       {mapUI && tool === 'area' && (
-        <ToolDock hint={areaMode === 'nodes' ? appConfig.copy.dockHints.areaNodesShort : appConfig.copy.dockHints.areaFreeShort} groups={[
+        <ToolDock groups={[
           [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); setDraft([]) } },
@@ -179,8 +179,8 @@ export function MapToolDocks({
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('select') } }],
           [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color={isPhone ? 'currentColor' : '#fff'} aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
           // a two-point shape is placed by naming two places, so «mehrere nacheinander» has no
-          // meaning for it — the lock row is simply not offered
-          ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
+          // meaning for it — the «Mehrere platzieren» toggle is simply not offered
+          ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'place-repeat', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
           // …and the hint says which of the two taps is due
           [{ type: 'info', text: !SHAPE_TWO_POINT[pendingShape] ? appConfig.copy.dockHints.shape
             : rotStart ? appConfig.copy.dockHints.rotationEnd : appConfig.copy.dockHints.rotationStart }],

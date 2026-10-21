@@ -52,6 +52,8 @@ function DueReminder({ r, onDone, onSnooze, onOpen }: {
     icon: 'bell',
     title: `${C.dueOne}${clock ? ` · ${clock}` : ''}`,
     sub: r.text,
+    // the task is what the operator must do — two lines before the ellipsis (lib/meldungen · subLines)
+    subLines: 2,
     actions: [
       { label: C.dueDone, icon: 'check', primary: true, onClick: () => onDone(r) },
       { label: C.dueSnooze, icon: 'clock', onClick: () => onSnooze(r) },

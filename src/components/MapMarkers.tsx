@@ -1186,7 +1186,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
             ))}
             {head && (
               <Marker longitude={head.coord[0]} latitude={head.coord[1]} anchor="center" draggable={false}>
-                <button className="wb-ghost-label" style={{ position: 'static', transform: 'translateY(-16px)' }}
+                <button className="wb-ghost-label" style={{ position: 'relative', transform: 'translateY(-16px)' }}
                   title={fillTemplate(appConfig.copy.whiteboard.ghostTrailHint, { name: ghostLabel(g) })}
                   onClick={(ev) => { ev.stopPropagation(); onGhostTrail?.(g.id) }}>
                   <Icon id="footprint" />{ghostLabel(g)}

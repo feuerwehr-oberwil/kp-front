@@ -74,28 +74,20 @@
 .cl-phase > :global(.useg) { margin: var(--sp-3) 0 var(--sp-1); }
 
 .cl-items { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
-.cl-item { display: flex; align-items: flex-start; gap: 12px; background: var(--surface); border-radius: var(--r-ctl);
-  padding: var(--sp-3); box-shadow: 0 0 0 1px var(--border-soft); }
-.cl-item.done { background: var(--green-5); box-shadow: 0 0 0 1px var(--green-16); }
-.cl-check { flex: none; width: 38px; height: 38px; border-radius: var(--r-sm); border: 2px solid var(--border);
-  background: var(--surface); cursor: pointer; display: grid; place-items: center; color: var(--on-accent-ink); padding: 0;
-  transition: background .12s var(--ease), border-color .12s var(--ease); }
-.cl-check :global(.i) { width: 18px; height: 18px; }
-@media (hover: hover) { .cl-check:hover:not(:disabled) { border-color: var(--green); } }
-.cl-check:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.cl-item.done .cl-check { background: var(--green); border-color: var(--green); }
-.cl-check:disabled { opacity: var(--disabled); cursor: default; }
-/* gloved field use: ticking is THE action on this surface — full 44px checkbox on touch */
+.cl-item { display: flex; align-items: flex-start; gap: var(--sp-3); background: var(--surface); border-radius: var(--r-ctl);
+  padding: var(--sp-2); box-shadow: 0 0 0 1px var(--border-soft); }
+/* ticking is THE action on this surface: box + text are the shared TickRow (F7, 20.10.2026), the
+   whole item the target; a done item says so by its ticked box and its faded text — the card
+   keeps its plain surface (it was a green card with a green box, the one green tick in the app) */
+.cl-item .cl-tick { flex: 1 1 auto; min-width: 0; align-items: flex-start; }
 @media (pointer: coarse) {
-  .cl-check { width: 44px; height: 44px; }
-  /* …and the rest of the surface's targets (22.09.2026): the Stichwort hint and the deep-link
+  /* the rest of the surface's targets (22.09.2026): the Stichwort hint and the deep-link
      chips (26px); the rail's rows are THE list row, --tap already */
   .cl-rail-hint, .cl-deeplink { min-height: var(--tap); }
 }
-.cl-item-body { flex: 1 1 auto; min-width: 0; }
-/* whole text body is a tap target to toggle the item (the checkbox is just the visual) */
-.cl-item-tap { cursor: pointer; }
-.cl-item-text { font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); line-height: 1.35; }
+.cl-item-body { display: block; flex: 1 1 auto; min-width: 0; }
+.cl-tick .cl-item-body { padding-top: 2px; }
+.cl-item-text { display: block; font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); line-height: 1.35; }
 .cl-item.done .cl-item-text { color: var(--ink-dim); }
 .cl-item-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 .cl-when { font-size: var(--fs-micro); font-weight: var(--fw-bold); color: var(--amber); background: var(--amber-12);
@@ -116,6 +108,7 @@
    number where the box would be, and one quiet line above the first phase says where ticking
    happens */
 ol.cl-items { list-style: none; padding: 0; margin-bottom: 0; }
+ol.cl-items > .cl-item { padding: var(--sp-3); }
 .cl-num { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
   box-shadow: inset 0 0 0 2px var(--border); font: var(--fw-heavy) var(--fs-2) var(--body); color: var(--ink-dim);
   font-variant-numeric: tabular-nums; }

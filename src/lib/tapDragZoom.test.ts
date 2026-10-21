@@ -165,3 +165,30 @@ describe('tapDragZoom · tap, then press and drag', () => {
     expect(g.owns(2)).toBe(true)
   })
 })
+
+// UX sweep M4 (21.10.2026): under a drag tool (Freihand, the Mehrfach-Rahmen) the double tap
+// zooms, the drag stays the tool's
+describe('tapDragZoom · double tap only (drag: false)', () => {
+  it('a double tap is still one zoom step', () => {
+    const g = createTapDragZoom()
+    tap(g, 1, 100, 200, 0)
+    g.down(p(2, 100, 200, 200), { drag: false })
+    expect(g.up(p(2, 100, 200, 260))).toEqual({ kind: 'zoomStep', at: { x: 100, y: 200 } })
+  })
+
+  it('a second press that travels is handed back: no zoom, and its release is no tap', () => {
+    const g = createTapDragZoom()
+    tap(g, 1, 100, 200, 0)
+    g.down(p(2, 100, 200, 200), { drag: false })
+    expect(g.move(p(2, 100, 200 + TAP_DRAG_ENGAGE_PX + 1, 220))).toEqual({ kind: 'end' })
+    expect(g.owns(2)).toBe(false)
+    expect(g.up(p(2, 100, 260, 300))).toBeNull()
+  })
+
+  it('…also when its moves went to the tool unseen: a quick release far off is no tap', () => {
+    const g = createTapDragZoom()
+    tap(g, 1, 100, 200, 0)
+    g.down(p(2, 100, 200, 200), { drag: false })
+    expect(g.up(p(2, 180, 200, 300))).toEqual({ kind: 'end' })
+  })
+})

@@ -87,3 +87,23 @@ describe('the compass needle · live bearing', () => {
     expect(needle().style.transform).toBe('rotate(-25deg)')
   })
 })
+
+// S8 (20.10.2026): the Karte's Ansichten never closed on Escape, and the Einsatz map's only after
+// a pending placement. One Escape closes the popover and goes no further.
+describe('the views dock · Escape', () => {
+  beforeEach(() => pinViewport(false))
+
+  it('closes the popover and keeps the key from the surface behind it', () => {
+    const onOpenChange = vi.fn()
+    const behind = vi.fn()
+    window.addEventListener('keydown', behind)
+    try {
+      openMenu(onOpenChange, () => {})
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+      expect(behind).not.toHaveBeenCalled()
+    } finally {
+      window.removeEventListener('keydown', behind)
+    }
+  })
+})

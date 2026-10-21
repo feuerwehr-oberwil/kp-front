@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { clearDraft, keepDraft, readDraft } from '../lib/draftKeep'
 import { scrollBehavior } from '../lib/reducedMotion'
+import { pointAtField } from '../lib/pointAtField'
 import { Icon } from '../lib/icons'
 import { SearchField } from './SearchField'
 import { appConfig } from '../config/appConfig'
@@ -787,15 +788,18 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
   const [label, setLabel] = useState(target.probe.label)
   const [unit, setUnit] = useState(target.probe.unit)
   const [sourceLabel, setSourceLabel] = useState(target.probe.sourceLabel ?? '')
-  // empty string, not 0 — «kein Bestand erfasst» and «Bestand 0» are different statements
-  const [stock, setStock] = useState(target.stock == null ? '' : String(target.stock))
+  // null, not 0 — «kein Bestand erfasst» and «Bestand 0» are different statements
+  const [stock, setStock] = useState<number | null>(target.stock ?? null)
   const [note, setNote] = useState(target.note)
 
   const valid = !target.custom || (!!label.trim() && !!unit.trim())
+  const labelRef = useRef<HTMLLabelElement>(null)
+  const unitRef = useRef<HTMLDivElement>(null)
+  // a blocked Speichern points at what it waits for (lib/pointAtField) instead of going grey
   const submit = () => {
-    if (!valid) return
-    const n = stock.trim() === '' ? null : Math.max(0, Math.round(Number(stock)))
-    onSave({ label, unit, sourceLabel, stock: Number.isFinite(n as number) ? n : null, note })
+    if (valid) { onSave({ label, unit, sourceLabel, stock, note }); return }
+    const field = !label.trim() ? labelRef.current : unitRef.current
+    pointAtField(field, { focus: field?.querySelector<HTMLElement>('input, button') })
   }
 
   return (
@@ -812,24 +816,27 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
       <div className="ip-body">
         {target.custom && (
           <>
-            <label className="ip-field">
+            <label ref={labelRef} className="ip-field">
               <span>{M.materialLabel}</span>
               <input className="ip-input" autoFocus onFocus={caretToEnd} value={label} maxLength={80} onChange={(e) => setLabel(stripUnprintable(e.target.value))} />
             </label>
             <div className={s.dialogRow}>
-              <div className="ip-field">
+              <div ref={unitRef} className="ip-field">
                 <span>{M.unitLabel}</span>
                 {/* the picker SHOWS «L» (unitLabel) but stores the catalogue's «l»: a picked «L» saved as-is
                     would be a different unit to mittelKey and split the line in two */}
                 <Combo value={unitLabel(unit)} options={units.map(unitLabel)} placeholder={M.unitPlaceholder} searchPlaceholder={M.unitSearchPlaceholder} allowCustom clearable={false} onChange={(v) => setUnit(v.trim() === 'L' ? 'l' : v)} />
               </div>
-              <label className="ip-field">
+              {/* the shared Stepper, as «Menge» beside it in the list (UX sweep F3): one number
+                  control per feature, not an OS spinner here and hold-to-repeat there. Optional:
+                  «–» until set, the first + lands on 1, its ✕ back to «kein Bestand erfasst».
+                  A <div>, not a <label>: a label around three buttons hands a tap on the caption
+                  to the «−». */}
+              <div className="ip-field">
                 <span>{M.stockLabel}</span>
-                <input
-                  className="ip-input" type="number" inputMode="numeric" min={0} max={9999}
-                  value={stock} placeholder={M.stockPlaceholder} onChange={(e) => setStock(e.target.value)}
-                />
-              </label>
+                <Stepper value={stock} min={0} max={9999} seed={1} ariaLabel={M.stockLabel}
+                  onChange={setStock} onClear={() => setStock(null)} canClear={stock != null} />
+              </div>
             </div>
             <div className="ip-field">
               <span>{M.sourceLabel}</span>
@@ -853,15 +860,16 @@ function MittelLineDialog({ M, target, sources, units, onClose, onSave, onDelete
         </label>
       </div>
       <SheetFoot className="ip-actions">
-        {/* destructive action to the left, away from Speichern — and only where there is
-            something the operator actually put there by hand */}
+        {/* destructive action to the left, away from Speichern (the one footer rule, 13-incident ·
+            `.ui-sheet-foot > .danger`) — and only where there is something the operator actually
+            put there by hand */}
         {target.custom && (
-          <button type="button" className="ip-btn mv-del" onClick={onDelete}>
+          <button type="button" className="ip-btn danger" onClick={onDelete}>
             <Icon id="trash" /> {M.deleteLine}
           </button>
         )}
         <button type="button" className="ip-btn" onClick={onClose}>{M.cancel}</button>
-        <button type="button" className="ip-btn primary" disabled={!valid} onClick={submit}>{M.save}</button>
+        <button type="button" className="ip-btn primary" aria-disabled={!valid} onClick={submit}>{M.save}</button>
       </SheetFoot>
     </Overlay>
   )
@@ -936,8 +944,16 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, se
   )
 
   const valid = !!label.trim() && !!unit.trim() && menge >= 1
+  const materialRef = useRef<HTMLDivElement>(null)
+  const unitRef = useRef<HTMLDivElement>(null)
   const submit = () => {
-    if (!valid) return
+    // blocked: ring the empty field and focus its picker (lib/pointAtField) — the Menge cannot
+    // fall below 1, so it is always one of these two
+    if (!valid) {
+      const field = !label.trim() ? materialRef.current : unitRef.current
+      pointAtField(field, { focus: field?.querySelector<HTMLElement>('input, button') })
+      return
+    }
     onSubmit({ materialId, label: label.trim(), unit: unit.trim(), sourceId, sourceLabel, menge })
     clearDraft(DRAFT_KEY) // recorded — the next «erfassen» starts empty
   }
@@ -952,11 +968,11 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, se
     <Sheet open fit title={M.composerTitle} onClose={onCancel} ariaLabel={M.composerTitle}
       footer={<>
         <button type="button" className="ip-btn" onClick={onCancel}>{M.cancel}</button>
-        <button type="button" className="ip-btn primary" disabled={!valid} onClick={submit}>{M.save}</button>
+        <button type="button" className="ip-btn primary" aria-disabled={!valid} onClick={submit}>{M.save}</button>
       </>}
     >
       <div className={s.composerFields}>
-        <div className={s.field}>
+        <div ref={materialRef} className={s.field}>
           <label>{M.materialLabel}</label>
           {/* clearable: this is the «Anderes Mittel» path, so the value here is often a name
               somebody typed and then wants to type differently. Clearing it used to mean
@@ -965,7 +981,7 @@ function MittelComposer({ M, catalogue, sources, units, entries, categorised, se
             searchPlaceholder={M.materialSearchPlaceholder}
             allowCustom onChange={pickMaterial} />
         </div>
-        <div className={cx(s.field, s.fieldNarrow)}>
+        <div ref={unitRef} className={cx(s.field, s.fieldNarrow)}>
           <label>{M.unitLabel}</label>
           {/* the picker SHOWS «L» (unitLabel) but stores the catalogue's «l»: a picked «L» saved as-is
                     would be a different unit to mittelKey and split the line in two */}

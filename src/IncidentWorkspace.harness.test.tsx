@@ -260,6 +260,33 @@ describe('(a) the keyboard routes by surface', () => {
   })
 })
 
+// UX sweep M1 (20.10.2026, owner: «any tool should end the coordinate mode, and vice versa»):
+// Koordinaten stayed on under every tool and silently took the taps the armed tool's dock asked for.
+describe('(k) Koordinaten is a tool like any other', () => {
+  const picking = () => (lastMap() as unknown as { picking: boolean }).picking
+  const placing = () => (lastMap() as unknown as { placing: boolean }).placing
+
+  it('arming a tool ends the crosshair', async () => {
+    await mount()
+    key('x')
+    expect(picking()).toBe(true)
+    key('l')
+    expect(picking()).toBe(false)
+    expect(placing()).toBe(true)
+  })
+
+  it('entering it puts the armed tool down — and settles its draft instead of dropping it', async () => {
+    await mount()
+    key('f') // Fläche, tapped corners
+    const onMapClick = (lastMap() as unknown as { onMapClick: (c: [number, number]) => void }).onMapClick
+    act(() => { onMapClick([7.6, 47.5]); onMapClick([7.601, 47.5]); onMapClick([7.601, 47.501]) })
+    key('x')
+    expect(picking()).toBe(true)
+    expect(placing()).toBe(false)
+    expect(lastMap().drawings.filter((d) => d.kind === 'area')).toHaveLength(1)
+  })
+})
+
 describe('(b) one timeline across the Karte and a Plan', () => {
   const note = (id: string): BoardAnno => ({ id, kind: 'text', x: 0.5, y: 0.5, floor: 0, text: id })
 

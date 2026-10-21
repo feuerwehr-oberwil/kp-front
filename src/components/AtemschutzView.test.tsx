@@ -971,6 +971,22 @@ describe('the handed-over board on a phone (focus mode)', () => {
     expect(screen.getAllByRole('button', { name: az.newTrupp })).toHaveLength(1)
   })
 
+  // UX sweep F6 (20.10.2026): a tab's tier was its tint and border alone — now a glyph and a word
+  it('says a tab\'s tier with a glyph and its word, not with the tint alone', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ lite: { subtitle: 'Brand · Hauptstrasse 12' }, trupps: [
+      { ...aktivTrupp(), id: 'k', name: 'Calm Karl' },
+      { ...aktivTrupp(), id: 'd', name: 'Due Dora', lastContactTime: iso(5.4 * 60_000) },
+      { ...aktivTrupp(), id: 'o', name: 'Over Otto', lastContactTime: iso(8 * 60_000) },
+    ] })
+    const tab = (name: string) => screen.getByRole('tab', { name: new RegExp(name) })
+    expect(tab('Calm Karl').querySelector(`.${s.tabTier}`)).toBeNull()
+    expect(tab('Due Dora').textContent).toContain(az.rowDue)
+    expect(tab('Due Dora').querySelector(`.${s.tabTier} use`)?.getAttribute('href')).toBe('#clock')
+    expect(tab('Over Otto').textContent).toContain(az.clockOverdue)
+    expect(tab('Over Otto').querySelector(`.${s.tabTier} use`)?.getAttribute('href')).toBe('#warn')
+  })
+
   /* ── The one-row head, and the door in its cut-off title (09.09., mock 01) ─────────────────
    * The head spends ONE row now: name left, the three controls right, nothing wrapped. The
    * price is that the Einsatz name ends where the buttons begin — so the name is a button, and
@@ -1286,6 +1302,16 @@ describe('the board with Trupps that are not under Atemschutz', () => {
    * keine Auswahl ob mit oder ohne AS»), reversing «the two decisions must not ride on one press»
    * from the same day. Each re-deployment is its own Einsatz of that crew: the Trupp that fought
    * the fire under PA goes back in to clear up without it. */
+  // UX sweep F6: «does NOT start the contact clock» was a `title` only — a hold now says it
+  it('explains on a hold that «Bereitstellen» does not start the contact clock', () => {
+    mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(60_000) }] })
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    const standby = screen.getByRole('button', { name: new RegExp(`^${az.reenterStandby}`) })
+    expect(standby.hasAttribute('data-holdexplain')).toBe(true)
+    expect(standby.getAttribute('aria-label')).toContain(az.reenterStandbyHint)
+    expect(standby.hasAttribute('title')).toBe(false)
+  })
+
   it('asks the Art again on a re-deploy, and sends a Trupp back in WITHOUT Atemschutz', () => {
     const reactivateTrupp = vi.fn()
     mount({
@@ -1300,7 +1326,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     // …and there is none to ask for once the crew goes back in without a mask
     expect(screen.queryByText(az.newPressureLabel)).toBeNull()
     // «Bereitstellen» goes with it: a Sicherungstrupp is by definition a crew standing by under PA
-    expect(screen.queryByRole('button', { name: az.reenterStandby })).toBeNull()
+    expect(screen.queryByRole('button', { name: new RegExp(`^${az.reenterStandby}`) })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: az.reenterSubmit }))
     expect(reactivateTrupp).toHaveBeenCalledTimes(1)
     const [, fields] = reactivateTrupp.mock.calls[0] as [string, TruppFields]

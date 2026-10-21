@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { Button, IconButton } from './Button'
+import { TickRow } from './TickRow'
 import { ShellLoader } from './ShellLoader'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
@@ -2316,16 +2317,14 @@ export function ReportPreflight({
                               the two fields squeezed underneath — «man kann keine Organisation
                               richtig hinzufügen». Now: the field IS the row. */}
                           {!r.custom && (
-                            <button
-                              type="button" className="report-partner-tick"
-                              role="checkbox" aria-checked={on} aria-label={r.org || P.partnerOrgShort}
-                              onClick={() => (on
+                            <TickRow
+                              className="report-partner-tick" checked={on} aria-label={r.org || P.partnerOrgShort}
+                              onToggle={() => (on
                                 ? savePartners(partners.filter((_, j) => j !== r.i))
                                 : savePartners([...partners, { org: r.org }]))}
                             >
-                              <span className="report-partner-box">{on && <Icon id="check" />}</span>
                               <span className="report-partner-org">{r.org}</span>
-                            </button>
+                            </TickRow>
                           )}
                           {/* a free-typed organisation names itself; a listed one is already named */}
                           {on && r.custom && (
@@ -2536,13 +2535,11 @@ export function ReportPreflight({
                         <div key={link.id} className={cx('rp-link', at && 'on')}>
                           {/* tick + title are ONE target, as on the Partnerorganisationen rows —
                               a 40px checkbox beside a label is a miss waiting to happen */}
-                          <button
-                            type="button" className="rp-link-tick" disabled={!canEdit}
-                            role="checkbox" aria-checked={!!at}
+                          <TickRow
+                            className="rp-link-tick" disabled={!canEdit} checked={!!at}
                             aria-label={fillTemplate(at ? P.linksMarkOpen : P.linksMarkDone, { title: link.title })}
-                            onClick={() => setLinkDone(link.id, !at)}
+                            onToggle={() => setLinkDone(link.id, !at)}
                           >
-                            <span className="rp-link-box"><Icon id={at ? 'check' : 'minus'} /></span>
                             <span className="rp-link-txt">
                               <span className="rp-link-title">{link.title}</span>
                               {/* the note says WHEN this has to be filled in; once it is done the
@@ -2551,7 +2548,7 @@ export function ReportPreflight({
                                 ? <span className="rp-link-note">{fillTemplate(P.linksDoneAt, { at: formatDateTime(at) })}</span>
                                 : link.note?.trim() && <span className="rp-link-note">{link.note.trim()}</span>}
                             </span>
-                          </button>
+                          </TickRow>
                           <Button className="rp-link-open" icon={<Icon id="external" />} onClick={() => openLink(link)}>
                             {P.linksOpen}
                           </Button>

@@ -74,13 +74,20 @@
    The rows remain equally direct, but the stack is bounded by the viewport. On a busy incident
    the old unbounded strip could run behind the bottom chrome and make its last actions impossible
    to reach; scrolling the ONE visible list preserves access without adding disclosure. */
+/* THE lane's two edges, shared by the strip and the toaster (S3 rework, 21.10.2026, owner: a toast
+   under the strip had its own width, its own ✕ and its own weight). Set on the two elements, not
+   :root — the ctx rules below move them per surface. */
+:is(.ml, .toaster) {
+  --lane-l: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 24px);
+  --lane-r: calc(max(16px, env(safe-area-inset-right)) + var(--rail-w) + 24px); }
 .ml { position: fixed; z-index: var(--z-messages); overflow-x: hidden; overflow-y: auto;
   top: calc(92px + env(safe-area-inset-top));
-  left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 24px);
-  right: calc(max(16px, env(safe-area-inset-right)) + var(--rail-w) + 24px);
+  left: var(--lane-l); right: var(--lane-r);
   max-width: 860px; margin-inline: auto;
   max-height: calc(100dvh - 116px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  overscroll-behavior: contain; scrollbar-gutter: stable;
+  /* no reserved scrollbar gutter (S3 rework, 21.10.2026): a strip that does not scroll held ~12px
+     of empty gutter on a desktop pointer, which stood its ✕ that far left of the toast's under it */
+  overscroll-behavior: contain;
   background: var(--surface); border: 1px solid var(--glass-line); border-radius: var(--r-sm);
   box-shadow: var(--e4); animation: ml-in .16s var(--ease); }
 @keyframes ml-in { from { opacity: 0; transform: translateY(-8px); } }
@@ -109,6 +116,10 @@
 /* a row whose sentence IS the message (Meldung.wrap) — «Einsatz wurde auf einem anderen Gerät
    abgeschlossen (14:45)» must not lose its end to the ellipsis on a phone */
 .ml-row.wrap .ml-title, .ml-row.wrap .ml-sub { white-space: normal; overflow-wrap: anywhere; }
+/* …and a row whose SUB-line is the message (Meldung.subLines — a due Wiedervorlage's task): two
+   lines, then the ellipsis, the title's own clamp */
+.ml-row.sub2 .ml-sub { white-space: normal; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 /* the title as the row's way in: a LINK, not a button. No border, no fill, the same type as an
    inert title — a title first and a destination second, which is what «In Verlauf öffnen» stopped
    being the moment it was a third button beside Erledigt and +10 min.
@@ -160,6 +171,9 @@
 }
 .ml-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ml-x.ghost { visibility: hidden; pointer-events: none; }
+/* the house cross (`.ip-x svg`): at the button's 1em it was 13px, a size of its own beside the
+   toast's ✕ right under it */
+.ml-x .i { width: 18px; height: 18px; }
 /* ── On the Trupp-Tafel: one row, a count, and the Tafel BELOW the strip (staging r3) ─────────
    Two rows («wieder geöffnet» + «abgesucht?») took 207px at 360 and sat on the first crew's
    contact clock; at 820 a single row covered the page title. On the Tafel — and nowhere else, the
@@ -194,8 +208,10 @@
      the floating row while a piece stands in it (FAB, plan chips, «Zurück zum Rapport»), else
      above the highest bar. Its cap was «one nav bar + a guess», which ran under the FAB on every
      surface and under the tool bar on the Karte. Past that it scrolls, as on every other width. */
+  /* …at the head's and the bars' 8px (S3 rework, 21.10.2026): it was 12, the one card on the
+     screen with an edge of its own, and the toast under it stood at the bars' 8 */
+  :is(.ml, .toaster) { --lane-l: max(8px, env(safe-area-inset-left)); --lane-r: max(8px, env(safe-area-inset-right)); }
   .ml { top: calc(72px + env(safe-area-inset-top));
-    left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right));
     max-height: calc(100dvh - 72px - env(safe-area-inset-top) - var(--msg-lane-bottom)); }
   /* the ✕ keeps its 44px slot beside the title, so the title's room is what the gaps leave: 8 and a
      12px inset (not 12 and 16) keep «TLF fährt weg · 340 m vom Einsatzort» on one 14px line at 390 */
@@ -222,11 +238,25 @@
    so once the stack outgrows `max-height` the scroll port still starts on the newest toast. With
    `column` the port starts at scrollTop 0 — the OLDEST — and a burst on a phone (the lane caps
    at ~5 pills) hid the pill carrying «Rückgängig» below the fold with nothing saying so. */
+/* ⚠️ The strip's EDGES, not its own (S3 rework, 21.10.2026): the lane spans --lane-l…--lane-r and
+   stops at the strip's 860px, centred in that band the way `.ml`'s auto margins centre it (the
+   toaster's own margin is spent on the shadow room below, so the centring is spelled out). Every
+   pill stretches to it — a toast under the strip is one more row of the same width. */
 .toaster { position: fixed;
-  left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right));
-  bottom: calc(max(28px, calc(16px + env(safe-area-inset-bottom))) + var(--stack-foot-lift, 0px)); z-index: var(--z-toast);
-  display: flex; flex-direction: column-reverse; align-items: center; gap: 8px; pointer-events: none;
-  max-height: calc(100dvh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  --lane-c: calc((var(--lane-l) + 100vw - var(--lane-r)) / 2);
+  left: max(var(--lane-l), calc(var(--lane-c) - 430px));
+  right: max(var(--lane-r), calc(100vw - var(--lane-c) - 430px));
+  /* ⚠️ THE lane is under the head, on every width (S3, 20.10.2026, owner: «ensure that all
+     notifications appear at the same place: at the top cleanly below the main navbar»): where
+     the Meldeleiste starts (92px), and one 8px gap under it while it stands (`--ml-reserve`, its
+     MEASURED height `--ml-h`). It was the screen's foot, centred — over the plan's chip row, the
+     Gebäude's «+ UG» and a dialog's buttons — with the top only for a placement mode. Clamped so
+     a tall strip never pushes the lane off the screen: there it stands over the strip's last
+     rows, which stay put under it, and is gone in six seconds. */
+  top: min(calc(92px + var(--ml-reserve, 0px) + env(safe-area-inset-top)), calc(100dvh - 160px));
+  bottom: auto; z-index: var(--z-toast);
+  display: flex; flex-direction: column-reverse; align-items: stretch; gap: 8px; pointer-events: none;
+  max-height: min(32dvh, 240px);
   overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
   /* the scroll port clips, and it clipped each pill's shadow into a grey box around its corners:
      48px of room on every side (--shadow reaches ~50px down), handed straight back by the negative
@@ -241,31 +271,13 @@
    the phone's bars-width lane (15-mobile · «THE message lane») by specificity, not by order. */
 :root:has(.ip-emptyapp-card) .toaster {
   left: max(24px, calc(50% - 204px)); right: max(24px, calc(50% - 204px)); }
-/* While the Gebäude stack shows its «+ UG» (and the chip row under it), the lane starts above
-   them: at the default fit the pill's top stands ~114px over the canvas foot (Whiteboard ·
-   STACK_CHIP_ROW + STACK_VPAD, half the pill outside), and a toast at the 28px baseline lay on it
-   — three stacked «Geschoss hinzugefügt» pills hid it completely (3am test r4, 26.09.2026). The
-   phone restates the lift for its own lane (15-mobile). */
-:root:has(.wb-floor-add-down) .toaster { --stack-foot-lift: 96px; }
-/* …and on a tablet the plan's chip row (09-whiteboard · .wb-botleft: 16px up, --float-h tall) is a
-   floating row the messages stand ABOVE, one --float-gap over it, as on a phone (26.09.2026). At
-   the 28px baseline a long toast, centred, lay across the object chip — the row is the same
-   floating family (01-tokens · --float-*), and two of its pieces never overlap. The phone has its
-   own lane (15-mobile · --msg-lane-bottom); this query is its exact complement. */
+/* the strip's measured height (Meldeleiste · `--ml-h`) + the 8px channel — the lane starts there */
+:root:has(.ml) .toaster { --ml-reserve: calc(var(--ml-h, 0px) + 8px); }
+/* (the foot's lifts over the plan's chip row and the Gebäude's «+ UG» went with the foot lane,
+   20.10.2026.) While a placement mode takes the map's or the plan's taps (`data-placing`,
+   lib/toastLane · usePlacementLane) the strip is bounded, so the lane under it stays near the
+   head (owner, Karte Haus round 3, 20.10.2026). */
 @media (--not-phone) {
-  :root:has(.wb-botleft) .toaster {
-    bottom: max(calc(max(28px, calc(16px + env(safe-area-inset-bottom))) + var(--stack-foot-lift, 0px)),
-      calc(16px + var(--float-h) + var(--float-gap) + env(safe-area-inset-bottom))); }
-}
-/* While a placement mode takes the map's or the plan's taps (`data-placing`, lib/toastLane ·
-   usePlacementLane), the messages stand at the TOP, where the Meldeleiste starts (92px, under the
-   bar) — at the foot, centred, an undo pill lay on the spot the next symbol goes and hid the
-   Karte's «Auf die Karte tippen …» (owner, Karte Haus round 3, 20.10.2026). With a Meldeleiste up
-   both share the head as on the phone (15-mobile): the strip bounded, the lane under its cap. */
-@media (--not-phone) {
-  :root[data-placing] .toaster {
-    top: calc(92px + var(--ml-reserve, 0px) + env(safe-area-inset-top)); bottom: auto; max-height: min(32dvh, 240px); }
-  :root[data-placing]:has(.ml) .toaster { --ml-reserve: calc(min(32dvh, 240px) + 8px); }
   :root[data-placing] .ml { max-height: min(32dvh, 240px); }
 }
 /* A desktop/tablet detail panel owns the right side of the operational surface. Messages are
@@ -278,14 +290,14 @@
    two sums as «panel inset + panel width + 16px of air». */
 @media (min-width: 1025px) {
   :root:has(.app .ctx) :is(.ml, .toaster) {
-    left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 24px);
-    right: calc(max(16px, env(safe-area-inset-right)) + var(--vrail-w, 60px) + 26px + 360px + 16px);
+    --lane-l: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 24px);
+    --lane-r: calc(max(16px, env(safe-area-inset-right)) + var(--vrail-w, 60px) + 26px + 360px + 16px);
   }
 }
 @media (--tablet) {
   :root:has(.app .ctx) :is(.ml, .toaster) {
-    left: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 16px);
-    right: calc(max(16px, env(safe-area-inset-right)) + var(--vrail-w, 60px) + 26px + 16px
+    --lane-l: calc(max(16px, env(safe-area-inset-left)) + var(--rail-w) + 16px);
+    --lane-r: calc(max(16px, env(safe-area-inset-right)) + var(--vrail-w, 60px) + 26px + 16px
       + clamp(300px, calc(100vw - 420px), 360px));
   }
 }
@@ -305,17 +317,23 @@
    (lib/ui · ToastRow). An instruction that stays while its mode is on has neither.
    `touch-action: pan-y` hands horizontal movement to the pill's own pointer handlers (lib/ui ·
    ToastRow) while leaving vertical panning of the stack to the browser. */
+/* …and its INSIDE is a Meldeleiste row's (S3 rework, 21.10.2026): the row's 16px lead and 8px
+   tail, its 12px gap, 14/700 like `.ml-title`, an 18px glyph in `.ml-ic`'s column and the same
+   44px ✕ with the house 18px cross. Stacked under the strip the two now line up glyph for glyph,
+   word for word and ✕ for ✕. */
 .toast { position: relative; overflow: hidden; box-sizing: border-box; display: flex; flex: none; align-items: center;
-  gap: var(--sp-2); pointer-events: auto; min-height: var(--float-h);
-  background: var(--float-bg); backdrop-filter: var(--float-blur); color: var(--ink); border: none; box-shadow: var(--float-edge);
-  font: var(--fw-medium) var(--fs-2)/1.35 var(--body); padding: var(--msg-pad) var(--msg-pad) var(--msg-pad) var(--float-pad-x);
+  gap: var(--sp-3); pointer-events: auto; min-height: var(--float-h);
+  /* the transparent 1px border is the strip's (`.ml`'s hairline), so glyph and ✕ land on its rows'
+     columns to the pixel; the fill runs under it, the edge stays the shadow's */
+  background: var(--float-bg); backdrop-filter: var(--float-blur); color: var(--ink); border: 1px solid transparent; box-shadow: var(--float-edge);
+  font: var(--fw-bold) var(--fs-2)/1.35 var(--body); padding: var(--msg-pad) var(--sp-2) var(--msg-pad) var(--sp-4);
   border-radius: var(--r-sm); white-space: nowrap; touch-action: pan-y;
   animation: toastIn .22s var(--ease); }
 /* no button at its right end (a live status, an instruction): the text keeps the left side's air,
    and --sp-2 above and below, not the --msg-pad a button stands in — on two lines «Auf die Karte
    tippen, um einen Punkt zu setzen.» sat 4px from the rim (owner, review round 4; carried over
    from the Karte's `.hintBar` when the instruction became a toast, 20.10.2026) */
-.toast:not(:has(> .toast-x, > .toast-actions)) { padding-right: var(--float-pad-x); padding-block: var(--sp-2); }
+.toast:not(:has(> .toast-x, > .toast-actions)) { padding-right: var(--sp-4); padding-block: var(--sp-2); }
 /* the running-out line: full at the start, empty when the pill leaves (duration inline, per toast).
    Inset by the corner on both sides, so it stays a straight line and never bends round the corner
    into something that reads as a border. */
@@ -330,11 +348,11 @@
    and removes the node .16s later (lib/ui.tsx). Leaving must never make the app wait. */
 .toast.out { opacity: 0; transform: translateY(8px) scale(.96); pointer-events: none;
   transition: opacity .14s var(--ease), transform .14s var(--ease); }
-.toast .i { width: 16px; height: 16px; flex: none; color: var(--ink-dim); }
+.toast .i { width: 18px; height: 18px; flex: none; color: var(--ink-dim); }
 /* live job as a chain of stages: reached ones keep their tick and step back, the
    running one carries the label, unreached ones stay visible as pips — «what still has to
    happen» is readable without opening anything. */
-.toast-steps { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.toast-steps { display: flex; flex: 1 1 auto; align-items: center; gap: var(--sp-2); min-width: 0; }
 .toast-step { display: flex; align-items: center; gap: var(--sp-1); white-space: nowrap; opacity: .4;
   transition: opacity .25s var(--ease); }
 .toast-step.done { opacity: .6; }
@@ -350,7 +368,9 @@
    four lines with «Anwesenhe|it» split mid-word, which is harder to read than the wrap it was
    avoiding. And with the ✕ beside «Rückgängig» the text column got too narrow to help — so on a
    narrow screen the pill wraps instead and gives the sentence the full width (see 15-mobile). */
-.toast-message { min-width: 0; white-space: normal; overflow-wrap: break-word; text-align: left; line-height: 1.3; }
+/* …and it takes the row's free width, so the ✕ / «Rückgängig» stand at the pill's right end, under
+   the Meldeleiste's own ✕ (S3 rework) — not straight after the words */
+.toast-message { flex: 1 1 auto; min-width: 0; white-space: normal; overflow-wrap: break-word; text-align: left; line-height: 1.3; }
 /* the action cluster: «Rückgängig» + the ✕ that gets it out of the way. It follows the finger
    during a flick (inline transform), so `transition` only covers the spring-back — animating the
    drag itself would lag the touch by exactly the transition's duration. */
@@ -364,7 +384,7 @@
   .toast-x:hover { color: var(--ink); background: var(--fill-soft); }
 }
 .toast-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.toast-x .i { width: 16px; height: 16px; color: inherit; }
+.toast-x .i { width: 18px; height: 18px; color: inherit; }
 /* inline action (confirm-with-undo): the toaster itself is pointer-events:none, so the
    button re-enables hits. The house quiet button on the pill's surface. It carries `.btn` too,
    whose hover paints --surface, so the pill-scoped rules below keep the fill. */

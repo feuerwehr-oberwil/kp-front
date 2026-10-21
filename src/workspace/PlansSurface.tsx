@@ -9,6 +9,7 @@ import { LoadingStatus } from '../components/ShellLoader'
 import type { BoardHistory } from '../components/useBoardDoc'
 import type { BoardViews } from '../components/useBoardView'
 import type { TafelPagesProps } from '../components/Whiteboard'
+import type { TruppFinderDoor } from '../components/WbControls'
 import { appConfig } from '../config/appConfig'
 import { gebaeudeDoc } from '../data/demoIncident'
 import type { AtemschutzAlarmState } from '../lib/atemschutz'
@@ -130,6 +131,8 @@ export interface PlansSurfaceProps {
   setPlanScale: Dispatch<SetStateAction<PlanScales>>
   /** the Tafel's pages (workspace/useTafelPages) — absent for a link session */
   tafel: TafelPagesProps | undefined
+  /** «Trupp finden» on the plan's Trupp dock, the Karte's finder (UX sweep M9) */
+  truppFinder: TruppFinderDoor
 }
 
 export function PlansSurface({
@@ -145,7 +148,7 @@ export function PlansSurface({
   planKeys, planFocus, effTrupps, truppCounterNames, teamNameTaken, azAlarm, updateTrupp,
   askTruppEntry, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker, linkTruppLine, unlinkLine,
   linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, syncLineNoToTrupp, setMode, setPanel,
-  setTruppFocus, planScale, setPlanScale, tafel,
+  setTruppFocus, planScale, setPlanScale, tafel, truppFinder,
 }: PlansSurfaceProps) {
   return (
     <>
@@ -419,6 +422,7 @@ export function PlansSurface({
           // the plan chip's twin of the map marker's jump — it points at the card too
           onShowTrupp={(truppId) => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: truppId, nonce: Date.now() }) }}
           tafel={tafel}
+          truppFinder={truppFinder}
           planScale={planScale}
           onCalibrate={(planId, sc) => { if (tacticalLocked) return; setPlanScale((m) => { if (!sc) { const { [planId]: _drop, ...rest } = m; return rest } return { ...m, [planId]: sc } }) }}
         /></Suspense>

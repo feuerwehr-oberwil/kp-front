@@ -324,12 +324,15 @@ describe('JournalComposer · the clock', () => {
     const field = within(pop).getByRole('textbox') as HTMLInputElement
     expect(field.value).toBe('14:05')
     expect(pop.textContent).toContain('Heute')
-    expect(ok().disabled).toBe(false)
+    expect(ok().getAttribute('aria-disabled')).toBe('false')
 
-    // an hour back is today, an hour ago — the picker says so and refuses to save it…
+    // an hour back is today, an hour ago — the picker says so and refuses to save it: «OK» is
+    // aria-disabled (UX sweep F2 — a tap on it rings the note instead of closing)…
     fireEvent.change(field, { target: { value: '13:00' } })
     expect(pop.textContent).toContain('Zeitpunkt liegt in der Vergangenheit')
-    expect(ok().disabled).toBe(true)
+    expect(ok().getAttribute('aria-disabled')).toBe('true')
+    fireEvent.click(ok())
+    expect(screen.queryByRole('dialog', { name: 'Erinnern um' })).toBeTruthy()
     // …Enter included, which reaches the commit without the button
     fireEvent.keyDown(field, { key: 'Enter' })
     expect(screen.queryByRole('dialog', { name: 'Erinnern um' })).toBeTruthy()
@@ -337,7 +340,7 @@ describe('JournalComposer · the clock', () => {
     // …and the next day makes the same clock time a real Wiedervorlage again
     fireEvent.change(within(pop).getByRole('combobox', { name: 'Tag' }), { target: { value: '1' } })
     expect(pop.textContent).toContain('Morgen')
-    expect(ok().disabled).toBe(false)
+    expect(ok().getAttribute('aria-disabled')).toBe('false')
     fireEvent.click(ok())
     send()
     expect(onSubmit.mock.calls[0][0].dueAt).toBe(new Date(2026, 7, 18, 13, 0).toISOString())

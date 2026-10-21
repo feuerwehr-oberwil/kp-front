@@ -281,20 +281,26 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             letting them disappear would read as «abgerückt» rather than as «Feed weg». That
             is exactly why the freeze needs a visible caveat: without one, hours-old positions
             look every bit as binding as a position one minute old. */}
+        {/* ⚠️ A BUTTON, and a tap opens its sentence (S6, 20.10.2026, owner: tap-to-open). It was a
+            span whose explanation lived in `title=`, which neither a tablet nor the hold-tooltip
+            ever shows. The popover is the house one (lib/overlays · Popover): non-modal, so the
+            map stays live under it and a press elsewhere closes it. */}
         {gpsStale && (
-          <span
-            className="tb-gps"
-            title={appConfig.copy.topBar.gpsFrozenHint}
-            role="status"
+          <Popover side="bottom" align="start" popupClassName="tb-gps-pop" ariaLabel={appConfig.copy.topBar.gpsFrozen} zIndex={201}
+            trigger={
+              <button type="button" className="tb-gps">
+                {/* the app's own position glyph — a speedometer (`gauge`) named nothing about a
+                    silent position feed. The amber pill carries the caveat; the icon says WHAT. */}
+                <Icon id="locate" />
+                <span>{appConfig.copy.topBar.gpsFrozen}</span>
+                {gpsAgeMs != null && (
+                  <span className="tb-gps-age">{Math.round(gpsAgeMs / 60_000)} min</span>
+                )}
+              </button>
+            }
           >
-            {/* the app's own position glyph — a speedometer (`gauge`) named nothing about a
-                silent position feed. The amber pill carries the caveat; the icon says WHAT. */}
-            <Icon id="locate" />
-            <span>{appConfig.copy.topBar.gpsFrozen}</span>
-            {gpsAgeMs != null && (
-              <span className="tb-gps-age">{Math.round(gpsAgeMs / 60_000)} min</span>
-            )}
-          </span>
+            <p className="tb-gps-hint">{appConfig.copy.topBar.gpsFrozenHint}</p>
+          </Popover>
         )}
         {/* Atemschutz chip — pinned at the far right so it never shifts the other controls.
             AMBER from «Kontakt fällig» on (the quiet lead used to stay board-only, so the first
@@ -345,8 +351,8 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
  *  where the incident is named. It replaces the bottom banner that used to say the same thing on
  *  the same 16px as three other cards (and, being painted last, was the only one of the four you
  *  could read). The exits come along: tapping the chip offers «Zurück» and, for editors, «Wieder
- *  öffnen» — so nothing the banner could do got lost with it.
- *  With no exits to offer (a link session) it is a plain, non-interactive chip. */
+ *  öffnen» — so nothing the banner could do got lost with it — under a head that says what the
+ *  state means. With no exits to offer (a link session) the menu is that head alone. */
 function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactivate?: () => Promise<ReactivateResult> }) {
   const C = appConfig.copy.archived
   const [open, setOpen] = useState(false)
@@ -358,13 +364,17 @@ function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactiv
   const alive = useRef(true)
   useEffect(() => () => { alive.current = false }, [])
   const label = <><Icon id="lock" />{C.title}</>
-  // no exits = a link session: its holder can neither correct nor reopen anything (staging r3)
-  if (!onBack && !onReactivate) return <span className="tb-mode" title={C.hintViewOnly}>{label}</span>
+  // ⚠️ A TAP explains it (S5 rework, 21.10.2026, owner: «they just tap on it»; a hold was the
+  // draft and nobody would find it). The phone hides the word (10-journal · `.tb-mode`
+  // font-size 0), so the menu's head says the state and what it means, above the exits.
+  // No exits = a link session: its holder can neither correct nor reopen anything (staging r3),
+  // and the same menu is the sentence alone.
   return (
     <Popover side="bottom" align="start" popupClassName="tb-uhr-menu" ariaLabel={C.title}
       open={open} onOpenChange={(next) => { if (!busy) setOpen(next) }}
-      trigger={<button type="button" className="tb-mode" title={C.hint} aria-label={`${C.title} – ${C.hint}`}>{label}</button>}
+      trigger={<button type="button" className="tb-mode" aria-label={C.title}>{label}</button>}
     >
+      <p className="tb-uhr-say"><b>{C.title}</b>{onBack || onReactivate ? C.hint : C.hintViewOnly}</p>
       {onBack && (
         <PopoverClose className="tb-uhr-row" onClick={onBack}>
           <Icon id="undo" /><span className="tb-uhr-lbl">{C.back}</span>

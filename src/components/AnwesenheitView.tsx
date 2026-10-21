@@ -152,34 +152,31 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
       // The remark belongs to the person on THIS Einsatz, not to their roster entry: «Fahrer
       // TLF», «abgelöst 21:40». It sits with the times because that is the one surface that is
       // already about what this person did here, and it prints on the Personalblatt beside them.
-      extra={(
-        <>
-          {canEdit && onSetNote ? (
-            <label className="ip-field">
-              <span>{A.noteLabel}</span>
-              <input
-                className="ip-input" defaultValue={note ?? ''} placeholder={A.notePlaceholder}
-                // a remark is one line beside the name on the Personalblatt; an essay pasted in
-                // here used to make the whole Rapport fail to compose (report_pdf · _clip_note)
-                maxLength={240}
-                onBlur={(e) => onSetNote(person.id, stripUnprintable(e.target.value))}
-                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-              />
-            </label>
-          ) : note ? (
-            <div className="ip-field"><span>{A.noteLabel}</span><b>{note}</b></div>
-          ) : null}
-          {/* Only for somebody who is not on the Mannschaftsliste. A roster row cannot be
-              «removed» — it goes back to frei by tapping — but a hand-added person can be a
-              mistake, and then there has to be a way off the sheet. It lives HERE rather than on
-              the row, because the row's tap is the one gesture that must never delete anybody. */}
-          {canEdit && person.guest && onRemoveGuest && (
-            <Button variant="danger" icon={<Icon id="trash" />} onClick={() => onRemoveGuest(person)}>
-              {A.removeGuest}
-            </Button>
-          )}
-        </>
-      )}
+      extra={canEdit && onSetNote ? (
+        <label className="ip-field">
+          <span>{A.noteLabel}</span>
+          <input
+            className="ip-input" defaultValue={note ?? ''} placeholder={A.notePlaceholder}
+            // a remark is one line beside the name on the Personalblatt; an essay pasted in
+            // here used to make the whole Rapport fail to compose (report_pdf · _clip_note)
+            maxLength={240}
+            onBlur={(e) => onSetNote(person.id, stripUnprintable(e.target.value))}
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+          />
+        </label>
+      ) : note ? (
+        <div className="ip-field"><span>{A.noteLabel}</span><b>{note}</b></div>
+      ) : null}
+      // Only for somebody who is not on the Mannschaftsliste. A roster row cannot be «removed» —
+      // it goes back to frei by tapping — but a hand-added person can be a mistake, and then there
+      // has to be a way off the sheet. It lives HERE rather than on the row, because the row's tap
+      // is the one gesture that must never delete anybody. In the footer, far left (the one
+      // footer rule, UX sweep F5) — it used to trail the Bemerkung in the body.
+      danger={canEdit && person.guest && onRemoveGuest ? (
+        <Button variant="danger" icon={<Icon id="trash" />} onClick={() => onRemoveGuest(person)}>
+          {A.removeGuest}
+        </Button>
+      ) : undefined}
 
       blocks={blocks.map((iv, i) => ({
         key: String(i),

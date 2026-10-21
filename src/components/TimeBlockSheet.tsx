@@ -4,7 +4,7 @@ import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { Sheet } from '../lib/overlays'
 import { TimeField } from './TimeField'
-import { Button } from './Button'
+import { Button, IconButton } from './Button'
 import s from './TimeBlockSheet.module.css'
 
 
@@ -90,7 +90,7 @@ export interface TimeBlock {
  * different paddings, one with labels and one without — and at 3am two surfaces that look almost
  * alike are worse than either.
  */
-export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabel, addLabel, onAdd, note, extra, onClose, labels, days }: {
+export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabel, addLabel, onAdd, note, extra, danger, onClose, labels, days }: {
   title: string
   /** who this sheet is about — field labels read «von – Meier Anna», not «von – Schichten – …» */
   subject: string
@@ -104,17 +104,20 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
   note?: string
   /** an additional read-only section under the blocks (the Zeitplan's «tatsächlich anwesend») */
   extra?: ReactNode
+  /** the sheet's one destructive action (the Anwesenheit's «Person entfernen») — the footer's far
+   *  left, by the one footer rule; there is no Abbrechen/primary beside it, the edits are live */
+  danger?: ReactNode
   onClose: () => void
   labels: { from: string; to: string; remove: string; fromStart: string; reopen: string; flip: string }
   /** the incident's own days — the picker shows a day wheel only when there is more than one */
   days?: Date[]
 }) {
   return (
-    // NO footer (29.09.2026, owner: «everything should be auto-saved without manual
+    // NO confirm footer (29.09.2026, owner: «everything should be auto-saved without manual
     // confirmations»): every change here is live the moment it is made, so a primary «Fertig»
     // was only a second ✕ promising an action. ✕ and the swipe close it; the one quiet line
-    // at the end says the edits are already kept.
-    <Sheet open onClose={onClose} fit sheetClassName={s.sheet} title={title}>
+    // at the end says the edits are already kept. A `danger` alone takes the footer's far left.
+    <Sheet open onClose={onClose} fit sheetClassName={s.sheet} title={title} footer={danger}>
       <div className={s.group}>
         <h4 className={s.groupTitle}>{sectionTitle}</h4>
         {blocks.length === 0 && <p className={s.note}>{emptyLabel}</p>}
@@ -129,8 +132,8 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
           // same kind in two different shapes, with the ✕ landing left on one and right on the
           // other. Grouped, the actions wrap as one block or not at all.
           <div key={b.key} className={cx(s.card, b.warn && s.cardWarn)}>
-            {/* THE HEAD. A container, not one big button: the ✕ cannot nest inside the toggle, so
-                the toggle takes the room it can and the delete sits beside it, aligned — instead
+            {/* THE HEAD. A container, not one big button: the bin cannot nest inside the toggle,
+                so the toggle takes the room it can and the delete sits beside it, aligned — instead
                 of floating in the block's top-right corner on no line with anything. */}
             <div className={cx(s.head, TONE[b.head.tone])}>
               {b.head.onToggle ? (
@@ -150,11 +153,16 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
                 </span>
               )}
               {b.duration && <span className={s.duration}>{b.duration}</span>}
+              {/* The bin, a full --tap square (UX sweep F1, 20.10.2026). It was a grey 34px ✕, the
+                  twin of the sheet's own close ✕ two rows up: a tired hand closing the sheet erased
+                  somebody's stretch. A ✕ only closes. Grey, like every inline row bin (Rapport rows,
+                  Ansichten) — not the red outline, which is a footer's delete (owner, F4 rework
+                  21.10.2026). The undo toast stays the caller's (useAttendanceActions / useShiftActions). */}
               {b.onRemove && (
-                <button type="button" className={s.del} title={labels.remove}
-                  aria-label={`${labels.remove} – ${subject}`} onClick={b.onRemove}>
-                  <Icon id="close" />
-                </button>
+                <IconButton className={s.del} label={`${labels.remove} – ${subject}`} title={labels.remove}
+                  onClick={b.onRemove}>
+                  <Icon id="trash" />
+                </IconButton>
               )}
             </div>
             {/* THE BODY: nothing but the two times, read as one pair. The date hangs under the

@@ -289,6 +289,9 @@ export const editorsCopy = {
     modeNodes: 'Punkte',
     on: 'An',
     off: 'Aus',
+    // the same pair when the row is a QUESTION («Übung?»): OnOff `question`
+    no: 'Nein',
+    yes: 'Ja',
     lock: 'Sperren',
     lockHint: 'Sperrt die Form gegen versehentliches Verschieben; halte das Schloss in der Mitte gedrückt zum Entsperren.',
     // map LockChip on a locked drawing (short-hold to unlock)

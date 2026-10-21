@@ -12,11 +12,13 @@ import { InstallBanner } from '../components/InstallBanner'
 import { NoBasemapMeldung } from '../components/NoBasemapMeldung'
 import { ReviewBanner } from '../components/panels'
 import { ReminderBanner } from '../components/ReminderBanner'
+import { StorageFullMeldung } from '../components/StorageFullMeldung'
 import { SymbolsFailedMeldung } from '../components/SymbolsFailedMeldung'
 import { TabLockBanner } from '../components/TabLockBanner'
 import { UpdateBanner } from '../components/UpdateBanner'
 import { WindShiftMeldung } from '../components/WindShiftMeldung'
 import { appConfig } from '../config/appConfig'
+import type { SyncStatus } from '../lib/api/workspaceSync'
 import type { AtemschutzAlarmState } from '../lib/atemschutz'
 import type { AuthUser } from '../lib/auth'
 import { isDemoMode } from '../lib/deploymentConfig'
@@ -75,6 +77,11 @@ export interface WorkspaceMeldungenProps {
   azAlarmActive: boolean
   truppPlace: ReturnType<typeof useTruppActions>['truppPlace']
   setTruppStatus: ReturnType<typeof useTruppActions>['setTruppStatus']
+  /** the badge's one sync status (useMediaOutbox) — `storage` raises the «Speicher voll» row */
+  syncStatus: SyncStatus
+  /** «Einträge sichern» (useLifecycleElsewhere) and «Jetzt synchronisieren» (useMediaOutbox) */
+  exportEntries: () => void
+  syncNow: () => Promise<void>
 }
 
 export function WorkspaceMeldungen({
@@ -84,9 +91,13 @@ export function WorkspaceMeldungen({
   releaseOnSite, revertAll, followAll, replayActive, incidentMeta, journal, rapportReturn,
   setRapportReturn, openRapport, setInstallGuideOpen, tabLockLost, user, onTakeOverTab, needsReview,
   readOnly, intakeReviewedAt, onEditMeta, onReviewDone, azAlarmActive, truppPlace, setTruppStatus,
+  syncStatus, exportEntries, syncNow,
 }: WorkspaceMeldungenProps) {
   return (
     <>
+      {/* local storage is full: nothing typed now survives a close (components/StorageFullMeldung) */}
+      {syncStatus === 'storage' && <StorageFullMeldung onExport={exportEntries} onSyncNow={syncNow} />}
+
       <ReminderBanner
         due={reminders.due}
         onDone={reminders.markDone}
@@ -191,7 +202,7 @@ export function WorkspaceMeldungen({
           banner at the top of the screen»): the head's «● Offline» chip stays on screen the
           whole time, and the one-shot toast (useIncidentSync) announces the spell once. */}
 
-      {/* "Als App installieren" nudge — browser-tab only, one «Später» dismisses it for good
+      {/* "Als App installieren" nudge — browser-tab only, one ✕ dismisses it for good
           on this device (the menu keeps the permanent entry).
           Hidden on the demo: a visitor isn't installing the demo as their command app. */}
       {!isDemoMode() && <InstallBanner onOpenGuide={() => setInstallGuideOpen(true)} />}

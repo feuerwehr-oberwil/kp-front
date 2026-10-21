@@ -128,7 +128,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'Strumenti della barra destra in modalità Situazione.' },
           { kind: 'list', items: [
-            '**Simbolo** – il segno tattico (FKS/VKF). Selezione rapida dei segni più comuni o ricerca in tutta la libreria. Tocca per posizionare; con il lucchetto ne metti più di seguito.',
+            '**Simbolo** – il segno tattico (FKS/VKF). Selezione rapida dei segni più comuni o ricerca in tutta la libreria. Tocca per posizionare; con «Posiziona più» ne metti più di seguito.',
             '**Forme** – nella stessa finestra, dopo i pericoli: **Freccia** e **Rettangolo**, per tutto ciò che non ha un segno tattico. La maniglia ruota, l’angolo allunga il rettangolo (la freccia resta proporzionale – una punta deformata si legge male). Sulla freccia, **Barra di arresto** aggiunge la barra di traverso alla punta – il limite di propagazione: fin qui, e lì fermato.',
             '**Selezione** – tocca gli oggetti, spostali, modificali nell’editor.',
             '**Multiplo** – tocca di nuovo **Selezione** mentre è attiva: il pulsante passa a Multiplo (simbolo e parola) e trascinando un riquadro selezioni più simboli/disegni in una volta. Un ulteriore tocco riporta a Selezione.',
@@ -339,7 +339,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'sub', text: 'Tocca e trascina (touch/iPad)' },
           { kind: 'list', items: [
             'Un dito sposta la carta/il piano; due dita zoomano (pinch).',
-            'Anche un dito solo zooma: **doppio tocco** ingrandisce; **toccare, premere di nuovo e trascinare** zooma in modo continuo – verso il basso ingrandisce, verso l’alto riduce. Uguale su carta e piano; mentre è attivo uno strumento di disegno, il piano si zooma solo con due dita.',
+            'Anche un dito solo zooma: **doppio tocco** ingrandisce; **toccare, premere di nuovo e trascinare** zooma in modo continuo – verso il basso ingrandisce, verso l’alto riduce. Uguale su carta e piano, con la **Selezione**. Uno strumento ha la precedenza: dove tocca (punti, misura, aggiungi, nota, cerchio …) ogni tocco è suo; dove traccia (mano libera, selezione multipla) il doppio tocco zooma ancora. Due dita zoomano sempre. Una linea o una superficie fatta punto per punto si conclude con ✓, mai con un doppio tocco.',
             'Toccando di nuovo **Selezione** il pulsante passa a **Multiplo**: un riquadro trascinato seleziona più oggetti; gli oggetti selezionati si spostano trascinando.',
             'Un pulsante che porta solo un segno dice la sua parola se lo **tieni premuto**: dopo un breve istante la parola compare come fumetto sopra di esso, su touch con una breve vibrazione. Rilasciando **non** si attiva il pulsante: chiedere che cosa sia una cosa non deve anche farla. Con il mouse basta passarci sopra.',
           ] },
