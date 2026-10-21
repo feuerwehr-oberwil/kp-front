@@ -1048,10 +1048,9 @@
   /* ⚠️ …which the TOASTER left on 20.10.2026 (S3, owner: «all notifications at the same place:
      at the top cleanly below the main navbar»): it stands under the bar, where the Meldeleiste
      starts (72px), one 8px channel under the strip while one stands (`--ml-reserve`, the strip's
-     measured `--ml-h`), and under the Karte's running-Einsatz strip (`--strip-reserve`). The
-     bars' own width stays. The instruction of a pick mode and a tool's tip keep the foot lane. */
+     measured `--ml-h`), and under the Karte's running-Einsatz strip (`--strip-reserve`). Its
+     edges are the strip's (08-toasts · --lane-l/--lane-r), which are the bars' 8px here. The instruction of a pick mode and a tool's tip keep the foot lane. */
   .toaster {
-    left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
     top: min(calc(72px + var(--ml-reserve, 0px) + var(--strip-reserve, 0px) + env(safe-area-inset-top)), calc(100dvh - 160px));
     bottom: auto; align-items: stretch;
     max-height: min(32dvh, 240px);
@@ -1094,7 +1093,8 @@
   /* (no sideways FAB reserve any more: the lane stands above the FAB — see «THE message lane») */
   /* long toast texts wrap on phones instead of nowrap-overflowing the fixed toaster
      (same layout-viewport-widening failure mode as the banners) */
-  .toast { white-space: normal; }
+  /* …and keeps a Meldeleiste row's phone insets, as it does on a tablet (08-toasts · S3 rework) */
+  .toast { white-space: normal; column-gap: var(--sp-2); padding-left: var(--sp-3); }
   /* ⚠️ ONE ROW (30.09.2026, owner, staging phone pass: the message on row 1, «Rückgängig» + ✕
      alone on row 2 with a big empty left half). The sentence WRAPS FIRST, inside its column, and
      the action cluster stays on the row beside it, centred on the pill. The two-row shape (18.09.)
