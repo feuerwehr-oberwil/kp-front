@@ -227,10 +227,11 @@
 button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: pointer; }
 .adm-floor-index.zero { background: var(--blue); border-color: var(--blue); color: var(--on-fill); }
 /* «Geschoss entfernen» in the OPEN row's head: the page goes back to the Ablage, so it is a bin
-   in a record row's head, not a red button under the inspector. THE delete outline at rest. */
-.adm-floors .adm-floor-remove { width: var(--tap); min-height: var(--tap); padding: 0; margin-left: 2px; flex: none; color: var(--del-ink); border-color: var(--del-edge); }
+   in a record row's head, not a red button under the inspector — grey, like every admin bin
+   (admin.css · .adm-formlink-x, A3 rework) */
+.adm-floors .adm-floor-remove { width: var(--tap); min-height: var(--tap); padding: 0; margin-left: 2px; flex: none; color: var(--ink-dim); }
 @media (hover: hover) {
-  .adm-floors .adm-floor-remove:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
+  .adm-floors .adm-floor-remove:hover:not(:disabled) { background: color-mix(in srgb, var(--red) 10%, var(--surface)); color: var(--del-ink); }
 }
 .adm-floor-remove .i { width: 16px; height: 16px; }
 
@@ -254,7 +255,7 @@ button.adm-floor-index { min-width: var(--tap); min-height: var(--tap); cursor: 
   min-height: var(--tap); padding: 5px 10px; text-align: left; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink);
   border: 1px solid var(--border-soft); border-radius: var(--r-ctl); background: var(--fill-soft); cursor: pointer; }
 .adm-floor-part.on .adm-floor-part-pick { border-color: color-mix(in srgb, var(--blue) 45%, var(--border)); background: color-mix(in srgb, var(--blue) 7%, var(--surface)); }
-.adm-floors .adm-floor-part-x { flex: 0 0 auto; min-width: var(--tap); padding-inline: 8px; color: var(--del-ink); border-color: var(--del-edge); }
+.adm-floors .adm-floor-part-x { flex: 0 0 auto; min-width: var(--tap); padding-inline: 8px; color: var(--ink-dim); }
 @media (pointer: fine) {
   .adm-floor-part-pick { min-height: 34px; font-size: 12px; }
   .adm-floors .adm-floor-part-x { min-height: 34px; min-width: 0; }
