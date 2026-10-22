@@ -41,10 +41,12 @@
 .pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; animation: koPulse 1.4s infinite; }
 @keyframes koPulse { 50% { opacity: .3; } }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
-/* the phone: the running Einsatz is a strip of its own under the bar */
+/* the phone: the running Einsatz is a strip of its own under the bar. ⚠️ `min-width: 0`: a flex
+   item never shrinks below its content, and a long title ran off the screen's edge instead of
+   ending in «…» (owner, 22.10.2026) */
 .runningStrip { position: absolute; top: calc(88px + env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
   z-index: var(--z-topbar); display: flex; }
-.runningStrip .running { max-width: none; flex: 1; }
+.runningStrip .running { max-width: none; min-width: 0; flex: 1; }
 
 /* ── search results ───────────────────────────────────────────────────────────────────────── */
 .results { position: absolute; top: calc(84px + env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); width: 470px; max-width: calc(100vw - 32px);

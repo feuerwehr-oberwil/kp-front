@@ -114,8 +114,10 @@
   background: var(--ink-8); color: var(--ink-dim); display: grid; place-items: center; }
 .wb-nearby-x .i { width: 16px; height: 16px; }
 @media (max-width: 600px) {
-  /* the NavRail is a bottom bar here – the banner takes the full width and wraps its actions */
-  .wb-nearby-banner { left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); flex-wrap: wrap; }
+  /* the NavRail is a bottom bar here – the banner takes the full width and wraps its actions. ⚠️
+     The phone's top bar floats over the sheet (15-mobile · .topbar), so the banner starts under
+     it, where the weather chip does – at 12px its first lines were hidden (owner, 22.10.2026) */
+  .wb-nearby-banner { top: calc(76px + env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); flex-wrap: wrap; }
   .wb-nearby-text { flex-basis: calc(100% - 28px); }
 }
 /* the door between the two faces of the ONE «Gebäude» tile (Whiteboard · buildingChip). On the
@@ -214,6 +216,11 @@
 .pp-mods-none { color: var(--ink-faint); font-weight: var(--fw-medium); }
 .pp-map { flex: 1 1 46%; position: relative; min-height: 380px; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--glass-edge); }
 .pp-map .maplibregl-map { width: 100%; height: 100%; }
+/* the ⓘ in the corner, just above the note (owner, 22.10.2026: it stood halfway up the map; beside
+   the note it broke the note onto two lines). ⚠️ Two classes: 15-mobile lifts every bottom-right
+   control over the Lage's bars. */
+.pp-map .maplibregl-ctrl-bottom-right { margin-bottom: 0; }
+.pp-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl { margin: 0 8px 38px 0; }
 .pp-map-note { position: absolute; left: 8px; right: 8px; bottom: 8px; padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm);
   background: rgba(27, 35, 48, .82); color: var(--on-accent-ink); font-size: var(--fs-micro); font-weight: var(--fw-medium); text-align: center; pointer-events: none; }
 /* …and when no base map painted under the pins, the pane says so rather than looking broken
