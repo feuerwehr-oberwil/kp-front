@@ -2,8 +2,8 @@
   "id": "musterdorf-objektbesuch",
   "kind": "visit",
   "version": 1,
-  "title": "Objektbesuch Schlüsseldepot & BMA (Demo)",
-  "subtitle": "Beispiel-Checkliste für Objektbesuche der Demo-Feuerwehr Musterdorf",
+  "title": "Objektbesuch Schlüsseldepot & BMA",
+  "subtitle": "Checkliste für Objektbesuche",
   "source": "KP Front Demo",
   "phases": [
     {
