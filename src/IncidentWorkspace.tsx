@@ -108,7 +108,7 @@ import { fetchShareLink } from './lib/viewLink'
 import { useBuildingInfo } from './lib/useBuildingInfo'
 import { useBuildingFirstOpen } from './lib/buildingFirstOpen'
 import { useWeather } from './lib/useWeather'
-import { useKarteWeather } from './workspace/useKarteWeather'
+import { einsatzRadarStore, useKarteWeather } from './workspace/useKarteWeather'
 import { useBootCover } from './lib/bootCover'
 import { ChecklistsView } from './components/ChecklistsView'
 import { AtemschutzView, type TruppOrder } from './components/AtemschutzView'
@@ -1340,7 +1340,7 @@ export function IncidentWorkspace({
   const liveWeather = useWeather(incidentView.center)
   const displayWeather = replayActive ? (replayWs?.weather ?? null) : liveWeather.data
   // …and the Karte's weather LAYER: the MeteoSwiss radar (live only)
-  const weather = useKarteWeather(mode === 'map' && !replayActive)
+  const weather = useKarteWeather(mode === 'map' && !replayActive, einsatzRadarStore(incidentMeta.id))
 
   // The opening cover (lib/bootCover): the boot Splash's snail stays over the whole workspace
   // until its first screen is whole — the symbol pack, the Karte framed with its first view drawn
@@ -2050,7 +2050,7 @@ export function IncidentWorkspace({
     // Ebenen panel stays ONE list with one gesture. ⚠️ The `twin:` prefix these ids carry is
     // PERSISTED on the device; it keeps its word because renaming it would reset everyone's rows.
     if (isTwinLayerId(id)) { toggleTwinLayer(id); return }
-    // …and the weather radar row, a device pref of its own (workspace/useKarteWeather)
+    // …and the weather radar row, remembered per Einsatz (workspace/useKarteWeather)
     if (weather.handlesLayer(id)) { weather.toggleRadar(); return }
     const target = layers.find((l) => l.id === id)
     // ⚠️ Not from an `el` session: its audit stream carries the record vocabulary only (the
