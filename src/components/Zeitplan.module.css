@@ -490,6 +490,8 @@
 .emptyInfoBtn svg:last-child { color: var(--ink-dim); }
 @media (hover: hover) { .emptyInfoBtn:hover { color: var(--ink); } }
 .emptyInfoBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* …the same line as a read-out, for a session that cannot plan (no (i), nothing to tap) */
+.emptyRo { cursor: default; pointer-events: none; }
 
 /* ---- foot ---------------------------------------------------------------------------- */
 

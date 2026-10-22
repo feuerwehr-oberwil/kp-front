@@ -348,7 +348,7 @@ export function BandGrid({
         {/* The state every incident begins in — and the only one where creating a band is allowed
             to be BIG, because it is then the sole sensible action on the surface. The ＋ in the
             head row afterwards only has to be reachable, not loud. */}
-        <EmptyState className="empty-fill" icon="clock" title={S.emptyTitle} sub={S.emptyHint}
+        <EmptyState className="empty-fill" icon="clock" title={S.emptyTitle} sub={canEdit ? S.emptyHint : undefined}
           /* one column, not the EmptyState's default row: `.empty-state-act` lays its children
              side by side, so the hint sat BESIDE the button and squeezed «Erste Schicht
              definieren» onto three lines */

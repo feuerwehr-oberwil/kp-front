@@ -213,7 +213,9 @@ export function TimeBlockSheet({ title, subject, sectionTitle, blocks, emptyLabe
         {note && <p className={s.note}>{note}</p>}
       </div>
       {extra}
-      <p className={s.saved}><Icon id="check" />{appConfig.copy.savedLive}</p>
+      {/* «Alles wird laufend gespeichert» only where something is edited – both callers hand
+          `onAdd` to a writer alone, so a read-only sheet promises nothing (RBAC audit 22.10.2026) */}
+      {onAdd && <p className={s.saved}><Icon id="check" />{appConfig.copy.savedLive}</p>}
     </Sheet>
   )
 }

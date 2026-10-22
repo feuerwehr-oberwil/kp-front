@@ -520,7 +520,15 @@ export function ZeitplanView({
           app's DockInfo/InfoTip pattern — instead of permanently under the grid on every phone
           that has nothing planned yet. Once there are bars the whole row is gone and the grid
           takes the height back. */}
-      {nothingPlanned && (
+      {/* …and for a session that cannot plan, the title alone: «Ziehen erfasst …» teaches a
+          gesture it does not have (RBAC audit 22.10.2026). Not on a phone, where the note is
+          only the (i) in the clock row's corner – an empty grid says it there on its own. */}
+      {nothingPlanned && !canEdit && !isPhone && (
+        <div className={s.emptyNote}>
+          <span className={cx(s.emptyInfoBtn, s.emptyRo)}><Icon id="clock" /><span>{Z.emptyTitle}</span></span>
+        </div>
+      )}
+      {nothingPlanned && canEdit && (
         <div className={s.emptyNote}>
           <button type="button" className={s.emptyInfoBtn} onClick={() => setHelpOpen((v) => !v)}
             aria-label={`${Z.emptyTitle} ${Z.laneHintShow}`} aria-expanded={helpOpen} title={helpOpen ? Z.laneHintHide : Z.laneHintShow}>

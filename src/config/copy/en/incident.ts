@@ -59,6 +59,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     title: 'Incident closed',
     hint: 'The report stays correctable (addenda) – reopen for everything else.',
     hintViewOnly: 'View only.',
+    hintRapport: 'The report stays correctable (addenda).',
     back: 'Back',
     reactivate: 'Reopen',
     reactivateOffline: 'Needs a connection to the server',
@@ -100,6 +101,10 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     deleteFailed: 'Delete failed',
 
     emptySub: 'Opened and closed incidents appear here.',
+    windowNote: 'Shows the running incidents and those of the last {n} days.',
+    windowNoteOne: 'Shows the running incidents and those of the last day.',
+    windowNoteRunning: 'Shows only the running incidents.',
+    emptyWindow: 'No incidents.',
     archiveConfirmTitle: 'Close the incident',
     archiveConfirmMsg: 'The incident is closed and the end time recorded. Later additions appear in the log and the report as supplements.',
     archiveConfirmBtn: 'Close',

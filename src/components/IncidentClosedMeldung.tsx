@@ -14,8 +14,13 @@ import { useMeldung } from '../lib/useMeldung'
  * does not re-send them — and still offers the export. Kept on the device either way, never
  * dropped. The ✕ is legitimate: the chip beside the Einsatzname (or its absence) keeps saying
  * which state the Einsatz is in after the row is gone.
+ *
+ * ⚠️ The sub-line is the session's OWN (RBAC audit 22.10.2026): «… für alles andere wieder öffnen»
+ * only where «Wieder öffnen» exists (`canReopen`), the Rapport half alone for the el / a
+ * Führungsansicht (`canCorrect`), and nothing for a viewer – «wieder bearbeitbar» is not news to
+ * a session that edits nothing either way.
  */
-export function IncidentClosedMeldung({ event, at, refused, onExport, onDismiss, forLink = false }: {
+export function IncidentClosedMeldung({ event, at, refused, onExport, onDismiss, forLink = false, canReopen = false, canCorrect = false }: {
   event: 'closed' | 'reopened'
   /** the Atemschutz-Link page (staging r3): its holder cannot reopen the Einsatz, so the closed
    *  row never says «zum Bearbeiten wieder öffnen» — it says what the board still is */
@@ -26,13 +31,19 @@ export function IncidentClosedMeldung({ event, at, refused, onExport, onDismiss,
   refused: number
   onExport: () => void
   onDismiss: () => void
+  /** this session has «Wieder öffnen» (the closed chip's own exit) */
+  canReopen?: boolean
+  /** this session corrects the Rapport (`canEditRapport`) – after a close and after a reopen */
+  canCorrect?: boolean
 }) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
   const C = appConfig.copy.archived
   const closed = event === 'closed'
   const sub = closed
-    ? (refused > 0 ? (refused === 1 ? C.closedRefusedOne : fillTemplate(C.closedRefused, { n: refused })) : C.closedElsewhereSub)
-    : (refused > 0 ? (refused === 1 ? C.reopenedParkedOne : fillTemplate(C.reopenedParked, { n: refused })) : C.reopenedElsewhereSub)
+    ? (refused > 0 ? (refused === 1 ? C.closedRefusedOne : fillTemplate(C.closedRefused, { n: refused }))
+      : canReopen ? C.closedElsewhereSub : canCorrect ? C.hintRapport : undefined)
+    : (refused > 0 ? (refused === 1 ? C.reopenedParkedOne : fillTemplate(C.reopenedParked, { n: refused }))
+      : canReopen || canCorrect ? C.reopenedElsewhereSub : undefined)
   useMeldung({
     // one id for both: a reopen replaces the close's row rather than standing under it
     id: 'incident-lifecycle',

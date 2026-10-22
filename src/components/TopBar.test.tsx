@@ -35,9 +35,24 @@ describe('ArchivedChip', () => {
   const C = appConfig.copy.archived
 
   it('says what the state means above the exits', async () => {
-    bar({ onBackFromArchive: () => {} })
+    bar({ onBackFromArchive: () => {}, onReactivate: async () => 'ok' as const })
     fireEvent.click(screen.getByRole('button', { name: C.title }))
     expect(await screen.findByText(C.hint)).toBeTruthy()
+    expect(screen.getByText(C.back)).toBeTruthy()
+  })
+
+  // RBAC audit 22.10.2026: «… für alles andere wieder öffnen» only beside «Wieder öffnen»
+  it('tells the el (corrects the Rapport, reopens nothing) only the Rapport half', async () => {
+    bar({ onBackFromArchive: () => {}, canCorrectRapport: true })
+    fireEvent.click(screen.getByRole('button', { name: C.title }))
+    expect(await screen.findByText(C.hintRapport)).toBeTruthy()
+    expect(screen.queryByText(C.reactivate)).toBeNull()
+  })
+
+  it('tells a viewer «Nur ansehen», whatever exits it has', async () => {
+    bar({ onBackFromArchive: () => {} })
+    fireEvent.click(screen.getByRole('button', { name: C.title }))
+    expect(await screen.findByText(C.hintViewOnly)).toBeTruthy()
     expect(screen.getByText(C.back)).toBeTruthy()
   })
 

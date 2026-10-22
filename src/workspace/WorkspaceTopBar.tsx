@@ -105,6 +105,8 @@ export interface WorkspaceTopBarProps {
   installGuideOpen: boolean
   offlineReadyOpen: boolean
   shareLink: ShareLinkKind | null
+  /** may correct the Rapport of a CLOSED Einsatz (workspace/access) – the closed chip's sentence */
+  canEditRapport: boolean
 }
 
 export function WorkspaceTopBar({
@@ -119,6 +121,7 @@ export function WorkspaceTopBar({
   onOpenDivera, onOpenDatenquellen, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
   setHelpOpen, setInstallGuideOpen, setOfflineReadyOpen, syncNow, media, logout, settingsOpen,
   helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
+  canEditRapport,
 }: WorkspaceTopBarProps) {
   return (
     <>
@@ -204,6 +207,7 @@ export function WorkspaceTopBar({
         archived={incidentMeta.is_archived}
         onBackFromArchive={onBackFromArchive}
         onReactivate={onReactivateActive}
+        canCorrectRapport={canEditRapport}
         // On the phone map surface the compass in the bottom bar already carries Einpassen
         // (== centerIncident) + Mein Standort, so a top-bar center button here would just
         // duplicate it AND crowd the narrow bar off its right edge (clipping the Atemschutz
