@@ -58,6 +58,9 @@ export interface JournalLayerProps {
   isEditor: boolean
   addPlayerEntry: (text: string, atIso: string, quiet?: boolean) => string
   composerOpen: boolean
+  /** the session may write nothing (access · roleReadOnly): no composer mounts, whatever asked
+   *  for one – the checklist's «Verlauf» link reached it past every other gate (RBAC audit V4) */
+  roleReadOnly: boolean
   addJournal: (d: JournalDraft, geoSettled?: boolean) => void
   noteOn: { id: string; text: string } | null
 }
@@ -67,7 +70,7 @@ export function JournalLayer({
   timeline, incidentMeta, planDocs, focusEvent, replayActive, replayAtMs, seekToEvent, journalLandOn,
   setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
   enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
-  tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen,
+  tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen, roleReadOnly,
   addJournal, noteOn,
 }: JournalLayerProps) {
   return (
@@ -152,7 +155,7 @@ export function JournalLayer({
           onClose={() => setPlayer(null)}
         />
       )}
-      {composerOpen && (
+      {composerOpen && !roleReadOnly && (
         <JournalComposer
           // everything this Einsatz has words for — Mannschaft, Mittel, Partnerorganisationen,
           // Fahrzeuge, Alarmgruppen. Typing three letters of any of them completes it.

@@ -77,8 +77,11 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (st
 
   // The one write funnel: keeps docRef the per-tick truth, so writers compose instead of
   // racing. The updater runs eagerly, exactly once — never inside setDoc, where StrictMode
-  // would double-invoke callers' logging side effects.
+  // would double-invoke callers' logging side effects. Read-only takes nothing here either
+  // (RBAC audit, 22.10.2026): a hydrate goes through `replace`/`rebase`, and the georef re-bake
+  // never runs read-only (useGeorefFits).
   const setDocRaw: Dispatch<SetStateAction<D>> = (a) => {
+    if (readOnly) return
     docRef.current = typeof a === 'function' ? (a as (d: D) => D)(docRef.current) : a
     setDoc(docRef.current)
   }
@@ -102,9 +105,9 @@ export function useUndoableDoc<D>(init: D, readOnly: boolean, onCheckpoint?: (st
   }
   const beginDrag = () => { dragSnap.current = docRef.current }
   const endDrag = () => {
-    if (!dragSnap.current) return
     const snap = dragSnap.current
     dragSnap.current = null
+    if (!snap || readOnly) return
     const id = lay(snap) // ⚠️ not inside `onCheckpoint?.(…)`: an absent callback skips its arguments
     onCheckpoint?.(id)
   }

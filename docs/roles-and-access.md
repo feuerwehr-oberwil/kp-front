@@ -28,8 +28,18 @@ wording unchanged.
   Gebäude wählen» (the locked picker has no «Übernehmen»), no Passung, no «Gebäude drehen». Every
   session that cannot share links (`canShareLink` false: el, Führungsansicht, viewer, link) gets
   no «Weitergeben» section, and so sends no GET for a link it may not read. The `el` also gets no
-  saved-view writes, no vehicle override, no object switch, no «Wieder öffnen», no transcription
-  and no checklist «Zeichnen» link. The legacy `commander` value has been migrated away: the stored role,
+  saved-view writes, no vehicle override, no «Wieder öffnen», no transcription
+  and no checklist «Zeichnen» link. No locked session (`tacticalLocked`: el, Führungsansicht,
+  viewer, link, replay) gets the Plan's «Anderes Objekt wählen»; its object chip stays a read-out
+  (RBAC audit 22.10.2026). A session that may write nothing (`roleReadOnly`: viewer, view and
+  alarm links, a refused Atemschutz-Link) writes no Verlauf row at all – `pushEvent` refuses it,
+  the composer does not mount (a checklist's «Verlauf» link opens the Verlauf instead), a due
+  Wiedervorlage has no «Erledigt» / «+10 min», and a Trupp card's «+ Auftrag» is a read-out –
+  because whatever it took would stay on that device and raise «Speicher voll». The Atemschutz
+  alarm rings on every device, but only a session that writes the Trupps (`canEditTrupps`: FU,
+  Atemschutz-Link) records the crossing. Machine seeds of keys outside the record slice (plan
+  bindings, the floor-pack Gebäude) run only where the push carries the whole blob
+  (`canWriteBlob`: an editor's session). The legacy `commander` value has been migrated away: the stored role,
   the `Literal`/type unions, the `CurrentEditor` dependency, and `user?.role === 'editor'` checks
   all use `editor` now. Do not reintroduce `commander`, and do not add deployment-admin power to the
   incident role model. Deployment administration is **separated** behind the `ADMIN_SECRET` env var:

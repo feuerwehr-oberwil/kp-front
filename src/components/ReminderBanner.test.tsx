@@ -91,3 +91,20 @@ describe('ReminderBanner', () => {
     expect(document.querySelector('.ml')).toBeNull()
   })
 })
+
+// RBAC audit V3 (22.10.2026): «Erledigt» / «+10 min» write Verlauf rows, so a session that writes
+// none (a viewer, a view or alarm link) gets the row without them – the title still opens the Verlauf
+describe('ReminderBanner for a session that cannot write', () => {
+  it('shows the due Wiedervorlage with no Erledigt / +10 min', () => {
+    render(
+      <>
+        <ReminderBanner due={[due('r1', 'Rückmeldung an die ELZ', '2026-08-23T10:30:00Z')]} onOpen={() => {}} />
+        <Meldeleiste />
+      </>,
+    )
+    const rows = Array.from(document.querySelectorAll('.ml .ml-row'))
+    expect(rows).toHaveLength(1)
+    expect(screen.getByText('Rückmeldung an die ELZ')).toBeTruthy()
+    expect(rows[0].querySelectorAll('.ml-act button')).toHaveLength(0)
+  })
+})
