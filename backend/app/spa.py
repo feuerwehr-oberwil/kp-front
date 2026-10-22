@@ -5,11 +5,12 @@ to ``index.html`` so client-side routing works. If the build dir is absent (e.g.
 the API standalone in dev with Vite on :5188), this is a no-op.
 """
 
+import asyncio
 import logging
 import os
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
 from starlette.types import Scope
@@ -42,6 +43,30 @@ class ImmutableStaticFiles(StaticFiles):
         return response
 
 
+# The public demo advertises itself: a forwarded demo link shows a card in WhatsApp/Teams. The
+# picture is the landing page's hero, so the two stay one image (site/capture.mjs refreshes
+# both). A station never gets these — its Lagekarte is nobody's link preview.
+_DEMO_OG = """<meta property="og:type" content="website">
+<meta property="og:title" content="KP Front – Demo: Zimmerbrand in Musterdorf">
+<meta property="og:description" content="Ohne Login ausprobieren – Karte, Pläne, Trupps, Verlauf und Rapport in einer App.">
+<meta property="og:image" content="https://kp-front.ch/shots/lage.jpg">
+<meta name="twitter:card" content="summary_large_image">
+"""
+
+
+def with_demo_og(html: str, public_url: str = "") -> str:
+    """index.html with the demo's Open Graph tags inserted before </head> (unchanged if absent).
+    Only meta tags go in, so the CSP's inline-script hashes (app/csp.py) still match."""
+    tags = _DEMO_OG + (f'<meta property="og:url" content="{public_url.rstrip("/")}/">\n' if public_url else "")
+    head, sep, tail = html.partition("</head>")
+    return head + tags + sep + tail if sep else html
+
+
+def _read_text(path: str) -> str:
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
 def spa_index_path() -> str:
     """Absolute path of the served index.html — also the CSP's hash source (app/csp.py)."""
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", settings.spa_dir, "index.html"))
@@ -68,6 +93,9 @@ def mount_spa(app: FastAPI) -> None:
         candidate = os.path.abspath(os.path.join(spa_dir, full_path))
         if full_path and (candidate == spa_dir or candidate.startswith(spa_dir + os.sep)) and os.path.isfile(candidate):
             return FileResponse(candidate, headers={"Cache-Control": _cache_control(os.path.basename(candidate))})
+        if settings.is_public_demo:
+            html = await asyncio.to_thread(_read_text, index)
+            return HTMLResponse(with_demo_og(html, settings.public_url), headers={"Cache-Control": "no-cache"})
         return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
     logger.info("Serving SPA from %s", spa_dir)
