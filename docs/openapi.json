@@ -3465,7 +3465,7 @@
           "divera"
         ],
         "summary": "Responses",
-        "description": "Who answered the Divera alarm «kommt» / «kommt nicht» — our personnel ids, nothing else.\n\nRead-only and stored: the server's own poll keeps it (divera · store_responses); this read\nnever calls Divera. Every alarm taken into the incident counts (a Nachalarm attached to it is\none more; the newer alarm's answer wins), but only alarms of the last\n:data:`~app.divera_responses.RESPONSES_MAX_AGE_SECONDS`: the answers to a dispatch that is\nhours over are not «anrückend». ``available: false`` = nothing to show (``reason: no_data``,\nor ``closed`` for an archived Einsatz), and the Anwesenheit shows nothing at all.\n\nEditor-only like the rest of /api/divera (the EL and the editors who mark attendance; a viewer\nand an Einsatz-Link session are refused). Somebody not on the Mannschaftsliste is a count.\nThe answers never enter the workspace, an export or a Rapport, and are cleared after the\nEinsatz (divera · prune_responses). A Divera answer is not presence.",
+        "description": "Who answered the Divera alarm «kommt» / «kommt nicht» — our personnel ids, nothing else.\n\nRead-only and stored: the server's own poll keeps it (divera · store_responses); this read\nnever calls Divera. Every alarm taken into the incident counts (a Nachalarm attached to it is\none more; the newer alarm's answer wins), but only alarms of the last\n:data:`~app.divera_responses.RESPONSES_MAX_AGE_SECONDS`: the answers to a dispatch that is\nhours over are not «anrückend». ``available: false`` = nothing to show (``reason: no_data``,\nor ``closed`` for an archived Einsatz), and the Anwesenheit shows nothing at all.\n\nThe record writers (an editor, or the ``el`` role, who mark attendance) — the one /api/divera\nread the ``el`` reaches; a viewer and an Einsatz-Link session are refused. Somebody not on the Mannschaftsliste is a count.\nThe answers never enter the workspace, an export or a Rapport, and are cleared after the\nEinsatz (divera · prune_responses). A Divera answer is not presence.",
         "operationId": "responses_api_divera_responses__incident_id__get",
         "parameters": [
           {
@@ -5355,7 +5355,7 @@
           "personnel"
         ],
         "summary": "List Personnel",
-        "description": "The crew roster, ordered by name. Active-only unless ``include_inactive=true``.",
+        "description": "The crew roster, ordered by name. Active-only unless ``include_inactive=true``.\nA link session gets the names without the Divera ids (``is_link_session``).",
         "operationId": "list_personnel_api_personnel_get",
         "parameters": [
           {
@@ -6483,6 +6483,8 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 240,
+              "minimum": 1,
               "default": 30,
               "title": "Minutes"
             }

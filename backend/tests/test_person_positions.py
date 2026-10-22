@@ -157,16 +157,54 @@ async def test_second_device_cannot_take_a_live_name(client, editor, incident, p
     assert "anderen Gerät" in r.json()["detail"]
 
 
-async def test_second_device_takes_over_once_the_claim_goes_quiet(client, editor, incident, person, db_session):
-    """A responder who swapped phones must get their own name back without an operator."""
+async def test_a_quiet_name_stays_with_its_device_until_it_is_let_go(client, editor, incident, person, db_session):
+    """Owner's pick (22.10.2026): no timer hands a name to another device — a quiet name was how
+    anyone could post under anyone. It frees up when the holder stops or an editor removes it."""
     await _login(client, editor)
     await client.post(f"/api/incidents/{incident.id}/positions", json=_body(person))
-    await _age_rows(db_session, incident, timedelta(minutes=5))
+    await _age_rows(db_session, incident, timedelta(hours=2))
 
-    r = await client.post(f"/api/incidents/{incident.id}/positions", json=_body(person, device_id=OTHER_DEVICE))
+    other = _body(person, device_id=OTHER_DEVICE)
+    assert (await client.post(f"/api/incidents/{incident.id}/positions", json=other)).status_code == 409
+    # the editor removes the dot («Standort entfernen») → the new phone may take the name
+    await client.delete(f"/api/incidents/{incident.id}/positions/{person.id}")
+    assert (await client.post(f"/api/incidents/{incident.id}/positions", json=other)).status_code == 204
+    assert [d for d, _ in await _rows(db_session, incident)] == [OTHER_DEVICE]
+
+
+async def test_a_device_reports_as_one_person(client, editor, incident, person, db_session):
+    """Posting under a new name drops the dot the device held under the old one."""
+    second = Personnel(display_name="Muster Max", is_active=True)
+    db_session.add(second)
+    await db_session.commit()
+    await _login(client, editor)
+    await client.post(f"/api/incidents/{incident.id}/positions", json=_body(person))
+    r = await client.post(f"/api/incidents/{incident.id}/positions", json=_body(second, display_name="Muster Max"))
     assert r.status_code == 204, r.text
+
+    names = (await client.get(f"/api/incidents/{incident.id}/positions")).json()
+    assert [p["display_name"] for p in names] == ["Muster Max"]
+
+
+async def test_a_claim_that_lands_mid_flight_is_not_overwritten(
+    client, editor, incident, person, db_session, monkeypatch
+):
+    """The claim read can miss another phone's insert; the write still must not take its row."""
+    from app.api import person_positions
+
+    await _login(client, editor)
+    await client.post(f"/api/incidents/{incident.id}/positions", json=_body(person, lat=47.51))
+
+    async def _blind(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(person_positions, "_current_claim", _blind)
+    r = await client.post(
+        f"/api/incidents/{incident.id}/positions", json=_body(person, device_id=OTHER_DEVICE, lat=47.53)
+    )
+    assert r.status_code == 409, r.text
     rows = await _rows(db_session, incident)
-    assert len(rows) == 1 and rows[0][0] == OTHER_DEVICE
+    assert rows[0][0] == DEVICE and float(rows[0][1]) == pytest.approx(47.51)
 
 
 # --- the race ---------------------------------------------------------------------------

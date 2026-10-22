@@ -34,7 +34,7 @@ def test_unset_secret_fails_closed() -> None:
         assert e.value.detail == "Export deaktiviert"
 
 
-@pytest.mark.parametrize("provided", [None, "", "nope"])
+@pytest.mark.parametrize("provided", [None, "", "nope", "s3crät"])  # non-ASCII: 401, never a 500
 def test_missing_or_wrong_token_is_401(provided: str | None) -> None:
     with pytest.raises(HTTPException) as e:
         GATE.check("s3cret", provided)

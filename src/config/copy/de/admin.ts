@@ -563,7 +563,7 @@ export const adminCopy = {
         },
         microsoft_login: {
           title: 'Mit Microsoft anmelden',
-          caption: 'Freiwillig: eine eigene Azure-App-Registrierung (nur Anmeldung, «openid profile»), damit sich benannte Konten auch mit Microsoft statt PIN anmelden können. Redirect-URI: <Adresse dieser Instanz>/api/auth/microsoft/callback. Zugelassen sind nur die Konten in der Liste, je «Microsoft-Konto=Benutzername», durch Kommas getrennt. Die PIN bleibt immer möglich. Anleitung: docs/microsoft-login.md.',
+          caption: 'Freiwillig: eine eigene Azure-App-Registrierung (nur Anmeldung, «openid profile»), damit sich benannte Konten auch mit Microsoft statt PIN anmelden können. Redirect-URI: <Adresse dieser Instanz>/api/auth/microsoft/callback. Zugelassen sind nur die Konten in der Liste, je «Objekt-ID=Benutzername» (die Objekt-ID der Person in Entra, keine Anmeldeadresse), durch Kommas getrennt. Die PIN bleibt immer möglich. Anleitung: docs/microsoft-login.md.',
         },
         sharepoint_export: {
           title: 'SharePoint (Ablage Objektbesuche)',

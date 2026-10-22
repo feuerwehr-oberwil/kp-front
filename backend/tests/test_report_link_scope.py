@@ -497,6 +497,35 @@ async def test_the_active_roster_is_still_visible_to_a_report_link(client, edito
     assert any(p["display_name"] == "Aktiv Anna" for p in r.json())
 
 
+async def test_a_link_reads_no_account_uuids_and_no_divera_ids(client, editor, incident, db_session):
+    """A view link leaves the station: the record it reads carries no account UUID (who opened
+    the Einsatz, who wrote an event) and the roster no Divera ids (RBAC audit, 22.10.2026)."""
+    from app.models import PersonnelExternalIdentity
+
+    anna = Personnel(display_name="Aktiv Anna", is_active=True, divera_id=4242)
+    incident.created_by = editor.id
+    db_session.add(anna)
+    await db_session.flush()
+    db_session.add(PersonnelExternalIdentity(personnel_id=anna.id, provider="divera", external_id="4242"))
+    await db_session.commit()
+    await _login_editor(client, editor)
+    r = await client.post(f"/api/incidents/{incident.id}/events", json={"events": [{"op_type": "draw.create"}]})
+    assert r.status_code == 201, r.text
+    # the editor still sees them all
+    assert (await client.get(f"/api/incidents/{incident.id}")).json()["created_by"] == str(editor.id)
+    assert str(editor.id) in [e["user_id"] for e in (await client.get(f"/api/incidents/{incident.id}/events")).json()]
+
+    await _open_view_link(client, editor, incident)
+    assert (await client.get(f"/api/incidents/{incident.id}")).json()["created_by"] is None
+    events = (await client.get(f"/api/incidents/{incident.id}/events")).json()
+    assert "draw.create" in [e["op_type"] for e in events]
+    assert all(e["user_id"] is None for e in events)
+    roster = (await client.get("/api/personnel")).json()
+    assert any(p["display_name"] == "Aktiv Anna" for p in roster)
+    assert all(p["divera_id"] is None and p["external_identities"] == [] for p in roster)
+    assert (await client.get(f"/api/incidents/{incident.id}/verify")).json()["intact"] is True
+
+
 async def test_an_old_view_session_is_narrowed_without_being_re_minted(client, editor, incident):
     """Enforcement is per request, server-side, so a link already sent out is covered the moment
     this ships — nothing is baked into the cookie a holder keeps."""
