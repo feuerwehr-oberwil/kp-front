@@ -15,7 +15,10 @@
 }
 @media (hover: hover) { .row:hover:not(:disabled) { background-color: var(--hover); } }
 .row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.row:disabled { opacity: var(--disabled); cursor: default; }
+/* A tick this session cannot change is a READ-OUT, not a dead door (RBAC audit 22.10.2026): the
+   `.wb-object:disabled` recipe – full opacity, the box says ticked or not, no hover, no press.
+   Faded, a viewer's Checkliste read as «nothing here applies» rather than «this is the state». */
+.row:disabled { cursor: default; }
 
 /* a box alone (the Tafel's «erledigt» column): the 44px square, the box in its middle */
 .solo { justify-content: center; width: var(--tap); padding: 0; }

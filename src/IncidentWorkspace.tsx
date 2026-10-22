@@ -1458,6 +1458,9 @@ export function IncidentWorkspace({
     <IncidentClosedMeldung
       // the Link holder cannot reopen anything: its row says what the board still does
       forLink={asLink}
+      // …and says only what this session can still do (RBAC audit 22.10.2026)
+      canReopen={!!onReactivateActive}
+      canCorrect={canEditRapport}
       event={lifecycleElsewhere.event}
       // ⚠️ the time of the REOPEN, not of hearing it (N6, 26.09.2026): the Link hears on its
       // minute poll, and «wieder geöffnet (02:46)» for a reopen at 02:45 is a wrong time on screen.
@@ -3187,6 +3190,7 @@ export function IncidentWorkspace({
         onOpenDivera, onOpenDatenquellen, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
         setHelpOpen, setInstallGuideOpen, setOfflineReadyOpen, syncNow, media, logout, settingsOpen,
         helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
+        canEditRapport,
       }} />
 
       <WorkspaceMeldungen {...{
@@ -3223,7 +3227,8 @@ export function IncidentWorkspace({
         // the tile is the door to the GROUP: it opens the page this device was last on, and a
         // second tap / a hold opens the list of three — which carries each page's live count
         rapportTarget={rapportTarget}
-        openCount={abschlussMissing.length}
+        // the editor's to-do, so only where the Rapport can be edited (RBAC audit 22.10.2026)
+        openCount={canEditRapport ? abschlussMissing.length : 0}
         mittelCount={mittelLineCount(mittel)}
         activePlanId={activePlanId}
         onSelectPlan={(id) => { if (mode !== 'plans') clearMapUi(); setMode('plans'); setActivePlanId(id) }}

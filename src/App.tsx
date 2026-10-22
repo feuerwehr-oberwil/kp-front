@@ -5,7 +5,7 @@ import './app.css'
 import { IconSprite, Icon } from './lib/icons'
 import { demoSeedRebase, type Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
-import { shortAddress, isDemoMode, alarmProviderName, objectVisitsConfig } from './lib/deploymentConfig'
+import { shortAddress, isDemoMode, alarmProviderName, objectVisitsConfig, getDeploymentConfig } from './lib/deploymentConfig'
 import { isOvPath, leaveAppEntries, navigateTo, OV_BASE, ovHref, showsObjectVisits, useOvRoute } from './objectVisits/route'
 import { isKartePath, KARTE_BASE, useKarteRoute } from './lib/karte/route'
 import { appScreen, bootPlan } from './lib/karte/home'
@@ -105,6 +105,9 @@ function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedb
 export default function App() {
   const { user, logout, sessionExpired } = useAuth()
   const isEditor = user?.role === 'editor'
+  /** may close and reopen Einsätze – an editor, but not in the Führungsansicht, the editor's
+   *  locked view (workspace/access · elView; RBAC audit 22.10.2026: it got «Wieder öffnen») */
+  const canLifecycle = isEditor && !user?.el_view_default
   // Einsatz-Link session (/l/<token>): a viewer narrowed to ONE incident. The backend answers
   // 403 for everything outside a read allowlist — reports, printing, push, the incident LIST —
   // so the rule here is the same as for `isEditor`: a link holder must never see a control
@@ -1188,7 +1191,7 @@ export default function App() {
           // checked — while the Rapport path stamped and counted. Both doors run the SAME confirm
           // in IncidentWorkspace now and end here (mockup 06 · Fall 4).
           onCompleteRapport={() => completeRapport(activeMeta.id)}
-          onReactivateActive={isEditor && activeMeta.is_archived ? () => reactivateById(activeMeta.id) : undefined}
+          onReactivateActive={canLifecycle && activeMeta.is_archived ? () => reactivateById(activeMeta.id) : undefined}
           onBackFromArchive={activeMeta.is_archived ? () => void backFromArchive() : undefined}
           lifecycleElsewhere={lifecycleElsewhere?.id === activeMeta.id ? lifecycleElsewhere : null}
           openCover={coverId === activeId}
@@ -1330,7 +1333,9 @@ export default function App() {
       )}
       {overlay === 'history' && (
         <HistoryPanel onClose={() => setOverlay(null)} onOpen={(id, ro) => { setOverlay(null); void openIncident(id, { readOnly: ro }) }}
-          onArchive={isEditor ? archiveById : undefined} />
+          onArchive={canLifecycle ? archiveById : undefined}
+          // a viewer reads only the last few days (docs/roles-and-access.md · the viewer's window)
+          windowDays={user?.role === 'viewer' ? getDeploymentConfig().access?.viewerHistoryDays ?? undefined : undefined} />
       )}
       {overlay === 'daten' && (
         <DatenquellenPanel

@@ -317,7 +317,11 @@ export function IncidentSwitcher({
               </div>
               {active.address && <span className="ip-card-sub">{active.address}</span>}
               <div className="ip-card-pills">
-                <span className={`ip-card-pill ip-status-${syncStatus}`} title={savedText}>{statusMark}<span>{savedPill}</span></span>
+                {/* «Gespeichert» is about THIS device's work – a viewer never saves, so its card
+                    says nothing while all is well (RBAC audit 22.10.2026); the warnings stay */}
+                {(user.role !== 'viewer' || syncStatus !== 'synced') && (
+                  <span className={`ip-card-pill ip-status-${syncStatus}`} title={savedText}>{statusMark}<span>{savedPill}</span></span>
+                )}
                 {/* «🕓 21:22 · 1 h 54» — the clock glyph is the label; «Einsatzbeginn» is the title */}
                 {active.started_at && (() => {
                   // a closed Einsatz stops its clock at the end, as the bar's Einsatzuhr does

@@ -11,7 +11,8 @@ import s from './TickRow.module.css'
 // Links», the Tafel's «erledigt» column (there without `children`: a 44px square, named by
 // `aria-label`). Picking ITEMS as the answer to a question (the Trupp's Ausrüstung) is a `Chip`.
 // What a ticked row MEANS beyond the box (a Checkliste item fades, a Tafel row is struck through)
-// stays the surface's; `className` places the row, it never re-skins the box.
+// stays the surface's; `className` places the row, it never re-skins the box. `disabled` makes the
+// row a READ-OUT (full opacity, no tap) for a session that cannot tick – never a faded door.
 
 type TickRowProps = Omit<ComponentPropsWithRef<'button'>, 'role' | 'aria-checked' | 'aria-pressed' | 'onClick' | 'onChange'> & {
   checked: boolean

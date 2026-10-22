@@ -44,6 +44,9 @@ const HEAD_FOLD = { qr: 1, reload: 2 } as const
 
 const HORIZONS = [3, 6, 9, 12, 18, 24, 36, 48, 72, 96, 120, 168]
 
+/** the Zeitplan's and the Schichten grid's writers on a session that has none (see planAvailable) */
+const noop = () => {}
+
 
 
 /** The three readings of this surface. `bands` is the Schichten grid — shift-major over discrete
@@ -140,7 +143,8 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
       subject={person.displayName}
       sectionTitle={A.blocksSection}
       emptyLabel={A.blocksNone}
-      note={A.blocksHint}
+      // «Hier korrigieren, wenn …» – an instruction, so only where something can be corrected
+      note={canEdit ? A.blocksHint : undefined}
       // Always offered. While a block is still running, adding one closes it at this moment and
       // opens the next — that is a relief in place, and waiting for the row to be cycled to
       // «gegangen» first made the common case take two surfaces.
@@ -613,12 +617,16 @@ export function AnwesenheitView({
     () => new Set([...people, ...guests].map((p) => p.displayName.trim())),
     [people, guests],
   )
-  const planAvailable = !!shifts && !!onAddShift && !!onAddShiftSpan && !!onReplaceShift && !!onSetShiftTime && !!onRemoveShift
+  // ⚠️ Gated on the DATA, not on the handlers (RBAC audit 22.10.2026): a viewer reads the shift
+  // slice (the server allows it, both views have a read-only mode) and may print it, but has no
+  // writer wired – gating on those hid the two tabs and the paper menu from every driver.
+  // The views take their writers unconditionally and call none of them while `canEdit` is off.
+  const planAvailable = !!shifts
   const showPlan = planAvailable && view === 'plan'
-  // the Schichten grid is a reading of the same shift slice, so it rides the same availability
-  // gate; without the band actions wired up it can only ever be a read-only picture, and a grid
-  // whose cells do not answer a tap is worse than no third tab
-  const bandsAvailable = planAvailable && !!bands && !!onCreateBand && !!onSaveBand && !!onRemoveBand && !!onCycleCell && !!onSetCellState
+  // the Schichten grid is a reading of the same shift slice, so it rides the same gate – for a
+  // session that cannot create a band only once there IS one: an empty grid offering nothing to
+  // a viewer is worse than no third tab
+  const bandsAvailable = planAvailable && !!bands && (canEdit || bands.length > 0)
   const showBands = bandsAvailable && view === 'bands'
 
   /* the Zeitraum zoom. A tablet carries it at the end of the search line; a PHONE in the empty
@@ -951,7 +959,10 @@ export function AnwesenheitView({
       {empty ? (
         <EmptyState className="empty-fill" icon={error ? 'warn' : 'people'}
           title={error ? A.loadFailedTitle : A.emptyTitle}
+          // «Synchronisiere das Personal aus …» is an instruction for whoever keeps the roster;
+          // a session that cannot keep anything gets the title alone
           sub={error ? A.loadFailedHint
+            : !canEdit ? undefined
             : rosterProvider ? fillTemplate(A.emptyHintSync, { provider: rosterProvider }) : A.emptyHint}
           action={<Button icon={<Icon id="rotate" />} onClick={onReload} disabled={loading}>{A.retry}</Button>} />
       ) : !rows.length && !guestOffer ? (
@@ -961,33 +972,33 @@ export function AnwesenheitView({
           people={rows}
           shifts={shifts!}
           bands={bands!}
-          canEdit={canEdit}
+          canEdit={canEdit && !!onCreateBand}
           startedAt={startedAt ?? null}
           attendance={attendance}
-          onAddShift={onAddShift!}
-          onSetShiftTime={onSetShiftTime!}
-          onReplaceShift={onReplaceShift!}
-          onRemoveShift={onRemoveShift!}
-          onCreateBand={onCreateBand!}
-          onSaveBand={onSaveBand!}
-          onRemoveBand={onRemoveBand!}
-          onCycleCell={onCycleCell!}
-          onSetCellState={onSetCellState!}
-          onPutCellState={onPutCellState ?? onSetCellState!}
+          onAddShift={onAddShift ?? noop}
+          onSetShiftTime={onSetShiftTime ?? noop}
+          onReplaceShift={onReplaceShift ?? noop}
+          onRemoveShift={onRemoveShift ?? noop}
+          onCreateBand={onCreateBand ?? noop}
+          onSaveBand={onSaveBand ?? noop}
+          onRemoveBand={onRemoveBand ?? noop}
+          onCycleCell={onCycleCell ?? noop}
+          onSetCellState={onSetCellState ?? noop}
+          onPutCellState={onPutCellState ?? onSetCellState ?? noop}
         />
       ) : showPlan ? (
         <ZeitplanView
           people={rows}
           attendance={attendance}
           shifts={shifts!}
-          canEdit={canEdit}
+          canEdit={canEdit && !!onAddShift}
           startedAt={startedAt ?? null}
           nowMs={nowMs}
-          onAdd={onAddShift!}
-          onSetTime={onSetShiftTime!}
-          onRemove={onRemoveShift!}
-          onAddSpan={onAddShiftSpan!}
-          onReplace={onReplaceShift!}
+          onAdd={onAddShift ?? noop}
+          onSetTime={onSetShiftTime ?? noop}
+          onRemove={onRemoveShift ?? noop}
+          onAddSpan={onAddShiftSpan ?? noop}
+          onReplace={onReplaceShift ?? noop}
           horizonH={horizonH}
           zoom={isPhone ? horizonCtl : undefined}
         />
@@ -1013,7 +1024,8 @@ export function AnwesenheitView({
                   className={s.personMain}
                   disabled={!canEdit}
                   onClick={() => cycle(p)}
-                  title={locked ? A.lockedTitle
+                  // «zuerst über Raus melden austreten» tells a writer how to get the row free
+                  title={locked && canEdit ? A.lockedTitle
                     : !p.active ? (rosterProvider ? fillTemplate(A.notInSource, { provider: rosterProvider }) : A.notInDivera)
                       : undefined}
                 >
@@ -1071,7 +1083,10 @@ export function AnwesenheitView({
                   center={incidentCenter}
                   onShow={onShowOnMap ? () => onShowOnMap(p.id) : undefined}
                 />
-                {canEdit && blocks.length > 0 && (
+                {/* for a session that cannot write too (RBAC audit 22.10.2026): the sheet is the
+                    only place the Zeiten and the Bemerkung can be READ, and it has a read-only mode
+                    – the «mit Bemerkung» filter found people whose remark nobody could open */}
+                {blocks.length > 0 && (
                   <button
                     type="button"
                     className={cx(s.backBtn, attendance[p.id]?.note && s.hasNote)}

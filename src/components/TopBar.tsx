@@ -138,12 +138,15 @@ interface Props {
   onBackFromArchive?: () => void
   /** editors only: re-open the closed Einsatz (its own confirm lives upstream) */
   onReactivate?: () => Promise<ReactivateResult>
+  /** this session may still correct the closed Einsatz's Rapport (`canEditRapport`: the el, a
+   *  Führungsansicht) – the chip then says that much and no more; without it, «Nur ansehen» */
+  canCorrectRapport?: boolean
 }
 
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate, canCorrectRapport = false }: Props) {
   // The deployment's clock (lib/serverClock), not the device's: the Einsatzdauer counts from a
   // timestamp another device wrote, and the Atemschutz chip below ticks off `contactAt`, which
   // the alarm fold expresses in server time. Reading those with a device clock a few seconds off
@@ -200,7 +203,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
           <span className="eaddr">{incident.address}</span>
         </>
       )}
-      {archived && <ArchivedChip onBack={onBackFromArchive} onReactivate={onReactivate} />}
+      {archived && <ArchivedChip onBack={onBackFromArchive} onReactivate={onReactivate} canCorrectRapport={canCorrectRapport} />}
       {/* No fixed wall clock in the bar — the OS status bar (iPad navbar) already shows the time,
           and the Einsatzuhr below can be cycled to the wall clock when needed. */}
       {/* Einsatzuhr: the long-incident awareness anchor — tap opens a labelled mode menu */}
@@ -352,8 +355,11 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
  *  the same 16px as three other cards (and, being painted last, was the only one of the four you
  *  could read). The exits come along: tapping the chip offers «Zurück» and, for editors, «Wieder
  *  öffnen» — so nothing the banner could do got lost with it — under a head that says what the
- *  state means. With no exits to offer (a link session) the menu is that head alone. */
-function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactivate?: () => Promise<ReactivateResult> }) {
+ *  state means. With no exits to offer (a link session) the menu is that head alone.
+ *  ⚠️ The head's sentence is the session's OWN (RBAC audit 22.10.2026): «… für alles andere wieder
+ *  öffnen» only beside a «Wieder öffnen»; the el / a Führungsansicht, which correct the Rapport
+ *  but reopen nothing, hear the first half; a viewer «Nur ansehen». */
+function ArchivedChip({ onBack, onReactivate, canCorrectRapport }: { onBack?: () => void; onReactivate?: () => Promise<ReactivateResult>; canCorrectRapport: boolean }) {
   const C = appConfig.copy.archived
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -374,7 +380,7 @@ function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactiv
       open={open} onOpenChange={(next) => { if (!busy) setOpen(next) }}
       trigger={<button type="button" className="tb-mode" aria-label={C.title}>{label}</button>}
     >
-      <p className="tb-uhr-say"><b>{C.title}</b>{onBack || onReactivate ? C.hint : C.hintViewOnly}</p>
+      <p className="tb-uhr-say"><b>{C.title}</b>{onReactivate ? C.hint : canCorrectRapport ? C.hintRapport : C.hintViewOnly}</p>
       {onBack && (
         <PopoverClose className="tb-uhr-row" onClick={onBack}>
           <Icon id="undo" /><span className="tb-uhr-lbl">{C.back}</span>

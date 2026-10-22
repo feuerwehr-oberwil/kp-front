@@ -158,6 +158,30 @@ Objektbesuch – stays `objectVisits.captureRoles`.
   for the objects this Einsatz surfaced, other reference datasets only as furniture (geodata,
   symbols, Checklisten, Tafel templates), no `/api/objects` register list, no inactive personnel.
 
+## The record surfaces for a session that cannot write them (22.10.2026)
+
+The door rule above, applied to the Rapport, Anwesenheit and lifecycle (RBAC audit, round 2):
+
+- **Rapport** for a session that cannot edit it (`canEditRapport` false: viewer, view link, a
+  closed Einsatz it may not correct; a signed Rapport too): every field is a read-out – the
+  value, or «Nicht erfasst» – with no «Jetzt», «Entfällt», steppers, pickers or ✕. The
+  Kontaktperson keeps its working `tel:`. No «n offen» chip, phone-tab dot or Rapport-tile count
+  (the editor's to-do list), no «Formulare & Links», no Unterschriften card until a signature
+  exists, no «Im Verlauf ergänzen» without `canWriteRecord`. «Nichts verwendet» (Mittel) is the
+  el's answer as much as the editor's.
+- **Anwesenheit**: the Zeitplan and Schichten tabs and their paper are gated on the shift data,
+  not on the writers – a viewer reads and prints them. The person's sheet (Zeiten, Bemerkung)
+  opens read-only. Writer hints (empty roster «Synchronisiere …», «Hier korrigieren …», the
+  Trupp-lock title, the Zeitplan's gesture help) are not shown.
+- A disabled tick (`TickRow`) is a read-out at full opacity.
+- **Closed Einsatz**: «… für alles andere wieder öffnen» only beside «Wieder öffnen»; the el and a
+  Führungsansicht hear «Der Rapport bleibt korrigierbar», a viewer «Nur ansehen». The
+  Führungsansicht reopens and closes nothing (no «Wieder öffnen» in the chip or in «Alle
+  Einsätze»).
+- **«Alle Einsätze»** tells a viewer its window in a foot line (read from
+  `access.viewerHistoryDays` in `GET /api/config`); the Einsatz card says «Gespeichert» only to a
+  session that saves.
+
 ## Signing in with Microsoft (optional)
 
 Since 09.10.2026 a station can add «Mit Microsoft anmelden» beside the PIN tiles

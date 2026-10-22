@@ -51,8 +51,14 @@
 .report-meta-readout { margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
 .report-meta-readout > div { display: grid; grid-template-columns: 116px 1fr; gap: 12px; align-items: baseline; }
 .report-meta-readout dt { margin: 0; font: var(--field-label); color: var(--ink-dim); }
-.report-meta-readout dd { margin: 0; font-size: var(--fs-2); line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.report-meta-readout dd, .rp-readout { margin: 0; font-size: var(--fs-2); line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 .report-meta-empty { color: var(--ink-faint); }
+/* A Rapport field on a session that cannot change it (ReportPreflight · ReadOut): the dispatch
+   block's read-out type above, in the field's own place. `flex: 1` so a Kontaktperson's call
+   button still sits at the end of its line. */
+.rp-readout { flex: 1 1 auto; min-width: 0; }
+/* …and a time or a count in the Zeiten grid / Gerettete rows: the value where the control stood */
+.rz-clock, .rz-count > b { flex: none; font: var(--fw-bold) var(--fs-2) var(--body); font-variant-numeric: tabular-nums; color: var(--ink); }
 
 /* Right-click menu on the planning surfaces (lib/overlays/ContextMenu). Base UI's positioner
    owns the placement, so this styles the popup only — same surface vocabulary as .ip-menu,
@@ -123,7 +129,7 @@
 .rz-kontakt-tel { display: flex; align-items: center; gap: 8px; flex: 2 1 170px; min-width: 0; }
 .rz-kontakt-tel > .ci { flex: 1 1 auto; min-width: 0; }
 /* the dial affordance is a link wearing button clothes — same height rule as «Entfällt» */
-.rz-kontakt-tel > .ip-btn { flex: none; display: inline-flex; align-items: center;
+.rz-kontakt-tel > .ip-btn, .rz-none > .rz-call { flex: none; display: inline-flex; align-items: center;
   justify-content: center; min-height: var(--tap); min-width: var(--tap);
   border-radius: var(--r-ctl); }
 /* «Entfällt» at the end of the NAME line, the way the Kontaktperson has it — PersonField draws

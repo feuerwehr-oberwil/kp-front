@@ -59,6 +59,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     title: 'Intervento chiuso',
     hint: 'Il rapporto resta correggibile (aggiunte) – riaprire per tutto il resto.',
     hintViewOnly: 'Sola visualizzazione.',
+    hintRapport: 'Il rapporto resta correggibile (aggiunte).',
     reactivate: 'Riapri',
     reactivateOffline: 'Richiede una connessione al server',
     reactivateNeedsServer: 'La riapertura richiede una connessione al server – l’intervento resta chiuso. Riprovare una volta online.',
@@ -95,6 +96,10 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     statusArchived: 'Chiuso',
 
     emptySub: 'Gli interventi aperti e chiusi appaiono qui.',
+    windowNote: 'Mostra gli interventi in corso e quelli degli ultimi {n} giorni.',
+    windowNoteOne: 'Mostra gli interventi in corso e quelli dell\'ultimo giorno.',
+    windowNoteRunning: 'Mostra solo gli interventi in corso.',
+    emptyWindow: 'Nessun intervento.',
     archiveConfirmTitle: 'Chiudi l\'intervento',
     archiveConfirmMsg: 'L\'intervento viene chiuso e l\'ora di fine registrata. Le aggiunte successive appaiono nel diario e nel rapporto come supplementi.',
     archiveConfirmBtn: 'Chiudi',

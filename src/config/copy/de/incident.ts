@@ -95,6 +95,8 @@ export const incidentCopy = {
     hint: 'Der Rapport bleibt korrigierbar (Nachträge) – für alles andere wieder öffnen.',
     // …und wer gar nichts wieder öffnen kann (Link-Sitzungen)
     hintViewOnly: 'Nur ansehen.',
+    // …and who corrects the Rapport but reopens nothing (the el, a Führungsansicht)
+    hintRapport: 'Der Rapport bleibt korrigierbar (Nachträge).',
     back: 'Zurück',
     reactivate: 'Wieder öffnen',
     // offline (05.10.2026): «Wieder öffnen» is the server's call (it writes the reopen boundary
@@ -129,6 +131,12 @@ export const incidentCopy = {
     title: 'Einsätze',
     empty: 'Noch keine Einsätze.',
     emptySub: 'Eröffnete und abgeschlossene Einsätze erscheinen hier.',
+    // a viewer's window (docs/roles-and-access.md · «The viewer's window»): the list's foot
+    // line, and its empty state – «Noch keine Einsätze» was false after a quiet week
+    windowNote: 'Hier stehen die laufenden Einsätze und die der letzten {n} Tage.',
+    windowNoteOne: 'Hier stehen die laufenden Einsätze und die des letzten Tages.',
+    windowNoteRunning: 'Hier stehen nur die laufenden Einsätze.',
+    emptyWindow: 'Keine Einsätze.',
     noLocation: 'ohne Ort',
     searchPlaceholder: 'Einsatz suchen …',
     groupOpen: 'Offen',
