@@ -8,7 +8,9 @@ import type { SyncStatus } from '../lib/api/workspaceSync'
 /** One recovery point for journal entries that have not reached the server.
  *
  *  `refused` (24.09.2026) counts audit events the server refused for a role that can never write
- *  them (auditEventStore · refused). They are not «not uploaded yet» — no retry delivers them —
+ *  them (auditEventStore · refused) — and since 22.10.2026 the unsynced saves a WIDER role left on
+ *  this device, parked by a session that cannot push them (workspaceSync · parkForRole, a role
+ *  change mid-Einsatz). They are not «not uploaded yet» — no retry delivers them —
  *  so they never make the notice an alert and never offer «Erneut versuchen»; but they are still
  *  only on this device, so while nothing else is outstanding a calm note keeps «Einträge
  *  sichern» in reach. Never dropped, never shouted.

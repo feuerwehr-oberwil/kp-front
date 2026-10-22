@@ -39,6 +39,10 @@ export function useLifecycleElsewhere({
   const [lifecycleHiddenAt, setLifecycleHiddenAt] = useState<number | null>(null)
   const [workspaceRefused, setWorkspaceRefused] = useState(() => sync.refusedCount)
   useEffect(() => sync.subscribeRefused(setWorkspaceRefused), [sync])
+  // saves a wider role left on this device that this session cannot push (workspaceSync ·
+  // parkForRole, RBAC audit S4) — counted beside the audit events refused for the role
+  const [workspaceRoleParked, setWorkspaceRoleParked] = useState(() => sync.roleParkedCount)
+  useEffect(() => sync.subscribeRoleParked(setWorkspaceRoleParked), [sync])
   /** everything the CLOSED Einsatz refused and this device still holds (journal · audit · saves) */
   const closedRefusedTotal = journal.refusedCount + auditDelivery.closedCount + workspaceRefused
   useEffect(() => {
@@ -65,7 +69,10 @@ export function useLifecycleElsewhere({
    *  about entries the closed Einsatz refused (see `syncStatus` below). */
   const [exportedClosedRefused, setExportedClosedRefused] = useState(0)
   const exportEntries = useCallback(() => {
-    const data = { ...journal.recoveryData(), audit: auditDelivery.getRecoveryData(), workspaceRefused: sync.refusedRecoveryData() }
+    const data = {
+      ...journal.recoveryData(), audit: auditDelivery.getRecoveryData(), workspaceRefused: sync.refusedRecoveryData(),
+      workspaceRoleParked: sync.roleParkedRecoveryData(),
+    }
     downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), `verlauf-${incidentMeta.id}.json`)
     setExportedClosedRefused(closedRefusedTotal)
   }, [journal, auditDelivery, sync, incidentMeta.id, closedRefusedTotal])
@@ -77,5 +84,5 @@ export function useLifecycleElsewhere({
   // until somebody found the ✕. Two minutes, like every notice that only informs — unless it
   // carries entries this device still holds, whose «Einträge sichern» must not vanish unseen.
   useExpire(lifecycleElsewhere?.at ?? null, LIFECYCLE_NOTICE_MS, lifecycleRefused > 0, setLifecycleHiddenAt)
-  return { lifecycleHiddenAt, lifecycleBoundary, lifecycleRefused, exportEntries, setLifecycleHiddenAt, closedRefusedTotal, exportedClosedRefused }
+  return { lifecycleHiddenAt, lifecycleBoundary, lifecycleRefused, exportEntries, setLifecycleHiddenAt, closedRefusedTotal, exportedClosedRefused, workspaceRoleParked }
 }

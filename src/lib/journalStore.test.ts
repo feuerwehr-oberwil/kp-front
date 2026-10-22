@@ -926,6 +926,60 @@ describe('persistedPendingRows — the launcher\'s «Abmelden» count', () => {
     expect(await persistedPendingRows(['a', 'b', 'never-opened'])).toBe(4)
     expect(await persistedPendingRows([])).toBe(0)
   })
+
+  it('counts every identity\'s slot of an Einsatz, not only the legacy one', async () => {
+    await idb.idbSet('kp-journal-a:u1:login', { rows: [], latestSeq: 0, outbox: [row('a1')] })
+    await idb.idbSet('kp-journal-a:lk1:atemschutz', { rows: [], latestSeq: 0, outbox: [row('a2')] })
+    expect(await persistedPendingRows(['a'])).toBe(2)
+  })
+})
+
+// RBAC audit S5 (22.10.2026): one outbox slot per Einsatz was shared by every identity on the
+// device. An Atemschutz-Link opened on the FU's own phone hydrated the FU's unsent Meldung and
+// sent it AS THE LINK — a 403 that froze the board as «Link widerrufen», and the FU's Trupp rows
+// went in stamped `via: atemschutz-link`.
+describe('JournalStore — one outbox per identity (RBAC S5)', () => {
+  const login = { key: 'u1:login', adoptsLegacy: true }
+  const asLink = { key: 'lk1:atemschutz', adoptsLegacy: false }
+
+  it('a link store on the same device never sends the login\'s unsent rows', async () => {
+    apiPost.mockRejectedValue(new ApiError(0, 'offline'))
+    apiGet.mockRejectedValue(new ApiError(0, 'offline'))
+    const fu = new JournalStore(INC, false, login)
+    await fu.init([])
+    fu.append(row('fu-meldung'))
+    await settle()
+    fu.dispose()
+
+    fakeServer()
+    apiPost.mockClear() // the offline attempt above
+    const link = new JournalStore(INC, false, asLink)
+    await link.init([])
+    expect(apiPost).not.toHaveBeenCalled()
+    expect(link.pendingCount).toBe(0)
+    link.dispose()
+
+    const back = new JournalStore(INC, false, login)
+    await back.init([])
+    expect(apiPost).toHaveBeenCalledWith(`/api/incidents/${INC}/journal`, { entries: [expect.objectContaining({ id: 'fu-meldung' })] })
+    back.dispose()
+  })
+
+  it('the device login adopts the shared pre-owner slot once; a link leaves it alone', async () => {
+    await idb.idbSet(`kp-journal-${INC}`, { rows: [], latestSeq: 0, outbox: [row('before-the-update')] })
+    fakeServer()
+    const link = new JournalStore(INC, false, asLink)
+    await link.init([])
+    expect(apiPost).not.toHaveBeenCalled()
+    expect(await idb.idbGet(`kp-journal-${INC}`)).not.toBeNull()
+    link.dispose()
+
+    const fu = new JournalStore(INC, false, login)
+    await fu.init([])
+    expect(apiPost).toHaveBeenCalledWith(`/api/incidents/${INC}/journal`, { entries: [expect.objectContaining({ id: 'before-the-update' })] })
+    expect(await idb.idbGet(`kp-journal-${INC}`)).toBeNull()
+    fu.dispose()
+  })
 })
 
 describe('JournalStore — a CLOSED Einsatz refuses the live rows (N3, 25.09.2026)', () => {

@@ -9,7 +9,8 @@ wording unchanged.
 - **Role gating** – product model is three incident roles: `editor` (FU / can mutate incident
   state), `el` (Einsatzleiter function, 07.09.2026 – reads everything, writes ONLY the record
   domains: Anwesenheit/Zeitplan, Mittel, Checklisten, Rapport + Beilagen, via the
-  server-enforced `PUT …/workspace/record` slice (`RECORD_WORKSPACE_KEYS`), journal/event
+  server-enforced `PUT …/workspace/record` slice (`RECORD_WORKSPACE_KEYS`, plus the crew
+  filing's markers, unioned onto the stored Trupps — `RECORD_CREW_FILED_KEY`, 22.10.2026), journal/event
   appends limited to the record vocabulary (`EL_EVENT_PREFIXES`), media uploads, and — since
   10.09.2026 — the EINSATZDATEN at the head of that record: `PATCH /incidents/{id}` limited to
   the fields «Einsatzdaten bearbeiten» sends (`EL_META_FIELDS`); the full workspace PUT, the
@@ -28,8 +29,18 @@ wording unchanged.
   Gebäude wählen» (the locked picker has no «Übernehmen»), no Passung, no «Gebäude drehen». Every
   session that cannot share links (`canShareLink` false: el, Führungsansicht, viewer, link) gets
   no «Weitergeben» section, and so sends no GET for a link it may not read. The `el` also gets no
-  saved-view writes, no vehicle override, no object switch, no «Wieder öffnen», no transcription
-  and no checklist «Zeichnen» link. The legacy `commander` value has been migrated away: the stored role,
+  saved-view writes, no vehicle override, no «Wieder öffnen», no transcription
+  and no checklist «Zeichnen» link. No locked session (`tacticalLocked`: el, Führungsansicht,
+  viewer, link, replay) gets the Plan's «Anderes Objekt wählen»; its object chip stays a read-out
+  (RBAC audit 22.10.2026). A session that may write nothing (`roleReadOnly`: viewer, view and
+  alarm links, a refused Atemschutz-Link) writes no Verlauf row at all – `pushEvent` refuses it,
+  the composer does not mount (a checklist's «Verlauf» link opens the Verlauf instead), a due
+  Wiedervorlage has no «Erledigt» / «+10 min», and a Trupp card's «+ Auftrag» is a read-out –
+  because whatever it took would stay on that device and raise «Speicher voll». The Atemschutz
+  alarm rings on every device, but only a session that writes the Trupps (`canEditTrupps`: FU,
+  Atemschutz-Link) records the crossing. Machine seeds of keys outside the record slice (plan
+  bindings, the floor-pack Gebäude) run only where the push carries the whole blob
+  (`canWriteBlob`: an editor's session). The legacy `commander` value has been migrated away: the stored role,
   the `Literal`/type unions, the `CurrentEditor` dependency, and `user?.role === 'editor'` checks
   all use `editor` now. Do not reintroduce `commander`, and do not add deployment-admin power to the
   incident role model. Deployment administration is **separated** behind the `ADMIN_SECRET` env var:
@@ -40,7 +51,8 @@ wording unchanged.
   endpoints stay on `CurrentEditor`, with ONE exception: the Atemschutz-Link (a QR minted from a
   running Einsatz that lets a non-FU operate only the Atemschutzüberwachung) writes through
   `CurrentAtemschutzWriter` on exactly three routes – `PUT …/workspace/trupps`, `POST …/journal`
-  (`kind: 'team'` rows only) and `POST …/events` (`atemschutz.*` only); the allowlist and the
+  (`kind: 'team'` rows only, a `patchOf` only onto its own rows) and `POST …/events`
+  (`atemschutz.*` only); the allowlist and the
   liveness rules live in `backend/app/auth/incident_link.py`. ⚠️ Every link kind may also
   `POST /api/diag/client-error` (24.09.2026), even with a dead session (liveness-exempt). The
   route needs no session and is throttled per source in its own handler. Without it, a crash on
@@ -83,6 +95,28 @@ and the Erfassungs-Poster's capture token get 403: a link is scoped to one Einsa
 become a door onto the station's whole register (`api/station_reference · get_station_reader`,
 and the link allowlist does not name these routes). What a role may do from there – start an
 Objektbesuch – stays `objectVisits.captureRoles`.
+
+## Hardening from the RBAC audit (22.10.2026)
+
+- **Hard delete without the Verwaltung** needs an Übung **created as one and never marked real**
+  (`incidents.exercise_since_creation`). «Übung» stays an Einsatzdaten field (editor and el), so
+  a real Einsatz flipped to Übung is stats-excluded but takes the admin door (archived, admin
+  session, WARNING log) like any real one. Rows from before the column count as created-Übung
+  only if their hash chain holds no Übung toggle at all.
+- **`via` is the server's stamp.** An Atemschutz link's rows get `atemschutz-link` /
+  `atemschutz-fix`, the Erfassungs-Poster's `capture`, everyone else's none – a client-sent `via`
+  is dropped. A link or the poster may `patchOf` (retract, reword) only a row of its own channel;
+  the poster writes no `kind` at all.
+- **`GET /api/config`**: `alarms.webhooks` and `sharepoint.sources` reach an admin session only;
+  `objectVisits.destinations` every PIN session, no anonymous caller, no link
+  (CONFIGURATION.md §1a).
+- **A role change ends the account's sessions** (`revoke_sessions`, like a PIN reset): a device
+  learns its role at sign-in. The last active editor cannot be demoted to `el` or `viewer`.
+- **A viewer's Rapport-PDF embeds its own Einsatz's media only** – the window applies to what
+  the composer opens, not just to `GET /api/media`.
+- **Every link kind is narrowed like the view link**: `/api/objects/{id}` and Objektpläne only
+  for the objects this Einsatz surfaced, other reference datasets only as furniture (geodata,
+  symbols, Checklisten, Tafel templates), no `/api/objects` register list, no inactive personnel.
 
 ## Signing in with Microsoft (optional)
 

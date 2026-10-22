@@ -211,3 +211,29 @@ async def test_a_pre_deploy_token_dies_at_the_first_reset(client, editor, admin_
     async with _bearer(access_token=access, refresh_token=refresh) as old:
         assert (await old.get("/api/auth/me")).status_code == 401
         assert (await old.post("/api/auth/refresh")).status_code == 401
+
+
+async def test_a_role_change_ends_the_sessions_of_the_old_role(client, editor, viewer, admin_login):
+    """RBAC audit S4: a device keeps the role it signed in with, so an editor made `el`
+    mid-Einsatz kept an editor UI whose tactical edits the server no longer stored. Signing in
+    again is what hands the device its new role."""
+    access, refresh = await _login(editor)
+    await admin_login(client)
+    assert (await client.patch(f"/api/auth/users/{viewer.id}", json={"role": "editor"})).status_code == 200
+    assert (await client.patch(f"/api/auth/users/{editor.id}", json={"role": "el"})).status_code == 200
+
+    async with _bearer(access_token=access) as old:
+        assert (await old.get("/api/auth/me")).status_code == 401
+    async with _bearer(refresh_token=refresh) as old:
+        assert (await old.post("/api/auth/refresh")).status_code == 401
+
+
+async def test_an_unchanged_role_keeps_the_sessions(client, editor, admin_login):
+    """The members table re-sends the role with every edit; a rename must not log anybody out."""
+    access, _refresh = await _login(editor)
+    await admin_login(client)
+    r = await client.patch(f"/api/auth/users/{editor.id}", json={"role": "editor", "display_name": "Neu"})
+    assert r.status_code == 200, r.text
+
+    async with _bearer(access_token=access) as same:
+        assert (await same.get("/api/auth/me")).status_code == 200

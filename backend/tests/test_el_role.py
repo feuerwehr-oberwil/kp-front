@@ -76,6 +76,40 @@ async def test_el_record_slice_applies_only_the_record_keys(client, editor, el):
     assert "trupps" not in ws
 
 
+async def test_el_record_slice_unions_the_crew_filing_markers_and_nothing_else(client, editor, el):
+    # RBAC audit S4: the el files a Link's crew onto the Anwesenheit; the marker saying so lives on
+    # the Trupp it may not write. The slice carries the markers, the server unions them — and
+    # reads nothing else of a Trupp, adds no Trupp, and never shrinks a marker.
+    await _login(client, editor)
+    inc_id = await _create_incident(client)
+    trupps = [
+        {"id": "t1", "name": "Müller", "status": "aktiv", "crewFiled": ["p1"]},
+        {"id": "t2", "name": "Meier", "status": "aktiv"},
+    ]
+    r = await client.put(f"/api/incidents/{inc_id}/workspace", json={"base_rev": 0, "workspace": {"trupps": trupps}})
+    assert r.status_code == 200
+    await client.post("/api/auth/logout")
+    await _login(client, el)
+    r = await client.put(
+        f"/api/incidents/{inc_id}/workspace/record",
+        json={
+            "base_rev": 1,
+            "workspace": {
+                "attendance": {"g-t1-x": {"status": "present"}},
+                "truppCrewFiled": {"t1": ["g-t1-x"], "t2": ["p2", 7], "t9": ["p9"]},
+                "trupps": [{"id": "t1", "name": "Umbenannt"}],
+            },
+        },
+    )
+    assert r.status_code == 200, r.text
+    ws = (await client.get(f"/api/incidents/{inc_id}/workspace")).json()["workspace"]
+    assert ws["trupps"] == [
+        {"id": "t1", "name": "Müller", "status": "aktiv", "crewFiled": ["g-t1-x", "p1"]},
+        {"id": "t2", "name": "Meier", "status": "aktiv", "crewFiled": ["p2"]},
+    ]
+    assert "truppCrewFiled" not in ws
+
+
 async def test_el_cannot_write_the_tactical_picture(client, editor, el):
     inc_id = await _as_el_on_editor_incident(client, editor, el)
     full = await client.put(f"/api/incidents/{inc_id}/workspace", json={"base_rev": 1, "workspace": {"x": 1}})

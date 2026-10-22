@@ -503,8 +503,10 @@ person could reach the paper board on the same wall.
   System › **Anbindungen** (it is a signing key, not an address).
   **Only `ADMIN_SECRET` is env-only**, and deliberately so: it gates writing the
   very document it would otherwise live in.
-- Outbound webhook URLs are admin-set config, pinned to `http(s)`; the payload contains the
-  capture URL (a capability) – point webhooks only at receivers you trust.
+- Outbound webhook URLs are admin-set config, pinned to `http(s)`, and `GET /api/config` serves
+  them to an admin session only (22.10.2026 – a URL with a `sig=` or `?secret=` is a capability);
+  the payload contains the capture URL (a capability) – point webhooks only at receivers you
+  trust.
 - The capture surface reaches unarchived incidents without a completed Rapport at **any**
   age (the open backlog), plus anything inside `alarms.captureWindowHours` regardless of
   report state — and only attendance/material/journal/Einsatzende/Beilagen. The workspace

@@ -49,12 +49,18 @@ type BoardProps = Record<string, unknown> & { annos: BoardAnno[]; activeId: stri
 const lastMap = () => rec.map[rec.map.length - 1] as MapProps
 const lastBoard = () => rec.board[rec.board.length - 1] as BoardProps | undefined
 
+/** the signed-in role – `editor` unless a case says otherwise (reset per test) */
+const AUTH = vi.hoisted(() => ({ role: 'editor' as 'editor' | 'el' | 'viewer' }))
 vi.mock('./lib/auth', async (importOriginal) => {
   const mod = await importOriginal<typeof import('./lib/auth')>()
-  const user = { id: 'u1', username: 'fu', display_name: 'FU Test', role: 'editor' as const, color: null, last_login: null }
   const logout = () => Promise.resolve()
-  const value = { user, loading: false, probeUnreachable: false, sessionExpired: false, login: () => Promise.resolve(), logout }
-  return { ...mod, useAuth: () => value }
+  // one stable value per role, so a render never hands the workspace a «new» user
+  const valueOf = (role: typeof AUTH.role) => ({
+    user: { id: 'u1', username: 'fu', display_name: 'FU Test', role, color: null, last_login: null },
+    loading: false, probeUnreachable: false, sessionExpired: false, login: () => Promise.resolve(), logout,
+  })
+  const values = { editor: valueOf('editor'), el: valueOf('el'), viewer: valueOf('viewer') }
+  return { ...mod, useAuth: () => values[AUTH.role] }
 })
 // the symbol pack is a network fetch with retries; the harness wants the surfaces up at once
 const SYM = vi.hoisted(() => ({ ready: true, error: false, reload: () => {}, order: [], symbols: [], byName: {} }))
@@ -122,6 +128,7 @@ beforeAll(() => {
 beforeEach(() => {
   rec.map.length = 0; rec.board.length = 0; rec.order.length = 0; rec.boardDoc = null; rec.mittel.length = 0
   rec.answer = false; rec.answers.length = 0; rec.confirms = 0; rec.report = null
+  AUTH.role = 'editor'
   vi.clearAllMocks()
   // every request the workspace makes (journal, audit, alignments, weather …) is simply absent
   vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })))
@@ -797,5 +804,75 @@ describe('(k) covered by «Karte & Objekte» / the Objektbesuche (lead decision,
     rerender(tree(false)); await settle(60)
     expect(mode()).toBe('map')
     tone.mockRestore()
+  })
+})
+
+/* RBAC audit 22.10.2026 (§2): a session that cannot write the Einsatz is handed no door that
+   changes this device's picture of it – nothing it took could ever sync. */
+describe('(m) a read-only session writes nothing', () => {
+  /** a Trupp whose Funkkontakt runs past interval + Nachfrist (5 min + 60 s) under the test's
+   *  eyes – the engine records a crossing it WATCHED, not an alarm it found on mount */
+  const crossingWs = () => {
+    const entry = new Date(Date.now() - 20 * 60_000).toISOString()
+    const contact = new Date(Date.now() - 360_000 + 700).toISOString()
+    return { entities: [truck], trupps: [{ id: 'tr-v', name: 'Tst Vera', status: 'aktiv', entryPressureBar: 300, entryTime: entry, lastContactTime: contact }] } as unknown as Saved
+  }
+  const rows = () => [...document.querySelectorAll('.ml-row')].map((r) => r.textContent ?? '')
+
+  // V1: the alarm engine logged its rows on every viewer – kept locally, never sent, and the
+  // read-only store flipped the badge to a red «Speicher voll» on the Fahrer tablet mid-alarm
+  it('V1 · a viewer\'s alarm rings, but writes no Verlauf row and raises no «Speicher voll»', async () => {
+    AUTH.role = 'viewer'
+    const m = meta()
+    render(<><Meldeleiste />{workspaceTree(m, { sync: new WorkspaceSync(m.id), workspace: crossingWs() }).tree}</>)
+    await settle(60); await settle(1_100); await settle(1_100) // the 1 Hz tick crosses
+    expect(rows().some((t) => t.includes('Tst Vera'))).toBe(true) // the alarm is on
+    expect(rows().some((t) => t.includes(appConfig.copy.incidentSwitcher.storageMeldung))).toBe(false)
+    key('r'); await settle()
+    expect((rec.report?.events ?? []).some((e) => e.text?.includes('Tst Vera'))).toBe(false)
+  })
+
+  // V1: the el may not write the Trupps, so it does not record their alarm either – the device
+  // that keeps the Tafel (FU, Atemschutz-Link) writes that row, once per turnus
+  it('V1 · the el\'s alarm rings, but posts no «Atemschutz-Alarm» row', async () => {
+    AUTH.role = 'el'
+    const posted: { text?: string }[] = []
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes('/journal') && init?.method === 'POST') {
+        posted.push(...(JSON.parse(String(init.body)) as { entries: { text?: string }[] }).entries)
+        return new Response(JSON.stringify({ entries: [], latest_seq: 0 }), { status: 201, headers: { 'content-type': 'application/json' } })
+      }
+      return new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })
+    }))
+    const m = meta()
+    render(<><Meldeleiste />{workspaceTree(m, { sync: new WorkspaceSync(m.id), workspace: crossingWs() }).tree}</>)
+    await settle(60); await settle(1_100); await settle(1_100); await settle(2_600) // the crossing, then the outbox's round
+    expect(rows().some((t) => t.includes('Tst Vera'))).toBe(true)
+    const alarmRow = appConfig.copy.atemschutz.logAlarm.split('{')[0] // «Atemschutz-Alarm: Trupp »
+    expect(posted.some((r) => r.text?.startsWith(alarmRow))).toBe(false)
+  }, 15_000)
+
+  // V4: the checklist's «Verlauf» deep link opened the composer past every other gate
+  it('V4 · a viewer\'s checklist «Verlauf» opens the Verlauf, never the composer', async () => {
+    AUTH.role = 'viewer'
+    await mount()
+    key('c'); await settle()
+    // the item's own deep link – the TopBar's «Verlauf» carries the same name
+    let row: HTMLElement | null = screen.getByText('Protokoll / Journal vorbereiten')
+    while (row && !row.querySelector(`button[title="${appConfig.copy.checklists.actionLabels.journal}"]`)) row = row.parentElement
+    fireEvent.click(row!.querySelector(`button[title="${appConfig.copy.checklists.actionLabels.journal}"]`)!)
+    await settle()
+    expect(document.querySelector('.journal-composer')).toBeNull()
+    expect(document.querySelector('.journal-drawer')).toBeTruthy()
+  })
+
+  // V5: «Anderes Objekt wählen» switched the plans on this device only (the next editor save
+  // flipped them back) – a locked session keeps the object chip as a read-out
+  it('V5 · a viewer\'s Plan offers no object switch', async () => {
+    AUTH.role = 'viewer'
+    await mount()
+    await openPlan('tafel')
+    expect(lastBoard()?.onObjectSwitch).toBeUndefined()
+    await settle(100)
   })
 })

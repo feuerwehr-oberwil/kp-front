@@ -61,7 +61,6 @@ export interface PlansSurfaceProps {
   incidentMeta: IncidentMeta
   activeObjectPos: LngLat | null
   incidentView: Incident
-  isEl: boolean
   setPickerOpen: Dispatch<SetStateAction<boolean>>
   symbolScale: Record<SymbolSurface, number>
   activeLinkedPlan: GeorefPlan | null
@@ -138,7 +137,7 @@ export interface PlansSurfaceProps {
 export function PlansSurface({
   mode, sym, guarded, railLabels, planDocs, tacticalLocked, isPhone, journalOpen, replayActive,
   linkScoped, activePlanId, activeObjectName, activeObjectAddress, buildingInfo, activeObjectNearby,
-  incidentMeta, activeObjectPos, incidentView, isEl, setPickerOpen, symbolScale, activeLinkedPlan,
+  incidentMeta, activeObjectPos, incidentView, setPickerOpen, symbolScale, activeLinkedPlan,
   symbolCaptions, mapSuppressedCaptions, planLive, planPhotos, moveLiveOnSheet, showPlanSourceOnMap,
   replayBoard, board, trails, deleteGhostTrail, armTrailDrop, setBoard, replayBuilding, building,
   floorPack, objects, planBindings, activeObjectId, setBuilding, setActivePlanId, rememberGebaeudeStep,
@@ -185,9 +184,10 @@ export function PlansSurface({
           georefAnchor={activeObjectPos ?? incidentView.center}
           // the Einsatzort on the Gebäude picker — only a REAL coordinate (0/0 is Divera's «none»)
           incidentPos={incidentMeta.lng != null && incidentMeta.lat != null && (incidentMeta.lng !== 0 || incidentMeta.lat !== 0) ? [incidentMeta.lng, incidentMeta.lat] : null}
-          // not for el: the pick is `pickedObjectId` in the shared blob, which its record slice
-          // never pushes — the switch would hold on this device until the next hydrate
-          onObjectSwitch={linkScoped || isEl ? undefined : () => setPickerOpen(true)}
+          // a locked session gets no picker (viewer, el, Führungsansicht, link, replay – RBAC
+          // audit V5): the pick is `pickedObjectId` in the shared blob, and a viewer's or the el's
+          // switch held on this device only, until the next hydrate. The chip stays a read-out.
+          onObjectSwitch={tacticalLocked ? undefined : () => setPickerOpen(true)}
           // A georeferenced Modul has the Karte's real scale, so its tactical symbols follow the
           // Karte setting too. Standalone sheets keep the independent Modul preference.
           symMul={planSymbolScale(symbolScale, !!activeLinkedPlan)}

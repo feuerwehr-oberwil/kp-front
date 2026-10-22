@@ -48,7 +48,7 @@ it('parked (refused) events are a calm note with export only, never an alert or 
   const save = vi.fn()
   render(<JournalDeliveryNotice status="synced" count={0} refused={5} onRetry={vi.fn()} onExport={save} />)
   expect(screen.queryByRole('alert')).toBeNull()
-  expect(screen.getByRole('status').textContent).toContain('5 Protokollereignisse für diese Rolle nicht vorgesehen')
+  expect(screen.getByRole('status').textContent).toContain('5 Einträge für diese Rolle nicht vorgesehen')
   expect(screen.queryByRole('button', { name: 'Erneut versuchen' })).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Einträge sichern' }))
   expect(save).toHaveBeenCalledOnce()

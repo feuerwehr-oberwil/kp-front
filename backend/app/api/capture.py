@@ -412,6 +412,10 @@ async def capture_upload_media(
     return {"id": str(media.id), "url": f"/api/media/{media.id}", "kind": "photo"}
 
 
+#: The `via` stamp on every Verlauf row the poster writes (types · TimelineEvent.via).
+CAPTURE_VIA = "capture"
+
+
 @router.get("/incidents/{incident_id}/journal", response_model=JournalPage)
 async def capture_read_journal(
     incident_id: uuid.UUID,
@@ -442,10 +446,21 @@ async def capture_append_journal(
     from sqlalchemy import func as sa_func
 
     from ..models import JournalEntry
-    from .journal import MAX_BATCH, append_rows
+    from .journal import MAX_BATCH, append_rows, patches_stay_in_channel
 
     if len(body.entries) > MAX_BATCH:
         raise HTTPException(status_code=422, detail=f"Batch zu gross (max. {MAX_BATCH})")
+    # The poster writes record lines — one per capture action, no `kind` (lib/captureClient ·
+    # captureJournalRow) — and corrects only its own (RBAC audit S2, 22.10.2026): a `patchOf`
+    # onto another channel's row would hide or reword it on every device and in the Rapport, and
+    # a `kind` would make the line Atemschutz-Tafel or Karte. Every row is stamped `via`, the
+    # server's provenance mark — never the poster's claim.
+    if any(e.get("kind") is not None for e in body.entries) or not await patches_stay_in_channel(
+        db, incident_id, body.entries, CAPTURE_VIA
+    ):
+        raise HTTPException(status_code=403, detail="Diese Zeile kann die Erfassung nicht schreiben")
+    for e in body.entries:
+        e["via"] = CAPTURE_VIA
     accepted = await append_rows(db, incident_id, body.entries)
     if accepted:
         # journal rows from the capture surface count as QR usage too (idempotent replays

@@ -100,8 +100,10 @@ export function WorkspaceMeldungen({
 
       <ReminderBanner
         due={reminders.due}
-        onDone={reminders.markDone}
-        onSnooze={(r) => reminders.snooze(r, 10)}
+        // «Erledigt» / «+10 min» write Verlauf rows: only where the Verlauf ring offers its tick
+        // (JournalLayer · onReminderDone). A viewer or a link keeps the row and its way in.
+        onDone={readOnly ? undefined : reminders.markDone}
+        onSnooze={readOnly ? undefined : (r) => reminders.snooze(r, 10)}
         // …and the way in, on the row's TITLE (Meldeleiste · MeldungTitle) rather than a third
         // button: open the Verlauf ON the row that raised this item, not at the top
         onOpen={(r) => { setJournalOpen(true); setJournalLandOn({ id: r.rowId, nonce: Date.now() }) }}

@@ -294,7 +294,7 @@ export function IncidentWorkspace({
   // …and the field you are actually typing in stays above it (one listener for the whole app)
   useScrollFocusIntoView()
   const { active: replayActive, setActive: setReplayActive, ws: replayWs, onState: onReplayState, onVehicles: onReplayVehicles, exit: exitReplay, entities: replayEntities, board: replayBoard, building: replayBuilding } = useReplay()
-  const { running, readOnly, outboxReadOnly, canEditIncident, canEditTrupps, canEditRecord, canEditRapport, canEditMeta, canWriteRecord, tacticalLocked } =
+  const { running, readOnly, outboxReadOnly, canEditIncident, canEditTrupps, canEditRecord, canEditRapport, canEditMeta, canWriteRecord, canWriteBlob, tacticalLocked } =
     useWorkspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, forceReadOnly, tabLockLost, replayActive, incidentMeta })
   // «Standort zu Fotos» (lib/devicePosition): a session that writes the record lends the device's
   // position to a picture without one — after asking ONCE per device, with the reason.
@@ -871,7 +871,9 @@ export function IncidentWorkspace({
   // the Atemschutz-Link of a CLOSED Einsatz is refused on every request until a reopen: it
   // follows once a minute (staging r3) — enough to notice the reopen, not a 403 every few seconds
   const slowFollow = asLink && (!running || linkRefused)
-  const journal = useJournal({ incidentId: incidentMeta.id, readOnly: outboxReadOnly, legacy: init.timeline, slowFollow })
+  // the outbox is per IDENTITY (RBAC S5): a link opened on the FU's own phone keeps its own
+  const journal = useJournal({ incidentId: incidentMeta.id, readOnly: outboxReadOnly, legacy: init.timeline, slowFollow,
+    owner: user ? { key: `${user.id}:${user.link_kind ?? 'login'}`, adoptsLegacy: !user.link_kind } : null })
   // pulled out by name: `journal` itself is a fresh object every render, so a callback that
   // depends on it either churns or (the bug this replaced) silently keeps a stale `rows`
   const { swapPhoto, overlaySession: overlayRow, appendPatch: patchRow } = journal
@@ -1086,7 +1088,8 @@ export function IncidentWorkspace({
   )
   const { plansSettled, backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
     bindings: planBindings,
-    onBind: (proposed) => { if (!readOnly) setPlanBindings((prev) => fillBindingFloors(addPlanBindings(prev, proposed), proposed)) },
+    // a machine seed of a key outside the record slice – see `canWriteBlob`
+    onBind: (proposed) => { if (canWriteBlob) setPlanBindings((prev) => fillBindingFloors(addPlanBindings(prev, proposed), proposed)) },
     legacyPlanIds,
     preserveLegacy,
   })
@@ -1435,7 +1438,7 @@ export function IncidentWorkspace({
   // what this device still holds, sent again after a reopen (workspace/useLifecycleElsewhere)
   const {
     lifecycleHiddenAt, lifecycleBoundary, lifecycleRefused, exportEntries, setLifecycleHiddenAt,
-    closedRefusedTotal, exportedClosedRefused,
+    closedRefusedTotal, exportedClosedRefused, workspaceRoleParked,
   } = useLifecycleElsewhere({
     sync, journal, auditDelivery, running, flushEvents, outboxReadOnly, incidentMeta, lifecycleElsewhere,
   })
@@ -1840,7 +1843,7 @@ export function IncidentWorkspace({
   // the hydrate's. `log` is declared below and reaches it through `histSide` (assigned under it).
   const { linkedPlans, floorPack, georefPlanRasters, activeLinkedPlan, selectedPlanProjection, planLive, planPhotos } = useGeorefFits({
     planDocs, planScale, building, setBuilding, planBindings, activeObjectId, board, objects, rebake,
-    planFitsRef, fitsVersion, setFitsVersion, stepLabelRef: stepLabel, histSide, readOnly, tacticalLocked, replayActive,
+    planFitsRef, fitsVersion, setFitsVersion, stepLabelRef: stepLabel, histSide, readOnly, canWriteBlob, tacticalLocked, replayActive,
     twinLayers, twinLayerOpacity, activePlanId, selectedId, liveVehicles, livePeople, isVisible, mapEntities,
   })
 
@@ -1848,6 +1851,12 @@ export function IncidentWorkspace({
   // or removes one — undo/redo log their own lines. So the stream stays a faithful
   // record of what happened across both surfaces (and could back a standalone screen).
   const pushEvent = (ev: Omit<TimelineEvent, 'id' | 't' | 'at'> & { at?: string }, id?: string) => {
+    // ⚠️ A session that may write nothing writes no row (RBAC audit 22.10.2026, §2): the
+    // read-only store still took it, showed it on this device only, never sent it, and turned the
+    // badge into «Speicher voll» – on the Fahrer tablet, during a real Atemschutz alarm.
+    // `roleReadOnly`, NOT `readOnly`: a tab that lost its lock appends on purpose (an upload that
+    // lands late), and a closed Einsatz still delivers so the server can refuse out loud.
+    if (roleReadOnly) return
     // a caller may stamp `at` explicitly (e.g. a journal entry timed to when the composer was
     // opened, not when Erfassen was pressed); the HH:MM display derives from the same instant.
     const { at: atOverride, ...rest } = ev
@@ -2304,6 +2313,10 @@ export function IncidentWorkspace({
         else focusEntity(entityId)
       },
     })
+  // The alarm host runs on EVERY device – tone and OS notification are the point – but only a
+  // session that writes the Trupps records the crossing in the Verlauf (RBAC audit V1, 22.10.2026).
+  // The FU or the Atemschutz-Link writes that row, once per turnus, for everybody.
+  const alarmLog = canEditTrupps ? { logAlarm: logTruppAlarm, logAlarmCleared: logTruppAlarmCleared } : {}
 
   // the Karte's gestures and commands — tool picks, map taps, views, keys, the lasso group, marker
   // moves and docking, jumps, delete and «erledigt» (workspace/useMapActions)
@@ -2758,9 +2771,10 @@ export function IncidentWorkspace({
   // in an effect, not during render: it is read only when a step is TAKEN, long after this commit
   useEffect(() => { checklistDescribeRef.current = describeChecklistStep })
   // Deep links: an item's `action` jumps to the matching surface (best-effort, reusing
-  // existing setters). journal → open the composer; plan → Plan tab; draw → Lage + pen.
+  // existing setters). journal → open the composer (a read-only session: the Verlauf, the same
+  // gate as the TopBar's «Eintrag» – RBAC audit V4); plan → Plan tab; draw → Lage + pen.
   const checklistAction = (_item: Item, a: NonNullable<Item['action']>) => {
-    if (a === 'journal') setComposerOpen(true)
+    if (a === 'journal') { if (readOnly) setJournalOpen(true); else setComposerOpen(true) }
     else if (a === 'plan') {
       // «Objektplan bereitlegen» must land ON the Übersicht, not merely on the Pläne tab:
       // activePlanId is remembered per device, so a bare setMode dropped a first-time user
@@ -2931,7 +2945,7 @@ export function IncidentWorkspace({
     return (
       <>
         <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
-          logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
+          {...alarmLog} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
         <RemindersHost {...reminders.host} />
         <AtemschutzAlarmMeldungen
           trupps={trupps}
@@ -2979,7 +2993,7 @@ export function IncidentWorkspace({
             row paints here too. */}
         {tabLockLost && <TabLockBanner onTakeOver={onTakeOverTab} />}
         <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
-          logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
+          {...alarmLog} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
         <RemindersHost {...reminders.host} />
         {closedMeldung}
         {linkRefused && running && <LinkRefusedMeldung />}
@@ -3121,7 +3135,7 @@ export function IncidentWorkspace({
         document.body,
       )}
       <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
-        logAlarm={logTruppAlarm} logAlarmCleared={logTruppAlarmCleared} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
+        {...alarmLog} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
       {/* the reminder clock, hosted for the same reason as the alarm above (10 s ≠ 1 Hz, same shape) */}
       <RemindersHost {...reminders.host} />
       {closedMeldung}
@@ -3239,7 +3253,7 @@ export function IncidentWorkspace({
       <PlansSurface {...{
         mode, sym, guarded, railLabels, planDocs, tacticalLocked, isPhone, journalOpen, replayActive,
         linkScoped, activePlanId, activeObjectName, activeObjectAddress, buildingInfo, activeObjectNearby,
-        incidentMeta, activeObjectPos, incidentView, isEl, setPickerOpen, symbolScale, activeLinkedPlan,
+        incidentMeta, activeObjectPos, incidentView, setPickerOpen, symbolScale, activeLinkedPlan,
         symbolCaptions, mapSuppressedCaptions, planLive, planPhotos, moveLiveOnSheet, showPlanSourceOnMap,
         replayBoard, board, trails, deleteGhostTrail, armTrailDrop, setBoard, replayBuilding, building,
         floorPack, objects, planBindings, activeObjectId, setBuilding, setActivePlanId, rememberGebaeudeStep,
@@ -3318,12 +3332,12 @@ export function IncidentWorkspace({
         voidSignatures: canEditRapport ? voidSignatures : undefined,
       }} />
       <JournalLayer {...{
-        journalOpen, guarded, journal, auditDelivery, closedRefusedTotal, exportEntries, journalVocab,
+        journalOpen, guarded, journal, auditDelivery, closedRefusedTotal, workspaceRoleParked, exportEntries, journalVocab,
         timeline, incidentMeta, planDocs, focusEvent, replayActive, replayAtMs, seekToEvent, journalLandOn,
         setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
         enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
         tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen,
-        addJournal, noteOn,
+        addJournal, noteOn, roleReadOnly,
       }} />
       {sharePick && (
         <SharePositionSheet
