@@ -184,3 +184,49 @@ async def test_an_injected_fix_time_is_kept(client, fake_mode, editor):
     )
     assert r.status_code == 200
     assert _fake_positions[0].last_update.isoformat() == "2026-09-23T17:23:10+00:00"
+
+
+# --- what a field session learns about the Traccar server (RBAC audit, 22.10.2026) --------
+
+
+@pytest.fixture
+def broken_traccar(monkeypatch):
+    """A configured Traccar that refuses every call, with its host in the error text."""
+    import httpx
+
+    import app.api.traccar as api
+
+    class _Client:
+        is_configured = True
+        host = "gps.station.example"
+
+        async def get_trails(self, minutes: int = 30):
+            raise httpx.ConnectError("gps.station.example:8082 refused")
+
+    async def _positions():
+        raise httpx.ConnectError("gps.station.example:8082 refused")
+
+    monkeypatch.setattr(api, "traccar_client", _Client())
+    monkeypatch.setattr(api, "cached_vehicle_positions", _positions)
+
+
+async def test_host_and_error_text_are_the_admins_only(client, editor, broken_traccar, admin_login):
+    await _login_editor(client, editor)
+    assert (await client.get("/api/traccar/status")).json() == {"configured": True, "host": None}
+    for path in ("/api/traccar/positions", "/api/traccar/trails"):
+        r = await client.get(path)
+        assert r.status_code == 502 and r.json()["detail"] == "Traccar nicht erreichbar"
+
+    client.cookies.clear()
+    await admin_login(client)
+    assert (await client.get("/api/traccar/status")).json()["host"] == "gps.station.example"
+    assert "gps.station.example" in (await client.get("/api/traccar/positions")).json()["detail"]
+
+
+async def test_trails_are_bounded(client, editor, broken_traccar):
+    from app.api.traccar import MAX_TRAIL_MINUTES
+
+    await _login_editor(client, editor)
+    for bad in (0, MAX_TRAIL_MINUTES + 1, 10_000_000):
+        assert (await client.get(f"/api/traccar/trails?minutes={bad}")).status_code == 422
+    assert (await client.get(f"/api/traccar/trails?minutes={MAX_TRAIL_MINUTES}")).status_code == 502

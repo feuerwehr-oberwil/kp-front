@@ -93,7 +93,7 @@ async def _close(db_session, inc: Incident) -> None:
 
 async def test_unknown_standing_secret_is_the_uniform_401(client, terminal_key, standing_as_key):
     """Wrong secret, and no secret behind the prefix at all — one message each time."""
-    for token in ("twrong-secret", "swrong-secret", "t", "s"):
+    for token in ("twrong-secret", "swrong-secret", "t", "s", "sä-not-ascii"):
         r = await _exchange(client, token)
         assert r.status_code == 401, f"{token!r}: {r.text}"
         assert r.json()["detail"] == INVALID_TOKEN_DETAIL

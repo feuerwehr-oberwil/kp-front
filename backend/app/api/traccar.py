@@ -1,6 +1,9 @@
 """Traccar endpoints — replace the kp-rueck proxy; same response shape as today.
 
 503 when unconfigured, 502 on upstream failure. Auth required (editor or viewer).
+The Traccar host and the upstream error text are the deployment admin's (the /admin
+Fahrzeuge card); an account or link session reads «nicht erreichbar» and no host
+(RBAC audit, 22.10.2026).
 
 Fake mode (TRACCAR_FAKE=1, dev/testing only): `/positions` serves an injected in-memory
 fleet instead of a real Traccar server, so the Fahrzeuge layer can be exercised without
@@ -13,11 +16,12 @@ track run on it too.
 `/positions` answers every device from ONE Traccar call per 10 s (`traccar.cached_vehicle_positions`).
 """
 
+import logging
 import zlib
 from datetime import UTC, datetime
 
 import httpx
-from fastapi import APIRouter, Header, HTTPException, Request, status
+from fastapi import APIRouter, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from ..auth.dependencies import UserOrAdmin
@@ -28,6 +32,19 @@ from ..credentials import load as load_credentials
 from ..traccar import VehiclePosition, VehicleTrail, cached_vehicle_positions, fake_positions, traccar_client
 
 router = APIRouter(prefix="/traccar", tags=["traccar"])
+logger = logging.getLogger(__name__)
+
+#: The longest trail a caller may ask for: one Traccar report query per device spans this
+#: window, so an unbounded `?minutes=` was a way to make the server pull days of history.
+MAX_TRAIL_MINUTES = 240
+
+
+def _unreachable(caller: object | None, e: httpx.HTTPError) -> HTTPException:
+    """The 502 for a failed upstream call: the reason for the admin (``caller`` None), the
+    plain fact for anyone else — the exception text names the Traccar host and its errors."""
+    logger.warning("Traccar nicht erreichbar: %s", e)
+    detail = f"Traccar nicht erreichbar: {e}" if caller is None else "Traccar nicht erreichbar"
+    return HTTPException(status_code=502, detail=detail)
 
 
 def fake_device_id(name: str) -> int:
@@ -119,16 +136,17 @@ async def clear_fake_positions(
 
 
 @router.get("/status")
-async def traccar_status(_user: UserOrAdmin) -> dict:
+async def traccar_status(user: UserOrAdmin) -> dict:
     await load_credentials()
     if settings.traccar_fake:
         return {"configured": True, "host": "fake"}
-    # host is the non-secret server name (no scheme/credentials), for status display.
-    return {"configured": traccar_client.is_configured, "host": traccar_client.host}
+    # host is the non-secret server name (no scheme/credentials), for the admin's status card
+    # only — a field session needs to know THAT vehicles are tracked, not where from.
+    return {"configured": traccar_client.is_configured, "host": traccar_client.host if user is None else None}
 
 
 @router.get("/positions", response_model=list[VehiclePosition])
-async def positions(_user: UserOrAdmin) -> list[VehiclePosition]:
+async def positions(user: UserOrAdmin) -> list[VehiclePosition]:
     await load_credentials()
     if settings.traccar_fake:
         return list(_fake_positions)
@@ -137,11 +155,11 @@ async def positions(_user: UserOrAdmin) -> list[VehiclePosition]:
     try:
         return await cached_vehicle_positions()
     except httpx.HTTPError as e:
-        raise HTTPException(status_code=502, detail=f"Traccar nicht erreichbar: {e}") from e
+        raise _unreachable(user, e) from e
 
 
 @router.get("/trails", response_model=list[VehicleTrail])
-async def trails(_user: UserOrAdmin, minutes: int = 30) -> list[VehicleTrail]:
+async def trails(user: UserOrAdmin, minutes: int = Query(30, ge=1, le=MAX_TRAIL_MINUTES)) -> list[VehicleTrail]:
     await load_credentials()
     if settings.traccar_fake:
         return []  # fake fleet has no history
@@ -150,4 +168,4 @@ async def trails(_user: UserOrAdmin, minutes: int = 30) -> list[VehicleTrail]:
     try:
         return await traccar_client.get_trails(minutes=minutes)
     except httpx.HTTPError as e:
-        raise HTTPException(status_code=502, detail=f"Traccar nicht erreichbar: {e}") from e
+        raise _unreachable(user, e) from e
