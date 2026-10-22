@@ -84,7 +84,7 @@ def mount_spa(app: FastAPI) -> None:
         app.mount("/assets", ImmutableStaticFiles(directory=assets_dir), name="assets")
 
     @app.get("/{full_path:path}", response_model=None, include_in_schema=False)
-    async def spa_fallback(request: Request, full_path: str) -> FileResponse | JSONResponse:
+    async def spa_fallback(request: Request, full_path: str) -> FileResponse | HTMLResponse | JSONResponse:
         # Never swallow API routes.
         if full_path.startswith("api/"):
             return JSONResponse({"detail": "Not Found"}, status_code=404)
