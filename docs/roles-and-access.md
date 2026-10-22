@@ -40,7 +40,8 @@ wording unchanged.
   endpoints stay on `CurrentEditor`, with ONE exception: the Atemschutz-Link (a QR minted from a
   running Einsatz that lets a non-FU operate only the Atemschutzüberwachung) writes through
   `CurrentAtemschutzWriter` on exactly three routes – `PUT …/workspace/trupps`, `POST …/journal`
-  (`kind: 'team'` rows only) and `POST …/events` (`atemschutz.*` only); the allowlist and the
+  (`kind: 'team'` rows only, a `patchOf` only onto its own rows) and `POST …/events`
+  (`atemschutz.*` only); the allowlist and the
   liveness rules live in `backend/app/auth/incident_link.py`. ⚠️ Every link kind may also
   `POST /api/diag/client-error` (24.09.2026), even with a dead session (liveness-exempt). The
   route needs no session and is throttled per source in its own handler. Without it, a crash on
@@ -83,6 +84,28 @@ and the Erfassungs-Poster's capture token get 403: a link is scoped to one Einsa
 become a door onto the station's whole register (`api/station_reference · get_station_reader`,
 and the link allowlist does not name these routes). What a role may do from there – start an
 Objektbesuch – stays `objectVisits.captureRoles`.
+
+## Hardening from the RBAC audit (22.10.2026)
+
+- **Hard delete without the Verwaltung** needs an Übung **created as one and never marked real**
+  (`incidents.exercise_since_creation`). «Übung» stays an Einsatzdaten field (editor and el), so
+  a real Einsatz flipped to Übung is stats-excluded but takes the admin door (archived, admin
+  session, WARNING log) like any real one. Rows from before the column count as created-Übung
+  only if their hash chain holds no Übung toggle at all.
+- **`via` is the server's stamp.** An Atemschutz link's rows get `atemschutz-link` /
+  `atemschutz-fix`, the Erfassungs-Poster's `capture`, everyone else's none – a client-sent `via`
+  is dropped. A link or the poster may `patchOf` (retract, reword) only a row of its own channel;
+  the poster writes no `kind` at all.
+- **`GET /api/config`**: `alarms.webhooks` and `sharepoint.sources` reach an admin session only;
+  `objectVisits.destinations` every PIN session, no anonymous caller, no link
+  (CONFIGURATION.md §1a).
+- **A role change ends the account's sessions** (`revoke_sessions`, like a PIN reset): a device
+  learns its role at sign-in. The last active editor cannot be demoted to `el` or `viewer`.
+- **A viewer's Rapport-PDF embeds its own Einsatz's media only** – the window applies to what
+  the composer opens, not just to `GET /api/media`.
+- **Every link kind is narrowed like the view link**: `/api/objects/{id}` and Objektpläne only
+  for the objects this Einsatz surfaced, other reference datasets only as furniture (geodata,
+  symbols, Checklisten, Tafel templates), no `/api/objects` register list, no inactive personnel.
 
 ## Signing in with Microsoft (optional)
 

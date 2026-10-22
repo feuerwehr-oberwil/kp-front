@@ -298,6 +298,17 @@ async def test_cannot_deactivate_last_editor(client, editor, admin_login):
         assert (await c2.patch(f"/api/auth/users/{cmd2_id}", json={"role": "viewer"})).status_code == 400
 
 
+@pytest.mark.parametrize("role", ["viewer", "el"])
+async def test_the_last_editor_cannot_be_demoted(client, editor, viewer, admin_login, role):
+    """`el` is no editor either — demoting the last one to `el` slipped past a guard that only
+    knew `viewer` (RBAC audit, 22.10.2026). Run by the admin alone, so the count guard and not
+    the self guard is what answers."""
+    await admin_login(client)
+    r = await client.patch(f"/api/auth/users/{editor.id}", json={"role": role})
+    assert r.status_code == 400, r.text
+    assert "letzte aktive Bearbeiter" in r.json()["detail"]
+
+
 async def test_last_editor_guard_not_self(client, editor, viewer, admin_login):
     """A different editor deactivating the last active editor is blocked by the
     count guard (not the self guard)."""

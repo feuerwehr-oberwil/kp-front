@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import storage
 from ..auth.dependencies import CurrentUser
+from ..auth.viewer_scope import is_viewer
 from ..database import get_db
 from ..models import DeploymentConfig as DeploymentConfigRow
 from ..models import DiveraEmergency, Media, PlanRevision, ReferenceDataset
@@ -106,12 +107,17 @@ class ReportAssetScope:
     """Which server-owned assets a caller may pull into the rapport it asks us to compose.
 
     Only a caller whose read surface is NARROWER than the station needs one, which is why the
-    parameter is optional everywhere and defaults to ``None`` = no extra restriction: an
-    ordinary session already reads every incident's media and every reference dataset through
-    the plain API, so scoping its own rapport would remove legitimate documents and close
-    nothing.
+    parameter is optional everywhere and defaults to ``None`` = no extra restriction: an editor
+    or el already reads every incident's media and every reference dataset through the plain
+    API, so scoping its own rapport would remove legitimate documents and close nothing.
 
-    The Erfassungs-Poster is the one caller that IS narrower. Its token reaches a window of
+    A signed-in ``viewer`` is narrower: it reads only the Einsätze inside its window
+    (auth/viewer_scope), and a foreign ``/api/media/<id>`` in the payload let it print an
+    out-of-window photo it could not GET (RBAC audit S6, 22.10.2026). Its rapport takes the
+    path incident's media only; the plans stay open (``plan_dataset_ids=None``) — a viewer reads
+    every reference dataset anyway.
+
+    The Erfassungs-Poster is narrower still: no plans at all. Its token reaches a window of
     incidents, never the map and never the Pläne, and each of its routes authorises exactly one
     incident. The route knew that; the resolver below — the code that actually opens files —
     did not, so a payload could name an archived incident's photo UUID and get the bytes back
@@ -123,8 +129,8 @@ class ReportAssetScope:
     incident_id: uuid.UUID
     #: Incidents whose media may be embedded.
     media_incident_ids: frozenset[uuid.UUID]
-    #: Reference datasets whose plan PDFs may be printed. Empty = no plans at all.
-    plan_dataset_ids: frozenset[str]
+    #: Reference datasets whose plan PDFs may be printed. Empty = no plans at all, None = any.
+    plan_dataset_ids: frozenset[str] | None
 
 
 def _out_of_scope() -> HTTPException:
@@ -164,6 +170,8 @@ async def _check_asset_scope(db: AsyncSession, data: ReportPayload, scope: Repor
         if media is not None and media.incident_id not in scope.media_incident_ids:
             raise _out_of_scope()
 
+    if scope.plan_dataset_ids is None:
+        return
     for pp in data.planPages:
         if not pp.url:
             continue
@@ -346,7 +354,7 @@ def report_filename(title: str) -> str:
 @router.post("/incidents/{incident_id}/report/pdf")
 async def report_pdf(
     incident_id: uuid.UUID,
-    _user: CurrentUser,
+    user: CurrentUser,
     payload: str = Form(...),
     figures: list[UploadFile] = File(default=[]),
     db: AsyncSession = Depends(get_db),
@@ -362,7 +370,13 @@ async def report_pdf(
         if 0 < len(blob) <= _MAX_FIGURE_BYTES:
             figs[f.filename] = blob
 
-    pdf, _ = await compose_report_from_payload(db, payload, figs)
+    # A viewer's rapport embeds its own Einsatz's media only (ReportAssetScope says why).
+    scope = (
+        ReportAssetScope(incident_id=inc.id, media_incident_ids=frozenset({inc.id}), plan_dataset_ids=None)
+        if is_viewer(user)
+        else None
+    )
+    pdf, _ = await compose_report_from_payload(db, payload, figs, scope)
     return Response(
         content=pdf,
         media_type="application/pdf",

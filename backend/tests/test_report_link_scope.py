@@ -367,17 +367,17 @@ async def test_revoking_still_ends_an_open_view_session(client, editor, incident
 
 
 async def test_the_alarm_link_keeps_the_lage_map_it_was_built_for(client, link_key, incident, db_session):
-    """A responder on the way to a RUNNING Einsatz still gets the station's objects, the roster
-    and the live fleet — that link is not the one that leaves the building."""
+    """A responder on the way to a RUNNING Einsatz still gets the roster and the live fleet —
+    that link is not the one that leaves the building. (Not the object register: see
+    `test_no_link_kind_reads_the_object_register`.)"""
     person = Personnel(display_name="Meier Hans", is_active=True)
     db_session.add(person)
     await db_session.commit()
     await db_session.refresh(person)
 
     await _open_alarm_link(client)
-    for url in ("/api/objects", "/api/personnel"):
-        r = await client.get(url)
-        assert r.status_code == 200, f"GET {url} answered {r.status_code} for an alarm link: {r.text[:200]}"
+    r = await client.get("/api/personnel")
+    assert r.status_code == 200, f"GET /api/personnel answered {r.status_code} for an alarm link: {r.text[:200]}"
     # traccar/weather answer 503 here (no upstream configured in tests) — what matters is that
     # the GATE let them through, i.e. they never answer the allowlist's 403.
     for url in ("/api/traccar/positions", "/api/traccar/trails", "/api/traccar/status", "/api/weather"):
@@ -546,6 +546,53 @@ async def test_a_plan_of_an_object_that_is_merely_elsewhere_stays_shut(client, e
     assert (await client.get(f"/api/reference/{near_plan}")).status_code == 200
     assert (await client.get(f"/api/objects/{far.id}")).status_code == 403
     assert (await client.get(f"/api/reference/{far_plan}")).status_code == 403
+
+
+async def _open_atemschutz_link(client, editor, incident) -> None:
+    await _login_editor(client, editor)
+    r = await client.post(f"/api/incidents/{incident.id}/atemschutz-link")
+    assert r.status_code == 200, r.text
+    client.cookies.delete(ACCESS_COOKIE)
+    r = await client.post("/api/incident-link/session", json={"token": r.json()["token"]})
+    assert r.status_code == 200, r.text
+
+
+@pytest.mark.parametrize("kind", ["alarm", "atemschutz"])
+async def test_no_link_kind_reads_the_object_register(client, editor, link_key, incident, db_session, kind):
+    """RBAC audit S7 (22.10.2026): only the view link was narrowed, so the alarm, terminal and
+    Atemschutz links read the whole register and every Objektplan. A laminated QR on a wall is
+    not a door onto the station's buildings. What the Einsatz points at — and the station
+    furniture the board and the map draw — stays readable."""
+    here, here_plan = await _object_with_plan(db_session, name="Hier", address=ADDRESS, dataset_id="plan:here:modul1")
+    elsewhere, elsewhere_plan = await _object_with_plan(
+        db_session, name="Anderswo", address="Bahnhofweg 9", dataset_id="plan:else:modul1"
+    )
+    checklists = await _unbound_dataset(db_session, dataset_id="checklists:fu-aktion", kind="checklists", ext=".json")
+    tafel = await _unbound_dataset(db_session, dataset_id="tafel:fks", kind="tafel", ext=".json")
+    unbound_pdf = await _unbound_dataset(db_session, dataset_id="plan:loose", kind="pdf", ext=".pdf")
+
+    if kind == "alarm":
+        await _open_alarm_link(client)
+    else:
+        await _open_atemschutz_link(client, editor, incident)
+
+    for url in (
+        "/api/objects",
+        f"/api/objects/{elsewhere.id}",
+        f"/api/reference/{elsewhere_plan}",
+        f"/api/reference/{unbound_pdf}",
+    ):
+        r = await client.get(url)
+        assert r.status_code == 403, f"{kind} link reached {url}: {r.text[:200]}"
+        assert r.json()["detail"] == DENIED_DETAIL
+    for url in (
+        f"/api/objects/{here.id}",
+        f"/api/reference/{here_plan}",
+        f"/api/reference/{checklists}",
+        f"/api/reference/{tafel}",
+    ):
+        r = await client.get(url)
+        assert r.status_code == 200, f"{kind} link refused {url}: {r.status_code} {r.text[:200]}"
 
 
 async def test_an_unknown_dataset_id_is_refused_like_a_forbidden_one(client, editor, incident):

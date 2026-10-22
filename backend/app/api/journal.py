@@ -134,6 +134,34 @@ async def append_rows(db: AsyncSession, incident_id: uuid.UUID, entries: list[di
     return accepted
 
 
+async def patches_stay_in_channel(db: AsyncSession, incident_id: uuid.UUID, entries: list[dict], via: str) -> bool:
+    """True when every `patchOf` row in `entries` targets a row its own channel wrote.
+
+    A patch row (`retracted`, `textEdit`, …) is folded onto its target on every device and in
+    the printed Rapport, so a channel narrower than the KP — an Atemschutz link, the
+    Erfassungs-Poster — may correct only its OWN rows (RBAC audit S2, 22.10.2026): a stored
+    target must carry this channel's `via`, an unstored one must be a plain row of this very
+    batch. ⚠️ Stored wins over «in the batch»: a batch that repeats a stored row's id is skipped
+    as a replay, and its patch would otherwise land on the KP's row.
+    """
+    targets = {e["patchOf"] for e in entries if "patchOf" in e}
+    if not targets:
+        return True
+    stored = dict(
+        (
+            await db.execute(
+                select(JournalEntry.client_id, JournalEntry.row_json).where(
+                    JournalEntry.incident_id == incident_id, JournalEntry.client_id.in_(targets)
+                )
+            )
+        )
+        .tuples()
+        .all()
+    )
+    in_batch = {e.get("id") for e in entries if "patchOf" not in e}
+    return all((stored[t] or {}).get("via") == via if t in stored else t in in_batch for t in targets)
+
+
 async def append_system_row(
     db: AsyncSession, incident_id: uuid.UUID, *, icon: str, text: str, lifecycle: str | None = None
 ) -> None:
@@ -178,18 +206,29 @@ async def append_journal(
     Editors — and since 07.09.2026 the ``el`` role, whose record edits log here — append
     anything: the Verlauf is append-only and rows are attributable, so a wider vocabulary
     costs the record nothing. An ATEMSCHUTZ-link session appends `kind == "team"` rows and
-    nothing else — it holds the Atemschutzüberwachung, not the Verlauf — and every row it
-    writes is stamped `via` so the record says where it came from. A row of any other kind is
-    the link refusal, never a 422: the generic message is what keeps a link holder from
-    mapping this API by watching which rejections differ.
+    nothing else — it holds the Atemschutzüberwachung, not the Verlauf — patches only its own
+    rows, and every row it writes is stamped `via` so the record says where it came from. A
+    refused row is the link refusal, never a 422: the generic message is what keeps a link
+    holder from mapping this API by watching which rejections differ. Any other writer's
+    `via` is dropped — only the server stamps it.
     """
     if len(body.entries) > MAX_BATCH:
         raise HTTPException(status_code=422, detail=f"Batch zu gross (max. {MAX_BATCH})")
     if is_atemschutz_link(user):
-        if any(e.get("kind") != "team" for e in body.entries):
+        via = atemschutz_link_source(user)
+        # ⚠️ and a `patchOf` only onto the link's own rows: a «team» patch row with `retracted` /
+        # `textEdit` used to hide or reword ANY Verlauf row (RBAC audit S2, 22.10.2026).
+        if any(e.get("kind") != "team" for e in body.entries) or not await patches_stay_in_channel(
+            db, incident_id, body.entries, via
+        ):
             raise _Denied()
         for e in body.entries:
-            e["via"] = atemschutz_link_source(user)
+            e["via"] = via
+    else:
+        # `via` is the SERVER's provenance stamp; a signed-in writer claiming one would make its
+        # row print as a link's (Journal · the «via Atemschutz-Link» footnote).
+        for e in body.entries:
+            e.pop("via", None)
     # acknowledged (2xx, so the device's outbox lets go of them) and not stored — see below. FIRST,
     # before the closed check: a server-owned observation an old build still writes is dropped
     # whether the Einsatz is closed or not (never stored ⇒ never refused).
