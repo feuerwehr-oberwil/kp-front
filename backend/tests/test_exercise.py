@@ -3,16 +3,20 @@
 Contract under test:
 - the flag round-trips through create / patch / the meta view (default False);
 - hard DELETE is exercise-only: a real Einsatz answers 403 and stays, an Übung
-  answers 204 and is gone (the append-only record model only bends for Übungen);
+  answers 204 and is gone (the append-only record model only bends for Übungen) — and
+  «Übung» means created as one: a real Einsatz flipped later keeps the admin door;
 - viewers cannot delete at all (editor gate);
 - the stats export excludes Übungen by default; ?include_exercises=1 exports them
   and every record carries the is_exercise marker.
 """
 
+import logging
+
 import pytest
 from sqlalchemy import select
 
 from app.models import DeploymentConfig
+from tests.conftest import _make_user
 
 pytestmark = pytest.mark.asyncio
 
@@ -111,6 +115,53 @@ async def test_delete_exercise_removes_it(client, editor):
 
     r = await client.get(f"/api/incidents/{inc_id}")
     assert r.status_code == 404
+
+
+async def test_create_stamps_exercise_since_creation(client, editor):
+    await _login(client, editor)
+    ex_id = await _create(client, "Übung Leiter", exercise=True)
+    real_id = await _create(client, "Brand")
+    metas = {m["id"]: m for m in (await client.get("/api/incidents")).json()}
+    assert metas[ex_id]["exercise_since_creation"] is True
+    assert metas[real_id]["exercise_since_creation"] is False
+
+
+@pytest.mark.parametrize("role", ["editor", "el"])
+async def test_a_real_einsatz_flipped_to_uebung_is_not_deletable(client, editor, db_session, role):
+    """RBAC audit S1: «Übung» is an Einsatzdaten field (editor and el), so «flip, then DELETE»
+    hard-deleted a real Einsatzakte without the Verwaltung. The flip stays allowed; the delete
+    does not follow it."""
+    writer = editor if role == "editor" else await _make_user(db_session, username="el", role="el")
+    await _login(client, editor)
+    inc_id = await _create(client, "Echter Brand")
+    await _login(client, writer)
+    assert (await client.patch(f"/api/incidents/{inc_id}", json={"is_exercise": True})).status_code == 200
+
+    await _login(client, editor)
+    assert (await client.delete(f"/api/incidents/{inc_id}")).status_code == 403
+    r = await client.get(f"/api/incidents/{inc_id}")
+    assert r.status_code == 200
+    assert r.json()["is_exercise"] is True  # still stats-excluded, just not disposable
+
+
+async def test_an_uebung_once_marked_real_stays_real_for_the_delete(client, editor):
+    """Born an Übung, marked real, flipped back: it was a real Einsatz in between, and the
+    cheap door would otherwise be a create-as-Übung loophole."""
+    await _login(client, editor)
+    inc_id = await _create(client, "Übung wird ernst", exercise=True)
+    await client.patch(f"/api/incidents/{inc_id}", json={"is_exercise": False})
+    await client.patch(f"/api/incidents/{inc_id}", json={"is_exercise": True})
+    assert (await client.delete(f"/api/incidents/{inc_id}")).status_code == 403
+
+
+async def test_admin_still_deletes_a_flipped_einsatz_and_logs_it(client, editor, admin_login, caplog):
+    await _login(client, editor)
+    inc_id = await _create(client, "Fehlalarm")
+    await client.patch(f"/api/incidents/{inc_id}", json={"is_exercise": True, "is_archived": True})
+    await admin_login(client)
+    with caplog.at_level(logging.WARNING, logger="app.api.incidents"):
+        assert (await client.delete(f"/api/incidents/{inc_id}")).status_code == 204
+    assert any("ADMIN DELETE" in r.getMessage() for r in caplog.records)
 
 
 async def test_viewer_cannot_delete(client, editor, viewer):

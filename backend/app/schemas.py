@@ -147,6 +147,9 @@ class IncidentMeta(BaseModel):
     last_closed_at: datetime | None = None
     is_archived: bool
     is_exercise: bool = False
+    #: Übung since creation, never marked real — the only kind an editor may hard-delete
+    #: (models · Incident.exercise_since_creation)
+    exercise_since_creation: bool = False
     report_done_at: datetime | None = None
     # Cross-visibility: latch of the first editor open (QR side shows «KP-Tablet aktiv»),
     # and capture write count/last-write (tablet side shows «QR: N Einträge · zuletzt HH:MM»).

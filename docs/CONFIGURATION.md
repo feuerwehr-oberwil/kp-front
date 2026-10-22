@@ -610,12 +610,19 @@ which are the app's, not the station's. And `alarmKeywords` is deployment data: 
 shipped file it is never checksummed and never compared against kp-rueck.
 
 **Who can read it back.** `GET /api/config` is public – the login screen needs branding before
-anyone can log in – and `alarmKeywords` is the one section withheld from anonymous callers. The
+anyone can log in – and `alarmKeywords` is withheld from anonymous callers. The
 words are not secret (the shipped vocabulary is on GitHub), but nothing in the frontend reads
 them: matching is entirely server-side, so publishing a station's wording pre-login would be
 surface for nothing. An **admin session gets the full block**, which is not a detail: the admin
 UI does a full-document `PUT`, so a section the admin never received is a section the next
 unrelated edit would silently delete.
+
+Three more are withheld (RBAC audit, 22.10.2026), emptied rather than removed so the answer looks
+like a station that configured none: **`alarms.webhooks` and `sharepoint.sources` reach an admin
+session only** – addresses the server talks to, and a webhook URL is often a capability (a
+`sig=`, a `?secret=`); no client but `/admin` reads them. **`objectVisits.destinations` reaches
+every PIN session** (the Objektbesuch's «Ablage» line reads it) but no anonymous caller and no
+link, like `report.links`.
 
 What stays public either way is the `alarmVocabulary` **summary** – `source`
 (`shipped` | `deployment`), `schemaVersion` and counts, never the words – so "is my override
@@ -802,7 +809,7 @@ enforces it, not only the app («Station › Objektbesuche › Korrektur-Fenster
 no object, goes to the destination's `locationFolder`, «Allgemeine Meldungen/…» by default). The full contract – the
 visit document, the APIs, the delivery – is [`object-visits.md`](object-visits.md); setting up a
 destination is [`object-visits-sharepoint.md`](object-visits-sharepoint.md). No credential lives in
-the section (`GET /api/config` is public): the writer's app registration is the
+the section (`GET /api/config` serves `destinations` to PIN sessions only – «Who can read it back», §1a): the writer's app registration is the
 `sharepoint_export` credential group, the organizer's key `object_visits_integration_key`.
 
 ### 1f. `access` – how far back a read-only account reads

@@ -108,7 +108,8 @@ async def revoke_sessions(db: AsyncSession, user: User) -> None:
     The one lever behind «throw them out»: a PIN reset and a deactivation both pull it, so an
     admin rotating a compromised credential actually removes whoever was already inside
     (security audit SEC-05). Deactivation pulling it too is what stops a later reactivation
-    from reviving the sessions the deactivation denied.
+    from reviving the sessions the deactivation denied. A role change pulls it so the device
+    signs in again and learns the new role (RBAC audit S4, 22.10.2026).
 
     The bump is an atomic ``gen = gen + 1`` at the row, NOT a read-modify-write on the ORM
     value: two overlapping resets that both read generation 0 would each write 1, leaving a
@@ -368,12 +369,14 @@ async def update_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benutzer nicht gefunden")
 
-    # Detect the two dangerous transitions on a currently-active editor.
+    # Detect the two dangerous transitions on a currently-active editor. ⚠️ Demoting is ANY
+    # role but editor — `el` writes the record but not the Lage, so an `el` is no editor either;
+    # checking for `viewer` alone let the last editor be demoted to `el` (RBAC audit, 22.10.2026).
     deactivating = body.is_active is False and user.is_active
-    demoting = body.role == "viewer" and user.role == "editor"
+    demoting = body.role is not None and body.role != "editor" and user.role == "editor"
 
     if (deactivating or demoting) and current is not None and user.id == current.id:
-        verb = "deaktivieren" if deactivating else "zum Betrachter herabstufen"
+        verb = "deaktivieren" if deactivating else "herabstufen"
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Du kannst dein eigenes Konto nicht {verb}.",
@@ -392,7 +395,12 @@ async def update_user(
         user.display_name = body.display_name
     if body.color is not None:
         user.color = body.color
-    if body.role is not None:
+    if body.role is not None and body.role != user.role:
+        # A device keeps the role it signed in with (the client reads it once, off /me), so a
+        # role change ends every session like a PIN reset does. Left standing, an editor made
+        # `el` mid-Einsatz kept an editor UI whose tactical edits the server no longer stored
+        # (RBAC audit S4, 22.10.2026); signing in again is what hands the device the new role.
+        await revoke_sessions(db, user)
         user.role = body.role
     if body.is_active is not None:
         if deactivating:

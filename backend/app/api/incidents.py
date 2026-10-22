@@ -313,6 +313,8 @@ async def create_incident(body: IncidentCreate, user: CurrentEditor, db: AsyncSe
         source="manual",
         status="offen",
         is_exercise=body.is_exercise,
+        # the one stamp that lets an editor delete without the Verwaltung (models · Incident)
+        exercise_since_creation=body.is_exercise,
         created_by=user.id,
     )
     if body.started_at:
@@ -795,6 +797,10 @@ async def patch_incident(
         # it overrides whatever the alerting system said, and it upgrades an unknown
         # (server-default) time to a known one.
         inc.started_at_source = "manual"
+    if data.get("is_exercise") is False:
+        # Marked real once, never cheaply deletable again — even if it is flipped back to Übung
+        # (models · Incident.exercise_since_creation).
+        inc.exercise_since_creation = False
     if "is_exercise" in data and data["is_exercise"] != exercise_before:
         await audit.append_event(
             db,
@@ -1160,6 +1166,9 @@ async def delete_incident(
       be thrown away, and needing an admin for it would make the tidy-up cost more than the
       exercise. That is the whole point of the flag, and a Wehr that cannot clear its own
       practice runs stops marking them as practice runs. A viewer still cannot (403).
+      «Übung» here means CREATED as one and never marked real since
+      (``exercise_since_creation``) — a real Einsatz someone marked Übung later is a real
+      Einsatz for this door.
 
     ⚠️ The door is ``EditorOrAdmin``, not ``CurrentEditor``: the Verwaltung's own incident list
       offers this button, and /admin is reached with an ADMIN cookie that need not be
@@ -1180,10 +1189,14 @@ async def delete_incident(
     inc = await get_incident_or_404(db, incident_id)
     if await is_demo_deployment(db):
         raise HTTPException(status_code=403, detail="In der Demo können Einsätze nicht gelöscht werden.")
-    if not inc.is_exercise:
+    # ⚠️ `exercise_since_creation`, not `is_exercise`: the flag is an Einsatzdaten field, so
+    # «flip to Übung, then delete» used to hard-delete a real Einsatz without the key (RBAC audit
+    # S1, 22.10.2026). A real Einsatz marked Übung later takes the admin door like any other.
+    if not (inc.is_exercise and inc.exercise_since_creation):
         if not await _admin_session_valid(admin_session):
             raise HTTPException(
-                status_code=403, detail="Nur Übungen können gelöscht werden — ein echter Einsatz braucht die Verwaltung"
+                status_code=403,
+                detail="Nur als Übung angelegte Einsätze können gelöscht werden — ein echter Einsatz braucht die Verwaltung",
             )
         if not inc.is_archived:
             raise HTTPException(

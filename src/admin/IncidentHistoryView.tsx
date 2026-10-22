@@ -68,12 +68,13 @@ export function IncidentHistoryView() {
                   <td><span className="adm-view-badge adm-view-badge-muted">{incident.source}</span></td>
                   <td>{incident.report_done_at ? C.complete : C.incomplete}</td>
                   <td className="adm-time">{fmtDateTime(incident.updated_at)}</td>
-                  {/* The backend's two doors, mirrored: an Übung is disposable and goes in any
-                      state, a real Einsatz only once it is CLOSED — archiving is the operator
-                      saying it is over, and the only moment «löschen» is a decision rather than
-                      an accident. A running Einsatz is refused server-side either way (409). */}
+                  {/* The backend's two doors, mirrored: an Übung (created as one, never marked
+                      real) is disposable and goes in any state, a real Einsatz only once it is
+                      CLOSED — archiving is the operator saying it is over, and the only moment
+                      «löschen» is a decision rather than an accident. A running Einsatz is
+                      refused server-side either way (409). */}
                   <td className="adm-c-act">
-                    {closed || incident.is_exercise ? (
+                    {closed || (incident.is_exercise && incident.exercise_since_creation) ? (
                       <button type="button" className="btn adm-danger-btn"
                         aria-label={fillTemplate(C.deleteAria, { title: incident.title })}
                         onClick={() => setAsking(incident)}>{C.delete}</button>

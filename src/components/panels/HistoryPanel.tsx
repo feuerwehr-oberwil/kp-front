@@ -138,8 +138,9 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
                 ? onArchive && <button className="ip-btn" onClick={() => reactivate(i.id)}>{h.reactivate}</button>
                 : onArchive && <button className="ip-btn ip-hist-close" onClick={() => void archive(i.id)}>{h.archiveConfirmBtn}</button>}
               {/* delete only for ARCHIVED exercises (editor-gated via onArchive) — an open
-                  Übung is first abgeschlossen like any incident, then deletable */}
-              {i.is_exercise && i.is_archived && onArchive && (
+                  Übung is first abgeschlossen like any incident, then deletable. Only one
+                  CREATED as Übung: a real Einsatz marked Übung later needs the Verwaltung */}
+              {i.is_exercise && i.exercise_since_creation && i.is_archived && onArchive && (
                 <button className="ip-btn ip-btn-danger" onClick={() => void removeExercise(i)} aria-label={h.deleteConfirmTitle}>
                   <Icon id="trash" /> {h.deleteExercise}
                 </button>
