@@ -17,8 +17,9 @@ export interface WeatherApi {
  * picks the nearest MeteoSwiss station (Open-Meteo fallback) and TTL-caches, so polling
  * every ~10 min is cheap. Re-fetches when the incident center moves enough to round to a
  * different ~1 km cell. Returns `{ data, error }`; `data` is null while loading / on error.
+ * `enabled` false asks nothing and stays `{ null, null }` (a session the route refuses).
  */
-export function useWeather(center: LngLat): WeatherApi {
+export function useWeather(center: LngLat, enabled = true): WeatherApi {
   const [data, setData] = useState<WeatherData | null>(null)
   const [error, setError] = useState<string | null>(null)
   // Round the key so a sub-km map jitter doesn't re-fire the effect every render.
@@ -26,6 +27,7 @@ export function useWeather(center: LngLat): WeatherApi {
   const lng = Math.round(center[0] * 100) / 100
 
   useEffect(() => {
+    if (!enabled) return
     let alive = true
     const poll = async () => {
       try {
@@ -46,7 +48,7 @@ export function useWeather(center: LngLat): WeatherApi {
       alive = false
       stop()
     }
-  }, [lat, lng])
+  }, [lat, lng, enabled])
 
   return useMemo(() => ({ data, error }), [data, error])
 }

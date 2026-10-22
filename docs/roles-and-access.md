@@ -73,6 +73,17 @@ wording unchanged.
   address, `<img>`, service worker) answer as the link guest otherwise. That «Abmelden» **always
   confirms** (23.09.2026, `lib/logoutConfirm`), in one card that adds the offline and the
   unsent-entries cost when there is one.
+- **Alerts and requests per session** (RBAC audit, 22.10.2026). A due Wiedervorlage rings – tone
+  and OS notification – only for the sessions that can tick it off, `editor` and `el`
+  (`RemindersHost · alert`); a viewer or a link shows the due row silently and its Pendenzen ring
+  and text as read-outs. The Atemschutz alarm is unchanged and rings everywhere. A lost tab lock
+  says so (banner + the «Eintrag» toast) to every session that writes the Verlauf, the `el`
+  included. A link page never asks for what its allowlist refuses: no Traccar, weather or radar
+  poll and no Gebäude card on a view link (`liveFeeds`), none of those on the Atemschutz-Link's
+  Tafel either (it shows none), no Overpass warm-up and no audio waveform (`…/peaks`) on any
+  link, and no push subscription from a page whose own link session answers
+  (`linkPageOwnsSession`). An `el`'s Rapport one-shots (Beilagen) audit their ↶/↷ as
+  `report.undo`/`report.redo`, which its event scope keeps.
 
 ## The viewer's window (since 2026-10-21)
 

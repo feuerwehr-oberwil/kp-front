@@ -31,8 +31,9 @@ export interface VehicleLayer {
   gpsAgeMs: number | null
 }
 
-export function useVehicleLayer(initOverrides: VehicleOverrides): VehicleLayer {
-  const gps = useVehiclePositions()
+/** `live` false: no GPS poll at all (useVehiclePositions · enabled) – the overrides still load */
+export function useVehicleLayer(initOverrides: VehicleOverrides, live = true): VehicleLayer {
+  const gps = useVehiclePositions(live)
   const [overrides, setOverrides] = useState<VehicleOverrides>(initOverrides)
 
   const liveVehicles = useMemo(() => gps.vehicles.map((v) => {

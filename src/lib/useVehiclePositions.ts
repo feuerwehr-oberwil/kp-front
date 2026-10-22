@@ -173,8 +173,11 @@ export function vehiclesSignature(entities: Entity[]): string {
  * default) the path is same-origin: our own backend serves it in production,
  * and the Vite proxy forwards it in dev (see vite.config.ts). VITE_KP_RUECK_URL
  * only exists to point a build at a different backend origin.
+ *
+ * `enabled` false asks nothing at all — a session the route refuses (a Rapport view link) or
+ * that never shows a vehicle (the Atemschutz-Link's Tafel); the list stays empty.
  */
-export function useVehiclePositions(): VehiclePositionsApi {
+export function useVehiclePositions(enabled = true): VehiclePositionsApi {
   const [vehicles, setVehicles] = useState<Entity[]>([])
   const [error, setError] = useState<string | null>(null)
   // Timestamp of the last poll that actually returned data. A REF, not state, on purpose:
@@ -201,6 +204,7 @@ export function useVehiclePositions(): VehiclePositionsApi {
   useFeedPoll<VehiclePosition[]>({
     path: cfg.positionsPath,
     pollMs: cfg.pollMs,
+    enabled,
     deadStatuses: TRACCAR_DEAD_STATUSES,
     onData: (data) => {
       for (const p of data) {

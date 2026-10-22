@@ -1,4 +1,5 @@
 import { apiGet, apiPost } from './api'
+import { linkPageOwnsSession } from './linkMode'
 
 /**
  * Web-Push subscription (killed-app alarms). The in-app alarm layer covers a foregrounded
@@ -18,6 +19,11 @@ let attempted = false
 
 /** Idempotent per session; call after login and again after a permission grant. */
 export async function ensurePushSubscription(force = false): Promise<boolean> {
+  // ⚠️ Not from a page whose own link session answers (the Atemschutz-Link, the terminal): the
+  // push routes are on no link allowlist, and each Trupp-Formular's permission ask
+  // (alarm · ensureNotifyPermission) re-ran this as a 403 (RBAC audit §3, 22.10.2026). The
+  // Atemschutz alarm still rings there – tone and the page's own notification.
+  if (linkPageOwnsSession()) return false
   if (attempted && !force) return false
   attempted = true
   try {
