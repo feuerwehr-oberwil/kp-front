@@ -46,6 +46,9 @@ interface Args {
    *  assigned to the ref in the same render — so an effect reads the render's own `log`. */
   histSide: MutableRefObject<{ log: (icon: string, text: string, kind?: TimelineEvent['kind']) => void }>
   readOnly: boolean
+  /** the session pushes the whole blob (access · canWriteBlob): the two Gebäude seeds below write
+   *  `building`, which the el's record slice never carries */
+  canWriteBlob: boolean
   tacticalLocked: boolean
   replayActive: boolean
   twinLayers: Record<string, boolean>
@@ -77,7 +80,7 @@ interface Args {
  */
 export function useGeorefFits({
   planDocs, planScale, building, setBuilding, planBindings, activeObjectId, board, objects, rebake,
-  planFitsRef, fitsVersion, setFitsVersion, stepLabelRef, histSide, readOnly, tacticalLocked, replayActive,
+  planFitsRef, fitsVersion, setFitsVersion, stepLabelRef, histSide, readOnly, canWriteBlob, tacticalLocked, replayActive,
   twinLayers, twinLayerOpacity, activePlanId, selectedId, liveVehicles, livePeople, isVisible, mapEntities,
 }: Args) {
   // --- Georeferenz: which plans are tied to the ground, and how ---------------------------------
@@ -147,10 +150,10 @@ export function useGeorefFits({
   [building, planBindings, activeObjectId])
   const floorPack = useMemo(() => floorPackOf(packBinding ? [packBinding] : [], packBinding?.objectId), [packBinding])
   useEffect(() => {
-    if (building?.pack && !building.pack.bindingId && packBinding && !readOnly) {
+    if (building?.pack && !building.pack.bindingId && packBinding && canWriteBlob) {
       setBuilding({ ...building, pack: { ...building.pack, bindingId: packBinding.id } })
     }
-  }, [building, packBinding, readOnly, setBuilding])
+  }, [building, packBinding, canWriteBlob, setBuilding])
   const stackFit = useMemo(() => (building ? stackGroundFit(building, floorPack?.fit) : null), [building, floorPack])
   // A floor pack IS the Gebäude (decided 14.09.2026): the moment the object's binding carries
   // floors and there is no stack yet, the stack comes up from the pack's pages – no footprint to
@@ -162,7 +165,7 @@ export function useGeorefFits({
     // coordinates mean, so re-measuring under existing ink would move the ink. A stack somebody
     // has already marked keeps the geometry it was marked on – for the whole Einsatz.
     const upgrade = !!building?.pack && building.tileAR == null && !(board.gebaeude ?? []).length
-    if ((building && !upgrade) || !floorPack?.floors.length || !floorPack.aspect || readOnly) return
+    if ((building && !upgrade) || !floorPack?.floors.length || !floorPack.aspect || !canWriteBlob) return
     let alive = true
     // ⚠️ The frame is measured BEFORE the stack exists, not corrected afterwards: tile coordinates
     // are relative to it, so a frame that moved under ink somebody had already drawn would take
@@ -184,7 +187,7 @@ export function useGeorefFits({
       .catch(() => { clearTimeout(fallback); seed(floorPack.frame) })
     return () => { alive = false; clearTimeout(fallback) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [building, floorPack, packBinding, readOnly, board.gebaeude?.length])
+  }, [building, floorPack, packBinding, canWriteBlob, board.gebaeude?.length])
   const fitsMap = useMemo(() => {
     const m = new Map<string, PlanFit>(linkedPlans.map((p) => [p.id, { fit: p.fit, aspect: p.widthM / p.fit.scaleMPerU }]))
     if (stackFit && building) m.set(gebaeudeDoc.id, { fit: stackFit, aspect: 1 / tileAspectOf(building), stack: { floors: building.floors } }) // aspect = width / height, like every sheet's

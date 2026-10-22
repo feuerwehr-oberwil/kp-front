@@ -730,7 +730,11 @@ export function AtemschutzView({
   // permission dialog thrown at their first taps — it reads as data grabbing on a demo site.
   // The audio unlock stays (idempotent, no permission involved) — moot on the demo itself,
   // where useAtemschutzAlarm suppresses the audible alarm anyway.
+  // ⚠️ A session that cannot write the Trupps never gets the form (RBAC audit V2, 22.10.2026): on
+  // the phone it pins the due Trupps with a live «Kontakt», which reset the clock and stopped the
+  // alarm on that one tablet while nothing reached the server.
   const openForm = (mode: FormMode, trupp?: Trupp, focus?: 'auftrag', adoptMarkerId?: string, presetAuftrag?: TruppAuftrag) => {
+    if (!canEdit) return
     unlockAlarm(); if (!isDemoMode()) void ensureNotifyPermission(); setForm({ mode, trupp, focus, adoptMarkerId, presetAuftrag })
   }
   // «Neuer Trupp» from a loose marker/chip — opened once per request nonce (see lastOpenedCreateNonce)
@@ -2692,7 +2696,7 @@ function TruppCard({
       {auftrag
         ? chip('auftrag', <span className={s.factTxt}>{auftrag}{t.ziel ? ` · ${t.ziel}` : ''}</span>, onQuick && (() => onQuick('auftrag')))
         : <>
-            {chip('auftrag', az.auftragAdd, () => (onQuick ? onQuick('auftrag') : onEdit('auftrag')), s.factDash)}
+            {chip('auftrag', az.auftragAdd, onQuick && (() => onQuick('auftrag')), s.factDash)}
             {t.ziel && chip('ziel', <span className={s.factTxt}>{t.ziel}</span>, onQuick && (() => onQuick('auftrag')))}
           </>}
       {dockedAt && chip('docked', <>{fillTemplate(az.dockedAt, { host: dockedAt })}{!lite && <Icon id="chevron" />}</>,

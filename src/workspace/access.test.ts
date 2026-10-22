@@ -41,6 +41,14 @@ describe('workspaceFlags', () => {
     // …and its outboxes still deliver what was queued before the close
     expect(f.outboxReadOnly).toBe(false)
   })
+  // RBAC audit S4c (22.10.2026): a machine seed of a non-record key only where the push carries it
+  it('only an editor\'s session pushes the whole blob – the el and the Atemschutz-Link do not', () => {
+    expect(flags({}).canWriteBlob).toBe(true)
+    expect(flags({ user: user('editor', { el_view_default: true }) }).canWriteBlob).toBe(true)
+    expect(flags({ user: user('el'), isEditor: false, isEl: true }).canWriteBlob).toBe(false)
+    expect(flags({ user: user('viewer'), isEditor: false, asLink: true }).canWriteBlob).toBe(false)
+    expect(flags({ tabLockLost: true }).canWriteBlob).toBe(false)
+  })
   it('a replay locks everything, the outboxes included', () => {
     expect(flags({ replayActive: true })).toMatchObject({ readOnly: true, outboxReadOnly: true, canEditRapport: false, tacticalLocked: true })
   })

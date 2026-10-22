@@ -679,14 +679,21 @@ describe('pointing to a Trupp', () => {
   })
 
   /* Since the slim-down (26.09.2026) the gap opens the one sheet that answers it — the Auftrag
-   * sheet with the six tiles (components/TruppSheets) — not the whole form on its Auftrag field. A
-   * viewer's card (no `onQuick`) still hands the gap to the form. */
+   * sheet with the six tiles (components/TruppSheets) — not the whole form on its Auftrag field. */
   it('opens the missing Auftrag («+ Auftrag») on the Auftrag sheet, tiles ready', () => {
     mount({ trupps: [{ ...aktivTrupp(), auftrag: undefined }] })
     fireEvent.click(screen.getByRole('button', { name: az.auftragAdd }))
     const sheet = screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })
     expect(within(sheet).getByRole('group', { name: az.editFieldLabels.auftrag })).toBeTruthy()
     expect(within(sheet).getByRole('button', { name: 'Löschen' })).toBeTruthy()
+  })
+
+  // RBAC audit V2 (22.10.2026): a viewer's gap handed the tap to the whole Trupp form, whose phone
+  // sheet pins the due Trupps with a live «Kontakt» – a clock reset on that one tablet only
+  it('a viewer sees the missing Auftrag as a read-out, not a door into the Trupp form', () => {
+    mount({ canEdit: false, trupps: [{ ...aktivTrupp(), auftrag: undefined }] })
+    expect(screen.getByText(az.auftragAdd)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: az.auftragAdd })).toBeNull()
   })
 })
 
