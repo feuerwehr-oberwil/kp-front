@@ -3,7 +3,7 @@
  */
 
 import { ApiError, apiBeacon, apiGet, apiPost, LONG_POLL_TIMEOUT_MS } from './api'
-import { idbRead, idbSet } from './idb'
+import { idbDel, idbKeys, idbRead, idbSet } from './idb'
 import { newId } from './ids'
 import { rowPhotos, swapUrl } from './verlauf'
 import type { TimelineEvent } from '../types'
@@ -51,12 +51,44 @@ interface JournalPage { entries: ServerRow[]; latest_seq: number }
  *  caches. */
 interface Persisted { rows: ServerRow[]; latestSeq: number; outbox: TimelineEvent[]; dead?: TimelineEvent[]; refused?: TimelineEvent[] }
 
-const KEY = (incidentId: string) => `kp-journal-${incidentId}`
+/** The outbox slot of one identity on one Einsatz (RBAC audit S5, 22.10.2026) — like the audit
+ *  store's (`kp-audit-<incident>:<owner>`). One slot per Einsatz used to be shared by every
+ *  identity on the device: an Atemschutz-Link opened on the FU's own phone hydrated the FU's
+ *  unsent rows and sent them as the link — a Meldung was the link's 403 (and the page froze as
+ *  «Link widerrufen»), a Trupp row went in stamped `via: atemschutz-link`. */
+const KEY = (incidentId: string, owner: string | null) => (owner ? `kp-journal-${incidentId}:${owner}` : LEGACY_KEY(incidentId))
+/** The pre-22.10.2026 slot, shared by every identity. A device LOGIN adopts it once (see
+ *  `JournalOwner.adoptsLegacy`) — on a shared device the login is who wrote those rows; a link
+ *  page never reads it. */
+const LEGACY_KEY = (incidentId: string) => `kp-journal-${incidentId}`
+
+/** Whose outbox a store keeps: `key` is the identity (`<user id>:<link kind or 'login'>`), and
+ *  `adoptsLegacy` says whether it takes over the shared pre-owner slot (the device login only). */
+export interface JournalOwner { key: string; adoptsLegacy: boolean }
+
+/** Merge snapshot `from` into `into`: rows by id; outbox, refused and dead deduped against what
+ *  the server accepted and against each other. */
+function mergePersisted(into: Persisted, from: Persisted): void {
+  const rowIds = new Set(into.rows.map((r) => r.row.id))
+  for (const r of from.rows ?? []) if (!rowIds.has(r.row.id)) into.rows.push(r)
+  into.rows.sort((a, b) => a.seq - b.seq)
+  const accepted = new Set(into.rows.map((r) => r.row.id))
+  const pending = new Map([...(from.outbox ?? []), ...into.outbox].map((r) => [r.id, r]))
+  into.outbox = [...pending.values()].filter((r) => !accepted.has(r.id))
+  const refused = new Map([...(from.refused ?? []), ...(into.refused ?? [])].map((r) => [r.id, r]))
+  into.refused = [...refused.values()].filter((r) => !accepted.has(r.id))
+  for (const r of into.refused) pending.delete(r.id)
+  into.outbox = into.outbox.filter((r) => !refused.has(r.id))
+  const dead = new Map([...(from.dead ?? []), ...(into.dead ?? [])].map((r) => [r.id, r]))
+  into.dead = [...dead.values()].filter((r) => !accepted.has(r.id) && !pending.has(r.id) && !refused.has(r.id))
+  into.latestSeq = Math.max(into.latestSeq, from.latestSeq ?? 0)
+}
 const FLUSH_BATCH = 400
 /** How soon a hydration whose IndexedDB read FAILED is tried again (see JournalStore.hydrate). */
 const REREAD_MS = 5_000
 // Same-page handoff only: rows entered before hydration have no safe full snapshot yet.
-// The next writable store merges them with its current cache; disposed stores never write.
+// The next writable store OF THE SAME SLOT (identity) merges them with its current cache;
+// disposed stores never write.
 const hydrationHandoffs = new Map<string, Map<string, TimelineEvent>>()
 
 const isBlob = (u: string) => u.startsWith('blob:')
@@ -108,8 +140,10 @@ const isPermanentRejection = (e: unknown): boolean =>
  */
 export async function persistedPendingRows(incidentIds: readonly string[]): Promise<number> {
   const counts = await Promise.all(incidentIds.map(async (id) => {
-    const read = await idbRead<Persisted>(KEY(id))
-    return read.ok && read.value ? (read.value.outbox?.length ?? 0) + (read.value.dead?.length ?? 0) : 0
+    // every identity's slot and the legacy one — the ask is about this DEVICE's unsent rows
+    const keys = await idbKeys(LEGACY_KEY(id))
+    const reads = await Promise.all((keys.ok ? (keys.value ?? []) : [LEGACY_KEY(id)]).map((k) => idbRead<Persisted>(k)))
+    return reads.reduce((n, read) => n + (read.ok && read.value ? (read.value.outbox?.length ?? 0) + (read.value.dead?.length ?? 0) : 0), 0)
   }))
   return counts.reduce((a, b) => a + b, 0)
 }
@@ -160,8 +194,15 @@ export class JournalStore {
   private rereadTimer: ReturnType<typeof setTimeout> | null = null
   onChange?: () => void
 
-  constructor(private readonly incidentId: string, readOnly: boolean) {
+  /** this store's IndexedDB slot (KEY) — per identity, see JournalOwner */
+  private readonly key: string
+  private readonly adoptsLegacy: boolean
+
+  /** `owner` null (no identity settled) keeps the shared legacy slot, as before 22.10.2026. */
+  constructor(private readonly incidentId: string, readOnly: boolean, owner: JournalOwner | null = null) {
     this.readOnly = readOnly
+    this.key = KEY(incidentId, owner?.key ?? null)
+    this.adoptsLegacy = !!owner?.adoptsLegacy
   }
 
   /** read-only can flip at runtime (viewer role is fixed, but the tab lock isn't) */
@@ -197,7 +238,12 @@ export class JournalStore {
   }
 
   private async hydrate(legacyNewestFirst: TimelineEvent[]): Promise<void> {
-    const read = await idbRead<Persisted>(KEY(this.incidentId))
+    const read = await idbRead<Persisted>(this.key)
+    // the shared pre-owner slot, taken over by the device login (JournalOwner · adoptsLegacy). A
+    // failed read of it adopts nothing now and deletes nothing — the next hydrate tries again.
+    const legacy = this.adoptsLegacy && !this.readOnly && this.key !== LEGACY_KEY(this.incidentId)
+      ? await idbRead<Persisted>(LEGACY_KEY(this.incidentId))
+      : null
     if (this.disposed) return
     // ⚠️ A failed read is not an empty cache. Read as one, the snapshot persisted below replaced
     // the stored outbox — the predecessor's (or this device's last session's) undelivered rows —
@@ -219,26 +265,14 @@ export class JournalStore {
     }
     this.readFailed = false
     const cached = read.ok ? read.value : null
-    if (cached) {
-      // MERGE the snapshot into current state — rows may have been appended while the
-      // idbGet was in flight, and replacing the state would silently drop them.
-      const rowIds = new Set(this.state.rows.map((r) => r.row.id))
-      for (const r of cached.rows) if (!rowIds.has(r.row.id)) this.state.rows.push(r)
-      this.state.rows.sort((a, b) => a.seq - b.seq)
-      const accepted = new Set(this.state.rows.map((r) => r.row.id))
-      const pending = new Map([...cached.outbox, ...this.state.outbox].map((r) => [r.id, r]))
-      this.state.outbox = [...pending.values()].filter((r) => !accepted.has(r.id))
-      const refused = new Map([...(cached.refused ?? []), ...(this.state.refused ?? [])].map((r) => [r.id, r]))
-      this.state.refused = [...refused.values()].filter((r) => !accepted.has(r.id))
-      for (const r of this.state.refused) pending.delete(r.id)
-      this.state.outbox = this.state.outbox.filter((r) => !refused.has(r.id))
-      const dead = new Map([...(cached.dead ?? []), ...(this.state.dead ?? [])].map((r) => [r.id, r]))
-      this.state.dead = [...dead.values()].filter((r) => !accepted.has(r.id) && !pending.has(r.id) && !refused.has(r.id))
-      this.state.latestSeq = Math.max(this.state.latestSeq, cached.latestSeq)
-    }
+    // MERGE the snapshot into current state — rows may have been appended while the
+    // idbGet was in flight, and replacing the state would silently drop them.
+    if (cached) mergePersisted(this.state, cached)
+    const adopted = legacy?.ok && legacy.value ? legacy.value : null
+    if (adopted) mergePersisted(this.state, adopted)
     if (!this.readOnly) {
       const known = this.knownIds()
-      for (const row of hydrationHandoffs.get(this.incidentId)?.values() ?? []) {
+      for (const row of hydrationHandoffs.get(this.key)?.values() ?? []) {
         if (!known.has(row.id)) {
           this.state.outbox.push(row)
           this.cacheDurable = false
@@ -249,6 +283,8 @@ export class JournalStore {
     this.ingestLegacy(legacyNewestFirst)
     this.persist()
     await this.landed()
+    // the adopted rows are in this identity's slot now — only then does the shared one go
+    if (adopted && this.cacheDurable && !this.disposed) await idbDel(LEGACY_KEY(this.incidentId))
   }
 
   /** Blob-timeline rows arriving at open or via any live-poll/merge inflow. */
@@ -609,9 +645,9 @@ export class JournalStore {
     if (this.disposed) return
     this.writeSnapshot() // the last append of this task was asked for before the close
     if (this.preHydrationAppends.size) {
-      const pending = hydrationHandoffs.get(this.incidentId) ?? new Map<string, TimelineEvent>()
+      const pending = hydrationHandoffs.get(this.key) ?? new Map<string, TimelineEvent>()
       for (const [id, row] of this.preHydrationAppends) pending.set(id, row)
-      hydrationHandoffs.set(this.incidentId, pending)
+      hydrationHandoffs.set(this.key, pending)
       this.preHydrationAppends.clear()
     }
     if (this.rereadTimer) { clearTimeout(this.rereadTimer); this.rereadTimer = null }
@@ -700,7 +736,7 @@ export class JournalStore {
     const seq = ++this.writeSeq
     // Start the transaction while we still own the tab. IDB orders these writes; deferring
     // its creation until an earlier write settles can cross a tab handover and lose the last edit.
-    const write = idbSet(KEY(this.incidentId), snapshot)
+    const write = idbSet(this.key, snapshot)
     this.writeTail = Promise.all([this.writeTail, write]).then(([, durable]) => {
       // a newer write — issued, or owed and about to be — decides the status, not this one
       if (seq !== this.writeSeq || this.persistQueued) return
@@ -709,9 +745,9 @@ export class JournalStore {
         // Clear only rows actually contained in this committed snapshot. A new append can
         // arrive during another hydration while an older write is still settling.
         const ids = new Set([...snapshot.rows.map((r) => r.row.id), ...snapshot.outbox.map((r) => r.id), ...(snapshot.dead ?? []).map((r) => r.id), ...(snapshot.refused ?? []).map((r) => r.id)])
-        const handed = hydrationHandoffs.get(this.incidentId)
+        const handed = hydrationHandoffs.get(this.key)
         for (const id of ids) { this.preHydrationAppends.delete(id); handed?.delete(id) }
-        if (handed?.size === 0) hydrationHandoffs.delete(this.incidentId)
+        if (handed?.size === 0) hydrationHandoffs.delete(this.key)
       }
       this.persisting = false
       this.emit()

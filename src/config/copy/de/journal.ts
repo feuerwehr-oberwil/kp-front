@@ -17,9 +17,10 @@ export const journalCopy = {
       short: 'Einträge nicht übertragen',
       // 24.09.2026: audit events this ROLE can never write (the `el` phone's Atemschutz alarm) —
       // parked on the device, not an error, but still exportable. No «Erneut versuchen».
-      refusedTitleOne: '1 Protokollereignis für diese Rolle nicht vorgesehen',
-      refusedTitle: '{n} Protokollereignisse für diese Rolle nicht vorgesehen',
-      refusedBody: 'Der Server nimmt diese Ereignisse von dieser Anmeldung nicht an. Sie bleiben auf diesem Gerät und können gesichert werden; der Verlauf ist davon nicht betroffen.',
+      // 22.10.2026 (RBAC S4): also unsynced saves a wider role left on this device (a role change)
+      refusedTitleOne: '1 Eintrag für diese Rolle nicht vorgesehen',
+      refusedTitle: '{n} Einträge für diese Rolle nicht vorgesehen',
+      refusedBody: 'Der Server nimmt diese Einträge von dieser Anmeldung nicht an – etwa Änderungen von vor einem Rollenwechsel. Sie bleiben auf diesem Gerät und können gesichert werden; der Verlauf ist davon nicht betroffen.',
       // 25.09.2026 (N3): was nach dem Abschluss des Einsatzes noch ankam — nicht übernommen, gesichert
       closedTitleOne: '1 Eintrag nach dem Abschluss nicht übernommen',
       closedTitle: '{n} Einträge nach dem Abschluss nicht übernommen',

@@ -181,7 +181,8 @@ export const SESSION_EXPIRED_EVENT = 'kp:session-expired'
 
 /**
  * A LINK page's own Einsatz answered 403 on the routes the page lives on — the workspace, the
- * Verlauf, the events (D1, 25.09.2026). The link is revoked, or dead for a reason the server does
+ * Verlauf, the events (D1, 25.09.2026) — on a READ (a write's 403 may refuse only that write, see
+ * requestResponse). The link is revoked, or dead for a reason the server does
  * not say to a link holder: every further write this page takes can never be delivered. The
  * Atemschutz-Link used to take a re-entry locally, run its clock, and report only «Sync-Fehler –
  * lokal gespeichert». The workspace listens and freezes the Tafel read-only. `detail` is the
@@ -189,6 +190,7 @@ export const SESSION_EXPIRED_EVENT = 'kp:session-expired'
  */
 export const LINK_REFUSED_EVENT = 'kp:link-refused'
 const LINK_CORE_ROUTE = /^\/api\/incidents\/([^/?]+)\/(?:workspace|journal|events)(?:[/?]|$)/
+const isRead = (init?: RequestInit) => !init?.method || init.method.toUpperCase() === 'GET'
 
 /** One signal that fires when EITHER input does. The long-poll loops need both halves: the
  *  timeout still cuts a half-open connection, and the caller's own controller drops a request
@@ -298,7 +300,12 @@ async function requestResponse(path: string, init?: RequestInit, timeoutMs = DEF
   // cannot loop, and neither can a page whose own link session is the
   // authority: its 401 is about the LINK, and refreshing would renew a device login the link
   // page has no business touching (and could not use anyway).
-  if (res.status === 403 && linkPageOwnsSession() && typeof window !== 'undefined') {
+  // ⚠️ Only a refused READ (RBAC audit S5, 22.10.2026). The server answers every link refusal with
+  // one message on purpose (auth/incident_link · _Denied), so a WRITE's 403 cannot tell «revoked»
+  // from «not this row» — a Meldung that reached the link's outbox froze a live board as «Link
+  // widerrufen». Reading its own Einsatz is never refused to a live link, and the board reads on
+  // every live-follow round, so a revoked link still freezes within one round.
+  if (res.status === 403 && isRead(init) && linkPageOwnsSession() && typeof window !== 'undefined') {
     const m = LINK_CORE_ROUTE.exec(path)
     if (m) window.dispatchEvent(new CustomEvent(LINK_REFUSED_EVENT, { detail: m[1] }))
   }
