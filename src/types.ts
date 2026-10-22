@@ -17,6 +17,7 @@ export interface LayerDef {
   opacity?: number      // 0..100, only for overlay layers (plan)
   tiles?: string[]      // raster tile template(s) for base layers
   nightTiles?: string[] // optional dark-theme raster to swap to in night mode (e.g. Dark Matter)
+  labels?: boolean      // the raster is unlabelled; draw CARTO's names on top as vector text (lib/basemapLabels)
   dark?: boolean        // base is already dark (skip the night dim)
   maxzoom?: number
   attribution?: string

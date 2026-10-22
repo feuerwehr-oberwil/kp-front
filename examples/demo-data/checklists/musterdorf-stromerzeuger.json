@@ -1,7 +1,7 @@
 {
   "id": "musterdorf-stromerzeuger",
   "kind": "manual",
-  "title": "Stromerzeuger starten (Demo)",
+  "title": "Stromerzeuger starten",
   "device": "Stromerzeuger 8 kVA",
   "subtitle": "Synthetische Demo-Anleitung – massgebend ist die Bedienungsanleitung des Herstellers.",
   "version": 1,

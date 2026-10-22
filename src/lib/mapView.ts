@@ -8,7 +8,11 @@ import { dockSlotOffset } from './docking'
 import { cachedLabelSize } from './labelPass'
 import type { LineTone } from './truppLines'
 
-export const EMPTY_STYLE = { version: 8 as const, sources: {}, layers: [] }
+/** Our own glyph ranges (public/fonts, scripts/vendor-map-labels.mjs) – the one text the map
+ *  draws itself is the basemap's names (lib/basemapLabels); everything else is DOM markers. */
+export const MAP_GLYPHS = '/fonts/{fontstack}/{range}.pbf'
+
+export const EMPTY_STYLE = { version: 8 as const, glyphs: MAP_GLYPHS, sources: {}, layers: [] }
 
 /** The map's own ceiling (14.09.): one step past the tiles, for placing a symbol precisely —
  *  past a base's `maxzoom` MapLibre stretches the last tile level. The Einsatz map keeps it. */

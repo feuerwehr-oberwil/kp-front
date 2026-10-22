@@ -190,6 +190,12 @@ const rememberPinLen = (userId: string, len: number) => {
 // length submits by itself — the pad still paints no empty slots, and a first login (or a
 // changed PIN) still goes through the ✓. The idle screen betrays nothing it did not before:
 // an onlooker watching a successful ✓ login could always count the dots.
+//
+// A miss at the remembered length keeps the jump armed for the retry: it is almost always a
+// mistyped digit, and disarming on the FIRST miss (07.09.–22.10.) is why the auto-login seemed
+// to work «sometimes, not always» – every retry after a typo needed the ✓. A second miss there
+// means the PIN itself changed length, and the ✓ takes over for this visit to the pad.
+const AUTO_MISSES_BEFORE_DISARM = 2
 function LoginPinPad({ user, onLogin, onBack }: {
   user: RosterEntry
   onLogin: (userId: string, pin: string) => Promise<void>
@@ -198,9 +204,10 @@ function LoginPinPad({ user, onLogin, onBack }: {
   const [pin, setPin] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  // read once per mount; a failed auto-attempt disarms it for this visit to the pad, or a PIN
+  // read once per mount; repeated misses at it disarm it for this visit to the pad, or a PIN
   // that grew LONGER after a reset could never be typed past its old remembered length
   const autoLen = useRef<number | undefined>(knownPinLen(user.id))
+  const autoMisses = useRef(0)
   // disabled until this monotonic timestamp (ms) — drives the 429 cooldown lock
   const [lockedUntil, setLockedUntil] = useState(0)
   const [, force] = useState(0) // re-render to release the lock when the cooldown elapses
@@ -227,7 +234,9 @@ function LoginPinPad({ user, onLogin, onBack }: {
       // just proved itself, so the next login on this device needs no ✓
       rememberPinLen(user.id, value.length)
     } catch (e: unknown) {
-      autoLen.current = undefined // stop auto-firing at a length that just failed
+      if (value.length === autoLen.current && ++autoMisses.current >= AUTO_MISSES_BEFORE_DISARM) {
+        autoLen.current = undefined // stop auto-firing at a length that keeps failing
+      }
       setPin('') // wipe the failed attempt so the next try starts clean
       if (e instanceof ApiError) {
         setError(e.detail)

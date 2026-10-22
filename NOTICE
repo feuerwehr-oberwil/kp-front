@@ -15,6 +15,9 @@ Bundled fonts (shipped in the production build)
 
   Delivered via the Fontsource project (@fontsource-variable). The OFL text travels with
   each font package under node_modules/@fontsource-variable/*/LICENSE.
+- Noto Sans (Regular, Bold) — SIL Open Font License 1.1. As MapLibre glyph ranges in
+  public/fonts/ (the basemap's street names); the OFL text is public/fonts/OFL.txt.
+  Vendored by scripts/vendor-map-labels.mjs from the OpenFreeMap font build.
 
 ================================================================================
 Map tiles & geodata (fetched at runtime; attributed in-app)
@@ -29,8 +32,12 @@ terms of use for their deployment.
     © swisstopo. See https://www.geo.admin.ch/terms-of-use
 - OpenStreetMap — © OpenStreetMap contributors, ODbL.
     https://www.openstreetmap.org/copyright
-- CARTO basemaps (Voyager raster tiles) — © CARTO, built on OpenStreetMap data.
-    https://carto.com/attribution
+- CARTO basemaps (Voyager / Dark Matter raster tiles, carto.streets vector tiles) — © CARTO,
+    built on OpenStreetMap data, vector tiles in the OpenMapTiles schema (© OpenMapTiles,
+    credited on the map). https://carto.com/attribution
+- CARTO basemap styles — the label layers of the Voyager GL style, vendored as
+    src/data/cartoLabelLayers.json by scripts/vendor-map-labels.mjs. Code: BSD 3-Clause,
+    © 2018 CartoDB Inc.; design: CC BY 4.0. https://github.com/CartoDB/basemap-styles
 - OpenTopoMap — CC-BY-SA. https://opentopomap.org
 - MeteoSwiss (MeteoSchweiz) Open Government Data — current weather observations.
     https://www.meteoswiss.admin.ch
