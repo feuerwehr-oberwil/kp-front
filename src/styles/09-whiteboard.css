@@ -219,7 +219,7 @@
 /* the ⓘ in the corner, just above the note (owner, 22.10.2026: it stood halfway up the map; beside
    the note it broke the note onto two lines). ⚠️ Two classes: 15-mobile lifts every bottom-right
    control over the Lage's bars. */
-.pp-map .maplibregl-ctrl-bottom-right { margin-bottom: 0; bottom: 32px; }
+.pp-map .maplibregl-ctrl-bottom-right { margin-bottom: 0; bottom: var(--sp-6); }
 .pp-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl { margin: 0 var(--sp-2) var(--sp-2) 0; }
 .pp-map-note { position: absolute; left: 8px; right: 8px; bottom: 8px; padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm);
   background: rgba(27, 35, 48, .82); color: var(--on-accent-ink); font-size: var(--fs-micro); font-weight: var(--fw-medium); text-align: center; pointer-events: none; }
