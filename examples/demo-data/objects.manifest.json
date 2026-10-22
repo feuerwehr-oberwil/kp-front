@@ -14,13 +14,13 @@
           "module": "modul1",
           "file": "plans/schloss-musterdorf/modul1.pdf",
           "title": "Schloss Musterdorf – Übersicht",
-          "sha256": "8ea2bc8ff96a4ad73bf8ba4645b69b26d6865cf9b58cd6e9ab27afca7e213d17"
+          "sha256": "7c6121d8a3f33c9c2ab57ddd6ce789959c9b5bb728f6d29f5c188526d5ce1d06"
         },
         {
           "module": "modul2-3",
           "file": "plans/schloss-musterdorf/modul2-3.pdf",
           "title": "Schloss Musterdorf – Zugang & Objekt",
-          "sha256": "8938f40cb79888bfbaf3cfdc0251d822985329f866ce79a37acb6e35aa9d813f"
+          "sha256": "716ecf110102a40b6b74c1401ab0a0f1f6e42bcdda3541bd4206dffae2aec90c"
         }
       ]
     }
