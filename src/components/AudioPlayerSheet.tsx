@@ -28,13 +28,14 @@ const SKIP_SEC = 15
 
 // Server-side peaks: 200 {peaks:[…]} ready,
 // 200 {peaks:null} = extraction unavailable (flat bar), 202 = computing (poll). Any error
-// degrades to the flat bar — the waveform is an aid, never a gate.
+// degrades to the flat bar — the waveform is an aid, never a gate. `enabled` false (a link
+// session, which the route refuses: it writes a file) goes straight to the flat bar.
 type Peaks = { status: 'loading' | 'ready' | 'none'; values: number[] | null }
 
-function usePeaks(audioUrl: string | undefined): Peaks {
+function usePeaks(audioUrl: string | undefined, enabled: boolean): Peaks {
   const [peaks, setPeaks] = useState<Peaks>({ status: 'loading', values: null })
   useEffect(() => {
-    if (!audioUrl || !audioUrl.startsWith('/api/media/')) { setPeaks({ status: 'none', values: null }); return }
+    if (!enabled || !audioUrl || !audioUrl.startsWith('/api/media/')) { setPeaks({ status: 'none', values: null }); return }
     let alive = true, tries = 0
     const poll = async () => {
       try {
@@ -54,7 +55,7 @@ function usePeaks(audioUrl: string | undefined): Peaks {
     }
     void poll()
     return () => { alive = false }
-  }, [audioUrl])
+  }, [audioUrl, enabled])
   return peaks
 }
 
@@ -122,13 +123,15 @@ function useStt(audioUrl: string | undefined, enabled: boolean) {
 // SECTIONS (offset + text) onto the memo's own row, listed as subtitle lines in the Verlauf.
 // A 8-second memo annotated with «ordinary» rows produced an unrelated-looking «Manuell» row
 // while the memo kept nagging for its transcript (19.08.).
-export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, onAddEntry, onAddSection, onEditSection, onPatchEntry, onRetractEntry, initialSeekSec, onClose, vocab = [] }: {
+export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, serverPeaks = true, onAddEntry, onAddSection, onEditSection, onPatchEntry, onRetractEntry, initialSeekSec, onClose, vocab = [] }: {
   row: TimelineEvent
   events: TimelineEvent[]
   readOnly: boolean
   /** may this session ask for a transcript and decide its segments? The routes are editor-only
    *  (api/media · CurrentEditor), so an `el` gets the player without the STT surface */
   canTranscribe?: boolean
+  /** may this session ask the server for the waveform (`…/peaks`)? Every link is refused it */
+  serverPeaks?: boolean
   /** everything this Einsatz has words for — same list the composer gets (lib/journalLinks ·
    *  journalVocabulary), so «Eintrag an dieser Stelle» completes and marks names identically */
   vocab?: JournalLink[]
@@ -160,7 +163,7 @@ export function AudioPlayerSheet({ row, events, readOnly, canTranscribe = true, 
   const [mediaDur, setMediaDur] = useState(0) // from the element; authoritative once known
   const [speedIdx, setSpeedIdx] = useState(DEFAULT_SPEED_IDX)
   const [errored, setErrored] = useState(false)
-  const peaks = usePeaks(row.audioUrl)
+  const peaks = usePeaks(row.audioUrl, serverPeaks)
 
   // STT: fail-closed — the whole surface exists only with a configured engine + editor
   const sttAvailable = !!getDeploymentConfig().integrations?.sttConfigured && !readOnly && canTranscribe && !!onAddEntry

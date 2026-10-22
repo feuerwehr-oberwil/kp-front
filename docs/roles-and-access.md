@@ -10,8 +10,11 @@ wording unchanged.
   state), `el` (Einsatzleiter function, 07.09.2026 – reads everything, writes ONLY the record
   domains: Anwesenheit/Zeitplan, Mittel, Checklisten, Rapport + Beilagen, via the
   server-enforced `PUT …/workspace/record` slice (`RECORD_WORKSPACE_KEYS`, plus the crew
-  filing's markers, unioned onto the stored Trupps — `RECORD_CREW_FILED_KEY`, 22.10.2026), journal/event
-  appends limited to the record vocabulary (`EL_EVENT_PREFIXES`), media uploads, and — since
+  filing's markers, unioned onto the stored Trupps — `RECORD_CREW_FILED_KEY`, 22.10.2026), audit-event
+  appends limited to the record vocabulary (`EL_EVENT_PREFIXES`), Verlauf rows of any kind like an
+  editor's (the el writes Lagemeldungen through the composer; a row is append-only and
+  attributable, so a wider vocabulary costs the record nothing – lead's call, 22.10.2026), media
+  uploads, and — since
   10.09.2026 — the EINSATZDATEN at the head of that record: `PATCH /incidents/{id}` limited to
   the fields «Einsatzdaten bearbeiten» sends (`EL_META_FIELDS`); the full workspace PUT, the
   trupps slice, the incident lifecycle (`status`, `is_archived`, `report_done_at`) and
@@ -73,6 +76,17 @@ wording unchanged.
   address, `<img>`, service worker) answer as the link guest otherwise. That «Abmelden» **always
   confirms** (23.09.2026, `lib/logoutConfirm`), in one card that adds the offline and the
   unsent-entries cost when there is one.
+- **Alerts and requests per session** (RBAC audit, 22.10.2026). A due Wiedervorlage rings – tone
+  and OS notification – only for the sessions that can tick it off, `editor` and `el`
+  (`RemindersHost · alert`); a viewer or a link shows the due row silently and its Pendenzen ring
+  and text as read-outs. The Atemschutz alarm is unchanged and rings everywhere. A lost tab lock
+  says so (banner + the «Eintrag» toast) to every session that writes the Verlauf, the `el`
+  included. A link page never asks for what its allowlist refuses: no Traccar, weather or radar
+  poll and no Gebäude card on a view link (`liveFeeds`), none of those on the Atemschutz-Link's
+  Tafel either (it shows none), no Overpass warm-up and no audio waveform (`…/peaks`) on any
+  link, and no push subscription from a page whose own link session answers
+  (`linkPageOwnsSession`). An `el`'s Rapport one-shots (Beilagen) audit their ↶/↷ as
+  `report.undo`/`report.redo`, which its event scope keeps.
 
 ## The viewer's window (since 2026-10-21)
 
@@ -114,6 +128,23 @@ Objektbesuch – stays `objectVisits.captureRoles`.
   learns its role at sign-in. The last active editor cannot be demoted to `el` or `viewer`.
 - **A viewer's Rapport-PDF embeds its own Einsatz's media only** – the window applies to what
   the composer opens, not just to `GET /api/media`.
+- **The el reads «Anrückend»** (`GET /divera/responses`, `CurrentRecordWriter`): it marks
+  attendance like an editor. The rest of `/api/divera` stays editor-only.
+- **Who a push wakes** (owner's pick): the Atemschutz alarms go to every subscribed browser;
+  «Neuer Einsatz» only to `editor` accounts, «Wiedervorlage fällig» to `editor` and `el`
+  (`push.py · role_recipients`, read when the push leaves). A viewer tablet, and a kiosk
+  subscription without an account, hear only the Atemschutz alarms. Links never subscribe.
+- **«Standort teilen» posts under one name per device, held until let go.** No account or link
+  is tied to a roster person, so the name is the device's pick; a name another device holds is
+  409 however quiet that device has gone, until it stops, an editor removes the dot, the Einsatz
+  closes or the TTL sweep drops it. Posting under a new name drops the device's old dot
+  (`api/person_positions.py`). Viewer and link sessions share like anyone else.
+- **A link reads no station keys**: no account UUIDs (`created_by` on the Einsatz, `user_id` on
+  its events) and no Divera ids on the roster (`is_link_session`). The Traccar host and the
+  upstream error text reach the deployment admin only; `/traccar/trails?minutes=` stops at 240.
+- **A secret is compared as bytes** (`secret_token · secret_matches`): a non-ASCII token is the
+  uniform 401, never a 500. The Microsoft login matches the Entra object id only
+  ([`microsoft-login.md`](microsoft-login.md)).
 - **Every link kind is narrowed like the view link**: `/api/objects/{id}` and Objektpläne only
   for the objects this Einsatz surfaced, other reference datasets only as furniture (geodata,
   symbols, Checklisten, Tafel templates), no `/api/objects` register list, no inactive personnel.

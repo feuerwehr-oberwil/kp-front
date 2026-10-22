@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .. import audit, connector_state
 from .. import divera as divera_svc
 from ..alarms import is_demo_deployment
-from ..auth.dependencies import CurrentEditor, EditorOrAdmin
+from ..auth.dependencies import CurrentEditor, CurrentRecordWriter, EditorOrAdmin
 from ..auth.secret_token import SecretGate
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
@@ -78,7 +78,7 @@ async def webhook(
 
 
 @router.get("/responses/{incident_id}")
-async def responses(incident_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)) -> dict:
+async def responses(incident_id: uuid.UUID, _user: CurrentRecordWriter, db: AsyncSession = Depends(get_db)) -> dict:
     """Who answered the Divera alarm «kommt» / «kommt nicht» — our personnel ids, nothing else.
 
     Read-only and stored: the server's own poll keeps it (divera · store_responses); this read
@@ -88,8 +88,8 @@ async def responses(incident_id: uuid.UUID, _user: CurrentEditor, db: AsyncSessi
     hours over are not «anrückend». ``available: false`` = nothing to show (``reason: no_data``,
     or ``closed`` for an archived Einsatz), and the Anwesenheit shows nothing at all.
 
-    Editor-only like the rest of /api/divera (the EL and the editors who mark attendance; a viewer
-    and an Einsatz-Link session are refused). Somebody not on the Mannschaftsliste is a count.
+    The record writers (an editor, or the ``el`` role, who mark attendance) — the one /api/divera
+    read the ``el`` reaches; a viewer and an Einsatz-Link session are refused. Somebody not on the Mannschaftsliste is a count.
     The answers never enter the workspace, an export or a Rapport, and are cleared after the
     Einsatz (divera · prune_responses). A Divera answer is not presence.
     """

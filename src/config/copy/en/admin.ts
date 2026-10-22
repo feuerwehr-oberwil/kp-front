@@ -489,7 +489,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         },
         microsoft_login: {
           title: 'Sign in with Microsoft',
-          caption: 'Optional: a separate Azure app registration (sign-in only, «openid profile») so named accounts can also sign in with Microsoft instead of a PIN. Redirect URI: <this instance\'s address>/api/auth/microsoft/callback. Only the accounts on the list get in, each as «Microsoft account=username», separated by commas. The PIN always keeps working. Guide: docs/microsoft-login.md.',
+          caption: 'Optional: a separate Azure app registration (sign-in only, «openid profile») so named accounts can also sign in with Microsoft instead of a PIN. Redirect URI: <this instance\'s address>/api/auth/microsoft/callback. Only the accounts on the list get in, each as «object ID=username» (the person\'s object ID in Entra, not a sign-in address), separated by commas. The PIN always keeps working. Guide: docs/microsoft-login.md.',
         },
         sharepoint_export: {
           title: 'SharePoint (object visit filing)',

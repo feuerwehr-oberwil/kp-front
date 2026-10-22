@@ -490,7 +490,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         },
         microsoft_login: {
           title: 'Accedi con Microsoft',
-          caption: 'Facoltativo: una registrazione app Azure separata (solo accesso, «openid profile») perché gli account nominativi possano accedere anche con Microsoft invece del PIN. URI di reindirizzamento: <indirizzo di questa istanza>/api/auth/microsoft/callback. Entrano solo gli account dell’elenco, ciascuno come «account Microsoft=nome utente», separati da virgole. Il PIN resta sempre possibile. Guida: docs/microsoft-login.md.',
+          caption: 'Facoltativo: una registrazione app Azure separata (solo accesso, «openid profile») perché gli account nominativi possano accedere anche con Microsoft invece del PIN. URI di reindirizzamento: <indirizzo di questa istanza>/api/auth/microsoft/callback. Entrano solo gli account dell’elenco, ciascuno come «ID oggetto=nome utente» (l’ID oggetto della persona in Entra, non un indirizzo di accesso), separati da virgole. Il PIN resta sempre possibile. Guida: docs/microsoft-login.md.',
         },
         sharepoint_export: {
           title: 'SharePoint (archiviazione visite)',

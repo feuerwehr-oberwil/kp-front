@@ -70,7 +70,7 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     denied: 'Posizione bloccata',
     deniedHint: 'L\'accesso alla posizione è bloccato per questo sito. Si può riautorizzare solo nelle impostazioni del browser.',
     taken: 'Nome già in uso',
-    takenHint: 'Un altro dispositivo sta condividendo con questo nome. Scegli di nuovo il tuo nome o attendi un momento.',
+    takenHint: 'Un altro dispositivo sta condividendo con questo nome. Scegli di nuovo il tuo nome o chiedi al comando d\'intervento di rimuovere la vecchia posizione.',
     failing: 'La posizione non arriva',
     failingHint: 'Il telefono trova la tua posizione, ma il server non la accetta – di solito manca la ricezione. I tentativi continuano.',
     impreciseHint: 'La ricezione è ancora troppo imprecisa per un punto sulla carta. All\'aperto di solito migliora in pochi secondi.',

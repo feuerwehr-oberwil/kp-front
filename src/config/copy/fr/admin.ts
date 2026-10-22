@@ -490,7 +490,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         },
         microsoft_login: {
           title: 'Se connecter avec Microsoft',
-          caption: 'Facultatif : un enregistrement d’application Azure distinct (connexion seulement, «openid profile») pour que des comptes nommés puissent aussi se connecter avec Microsoft au lieu du NIP. URI de redirection : <adresse de cette instance>/api/auth/microsoft/callback. Seuls les comptes de la liste entrent, chacun sous la forme «compte Microsoft=nom d’utilisateur», séparés par des virgules. Le NIP reste toujours possible. Guide : docs/microsoft-login.md.',
+          caption: 'Facultatif : un enregistrement d’application Azure distinct (connexion seulement, «openid profile») pour que des comptes nommés puissent aussi se connecter avec Microsoft au lieu du NIP. URI de redirection : <adresse de cette instance>/api/auth/microsoft/callback. Seuls les comptes de la liste entrent, chacun sous la forme «ID d’objet=nom d’utilisateur» (l’ID d’objet de la personne dans Entra, pas une adresse de connexion), séparés par des virgules. Le NIP reste toujours possible. Guide : docs/microsoft-login.md.',
         },
         sharepoint_export: {
           title: 'SharePoint (classement des visites)',

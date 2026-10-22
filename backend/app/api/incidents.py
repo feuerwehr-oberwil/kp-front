@@ -27,6 +27,7 @@ from ..auth.dependencies import (
     _admin_session_valid,
     atemschutz_link_source,
     is_atemschutz_link,
+    is_link_session,
 )
 from ..auth.viewer_scope import is_viewer, viewer_history, viewer_window_clause
 from ..database import execute_dml, get_db
@@ -341,8 +342,13 @@ async def create_incident(body: IncidentCreate, user: CurrentEditor, db: AsyncSe
 
 
 @router.get("/{incident_id}", response_model=IncidentFull)
-async def get_incident(incident_id: uuid.UUID, _user: CurrentUser, db: AsyncSession = Depends(get_db)) -> Incident:
-    return await get_incident_or_404(db, incident_id)
+async def get_incident(
+    incident_id: uuid.UUID, user: CurrentUser, db: AsyncSession = Depends(get_db)
+) -> Incident | IncidentFull:
+    inc = await get_incident_or_404(db, incident_id)
+    if is_link_session(user):  # who opened it is an account UUID — not for a page off the station
+        return IncidentFull.model_validate(inc).model_copy(update={"created_by": None})
+    return inc
 
 
 async def _latch_editor_opened(db: AsyncSession, incident_id: uuid.UUID) -> None:

@@ -130,6 +130,5 @@ async def test_push_runs_after_commit_and_not_after_rollback(db_session, monkeyp
     await _start_transaction(db_session)
     assert await push.notify_new_alarm(db_session, tag="committed", title="Brand", address="Dorf 1") == 1
     await db_session.commit()
-    await asyncio.sleep(0)
-    await asyncio.sleep(0)
+    await asyncio.gather(*tuple(push._inflight))  # the push reads its audience, then sends
     assert [call["tag"] for call in calls] == ["committed"]

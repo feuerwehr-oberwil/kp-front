@@ -24,6 +24,17 @@ from dataclasses import dataclass
 from fastapi import HTTPException, Request, status
 
 
+def secret_matches(provided: str | None, expected: str) -> bool:
+    """Constant-time «is ``provided`` the secret», for any text a caller can send.
+
+    Compared as UTF-8 BYTES: ``compare_digest`` raises TypeError on a non-ASCII ``str``, so a
+    token like ``?secret=ä`` was a 500 instead of the 401 a wrong token gets (RBAC audit,
+    22.10.2026)."""
+    if not provided:
+        return False
+    return secrets.compare_digest(provided.encode("utf-8"), expected.encode("utf-8"))
+
+
 @dataclass(frozen=True)
 class SecretGate:
     """One secret-gated surface: where a token may travel and what a refusal says.
@@ -46,7 +57,7 @@ class SecretGate:
         """Refuse unless ``provided`` is the configured secret. See the module docstring."""
         if not expected:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=self.disabled_detail)
-        if not provided or not secrets.compare_digest(provided, expected):
+        if not secret_matches(provided, expected):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=self.invalid_detail)
 
     def check_request(self, expected: str | None, request: Request, header_token: str | None) -> None:
