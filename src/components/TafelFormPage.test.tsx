@@ -3,7 +3,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { StrictMode, useState } from 'react'
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { TafelFormPage } from './TafelFormPage'
-import { newFormPage, putRow, writtenRows, type BoardFormData } from '../lib/boardForm'
+import { newFormPage, putLine, putRow, writtenRows, type BoardFormData } from '../lib/boardForm'
 import type { TableSection } from '../lib/boardTemplate'
 import { BUNDLED_TEMPLATES } from '../lib/boardTemplates'
 import { getLocaleId } from '../config/copy'
@@ -255,6 +255,21 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     act(() => { fireEvent.click(screen.getByRole('button', { name: /Drucken/ })) })
     act(() => { fireEvent.click(screen.getByRole('menuitem', { name: 'Alle Seiten (3)' })) })
     expect(printed).toEqual([false, true])
+  })
+
+  // RBAC audit 22.10.2026: a locked page READS the Tendenz — the arrow in full tone, no button,
+  // and nothing to tap where none was set
+  it('a locked page shows a line’s Tendenz as a read-out, not a faded button', () => {
+    let data = newFormPage(FKS, EF, {}, '2026-10-10T09:24:00.000Z')
+    data = putLine(data, 'problem', 'front', 'l1', { text: 'Rauch', trend: 'up' })
+    data = putLine(data, 'problem', 'front', 'l2', { text: 'Wasser' })
+    render(<TafelFormPage pageKey="p" data={data} readOnly isPhone={false} onChange={() => {}} onRemove={() => {}}
+      inset={{ top: 0, left: 0, right: 0, bottom: 0 }} />)
+    const front = within(box('front') as HTMLElement)
+    expect(front.queryAllByRole('button')).toEqual([])
+    const arrow = front.getByRole('img', { name: appConfig.copy.tafel.trendUp })
+    expect(arrow.getAttribute('data-trend')).toBe('up')
+    expect(box('front').querySelectorAll('[data-trend]')).toHaveLength(1)
   })
 
   it('a cell holds 2000 characters and says so calmly when it is full (re-review of #338)', () => {

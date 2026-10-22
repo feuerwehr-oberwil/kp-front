@@ -117,6 +117,23 @@ describe('the action bar and the trail (18.09.2026)', () => {
   })
 })
 
+// a locked surface (viewer, el, Führungsansicht) passes only the two doors that change nothing
+// (RBAC audit 22.10.2026): the jump to the Trupp's card and this device's trail toggle
+describe('the view-only bar', () => {
+  it('offers «Im Atemschutz zeigen» and «Spur ein/aus», and no trash', () => {
+    const showTrupp = vi.fn()
+    const toggleTrail = vi.fn()
+    render(<TwinTeamPill name="Meier Anna" color="#c00" raus={false} truppId="t1" trailCount={3} trailShown trupps={TRUPPS}
+      acts={{ showTrupp, toggleTrail }} />)
+    expect(screen.queryByRole('button', { name: appConfig.copy.remove })).toBeNull()
+    expect(screen.queryByRole('button', { name: A.markerLabel })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.showTrupp }))
+    expect(showTrupp).toHaveBeenCalledWith('t1')
+    fireEvent.click(screen.getByRole('button', { name: appConfig.copy.whiteboard.trails }))
+    expect(toggleTrail).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('the storey badge', () => {
   it('states the Geschoss the Trupp is working on, signed like a Leitung’s floor tag', () => {
     const { container } = render(<TwinTeamPill name="Müller" color="#c00" raus={false} floor={2} trailCount={0} trailShown={false} trupps={TRUPPS} />)

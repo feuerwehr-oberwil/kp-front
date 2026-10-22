@@ -189,8 +189,10 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
             {help && <p ref={helpRef} className={s.help}>{hint}</p>}
           </>
         )}
-        {/* a locked device has no «Ansicht speichern» row to end with: the ⓘ keeps its foot */}
-        {readOnly && <div className={s.foot}><DockInfo text={hint} inline /></div>}
+        {/* a locked device has no «Ansicht speichern» row to end with, and the views hint teaches
+            saving, which it cannot do (RBAC audit 22.10.2026) — so no ⓘ, unless the surface states
+            its own hold (Karte home: `hold.hint`), which is not about saving */}
+        {readOnly && api.hold && <div className={s.foot}><DockInfo text={api.hold.hint} inline /></div>}
       </div>
     </>,
     document.body,

@@ -229,8 +229,9 @@ export interface ContextPanelProps {
   /** Fahrer of a LIVE (GPS-sourced) vehicle. The feed knows where the vehicle is, never who is
    *  driving it — and the entity is rebuilt on every poll, so this rides the operator override
    *  instead of the entity's own fields. Offered even though the panel is otherwise read-only:
-   *  it is the one thing about a live vehicle only a human can say. */
-  driver?: { value: string; options: string[]; onChange: (v: string) => void }
+   *  it is the one thing about a live vehicle only a human can say. Without `onChange` (a
+   *  locked session) the row is a read-out. */
+  driver?: { value: string; options?: string[]; onChange?: (v: string) => void }
   connectedLines?: { id: string; label: string }[]
   /** Angedockte Gefahrentafel (SymbolProps.dockedTo, lib/docking): the host's display name.
    *  Rendered with a «Lösen» action when `onUndock` is wired — the panel is the one place the
@@ -631,16 +632,16 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
   // (the old "Standard" option): an untouched symbol simply shows the effective default as active,
   // and picking any button pins that mode on this symbol.
   const capMode = entity.caption ?? captionDefault
+  const capWord = { off: C.captionOff, auto: C.captionAuto, all: C.captionAll } as const
+  // a locked panel STATES the mode (RBAC audit 22.10.2026): a read-out, not three faded buttons
   const caprow = onCaption && (
     <div className="ctx-caprow">
       <span className="ctx-caprow-lbl">{C.caption}</span>
-      <Segmented ariaLabel={C.caption} value={capMode}
-        options={[
-          { value: 'off' as const, label: C.captionOff, disabled: readOnly },
-          { value: 'auto' as const, label: C.captionAuto, disabled: readOnly },
-          { value: 'all' as const, label: C.captionAll, disabled: readOnly },
-        ]}
-        onChange={(v) => onCaption(v)} />
+      {readOnly ? <b className="kv-val-ro">{capWord[capMode]}</b> : (
+        <Segmented ariaLabel={C.caption} value={capMode}
+          options={(['off', 'auto', 'all'] as const).map((value) => ({ value, label: capWord[value] }))}
+          onChange={(v) => onCaption(v)} />
+      )}
     </div>
   )
   /* ── «Erledigt» (lib/objectDone, review item 21b 24.09.2026; slim sweep 27.09.2026, item 9 / D8)
@@ -842,7 +843,11 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
           {/* The glyph-affecting steppers — grouped, only the ones this symbol declares. View
               state keeps the literal same row/chrome and disables it: removing unset controls
               made the mirrored object's sidebar a different, mostly empty object. */}
-          {driver && (
+          {driver && !driver.onChange && (
+            // the locked session's read-out: the same row, the value as every read-only field shows it
+            <div className="field"><span className="kv-key-ro">{C.driverLabel}</span><b className="kv-val-ro">{driver.value || '–'}</b></div>
+          )}
+          {driver?.onChange && (
             // The SAME row as the placed vehicle's preset «Fahrer» (label left, picker right —
             // .field): it used to be its own full-width block, so the one field a live vehicle
             // offers looked like a different kind of thing than the identical field next door.
@@ -856,7 +861,7 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                   says so while the finger is still over it. */}
               <Combo
                 value={driver.value}
-                options={driver.options}
+                options={driver.options ?? []}
                 allowCustom
                 placeholder={C.driverPlaceholder}
                 rankOf={rankOf ?? (rosterRank ? (n: string) => rosterRank[n] : undefined)}
@@ -910,9 +915,12 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
               {showAirflow && (
                 <div className="field">
                   <span>{C.airflow}</span>
-                  <Segmented ariaLabel={C.airflow} value={entity.extract ?? false}
-                    options={[{ value: false, label: C.airflowBlow, disabled: readOnly }, { value: true, label: C.airflowExtract, disabled: readOnly }]}
-                    onChange={(v) => onAirflow!(v)} />
+                  {/* a locked panel states the direction (the Beschriftung's read-out recipe) */}
+                  {readOnly ? <b className="kv-val-ro">{entity.extract ? C.airflowExtract : C.airflowBlow}</b> : (
+                    <Segmented ariaLabel={C.airflow} value={entity.extract ?? false}
+                      options={[{ value: false, label: C.airflowBlow }, { value: true, label: C.airflowExtract }]}
+                      onChange={(v) => onAirflow!(v)} />
+                  )}
                 </div>
               )}
             </div>
@@ -1060,7 +1068,8 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
             <UnHazardSection
               un={unValue}
               ringMode={onErgRings ? (entity.ergRings ?? DEFAULT_ERG_RING_MODE) : undefined}
-              onRingMode={onErgRings}
+              // a locked panel reads the Schutzabstand, it does not switch it (UnHazardSection)
+              onRingMode={readOnly ? undefined : onErgRings}
               ergCoord={ergCoord}
               onAdoptRadius={onAdoptRadius}
             />

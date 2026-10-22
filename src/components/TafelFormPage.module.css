@@ -98,6 +98,8 @@
 .trend[data-trend='up'] { color: var(--red); }
 .trend[data-trend='down'] { color: var(--green); }
 .trendGap { flex: none; width: var(--tap); }
+/* a locked page's Tendenz: the arrow alone, a read-out in the button's place and tone */
+.trendRo { display: inline-flex; align-items: center; justify-content: center; }
 .lineNew .cell:not(:focus) { min-height: var(--tap); }
 
 /* ── tables ── */
@@ -140,6 +142,9 @@
 }
 .trendCell { align-items: center; justify-content: center; }
 .doneCell { align-items: center; justify-content: center; }
+/* a locked page's «erledigt» is a read-out: full tone, no tap (the `.wb-object:disabled` recipe) –
+   doubled class so it outranks TickRow's own `:disabled` fade whichever module loads last */
+.doneRo.doneRo:disabled { opacity: 1; cursor: default; }
 .trDone .td > .cell { color: var(--ink-dim); text-decoration: line-through; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
