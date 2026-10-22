@@ -27,6 +27,8 @@ export interface JournalLayerProps {
   journal: ReturnType<typeof useJournal>
   auditDelivery: ReturnType<typeof useAuditEvents>
   closedRefusedTotal: number
+  /** saves a wider role left on this device that this session cannot push (useLifecycleElsewhere) */
+  workspaceRoleParked: number
   exportEntries: () => void
   journalVocab: JournalLink[]
   timeline: TimelineEvent[]
@@ -63,7 +65,7 @@ export interface JournalLayerProps {
 }
 
 export function JournalLayer({
-  journalOpen, guarded, journal, auditDelivery, closedRefusedTotal, exportEntries, journalVocab,
+  journalOpen, guarded, journal, auditDelivery, closedRefusedTotal, workspaceRoleParked, exportEntries, journalVocab,
   timeline, incidentMeta, planDocs, focusEvent, replayActive, replayAtMs, seekToEvent, journalLandOn,
   setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
   enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
@@ -79,7 +81,7 @@ export function JournalLayer({
           deliveryNotice={<JournalDeliveryNotice
             status={combinedSyncStatus(journal.syncStatus, auditDelivery.status)}
             count={journal.pendingCount + journal.rejectedCount + auditDelivery.pendingCount + auditDelivery.rejectedCount}
-            refused={auditDelivery.refusedCount}
+            refused={auditDelivery.refusedCount + workspaceRoleParked}
             closedRefused={closedRefusedTotal}
             onRetry={async () => { await Promise.all([journal.retry(), auditDelivery.retry()]) }}
             onExport={exportEntries}

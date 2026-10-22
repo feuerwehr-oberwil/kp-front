@@ -871,7 +871,9 @@ export function IncidentWorkspace({
   // the Atemschutz-Link of a CLOSED Einsatz is refused on every request until a reopen: it
   // follows once a minute (staging r3) — enough to notice the reopen, not a 403 every few seconds
   const slowFollow = asLink && (!running || linkRefused)
-  const journal = useJournal({ incidentId: incidentMeta.id, readOnly: outboxReadOnly, legacy: init.timeline, slowFollow })
+  // the outbox is per IDENTITY (RBAC S5): a link opened on the FU's own phone keeps its own
+  const journal = useJournal({ incidentId: incidentMeta.id, readOnly: outboxReadOnly, legacy: init.timeline, slowFollow,
+    owner: user ? { key: `${user.id}:${user.link_kind ?? 'login'}`, adoptsLegacy: !user.link_kind } : null })
   // pulled out by name: `journal` itself is a fresh object every render, so a callback that
   // depends on it either churns or (the bug this replaced) silently keeps a stale `rows`
   const { swapPhoto, overlaySession: overlayRow, appendPatch: patchRow } = journal
@@ -1435,7 +1437,7 @@ export function IncidentWorkspace({
   // what this device still holds, sent again after a reopen (workspace/useLifecycleElsewhere)
   const {
     lifecycleHiddenAt, lifecycleBoundary, lifecycleRefused, exportEntries, setLifecycleHiddenAt,
-    closedRefusedTotal, exportedClosedRefused,
+    closedRefusedTotal, exportedClosedRefused, workspaceRoleParked,
   } = useLifecycleElsewhere({
     sync, journal, auditDelivery, running, flushEvents, outboxReadOnly, incidentMeta, lifecycleElsewhere,
   })
@@ -3318,7 +3320,7 @@ export function IncidentWorkspace({
         voidSignatures: canEditRapport ? voidSignatures : undefined,
       }} />
       <JournalLayer {...{
-        journalOpen, guarded, journal, auditDelivery, closedRefusedTotal, exportEntries, journalVocab,
+        journalOpen, guarded, journal, auditDelivery, closedRefusedTotal, workspaceRoleParked, exportEntries, journalVocab,
         timeline, incidentMeta, planDocs, focusEvent, replayActive, replayAtMs, seekToEvent, journalLandOn,
         setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
         enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,

@@ -16,7 +16,8 @@ import { serverNow } from '../serverClock'
 import { withTileEviction } from '../tileEvict'
 import { jsonEqual } from '../jsonEqual'
 import { newId } from '../ids'
-import { mergeWorkspace, type RecordConflict } from '../mergeWorkspace'
+import { MERGE_POLICY, mergeWorkspace, type RecordConflict } from '../mergeWorkspace'
+import { crewFiledOf, unionCrewFiled } from '../crewFiling'
 import { truppRenumberings, type NumberScope, type TruppRenumbering } from '../truppNumbers'
 import {
   getWorkspace, putWorkspace, putWorkspaceBeacon, putWorkspaceRecord, putWorkspaceRecordBeacon, putWorkspaceTrupps, putWorkspaceTruppsBeacon,
@@ -46,6 +47,10 @@ type CacheEntry = {
   /** Refused entries already transferred into this workspace. Stored with the replacement
    *  so a crash before clearing the refused slot cannot replay them over later edits. */
   requeuedRefused?: number[]
+  /** Which push shape made its edits: the whole document (`'all'`) or a slice. A slice session
+   *  that opens unsynced work of a WIDER shape parks a copy first (see `parkForRole`). Absent on
+   *  entries written before 22.10.2026 — read as «unknown», never parked. */
+  shape?: 'all' | Slice
 }
 const cacheKey = (id: string) => `kp-front-ws-${id}`
 // A fallback slot, one per (incident, owner). Another user's UNSYNCED work is parked here so the
@@ -64,6 +69,12 @@ const orphanCacheKey = (id: string) => `kp-front-ws-${id}::__preupgrade__`
 // offline. Not owed (no retry can deliver them while the Einsatz stays closed), never dropped:
 // kept here as a list, newest last, and carried by «Einträge sichern» (refusedRecoveryData).
 const refusedCacheKey = (id: string) => `kp-front-ws-${id}::__refused__`
+// The ROLE slot (RBAC audit S4, 22.10.2026): unsynced work a session of a wider role left on this
+// device — an editor demoted to `el` mid-Einsatz, signed out by the role change, signs in again
+// and its Lage edits are still in the cache. The `el`'s record slice cannot carry them, and the
+// next adopt would have dropped them silently. A copy is parked here, per owner, for «Einträge
+// sichern»; the record part still goes up as before. Same shape as the refused slot.
+const roleCacheKey = (id: string, owner: string) => `kp-front-ws-${id}::__role__:${owner}`
 
 /** One save the server refused because the Einsatz was closed — the blob as this device had it. */
 export interface RefusedWorkspace {
@@ -248,9 +259,75 @@ function onlyTruppsChanged(base: Workspace | undefined, ws: Workspace): boolean 
  *  there, so sending it would only fake a successful save. Absent keys mean «no change». */
 const RECORD_SLICE_KEYS = ['attendance', 'shifts', 'bands', 'mittel', 'checklists', 'reportMeta', 'attachments', 'reportSignatures'] as const
 
+/** The crew filing's markers riding the record slice (22.10.2026, RBAC audit S4) — mirrors the
+ *  server's `RECORD_CREW_FILED_KEY`. `trupps[].crewFiled` says whom the ANWESENHEIT was told
+ *  about (lib/crewFiling): a record fact the `el` files, stored on the Trupps it cannot write.
+ *  Sent as `{ truppId: keys }`; the server UNIONS them onto its own Trupps and reads nothing else,
+ *  so an el phone beside an Atemschutz-Link (no FU tablet) files a crew once, and a member the el
+ *  took off the Anwesenheit stays off. */
+const CREW_FILED_SLICE_KEY = 'truppCrewFiled'
+
+function crewFiledMarks(ws: Workspace): Record<string, string[]> | undefined {
+  const out: Record<string, string[]> = {}
+  for (const t of truppSlice(ws)) {
+    const keys = crewFiledOf(t)
+    if (typeof t?.id === 'string' && keys.length) out[t.id] = keys
+  }
+  return Object.keys(out).length ? out : undefined
+}
+
 function recordSlice(ws: Workspace): Workspace {
   const out: Workspace = {}
   for (const k of RECORD_SLICE_KEYS) if (k in ws) out[k] = ws[k]
+  const marks = crewFiledMarks(ws)
+  if (marks) out[CREW_FILED_SLICE_KEY] = marks
+  return out
+}
+
+type Slice = NonNullable<WorkspaceSyncOptions['slice']>
+
+/**
+ * The server's blob once it took a slice push of `local`: `server` (its copy at the base revision)
+ * with the slice's keys replaced — exactly what `PUT …/workspace/trupps` and `…/record` store
+ * (backend api/incidents). The `el`'s crew markers are unioned onto the server's own Trupps.
+ *
+ * ⚠️ NOT `local` (RBAC audit S4, 22.10.2026): the engine used to take the whole pushed blob as the
+ * new ancestor, so whatever this session holds OUTSIDE its slice counted as «on the server» —
+ * the Trupps' crew markers an el filed, and every unsynced edit a session left behind when its
+ * role changed — and the next adopt dropped it without a word.
+ */
+function landedSlice(server: Workspace, local: Workspace, slice: Slice): Workspace {
+  if (slice === 'trupps') return { ...server, trupps: truppSlice(local) }
+  const { [CREW_FILED_SLICE_KEY]: _marks, ...record } = recordSlice(local)
+  const out: Workspace = { ...server, ...record }
+  const marks = crewFiledMarks(local)
+  if (marks && Array.isArray(server.trupps)) {
+    out.trupps = (server.trupps as Trupp[]).map((t) => {
+      const add = typeof t?.id === 'string' ? marks[t.id] : undefined
+      if (!add) return t
+      const before = crewFiledOf(t)
+      const merged = unionCrewFiled(before, add)!
+      return merged.length === before.length ? t : { ...t, crewFiled: merged }
+    })
+  }
+  return out
+}
+
+/** The `'local'` rows of MERGE_POLICY — this device's own view state, kept by every merge. */
+const LOCAL_KEYS = (Object.entries(MERGE_POLICY) as [string, unknown][]).filter(([, p]) => p === 'local').map(([k]) => k)
+
+/**
+ * A slice session's merge result: the server's copy (`theirs`) for everything the session cannot
+ * push, the merged slice, and this device's own view keys. A local difference outside the slice
+ * can never reach the server; kept by the merge (last-writer-wins «mine»), it showed a picture no
+ * other device has — and claimed it as the ancestor on the next push (RBAC audit S4).
+ */
+function sliceMerged(merged: Workspace, theirs: Workspace, slice: Slice): Workspace {
+  const out = landedSlice(theirs, merged, slice)
+  for (const k of LOCAL_KEYS) {
+    if (k in merged) out[k] = merged[k]
+    else delete out[k]
+  }
   return out
 }
 
@@ -349,6 +426,10 @@ export class WorkspaceSync {
   /** Who wants to hear that the refused count changed (a save was just parked, or the slot held
    *  some from an earlier session) — see `subscribeRefused`. */
   private refusedListeners = new Set<(count: number) => void>()
+  /** Work of a wider role parked on this device (see roleCacheKey) — this owner's, for the count
+   *  and «Einträge sichern». Not owed: no push of this session can deliver it. */
+  private roleParked: RefusedWorkspace[] = []
+  private roleParkedListeners = new Set<(count: number) => void>()
 
   constructor(
     private readonly incidentId: string,
@@ -439,6 +520,9 @@ export class WorkspaceSync {
       if (!read.ok) { this.scheduleProbe(); return }
       const stored = read.value
       if (stored?.dirty) {
+        // a wider shape's work is parked first, as init() does — a failed park leaves the slot be
+        if (mayRead(stored) && this.mustParkForRole(stored) && !(await this.parkForRole(stored))) { this.scheduleProbe(); return }
+        if (this.disposed || !this.slotUnread) return
         if (mayRead(stored)) this.mergeFoundSlot(stored)
         else {
           const durable = stored.owner
@@ -472,7 +556,7 @@ export class WorkspaceSync {
     this.reportRenumbered(this.viewState, merged)
     this.reportRenumbered(stored.workspace, merged)
     this.saveSeq++ // a push in flight carries the pre-merge state: it must not mark this clean
-    this.entry = { ...this.entry, workspace: merged, dirty: true, owner: this.entry.owner ?? stored.owner ?? cacheOwner ?? undefined }
+    this.entry = { ...this.entry, workspace: merged, dirty: true, owner: this.entry.owner ?? stored.owner ?? cacheOwner ?? undefined, shape: this.shape }
     this.handToView(merged, this.entry.baseRev)
     this.setStatus('pending')
     this.armDebounce()
@@ -485,8 +569,9 @@ export class WorkspaceSync {
     const conflicts: RecordConflict[] = []
     const truppConflicts: RecordConflict[] = []
     const formConflicts: RecordConflict[] = []
-    const merged = mergeWorkspace(base, mine, theirs, (c) => conflicts.push(c), (c) => truppConflicts.push(c),
+    const all = mergeWorkspace(base, mine, theirs, (c) => conflicts.push(c), (c) => truppConflicts.push(c),
       { numbers: this.numberScope, onFormConflict: (c) => formConflicts.push(c) })
+    const merged = this.opts.slice ? sliceMerged(all, theirs, this.opts.slice) : all
     if (conflicts.length) {
       if (this.onAttendanceConflicts) this.onAttendanceConflicts(conflicts)
       else this.conflictBuf.push(...conflicts)
@@ -509,9 +594,11 @@ export class WorkspaceSync {
     return this.opts.slice === 'record' ? 'off' : this.opts.slice === 'trupps' ? 'trupps' : 'all'
   }
 
-  /** The merge with this session's number scope — for the re-base merges that report nothing. */
+  /** The merge with this session's number scope — for the re-base merges that report nothing.
+   *  A slice session keeps the server's copy of what it cannot push (sliceMerged). */
   private merge(base: Workspace, mine: Workspace, theirs: Workspace): Workspace {
-    return mergeWorkspace(base, mine, theirs, undefined, undefined, { numbers: this.numberScope })
+    const merged = mergeWorkspace(base, mine, theirs, undefined, undefined, { numbers: this.numberScope })
+    return this.opts.slice ? sliceMerged(merged, theirs, this.opts.slice) : merged
   }
 
   /** Hand a merged state to the live view (in place, else the remount fallback) and remember it
@@ -635,6 +722,34 @@ export class WorkspaceSync {
     return { entry: null, parkBlocked: false }
   }
 
+  /** What this session pushes: the whole document, or its slice. */
+  private get shape(): 'all' | Slice {
+    return this.opts.slice ?? 'all'
+  }
+
+  /** Is `entry` unsynced work this session's push cannot carry whole? Only a slice session can
+   *  lack something, and only a stamped entry says what made it (an unstamped one is older than
+   *  the stamp: unknown, so never parked — a false «nicht übernommen» is a wolf cried). */
+  private mustParkForRole(entry: CacheEntry): boolean {
+    return !!this.opts.slice && !!entry.shape && entry.shape !== this.opts.slice
+  }
+
+  /** Copy `entry` into its owner's role slot (roleCacheKey). Resolves whether the copy is
+   *  durable; an unreadable slot is never written over (the idb rule — a failed read is not a miss). */
+  private async parkForRole(entry: CacheEntry): Promise<boolean> {
+    const key = roleCacheKey(this.incidentId, entry.owner ?? '')
+    const read = await idbRead<RefusedWorkspace[]>(key)
+    if (!read.ok) return false
+    const item: RefusedWorkspace = { workspace: entry.workspace, base: entry.base, baseRev: entry.baseRev, refusedAt: Date.now(), owner: entry.owner }
+    const next = [...(Array.isArray(read.value) ? read.value : []), item]
+    if (!(await idbSet(key, next))) return false
+    if ((entry.owner ?? '') === (cacheOwner ?? '')) {
+      this.roleParked = next
+      this.emitRoleParked()
+    }
+    return true
+  }
+
   /** Preserve unattributable pre-ownership unsynced work before its slot is reused. First writer
    *  wins: an orphan already parked is the real pre-upgrade copy, so it is never overwritten by a
    *  later (necessarily post-upgrade, hence owner-stamped) main-slot state — and, being already
@@ -692,9 +807,20 @@ export class WorkspaceSync {
     if (!read.ok) this.slotUnread = true
     // Decide what THIS session may load — and protect what it may not (see loadReadableEntry:
     // another user's unsynced work is parked, never destroyed or served to a different account).
-    const { entry: cached, parkBlocked } = read.ok
+    let { entry: cached, parkBlocked } = read.ok
       ? await this.loadReadableEntry(read.value)
       : { entry: null, parkBlocked: true }
+    // Unsynced work of a WIDER shape than this session can push (RBAC audit S4): park a copy before
+    // anything below reuses the slot — durable-or-abort, like a foreign owner's work. The record
+    // part still merges and goes up as before; the copy keeps the rest for «Einträge sichern».
+    if (cached?.dirty && this.mustParkForRole(cached)) {
+      if (await this.parkForRole(cached)) {
+        cached = { ...cached, shape: this.shape }
+        await idbSet(cacheKey(this.incidentId), cached) // parked once: a reload must not park it again
+      } else {
+        parkBlocked = true
+      }
+    }
     if (cached) {
       this.entry = cached
       this.setStatus(cached.dirty ? 'pending' : 'synced')
@@ -727,7 +853,7 @@ export class WorkspaceSync {
         const merged = this.mergeReporting(cached.base ?? {}, cached.workspace, server)
         // the offline work was written (and its Verlauf rows with it) under the cached numbers
         this.reportRenumbered(cached.workspace, merged)
-        this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt, owner: ownerAtStart ?? cached.owner, requeuedRefused: cached.requeuedRefused }
+        this.entry = { workspace: merged, base: server, baseRev: workspace_rev, dirty: true, lastSyncedAt: cached.lastSyncedAt, owner: ownerAtStart ?? cached.owner, requeuedRefused: cached.requeuedRefused, shape: this.shape }
         this.writeCache()
         this.opts.onRev?.(workspace_rev)
         this.setStatus('pending')
@@ -779,7 +905,7 @@ export class WorkspaceSync {
     // Stamp the editing session NOW (the enqueue moment), so the debounced write can't be
     // relabelled if the identity changes before it lands (SEC-10 owner races). An entry that
     // already knows its owner keeps it — recovered/parked work stays its author's.
-    this.entry = { ...this.entry, workspace, dirty: true, owner: this.entry.owner ?? cacheOwner ?? undefined, editedAt: serverNow() }
+    this.entry = { ...this.entry, workspace, dirty: true, owner: this.entry.owner ?? cacheOwner ?? undefined, editedAt: serverNow(), shape: this.shape }
     this.viewState = workspace
     this.writeCache()
     this.setStatus('pending')
@@ -924,14 +1050,16 @@ export class WorkspaceSync {
     // a merge this device made earlier (a cold reopen, a found slot) may have renumbered what the
     // server held; now that it is ON the server, this device says so — see resolveConflict
     this.reportRenumbered(serverHad, pushed)
+    // the server now holds what we pushed — all of it, or (a slice session) its copy with our
+    // slice in it (landedSlice). That becomes the new merge ancestor.
+    const landed = this.opts.slice ? landedSlice(serverHad, pushed, this.opts.slice) : pushed
     if (this.saveSeq === seqAtStart) {
-      // server now holds exactly what we pushed → that becomes the new merge ancestor.
-      this.entry = { ...this.entry, base: pushed, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now() }
+      this.entry = { ...this.entry, base: landed, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now() }
       this.setStatus('synced')
     } else {
       // a newer edit arrived mid-flush — keep it dirty (rebased) and schedule another flush.
       // The ancestor is still what we just pushed (the part the server has).
-      this.entry = { ...this.entry, base: pushed, baseRev: workspace_rev, lastSyncedAt: Date.now() }
+      this.entry = { ...this.entry, base: landed, baseRev: workspace_rev, lastSyncedAt: Date.now() }
       this.setStatus('pending')
       this.armDebounce()
     }
@@ -1005,8 +1133,9 @@ export class WorkspaceSync {
         // from a clean cache and simply adopt the server copy with nothing to compare. The row
         // id is derived from the change (truppNumbers · renumberRow), so saying it twice is once.
         this.reportRenumbered(server.workspace ?? {}, merged)
+        const landed = this.opts.slice ? landedSlice(server.workspace ?? {}, merged, this.opts.slice) : merged
         if (this.saveSeq === seqAtStart) {
-          this.entry = { ...this.entry, base: merged, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now() }
+          this.entry = { ...this.entry, base: landed, baseRev: workspace_rev, dirty: false, lastSyncedAt: Date.now() }
           this.writeCache()
           this.setStatus('synced')
         } else {
@@ -1014,7 +1143,7 @@ export class WorkspaceSync {
           // re-base it onto the merged result — otherwise pushing it blindly next flush would
           // overwrite the remote additions we just merged in. Different objects all survive.
           const remerged = this.merge(mine0, this.entry.workspace, merged)
-          this.entry = { ...this.entry, workspace: remerged, base: merged, baseRev: workspace_rev, dirty: true, lastSyncedAt: Date.now() }
+          this.entry = { ...this.entry, workspace: remerged, base: landed, baseRev: workspace_rev, dirty: true, lastSyncedAt: Date.now() }
           this.writeCache()
           this.setStatus('pending')
           this.armDebounce()
@@ -1220,7 +1349,7 @@ export class WorkspaceSync {
     const transferred = new Set(this.entry.requeuedRefused)
     let ws = this.entry.workspace
     for (const p of parked) {
-      if (!transferred.has(p.refusedAt)) ws = mergeWorkspace(p.base ?? {}, p.workspace, ws)
+      if (!transferred.has(p.refusedAt)) ws = this.merge(p.base ?? {}, p.workspace, ws)
       transferred.add(p.refusedAt)
     }
     this.entry = { ...this.entry, requeuedRefused: [...transferred] }
@@ -1249,6 +1378,34 @@ export class WorkspaceSync {
   /** The refused saves for «Einträge sichern» — a copy; exporting acknowledges nothing. */
   refusedRecoveryData(): RefusedWorkspace[] {
     return structuredClone(this.refused)
+  }
+
+  /** How many saves of a wider role are parked for this owner (roleCacheKey), as it changes.
+   *  Subscribing reads the slot, so a reload still counts what an earlier session parked.
+   *  Returns the unsubscribe. */
+  subscribeRoleParked(listener: (count: number) => void): () => void {
+    this.roleParkedListeners.add(listener)
+    void idbRead<RefusedWorkspace[]>(roleCacheKey(this.incidentId, cacheOwner ?? '')).then((read) => {
+      if (!read.ok || !Array.isArray(read.value) || this.disposed) return
+      const seen = new Set(this.roleParked.map((r) => r.refusedAt))
+      this.roleParked = [...read.value.filter((r) => !seen.has(r.refusedAt)), ...this.roleParked]
+      this.emitRoleParked()
+    })
+    return () => { this.roleParkedListeners.delete(listener) }
+  }
+
+  private emitRoleParked() {
+    if (this.disposed) return
+    for (const l of [...this.roleParkedListeners]) l(this.roleParked.length)
+  }
+
+  get roleParkedCount(): number {
+    return this.roleParked.length
+  }
+
+  /** The parked saves of a wider role for «Einträge sichern» — a copy; exporting acknowledges nothing. */
+  roleParkedRecoveryData(): RefusedWorkspace[] {
+    return structuredClone(this.roleParked)
   }
 
   /**

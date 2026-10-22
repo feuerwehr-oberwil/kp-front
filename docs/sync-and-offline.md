@@ -32,6 +32,34 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   409 and merge, closed-Einsatz rule, validation and audit. A 422 from the slice (it validates
   every Trupp; the full save keeps an unchanged legacy row) falls back to the full PUT; no
   ancestor, or any other key changed, is the full PUT as before (`workspaceSync · onlyTruppsChanged`).
+- ⚠️ **A slice session owns its slice, never the blob** (RBAC audit S4, 22.10.2026). The `el`
+  (`slice: 'record'`) and the Atemschutz-Link (`slice: 'trupps'`) push one slice, and the server
+  stores ITS blob with that slice in it — so that, not the pushed blob, is the new ancestor
+  (`workspaceSync · landedSlice`), and a slice session's merge keeps the server's copy of every
+  key it cannot push, plus its own `'local'` view keys (`sliceMerged`). The engine used to take
+  the whole pushed blob as «on the server»: whatever the session held outside its slice passed
+  for synced and the next adopt dropped it without a word. Two things had lived there: (1) the
+  crew filing's `trupps[].crewFiled` an `el` stamps — now carried by the record slice as
+  `truppCrewFiled: {truppId: keys}` and UNIONED onto the stored Trupps by the server
+  (`api/incidents · RECORD_CREW_FILED_KEY`, nothing else of a Trupp is read), so an el phone
+  beside a Link files a crew once and a member it took off stays off; (2) unsynced work of a
+  WIDER role — an editor demoted to `el`, signed out by the role change, signs in again with
+  its Lage edits in the cache. Every cache entry is stamped with the push shape that made it
+  (`CacheEntry.shape`); a slice session opening a dirty entry of another shape parks a copy in
+  `kp-front-ws-<id>::__role__:<owner>` first (durable-or-abort, like a foreign owner's work),
+  then sends the record part as before. The copy is counted in the Verlauf's role note («… für
+  diese Rolle nicht vorgesehen», beside the audit events refused for the role) and exported by
+  «Einträge sichern» (`workspaceRoleParked`); nothing re-sends it. An entry from before the stamp
+  is never parked.
+- **The Verlauf outbox is per identity** (RBAC audit S5, 22.10.2026): `kp-journal-<id>:<user
+  id>:<link kind | login>`, like the audit store's. One slot per Einsatz was shared by every
+  identity on the device, so an Atemschutz-Link opened on the FU's own phone sent the FU's unsent
+  Meldung as the link (a 403 — and the board froze as «Link widerrufen») and the FU's Trupp rows
+  stamped `via: atemschutz-link`. The device LOGIN adopts the shared pre-22.10. slot once and
+  deletes it after its own snapshot landed; a link page never reads it. And a link page reads
+  only a refused READ of its own workspace/Verlauf/events as «Link widerrufen» (`api ·
+  LINK_REFUSED_EVENT`): the server words every link refusal alike, so a write's 403 says nothing
+  about the link, and the live follow reads every round.
 - **The live follow never hands a device back its own save** (18.10.2026). Every save wakes every
   parked follower, the saving device's own long poll too, which downloaded the whole blob it had
   just sent (~38 KB gzipped per Funkkontakt on the busiest Einsatz on record) and threw it away.

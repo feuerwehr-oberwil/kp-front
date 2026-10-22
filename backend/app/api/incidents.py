@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
 from .. import audit, live_wait, push, storage
-from ..alarm_validation import ALARM_VALIDATED_KEYS, validate_alarm_workspace
+from ..alarm_validation import ALARM_VALIDATED_KEYS, validate_alarm_workspace, validate_trupp
 from ..alarms import is_demo_deployment
 from ..auth.dependencies import (
     CurrentAtemschutzWriter,
@@ -686,6 +686,39 @@ RECORD_WORKSPACE_KEYS = frozenset(
     {"attendance", "shifts", "bands", "mittel", "checklists", "reportMeta", "attachments", "reportSignatures"}
 )
 
+#: The crew filing's markers on the record slice (RBAC audit S4, 22.10.2026) — mirrored by
+#: src/lib/api/workspaceSync.ts · CREW_FILED_SLICE_KEY. ``trupps[].crewFiled`` says whom the
+#: ANWESENHEIT was told about (lib/crewFiling): a record fact the ``el`` files, kept on the Trupps
+#: it may not write. The slice sends ``{trupp_id: [key, …]}``; they are UNIONED onto the stored
+#: Trupps and nothing else of a Trupp is read — never stored as a key of its own. Without it an
+#: el phone beside an Atemschutz-Link (no FU tablet) filed the crew again on every reload, and a
+#: member the el took off the Anwesenheit came back.
+RECORD_CREW_FILED_KEY = "truppCrewFiled"
+_CREW_FILED_MAX = 64  # keys per Trupp: one per crew member — a bad-client guard, not a limit
+
+
+def _fold_crew_filed(trupps: object, marks: object) -> object:
+    """``trupps`` with ``marks`` unioned onto their ``crewFiled`` (sorted, grow-only — the shape
+    every client writes). Malformed marks are ignored; so is a stored Trupp the alarm validation
+    would refuse once changed (an unchanged legacy row is only kept because it is unchanged)."""
+    if not isinstance(trupps, list) or not isinstance(marks, dict):
+        return trupps
+    out = []
+    for t in trupps:
+        add = marks.get(t.get("id")) if isinstance(t, dict) and isinstance(t.get("id"), str) else None
+        if isinstance(add, list):
+            have = t.get("crewFiled") if isinstance(t.get("crewFiled"), list) else []
+            keys = sorted({k for k in [*have, *add] if isinstance(k, str) and 0 < len(k) <= 200})
+            if len(keys) <= _CREW_FILED_MAX and keys != have:
+                try:
+                    validate_trupp(t)
+                except ValueError:
+                    pass
+                else:
+                    t = {**t, "crewFiled": keys}
+        out.append(t)
+    return out
+
 
 @router.put("/{incident_id}/workspace/record", response_model=WorkspaceOut)
 async def put_workspace_record(
@@ -709,6 +742,8 @@ async def put_workspace_record(
         await _latch_editor_opened(db, incident_id)
     stored = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
     new_ws = {**stored, **{k: body.workspace[k] for k in RECORD_WORKSPACE_KEYS if k in body.workspace}}
+    if RECORD_CREW_FILED_KEY in body.workspace and "trupps" in stored:
+        new_ws["trupps"] = _fold_crew_filed(stored["trupps"], body.workspace[RECORD_CREW_FILED_KEY])
     # The incoming WorkspacePut is validated already; carrying over the editors' own keys must
     # not re-reject unchanged legacy fields (same reasoning as the trupps slice above).
     scoped = WorkspacePut.model_construct(workspace=new_ws, base_rev=body.base_rev)

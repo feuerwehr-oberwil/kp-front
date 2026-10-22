@@ -9,7 +9,8 @@ wording unchanged.
 - **Role gating** – product model is three incident roles: `editor` (FU / can mutate incident
   state), `el` (Einsatzleiter function, 07.09.2026 – reads everything, writes ONLY the record
   domains: Anwesenheit/Zeitplan, Mittel, Checklisten, Rapport + Beilagen, via the
-  server-enforced `PUT …/workspace/record` slice (`RECORD_WORKSPACE_KEYS`), journal/event
+  server-enforced `PUT …/workspace/record` slice (`RECORD_WORKSPACE_KEYS`, plus the crew
+  filing's markers, unioned onto the stored Trupps — `RECORD_CREW_FILED_KEY`, 22.10.2026), journal/event
   appends limited to the record vocabulary (`EL_EVENT_PREFIXES`), media uploads, and — since
   10.09.2026 — the EINSATZDATEN at the head of that record: `PATCH /incidents/{id}` limited to
   the fields «Einsatzdaten bearbeiten» sends (`EL_META_FIELDS`); the full workspace PUT, the
