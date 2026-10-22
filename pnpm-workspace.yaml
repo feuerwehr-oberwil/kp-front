@@ -2,7 +2,8 @@ overrides:
   # jsPDF pulls DOMPurify transitively. Keep the patched floor here rather than in
   # package.json: pnpm 10 ignores the legacy package.json `pnpm.overrides` field.
   # 3.4.16: GHSA-p98j-92pf-mc4p + GHSA-6688-9rhm-gjv2 (IN_PLACE mode, low).
-  dompurify: ">=3.4.16"
+  # 3.4.17: the 22.10.2026 advisories (1 high, 1 critical, ≤3.4.16).
+  dompurify: ">=3.4.17"
   # Build/dev tooling only (eslint › minimatch, vite-plugin-pwa › workbox-build): patched floors
   # for GHSA DoS advisories of 30.09.2026 until the parents ship them.
   brace-expansion@2: "^2.1.7"
