@@ -813,12 +813,15 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       same axis as every line in the log below, so the block reads as the same
                       list filtered rather than as a separate component — and the ring IS this
                       row's icon, which is what a checklist circle has always been. */}
-                  <button
-                    type="button" className="jr-rem"
-                    disabled={!onReminderDone}
-                    title={C.markDoneTitle} aria-label={C.markDoneTitle}
-                    onClick={() => onReminderDone?.(r)}
-                  ><span className="jr-rem-box"><Icon id="check" /></span></button>
+                  {/* …a control only where there is a hand to tick it off: a session without one (a
+                      viewer, a link) gets the same ring as a read-out, like the log row's (Disc) */}
+                  {onReminderDone ? (
+                    <button
+                      type="button" className="jr-rem"
+                      title={C.markDoneTitle} aria-label={C.markDoneTitle}
+                      onClick={() => onReminderDone(r)}
+                    ><span className="jr-rem-box"><Icon id="check" /></span></button>
+                  ) : <span className="jr-rem" aria-hidden><span className="jr-rem-box" /></span>}
                   {/* ⚠️ The Meldungen are SIBLINGS of the button, not children of it. Inside it
                       they rendered outside its box: a <button> is a replaced-ish element whose
                       height does not follow block children the way a div's does, so a row with
@@ -826,12 +829,13 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                       over them. The button stays a button — one line, one action — and the
                       thread hangs under it in an ordinary div. */}
                   <div className="jr-pinned-body">
-                    <button
-                      type="button" className="jr-pinned-text"
-                      title={C.noteOpen} aria-label={C.noteOpen}
-                      disabled={!onReminderNote}
-                      onClick={() => onReminderNote?.(r)}
-                    >{r.text}</button>
+                    {onReminderNote ? (
+                      <button
+                        type="button" className="jr-pinned-text"
+                        title={C.noteOpen} aria-label={C.noteOpen}
+                        onClick={() => onReminderNote(r)}
+                      >{r.text}</button>
+                    ) : <span className="jr-pinned-text">{r.text}</span>}
                     {/* ⚠️ EVERY Meldung, not the latest one. They stand scattered through the
                         Verlauf where they happened, so this is the only place the thread reads
                         as a thread — and showing one of three looked like the whole story. */}

@@ -215,8 +215,10 @@ export function WorkspaceMeldungen({
           so reloading re-fetches the curated seed. The welcome modal spells this out. */}
 
       {/* another tab of this browser is editing this incident → this one is read-only; one tap
-          moves editing here (only meaningful for editors — viewers are read-only anyway) */}
-      {tabLockLost && user?.role === 'editor' && <TabLockBanner onTakeOver={onTakeOverTab} />}
+          moves editing here. For every session that WRITES – editor and el (the el keeps the
+          record, and froze silently without it; RBAC audit §4, 22.10.2026) – not for a viewer,
+          which is read-only anyway. The Atemschutz-Link mounts its own (IncidentWorkspace · asLink). */}
+      {tabLockLost && (user?.role === 'editor' || user?.role === 'el') && <TabLockBanner onTakeOver={onTakeOverTab} />}
 
       {/* ⚠️ «Einsatz abgeschlossen» is NOT published here (23.08.). Read-only is a property of the
           incident, not a message about it, so it rides beside the Einsatzname as a mode chip in

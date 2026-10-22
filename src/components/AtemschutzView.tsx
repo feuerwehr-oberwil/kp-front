@@ -1559,7 +1559,8 @@ export function AtemschutzView({
           <div className={s.empty}>
             <Icon id="warn" />
             <p>{az.empty}</p>
-            <span>{az.emptyHint}</span>
+            {/* the hint teaches the writer's next step – a session that cannot add a Trupp keeps the plain line */}
+            {canEdit && <span>{az.emptyHint}</span>}
             {/* The door the empty board is asking for (staging walk-through 25.09.2026): the big
                 round «+» at the bottom right is the app's Verlauf-Eintrag, and on an empty board it
                 is the one a first-timer taps. On the handed-over phone board «+ Trupp» is the
@@ -2717,7 +2718,8 @@ function TruppCard({
       {/* ── 4 Hinweis ─────────────────────────────────────────────────────────────────────────
           Usually empty, and then it costs nothing (`.noteZone:empty`). */}
       <div className={s.noteZone}>
-        {monitored && preEntry && <div className={s.preHint}>{az.preEntryHint}</div>}
+        {/* «… drücken» names a button only a writer has (actZone below) */}
+        {canEdit && monitored && preEntry && <div className={s.preHint}>{az.preEntryHint}</div>}
         {airNote && (
           <div className={s.airNote} role="status" aria-live="polite">
             <Icon id="warn" /><span>{airNote}</span>

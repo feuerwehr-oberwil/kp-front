@@ -528,7 +528,12 @@ export function IncidentWorkspace({
   // they auto-update and never get persisted. The operator can drag a vehicle to
   // reposition it and drag its handle to orient it; those overrides live here
   // (persisted) and win over the GPS value until reset via the "GPS" button.
-  const { liveVehicles, liveIds, overrides: vehicleOverrides, setOverrides: setVehicleOverrides, gpsStale, gpsAgeMs } = useVehicleLayer(init.vehicleOverrides)
+  // ⚠️ Not polled where it is refused or never shown (RBAC audit §3, 22.10.2026): a Rapport VIEW
+  // link may not reach Traccar or the weather (backend · VIEW_LINK_ALLOWED), and the Atemschutz-
+  // Link's Tafel shows neither – each would be a 403 or a wasted poll on every load. The same
+  // flag gates the weather badge, the radar and the Gebäude card below.
+  const liveFeeds = user?.link_kind !== 'view' && !asLink
+  const { liveVehicles, liveIds, overrides: vehicleOverrides, setOverrides: setVehicleOverrides, gpsStale, gpsAgeMs } = useVehicleLayer(init.vehicleOverrides, liveFeeds)
   // Standort teilen. Two halves that deliberately do not meet: this device REPORTS where its
   // holder is (`share`, available to every session including a link-scoped phone), and the
   // command post READS the crew picture (`livePeople`, refused to a link session server-side,
@@ -1097,8 +1102,8 @@ export function IncidentWorkspace({
   // The Gebäude-Steckbrief (KP Front F5) — a chip in the Karte's and the plan's bottom-left chip
   // row (BuildingFloat): fetched with the Einsatz so it is cached for offline before anybody taps it. Only the operator's MANUAL pick is passed — without
   // one the server ranks the objects exactly as the plan rail does. Refetched when the address or
-  // point changes. A Rapport view link may not ask.
-  const buildingInfo = useBuildingInfo(incidentMeta, manualObject?.id ?? null, user?.link_kind !== 'view')
+  // point changes. A Rapport view link may not ask, and the Atemschutz-Link's Tafel never shows it.
+  const buildingInfo = useBuildingInfo(incidentMeta, manualObject?.id ?? null, liveFeeds)
 
   // PWA: the Offline-Vorbereitung — the incident box, the warm download and its probe URLs
   // (workspace/useOfflinePrefetch).
@@ -1340,10 +1345,10 @@ export function IncidentWorkspace({
   // since 24.09.2026, once per reading per active Einsatz (backend · app/observations): every
   // device used to emit its own copy of each reading, and none while every screen slept.
   // During replay the badge reads the folded reading.
-  const liveWeather = useWeather(incidentView.center)
+  const liveWeather = useWeather(incidentView.center, liveFeeds)
   const displayWeather = replayActive ? (replayWs?.weather ?? null) : liveWeather.data
   // …and the Karte's weather LAYER: the MeteoSwiss radar (live only)
-  const weather = useKarteWeather(mode === 'map' && !replayActive)
+  const weather = useKarteWeather(mode === 'map' && !replayActive && liveFeeds)
 
   // The opening cover (lib/bootCover): the boot Splash's snail stays over the whole workspace
   // until its first screen is whole — the symbol pack, the Karte framed with its first view drawn
@@ -1354,7 +1359,7 @@ export function IncidentWorkspace({
   const coverPhase = useBootCover(!!openCover, (sym.ready || !!sym.error)
     && (mode !== 'map' || mapSettled)
     && plansSettled
-    && (!!liveWeather.data || !!liveWeather.error), onOpenCoverDone)
+    && (!liveFeeds || !!liveWeather.data || !!liveWeather.error), onOpenCoverDone)
   // The Gebäude card opens by itself the first time THIS device shows the Karte of this Einsatz
   // with a hazard / Sofortmassnahmen / Bemerkungen to read (lib/buildingFirstOpen): after the cover
   // has lifted (never under the snail), on the Karte only — an Einsatz that opens on another
@@ -1749,12 +1754,12 @@ export function IncidentWorkspace({
   // useObjectPlans re-centres the osm surface on the incident, so prefetching the bundled
   // catalog's default center warmed a bbox nobody looks at. Re-runs when the center moves
   // (e.g. the alarm address lands); prefetchOutlines dedupes by bbox, so repeats are free.
-  // Not for an Atemschutz-Link session: it never shows a plan, and /api/overpass is off the
-  // link allowlist – the warm-up would only be a 403 in the console.
+  // Not for a LINK session: /api/overpass is off every link allowlist (an open proxy), so the
+  // warm-up would only be a 403 in the console – and the Atemschutz-Link never shows a plan.
   useEffect(() => {
-    if (asLink) return
+    if (linkScoped) return
     for (const p of resolvedPlanDocs) if (p.osm) prefetchOutlines(p.osm.center, p.osm.radiusM)
-  }, [resolvedPlanDocs, asLink])
+  }, [resolvedPlanDocs, linkScoped])
 
   // remember the active surface + plan document in a cookie (preserve incidentId)
   // (…but never FROM a link session: its surface is forced, so remembering it would make the
@@ -2317,6 +2322,9 @@ export function IncidentWorkspace({
   // session that writes the Trupps records the crossing in the Verlauf (RBAC audit V1, 22.10.2026).
   // The FU or the Atemschutz-Link writes that row, once per turnus, for everybody.
   const alarmLog = canEditTrupps ? { logAlarm: logTruppAlarm, logAlarmCleared: logTruppAlarmCleared } : {}
+  /** a due Wiedervorlage rings (tone + OS notification) only for the sessions that can tick it
+   *  off – editor and el (owner, 22.10.2026); viewers and every link see the due row silently */
+  const remindersAlert = isEditor || isEl
 
   // the Karte's gestures and commands — tool picks, map taps, views, keys, the lasso group, marker
   // moves and docking, jumps, delete and «erledigt» (workspace/useMapActions)
@@ -2504,14 +2512,21 @@ export function IncidentWorkspace({
    *  an Ansicht, a Drehung, a Gebäude swap, a Beilage (verlauf-coverage · «taken back»).
    *  ⚠️ `touches` names EVERY record `restore`/`reapply` write (lib/undoKeys) — that is what a
    *  remote merge checks the step against; a record left out is one a ↶ could carry a pre-merge
-   *  value back into. A function, read when a merge lands, for a set only knowable then. */
-  const rememberOneShot = (domain: UndoDomain, label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') => undoHist.push({
-    domain,
-    label,
-    touches,
-    undo: () => { restore(); oneShotRow('undo', label, rows); return true },
-    redo: () => { reapply(); oneShotRow('redo', label, rows); return true },
-  })
+   *  value back into. A function, read when a merge lands, for a set only knowable then.
+   *  ⚠️ The audit op is domain-scoped like `logHistStep`'s: a Rapport one-shot (a Beilage added,
+   *  captioned, removed) is the `el`'s too, whose event scope drops a bare `undo` — so its step
+   *  goes out as `report.undo` / `report.redo` (RBAC audit §4, 22.10.2026). The tactical ones
+   *  (Gebäude, Spur) are an editor's alone and keep the bare op. */
+  const rememberOneShot = (domain: UndoDomain, label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') => {
+    const op = domain === 'rapport' ? 'report.' : ''
+    return undoHist.push({
+      domain,
+      label,
+      touches,
+      undo: () => { restore(); oneShotRow('undo', label, rows, op); return true },
+      redo: () => { reapply(); oneShotRow('redo', label, rows, op); return true },
+    })
+  }
   rememberOneShotRef.current = rememberOneShot
   // the Abschluss's «nicht eingesetzt» door (standDownTrupps above) — read only when the question
   // is answered, long after this commit, so an effect is the place to point it
@@ -2544,11 +2559,11 @@ export function IncidentWorkspace({
   const rememberGebaeudeStep = (label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') =>
     rememberOneShot('gebaeude', label, restore, reapply, touches, rows)
   /** The row a one-shot's step owes the record, in either direction — its own words, or the generic ones. */
-  const oneShotRow = (dir: 'undo' | 'redo', label: string, rows?: OneShotRows | 'silent') => {
-    if (rows === 'silent') { histSide.current.emit(dir); return }
-    if (!rows) { logHistStep(dir, label, ''); return }
+  const oneShotRow = (dir: 'undo' | 'redo', label: string, rows?: OneShotRows | 'silent', op = '') => {
+    if (rows === 'silent') { histSide.current.emit(`${op}${dir}`); return }
+    if (!rows) { logHistStep(dir, label, op); return }
     rows[dir]()
-    histSide.current.emit(dir)
+    histSide.current.emit(`${op}${dir}`)
   }
   /**
    * ⚠️ A one-shot's confirm-with-undo toast. Its «Rückgängig» is the SAME act as the header's ↶ —
@@ -2946,7 +2961,7 @@ export function IncidentWorkspace({
       <>
         <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
           {...alarmLog} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
-        <RemindersHost {...reminders.host} />
+        <RemindersHost {...reminders.host} alert={remindersAlert} />
         <AtemschutzAlarmMeldungen
           trupps={trupps}
           severities={azAlarm.severities}
@@ -2994,7 +3009,8 @@ export function IncidentWorkspace({
         {tabLockLost && <TabLockBanner onTakeOver={onTakeOverTab} />}
         <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
           {...alarmLog} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
-        <RemindersHost {...reminders.host} />
+        {/* the due row only – a link's phone never rings for a Wiedervorlage (RemindersHost) */}
+        <RemindersHost {...reminders.host} alert={false} />
         {closedMeldung}
         {linkRefused && running && <LinkRefusedMeldung />}
         {guarded('atemschutz', atemschutzBoard, false)}
@@ -3136,8 +3152,9 @@ export function IncidentWorkspace({
       )}
       <AtemschutzAlarmHost trupps={alarmTrupps} muted={atemschutzMuted} active={azAlarmActive}
         {...alarmLog} intervalMin={azIntervalMin} graceSec={azGraceSec} onState={setAzAlarm} />
-      {/* the reminder clock, hosted for the same reason as the alarm above (10 s ≠ 1 Hz, same shape) */}
-      <RemindersHost {...reminders.host} />
+      {/* the reminder clock, hosted for the same reason as the alarm above (10 s ≠ 1 Hz, same shape);
+          it rings only for the Verlauf's writers, editor and el (RemindersHost · alert) */}
+      <RemindersHost {...reminders.host} alert={remindersAlert} />
       {closedMeldung}
 
       <MapStage {...{
@@ -3337,7 +3354,7 @@ export function IncidentWorkspace({
         setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
         enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
         tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen,
-        addJournal, noteOn, roleReadOnly,
+        addJournal, noteOn, roleReadOnly, linkScoped,
       }} />
       {sharePick && (
         <SharePositionSheet

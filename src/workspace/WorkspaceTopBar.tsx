@@ -142,9 +142,10 @@ export function WorkspaceTopBar({
         // A tab that merely LOST THE LOCK keeps the button though: making it vanish answers the
         // question just as badly, so it says what is in the way and offers the one tap out of it
         // (the same «Hier bearbeiten» the banner carries, for when the banner is scrolled away).
+        // Editor AND el: both write the Verlauf, so both get the banner (WorkspaceMeldungen).
         onAddEntry={linkScoped ? undefined
           : !readOnly ? () => setComposerOpen(true)
-          : tabLockLost && isEditor ? () => toast(appConfig.copy.tabLock.hint, {
+          : tabLockLost && (isEditor || user?.role === 'el') ? () => toast(appConfig.copy.tabLock.hint, {
               icon: 'info',
               action: { label: appConfig.copy.tabLock.takeOver, onClick: onTakeOverTab },
             })

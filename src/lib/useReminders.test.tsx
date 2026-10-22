@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('./alarm', () => ({ notify: vi.fn(), startAlarm: vi.fn(), stopAlarm: vi.fn() }))
 
 import { RemindersHost, useReminders } from './useReminders'
-import { notify } from './alarm'
+import { notify, startAlarm } from './alarm'
 import type { TimelineEvent } from '../types'
 
 const copy = { dueTitle: 'fällig', doneLog: '{text}', pendenzDoneLog: 'p {text}', snoozeLog: '{mins} {text}', reopenLog: 'o {text}', pendenzReopenLog: 'po {text}' }
@@ -21,10 +21,10 @@ type Reminders = ReturnType<typeof useReminders>
 let latest: Reminders
 let renders = 0
 const track = (r: Reminders) => { latest = r; renders += 1 }
-function Probe({ timeline, enabled = true, report }: { timeline: TimelineEvent[]; enabled?: boolean; report: (r: Reminders) => void }) {
+function Probe({ timeline, enabled = true, alert = true, report }: { timeline: TimelineEvent[]; enabled?: boolean; alert?: boolean; report: (r: Reminders) => void }) {
   const r = useReminders(timeline, () => {}, copy, enabled)
   report(r)
-  return <RemindersHost {...r.host} />
+  return <RemindersHost {...r.host} alert={alert} />
 }
 
 beforeEach(() => { vi.useFakeTimers(); renders = 0 })
@@ -41,6 +41,19 @@ describe('useReminders — overdue recompute on resume', () => {
     expect(notify).toHaveBeenCalledWith('fällig', {
       body: 'Keller prüfen', tag: 'reminder-r1', target: 'journal',
     })
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
+  })
+
+  it('a session that cannot tick it off (viewer, link) gets the due row without tone or notification', () => {
+    const t0 = Date.parse('2026-06-30T03:00:00.000Z')
+    vi.setSystemTime(t0)
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })
+
+    render(<Probe report={track} alert={false} timeline={[createdRow('r1', new Date(t0 - 1_000).toISOString(), new Date(t0 - 2_000).toISOString())]} />)
+
+    expect(latest.dueCount).toBe(1)
+    expect(notify).not.toHaveBeenCalled()
+    expect(startAlarm).not.toHaveBeenCalled()
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
   })
 

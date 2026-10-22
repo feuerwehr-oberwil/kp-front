@@ -65,6 +65,9 @@ export interface JournalLayerProps {
   roleReadOnly: boolean
   addJournal: (d: JournalDraft, geoSettled?: boolean) => void
   noteOn: { id: string; text: string } | null
+  /** a link session (access · linkScoped): every link is refused the audio peaks, so its player
+   *  draws the flat bar without asking */
+  linkScoped: boolean
 }
 
 export function JournalLayer({
@@ -73,7 +76,7 @@ export function JournalLayer({
   setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
   enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
   tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen, roleReadOnly,
-  addJournal, noteOn,
+  addJournal, noteOn, linkScoped,
 }: JournalLayerProps) {
   return (
     <>
@@ -132,6 +135,7 @@ export function JournalLayer({
           readOnly={readOnly}
           // transcribing and deciding its segments is editor-only on the server (api/media)
           canTranscribe={isEditor}
+          serverPeaks={!linkScoped}
           initialSeekSec={player.seekSec}
           // the same vocabulary the composer gets — «Eintrag an dieser Stelle» writes into the
           // same Verlauf, so it completes and marks names identically
