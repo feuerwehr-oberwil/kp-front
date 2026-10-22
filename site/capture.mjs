@@ -80,8 +80,10 @@ const shots = [
       // hours, the rest of the axis would be empty space. Narrow it until the crew actually
       // fills the width – and scroll to the end so the coverage row sits below the last row
       // instead of half over it.
+      // The button is disabled once the Zeitraum is as narrow as it gets (22.10.2026: it was
+      // already there after a reset, and a click on a disabled button waits until the timeout).
       const narrower = page.getByRole('button', { name: 'Zeitraum enger' }).first()
-      for (let i = 0; i < 2 && await narrower.count(); i++) {
+      for (let i = 0; i < 2 && await narrower.count() && await narrower.isEnabled(); i++) {
         await narrower.click()
         await page.waitForTimeout(400)
       }
