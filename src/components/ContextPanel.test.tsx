@@ -130,6 +130,29 @@ describe('ContextPanel — basic wiring', () => {
     expect(screen.getByText('Fahrer').closest('.field')).toBeTruthy()
   })
 
+  // RBAC audit 22.10.2026: a locked session READS the Fahrer – no picker, no empty box
+  it("a locked panel states a live vehicle's Fahrer as a read-out", () => {
+    setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, readOnly: true, driver: { value: 'Graf Stefan' } })
+    expect(screen.getByText('Graf Stefan').className).toContain('kv-val-ro')
+    expect(screen.queryByRole('combobox')).toBeNull()
+  })
+
+  // …and the Beschriftung / the Schutzabstand: the answer in words, not three faded buttons
+  it('a locked panel states the Beschriftung and the Schutzabstand, and offers no switch', () => {
+    const C = appConfig.copy.contextPanel
+    const onCaption = vi.fn()
+    const onErgRings = vi.fn()
+    setup({
+      entity: { id: 'g1', symbol: 'FW Gefahr Tafel', fields: { 'UN-Nr.': '1005' }, ergRings: 'large' },
+      protectedKeys: new Set(['UN-Nr.', 'Stoff']),
+      readOnly: true, onCaption, captionDefault: 'auto', onErgRings,
+    })
+    expect(screen.queryAllByRole('group', { name: C.caption })).toEqual([])
+    expect(screen.getAllByText(C.captionAuto)[0].className).toContain('kv-val-ro')
+    expect(screen.queryByRole('group', { name: C.ergRingsLabel })).toBeNull()
+    expect(screen.getByText(C.ergRingsLarge).className).toContain('kv-val-ro')
+  })
+
   it('stepping rotation up commits via onRotate', () => {
     const p = setup({ controls: new Set<SymbolControl>(['rotation']), entity: { id: 's1', rotation: 0 } })
     fireEvent.pointerDown(screen.getByLabelText('mehr')) // hold-to-repeat: first step fires on pointer-down

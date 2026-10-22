@@ -298,11 +298,20 @@ function Cell({ k, kn, value, label, readOnly, time = false, placeholder, classN
   )
 }
 
+/** a line's Tendenz: the button that cycles it, or — on a locked page (RBAC audit 22.10.2026) —
+ *  the arrow as a full-tone read-out, and nothing where none was set (no «·» to tap) */
 function TrendButton({ trend, readOnly, onNext }: { trend: string | undefined; readOnly: boolean; onNext: () => void }) {
   const t = T()
   const word = trend === 'up' ? t.trendUp : trend === 'same' ? t.trendSame : trend === 'down' ? t.trendDown : t.trendNone
+  if (readOnly) {
+    return trend
+      ? <span className={cx(s.trend, s.trendRo)} data-trend={trend} role="img" aria-label={word} title={word}>
+          <span aria-hidden="true">{ARROW[trend]}</span>
+        </span>
+      : <span className={s.trendGap} aria-hidden="true" />
+  }
   return (
-    <IconButton label={fillTemplate(t.trendTitle, { trend: word })} disabled={readOnly} className={s.trend} data-trend={trend ?? 'none'}
+    <IconButton label={fillTemplate(t.trendTitle, { trend: word })} className={s.trend} data-trend={trend ?? 'none'}
       tabIndex={-1} onPointerDown={keep} onClick={onNext}>
       <span aria-hidden="true">{trend ? ARROW[trend] : '·'}</span>
     </IconButton>
@@ -310,12 +319,13 @@ function TrendButton({ trend, readOnly, onNext }: { trend: string | undefined; r
 }
 
 /** the row's «erledigt»: the shared tick box alone (TickRow, F7 20.10.2026), out of the Tab order
- *  like the trend button — Tab walks the cells */
+ *  like the trend button — Tab walks the cells. On a locked page a read-out: disabled, but in
+ *  full tone (`doneRo`, the `.wb-object:disabled` recipe — RBAC audit 22.10.2026). */
 function DoneButton({ on, readOnly, onToggle }: { on: boolean; readOnly: boolean; onToggle: () => void }) {
   const label = T().done
   return (
     <TickRow checked={on} onToggle={onToggle} disabled={readOnly} aria-label={label} title={label} tabIndex={-1}
-      onPointerDown={keep} />
+      className={readOnly ? s.doneRo : undefined} onPointerDown={keep} />
   )
 }
 

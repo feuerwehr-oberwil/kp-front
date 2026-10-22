@@ -2038,19 +2038,22 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   // --- single freehand-stroke select + drag (tap the fat hit-line in WbInkLayer, pan mode) ---
   const drawDown = (id: string, e: React.PointerEvent) => {
-    if (tool !== 'pan' || readOnly) return
+    if (tool !== 'pan') return
     // locked (BoardAnno.locked): the ink is click-through, so a big Sektor-Fläche stops swallowing
     // the taps meant for the work on top of it. NOT stopPropagation'd — the tap goes on to the
     // stage and does what an empty-canvas tap does, which is the map's behaviour too. The lock
     // chip over it is the only tap target it still has.
     if (annos.find((x) => x.id === id)?.locked) return
     e.stopPropagation()
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     // remember WHERE it was tapped, paired with the id — the panel nudge anchors on it for a stroke
     // too big for its bounds to mean anything (lib/panelNudge · panelNudgeSelection). Client px,
     // the same space the nudge's box is built in.
     setAnnoTap({ id, x: e.clientX, y: e.clientY })
     setSelId(id); setSelIds([])
+    // a locked board SELECTS (the read-only DrawEditor: Länge, Leitung-Nr., the Trupp on it) but
+    // never drags — the Lage's parity (RBAC audit 22.10.2026)
+    if (readOnly) return
+    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     const a = annos.find((x) => x.id === id); if (!a || (a.kind !== 'draw' && a.kind !== 'area')) return
     // snapshot the vertices in board-space (y mapped to the stacked board), so the delta is always
     // applied to the original geometry — no drift across re-renders (mirrors the group-move math)
@@ -2094,13 +2097,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // checkpoint per drag, one board.move on release.
   const circleDrag = useRef<{ id: string; sx: number; sy: number; x0: number; by0: number; floor: number; moved: boolean } | null>(null)
   const circleDown = (id: string, e: React.PointerEvent) => {
-    if (tool !== 'pan' || readOnly) return
+    if (tool !== 'pan') return
     const a = annos.find((x) => x.id === id)
     if (!a || a.locked) return // locked ink is click-through; the LockChip is its only door
     e.stopPropagation()
-    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     setAnnoTap({ id, x: e.clientX, y: e.clientY })
     setSelId(id); setSelIds([])
+    if (readOnly) return // selected for its read-only panel, never moved (see drawDown)
+    ;(e.target as HTMLElement).setPointerCapture?.(e.pointerId)
     circleDrag.current = { id, sx: e.clientX, sy: e.clientY, x0: a.x ?? 0, by0: mapY(a.floor, a.y ?? 0), floor: a.floor ?? 0, moved: false }
   }
   const circleMove = (e: React.PointerEvent) => {
@@ -3325,7 +3329,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 preselectSrc={building?.geo ? building.src : undefined} preselectGeo={building?.geo}
                 pin={incidentPos} onPick={onSelectBuilding} />
             ) : blank ? (
-              annos.length === 0 && <div className="wb-blank-hint">{appConfig.copy.whiteboard.blankHint}</div>
+              // the hint teaches the tools — a board that cannot be written on has none to teach
+              annos.length === 0 && !readOnly && <div className="wb-blank-hint">{appConfig.copy.whiteboard.blankHint}</div>
             ) : (
               <PdfViewport
                 key={active.id}
@@ -3898,6 +3903,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                         removeWithTrail: () => void removeWithTrail(a),
                         showTrupp: onShowTrupp,
                         toggleTrail: () => toggleTrail(a.id),
+                      // a locked board keeps the bar's two doors that change nothing, like the
+                      // Karte's marker (MapMarkers · readOnly): the card jump, the trail toggle
+                      } : tool === 'pan' && ((a.truppId && onShowTrupp) || a.trail?.length) ? {
+                        showTrupp: onShowTrupp,
+                        toggleTrail: () => toggleTrail(a.id),
                       } : undefined} />
                   )
                 })()}
@@ -4069,15 +4079,22 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                       <i>{p.t}</i>
                     </div>
                   ))}
-                  {head && (
+                  {head && (onGhostTrail ? (
                     <button type="button" className="wb-ghost-label"
                       style={{ left: `${head.x * sW}px`, top: `${mapY(head.floor ?? 0, head.y) * sH}px` }}
                       title={fillTemplate(appConfig.copy.whiteboard.ghostTrailHint, { name: label })}
                       onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => { e.stopPropagation(); onGhostTrail?.(g.id) }}>
+                      onClick={(e) => { e.stopPropagation(); onGhostTrail(g.id) }}>
                       <Icon id="footprint" />{label}
                     </button>
-                  )}
+                  ) : (
+                    // a locked board has no «Spur löschen»: the label is a read-out (MapMarkers' twin)
+                    <span className="wb-ghost-label"
+                      style={{ left: `${head.x * sW}px`, top: `${mapY(head.floor ?? 0, head.y) * sH}px` }}
+                      title={fillTemplate(appConfig.copy.whiteboard.ghostTrailHint, { name: label })}>
+                      <Icon id="footprint" />{label}
+                    </span>
+                  ))}
                 </Fragment>
               )
             })}
@@ -4534,7 +4551,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       )}
 
       {/* selected-shape editor — the SAME colour sheet as the Lage map (size + rotation
-          live on the canvas handles). Read-only surfaces just show the selection halo. */}
+          live on the canvas handles). A read-only surface opens it read-only, like the Lage
+          (MapDetailPanels): what the Form is, no control (RBAC audit 22.10.2026). */}
       {editorSlotFree && !readOnly && selShape && (
         <ShapeEditor
           key={selShape.id}
@@ -4563,6 +4581,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           onDelete={() => void removeWithConnections(selShape)}
           onClose={() => setSelId(null)}
         />
+      )}
+      {editorSlotFree && readOnly && selShape && (
+        <ShapeEditor key={selShape.id} readOnly entity={selShape} onClose={() => setSelId(null)} />
       )}
 
       {paletteOpen && sym.ready && (
@@ -4699,8 +4720,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           say is load-bearing: an unchecked automatic fit must never look like a checked one (the
           «ungemessen» / amber rules above), and a locked device reads the plan too. Disabled in
           the `.wb-object:disabled` recipe — not greyed. An Einsatz-Link viewer (linkViewer) gets
-          neither: the chips are the origin's instruments. */}
-      {(!readOnly || slimRail) && !osm && !blank && !linkViewer && !scaleWaitsForLink && (
+          neither: the chips are the origin's instruments.
+          ⚠️ Gated on the LOCK (`readOnlyProp`), not on `slimRail`: a replay has no slim rail (the
+          scrubber owns the bottom band) and is a locked session like any other, so the read-out
+          stays there too (RBAC audit 22.10.2026). A viewer-only document and the Umrisse sheet
+          are read-only by nature and have no scale to state. */}
+      {(!readOnly || (readOnlyProp && active?.viewer !== true && !selectOnly)) && !osm && !blank && !linkViewer && !scaleWaitsForLink && (
         scaleAuto
           /* Still a reading, not a second calibration path – but a TAPPABLE one (29.08.): the
              hover title never fires on the field iPad, so the chip explains itself the same

@@ -16,7 +16,12 @@ const FILL_OPACITIES = appConfig.drawing.fillOpacities
 interface Props {
   // structurally satisfied by a map Entity AND a plan BoardAnno of kind 'shape'
   entity: Pick<Entity, 'shape' | 'color' | 'stop' | 'carrier' | 'sizeM' | 'aspect' | 'strokeW' | 'fillOpacity' | 'hatch' | 'sharpCorners'>
-  onColor: (c: string) => void
+  /** locked surface (viewer, el, Führungsansicht, replay — RBAC audit 22.10.2026): the panel
+   *  keeps what the Form IS (its name and glyph), its figures (the Messung block) and
+   *  «Zentrieren», and drops every control that would change it — DrawEditor · readOnly's twin.
+   *  A read-only caller passes no writers. */
+  readOnly?: boolean
+  onColor?: (c: string) => void
   /** scale the shape by a factor (>1 bigger, <1 smaller); the parent clamps to its size
    *  space (metres on the map, normalized plan-width on the Plan). The corner drag-handle
    *  stays for tablet/desktop, but on a phone it sits under this sheet — so size lives here.
@@ -54,30 +59,32 @@ interface Props {
   locked?: boolean
   /** fly the map to the shape — map-only; a plan shape is already on screen */
   onCenter?: () => void
-  onDelete: () => void
+  onDelete?: () => void
   onClose: () => void
 }
 
 // Editor for a placed generic shape — colour only. Size and rotation are changed
 // directly on the map/plan by dragging the shape's corner / top handles, so
-// they're not duplicated here. Reuses the .ctx / .draw-editor look.
-export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, onCarrier, onReverse, onStrokeW, onFill, onCorners, areaM2, boxM, perimeterM, onToggleLock, locked, onCenter, onDelete, onClose }: Props) {
+// they're not duplicated here. Reuses the .ctx / .draw-editor look. On a locked surface
+// (`readOnly`) it is the Form's read-only detail panel.
+export function ShapeEditor({ entity, readOnly = false, onColor, onScale, onScaleLength, onStop, onCarrier, onReverse, onStrokeW, onFill, onCorners, areaM2, boxM, perimeterM, onToggleLock, locked, onCenter, onDelete, onClose }: Props) {
   const color = entity.color ?? DEFAULT_INK
   const name = appConfig.copy.shapes.names[entity.shape ?? 'square'] ?? appConfig.copy.shapes.kindLabel
 
   // rendered twice: pinned at the sheet bottom on desktop/tablet, and again inside the
-  // scrolling body for phones (.ctx-footer-inline) — CSS shows exactly one copy
-  const actions = (
+  // scrolling body for phones (.ctx-footer-inline) — CSS shows exactly one copy. A read-only
+  // panel with nothing to centre on (the Plan) has no foot at all.
+  const actions = readOnly && !onCenter ? null : (
     <div className="ctx-actions">
       {onCenter && <button className="btn" onClick={onCenter}><Icon id="cross" />{appConfig.copy.contextPanel.center}</button>}
       {/* the same lock a drawn Fläche has (DrawEditor · onToggleLock): a Rechteck is often the
           Absperrung everything else is drawn on top of, and the thing you must not nudge. */}
-      {onToggleLock && (
+      {!readOnly && onToggleLock && (
         <button className="btn" onClick={onToggleLock} title={appConfig.copy.drawingEditor.lockHint} aria-pressed={!!locked}>
           <Icon id="lock" />{appConfig.copy.drawingEditor.lock}
         </button>
       )}
-      <button className="btn warn" onClick={onDelete}><Icon id="trash" />{appConfig.copy.remove}</button>
+      {!readOnly && onDelete && <button className="btn warn" onClick={onDelete}><Icon id="trash" />{appConfig.copy.remove}</button>}
     </div>
   )
   // the header shares the grip's drag (tap stays a tap there — see useSheetDrag)
@@ -106,7 +113,7 @@ export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, o
             group boundary is SPACING and only a named section («Messung») still draws a hairline
             — see the block comment on `.de-group` in 08-toasts.css — so the Träger/Umkehren group
             below is told apart from the numbers above it by air rather than by a rule. */}
-        <div className="de-group">
+        {!readOnly && <div className="de-group">
         {onFill && entity.shape === 'square' && (() => {
           const fillOpacity = entity.fillOpacity ?? SQUARE_FILL_DEFAULT
           return (
@@ -134,12 +141,14 @@ export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, o
             </div>
           )
         })()}
-        <div className="de-row">
-          <span>{appConfig.copy.shapes.color}</span>
-          <span className="dh-swatches">
-            {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} aria-label={c} onClick={() => onColor(c)} />)}
-          </span>
-        </div>
+        {onColor && (
+          <div className="de-row">
+            <span>{appConfig.copy.shapes.color}</span>
+            <span className="dh-swatches">
+              {COLORS.map((c) => <button key={c} className={`dh-color ${color === c ? 'on' : ''}`} style={{ background: c }} aria-label={c} onClick={() => onColor(c)} />)}
+            </span>
+          </div>
+        )}
         {/* ⚠️ The SAME three steps and the same control as a drawn Fläche (DrawEditor · WIDTHS).
             A Form is a pre-shaped area: the operator who has already learnt one line-width picker
             should not meet a second grammar for the same property. */}
@@ -197,7 +206,7 @@ export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, o
             <OnOff ariaLabel={appConfig.copy.shapes.stopLabel} value={!!entity.stop} onChange={onStop} />
           </div>
         )}
-        </div>
+        </div>}
         {/* ⚠️ A Rechteck measures itself, exactly as a drawn Fläche does (DrawEditor · the Messung
             block) — same two numbers, same labels, same formatter. Map only: its size is metres on
             the ground there, while on a Plan it is a share of the sheet and has no area to state
@@ -226,7 +235,7 @@ export function ShapeEditor({ entity, onColor, onScale, onScaleLength, onStop, o
           </div>
         )}
         {/* what the loop IS, after what it looks like: who runs it, and which way round */}
-        {(onCarrier || onReverse) && entity.shape === 'rotation' && <div className="de-group">
+        {!readOnly && (onCarrier || onReverse) && entity.shape === 'rotation' && <div className="de-group">
         {onCarrier && entity.shape === 'rotation' && (
           // Which vehicle runs the shuttle. The FKS sheet draws the loop WITH its carrier
           // («Rotation-Helikopter», «Rotation TLF», Vegetationsbrand S. 52) — same shape, and the

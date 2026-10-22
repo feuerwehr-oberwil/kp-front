@@ -26,7 +26,16 @@ wording unchanged.
   its own words and tone, no tap). So a locked session (el, Führungsansicht, viewer, replay) keeps
   the building's name, the Massstab and the linked «⌖ Karte» chip as read-outs — an unchecked
   automatic fit must never look like a checked one, whoever is looking — but gets no «Anderes
-  Gebäude wählen» (the locked picker has no «Übernehmen»), no Passung, no «Gebäude drehen». Every
+  Gebäude wählen» (the locked picker has no «Übernehmen»), no Passung, no «Gebäude drehen». On
+  the Lage and the Plan alike a locked session SELECTS every object (a Linie, Fläche or
+  Absperrkreis on the Plan too – never dragged) and reads its panel: a Form its figures, a
+  Leitung its Inhalt, Stockwerk, Leitung-Nr. and Trupp, a live vehicle its Fahrer, a
+  Gefahrentafel its Schutzabstand, a symbol its Beschriftung – read-outs, not faded controls. It
+  gets no rotate/resize handle, no ghost-trail «Spur löschen» (the label is a read-out), no vehicle
+  «GPS» / «Hier festhalten» / Fahrer edit (the Führungsansicht included); a Trupp marker keeps
+  «Im Atemschutz zeigen» and «Spur ein/aus», which change nothing shared. A Tafel page's Tendenz
+  and «erledigt» are read-outs; the empty-sheet hint and the views menu's «Eine Ansicht speichert
+  …» teach writers only (RBAC audit 22.10.2026). Every
   session that cannot share links (`canShareLink` false: el, Führungsansicht, viewer, link) gets
   no «Weitergeben» section, and so sends no GET for a link it may not read. The `el` also gets no
   saved-view writes, no vehicle override, no «Wieder öffnen», no transcription

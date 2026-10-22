@@ -88,9 +88,11 @@ export interface TwinTeamActions {
   newTrupp?: () => void
   mark?: () => void
   /** «Spur löschen» — the marker stays, its recorded positions go. Confirms on the surface. */
-  clearTrail: () => void
-  /** «Marker entfernen» — the trail it walked stays behind as a ghost (lib/truppTrails). */
-  remove: () => void
+  clearTrail?: () => void
+  /** «Marker entfernen» — the trail it walked stays behind as a ghost (lib/truppTrails). Absent
+   *  on a locked surface's bar, which keeps only «Im Atemschutz zeigen» and «Spur ein/aus»:
+   *  then there is no trash at all. */
+  remove?: () => void
   /** «Marker und Spur löschen» — both at once, and NO ghost is left standing: the surface arms
    *  the reconciliation's `dropped` set before it removes, so the ghost is born already stamped
    *  (lib/truppTrails). Absent ⇒ the row is not offered, like every other writer here. */
@@ -367,7 +369,7 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
               owns, lib/truppTrails), the trail alone, or both. The two trail rows are danger rows
               and each confirms before anything is destroyed; a marker with no trail has nothing to
               ask about and the trash removes it straight away, exactly as before. */}
-          {trailCount > 0 ? (
+          {acts.remove && (trailCount > 0 ? (
             <Menu
               popupClassName="de-menu-pop"
               itemClassName={() => 'de-menu-item'}
@@ -377,8 +379,8 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
                 </button>
               }
               items={[
-                { label: appConfig.copy.whiteboard.removeMarker, onClick: () => acts.remove() },
-                { label: appConfig.copy.whiteboard.clearTrail, danger: true, onClick: () => acts.clearTrail() },
+                { label: appConfig.copy.whiteboard.removeMarker, onClick: () => acts.remove?.() },
+                ...(acts.clearTrail ? [{ label: appConfig.copy.whiteboard.clearTrail, danger: true, onClick: () => acts.clearTrail?.() }] : []),
                 ...(acts.removeWithTrail ? [{
                   label: appConfig.copy.whiteboard.removeMarkerTrail, danger: true,
                   onClick: () => acts.removeWithTrail?.(),
@@ -387,8 +389,8 @@ export function TwinTeamPill({ name, time, color, originalLabel, raus, truppId, 
             />
           ) : (
             <button className="wb-pa wb-pa-del" title={appConfig.copy.remove} aria-label={appConfig.copy.remove}
-              onClick={() => acts.remove()}><Icon id="trash" /></button>
-          )}
+              onClick={() => acts.remove?.()}><Icon id="trash" /></button>
+          ))}
         </div>
       )}
     </>

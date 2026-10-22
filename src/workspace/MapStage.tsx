@@ -180,7 +180,8 @@ export function MapStage({
           onTeamRename={tacticalLocked ? undefined : renameTeam}
           onTeamClearTrail={tacticalLocked ? undefined : clearTeamTrail}
           onTeamRemoveWithTrail={tacticalLocked ? undefined : (id) => void removeTeamWithTrail(id)}
-          // the searched areas removed Trupp markers left behind (lib/truppTrails)
+          // the searched areas removed Trupp markers left behind (lib/truppTrails); without the
+          // writer the label is a read-out (MapMarkers)
           ghostTrails={mapGhostTrails(trails)}
           onGhostTrail={tacticalLocked ? undefined : (id) => void deleteGhostTrail(id)}
           // «Lösen» on a joined Trupp marker: it lets go of the Leitung on BOTH sides (anchor +
@@ -252,9 +253,10 @@ export function MapStage({
           onMarkerDragStart={startEntityMove}
           onMarkerMove={streamEntityMove}
           onMarkerDragEnd={finishEntityMove}
-          onRotate={(id, deg) => { if (tacticalLocked) return; setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], rotation: deg } })) }}
-          onShapeTransform={(id, patch, phase) => {
-            if (tacticalLocked) return
+          // a locked session gets no rotate / resize handles at all (MapMarkers draws one only
+          // where its writer is wired) — the Plan's parity (RBAC audit 22.10.2026)
+          onRotate={tacticalLocked ? undefined : (id, deg) => { setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], rotation: deg } })) }}
+          onShapeTransform={tacticalLocked ? undefined : (id, patch, phase) => {
             if (phase === 'start') { beginDrag(); return }
             if (phase === 'move') { setDocRaw((d) => ({ ...d, entities: d.entities.map((e) => (e.id === id ? { ...e, ...patch } : e)) })); return }
             endDrag()  // 'end' — fold the whole gesture into a single undo step

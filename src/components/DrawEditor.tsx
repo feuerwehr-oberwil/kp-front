@@ -11,6 +11,7 @@ import { DEFAULT_INK, markerGlyph } from '../lib/lineStyle'
 import { fmtDistance, fmtArea, hoseCount } from '../lib/geo'
 import { CONTENT_LABELS } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
+import { cx } from '../lib/cx'
 import { useLineProfile } from '../lib/useLineProfile'
 import { onSiteKnown } from '../lib/gpsReturn'
 import { useCommitDraftOnUnmount } from '../lib/useCommitDraftOnUnmount'
@@ -368,7 +369,10 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
 
         {/* read-only: the shape's own text is the one style field worth stating — it names the
             thing («Sektor A»), and on a small marker the map label can be hard to read. The
-            Abschnitt fields ride along: who leads it is exactly what a Führungsansicht asks. */}
+            Abschnitt fields ride along: who leads it is exactly what a Führungsansicht asks.
+            …and a Leitung's FKS facts, each only where it is set (RBAC audit 22.10.2026): what
+            it carries, on which storey, its number and the Trupp on it — the jump to that
+            Trupp's card stays, it changes nothing. */}
         {readOnly && ((drawing.label ?? '').trim() || drawing.abschnittLeiter || drawing.abschnittAuftrag) && (
           <div className="de-group">
             {(drawing.label ?? '').trim() && (
@@ -384,6 +388,40 @@ export function DrawEditor({ drawing, pointCount, readOnly = false, areaM2, boxM
             {drawing.abschnittAuftrag && (
               <div className="de-row"><span>{appConfig.copy.drawingEditor.abschnittAuftrag}</span>
                 <b className="de-measure-v">{drawing.abschnittAuftrag}</b>
+              </div>
+            )}
+          </div>
+        )}
+
+        {readOnly && isLine && (drawing.content || drawing.floorTag != null || drawing.lineNo != null || truppOnLine) && (
+          <div className="de-group">
+            {drawing.content && (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.content}</span>
+                <b className="de-measure-v">{CONTENT_LABELS[drawing.content]}</b>
+              </div>
+            )}
+            {drawing.floorTag != null && (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.floorTag}</span>
+                <b className="de-measure-v">{floorBadge(drawing.floorTag)}</b>
+              </div>
+            )}
+            {drawing.lineNo != null && (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.lineNo}</span>
+                <b className="de-measure-v">{drawing.lineNo}</b>
+              </div>
+            )}
+            {truppOnLine && (
+              <div className="de-row"><span>{appConfig.copy.drawingEditor.trupp}</span>
+                <span className="de-trupp">
+                  <b className={cx('de-measure-v', truppOnLineOut && 'de-trupp-out')}>{truppOnLine}</b>
+                  {truppOnLineOut && <em className="de-trupp-outnote">{appConfig.copy.drawingEditor.truppOut}</em>}
+                  {onShowTrupp && (
+                    <IconButton onClick={onShowTrupp}
+                      label={fillTemplate(appConfig.copy.drawingEditor.truppShow, { name: truppOnLine })}>
+                      <span className="ctx-conn-go" aria-hidden>›</span>
+                    </IconButton>
+                  )}
+                </span>
               </div>
             )}
           </div>

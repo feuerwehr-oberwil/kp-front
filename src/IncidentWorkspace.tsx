@@ -3232,7 +3232,7 @@ export function IncidentWorkspace({
         timeline, sym, selectedPlanProjection, showMapSourceOnPlan, entityTypedAt, titleLiveRef, beginDrag,
         setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
         symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone,
-        vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, isEl, setVehicleOverrides, log,
+        vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, log,
         assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
         noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing, setDrawColor, setDrawWidth,
         setDrawDashed, selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel, setDrawMarker,
