@@ -338,7 +338,7 @@
       },
       {
         "q": "Come cominciamo?",
-        "a": "Con la <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">demo</a>,\n          senza registrazione – a Musterdorf sta già bruciando. Poi provatela a un’esercitazione.\n          Se va bene, la <a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">guida all’installazione</a> porta alla vostra istanza."
+        "a": "Con la <a href=\"https://demo.kp-front.ch\" target=\"_blank\" rel=\"noopener\">demo</a>,\n          senza registrazione – a Musterdorf sta già bruciando, e tutti i visitatori condividono lo\n          stesso intervento (ricomincia a mezzanotte e a mezzogiorno). Poi provatela a un’esercitazione.\n          Se va bene, la <a href=\"https://github.com/feuerwehr-oberwil/kp-front/blob/main/docs/SETUP.md\" target=\"_blank\" rel=\"noopener\">guida all’installazione</a> porta alla vostra istanza."
       }
     ]
   },
