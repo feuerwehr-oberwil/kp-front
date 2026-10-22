@@ -122,6 +122,13 @@ describe('buildKrokiPayload', () => {
     expect(p!.tiles).toBe('https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png')
   })
 
+  // owner pick «C» (21.10.2026): the screen's base is unlabelled with vector names on top; paper has no vector layer
+  it('prints the labelled twin of an unlabelled CARTO base', () => {
+    const nolabels = layers.map((l) => (l.base ? { ...l, tiles: ['https://a.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}@2x.png'] } : l))
+    const p = buildKrokiPayload({ entities, drawings, layers: nolabels, byName: {}, center: [7.55, 47.51] })
+    expect(p!.tiles).toBe('https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png')
+  })
+
   it('sends the live view for «aktuelle Ansicht» and drops drawings on a hidden markup layer', () => {
     const hidden = layers.map((l) => (l.id === 'markup' ? { ...l, visible: false } : l))
     const p = buildKrokiPayload({

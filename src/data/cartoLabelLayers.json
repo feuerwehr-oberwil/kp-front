@@ -1,0 +1,1593 @@
+[
+ {
+  "id": "waterway_label",
+  "type": "symbol",
+  "source-layer": "waterway",
+  "filter": [
+   "all",
+   [
+    "has",
+    "name"
+   ],
+   [
+    "==",
+    "class",
+    "river"
+   ]
+  ],
+  "paint": {
+   "text-color": "#51909c",
+   "text-halo-color": "#e2eef0",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": "{name_en}",
+   "text-font": [
+    "NotoSans-Regular"
+   ],
+   "symbol-placement": "line",
+   "symbol-spacing": 300,
+   "symbol-avoid-edges": false,
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      9,
+      8
+     ],
+     [
+      10,
+      9
+     ]
+    ]
+   },
+   "text-padding": 2,
+   "text-pitch-alignment": "auto",
+   "text-rotation-alignment": "auto",
+   "text-offset": {
+    "stops": [
+     [
+      6,
+      [
+       0,
+       -0.2
+      ]
+     ],
+     [
+      11,
+      [
+       0,
+       -0.4
+      ]
+     ],
+     [
+      12,
+      [
+       0,
+       -0.6
+      ]
+     ]
+    ]
+   },
+   "text-letter-spacing": 0,
+   "text-keep-upright": true
+  }
+ },
+ {
+  "id": "watername_ocean",
+  "type": "symbol",
+  "source-layer": "water_name",
+  "minzoom": 0,
+  "maxzoom": 5,
+  "filter": [
+   "all",
+   [
+    "has",
+    "name"
+   ],
+   [
+    "==",
+    "$type",
+    "Point"
+   ],
+   [
+    "==",
+    "class",
+    "ocean"
+   ]
+  ],
+  "paint": {
+   "text-color": "#ffffff",
+   "text-halo-color": "#98c2ca",
+   "text-halo-width": 1,
+   "text-halo-blur": 0
+  },
+  "layout": {
+   "text-field": "{name}",
+   "symbol-placement": "point",
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      0,
+      13
+     ],
+     [
+      2,
+      14
+     ],
+     [
+      4,
+      18
+     ]
+    ]
+   },
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-line-height": 1.2,
+   "text-padding": 2,
+   "text-allow-overlap": false,
+   "text-ignore-placement": false,
+   "text-pitch-alignment": "auto",
+   "text-rotation-alignment": "auto",
+   "text-max-width": 6,
+   "text-letter-spacing": 0.1
+  }
+ },
+ {
+  "id": "watername_sea",
+  "type": "symbol",
+  "source-layer": "water_name",
+  "minzoom": 5,
+  "filter": [
+   "all",
+   [
+    "has",
+    "name"
+   ],
+   [
+    "==",
+    "$type",
+    "Point"
+   ],
+   [
+    "==",
+    "class",
+    "sea"
+   ]
+  ],
+  "paint": {
+   "text-color": "#ffffff",
+   "text-halo-color": "#98c2ca",
+   "text-halo-width": 1,
+   "text-halo-blur": 0
+  },
+  "layout": {
+   "text-field": "{name}",
+   "symbol-placement": "point",
+   "text-size": 12,
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-line-height": 1.2,
+   "text-padding": 2,
+   "text-allow-overlap": false,
+   "text-ignore-placement": false,
+   "text-pitch-alignment": "auto",
+   "text-rotation-alignment": "auto",
+   "text-max-width": 6,
+   "text-letter-spacing": 0.1
+  }
+ },
+ {
+  "id": "watername_lake",
+  "type": "symbol",
+  "source-layer": "water_name",
+  "minzoom": 4,
+  "filter": [
+   "all",
+   [
+    "has",
+    "name"
+   ],
+   [
+    "==",
+    "$type",
+    "Point"
+   ],
+   [
+    "==",
+    "class",
+    "lake"
+   ]
+  ],
+  "paint": {
+   "text-color": "#51909c",
+   "text-halo-color": "#e2eef0",
+   "text-halo-width": 1,
+   "text-halo-blur": 1
+  },
+  "layout": {
+   "text-field": {
+    "stops": [
+     [
+      8,
+      "{name_en}"
+     ],
+     [
+      13,
+      "{name}"
+     ]
+    ]
+   },
+   "symbol-placement": "point",
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      13,
+      9
+     ],
+     [
+      14,
+      10
+     ],
+     [
+      15,
+      11
+     ],
+     [
+      16,
+      12
+     ],
+     [
+      17,
+      13
+     ]
+    ]
+   },
+   "text-font": [
+    "NotoSans-Regular"
+   ],
+   "text-line-height": 1.2,
+   "text-padding": 2,
+   "text-allow-overlap": false,
+   "text-ignore-placement": false,
+   "text-pitch-alignment": "auto",
+   "text-rotation-alignment": "auto"
+  }
+ },
+ {
+  "id": "watername_lake_line",
+  "type": "symbol",
+  "source-layer": "water_name",
+  "filter": [
+   "all",
+   [
+    "has",
+    "name"
+   ],
+   [
+    "==",
+    "$type",
+    "LineString"
+   ]
+  ],
+  "paint": {
+   "text-color": "#51909c",
+   "text-halo-color": "#e2eef0",
+   "text-halo-width": 1,
+   "text-halo-blur": 1
+  },
+  "layout": {
+   "text-field": {
+    "stops": [
+     [
+      8,
+      "{name_en}"
+     ],
+     [
+      13,
+      "{name}"
+     ]
+    ]
+   },
+   "symbol-placement": "line",
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      13,
+      9
+     ],
+     [
+      14,
+      10
+     ],
+     [
+      15,
+      11
+     ],
+     [
+      16,
+      12
+     ],
+     [
+      17,
+      13
+     ]
+    ]
+   },
+   "text-font": [
+    "NotoSans-Regular"
+   ],
+   "symbol-spacing": 350,
+   "text-pitch-alignment": "auto",
+   "text-rotation-alignment": "auto",
+   "text-line-height": 1.2
+  }
+ },
+ {
+  "id": "place_hamlet",
+  "type": "symbol",
+  "source-layer": "place",
+  "minzoom": 12,
+  "maxzoom": 16,
+  "filter": [
+   "any",
+   [
+    "==",
+    "class",
+    "neighbourhood"
+   ],
+   [
+    "==",
+    "class",
+    "hamlet"
+   ]
+  ],
+  "paint": {
+   "text-color": "#405c78",
+   "icon-color": "#405c78",
+   "icon-translate-anchor": "map",
+   "text-halo-color": "#f2f5f8",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": {
+    "stops": [
+     [
+      8,
+      "{name_en}"
+     ],
+     [
+      14,
+      "{name}"
+     ]
+    ]
+   },
+   "text-font": [
+    "NotoSans-Regular"
+   ],
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      13,
+      8
+     ],
+     [
+      14,
+      10
+     ],
+     [
+      16,
+      11
+     ]
+    ]
+   },
+   "text-anchor": "center",
+   "text-max-width": 10,
+   "text-keep-upright": true,
+   "text-offset": [
+    0.2,
+    0.2
+   ],
+   "text-transform": {
+    "stops": [
+     [
+      12,
+      "none"
+     ],
+     [
+      14,
+      "uppercase"
+     ]
+    ]
+   }
+  }
+ },
+ {
+  "id": "place_suburbs",
+  "type": "symbol",
+  "source-layer": "place",
+  "minzoom": 12,
+  "maxzoom": 16,
+  "filter": [
+   "all",
+   [
+    "==",
+    "class",
+    "suburb"
+   ]
+  ],
+  "paint": {
+   "text-color": "#405c78",
+   "icon-color": "#405c78",
+   "icon-translate-anchor": "map",
+   "text-halo-color": "#f2f5f8",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": {
+    "stops": [
+     [
+      8,
+      "{name_en}"
+     ],
+     [
+      13,
+      "{name}"
+     ]
+    ]
+   },
+   "text-font": [
+    "NotoSans-Regular"
+   ],
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      12,
+      9
+     ],
+     [
+      13,
+      10
+     ],
+     [
+      14,
+      11
+     ],
+     [
+      15,
+      12
+     ],
+     [
+      16,
+      13
+     ]
+    ]
+   },
+   "text-anchor": "center",
+   "text-max-width": 10,
+   "text-keep-upright": true,
+   "text-offset": [
+    0.2,
+    0.2
+   ],
+   "text-transform": {
+    "stops": [
+     [
+      8,
+      "none"
+     ],
+     [
+      12,
+      "uppercase"
+     ]
+    ]
+   }
+  }
+ },
+ {
+  "id": "place_villages",
+  "type": "symbol",
+  "source-layer": "place",
+  "minzoom": 10,
+  "maxzoom": 16,
+  "filter": [
+   "all",
+   [
+    "==",
+    "class",
+    "village"
+   ]
+  ],
+  "paint": {
+   "text-color": "#405c78",
+   "icon-color": "#405c78",
+   "icon-translate-anchor": "map",
+   "text-halo-color": "#f2f5f8",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": {
+    "stops": [
+     [
+      8,
+      "{name_en}"
+     ],
+     [
+      13,
+      "{name}"
+     ]
+    ]
+   },
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      10,
+      9
+     ],
+     [
+      12,
+      10
+     ],
+     [
+      13,
+      11
+     ],
+     [
+      14,
+      12
+     ],
+     [
+      16,
+      13
+     ]
+    ]
+   },
+   "text-anchor": "center",
+   "text-max-width": 10,
+   "text-keep-upright": true,
+   "text-offset": [
+    0.2,
+    0.2
+   ],
+   "text-transform": "none"
+  }
+ },
+ {
+  "id": "place_town",
+  "type": "symbol",
+  "source-layer": "place",
+  "minzoom": 8,
+  "maxzoom": 14,
+  "filter": [
+   "all",
+   [
+    "==",
+    "class",
+    "town"
+   ]
+  ],
+  "paint": {
+   "text-color": "#405c78",
+   "icon-color": "#405c78",
+   "icon-translate-anchor": "map",
+   "text-halo-color": "#f2f5f8",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": {
+    "stops": [
+     [
+      8,
+      "{name_en}"
+     ],
+     [
+      13,
+      "{name}"
+     ]
+    ]
+   },
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      8,
+      10
+     ],
+     [
+      9,
+      10
+     ],
+     [
+      10,
+      11
+     ],
+     [
+      13,
+      14
+     ],
+     [
+      14,
+      15
+     ]
+    ]
+   },
+   "text-anchor": "center",
+   "text-max-width": 10,
+   "text-keep-upright": true,
+   "text-offset": [
+    0.2,
+    0.2
+   ],
+   "text-transform": "none"
+  }
+ },
+ {
+  "id": "place_country_2",
+  "type": "symbol",
+  "source-layer": "place",
+  "minzoom": 3,
+  "maxzoom": 10,
+  "filter": [
+   "all",
+   [
+    "==",
+    "class",
+    "country"
+   ],
+   [
+    ">=",
+    "rank",
+    3
+   ],
+   [
+    "has",
+    "iso_a2"
+   ]
+  ],
+  "paint": {
+   "text-color": {
+    "stops": [
+     [
+      3,
+      "#6b7d91"
+     ],
+     [
+      5,
+      "#8894a3"
+     ],
+     [
+      6,
+      "#a3abb5"
+     ]
+    ]
+   },
+   "text-halo-color": "#fbf8f3",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": "{name_en}",
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      3,
+      10
+     ],
+     [
+      5,
+      11
+     ],
+     [
+      6,
+      12
+     ],
+     [
+      7,
+      13
+     ],
+     [
+      8,
+      14
+     ]
+    ]
+   },
+   "text-transform": "uppercase"
+  }
+ },
+ {
+  "id": "place_country_1",
+  "type": "symbol",
+  "source-layer": "place",
+  "minzoom": 2,
+  "maxzoom": 7,
+  "filter": [
+   "all",
+   [
+    "==",
+    "class",
+    "country"
+   ],
+   [
+    "<=",
+    "rank",
+    2
+   ]
+  ],
+  "paint": {
+   "text-color": {
+    "stops": [
+     [
+      3,
+      "#6b7d91"
+     ],
+     [
+      5,
+      "#8894a3"
+     ],
+     [
+      6,
+      "#a3abb5"
+     ]
+    ]
+   },
+   "text-halo-color": "#fbf8f3",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": "{name_en}",
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      3,
+      11
+     ],
+     [
+      4,
+      12
+     ],
+     [
+      5,
+      13
+     ],
+     [
+      6,
+      14
+     ]
+    ]
+   },
+   "text-transform": "uppercase",
+   "text-max-width": {
+    "stops": [
+     [
+      2,
+      6
+     ],
+     [
+      3,
+      6
+     ],
+     [
+      4,
+      9
+     ],
+     [
+      5,
+      12
+     ]
+    ]
+   }
+  }
+ },
+ {
+  "id": "place_state",
+  "type": "symbol",
+  "source-layer": "place",
+  "minzoom": 5,
+  "maxzoom": 10,
+  "filter": [
+   "all",
+   [
+    "==",
+    "class",
+    "state"
+   ],
+   [
+    "<=",
+    "rank",
+    4
+   ]
+  ],
+  "paint": {
+   "text-color": "#7c8a9b",
+   "text-halo-color": "#fbf8f3",
+   "text-halo-width": 0
+  },
+  "layout": {
+   "text-field": "{name_en}",
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      5,
+      12
+     ],
+     [
+      7,
+      14
+     ]
+    ]
+   },
+   "text-transform": "uppercase",
+   "text-max-width": 9
+  }
+ },
+ {
+  "id": "place_continent",
+  "type": "symbol",
+  "source-layer": "place",
+  "minzoom": 0,
+  "maxzoom": 2,
+  "filter": [
+   "all",
+   [
+    "==",
+    "class",
+    "continent"
+   ]
+  ],
+  "paint": {
+   "text-color": "#405c78",
+   "text-halo-color": "#fbf8f3",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": "{name_en}",
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-transform": "uppercase",
+   "text-size": 14,
+   "text-letter-spacing": 0.1,
+   "text-max-width": 9,
+   "text-justify": "center",
+   "text-keep-upright": false
+  }
+ },
+ {
+  "id": "place_city_r6",
+  "type": "symbol",
+  "source-layer": "place",
+  "minzoom": 8,
+  "maxzoom": 15,
+  "filter": [
+   "all",
+   [
+    "==",
+    "class",
+    "city"
+   ],
+   [
+    ">=",
+    "rank",
+    6
+   ]
+  ],
+  "paint": {
+   "text-color": "#405c78",
+   "icon-color": "#405c78",
+   "icon-translate-anchor": "map",
+   "text-halo-color": "#f2f5f8",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": {
+    "stops": [
+     [
+      8,
+      "{name_en}"
+     ],
+     [
+      13,
+      "{name}"
+     ]
+    ]
+   },
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      8,
+      12
+     ],
+     [
+      9,
+      13
+     ],
+     [
+      10,
+      14
+     ],
+     [
+      13,
+      17
+     ],
+     [
+      14,
+      20
+     ]
+    ]
+   },
+   "text-anchor": "center",
+   "text-max-width": 10,
+   "text-keep-upright": true,
+   "text-offset": [
+    0.2,
+    0.2
+   ],
+   "text-transform": "uppercase"
+  }
+ },
+ {
+  "id": "place_city_r5",
+  "type": "symbol",
+  "source-layer": "place",
+  "minzoom": 8,
+  "maxzoom": 15,
+  "filter": [
+   "all",
+   [
+    "==",
+    "class",
+    "city"
+   ],
+   [
+    ">=",
+    "rank",
+    0
+   ],
+   [
+    "<=",
+    "rank",
+    5
+   ]
+  ],
+  "paint": {
+   "text-color": "#405c78",
+   "icon-color": "#405c78",
+   "icon-translate-anchor": "map",
+   "text-halo-color": "#f2f5f8",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": {
+    "stops": [
+     [
+      8,
+      "{name_en}"
+     ],
+     [
+      13,
+      "{name}"
+     ]
+    ]
+   },
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      8,
+      14
+     ],
+     [
+      10,
+      16
+     ],
+     [
+      13,
+      19
+     ],
+     [
+      14,
+      22
+     ]
+    ]
+   },
+   "text-anchor": "center",
+   "text-max-width": 10,
+   "text-keep-upright": true,
+   "text-offset": [
+    0.2,
+    0.2
+   ],
+   "text-transform": "uppercase"
+  }
+ },
+ {
+  "id": "place_city_dot_r7",
+  "type": "symbol",
+  "source-layer": "place",
+  "minzoom": 6,
+  "maxzoom": 7,
+  "filter": [
+   "all",
+   [
+    "==",
+    "class",
+    "city"
+   ],
+   [
+    "<=",
+    "rank",
+    7
+   ]
+  ],
+  "paint": {
+   "text-color": "#405c78",
+   "icon-color": "#405c78",
+   "icon-translate-anchor": "map",
+   "text-halo-color": "#f2f5f8",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": "{name_en}",
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-size": 12,
+   "text-anchor": "right",
+   "text-max-width": 8,
+   "text-keep-upright": true,
+   "text-offset": [
+    0.2,
+    0.2
+   ]
+  }
+ },
+ {
+  "id": "place_city_dot_r4",
+  "type": "symbol",
+  "source-layer": "place",
+  "minzoom": 5,
+  "maxzoom": 7,
+  "filter": [
+   "all",
+   [
+    "==",
+    "class",
+    "city"
+   ],
+   [
+    "<=",
+    "rank",
+    4
+   ]
+  ],
+  "paint": {
+   "text-color": "#405c78",
+   "icon-color": "#405c78",
+   "icon-translate-anchor": "map",
+   "text-halo-color": "#f2f5f8",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": "{name_en}",
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-size": 12,
+   "text-anchor": "right",
+   "text-max-width": 8,
+   "text-keep-upright": true,
+   "text-offset": [
+    0.2,
+    0.2
+   ]
+  }
+ },
+ {
+  "id": "place_city_dot_r2",
+  "type": "symbol",
+  "source-layer": "place",
+  "minzoom": 4,
+  "maxzoom": 7,
+  "filter": [
+   "all",
+   [
+    "==",
+    "class",
+    "city"
+   ],
+   [
+    "<=",
+    "rank",
+    2
+   ]
+  ],
+  "paint": {
+   "text-color": "#405c78",
+   "icon-color": "#405c78",
+   "icon-translate-anchor": "map",
+   "text-halo-color": "#f2f5f8",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": "{name_en}",
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-size": 12,
+   "text-anchor": "right",
+   "text-max-width": 8,
+   "text-keep-upright": true,
+   "text-offset": [
+    0.2,
+    0.2
+   ]
+  }
+ },
+ {
+  "id": "place_city_dot_z7",
+  "type": "symbol",
+  "source-layer": "place",
+  "minzoom": 7,
+  "maxzoom": 8,
+  "filter": [
+   "all",
+   [
+    "!has",
+    "capital"
+   ],
+   [
+    "!in",
+    "class",
+    "country",
+    "state"
+   ]
+  ],
+  "paint": {
+   "text-color": "#405c78",
+   "icon-color": "#405c78",
+   "icon-translate-anchor": "map",
+   "text-halo-color": "#f2f5f8",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": "{name_en}",
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-size": 12,
+   "text-anchor": "right",
+   "text-max-width": 8,
+   "text-keep-upright": true,
+   "text-offset": [
+    0.2,
+    0.2
+   ]
+  }
+ },
+ {
+  "id": "place_capital_dot_z7",
+  "type": "symbol",
+  "source-layer": "place",
+  "minzoom": 7,
+  "maxzoom": 8,
+  "filter": [
+   "all",
+   [
+    ">",
+    "capital",
+    0
+   ]
+  ],
+  "paint": {
+   "text-color": "#405c78",
+   "icon-color": "#405c78",
+   "icon-translate-anchor": "map",
+   "text-halo-color": "#f2f5f8",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": "{name_en}",
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-size": 12,
+   "text-anchor": "right",
+   "text-max-width": 8,
+   "text-keep-upright": true,
+   "text-offset": [
+    0.2,
+    0.2
+   ],
+   "text-transform": "uppercase"
+  }
+ },
+ {
+  "id": "poi_stadium",
+  "type": "symbol",
+  "source-layer": "poi",
+  "minzoom": 15,
+  "filter": [
+   "all",
+   [
+    "in",
+    "class",
+    "stadium",
+    "cemetery",
+    "attraction"
+   ],
+   [
+    "<=",
+    "rank",
+    3
+   ]
+  ],
+  "paint": {
+   "text-color": "#666666",
+   "text-halo-color": "rgba(255,255,255,0.15)",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": "{name}",
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      15,
+      8
+     ],
+     [
+      17,
+      9
+     ],
+     [
+      18,
+      10
+     ]
+    ]
+   },
+   "text-transform": "uppercase"
+  }
+ },
+ {
+  "id": "poi_park",
+  "type": "symbol",
+  "source-layer": "poi",
+  "minzoom": 15,
+  "filter": [
+   "all",
+   [
+    "==",
+    "class",
+    "park"
+   ]
+  ],
+  "paint": {
+   "text-color": "#666666",
+   "text-halo-color": "rgba(255,255,255,0.15)",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "text-field": "{name}",
+   "text-font": [
+    "NotoSans-Bold"
+   ],
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      15,
+      8
+     ],
+     [
+      17,
+      9
+     ],
+     [
+      18,
+      10
+     ]
+    ]
+   },
+   "text-transform": "uppercase"
+  }
+ },
+ {
+  "id": "roadname_minor",
+  "type": "symbol",
+  "source-layer": "transportation_name",
+  "minzoom": 16,
+  "filter": [
+   "all",
+   [
+    "in",
+    "class",
+    "minor",
+    "service"
+   ]
+  ],
+  "paint": {
+   "text-color": "#87919e",
+   "text-halo-color": "#fbf8f3",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "symbol-placement": "line",
+   "text-font": [
+    "NotoSans-Regular"
+   ],
+   "text-size": 9,
+   "text-field": "{name}",
+   "symbol-avoid-edges": false,
+   "symbol-spacing": 200,
+   "text-pitch-alignment": "auto",
+   "text-rotation-alignment": "auto",
+   "text-justify": "center"
+  }
+ },
+ {
+  "id": "roadname_sec",
+  "type": "symbol",
+  "source-layer": "transportation_name",
+  "minzoom": 15,
+  "filter": [
+   "all",
+   [
+    "in",
+    "class",
+    "secondary",
+    "tertiary"
+   ]
+  ],
+  "paint": {
+   "text-color": "#87919e",
+   "text-halo-color": "#fbf8f3",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "symbol-placement": "line",
+   "text-font": [
+    "NotoSans-Regular"
+   ],
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      15,
+      9
+     ],
+     [
+      16,
+      11
+     ],
+     [
+      18,
+      12
+     ]
+    ]
+   },
+   "text-field": "{name}",
+   "symbol-avoid-edges": false,
+   "symbol-spacing": 200,
+   "text-pitch-alignment": "auto",
+   "text-rotation-alignment": "auto",
+   "text-justify": "center"
+  }
+ },
+ {
+  "id": "roadname_pri",
+  "type": "symbol",
+  "source-layer": "transportation_name",
+  "minzoom": 14,
+  "filter": [
+   "all",
+   [
+    "in",
+    "class",
+    "primary"
+   ]
+  ],
+  "paint": {
+   "text-color": "#798493",
+   "text-halo-color": "#fefde1",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "symbol-placement": "line",
+   "text-font": [
+    "NotoSans-Regular"
+   ],
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      14,
+      10
+     ],
+     [
+      15,
+      10
+     ],
+     [
+      16,
+      11
+     ],
+     [
+      18,
+      12
+     ]
+    ]
+   },
+   "text-field": "{name}",
+   "symbol-avoid-edges": false,
+   "symbol-spacing": {
+    "stops": [
+     [
+      6,
+      200
+     ],
+     [
+      16,
+      250
+     ]
+    ]
+   },
+   "text-pitch-alignment": "auto",
+   "text-rotation-alignment": "auto",
+   "text-justify": "center",
+   "text-letter-spacing": {
+    "stops": [
+     [
+      14,
+      0
+     ],
+     [
+      16,
+      0.2
+     ]
+    ]
+   }
+  }
+ },
+ {
+  "id": "roadname_major",
+  "type": "symbol",
+  "source-layer": "transportation_name",
+  "minzoom": 13,
+  "filter": [
+   "all",
+   [
+    "in",
+    "class",
+    "trunk",
+    "motorway"
+   ]
+  ],
+  "paint": {
+   "text-color": "#798493",
+   "text-halo-color": "#fff0c4",
+   "text-halo-width": 1
+  },
+  "layout": {
+   "symbol-placement": "line",
+   "text-font": [
+    "NotoSans-Regular"
+   ],
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      14,
+      10
+     ],
+     [
+      15,
+      10
+     ],
+     [
+      16,
+      11
+     ],
+     [
+      18,
+      12
+     ]
+    ]
+   },
+   "text-field": "{name}",
+   "symbol-avoid-edges": false,
+   "symbol-spacing": {
+    "stops": [
+     [
+      6,
+      200
+     ],
+     [
+      16,
+      250
+     ]
+    ]
+   },
+   "text-pitch-alignment": "auto",
+   "text-rotation-alignment": "auto",
+   "text-justify": "center",
+   "text-letter-spacing": {
+    "stops": [
+     [
+      13,
+      0
+     ],
+     [
+      16,
+      0.2
+     ]
+    ]
+   }
+  }
+ },
+ {
+  "id": "housenumber",
+  "type": "symbol",
+  "source-layer": "housenumber",
+  "minzoom": 17,
+  "maxzoom": 24,
+  "paint": {
+   "text-halo-color": "rgba(255,255,255,0.15)",
+   "text-color": "#d2b17d",
+   "text-halo-width": 0.75
+  },
+  "layout": {
+   "text-field": "{housenumber}",
+   "text-size": {
+    "type": "exponential",
+    "stops": [
+     [
+      17,
+      9
+     ],
+     [
+      18,
+      11
+     ]
+    ]
+   },
+   "text-font": [
+    "NotoSans-Regular"
+   ]
+  }
+ }
+]

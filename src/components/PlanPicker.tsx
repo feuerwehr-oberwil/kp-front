@@ -17,7 +17,7 @@ import { fmtDistance } from '../lib/geo'
 import { listObjects, type ObjectWithPlans } from '../lib/incidents'
 import { Overlay } from '../lib/overlays'
 import type { LngLat } from '../types'
-import { cartoRasterTiles } from '../lib/carto'
+import { cartoRasterTiles, withCartoLabelsBaked } from '../lib/carto'
 import { defaultLayers } from '../lib/workspace'
 import { useNightTheme } from '../lib/useNightTheme'
 import { useGlRecovery } from '../lib/useGlRecovery'
@@ -41,7 +41,8 @@ const BASE_SOURCE = 'base'
 const baseStyle = (night: boolean) => {
   const bases = defaultLayers().filter((l) => l.base)
   const base = bases.find((l) => l.visible) ?? bases[0]
-  const tiles = (night && base?.nightTiles?.length ? base.nightTiles : base?.tiles) ?? cartoRasterTiles('rastertiles/voyager', ['a', 'b'])
+  // a plain raster style, no vector names on top: the labelled twin of the base (lib/carto)
+  const tiles = (night && base?.nightTiles?.length ? base.nightTiles : base?.tiles)?.map(withCartoLabelsBaked) ?? cartoRasterTiles('rastertiles/voyager', ['a', 'b'])
   return {
     version: 8 as const,
     sources: {

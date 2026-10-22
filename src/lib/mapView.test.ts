@@ -25,8 +25,8 @@ const ent = (over: Partial<Entity>): Entity => ({
 })
 
 describe('EMPTY_STYLE / vis', () => {
-  it('is an empty MapLibre style v8', () => {
-    expect(EMPTY_STYLE).toEqual({ version: 8, sources: {}, layers: [] })
+  it('is an empty MapLibre style v8 that names our own glyphs for the basemap labels', () => {
+    expect(EMPTY_STYLE).toEqual({ version: 8, glyphs: '/fonts/{fontstack}/{range}.pbf', sources: {}, layers: [] })
   })
   it('vis toggles MapLibre visibility', () => {
     expect(vis(true)).toEqual({ visibility: 'visible' })
