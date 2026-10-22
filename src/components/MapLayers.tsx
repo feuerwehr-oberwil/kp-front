@@ -8,6 +8,7 @@ import { useNightTheme } from '../lib/useNightTheme'
 import { hatchImageId } from '../lib/draw'
 import { prefersReducedMotion } from '../lib/reducedMotion'
 import { loadLayerData, useLayerData } from '../lib/layerData'
+import { LABEL_ATTRIBUTION, LABEL_MAXZOOM, LABEL_TILES, labelLayers } from '../lib/basemapLabels'
 
 // Night mode dims the basemap so it's mostly dark without losing detail (buildings/roads stay
 // visible) — a gentle dim, NOT a full dark/black swap. Applied to the BASE raster only, so the
@@ -168,6 +169,16 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
             {hasNight && (
               <Source id={`s-${b.id}-night`} type="raster" tiles={b.nightTiles} tileSize={256} maxzoom={b.maxzoom} attribution={b.attribution}>
                 <Layer id={`l-${b.id}-night`} type="raster" layout={vis(visible && night)} paint={{ 'raster-opacity': (b.opacity ?? 100) / 100, ...DARK_BASE_PAINT }} />
+              </Source>
+            )}
+            {/* the names over an unlabelled raster, day and night alike (lib/basemapLabels). Same
+                stable-source rule as above; the `l-base…` ids keep them in keepBaseBelowDrawings. */}
+            {b.labels && (
+              <Source id={`s-${b.id}-labels`} type="vector" tiles={LABEL_TILES} maxzoom={LABEL_MAXZOOM} attribution={LABEL_ATTRIBUTION}>
+                {labelLayers(`s-${b.id}-labels`, `l-${b.id}-labels`, night).map((l) => (
+                  <Layer key={l.id} {...l} layout={{ ...l.layout, ...vis(visible) }}
+                    paint={{ ...l.paint, 'text-opacity': (b.opacity ?? 100) / 100 }} />
+                ))}
               </Source>
             )}
           </Fragment>

@@ -319,9 +319,11 @@ export default defineConfig(({ mode }) => {
           cleanupOutdatedCaches: true,
           runtimeCaching: [
             {
-              // Raster base-map tiles (cross-origin → opaque, status 0). Cache-first so a
-              // previously-viewed (or pre-downloaded) area renders with no signal.
-              urlPattern: /^https:\/\/([a-d]\.)?(basemaps\.cartocdn\.com|tile\.openstreetmap\.org|[a-c]\.tile\.opentopomap\.org|server\.arcgisonline\.com|wmts\.geo\.admin\.ch|geowms\.bl\.ch)\//,
+              // Base-map tiles (cross-origin → opaque, status 0). Cache-first so a
+              // previously-viewed (or pre-downloaded) area renders with no signal. `tiles-a…d.`
+              // is CARTO's vector host: the street names drawn over its unlabelled raster
+              // (lib/basemapLabels).
+              urlPattern: /^https:\/\/([a-d]\.|tiles-[a-d]\.)?(basemaps\.cartocdn\.com|tile\.openstreetmap\.org|[a-c]\.tile\.opentopomap\.org|server\.arcgisonline\.com|wmts\.geo\.admin\.ch|geowms\.bl\.ch)\//,
               handler: 'CacheFirst',
               options: {
                 cacheName: 'map-tiles',
@@ -333,6 +335,14 @@ export default defineConfig(({ mode }) => {
                 cacheableResponse: { statuses: [0, 200] },
                 expiration: { maxEntries: 4000, maxAgeSeconds: 60 * 60 * 24 * 30 },
               },
+            },
+            {
+              // The map's glyph ranges (public/fonts · lib/mapView MAP_GLYPHS): fetched by the map
+              // the first time a name is drawn, and by the offline download. Not precached – 1 MB
+              // most devices fetch only two files of. They never change under one URL.
+              urlPattern: /\/fonts\/[\w-]+\/\d+-\d+\.pbf$/,
+              handler: 'CacheFirst',
+              options: { cacheName: 'map-glyphs', cacheableResponse: { statuses: [200] } },
             },
             {
               // A plan revision's APPROVED ALIGNMENTS (`/api/reference/plan:x/alignments?v=3`)

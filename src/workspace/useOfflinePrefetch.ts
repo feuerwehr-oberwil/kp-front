@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import type { MapRef } from 'react-map-gl/maplibre'
 import { appConfig } from '../config/appConfig'
 import { cartoRasterTiles } from '../lib/carto'
+import { LABEL_WARM_BYTES, labelWarmUrls } from '../lib/basemapLabels'
 import { fillTemplate, fmtFileSize } from '../lib/format'
 import { isStorageDegraded } from '../lib/idb'
 import { isStandalone } from '../lib/installPrompt'
@@ -77,9 +78,12 @@ export function useOfflinePrefetch({ incidentId, center, offlineRadiusM, offline
     // warm: per-object plan PDFs and the geojson overlays cropped to the box. NOT the symbol
     // library — it is a bundled asset (Workbox precaches every .json in the build) and the app
     // stopped reading the backend's copy of it entirely (lib/useSymbols · 01.09.).
+    // …and the street names over an unlabelled base: a handful of z14 vector tiles + the glyphs
+    const labelUrls = base?.labels ? labelWarmUrls(bounds) : []
     const warmUrls = [
       ...Object.values(backendPlans),
       ...layers.filter((l) => l.geojson).map((l) => withGeoBbox(l.geojson as string)),
+      ...labelUrls,
     ]
     // Pre-flight: everything cached for offline shares ONE origin quota, so a download into a
     // nearly-full bucket used to succeed at the expense of whatever wrote next — the incident
@@ -91,7 +95,7 @@ export function useOfflinePrefetch({ incidentId, center, offlineRadiusM, offline
     const tileCount = coverageTileCount * rasterSourceCount
     // a retina base costs ~3× per tile (lib/storageBudget · tileBytesFor): the mean over the stack
     const bytesPerTile = [templates, ...rasterOverlays].reduce((sum, t) => sum + tileBytesFor(t), 0) / rasterSourceCount
-    const extraBytes = warmUrls.length * WARM_BYTES
+    const extraBytes = (warmUrls.length - labelUrls.length) * WARM_BYTES + labelUrls.length * LABEL_WARM_BYTES
     const budget = await estimateStorage()
     const fit = prefetchFit(budget, tileCount, extraBytes, bytesPerTile)
     let cap = HARD_CAP

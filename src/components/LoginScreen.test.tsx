@@ -4,8 +4,9 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 // The remembered-length auto-login (07.09.): a device that has signed an account in once
 // submits by itself the moment the typed PIN reaches that account's proven length — no ✓.
-// First logins, other devices, and a PIN that changed length keep the explicit ✓, and a
-// failed auto-attempt disarms itself so a LONGER new PIN can still be typed out.
+// First logins, other devices, and a PIN that changed length keep the explicit ✓. A mistype
+// keeps the jump armed for the retry; a second miss disarms it so a LONGER new PIN can still
+// be typed out.
 
 const login = vi.fn()
 vi.mock('../lib/auth', () => ({
@@ -80,22 +81,46 @@ describe('LoginScreen — auto-login at the remembered PIN length', () => {
     expect(login).toHaveBeenCalledExactlyOnceWith('u1', '123456')
   })
 
-  it('a failed auto-attempt disarms the jump, so a longer changed PIN can be typed out', async () => {
-    localStorage.setItem('kp.pinlen', JSON.stringify({ u1: 6 }))
+  const pinWrong = async () => {
     const { ApiError } = (await import('../lib/api')) as unknown as { ApiError: new (status: number, detail: string) => Error }
-    login.mockRejectedValueOnce(new ApiError(401, 'PIN falsch'))
-    await openPad()
-    typePin('123456') // the old length — auto-fires and fails
-    await act(async () => {})
-    expect(login).toHaveBeenCalledTimes(1)
+    return new ApiError(401, 'PIN falsch')
+  }
 
-    typePin('12345678') // the new, longer PIN — must survive digit 6 without a second auto-fire
-    expect(login).toHaveBeenCalledTimes(1)
-    fireEvent.click(screen.getByRole('button', { name: 'Anmelden' }))
+  it('a mistyped PIN still submits by itself on the retry', async () => {
+    localStorage.setItem('kp.pinlen', JSON.stringify({ u1: 6 }))
+    login.mockRejectedValueOnce(await pinWrong())
+    await openPad()
+    typePin('123457') // typo — auto-fires and fails
+    await act(async () => {})
+    typePin('123456') // the retry needs no ✓
     await act(async () => {})
     expect(login).toHaveBeenCalledTimes(2)
+    expect(login).toHaveBeenLastCalledWith('u1', '123456')
+  })
+
+  it('a second miss disarms the jump, so a longer changed PIN can be typed out', async () => {
+    localStorage.setItem('kp.pinlen', JSON.stringify({ u1: 6 }))
+    login.mockRejectedValueOnce(await pinWrong()).mockRejectedValueOnce(await pinWrong())
+    await openPad()
+    typePin('123456') // the old length — auto-fires and fails, twice
+    await act(async () => {})
+    typePin('123456')
+    await act(async () => {})
+    expect(login).toHaveBeenCalledTimes(2)
+
+    typePin('12345678') // the new, longer PIN — must survive digit 6 without a third auto-fire
+    expect(login).toHaveBeenCalledTimes(2)
+    fireEvent.click(screen.getByRole('button', { name: 'Anmelden' }))
+    await act(async () => {})
+    expect(login).toHaveBeenCalledTimes(3)
     expect(login).toHaveBeenLastCalledWith('u1', '12345678')
     expect(JSON.parse(localStorage.getItem('kp.pinlen')!)).toEqual({ u1: 8 }) // re-learned
+  })
+
+  it('ends the pad with ⌫ on the left and ✓ on the right of the 0', async () => {
+    await openPad()
+    const lastRow = [...document.querySelectorAll('.pin-grid > *')].slice(-3)
+    expect(lastRow.map((k) => k.getAttribute('aria-label') ?? k.textContent)).toEqual(['Löschen', '0', 'Anmelden'])
   })
 })
 

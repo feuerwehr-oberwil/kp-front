@@ -64,8 +64,9 @@ export function PinPad({
     return () => window.removeEventListener('keydown', onKey)
   }, [value, disabled]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ✓ bottom-left (only with an onSubmit), ⌫ stays bottom-right where every login has tapped it.
-  const keys: (string | 'back' | 'ok' | '')[] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', onSubmit ? 'ok' : '', '0', 'back']
+  // ⌫ bottom-left, ✓ bottom-right (only with an onSubmit) – «go» on the reading side, the way
+  // a phone's own passcode pad and a payment terminal end (owner, 22.10.2026; was ✓ left).
+  const keys: (string | 'back' | 'ok' | '')[] = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'back', '0', onSubmit ? 'ok' : '']
 
   return (
     <div className="pinpad">
