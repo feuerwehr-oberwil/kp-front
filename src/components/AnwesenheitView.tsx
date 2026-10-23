@@ -577,11 +577,25 @@ export function AnwesenheitView({
       .sort((a, b) => rankOrder(a.rank) - rankOrder(b.rank) || a.displayName.localeCompare(b.displayName, 'de'))
   }, [people, guests, q, rankSel, presentOnly, stateSel, noteOnly, attendance])
 
+  /* A status set from a SEARCH hands the field straight back, empty and focused (owner,
+   * 23.10.2026): people are found by typing one name after the other rather than by scrolling,
+   * and having to delete «meier» before typing «studer» was a step on every single person. The
+   * focus() runs inside the tap's own handler, so a phone keeps its keyboard up. Without a query
+   * nothing moves – a scrolled list stays where it is. */
+  const searchRef = useRef<HTMLInputElement>(null)
+  const nextSearch = () => {
+    if (!q) return
+    setQ('')
+    searchRef.current?.focus()
+  }
+
   // frei → anwesend → gegangen → frei. A present+locked member jumps to the Trupp instead.
   const cycle = (p: Person) => {
     const status = attendance[p.id]?.status
+    // a locked row jumps to its Trupp instead – that leaves the list, so the search stays as it is
+    if (status === 'present' && blockedIds.has(p.id)) { onJumpToTrupp(truppOfPerson.get(p.id)); return }
+    nextSearch()
     if (status === 'present') {
-      if (blockedIds.has(p.id)) { onJumpToTrupp(truppOfPerson.get(p.id)); return }
       onMarkLeft(p)
     } else if (status === 'left') {
       // A roster row cycles back to «frei» — it is still on the Mannschaftsliste either way.
@@ -671,7 +685,7 @@ export function AnwesenheitView({
     ? typedName : ''
   /* …and the query goes with it: the rows that answered «mus» are not the way to the next person,
    * and the freshly recorded one appears in the unfiltered list right where they belong. */
-  const addGuest = () => { if (guestOffer && onAddGuest) { onAddGuest(guestOffer); setQ('') } }
+  const addGuest = () => { if (guestOffer && onAddGuest) { onAddGuest(guestOffer); nextSearch() } }
 
   /* the three readings — ONE list, rendered in the head on a tablet and in the docked strip on a
      phone, so the two can never offer a different set */
@@ -825,7 +839,7 @@ export function AnwesenheitView({
               is no second field left to clean it. Enter takes the offer when the roster has no
               answer at all, which is the one case where the query can only have been a name. */}
         <SearchField
-          className={c.search} value={q} onChange={(v) => setQ(stripUnprintable(v))} placeholder={A.searchPlaceholder}
+          ref={searchRef} className={c.search} value={q} onChange={(v) => setQ(stripUnprintable(v))} placeholder={A.searchPlaceholder}
           aria-label={A.searchPlaceholder} inputMode="search" maxLength={80}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (!rows.length) addGuest() } }}
         />
