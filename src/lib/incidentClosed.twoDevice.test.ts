@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 // Tafel save, its «team» row and its `atemschutz.contact` event — plus an ordinary Meldung. The
 // REAL engines of phone B (WorkspaceSync, JournalStore, AuditEventStore) run over the REAL fetch
 // wrapper (lib/api — so the `{code, message}` refusal is parsed exactly as in the field) against
-// ONE in-memory server that implements the backend's contract (api/incidents · incident_closed):
+// ONE in-memory server that implements the backend's contract (incident_service · incident_closed):
 // once closed, a live write is 409 `incident_closed`, a record write still lands, and every
 // workspace read carries `X-Incident-Open`.
 //
@@ -35,7 +35,7 @@ const json = (status: number, body: unknown, headers: Record<string, string> = {
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } })
 const lifecycle = (): Record<string, string> =>
   server.open ? { 'X-Incident-Open': '1' } : { 'X-Incident-Open': '0', 'X-Incident-Closed-At': server.closedAt ?? '' }
-// the backend's rule (api/incidents · happened_after_close): after the close + 120 s, or no stamp
+// the backend's rule (incident_service · happened_after_close): after the close + 120 s, or no stamp
 const afterClose = (at: unknown) => {
   const t = typeof at === 'string' ? Date.parse(at) : Number.NaN
   return !Number.isFinite(t) || t > Date.parse(server.closedAt ?? '') + 120_000

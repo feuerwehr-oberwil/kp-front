@@ -20,9 +20,9 @@ from .. import live_wait
 from ..auth.dependencies import CurrentAppendWriter, CurrentUser, atemschutz_link_source, is_atemschutz_link
 from ..auth.incident_link import _Denied
 from ..database import get_db
+from ..incident_service import INCIDENT_NOT_FOUND, happened_after_close, incident_closed, incident_lifecycle
 from ..models import Incident, JournalEntry
 from ..schemas import JournalAppendIn, JournalEntryOut, JournalPage
-from .incidents import INCIDENT_NOT_FOUND, happened_after_close, incident_closed, incident_lifecycle
 
 router = APIRouter(prefix="/incidents", tags=["journal"])
 

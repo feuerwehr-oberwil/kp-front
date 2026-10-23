@@ -147,7 +147,7 @@ async def test_a_merge_is_a_new_workspace_revision_so_a_stale_save_gets_its_409(
     optimistic-concurrency contract of ``PUT …/workspace`` — a merge has to move it."""
     from fastapi import HTTPException
 
-    from app.api.incidents import apply_workspace_put
+    from app.incident_service import apply_workspace_put
     from app.schemas import WorkspacePut
 
     survivor = await _object(db_session, NFC_NAME, plans={"modul1": "a" * 64})

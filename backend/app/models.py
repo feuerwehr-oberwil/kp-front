@@ -245,7 +245,7 @@ class Incident(Base):
 def lifecycle_open(is_archived: bool, status: str) -> bool:
     """`Incident.is_open` from the two columns alone — for a route that reads the lifecycle
     without loading the row (the workspace long-poll, the closed-Einsatz refusal in
-    api/incidents · `incident_lifecycle`). One condition, so the two can never drift."""
+    incident_service · `incident_lifecycle`). One condition, so the two can never drift."""
     return not is_archived and status in INCIDENT_ACTIVE_STATUSES
 
 

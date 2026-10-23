@@ -299,7 +299,7 @@ class WorkspacePut(BaseModel):
     workspace: dict[str, Any]
     base_rev: int
     #: When the newest edit in this save was MADE (the client's server-aligned clock) — a closed
-    #: Einsatz takes a save made before its close (api/incidents · `happened_after_close`).
+    #: Einsatz takes a save made before its close (incident_service · `happened_after_close`).
     #: Absent (an older client) → judged by arrival.
     edited_at: datetime | None = None
 

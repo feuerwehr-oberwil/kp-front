@@ -266,7 +266,7 @@ export function useGeorefFits({
      *
      * So the SNAPSHOT carries it, which is what snapshots are for: this write marks the workspace
      * dirty, the save that follows within the autosave window stores the blob, and the backend
-     * snapshots every save (backend · api/incidents · apply_workspace_put). Between the re-bake
+     * snapshots every save (backend · incident_service · apply_workspace_put). Between the re-bake
      * and that save — seconds — a scrub shows the pre-correction positions. Written down here
      * because it is the one place the fold's coverage stops, and lib/replay's header points at it.
      */

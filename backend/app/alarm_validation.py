@@ -73,7 +73,7 @@ def _encoded(value: object) -> str:
 
 
 # The only workspace keys `validate_alarm_workspace` reads — the save path copies just these of
-# the stored blob as `previous` (api/incidents · apply_workspace_put). Read a new key ⇒ add it.
+# the stored blob as `previous` (incident_service · apply_workspace_put). Read a new key ⇒ add it.
 ALARM_VALIDATED_KEYS = ("trupps", "timeline", "settings")
 
 
