@@ -222,11 +222,27 @@ demo-reset:
 # database so nobody's dev data is dropped. It now also runs the rest of CI's Frontend and
 # Backend jobs: e2e types, the coverage floor, hidden sourcemaps, the bundle budget, both
 # audits, both license checks and the schema-drift check. Not covered — they need more than
-# a container: the gitleaks scan, the image build, e2e, visual and perf.)
+# a container: the gitleaks scan, the image build, e2e, visual and perf.
+# It runs only the stacks the branch can affect — scripts/ci-scope.mjs decides from the diff
+# against origin/main and prints why; GitHub CI still runs all of them.)
+# Run the gates this branch's changes can affect (frontend, backend or both, in parallel).
+[group('Quality')]
+ci:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    gates=$(node scripts/ci-scope.mjs)
+    if [ -n "$gates" ]; then just "$gates"; else echo "ci: no gate reads what this branch changes"; fi
+
 # Run the frontend, coverage and backend gates together (just >=1.56); --jobs 1 runs them serially.
 [group('Quality')]
 [parallel]
-ci: ci-frontend ci-unit ci-backend
+ci-all: ci-frontend ci-unit ci-backend
+
+# (With no pytest beside it the suite takes 8 workers: 241 s → 178 s on 19.10.2026.)
+# The frontend gates only: static checks and build beside the unit suite.
+[group('Quality')]
+[parallel]
+ci-no-backend: ci-frontend (ci-unit "8")
 
 # Frontend static checks and production build (application tsc is part of pnpm build).
 [group('Quality')]
@@ -242,10 +258,10 @@ ci-frontend:
     pnpm audit --audit-level moderate
     python3 scripts/check_licenses.py frontend
 
-# Full frontend suite and unchanged coverage floor; leave cores for tsc and pytest beside it.
+# Full frontend suite and unchanged coverage floor; 4 workers leave cores for tsc and pytest beside it.
 [group('Quality')]
-ci-unit:
-    pnpm test:coverage --maxWorkers=4
+ci-unit workers="4":
+    pnpm test:coverage --maxWorkers={{workers}}
 
 # Backend checks against disposable Postgres databases, including migration/model drift.
 [group('Quality')]

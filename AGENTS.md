@@ -38,7 +38,8 @@ Alembic, one service serving the frontend same-origin – **uv** ([`backend/READ
 - `just test-changed` while editing; `just check` (incremental tsc) after a batch of edits;
   `just test-backend -x tests/test_<area>.py` for one backend area.
 - `just ci` before pushing: lint, build, full unit suite + coverage floor, backend with migration
-  drift – in parallel. What each covers and what stays CI's: [`docs/testing/ci.md`](docs/testing/ci.md).
+  drift – in parallel, for the stacks your diff can affect (`just ci-all` for everything). What
+  each covers and what stays CI's: [`docs/testing/ci.md`](docs/testing/ci.md).
 
 ## Working in this repo
 

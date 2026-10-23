@@ -10,15 +10,32 @@ Use `just dev` for the running application, `just test-changed` while editing, a
 before pushing a complete change. `test-changed` only reruns the backend's previously failed
 tests; a green result does not mean the backend suite passed.
 
-`just ci` requires just 1.56 or later. Its three dependencies run in parallel:
+`just ci` runs only the stacks the branch can affect. `scripts/ci-scope.mjs` compares every
+change against the merge base with `origin/main` (committed, staged, unstaged, untracked) and
+prints which stack runs and the file that pulled it in:
+
+- A stack runs for its own files (`backend/` and `docker-compose.dev.yml` for the backend;
+  `src/`, `public/`, `site/`, `e2e/`, `tools/`, `scripts/` and the root frontend configs for the
+  frontend), and for any file its code or tests read by path – the backend tests read
+  `src/data/boardTemplates`, `src/lib/prefs.ts`, `CHANGELOG.md` and `package.json`, the frontend
+  tests read backend JSON and Python. Comments and docstrings don't count, nor does a path in
+  the middle of a string.
+- The `justfile`, `shared/` and the shell/Python scripts in `scripts/` run both stacks.
+- Docs, examples and CI workflows run neither stack unless a test reads them.
+
+GitHub CI still runs every gate on every PR, so a wrong skip turns the PR red, never main.
+`just ci-all` forces everything (it requires just 1.56 or later); its three dependencies run
+in parallel, and `just ci-no-backend` runs the first two:
 
 - `just ci-frontend`: lint, browser-spec types and inventory, production build (including app
   types), hidden sourcemaps, bundle/site checks, vulnerability and license audits.
 - `just ci-unit`: the whole frontend suite with its unchanged global coverage floor. It uses
-  four workers so it can coexist with TypeScript and pytest on a developer machine.
+  four workers so it can coexist with TypeScript and pytest on a developer machine, eight
+  under `ci-no-backend`, where no pytest runs beside it.
 - `just ci-backend`: migration/model drift, PostgreSQL tests, Ruff, mypy and dependency audits.
 
-Use `just --jobs 1 ci` on a memory-constrained machine or to diagnose a timing-sensitive test.
+Use `just --jobs 1 ci-all` on a memory-constrained machine or to diagnose a timing-sensitive
+test.
 TypeScript's incremental cache lives under `node_modules/.cache/typescript/`, with distinct app
 and browser-spec files. It is disposable and confined to the checkout; delete that directory
 to force a cold typecheck. Changed source/configuration still invalidates the relevant checks.
