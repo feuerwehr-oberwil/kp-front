@@ -647,7 +647,7 @@ def test_every_label_becomes_a_number_and_a_legend_line():
 
 
 def test_a_kroki_without_labels_has_no_legend():
-    """An empty legend is what tells report_pdf not to put a numbered list under a picture that
+    """An empty legend is what tells app/report not to put a numbered list under a picture that
     carries no numbers — symbols without a caption are still just symbols."""
     from app import kroki as kk
 

@@ -21,7 +21,7 @@ import { withCartoLabelsBaked, withoutCartoBasemapKey, withoutCartoRetina } from
 export interface KrokiEntityOut {
   coord: LngLat
   /** only on an entity a Leitung is attached to — what a drawing's `startAt` / `endAt` names.
-   *  ⚠️ Mirrored in backend/app/report_pdf.py · KrokiEntityIn. */
+   *  ⚠️ Mirrored in backend/app/report · KrokiEntityIn. */
   id?: string
   symbol?: string
   symbolSvg?: string
@@ -34,7 +34,7 @@ export interface KrokiEntityOut {
   spread?: Entity['spread']
   caption?: string
   /** «Gelöscht / erledigt» (lib/objectDone): the HH:MM it was declared over — the sheet prints the
-   *  glyph grey with this time in its top-left corner. ⚠️ Mirrored in backend/app/report_pdf.py ·
+   *  glyph grey with this time in its top-left corner. ⚠️ Mirrored in backend/app/report ·
    *  KrokiEntityIn; the legend's word («gelöscht 20:40») already rides in `caption`. */
   done?: string
   sizeM?: number
@@ -43,7 +43,7 @@ export interface KrokiEntityOut {
    *  SHAPE_MAX_PX / shapeAspect). ⚠️ Mirrored in backend/app/kroki.py. */
   shape?: ShapeKind
   /** generic shapes: height/width ratio of the glyph box (absent = 1). ⚠️ Mirrored in
-   *  backend/app/report_pdf.py · KrokiEntityIn — a field pydantic doesn't know is dropped. */
+   *  backend/app/report · KrokiEntityIn — a field pydantic doesn't know is dropped. */
   aspect?: number
   color?: string
   // note styling — noteW is what makes a note a wrapping text box, so the sheet breaks the
@@ -67,7 +67,7 @@ export type KrokiDrawingOut = Partial<Drawing> & {
   /** …and the same for an end attached to ANOTHER Leitung's end. A branch off a Teilstück belongs
    *  on one of the fork's prong tips, and the fork is a glyph sized in pixels — this file fans the
    *  branches out by metres (backend · kroki · _snap_line_joints). `id` rides only on a line that
-   *  is such a target. ⚠️ Mirrored in backend/app/report_pdf.py · KrokiLineEndIn. */
+   *  is such a target. ⚠️ Mirrored in backend/app/report · KrokiLineEndIn. */
   startAtLine?: KrokiLineEnd
   endAtLine?: KrokiLineEnd
 }

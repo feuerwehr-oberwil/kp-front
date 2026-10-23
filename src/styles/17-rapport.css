@@ -320,7 +320,7 @@
 .kf-disc-out { background: transparent; color: transparent; border: 2px solid var(--amber);
   box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .9); }
 
-/* «Legende» — two columns filled down the first and then the second, the order report_pdf.py
+/* «Legende» — two columns filled down the first and then the second, the order app/report
    lays them out in (:1642). One column below the two-column breakpoint. */
 .kf-legend { padding: var(--sp-2) 2px 0; }
 .kf-legend-head { display: block; font: var(--fw-heavy) var(--fs-micro) var(--body); letter-spacing: .06em;

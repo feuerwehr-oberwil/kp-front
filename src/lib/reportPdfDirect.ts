@@ -102,7 +102,7 @@ export function planAnnosForPdf(annos: BoardAnno[], captionMode: CaptionMode = '
       // a plan shape prints as a client-resolved glyph (like map shapes); sizeN scales it
       // to the plan width server-side instead of the fixed symbol size. The arrow's
       // Stopp-Balken is baked into the SVG; the box aspect rides along as its own field
-      // (⚠️ mirrored in backend/app/report_pdf.py · PlanAnnoIn).
+      // (⚠️ mirrored in backend/app/report · PlanAnnoIn).
       const kind = a.shape ?? 'square'
       const aspect = shapeAspect(kind, a.aspect)
       out.kind = 'symbol'
@@ -490,7 +490,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   const journalPrint = args.scopeOnly ? [] : journalRows(events, plans, meta.startedAt ?? incident.started_at, incident.closed_at,
     { includeBookkeeping: draft.options.detailedAudit, vocab: args.vocab, truppIds: new Set(trupps.map((t) => t.id)) })
   // a one-day Einsatz prints «07:03», not «23.10.2026 07:03» on every row: the date goes once
-  // into the section heading (report_pdf · ReportPayload.journalDay)
+  // into the section heading (app/report · ReportPayload.journalDay)
   const journalDay = oneDay(journalPrint.map((r) => r.iso))
   const journal = journalPrint
     .map((r) => ({
@@ -582,7 +582,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
         meta.startedAt ?? incident.started_at,
       ),
       // «Entfällt» travels as the answer it is: the sheet prints the word on the line, where a
-      // field nobody filled in gets an empty write-in rule (backend/app/report_pdf.py). Without
+      // field nobody filled in gets an empty write-in rule (backend/app/report). Without
       // it the deliberate «gibt es nicht» and the forgotten field looked identical on paper.
       kontaktpersonNone: meta.kontaktpersonNone, rueckmeldungNone: meta.rueckmeldungNone,
       kommandant: cfg.identity?.kommandant ?? undefined,

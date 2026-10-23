@@ -115,7 +115,7 @@ def test_a_bold_journal_row_still_prints():
 
 
 def test_the_compose_path_never_ascii85_encodes_its_streams():
-    """`rl_config.useA85 = 0` (report_pdf.py, module load): the only C accelerator wheel for
+    """`rl_config.useA85 = 0` (app/report, module load): the only C accelerator wheel for
     ReportLab's base85 encoder is missing on this Python (5.0.0 / 3.13), so the pure-Python
     fallback burned ~70% of a full Rapport's render time and inflated the output by a third.
     Assert the encoding is actually off end-to-end — not just that the flag got set — and that

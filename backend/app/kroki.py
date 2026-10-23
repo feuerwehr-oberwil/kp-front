@@ -317,7 +317,7 @@ def render_base(
     and the stitched canvas is resized down to the view's pixel size.
 
     ⚠️ `tile_url` must already have passed `approved_tile_template` — the caller-supplied value
-    from a Rapport payload never arrives here unresolved (app/report_pdf.py). An empty template
+    from a Rapport payload never arrives here unresolved (app/report). An empty template
     means «no approved basemap»: the neutral background is returned without a single request.
     """
     # The credential is the SERVER's, never the client's: strip whatever came in, apply ours,

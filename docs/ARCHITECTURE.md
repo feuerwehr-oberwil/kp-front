@@ -135,7 +135,7 @@ flowchart LR
   subgraph CORE["Core services"]
     AUD["audit.py<br/>hash-chain + snapshots"]
     STG["storage.py<br/>local volume / S3"]
-    REND["kroki · report_pdf · plan_tiles<br/>plan_alignment_worker · audio"]
+    REND["kroki · app/report · plan_tiles<br/>plan_alignment_worker · audio"]
     CRED["credentials.py · egress.py<br/>encrypted store · SSRF floor"]
     SCHED["scheduler.py<br/>one leader (advisory lock)"]
   end

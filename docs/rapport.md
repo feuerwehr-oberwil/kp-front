@@ -1,7 +1,7 @@
 # The Rapport
 
 What the printed Einsatzrapport carries (`src/lib/report.ts`, `src/lib/reportPdfDirect.ts`,
-`src/lib/auswertung.ts`, `backend/app/report_pdf.py`, `backend/app/kroki.py`). Moved here from AGENTS.md on 2026-10-08,
+`src/lib/auswertung.ts`, `backend/app/report`, `backend/app/kroki.py`). Moved here from AGENTS.md on 2026-10-08,
 wording unchanged.
 
 ## Abschluss – the «Noch offen» sheet (23.10.2026)
@@ -45,7 +45,7 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
 - **Stored**: the SHAPE of the strokes only (integers in a 1000-wide box) – no timing, no pressure
   (PRIVACY.md). Each signing writes a Verlauf row («Rapport unterschrieben: …, Prüfsumme …») and a
   hash-chained audit event (`report.signature.add` / `.void`).
-- **On paper** (`report_pdf · _draw_signature`): the strokes sit on the line beside the name,
+- **On paper** (`app/report · _draw_signature`): the strokes sit on the line beside the name,
   «Ort, Datum» is filled in (`map.geocoder.defaultLocality` without its postcode), and a small line
   says «Am Bildschirm unterschrieben … · Prüfsumme …». A signature that no longer holds is not
   sent; its line prints empty. **Decision E stands**: the printed paper is the record – the
@@ -59,7 +59,7 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
 
 ## The Einsatzjournal on paper
 
-- **Zeit and Bereich are as wide as their widest label** (`report_pdf` · journal `col_w`, capped at
+- **Zeit and Bereich are as wide as their widest label** (`app/report` · journal `col_w`, capped at
   29 / 38 mm): ReportLab breaks a word that does not fit its cell, and the fixed 24 mm Bereich
   printed «Sofortmassna / hme» on every such row (23.10.2026).
 - **A one-day Einsatz prints the time alone** («07:03»); the date stands once in the heading,
@@ -82,7 +82,7 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
     `caption: 'off'` is a screen declutter and is not read; only «Beschriftungen aus» silences it.
     A «Gelöscht / erledigt» symbol ends its line on that Status with its time («Feuer · gelöscht
     20:40», 24.09.2026) and prints grey, never absent.
-  - **One figure-page template** (`report_pdf · figure_pages`): heading, then the muted «Einsatz ·
+  - **One figure-page template** (`app/report · figure_pages`): heading, then the muted «Einsatz ·
     Stand …» line, picture, legend – for the Kroki, a plan sheet and a Gebäude page alike. A new
     kind of figure page joins that list; it does not get a layout block of its own. Orientation is
     per kind ON PURPOSE: the Kroki is a free crop (the operator's choice), a plan sheet has the
@@ -99,7 +99,7 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
     end on it. ⚠️ And the fallback fit mirrors the PANEL: the ceiling is
     `report · krokiFitMaxZoom` (20; 21 for a COMPACT Lage under 30 m – one level past the basemap's
     last sharp one, so a single-building cluster is not 15 % of the sheet). That is a MapLibre
-    camera zoom, one level tighter than the 256-px projection: `report_pdf · _kroki_fit_max_z` = +1.
+    camera zoom, one level tighter than the 256-px projection: `app/report · _kroki_fit_max_z` = +1.
     On paper the count badge is a WHITE chip like the storey badge – the numbered legend discs are
     the only dark marks on the sheet.
 
@@ -115,7 +115,7 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
   QR-Erfassung's own PDF too; a viewer link cannot make a PDF at all.
 - **Derived on the client, printed by the server.** `lib/auswertung` reads the record where the
   ISO stamps are and sends minute offsets + finished strings in the deployment's language
-  (`report_pdf · AuswertungIn`) – the same split as `personalSummary`. Nothing is estimated: a
+  (`app/report · AuswertungIn`) – the same split as `personalSummary`. Nothing is estimated: a
   figure without its data prints «—», a vehicle that never reported vor Ort gets a dot, not a bar.
 - **«Funkkontakte eingehalten» is the board's own rule.** An interval runs from the Eintritt or a
   contact (Kontakt, Druck, Alarm, Rückzug, Wiedereinstieg) to the next one or the Austritt;

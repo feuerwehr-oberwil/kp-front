@@ -203,7 +203,7 @@ export function unitLabel(unit: string): string {
  * Strip what the printed Einsatzrapport cannot set — emoji, pictographs, dingbats and the
  * joiners/variation selectors that glue them together.
  *
- * The rapport is composed server-side in Helvetica (backend · report_pdf), which has no glyph
+ * The rapport is composed server-side in Helvetica (backend · app/report), which has no glyph
  * for any of these: a «Brand 🔥 im 2. OG» typed on a phone came out as «Brand ■ im 2. OG» on the
  * sheet that gets signed — and only there, so nobody saw it until the paper was in their hand.
  * Blocked at the input instead of fixed at render, so what the app shows and what the printer

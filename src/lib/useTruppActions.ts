@@ -1432,7 +1432,7 @@ export function useTruppActions(deps: Deps) {
           entryPressureBar: f.pressure, lastPressureBar: undefined, lastPressureTime: undefined, lowestBar: f.pressure,
           // ⚠️ APPENDED, not replaced (17.08.). This used to start a new `readings` array, which
           // threw away the first deployment's entry pressure and every reading taken during it —
-          // and `backend/app/report_pdf.py` prints exactly this array, so the crew that had been
+          // and `backend/app/report` prints exactly this array, so the crew that had been
           // under PA the longest was the half missing from the safety document. The card's own
           // numbers (entryPressureBar, lowestBar) still describe the RUNNING deployment; what is
           // «current» in the log is everything from here on (lib/atemschutz · currentRunStart).

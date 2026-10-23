@@ -397,7 +397,7 @@ describe('buildDirectReportPayload · plan pages', () => {
 
 /* D2 + D4 (staging 25.09.2026): after a reopen and a second close the paper's Einsatzende is
  * the SECOND close, and the rows that reached the record after the (first) close go to the PDF
- * with their Nachtrag mark — the server prints it (report_pdf · JournalRowIn.nachtrag). */
+ * with their Nachtrag mark — the server prints it (app/report · JournalRowIn.nachtrag). */
 describe('buildDirectReportPayload · the close on paper', () => {
   const incident = {
     id: 'i1', title: 'Brand', started_at: '2026-09-25T21:36:00.000Z',
