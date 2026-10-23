@@ -266,7 +266,7 @@ async function rawFetch(path: string, init?: RequestInit, timeoutMs = DEFAULT_TI
   return res
 }
 
-// Single-flight refresh: the access token lives 8h, the refresh cookie 7d. When any
+// Single-flight refresh: the access token lives 8h, the refresh cookie 90d. When any
 // request 401s, we transparently try ONE `/api/auth/refresh` and retry — so a multi-day
 // incident never strands at the login screen. Concurrent 401s share the same in-flight
 // refresh promise instead of stampeding the endpoint.

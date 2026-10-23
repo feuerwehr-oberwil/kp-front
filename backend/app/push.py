@@ -78,6 +78,14 @@ DEFAULT_ALARM_BAR_RUECKZUG = 50
 #: (SEC-09, 05.09.). Lives here, the sending side, and is imported by the registration route.
 SUBSCRIPTION_TTL_DAYS = 180
 
+#: How long the push service keeps a message for a phone it cannot reach right now. The Atemschutz
+#: and Wiedervorlage re-notifies keep 120 s (a stale «überfällig» is re-sent by the next sweep
+#: anyway); «Neuer Einsatz» gets ~2 h with `Urgency: high`, so a phone in Doze or briefly out of
+#: coverage still hears the dispatch when it wakes (3am sweep §1.2, 23.10.2026).
+DEFAULT_TTL_SECONDS = 120
+NEW_ALARM_TTL_SECONDS = 2 * 3600
+NEW_ALARM_URGENCY = "high"
+
 
 def _ms(iso: str | None) -> float | None:
     return timestamp_ms(iso)
@@ -484,10 +492,11 @@ def _no_redirect_session() -> "requests.Session":
     return session
 
 
-def _send_one(sub: dict, payload: str) -> SendOutcome:
+def _send_one(sub: dict, payload: str, *, ttl: int = DEFAULT_TTL_SECONDS, urgency: str | None = None) -> SendOutcome:
     """Blocking pywebpush send. "accepted" = the push service took it; "gone" = the endpoint is
     dead (404/410) or its keys are unusable, so the caller prunes it; "retry" = a transient failure
-    (e.g. 503) — keep the row and let the next sweep try again (never counted as delivered)."""
+    (e.g. 503) — keep the row and let the next sweep try again (never counted as delivered).
+    ``ttl``/``urgency`` are the Web Push delivery hints (RFC 8030 §5.2/§5.3)."""
     from pywebpush import WebPushException, webpush
 
     from .credentials import get as credential
@@ -498,7 +507,8 @@ def _send_one(sub: dict, payload: str) -> SendOutcome:
             data=payload,
             vapid_private_key=credential("vapid_private_key"),
             vapid_claims={"sub": credential("vapid_subject")},
-            ttl=120,
+            ttl=ttl,
+            headers={"Urgency": urgency} if urgency else None,
             timeout=PUSH_TIMEOUT_SECONDS,
             requests_session=_no_redirect_session(),
         )
@@ -523,8 +533,13 @@ async def broadcast(
     target: str | None,
     dedup_key: str | None = None,
     user_ids: Collection[uuid.UUID] | None = None,
+    ttl: int = DEFAULT_TTL_SECONDS,
+    urgency: str | None = None,
 ) -> int:
     """Push to every subscribed browser of an ACTIVE user; prunes dead endpoints.
+
+    ``ttl`` and ``urgency`` go to the push service as delivery hints (``_send_one``): the new-alarm
+    path asks for ~2 h and ``high``; the sweeps keep the short default.
 
     ``user_ids`` narrows the audience to those accounts' browsers (no kiosk rows): the
     «Neuer Objektbesuch» push goes to the accounts an admin picked, «Neuer Einsatz» and
@@ -566,7 +581,11 @@ async def broadcast(
     async def send(s: PushSubscription) -> tuple[str, SendOutcome]:
         async with gate:
             outcome = await asyncio.to_thread(
-                _send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload
+                _send_one,
+                {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth},
+                payload,
+                ttl=ttl,
+                urgency=urgency,
             )
         return s.endpoint, outcome
 
@@ -679,7 +698,14 @@ async def notify_new_alarm(
     def schedule() -> None:
         task = asyncio.create_task(
             _broadcast_committed(
-                factory, title="Neuer Einsatz", body=body, tag=tag, target=target, audience=_new_alarm_recipients
+                factory,
+                title="Neuer Einsatz",
+                body=body,
+                tag=tag,
+                target=target,
+                audience=_new_alarm_recipients,
+                ttl=NEW_ALARM_TTL_SECONDS,
+                urgency=NEW_ALARM_URGENCY,
             )
         )
         _inflight.add(task)
@@ -698,6 +724,8 @@ async def _broadcast_committed(
     target: str | None,
     audience: Callable[[AsyncSession], Awaitable[Collection[uuid.UUID]]] | None = None,
     dedup_key: str | None = None,
+    ttl: int = DEFAULT_TTL_SECONDS,
+    urgency: str | None = None,
 ) -> None:
     """Best-effort post-commit delivery with independent dead-endpoint pruning.
 
@@ -711,7 +739,14 @@ async def _broadcast_committed(
             await load(send_db)
             if audience is not None:
                 await broadcast(
-                    send_db, title=title, body=body, tag=tag, target=target, user_ids=await audience(send_db)
+                    send_db,
+                    title=title,
+                    body=body,
+                    tag=tag,
+                    target=target,
+                    user_ids=await audience(send_db),
+                    ttl=ttl,
+                    urgency=urgency,
                 )
             elif dedup_key is not None:
                 # the sweep's crossing key, where the caller has one (an Atemschutznotfall)

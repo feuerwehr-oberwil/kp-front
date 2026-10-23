@@ -1316,7 +1316,9 @@ Not part of `deployment_config` – operational users are managed separately fro
 The product role model is deliberately small:
 
 - **Login:** pick your name from the roster → enter your **PIN** (fast at 3am, per-person
-  identity for the audit trail). JWT access (8h) + refresh (7d) with rotation + revocation.
+  identity for the audit trail). JWT access (8h) + refresh (90d, `refresh_token_expire_days` – was
+  7d until 23.10.2026: an alarm push has to open into a live session, and a volunteer's alarms are
+  weeks apart) with rotation + revocation.
 - **Roles:** `editor` (FU / Einsatzleitung support; can mutate incident state), `el`
   (Einsatzleiter function, since 2026-09-07: reads everything, edits only Anwesenheit/Zeitplan,
   Material, Checklisten and the Rapport incl. Beilagen – server-enforced) and `viewer`

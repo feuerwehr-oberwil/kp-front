@@ -29,7 +29,7 @@ import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { useIncidentTabLock } from './lib/tabLock'
 import { clearIncidentMedia, clearUploadedMedia, listMediaQueue } from './lib/mediaQueue'
 import { MediaPendingMeldung, type ClosedMediaPending } from './components/MediaPendingMeldung'
-import { ensurePushSubscription } from './lib/push'
+import { clearAppBadge, ensurePushSubscription } from './lib/push'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
 import { IncidentWorkspace } from './IncidentWorkspace'
@@ -309,7 +309,8 @@ export default function App() {
   // targets (atemschutz/journal) are claimed by IncidentWorkspace once mounted.
   useEffect(() => {
     if (!isEditor) return
-    const openPool = () => { void refreshPool() }
+    // the home-screen badge the push set (sw-notify.js) is cleared now that the alarm is on screen
+    const openPool = () => { clearAppBadge(); void refreshPool() }
     if (claimBootNotifyTarget(['divera'])) openPool()
     const sw = typeof navigator !== 'undefined' ? navigator.serviceWorker : undefined
     if (!sw) return

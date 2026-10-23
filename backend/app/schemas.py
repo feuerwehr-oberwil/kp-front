@@ -49,6 +49,10 @@ class UserOut(BaseModel):
     # "terminal" are read-only, "atemschutz" and "atemschutz-standing" may operate the
     # Atemschutzüberwachung of that one Einsatz and nothing else. None for a real account.
     link_kind: Literal["alarm", "view", "atemschutz", "atemschutz-standing", "terminal"] | None = None
+    # When this device's login lapses unless renewed — the refresh token's expiry (auth/router ·
+    # login, refresh, me). The app's «Alarm auf diesem Gerät» readiness shows it (lib/alarmReadiness).
+    # None for a link session and for a /me answered off the access cookie alone.
+    session_until: datetime | None = None
 
 
 # --- User administration (Slice 2 — Members & access) -------------------------------

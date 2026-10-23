@@ -199,8 +199,24 @@ webhooks cannot call a `divera247.com/api/...` URL. There is no loopback.
   Einsatz is far more often a Nachalarm or a reworded group SMS than a second Einsatz, and
   opening it would split the operational picture in two. The incoming-alarm banner then offers
   both «öffnen» and «zuordnen» – zuordnen is the one that keeps the GPS milestones together.
-- **Push goes out** to every subscribed tablet, so a killed app still says «Neuer Einsatz»
-  (needs the VAPID pair – [`SETUP.md`](SETUP.md)).
+- **Push goes out** to every subscribed editor browser, so a killed app still says «Neuer Einsatz»
+  (needs the VAPID pair – [`SETUP.md`](SETUP.md)). The dispatch travels with `Urgency: high` and a
+  TTL of ~2 h (`push.py · NEW_ALARM_TTL_SECONDS`), so a phone in Doze or briefly out of coverage
+  still hears it when it wakes; the Atemschutz and Wiedervorlage re-notifies keep their 120 s. The
+  service worker shows it with icon, badge and vibration, keeps it on the lock screen until
+  somebody acts (`requireInteraction`) and sets the home-screen badge until the app has the alarm
+  in front of the operator (`public/sw-notify.js`, `src/lib/push.ts · clearAppBadge`).
+- **Whether THIS device would wake** is on the Karte home – «Auf diesem Gerät» › «Alarm auf diesem
+  Gerät», and under Einstellungen › Gerät (`src/lib/alarmReadiness.ts`, 3am sweep §1,
+  23.10.2026): installed · Benachrichtigung · Alarm-Abo · Anmeldung, each red row with its one-tap
+  fix, «Testalarm senden» (`POST /api/push/test`, one push to the caller's own registration, one
+  per minute) and the opt-out «Keine Alarme auf diesem Gerät» (push off, reversible there). A nudge
+  card on the home shows when a row is red or nothing was checked for 90 days – never inside an
+  Einsatz; «Später» hides it 30 days. A registration is dropped after 180 days without renewal
+  (`SUBSCRIPTION_TTL_DAYS`); the app re-registers on every boot, and a device whose login has
+  lapsed can renew with the subscription's own endpoint + keys as the credential
+  (`POST /api/push/subscriptions/renew`, no session) – the login itself now lasts 90 days
+  (`refresh_token_expire_days`), with rotation and revocation unchanged.
 - **The pool is visible** at `/admin` → **Alarmierung**: the alarms taken from Divera that are
   not yet assigned to an Einsatz, plus «Aktualisieren» and a connection test.
 
