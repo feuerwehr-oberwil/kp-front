@@ -28,7 +28,7 @@ AGENTS.md on 2026-10-08 (the wording) and 2026-10-18 (the mechanics), wording un
   Two caveats: (1) module-level captures like `const C = appConfig.copy.x` freeze the language
   at import – read inside the component/function instead; (2) a few copy values are structural
   DATA keys, not labels (`contextPanel.unField`/`stoffField` match the non-localized preset
-  fields, intake `kategorien`/`kategorieGuess` mirror the backend) – leave these untranslated
+  fields, intake `kategorien` mirrors the backend) – leave these untranslated
   (German fallback).
 - Help text is per device (`lib/helpDevice`).
 
@@ -93,8 +93,7 @@ a Checkliste, a Verlauf-Eintrag, a Mittel line).
   - **A retry sentence says what happened, the button says «Erneut versuchen»** (29.09.2026) —
     never «… nochmals versuchen» in the sentence next to it; one button word in every locale.
 - **A ✕ that empties a field says «leeren», never «löschen»** (29.09.2026) — «löschen» is the
-  delete verb. `copy.clear` «Leeren», `copy.clearSearch` «Suche leeren», `copy.clearField`
-  «{field} leeren»; no per-surface «Suche löschen» copies.
+  delete verb. `copy.clear` «Leeren», `copy.clearSearch` «Suche leeren»; no per-surface «Suche löschen» copies.
 - **A search field's placeholder is «<Thing> suchen …», or bare «Suchen …» where the surface
   already names the thing** (swept 18.09.2026: «Suchen», «Name suchen», «Suchen oder Name
   eingeben …» and three-dot `...` all existed side by side). Always the ellipsis character with a

@@ -19,7 +19,8 @@ const listReference = vi.fn()
 const listPersonnel = vi.fn()
 const getDiveraPool = vi.fn()
 const refreshDiveraPool = vi.fn()
-vi.mock('../lib/incidents', () => ({
+vi.mock('../lib/incidents', async (orig) => ({
+  ...(await orig<typeof import('../lib/incidents')>()),
   listObjects: () => listObjects(),
   listReference: () => listReference(),
   listPersonnel: () => listPersonnel(),

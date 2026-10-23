@@ -10,7 +10,7 @@ import type { CachedWithout, In, Out } from './wire'
 // --- Types (the server's, ./wire) ---------------------------------------------------
 // the running rule lives in a leaf (lib/incidentRunning) so incidentClosed can ask it without an
 // import ring back through this module and ./workspace
-export { INCIDENT_ACTIVE_STATUSES, isIncidentRunning } from '../incidentRunning'
+export { isIncidentRunning } from '../incidentRunning'
 
 /**
  * The Einsatzende the record states when nobody entered one: the CURRENT close. After «Wieder

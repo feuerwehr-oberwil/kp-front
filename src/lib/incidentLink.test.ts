@@ -41,7 +41,8 @@ describe('exchangeLinkToken', () => {
     await expect(exchangeLinkToken(TOKEN)).resolves.toEqual({ ok: false, reason: 'notReady' })
   })
 
-  it('409 incident_closed (the Atemschutz link, staging r6 F2) → closed, with the time it names', async () => {
+  // staging r6, F2
+  it('409 incident_closed (the Atemschutz link) → closed, with the time it names', async () => {
     const e = new ApiError(409, 'Einsatz ist abgeschlossen – nicht mehr übernommen')
     e.code = 'incident_closed'
     e.data = { code: 'incident_closed', closed_at: '2026-09-26T01:12:00+00:00' }

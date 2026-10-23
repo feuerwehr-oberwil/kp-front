@@ -81,6 +81,6 @@ describe('Schraffur', () => {
   // jsdom has no 2D context; a locked-down browser can refuse one too. Null, never a throw —
   // the Fläche then paints unhatched rather than the map failing to draw at all.
   it('returns null where there is no canvas rather than throwing', () => {
-    expect(() => hatchTile('#1f6feb')).not.toThrow()
+    expect(hatchTile('#1f6feb')).toBeNull()
   })
 })

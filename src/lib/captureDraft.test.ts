@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   clearDraft, loadDraft, makeDebouncedFlush, restoreDraft, saveDraft, serverSkewMinutes,
-  type DraftStore,
 } from './captureDraft'
+import type { PrefStorage } from './incidentPrefStore'
 
-const memStore = (): DraftStore & { raw: Map<string, string> } => {
+const memStore = (): PrefStorage & { raw: Map<string, string> } => {
   const raw = new Map<string, string>()
   return {
     raw,
@@ -15,15 +15,15 @@ const memStore = (): DraftStore & { raw: Map<string, string> } => {
 }
 
 describe('capture drafts', () => {
-  it('round-trips per incident+field and clears', () => {
+  // the per-incident round trip is lib/incidentPrefStore's; a draft is also per FIELD
+  it('keeps one draft per field, and clearing one leaves the other', () => {
     const store = memStore()
     saveDraft(store, 'i1', 'summary', 'Brand im Keller')
-    saveDraft(store, 'i2', 'summary', 'anderer Einsatz')
-    expect(loadDraft(store, 'i1', 'summary')).toBe('Brand im Keller')
-    expect(loadDraft(store, 'i2', 'summary')).toBe('anderer Einsatz')
+    saveDraft(store, 'i1', 'notes', 'Zugang Nord')
+    expect(JSON.parse(store.raw.get('kp.capture.draft.i1.summary') ?? '')).toMatchObject({ v: 'Brand im Keller', at: expect.any(Number) })
     clearDraft(store, 'i1', 'summary')
     expect(loadDraft(store, 'i1', 'summary')).toBeNull()
-    expect(loadDraft(store, 'i2', 'summary')).toBe('anderer Einsatz')
+    expect(loadDraft(store, 'i1', 'notes')).toBe('Zugang Nord')
   })
 
   it('restoreDraft prefers a differing draft, else the saved value', () => {

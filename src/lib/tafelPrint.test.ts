@@ -10,7 +10,8 @@ const page = (id: string) => formAnno(putRow(newFormPage(FKS, FKS.pages.find((p)
 
 afterEach(() => { vi.unstubAllGlobals(); resetConnectivityForTests(true) })
 
-describe('the Tafel prints its own pages (owner: «maybe add a print option»)', () => {
+// owner: «maybe add a print option»
+describe('the Tafel prints its own pages', () => {
   it('sends the same sheets the Rapport carries, one or all, with the Einsatz on them', () => {
     const body = tafelPrintPayload([page('ef'), page('mittel')], { id: 'inc', title: 'Brand' }, undefined, new Date('2026-10-10T16:05:00Z'))
     expect(body.incident).toEqual({ id: 'inc', title: 'Brand' })

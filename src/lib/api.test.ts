@@ -457,7 +457,8 @@ describe('request — the server clock rides along', () => {
   })
 })
 
-describe('request — an Atemschutz-Link page refused on its own Einsatz (D1)', () => {
+// D1
+describe('request — an Atemschutz-Link page refused on its own Einsatz', () => {
   // The Link took a re-entry locally after a second close and reported only «Sync-Fehler». A 403
   // on the routes the page lives on now says so ONCE on `window`, and the workspace freezes.
   it('dispatches kp:link-refused for a 403 on reading the workspace, the Verlauf or the events', async () => {

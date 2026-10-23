@@ -496,7 +496,8 @@ describe('buildDirectReportPayload · Auswertung', () => {
     expect(out.auswertung!.timeline!.milestones.map((m) => m.label)).toEqual([`Feuer ${appConfig.copy.objectDone.word.fire.inline}`])
   })
 
-  it('a REOPENED Einsatz runs again — its old close time is no Einsatzende (review of #303)', () => {
+  // review of #303
+  it('a REOPENED Einsatz runs again — its old close time is no Einsatzende', () => {
     const out = buildDirectReportPayload({
       incident: { id: 'i1', title: 'Brand', started_at: '2026-09-25T21:36:00.000Z', closed_at: '2026-09-25T22:36:00.000Z', is_archived: false } as never,
       draft: { meta: {}, generatedAt: '2026-09-25T23:00:00.000Z', proof: {}, options: { auswertung: true } } as never,

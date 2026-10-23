@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
   fitSignature, boardSymbolToEntity, contentTwinName, entityToBoardSymbol, georefPlans, isTwinLayerId, planAspect,
-  planRasterRows, pairsSignature, fitChangeCause, fitChangeRow, fitChangeUndoLabel, referenceDelta,
+  planRasterRows, sheetKeyOf, fitChangeCause, fitChangeRow, fitChangeUndoLabel, referenceDelta,
   twinPlanImageLayerId, twinVisible,
 } from './georefTwins'
 import { appConfig } from '../config/appConfig'
@@ -201,7 +201,8 @@ describe('the Ebenen rows', () => {
     expect(planRasterRows([p], undefined)[0].sub).toMatch(/^⌀ \d+\.\d\d m$/)
   })
 
-  it('an automatic fit says «ungemessen» — and a station-APPROVED one says «Verknüpft» (18.09.2026)', () => {
+  // 18.09.2026
+  it('an automatic fit says «ungemessen» — and a station-APPROVED one says «Verknüpft»', () => {
     const C = appConfig.copy.whiteboard.georef
     const auto: GeorefPair[] = PAIRS.map((pr) => ({ ...pr, kind: 'auto' }))
     const rowsFor = (approvedOf: (key: string) => boolean) =>
@@ -298,6 +299,11 @@ describe('referenceDelta — which sheets lost their reference', () => {
     expect([...referenceDelta(bare, [], new Set(['modul2'])).dropped]).toEqual(['modul2'])
   })
 })
+
+// The landmark pairs of every sheet as one string – what the OPERATOR set and nothing derived from
+// it, the reading fitChangeCause compares (the re-bake builds the same string per sheet).
+const pairsSignature = (plans: PlanDocument[], georefOf: (key: string) => { pairs: GeorefPair[] } | null) =>
+  plans.map((p) => `${p.id}:${JSON.stringify(georefOf(sheetKeyOf(p))?.pairs ?? [])}`).join('|')
 
 /* ⚠️ The Verlauf never claims an act nobody performed — the doctrine that renamed «Wiedereinstieg».
  * A fit change reaches the re-bake from two directions: a hand corrected the reference, or the app

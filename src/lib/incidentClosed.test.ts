@@ -86,7 +86,8 @@ describe('reopenedMetaFor — «Wieder öffnen» on another device', () => {
     expect(reopenedMetaFor(closedFresh, { incidentId: 'inc', source: 'list' }, closedFresh, null)).toBeNull()
     expect(reopenedMetaFor(closedFresh, { incidentId: 'inc', source: 'poll' }, reopened, 'inc')).toBeNull()
   })
-  it('for EVERY closed view — whether a close signal, its own close or «Alle Einsätze» made it (N1)', () => {
+  // N1
+  it('for EVERY closed view — whether a close signal, its own close or «Alle Einsätze» made it', () => {
     // staging 26.09.2026: the tablet that had closed it, and one that opened it out of «Alle
     // Einsätze», stayed «abgeschlossen» and calm while crews ran again. A reopen is the current
     // state; how the view came to be closed does not enter into it.

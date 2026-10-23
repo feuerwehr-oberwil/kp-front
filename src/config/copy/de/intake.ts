@@ -89,7 +89,6 @@ export const intakeCopy = {
     // ERSETZT die 700px-Karte mit Meldung und Kategorie-Combo — geprüft wird beim
     // Bearbeiten, bestätigt wird mit «Passt».
     reviewTitle: 'Einsatzdaten prüfen',
-    locationSet: 'Standort gesetzt',
     noLocationOnMap: 'Kein Standort – auf Karte setzen',
     ok: 'Passt',
     // VKF Schadenkategorien — mirrors the labels the backend derives server-side (see
@@ -113,30 +112,6 @@ export const intakeCopy = {
       'Dienstleistungen',
       'Diverse Einsätze',
     ] as string[],
-    // Keyword (UPPERCASE substring of the Stichwort) → category, mirroring the same
-    // backend map. Lets the wizard pre-select a category for a Divera alarm; first hit
-    // wins. The backend still derives it authoritatively if the EL leaves it unset.
-    kategorieGuess: [
-      ['FEUER', 'Brandbekämpfung'],
-      ['BRAND', 'Brandbekämpfung'],
-      ['HOCHWASSER', 'Elementarereignis'],
-      ['UNWETTER', 'Elementarereignis'],
-      ['STURM', 'Elementarereignis'],
-      ['VU', 'Strassenrettung'],
-      ['VERKEHR', 'Strassenrettung'],
-      ['UNFALL', 'Strassenrettung'],
-      ['THL', 'Technische Hilfeleistung'],
-      ['TECH', 'Technische Hilfeleistung'],
-      ['ÖL', 'Ölwehr'],
-      ['OELWEHR', 'Ölwehr'],
-      ['CHEMIE', 'Chemiewehr'],
-      ['STRAHLEN', 'Strahlenwehr'],
-      ['BAHN', 'Einsatz Bahnanlagen'],
-      ['BMA', 'BMA / unechte Alarme'],
-      ['FEHLALARM', 'BMA / unechte Alarme'],
-      ['DIENST', 'Dienstleistungen'],
-      ['TIER', 'Gerettete Tiere'],
-    ] as [string, string][],
     // DISPLAY labels for the category <select>, keyed by the German category VALUE (the entries
     // of `kategorien`). de = identity (German→German); en/fr/it translate. The stored/submitted
     // value stays the German `kategorien` entry — only the option TEXT localizes; the select

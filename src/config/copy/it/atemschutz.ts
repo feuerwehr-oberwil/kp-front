@@ -25,7 +25,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     shareLinkOn: 'Cedi la sorveglianza – un link è attivo',
     linkReentryHint: 'Il link riporta a questa tavola – se la pagina viene chiusa per errore, basta aprire di nuovo il codice QR.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
-    liteNewTab: 'Squadra',
     /** the three-section stack on ANY phone (TruppForm · stack, 04.09.) – replaces the two-step
      *  wizard; «Incarico e linea» è una sola sezione (vedi de/atemschutz.ts). */
     stackPressure: '{n} bar',
@@ -39,7 +38,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     formRedeployTitle: 'Rientrare',
     sectionTeam: 'Squadra',
     auftragLabel: 'Compito',
-    auftragOpen: 'Incarico aperto',
     // Etichette di VISUALIZZAZIONE dei tipi di mandato, indicizzate per id (il valore resta l'id).
     auftragLabels: {
       retten: 'Salvare',
@@ -135,18 +133,13 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     lowestPressure: 'Più bassa',
     lineField: 'Linea',
     edit: 'Modifica',
-    pressureConfirm: 'Conferma',
-    pressureConfirmHint: 'Conferma la nuova pressione – vale come contatto',
     verlauf: 'Diario',
     cardMenu: 'Altre azioni',
-    bandPreEntry: 'Non ancora entrata',
     bandRegisteredAt: 'annunciata alle',
-    zoneTimes: 'Orari',
     lastContactAt: 'Ultimo contatto',
     nextContactDue: 'Prossimo contatto',
     contactIntervalLabel: 'Intervallo di contatto',
     contactIntervalValue: '{min} min',
-    verlaufLatest: 'ultimo: {time} {what}',
     // ⚠️ Parole dell’EVENTO in questa colonna («Art»), mai parole di stato: la riga dice che
     // cosa è successo, «Fuori» è ciò che la scheda dice della squadra dopo (status · outFor).
     readingKind: { registered: 'Annunciata', entry: 'Entrata', contact: 'Contatto', pressure: 'Pressione',
@@ -186,7 +179,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     actExitPlain: 'Compito svolto', // ⚠️ app only — see de/atemschutz.ts · actExitPlain
     actReenter: 'Rientrare',
     actNotDeployed: 'Non impiegata',
-    actNotDeployedHint: 'Chiudi la squadra senza che sia entrata con l’autorespiratore – resta pronta per un impiego successivo',
     statusNotDeployed: 'Non impiegata',
     statusRemoved: 'Rimosso dalla lavagna',
     logNotDeployed: 'Squadra {name} non impiegata',
@@ -295,7 +287,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       goTo: 'Alla squadra',
       goToWho: 'Alla {name}',
       rowTitle: 'Emergenza – squadra {name}',
-      rowTitleMany: 'Emergenza – {count} squadre: {names}',
       logTrigger: 'Squadra {name}: emergenza attivata',
       factPlace: 'luogo {place}',
       factContact: 'ultimo contatto {time}',
@@ -374,7 +365,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     estimatedSourceFallback: '{rate} L/min presunti · stato {time}',
     alarmNote: 'Pressione d\'allarme di {bar} bar raggiunta',
     alarmNoteEst: 'Pressione d\'allarme di {bar} bar – raggiunta secondo la stima',
-    pressureRose: 'Più alto dell\'ultima volta ({from} bar) – errore di battitura?',
     chipHint: 'ARA – tocca per la sorveglianza',
     alarmRowOverdue: 'Autoprotezione in ritardo – {name}',
     alarmRowOverdueSub: 'Nessun contatto radio – stabilire subito il contatto.',
@@ -386,9 +376,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     alarmRowGo: 'Alla squadra',
     alarmRowAck: 'Preso atto',
     alarmRowReadOnly: 'sola lettura',
-    logSafety: 'Valori di sicurezza ARA modificati: {changes}',
-    logSafetyInterval: 'Intervallo di contatto radio {from} → {to} min',
-    logSafetyGrace: 'Tempo di tolleranza {from} → {to} s',
     logSafetyFunkkanal: 'Canale radio {from} → {to}',
     logEditFields: 'Squadra {name}: {changes}',
     changeLeader: 'Capo squadra {from} → {to}',

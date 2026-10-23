@@ -20,7 +20,7 @@ code and copy – it is **not** a license to rename anything to English.
 | **AdFU** | member of the FU | *Angehöriger der Führungsunterstützung* – the individual operator at the tablet. Doctrine: the AdFU works the app, the C-FU coordinates. |
 | **Erfassungsblatt** | (paper) capture sheet | The paper form for recording an incident when the app isn't used; the digital capture flow (`/e/<token>` poster) and the printed rapport mirror its fields. |
 | **Einsatzrapport** | incident report | The official post-incident report, composed server-side as a PDF (`backend/app/report_pdf.py`). It is a pre-filled *form*, not a data export – printing never blocks on missing data. |
-| **Stichwort** | dispatch keyword | The alarm keyword/title classifying the incident (e.g. «BRAND GROSS»); drives the suggested category (`kategorieGuess` in the copy/config; keyword section of the capture form). |
+| **Stichwort** | dispatch keyword | The alarm keyword/title classifying the incident (e.g. «BRAND GROSS»); drives the category the server derives (`backend/app/data/alarm_keywords.json`; keyword section of the capture form). |
 | **Funkkanal** | radio channel | The incident's radio channel, a synced workspace setting shown in the top bar (`appConfig.copy.*.funkkanal`). |
 | **Hydrant** | hydrant | Water-supply point; a per-station reference geodata layer (WGS84 GeoJSON loaded via `admin_geodata`, rendered through `referenceLayersFromConfig`). |
 | **Leitungskataster** | utility-line cadastre | The municipal map of underground water/gas lines – another reference layer (`rowLeitung` in the Ebenen panel). Station data, never bundled. |

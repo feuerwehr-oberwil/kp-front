@@ -77,8 +77,6 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     statusInTrupp: 'dans un binôme',
     conflictElInTrupp: '{name} est chef d\'intervention et en même temps dans le binôme {trupp}.',
     conflictLeft: '{name} est enregistré comme «parti».',
-    presentOnlyOn: 'Présents seulement – toucher pour toute la troupe',
-    presentOnlyOff: 'Toute la troupe – toucher pour les présents seulement',
     onlyPresent: 'Présents seulement',
     rankFilterLabel: 'Filtrer par grade',
     rankAll: 'Tous',

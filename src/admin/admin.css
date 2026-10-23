@@ -165,7 +165,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-autosave.busy { color: var(--ink-dim); }
 .adm-autosave.busy .adm-autosave-dot { background: var(--amber); }
 .adm-autosave.err {
-  color: var(--red);
+  color: var(--red-strong);
   border-color: color-mix(in srgb, var(--red) 35%, var(--border-soft));
   background: color-mix(in srgb, var(--red) 7%, var(--surface-2));
 }
@@ -719,16 +719,12 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   background: var(--surface); color: var(--ink-dim); font: var(--fw-medium) 12px/1.7 var(--mono);
   white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; }
 .adm-formlink-warn { color: var(--amber-strong); }
-/* ── «hier kommt der nächste dazu» (ui.tsx · AddRow, and every bare .adm-formlink-add) ────────
+/* ── «hier kommt der nächste dazu» (every .adm-formlink-add) ──────────────────────────────────
    ONE shape for adding, wherever a list ends: a row the full width of the list, inside the
    card's padding.
    28.09.2026: FRAMED, not dashed — the app's ONE «add» look (13-incident `.cv-btn-add`: solid
    edge, the surface, 14/700 ink). Dashed means «missing» (27.09. sweep); an add is an action.
-   The dashed `AddRow` / `EmptyState` below stay: they are the placeholder the button sits in.
-
-   ⚠️ The button alone IS the row when it stands alone (no caller had to change). Inside an
-   `AddRow` — which adds the dim half-sentence on the left — it goes back to being a button and
-   rides at the right edge. */
+   The dashed `EmptyState` stays: it is the placeholder a button sits in. */
 .adm-formlink-add { display: flex; width: 100%; align-items: center; gap: 8px;
   min-height: var(--tap); margin-top: 12px; padding: 13px 14px; cursor: pointer;
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
@@ -739,15 +735,6 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-formlink-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-formlink-add:disabled { opacity: var(--disabled); cursor: default; }
 .adm-formlink-add .i { width: 16px; height: 16px; }
-
-.adm-addrow { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; width: 100%;
-  margin-top: 12px; padding: 13px 14px;
-  border: 1px dashed var(--border); border-radius: var(--r-sm);
-  color: var(--ink-dim); font-size: var(--fs-1); line-height: 1.45; }
-.adm-addrow-label { min-width: 0; overflow-wrap: anywhere; }
-.adm-addrow-act { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-/* the button in an AddRow is a button again */
-.adm-addrow .adm-formlink-add { width: auto; margin: 0; padding: 0 15px; }
 
 /* color field */
 .adm-color-row { display: flex; align-items: center; gap: 10px; }
@@ -933,11 +920,11 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
    is 2.5:1 on the light chrome; the «on» row two rules up already reaches for it. */
 .adm-badge.warn .adm-badge-state { color: var(--amber-strong); }
 .adm-badge.err .adm-badge-dot { background: var(--red); }
-.adm-badge.err .adm-badge-state { color: var(--red); }
+.adm-badge.err .adm-badge-state { color: var(--red-strong); }
 
 /* inline save feedback used by branding upload + config backup */
 .adm-save-ok { color: var(--green-strong); font-size: var(--fs-1); font-weight: 600; }
-.adm-save-err { color: var(--red); font-size: var(--fs-1); font-weight: 600; }
+.adm-save-err { color: var(--red-strong); font-size: var(--fs-1); font-weight: 600; }
 
 /* What the server refused, field by field — a config import 422 (ConfigBackup), and the same
    list re-used to say which sections a replace would empty. Regular weight inside a bold
@@ -994,7 +981,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   padding: 40px 20px; text-align: center;
   font-size: 13.5px; color: var(--ink-faint);
 }
-.adm-state-err { color: var(--red); }
+.adm-state-err { color: var(--red-strong); }
 
 /* ── teaching empty / load / error state (EmptyState primitive) ───────────────
    Richer than .adm-state: a headline + an optional "next step" hint + an optional
@@ -1011,7 +998,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-empty.err { border-color: color-mix(in srgb, var(--red) 45%, var(--border)); }
 .adm-empty-txt { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .adm-empty-msg { margin: 0; font-size: 13px; font-weight: 600; color: var(--ink-dim); }
-.adm-empty.err .adm-empty-msg { color: var(--red); }
+.adm-empty.err .adm-empty-msg { color: var(--red-strong); }
 .adm-empty-hint {
   margin: 0; max-width: 64ch; line-height: 1.5;
   font-size: var(--fs-1); color: var(--ink-faint);
@@ -1043,7 +1030,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-denied-actions .btn { flex: 0 0 auto; min-width: 132px; text-decoration: none; padding: 11px 16px; }
 /* left-aligned secret field inside the centred unlock card */
 .adm-denied-field { text-align: left; margin-bottom: 16px; }
-.adm-field-hint.err { color: var(--red); }
+.adm-field-hint.err { color: var(--red-strong); }
 
 /* ════════════════════════════════════════════════════════════════════════════
    Integrationen & Daten (read-only DataView)
@@ -1592,7 +1579,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   border: 1px solid color-mix(in srgb, var(--green) 35%, var(--border-soft));
 }
 .adm-test-chip.err {
-  color: var(--red);
+  color: var(--red-strong);
   background: color-mix(in srgb, var(--red) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--red) 32%, var(--border-soft));
 }
@@ -1890,7 +1877,7 @@ p.adm-sys-path { margin: 3px 0 0; }
    admin-scoped raise at the end of this file. */
 .adm-menu-item {
   display: flex; flex-direction: column; gap: 2px; width: 100%;
-  /* `--r-ctl`, not `--r-sm`: a menu row is a row, not a button (AGENTS.md · Buttons), and this
+  /* `--r-ctl`, not `--r-sm`: a menu row is a row, not a button (docs/ui-conventions.md · Buttons), and this
      is the same radius/hover/press every menu row in the app now carries — 13-incident.css ·
      «ONE menu row». The admin ships its own stylesheet, so the rules are repeated here rather
      than inherited. */
@@ -1906,7 +1893,7 @@ p.adm-sys-path { margin: 3px 0 0; }
   .adm-menu-item:hover:not([data-disabled]) { background: var(--blue-8); color: var(--ink); }
 }
 .adm-menu-item:active:not([data-disabled]) { background-image: linear-gradient(var(--press), var(--press)); }
-.adm-menu-item.danger { color: var(--red); }
+.adm-menu-item.danger { color: var(--red-strong); }
 .adm-menu-item.danger[data-highlighted]:not([data-disabled]) { background: color-mix(in srgb, var(--red) 10%, transparent); }
 @media (hover: hover) {
   .adm-menu-item.danger:hover:not([data-disabled]) { background: color-mix(in srgb, var(--red) 10%, transparent); }

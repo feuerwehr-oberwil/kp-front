@@ -107,19 +107,6 @@ export function circleRadiusN(m: number, mPerU: number, ar: number): number | nu
   return m / (ar * mPerU)
 }
 
-/** A plan circle as a closed normalized ring (last point ≠ first), for every consumer that can
- *  only draw polygons: the Karte projection of a plan Absperrkreis (lib/georefTwins) and the
- *  printed sheet. A circle on screen is round in PIXELS, so its y radius is `radiusN · ar`
- *  in normalized units — the same aspect correction the metres above apply. */
-export function circleRingN(cx: number, cy: number, radiusN: number, ar: number, steps = 48): NPoint[] {
-  const out: NPoint[] = []
-  for (let i = 0; i < steps; i++) {
-    const t = (i / steps) * Math.PI * 2
-    out.push([cx + radiusN * Math.cos(t), cy + radiusN * ar * Math.sin(t)])
-  }
-  return out
-}
-
 /** What the Massstab pill's lamp says about the metres it is offering (Plan/Gebäude pill row,
  *  18.09.2026). On a phone the pill is icon + lamp and nothing else, so this dot is the ONLY
  *  thing left saying whether the sheet's metres can be trusted — it must therefore map the

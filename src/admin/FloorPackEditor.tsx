@@ -7,7 +7,7 @@ import { joinShifts } from '../lib/floorPackBinding'
 import { ActionMenu } from './ui'
 import { hasMarkerWarnings } from './markerNotes'
 import { alignmentPagePreview, type AlignmentItem } from './planAlignmentApi'
-import { floorKey, type PlanFloor } from '../lib/api/reference'
+import { floorKey, type PlanFloor } from '../lib/incidents'
 import {
   appendFloor, appendPart, clampToClip, defaultStack, dropFromStack, entryJoined, floorsFromStack, hitJoinPoint, indexOf, joinPointClip, moveJoinPoint, partsOf, patchEntry, reorderStack,
   restoreToStack, reverseStack, sameStack, signedIndex, stackComplete, stackFromFloors, standardFloorName, storeysOf, trayOf, type Clip, type FloorEntry, type FloorStack, type JoinPointHit, type Pt,

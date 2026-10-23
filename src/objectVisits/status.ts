@@ -107,6 +107,3 @@ export function deriveStatus({ rec, durable, flushing, sessionExpired, remote }:
   })()
   return { lifecycle, sync, delivery }
 }
-
-/** Saved in the strict sense the status line uses. */
-export const isSaved = (s: VisitStatus): boolean => s.sync.kind === 'saved'

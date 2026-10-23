@@ -14,7 +14,7 @@
 // So: each entry below names a provider change and the tile URLs it made stale; the first boot
 // ONLINE after the entry ships deletes those tiles from `map-tiles`, and the map fetches them
 // fresh. Never offline — a device without signal keeps the map it has, an old look beats no map —
-// and never twice (the done ids are a tiny device flag in localStorage, AGENTS.md · Offline).
+// and never twice (the done ids are a tiny device flag in localStorage, docs/sync-and-offline.md).
 // A provider changes its look again → add an entry; never edit or reuse an id.
 
 /** vite.config · runtimeCaching `map-tiles` (spelled out, like lib/tileEvict: this runs on the

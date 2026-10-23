@@ -1,3 +1,11 @@
+// The shared domain types – what the Lage, the Plan, the Atemschutz board, the Verlauf and the
+// record are made of (`Entity`, `Drawing`, `BoardAnno`, `Trupp`, `TimelineEvent`, `Person` …).
+// Types only, no runtime code. Most of these shapes are synced and stored, so a change here is a
+// data change: map coordinates are WGS84 `LngLat` = `[lng, lat]`, plan positions 0..1 in
+// plan-image space; a new `BoardKind` bumps `WORKSPACE_SCHEMA_VERSION` (lib/workspace) and joins
+// `BOARD_KIND_SINCE` (backend app/workspace_kinds.py), so an older build carries it as a passenger.
+// Rules: docs/sync-and-offline.md.
+
 import type { BoardFormData } from './lib/boardForm'
 import type { Out } from './lib/api/wire'
 export type LngLat = [number, number]

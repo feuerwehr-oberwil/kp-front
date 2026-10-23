@@ -5,7 +5,7 @@ import { test, expect, ensureIncidentOpen, expectNoCrash, login } from './helper
 // the seams the IncidentWorkspace / Whiteboard extractions cut along — a gesture's one undo
 // step, the one timeline across surfaces, the keyboard routing, the one Abschluss confirm, and
 // the replay lock. The jsdom suite pins each seam from the inside
-// (src/IncidentWorkspace.harness.test.tsx, src/components/Whiteboard.test.tsx); this drives the
+// (src/IncidentWorkspace.harness.*.test.tsx, src/components/Whiteboard.test.tsx); this drives the
 // built app through them.
 //
 // ⚠️ OPT-IN (E2E_WORKFLOWS=1), chromium only. Every flow WRITES to the open incident (lines,

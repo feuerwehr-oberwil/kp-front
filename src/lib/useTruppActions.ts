@@ -1108,7 +1108,7 @@ export function useTruppActions(deps: Deps) {
     }
     /* …with ONE exception, the card's own «Nicht eingesetzt» (owner review 26.09.2026): it is a
      * visible button again, and a one-shot that closes a Trupp gets the confirm-with-undo toast
-     * (AGENTS.md). Its «Rückgängig» takes the step off the timeline and puts the Trupp back as it
+     * (docs/undo.md). Its «Rückgängig» takes the step off the timeline and puts the Trupp back as it
      * stood — the Verlauf keeps both lines. Not for the Abschluss's bulk stand-down (no opts). */
     if (opts?.undoToast && neverDeployed && tr) {
       const who = typeof tr.no === 'number' ? String(tr.no) : tr.name
@@ -1143,7 +1143,7 @@ export function useTruppActions(deps: Deps) {
    *   · an `atemschutz.notfall` audit event (the one prefix a Link-Tafel may send).
    * ⚠️ Undoable like every Tafel act (↶, and the confirm-with-undo toast for the fast mistake):
    * the Trupp goes back as it stood, the Verlauf keeps its row AND gets the counter-row — a
-   * mistaken trigger is cheap to take back and still on paper (AGENTS.md · undo).
+   * mistaken trigger is cheap to take back and still on paper (docs/undo.md).
    */
   const triggerNotfall = (id: string) => {
     const tr = trupps.find((t) => t.id === id)
@@ -1850,7 +1850,7 @@ export function useTruppActions(deps: Deps) {
     // second registration of a crew that only ever registered once. The placement refs stay gone
     // (see restoreTrupp): the chip on the plan cannot be resurrected faithfully.
     // ⚠️ Three doors, one act: this ↶ timeline entry, the non-expiring «Entfernte Trupps» menu,
-    // and — back since 25.09.2026 (staging N4) — the confirm-with-undo toast AGENTS.md asks of a
+    // and — back since 25.09.2026 (staging N4) — the confirm-with-undo toast docs/undo.md asks of a
     // one-shot that DESTROYS something (the 09.09. sweep took it with the Kontakt/Druck toasts,
     // but a removal is not a Kontakt). The toast's «Rückgängig» restores through `restoreTrupp`
     // and drops this timeline entry, so the act is never undoable twice.

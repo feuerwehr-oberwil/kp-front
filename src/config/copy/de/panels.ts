@@ -65,7 +65,6 @@ export const panelsCopy = {
     cardinalsLong: ['Nord', 'Nordost', 'Ost', 'Südost', 'Süd', 'Südwest', 'West', 'Nordwest'] as string[],
     windTitle: 'Wind {dir} ({deg}°)',
     detailsHint: ' – für Details tippen',
-    meteoHint: ' – für MeteoSchweiz-Details tippen',
     windDir: 'Windrichtung',
     windSpeed: 'Windstärke',
     gust: 'Böen',
@@ -153,16 +152,9 @@ export const panelsCopy = {
     // No «Führungsansicht» row any more (05.10.2026): it is the login's, set in the admin's
     // Benutzer (admin · members · elViewDefault), not a per-device switch.
     deviceFoot: 'Gilt nur auf diesem Gerät. Kleinerer Umkreis = schnellerer, kleinerer Offline-Download.',
-    incidentGroup: 'Einsatz',
     contactInterval: 'Atemschutz-Funkkontakt',
-    contactIntervalSub: 'Intervall bis «Kontakt fällig» (orange)',
-    contactIntervalAria: 'Funkkontakt-Intervall',
     grace: 'Nachfrist',
-    graceSub: 'Roter Alarm nach Intervall + Nachfrist',
     funkkanal: 'Funkkanal',
-    funkkanalSub: 'Standard für neue Atemschutz-Trupps',
-    syncedFoot: 'Wird mit allen Geräten synchronisiert',
-    syncedFootViewer: ' – nur der Einsatzleiter kann sie ändern',
     // per-device utility: the blank paper Erfassungsblatt (hand-fill fallback), generated
     // from the current roster + Mittel catalogue — same generator as the admin's
     utilityGroup: 'Vorlagen',

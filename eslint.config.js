@@ -59,6 +59,18 @@ export default tseslint.config(
     // a fixture's `!` asserts what the test just arranged; a wrong one fails the test itself
     rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
+  // The UI reaches the backend through ONE door, src/lib/incidents (see its header); src/lib is
+  // the data layer and imports lib/api/* directly. Tests may import a module under test anywhere.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/lib/**', 'src/**/*.test.{ts,tsx}', 'src/**/*.setup.tsx'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [{
+        regex: '/lib/api/(incidents|workspace|workspaceSync|events|media|divera|personnel|geo|objects|reference)$',
+        message: "Import it from 'lib/incidents' – the UI's one entry point to the backend calls.",
+      }] }],
+    },
+  },
   // Playwright e2e: node, and a fixture's `use` callback is Playwright's, not React's hook
   {
     files: ['e2e/**/*.ts'],

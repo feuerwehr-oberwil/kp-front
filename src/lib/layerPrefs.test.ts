@@ -2,6 +2,9 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { loadLayerPrefs, saveLayerPrefs } from './layerPrefs'
 import { deriveInitial, type Saved } from './workspace'
 
+// The per-incident round trip is lib/incidentPrefStore's (incidentPrefStore.test); here: what a
+// layer row is, and how the device value meets the blob.
+//
 // The suite runs in the node environment (vite.config), which has no Web Storage — and jsdom's
 // is shadowed by Node's own experimental global. A three-method stand-in is all this module
 // touches, and it keeps the test honest about the ONE thing that matters: what is stored is a
@@ -21,12 +24,6 @@ const ws = (over: Partial<Saved>): Saved =>
 
 describe('layerPrefs — the Ebenen selection is device-local', () => {
   beforeEach(() => store.clear())
-
-  it('round-trips per incident, and one incident never answers for another', () => {
-    saveLayerPrefs('inc1', [{ id: 'hydrant', visible: false, opacity: 40 }])
-    expect(loadLayerPrefs('inc1')).toEqual([{ id: 'hydrant', visible: false, opacity: 40 }])
-    expect(loadLayerPrefs('inc2')).toBeUndefined()
-  })
 
   it('ignores a corrupt or foreign value rather than opening a broken map', () => {
     store.set('kp.layers.inc1', '{ not json')

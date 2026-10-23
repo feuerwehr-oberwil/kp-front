@@ -232,6 +232,7 @@ ci: ci-frontend ci-unit ci-backend
 [group('Quality')]
 ci-frontend:
     pnpm lint
+    pnpm knip
     pnpm exec tsc -p tsconfig.e2e.json
     node scripts/check-e2e-suites.mjs
     pnpm build

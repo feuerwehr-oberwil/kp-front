@@ -13,20 +13,14 @@ import type { CachedWithout, Out } from './wire'
  *  `BuildingGwr.heating`; `shared`: serves several buildings (the generator may stand in another). */
 export type BuildingSystem = Out<'BuildingSystemOut'>
 
-/** The existing flats whose entrance is on one storey: 0 = Parterre, 1 = 1. Stock, -1 = 1. UG. */
-export type BuildingFloorFlats = Out<'BuildingFloorFlatsOut'>
-
 /** The GWR half. `stand` is the register's export date (ISO date); `heating`/`hot_water` are
  *  energy keys (gas, oil, wood, district, air, geothermal, water, electricity, solar, waste_heat,
  *  unknown, other); `building_class` a Gebäudeklasse key (single_family, multi_family, home,
- *  school, hospital, …); `flats_by_floor` lowest storey first, empty when not every flat names
+ *  school, hospital, …); `flats_by_floor` the existing flats whose entrance is on each storey
+ *  (0 = Parterre, 1 = 1. Stock, -1 = 1. UG), lowest storey first, empty when not every flat names
  *  its storey. The six fields added 20.10.2026 are optional: a card cached before has none. */
 export type BuildingGwr = CachedWithout<Out<'BuildingGwrOut'>,
   'building_class' | 'heaters' | 'water_heaters' | 'flats_by_floor' | 'rooms_min' | 'rooms_max'>
-
-export type BuildingPlant = Out<'BuildingPlantOut'>
-
-export type BuildingObject = Out<'BuildingObjectOut'>
 
 export type BuildingInfo = Omit<Out<'BuildingOut'>, 'gwr'> & {
   gwr: BuildingGwr | null
@@ -37,8 +31,6 @@ export type BuildingInfo = Omit<Out<'BuildingOut'>, 'gwr'> & {
   gwr_kept_from?: string | null
   pv_kept_from?: string | null
 }
-
-export type BuildingRegisters = BuildingInfo['registers']
 
 export const isBuildingInfo = (v: unknown): v is BuildingInfo =>
   !!v && typeof v === 'object' && typeof (v as BuildingInfo).registers === 'string' && Array.isArray((v as BuildingInfo).plants)

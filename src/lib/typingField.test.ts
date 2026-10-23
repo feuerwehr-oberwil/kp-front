@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { defuseAutofill, typingFieldProps } from './typingField'
 
-describe('typingFieldProps — no «AutoFill Contact» over a search or a UN number (review round 3)', () => {
+// review round 3
+describe('typingFieldProps — no «AutoFill Contact» over a search or a UN number', () => {
   it('names the field a search and switches every assistant off', () => {
     const p = typingFieldProps('number', 'karte-un')
     expect(p.name).toBe('search-karte-un')

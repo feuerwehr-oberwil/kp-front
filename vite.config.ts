@@ -487,7 +487,7 @@ export default defineConfig(({ mode }) => {
       coverage: {
         provider: 'v8',
         include: ['src/**/*.{ts,tsx}'],
-        exclude: ['src/**/*.test.{ts,tsx}', 'src/**/*.bench.ts', 'src/**/*.d.ts'],
+        exclude: ['src/**/*.test.{ts,tsx}', 'src/**/*.setup.tsx', 'src/**/*.bench.ts', 'src/**/*.d.ts'],
         reporter: ['text-summary', 'json-summary'],
         thresholds: JSON.parse(readFileSync(new URL('./scripts/coverage-floor.json', import.meta.url), 'utf-8')).floor,
       },

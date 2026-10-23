@@ -170,11 +170,6 @@ export const anwesenheitCopy = {
     notInDivera: 'Nicht mehr auf der Personalliste',
     notInSource: 'Nicht mehr in {provider}',
     weg: 'weg',
-    // Zeitplan + Schichten: planning happens with whoever is here — the whole Mannschaft on the
-    // axis buries the handful of present people under empty tracks. Switchable, because somebody
-    // arriving in two hours must still be plannable.
-    presentOnlyOn: 'Nur Anwesende – tippen für das ganze Personal',
-    presentOnlyOff: 'Ganzes Personal – tippen für nur Anwesende',
     // …and the one-tap version of the same question, on ALL three tabs (18.09.2026): a ✓ in the
     // search row narrows the list to whoever is «Vor Ort» right now. The button is a state, not
     // an instruction, so it names the filter and lets `aria-pressed` say whether it is on.

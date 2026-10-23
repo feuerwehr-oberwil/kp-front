@@ -1,7 +1,7 @@
 {
   "$comment": "Written by `node scripts/perf-report.mjs --update` from a CI run (`just perf-accept <run-id>`). Hand-edit only `tolerance`. docs/testing/perf-journeys.md",
   "recorded": "2026-10-05",
-  "source": "CI run 37340054315; cold-start.js_kb + cold-start.precache_kb from CI run 38012467930 (main 6470c2ff, the E1 split, 10.10.); verlauf.api_requests from CI run 38405365334 (#297, 13.10.); cold-start.js_kb + cold-start.precache_kb + cold-start.static_requests from CI run 38424130702 (#193, MapLibre 6, 13.10.); trupps.kb_per_save from CI run 39134779672 (main 7d40c5c7, #394 Trupp-only saves, 18.10.); cold-start.static_requests from CI run 39568177229 (#448 UX sweep, 21.10.: main already measured 43–44, the sweep splits adminAuth + draw.css into their own files)",
+  "source": "CI run 37340054315; cold-start.js_kb + cold-start.precache_kb from CI run 38012467930 (main 6470c2ff, the E1 split, 10.10.); verlauf.api_requests from CI run 38405365334 (#297, 13.10.); cold-start.js_kb + cold-start.precache_kb + cold-start.static_requests from CI run 38424130702 (#193, MapLibre 6, 13.10.); trupps.kb_per_save from CI run 39134779672 (main 7d40c5c7, #394 Trupp-only saves, 18.10.); cold-start.static_requests from CI run 39568177229 (#448 UX sweep, 21.10.: main already measured 43–44, the sweep splits adminAuth + draw.css into their own files); static *_kb + precache_kb dropped (sweep D.11, 23.10.2026: the bundle budget owns bytes)",
   "calibration": 38.4,
   "tolerance": {},
   "metrics": {
@@ -17,14 +17,6 @@
       "value": 942,
       "unit": "ms"
     },
-    "cold-start.css_kb": {
-      "value": 102.8,
-      "unit": "kb"
-    },
-    "cold-start.data_kb": {
-      "value": 51.6,
-      "unit": "kb"
-    },
     "cold-start.dom_nodes": {
       "value": 1070,
       "unit": "count"
@@ -33,17 +25,9 @@
       "value": 1,
       "unit": "count"
     },
-    "cold-start.font_kb": {
-      "value": 68.5,
-      "unit": "kb"
-    },
     "cold-start.heap_mb": {
       "value": 15.1,
       "unit": "mb"
-    },
-    "cold-start.js_kb": {
-      "value": 957.2,
-      "unit": "kb"
     },
     "cold-start.listeners": {
       "value": 6316,
@@ -65,10 +49,6 @@
       "value": 846.2,
       "unit": "ms"
     },
-    "cold-start.precache_kb": {
-      "value": 2684.2,
-      "unit": "kb"
-    },
     "cold-start.static_requests": {
       "value": 45,
       "unit": "count"
@@ -89,25 +69,9 @@
       "value": 88,
       "unit": "count"
     },
-    "edit.css_kb": {
-      "value": 0,
-      "unit": "kb"
-    },
-    "edit.data_kb": {
-      "value": 0,
-      "unit": "kb"
-    },
     "edit.external_hosts": {
       "value": 0,
       "unit": "count"
-    },
-    "edit.font_kb": {
-      "value": 0,
-      "unit": "kb"
-    },
-    "edit.js_kb": {
-      "value": 0,
-      "unit": "kb"
     },
     "edit.karte_long_tasks": {
       "value": 299,
@@ -249,29 +213,13 @@
       "value": 81.6,
       "unit": "ms"
     },
-    "trupps.css_kb": {
-      "value": 0,
-      "unit": "kb"
-    },
-    "trupps.data_kb": {
-      "value": 0,
-      "unit": "kb"
-    },
     "trupps.external_hosts": {
       "value": 0,
       "unit": "count"
     },
-    "trupps.font_kb": {
-      "value": 0,
-      "unit": "kb"
-    },
     "trupps.interaction_max_ms": {
       "value": 48,
       "unit": "ms"
-    },
-    "trupps.js_kb": {
-      "value": 0,
-      "unit": "kb"
     },
     "trupps.kb_per_save": {
       "value": 5.5,
@@ -297,29 +245,13 @@
       "value": 128,
       "unit": "ms"
     },
-    "verlauf.css_kb": {
-      "value": 0,
-      "unit": "kb"
-    },
-    "verlauf.data_kb": {
-      "value": 0,
-      "unit": "kb"
-    },
     "verlauf.external_hosts": {
       "value": 0,
       "unit": "count"
     },
-    "verlauf.font_kb": {
-      "value": 0,
-      "unit": "kb"
-    },
     "verlauf.journal_posts": {
       "value": 10,
       "unit": "count"
-    },
-    "verlauf.js_kb": {
-      "value": 0,
-      "unit": "kb"
     },
     "verlauf.open_verlauf_blocking_ms": {
       "value": 28,
@@ -353,25 +285,9 @@
       "value": 826,
       "unit": "ms"
     },
-    "warm-reload.css_kb": {
-      "value": 0,
-      "unit": "kb"
-    },
-    "warm-reload.data_kb": {
-      "value": 0,
-      "unit": "kb"
-    },
     "warm-reload.external_hosts": {
       "value": 0,
       "unit": "count"
-    },
-    "warm-reload.font_kb": {
-      "value": 0,
-      "unit": "kb"
-    },
-    "warm-reload.js_kb": {
-      "value": 0,
-      "unit": "kb"
     },
     "warm-reload.reload_to_ready_ms": {
       "value": 4192.1,

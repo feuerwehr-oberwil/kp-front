@@ -86,7 +86,8 @@ describe('useScrollOnlyIn · the background guard of a sheet body, keyboard or n
     expect(touch(view.getByTestId('row'), [0, 3], [0, 12])).toEqual([true, true])
     expect(touch(view.getByTestId('row'), [0, -3])).toEqual([true])
   })
-  it('never cancels a drag over a body with room — not at its top, not at its end (round 11)', () => {
+  // round 11
+  it('never cancels a drag over a body with room — not at its top, not at its end', () => {
     const view = render(<KeySheet />)
     const body = view.getByTestId('body')
     dimensions(body, { scrollHeight: 700, clientHeight: 400, scrollTop: 0 })
@@ -144,13 +145,15 @@ describe('touchMayScroll', () => {
     expect(at('both', -1, [row, bodyAtTop])).toBe(true)
     expect(at('both', -1, [bodyAtTop])).toBe(false)
   })
-  it('passes an undecided first move with no vertical part over a list with room (round 5, the Karte search)', () => {
+  // round 5, the Karte search
+  it('passes an undecided first move with no vertical part over a list with room', () => {
     expect(at('both', 0, [bodyAtTop])).toBe(true)
     expect(at('both', 0, [box({ overflowY: 'auto', maxY: 0 })])).toBe(false)
   })
 })
 
-describe('mobile modal scrolling · one decision per touch (10.10.2026)', () => {
+// 10.10.2026
+describe('mobile modal scrolling · one decision per touch', () => {
   it('lets the suggestion row pan when the first move is mostly vertical — the iOS cancel', () => {
     phoneMedia()
     const view = render(<Sheet />)

@@ -17,20 +17,11 @@ import { idbDel, idbKeys, idbRead, idbSet, readThrough, type ReadThroughSource }
 import { buildingWhere, isBuildingInfo, type BuildingInfo } from './building'
 import type { CachedWithout, Out } from './wire'
 
-/** `einsatzobjekt` carries plans, `objekt` does not. ⚠️ No `depot` (key box) any more (owner,
- *  review round 3, 17.10.2026: every object is a building or a group of buildings): an older
- *  server's or an older cached catalogue's `depot` is read as `objekt` (`withRetiredKinds`). */
-export type StationObjectKind = 'einsatzobjekt' | 'objekt'
-
 /** One plan of an object. `id` is the reference dataset id (`plan:<object>:<module>`, opened by
  *  `/api/reference/{id}?v=`), `code` what the panel prints («1», «2/3»), `pages` those of the
  *  current revision when the server already knows them, `georef` = the revision carries a
  *  station-approved map fit. `updatedAt` is absent from an older cached catalogue. */
 export type StationPlan = CachedWithout<Out<'ReferencePlanOut'>, 'updatedAt'>
-
-/** One Geschoss of an object's floor pack — the words are the app's copy (lib/whiteboard ·
- *  floorLabel), the station's own name wins. */
-export type StationFloor = Out<'ReferenceFloorOut'>
 
 /** One station object. `address` is there wherever one is knowable (the station's, else the
  *  name when it is a street + number, else the register's at the pin – docs/karte-objekte.md);
@@ -40,7 +31,11 @@ export type StationFloor = Out<'ReferenceFloorOut'>
  *  as one GeoJSON MultiPolygon (backend app/object_footprints; null = the OSM building its
  *  point lies in, lib/karte/places · objectBuildings); `underground` the named row's addresses
  *  without a surface building (one MultiPolygon, drawn dashed). The optional fields are absent
- *  from an older server's or an older cached catalogue (outline absent = `auto`). */
+ *  from an older server's or an older cached catalogue (outline absent = `auto`). `kind`:
+ *  `einsatzobjekt` carries plans, `objekt` does not. ⚠️ No `depot` (key box) any more (owner,
+ *  review round 3, 17.10.2026: every object is a building or a group of buildings): an older
+ *  server's or an older cached catalogue's `depot` is read as `objekt` (`withRetiredKinds`). A
+ *  floor's words are the app's copy (lib/whiteboard · floorLabel); the station's own name wins. */
 export type StationObject = CachedWithout<Omit<Out<'ReferenceObjectOut'>, 'plans'> & { plans: StationPlan[] },
   'locality' | 'outline' | 'underground' | 'measures' | 'remarks' | 'measuresSource' | 'updatedAt'>
 
@@ -90,7 +85,7 @@ export function noteBuildingAsked(index: readonly string[], where: string, keep 
 }
 
 /** Best-effort bookkeeping after a fresh answer was stored. An index that cannot be READ is left
- *  alone (AGENTS.md · a failed IndexedDB read is not a miss): writing over it would orphan
+ *  alone (docs/sync-and-offline.md: a failed IndexedDB read is not a miss): writing over it would orphan
  *  every entry it named. */
 let indexLane: Promise<void> = Promise.resolve()
 /** one index update at a time — two quick taps must not each write the index the other read */

@@ -1,3 +1,10 @@
+// The Lage – the MapLibre map of an Einsatz, also «Karte & Objekte»'s station viewer: base and
+// overlay layers, placed objects and Trupps, drawn lines / areas / circles with their handles,
+// labels, measuring and georeferencing. Every coordinate is WGS84 `[lng, lat]`.
+// Lage ↔ Plan parity is a review criterion: a tool, grip or gesture changed here is changed on
+// the Plan too (Whiteboard, WbControls). Colour means a Trupp's IDENTITY on this map.
+// Rules: docs/tactical-objects.md; the station viewer: docs/karte-objekte.md.
+
 import { forwardRef, Fragment, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
@@ -28,12 +35,6 @@ import { isNamedPerson, symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { cachedLabelSize, LABEL_RANK, MARKER_Z, placeLabels, type LabelBox, type LabelCandidate, type LabelStyle } from '../lib/labelPass'
 import type { TruppTrail } from '../lib/truppTrails'
-
-/** The ink a ghost «Spur» is drawn in — neutral grey, not the Trupp's colour: colour means
- *  IDENTITY on this map (lib/teamColors), and a trail whose marker is gone must not claim that a
- *  Trupp is standing somewhere. A frozen value rather than a token because MapLibre's paint
- *  cannot read a CSS custom property; it is deliberately mid-grey, so it reads on both themes. */
-const GHOST_TRAIL_INK = '#8a8f98'
 import { lineTakesTrupp, markerTakesLineEnd, teamLineBadges, truppForLine, truppIdForAttachment, truppLineTone, type LinkableLine } from '../lib/truppLines'
 import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon, haversineM } from '../lib/geo'
 import { noteWPx } from '../lib/notes'
@@ -61,6 +62,12 @@ import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { setLiveBearing } from '../lib/liveBearing'
 import { LABEL_ABOVE, measureLabelPlacement } from '../lib/measureLabelPlace'
 import { advanceDwell, armDwell, attachInsetPx, DEFAULT_OBJECT_ROUTING, lineJoints, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint, TEAM_JOIN_RADIUS_PX } from '../lib/lineAttachments'
+
+/** The ink a ghost «Spur» is drawn in — neutral grey, not the Trupp's colour: colour means
+ *  IDENTITY on this map (lib/teamColors), and a trail whose marker is gone must not claim that a
+ *  Trupp is standing somewhere. A frozen value rather than a token because MapLibre's paint
+ *  cannot read a CSS custom property; it is deliberately mid-grey, so it reads on both themes. */
+const GHOST_TRAIL_INK = '#8a8f98'
 
 // ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
 
@@ -1038,7 +1045,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   //
   // It now wears the picture every other attachment on this surface wears — «Ring lädt, dann
   // schnappt es» — and the whole contract comes with it: **not armed = nothing attaches, not
-  // even on release** (AGENTS.md · touch vocabulary). The aim is reported to the drop through
+  // even on release** (docs/ui-conventions.md · Touch vocabulary). The aim is reported to the drop through
   // `onMarkerDragEnd`, so the writer never re-guesses what the ring promised.
   //
   // ⚠️ `TEAM_JOIN_RADIUS_PX`, not `MAGNET_RADIUS_PX`: this gesture aims with the marker's LEFT
@@ -1081,7 +1088,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const now = dockAimRef.current
       if (!now || now.since !== st.since) return
       setDockAim({ ...now, armed: true })
-      buzz() // …on arm, and only on arm (AGENTS.md · touch vocabulary)
+      buzz() // …on arm, and only on arm (docs/ui-conventions.md · Touch vocabulary)
     }, MAGNET_DWELL_MS)
   }
   const clearTeamJoin = () => {
@@ -1434,7 +1441,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const now = teamJoinRef.current
       if (!now || now.since !== st.since) return
       setTeamJoin({ ...now, armed: true })
-      buzz() // …on arm, and only on arm (AGENTS.md · touch vocabulary)
+      buzz() // …on arm, and only on arm (docs/ui-conventions.md · Touch vocabulary)
     }, MAGNET_DWELL_MS)
   }
   const teamJoinMarkerMove = (id: string, c: LngLat) => { onMarkerMove(id, c); trackTeamJoin(id, c); trackDockAim(id, c) }

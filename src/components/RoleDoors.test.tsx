@@ -35,7 +35,8 @@ describe('«Alle Einsätze» · «Wieder öffnen» is the lifecycle, gated with 
   })
 })
 
-describe('«Alle Einsätze» · a viewer is told its window (#449)', () => {
+// #449
+describe('«Alle Einsätze» · a viewer is told its window', () => {
   const h = appConfig.copy.history
 
   it('says which Einsätze the list holds, under the list', async () => {

@@ -504,5 +504,3 @@ export function auswertungForPdf(a: Auswertung, input: Pick<AuswertungInput, 'co
     lehrenNote: lehren?.trim() ? C.lehrenSeePage1 : undefined,
   }
 }
-
-export type AuswertungPdf = ReturnType<typeof auswertungForPdf>

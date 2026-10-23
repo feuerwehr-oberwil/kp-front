@@ -29,7 +29,8 @@ describe('keyboardTop — where the keys begin, in layout px', () => {
 /* Review round 9, the owner's readout in the INSTALLED app (393×793 under the status bar): before
  * the touch innerHeight 793, vv 424, pan 0; once the finger is down innerHeight 424, vv 424, pan
  * and scrollY 369 — the document and the fixed frame still 793. */
-describe('the installed app\'s collapse (round 9)', () => {
+// round 9
+describe('the installed app\'s collapse', () => {
   const box = (kbTop: number | null, pan: number) => keySheetBox({ viewHeight: 793, kbTop, barBottom: 68, strip: 24, minHeight: 132, pan })
   // the sheet's top on the screen: frame top (793 − bottom − height) less the pan
   const top = (b: { bottom: number; maxHeight: number }, pan: number) => 793 - b.bottom - b.maxHeight - pan
@@ -61,7 +62,8 @@ describe('the installed app\'s collapse (round 9)', () => {
 
 /* Review round 10, the owner's readout: while the finger is down iOS collapses innerHeight in
  * steps and scrolls the window by exactly the collapse — 82 = 793 − 711, 8 = 793 − 785. */
-describe('isCollapseScroll — the installed app\'s stepped collapse (round 10)', () => {
+// round 10
+describe('isCollapseScroll — the installed app\'s stepped collapse', () => {
   it('is a scroll no larger than the shrink of innerHeight below the full height', () => {
     expect(isCollapseScroll({ full: 793, inner: 711, pan: 82 })).toBe(true)
     expect(isCollapseScroll({ full: 793, inner: 785, pan: 8 })).toBe(true)
@@ -80,7 +82,8 @@ describe('keySheetBox — the sheet ON the keys, under the top bar, a strip of m
     // the owner's iPhone, numeric pad + accessory bar: 467 px of keyboard
     expect(at(377)).toEqual({ bottom: 467, maxHeight: 239 })
   })
-  it('keeps the sheet\'s top where it was on the SCREEN when iOS pans the page anyway (round 5)', () => {
+  // round 5
+  it('keeps the sheet\'s top where it was on the SCREEN when iOS pans the page anyway', () => {
     // panned by 90: the keys' top edge is 90 lower in layout px, the bar rides down by 90 (--vv-pan)
     const panned = keySheetBox({ viewHeight: 844, kbTop: 377 + 90, barBottom: 114, strip: 24, minHeight: 132, pan: 90 })
     expect(panned).toEqual({ bottom: 467 - 90, maxHeight: 239 })
@@ -148,7 +151,8 @@ describe('useTypingLock', () => {
     expect(touch(input, 'touchmove', 200).defaultPrevented).toBe(false)
   })
 
-  it('lets a list scroll whose first move is a pixel sideways (review round 5) — one decision per touch', () => {
+  // review round 5
+  it('lets a list scroll whose first move is a pixel sideways — one decision per touch', () => {
     // the search's result list: a vertical scroller with room below
     const list = document.createElement('div')
     list.style.overflowY = 'auto'
@@ -169,7 +173,8 @@ describe('useTypingLock', () => {
     expect(touch(row, 'touchmove', 320, 100).defaultPrevented).toBe(true)
   })
 
-  it('never cancels a drag on a list that closes the keyboard on drag (round 11), even pulling down at its top', () => {
+  // round 11
+  it('never cancels a drag on a list that closes the keyboard on drag, even pulling down at its top', () => {
     const list = document.createElement('div')
     list.setAttribute('data-drag-closes-keys', '')
     list.style.overflowY = 'auto'
@@ -197,7 +202,8 @@ describe('useTypingLock', () => {
     vi.useRealTimers()
   })
 
-  it('looks again after a touch with the caret up — the installed app\'s collapse scrolls and then fires nothing (round 9)', () => {
+  // round 9
+  it('looks again after a touch with the caret up — the installed app\'s collapse scrolls and then fires nothing', () => {
     vi.useFakeTimers()
     const to = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     const input = document.createElement('input')
@@ -214,7 +220,8 @@ describe('useTypingLock', () => {
     vi.useRealTimers()
   })
 
-  it('undoes the stepped collapse IN the scroll event, every step — not a frame later, not six and done (round 10)', () => {
+  // round 10
+  it('undoes the stepped collapse IN the scroll event, every step — not a frame later, not six and done', () => {
     const to = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     const inner = vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(793)
     const client = vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(793)
@@ -230,7 +237,8 @@ describe('useTypingLock', () => {
     inner.mockRestore(); client.mockRestore()
   })
 
-  it('binds the root to the live window height while on, and lets go when off (round 10)', () => {
+  // round 10
+  it('binds the root to the live window height while on, and lets go when off', () => {
     const inner = vi.spyOn(window, 'innerHeight', 'get').mockReturnValue(793)
     const root = document.documentElement
     const { unmount } = renderHook(() => useTypingLock(true))
@@ -314,7 +322,8 @@ describe('useDragClosesKeyboard', () => {
   })
 })
 
-describe('useKeySheet · the glide between the two places (review round 12)', () => {
+// review round 12
+describe('useKeySheet · the glide between the two places', () => {
   afterEach(() => { cleanup(); document.body.replaceChildren(); vi.useRealTimers(); vi.unstubAllGlobals() })
 
   it('marks data-ks-move only while the keys come or go, never for a re-placement on the keys', () => {

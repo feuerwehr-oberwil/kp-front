@@ -260,13 +260,13 @@
    ⚠️ `--accent` is deliberately NOT pinned: a station sets it on `:root` at boot and it is a
    brand colour, not a paper one. */
 .kf-paper {
-  --ink: #1b2330; --ink-dim: #4d586a; --ink-faint: #6c7686;
+  --ink: #1b2330; --ink-dim: #4d586a; --ink-faint: #606a7a;
   --surface: #fff; --surface-2: rgba(255, 255, 255, .6);
   --border: rgba(0, 0, 0, .1); --border-soft: rgba(0, 0, 0, .06); --fill-soft: rgba(0, 0, 0, .045);
   --glass: rgba(255, 255, 255, .9); --glass-line: rgba(255, 255, 255, .7); --glass-edge: rgba(30, 45, 70, .1);
   --label-bg: rgba(255, 255, 255, .92); --label-soft: rgba(255, 255, 255, .82);
   --blue: #1f6feb; --red: #e8392b; --green: #178a4a; --amber: #e2920a;
-  --blue-strong: #1a5fd0; --green-strong: #137a40; --amber-strong: #b4690a; --red-strong: #c43122;
+  --blue-strong: #1a5fd0; --green-strong: #12743d; --amber-strong: #9e5c08; --red-strong: #bd2f21;
   --note-bg: #fff8d6; --note-border: #e8d68a; --note-ink: #5a4b12;
   --ink-fill: #1b2330; --ink-fill-hover: #0f1722; --on-accent-ink: #fff; --on-fill: #fff;
   --btn-primary: var(--ink-fill); --btn-primary-hover: var(--ink-fill-hover); --on-btn-primary: var(--on-accent-ink);
@@ -460,7 +460,7 @@
 .report-att-x { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; cursor: pointer;
   border: none; border-radius: var(--r-sm); background: transparent; color: var(--ink-faint); }
 @media (hover: hover) {
-  .report-att-x:hover { background: var(--red-12); color: var(--red); }
+  .report-att-x:hover { background: var(--red-12); color: var(--red-strong); }
 }
 .report-att-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .report-att-x .i { width: 16px; height: 16px; }
@@ -512,13 +512,6 @@
   .jr-jump:hover { color: var(--ink); background: var(--hover-strong); }
 }
 .jr-jump:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* no transcript yet: amber on the FRAME, not a filled amber block. It is a gap in the record
-   worth noticing, not a warning that should outshout the entry it hangs off. */
-.jr-jump.jr-jump-miss { color: var(--amber-strong); background: var(--amber-12);
-  border-color: color-mix(in srgb, var(--amber) 55%, transparent); }
-@media (hover: hover) {
-  .jr-jump.jr-jump-miss:hover { background: var(--amber-22); color: var(--amber-strong); }
-}
 
 /* The target of a jump from the Kontrolle chip's «Noch offen» rows (ReportPreflight · jumpToStep)
    says «here» — with the shared ink ring (02-base.css · ui-flash-ring), the same

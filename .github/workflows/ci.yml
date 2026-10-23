@@ -56,6 +56,10 @@ jobs:
       - name: Lint (eslint, per-rule ratchet)
         run: pnpm lint
 
+      # Dead code held to scripts/knip-baseline.json (scripts/knip-ratchet.mjs, config knip.json).
+      - name: Dead code (knip ratchet)
+        run: pnpm knip
+
       # The Playwright specs are Node code outside src/ — their own tsconfig (e2e/README.md).
       - name: Type-check e2e (tsc -p tsconfig.e2e.json)
         run: pnpm exec tsc -p tsconfig.e2e.json
@@ -451,12 +455,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install the suite's browsers
-        env:
-          SUITE: ${{ matrix.suite }}
-        run: |
-          browsers=(chromium)
-          if [ "$SUITE" = recovery ]; then browsers+=(webkit); fi
-          pnpm exec playwright install --with-deps "${browsers[@]}"
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: ${{ matrix.suite == 'recovery' && 'chromium webkit' || 'chromium' }}
 
       - name: E2E smoke + field scenario (browser → running container)
         env:
@@ -543,7 +544,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Chromium
-        run: pnpm exec playwright install --with-deps chromium
+        uses: ./.github/actions/playwright-browsers
 
       - name: Performance journeys (browser → running container) + report
         env:
@@ -634,7 +635,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Chromium
-        run: pnpm exec playwright install --with-deps chromium
+        uses: ./.github/actions/playwright-browsers
 
       - name: Screenshots vs baseline (browser → running container) + report
         env:

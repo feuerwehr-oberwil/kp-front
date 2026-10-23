@@ -14,7 +14,7 @@ export function Segmented<T extends string | number | boolean>({ options, value,
   ariaLabel?: string
   /** The options are PAGES of one surface (the phone's docked tab strip, the Anwesenheit's
    *  readings): the chosen one is «where you are», so it wears the nav's ink pill, not the
-   *  blue choice fill (AGENTS.md · Buttons · Selected, 28.09.2026). */
+   *  blue choice fill (docs/ui-conventions.md · Buttons · Selected, 28.09.2026). */
   tabs?: boolean
   /** scrolls sideways instead of wrapping — so it stays a track past four options (06-contextpanel) */
   scroll?: boolean
@@ -52,7 +52,7 @@ export function Segmented<T extends string | number | boolean>({ options, value,
  * setting or a property is «Aus | An»; a row that asks a QUESTION about the thing («Übung?») is
  * `question` → «Nein | Ja». Same pair, same order, on every device.
  * ⚠️ The labels are read HERE, inside the component: captured at module level they would freeze
- * the catalogue at import time and never follow the deployment's locale (AGENTS.md · i18n).
+ * the catalogue at import time and never follow the deployment's locale (docs/copy-and-wording.md).
  */
 export function OnOff({ value, onChange, ariaLabel, question }: {
   value: boolean

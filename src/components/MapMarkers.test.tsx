@@ -172,25 +172,14 @@ describe('a Trupp marker that is joined, loose, or docked', () => {
       teamLines={teamLines as never} onTeamUnlink={() => {}} />,
   )
 
-  it('shows NO Leitung number on the resting marker – just the name, and no coupling stub (11.10.2026)', () => {
-    const { container } = showTeam([team()], null, badge() as never)
-    expect(container.querySelector('.team-dot .team-ltg')).toBeNull()
-    expect(container.querySelector('.team-dot')?.textContent).not.toContain('2')
-    expect(container.querySelector('.team-dot .team-coupling')).toBeNull()
-    expect(container.querySelector('.team-dot b')?.textContent).toBe('Frei Nina')
-  })
-
-  it('…and the same marker unjoined is the marker it always was — no field, no coupling', () => {
-    const { container } = showTeam([team()], null)
-    expect(container.querySelector('.team-ltg')).toBeNull()
-    expect(container.querySelector('.team-coupling')).toBeNull()
-    expect(container.querySelector('.team-dot b')?.textContent).toBe('Frei Nina')
-  })
-
-  it('a link by NUMBER alone claims no coupling nobody made — and prints no number either', () => {
-    const { container } = showTeam([team()], null, badge({ coupled: false }) as never)
-    expect(container.querySelector('.team-ltg')).toBeNull()
-    expect(container.querySelector('.team-coupling')).toBeNull()
+  // 11.10.2026: the Leitung number and the coupling stub left the resting marker
+  it('a joined Trupp\'s resting marker is its name alone – no Leitung number', () => {
+    for (const b of [badge(), badge({ coupled: false })]) {
+      const { container, unmount } = showTeam([team()], null, b as never)
+      expect(container.querySelector('.team-dot')?.textContent).not.toContain('2')
+      expect(container.querySelector('.team-dot b')?.textContent).toBe('Frei Nina')
+      unmount()
+    }
   })
 
   it('wears no glyph on the strip – the bond shows on the host tile alone (15.09.)', () => {

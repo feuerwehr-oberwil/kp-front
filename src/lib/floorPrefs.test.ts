@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from './floorPrefs'
 
+// The per-incident round trip is lib/incidentPrefStore's (incidentPrefStore.test); here: the
+// hidden set's own parsing and the «never empty» guard.
+//
 // Same stand-in as layerPrefs.test: the suite runs in the node environment, which has no Web
 // Storage, and this module only ever touches these three methods.
 const store = new Map<string, string>()
@@ -16,12 +19,6 @@ Object.defineProperty(globalThis, 'localStorage', {
 describe('floorPrefs — folding a Geschoss away is device-local', () => {
   beforeEach(() => store.clear())
 
-  it('round-trips per incident, and one incident never answers for another', () => {
-    saveHiddenFloors('inc1', [2, -1])
-    expect(loadHiddenFloors('inc1')).toEqual([2, -1])
-    expect(loadHiddenFloors('inc2')).toEqual([])
-  })
-
   it('shows everything again rather than opening a broken stack on a corrupt value', () => {
     store.set('kp.floors.hidden.inc1', '{ not json')
     expect(loadHiddenFloors('inc1')).toEqual([])
@@ -29,8 +26,10 @@ describe('floorPrefs — folding a Geschoss away is device-local', () => {
     expect(loadHiddenFloors('inc1')).toEqual([0]) // the storey survives, the noise does not
   })
 
-  it('forgets the key entirely once nothing is hidden', () => {
-    saveHiddenFloors('inc1', [1])
+  it('stores the hidden set as plain JSON, and forgets the key entirely once nothing is hidden', () => {
+    saveHiddenFloors('inc1', [1, -1])
+    expect(store.get('kp.floors.hidden.inc1')).toBe('[1,-1]') // the on-device format
+    expect(loadHiddenFloors('inc1')).toEqual([1, -1])
     saveHiddenFloors('inc1', [])
     expect(store.has('kp.floors.hidden.inc1')).toBe(false)
   })

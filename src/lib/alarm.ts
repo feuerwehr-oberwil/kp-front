@@ -10,7 +10,7 @@
 // without interaction. Whether it worked is readable via `audioUnlocked()`, so the
 // bell can say "Ton nicht freigegeben" instead of claiming to be armed.
 //
-// THE ONE ALARM LAYER (moved here from AGENTS.md, 18.10.2026): time-based alerts (Atemschutz
+// THE ONE ALARM LAYER: time-based alerts (Atemschutz
 // clock, reminders) go through this shared layer, not ad-hoc timers. Delivery: foreground
 // tone/wake-lock + service-worker notification, plus – once the deployment sets VAPID keys
 // (`app.gen_vapid`) – server-side Web Push for killed apps: `backend/app/push.py` re-derives

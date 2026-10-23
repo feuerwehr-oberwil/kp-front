@@ -33,10 +33,6 @@ afterEach(() => {
 })
 
 describe('SurfaceBoundary', () => {
-  it('renders children when nothing throws', () => {
-    render(<SurfaceBoundary surface="mittel"><div>Mittel</div></SurfaceBoundary>)
-    expect(screen.getByText('Mittel')).toBeTruthy()
-  })
 
   it('shows the card inside the view and leaves the sibling untouched', () => {
     render(
