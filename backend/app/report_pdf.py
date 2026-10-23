@@ -905,6 +905,8 @@ L = {
     "personalCount": "<b>{n} Anwesende</b>",
     "personalTotals": "<b>{n} Anwesende</b> · Einsatzstunden <b>{h}</b> · gerundet <b>{r}</b>",
     "journal": "Einsatzjournal",
+    #: stands in for a figure sheet the renderer threw on (plan / Skizze pages)
+    "pageFailed": "Seite «{t}» konnte nicht gedruckt werden.",
     # Aufträge / Pendenzen — the column headings are word-for-word the BGV form's, so whoever
     # knows the paper finds their way on the print without being told it is the same thing.
     "pendenzen": "Aufträge / Pendenzen",
@@ -2547,8 +2549,9 @@ def compose_report_pdf(
     # template that lays every one of them out (`figure_page` below). They used to be two blocks
     # that had drifted: only the Kroki said when its picture was taken.
     #: heading, caption, PNG, landscape, legend — every page numbers its symbol captions the same
-    #: way, so the words travel back out of the renderer the same way (legend_out)
-    figure_pages: list[tuple[str, str | None, bytes, bool, list[str]]] = []
+    #: way, so the words travel back out of the renderer the same way (legend_out). No PNG = the
+    #: renderer threw on that sheet: it keeps its place, with a line saying so instead of a picture.
+    figure_pages: list[tuple[str, str | None, bytes | None, bool, list[str]]] = []
     if kroki_png:
         figure_pages.append((L["kroki"], payload.krokiCaption, kroki_png, opt.krokiLandscape, kroki_legend))
     for pp in payload.planPages:
@@ -2568,8 +2571,12 @@ def compose_report_pdf(
                     pp.blankAspect or 1.0, [a.model_dump() for a in pp.annos], kk.get_pack(), legend_out=plan_legend
                 )
             )
-        except Exception:  # noqa: BLE001 — a broken plan PDF must not sink the whole rapport
-            logger.warning("Plan page %r could not be rendered; skipped", pp.label, exc_info=True)
+        except Exception:  # a broken plan PDF must not sink the whole rapport
+            # …but it must not vanish without a word either: until 23.10.2026 every Tafel-Skizze
+            # with a Linie left the Rapport this way, logged as a warning nobody read, while
+            # preflight and toast said all was well. The reader is told which sheet is missing.
+            logger.error("Plan page %r could not be rendered; placeholder printed", pp.label, exc_info=True)
+            figure_pages.append((pp.label, L["pageFailed"].format(t=pp.label), None, False, []))
             continue
         b = io.BytesIO()
         rendered.save(b, "PNG")

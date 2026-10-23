@@ -78,6 +78,11 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
     kind of figure page joins that list; it does not get a layout block of its own. Orientation is
     per kind ON PURPOSE: the Kroki is a free crop (the operator's choice), a plan sheet has the
     shape its author gave it (the bitmap decides).
+  - **A sheet the renderer throws on keeps its place** (23.10.2026): heading plus «Seite «…»
+    konnte nicht gedruckt werden.», logged at ERROR. It used to be skipped with a warning – and
+    from 22.07. to 23.10.2026 that silently dropped every Tafel-Skizze with a Linie or Fläche,
+    because plan points are `[x, y, floor]` and `kroki · _overlay_board_annos` unpacked two. The
+    renderer reads `p[0], p[1]`; the client sends the points as stored.
   - **An attached Leitung end is coupled by the SERVER** (`kroki · _snap_attached_ends`, fed by
     `startAt` / `endAt` + the entity `id`; a branch off a Teilstück by `startAtLine` / `endAtLine`
     onto the fork's prong tip – `_snap_line_joints`, one geometry with the glyph: `_fork_dims`). The client has no projection and ends the line on a

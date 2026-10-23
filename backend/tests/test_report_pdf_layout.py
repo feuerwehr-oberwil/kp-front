@@ -1145,3 +1145,49 @@ def test_signature_strokes_are_bounded():
     assert len(d) == 200
     assert max(len(s) for s in d) == 4000
     compose_report_pdf(payload, {})  # and it still composes
+
+
+def _all_text(pdf: bytes) -> str:
+    doc = pdfium.PdfDocument(pdf)
+    return "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+
+
+def _skizze_payload(annos: list[dict]) -> ReportPayload:
+    return ReportPayload.model_validate(
+        {
+            "incident": {"title": "Skizze-Probe", "id": "p"},
+            "generatedAt": "23.10.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "planPages": [{"label": "Tafel · Skizze", "blankAspect": 0.707, "annos": annos}],
+        }
+    )
+
+
+def test_a_skizze_with_a_linie_and_a_flaeche_reaches_the_rapport():
+    """Plan points are stored as `[x, y, floor]` since 22.07.2026, and the client sends them as
+    stored. The renderer unpacked two, threw, and the composer skipped the page — so every
+    Tafel-Skizze carrying a Linie or a Fläche left the Rapport without its picture."""
+    payload = _skizze_payload(
+        [
+            {"kind": "draw", "pts": [[0.25, 0.46, 0], [0.6, 0.5, 0], [0.7, 0.3, 0]], "color": "#d23"},
+            {"kind": "area", "pts": [[0.1, 0.1, 0], [0.3, 0.1, 0], [0.2, 0.3, 0]], "label": "Brandabschnitt"},
+        ]
+    )
+    text = _all_text(compose_report_pdf(payload, {}))
+    assert "Tafel · Skizze" in text
+    assert "konnte nicht gedruckt werden" not in text
+
+
+def test_a_figure_page_that_fails_to_render_says_so_on_the_paper(monkeypatch, caplog):
+    """A sheet the renderer cannot draw must not vanish without a word: the reader of the Rapport
+    is told which page is missing, and the server log says so at ERROR."""
+    from app import kroki
+
+    def broken(*_a, **_k):
+        raise ValueError("boom")
+
+    monkeypatch.setattr(kroki, "render_blank_page", broken)
+    with caplog.at_level("ERROR"):
+        text = _all_text(compose_report_pdf(_skizze_payload([]), {}))
+    assert "Seite «Tafel · Skizze» konnte nicht gedruckt werden" in text
+    assert any(r.levelname == "ERROR" and "Tafel · Skizze" in r.getMessage() for r in caplog.records)

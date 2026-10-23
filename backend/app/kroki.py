@@ -1906,7 +1906,10 @@ def _overlay_board_annos(
         color = a.get("color") or "#1f6feb"
         sw = max(1, round((a.get("width") or 4) * u * ss))
         if kind in ("draw", "area") and len(a.get("pts") or []) >= 2:
-            pts = [pp(px_, py_) for px_, py_ in a["pts"]]
+            # ⚠️ A plan point is `[x, y, floor]` since 22.07.2026 (types · BoardAnno) and arrives
+            # as stored; the floor is the client's business (it lifts floor-stack tiles into page
+            # space before sending), so the page reads x and y only.
+            pts = [pp(p[0], p[1]) for p in a["pts"]]
             if kind == "area" and len(pts) >= 3:
                 raw_alpha = a.get("fillOpacity")
                 if a.get("hatch"):
