@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import func, select
 
-from app import admin_objects
+from app import admin_objects_repair
 from app.admin_objects import folder_identity, object_id_for_key
 from app.models import DeploymentConfig, ObjectSite, ReferenceDataset
 
@@ -38,7 +38,7 @@ MIDDAY = datetime(2026, 9, 11, 11, 21, tzinfo=UTC)
 @pytest.fixture(autouse=True)
 def _cli_session(monkeypatch, session_factory):
     """The CLI opens its own session; point it at the test database."""
-    monkeypatch.setattr(admin_objects, "async_session_maker", session_factory)
+    monkeypatch.setattr(admin_objects_repair, "async_session_maker", session_factory)
 
 
 @pytest.fixture(autouse=True)
@@ -48,7 +48,7 @@ def _no_geocoder(monkeypatch):
     async def none(_address):
         return None
 
-    monkeypatch.setattr(admin_objects, "locate_coordinates", none)
+    monkeypatch.setattr(admin_objects_repair, "locate_coordinates", none)
 
 
 def geocoder(monkeypatch, coords, calls=None):
@@ -59,7 +59,7 @@ def geocoder(monkeypatch, coords, calls=None):
             raise coords
         return coords
 
-    monkeypatch.setattr(admin_objects, "locate_coordinates", fake)
+    monkeypatch.setattr(admin_objects_repair, "locate_coordinates", fake)
 
 
 async def _object(
@@ -141,7 +141,7 @@ async def test_the_bare_twin_folds_into_the_importers_object_and_the_newer_sheet
     )
     assert older != twin, "the fixture only means anything if the two conventions disagree"
 
-    assert await admin_objects._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
+    assert await admin_objects_repair._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
 
     rows = list((await db_session.execute(select(ObjectSite))).scalars())
     assert [r.id for r in rows] == [older]
@@ -177,7 +177,7 @@ async def test_the_survivors_newer_sheet_is_not_replaced_by_an_older_copy(db_ses
         plans={"modul1": ("sharepoint", 1, MORNING)},
     )
 
-    assert await admin_objects._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
+    assert await admin_objects_repair._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
 
     plans = await _plans(db_session)
     assert set(plans) == {f"plan:{older}:modul1"}
@@ -201,7 +201,7 @@ async def test_a_twinless_object_is_rekeyed_with_its_address_split_out_and_geoco
         plans={"modul1": ("sharepoint", 1, MIDDAY)},
     )
 
-    assert await admin_objects._repair_sharepoint_keys(apply=True, do_geocode=True) == 0
+    assert await admin_objects_repair._repair_sharepoint_keys(apply=True, do_geocode=True) == 0
 
     row = (await db_session.execute(select(ObjectSite))).scalar_one()
     assert row.id == folder_identity(FOLDER).object_id != bare
@@ -228,7 +228,7 @@ async def test_a_geocoder_that_answers_nothing_still_repairs_and_says_what_is_le
         plans={"modul1": ("sharepoint", 1, MIDDAY)},
     )
 
-    assert await admin_objects._repair_sharepoint_keys(apply=True, do_geocode=True) == 0
+    assert await admin_objects_repair._repair_sharepoint_keys(apply=True, do_geocode=True) == 0
 
     row = (await db_session.execute(select(ObjectSite))).scalar_one()
     assert (row.name, row.address, row.lat) == (NAME, ADDRESS, None)
@@ -258,7 +258,7 @@ async def test_the_older_twin_is_found_by_its_two_fields_and_then_re_keyed(db_se
         plans={"modul2": ("sharepoint", 1, MIDDAY)},
     )
 
-    assert await admin_objects._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
+    assert await admin_objects_repair._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
 
     row = (await db_session.execute(select(ObjectSite))).scalar_one()
     assert row.id == folder_identity(FOLDER).object_id
@@ -280,7 +280,7 @@ async def test_an_empty_survivor_address_is_filled_from_the_folder_name(db_sessi
     )
     await _object(db_session, FOLDER, oid=object_id_for_key(FOLDER), plans={"modul2": ("sharepoint", 1, MIDDAY)})
 
-    assert await admin_objects._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
+    assert await admin_objects_repair._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
 
     row = (await db_session.execute(select(ObjectSite).where(ObjectSite.id == older))).scalar_one()
     assert row.address == ADDRESS
@@ -298,7 +298,7 @@ async def test_the_dry_run_is_the_default_and_writes_nothing(db_session, capsys,
         plans={"modul5-pv15": ("sharepoint", 2, MIDDAY)},
     )
 
-    assert await admin_objects._amain(["repair-sharepoint-keys"]) == 0
+    assert await admin_objects_repair._amain(["repair-sharepoint-keys"]) == 0
 
     assert await _count(db_session, ObjectSite) == 2
     assert set(await _plans(db_session)) == {f"plan:{older}:modul1", f"plan:{twin}:modul5-pv15"}
@@ -323,7 +323,7 @@ async def test_nothing_a_person_typed_is_touched(db_session, capsys):
     )
     plain = await _object(db_session, "Grosspläne", plans={"modul1": ("sharepoint", 1, MIDDAY)})
 
-    assert await admin_objects._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
+    assert await admin_objects_repair._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
 
     assert {o.id for o in (await db_session.execute(select(ObjectSite))).scalars()} == {typed, plain}
     assert set(await _plans(db_session)) == {f"plan:{typed}:modul1", f"plan:{plain}:modul1"}
@@ -341,7 +341,7 @@ async def test_a_repaired_deployment_re_checks_itself_read_only(db_session, caps
     )
     await _object(db_session, "Ohne Pläne")  # no plans: nothing to surface, so not on the list
 
-    assert await admin_objects._repair_sharepoint_keys(apply=False, do_geocode=False) == 0
+    assert await admin_objects_repair._repair_sharepoint_keys(apply=False, do_geocode=False) == 0
 
     out = capsys.readouterr().out
     assert "No object is keyed on a whole «Adresse - Name» folder name among 3 object(s)" in out
@@ -373,7 +373,7 @@ async def test_a_sheet_the_survivor_also_holds_under_an_odd_key_is_reported_not_
     )
     await db_session.commit()
 
-    assert await admin_objects._repair_sharepoint_keys(apply=True, do_geocode=False) == 1
+    assert await admin_objects_repair._repair_sharepoint_keys(apply=True, do_geocode=False) == 1
 
     assert {o.id for o in (await db_session.execute(select(ObjectSite))).scalars()} == {older, twin}
     out = capsys.readouterr().out
@@ -399,7 +399,7 @@ async def test_the_station_calibration_follows_the_plans(db_session):
     )
     await db_session.commit()
 
-    assert await admin_objects._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
+    assert await admin_objects_repair._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
 
     scales = (await db_session.execute(select(DeploymentConfig))).scalar_one().plan_scales_json or {}
     assert list(scales["georefByPlan"]) == [f"object:{older}:plan:modul2"]
@@ -411,7 +411,7 @@ async def test_a_later_sync_over_the_repaired_deployment_changes_nothing(db_sess
     older = await _object(db_session, NAME, address=ADDRESS, coords=COORDS)
     await _object(db_session, FOLDER, oid=object_id_for_key(FOLDER), plans={"modul1": ("sharepoint", 1, MIDDAY)})
 
-    assert await admin_objects._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
+    assert await admin_objects_repair._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
 
     row = (await db_session.execute(select(ObjectSite))).scalar_one()
     assert row.id == older == folder_identity(FOLDER).object_id
@@ -431,7 +431,7 @@ async def test_an_equal_timestamp_is_broken_by_the_version_counter(db_session):
         plans={"modul1": ("sharepoint", 2, MIDDAY)},
     )
 
-    assert await admin_objects._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
+    assert await admin_objects_repair._repair_sharepoint_keys(apply=True, do_geocode=False) == 0
 
     plans = await _plans(db_session)
     assert plans[f"plan:{older}:modul1"].current_version == 2

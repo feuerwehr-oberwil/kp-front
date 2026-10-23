@@ -1037,11 +1037,11 @@ async def test_a_merge_moves_visits_and_refs_to_the_survivor(
 ):
     import unicodedata
 
-    from app import admin_objects
+    from app import admin_objects_repair
     from app.admin_objects import object_id_for_key
     from app.models import ObjectVisit
 
-    monkeypatch.setattr(admin_objects, "async_session_maker", session_factory)
+    monkeypatch.setattr(admin_objects_repair, "async_session_maker", session_factory)
     nfc = "Kindergarten Hüsli"
     nfd = unicodedata.normalize("NFD", nfc)
     survivor = ObjectSite(id=object_id_for_key(nfc), name=nfc)
@@ -1056,7 +1056,7 @@ async def test_a_merge_moves_visits_and_refs_to_the_survivor(
     survivor_id = survivor.id
     await put(client, vid, first, None)
 
-    assert await admin_objects._merge_duplicates(apply=True) == 0
+    assert await admin_objects_repair._merge_duplicates(apply=True) == 0
     db_session.expire_all()
     assert (await db_session.get(ObjectVisit, vid)).object_id == survivor_id
     ref = (await db_session.execute(select(ObjectRef).where(ObjectRef.external_id == "kg"))).scalar_one()
@@ -1072,17 +1072,17 @@ async def test_a_merge_moves_visits_and_refs_to_the_survivor(
 async def test_removing_an_object_keeps_the_visit_and_drops_the_refs(
     client, editor, on, db_session, session_factory, monkeypatch
 ):
-    from app import admin_objects
+    from app import admin_objects_repair
     from app.models import ObjectVisit
 
-    monkeypatch.setattr(admin_objects, "async_session_maker", session_factory)
+    monkeypatch.setattr(admin_objects_repair, "async_session_maker", session_factory)
     leer = await make_object(db_session, name="Grosspläne", address=None)
     db_session.add(ObjectRef(object_id=leer.id, source="fwo", external_id="gp"))
     await db_session.commit()
     await login(client, editor)
     vid = new_id("ov")
     await put(client, vid, visit_doc(vid, leer), None)
-    await admin_objects._remove_empty(apply=True, names=["Grosspläne"])
+    await admin_objects_repair._remove_empty(apply=True, names=["Grosspläne"])
     db_session.expire_all()
     visit = await db_session.get(ObjectVisit, vid)
     assert visit is not None and visit.object_id is None

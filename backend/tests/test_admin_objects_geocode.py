@@ -14,7 +14,7 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from app import admin_objects
+from app import admin_objects_repair
 from app.admin_objects import object_id_for_key
 from app.models import ObjectSite, ReferenceDataset
 
@@ -26,7 +26,7 @@ COORDS = (47.49811, 7.55402)
 @pytest.fixture(autouse=True)
 def _cli_session(monkeypatch, session_factory):
     """The CLI opens its own session; point it at the test database."""
-    monkeypatch.setattr(admin_objects, "async_session_maker", session_factory)
+    monkeypatch.setattr(admin_objects_repair, "async_session_maker", session_factory)
 
 
 def geocoder(monkeypatch, answers: dict[str, tuple[float, float]] | Exception, asked: list[str] | None = None):
@@ -40,7 +40,7 @@ def geocoder(monkeypatch, answers: dict[str, tuple[float, float]] | Exception, a
             raise answers
         return answers.get(address)
 
-    monkeypatch.setattr(admin_objects, "locate_coordinates", fake)
+    monkeypatch.setattr(admin_objects_repair, "locate_coordinates", fake)
 
 
 async def _object(
@@ -77,7 +77,7 @@ async def test_the_address_is_what_is_looked_up_when_the_row_has_one(db_session,
     geocoder(monkeypatch, {"Schulstrasse 7": COORDS}, asked)
     oid = await _object(db_session, "Schulhaus Dorfmatt", address="Schulstrasse 7")
 
-    assert await admin_objects._geocode_missing(apply=True) == 0
+    assert await admin_objects_repair._geocode_missing(apply=True) == 0
 
     row = await _row(db_session, oid)
     assert (float(row.lat), float(row.lng)) == COORDS
@@ -94,7 +94,7 @@ async def test_a_row_whose_name_is_its_address_is_looked_up_by_that(db_session, 
     geocoder(monkeypatch, {STREET: COORDS}, asked)
     oid = await _object(db_session, STREET)
 
-    assert await admin_objects._geocode_missing(apply=True) == 0
+    assert await admin_objects_repair._geocode_missing(apply=True) == 0
 
     row = await _row(db_session, oid)
     assert (float(row.lat), float(row.lng)) == COORDS
@@ -110,7 +110,7 @@ async def test_a_name_the_geocoder_cannot_place_is_left_alone_and_stays_listed(d
     placed = await _object(db_session, STREET)
     unplaceable = await _object(db_session, "Waldhütte")
 
-    assert await admin_objects._geocode_missing(apply=True) == 0
+    assert await admin_objects_repair._geocode_missing(apply=True) == 0
 
     assert (await _row(db_session, placed)).lat is not None
     left = await _row(db_session, unplaceable)
@@ -126,7 +126,7 @@ async def test_a_geocoder_that_raises_does_not_end_the_run(db_session, capsys, m
     geocoder(monkeypatch, RuntimeError("swisstopo timed out"))
     oid = await _object(db_session, STREET)
 
-    assert await admin_objects._geocode_missing(apply=True) == 0
+    assert await admin_objects_repair._geocode_missing(apply=True) == 0
 
     assert (await _row(db_session, oid)).lat is None
     assert "0 of 1 object(s) geocoded" in capsys.readouterr().out
@@ -136,7 +136,7 @@ async def test_the_dry_run_is_the_default_and_writes_nothing(db_session, capsys,
     geocoder(monkeypatch, {STREET: COORDS})
     oid = await _object(db_session, STREET)
 
-    assert await admin_objects._amain(["geocode-missing"]) == 0
+    assert await admin_objects_repair._amain(["geocode-missing"]) == 0
 
     assert (await _row(db_session, oid)).lat is None, "the dry run wrote the coordinates"
     out = capsys.readouterr().out
@@ -154,7 +154,7 @@ async def test_a_position_the_station_already_has_is_never_touched(db_session, c
     placed = await _object(db_session, "Schulhaus Dorfmatt", address="Schulstrasse 7", coords=(47.5, 7.57))
     planless = await _object(db_session, "Wache", plans=False)
 
-    assert await admin_objects._geocode_missing(apply=True) == 0
+    assert await admin_objects_repair._geocode_missing(apply=True) == 0
 
     kept = await _row(db_session, placed)
     assert (float(kept.lat), float(kept.lng)) == (47.5, 7.57)
