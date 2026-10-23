@@ -208,7 +208,8 @@ export const editorsCopy = {
   },
   drawingEditor: {
     area: 'Fläche',
-    drawing: 'Zeichnung',
+    // «Linie», the tool's own word (sweep E.8) – the Verlauf dropped «Zeichnung» on 31.08.
+    drawing: 'Linie',
     circle: 'Absperrkreis',
     radius: 'Radius',
     fill: 'Füllung',

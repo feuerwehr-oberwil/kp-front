@@ -144,7 +144,7 @@ export const editorsCopy: Localizable<Pick<Copy, Keys>> = {
   },
   drawingEditor: {
     area: 'Area',
-    drawing: 'Drawing',
+    drawing: 'Line',
     circle: 'Cordon',
     radius: 'Radius',
     fill: 'Fill',
