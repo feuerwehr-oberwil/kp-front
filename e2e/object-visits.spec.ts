@@ -14,6 +14,8 @@ import { expect, expectNoCrash, login, OFFLINE_FETCH_FAILURE, test } from './hel
 // and checklist; restores the `objectVisits` section afterwards. Never run it against a station
 // in use.
 const ADMIN_SECRET = process.env.E2E_ADMIN_SECRET
+/** a visit's save point this long after the last change (src/components/objectVisits/VisitPage · QUIET_SAVE_MS) */
+const QUIET_SAVE_MS = 20_000
 
 const TEMPLATE_ID = 'e2e-objektbesuch'
 const PLACE_TEMPLATE_ID = 'e2e-fehlermeldung'
@@ -145,6 +147,9 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
     const api = await adminContext(baseURL!)
     const objectName = `E2E Objekt ${Date.now()}`
     const restore = await prepare(api, objectName)
+    // the page's clock runs on its own (time flows), so the ~20 s save point below is a jump
+    // (`fastForward`), not a 22 s sleep – the recovery suite's longest wait until 23.10.2026
+    await page.clock.install()
     try {
       await openSurface(page)
       const jpeg = await jpegOf(page)
@@ -153,7 +158,7 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       await context.setOffline(true)
       const visitId = await captureVisit(page, objectName, jpeg)
       // the save point ~20 s after the last change fires offline: the reconnect owes it now
-      await page.waitForTimeout(22_000)
+      await page.clock.fastForward(QUIET_SAVE_MS + 2_000)
 
       // ── reload while offline: the draft and its photo come back from the device ──
       await page.reload({ waitUntil: 'domcontentloaded' })
@@ -176,6 +181,7 @@ test.describe('Objektbesuche · offline capture on a phone', () => {
       // ── one more change: saved ~20 s after it, with no tap ──
       await page.getByLabel('Bemerkungen').fill('Hauswart neu')
       await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf · Änderungen auf Gerät/ })).toBeVisible()
+      await page.clock.fastForward(QUIET_SAVE_MS + 2_000)
       await expect(page.getByRole('button', { name: /^Stand anzeigen: Entwurf · Gespeichert/ })).toBeVisible({ timeout: 45_000 })
       expect((await (await api.get(`/api/object-visits/${visitId}`)).json()).notes).toBe('Hauswart neu')
 
