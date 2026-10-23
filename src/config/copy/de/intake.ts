@@ -9,6 +9,8 @@ export const intakeCopy = {
   // got wrong on an incident that is already running.
   intake: {
     titleNew: 'Einsatz eröffnen',
+    // …and with «Übung: Ja» the form says what it is about to open (sweep F.8)
+    titleNewExercise: 'Übung eröffnen',
     // --- Standort section ---
     locationHead: 'Standort',
     addressLabel: 'Adresse',
@@ -29,6 +31,8 @@ export const intakeCopy = {
     hereFailed: 'Standort nicht verfügbar',
     coordSet: 'Koordinate gesetzt',
     coordNone: 'Kein Standort – wird ohne Koordinate eröffnet',
+    // the edit form: the Einsatz is already open, so nothing «wird eröffnet» any more
+    coordNoneEdit: 'Kein Standort – Einsatz ohne Koordinate',
     coordClear: 'Standort entfernen',
     // The fold over the literal coordinate (owner, 18.09.2026) — see EinsatzWizard.
     coordFold: 'Koordinaten',
@@ -51,7 +55,8 @@ export const intakeCopy = {
     alarmTextUnavailable: 'Alarmmeldung konnte nicht geladen werden – bleibt unverändert',
     detailsPlaceholder: 'Zusätzliche Angaben zur Meldung',
     // --- Actions ---
-    open: 'Einsatz öffnen',
+    open: 'Einsatz eröffnen',
+    openExercise: 'Übung eröffnen',
     opening: 'Wird eröffnet …',
     demoBlocked: 'In der Demo deaktiviert – hier lässt sich kein neuer Einsatz eröffnen.',
     cancel: 'Abbrechen',
