@@ -3338,8 +3338,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 preselectSrc={building?.geo ? building.src : undefined} preselectGeo={building?.geo}
                 pin={incidentPos} onPick={onSelectBuilding} />
             ) : blank ? (
-              // the hint teaches the tools — a board that cannot be written on has none to teach
-              annos.length === 0 && !readOnly && <div className="wb-blank-hint">{appConfig.copy.whiteboard.blankHint}</div>
+              // the hint teaches the tools — a board that cannot be written on has none to teach, and
+              // it steps aside the moment the first line or circle is being laid (sweep E.2)
+              annos.length === 0 && !draft && !circleDraft && !readOnly && <div className="wb-blank-hint">{appConfig.copy.whiteboard.blankHint}</div>
             ) : (
               <PdfViewport
                 key={active.id}

@@ -496,6 +496,14 @@ describe('the Plan rail and its drafts', () => {
     expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(4)
   })
 
+  // sweep E.2: «Leeres Blatt – mit Linie … beschriften» sat under the first line being laid
+  it('takes the empty-sheet hint away as soon as a draft is on the sheet', () => {
+    const { container } = renderPlan([])
+    expect(screen.getByText(W.blankHint)).toBeTruthy()
+    drawAreaDraft(container)
+    expect(screen.queryByText(W.blankHint)).toBeNull()
+  })
+
   it('auto-commits a committable draft on tap-away — and «Rückgängig» hands the shape back', () => {
     const { container, onChange } = renderPlan([])
     drawAreaDraft(container)
