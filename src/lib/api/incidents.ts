@@ -5,8 +5,9 @@ import { apiDelete, apiGet, apiPatch, apiPost } from '../api'
 import { idbGet, idbSet, readThrough } from '../idb'
 import { appConfig } from '../../config/appConfig'
 import { putWorkspace, type Workspace } from './workspace'
+import type { CachedWithout, In, Out } from './wire'
 
-// --- Types (mirror backend schemas) -------------------------------------------------
+// --- Types (the server's, ./wire) ---------------------------------------------------
 // the running rule lives in a leaf (lib/incidentRunning) so incidentClosed can ask it without an
 // import ring back through this module and ./workspace
 export { INCIDENT_ACTIVE_STATUSES, isIncidentRunning } from '../incidentRunning'
@@ -23,56 +24,20 @@ export function closeTimeOf(i: Pick<IncidentMeta, 'closed_at' | 'last_closed_at'
   return i.last_closed_at ?? i.closed_at ?? null
 }
 
-export interface IncidentMeta {
-  id: string
-  divera_id: number | null
-  title: string
-  type: string | null
-  priority: string | null // 'HIGH' | 'LOW'
-  address: string | null
-  lat: number | null
-  lng: number | null
-  status: string
-  source: string // 'divera' | 'manual' | 'migrated' | generic intake slug
-  source_ref: string | null // foreign alarm id for generic intake sources
-  auto_opened: boolean // created by an alarm without a human (auto-open / generic intake)
-  started_at: string
-  closed_at: string | null
-  /** When it was closed THIS time (D2, 25.09.2026) — stamped on every close, where `closed_at`
-   *  keeps the first. Absent from lists cached before the field existed. */
-  last_closed_at?: string | null
-  is_archived: boolean
-  is_exercise: boolean // Übung — stats-excluded
-  /** Übung since creation, never marked real — the only kind an editor may hard-delete (a real
-   *  Einsatz marked Übung later needs the Verwaltung). Absent on lists cached before 22.10.2026. */
-  exercise_since_creation?: boolean
-  report_done_at: string | null // Abschluss-Assistent completion bookmark (see rapportStatus.ts)
-  // Cross-visibility QR ↔ KP (optional: absent on lists cached before the feature shipped) —
-  // editor_opened_at latches the first editor open; capture_* count QR capture writes.
-  editor_opened_at?: string | null
-  capture_writes?: number
-  capture_last_at?: string | null
-  workspace_rev: number
-  created_by: string | null
-  created_at: string
-  updated_at: string
-}
-export interface IncidentFull extends IncidentMeta {
-  text: string | null
-  map_workspace_json: Record<string, unknown> | null
-}
-export interface IncidentCreate {
-  title: string
-  type?: string | null
-  priority?: string | null
-  text?: string | null
-  address?: string | null
-  lat?: number | null
-  lng?: number | null
-  /** Alarmierungszeit — backdatable so an analog incident can be nachgetragen later */
-  started_at?: string | null
-  is_exercise?: boolean
-}
+/** One Einsatz as the list and meta routes serve it. `priority` is 'HIGH' | 'LOW' from Divera and
+ *  the intake, but a plain string on the server (the demo writes 'NORMAL'); `source` is 'divera' |
+ *  'manual' | 'migrated' | a generic intake slug, `source_ref` the foreign alarm id of one;
+ *  `auto_opened` = created by an alarm without a human; `is_exercise` = Übung (stats-excluded);
+ *  `report_done_at` the Abschluss-Assistent's bookmark (rapportStatus.ts). `last_closed_at` is the
+ *  CURRENT close (D2, 25.09.2026) where `closed_at` keeps the first; `exercise_since_creation` =
+ *  Übung since creation, never marked real — the only kind an editor may hard-delete;
+ *  `editor_opened_at` / `capture_*` are the QR ↔ KP cross-visibility. Those five are optional
+ *  here because a list cached before they existed lacks them. */
+export type IncidentMeta = CachedWithout<Out<'IncidentMeta'>,
+  'last_closed_at' | 'exercise_since_creation' | 'editor_opened_at' | 'capture_writes' | 'capture_last_at'>
+export type IncidentFull = IncidentMeta & Pick<Out<'IncidentFull'>, 'text' | 'map_workspace_json' | 'details_json'>
+/** `started_at` is the Alarmierungszeit — backdatable so an analog incident can be nachgetragen. */
+export type IncidentCreate = In<'IncidentCreate'>
 
 // --- Incidents ----------------------------------------------------------------------
 export const listIncidents = (archived?: boolean, limit?: number) => {

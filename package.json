@@ -19,6 +19,7 @@
     "coverage:raise": "node scripts/coverage-raise.mjs",
     "test:e2e": "playwright test",
     "bench": "vitest bench --run",
+    "openapi:types": "openapi-typescript docs/openapi.json --default-non-nullable false -o src/lib/api/schema.d.ts",
     "preview": "vite preview --port 4173"
   },
   "dependencies": {

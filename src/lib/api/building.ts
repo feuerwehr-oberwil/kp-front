@@ -6,79 +6,30 @@
 // one instead of wiping it. Each half fails on its own, on the device as on the server.
 import { apiGet } from '../api'
 import { idbGet, readThrough } from '../idb'
+import type { CachedWithout, Out } from './wire'
 
-export type BuildingRegisters = 'on' | 'off' | 'outside_ch' | 'no_location'
-
-/** One heating or hot-water system (backend BuildingSystemOut). */
-export interface BuildingSystem {
-  /** heat_pump, solar_thermal, boiler, stove, chp, electric_storage, electric_direct, heat_exchanger, electric_boiler */
-  generator: string | null
-  /** an energy key, as in `BuildingGwr.heating` */
-  energy: string | null
-  /** serves several buildings – the generator may stand in another one */
-  shared: boolean
-}
+/** One heating or hot-water system. `generator`: heat_pump, solar_thermal, boiler, stove, chp,
+ *  electric_storage, electric_direct, heat_exchanger, electric_boiler; `energy` as in
+ *  `BuildingGwr.heating`; `shared`: serves several buildings (the generator may stand in another). */
+export type BuildingSystem = Out<'BuildingSystemOut'>
 
 /** The existing flats whose entrance is on one storey: 0 = Parterre, 1 = 1. Stock, -1 = 1. UG. */
-export interface BuildingFloorFlats {
-  level: number
-  flats: number
-  maisonettes: number
-}
+export type BuildingFloorFlats = Out<'BuildingFloorFlatsOut'>
 
-export interface BuildingGwr {
-  /** the register's export date for this entry (ISO date) */
-  stand: string | null
-  floors: number | null
-  flats: number | null
-  year: number | null
-  period: string | null
-  /** energy keys — gas, oil, wood, district, air, geothermal, water, electricity, solar, waste_heat, unknown, other */
-  heating: string[]
-  heating_date: string | null
-  hot_water: string[]
-  shelter: boolean | null
-  status: string | null
-  // Added 20.10.2026 – optional because a device's cached card from before has none of them.
-  /** the Gebäudeklasse key (single_family, multi_family, home, school, hospital, …) */
-  building_class?: string | null
-  heaters?: BuildingSystem[]
-  water_heaters?: BuildingSystem[]
-  /** lowest storey first; empty when not every flat names its storey */
-  flats_by_floor?: BuildingFloorFlats[]
-  rooms_min?: number | null
-  rooms_max?: number | null
-}
+/** The GWR half. `stand` is the register's export date (ISO date); `heating`/`hot_water` are
+ *  energy keys (gas, oil, wood, district, air, geothermal, water, electricity, solar, waste_heat,
+ *  unknown, other); `building_class` a Gebäudeklasse key (single_family, multi_family, home,
+ *  school, hospital, …); `flats_by_floor` lowest storey first, empty when not every flat names
+ *  its storey. The six fields added 20.10.2026 are optional: a card cached before has none. */
+export type BuildingGwr = CachedWithout<Out<'BuildingGwrOut'>,
+  'building_class' | 'heaters' | 'water_heaters' | 'flats_by_floor' | 'rooms_min' | 'rooms_max'>
 
-export interface BuildingPlant {
-  kind: 'pv' | 'other'
-  label: string | null
-  power_kw: number | null
-  since: string | null
-}
+export type BuildingPlant = Out<'BuildingPlantOut'>
 
-export interface BuildingObject {
-  id: string
-  name: string
-  address_match: boolean
-  distance_m: number | null
-  measures: string | null
-  remarks: string | null
-  measures_source: string | null
-  updated_at: string | null
-}
+export type BuildingObject = Out<'BuildingObjectOut'>
 
-export interface BuildingInfo {
-  registers: BuildingRegisters
-  egid: string | null
-  address: string | null
+export type BuildingInfo = Omit<Out<'BuildingOut'>, 'gwr'> & {
   gwr: BuildingGwr | null
-  gwr_status: 'ok' | 'none' | 'error' | 'skipped'
-  plants: BuildingPlant[]
-  pv_status: 'ok' | 'error' | 'skipped'
-  registers_fetched_at: string | null
-  object: BuildingObject | null
-  visit: { id: string; visited_at: string | null; findings: number } | null
   /** device-side only: WHERE this answer was asked for (`buildingWhere`) — a cached copy or a
    *  kept half is only ever reused for the same Einsatzort */
   where?: string
@@ -86,6 +37,8 @@ export interface BuildingInfo {
   gwr_kept_from?: string | null
   pv_kept_from?: string | null
 }
+
+export type BuildingRegisters = BuildingInfo['registers']
 
 export const isBuildingInfo = (v: unknown): v is BuildingInfo =>
   !!v && typeof v === 'object' && typeof (v as BuildingInfo).registers === 'string' && Array.isArray((v as BuildingInfo).plants)

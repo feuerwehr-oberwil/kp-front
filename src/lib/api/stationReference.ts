@@ -15,68 +15,36 @@
 import { apiGet, isDenial } from '../api'
 import { idbDel, idbKeys, idbRead, idbSet, readThrough, type ReadThroughSource } from '../idb'
 import { buildingWhere, isBuildingInfo, type BuildingInfo } from './building'
+import type { CachedWithout, Out } from './wire'
 
 /** `einsatzobjekt` carries plans, `objekt` does not. ⚠️ No `depot` (key box) any more (owner,
  *  review round 3, 17.10.2026: every object is a building or a group of buildings): an older
  *  server's or an older cached catalogue's `depot` is read as `objekt` (`withRetiredKinds`). */
 export type StationObjectKind = 'einsatzobjekt' | 'objekt'
 
-export interface StationPlan {
-  /** the reference dataset id (`plan:<object>:<module>`) — `/api/reference/{id}?v=` opens it */
-  id: string
-  module: string | null
-  /** «1», «2/3» — what the panel prints */
-  code: string
-  title: string
-  /** pages of the current revision when the server already knows them, else null */
-  pages: number | null
-  /** the current revision carries a station-approved map fit («auf der Karte ausgerichtet») */
-  georef: boolean
-  version: number
-  updatedAt?: string | null
-}
+/** One plan of an object. `id` is the reference dataset id (`plan:<object>:<module>`, opened by
+ *  `/api/reference/{id}?v=`), `code` what the panel prints («1», «2/3»), `pages` those of the
+ *  current revision when the server already knows them, `georef` = the revision carries a
+ *  station-approved map fit. `updatedAt` is absent from an older cached catalogue. */
+export type StationPlan = CachedWithout<Out<'ReferencePlanOut'>, 'updatedAt'>
 
 /** One Geschoss of an object's floor pack — the words are the app's copy (lib/whiteboard ·
  *  floorLabel), the station's own name wins. */
-export interface StationFloor { index: number; name: string | null }
+export type StationFloor = Out<'ReferenceFloorOut'>
 
-export interface StationObject {
-  id: string
-  name: string
-  kind: StationObjectKind
-  /** an address for every object where one is knowable (the station's, else the name when it is
-   *  a street + number, else the register's at the pin — docs/karte-objekte.md) */
-  address: string | null
-  /** the town, only when it is NOT the home town («Therwil»): print «address, locality» */
-  locality?: string | null
-  lat: number | null
-  lng: number | null
-  /** the station's outline choice («Lage korrigieren» in /admin): `none` = draw no outline at all,
-   *  not even the OSM building at the point; absent (an older server) = `auto` */
-  outline?: 'auto' | 'building' | 'none'
-  aliases: string[]
-  plans: StationPlan[]
-  floors: StationFloor[]
-  egid: string | null
-  /** every building the object stands for, as one GeoJSON MultiPolygon (the server derives it
-   *  from the use area / parcel / cadastral survey — backend app/object_footprints); null = the
-   *  map's own OSM building its point lies in is used (lib/karte/places · objectBuildings) */
-  footprint: unknown
-  /** a named row's addresses that have no surface building — the survey's underground garages
-   *  and shelters (backend app/object_footprints · ask_range), one MultiPolygon; drawn dashed.
-   *  Absent from an older server. */
-  underground?: unknown
-  measures?: string | null
-  remarks?: string | null
-  measuresSource?: string | null
-  updatedAt?: string | null
-  lastVisit: { id: string; checklist: string | null; date: string | null; defects: number } | null
-}
+/** One station object. `address` is there wherever one is knowable (the station's, else the
+ *  name when it is a street + number, else the register's at the pin – docs/karte-objekte.md);
+ *  `locality` only when it is NOT the home town («Therwil»): print «address, locality».
+ *  `outline` is the station's choice («Lage korrigieren» in /admin): `none` = no outline at all,
+ *  not even the OSM building at the point. `footprint` is every building the object stands for
+ *  as one GeoJSON MultiPolygon (backend app/object_footprints; null = the OSM building its
+ *  point lies in, lib/karte/places · objectBuildings); `underground` the named row's addresses
+ *  without a surface building (one MultiPolygon, drawn dashed). The optional fields are absent
+ *  from an older server's or an older cached catalogue (outline absent = `auto`). */
+export type StationObject = CachedWithout<Omit<Out<'ReferenceObjectOut'>, 'plans'> & { plans: StationPlan[] },
+  'locality' | 'outline' | 'underground' | 'measures' | 'remarks' | 'measuresSource' | 'updatedAt'>
 
-export interface StationObjects {
-  objects: StationObject[]
-  generatedAt: string
-}
+export type StationObjects = Omit<Out<'ReferenceObjectsOut'>, 'objects'> & { objects: StationObject[] }
 
 export const isStationObjects = (v: unknown): v is StationObjects =>
   !!v && typeof v === 'object' && Array.isArray((v as StationObjects).objects)

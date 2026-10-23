@@ -1,4 +1,5 @@
 import type { BoardFormData } from './lib/boardForm'
+import type { Out } from './lib/api/wire'
 export type LngLat = [number, number]
 
 export type LayerId = string
@@ -295,35 +296,15 @@ export interface Entity extends SymbolProps {
 /** One breadcrumb of a team marker's movement trail on the Lage map (WGS84). */
 export interface GeoTrailPoint { coord: LngLat; t: string }
 
-/** One vehicle position as returned by kp-rueck's GET /api/traccar/positions
- *  (see backend/app/api/traccar.py · VehiclePositionResponse). */
-export interface VehiclePosition {
-  device_id: number
-  device_name: string
-  unique_id: string
-  status: string          // 'online' | 'offline' | 'unknown'
-  latitude: number
-  longitude: number
-  speed?: number | null   // km/h
-  course?: number | null  // heading in degrees
-  last_update: string     // ISO timestamp
-  address?: string | null
-}
+/** One vehicle position (GET /api/traccar/positions, backend app/traccar · VehiclePosition):
+ *  `speed` km/h, `course` heading in degrees, `last_update` ISO. `status` is Traccar's own word
+ *  ('online' | 'offline' | 'unknown' from a real tracker; the fake fleet takes any). */
+export type VehiclePosition = Out<'VehiclePosition'>
 
-/** Current weather near a coordinate (see GET /api/weather). Mirrors the backend
- *  WeatherData model; wind_dir_deg is the meteorological FROM bearing (0=N, 90=E). */
-export interface WeatherData {
-  wind_dir_deg: number | null
-  wind_speed_kmh: number | null
-  wind_gust_kmh: number | null
-  temp_c: number | null
-  precip_mm: number | null
-  /** WMO present-weather code (0=clear, 2=partly, 3=overcast, 45=fog, 6x=rain, 7x=snow, 95=storm…). */
-  weather_code: number | null
-  observed_at: string | null
-  source: string
-  station: string | null
-}
+/** Current weather near a coordinate (GET /api/weather, backend WeatherData): `wind_dir_deg` is
+ *  the meteorological FROM bearing (0=N, 90=E); `weather_code` the WMO present-weather code
+ *  (0=clear, 2=partly, 3=overcast, 45=fog, 6x=rain, 7x=snow, 95=storm…). */
+export type WeatherData = Out<'WeatherData'>
 
 export type DrawKind = 'line' | 'area' | 'circle'
 export type LineEndpoint = 'start' | 'end'

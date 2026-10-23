@@ -14,7 +14,7 @@ const incident = (id: string, title: string, extra: Partial<IncidentMeta> = {}) 
   id, title, address: 'Musterweg 1', started_at: minutesAgo(30), status: 'offen', is_archived: false, is_exercise: false, ...extra,
 }) as unknown as IncidentMeta
 const alarm = (divera_id: number, title: string): DiveraAlarm => ({
-  id: `al-${divera_id}`, divera_id, divera_number: null, title, text: null, address: 'Testgasse 3', lat: null, lng: null,
+  id: `al-${divera_id}`, divera_id, divera_number: null, title, text: null, address: 'Testgasse 3', lat: null, lng: null, taken_incident_id: null,
   received_at: minutesAgo(1), is_taken: false,
 })
 
