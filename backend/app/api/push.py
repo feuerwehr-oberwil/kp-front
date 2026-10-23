@@ -10,6 +10,9 @@ unconstrained string from any logged-in user, which made the alarm sender a requ
 and a per-user cap decides how many of them one login can leave behind.
 """
 
+import asyncio
+import hmac
+import json
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -25,7 +28,7 @@ from ..credentials import load as load_credentials
 from ..database import get_db
 from ..egress import EgressRefusedError, require_public_https
 from ..models import PushSubscription, User
-from ..push import SUBSCRIPTION_TTL_DAYS, is_known_push_host, push_enabled
+from ..push import SUBSCRIPTION_TTL_DAYS, _send_one, is_known_push_host, push_enabled
 
 router = APIRouter(prefix="/push", tags=["push"])
 
@@ -40,6 +43,11 @@ MAX_SUBSCRIPTIONS_PER_USER = 10
 #: (SEC-09, 05.09.). Over the line is a 422, like any other bad field.
 MAX_ENDPOINT_CHARS = 2048
 MAX_KEY_CHARS = 256
+
+#: «Testalarm senden» — one per browser per minute. The push goes to ONE endpoint the caller owns,
+#: so the cap only keeps a stuck finger from spamming the push service (and the person's own tray).
+TEST_PUSH_INTERVAL_SECONDS = 60
+_last_test: dict[str, float] = {}
 
 
 class SubscriptionKeys(BaseModel):
@@ -144,6 +152,71 @@ async def _enforce_quota(db: AsyncSession, user_id: uuid.UUID, now: datetime) ->
     )
     for row in rows[MAX_SUBSCRIPTIONS_PER_USER:]:
         await db.delete(row)
+
+
+@router.post("/subscriptions/renew")
+async def renew(body: SubscriptionIn, db: AsyncSession = Depends(get_db)) -> dict:
+    """Renew a registration WITHOUT a session: the subscription's own endpoint + keys are the
+    credential (3am sweep §1.3, 23.10.2026).
+
+    The 180-day TTL (``SUBSCRIPTION_TTL_DAYS``) used to be renewable only with a live login,
+    so a phone whose session had lapsed silently fell out of the alarm audience. The endpoint is
+    a capability URL only that browser holds, and ``p256dh``/``auth`` are its private
+    registration — a caller who presents all three IS that browser. Nothing is created and no
+    owner changes: an unknown endpoint or a key mismatch answers the same 404, so this cannot be
+    used to probe which endpoints exist. The row keeps its user (and so its alarm audience).
+    """
+    endpoint = body.endpoint.strip()
+    row = (await db.execute(select(PushSubscription).where(PushSubscription.endpoint == endpoint))).scalar_one_or_none()
+    if row is None or not (
+        hmac.compare_digest(row.p256dh, body.keys.p256dh) and hmac.compare_digest(row.auth, body.keys.auth)
+    ):
+        raise HTTPException(status_code=404, detail="Kein solches Push-Abo.")
+    row.created_at = datetime.now(UTC)
+    await db.flush()
+    return {"ok": True, "renewed_at": row.created_at.isoformat()}
+
+
+class TestPushIn(BaseModel):
+    endpoint: str = Field(max_length=MAX_ENDPOINT_CHARS)
+
+
+@router.post("/test")
+async def test_push(body: TestPushIn, user: CurrentUser, db: AsyncSession = Depends(get_db)) -> dict:
+    """«Testalarm senden»: one push to THIS browser's registration, so the person sees with their
+    own eyes that an alarm would reach this phone (3am sweep §1.1, 23.10.2026).
+
+    Only a row the caller owns — the endpoint is the device's capability URL, and sending to
+    somebody else's would be a stranger ringing their phone. 409 while push is not configured,
+    429 inside the per-endpoint minute, 404 for a registration this login does not hold. The
+    outcome is the push service's answer, not the phone's: ``accepted`` means it took the
+    message; a ``gone`` row is pruned here like in a sweep.
+    """
+    if not push_enabled():
+        raise HTTPException(status_code=409, detail="Push ist auf dieser Installation nicht eingerichtet.")
+    endpoint = body.endpoint.strip()
+    row = (
+        await db.execute(
+            select(PushSubscription).where(PushSubscription.endpoint == endpoint, PushSubscription.user_id == user.id)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Dieses Gerät ist nicht für Push registriert.")
+    now = asyncio.get_running_loop().time()
+    last = _last_test.get(endpoint)
+    if last is not None and now - last < TEST_PUSH_INTERVAL_SECONDS:
+        raise HTTPException(status_code=429, detail="Testalarm: bitte eine Minute warten.")
+    _last_test[endpoint] = now
+    payload = json.dumps(
+        {"title": "Testalarm", "body": "Dieses Gerät bekommt Alarme von KP Front.", "tag": "kp-test", "target": None}
+    )
+    outcome = await asyncio.to_thread(
+        _send_one, {"endpoint": row.endpoint, "p256dh": row.p256dh, "auth": row.auth}, payload, urgency="high"
+    )
+    if outcome == "gone":
+        await db.delete(row)
+        await db.flush()
+    return {"ok": outcome == "accepted", "outcome": outcome}
 
 
 @router.delete("/subscriptions", status_code=204)

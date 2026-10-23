@@ -309,6 +309,8 @@
 .set-group { display: flex; flex-direction: column; gap: 8px; }
 .set-group-t { margin: 0 0 0 4px; font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .set-card { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); background: var(--surface-2); overflow: hidden; }
+/* the «Alarm auf diesem Gerät» rows above the Gerät card (karte/AlarmReadiness) */
+.set-alarm { margin-bottom: 12px; }
 .set-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; min-height: 56px; }
 .set-row + .set-row { border-top: 1px solid var(--glass-edge); }
 /* Three steppers stacked in one card, each formatting its value differently — «5 min», «60 s»,

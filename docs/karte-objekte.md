@@ -979,6 +979,14 @@ and `KarteDevice.tsx` probe). No «ganze Station herunterladen»: that would be 
 
 What the surface shows offline:
 
+- **«Auf diesem Gerät» opens with «Alarm auf diesem Gerät»** (3am sweep §1, 23.10.2026): the four
+  readiness rows (installed · Benachrichtigung · Alarm-Abo · Anmeldung) with their one-tap fixes,
+  «Testalarm senden» and the opt-out – the same rows as under Einstellungen › Gerät
+  (`karte/AlarmReadiness`, rules in `lib/alarmReadiness`; the push side in
+  [`divera-connector.md`](divera-connector.md)). The home's nudge card (`AlarmNudgeCard`, under the
+  bar) shows only when a row is red or nothing was checked for 90 days, never while an Einsatz runs,
+  never under the menu or the search; «Später» hides it 30 days, «Keine Alarme auf diesem Gerät»
+  for good. Green = no card, not a line.
 - **The bar's «Offline» chip** (a dot only on the phone) stands where the weather was and opens
   **«Auf diesem Gerät»**: Objektkatalog · Karte (this view) · Pläne (PDFs of the whole catalogue) ·
   Gebäuderegister · Gefahrgut · Adresssuche · Wetter/Fahrzeuge · Gerätespeicher (Pläne counts the

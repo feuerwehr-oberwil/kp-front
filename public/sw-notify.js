@@ -9,18 +9,37 @@ self.addEventListener('push', (event) => {
   let data = {}
   try { data = event.data ? event.data.json() : {} } catch { /* non-JSON push — show generic */ }
   const title = data.title || 'KP Front'
-  event.waitUntil(self.registration.showNotification(title, {
-    body: data.body || '',
-    tag: data.tag || 'kp-front',
-    renotify: true,
-    data: { target: data.target || null },
-  }))
+  const tag = data.tag || 'kp-front'
+  // A killed-app «Neuer Einsatz» looked like any tray item (3am sweep §1.6, 23.10.2026): the
+  // options mirror the in-app notify() (src/lib/alarm.ts) — icon, badge, the same vibration —
+  // and the dispatch stays on the lock screen until somebody acts (requireInteraction). The
+  // home-screen badge marks a fresh alarm until the app has it in front of the operator
+  // (src/lib/push.ts · clearAppBadge; the tap below clears it too).
+  const alarm = tag.indexOf('divera') === 0
+  event.waitUntil((async () => {
+    await self.registration.showNotification(title, {
+      body: data.body || '',
+      tag,
+      renotify: true,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      vibrate: alarm ? [300, 100, 300, 100, 300] : [200, 100, 200],
+      requireInteraction: alarm,
+      data: { target: data.target || null },
+    })
+    if (alarm && self.navigator && self.navigator.setAppBadge) {
+      try { await self.navigator.setAppBadge(1) } catch { /* not supported */ }
+    }
+  })())
 })
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const target = (event.notification.data && event.notification.data.target) || null
   event.waitUntil((async () => {
+    if (self.navigator && self.navigator.clearAppBadge) {
+      try { await self.navigator.clearAppBadge() } catch { /* not supported */ }
+    }
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     let client = all.find((c) => 'focus' in c) || null
     if (client) {

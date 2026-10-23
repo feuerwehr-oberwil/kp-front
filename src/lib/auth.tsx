@@ -21,6 +21,9 @@ export interface AuthUser {
   last_login: string | null
   /** start this login in the Einsatzleiter view (frontend default; device pref overrides) */
   el_view_default?: boolean
+  /** when this device's login lapses unless renewed (the refresh token's expiry, ISO) — the
+   *  «Anmeldung» row of «Alarm auf diesem Gerät» (lib/alarmReadiness). Absent on a link session. */
+  session_until?: string | null
   /** this is an Einsatz-Link session (/l/<token>), not a login: a viewer narrowed to ONE
    *  incident, whose backend surface is an allowlist of reads (see incidentLink.ts). Surfaces
    *  gate on it to hide what would 403 — reports, printing, alarms, and every write. */
@@ -79,7 +82,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 // session gone) clears it.
 // A link session is deliberately NEVER cached (and landing on one CLEARS the cache): the
 // offline restore above is a promise that the httpOnly cookie is still good — true for a
-// station tablet whose 8h/7d session simply can't be verified right now, false for an
+// station tablet whose 8h/90d session simply can't be verified right now, false for an
 // Einsatz-Link, which stops being valid the moment the Einsatz is closed or the link expires,
 // with nothing on the device able to notice. Cached, a responder's phone would keep re-opening
 // a read-only Einsatz view long after that Einsatz ended, and no online probe would ever come
