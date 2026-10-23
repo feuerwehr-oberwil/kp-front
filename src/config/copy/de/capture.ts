@@ -96,7 +96,7 @@ export const captureCopy = {
     stateLeft: 'gegangen',
     sectionMaterial: 'Material',
     cancel: 'Abbrechen',
-    mittelCount: '{n} Positionen',
+    mittelCount: (n: number) => (n === 1 ? '1 Position' : `${n} Positionen`),
     pickMaterial: 'Material wählen …',
     add: 'Hinzufügen',
     notePlaceholder: 'Notiz für den Verlauf …',

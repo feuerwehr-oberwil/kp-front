@@ -128,7 +128,7 @@ export const incidentCopy: Localizable<Pick<Copy, Keys>> = {
     personen: '{n} présents',
     von: 'de',
     bis: 'à',
-    mittelCount: '{n} positions',
+    mittelCount: (n: number) => (n === 1 ? '1 position' : `${n} positions`),
     mittelNone: 'Rien utilisé',
     complete: 'Clore l’intervention',
     backToRapport: 'Retour au rapport',

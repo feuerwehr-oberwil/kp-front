@@ -2259,7 +2259,7 @@ export function ReportPreflight({
                 </div>
               )}
             </CheckRow>
-            <CheckRow anchor="mittel" tab="werwas" done={stepDone('mittel', facts)} label={A.steps.mittel} sub={fillTemplate(A.mittelCount, { n: mittelCount })} onGo={onOpenMittel}>
+            <CheckRow anchor="mittel" tab="werwas" done={stepDone('mittel', facts)} label={A.steps.mittel} sub={A.mittelCount(mittelCount)} onGo={onOpenMittel}>
               {mittelCount > 0 && (
                 <div className="rp-check-extra">
                   <div className="rp-people">

@@ -46,7 +46,7 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
   },
   mittel: {
     title: 'Materiale',
-    summary: '{lines} posizioni',
+    summary: (n: number) => (n === 1 ? '1 posizione' : `${n} posizioni`),
     summaryEmpty: 'Niente di registrato',
     add: 'Materiale',
     viewBySource: 'In uso',

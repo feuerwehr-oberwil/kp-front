@@ -183,7 +183,7 @@ export const incidentCopy = {
     personen: '{n} anwesend',
     von: 'von',
     bis: 'bis',
-    mittelCount: '{n} Positionen',
+    mittelCount: (n: number) => (n === 1 ? '1 Position' : `${n} Positionen`),
     mittelNone: 'Nichts verwendet',
     complete: 'Einsatz abschliessen',
     backToRapport: 'Zurück zum Rapport',

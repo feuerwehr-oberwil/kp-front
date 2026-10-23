@@ -6,7 +6,7 @@ import type { Copy, Localizable } from '../index'
 export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
   mittel: {
     title: 'Material',
-    summary: '{lines} entries',
+    summary: (n: number) => (n === 1 ? '1 entry' : `${n} entries`),
     summaryEmpty: 'Nothing recorded yet',
     add: 'Material',
     viewBySource: 'by source',

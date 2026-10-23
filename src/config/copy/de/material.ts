@@ -6,7 +6,7 @@ export const materialCopy = {
   // Mittel surface (MittelView) — manual material capture for Rapport / resupply
   mittel: {
     title: 'Material',
-    summary: '{lines} Positionen',
+    summary: (n: number) => (n === 1 ? '1 Position' : `${n} Positionen`),
     summaryEmpty: 'Noch nichts erfasst',
     add: 'Material',
     // «In Verwendung» ist ein Filter-Knopf auf der Suchzeile, kein Tab mehr – die Bezeichnung
