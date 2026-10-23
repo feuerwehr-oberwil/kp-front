@@ -336,7 +336,11 @@ async def test_search_degrades_to_empty_list_on_malformed_json(patch_httpx, monk
 async def test_geocode_wrapper_returns_the_first_hits_coordinates(patch_httpx, monkeypatch):
     monkeypatch.setattr(settings, "geocoder_default_locality", "", raising=False)
     monkeypatch.setattr(settings, "geocoder_bbox_lv95", "", raising=False)
-    patch_httpx(lambda r: httpx.Response(200, json={"results": [{"attrs": {"lat": 47.5, "lon": 7.5, "label": "X"}}]}))
+    patch_httpx(
+        lambda r: httpx.Response(
+            200, json={"results": [{"attrs": {"lat": 47.5, "lon": 7.5, "label": "Storchenweg 8, 4104 Oberwil"}}]}
+        )
+    )
     assert await geocode.geocode("Storchenweg 8") == (47.5, 7.5)
 
 
