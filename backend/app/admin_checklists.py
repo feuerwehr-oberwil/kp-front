@@ -44,6 +44,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from . import storage
 from .admin_cli import add_push_args, admin_client, fail, require_push_target
@@ -263,7 +264,7 @@ def _expected_ids(entries: list[ChecklistEntry]) -> set[str]:
 
 
 async def _upsert(
-    db,
+    db: AsyncSession,
     ds_id: str,
     kind: str,
     title: str | None,

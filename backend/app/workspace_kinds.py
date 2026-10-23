@@ -21,7 +21,7 @@ from typing import Any
 BOARD_KIND_SINCE: dict[str, int] = {"form": 3}
 
 
-def _sheet_anno(obj: Any) -> tuple[str, dict] | None:
+def _sheet_anno(obj: Any) -> tuple[str, dict[str, Any]] | None:
     if not isinstance(obj, dict):
         return None
     sheet = obj.get("sheet")
@@ -33,7 +33,7 @@ def _sheet_anno(obj: Any) -> tuple[str, dict] | None:
     return sheet["planId"], anno
 
 
-def keep_newer_board_kinds(workspace: dict, stored: dict | None) -> list[str]:
+def keep_newer_board_kinds(workspace: dict[str, Any], stored: dict[str, Any] | None) -> list[str]:
     """Put back every stored board object whose kind is newer than the saving build. Mutates
     `workspace` (the body about to be stored); returns the ids it put back."""
     sv = workspace.get("schemaVersion")
@@ -42,7 +42,7 @@ def keep_newer_board_kinds(workspace: dict, stored: dict | None) -> list[str]:
     if not newer or not isinstance(stored, dict):
         return []
     raw_objects = stored.get("objects")
-    stored_objects: list = raw_objects if isinstance(raw_objects, list) else []
+    stored_objects: list[Any] = raw_objects if isinstance(raw_objects, list) else []
     keep = []
     for obj in stored_objects:
         hit = _sheet_anno(obj)
@@ -64,7 +64,7 @@ def keep_newer_board_kinds(workspace: dict, stored: dict | None) -> list[str]:
         for obj in keep:
             plan_id, anno = _sheet_anno(obj)  # type: ignore[misc]
             raw_sheet = board.get(plan_id)
-            sheet: list = raw_sheet if isinstance(raw_sheet, list) else []
+            sheet: list[Any] = raw_sheet if isinstance(raw_sheet, list) else []
             if not any(isinstance(a, dict) and a.get("id") == anno.get("id") for a in sheet):
                 sheet = [*sheet, anno]
                 if obj.get("id") not in put_back:

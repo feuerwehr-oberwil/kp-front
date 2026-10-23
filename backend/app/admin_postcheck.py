@@ -47,7 +47,6 @@ import math
 import re
 import sys
 from collections import Counter, defaultdict
-from collections.abc import AsyncIterator, Iterable, Iterator
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -59,6 +58,8 @@ from . import vehicle_presence
 from .admin_cli import fail as _cli_fail
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterable, Iterator
+
     from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
 
 #: Exit codes — the contract a cron job reads.
