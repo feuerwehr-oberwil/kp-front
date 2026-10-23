@@ -125,6 +125,12 @@ screenshots: those retain their separate projects and measurement environments. 
 Playwright inventory, including new files/projects, without launching a browser or app, and
 rejects empty suites, duplicate cases or missing cases.
 
+Every browser job (the three suites, Performance, Visual, «Visual baselines») installs its
+browsers through `.github/actions/playwright-browsers`: `~/.cache/ms-playwright` comes from the
+Actions cache, keyed on the Playwright version and the browser list, and a hit installs only the
+apt dependencies. The CDN download was what stalled jobs into their 10-minute timeout (seven of
+sixteen runs re-run by hand in October 2026); a Playwright bump starts one cold run per key.
+
 Every suite retains the client-error/render-storm guard, the field scenario's no-retry policy,
 and the browser's own observation windows. Parallelize by isolated stacks, not additional
 workers mutating one shared incident or fleet.
