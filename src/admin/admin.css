@@ -984,7 +984,7 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-state-err { color: var(--red-strong); }
 /* the sentence a delete sheet asks – body text, not an empty state: `.adm-state`'s 40px padding and
    centring left a gap between it and the ids it names (sweep F.12, 23.10.2026) */
-.adm-confirm-body { margin: 0 0 8px; font-size: 13.5px; line-height: 1.5; color: var(--ink); }
+.adm-confirm-body { margin: 0 0 8px; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--ink); }
 
 /* ── teaching empty / load / error state (EmptyState primitive) ───────────────
    Richer than .adm-state: a headline + an optional "next step" hint + an optional
