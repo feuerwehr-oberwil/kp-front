@@ -315,6 +315,12 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     `--on-btn-primary`), never `--ink-fill`/`--blue`/`--accent` directly. **Red never fills an
     action** – it means danger/delete only. Amber = warning but not critical; red = danger,
     broken, act now; blue/grey = normal status and in-progress.
+  - *Text on colour (23.10.2026, sweep G.2/G.4–G.6):* red as TEXT or a glyph is `--red-strong`;
+    `--red` only fills and strokes. A word on an `--amber` fill is `--on-amber` (dark in both
+    themes – white on amber is 2.5:1 by day), on the other hues `--on-fill`. The three ink tiers
+    and these fill pairs clear 4.5:1 in both themes; `src/styles/tokenContrast.test.ts` measures
+    them from `01-tokens.css` and also fails on a control filled with `--ink` (that is
+    `--btn-primary`'s job – `--ink` glares at night).
   - *Disabled:* `opacity: var(--disabled)` + `cursor: default`. Never inline the number.
     **A save that cannot save YET is never natively `disabled`** (UX sweep F2, 20.10.2026; the
     Trupp form since 02.09.): it is `aria-disabled` (the same dimmed look, `.ip-btn` /

@@ -110,7 +110,7 @@
 
 /* the ±stepper and its unit — one block, so both views end on the same right edge */
 .rowEdit { flex: none; display: flex; align-items: center; gap: 8px; }
-.over { color: var(--red); }
+.over { color: var(--red-strong); }
 
 /* The compact idle row's «+» — the whole control a Position at 0 verwendet carries.
    var(--tap) square with a −4px margin on three sides: the hit area is the full 44px, but it

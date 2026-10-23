@@ -12,9 +12,10 @@
   color: var(--ink-faint); white-space: nowrap; }
 /* «Register-Hinweis» opens the hint and the source line, as it does in the Karte panel (owner,
    20.10.2026: on the tablet the old `title=` tooltip did nothing). A 44px target that does NOT
-   grow the head — the negative block margin hangs it over the rows, like the ✕ beside it. */
+   grow the head — the negative block margin hangs it over the rows, like the ✕ beside it.
+   --fs-1, not the plain hint's --fs-micro: a word you tap is never under the 12.5px floor. */
 .hintBtn { position: relative; isolation: isolate; min-height: var(--tap); margin-block: calc(var(--sp-2) * -1); padding: 0 var(--sp-1);
-  border: none; background: none; font-size: var(--fs-micro); cursor: pointer; }
+  border: none; background: none; font-size: var(--fs-1); cursor: pointer; }
 .hintBtn::before { content: ''; position: absolute; inset: 9px 0; z-index: -1; border-radius: var(--r-xs); }
 @media (hover: hover) { .hintBtn:hover { color: var(--ink-dim); } .hintBtn:hover::before { background: var(--hover); } }
 .hintBtn:active::before { background: var(--press); }

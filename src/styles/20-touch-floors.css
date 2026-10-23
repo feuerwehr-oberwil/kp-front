@@ -80,6 +80,9 @@
   .cv-missing-go { min-height: var(--tap); }
   /* the Verlauf's «wieder in …» offers on a closed Pendenz (≈24px), side by side 5px apart */
   .jr-again-btn { min-height: var(--tap); }
+  /* a user-added Detail field's two boxes (34/32px): an <input> cannot carry a ::before pad, and
+     the row's next field is a padding away */
+  .kv-key, .kv-val { min-height: var(--tap); }
 }
 
 /* ---- The drawing controls stay as they are — decided, not overlooked ------------------------

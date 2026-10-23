@@ -314,7 +314,7 @@
    colour-only, and its explanation lived in a `title` — which a touch screen never shows. */
 .conflict > svg {
   position: absolute; left: 5px; top: 12px; width: 12px; height: 12px;
-  color: var(--red); pointer-events: none; z-index: 2;
+  color: var(--red-strong); pointer-events: none; z-index: 2;
 }
 
 /* A reversed shift (bis before von) has no span, so barGeometry draws nothing and the row went
@@ -326,7 +326,7 @@
   display: grid; place-items: center; -webkit-tap-highlight-color: transparent;
 }
 .brokenBar:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.brokenBar svg { width: 15px; height: 15px; color: var(--red); }
+.brokenBar svg { width: 15px; height: 15px; color: var(--red-strong); }
 
 /* An end that runs on past the window frays. A clean vertical edge exactly on the border read as
    if the shift STARTED there — a 06:00–14:00 shift looked like it began at 08:00 on an 08:00
@@ -341,7 +341,7 @@
 
 /* the conflict sign repeated in the name cell: while the axis is scrolled away from the clash you
    can still see WHICH person it belongs to */
-.whoWarn { flex: none; color: var(--red); display: grid; place-items: center; }
+.whoWarn { flex: none; color: var(--red-strong); display: grid; place-items: center; }
 .whoWarn svg { width: 13px; height: 13px; }
 
 /* the day boundary: dashed, quiet, behind everything — it separates, it does not compete with
@@ -356,7 +356,7 @@
 .nowLineHead em {
   position: absolute; top: 0; left: 3px; padding: 1px var(--sp-1); border-radius: 2px;
   background: var(--surface); font: var(--fw-bold) var(--fs-micro) var(--mono); font-style: normal;
-  color: var(--red); letter-spacing: .04em; text-transform: uppercase;
+  color: var(--red-strong); letter-spacing: .04em; text-transform: uppercase;
 }
 /* past the middle the flag reads to the LEFT of its line: the fitted window puts «Jetzt» at ~¾,
    and a flag running right ran into the axis end — on a phone under the corner's ⓘ («JI») */

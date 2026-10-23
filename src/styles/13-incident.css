@@ -34,10 +34,10 @@
 .ip-status-synced { color: var(--green); }
 .ip-status-pending { color: var(--amber); }
 .ip-status-offline { color: var(--ink-dim); }
-.ip-status-error { color: var(--red); }
+.ip-status-error { color: var(--red-strong); }
 /* storage-full: red like a sync error, because it is the more severe of the two — the work
    isn't merely un-synced, it isn't saved anywhere */
-.ip-status-storage { color: var(--red); }
+.ip-status-storage { color: var(--red-strong); }
 /* loud offline pill in the switcher header — only shows while offline, so it never causes the
    constant saving↔saved layout flip; amber-on-tint so it reads at a glance at 3am */
 .ip-offline-chip { display: inline-flex; align-items: center; gap: 4px; flex: none;
@@ -47,7 +47,7 @@
    tint + ink, never an outline besides */
 .ip-offline-chip .ip-status-dot { width: 7px; height: 7px; }
 /* sync-error variant of the chip — red-on-tint with the warn glyph, same slot/behaviour */
-.ip-error-chip { color: var(--red); background: var(--red-16);
+.ip-error-chip { color: var(--red-strong); background: var(--red-16);
 }
 .ip-switch-btn .ip-error-chip svg { width: 12px; height: 12px; opacity: 1; }
 /* ── Atemschutz board: its own sync/clock line (AtemschutzView header, under the subtitle) ──
@@ -191,7 +191,7 @@
    same fill, same digits (11/800 since 28.09.2026), same 16px — riding the tile's top-right corner instead of taking a
    word's width inside it */
 .ip-card-act > .ip-badge-todo { position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px;
-  box-sizing: border-box; padding: 0 4px; border-radius: var(--r-xs); background: var(--amber); color: var(--on-fill);
+  box-sizing: border-box; padding: 0 4px; border-radius: var(--r-xs); background: var(--amber); color: var(--on-amber);
   font: var(--fw-heavy) var(--fs-micro)/16px var(--body); letter-spacing: 0; text-align: center; }
 /* «Jetzt synchronisieren» at the title row's right edge — pinned there at every width, so the
    Einsatz's connection state and the button that refreshes it sit on the same line. Pulled
@@ -278,7 +278,7 @@
    itself. The section views carry their own absolute inset/z-index, so they never needed the
    wrapper for layout.) */
 
-.ip-menu-act.danger { color: var(--red); }
+.ip-menu-act.danger { color: var(--red-strong); }
 /* every row locks while an Einsatz is being opened or an alarm taken (home's sheet: App · opening /
    taking) — the one it is happening on carries the Shell trail */
 .ip-menu-row:disabled, .ip-menu-alarm-x:disabled { opacity: var(--disabled); cursor: default; }
@@ -351,7 +351,7 @@
 .or-stand.or-sync-synced { color: var(--green-strong); background: color-mix(in srgb, var(--green) 9%, var(--surface)); }
 .or-stand.or-sync-offline, .or-stand.or-sync-error { color: var(--amber-strong); background: color-mix(in srgb, var(--amber) 11%, var(--surface)); }
 /* not amber with the retryable states: nothing here will be retried */
-.or-stand.or-sync-storage { color: var(--red); background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
+.or-stand.or-sync-storage { color: var(--red-strong); background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
 .or-stand .ip-status-dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
 .or-list { display: flex; flex-direction: column; }
 .or-row { display: flex; align-items: center; gap: 12px; min-height: var(--tap); padding: 8px 4px;
@@ -444,7 +444,7 @@
   border-radius: var(--r-sm); background: var(--ink-5); color: var(--ink-dim); cursor: pointer;
   font: var(--fw-bold) var(--fs-1) var(--body); transition: background .14s var(--ease), color .14s var(--ease); }
 @media (hover: hover) {
-  .ip-menu-logout:hover { background: var(--red-12); color: var(--red); }
+  .ip-menu-logout:hover { background: var(--red-12); color: var(--red-strong); }
 }
 .ip-menu-logout:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-menu-logout svg { width: 15px; height: 15px; }
@@ -1365,7 +1365,7 @@ button.rp-sign-row:disabled { cursor: default; }
 }
 .cv-btn-ghost { min-height: 40px; padding: 0 12px; background: none; border-color: transparent; color: var(--ink-faint); }
 @media (hover: hover) {
-  .cv-btn-ghost:hover:not(:disabled) { background: var(--red-12); color: var(--red); }
+  .cv-btn-ghost:hover:not(:disabled) { background: var(--red-12); color: var(--red-strong); }
 }
 .cv-btn svg { width: 15px; height: 15px; }
 /* flows in the page scroll — the nested 46dvh list scroll confused touch (two surfaces) */
@@ -1462,12 +1462,6 @@ button.rp-sign-row:disabled { cursor: default; }
 .timefield-trigger.dt { min-width: 168px; }
 .timefield-trigger.empty { color: var(--ink-faint); font-weight: var(--fw-medium); }
 .timefield-trigger:disabled { opacity: var(--disabled); cursor: default; }
-.timefield-input { width: 82px; min-height: 44px; padding: 4px 8px; text-align: center;
-  border-radius: var(--r-ctl); border: 1px solid var(--glass-line); background: var(--surface);
-  color: var(--ink); font: var(--fw-medium) var(--fs-2) var(--body); font-variant-numeric: tabular-nums; }
-.timefield-input.dt { width: 176px; }
-.timefield-input::placeholder { color: var(--ink-faint); font-weight: var(--fw-medium); }
-.timefield-input:disabled { opacity: var(--disabled); cursor: default; }
 .timefield-now { min-height: 44px; padding: 8px 12px; border: 1px solid var(--glass-line);
   border-radius: var(--r-sm); background: var(--surface); color: var(--ink);
   font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; }
@@ -1485,8 +1479,8 @@ button.rp-sign-row:disabled { cursor: default; }
 .wheel-pad { height: 88px; flex: none; }
 .wheel-item { display: grid; place-items: center; width: 100%; height: 44px;
   scroll-snap-align: center; border: none; background: none; cursor: pointer;
-  /* --ink-dim, not --ink-faint: at night the faint tone is 3.64:1, and reading the numbers you are
-     NOT on yet is the entire job of this popover. */
+  /* --ink-dim, not --ink-faint: the faint tone only just clears AA (4.67:1 at night), and reading the numbers you
+     are NOT on yet is the entire job of this popover. */
   font: var(--fw-medium) var(--fs-3) var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 .wheel-item.on { color: var(--ink); font-weight: var(--fw-bold); }
 /* the day column: the widest label, so the widest column — and ONE line, always. It used to share
@@ -1494,7 +1488,6 @@ button.rp-sign-row:disabled { cursor: default; }
    band on a phone (owner, 05.10.2026). Hour/minute rows stay full-width 44px targets. */
 .wheel.wheel-day { flex: 1.6 1 0; min-width: 0; }
 .wheel-day .wheel-item { white-space: nowrap; font-size: var(--fs-2); }
-.wheelpop-sep { width: 1px; background: var(--glass-line); margin: 32px 2px; }
 /* the SELECTION band of the time wheel — --blue for the same reason as .combo-toggle.on above:
    it marks what is chosen, and brand red does not mean «chosen» anywhere else in the app */
 .wheelpop-band { position: absolute; left: 0; right: 0; top: 88px; height: 44px;
@@ -1508,7 +1501,7 @@ button.rp-sign-row:disabled { cursor: default; }
 .wheelpop-btn { min-height: 44px; padding: 8px 12px; border-radius: var(--r-sm);
   border: 1px solid var(--glass-line); background: var(--surface); color: var(--ink);
   font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer; white-space: nowrap; }
-.wheelpop-btn.clear { color: var(--red); border-color: var(--del-edge); }
+.wheelpop-btn.clear { color: var(--red-strong); border-color: var(--del-edge); }
 .wheelpop-btn.clear svg { width: 14px; height: 14px; display: block; }
 .wheelpop-btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
 /* a note that blocks (a Wiedervorlage in the past) holds «OK» back until the wheels move — aria-
@@ -1788,7 +1781,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
 .ui-menu-item:active:not([data-disabled]) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the one destructive row a menu may carry (Trupp · Entfernen). Behind a separator and red, so it
    is never mistaken for the neutral rows above it. */
-.ui-menu-danger { color: var(--red); }
+.ui-menu-danger { color: var(--red-strong); }
 .ui-menu-danger[data-highlighted] { background: var(--red-12); }
 @media (hover: hover) {
   .ui-menu-danger:hover:not([data-disabled]) { background: var(--red-12); }
@@ -1968,12 +1961,8 @@ select.cv-input { appearance: none; -webkit-appearance: none;
      ⚠️ The whole mechanism lives inside this media query and nowhere else: above 600px the bar
      is `display: none` and `[data-tab]` selects nothing, so the one-column band (601–1080) and
      the two-column layout (1080+) are exactly what they were. */
-  /* ⚠️ No padding or flex sizing here any more: the strip is taken out of the surface's column
-     and docked above the nav bar (15-mobile.css · .rp-tabs), which owns its box. */
-  .rp-tabs { display: block; }
-  .rp-tabs > .useg { display: flex; width: 100%; }
-  .rp-tabs .useg-btn { flex: 1; min-width: 0; min-height: var(--tap); position: relative;
-    padding: 8px; white-space: nowrap; }
+  /* (the strip itself — shown, docked above the nav bar, its segments — is ONE phone block in
+     15-mobile.css · .rp-tabs, which owns its box) */
 
   /* the same amber the head's «noch offen» chips carry — one page, one meaning for «offen» */
   .rp-tab-dot { position: absolute; top: 7px; right: 8px; width: 7px; height: 7px; border-radius: 50%;
@@ -2201,11 +2190,11 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .ip-launch-sub { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Divera-alarm row: red kicker + pulse to read as the loud, fresh thing */
 .ip-launch.alarm { border-color: color-mix(in srgb, var(--red) 35%, var(--glass-edge)); }
-.ip-launch-kicker { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red); }
+.ip-launch-kicker { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--red-strong); }
 .ip-launch-pulse { flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
-  background: var(--red-16); color: var(--red); }
+  background: var(--red-16); color: var(--red-strong); }
 .ip-launch-pulse svg { width: 16px; height: 16px; }
-.ip-launch-go { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--red); padding-left: 8px; }
+.ip-launch-go { flex: none; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--red-strong); padding-left: 8px; }
 /* the alarm card splits into take-button + pool-archive × (the intake sheet is gone),
    so the row drops its own padding/cursor onto the inner hit areas */
 .ip-launch.alarm { padding: 0; cursor: default; display: flex; align-items: stretch; gap: 0; }
@@ -2233,7 +2222,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
   background: none; cursor: pointer; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-faint);
   transition: background .14s var(--ease), color .14s var(--ease); }
 @media (hover: hover) {
-  .ip-foot-logout:hover { background: var(--red-12); color: var(--red); }
+  .ip-foot-logout:hover { background: var(--red-12); color: var(--red-strong); }
 }
 .ip-foot-logout .i { width: 15px; height: 15px; }
 .ip-emptyapp-utils { display: flex; flex-wrap: wrap; gap: 2px; margin-left: -8px; }
@@ -2297,7 +2286,7 @@ summary.ip-group-head > .chev { flex: none; width: 16px; height: 16px; margin-le
 .esh-url.copied .esh-copy { color: var(--green); }
 .esh-send { flex: none; }
 /* Red never FILLS an action — it means danger, and revoking is the danger here. */
-.esh-revoke { flex: none; color: var(--red); box-shadow: inset 0 0 0 1px var(--del-edge); }
+.esh-revoke { flex: none; color: var(--red-strong); box-shadow: inset 0 0 0 1px var(--del-edge); }
 /* Under the address, not behind a tooltip: it is the one thing somebody has to have read
    BEFORE sending the link on. The ONE warning look (AGENTS · «Fields, titles, eyebrows, warnings»,
    29.09.2026 — it was dim 12.5 text in a 13% tint): ink 13/700, the glyph in the tone

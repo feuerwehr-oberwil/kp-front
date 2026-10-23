@@ -42,7 +42,7 @@
 .mn-warn :global(.i), .mn-hint :global(.i) { width: 16px; height: 16px; flex: none; margin-top: 2px; }
 /* red is the line that hurts someone — a light wash with red ink and glyph, never a red fill */
 .mn-warn { background: var(--red-8); color: var(--ink); }
-.mn-warn :global(.i), .mn-warn strong { color: var(--red); }
+.mn-warn :global(.i), .mn-warn strong { color: var(--red-strong); }
 .mn-hint { background: var(--fill-soft); color: var(--ink-dim); }
 .mn-hint :global(.i) { color: var(--ink-faint); }
 .mn-body :global(figure) { margin: 4px 0 0; }

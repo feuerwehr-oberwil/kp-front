@@ -273,7 +273,7 @@ button.sumToggle:active { background-image: linear-gradient(var(--press), var(--
 .headStatus .seg:first-child { flex: none; }
 /* the filing glyph needs no separator dot: a little air is enough, and it never shrinks away */
 .segIcon { flex: none; margin-left: 4px; }
-.headStatus .segIcon.toneBad :global(.i), .headStatus .segIcon.toneBad svg { color: var(--red); }
+.headStatus .segIcon.toneBad :global(.i), .headStatus .segIcon.toneBad svg { color: var(--red-strong); }
 .place { display: flex; align-items: center; gap: var(--sp-2); margin: 0 4px; font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink-dim); }
 .place :global(.i), .place svg { flex: none; width: 15px; height: 15px; color: var(--ink-faint); }
 .field { min-width: 0; }

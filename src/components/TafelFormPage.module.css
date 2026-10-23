@@ -95,7 +95,7 @@
 .tag { flex: 0 0 30%; color: var(--ink-dim); }
 .trend { flex: none; width: var(--tap); min-height: var(--tap); }
 .trend span { font-size: var(--fs-4); line-height: 1; }
-.trend[data-trend='up'] { color: var(--red); }
+.trend[data-trend='up'] { color: var(--red-strong); }
 .trend[data-trend='down'] { color: var(--green); }
 .trendGap { flex: none; width: var(--tap); }
 /* a locked page's Tendenz: the arrow alone, a read-out in the button's place and tone */
