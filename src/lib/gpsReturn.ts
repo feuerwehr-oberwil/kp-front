@@ -27,7 +27,7 @@
 import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { haversineM } from './geo'
-import { fillTemplate, formatTime } from './format'
+import { fillTemplate, formatLocale, formatTime } from './format'
 import { drawingLogName } from './drawingEdit'
 import { lineLabel } from './lineDecor'
 import { GPS_GUARD_METRES } from './lineAttachments'
@@ -229,7 +229,7 @@ export function fmtAway(m: number): string {
     const r = Math.round(m / 10) * 10
     return r < 1000 ? `${r} m` : fmtAway(1000)
   }
-  return `${(m / 1000).toLocaleString(appConfig.locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km`
+  return `${(m / 1000).toLocaleString(formatLocale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km`
 }
 
 /** One GPS end a Meldung acts on. */
