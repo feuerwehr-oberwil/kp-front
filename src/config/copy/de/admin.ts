@@ -629,6 +629,7 @@ export const adminCopy = {
       loading: 'Einsätze werden geladen …', error: 'Einsätze konnten nicht geladen werden.', search: 'Titel, Adresse oder Herkunft suchen …',
       none: 'Noch keine Einsätze.', noMatches: 'Keine Einsätze passen zur Suche.', started: 'Beginn', incident: 'Einsatz', status: 'Status',
       source: 'Herkunft', report: 'Rapport', updated: 'Geändert', open: 'offen', closed: 'abgeschlossen', complete: 'vollständig', incomplete: 'offen',
+      sources: { manual: 'Manuell erfasst', divera: 'Divera', firehub: 'FireHub', migrated: 'Übernommen' } as Record<string, string>,
       // ⚠️ Löschen vernichtet eine Einsatzakte: Verlauf, Prüfkette, Anwesenheit, Fotos und
       // Sprachnotizen. Die Frage nennt deshalb, was verschwindet — nicht «wirklich löschen?»,
       // was nur fragt, ob man den Knopf treffen wollte. Nur für abgeschlossene Einsätze, weil

@@ -556,6 +556,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       loading: 'Chargement des interventions…', error: 'Impossible de charger les interventions.', search: 'Rechercher titre, adresse ou source…',
       none: 'Aucune intervention.', noMatches: 'Aucune intervention ne correspond.', started: 'Début', incident: 'Intervention', status: 'Statut',
       source: 'Source', report: 'Rapport', updated: 'Modifié', open: 'ouverte', closed: 'terminée', complete: 'complet', incomplete: 'en attente',
+      sources: { manual: 'Saisi à la main', divera: 'Divera', firehub: 'FireHub', migrated: 'Repris' } as Record<string, string>,
 
       delete: 'Supprimer',
       deleteAria: 'Supprimer «{title}»',

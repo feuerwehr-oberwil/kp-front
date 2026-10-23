@@ -555,6 +555,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       loading: 'Loading incidents…', error: 'Could not load incidents.', search: 'Search title, address or source…',
       none: 'No incidents available.', noMatches: 'No incidents match the search.', started: 'Started', incident: 'Incident', status: 'Status',
       source: 'Source', report: 'Report', updated: 'Updated', open: 'open', closed: 'closed', complete: 'complete', incomplete: 'pending',
+      sources: { manual: 'Entered by hand', divera: 'Divera', firehub: 'FireHub', migrated: 'Migrated' } as Record<string, string>,
 
       delete: 'Delete',
       deleteAria: 'Delete «{title}»',
