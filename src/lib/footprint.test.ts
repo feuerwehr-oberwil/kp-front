@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { activeViewDeg, bandAspect, BOX_H, BOX_W, buildView, fpBoxFrac, northVec, principalAngleDeg, remapPoint, stackScaleMPerU, type Ring, type Pt } from './footprint'
+import { activeViewDeg, bandAspect, BOX_H, BOX_W, buildView, fpBoxFrac, principalAngleDeg, remapPoint, stackScaleMPerU, type Ring, type Pt } from './footprint'
 import { pathMetres } from './planScale'
 
 const rad = (d: number) => (d * Math.PI) / 180
@@ -75,17 +75,6 @@ describe('buildView', () => {
 
   it('reports aspect = bbox h/w', () => {
     expect(buildView(RECT, 0).aspect).toBeCloseTo(0.5, 9)
-  })
-})
-
-describe('northVec', () => {
-  it('points straight up when unrotated', () => {
-    expect(northVec(0)).toEqual([0, -1])
-  })
-  it('rotates clockwise with the footprint', () => {
-    const [x, y] = northVec(90)
-    expect(x).toBeCloseTo(1, 9) // 90° → north now points to the right
-    expect(y).toBeCloseTo(0, 9)
   })
 })
 
