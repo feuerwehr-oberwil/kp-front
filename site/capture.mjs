@@ -60,7 +60,10 @@ const pin = arg('pin')
  *  `hero` marks the one picture the landing page shows above the fold – it gets the small
  *  copy for phones and the JPEG for link previews on top. */
 const shots = [
-  { name: 'lage', nav: 'Karte', settle: 3500, note: 'Hero: taktische Karte', docs: 'lage', hero: true },
+  // The Einsatz camera fits the whole incident extent, so the Schloss is small in the frame and
+  // the symbols pile up at the bottom edge. The hero is a crop around the Einsatzort instead:
+  // `crop` = centre (fractions of the frame) and magnification, applied to every output.
+  { name: 'lage', nav: 'Karte', settle: 3500, note: 'Hero: taktische Karte', docs: 'lage', hero: true, crop: { cx: 0.49, cy: 0.6, zoom: 1.8 } },
   { name: 'plan', nav: 'Modul 1', settle: 4000, note: 'Objektplan als Whiteboard' },
   { name: 'gebaeude', nav: 'Gebäude', settle: 1500, docs: 'gebaeude' },
   { name: 'atemschutz', nav: 'Trupps', settle: 1200, docs: 'atemschutz' },
@@ -77,8 +80,10 @@ const shots = [
       // hours, the rest of the axis would be empty space. Narrow it until the crew actually
       // fills the width – and scroll to the end so the coverage row sits below the last row
       // instead of half over it.
+      // The button is disabled once the Zeitraum is as narrow as it gets (22.10.2026: it was
+      // already there after a reset, and a click on a disabled button waits until the timeout).
       const narrower = page.getByRole('button', { name: 'Zeitraum enger' }).first()
-      for (let i = 0; i < 2 && await narrower.count(); i++) {
+      for (let i = 0; i < 2 && await narrower.count() && await narrower.isEnabled(); i++) {
         await narrower.click()
         await page.waitForTimeout(400)
       }
@@ -129,19 +134,24 @@ const HIDE_CSS = `
  * Scales one capture (a lossless PNG) to `width` and encodes it – WebP for the page, JPEG for
  * the link preview. `page` is a blank second tab: the app itself has nothing to do with it.
  */
-const encode = async (page, png, { width, type, quality }) => {
-  const b64 = await page.evaluate(async ([src, width, type, quality]) => {
+const encode = async (page, png, { width, type, quality, crop }) => {
+  const b64 = await page.evaluate(async ([src, width, type, quality, crop]) => {
     const img = new Image()
     img.src = src
     await img.decode()
+    // Source window: the whole capture, or the crop's window around (cx, cy) at 1/zoom size.
+    const sw = crop ? img.naturalWidth / crop.zoom : img.naturalWidth
+    const sh = crop ? img.naturalHeight / crop.zoom : img.naturalHeight
+    const sx = crop ? Math.min(Math.max(crop.cx * img.naturalWidth - sw / 2, 0), img.naturalWidth - sw) : 0
+    const sy = crop ? Math.min(Math.max(crop.cy * img.naturalHeight - sh / 2, 0), img.naturalHeight - sh) : 0
     const canvas = document.createElement('canvas')
     canvas.width = width
-    canvas.height = Math.round(img.naturalHeight * (width / img.naturalWidth))
+    canvas.height = Math.round(sh * (width / sw))
     const ctx = canvas.getContext('2d')
     ctx.imageSmoothingQuality = 'high'
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
     return canvas.toDataURL(type, quality).split(',')[1]
-  }, [`data:image/png;base64,${png.toString('base64')}`, width, type, quality])
+  }, [`data:image/png;base64,${png.toString('base64')}`, width, type, quality, crop ?? null])
   return Buffer.from(b64, 'base64')
 }
 
@@ -149,7 +159,8 @@ const run = async () => {
   const browser = await chromium.launch()
   const ctx = await browser.newContext({
     viewport: VIEWPORT,
-    deviceScaleFactor: scale,
+    // Never below 2: the hero is a crop (`crop` below) and a 1× capture would be upscaled.
+    deviceScaleFactor: Math.max(2, scale),
     locale: 'de-CH',
     timezoneId: 'Europe/Zurich',
     colorScheme: 'light',
@@ -216,6 +227,13 @@ const run = async () => {
     await item.click()
     await page.waitForLoadState('networkidle').catch(() => {})
     await page.waitForTimeout(shot.settle)
+    // The Gebäude card opens by itself the first time a device shows this Einsatz (README ·
+    // Gebäude-Info). Right for an operator, wrong in a picture of the map: close it.
+    const buildingX = page.locator('section[aria-label="Gebäude"] button[aria-label="Schliessen"]')
+    if (await buildingX.count()) {
+      await buildingX.first().click().catch(() => {})
+      await page.waitForTimeout(400)
+    }
     if (shot.prep) await shot.prep(page)
     if (!docsOnly) {
       // Always out of the lossless PNG: scaling and the single lossy step then happen in one
@@ -226,17 +244,24 @@ const run = async () => {
         writeFileSync(join(SHOTS, file), await encode(encoder, png, opts))
         console.log(`  ✓ ${file}  (${shot.nav})`)
       }
-      await write(`${shot.name}.webp`, { width: VIEWPORT.width, type: 'image/webp', quality: WEBP_QUALITY })
+      const crop = shot.crop
+      await write(`${shot.name}.webp`, { width: VIEWPORT.width, type: 'image/webp', quality: WEBP_QUALITY, crop })
       if (shot.hero) {
-        await write(`${shot.name}-${HERO_W}.webp`, { width: HERO_W, type: 'image/webp', quality: WEBP_QUALITY })
-        await write(`${shot.name}.jpg`, { width: VIEWPORT.width, type: 'image/jpeg', quality: OG_QUALITY })
+        await write(`${shot.name}-${HERO_W}.webp`, { width: HERO_W, type: 'image/webp', quality: WEBP_QUALITY, crop })
+        await write(`${shot.name}.jpg`, { width: VIEWPORT.width, type: 'image/jpeg', quality: OG_QUALITY, crop })
       }
     }
     // Same page state, second output: the README image. PNG, because README images are often
-    // viewed enlarged on GitHub and text should stay lossless there.
+    // viewed enlarged on GitHub and text should stay lossless there. A cropped shot goes through
+    // the same canvas as the page's copy, at the capture's own scale.
     if (shot.docs) {
       const docsPath = join(DOCS_SHOTS, `${shot.docs}.png`)
-      await page.screenshot({ path: docsPath, type: 'png' })
+      if (shot.crop) {
+        const png = await page.screenshot({ type: 'png' })
+        writeFileSync(docsPath, await encode(encoder, png, { width: Math.round(VIEWPORT.width * scale), type: 'image/png', crop: shot.crop }))
+      } else {
+        await page.screenshot({ path: docsPath, type: 'png' })
+      }
       console.log(`  ✓ docs/screenshots/${shot.docs}.png`)
     }
   }

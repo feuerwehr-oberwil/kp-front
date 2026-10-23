@@ -49,6 +49,10 @@ class UserOut(BaseModel):
     # "terminal" are read-only, "atemschutz" and "atemschutz-standing" may operate the
     # Atemschutzüberwachung of that one Einsatz and nothing else. None for a real account.
     link_kind: Literal["alarm", "view", "atemschutz", "atemschutz-standing", "terminal"] | None = None
+    # When this device's login lapses unless renewed — the refresh token's expiry (auth/router ·
+    # login, refresh, me). The app's «Alarm auf diesem Gerät» readiness shows it (lib/alarmReadiness).
+    # None for a link session and for a /me answered off the access cookie alone.
+    session_until: datetime | None = None
 
 
 # --- User administration (Slice 2 — Members & access) -------------------------------
@@ -147,6 +151,9 @@ class IncidentMeta(BaseModel):
     last_closed_at: datetime | None = None
     is_archived: bool
     is_exercise: bool = False
+    #: Übung since creation, never marked real — the only kind an editor may hard-delete
+    #: (models · Incident.exercise_since_creation)
+    exercise_since_creation: bool = False
     report_done_at: datetime | None = None
     # Cross-visibility: latch of the first editor open (QR side shows «KP-Tablet aktiv»),
     # and capture write count/last-write (tablet side shows «QR: N Einträge · zuletzt HH:MM»).
@@ -2240,6 +2247,16 @@ class ObjectVisitsConfig(BaseModel):
         return self
 
 
+class AccessConfig(BaseModel):
+    """How much of the record each account reads (docs/roles-and-access.md)."""
+
+    model_config = ConfigDict(extra="ignore")
+    #: Days after its LAST close during which a `viewer` account (the «Fahrer» tile) still reads
+    #: an Einsatz; older ones do not exist for it. ``0`` = only the running ones. Server-enforced
+    #: (auth/viewer_scope); `editor` and `el` always read everything.
+    viewerHistoryDays: int = Field(default=7, ge=0, le=3650)
+
+
 class SetupConfig(BaseModel):
     """Which rows of the «Einrichtung» card this station ticked off by hand.
 
@@ -2290,6 +2307,8 @@ class DeploymentConfigIn(BaseModel):
     setup: SetupConfig = Field(default_factory=SetupConfig)
     # The optional Objektbesuche module — declared here for the same reason as the two above.
     objectVisits: ObjectVisitsConfig = Field(default_factory=ObjectVisitsConfig)
+    # The viewer's window onto past Einsätze — declared here for the same reason as the above.
+    access: AccessConfig = Field(default_factory=AccessConfig)
     # Accepted on input but not authoritative (kept loose; not echoed from the document).
     # Future asset-upload slice: validate that identity.assets.* reference existing entries in
     # asset storage. Skipped while assets are still provisioned outside this document.

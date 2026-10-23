@@ -5,6 +5,7 @@ import { render, screen, cleanup, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { appConfig } from '../config/appConfig'
 import type { ChecklistTemplate } from '../lib/checklists'
+import { fillTemplate } from '../lib/format'
 
 vi.mock('../lib/incidents', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/incidents')>()),
@@ -31,6 +32,22 @@ describe('«Alle Einsätze» · «Wieder öffnen» is the lifecycle, gated with 
     render(<HistoryPanel onClose={() => {}} onOpen={() => {}} />)
     await waitFor(() => expect(screen.getByText('Brand Scheune')).toBeTruthy())
     expect(screen.queryByRole('button', { name: reopen })).toBeNull()
+  })
+})
+
+describe('«Alle Einsätze» · a viewer is told its window (#449)', () => {
+  const h = appConfig.copy.history
+
+  it('says which Einsätze the list holds, under the list', async () => {
+    render(<HistoryPanel onClose={() => {}} onOpen={() => {}} windowDays={7} />)
+    await waitFor(() => expect(screen.getByText('Brand Scheune')).toBeTruthy())
+    expect(screen.getByText(fillTemplate(h.windowNote, { n: 7 }))).toBeTruthy()
+  })
+
+  it('says nothing of the kind to an account the server does not narrow', async () => {
+    render(<HistoryPanel onClose={() => {}} onOpen={() => {}} />)
+    await waitFor(() => expect(screen.getByText('Brand Scheune')).toBeTruthy())
+    expect(screen.queryByText(fillTemplate(h.windowNote, { n: 7 }))).toBeNull()
   })
 })
 

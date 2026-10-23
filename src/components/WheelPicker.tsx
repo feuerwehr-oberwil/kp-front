@@ -12,6 +12,7 @@ import { appConfig } from '../config/appConfig'
 import { hhmm, pad2 } from '../lib/format'
 import { fmtWheelDay } from '../lib/zeitplanFormat'
 import { scrollBehavior } from '../lib/reducedMotion'
+import { pointAtField } from '../lib/pointAtField'
 import w from './WheelPicker.module.css'
 import { usePopoverGuard } from '../lib/overlays/popoverGuard'
 
@@ -211,6 +212,7 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
 
   const said = note?.(v) ?? null
   const blocked = !!said?.blocks
+  const noteRef = useRef<HTMLParagraphElement>(null)
 
   const commit = () => {
     if (!coarse) {
@@ -218,9 +220,11 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
       if (!time) { setInvalid(true); return }
       const out = { ...v, h: time[0], mi: time[1] }
       // Enter reaches here without the button — the note's veto holds for it too
-      if (note?.(out)?.blocks) return
+      if (note?.(out)?.blocks) { pointAtField(noteRef.current); return }
       onCommit(out)
     } else if (!blocked) onCommit(v)
+    // a blocked «OK» stays tappable and rings the note that says why (lib/pointAtField)
+    else pointAtField(noteRef.current)
   }
 
   const stampNow = () => {
@@ -329,14 +333,14 @@ export function WheelPopover({ anchor, initial, onCommit, onClose, onClear, shor
           </div>
         )}
       </div>
-      {said && <p className={`${w.note}${blocked ? ` ${w.noteBad}` : ''}`} aria-live="polite">{said.text}</p>}
+      {said && <p ref={noteRef} className={`${w.note}${blocked ? ` ${w.noteBad}` : ''}`} aria-live="polite">{said.text}</p>}
       {invalid && <p id={errorId} className={w.error} role="alert">{C.invalidTime}</p>}
       <div className="wheelpop-actions">
         {onClear && !clearLabel && (
           <button type="button" className="wheelpop-btn" onClick={onClear}>{appConfig.copy.clear}</button>
         )}
         {!noNow && <button type="button" className="wheelpop-btn" onClick={stampNow}>{C.now}</button>}
-        <button type="button" className="wheelpop-btn primary" disabled={blocked} onClick={commit}>{C.ok}</button>
+        <button type="button" className="wheelpop-btn primary" aria-disabled={blocked} onClick={commit}>{C.ok}</button>
       </div>
     </div>,
     document.body,

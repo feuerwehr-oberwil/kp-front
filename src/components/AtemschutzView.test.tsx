@@ -679,14 +679,21 @@ describe('pointing to a Trupp', () => {
   })
 
   /* Since the slim-down (26.09.2026) the gap opens the one sheet that answers it — the Auftrag
-   * sheet with the six tiles (components/TruppSheets) — not the whole form on its Auftrag field. A
-   * viewer's card (no `onQuick`) still hands the gap to the form. */
+   * sheet with the six tiles (components/TruppSheets) — not the whole form on its Auftrag field. */
   it('opens the missing Auftrag («+ Auftrag») on the Auftrag sheet, tiles ready', () => {
     mount({ trupps: [{ ...aktivTrupp(), auftrag: undefined }] })
     fireEvent.click(screen.getByRole('button', { name: az.auftragAdd }))
     const sheet = screen.getByRole('dialog', { name: new RegExp(`^${az.editFieldLabels.auftrag}`) })
     expect(within(sheet).getByRole('group', { name: az.editFieldLabels.auftrag })).toBeTruthy()
     expect(within(sheet).getByRole('button', { name: 'Löschen' })).toBeTruthy()
+  })
+
+  // RBAC audit V2 (22.10.2026): a viewer's gap handed the tap to the whole Trupp form, whose phone
+  // sheet pins the due Trupps with a live «Kontakt» – a clock reset on that one tablet only
+  it('a viewer sees the missing Auftrag as a read-out, not a door into the Trupp form', () => {
+    mount({ canEdit: false, trupps: [{ ...aktivTrupp(), auftrag: undefined }] })
+    expect(screen.getByText(az.auftragAdd)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: az.auftragAdd })).toBeNull()
   })
 })
 
@@ -969,6 +976,22 @@ describe('the handed-over board on a phone (focus mode)', () => {
     expect(document.querySelector(`.${s.trowCard}`)?.textContent).toContain('Meier')
     // the strip's own «+ Trupp» is the door; no second one in the header
     expect(screen.getAllByRole('button', { name: az.newTrupp })).toHaveLength(1)
+  })
+
+  // UX sweep F6 (20.10.2026): a tab's tier was its tint and border alone — now a glyph and a word
+  it('says a tab\'s tier with a glyph and its word, not with the tint alone', () => {
+    vi.mocked(useIsPhone).mockReturnValue(true)
+    mount({ lite: { subtitle: 'Brand · Hauptstrasse 12' }, trupps: [
+      { ...aktivTrupp(), id: 'k', name: 'Calm Karl' },
+      { ...aktivTrupp(), id: 'd', name: 'Due Dora', lastContactTime: iso(5.4 * 60_000) },
+      { ...aktivTrupp(), id: 'o', name: 'Over Otto', lastContactTime: iso(8 * 60_000) },
+    ] })
+    const tab = (name: string) => screen.getByRole('tab', { name: new RegExp(name) })
+    expect(tab('Calm Karl').querySelector(`.${s.tabTier}`)).toBeNull()
+    expect(tab('Due Dora').textContent).toContain(az.rowDue)
+    expect(tab('Due Dora').querySelector(`.${s.tabTier} use`)?.getAttribute('href')).toBe('#clock')
+    expect(tab('Over Otto').textContent).toContain(az.clockOverdue)
+    expect(tab('Over Otto').querySelector(`.${s.tabTier} use`)?.getAttribute('href')).toBe('#warn')
   })
 
   /* ── The one-row head, and the door in its cut-off title (09.09., mock 01) ─────────────────
@@ -1286,6 +1309,16 @@ describe('the board with Trupps that are not under Atemschutz', () => {
    * keine Auswahl ob mit oder ohne AS»), reversing «the two decisions must not ride on one press»
    * from the same day. Each re-deployment is its own Einsatz of that crew: the Trupp that fought
    * the fire under PA goes back in to clear up without it. */
+  // UX sweep F6: «does NOT start the contact clock» was a `title` only — a hold now says it
+  it('explains on a hold that «Bereitstellen» does not start the contact clock', () => {
+    mount({ trupps: [{ ...aktivTrupp(), status: 'raus', exitTime: iso(60_000) }] })
+    fireEvent.click(screen.getByRole('button', { name: az.actReenter }))
+    const standby = screen.getByRole('button', { name: new RegExp(`^${az.reenterStandby}`) })
+    expect(standby.hasAttribute('data-holdexplain')).toBe(true)
+    expect(standby.getAttribute('aria-label')).toContain(az.reenterStandbyHint)
+    expect(standby.hasAttribute('title')).toBe(false)
+  })
+
   it('asks the Art again on a re-deploy, and sends a Trupp back in WITHOUT Atemschutz', () => {
     const reactivateTrupp = vi.fn()
     mount({
@@ -1300,7 +1333,7 @@ describe('the board with Trupps that are not under Atemschutz', () => {
     // …and there is none to ask for once the crew goes back in without a mask
     expect(screen.queryByText(az.newPressureLabel)).toBeNull()
     // «Bereitstellen» goes with it: a Sicherungstrupp is by definition a crew standing by under PA
-    expect(screen.queryByRole('button', { name: az.reenterStandby })).toBeNull()
+    expect(screen.queryByRole('button', { name: new RegExp(`^${az.reenterStandby}`) })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: az.reenterSubmit }))
     expect(reactivateTrupp).toHaveBeenCalledTimes(1)
     const [, fields] = reactivateTrupp.mock.calls[0] as [string, TruppFields]

@@ -3,7 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { Icon } from '../lib/icons'
 import { categoryId, categoryLabel, writableRules, type ObjectCategoryRule, type ObjectKind } from '../lib/karte/categories'
 import { getPath, useConfig } from './ConfigContext'
-import { RecordRows, RecordTable, SettingRow, SettingsNote } from './ui'
+import { ConfirmButton, RecordRows, RecordTable, SettingRow, SettingsNote } from './ui'
 
 // «Objektfarben» — the station's colours for its objects on «Karte & Objekte»
 // (`map.objectCategories`, lib/karte/categories; backend schemas.py · ObjectCategoryConfig).
@@ -63,9 +63,13 @@ export function ObjectCategoriesCard() {
             meta={row.id ? <code>{row.id}</code> : undefined}
             action={(
               <span className="adm-cat-actions">
-                <button type="button" className="adm-formlink-x" title={C.catUp} aria-label={C.catUp} disabled={i === 0} onClick={() => move(i, -1)}><Icon id="chevron-up" /></button>
-                <button type="button" className="adm-formlink-x" title={C.catDown} aria-label={C.catDown} disabled={i === rows.length - 1} onClick={() => move(i, 1)}><Icon id="chevron-down" /></button>
-                <button type="button" className="adm-formlink-x" title={C.catRemove} aria-label={C.catRemove} onClick={() => write(rows.filter((_, j) => j !== i))}><Icon id="trash" /></button>
+                <button type="button" className="adm-formlink-x mv" title={C.catUp} aria-label={C.catUp} disabled={i === 0} onClick={() => move(i, -1)}><Icon id="chevron-up" /></button>
+                <button type="button" className="adm-formlink-x mv" title={C.catDown} aria-label={C.catDown} disabled={i === rows.length - 1} onClick={() => move(i, 1)}><Icon id="chevron-down" /></button>
+                <ConfirmButton
+                  className="adm-formlink-x" ariaLabel={C.catRemove} label={<Icon id="trash" />}
+                  question={C.catRemoveConfirm} danger
+                  onConfirm={() => write(rows.filter((_, j) => j !== i))}
+                />
               </span>
             )}
           >

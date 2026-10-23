@@ -87,6 +87,11 @@ const circleRing = (d: Drawing): LngLat[] => circlePolygon(d.coords[0], d.radius
  *  Müller H.» on a Leitung whose Trupp is out) simply did nothing. Same slop useHoldToDrag gives
  *  a marker tap (TAP_TOL_PX). */
 const TAG_TAP_TOL_PX = 16
+/** A node tap this close to the draft's last node lands on that node's own 44px handle pad: it
+ *  is the second tap of a double tap, not a corner (UX sweep M4 rework — with a tool armed a double
+ *  tap no longer zooms, and its second tap arrives before the first node's handle is there to
+ *  catch it, so it laid a zero-length segment). */
+const NODE_REPEAT_PX = 22
 /** How long after a pan/pinch a `click` still counts as the tail of that gesture. The browser
  *  synthesizes its mouse trail right after touchend, so the trailing click arrives a few ms AFTER
  *  MapLibre's dragend — but well inside this window, which no second deliberate tap fits in. */
@@ -621,6 +626,25 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // would stay off for the rest of the session. Every such removal is a render, so this reopens
   // it; enable/disable are idempotent, so running it every render costs nothing.
   useEffect(() => { syncMapKeyboard(mapInst.current) })
+  // ── a one-finger zoom gesture works unless the armed tool uses it (UX sweep M4, owner
+  // 21.10.2026: tools have precedence, «if the underlying tool doesn't interfere» the map zooms) ──
+  // A DOUBLE TAP is off under a tap tool (Punkte, Messen, Hinzufügen, Notiz, Trupp, Koordinaten,
+  // and Kreis, whose tap drops a default-size ring): its taps are the tool's, and a double tap is
+  // two of them. Under a drag tool it zooms: a Freihand tap commits nothing (isTapStroke), and a
+  // Mehrfach tap selects, as under Auswahl. TAP-AND-DRAG belongs to Auswahl alone:
+  // it starts with a tap (a tap tool's) and goes on as a drag (a drag tool's). Pinch and the wheel
+  // stay on throughout. Tap-and-drag rides on touchZoomRotate (the pinch), so it is switched on its
+  // own, and only back on if the pinch is. Per instance: a WebGL remount builds a fresh map with
+  // both on.
+  const dragTool = !!freehand || marqueeEnabled
+  useEffect(() => {
+    const m = mapInst.current
+    if (!mapReady || !m) return
+    if (placing && !dragTool) m.doubleClickZoom.disable()
+    else m.doubleClickZoom.enable()
+    if (placing) m.touchZoomRotate._tapDragZoom.disable()
+    else if (m.touchZoomRotate.isEnabled()) m.touchZoomRotate._tapDragZoom.enable()
+  }, [mapReady, placing, dragTool])
   // WebGL context recovery: iPadOS drops the context under memory pressure / after a long
   // background spell, and MapLibre stays blank without rebuilding. `gl.generation` keys the
   // <Map> below so recovery is a fresh instance; `viewRef` carries the CURRENT view across that
@@ -1930,6 +1954,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         onSelectDrawing(best.properties!.id as string, { x: e.point.x, y: e.point.y }); return
       }
     }
+    const last = draftKind ? draft[draft.length - 1] : undefined
+    const lastPx = last && mapInst.current?.project(last)
+    if (lastPx && Math.hypot(e.point.x - lastPx.x, e.point.y - lastPx.y) < NODE_REPEAT_PX) return
     onMapClick(placeMagnet ? placedCoord(lc) : lc)
   }
   const fhFC = useMemo(() => fc(fhPath && fhPath.length >= 2 ? [lineFeat(fhPath)] : []), [fhPath])

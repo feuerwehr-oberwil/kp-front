@@ -130,7 +130,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'Tools in the right rail in Situation mode.' },
           { kind: 'list', items: [
-            '**Symbol** – the tactical symbol (FKS/VKF). Quick-pick of the most common symbols or search the whole library. Tap to place; use the lock to set several in a row.',
+            '**Symbol** – the tactical symbol (FKS/VKF). Quick-pick of the most common symbols or search the whole library. Tap to place; turn on "Place several" to set several in a row.',
             '**Shapes** – in the same window, behind the hazards: **Arrow** and **Rectangle**, for everything that has no tactical symbol. The handle rotates, the corner stretches the rectangle (the arrow stays proportional – a distorted head reads badly). On the arrow, **Stop bar** adds the bar across its tip – the spread limit: this far, and stopped there.',
             '**Select** – tap objects, move them, adjust in the editor.',
             '**Multi** – tap **Select** again while it is active: the button switches to Multi (icon and word), and dragging a frame selects several symbols/drawings at once. Another tap switches back to Select.',
@@ -341,7 +341,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'sub', text: 'Tap & drag (touch/iPad)' },
           { kind: 'list', items: [
             'One finger pans the map/plan; two fingers zoom (pinch).',
-            'One finger zooms too: **double-tap** zooms in; **tap, then press again and drag** zooms smoothly – down to zoom in, up to zoom out. The same on the map and the plan; while a drawing tool is active, only two fingers zoom the plan.',
+            'One finger zooms too: **double-tap** zooms in; **tap, then press again and drag** zooms smoothly – down to zoom in, up to zoom out. The same on the map and the plan, with **Select**. A tool comes first: where it taps (points, measure, add, note, circle …) every tap is its own; where it drags (freehand, multi-select) a double-tap still zooms. Two fingers always zoom. A line or area tapped out point by point is finished with ✓, never with a double-tap.',
             'Tapping **Select** again switches the button to **Multi**: dragging a frame selects several objects; selected objects are moved by dragging.',
             'A button that carries nothing but an icon says its word when you **hold it down** – after a short moment the word appears as a bubble above it, on touch with a short buzz. Letting go does **not** trigger the button: asking what something is must not also do it. With a mouse, hovering is enough.',
           ] },

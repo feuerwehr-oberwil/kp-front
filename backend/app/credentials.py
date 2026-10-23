@@ -229,7 +229,7 @@ FIELDS: tuple[CredentialField, ...] = (
     # A THIRD app registration: sign-in (delegated `openid profile`), nothing else. Neither
     # SharePoint registration is reused — those are app-only and must never sign a person in.
     # The allow-list is readable on purpose: «who may get in this way» is exactly what an admin
-    # has to be able to check on the screen. Format: `identity=username, …` (auth/microsoft).
+    # has to be able to check on the screen. Format: `objectid=username, …` (auth/microsoft).
     CredentialField("entra_login_tenant_id", "microsoft_login", False, "Azure Tenant-ID (Anmeldung)"),
     CredentialField("entra_login_client_id", "microsoft_login", False, "Azure Client-ID (Anmeldung)"),
     CredentialField("entra_login_client_secret", "microsoft_login", True, "Azure Client-Secret (Anmeldung)"),
@@ -649,8 +649,9 @@ def validate(name: str, value: str) -> str:
                 raise ValueError(v)
         except ValueError as e:
             raise CredentialRefusedError(
-                "Je Eintrag «Microsoft-Konto=Benutzername», getrennt durch Kommas – z. B. "
-                "«anna.muster@feuerwehr.ch=amuster». Statt der Adresse geht auch die Objekt-ID."
+                "Je Eintrag «Objekt-ID=Benutzername», getrennt durch Kommas – z. B. "
+                "«0b6c1f2e-…=amuster». Die Objekt-ID steht in Entra unter «Benutzer › <Person> › "
+                "Objekt-ID»; eine Anmeldeadresse gilt nicht, sie lässt sich umbenennen."
             ) from e
     if name == "object_visits_integration_key" and len(v) < 24:
         # A key an organizer authenticates with over the internet: long enough that guessing it

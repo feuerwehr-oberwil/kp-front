@@ -460,16 +460,30 @@ describe('request — the server clock rides along', () => {
 describe('request — an Atemschutz-Link page refused on its own Einsatz (D1)', () => {
   // The Link took a re-entry locally after a second close and reported only «Sync-Fehler». A 403
   // on the routes the page lives on now says so ONCE on `window`, and the workspace freezes.
-  it('dispatches kp:link-refused for a 403 on the workspace, the Verlauf or the events', async () => {
+  it('dispatches kp:link-refused for a 403 on reading the workspace, the Verlauf or the events', async () => {
     const win = new EventTarget()
     const onRefused = vi.fn()
     win.addEventListener(LINK_REFUSED_EVENT, (e) => onRefused((e as CustomEvent<string>).detail))
     vi.stubGlobal('window', win)
     vi.stubGlobal('location', { pathname: '/l/a12345678' })
     fetchMock.mockResolvedValue(new Response('{"detail":"Für diesen Einsatz-Link nicht freigegeben"}', { status: 403 }))
-    await expect(apiPost('/api/incidents/inc-7/journal', { entries: [] })).rejects.toMatchObject({ status: 403 })
+    await expect(apiGet('/api/incidents/inc-7/journal?since_seq=0')).rejects.toMatchObject({ status: 403 })
     await expect(apiGet('/api/incidents/inc-7/workspace?since=3')).rejects.toMatchObject({ status: 403 })
     expect(onRefused.mock.calls).toEqual([['inc-7'], ['inc-7']])
+  })
+
+  // RBAC audit S5: the server words every link refusal alike, so a refused WRITE (a Meldung that
+  // reached the link's outbox) says nothing about the link — the board must not freeze on it.
+  it('stays quiet for a refused write on the same routes', async () => {
+    const win = new EventTarget()
+    const onRefused = vi.fn()
+    win.addEventListener(LINK_REFUSED_EVENT, onRefused)
+    vi.stubGlobal('window', win)
+    vi.stubGlobal('location', { pathname: '/l/a12345678' })
+    fetchMock.mockResolvedValue(new Response('{"detail":"Für diesen Einsatz-Link nicht freigegeben"}', { status: 403 }))
+    await expect(apiPost('/api/incidents/inc-7/journal', { entries: [] })).rejects.toMatchObject({ status: 403 })
+    await expect(apiPut('/api/incidents/inc-7/workspace/trupps', { trupps: [] })).rejects.toMatchObject({ status: 403 })
+    expect(onRefused).not.toHaveBeenCalled()
   })
 
   it('stays quiet for a station-wide route, and for the ordinary app', async () => {

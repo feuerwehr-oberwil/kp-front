@@ -235,6 +235,22 @@
         "operationId": "me_api_auth_me_get",
         "parameters": [
           {
+            "name": "refresh_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Refresh Token"
+            }
+          },
+          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -758,7 +774,7 @@
           "config"
         ],
         "summary": "Get Config",
-        "description": "PUBLIC (no auth) — the login screen needs branding before login.\n\nThree sections are withheld from ANONYMOUS callers, and each for its own reason:\n\n* ``alarmKeywords`` — admin only; nothing in the frontend reads it (see ``_projection``).\n* ``report.links`` — the station's own Formulare. Withheld from anonymous callers but\n  served to any SIGNED-IN one (PIN user or admin), because the Rapport that shows them is\n  itself behind the PIN. A prefill URL is a capability — whoever has it can submit to that\n  form — so «anyone who can reach the login screen» is the wrong audience for it.\n* ``integrations.cartoBasemapKey`` — the CARTO browser key. Served to anyone with a session\n  OF ANY KIND, including an incident-LINK session, and withheld from a caller with none.\n  See ``_projection`` for why the link case is the one that matters.\n\n⚠️ The app reads this at BOOT, before login, so a first fetch on a fresh device legitimately\ncomes back without the links; ``AuthProvider.login`` re-reads the config on the way in (see\nlib/auth), and every later boot already carries the session cookie.\n\nLast-good fallback: if the persisted ``config_json`` is missing or fails validation\n(e.g. a hand-edited bad row), serve a safe empty config and log a warning. Never raises.\n\n⚠️ Read through ``load_stored_config``, not the strict PUT-body model: a field that has\ngrown a rule since the row was written (``identity.accentColor``) must be dropped, not\nrefused. Refusing it lands in the fallback below — and answering one bad colour by serving\nthe login screen a station with no name, no logo and no fleet is the wrong trade.",
+        "description": "PUBLIC (no auth) — the login screen needs branding before login.\n\nSome sections are withheld from ANONYMOUS (and some from non-admin) callers, each for its own\nreason:\n\n* ``alarmKeywords`` — admin only; nothing in the frontend reads it (see ``_projection``).\n* ``report.links`` — the station's own Formulare. Withheld from anonymous callers but\n  served to any SIGNED-IN one (PIN user or admin), because the Rapport that shows them is\n  itself behind the PIN. A prefill URL is a capability — whoever has it can submit to that\n  form — so «anyone who can reach the login screen» is the wrong audience for it.\n* ``integrations.cartoBasemapKey`` — the CARTO browser key. Served to anyone with a session\n  OF ANY KIND, including an incident-LINK session, and withheld from a caller with none.\n  See ``_projection`` for why the link case is the one that matters.\n* ``alarms.webhooks`` + ``sharepoint.sources`` — admin only: server-side destinations, the\n  webhooks often capabilities. ``objectVisits.destinations`` — like ``report.links``.\n\n⚠️ The app reads this at BOOT, before login, so a first fetch on a fresh device legitimately\ncomes back without the links; ``AuthProvider.login`` re-reads the config on the way in (see\nlib/auth), and every later boot already carries the session cookie.\n\nLast-good fallback: if the persisted ``config_json`` is missing or fails validation\n(e.g. a hand-edited bad row), serve a safe empty config and log a warning. Never raises.\n\n⚠️ Read through ``load_stored_config``, not the strict PUT-body model: a field that has\ngrown a rule since the row was written (``identity.accentColor``) must be dropped, not\nrefused. Refusing it lands in the fallback below — and answering one bad colour by serving\nthe login screen a station with no name, no logo and no fleet is the wrong trade.",
         "operationId": "get_config_api_config_get",
         "parameters": [
           {
@@ -1759,7 +1775,7 @@
           "incidents"
         ],
         "summary": "Delete Incident",
-        "description": "Hard delete. Child rows (journal, audit chain, people, media, snapshots) go via FK CASCADE;\ntheir storage blobs are removed best-effort after the database commit.\n\nTWO doors, because they answer different questions:\n\n· **Übungen** — any editor, any time. An exercise is not an operational record; it exists to\n  be thrown away, and needing an admin for it would make the tidy-up cost more than the\n  exercise. That is the whole point of the flag, and a Wehr that cannot clear its own\n  practice runs stops marking them as practice runs. A viewer still cannot (403).\n\n⚠️ The door is ``EditorOrAdmin``, not ``CurrentEditor``: the Verwaltung's own incident list\n  offers this button, and /admin is reached with an ADMIN cookie that need not be\n  accompanied by an editor login. Requiring both made that control fail for exactly the\n  person the Verwaltung exists for.\n\n· **Real Einsätze** — an ADMIN session, and only once the Einsatz is ARCHIVED. Deleting one\n  destroys an Einsatzakte: the Verlauf, the hash-chained audit trail, the Anwesenheit, every\n  photo and voice memo. That is a legal record, so it takes the same key as the Verwaltung\n  and it cannot happen to something still running — the archive step is the operator saying\n  the Einsatz is over, and it is the only moment at which «löschen» is a decision rather than\n  an accident. (Was a flat 403 before, which left a real Einsatz — a mistaken duplicate, a\n  test alarm taken in earnest — undeletable by anybody.)\n\n⚠️ The deletion is logged at WARNING before it happens, because the audit chain that would\notherwise record it is one of the things being deleted.",
+        "description": "Hard delete. Child rows (journal, audit chain, people, media, snapshots) go via FK CASCADE;\ntheir storage blobs are removed best-effort after the database commit.\n\nTWO doors, because they answer different questions:\n\n· **Übungen** — any editor, any time. An exercise is not an operational record; it exists to\n  be thrown away, and needing an admin for it would make the tidy-up cost more than the\n  exercise. That is the whole point of the flag, and a Wehr that cannot clear its own\n  practice runs stops marking them as practice runs. A viewer still cannot (403).\n  «Übung» here means CREATED as one and never marked real since\n  (``exercise_since_creation``) — a real Einsatz someone marked Übung later is a real\n  Einsatz for this door.\n\n⚠️ The door is ``EditorOrAdmin``, not ``CurrentEditor``: the Verwaltung's own incident list\n  offers this button, and /admin is reached with an ADMIN cookie that need not be\n  accompanied by an editor login. Requiring both made that control fail for exactly the\n  person the Verwaltung exists for.\n\n· **Real Einsätze** — an ADMIN session, and only once the Einsatz is ARCHIVED. Deleting one\n  destroys an Einsatzakte: the Verlauf, the hash-chained audit trail, the Anwesenheit, every\n  photo and voice memo. That is a legal record, so it takes the same key as the Verwaltung\n  and it cannot happen to something still running — the archive step is the operator saying\n  the Einsatz is over, and it is the only moment at which «löschen» is a decision rather than\n  an accident. (Was a flat 403 before, which left a real Einsatz — a mistaken duplicate, a\n  test alarm taken in earnest — undeletable by anybody.)\n\n⚠️ The deletion is logged at WARNING before it happens, because the audit chain that would\notherwise record it is one of the things being deleted.",
         "operationId": "delete_incident_api_incidents__incident_id__delete",
         "parameters": [
           {
@@ -3465,7 +3481,7 @@
           "divera"
         ],
         "summary": "Responses",
-        "description": "Who answered the Divera alarm «kommt» / «kommt nicht» — our personnel ids, nothing else.\n\nRead-only and stored: the server's own poll keeps it (divera · store_responses); this read\nnever calls Divera. Every alarm taken into the incident counts (a Nachalarm attached to it is\none more; the newer alarm's answer wins), but only alarms of the last\n:data:`~app.divera_responses.RESPONSES_MAX_AGE_SECONDS`: the answers to a dispatch that is\nhours over are not «anrückend». ``available: false`` = nothing to show (``reason: no_data``,\nor ``closed`` for an archived Einsatz), and the Anwesenheit shows nothing at all.\n\nEditor-only like the rest of /api/divera (the EL and the editors who mark attendance; a viewer\nand an Einsatz-Link session are refused). Somebody not on the Mannschaftsliste is a count.\nThe answers never enter the workspace, an export or a Rapport, and are cleared after the\nEinsatz (divera · prune_responses). A Divera answer is not presence.",
+        "description": "Who answered the Divera alarm «kommt» / «kommt nicht» — our personnel ids, nothing else.\n\nRead-only and stored: the server's own poll keeps it (divera · store_responses); this read\nnever calls Divera. Every alarm taken into the incident counts (a Nachalarm attached to it is\none more; the newer alarm's answer wins), but only alarms of the last\n:data:`~app.divera_responses.RESPONSES_MAX_AGE_SECONDS`: the answers to a dispatch that is\nhours over are not «anrückend». ``available: false`` = nothing to show (``reason: no_data``,\nor ``closed`` for an archived Einsatz), and the Anwesenheit shows nothing at all.\n\nThe record writers (an editor, or the ``el`` role, who mark attendance) — the one /api/divera\nread the ``el`` reaches; a viewer and an Einsatz-Link session are refused. Somebody not on the Mannschaftsliste is a count.\nThe answers never enter the workspace, an export or a Rapport, and are cleared after the\nEinsatz (divera · prune_responses). A Divera answer is not presence.",
         "operationId": "responses_api_divera_responses__incident_id__get",
         "parameters": [
           {
@@ -5355,7 +5371,7 @@
           "personnel"
         ],
         "summary": "List Personnel",
-        "description": "The crew roster, ordered by name. Active-only unless ``include_inactive=true``.",
+        "description": "The crew roster, ordered by name. Active-only unless ``include_inactive=true``.\nA link session gets the names without the Divera ids (``is_link_session``).",
         "operationId": "list_personnel_api_personnel_get",
         "parameters": [
           {
@@ -6483,6 +6499,8 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 240,
+              "minimum": 1,
               "default": 30,
               "title": "Minutes"
             }
@@ -10157,7 +10175,7 @@
           "journal"
         ],
         "summary": "Append Journal",
-        "description": "Append a batch of rows. Idempotent on the client row id: rows this incident already\nholds are skipped silently, so an offline outbox may retry the same batch after a lost\nresponse without duplicating the record. Returns the accepted rows with their seqs.\n\nEditors — and since 07.09.2026 the ``el`` role, whose record edits log here — append\nanything: the Verlauf is append-only and rows are attributable, so a wider vocabulary\ncosts the record nothing. An ATEMSCHUTZ-link session appends `kind == \"team\"` rows and\nnothing else — it holds the Atemschutzüberwachung, not the Verlauf — and every row it\nwrites is stamped `via` so the record says where it came from. A row of any other kind is\nthe link refusal, never a 422: the generic message is what keeps a link holder from\nmapping this API by watching which rejections differ.",
+        "description": "Append a batch of rows. Idempotent on the client row id: rows this incident already\nholds are skipped silently, so an offline outbox may retry the same batch after a lost\nresponse without duplicating the record. Returns the accepted rows with their seqs.\n\nEditors — and since 07.09.2026 the ``el`` role, whose record edits log here — append\nanything: the Verlauf is append-only and rows are attributable, so a wider vocabulary\ncosts the record nothing. An ATEMSCHUTZ-link session appends `kind == \"team\"` rows and\nnothing else — it holds the Atemschutzüberwachung, not the Verlauf — patches only its own\nrows, and every row it writes is stamped `via` so the record says where it came from. A\nrefused row is the link refusal, never a 422: the generic message is what keeps a link\nholder from mapping this API by watching which rejections differ. Any other writer's\n`via` is dropped — only the server stamps it.",
         "operationId": "append_journal_api_incidents__incident_id__journal_post",
         "parameters": [
           {
@@ -10370,6 +10388,112 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/push/subscriptions/renew": {
+      "post": {
+        "tags": [
+          "push"
+        ],
+        "summary": "Renew",
+        "description": "Renew a registration WITHOUT a session: the subscription's own endpoint + keys are the\ncredential (3am sweep §1.3, 23.10.2026).\n\nThe 180-day TTL (``SUBSCRIPTION_TTL_DAYS``) used to be renewable only with a live login,\nso a phone whose session had lapsed silently fell out of the alarm audience. The endpoint is\na capability URL only that browser holds, and ``p256dh``/``auth`` are its private\nregistration — a caller who presents all three IS that browser. Nothing is created and no\nowner changes: an unknown endpoint or a key mismatch answers the same 404, so this cannot be\nused to probe which endpoints exist. The row keeps its user (and so its alarm audience).",
+        "operationId": "renew_api_push_subscriptions_renew_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Renew Api Push Subscriptions Renew Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/push/test": {
+      "post": {
+        "tags": [
+          "push"
+        ],
+        "summary": "Test Push",
+        "description": "«Testalarm senden»: one push to THIS browser's registration, so the person sees with their\nown eyes that an alarm would reach this phone (3am sweep §1.1, 23.10.2026).\n\nOnly a row the caller owns — the endpoint is the device's capability URL, and sending to\nsomebody else's would be a stranger ringing their phone. 409 while push is not configured,\n429 inside the per-endpoint minute, 404 for a registration this login does not hold. The\noutcome is the push service's answer, not the phone's: ``accepted`` means it took the\nmessage; a ``gone`` row is pruned here like in a sweep.",
+        "operationId": "test_push_api_push_test_post",
+        "parameters": [
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestPushIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Test Push Api Push Test Post"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -14136,6 +14260,20 @@
   },
   "components": {
     "schemas": {
+      "AccessConfig": {
+        "properties": {
+          "viewerHistoryDays": {
+            "type": "integer",
+            "maximum": 3650.0,
+            "minimum": 0.0,
+            "title": "Viewerhistorydays",
+            "default": 7
+          }
+        },
+        "type": "object",
+        "title": "AccessConfig",
+        "description": "How much of the record each account reads (docs/roles-and-access.md)."
+      },
       "AdminLogin": {
         "properties": {
           "secret": {
@@ -15973,6 +16111,9 @@
           },
           "objectVisits": {
             "$ref": "#/components/schemas/ObjectVisitsConfig"
+          },
+          "access": {
+            "$ref": "#/components/schemas/AccessConfig"
           }
         },
         "type": "object",
@@ -16040,6 +16181,9 @@
           },
           "objectVisits": {
             "$ref": "#/components/schemas/ObjectVisitsConfig"
+          },
+          "access": {
+            "$ref": "#/components/schemas/AccessConfig"
           },
           "integrations": {
             "$ref": "#/components/schemas/ConfigIntegrations"
@@ -17760,6 +17904,11 @@
             "title": "Is Exercise",
             "default": false
           },
+          "exercise_since_creation": {
+            "type": "boolean",
+            "title": "Exercise Since Creation",
+            "default": false
+          },
           "report_done_at": {
             "anyOf": [
               {
@@ -18014,6 +18163,11 @@
           "is_exercise": {
             "type": "boolean",
             "title": "Is Exercise",
+            "default": false
+          },
+          "exercise_since_creation": {
+            "type": "boolean",
+            "title": "Exercise Since Creation",
             "default": false
           },
           "report_done_at": {
@@ -22225,6 +22379,20 @@
         "title": "TerminalSessionIn",
         "description": "The poll's body — no token (the device cookie is the credential), only the incident the\nterminal is currently bound to, if any, so a made choice sticks (see `_resolve_standing`)."
       },
+      "TestPushIn": {
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "maxLength": 2048,
+            "title": "Endpoint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "endpoint"
+        ],
+        "title": "TestPushIn"
+      },
       "TruppsPut": {
         "properties": {
           "trupps": {
@@ -22464,6 +22632,18 @@
               }
             ],
             "title": "Link Kind"
+          },
+          "session_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Until"
           }
         },
         "type": "object",

@@ -231,9 +231,10 @@ async def test_capture_rapport_still_accepts_a_payload_with_a_blank_incident_id(
 
 
 async def test_the_logged_in_report_path_is_unchanged(client, editor, db_session):
-    """An ordinary session already reads every incident's media through /api/media, so
-    narrowing its rapport would remove a legitimate cross-incident Beilage and add nothing.
-    Pinned so a later «tighten everything» edit is a deliberate one."""
+    """An editor already reads every incident's media through /api/media, so narrowing its
+    rapport would remove a legitimate cross-incident Beilage and add nothing. Pinned so a later
+    «tighten everything» edit is a deliberate one. (A VIEWER's is narrowed — it has a window:
+    test_report_pdf · test_report_pdf_embeds_media_of_its_own_einsatz_only.)"""
     inc = await _incident(db_session)
     other = await _incident(db_session, title="Nachbareinsatz", started_at=datetime.now(UTC) - timedelta(days=400))
     theirs = await _photo_on(db_session, other.id)

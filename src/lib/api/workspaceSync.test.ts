@@ -34,8 +34,8 @@ vi.mock('../tileEvict', () => ({ withTileEviction: (fn: () => Promise<boolean>) 
 
 const { ApiError } = await import('../api')
 const { mergeWorkspace } = await import('../mergeWorkspace')
-const { idbSet } = vi.mocked(await import('../idb'))
-const { CACHE_DEBOUNCE_MS, CONFLICT_ATTEMPTS, CONFLICT_BACKOFF_MS, WorkspaceSync, conflictBackoffMs } = await import('./workspaceSync')
+const { idbGet, idbSet } = vi.mocked(await import('../idb'))
+const { CACHE_DEBOUNCE_MS, CONFLICT_ATTEMPTS, CONFLICT_BACKOFF_MS, WorkspaceSync, conflictBackoffMs, setWorkspaceCacheOwner } = await import('./workspaceSync')
 
 const trupp = { id: 'tr1', name: 'Trupp 1', status: 'aktiv' }
 const blob = { trupps: [trupp], drawings: [{ id: 'd1' }] }
@@ -114,6 +114,79 @@ describe('WorkspaceSync · slice: «trupps»', () => {
     expect(putWorkspace).toHaveBeenCalledWith('i1', blob, 7, expect.stringMatching(/^\d{4}-\d\d-\d\dT/), sync.writerId)
     expect(putWorkspaceTrupps).not.toHaveBeenCalled()
     sync.dispose()
+  })
+})
+
+// RBAC audit S4 (22.10.2026): a slice push stores the server's blob with the slice in it — never
+// the whole local blob. What the session holds outside its slice must not pass for «on the
+// server», and what the el files about a crew (the Trupps' crewFiled) must reach it.
+describe('WorkspaceSync · a slice session owns its slice, not the blob (RBAC S4)', () => {
+  const server = { entities: [{ id: 'e1', x: 1 }], attendance: {}, trupps: [{ id: 't1', name: 'Müller', status: 'aktiv' }] }
+  afterEach(() => {
+    setWorkspaceCacheOwner(null)
+    idbGet.mockReset().mockResolvedValue(null)
+  })
+
+  it('the el\'s record slice carries the crew filing markers', async () => {
+    getWorkspace.mockResolvedValueOnce({ workspace: structuredClone(server), workspace_rev: 7 })
+    const sync = new WorkspaceSync('i1', { slice: 'record', debounceMs: 0 })
+    await sync.init()
+    sync.save({ ...server, attendance: { 'g-t1-x': { status: 'present' } }, trupps: [{ ...server.trupps[0], crewFiled: ['g-t1-x'] }] })
+    await sync.flush()
+    expect(putWorkspaceRecord).toHaveBeenCalledWith('i1', expect.objectContaining({ truppCrewFiled: { t1: ['g-t1-x'] } }), 7, sync.writerId)
+    expect(putWorkspaceRecord.mock.calls[0][1]).not.toHaveProperty('trupps')
+    sync.dispose()
+  })
+
+  it('a 409 merge hands the view the server\'s copy of what the slice cannot push', async () => {
+    getWorkspace.mockResolvedValueOnce({ workspace: structuredClone(server), workspace_rev: 7 })
+    const sync = new WorkspaceSync('i1', { slice: 'record', debounceMs: 0 })
+    const handed: Record<string, unknown>[] = []
+    sync.onApplyMerged = (ws) => { handed.push(ws) }
+    await sync.init()
+    // a local write outside the record (a machine writer) beside a real record edit
+    sync.save({ ...server, entities: [{ id: 'e1', x: 2 }], attendance: { p1: { status: 'present' } } })
+    putWorkspaceRecord.mockRejectedValueOnce(new ApiError(409, 'conflict'))
+    getWorkspace.mockResolvedValueOnce({ workspace: { ...structuredClone(server), attendance: { p0: { status: 'present' } } }, workspace_rev: 8 })
+    await sync.flush()
+    expect(handed[handed.length - 1]).toMatchObject({ entities: [{ id: 'e1', x: 1 }], attendance: { p0: { status: 'present' }, p1: { status: 'present' } } })
+    sync.dispose()
+  })
+
+  // An editor demoted to el mid-Einsatz signs in again with its Lage edits unsynced on the device.
+  const editorsWork = { ...server, entities: [{ id: 'e1', x: 1 }, { id: 'e-unsynced' }], attendance: { p1: { status: 'present' } } }
+  const cacheWith = (shape: string | undefined) => {
+    idbGet.mockImplementation(async (key: string) => (key === 'kp-front-ws-i1'
+      ? { workspace: editorsWork, base: server, baseRev: 7, dirty: true, lastSyncedAt: null, owner: 'u1', ...(shape ? { shape } : {}) }
+      : null))
+  }
+
+  it('parks unsynced work of a wider role for «Einträge sichern», and still sends its record part', async () => {
+    setWorkspaceCacheOwner('u1')
+    cacheWith('all')
+    getWorkspace.mockResolvedValueOnce({ workspace: structuredClone(server), workspace_rev: 7 })
+    const sync = new WorkspaceSync('i1', { slice: 'record', debounceMs: 0 })
+    await sync.init()
+    expect(idbSet).toHaveBeenCalledWith('kp-front-ws-i1::__role__:u1', [expect.objectContaining({ workspace: editorsWork, baseRev: 7, owner: 'u1' })])
+    expect(sync.roleParkedCount).toBe(1)
+    expect(sync.roleParkedRecoveryData()[0].workspace).toEqual(editorsWork)
+    await sync.flush()
+    expect(putWorkspaceRecord).toHaveBeenCalledWith('i1', expect.objectContaining({ attendance: { p1: { status: 'present' } } }), 7, sync.writerId)
+    sync.dispose()
+  })
+
+  it('parks nothing the session made itself, nor an entry older than the stamp', async () => {
+    for (const shape of ['record', undefined]) {
+      setWorkspaceCacheOwner('u1')
+      cacheWith(shape)
+      idbSet.mockClear()
+      getWorkspace.mockResolvedValueOnce({ workspace: structuredClone(server), workspace_rev: 7 })
+      const sync = new WorkspaceSync('i1', { slice: 'record', debounceMs: 0 })
+      await sync.init()
+      expect(idbSet.mock.calls.some(([k]) => String(k).includes('__role__'))).toBe(false)
+      expect(sync.roleParkedCount).toBe(0)
+      sync.dispose()
+    }
   })
 })
 

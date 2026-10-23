@@ -3,21 +3,21 @@
     {
       "id": "musterdorf-fu",
       "kind": "action",
-      "title": "Aufgaben FU (Demo)",
+      "title": "Aufgaben FU",
       "file": "checklists/musterdorf-fu.json",
       "sourceNote": "KP Front Demo — synthetische Aktionscheckliste"
     },
     {
       "id": "musterdorf-taktik",
       "kind": "reference",
-      "title": "Taktik-Stichworte (Demo)",
+      "title": "Taktik-Stichworte",
       "file": "checklists/musterdorf-taktik.json",
       "sourceNote": "KP Front Demo — synthetische Taktik-Stichworte"
     },
     {
       "id": "musterdorf-stromerzeuger",
       "kind": "manual",
-      "title": "Stromerzeuger starten (Demo)",
+      "title": "Stromerzeuger starten",
       "file": "checklists/musterdorf-stromerzeuger.json",
       "sourceNote": "KP Front Demo — synthetische Anleitung",
       "assets": [
@@ -34,7 +34,7 @@
     {
       "id": "musterdorf-hebekissen",
       "kind": "manual",
-      "title": "Hebekissen einsetzen (Demo)",
+      "title": "Hebekissen einsetzen",
       "file": "checklists/musterdorf-hebekissen.json",
       "sourceNote": "KP Front Demo — synthetische Anleitung",
       "assets": [
@@ -47,7 +47,7 @@
     {
       "id": "musterdorf-objektbesuch",
       "kind": "visit",
-      "title": "Objektbesuch Schlüsseldepot & BMA (Demo)",
+      "title": "Objektbesuch Schlüsseldepot & BMA",
       "file": "checklists/musterdorf-objektbesuch.json",
       "sourceNote": "KP Front Demo — synthetische Objektbesuch-Checkliste"
     }

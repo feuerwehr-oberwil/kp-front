@@ -189,8 +189,10 @@ function ViewsPopover({ api, readOnly, coordsOn, onToggleCoords, onClose }: {
             {help && <p ref={helpRef} className={s.help}>{hint}</p>}
           </>
         )}
-        {/* a locked device has no «Ansicht speichern» row to end with: the ⓘ keeps its foot */}
-        {readOnly && <div className={s.foot}><DockInfo text={hint} inline /></div>}
+        {/* a locked device has no «Ansicht speichern» row to end with, and the views hint teaches
+            saving, which it cannot do (RBAC audit 22.10.2026) — so no ⓘ, unless the surface states
+            its own hold (Karte home: `hold.hint`), which is not about saving */}
+        {readOnly && api.hold && <div className={s.foot}><DockInfo text={api.hold.hint} inline /></div>}
       </div>
     </>,
     document.body,
@@ -252,6 +254,23 @@ export function MapViewsButton({ api, bearing, readOnly, variant, btnClassName, 
     document.addEventListener('pointerdown', outside, true)
     return () => document.removeEventListener('pointerdown', outside, true)
   }, [open, phone, onOpenChange])
+  // Escape closes the popover, and only it (S8, 20.10.2026). The Einsatz map's own Escape
+  // (IncidentWorkspace) reached it only after a pending placement and the crosshair, and the
+  // Karte's never did. Capture phase + stop, so one press is one layer; a field (the rename
+  // input) keeps its own Escape, which ends the rename first.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      const t = e.target instanceof HTMLElement ? e.target : null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+      e.stopPropagation()
+      onOpenChange(false)
+      triggerRef.current?.focus()
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [open, onOpenChange])
   const hold = useLongPress()
   // A fired hold must not also open the menu: the browser still delivers the click on release.
   // Cleared at the START of every press, not only when that click arrives — a hold whose click

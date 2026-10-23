@@ -659,10 +659,11 @@ export interface TimelineEvent {
    *  non-FU scans to operate only the Überwachung of this Einsatz — see lib/viewLink), or
    *  through the standing fixe Atemschutz-URL (`atemschutz-fix`, the laminated QR). The
    *  Verlauf prints both as the same small footnote beside the row, so «wer hat das
-   *  eingetragen» has an answer on a board that deliberately asks nobody for a name. Absent on
-   *  everything else, and never set by this client: the app cannot vouch for its own
-   *  provenance. */
-  via?: 'atemschutz-link' | 'atemschutz-fix'
+   *  eingetragen» has an answer on a board that deliberately asks nobody for a name. `capture`
+   *  marks the Erfassungs-Poster's rows (22.10.2026; no footnote — it is what lets the server
+   *  keep the poster's corrections to its own rows). Absent on everything else, and never set
+   *  by this client: the app cannot vouch for its own provenance. */
+  via?: 'atemschutz-link' | 'atemschutz-fix' | 'capture'
 }
 
 /** `'info'` · `'auftrag'` (Befehlsgebung) · `'sofort'` (Sofortmassnahme). See TimelineEvent. */

@@ -79,7 +79,8 @@ unchanged.
   capped at 300px) and shows
   the device's position; while typing, the map yields its space to the results. The opened
   Trupp is parked again when «Im Einsatz» moves it to another section, by scrolling its own
-  port. The mobile Einsatz form answers «Übung?» with «Nein | Ja»; wider forms keep «Aus | An».
+  port. The Einsatz form answers «Übung?» with «Nein | Ja» on every width (ui-conventions ·
+  one control per kind of question).
 
 - *A monogram chip keeps its HEIGHT; the text steps down and the box hugs what is left*
   (`data-mono-len` on the chip; the rail's tiles and the `GroupChooser` rows each restate the

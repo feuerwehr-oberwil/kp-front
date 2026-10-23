@@ -490,7 +490,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
         },
         microsoft_login: {
           title: 'Se connecter avec Microsoft',
-          caption: 'Facultatif : un enregistrement d’application Azure distinct (connexion seulement, «openid profile») pour que des comptes nommés puissent aussi se connecter avec Microsoft au lieu du NIP. URI de redirection : <adresse de cette instance>/api/auth/microsoft/callback. Seuls les comptes de la liste entrent, chacun sous la forme «compte Microsoft=nom d’utilisateur», séparés par des virgules. Le NIP reste toujours possible. Guide : docs/microsoft-login.md.',
+          caption: 'Facultatif : un enregistrement d’application Azure distinct (connexion seulement, «openid profile») pour que des comptes nommés puissent aussi se connecter avec Microsoft au lieu du NIP. URI de redirection : <adresse de cette instance>/api/auth/microsoft/callback. Seuls les comptes de la liste entrent, chacun sous la forme «ID d’objet=nom d’utilisateur» (l’ID d’objet de la personne dans Entra, pas une adresse de connexion), séparés par des virgules. Le NIP reste toujours possible. Guide : docs/microsoft-login.md.',
         },
         sharepoint_export: {
           title: 'SharePoint (classement des visites)',
@@ -560,6 +560,8 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       delete: 'Supprimer',
       deleteAria: 'Supprimer «{title}»',
       deleteQuestion: 'Supprimer définitivement le journal, la chaîne de contrôle, la présence et tous les médias de «{title}» ?',
+      deleteTitle: "Supprimer l'intervention",
+      deleteNote: 'Cette action est irréversible.',
       deleteOpenHint: 'Clôturer d\'abord',
       deleteFailed: 'Échec de la suppression',
       actions: 'Actions',
@@ -656,6 +658,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       extPreview: 'Aperçu avec un lieu d’exemple',
       extAdd: 'Ajouter un portail cartographique',
       extRemove: 'Supprimer le portail cartographique',
+      extRemoveConfirm: 'Supprimer le portail cartographique ?',
       groupCategories: 'Couleurs des objets (Karte & Objekte)',
       categoriesTip: 'Colore les points, étiquettes et contours des objets de la station par catégorie, p. ex. installations PV, plans d’eau. Les règles s’appliquent de haut en bas, la première qui correspond l’emporte ; chaque catégorie s’active ou se masque dans «Ebenen». Sans règle : avec plans en rouge, sans plans en gris.',
       colCategory: 'Catégorie',
@@ -665,6 +668,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       catUp: 'Monter (vérifiée plus tôt)',
       catDown: 'Descendre',
       catRemove: 'Supprimer la catégorie',
+      catRemoveConfirm: 'Supprimer la catégorie ?',
       catName: 'Nom',
       catNamePlaceholder: 'p. ex. Photovoltaïque',
       catColor: 'Couleur',
@@ -833,6 +837,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
     stringList: {
       addPlaceholder: 'Ajouter…',
       removeItem: 'Supprimer {item}',
+      removeItemConfirm: 'Supprimer {item} ?',
     },
     fleet: {
       colVehicle: 'Véhicule',
@@ -1852,6 +1857,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       linkUrlPlaceholder: 'https://…',
       linkAdd: 'Ajouter un lien',
       linkRemove: 'Supprimer le lien',
+      linkRemoveConfirm: 'Supprimer le lien ?',
       linkTokens: 'Insérer un espace réservé',
       linkPreview: 'Aperçu avec une intervention d’exemple',
       linkPreviewNone: 'Lien non valable (http ou https) – cette entrée n’apparaîtra pas sur le rapport.',
@@ -1894,6 +1900,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       webhookPlaceholder: 'https://…',
       webhookAdd: 'Ajouter un webhook',
       webhookRemove: 'Supprimer le webhook',
+      webhookRemoveConfirm: 'Supprimer le webhook ?',
       webhookInvalid: 'Pas encore enregistré – une adresse complète avec http:// ou https:// est attendue.',
       webhookDuplicate: 'Cette adresse figure déjà dans la liste.',
       webhooksEmpty: 'Aucun webhook configuré – une nouvelle intervention n’est annoncée nulle part.',

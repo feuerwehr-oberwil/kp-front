@@ -5,7 +5,7 @@ import './app.css'
 import { IconSprite, Icon } from './lib/icons'
 import { demoSeedRebase, type Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
-import { shortAddress, isDemoMode, alarmProviderName, objectVisitsConfig } from './lib/deploymentConfig'
+import { shortAddress, isDemoMode, alarmProviderName, objectVisitsConfig, getDeploymentConfig } from './lib/deploymentConfig'
 import { isOvPath, leaveAppEntries, navigateTo, OV_BASE, ovHref, showsObjectVisits, useOvRoute } from './objectVisits/route'
 import { isKartePath, KARTE_BASE, useKarteRoute } from './lib/karte/route'
 import { appScreen, bootPlan } from './lib/karte/home'
@@ -27,8 +27,9 @@ import { getInstallPlatform, isStandalone } from './lib/installPrompt'
 import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { useIncidentTabLock } from './lib/tabLock'
-import { clearIncidentMedia, clearUploadedMedia } from './lib/mediaQueue'
-import { ensurePushSubscription } from './lib/push'
+import { clearIncidentMedia, clearUploadedMedia, listMediaQueue } from './lib/mediaQueue'
+import { MediaPendingMeldung, type ClosedMediaPending } from './components/MediaPendingMeldung'
+import { clearAppBadge, ensurePushSubscription } from './lib/push'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
 import { IncidentWorkspace } from './IncidentWorkspace'
@@ -39,7 +40,7 @@ import {
 } from './lib/incidents'
 import { isIncidentRunning } from './lib/api/incidents'
 import { closedMetaFor, closedNoticeAt, onIncidentClosed, onIncidentReopened, reopenedMetaFor, reportIncidentClosed, reportIncidentReopened, type IncidentClosedSignal, type IncidentReopenedSignal } from './lib/incidentClosed'
-import { serverNow } from './lib/serverClock'
+import { serverNow, serverNowIso } from './lib/serverClock'
 import { unlockAlarm } from './lib/alarm'
 import { CRASH_HEALTHY_MS, clearCrash } from './lib/crashLoop'
 import { ApiError, isUnverifiable } from './lib/api'
@@ -104,6 +105,9 @@ function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedb
 export default function App() {
   const { user, logout, sessionExpired } = useAuth()
   const isEditor = user?.role === 'editor'
+  /** may close and reopen Einsätze – an editor, but not in the Führungsansicht, the editor's
+   *  locked view (workspace/access · elView; RBAC audit 22.10.2026: it got «Wieder öffnen») */
+  const canLifecycle = isEditor && !user?.el_view_default
   // Einsatz-Link session (/l/<token>): a viewer narrowed to ONE incident. The backend answers
   // 403 for everything outside a read allowlist — reports, printing, push, the incident LIST —
   // so the rule here is the same as for `isEditor`: a link holder must never see a control
@@ -172,6 +176,20 @@ export default function App() {
   // IDB sync cache); a second tab is read-only with a one-tap take-over.
   const tabLock = useIncidentTabLock(activeId)
   const [overlay, setOverlay] = useState<null | 'create' | 'history' | 'daten'>(null)
+  // closed Einsätze whose captures are still queued on this device (completeRapport) — a Meldung
+  // each while true; re-read whenever the list refreshes, gone once the queue is empty
+  const [closedMedia, setClosedMedia] = useState<ClosedMediaPending[]>([])
+  useEffect(() => {
+    if (closedMedia.length === 0) return
+    let live = true
+    void Promise.all(closedMedia.map(async (p) => ({ ...p, n: (await listMediaQueue(p.id).catch(() => [])).length })))
+      .then((next) => {
+        if (!live) return
+        const kept = next.filter((p) => p.n > 0)
+        setClosedMedia((cur) => (kept.length === cur.length && kept.every((p, i) => p.n === cur[i].n) ? cur : kept))
+      })
+    return () => { live = false }
+  }, [incidents])  // eslint-disable-line react-hooks/exhaustive-deps
   // the Objektbesuche route (/besuche…) — a surface of its own, see the render below
   const ovRoute = useOvRoute()
   // …ENTERED on purpose (the «Einsätze» sheet's button, the Einsatz menu's row, a deep link at
@@ -291,7 +309,8 @@ export default function App() {
   // targets (atemschutz/journal) are claimed by IncidentWorkspace once mounted.
   useEffect(() => {
     if (!isEditor) return
-    const openPool = () => { void refreshPool() }
+    // the home-screen badge the push set (sw-notify.js) is cleared now that the alarm is on screen
+    const openPool = () => { clearAppBadge(); void refreshPool() }
     if (claimBootNotifyTarget(['divera'])) openPool()
     const sw = typeof navigator !== 'undefined' ? navigator.serviceWorker : undefined
     if (!sw) return
@@ -718,6 +737,39 @@ export default function App() {
     if (entry && isIncidentRunning(entry)) reportIncidentReopened({ incidentId: activeMeta.id, source: 'list' })
   }, [incidents, activeMeta])
 
+  /** THE reopen, after its question was answered — by the confirm of `reactivateById` below, or
+   *  by the close toast's «Wieder öffnen» (completeRapport), which IS the question. */
+  const reopenNow = useCallback(async (id: string): Promise<ReactivateResult> => {
+    // this device's own reopen: its poll hears «open» before the remount below, and that is not
+    // «auf einem anderen Gerät wieder geöffnet»
+    reopeningLocallyRef.current = id
+    try {
+      // ⚠️ Reported, not swallowed: a failed reopen used to be followed by the incident being
+      // opened read-only anyway, which reads as «the app decided I may not edit this» rather than
+      // as «the server refused». Same rule as abschliessen — the outcome, not the intent.
+      try {
+        await reactivateIncident(id)
+      } catch (e) {
+        // Offline (or the server down) is not a refusal: say what it needs. There is no queue for
+        // a reopen on purpose — the server writes the reopen boundary the Atemschutz clocks restart
+        // from, and until it arrives the alarm holds (lib/reopenClocks · reopenPending), so an
+        // Einsatz reopened offline would run its Tafel without an Überfällig alarm.
+        toast(isUnverifiable(e) ? appConfig.copy.archived.reactivateNeedsServer
+          : e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
+        return 'failed'
+      }
+      await refreshList()
+      try {
+        await selectIncident(id, { readOnly: false })
+        return 'ok'
+      } catch {
+        return 'failed'
+      }
+    } finally {
+      if (reopeningLocallyRef.current === id) reopeningLocallyRef.current = null
+    }
+  }, [refreshList, selectIncident])
+
   // THE close, and the only one. Both doors on the ACTIVE Einsatz (the Rapport's button/band and
   // the Einsatz-Menü row) run their counting confirm in IncidentWorkspace and land here; «Alle
   // Einsätze» runs the plain confirm below and lands here too. Flush the last workspace edits,
@@ -731,7 +783,8 @@ export default function App() {
     closingLocallyRef.current = id
     try {
       if (id === activeId && syncRef.current) await syncRef.current.flush().catch(() => {})
-      await patchIncident(id, { report_done_at: new Date().toISOString() })
+      // the deployment's clock, like every other stamp on the record (lib/serverClock)
+      await patchIncident(id, { report_done_at: serverNowIso() })
       // ⚠️ NOT `.catch(() => {})`. A swallowed failure here sat one line above a green «Rapport
       // abgeschlossen» toast — and then the Einsatz reopened by itself on the next list refresh,
       // because it had never been closed at all. The catch below reports it and the Einsatz stays
@@ -739,10 +792,22 @@ export default function App() {
       await archiveIncident(id)
       // …and say so when something could not go up: the operator is about to leave this incident,
       // and «kommt beim nächsten Öffnen» is only reassuring if it was said out loud.
+      // ⚠️ …and what is still queued stands as a Meldung while true, not in this toast (S3,
+      // 20.10.2026): five seconds while the screen moves to the launcher is not «said out loud»
       const stillQueued = await clearUploadedMedia(id)
-      toast(stillQueued
-        ? fillTemplate(appConfig.copy.abschluss.doneMediaPending, { n: stillQueued })
-        : appConfig.copy.abschluss.done, { icon: stillQueued ? 'warn' : 'check', tone: stillQueued ? 'warn' : 'success' })
+      /* «Wieder öffnen» on the toast, 10 s (3am sweep, 23.10.2026, owner's point 4): the way back
+         used to be Alle Einsätze → open read-only → «Wieder öffnen» → confirm. The toast is the
+         confirm-with-undo of the close (docs/undo.md) — the same reopen «Alle Einsätze» runs,
+         minus its question, and it refuses like the other undo toasts when the server has moved
+         on (reopenNow: a failed PATCH is said, nothing is reopened). */
+      toast(appConfig.copy.abschluss.done, {
+        icon: 'check', tone: 'success', duration: 10_000,
+        action: { label: appConfig.copy.abschluss.reopen, onClick: () => { void reopenNow(id) } },
+      })
+      if (stillQueued) {
+        const title = (incidents ?? []).find((i) => i.id === id)?.title ?? activeMeta?.title ?? ''
+        setClosedMedia((cur) => [...cur.filter((p) => p.id !== id), { id, title, n: stillQueued }])
+      }
       if (id === activeId) {
         if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
         await refreshList()
@@ -768,7 +833,7 @@ export default function App() {
     } finally {
       if (closingLocallyRef.current === id) closingLocallyRef.current = null
     }
-  }, [activeId, refreshList])
+  }, [activeId, refreshList, incidents, activeMeta, reopenNow])
 
   // Close ANY incident from the «Alle Einsätze» list (per-incident, not just the active one).
   // ⚠️ It ends the same way the Rapport does — through `completeRapport` — so an Einsatz put away
@@ -828,35 +893,8 @@ export default function App() {
       cancelLabel: appConfig.copy.cancel,
     })
     if (!ok) return 'cancelled'
-    // this device's own reopen: its poll hears «open» before the remount below, and that is not
-    // «auf einem anderen Gerät wieder geöffnet»
-    reopeningLocallyRef.current = id
-    try {
-      // ⚠️ Reported, not swallowed: a failed reopen used to be followed by the incident being
-      // opened read-only anyway, which reads as «the app decided I may not edit this» rather than
-      // as «the server refused». Same rule as abschliessen — the outcome, not the intent.
-      try {
-        await reactivateIncident(id)
-      } catch (e) {
-        // Offline (or the server down) is not a refusal: say what it needs. There is no queue for
-        // a reopen on purpose — the server writes the reopen boundary the Atemschutz clocks restart
-        // from, and until it arrives the alarm holds (lib/reopenClocks · reopenPending), so an
-        // Einsatz reopened offline would run its Tafel without an Überfällig alarm.
-        toast(isUnverifiable(e) ? appConfig.copy.archived.reactivateNeedsServer
-          : e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
-        return 'failed'
-      }
-      await refreshList()
-      try {
-        await selectIncident(id, { readOnly: false })
-        return 'ok'
-      } catch {
-        return 'failed'
-      }
-    } finally {
-      if (reopeningLocallyRef.current === id) reopeningLocallyRef.current = null
-    }
-  }, [refreshList, selectIncident])
+    return reopenNow(id)
+  }, [reopenNow])
 
   // Which screen (lib/karte/home · appScreen — tested there): the Objektbesuche surface, «Karte &
   // Objekte», the boot's splash, an Einsatz, or — for a link session only — the launch card.
@@ -1016,7 +1054,7 @@ export default function App() {
             responder's business either */}
         {!linkScoped && (
           <div className="ip-emptyapp-secondary">
-            <button className="ip-btn" onClick={() => { close(); setOverlay('history') }}><Icon id="history" />{appConfig.copy.emptyApp.history}</button>
+            <button className="ip-btn" onClick={() => { close(); setOverlay('history') }}><Icon id="list" />{appConfig.copy.emptyApp.history}</button>
             {/* Objektbesuche: only where the station switched the module on; every account
                 may read, the surface hides what a role may not capture */}
             {objectVisitsConfig().enabled && (
@@ -1169,7 +1207,7 @@ export default function App() {
           // checked — while the Rapport path stamped and counted. Both doors run the SAME confirm
           // in IncidentWorkspace now and end here (mockup 06 · Fall 4).
           onCompleteRapport={() => completeRapport(activeMeta.id)}
-          onReactivateActive={isEditor && activeMeta.is_archived ? () => reactivateById(activeMeta.id) : undefined}
+          onReactivateActive={canLifecycle && activeMeta.is_archived ? () => reactivateById(activeMeta.id) : undefined}
           onBackFromArchive={activeMeta.is_archived ? () => void backFromArchive() : undefined}
           lifecycleElsewhere={lifecycleElsewhere?.id === activeMeta.id ? lifecycleElsewhere : null}
           openCover={coverId === activeId}
@@ -1274,6 +1312,9 @@ export default function App() {
 
       {/* auto-opened / colleague-taken incident announced, never forced. Suppressed while
           untaken pool alarms exist — the take banner owns that spot and the take flow. */}
+      {closedMedia.map((p) => (
+        <MediaPendingMeldung key={p.id} pending={p} onDismiss={() => setClosedMedia((cur) => cur.filter((q) => q.id !== p.id))} />
+      ))}
       {freshIncident && poolAlarms.length === 0 && (
         <NewIncidentBanner
           inc={freshIncident}
@@ -1308,7 +1349,9 @@ export default function App() {
       )}
       {overlay === 'history' && (
         <HistoryPanel onClose={() => setOverlay(null)} onOpen={(id, ro) => { setOverlay(null); void openIncident(id, { readOnly: ro }) }}
-          onArchive={isEditor ? archiveById : undefined} />
+          onArchive={canLifecycle ? archiveById : undefined}
+          // a viewer reads only the last few days (docs/roles-and-access.md · the viewer's window)
+          windowDays={user?.role === 'viewer' ? getDeploymentConfig().access?.viewerHistoryDays ?? undefined : undefined} />
       )}
       {overlay === 'daten' && (
         <DatenquellenPanel

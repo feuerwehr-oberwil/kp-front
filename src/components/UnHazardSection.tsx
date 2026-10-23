@@ -14,7 +14,8 @@ import { Segmented } from './Segmented'
  * two look-up links. ONE block for both places that ask: a Gefahrentafel's detail panel
  * (ContextPanel, rings around the placed symbol) and the Gefahrgut lookup of «Karte & Objekte»
  * (components/karte, rings that are only looked at and never stored). Each caller owns what the
- * ring switch and «Absperrkreis übernehmen» DO — absent props draw no switch and no button.
+ * ring switch and «Absperrkreis übernehmen» DO — absent props draw no switch and no button; a
+ * `ringMode` without `onRingMode` (a locked panel) is the switch's read-out.
  * `nameHero` puts the substance's ADR name first, as the card's hero line (owner, review round 4:
  * «for the gefahrgut stuff we also need to know the name») — the Karte's lookup asks for it; a
  * Gefahrentafel already shows the name in its own «Stoff» field, so it does not.
@@ -30,7 +31,7 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
   un: string
   /** the substance's name as the card's hero line (lib/unHazard · substanceName) */
   nameHero?: boolean
-  /** the ring switch's value — absent ⇒ no switch */
+  /** the ring switch's value — absent ⇒ no switch; without `onRingMode` it is a read-out */
   ringMode?: ErgRingMode
   onRingMode?: (mode: ErgRingMode) => void
   /** where the rings stand, for the day/night note (lib/ergRings · ergDayNote) */
@@ -173,7 +174,7 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
               «Gross» is offered only where the large-spill column holds numbers — on
               the 'T3' sentinel a circle would claim to know what only container and
               wind decide. The ergSource caveat above is the ring's caveat too. */}
-          {onRingMode && ringMode && !!erg.tih?.length && (
+          {ringMode && !!erg.tih?.length && (
             <div className="un-erg-rings">
               {/* …and which distance the ring draws, with the sun's reason: «Nacht ·
                   Sonnenuntergang 16:42» (B1, 08.10.2026 — it was a silent 07–19 h clock) */}
@@ -181,16 +182,22 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
                 {C.ergRingsLabel}
                 <span className="un-erg-day">{ergDayNote(new Date(), ergCoord)}</span>
               </span>
-              <Segmented
-                ariaLabel={C.ergRingsLabel}
-                value={ringMode}
-                options={[
-                  { value: 'off' as const, label: C.ergRingsOff },
-                  { value: 'small' as const, label: C.ergRingsSmall },
-                  { value: 'large' as const, label: C.ergRingsLarge, disabled: !erg.tih[0]?.l || erg.tih[0].l === 'T3' },
-                ]}
-                onChange={onRingMode}
-              />
+              {/* …and on a locked panel the answer alone, in the read-out recipe (RBAC audit
+                  22.10.2026 — it was a live switch whose taps went nowhere) */}
+              {onRingMode ? (
+                <Segmented
+                  ariaLabel={C.ergRingsLabel}
+                  value={ringMode}
+                  options={[
+                    { value: 'off' as const, label: C.ergRingsOff },
+                    { value: 'small' as const, label: C.ergRingsSmall },
+                    { value: 'large' as const, label: C.ergRingsLarge, disabled: !erg.tih[0]?.l || erg.tih[0].l === 'T3' },
+                  ]}
+                  onChange={onRingMode}
+                />
+              ) : (
+                <b className="kv-val-ro">{{ off: C.ergRingsOff, small: C.ergRingsSmall, large: C.ergRingsLarge }[ringMode]}</b>
+              )}
             </div>
           )}
         </div>

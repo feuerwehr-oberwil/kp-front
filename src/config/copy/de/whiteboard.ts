@@ -42,12 +42,6 @@ export const whiteboardCopy = {
     area: 'Fläche',
     dockHints: {
       draw: 'Auf den Plan ziehen, um frei zu zeichnen. Farbe, Breite und Stil danach im Editor.',
-      line: 'Eckpunkte antippen. Doppeltippen oder «Fertig» schliesst die Linie ab. Farbe, Breite und Stil danach im Editor.',
-      lineFreeShort: 'Mit dem Finger über den Plan ziehen',
-      lineNodesShort: 'Punkte tippen – ✓ schliesst die Linie ab',
-      areaFreeShort: 'Den Umriss mit dem Finger ziehen',
-      areaNodesShort: 'Mind. 3 Eckpunkte tippen – ✓ schliesst ab',
-      area: 'Ziehen zeichnet den Umriss frei. Oder Eckpunkte antippen (mind. 3) – Doppeltippen oder «Fertig» schliesst die Fläche ab.',
       circle: 'Von der Mitte zum Rand ziehen setzt den Radius. Radius, Farbe und Füllung danach im Editor anpassen – in echten Metern, sobald der Massstab kalibriert ist.',
       text: 'Auf den Plan tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
       resource: 'Auf den Plan tippen, um einen Trupp zu setzen. Zum Verschieben ziehen.',
@@ -189,8 +183,6 @@ export const whiteboardCopy = {
       discard: 'Verwerfen',
       restore: 'Vorschlag wiederherstellen',
       planSize: 'Plangrösse',
-      sizeSmaller: 'Plan um 1 Prozent verkleinern',
-      sizeBigger: 'Plan um 1 Prozent vergrössern',
       undoNudge: 'Letzte Anpassung rückgängig',
       rotateGrip: 'Drehen',
       hintMove: 'Ziehen verschiebt den Plan',
@@ -452,9 +444,12 @@ export const whiteboardCopy = {
     northUnknownTitle: 'Norden unbekannt – Plan nicht mit der Karte verknüpft',
     orientNorthUp: 'Norden oben',
     orientLongAxis: 'Auf Längsachse drehen',
-    // the rotation popover both compass doors open (30.08. – replaces the hidden dial drag)
+    // the rotation popover the north dial opens (30.08. – replaces the hidden dial drag)
     orientMenuTitle: 'Gebäude drehen',
     orientSliderLabel: 'Drehung',
+    // the dial's word in the rail (shown with «Beschriftung · Wörter»): the door, or the read-out
+    orientRail: 'Drehen',
+    northRail: 'Norden',
   },
   // the Tafel's pages (10.10.2026, docs/board-templates.md): the free «Skizze» plus the pages a
   // board template offers (FKS «Erste Führung», FKS 8.1 …) — the page strip, the «+ Seite» list,

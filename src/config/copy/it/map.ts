@@ -4,7 +4,7 @@
 import type { Copy, Localizable } from '../index'
 
 type Keys =
-  | 'mapTools' | 'planTools' | 'nav' | 'mapViews' | 'toast' | 'mapHints' | 'dockHints' | 'map'
+  | 'mapTools' | 'planTools' | 'nav' | 'mapViews' | 'toast' | 'dockHints' | 'map'
 
 export const mapCopy: Localizable<Pick<Copy, Keys>> = {
   mapTools: [
@@ -47,23 +47,15 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     micFailed: 'Impossibile avviare la registrazione',
     merged: 'Modifiche unite',
   },
-  mapHints: {
-    placeSymbol: 'Tocca la carta per posizionare «{name}»',
-  },
   dockHints: {
-    symbol: 'Tocca la carta per posizionare il segno. Attiva il lucchetto per metterne più di seguito.',
     lasso: 'Trascina con un dito un riquadro attorno a più oggetti. Con due dita la carta continua a spostarsi. Toccando di nuovo «Multiplo» si torna alla Selezione.',
     line: 'Trascina sulla carta o tocca i punti per disegnare una linea. Colore, spessore e stile si scelgono poi nell’editor.',
-    lineFreehand: 'Trascina sulla carta per disegnare una linea. Per singoli punti: «Punti». Colore, spessore e stile si scelgono poi nell’editor.',
-    lineNodes: 'Tocca i punti sulla carta, concludi con ✓. Colore, spessore e stile si scelgono poi nell’editor.',
-    lineFreeShort: 'Trascina il dito sulla carta',
-    lineNodesShort: 'Tocca i punti – ✓ chiude la linea',
-    areaFreeShort: 'Traccia il contorno con il dito',
-    areaNodesShort: 'Tocca almeno 3 vertici – ✓ chiude',
-    area: 'Tocca almeno tre vertici sulla carta, poi concludi con il segno di spunta.',
+    lineFreehand: 'Trascina per disegnare una linea. Per singoli punti: «Punti». Colore, spessore e stile si scelgono poi nell’editor.',
+    lineNodes: 'Tocca i punti, concludi con ✓. Colore, spessore e stile si scelgono poi nell’editor.',
+    area: 'Trascinando si disegna il contorno a mano libera – per un fronte di fuoco senza angoli. Oppure tocca almeno tre vertici, concludi con ✓.',
     circle: 'Trascina dal centro verso il bordo per impostare il raggio in metri. Raggio e riempimento si regolano poi nell’editor.',
     note: 'Tocca la carta per inserire una nota.',
-    shape: 'Tocca la carta per posizionare la forma. Attiva il lucchetto per metterne più di seguito.',
+    shape: 'Tocca la carta per posizionare la forma. Attiva «Posiziona più» per metterne più di seguito.',
     rotationStart: 'Toccare il primo punto — dove si preleva l’acqua. Tenere premuto su un simbolo finché l’anello si chiude per posare il punto esattamente lì.',
     rotationEnd: 'Toccare il secondo punto — l’incendio. Toccando due volte lo stesso punto si posa una Rotazione di lunghezza standard.',
     measure: 'Tocca i punti sulla carta. La distanza mostra lunghezza e profilo altimetrico, la superficie mostra area e perimetro. Trascina i punti per spostarli, il + al centro di un segmento inserisce un punto intermedio, tieni premuto un punto (clic destro sul computer) per rimuoverlo.',

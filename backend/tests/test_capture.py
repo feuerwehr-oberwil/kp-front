@@ -132,6 +132,59 @@ async def test_capture_roster_and_journal(client, capture_secret, db_session):
     assert r.status_code == 401
 
 
+async def _fu_row(db_session, inc) -> None:
+    """A Verlauf row the KP wrote — what the poster must not be able to touch."""
+    from app.api.journal import append_rows
+
+    await append_rows(db_session, inc.id, [{"id": "fu1", "t": "12:00", "at": "2026-07-08T12:00:00Z", "text": "FU"}])
+    await db_session.commit()
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        [{"id": "p-1", "patchOf": "fu1", "retracted": True}],
+        [{"id": "p-1", "patchOf": "fu1", "textEdit": "umgeschrieben"}],
+        # a replay of the KP row's id is skipped, so its patch would land on the KP's row
+        [{"id": "fu1", "text": "x"}, {"id": "p-1", "patchOf": "fu1", "retracted": True}],
+        [{"id": "p-1", "kind": "team", "text": "Trupp 1"}],
+    ],
+)
+async def test_capture_journal_touches_only_its_own_lines(client, capture_secret, db_session, rows):
+    """RBAC audit S2: a `patchOf` row is folded onto its target on every device and in the
+    Rapport, so the poster may correct its own lines and nobody else's; a `kind` would make the
+    line Atemschutz-Tafel or Karte."""
+    inc = _incident()
+    db_session.add(inc)
+    await db_session.commit()
+    await _fu_row(db_session, inc)
+    entries = [{"t": "", "at": "2026-07-08T12:05:00Z", "icon": "", "text": "", **r} for r in rows]
+    r = await client.post(f"/api/capture/incidents/{inc.id}/journal?t={TOKEN}", json={"entries": entries})
+    assert r.status_code == 403, r.text
+    stored = (await client.get(f"/api/capture/incidents/{inc.id}/journal?t={TOKEN}")).json()["entries"]
+    assert [e["row"]["id"] for e in stored] == ["fu1"]
+
+
+async def test_capture_journal_stamps_its_rows_and_corrects_its_own(client, capture_secret, db_session):
+    inc = _incident()
+    db_session.add(inc)
+    await db_session.commit()
+    url = f"/api/capture/incidents/{inc.id}/journal?t={TOKEN}"
+    row = {
+        "id": "q1",
+        "t": "12:00",
+        "at": "2026-07-08T12:00:00Z",
+        "icon": "user",
+        "text": "x",
+        "via": "atemschutz-link",
+    }
+    r = await client.post(url, json={"entries": [row]})
+    assert r.status_code == 201, r.text
+    assert r.json()["entries"][0]["row"]["via"] == "capture"  # the server's stamp, not the claim
+    fix = {"id": "q2", "t": "", "at": "2026-07-08T12:01:00Z", "icon": "", "text": "", "patchOf": "q1", "textEdit": "y"}
+    assert (await client.post(url, json={"entries": [fix]})).status_code == 201
+
+
 async def test_admin_rotate_and_disable(client, admin_login, db_session):
     await admin_login(client)
     r = await client.post("/api/capture/secret/rotate")

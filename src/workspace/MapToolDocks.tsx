@@ -6,13 +6,16 @@
 
 import type { Dispatch, SetStateAction, RefObject } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
+import { ArmedSymbolGlyph, ArmedToolPill } from '../components/ArmedToolPill'
 import { type ViewsApi, MapViewsButton } from '../components/MapViewsMenu'
 import { MeasurePanel } from '../components/MeasurePanel'
 import { Palette } from '../components/Palette'
 import { ToolDock } from '../components/ToolDock'
 import { ToolRail } from '../components/ToolRail'
 import { appConfig } from '../config/appConfig'
+import { armedToolIcon, armedToolName } from '../lib/armedTool'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
+import { formatSymbolName } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { layerPresetLabel, type LayerPreset } from '../lib/layerPreset'
 import { Overlay } from '../lib/overlays'
@@ -89,14 +92,28 @@ export function MapToolDocks({
 }: MapToolDocksProps) {
   return (
     <>
-      {/* active-tool affordances — all anchored bottom-centre, like the draw style bar */}
-      {mapUI && tool === 'symbol' && pending && (
-        <ToolDock groups={[
-          [{ type: 'close', onClick: () => { setPending(null); setTool('select') } }],
-          [{ type: 'toggle', icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
-          [{ type: 'info', text: appConfig.copy.dockHints.symbol }],
-        ]} />
-      )}
+      {/* the armed tool's readout — ONE pill, bottom centre, glyph + name (3am sweep point 3,
+          23.10.2026). A symbol wears its own SVG and name, the others their rail glyph and word;
+          Linie/Fläche say their input mode. The symbol tool has no dock any more: the pill IS
+          its readout, «Mehrere platzieren» stands beside it, and the way out is the rail tile or
+          Escape. Not on the phone while Messen is armed – its results panel stands in that row. */}
+      {mapUI && tool !== 'select' && !(isPhone && tool === 'measure') && (() => {
+        if (tool === 'symbol') {
+          if (!pending) return null
+          return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}
+            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }} />
+        }
+        if (tool === 'shape') {
+          if (!pendingShape) return null
+          return <ArmedToolPill glyph={<ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />}
+            name={appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel} />
+        }
+        const name = armedToolName(tool, appConfig.copy.mapTools, { lineMode, areaMode })
+        const icon = armedToolIcon(tool, appConfig.copy.mapTools)
+        if (!name || !icon) return null
+        return <ArmedToolPill glyph={<Icon id={icon} />} name={name} />
+      })()}
+      {/* active-tool option docks — the right-edge column (a bottom bar on the phone) */}
       {mapUI && tool === 'lasso' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('select') }],
@@ -104,7 +121,7 @@ export function MapToolDocks({
         ]} />
       )}
       {mapUI && tool === 'line' && (
-        <ToolDock hint={isPhone ? undefined : lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodesShort : appConfig.copy.dockHints.lineFreeShort} groups={[
+        <ToolDock groups={[
           [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
           // input mode: Freihand (drag) ↔ Punkte (tap each vertex, ✓ to finish)
           [
@@ -114,12 +131,12 @@ export function MapToolDocks({
           ],
           // «D pur» (09.09.): no colour/width/style here — the finished line lands selected in
           // the DrawEditor (useMapDrawing · one-shot to Select), which is where the styling
-          // lives; new lines inherit the last-used style (the editor writes the defaults back)
+          // lives; every new line starts from the plain default (useMapDrawing · DRAW_DEFAULTS)
           [{ type: 'info', text: lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodes : appConfig.copy.dockHints.lineFreehand }],
         ]} />
       )}
       {mapUI && tool === 'area' && (
-        <ToolDock hint={areaMode === 'nodes' ? appConfig.copy.dockHints.areaNodesShort : appConfig.copy.dockHints.areaFreeShort} groups={[
+        <ToolDock groups={[
           [{ type: 'close', onClick: () => { setDraft([]); setTool('select') } }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); setDraft([]) } },
@@ -177,10 +194,11 @@ export function MapToolDocks({
       {mapUI && tool === 'shape' && pendingShape && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('select') } }],
-          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color={isPhone ? 'currentColor' : '#fff'} aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
+          // currentColor, not #fff: the dock is light by day since 20.10.2026 (3am sweep, nit)
+          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
           // a two-point shape is placed by naming two places, so «mehrere nacheinander» has no
-          // meaning for it — the lock row is simply not offered
-          ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'lock', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
+          // meaning for it — the «Mehrere platzieren» toggle is simply not offered
+          ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'place-repeat', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
           // …and the hint says which of the two taps is due
           [{ type: 'info', text: !SHAPE_TWO_POINT[pendingShape] ? appConfig.copy.dockHints.shape
             : rotStart ? appConfig.copy.dockHints.rotationEnd : appConfig.copy.dockHints.rotationStart }],

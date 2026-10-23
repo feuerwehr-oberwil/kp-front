@@ -93,7 +93,6 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     notePlaceholder: 'p. ex. remis au service de voirie',
     editLabel: 'Modifier l\'entrée',
     stockLabel: 'Stock',
-    stockPlaceholder: 'facultatif',
     deleteLine: 'Supprimer l\'entrée',
     lageStrip: 'Posé, mais pas saisi : {list}',
     lageStripTake: 'Reprendre',

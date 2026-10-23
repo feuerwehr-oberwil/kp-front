@@ -8,6 +8,7 @@ alarm would have.
 """
 
 import base64
+import json
 from datetime import datetime
 from types import SimpleNamespace
 
@@ -771,11 +772,78 @@ async def test_notify_new_alarm_broadcasts_stichwort_and_address(db_session, mon
     await db_session.commit()
     await asyncio.gather(*tuple(push_mod._inflight))
     assert calls == [
-        {"title": "Neuer Einsatz", "body": "Zimmerbrand — Teststrasse 1", "tag": "divera-99", "target": "divera"}
+        {
+            "title": "Neuer Einsatz",
+            "body": "Zimmerbrand — Teststrasse 1",
+            "tag": "divera-99",
+            "target": "divera",
+            "user_ids": [],  # no editor account in this DB: nobody (see test_who_hears_which_push)
+            # the dispatch waits ~2 h for a phone in Doze, marked urgent (3am sweep §1.2)
+            "ttl": push_mod.NEW_ALARM_TTL_SECONDS,
+            "urgency": "high",
+        }
     ]
 
 
+async def test_who_hears_which_push(db_session, monkeypatch):
+    """Owner's pick (22.10.2026): «Neuer Einsatz» wakes the editors, «Wiedervorlage fällig» the
+    editors and the el; a viewer tablet and a kiosk row hear only the Atemschutz alarm."""
+    import asyncio
+
+    import pywebpush
+
+    import app.push as push_mod
+    from app.config import settings
+    from app.models import Incident, JournalEntry, PushSubscription
+    from tests.conftest import _make_user
+
+    monkeypatch.setattr(settings, "vapid_private_key", "priv")
+    monkeypatch.setattr(settings, "vapid_public_key", "pub")
+    push_mod._notified.clear()
+    push_mod._delivered.clear()
+    base = "https://fcm.googleapis.com/fcm/send/"
+    for role in ("editor", "el", "viewer"):
+        user = await _make_user(db_session, username=f"push-{role}", role=role)
+        db_session.add(PushSubscription(user_id=user.id, endpoint=base + role, p256dh="k", auth="a"))
+    off = await _make_user(db_session, username="push-off", role="editor")
+    off.is_active = False
+    db_session.add(PushSubscription(user_id=off.id, endpoint=base + "inactive", p256dh="k", auth="a"))
+    _add_sub(db_session, base + "kiosk")
+    inc = Incident(
+        title="Zimmerbrand",
+        source="manual",
+        status="offen",
+        is_archived=False,
+        map_workspace_json={"trupps": [trupp("a", "2026-07-02T14:03:00Z")]},
+    )
+    db_session.add(inc)
+    await db_session.flush()
+    row = rem_row("r1", "created", "2026-07-02T14:00:00Z")
+    db_session.add(JournalEntry(incident_id=inc.id, client_id=row["id"], seq=1, row_json=row))
+    await db_session.commit()
+
+    heard: dict[str, list[str]] = {}
+
+    def fake_webpush(subscription_info, data, **_kw):
+        heard.setdefault(json.loads(data)["title"], []).append(subscription_info["endpoint"].removeprefix(base))
+
+    monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
+    await db_session.execute(select(1))
+    await push_mod.notify_new_alarm(db_session, tag="divera-1", title="Brand", address=None)
+    await db_session.commit()
+    await asyncio.gather(*tuple(push_mod._inflight))
+    await push_mod.check_and_push(db_session, NOW)
+
+    assert {title: sorted(eps) for title, eps in heard.items()} == {
+        "Neuer Einsatz": ["editor"],
+        "Wiedervorlage fällig": ["editor", "el"],
+        "Atemschutz überfällig": ["editor", "el", "kiosk", "viewer"],
+    }
+
+
 async def test_webhook_pushes_only_for_new_alarms(client, monkeypatch):
+    import asyncio
+
     import app.push as push_mod
     from app.config import settings
 
@@ -792,10 +860,12 @@ async def test_webhook_pushes_only_for_new_alarms(client, monkeypatch):
     payload = {"id": 4712, "title": "Ölspur", "address": "Dorfplatz 2"}
     r = await client.post("/api/divera/webhook?secret=hook-secret-123", json=payload)
     assert r.status_code == 200 and r.json()["new"] is True
+    await asyncio.gather(*tuple(push_mod._inflight))  # the push leaves after the commit
     assert [c["tag"] for c in calls] == ["divera-4712"]
     # duplicate delivery: still 200, but no second push
     r = await client.post("/api/divera/webhook?secret=hook-secret-123", json=payload)
     assert r.status_code == 200 and r.json()["new"] is False
+    await asyncio.gather(*tuple(push_mod._inflight))
     assert len(calls) == 1
 
 
@@ -1013,3 +1083,111 @@ class TestNotfallOnSave:
         r = await client.put(f"/api/incidents/{inc}/workspace/trupps", json={"trupps": [t], "base_rev": 0})
         assert r.status_code == 200, r.text
         assert sent == []
+
+
+# ---------------------------------------------------------------------------------------
+# delivery hints, session-less renewal, «Testalarm senden» (3am sweep §1, 23.10.2026)
+# ---------------------------------------------------------------------------------------
+
+
+async def test_delivery_hints_reach_the_push_service(db_session, monkeypatch):
+    """«Neuer Einsatz» asks the push service for ~2 h and `Urgency: high`; a sweep's re-notify keeps
+    the short default and no urgency header — a phone briefly out of coverage still hears the
+    dispatch, while a stale «überfällig» is not stacked up by the hour."""
+    import pywebpush
+
+    import app.push as push_mod
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "vapid_private_key", "priv")
+    monkeypatch.setattr(settings, "vapid_public_key", "pub")
+    _add_sub(db_session, "https://fcm.googleapis.com/fcm/send/hints")
+    await db_session.flush()
+    seen: list[dict] = []
+
+    def fake_webpush(subscription_info, **kw):
+        seen.append(kw)
+
+    monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
+    await push_mod.broadcast(
+        db_session,
+        title="Neuer Einsatz",
+        body="b",
+        tag="divera-1",
+        target="divera",
+        ttl=push_mod.NEW_ALARM_TTL_SECONDS,
+        urgency=push_mod.NEW_ALARM_URGENCY,
+    )
+    await push_mod.broadcast(db_session, title="Atemschutz", body="b", tag="atemschutz-1", target="atemschutz")
+    assert [(k["ttl"], k["headers"]) for k in seen] == [(7200, {"Urgency": "high"}), (120, None)]
+
+
+async def test_renew_without_a_session_takes_the_subscription_as_its_credential(
+    client, editor, db_session, monkeypatch
+):
+    from datetime import UTC, datetime, timedelta
+
+    from app import egress
+    from app.models import PushSubscription
+
+    monkeypatch.setattr(egress, "_resolved_addresses", lambda host: ["93.184.216.34"])
+    login = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
+    assert login.status_code == 200
+    sub = {"endpoint": "https://fcm.googleapis.com/fcm/send/renew", "keys": {"p256dh": "k1", "auth": "a1"}}
+    assert (await client.post("/api/push/subscriptions", json=sub)).status_code == 201
+    # age the row: five months old, still inside the TTL but about to fall out of it
+    old = datetime.now(UTC) - timedelta(days=150)
+    row = (
+        await db_session.execute(select(PushSubscription).where(PushSubscription.endpoint == sub["endpoint"]))
+    ).scalar_one()
+    row.created_at = old
+    await db_session.commit()
+
+    client.cookies.clear()  # the session is gone — exactly the case the route exists for
+    assert (await client.get("/api/auth/me")).status_code == 401
+    wrong = {"endpoint": sub["endpoint"], "keys": {"p256dh": "k1", "auth": "nope"}}
+    assert (await client.post("/api/push/subscriptions/renew", json=wrong)).status_code == 404
+    unknown = {"endpoint": "https://fcm.googleapis.com/fcm/send/other", "keys": sub["keys"]}
+    assert (await client.post("/api/push/subscriptions/renew", json=unknown)).status_code == 404
+    r = await client.post("/api/push/subscriptions/renew", json=sub)
+    assert r.status_code == 200, r.text
+    await db_session.refresh(row)
+    assert row.created_at > old + timedelta(days=100)
+    assert row.user_id == editor.id  # the owner never changes
+
+
+async def test_testalarm_goes_to_the_callers_own_registration_only(client, editor, viewer, monkeypatch):
+    import app.api.push as api_push
+    from app import egress
+
+    monkeypatch.setattr(egress, "_resolved_addresses", lambda host: ["93.184.216.34"])
+    sub = {"endpoint": "https://fcm.googleapis.com/fcm/send/test1", "keys": {"p256dh": "k1", "auth": "a1"}}
+    login = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
+    assert login.status_code == 200
+    assert (await client.post("/api/push/subscriptions", json=sub)).status_code == 201
+
+    # no VAPID pair in the test env → the button is told so, nothing is sent
+    assert (await client.post("/api/push/test", json={"endpoint": sub["endpoint"]})).status_code == 409
+
+    monkeypatch.setattr(api_push, "push_enabled", lambda: True)
+    sent: list[tuple[dict, dict]] = []
+
+    def fake_send(row, payload, **kw):
+        sent.append((row, kw))
+        return "accepted"
+
+    monkeypatch.setattr(api_push, "_send_one", fake_send)
+    api_push._last_test.clear()
+    r = await client.post("/api/push/test", json={"endpoint": sub["endpoint"]})
+    assert r.status_code == 200 and r.json() == {"ok": True, "outcome": "accepted"}
+    assert sent[0][0]["endpoint"] == sub["endpoint"] and sent[0][1] == {"urgency": "high"}
+    # a second tap inside the minute is refused, not sent
+    assert (await client.post("/api/push/test", json={"endpoint": sub["endpoint"]})).status_code == 429
+    assert len(sent) == 1
+
+    # another login cannot ring this phone, even knowing its endpoint
+    client.cookies.clear()
+    login = await client.post("/api/auth/login", json={"user_id": str(viewer.id), "pin": "135790"})
+    assert login.status_code == 200
+    assert (await client.post("/api/push/test", json={"endpoint": sub["endpoint"]})).status_code == 404
+    assert len(sent) == 1

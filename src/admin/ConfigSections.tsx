@@ -734,12 +734,11 @@ function ExternalLinksCard({ centre }: { centre: [number, number] | null }) {
             key={i}
             name={row.label?.trim() || appConfig.copy.admin.common.newEntry}
             action={(
-              <button
-                type="button" className="adm-formlink-x" title={C.extRemove} aria-label={C.extRemove}
-                onClick={() => write(rows.filter((_, j) => j !== i))}
-              >
-                <Icon id="trash" />
-              </button>
+              <ConfirmButton
+                className="adm-formlink-x" ariaLabel={C.extRemove} label={<Icon id="trash" />}
+                question={C.extRemoveConfirm} danger
+                onConfirm={() => write(rows.filter((_, j) => j !== i))}
+              />
             )}
           >
             <SettingRow label={C.extLabel}>
@@ -2116,13 +2115,11 @@ function WebhooksEditor() {
                   placeholder={C.webhookPlaceholder}
                   onChange={(e) => write(rows.map((r, j) => (j === i ? e.target.value : r)))}
                 />
-                <button
-                  type="button" className="adm-formlink-x"
-                  title={C.webhookRemove} aria-label={C.webhookRemove}
-                  onClick={() => write(rows.filter((_, j) => j !== i))}
-                >
-                  <Icon id="trash" />
-                </button>
+                <ConfirmButton
+                  className="adm-formlink-x" ariaLabel={C.webhookRemove} label={<Icon id="trash" />}
+                  question={C.webhookRemoveConfirm} danger
+                  onConfirm={() => write(rows.filter((_, j) => j !== i))}
+                />
               </span>
             </SettingRow>
             {warn && <SettingsNote tone="warn">{warn}</SettingsNote>}
@@ -2227,12 +2224,11 @@ function ReportLinksEditor() {
             <SettingsGroup
               title={row.title?.trim() || appConfig.copy.admin.common.newEntry}
               action={(
-                <button
-                  type="button" className="adm-formlink-x" title={C.linkRemove} aria-label={C.linkRemove}
-                  onClick={() => write(rows.filter((_, j) => j !== i))}
-                >
-                  <Icon id="trash" />
-                </button>
+                <ConfirmButton
+                  className="adm-formlink-x" ariaLabel={C.linkRemove} label={<Icon id="trash" />}
+                  question={C.linkRemoveConfirm} danger
+                  onConfirm={() => write(rows.filter((_, j) => j !== i))}
+                />
               )}
             />
             <SettingRow label={C.linkTitle}>

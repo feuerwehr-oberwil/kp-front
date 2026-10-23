@@ -27,6 +27,8 @@ export interface JournalLayerProps {
   journal: ReturnType<typeof useJournal>
   auditDelivery: ReturnType<typeof useAuditEvents>
   closedRefusedTotal: number
+  /** saves a wider role left on this device that this session cannot push (useLifecycleElsewhere) */
+  workspaceRoleParked: number
   exportEntries: () => void
   journalVocab: JournalLink[]
   timeline: TimelineEvent[]
@@ -58,17 +60,23 @@ export interface JournalLayerProps {
   isEditor: boolean
   addPlayerEntry: (text: string, atIso: string, quiet?: boolean) => string
   composerOpen: boolean
+  /** the session may write nothing (access · roleReadOnly): no composer mounts, whatever asked
+   *  for one – the checklist's «Verlauf» link reached it past every other gate (RBAC audit V4) */
+  roleReadOnly: boolean
   addJournal: (d: JournalDraft, geoSettled?: boolean) => void
   noteOn: { id: string; text: string } | null
+  /** a link session (access · linkScoped): every link is refused the audio peaks, so its player
+   *  draws the flat bar without asking */
+  linkScoped: boolean
 }
 
 export function JournalLayer({
-  journalOpen, guarded, journal, auditDelivery, closedRefusedTotal, exportEntries, journalVocab,
+  journalOpen, guarded, journal, auditDelivery, closedRefusedTotal, workspaceRoleParked, exportEntries, journalVocab,
   timeline, incidentMeta, planDocs, focusEvent, replayActive, replayAtMs, seekToEvent, journalLandOn,
   setJournalOpen, setJournalLandOn, journalFromRapport, setJournalFromRapport, openRapport, readOnly,
   enterReplay, reminders, setNoteOn, setComposerOpen, reRaisePendenz, media, setPlayer, photoOnMap,
-  tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen,
-  addJournal, noteOn,
+  tacticalLocked, placePhotos, showPhotoOnMap, player, isEditor, addPlayerEntry, composerOpen, roleReadOnly,
+  addJournal, noteOn, linkScoped,
 }: JournalLayerProps) {
   return (
     <>
@@ -79,7 +87,7 @@ export function JournalLayer({
           deliveryNotice={<JournalDeliveryNotice
             status={combinedSyncStatus(journal.syncStatus, auditDelivery.status)}
             count={journal.pendingCount + journal.rejectedCount + auditDelivery.pendingCount + auditDelivery.rejectedCount}
-            refused={auditDelivery.refusedCount}
+            refused={auditDelivery.refusedCount + workspaceRoleParked}
             closedRefused={closedRefusedTotal}
             onRetry={async () => { await Promise.all([journal.retry(), auditDelivery.retry()]) }}
             onExport={exportEntries}
@@ -127,6 +135,7 @@ export function JournalLayer({
           readOnly={readOnly}
           // transcribing and deciding its segments is editor-only on the server (api/media)
           canTranscribe={isEditor}
+          serverPeaks={!linkScoped}
           initialSeekSec={player.seekSec}
           // the same vocabulary the composer gets — «Eintrag an dieser Stelle» writes into the
           // same Verlauf, so it completes and marks names identically
@@ -152,7 +161,7 @@ export function JournalLayer({
           onClose={() => setPlayer(null)}
         />
       )}
-      {composerOpen && (
+      {composerOpen && !roleReadOnly && (
         <JournalComposer
           // everything this Einsatz has words for — Mannschaft, Mittel, Partnerorganisationen,
           // Fahrzeuge, Alarmgruppen. Typing three letters of any of them completes it.

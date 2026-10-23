@@ -1,10 +1,10 @@
-// The workspace blob, both ways: the load gate's one honest toast, `applyWorkspace` (a merged or
+// The workspace blob, both ways: the load gate's honest Meldungen, `applyWorkspace` (a merged or
 // polled blob written into every synced slice, the undo timeline carried through the merge) and
 // `buildPayload` (the slices back into the blob the sync saves) — plus this device's own Ebenen,
 // which deliberately never ride the blob. Split out of IncidentWorkspace (E1, 09.10.2026)
 // verbatim; useIncidentSync, which drives both, is still called by the workspace.
 
-import { type Dispatch, type SetStateAction, type RefObject, useRef, useCallback, useEffect } from 'react'
+import { type Dispatch, type SetStateAction, type RefObject, useRef, useCallback, useEffect, useState } from 'react'
 import { type BoardHistory, keepPlanSteps } from '../components/useBoardDoc'
 import { appConfig } from '../config/appConfig'
 import { prefs } from './bootPrefs'
@@ -16,6 +16,7 @@ import { saveLayerPrefs } from '../lib/layerPrefs'
 import { type TacticalObject, type PlanFit, viewsOf } from '../lib/tacticalObjects'
 import type { TruppTrail } from '../lib/truppTrails'
 import { toast } from '../lib/ui'
+import { useMeldung } from '../lib/useMeldung'
 import { carryUndoThroughMerge, workspaceChanges, planViewChanges } from '../lib/undoKeys'
 import type { UndoTimeline } from '../lib/undoTimeline'
 import type { useJournal } from '../lib/useJournal'
@@ -97,16 +98,26 @@ export function useWorkspaceBlob({
   checklists, allTrupps, attendance, mittel, shifts, bands, cameraViews, trails, planScale, reportMeta,
   attachments, reportSignatures, incidentSettings, planBindings, intakeReviewedAt, layers,
 }: UseWorkspaceBlobInputs) {
-  // Honest reporting for the workspace load gate — once per incident mount, so a persistently
-  // malformed server blob (re-applied on every poll) nudges the operator once, not endlessly.
-  const gateWarned = useRef(false)
+  // Honest reporting for the workspace load gate — as Meldungen that stand WHILE TRUE (S3,
+  // 20.10.2026). They were ~5 s toasts, once per mount: an operator who looked up six seconds
+  // later never learned that this build is older than the data, or that entries were skipped.
+  // The gate is re-read on every poll (applyWorkspace), so «newer» goes the moment an updated
+  // build reads the blob; «skipped» can be waved away (nobody on site can repair the blob), and
+  // comes back only if the count changes. Same state written again is no re-render.
+  const [gateNote, setGateNote] = useState(() => ({ dropped: bootGate.dropped, newer: bootGate.newerSchema }))
+  const [droppedSeen, setDroppedSeen] = useState(0)
   const reportGate = useCallback((g: WorkspaceGate) => {
-    if (gateWarned.current || (g.dropped === 0 && !g.newerSchema)) return
-    gateWarned.current = true
-    if (g.dropped > 0) toast(fillTemplate(appConfig.copy.offline.wsDropped, { n: g.dropped }), { icon: 'warn', tone: 'warn' })
-    if (g.newerSchema) toast(appConfig.copy.offline.wsNewer, { icon: 'warn', tone: 'warn' })
+    setGateNote((n) => (n.dropped === g.dropped && n.newer === g.newerSchema ? n : { dropped: g.dropped, newer: g.newerSchema }))
   }, [])
-  useEffect(() => { reportGate(bootGate) }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+  const C = appConfig.copy.offline
+  useMeldung(!gateNote.newer ? null : {
+    id: 'workspace:newer', kind: 'workspace', tone: 'warn', icon: 'warn', title: C.wsNewer, wrap: true,
+  })
+  useMeldung(gateNote.dropped === 0 || gateNote.dropped === droppedSeen ? null : {
+    id: 'workspace:dropped', kind: 'workspace', tone: 'warn', icon: 'warn', wrap: true,
+    title: fillTemplate(C.wsDropped, { n: gateNote.dropped }),
+    dismiss: { label: C.wsDroppedDismiss, onClick: () => setDroppedSeen(gateNote.dropped) },
+  })
 
   // Write an authoritative workspace (conflict take-server or live-follow poll) into App's
   // state slices. useIncidentSync wraps this with its skip-save guard and drives it from the

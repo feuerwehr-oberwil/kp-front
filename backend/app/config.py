@@ -116,7 +116,11 @@ class Settings(BaseSettings):
 
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 480  # 8h
-    refresh_token_expire_days: int = 7
+    # 90 days, not 7 (3am sweep §1.4, 23.10.2026): a volunteer whose alarms are weeks apart met
+    # «Wer bist du?» + PIN on nearly every alarm, and an alarm push the app cannot open into a live
+    # session is a notification, not an alarm. Rotation and revocation rules are unchanged: every
+    # refresh mints a one-time successor, a PIN reset or a role change ends the session at once.
+    refresh_token_expire_days: int = 90
     # How long a just-rotated refresh token is still answered — with the SAME successor, never a
     # second one (auth/security · successor_jti). Covers a rotation whose answer never arrived:
     # the page reloaded mid-POST, the tablet lost the network. 0 = strictly one-time.

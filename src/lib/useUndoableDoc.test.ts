@@ -58,6 +58,18 @@ describe('useUndoableDoc', () => {
     expect(result.current.canUndo).toBe(false)
   })
 
+  // RBAC audit (22.10.2026): the raw door and the gesture fold bypassed that gate
+  it('readOnly neuters the raw write and the gesture fold too', () => {
+    const { result } = renderHook(() => useUndoableDoc<Doc>(INIT, true))
+    act(() => {
+      result.current.beginDrag()
+      result.current.setDocRaw({ n: 1 })
+      result.current.endDrag()
+    })
+    expect(result.current.doc).toEqual({ n: 0 })
+    expect(result.current.canUndo).toBe(false)
+  })
+
   it('a drag gesture (beginDrag → silent setDocRaw → endDrag) folds into ONE undo step', () => {
     const { result } = renderHook(() => useUndoableDoc<Doc>(INIT, false))
     act(() => {

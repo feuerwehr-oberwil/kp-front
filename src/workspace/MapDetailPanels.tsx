@@ -63,7 +63,6 @@ export interface MapDetailPanelsProps {
   canEditIncident: boolean
   readOnly: boolean
   stopPersonSharing: (entityId: string) => Promise<void>
-  isEl: boolean
   setVehicleOverrides: Dispatch<SetStateAction<VehicleOverrides>>
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   assignTypedName: (name: string, role: AssignableRole, note?: string) => string | undefined
@@ -77,14 +76,9 @@ export interface MapDetailPanelsProps {
   setNoteDefaults: Dispatch<SetStateAction<{ size: NoteSize; plain: boolean; color: string }>>
   selectedDrawing: Drawing | null
   patchDrawing: (patch: Partial<Drawing>) => void
-  setDrawColor: Dispatch<SetStateAction<string>>
-  setDrawWidth: Dispatch<SetStateAction<number>>
-  setDrawDashed: Dispatch<SetStateAction<boolean>>
   selectedDrawingId: string | null
   patchDrawingLabelLive: (id: string, label: string) => void
   commitDrawingLabel: (id: string, label: string) => void
-  setDrawMarker: Dispatch<SetStateAction<string>>
-  setDrawArrow: Dispatch<SetStateAction<boolean>>
   changeMapEnding: (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck', drawing?: Drawing | null) => Promise<void>
   reverseDrawing: (id: string) => void
   syncLineNoToTrupp: (lineId: string, lineNo: number | undefined) => void
@@ -111,14 +105,28 @@ export function MapDetailPanels({
   timeline, sym, selectedPlanProjection, showMapSourceOnPlan, entityTypedAt, titleLiveRef, beginDrag,
   setDocRaw, endDrag, emit, patchEntity, linkRosterFields, createCircle, doc, undockTeam, effTrupps,
   symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone,
-  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, isEl, setVehicleOverrides, log,
+  vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, log,
   assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
-  noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing, setDrawColor, setDrawWidth,
-  setDrawDashed, selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel, setDrawMarker,
-  setDrawArrow, changeMapEnding, reverseDrawing, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
+  noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
+  selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
+  changeMapEnding, reverseDrawing, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
   unlinkLine, setSelectedDrawingId, setMode, setPanel, setGpsRouting, revertAll, gpsEndOf, releaseHere,
   releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing,
 }: MapDetailPanelsProps) {
+  // a Rechteck's figures, for its panel — editable or read-only alike
+  const shapeFigures = selected?.kind === 'shape' && selected.shape === 'square' ? (() => {
+    // ⚠️ The box on the GROUND, from the two numbers the shape is stored with: `sizeM` is
+    // its width and `sizeM × aspect` its height (types · Entity). No polygon to integrate
+    // — a Rechteck is its own rectangle — so this is the same answer `polygonAreaM2` would
+    // give for the outline, arrived at directly.
+    const wM = selected.sizeM ?? SHAPE_DEFS.square.defaultSizeM
+    const hM = wM * shapeAspect('square', selected.aspect)
+    // ⚠️ Unrotated: `sizeM` is the box's own width and height. A rotated Rechteck occupies a
+    // bigger axis-aligned box, but «wie gross ist diese Fläche» is asking about the shape,
+    // not about the room it needs — which is the opposite call from a drawn Fläche, whose
+    // outline has no width of its own to report.
+    return { areaM2: wM * hM, perimeterM: 2 * (wM + hM), boxM: { widthM: wM, heightM: hM } }
+  })() : {}
   return (
     <>
       {/* `tool === 'select'`, matching the Plan (Whiteboard gates all four of its editors on
@@ -155,21 +163,22 @@ export function MapDetailPanels({
           // click-through and the LockChip becomes the only door back in
           onToggleLock={() => { commit((d) => ({ ...d, entities: d.entities.map((e) => (e.id === selected.id ? { ...e, locked: !e.locked || undefined } : e)) })); if (!selected.locked) setSelectedId(null) }}
           locked={selected.locked}
-          {...(selected.shape === 'square' ? (() => {
-            // ⚠️ The box on the GROUND, from the two numbers the shape is stored with: `sizeM` is
-            // its width and `sizeM × aspect` its height (types · Entity). No polygon to integrate
-            // — a Rechteck is its own rectangle — so this is the same answer `polygonAreaM2` would
-            // give for the outline, arrived at directly.
-            const wM = selected.sizeM ?? SHAPE_DEFS.square.defaultSizeM
-            const hM = wM * shapeAspect('square', selected.aspect)
-            // ⚠️ Unrotated: `sizeM` is the box's own width and height. A rotated Rechteck occupies a
-            // bigger axis-aligned box, but «wie gross ist diese Fläche» is asking about the shape,
-            // not about the room it needs — which is the opposite call from a drawn Fläche, whose
-            // outline has no width of its own to report.
-            return { areaM2: wM * hM, perimeterM: 2 * (wM + hM), boxM: { widthM: wM, heightM: hM } }
-          })() : {})}
+          {...shapeFigures}
           onCenter={() => flyToMapVisible(selected.coord, 18.4)}
           onDelete={() => deleteEntity(selected.id)}
+          onClose={() => setSelectedId(null)}
+        />
+      )}
+      {/* …and a locked session (viewer, el, Führungsansicht, replay) gets the same panel to READ:
+          what the Form is, its figures, «Zentrieren» — the DrawEditor's locked mode (RBAC audit
+          22.10.2026; it opened nothing at all before) */}
+      {detailSlotFree && tacticalLocked && tool === 'select' && selected && selected.kind === 'shape' && (
+        <ShapeEditor
+          key={selected.id}
+          readOnly
+          entity={selected}
+          {...shapeFigures}
+          onCenter={() => flyToMapVisible(selected.coord, 18.4)}
           onClose={() => setSelectedId(null)}
         />
       )}
@@ -275,9 +284,10 @@ export function MapDetailPanels({
           onStopSharing={selected.live && selected.kind === 'person' && canEditIncident && !readOnly
             ? () => { void stopPersonSharing(selected.id) }
             : undefined}
-          // not for a session whose override never leaves the device (the el record slice,
-          // a viewer): «GPS» would clear it here and the next hydrate would put it back
-          onResetGps={selected.live && selected.kind !== 'person' && !readOnly && !isEl
+          // not for a locked session: the el's record slice and a viewer never carry the
+          // override (the next hydrate would put it back), and the Führungsansicht is hands-off
+          // (RBAC audit 22.10.2026)
+          onResetGps={selected.live && selected.kind !== 'person' && !tacticalLocked
             ? () => setVehicleOverrides((m) => { const { [selected.id]: _drop, ...rest } = m; return rest })
             : undefined}
           // «Hier festhalten»: the Kroki is printed hours later, and a vehicle that has since
@@ -285,7 +295,7 @@ export function MapDetailPanels({
           // that had one. Pinning writes the CURRENT position as an override, which is the same
           // mechanism a drag already uses, so «GPS» beside it is the way back and there is no
           // second kind of pinned vehicle to reason about.
-          onPinGps={selected.live && selected.kind !== 'person' && canEditIncident && !readOnly
+          onPinGps={selected.live && selected.kind !== 'person' && canEditIncident && !tacticalLocked
             && Array.isArray(selected.coord) && vehicleOverrides[selected.id]?.coord == null
             ? () => {
               const coord = selected.coord as LngLat
@@ -295,9 +305,10 @@ export function MapDetailPanels({
             : undefined}
           // A live vehicle's Fahrer: the GPS feed reports where a vehicle IS, never who is in
           // it, and that is the one thing the FU needs to reach it. Kept in the override map
-          // because the entity itself is rebuilt from the feed on every poll.
-          driver={selected.live && selected.kind !== 'person' && !readOnly && !isEl
-            ? {
+          // because the entity itself is rebuilt from the feed on every poll. A locked session
+          // reads it (viewer, el, Führungsansicht — RBAC audit 22.10.2026) and cannot set it.
+          driver={selected.live && selected.kind !== 'person'
+            ? tacticalLocked ? { value: vehicleOverrides[selected.id]?.fahrer ?? '' } : {
               value: vehicleOverrides[selected.id]?.fahrer ?? '',
               options: rosterNames,
               onChange: (v: string) => {
@@ -380,16 +391,15 @@ export function MapDetailPanels({
              the collapsible swisstopo Höhenprofil (fetched only once it is opened) */
           lengthM={selectedDrawing.coords.length >= 2 ? pathLengthM(selectedDrawing.coords) : null}
           profileCoords={selectedDrawing.coords}
-          // …each style edit is remembered as the NEXT drawing's default («D pur», 09.09.: the
-          // docks carry no style controls and the preset row is gone — the last line is the
-          // template, decoration included)
-          onColor={(c) => { patchDrawing({ color: c }); setDrawColor(c) }}
-          onWidth={(w) => { patchDrawing({ width: w }); setDrawWidth(w) }}
-          onDashed={(dashed) => { patchDrawing({ dashed }); setDrawDashed(dashed) }}
+          // a style edit changes THIS drawing only – the next one starts from the plain default
+          // again (useMapDrawing · DRAW_DEFAULTS; until 23.10.2026 these wrote the template back)
+          onColor={(c) => patchDrawing({ color: c })}
+          onWidth={(w) => patchDrawing({ width: w })}
+          onDashed={(dashed) => patchDrawing({ dashed })}
           onLabel={(label) => { if (selectedDrawingId) patchDrawingLabelLive(selectedDrawingId, label) }}
           onLabelCommit={(label) => { if (selectedDrawingId) commitDrawingLabel(selectedDrawingId, label) }}
-          onMarker={(marker) => { patchDrawing({ marker }); setDrawMarker(marker) }}
-          onArrow={(arrow) => { patchDrawing({ arrow }); setDrawArrow(arrow) }}
+          onMarker={(marker) => patchDrawing({ marker })}
+          onArrow={(arrow) => patchDrawing({ arrow })}
           onEnding={(ending) => void changeMapEnding(ending)}
           onReverse={tacticalLocked ? undefined : () => reverseDrawing(selectedDrawing.id)}
           onContent={(content) => patchDrawing({ content })}

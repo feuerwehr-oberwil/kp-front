@@ -105,6 +105,8 @@ export interface WorkspaceTopBarProps {
   installGuideOpen: boolean
   offlineReadyOpen: boolean
   shareLink: ShareLinkKind | null
+  /** may correct the Rapport of a CLOSED Einsatz (workspace/access) – the closed chip's sentence */
+  canEditRapport: boolean
 }
 
 export function WorkspaceTopBar({
@@ -119,6 +121,7 @@ export function WorkspaceTopBar({
   onOpenDivera, onOpenDatenquellen, confirmAndComplete, abschlussMissing, canShareLink, setShareLink,
   setHelpOpen, setInstallGuideOpen, setOfflineReadyOpen, syncNow, media, logout, settingsOpen,
   helpOpen, installGuideOpen, offlineReadyOpen, shareLink,
+  canEditRapport,
 }: WorkspaceTopBarProps) {
   return (
     <>
@@ -142,9 +145,10 @@ export function WorkspaceTopBar({
         // A tab that merely LOST THE LOCK keeps the button though: making it vanish answers the
         // question just as badly, so it says what is in the way and offers the one tap out of it
         // (the same «Hier bearbeiten» the banner carries, for when the banner is scrolled away).
+        // Editor AND el: both write the Verlauf, so both get the banner (WorkspaceMeldungen).
         onAddEntry={linkScoped ? undefined
           : !readOnly ? () => setComposerOpen(true)
-          : tabLockLost && isEditor ? () => toast(appConfig.copy.tabLock.hint, {
+          : tabLockLost && (isEditor || user?.role === 'el') ? () => toast(appConfig.copy.tabLock.hint, {
               icon: 'info',
               action: { label: appConfig.copy.tabLock.takeOver, onClick: onTakeOverTab },
             })
@@ -204,6 +208,7 @@ export function WorkspaceTopBar({
         archived={incidentMeta.is_archived}
         onBackFromArchive={onBackFromArchive}
         onReactivate={onReactivateActive}
+        canCorrectRapport={canEditRapport}
         // On the phone map surface the compass in the bottom bar already carries Einpassen
         // (== centerIncident) + Mein Standort, so a top-bar center button here would just
         // duplicate it AND crowd the narrow bar off its right edge (clipping the Atemschutz

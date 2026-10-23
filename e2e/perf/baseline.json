@@ -1,7 +1,7 @@
 {
   "$comment": "Written by `node scripts/perf-report.mjs --update` from a CI run (`just perf-accept <run-id>`). Hand-edit only `tolerance`. docs/testing/perf-journeys.md",
   "recorded": "2026-10-05",
-  "source": "CI run 37340054315; cold-start.js_kb + cold-start.precache_kb from CI run 38012467930 (main 6470c2ff, the E1 split, 10.10.); verlauf.api_requests from CI run 38405365334 (#297, 13.10.); cold-start.js_kb + cold-start.precache_kb + cold-start.static_requests from CI run 38424130702 (#193, MapLibre 6, 13.10.); trupps.kb_per_save from CI run 39134779672 (main 7d40c5c7, #394 Trupp-only saves, 18.10.)",
+  "source": "CI run 37340054315; cold-start.js_kb + cold-start.precache_kb from CI run 38012467930 (main 6470c2ff, the E1 split, 10.10.); verlauf.api_requests from CI run 38405365334 (#297, 13.10.); cold-start.js_kb + cold-start.precache_kb + cold-start.static_requests from CI run 38424130702 (#193, MapLibre 6, 13.10.); trupps.kb_per_save from CI run 39134779672 (main 7d40c5c7, #394 Trupp-only saves, 18.10.); cold-start.static_requests from CI run 39568177229 (#448 UX sweep, 21.10.: main already measured 43–44, the sweep splits adminAuth + draw.css into their own files)",
   "calibration": 38.4,
   "tolerance": {},
   "metrics": {
@@ -18,7 +18,7 @@
       "unit": "ms"
     },
     "cold-start.css_kb": {
-      "value": 97.7,
+      "value": 102.8,
       "unit": "kb"
     },
     "cold-start.data_kb": {
@@ -70,7 +70,7 @@
       "unit": "kb"
     },
     "cold-start.static_requests": {
-      "value": 39,
+      "value": 45,
       "unit": "count"
     },
     "cold-start.total_ms": {

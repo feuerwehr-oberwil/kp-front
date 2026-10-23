@@ -108,3 +108,34 @@ describe('IncidentSwitcher · Einsatz verlassen', () => {
     expect(screen.queryByText(appConfig.copy.incidentSwitcher.noOpenIncidents)).toBeNull()
   })
 })
+
+// S8 (20.10.2026, owner: «all dropdowns, popovers … closable by Escape»). The menu stays
+// non-modal; one Escape closes it and nothing behind it — the workspace's own Escape listens on
+// window and must not also peel the map's next layer.
+describe('IncidentSwitcher · Escape', () => {
+  it('closes the menu, and the key does not travel on to the workspace', () => {
+    const behind = vi.fn()
+    window.addEventListener('keydown', behind)
+    try {
+      renderSwitcher()
+      expect(document.querySelector('.ip-menu')).not.toBeNull()
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(document.querySelector('.ip-menu')).toBeNull()
+      expect(behind).not.toHaveBeenCalled()
+      // closed: the next Escape is the workspace's again
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(behind).toHaveBeenCalledTimes(1)
+    } finally {
+      window.removeEventListener('keydown', behind)
+    }
+  })
+
+  it('leaves the key to a sheet opened from the menu', () => {
+    renderSwitcher({ sheetOpen: true })
+    const behind = vi.fn()
+    window.addEventListener('keydown', behind)
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    window.removeEventListener('keydown', behind)
+    expect(behind).toHaveBeenCalledTimes(1)
+  })
+})

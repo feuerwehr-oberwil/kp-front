@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { Button, IconButton } from './Button'
+import { TickRow } from './TickRow'
 import { ShellLoader } from './ShellLoader'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
@@ -200,6 +201,16 @@ function CheckRow({ done, label, sub, onGo, anchor, tab, children }: {
       {children}
     </div>
   )
+}
+
+/** A recorded value on a Rapport this session cannot change – a viewer, a view link, a closed
+ *  Einsatz it may not correct, a signed Rapport (RBAC audit 22.10.2026, `!canEdit`). The words
+ *  themselves in the dispatch block's read-out type, never a disabled field: a door the session
+ *  cannot go through is not drawn, and an empty prompt box («Was ist passiert …») asked a driver
+ *  to write. Nothing recorded reads «Nicht erfasst», like the dispatch block above it. */
+function ReadOut({ value }: { value?: string | null }) {
+  const v = value?.trim()
+  return <div className={cx('rp-readout', !v && 'report-meta-empty')}>{v || appConfig.copy.preflight.notRecorded}</div>
 }
 
 
@@ -880,8 +891,11 @@ export function ReportPreflight({
     return fillTemplate(i.code === 'beforeAusgerueckt' ? P.zeitBeforeAusgerueckt : P.zeitBeforeAlarm, { t })
   }
   // a plain call, not a component: one declared in the render body is re-created every pass
+  /** a recorded instant as the read-out says it («21.10.2026 23:14»), nothing when none */
+  const whenOf = (iso?: string) => (iso ? formatDateTime(iso) : undefined)
   const zeitWarn = (kind: ZeitKind) => {
-    const text = issueFor(kind)
+    // a hint to CORRECT a time – nothing for a session that cannot (it reads the times as they are)
+    const text = canEdit && issueFor(kind)
     return text ? <span className="form-warn form-warn-amber form-warn-compact rz-warn"><Icon id="warn" />{text}</span> : null
   }
   const missTx = missingTranscriptCount(events)
@@ -938,7 +952,10 @@ export function ReportPreflight({
   })
   // «Rapport unterschreiben»: which line the sheet is open for (null = closed)
   const [signFor, setSignFor] = useState<SignatureRole | null>(null)
-  const canSign = closed && canEditIn && !!onSign
+  /** this session signs Rapporte at all (not a viewer, a link, an archived view) – on a running
+   *  Einsatz it cannot sign YET, which `canSign` adds */
+  const maySign = canEditIn && !!onSign
+  const canSign = closed && maySign
   const kdtDefault = getDeploymentConfig().identity?.kommandant ?? ''
   // «Ort» of «Ort, Datum»: the station's town — without the postcode the setting may carry
   const signPlace = (getDeploymentConfig().map?.geocoder?.defaultLocality ?? '').replace(/^\d{4,5}\s+/, '').trim()
@@ -1440,8 +1457,11 @@ export function ReportPreflight({
                 leftwards from it started at roughly x=−130: the names in the Einsatzstunden warning
                 were cut off the left of the screen, hard-clipped by the surface's `overflow: hidden`.
                 Portalled + collision-aware, the panel is clamped to the viewport instead of to the
-                chip, so no breakpoint has to guess which way it should open. */}
-            {((!checking && !controlOk) || openInControl) && (
+                chip, so no breakpoint has to guess which way it should open.
+                ⚠️ Not for a session that cannot edit the Rapport (`canEditIn`, RBAC audit
+                22.10.2026): «4 noch offen» is the editor's to-do list, and on the Fahrer tablet it
+                was an amber alarm about work the driver can do nothing about. */}
+            {canEditIn && ((!checking && !controlOk) || openInControl) && (
               <Popover
                 open={controlOpen}
                 onOpenChange={setControlOpen}
@@ -1629,7 +1649,8 @@ export function ReportPreflight({
           value={phoneTab}
           onChange={pickTab}
           options={PHONE_TABS.map((t) => {
-            const open = missing.some((s) => STEP_TAB[s] === t)
+            // the same to-do as the head's chip, so the same gate (a viewer gets no dot)
+            const open = canEditIn && missing.some((s) => STEP_TAB[s] === t)
             return {
               value: t,
               title: open ? `${P.tabs[t]} – ${P.headStillOpen}` : P.tabs[t],
@@ -1653,7 +1674,11 @@ export function ReportPreflight({
           {/* ONE disabled fieldset rather than a `readOnly` on twenty controls: a viewer, and an
               archived Einsatz («nur ansehen – zum Bearbeiten reaktivieren»), can read every
               recorded value here and change none of it. `persist` refuses too, so a stray
-              handler can't slip past the markup. */}
+              handler can't slip past the markup.
+              ⚠️ The fieldset is the safety net, not the look (RBAC audit 22.10.2026): where
+              `canEdit` is false each field draws a `ReadOut` instead of its control – no «Jetzt»,
+              no «Entfällt», no steppers, no picker, no ✕ – because a disabled form is a row of
+              doors the session cannot go through. */}
           <fieldset className="report-fieldset" disabled={!canEdit}>
           <section className="report-pre-section report-pre-meta" data-tab="bericht">
             {/* No <h3> here: the dispatch block carries its own «Aus den Einsatzdaten» heading,
@@ -1734,8 +1759,10 @@ export function ReportPreflight({
                 adopted the moment the field is left (see useSyncedField). One marker per field. */}
             <label className="ip-field" data-step="kurzbericht" data-sync="summary">
               <span>{P.summaryLabel}</span>
-              <textarea className="ip-textarea" value={summary} rows={5} placeholder={P.summaryPlaceholder}
-                onChange={(e) => { const v = stripUnprintable(e.target.value); setSummary(v); persist({ summary: v.trim() || undefined }) }} />
+              {canEdit ? (
+                <textarea className="ip-textarea" value={summary} rows={5} placeholder={P.summaryPlaceholder}
+                  onChange={(e) => { const v = stripUnprintable(e.target.value); setSummary(v); persist({ summary: v.trim() || undefined }) }} />
+              ) : <ReadOut value={summary} />}
             </label>
             <div className="report-meta-grid">
               {/* ⚠️ Each field carries its OWN anchor. The grid used to carry one for
@@ -1743,7 +1770,9 @@ export function ReportPreflight({
                   — two different people answering two different questions. The grid is a single
                   column, so a wrapper here is a plain block box and changes no layout. */}
               <div data-step="einsatzleiter" data-sync="einsatzleiter">
-              <PersonField
+              {!canEdit ? (
+                <div className="ip-field"><span>{P.einsatzleiterLabel}</span><ReadOut value={einsatzleiter} /></div>
+              ) : <PersonField
                 label={P.einsatzleiterLabel} placeholder={P.einsatzleiterPlaceholder}
                 value={{ name: einsatzleiter }} onChange={(slot) => {
                   setEinsatzleiter(slot.name)
@@ -1760,7 +1789,7 @@ export function ReportPreflight({
                 rolesById={rolesById}
                 onAddGuest={onAddGuest && ((name) => onAddGuest(name, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter))}
                 rankFirst officerFilter
-              />
+              />}
               </div>
               {/* ⚠️ A <div>, not a <label>: the row carries a BUTTON now, and a button inside a
                   label steals its own tap for the input's focus. Same shape the Rückmeldung-Zeit
@@ -1778,7 +1807,19 @@ export function ReportPreflight({
                     {/* dashed, never a tick: erledigt, but ANSWERED «nicht vorhanden» rather than
                         filled in — one glance tells the two apart */}
                     <span className="rz-none-val">{P.entfaellt}</span>
-                    <button type="button" className="ip-btn" onClick={() => persist({ kontaktpersonNone: undefined })}>{P.entfaelltUndo}</button>
+                    {canEdit && <button type="button" className="ip-btn" onClick={() => persist({ kontaktpersonNone: undefined })}>{P.entfaelltUndo}</button>}
+                  </div>
+                ) : !canEdit ? (
+                  // the name and the number as one read-out, and the call stays (owner, 22.10.2026:
+                  // a viewer keeps the Kontaktperson's working `tel:`)
+                  <div className="rz-none">
+                    <ReadOut value={[kontaktperson.trim(), kontaktTel.trim()].filter(Boolean).join(' · ')} />
+                    {telHref(kontaktTel) && (
+                      <a className="ip-btn rz-call" href={telHref(kontaktTel)}
+                        aria-label={P.kontaktpersonCall} title={P.kontaktpersonCall}>
+                        <Icon id="phone" />
+                      </a>
+                    )}
                   </div>
                 ) : (
                   <div className="rz-none rz-kontakt">
@@ -1834,6 +1875,15 @@ export function ReportPreflight({
                     while still showing «niemand gerettet» — the same contradiction «Entfällt» guards
                     against on Kontaktperson. Stepping either one back OFF the answer is the ✕ next
                     to it, same as everywhere else. */}
+                {/* read-only: the two numbers as read-outs in the same rows, «–» for none — and
+                    once «Keine» was answered, that answer alone (below) */}
+                {!canEdit ? (!meta.geretteteNone && (
+                  numOrU(geretteteP) === undefined && numOrU(geretteteT) === undefined ? <ReadOut /> : (
+                    <div className="rz-counts">
+                      <div className="rz-count"><span>{P.gerettetePersonen}</span><b>{numOrU(geretteteP) ?? '–'}</b></div>
+                      <div className="rz-count"><span>{P.geretteteTiere}</span><b>{numOrU(geretteteT) ?? '–'}</b></div>
+                    </div>
+                  ))) : (
                 <div className="rz-counts">
                   <div className="rz-count" data-sync="geretteteP">
                     <span>{P.gerettetePersonen}</span>
@@ -1850,6 +1900,7 @@ export function ReportPreflight({
                       onClear={() => { setGeretteteT(''); persist(geretteteOver(geretteteP, '')) }} canClear={geretteteT !== ''} />
                   </div>
                 </div>
+                )}
                 {/* ⚠️ «Keine» — the answer an empty pair of steppers could not give (04.09.,
                     Rapport-Review). Empty meant «niemand gerettet» AND «nicht abgeklärt» AND
                     «nicht erfasst» at once on the 03.09. Rapport; with this it means only the
@@ -1916,7 +1967,9 @@ export function ReportPreflight({
                 </div>
               </label>
             ) : (getDeploymentConfig().fleet?.vehicles ?? []).length === 0 ? (
-              <label className="ip-field" data-sync="ausgerueckt">
+              !canEdit ? (
+                <div className="ip-field"><span>{A.ausgerueckt}</span><ReadOut value={whenOf(dtLocalToIso(ausgerueckt))} /></div>
+              ) : <label className="ip-field" data-sync="ausgerueckt">
                 <span>{A.ausgerueckt}</span>
                 <div className="report-meta-end dtrow">
                   <DateTimeField ariaLabel={A.ausgerueckt} value={dtLocalToIso(ausgerueckt)}
@@ -1968,9 +2021,11 @@ export function ReportPreflight({
                                 it the picker opens on TODAY — so correcting a Monday Ausrückzeit
                                 on Wednesday filed it as Wednesday, on the sheet that becomes the
                                 printed Rapport (see TimeField · valueDay). */}
-                            <TimeField ariaLabel={c.label} value={clockOf(v?.alarmedAt)} days={zeitDays}
-                              valueDay={v?.alarmedAt ? new Date(v.alarmedAt) : undefined}
-                              onCommit={(hhmm, day) => onGruppe(c.id, hhmm ?? '', day)} />
+                            {canEdit ? (
+                              <TimeField ariaLabel={c.label} value={clockOf(v?.alarmedAt)} days={zeitDays}
+                                valueDay={v?.alarmedAt ? new Date(v.alarmedAt) : undefined}
+                                onCommit={(hhmm, day) => onGruppe(c.id, hhmm ?? '', day)} />
+                            ) : <b className="rz-clock">{clockOf(v?.alarmedAt) || '–'}</b>}
                           </label>
                         ))}
                       </div>
@@ -1995,9 +2050,11 @@ export function ReportPreflight({
                               )}
                             </span>
                             {/* …and the same day for the Ausrückzeit — see the Gruppen row above */}
-                            <TimeField ariaLabel={c.label} value={clockOf(v?.ausgerueckt)} days={zeitDays}
-                              valueDay={v?.ausgerueckt ? new Date(v.ausgerueckt) : undefined}
-                              onCommit={(hhmm, day) => onFahrzeug(c.id, hhmm ?? '', day)} />
+                            {canEdit ? (
+                              <TimeField ariaLabel={c.label} value={clockOf(v?.ausgerueckt)} days={zeitDays}
+                                valueDay={v?.ausgerueckt ? new Date(v.ausgerueckt) : undefined}
+                                onCommit={(hhmm, day) => onFahrzeug(c.id, hhmm ?? '', day)} />
+                            ) : <b className="rz-clock">{clockOf(v?.ausgerueckt) || '–'}</b>}
                           </label>
                         ))}
                       </div>
@@ -2020,13 +2077,17 @@ export function ReportPreflight({
             <h3>{P.sectionNachbearbeitung}</h3>
             <label className="ip-field" data-sync="remarks">
               <span>{P.remarksLabel}</span>
-              <textarea className="ip-textarea" value={remarks} rows={3} placeholder={P.remarksPlaceholder}
-                onChange={(e) => { const v = stripUnprintable(e.target.value); setRemarks(v); persist({ remarks: v.trim() || undefined }) }} />
+              {canEdit ? (
+                <textarea className="ip-textarea" value={remarks} rows={3} placeholder={P.remarksPlaceholder}
+                  onChange={(e) => { const v = stripUnprintable(e.target.value); setRemarks(v); persist({ remarks: v.trim() || undefined }) }} />
+              ) : <ReadOut value={remarks} />}
             </label>
             <label className="ip-field" data-sync="lehren">
               <span>{P.lehrenLabel}</span>
-              <textarea className="ip-textarea" value={lehren} rows={3} placeholder={P.lehrenPlaceholder}
-                onChange={(e) => { const v = stripUnprintable(e.target.value); setLehren(v); persist({ lehren: v.trim() || undefined }) }} />
+              {canEdit ? (
+                <textarea className="ip-textarea" value={lehren} rows={3} placeholder={P.lehrenPlaceholder}
+                  onChange={(e) => { const v = stripUnprintable(e.target.value); setLehren(v); persist({ lehren: v.trim() || undefined }) }} />
+              ) : <ReadOut value={lehren} />}
             </label>
             <div className="report-meta-grid">
               {/* Einsatzende leads the block. ⚠️ It carries `data-step="zeiten"` because it IS
@@ -2034,12 +2095,14 @@ export function ReportPreflight({
                   the field that makes it go away, not on the Alarmierung grid it used to sit in. */}
               <label className="ip-field" data-step="zeiten" data-sync="endedAt">
                 <span>{P.incidentEndLabel}</span>
-                <div className="report-meta-end dtrow">
-                  <DateTimeField ariaLabel={P.incidentEndLabel} value={dtLocalToIso(endedAt)}
-                    days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
-                    onCommit={(iso) => { setEndedAt(dtLocalValue(iso ?? undefined)); persist({ endedAt: iso ?? undefined }) }} />
-                  <button type="button" className="ip-btn" onClick={() => { const v = dtLocalValue(new Date().toISOString()); setEndedAt(v); persist({ endedAt: dtLocalToIso(v) }) }}>{P.now}</button>
-                </div>
+                {canEdit ? (
+                  <div className="report-meta-end dtrow">
+                    <DateTimeField ariaLabel={P.incidentEndLabel} value={dtLocalToIso(endedAt)}
+                      days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
+                      onCommit={(iso) => { setEndedAt(dtLocalValue(iso ?? undefined)); persist({ endedAt: iso ?? undefined }) }} />
+                    <button type="button" className="ip-btn" onClick={() => { const v = dtLocalValue(serverNowIso()); setEndedAt(v); persist({ endedAt: dtLocalToIso(v) }) }}>{P.now}</button>
+                  </div>
+                ) : <ReadOut value={whenOf(dtLocalToIso(endedAt))} />}
                 {zeitWarn('ende')}
               </label>
               {/* ⚠️ `data-step` on the two Rückmeldung fields TOGETHER, never on the grid around
@@ -2062,7 +2125,7 @@ export function ReportPreflight({
                     <span>{P.rueckmeldungLabel}</span>
                     <div className="rz-none">
                       <span className="rz-none-val">{P.entfaellt}</span>
-                      <button type="button" className="ip-btn" onClick={() => persist({ rueckmeldungNone: undefined })}>{P.entfaelltUndo}</button>
+                      {canEdit && <button type="button" className="ip-btn" onClick={() => persist({ rueckmeldungNone: undefined })}>{P.entfaelltUndo}</button>}
                     </div>
                   </div>
                   {/* ⚠️ The Zeit row STAYS. «Entfällt» used to collapse three rows into one, and
@@ -2076,6 +2139,11 @@ export function ReportPreflight({
                     {/* punctuation, not language — the accessible name carries the answer */}
                     <span className="rz-none-val rz-none-dash" aria-label={P.entfaellt}>–</span>
                   </div>
+                  </>
+                ) : !canEdit ? (
+                  <>
+                  <div className="ip-field"><span>{P.rueckmeldungLabel}</span><ReadOut value={rueckName} /></div>
+                  <div className="ip-field"><span>{P.rueckmeldungZeit}</span><ReadOut value={whenOf(rueckAt)} /></div>
                   </>
                 ) : (
                   <>
@@ -2120,7 +2188,7 @@ export function ReportPreflight({
                         days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
                         onCommit={(iso) => { setRueckAt(iso ?? ''); persist(rueckOver(rueckName, iso ?? '')) }} />
                       <button type="button" className="ip-btn"
-                        onClick={() => { const iso = new Date().toISOString(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>
+                        onClick={() => { const iso = serverNowIso(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>
                     </div>
                     {/* the same plausibility hint the Einsatzende carries — this field has a DATE
                         wheel and is usually filled in from memory, so it is the likeliest of the
@@ -2204,7 +2272,14 @@ export function ReportPreflight({
                   </div>
                 </div>
               )}
-              {mittelCount === 0 && onComplete && (
+              {/* ⚠️ `canEdit`, not `onComplete` (RBAC audit 22.10.2026): «Keine Mittel» is a record
+                  answer the el gives like any other, not part of the editor's Abschluss — gated on
+                  the Abschluss, the el's Mittel step could never be answered. A session that cannot
+                  edit reads the answer, dashed like «Entfällt», or nothing when none was given. */}
+              {mittelCount === 0 && !canEdit && meta.mittelConfirmedNone && (
+                <div className="rp-check-extra rz-none"><span className="rz-none-val">{A.mittelNone}</span></div>
+              )}
+              {mittelCount === 0 && canEdit && (
                 <div className="rp-check-extra">
                   {/* the «none of these» CHOICE, same as the QR-Bogen's (28.09.2026): one text,
                       picked = the choice fill. It was a primary button whose label grew a «✓». */}
@@ -2289,6 +2364,22 @@ export function ReportPreflight({
                 ? partners.map((p) => p.org).filter(Boolean).join(' · ')
                 : P.partnersNone}
             >
+              {/* read-only: who was there, as the Anwesenheit and Mittel rows above list theirs –
+                  no checkboxes to look at, no «+ Organisation» (RBAC audit 22.10.2026) */}
+              {!canEdit ? partners.some(partnerFilled) && (
+                <div className="rp-check-extra">
+                  <div className="rp-people">
+                    {partners.filter(partnerFilled).map((p, i) => {
+                      const more = [p.name, p.phone, p.note].map((v) => v?.trim()).filter(Boolean).join(' · ')
+                      return (
+                        <span key={i} className="rp-person">
+                          {p.org}{more && <i>{`${p.org ? ' · ' : ''}${more}`}</i>}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : (
               <div className="rp-check-extra">
                 {/* own gate: the sheet's main fieldset ends above the checklist, so a viewer or
                     a closed Einsatz would otherwise get fully live controls here.
@@ -2316,16 +2407,14 @@ export function ReportPreflight({
                               the two fields squeezed underneath — «man kann keine Organisation
                               richtig hinzufügen». Now: the field IS the row. */}
                           {!r.custom && (
-                            <button
-                              type="button" className="report-partner-tick"
-                              role="checkbox" aria-checked={on} aria-label={r.org || P.partnerOrgShort}
-                              onClick={() => (on
+                            <TickRow
+                              className="report-partner-tick" checked={on} aria-label={r.org || P.partnerOrgShort}
+                              onToggle={() => (on
                                 ? savePartners(partners.filter((_, j) => j !== r.i))
                                 : savePartners([...partners, { org: r.org }]))}
                             >
-                              <span className="report-partner-box">{on && <Icon id="check" />}</span>
                               <span className="report-partner-org">{r.org}</span>
-                            </button>
+                            </TickRow>
                           )}
                           {/* a free-typed organisation names itself; a listed one is already named */}
                           {on && r.custom && (
@@ -2395,6 +2484,7 @@ export function ReportPreflight({
                   </div>
                 </fieldset>
               </div>
+              )}
             </CheckRow>
             {/* Unterschriften (15.10.2026): after the Partnerorganisationen, where the Visum sits on
                 the paper. Optional — nothing asks for it, nothing waits for it. A signature that
@@ -2410,6 +2500,10 @@ export function ReportPreflight({
                 : valid.length ? fillTemplate(S.count, { n: valid.length }) : S.optional
               const nameOf = (r: SignatureRole) => (r === 'el' ? meta.einsatzleiter || einsatzleiter : kdtDefault)
               const roleLabel = (r: SignatureRole) => (r === 'el' ? S.roleEl : S.roleKdt)
+              // A session that never signs reads signatures, it is not asked for them: no card at
+              // all until one exists – «nach dem Abschluss hier unterschreiben» and two empty lines
+              // were an instruction to a driver (RBAC audit 22.10.2026).
+              if (!maySign && (!closed || !SIGNATURE_ROLES.some((r) => liveSigs[r]))) return null
               return (
                 <CheckRow tab="werwas" done={closed && valid.length > 0 && !stale.length} label={S.cardTitle} sub={sub}>
                   <div className="rp-check-extra rp-sign">
@@ -2428,8 +2522,17 @@ export function ReportPreflight({
                           <span className="rp-sign-time">{hhmm(new Date(g.at))}</span>
                         </div>
                       )
+                      // a signature that no longer holds: a tap signs anew – for a session that
+                      // cannot sign, the same row as a read-out (no dead button, no chevron)
+                      if (g && !canSign) return (
+                        <div className="rp-sign-row rp-sign-void" key={r}>
+                          {who}
+                          <SignatureImage strokes={g.strokes} className="rp-sign-img" />
+                          <span className="rp-sign-bad"><Icon id="warn" />{S.invalid}</span>
+                        </div>
+                      )
                       if (g) return (
-                        <button type="button" className="rp-sign-row rp-sign-void" key={r} disabled={!canSign}
+                        <button type="button" className="rp-sign-row rp-sign-void" key={r}
                           aria-label={`${roleLabel(r)} – ${S.resign}`} onClick={() => setSignFor(r)}>
                           {who}
                           <SignatureImage strokes={g.strokes} className="rp-sign-img" />
@@ -2481,17 +2584,19 @@ export function ReportPreflight({
                           <img src={thumbUrl(a.url)} alt="" loading="lazy" decoding="async" />
                         </button>
                         <div className="report-att-body">
-                          <input
+                          {/* the caption as a read-out where it cannot be changed – an empty
+                              «Beschriftung» box under every photo asked a viewer to write */}
+                          {!onCaptionAttachment ? a.caption?.trim() && <span className="rp-readout">{a.caption.trim()}</span> : <input
                             className="ip-input" value={a.caption ?? ''} placeholder={P.attachmentsCaption}
-                            aria-label={P.attachmentsCaption} disabled={!onCaptionAttachment}
+                            aria-label={P.attachmentsCaption}
                             // typed value goes in untouched (trimming on change eats the space
                             // you just pressed); the tidy-up happens once, on leaving the field
-                            onChange={(e) => onCaptionAttachment?.(a.id, stripUnprintable(e.target.value))}
+                            onChange={(e) => onCaptionAttachment(a.id, stripUnprintable(e.target.value))}
                             onBlur={(e) => {
                               const v = e.target.value.trim()
-                              if (v !== e.target.value) onCaptionAttachment?.(a.id, v)
+                              if (v !== e.target.value) onCaptionAttachment(a.id, v)
                             }}
-                          />
+                          />}
                           {a.url.startsWith('blob:') && <span className="report-att-pending">{P.attachmentsPending}</span>}
                         </div>
                         {onRemoveAttachment && (
@@ -2520,8 +2625,11 @@ export function ReportPreflight({
                 THIS column because the column's question is «was ist noch offen» — and a form
                 that has not been sent is exactly that. It never reaches the paper (the printed
                 rapport is the record, not the to-do list), and where a station has configured
-                none the whole card is absent rather than empty. */}
-            {stationLinks.length > 0 && (
+                none the whole card is absent rather than empty.
+                ⚠️ …and absent for a session that cannot edit the Rapport (`canEditIn`, RBAC audit
+                22.10.2026): the station's pre-filled forms are the editor's paperwork, and a
+                viewer opening a Schadenmeldung with this Einsatz's data in it is not a read. */}
+            {canEditIn && stationLinks.length > 0 && (
               <CheckRow
                 tab="beilagen"
                 done={linksDoneCount === stationLinks.length}
@@ -2536,13 +2644,11 @@ export function ReportPreflight({
                         <div key={link.id} className={cx('rp-link', at && 'on')}>
                           {/* tick + title are ONE target, as on the Partnerorganisationen rows —
                               a 40px checkbox beside a label is a miss waiting to happen */}
-                          <button
-                            type="button" className="rp-link-tick" disabled={!canEdit}
-                            role="checkbox" aria-checked={!!at}
+                          <TickRow
+                            className="rp-link-tick" disabled={!canEdit} checked={!!at}
                             aria-label={fillTemplate(at ? P.linksMarkOpen : P.linksMarkDone, { title: link.title })}
-                            onClick={() => setLinkDone(link.id, !at)}
+                            onToggle={() => setLinkDone(link.id, !at)}
                           >
-                            <span className="rp-link-box"><Icon id={at ? 'check' : 'minus'} /></span>
                             <span className="rp-link-txt">
                               <span className="rp-link-title">{link.title}</span>
                               {/* the note says WHEN this has to be filled in; once it is done the
@@ -2551,7 +2657,7 @@ export function ReportPreflight({
                                 ? <span className="rp-link-note">{fillTemplate(P.linksDoneAt, { at: formatDateTime(at) })}</span>
                                 : link.note?.trim() && <span className="rp-link-note">{link.note.trim()}</span>}
                             </span>
-                          </button>
+                          </TickRow>
                           <Button className="rp-link-open" icon={<Icon id="external" />} onClick={() => openLink(link)}>
                             {P.linksOpen}
                           </Button>

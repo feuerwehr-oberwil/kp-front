@@ -128,6 +128,10 @@ export function IconSprite() {
       <symbol id="signature" viewBox="0 0 24 24"><path d="M3 15c1.5-5 3-8 4-7.5s-1 6.5.5 6.5S10 9 11 9.5s-.5 5 1 5 2-2.5 3-2.5.5 2 2 2 2.5-1 3.5-2" /><path d="M3 19.5h18" /></symbol>
       <symbol id="signature-lock" viewBox="0 0 24 24"><path d="M2 14c1.3-4.5 2.6-7 3.5-6.6S4.6 13.5 6 13.5 8.2 8.5 9 9s-.4 4.5.9 4.5 1.2-1.5 2-1.8" /><path d="M2 18.5h10" /><rect x="14" y="11.5" width="8" height="7" rx="1.6" /><path d="M15.9 11.5V9.6a2.1 2.1 0 0 1 4.2 0v1.9" /></symbol>
       <symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.2" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" /></symbol>
+      {/* «Mehrere platzieren» on the symbol/shape docks (20.10.2026, UX sweep M5): the repeat loop
+          — the tool stays armed for the next one. It wore #lock, which already says «verriegelt»
+          on a drawing and «abgeschlossen» on the Einsatz; a lit padlock read as «locked». */}
+      <symbol id="place-repeat" viewBox="0 0 24 24"><path d="M17 2.5 20.5 6 17 9.5" /><path d="M3.5 11.5v-1A4.5 4.5 0 0 1 8 6h12.5" /><path d="M7 21.5 3.5 18 7 14.5" /><path d="M20.5 12.5v1A4.5 4.5 0 0 1 16 18H3.5" /></symbol>
       {/* «Einsatz abschliessen»: a lid, a box, and the thing going down into it — the action
           stamps the rapport done and ARCHIVES the Einsatz, which is what this says. It wore a
           bare `check`, the same glyph as every tick in the checklist below it, the partner boxes
@@ -135,6 +139,15 @@ export function IconSprite() {
           tick. Not `lock` either: later corrections stay possible and print as Nachträge, so a
           padlock would promise something the app does not do. */}
       <symbol id="archive" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4.5" rx="1.4" /><path d="M4.8 8.5v10.1a1.9 1.9 0 0 0 1.9 1.9h10.6a1.9 1.9 0 0 0 1.9-1.9V8.5" /><path d="M9.6 13.2 12 15.6l2.4-2.4M12 15.2v-4" /></symbol>
+      {/* «Alle Einsätze» (20.10.2026, owner): the register of Einsätze, a list with its row marks.
+          It wore `history`, the Verlauf's clock, one row away from the Verlauf button — and not
+          `archive` either, which is «Abschliessen» on the card right above it. Not `menu`: that
+          one has no row marks and means «more». */}
+      {/* «Speicher voll» (20.10.2026, S1): the device's store, a drum. On a phone the chip shows
+          only its glyph, and the ⚠ it wore was «Sync-Fehler»'s — the worse state (nothing saved
+          anywhere) read as the milder one. The red chip says how bad; this says WHAT. */}
+      <symbol id="storage" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="2.6" /><path d="M5 6v12c0 1.45 3.1 2.6 7 2.6s7-1.15 7-2.6V6" /><path d="M5 12c0 1.45 3.1 2.6 7 2.6s7-1.15 7-2.6" /></symbol>
+      <symbol id="list" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11" /><circle cx="4.8" cy="6.5" r="1.3" fill="currentColor" stroke="none" /><circle cx="4.8" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="4.8" cy="17.5" r="1.3" fill="currentColor" stroke="none" /></symbol>
       <symbol id="play" viewBox="0 0 24 24"><path d="M7 4.8 19 12 7 19.2z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" /></symbol>
       <symbol id="pause" viewBox="0 0 24 24"><path d="M8 5h2.4v14H8zM13.6 5H16v14h-2.4z" fill="currentColor" /></symbol>
       <symbol id="chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></symbol>

@@ -4,9 +4,10 @@ import { render, screen, cleanup, fireEvent, within } from '@testing-library/rea
 import { appConfig } from '../../config/appConfig'
 
 // ⚠️ The decision this file pins (owner, 28.09.2026): a yes/no is ONE control app-wide — the
-// `OnOff` pair, «Aus» left and «An» right. The Einstellungen built their own pairs with «on» on
-// the LEFT («Ein | Aus», «Erlaubt | Aus», «Automatisch | Nur manuell»), and the Übung was a
-// tick-box chip. Same thumb position, opposite answer, depending on the sheet.
+// `OnOff` pair, the false answer left and the true one right. The Einstellungen built their own
+// pairs with «on» on the LEFT («Ein | Aus», «Erlaubt | Aus», «Automatisch | Nur manuell»), and the
+// Übung was a tick-box chip. Same thumb position, opposite answer, depending on the sheet.
+// A setting reads «Aus | An»; a question («Übung?») reads «Nein | Ja» on every device (20.10.2026).
 
 vi.mock('../../lib/incidents', () => ({
   createIncident: vi.fn(), patchIncident: vi.fn(),
@@ -17,6 +18,12 @@ vi.mock('../../lib/incidents', () => ({
   geocodeReverse: vi.fn(() => Promise.resolve(null)),
 }))
 vi.mock('../MapPicker', () => ({ MapPicker: () => null }))
+// the Einstellungen carry the alarm readiness rows, which read the session – mounted bare here
+vi.mock('../../lib/auth', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../../lib/auth')>()
+  const value = { user: null, loading: false, probeUnreachable: false, sessionExpired: false, login: () => Promise.resolve(), logout: () => Promise.resolve() }
+  return { ...mod, useAuth: () => value }
+})
 vi.mock('./_shared', async (orig) => ({
   ...(await orig<typeof import('./_shared')>()),
   Modal: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -38,28 +45,25 @@ const pair = (label: string) => {
 describe('Übung on the Einsatz form', () => {
   const ix = appConfig.copy.intake
 
-  it('answers «Übung?» with Nein | Ja on a phone, keeping the false answer first', () => {
-    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }))
-    try {
+  const atWidth = (phone: boolean) =>
+    vi.stubGlobal('matchMedia', () => ({ matches: phone, addEventListener: () => {}, removeEventListener: () => {} }))
+  afterEach(() => vi.unstubAllGlobals())
+
+  for (const phone of [true, false]) {
+    it(`answers «Übung?» with Nein | Ja, off for a fresh Einsatz (${phone ? 'phone' : 'tablet'})`, () => {
+      atWidth(phone)
       render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
-      expect(pair(ix.exerciseLabel).words).toEqual([ix.exerciseNo, ix.exerciseYes])
-      fireEvent.click(pair(ix.exerciseLabel).btns[1])
-      expect(pair(ix.exerciseLabel).pressed).toEqual(['false', 'true'])
-    } finally { vi.unstubAllGlobals() }
-  })
+      const p = pair(ix.exerciseLabel)
+      expect(p.words).toEqual([D.no, D.yes])
+      expect(p.pressed).toEqual(['true', 'false'])
+    })
+  }
 
-  it('is the Aus | An pair, off for a fresh Einsatz', () => {
-    render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
-    const p = pair(ix.exerciseLabel)
-    expect(p.words).toEqual([D.off, D.on])
-    expect(p.pressed).toEqual(['true', 'false'])
-  })
-
-  it('turns on with «An», and the words never change', () => {
+  it('turns on with «Ja», and the words never change', () => {
     render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
     fireEvent.click(pair(ix.exerciseLabel).btns[1])
     const p = pair(ix.exerciseLabel)
-    expect(p.words).toEqual([D.off, D.on])
+    expect(p.words).toEqual([D.no, D.yes])
     expect(p.pressed).toEqual(['false', 'true'])
   })
 })

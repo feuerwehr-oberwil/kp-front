@@ -128,7 +128,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'Outils de la barre de droite en mode Situation.' },
           { kind: 'list', items: [
-            '**Symbole** – le symbole tactique (FKS/VKF). Sélection rapide des symboles les plus courants ou recherche dans toute la bibliothèque. Toucher pour placer ; avec le verrou, en poser plusieurs à la suite.',
+            '**Symbole** – le symbole tactique (FKS/VKF). Sélection rapide des symboles les plus courants ou recherche dans toute la bibliothèque. Toucher pour placer ; avec « Placer plusieurs », en poser plusieurs à la suite.',
             '**Formes** – dans la même fenêtre, après les dangers : **Flèche** et **Rectangle**, pour tout ce qui n’a pas de symbole tactique. La poignée fait pivoter, le coin étire le rectangle (la flèche reste proportionnelle – une pointe déformée se lit mal). Sur la flèche, **Barre d’arrêt** ajoute la barre en travers de la pointe – la limite de propagation : jusqu’ici, et arrêté là.',
             '**Sélection** – toucher des objets, les déplacer, les ajuster dans l’éditeur.',
             '**Multiple** – toucher **Sélection** une nouvelle fois pendant qu’elle est active : le bouton passe sur Multiple (icône et mot), et tirer un cadre sélectionne plusieurs symboles/dessins à la fois. Un nouveau toucher ramène à Sélection.',
@@ -339,7 +339,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'sub', text: 'Toucher et glisser (tactile/iPad)' },
           { kind: 'list', items: [
             'Un doigt déplace la carte/le plan ; deux doigts zooment (pincer).',
-            'Un seul doigt zoome aussi : **toucher deux fois** zoome ; **toucher, puis appuyer de nouveau et tirer** zoome en continu – vers le bas pour agrandir, vers le haut pour réduire. Pareil sur la carte et le plan ; tant qu’un outil de dessin est actif, seuls deux doigts zooment le plan.',
+            'Un seul doigt zoome aussi : **toucher deux fois** zoome ; **toucher, puis appuyer de nouveau et tirer** zoome en continu – vers le bas pour agrandir, vers le haut pour réduire. Pareil sur la carte et le plan, avec la **Sélection**. Un outil a la priorité : là où il touche (points, mesure, ajouter, note, cercle …), chaque toucher lui appartient ; là où il trace (main levée, sélection multiple), toucher deux fois zoome toujours. Deux doigts zooment toujours. Une ligne ou une surface posée point par point se termine avec ✓, jamais en touchant deux fois.',
             'Toucher **Sélection** une nouvelle fois fait passer le bouton sur **Multiple** : un cadre tiré sélectionne plusieurs objets ; les objets sélectionnés se déplacent en les tirant.',
             'Un bouton qui ne porte qu’un pictogramme dit son mot quand on le **maintient enfoncé** : après un court instant, le mot apparaît en bulle au-dessus, avec une brève vibration sur tactile. Relâcher ne déclenche **pas** le bouton : demander ce qu’est une chose ne doit pas la faire en même temps. À la souris, il suffit de survoler.',
           ] },

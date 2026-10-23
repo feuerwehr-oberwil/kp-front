@@ -610,12 +610,19 @@ which are the app's, not the station's. And `alarmKeywords` is deployment data: 
 shipped file it is never checksummed and never compared against kp-rueck.
 
 **Who can read it back.** `GET /api/config` is public – the login screen needs branding before
-anyone can log in – and `alarmKeywords` is the one section withheld from anonymous callers. The
+anyone can log in – and `alarmKeywords` is withheld from anonymous callers. The
 words are not secret (the shipped vocabulary is on GitHub), but nothing in the frontend reads
 them: matching is entirely server-side, so publishing a station's wording pre-login would be
 surface for nothing. An **admin session gets the full block**, which is not a detail: the admin
 UI does a full-document `PUT`, so a section the admin never received is a section the next
 unrelated edit would silently delete.
+
+Three more are withheld (RBAC audit, 22.10.2026), emptied rather than removed so the answer looks
+like a station that configured none: **`alarms.webhooks` and `sharepoint.sources` reach an admin
+session only** – addresses the server talks to, and a webhook URL is often a capability (a
+`sig=`, a `?secret=`); no client but `/admin` reads them. **`objectVisits.destinations` reaches
+every PIN session** (the Objektbesuch's «Ablage» line reads it) but no anonymous caller and no
+link, like `report.links`.
 
 What stays public either way is the `alarmVocabulary` **summary** – `source`
 (`shipped` | `deployment`), `schemaVersion` and counts, never the words – so "is my override
@@ -802,8 +809,16 @@ enforces it, not only the app («Station › Objektbesuche › Korrektur-Fenster
 no object, goes to the destination's `locationFolder`, «Allgemeine Meldungen/…» by default). The full contract – the
 visit document, the APIs, the delivery – is [`object-visits.md`](object-visits.md); setting up a
 destination is [`object-visits-sharepoint.md`](object-visits-sharepoint.md). No credential lives in
-the section (`GET /api/config` is public): the writer's app registration is the
+the section (`GET /api/config` serves `destinations` to PIN sessions only – «Who can read it back», §1a): the writer's app registration is the
 `sharepoint_export` credential group, the organizer's key `object_visits_integration_key`.
+
+### 1f. `access` – how far back a read-only account reads
+
+`access.viewerHistoryDays` (default `7`, `0`–`3650`): a `viewer` account (the «Fahrer» tile) reads
+the running Einsätze and those last closed within this many days; older ones answer 404 for it.
+`0` = only the running ones. Server-enforced on every route; `editor` and `el` always read the
+whole record. Config-as-code only – no field in `/admin`; set it with `admin_config` (show → patch
+→ load). Rules and rationale: [`roles-and-access.md`](roles-and-access.md#the-viewers-window-since-2026-10-21).
 
 ---
 
@@ -1301,7 +1316,9 @@ Not part of `deployment_config` – operational users are managed separately fro
 The product role model is deliberately small:
 
 - **Login:** pick your name from the roster → enter your **PIN** (fast at 3am, per-person
-  identity for the audit trail). JWT access (8h) + refresh (7d) with rotation + revocation.
+  identity for the audit trail). JWT access (8h) + refresh (90d, `refresh_token_expire_days` – was
+  7d until 23.10.2026: an alarm push has to open into a live session, and a volunteer's alarms are
+  weeks apart) with rotation + revocation.
 - **Roles:** `editor` (FU / Einsatzleitung support; can mutate incident state), `el`
   (Einsatzleiter function, since 2026-09-07: reads everything, edits only Anwesenheit/Zeitplan,
   Material, Checklisten and the Rapport incl. Beilagen – server-enforced) and `viewer`
@@ -1418,7 +1435,7 @@ and locks the field – see the rule above).
 | 🔐 `SHAREPOINT_EXPORT_TENANT_ID`, `SHAREPOINT_EXPORT_CLIENT_ID`, `SHAREPOINT_EXPORT_CLIENT_SECRET` | a SECOND Azure app registration, the only one KP Front writes with: the Objektbesuche delivery files visit reports into a destination folder ([`object-visits-sharepoint.md`](object-visits-sharepoint.md)), `Sites.Selected` **write** on one site. Separate from the pull's read-only registration on purpose. No `Settings` fields; ids readable, secret write-only. Incomplete = no delivery, fail-closed |
 | 🔐 `STATION_INDEX_SOURCE`, `STATION_INDEX_TOKEN` | the station index ([§4d](#4d-the-station-index--one-address-for-all-station-data)): the address or absolute path of the station's `index.json`, plus an optional bearer token sent only over https (to the index and its same-host siblings). When the index lists a roster it replaces the direct roster source below. No `Settings` fields; the source is readable, the token write-only. Unset = nothing fetched |
 | 🔐 `ROSTER_SNAPSHOT_SOURCE`, `ROSTER_SNAPSHOT_TOKEN` | the station's published roster file ([§4c](#4c-snapshot--a-roster-file-somebody-else-publishes)): an `https://` address (plain `http://` only on the station's own network) or an absolute path on the server, plus an optional bearer token sent only over https. No `Settings` fields (read off the environment, normally set in the browser); the source is readable, the token write-only. Unset = nothing fetched |
-| 🔐 `ENTRA_LOGIN_TENANT_ID`, `ENTRA_LOGIN_CLIENT_ID`, `ENTRA_LOGIN_CLIENT_SECRET`, `ENTRA_LOGIN_ACCOUNTS` | optional «Mit Microsoft anmelden» ([`microsoft-login.md`](microsoft-login.md)): a THIRD Azure app registration, sign-in only (delegated `openid profile`), redirect URI `<PUBLIC_URL>/api/auth/microsoft/callback`. `ENTRA_LOGIN_ACCOUNTS` is the allow-list, `identity=username, …` (object id or sign-in name → existing KP Front username). No `Settings` field, settable from `/admin › Anbindungen`; the secret is write-only, the rest readable. Any one unset = no button, routes 404 |
+| 🔐 `ENTRA_LOGIN_TENANT_ID`, `ENTRA_LOGIN_CLIENT_ID`, `ENTRA_LOGIN_CLIENT_SECRET`, `ENTRA_LOGIN_ACCOUNTS` | optional «Mit Microsoft anmelden» ([`microsoft-login.md`](microsoft-login.md)): a THIRD Azure app registration, sign-in only (delegated `openid profile`), redirect URI `<PUBLIC_URL>/api/auth/microsoft/callback`. `ENTRA_LOGIN_ACCOUNTS` is the allow-list, `objectid=username, …` (Entra object id → existing KP Front username; a sign-in name is refused since 22.10.2026). No `Settings` field, settable from `/admin › Anbindungen`; the secret is write-only, the rest readable. Any one unset = no button, routes 404 |
 | 🔐 `TRACCAR_URL`, `TRACCAR_EMAIL`, `TRACCAR_PASSWORD` | if `traccarEnabled` |
 | 🔐 `STT_BASE_URL`, `STT_API_KEY`, `STT_MODEL`, `STT_LANGUAGE` | speech-to-text for the audio player's Transkribieren (OpenAI-compatible `/v1/audio/transcriptions`; base URL without `/v1` – Groq: `https://api.groq.com/openai`, OpenAI: `https://api.openai.com`, or a self-hosted faster-whisper server). Empty base URL = off, fail-closed. **Audio is sent to that server** – prefer self-hosted for sensitive deployments |
 | 🔐 `CARTO_API_KEY` | browser key for the built-in CARTO Voyager and Dark Matter raster basemaps. Request it for the deployment domains at [CARTO Basemaps](https://carto.com/basemaps/apikey/). The runtime config appends it as `?key=` to every CARTO tile template the BROWSER fetches – map pickers, the admin object map, offline downloads. **⚠️ Restrict it to the deployment domains in CARTO**: it is necessarily visible in browser requests, and that restriction rather than secrecy is what stops it being spent elsewhere. Never commit a real value. Two things narrow it further: `/api/config` hands it only to callers that already hold a session (PIN user, admin, or an incident link – the login screen draws no map and does not get it), and **Rapport/Kroki tiles are fetched server-side with this same credential**, so the browser's copy never travels in a request body, a log line or a tile-cache filename. Empty = the provider's unkeyed/watermarked response is shown. |

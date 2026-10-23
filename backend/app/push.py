@@ -5,10 +5,15 @@ swiped-away or OS-reclaimed app hears nothing. This module closes that gap serve
 a scheduler job recomputes, every ~30s, which Atemschutz-Trupps are überfällig or at their
 confirmed Alarmdruck and which Wiedervorlagen are due — from the SAME data the clients sync
 (workspace trupps + journal reminder rows) with the SAME doctrine fallbacks — and pushes an
-OS notification to every subscribed browser. A NEW Divera alarm additionally pushes
+OS notification to subscribed browsers. A NEW Divera alarm additionally pushes
 "Neuer Einsatz" immediately
 (``notify_new_alarm``, called from both intake paths). Silently disabled while no VAPID
 keys are configured.
+
+Who hears what (owner's pick, 22.10.2026): the Atemschutz alarms go to every subscribed
+browser; «Neuer Einsatz» only to editors (the accounts that take an alarm); «Wiedervorlage
+fällig» to editors and the ``el`` (the record writers who can act on it). A viewer tablet is
+woken for a crew in danger and for nothing else (``role_recipients``).
 
 Deduplication: an alert is sent once per crossing (keyed by what defines the crossing — the
 Trupp's lastContactTime, its lastPressureTime, or the reminder's effective dueAt) and re-sent
@@ -72,6 +77,14 @@ DEFAULT_ALARM_BAR_RUECKZUG = 50
 #: (`_deliverable`), so an expired row is never pushed to even before its owner next re-registers
 #: (SEC-09, 05.09.). Lives here, the sending side, and is imported by the registration route.
 SUBSCRIPTION_TTL_DAYS = 180
+
+#: How long the push service keeps a message for a phone it cannot reach right now. The Atemschutz
+#: and Wiedervorlage re-notifies keep 120 s (a stale «überfällig» is re-sent by the next sweep
+#: anyway); «Neuer Einsatz» gets ~2 h with `Urgency: high`, so a phone in Doze or briefly out of
+#: coverage still hears the dispatch when it wakes (3am sweep §1.2, 23.10.2026).
+DEFAULT_TTL_SECONDS = 120
+NEW_ALARM_TTL_SECONDS = 2 * 3600
+NEW_ALARM_URGENCY = "high"
 
 
 def _ms(iso: str | None) -> float | None:
@@ -479,10 +492,11 @@ def _no_redirect_session() -> "requests.Session":
     return session
 
 
-def _send_one(sub: dict, payload: str) -> SendOutcome:
+def _send_one(sub: dict, payload: str, *, ttl: int = DEFAULT_TTL_SECONDS, urgency: str | None = None) -> SendOutcome:
     """Blocking pywebpush send. "accepted" = the push service took it; "gone" = the endpoint is
     dead (404/410) or its keys are unusable, so the caller prunes it; "retry" = a transient failure
-    (e.g. 503) — keep the row and let the next sweep try again (never counted as delivered)."""
+    (e.g. 503) — keep the row and let the next sweep try again (never counted as delivered).
+    ``ttl``/``urgency`` are the Web Push delivery hints (RFC 8030 §5.2/§5.3)."""
     from pywebpush import WebPushException, webpush
 
     from .credentials import get as credential
@@ -493,7 +507,8 @@ def _send_one(sub: dict, payload: str) -> SendOutcome:
             data=payload,
             vapid_private_key=credential("vapid_private_key"),
             vapid_claims={"sub": credential("vapid_subject")},
-            ttl=120,
+            ttl=ttl,
+            headers={"Urgency": urgency} if urgency else None,
             timeout=PUSH_TIMEOUT_SECONDS,
             requests_session=_no_redirect_session(),
         )
@@ -518,12 +533,18 @@ async def broadcast(
     target: str | None,
     dedup_key: str | None = None,
     user_ids: Collection[uuid.UUID] | None = None,
+    ttl: int = DEFAULT_TTL_SECONDS,
+    urgency: str | None = None,
 ) -> int:
     """Push to every subscribed browser of an ACTIVE user; prunes dead endpoints.
 
+    ``ttl`` and ``urgency`` go to the push service as delivery hints (``_send_one``): the new-alarm
+    path asks for ~2 h and ``high``; the sweeps keep the short default.
+
     ``user_ids`` narrows the audience to those accounts' browsers (no kiosk rows): the
-    «Neuer Objektbesuch» push goes to the accounts an admin picked, never to everybody.
-    An empty collection sends nothing.
+    «Neuer Objektbesuch» push goes to the accounts an admin picked, «Neuer Einsatz» and
+    «Wiedervorlage fällig» to their roles (``role_recipients``). ``None`` = everybody, which
+    only the Atemschutz alarms use. An empty collection sends nothing.
 
     Returns the number of sends that actually COMPLETED. A deactivated login keeps no delivery:
     the row survives (the person may come back) but the alarm does not follow an account somebody
@@ -560,7 +581,11 @@ async def broadcast(
     async def send(s: PushSubscription) -> tuple[str, SendOutcome]:
         async with gate:
             outcome = await asyncio.to_thread(
-                _send_one, {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth}, payload
+                _send_one,
+                {"endpoint": s.endpoint, "p256dh": s.p256dh, "auth": s.auth},
+                payload,
+                ttl=ttl,
+                urgency=urgency,
             )
         return s.endpoint, outcome
 
@@ -633,10 +658,32 @@ async def broadcast(
     return delivered
 
 
+#: The roles a «Neuer Einsatz» push reaches: the accounts that take an alarm into an Einsatz.
+NEW_ALARM_ROLES = ("editor",)
+#: The roles a «Wiedervorlage fällig» push reaches: the record writers, who can tick it off.
+REMINDER_ROLES = ("editor", "el")
+
+
+async def role_recipients(db: AsyncSession, roles: Collection[str]) -> list[uuid.UUID]:
+    """The ACTIVE accounts holding one of ``roles`` — a push audience for ``broadcast(user_ids=…)``.
+
+    Read when the push leaves, so a role an admin changed a minute ago already counts. A kiosk
+    row (no user) is in no role and hears only the Atemschutz alarms, which go to everybody."""
+    from .models import User
+
+    rows = await db.execute(select(User.id).where(User.role.in_(list(roles)), User.is_active.is_(True)))
+    return list(rows.scalars())
+
+
+async def _new_alarm_recipients(db: AsyncSession) -> list[uuid.UUID]:
+    return await role_recipients(db, NEW_ALARM_ROLES)
+
+
 async def notify_new_alarm(
     db: AsyncSession, *, tag: str, title: str, address: str | None, target: str | None = "divera"
 ) -> int:
-    """Queue a "Neuer Einsatz" push after the alarm transaction commits.
+    """Queue a "Neuer Einsatz" push to the editors (``NEW_ALARM_ROLES``) after the alarm
+    transaction commits.
 
     Delivery uses a fresh session, so dead-subscription pruning is committed independently
     and no task retains the request session. Returns 1 when queued, 0 when push is disabled.
@@ -650,7 +697,16 @@ async def notify_new_alarm(
 
     def schedule() -> None:
         task = asyncio.create_task(
-            _broadcast_committed(factory, title="Neuer Einsatz", body=body, tag=tag, target=target)
+            _broadcast_committed(
+                factory,
+                title="Neuer Einsatz",
+                body=body,
+                tag=tag,
+                target=target,
+                audience=_new_alarm_recipients,
+                ttl=NEW_ALARM_TTL_SECONDS,
+                urgency=NEW_ALARM_URGENCY,
+            )
         )
         _inflight.add(task)
         task.add_done_callback(_inflight.discard)
@@ -668,6 +724,8 @@ async def _broadcast_committed(
     target: str | None,
     audience: Callable[[AsyncSession], Awaitable[Collection[uuid.UUID]]] | None = None,
     dedup_key: str | None = None,
+    ttl: int = DEFAULT_TTL_SECONDS,
+    urgency: str | None = None,
 ) -> None:
     """Best-effort post-commit delivery with independent dead-endpoint pruning.
 
@@ -681,7 +739,14 @@ async def _broadcast_committed(
             await load(send_db)
             if audience is not None:
                 await broadcast(
-                    send_db, title=title, body=body, tag=tag, target=target, user_ids=await audience(send_db)
+                    send_db,
+                    title=title,
+                    body=body,
+                    tag=tag,
+                    target=target,
+                    user_ids=await audience(send_db),
+                    ttl=ttl,
+                    urgency=urgency,
                 )
             elif dedup_key is not None:
                 # the sweep's crossing key, where the caller has one (an Atemschutznotfall)
@@ -793,6 +858,8 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
     doctrine = (await get_config_model(db)).doctrine.model_dump()
 
     sent = 0
+    # who a due Wiedervorlage reaches — read once per sweep, and only when one is due
+    reminder_audience: list[uuid.UUID] | None = None
     # Übungen are excluded outright: a drill's Atemschutz clocks and Wiedervorlagen are real
     # rows in a real workspace, so without this every local test run pushed «Trupp überfällig»
     # to every subscribed phone in the Wehr. The drill screen itself still shows its alarms —
@@ -845,6 +912,8 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
         for r in due_reminders(rows, now_ms, closed_at):
             key = f"rem:{inc.id}:{r['id']}:{r['dueAt']}"
             if _should_send(key, now_ms):
+                if reminder_audience is None:
+                    reminder_audience = await role_recipients(db, REMINDER_ROLES)
                 sent += await broadcast(
                     db,
                     title="Wiedervorlage fällig",
@@ -852,5 +921,6 @@ async def check_and_push(db: AsyncSession, now_ms: float | None = None) -> int:
                     tag=f"reminder-{r['id']}",
                     target="journal",
                     dedup_key=key,
+                    user_ids=reminder_audience,
                 )
     return sent

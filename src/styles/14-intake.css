@@ -15,10 +15,8 @@
    120 scrim and it read as blurred and dead to the touch. */
 .mv-note-dialog.ui-dialog { z-index: var(--z-blocking); width: min(520px, 92vw); }
 .mv-note-dialog > .ip-actions { padding: 0 var(--sp-5) var(--sp-4); }
-/* «Eintrag löschen» sits at the far LEFT, with the auto margin pushing Abbrechen/Speichern
-   away from it — a destructive button next to the primary one is a mis-tap waiting to happen */
-.mv-note-dialog .ip-actions > .mv-del { margin-right: auto; color: var(--red-strong); }
-.mv-note-dialog .ip-actions > .mv-del svg { width: 15px; height: 15px; }
+/* «Eintrag löschen» sits at the far LEFT by the one footer rule (13-incident · `.ui-sheet-foot >
+   .danger`) — a destructive button next to the primary one is a mis-tap waiting to happen */
 /* ⚠️ `dvh`, like every other sheet: `vh` is iOS's LARGE viewport, so with the Safari bars out
    the picker was taller than the screen and its «Übernehmen» sat under them. */
 .mp-sheet { display: flex; flex-direction: column; width: min(720px, 100%); height: min(560px, 90dvh);

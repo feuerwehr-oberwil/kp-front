@@ -80,30 +80,22 @@ export const mapCopy = {
     micFailed: 'Aufnahme konnte nicht gestartet werden',
     merged: 'Änderungen zusammengeführt',
   },
-  mapHints: {
-    placeSymbol: 'Tippe auf die Karte, um «{name}» zu platzieren',
-  },
   // help shown by the info (ℹ) button on each tool dock — the instructions
   // that used to sit in the bottom hint bar
   dockHints: {
-    symbol: 'Auf die Karte tippen, um das Zeichen zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
     lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte. Nochmals auf «Mehrfach» tippen führt zurück zur Auswahl.',
     line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Farbe, Breite und Stil danach im Editor.',
     /** …per input mode, because the two take different gestures: «Freihand» draws only with a
-     *  drag (a tap does nothing), «Punkte» only with taps and ✓. */
-    lineFreehand: 'Auf der Karte ziehen, um eine Linie zu zeichnen. Für einzelne Punkte: «Punkte». Farbe, Breite und Stil danach im Editor.',
-    lineNodes: 'Punkte auf die Karte tippen, mit ✓ abschliessen. Farbe, Breite und Stil danach im Editor.',
-    // ONE line for the armed mode, on the phone dock itself (ToolDock · hint) — the text above
-    // stays behind ⓘ
-    lineFreeShort: 'Mit dem Finger über die Karte ziehen',
-    lineNodesShort: 'Punkte tippen – ✓ schliesst die Linie ab',
-    areaFreeShort: 'Den Umriss mit dem Finger ziehen',
-    areaNodesShort: 'Mind. 3 Eckpunkte tippen – ✓ schliesst ab',
-    area: 'Ziehen zeichnet den Umriss frei – für einen Brandrand, der keine Ecken hat. Oder mindestens drei Eckpunkte tippen und mit dem Haken abschliessen.',
+     *  drag (a tap does nothing), «Punkte» only with taps and ✓. These and `area` are the Karte's
+     *  AND the Plan's (WbControls), so they name no surface (UX sweep M4, 20.10.2026): a node
+     *  draft finishes on ✓ on both, never on a double tap — that zooms, as everywhere. */
+    lineFreehand: 'Ziehen, um eine Linie zu zeichnen. Für einzelne Punkte: «Punkte». Farbe, Breite und Stil danach im Editor.',
+    lineNodes: 'Punkte tippen, mit ✓ abschliessen. Farbe, Breite und Stil danach im Editor.',
+    area: 'Ziehen zeichnet den Umriss frei – für einen Brandrand, der keine Ecken hat. Oder mindestens drei Eckpunkte tippen, mit ✓ abschliessen.',
     circle: 'Von der Mitte zum Rand ziehen setzt den Radius in Metern. Radius und Füllung danach im Editor anpassen.',
     note: 'Auf die Karte tippen, um eine Notiz zu setzen – sie öffnet sich direkt zum Tippen. Grösse, Farbe und Klartext danach im Panel der Notiz.',
     team: 'Auf die Karte tippen und den Trupp aus der Liste wählen. Zum Verschieben ziehen.',
-    shape: 'Auf die Karte tippen, um die Form zu platzieren. Schloss aktivieren, um mehrere nacheinander zu setzen.',
+    shape: 'Auf die Karte tippen, um die Form zu platzieren. «Mehrere platzieren» einschalten, um mehrere nacheinander zu setzen.',
     // Eine Rotation ist eine Strecke zwischen zwei Orten, also wird sie auch so gelegt:
     // erst der Wasserbezug, dann die Brandstelle. Auf einem Symbol halten, bis der Ring
     // zu ist, setzt den Punkt genau darauf.

@@ -580,18 +580,18 @@
 .jr-pinned-row .jr-rem { flex: none; width: 26px; min-height: 34px; align-self: stretch;
   padding: 0; border: 0; background: none; border-radius: var(--r-sm);
   display: grid; place-items: start center; padding-top: 3px; }
-.jr-pinned-row .jr-rem::before { content: ""; position: absolute; inset: -6px -9px; border-radius: var(--r-sm); }
+.jr-pinned-row button.jr-rem::before { content: ""; position: absolute; inset: -6px -9px; border-radius: var(--r-sm); }
 /* ⚠️ No fill on hover. `--hover` is a neutral wash meant for white rows; over the block's amber
    (and over a dringend row's red) it came out as a pale grey tile floating behind the ring. The
    ring itself answers instead — it greens and ghosts its check in, the same thing the Verlauf's
    own ring does, which is also what a tap here is about to do. Hover is the POINTER's preview;
    on a finger, :active below gives the same answer for as long as the press. */
 @media (hover: hover) {
-  .jr-pinned-row .jr-rem:hover:not(:disabled) { color: var(--green); }
-  .jr-pinned-row .jr-rem:hover:not(:disabled) .jr-rem-box .i { opacity: var(--disabled); }
+  .jr-pinned-row .jr-rem:hover:enabled { color: var(--green); }
+  .jr-pinned-row .jr-rem:hover:enabled .jr-rem-box .i { opacity: var(--disabled); }
 }
-.jr-pinned-row .jr-rem:active:not(:disabled) { color: var(--green); }
-.jr-pinned-row .jr-rem:active:not(:disabled) .jr-rem-box .i { opacity: 1; }
+.jr-pinned-row .jr-rem:active:enabled { color: var(--green); }
+.jr-pinned-row .jr-rem:active:enabled .jr-rem-box .i { opacity: 1; }
 .jr-pinned-row .jr-rem-box { width: 21px; height: 21px; }
 .jr-pinned-row .jr-rem-box .i { width: 14px; }
 /* …and the Verlauf row keeps only the FACT, unstyled as a control: a timed Erinnerung's
@@ -602,13 +602,15 @@
    Two states painted the same colour is a colour that says nothing. */
 .jr-remstate.overdue { color: var(--red-strong); }
 @media (hover: hover) {
-  .jr-rem:hover:not(:disabled) { color: var(--ink); border-color: color-mix(in srgb, var(--green) 55%, var(--glass-edge)); }
-  .jr-rem:hover:not(:disabled) .jr-rem-box .i { opacity: var(--disabled); }
+  .jr-rem:hover:enabled { color: var(--ink); border-color: color-mix(in srgb, var(--green) 55%, var(--glass-edge)); }
+  .jr-rem:hover:enabled .jr-rem-box .i { opacity: var(--disabled); }
 }
 /* press = the hover preview said fully: the ring greens and its check comes in for the press */
-.jr-rem:active:not(:disabled) { color: var(--green); border-color: var(--green); }
-.jr-rem:active:not(:disabled) .jr-rem-box .i { opacity: 1; }
-.jr-rem:disabled { cursor: default; }
+.jr-rem:active:enabled { color: var(--green); border-color: var(--green); }
+.jr-rem:active:enabled .jr-rem-box .i { opacity: 1; }
+/* `:enabled`, not `:not(:disabled)`, above: a session that cannot tick the ring gets it as a
+   <span> read-out (Journal · pinned block), which must not answer the finger */
+span.jr-rem { cursor: default; }
 .jr-rem-box { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; display: grid; place-items: center; flex: none; }
 .jr-rem-box .i { width: 13px; height: 13px; opacity: 0; }
 .jr-rem.overdue { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 55%, var(--glass-edge)); }
@@ -723,8 +725,9 @@
   border: none; background: none; padding: 0; cursor: pointer; text-align: left;
   font: var(--fw-medium) var(--fs-2) var(--body); line-height: 1.35; color: var(--ink); }
 .jr-pinned-text::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
-.jr-pinned-text:disabled { cursor: default; }
-.jr-pinned-text:disabled::after { display: none; }
+/* a session without a Meldung to write gets the text as a <span> – no row-wide target */
+span.jr-pinned-text { cursor: default; }
+span.jr-pinned-text::after { display: none; }
 /* ⚠️ z-index 1, and the two sticky bars sit at 3. These are raised so the stretched tap area of
    `.jr-pinned-text` does not swallow them — but raising them put them in the same layer as the
    sticky header, and later-in-DOM wins, so a scrolling row's clock and ring painted straight over

@@ -89,6 +89,7 @@ import { MapHint, MeasurePanel } from '../MeasurePanel'
 import { LONG_PRESS_MOVE_TOL_PX, LONG_PRESS_MS } from '../../lib/useLongPress'
 import { buzz } from '../../lib/haptics'
 import { ToolDock } from '../ToolDock'
+import { ArmedToolPill } from '../ArmedToolPill'
 import { ToolRail } from '../ToolRail'
 import { MapViewsButton, type ViewsApi } from '../MapViewsMenu'
 import { WeatherBadge } from '../TopBar'
@@ -101,6 +102,7 @@ import { KarteGefahrgut } from './KarteGefahrgut'
 import { KarteKeySheet } from './KarteKeySheet'
 import { KarteNavRail, KarteSurface } from './KartePlans'
 import { KarteDevice } from './KarteDevice'
+import { AlarmNudgeCard } from './AlarmReadiness'
 import { useMapCoverage, useObjectAvailability } from './useKarteOffline'
 import { NoBasemapMeldung } from '../NoBasemapMeldung'
 import { UpdateBanner } from '../UpdateBanner'
@@ -1564,6 +1566,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         </div>
         {/* the strip stands where the «Einsätze» sheet hangs — and the sheet lists the same Einsatz */}
         {phone && live && !sheetOpen && <div className={s.runningStrip} data-karte-running="">{runningChip}</div>}
+        {/* «Alarm auf diesem Gerät» (3am sweep §1): the nudge under the bar — never while an Einsatz
+            runs on this device, never under the menu or the search, nothing at all when green */}
+        {!live && !sheetOpen && !searchOpen && !onLibrary && <AlarmNudgeCard inIncident={running.length > 0} phone={phone} />}
 
         {searchOpen && !phone && !onLibrary && (
           <KarteSearch query={query} hits={hits} nearest={nearest} addresses={addrState === 'ok' ? addr.list : []} addrState={addrState}
@@ -1682,6 +1687,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
 
         {tool === 'measure' && (
           <>
+            {/* the armed tool's readout, as on the Lage map (MapToolDocks) – not on the phone,
+                where the results panel stands in that row */}
+            {!phone && <ArmedToolPill glyph={<Icon id="measure" />} name={C.tools.measure} />}
             <ToolDock groups={[
               [{ type: 'close', onClick: () => setTool('measure') }],
               [

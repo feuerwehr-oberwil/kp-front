@@ -36,6 +36,7 @@ import { AuftragSheet, KanalPickSheet, KanalSheet, LeitungField, PressureSheet, 
 import { fileGuestSlots, teamConflict, truppSheetSub } from '../lib/truppQuickEdit'
 import { crewAfterChange, type CrewChange } from '../lib/truppLeader'
 import { rankOrder } from '../lib/rank'
+import { pointAtField } from '../lib/pointAtField'
 
 const cfg = appConfig.atemschutz // static, non-doctrine parts only (the two auftrag lists)
 // `az` (appConfig.copy.atemschutz) and the doctrine numbers (`atemschutzDoctrine()`) are read
@@ -729,7 +730,11 @@ export function AtemschutzView({
   // permission dialog thrown at their first taps — it reads as data grabbing on a demo site.
   // The audio unlock stays (idempotent, no permission involved) — moot on the demo itself,
   // where useAtemschutzAlarm suppresses the audible alarm anyway.
+  // ⚠️ A session that cannot write the Trupps never gets the form (RBAC audit V2, 22.10.2026): on
+  // the phone it pins the due Trupps with a live «Kontakt», which reset the clock and stopped the
+  // alarm on that one tablet while nothing reached the server.
   const openForm = (mode: FormMode, trupp?: Trupp, focus?: 'auftrag', adoptMarkerId?: string, presetAuftrag?: TruppAuftrag) => {
+    if (!canEdit) return
     unlockAlarm(); if (!isDemoMode()) void ensureNotifyPermission(); setForm({ mode, trupp, focus, adoptMarkerId, presetAuftrag })
   }
   // «Neuer Trupp» from a loose marker/chip — opened once per request nonce (see lastOpenedCreateNonce)
@@ -1554,7 +1559,8 @@ export function AtemschutzView({
           <div className={s.empty}>
             <Icon id="warn" />
             <p>{az.empty}</p>
-            <span>{az.emptyHint}</span>
+            {/* the hint teaches the writer's next step – a session that cannot add a Trupp keeps the plain line */}
+            {canEdit && <span>{az.emptyHint}</span>}
             {/* The door the empty board is asking for (staging walk-through 25.09.2026): the big
                 round «+» at the bottom right is the app's Verlauf-Eintrag, and on an empty board it
                 is the one a first-timer taps. On the handed-over phone board «+ Trupp» is the
@@ -1698,7 +1704,11 @@ export function AtemschutzView({
           <div className={s.strip} role="tablist" aria-label={az.title}>
             {board.map((t) => {
               const lv = live.get(t.id)!
-              const sev = alarms.get(t.id)!.sev
+              const alarm = alarms.get(t.id)!
+              const sev = alarm.sev
+              // the tier in a glyph and a word, not tint + border alone (UX sweep F6): the row's
+              // own mark (tierMark) — clock = «Fällig», triangle = «Überfällig» / «Alarmdruck»
+              const tier = tierMark(alarm, sev, true)
               return (
                 <button
                   key={t.id} type="button" role="tab" aria-selected={t.id === focusId}
@@ -1718,7 +1728,10 @@ export function AtemschutzView({
                       not say – the badge stays on the card head, the phone row and the map. */}
                   <span className={cx(s.tabName, s.tabNameWrap)}>{t.name}</span>
                   {/* the same collapsed-time split the list row and the card make (collapsedClock) */}
-                  <span className={s.tabClock}><ClockVal val={collapsedClock(t, lv).val} /></span>
+                  <span className={s.tabClock}>
+                    {tier && <><Icon id={tier.icon} className={s.tabTier} /><span className="sr-only">{tier.text}</span></>}
+                    <ClockVal val={collapsedClock(t, lv).val} />
+                  </span>
                 </button>
               )
             })}
@@ -2684,7 +2697,7 @@ function TruppCard({
       {auftrag
         ? chip('auftrag', <span className={s.factTxt}>{auftrag}{t.ziel ? ` · ${t.ziel}` : ''}</span>, onQuick && (() => onQuick('auftrag')))
         : <>
-            {chip('auftrag', az.auftragAdd, () => (onQuick ? onQuick('auftrag') : onEdit('auftrag')), s.factDash)}
+            {chip('auftrag', az.auftragAdd, onQuick && (() => onQuick('auftrag')), s.factDash)}
             {t.ziel && chip('ziel', <span className={s.factTxt}>{t.ziel}</span>, onQuick && (() => onQuick('auftrag')))}
           </>}
       {dockedAt && chip('docked', <>{fillTemplate(az.dockedAt, { host: dockedAt })}{!lite && <Icon id="chevron" />}</>,
@@ -2705,7 +2718,8 @@ function TruppCard({
       {/* ── 4 Hinweis ─────────────────────────────────────────────────────────────────────────
           Usually empty, and then it costs nothing (`.noteZone:empty`). */}
       <div className={s.noteZone}>
-        {monitored && preEntry && <div className={s.preHint}>{az.preEntryHint}</div>}
+        {/* «… drücken» names a button only a writer has (actZone below) */}
+        {canEdit && monitored && preEntry && <div className={s.preHint}>{az.preEntryHint}</div>}
         {airNote && (
           <div className={s.airNote} role="status" aria-live="polite">
             <Icon id="warn" /><span>{airNote}</span>
@@ -2850,7 +2864,7 @@ function TruppCard({
               </span>
             )) : <span><i>{az.verlauf}</i></span>}
           </span>
-          <Icon id={logOpen ? 'chevron-up' : 'chevron-down'} className={s.logChev} />
+          <Icon id="chevron-down" className={cx('chev', s.logChev)} />
         </button>
         {menu}
         </div>
@@ -2961,7 +2975,7 @@ function TruppCard({
     <button type="button" className={s.trowHead} aria-expanded="true" onClick={onCollapse}
       aria-label={`${t.name} — ${az.collapse}`}>
       <RowLine t={t} live={live} color={lite ? undefined : color} lite={lite} tier={headTier} />
-      <span className={s.trowChevron}><Icon id="chevron-up" /></span>
+      <span className={s.trowChevron}><Icon id="chevron-down" className="chev" /></span>
     </button>
   ) : (
     <div className={cx(s.trowHead, s.trowHeadStatic)}>
@@ -3019,27 +3033,6 @@ function TruppCard({
  * ⚠️ There is NO colour picker any more (04.09.), on any layout. The colour is still per-Trupp
  * and still automatic — the field simply stopped being asked; see `color` in `submit`.
  */
-
-/**
- * Is `el` already fully visible inside the box that scrolls it?
- *
- * ⚠️ The point is what NOT to do: a smooth `scrollIntoView` on an element that is already in
- * view still starts an animation, and iOS spends the next tap on stopping it. Ringing a field
- * that never moved therefore cost the operator their first tap on the chip beside it.
- * Falls back to the viewport when nothing above the element scrolls; an element with no layout
- * (jsdom, a sheet that has not painted yet) counts as out of view, so the scroll still happens.
- */
-function inScrollPort(el: HTMLElement): boolean {
-  const r = el.getBoundingClientRect()
-  if (r.width === 0 && r.height === 0) return false
-  for (let p = el.parentElement; p; p = p.parentElement) {
-    if (p.scrollHeight > p.clientHeight + 1) {
-      const pr = p.getBoundingClientRect()
-      return r.top >= pr.top && r.bottom <= pr.bottom
-    }
-  }
-  return r.top >= 0 && r.bottom <= window.innerHeight
-}
 
 /** What a kept edit / re-entry draft belongs to (TruppForm · draftKey): the sortie and every field
  *  the form writes, as one short string. Pure; the draft store is per session and per incident. */
@@ -3444,23 +3437,10 @@ function TruppForm({
     : !bottleOk ? az.saveBlockedBottle
     : null
 
-  /** Retrigger the same flash-ring `focusSection` gives an opened section (`.formFlash` above),
-   *  imperatively — a second blocked tap must ring again, which a className tied to render state
-   *  alone cannot do without a remount. Mirrors the identical remove/reflow/add idiom the board's
-   *  own card flash uses (AtemschutzView · TruppCard/TruppRow) for the same reason. */
-  const flashSection = (el: HTMLElement | null) => {
-    if (!el) return
-    // ⚠️ Only when it is actually out of view (05.09.). A smooth scroll that has nowhere to go
-    // still runs, and iOS spends the next tap on stopping it — so ringing a field that was on
-    // screen all along cost the operator their first tap on it.
-    if (!inScrollPort(el)) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    el.classList.remove(s.formFlash)
-    void el.offsetWidth
-    el.classList.add(s.formFlash)
-    window.setTimeout(() => el.classList.remove(s.formFlash), 1900)
-  }
-  /** Point at the field that blocks the save — scroll it into view and ring it. (The phone
-   *  form is flat since 08.09., so there is no collapsed section left to open first.) */
+  /** Point at the field that blocks the save — scroll it into view and ring it (lib/pointAtField,
+   *  with this form's own `.formFlash`, the ring `focusSection` gives an opened section). (The
+   *  phone form is flat since 08.09., so there is no collapsed section left to open first.) */
+  const flashSection = (el: HTMLElement | null) => pointAtField(el, { className: s.formFlash })
   const pointAt = (el: () => HTMLElement | null) => flashSection(el())
   /**
    * «Speichern» while the Trupp isn't valid yet used to just sit there disabled — with Art
@@ -3855,8 +3835,11 @@ function TruppForm({
             back as Sicherungstrupp as it is sent in — and a Sicherungstrupp is by definition a
             crew standing by under Atemschutz. A work squad has one way back in. */}
         {mode === 'redeploy' && isPa && (
-          <button className={cx('ip-btn primary', !canSubmit && s.btnBlocked)} aria-disabled={!canSubmit}
-            onClick={() => attemptSubmit(true)} title={az.reenterStandbyHint}>
+          // ⚠️ «does NOT start the contact clock» is safety, and it was a `title` only — never
+          // seen on a tablet (UX sweep F6, 20.10.2026). A hold (touch) or hover (mouse) now
+          // answers with it (lib/holdTooltip · `data-holdexplain`); the name keeps its word first.
+          <button className="ip-btn primary" aria-disabled={!canSubmit} data-holdexplain
+            onClick={() => attemptSubmit(true)} aria-label={`${az.reenterStandby}: ${az.reenterStandbyHint}`}>
             {az.reenterStandby}
           </button>
         )}
@@ -3866,7 +3849,7 @@ function TruppForm({
             `attemptSubmit` decides — flash the missing field when blocked, submit when not.
             ⚠️ …and since 04.09. it is the ONLY forward control on a phone as well: there is no
             «Weiter» in front of it any more. */}
-        <button className={cx(mode === 'redeploy' && isPa ? 'ip-btn' : 'ip-btn primary', !canSubmit && s.btnBlocked)}
+        <button className={mode === 'redeploy' && isPa ? 'ip-btn' : 'ip-btn primary'}
           aria-disabled={!canSubmit} onClick={() => attemptSubmit()}>{submitLabel}</button>
       </SheetFoot>
       {pickers}

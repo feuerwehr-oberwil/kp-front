@@ -105,7 +105,7 @@ export const linksCopy = {
     denied: 'Standort gesperrt',
     deniedHint: 'Die Standortfreigabe ist für diese Seite blockiert. Das lässt sich nur in den Browser-Einstellungen wieder erlauben.',
     taken: 'Name bereits vergeben',
-    takenHint: 'Ein anderes Gerät teilt gerade unter diesem Namen. Wähle deinen Namen neu oder warte kurz.',
+    takenHint: 'Ein anderes Gerät teilt unter diesem Namen. Wähle deinen Namen neu oder bitte die Einsatzleitung, den alten Standort zu entfernen.',
     failing: 'Standort kommt nicht an',
     failingHint: 'Das Handy findet deinen Standort, aber der Server nimmt ihn nicht entgegen – meist fehlender Empfang. Es wird weiter versucht.',
     // A reason for still searching, not a state of its own: indoors/in a cellar a phone happily

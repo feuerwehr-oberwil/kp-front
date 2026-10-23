@@ -155,7 +155,8 @@ export function RapportSurface({
           // ⚠️ The confirm (and the media flush that follows it) lives in `confirmAndComplete`
           // above, shared with the Einsatz-Menü row — one action, one dialog, one wording.
           onComplete={canEditIncident && !readOnly ? confirmAndComplete : undefined}
-          onFixTranscripts={() => { setJournalOpen(true); setJournalFromRapport(true) }}
+          // «Im Verlauf ergänzen» is a write – only for a session that writes the record
+          onFixTranscripts={canWriteRecord ? () => { setJournalOpen(true); setJournalFromRapport(true) } : undefined}
         /></Suspense>
       ))}
     </>

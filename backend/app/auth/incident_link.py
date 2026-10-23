@@ -341,8 +341,11 @@ LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
         # out. The GET on the same path is NOT here and must not be added.
         ("POST", "/api/incidents/{incident_id}/positions"),
         ("DELETE", "/api/incidents/{incident_id}/positions/{person_id}"),
-        # station reference data — the map is useless without it
-        ("GET", "/api/objects"),
+        # station reference data — the map is useless without it. Narrowed per request to what
+        # THIS Einsatz points at (`_link_param_allowed`), and the register list `/api/objects`
+        # is not here at all: a link is never a door onto the station's object register (RBAC
+        # audit S7, 22.10.2026 — only the view link was narrowed until then). The plan rail
+        # reads `…/{incident_id}/objects` above.
         ("GET", "/api/objects/{object_id}"),
         ("GET", "/api/reference"),
         ("GET", "/api/reference/{dataset_id}"),
@@ -408,8 +411,6 @@ ATEMSCHUTZ_LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
 #: The rule is: THIS incident's record, plus the station material that record points at.
 #:
 #: Dropped from ``LINK_ALLOWED``, each for a stated reason:
-#:   /api/objects                    — the station's object register; enumeration, and the
-#:                                     viewer never calls it (the map uses …/objects below)
 #:   /api/traccar/*                  — where the fleet is RIGHT NOW; not in any Rapport, and an
 #:                                     outbound call triggered by someone outside the station
 #:   /api/weather                    — the other outbound call, and meaningless for a finished
@@ -420,8 +421,8 @@ ATEMSCHUTZ_LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
 #:                                     writes NOTHING
 #:   …/{incident_id}/state           — no caller in the app at all
 #:
-#: Three entries stay but are narrowed per request by ``_view_link_param_allowed``, because the
-#: route is needed and the route's *answer* is station-wide:
+#: Three entries stay but are narrowed per request by ``_link_param_allowed`` (for every link
+#: kind since 22.10.2026), because the route is needed and the route's *answer* is station-wide:
 #:   /api/objects/{object_id}        — only objects surfaced FOR this Einsatz
 #:   /api/reference/{dataset_id}     — station reference data (hydrants, Checklisten, symbols)
 #:                                     yes; an Objektplan only for those same objects
@@ -480,13 +481,14 @@ VIEW_LINK_ALLOWED: frozenset[tuple[str, str]] = frozenset(
 #: carry the token's own incident.
 _INCIDENT_PARAMS = ("incident_id",)
 
-#: Reference datasets with NO object behind them that a Rapport view link legitimately needs:
-#: the hydrant/GeoJSON layers, the bundled symbol pack, and the Checklisten templates/assets —
-#: map and report furniture, the same for every Einsatz. A PDF is never furniture: an unbound
+#: Reference datasets with NO object behind them that a link legitimately needs: the
+#: hydrant/GeoJSON layers, the bundled symbol pack, the Checklisten templates/assets and the
+#: Tafel's board templates (`tafel:*`, lib/boardTemplates) — map and report furniture, the same
+#: for every Einsatz. A PDF is never furniture: an unbound
 #: one is still a document (a station-object plan), and handing it to a forwarded Rapport link
 #: is the SEC-02 leak. Anything not on this whitelist — a PDF, an unknown future kind — has to
 #: clear the surfaced-object bar instead, so ``object_id is None`` on its own grants nothing.
-_VIEW_LINK_FURNITURE_KINDS: frozenset[str] = frozenset({"geojson", "symbols", "checklists"})
+_LINK_FURNITURE_KINDS: frozenset[str] = frozenset({"geojson", "symbols", "checklists", "tafel"})
 
 
 def link_page_owns_session(request: Request) -> bool:
@@ -691,9 +693,13 @@ async def _surfaced_object_ids(db: AsyncSession, incident_id: str) -> frozenset[
     return frozenset(ids)
 
 
-async def _view_link_param_allowed(request: Request, db: AsyncSession, path: str, incident_id: str) -> bool:
-    """The second half of ``VIEW_LINK_ALLOWED``: three routes that a Rapport view genuinely
-    needs but that answer with station-wide data unless the request itself is narrowed.
+async def _link_param_allowed(request: Request, db: AsyncSession, path: str, incident_id: str) -> bool:
+    """The second half of every link allowlist: three routes that a link genuinely needs but
+    that answer with station-wide data unless the request itself is narrowed.
+
+    Born for the view link (05.09.); every link kind since 22.10.2026 (RBAC audit S7). The alarm,
+    terminal and Atemschutz links read the whole object register and every Objektplan before —
+    and a link must never be a door onto the register, whoever it was handed to.
 
     A (method, path) allowlist cannot see this — it is about WHICH object, WHICH dataset, WHICH
     roster — so it is decided here, on the parameters, against what this one incident points at.
@@ -741,7 +747,7 @@ async def _view_link_param_allowed(request: Request, db: AsyncSession, path: str
             return object_id in await _surfaced_object_ids(db, incident_id)
         # No object behind it → allow ONLY map/report furniture: hydrant/GeoJSON layers, the
         # symbol pack, the Checklisten templates/assets. A PDF or an unknown kind is refused.
-        return kind in _VIEW_LINK_FURNITURE_KINDS
+        return kind in _LINK_FURNITURE_KINDS
 
     return True
 
@@ -854,9 +860,10 @@ async def _enforce_link_scope(request: Request, db: AsyncSession) -> None:
             raise _Denied("another incident")
 
     # …and the routes that name no incident but answer with station-wide data are narrowed on
-    # their own parameters. Only the view link needs this: it is the only one handed outside.
-    if view and not await _view_link_param_allowed(request, db, path, str(scoped)):
-        raise _Denied("view link: outside this Einsatz")
+    # their own parameters — for every link kind: an alarm link is forwarded too, and a laminated
+    # Atemschutz QR hangs on a wall.
+    if not await _link_param_allowed(request, db, path, str(scoped)):
+        raise _Denied("outside this Einsatz")
 
     # Liveness checks: closing the Einsatz — or rotating the minting key — revokes every
     # link to it, immediately. Skipped for the SPA shell itself so a responder whose link

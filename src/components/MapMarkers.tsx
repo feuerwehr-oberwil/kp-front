@@ -131,9 +131,11 @@ interface Props {
    *  name. Their owners paint the 6px ink dot instead. The SELECTED entity is never in here. */
   suppressedLabels?: ReadonlySet<string>
   /** tactical editing is locked (viewer / Führungsansicht / replay): a tap still selects
-   *  so the read-only detail panel opens, but no mutating grip is rendered (see MapView).
-   *  Not read in here since the note grips row went (29.08.) — the panel handles read-only
-   *  itself — but the prop stays declared: MapView passes it, and a future grip needs it. */
+   *  so the read-only detail panel opens, but no mutating grip is rendered (see MapView) —
+   *  the rotate / resize handles are drawn only where `onRotate` / `onShapeTransform` are
+   *  wired, and a locked surface wires neither. Read in here for the selected Trupp marker:
+   *  a locked surface keeps the bar's two doors that change nothing, «Im Atemschutz zeigen»
+   *  and «Spur ein/aus» (RBAC audit 22.10.2026). */
   readOnly?: boolean
   draggable: boolean
   /** project lng/lat → container px, through the map's LIVE transform (re-anchors a hold-drag on
@@ -217,7 +219,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink, onTeamUndock, ghostTrails, onGhostTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, readOnly = false, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink, onTeamUndock, ghostTrails, onGhostTrail }: Props) {
   const ghostLabel = (g: TruppTrail) => ghostTrailLabel(g, appConfig.copy.whiteboard.team, trupps ?? [])
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
@@ -807,8 +809,10 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
               }
               // the pill AND its action bar are the ONE shared component (components/TwinTeamPill),
               // the very same one the two mirrors wear — so the Karte, the Plan and both twins
-              // can never again answer differently for the same Trupp. The bar only appears where
-              // this surface may write (`draggable`); a read-only Karte keeps the bare pill.
+              // can never again answer differently for the same Trupp. The full bar only appears
+              // where this surface may write (`draggable`); a read-only Karte keeps the two doors
+              // that change nothing — the jump to the Trupp's card and this device's trail
+              // toggle — and the bare pill when neither applies.
               // The marker container already owns the press, so no `hit` shell is passed.
               return (
                 <TwinTeamPill
@@ -830,6 +834,9 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
                     toggleTrail: onToggleTrail && (() => onToggleTrail(e.id)),
                     unlink: badge && onTeamUnlink && (() => onTeamUnlink(e.id, badge.lineId)),
                     undock: e.dockedTo && onTeamUndock ? () => onTeamUndock(e.id) : undefined,
+                  } : readOnly && ((e.truppId && onShowTrupp) || (e.trail?.length && onToggleTrail)) ? {
+                    showTrupp: onShowTrupp,
+                    toggleTrail: onToggleTrail && (() => onToggleTrail(e.id)),
                   } : undefined} />
               )
             })() : e.kind === 'shape' ? (
@@ -1170,7 +1177,8 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
       {/* Geister-Spuren: the searched area a removed Trupp marker left behind (lib/truppTrails).
           Read-only and grey — it is a record, not a Trupp, so it is not selectable as one. The
           LABEL is the hit target: one tap offers «Spur löschen» with the same confirm the live
-          trail has (IncidentWorkspace · deleteGhostTrail), and that is undoable. */}
+          trail has (IncidentWorkspace · deleteGhostTrail), and that is undoable. Without the
+          writer (a locked surface) the label is a plain read-out. */}
       {ghostTrails?.map((g) => {
         const pts = g.geo ?? []
         const head = pts[pts.length - 1]
@@ -1186,11 +1194,19 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
             ))}
             {head && (
               <Marker longitude={head.coord[0]} latitude={head.coord[1]} anchor="center" draggable={false}>
-                <button className="wb-ghost-label" style={{ position: 'static', transform: 'translateY(-16px)' }}
-                  title={fillTemplate(appConfig.copy.whiteboard.ghostTrailHint, { name: ghostLabel(g) })}
-                  onClick={(ev) => { ev.stopPropagation(); onGhostTrail?.(g.id) }}>
-                  <Icon id="footprint" />{ghostLabel(g)}
-                </button>
+                {onGhostTrail ? (
+                  <button className="wb-ghost-label" style={{ position: 'relative', transform: 'translateY(-16px)' }}
+                    title={fillTemplate(appConfig.copy.whiteboard.ghostTrailHint, { name: ghostLabel(g) })}
+                    onClick={(ev) => { ev.stopPropagation(); onGhostTrail(g.id) }}>
+                    <Icon id="footprint" />{ghostLabel(g)}
+                  </button>
+                ) : (
+                  // a locked surface has no «Spur löschen»: the label is a read-out, not a dead button
+                  <span className="wb-ghost-label" style={{ position: 'relative', transform: 'translateY(-16px)' }}
+                    title={fillTemplate(appConfig.copy.whiteboard.ghostTrailHint, { name: ghostLabel(g) })}>
+                    <Icon id="footprint" />{ghostLabel(g)}
+                  </span>
+                )}
               </Marker>
             )}
           </Fragment>

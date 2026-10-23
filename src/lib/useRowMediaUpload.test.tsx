@@ -5,6 +5,7 @@ import { useState } from 'react'
 
 vi.mock('./ui', () => ({ toast: vi.fn(), undoToast: vi.fn() }))
 import { undoToast } from './ui'
+import { eventScopeFor } from './eventScope'
 import { useRowMediaUpload } from './useRowMediaUpload'
 import type { ReportAttachment } from '../types'
 
@@ -17,11 +18,12 @@ function setup(rows: ReportAttachment[]) {
   const pushed: { label: string; restore: () => void; reapply: () => void; drop: ReturnType<typeof vi.fn> }[] = []
   const rememberOneShotRef = { current: (() => () => {}) as (d: never, l: string, r: () => void, a: () => void) => () => void }
   const lastCaptionStepRef = { current: null }
+  const emit = vi.fn()
   const hook = renderHook(() => {
     const [attachments, setAttachments] = useState(rows)
     const api = useRowMediaUpload({
       incidentMeta: { id: 'inc1' }, canWriteRecord: true, media: { enqueue: vi.fn() } as never,
-      swapPhoto: vi.fn(), swapRowMedia: vi.fn(), attachments, setAttachments, emit: vi.fn(),
+      swapPhoto: vi.fn(), swapRowMedia: vi.fn(), attachments, setAttachments, emit,
       rememberOneShotRef: rememberOneShotRef as never, lastCaptionStepRef,
     })
     return { attachments, ...api }
@@ -30,7 +32,7 @@ function setup(rows: ReportAttachment[]) {
   rememberOneShotRef.current = (_d, label, restore, reapply) => {
     const drop = vi.fn(); pushed.push({ label, restore, reapply, drop }); return drop
   }
-  return { hook, pushed }
+  return { hook, pushed, emit }
 }
 
 describe('useRowMediaUpload · Beilagen', () => {
@@ -57,5 +59,15 @@ describe('useRowMediaUpload · Beilagen', () => {
     act(() => undo())
     expect(hook.result.current.attachments.map((a) => a.id)).toEqual(['a1', 'a2', 'a3'])
     expect(pushed[0].drop).toHaveBeenCalledTimes(1)
+  })
+
+  // the toast's «Rückgängig» reaches the audit chain in the record vocabulary — a bare `undo`
+  // was dropped by the `el`'s event scope, so an Einsatzleiter's taking-back left no trace
+  it('the toast\'s «Rückgängig» audits as report.undo, which an el may append', () => {
+    const { hook, emit } = setup([row])
+    act(() => hook.result.current.removeAttachment('a1'))
+    act(() => vi.mocked(undoToast).mock.calls[0][1]())
+    expect(emit).toHaveBeenLastCalledWith('report.undo')
+    expect(eventScopeFor({ role: 'el' })('report.undo')).toBe(true)
   })
 })

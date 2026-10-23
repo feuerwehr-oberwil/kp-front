@@ -1,6 +1,6 @@
 {
   "src/admin/admin.css": {
-    "fontSize": 92,
+    "fontSize": 91,
     "weight": 42,
     "spacing": 235
   },
@@ -88,7 +88,6 @@
     "spacing": 8
   },
   "src/styles/17-rapport.css": {
-    "spacing": 1,
     "shadow": 2
   },
   "src/styles/18-audio.css": {

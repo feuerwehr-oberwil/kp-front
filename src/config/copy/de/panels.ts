@@ -300,6 +300,8 @@ export const panelsCopy = {
     // workspace load gate (lib/workspace sanitizeWorkspace): honest reporting, never silent
     wsDropped: '{n} beschädigte Einträge beim Laden übersprungen',
     wsNewer: 'Einsatzdaten stammen von einer neueren App-Version – bitte App aktualisieren.',
+    // both stand in the Meldeleiste while true (S3, 20.10.2026); the skipped-entries row has the ✕
+    wsDroppedDismiss: 'Ausblenden',
     // LayerPanel offline-download button + the App map-download toasts
     // Drei Ergebnisse, drei Nachrichten – nicht eine Nachricht mit unterschiedlichen Zahlen.
     // «Karte offline verfügbar (0 Kacheln)» war grün, mit Haken, für einen Download, der nichts
@@ -337,6 +339,8 @@ export const panelsCopy = {
     kicker: 'Neuer Einsatz',
     switch: 'Wechseln',
     open: 'Öffnen',
-    later: 'Später',
+    // the ✕'s name — it hides this Einsatz's row for good on this device (useIncidentWatch),
+    // so it is the one Meldeleiste dismiss word, not «Später» (20.10.2026, S10)
+    dismiss: 'Ausblenden',
   },
 } as const

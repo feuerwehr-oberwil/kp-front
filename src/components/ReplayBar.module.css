@@ -26,7 +26,7 @@
 .replay-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--on-accent-ink); flex: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--on-accent-ink) 35%, transparent); }
 .replay-exit {
-  margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 4px;
+  position: relative; margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 4px;
   border: none; background: rgba(255, 255, 255, .22); color: var(--on-accent-ink); cursor: pointer;
   font-family: var(--body); font-weight: var(--fw-bold); font-size: var(--fs-1); padding: 8px 12px; border-radius: var(--r-sm);
 }
@@ -49,6 +49,14 @@
 @media (hover: hover) { .replay-skip:hover { background: var(--hover-strong); color: var(--ink); } }
 .replay-skip:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .replay-skip .i { width: 14px; height: 14px; }
+/* the gloved floor (UX sweep M12, 20.10.2026): the transport row reaches --tap under a finger –
+   the speed Segmented beside it already is – and «Beenden» gets a --tap pad inside the banner's
+   own padding, so the dark banner does not grow */
+@media (pointer: coarse) {
+  .replay-play { width: var(--tap); height: var(--tap); }
+  .replay-skip { height: var(--tap); min-width: var(--tap); justify-content: center; }
+  .replay-exit::after { content: ''; position: absolute; inset: 50% 0 auto; height: var(--tap); translate: 0 -50%; }
+}
 /* the playback-speed picker now uses the shared <Segmented> (.useg) — its old .replay-speeds
    chrome was removed; the inline-flex track keeps its natural width in the transport row. */
 .replay-scrub { flex: 1 1 auto; display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-top: 24px; position: relative; }

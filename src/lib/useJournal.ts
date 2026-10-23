@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { JournalStore } from './journalStore'
+import { JournalStore, type JournalOwner } from './journalStore'
 import { createLongPollLoop, SLOW_FOLLOW_MS } from './pollBackoff'
 import type { TimelineEvent } from '../types'
 
@@ -9,9 +9,11 @@ import type { TimelineEvent } from '../types'
  * keyed by incident id upstream). Pulls new rows + retries the outbox on the same long-poll
  * loop as the workspace live-follow, flushes on reconnect, and re-renders via a change nonce.
  */
-export function useJournal({ incidentId, readOnly, legacy, slowFollow = false }: {
+export function useJournal({ incidentId, readOnly, legacy, slowFollow = false, owner = null }: {
   incidentId: string
   readOnly: boolean
+  /** whose outbox this is (journalStore · JournalOwner) — read once, at the store's creation */
+  owner?: JournalOwner | null
   /** follow once a minute (the Atemschutz-Link of a closed Einsatz — see useIncidentSync) */
   slowFollow?: boolean
   /** the blob's timeline at open (newest-first) — legacy display + migration input */
@@ -24,7 +26,7 @@ export function useJournal({ incidentId, readOnly, legacy, slowFollow = false }:
   // Carried as state, set from the store's change callback, never read off the store in render.
   const [refusedCount, setRefusedCount] = useState(0)
   const storeRef = useRef<JournalStore | null>(null)
-  if (!storeRef.current) storeRef.current = new JournalStore(incidentId, readOnly)
+  if (!storeRef.current) storeRef.current = new JournalStore(incidentId, readOnly, owner)
   const store = storeRef.current
 
   useEffect(() => {

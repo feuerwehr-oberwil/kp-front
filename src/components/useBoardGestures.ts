@@ -44,9 +44,12 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
   const pinchMid = useRef<{ x: number; y: number } | null>(null)
   const marqueeRef = useRef<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   // --- one-finger zoom, the Karte's own (MapLibre's double tap + tap-and-drag) — touch and pen,
-  // selection tool only, presses on EMPTY board only (an object's own handler swallows its press
-  // before stageDown). The draw tools keep their own double tap (it finishes a Linie / Fläche on
-  // `.wb-ink`) and navigate by pinch. ---
+  // presses on EMPTY board only (an object's own handler swallows its press before stageDown). A
+  // gesture zooms unless the armed tool uses it (UX sweep M4, the Karte's MapView likewise): the
+  // selection tool has both; a DRAG tool (the Mehrfach-Rahmen here, Freihand through
+  // `tapZoomPress`) keeps the double tap, its drag stays the tool's; a TAP tool (Punkte, Symbol,
+  // Notiz, …) owns its taps and navigates by pinch. A double tap never finishes a Linie / Fläche —
+  // ✓ does. ---
   const [tapZoom] = useState(createTapDragZoom)
   /** the scale the tap-drag engaged at — its factor is relative to that, so it never drifts */
   const tapZoomBase = useRef<number | null>(null)
@@ -161,6 +164,11 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
 
   const stageDown = (e: ReactPointerEvent) => {
     if (pinchDist.current != null) return // the capture pass handed this gesture to the pinch
+    if (tool === 'lasso') {
+      // a double tap zooms; the press still starts the Rahmen, which a drag makes its own
+      applyTapZoom(tapZoom.down(sample(e), { drag: false }))
+      marqueeDown(e); return
+    }
     if (tool !== 'pan') applyTapZoom(tapZoom.cancel())
     else {
       const a = tapZoom.down(sample(e))
@@ -172,7 +180,6 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
         return
       }
     }
-    if (tool === 'lasso') { marqueeDown(e); return }
     panDown(e)
   }
   const stageMove = (e: ReactPointerEvent) => {
@@ -207,5 +214,10 @@ export function useBoardGestures({ tool, annos, setSelId, setSelIds, setTool, ap
     if (pointers.current.size === 0) { panUp(); marqueeUp(); manipUp() }
   }
 
-  return { marquee, stageDown, stageMove, stageUp, trackDown, trackUp }
+  /** A Freihand press on `.wb-ink`, which swallows it before stageDown: a double tap zooms, the
+   *  stroke stays the tool's (a tap stroke commits nothing — lib/lineStyle · isTapStroke). Its
+   *  release reaches the zoom through trackUp. */
+  const tapZoomPress = (e: ReactPointerEvent) => applyTapZoom(tapZoom.down(sample(e), { drag: false }))
+
+  return { marquee, stageDown, stageMove, stageUp, trackDown, trackUp, tapZoomPress }
 }

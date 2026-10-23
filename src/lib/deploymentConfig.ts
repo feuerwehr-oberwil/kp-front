@@ -467,6 +467,9 @@ export interface DeploymentConfig {
   }
   /** Objektbesuche (docs/object-visits.md · «Deployment config»). Off unless `enabled`. */
   objectVisits?: DeploymentObjectVisits | null
+  /** how far back a `viewer` account reads (CONFIGURATION.md §1f) – the SERVER enforces it; the
+   *  app only says it, under «Alle Einsätze» (HistoryPanel · windowDays) */
+  access?: { viewerHistoryDays?: number | null }
   integrations?: DeploymentIntegrations
   /** Opaque version token of the document the SERVER holds, off GET/PUT. Sent back as
    *  `If-Match` on the next save, so a tab holding an hour-old draft is refused instead of

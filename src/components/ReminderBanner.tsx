@@ -6,7 +6,8 @@ import type { OpenReminder } from '../lib/reminders'
 // The due-Wiedervorlage row of the Meldeleiste. Shows the most urgent due reminder with
 // one-tap Erledigt / +10 min. Stays up until every due reminder is handled — no silent expiry,
 // the 3am rule — which is why it carries no ✕: a due reminder can be erledigt or verschoben,
-// never waved away. Actions act on the top (soonest-due) reminder.
+// never waved away. Actions act on the top (soonest-due) reminder. A session that cannot write
+// the Verlauf passes neither handler and gets the row without buttons (RBAC audit V3, 22.10.2026).
 //
 // ⚠️ The third move — «In Verlauf öffnen» — is the row's TITLE, not a button. It was a labelled
 // button for an hour on 23.08. and read wrong: three buttons on the strip's busiest row make
@@ -20,8 +21,8 @@ import type { OpenReminder } from '../lib/reminders'
 // intake review was open. That is the defect the ranking exists to make impossible.
 export function ReminderBanner({ due, onDone, onSnooze, onOpen }: {
   due: OpenReminder[]
-  onDone: (r: OpenReminder) => void
-  onSnooze: (r: OpenReminder) => void
+  onDone?: (r: OpenReminder) => void
+  onSnooze?: (r: OpenReminder) => void
   /** land on the row that raised this item (OpenReminder · rowId) */
   onOpen?: (r: OpenReminder) => void
 }) {
@@ -36,8 +37,8 @@ export function ReminderBanner({ due, onDone, onSnooze, onOpen }: {
 
 function DueReminder({ r, onDone, onSnooze, onOpen }: {
   r: OpenReminder
-  onDone: (r: OpenReminder) => void
-  onSnooze: (r: OpenReminder) => void
+  onDone?: (r: OpenReminder) => void
+  onSnooze?: (r: OpenReminder) => void
   onOpen?: (r: OpenReminder) => void
 }) {
   // read per-render (not module-load) so the resolved locale is applied — see config/copy
@@ -52,9 +53,11 @@ function DueReminder({ r, onDone, onSnooze, onOpen }: {
     icon: 'bell',
     title: `${C.dueOne}${clock ? ` · ${clock}` : ''}`,
     sub: r.text,
+    // the task is what the operator must do — two lines before the ellipsis (lib/meldungen · subLines)
+    subLines: 2,
     actions: [
-      { label: C.dueDone, icon: 'check', primary: true, onClick: () => onDone(r) },
-      { label: C.dueSnooze, icon: 'clock', onClick: () => onSnooze(r) },
+      ...(onDone ? [{ label: C.dueDone, icon: 'check', primary: true, onClick: () => onDone(r) }] : []),
+      ...(onSnooze ? [{ label: C.dueSnooze, icon: 'clock', onClick: () => onSnooze(r) }] : []),
     ],
     // …and the way in, on the title. It can only exist since each due item became its own row:
     // «öffnen» on a row that stood for two Wiedervorlagen could not say WHICH one it would land

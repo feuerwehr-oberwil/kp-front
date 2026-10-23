@@ -91,6 +91,18 @@ def _refuse_cross_site(request: Request) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Anfrage von einer fremden Herkunft")
 
 
+def _with_session(user: User, until: datetime | None) -> UserOut:
+    """The account as the client sees it, plus when its refresh token runs out (UserOut ·
+    session_until). The readiness rows on the Karte home read it; nothing else does."""
+    out = UserOut.model_validate(user)
+    out.session_until = until
+    return out
+
+
+def _refresh_until() -> datetime:
+    return datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
+
+
 def _claims(user: User) -> dict:
     # The generation travels in every token this app mints; `dependencies.get_current_user`
     # and /auth/refresh refuse one that is behind the row's (see revoke_sessions).
@@ -108,7 +120,8 @@ async def revoke_sessions(db: AsyncSession, user: User) -> None:
     The one lever behind «throw them out»: a PIN reset and a deactivation both pull it, so an
     admin rotating a compromised credential actually removes whoever was already inside
     (security audit SEC-05). Deactivation pulling it too is what stops a later reactivation
-    from reviving the sessions the deactivation denied.
+    from reviving the sessions the deactivation denied. A role change pulls it so the device
+    signs in again and learns the new role (RBAC audit S4, 22.10.2026).
 
     The bump is an atomic ``gen = gen + 1`` at the row, NOT a read-modify-write on the ORM
     value: two overlapping resets that both read generation 0 would each write 1, leaving a
@@ -135,7 +148,9 @@ async def roster(request: Request, db: AsyncSession = Depends(get_db)) -> list[U
 
 
 @router.post("/login", response_model=UserOut)
-async def login(body: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> User:
+async def login(
+    body: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)
+) -> UserOut:
     # Per (account, source): a cooldown shared by every caller of one account would be a remote
     # switch for locking the Einsatzleiter out of their own tile (pin_limiter's docstring).
     source = client_ip(request)
@@ -209,7 +224,7 @@ async def login(body: LoginRequest, request: Request, response: Response, db: As
 
     claims = _claims(user)
     set_auth_cookies(response, create_access_token(claims), create_refresh_token(claims))
-    return user
+    return _with_session(user, _refresh_until())
 
 
 @router.post("/refresh", response_model=UserOut)
@@ -217,7 +232,7 @@ async def refresh(
     response: Response,
     refresh_token: Annotated[str | None, Cookie(alias=REFRESH_COOKIE)] = None,
     db: AsyncSession = Depends(get_db),
-) -> User:
+) -> UserOut:
     if not refresh_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Kein Refresh-Token")
     try:
@@ -269,7 +284,7 @@ async def refresh(
         logger.info("Refresh re-delivered: a rotation's answer was lost (user=%s)", user_id)
     claims = _claims(user)
     set_auth_cookies(response, create_access_token(claims), create_refresh_token(claims, jti=successor))
-    return user
+    return _with_session(user, _refresh_until())
 
 
 @router.post("/logout")
@@ -286,8 +301,21 @@ async def logout(
 
 
 @router.get("/me", response_model=UserOut)
-async def me(current_user: CurrentUser) -> User:
-    return current_user
+async def me(
+    current_user: CurrentUser,
+    refresh_token: Annotated[str | None, Cookie(alias=REFRESH_COOKIE)] = None,
+) -> UserOut:
+    # The refresh cookie's expiry is read, never consumed or verified beyond its signature: a
+    # link session has no refresh cookie and answers None, so does a cookie this key cannot read.
+    until: datetime | None = None
+    if refresh_token and not getattr(current_user, "link_scoped", False):
+        try:
+            exp = decode_token(refresh_token).get("exp")
+            if isinstance(exp, (int, float)):
+                until = datetime.fromtimestamp(exp, tz=UTC)
+        except (JWTError, OverflowError, OSError, ValueError):
+            until = None
+    return _with_session(current_user, until)
 
 
 # --- User administration (Slice 2 — Members & access) -------------------------------
@@ -368,12 +396,14 @@ async def update_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Benutzer nicht gefunden")
 
-    # Detect the two dangerous transitions on a currently-active editor.
+    # Detect the two dangerous transitions on a currently-active editor. ⚠️ Demoting is ANY
+    # role but editor — `el` writes the record but not the Lage, so an `el` is no editor either;
+    # checking for `viewer` alone let the last editor be demoted to `el` (RBAC audit, 22.10.2026).
     deactivating = body.is_active is False and user.is_active
-    demoting = body.role == "viewer" and user.role == "editor"
+    demoting = body.role is not None and body.role != "editor" and user.role == "editor"
 
     if (deactivating or demoting) and current is not None and user.id == current.id:
-        verb = "deaktivieren" if deactivating else "zum Betrachter herabstufen"
+        verb = "deaktivieren" if deactivating else "herabstufen"
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Du kannst dein eigenes Konto nicht {verb}.",
@@ -392,7 +422,12 @@ async def update_user(
         user.display_name = body.display_name
     if body.color is not None:
         user.color = body.color
-    if body.role is not None:
+    if body.role is not None and body.role != user.role:
+        # A device keeps the role it signed in with (the client reads it once, off /me), so a
+        # role change ends every session like a PIN reset does. Left standing, an editor made
+        # `el` mid-Einsatz kept an editor UI whose tactical edits the server no longer stored
+        # (RBAC audit S4, 22.10.2026); signing in again is what hands the device the new role.
+        await revoke_sessions(db, user)
         user.role = body.role
     if body.is_active is not None:
         if deactivating:

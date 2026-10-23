@@ -41,10 +41,12 @@
 .pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; animation: koPulse 1.4s infinite; }
 @keyframes koPulse { 50% { opacity: .3; } }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
-/* the phone: the running Einsatz is a strip of its own under the bar */
+/* the phone: the running Einsatz is a strip of its own under the bar. ⚠️ `min-width: 0`: a flex
+   item never shrinks below its content, and a long title ran off the screen's edge instead of
+   ending in «…» (owner, 22.10.2026) */
 .runningStrip { position: absolute; top: calc(88px + env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
   z-index: var(--z-topbar); display: flex; }
-.runningStrip .running { max-width: none; flex: 1; }
+.runningStrip .running { max-width: none; min-width: 0; flex: 1; }
 
 /* ── search results ───────────────────────────────────────────────────────────────────────── */
 .results { position: absolute; top: calc(84px + env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); width: 470px; max-width: calc(100vw - 32px);
@@ -382,6 +384,7 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .offChip:active { background: var(--amber-22); background-image: linear-gradient(var(--press), var(--press)); }
 .offDot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
 .deviceSheet { max-width: 520px; }
+.deviceAlarm { margin-bottom: var(--sp-4); }
 .deviceLead { margin: 0 0 var(--sp-3); font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink-dim); }
 .deviceSheet :global(.list-card) + .note, .deviceSheet :global(.list-card) + .src, .deviceSheet .note + .src { margin-top: var(--sp-3); }
 /* offline, the open document not on this device: the sentence instead of the reader */
@@ -423,3 +426,27 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    Strich»). The shared .nav-sep is spacing only (05-navrail); these two paint it. */
 :global(.nav-sep).barSep { background: var(--border); align-self: center; }
 :global(.nav-sep).railSep { height: 1px; margin: var(--sp-1) var(--sp-2); background: var(--border); }
+
+/* ── «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026 · AlarmReadiness) ─────────────────── */
+/* the rows: at the top of «Auf diesem Gerät» and under Einstellungen › Gerät */
+.alarmRows { display: grid; gap: var(--sp-3); }
+.alarmRows :global(.list-row-end) :global(.ip-btn), .alarmCard :global(.list-row-end) :global(.ip-btn) { white-space: nowrap; }
+/* the sub-line IS the finding («im Browser geöffnet – Alarme nur in der installierten App»): it
+   wraps instead of ellipsizing, like a Meldung's `wrap` */
+.alarmRows :global(.list-row-sub), .alarmCard :global(.list-row-sub) { white-space: normal; display: block; -webkit-line-clamp: unset; }
+.alarmDot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--green); }
+.alarmDot.alarmWarn { background: var(--amber); }
+.alarmDot.alarmRed { background: var(--red); }
+.alarmOk { width: 16px; height: 16px; color: var(--green); }
+.alarmTest { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+/* the nudge card on the Karte home: under the bar, where the running-Einsatz strip stands on a
+   phone (.runningStrip); beside the bar's left edge on a tablet. Glass like the bar, below the
+   menu (--z-drawer-menu) and the search results */
+.alarmCard { position: absolute; top: calc(84px + env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); width: 420px; max-width: calc(100vw - 32px);
+  z-index: var(--z-topbar); display: grid; gap: var(--sp-2); padding: var(--sp-3);
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); border-radius: var(--r-bar); box-shadow: var(--e4); }
+.alarmCardPhone { top: calc(88px + env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto; max-width: none; }
+.alarmEyebrow { font: var(--fw-bold) var(--fs-micro)/1.2 var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-dim); }
+.alarmHead { margin: 0; font: var(--fw-bold) var(--fs-3)/1.25 var(--body); color: var(--ink); }
+.alarmHeadRed { color: var(--red); }
+.alarmActs { display: flex; gap: var(--sp-2); justify-content: flex-end; flex-wrap: wrap; }

@@ -143,11 +143,18 @@ export function workspaceFlags({ user, asLink, isEl, isEditor, roleReadOnly, for
    * 24.09.2026 — app/observations.)
    */
   const canWriteRecord = !readOnly && !asLink
+  /** «this session's sync pushes the WHOLE blob» – an editor's, Führungsansicht included. The
+   *  `el` pushes the record slice and the Atemschutz-Link the Trupps, so a key outside theirs
+   *  written on their device stays there and drifts from the FU's (RBAC audit S4c, 22.10.2026).
+   *  The MACHINE writers of such keys gate on this: the plan-binding seed (useObjectPlans ·
+   *  onBind) and the floor-pack Gebäude (useGeorefFits). Hand-made tactical edits gate on
+   *  `tacticalLocked`, which is stricter. */
+  const canWriteBlob = isEditor && !readOnly
   // Phones edit like tablets — the tool bar is simply always there on the drawing surfaces
   // (stacked above the surface bar). Viewers and the EL-Ansicht stay hands-off; a brigade
   // that wants a view-only phone uses exactly those.
   const tacticalLocked = readOnly || elView || isEl
-  return { running, readOnly, outboxReadOnly, elView, canEditIncident, canEditTrupps, canEditRecord, canEditRapport, canEditMeta, canWriteRecord, tacticalLocked }
+  return { running, readOnly, outboxReadOnly, elView, canEditIncident, canEditTrupps, canEditRecord, canEditRapport, canEditMeta, canWriteRecord, canWriteBlob, tacticalLocked }
 }
 
 /** …as the workspace reads them. A hook only so the React Compiler treats the flags as frozen:

@@ -44,6 +44,9 @@ export function DockInfo({ text, inline }: { text: string; inline?: boolean }) {
       aria-expanded={open}
       onClick={() => setOpen((v) => !v)}
       onBlur={inline ? undefined : () => setOpen(false)}
+      // Escape folds the help away and nothing else (S8, 20.10.2026): stopped here, so the
+      // surface's own Escape does not also disarm the tool whose dock this is
+      onKeyDown={(e) => { if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false) } }}
     >
       <Icon id="info" />
     </button>

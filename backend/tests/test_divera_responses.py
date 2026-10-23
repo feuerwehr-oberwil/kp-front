@@ -31,6 +31,7 @@ from app import divera as divera_mod
 from app import divera_responses as dr
 from app.config import settings
 from app.models import DeploymentConfig, DiveraEmergency, Incident, Personnel, PersonnelExternalIdentity
+from tests.conftest import _make_user
 
 FIX = Path(__file__).parent / "fixtures" / "divera"
 ALARMS = json.loads((FIX / "alarms_with_responses.json").read_text())
@@ -352,7 +353,7 @@ async def test_the_fast_cadence_lasts_ten_minutes_after_an_alarm(db_session):
 # --- the read -----------------------------------------------------------------------------
 
 
-async def test_the_read_is_editor_only_and_forgets_old_alarms(client, db_session, editor, viewer):
+async def test_the_read_is_for_record_writers_and_forgets_old_alarms(client, db_session, editor, viewer):
     now = datetime.now(UTC)
     inc = Incident(title="B2 Brand", source="divera", status="offen", divera_id=4711)
     # a MANUAL Einsatz with the alarm attached — no divera_id, still has answers
@@ -414,6 +415,10 @@ async def test_the_read_is_editor_only_and_forgets_old_alarms(client, db_session
     assert (await client.get(f"/api/divera/responses/{inc.id}")).status_code == 401
     assert (await client.post("/api/auth/login", json={"user_id": str(viewer.id), "pin": PIN})).status_code == 200
     assert (await client.get(f"/api/divera/responses/{inc.id}")).status_code == 403
+    # the el marks attendance too: «Anrückend» is theirs as much as the editor's
+    el = await _make_user(db_session, username="el-divera", role="el")
+    assert (await client.post("/api/auth/login", json={"user_id": str(el.id), "pin": PIN})).status_code == 200
+    assert (await client.get(f"/api/divera/responses/{inc.id}")).json()["available"] is True
 
     assert (await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": PIN})).status_code == 200
     body = (await client.get(f"/api/divera/responses/{inc.id}")).json()
