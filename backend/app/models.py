@@ -286,18 +286,6 @@ class IncidentPerson(Base):
     position: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
 
-class IncidentNote(Base):
-    __tablename__ = "incident_notes"
-
-    id: Mapped[uuid.UUID] = _uuid_pk()
-    incident_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("incidents.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    author_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    text: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-
 class DiveraEmergency(Base):
     __tablename__ = "divera_emergencies"
 
@@ -714,7 +702,6 @@ class ReferenceDataset(Base):
     feature_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     current_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     fetch_url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    fetch_interval: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Checksum the SOURCE declared for the bytes currently stored here (sha256 hex, lowercase).
     # Set by the snapshot pull (app/plans.py) so a scheduled run can tell "unchanged" from
     # "changed" without downloading anything. NULL for hand-uploaded datasets — the upload path
