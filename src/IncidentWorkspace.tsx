@@ -1918,8 +1918,7 @@ export function IncidentWorkspace({
   // threaded in so the handlers behave identically to their former inline selves.
   const {
     draft, setDraft,
-    drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
-    setDrawMarker, setDrawArrow,
+    drawColor, drawWidth, drawDashed,
     lineMode, setLineMode, areaMode, setAreaMode,
     draftActive, lineNodes, freehandKind, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, patchDrawing, patchDrawingById,
@@ -3256,9 +3255,9 @@ export function IncidentWorkspace({
         symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone,
         vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, log,
         assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
-        noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing, setDrawColor, setDrawWidth,
-        setDrawDashed, selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel, setDrawMarker,
-        setDrawArrow, changeMapEnding, reverseDrawing, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
+        noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
+        selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
+        changeMapEnding, reverseDrawing, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
         unlinkLine, setSelectedDrawingId, setMode, setPanel, setGpsRouting, revertAll, gpsEndOf, releaseHere,
         releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing,
       }} />

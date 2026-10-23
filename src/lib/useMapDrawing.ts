@@ -10,6 +10,10 @@ import { newId } from './ids'
 import { canDropVertex, insertAt, minPoints, removeVertex } from './vertexOps'
 import { onSiteCoords, revertCoords } from './gpsReturn'
 
+/** The style every new line / Fläche is born with – never the last edited line's
+ *  (3am sweep §2, 23.10.2026). The Plan's inks use the same rule (Whiteboard · INK_DEFAULTS). */
+export const DRAW_DEFAULTS = { color: appConfig.drawing.defaultColor, width: 4, dashed: false, marker: '', arrow: false } as const
+
 // same settle window as the workspace's noteEntityEdit / Rapportangaben logger
 // (IncidentWorkspace · META_LOG_SETTLE_MS) — a burst of taps on the editor is one row
 const DRAW_LOG_SETTLE_MS = 4000
@@ -70,15 +74,11 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     if (!next.length) setDraftAttachments({})
     return next
   })
-  // The NEXT drawing's style — «the last line is the template». Since «D pur» (09.09.) the
-  // docks carry no style controls and there is no preset row either (same day): these are
-  // written back by the DrawEditor's edits, so a new line simply inherits how the last one
-  // ended up — colour, width, dash, chain/letter marker and arrowhead alike.
-  const [drawColor, setDrawColor] = useState<string>(appConfig.drawing.defaultColor)
-  const [drawWidth, setDrawWidth] = useState(4)
-  const [drawDashed, setDrawDashed] = useState(false)
-  const [drawMarker, setDrawMarker] = useState('')
-  const [drawArrow, setDrawArrow] = useState(false)
+  // Every new drawing starts from the ONE plain default (DRAW_DEFAULTS): colour, width, solid,
+  // no marker, no arrowhead. Until 23.10.2026 the DrawEditor's edits were written back here as
+  // the next line's template, so an Absperrung's chain marker rode along into the next hose
+  // line (3am sweep §2). Styling lives in the editor, after the draw — and stays there.
+  const { color: drawColor, width: drawWidth, dashed: drawDashed, marker: drawMarker, arrow: drawArrow } = DRAW_DEFAULTS
   // Fläche: tapped nodes, or a dragged outline. Nodes stay the default — most Flächen are a
   // Sektor or an Absperrung, and those want corners. Freehand exists for the one that does
   // not: a fire's edge, which has no corners and which nobody tapping points can follow
@@ -544,8 +544,7 @@ export function useMapDrawing(deps: MapDrawingDeps) {
 
   return {
     draft, setDraft,
-    drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
-    drawMarker, setDrawMarker, drawArrow, setDrawArrow,
+    drawColor, drawWidth, drawDashed,
     lineMode, setLineMode, areaMode, setAreaMode,
     draftActive, lineNodes, freehandKind, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, patchDrawing, patchDrawingById,

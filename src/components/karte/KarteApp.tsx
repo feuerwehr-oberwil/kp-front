@@ -89,6 +89,7 @@ import { MapHint, MeasurePanel } from '../MeasurePanel'
 import { LONG_PRESS_MOVE_TOL_PX, LONG_PRESS_MS } from '../../lib/useLongPress'
 import { buzz } from '../../lib/haptics'
 import { ToolDock } from '../ToolDock'
+import { ArmedToolPill } from '../ArmedToolPill'
 import { ToolRail } from '../ToolRail'
 import { MapViewsButton, type ViewsApi } from '../MapViewsMenu'
 import { WeatherBadge } from '../TopBar'
@@ -1682,6 +1683,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
 
         {tool === 'measure' && (
           <>
+            {/* the armed tool's readout, as on the Lage map (MapToolDocks) – not on the phone,
+                where the results panel stands in that row */}
+            {!phone && <ArmedToolPill glyph={<Icon id="measure" />} name={C.tools.measure} />}
             <ToolDock groups={[
               [{ type: 'close', onClick: () => setTool('measure') }],
               [

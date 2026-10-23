@@ -302,6 +302,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     (`.wb-dock-tog.on`) is the `--sel` fill — that fill, not the dock, says «armed». The ✓ is
     `--btn-primary`. No dock carries a line of text, on any surface or width (20.10.2026, owner:
     «Remove the line. I don't think they add any value.»): a tool's instructions are its ⓘ.
+    **The armed tool's name is the readout pill** (`.armed-pill`, 23.10.2026): glyph + word,
+    bottom centre, the same glass, `--tap` high, no pointer events – a readout, not a control
+    (tactical-objects.md · «The armed tool's readout»). The symbol tool has no dock since then.
     The sticky close button has no masking shadow: a solid surface patch mismatches the glass.
     The blank Tafel offers no Messen on a phone; map and scaled plans keep it. The mobile
     Ansichten popover dismisses on an outside pointer press, allowing the pressed control to act.
