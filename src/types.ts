@@ -34,7 +34,7 @@ export interface LayerDef {
   color?: string                // stroke/fill colour for a geojson overlay
   nightColor?: string           // brighter stroke/fill for night mode (dark colours vanish on the dark base)
   symbol?: string               // FireGIS symbol name to use as the icon for a point overlay
-  autoActivate?: string[]       // Einsatz categories (kategorien values) that auto-show this layer
+  autoActivate?: string[]       // Einsatz categories (German labels) that auto-show this layer
 }
 
 /** `person` = a crew member's self-reported live position (Standort teilen). Always `live`,

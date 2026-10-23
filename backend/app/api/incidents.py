@@ -1,21 +1,24 @@
-"""Incidents: CRUD and workspace save (optimistic concurrency + snapshots)."""
+"""Incidents: CRUD and the workspace routes (optimistic concurrency + snapshots).
+
+The incident service underneath – loading an incident, its lifecycle and the closed-Einsatz
+rule, the shared workspace save – is `app/incident_service`; the per-incident link routes
+(view-, Einsatz- and Atemschutz-Link) live next to their secrets in `api/incident_link`.
+"""
 
 import logging
-import secrets
 import uuid
 from copy import deepcopy
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import NamedTuple
 
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Query, Response, status
 from sqlalchemy import delete, func, select, update
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import defer
 
-from .. import audit, live_wait, push, storage
-from ..alarm_validation import ALARM_VALIDATED_KEYS, validate_alarm_workspace, validate_trupp
+from .. import audit, live_wait, storage
+from ..alarm_validation import validate_trupp
 from ..alarms import is_demo_deployment
 from ..auth.dependencies import (
     CurrentAtemschutzWriter,
@@ -32,6 +35,17 @@ from ..auth.dependencies import (
 from ..auth.viewer_scope import is_viewer, viewer_history, viewer_window_clause
 from ..database import execute_dml, get_db
 from ..geocode import geocode
+from ..incident_service import (
+    INCIDENT_NOT_FOUND,
+    IncidentLifecycle,
+    apply_workspace_put,
+    current_close,
+    get_incident_or_404,
+    happened_after_close,
+    incident_closed,
+    resolved_lifecycle,
+    workspace_revision_conflict,
+)
 from ..models import INCIDENT_ACTIVE_STATUSES, Incident, lifecycle_open
 from ..schemas import (
     IncidentCreate,
@@ -39,7 +53,6 @@ from ..schemas import (
     IncidentMeta,
     IncidentPatch,
     TruppsPut,
-    ViewLinkOut,
     WorkspaceOut,
     WorkspacePut,
     _scrub_drawing_props,
@@ -83,61 +96,8 @@ def _json_safe(v: object) -> object:
     return v.isoformat() if isinstance(v, datetime) else _numeric(v)
 
 
-#: What every surface says when the incident behind an id is not there. One string, because
-#: it is also the answer a caller must not be able to tell apart from «not yours» — six
-#: routers outside this one raise it through `get_incident_or_404` below.
-INCIDENT_NOT_FOUND = "Einsatz nicht gefunden"
-
-
-async def get_incident_or_404(db: AsyncSession, incident_id: uuid.UUID, *, lock: bool = False) -> Incident:
-    """The incident behind a path id, or 404 — the load every incident-scoped route opens with.
-
-    `lock` takes the row FOR UPDATE — for a check-then-set like minting a link secret, where
-    two editors reading NULL in the same window would otherwise both write, and the QR the
-    first one already showed encodes a secret the second one overwrote."""
-    stmt = select(Incident).where(Incident.id == incident_id)
-    if lock:
-        stmt = stmt.with_for_update()
-    inc = (await db.execute(stmt)).scalar_one_or_none()
-    if inc is None:
-        raise HTTPException(status_code=404, detail=INCIDENT_NOT_FOUND)
-    return inc
-
-
-# --- a closed Einsatz keeps its RECORD, not its operation ----------------------------------
-#
-# Staging walk-through 25.09.2026 (N3): one phone closed the Einsatz, and the other phone and the
-# tablet ran it live for minutes afterwards — a «Kontakt» tap and two «Atemschutz-Alarm …
-# Überfällig» rows were written INTO the closed record. The devices now learn of the close and
-# stop (lib/incidentClosed), but a device that was offline, or never heard, still arrives with
-# writes queued from before — and the server is the one place that can say «too late».
-#
-# The line is the one the `el` role already draws: the RECORD domains (Anwesenheit/Zeitplan,
-# Mittel, Checklisten, Rapport + Beilagen — `RECORD_WORKSPACE_KEYS`, the `EL_EVENT_PREFIXES`
-# vocabulary, and every Verlauf row that is not a live observation) stay writable, because a
-# late correction to the record is a Nachtrag and the record renders it as one. Everything the
-# running Einsatz OPERATES — the Atemschutz-Tafel, the Karte, the Pläne, and the rows and events
-# those write — is refused once it is over. The Einsatzdaten (`PATCH`), media uploads and «Wieder
-# öffnen» are untouched; reopening makes the Einsatz writable again, as it always did.
-#
-# The refusal is a 409 with a NAME, not a bare status: the client's outboxes park a write
-# refused with `INCIDENT_CLOSED_CODE` as «refused» (kept, exported with «Einträge sichern», never
-# re-sent, never a red lamp) — the bucket #204 made for the role refusals — and the device takes
-# the refusal as the news that the Einsatz is closed. A plain 409 on the workspace is the
-# revision conflict and would start a merge.
-
-#: `{code}` of the closed-Einsatz refusal — mirrored by src/lib/incidentClosed.ts.
-INCIDENT_CLOSED_CODE = "incident_closed"
-
-#: ⚠️ A write is judged by WHEN IT HAPPENED, not by when it arrived (review of #235): a Kontakt
-#: tapped at 14:44 on a phone whose uplink came back at 14:47 is a true fact of the Einsatz closed
-#: at 14:45 — it is recorded (and prints as a Nachtrag), and only what happened AFTER the close is
-#: refused. The stamp is the client's (rows `at`, events `occurred_at`, saves `edited_at` — all on
-#: the server-aligned clock, lib/serverClock), so it gets a tolerance for the skew that clock may
-#: still have. A write with no usable stamp is judged by arrival, i.e. refused.
-CLOSED_CLOCK_TOLERANCE = timedelta(seconds=120)
-
-#: Workspace keys that are the VIEW of the Einsatz, not an operation in it: which plan is open,
+#: Workspace keys that are the VIEW of the Einsatz, not an operation in it (the closed-Einsatz
+#: rule itself: app/incident_service): which plan is open,
 #: the Ebenen, the recent symbols, the saved views, the picked object, the frozen plan bindings,
 #: the review stamp. A save that changes only these (and the record) is not refused on a closed
 #: Einsatz — refusing it took the Rapport edit riding in the same save down with it.
@@ -157,102 +117,6 @@ VIEW_WORKSPACE_KEYS = frozenset(
 )
 # ⚠️ NOT `planBindings`: a binding FREEZES which plan revision and fit this Einsatz ran on
 # (lib/incidentPlanBindings) — part of what the record says, not a way of looking at it.
-
-
-def _as_utc(at: object) -> datetime | None:
-    if isinstance(at, str):
-        try:
-            at = datetime.fromisoformat(at.replace("Z", "+00:00"))
-        except ValueError:
-            return None
-    if not isinstance(at, datetime):
-        return None
-    return at if at.tzinfo is not None else at.replace(tzinfo=UTC)
-
-
-def happened_after_close(at: object, closed_at: datetime | None) -> bool:
-    """Did this write happen after the Einsatz was closed (see CLOSED_CLOCK_TOLERANCE)? No close
-    time (a status moved off the running ones) or no usable stamp → judged by arrival: yes."""
-    when = _as_utc(at)
-    close = _as_utc(closed_at)
-    if when is None or close is None:
-        return True
-    return when > close + CLOSED_CLOCK_TOLERANCE
-
-
-class IncidentLifecycle(NamedTuple):
-    """The lifecycle columns alone — a closed check must not drag the workspace JSONB along."""
-
-    is_archived: bool
-    status: str
-    closed_at: datetime | None
-
-    @property
-    def is_open(self) -> bool:
-        return lifecycle_open(self.is_archived, self.status)
-
-
-async def incident_lifecycle(db: AsyncSession, incident_id: uuid.UUID, *, lock: bool = False) -> IncidentLifecycle:
-    """Read whether the Einsatz is still running, or 404. `lock` takes the incident row FOR
-    UPDATE — the same lock the journal/audit appenders take next — so an append cannot slip in
-    between this check and a close committing beside it."""
-    stmt = select(Incident.is_archived, Incident.status, Incident.closed_at).where(Incident.id == incident_id)
-    if lock:
-        stmt = stmt.with_for_update()
-    row = (await db.execute(stmt)).one_or_none()
-    if row is None:
-        raise HTTPException(status_code=404, detail=INCIDENT_NOT_FOUND)
-    return await _resolved(db, incident_id, IncidentLifecycle(bool(row.is_archived), row.status, row.closed_at))
-
-
-async def current_close(db: AsyncSession, incident_id: uuid.UUID, first_closed_at: datetime | None) -> datetime | None:
-    """When the Einsatz was closed THIS time. `closed_at` is the FIRST Einsatzende and is kept
-    across «Wieder öffnen» (so later rows print as Nachträge) — judged against it, a write made
-    while a reopened Einsatz ran would count as «after the close» once it is closed again. The
-    latest lifecycle event that closed it says when; `closed_at` is the fallback for an Einsatz
-    closed before those events existed. Only ever asked for a closed Einsatz (a handful of rows)."""
-    from ..models import IncidentEvent
-
-    stamped = (await db.execute(select(Incident.last_closed_at).where(Incident.id == incident_id))).scalar_one_or_none()
-    if stamped is not None:
-        return stamped if first_closed_at is None else max(stamped, first_closed_at)
-    # …an Einsatz closed before the column existed, or by a status: the lifecycle events say
-    rows = (
-        await db.execute(
-            select(IncidentEvent.occurred_at, IncidentEvent.payload_json)
-            .where(IncidentEvent.incident_id == incident_id, IncidentEvent.op_type == "status.change")
-            .order_by(IncidentEvent.seq.desc())
-        )
-    ).all()
-    for at, payload in rows:
-        if not isinstance(payload, dict):
-            continue
-        closes = payload.get("archived") is True or (
-            "to" in payload and payload.get("to") not in INCIDENT_ACTIVE_STATUSES
-        )
-        if closes:
-            return at if first_closed_at is None else max(at, first_closed_at)
-    return first_closed_at
-
-
-async def _resolved(db: AsyncSession, incident_id: uuid.UUID, lc: "IncidentLifecycle") -> "IncidentLifecycle":
-    """A closed lifecycle carries the CURRENT close (see current_close); an open one as read."""
-    if lc.is_open:
-        return lc
-    return lc._replace(closed_at=await current_close(db, incident_id, lc.closed_at))
-
-
-def incident_closed(closed_at: datetime | None) -> HTTPException:
-    """The refusal itself. `closed_at` rides along so a device that learns of the close from
-    this answer can say WHEN (it is the first Einsatzende, kept across a reopen)."""
-    return HTTPException(
-        status_code=status.HTTP_409_CONFLICT,
-        detail={
-            "code": INCIDENT_CLOSED_CODE,
-            "message": "Einsatz ist abgeschlossen – nicht mehr übernommen",
-            "closed_at": closed_at.isoformat() if closed_at else None,
-        },
-    )
 
 
 def operational_keys_changed(stored: dict, submitted: dict) -> list[str]:
@@ -364,14 +228,6 @@ async def _latch_editor_opened(db: AsyncSession, incident_id: uuid.UUID) -> None
     )
 
 
-async def _rev(db: AsyncSession, incident_id: uuid.UUID) -> int:
-    """The workspace revision alone — a cheap int column, no JSONB. 404 if the incident is gone."""
-    rev = (await db.execute(select(Incident.workspace_rev).where(Incident.id == incident_id))).scalar_one_or_none()
-    if rev is None:
-        raise HTTPException(status_code=404, detail=INCIDENT_NOT_FOUND)
-    return rev
-
-
 class _LiveState(NamedTuple):
     rev: int
     lifecycle: IncidentLifecycle
@@ -389,7 +245,7 @@ async def _live_state(db: AsyncSession, incident_id: uuid.UUID, *, lock: bool = 
     row = (await db.execute(stmt)).one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail=INCIDENT_NOT_FOUND)
-    lc = await _resolved(db, incident_id, IncidentLifecycle(bool(row.is_archived), row.status, row.closed_at))
+    lc = await resolved_lifecycle(db, incident_id, IncidentLifecycle(bool(row.is_archived), row.status, row.closed_at))
     return _LiveState(row.workspace_rev, lc)
 
 
@@ -480,110 +336,10 @@ async def get_workspace(
         await _latch_editor_opened(db, incident_id)
     response.headers.update(
         _lifecycle_headers(
-            await _resolved(db, incident_id, IncidentLifecycle(inc.is_archived, inc.status, inc.closed_at))
+            await resolved_lifecycle(db, incident_id, IncidentLifecycle(inc.is_archived, inc.status, inc.closed_at))
         )
     )
     return WorkspaceOut(workspace=inc.map_workspace_json, workspace_rev=inc.workspace_rev)
-
-
-def _workspace_revision_conflict(server_rev: int, base_rev: int) -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_409_CONFLICT,
-        detail={
-            "message": "Workspace wurde zwischenzeitlich geändert",
-            "server_rev": server_rev,
-            "your_base_rev": base_rev,
-        },
-    )
-
-
-# **Alarm validation must preserve unchanged legacy data.** Full workspace saves validate at
-# `apply_workspace_put` against the stored incident, retaining exact existing malformed rows
-# while rejecting new, edited or duplicated invalid rows. Never silently drop operational
-# records or skip validation because a revision differs; return the normal conflict instead.
-async def apply_workspace_put(
-    db: AsyncSession,
-    incident_id: uuid.UUID,
-    body: WorkspacePut,
-    *,
-    user_id: uuid.UUID | None,
-    source: str = "client",
-    inc: Incident | None = None,
-    writer: str | None = None,
-) -> WorkspaceOut:
-    """Shared save path for the editor endpoint and the station capture endpoint.
-
-    `writer`: the saving device's id (`X-Workspace-Writer`), recorded for the follower read —
-    see `get_workspace`. None for a save no device's follower should treat as its own.
-
-    Optimistic concurrency at the DB level: bump the rev only if it still equals the
-    client's base_rev. A conditional UPDATE is atomic, so two editors who both read
-    rev=N can't both win — the loser matches 0 rows and gets the 409 (the app-level
-    check alone raced because autoflush is off and the row isn't locked).
-
-    `inc` is the incident row a caller ALREADY loaded in this same request/transaction —
-    the slice routes (trupps/record/capture) read the full blob to merge into anyway, and
-    at field blob sizes a second full-row SELECT is ~25–35 ms of pure JSONB re-decode.
-    """
-    # Validate against this incident's persisted state, including internal slice/capture
-    # merges. Never use an observed revision mismatch as permission to skip validation.
-    if inc is None:
-        inc = await get_incident_or_404(db, incident_id)
-    if inc.workspace_rev != body.base_rev:
-        raise _workspace_revision_conflict(inc.workspace_rev, body.base_rev)
-    _scrub_drawing_props(body.workspace)
-    # The stored side of the comparison, scrubbed the same way so an unchanged legacy row still
-    # compares equal to its scrubbed resubmission. Only the keys validate_alarm_workspace reads
-    # are copied: a deepcopy of the whole stored blob (megabytes in the field) per save bought
-    # nothing — the scrub mutates, so it must not touch the loaded row itself.
-    stored = inc.map_workspace_json if isinstance(inc.map_workspace_json, dict) else {}
-    previous = {key: deepcopy(stored[key]) for key in ALARM_VALIDATED_KEYS if key in stored}
-    _scrub_drawing_props(previous)
-    # The vehicles' `gps` blocks are the SERVER's (app/vehicle_presence): whatever copy a device
-    # sends — stale, merged over, or none at all from an older build — the stored one stands.
-    keep_server_gps(body.workspace, stored)
-    # …and a board object of a kind newer than the saving build is the server's to keep: that
-    # build dropped it at load, so its absence here is not a deletion (app/workspace_kinds)
-    keep_newer_board_kinds(body.workspace, stored)
-    try:
-        validate_alarm_workspace(body.workspace, previous)
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    result = await execute_dml(
-        db,
-        update(Incident)
-        .where(Incident.id == incident_id, Incident.workspace_rev == body.base_rev)
-        .values(
-            map_workspace_json=body.workspace,
-            workspace_rev=Incident.workspace_rev + 1,
-            updated_at=func.now(),
-        ),
-    )
-    if result.rowcount == 0:
-        # Read the rev COLUMN, not the row: a full re-SELECT lands on the identity-map copy
-        # whose rev still says base_rev (the bump was another transaction's), so the 409 would
-        # report server_rev == your_base_rev — and it re-decodes megabytes of JSONB to do it.
-        raise _workspace_revision_conflict(await _rev(db, incident_id), body.base_rev)
-    new_rev = body.base_rev + 1
-    # An Atemschutznotfall raised (or ended) by this save is pushed the moment it commits — the
-    # 30 s sweep stays the fallback and shares its dedup key (app/push · notify_notfall_changes)
-    await push.notify_notfall_changes(db, inc, previous.get("trupps"), body.workspace.get("trupps"))
-    # Wake the devices long-polling this incident's workspace — once this transaction commits,
-    # so they re-read the blob they are being woken for (see app/live_wait). Whose save it was
-    # goes on record first, so the saving device's own poll is not handed back its own blob.
-    live_wait.record_write_after_commit(db, incident_id, new_rev, live_wait.writer_id(writer))
-    live_wait.notify_after_commit(db, live_wait.workspace_topic(incident_id))
-    await audit.snapshot_workspace(db, incident_id=incident_id, workspace=body.workspace)
-    # Record the save in the hash chain so workspace changes are replayable/attributable.
-    await audit.append_event(
-        db,
-        incident_id=incident_id,
-        op_type="workspace.save",
-        source=source,
-        user_id=user_id,
-        payload={"rev": new_rev},
-    )
-    return WorkspaceOut(workspace=body.workspace, workspace_rev=new_rev)
 
 
 @router.put("/{incident_id}/workspace", response_model=WorkspaceOut)
@@ -605,7 +361,7 @@ async def put_workspace(
     state = await _live_state(db, incident_id, lock=True)
     await _latch_editor_opened(db, incident_id)
     if state.rev != body.base_rev:
-        raise _workspace_revision_conflict(state.rev, body.base_rev)
+        raise workspace_revision_conflict(state.rev, body.base_rev)
     inc: Incident | None = None
     if not state.lifecycle.is_open:
         # A closed Einsatz takes the record and nothing else (see `incident_closed`). The revision
@@ -940,249 +696,6 @@ async def patch_incident(
     await db.flush()
     await db.refresh(inc)
     return inc
-
-
-# --- the Rapport's view-only link --------------------------------------------------------
-#
-# «So people outside our station can see everything we did, in one go.» The link opens the
-# ordinary read-only viewer on ONE Einsatz — the same surface, the same allowlist and the same
-# scope check as the alarm link (auth/incident_link), with two deliberate differences: it does
-# not die when the Einsatz closes, and it is revoked on its own instead of by rotating the
-# station's minting key.
-#
-# The secret IS the link. Minting is idempotent — asking twice hands back the same URL rather
-# than quietly invalidating the one already sent — because «I can't find the link» must not be
-# the same gesture as «I want the old one dead».
-
-
-def _view_link_token(secret: str) -> str:
-    from .incident_link import VIEW_TOKEN_PREFIX
-
-    return f"{VIEW_TOKEN_PREFIX}{secret}"
-
-
-@router.get("/{incident_id}/view-link", response_model=ViewLinkOut)
-async def get_view_link(
-    incident_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)
-) -> ViewLinkOut:
-    """What the Rapport shows: the live link, or that there is none."""
-    inc = await get_incident_or_404(db, incident_id)
-    return ViewLinkOut(
-        enabled=bool(inc.view_link_key),
-        token=_view_link_token(inc.view_link_key) if inc.view_link_key else None,
-    )
-
-
-@router.post("/{incident_id}/view-link", response_model=ViewLinkOut)
-async def create_view_link(
-    incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
-) -> ViewLinkOut:
-    """Mint the link, or hand back the one that already exists."""
-    inc = await get_incident_or_404(db, incident_id)
-    if not inc.view_link_key:
-        inc.view_link_key = secrets.token_urlsafe(32)
-        await db.flush()
-        # Worth a row in the chain: this is the moment the Einsatzakte became readable outside
-        # the station. The secret itself never goes in — an audit trail is read by more people
-        # than the link is meant for.
-        await audit.append_event(
-            db,
-            incident_id=inc.id,
-            op_type="meta.change",
-            source="view-link",
-            user_id=user.id,
-            payload={"view_link": True},
-        )
-    return ViewLinkOut(enabled=True, token=_view_link_token(inc.view_link_key))
-
-
-@router.delete("/{incident_id}/view-link", response_model=ViewLinkOut)
-async def revoke_view_link(
-    incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
-) -> ViewLinkOut:
-    """Revoke it. The URL stops working AND every session already open on it ends — checked per
-    request in auth/incident_link, because a link that cannot expire has to be killable."""
-    inc = await get_incident_or_404(db, incident_id)
-    if inc.view_link_key:
-        inc.view_link_key = None
-        await db.flush()
-        await audit.append_event(
-            db,
-            incident_id=inc.id,
-            op_type="meta.change",
-            source="view-link",
-            user_id=user.id,
-            payload={"view_link": False},
-        )
-    return ViewLinkOut(enabled=False, token=None)
-
-
-# --- the Einsatz-Link, minted from inside the app -----------------------------------------
-#
-# «Die Zentrale soll live mitschauen.» Exactly the link a responder taps out of an alarm — the
-# station's minting key signs it, the read-only allowlist bounds it, and it dies when the Einsatz
-# is closed or the key is rotated (auth/incident_link). What is new is only who can produce one:
-# until now that was the alerting system alone, so handing the EL or a Nachbarwehr a live view
-# mid-Einsatz was something nobody at the Schadenplatz could do.
-#
-# NOTHING IS STORED, and that is the difference from the two link trios above. The token is
-# derived from the incident id and the station key, so there is no per-incident secret, no GET to
-# read one back and no DELETE to revoke one: taking it back is rotating the key in der Verwaltung
-# — which takes every alarm link with it, deliberately — or closing the Einsatz. Deriving it also
-# makes minting naturally idempotent: asking twice hands back the address already circulating.
-
-#: `IncidentEvent.source` for the row below. String(16) in the model — keep it short.
-EINSATZ_LINK_SOURCE = "einsatz-link"
-
-
-@router.post("/{incident_id}/einsatz-link", response_model=ViewLinkOut)
-async def create_einsatz_link(
-    incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
-) -> ViewLinkOut:
-    """Hand back the read-only Einsatz-Link for this Einsatz, minting it on the spot.
-
-    Two refusals, and they are deliberately different statuses because the operator can act on
-    only one of them:
-      · 403 — no minting key: the whole link surface is off, exactly as the exchange answers it
-        (api/incident_link · `open_link_session`). Nothing to be done on the Schadenplatz, so the
-        sheet points at der Verwaltung instead of offering a retry.
-      · 409 — the Einsatz is finished: an alarm link dies the moment it closes, so minting one
-        would hand over an address that never worked. Not the exchange's blind 404, because the
-        caller is a signed-in editor who already knows this Einsatz exists.
-    """
-    from .incident_link import mint_incident_link_token, no_minting_key, station_minting_key
-
-    inc = await get_incident_or_404(db, incident_id, lock=True)
-    key = await station_minting_key(db)
-    if not key:
-        raise no_minting_key()
-    if not inc.is_open:
-        raise HTTPException(
-            status_code=409,
-            detail="Einsatz ist abgeschlossen – dafür kann kein Einsatz-Link mehr erstellt werden",
-        )
-
-    # One row per Einsatz, not per look: the moment worth recording is «the running Lage became
-    # readable outside the FU», and re-opening the sheet to show the same QR again is not a
-    # second such moment. There is no stored secret to tell the two apart, so the chain itself is
-    # asked. The secret never goes in — an audit trail is read by more people than the link is.
-    #
-    # ⚠️ The SELECT is only the fast path. What ENFORCES «one row» is the partial unique index on
-    # (incident_id) where source = 'einsatz-link' (models · IncidentEvent), because check-then-
-    # append is a race and the incident-row lock above does not settle it everywhere: SQLite has
-    # no row locks, so on a dev machine a StrictMode double mount wrote the row twice into the
-    # hash chain. The savepoint is what lets the loser lose harmlessly — the duplicate INSERT is
-    # rolled back to it, the winner's row and the chain stand, and both callers get the same
-    # token, which is the answer they came for either way.
-    from ..models import IncidentEvent
-
-    seen = (
-        await db.execute(
-            select(IncidentEvent.id)
-            .where(IncidentEvent.incident_id == inc.id, IncidentEvent.source == EINSATZ_LINK_SOURCE)
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    if seen is None:
-        try:
-            async with db.begin_nested():
-                await audit.append_event(
-                    db,
-                    incident_id=inc.id,
-                    op_type="meta.change",
-                    source=EINSATZ_LINK_SOURCE,
-                    user_id=user.id,
-                    payload={"einsatz_link": True},
-                )
-        except IntegrityError:
-            pass
-    return ViewLinkOut(enabled=True, token=mint_incident_link_token(str(inc.id), key))
-
-
-# --- the Atemschutz link -----------------------------------------------------------------
-#
-# «Der am Eingang soll die Atemschutzüberwachung auf seinem eigenen Handy führen.» Minted by an
-# editor from a RUNNING Einsatz, opened on a phone with no login at all, and able to reach
-# exactly the Atemschutzüberwachung of that one Einsatz — the workspace `trupps` slice plus the
-# journal rows and events that go with it (auth/incident_link · ATEMSCHUTZ_LINK_ALLOWED).
-#
-# Structurally the view link's twin — the secret IS the link, minting is idempotent, revoking
-# clears the column and kills open sessions — with the alarm link's lifetime: it cannot be
-# minted on a finished Einsatz and it dies when this one is closed or archived.
-
-
-def _atemschutz_link_token(secret: str) -> str:
-    from .incident_link import ATEMSCHUTZ_TOKEN_PREFIX
-
-    return f"{ATEMSCHUTZ_TOKEN_PREFIX}{secret}"
-
-
-@router.get("/{incident_id}/atemschutz-link", response_model=ViewLinkOut)
-async def get_atemschutz_link(
-    incident_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)
-) -> ViewLinkOut:
-    """The live link, or that there is none. Readable on a closed Einsatz too — the QR panel
-    has to be able to show that a link is still standing, which is what makes revoking it a
-    deliberate act rather than something forgotten."""
-    inc = await get_incident_or_404(db, incident_id)
-    return ViewLinkOut(
-        enabled=bool(inc.atemschutz_link_key),
-        token=_atemschutz_link_token(inc.atemschutz_link_key) if inc.atemschutz_link_key else None,
-    )
-
-
-@router.post("/{incident_id}/atemschutz-link", response_model=ViewLinkOut)
-async def create_atemschutz_link(
-    incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
-) -> ViewLinkOut:
-    """Mint it, or hand back the one that already exists.
-
-    409 on a closed or archived Einsatz, the same shape as refusing to delete a running one:
-    the caller is an authenticated editor who knows the Einsatz exists, so the honest answer is
-    «not in this state», not the exchange's deliberately blind 404. A minted link would be dead
-    on arrival anyway — `enforce_link_scope` requires the Einsatz to be open on every request.
-    """
-    inc = await get_incident_or_404(db, incident_id, lock=True)
-    if not inc.is_open:
-        raise HTTPException(
-            status_code=409,
-            detail="Einsatz ist abgeschlossen — für die Atemschutzüberwachung kann kein Link mehr erstellt werden",
-        )
-    if not inc.atemschutz_link_key:
-        inc.atemschutz_link_key = secrets.token_urlsafe(32)
-        await db.flush()
-        # In the chain, like the view link: this is the moment somebody outside the FU could
-        # write into the Einsatz. The secret itself never goes in.
-        await audit.append_event(
-            db,
-            incident_id=inc.id,
-            op_type="meta.change",
-            source="atemschutz-link",
-            user_id=user.id,
-            payload={"atemschutz_link": True},
-        )
-    return ViewLinkOut(enabled=True, token=_atemschutz_link_token(inc.atemschutz_link_key))
-
-
-@router.delete("/{incident_id}/atemschutz-link", response_model=ViewLinkOut)
-async def revoke_atemschutz_link(
-    incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
-) -> ViewLinkOut:
-    """Take it back mid-Einsatz. The URL stops working AND the phone that already has it open
-    is refused on its next request (auth/incident_link · `_atemschutz_key_unchanged`)."""
-    inc = await get_incident_or_404(db, incident_id)
-    if inc.atemschutz_link_key:
-        inc.atemschutz_link_key = None
-        await db.flush()
-        await audit.append_event(
-            db,
-            incident_id=inc.id,
-            op_type="meta.change",
-            source="atemschutz-link",
-            user_id=user.id,
-            payload={"atemschutz_link": False},
-        )
-    return ViewLinkOut(enabled=False, token=None)
 
 
 # The one accepted maintenance exception is whole-incident hard deletion through `/admin`:

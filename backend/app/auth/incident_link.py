@@ -235,7 +235,7 @@ class ClosedForLink(HTTPException):
     such a secret — the holder was sent to it — and it is the one answer the page can act on:
     the Atemschutz-Link that read a close as an unexplained 403 stayed live after a reopen and a
     second close, took a re-entry locally and could never deliver it. The same `{code}` and the
-    same headers every other closed-Einsatz answer carries (api/incidents · incident_closed,
+    same headers every other closed-Einsatz answer carries (incident_service · incident_closed,
     `_lifecycle_headers`), so the page freezes read-only through the path it already has."""
 
     def __init__(self, closed_at: object | None) -> None:
@@ -932,7 +932,7 @@ async def _enforce_link_scope(request: Request, db: AsyncSession) -> None:
 
 async def incident_closed_at(db: AsyncSession, incident_id: str) -> object:
     """`False` while the Einsatz runs; otherwise when it was closed THIS time (or None)."""
-    from ..api.incidents import current_close
+    from ..incident_service import current_close
     from ..models import Incident
 
     try:

@@ -135,7 +135,7 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
 
 ⚠️ **A closed Einsatz keeps its RECORD, not its operation, and every device hears the close**
 (25.09.2026, staging N3: two devices ran a closed Einsatz for minutes and wrote a Kontakt and
-two «Überfällig» rows into it). Server (`api/incidents · incident_closed`): once `is_open` is
+two «Überfällig» rows into it). Server (`incident_service · incident_closed`): once `is_open` is
 false, a live write MADE AFTER THE CLOSE is 409 `{code: 'incident_closed', closed_at}` — judged
 by when it happened (rows `at`, events `occurred_at`, saves `edited_at`, all on the
 server-aligned clock, +120 s tolerance; no stamp ⇒ by arrival), never by when it arrived: a

@@ -16191,6 +16191,13 @@
           "alarmVocabulary": {
             "$ref": "#/components/schemas/AlarmVocabularyStatus"
           },
+          "categoryLabels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Categorylabels"
+          },
           "version": {
             "anyOf": [
               {
@@ -16682,6 +16689,13 @@
               }
             ],
             "title": "Equipment"
+          },
+          "nearbyObjectWarnM": {
+            "type": "integer",
+            "maximum": 500.0,
+            "minimum": 0.0,
+            "title": "Nearbyobjectwarnm",
+            "default": 25
           }
         },
         "type": "object",

@@ -769,7 +769,7 @@ def _renames(previous: dict[str, str], usable: list[tuple[RemoteFile, FolderIden
     bytes, not with the parent's name) — as the complete content of exactly one folder that was
     not there before. Anything less certain (a file edited in the same go, two candidates, a
     folder that only lost some files) is not a rename here: the pull then does what it always did
-    — a new object for the new key — and `admin_objects merge` folds the old one in by hand.
+    — a new object for the new key — and `admin_objects_repair merge` folds the old one in by hand.
     """
     listed: dict[str, dict[str, str]] = {}
     for file, _identity, _module in usable:
@@ -804,7 +804,7 @@ async def _follow_renames(
     paths, so the files are not downloaded again. A re-key that is blocked (something already
     sits on the new key) is logged and left to the ordinary path.
     """
-    from .admin_objects import _apply_rekey, _plan_rekey, _retarget_scales
+    from .admin_objects_repair import _apply_rekey, _plan_rekey, _retarget_scales
     from .models import ObjectRef
     from .object_visits import ALIAS_SOURCE
 
@@ -867,7 +867,7 @@ async def _object_for(db: AsyncSession, folder: FolderIdentity, raw_folder: str 
     objects by hand. Hashing the WHOLE folder string instead — what this did until 11.09.2026 —
     was the same failure one layer down: 150 objects the importer had already created grew a
     second, address-less copy each, and the Einsatz surfaced the old one
-    (`admin_objects repair-sharepoint-keys` folds those back together).
+    (`admin_objects_repair repair-sharepoint-keys` folds those back together).
 
     A created object gets the folder's two fields and, best-effort, coordinates for the address:
     `useObjectPlans` surfaces an object at an incident by DISTANCE, so an object without them is
@@ -1313,7 +1313,7 @@ async def sharepoint_status(db: AsyncSession) -> dict[str, Any]:
             # long as one object stays ungeocoded.
             note = (
                 f"{blind} Einsatzobjekt(e) carry plans but no coordinates — those plans surface at no "
-                "incident. `python -m app.admin_objects repair-sharepoint-keys` lists and geocodes them."
+                "incident. `python -m app.admin_objects_repair repair-sharepoint-keys` lists and geocodes them."
             )
             detail = f"{detail} · {note}" if detail else note
         areas.append(

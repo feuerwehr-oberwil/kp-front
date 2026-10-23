@@ -1,4 +1,4 @@
-"""A closed Einsatz keeps its RECORD, not its operation (api/incidents · `incident_closed`).
+"""A closed Einsatz keeps its RECORD, not its operation (incident_service · `incident_closed`).
 
 Staging walk-through 25.09.2026 (N3): after «Einsatz abschliessen» on one phone, the other phone
 and the tablet ran the Einsatz live for minutes, and a «Kontakt» tap and two «Atemschutz-Alarm …

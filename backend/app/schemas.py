@@ -299,7 +299,7 @@ class WorkspacePut(BaseModel):
     workspace: dict[str, Any]
     base_rev: int
     #: When the newest edit in this save was MADE (the client's server-aligned clock) — a closed
-    #: Einsatz takes a save made before its close (api/incidents · `happened_after_close`).
+    #: Einsatz takes a save made before its close (incident_service · `happened_after_close`).
     #: Absent (an older client) → judged by arrival.
     edited_at: datetime | None = None
 
@@ -1491,6 +1491,11 @@ class EquipmentItem(BaseModel):
     label: str = Field(min_length=1, max_length=40)
 
 
+#: The upper bound of ``doctrine.nearbyObjectWarnM`` – beyond it the nearest object is no
+#: candidate for the Einsatzort at all.
+NEARBY_OBJECT_WARN_MAX_M = 500
+
+
 class DoctrineConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     defaultFunkkanal: int | None = None
@@ -1543,6 +1548,27 @@ class DoctrineConfig(BaseModel):
     # Rapport («Retthaube», «WBK»). Absent/empty keeps the shipped default (src/config/appConfig.ts ·
     # atemschutz.equipment). Declared here because ``extra="ignore"`` would otherwise drop it on save.
     equipment: list[EquipmentItem] | None = None
+    #: Modul-Pläne (sweep E.6, 23.10.2026): the «nächstes Objekt, nicht die Einsatzadresse»
+    #: warning shows only when the nearest object lies farther than this from the Einsatzort, in
+    #: metres. It fired at «0 m entfernt» for an Einsatz addressed by the object's own name.
+    #: 0 warns on every address mismatch (the old rule). The bounds are published in the schema
+    #: (the /admin field reads them) but enforced in `_nearby_warning_in_range`, so a stored
+    #: value outside them degrades instead of failing the whole document.
+    nearbyObjectWarnM: int = Field(default=25, json_schema_extra={"minimum": 0, "maximum": NEARBY_OBJECT_WARN_MAX_M})
+
+    @model_validator(mode="after")
+    def _nearby_warning_in_range(self, info: ValidationInfo) -> "DoctrineConfig":
+        """0–500 m; a stored value outside drops to the default (see `_pressure_lines_stay_in_range`
+        for why stored documents degrade instead of failing)."""
+        if not (0 <= self.nearbyObjectWarnM <= NEARBY_OBJECT_WARN_MAX_M):
+            if not (info.context or {}).get("stored"):
+                raise ValueError(
+                    f"doctrine.nearbyObjectWarnM ({self.nearbyObjectWarnM}) must be between 0 and "
+                    f"{NEARBY_OBJECT_WARN_MAX_M}"
+                )
+            logger.warning("doctrine.nearbyObjectWarnM %r is out of range — serving 25 m", self.nearbyObjectWarnM)
+            self.nearbyObjectWarnM = 25
+        return self
 
     @model_validator(mode="after")
     def _pressure_lines_stay_in_range(self, info: ValidationInfo) -> "DoctrineConfig":
@@ -2419,6 +2445,9 @@ class DeploymentConfigOut(DeploymentConfigIn):
     # Derived from the document, not stored: a one-glance answer to "shipped or ours?" that
     # does not require reading (or understanding) the whole `alarmKeywords` block above.
     alarmVocabulary: AlarmVocabularyStatus = Field(default_factory=AlarmVocabularyStatus)
+    # The Einsatz Kategorien, category key → the German label stored on `incidents.type`, in the
+    # wizard's picker order. Derived (app/divera · CATEGORY_LABELS), never stored – the one copy.
+    categoryLabels: dict[str, str] = Field(default_factory=dict)
     # Opaque version token of the stored document — hand it back on the next PUT and a write
     # against a document somebody else has since changed is refused (409) instead of silently
     # winning. See app/api/config · put_config. NOT part of the document; `DeploymentConfigIn`

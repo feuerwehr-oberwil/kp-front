@@ -40,12 +40,6 @@ describe('English (full overlay)', () => {
     expect(getCopy().intake.objectPlans(3)).toBe('3 plans')
   })
 
-  it('falls back to German for keys it deliberately omits (intake categories)', async () => {
-    await applyLocale('en')
-    // kategorien mirrors the backend German labels — untranslated by design
-    expect(getCopy().intake.kategorien).toContain('Brandbekämpfung')
-  })
-
   it('keeps the UN/Stoff DATA keys German (they match preset field names)', async () => {
     await applyLocale('en')
     expect(getCopy().contextPanel.unField).toBe('UN-Nr.')
@@ -64,13 +58,12 @@ describe('French / Italian (full translations)', () => {
   })
 
   it('still fall back to German for the 4 structural data keys (not translated by design)', async () => {
-    // unField/stoffField are data keys (match preset fields); kategorien
-    // mirrors the backend German keyword map — fr/it omit them, so German shows through.
+    // unField/stoffField are data keys (match preset fields) — fr/it omit them, so German
+    // shows through.
     for (const loc of ['fr', 'it']) {
       await applyLocale(loc)
       expect(getCopy().contextPanel.unField).toBe('UN-Nr.')
       expect(getCopy().contextPanel.stoffField).toBe('Stoff')
-      expect(getCopy().intake.kategorien).toContain('Brandbekämpfung')
     }
   })
 })

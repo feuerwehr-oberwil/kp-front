@@ -20,8 +20,6 @@ import { it as itLoc } from './it'
  *
  *  ⚠️ None of these are copy. They are values something else MATCHES AGAINST, so translating
  *  them breaks the match rather than localising anything:
- *    • intake.kategorien — mirrors the backend's VKF Schadenkategorien and is
- *      matched against German alarm keyword text (app/divera.py · data/alarm_keywords.json).
  *    • contextPanel.unField / stoffField — detail-row DATA keys the UN→substance autofill reads.
  *    • contextPanel.unLookupUrl — an address.
  *    • primarySymbol.id / icon — a tool id and a sprite name; «plus-bold» translated renders
@@ -31,7 +29,6 @@ import { it as itLoc } from './it'
  *      retargets; translating a URL points it at nothing. */
 const INTENTIONALLY_GERMAN = new Set([
   'admin.docs',
-  'intake.kategorien',
   'contextPanel.unField',
   'contextPanel.stoffField',
   'contextPanel.unLookupUrl',

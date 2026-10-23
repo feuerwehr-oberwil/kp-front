@@ -71,7 +71,7 @@ How each field is derived – none of them is a new column:
   under `footprint`; `building` = only the building at the pin; `none` = no outline at all — the
   viewer then draws NO OSM fallback either (`lib/karte/places · objectBuildings`).
 - **`aliases`**: the plan library's folder name when it differs from the name and address, and
-  the names of objects merged into this one (`admin_objects merge`, docs/AGENT-RUNBOOK.md).
+  the names of objects merged into this one (`admin_objects_repair merge`, docs/AGENT-RUNBOOK.md).
 - **`plans`**: the object's PDF datasets with bytes, by module. `code` is the module key without
   «modul» («23» → «2/3»). `pages` comes only from a tile manifest the server already wrote
   (`plan_tiles.stored_page_count`) – the listing never opens every PDF – so it is `null` when
@@ -135,7 +135,7 @@ How each field is derived – none of them is a new column:
 
 An object's position comes from its import: the station's private importer and `admin_objects
 load/push` write the manifest's `lat`/`lng`, the SharePoint pull geocodes the folder's address
-when it creates an object, `admin_objects geocode-missing` / `repair-sharepoint-keys` fill the
+when it creates an object, `admin_objects_repair geocode-missing` / `repair-sharepoint-keys` fill the
 ones without. ⚠️ **None of them may take a fuzzy match** (review round 2, 17.10.2026: ARA Birsig,
 «Erlenstrasse 60» without its town — `geocode()` appended the home locality, swisstopo had no
 Erlenstrasse in Oberwil and answered «Vorderbergstrasse 60, 4104 Oberwil», 1.1 km from the real

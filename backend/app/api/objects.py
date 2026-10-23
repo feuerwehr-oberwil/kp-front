@@ -24,6 +24,7 @@ from ..building_facts import clean_measures
 from ..config import settings
 from ..database import get_db
 from ..geo_util import haversine_m
+from ..incident_service import get_incident_or_404
 from ..models import Incident, ObjectPositionEvent, ObjectSite, ReferenceDataset
 from ..object_visits import attach_refs, is_integration_only, object_ids_with_plans
 from ..plans import plans_pull_enabled, store_plan
@@ -39,7 +40,6 @@ from ..schemas import (
     ReferenceDatasetOut,
 )
 from ..sharepoint_sync import sharepoint_status
-from .incidents import get_incident_or_404
 
 router = APIRouter(prefix="/objects", tags=["objects"])
 

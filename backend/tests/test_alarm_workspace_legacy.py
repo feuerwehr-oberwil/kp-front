@@ -96,7 +96,7 @@ async def test_observed_revision_mismatch_cannot_skip_validation_when_database_m
 ):
     from types import SimpleNamespace
 
-    from app.api import incidents
+    from app import incident_service
 
     incident = Incident(title="Synthetic concurrent incident", source="manual", workspace_rev=1, map_workspace_json={})
     db_session.add(incident)
@@ -107,7 +107,7 @@ async def test_observed_revision_mismatch_cannot_skip_validation_when_database_m
         # Another transaction already advanced PostgreSQL beyond the identity-map copy.
         return SimpleNamespace(workspace_rev=0, map_workspace_json={})
 
-    monkeypatch.setattr(incidents, "get_incident_or_404", stale_incident)
+    monkeypatch.setattr(incident_service, "get_incident_or_404", stale_incident)
     response = await client.put(
         f"/api/incidents/{incident.id}/workspace",
         json={"base_rev": 1, "workspace": {"timeline": [{"id": "new", "reminder": "broken"}]}},

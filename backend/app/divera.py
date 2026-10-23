@@ -49,20 +49,21 @@ logger = logging.getLogger(__name__)
 # ("BMA / Unechte Alarme"). Migrating a stored value to settle a capital letter is not worth
 # it, so the disagreement is named in the JSON and the labels stay local.
 #
-# Mirrored for the operator-facing wizard in src/config/copy/de/intake.ts (`intake.kategorien`),
-# which copy.test.ts checks against the shared keyword file.
+# The ONE copy: GET /api/config serves it as `categoryLabels`, and the Einsatz wizard offers its
+# values as the Kategorie picker, IN THIS ORDER (sweep B.9, 23.10.2026 – the frontend kept a
+# second list nothing compared). en/fr/it translate only the option text (`intake.kategorienLabels`).
 CATEGORY_LABELS: dict[str, str] = {
     "brandbekaempfung": "Brandbekämpfung",
-    "elementarereignis": "Elementarereignis",
     "strassenrettung": "Strassenrettung",
     "technische_hilfeleistung": "Technische Hilfeleistung",
+    "elementarereignis": "Elementarereignis",
     "oelwehr": "Ölwehr",
     "chemiewehr": "Chemiewehr",
     "strahlenwehr": "Strahlenwehr",
     "einsatz_bahnanlagen": "Einsatz Bahnanlagen",
     "bma_unechte_alarme": "BMA / unechte Alarme",
-    "dienstleistungen": "Dienstleistungen",
     "gerettete_tiere": "Gerettete Tiere",
+    "dienstleistungen": "Dienstleistungen",
     "diverse_einsaetze": "Diverse Einsätze",
 }
 
