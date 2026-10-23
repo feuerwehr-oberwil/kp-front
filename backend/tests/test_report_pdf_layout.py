@@ -13,7 +13,7 @@ import pypdfium2 as pdfium
 import pypdfium2.raw as pdfium_c
 from PIL import Image
 
-from app.report_pdf import ReportPayload, compose_report_pdf
+from app.report import ReportPayload, compose_report_pdf
 
 
 def test_no_blank_page_between_kroki_and_beilagen():
@@ -665,7 +665,7 @@ def test_dispatch_text_loses_its_emoji_before_it_reaches_the_page():
     """Helvetica draws a black box for a pictograph, and the Stichwort is set 20pt at the top of
     the sheet. The app blocks emoji where text is TYPED, but the Stichwort/Kategorie/Adresse
     arrive from the ELZ verbatim and nobody here can edit them in a guarded field."""
-    from app.report_pdf import IncidentFacts, ReportMetaIn
+    from app.report import IncidentFacts, ReportMetaIn
 
     f = IncidentFacts(
         title="Brand \U0001f525 Hauptstrasse 4", type="Brand ✅", address="Hauptstr. 4 \U0001f3e0", id="x"
@@ -922,7 +922,7 @@ def test_a_floor_stack_pages_north_dial_keeps_its_bearing():
     """⚠️ The client sends the dial's ANGLE (`deg`) and the renderer reads it off the dumped anno —
     but the model between them did not declare the field, so validation dropped it and every
     turned Gebäude page printed a dial claiming north-up."""
-    from app.report_pdf import PlanPageIn
+    from app.report import PlanPageIn
 
     page = PlanPageIn.model_validate(
         {"label": "Gebäude · EG", "blankAspect": 1.0, "annos": [{"kind": "north", "x": 0.94, "y": 0.02, "deg": 37.5}]}
@@ -935,7 +935,8 @@ def test_the_fallback_kroki_fit_frames_like_the_panel():
     256-px projection's z20. The server's «mirror» cap of 20 therefore framed twice the ground
     whenever a rapport printed without a reported crop: a single-building Lage came out with its
     symbols merged into one blob (18.09.2026 review)."""
-    from app.report_pdf import KrokiIn, _kroki_view
+    from app.report import KrokiIn
+    from app.report.kroki_view import _kroki_view
 
     # a Lage spread over one street block: content would fit tighter, the cap holds it at 21
     pk = KrokiIn.model_validate({"fitPoints": [[7.5704, 47.5241], [7.5709, 47.5241]]})  # ~38 m

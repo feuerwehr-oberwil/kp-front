@@ -11,8 +11,8 @@ import pytest
 from reportlab.lib.units import mm
 from reportlab.pdfbase.pdfmetrics import stringWidth
 
+from app.report import ReportPayload, compose_report_pdf
 from app.report_board import fit_size, wrap
-from app.report_pdf import ReportPayload, compose_report_pdf
 
 SHY = "­"
 

@@ -31,7 +31,7 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import BaseDocTemplate, Frame, PageBreak, PageTemplate, Paragraph, Spacer, Table, TableStyle
 
-from .report_pdf import _esc, _logo_flowable, _NumberedCanvas, _styles
+from .report.styles import _esc, _logo_flowable, _NumberedCanvas, _styles
 from .zeitplan_pdf import TZ, ZeitplanBand, ZeitplanBlock, ZeitplanPayload, ZeitplanRow
 
 #: rows per sheet — as many names as fit UNDER the heading and ABOVE the Deckung line at a height

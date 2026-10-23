@@ -15,7 +15,7 @@ import pytest
 from PIL import Image as PILImage
 from sqlalchemy import select
 
-from app.report_pdf import compose_report_pdf
+from app.report import compose_report_pdf
 
 pytestmark = pytest.mark.asyncio
 
@@ -265,7 +265,8 @@ async def test_report_pdf_survives_a_pasted_essay_in_a_remark(client, editor):
 async def test_over_long_remarks_are_truncated_not_rejected():
     """Rejecting (422) would only move the failure — the text is already in the workspace and
     the operator has no way to shorten it from the print sheet."""
-    from app.report_pdf import _NOTE_MAX, MittelFormRowIn, PersonalRowIn
+    from app.report import MittelFormRowIn, PersonalRowIn
+    from app.report.schema import _NOTE_MAX
 
     long = "x" * (_NOTE_MAX + 500)
     assert len(PersonalRowIn(name="A", note=long).note) == _NOTE_MAX
@@ -286,7 +287,7 @@ async def test_the_station_logo_actually_reaches_the_sheet(client, editor, db_se
     from app import storage
     from app.api.report import _LOGO_KEY, resolve_report_assets
     from app.models import DeploymentConfig
-    from app.report_pdf import ReportPayload
+    from app.report import ReportPayload
 
     key = "branding/test-logo.png"
     storage.put_bytes(key, _png(120, 60))
@@ -313,7 +314,7 @@ async def test_a_branding_url_cannot_read_outside_its_own_store(client, editor, 
     does."""
     from app.api.report import _LOGO_KEY, resolve_report_assets
     from app.models import DeploymentConfig
-    from app.report_pdf import ReportPayload
+    from app.report import ReportPayload
 
     row = (await db_session.execute(select(DeploymentConfig))).scalars().first()
     if row is None:
@@ -354,7 +355,7 @@ async def test_a_percent_encoded_plan_url_still_reaches_the_composer(client, edi
     from app import storage
     from app.api.report import resolve_report_assets
     from app.models import ReferenceDataset
-    from app.report_pdf import ReportPayload
+    from app.report import ReportPayload
 
     ds_id = "plan:test-obj:modul1"
     key = "reference/test-plan-modul1.pdf"
@@ -465,7 +466,7 @@ async def test_journal_link_prints_a_clickable_uri_annotation():
     """
     from xml.sax.saxutils import escape
 
-    from app.report_pdf import ReportPayload
+    from app.report import ReportPayload
 
     url = "https://example.com/bericht?ref=42&team=Alpha"
     markup = f'<a href="{escape(url)}"><u>Bericht</u></a> an <b>Peter Muster</b> übergeben'
@@ -486,7 +487,7 @@ async def test_journal_link_with_a_very_long_url_does_not_blow_up_the_table():
     """
     from xml.sax.saxutils import escape
 
-    from app.report_pdf import ReportPayload
+    from app.report import ReportPayload
 
     long_url = "https://example.com/" + "a1b2c3d4e5f6g7h8i9j0" * 8  # 180 chars, no spaces
     esc = escape(long_url)
@@ -523,7 +524,7 @@ async def test_the_kontaktperson_telefon_is_dialable():
     """⚠️ The Details box is raw-canvas (`_FormRows`), NOT a Paragraph — markup does nothing
     there, so the link is a rect measured off the same drawString and can silently be off by a
     field. This asserts the annotation exists with the dialable form of what was typed."""
-    from app.report_pdf import ReportPayload
+    from app.report import ReportPayload
 
     payload = _minimal_payload("x")
     payload["meta"] = {"kontaktperson": "A. Beispiel", "kontaktpersonTelefon": "079 123 45 67"}
@@ -551,7 +552,7 @@ async def test_the_kontaktperson_telefon_is_dialable():
 async def test_a_partner_callback_number_is_dialable():
     """The Partnerliste's remark line carries «Name · Telefon · Bemerkung» and IS a Paragraph, so
     the anchor is markup — built before escaping, so it escapes nothing of its own."""
-    from app.report_pdf import ReportPayload
+    from app.report import ReportPayload
 
     payload = _minimal_payload("x")
     payload["meta"] = {
@@ -569,7 +570,7 @@ async def test_a_partner_callback_number_is_dialable():
 async def test_the_phone_matcher_takes_the_swiss_shapes_and_nothing_else():
     """⚠️ Conservative on purpose. A dead `tel:` hotspot over «250 bar» sits in a signed document
     and cannot be corrected there; a number that simply prints as text loses nothing."""
-    from app.report_pdf import _phone_spans, _tel
+    from app.report.styles import _phone_spans, _tel
 
     dialable = {
         "079 123 45 67": "tel:0791234567",
@@ -603,7 +604,7 @@ async def test_a_photo_reference_spells_itself_out():
     """«B1» was a code the reader had to be told. The NUMBER is the contract — it is what a
     journal entry and a phone call name the picture by — so it stays put and stays the same;
     only the label spells out."""
-    from app.report_pdf import ReportPayload
+    from app.report import ReportPayload
 
     payload = _minimal_payload("x")
     payload["attachments"] = [{"url": "/api/media/a", "caption": "Ausweis Lenker"}, {"url": "/api/media/b"}]
@@ -633,7 +634,7 @@ def _exif_jpeg(w: int, h: int, orientation: int) -> bytes:
 
 
 async def test_a_sideways_photo_is_turned_upright_before_it_is_placed():
-    from app.report_pdf import _fit_image
+    from app.report.styles import _fit_image
 
     # portrait pixels, tag says «a quarter turn» → the picture is landscape once it is upright
     img = _fit_image(_exif_jpeg(40, 60, 6), 300, 300)
@@ -645,7 +646,7 @@ async def test_a_picture_with_nothing_to_turn_is_handed_on_untouched():
     """⚠️ The guard that keeps everything else out of the encoder. `_fit_image` places the Kroki,
     the plan pages, the Beilagen and the logo too — none of those may change because a photo
     needed rotating."""
-    from app.report_pdf import _exif_upright
+    from app.report.styles import _exif_upright
 
     png = _png(40, 28)
     assert _exif_upright(png) is png
@@ -661,7 +662,7 @@ async def test_a_trupp_that_never_went_in_prints_its_whole_wait():
     """⚠️ 03.09.: «Nicht eingesetzt: 06:50» — the Draussen stamp alone, for a Sicherungstrupp that
     had stood ready since 06:32. How long they stood there IS what that row records, so it prints
     as a span like every other row in the block."""
-    from app.report_pdf import ReportPayload
+    from app.report import ReportPayload
 
     payload = _minimal_payload("x")
     payload["options"] = {"atemschutz": True}
@@ -682,7 +683,7 @@ async def test_a_trupp_that_never_went_in_prints_its_whole_wait():
 async def test_a_trupp_from_before_the_anmeldung_was_logged_keeps_its_single_stamp():
     """A log written before 09.08. carries no `registered` row — there is no Anmeldung to name,
     and the line falls back to exactly what it always printed."""
-    from app.report_pdf import ReportPayload
+    from app.report import ReportPayload
 
     payload = _minimal_payload("x")
     payload["options"] = {"atemschutz": True}
@@ -699,7 +700,7 @@ async def test_a_trupp_from_before_the_anmeldung_was_logged_keeps_its_single_sta
 
 
 async def test_every_style_that_can_carry_a_link_underlines_it_thinly():
-    from app.report_pdf import _styles
+    from app.report.styles import _styles
 
     st = _styles()
     for name in ("cell", "rcell", "body", "muted"):
@@ -712,7 +713,7 @@ async def test_the_kontaktperson_telefon_is_underlined_like_every_other_link():
     """⚠️ The Details box is raw canvas: a link annotation there is invisible on paper and in most
     readers, so this number was the ONE address on the sheet with nothing under it. The rule is
     drawn by hand, on the same x-span the hotspot claims."""
-    from app.report_pdf import _link_tel_on_canvas
+    from app.report.styles import _link_tel_on_canvas
 
     # the canvas ReportLab hands the Flowable, reduced to what this function touches — the
     # camel-case names are its API, not ours
@@ -762,7 +763,7 @@ async def test_the_kontaktperson_telefon_is_underlined_like_every_other_link():
 
 
 async def test_a_numbered_trupp_prints_its_heading_and_the_crew_per_cycle():
-    from app.report_pdf import ReportPayload
+    from app.report import ReportPayload
 
     payload = _minimal_payload("x")
     payload["options"] = {"atemschutz": True}
@@ -807,7 +808,7 @@ async def test_a_numbered_trupp_prints_its_heading_and_the_crew_per_cycle():
 async def test_a_renumbered_trupp_names_its_first_number_in_the_heading():
     # two devices minted «Trupp 1» at once and the merge gave this one 3 (docs/trupp-naming.md
     # §7): its early Verlauf rows still say «Trupp 1», so the Atemschutz page says both
-    from app.report_pdf import ReportPayload
+    from app.report import ReportPayload
 
     payload = _minimal_payload("x")
     payload["options"] = {"atemschutz": True}
@@ -823,7 +824,7 @@ async def test_a_renumbered_trupp_names_its_first_number_in_the_heading():
 
 
 async def test_an_older_payload_without_cycles_prints_exactly_as_before():
-    from app.report_pdf import ReportPayload
+    from app.report import ReportPayload
 
     payload = _minimal_payload("x")
     payload["options"] = {"atemschutz": True}

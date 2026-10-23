@@ -26,7 +26,7 @@ from ..auth.viewer_scope import is_viewer
 from ..database import get_db
 from ..models import DeploymentConfig as DeploymentConfigRow
 from ..models import DiveraEmergency, Media, PlanRevision, ReferenceDataset
-from ..report_pdf import ReportPayload, TafelPrintPayload, compose_report_pdf, compose_tafel_pdf
+from ..report import ReportPayload, TafelPrintPayload, compose_report_pdf, compose_tafel_pdf
 from ..schichtplan_pdf import compose_schichtplan_pdf
 from ..zeitplan_pdf import ZeitplanPayload, compose_zeitplan_pdf
 from .incidents import get_incident_or_404

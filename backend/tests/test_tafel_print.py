@@ -9,7 +9,7 @@ import json
 import pypdfium2 as pdfium
 import pytest
 
-from app.report_pdf import TafelPrintPayload, compose_tafel_pdf
+from app.report import TafelPrintPayload, compose_tafel_pdf
 from tests.test_report_board import _ef
 
 
