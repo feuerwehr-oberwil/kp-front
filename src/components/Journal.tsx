@@ -1261,7 +1261,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
               ? [{
                   k: C.detailCorrected,
                   v: formatTime(new Date(e.correctedAt), true),
-                  ...(e.textOriginal ? { sub: fillTemplate(C.detailCorrectedFirst, { text: e.textOriginal }) } : {}),
+                  ...(e.textOriginal ? { sub: fillTemplate(C.detailCorrectedFirst, { text: withoutAreaPrefix(e.textOriginal) || e.textOriginal }) } : {}),
                 }]
               : []),
             ...(repeated > 1
