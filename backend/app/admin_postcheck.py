@@ -29,7 +29,8 @@ queries, run the same way every time:
 - Duplicate events: the same audit event or Verlauf row, under different ids, within seconds.
 - PIN prompts and expired sessions in the field (the auth endpoints in the HTTP log).
 - Vehicles: the «vor Ort / verlassen» Verlauf rows and the Zeiten grid beside the GPS truth
-  in ``vehicle_samples``, read with the client's own state machine.
+  in ``vehicle_samples``, read with a state machine of its own on purpose – an independent
+  oracle for `vehicle_presence`, sharing only its ring constants (see `presence_transitions`).
 
 Exit code: 0 when there is nothing to look at, 1 when there are findings (so a cron or CI job
 can tell), 2 when the check itself could not run — including a crash of the check, and a log
@@ -54,6 +55,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn
 
+from . import vehicle_presence
 from .admin_cli import fail as _cli_fail
 
 if TYPE_CHECKING:
@@ -64,12 +66,14 @@ EXIT_CLEAN = 0
 EXIT_FINDINGS = 1
 EXIT_ERROR = 2
 
-#: The Fahrzeug presence rings of the client (src/lib/useVehiclePresenceLog.ts). Kept equal to
-#: the client's on purpose: the question is «did the app write what the GPS said», so the GPS
-#: has to be read with the app's own rule.
-AT_SCENE_M = 150.0
-LEFT_M = 300.0
-PRESENCE_SETTLE_S = 90.0
+#: The Fahrzeug presence rings, imported from the observer that writes the record: the question
+#: is «did the app write what the GPS said», so the GPS has to be read with the app's own numbers
+#: – a ring change there cannot silently split the two. The state machine itself
+#: (`presence_transitions`) is a deliberate second copy, an independent oracle: re-using
+#: `vehicle_presence.step` would make a bug in it agree with itself.
+AT_SCENE_M = vehicle_presence.AT_SCENE_M
+LEFT_M = vehicle_presence.LEFT_M
+PRESENCE_SETTLE_S = float(vehicle_presence.SETTLE_S)
 
 #: How far around the incident the logs are read when no --since/--until is given.
 WINDOW_MARGIN = timedelta(minutes=15)
@@ -1392,9 +1396,9 @@ class Transition:
 
 
 def presence_transitions(samples: list[Sample], center: tuple[float, float]) -> list[Transition]:
-    """The GPS truth under the presence state machine, fix by fix — the client's
-    (src/lib/useVehiclePresenceLog.ts) and, number for number, the server's that replaced it:
-    inside 150 m is «scene», beyond 300 m «away»; the band between clears a pending change (it
+    """The GPS truth under the presence state machine, fix by fix — re-implemented here on
+    purpose as an independent oracle for `vehicle_presence.step` (the rings are its constants,
+    imported above): inside 150 m is «scene», beyond 300 m «away»; the band between clears a pending change (it
     neither starts a state nor ends one), and so does a reading back in the written zone; a
     pending zone counts once it has held 90 s.
 
