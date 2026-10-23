@@ -8,9 +8,10 @@
 // config/copy/parity.test.ts fails if one is ever added without it. What remains German is
 // German on purpose, because none of it is copy — each is a value something else matches
 // against, so translating it breaks the match rather than localising anything:
-//   • intake.kategorien / intake.kategorieGuess — mirror the backend's VKF Schadenkategorien
-//     (app/divera.py CATEGORY_LABELS, keyword half from backend/app/data/alarm_keywords.json)
-//     and are matched against German alarm keyword text; translating desyncs category derivation.
+//   • intake.kategorieGuess — mirrors the backend's keyword map
+//     (backend/app/data/alarm_keywords.json) and is matched against German alarm keyword text.
+//     The Kategorien themselves come from the server (`categoryLabels` on GET /api/config);
+//     only their option text is translated, in intake.kategorienLabels.
 //   • contextPanel.unField / contextPanel.stoffField — detail-row DATA keys the UN→substance
 //     lookup matches against the (language-independent) preset fields.
 //   • contextPanel.unLookupUrl — an address, not a sentence (each overlay sets its own

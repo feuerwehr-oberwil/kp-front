@@ -92,29 +92,13 @@ export const intakeCopy = {
     locationSet: 'Standort gesetzt',
     noLocationOnMap: 'Kein Standort – auf Karte setzen',
     ok: 'Passt',
-    // VKF Schadenkategorien — mirrors the labels the backend derives server-side (see
-    // backend app/divera.py CATEGORY_LABELS). The keyword half below comes from
-    // backend/app/data/alarm_keywords.json, the file kp-front and kp-rueck share;
-    // copy.test.ts fails when this list and that file disagree, so "keep in sync"
-    // is now checked rather than remembered. Note it mirrors the SHIPPED vocabulary:
-    // a station that sets its own `alarmKeywords` changes what the server classifies,
-    // not this list.
-    kategorien: [
-      'Brandbekämpfung',
-      'Strassenrettung',
-      'Technische Hilfeleistung',
-      'Elementarereignis',
-      'Ölwehr',
-      'Chemiewehr',
-      'Strahlenwehr',
-      'Einsatz Bahnanlagen',
-      'BMA / unechte Alarme',
-      'Gerettete Tiere',
-      'Dienstleistungen',
-      'Diverse Einsätze',
-    ] as string[],
-    // Keyword (UPPERCASE substring of the Stichwort) → category, mirroring the same
-    // backend map. Lets the wizard pre-select a category for a Divera alarm; first hit
+    // The VKF Schadenkategorien are the SERVER's (`categoryLabels` on GET /api/config, from
+    // backend app/divera.py CATEGORY_LABELS) – read through `incidentCategories()`.
+    // Keyword (UPPERCASE substring of the Stichwort) → category, mirroring the backend's
+    // keyword map (backend/app/data/alarm_keywords.json, the file kp-front and kp-rueck share;
+    // copy.test.ts fails when this list and that file disagree). Note it mirrors the SHIPPED
+    // vocabulary: a station that sets its own `alarmKeywords` changes what the server classifies,
+    // not this list. Lets the wizard pre-select a category for a Divera alarm; first hit
     // wins. The backend still derives it authoritatively if the EL leaves it unset.
     kategorieGuess: [
       ['FEUER', 'Brandbekämpfung'],
@@ -137,10 +121,10 @@ export const intakeCopy = {
       ['DIENST', 'Dienstleistungen'],
       ['TIER', 'Gerettete Tiere'],
     ] as [string, string][],
-    // DISPLAY labels for the category <select>, keyed by the German category VALUE (the entries
-    // of `kategorien`). de = identity (German→German); en/fr/it translate. The stored/submitted
-    // value stays the German `kategorien` entry — only the option TEXT localizes; the select
-    // falls back to the raw German key when a label is missing.
+    // DISPLAY labels for the category picker, keyed by the German category VALUE (the server's
+    // `categoryLabels` values). de = identity (German→German); en/fr/it translate. The stored/
+    // submitted value stays the German label — only the option TEXT localizes; the picker
+    // falls back to the German label when a translation is missing.
     kategorienLabels: {
       'Brandbekämpfung': 'Brandbekämpfung',
       'Strassenrettung': 'Strassenrettung',

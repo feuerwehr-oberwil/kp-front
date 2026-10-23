@@ -627,7 +627,7 @@ const defaultPlanId = planDocuments.find((p) => p.id === 'modul1')?.id ?? planDo
 
 /**
  * Switch ON every layer whose `autoActivate` names the incident's category (the German
- * `kategorien` value, e.g. "Brandbekämpfung" → hydrants). Additive only — it never hides a
+ * label, e.g. "Brandbekämpfung" → hydrants – see `incidentCategories`). Additive only — it never hides a
  * layer, and layers already visible pass through unchanged (same array identity when
  * nothing matches, so it's safe in setState updaters).
  */

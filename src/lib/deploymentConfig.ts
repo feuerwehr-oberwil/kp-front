@@ -76,7 +76,7 @@ export interface DeploymentReferenceLayer {
   opacity?: number | null
   maxzoom?: number | null
   attribution?: string | null
-  /** Einsatz categories (German `kategorien` values) that auto-show this layer when an
+  /** Einsatz categories (German labels, see `incidentCategories`) that auto-show this layer when an
    *  incident of that category is created / re-categorized */
   autoActivate?: string[] | null
 }
@@ -471,6 +471,9 @@ export interface DeploymentConfig {
    *  app only says it, under «Alle Einsätze» (HistoryPanel · windowDays) */
   access?: { viewerHistoryDays?: number | null }
   integrations?: DeploymentIntegrations
+  /** The Einsatz Kategorien, category key → the German label stored on the incident, in picker
+   *  order. Response-only and derived (backend · divera.CATEGORY_LABELS): the one copy. */
+  categoryLabels?: Record<string, string>
   /** Opaque version token of the document the SERVER holds, off GET/PUT. Sent back as
    *  `If-Match` on the next save, so a tab holding an hour-old draft is refused instead of
    *  silently reverting whatever anybody changed since (backend · api/config · put_config).
@@ -626,6 +629,14 @@ export async function loadDeploymentConfigBounded(budgetMs: number): Promise<Dep
     return cached
   }
   return resolved
+}
+
+/** The Einsatz wizard's Kategorie picker: the server's German labels, in its order. These are
+ *  the stored VALUES (`incident.type`); the option text is translated through
+ *  `copy.intake.kategorienLabels`. Empty until a config that carries them has loaded – the
+ *  wizard then sends no category and the server derives one. */
+export function incidentCategories(): string[] {
+  return Object.values(resolved.categoryLabels ?? {})
 }
 
 /** Synchronous accessor returning the resolved singleton ({} until loadDeploymentConfig
