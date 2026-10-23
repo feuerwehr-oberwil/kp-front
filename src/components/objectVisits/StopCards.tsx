@@ -1,29 +1,36 @@
 // The read view's pieces around the visit card (VisitSections · SummaryCard): the card's own
-// rows, the one line «Abgeschlossen … / Korrigiert …» that opens the earlier versions, and the
-// other visits at the same stop — a second checklist at the same object is a second card under
-// the first (owner, 15.10.2026), not a list of its own.
+// rows, the one line «Abgeschlossen … / Korrigiert …» that opens the earlier versions, the line
+// that says a visit is locked for corrections, and the other visits at the same stop — a second
+// checklist at the same object is a second card under the first (owner, 15.10.2026), not a list
+// of its own.
 
 import { useEffect, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { appConfig } from '../../config/appConfig'
+import { fillTemplate } from '../../lib/format'
 import { getRevisions } from '../../objectVisits/api'
 import { personName, type Revision } from '../../objectVisits/types'
 import { fmtDate, fmtWhen, lifecycleLabel } from './ovFormat'
+import { ListRow } from '../ListRow'
 import s from './ObjectVisits.module.css'
 
 /** A row at the visit card's foot. */
 export function CardRow({ icon, title, onClick }: { icon: string; title: string; onClick: () => void }) {
-  return (
-    <button type="button" className={s.row} onClick={onClick}>
-      <Icon id={icon} className={s.rowGlyph} />
-      <span className={s.rowMain}><span className={s.rowTitle}>{title}</span></span>
-      <Icon id="chevron" className={s.chev} />
-    </button>
-  )
+  return <ListRow lead={<Icon id={icon} />} title={title} onClick={onClick} />
 }
 
 const short = (iso: string) => `${fmtDate(iso).slice(0, 6)} ${fmtWhen(iso).split(' ').pop()}`
 const long = (iso: string) => `${fmtDate(iso)} ${fmtWhen(iso).split(' ').pop()}`
+
+/** Why the card has no «Bearbeiten» any more: this visit went view-only (objectVisits/lock ·
+ *  the server's `lockedAt`), and since when. Stands where the edit row stood. */
+export function LockedRow({ lockedAt }: { lockedAt: string }) {
+  const C = appConfig.copy.objectVisits
+  return (
+    <ListRow className={s.rowQuiet} lead={<Icon id="lock" />} chevron={false}
+      title={fillTemplate(C.lockedSince, { when: long(lockedAt) })} />
+  )
+}
 
 /**
  * When the visit was finished, and corrected since — one line; with corrections it opens the
@@ -48,27 +55,16 @@ export function VisitHistory({ visitId, onReport }: { visitId: string; onReport:
   const label = corr.length
     ? `${C.corrected} ${short(corr[corr.length - 1].acceptedAt)}`
     : `${lifecycleLabel('completed')} ${short(done[0].acceptedAt)}`
-  const inner = (
-    <>
-      <Icon id="history" className={s.rowGlyph} />
-      <span className={s.rowMain}><span className={s.rowSub}>{label}</span></span>
-      {corr.length > 0 && <Icon id="chevron-down" className={s.chev} />}
-    </>
-  )
   return (
     <>
-      {corr.length
-        ? <button type="button" className={`${s.row} ${s.rowQuiet}`} onClick={() => setOpen((o) => !o)} aria-expanded={open}>{inner}</button>
-        : <div className={`${s.rowStatic} ${s.rowQuiet}`}>{inner}</div>}
+      {/* a disclosure, not a door: the app-wide `chev` turns off the button's aria-expanded (02-base) */}
+      <ListRow className={s.rowQuiet} lead={<Icon id="history" />} title={label} chevron={false}
+        end={corr.length > 0 ? <Icon id="chevron-down" className={`${s.chev} chev`} /> : undefined}
+        {...(corr.length ? { onClick: () => setOpen((o) => !o), 'aria-expanded': open } : {})} />
       {open && [...done].reverse().map((r) => (
-        <button key={r.revision} type="button" className={s.row} onClick={() => onReport(r.revision)}>
-          <Icon id="doc" className={s.rowGlyph} />
-          <span className={s.rowMain}>
-            <span className={s.rowTitle}>{r.revision === done[0].revision ? lifecycleLabel('completed') : C.corrected}</span>
-            <span className={s.rowSub}>{[long(r.acceptedAt), personName(r.acceptedBy)].filter(Boolean).join(' · ')}</span>
-          </span>
-          <Icon id="chevron" className={s.chev} />
-        </button>
+        <ListRow key={r.revision} lead={<Icon id="doc" />} onClick={() => onReport(r.revision)}
+          title={r.revision === done[0].revision ? lifecycleLabel('completed') : C.corrected}
+          sub={[long(r.acceptedAt), personName(r.acceptedBy)].filter(Boolean).join(' · ')} />
       ))}
     </>
   )

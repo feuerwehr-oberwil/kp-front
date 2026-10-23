@@ -28,7 +28,9 @@
 .tb-act-history .i { transform: translateY(-1.5px); }
 .tb-act.icon { padding: var(--sp-2); min-width: 42px; background: transparent; }
 @media (hover: hover) {
-  .tb-act:hover { color: var(--ink); background: var(--fill-soft); }
+  /* --hover-strong, not --fill-soft: a filled act already wears --fill-soft, so the old hover
+     changed its ink alone (20.10.2026) */
+  .tb-act:hover { color: var(--ink); background: var(--hover-strong); }
 }
 .tb-act:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .tb-act:disabled { opacity: var(--disabled); cursor: default; }
@@ -129,17 +131,31 @@
    and red belongs to the überfälliger Trupp. */
 .tb-gps { display: inline-flex; align-items: center; gap: var(--sp-2); border: none; border-radius: var(--r-sm);
   font-family: var(--body); font-size: var(--fs-1); font-weight: var(--fw-bold); padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-2); margin-right: 2px;
-  flex: none; cursor: default;
+  flex: none; cursor: pointer; position: relative;
   background: var(--amber-16); color: var(--amber-strong, #b45309); }
 .tb-gps .i { width: 15px; height: 15px; flex: none; }
 .tb-gps-age { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+/* a button since S6 (20.10.2026): a tap opens its sentence. The chip keeps its in-bar size; the
+   house 44px target grows invisibly around it, as `button.tb-mode`'s does on a phone. */
+.tb-gps::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 44px);
+  height: max(100%, 44px); transform: translate(-50%, -50%); }
+@media (hover: hover) {
+  .tb-gps:hover { background: var(--amber-28); }
+}
+.tb-gps:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* its sentence, out of the top bar — so the bar's own glass, as every popup out of the bar */
+.tb-gps-pop { max-width: min(300px, calc(100vw - 20px)); padding: var(--sp-3) var(--sp-4);
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line);
+  border-radius: var(--r-sm); box-shadow: var(--e4); animation: popIn .15s var(--ease); }
+.tb-gps-hint { margin: 0; font: var(--fw-medium) var(--fs-2) / var(--lh-2) var(--body); color: var(--ink); }
 @keyframes tb-az-pulse { 0%, 100% { background-color: var(--red-16); } 50% { background-color: color-mix(in srgb, var(--red) 34%, transparent); } }
 
 /* Modus-Chip beside the Einsatzname: «Einsatz abgeschlossen». It moved here out of the bottom
    banner layer (23.08.) — read-only is a property of the INCIDENT, and the incident is named in
    the head. Amber for the same reason .tb-gps is: a state to be aware of, not an alarm. Tapping
    it offers the two exits the banner used to carry (Zurück / Wieder öffnen), so nothing was lost
-   with the banner; on a link session there are no exits and it is a plain, inert chip. */
+   with the banner, under a head sentence that says what the state means (S5); on a link session
+   there are no exits and the menu is that sentence alone. */
 .tb-mode { display: inline-flex; align-items: center; gap: var(--sp-2); flex: none; border: none; border-radius: var(--r-sm);
   font-family: var(--body); font-size: var(--fs-1); font-weight: var(--fw-bold); padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-2); white-space: nowrap;
   background: var(--amber-16); color: var(--amber-strong); }
@@ -150,8 +166,8 @@ button.tb-mode { cursor: pointer; }
 }
 button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (--phone) {
-  /* the phone bar has room for the glyph, not the word — the state stays visible, the sentence
-     is one tap away in the chip's own menu */
+  /* the phone bar has room for the glyph, not the word — the state stays visible, and a tap
+     opens the menu whose head says it (owner 21.10.2026: no permanent label) */
   .tb-mode { padding: var(--sp-1) var(--sp-2); font-size: 0; gap: 0; }
   .tb-mode .i { width: 16px; height: 16px; }
   /* …and it is the phone's only door to «Wieder öffnen» (staging r4): the glyph stays 32×26 in
@@ -187,8 +203,17 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .tb-weather-temp { padding-right: 8px; }   /* the wind wears its own arrow; no rule between the two readings (22.09.2026) */
 
 
+/* the weather answers after the first paint: the chip grows into the bar (260ms, width with
+   opacity) instead of landing in one frame and shoving the bar's right edge out (owner,
+   20.10.2026). clip-path keeps the chip inside its growing box without an overflow rule that
+   would outlive the animation; a bar re-fit (.fit-2) that brings the chip back plays it again,
+   which is the same arrival. Reduced motion: 03-map's global rule. */
+.topbar .tb-weather-wrap { animation: tb-chip-in .26s var(--ease); }
+@keyframes tb-chip-in { from { opacity: 0; max-width: 0; clip-path: inset(0); } to { opacity: 1; max-width: 240px; clip-path: inset(0); } }
 /* weather detail popover (tap the bar readout) */
-.tb-weather-wrap { position: relative; display: inline-flex; }
+/* stretched to the bar's inner height: the popover's offset (TopBar · WeatherBadge · popInset) counts
+   from the chip's bottom, and a 42px chip centred in a 44px bar would hang it 1px lower than the menu */
+.tb-weather-wrap { position: relative; display: inline-flex; align-self: stretch; }
 /* position + z-index now come from the Base UI Popover Positioner (src/lib/overlays/Popover.tsx);
    the popup itself is static within it. */
 .tb-weather-pop { width: 280px;
@@ -230,7 +255,9 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   touch-action: none; user-select: none; min-width: 96px; }
 .tb-act-add .i { width: 16px; height: 16px; }
 @media (hover: hover) {
-  .tb-act-add:hover { background: var(--float-bg); color: var(--ink); filter: brightness(1.05); }
+  /* the wash over its glass – brightness(1.05) lifted the dark glass at night but did nothing to
+     the white one by day (20.10.2026) */
+  .tb-act-add:hover { background: var(--float-bg); background-image: linear-gradient(var(--hover), var(--hover)); color: var(--ink); }
 }
 /* ⚠️ Names the LABEL, not every span. It used to read `.tb-act-add span`, which at (0,1,1)
    also out-specified the charging cue's own `.tb-hold { position: absolute }` (0,1,0) — so on

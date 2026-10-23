@@ -9,8 +9,12 @@ wording unchanged.
 - **Role gating** – product model is three incident roles: `editor` (FU / can mutate incident
   state), `el` (Einsatzleiter function, 07.09.2026 – reads everything, writes ONLY the record
   domains: Anwesenheit/Zeitplan, Mittel, Checklisten, Rapport + Beilagen, via the
-  server-enforced `PUT …/workspace/record` slice (`RECORD_WORKSPACE_KEYS`), journal/event
-  appends limited to the record vocabulary (`EL_EVENT_PREFIXES`), media uploads, and — since
+  server-enforced `PUT …/workspace/record` slice (`RECORD_WORKSPACE_KEYS`, plus the crew
+  filing's markers, unioned onto the stored Trupps — `RECORD_CREW_FILED_KEY`, 22.10.2026), audit-event
+  appends limited to the record vocabulary (`EL_EVENT_PREFIXES`), Verlauf rows of any kind like an
+  editor's (the el writes Lagemeldungen through the composer; a row is append-only and
+  attributable, so a wider vocabulary costs the record nothing – lead's call, 22.10.2026), media
+  uploads, and — since
   10.09.2026 — the EINSATZDATEN at the head of that record: `PATCH /incidents/{id}` limited to
   the fields «Einsatzdaten bearbeiten» sends (`EL_META_FIELDS`); the full workspace PUT, the
   trupps slice, the incident lifecycle (`status`, `is_archived`, `report_done_at`) and
@@ -25,11 +29,30 @@ wording unchanged.
   its own words and tone, no tap). So a locked session (el, Führungsansicht, viewer, replay) keeps
   the building's name, the Massstab and the linked «⌖ Karte» chip as read-outs — an unchecked
   automatic fit must never look like a checked one, whoever is looking — but gets no «Anderes
-  Gebäude wählen» (the locked picker has no «Übernehmen»), no Passung, no «Gebäude drehen». Every
+  Gebäude wählen» (the locked picker has no «Übernehmen»), no Passung, no «Gebäude drehen». On
+  the Lage and the Plan alike a locked session SELECTS every object (a Linie, Fläche or
+  Absperrkreis on the Plan too – never dragged) and reads its panel: a Form its figures, a
+  Leitung its Inhalt, Stockwerk, Leitung-Nr. and Trupp, a live vehicle its Fahrer, a
+  Gefahrentafel its Schutzabstand, a symbol its Beschriftung – read-outs, not faded controls. It
+  gets no rotate/resize handle, no ghost-trail «Spur löschen» (the label is a read-out), no vehicle
+  «GPS» / «Hier festhalten» / Fahrer edit (the Führungsansicht included); a Trupp marker keeps
+  «Im Atemschutz zeigen» and «Spur ein/aus», which change nothing shared. A Tafel page's Tendenz
+  and «erledigt» are read-outs; the empty-sheet hint and the views menu's «Eine Ansicht speichert
+  …» teach writers only (RBAC audit 22.10.2026). Every
   session that cannot share links (`canShareLink` false: el, Führungsansicht, viewer, link) gets
   no «Weitergeben» section, and so sends no GET for a link it may not read. The `el` also gets no
-  saved-view writes, no vehicle override, no object switch, no «Wieder öffnen», no transcription
-  and no checklist «Zeichnen» link. The legacy `commander` value has been migrated away: the stored role,
+  saved-view writes, no vehicle override, no «Wieder öffnen», no transcription
+  and no checklist «Zeichnen» link. No locked session (`tacticalLocked`: el, Führungsansicht,
+  viewer, link, replay) gets the Plan's «Anderes Objekt wählen»; its object chip stays a read-out
+  (RBAC audit 22.10.2026). A session that may write nothing (`roleReadOnly`: viewer, view and
+  alarm links, a refused Atemschutz-Link) writes no Verlauf row at all – `pushEvent` refuses it,
+  the composer does not mount (a checklist's «Verlauf» link opens the Verlauf instead), a due
+  Wiedervorlage has no «Erledigt» / «+10 min», and a Trupp card's «+ Auftrag» is a read-out –
+  because whatever it took would stay on that device and raise «Speicher voll». The Atemschutz
+  alarm rings on every device, but only a session that writes the Trupps (`canEditTrupps`: FU,
+  Atemschutz-Link) records the crossing. Machine seeds of keys outside the record slice (plan
+  bindings, the floor-pack Gebäude) run only where the push carries the whole blob
+  (`canWriteBlob`: an editor's session). The legacy `commander` value has been migrated away: the stored role,
   the `Literal`/type unions, the `CurrentEditor` dependency, and `user?.role === 'editor'` checks
   all use `editor` now. Do not reintroduce `commander`, and do not add deployment-admin power to the
   incident role model. Deployment administration is **separated** behind the `ADMIN_SECRET` env var:
@@ -40,7 +63,8 @@ wording unchanged.
   endpoints stay on `CurrentEditor`, with ONE exception: the Atemschutz-Link (a QR minted from a
   running Einsatz that lets a non-FU operate only the Atemschutzüberwachung) writes through
   `CurrentAtemschutzWriter` on exactly three routes – `PUT …/workspace/trupps`, `POST …/journal`
-  (`kind: 'team'` rows only) and `POST …/events` (`atemschutz.*` only); the allowlist and the
+  (`kind: 'team'` rows only, a `patchOf` only onto its own rows) and `POST …/events`
+  (`atemschutz.*` only); the allowlist and the
   liveness rules live in `backend/app/auth/incident_link.py`. ⚠️ Every link kind may also
   `POST /api/diag/client-error` (24.09.2026), even with a dead session (liveness-exempt). The
   route needs no session and is throttled per source in its own handler. Without it, a crash on
@@ -61,6 +85,30 @@ wording unchanged.
   address, `<img>`, service worker) answer as the link guest otherwise. That «Abmelden» **always
   confirms** (23.09.2026, `lib/logoutConfirm`), in one card that adds the offline and the
   unsent-entries cost when there is one.
+- **Alerts and requests per session** (RBAC audit, 22.10.2026). A due Wiedervorlage rings – tone
+  and OS notification – only for the sessions that can tick it off, `editor` and `el`
+  (`RemindersHost · alert`); a viewer or a link shows the due row silently and its Pendenzen ring
+  and text as read-outs. The Atemschutz alarm is unchanged and rings everywhere. A lost tab lock
+  says so (banner + the «Eintrag» toast) to every session that writes the Verlauf, the `el`
+  included. A link page never asks for what its allowlist refuses: no Traccar, weather or radar
+  poll and no Gebäude card on a view link (`liveFeeds`), none of those on the Atemschutz-Link's
+  Tafel either (it shows none), no Overpass warm-up and no audio waveform (`…/peaks`) on any
+  link, and no push subscription from a page whose own link session answers
+  (`linkPageOwnsSession`). An `el`'s Rapport one-shots (Beilagen) audit their ↶/↷ as
+  `report.undo`/`report.redo`, which its event scope keeps.
+
+## The viewer's window (since 2026-10-21)
+
+A `viewer` account (the «Fahrer» tile: one PIN for every driver, left signed in on vehicle
+tablets) reads the **running** Einsätze and those **last closed within
+`access.viewerHistoryDays`** (default 7; `0` = running only; CONFIGURATION.md §1f) – not the
+archive. Outside that window an Einsatz does not exist for it: `GET /incidents` leaves it out,
+and every route naming its `incident_id` – or a `media_id` of it – answers 404, never 403, so
+the tile cannot probe which Einsätze there were. One check for every route:
+`get_current_user` → `auth/viewer_scope · enforce_viewer_window`; the list uses
+`viewer_window_clause`, the same condition in SQL. A reopened Einsatz is running again and
+readable. `editor`, `el`, the deployment admin and link sessions are untouched. «Karte &
+Objekte» is station data, not an Einsatz, and stays fully readable.
 
 ## Station reference reads
 
@@ -70,6 +118,69 @@ and the Erfassungs-Poster's capture token get 403: a link is scoped to one Einsa
 become a door onto the station's whole register (`api/station_reference · get_station_reader`,
 and the link allowlist does not name these routes). What a role may do from there – start an
 Objektbesuch – stays `objectVisits.captureRoles`.
+
+## Hardening from the RBAC audit (22.10.2026)
+
+- **Hard delete without the Verwaltung** needs an Übung **created as one and never marked real**
+  (`incidents.exercise_since_creation`). «Übung» stays an Einsatzdaten field (editor and el), so
+  a real Einsatz flipped to Übung is stats-excluded but takes the admin door (archived, admin
+  session, WARNING log) like any real one. Rows from before the column count as created-Übung
+  only if their hash chain holds no Übung toggle at all.
+- **`via` is the server's stamp.** An Atemschutz link's rows get `atemschutz-link` /
+  `atemschutz-fix`, the Erfassungs-Poster's `capture`, everyone else's none – a client-sent `via`
+  is dropped. A link or the poster may `patchOf` (retract, reword) only a row of its own channel;
+  the poster writes no `kind` at all.
+- **`GET /api/config`**: `alarms.webhooks` and `sharepoint.sources` reach an admin session only;
+  `objectVisits.destinations` every PIN session, no anonymous caller, no link
+  (CONFIGURATION.md §1a).
+- **A role change ends the account's sessions** (`revoke_sessions`, like a PIN reset): a device
+  learns its role at sign-in. The last active editor cannot be demoted to `el` or `viewer`.
+- **A viewer's Rapport-PDF embeds its own Einsatz's media only** – the window applies to what
+  the composer opens, not just to `GET /api/media`.
+- **The el reads «Anrückend»** (`GET /divera/responses`, `CurrentRecordWriter`): it marks
+  attendance like an editor. The rest of `/api/divera` stays editor-only.
+- **Who a push wakes** (owner's pick): the Atemschutz alarms go to every subscribed browser;
+  «Neuer Einsatz» only to `editor` accounts, «Wiedervorlage fällig» to `editor` and `el`
+  (`push.py · role_recipients`, read when the push leaves). A viewer tablet, and a kiosk
+  subscription without an account, hear only the Atemschutz alarms. Links never subscribe.
+- **«Standort teilen» posts under one name per device, held until let go.** No account or link
+  is tied to a roster person, so the name is the device's pick; a name another device holds is
+  409 however quiet that device has gone, until it stops, an editor removes the dot, the Einsatz
+  closes or the TTL sweep drops it. Posting under a new name drops the device's old dot
+  (`api/person_positions.py`). Viewer and link sessions share like anyone else.
+- **A link reads no station keys**: no account UUIDs (`created_by` on the Einsatz, `user_id` on
+  its events) and no Divera ids on the roster (`is_link_session`). The Traccar host and the
+  upstream error text reach the deployment admin only; `/traccar/trails?minutes=` stops at 240.
+- **A secret is compared as bytes** (`secret_token · secret_matches`): a non-ASCII token is the
+  uniform 401, never a 500. The Microsoft login matches the Entra object id only
+  ([`microsoft-login.md`](microsoft-login.md)).
+- **Every link kind is narrowed like the view link**: `/api/objects/{id}` and Objektpläne only
+  for the objects this Einsatz surfaced, other reference datasets only as furniture (geodata,
+  symbols, Checklisten, Tafel templates), no `/api/objects` register list, no inactive personnel.
+
+## The record surfaces for a session that cannot write them (22.10.2026)
+
+The door rule above, applied to the Rapport, Anwesenheit and lifecycle (RBAC audit, round 2):
+
+- **Rapport** for a session that cannot edit it (`canEditRapport` false: viewer, view link, a
+  closed Einsatz it may not correct; a signed Rapport too): every field is a read-out – the
+  value, or «Nicht erfasst» – with no «Jetzt», «Entfällt», steppers, pickers or ✕. The
+  Kontaktperson keeps its working `tel:`. No «n offen» chip, phone-tab dot or Rapport-tile count
+  (the editor's to-do list), no «Formulare & Links», no Unterschriften card until a signature
+  exists, no «Im Verlauf ergänzen» without `canWriteRecord`. «Nichts verwendet» (Mittel) is the
+  el's answer as much as the editor's.
+- **Anwesenheit**: the Zeitplan and Schichten tabs and their paper are gated on the shift data,
+  not on the writers – a viewer reads and prints them. The person's sheet (Zeiten, Bemerkung)
+  opens read-only. Writer hints (empty roster «Synchronisiere …», «Hier korrigieren …», the
+  Trupp-lock title, the Zeitplan's gesture help) are not shown.
+- A disabled tick (`TickRow`) is a read-out at full opacity.
+- **Closed Einsatz**: «… für alles andere wieder öffnen» only beside «Wieder öffnen»; the el and a
+  Führungsansicht hear «Der Rapport bleibt korrigierbar», a viewer «Nur ansehen». The
+  Führungsansicht reopens and closes nothing (no «Wieder öffnen» in the chip or in «Alle
+  Einsätze»).
+- **«Alle Einsätze»** tells a viewer its window in a foot line (read from
+  `access.viewerHistoryDays` in `GET /api/config`); the Einsatz card says «Gespeichert» only to a
+  session that saves.
 
 ## Signing in with Microsoft (optional)
 

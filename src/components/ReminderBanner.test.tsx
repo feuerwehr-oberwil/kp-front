@@ -74,8 +74,37 @@ describe('ReminderBanner', () => {
     expect(document.querySelector('.ml .ml-open')).toBeNull()
   })
 
+  // S2 (20.10.2026): the task is the row's sub-line, and a one-line ellipsis cut what to do
+  it('lets the task text run to two lines — the row is marked for the sub-line clamp', () => {
+    render(
+      <>
+        <ReminderBanner due={[due('r1', 'Rückmeldung Strom an EBL: Hauptschalter Liegenschaft Nr. 14 ausgeschaltet bestätigen', '2026-08-23T10:30:00Z')]}
+          onDone={() => {}} onSnooze={() => {}} />
+        <Meldeleiste />
+      </>,
+    )
+    expect(document.querySelector('.ml .ml-row')?.classList.contains('sub2')).toBe(true)
+  })
+
   it('says nothing when nothing is due', () => {
     render(<><ReminderBanner due={[]} onDone={() => {}} onSnooze={() => {}} /><Meldeleiste /></>)
     expect(document.querySelector('.ml')).toBeNull()
+  })
+})
+
+// RBAC audit V3 (22.10.2026): «Erledigt» / «+10 min» write Verlauf rows, so a session that writes
+// none (a viewer, a view or alarm link) gets the row without them – the title still opens the Verlauf
+describe('ReminderBanner for a session that cannot write', () => {
+  it('shows the due Wiedervorlage with no Erledigt / +10 min', () => {
+    render(
+      <>
+        <ReminderBanner due={[due('r1', 'Rückmeldung an die ELZ', '2026-08-23T10:30:00Z')]} onOpen={() => {}} />
+        <Meldeleiste />
+      </>,
+    )
+    const rows = Array.from(document.querySelectorAll('.ml .ml-row'))
+    expect(rows).toHaveLength(1)
+    expect(screen.getByText('Rückmeldung an die ELZ')).toBeTruthy()
+    expect(rows[0].querySelectorAll('.ml-act button')).toHaveLength(0)
   })
 })

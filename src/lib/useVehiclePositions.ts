@@ -19,8 +19,13 @@ const glyphEm = (ch: string): number =>
   : 0.722
 // the name gets ONE size so a fleet reads as a set (it used to scale with 1/length: «RAW» big,
 // «KDO 12» half that). A long name shrinks only down to the floor, then condenses to the width.
-const NAME_FS = 0.6
-const NAME_FS_MIN = 0.48
+// Sizes are in glyph units: the body is 2 × 0.8 of a 2.6-unit viewBox, so at the vehicle floor of
+// 34px (lib/mapView · SYM_MIN_KIND) 0.78 is ~10px of name. Raised from 0.6/0.48 on 20.10.2026
+// (review 7 point 3, owner picked variant D): the name fills the body instead of floating in it.
+// A name too long for 0.78 still lands on the floor and is then condensed to NAME_MAX_W — and
+// since a condensed name is always exactly NAME_MAX_W wide, the higher floor buys it pure height.
+const NAME_FS = 0.78
+const NAME_FS_MIN = 0.66
 const NAME_MAX_W = 1.9
 
 /**
@@ -168,8 +173,11 @@ export function vehiclesSignature(entities: Entity[]): string {
  * default) the path is same-origin: our own backend serves it in production,
  * and the Vite proxy forwards it in dev (see vite.config.ts). VITE_KP_RUECK_URL
  * only exists to point a build at a different backend origin.
+ *
+ * `enabled` false asks nothing at all — a session the route refuses (a Rapport view link) or
+ * that never shows a vehicle (the Atemschutz-Link's Tafel); the list stays empty.
  */
-export function useVehiclePositions(): VehiclePositionsApi {
+export function useVehiclePositions(enabled = true): VehiclePositionsApi {
   const [vehicles, setVehicles] = useState<Entity[]>([])
   const [error, setError] = useState<string | null>(null)
   // Timestamp of the last poll that actually returned data. A REF, not state, on purpose:
@@ -196,6 +204,7 @@ export function useVehiclePositions(): VehiclePositionsApi {
   useFeedPoll<VehiclePosition[]>({
     path: cfg.positionsPath,
     pollMs: cfg.pollMs,
+    enabled,
     deadStatuses: TRACCAR_DEAD_STATUSES,
     onData: (data) => {
       for (const p of data) {

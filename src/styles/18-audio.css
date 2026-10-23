@@ -554,7 +554,7 @@
 .tb-einsatzuhr { color: var(--ink-dim); background: none; border: none; cursor: pointer; font: inherit;
   padding: var(--sp-2) var(--sp-1); margin: -8px 0; border-radius: var(--r-sm); -webkit-tap-highlight-color: transparent; }
 @media (hover: hover) {
-  .tb-einsatzuhr:hover { color: var(--ink); }
+  .tb-einsatzuhr:hover { color: var(--ink); background: var(--fill-soft); }
 }
 .tb-einsatzuhr:active { background: var(--fill-soft); }
 .tb-einsatzuhr .i { width: 14px; height: 14px; }
@@ -577,6 +577,12 @@
 /* a reason under a row's word («Braucht Verbindung zum Server») — the row grows to hold it */
 .tb-uhr-note { display: block; font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-faint); }
 .tb-uhr-row:has(.tb-uhr-note) { height: auto; min-height: 42px; padding-block: var(--sp-2); }
+/* a menu's head sentence, above its rows (TopBar · ArchivedChip: «Einsatz abgeschlossen» and what
+   it means — on a phone the chip is the lock alone, so this is where the words are) */
+.tb-uhr-say { margin: 0; padding: var(--sp-2) var(--sp-3); max-width: 280px; display: flex; flex-direction: column; gap: 2px;
+  font-size: var(--fs-1); font-weight: var(--fw-medium); line-height: 1.35; color: var(--ink-dim); }
+.tb-uhr-say > b { font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); }
+.tb-uhr-say:not(:last-child) { border-bottom: 1px solid var(--border-soft); margin-bottom: var(--sp-1); }
 .tb-uhr-val { font-family: var(--mono); font-size: var(--fs-1); color: var(--ink-dim); }
 .tb-uhr-row .tb-uhr-chk { width: 16px; height: 16px; color: var(--green); flex: none; visibility: hidden; }
 .tb-uhr-row.on .tb-uhr-chk { visibility: visible; }

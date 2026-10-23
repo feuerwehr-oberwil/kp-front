@@ -12,6 +12,7 @@
 import { useLayoutEffect, useRef } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
+import { cx } from '../../lib/cx'
 import type { ErgRingMode } from '../../lib/ergRings'
 import { lookupErg } from '../../lib/erg'
 import { UnHazardSection } from '../UnHazardSection'
@@ -50,7 +51,7 @@ export function KarteGefahrgut({ un, onUn, mode, onMode, center, onClose, phone 
           can be moved */}
       {un && mode !== 'off' && !!lookupErg(un)?.tih?.length && <div className={s.toolHint}><Icon id="pin" /><span>{center ? C.ergCenter : C.ergCenterFirst}</span></div>}
       {un && (
-        <UnHazardSection un={un} ringMode={mode} onRingMode={onMode} ergCoord={center ?? undefined} nameRow />
+        <UnHazardSection un={un} ringMode={mode} onRingMode={onMode} ergCoord={center ?? undefined} nameHero />
       )}
     </>
   )
@@ -73,10 +74,10 @@ export function KarteGefahrgut({ un, onUn, mode, onMode, center, onClose, phone 
     )
   }
   return (
-    <section className={s.toolCard} aria-label={C.tools.erg}>
-      <div className={s.toolHead}>
-        <h3>{C.tools.erg}</h3>
-        <button type="button" className="ip-x" aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
+    <section className={cx('layers-card', s.toolCard)} aria-label={C.tools.erg}>
+      <div className="lc-title">
+        {C.tools.erg}
+        <button type="button" className="ip-x lc-x" aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog} onClick={onClose}><Icon id="close" /></button>
       </div>
       {/* the field stays put above the readout, outside its scroller: typing never scrolls it away,
           and with the keyboard up the card stands on the keys with the field at its top */}
@@ -84,11 +85,11 @@ export function KarteGefahrgut({ un, onUn, mode, onMode, center, onClose, phone 
         <label className={s.fieldLabel} htmlFor="karte-un">{defuseAutofill(C.ergUn)}</label>
         <input
           {...typingFieldProps('number', 'karte-un')}
-          id="karte-un" className={s.field} maxLength={4}
+          id="karte-un" className={cx('ip-input', s.unField)} maxLength={4}
           placeholder={C.ergPlaceholder} value={un} onChange={(e) => digits(e.target.value)}
         />
       </div>
-      <div className={s.toolBody}>{body}</div>
+      <div className="lc-body">{body}</div>
     </section>
   )
 }

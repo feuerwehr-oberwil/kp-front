@@ -58,7 +58,7 @@ export const helpCopy = {
           { kind: 'lead', text: 'Zwei Leisten unten, eine oben: ganz unten die Bereichsleiste, darüber die Werkzeugleiste, oben die Einsatzleiste.', only: 'phone' },
           { kind: 'sub', text: 'Untere Leisten', only: 'phone' },
           { kind: 'list', only: 'phone', items: [
-            'Die **Bereichsleiste** ganz unten hat fünf Felder: Karte, Pläne, Checkliste, Trupps und Rapport. **Pläne** und **Rapport** stehen für mehrere Seiten (Rapport · Anwesenheit · Material): das Feld nochmals antippen oder gedrückt halten öffnet die Auswahl.',
+            'Die **Bereichsleiste** ganz unten hat fünf Felder: Karte, Pläne, Checkliste, Trupps und Rapport. **Pläne** und **Rapport** stehen für mehrere Seiten (Rapport, Anwesenheit, Material): das Feld nochmals antippen oder gedrückt halten öffnet die Auswahl.',
             'Darüber die **Werkzeugleiste** der Karte bzw. des Plans. **+** ist die eine Tür zu allem, was darauf gesetzt wird.',
             'Ein Knopf, auf dem nur ein Zeichen steht, sagt sein Wort, wenn man ihn **gedrückt hält**. In den **Einstellungen** schreibt «Beschriftung der Werkzeugleisten» die Wörter dauerhaft darunter.',
           ] },
@@ -153,7 +153,7 @@ export const helpCopy = {
         blocks: [
           { kind: 'lead', text: 'Werkzeuge der rechten Leiste auf der Karte.' },
           { kind: 'list', items: [
-            '**Symbol** – das taktische Zeichen (FKS/VKF). Schnellwahl der häufigsten Zeichen oder Suche in der ganzen Bibliothek. Tippen platziert; mit dem Schloss mehrere nacheinander setzen.',
+            '**Symbol** – das taktische Zeichen (FKS/VKF). Schnellwahl der häufigsten Zeichen oder Suche in der ganzen Bibliothek. Tippen platziert; mit «Mehrere platzieren» mehrere nacheinander setzen.',
             '**Formen** – im selben Fenster, hinter den Gefahren: **Pfeil** und **Rechteck**, für alles, wofür es kein taktisches Zeichen gibt. Der Griff dreht, die Ecke zieht das Rechteck in die Länge (der Pfeil bleibt proportional, eine verzerrte Spitze liest sich schlecht). Beim Pfeil schaltet **Stopp-Balken** den Querbalken quer zur Spitze ein – die Entwicklungsgrenze: bis hier, und dort gestoppt.',
             '**Auswahl** – Objekte antippen, verschieben, im Editor anpassen.',
             '**Mehrfach** – nochmals auf **Auswahl** tippen, während sie aktiv ist: der Knopf wechselt auf Mehrfach (Zeichen und Wort), und ein gezogener Rahmen wählt mehrere Symbole/Zeichnungen auf einmal aus. Ein weiterer Tipp führt zurück zur Auswahl.',
@@ -185,7 +185,7 @@ export const helpCopy = {
           { kind: 'list', items: [
             'Der Knopf **Karte verknüpfen** unten am Plan legt dieses Blatt auf die Karte: der Plan gibt die halbe Fläche frei, daneben liegt die Karte. Am Telefon reicht der Platz für beides nicht – dort schaltet ein **Karte / Modul**-Umschalter zwischen ihnen. Dieselbe Stelle auf beiden Flächen antippen – Hausecke, Hydrant, Wegkreuzung. **Die Reihenfolge ist egal**: gesetzte Hälften suchen sich ihr Gegenstück selber, und man darf beliebig zwischen den Flächen wechseln. Zwei Punkte genügen fürs Auflegen.',
             'Die **Ampel** in der Leiste sagt die ganze Zeit, woran man ist: zwei Punkte lösen exakt und sind damit **ungeprüft** – erst der dritte misst die Abweichung («4 Punkte · ⌀ 1.2 m»). **Deckung prüfen** legt den Blattumriss zur Sichtprüfung auf die Karte.',
-            'Ein gesetztes Kreuz **ziehen** verschiebt es, **antippen** öffnet **Verschieben · Punkt löschen · Behalten**. Ein Tipp auf **Verknüpft** öffnet die **Passung** mit Paaren und Abweichung; **Übertragen** kopiert die Referenzpunkte auf ein anderes Modul desselben Objekts, **Zurücksetzen** löscht sie (mit Rückfrage). **Schliessen** verwirft nichts – Gesetztes ist längst gespeichert.',
+            'Ein gesetztes Kreuz **ziehen** verschiebt es, **antippen** öffnet **Verschieben**, **Punkt löschen** oder **Behalten**. Ein Tipp auf **Verknüpft** öffnet die **Passung** mit Paaren und Abweichung; **Übertragen** kopiert die Referenzpunkte auf ein anderes Modul desselben Objekts, **Zurücksetzen** löscht sie (mit Rückfrage). **Schliessen** verwirft nichts – Gesetztes ist längst gespeichert.',
             'Ab da zeigen **beide Flächen dieselben Objekte** – keine Kopie, dasselbe Objekt: antippen zeigt die Angaben, ziehen verschiebt, Eckpunkte und Griffe sind auf beiden Seiten dieselben.',
             'Wo ein Objekt **steht**, entscheidet die zuletzt setzende Hand: auf ein Blatt gezogen, steht es auf dem Blatt – und wird mitverschoben, wenn die Passung korrigiert wird. Auf die Karte gezogen, steht es am Boden. Eine korrigierte Passung verortet alles, was auf dem Blatt steht, neu – eine Zeile im Verlauf, ein ↶ nimmt sie zurück. **Blattform gemessen** ist dieselbe Neuverortung ohne Handgriff: die App hat das geöffnete Blatt vermessen und die Passung in der richtigen Form neu gelöst. Beim **Zurücksetzen** der Referenz geht nichts verloren: Blatt und Karte behalten beide, was sie zeigen.',
             'In den **Ebenen** bekommt jedes verknüpfte Blatt eine eigene Zeile («Plan (Modul 2)»): das Blatt selbst als Bild unter der Karte. Die Objekte darauf brauchen keine eigene Zeile mehr – sie gehören zu der Ebene, auf der sie gesetzt wurden.',
@@ -203,7 +203,7 @@ export const helpCopy = {
             '**Wer geht rein**: drei Slots, der oberste ist der **GF** – die ganze Zeile antippen macht jemanden zum Gruppenführer, das **✕** entfernt ihn. Ein grösserer Trupp hängt einfach weitere Zeilen an.',
             'Über die **Personensuche** wird das ganze Personal gefunden, nicht nur die Anwesenden; neben jedem Namen steht, was dagegen spricht (nicht anwesend, Magazin, schon in einem Trupp). **(+)** erfasst einen Gast (Nachbarwehr) – der landet zugleich in der Anwesenheit und gilt dort als derselbe Mensch.',
             '**Eingangsdruck** (bar) und **Funkkanal** stehen rechts daneben.',
-            'Darunter der **Auftrag**: Art – unter Atemschutz Retten · Löschen · Absuchen · Sichern · Erkunden · Anderes, ohne Atemschutz Verkehr · Sanität · Wasserversorgung · Sichern · Bereitstellung · Anderes –, **Ziel / Ort** in Klartext, **Leitung Nr.** (die bereits gezeichneten Leitungen stehen als Schnellwahl daneben) und die **Farbe** auf Karte und Plan.',
+            'Darunter der **Auftrag**: Art (unter Atemschutz Retten, Löschen, Absuchen, Sichern, Erkunden, Anderes; ohne Atemschutz Verkehr, Sanität, Wasserversorgung, Sichern, Bereitstellung, Anderes), **Ziel / Ort** in Klartext, **Leitung Nr.** (die bereits gezeichneten Leitungen stehen als Schnellwahl daneben) und die **Farbe** auf Karte und Plan.',
             'Der Auftrag hält niemanden auf: **Trupp anmelden** geht auch ohne ihn. Die Karte trägt dann **«Auftrag offen»**, und ein Tipp darauf öffnet das Formular.',
             'Getippte Angaben bleiben erhalten, wenn das Fenster mit **✕** oder per Klick daneben geschlossen wird – nur **Abbrechen** verwirft sie.',
           ] },
@@ -305,7 +305,7 @@ export const helpCopy = {
             'Offene Pendenzen stehen **oben im Verlauf**, dringende zuoberst, danach die ältesten. Die Zeit sagt, **wann sie erteilt wurden**; ein Tipp darauf zeigt stattdessen das Alter. Der Ring links hakt sie ab.',
             'Eine Pendenz sammelt **Meldungen**: die Zeile antippen schreibt eine dazu – mit allem, was ein Eintrag kann, also auch als Sprachnotiz oder Foto. Alle Meldungen stehen unter ihrer Pendenz, und im Verlauf trägt jede den Anfang der Pendenz als Verweis; ein Tipp darauf springt zu ihr.',
             'Eine Pendenz hat von sich aus **keine Fälligkeit** – auf dem Schadenplatz meldet sich niemand zur Uhrzeit zurück. Wer eine will, tippt die **Uhr** neben dem Ring: **in 5/10/15/30/60 Minuten** oder **Uhrzeit …** mit Tag und Zeit – in derselben Zeitauswahl wie überall (Walzen, oder die Zeit eintippen), heute oder an einem der nächsten Tage; ein Zeitpunkt, der schon vorbei ist, lässt sich nicht übernehmen. Eine Erinnerung ist damit keine eigene Sorte Zeile mehr, sondern ein Eintrag, der sich zusätzlich selber meldet – mit Art, Foto und Sprachnotiz wie jeder andere. In der Liste steht die Fälligkeit als Zeit neben der Zeile.',
-            'Auf dem Rapport erscheinen sie als **«Aufträge / Pendenzen»** mit Was · Wer · Erteilt · Erledigt; noch offene stehen als **offen** da. Der Abschnitt lässt sich in **«Abschnitte»** abwählen.',
+            'Auf dem Rapport erscheinen sie als **«Aufträge / Pendenzen»** mit Was, Wer, Erteilt und Erledigt; noch offene stehen als **offen** da. Der Abschnitt lässt sich in **«Abschnitte»** abwählen.',
           ] },
           { kind: 'note', text: '**Wer** wird nicht abgefragt: der Satz nennt ihn. «Werkhof Oberwil stellt Absperrmaterial» genügt – der markierte Name landet als Wer auf dem Rapport.' },
         ],
@@ -378,7 +378,7 @@ export const helpCopy = {
           { kind: 'sub', text: 'Tippen & Ziehen (Touch/iPad)' },
           { kind: 'list', items: [
             'Ein Finger schiebt die Karte/den Plan; zwei Finger zoomen (Pinch).',
-            'Auch mit einem Finger: **doppeltippen** zoomt hinein; **tippen, nochmals drücken und ziehen** zoomt stufenlos – nach unten hinein, nach oben hinaus. Gleich auf Karte und Plan; während ein Zeichenwerkzeug aktiv ist, zoomen auf dem Plan nur zwei Finger.',
+            'Auch mit einem Finger: **doppeltippen** zoomt hinein; **tippen, nochmals drücken und ziehen** zoomt stufenlos – nach unten hinein, nach oben hinaus. Gleich auf Karte und Plan, mit der **Auswahl**. Ein Werkzeug hat Vorrang: wo es tippt (Punkte, Messen, Hinzufügen, Notiz, Kreis …), gehört jedes Tippen ihm; wo es zieht (Freihand, Mehrfach), zoomt Doppeltippen weiter. Zwei Finger zoomen immer. Linie und Fläche aus Punkten schliesst ✓ ab, nie ein Doppeltippen.',
             'Nochmals auf **Auswahl** tippen schaltet den Knopf auf **Mehrfach**: ein gezogener Rahmen wählt mehrere Objekte; ausgewählte Objekte verschiebt man durch Ziehen.',
           ] },
           { kind: 'sub', text: 'Maus', only: 'keyboard' },

@@ -117,6 +117,19 @@ the key for persisted `layerState`, the same ids in the manifest mean a station'
 visibility carries across a data refresh. GeoJSON layers fetch from the reference store
 (bbox-cropped to the incident); WMS/WMTS layers draw raster tiles straight from the canton.
 
+**Who does the GeoJSON fetch** (review round 7): the app, not MapLibre — `lib/layerData` streams
+the file while the layer is switched on, counts the bytes against the `Content-Length`, parses it
+once and hands the collection to the source. MapLibre pointed at the URL would download it a
+second time inside its worker and, worse, say nothing meanwhile: a station's «Leitungen» is
+megabytes, and the Ebenen row stood there unchanged until it was done. The row now carries the
+app's own `ShellLoader`, «Wird geladen … 1.2 MB von 3.4 MB» and a determinate bar (`LayerPanel`). The size it
+divides by is the endpoint's own `X-Raw-Bytes` header, never `Content-Length`: the API gzips
+anything over 1 KB, so `Content-Length` counts compressed bytes while the browser's stream hands
+out decoded ones — dividing by it claimed «3.4 MB von 900 KB». Without a raw size the loader
+stands alone, an empty file says «Keine Daten in dieser Ebene», and a
+refused one says so and is retried by switching the layer off and on. Parsed collections stay in
+memory, so a second toggle costs nothing.
+
 ## Why it's shaped this way
 
 - **No station data in the repo** → clean open-source, no licensing/security exposure; each

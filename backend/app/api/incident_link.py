@@ -108,6 +108,7 @@ from ..auth.incident_link import (
     key_fingerprint,
     read_terminal_device_fingerprint,
 )
+from ..auth.secret_token import secret_matches
 from ..database import get_db
 from ..deployment_config import config_row
 from ..models import INCIDENT_ACTIVE_STATUSES, DeploymentConfig, Incident
@@ -400,8 +401,9 @@ async def _standing_key(db: AsyncSession, column: str) -> str | None:
 
 def _standing_secret_ok(secret: str, key: str) -> bool:
     """The vk lookup, inverted: the standing key is one column on a singleton row, so the
-    secret is COMPARED rather than looked up — constant-time, like every credential check."""
-    return bool(secret) and secrets.compare_digest(secret, key)
+    secret is COMPARED rather than looked up — constant-time, like every credential check, and
+    as bytes so a non-ASCII secret is the uniform 401, not a 500 (`secret_matches`)."""
+    return secret_matches(secret, key)
 
 
 async def _open_standing_atemschutz_session(

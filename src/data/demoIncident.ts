@@ -19,9 +19,11 @@ const wmts = (l: string) => `https://wmts.geo.admin.ch/1.0.0/${l}/default/curren
 // Carto raster basemaps (a–d subdomains). Dark Matter is the night theme; it also serves as the
 // `nightTiles` swap for the light street bases so night mode shows a real dark map, not a dimmed one.
 // Written at 1× here; a retina screen gets CARTO's `@2x` tiles where the layers are derived
-// (lib/carto · withCartoRetina, via workspace · builtinAndConfigLayers).
+// (lib/carto · withCartoRetina, via workspace · builtinAndConfigLayers). The `_nolabels` styles:
+// the names are vector text on top (`labels`, lib/basemapLabels); print and the plain raster
+// pickers ask for the labelled twin (lib/carto · withCartoLabelsBaked).
 const carto = (style: string) => ['a', 'b', 'c', 'd'].map((s) => `https://${s}.basemaps.cartocdn.com/${style}/{z}/{x}/{y}.png`)
-const CARTO_DARK = carto('dark_all')
+const CARTO_DARK = carto('dark_nolabels')
 
 export const incident: Incident = {
   type: '',
@@ -41,7 +43,7 @@ export const layers: LayerDef[] = [
   // The swisstopo farbig/grau, Esri-satellite, and OpenTopoMap variants were dropped — the
   // long radio list made the Ebenen panel unnavigable. A workspace that had a removed base
   // selected falls back to Carto in deriveInitial (workspace.ts).
-  { id: 'base-carto', group: 'Basis', label: 'Carto', icon: 'map', base: true, visible: true, opacity: 100, tiles: carto('rastertiles/voyager'), nightTiles: CARTO_DARK, maxzoom: 20, attribution: '© CARTO, © OpenStreetMap-Mitwirkende' },
+  { id: 'base-carto', group: 'Basis', label: 'Carto', icon: 'map', base: true, visible: true, opacity: 100, tiles: carto('rastertiles/voyager_nolabels'), nightTiles: CARTO_DARK, labels: true, maxzoom: 20, attribution: '© CARTO, © OpenStreetMap-Mitwirkende' },
   { id: 'base-osm', group: 'Basis', label: 'OpenStreetMap', shortLabel: 'OSM', icon: 'map', base: true, visible: false, opacity: 100, tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'], maxzoom: 19, attribution: '© OpenStreetMap-Mitwirkende' },
   // swissimage has real z20 tiles (10 cm imagery; checked 17.10.2026, z21 answers 400): at 19
   // the closest zoom stretched z19 four times over and the satellite was the blurriest base

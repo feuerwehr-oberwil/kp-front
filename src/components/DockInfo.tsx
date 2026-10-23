@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from '../lib/icons'
 import { cx } from '../lib/cx'
@@ -12,6 +12,20 @@ import s from './DockInfo.module.css'
 // tip. Use it where the container is a menu/popover that HAS the room (the compass/views popover) —
 // a floating tip there collides with the map + the popover itself. The thin tool docks keep the
 // floating tip (they have no room for inline text).
+/**
+ * THE card a map tool explains itself in: the dark message surface at the bottom-centre of the
+ * viewport (on a phone, in the message lane), fixed to the viewport so no dock's transform can
+ * drag it off-screen.
+ *
+ * Shared on purpose. Until review round 7 the ⓘ help below wore this card while «Punkt setzen»'s
+ * own instruction was a thin dim pill of its own — two look-alikes a hand's width apart, and the
+ * owner read the quiet one as the lesser message (20.10.2026: «different padding and coloration»).
+ * One tool, one voice: whoever explains the map does it in here.
+ */
+export function MapHelpCard({ children, role }: { children: ReactNode; role: 'tooltip' | 'status' }) {
+  return <span className={s['wb-dock-tip']} role={role}>{children}</span>
+}
+
 export function DockInfo({ text, inline }: { text: string; inline?: boolean }) {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -30,6 +44,9 @@ export function DockInfo({ text, inline }: { text: string; inline?: boolean }) {
       aria-expanded={open}
       onClick={() => setOpen((v) => !v)}
       onBlur={inline ? undefined : () => setOpen(false)}
+      // Escape folds the help away and nothing else (S8, 20.10.2026): stopped here, so the
+      // surface's own Escape does not also disarm the tool whose dock this is
+      onKeyDown={(e) => { if (e.key === 'Escape' && open) { e.stopPropagation(); setOpen(false) } }}
     >
       <Icon id="info" />
     </button>
@@ -48,7 +65,7 @@ export function DockInfo({ text, inline }: { text: string; inline?: boolean }) {
       {/* portal to <body>: the tip is `position: fixed` (bottom-centre of the viewport), but the
           dock's own `transform` would otherwise become its containing block and pin it to the dock
           (off-screen, right edge). Rendering at the body root lets fixed resolve to the viewport. */}
-      {open && createPortal(<span className={s['wb-dock-tip']} role="tooltip">{text}</span>, document.body)}
+      {open && createPortal(<MapHelpCard role="tooltip">{text}</MapHelpCard>, document.body)}
     </span>
   )
 }

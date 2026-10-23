@@ -151,10 +151,12 @@ export interface Prefs {
   twinLayers?: Record<string, boolean>
   /** Transparency (0..100) of opt-in georeferenced plan rasters on the Lage map. */
   twinLayerOpacity?: Record<string, number>
-  /** The Karte's «Niederschlag (Radar)» row in Ebenen (components/WeatherLayer). A device pref
-   *  like the plan rasters: what this screen looks at, not the Einsatz's tactical picture.
-   *  Off by default – the radar is something you look at on purpose. */
-  weatherRadar?: boolean
+  /** The Karte's «Niederschlag (Radar)» row in Ebenen (components/WeatherLayer): the id of the
+   *  Einsatz it is switched on in (workspace/useKarteWeather · einsatzRadarStore). A device pref
+   *  like the plan rasters – what this screen looks at, not the Einsatz's tactical picture – but
+   *  only for that one Einsatz: every other starts without it, the radar is something you look
+   *  at on purpose. */
+  weatherRadarIn?: string
   /** its transparency (0..100), the Ebenen panel's own slider */
   weatherRadarOpacity?: number
 }

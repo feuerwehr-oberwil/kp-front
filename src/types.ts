@@ -17,6 +17,7 @@ export interface LayerDef {
   opacity?: number      // 0..100, only for overlay layers (plan)
   tiles?: string[]      // raster tile template(s) for base layers
   nightTiles?: string[] // optional dark-theme raster to swap to in night mode (e.g. Dark Matter)
+  labels?: boolean      // the raster is unlabelled; draw CARTO's names on top as vector text (lib/basemapLabels)
   dark?: boolean        // base is already dark (skip the night dim)
   maxzoom?: number
   attribution?: string
@@ -658,10 +659,11 @@ export interface TimelineEvent {
    *  non-FU scans to operate only the Überwachung of this Einsatz — see lib/viewLink), or
    *  through the standing fixe Atemschutz-URL (`atemschutz-fix`, the laminated QR). The
    *  Verlauf prints both as the same small footnote beside the row, so «wer hat das
-   *  eingetragen» has an answer on a board that deliberately asks nobody for a name. Absent on
-   *  everything else, and never set by this client: the app cannot vouch for its own
-   *  provenance. */
-  via?: 'atemschutz-link' | 'atemschutz-fix'
+   *  eingetragen» has an answer on a board that deliberately asks nobody for a name. `capture`
+   *  marks the Erfassungs-Poster's rows (22.10.2026; no footnote — it is what lets the server
+   *  keep the poster's corrections to its own rows). Absent on everything else, and never set
+   *  by this client: the app cannot vouch for its own provenance. */
+  via?: 'atemschutz-link' | 'atemschutz-fix' | 'capture'
 }
 
 /** `'info'` · `'auftrag'` (Befehlsgebung) · `'sofort'` (Sofortmassnahme). See TimelineEvent. */
@@ -828,6 +830,10 @@ export type PreparedMapOverlay =
       fillOpacity?: number
       lineWidth?: number
       lineOpacity?: number
+      /** mount transparent and let MapLibre's paint transition carry the pair to its opacity
+       *  (MapLayers · FilledOverlay) — «Karte & Objekte»'s outlines, which answer a viewport
+       *  fetch well after the map stands */
+      fadeIn?: boolean
       lineDasharray?: number[]
       /** paint the inside with the Schraffur tile of `color` (lib/draw · hatchImageId) instead of a
        *  flat fill — the viewer hatches map area this device holds no base map for */

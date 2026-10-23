@@ -1,7 +1,6 @@
 /* «Gebäude» (BuildingCard, KP Front F5): the body of the card its chip opens on the Karte / Plan
-   (BuildingFloat supplies the glass). The tags are the card
-   pill's (13-incident · .ip-card-pill): read-only, not chips you tap. A hazard is the amber tag
-   WITH the warn glyph and its word, so it never rests on colour alone. */
+   (BuildingFloat supplies the glass). The tags and the notes are BuildingFacts' (shared with the
+   Karte panel); this file lays out the card around them. */
 .card { display: flex; flex-direction: column; gap: var(--sp-1); }
 .head { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .head .hint { margin-left: auto; }
@@ -11,19 +10,19 @@
 .title svg, .hint svg { width: 12px; height: 12px; flex: none; }
 .hint { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; font: var(--fw-medium) var(--fs-micro)/var(--lh-micro) var(--body);
   color: var(--ink-faint); white-space: nowrap; }
-.chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; }
-.chip { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; max-width: 100%; padding: var(--sp-1) var(--sp-2);
-  border-radius: var(--r-xs); font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body);
-  color: var(--ink); background: var(--ink-8); }
-.chip > span { min-width: 0; overflow-wrap: anywhere; }
-.chip svg { width: 14px; height: 14px; flex: none; }
+/* «Register-Hinweis» opens the hint and the source line, as it does in the Karte panel (owner,
+   20.10.2026: on the tablet the old `title=` tooltip did nothing). A 44px target that does NOT
+   grow the head — the negative block margin hangs it over the rows, like the ✕ beside it. */
+.hintBtn { position: relative; isolation: isolate; min-height: var(--tap); margin-block: calc(var(--sp-2) * -1); padding: 0 var(--sp-1);
+  border: none; background: none; font-size: var(--fs-micro); cursor: pointer; }
+.hintBtn::before { content: ''; position: absolute; inset: 9px 0; z-index: -1; border-radius: var(--r-xs); }
+@media (hover: hover) { .hintBtn:hover { color: var(--ink-dim); } .hintBtn:hover::before { background: var(--hover); } }
+.hintBtn:active::before { background: var(--press); }
+.hintBody { display: flex; flex-direction: column; gap: var(--sp-1); }
+/* the notes a step below the hazard tags */
+.notes { margin-top: var(--sp-1); }
 /* the register facts below the notes: a step apart from the notes' caption above them */
 .facts { margin-top: var(--sp-1); }
-.hazard { color: var(--amber-strong); background: var(--amber-16); }
 .sources { margin: 0; font: var(--fw-medium) var(--fs-micro)/var(--lh-micro) var(--body); color: var(--ink-faint); overflow-wrap: anywhere; }
-.notes { margin-top: var(--sp-1); }
-.notesLabel { font: var(--fw-bold) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
-.measures .notesLabel { color: var(--ink); }
-.lines { margin: 2px 0 0; padding-left: var(--sp-4); font: var(--fw-medium) var(--fs-2)/var(--lh-2) var(--body); color: var(--ink); }
 .visit { display: flex; align-items: center; gap: var(--sp-1); margin: var(--sp-1) 0 0; font: var(--fw-medium) var(--fs-1)/var(--lh-1) var(--body); color: var(--ink-dim); }
 .visit svg { width: 14px; height: 14px; flex: none; }

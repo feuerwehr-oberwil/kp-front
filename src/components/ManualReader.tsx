@@ -3,20 +3,21 @@ import type { ChecklistTemplate } from '../lib/checklists'
 import { checklistAssetUrl, fmtDay } from '../lib/checklists'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { smartHyphens } from '../lib/smartHyphens'
 import { DiagramFigure, PhoneLinked } from './ChecklistReference'
 import s from './ManualReader.module.css'
 
 /** Where the open Anleitung stands among its device's chapters (lib/checklists · chapterOf) and
  *  how to move: the reader says «Kapitel k von n» and offers the neighbours at its foot, so a
- *  device is read through at the device without going back to the list (19.10.2026). */
+ *  device is read through at the device without going back to the list (19.10.2026). The way UP
+ *  to the device is the host's back row above the reader («‹ TLF», components/ListRow · BackRow) –
+ *  the one thing at the top (owner pick, 20.10.2026: back on top, prev/next at the foot). */
 export interface ChapterNav {
   k: number
   n: number
   prev: ChecklistTemplate | null
   next: ChecklistTemplate | null
   onGo: (manualId: string) => void
-  /** back to the device's page – the device name in the meta line becomes a link */
-  onDevice?: () => void
 }
 
 // Reading view for one Anleitung (kind: manual, 05.10.2026): a device's instructions as big
@@ -32,9 +33,6 @@ export function ManualReader({ manual, chapter }: { manual: ChecklistTemplate; c
     chapter ? fillTemplate(CL.chapterOf, { k: chapter.k, n: chapter.n }) : null,
     manual.updated ? fillTemplate(CL.manualUpdated, { date: fmtDay(manual.updated) }) : null,
   ].filter(Boolean).join(' · ')
-  const device = manual.device && chapter?.onDevice
-    ? <button type="button" className={s['mn-device-link']} onClick={chapter.onDevice}>{manual.device}</button>
-    : manual.device
   return (
     <article className={s['mn-doc']}>
       <header className={s['mn-head']}>
@@ -42,7 +40,7 @@ export function ManualReader({ manual, chapter }: { manual: ChecklistTemplate; c
         {(manual.device || rest) && (
           <p className={s['mn-meta']}>
             <Icon id="doc" />
-            <span>{device}{manual.device && rest ? ' · ' : ''}{rest}</span>
+            <span>{manual.device}{manual.device && rest ? ' · ' : ''}{rest}</span>
           </p>
         )}
       </header>
@@ -73,7 +71,7 @@ export function ManualReader({ manual, chapter }: { manual: ChecklistTemplate; c
               {(step.images ?? []).map((img) => (
                 <DiagramFigure
                   key={img.page}
-                  url={checklistAssetUrl(manual.id, img.page)}
+                  url={checklistAssetUrl(manual, img.page)}
                   caption={img.caption}
                   alt={img.caption ?? fillTemplate(CL.manualImageAlt, { n: i + 1 })}
                   openLabel={CL.manualImageOpen}
@@ -84,22 +82,32 @@ export function ManualReader({ manual, chapter }: { manual: ChecklistTemplate; c
         ))}
       </ol>
       {manual.source && <p className={s['mn-source']}>{fillTemplate(CL.manualSource, { source: manual.source })}</p>}
+      {/* the neighbours at the foot: ONE row of two equal buttons, «‹ 2 Kabine» | «4 Saugbetrieb ›»
+          – the number and the title, the side says the direction (owner pick, 20.10.2026). The
+          first chapter leaves the left half empty, so «next» always stands on the right. */}
       {chapter && (chapter.prev || chapter.next) && (
         <nav className={s['mn-chapters']} aria-label={CL.chapterNav}>
           {chapter.prev && (
-            <button type="button" className={s['mn-chapter-prev']} onClick={() => chapter.onGo(chapter.prev!.id)}>
-              <Icon id="chevron-left" />
-              <span><small>{fillTemplate(CL.chapterN, { k: chapter.k - 1 })}</small>{chapter.prev.title}</span>
-            </button>
+            <ChapterStep dir="prev" k={chapter.k - 1} title={chapter.prev.title} onGo={() => chapter.onGo(chapter.prev!.id)} />
           )}
           {chapter.next && (
-            <button type="button" className={s['mn-chapter-next']} onClick={() => chapter.onGo(chapter.next!.id)}>
-              <span><small>{fillTemplate(CL.chapterN, { k: chapter.k + 1 })}</small>{chapter.next.title}</span>
-              <Icon id="chevron" />
-            </button>
+            <ChapterStep dir="next" k={chapter.k + 1} title={chapter.next.title} onGo={() => chapter.onGo(chapter.next!.id)} />
           )}
         </nav>
       )}
     </article>
+  )
+}
+
+/** one half of the chapter foot: «‹ 2 Kabine» or «4 Saugbetrieb ›»; named «Kapitel 2: Kabine» */
+function ChapterStep({ dir, k, title, onGo }: { dir: 'prev' | 'next'; k: number; title: string; onGo: () => void }) {
+  return (
+    <button type="button" className={s[`mn-chapter-${dir}`]} onClick={onGo}
+      aria-label={`${fillTemplate(appConfig.copy.checklists.chapterN, { k })}: ${title}`}>
+      {dir === 'prev' && <Icon id="chevron-left" />}
+      {/* no space between the two: the gap is the number's margin (ManualReader.module.css) */}
+      <span className={s['mn-chapter-label']} ref={smartHyphens}><span className={s['mn-chapter-num']}>{k}</span>{title}</span>
+      {dir === 'next' && <Icon id="chevron" />}
+    </button>
   )
 }

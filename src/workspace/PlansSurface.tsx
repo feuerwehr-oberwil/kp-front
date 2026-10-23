@@ -9,6 +9,7 @@ import { LoadingStatus } from '../components/ShellLoader'
 import type { BoardHistory } from '../components/useBoardDoc'
 import type { BoardViews } from '../components/useBoardView'
 import type { TafelPagesProps } from '../components/Whiteboard'
+import type { TruppFinderDoor } from '../components/WbControls'
 import { appConfig } from '../config/appConfig'
 import { gebaeudeDoc } from '../data/demoIncident'
 import type { AtemschutzAlarmState } from '../lib/atemschutz'
@@ -60,7 +61,6 @@ export interface PlansSurfaceProps {
   incidentMeta: IncidentMeta
   activeObjectPos: LngLat | null
   incidentView: Incident
-  isEl: boolean
   setPickerOpen: Dispatch<SetStateAction<boolean>>
   symbolScale: Record<SymbolSurface, number>
   activeLinkedPlan: GeorefPlan | null
@@ -130,12 +130,14 @@ export interface PlansSurfaceProps {
   setPlanScale: Dispatch<SetStateAction<PlanScales>>
   /** the Tafel's pages (workspace/useTafelPages) — absent for a link session */
   tafel: TafelPagesProps | undefined
+  /** «Trupp finden» on the plan's Trupp dock, the Karte's finder (UX sweep M9) */
+  truppFinder: TruppFinderDoor
 }
 
 export function PlansSurface({
   mode, sym, guarded, railLabels, planDocs, tacticalLocked, isPhone, journalOpen, replayActive,
   linkScoped, activePlanId, activeObjectName, activeObjectAddress, buildingInfo, activeObjectNearby,
-  incidentMeta, activeObjectPos, incidentView, isEl, setPickerOpen, symbolScale, activeLinkedPlan,
+  incidentMeta, activeObjectPos, incidentView, setPickerOpen, symbolScale, activeLinkedPlan,
   symbolCaptions, mapSuppressedCaptions, planLive, planPhotos, moveLiveOnSheet, showPlanSourceOnMap,
   replayBoard, board, trails, deleteGhostTrail, armTrailDrop, setBoard, replayBuilding, building,
   floorPack, objects, planBindings, activeObjectId, setBuilding, setActivePlanId, rememberGebaeudeStep,
@@ -145,7 +147,7 @@ export function PlansSurface({
   planKeys, planFocus, effTrupps, truppCounterNames, teamNameTaken, azAlarm, updateTrupp,
   askTruppEntry, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker, linkTruppLine, unlinkLine,
   linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, syncLineNoToTrupp, setMode, setPanel,
-  setTruppFocus, planScale, setPlanScale, tafel,
+  setTruppFocus, planScale, setPlanScale, tafel, truppFinder,
 }: PlansSurfaceProps) {
   return (
     <>
@@ -182,9 +184,10 @@ export function PlansSurface({
           georefAnchor={activeObjectPos ?? incidentView.center}
           // the Einsatzort on the Gebäude picker — only a REAL coordinate (0/0 is Divera's «none»)
           incidentPos={incidentMeta.lng != null && incidentMeta.lat != null && (incidentMeta.lng !== 0 || incidentMeta.lat !== 0) ? [incidentMeta.lng, incidentMeta.lat] : null}
-          // not for el: the pick is `pickedObjectId` in the shared blob, which its record slice
-          // never pushes — the switch would hold on this device until the next hydrate
-          onObjectSwitch={linkScoped || isEl ? undefined : () => setPickerOpen(true)}
+          // a locked session gets no picker (viewer, el, Führungsansicht, link, replay – RBAC
+          // audit V5): the pick is `pickedObjectId` in the shared blob, and a viewer's or the el's
+          // switch held on this device only, until the next hydrate. The chip stays a read-out.
+          onObjectSwitch={tacticalLocked ? undefined : () => setPickerOpen(true)}
           // A georeferenced Modul has the Karte's real scale, so its tactical symbols follow the
           // Karte setting too. Standalone sheets keep the independent Modul preference.
           symMul={planSymbolScale(symbolScale, !!activeLinkedPlan)}
@@ -212,7 +215,11 @@ export function PlansSurface({
           onChange={(next, opts) => { if (tacticalLocked) return; setBoard((b) => ({ ...b, [activePlanId]: next }), opts) }}
           building={replayActive ? replayBuilding : building}
           floorPack={floorPack}
+          // ⚠️ Every writer below that changes the shared blob is wired WITH the lock (RBAC audit
+          // 22.10.2026, hardening): the Whiteboard already withholds the doors on a locked plan, but
+          // a writer that cannot be reached is the second wall, not the first one's replacement.
           onSelectBuilding={async (src, orientDeg, geo) => {
+            if (tacticalLocked) return
             // Picking new footprint(s) changes the building under the floor-stack — usually an
             // AMENDMENT (a Nebengebäude added, a wrong footprint dropped), not a fresh start.
             //
@@ -291,9 +298,9 @@ export function PlansSurface({
           // this only moves the active one, which is what makes the merged tile navigable at all
           // (railPlanTiles reads activePlanId to decide which face the tile wears).
           onBuildingFace={(face) => setActivePlanId(face === 'pick' ? BUILDING_PICK_ID : gebaeudeDoc.id)}
-          onReorient={onReorient}
+          onReorient={tacticalLocked ? undefined : onReorient}
           onAddFloor={(dir) => {
-            if (!building || building.pack) return
+            if (tacticalLocked || !building || building.pack) return
             const prevBuilding = building
             const newFloor = dir > 0 ? Math.max(...building.floors) + 1 : Math.min(...building.floors) - 1
             const nextBuilding = { ...prevBuilding, floors: dir > 0 ? [...prevBuilding.floors, newFloor] : [newFloor, ...prevBuilding.floors] }
@@ -326,7 +333,7 @@ export function PlansSurface({
             addedRow()
           }}
           onRemoveFloor={async (floor) => {
-            if (building?.pack || floorPack?.tiles[floor]) return
+            if (tacticalLocked || building?.pack || floorPack?.tiles[floor]) return
             const prevBuilding = building
             const nextBuilding = prevBuilding ? { ...prevBuilding, floors: prevBuilding.floors.filter((f) => f !== floor) } : prevBuilding
             // ⚠️ Only the stack's OWN annos are swept (24.09.2026). The view also shows the Karte's
@@ -371,7 +378,7 @@ export function PlansSurface({
           sym={sym}
           rosterNames={rosterNames}
           rosterRank={rosterRank}
-          onRosterField={(symbol, label, key, name) => linkRosterFields({ symbol, label } as Entity, { [key]: name })}
+          onRosterField={tacticalLocked ? undefined : (symbol, label, key, name) => linkRosterFields({ symbol, label } as Entity, { [key]: name })}
           // the same two roster read-outs the Lage's symbol panel has shown all along: who that
           // name already is ON the dropdown entry, and the contradiction a filled field carries
           // UNDER it. A plan symbol is not an Entity, so the hint call is fed its parts.
@@ -401,7 +408,7 @@ export function PlansSurface({
           truppSeverities={azAlarm.severities}
           // the plan's Trupp tool placed a chip FOR a Trupp — same ask as every other placement:
           // the picture now says the crew is there, so «einrücken?» belongs here (askTruppEntry)
-          onLinkTrupp={(annoId, truppId) => { updateTrupp(truppId, { annoId, planId: activePlanId }); void askTruppEntry(truppId) }}
+          onLinkTrupp={tacticalLocked ? undefined : (annoId, truppId) => { updateTrupp(truppId, { annoId, planId: activePlanId }); void askTruppEntry(truppId) }}
           // …and the chip's half of the join, joined from the picture rather than from the card —
           // the identical wiring the map marker's menu gets, through the identical action, so the
           // takeover confirm and the «einrücken?» ask exist exactly once for both surfaces
@@ -410,15 +417,16 @@ export function PlansSurface({
             else releaseTruppMarker(annoId)
           }}
           onTeamNewTrupp={tacticalLocked ? undefined : newTruppFromMarker}
-          onLinkLineTrupp={(annoId, truppId) => (truppId ? linkTruppLine(truppId, annoId) : unlinkLine(annoId))}
+          onLinkLineTrupp={tacticalLocked ? undefined : (annoId, truppId) => (truppId ? linkTruppLine(truppId, annoId) : unlinkLine(annoId))}
           // a Leitung end snapped onto a Trupp's chip IS the Leitung pick (15.09.) — the same
           // call the Karte makes from its own magnet (lib/useMapDrawing · onLineAttached)
-          onLineAttached={(annoId, attachment) => { linkLineToAttachedTrupp(annoId, attachment) }}
-          onLineDetached={(annoId, previous) => { unlinkLineFromDetachedTrupp(annoId, previous) }}
-          onLineRenumber={syncLineNoToTrupp}
+          onLineAttached={tacticalLocked ? undefined : (annoId, attachment) => { linkLineToAttachedTrupp(annoId, attachment) }}
+          onLineDetached={tacticalLocked ? undefined : (annoId, previous) => { unlinkLineFromDetachedTrupp(annoId, previous) }}
+          onLineRenumber={tacticalLocked ? undefined : syncLineNoToTrupp}
           // the plan chip's twin of the map marker's jump — it points at the card too
           onShowTrupp={(truppId) => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: truppId, nonce: Date.now() }) }}
           tafel={tafel}
+          truppFinder={truppFinder}
           planScale={planScale}
           onCalibrate={(planId, sc) => { if (tacticalLocked) return; setPlanScale((m) => { if (!sc) { const { [planId]: _drop, ...rest } = m; return rest } return { ...m, [planId]: sc } }) }}
         /></Suspense>

@@ -113,7 +113,8 @@ questions, and what the record keeps (`components/AtemschutzView`). Module rules
   and filing them again. A session that cannot write the record (the Atemschutz-Link) files and
   logs nothing; every device that can OBSERVES the Trupps and files a missing crew under derived
   ids (`lib/crewFiling`) — ONCE per (Trupp, person): the Trupp's `crewFiled` marker (grow-only,
-  merged as a union, kept by every undo restore) records who was filed or already there, so a
+  merged as a union, kept by every undo restore; an `el` sends it with the record slice, which
+  the server unions onto its Trupps — docs/sync-and-offline.md) records who was filed or already there, so a
   person somebody takes OFF the Anwesenheit is never written back by another device (the
   ghost-trail trap). «Entfernen» on a crew INSIDE asks first («Raus melden» focused), and
   every removal raises the confirm-with-undo toast. «Nicht eingesetzt» is a VISIBLE quiet button

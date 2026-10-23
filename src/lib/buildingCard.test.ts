@@ -75,6 +75,60 @@ describe('buildingChips', () => {
   })
 })
 
+describe('Gebäudeklasse, Wärmeerzeuger, Wohnungen per Geschoss', () => {
+  // Amselstrasse 30, Oberwil (EGID 409220) as the register answered on 20.10.2026
+  const amsel = info({
+    address: 'Amselstrasse 30, 4104 Oberwil',
+    plants: [],
+    gwr: {
+      ...gwr, floors: 2, flats: 9, year: 1986, shelter: true, heating: ['gas'], hot_water: ['gas'],
+      building_class: 'multi_family',
+      heaters: [{ generator: 'boiler', energy: 'gas', shared: true }],
+      water_heaters: [{ generator: 'boiler', energy: 'gas', shared: false }],
+      flats_by_floor: [{ level: 0, flats: 3, maisonettes: 0 }, { level: 1, flats: 6, maisonettes: 6 }],
+      rooms_min: 2, rooms_max: 4,
+    },
+  })
+
+  it('the class leads, the generator stands next to the fuel, the flats fold into one line', () => {
+    expect(buildingChips(amsel).map((c) => [c.text, c.hazard])).toEqual([
+      ['Heizung Gas, Heizkessel für mehrere Gebäude', true],
+      ['Mehrfamilienhaus', false],
+      ['2 Geschosse', false],
+      ['9 Wohnungen · EG 3 · 1. OG 6 (Maisonette) · 2–4 Zi.', false],
+      ['Baujahr 1986', false],
+      ['Schutzraum', false],
+    ])
+    // hot water from the same kind of gas boiler says nothing new
+    expect(buildingChips(amsel).some((c) => c.key.startsWith('water'))).toBe(false)
+    expect(buildingChipSummary(amsel)?.words).toEqual(['Gas'])
+  })
+
+  it('a second system and hot water that differs each get their chip; a heat pump is not said twice', () => {
+    const chips = buildingChips(info({ plants: [], gwr: {
+      ...gwr, heating: ['air', 'wood'], hot_water: ['electricity'],
+      heaters: [{ generator: 'heat_pump', energy: 'air', shared: false }, { generator: 'stove', energy: 'wood', shared: false }],
+      water_heaters: [{ generator: 'electric_boiler', energy: 'electricity', shared: false }],
+    } }))
+    expect(chips.filter((c) => c.key.startsWith('heat') || c.key.startsWith('water')).map((c) => c.text)).toEqual([
+      'Heizung Wärmepumpe (Luft)', 'Heizung Holz, Ofen', 'Warmwasser Elektro, Elektroboiler',
+    ])
+  })
+
+  it('mixed Maisonettes, a basement flat, and a house whose class already says its one flat', () => {
+    const mixed = buildingChips(info({ plants: [], gwr: { ...gwr, flats: 4, flats_by_floor: [
+      { level: -1, flats: 1, maisonettes: 0 }, { level: 2, flats: 3, maisonettes: 1 },
+    ] } }))
+    expect(mixed.find((c) => c.key === 'flats')?.text).toBe('4 Wohnungen · 1. UG 1 · 2. OG 3 (1 Maisonette)')
+    const house = buildingChips(info({ plants: [], gwr: {
+      ...gwr, flats: 1, building_class: 'single_family', rooms_min: 5, rooms_max: 5,
+      flats_by_floor: [{ level: 0, flats: 1, maisonettes: 1 }],
+    } }))
+    expect(house.map((c) => c.text)).toContain('Einfamilienhaus')
+    expect(house.find((c) => c.key === 'flats')?.text).toBe('5 Zi.')
+  })
+})
+
 describe('sources, notes, object, visit', () => {
   it('every fact names its source and date', () => {
     expect(buildingSources(info())).toBe('GWR Hauptstrasse 10 · Stand 07.10.2026 · Heizung erfasst 29.06.2022 · BFE abgefragt 09.10.2026')

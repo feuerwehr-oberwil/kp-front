@@ -4,7 +4,7 @@ import { withRetiredKinds, type StationObject } from '../api/stationReference'
 import type { DeploymentModule } from '../deploymentConfig'
 import { nearestObjects, normText, openableCount, searchObjects } from './search'
 import {
-  nearbyObjects, nearestPoints, normAddress, objectAtAddress, splitAddress, objectVisitHref, outlineFor, pinNear, placeVisitHref,
+  compass8, nearbyPlaces, NEARBY_MAX, normAddress, objectAtAddress, splitAddress, objectVisitHref, outlineFor, pinNear, placeVisitHref,
   pointsFromGeoJson, ringAt, ringsFromOverpass, streetKey,
   nameIsAddress, nameSaysAddress, objectAddress, objectHeadSub, objectRowSub,
 } from './places'
@@ -97,23 +97,46 @@ describe('places', () => {
     expect(objectAtAddress(ALL, '')).toBeNull()
   })
 
-  it('lists what is near by distance only, nearest first, never the object itself', () => {
-    const near = nearbyObjects(ALL, [SCHLOSS.lng!, SCHLOSS.lat!], { exceptId: 'schloss' })
-    expect(near.map((n) => n.item.id)).toEqual(['depot', 'mag'])
-    expect(near[0].distanceM).toBeGreaterThan(20)
-    expect(near[0].distanceM).toBeLessThan(60)
-    // the Schulhaus is ~250 m away: outside the radius, not «in der Nähe»
-    expect(near.some((n) => n.item.id === 'schule')).toBe(false)
+  it('lists objects and hydrants in ONE list by distance, never the object itself', () => {
+    const at: LngLat = [SCHLOSS.lng!, SCHLOSS.lat!]
+    const hyd = pointsFromGeoJson({ features: [
+      { geometry: { type: 'Point', coordinates: [7.5702, 47.5239] }, properties: {} }, // ~15 m north
+      { geometry: { type: 'Point', coordinates: [7.58, 47.53] }, properties: {} }, // ~1 km away
+    ] }, 'h')
+    const near = nearbyPlaces(ALL, hyd, at, { exceptId: 'schloss' })
+    // the hydrant is closest, then the objects by distance; the Schulhaus (~250 m) is outside
+    expect(near.map((n) => n.item.id)).toEqual(['h0', 'depot', 'mag'])
+    expect(near[0]).toMatchObject({ kind: 'hydrant', dir: 0 })
+    expect(near.map((n) => n.distanceM)).toEqual([...near.map((n) => n.distanceM)].sort((a, b) => a - b))
   })
 
-  it('takes the nearest points whatever the distance', () => {
+  it('keeps the nearest hydrant in the list, however far, in place of the last row', () => {
+    const at: LngLat = [7.57, 47.52]
+    // six objects within ~60 m, the only hydrant ~1 km away
+    const close = Array.from({ length: 6 }, (_, i) => obj({ id: `o${i}`, name: `O${i}`, lat: 47.52 + 0.0001 * (i + 1), lng: 7.57 }))
+    const far = pointsFromGeoJson({ features: [{ geometry: { type: 'Point', coordinates: [7.58, 47.52] }, properties: {} }] }, 'h')
+    const near = nearbyPlaces(close, far, at)
+    expect(near).toHaveLength(NEARBY_MAX)
+    expect(near.map((n) => n.item.id)).toEqual(['o0', 'o1', 'o2', 'o3', 'h0'])
+    expect(near[4]).toMatchObject({ kind: 'hydrant', dir: 2 })
+    // fewer rows than the cap: appended, nothing dropped
+    expect(nearbyPlaces(close.slice(0, 2), far, at).map((n) => n.item.id)).toEqual(['o0', 'o1', 'h0'])
+  })
+
+  it('names the compass direction of eight', () => {
+    const at: LngLat = [7.57, 47.52]
+    const d = 0.001
+    expect([[0, d], [d, d], [d, 0], [d, -d], [0, -d], [-d, -d], [-d, 0], [-d, d]].map(([x, y]) => compass8(at, [at[0] + x / Math.cos((at[1] * Math.PI) / 180), at[1] + y])))
+      .toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+  })
+
+  it('reads point features as named points', () => {
     const pts = pointsFromGeoJson({ features: [
       { geometry: { type: 'Point', coordinates: [7.5704, 47.5238] }, properties: { name: 'H-101' } },
       { geometry: { type: 'Point', coordinates: [7.58, 47.53] }, properties: { nr: 7 } },
       { geometry: { type: 'LineString', coordinates: [[7, 47], [7.1, 47.1]] }, properties: {} },
     ] }, 'h')
     expect(pts.map((p) => p.label)).toEqual(['H-101', '7'])
-    expect(nearestPoints(pts, [SCHLOSS.lng!, SCHLOSS.lat!], 1).map((n) => n.item.label)).toEqual(['H-101'])
     expect(pointsFromGeoJson(null)).toEqual([])
   })
 

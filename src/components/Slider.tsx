@@ -12,18 +12,30 @@ import { useRef } from 'react'
  * scrolling the panel under it, and there is no buzz — a drag is not an arming hold.
  * Colours ride `currentColor`, so the same component reads correctly on the dark Ebenen card and
  * on a light sheet without either surface passing it a palette.
+ *
+ * Preview vs. commit: `onChange` fires on every step the thumb moves. A value that is costly to
+ * apply – an undo step («Gebäude drehen»), a reconstruction (the Kroki's «Stand») – previews there
+ * and lands in `onCommit`, called ONCE when the finger lifts (and once per key step). A drag the
+ * browser takes away (`pointercancel`) commits nothing and calls `onCancel`, so a preview never
+ * stays standing with nothing in the record to say so.
  */
-export function Slider({ value, min = 0, max = 100, step = 1, onChange, ariaLabel, valueText }: {
+export function Slider({ value, min = 0, max = 100, step = 1, onChange, onCommit, onCancel, ariaLabel, valueText }: {
   value: number
   min?: number
   max?: number
   step?: number
   onChange: (v: number) => void
+  /** the gesture is over, with the value it ended on — not called when it moved nothing */
+  onCommit?: (v: number) => void
+  /** the drag was taken away (`pointercancel`): whatever `onChange` previewed is stale */
+  onCancel?: () => void
   ariaLabel: string
   /** what the value MEANS, spoken («55 %») — the number alone is not the unit */
   valueText?: string
 }) {
   const trackRef = useRef<HTMLSpanElement>(null)
+  /** the last value this gesture moved to — null until it moves */
+  const moved = useRef<number | null>(null)
   const clamp = (v: number) => Math.max(min, Math.min(max, v))
   const pct = ((clamp(value) - min) / (max - min)) * 100
 
@@ -34,10 +46,13 @@ export function Slider({ value, min = 0, max = 100, step = 1, onChange, ariaLabe
     if (!r.width) return
     const t = Math.max(0, Math.min(1, (clientX - r.left) / r.width))
     const next = clamp(min + Math.round((t * (max - min)) / step) * step)
-    if (next !== value) onChange(next)
+    if (next !== value) { moved.current = next; onChange(next) }
   }
 
-  const nudge = (by: number) => { const next = clamp(value + by); if (next !== value) onChange(next) }
+  const nudge = (by: number) => {
+    const next = clamp(value + by)
+    if (next !== value) { onChange(next); onCommit?.(next) }
+  }
 
   return (
     <span
@@ -50,9 +65,16 @@ export function Slider({ value, min = 0, max = 100, step = 1, onChange, ariaLabe
       onPointerDown={(e) => {
         if (e.button) return
         e.currentTarget.setPointerCapture(e.pointerId)
+        moved.current = null
         fromClientX(e.clientX)
       }}
       onPointerMove={(e) => { if (e.currentTarget.hasPointerCapture(e.pointerId)) fromClientX(e.clientX) }}
+      onPointerUp={() => {
+        const v = moved.current
+        moved.current = null
+        if (v != null) onCommit?.(v)
+      }}
+      onPointerCancel={() => { moved.current = null; onCancel?.() }}
       onKeyDown={(e) => {
         const k = e.key
         if (k === 'ArrowLeft' || k === 'ArrowDown') nudge(-step)

@@ -33,7 +33,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: 'Deux barres en bas, une en haut : tout en bas la barre des espaces, au-dessus la barre d’outils, en haut la barre d’intervention.', only: 'phone' },
           { kind: 'sub', text: 'Barres du bas', only: 'phone' },
           { kind: 'list', only: 'phone', items: [
-            'La **barre des espaces** tout en bas a cinq cases : Carte, Plans, Checklist, Binômes et Rapport. **Plans** et **Rapport** regroupent plusieurs pages (Rapport · Présence · Matériel) : toucher la case une seconde fois ou la maintenir ouvre le choix.',
+            'La **barre des espaces** tout en bas a cinq cases : Carte, Plans, Checklist, Binômes et Rapport. **Plans** et **Rapport** regroupent plusieurs pages (Rapport, Présence, Matériel) : toucher la case une seconde fois ou la maintenir ouvre le choix.',
             'Au-dessus, la **barre d’outils** de la carte ou du plan. **+** est l’unique porte vers tout ce qu’on y place.',
             'Un bouton qui ne porte qu’un symbole dit son nom quand on le **maintient appuyé**. Dans les **Réglages**, «Étiquettes des barres» écrit les mots dessous en permanence.',
           ] },
@@ -128,7 +128,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'Outils de la barre de droite en mode Situation.' },
           { kind: 'list', items: [
-            '**Symbole** – le symbole tactique (FKS/VKF). Sélection rapide des symboles les plus courants ou recherche dans toute la bibliothèque. Toucher pour placer ; avec le verrou, en poser plusieurs à la suite.',
+            '**Symbole** – le symbole tactique (FKS/VKF). Sélection rapide des symboles les plus courants ou recherche dans toute la bibliothèque. Toucher pour placer ; avec « Placer plusieurs », en poser plusieurs à la suite.',
             '**Formes** – dans la même fenêtre, après les dangers : **Flèche** et **Rectangle**, pour tout ce qui n’a pas de symbole tactique. La poignée fait pivoter, le coin étire le rectangle (la flèche reste proportionnelle – une pointe déformée se lit mal). Sur la flèche, **Barre d’arrêt** ajoute la barre en travers de la pointe – la limite de propagation : jusqu’ici, et arrêté là.',
             '**Sélection** – toucher des objets, les déplacer, les ajuster dans l’éditeur.',
             '**Multiple** – toucher **Sélection** une nouvelle fois pendant qu’elle est active : le bouton passe sur Multiple (icône et mot), et tirer un cadre sélectionne plusieurs symboles/dessins à la fois. Un nouveau toucher ramène à Sélection.',
@@ -160,7 +160,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             '**Lier à la carte**, en bas du plan, pose cette feuille sur la carte : le plan cède la moitié de la surface et la carte se place à côté. Sur un téléphone il n’y a pas de place pour les deux – un sélecteur **Carte / Module** passe alors de l’une à l’autre. Toucher le même endroit sur les deux surfaces – un angle de maison, une borne hydrante, un croisement. **L’ordre n’a pas d’importance** : une moitié posée trouve seule son homologue, et on peut passer d’une surface à l’autre à volonté. Deux points suffisent à poser la feuille.',
             'Le **feu tricolore** dans la barre dit en permanence où l’on en est : deux points donnent une solution exacte et donc **non vérifiée** – seul le troisième mesure l’écart (« 4 points · ⌀ 1.2 m »). **Vérifier la superposition** pose le contour de la feuille sur la carte pour un contrôle visuel.',
-            'Tirer une croix la déplace, la toucher ouvre **Déplacer · Supprimer le point · Garder**. Toucher **lié** ouvre l’**Ajustement** avec le nombre de paires et l’écart ; **Transférer** copie les points de référence sur un autre module du même objet, **Réinitialiser** les supprime (avec confirmation). **Fermer** n’abandonne rien – ce qui est posé est déjà enregistré.',
+            'Tirer une croix la déplace, la toucher ouvre **Déplacer**, **Supprimer le point** ou **Garder**. Toucher **lié** ouvre l’**Ajustement** avec le nombre de paires et l’écart ; **Transférer** copie les points de référence sur un autre module du même objet, **Réinitialiser** les supprime (avec confirmation). **Fermer** n’abandonne rien – ce qui est posé est déjà enregistré.',
             'Dès lors, **les deux surfaces montrent les mêmes objets** – pas une copie, le même objet : le toucher montre les données, le tirer le déplace, mêmes sommets et mêmes poignées des deux côtés.',
             'Là où un objet **se trouve** est décidé par la dernière main qui l’a posé : tiré sur une feuille, il est sur la feuille – et suit la correction de l’ajustement. Tiré sur la carte, il est au sol. Un ajustement corrigé replace tout ce qui est posé sur cette feuille – une ligne au journal, qu’un ↶ annule. **Format du plan mesuré** est le même repositionnement sans intervention : l’app a mesuré la feuille ouverte et résolu l’ajustement à sa vraie forme. **Réinitialiser** une référence ne perd rien : la feuille et la carte gardent toutes deux ce qu’elles montrent.',
             'Dans les **Couches**, chaque feuille liée reçoit une ligne propre (« Plan (module 2) ») : la feuille elle-même, en image sous la carte. Les objets qui y sont posés n’ont plus besoin de ligne – ils appartiennent à la couche sur laquelle ils ont été posés.',
@@ -177,7 +177,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             '**Qui entre** : trois emplacements, celui du haut est le **chef de binôme** – toucher une ligne le désigne, le **✕** le retire. Un binôme plus grand ajoute simplement des lignes.',
             'La **recherche de personne** atteint tout l’effectif, pas seulement les présents ; à côté de chaque nom figure ce qui s’y oppose (absent, au dépôt, déjà dans un binôme). **(+)** enregistre un invité (renfort voisin) – ajouté en même temps à la présence, comme la même personne.',
             'La **pression d’entrée** (bar) et le **canal radio** sont juste à côté.',
-            'En dessous, la **mission** : type – sous APR Sauver · Éteindre · Fouiller · Sécuriser · Reconnaître · Autre, sans APR Circulation · Sanitaire · Alimentation en eau · Sécuriser · Mise à disposition · Autre –, **but / lieu** en clair, **n° de conduite** (les conduites déjà dessinées sont proposées à côté) et la **couleur** sur la carte et le plan.',
+            'En dessous, la **mission** : type (sous APR Sauver, Éteindre, Fouiller, Sécuriser, Reconnaître, Autre ; sans APR Circulation, Sanitaire, Alimentation en eau, Sécuriser, Mise à disposition, Autre), **but / lieu** en clair, **n° de conduite** (les conduites déjà dessinées sont proposées à côté) et la **couleur** sur la carte et le plan.',
             'La mission ne retient personne : **Annoncer le binôme** fonctionne sans elle. La carte affiche alors **« mission ouverte »**, et un toucher dessus ouvre le formulaire.',
             'Ce qui est saisi survit à une fermeture par **✕** ou par un clic à côté – seul **Annuler** l’efface.',
           ] },
@@ -339,7 +339,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'sub', text: 'Toucher et glisser (tactile/iPad)' },
           { kind: 'list', items: [
             'Un doigt déplace la carte/le plan ; deux doigts zooment (pincer).',
-            'Un seul doigt zoome aussi : **toucher deux fois** zoome ; **toucher, puis appuyer de nouveau et tirer** zoome en continu – vers le bas pour agrandir, vers le haut pour réduire. Pareil sur la carte et le plan ; tant qu’un outil de dessin est actif, seuls deux doigts zooment le plan.',
+            'Un seul doigt zoome aussi : **toucher deux fois** zoome ; **toucher, puis appuyer de nouveau et tirer** zoome en continu – vers le bas pour agrandir, vers le haut pour réduire. Pareil sur la carte et le plan, avec la **Sélection**. Un outil a la priorité : là où il touche (points, mesure, ajouter, note, cercle …), chaque toucher lui appartient ; là où il trace (main levée, sélection multiple), toucher deux fois zoome toujours. Deux doigts zooment toujours. Une ligne ou une surface posée point par point se termine avec ✓, jamais en touchant deux fois.',
             'Toucher **Sélection** une nouvelle fois fait passer le bouton sur **Multiple** : un cadre tiré sélectionne plusieurs objets ; les objets sélectionnés se déplacent en les tirant.',
             'Un bouton qui ne porte qu’un pictogramme dit son mot quand on le **maintient enfoncé** : après un court instant, le mot apparaît en bulle au-dessus, avec une brève vibration sur tactile. Relâcher ne déclenche **pas** le bouton : demander ce qu’est une chose ne doit pas la faire en même temps. À la souris, il suffit de survoler.',
           ] },

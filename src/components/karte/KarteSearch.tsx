@@ -13,11 +13,11 @@
 
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
-import { cx } from '../../lib/cx'
 import { fmtDistance } from '../../lib/geo'
 import type { GeoHit } from '../../lib/api/geo'
 import type { ObjectHit } from '../../lib/karte/search'
 import { objectRowSub, splitAddress } from '../../lib/karte/places'
+import { ListCard, ListRow } from '../ListRow'
 import s from './Karte.module.css'
 
 export type AddrState = 'idle' | 'short' | 'loading' | 'ok' | 'offline' | 'error'
@@ -36,18 +36,15 @@ export function KarteSearch({ query, hits, nearest, addresses, addrState, onPick
 }) {
   const C = appConfig.copy.karte
   const q = query.trim()
-  const lead = () => <span className={s.rowLead}><Icon id="footprint" /></span>
   // a station object: glyph · name · address · distance (or «no coordinates»)
   const objectRows = (list: ObjectHit[]) => (
-    <div className={s.list}>
+    <ListCard>
       {list.map(({ obj: o, distanceM, approx }) => (
-        <button key={o.id} type="button" role="option" aria-selected={false} className={s.row} onClick={() => onPickObject(o.id)}>
-          {lead()}
-          <span className={s.rowText}><b>{o.name}</b><span>{objectRowSub(o, C.kind[o.kind])}</span></span>
-          <span className={cx(s.rowEnd, s.mono)}>{approx ? C.noCoords : distanceM != null ? fmtDistance(distanceM) : ''}</span>
-        </button>
+        <ListRow key={o.id} role="option" aria-selected={false} onClick={() => onPickObject(o.id)}
+          lead={<Icon id="footprint" />} title={o.name} sub={objectRowSub(o, C.kind[o.kind])}
+          end={approx ? C.noCoords : distanceM != null ? fmtDistance(distanceM) : ''} />
       ))}
-    </div>
+    </ListCard>
   )
   return (
     <div className={inSheet ? s.resultsIn : s.results} role="listbox" aria-label={C.searchObjects}>
@@ -58,7 +55,7 @@ export function KarteSearch({ query, hits, nearest, addresses, addrState, onPick
           <div className={s.quiet}>{C.searchHint}</div>
         </>
       ) : hits.length ? objectRows(hits) : (
-        <div className={s.quiet}>{C.searchNoObject}</div>
+        <p className="no-hits">{C.searchNoObject}</p>
       )}
       {q && (
         <>
@@ -68,19 +65,16 @@ export function KarteSearch({ query, hits, nearest, addresses, addrState, onPick
               : addrState === 'short' ? <div className={s.quiet}>{C.searchMinChars}</div>
                 : addrState === 'loading' && !addresses.length ? <div className={s.skeleton} />
                   : addresses.length ? (
-                    <div className={s.list}>
+                    <ListCard>
                       {addresses.map((a, i) => {
                         const [street, place] = splitAddress(a.label)
                         return (
-                          <button key={`${a.label}:${i}`} type="button" role="option" aria-selected={false} className={s.row} onClick={() => onPickAddress(a)}>
-                            <span className={s.rowLead}><Icon id="pin" /></span>
-                            <span className={s.rowText}><b>{street}</b><span>{[place, C.addressKind].filter(Boolean).join(' · ')}</span></span>
-                            <Icon id="chevron" className={s.chev} />
-                          </button>
+                          <ListRow key={`${a.label}:${i}`} role="option" aria-selected={false} onClick={() => onPickAddress(a)}
+                            lead={<Icon id="pin" />} title={street} sub={[place, C.addressKind].filter(Boolean).join(' · ')} />
                         )
                       })}
-                    </div>
-                  ) : addrState === 'ok' ? <div className={s.quiet}>{C.searchNoAddress}</div> : null}
+                    </ListCard>
+                  ) : addrState === 'ok' ? <p className="no-hits">{C.searchNoAddress}</p> : null}
         </>
       )}
       <div className={s.quiet}>{C.searchFoot}</div>

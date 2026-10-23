@@ -197,7 +197,7 @@ export const anwesenheitCopy = {
     blocksNone: 'Noch nicht anwesend gewesen.',
     blocksHint: 'Jede Zeile ist eine tatsächliche Anwesenheit dieser Person. Hier korrigieren, wenn eine Stempelung daneben liegt.',
     openBlocks: 'Anwesenheit von {name} öffnen',
-    openBlocksNote: 'Anwesenheit von {name} öffnen · Bemerkung erfasst',
+    openBlocksNote: 'Anwesenheit von {name} öffnen – Bemerkung erfasst',
     statusNote: 'Bemerkung',
     stillHere: 'noch da',
     // Head of the time card: what this row IS. Not a switch – an Anwesenheit is running or has
@@ -321,8 +321,8 @@ export const anwesenheitCopy = {
     done: 'Fertig',
     // direct operation on the grid – like the paper form you fill in
     fromStart: 'ab Beginn',
-    sheetHint: 'Zeiten hier anpassen · Zustand rechts umschalten · gelöscht wird nur hier.',
-    laneHint: 'Ziehen erfasst die Verfügbarkeit · Balken antippen teilt die Person ein · Ziehen verschiebt den Balken · Gedrückt halten öffnet die Schichten',
+    sheetHint: 'Zeiten hier anpassen, Zustand rechts umschalten. Gelöscht wird nur hier.',
+    laneHint: 'Ziehen erfasst die Verfügbarkeit. Balken antippen teilt die Person ein. Ziehen verschiebt den Balken. Gedrückt halten öffnet die Schichten.',
     // the (i) tap-toggle above the gesture explainer — title only, so it costs no line of its own
     laneHintShow: 'Bedienung anzeigen',
     laneHintHide: 'Bedienung ausblenden',
@@ -366,11 +366,16 @@ export const anwesenheitCopy = {
     sheetHint: 'Die Schicht wird für das ganze Personal angelegt. Jede Zelle beginnt leer.',
     create: 'Erstellen',
     save: 'Speichern',
-    removeBand: 'Schicht löschen',
+    // the bare word (UX sweep F4 rework, 21.10.2026, owner: «Schichtband löschen» wrapped onto two
+    // lines in the footer) – the sheet's title names the band, so the button needn't; and it no
+    // longer reads «Schicht löschen», which is one person's stretch (zeitplan.remove). «löschen»,
+    // not «entfernen»: the band record itself is destroyed – what survives are the people's
+    // times, which are records of their own. The toast says «Schichtband».
+    removeBand: 'Löschen',
     // What gets deleted is the BAND, not the planning: the Schichten remain as freehand ones.
     // This is the one path on which real planning would otherwise vanish silently.
     removeBandHint: 'Gelöscht wird nur die Spalte – die eingeteilten Zeiten bleiben als freihändige im Zeitplan stehen.',
-    removedBand: 'Schicht «{label}» gelöscht',
+    removedBand: 'Schichtband «{label}» gelöscht',
     // When a band is moved: no silent coupling in either direction.
     moveTitle: 'Zeiten mitziehen?',
     moveMsg: '{n} Personen sind auf die alten Zeiten eingeteilt. Sollen ihre Zeiten mitziehen?',

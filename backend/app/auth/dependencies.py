@@ -15,6 +15,7 @@ from ..models import User
 from .incident_link import link_page_owns_session, read_link_session
 from .security import admin_token_is_current, decode_token
 from .token_blocklist import token_blocklist
+from .viewer_scope import enforce_viewer_window
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,8 @@ async def get_current_user(
     # A cookie minted before the account's credential was rotated is not a session any more.
     if token_generation(payload) != user.auth_generation:
         raise _credentials_exc
+    # A viewer reads the running Einsätze and the last week, every route alike (viewer_scope).
+    await enforce_viewer_window(request, db, user)
     request.state.user = user
     return user
 
@@ -194,7 +197,7 @@ async def get_append_writer(
     """An editor, the ``el`` role, or an Atemschutz-link session — the door on the two
     APPEND-ONLY streams (journal rows, audit events). What each caller may append stays the
     handlers' business: the link its ``team`` rows / ``atemschutz.*`` ops, an ``el`` session
-    the record vocabulary (api/events.py · ``EL_EVENT_PREFIXES``). ⚠️ Deliberately NOT the
+    any Verlauf row and the record vocabulary of events (api/events.py · ``EL_EVENT_PREFIXES``). ⚠️ Deliberately NOT the
     trupps slice: the safety watch is tactical and stays editor-or-link
     (``get_atemschutz_writer`` below)."""
     user = await get_current_user(request, access_token, db)
@@ -227,6 +230,14 @@ def is_atemschutz_link(user: User) -> bool:
     (`sk`), which share the write surface — rather than a signed-in editor. Decides who a
     write is attributed to (`user_id=None`) and that it is stamped as a link's."""
     return getattr(user, "link_kind", None) in ("atemschutz", "atemschutz-standing")
+
+
+def is_link_session(user: User | None) -> bool:
+    """True for any incident-link session (alarm, view, Atemschutz, terminal) — a page that may
+    leave the station (a Rapport view link is forwarded by design). Such a caller reads the
+    record without the station's internal keys: no account UUIDs (an Einsatz's ``created_by``,
+    an event's ``user_id``) and no Divera ids on the roster (RBAC audit, 22.10.2026)."""
+    return getattr(user, "link_kind", None) is not None
 
 
 def atemschutz_link_source(user: User) -> str:

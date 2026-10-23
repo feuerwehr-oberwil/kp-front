@@ -62,3 +62,18 @@ describe('the size ± is a factor, not a value', () => {
   })
 })
 
+
+// a locked surface (viewer, el, Führungsansicht, replay) opens the Form's panel to READ it: what
+// it is and its figures, and nothing that would change it (RBAC audit 22.10.2026)
+describe('ShapeEditor · read-only', () => {
+  it('states the figures and draws no control', () => {
+    render(<ShapeEditor entity={{ shape: 'square' }} readOnly areaM2={200} perimeterM={60}
+      boxM={{ widthM: 20, heightM: 10 }} onCenter={noop} onClose={noop} />)
+    expect(screen.getByText(appConfig.copy.drawingEditor.measurement)).toBeTruthy()
+    expect(screen.getAllByText(appConfig.copy.measure.area).length).toBeGreaterThan(0)
+    expect(screen.queryByText(appConfig.copy.shapes.color)).toBeNull()
+    expect(screen.queryAllByRole('button', { name: new RegExp(appConfig.copy.remove) })).toEqual([])
+    expect(screen.queryAllByRole('button', { name: new RegExp(appConfig.copy.drawingEditor.lock) })).toEqual([])
+    expect(screen.getAllByRole('button', { name: new RegExp(appConfig.copy.contextPanel.center) }).length).toBeGreaterThan(0)
+  })
+})

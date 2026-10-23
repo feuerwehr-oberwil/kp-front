@@ -1,5 +1,4 @@
 import { useId } from 'react'
-import { useIsPhone } from '../lib/useIsPhone'
 import type { BoardAnno, BoardPoint, BoardTool } from '../types'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
@@ -545,6 +544,11 @@ export function WbVertexHandles({ anno, sW, sH, mapY, onVertexDown, onInsert, on
   )
 }
 
+/** «Trupp finden» on a Trupp dock: opens the workspace's ONE TruppFinder (IncidentWorkspace).
+ *  `disabled` while no Trupp is placed anywhere — on the tool's own dock an absent button would
+ *  read as a tool that lost one (MapToolDocks · the Karte's twin). */
+export interface TruppFinderDoor { open: () => void; disabled: boolean }
+
 interface DocksProps {
   tool: BoardTool
   lineMode: 'freehand' | 'nodes'
@@ -562,17 +566,18 @@ interface DocksProps {
   measCount: number
   onMeasClear: () => void
   onMeasClose: () => void
+  /** absent where the board has no finder to open (Karte & Objekte's plan reader) */
+  truppFinder?: TruppFinderDoor
 }
 
 /**
- * Right-edge tool option docks (Linie/Fläche style pickers / armed-tool hints), each top-aligned
+ * Right-edge tool option docks (the armed tool's ✕, its input mode, ✓ and ⓘ), each top-aligned
  * to its rail button. Built from the SHARED `ToolDock`
  * renderer — same control vocabulary (and look) as the Lage map; the Linie tool carries the same
  * Freihand↔Punkte input toggle, and the line style (Freihand/Messpfeil/Rettungsachse) is chosen in
  * the post-draw editor, not here.
  */
-export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive, setTool, setLineMode, onFinish, onCancelDraft, measMode, setMeasMode, measCount, onMeasClear, onMeasClose }: DocksProps) {
-  const phone = useIsPhone()
+export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive, setTool, setLineMode, onFinish, onCancelDraft, measMode, setMeasMode, measCount, onMeasClear, onMeasClose, truppFinder }: DocksProps) {
   // Read copy per render: the deployment locale is resolved after modules are imported.
   const closeDraft = () => { onCancelDraft(); setTool('pan') }
   return (
@@ -581,14 +586,15 @@ export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive
           (09.09.): no colour/width/style here — the finished line lands selected in the
           DrawEditor, which is where the styling lives (and writes the next-ink defaults). */}
       {tool === 'line' && (
-        <ToolDock hint={phone ? undefined : lineMode === 'nodes' ? appConfig.copy.whiteboard.dockHints.lineNodesShort : appConfig.copy.whiteboard.dockHints.lineFreeShort} groups={[
+        <ToolDock groups={[
           [{ type: 'close', onClick: closeDraft }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: lineMode === 'freehand', onClick: () => { setLineMode('freehand'); onCancelDraft() } },
             { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: lineMode === 'nodes', onClick: () => setLineMode('nodes') },
             ...(lineMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: onFinish }] : []),
           ],
-          [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.line }],
+          // the Karte's own words, per input mode (copy · dockHints): one rule, one text
+          [{ type: 'info', text: lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodes : appConfig.copy.dockHints.lineFreehand }],
         ]} />
       )}
 
@@ -596,14 +602,14 @@ export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive
           because it is the same question: tap the corners, or draw it. Styling: in the editor
           afterwards, like the Linie. */}
       {tool === 'area' && (
-        <ToolDock hint={areaMode === 'nodes' ? appConfig.copy.whiteboard.dockHints.areaNodesShort : appConfig.copy.whiteboard.dockHints.areaFreeShort} groups={[
+        <ToolDock groups={[
           [{ type: 'close', onClick: closeDraft }],
           [
             { type: 'toggle', icon: 'pen', label: appConfig.copy.drawingEditor.modeFreehand, on: areaMode === 'freehand', onClick: () => { setAreaMode('freehand'); onCancelDraft() } },
             { type: 'toggle', icon: 'polygon', label: appConfig.copy.drawingEditor.modeNodes, on: areaMode === 'nodes', onClick: () => setAreaMode('nodes') },
             ...(areaMode === 'nodes' ? [{ type: 'go' as const, disabled: !draftActive, onClick: onFinish }] : []),
           ],
-          [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.area }],
+          [{ type: 'info', text: appConfig.copy.dockHints.area }],
         ]} />
       )}
 
@@ -641,10 +647,15 @@ export function WbToolDocks({ tool, lineMode, areaMode, setAreaMode, draftActive
         ]} />
       )}
 
-      {/* team armed-tool — clean (×) cancel + info */}
+      {/* team armed-tool — ✕ · «Trupp finden» · ⓘ, the Karte's Trupp dock (MapToolDocks): placing
+          one and finding one are the two things reaching for this tool can mean (UX sweep M9) */}
       {tool === 'resource' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('pan') }],
+          ...(truppFinder ? [[{
+            type: 'action' as const, icon: 'trupp-find', label: appConfig.copy.truppFinder.title,
+            disabled: truppFinder.disabled, onClick: truppFinder.open,
+          }]] : []),
           [{ type: 'info', text: appConfig.copy.whiteboard.dockHints.resource }],
         ]} />
       )}

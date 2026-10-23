@@ -31,8 +31,9 @@ import unicodedata
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -672,6 +673,52 @@ async def deliveries_for(db: AsyncSession, visit_id: str) -> list[dict[str, Any]
     return out
 
 
+#: For the German `detail` of a lock refusal — the station reads local time, not UTC.
+_TZ = ZoneInfo("Europe/Zurich")
+
+
+async def completed_at(db: AsyncSession, visit: ObjectVisit) -> datetime | None:
+    """When the visit was FINISHED: the first revision that said ``completed``. Corrections keep
+    the lifecycle, so they never move it. None while it is a draft (or was discarded)."""
+    if visit.lifecycle != "completed":
+        return None
+    stmt = (
+        select(func.min(ObjectVisitRevision.accepted_at))
+        .where(ObjectVisitRevision.visit_id == visit.id)
+        .where(ObjectVisitRevision.lifecycle == "completed")
+    )
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def locked_at(db: AsyncSession, visit: ObjectVisit, cfg: ObjectVisitsConfig) -> datetime | None:
+    """From WHEN this visit is view-only (docs/object-visits.md «The lock»): the completion plus
+    ``objectVisits.lockAfterHours``. None where no lock applies — a draft, a discarded visit, a
+    completion the server never saw, or a station that turned the window off (``null``)."""
+    if cfg.lockAfterHours is None:
+        return None
+    done = await completed_at(db, visit)
+    return None if done is None else done + timedelta(hours=cfg.lockAfterHours)
+
+
+async def refuse_locked_correction(db: AsyncSession, visit: ObjectVisit, actor: Actor, now: datetime) -> None:
+    """A completed visit is corrected WITHIN the window only — after it, the record stands
+    (owner, 20.10.2026: a plan stayed open for over a week). The admin session / the organizer
+    (no account behind the write) still corrects: a station must be able to fix its own record.
+    Drafts are untouched — this is only ever asked on ``completed→completed``."""
+    if actor.id is None:
+        return
+    until = await locked_at(db, visit, await ov_config(db))
+    if until is None or now < until:
+        return
+    raise ObjectVisitError(
+        422,
+        "locked",
+        f"Dieser Besuch ist seit {until.astimezone(_TZ).strftime('%d.%m.%Y %H:%M')} nur noch Ansicht "
+        "und kann nicht mehr korrigiert werden",
+        lockedAt=_iso(until),
+    )
+
+
 async def serialize_visit(db: AsyncSession, visit: ObjectVisit) -> dict[str, Any]:
     """The document plus the server's fields (docs/object-visits.md «Server-added on read»)."""
     stored = await stored_attachments(db, visit.id)
@@ -690,6 +737,10 @@ async def serialize_visit(db: AsyncSession, visit: ObjectVisit) -> dict[str, Any
         "deliveries": await deliveries_for(db, visit.id),
         "target_kind": visit.target_kind,
         "location": location_of(visit),
+        # when it was finished, and from when corrections are refused (null = no lock applies):
+        # the app draws the read-only view off THIS, so it cannot offer an edit the server denies
+        "completedAt": _iso(await completed_at(db, visit)),
+        "lockedAt": _iso(await locked_at(db, visit, await ov_config(db))),
     }
 
 
@@ -826,6 +877,11 @@ async def apply_put(
             "missing": [p for p in photo_ids(doc) if p not in stored],
             "visit": await serialize_visit(db, visit),
         }
+
+    # a real correction of a completed visit: only while the window is open (docs/object-visits.md
+    # «The lock»). After the no-op answer above, so a resend of the stored document is never refused.
+    if visit is not None and visit.lifecycle == "completed" and doc.get("lifecycle") == "completed":
+        await refuse_locked_correction(db, visit, actor, now)
 
     created = visit is None
     if created:

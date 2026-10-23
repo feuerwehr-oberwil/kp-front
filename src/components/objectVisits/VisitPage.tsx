@@ -1,6 +1,8 @@
 // Besuch: ONE page — head, status line, checklist, Bemerkungen, Fotos, Korrekturvorschläge — and
 // one primary action, «Abschliessen» (design PLAN §2.4). Completed: the read view with the report,
-// «Bearbeiten» (a correction: stays completed, new revision) and the Verlauf of revisions.
+// «Bearbeiten» (a correction: stays completed, new revision) and the Verlauf of revisions —
+// «Bearbeiten» until the visit's lock window runs out (objectVisits/lock), a line saying since
+// when it is view-only after that.
 //
 // Every edit is stored on the device AT ONCE (store · updateVisit); a revision goes to the server
 // only at a save point: leaving, the app going to the background, «Abschliessen», «Jetzt senden»,
@@ -25,6 +27,7 @@ import {
 } from '../../objectVisits/outbox'
 import { downloadReport, exportVisitFile, visitText } from '../../objectVisits/report'
 import { deriveStatus } from '../../objectVisits/status'
+import { visitLocked } from '../../objectVisits/lock'
 import { placeOf, stopKeyOf, templatesFor } from '../../objectVisits/place'
 import { KARTE_PATH, type OvFrom } from '../../objectVisits/route'
 import { placeFilingFolder } from '../../lib/deploymentConfig'
@@ -40,10 +43,11 @@ import { usePlanReader, useVisitPlans } from './usePlans'
 import { AuthCard, ConflictCards, RefusedCard, UnsavedCard } from './StateCards'
 import { StatusLine } from './StatusLine'
 import { ChecklistSection, DetailsCard, NotesSection, PhotosSection, ProposalsSection, SummaryCard } from './VisitSections'
-import { CardRow, VisitHistory } from './StopCards'
+import { CardRow, LockedRow, VisitHistory } from './StopCards'
 import { PlaceCard, PlaceLine } from './PlaceCard'
 import { useStopDocs } from './useStopDocs'
 import { useOv } from './ovContext'
+import { ListCard, ListRow } from '../ListRow'
 import s from './ObjectVisits.module.css'
 
 /** «every 2 min while dirty» */
@@ -192,8 +196,8 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
     sayOutcome(out)
   }
   const sayOutcome = (out: FlushOutcome, lead?: string) => {
-    if (out === 'offline') toast(lead ? `${lead} · ${C.sendOffline}` : C.sendOffline, { icon: 'warn' })
-    else if (out === 'contended') toast(lead ? `${lead} · ${C.sendContended}` : C.sendContended, { icon: 'warn', tone: 'warn' })
+    if (out === 'offline') toast(lead ? `${lead}. ${C.sendOffline}` : C.sendOffline, { icon: 'warn' })
+    else if (out === 'contended') toast(lead ? `${lead}. ${C.sendContended}` : C.sendContended, { icon: 'warn', tone: 'warn' })
     else if (out === 'done' || out === 'nothing') toast(lead ?? C.sent, { icon: 'check', tone: 'success' })
     else if (lead) toast(lead, { icon: 'check' })
   }
@@ -361,6 +365,10 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
 
   const lifecycle = doc.lifecycle
   const canEdit = ov.canCapture && !!rec && lifecycle !== 'discarded'
+  // a completed visit is corrected within its window only (objectVisits/lock): after it the
+  // card says since when instead of offering «Bearbeiten», and the server refuses it anyway
+  const lockedAt = rec?.server?.lockedAt ?? remote?.lockedAt ?? null
+  const canCorrect = canEdit && !visitLocked(lockedAt)
   const editable = canEdit && (lifecycle === 'draft' || correcting)
   const readView = !editable
   const place = placeOf(doc)
@@ -447,15 +455,13 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
                 if (v.id === doc.id) {
                   return (
                     <SummaryCard key={v.id} doc={doc} byName={byName} onOpen={() => ov.go({ kind: 'answers', id: doc.id })}>
-                      {canEdit && <CardRow icon="pen" title={C.edit} onClick={() => setCorrecting(true)} />}
+                      {canCorrect && <CardRow icon="pen" title={C.edit} onClick={() => setCorrecting(true)} />}
+                      {canEdit && !canCorrect && lockedAt && <LockedRow lockedAt={lockedAt} />}
                       {revision != null && <CardRow icon="doc" title={C.report} onClick={() => report(doc)} />}
                       {revision != null && <VisitHistory visitId={doc.id} onReport={(n) => report(doc, n)} />}
                       {/* a place has no object folder: say where the report goes */}
                       {place && filing && (
-                        <div className={s.rowStatic}>
-                          <Icon id="archive" className={s.rowGlyph} />
-                          <span className={s.rowMain}><span className={s.rowSub}>{fillTemplate(C.placeFiled, { folder: filing })}</span></span>
-                        </div>
+                        <ListRow className={s.rowQuiet} lead={<Icon id="archive" />} title={fillTemplate(C.placeFiled, { folder: filing })} />
                       )}
                     </SummaryCard>
                   )
@@ -470,7 +476,9 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
                     badge={draft ? <span className="ip-badge ip-badge-todo">{C.stateDraft}</span> : undefined}>
                     {ov.canCapture && (draft
                       ? <CardRow icon="pen" title={C.continueDraft} onClick={() => ov.go({ kind: 'visit', id: v.id })} />
-                      : <CardRow icon="pen" title={C.edit} onClick={() => ov.go({ kind: 'visit', id: v.id, edit: true })} />)}
+                      : sib.lockedAt && visitLocked(sib.lockedAt)
+                        ? <LockedRow lockedAt={sib.lockedAt} />
+                        : <CardRow icon="pen" title={C.edit} onClick={() => ov.go({ kind: 'visit', id: v.id, edit: true })} />)}
                     {!draft && <CardRow icon="doc" title={C.report} onClick={() => report(sib.doc)} />}
                     {!draft && <VisitHistory visitId={v.id} onReport={(n) => report(sib.doc, n)} />}
                   </SummaryCard>
@@ -478,33 +486,21 @@ export function VisitPage({ id, edit: editOnOpen = false, from }: { id: string; 
               })}
               {/* in addition: another checklist at this object */}
               {canAnother && (
-                <div className={s.card}>
-                  <button type="button" className={s.row} onClick={() => ov.go(place
+                <ListCard>
+                  <ListRow lead={<Icon id="plus" />} title={C.anotherVisit} sub={C.anotherVisitSub} onClick={() => ov.go(place
                     ? { kind: 'newPlace', place: { lat: place.lat, lng: place.lng, label: place.label, address: place.address }, after: doc.id, ...(from ? { from } : {}) }
-                    : { kind: 'new', object: doc.object?.id ?? '', ref: doc.workRef ?? null, ...(from ? { from } : {}) })}>
-                    <Icon id="plus" className={s.rowGlyph} />
-                    <span className={s.rowMain}>
-                      <span className={s.rowTitle}>{C.anotherVisit}</span>
-                      <span className={s.rowSub}>{C.anotherVisitSub}</span>
-                    </span>
-                    <Icon id="chevron" className={s.chev} />
-                  </button>
-                </div>
+                    : { kind: 'new', object: doc.object?.id ?? '', ref: doc.workRef ?? null, ...(from ? { from } : {}) })} />
+                </ListCard>
               )}
               {next === 'done' && <p className={s.secNote}>{C.listDone}</p>}
               {next && next !== 'done' && (
                 <>
                   <h2 className={s.sec}>{C.nextInList}</h2>
-                  <div className={s.card}>
-                    <button type="button" className={s.row} onClick={() => ov.go({ kind: 'new', object: next.object.id, ref: list!.ref })}>
-                      <span className={s.num}>{next.index}</span>
-                      <span className={s.rowMain}>
-                        <span className={s.rowTitle}>{next.object.name}</span>
-                        <span className={s.rowSub}>{[next.object.address, next.object.lastVisit?.lifecycle === 'completed' ? fillTemplate(C.lastVisit, { date: fmtDate(next.object.lastVisit.visitedAt) }) : C.neverVisited].filter(Boolean).join(' · ')}</span>
-                      </span>
-                      <Icon id="chevron" className={s.chev} />
-                    </button>
-                  </div>
+                  <ListCard>
+                    <ListRow lead={<span className={s.num}>{next.index}</span>} title={next.object.name}
+                      sub={[next.object.address, next.object.lastVisit?.lifecycle === 'completed' ? fillTemplate(C.lastVisit, { date: fmtDate(next.object.lastVisit.visitedAt) }) : C.neverVisited].filter(Boolean).join(' · ')}
+                      onClick={() => ov.go({ kind: 'new', object: next.object.id, ref: list!.ref })} />
+                  </ListCard>
                 </>
               )}
               <PlansCard rows={plans} onOpen={reader.open} />

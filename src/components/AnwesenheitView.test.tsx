@@ -293,3 +293,31 @@ describe('the view tabs — in the head on a tablet, in the docked strip on a ph
     expect(document.querySelector('.rp-tabs')).toBeNull()
   })
 })
+
+/* A session that may not write (viewer) READS the record (RBAC audit 22.10.2026): the Zeitplan is
+ * gated on its data, not on writers it was never given, and a person's sheet – the only place
+ * the Zeiten and the Bemerkung stand – opens read-only. */
+describe('a viewer reads the Zeitplan and the Zeiten', () => {
+  const A = appConfig.copy.anwesenheit
+  afterEach(() => sessionStorage.clear())
+
+  it('gets the Zeitplan tab from the shift data alone, and Schichten only once there is one', () => {
+    mount({ canEdit: false, shifts: [], bands: [] })
+    const labels = [...screen.getByRole('group', { name: A.viewLabel }).querySelectorAll('button')].map((b) => b.textContent)
+    expect(labels).toEqual([A.viewList, A.viewPlan])
+    cleanup()
+    mount({ canEdit: false, shifts: [], bands: [{ id: 'b1', label: 'Früh', from: '2026-09-18T06:00:00.000Z', to: '2026-09-18T14:00:00.000Z' }] })
+    expect(screen.getByRole('button', { name: A.viewBands })).toBeTruthy()
+  })
+
+  it('opens a person’s Zeiten and Bemerkung read-only, without the «Hier korrigieren» hint', () => {
+    const attendance = {
+      p1: { status: 'present', note: 'Fahrer TLF', intervals: [{ from: '2026-09-18T10:00:00.000Z' }] },
+    } as unknown as AttendanceState
+    mount({ canEdit: false, attendance })
+    fireEvent.click(screen.getByRole('button', { name: fillTemplate(A.openBlocksNote, { name: 'Meier Anna' }) }))
+    expect(screen.getByText('Fahrer TLF')).toBeTruthy()
+    expect(screen.queryByText(A.blocksHint)).toBeNull()
+    expect(screen.queryByRole('textbox')).toBeNull()
+  })
+})

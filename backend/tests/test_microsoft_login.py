@@ -20,6 +20,7 @@ from app.credentials import CredentialRefusedError, validate
 TENANT = "11111111-2222-3333-4444-555555555555"
 CLIENT = "66666666-7777-8888-9999-000000000000"
 OID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+EDITOR_OID = "99999999-0000-0000-0000-000000000000"
 KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
 
@@ -28,7 +29,7 @@ def configured(monkeypatch):
     monkeypatch.setenv("ENTRA_LOGIN_TENANT_ID", TENANT)
     monkeypatch.setenv("ENTRA_LOGIN_CLIENT_ID", CLIENT)
     monkeypatch.setenv("ENTRA_LOGIN_CLIENT_SECRET", "s3cret")
-    monkeypatch.setenv("ENTRA_LOGIN_ACCOUNTS", f"anna.muster@fw.example=cmd, {OID}=view")
+    monkeypatch.setenv("ENTRA_LOGIN_ACCOUNTS", f"{EDITOR_OID.upper()}=cmd, {OID}=view")
     monkeypatch.setattr(microsoft, "signing_key", lambda _token: KEY.public_key())
 
 
@@ -38,7 +39,7 @@ def _id_token(nonce: str, **over) -> str:
         "aud": CLIENT,
         "exp": int(time.time()) + 300,
         "nonce": nonce,
-        "oid": "99999999-0000-0000-0000-000000000000",
+        "oid": EDITOR_OID,
         "preferred_username": "Anna.Muster@fw.example",
     }
     claims.update(over)
@@ -66,14 +67,15 @@ async def _callback(client, monkeypatch, *, state: str | None = None, **claims):
 
 
 def test_parse_accounts():
-    assert microsoft.parse_accounts(" A@B.ch = amuster ; x=y,") == {"a@b.ch": "amuster", "x": "y"}
-    with pytest.raises(ValueError):
-        microsoft.parse_accounts("a@b.ch")
+    assert microsoft.parse_accounts(f" {OID.upper()} = amuster ;,") == {OID: "amuster"}
+    for bad in ("a@b.ch", "a@b.ch=amuster"):  # a sign-in name is no identity (RBAC audit, 22.10.2026)
+        with pytest.raises(ValueError):
+            microsoft.parse_accounts(bad)
 
 
 def test_allow_list_is_validated_on_write():
-    assert validate("entra_login_accounts", "a@b.ch=amuster") == "a@b.ch=amuster"
-    for bad in ("amuster", "=amuster", ",,"):
+    assert validate("entra_login_accounts", f"{OID}=amuster") == f"{OID}=amuster"
+    for bad in ("amuster", "=amuster", ",,", "a@b.ch=amuster"):
         with pytest.raises(CredentialRefusedError):
             validate("entra_login_accounts", bad)
 
@@ -100,7 +102,8 @@ async def test_partly_configured_is_invisible(client, configured, monkeypatch, f
         ("ENTRA_LOGIN_CLIENT_ID", "KP Front"),
         ("ENTRA_LOGIN_ACCOUNTS", "anna.muster@fw.example"),
         ("ENTRA_LOGIN_ACCOUNTS", ",;,"),
-        ("ENTRA_LOGIN_ACCOUNTS", "anna.muster@fw.example=cmd, broken"),
+        ("ENTRA_LOGIN_ACCOUNTS", f"{OID}=cmd, broken"),
+        ("ENTRA_LOGIN_ACCOUNTS", f"{OID}=cmd, anna.muster@fw.example=view"),
     ],
 )
 async def test_invalid_environment_config_is_invisible(client, configured, monkeypatch, field, value):
@@ -122,14 +125,14 @@ async def test_start_redirects_with_pkce(client, configured):
     assert "verifier" not in location and tx["verifier"] not in location
 
 
-async def test_listed_upn_signs_into_its_account(client, configured, monkeypatch, editor):
+async def test_listed_oid_signs_into_its_account(client, configured, monkeypatch, editor):
     r = await _callback(client, monkeypatch)
     assert r.status_code == 303 and r.headers["location"] == "/"
     me = await client.get("/api/auth/me")
     assert me.status_code == 200 and me.json()["id"] == str(editor.id)
 
 
-async def test_listed_oid_wins(client, configured, monkeypatch, editor, viewer):
+async def test_the_oid_decides_whatever_the_sign_in_name(client, configured, monkeypatch, editor, viewer):
     await _callback(client, monkeypatch, oid=OID)
     assert (await client.get("/api/auth/me")).json()["id"] == str(viewer.id)
 
@@ -137,7 +140,8 @@ async def test_listed_oid_wins(client, configured, monkeypatch, editor, viewer):
 @pytest.mark.parametrize(
     ("over", "reason"),
     [
-        ({"preferred_username": "someone@else.example"}, "unknown"),
+        ({"oid": "12345678-0000-0000-0000-000000000000"}, "unknown"),
+        ({"oid": None}, "unknown"),
         ({"nonce": "replayed"}, "failed"),
         ({"aud": "another-app"}, "failed"),
         ({"iss": "https://login.microsoftonline.com/other-tenant/v2.0"}, "failed"),

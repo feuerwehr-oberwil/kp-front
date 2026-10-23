@@ -158,6 +158,14 @@ button, input, select, textarea { font-family: inherit; }
   11%, 36%, 62%, 100% { box-shadow: inset 0 0 0 4px transparent; }
 }
 
+/* «this field» — the ring a tap on a blocked save puts on what it is waiting for (lib/pointAtField,
+   UX sweep F2). The same two beats; under reduced motion a static ring that the helper's timer
+   takes off again. */
+.field-flash { border-radius: var(--r-sm); animation: ui-flash-ring 1.9s ease-out 1; }
+@media (prefers-reduced-motion: reduce) {
+  .field-flash { animation: none; box-shadow: 0 0 0 4px var(--ink-62); }
+}
+
 /* Scrollbars — one thin treatment for every scrollable pane. Styling ::-webkit-scrollbar
    opts out of the OS auto-hiding overlay bar, so a pane that can scroll shows its bar
    persistently instead of it appearing out of nowhere mid-scroll. :where() keeps the

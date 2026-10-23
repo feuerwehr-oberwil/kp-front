@@ -1,8 +1,8 @@
 {
   "id": "musterdorf-fu",
   "kind": "action",
-  "title": "Aufgaben FU (Demo)",
-  "subtitle": "Beispiel-Aktionscheckliste für die Demo-Feuerwehr Musterdorf",
+  "title": "Aufgaben FU",
+  "subtitle": "Aktionscheckliste Führungsunterstützung",
   "version": 1,
   "source": "KP Front Demo",
   "phases": [

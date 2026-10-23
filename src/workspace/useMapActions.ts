@@ -716,7 +716,7 @@ export function useMapActions({
   /** One movement path for a real Lage marker and for that marker's projection on a Modul.
    *  The gesture still writes the ONE source entity, so undo, routed Leitungen, audit and Verlauf
    *  cannot diverge depending on which picture the operator happened to drag. */
-  const startEntityMove = (id: string) => { if (!liveIds.has(id)) beginDrag() }
+  const startEntityMove = (id: string) => { if (!tacticalLocked && !liveIds.has(id)) beginDrag() }
   const streamEntityMove = (id: string, c: LngLat) => {
     if (tacticalLocked) return
     if (liveIds.has(id)) { setVehicleOverrides((m) => ({ ...m, [id]: { ...m[id], coord: c } })); return }

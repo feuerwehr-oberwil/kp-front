@@ -138,12 +138,15 @@ interface Props {
   onBackFromArchive?: () => void
   /** editors only: re-open the closed Einsatz (its own confirm lives upstream) */
   onReactivate?: () => Promise<ReactivateResult>
+  /** this session may still correct the closed Einsatz's Rapport (`canEditRapport`: the el, a
+   *  Führungsansicht) – the chip then says that much and no more; without it, «Nur ansehen» */
+  canCorrectRapport?: boolean
 }
 
 // Single-line top bar: incident identity + clock on the left, global journal +
 // undo/redo on the right (the surface switch moved to the left NavRail). The clock
 // interval lives here so the per-second tick re-renders only the bar, not the map below.
-export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate }: Props) {
+export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, journalOpen, onToggleJournal, reminderCount = 0, onAddEntry, onHoldStart, onHoldEnd, onHoldPhoto, titleSlot, onUndo, onRedo, canUndo, canRedo, undoLabel, redoLabel, showHistory, mapNav, weather, onOpenWeather, bearing = 0, azAlarm, azChipHidden = false, onOpenAtemschutz, gpsStale, gpsAgeMs, shareSlot, archived, onBackFromArchive, onReactivate, canCorrectRapport = false }: Props) {
   // The deployment's clock (lib/serverClock), not the device's: the Einsatzdauer counts from a
   // timestamp another device wrote, and the Atemschutz chip below ticks off `contactAt`, which
   // the alarm fold expresses in server time. Reading those with a device clock a few seconds off
@@ -200,7 +203,7 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
           <span className="eaddr">{incident.address}</span>
         </>
       )}
-      {archived && <ArchivedChip onBack={onBackFromArchive} onReactivate={onReactivate} />}
+      {archived && <ArchivedChip onBack={onBackFromArchive} onReactivate={onReactivate} canCorrectRapport={canCorrectRapport} />}
       {/* No fixed wall clock in the bar — the OS status bar (iPad navbar) already shows the time,
           and the Einsatzuhr below can be cycled to the wall clock when needed. */}
       {/* Einsatzuhr: the long-incident awareness anchor — tap opens a labelled mode menu */}
@@ -281,20 +284,26 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
             letting them disappear would read as «abgerückt» rather than as «Feed weg». That
             is exactly why the freeze needs a visible caveat: without one, hours-old positions
             look every bit as binding as a position one minute old. */}
+        {/* ⚠️ A BUTTON, and a tap opens its sentence (S6, 20.10.2026, owner: tap-to-open). It was a
+            span whose explanation lived in `title=`, which neither a tablet nor the hold-tooltip
+            ever shows. The popover is the house one (lib/overlays · Popover): non-modal, so the
+            map stays live under it and a press elsewhere closes it. */}
         {gpsStale && (
-          <span
-            className="tb-gps"
-            title={appConfig.copy.topBar.gpsFrozenHint}
-            role="status"
+          <Popover side="bottom" align="start" popupClassName="tb-gps-pop" ariaLabel={appConfig.copy.topBar.gpsFrozen} zIndex={201}
+            trigger={
+              <button type="button" className="tb-gps">
+                {/* the app's own position glyph — a speedometer (`gauge`) named nothing about a
+                    silent position feed. The amber pill carries the caveat; the icon says WHAT. */}
+                <Icon id="locate" />
+                <span>{appConfig.copy.topBar.gpsFrozen}</span>
+                {gpsAgeMs != null && (
+                  <span className="tb-gps-age">{Math.round(gpsAgeMs / 60_000)} min</span>
+                )}
+              </button>
+            }
           >
-            {/* the app's own position glyph — a speedometer (`gauge`) named nothing about a
-                silent position feed. The amber pill carries the caveat; the icon says WHAT. */}
-            <Icon id="locate" />
-            <span>{appConfig.copy.topBar.gpsFrozen}</span>
-            {gpsAgeMs != null && (
-              <span className="tb-gps-age">{Math.round(gpsAgeMs / 60_000)} min</span>
-            )}
-          </span>
+            <p className="tb-gps-hint">{appConfig.copy.topBar.gpsFrozenHint}</p>
+          </Popover>
         )}
         {/* Atemschutz chip — pinned at the far right so it never shifts the other controls.
             AMBER from «Kontakt fällig» on (the quiet lead used to stay board-only, so the first
@@ -345,9 +354,12 @@ export function TopBar({ incident, startedAt, endedAt, recording, recStartedAt, 
  *  where the incident is named. It replaces the bottom banner that used to say the same thing on
  *  the same 16px as three other cards (and, being painted last, was the only one of the four you
  *  could read). The exits come along: tapping the chip offers «Zurück» and, for editors, «Wieder
- *  öffnen» — so nothing the banner could do got lost with it.
- *  With no exits to offer (a link session) it is a plain, non-interactive chip. */
-function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactivate?: () => Promise<ReactivateResult> }) {
+ *  öffnen» — so nothing the banner could do got lost with it — under a head that says what the
+ *  state means. With no exits to offer (a link session) the menu is that head alone.
+ *  ⚠️ The head's sentence is the session's OWN (RBAC audit 22.10.2026): «… für alles andere wieder
+ *  öffnen» only beside a «Wieder öffnen»; the el / a Führungsansicht, which correct the Rapport
+ *  but reopen nothing, hear the first half; a viewer «Nur ansehen». */
+function ArchivedChip({ onBack, onReactivate, canCorrectRapport }: { onBack?: () => void; onReactivate?: () => Promise<ReactivateResult>; canCorrectRapport: boolean }) {
   const C = appConfig.copy.archived
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -358,13 +370,17 @@ function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactiv
   const alive = useRef(true)
   useEffect(() => () => { alive.current = false }, [])
   const label = <><Icon id="lock" />{C.title}</>
-  // no exits = a link session: its holder can neither correct nor reopen anything (staging r3)
-  if (!onBack && !onReactivate) return <span className="tb-mode" title={C.hintViewOnly}>{label}</span>
+  // ⚠️ A TAP explains it (S5 rework, 21.10.2026, owner: «they just tap on it»; a hold was the
+  // draft and nobody would find it). The phone hides the word (10-journal · `.tb-mode`
+  // font-size 0), so the menu's head says the state and what it means, above the exits.
+  // No exits = a link session: its holder can neither correct nor reopen anything (staging r3),
+  // and the same menu is the sentence alone.
   return (
     <Popover side="bottom" align="start" popupClassName="tb-uhr-menu" ariaLabel={C.title}
       open={open} onOpenChange={(next) => { if (!busy) setOpen(next) }}
-      trigger={<button type="button" className="tb-mode" title={C.hint} aria-label={`${C.title} – ${C.hint}`}>{label}</button>}
+      trigger={<button type="button" className="tb-mode" aria-label={C.title}>{label}</button>}
     >
+      <p className="tb-uhr-say"><b>{C.title}</b>{onReactivate ? C.hint : canCorrectRapport ? C.hintRapport : C.hintViewOnly}</p>
       {onBack && (
         <PopoverClose className="tb-uhr-row" onClick={onBack}>
           <Icon id="undo" /><span className="tb-uhr-lbl">{C.back}</span>
@@ -396,9 +412,14 @@ function ArchivedChip({ onBack, onReactivate }: { onBack?: () => void; onReactiv
 /** The tappable wind/weather readout + its detail popover. Lives in the TopBar on
  *  desktop/tablet; on phones App floats it in the top-right .phone-wx read-out
  *  instead (the bar is too narrow — it clipped at the screen edge). */
-export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, popAlignOffset }: { weather: WeatherData; onOpenMeteo?: () => void; bearing?: number
+export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, popAlignOffset, popInset = 7 }: { weather: WeatherData; onOpenMeteo?: () => void; bearing?: number
   /** the phone's glass cluster wraps the chip in 5px of its own (padding + border) – see Popover · alignOffset */
-  popAlignOffset?: number }) {
+  popAlignOffset?: number
+  /** how far the chip's bottom sits INSIDE the visible control's bottom edge: the popover hangs
+   *  8px under that edge, as the app menu (.ip-menu) hangs 8px under the bar — not 8px under the
+   *  chip, which left it 1px below the bar (owner, 20.10.2026). Default: the bar's --bar-pad +
+   *  its 1px border; the phone's cluster passes its own 5px. */
+  popInset?: number }) {
   const cond = condition(weather.weather_code)
   // turns with the finger while the Karte is being rotated, not only once it is let go
   const liveBearing = useLiveBearing(bearing)
@@ -411,7 +432,7 @@ export function WeatherBadge({ weather, onOpenMeteo, bearing = 0, popAlignOffset
         ariaLabel={appConfig.copy.weather.details}
         side="bottom"
         align="end"
-        sideOffset={8}
+        sideOffset={8 + popInset}
         zIndex={201}
         trigger={
           <button className="tb-weather"

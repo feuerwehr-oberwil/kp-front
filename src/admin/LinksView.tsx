@@ -50,7 +50,7 @@ import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { InfoTip } from './InfoTip'
 import {
-  ActionMenu, Card, CopyChip, ResultChip, StatusBadge, useSecret,
+  ActionMenu, Card, ConfirmPrompt, CopyChip, ResultChip, StatusBadge, useSecret,
   type MenuAction, type SecretApi,
 } from './ui'
 import './links.css'
@@ -87,8 +87,9 @@ interface RowCopy {
   docsLink?: string
 }
 
-/** An armed destructive action, waiting for its second click. Same two-step contract as
- *  ui/ConfirmButton — the ⋮ menu closes on selection, so the question is asked on the card. */
+/** An armed action, waiting for its second click. Same two-step contract as ui/ConfirmButton
+ *  (it renders the same ConfirmPrompt, 8 s auto-revert included) — the ⋮ menu closes on
+ *  selection, so the question is asked on the card. */
 interface Pending { question: string; danger?: boolean; run: () => void }
 
 /** One copyable value in a card's body, built from the key the backend returned.
@@ -171,7 +172,6 @@ function SecretCard({ copy, secret, lines, tips, tipTone, docsUrl, print }: {
   /** the printable artefact this link lives on — open on the card, never in the menu */
   print?: { label: string; run: (token: string) => void }
 }) {
-  const CO = appConfig.copy.admin.common
   const L = appConfig.copy.admin.links
   const [pending, setPending] = useState<Pending | null>(null)
   const { state, busy, result, clearResult, rotate, disable } = secret
@@ -205,13 +205,9 @@ function SecretCard({ copy, secret, lines, tips, tipTone, docsUrl, print }: {
       actions={
         <>
           {pending ? (
-            <span className="adm-confirm" role="alertdialog" aria-label={pending.question}>
-              <span className="adm-confirm-q">{pending.question}</span>
-              <button type="button" className={`btn ${pending.danger ? 'adm-danger-btn' : 'adm-save-btn'}`}
-                onClick={() => { const { run } = pending; setPending(null); run() }}>{CO.confirmYes}</button>
-              <button type="button" className="btn adm-int-btn"
-                onClick={() => setPending(null)}>{CO.confirmNo}</button>
-            </span>
+            <ConfirmPrompt question={pending.question} danger={pending.danger}
+              onConfirm={() => { const { run } = pending; setPending(null); run() }}
+              onCancel={() => setPending(null)} />
           ) : state.configured ? (
             <>
               {print && token && (

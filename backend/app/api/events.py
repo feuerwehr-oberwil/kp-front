@@ -12,7 +12,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import audit
-from ..auth.dependencies import CurrentAppendWriter, CurrentUser, atemschutz_link_source, is_atemschutz_link
+from ..auth.dependencies import (
+    CurrentAppendWriter,
+    CurrentUser,
+    atemschutz_link_source,
+    is_atemschutz_link,
+    is_link_session,
+)
 from ..auth.incident_link import _Denied
 from ..database import get_db
 from ..models import Incident, IncidentEvent
@@ -36,7 +42,7 @@ async def _ensure(db: AsyncSession, incident_id: uuid.UUID) -> None:
 @router.get("/{incident_id}/events", response_model=list[EventOut])
 async def list_events(
     incident_id: uuid.UUID,
-    _user: CurrentUser,
+    user: CurrentUser,
     from_: datetime | None = None,
     to: datetime | None = None,
     db: AsyncSession = Depends(get_db),
@@ -48,7 +54,10 @@ async def list_events(
     if to is not None:
         q = q.where(IncidentEvent.occurred_at <= to)
     q = q.order_by(IncidentEvent.seq.asc())
-    return list((await db.execute(q)).scalars())
+    events = [EventOut.model_validate(e) for e in (await db.execute(q)).scalars()]
+    if is_link_session(user):  # no account UUIDs off the station; nothing in the app reads them
+        events = [e.model_copy(update={"user_id": None}) for e in events]
+    return events
 
 
 # The event vocabulary the ``el`` role may append — the record domains its workspace slice

@@ -33,6 +33,7 @@ import { Marker } from 'react-map-gl/maplibre'
 import { appConfig } from '../../config/appConfig'
 import { getLocaleId } from '../../config/copy'
 import { Icon, IconSprite } from '../../lib/icons'
+import { MapPin } from '../MapPin'
 import { cx } from '../../lib/cx'
 import { fillTemplate } from '../../lib/format'
 import { useAuth } from '../../lib/auth'
@@ -48,12 +49,14 @@ import { useSymbols } from '../../lib/useSymbols'
 import { useMeasure } from '../../lib/useMeasure'
 import { useVehicleLayer } from '../../lib/useVehicleLayer'
 import { useWeather } from '../../lib/useWeather'
+import { ARRIVAL_MAP_WAIT_MS, ARRIVAL_WINDOW_MS, arrivalDelays, waveDelay } from '../../lib/karte/arrival'
 import { useKarteWeather } from '../../workspace/useKarteWeather'
 import { deploymentDefaultCenter, deploymentMenuMark, deploymentName, objectCategoryRules, objectVisitsConfig } from '../../lib/deploymentConfig'
 import { defaultLayers } from '../../lib/workspace'
-import { fmtLV95, fmtWGS } from '../../lib/geo'
+import { fmtDistance, fmtLV95, fmtWGS, haversineM } from '../../lib/geo'
 import { themeToken, uiBlue } from '../../lib/themeToken'
-import { toast } from '../../lib/ui'
+import { dismissToast, toast } from '../../lib/ui'
+import { usePlacementLane } from '../../lib/toastLane'
 import { geocodeReverse, geocodeSearch, type GeoHit } from '../../lib/api/geo'
 import { getApprovedPlanAlignments, referenceUrl } from '../../lib/api/reference'
 import { loadStationBuilding, loadStationObjects, type StationObject, type StationObjects } from '../../lib/api/stationReference'
@@ -67,22 +70,24 @@ import { fitSimilarity } from '../../lib/georef'
 import { withPdfPage } from '../../lib/whiteboard'
 import { coordOf, nearestObjects, openableCount, searchObjects } from '../../lib/karte/search'
 import {
-  nearbyObjects, nearestPoints, objectAtAddress, objectBuildings, objectVisitHref, pinNear, placeVisitHref, REPORT_CHECKLIST,
+  compass8, nearbyPlaces, objectAtAddress, objectBuildings, objectVisitHref, pinNear, placeVisitHref, REPORT_CHECKLIST,
   normAddress, pointsFromGeoJson, ringAt, splitAddress, type NamedPoint,
 } from '../../lib/karte/places'
 import { LABEL_MIN_ZOOM, placeTags, samePlacement, tagRank, tagSize, type Rect, type TagCandidate } from '../../lib/karte/labels'
-import { cellOf, cellsFor, loadCell, OUTLINE_MIN_ZOOM } from '../../lib/karte/outlines'
+import { cellOf, cellsFor, loadCell, OUTLINE_MIN_ZOOM, ringsAround, useHouses } from '../../lib/karte/outlines'
 import { GEBAEUDE_DOC, viewerPlanDocs } from '../../lib/karte/plans'
 import { moduleCatalogue } from '../../lib/planOrder'
 import { karteHref } from '../../lib/karte/route'
 import { applyLayerPreset, karteLayerPreset, presetFlips, type QuickTap } from '../../lib/karte/layerPresets'
 import { karteRadarStore, loadKarteView, loadViewerLayerPrefs, saveKarteView, saveViewerLayerPrefs, viewerLayers, type KarteTool } from '../../lib/karte/session'
-import { categorize, categoryCounts, categoryRules, inkOn } from '../../lib/karte/categories'
-import { cameraOnClose, returnOnSelect, toolTakesTaps, type Camera, type CameraReturn } from '../../lib/karte/camera'
+import { categorize, categoryRules, inkOn } from '../../lib/karte/categories'
+import { besidePanel, cameraOnClose, returnOnSelect, toolTakesTaps, type Camera, type CameraReturn, type Padding } from '../../lib/karte/camera'
 import type { Entity, LayerDef, LayerId, LngLat, PreparedMapOverlay } from '../../types'
 import { MapView } from '../MapView'
 import { LayerPanel } from '../LayerPanel'
-import { MeasurePanel } from '../MeasurePanel'
+import { MapHint, MeasurePanel } from '../MeasurePanel'
+import { LONG_PRESS_MOVE_TOL_PX, LONG_PRESS_MS } from '../../lib/useLongPress'
+import { buzz } from '../../lib/haptics'
 import { ToolDock } from '../ToolDock'
 import { ToolRail } from '../ToolRail'
 import { MapViewsButton, type ViewsApi } from '../MapViewsMenu'
@@ -90,7 +95,7 @@ import { WeatherBadge } from '../TopBar'
 import { WeatherRadarControls } from '../weatherLazy'
 import { SearchField } from '../SearchField'
 import { ChecklistLibrary } from '../ChecklistLibrary'
-import { KartePanel, type PanelSel, type RegisterState, type VisitsState } from './KartePanel'
+import { KartePanel, type HydrantCue, type PanelLevel, type PanelSel, type RegisterState, type VisitsState } from './KartePanel'
 import { KarteSearch, type AddrState } from './KarteSearch'
 import { KarteGefahrgut } from './KarteGefahrgut'
 import { KarteKeySheet } from './KarteKeySheet'
@@ -104,10 +109,28 @@ import { buildLabel } from '../../lib/buildInfo'
 import { planKey, tileRing, type TileXY } from '../../lib/karte/availability'
 import s from './Karte.module.css'
 
+// Karte Haus round 1 (owner, variant A): a tap on one of an object's buildings opens the object
+// and remembers that building (`hit`, drawn dashed); the panel's switch then opens just that house —
+// a `building` that knows it is part of the object (`of`), so the register rule «this address is
+// an object's → open the object» never throws it back.
 type Sel =
-  | { kind: 'object'; id: string; approxAt?: LngLat | null }
-  | { kind: 'building'; at: LngLat; ring: LngLat[] | null; address: string | null }
+  | { kind: 'object'; id: string; approxAt?: LngLat | null; hit?: { at: LngLat; ring: LngLat[] } }
+  | { kind: 'building'; at: LngLat; ring: LngLat[] | null; address: string | null; of?: string }
   | { kind: 'pin'; at: LngLat }
+/** what the mouse is over (never touch): an object's building, a plain building, or a hydrant */
+type Hover =
+  | { kind: 'object'; id: string; ring: LngLat[] | null }
+  | { kind: 'plain'; ring: LngLat[] }
+  | { kind: 'hydrant'; id: string }
+/** the same thing under the mouse as before (rings compare by identity: they come from one set) */
+function sameHover(a: Hover | null, b: Hover | null): boolean {
+  if (!a || !b) return a === b
+  if (a.kind === 'hydrant') return b.kind === 'hydrant' && a.id === b.id
+  if (a.kind === 'object') return b.kind === 'object' && a.id === b.id && a.ring === b.ring
+  return b.kind === 'plain' && a.ring === b.ring
+}
+/** how close (px) the mouse must come to a hydrant on the map to name it */
+const HYDRANT_HOVER_PX = 14
 type Tool = null | 'pin' | 'measure' | 'erg' | 'layers'
 
 /** layer ids the viewer draws under that are not in the deployment's list */
@@ -127,6 +150,16 @@ const LIBRARY = 'karte:checkliste'
 /** how much of a phone's height the object sheet may cover (Ebenen's cap, 15-mobile · .layers-card):
  *  a place framed for it stands in the strip above */
 const SHEET_SHARE = 0.72
+/** a rail's published width (lib/useRail: `--rail-w`, `--vrail-w` on <html>), its token's 60px when none is */
+const railPx = (name: string) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || 60
+/** The camera padding that frames a place beside the panel: on a phone the strip above the sheet
+ *  (Ebenen's, up to ~72 % of the height), on a tablet the free map between the panel and the
+ *  tool rail (lib/karte/camera · besidePanel) */
+const panelPad = (phone: boolean): Padding => (phone
+  ? { top: 80, bottom: window.innerHeight * SHEET_SHARE, left: 0, right: 0 }
+  : besidePanel(railPx('--rail-w'), railPx('--vrail-w')))
+/** a tag's text: a number range («1-14») never folds at its hyphen (a word joiner after it) */
+const tagText = (name: string) => name.replace(/(\d)-(?=\d)/g, '$1-\u2060')
 /** an Ebenen row per object category (lib/karte/categories) */
 const CAT_ROW = 'karte:kategorie:'
 /** «Unterirdische Bauten» (owner, review rounds 4 + 5): every underground building and tunnel of
@@ -156,6 +189,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const online = useOnline()
   const sym = useSymbols()
   const mapRef = useRef<MapRef | null>(null)
+  // the surface's frame (the tag placement's chrome, the hover label's box)
+  const rootRef = useRef<HTMLDivElement>(null)
   const ov = objectVisitsConfig()
   const canCapture = ov.enabled && !!user && ov.captureRoles.includes(user.role)
   const lang = getLocaleId().slice(0, 2).toLowerCase()
@@ -189,8 +224,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const flyPending = useCallback(() => {
     const map = mapRef.current
     if (!map || !pendingFly.current) return
-    // on a phone the sheet opens over the lower part: frame the object in the strip above it
-    map.jumpTo({ center: pendingFly.current, zoom: 17.6, ...(phoneRef.current ? { padding: { top: 80, bottom: window.innerHeight * SHEET_SHARE, left: 0, right: 0 } } : {}) })
+    // the panel opens with it: the object in the strip above the phone's sheet / beside the panel
+    map.jumpTo({ center: pendingFly.current, zoom: 17.6, padding: panelPad(phoneRef.current) })
     pendingFly.current = null
   }, [])
 
@@ -236,6 +271,42 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }, [catStale])
   const objects = cat?.data?.objects ?? EMPTY_OBJECTS
   const byId = useMemo(() => new Map(objects.map((o) => [o.id, o])), [objects])
+  // ── the arrival (lib/karte/arrival): the markers' wave, once, when the catalogue has answered
+  // AND the basemap stands (the first settled frame, or ARRIVAL_MAP_WAIT_MS — until then the
+  // markers are mounted but invisible, `.waiting`); the window closes ARRIVAL_WINDOW_MS later and
+  // every marker mounted after it (a tag replacing its dot on zoom, a re-selection) is instant.
+  // A layout effect: the wave must be on the markers in the same paint that shows them.
+  const [mapUp, setMapUp] = useState(false)
+  useEffect(() => { const t = setTimeout(() => setMapUp(true), ARRIVAL_MAP_WAIT_MS); return () => clearTimeout(t) }, [])
+  // when the wave began and each object's place in it; what an ELEMENT (dot or tag) makes of that
+  // is decided once, on the element (arriveRef below)
+  const [arrival, setArrival] = useState<{ start: number; places: Map<string, number> } | null>(null)
+  const arrived = useRef(false)
+  useLayoutEffect(() => {
+    if (arrived.current || !objects.length || !mapUp) return
+    arrived.current = true
+    setArrival({ start: performance.now(), places: arrivalDelays(objects, view, rootRef.current?.clientWidth || window.innerWidth) })
+  }, [objects, view, mapUp])
+  useEffect(() => {
+    if (!arrival) return
+    const t = setTimeout(() => setArrival(null), ARRIVAL_WINDOW_MS)
+    return () => clearTimeout(t)
+  }, [arrival])
+  // A marker's entrance, decided ONCE on the element (ref callback: in the commit, before its first
+  // paint) — a changed animation-delay restarts a finished CSS animation, and the clock is not a
+  // thing to read in render. A tag that replaces its dot is a NEW element and joins where the wave
+  // stands (lib/karte/arrival · waveDelay): at once if the dot had already arrived. The class and
+  // the variable are not React's, so a later className change leaves the finished entrance alone.
+  const arriveRef = (id: string) => (el: HTMLButtonElement | null) => {
+    if (!el || el.dataset.arrived || !arrival) return
+    const place = arrival.places.get(id)
+    if (place == null) return
+    el.dataset.arrived = '1'
+    const wave = waveDelay(place, performance.now() - arrival.start)
+    if (wave == null) return
+    el.style.setProperty('--arrive', `${wave}ms`)
+    el.classList.add(s.arrive)
+  }
   // ── the station's object colours (config `map.objectCategories`, lib/karte/categories) ──────
   // An object no rule takes keeps the default look (red; grey without plans). Each category
   // is an Ebenen row of its own; a hidden one takes its objects off the map (outline, dot, tag,
@@ -325,19 +396,22 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       void loadCell(key).then((rings) => setCells((c) => (c[key] ? c : { ...c, [key]: rings }))).catch(() => {})
     }
   }, [])
-  const ringsNear = useCallback((at: LngLat) => cells[cellOf(at)] ?? [], [cells])
-  /** each station object's buildings — the server's official set, else the OSM outline its point
-   *  lies in (lib/karte/places · objectBuildings) */
+  // a building tap / hover matches the survey's houses first, one per house, OSM where they have
+  // none (lib/karte/outlines · ringsAround)
+  const houses = useHouses()
+  const ringsNear = useCallback((at: LngLat) => ringsAround(houses, cells[cellOf(at)], at), [houses, cells])
+  /** each station object's buildings — the server's official set, else the survey house its point
+   *  lies in, else the OSM outline (lib/karte/places · objectBuildings, the same `ringsNear` a tap uses) */
   const outlines = useMemo(() => {
     const m = new Map<string, { rings: LngLat[][]; main: LngLat[] | null; under: LngLat[][] }>()
     for (const o of objects) {
       const at = coordOf(o)
       if (!at) continue
-      const b = objectBuildings(o, cells[cellOf(at)] ?? [])
+      const b = objectBuildings(o, ringsNear(at))
       if (b) m.set(o.id, b)
     }
     return m
-  }, [objects, cells])
+  }, [objects, ringsNear])
 
 
   // ── tools ─────────────────────────────────────────────────────────────────────────────────
@@ -501,27 +575,26 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     watchingMoves.current = true
     map.on('movestart', (e) => { if ((e as { originalEvent?: unknown }).originalEvent) camBack.current = null })
   }, [])
-  // on a phone the sheet is Ebenen's (up to ~72 % of the height): the place goes in the strip above
-  const panelPad = () => (phone ? { top: 80, bottom: window.innerHeight * SHEET_SHARE, left: 0, right: 0 } : { top: 80, bottom: 0, left: 440, right: 0 })
-  const flyTo = (at: LngLat, zoom = 17.6) => mapRef.current?.easeTo({ center: at, zoom: Math.max(view.zoom, zoom), padding: panelPad(), duration: 700 })
+  const flyTo = (at: LngLat, zoom = 17.6) => mapRef.current?.easeTo({ center: at, zoom: Math.max(view.zoom, zoom), padding: panelPad(phone), duration: 700 })
   /** keep the tapped place visible beside / above the panel, without changing the zoom */
   const reveal = (at: LngLat) => {
     const map = mapRef.current
     if (!map) return
     const p = map.project(at)
-    const hidden = phone ? p.y > window.innerHeight * (1 - SHEET_SHARE) - 16 || p.y < 90 : p.x < 440
-    if (hidden) map.easeTo({ center: at, padding: panelPad(), duration: 500 })
+    const hidden = phone ? p.y > window.innerHeight * (1 - SHEET_SHARE) - 16 || p.y < 90 : p.x < panelPad(false).left
+    if (hidden) map.easeTo({ center: at, padding: panelPad(phone), duration: 500 })
   }
-  const selectObject = (id: string, fly = true, how: 'tap' | 'search' = 'tap') => {
+  const selectObject = (id: string, fly = true, how: 'tap' | 'search' = 'tap', hit?: { at: LngLat; ring: LngLat[] }) => {
     const o = byId.get(id)
     if (!o) return
     noteSelect(how)
-    setSel({ kind: 'object', id })
+    setSel(hit ? { kind: 'object', id, hit } : { kind: 'object', id })
     setSurface(null); setSearchOpen(false); setSheetShut(false)
     if (tool !== 'measure' && tool !== 'erg') setToolState(null)
     const at = coordOf(o)
-    // a tapped object is revealed beside / above the panel like a tapped building
-    if (at) { if (fly) flyTo(at); else reveal(at) } else if (o.address && online) {
+    // a tapped object is revealed beside / above the panel like a tapped building – the house that
+    // was tapped, not the object's point (its label, maybe a block away: owner, Karte Haus round 2)
+    if (at) { if (fly) flyTo(at); else reveal(hit?.at ?? at) } else if (o.address && online) {
       // no coordinates in the catalogue: the address says roughly where — marked «ungefähr»
       geocodeSearch(o.address, 1).then(([hit]) => {
         if (!hit) return
@@ -531,9 +604,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       }).catch(() => {})
     }
   }
-  const selectBuilding = (at: LngLat, ring: LngLat[] | null, address: string | null = null) => {
+  const selectBuilding = (at: LngLat, ring: LngLat[] | null, address: string | null = null, of?: string) => {
     noteSelect()
-    setSel({ kind: 'building', at, ring, address })
+    setSel(of ? { kind: 'building', at, ring, address, of } : { kind: 'building', at, ring, address })
     setSurface(null); setSearchOpen(false); setSheetShut(false)
     if (tool !== 'measure' && tool !== 'erg') setToolState(null)
     reveal(at)
@@ -545,6 +618,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     reveal(at)
   }
   const deselect = () => { setSel(null); setSurface(null); setSheetShut(false) }
+  /** the switch «Objekt | <Haus>»: one tap to the other level, both ways, the camera left alone */
+  const toLevel = (to: 'object' | 'house') => {
+    if (to === 'house' && sel?.kind === 'object' && sel.hit) setSel({ kind: 'building', at: sel.hit.at, ring: sel.hit.ring, address: null, of: sel.id })
+    else if (to === 'object' && sel?.kind === 'building' && sel.of && sel.ring) setSel({ kind: 'object', id: sel.of, hit: { at: sel.at, ring: sel.ring } })
+  }
   // ✕ / pushed down: on the tablet the panel IS the selection; on a phone the sheet only covers
   // the map, so it goes and the place stays selected for a second look
   const closePanel = () => { giveCameraBack(); if (phone) setSheetShut(true); else deselect() }
@@ -571,8 +649,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     void loadStationBuilding(point[1], point[0], address, lang).then((r) => {
       if (!alive) return
       setReg({ key: regKey, state: r ? { state: 'ok', info: r.value, cached: r.source !== 'network' } : { state: navigator.onLine ? 'error' : 'offline', info: null, cached: false } })
-      // a building whose register address IS a catalogue object's opens that object instead
-      if (r && sel.kind === 'building') {
+      // a building whose register address IS a catalogue object's opens that object instead —
+      // never a house reached as one of an object's buildings (`of`: its level was chosen)
+      if (r && sel.kind === 'building' && !sel.of) {
         const o = objectAtAddress(objects, r.value.address) ?? (r.value.object ? byId.get(r.value.object.id) : null)
         if (o) setSel((cur) => (cur === sel ? { kind: 'object', id: o.id } : cur))
       }
@@ -582,6 +661,18 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regKey, regTry, lang])
   const register: RegisterState = reg && reg.key === regKey ? reg.state : { state: 'loading', info: null, cached: false }
+  // the switch names the tapped house by its register address, asked at the tapped point as a
+  // building tap asks (the same cached answer the house level then shows)
+  const hitAt = sel?.kind === 'object' ? sel.hit?.at ?? null : null
+  const hitKey = hitAt ? `${hitAt[0].toFixed(6)},${hitAt[1].toFixed(6)}` : null
+  const [hitAddr, setHitAddr] = useState<{ key: string; street: string | null } | null>(null)
+  useEffect(() => {
+    if (!hitKey || !hitAt) return
+    let alive = true
+    void loadStationBuilding(hitAt[1], hitAt[0], null, lang).then((r) => { if (alive) setHitAddr({ key: hitKey, street: splitAddress(r?.value.address)[0] || null }) })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- hitKey is the point
+  }, [hitKey, lang])
 
   const [pinAddr, setPinAddr] = useState<{ key: string; hit: GeoHit | null; failed: boolean } | null>(null)
   const pinKey = sel?.kind === 'pin' ? `${sel.at[0].toFixed(6)},${sel.at[1].toFixed(6)}` : null
@@ -612,7 +703,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // hydrants for «In der Nähe»: the deployment's hydrant layer, fetched once when first needed
   const hydrantLayer = useMemo(() => layers.find((l) => l.geojson && l.vectorKind === 'point' && /hydrant/i.test(`${l.id} ${l.label} ${l.symbol ?? ''}`)), [layers])
   const [hydrants, setHydrants] = useState<NamedPoint[]>([])
-  const wantHydrants = !!sel && !!hydrantLayer?.geojson
+  // …and for the mouse over the map's hydrants while their layer is on (a label names the one under it)
+  const wantHydrants = !!hydrantLayer?.geojson && (!!sel || hydrantLayer.visible)
   useEffect(() => {
     if (!wantHydrants || !hydrantLayer?.geojson || hydrants.length) return
     let alive = true
@@ -622,8 +714,33 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       .catch(() => {})
     return () => { alive = false }
   }, [wantHydrants, hydrantLayer, hydrants.length])
-  const nearby = point ? nearbyObjects(objects, point, { exceptId: selObj?.id }) : []
-  const nearHydrants = point ? nearestPoints(hydrants, point) : []
+  // ONE list by distance, objects and hydrants (lib/karte/places · nearbyPlaces); a house never
+  // lists its own object
+  const exceptId = selObj?.id ?? (sel?.kind === 'building' ? sel.of ?? null : null)
+  // measured from the house that was tapped when there is one (owner, Karte Haus round 1: a row of 21
+  // houses is not stood at its catalogue point), else from the selection's point
+  const nearAt = hitAt ?? point
+  const [px, py] = nearAt ?? [null, null]
+  const nearby = useMemo(() => (px != null && py != null ? nearbyPlaces(objects, hydrants, [px, py], { exceptId }) : []), [objects, hydrants, px, py, exceptId])
+
+  // ── a hydrant of In der Nähe on the map (owner, Karte Haus round 1) ───────────────────────────
+  // The mouse over its row shows it while it stays there; a tap (touch) shows it until tapped
+  // again. Either way it belongs to the selection it was shown for — a new one clears it. A tap
+  // also switches the Hydranten Ebene on, kept like a toggle in Ebenen (owner, Karte Haus round 2);
+  // the mouse passing over a row never changes the layers.
+  const [hydShown, setHydShown] = useState<{ sel: Sel; id: string; pinned: boolean } | null>(null)
+  const shownHyd = hydShown && hydShown.sel === sel ? hydShown : null
+  const onHydrant = (id: string, cue: HydrantCue) => {
+    if (!sel) return
+    if (cue === 'tap') {
+      setHydShown(shownHyd?.id === id && shownHyd.pinned ? null : { sel, id, pinned: true })
+      const layerId = hydrantLayer && !hydrantLayer.visible ? hydrantLayer.id : null
+      if (layerId) updateLayers((ls) => ls.map((l) => (l.id === layerId ? { ...l, visible: true } : l)))
+    }
+    else if (cue === 'enter') { if (!shownHyd?.pinned) setHydShown({ sel, id, pinned: false }) }
+    else if (shownHyd?.id === id && !shownHyd.pinned) setHydShown(null)
+  }
+  const hydPoint = shownHyd ? hydrants.find((h) => h.id === shownHyd.id) ?? null : null
 
   // ── the aligned plan on the map (view only, opacity in Ebenen) ────────────────────────────
   const georefPlan = selObj?.plans.find((p) => p.georef) ?? null
@@ -652,7 +769,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     const next = !georefOn
     setGeorefOn(next)
     const at = selObj && coordOf(selObj)
-    if (next && at) mapRef.current?.easeTo({ center: at, zoom: Math.max(view.zoom, 18), padding: panelPad(), duration: 600 })
+    if (next && at) mapRef.current?.easeTo({ center: at, zoom: Math.max(view.zoom, 18), padding: panelPad(phone), duration: 600 })
   }
 
   // ── the map's content ─────────────────────────────────────────────────────────────────────
@@ -681,13 +798,17 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     }
     // underground garages / shelters (a named row's, review round 3): dashed, barely filled —
     // under the buildings, so a house drawn over its garage keeps its solid line
-    for (const [color, slot] of byColor) if (slot.under.length) out.push({ id: `${slot.id}-under`, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.under, color, fillOpacity: 0.05, lineWidth: 1.6, lineOpacity: 0.85, lineDasharray: UNDER_DASH })
-    for (const [color, slot] of byColor) out.push({ id: slot.id, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.rings, color, fillOpacity: 0.14, lineWidth: 1.6, lineOpacity: 0.85 })
+    // both fade in when they first stand (MapLayers · fadeIn): the rings answer a viewport fetch
+    // after the map, and used to land in one frame
+    for (const [color, slot] of byColor) if (slot.under.length) out.push({ id: `${slot.id}-under`, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.under, color, fillOpacity: 0.05, lineWidth: 1.6, lineOpacity: 0.85, lineDasharray: UNDER_DASH, fadeIn: true })
+    for (const [color, slot] of byColor) out.push({ id: slot.id, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.rings, color, fillOpacity: 0.14, lineWidth: 1.6, lineOpacity: 0.85, fadeIn: true })
     // the selected object: EVERY one of its buildings in the strong style, in its own colour
     const mine = selObj ? outlines.get(selObj.id) : null
     const mineColor = (selObj && cats.get(selObj.id)?.color) ?? red
     if (mine?.under.length) out.push({ id: 'karte-object-sel-under', kind: 'polygons', layer: ALWAYS_LAYER, rings: mine.under, color: mineColor, fillOpacity: 0.1, lineWidth: 2.5, lineOpacity: 1, lineDasharray: UNDER_DASH })
     if (mine) out.push({ id: 'karte-object-sel', kind: 'polygons', layer: ALWAYS_LAYER, rings: mine.rings, color: mineColor, fillOpacity: 0.3, lineWidth: 3, lineOpacity: 1 })
+    // …and the one building the tap hit, dashed in blue: what the switch's house level opens
+    if (sel?.kind === 'object' && sel.hit) out.push({ id: 'karte-object-hit', kind: 'polygons', layer: ALWAYS_LAYER, rings: [sel.hit.ring], color: uiBlue(), fillOpacity: 0, lineWidth: 2.5, lineOpacity: 1, lineDasharray: [2, 1.4] })
     // the building's outline — found again once its cell has loaded (a searched address flies first)
     const bRing = sel?.kind === 'building' ? sel.ring ?? ringAt(ringsNear(sel.at), sel.at) : null
     if (bRing) out.push({ id: 'karte-building', kind: 'polygons', layer: ALWAYS_LAYER, rings: [bRing], color: uiBlue(), fillOpacity: 0.16, lineWidth: 2.5, lineOpacity: 1 })
@@ -722,11 +843,30 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }, [layers, objectsOn, underOn])
 
   // ── taps ──────────────────────────────────────────────────────────────────────────────────
-  // ⚠️ No long press drops a pin (owner, review round 3, 17.10.2026: «I can't delete nodes when
-  // measuring because it wants to create a point»). Holding a measure node is how Messen removes it
-  // (MapView · vertexPress), and a hold anywhere on the map dropped a pin under the finger and left
-  // Messen. A pin is set with the ⊙ tool and a tap — the one way, on the phone and the tablet.
+  // ⚠️ A long press on the map drops a pin again (owner, review round 7, 20.10.2026) — but ONLY
+  // on free map, and only while no tool is armed. Round 3 killed the old one because it fired
+  // everywhere: «I can't delete nodes when measuring because it wants to create a point». Holding
+  // a measure node is how Messen removes it (MapView · vertexPress), so every tool that takes the
+  // map's taps (`takesTaps`) keeps its own hold and this one never arms — see `watchPress` below.
+  /** The station object whose building is under `c`, and that building's ring (null when only an
+   *  underground structure of it is). A building two objects claim (a row of houses named by its
+   *  addresses, and a house of the row that is an object of its own) is the one whose point stands in it. */
+  const objectAt = (c: LngLat): { id: string; ring: LngLat[] | null } | null => {
+    let hit: { id: string; ring: LngLat[] | null } | null = null
+    for (const [id, b] of outlines) {
+      if (catOff(id)) continue
+      const ring = ringAt(b.rings, c)
+      if (!ring && !ringAt(b.under, c)) continue
+      if (b.main && ringAt([b.main], c)) return { id, ring }
+      hit ??= { id, ring }
+    }
+    return hit
+  }
+  /** set while the hold has already answered this press: maplibre still fires its `click` on the
+   *  release, and that click — a tap on free map — would deselect the pin the hold just set. */
+  const heldClick = useRef(false)
   const onMapClick = (c: LngLat) => {
+    if (heldClick.current) { heldClick.current = false; return }
     if (tool === 'measure') { measure.setPath((pts) => [...pts, c]); return }
     if (tool === 'pin') { dropPin(c); return }
     if (tool === 'erg' && erg.mode !== 'off') { setErg((e) => ({ ...e, center: c, at: new Date() })); return }
@@ -736,17 +876,15 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       const a = document.activeElement
       if (a instanceof HTMLElement && sheetFieldRef.current === a) { a.blur(); return }
     } else if (searchOpen) { setSearchOpen(false); return }
-    if (objectsOn) {
-      // any of an object's buildings opens the object; a building two objects claim (a row of
-      // houses named by its addresses, and a house of the row that is an object of its own) opens
-      // the one whose point stands in it
-      let hit: string | null = null
-      for (const [id, b] of outlines) {
-        if (catOff(id) || !(ringAt(b.rings, c) || ringAt(b.under, c))) continue
-        if (b.main && ringAt([b.main], c)) { hit = id; break }
-        hit ??= id
-      }
-      if (hit) { selectObject(hit, false); return }
+    // any of an object's buildings opens the object (`objectAt`), and remembers the building when
+    // the object has several — the switch's house (variant A). On house level the level sticks
+    // while the taps stay on the same object; another object opens at object level.
+    const hit = objectsOn ? objectAt(c) : null
+    if (hit) {
+      const house = hit.ring && (outlines.get(hit.id)?.rings.length ?? 0) > 1 ? { at: c, ring: hit.ring } : undefined
+      if (house && sel?.kind === 'building' && sel.of === hit.id) selectBuilding(c, house.ring, null, hit.id)
+      else selectObject(hit.id, false, 'tap', house)
+      return
     }
     const ring = ringAt(ringsNear(c), c)
     if (ring) { selectBuilding(c, ring); return }
@@ -755,6 +893,214 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   const onEntity = (e: Entity) => {
     if (tool === 'measure') measure.setPath((pts) => [...pts, e.coord])
   }
+
+  // ── hover: the mouse and the trackpad only (owner, Karte Haus round 1) ─────────────────────────
+  // Touch never shows a hover state: only `pointerType === 'mouse'` moves are read (a finger's
+  // tap also sends compat mouse events, which never reach here). The pointer cursor stands over
+  // whatever a click opens — an object's building, a plain building (a tag has its own) — and
+  // the normal one elsewhere and while a tool takes the taps. Over an object's building ALL its
+  // buildings brighten, the one under the cursor gets a white line and a label beside the cursor
+  // names the object; a plain building gets a thin blue line. Over a hydrant (its layer on): the
+  // label says how far and which way it lies from the selected place, its In der Nähe row lights
+  // up — and it stays not clickable. The target is state (it changes rarely); the label follows
+  // the pointer by its style, so a mouse move re-renders nothing.
+  const [hover, setHover] = useState<Hover | null>(null)
+  const hoverNow = useRef<Hover | null>(null)
+  const tipRef = useRef<HTMLDivElement>(null)
+  const pointer = useRef<{ x: number; y: number } | null>(null)
+  const placeTip = useCallback(() => {
+    const el = tipRef.current, p = pointer.current, root = rootRef.current
+    if (!el || !p || !root) return
+    const r = root.getBoundingClientRect()
+    const x = p.x - r.left, y = p.y - r.top
+    const left = x + 16 + el.offsetWidth > r.width - 8 ? x - el.offsetWidth - 12 : x + 16
+    const top = y + 18 + el.offsetHeight > r.height - 8 ? y - el.offsetHeight - 12 : y + 18
+    el.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`
+  }, [])
+  const hydrantUnder = (map: MapRef, at: { x: number; y: number }, c: LngLat) => {
+    if (!hydrantLayer?.visible || !hydrants.length) return null
+    // only the hydrants within the hover reach (degrees, with room for a turned map) are projected
+    const edge = map.unproject([at.x + HYDRANT_HOVER_PX, at.y + HYDRANT_HOVER_PX])
+    const reach = Math.max(Math.abs(edge.lng - c[0]), Math.abs(edge.lat - c[1])) * 1.5
+    let best: string | null = null
+    let bestPx: number = HYDRANT_HOVER_PX
+    for (const h of hydrants) {
+      if (Math.abs(h.coord[0] - c[0]) > reach || Math.abs(h.coord[1] - c[1]) > reach) continue
+      const q = map.project(h.coord)
+      const d = Math.hypot(q.x - at.x, q.y - at.y)
+      if (d < bestPx) { bestPx = d; best = h.id }
+    }
+    return best
+  }
+  const onHoverMove = (e: PointerEvent | null) => {
+    const map = mapRef.current
+    const canvas = map && typeof map.getCanvas === 'function' ? map.getCanvas() : null
+    let next: Hover | null = null
+    pointer.current = e ? { x: e.clientX, y: e.clientY } : null
+    // over the canvas itself, no button held (a pan), no tool taking the taps
+    if (map && canvas && e && e.target === canvas && !e.buttons && !takesTaps) {
+      const r = canvas.getBoundingClientRect()
+      const at = { x: e.clientX - r.left, y: e.clientY - r.top }
+      const ll = map.unproject([at.x, at.y])
+      const c: LngLat = [ll.lng, ll.lat]
+      const hy = hydrantUnder(map, at, c)
+      const obj = !hy && objectsOn ? objectAt(c) : null
+      const ring = !hy && !obj ? ringAt(ringsNear(c), c) : null
+      next = hy ? { kind: 'hydrant', id: hy } : obj ? { kind: 'object', id: obj.id, ring: obj.ring } : ring ? { kind: 'plain', ring } : null
+    }
+    if (canvas) canvas.style.cursor = next && next.kind !== 'hydrant' ? 'pointer' : 'default'
+    if (!sameHover(hoverNow.current, next)) { hoverNow.current = next; setHover(next) }
+    placeTip()
+  }
+  // the listener is added once (with the map) and calls the handler of the latest render
+  const hoverMove = useRef(onHoverMove)
+  useEffect(() => { hoverMove.current = onHoverMove })
+  const watchingHover = useRef(false)
+  const watchHover = useCallback(() => {
+    const map = mapRef.current?.getMap?.()
+    if (!map || typeof map.getCanvasContainer !== 'function' || watchingHover.current) return
+    watchingHover.current = true
+    const box = map.getCanvasContainer()
+    let frame = 0
+    let last: PointerEvent | null = null
+    box.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse') return
+      last = e
+      frame ||= requestAnimationFrame(() => { frame = 0; hoverMove.current(last) })
+    })
+    box.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') hoverMove.current(null) })
+  }, [])
+
+  // ── the finger's hold (owner, review round 7, points 7 + 11) ──────────────────────────────
+  // A touch has no hover, so until the finger lifts nothing on screen said WHAT it was about to
+  // open («highlight the building outlines on hold so we know what we're pressing before we let
+  // go»). Now the press itself answers, with the mouse's own outline — one highlight, two ways in:
+  //  · on a building or an object: it lights up while the finger is down, and the release opens it
+  //    exactly as a tap always did. NOT a pin — a hold there is a question, not a place.
+  //  · on free map: past the long press (lib/useLongPress · LONG_PRESS_MS, the one beat every
+  //    still hold in the app answers on) a pin drops where the finger is, as «Punkt setzen» + tap.
+  // The owner settled that split himself (grilling, 20.10.2026), so it is not widened here: no
+  // pin over a building, no highlight while a tool takes the taps.
+  //
+  // Any movement past the drag tolerance is a pan and cancels both — the map must stay a map.
+  const [pressed, setPressed] = useState<Hover | null>(null)
+  /** What this press means, decided the moment the finger lands. `null` = not ours (a mouse, a
+   *  marker, an armed tool); `pin` = free map, so the hold is a gesture and gets the timer. */
+  const onPressDown = (e: PointerEvent): { pin: (() => void) | null } | null => {
+    const map = mapRef.current
+    const canvas = map && typeof map.getCanvas === 'function' ? map.getCanvas() : null
+    // touch/pen only (a mouse has the hover), on the canvas itself (a marker, a handle and the
+    // measure nodes own their own press), and never under a tool that takes the map's taps
+    if (!map || !canvas || e.target !== canvas || takesTaps) return null
+    if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return null
+    const r = canvas.getBoundingClientRect()
+    const ll = map.unproject([e.clientX - r.left, e.clientY - r.top])
+    const c: LngLat = [ll.lng, ll.lat]
+    const obj = objectsOn ? objectAt(c) : null
+    const ring = obj ? null : ringAt(ringsNear(c), c)
+    if (obj) { setPressed({ kind: 'object', id: obj.id, ring: obj.ring }); return { pin: null } }
+    if (ring) { setPressed({ kind: 'plain', ring }); return { pin: null } }
+    // free map: the hold is the gesture, and the release that follows it is not a tap any more
+    return { pin: () => { heldClick.current = true; dropPin(c); buzz() } }
+  }
+  const pressDown = useRef(onPressDown)
+  useEffect(() => { pressDown.current = onPressDown })
+  const watchingPress = useRef(false)
+  const watchPress = useCallback(() => {
+    const map = mapRef.current?.getMap?.()
+    if (!map || typeof map.getCanvasContainer !== 'function' || watchingPress.current) return
+    watchingPress.current = true
+    const box = map.getCanvasContainer()
+    let live: { x: number; y: number; timer: number } | null = null
+    const end = () => {
+      if (live) { clearTimeout(live.timer); live = null }
+      setPressed((p) => (p ? null : p))
+    }
+    box.addEventListener('pointerdown', (e) => {
+      end()
+      const press = pressDown.current(e)
+      if (!press) return
+      const timer = press.pin ? window.setTimeout(() => { live = null; press.pin?.() }, LONG_PRESS_MS) : 0
+      live = { x: e.clientX, y: e.clientY, timer }
+    })
+    // past the tolerance the finger is panning, not pressing: the pin disarms and the lit
+    // outline goes out, or the map would answer a drag with a selection
+    box.addEventListener('pointermove', (e) => {
+      if (live && Math.hypot(e.clientX - live.x, e.clientY - live.y) > LONG_PRESS_MOVE_TOL_PX) end()
+    })
+    box.addEventListener('pointerup', end)
+    box.addEventListener('pointercancel', end)
+    // Android answers a long press with its own context menu — ours is the pin (lib/holdTooltip
+    // does the same for the buttons it explains)
+    box.addEventListener('contextmenu', (e) => { if (live || heldClick.current) e.preventDefault() })
+  }, [])
+
+  // a tool armed under a still mouse: the hover goes at once, not on the next move
+  const shownHover = takesTaps ? null : hover
+  useLayoutEffect(() => { placeTip() }, [shownHover, placeTip])
+  const litHydrant = shownHover?.kind === 'hydrant' ? shownHover.id : shownHyd?.id ?? null
+  /** the selected place as the hydrant label says it («… von Storchenweg 4») */
+  const placeName = (hitAt && hitAddr?.key === hitKey ? hitAddr.street : null) ?? selObj?.name
+    ?? (sel?.kind === 'building' ? splitAddress(register.info?.address ?? sel.address)[0] || C.building : sel?.kind === 'pin' ? C.pin : null)
+  let tip: ReactNode = null
+  if (shownHover?.kind === 'object') {
+    const o = byId.get(shownHover.id)
+    if (o) tip = <><span className={s.eyebrow}>{C.kind[o.kind]}</span><b>{o.name}</b></>
+  } else if (shownHover?.kind === 'hydrant') {
+    const h = hydrants.find((x) => x.id === shownHover.id)
+    tip = h && nearAt && placeName
+      ? <><span className={s.eyebrow}>{C.nearHydrant}</span><b>{fillTemplate(C.hydrantFrom, { m: fmtDistance(haversineM(nearAt, h.coord)), dir: C.compass[compass8(nearAt, h.coord)], place: placeName })}</b></>
+      : <b>{C.nearHydrant}</b>
+  }
+  // what the mouse is over and the hydrant shown, over the selection: their own overlays, so a
+  // hover never rebuilds (and re-sends) the station's outlines
+  const blue = uiBlue()
+  /** what the mouse is over OR what the finger is holding (owner, review round 7, point 7): ONE
+   *  outline, so «this is what you are about to open» looks the same whichever hand lit it. Only
+   *  the label beside the cursor stays the mouse's — a finger covers the spot it would stand on. */
+  const outlined = shownHover ?? pressed
+  const hoverOverlays = useMemo<PreparedMapOverlay[]>(() => {
+    const out: PreparedMapOverlay[] = []
+    if (outlined?.kind === 'object') {
+      const b = outlines.get(outlined.id)
+      if (b) out.push({ id: 'karte-hover-object', kind: 'polygons', layer: ALWAYS_LAYER, rings: b.rings, color: cats.get(outlined.id)?.color ?? red, fillOpacity: 0.16, lineWidth: 2.6, lineOpacity: 1 })
+      if (outlined.ring) out.push({ id: 'karte-hover-house', kind: 'polygons', layer: ALWAYS_LAYER, rings: [outlined.ring], color: '#ffffff', fillOpacity: 0, lineWidth: 2.5, lineOpacity: 1 })
+    } else if (outlined?.kind === 'plain') {
+      out.push({ id: 'karte-hover-plain', kind: 'polygons', layer: ALWAYS_LAYER, rings: [outlined.ring], color: blue, fillOpacity: 0, lineWidth: 2, lineOpacity: 1 })
+    }
+    if (hydPoint && px != null && py != null) out.push({ id: 'karte-hydrant-line', kind: 'line', layer: ALWAYS_LAYER, coords: [[px, py], hydPoint.coord], color: blue, width: 3, dasharray: [2, 1.5] })
+    return out
+  }, [outlined, outlines, cats, red, blue, hydPoint, px, py])
+  const mapOverlays = useMemo(() => (hoverOverlays.length ? [...overlays, ...hoverOverlays] : overlays), [overlays, hoverOverlays])
+
+  // the hydrant shown off-screen or under the panel: the map moves so both ends are in view
+  const hydId = shownHyd?.id ?? null
+  useEffect(() => {
+    const map = mapRef.current
+    const root = rootRef.current
+    if (!hydId || !hydPoint || px == null || py == null || !map || !root || typeof map.project !== 'function') return
+    const box = map.getContainer().getBoundingClientRect()
+    const panel = root.querySelector('[data-karte-panel]')?.getBoundingClientRect()
+    // the free part of the map: under the bar, beside the tablet's panel / above the phone's sheet
+    const free = { left: 0, top: 80, right: box.width - (phone ? 0 : 88), bottom: box.height }
+    if (panel && phone) free.bottom = panel.top - box.top
+    else if (panel) free.left = panel.right - box.left
+    const q = map.project(hydPoint.coord)
+    if (q.x > free.left + 24 && q.x < free.right - 24 && q.y > free.top + 24 && q.y < free.bottom - 24) return
+    // both ends into the free part, zoomed out only as far as the line needs: its middle to the
+    // free part's middle (an explicit zero padding, so the offset is the screen's own)
+    const o = map.project([px, py])
+    const fw = Math.max(40, free.right - free.left - 64), fh = Math.max(40, free.bottom - free.top - 64)
+    const scale = Math.min(1, fw / Math.max(1, Math.abs(q.x - o.x)), fh / Math.max(1, Math.abs(q.y - o.y)))
+    map.easeTo({
+      center: [(px + hydPoint.coord[0]) / 2, (py + hydPoint.coord[1]) / 2],
+      zoom: map.getZoom() + Math.log2(scale),
+      padding: { top: 0, bottom: 0, left: 0, right: 0 },
+      offset: [(free.left + free.right) / 2 - box.width / 2, (free.top + free.bottom) / 2 - box.height / 2],
+      duration: 500,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per hydrant shown
+  }, [hydId])
 
   // ── actions from the panel ────────────────────────────────────────────────────────────────
   /** «Objektbesuch» (the chooser) or «Melden» (`checklist` = the station's Fehlermeldung, asked
@@ -804,14 +1150,14 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     if (weather.handlesLayer(id)) { weather.setRadarOpacity(v); return }
     updateLayers((ls) => ls.map((l) => (l.id === id ? { ...l, opacity: v } : l)))
   }
-  const catCount = categoryCounts(cats)
   const twins = [
     { id: OBJECTS_ROW, group: C.layerGroupStation, label: C.layerObjects, sub: C.layerObjectsSub, icon: 'footprint', visible: objectsOn },
     // one row per category, its colour on the glyph, under «Station» (R2-BITS' Alle/Keine/Standard
-    // work over these like over any row)
+    // work over these like over any row); no object count on them – the owner doesn't want it
+    // (20.10.2026)
     ...catRules.map((c) => ({
       id: `${CAT_ROW}${c.id}`, group: C.layerGroupStation, label: c.label,
-      sub: fillTemplate(C.layerCategorySub, { n: catCount.get(c.id) ?? 0 }), icon: 'footprint', swatch: c.color, visible: !hiddenCats.has(c.id),
+      icon: 'footprint', swatch: c.color, visible: !hiddenCats.has(c.id),
     })),
     {
       id: UNDERGROUND_ROW, group: C.layerGroupStation, label: C.layerUnderground, icon: 'footprint', visible: underOn,
@@ -839,16 +1185,25 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }
 
   // ── the compass menu: no saved views here (they are an Einsatz's), the rest as on the Karte ──
+  const fitAll = () => {
+    const pts = objects.map(coordOf).filter((c): c is LngLat => !!c)
+    if (pts.length < 2) { mapRef.current?.easeTo({ center: deploymentDefaultCenter() ?? view.center, zoom: 15 }); return }
+    const lngs = pts.map((p) => p[0]), lats = pts.map((p) => p[1])
+    mapRef.current?.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 64, duration: 600 })
+  }
+  /** one GPS fix, then zoom (≥ 17) onto it; `orElse` when there is no position */
+  const locate = (orElse?: () => void) => {
+    if (!navigator.geolocation) { orElse?.(); return }
+    navigator.geolocation.getCurrentPosition((p) => mapRef.current?.easeTo({ center: [p.coords.longitude, p.coords.latitude], zoom: Math.max(view.zoom, 17) }), () => orElse?.(), { enableHighAccuracy: true, timeout: 10_000 })
+  }
   const viewsApi: ViewsApi = {
     list: [], current: view, onGo: NOOP, onSave: NOOP, onRename: NOOP, onDelete: NOOP,
     onResetNorth: () => mapRef.current?.easeTo({ bearing: 0 }),
-    onFit: () => {
-      const pts = objects.map(coordOf).filter((c): c is LngLat => !!c)
-      if (pts.length < 2) { mapRef.current?.easeTo({ center: deploymentDefaultCenter() ?? view.center, zoom: 15 }); return }
-      const lngs = pts.map((p) => p[0]), lats = pts.map((p) => p[1])
-      mapRef.current?.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 64, duration: 600 })
-    },
-    onLocate: () => navigator.geolocation?.getCurrentPosition((p) => mapRef.current?.easeTo({ center: [p.coords.longitude, p.coords.latitude], zoom: Math.max(view.zoom, 17) }), () => {}, { enableHighAccuracy: true, timeout: 10_000 }),
+    onFit: fitAll,
+    onLocate: () => locate(),
+    // holding the compass goes to where I stand – more often wanted than the whole village (owner,
+    // Karte Haus round 2); no position (denied, timed out, no GPS) fits the village as before
+    hold: { run: () => locate(fitAll), hint: C.compassHoldHint },
   }
 
   // ── chrome ────────────────────────────────────────────────────────────────────────────────
@@ -862,15 +1217,53 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   )
   const panelSel: PanelSel | null = !sel ? null
     : sel.kind === 'object' ? (selObj ? { kind: 'object', obj: selObj } : null)
-      : sel.kind === 'building' ? { kind: 'building', at: sel.at, address: sel.address }
+      : sel.kind === 'building' ? { kind: 'building', at: sel.at, address: sel.address, partOf: sel.of ? byId.get(sel.of)?.name ?? null : null }
         : {
           kind: 'pin', at: sel.at, near: pinNearHit, onBuilding: !!ringAt(ringsNear(sel.at), sel.at),
           nearState: !online && !pinHit ? 'offline' : !pinHit ? 'loading' : pinNearHit ? 'ok' : 'none',
         }
+  // the switch «Objekt | <Haus>»: after a tap that hit one of an object's buildings, on both levels
+  const levelObj = sel?.kind === 'object' && sel.hit ? selObj : sel?.kind === 'building' && sel.of ? byId.get(sel.of) ?? null : null
+  const level: PanelLevel | null = levelObj && sel ? {
+    on: sel.kind === 'object' ? 'object' : 'house',
+    plans: openableCount(levelObj),
+    house: sel.kind === 'object' ? (hitAddr && hitAddr.key === hitKey ? hitAddr.street : null)
+      : splitAddress(register.info?.address ?? null)[0] || null,
+    onPick: toLevel,
+  } : null
   const onMapSurface = !openDoc && !onLibrary
+  // Punkt setzen / Messen / Gefahrgut's centre take the map's taps: the toasts give way to the top
+  // lane meanwhile (lib/toastLane · usePlacementLane; owner, Karte Haus round 3: «the toasts
+  // sometimes block … the point placement thing»)
+  usePlacementLane(onMapSurface && (tool === 'pin' || tool === 'measure' || tool === 'erg'))
+  // Punkt setzen's instruction stands at the foot of the map, where Messen's does (MeasurePanel ·
+  // MapHint; owner 20.10.2026: at the top of the screen it was «a bit unnatural») — and since
+  // review round 7 in the very card the Messen dock's ⓘ opens, not a quieter look-alike beside it.
+  // The missing-catalogue notice is a MESSAGE: a sticky toast in the lane with the others.
+  const pinHint = onMapSurface && tool === 'pin'
+  const catNote = cat?.failed && !cat.data && !onLibrary ? (online ? C.loadFailed : C.noCatalogue) : null
+  useEffect(() => {
+    if (!catNote) return
+    const id = toast(catNote, { sticky: true, icon: 'warn' })
+    return () => dismissToast(id)
+  }, [catNote])
   /** the panel is on screen: on the map, not under Messen, and on a phone not under a tool's own
    *  card nor pushed away */
   const panelShown = onMapSurface && !!panelSel && tool !== 'measure' && !(phone && (tool === 'erg' || tool === 'layers' || sheetShut || searchOpen))
+  // Back on the map from a plan, the object stands in the free map's middle again (owner, review
+  // round 6: «sometimes the object isn't neatly in focus like it should be») — a tap selects in
+  // place (`reveal`), so the object was wherever it was tapped, maybe at the bottom right. At the
+  // zoom the map had; the way back for ✕ stays (an ease carries no `originalEvent`). Not when the
+  // way back was a pick of another object, which frames itself.
+  const docWas = useRef<{ doc: string; sel: Sel | null } | null>(null)
+  useEffect(() => {
+    const was = docWas.current
+    docWas.current = openDoc ? { doc: openDoc.doc.id, sel } : null
+    if (!was || openDoc || !panelShown || was.sel !== sel) return
+    const at = selPoint(sel)
+    if (at) mapRef.current?.easeTo({ center: at, padding: panelPad(phone), duration: 500 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per way back from a document
+  }, [openDoc])
   // the tablet's left rail is always there (owner, 19.10.2026): Karte · Checkliste, then the plans
   const railShown = !phone
   const tabletTools = [
@@ -883,9 +1276,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   // ── which objects carry their name tag (lib/karte/labels) ─────────────────────────────────
   // One greedy pass once the map has settled (`view` moves on moveend), again when what covers
   // the map changes (panel, sheet, search, a tool), and once more after a panel has slid in.
-  const rootRef = useRef<HTMLDivElement>(null)
   const measureRef = useRef<HTMLSpanElement>(null)
   const sizes = useRef(new Map<string, { w: number; h: number }>())
+  /** name → the width a FOLDED tag is given: its widest line plus its chrome (the twin's measure) */
+  const [fits, setFits] = useState<ReadonlyMap<string, number>>(() => new Map())
+  const fitsRef = useRef(fits)
   /** id → how far its tag slides sideways to stay on the map */
   const [tagged, setTagged] = useState<Map<string, number> | null>(null)
   const taggedRef = useRef<Map<string, number> | null>(null)
@@ -900,15 +1295,35 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   useEffect(() => {
     if (!objectsOn) return
     let alive = true
-    /** a tag's real size: the off-screen twin measured once per name (jsdom: an estimate) */
+    /** a tag's real size: the off-screen twin measured once per name (jsdom: an estimate). A
+     *  name that folds keeps the box of its 280px cap in CSS (owner, round 3: «wrapped lines …
+     *  fitted to the width»): its lines are read off the twin and the tag is given the widest
+     *  one's width (`fit`) – measured again at that width, so the placement collides the fitted box */
+    let folded: Map<string, number> | null = null
     const size = (name: string) => {
       const hit = sizes.current.get(name)
       if (hit) return hit
       const el = measureRef.current
       let box = { w: 0, h: 0 }
       if (el) {
-        el.textContent = name
-        const r = el.getBoundingClientRect()
+        el.textContent = tagText(name)
+        el.style.width = ''
+        let r = el.getBoundingClientRect()
+        const range = document.createRange()
+        range.selectNodeContents(el)
+        const lines = new Map<number, number>()
+        for (const l of Array.from(range.getClientRects?.() ?? [])) lines.set(Math.round(l.top), Math.max(lines.get(Math.round(l.top)) ?? 0, l.width))
+        if (lines.size > 1) {
+          // the box is border-box: the line, its padding and border; +1 – a sub-pixel short of the
+          // line, the balanced wrap would fold one word more
+          const cs = getComputedStyle(el)
+          const chrome = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth)
+          const fit = Math.ceil(Math.max(...lines.values()) + chrome) + 1
+          el.style.width = `${fit}px`
+          r = el.getBoundingClientRect()
+          el.style.width = ''
+          ;(folded ??= new Map(fitsRef.current)).set(name, fit)
+        }
         box = { w: Math.ceil(r.width), h: Math.ceil(r.height) }
       }
       if (!box.w) box = tagSize(name.length * 7)
@@ -945,6 +1360,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         }
         next = placeTags(cands, { width: box.width, height: box.height, occupied, always: selId })
       }
+      if (folded) { fitsRef.current = folded; setFits(folded); folded = null }
       if (samePlacement(taggedRef.current, next)) return
       taggedRef.current = next
       setTagged(next)
@@ -960,6 +1376,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
         <IconSprite />
         {/* the name tag's off-screen twin: what a tag measures before it is placed */}
         <span ref={measureRef} className={cx(s.tagMk, s.measure)} aria-hidden />
+        {tip && <div ref={tipRef} className={s.hoverTip} role="tooltip" data-karte-hover="">{tip}</div>}
         <MapView
           ref={mapRef}
           entities={entities}
@@ -972,7 +1389,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           showOrigin={false}
           // never past the visible base's last sharp level (owner on #383) — the Karte only
           zoomCapAtBase
-          preparedOverlays={overlays}
+          preparedOverlays={mapOverlays}
           isVisible={isVisible}
           selectedId={null}
           onSelect={onEntity}
@@ -988,7 +1405,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           onMarkerMove={NOOP}
           onMarkerDragEnd={NOOP}
           onView={(v) => { setView(v); loadOutlines() }}
-          onSettled={() => { flyPending(); loadOutlines(); watchUserMoves() }}
+          onSettled={() => { setMapUp(true); flyPending(); loadOutlines(); watchUserMoves(); watchHover(); watchPress() }}
           freehand={null}
           onFreehand={NOOP}
           drawColor="#000000"
@@ -1025,16 +1442,18 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             if (!isSel && !(tagZoom && tagged?.has(o.id))) {
               return (
                 <Marker key={`dot:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" style={{ zIndex: 1, pointerEvents: takesTaps ? 'none' : undefined }}>
-                  <button type="button" className={cx(s.dotMk, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through)} style={catStyle} aria-label={o.name} title={o.name} onClick={pick} />
+                  <button type="button" ref={arriveRef(o.id)} className={cx(s.dotMk, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through, !mapUp && s.waiting)} style={catStyle} aria-label={o.name} title={o.name} onClick={pick} />
                 </Marker>
               )
             }
             // the tag takes the dot's place, on the point; the name only, no plan count (owner R3)
             const dx = (!isSel && tagged?.get(o.id)) || 0
+            // a folded name: the box of its widest line, not of the 280px cap (the placement pass's `fits`)
+            const fit = fits.get(o.name)
             return (
               <Marker key={`tag:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" offset={[dx, 0]} style={{ zIndex: isSel ? 3 : 2, pointerEvents: takesTaps ? 'none' : undefined }}>
-                <button type="button" className={cx(s.tagMk, isSel && s.sel, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through)} style={catStyle} onClick={pick}>
-                  {o.name}
+                <button type="button" ref={arriveRef(o.id)} className={cx(s.tagMk, isSel && s.sel, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through, !mapUp && s.waiting)} style={fit ? { ...catStyle, width: fit } : catStyle} onClick={pick}>
+                  {tagText(o.name)}
                 </button>
               </Marker>
             )
@@ -1044,10 +1463,21 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
               <span className={cx(s.tagMk, s.approx, s.sel)}>{C.approxTag} · {selObj.name}</span>
             </Marker>
           )}
+          {/* the hydrant shown from In der Nähe: a ring on it, its metres at the dashed line's middle */}
+          {hydPoint && nearAt && (
+            <>
+              <Marker longitude={hydPoint.coord[0]} latitude={hydPoint.coord[1]} anchor="center" style={{ zIndex: 4, pointerEvents: 'none' }}>
+                <span className={s.hydRing} data-karte-hydrant-ring="" />
+              </Marker>
+              <Marker longitude={(nearAt[0] + hydPoint.coord[0]) / 2} latitude={(nearAt[1] + hydPoint.coord[1]) / 2} anchor="center" style={{ zIndex: 4, pointerEvents: 'none' }}>
+                <span className={s.hydDist}>{fmtDistance(haversineM(nearAt, hydPoint.coord))}</span>
+              </Marker>
+            </>
+          )}
           {sel?.kind === 'pin' && (
             // the pin is the place: a tap on it brings back the sheet that was pushed away
             <Marker longitude={sel.at[0]} latitude={sel.at[1]} anchor="bottom" onClick={(e) => { e.originalEvent.stopPropagation(); setSheetShut(false) }}>
-              <svg className={s.pinMk} viewBox="0 0 34 44" aria-hidden><path d="M17 43C17 43 3 26 3 16a14 14 0 0 1 28 0c0 10-14 27-14 27z" fill={red} stroke="#fff" strokeWidth="2.5" /><circle cx="17" cy="16" r="5" fill="#fff" /></svg>
+              <MapPin className={s.pinMk} />
             </Marker>
           )}
         </MapView>
@@ -1074,7 +1504,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           {/* the menu button (owner, review round 5: «not "Einsätze" as the main top button» → the
               station's short name and/or mark, ▾; neither configured → the menu symbol). The red dot
               is the old count: an Einsatz running or an alarm waiting; the number is in its name. */}
-          <button type="button" className={cx(s.einsaetze, sheetOpen && s.open)} onClick={() => { setSheetOpen((o) => !o); setSearchOpen(false) }}
+          <button type="button" className={cx('ip-switch-btn', s.einsaetze)} onClick={() => { setSheetOpen((o) => !o); setSearchOpen(false) }}
             title={C.menu} aria-label={einsaetze.badge > 0 ? `${menuName}, ${fillTemplate(C.einsaetzeBadge, { n: einsaetze.badge })}` : menuName}
             aria-haspopup="dialog" aria-expanded={sheetOpen} data-karte-menu="">
             {mark ? <img className={s.menuMark} src={mark} alt="" onError={() => setMarkFailed(true)} />
@@ -1095,7 +1525,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
               onChange={setLibQuery}
               onTouchEnd={phone ? noPanTouchEnd : undefined}
               onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-              placeholder={defuseAutofill(C.librarySearch)}
+              placeholder={defuseAutofill(C.librarySearchPlaceholder)}
               aria-label={defuseAutofill(C.librarySearch)}
             />
           ) : !phone && (
@@ -1113,13 +1543,13 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           )}
           {/* offline: the chip stands where the weather was and opens «Auf diesem Gerät» */}
           {!online ? (
-            <button type="button" className={s.offChip} onClick={() => setDeviceOpen(true)} title={C.offlineChipTitle} aria-label={C.offlineChipTitle}>
+            <button type="button" className={cx('ip-offline-chip', s.offChip)} onClick={() => setDeviceOpen(true)} title={C.offlineChipTitle} aria-label={C.offlineChipTitle}>
               <span className={s.offDot} aria-hidden />{!phone && C.offlineChip}
             </button>
           ) : !phone && liveWeather.data?.wind_dir_deg != null && <WeatherBadge weather={liveWeather.data} bearing={view.bearing} />}
           {!phone && runningChip}
           {phone && !onLibrary && (
-            <button type="button" className={cx(s.searchBtn, searchOpen && s.open)} onClick={() => (searchOpen ? setSearchOpen(false) : openPhoneSearch())}
+            <button type="button" className={cx('ip-switch-btn', s.searchBtn)} onClick={() => (searchOpen ? setSearchOpen(false) : openPhoneSearch())}
               aria-label={C.searchOpen} title={C.searchOpen} aria-expanded={searchOpen} data-karte-search-open="">
               <Icon id="search" />
             </button>
@@ -1133,7 +1563,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           )}
         </div>
         {/* the strip stands where the «Einsätze» sheet hangs — and the sheet lists the same Einsatz */}
-        {phone && live && !sheetOpen && <div className={s.runningStrip}>{runningChip}</div>}
+        {phone && live && !sheetOpen && <div className={s.runningStrip} data-karte-running="">{runningChip}</div>}
 
         {searchOpen && !phone && !onLibrary && (
           <KarteSearch query={query} hits={hits} nearest={nearest} addresses={addrState === 'ok' ? addr.list : []} addrState={addrState}
@@ -1173,7 +1603,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             sel={panelSel}
             register={register}
             nearby={nearby}
-            hydrants={nearHydrants}
+            litHydrant={litHydrant}
+            onHydrant={onHydrant}
+            level={level}
             visits={visitsState}
             canCapture={canCapture}
             docs={docs}
@@ -1248,10 +1680,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           </>
         )}
 
-        {tool === 'pin' && (
-          <div className={s.hintBar} role="status"><Icon id="pin" /><span>{C.pinHint}</span></div>
-        )}
-
         {tool === 'measure' && (
           <>
             <ToolDock groups={[
@@ -1268,6 +1696,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             <MeasurePanel mode={measure.mode} coords={measure.path} profile={measure.profile} profileLoading={measure.loading} className={s.measurePanel} />
           </>
         )}
+        {pinHint && <MapHint>{C.pinHint}</MapHint>}
 
         {tool === 'erg' && (
           <KarteGefahrgut
@@ -1303,10 +1732,6 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
                 onTogglePlaying={weather.playback.togglePlaying} stale={weather.radarStale} now={weather.now} />
             </Suspense>
           </div>
-        )}
-
-        {cat?.failed && !cat.data && !onLibrary && (
-          <div className={s.hintBar} role="status"><Icon id="warn" /><span>{online ? C.loadFailed : C.noCatalogue}</span></div>
         )}
 
         {noBasemap && !online && (

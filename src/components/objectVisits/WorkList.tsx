@@ -11,6 +11,7 @@ import { pendingUploads } from '../../objectVisits/outbox'
 import { Head } from './common'
 import { fmtDate, fmtDayShort, plural } from './ovFormat'
 import { useOv } from './ovContext'
+import { ListCard, ListRow } from '../ListRow'
 import s from './ObjectVisits.module.css'
 
 export function WorkList({ listRef }: { listRef: string }) {
@@ -49,7 +50,7 @@ export function WorkList({ listRef }: { listRef: string }) {
               <Icon id="warn" /><span className="form-warn-text">{fillTemplate(C.listUnresolved, { n: unresolved + missingHere })}</span>
             </div>
           )}
-          <div className={s.card}>
+          <ListCard>
             {list.objectIds.map((id, i) => {
               const o = byId.get(id)
               if (!o) return null
@@ -87,24 +88,15 @@ export function WorkList({ listRef }: { listRef: string }) {
                 else if (ov.canCapture && !list.archived) ov.go({ kind: 'new', object: o.id, ref: list.ref })
               }
               const door = !!v || (ov.canCapture && !list.archived)
-              const inner = (
-                <>
-                  <span className={stop.done ? `${s.num} ${s.numDone}` : s.num} {...(stop.done ? { role: 'img', 'aria-label': `${i + 1} · ${C.listDoneElsewhere}` } : {})}>
-                    {stop.done ? <Icon id="check" /> : i + 1}
-                  </span>
-                  <span className={s.rowMain}>
-                    <span className={s.rowTitle}>{o.name}</span>
-                    <span className={s.rowSub}>{subLine}</span>
-                  </span>
-                  {chip}
-                  {door && <Icon id="chevron" className={s.chev} />}
-                </>
+              const num = (
+                <span className={stop.done ? `${s.num} ${s.numDone}` : s.num} {...(stop.done ? { role: 'img', 'aria-label': `${i + 1} · ${C.listDoneElsewhere}` } : {})}>
+                  {stop.done ? <Icon id="check" /> : i + 1}
+                </span>
               )
-              return door
-                ? <button key={id} type="button" className={s.row} onClick={open}>{inner}</button>
-                : <div key={id} className={s.rowStatic}>{inner}</div>
+              // a door the role cannot go through is a read-out row, without the ›
+              return <ListRow key={id} lead={num} title={o.name} sub={subLine} end={chip} onClick={door ? open : undefined} />
             })}
-          </div>
+          </ListCard>
         </div>
       </div>
     </>

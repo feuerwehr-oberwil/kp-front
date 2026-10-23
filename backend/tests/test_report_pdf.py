@@ -156,6 +156,47 @@ async def test_report_pdf_viewer_allowed(client, viewer, editor):
     assert r.content[:5] == b"%PDF-"
 
 
+async def test_report_pdf_embeds_media_of_its_own_einsatz_only(client, viewer, editor, db_session, monkeypatch):
+    """RBAC audit S6: a viewer reads only the Einsätze inside its window, but a foreign
+    `/api/media/<id>` in the payload made the composer open an out-of-window photo it could not
+    GET. The rapport is OF its path incident; anything else is refused before a file opens."""
+    from datetime import UTC, datetime, timedelta
+
+    from app import storage
+    from app.models import Incident, Media
+
+    old = Incident(
+        title="Alt",
+        source="manual",
+        status="abgeschlossen",
+        is_archived=True,
+        started_at=datetime.now(UTC) - timedelta(days=400),
+        closed_at=datetime.now(UTC) - timedelta(days=399),
+        last_closed_at=datetime.now(UTC) - timedelta(days=399),
+    )
+    db_session.add(old)
+    await db_session.flush()
+    photo = Media(incident_id=old.id, kind="photo", storage_key="media/old/secret.jpg", content_type="image/jpeg")
+    db_session.add(photo)
+    await db_session.commit()
+    opened: list[str] = []
+
+    async def spy(key):
+        opened.append(key)
+        return _png()
+
+    monkeypatch.setattr(storage, "aget_bytes", spy)
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    await _login(client, viewer)
+    assert (await client.get(f"/api/media/{photo.id}")).status_code == 404  # outside its window
+
+    payload = {**_minimal_payload(inc), "attachments": [{"url": f"/api/media/{photo.id}"}]}
+    r = await client.post(f"/api/incidents/{inc}/report/pdf", data={"payload": json.dumps(payload)})
+    assert r.status_code == 403, r.text
+    assert "media/old/secret.jpg" not in opened
+
+
 async def test_report_pdf_unknown_incident_404(client, editor):
     await _login(client, editor)
     missing = "99999999-9999-9999-9999-999999999999"

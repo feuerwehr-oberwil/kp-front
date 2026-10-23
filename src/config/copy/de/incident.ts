@@ -21,6 +21,9 @@ export const incidentCopy = {
     offlineShort: 'Offline',
     errorShort: 'Sync-Fehler',
     storageShort: 'Speicher voll',
+    // …and its Meldeleiste row (S1, 20.10.2026): the state that loses work says so where messages stand
+    storageMeldung: 'Speicher voll – Änderungen nicht lokal gesichert',
+    storageMeldungSub: 'App offen lassen und Einträge sichern – beim Schliessen gehen sie sonst verloren.',
     // one-shot warning toasts (useIncidentSync) — once per episode
     syncErrorToast: 'Synchronisierung fehlgeschlagen – Änderungen sind lokal gespeichert.',
     syncOfflineToast: 'Immer noch offline – Änderungen werden lokal gespeichert.',
@@ -92,6 +95,8 @@ export const incidentCopy = {
     hint: 'Der Rapport bleibt korrigierbar (Nachträge) – für alles andere wieder öffnen.',
     // …und wer gar nichts wieder öffnen kann (Link-Sitzungen)
     hintViewOnly: 'Nur ansehen.',
+    // …and who corrects the Rapport but reopens nothing (the el, a Führungsansicht)
+    hintRapport: 'Der Rapport bleibt korrigierbar (Nachträge).',
     back: 'Zurück',
     reactivate: 'Wieder öffnen',
     // offline (05.10.2026): «Wieder öffnen» is the server's call (it writes the reopen boundary
@@ -107,7 +112,7 @@ export const incidentCopy = {
     closedRefusedOne: '1 Eintrag dieses Geräts kam nach dem Abschluss und wurde nicht mehr übernommen. Er bleibt auf diesem Gerät gespeichert.',
     closedRefused: '{n} Einträge dieses Geräts kamen nach dem Abschluss und wurden nicht mehr übernommen. Sie bleiben auf diesem Gerät gespeichert.',
     closedExport: 'Einträge sichern',
-    closedDismiss: 'Hinweis ausblenden',
+    closedDismiss: 'Ausblenden',
     // …und der Weg zurück: auf einem anderen Gerät «Wieder öffnen» — der Bildschirm ist wieder live
     reopenedElsewhere: 'Einsatz wurde auf einem anderen Gerät wieder geöffnet ({t})',
     // r3, F10: der Rapport eines abgeschlossenen Einsatzes bleibt korrigierbar – und sagt es
@@ -126,6 +131,12 @@ export const incidentCopy = {
     title: 'Einsätze',
     empty: 'Noch keine Einsätze.',
     emptySub: 'Eröffnete und abgeschlossene Einsätze erscheinen hier.',
+    // a viewer's window (docs/roles-and-access.md · «The viewer's window»): the list's foot
+    // line, and its empty state – «Noch keine Einsätze» was false after a quiet week
+    windowNote: 'Hier stehen die laufenden Einsätze und die der letzten {n} Tage.',
+    windowNoteOne: 'Hier stehen die laufenden Einsätze und die des letzten Tages.',
+    windowNoteRunning: 'Hier stehen nur die laufenden Einsätze.',
+    emptyWindow: 'Keine Einsätze.',
     noLocation: 'ohne Ort',
     searchPlaceholder: 'Einsatz suchen …',
     groupOpen: 'Offen',
@@ -201,7 +212,11 @@ export const incidentCopy = {
     // die sichere, fokussierte Antwort auf der Liste der offenen Punkte
     confirmBack: 'Zurück',
     done: 'Rapport abgeschlossen',
-    doneMediaPending: 'Rapport abgeschlossen · {n} Foto/Audio noch nicht hochgeladen – bleiben gespeichert und gehen beim nächsten Öffnen raus',
+    // what an Abschluss left in the media queue stands in the Meldeleiste while it is there — it
+    // was the closing toast's second half (S3, 20.10.2026; components/MediaPendingMeldung)
+    mediaPendingTitle: '{n} Foto/Audio von «{title}» noch nicht hochgeladen',
+    mediaPendingSub: 'Bleiben auf diesem Gerät gespeichert und gehen beim nächsten Öffnen raus.',
+    mediaPendingDismiss: 'Ausblenden',
     failed: 'Abschluss fehlgeschlagen',
     corrected: 'Stunden korrigiert: {name}',
     attendanceRemoved: '{name} Anwesenheit entfernt',
@@ -274,6 +289,7 @@ export const incidentCopy = {
     planOne: 'Plan',
     planMany: 'Pläne',
     mapNote: 'Koordinaten teils ungenau – Liste ist massgebend.',
+    mapUnavailable: 'Kartenbild nicht verfügbar.',
     hideMap: 'Karte ausblenden',
     showMap: 'Karte einblenden',
   },

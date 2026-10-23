@@ -94,7 +94,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     funkkanal: 'Canal radio',
     funkkanalSub: 'Par défaut pour les nouveaux binômes ARI',
     syncedFoot: 'Synchronisé avec tous les appareils',
-    syncedFootViewer: ' · seul le chef d’intervention peut les modifier',
+    syncedFootViewer: ' – seul le chef d’intervention peut les modifier',
 
     symbolCaptions: 'Étiquettes',
     symbolCaptionsSub: 'La valeur clé sous le symbole',
@@ -171,6 +171,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     browserNoInstall: 'Cet appareil ne propose pas l\'installation. Pour être hors ligne en intervention, installe PC Front sur la tablette ou le téléphone.',
     wsDropped: '{n} entrées endommagées ignorées au chargement',
     wsNewer: 'Les données d\'intervention proviennent d\'une version plus récente de l\'application – merci de mettre l\'application à jour.',
+    wsDroppedDismiss: 'Masquer',
   },
   emptyApp: {
     title: 'Aucune intervention ouverte',
@@ -183,7 +184,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     kicker: 'Nouvelle intervention',
     switch: 'Basculer',
     open: 'Ouvrir',
-    later: 'Plus tard',
+    dismiss: 'Masquer',
   },
   photoViewer: {
     title: 'Photo',

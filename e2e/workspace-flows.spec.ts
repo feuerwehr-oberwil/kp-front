@@ -79,10 +79,10 @@ test('F2 · Tafel: a Fläche from three taps, auto-committed on tap-away, is one
   const box = (await ink.boundingBox())!
   for (const [fx, fy] of [[0.3, 0.3], [0.7, 0.3], [0.5, 0.7]]) {
     await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy)
-    await page.waitForTimeout(400) // no two taps may read as the double-tap finish
+    await page.waitForTimeout(400) // apart in time, like a person's taps
   }
   // three vertex grips on the draft, then tap-away commits it (A6)
-  await expect(page.getByRole('button', { name: 'Eckpunkt ziehen · gedrückt halten zum Löschen' })).toHaveCount(3)
+  await expect(page.getByRole('button', { name: 'Eckpunkt ziehen, gedrückt halten zum Löschen' })).toHaveCount(3)
   await page.getByRole('button', { name: 'Auswahl', exact: true }).click()
   await expect(page.getByText('Fläche gespeichert')).toBeVisible()
   await expect(undoBtn(page)).toBeEnabled()

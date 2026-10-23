@@ -18,6 +18,7 @@ import { truppForLine, truppTagText } from '../lib/truppLines'
 import { lerpPoint } from '../lib/lineStyle'
 import { OnOff, Segmented } from './Segmented'
 import { IconButton } from './Button'
+import { Slider } from './Slider'
 import { krokiEntity, krokiSymbolMul } from '../lib/krokiPayload'
 import { forkBearing, pxPerM, shapePx, symPx, worldPx } from '../lib/mapView'
 import { ensureHatchImage, ensureHatchImages, hatchImageColor } from '../lib/draw'
@@ -27,7 +28,7 @@ import {
 } from '../lib/krokiLegend'
 import type { CaptionMode, Drawing, Entity, LayerDef, LngLat, Trupp } from '../types'
 import { krokiStandLabel, type KrokiView } from '../lib/report'
-import { cartoRasterTiles } from '../lib/carto'
+import { cartoRasterTiles, withCartoLabelsBaked } from '../lib/carto'
 
 // WYSIWYG framing of the printed Kroki: the auto-fit (or the last chosen crop) is just the
 // STARTING point — the operator pans/zooms and exactly this crop becomes the printed Kroki.
@@ -130,10 +131,9 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
   const [nowMs] = useState(() => Date.now())
   /** where the thumb is WHILE dragging — the reconstruction waits for it to stop */
   const [dragMs, setDragMs] = useState<number | null>(null)
-  const commitDrag = () => {
-    if (dragMs == null) return
+  const commitDrag = (ms: number) => {
     // the last notch IS the live picture: no reconstruction, and the caption stays «jetzt»
-    onAtChange?.(dragMs >= nowMs - 30_000 ? null : dragMs)
+    onAtChange?.(ms >= nowMs - 30_000 ? null : ms)
     setDragMs(null)
   }
   const label = krokiStandLabel(dragMs ?? atMs)
@@ -180,7 +180,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
   const base = scene.layers.find((l) => l.base && l.visible && l.tiles?.length) ?? scene.layers.find((l) => l.base && l.tiles?.length)
   const style = useMemo(() => ({
     version: 8 as const,
-    sources: { base: { type: 'raster' as const, tiles: base?.tiles?.length ? [base.tiles[0]] : cartoRasterTiles(CARTO_FALLBACK_STYLE, ['a']), tileSize: 256, maxzoom: base?.maxzoom } },
+    sources: { base: { type: 'raster' as const, tiles: base?.tiles?.length ? [withCartoLabelsBaked(base.tiles[0])] : cartoRasterTiles(CARTO_FALLBACK_STYLE, ['a']), tileSize: 256, maxzoom: base?.maxzoom } },
     layers: [{ id: 'base', type: 'raster' as const, source: 'base' }],
   }), [base])
 
@@ -710,17 +710,16 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
                   {markPcts.map((pct, i) => <i key={i} style={{ left: `${pct}%` }} />)}
                 </span>
               )}
-              <input
-                className="kf-at-range" type="range"
+              {/* the app's own Slider (20.10.2026, UX sweep M3 – it was the native range):
+                  `onCommit` is the finger lifting, `onCancel` a drag the browser took away */}
+              <Slider
                 min={startedAtMs} max={nowMs} step={30_000}
                 value={dragMs ?? atMs ?? nowMs}
-                aria-label={P.krokiAtLabel}
-                aria-valuetext={label}
-                aria-busy={atBusy || undefined}
-                onChange={(e) => setDragMs(Number(e.target.value))}
-                onPointerUp={() => commitDrag()}
-                onKeyUp={() => commitDrag()}
-                onBlur={() => commitDrag()}
+                ariaLabel={P.krokiAtLabel}
+                valueText={label}
+                onChange={setDragMs}
+                onCommit={commitDrag}
+                onCancel={() => setDragMs(null)}
               />
             </span>
             <span className="kf-at-wait" aria-hidden="true">{atBusy && <ShellLoader />}</span>

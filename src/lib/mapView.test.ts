@@ -25,8 +25,8 @@ const ent = (over: Partial<Entity>): Entity => ({
 })
 
 describe('EMPTY_STYLE / vis', () => {
-  it('is an empty MapLibre style v8', () => {
-    expect(EMPTY_STYLE).toEqual({ version: 8, sources: {}, layers: [] })
+  it('is an empty MapLibre style v8 that names our own glyphs for the basemap labels', () => {
+    expect(EMPTY_STYLE).toEqual({ version: 8, glyphs: '/fonts/{fontstack}/{range}.pbf', sources: {}, layers: [] })
   })
   it('vis toggles MapLibre visibility', () => {
     expect(vis(true)).toEqual({ visibility: 'visible' })
@@ -69,10 +69,21 @@ describe('pxPerM / symPx / shapePx — world-scaled sizing', () => {
     expect(symPx('symbol', 47, 25)).toBe(48)
   })
 
+  it('symPx gives a vehicle its own 34px floor — its name is inside the glyph', () => {
+    // the floor the owner's tablet zoom lands on: a vehicle must carry a readable name there
+    expect(symPx('vehicle', 47, 1)).toBe(34)
+    // and ONLY the vehicle: nothing else bakes a name in, so nothing else grows
+    for (const kind of ['symbol', 'hydrant', 'command', 'area', 'mystery']) expect(symPx(kind, 47, 1)).toBe(28)
+    // the ceiling is shared — a higher floor must not lift the top of the band
+    expect(symPx('vehicle', 47, 25)).toBe(48)
+  })
+
   it('symPx scales the whole band by the S/M/L mul factor', () => {
     // L (1.3×) lifts both the floor and the ceiling proportionally
     expect(symPx('symbol', 47, 1, 1.3)).toBeCloseTo(28 * 1.3)
     expect(symPx('symbol', 47, 25, 1.3)).toBeCloseTo(48 * 1.3)
+    // including the vehicle's own floor
+    expect(symPx('vehicle', 47, 1, 1.3)).toBeCloseTo(34 * 1.3)
   })
 
   it('symPx uses the per-kind metre size (vehicle bigger than hydrant at same zoom)', () => {

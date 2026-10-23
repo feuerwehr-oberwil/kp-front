@@ -294,7 +294,7 @@
    the finger was reaching for.
    Same bottom inset as .coord-read (07-toolrail.css), and the phone rules for the two live in one
    place (15-mobile.css) so they cannot drift apart or land on the bottom bars.
-   Glass, not an ink-fill slab: it sits over the map and must not read as another dark dock. */
+   Glass, not an ink-fill slab: it sits over the map, in the tool docks' own material. */
 /* FIXED, not absolute: the two surfaces hang it in containers that end in different places —
    the map's fills the screen, the plan's canvas already stops above the phone's two bottom bars —
    and «always the same spot» has to mean the same spot on the SCREEN. Nothing above it carries a

@@ -153,7 +153,7 @@ export const objectVisitsCopy = {
     photoCaptionPlaceholder: 'z. B. Zugang Nord',
     photoBelongs: 'Gehört zu',
     photoGeneral: 'Allgemein',
-    photoStored: 'Auf diesem Gerät gespeichert · wird gesendet, sobald Netz da ist',
+    photoStored: 'Auf diesem Gerät gespeichert – wird gesendet, sobald Netz da ist',
     photoNotStored: 'Nicht auf dem Gerät gespeichert – nur in diesem Fenster',
     photoAnother: 'Noch eins',
     photoDone: 'Fertig',
@@ -184,6 +184,7 @@ export const objectVisitsCopy = {
     report: 'Bericht (PDF)',
     reportFailed: 'Bericht konnte nicht geladen werden',
     edit: 'Bearbeiten',
+    lockedSince: 'Nur noch Ansicht – seit {when} gesperrt.',
     // a visit at a PLACE — a pin or an address with no catalogue object (16.10.2026)
     placeTitle: 'Meldung {label}',
     placeUnnamed: 'an gesetztem Punkt',

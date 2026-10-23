@@ -134,13 +134,12 @@ describe('Rapport · Formulare & Links', () => {
       open.mockRestore()
     })
 
-    it('is not offered to a session that may not write (viewer / archived Einsatz)', () => {
-      const open = vi.spyOn(window, 'open').mockReturnValue(window)
+    it('⚠️ the card is not drawn for a session that may not edit the Rapport (RBAC audit 22.10.2026)', () => {
+      // the station's pre-filled forms are the editor's paperwork – a viewer opening a
+      // Schadenmeldung with this Einsatz's data in it is not a read
       setup({ canEdit: false })
-      fireEvent.click(oeffnen()) // reading the form is not editing — Öffnen stays live
-      returnToApp()
-      expect(screen.queryByRole('button', { name: 'Erledigt' })).toBeNull()
-      open.mockRestore()
+      expect(screen.queryByText('Getränke-Konsum')).toBeNull()
+      expect(screen.queryByRole('button', { name: 'Öffnen' })).toBeNull()
     })
 
     it('is not offered again for a row that is already ticked', () => {

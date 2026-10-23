@@ -5,7 +5,7 @@ import './app.css'
 import { IconSprite, Icon } from './lib/icons'
 import { demoSeedRebase, type Saved } from './lib/workspace'
 import { appConfig } from './config/appConfig'
-import { shortAddress, isDemoMode, alarmProviderName, objectVisitsConfig } from './lib/deploymentConfig'
+import { shortAddress, isDemoMode, alarmProviderName, objectVisitsConfig, getDeploymentConfig } from './lib/deploymentConfig'
 import { isOvPath, leaveAppEntries, navigateTo, OV_BASE, ovHref, showsObjectVisits, useOvRoute } from './objectVisits/route'
 import { isKartePath, KARTE_BASE, useKarteRoute } from './lib/karte/route'
 import { appScreen, bootPlan } from './lib/karte/home'
@@ -27,7 +27,8 @@ import { getInstallPlatform, isStandalone } from './lib/installPrompt'
 import { installOffered } from './lib/installPolicy'
 import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { useIncidentTabLock } from './lib/tabLock'
-import { clearIncidentMedia, clearUploadedMedia } from './lib/mediaQueue'
+import { clearIncidentMedia, clearUploadedMedia, listMediaQueue } from './lib/mediaQueue'
+import { MediaPendingMeldung, type ClosedMediaPending } from './components/MediaPendingMeldung'
 import { ensurePushSubscription } from './lib/push'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
@@ -104,6 +105,9 @@ function LandingSettings({ onClose, onFeedback }: { onClose: () => void; onFeedb
 export default function App() {
   const { user, logout, sessionExpired } = useAuth()
   const isEditor = user?.role === 'editor'
+  /** may close and reopen Einsätze – an editor, but not in the Führungsansicht, the editor's
+   *  locked view (workspace/access · elView; RBAC audit 22.10.2026: it got «Wieder öffnen») */
+  const canLifecycle = isEditor && !user?.el_view_default
   // Einsatz-Link session (/l/<token>): a viewer narrowed to ONE incident. The backend answers
   // 403 for everything outside a read allowlist — reports, printing, push, the incident LIST —
   // so the rule here is the same as for `isEditor`: a link holder must never see a control
@@ -172,6 +176,20 @@ export default function App() {
   // IDB sync cache); a second tab is read-only with a one-tap take-over.
   const tabLock = useIncidentTabLock(activeId)
   const [overlay, setOverlay] = useState<null | 'create' | 'history' | 'daten'>(null)
+  // closed Einsätze whose captures are still queued on this device (completeRapport) — a Meldung
+  // each while true; re-read whenever the list refreshes, gone once the queue is empty
+  const [closedMedia, setClosedMedia] = useState<ClosedMediaPending[]>([])
+  useEffect(() => {
+    if (closedMedia.length === 0) return
+    let live = true
+    void Promise.all(closedMedia.map(async (p) => ({ ...p, n: (await listMediaQueue(p.id).catch(() => [])).length })))
+      .then((next) => {
+        if (!live) return
+        const kept = next.filter((p) => p.n > 0)
+        setClosedMedia((cur) => (kept.length === cur.length && kept.every((p, i) => p.n === cur[i].n) ? cur : kept))
+      })
+    return () => { live = false }
+  }, [incidents])  // eslint-disable-line react-hooks/exhaustive-deps
   // the Objektbesuche route (/besuche…) — a surface of its own, see the render below
   const ovRoute = useOvRoute()
   // …ENTERED on purpose (the «Einsätze» sheet's button, the Einsatz menu's row, a deep link at
@@ -217,10 +235,15 @@ export default function App() {
   const [karteFromEinsatz, setKarteFromEinsatz] = useState(false)
   // ⚠️ A REPLACE, not a push: the viewer is an operational screen now, and those have no history
   // entry behind them for an iOS edge swipe to find (objectVisits/route). The way back into the
-  // Einsatz is its red chip / the «Einsätze» sheet.
+  // Einsatz is its red chip / the «Einsätze» sheet. The Einsatz's own entries (its Checkliste's
+  // levels, lib/historyTrail) are walked back FIRST: a replace on top of them would leave them
+  // behind the viewer, and walking them back after it would land on «/» and drop the viewer.
+  // Leaving an ABGESCHLOSSENES Einsatz forgets it on this device: nothing runs behind the viewer,
+  // so no later reload or launch may bring it back (owner, 20.10.2026).
   const enterKarte = useCallback(() => {
-    setKarteEntered(true); setKarteFromEinsatz(true); navigateTo(KARTE_BASE, { replace: true })
-  }, [])
+    if (activeMeta?.is_archived) savePrefs({ ...loadPrefs(), incidentId: undefined })
+    leaveAppEntries('/', () => { setKarteEntered(true); setKarteFromEinsatz(true); navigateTo(KARTE_BASE, { replace: true }) })
+  }, [activeMeta?.is_archived])
   // left by the browser's own back (neither the viewer nor a visit from it): the entry is spent
   if (!karteRoute && !ovRoute && karteEntered) { setKarteEntered(false); setKarteFromEinsatz(false) }
   const karteOverEinsatz = !!karteRoute && !karteEntered && !!activeId && !linkScoped
@@ -455,7 +478,7 @@ export default function App() {
       const C = appConfig.copy.incidentSwitcher
       const text = !(e instanceof ApiError) ? C.openFailed
         : e.status === 0 ? C.openFailedNoCache
-        : e.hint ? `${e.detail} · ${e.hint}` : e.detail
+        : e.hint ? `${e.detail} – ${e.hint}` : e.detail
       toast(text, { icon: 'warn', tone: 'warn' })
     } finally {
       setOpening((cur) => (cur === id ? null : cur)) // a newer open may already own the state
@@ -492,7 +515,7 @@ export default function App() {
         // the launcher would otherwise render «keine offenen Einsätze» over a list that simply
         // failed, with nothing on screen to say so.
         const C = appConfig.copy.incidentSwitcher
-        toast(e instanceof ApiError ? `${C.bootListFailed} · ${e.detail}` : C.bootListFailed, { icon: 'warn', tone: 'warn' })
+        toast(e instanceof ApiError ? `${C.bootListFailed} – ${e.detail}` : C.bootListFailed, { icon: 'warn', tone: 'warn' })
         return { list: [] as IncidentMeta[], offline: false }
       })
       if (list.length === 0 && !offline) {
@@ -518,11 +541,12 @@ export default function App() {
       // `pickBootIncident` and a reload dropped the operator onto the start, which with
       // the launch card's Brand and Anmelde-Untertitel read as «ich bin abgemeldet worden». It is
       // fetched by id (it is not in the list to look up) and reopened READ-ONLY, exactly as «Alle
-      // Einsätze» opens it — «Wieder öffnen» stays the one way back to editing. Bounds:
-      // incidentAlerts · shouldReopenClosed.
+      // Einsätze» opens it — «Wieder öffnen» stays the one way back to editing. Only on a reload:
+      // a fresh launch lands at home. Bounds: incidentAlerts · shouldReopenClosed.
       if (plan.kind !== 'closed') return
       const saved = await getIncident(plan.id).catch(() => null)
-      if (saved && shouldReopenClosed(saved, { now: Date.now(), chosenAt: bootPrefs.incidentChosenAt })) {
+      const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+      if (saved && shouldReopenClosed(saved, { now: Date.now(), reload: nav?.type === 'reload', chosenAt: bootPrefs.incidentChosenAt })) {
         await bootOpen(saved, { readOnly: saved.is_archived })
       }
     } finally { setBootDecided(true) } })()
@@ -733,10 +757,14 @@ export default function App() {
       await archiveIncident(id)
       // …and say so when something could not go up: the operator is about to leave this incident,
       // and «kommt beim nächsten Öffnen» is only reassuring if it was said out loud.
+      // ⚠️ …and what is still queued stands as a Meldung while true, not in this toast (S3,
+      // 20.10.2026): five seconds while the screen moves to the launcher is not «said out loud»
       const stillQueued = await clearUploadedMedia(id)
-      toast(stillQueued
-        ? fillTemplate(appConfig.copy.abschluss.doneMediaPending, { n: stillQueued })
-        : appConfig.copy.abschluss.done, { icon: stillQueued ? 'warn' : 'check', tone: stillQueued ? 'warn' : 'success' })
+      toast(appConfig.copy.abschluss.done, { icon: 'check', tone: 'success' })
+      if (stillQueued) {
+        const title = (incidents ?? []).find((i) => i.id === id)?.title ?? activeMeta?.title ?? ''
+        setClosedMedia((cur) => [...cur.filter((p) => p.id !== id), { id, title, n: stillQueued }])
+      }
       if (id === activeId) {
         if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
         await refreshList()
@@ -762,7 +790,7 @@ export default function App() {
     } finally {
       if (closingLocallyRef.current === id) closingLocallyRef.current = null
     }
-  }, [activeId, refreshList])
+  }, [activeId, refreshList, incidents, activeMeta])
 
   // Close ANY incident from the «Alle Einsätze» list (per-incident, not just the active one).
   // ⚠️ It ends the same way the Rapport does — through `completeRapport` — so an Einsatz put away
@@ -796,8 +824,10 @@ export default function App() {
     const backId = archiveReturnRef.current
     archiveReturnRef.current = null
     if (backId && (await selectIncident(backId).then(() => true).catch(() => false))) return
-    // a read-only view holds no unsaved edits — dispose without flushing
+    // a read-only view holds no unsaved edits — dispose without flushing; and forget it, or the
+    // next reload reopens the Einsatz just left
     if (syncRef.current) { syncRef.current.dispose(); syncRef.current = null }
+    savePrefs({ ...loadPrefs(), incidentId: undefined })
     setActiveId(null); setActiveMeta(null); setForceReadOnly(false)
     setOverlay('history')
   }, [selectIncident])
@@ -1008,7 +1038,7 @@ export default function App() {
             responder's business either */}
         {!linkScoped && (
           <div className="ip-emptyapp-secondary">
-            <button className="ip-btn" onClick={() => { close(); setOverlay('history') }}><Icon id="history" />{appConfig.copy.emptyApp.history}</button>
+            <button className="ip-btn" onClick={() => { close(); setOverlay('history') }}><Icon id="list" />{appConfig.copy.emptyApp.history}</button>
             {/* Objektbesuche: only where the station switched the module on; every account
                 may read, the surface hides what a role may not capture */}
             {objectVisitsConfig().enabled && (
@@ -1161,7 +1191,7 @@ export default function App() {
           // checked — while the Rapport path stamped and counted. Both doors run the SAME confirm
           // in IncidentWorkspace now and end here (mockup 06 · Fall 4).
           onCompleteRapport={() => completeRapport(activeMeta.id)}
-          onReactivateActive={isEditor && activeMeta.is_archived ? () => reactivateById(activeMeta.id) : undefined}
+          onReactivateActive={canLifecycle && activeMeta.is_archived ? () => reactivateById(activeMeta.id) : undefined}
           onBackFromArchive={activeMeta.is_archived ? () => void backFromArchive() : undefined}
           lifecycleElsewhere={lifecycleElsewhere?.id === activeMeta.id ? lifecycleElsewhere : null}
           openCover={coverId === activeId}
@@ -1266,6 +1296,9 @@ export default function App() {
 
       {/* auto-opened / colleague-taken incident announced, never forced. Suppressed while
           untaken pool alarms exist — the take banner owns that spot and the take flow. */}
+      {closedMedia.map((p) => (
+        <MediaPendingMeldung key={p.id} pending={p} onDismiss={() => setClosedMedia((cur) => cur.filter((q) => q.id !== p.id))} />
+      ))}
       {freshIncident && poolAlarms.length === 0 && (
         <NewIncidentBanner
           inc={freshIncident}
@@ -1300,7 +1333,9 @@ export default function App() {
       )}
       {overlay === 'history' && (
         <HistoryPanel onClose={() => setOverlay(null)} onOpen={(id, ro) => { setOverlay(null); void openIncident(id, { readOnly: ro }) }}
-          onArchive={isEditor ? archiveById : undefined} />
+          onArchive={canLifecycle ? archiveById : undefined}
+          // a viewer reads only the last few days (docs/roles-and-access.md · the viewer's window)
+          windowDays={user?.role === 'viewer' ? getDeploymentConfig().access?.viewerHistoryDays ?? undefined : undefined} />
       )}
       {overlay === 'daten' && (
         <DatenquellenPanel

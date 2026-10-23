@@ -7,18 +7,24 @@
 /* the 8px inset is the host menu's text gutter (MapViewsMenu · .empty and the row labels) —
    this paragraph sits directly under one of them and has to start on the same x */
 .wb-dock-tip-inline { margin: 0; width: 100%; padding: 0 8px; text-align: left; font-size: var(--fs-1); line-height: 1.4; color: var(--ink-dim); }
-.wb-dock-ibtn { width: 34px; height: 34px; border-radius: var(--r-sm); border: none; background: rgba(255, 255, 255, .14);
-  color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; padding: 0; }
-@media (hover: hover) { .wb-dock-ibtn:hover { background: rgba(255, 255, 255, .28); } }
-.wb-dock-ibtn.on { background: rgba(255, 255, 255, .28); }
+.wb-dock-ibtn { width: 34px; height: 34px; border-radius: var(--r-sm); border: none; background: var(--dock-control-bg, var(--fill-soft));
+  color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; padding: 0; }
+@media (hover: hover) { .wb-dock-ibtn:hover:not(.on) { background: var(--dock-control-hover, var(--ink-12)); color: var(--ink); } }
+.wb-dock-ibtn.on { background: var(--sel-wash); color: var(--ink); }
 .wb-dock-ibtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* …and the inline variant lives in a LIGHT-by-day menu (the Ansichten popover, 29.09.2026 — the
    floating family's glass): the grey wash of the house ✕ (.ip-x) instead of the dock's on-ink one,
-   «open» the row's --sel-wash. The ToolDock's ⓘ above stays on its dark dock. */
+   «open» the row's --sel-wash. (The ToolDock's ⓘ above wears the dock's own control fill.) */
 .wb-dock-info-inline .wb-dock-ibtn { background: var(--ink-8); color: var(--ink-dim); }
 @media (hover: hover) { .wb-dock-info-inline .wb-dock-ibtn:hover { background: var(--ink-12); color: var(--ink); } }
 .wb-dock-info-inline .wb-dock-ibtn.on { background: var(--sel-wash); color: var(--ink); }
 @media (pointer: coarse) { .wb-dock-ibtn { width: var(--tap); height: var(--tap); } }
+/* in the tool dock's column: the rail's 46px square, like the dock's other buttons (09-whiteboard) */
+:global(.wb-dock) .wb-dock-ibtn { width: 46px; height: 46px; background: transparent; color: var(--ink); }
+:global(.wb-dock) .wb-dock-ibtn :global(.i) { width: 22px; height: 22px; }
+@media (hover: hover) { :global(.wb-dock) .wb-dock-ibtn:hover:not(.on) { background: var(--hover); } }
+/* …the phone's row dock keeps the 46px square (15-mobile · M8 rework), with its 18px glyphs */
+:global(.phone-tools .wb-dock) .wb-dock-ibtn :global(.i) { width: 18px; height: 18px; }
 .wb-dock-ibtn :global(.i) { width: 18px; height: 18px; }
 /* help text always appears at the BOTTOM-centre of the screen (not floating beside the
    button), so every in-function hint shows in the same place. Fixed to the viewport. */
@@ -36,8 +42,6 @@
 /* phones: clear ALL THREE bottom bars (nav + tool bar + the horizontal tool-option dock) so the
    hint sits above the dock, not under it — rail-h*3 (was *2, which collided with the dock) */
 @media (--phone) {
-  .wb-dock-ibtn { background: var(--dock-control-bg, var(--fill-soft)); color: var(--ink-dim); }
-  .wb-dock-ibtn.on { background: var(--sel-wash); color: var(--ink); }
   /* in THE message lane, at the bars' width, like every other message (15-mobile · --msg-lane-bottom) */
   .wb-dock-tip { bottom: var(--msg-lane-bottom); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
     transform: none; width: auto; max-width: none; }

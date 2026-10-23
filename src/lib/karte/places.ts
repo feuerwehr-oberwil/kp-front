@@ -6,7 +6,7 @@
 //     the object's own coordinate lies INSIDE its outline (`outlineFor`), or when official data
 //     puts it on the object's own use area / parcel (`objectBuildings`, derived server-side) —
 //     never by proximity alone, because a neighbour's gas valve reads exactly like this one's;
-//   · «In der Nähe» is distance and nothing else (`nearbyObjects`): the panel lists it under its
+//   · «In der Nähe» is distance and nothing else (`nearbyPlaces`): the panel lists it under its
 //     own heading with the sentence that it does not belong to the selected building.
 
 import type { LngLat } from '../../types'
@@ -113,36 +113,54 @@ export function objectAtAddress(objects: readonly StationObject[], address: stri
   return hits[0] ?? null
 }
 
-/** How far «In der Nähe» reaches, and how many of each kind it lists. */
+/** How far «In der Nähe» reaches, and how many rows it lists. */
 export const NEARBY_RADIUS_M = 160
-export const NEARBY_OBJECTS = 3
-export const NEARBY_POINTS = 2
+export const NEARBY_MAX = 5
 
-export interface Near<T> { item: T; distanceM: number }
+export interface NamedPoint { id: string; label: string; coord: LngLat }
 
-/** Station objects within `radiusM` of `at`, nearest first — by distance ONLY. */
-export function nearbyObjects(objects: readonly StationObject[], at: LngLat, opts: { exceptId?: string | null; radiusM?: number; max?: number } = {}): Near<StationObject>[] {
-  const radius = opts.radiusM ?? NEARBY_RADIUS_M
-  const out: Near<StationObject>[] = []
+/** One row of «In der Nähe»: a station object, or a hydrant with the compass direction it lies in
+ *  from the place (`dir`, 0 = north … 7 = north-west — `compass8`). */
+export type NearRow =
+  | { kind: 'object'; item: StationObject; distanceM: number }
+  | { kind: 'hydrant'; item: NamedPoint; distanceM: number; dir: number }
+
+/**
+ * «In der Nähe» (owner, Karte Haus round 1): ONE list by distance, objects and hydrants mixed — at
+ * most `NEARBY_MAX` rows of what lies within `NEARBY_RADIUS_M`. The nearest hydrant is always in
+ * it (`nearest`), however far: it replaces the last row when five closer things fill the list.
+ * Distance and nothing else decides — `exceptId` is the selected object (or the house's own).
+ */
+export function nearbyPlaces(objects: readonly StationObject[], hydrants: readonly NamedPoint[], at: LngLat, opts: { exceptId?: string | null } = {}): NearRow[] {
+  const rows: NearRow[] = []
   for (const o of objects) {
     if (o.id === opts.exceptId) continue
     const c = coordOf(o)
     if (!c) continue
     const d = haversineM(at, c)
-    if (d <= radius) out.push({ item: o, distanceM: d })
+    if (d <= NEARBY_RADIUS_M) rows.push({ kind: 'object', item: o, distanceM: d })
   }
-  out.sort((a, b) => a.distanceM - b.distanceM)
-  return out.slice(0, opts.max ?? NEARBY_OBJECTS)
+  let nearest: Extract<NearRow, { kind: 'hydrant' }> | null = null
+  for (const h of hydrants) {
+    const row = { kind: 'hydrant' as const, item: h, distanceM: haversineM(at, h.coord), dir: compass8(at, h.coord) }
+    if (!nearest || row.distanceM < nearest.distanceM) nearest = row
+    if (row.distanceM <= NEARBY_RADIUS_M) rows.push(row)
+  }
+  rows.sort((a, b) => a.distanceM - b.distanceM)
+  const out = rows.slice(0, NEARBY_MAX)
+  if (nearest) {
+    // farther than every row kept, so it goes last: appended, or in place of the fifth
+    if (!out.includes(nearest)) out.splice(Math.min(out.length, NEARBY_MAX - 1), 1, nearest)
+  }
+  return out
 }
 
-export interface NamedPoint { id: string; label: string; coord: LngLat }
-
-/** The `n` nearest points (hydrants) to `at`, whatever their distance — a hydrant 180 m away is
- *  still the nearest one, and the metres say how far. */
-export function nearestPoints(points: readonly NamedPoint[], at: LngLat, n = NEARBY_POINTS): Near<NamedPoint>[] {
-  return points.map((p) => ({ item: p, distanceM: haversineM(at, p.coord) }))
-    .sort((a, b) => a.distanceM - b.distanceM)
-    .slice(0, n)
+/** The compass direction `to` lies in from `from`, of eight: 0 = north, 2 = east … 7 = north-west. */
+export function compass8(from: LngLat, to: LngLat): number {
+  const dx = (to[0] - from[0]) * Math.cos((from[1] * Math.PI) / 180)
+  const dy = to[1] - from[1]
+  const deg = ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360
+  return Math.round(deg / 45) % 8
 }
 
 /** Point features of a GeoJSON FeatureCollection as named points (a hydrant layer). The label is

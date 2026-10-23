@@ -71,7 +71,7 @@ export const linksCopy: Localizable<Pick<Copy, Keys>> = {
     denied: 'Location blocked',
     deniedHint: 'Location access is blocked for this site. It can only be allowed again in the browser settings.',
     taken: 'Name already in use',
-    takenHint: 'Another device is currently sharing under this name. Pick your name again or wait a moment.',
+    takenHint: 'Another device is sharing under this name. Pick your name again or ask the incident commander to remove the old position.',
     failing: 'Location is not getting through',
     failingHint: 'The phone finds your location, but the server is not accepting it — usually poor reception. It keeps trying.',
     impreciseHint: 'Reception is still too imprecise for a dot on the map. Outdoors it usually improves within seconds.',

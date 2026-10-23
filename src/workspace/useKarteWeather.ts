@@ -43,28 +43,32 @@ export interface KarteWeather {
 }
 
 /** Where the «Niederschlag (Radar)» row keeps its on/off and transparency. The Einsatz's Karte
- *  uses the device prefs (lib/prefs); «Karte & Objekte» hands in a store of its own, so switching
- *  the radar on there changes no Einsatz (lib/karte/session). */
+ *  uses `einsatzRadarStore`; «Karte & Objekte» hands in a store of its own, so switching the radar
+ *  on there changes no Einsatz (lib/karte/session). */
 export interface RadarPrefStore {
   load: () => { on: boolean; opacity: number | undefined }
   save: (patch: { on?: boolean; opacity?: number }) => void
 }
 
-const devicePrefsStore: RadarPrefStore = {
-  load: () => { const p = loadPrefs(); return { on: p.weatherRadar === true, opacity: p.weatherRadarOpacity } },
+/** The Einsatz's store, in the device prefs (lib/prefs). The on/off belongs to ONE Einsatz (owner,
+ *  22.10.2026: a radar switched on in an earlier Einsatz opened every later one with its playback
+ *  bar): the pref names the Einsatz it was switched on in, so a new Einsatz starts without it and a
+ *  reload of the same one keeps it. The transparency stays the device's. */
+export const einsatzRadarStore = (incidentId: string): RadarPrefStore => ({
+  load: () => { const p = loadPrefs(); return { on: p.weatherRadarIn === incidentId, opacity: p.weatherRadarOpacity } },
   save: (patch) => savePrefs({
     ...loadPrefs(),
-    ...(patch.on != null ? { weatherRadar: patch.on } : {}),
+    ...(patch.on != null ? { weatherRadarIn: patch.on ? incidentId : undefined } : {}),
     ...(patch.opacity != null ? { weatherRadarOpacity: patch.opacity } : {}),
   }),
-}
+})
 
-export function useKarteWeather(active: boolean, store: RadarPrefStore = devicePrefsStore): KarteWeather {
+export function useKarteWeather(active: boolean, store: RadarPrefStore): KarteWeather {
   const { data: layer, now } = useWeatherLayer(active)
   const on = layer?.enabled === true
   const radar = layer?.radar ?? null
   const playback = useRadarPlayback(radar)
-  // a device pref like the plan rasters (lib/prefs), persisted beside them, off by default
+  // off by default; where it is remembered is the store's business
   const [radarOn, setRadarOn] = useState(() => store.load().on)
   const [radarOpacity, setOpacityState] = useState(() => store.load().opacity ?? 75)
   const radarStale = !!radar && radarIsStale(radar, now)

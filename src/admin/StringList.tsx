@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
+import { Icon } from '../lib/icons'
+import { ConfirmButton } from './ui'
 
 /**
  * A list of words, edited as chips — Partnerorganisationen, Mittel-Einheiten, the options of a
@@ -11,7 +13,8 @@ import { fillTemplate } from '../lib/format'
  * Chips rather than rows because the entries are short and the ORDER is the printed order (the
  * Ankreuz-Zeile on the Rapport and on the paper Erfassungsblatt), so seeing them on one line is
  * seeing what the sheet will look like. Enter adds; there is no save button because every page
- * that uses this already carries the autosave status.
+ * that uses this already carries the autosave status. A chip's bin asks first (ConfirmButton, like
+ * every other config-list bin): the autosave would otherwise write the loss 700 ms later.
  *
  * ⚠️ Duplicates and blanks are dropped on the way in rather than rejected with a message. This
  * is a tick-off list, not a data model: «Polizei» twice is a slip with one obvious intent, and
@@ -39,14 +42,11 @@ export function StringList({ value, onChange, ariaLabel, placeholder }: {
       {value.map((item, i) => (
         <span className="adm-slist-item" key={`${item}-${i}`}>
           {item}
-          <button
-            type="button" className="adm-slist-x"
-            aria-label={fillTemplate(C.removeItem, { item })}
-            title={fillTemplate(C.removeItem, { item })}
-            onClick={() => onChange(value.filter((_, j) => j !== i))}
-          >
-            ×
-          </button>
+          <ConfirmButton
+            className="adm-slist-x" ariaLabel={fillTemplate(C.removeItem, { item })} label={<Icon id="trash" />}
+            question={fillTemplate(C.removeItemConfirm, { item })} danger
+            onConfirm={() => onChange(value.filter((_, j) => j !== i))}
+          />
         </span>
       ))}
       <input

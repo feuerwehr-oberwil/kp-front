@@ -47,7 +47,6 @@ export interface MapControlsProps {
   buildingInfo: ReturnType<typeof useBuildingInfo>
   /** the Gebäude card's first open on this device (lib/buildingFirstOpen) */
   buildingFirst: { autoOpen: boolean; markRead: () => void }
-  tool: string
   setPanel: Dispatch<SetStateAction<'layers' | null>>
   composerOpen: boolean
   journalOpen: boolean
@@ -67,7 +66,7 @@ export interface MapControlsProps {
 export function MapControls({
   mapUI, mapUtility, mapRef, view, viewsApi, readOnly, isEl, viewsOpen, toggleViews, coord, panel,
   layersPreset, togglePanel, isPhone, slimRail, displayWeather, openWeatherDetails, replayActive,
-  georefMode, buildingInfo, buildingFirst, tool, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
+  georefMode, buildingInfo, buildingFirst, setPanel, composerOpen, journalOpen, offlineReadyOpen, layers,
   toggleLayer, setOpacity, linkedPlans, twinLayers, twinLayerOpacity, setAllLayers, resetLayers,
   weather,
 }: MapControlsProps) {
@@ -116,14 +115,17 @@ export function MapControls({
               opened half a screen away from the thumb that asked for it. */}
           {isPhone && !slimRail && displayWeather?.wind_dir_deg != null && (
             <div className="phone-wx">
-              <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} popAlignOffset={-5} />
+              <WeatherBadge weather={displayWeather} onOpenMeteo={openWeatherDetails} bearing={view.bearing} popAlignOffset={-5} popInset={5} />
             </div>
           )}
 
           {/* coordinate readout — bottom-centre; aiming follows the cursor, set is locked.
               hidden during replay so it never stacks under the bottom-centre scrubber. The ✕ on
-              its right is the same exit in both states — the mode used to be leavable only from
-              the compass menu, two taps away, while it swallowed every map tap (02.09.). */}
+              its right (THE `.ip-x`, 44px pad) is the same exit in both states — the mode used to
+              be leavable only from the compass menu, two taps away, while it swallowed every map
+              tap (02.09.). Its instruction is the readout's own last line, at the map's foot where
+              Messen's stands (MeasurePanel · MapHint). Never under Messen any more: Koordinaten
+              is a tool, so the two are never on together (IncidentWorkspace · coord). */}
           {/* The Karte's bottom-left chip row — the same place and recipe as the plan's
               (Whiteboard · .wb-botleft), so Lage and Plan say it in one spot: the Gebäude chip and
               the radar pill. ONE row for both — two rows in one slot covered each other
@@ -145,12 +147,12 @@ export function MapControls({
           )}
 
           {coord.readout && !replayActive && (
-            <div className={`coord-read${coord.mode === 'aim' ? ' aiming' : ''}${tool === 'measure' ? ' coord-read-stacked' : ''}`} role="status">
+            <div className={`coord-read${coord.mode === 'aim' ? ' aiming' : ''}`} role="status">
               <div className="cr-rows">
                 <div className="cr-row"><span className="cr-tag">LV95</span><span className="cr-val">{fmtLV95(coord.readout[0], coord.readout[1])}</span></div>
                 <div className="cr-row"><span className="cr-tag">WGS84</span><span className="cr-val">{fmtWGS(coord.readout[0], coord.readout[1])}</span></div>
               </div>
-              <button type="button" className="cr-x" aria-label={appConfig.copy.nav.coordsExit} onClick={() => coord.setMode('off')}>
+              <button type="button" className="ip-x cr-x" title={appConfig.copy.nav.coordsExit} aria-label={appConfig.copy.nav.coordsExit} onClick={() => coord.setMode('off')}>
                 <Icon id="close" />
               </button>
               <div className="cr-hint">{coord.mode === 'aim' ? appConfig.copy.nav.coordsHint : appConfig.copy.nav.coordsLocked}</div>

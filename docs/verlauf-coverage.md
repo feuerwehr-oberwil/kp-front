@@ -320,7 +320,9 @@ taken back. Two causes, both closed:
 - ⚠️ **The rule, stated once (final walk-through, 2026-09-26, D6): a counter-row exists only
   beside the row it counters.** Writing side: a one-shot whose act wrote no row takes its ↶ / ↷
   silently (`rememberOneShot(…, 'silent')`) – an Ansicht saved, renamed or deleted, the Gebäude
-  Drehung, a Gebäude swap, a Rapport-Beilage added, captioned or removed. Paper side: a move
+  Drehung, a Gebäude swap, a Rapport-Beilage added, captioned or removed. (The audit chain still
+  gets the step: `undo`/`redo`, and `report.undo`/`report.redo` for a Rapport one, so an `el`'s
+  event scope keeps it – RBAC audit, 22.10.2026.) Paper side: a move
   writes a row on screen but never prints (`report · printableTacticalText`), so its ↶ / ↷ does
   not print either (`report · historyCountersPrintedRow`) – «KP Front verschoben rückgängig
   gemacht» stood alone on paper. A ↶ row that names no act (the old «Aktion rückgängig gemacht»,

@@ -28,6 +28,7 @@ import { ClearableInput } from './ClearableInput'
 import { Stepper } from './Stepper'
 import { useHoldRepeat } from '../lib/useHoldRepeat'
 import { useTapToType } from '../lib/useTapToType'
+import { pointAtField } from '../lib/pointAtField'
 import { TruppTeam } from './TruppTeam'
 import s from './Atemschutz.module.css'
 
@@ -193,6 +194,7 @@ export function KanalPickSheet({ value, sub, name, takeLabel, onPick, onClose }:
     <MiniSheet title={az.funkkanalUnit} sub={sub} ariaLabel={name ? `${az.funkkanalUnit} · ${name}` : az.funkkanalUnit} onClose={onClose} className={pad ? s.miniSheetPad : undefined}
       footer={pad ? undefined : (
         <SheetFoot className={s.modalFoot}>
+          <button type="button" className="ip-btn" onClick={onClose}>{az.cancel}</button>
           <button type="button" className="ip-btn primary" onClick={() => void pick(typed)}>{takeLabel ?? az.save}</button>
         </SheetFoot>
       )}>
@@ -286,6 +288,8 @@ export function AuftragSheet({ t, leitungOptions, lite = false, onSave, onClose 
     <MiniSheet title={az.editFieldLabels.auftrag} sub={truppSheetSub(t)} ariaLabel={`${az.editFieldLabels.auftrag} · ${t.name}`} onClose={onClose}
       footer={(
         <SheetFoot className={s.modalFoot}>
+          {/* the one footer: [danger] · Abbrechen · primary (docs/ui-conventions · editor sheets) */}
+          <button type="button" className="ip-btn" onClick={onClose}>{az.cancel}</button>
           <button type="button" className="ip-btn primary" onClick={() => void save()}>{az.save}</button>
         </SheetFoot>
       )}>
@@ -444,7 +448,8 @@ export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds,
   const teamRef = useRef<HTMLDivElement>(null)
   const isPa = t.kind !== 'einfach'
   const save = async () => {
-    if (!canSave) { teamRef.current?.scrollIntoView?.({ block: 'center' }); return }
+    // blocked: ring the crew, where the missing leader or the conflict is fixed (lib/pointAtField)
+    if (!canSave) { pointAtField(teamRef.current); return }
     // the Gäste are filed NOW, at the save — never on a tap in the picker — and their ids ride
     // over the crew's (the form's `fileCrew`, same order of operations)
     const f = truppSheetFields(t, team, equipment, atemschutzEquipment().map((e) => e.id))
@@ -457,7 +462,8 @@ export function TruppSheet({ t, personnel, legacyRoster, presentIds, stationIds,
       className={s.miniSheetTall}
       footer={(
         <SheetFoot className={s.modalFoot}>
-          <button type="button" className={cx('ip-btn primary', !canSave && s.btnBlocked)} aria-disabled={!canSave} onClick={() => void save()}>{az.save}</button>
+          <button type="button" className="ip-btn" onClick={onClose}>{az.cancel}</button>
+          <button type="button" className="ip-btn primary" aria-disabled={!canSave} onClick={() => void save()}>{az.save}</button>
         </SheetFoot>
       )}>
       {/* no «Mannschaft» label over the picker: the title says it (as the Auftrag's tiles) */}

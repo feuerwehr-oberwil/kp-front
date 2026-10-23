@@ -1,10 +1,14 @@
-import { Fragment } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Source, Layer } from 'react-map-gl/maplibre'
 import type { LayerDef, LayerId, PreparedMapOverlay } from '../types'
+import type { LayerData } from '../lib/layerData'
 import { circlePolygon } from '../lib/geo'
 import { vis, lineFeat } from '../lib/mapView'
 import { useNightTheme } from '../lib/useNightTheme'
 import { hatchImageId } from '../lib/draw'
+import { prefersReducedMotion } from '../lib/reducedMotion'
+import { loadLayerData, useLayerData } from '../lib/layerData'
+import { LABEL_ATTRIBUTION, LABEL_MAXZOOM, LABEL_TILES, labelLayers } from '../lib/basemapLabels'
 
 // Night mode dims the basemap so it's mostly dark without losing detail (buildings/roads stay
 // visible) — a gentle dim, NOT a full dark/black swap. Applied to the BASE raster only, so the
@@ -52,6 +56,67 @@ function buildOverlayData(overlay: PreparedMapOverlay) {
   return lineFeat(overlay.coords)
 }
 
+/** how long a `fadeIn` overlay takes to reach its opacity — the Karte's markers arrive at the
+ *  same pace (lib/karte/arrival) */
+const FADE_IN_MS = 280
+
+/** The fill + line pair of a circle / polygons overlay. A polygons overlay with `fadeIn` mounts
+ *  transparent and reaches its opacity over FADE_IN_MS on the next frame, carried by MapLibre's
+ *  paint transition — «Karte & Objekte»'s outlines, which answer a viewport fetch well after the
+ *  map stands (owner, 20.10.2026: «subtle motion for what arrives»). Rings added later (a pan's
+ *  new area) change the SOURCE, not the layer, so they never fade; a layer toggled off and on in
+ *  Ebenen fades again, which is the same arrival. Reduced motion: MapLibre has no media query, so
+ *  the pair asks (lib/reducedMotion) and mounts opaque. */
+function FilledOverlay({ overlay, visible }: { overlay: Extract<PreparedMapOverlay, { kind: 'circle' | 'polygons' }>; visible: boolean }) {
+  const fade = overlay.kind === 'polygons' && !!overlay.fadeIn && !prefersReducedMotion()
+  const [shown, setShown] = useState(!fade)
+  useEffect(() => {
+    if (shown) return
+    const f = requestAnimationFrame(() => setShown(true))
+    return () => cancelAnimationFrame(f)
+  }, [shown])
+  const k = shown ? 1 : 0
+  const transition = fade ? { duration: FADE_IN_MS } : undefined
+  const minzoom = overlay.kind === 'polygons' && overlay.minzoom != null ? { minzoom: overlay.minzoom } : {}
+  return (
+    <>
+      <Layer
+        id={`l-${overlay.id}-fill`}
+        source={`s-${overlay.id}`}
+        type="fill"
+        {...minzoom}
+        layout={vis(visible)}
+        // a hatched overlay paints the Schraffur tile of its colour (registered on demand by
+        // MapImages' missing-image resolver, like a hatched Fläche). No antialiasing: the
+        // rings are adjacent tiles, and antialiased edges drew a seam along every one.
+        paint={{
+          ...(overlay.kind === 'polygons' && overlay.hatch
+            ? { 'fill-pattern': hatchImageId(overlay.color), 'fill-opacity': (overlay.fillOpacity ?? 1) * k, 'fill-antialias': false }
+            : { 'fill-color': overlay.color, 'fill-opacity': (overlay.fillOpacity ?? 0.08) * k }),
+          ...(transition ? { 'fill-opacity-transition': transition } : {}),
+        }}
+      />
+      <Layer
+        id={`l-${overlay.id}-line`}
+        source={`s-${overlay.id}`}
+        type="line"
+        {...minzoom}
+        layout={vis(visible)}
+        paint={{
+          'line-color': overlay.color,
+          'line-opacity': (overlay.lineOpacity ?? 0.5) * k,
+          'line-width': overlay.lineWidth ?? 2,
+          // an outline is solid unless it asks otherwise; a circle keeps its dashes
+          ...(overlay.kind === 'circle' || overlay.lineDasharray
+            ? { 'line-dasharray': overlay.lineDasharray ?? [2, 2.5] }
+            : {}),
+          ...(transition ? { 'line-opacity-transition': transition } : {}),
+        }}
+      />
+    </>
+  )
+}
+
 interface Props {
   layers: LayerDef[]
   preparedOverlays: PreparedMapOverlay[]
@@ -67,6 +132,19 @@ interface Props {
 export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Props) {
   const baseLayers = layers.filter((l) => l.base)
   const night = useNightTheme()
+  /* The GeoJSON overlays (Leitungskataster) are fetched by the app, not by MapLibre: the Ebenen
+     row has to be able to say how far a multi-megabyte Leitungen file has got (lib/layerData),
+     and a source pointed at the URL would download it a second time inside the worker. Started
+     from an effect while the layer is on, so a layer nobody switched on is never fetched. */
+  const vectorLayers = layers.filter((l) => !l.base && l.geojson && isVisible(l.id))
+  const loads = useLayerData()
+  const vectorKeys = vectorLayers.map((l) => `${l.id}|${l.geojson}`).join(',')
+  useEffect(() => {
+    for (const key of vectorKeys ? vectorKeys.split(',') : []) {
+      const at = key.indexOf('|')
+      loadLayerData(key.slice(0, at), key.slice(at + 1))
+    }
+  }, [vectorKeys])
   return (
     <>
       {/* base layers (radio). In night mode a light street base swaps to its dark variant
@@ -93,6 +171,16 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
                 <Layer id={`l-${b.id}-night`} type="raster" layout={vis(visible && night)} paint={{ 'raster-opacity': (b.opacity ?? 100) / 100, ...DARK_BASE_PAINT }} />
               </Source>
             )}
+            {/* the names over an unlabelled raster, day and night alike (lib/basemapLabels). Same
+                stable-source rule as above; the `l-base…` ids keep them in keepBaseBelowDrawings. */}
+            {b.labels && (
+              <Source id={`s-${b.id}-labels`} type="vector" tiles={LABEL_TILES} maxzoom={LABEL_MAXZOOM} attribution={LABEL_ATTRIBUTION}>
+                {labelLayers(`s-${b.id}-labels`, `l-${b.id}-labels`, night).map((l) => (
+                  <Layer key={l.id} {...l} layout={{ ...l.layout, ...vis(visible) }}
+                    paint={{ ...l.paint, 'text-opacity': (b.opacity ?? 100) / 100 }} />
+                ))}
+              </Source>
+            )}
           </Fragment>
         )
       })}
@@ -104,10 +192,13 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
         </Source>
       ))}
 
-      {/* vector overlays from local GeoJSON (Leitungskataster). Mount only when visible
-          so the file is fetched lazily on toggle, not upfront. */}
-      {layers.filter((l) => !l.base && l.geojson && isVisible(l.id)).map((o) => (
-        <Source key={o.id} id={`s-${o.id}`} type="geojson" data={o.geojson!} attribution={o.attribution}>
+      {/* vector overlays from local GeoJSON (Leitungskataster). Mounted only once the app has
+          the collection in hand (lib/layerData), which is also when the Ebenen row stops
+          reporting progress — an empty or failed file draws nothing and says so in its row. */}
+      {vectorLayers.map((o) => [o, loads.get(o.id)] as const)
+        .filter((pair): pair is [LayerDef, Extract<LayerData, { state: 'ready' }>] => pair[1]?.state === 'ready')
+        .map(([o, load]) => (
+        <Source key={o.id} id={`s-${o.id}`} type="geojson" data={load.data} attribution={o.attribution}>
           {o.vectorKind === 'point' && o.symbol ? (
             <Layer
               id={`l-${o.id}`}
@@ -157,37 +248,7 @@ export function MapLayers({ layers, preparedOverlays, isVisible, mapReady }: Pro
           data={overlayData(overlay)}
         >
           {overlay.kind === 'circle' || overlay.kind === 'polygons' ? (
-            <>
-              <Layer
-                id={`l-${overlay.id}-fill`}
-                source={`s-${overlay.id}`}
-                type="fill"
-                {...(overlay.kind === 'polygons' && overlay.minzoom != null ? { minzoom: overlay.minzoom } : {})}
-                layout={vis(isVisible(overlay.layer))}
-                // a hatched overlay paints the Schraffur tile of its colour (registered on demand by
-                // MapImages' missing-image resolver, like a hatched Fläche). No antialiasing: the
-                // rings are adjacent tiles, and antialiased edges drew a seam along every one.
-                paint={overlay.kind === 'polygons' && overlay.hatch
-                  ? { 'fill-pattern': hatchImageId(overlay.color), 'fill-opacity': overlay.fillOpacity ?? 1, 'fill-antialias': false }
-                  : { 'fill-color': overlay.color, 'fill-opacity': overlay.fillOpacity ?? 0.08 }}
-              />
-              <Layer
-                id={`l-${overlay.id}-line`}
-                source={`s-${overlay.id}`}
-                type="line"
-                {...(overlay.kind === 'polygons' && overlay.minzoom != null ? { minzoom: overlay.minzoom } : {})}
-                layout={vis(isVisible(overlay.layer))}
-                paint={{
-                  'line-color': overlay.color,
-                  'line-opacity': overlay.lineOpacity ?? 0.5,
-                  'line-width': overlay.lineWidth ?? 2,
-                  // an outline is solid unless it asks otherwise; a circle keeps its dashes
-                  ...(overlay.kind === 'circle' || overlay.lineDasharray
-                    ? { 'line-dasharray': overlay.lineDasharray ?? [2, 2.5] }
-                    : {}),
-                }}
-              />
-            </>
+            <FilledOverlay overlay={overlay} visible={isVisible(overlay.layer)} />
           ) : (
             <Layer
               id={`l-${overlay.id}`}

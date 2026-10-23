@@ -114,8 +114,10 @@
   background: var(--ink-8); color: var(--ink-dim); display: grid; place-items: center; }
 .wb-nearby-x .i { width: 16px; height: 16px; }
 @media (max-width: 600px) {
-  /* the NavRail is a bottom bar here – the banner takes the full width and wraps its actions */
-  .wb-nearby-banner { left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); flex-wrap: wrap; }
+  /* the NavRail is a bottom bar here – the banner takes the full width and wraps its actions. ⚠️
+     The phone's top bar floats over the sheet (15-mobile · .topbar), so the banner starts under
+     it, where the weather chip does – at 12px its first lines were hidden (owner, 22.10.2026) */
+  .wb-nearby-banner { top: calc(76px + env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); flex-wrap: wrap; }
   .wb-nearby-text { flex-basis: calc(100% - 28px); }
 }
 /* the door between the two faces of the ONE «Gebäude» tile (Whiteboard · buildingChip). On the
@@ -214,8 +216,23 @@
 .pp-mods-none { color: var(--ink-faint); font-weight: var(--fw-medium); }
 .pp-map { flex: 1 1 46%; position: relative; min-height: 380px; border-radius: var(--r-sm); overflow: hidden; border: 1px solid var(--glass-edge); }
 .pp-map .maplibregl-map { width: 100%; height: 100%; }
+/* the ⓘ in the corner, just above the note (owner, 22.10.2026: it stood halfway up the map; beside
+   the note it broke the note onto two lines). ⚠️ Two classes: 15-mobile lifts every bottom-right
+   control over the Lage's bars. */
+.pp-map .maplibregl-ctrl-bottom-right { margin-bottom: 0; bottom: var(--sp-6); }
+.pp-map .maplibregl-ctrl-bottom-right .maplibregl-ctrl { margin: 0 var(--sp-2) var(--sp-2) 0; }
 .pp-map-note { position: absolute; left: 8px; right: 8px; bottom: 8px; padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm);
   background: rgba(27, 35, 48, .82); color: var(--on-accent-ink); font-size: var(--fs-micro); font-weight: var(--fw-medium); text-align: center; pointer-events: none; }
+/* …and when no base map painted under the pins, the pane says so rather than looking broken
+   (owner, round 7 point 17: «the map stayed empty and looks rather sad»). Centred over the pane,
+   not a bottom strip like the note above: this is the pane's STATE, and the empty space is what
+   it is about. It wears `.pp-map-note`'s material, because it has to stay readable where it
+   lands — the pins are spread over the whole pane and bare text sat straight across them. */
+.pp-map-blank { position: absolute; inset: 0; z-index: 1; display: grid; place-items: center;
+  padding: var(--sp-5); pointer-events: none; }
+.pp-map-blank > span { padding: var(--sp-1) var(--sp-3); border-radius: var(--r-sm); text-align: center;
+  background: rgba(27, 35, 48, .82); color: var(--on-accent-ink);
+  font-size: var(--fs-1); line-height: var(--lh-1); font-weight: var(--fw-medium); }
 .pp-pin { width: 28px; height: 34px; border: none; background: none; padding: 0; cursor: pointer; color: var(--ink-dim);
   display: grid; place-items: center; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .35)); }
 .pp-pin .i { width: 22px; height: 22px; }
@@ -406,8 +423,8 @@
 .wb-floor-add-down { bottom: calc(var(--tap) / -2); } /* straddle the bottom edge of the stack */
 
 /* (.wb-north-dial / -btn / -ring / -needle / -n are gone, 30.08.: the north dial was drawn ON the
-   topmost storey tile, so it panned and zoomed with the paper. It is a fixed chip in the viewport's
-   corner now — PlanCompass.module.css.) */
+   topmost storey tile, so it panned and zoomed with the paper. It is a tile in the plan rail's
+   footer now, like the Karte's compass — PlanCompass.module.css.) */
 /* blank writable sheet */
 .wb-board-blank { box-shadow: var(--e3), inset 0 0 0 1px var(--border-soft); }
 .wb-blank-hint { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;
@@ -551,11 +568,19 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-ghost-trail-dot .wb-trail-mark, .map-ghost-trail .wb-trail-mark { background: var(--ink-dim); opacity: .7; }
 .wb-ghost-trail-dot i, .map-ghost-trail i { color: var(--ink-dim); }
 .wb-ghost-label { position: absolute; z-index: 6; transform: translate(-50%, -150%);
-  display: inline-flex; align-items: center; gap: 4px; min-height: 22px; padding: 2px var(--sp-2);
+  display: inline-flex; align-items: center; gap: 4px; min-height: 24px; padding: 2px var(--sp-2);
   border: 1px dashed var(--ink-dim); border-radius: var(--r-ctl);
   background: var(--label-bg); color: var(--ink-dim);
-  font-family: var(--body); font-size: var(--fs-micro); font-weight: var(--fw-bold); cursor: pointer; }
+  font-family: var(--body); font-size: var(--fs-1); font-weight: var(--fw-bold); cursor: pointer; }
+/* …a locked surface draws it as a <span>: the same label, a read-out (no «Spur löschen» to offer) */
+span.wb-ghost-label { cursor: default; }
 .wb-ghost-label .i { width: 12px; height: 12px; }
+/* a finger gets --tap of height around the 24px chip (UX sweep M12, 20.10.2026): the pad is
+   invisible, so the chip stays a label on the plan / map, not a button slab over it. ⚠️ The pad
+   needs the chip positioned – absolute on the plan, relative in the map's Marker (MapMarkers). */
+@media (pointer: coarse) {
+  button.wb-ghost-label::before { content: ''; position: absolute; inset: -10px -2px; }
+}
 
 /* selected-team action bar — one compact toolbar under the pill, replacing the two
    corner orbs (mark top-left + delete top-right) that used to crowd the pill.
@@ -683,20 +708,23 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-meas-label { z-index: 7; font-family: var(--mono); }
 
 /* draw style picker (floats over canvas bottom) */
-.wb-style-sep { width: 1px; height: 22px; background: rgba(255, 255, 255, .2); }
-.wb-sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .5); cursor: pointer; padding: 0; }
-.wb-sw.on { border-color: var(--on-accent-ink); box-shadow: 0 0 0 2px color-mix(in srgb, var(--on-accent-ink) 60%, transparent); }
+.wb-sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--ink-16); cursor: pointer; padding: 0; }
+.wb-sw.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--ink-22); }
 .wb-sw:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.wb-ww { width: 38px; height: 34px; display: grid; place-items: center; background: rgba(255, 255, 255, .12); border: none; border-radius: var(--r-sm); cursor: pointer; }
-.wb-ww.on { background: rgba(255, 255, 255, .3); }
+.wb-ww { width: 38px; height: 34px; display: grid; place-items: center; background: var(--dock-control-bg); border: none; border-radius: var(--r-sm); cursor: pointer; }
+.wb-ww.on { background: var(--sel-wash); }
 .wb-ww:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.wb-ww span { display: block; width: 18px; background: var(--on-accent-ink); border-radius: 4px; }
+.wb-ww span { display: block; width: 18px; background: var(--ink); border-radius: 4px; }
 /* line-style toggle (solid / dashed) — shares the width-button frame; the preview
-   line colour follows --ls-ink so it reads on both the dark draw bar and the light
-   DrawEditor panel (overridden below) */
-.wb-ls { --ls-ink: #fff; width: 38px; height: 34px; display: grid; place-items: center; background: rgba(255, 255, 255, .12); border: none; border-radius: var(--r-sm); cursor: pointer; padding: 0; }
-.wb-ls.on { background: rgba(255, 255, 255, .3); }
+   line colour follows --ls-ink, the dock's own ink (the DrawEditor panel restyles the frame,
+   08-toasts) */
+.wb-ls { --ls-ink: var(--ink); width: 38px; height: 34px; display: grid; place-items: center; background: var(--dock-control-bg); border: none; border-radius: var(--r-sm); cursor: pointer; padding: 0; }
+.wb-ls.on { background: var(--sel-wash); }
 .wb-ls:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+@media (hover: hover) {
+  .wb-sw:hover:not(.on) { border-color: var(--ink-45); }
+  .wb-dock :is(.wb-ww, .wb-ls):hover:not(.on) { background: var(--dock-control-hover); }
+}
 .ls-solid, .ls-dashed { display: block; width: 20px; height: 3px; border-radius: 3px; }
 .ls-solid { background: var(--ls-ink); }
 .ls-dashed { background: repeating-linear-gradient(to right, var(--ls-ink) 0 5px, transparent 5px 8px); }
@@ -714,28 +742,45 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 
 /* vertical tool-option dock — anchored to the right edge beside the rail, so a
    tool's options appear right where you picked it instead of bottom-centre */
-/* top is set inline to the active tool's rail-button level; falls back to 14px */
+/* top is set inline to the active tool's rail-button level; falls back to 14px
+   ⚠️ ONE material on every surface (Karte, Einsatz, Plan/Skizze; phone and tablet), and it is the
+   floating family's glass: light by day, dark by night (owner 20.10.2026: «why do we have a dark
+   sidebar in lightmode?»). The dock wore --ink-fill — dark in BOTH themes, the «armed mode»
+   material — with hard-coded white inks; only the phone's bar was light. What is armed now reads
+   from the armed button alone (.wb-dock-tog.on, the accent fill). Every ink here is a theme token.
+   --dock-control-bg is OPAQUE (mixed into --surface) because the sticky ✕ wears it.
+   The column is the tool rail's twin (owner 20.10.: «a slightly different size compared to the
+   sidebar»): the rail's glass shell, corner, inset and 4px gap (04b-rail · .rail), and every
+   button the rail's 46px square (below) – so the two read as one pair, 60px wide each. */
 .wb-dock { position: absolute; right: 114px; top: calc(14px + env(safe-area-inset-top)); z-index: var(--z-dock-raised);
-  display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
   /* On a short viewport the stack can exceed the available height. Scroll it as ONE column
      (thin scrollbar) instead of flex-wrapping into a lopsided second column — which overflowed
      the sidebar ugly. Colour swatches stay compact via the 2-wide .wb-sw-grid. */
   flex-wrap: nowrap; max-height: calc(100dvh - 168px); overflow-y: auto; overflow-x: hidden;
-  scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .3) transparent;
-  background: var(--ink-fill); border-radius: var(--r-surface); padding: var(--sp-2); box-shadow: var(--e4); }
+  scrollbar-width: thin; scrollbar-color: var(--ink-22) transparent;
+  background: var(--glass); backdrop-filter: blur(14px) saturate(1.4); border: 1px solid var(--glass-line); box-shadow: var(--e4); color: var(--ink);
+  border-radius: var(--r-bar); padding: var(--bar-pad);
+  --dock-control-bg: color-mix(in srgb, var(--ink) 7%, var(--surface));
+  --dock-control-hover: color-mix(in srgb, var(--ink) 13%, var(--surface)); }
 .wb-dock::-webkit-scrollbar { width: 6px; }
-.wb-dock::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .3); border-radius: 3px; }
+.wb-dock::-webkit-scrollbar-thumb { background: var(--ink-22); border-radius: 3px; }
 /* short viewports: tighten the dock so it fits without scrolling wherever it can */
+/* the column's buttons: the rail's 46px square and 22px glyph, whatever the pointer (the
+   coarse-pointer sizes below are for docks outside this column); a mode toggle is bare like a
+   rail tool until it is armed (the accent fill). The ✕ keeps its opaque fill: it is the way out,
+   and it stays readable while the column scrolls under it. The phone's row dock sets its own. */
+.wb-dock :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go) { width: 46px; height: 46px; }
+.wb-dock :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go) .i { width: 22px; height: 22px; }
+.wb-dock .wb-dock-tog:not(.on) { background: transparent; color: var(--ink); }
+@media (hover: hover) { .wb-dock .wb-dock-tog:not(.on):hover:not(:disabled) { background: var(--hover); } }
 @media (max-height: 640px) {
-  .wb-dock { gap: var(--sp-1); padding: var(--sp-2); }
-  .wb-dock-x { width: 30px; height: 30px; }
-  .wb-dock-tog, .wb-dock-go { height: 30px; }
+  .wb-dock { gap: 2px; }
+  .wb-dock :is(.wb-dock-x, .wb-dock-tog, .wb-dock-go) { height: 34px; }
 }
-.wb-dock .wb-style-sep { width: 22px; height: 1px; } /* horizontal divider in the vertical stack */
-/* the armed mode's one-line hint (ToolDock · hint) is a PHONE row (15-mobile); the column dock
-   of a tablet has no room for a sentence and keeps ⓘ */
-.wb-dock-hint { display: none; }
-.wb-dock-ic { display: grid; place-items: center; height: 30px; color: rgba(255, 255, 255, .85); }
+/* between groups: 4px more air, no line (ToolDock · M8 rework) — it grows along the dock's axis */
+.wb-dock-gap { flex: none; width: 4px; height: 4px; }
+.wb-dock-ic { display: grid; place-items: center; height: 30px; color: var(--ink-dim); }
 .wb-dock-ic .i { width: 18px; height: 18px; }
 /* ⚠️ The ✕ STAYS on screen while the dock scrolls. It is the first item of the first group, so on
    a busy tool (line/area, whose colours + widths overflow the port) it scrolled away with the
@@ -744,39 +789,42 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    binds in the vertical column, `left` in the phone's row, and each is a no-op in the other
    orientation because that axis does not scroll there (its overflow is hidden).
    Its fill has to be OPAQUE — a translucent wash let the options pass THROUGH the ✕ — so it is
-   the same wash mixed INTO the dock's own surface, and a ring of that surface covers the gap and
-   the padding the buttons would otherwise show through beside it (clipped by the scroll port). */
-.wb-dock-x { position: sticky; top: 0; left: 0;
+   --dock-control-bg (mixed into --surface). No masking ring of the dock's surface around it: the
+   dock is glass, and a ring of any solid colour painted a mismatched block over it (it was first
+   dropped on the phone's bar, 15-mobile). */
+.wb-dock-x { position: sticky; top: 0; left: 0; z-index: 2;
   width: 34px; height: 34px; border-radius: var(--r-sm); border: none;
-  background: color-mix(in srgb, var(--on-accent-ink) 14%, var(--ink-fill));
-  box-shadow: 0 0 0 var(--sp-2) var(--ink-fill);
-  color: var(--on-accent-ink); display: grid; place-items: center; cursor: pointer; }
+  background: var(--dock-control-bg);
+  color: var(--ink-dim); display: grid; place-items: center; cursor: pointer; }
 @media (hover: hover) {
-  .wb-dock-x:hover { background: color-mix(in srgb, var(--on-accent-ink) 28%, var(--ink-fill)); }
+  .wb-dock-x:hover { background: var(--dock-control-hover); color: var(--ink); }
 }
 .wb-dock-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .wb-dock-x .i { width: 16px; height: 16px; stroke-width: 2.4; }
-/* confirm action inside the dark dock (e.g. area "Fertig") — enabled only once the action is
+/* confirm action inside the dock (e.g. area "Fertig") — enabled only once the action is
    valid (≥3 area points).
    ⚠️ 28.09.2026: it was a GREEN fill; the one action of a surface is the primary, never green.
-   The dock is --ink-fill in BOTH themes, so --btn-primary (ink by day) would vanish into it: on a
-   dark surface the primary is the LIGHT fill with dock-ink glyph — the Suche dark card's
-   --sx-primary, same pair (≥ 11:1 day and night). */
-.wb-dock-go { width: 38px; height: 34px; display: grid; place-items: center; background: var(--on-accent-ink);
-  border: none; border-radius: var(--r-sm); cursor: pointer; color: var(--ink-fill); padding: 0; }
+   THE primary pair, now that the dock is the theme's glass (ink by day, inverted by night). */
+.wb-dock-go { width: 38px; height: 34px; display: grid; place-items: center; background: var(--btn-primary);
+  border: none; border-radius: var(--r-sm); cursor: pointer; color: var(--on-btn-primary); padding: 0; }
 @media (hover: hover) {
-  .wb-dock-go:hover:not(:disabled) { background: color-mix(in srgb, var(--on-accent-ink) 86%, var(--ink-fill)); }
+  .wb-dock-go:hover:not(:disabled) { background: var(--btn-primary-hover); }
 }
 .wb-dock-go:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the ONE disabled (28.09.2026): the dim alone, no repainted fill */
 .wb-dock-go:disabled { opacity: var(--disabled); cursor: default; }
 .wb-dock-go .i { width: 18px; height: 18px; stroke-width: 2.4; }
 /* (.wb-dock-info / .wb-dock-ibtn / .wb-dock-tip migrated → DockInfo.module.css) */
-/* toggle inside the dock (e.g. "keep placing" lock) — lights up white when engaged */
-.wb-dock-tog { width: 38px; height: 34px; display: grid; place-items: center; background: rgba(255, 255, 255, .12);
-  border: none; border-radius: var(--r-sm); cursor: pointer; color: var(--on-accent-ink); padding: 0; }
+/* toggle inside the dock (e.g. the armed Messen mode, the "keep placing" lock) — the accent fill
+   when engaged: that fill is what says «armed», on day and night glass alike */
+.wb-dock-tog { width: 38px; height: 34px; display: grid; place-items: center; background: var(--dock-control-bg);
+  border: none; border-radius: var(--r-sm); cursor: pointer; color: var(--ink-dim); padding: 0; }
 .wb-dock-tog .i { width: 17px; height: 17px; }
-.wb-dock-tog.on { background: var(--sel); color: var(--on-sel); } /* active mode: blue accent, not stark white */
+.wb-dock-tog.on { background: var(--sel); color: var(--on-sel); } /* active mode: blue accent */
+@media (hover: hover) {
+  .wb-dock-tog:hover:not(:disabled):not(.on) { background: var(--dock-control-hover); color: var(--ink); }
+  .wb-dock-tog.on:hover:not(:disabled) { filter: brightness(1.08); }
+}
 .wb-dock-tog:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* word/letter toggles (note size steps, Zettel↔Klartext) — the dock is narrow, so the label
    shrinks to fit rather than widening the whole column */
@@ -844,7 +892,12 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    colour, at the vertex where the line leaves/enters the tile; tapping it jumps to the other end */
 .wb-line-stair { position: absolute; left: 0; top: 0; width: 26px; height: 26px; padding: 0; border-radius: 50%;
   border: 2px solid currentColor; background: var(--on-accent-ink); color: currentColor;
-  font: var(--fw-heavy) var(--fs-micro) var(--mono); font-variant-numeric: tabular-nums; line-height: 1; cursor: pointer; touch-action: manipulation; }
+  font: var(--fw-heavy) var(--fs-1) var(--mono); font-variant-numeric: tabular-nums; line-height: 1; cursor: pointer; touch-action: manipulation; }
+/* …and a --tap target around the 26px mark under a finger (UX sweep M12): the pad, not the mark,
+   grows – a 44px disc at a Leitung's vertex would cover the very ink it marks */
+@media (pointer: coarse) {
+  .wb-line-stair::before { content: ''; position: absolute; inset: -9px; border-radius: 50%; }
+}
 /* the shared <LineMarker> span inside either wrapper — the wrapper owns the placement */
 .wb-line-mk { display: block; }
 
@@ -865,13 +918,12 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
    overlapping symbol or Trupp own the contested pixel. */
 .line-end-tag-wrap { pointer-events: auto; touch-action: none; }
 
-/* Gebäude rotation popover (30.08.) — the one visible control both compass doors open */
+/* Gebäude rotation popover (30.08.) — what the north dial (PlanCompass), its one door, opens */
 .wb-orient-popup { background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--e4); }
 .wb-orient-pop { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); min-width: 250px; }
 .wb-orient-row { display: flex; align-items: center; gap: var(--sp-2); }
 .wb-orient-lbl { font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--ink-dim); flex: none; }
-.wb-orient-row input[type=range] { flex: 1 1 auto; min-width: 0; height: var(--tap); accent-color: var(--blue); cursor: pointer; }
 .wb-orient-val { font-family: var(--mono); font-size: var(--fs-2); font-weight: var(--fw-bold); min-width: 42px; text-align: right; }
 /* the three presets are THE choice chip (<Chip>, 08.10.2026); this only shares the row out */
 .wb-orient-chips { display: flex; gap: 8px; }
@@ -919,7 +971,8 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-cal-chips { display: flex; gap: 8px; }
 .wb-cal-chip { flex: 1; }
 
-/* clean −/+ stepper for the real-length entry */
+/* clean −/+ stepper for the real-length entry — ITS OWN, not the shared Stepper (M3 rework,
+   21.10.2026, owner: the always-visible field reads clearer than the Stepper's tap-to-type value) */
 .wb-cal-stepper { display: flex; align-items: stretch; gap: 8px; }
 .wb-cal-step { width: 46px; flex: none; display: grid; place-items: center; font: var(--fw-bold) var(--fs-5)/1 var(--body);
   border: 1px solid var(--glass-edge); background: var(--surface-2, #fff); border-radius: var(--r-sm); color: var(--ink); cursor: pointer; }
@@ -954,6 +1007,9 @@ textarea.wb-text-input { resize: none; overflow: hidden; display: block; font-si
 .wb-scale-chip:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) {
   .wb-scale-chip:hover:where(:not(:disabled)) svg:not(.wb-chip-chev) { color: var(--ink); }
+  /* …and the chip itself: a wash OVER its glass (an image, so .arm's lit fill stays under it) –
+     the glyph alone was the hover, and a chip with a lamp has none (20.10.2026) */
+  .wb-scale-chip:hover:where(:not(:disabled):not(.wb-scale-status)) { background-image: linear-gradient(var(--hover), var(--hover)); }
 }
 /* …and the same pills on a LOCKED plan are read-outs (Whiteboard · the Maßstab / «⌖ Karte»
    chips, `disabled`): the `.wb-object:disabled` recipe — full opacity, their own words and tone,

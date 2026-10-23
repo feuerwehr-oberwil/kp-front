@@ -86,7 +86,6 @@ export const materialCopy = {
     // is captured once and read for the whole Einsatz
     editLabel: 'Eintrag bearbeiten',
     stockLabel: 'Bestand',
-    stockPlaceholder: 'optional',
     deleteLine: 'Eintrag löschen',
     // Symbol→Mittel: the reconciliation strip above the list. Third home of this offer
     // (28.08.): as a toast it was missed, as a row in the symbol's card it was only seen by
@@ -153,7 +152,6 @@ export const materialCopy = {
     chapterN: 'Kapitel {k}',
     chapterNav: 'Kapitel',
     groupChecklists: 'Checklisten',
-    groupKnowledge: 'Einsatzwissen',
     readOnlyTag: 'zum Lesen',
     readOnly: 'Zum Lesen. Abgehakt wird im Einsatz.',
     points: '{n} Punkte',

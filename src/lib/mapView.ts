@@ -8,7 +8,11 @@ import { dockSlotOffset } from './docking'
 import { cachedLabelSize } from './labelPass'
 import type { LineTone } from './truppLines'
 
-export const EMPTY_STYLE = { version: 8 as const, sources: {}, layers: [] }
+/** Our own glyph ranges (public/fonts, scripts/vendor-map-labels.mjs) – the one text the map
+ *  draws itself is the basemap's names (lib/basemapLabels); everything else is DOM markers. */
+export const MAP_GLYPHS = '/fonts/{fontstack}/{range}.pbf'
+
+export const EMPTY_STYLE = { version: 8 as const, glyphs: MAP_GLYPHS, sources: {}, layers: [] }
 
 /** The map's own ceiling (14.09.): one step past the tiles, for placing a symbol precisely —
  *  past a base's `maxzoom` MapLibre stretches the last tile level. The Einsatz map keeps it. */
@@ -81,10 +85,18 @@ const SIZE_M: Record<string, number> = { vehicle: 11, command: 10, hydrant: 6, s
 // the band (px). `mul` is the global S/M/L factor (lib/prefs · symbolMul); it
 // scales the whole band, so the ceiling/floor grow along with it.
 const SYM_MIN = 28
+// …except a VEHICLE, which has a higher floor of its own. A vehicle is the only kind whose NAME
+// is baked into the glyph body (lib/useVehiclePositions · vehicleSymbolSvg), so the name can only
+// grow with the glyph. At the owner's tablet zoom every GPS vehicle at the Magazin sits exactly
+// ON the floor, where the name came out ~6.5px tall and was unreadable at arm's length (review 7
+// point 3, 20.10.2026 — owner picked variant D: floor 28 → 34 px together with a bigger NAME_FS).
+// Per kind on purpose, not a new global floor: a hydrant or a Schadenlage symbol carries no name
+// and has no reason to grow, and a wider band would clump the Magazin cluster together.
+const SYM_MIN_KIND: Record<string, number> = { vehicle: 34 }
 const SYM_MAX = 48
 export const pxPerM = (lat: number, z: number) => Math.pow(2, z) / (156543.03392 * Math.cos((lat * Math.PI) / 180))
 export const symPx = (kind: string, lat: number, z: number, mul = 1) =>
-  Math.max(SYM_MIN, Math.min(SYM_MAX, (SIZE_M[kind] ?? 8) * pxPerM(lat, z))) * mul
+  Math.max(SYM_MIN_KIND[kind] ?? SYM_MIN, Math.min(SYM_MAX, (SIZE_M[kind] ?? 8) * pxPerM(lat, z))) * mul
 
 /**
  * Where a DOCKED Trupp marker is actually drawn: its host, and the screen-px offset from that

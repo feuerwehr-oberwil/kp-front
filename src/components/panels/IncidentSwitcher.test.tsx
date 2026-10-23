@@ -80,7 +80,7 @@ describe('IncidentSwitcher · Einsatz verlassen', () => {
     const leave = vi.fn()
     renderActive({ active, incidents: [active, other], onKarte: leave, onHistory: () => {}, onObjectVisits: () => {} })
     const row = screen.getByRole('button', { name: /Einsatz verlassen/ })
-    expect(row.textContent).toContain('Läuft weiter · zur Karte')
+    expect(row.textContent).toContain('Läuft weiter – zur Karte')
     const running = screen.getByRole('button', { name: /Ölspur Hauptstrasse/ })
     const history = screen.getByRole('button', { name: appConfig.copy.incidentSwitcher.allIncidents })
     const visits = screen.getByRole('button', { name: appConfig.copy.objectVisits.launcher })
@@ -98,7 +98,7 @@ describe('IncidentSwitcher · Einsatz verlassen', () => {
       center: [7.57, 47.52], zoom: 17, bearing: 0, objectId: 'schloss', surface: { plan: 'p1' }, label: 'Schloss Musterdorf · Modul 1',
     }))
     renderActive({ active, incidents: [active], onKarte: () => {} })
-    expect(screen.getByRole('button', { name: /Einsatz verlassen/ }).textContent).toContain('Läuft weiter · zurück zu Schloss Musterdorf · Modul 1')
+    expect(screen.getByRole('button', { name: /Einsatz verlassen/ }).textContent).toContain('Läuft weiter – zurück zu Schloss Musterdorf · Modul 1')
   })
 
   it('draws no row for a link session (no door handed in), and no Einsätze group either', () => {
@@ -106,5 +106,36 @@ describe('IncidentSwitcher · Einsatz verlassen', () => {
     expect(screen.queryByRole('button', { name: /Einsatz verlassen/ })).toBeNull()
     expect(screen.queryByRole('button', { name: appConfig.copy.incidentSwitcher.allIncidents })).toBeNull()
     expect(screen.queryByText(appConfig.copy.incidentSwitcher.noOpenIncidents)).toBeNull()
+  })
+})
+
+// S8 (20.10.2026, owner: «all dropdowns, popovers … closable by Escape»). The menu stays
+// non-modal; one Escape closes it and nothing behind it — the workspace's own Escape listens on
+// window and must not also peel the map's next layer.
+describe('IncidentSwitcher · Escape', () => {
+  it('closes the menu, and the key does not travel on to the workspace', () => {
+    const behind = vi.fn()
+    window.addEventListener('keydown', behind)
+    try {
+      renderSwitcher()
+      expect(document.querySelector('.ip-menu')).not.toBeNull()
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(document.querySelector('.ip-menu')).toBeNull()
+      expect(behind).not.toHaveBeenCalled()
+      // closed: the next Escape is the workspace's again
+      fireEvent.keyDown(document.body, { key: 'Escape' })
+      expect(behind).toHaveBeenCalledTimes(1)
+    } finally {
+      window.removeEventListener('keydown', behind)
+    }
+  })
+
+  it('leaves the key to a sheet opened from the menu', () => {
+    renderSwitcher({ sheetOpen: true })
+    const behind = vi.fn()
+    window.addEventListener('keydown', behind)
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    window.removeEventListener('keydown', behind)
+    expect(behind).toHaveBeenCalledTimes(1)
   })
 })

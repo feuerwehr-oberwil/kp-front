@@ -94,7 +94,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     funkkanal: 'Canale radio',
     funkkanalSub: 'Predefinito per le nuove squadre ARA',
     syncedFoot: 'Sincronizzato con tutti i dispositivi',
-    syncedFootViewer: ' · solo il capo intervento può modificarle',
+    syncedFootViewer: ' – solo il capo intervento può modificarle',
 
     symbolCaptions: 'Etichette',
     symbolCaptionsSub: 'Il valore chiave sotto il simbolo',
@@ -171,6 +171,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     browserNoInstall: 'Questo dispositivo non offre l\'installazione. Per essere offline in intervento, installa PC Fronte sul tablet o sul telefono.',
     wsDropped: '{n} voci danneggiate ignorate al caricamento',
     wsNewer: 'I dati d\'intervento provengono da una versione più recente dell\'app – aggiorna l\'app.',
+    wsDroppedDismiss: 'Nascondi',
   },
   emptyApp: {
     title: 'Nessun intervento aperto',
@@ -183,7 +184,7 @@ export const panelsCopy: Localizable<Pick<Copy, Keys>> = {
     kicker: 'Nuovo intervento',
     switch: 'Cambia',
     open: 'Apri',
-    later: 'Più tardi',
+    dismiss: 'Nascondi',
   },
   photoViewer: {
     title: 'Foto',

@@ -138,29 +138,34 @@ describe('shouldReopenClosed', () => {
   it('returns to the Einsatz the operator was looking at — the launcher is not an answer', () => {
     const justClosed = closed()
     expect(pickBootIncident([], 'a', { now: NOW, crash: null })).toBeUndefined() // why the door exists
-    expect(shouldReopenClosed(justClosed, { now: NOW, crash: null })).toBe(true)
+    expect(shouldReopenClosed(justClosed, { now: NOW, reload: true, crash: null })).toBe(true)
   })
 
   it('an OLD Einsatz opened by hand out of the Verlauf comes back too — the decision is fresh', () => {
     const lastYear = closed({ closed_at: '2025-11-02T18:00:00Z', updated_at: '2025-11-02T18:00:00Z' })
     const chosenAt = Date.parse('2026-07-08T11:50:00Z') // opened from «Alle Einsätze» ten minutes ago
-    expect(shouldReopenClosed(lastYear, { now: NOW, chosenAt, crash: null })).toBe(true)
+    expect(shouldReopenClosed(lastYear, { now: NOW, reload: true, chosenAt, crash: null })).toBe(true)
   })
 
   it('…and an Einsatz that closed itself around the operator, which never stamps chosenAt', () => {
     const byColleague = closed({ auto_opened: true, source: 'divera', closed_at: '2026-07-08T11:55:00Z' })
-    expect(shouldReopenClosed(byColleague, { now: NOW, crash: null })).toBe(true)
+    expect(shouldReopenClosed(byColleague, { now: NOW, reload: true, crash: null })).toBe(true)
   })
 
   it('but yesterday belongs on the clean launcher, not in last night\'s Einsatz', () => {
     const yesterday = closed({ closed_at: '2026-07-07T02:00:00Z', updated_at: '2026-07-07T02:00:00Z' })
     const chosenAt = Date.parse('2026-07-07T01:00:00Z')
-    expect(shouldReopenClosed(yesterday, { now: NOW, chosenAt, crash: null })).toBe(false)
+    expect(shouldReopenClosed(yesterday, { now: NOW, reload: true, chosenAt, crash: null })).toBe(false)
   })
 
   it('never back into a crash-looping Einsatz — the boundary\'s escape must stay an escape', () => {
     const poisoned = closed()
-    expect(shouldReopenClosed(poisoned, { now: NOW, crash: { id: 'a', n: 2, at: NOW } })).toBe(false)
+    expect(shouldReopenClosed(poisoned, { now: NOW, reload: true, crash: { id: 'a', n: 2, at: NOW } })).toBe(false)
+  })
+
+  it('only a reload comes back: left, app closed, opened again → home (owner, 20.10.2026)', () => {
+    const chosenAt = Date.parse('2026-07-08T11:50:00Z')
+    expect(shouldReopenClosed(closed(), { now: NOW, reload: false, chosenAt, crash: null })).toBe(false)
   })
 })
 

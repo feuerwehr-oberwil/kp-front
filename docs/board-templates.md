@@ -84,7 +84,10 @@ replaces the bundled one.
 | Alt+↑ / Alt+↓ (⌥ on a Mac) | Moves the entry the cell belongs to up / down — a problem line, a Massnahme, a Mittel or Verbindungen row, a row written under the Abspracherapport's fixed ones (those stay fixed). One ↶ step, with what was typed in the cell. |
 | Esc | Restores the stored value. A second Esc lets go of the field. |
 
-- In a «Wann» (`time`) cell, `1124` is stored as `11:24`.
+- In a «Wann» (`time`) cell, `1124` is stored as `11:24`. Under a finger (`pointer: coarse`) a tap
+  on a time cell opens THE time picker (`WheelPopover`: wheels, «Jetzt», «Leeren») instead of the
+  soft keyboard, and its answer is one commit (20.10.2026, owner: «with keyboard / desktop type,
+  otherwise wheel»); a mouse and a hardware keyboard keep typing.
 - Enter on a row that has words and an empty Wann fills in the current time. This is part of the
   same commit, so ↶ takes it back.
 - An IME composition (Safari: `keyCode` 229) never commits or moves.

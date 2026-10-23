@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { categorize, categoryCounts, categoryId, categoryLabel, categoryOf, categoryRules, globToRegExp, inkOn, writableRules, type ObjectCategoryRule } from './categories'
+import { categorize, categoryId, categoryLabel, categoryOf, categoryRules, globToRegExp, inkOn, writableRules, type ObjectCategoryRule } from './categories'
 import type { StationObject } from '../api/stationReference'
 import { configRejections } from '../../admin/configSchema.test-utils'
 
@@ -78,12 +78,6 @@ describe('object categories', () => {
     expect(categoryLabel({ de: 'Photovoltaik' }, 'it', 'pv')).toBe('Photovoltaik')
     expect(categoryLabel({ en: 'Solar' }, 'it', 'pv')).toBe('Solar')
     expect(categoryLabel('', 'de', 'pv')).toBe('pv')
-  })
-
-  it('counts per category for the Ebenen rows', () => {
-    const objs = [obj('einsatzobjekt', ['modul5-pv']), obj('einsatzobjekt', ['modul1']), obj('objekt', [])] as StationObject[]
-    const counts = categoryCounts(categorize(objs, categoryRules(FWO)))
-    expect(Object.fromEntries(counts)).toEqual({ pv: 1, einsatz: 1, rest: 1 })
   })
 
   it('reads text on the colour: dark on amber, white on blue/red/slate', () => {

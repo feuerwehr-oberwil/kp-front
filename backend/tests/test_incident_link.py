@@ -551,7 +551,6 @@ async def test_allowlisted_reads_work(client, link_key, incident):
         f"/api/incidents/{inc}/journal",
         "/api/reference",
         "/api/personnel",
-        "/api/objects",
     ]:
         r = await client.get(url)
         assert r.status_code == 200, f"GET {url} answered {r.status_code}: {r.text[:200]}"
@@ -1344,6 +1343,39 @@ async def test_journal_takes_team_rows_only_and_stamps_them(client, editor, inci
     rows = (await client.get(f"/api/incidents/{incident.id}/journal")).json()["entries"]
     assert [e["row"]["id"] for e in rows] == ["j2"], "the refused row must not have landed"
     assert rows[0]["row"]["via"] == "atemschutz-link"
+
+
+async def test_journal_refuses_a_patch_row_from_the_link(client, editor, incident):
+    """RBAC audit S2: a «team» row with `patchOf` + `retracted`/`textEdit` is folded onto its
+    target on every device and in the Rapport — a link could hide or reword any Verlauf row.
+    It may patch its own rows only; anything else is the generic refusal."""
+    at = datetime.now(UTC).isoformat()
+    await _login_editor(client, editor)
+    fu_row = {"id": "funk1", "t": "10:00", "at": at, "icon": "radio", "text": "Lagemeldung FU"}
+    assert (await client.post(f"/api/incidents/{incident.id}/journal", json={"entries": [fu_row]})).status_code == 201
+    await _open_atemschutz(client, editor, incident)
+
+    patch = {"id": "tp-1-funk1", "kind": "team", "at": at, "text": "", "patchOf": "funk1", "retracted": True}
+    r = await client.post(f"/api/incidents/{incident.id}/journal", json={"entries": [patch]})
+    assert r.status_code == 403, r.text
+    assert r.json()["detail"] == DENIED_DETAIL
+    rows = (await client.get(f"/api/incidents/{incident.id}/journal")).json()["entries"]
+    assert [e["row"]["id"] for e in rows] == ["funk1"]
+
+    own = {"id": "t1", "kind": "team", "at": at, "text": "Trupp 1 Kontakt"}
+    fix = {"id": "tp-2-t1", "kind": "team", "at": at, "text": "", "patchOf": "t1", "textEdit": "Trupp 2 Kontakt"}
+    assert (await client.post(f"/api/incidents/{incident.id}/journal", json={"entries": [own]})).status_code == 201
+    assert (await client.post(f"/api/incidents/{incident.id}/journal", json={"entries": [fix]})).status_code == 201
+
+
+async def test_a_signed_in_writer_cannot_claim_a_link_via(client, editor, incident):
+    """`via` is the server's provenance stamp: an editor's row claiming it would print as the
+    link's in the Verlauf and the Rapport."""
+    await _login_editor(client, editor)
+    row = {"id": "v1", "at": datetime.now(UTC).isoformat(), "text": "Trupp 1", "kind": "team", "via": "atemschutz-link"}
+    r = await client.post(f"/api/incidents/{incident.id}/journal", json={"entries": [row]})
+    assert r.status_code == 201, r.text
+    assert "via" not in r.json()["entries"][0]["row"]
 
 
 async def test_link_cannot_smuggle_an_unsafe_url_into_a_team_row(client, editor, incident):

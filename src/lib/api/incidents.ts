@@ -54,7 +54,10 @@ export interface IncidentMeta {
    *  keeps the first. Absent from lists cached before the field existed. */
   last_closed_at?: string | null
   is_archived: boolean
-  is_exercise: boolean // Übung — stats-excluded, the only kind that may be hard-deleted
+  is_exercise: boolean // Übung — stats-excluded
+  /** Übung since creation, never marked real — the only kind an editor may hard-delete (a real
+   *  Einsatz marked Übung later needs the Verwaltung). Absent on lists cached before 22.10.2026. */
+  exercise_since_creation?: boolean
   report_done_at: string | null // Abschluss-Assistent completion bookmark (see rapportStatus.ts)
   // Cross-visibility QR ↔ KP (optional: absent on lists cached before the feature shipped) —
   // editor_opened_at latches the first editor open; capture_* count QR capture writes.

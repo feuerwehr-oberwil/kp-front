@@ -8,6 +8,7 @@ alarm would have.
 """
 
 import base64
+import json
 from datetime import datetime
 from types import SimpleNamespace
 
@@ -771,11 +772,75 @@ async def test_notify_new_alarm_broadcasts_stichwort_and_address(db_session, mon
     await db_session.commit()
     await asyncio.gather(*tuple(push_mod._inflight))
     assert calls == [
-        {"title": "Neuer Einsatz", "body": "Zimmerbrand — Teststrasse 1", "tag": "divera-99", "target": "divera"}
+        {
+            "title": "Neuer Einsatz",
+            "body": "Zimmerbrand — Teststrasse 1",
+            "tag": "divera-99",
+            "target": "divera",
+            "user_ids": [],  # no editor account in this DB: nobody (see test_who_hears_which_push)
+        }
     ]
 
 
+async def test_who_hears_which_push(db_session, monkeypatch):
+    """Owner's pick (22.10.2026): «Neuer Einsatz» wakes the editors, «Wiedervorlage fällig» the
+    editors and the el; a viewer tablet and a kiosk row hear only the Atemschutz alarm."""
+    import asyncio
+
+    import pywebpush
+
+    import app.push as push_mod
+    from app.config import settings
+    from app.models import Incident, JournalEntry, PushSubscription
+    from tests.conftest import _make_user
+
+    monkeypatch.setattr(settings, "vapid_private_key", "priv")
+    monkeypatch.setattr(settings, "vapid_public_key", "pub")
+    push_mod._notified.clear()
+    push_mod._delivered.clear()
+    base = "https://fcm.googleapis.com/fcm/send/"
+    for role in ("editor", "el", "viewer"):
+        user = await _make_user(db_session, username=f"push-{role}", role=role)
+        db_session.add(PushSubscription(user_id=user.id, endpoint=base + role, p256dh="k", auth="a"))
+    off = await _make_user(db_session, username="push-off", role="editor")
+    off.is_active = False
+    db_session.add(PushSubscription(user_id=off.id, endpoint=base + "inactive", p256dh="k", auth="a"))
+    _add_sub(db_session, base + "kiosk")
+    inc = Incident(
+        title="Zimmerbrand",
+        source="manual",
+        status="offen",
+        is_archived=False,
+        map_workspace_json={"trupps": [trupp("a", "2026-07-02T14:03:00Z")]},
+    )
+    db_session.add(inc)
+    await db_session.flush()
+    row = rem_row("r1", "created", "2026-07-02T14:00:00Z")
+    db_session.add(JournalEntry(incident_id=inc.id, client_id=row["id"], seq=1, row_json=row))
+    await db_session.commit()
+
+    heard: dict[str, list[str]] = {}
+
+    def fake_webpush(subscription_info, data, **_kw):
+        heard.setdefault(json.loads(data)["title"], []).append(subscription_info["endpoint"].removeprefix(base))
+
+    monkeypatch.setattr(pywebpush, "webpush", fake_webpush)
+    await db_session.execute(select(1))
+    await push_mod.notify_new_alarm(db_session, tag="divera-1", title="Brand", address=None)
+    await db_session.commit()
+    await asyncio.gather(*tuple(push_mod._inflight))
+    await push_mod.check_and_push(db_session, NOW)
+
+    assert {title: sorted(eps) for title, eps in heard.items()} == {
+        "Neuer Einsatz": ["editor"],
+        "Wiedervorlage fällig": ["editor", "el"],
+        "Atemschutz überfällig": ["editor", "el", "kiosk", "viewer"],
+    }
+
+
 async def test_webhook_pushes_only_for_new_alarms(client, monkeypatch):
+    import asyncio
+
     import app.push as push_mod
     from app.config import settings
 
@@ -792,10 +857,12 @@ async def test_webhook_pushes_only_for_new_alarms(client, monkeypatch):
     payload = {"id": 4712, "title": "Ölspur", "address": "Dorfplatz 2"}
     r = await client.post("/api/divera/webhook?secret=hook-secret-123", json=payload)
     assert r.status_code == 200 and r.json()["new"] is True
+    await asyncio.gather(*tuple(push_mod._inflight))  # the push leaves after the commit
     assert [c["tag"] for c in calls] == ["divera-4712"]
     # duplicate delivery: still 200, but no second push
     r = await client.post("/api/divera/webhook?secret=hook-secret-123", json=payload)
     assert r.status_code == 200 and r.json()["new"] is False
+    await asyncio.gather(*tuple(push_mod._inflight))
     assert len(calls) == 1
 
 

@@ -13,11 +13,13 @@ from __future__ import annotations
 import json
 import pathlib
 import uuid
+from datetime import datetime, timedelta
 
 import pytest
 import pytest_asyncio
 from sqlalchemy import select
 
+from app import object_visits as ov
 from app import storage as storage_mod
 from app.auth.incident_link import LINK_COOKIE, create_link_session_token
 from app.checklist_templates import template_problem
@@ -171,6 +173,76 @@ async def test_lifecycle_transitions_and_no_reopen(client, editor, on, obj):
     assert (await put(client, vid2, visit_doc(vid2, obj, lifecycle="discarded"), 1)).status_code == 200
     r = await put(client, vid2, visit_doc(vid2, obj, lifecycle="discarded", notes="x"), 2)
     assert r.status_code == 422  # discarded is terminal
+
+
+async def _backdate_completion(db, vid: str, hours: float) -> None:
+    """Move every completed revision of the visit `hours` into the past — the clock a lock test
+    needs, without waiting a day."""
+    rows = (
+        await db.execute(
+            select(ObjectVisitRevision)
+            .where(ObjectVisitRevision.visit_id == vid)
+            .where(ObjectVisitRevision.lifecycle == "completed")
+        )
+    ).scalars()
+    for row in rows:
+        row.accepted_at = row.accepted_at - timedelta(hours=hours)
+    await db.commit()
+
+
+async def test_a_completed_visit_locks_after_the_window(client, editor, on, obj, db_session):
+    """«Lock after a while, view only» (owner, 20.10.2026): a correction lands inside the 24 h
+    window and is refused after it. The visit says from when — `completedAt` + `lockedAt`."""
+    await login(client, editor)
+    vid = new_id("ov")
+    await put(client, vid, visit_doc(vid, obj), None)
+    await put(client, vid, visit_doc(vid, obj, lifecycle="completed"), 1)
+
+    assert (
+        await put(client, vid, visit_doc(vid, obj, lifecycle="completed", notes="rechtzeitig"), 2)
+    ).status_code == 200
+    got = (await client.get(f"/api/object-visits/{vid}")).json()
+    done, locked = datetime.fromisoformat(got["completedAt"]), datetime.fromisoformat(got["lockedAt"])
+    assert locked - done == timedelta(hours=24)
+
+    await _backdate_completion(db_session, vid, hours=25)
+    r = await put(client, vid, visit_doc(vid, obj, lifecycle="completed", notes="zu spät"), 3)
+    assert r.status_code == 422 and r.json()["code"] == "locked"
+    assert "nur noch Ansicht" in r.json()["detail"] and r.json()["lockedAt"]
+    # nothing was written, and re-sending the STORED document is still the no-op answer
+    after = (await client.get(f"/api/object-visits/{vid}")).json()
+    assert after["revision"] == 3 and after["notes"] == "rechtzeitig"
+    assert (
+        await put(client, vid, visit_doc(vid, obj, lifecycle="completed", notes="rechtzeitig"), 3)
+    ).status_code == 200
+
+    # the admin session / the organizer writes without an account: it still corrects
+    visit = await ov.get_visit(db_session, vid)
+    body = {
+        "opId": new_id("ovo"),
+        "baseRevision": 3,
+        "doc": visit_doc(vid, obj, lifecycle="completed", notes="Korrektur Station"),
+    }
+    answer = await ov.apply_put(db_session, vid, body, ov.Actor(None, None))
+    await db_session.commit()
+    assert answer["revision"] == 4 and answer["visit"]["notes"] == "Korrektur Station"
+    assert visit.lifecycle == "completed"
+
+
+async def test_the_lock_window_is_configurable(client, editor, on, obj, db_session):
+    """`objectVisits.lockAfterHours`: another number, and `null` for a station that never locks."""
+    await set_config(db_session, {"lockAfterHours": 1})
+    await login(client, editor)
+    vid = new_id("ov")
+    await put(client, vid, visit_doc(vid, obj), None)
+    await put(client, vid, visit_doc(vid, obj, lifecycle="completed"), 1)
+    await _backdate_completion(db_session, vid, hours=2)
+    r = await put(client, vid, visit_doc(vid, obj, lifecycle="completed", notes="nach 2 h"), 2)
+    assert r.status_code == 422 and r.json()["code"] == "locked"
+
+    await set_config(db_session, {"lockAfterHours": None})
+    assert (await client.get(f"/api/object-visits/{vid}")).json()["lockedAt"] is None
+    assert (await put(client, vid, visit_doc(vid, obj, lifecycle="completed", notes="nach 2 h"), 2)).status_code == 200
 
 
 @pytest.mark.parametrize(

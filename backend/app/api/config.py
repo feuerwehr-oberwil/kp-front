@@ -127,6 +127,8 @@ def _projection(
     include_keywords: bool = True,
     include_links: bool = True,
     include_carto: bool = True,
+    include_internal: bool = True,
+    include_filing: bool = True,
     version: str | None = None,
     warnings: list[str] | None = None,
 ) -> DeploymentConfigOut:
@@ -167,7 +169,17 @@ def _projection(
     source is active, never the words — because "is my override live?" must be answerable
     without a session.
 
-    ⚠️ Withholding either from an ADMIN would be a data-loss bug, not a tightening: the admin UI
+    ``include_internal=False`` empties ``alarms.webhooks`` and ``sharepoint.sources`` (RBAC audit
+    S3, 22.10.2026). Both are addresses the SERVER talks to, and a webhook URL is often a
+    capability (a Power Automate ``sig=``, a Teams hook, a ``?secret=``): whoever has it can post
+    as the alarm. No client but /admin reads either, so only an admin session gets them.
+
+    ``include_filing=False`` empties ``objectVisits.destinations`` — SharePoint site addresses,
+    but ones a signed-in client DOES read (the Objektbesuch's «Ablage» line and the filing
+    status name the destination's folders), so it follows ``report.links``: every PIN session,
+    no anonymous caller and no link.
+
+    ⚠️ Withholding any of these from an ADMIN would be a data-loss bug, not a tightening: the admin UI
     does a full-document PUT (GET → draft → PUT), so a config the admin never received is a
     config the next unrelated edit silently deletes. Hence the flags rather than a blanket drop.
     """
@@ -186,6 +198,13 @@ def _projection(
         payload.pop("alarmKeywords", None)
     if not include_links:
         payload["report"] = {**(payload.get("report") or {}), "links": []}
+    # Emptied, never removed — like `report.links`, the answer is byte-identical to a station
+    # that configured none, so the withholding does not announce itself.
+    if not include_internal:
+        payload["alarms"] = {**(payload.get("alarms") or {}), "webhooks": []}
+        payload["sharepoint"] = {**(payload.get("sharepoint") or {}), "sources": []}
+    if not include_filing:
+        payload["objectVisits"] = {**(payload.get("objectVisits") or {}), "destinations": []}
     ints = integrations()
     if not include_carto:
         # `None`, not "", so it is byte-identical to a deployment that configured no key —
@@ -228,7 +247,8 @@ async def get_config(
 ) -> DeploymentConfigOut:
     """PUBLIC (no auth) — the login screen needs branding before login.
 
-    Three sections are withheld from ANONYMOUS callers, and each for its own reason:
+    Some sections are withheld from ANONYMOUS (and some from non-admin) callers, each for its own
+    reason:
 
     * ``alarmKeywords`` — admin only; nothing in the frontend reads it (see ``_projection``).
     * ``report.links`` — the station's own Formulare. Withheld from anonymous callers but
@@ -238,6 +258,8 @@ async def get_config(
     * ``integrations.cartoBasemapKey`` — the CARTO browser key. Served to anyone with a session
       OF ANY KIND, including an incident-LINK session, and withheld from a caller with none.
       See ``_projection`` for why the link case is the one that matters.
+    * ``alarms.webhooks`` + ``sharepoint.sources`` — admin only: server-side destinations, the
+      webhooks often capabilities. ``objectVisits.destinations`` — like ``report.links``.
 
     ⚠️ The app reads this at BOOT, before login, so a first fetch on a fresh device legitimately
     comes back without the links; ``AuthProvider.login`` re-reads the config on the way in (see
@@ -270,6 +292,8 @@ async def get_config(
         include_keywords=is_admin,
         include_links=is_admin or actor is not None,
         include_carto=has_session,
+        include_internal=is_admin,
+        include_filing=is_admin or actor is not None,
         version=_version(raw),
     )
 

@@ -89,7 +89,7 @@ function sameIds(a: readonly string[], b: readonly string[]): boolean {
  * Drives Wiedervorlagen off the append-only timeline: derives the open set and appends
  * done/snooze rows via `onEvent` — nothing here mutates the timeline. The CLOCK is not here:
  * which of the open ones are due, and the alert when one crosses, live in `RemindersHost`,
- * which the caller mounts with `<RemindersHost {...host} />`. The parent only learns the due
+ * which the caller mounts with `<RemindersHost {...host} alert={…} />`. The parent only learns the due
  * set when it CHANGES, so the 10 s tick never re-renders the caller.
  *
  * `enabled` is false during replay so historical reminders don't re-alarm while scrubbing.
@@ -162,10 +162,15 @@ export function useReminders(
  *
  * Also owns the alert itself: a short tone (no loop — reminders aren't life-safety like the
  * SCBA clock) plus an OS notification when the app isn't in the foreground, once per crossing.
+ * ⚠️ Only where `alert` says so — the WRITERS of the Verlauf, editor and el (owner, 22.10.2026):
+ * a Wiedervorlage is a to-do for whoever can tick it off, so a viewer's tablet or a link's phone
+ * shows the due row (the banner, from `onDue`) without ringing. Their one alarm is Atemschutz's.
  */
-export function RemindersHost({ open, enabled, dueTitle, onDue }: {
+export function RemindersHost({ open, enabled, alert, dueTitle, onDue }: {
   open: readonly OpenReminder[]
   enabled: boolean
+  /** tone + OS notification on a crossing (the session writes the Verlauf); the due set is kept either way */
+  alert: boolean
   dueTitle: string
   onDue: (ids: readonly string[]) => void
 }): null {
@@ -193,7 +198,7 @@ export function RemindersHost({ open, enabled, dueTitle, onDue }: {
   const fired = useRef<Set<string>>(new Set())
   const toneTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled || !alert) return
     const fresh = due.filter((r) => !fired.current.has(r.id))
     if (fresh.length === 0) return
     for (const r of fresh) {
@@ -203,7 +208,7 @@ export function RemindersHost({ open, enabled, dueTitle, onDue }: {
     startAlarm('warn')
     if (toneTimer.current) clearTimeout(toneTimer.current)
     toneTimer.current = setTimeout(() => stopAlarm(), 4000)
-  }, [due, enabled, dueTitle])
+  }, [due, enabled, alert, dueTitle])
 
   // a reminder that's resolved/snoozed before re-firing should be able to alert again later
   useEffect(() => {

@@ -133,6 +133,30 @@ async def test_pinned_revision_is_immutable_the_current_address_is_not(client, v
     assert current.headers.get("etag")  # …so the revalidation is a cheap 304
 
 
+# --- X-Raw-Bytes (the Ebenen row's progress) --------------------------------------------
+
+
+async def test_download_states_its_uncompressed_size(client, viewer, admin_login):
+    # The Ebene counts its own download to fill the row's bar (frontend lib/layerData), and
+    # GZipMiddleware rewrites Content-Length to the COMPRESSED length — so the raw size is said
+    # out loud, or there is no honest number to divide by.
+    raw = _fc(INSIDE, OUTSIDE, NO_GEOM)
+    await _upload(client, admin_login, "geo:hydrant", raw, "application/geo+json")
+    await _login(client, viewer)
+    r = await client.get("/api/reference/geo:hydrant")
+    assert r.status_code == 200
+    assert r.headers["x-raw-bytes"] == str(len(raw))
+
+
+async def test_a_cropped_download_states_the_size_of_the_crop(client, viewer, admin_login):
+    # …and after a bbox crop it is the CROP that is on the wire, not the stored file.
+    await _upload(client, admin_login, "geo:hydrant", _fc(INSIDE, OUTSIDE, NO_GEOM), "application/geo+json")
+    await _login(client, viewer)
+    r = await client.get("/api/reference/geo:hydrant", params={"bbox": "7.5,47.4,7.7,47.6"})
+    assert r.status_code == 200
+    assert int(r.headers["x-raw-bytes"]) == len(r.content)
+
+
 # --- bbox crop --------------------------------------------------------------------------
 
 

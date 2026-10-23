@@ -44,6 +44,7 @@
 }
 .vrail-nbtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .vrail-nbtn.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+@media (hover: hover) { .vrail-nbtn.on:hover:not(:disabled) { background: var(--ink-fill-hover); } }
 .vrail-nbtn:disabled { opacity: var(--disabled); cursor: default; }
 /* zoom ± is a MOUSE affordance: every touch form factor pinches, so the two buttons only cost
    rail height the tools need more. Phones already drop the whole footer (15-mobile.css); this
@@ -94,17 +95,24 @@
 .vrail.labelled:not(.expanded):not(.dragging) .vrail-label {
   display: block; padding: 0 2px; text-align: center; max-width: 100%;
   font-size: var(--fs-micro); font-weight: var(--fw-bold); line-height: 1.1; overflow: hidden; text-overflow: ellipsis; }
+/* ⚠️ EVERY row of the expanded rail, not just the tools (owner, review 7: «Ebenen und Gefahrgut
+   are not properly aligned from the right side»). The 12px inset used to sit on `.vrail-tool`
+   alone, so the three rows that are NOT tools — the «Einklappen» chevron, and the footer's
+   «Ebenen» · «Ansichten» · zoom (`.vrail-nbtn`) — kept `padding: 0` and pushed their glyph box
+   12px further right than the tools above them: measured 1157 against 1145 on a 1180px tablet.
+   The rail has ONE glyph column; which half of the rail a row lives in may not decide where its
+   icon sits. (Nothing is wrong with the icons: all five glyph boxes are the same 22px and every
+   mark is centred in its own box — «Punkt setzen» just draws a 12.8px pin where «Gefahrgut»
+   draws an 18.3px triangle, so a narrow mark reads as sitting further in. That is the artwork,
+   not a column, and it gets no per-icon rule.) */
+.vrail.expanded:not(.dragging) :is(.vrail-tool, .vrail-nbtn, .vrail-exp) { padding-inline: 12px; }
 /* expanded: the glyph no longer carries the icon's horizontal inset (it would sit flush against
-   the pill edge) — shrink it to the icon and let symmetric tool padding give label + icon equal
-   breathing room. Collapsed/dragging keep the 46px glyph for perfect icon-only centering. */
-.vrail.expanded:not(.dragging) .vrail-tool { padding-inline: 12px; }
-.vrail.expanded:not(.dragging) .vrail-glyph { width: 22px; min-width: 22px; }
-/* expanded: items stay right-aligned (default flex-start = packed to the right edge in
-   row-reverse), and the glyph shrinks to the icon so the icon sits at the right edge with the
-   SAME inset as the rail's left padding — symmetric, not floating 12px in from a fixed-width
-   glyph column. (Collapsed keeps the 46px glyph so the icon stays centred in the slim rail.) */
-.vrail.expanded:not(.dragging) .vrail-glyph,
-.vrail.expanded:not(.dragging) .vrail-exp-ic { width: auto; min-width: 0; }
+   the pill edge) — shrink it to the icon and let the symmetric row padding above give label +
+   icon equal breathing room. Items stay right-aligned (default flex-start = packed to the right
+   edge in row-reverse), so the icon sits at the right edge with the SAME inset as the rail's
+   left padding — not floating 12px in from a fixed-width glyph column. (Collapsed/dragging keep
+   the 46px glyph so an icon-only rail centres it perfectly.) */
+.vrail.expanded:not(.dragging) :is(.vrail-glyph, .vrail-exp-ic) { width: auto; min-width: 0; }
 /* hover must not override the selected (.on) state — a selected tool stays ink,
    it does not flash white on hover */
 @media (hover: hover) {
@@ -132,7 +140,7 @@
 /* coordinate readout — subtle, bottom-centre, shown only while picking/locked. Two columns: the
    value rows on the left, the ✕ on the right, the hint spanning under both. The glass itself
    lets pointer events through (the map under it stays pannable); only the ✕ catches them. */
-.coord-read { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome);
+.coord-read { position: absolute; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: var(--z-chrome-raised);
   display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px;
   padding: 8px 8px 8px 12px; background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
   border: 1px solid var(--glass-line); border-radius: var(--r-ctl); box-shadow: var(--e4); pointer-events: none; }
@@ -141,19 +149,13 @@
 .cr-row { display: flex; align-items: baseline; gap: 8px; }
 .cr-tag { font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .08em; color: var(--ink-faint); width: 42px; }
 .cr-val { font-family: var(--mono); font-size: var(--fs-1); color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.cr-hint { grid-column: 1 / -1; margin-top: 4px; font-size: var(--fs-micro); font-weight: var(--fw-medium); color: var(--ink-faint); text-align: center; }
+/* the mode's instruction: an interactive mode's text, so the --fs-1 floor and the MapHint ink */
+.cr-hint { grid-column: 1 / -1; margin-top: 4px; font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-dim); text-align: center; }
 .coord-read.aiming .cr-hint { color: var(--blue); }
-/* the one exit that is ON the readout — both states, same place. 36px inside a glass strip that
-   is itself only ~60px tall; the rail button and Esc are the 44px exits. */
-.cr-x { width: 36px; height: 36px; border-radius: var(--r-sm); border: none; background: none; color: var(--ink-dim);
-  display: grid; place-items: center; cursor: pointer; pointer-events: auto; }
-.cr-x .i { width: 18px; height: 18px; }
-.cr-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-@media (hover: hover) { .cr-x:hover { color: var(--ink); background: var(--fill-soft); } }
-/* when the measure tool is active its results panel also sits bottom-centre (z35);
-   lift the readout clear above it and keep it on top so the two never collide */
-.coord-read { z-index: var(--z-chrome-raised); }
-.coord-read-stacked { bottom: 200px; }
+/* the one exit that is ON the readout — both states, same place. It IS the global `.ip-x`
+   (13-incident: 36px, grey, the 44px pad of 02-base); this only takes it out of the glass's
+   click-through. */
+.cr-x { pointer-events: auto; }
 
 /* locked coordinate reticle on the map */
 .pick-reticle { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--blue);

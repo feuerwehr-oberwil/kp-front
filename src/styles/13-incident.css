@@ -15,10 +15,14 @@
   background: var(--glass); box-shadow: var(--e3); color: var(--ink);
   font: var(--fw-bold) var(--fs-2)/1.1 var(--body); cursor: pointer;
 }
+/* hover: a wash laid OVER the glass (an image, like the press) – --surface by day was white on
+   white glass, i.e. no hover at all (20.10.2026) */
 @media (hover: hover) {
-  .ip-switch-btn:hover { background: var(--surface); }
+  .ip-switch-btn:hover { background-image: linear-gradient(var(--hover), var(--hover)); }
 }
-.ip-switch-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* pressed while held AND while its menu is open – the Einsatz switcher and the Karte's menu/search
+   pills alike (owner 20.10.: the Karte's stayed pressed, the Einsatz's did not) */
+.ip-switch-btn:is(:active:not(:disabled), [aria-expanded='true']) { background-image: linear-gradient(var(--press), var(--press)); }
 .ip-switch-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 0 1 auto; }
 .ip-switch-btn svg { width: 16px; height: 16px; opacity: .6; flex: none; }
 /* sync-status mark in the incident switcher — a FIXED 16px slot so the constant saving↔saved
@@ -237,6 +241,16 @@
   border-radius: var(--r-ctl); cursor: pointer; color: var(--ink); font: var(--fw-medium) var(--fs-2) var(--body);
 }
 .ip-menu-act svg { width: 16px; height: 16px; opacity: .65; }
+/* ⚠️ The row centres the LETTERS, not the line box (owner, review 7: «the main text … feels like
+   it's a little bit above center. Maybe the baseline is the center»). He is reading real
+   geometry: Sora's font box is top-heavy — ascent .970em against descent .290em — so a line box
+   that flex centres perfectly puts the cap-to-baseline box (cap height .7345em) above the row's
+   middle, by (cap + descent − ascent) / 2 = .0273em. `line-height` cannot fix it: half-leading
+   is symmetric around the font box, so the letters keep the same offset inside it whatever the
+   box's height. The margin is doubled because `align-items: center` centres the MARGIN box, so
+   half of it is the shift. Derived from the face's metrics, not nudged by eye; if the type ever
+   stops being Sora, re-measure rather than keep the number. */
+.ip-menu-actlabel { min-width: 0; margin-block-start: calc(2 * .0273em); }
 /* incident row — pure switch target (no destructive actions in this menu; closing another
    incident lives in «Alle Einsätze» / the Rapport). The leading FIXED-WIDTH column carries the
    laufende Zeit, so the list scans down one edge: how long has THAT one been going. */
@@ -304,8 +318,8 @@
 .set-row .step-val { min-width: 68px; }
 /* Symbolgrösse: two sliders (Karte · Module) where an S/M/L segment used to be. Tokenised
    throughout so day and night both stay right — --blue for the track, never --accent, which is
-   the brand's alarm red and must not come to mean «this is the setting you picked». Same idiom
-   as .kf-at-range in the Kroki framing panel. */
+   the brand's alarm red and must not come to mean «this is the setting you picked». (Still the
+   native range – the last one; the Kroki's «Stand» moved onto components/Slider 20.10.2026.) */
 .set-range { display: flex; align-items: center; gap: 8px; flex: 0 1 260px; min-width: 0; }
 .set-range input[type=range] { flex: 1 1 auto; min-width: 0; height: var(--tap); accent-color: var(--blue); cursor: pointer; }
 /* fixed, tabular value slot: the two rows sit above each other, so «60 %» and «140 %» must not
@@ -628,7 +642,7 @@
 .ui-search-x { flex: none; display: grid; place-items: center; width: var(--tap); height: var(--tap);
   padding: 0; border: none; border-radius: var(--r-sm); background: none; color: var(--ink-dim); cursor: pointer;
   -webkit-tap-highlight-color: transparent; }
-@media (hover: hover) { .ui-search-x:hover { color: var(--ink); } }
+@media (hover: hover) { .ui-search-x:hover { color: var(--ink); background: var(--hover-strong); } }
 .ui-search-x:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .ui-search-x .i { width: 16px; height: 16px; }
 /* THE one modifier — a card whose whole head IS the search (TruppFinder): the card is the
@@ -644,7 +658,7 @@
    It had four «open» looks in three sizes: white 14→28% (dark docks), an accent-red frame
    (QR-Bogen — station red saying «help is open»), the ink «where you are» pill (Verlauf) and the
    blue choice fill (Georef). One now: the grey icon chip of the sheet ✕ (36px, 18px glyph, a 44px
-   pad), and OPEN = the blue wash with a `--blue-strong` glyph. The dark docks keep DockInfo. */
+   pad), and OPEN = the blue wash with a `--blue-strong` glyph. The tool docks keep DockInfo. */
 .ui-info { position: relative; flex: none; display: grid; place-items: center; width: 36px; height: 36px;
   padding: 0; border: none; border-radius: var(--r-sm); cursor: pointer;
   background: var(--ink-8); color: var(--ink-dim);
@@ -702,6 +716,10 @@
    that catches every author is a missing rule, not a missing patch. Scoped to a direct child of
    .ip-sheet, so .ip-row-actions and any inline action row are untouched. */
 .ip-sheet > .ip-actions { padding: 8px 24px 16px; }
+/* ONE footer for every edit sheet (UX sweep F5, 20.10.2026): [danger far left] · Abbrechen ·
+   primary. The delete leads the row and the rest keeps to the right, so it never stands beside
+   the save; a live sheet (TimeBlockSheet) has only the danger. docs/ui-conventions · editor sheets */
+.ui-sheet-foot > :is(.ip-btn.danger, .ip-btn-danger):first-child { margin-right: auto; }
 /* demo: "opening is disabled" note above the wizard's action row */
 .ip-demo-block { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 8px 12px;
   border-radius: var(--r-sm); background: var(--fill-soft); color: var(--ink-dim); font: var(--fw-medium) var(--fs-1) var(--body); }
@@ -730,8 +748,10 @@
 @media (hover: hover) {
   .ip-btn:hover { background: var(--hover-strong); }
 }
-.ip-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.ip-btn:disabled { opacity: var(--disabled); cursor: default; }
+.ip-btn:active:not(:disabled, [aria-disabled='true']) { background-image: linear-gradient(var(--press), var(--press)); }
+/* `aria-disabled` is a save that still TAKES the tap and points at what is missing
+   (lib/pointAtField) — it looks exactly as unavailable as a native `disabled` */
+.ip-btn:disabled, .ip-btn[aria-disabled='true'] { opacity: var(--disabled); cursor: default; }
 .ip-btn svg { width: 16px; height: 16px; flex: none; }
 /* lg: the one big action of a screen */
 .ip-btn.lg { min-height: var(--tap-lg); padding: 0 var(--sp-5); font-size: var(--fs-3); line-height: var(--lh-3); }
@@ -781,6 +801,64 @@
 .row-go-text { flex: 1 1 auto; min-width: 0; }
 .row-go-word { flex: none; display: inline-flex; align-items: center; gap: 2px; font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); }
 .row-go-word .i { width: 16px; height: 16px; }
+
+/* ── THE LIST ROW, its card and group, THE back row (20.10.2026, components/ListRow) ──
+   One row for every list of things to open – lead · title/sub · end · › – where four were built
+   in four weeks (reuse audit 19.10.). The container sets the density: on a .list-card (or alone)
+   56px with a 16px title, the station library's phone look; in .list-card-rail the compact
+   --tap row with a 14px title and the one corner, a list column beside a document. `.on` = where
+   you are (the ink pill, «Selected» role 3). A surface places these, never re-skins them. */
+.list-row { display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-width: 0; min-height: 56px; margin: 0;
+  padding: var(--sp-2) var(--sp-4); border: 0; background: none; color: var(--ink); text-align: left; font: inherit; }
+button.list-row { cursor: pointer; }
+/* the hover never repaints the row that is OPEN (.on): it out-ranked the ink pill and left its
+   white words on the light wash (owner 20.10.2026, the Anleitungen list) – .on darkens instead */
+@media (hover: hover) {
+  button.list-row:hover:not(:disabled, .on) { background-color: var(--fill-soft); }
+  button.list-row.on:hover:not(:disabled) { background-color: var(--ink-fill-hover); }
+}
+button.list-row:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+button.list-row:disabled { opacity: var(--disabled); cursor: default; }
+.list-row-lead { flex: none; min-width: 20px; display: grid; place-items: center; color: var(--ink-dim); }
+.list-row-lead > .i { width: 18px; height: 18px; }
+.list-row-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+/* no `hyphens` here: ListRow's title hyphenates only where that saves a line – lib/smartHyphens
+   measures both layouts and sets `hyphens: auto` inline (owner 20.10.2026, «Trink-wasser») */
+.list-row-title { font: var(--fw-bold) var(--fs-3)/1.3 var(--body); overflow-wrap: break-word; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.list-row-sub { font: var(--fw-medium) var(--fs-1)/1.3 var(--body); color: var(--ink-dim); overflow-wrap: break-word; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.list-row-end { flex: none; font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.list-row-chev { flex: none; width: 14px; height: 14px; color: var(--ink-faint); }
+.list-row.on { background: var(--ink-fill); color: var(--on-accent-ink); }
+.list-row.on .list-row-sub, .list-row.on .list-row-end, .list-row.on .list-row-lead, .list-row.on .list-row-chev { color: var(--on-accent-ink); }
+
+/* never shrinks (flex: none): its host scrolls, the card keeps every row whole. The overflow is
+   only for the corners, and it let a flex column squeeze the card and cut rows in half (the
+   Karte's search, owner 20.10.) */
+.list-card { display: flex; flex-direction: column; flex: none; background: var(--surface); border-radius: var(--r-surface);
+  box-shadow: 0 0 0 1px var(--border-soft); overflow: hidden; }
+.list-card > .list-row + .list-row { box-shadow: inset 0 1px 0 var(--border-soft); }
+.list-card-rail { gap: 2px; background: none; box-shadow: none; border-radius: 0; overflow: visible; }
+.list-card-rail > .list-row + .list-row { box-shadow: none; }
+.list-card-rail > .list-row { min-height: var(--tap); padding: var(--sp-2); border-radius: var(--r-ctl); }
+/* a list column's type is a step under the card's (owner 20.10.2026: the Anleitungen wrapped
+   over three and four lines at 14/12.5) */
+.list-card-rail .list-row-title { font-size: var(--fs-1); }
+.list-card-rail .list-row-sub { font-size: var(--fs-micro); }
+
+/* a labelled group: the eyebrow, a word or count at its right end, then the card */
+.list-group { display: flex; flex-direction: column; gap: var(--sp-2); }
+.list-group-label { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); padding: 0 var(--sp-2);
+  font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
+.list-group-end { text-transform: none; letter-spacing: 0; font-weight: var(--fw-bold); }
+
+/* «‹ Label» – one level up, naming where it goes; quiet, no frame, at the top of its page */
+.back-row { display: flex; align-items: center; gap: var(--sp-1); flex: none; align-self: flex-start; min-height: var(--tap); margin: 0;
+  padding: 0 var(--head-pad-x); border: 0; background: none; cursor: pointer; font: var(--fw-bold) var(--fs-2) var(--body); color: var(--ink-dim); }
+.back-row > .i { width: 18px; height: 18px; flex: none; }
+@media (hover: hover) { .back-row:hover { color: var(--ink); } }
+.back-row:active { background-image: linear-gradient(var(--press), var(--press)); }
 
 /* ═══ ONE TILE FAMILY for the controls of a page head (27.09.2026, slim sweep · mockups 2 + 10) ═══
    The Rapport head wore three recipes on one row — an amber OUTLINE pill, two framed squares and
@@ -886,6 +964,8 @@
 /* offline line over the list: viewing works, the lifecycle buttons need the server */
 .ip-hist-offline { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--amber-strong); }
 .ip-hist-offline svg { width: 15px; height: 15px; flex: none; }
+/* a viewer's window under the list (HistoryPanel · windowDays): a quiet foot line, not a warning */
+.ip-hist-foot { margin: 12px 0 0; font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
 .ip-hist-when { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-dim); margin-top: 4px; font-variant-numeric: tabular-nums; }
 /* rapport lifecycle badges (derived, lib/rapportStatus) */
 /* Alle Einsätze: search + time-group headers — the list grows by one row per Einsatz
@@ -941,8 +1021,8 @@
 .rp-check-dot { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
   border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent); color: var(--ink-faint); }
 /* done is the ORDINARY state and reads by its shape — a tick where there was a dash. It was blue,
-   which put four blue rings down a column that also carries one per partner organisation; see the
-   note on .report-partner.on. Ink, not hue. */
+   which put four blue rings down a column that also carries one per partner organisation. Ink,
+   not hue: this dot is a section's STATUS, not a tick (the partner ticks are TickRow's). */
 .rp-check-dot.done { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
 .rp-check-dot svg { width: 14px; height: 14px; }
 .rp-check-label { font: var(--fw-bold) var(--fs-2) var(--body); flex: none; }
@@ -1429,8 +1509,9 @@ button.rp-sign-row:disabled { cursor: default; }
 .wheelpop-btn.clear { color: var(--red); border-color: var(--del-edge); }
 .wheelpop-btn.clear svg { width: 14px; height: 14px; display: block; }
 .wheelpop-btn.primary { background: var(--btn-primary); border-color: var(--btn-primary); color: var(--on-btn-primary); }
-/* a note that blocks (a Wiedervorlage in the past) holds «OK» back until the wheels move */
-.wheelpop-btn:disabled { opacity: var(--disabled); cursor: default; }
+/* a note that blocks (a Wiedervorlage in the past) holds «OK» back until the wheels move — aria-
+   disabled, so a tap on it still rings the note that says why (WheelPicker · commit) */
+.wheelpop-btn:disabled, .wheelpop-btn[aria-disabled='true'] { opacity: var(--disabled); cursor: default; }
 
 .cv-matgroup { display: flex; flex-direction: column; gap: 2px; }
 .cv-matgroup-head {

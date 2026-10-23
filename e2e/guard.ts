@@ -61,7 +61,7 @@ const LOOP_SIGNS = /Minified React error #185|Maximum update depth exceeded|rend
 const NEVER_EXCUSED = new Set(['render', 'surface-recrash', 'render-storm'])
 
 /** The basemap tile hosts — the same list as the service worker's `map-tiles` rule (vite.config.ts). */
-const BASEMAP_TILE = /^https:\/\/([a-d]\.)?(basemaps\.cartocdn\.com|tile\.openstreetmap\.org|[a-c]\.tile\.opentopomap\.org|server\.arcgisonline\.com|wmts\.geo\.admin\.ch|geowms\.bl\.ch)\//
+const BASEMAP_TILE = /^https:\/\/([a-d]\.|tiles-[a-d]\.)?(basemaps\.cartocdn\.com|tile\.openstreetmap\.org|[a-c]\.tile\.opentopomap\.org|server\.arcgisonline\.com|wmts\.geo\.admin\.ch|geowms\.bl\.ch)\//
 /** «kind: message» of what a broken tile reports: WebKit's words for a fetch that failed (bare, or
  *  as MapLibre 6 wraps it: `AJAXError: Load failed (0): <url>`, and then only for a basemap tile's
  *  url) and for a tile blob cut off while it was being decoded. Chromium's «Failed to fetch» is

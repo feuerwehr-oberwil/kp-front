@@ -19,6 +19,17 @@ see the rationale in `auth/incident_link.py`. The GET is deliberately *not* allo
 a phone holding a link can report its own position and read nobody else's. That asymmetry is
 the whole privacy model of the feature and it is enforced there, not here.
 
+ONE NAME PER DEVICE, HELD UNTIL LET GO
+--------------------------------------
+There is no link between an account (or a link session) and a roster person, so «who am I» is
+the name the device picked. What the server holds it to (owner's pick, 22.10.2026): a name one
+device is sharing under is that device's until it is let go — the phone stops sharing, an editor
+removes the dot («Standort entfernen»), the Einsatz closes, or the TTL sweep drops it. No timer
+hands it to another device, however long the holder has been quiet: a quiet name was how anyone
+could post under anyone. And a device reports as ONE person: posting under a new name drops the
+dot it held under the old one (the «rename» of a handed-over tablet). The device id is the
+phone's own random token and no read ever returns it.
+
 EPHEMERAL, ON PURPOSE
 ---------------------
 One row per (incident, person), overwritten on every update. No history, no hash chain, no
@@ -35,7 +46,7 @@ frontend hides the feature on the same flag; neither side relies on the other.
 """
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel, Field
@@ -49,11 +60,6 @@ from ..auth.dependencies import CurrentUser
 from ..database import dialect_insert, execute_dml, get_db
 from ..models import Incident, Personnel, PersonPosition
 from .incidents import INCIDENT_NOT_FOUND, get_incident_or_404
-
-#: A second device claiming a person who is already sharing is refused while the incumbent is
-#: still alive. Past that, last claim wins — a responder who swapped phones (or reinstalled)
-#: must be able to take their own name back without an operator unsticking it for them.
-CLAIM_GRACE = timedelta(seconds=60)
 
 
 class PositionIn(BaseModel):
@@ -149,20 +155,25 @@ async def put_position(
         raise HTTPException(status_code=404, detail="Person nicht gefunden")
 
     row = await _current_claim(db, incident_id, body.person_id)
+    if row is not None and row.device_id != body.device_id:
+        # Someone else's phone holds this name — fresh or quiet alike (see the module doc). Two
+        # dots' worth of truth for one person is worse than none, and the honest answer belongs
+        # on the second phone's screen, not silently in the data.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Dieser Name wird bereits von einem anderen Gerät geteilt.",
+        )
+    # One device, one name: the dot it held under another name goes (rename / handed-over tablet).
+    await execute_dml(
+        db,
+        delete(PersonPosition).where(
+            PersonPosition.incident_id == incident_id,
+            PersonPosition.device_id == body.device_id,
+            PersonPosition.person_id != body.person_id,
+        ),
+    )
 
     now = datetime.now(UTC)
-    if row is not None and row.device_id != body.device_id:
-        # Someone else's phone is currently sharing under this name. Refuse while that claim
-        # is fresh — two dots' worth of truth for one person is worse than none, and the
-        # honest answer belongs on the second phone's screen, not silently in the data.
-        held_since = row.updated_at
-        if held_since is not None and held_since.tzinfo is None:
-            held_since = held_since.replace(tzinfo=UTC)
-        if held_since is not None and now - held_since < CLAIM_GRACE:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Dieser Name wird bereits von einem anderen Gerät geteilt.",
-            )
 
     # ONE statement, not read-then-insert. The read above decides the CLAIM (whose name this
     # is); the write must not depend on it still being true a millisecond later. Two reports
@@ -170,7 +181,7 @@ async def put_position(
     # two tabs — both saw "no row yet" and both inserted, and the unique index turned the
     # second one into a 500 on somebody's phone mid-Einsatz. INSERT … ON CONFLICT DO UPDATE
     # cannot lose that race: whoever is second updates instead of colliding, and last-write-
-    # wins is exactly right for a row that only ever says "here, now".
+    # wins is exactly right for a row that only ever says "here, now" — from the same device.
     insert = dialect_insert(db)
     values = {
         "incident_id": incident_id,
@@ -184,12 +195,21 @@ async def put_position(
         "updated_at": now,
     }
     stmt = insert(PersonPosition).values(**values)
-    await db.execute(
+    result = await db.execute(
         stmt.on_conflict_do_update(
             index_elements=["incident_id", "person_id"],
             set_={k: getattr(stmt.excluded, k) for k in values if k not in ("incident_id", "person_id")},
+            # …but only over this device's own row: a phone that claimed the name in the
+            # meantime keeps it, and this one hears the same 409 the claim read gives.
+            where=PersonPosition.device_id == stmt.excluded.device_id,
         )
     )
+    if not result.rowcount:  # type: ignore[attr-defined]  # a DML result is a CursorResult
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Dieser Name wird bereits von einem anderen Gerät geteilt.",
+        )
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

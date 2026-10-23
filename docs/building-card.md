@@ -50,7 +50,7 @@ The card answers «what is this building» from four sources. Each one is option
 
 | Half | Source | What it shows | Source line |
 |---|---|---|---|
-| Register facts | GWR (`ch.bfs.gebaeude_wohnungs_register`, identify at the Einsatzort) | Geschosse, Wohnungen, Baujahr or Bauperiode, heating and hot-water energy source, Zivilschutzraum, a status other than «bestehend» | «GWR ‹street› · Stand ‹export date›», «Heizung erfasst ‹date›» |
+| Register facts | GWR (`ch.bfs.gebaeude_wohnungs_register`, identify at the Einsatzort) | Gebäudeklasse, Geschosse, Wohnungen (per Stockwerk and their Zimmer), Baujahr or Bauperiode, heating and hot-water generator + energy source, Zivilschutzraum, a status other than «bestehend» | «GWR ‹street› · Stand ‹export date›», «Heizung erfasst ‹date›» |
 | Plants | BFE `ch.bfe.elektrizitaetsproduktionsanlagen`, joined **by EGID** | «PV 35.6 kW», other plants by their register label | «BFE abgefragt ‹date›» |
 | Modul-1 notes | `ObjectSite.measures` / `remarks` / `measures_source` | the Einsatzobjekt's Sofortmassnahmen and Bemerkungen, one per line | «‹Objekt› · ‹source›», or «‹Objekt› · in der Nähe (‹m› m)» |
 | Last visit | `object_visits` (completed, latest `visited_at`) | «Letzter Objektbesuch ‹date› · ‹n› Mängel» | the date itself |
@@ -62,6 +62,14 @@ The rules (3am tenet):
   Every fact carries its source and date.
 - **Hazards are a glyph and a word**: gas and oil (heating, or a hot-water boiler that adds a
   fuel the heating does not name) and PV are amber tags with the warn glyph. Never colour alone.
+- **What makes the heat stands next to the fuel**: «Heizung Gas, Heizkessel für mehrere
+  Gebäude» (that boiler may stand in the next building). A second heating system only when the
+  register names one; hot water only when it is not the same fuel in the same kind of generator
+  as a heating system («Warmwasser Elektro, Elektroboiler» behind a heat pump).
+- **The Wohnungen are one line**: «9 Wohnungen · EG 3 · 1. OG 6 (Maisonette) · 2–4 Zi.» –
+  existing flats only (`wstat` 3004), counted on their entrance storey; per storey only from two
+  flats up and only when every flat names its storey. The count drops out when the Gebäudeklasse
+  already says it («Einfamilienhaus»).
 - **Nothing that nags.** A failed source, a building with no register entry, an object without
   notes draw nothing. A card with nothing to say is not drawn.
 - The object is the plan rail's (`api/objects · ranked_objects_near`: address match, then the
@@ -124,8 +132,21 @@ headings, in body size.
 
 ## Code lists
 
-GWR catalogue 4.x, cross-checked against the register's decoded popup on 2026-10-08
-(`backend/app/building_facts.py`): `genh*`/`genw*` → `gas` 7520, `oil` 7530, `wood` 7540–7543,
+GWR Merkmalskatalog (4.3, current on housing-stat.ch on 2026-10-20), cross-checked against the
+register's decoded popup on 2026-10-08 and, for the class, generator and storey codes, on
+2026-10-20 with one live building per code (`backend/app/building_facts.py`): `genh*`/`genw*` → `gas` 7520, `oil` 7530, `wood` 7540–7543,
 `district` 7580–7582, `air` 7501, `geothermal` 7510–7512, `water` 7513, `electricity` 7560, `solar`
 7570, `waste_heat` 7550, `other` 7599 (and any code newer than the table), nothing for 7500 «keine»
 and 7598 «unbestimmt». `gbaup` 8011–8023 → «≤1918» … «≥2016».
+
+`gklas` → `single_family` 1110, `two_family` 1121, `multi_family` 1122, `home` 1130 (Wohngebäude
+für Gemeinschaften), `hotel` 1211–1212, `office` 1220, `retail` 1230, `restaurant` 1231, `transport`
+1241, `garage` 1242, `industry` 1251, `storage` 1252, `culture` 1261–1262, `school` 1263, `hospital`
+1264, `sports_hall` 1265, `church` 1272, `monument` 1273, `collective` 1275, `farm` 1271 and
+1276–1278; nothing for 1274 «sonstige Hochbauten» or a newer code.
+`gwaerzh*`/`gwaerzw*` → `heat_pump` 7410–7411/7610, `solar_thermal` 7420–7421/7620, `boiler`
+7430–7435/7630–7634, `stove` 7436, `chp` 7440–7441/7640, `electric_storage` 7450–7451,
+`electric_direct` 7452, `heat_exchanger` 7460–7461/7660, `electric_boiler` 7650–7651; the odd
+heating codes 7411, 7421 … are «für mehrere Gebäude» (`shared`). Nothing for 7400/7600 «kein
+Wärmeerzeuger» and 7499/7699 «andere». `wstwk` 3100 Parterre → 0, 3101–3199 → 1. … Stock,
+3401–3419 → 1. … Untergeschoss.

@@ -176,6 +176,21 @@ describe('read-only (viewer / Führungsansicht)', () => {
     expect(screen.getByText('Angriff Ost')).toBeTruthy() // …but the shape's own name still reads
   })
 
+  // RBAC audit 22.10.2026: a viewer tapping a Leitung asks WHICH one, what it carries and who is on it
+  it('states a Leitung’s Inhalt, Leitung-Nr. and Trupp, and keeps the jump to the Trupp', () => {
+    const onShowTrupp = vi.fn()
+    render(<DrawEditor {...base} readOnly drawing={{ kind: 'line', content: 'S', lineNo: 3 }}
+      truppOnLine="Meier Anna" onShowTrupp={onShowTrupp} onLineNo={noop} onContent={noop} onTrupp={noop} trupps={[{ id: 't1', name: 'Meier Anna' }]} />)
+    expect(screen.getByText(D.content)).toBeTruthy()
+    expect(screen.getByText(appConfig.copy.lineDecor.S)).toBeTruthy()
+    expect(screen.getByText(D.lineNo)).toBeTruthy()
+    expect(screen.getByText('3')).toBeTruthy()
+    expect(screen.getByText('Meier Anna')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: D.trupp })).toBeNull() // the picker is not drawn
+    fireEvent.click(screen.getByRole('button', { name: fillTemplate(D.truppShow, { name: 'Meier Anna' }) }))
+    expect(onShowTrupp).toHaveBeenCalledTimes(1)
+  })
+
   it('states what an Absperrkreis covers, not just its radius', () => {
     render(<DrawEditor {...base} readOnly drawing={{ kind: 'circle', radiusM: 100 }} areaM2={31416} perimeterM={628} />)
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.drawingEditor.measurement }))

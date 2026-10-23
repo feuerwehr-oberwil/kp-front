@@ -60,15 +60,17 @@ environment wins, as for every credential):
 | `ENTRA_LOGIN_TENANT_ID` | Directory (tenant) ID, a GUID |
 | `ENTRA_LOGIN_CLIENT_ID` | Application (client) ID, a GUID |
 | `ENTRA_LOGIN_CLIENT_SECRET` | the secret's **value** (write-only once saved) |
-| `ENTRA_LOGIN_ACCOUNTS` | the allow-list: `identity=username` pairs, separated by commas, e.g. `anna.muster@feuerwehr.ch=amuster, 0b6c…-object-id=bkeller` |
+| `ENTRA_LOGIN_ACCOUNTS` | the allow-list: `objectid=username` pairs, separated by commas, e.g. `0b6c1f2e-…=amuster, 7d41a9c3-…=bkeller` |
 
 The button appears once all four are set and valid: tenant/client IDs must be GUIDs and the
-allow-list must contain valid `identity=username` pairs. Invalid environment values keep the
+allow-list must contain valid `objectid=username` pairs. Invalid environment values keep the
 button hidden and the Microsoft routes closed, just like an incomplete setup. The identity is
-matched against the token's `oid` (the user's object id: stable, and the stronger choice) or its
-`preferred_username` (the sign-in name or UPN). Both are compared case-insensitively. The username is the KP Front `username`
+the token's `oid` (the user's object id, Entra › Benutzer › <Person> › Objekt-ID), a GUID in any
+case. Since 22.10.2026 (RBAC audit) the sign-in name / UPN (`preferred_username`) is **not**
+accepted: it can be renamed and given to somebody else in the tenant, and a list holding one is
+invalid (button hidden, the admin's save refused). The username is the KP Front `username`
 (`/admin › Personen › Mitglieder & Zugriff`). Any active account can be listed. The role it signs in with is the
 account's own.
 
-⚠️ A sign-in name can be renamed in the tenant. The object id cannot be. Where it matters, list
-the object id (Entra › Benutzer › <Person> › Objekt-ID).
+⚠️ Upgrading a station that listed sign-in names: rewrite each line to the object id first. A
+refused sign-in logs the `oid` (below), so «try once, copy the oid from the log» works too.

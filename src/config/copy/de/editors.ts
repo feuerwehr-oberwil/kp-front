@@ -143,8 +143,10 @@ export const editorsCopy = {
     } as Record<string, string>,
     // Verpackungsgruppe: the danger GRADE, which the bare Roman numeral does not say.
     packingGroups: { I: 'hohe Gefahr', II: 'mittlere Gefahr', III: 'geringe Gefahr' } as Record<string, string>,
-    // the ADR name as a row of the readout — the word the Einsatz's Gefahrentafel field uses («Stoff»);
-    // only «Karte & Objekte» asks for the row (UnHazardSection · nameRow), the Tafel has its field
+    // the ADR name as the readout's hero line — the word the Einsatz's Gefahrentafel field uses
+    // («Stoff»); only «Karte & Objekte» asks for it (UnHazardSection · nameHero), the Tafel has
+    // its own field. Since review round 7 the eye sees the name alone, so this word is the screen
+    // reader's label for it.
     unSubstance: 'Stoff',
     unClass: 'Klasse',
     unKemler: 'Gefahrnummer',
@@ -287,6 +289,9 @@ export const editorsCopy = {
     modeNodes: 'Punkte',
     on: 'An',
     off: 'Aus',
+    // the same pair when the row is a QUESTION («Übung?»): OnOff `question`
+    no: 'Nein',
+    yes: 'Ja',
     lock: 'Sperren',
     lockHint: 'Sperrt die Form gegen versehentliches Verschieben; halte das Schloss in der Mitte gedrückt zum Entsperren.',
     // map LockChip on a locked drawing (short-hold to unlock)
@@ -315,7 +320,7 @@ export const editorsCopy = {
     gpsDismiss: 'Ausblenden',
     gpsPause: 'Folgen stoppen',
     // ── The Meldung when a coupled vehicle drives off / comes back (GpsFollowMeldung, D3) ──
-    gpsAwayTitle: '{vehicle} fährt weg · {distance} vom Einsatzort',
+    gpsAwayTitle: '{vehicle} fährt weg, {distance} vom Einsatzort',
     gpsAwayTitleBare: '{vehicle} fährt weg',
     /** ⚠️ The sub-line is ONE line on a 360px phone (~44 characters) — keep these short */
     gpsAwaySub: '{lines} endet noch am Einsatzort.',
@@ -325,8 +330,8 @@ export const editorsCopy = {
     /** following was stopped after the line had traced the drive */
     gpsStoppedTitle: '{vehicle} · {distance} vom Einsatzort',
     gpsStoppedTitleBare: '{vehicle} · Folgen gestoppt',
-    gpsStoppedSub: 'Folgen gestoppt · {lines} zeigt die Fahrt.',
-    gpsStoppedSubMany: 'Folgen gestoppt · {lines} zeigen die Fahrt.',
+    gpsStoppedSub: 'Folgen gestoppt. {lines} zeigt die Fahrt.',
+    gpsStoppedSubMany: 'Folgen gestoppt. {lines} zeigen die Fahrt.',
     /** the vehicle is on site again while the line still follows it (TLF went to refill) */
     gpsBackTitle: '{vehicle} wieder am Einsatzort',
     gpsBackSub: '{lines} zeigt die Fahrt seit {time}.',

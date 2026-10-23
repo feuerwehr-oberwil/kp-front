@@ -6,15 +6,26 @@
 //   → the station's own word (Sofortmassnahmen, Bemerkungen, with their source) — read first
 //   → Pläne & Module as rows (a row opens the Einsatz's plan reader, read-only — KartePlans)
 //   → Gebäude laut Register («Register-Hinweis», source and Stand on every line)
-//   → In der Nähe (distance only, and a sentence saying so)
-//   → Objektbesuche (rows open the existing read view; a read-only line for other roles)
-//   → «Keine Gefahrenangaben … heisst nicht …»
+//   → In der Nähe (one list by distance, objects and hydrants, and a sentence saying so)
+//   → Objektbesuche, an object's only (rows open the existing read view; a read-only line for
+//     other roles). A plain building has none to show – its always-empty line went (owner 20.10.)
 //   → the actions LAST: «Objektbesuch» and «Melden» (capture roles only)
 //
+// The panel ENDS there. The closing «Keine Gefahrenangaben der Station erfasst …» went with
+// review round 7 (owner, 20.10.2026: «knowing that there could be something but it isn't filled
+// doesn't help anyone in case of an emergency») — where the station wrote nothing, nothing is
+// drawn. What IS known still never reads as «no hazard»: a fact the app asked for and did not
+// get (the register offline, the register silent) is still said, as a quiet line, not a box;
+// only a warning keeps its box.
+//
 // No «Messen ab hier» (Messen is the bar's) and no «Objektplan auf der Karte» row (the aligned
-// plan is switched in Ebenen). Missing data is SAID, never silently left out, and never as «no
-// hazard» — as a quiet line, not a box; only a warning keeps its box. Presentational only: the
-// surface (KarteApp) owns the loads and passes their states in.
+// plan is switched in Ebenen). Presentational only: the surface (KarteApp) owns the loads and
+// passes their states in.
+//
+// Scrolling is REMEMBERED per selection (owner, 20.10.2026 · s09): a plan or an Objektbesuch
+// takes the panel off the screen, and coming back puts «Objektbesuch» back under the thumb
+// instead of the head. Another place — the other level, the next object — starts at the top
+// (`scrollKey` below).
 //
 // On a PHONE it is the slide-up sheet Ebenen is (owner, 17.10.2026 · R2: «a full slide-up like
 // for "ebenen" and not this half thing»): the SAME frame — `.layers-card` (15-mobile · flush with
@@ -23,33 +34,63 @@
 // whole panel, scrolling. Closing it leaves the place selected on the map (KarteApp). The tablet
 // keeps its left panel.
 //
+// After a tap on one of an object's buildings, the switch «Objekt | <the house>» stands right under
+// the head (Karte Haus round 1 · variant A, `level`): the whole object, or only the house tapped.
+//
 // A head whose address is still being looked up is a SKELETON, never «Gebäude» / «…» standing in
 // for a name (owner-5): the kicker already says what it is.
 
-import { useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { SheetGrab, useSwipeDismiss } from '../../lib/overlays'
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
 import { cx } from '../../lib/cx'
 import { fillTemplate } from '../../lib/format'
+import { Segmented } from '../Segmented'
 import { fmtDistance, fmtLV95, fmtWGS } from '../../lib/geo'
 import { buildingChips, buildingSources, fmtDay, noteLines } from '../../lib/buildingCard'
 import type { BuildingInfo } from '../../lib/api/building'
 import type { StationObject } from '../../lib/api/stationReference'
-import type { Near, NamedPoint } from '../../lib/karte/places'
+import type { NearRow } from '../../lib/karte/places'
 import { objectHeadSub, objectRowSub, splitAddress, streetKey } from '../../lib/karte/places'
 import type { ViewerPlanDoc } from '../../lib/karte/plans'
 import { planKey, type ObjectAvailability } from '../../lib/karte/availability'
 import type { VisitSummary } from '../../objectVisits/types'
 import type { LngLat } from '../../types'
 import { Button } from '../Button'
+import { RegisterHintBody, RegisterHintButton, RegisterTags, StationNotes } from '../BuildingFacts'
+import { ListCard, ListRow } from '../ListRow'
 import { LampDot } from './KarteDevice'
 import s from './Karte.module.css'
 
 export type PanelSel =
   | { kind: 'object'; obj: StationObject }
-  | { kind: 'building'; at: LngLat; address: string | null }
+  /** `partOf`: the house was reached as one of this object's buildings (its name) */
+  | { kind: 'building'; at: LngLat; address: string | null; partOf?: string | null }
   | { kind: 'pin'; at: LngLat; near: { label: string; distanceM: number | null } | null; nearState: 'loading' | 'ok' | 'none' | 'offline'; onBuilding: boolean }
+
+/** What the panel's scroll position is remembered under — the PLACE, so coming back to the same
+ *  object restores it and another object starts at the top. */
+function scrollKey(sel: PanelSel): string {
+  if (sel.kind === 'object') return `o:${sel.obj.id}`
+  const at = `${sel.at[0].toFixed(6)},${sel.at[1].toFixed(6)}`
+  return sel.kind === 'building' ? `b:${at}` : `p:${at}`
+}
+
+// Outside the component on purpose: opening a plan, an Objektbesuch or the Einsatz takes the
+// panel off the screen entirely, and the position must survive that (owner, 20.10.2026 · s09).
+// Bounded to the last few places — oldest out first, never a session-long log.
+const SCROLL_KEEP = 12
+const scrollMemory = new Map<string, number>()
+
+function rememberScroll(key: string, top: number): void {
+  scrollMemory.delete(key)
+  scrollMemory.set(key, top)
+  for (const old of scrollMemory.keys()) {
+    if (scrollMemory.size <= SCROLL_KEEP) break
+    scrollMemory.delete(old)
+  }
+}
 
 export interface RegisterState {
   state: 'loading' | 'ok' | 'offline' | 'error'
@@ -60,11 +101,21 @@ export interface RegisterState {
 
 export interface VisitsState { state: 'loading' | 'ok' | 'error' | 'off'; list: VisitSummary[] }
 
+/** The switch «Objekt | <Haus>»: which level is open, the object's plan count, the house's street
+ *  (null until the register names it) and the way to the other level. */
+export interface PanelLevel { on: 'object' | 'house'; plans: number; house: string | null; onPick: (to: 'object' | 'house') => void }
+
+/** A hydrant row hovered with the mouse (`enter` / `leave`) or tapped (`tap`, which toggles). */
+export type HydrantCue = 'enter' | 'leave' | 'tap'
+
 export function KartePanel(p: {
   sel: PanelSel
   register: RegisterState
-  nearby: Near<StationObject>[]
-  hydrants: Near<NamedPoint>[]
+  nearby: NearRow[]
+  /** the hydrant shown on the map (a row hovered or tapped, or the hydrant under the mouse) */
+  litHydrant?: string | null
+  onHydrant?: (id: string, cue: HydrantCue) => void
+  level?: PanelLevel | null
   visits: VisitsState
   canCapture: boolean
   docs: ViewerPlanDoc[]
@@ -91,6 +142,27 @@ export function KartePanel(p: {
   const { sel } = p
   // the phone sheet goes when it is pushed down, like Ebenen (measured: only ever on a bottom sheet)
   const swipe = useSwipeDismiss({ onClose: p.onClose, enabled: p.sheet })
+  const bodyRef = useRef<HTMLDivElement | null>(null)
+  const key = scrollKey(sel)
+  const restoredFor = useRef<string | null>(null)
+  /** the offset still to be restored; 0 once it is (or once the finger moved first) */
+  const pending = useRef(0)
+  // After EVERY render, not once: the panel's sections arrive one load at a time (the register,
+  // In der Nähe, Objektbesuche), and the body can only hold the remembered offset once they have.
+  useLayoutEffect(() => {
+    const el = bodyRef.current
+    if (!el) return
+    if (restoredFor.current !== key) {
+      restoredFor.current = key
+      pending.current = scrollMemory.get(key) ?? 0
+      el.scrollTop = 0
+    }
+    const want = pending.current
+    if (want > 0 && el.scrollHeight - el.clientHeight >= want) {
+      el.scrollTop = want
+      pending.current = 0
+    }
+  })
   let head: ReactNode
   let body: ReactNode
   if (sel.kind === 'object') {
@@ -113,9 +185,8 @@ export function KartePanel(p: {
         <StationWord obj={o} />
         <Plans docs={p.docs} onOpenDoc={p.onOpenDoc} avail={p.offline ? p.avail ?? null : undefined} />
         <Register key={o.id} reg={p.register} address={o.address} onRetry={p.onRetryRegister} />
-        <Nearby nearby={p.nearby} hydrants={p.hydrants} onSelectObject={p.onSelectObject} />
+        <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
         <Visits visits={p.visits} canCapture={p.canCapture} empty={C.visitsNever} onOpenVisit={p.onOpenVisit} offline={p.offline} last={o.lastVisit} />
-        {!noteLines(o.measures).length && !noteLines(o.remarks).length && <div className={s.src}>{C.missing}</div>}
         <Actions canCapture={p.canCapture} onVisit={p.onStartVisit} onReport={p.onReport} />
       </>
     )
@@ -132,20 +203,18 @@ export function KartePanel(p: {
           {resolving ? <HeadSkeleton sub /> : (
             <>
               <h2 className={s.title}>{street || C.buildingNoAddress}</h2>
-              <div className={s.sub}>{place || C.buildingNoObject}</div>
+              <div className={s.sub}>{sel.partOf ? fillTemplate(C.partOf, { name: sel.partOf }) : place || C.buildingNoObject}</div>
             </>
           )}
         </div>
       </>
     )
-    // no «Kein Stationsobjekt …» box (owner-4): the kicker says «Gebäude», the line under the head
-    // says «Kein Stationsobjekt» once it is known, and the closing sentence still says missing ≠ safe
+    // no «Kein Stationsobjekt …» box (owner-4): the kicker says «Gebäude» and the line under the
+    // head says «Kein Stationsobjekt» once it is known — nothing else is added about what is missing
     body = (
       <>
         <Register key={sel.at.join(',')} reg={p.register} address={null} onRetry={p.onRetryRegister} />
-        <Nearby nearby={p.nearby} hydrants={p.hydrants} onSelectObject={p.onSelectObject} />
-        <Visits visits={{ state: 'ok', list: [] }} canCapture={p.canCapture} empty={C.visitsNoneHere} onOpenVisit={p.onOpenVisit} />
-        <div className={s.src}>{C.missing}</div>
+        <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
         <Actions canCapture={p.canCapture} onReport={p.onReport} />
       </>
     )
@@ -168,15 +237,11 @@ export function KartePanel(p: {
       <>
         <Quiet>{empty ? C.pinEmpty : C.pinNote}</Quiet>
         {sel.onBuilding && (
-          <div className={s.list}>
-            <button type="button" className={s.row} onClick={p.onPinBuilding}>
-              <span className={s.rowLead}><Icon id="footprint" /></span>
-              <span className={s.rowText}><b>{C.pinBuilding}</b><span>{C.pinBuildingSub}</span></span>
-              <Icon id="chevron" className={s.chev} />
-            </button>
-          </div>
+          <ListCard>
+            <ListRow lead={<Icon id="footprint" />} title={C.pinBuilding} sub={C.pinBuildingSub} onClick={p.onPinBuilding} />
+          </ListCard>
         )}
-        <Nearby nearby={p.nearby} hydrants={p.hydrants} onSelectObject={p.onSelectObject} />
+        <Nearby rows={p.nearby} lit={p.litHydrant ?? null} onHydrant={p.onHydrant} onSelectObject={p.onSelectObject} />
         <Actions canCapture={p.canCapture} onReport={p.onReport}
           extra={<Button key="copy" variant="secondary" icon={<Icon id="copy" />} onClick={p.onCopyCoords}>{C.copyCoords}</Button>} />
       </>
@@ -186,14 +251,22 @@ export function KartePanel(p: {
     // ⚠️ `layers-card` on the phone is not a borrowed look but the Ebenen sheet itself: its frame,
     // and the app's rules for an open bottom sheet (15-mobile · the toasts move up out of its way)
     <section className={cx(p.sheet ? cx('layers-card', s.sheet) : s.panel, p.withRail && !p.sheet && s.withRail)} aria-label={appConfig.copy.karte.title}
-      data-karte-sheet={p.sheet ? '' : undefined} {...swipe}>
+      data-karte-panel="" data-karte-sheet={p.sheet ? '' : undefined} {...swipe}>
       {p.sheet && <SheetGrab />}
       <div className={s.head}>
         {head}
-        {/* THE sheet ✕ (docs/ui-conventions · Close: `.ip-x`, 36px), as Ebenen's — it was a 44px framed IconButton (review round 4) */}
+        {/* THE sheet ✕ (docs/ui-conventions · Close: `.ip-x`) — it was a 44px framed IconButton (review round 4); 32px
+            here, the panel's rhythm (Karte Haus review round 4 · mock A, Karte.module.css · «one rhythm») */}
         <button type="button" className="ip-x" aria-label={appConfig.copy.closeDialog} title={appConfig.copy.closeDialog} onClick={p.onClose}><Icon id="close" /></button>
       </div>
-      <div className={s.body}>{body}</div>
+      <div className={s.body} ref={bodyRef} data-karte-body=""
+        onScroll={(e) => {
+          const el = e.currentTarget
+          // while the body is still growing back to the remembered offset, its own 0 is not a scroll
+          if (pending.current > 0 && el.scrollTop <= 0) return
+          pending.current = 0
+          rememberScroll(key, el.scrollTop)
+        }}>{p.level && <LevelSwitch level={p.level} />}{body}</div>
     </section>
   )
 }
@@ -238,29 +311,19 @@ function StationWord({ obj }: { obj: StationObject }) {
   const remarks = noteLines(obj.remarks)
   if (!measures.length && !remarks.length) return null
   return (
-    <div className={s.sec} data-section="station">
-      {measures.length > 0 && (
-        <>
-          <div className={s.secHead}><span className={s.eyebrow}>{C.measures}</span></div>
-          <ul className={s.bullets}>{measures.map((l, i) => <li key={i}>{l}</li>)}</ul>
-        </>
-      )}
-      {remarks.length > 0 && (
-        <>
-          <div className={s.secHead}><span className={s.eyebrow}>{C.remarks}</span></div>
-          <ul className={cx(s.bullets, s.quietList)}>{remarks.map((l, i) => <li key={i}>{l}</li>)}</ul>
-        </>
-      )}
-      <div className={s.src}>{obj.measuresSource ? fillTemplate(C.notesSource, { src: obj.measuresSource }) : C.notesStation}</div>
+    <div data-section="station">
+      <StationNotes measures={measures} remarks={remarks}
+        source={obj.measuresSource ? fillTemplate(C.notesSource, { src: obj.measuresSource }) : C.notesStation} />
     </div>
   )
 }
 
 /** The object's plans as rows (owner, review round 4: «just "modul 1", "modul 2", etc. is enough»):
  *  each row is the module in words and nothing else — no title, no «PDF · 1 Seite», no number badge
- *  (lib/karte/plans · planRowLabel) — and «Gebäude» for the stack. One left edge and one height for
- *  every row; offline, the ●/○ «auf diesem Gerät» mark trails the words (a row the device does not
- *  hold is dimmed). A row opens the plan in the Einsatz's reader, read-only (KartePlans). */
+ *  (lib/karte/plans · planRowLabel) — and «Gebäude» for the stack. A document glyph leads a module
+ *  (the floors glyph the Gebäude), so the words start where In der Nähe's do (Karte Haus review
+ *  round 4 · mock A); offline, the ●/○ «auf diesem Gerät» mark trails the words (a row the device
+ *  does not hold is dimmed). A row opens the plan in the Einsatz's reader, read-only (KartePlans). */
 function Plans({ docs, onOpenDoc, avail }: {
   docs: ViewerPlanDoc[]
   onOpenDoc: (id: string) => void
@@ -279,20 +342,17 @@ function Plans({ docs, onOpenDoc, avail }: {
         <span className={s.eyebrow}>{C.plansTitle}</span>
         {offline && <span className={s.legend}><span className={s.lamp} aria-hidden />{C.onDevice}</span>}
       </div>
-      <div className={s.list}>
+      <ListCard>
         {docs.map(({ doc, row, plan }) => {
           const lamp = lampOf(plan)
           const off = lamp === 'online'
           return (
-            <button key={doc.id} type="button" className={cx(s.row, s.planRow, off && s.off)} onClick={() => onOpenDoc(doc.id)}
-              aria-label={lamp ? `${row} · ${off ? C.planNotStored : C.device.lampWord[lamp]}` : undefined}>
-              <span className={s.rowText}><b>{row}</b></span>
-              {lamp && <LampDot lamp={lamp} />}
-              <Icon id="chevron" className={s.chev} />
-            </button>
+            <ListRow key={doc.id} className={off ? s.off : undefined} lead={<Icon id={plan ? 'doc' : 'floors'} />} title={row} end={lamp && <LampDot lamp={lamp} />}
+              onClick={() => onOpenDoc(doc.id)}
+              aria-label={lamp ? `${row} · ${off ? C.planNotStored : C.device.lampWord[lamp]}` : undefined} />
           )
         })}
-      </div>
+      </ListCard>
     </div>
   )
 }
@@ -304,7 +364,6 @@ function Plans({ docs, onOpenDoc, avail }: {
  *  the device's copy. Folded again for every place (keyed by the caller). */
 function Register({ reg, address, onRetry }: { reg: RegisterState; address: string | null; onRetry: () => void }) {
   const C = appConfig.copy.karte
-  const B = appConfig.copy.building
   const info = reg.info
   const [open, setOpen] = useState(false)
   let inner: ReactNode
@@ -334,10 +393,8 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
       ? fillTemplate(C.registerOther, { a: splitAddress(info.address)[0], b: splitAddress(address)[0] }) : ''
     inner = (
       <>
-        {hazards.length > 0 && <ul className={s.tags}>{hazards.map((c) => <li key={c.key} className={cx(s.tag, s.warn)} title={c.title}><Icon id="warn" />{c.text}</li>)}</ul>}
-        {facts.length > 0
-          ? <ul className={s.tags}>{facts.map((c) => <li key={c.key} className={s.tag} title={c.title}>{c.text}</li>)}</ul>
-          : !hazards.length && <div className={s.src}>{C.registerEmpty}</div>}
+        <RegisterTags chips={hazards} />
+        {facts.length > 0 ? <RegisterTags chips={facts} /> : !hazards.length && <div className={s.src}>{C.registerEmpty}</div>}
         {/* the register's entry is ANOTHER building's: said right under the chips, never folded
             (owner, review round 4) — the chips may be about Grenzweg 7, not this object */}
         {other && <div className={s.src} data-testid="register-other"><b>{other}</b></div>}
@@ -349,43 +406,60 @@ function Register({ reg, address, onRetry }: { reg: RegisterState; address: stri
     <div className={s.sec} data-section="register">
       <div className={s.secHead}>
         <span className={s.eyebrow}>{C.registerTitle}</span>
-        <button type="button" className={cx(s.hint, s.hintBtn, open && s.open)} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-          <Icon id="info" />{B.hint}<Icon id="chevron-down" className={s.hintChev} />
-        </button>
+        <RegisterHintButton className={cx(s.hint, s.hintBtn)} open={open} onToggle={() => setOpen((o) => !o)} />
       </div>
       {inner}
-      {open && (
-        <div className={s.hintBody} data-testid="register-hint">
-          <div className={s.src}>{B.hintTitle}</div>
-          {source}
-        </div>
-      )}
+      {open && <RegisterHintBody className={s.hintBody} textClassName={s.src}>{source}</RegisterHintBody>}
     </div>
   )
 }
 
-function Nearby({ nearby, hydrants, onSelectObject }: { nearby: Near<StationObject>[]; hydrants: Near<NamedPoint>[]; onSelectObject: (id: string) => void }) {
+/** «Objekt · 2 Pläne | <Haus>» (Karte Haus round 1 · variant A): one tap opens the other level,
+ *  both ways. The app's own Segmented, one line per half – a long street ends in «…», so the switch
+ *  is the same height on both levels and for every name (round 2); its picked half is a neutral
+ *  surface pill in the panel's rhythm, not the blue choice fill (review round 4 · Karte.module.css). */
+function LevelSwitch({ level }: { level: PanelLevel }) {
+  const C = appConfig.copy.karte
+  const plans = level.plans === 0 ? C.levelPlansNone : level.plans === 1 ? C.levelPlansOne : fillTemplate(C.levelPlans, { n: level.plans })
+  const label = (text: string) => <span className={s.levelText}>{text}</span>
+  return (
+    <div className={s.level} data-section="level">
+      <Segmented ariaLabel={C.level} value={level.on}
+        onChange={(to) => { if (level.on !== to) level.onPick(to) }}
+        options={[
+          { value: 'object', label: label(`${C.levelObject} · ${plans}`) },
+          { value: 'house', label: label(level.house ?? C.levelHouse), title: level.house ?? C.levelHouse },
+        ]} />
+    </div>
+  )
+}
+
+/** In der Nähe: ONE list by distance (lib/karte/places · nearbyPlaces). An object row opens it; a
+ *  hydrant row is not a place to open — the mouse over it (or a tap, on touch) shows that hydrant
+ *  on the map with its distance (KarteApp). No «Nächster» tag: the order says it (owner 20.10.2026). */
+function Nearby({ rows, lit, onHydrant, onSelectObject }: { rows: NearRow[]; lit: string | null; onHydrant?: (id: string, cue: HydrantCue) => void; onSelectObject: (id: string) => void }) {
   const C = appConfig.copy.karte
   return (
     <div className={s.sec} data-section="nearby">
       <div className={s.secHead}><span className={s.eyebrow}>{C.nearTitle}</span></div>
-      {nearby.length + hydrants.length > 0 ? (
-        <div className={s.list}>
-          {nearby.map(({ item: o, distanceM }) => (
-            <button key={o.id} type="button" className={s.row} onClick={() => onSelectObject(o.id)}>
-              <span className={s.rowLead}><Icon id="footprint" /></span>
-              <span className={s.rowText}><b>{o.name}</b><span>{objectRowSub(o, C.kind[o.kind])}</span></span>
-              <span className={s.rowEnd}>{fmtDistance(distanceM)}<Icon id="chevron" className={s.chev} /></span>
-            </button>
+      {rows.length > 0 ? (
+        <ListCard>
+          {rows.map((r) => r.kind === 'object' ? (
+            <ListRow key={r.item.id} lead={<Icon id="footprint" />} title={r.item.name} sub={objectRowSub(r.item, C.kind[r.item.kind])}
+              end={fmtDistance(r.distanceM)} onClick={() => onSelectObject(r.item.id)} />
+          ) : (
+            // a hydrant is not a place to open: no chevron. Hover is the mouse's only (a finger's
+            // pointerenter would pin nothing and flash the map)
+            <ListRow key={r.item.id} className={cx(s.hydRow, lit === r.item.id && s.lit)} data-hydrant={r.item.id} chevron={false}
+              aria-pressed={lit === r.item.id}
+              onPointerEnter={(e) => { if (e.pointerType === 'mouse') onHydrant?.(r.item.id, 'enter') }}
+              onPointerLeave={(e) => { if (e.pointerType === 'mouse') onHydrant?.(r.item.id, 'leave') }}
+              onClick={() => onHydrant?.(r.item.id, 'tap')}
+              lead={<Icon id="drop" />}
+              title={C.nearHydrant}
+              sub={C.compass[r.dir]} end={fmtDistance(r.distanceM)} />
           ))}
-          {hydrants.map(({ item: h, distanceM }) => (
-            <div key={h.id} className={s.row}>
-              <span className={cx(s.rowLead, s.hydrant)}><Icon id="drop" /></span>
-              <span className={s.rowText}><b>{fillTemplate(C.nearHydrant, { n: h.label })}</b><span>{C.nearHydrantSub}</span></span>
-              <span className={s.rowEnd}>{fmtDistance(distanceM)}</span>
-            </div>
-          ))}
-        </div>
+        </ListCard>
       ) : (
         <Quiet>{C.nearNone}</Quiet>
       )}
@@ -413,25 +487,21 @@ function Visits({ visits, canCapture, empty, onOpenVisit, offline, last }: {
           </Quiet>
         )
           : visits.list.length ? (
-            <div className={s.list}>
+            <ListCard>
               {visits.list.map((v) => {
                 const by = typeof v.by === 'string' ? v.by : v.by?.name ?? ''
                 const who = v.with?.length ? v.with.join(', ') : by
                 const n = v.findings ?? 0
                 return (
-                  <button key={v.id} type="button" className={s.row} onClick={() => onOpenVisit(v.id)}>
-                    <span className={s.rowLead}><Icon id="clipboard" /></span>
-                    <span className={s.rowText}><b>{v.checklist?.title ?? C.visitNoChecklist}</b><span>{[fmtDay(v.visitedAt), who].filter(Boolean).join(' · ')}</span></span>
-                    <span className={s.rowEnd}>
-                      {v.lifecycle === 'draft' ? <span className={cx(s.badge, s.ink)}>{C.visitDraft}</span>
-                        : n === 0 ? <span className={cx(s.badge, s.green)}><Icon id="check" />{C.visitNoDefects}</span>
-                          : <span className={cx(s.badge, s.amber)}>{n === 1 ? C.visitDefectOne : fillTemplate(C.visitDefects, { n })}</span>}
-                      <Icon id="chevron" className={s.chev} />
-                    </span>
-                  </button>
+                  <ListRow key={v.id} lead={<Icon id="clipboard" />} title={v.checklist?.title ?? C.visitNoChecklist}
+                    sub={[fmtDay(v.visitedAt), who].filter(Boolean).join(' · ')} onClick={() => onOpenVisit(v.id)}
+                    // Objektbesuche's tones for the same states (objectVisits · WorkList): draft ink, defects amber
+                    end={v.lifecycle === 'draft' ? <span className="ip-badge ip-badge-arch">{C.visitDraft}</span>
+                      : n === 0 ? <span className="ip-badge ip-badge-ok">{C.visitNoDefects}</span>
+                        : <span className="ip-badge ip-badge-todo">{n === 1 ? C.visitDefectOne : fillTemplate(C.visitDefects, { n })}</span>} />
                 )
               })}
-            </div>
+            </ListCard>
           ) : <Quiet>{empty}</Quiet>}
       {!canCapture && <div className={s.src}>{C.visitsReadOnly}</div>}
     </div>

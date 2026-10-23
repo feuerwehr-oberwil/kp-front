@@ -161,6 +161,15 @@ class Incident(Base):
     # excluded from the stats export by default and are the ONLY incidents that may be hard-
     # deleted; real Einsätze stay append-only.
     is_exercise: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+    # Übung from its creation on and never marked real since (RBAC audit S1, 22.10.2026). THIS,
+    # not `is_exercise`, is what lets an editor hard-delete without the Verwaltung: the flag is
+    # an Einsatzdaten field (editor and el), so «flip to Übung, then delete» destroyed a real
+    # Einsatzakte. Stamped by the create path, cleared for good the first time the incident is
+    # marked real; never set again. A real Einsatz marked Übung later stays stats-excluded but
+    # needs the admin session to delete (api/incidents · delete_incident).
+    exercise_since_creation: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False, server_default="false"
+    )
     # When the Abschluss-Assistent last marked the Rapport complete. Purely a bookmark:
     # «geändert nach Abschluss» is DERIVED (updated_at advanced past it), never stored.
     report_done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

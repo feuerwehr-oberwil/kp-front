@@ -1,8 +1,9 @@
-import { Fragment, type ReactNode } from 'react'
+import { Fragment, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { DockInfo } from './DockInfo'
+import { useIsPhone } from '../lib/useIsPhone'
 
 /** What a colour swatch is CALLED. The dock item's own title names the group («Truppfarbe»); the
  *  index names the one square, in the palette's order — a hex value is not a name for anybody. */
@@ -68,26 +69,52 @@ function renderItem(item: DockItem, key: string): ReactNode {
 }
 
 /**
- * The right-edge tool option dock. `groups` are rendered in order with a `wb-style-sep` divider
- * between them; empty groups are dropped so an absent control (e.g. the ✓ that only shows in node
- * mode) leaves no stray separator.
+ * The right-edge tool option dock. `groups` are rendered in order with a wider gap between them
+ * (`wb-dock-gap`) – no divider line (M8 rework, 21.10.2026, owner: the lines add nothing); empty
+ * groups are dropped so an absent control (e.g. the ✓ that only shows in node mode) leaves no
+ * stray gap.
  *
- * `hint` is ONE line for the ARMED mode («Punkte tippen – ✓ schliesst ab»), shown on the phone
- * as the dock's second row (15-mobile.css · .wb-dock-hint). 3am test r3, 25.09.2026: what the
- * armed tool expects stood only behind ⓘ, and nobody opens ⓘ at 3am. The ⓘ keeps the full text;
- * a tablet's column dock has the hint bar of its own surface and leaves the line hidden.
+ * Controls only — no line of text (20.10.2026, owner: «Remove the line. I don't think they add
+ * any value.»). The phone's one-line hint row (3am test r3, 25.09.2026) is gone on every surface;
+ * what an armed tool expects is its ⓘ (`info` item).
  */
-export function ToolDock({ groups, hint }: { groups: DockItem[][]; hint?: string }) {
+export function ToolDock({ groups }: { groups: DockItem[][] }) {
   const visible = groups.filter((g) => g.length)
+  const ref = useRef<HTMLDivElement>(null)
+  const level = useRailLevel(ref, !useIsPhone())
   return (
-    <div className="wb-dock wb-dock-map">
+    <div ref={ref} className="wb-dock wb-dock-map" style={level}>
       {visible.map((g, gi) => (
         <Fragment key={gi}>
-          {gi > 0 && <span className="wb-style-sep" />}
+          {gi > 0 && <span className="wb-dock-gap" aria-hidden />}
           {g.map((item, ii) => renderItem(item, `${gi}-${ii}`))}
         </Fragment>
       ))}
-      {hint && <span className="wb-dock-hint" role="status">{hint}</span>}
     </div>
   )
+}
+
+/** The tablet column dock stands level with the tool rail beside it: same top edge, and never
+ *  past the rail band's foot (owner 20.10.2026: centred on the screen, the shorter dock stood
+ *  higher than the rail). The rail is centred in the band under the top bar and its height
+ *  follows its tools, so the dock reads the rail's top rather than guessing it. Off on a phone,
+ *  where the dock is a bottom bar (15-mobile) and the CSS centring is the fallback until measured. */
+function useRailLevel(ref: RefObject<HTMLDivElement | null>, on: boolean): CSSProperties | undefined {
+  const [level, setLevel] = useState<CSSProperties>()
+  useLayoutEffect(() => {
+    const dock = ref.current
+    const rail = on ? document.querySelector<HTMLElement>('.tool-rail') : null
+    if (!dock || !rail) { setLevel(undefined); return }
+    const read = () => {
+      const host = (dock.offsetParent as HTMLElement | null)?.getBoundingClientRect().top ?? 0
+      const top = rail.getBoundingClientRect().top
+      setLevel({ top: top - host, transform: 'none', maxHeight: window.innerHeight - top - 16 })
+    }
+    read()
+    const ro = new ResizeObserver(read)
+    ro.observe(rail)
+    window.addEventListener('resize', read)
+    return () => { ro.disconnect(); window.removeEventListener('resize', read) }
+  }, [ref, on])
+  return level
 }

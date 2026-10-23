@@ -35,7 +35,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'lead', text: 'Two bars at the bottom, one on top: the area bar at the very bottom, the tool bar above it, the incident bar on top.', only: 'phone' },
           { kind: 'sub', text: 'Bottom bars', only: 'phone' },
           { kind: 'list', only: 'phone', items: [
-            'The **area bar** at the very bottom has five tiles: Map, Plans, Checklist, Teams and Report. **Plans** and **Report** stand for several pages (Report · Attendance · Materiel): tap the tile again or hold it to open the chooser.',
+            'The **area bar** at the very bottom has five tiles: Map, Plans, Checklist, Teams and Report. **Plans** and **Report** stand for several pages (Report, Attendance, Materiel): tap the tile again or hold it to open the chooser.',
             'Above it, the **tool bar** of the map or the plan. **+** is the one door to everything that is put on it.',
             'A button that carries only an icon says its word when you **hold it down**. In **Settings**, «Rail labels» writes the words underneath for good.',
           ] },
@@ -130,7 +130,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
         blocks: [
           { kind: 'lead', text: 'Tools in the right rail in Situation mode.' },
           { kind: 'list', items: [
-            '**Symbol** – the tactical symbol (FKS/VKF). Quick-pick of the most common symbols or search the whole library. Tap to place; use the lock to set several in a row.',
+            '**Symbol** – the tactical symbol (FKS/VKF). Quick-pick of the most common symbols or search the whole library. Tap to place; turn on "Place several" to set several in a row.',
             '**Shapes** – in the same window, behind the hazards: **Arrow** and **Rectangle**, for everything that has no tactical symbol. The handle rotates, the corner stretches the rectangle (the arrow stays proportional – a distorted head reads badly). On the arrow, **Stop bar** adds the bar across its tip – the spread limit: this far, and stopped there.',
             '**Select** – tap objects, move them, adjust in the editor.',
             '**Multi** – tap **Select** again while it is active: the button switches to Multi (icon and word), and dragging a frame selects several symbols/drawings at once. Another tap switches back to Select.',
@@ -162,7 +162,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'list', items: [
             '**Link to map** at the bottom of the plan puts this sheet onto the map: the plan gives up half the surface and the map sits beside it. On a phone there is no room for both – there a **Map / Module** switch moves between them. Tap the same spot on both surfaces – a house corner, a hydrant, a junction. **Order does not matter**: a half that has been set finds its counterpart by itself, and you may switch between the surfaces at will. Two points are enough to lay the sheet down.',
             'The **traffic light** in the bar says where you stand at all times: two points solve exactly and are therefore **unchecked** – only the third measures the deviation («4 points · ⌀ 1.2 m»). **Check the fit** lays the sheet outline over the map for a visual check.',
-            'Dragging a cross moves it, tapping it opens **Move · Delete point · Keep**. A tap on **linked** opens the **Fit** with pairs and deviation; **Transfer** copies the reference points to another module of the same object, **Reset** deletes them (with a confirmation). **Close** discards nothing – what has been set is saved already.',
+            'Dragging a cross moves it, tapping it opens **Move**, **Delete point** or **Keep**. A tap on **linked** opens the **Fit** with pairs and deviation; **Transfer** copies the reference points to another module of the same object, **Reset** deletes them (with a confirmation). **Close** discards nothing – what has been set is saved already.',
             'From then on **both surfaces show the same objects** – no copy, the same object: tap to see the details, drag to move, the same vertices and handles on either side.',
             'Where an object **stands** is decided by the last hand that placed it: dragged onto a sheet it stands on the sheet – and moves along when the fit is corrected. Dragged onto the map it stands on the ground. A corrected fit relocates everything standing on that sheet – one row in the journal, and one ↶ takes it back. **Sheet shape measured** is the same relocation without a hand involved: the app measured the opened sheet and re-solved the fit at its true shape. **Resetting** a reference loses nothing: sheet and map both keep what they show.',
             'In **Layers** every linked sheet gets one row of its own («Plan (Module 2)»): the sheet itself, as an image under the map. The objects on it need no row any more – they belong to the layer they were placed on.',
@@ -179,7 +179,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
             '**Who goes in**: three slots, the top one is the **team leader** – tapping a row promotes that person, the **✕** removes them. A larger team simply adds rows.',
             'The **person search** reaches the whole roster, not only those present; beside each name stands whatever argues against them (not present, at the station, already in a team). **(+)** records a guest (mutual aid) – added to the attendance at the same time, as the same person.',
             '**Entry pressure** (bar) and **radio channel** sit beside it.',
-            'Below that the **assignment**: type – under SCBA Rescue · Extinguish · Search · Secure · Recon · Other, without SCBA Traffic · Medical · Water supply · Secure · Standby · Other –, **target / location** in plain text, **line no.** (lines already drawn are offered beside it) and the **colour** on the map and plan.',
+            'Below that the **assignment**: type (under SCBA Rescue, Extinguish, Search, Secure, Recon, Other; without SCBA Traffic, Medical, Water supply, Secure, Standby, Other), **target / location** in plain text, **line no.** (lines already drawn are offered beside it) and the **colour** on the map and plan.',
             'The assignment holds nobody up: **register team** works without it. The card then reads **«no task yet»**, and tapping that opens the form.',
             'What is typed survives closing the window with **✕** or a tap outside – only **Cancel** discards it.',
           ] },
@@ -341,7 +341,7 @@ export const helpCopy: Localizable<Pick<Copy, 'help'>> = {
           { kind: 'sub', text: 'Tap & drag (touch/iPad)' },
           { kind: 'list', items: [
             'One finger pans the map/plan; two fingers zoom (pinch).',
-            'One finger zooms too: **double-tap** zooms in; **tap, then press again and drag** zooms smoothly – down to zoom in, up to zoom out. The same on the map and the plan; while a drawing tool is active, only two fingers zoom the plan.',
+            'One finger zooms too: **double-tap** zooms in; **tap, then press again and drag** zooms smoothly – down to zoom in, up to zoom out. The same on the map and the plan, with **Select**. A tool comes first: where it taps (points, measure, add, note, circle …) every tap is its own; where it drags (freehand, multi-select) a double-tap still zooms. Two fingers always zoom. A line or area tapped out point by point is finished with ✓, never with a double-tap.',
             'Tapping **Select** again switches the button to **Multi**: dragging a frame selects several objects; selected objects are moved by dragging.',
             'A button that carries nothing but an icon says its word when you **hold it down** – after a short moment the word appears as a bubble above it, on touch with a short buzz. Letting go does **not** trigger the button: asking what something is must not also do it. With a mouse, hovering is enough.',
           ] },

@@ -130,6 +130,29 @@ describe('ContextPanel — basic wiring', () => {
     expect(screen.getByText('Fahrer').closest('.field')).toBeTruthy()
   })
 
+  // RBAC audit 22.10.2026: a locked session READS the Fahrer – no picker, no empty box
+  it("a locked panel states a live vehicle's Fahrer as a read-out", () => {
+    setup({ entity: { id: 'v1', symbol: 'VKF Fahrzeug', label: 'TLF' }, readOnly: true, driver: { value: 'Graf Stefan' } })
+    expect(screen.getByText('Graf Stefan').className).toContain('kv-val-ro')
+    expect(screen.queryByRole('combobox')).toBeNull()
+  })
+
+  // …and the Beschriftung / the Schutzabstand: the answer in words, not three faded buttons
+  it('a locked panel states the Beschriftung and the Schutzabstand, and offers no switch', () => {
+    const C = appConfig.copy.contextPanel
+    const onCaption = vi.fn()
+    const onErgRings = vi.fn()
+    setup({
+      entity: { id: 'g1', symbol: 'FW Gefahr Tafel', fields: { 'UN-Nr.': '1005' }, ergRings: 'large' },
+      protectedKeys: new Set(['UN-Nr.', 'Stoff']),
+      readOnly: true, onCaption, captionDefault: 'auto', onErgRings,
+    })
+    expect(screen.queryAllByRole('group', { name: C.caption })).toEqual([])
+    expect(screen.getAllByText(C.captionAuto)[0].className).toContain('kv-val-ro')
+    expect(screen.queryByRole('group', { name: C.ergRingsLabel })).toBeNull()
+    expect(screen.getByText(C.ergRingsLarge).className).toContain('kv-val-ro')
+  })
+
   it('stepping rotation up commits via onRotate', () => {
     const p = setup({ controls: new Set<SymbolControl>(['rotation']), entity: { id: 's1', rotation: 0 } })
     fireEvent.pointerDown(screen.getByLabelText('mehr')) // hold-to-repeat: first step fires on pointer-down
@@ -368,12 +391,31 @@ describe('ContextPanel — ADR meanings and ERG «Absperrkreis übernehmen»', (
     protectedKeys: new Set(['UN-Nr.', 'Stoff']),
   })
 
-  it('prints the meaning beside class, label and packing-group codes', () => {
+  // review round 7: the words first, the code in brackets behind them — «3 – Entzündbare …» read
+  // as a code with a footnote, which is the wrong way round at 3am
+  it('prints each code as its meaning with the code in brackets', () => {
     // UN 1230 (METHANOL): class 3, labels 3 + 6.1, packing group II
     setup(tafel({ 'UN-Nr.': '1230', Stoff: '' }))
-    expect(screen.getAllByText(/3 – Entzündbare flüssige Stoffe/).length).toBeGreaterThan(0)
-    expect(screen.getByText(/6\.1 – Giftige Stoffe/)).toBeTruthy()
-    expect(screen.getByText(/II – mittlere Gefahr/)).toBeTruthy()
+    expect(screen.getAllByText(/Entzündbare flüssige Stoffe \(3\)/).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Giftige Stoffe \(6\.1\)/)).toBeTruthy()
+    expect(screen.getByText(/mittlere Gefahr \(II\)/)).toBeTruthy()
+  })
+
+  // review round 7, owner: «move the bullet points of the Stoff to the very bottom» — the figures
+  // (tiles) first, the Kemler reading last, above the source line
+  it('puts the Stoff\'s bullet points after the figure tiles', () => {
+    // UN 1203 (Benzin): Gefahrnummer 33 → two Kemler bullets, five figures
+    setup(tafel({ 'UN-Nr.': '1203', Stoff: '' }))
+    const section = document.querySelector('.un-haz')!
+    const kids = [...section.children]
+    const tiles = kids.findIndex((el) => el.classList.contains('un-haz-tiles'))
+    const bullets = kids.findIndex((el) => el.classList.contains('un-haz-list'))
+    const source = kids.findIndex((el) => el.classList.contains('un-erg-src'))
+    expect(tiles).toBeGreaterThan(-1)
+    expect(bullets).toBeGreaterThan(tiles)
+    expect(source).toBeGreaterThan(bullets)
+    // the Gefahrnummer keeps its bare number, the coded figures carry their words first
+    expect(screen.getByText('33')).toBeTruthy()
   })
 
   it('«Absperrkreis übernehmen» hands the parsed distance to onAdoptRadius', () => {

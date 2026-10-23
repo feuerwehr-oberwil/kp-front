@@ -628,13 +628,6 @@
 
 .modalFoot { flex: none; display: flex; gap: var(--sp-2); justify-content: flex-end; padding: var(--sp-3) var(--sp-5);
   border-top: 1px solid var(--glass-edge); background: var(--glass); }
-/* The submit while it is BLOCKED (canSubmit false) — `aria-disabled`, not the native `disabled`
-   attribute, so the tap still reaches `attemptSubmit` and can point at the missing field instead
-   of doing nothing (field feedback, 02.09.). Same dimmed look `.ip-btn.primary:disabled` gives a
-   real disabled button elsewhere (13-incident.css); the press feedback is switched off by hand
-   since `:active:not(:disabled)` never fires for a button that was never actually disabled. */
-.btnBlocked { opacity: var(--disabled); cursor: default; }
-.btnBlocked:active { background-image: none; }
 /* second, equally valid submit (Wieder einrücken → «Bereitstellen»): outlined rather than ghost,
    because it commits the form just like the primary does – a ghost would read as «abbrechen». */
 
@@ -1387,7 +1380,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    «Binggeli Michae» against this chip's min-width before this (round 2 review). `.tab`'s
    min-height is a minimum, not a cap, so the chip grows with it. */
 .tabNameWrap { display: block; width: 100%; white-space: normal; overflow-wrap: break-word; text-align: center; }
-.tabClock { font-family: var(--mono); font-size: var(--fs-2); font-weight: var(--fw-heavy); color: var(--green); }
+.tabClock { display: inline-flex; align-items: center; gap: var(--sp-1); font-family: var(--mono); font-size: var(--fs-2); font-weight: var(--fw-heavy); color: var(--green); }
+/* the tier's glyph before the clock (UX sweep F6): the clock for «Fällig», the triangle for an
+   alarm — so the state is a shape too, not only the chip's amber/red. Inherits the clock's ink. */
+.tabTier { width: 13px; height: 13px; flex: none; }
 /* ⚠️ ONE quiet format for every clock that is NOT running (05.09.): a Trupp that is angemeldet,
    one that is back out, and a work squad with no contact clock at all are all «nothing is
    ticking here», and the placeholder was carrying the same 800-weight mono presence as a live

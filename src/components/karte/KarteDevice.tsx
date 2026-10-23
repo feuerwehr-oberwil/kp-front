@@ -16,6 +16,7 @@ import { Sheet } from '../../lib/overlays'
 import { storedBuildingCount, storedStationObjects, type StationObject } from '../../lib/api/stationReference'
 import { cacheProbeable, deviceRows, planKey, planLamp, type DeviceFacts, type Lamp } from '../../lib/karte/availability'
 import { heldPlanPages } from './useKarteOffline'
+import { ListCard, ListRow } from '../ListRow'
 import s from './Karte.module.css'
 
 export function LampDot({ lamp, className }: { lamp: Lamp; className?: string }) {
@@ -62,17 +63,14 @@ export function KarteDevice({ offline, objects, map, onClose }: {
     <Sheet open onClose={onClose} title={C.title} fit sheetClassName={s.deviceSheet}>
       <p className={s.deviceLead}>{offline ? C.leadOffline : C.leadOnline}</p>
       {rows ? (
-        <div className={s.list} role="list">
+        <ListCard role="list">
           {rows.map((r) => (
-            <div key={r.key} className={s.row} role="listitem" data-lamp={r.lamp}>
-              <LampDot lamp={r.lamp} />
-              <span className={s.rowText}><b>{r.title}</b><span>{r.sub}</span></span>
-              <span className="sr-only">{C.lampWord[r.lamp]}</span>
-            </div>
+            <ListRow key={r.key} role="listitem" data-lamp={r.lamp} lead={<LampDot lamp={r.lamp} />} title={r.title}
+              sub={<>{r.sub}<span className="sr-only">{C.lampWord[r.lamp]}</span></>} />
           ))}
-        </div>
+        </ListCard>
       ) : (
-        <div className={s.list}><div className={s.row}><div className={s.skeleton} style={{ width: '60%' }} /></div></div>
+        <ListCard><ListRow title={<span className={s.skeleton} style={{ display: 'block', width: '60%' }} />} /></ListCard>
       )}
       {!isStandalone() && <div className={cx(s.note, s.amber)}><span>{C.browserTab}</span></div>}
       <div className={s.src}>{C.foot}</div>

@@ -147,6 +147,9 @@ class IncidentMeta(BaseModel):
     last_closed_at: datetime | None = None
     is_archived: bool
     is_exercise: bool = False
+    #: Übung since creation, never marked real — the only kind an editor may hard-delete
+    #: (models · Incident.exercise_since_creation)
+    exercise_since_creation: bool = False
     report_done_at: datetime | None = None
     # Cross-visibility: latch of the first editor open (QR side shows «KP-Tablet aktiv»),
     # and capture write count/last-write (tablet side shows «QR: N Einträge · zuletzt HH:MM»).
@@ -863,6 +866,28 @@ class ObjectWithPlans(ObjectOut):
     address_match: bool | None = None
 
 
+class BuildingSystemOut(BaseModel):
+    """One heating or hot-water system: what makes the heat, from what (app/building_facts)."""
+
+    #: heat_pump, solar_thermal, boiler, stove, chp, electric_storage, electric_direct,
+    #: heat_exchanger, electric_boiler – None when the register names no generator
+    generator: str | None = None
+    #: an energy key (see BuildingGwrOut.heating); None when the register names none
+    energy: str | None = None
+    #: the generator serves several buildings – it may stand in another one
+    shared: bool = False
+
+
+class BuildingFloorFlatsOut(BaseModel):
+    """The existing flats whose entrance is on one storey."""
+
+    #: 0 = Parterre, 1 = 1. Stock, -1 = 1. Untergeschoss
+    level: int
+    flats: int
+    #: of those, Maisonettes (spanning more than one storey)
+    maisonettes: int = 0
+
+
 class BuildingGwrOut(BaseModel):
     """GWR facts about the building — keys and numbers; the words are the app's copy."""
 
@@ -883,6 +908,17 @@ class BuildingGwrOut(BaseModel):
     shelter: bool | None = None
     #: only when the building is NOT simply «bestehend» (planned, under_construction, …)
     status: str | None = None
+    #: the Gebäudeklasse as a key (single_family, multi_family, home, school, hospital, …)
+    building_class: str | None = None
+    #: heating systems 1 and 2 with their generator; «kein Wärmeerzeuger» is left out
+    heaters: list[BuildingSystemOut] = Field(default_factory=list)
+    #: hot-water systems 1 and 2, the same way
+    water_heaters: list[BuildingSystemOut] = Field(default_factory=list)
+    #: existing flats per storey, lowest first; empty when not every flat names its storey
+    flats_by_floor: list[BuildingFloorFlatsOut] = Field(default_factory=list)
+    #: the Zimmer range of the existing flats
+    rooms_min: int | None = None
+    rooms_max: int | None = None
 
 
 class BuildingPlantOut(BaseModel):
@@ -2186,6 +2222,11 @@ class ObjectVisitsConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     enabled: bool = False
     captureRoles: list[ObjectVisitRole] = Field(default_factory=lambda: list(_DEFAULT_CAPTURE_ROLES))
+    #: Hours after the COMPLETION during which a completed visit may still be corrected; after
+    #: that it is view-only (owner, 20.10.2026 — a plan stayed open for over a week). ``0`` locks
+    #: it the moment it is completed, ``null`` never locks it. The server enforces it
+    #: (``object_visits.locked_at``); the app only draws what the server says.
+    lockAfterHours: int | None = Field(default=24, ge=0, le=8760)
     proposalFields: list[ObjectVisitProposalField] = Field(default_factory=list, max_length=50)
     destinations: list[ObjectVisitDestination] = Field(default_factory=list, max_length=5)
 
@@ -2200,6 +2241,16 @@ class ObjectVisitsConfig(BaseModel):
                 raise ValueError(f"objectVisits: {what} id(s) {dupes} used twice")
         self.captureRoles = list(dict.fromkeys(self.captureRoles))
         return self
+
+
+class AccessConfig(BaseModel):
+    """How much of the record each account reads (docs/roles-and-access.md)."""
+
+    model_config = ConfigDict(extra="ignore")
+    #: Days after its LAST close during which a `viewer` account (the «Fahrer» tile) still reads
+    #: an Einsatz; older ones do not exist for it. ``0`` = only the running ones. Server-enforced
+    #: (auth/viewer_scope); `editor` and `el` always read everything.
+    viewerHistoryDays: int = Field(default=7, ge=0, le=3650)
 
 
 class SetupConfig(BaseModel):
@@ -2252,6 +2303,8 @@ class DeploymentConfigIn(BaseModel):
     setup: SetupConfig = Field(default_factory=SetupConfig)
     # The optional Objektbesuche module — declared here for the same reason as the two above.
     objectVisits: ObjectVisitsConfig = Field(default_factory=ObjectVisitsConfig)
+    # The viewer's window onto past Einsätze — declared here for the same reason as the above.
+    access: AccessConfig = Field(default_factory=AccessConfig)
     # Accepted on input but not authoritative (kept loose; not echoed from the document).
     # Future asset-upload slice: validate that identity.assets.* reference existing entries in
     # asset storage. Skipped while assets are still provisioned outside this document.

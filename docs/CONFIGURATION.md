@@ -140,7 +140,7 @@ for this?"; the German names are the pages in the left-hand `/admin` nav.
 | `identity.assets` | ✅ | the branding uploads – **not** part of this document (see the ⚠️ below and §3a) |
 | `map.defaultView`, `map.geocoder.*` | ✅ | Station › **Station & Karte** |
 | `map.buildingRegister` | ❌ | config-as-code only (`admin_config`); unset = on in CH ([`building-card.md`](building-card.md)) |
-| `map.serviceArea.municipalities` | ❌ | config-as-code only (`admin_config`); the Einsatzgebiet's BFS numbers for «Unterirdische Bauten» – unset = the municipality at `map.defaultView` ([`karte-objekte.md`](karte-objekte.md)) |
+| `map.serviceArea.municipalities` | ❌ | config-as-code only (`admin_config`); the Einsatzgebiet's BFS numbers for «Unterirdische Bauten» and the houses a building tap selects – unset = the municipality at `map.defaultView` ([`karte-objekte.md`](karte-objekte.md)) |
 | `map.objectCategories` | ✅ | Station › **Station & Karte** › «Objektfarben» ([`karte-objekte.md`](karte-objekte.md) · Object colours) |
 | `map.externalLinks` | ✅ | Station › **Station & Karte** – ⚠️ editable, but as shipped its only renderer is the field app's «Datenquellen» panel, which is **unreachable**. Configuring it changes nothing anybody can see today |
 | `referenceLayers` – raster (WMS/WMTS) and GeoJSON, incl. the file upload | ✅ | Station › **Kartenebenen** (§2) |
@@ -610,12 +610,19 @@ which are the app's, not the station's. And `alarmKeywords` is deployment data: 
 shipped file it is never checksummed and never compared against kp-rueck.
 
 **Who can read it back.** `GET /api/config` is public – the login screen needs branding before
-anyone can log in – and `alarmKeywords` is the one section withheld from anonymous callers. The
+anyone can log in – and `alarmKeywords` is withheld from anonymous callers. The
 words are not secret (the shipped vocabulary is on GitHub), but nothing in the frontend reads
 them: matching is entirely server-side, so publishing a station's wording pre-login would be
 surface for nothing. An **admin session gets the full block**, which is not a detail: the admin
 UI does a full-document `PUT`, so a section the admin never received is a section the next
 unrelated edit would silently delete.
+
+Three more are withheld (RBAC audit, 22.10.2026), emptied rather than removed so the answer looks
+like a station that configured none: **`alarms.webhooks` and `sharepoint.sources` reach an admin
+session only** – addresses the server talks to, and a webhook URL is often a capability (a
+`sig=`, a `?secret=`); no client but `/admin` reads them. **`objectVisits.destinations` reaches
+every PIN session** (the Objektbesuch's «Ablage» line reads it) but no anonymous caller and no
+link, like `report.links`.
 
 What stays public either way is the `alarmVocabulary` **summary** – `source`
 (`shipped` | `deployment`), `schemaVersion` and counts, never the words – so "is my override
@@ -794,13 +801,24 @@ open to whoever has the address.
 ### 1e. `objectVisits` – the optional Objektbesuche module
 
 Off unless `objectVisits.enabled` is `true`. `captureRoles` (default `["editor","el"]`) says who may
-record a visit, `proposalFields` is the station's field list for Korrekturvorschläge, and
+record a visit, `lockAfterHours` (default `24`) how long after its completion a visit may still be
+corrected before it goes view-only – `0` locks it at once, `null` never locks it, and the server
+enforces it, not only the app («Station › Objektbesuche › Korrektur-Fenster»).
+`proposalFields` is the station's field list for Korrekturvorschläge, and
 `destinations[]` are the SharePoint folders the server files visits into (a visit at a place, with
 no object, goes to the destination's `locationFolder`, «Allgemeine Meldungen/…» by default). The full contract – the
 visit document, the APIs, the delivery – is [`object-visits.md`](object-visits.md); setting up a
 destination is [`object-visits-sharepoint.md`](object-visits-sharepoint.md). No credential lives in
-the section (`GET /api/config` is public): the writer's app registration is the
+the section (`GET /api/config` serves `destinations` to PIN sessions only – «Who can read it back», §1a): the writer's app registration is the
 `sharepoint_export` credential group, the organizer's key `object_visits_integration_key`.
+
+### 1f. `access` – how far back a read-only account reads
+
+`access.viewerHistoryDays` (default `7`, `0`–`3650`): a `viewer` account (the «Fahrer» tile) reads
+the running Einsätze and those last closed within this many days; older ones answer 404 for it.
+`0` = only the running ones. Server-enforced on every route; `editor` and `el` always read the
+whole record. Config-as-code only – no field in `/admin`; set it with `admin_config` (show → patch
+→ load). Rules and rationale: [`roles-and-access.md`](roles-and-access.md#the-viewers-window-since-2026-10-21).
 
 ---
 
@@ -1415,7 +1433,7 @@ and locks the field – see the rule above).
 | 🔐 `SHAREPOINT_EXPORT_TENANT_ID`, `SHAREPOINT_EXPORT_CLIENT_ID`, `SHAREPOINT_EXPORT_CLIENT_SECRET` | a SECOND Azure app registration, the only one KP Front writes with: the Objektbesuche delivery files visit reports into a destination folder ([`object-visits-sharepoint.md`](object-visits-sharepoint.md)), `Sites.Selected` **write** on one site. Separate from the pull's read-only registration on purpose. No `Settings` fields; ids readable, secret write-only. Incomplete = no delivery, fail-closed |
 | 🔐 `STATION_INDEX_SOURCE`, `STATION_INDEX_TOKEN` | the station index ([§4d](#4d-the-station-index--one-address-for-all-station-data)): the address or absolute path of the station's `index.json`, plus an optional bearer token sent only over https (to the index and its same-host siblings). When the index lists a roster it replaces the direct roster source below. No `Settings` fields; the source is readable, the token write-only. Unset = nothing fetched |
 | 🔐 `ROSTER_SNAPSHOT_SOURCE`, `ROSTER_SNAPSHOT_TOKEN` | the station's published roster file ([§4c](#4c-snapshot--a-roster-file-somebody-else-publishes)): an `https://` address (plain `http://` only on the station's own network) or an absolute path on the server, plus an optional bearer token sent only over https. No `Settings` fields (read off the environment, normally set in the browser); the source is readable, the token write-only. Unset = nothing fetched |
-| 🔐 `ENTRA_LOGIN_TENANT_ID`, `ENTRA_LOGIN_CLIENT_ID`, `ENTRA_LOGIN_CLIENT_SECRET`, `ENTRA_LOGIN_ACCOUNTS` | optional «Mit Microsoft anmelden» ([`microsoft-login.md`](microsoft-login.md)): a THIRD Azure app registration, sign-in only (delegated `openid profile`), redirect URI `<PUBLIC_URL>/api/auth/microsoft/callback`. `ENTRA_LOGIN_ACCOUNTS` is the allow-list, `identity=username, …` (object id or sign-in name → existing KP Front username). No `Settings` field, settable from `/admin › Anbindungen`; the secret is write-only, the rest readable. Any one unset = no button, routes 404 |
+| 🔐 `ENTRA_LOGIN_TENANT_ID`, `ENTRA_LOGIN_CLIENT_ID`, `ENTRA_LOGIN_CLIENT_SECRET`, `ENTRA_LOGIN_ACCOUNTS` | optional «Mit Microsoft anmelden» ([`microsoft-login.md`](microsoft-login.md)): a THIRD Azure app registration, sign-in only (delegated `openid profile`), redirect URI `<PUBLIC_URL>/api/auth/microsoft/callback`. `ENTRA_LOGIN_ACCOUNTS` is the allow-list, `objectid=username, …` (Entra object id → existing KP Front username; a sign-in name is refused since 22.10.2026). No `Settings` field, settable from `/admin › Anbindungen`; the secret is write-only, the rest readable. Any one unset = no button, routes 404 |
 | 🔐 `TRACCAR_URL`, `TRACCAR_EMAIL`, `TRACCAR_PASSWORD` | if `traccarEnabled` |
 | 🔐 `STT_BASE_URL`, `STT_API_KEY`, `STT_MODEL`, `STT_LANGUAGE` | speech-to-text for the audio player's Transkribieren (OpenAI-compatible `/v1/audio/transcriptions`; base URL without `/v1` – Groq: `https://api.groq.com/openai`, OpenAI: `https://api.openai.com`, or a self-hosted faster-whisper server). Empty base URL = off, fail-closed. **Audio is sent to that server** – prefer self-hosted for sensitive deployments |
 | 🔐 `CARTO_API_KEY` | browser key for the built-in CARTO Voyager and Dark Matter raster basemaps. Request it for the deployment domains at [CARTO Basemaps](https://carto.com/basemaps/apikey/). The runtime config appends it as `?key=` to every CARTO tile template the BROWSER fetches – map pickers, the admin object map, offline downloads. **⚠️ Restrict it to the deployment domains in CARTO**: it is necessarily visible in browser requests, and that restriction rather than secrecy is what stops it being spent elsewhere. Never commit a real value. Two things narrow it further: `/api/config` hands it only to callers that already hold a session (PIN user, admin, or an incident link – the login screen draws no map and does not get it), and **Rapport/Kroki tiles are fetched server-side with this same credential**, so the browser's copy never travels in a request body, a log line or a tile-cache filename. Empty = the provider's unkeyed/watermarked response is shown. |
@@ -1429,6 +1447,7 @@ and locks the field – see the rule above).
 | `OVERPASS_MIRRORS` | comma-separated https Overpass endpoints behind the «Umrisse» building-outline surface, raced fastest-first. **Privacy-relevant:** the query is a bounding box around the incident, so it leaves the station – and the shipped third mirror is hosted in Russia. Called by the backend, never the browser (`app/overpass.py`), so this one variable is the whole control. Override with your own Overpass to keep it in-house, or set it **empty to switch the surface off**. ⚠️ Empty means off, not "use the default" – so `.env.example` ships the line commented out rather than blank ([`PRIVACY.md`](../PRIVACY.md)) |
 | `FOOTPRINT_AREA_TILES`, `FOOTPRINT_BUILDINGS_WFS` | where «Karte & Objekte» learns every building a station object stands for (`app/object_footprints`, [`karte-objekte.md`](karte-objekte.md)): swisstopo's base vector tiles for the use area (default `https://vectortiles.geo.admin.ch/tiles/ch.swisstopo.base.vt/v1.0.0`, the tileset root: `/{z}/{x}/{y}.pbf` is appended) and the open cadastral survey's WFS for the building footprints (default `https://geodienste.ch/db/av_0/deu`); the parcel comes from the `GEOCODER_URL` host. Asked by the scheduler once per object coordinate, never by the browser — what leaves the station is a station object's coordinate. **Either one empty = off**: the map then outlines the OSM building an object's point lies in |
 | `UNDERGROUND_WFS` | «Unterirdische Bauten» in the Karte's Ebenen (`app/underground`, [`karte-objekte.md`](karte-objekte.md)): the open cadastral survey's WFS (default `https://geodienste.ch/db/av_0/deu`) asked by the scheduler for every underground building and tunnel (`ms:SOSF`, `Art = unterirdisches_Gebaeude` / `Tunnel_Unterfuehrung_Galerie`) in the Einsatzgebiet — `map.serviceArea.municipalities`, else the municipality at `map.defaultView` (boundaries from the `GEOCODER_URL` host), plus 500 m around every station object. Once, then weekly. **Empty = off**: the row then says «nicht verfügbar» |
+| `HOUSES_WFS` | the houses a building tap in «Karte & Objekte» selects (`app/houses`, [`karte-objekte.md`](karte-objekte.md)): the same WFS (default `https://geodienste.ch/db/av_0/deu`) asked by the scheduler for every house footprint (`ms:LCSF`, `Art = Gebaeude`) in the same area as `UNDERGROUND_WFS`, one request at a time in 1 km cells. Once, then weekly. **Empty = off**: a tap then opens the OSM outline (a terraced row as one block) |
 | `EXPOSE_API_DOCS` | serve `/docs`, `/redoc` and `/openapi.json` on a **production** deployment (always on in dev). Default off |
 | `SEED_DATABASE`, `DEV_CREATE_ALL` | dev seeding / auto-create tables. `DEV_CREATE_ALL` does nothing in production – it is gated by `not is_production()`, so on compose (which pins `ENVIRONMENT=production`) Alembic owns the schema whatever it says |
 | `SEED_PIN` | **Required in production** when `SEED_DATABASE` is on: the 6–12-digit PIN the seeded account gets. The seed file's own PIN is public, so the backend refuses to boot without this rather than create a login anyone knows |
@@ -1929,10 +1948,11 @@ shape is checked by `app/checklist_templates.py · template_problem` on every do
 A device's instructions – «Stromerzeuger starten», «Hebekissen einsetzen» – as big numbered
 steps. They are **read, never ticked**: no state, no progress, nothing in the Verlauf or the
 Rapport. Anleitungen are grouped by `device` (19.10.2026): one tile per device with its picture
-(the first step image of its chapters – there is no separate device photo) and «n Kapitel», or the
+(the `cover` of its first chapter that names one, otherwise the first step image of its
+chapters) and «n Kapitel», or the
 title when the device has a single Anleitung. A device with several opens a page with its
-chapters numbered in manifest `order`; a chapter shows «Kapitel k von n» and the previous and next
-chapter at its foot. Devices are listed in manifest `order` too, so the order of the manifest
+chapters numbered in manifest `order`; a chapter shows «Kapitel k von n», a back row «‹ device» on
+top and the previous and next chapter at its foot («‹ 2 Kabine» | «4 Saugbetrieb ›»). Devices are listed in manifest `order` too, so the order of the manifest
 entries is the order on screen. Two places show them, with the same tiles and pages: the Einsatz
 **Checkliste** tab, as the last group of its rail (the picker search matches the title, the
 `device` and the `keywords`), and the **Checkliste** surface of Karte & Objekte outside an
@@ -1940,7 +1960,8 @@ Einsatz (`ChecklistLibrary`), devices first, where the search also covers the st
 checklist items and the Stichwort texts, and the action checklists are shown read-only.
 Pictures are prefetched into the service worker's `checklist-assets` cache as soon as the
 templates load (`warmManualImages` in `src/lib/checklists.ts`), so an Anleitung opened for the
-first time without network still shows them.
+first time without network still shows them. Their URLs carry the asset's version (`?v=`), so a
+replaced picture is fetched once under its new address and never again after.
 
 ```json
 {
@@ -1953,6 +1974,7 @@ first time without network still shows them.
   "updated": "2026-09-14",
   "source": "Bedienungsanleitung Hersteller, Kap. 4",
   "keywords": ["generator", "notstrom"],
+  "cover": 2,
   "steps": [
     { "text": "Standort im Freien wählen.",
       "warning": "Nie in geschlossenen Räumen betreiben – Kohlenmonoxid." },
@@ -1971,18 +1993,20 @@ first time without network still shows them.
 | `steps[].warning` | – | a red «Achtung:» line – what hurts people or the device |
 | `steps[].hint` | – | a quiet tip line |
 | `steps[].images[]` | – | `{ "page": N, "caption"? }` – an asset page of this entry: a photo, or a page of the device's PDF manual exported as an image (one image per PDF page) |
+| `cover` | – | the asset page shown as the device's picture (its tile and page) – a step picture, or a photo of its own no step shows; without it the first step image. The device takes the cover of its first chapter that has one |
 | `updated` | – | «Stand», `YYYY-MM-DD` |
 | `keywords` | – | extra search words (model names, «Generator») |
 | `subtitle`, `version`, `source` | – | intro line, your own version counter, «Quelle:» footer |
 
-`admin_checklists validate` refuses an Anleitung whose steps show a `page` the manifest entry
-has no asset for – a blank box where the picture should be is exactly what must not happen at
-3am. A manifest entry:
+`admin_checklists validate` refuses an Anleitung whose steps or `cover` show a `page` the
+manifest entry has no asset for – a blank box where the picture should be is exactly what must
+not happen at 3am. A manifest entry (page 2 is the cover photo above, which no step shows):
 
 ```json
 { "id": "stromerzeuger", "kind": "manual", "title": "Stromerzeuger starten",
   "file": "checklists/stromerzeuger.json", "order": 10,
-  "assets": [{ "page": 1, "file": "checklists/assets/stromerzeuger-p1.jpg" }] }
+  "assets": [{ "page": 1, "file": "checklists/assets/stromerzeuger-p1.jpg" },
+             { "page": 2, "file": "checklists/assets/stromerzeuger-geraet.jpg" }] }
 ```
 
 `examples/demo-data/` carries two worked examples (`musterdorf-stromerzeuger`,

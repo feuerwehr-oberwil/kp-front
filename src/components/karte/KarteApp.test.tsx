@@ -9,9 +9,10 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import type { StationObjects, UndergroundSet } from '../../lib/api/stationReference'
-import type { LngLat } from '../../types'
+import type { BuildingInfo } from '../../lib/api/building'
+import type { LayerDef, LngLat } from '../../types'
 
-const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], phone: false, board: [] as Record<string, unknown>[], catalogue: null as null | StationObjects, rules: [] as unknown[], fakeMap: null as null | object, underground: null as null | UndergroundSet, undergroundAsked: 0 }))
+const rec = vi.hoisted(() => ({ map: [] as Record<string, unknown>[], phone: false, board: [] as Record<string, unknown>[], catalogue: null as null | StationObjects, rules: [] as unknown[], fakeMap: null as null | object, underground: null as null | UndergroundSet, undergroundAsked: 0, building: null as null | BuildingInfo, extraLayers: [] as LayerDef[] }))
 const lastMap = () => rec.map[rec.map.length - 1] as { onMapClick: (c: LngLat) => void; measurePoints: LngLat[]; onMeasureDelete?: (i: number) => void; children?: ReactNode }
 
 const CATALOGUE: StationObjects = {
@@ -56,7 +57,7 @@ vi.mock('react-map-gl/maplibre', () => ({
 vi.mock('../../lib/api/stationReference', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../lib/api/stationReference')>()),
   loadStationObjects: async () => ({ value: rec.catalogue ?? CATALOGUE, source: 'network' as const }),
-  loadStationBuilding: async () => null,
+  loadStationBuilding: async () => (rec.building ? { value: rec.building, source: 'network' as const } : null),
   loadUnderground: async () => { rec.undergroundAsked++; return rec.underground },
 }))
 vi.mock('../../objectVisits/api', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../objectVisits/api')>()), listVisits: async () => [] }))
@@ -73,6 +74,11 @@ vi.mock('../../lib/deploymentConfig', async (importOriginal) => ({
   objectVisitsConfig: () => ({ enabled: true, captureRoles: ['editor', 'el'] }),
   objectCategoryRules: () => rec.rules,
 }))
+// a test's own Ebenen beside the built-in ones (the deployment's hydrant layer)
+vi.mock('../../lib/workspace', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('../../lib/workspace')>()
+  return { ...orig, defaultLayers: (t?: string | null) => [...orig.defaultLayers(t), ...rec.extraLayers] }
+})
 vi.mock('../../lib/useWeather', () => ({ useWeather: () => ({ data: null, error: null }) }))
 vi.mock('../../lib/ui', async (importOriginal) => ({ ...(await importOriginal<typeof import('../../lib/ui')>()), toast: vi.fn() }))
 // the service worker as a switch (review round 7): a waiting build is announced by calling the
@@ -97,9 +103,11 @@ vi.mock('../ChecklistLibrary', () => ({ ChecklistLibrary: ({ query }: { query: s
 import KarteApp, { type KarteAppProps } from './KarteApp'
 import { Meldeleiste } from '../Meldeleiste'
 import { toast } from '../../lib/ui'
+import { fmtDistance, haversineM } from '../../lib/geo'
 import { appConfig } from '../../config/appConfig'
 import { __setUnHazardData, type UnHazardEntry } from '../../lib/unHazard'
 import adr from '../../../public/un-hazard.json'
+import { loadPrefs, savePrefs } from '../../lib/prefs'
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 beforeAll(() => {
@@ -118,6 +126,8 @@ beforeEach(() => {
   rec.fakeMap = null
   rec.underground = null
   rec.undergroundAsked = 0
+  rec.building = null
+  rec.extraLayers = []
   brand.mark = null; brand.short = null
   sw.announce = null; sw.landed = false; sw.apply.mockClear(); sw.platform = 'android'
   localStorage.clear(); sessionStorage.clear()
@@ -128,6 +138,35 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.mocked(toast).mockClear()
 
 /** the fields' words carry invisible word joiners against iOS's contact AutoFill (lib/typingField) */
 const PLAIN = { normalizer: (t: string) => t.replace(/\u2060/g, '') }
+
+/** a PointerEvent jsdom will not build itself — `pointerType` is the whole question for the
+ *  surface's hold, which only a finger (or a pen) ever starts */
+const touchEvent = (type: string, clientX: number, clientY: number, pointerType = 'touch') => {
+  const e = new MouseEvent(type, { bubbles: true, clientX, clientY })
+  Object.defineProperty(e, 'pointerType', { value: pointerType })
+  return e
+}
+/** a real canvas inside a real container, the way maplibre hands them out: the surface's pointer
+ *  handlers listen on `getCanvasContainer()` and only answer presses on the canvas itself. */
+const canvasHarness = (at: { lng: number; lat: number } | (() => { lng: number; lat: number })) => {
+  const box = document.createElement('div')
+  const canvas = document.createElement('canvas')
+  box.appendChild(canvas)
+  document.body.appendChild(box)
+  const where = typeof at === 'function' ? at : () => at
+  rec.fakeMap = {
+    getCanvas: () => canvas, getContainer: () => box, unproject: () => where(), project: () => ({ x: 200, y: 200 }), getZoom: () => 18,
+    getBounds: () => ({ getWest: () => 7.569, getSouth: () => 47.523, getEast: () => 7.572, getNorth: () => 47.525 }),
+    getMap: () => ({ on: () => {}, getCanvasContainer: () => box }),
+    easeTo: () => {}, jumpTo: () => {}, fitBounds: () => {},
+  }
+  return { box, canvas }
+}
+/** finger down and still for longer than the long press (lib/useLongPress · LONG_PRESS_MS) */
+const hold = async (canvas: HTMLCanvasElement, x: number, y: number) => {
+  act(() => { canvas.dispatchEvent(touchEvent('pointerdown', x, y)) })
+  await act(() => new Promise((r) => setTimeout(r, 700)))
+}
 
 const mount = (over: Partial<KarteAppProps> = {}) => {
   const onOpenVisits = vi.fn()
@@ -142,6 +181,115 @@ const mount = (over: Partial<KarteAppProps> = {}) => {
 }
 
 describe('KarteApp', () => {
+  // Karte Haus round 1 (owner, variant A): a row of houses that is ONE object — a tap opens the
+  // object and remembers the house; the switch opens just that house, and the register's «this
+  // address is the object's» never throws it back
+  it('opens the object from one of its houses, and the switch opens only that house', async () => {
+    const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]
+    const west = sq(7.5700, 47.5236, 0.0002), east = sq(7.5702, 47.5236, 0.0002)
+    rec.catalogue = { ...CATALOGUE, objects: CATALOGUE.objects.map((o) => (o.id === 'schloss' ? { ...o, footprint: { type: 'MultiPolygon', coordinates: [[west], [east]] } } : o)) }
+    // the register names the house by the OBJECT's address — the rule that once opened the object
+    rec.building = {
+      registers: 'on', egid: '1', address: 'Schlossgasse 9, 9999 Musterdorf', gwr: null, gwr_status: 'none', plants: [], pv_status: 'ok',
+      registers_fetched_at: '2026-10-16T10:00:00Z', object: { id: 'schloss', name: 'Schloss Musterdorf' }, visit: null,
+    } as unknown as BuildingInfo
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    type Ov = { id: string; rings?: number[][][] }
+    const overlays = () => (lastMap() as unknown as { preparedOverlays: Ov[] }).preparedOverlays
+    const level = () => screen.queryByRole('group', { name: 'Objekt oder Haus' })
+
+    act(() => lastMap().onMapClick([7.5703, 47.5237]))
+    expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
+    // the tapped house dashed, its street on the switch once the register answers
+    expect(overlays().find((o) => o.id === 'karte-object-hit')?.rings?.[0]).toEqual(east.slice(0, 4))
+    await waitFor(() => expect(within(level()!).getByRole('button', { name: /Schlossgasse 9/ })).toBeTruthy())
+    // In der Nähe measures from the tapped house, not the object's catalogue point (owner, 19.10.)
+    const remise = within(document.querySelector('[data-section="nearby"]') as HTMLElement).getByRole('button', { name: /Remise Schloss/ })
+    expect(remise.textContent).toContain(fmtDistance(haversineM([7.5703, 47.5237], [7.56985, 47.52402])))
+
+    fireEvent.click(within(level()!).getByRole('button', { name: /Schlossgasse 9/ }))
+    expect(await screen.findByText('Teil von Schloss Musterdorf')).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Schlossgasse 9' })).toBeTruthy()
+    // the register has answered with the object's address: still the house
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
+    expect(screen.queryByRole('heading', { name: 'Schloss Musterdorf' })).toBeNull()
+    expect(overlays().find((o) => o.id === 'karte-building')?.rings?.[0]).toEqual(east.slice(0, 4))
+    // In der Nähe of a house never lists its own object
+    const near = document.querySelector('[data-section="nearby"]') as HTMLElement
+    expect(within(near).queryByText('Schloss Musterdorf')).toBeNull()
+    expect(within(near).getByText('Remise Schloss')).toBeTruthy()
+
+    // the level sticks while the taps stay on the object: the other house opens as a house
+    act(() => lastMap().onMapClick([7.5701, 47.5237]))
+    await waitFor(() => expect(overlays().find((o) => o.id === 'karte-building')?.rings?.[0]).toEqual(west.slice(0, 4)))
+    // (awaited: the panel's head can follow the outline by a render)
+    expect(await screen.findByText('Teil von Schloss Musterdorf')).toBeTruthy()
+
+    // …and one tap goes back to the object
+    fireEvent.click(within(level()!).getByRole('button', { name: /^Objekt/ }))
+    expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
+    expect(within(level()!).getByRole('button', { name: /^Objekt/ }).getAttribute('aria-pressed')).toBe('true')
+
+    // from its tag there is no house: no switch
+    fireEvent.click(screen.getAllByRole('button', { name: 'Schloss Musterdorf' }).find((b) => b.closest('[data-marker]'))!)
+    await waitFor(() => expect(level()).toBeNull())
+    expect(overlays().some((o) => o.id === 'karte-object-hit')).toBe(false)
+  })
+
+  // Karte Haus round 1 (owner): «a hover state with cursor change so that I can briefly hover over
+  // objects and see that they're clickable» — the mouse's only, never a finger's, never under a tool
+  it('hovers with the mouse only: the pointer and the object named over its building', async () => {
+    const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]
+    const west = sq(7.5700, 47.5236, 0.0002), east = sq(7.5702, 47.5236, 0.0002)
+    rec.catalogue = { ...CATALOGUE, objects: CATALOGUE.objects.map((o) => (o.id === 'schloss' ? { ...o, footprint: { type: 'MultiPolygon', coordinates: [[west], [east]] } } : o)) }
+    const box = document.createElement('div')
+    const canvas = document.createElement('canvas')
+    box.appendChild(canvas)
+    document.body.appendChild(box)
+    let under = { lng: 7.5703, lat: 47.5237 }
+    rec.fakeMap = {
+      getCanvas: () => canvas, getContainer: () => box, unproject: () => under, project: () => ({ x: -999, y: -999 }), getZoom: () => 18,
+      getBounds: () => ({ getWest: () => 7.569, getSouth: () => 47.523, getEast: () => 7.571, getNorth: () => 47.524 }),
+      getMap: () => ({ on: () => {}, getCanvasContainer: () => box }),
+    }
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    act(() => (lastMap() as unknown as { onSettled: () => void }).onSettled())
+    type Ov = { id: string; rings?: number[][][] }
+    const overlays = () => (lastMap() as unknown as { preparedOverlays: Ov[] }).preparedOverlays
+    const move = async (pointerType: string) => {
+      const e = new MouseEvent('pointermove', { bubbles: true, clientX: 40, clientY: 40 })
+      Object.defineProperty(e, 'pointerType', { value: pointerType })
+      await act(async () => { canvas.dispatchEvent(e); await new Promise((r) => requestAnimationFrame(r)) })
+    }
+
+    await move('touch')
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    expect(canvas.style.cursor).toBe('')
+
+    await move('mouse')
+    expect(screen.getByRole('tooltip').textContent).toBe('EinsatzobjektSchloss Musterdorf')
+    expect(canvas.style.cursor).toBe('pointer')
+    // ALL its buildings brighten, the one under the cursor gets its own line
+    expect(overlays().find((o) => o.id === 'karte-hover-object')?.rings).toHaveLength(2)
+    expect(overlays().find((o) => o.id === 'karte-hover-house')?.rings?.[0]).toEqual(east.slice(0, 4))
+
+    under = { lng: 7.6, lat: 47.6 }
+    await move('mouse')
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    expect(canvas.style.cursor).toBe('default')
+    expect(overlays().some((o) => o.id.startsWith('karte-hover'))).toBe(false)
+
+    // Messen takes the taps: no hover over the building either
+    fireEvent.click(screen.getByRole('button', { name: 'Messen' }))
+    under = { lng: 7.5703, lat: 47.5237 }
+    await move('mouse')
+    expect(screen.queryByRole('tooltip')).toBeNull()
+    expect(canvas.style.cursor).toBe('default')
+    box.remove()
+  })
+
   it('colours an object by its category and gives the category an Ebenen row that hides it', async () => {
     // the Schloss stands in a square building of its own (a server footprint) and carries Modul 1
     const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]
@@ -163,7 +311,6 @@ describe('KarteApp', () => {
 
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.karte.tools.layers }))
     const row = await screen.findByRole('button', { name: /Mit Übersichtsplan/ })
-    expect(row.textContent).toMatch(/1 Objekte/)
     fireEvent.click(row)
     await waitFor(() => expect(overlays().some((o) => o.id === 'karte-objects-m1')).toBe(false))
     expect(screen.queryByRole('button', { name: /^Schloss Musterdorf/ })).toBeNull()
@@ -239,29 +386,74 @@ describe('KarteApp', () => {
 
   // owner R3-9 (17.10.2026): «I can't delete nodes when measuring because it wants to create a
   // point» — a long press anywhere dropped a pin (and left Messen), and holding a measure node is
-  // how a node is removed. The pin is the ⊙ tool's only, and a held node is the node's.
-  it('a long press on the map drops no pin — Messen keeps holding a node to remove it', async () => {
-    const el = document.createElement('div')
-    rec.fakeMap = {
-      getContainer: () => el, getZoom: () => 10, unproject: () => ({ lng: 7.5712, lat: 47.5232 }), project: () => ({ x: 200, y: 200 }),
-      easeTo: () => {}, jumpTo: () => {}, fitBounds: () => {},
-    }
+  // how a node is removed. The hold came back in review round 7 (20.10.2026) under a narrower
+  // rule, so this stays the regression that guards Messen: a tool that takes the map's taps
+  // (lib/karte/camera · toolTakesTaps) never arms the surface's hold.
+  it('a long press under Messen drops no pin — the held node is still the node\'s', async () => {
+    const { canvas, box } = canvasHarness({ lng: 7.5712, lat: 47.5232 })
     mount()
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    act(() => (lastMap() as unknown as { onSettled: () => void }).onSettled())
     fireEvent.click(screen.getByRole('button', { name: 'Messen' }))
     act(() => lastMap().onMapClick([7.570188, 47.523773]))
     act(() => lastMap().onMapClick([7.5708, 47.52455]))
     act(() => lastMap().onMapClick([7.5712, 47.5232]))
     await waitFor(() => expect(lastMap().measurePoints).toHaveLength(3))
     // the finger stays down on the middle node (MapView's own hold removes it) …
-    const node = screen.getByTestId('mapview')
-    fireEvent.pointerDown(node, { isPrimary: true, pointerId: 1, clientX: 200, clientY: 200 })
-    await act(() => new Promise((r) => setTimeout(r, 700)))
+    await hold(canvas, 200, 200)
     act(() => lastMap().onMeasureDelete?.(1))
-    fireEvent.pointerUp(node, { isPrimary: true, pointerId: 1, clientX: 200, clientY: 200 })
+    fireEvent(canvas, touchEvent('pointerup', 200, 200))
     // … and the surface did not drop a pin under it, nor leave Messen
     expect(screen.queryByText('Gesetzter Punkt')).toBeNull()
     expect(lastMap().measurePoints).toEqual([[7.570188, 47.523773], [7.5712, 47.5232]])
+    box.remove()
+  })
+
+  // owner, review round 7 (20.10.2026), points 7 + 11: «also on mobile highlight the building
+  // outlines on hold so we know what we're pressing before we let go» + «the point setting option
+  // should also occur automatically if you just long press on the map». His own split, in a
+  // grilling round the same day: a hold on a building only highlights, a hold on FREE map sets
+  // the point.
+  it('holds a building to light it and free map to set a point', async () => {
+    const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]
+    const house = sq(7.5700, 47.5236, 0.0002)
+    rec.catalogue = { ...CATALOGUE, objects: CATALOGUE.objects.map((o) => (o.id === 'schloss' ? { ...o, footprint: { type: 'MultiPolygon', coordinates: [[house]] } } : o)) }
+    let under = { lng: 7.5701, lat: 47.5237 }
+    const { canvas, box } = canvasHarness(() => under)
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    act(() => (lastMap() as unknown as { onSettled: () => void }).onSettled())
+    const overlays = () => (lastMap() as unknown as { preparedOverlays: { id: string }[] }).preparedOverlays
+    const lit = () => overlays().some((o) => o.id === 'karte-hover-object')
+
+    // the finger lands on the Schloss: the outline answers AT ONCE, before the hold is over
+    act(() => { canvas.dispatchEvent(touchEvent('pointerdown', 40, 40)) })
+    expect(lit()).toBe(true)
+    // …and holding it there is still no pin — the release opens the object, as a tap always did
+    await act(() => new Promise((r) => setTimeout(r, 700)))
+    expect(screen.queryByText('Gesetzter Punkt')).toBeNull()
+    act(() => { canvas.dispatchEvent(touchEvent('pointerup', 40, 40)) })
+    expect(lit()).toBe(false)
+
+    // a finger that travels is panning: the outline goes out again
+    act(() => { canvas.dispatchEvent(touchEvent('pointerdown', 40, 40)) })
+    expect(lit()).toBe(true)
+    act(() => { canvas.dispatchEvent(touchEvent('pointermove', 80, 90)) })
+    expect(lit()).toBe(false)
+    act(() => { canvas.dispatchEvent(touchEvent('pointerup', 80, 90)) })
+
+    // free map: the same hold sets the point, and its release is not a tap that undoes it
+    under = { lng: 7.57175, lat: 47.52015 }
+    await hold(canvas, 40, 40)
+    expect(await screen.findByText('bei Starenstrasse 19')).toBeTruthy()
+    act(() => { canvas.dispatchEvent(touchEvent('pointerup', 40, 40)); lastMap().onMapClick([7.57175, 47.52015]) })
+    expect(screen.getByText('bei Starenstrasse 19')).toBeTruthy()
+
+    // a mouse never holds: it has the hover (which answers a MOVE), so its press lights nothing
+    under = { lng: 7.5701, lat: 47.5237 }
+    act(() => { canvas.dispatchEvent(touchEvent('pointerdown', 40, 40, 'mouse')) })
+    expect(lit()).toBe(false)
+    box.remove()
   })
 
   it('drops a pin with the tool and files a Meldung at that place', async () => {
@@ -545,7 +737,7 @@ describe('KarteApp', () => {
     // the map's round search button, the pin and the compass are the map's
     expect(screen.queryByRole('button', { name: 'Suchen' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Punkt setzen' })).toBeNull()
-    fireEvent.change(screen.getByPlaceholderText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Generator' } })
+    fireEvent.change(screen.getByLabelText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Generator' } })
     expect(screen.getByTestId('library').textContent).toBe('Generator')
     fireEvent.click(within(nav).getByRole('button', { name: 'Messen' }))
     expect(screen.queryByTestId('library')).toBeNull()
@@ -553,25 +745,70 @@ describe('KarteApp', () => {
     expect(screen.getByRole('button', { name: 'Suchen' })).toBeTruthy()
   })
 
+  it('keeps the tablet navigation collapsible with saved toolbar labels enabled', async () => {
+    const prefs = loadPrefs()
+    savePrefs({ ...prefs, railLabels: 'short', railLabelsChosen: true })
+    try {
+      mount()
+      const rail = screen.getByRole('navigation', { name: 'Karte & Objekte' })
+      expect(rail.classList.contains('labelled')).toBe(false)
+      expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('60px')
+      fireEvent.click(within(rail).getByRole('button', { name: 'Ausklappen' }))
+      expect(rail.classList.contains('expanded')).toBe(true)
+      expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('216px')
+      fireEvent.click(within(rail).getByRole('button', { name: 'Einklappen' }))
+      expect(rail.classList.contains('expanded')).toBe(false)
+      expect(document.documentElement.style.getPropertyValue('--rail-w')).toBe('60px')
+      await act(async () => {})
+    } finally {
+      savePrefs(prefs)
+    }
+  })
+
   it('on a tablet: the rail always holds Karte and Checkliste, the plans hang under them; the bar searches the library', async () => {
     mount()
     const rail = () => screen.getByRole('navigation', { name: /Karte & Objekte|Schloss Musterdorf/ })
-    expect(within(rail()).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Karte', 'Checkliste'])
+    // the rail's tiles (its «Ausklappen» chevron and grip are KartePlans.test's)
+    const tiles = () => [...rail().querySelectorAll('.nav-item')].map((b) => b.getAttribute('aria-label'))
+    expect(tiles()).toEqual(['Karte', 'Checkliste'])
     fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
-    await waitFor(() => expect(within(rail()).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual(['Karte', 'Checkliste', 'Modul 1 · Übersicht']))
+    await waitFor(() => expect(tiles()).toEqual(['Karte', 'Checkliste', 'Modul 1 · Übersicht']))
     expect(document.querySelector('.tool-rail')).toBeTruthy()
     fireEvent.click(within(rail()).getByRole('button', { name: 'Checkliste' }))
     expect(screen.getByTestId('library')).toBeTruthy()
     // as on a plan: no tool rail; and the object's panel waits on the map
     expect(document.querySelector('.tool-rail')).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Schloss Musterdorf' })).toBeNull()
-    fireEvent.change(screen.getByPlaceholderText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Motorspritze' } })
+    fireEvent.change(screen.getByLabelText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Motorspritze' } })
     expect(screen.getByTestId('library').textContent).toBe('Motorspritze')
     fireEvent.click(within(rail()).getByRole('button', { name: 'Karte' }))
     expect(screen.queryByTestId('library')).toBeNull()
     expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
     // the map's field kept its own words (none)
     expect((screen.getByPlaceholderText('Adresse oder Objekt suchen …', PLAIN) as HTMLInputElement).value).toBe('')
+  })
+
+  // owner R6: «When having opened a plan … and then going back to the map, sometimes the object
+  // isn't neatly in focus» — a tap selects in place; back from the plan it is framed beside the
+  // panel (the pixels: e2e/karte-plan-back-camera.mjs)
+  it('on a tablet: back on the map from a plan, the object is framed in the free map beside the panel', async () => {
+    const easeTo = vi.fn()
+    rec.fakeMap = {
+      getContainer: () => document.createElement('div'), getZoom: () => 17, getCenter: () => ({ lng: 7.57, lat: 47.52 }), getPadding: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+      unproject: () => ({ lng: 7.57, lat: 47.52 }), project: () => ({ x: 1100, y: 700 }), // visible: the tap leaves it there
+      getBounds: () => ({ getWest: () => 7.5, getSouth: () => 47.5, getEast: () => 7.6, getNorth: () => 47.6 }),
+      easeTo, jumpTo: () => {}, fitBounds: () => {}, getMap: () => ({ on: () => {} }),
+    }
+    mount()
+    fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
+    const panel = await screen.findByRole('region', { name: 'Karte & Objekte' })
+    expect(easeTo).not.toHaveBeenCalled()
+    fireEvent.click(within(panel).getByRole('button', { name: 'Modul 1' }))
+    expect(await screen.findByTestId('pdf')).toBeTruthy()
+    fireEvent.click(within(screen.getByRole('navigation', { name: /Schloss Musterdorf/ })).getByRole('button', { name: 'Karte' }))
+    await waitFor(() => expect(easeTo).toHaveBeenCalledTimes(1))
+    // right of the panel beside the rail, left of the tool rail (lib/karte/camera · besidePanel)
+    expect(easeTo).toHaveBeenCalledWith(expect.objectContaining({ center: [7.570188, 47.523773], padding: { top: 80, bottom: 0, left: 496, right: 76 } }))
   })
 
   it('comes back on the Checkliste with the session, unless a deep link asks for an object', async () => {
@@ -799,6 +1036,74 @@ describe('KarteApp', () => {
     expect(easeTo.mock.calls.length).toBe(calls)
   })
 
+  // owner, Karte Haus round 2: a tap on one house of a row (Amselstrasse 30) moved the map to the
+  // whole row's label – it reveals the tapped house, like a plain building
+  it('on a phone: a tap on one of an object\'s houses reveals that house, not the object\'s point', async () => {
+    rec.phone = true
+    const sq = (lng: number, lat: number, d: number) => [[lng, lat], [lng + d, lat], [lng + d, lat + d], [lng, lat + d], [lng, lat]]
+    rec.catalogue = { ...CATALOGUE, objects: CATALOGUE.objects.map((o) => (o.id === 'schloss' ? { ...o, footprint: { type: 'MultiPolygon', coordinates: [[sq(7.5700, 47.5236, 0.0002)], [sq(7.5702, 47.5236, 0.0002)]] } } : o)) }
+    const easeTo = vi.fn()
+    rec.fakeMap = {
+      getContainer: () => document.createElement('div'), getZoom: () => 17, getCenter: () => ({ lng: 7.57, lat: 47.52 }), getPadding: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+      unproject: () => ({ lng: 7.56, lat: 47.52 }), project: () => ({ x: 200, y: window.innerHeight - 10 }), // behind the sheet
+      getBounds: () => ({ getWest: () => 7.5, getSouth: () => 47.5, getEast: () => 7.6, getNorth: () => 47.6 }),
+      easeTo, jumpTo: () => {}, fitBounds: () => {}, getMap: () => ({ on: () => {} }),
+    }
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    act(() => lastMap().onMapClick([7.5703, 47.5237]))
+    expect(await screen.findByRole('heading', { name: 'Schloss Musterdorf' })).toBeTruthy()
+    expect(easeTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [7.5703, 47.5237] }))
+  })
+
+  // owner, Karte Haus round 2: «when tapping the closest hydrant, the hydrant ebene should be activated»
+  it('a tap on a hydrant row of In der Nähe switches the Hydranten Ebene on', async () => {
+    rec.extraLayers = [{ id: 'hydranten', group: 'Referenz', label: 'Hydranten', icon: 'drop', visible: false, geojson: '/hydranten.geojson', vectorKind: 'point' }]
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => (String(url).includes('hydranten')
+      ? new Response(JSON.stringify({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Point', coordinates: [7.5703, 47.5239] } }] }), { headers: { 'content-type': 'application/json' } })
+      : new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } }))))
+    mount()
+    const hydrantsOn = () => (lastMap() as unknown as { layers: LayerDef[] }).layers.find((l) => l.id === 'hydranten')?.visible
+    fireEvent.click(await screen.findByRole('button', { name: /Schloss Musterdorf/ }))
+    const near = await waitFor(() => document.querySelector('[data-section="nearby"]') as HTMLElement)
+    const row = await within(near).findByRole('button', { name: /Hydrant/ })
+    expect(hydrantsOn()).toBe(false)
+    fireEvent.click(row)
+    await waitFor(() => expect(hydrantsOn()).toBe(true))
+  })
+
+  // owner, Karte Haus round 2: «change the long press on the compass to zoom in to the user's
+  // location which is more likely than the entire village» – the village only without a position
+  it('holding the compass zooms onto my position, and fits the village when there is none', async () => {
+    rec.phone = true
+    const easeTo = vi.fn(), fitBounds = vi.fn()
+    rec.fakeMap = {
+      getContainer: () => document.createElement('div'), getZoom: () => 14, getCenter: () => ({ lng: 7.57, lat: 47.52 }), getPadding: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+      unproject: () => ({ lng: 7.56, lat: 47.52 }), project: () => ({ x: 200, y: 200 }),
+      getBounds: () => ({ getWest: () => 7.5, getSouth: () => 47.5, getEast: () => 7.6, getNorth: () => 47.6 }),
+      easeTo, jumpTo: () => {}, fitBounds, getMap: () => ({ on: () => {} }),
+    }
+    let granted = true
+    vi.stubGlobal('navigator', { ...navigator, geolocation: {
+      getCurrentPosition: (ok: PositionCallback, err: PositionErrorCallback) => (granted
+        ? ok({ coords: { longitude: 7.571, latitude: 47.524 } } as GeolocationPosition)
+        : err({ code: 1 } as GeolocationPositionError)),
+    } })
+    mount()
+    await screen.findByRole('button', { name: /Schloss Musterdorf/ })
+    const hold = async () => {
+      const compass = screen.getAllByRole('button', { name: appConfig.copy.mapViews.title })[0]
+      fireEvent.pointerDown(compass, { clientX: 0, clientY: 0, button: 0, pointerType: 'touch' })
+      await act(async () => { await new Promise((r) => setTimeout(r, 600)) })
+    }
+    await hold()
+    expect(easeTo).toHaveBeenLastCalledWith(expect.objectContaining({ center: [7.571, 47.524], zoom: 17 }))
+    expect(fitBounds).not.toHaveBeenCalled()
+    granted = false
+    await hold()
+    expect(fitBounds).toHaveBeenCalledTimes(1)
+  })
+
   // owner R4-3: «for the gefahrgut stuff we also need to know the name (show it as attribute)»
   it('on a phone: Gefahrgut names the substance first («Stoff»)', async () => {
     __setUnHazardData(adr as UnHazardEntry[])
@@ -808,10 +1113,12 @@ describe('KarteApp', () => {
     fireEvent.click(within(nav).getByRole('button', { name: /Gefahrgut/ }))
     const sheet = await screen.findByRole('region', { name: 'Gefahrgut' })
     fireEvent.change(sheet.querySelector('input') as HTMLInputElement, { target: { value: '1203' } })
-    const row = await within(sheet).findByText('BENZIN oder OTTOKRAFTSTOFF')
-    expect(row.previousElementSibling?.textContent).toBe(appConfig.copy.contextPanel.unSubstance)
-    // the first row of the readout
-    expect(sheet.querySelector('.un-haz-row')).toBe(row.parentElement)
+    // review round 7: the name is the readout's hero line, not a «Stoff» row — first thing in
+    // the readout, with the label kept for the screen reader
+    const hero = (await within(sheet).findByText(/BENZIN oder OTTOKRAFTSTOFF/)).closest('.un-haz-hero')
+    expect(hero).toBeTruthy()
+    expect(hero?.textContent).toBe(`${appConfig.copy.contextPanel.unSubstance}: BENZIN oder OTTOKRAFTSTOFF`)
+    expect(hero?.previousElementSibling?.className).toContain('ctx-section-label')
   })
 
   // owner R4-1: «move "station" up in ebenen all the way to the top»

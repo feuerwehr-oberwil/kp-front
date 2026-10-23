@@ -319,9 +319,11 @@ export default defineConfig(({ mode }) => {
           cleanupOutdatedCaches: true,
           runtimeCaching: [
             {
-              // Raster base-map tiles (cross-origin → opaque, status 0). Cache-first so a
-              // previously-viewed (or pre-downloaded) area renders with no signal.
-              urlPattern: /^https:\/\/([a-d]\.)?(basemaps\.cartocdn\.com|tile\.openstreetmap\.org|[a-c]\.tile\.opentopomap\.org|server\.arcgisonline\.com|wmts\.geo\.admin\.ch|geowms\.bl\.ch)\//,
+              // Base-map tiles (cross-origin → opaque, status 0). Cache-first so a
+              // previously-viewed (or pre-downloaded) area renders with no signal. `tiles-a…d.`
+              // is CARTO's vector host: the street names drawn over its unlabelled raster
+              // (lib/basemapLabels).
+              urlPattern: /^https:\/\/([a-d]\.|tiles-[a-d]\.)?(basemaps\.cartocdn\.com|tile\.openstreetmap\.org|[a-c]\.tile\.opentopomap\.org|server\.arcgisonline\.com|wmts\.geo\.admin\.ch|geowms\.bl\.ch)\//,
               handler: 'CacheFirst',
               options: {
                 cacheName: 'map-tiles',
@@ -333,6 +335,14 @@ export default defineConfig(({ mode }) => {
                 cacheableResponse: { statuses: [0, 200] },
                 expiration: { maxEntries: 4000, maxAgeSeconds: 60 * 60 * 24 * 30 },
               },
+            },
+            {
+              // The map's glyph ranges (public/fonts · lib/mapView MAP_GLYPHS): fetched by the map
+              // the first time a name is drawn, and by the offline download. Not precached – 1 MB
+              // most devices fetch only two files of. They never change under one URL.
+              urlPattern: /\/fonts\/[\w-]+\/\d+-\d+\.pbf$/,
+              handler: 'CacheFirst',
+              options: { cacheName: 'map-glyphs', cacheableResponse: { statuses: [200] } },
             },
             {
               // A plan revision's APPROVED ALIGNMENTS (`/api/reference/plan:x/alignments?v=3`)
@@ -347,12 +357,13 @@ export default defineConfig(({ mode }) => {
               handler: 'NetworkOnly',
             },
             {
-              // The region's underground buildings («Unterirdische Bauten», backend app/underground):
+              // The region's outline sets — its underground buildings («Unterirdische Bauten»,
+              // backend app/underground) and its houses (app/houses, a Karte building tap):
               // megabytes, kept on the device in IndexedDB (lib/api/stationReference ·
-              // loadUnderground), which also asks with the set it holds. A second copy in the
+              // loadOutlineSet), which also asks with the set it holds. A second copy in the
               // 50-entry `reference-data` cache below would only evict the symbols and serve an
               // old set stale-first. ⚠️ Before the generic reference rule.
-              urlPattern: /\/api\/reference\/underground(?:\?|$)/,
+              urlPattern: /\/api\/reference\/(?:underground|houses)(?:\?|$)/,
               handler: 'NetworkOnly',
             },
             {
@@ -407,11 +418,13 @@ export default defineConfig(({ mode }) => {
               // background when the templates load (lib/checklists · warmManualImages), so an
               // Anleitung opened for the first time offline still has its pictures — and so a
               // few dozen images cannot evict the 50 symbol/geojson entries of the rule below.
-              // Stale-while-revalidate: the URL carries no version, a replaced picture arrives on
-              // the next online open. ⚠️ Before the generic reference rule; purged on an explicit
-              // denial with the others (public/sw-media-cache.js).
-              urlPattern: /\/api\/reference\/checklists(%3A|:)[^/?:%]+(%3A|:)p\d+$/i,
-              handler: 'StaleWhileRevalidate',
+              // Cache-first: the URL carries the asset's version (`?v=`, lib/checklists ·
+              // checklistAssetUrl, review round 2 19.10.2026), a replaced picture has a new
+              // address – so no request on every open (stale-while-revalidate asked the server
+              // each time, and the device cards popped in). ⚠️ Before the generic reference rule;
+              // purged on an explicit denial with the others (public/sw-media-cache.js).
+              urlPattern: /\/api\/reference\/checklists(%3A|:)[^/?:%]+(%3A|:)p\d+(\?v=\d+)?$/i,
+              handler: 'CacheFirst',
               options: {
                 cacheName: 'checklist-assets',
                 cacheableResponse: { statuses: [200] },

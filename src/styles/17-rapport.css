@@ -51,8 +51,14 @@
 .report-meta-readout { margin: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
 .report-meta-readout > div { display: grid; grid-template-columns: 116px 1fr; gap: 12px; align-items: baseline; }
 .report-meta-readout dt { margin: 0; font: var(--field-label); color: var(--ink-dim); }
-.report-meta-readout dd { margin: 0; font-size: var(--fs-2); line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.report-meta-readout dd, .rp-readout { margin: 0; font-size: var(--fs-2); line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 .report-meta-empty { color: var(--ink-faint); }
+/* A Rapport field on a session that cannot change it (ReportPreflight · ReadOut): the dispatch
+   block's read-out type above, in the field's own place. `flex: 1` so a Kontaktperson's call
+   button still sits at the end of its line. */
+.rp-readout { flex: 1 1 auto; min-width: 0; }
+/* …and a time or a count in the Zeiten grid / Gerettete rows: the value where the control stood */
+.rz-clock, .rz-count > b { flex: none; font: var(--fw-bold) var(--fs-2) var(--body); font-variant-numeric: tabular-nums; color: var(--ink); }
 
 /* Right-click menu on the planning surfaces (lib/overlays/ContextMenu). Base UI's positioner
    owns the placement, so this styles the popup only — same surface vocabulary as .ip-menu,
@@ -123,7 +129,7 @@
 .rz-kontakt-tel { display: flex; align-items: center; gap: 8px; flex: 2 1 170px; min-width: 0; }
 .rz-kontakt-tel > .ci { flex: 1 1 auto; min-width: 0; }
 /* the dial affordance is a link wearing button clothes — same height rule as «Entfällt» */
-.rz-kontakt-tel > .ip-btn { flex: none; display: inline-flex; align-items: center;
+.rz-kontakt-tel > .ip-btn, .rz-none > .rz-call { flex: none; display: inline-flex; align-items: center;
   justify-content: center; min-height: var(--tap); min-width: var(--tap);
   border-radius: var(--r-ctl); }
 /* «Entfällt» at the end of the NAME line, the way the Kontaktperson has it — PersonField draws
@@ -218,7 +224,7 @@
 /* the slider IS the control: wide enough to aim with a gloved thumb, and the reading sits
    beside it so the value is never hidden under the finger */
 .kf-at-track { position: relative; flex: 1 1 220px; min-width: 160px; max-width: 340px; display: flex; }
-.kf-at-range { flex: 1 1 auto; min-width: 0; accent-color: var(--blue); height: var(--tap); position: relative; z-index: 1; }
+.kf-at-track .uslider { position: relative; z-index: 1; }
 /* WHEN anything happened, under the Stand track — the same BARCODE the Verlauf draws over its
    list (19-rueckmeldung.css · .jr-strip i): one 1.5px tick per recorded moment, same ink
    (--ink-faint at .7), so the two strips read as one instrument. Density IS the signal — where
@@ -228,14 +234,14 @@
    pointer-events stay off so the slider keeps every pixel of its own hit area, which is the
    one thing a gloved drag cannot afford to lose. Inset by the thumb's radius so a tick at t=0
    sits under the thumb's centre rather than at the track's very edge. */
-/* ⚠️ ABOVE the input, not below it. The range input carries z-index 1 so its own track paints
+/* ⚠️ ABOVE the slider, not below it. The slider carries z-index 1 so its own track paints
    over anything behind it — the marks were being drawn and then covered by the track, which
    looks exactly like «the marks were never added». They still take no pointer events, so the
-   slider keeps every pixel of its hit area. */
+   slider keeps every pixel of its hit area. The 9px inset is the `.uslider-track`'s own. */
 .kf-at-marks { position: absolute; inset: 50% 9px auto 9px; height: 0; pointer-events: none; z-index: 2; }
-/* top 8px = fully BELOW the ~16px thumb (its lower edge ends 8px past the centre): the marks
-   paint above the input, so a tick starting any higher would draw ON the handle */
-.kf-at-marks i { position: absolute; top: 8px; width: 1.5px; height: 12px; translate: -50% 0;
+/* top 10px = fully BELOW the 18px thumb (its lower edge ends 9px past the centre): the marks
+   paint above the slider, so a tick starting any higher would draw ON the handle */
+.kf-at-marks i { position: absolute; top: 10px; width: 1.5px; height: 12px; translate: -50% 0;
   border-radius: 1px; background: var(--ink-faint); opacity: .7; }
 .kf-at-wait { display: grid; place-items: center; width: 20px; height: 20px; flex: none; color: var(--ink-dim); }
 .kf-at-val { flex: none; min-width: 8.5em; font: var(--fw-heavy) var(--fs-2) var(--mono); color: var(--ink); }
@@ -271,7 +277,7 @@
      re-resolve here by themselves: 01-tokens declares them on `:root, .kf-paper`. */
   --note-border-sel: #caa83a; --note-ring: rgba(184, 150, 40, .6); --note-halo: #fff;
   --done-filter: grayscale(1); --done-opacity: .5;
-  --hover: rgba(255, 255, 255, .55); --hover-strong: rgba(255, 255, 255, .85); --surface-veil: rgba(255, 255, 255, .55);
+  --hover: rgba(27, 35, 48, .06); --hover-strong: rgba(27, 35, 48, .1); --surface-veil: rgba(255, 255, 255, .55);
   --ink-tint: rgba(27, 35, 48, .15); --ink-tint-strong: rgba(27, 35, 48, .25); --map-bg: #e9eef0;
   --e1: 0 1px 2px rgba(15, 22, 34, .3), 0 2px 5px rgba(30, 45, 70, .2); --e2: 0 4px 10px rgba(30, 45, 70, .2);
   color: var(--ink);
@@ -382,35 +388,13 @@
 /* organisation · remark · remove, on ONE baseline. The two controls come from different
    components (Combo vs input), so their heights are pinned here — otherwise the row reads as
    two fields that missed each other. */
-/* Checklist rows: the tick + the organisation name are ONE target (a 40px label is a miss
-   waiting to happen on a tablet), and the free line only appears once the row is ticked —
-   an empty field beside an unticked organisation reads as something still to fill in. */
-.report-partner { display: flex; align-items: center; gap: 8px; min-height: 40px; }
-.report-partner-tick { flex: none; display: flex; align-items: center; gap: var(--sp-2); min-width: 170px;
-  min-height: 38px; padding: 0 8px 0 4px; border: none; border-radius: var(--r-sm);
-  background: none; color: var(--ink-dim); cursor: pointer; text-align: left; }
-@media (hover: hover) {
-  .report-partner-tick:hover { background: var(--hover); }
-}
-.report-partner-tick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-/* ⚠️ NOT --glass-line: that token is a glass HIGHLIGHT — white at .7 in light mode — so the
-   empty box was white on a white sheet and the tick-off list read as plain text. An unticked
-   box is the whole affordance; it has to be visible before anything is in it. --ink-faint
-   carries a real value in both themes, softened so a ticked one still stands out. */
-.report-partner-box { flex: none; display: grid; place-items: center; width: 22px; height: 22px;
-  border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent);
-  border-radius: var(--r-sm); color: var(--ink-dim); }
-.report-partner-box svg { width: 14px; height: 14px; }
-/* ⚠️ A TICK IS NOT AN ALERT. Ticked rows went blue — box AND glyph — and this column carries a
-   lot of them: four section rows plus one per partner organisation, so an ordinary rapport lit
-   up with eight or nine blue rings for the sole news that everything was normal. Colour has to
-   be spent on the thing that needs a person; a checklist that is going WELL should be the quiet
-   half of the page. So the ticked state is carried by the SHAPE (a tick where there was an empty
-   box) and by the row's ink going from --ink-dim up to --ink — both readable at a glance, in
-   greyscale, at 3am. The blue is handed back to the two places on this surface that mean
-   «attention»: an amber warning, and the accent that is never used for state at all. */
-.report-partner.on .report-partner-tick { color: var(--ink); }
-.report-partner.on .report-partner-box { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
+/* Checklist rows: the tick + the organisation name are ONE target, the shared tick row
+   (components/TickRow, 20.10.2026 · UX sweep F7) — and the free line only appears once the row
+   is ticked: an empty field beside an unticked organisation reads as something still to fill in.
+   A ticked box is the choice fill, the row stays quiet (no wash, no ring), so a column of ticks
+   that says «everything normal» does not out-shout an amber warning. This class only PLACES it. */
+.report-partner { display: flex; align-items: center; gap: 8px; min-height: var(--tap); }
+.report-partner-tick { flex: none; min-width: 170px; }
 .report-partner-org { font: var(--fw-medium) var(--fs-2) var(--body); }
 /* the shared .ip-input, at its shared size. Shrunk to 38px/13.5px here it was a different control
    from the identical input one card below it in the same column (the Beilagen caption).
@@ -428,30 +412,14 @@
 }
 
 /* «Formulare & Links»: the station's own paperwork (config `report.links`). Built from the
-   Partnerorganisationen row above — same tick, same rule that the tick and the title are ONE
-   target, same «a tick is a SHAPE, not a hue» (see .report-partner.on). The only addition is
+   Partnerorganisationen row above — the same TickRow, tick and title ONE target, an unticked
+   box empty (it showed a «−» until 20.10.2026). The only addition is
    the way out of the app on the right, which is a plain secondary button and not an <a>: the
    URL is composed from the Einsatz at the moment of the press (lib/reportLinks · resolveLinkUrl),
    so there is no href to put in the markup ahead of time. */
 .rp-links { align-self: stretch; width: 100%; display: flex; flex-direction: column; gap: var(--sp-2); }
 .rp-link { display: flex; align-items: center; gap: 8px; min-height: var(--tap); }
-.rp-link-tick { flex: 1 1 auto; display: flex; align-items: center; gap: var(--sp-2); min-width: 0;
-  min-height: 38px; padding: 0 8px 0 4px; border: none; border-radius: var(--r-sm);
-  background: none; color: var(--ink-dim); cursor: pointer; text-align: left; }
-@media (hover: hover) {
-  .rp-link-tick:hover { background: var(--hover); }
-}
-.rp-link-tick:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.rp-link-tick:disabled { cursor: default; }
-@media (hover: hover) {
-  .rp-link-tick:disabled:hover { background: none; }
-}
-.rp-link-box { flex: none; display: grid; place-items: center; width: 22px; height: 22px;
-  border: 1.5px solid color-mix(in srgb, var(--ink-faint) 55%, transparent);
-  border-radius: var(--r-sm); color: var(--ink-dim); }
-.rp-link-box svg { width: 14px; height: 14px; }
-.rp-link.on .rp-link-tick { color: var(--ink); }
-.rp-link.on .rp-link-box { border-color: color-mix(in srgb, var(--ink-faint) 80%, transparent); color: var(--ink); }
+.rp-link-tick { flex: 1 1 auto; min-width: 0; }
 /* title over its note — the note is a second question («wann?»), so it may not compete with
    the title for the first glance */
 .rp-link-txt { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -461,10 +429,10 @@
 .rp-link-open { flex: none; }
 @media (max-width: 640px) {
   /* «Öffnen» drops UNDER its own title rather than squeezing it to two words. Indented to the
-     title (4px pad + 22px box + 8px gap) so it stays visibly part of that row and not the next. */
+     title (TickRow: 4px pad + 24px box + 12px gap) so it stays visibly part of that row. */
   .rp-link { flex-wrap: wrap; }
   .rp-link-tick { flex: 1 1 100%; }
-  .rp-link-open { margin-left: calc(var(--sp-1) + 22px + var(--sp-2)); }
+  .rp-link-open { margin-left: calc(var(--sp-1) + 24px + var(--sp-3)); }
 }
 
 /* Beilagen: photos that belong to the RAPPORT (Ausweis, Schaden) rather than to the Verlauf.

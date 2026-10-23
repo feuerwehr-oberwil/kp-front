@@ -1,4 +1,5 @@
 import { Icon } from '../lib/icons'
+import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { decodeKemler, lookupUN, substanceName, type UnHazardEntry } from '../lib/unHazard'
 import { getLocaleId } from '../config/copy'
@@ -13,16 +14,24 @@ import { Segmented } from './Segmented'
  * two look-up links. ONE block for both places that ask: a Gefahrentafel's detail panel
  * (ContextPanel, rings around the placed symbol) and the Gefahrgut lookup of «Karte & Objekte»
  * (components/karte, rings that are only looked at and never stored). Each caller owns what the
- * ring switch and «Absperrkreis übernehmen» DO — absent props draw no switch and no button.
- * `nameRow` puts the substance's ADR name first, as a «Stoff» row (owner, review round 4: «for the
- * gefahrgut stuff we also need to know the name») — the Karte's lookup asks for it; a Gefahrentafel
- * already shows the name in its own «Stoff» field, so it does not.
+ * ring switch and «Absperrkreis übernehmen» DO — absent props draw no switch and no button; a
+ * `ringMode` without `onRingMode` (a locked panel) is the switch's read-out.
+ * `nameHero` puts the substance's ADR name first, as the card's hero line (owner, review round 4:
+ * «for the gefahrgut stuff we also need to know the name») — the Karte's lookup asks for it; a
+ * Gefahrentafel already shows the name in its own «Stoff» field, so it does not.
+ *
+ * The readout is NOT a table (owner, review round 7, mock B «Kachelraster»): the Stoff reads as a
+ * hero line, the key figures as tiles in a 2-column grid, and the Stoff's bullet points sit at the
+ * very bottom, above the source line and the two links. Every figure says its WORDS first and
+ * keeps its code in brackets behind them («Entzündbare flüssige Stoffe (3)»); a figure that is
+ * only a number (Gefahrnummer 33, ERG-Leitfaden 128) stays bare. The ERG distances keep their
+ * key/value rows: each carries «Absperrkreis übernehmen», which a tile has no room for.
  */
-export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRadius, nameRow = false }: {
+export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRadius, nameHero = false }: {
   un: string
-  /** the substance's name as the first row (lib/unHazard · substanceName) */
-  nameRow?: boolean
-  /** the ring switch's value — absent ⇒ no switch */
+  /** the substance's name as the card's hero line (lib/unHazard · substanceName) */
+  nameHero?: boolean
+  /** the ring switch's value — absent ⇒ no switch; without `onRingMode` it is a read-out */
   ringMode?: ErgRingMode
   onRingMode?: (mode: ErgRingMode) => void
   /** where the rings stand, for the day/night note (lib/ergRings · ergDayNote) */
@@ -38,27 +47,16 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
   // type. Only present when this symbol carries a UN-Nr field with a value.
   const unValue = un.trim()
   const unHit: UnHazardEntry | null = unValue ? lookupUN(unValue) : null
-  // Every code carries its meaning («6.1 – Giftige Stoffe») — the readout has to explain
+  // Every code carries its meaning («Giftige Stoffe (6.1)») — the readout has to explain
   // itself at 3am, and the bare number only speaks to somebody who trains ADR (Feldtest
-  // 07.09.). The Gefahrnummer stays bare here: the Kemler block below decodes it in full.
+  // 07.09.). WORDS FIRST, the code in brackets behind them (owner, review round 7): the tile is
+  // read as a sentence and the code only confirms it. A code we have no word for stays bare.
+  // The Gefahrnummer stays bare too: the Kemler bullets at the foot decode it in full.
   const adrMeaning = (code: string) => {
     const m = C.adrMeanings[code]
-    return m ? `${code} – ${m}` : code
+    return m ? `${m} (${code})` : code
   }
-  const name = nameRow ? substanceName(unHit, getLocaleId()) : null
-  const hazRows: { k: string; v: string }[] = unHit
-    ? [
-        { k: C.unClass, v: unHit.class ? adrMeaning(unHit.class) : '' },
-        { k: C.unKemler, v: unHit.hazardNumber ?? '' },
-        { k: C.unLabels, v: unHit.hazardLabels.map(adrMeaning).join(', ') },
-        {
-          k: C.unPacking,
-          v: unHit.packingGroup
-            ? `${unHit.packingGroup}${C.packingGroups[unHit.packingGroup] ? ` – ${C.packingGroups[unHit.packingGroup]}` : ''}`
-            : '',
-        },
-      ].filter((r) => r.v)
-    : []
+  const name = nameHero ? substanceName(unHit, getLocaleId()) : null
   const showUnHazard = unValue.length > 0
   const kemler = decodeKemler(unHit?.hazardNumber)
   // The transcribed ERG yellow pages carry the class-1 explosives without id numbers, so they
@@ -71,6 +69,28 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
     ?? (showUnHazard && unHit?.class === '1'
       ? { g: unHit.classificationCode?.startsWith('1.4') ? 114 : 112 }
       : null)
+  /* The key figures as tiles, in the order the owner reads them: what it IS, the Gefahrnummer,
+     the Gefahrzettel, the Verpackungsgruppe, then the ERG guide. `numeric` keeps the pure numbers
+     in the mono face — they are codes to compare, not words to read. An empty figure is dropped:
+     the grid shows what we know, not what we could have known. */
+  const hazTiles: { k: string; v: string; numeric?: boolean }[] = [
+    ...(unHit
+      ? [
+          { k: C.unClass, v: unHit.class ? adrMeaning(unHit.class) : '' },
+          { k: C.unKemler, v: unHit.hazardNumber ?? '', numeric: true },
+          { k: C.unLabels, v: unHit.hazardLabels.map(adrMeaning).join(', ') },
+          {
+            k: C.unPacking,
+            v: unHit.packingGroup
+              ? (C.packingGroups[unHit.packingGroup]
+                ? `${C.packingGroups[unHit.packingGroup]} (${unHit.packingGroup})`
+                : unHit.packingGroup)
+              : '',
+          },
+        ]
+      : []),
+    ...(erg?.g != null ? [{ k: C.ergGuide, v: `${erg.g}${erg.p ? ' P' : ''}`, numeric: true }] : []),
+  ].filter((t) => t.v)
   const unLookupHref = C.unLookupUrl
     .replace('{un}', encodeURIComponent(unValue))
     .replace('{name}', encodeURIComponent(unHit?.name_de ?? ''))
@@ -78,44 +98,35 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
   return (
     <div className="ctx-section un-haz">
       <span className="ctx-section-label">{C.unHazardTitle}</span>
-      {/* the name first: what the number IS, before what it does */}
-      {name && (
-        <div className="un-haz-row un-haz-name">
-          <span className="un-haz-k">{C.unSubstance}</span>
-          <span className="un-haz-v">{name}</span>
-        </div>
-      )}
-      {/* the tactical hazard read from the Gefahrnummer: water reactivity first
-          (can we extinguish?), then what else is dangerous about it. */}
+      {/* the name first and in the card's biggest words: what the number IS, before what it does.
+          The «Stoff» label it used to carry stays for the screen reader — the eye reads the hero
+          under «Gefahrgut (ADR)» and needs no word for it, an ear does. */}
+      {name && <p className="un-haz-hero"><span className="sr-only">{C.unSubstance}: </span>{name}</p>}
+      {/* the tactical hazard read from the Gefahrnummer: water reactivity first — can we
+          extinguish? That is a WARNING, not a figure, so it keeps the top while the rest of the
+          Kemler reading moves to the foot of the card. */}
       {kemler?.reactsWithWater && (
         <p className="un-haz-water"><Icon id="warn" /> {C.unWater}</p>
       )}
-      {kemler && kemler.hazards.length > 0 && (
-        <ul className="un-haz-list">
-          {kemler.hazards.map((h) => <li key={h}>{h}</li>)}
-        </ul>
-      )}
-      {unHit ? (
-        hazRows.map((r) => (
-          <div className="un-haz-row" key={r.k}>
-            <span className="un-haz-k">{r.k}</span>
-            <span className="un-haz-v">{r.v}</span>
-          </div>
-        ))
-      ) : (
-        <p className="un-haz-none">{C.unNoMatch}</p>
+      {!unHit && <p className="un-haz-none">{C.unNoMatch}</p>}
+      {hazTiles.length > 0 && (
+        <div className="un-haz-tiles">
+          {hazTiles.map((t) => (
+            <div className={cx('un-haz-tile', t.numeric && 'num')} key={t.k}>
+              <span className="un-haz-tile-k">{t.k}</span>
+              <span className="un-haz-tile-v">{t.v}</span>
+            </div>
+          ))}
+        </div>
       )}
 
-      {/* ERG response block (offline, bundled): guide number, TIH isolation/protective
-          distances, polymerization flag — labelled Planungshilfe with its source. */}
-      {erg && (
+      {/* ERG response block (offline, bundled): TIH isolation/protective distances and the
+          polymerization flag — labelled Planungshilfe, with its source at the foot of the card.
+          The guide NUMBER stands in the tile grid above, so a guide that carries neither
+          distances nor a polymerization warning draws no block at all (it would be an empty box
+          under a dashed hairline). */}
+      {erg && (!!erg.p || !!erg.tih?.length) && (
         <div className="un-erg">
-          {erg.g != null && (
-            <div className="un-haz-row">
-              <span className="un-haz-k">{C.ergGuide}</span>
-              <span className="un-haz-v">{erg.g}{erg.p ? ' P' : ''}</span>
-            </div>
-          )}
           {erg.p && <p className="un-haz-water"><Icon id="warn" /> {C.ergPolymerization}</p>}
           {(erg.tih ?? []).map((row, i) => {
             // «Absperrkreis übernehmen» beside each distance (Feldtest 07.09.): the value
@@ -163,7 +174,7 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
               «Gross» is offered only where the large-spill column holds numbers — on
               the 'T3' sentinel a circle would claim to know what only container and
               wind decide. The ergSource caveat above is the ring's caveat too. */}
-          {onRingMode && ringMode && !!erg.tih?.length && (
+          {ringMode && !!erg.tih?.length && (
             <div className="un-erg-rings">
               {/* …and which distance the ring draws, with the sun's reason: «Nacht ·
                   Sonnenuntergang 16:42» (B1, 08.10.2026 — it was a silent 07–19 h clock) */}
@@ -171,21 +182,35 @@ export function UnHazardSection({ un, ringMode, onRingMode, ergCoord, onAdoptRad
                 {C.ergRingsLabel}
                 <span className="un-erg-day">{ergDayNote(new Date(), ergCoord)}</span>
               </span>
-              <Segmented
-                ariaLabel={C.ergRingsLabel}
-                value={ringMode}
-                options={[
-                  { value: 'off' as const, label: C.ergRingsOff },
-                  { value: 'small' as const, label: C.ergRingsSmall },
-                  { value: 'large' as const, label: C.ergRingsLarge, disabled: !erg.tih[0]?.l || erg.tih[0].l === 'T3' },
-                ]}
-                onChange={onRingMode}
-              />
+              {/* …and on a locked panel the answer alone, in the read-out recipe (RBAC audit
+                  22.10.2026 — it was a live switch whose taps went nowhere) */}
+              {onRingMode ? (
+                <Segmented
+                  ariaLabel={C.ergRingsLabel}
+                  value={ringMode}
+                  options={[
+                    { value: 'off' as const, label: C.ergRingsOff },
+                    { value: 'small' as const, label: C.ergRingsSmall },
+                    { value: 'large' as const, label: C.ergRingsLarge, disabled: !erg.tih[0]?.l || erg.tih[0].l === 'T3' },
+                  ]}
+                  onChange={onRingMode}
+                />
+              ) : (
+                <b className="kv-val-ro">{{ off: C.ergRingsOff, small: C.ergRingsSmall, large: C.ergRingsLarge }[ringMode]}</b>
+              )}
             </div>
           )}
-          <p className="un-erg-src">{C.ergSource.replace('{v}', ergVersionLabel())}</p>
         </div>
       )}
+      {/* the Stoff's own bullet points at the very bottom (owner, review round 7: «move the bullet
+          points of the Stoff to the very bottom») — below the figures, above the source line and
+          the two links. What the Gefahrnummer means in words, for whoever reads to the end. */}
+      {kemler && kemler.hazards.length > 0 && (
+        <ul className="un-haz-list">
+          {kemler.hazards.map((h) => <li key={h}>{h}</li>)}
+        </ul>
+      )}
+      {erg && <p className="un-erg-src">{C.ergSource.replace('{v}', ergVersionLabel())}</p>}
       <a className="un-haz-link" href={unLookupHref} target="_blank" rel="noopener noreferrer">
         <Icon id="eye" /> {C.unLookupLabel}
       </a>

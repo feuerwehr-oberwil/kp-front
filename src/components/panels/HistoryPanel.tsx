@@ -26,12 +26,17 @@ import { Modal } from './_shared'
 // tags to say an emergency is closed. open is the default state»). «Offen» and «In Arbeit» are
 // gone — the backend's two ACTIVE statuses (lib/api/incidents · INCIDENT_ACTIVE_STATUSES) are one
 // state to the operator, and nothing here sorted or grouped by the difference.
-export function HistoryPanel({ onClose, onOpen, onArchive }: {
+export function HistoryPanel({ onClose, onOpen, onArchive, windowDays }: {
   onClose: () => void
   onOpen: (id: string, readOnly: boolean) => void
   /** confirm + archive an open incident (editors only; omit for viewers and the el role). Its
    *  presence also offers «Wieder öffnen» on an archived one — the same lifecycle, the same gate. */
   onArchive?: (id: string) => Promise<void>
+  /** a `viewer` account's window in days (docs/roles-and-access.md · «The viewer's window», #449):
+   *  the server lists only the running Einsätze and those closed within it, so the list says so
+   *  in a foot line – older ones vanished silently, and «abgeschlossene erscheinen hier» was false
+   *  after a quiet week. Absent for everyone the server does not narrow. */
+  windowDays?: number
 }) {
   const [items, setItems] = useState<IncidentMeta[]>([])
   // a HINT, not a gate (lib/useOnline): the buttons stay, the line says what they need
@@ -110,9 +115,15 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
     const prev = idx > 0 ? historyGroupKey(shown[idx - 1], now) : null
     return { i, header: key !== prev ? groupTitle(key) : null }
   })
+  const windowNote = windowDays == null ? null
+    : windowDays === 0 ? h.windowNoteRunning
+    : windowDays === 1 ? h.windowNoteOne
+    : fillTemplate(h.windowNote, { n: windowDays })
   return (
     <Modal title={h.title} onClose={onClose} wide>
-      {sorted.length === 0 && <EmptyState icon="history" title={h.empty} sub={h.emptySub} />}
+      {sorted.length === 0 && (windowNote
+        ? <EmptyState icon="list" title={h.emptyWindow} sub={windowNote} />
+        : <EmptyState icon="list" title={h.empty} sub={h.emptySub} />)}
       {!online && onArchive && sorted.length > 0 && <p className="ip-hist-offline"><Icon id="warn" /> {h.offlineNote}</p>}
       {sorted.length > 0 && (
         <SearchField value={query} onChange={setQuery} placeholder={h.searchPlaceholder} aria-label={h.searchPlaceholder} />
@@ -138,8 +149,9 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
                 ? onArchive && <button className="ip-btn" onClick={() => reactivate(i.id)}>{h.reactivate}</button>
                 : onArchive && <button className="ip-btn ip-hist-close" onClick={() => void archive(i.id)}>{h.archiveConfirmBtn}</button>}
               {/* delete only for ARCHIVED exercises (editor-gated via onArchive) — an open
-                  Übung is first abgeschlossen like any incident, then deletable */}
-              {i.is_exercise && i.is_archived && onArchive && (
+                  Übung is first abgeschlossen like any incident, then deletable. Only one
+                  CREATED as Übung: a real Einsatz marked Übung later needs the Verwaltung */}
+              {i.is_exercise && i.exercise_since_creation && i.is_archived && onArchive && (
                 <button className="ip-btn ip-btn-danger" onClick={() => void removeExercise(i)} aria-label={h.deleteConfirmTitle}>
                   <Icon id="trash" /> {h.deleteExercise}
                 </button>
@@ -148,6 +160,7 @@ export function HistoryPanel({ onClose, onOpen, onArchive }: {
           </Fragment>
         )
       })}
+      {windowNote && sorted.length > 0 && <p className="ip-hist-foot">{windowNote}</p>}
     </Modal>
   )
 }

@@ -132,7 +132,8 @@
   align-items: center; gap: var(--sp-2); padding: 0 4px; color: var(--ink-dim);
   font: var(--fw-bold) var(--fs-micro) var(--body);
 }
-.checkBlend input { width: 100%; min-width: 0; height: 28px; margin: 0; accent-color: var(--blue); cursor: pointer; }
+/* the app's Slider (07-toolrail · .uslider), 44px tall like every other one */
+.checkBlend :global(.uslider) { width: 100%; }
 .dot {
   width: 9px;
   height: 9px;
@@ -547,33 +548,19 @@
      with the active half filled in --ink-fill, i.e. the same shape and the same black as the
      primary button directly under it. Two big dark blocks in one card, only one of which does
      anything: that is what made the card read as heavier than the thing it is asking for. */
-  .surfaceSwitch {
-    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-1);
-    position: static; box-sizing: border-box; margin: 0; padding: var(--sp-1);
-    background: var(--fill-soft); border-radius: var(--r-ctl);
-  }
-  /* ⚠️ --tap (44px), like every other control in the app. 36 looked tidy in a screenshot and is
-     under the size a gloved thumb hits reliably — and both of these are the switch between the
-     two halves of the task, i.e. among the most-pressed controls in the mode. */
-  .surfaceSwitch button {
-    min-width: 0; min-height: var(--tap); display: inline-flex; align-items: center;
-    justify-content: center; gap: var(--sp-2); padding: 0 8px; border: 0; border-radius: var(--r-sm);
-    background: transparent; color: var(--ink-dim); font: var(--fw-bold) var(--fs-1) var(--body); cursor: pointer;
-  }
-  .surfaceSwitch button svg { width: 16px; height: 16px; }
-  .surfaceSwitch button span {
+  /* The shared Segmented (20.10.2026 reuse round: this was a hand-rolled pair with its own
+     `.surfaceOn`). Its option is --tap tall and its chosen half the choice fill (06-contextpanel ·
+     .useg); here it only spans the card, two equal halves. */
+  .surfaceSwitch { display: block; }
+  .surfaceSwitch :global(.useg) { display: flex; width: 100%; box-sizing: border-box; }
+  .surfaceSwitch :global(.useg-btn) { flex: 1 1 0; min-width: 0; padding-inline: 8px; }
+  /* the half's open-point count */
+  .surfaceCount {
     min-width: 20px; padding: 1px var(--sp-1); border-radius: var(--r-pill);
     background: var(--ink-8); color: var(--ink-dim);
     font: var(--fw-bold) var(--fs-micro)/1.4 var(--body);
   }
-    /* the chosen half is THE choice fill, as every Segmented (01-tokens · --sel) — it was a white
-     iOS-style pill, a look of its own */
-  .surfaceSwitch button.surfaceOn span {
-    background: color-mix(in srgb, var(--on-sel) 22%, transparent); color: var(--on-sel);
-  }
-  .surfaceSwitch button.surfaceOn { background: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
-  .surfaceSwitch button:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-  .surfaceSwitch button:disabled { opacity: var(--disabled); cursor: default; }
+  :global(.useg-btn.on) .surfaceCount { background: color-mix(in srgb, var(--on-sel) 22%, transparent); color: var(--on-sel); }
   .fixedTarget { display: block; }
   /* ⚠️ The magnifier is BACK on a phone — as the corner inset (.loupeCorner), never as the
      centred circle this workflow replaced. What was wrong with the old one was that it sat
@@ -653,8 +640,8 @@
 @media (hover: hover) { .gripOn:hover { background: var(--ink-fill-hover); } }
 @media (prefers-reduced-motion: reduce) { .grip { transition: none; } }
 
-/* Plangrösse — the app's Stepper grammar (07-toolrail.css · .step): bare ± buttons, a
-   tabular-nums value between them, no outer box */
+/* Plangrösse — the shared Stepper (07-toolrail.css · .step) beside its label. `.stepBtn` stays
+   for the undo square beside it. */
 .sizeStep { display: inline-flex; align-items: center; gap: var(--sp-1); flex: none; }
 .sizeLabel { font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); margin-right: 2px; white-space: nowrap; }
 .stepBtn {
@@ -666,7 +653,8 @@
 .stepBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .stepBtn:disabled { opacity: var(--disabled); cursor: default; }
 .stepBtn svg { width: 16px; height: 16px; }
-.sizeVal { min-width: 52px; text-align: center; font: var(--fw-medium) var(--fs-2) var(--mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+/* «100 %» and «99 %» take one width, so − does not slide under the finger */
+.sizeStep :global(.step-val) { min-width: 52px; }
 .adjustAction { min-width: 0; }
 /* the desktop pill needs the quiet grammar too (it was phone-only before the proposal review) */
 .quietBtn { border-color: transparent; background: transparent; }

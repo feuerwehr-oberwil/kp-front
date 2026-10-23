@@ -9,6 +9,16 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
 
 - **Theming:** use tokens / `color-mix(in srgb, var(--accent) N%, ...)`, **never** a frozen
   `rgba()` of the accent – that breaks day/night and per-station accent theming.
+- **`color-scheme` carries `only` in both themes** (`only light` / `only dark`, 01-tokens.css and
+  its boot-splash twin in `index.html`). It does two jobs: it tells the UA which palette our own
+  chrome is drawn in, so native surfaces it paints itself (scrollbars, the iOS keyboard accessory
+  bar) match – and the `only` keyword opts the page out of the UA's *force-dark* adjustment.
+  Without it, Blink's force-dark («Dark mode» in Samsung Internet, Auto Dark Theme in Chrome)
+  repaints a page that declares a scheme it doesn't claim to support: the owner's Samsung tablet
+  darkened all of our day chrome while the WebGL map canvas, which no filter touches, stayed
+  light (round 7, point 2). Do **not** "fix" that with `light dark`: that hands the native
+  surfaces back to the OS setting and re-opens the white-accessory-bar bug. Guarded by
+  `e2e/blink-force-dark.mjs`.
 - **CSS:** design tokens, the day/night flip (`[data-theme="night"]`), and shared chrome live
   in **`src/styles/NN-*.css`** – one numbered file per block (tokens, base, map, chrome, one per
   surface), listed in order by `src/app.css`, which is now a manifest of `@import`s and holds no
@@ -42,8 +52,12 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   yes/no property is the `OnOff` Segmented pair (`components/Segmented`) – never a single chip
   whose text or glyph flips, which said «An» on one row and showed a state on the next.
   That holds app-wide, not only in the editor sheets (28.09.2026): the Einstellungen, the Übung
-  on the Einsatz form and the Kroki's «Folgt der Karte» are `OnOff` rows too, always «Aus | An»
-  in that order (a row's own «Ein | Aus» with «on» on the left reversed the thumb position). A
+  on the Einsatz form and the Kroki's «Folgt der Karte» are `OnOff` rows too, the false answer
+  always on the left (a row's own «Ein | Aus» with «on» on the left reversed the thumb position).
+  The WORDS follow what the row is (20.10.2026, owner: «ja/nein everywhere»): a setting or a
+  property of a thing reads «Aus | An»; a row that asks a question about the record («Übung?»)
+  is `OnOff question`, «Nein | Ja» – on every device, never one pair on a tablet and the other
+  on a phone. A
   **«none of these»** answer that stands in for a list (Material «Nichts verwendet») is a
   CHOICE chip: one fixed text, picked = the choice fill, and no «✓» growing into the label. A
   single option on a sheet is a yes/no too (PersonnelSync «… ausblenden» is an `OnOff` row, not
@@ -91,6 +105,12 @@ laufend gespeichert.» line (`copy.savedLive`) says so (TimeBlockSheet, Personne
 Mittel erfassen) or where a typed value would otherwise write a record per keystroke — the Trupp's
 Auftrag sheet, the Schichtband edit and the Mittel pencil KEEP their Speichern / Abbrechen (owner,
 29.09.2026: save-on-close was built and taken back; do not re-introduce it without asking).
+**ONE footer, in this order** (UX sweep F5, 20.10.2026): **[danger, far left] · Abbrechen ·
+primary**. The sheet's one destructive action leads the row and stands in the FOOTER, never in
+the body (13-incident · `.ui-sheet-foot > .danger:first-child` pushes the rest right); then the
+framed «Abbrechen», then the primary. Trupp Auftrag, Trupp Mannschaft, the Kanal stepper, the
+Schichtband edit and the Mittel pencil wear it; a live sheet has no Abbrechen / primary, so its
+footer is the danger alone (TimeBlockSheet `danger` — the Anwesenheit's «Person entfernen»).
 
 **A symbol's context sheet is headed by its TYPE**, for every symbol, the generic Fahrzeug too
 («Fahrzeug» / the pack's name; 29.09.2026). A user-given name lives in its field
@@ -204,9 +224,13 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     the glyph the sentence leads with – never an edge, never a fill. What goes away **by itself**
     shows a ✕ and a line that runs out with its time (lib/ui · ToastRow); what stays while its
     mode is on shows neither. A tap on the pill itself does nothing (05.10.2026): the ✕ closes,
-    the action button acts, a sideways swipe throws it away. On a phone they share one lane (`--msg-lane-bottom`, 15-mobile): the
-    bars' own width (8px in from each side), one `--float-gap` above THE floating row (below),
-    never beside a piece of it. A repeat REPLACES (18.10.2026): a confirmation that comes again — «Eintrag erfasst» after
+    the action button acts, a sideways swipe throws it away. **The toasts stand under the head, on
+    every width** (20.10.2026, owner: «all notifications appear at the same place: at the top
+    cleanly below the main navbar»): where the Meldeleiste starts (92px; 72px on a phone), one 8px
+    channel under the strip while one stands (`--ml-reserve` from its measured `--ml-h`), at the
+    bars' own width on a phone (8px in from each side). A mode's instruction and a tool's tip keep
+    the phone's foot lane (`--msg-lane-bottom`, 15-mobile), one `--float-gap` above THE floating
+    row (below), never beside a piece of it. A repeat REPLACES (18.10.2026): a confirmation that comes again — «Eintrag erfasst» after
     every Meldung, «Geschoss hinzugefügt» — carries a `kind` (lib/ui · toast) and takes its
     predecessor's place instead of stacking on it; five Meldungen in a row grew a column of pills
     up the screen into the composer's «Erfassen», and a confirmation never covers the next action
@@ -215,11 +239,15 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     only an action too wide to leave the sentence that much wraps under it, right-aligned. On
     the launcher the lane is the card's own column. There is no standing «Offline» row
     (removed 05.10.2026 — the head's «● Offline» chip says it), and «Jetzt synchronisieren» is
-    never offered while the device is offline. While a MODAL bottom sheet is open the lane stands ON the sheet, one `--float-gap` above
-    its top edge (`lib/toastLane` · `useToastLane` → `.toaster[data-lane]`); only a sheet that
-    leaves no room for a pill above it sends the lane to the top of the screen, never over the
-    sheet's head. Non-modal owners of the foot (detail sheet, Ebenen, Messen, Passung) keep the
-    lane under the top bar. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
+    never offered while the device is offline. While a MODAL bottom sheet is open on a phone the lane stands ON the sheet, one `--float-gap`
+    above its top edge (`lib/toastLane` · `useToastLane` → `.toaster[data-lane]`); only a sheet
+    that leaves no room for a pill above it sends the lane to the top of the screen, never over
+    the sheet's head. A PLACEMENT MODE (any armed map or plan tool, Messen, the Passung, the
+    Karte's Punkt setzen / Gefahrgut) calls `usePlacementLane(active)` (lib/toastLane → `<html
+    data-placing>`), which bounds the strip so the lane under it stays near the head; a new mode
+    calls the hook, it never adds a selector to a list. On the Karte the lane also clears the
+    running-Einsatz strip. The Karte's «Auf die Karte tippen …» is a sticky toast in that lane, not a
+    pill of its own. No Meldeleiste row has a left edge (29.09.2026: the alarm's red
     bar first, then amber / blue / grey): a row's tone is its leading glyph's colour, so every
     `Meldung` carries an `icon`. A row TITLE whose way in is the same
     move as the row's filled button (the Atemschutz «Zum Trupp» — `Meldung.onOpen.label` = the
@@ -244,7 +272,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     calibration stays reachable through Messen · «Massstab kalibrieren»). Where a plan cannot be
     linked, the Massstab chip stays. On a phone the pieces stand on ONE baseline,
     `--float-bottom` (15-mobile): `--float-gap` (8px) above the highest bar (nav bar · Rapport tab
-    strip · tool bar · a tool's option dock + its hint row), 8px from the screen's edge and from
+    strip · tool bar · a tool's option dock), 8px from the screen's edge and from
     each other. The FAB stays ROUND (the one-corner exception) but is `--float-h` across, on that
     baseline; `--fab-safe` is its width + the gap. A new piece in that zone joins the family and
     the row (and the `--float-row` `:has` list) — never a height, material or offset of its own.
@@ -263,17 +291,17 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     OUT OF THE TOP BAR wears the bar's own glass (`--glass` + blur + `--glass-line` + `--shadow`):
     the Einsatzuhr menu, the Atemschutz head detail and the Meteo details (30.09.2026:
     `.tb-weather-pop` wore `--surface`, a lighter slate than the bar at night).
-    **On tablet/desktop, dark in both themes (`--ink-fill` + `--on-accent-ink`) is the ARMED material and nothing
-    else**: a tool dock (`.wb-dock` — something is armed, its ✕ disarms) and the Trupp marker's
-    action bar (`.wb-pill-acts` — this marker is in hand). It is the «clean selected state» of a
-    mode, so a list you read or a menu you pick from never wears it; a new surface that is dark
-    by day is a mode, or it is a bug. On a light-by-day card the ✕ is the global `.ip-x` and the
-    primary is `--btn-primary`; the on-ink ✕ (`.wb-dock-x`) and the light-fill primary
-    (`.wb-dock-go`) belong to the armed material only.
-    **Mobile tool docks use the popup material** (01.10.2026): Messen and every tool-option
-    dock wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
-    Their controls share a neutral fill and selected wash, with a centred row; the line dock
-    has no subtitle on mobile (its instructions stay behind ⓘ).
+    **Dark in both themes (`--ink-fill` + `--on-accent-ink`) is the Trupp marker's action bar
+    alone** (`.wb-pill-acts` — this marker is in hand); a new surface that is dark by day is a
+    bug. **Tool docks wear the floating material too** (`.wb-dock`, 20.10.2026, owner: «why do we
+    have a dark sidebar in lightmode?» — the phone's bar since 01.10., every dock since): Messen
+    and every tool-option dock on the Karte, the Einsatz map and the Plan/Skizze, phone and tablet,
+    wear `--float-bg` / `--float-blur` / `--float-edge` and theme ink, including their controls.
+    The controls share one neutral fill (`--dock-control-bg`, opaque) and hover
+    (`--dock-control-hover`); a picked width/line style is the selected wash; the ARMED toggle
+    (`.wb-dock-tog.on`) is the `--sel` fill — that fill, not the dock, says «armed». The ✓ is
+    `--btn-primary`. No dock carries a line of text, on any surface or width (20.10.2026, owner:
+    «Remove the line. I don't think they add any value.»): a tool's instructions are its ⓘ.
     The sticky close button has no masking shadow: a solid surface patch mismatches the glass.
     The blank Tafel offers no Messen on a phone; map and scaled plans keep it. The mobile
     Ansichten popover dismisses on an outside pointer press, allowing the pressed control to act.
@@ -285,6 +313,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     action** – it means danger/delete only. Amber = warning but not critical; red = danger,
     broken, act now; blue/grey = normal status and in-progress.
   - *Disabled:* `opacity: var(--disabled)` + `cursor: default`. Never inline the number.
+    **A save that cannot save YET is never natively `disabled`** (UX sweep F2, 20.10.2026; the
+    Trupp form since 02.09.): it is `aria-disabled` (the same dimmed look, `.ip-btn` /
+    `.wheelpop-btn` `[aria-disabled='true']`) and its tap calls `lib/pointAtField` on the field it
+    waits for — ring, scroll only if out of view, focus — instead of swallowing the tap. A press
+    already in flight (`busy`) stays natively disabled.
   - *Selected – three roles, one look each (28.09.2026, owner: «all buttons have different
     selected states» — the Trupp form alone wore four: ink outline, blue ring, ink fill, blue
     segment).* (1) A **choice** — a segment, a chip, an option tile, a toggle chip, single or
@@ -302,9 +335,8 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     choice fill (at night it is the primary button's light grey).
   - *Primary (28.09.2026):* the single action of a surface is `--btn-primary` / `--on-btn-primary`,
     14px/800 — never `--blue` (blue is «chosen», `--sel`), never `--ink-fill` directly (at night it
-    is a 1.14:1 patch on the sheet), never green. On the ARMED material (a tool dock, the Trupp
-    marker bar — dark in both themes) the primary is the LIGHT fill: `--on-accent-ink` with
-    `--ink-fill` ink (`.wb-dock-go`). The documented green «go» (`<Button variant="go">`, Atemschutz «Eintritt») is a
+    is a 1.14:1 patch on the sheet), never green. The tool dock's ✓ (`.wb-dock-go`) is THE
+    primary too, since the dock is light by day (20.10.2026). The documented green «go» (`<Button variant="go">`, Atemschutz «Eintritt») is a
     tone, not the primary, and stays. The Trupp marker's action bar (`.wb-pill-acts`) is all
     neutral wash (29.09.2026): no green «Bei den Trupps zeigen», no blue «Position markieren». A
     door to a page wears that page's nav glyph («Bei den Trupps zeigen» = the Trupps stopwatch,
@@ -312,7 +344,10 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     pressed toggle (`--sel`, like `.wb-dock-tog.on`).
   - *Delete (28.09.2026, owner pick A):* a destructive action is THE delete look — `--del-ink`
     (red-strong) text, a `--del-edge` (red 40%) border, the surface it stands on; the bin and the
-    word (a rare delete may be a square bin, still outlined). Red never fills it (`.btn.warn`,
+    word (a rare delete may be a square bin, still outlined). A bin at the end of a ROW — a time
+    block, a Rapport line, a saved Ansicht, an admin record — is the quiet grey glyph instead
+    (21.10.2026, owner, UX sweep F4/A3): the row is the context, and the admin ones ask first, their
+    armed «Ja» wearing the delete look. Red never fills it (`.btn.warn`,
     `.ip-btn-danger`/`.ip-btn.danger`, `.adm-danger-btn`, `.wb-pa-del`,
     the audio player's marker row `.ap-row-del` all wear it; `.btn.warn-solid` is gone). ✕ only
     ever closes or clears — a ✕ that deletes is a bug. The audio player's in-place editors are the
@@ -402,7 +437,7 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     Never a bare native `type=search`, never a framed white box, never a ruled band.
     (6) **ⓘ toggle**: `components/InfoToggle` (`.ui-info`) — the grey 36px chip with a 44px pad;
     OPEN is `--sel-wash` + `--blue-strong` glyph (the «open/armed» look). Never the choice fill,
-    never the ink pill, never `--accent`. The dark tool docks keep DockInfo's on-ink ⓘ.
+    never the ink pill, never `--accent`. The tool docks keep DockInfo's ⓘ in the dock's control fill.
     (7) **No hits**: one line, `.no-hits` (13/500 `--ink-faint`, centred, 20px pad, never italic),
     worded `copy.noHits` «Keine Treffer für «{q}».»; a noun of its own only where it helps («Kein
     Trupp gefunden»).
@@ -427,6 +462,35 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     rows are `--done-opacity`, and the state word is in the row button's accessible name
     (`.sr-only`). The filter menu shows each state as a small row swatch (plain · tint · dimmed),
     the look the row has.
+    (12) **List row, back row** (20.10.2026, reuse audit): every list of things to open is
+    `components/ListRow` – `ListRow` (lead slot · title · sub · end · ›; a button with `onClick`,
+    static without), on a `ListCard` (white card with hairlines, 56px rows, 16px titles) or a
+    `ListCard look="rail"` (a list column beside a document: --tap rows, 14px titles, the one
+    corner), under a `ListGroup` eyebrow. «Where you are» is `on` (the ink pill). The way one level
+    up is `BackRow` «‹ Label», naming where it goes, never a bare «Zurück». Over a reading column it
+    takes that column's own width and sits flush left in it – it hugs its label, so a pane that
+    centres its children would otherwise centre the WORD and leave the chevron adrift from the
+    title under it (owner, review 7; `Checklists.module` · `.cl-doc-back`). The look is global
+    (13-incident: `.list-row`, `.list-card`, `.list-group`, `.back-row`); a surface fills the lead
+    slot and places them, never a `.row` of its own. A row's extra line under its text (a round's
+    progress bar) goes in as `children`. On it: the library, the Einsatz rail, the devices, the
+    Karte's lists (search, Pläne, In der Nähe, Besuche, the device sheet) and every Objektbesuche
+    list. What a surface may still add is meaning, compounded with `.list-row` (the hydrant's blue
+    tint, a plan's --tap-lg height, a quiet fact line in the visit card) – never another size.
+    A title hyphenates ONLY where that saves a line (owner 20.10.2026, «Trink-wasser»): whole words
+    when they take as many lines, `hyphens: auto` when hyphenating is shorter or a word is wider
+    than the line on its own. CSS cannot say this, so `lib/smartHyphens` (a ref on the text: the
+    row title, the reader's chapter neighbours) lays it out both ways; never `hyphens: auto` in
+    the CSS of a title.
+    (13) **Tick row** (20.10.2026, UX sweep F7, owner: «shared primitive … the blue, not green»):
+    every item that is TICKED OFF — a Checkliste item, a Rapport Partnerorganisation or «Formular
+    & Link», a Tafel row's «erledigt» — is `components/TickRow`: box + label ONE button,
+    `role="checkbox"` + `aria-checked`, --tap tall; unticked an empty framed box (never a «−»),
+    ticked the choice fill (`--sel` box, `--on-sel` ✓), the row itself unwashed. Never a green
+    tick, never a box of a surface's own size. What being done MEANS stays the surface's (the
+    Checkliste fades the text, the Tafel strikes the row through). Choosing ITEMS as the answer
+    to a question (the Trupp's Ausrüstung) is a `Chip`, not a tick.
+    `controlDebt.test.ts` is the ratchet for raw toggles, selects and search fields.
   - *Colour of a mention is not a state* (29.09.2026, owner pick A): every recognised word in the
     Verlauf – vehicle, partner, Trupp, person, material, group – is **bold `--ink`**
     (`.jr-link`), and in the composer one blue wash / one blue suggestion tint
@@ -451,6 +515,12 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     `HOLD_MS`) share it, so every still hold answers alike. The holds that are not «reveal» keep
     their own documented numbers: `useHoldToDrag` arms a drag at 180 ms, `nodeHold.ts` arms at
     250 ms and fires destructively at 825 ms. Reuse a constant; don't invent a third window.
+  - *Meaning never lives in a `title` or a colour alone* (UX sweep F6, 20.10.2026): a tablet
+    never shows a `title`. Where a control's visible word does not say what matters
+    («Bereitstellen» does NOT start the contact clock, the Schichten head's «·», the Zeitplan's
+    Deckung key) it is `data-holdexplain` with the sentence in its `aria-label`, its word first,
+    and no `title`; a state (a Trupp tab's Fällig / Überfällig) carries a glyph and its word
+    (`.sr-only`) besides its tint.
   - *Buzz on arm, and only on arm* – `buzz()` from `src/lib/haptics.ts`, always 12 ms, at the
     moment a held gesture becomes something (tooltip appears, drag latches, chooser opens, magnet
     dwell engages). Never on taps, successes or errors; never a pattern or a second duration
@@ -463,6 +533,14 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     keyframe: it drifts against the latch and, under `prefers-reduced-motion`, paints full on the
     first frame while the timer still runs. The ring haloes the glyph – never strokes across a
     label, and nothing may reflow under the finger mid-hold.
+  - *A one-finger zoom gesture works unless the armed tool uses it* (20./21.10.2026, owner: a
+    double tap is «a map function … definitely not for finishing something»; tools «have
+    precedence», the map zooms «if the underlying tool doesn't interfere»). Same on the Karte
+    (`MapView`, MapLibre's handlers) and a Plan (`useBoardGestures`, `lib/tapDragZoom`):
+    Auswahl — double tap and tap-and-drag zoom. A drag tool (Freihand, the Mehrfach-Rahmen) —
+    double tap zooms (its taps mean nothing), tap-and-drag is off (the drag draws). A tap tool
+    (Punkte, Messen, Hinzufügen, Notiz, Trupp, Koordinaten, Kreis) — neither; its taps are its own.
+    Pinch always navigates. Nothing finishes on a double tap — ✓ finishes a Punkte Linie / Fläche.
   - *Pressed state is the `--press` wash* – `background-image: linear-gradient(var(--press),
     var(--press))` on `:active:not(:disabled)`, so it composes over any background colour.
     **Nothing moves**: no scale, no translate – motion on press reads as lag under a glove.

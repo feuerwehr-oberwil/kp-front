@@ -147,6 +147,16 @@ describe('Journal · the Pendenzen block', () => {
     expect(onReminderDone).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
   })
 
+  // A session with neither hand (a viewer, a link) reads the block: the ring and the text are
+  // read-outs, not dead buttons (RBAC audit §4, 22.10.2026).
+  it('without handlers the ring and the text are read-outs, not buttons', () => {
+    setup({ openReminders: open })
+    const row = document.querySelector('.jr-pinned-row')!
+    expect(row.querySelector('.jr-rem')!.tagName).toBe('SPAN')
+    expect(row.querySelector('.jr-pinned-text')!.tagName).toBe('SPAN')
+    expect(row.querySelector('button:disabled')).toBeNull()
+  })
+
   // ⚠️ The time column says WHEN IT WAS RAISED — an Auftrag has no Fälligkeit, because nobody
   // checks in on a Schadenplatz. One tap swaps the WHOLE column; a half-clock/half-age column
   // cannot be read.

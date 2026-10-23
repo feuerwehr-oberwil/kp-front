@@ -17,6 +17,7 @@ import type { Catalogue, CatalogueObject } from '../../objectVisits/types'
 import { Head, Section } from './common'
 import { fmtDate, fmtDistance, fmtWhen, plural, recentPlaceVisits, summaryTitle, syncLabel, visitTitle } from './ovFormat'
 import { useOv } from './ovContext'
+import { ListCard, ListRow } from '../ListRow'
 import s from './ObjectVisits.module.css'
 
 export function Overview() {
@@ -45,17 +46,15 @@ export function Overview() {
   }, [])
   const groups = visitSchedule(catalogue?.lists ?? [], known, today)
   const listRows = (lists: NonNullable<typeof catalogue>['lists']) => (
-    <div className={s.card}>{lists.map(l => {
+    <ListCard>{lists.map(l => {
       const p = listProgress(l, known)
       const sub = [plural(l.objectIds.length, C.listObjectsOne, C.listObjectsMany),
         l.scheduledOn ? fillTemplate(C.listOn, { date: fmtDate(l.scheduledOn) }) : l.closesAt ? fillTemplate(C.listUntil, { date: fmtDate(l.closesAt) }) : null,
         l.archived ? C.listArchived : null].filter(Boolean).join(' · ')
-      return <button key={l.ref} type="button" className={s.row} onClick={() => ov.go({ kind: 'list', ref: l.ref })}>
-        <span className={s.rowMain}><span className={s.rowTitle}>{l.title}</span><span className={s.rowSub}>{sub}</span>
-          <span className={s.bar} aria-hidden><i style={{ width: `${p.total ? Math.round((p.done / p.total) * 100) : 0}%` }} /></span>
-        </span><span className={s.mono}>{p.done}/{p.total}</span><Icon id="chevron" className={s.chev} />
-      </button>
-    })}</div>
+      return <ListRow key={l.ref} title={l.title} sub={sub} end={`${p.done}/${p.total}`} onClick={() => ov.go({ kind: 'list', ref: l.ref })}>
+        <span className={s.bar} aria-hidden><i style={{ width: `${p.total ? Math.round((p.done / p.total) * 100) : 0}%` }} /></span>
+      </ListRow>
+    })}</ListCard>
   )
 
   const q = searchQuery(query)
@@ -85,19 +84,8 @@ export function Overview() {
     const seen = catalogue ? lastSeen(catalogue, o) : null
     const sub = [o.address, seen ? fillTemplate(C.lastVisit, { date: fmtDate(seen.at) }) : C.neverVisited, extra].filter(Boolean).join(' · ')
     const door = ov.canCapture || !!o.lastVisit
-    const inner = (
-      <>
-        <span className={s.rowMain}>
-          <span className={s.rowTitle}>{o.name}</span>
-          <span className={s.rowSub}>{sub}</span>
-        </span>
-        {door && <Icon id="chevron" className={s.chev} />}
-      </>
-    )
     // a door the role cannot go through is not drawn: a reader's never-visited object is a read-out
-    return door
-      ? <button key={o.id} type="button" className={s.row} onClick={() => openObject(o)}>{inner}</button>
-      : <div key={o.id} className={s.rowStatic}>{inner}</div>
+    return <ListRow key={o.id} title={o.name} sub={sub} onClick={door ? () => openObject(o) : undefined} />
   }
 
   const draftRow = (v: LocalVisit) => {
@@ -105,14 +93,9 @@ export function Overview() {
     const label = syncLabel(st.sync)
     const tone = st.sync.kind === 'saved' ? 'ip-badge-ok' : 'ip-badge-todo'
     return (
-      <button key={v.doc.id} type="button" className={s.row} onClick={() => ov.go({ kind: 'visit', id: v.doc.id })}>
-        <span className={s.dot} aria-hidden />
-        <span className={s.rowMain}>
-          <span className={s.rowTitle}>{visitTitle(v.doc)}</span>
-          <span className={s.rowSub}>{[v.doc.object?.address, fmtWhen(v.savedAt)].filter(Boolean).join(' · ')}</span>
-        </span>
-        <span className={`ip-badge ${tone}`}>{label}</span>
-      </button>
+      <ListRow key={v.doc.id} lead={<span className={s.dot} aria-hidden />} title={visitTitle(v.doc)}
+        sub={[v.doc.object?.address, fmtWhen(v.savedAt)].filter(Boolean).join(' · ')}
+        end={<span className={`ip-badge ${tone}`}>{label}</span>} onClick={() => ov.go({ kind: 'visit', id: v.doc.id })} />
     )
   }
 
@@ -148,48 +131,38 @@ export function Overview() {
           {/* opened from inside an Einsatz: its object first — the one whose plans are on the board */}
           {suggested && (
             <Section title={C.suggestedHead}>
-              <div className={s.card}>{objectRow(suggested)}</div>
+              <ListCard>{objectRow(suggested)}</ListCard>
             </Section>
           )}
 
           {drafts.length + serverDrafts.length > 0 && (
             <Section title={C.myDrafts} count={drafts.length + serverDrafts.length}>
-              <div className={s.card}>
+              <ListCard>
                 {drafts.map(draftRow)}
                 {serverDrafts.map((v) => (
-                  <button key={v.id} type="button" className={s.row} onClick={() => ov.go({ kind: 'visit', id: v.id })}>
-                    <span className={s.dot} aria-hidden />
-                    <span className={s.rowMain}>
-                      <span className={s.rowTitle}>{summaryTitle(v)}</span>
-                      <span className={s.rowSub}>{fmtWhen(v.updatedAt ?? v.visitedAt)}</span>
-                    </span>
-                    <span className="ip-badge ip-badge-arch">{fillTemplate(C.sync.remote, { n: v.revision })}</span>
-                  </button>
+                  <ListRow key={v.id} lead={<span className={s.dot} aria-hidden />} title={summaryTitle(v)} sub={fmtWhen(v.updatedAt ?? v.visitedAt)}
+                    end={<span className="ip-badge ip-badge-arch">{fillTemplate(C.sync.remote, { n: v.revision })}</span>}
+                    onClick={() => ov.go({ kind: 'visit', id: v.id })} />
                 ))}
-              </div>
+              </ListCard>
             </Section>
           )}
           {ov.cat?.state === 'missing' && drafts.length > 0 && <p className={s.secNote}>{C.notPreparedDrafts}</p>}
           {unsent.length > 0 && (
             <Section title={C.unsent} count={unsent.length}>
-              <div className={s.card}>{unsent.map(draftRow)}</div>
+              <ListCard>{unsent.map(draftRow)}</ListCard>
             </Section>
           )}
 
           {placeVisits.length > 0 && (
             <Section title={C.placeRecent}>
-              <div className={s.card}>
+              <ListCard>
                 {placeVisits.map((v) => (
-                  <button key={v.id} type="button" className={s.row} onClick={() => ov.go({ kind: 'visit', id: v.id })}>
-                    <Icon id="pin" className={s.rowGlyph} />
-                    <span className={s.rowMain}>
-                      <span className={s.rowTitle}>{v.label}</span>
-                      <span className={s.rowSub}>{[fmtDate(v.visitedAt), v.checklist ?? C.noChecklist, v.people].filter(Boolean).join(' · ')}</span>
-                    </span>
-                    <Icon id="chevron" className={s.chev} />
-                  </button>
+                  <ListRow key={v.id} lead={<Icon id="pin" />} title={v.label}
+                    sub={[fmtDate(v.visitedAt), v.checklist ?? C.noChecklist, v.people].filter(Boolean).join(' · ')}
+                    onClick={() => ov.go({ kind: 'visit', id: v.id })} />
                 ))}
-              </div>
+              </ListCard>
             </Section>
           )}
 
@@ -203,10 +176,10 @@ export function Overview() {
               {catalogue.objects.length === 0 && drafts.length === 0 && <p className={s.secNote}>{C.intro}</p>}
               <SearchField value={query} onChange={setQuery} placeholder={C.searchPlaceholder} aria-label={C.searchPlaceholder} enterKeyHint="search" />
               {q && (hits.length
-                ? <div className={s.card}>{hits.map((o) => objectRow(o))}</div>
+                ? <ListCard>{hits.map((o) => objectRow(o))}</ListCard>
                 : <p className="no-hits">{fillTemplate(appConfig.copy.noHits, { q: query.trim() })}</p>)}
               {!q && (
-                <div className={s.card}>
+                <ListCard>
                   {near.state === 'done'
                     ? (() => {
                       const list = nearestObjects(catalogue, near.at)
@@ -215,16 +188,10 @@ export function Overview() {
                         : <p className="no-hits">{C.nearbyNone}</p>
                     })()
                     : (
-                      <button type="button" className={s.row} onClick={locate} disabled={near.state === 'locating'}>
-                        <Icon id="locate" className={s.rowGlyph} />
-                        <span className={s.rowMain}>
-                          <span className={s.rowTitle}>{C.nearby}</span>
-                          <span className={s.rowSub}>{near.state === 'locating' ? C.nearbyLocating : near.state === 'failed' ? C.nearbyFailed : C.nearbyUse}</span>
-                        </span>
-                        <Icon id="chevron" className={s.chev} />
-                      </button>
+                      <ListRow lead={<Icon id="locate" />} title={C.nearby} onClick={locate} disabled={near.state === 'locating'}
+                        sub={near.state === 'locating' ? C.nearbyLocating : near.state === 'failed' ? C.nearbyFailed : C.nearbyUse} />
                     )}
-                </div>
+                </ListCard>
               )}
             </Section>
           )}

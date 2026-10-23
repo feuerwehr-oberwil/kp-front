@@ -20,8 +20,10 @@ THE FLOW (OIDC authorization code + PKCE, confidential client)
 short-lived signed cookie scoped to this path (no table, no migration), and redirects to the
 tenant's authorize endpoint. Microsoft redirects back to ``…/callback``, which checks the
 state against that cookie, redeems the code with the verifier and the client secret, validates
-the ID token (RS256 against the tenant's JWKS, audience, issuer, nonce), maps ``oid`` or
-``preferred_username`` through the allow-list, and sets the session. Every refusal redirects
+the ID token (RS256 against the tenant's JWKS, audience, issuer, nonce), maps ``oid`` through
+the allow-list, and sets the session. Only the object id: a sign-in name (``preferred_username``)
+can be renamed and handed to somebody else in the tenant, so it is no identity to grant an
+account on (RBAC audit, 22.10.2026). Every refusal redirects
 to ``/?msLogin=<reason>`` so the login screen can say what happened — never a JSON page.
 
 Setup (what to register in Entra): docs/microsoft-login.md.
@@ -33,6 +35,7 @@ import base64
 import hashlib
 import logging
 import secrets
+import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 from urllib.parse import urlencode
@@ -78,11 +81,12 @@ def enabled() -> bool:
 
 
 def parse_accounts(raw: str) -> dict[str, str]:
-    """``identity=username`` pairs, separated by commas or semicolons → {identity: username}.
+    """``objectid=username`` pairs, separated by commas or semicolons → {object id: username}.
 
-    The identity is an Entra object id (GUID, the stable one) or a UPN / sign-in name
-    («anna.muster@feuerwehr.ch»); both are compared case-insensitively. Raises ``ValueError``
-    on a malformed entry, which credentials.validate turns into the admin's error line.
+    The identity is the person's Entra object id (a GUID), normalised to lower case. A sign-in
+    name («anna.muster@feuerwehr.ch») is refused like any malformed entry: ``ValueError``, which
+    credentials.validate turns into the admin's error line — and which keeps the button hidden
+    while such a list is configured, rather than leaving a line that silently lets nobody in.
     """
     out: dict[str, str] = {}
     for chunk in raw.replace(";", ",").split(","):
@@ -92,7 +96,7 @@ def parse_accounts(raw: str) -> dict[str, str]:
         identity, sep, username = (part.strip() for part in entry.partition("="))
         if not sep or not identity or not username:
             raise ValueError(entry)
-        out[identity.lower()] = username
+        out[str(uuid.UUID(identity))] = username  # ValueError for anything but a GUID
     return out
 
 
@@ -219,13 +223,12 @@ async def validate_id_token(id_token: str, nonce: str) -> dict[str, Any]:
 
 
 def username_for(claims: dict[str, Any]) -> str | None:
-    """The allow-listed username for this identity — by object id first, then sign-in name."""
-    accounts = _accounts()
-    for claim in ("oid", "preferred_username"):
-        value = claims.get(claim)
-        if isinstance(value, str) and value.strip().lower() in accounts:
-            return accounts[value.strip().lower()]
-    return None
+    """The allow-listed username for this identity — by its object id (``oid``) only."""
+    try:
+        oid = str(uuid.UUID(str(claims.get("oid", ""))))
+    except ValueError:
+        return None
+    return _accounts().get(oid)
 
 
 @router.get("/callback")

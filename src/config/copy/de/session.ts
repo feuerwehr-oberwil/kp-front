@@ -19,7 +19,7 @@ export const sessionCopy = {
         'Objektpläne und Rapport öffnen',
       ],
       cta: 'Los geht’s',
-      meta: 'Keine echten Einsatzdaten · Neue Einsätze sind gesperrt',
+      meta: 'Keine echten Einsatzdaten – neue Einsätze sind gesperrt',
     },
   },
   login: {
@@ -108,7 +108,7 @@ export const sessionCopy = {
     hintApply: 'Ein Tipp genügt – die App lädt kurz neu.',
     apply: 'Jetzt aktualisieren',
     applying: 'Wird aktualisiert …',
-    dismiss: 'OK',
+    dismiss: 'Ausblenden',
     updated: 'Aktualisiert – {v}',
   },
   // "Als App installieren" nudge + guide (InstallBanner/InstallGuide). Only in a plain
@@ -119,7 +119,9 @@ export const sessionCopy = {
     bannerTitle: 'KP Front als App installieren',
     bannerHint: 'Offline-fähig, Vollbild, eigenes Symbol.',
     bannerAction: 'Anleitung',
-    dismiss: 'Später',
+    // the ✕'s name, like every plain dismiss in the Meldeleiste (20.10.2026, S10): it hides the
+    // nudge for good on this device, so «Später» promised a «later» that never came
+    dismiss: 'Ausblenden',
     title: 'Als App installieren',
     why: 'Installiert läuft KP Front wie eine App: offline verfügbar am Einsatzort, im Vollbild ohne Browser-Leiste, mit eigenem Symbol auf dem Home-Bildschirm.',
     nativeButton: 'Jetzt installieren',

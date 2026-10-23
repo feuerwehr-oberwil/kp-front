@@ -21,6 +21,9 @@ import { getMeldeleisteHost, subscribeMeldeleisteHost } from '../lib/meldeleiste
 import type { GeorefPair, PlanPt } from '../lib/georef'
 import { InfoToggle } from './InfoToggle'
 import { Button } from './Button'
+import { Segmented } from './Segmented'
+import { Slider } from './Slider'
+import { Stepper } from './Stepper'
 import s from './GeorefMode.module.css'
 
 /** The loupe's magnification over the plan as it is currently displayed. */
@@ -691,20 +694,21 @@ function proposalStatus(mode: GeorefModeState): { head: string; sub: string; war
 }
 
 /** The Karte↔Modul opacity slider of the coverage view, shared by the plain check and the
- *  proposal review — one control, one wording, whatever put the sheet on the map. */
+ *  proposal review — one control, one wording, whatever put the sheet on the map. The app's own
+ *  `Slider` (20.10.2026, UX sweep M3), the one the Ebenen' Deckkraft wears. */
 function CheckBlend({ mode }: { mode: GeorefModeState }) {
   const C = appConfig.copy.whiteboard.georef
+  const pct = Math.round(mode.checkOpacity * 100)
   return (
-    <label className={s.checkBlend}>
-      <span>{C.checkMap}</span>
-      <input
-        type="range" min={0} max={100} step={5}
-        value={Math.round(mode.checkOpacity * 100)}
-        aria-label={C.checkOpacity}
-        onChange={(e) => georefDispatch({ type: 'checkOpacity', opacity: Number(e.currentTarget.value) / 100 })}
+    <div className={s.checkBlend}>
+      <span aria-hidden>{C.checkMap}</span>
+      <Slider
+        value={pct} min={0} max={100} step={5}
+        ariaLabel={C.checkOpacity} valueText={`${pct} %`}
+        onChange={(v) => georefDispatch({ type: 'checkOpacity', opacity: v / 100 })}
       />
-      <span>{C.checkPlan}</span>
-    </label>
+      <span aria-hidden>{C.checkPlan}</span>
+    </div>
   )
 }
 
@@ -713,10 +717,15 @@ function CheckBlend({ mode }: { mode: GeorefModeState }) {
  *
  * Two levels, following the approved mock (mockups/auto-alignment/a.html): the accept row
  * (blend · Anpassen · Übernehmen · Verwerfen), and behind «Anpassen» the transform chrome —
- * Plangrösse as a bare-± stepper, step undo, «Vorschlag wiederherstellen», the ✥/⟳ grips in
+ * Plangrösse as the shared Stepper, step undo, «Vorschlag wiederherstellen», the ✥/⟳ grips in
  * the SelectionBar's arm grammar, and «Fertig» back to the accept row. Nothing here persists;
  * «Übernehmen» saves the pairs and raises the confirm-with-undo toast.
  */
+/** Plangrösse's range in % of the suggestion: a correction of a fit, not a re-draw – and a typed
+ *  «5» must not shrink the sheet to a speck */
+const PROPOSAL_SIZE_MIN = 25
+const PROPOSAL_SIZE_MAX = 400
+
 function GeorefProposalActions({ mode }: { mode: GeorefModeState }) {
   const C = appConfig.copy.whiteboard.georef
   const pct = georefProposalScalePct(mode)
@@ -743,18 +752,18 @@ function GeorefProposalActions({ mode }: { mode: GeorefModeState }) {
       </>
     )
   }
-  const step = (d: 1 | -1) => {
-    const factor = (pct + d) / pct
-    if (factor > 0 && Number.isFinite(factor)) georefDispatch({ type: 'proposalNudge', nudge: { scaleFactor: factor }, checkpoint: true })
+  const resize = (to: number) => {
+    const factor = to / pct
+    if (factor > 0 && factor !== 1 && Number.isFinite(factor)) georefDispatch({ type: 'proposalNudge', nudge: { scaleFactor: factor }, checkpoint: true })
   }
   return (
     <>
       <CheckBlend mode={mode} />
+      {/* the shared Stepper: hold ± to repeat, tap the value to type a size */}
       <span className={s.sizeStep}>
-        <span className={s.sizeLabel}>{C.planSize}</span>
-        <button className={s.stepBtn} aria-label={C.sizeSmaller} onClick={() => step(-1)}><Icon id="minus" /></button>
-        <output className={s.sizeVal}>{pct} %</output>
-        <button className={s.stepBtn} aria-label={C.sizeBigger} onClick={() => step(1)}><Icon id="plus" /></button>
+        <span className={s.sizeLabel} aria-hidden>{C.planSize}</span>
+        <Stepper value={pct} min={PROPOSAL_SIZE_MIN} max={PROPOSAL_SIZE_MAX} format={(v) => `${v} %`}
+          ariaLabel={C.planSize} onChange={resize} />
       </span>
       <button className={s.stepBtn} aria-label={C.undoNudge} title={C.undoNudge} disabled={!mode.undoStack.length}
         onClick={() => georefDispatch({ type: 'proposalUndo' })}><Icon id="undo" /></button>
@@ -1003,17 +1012,15 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
       )}
       {/* On a phone the two surfaces are part of this one task, so their switch belongs inside
           its card. Never disabled — free order means there is no wrong surface to be on. */}
-      {!mode.check && <div className={s.surfaceSwitch} role="group" aria-label={C.title}>
-        <button type="button" className={shownSurface === 'map' ? s.surfaceOn : ''}
-          aria-label={appConfig.copy.navRail.map} aria-pressed={shownSurface === 'map'}
-          onClick={() => georefDispatch({ type: 'goMap' })}>
-          <Icon id="map" />{appConfig.copy.navRail.map}<span>{georefSideCount(mode, 'map')}</span>
-        </button>
-        <button type="button" className={shownSurface === 'plan' ? s.surfaceOn : ''}
-          aria-label={planLabel ?? C.checkPlan} aria-pressed={shownSurface === 'plan'}
-          onClick={() => georefDispatch({ type: 'goPlan' })}>
-          <Icon id="doc" />{planLabel ?? C.checkPlan}<span>{georefSideCount(mode, 'plan')}</span>
-        </button>
+      {!mode.check && <div className={s.surfaceSwitch}>
+        {/* the shared Segmented, in its CHOICE fill rather than `tabs`: the ink pill is the primary
+            button's black, and that button stands right under it (see .surfaceSwitch) */}
+        <Segmented ariaLabel={C.title} value={shownSurface}
+          onChange={(v) => georefDispatch({ type: v === 'map' ? 'goMap' : 'goPlan' })}
+          options={[
+            { value: 'map', label: <><Icon id="map" />{appConfig.copy.navRail.map}<span className={s.surfaceCount} aria-hidden>{georefSideCount(mode, 'map')}</span></> },
+            { value: 'plan', label: <><Icon id="doc" />{planLabel ?? C.checkPlan}<span className={s.surfaceCount} aria-hidden>{georefSideCount(mode, 'plan')}</span></> },
+          ]} />
       </div>}
       {/* ── the one big action ── «Punkt setzen» places at the reticle on whichever surface is
           up — Karte or Modul, in any order; the pairing is the reducer's job, not the button's.

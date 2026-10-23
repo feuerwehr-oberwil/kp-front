@@ -47,10 +47,12 @@ export function useAtemschutzAlarm({
    *  same Einsatz crosses into überfällig within a second or two of every other one, and each
    *  of them used to append its own «Überfällig» line — which is why the 03.09. Einsatz has
    *  the same alarm twice, four seconds apart, for a Trupp nothing had changed about. */
-  logAlarm: (id: string, status: Trupp['status'], turnus: string) => void
+  /** Absent on a session that does not write the Trupps (IncidentWorkspace · alarmLog): it rings
+   *  and notifies all the same, and records nothing. */
+  logAlarm?: (id: string, status: Trupp['status'], turnus: string) => void
   /** …and the line that says the alarm is over. Same turnus, same idempotency. */
   /** `seen` is the Trupp exactly as THIS evaluation saw it — restart markers included (F1, 26.09.). */
-  logAlarmCleared: (id: string, turnus: string, seen?: Trupp) => void
+  logAlarmCleared?: (id: string, turnus: string, seen?: Trupp) => void
   /** per-incident Funkkontakt-Intervall (min) + Nachfrist (sec); default = appConfig doctrine */
   intervalMin?: number
   graceSec?: number
@@ -128,7 +130,7 @@ export function useAtemschutzAlarm({
       const turnus = alarmedFor.current.get(t.id)
       if (turnus === undefined) return
       alarmedFor.current.delete(t.id)
-      if (!demo) logAlarmCleared(t.id, turnus, t)
+      if (!demo) logAlarmCleared?.(t.id, turnus, t)
     }
     for (const t of trupps) {
       const l = deriveTruppLive(t, now, intervalMin, graceSec)
@@ -179,7 +181,7 @@ export function useAtemschutzAlarm({
       const turnus = t.lastContactTime ?? t.entryTime ?? ''
       if (!demo && justCrossed && !lowPressure && !notfall && alarmedFor.current.get(t.id) !== turnus) {
         alarmedFor.current.set(t.id, turnus)
-        logAlarm(t.id, 'ueberfaellig', turnus) // crossed into overdue → record once PER TURNUS
+        logAlarm?.(t.id, 'ueberfaellig', turnus) // crossed into overdue → record once PER TURNUS
       }
       // …and once it is no longer tier 2, the alarm this session opened is over. Placed AFTER
       // the crossing so a tier that goes 2 → 2 in one pass cannot open and close in the same
