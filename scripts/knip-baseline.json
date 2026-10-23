@@ -1,6 +1,6 @@
 {
   "_comment": "Findings of `pnpm knip` (scripts/knip-ratchet.mjs, config knip.json) per kind. CI fails when one goes up. Lower with --update; raise only by hand, in its own commit, with the reason.",
   "counts": {
-    "exports": 4
+    "exports": 3
   }
 }

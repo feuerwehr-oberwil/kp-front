@@ -6,9 +6,10 @@
 // the nag lib/trouble exists to prevent. Combined, one stray tap on a tablet loses two typed
 // sentences AND guarantees we never ask again.
 //
-// So the text outlives the sheet. It is cleared only once it has actually gone somewhere —
-// sent, mailed, or copied — never when the sheet merely closes. The cooldown keeps its own
-// rule: closing still counts as asked, it just no longer costs the operator their words.
+// So the text outlives the sheet – also after «Senden»: opening a mail client or an issue form is
+// a handoff, not a delivery (FeedbackSheet · go), so the words stay until they are written over.
+// The cooldown keeps its own rule: closing still counts as asked, it just no longer costs the
+// operator their words.
 //
 // localStorage rather than IndexedDB, the same "tiny flags" carve-out lib/trouble takes: a few
 // hundred bytes of throwaway text written on every keystroke, with no reason to outlive a
@@ -38,9 +39,4 @@ export function writeDraft(text: string): void {
     if (text) localStorage.setItem(KEY, text.slice(0, MAX_MESSAGE))
     else localStorage.removeItem(KEY)
   } catch { /* quota or private mode — a lost draft must never break the sheet */ }
-}
-
-/** The text has left the device (sent / mailed / copied). Only then does it stop being a draft. */
-export function clearDraft(): void {
-  try { localStorage.removeItem(KEY) } catch { /* best-effort */ }
 }
