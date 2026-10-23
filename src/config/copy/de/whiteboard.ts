@@ -228,7 +228,7 @@ export const whiteboardCopy = {
       // Die Zahl bekommt ihren Satz. «⌀ 1.4 m» allein sagt nicht, ob man weitermachen soll.
       lampGoodBody: 'Genau genug, um Symbole zwischen Plan und Karte zu spiegeln.',
       addThird: 'Dritten Punkt setzen',
-      // ── übernommene automatische Ausrichtung (georef · isAutoGeoref) ──────────────────────
+      // ── übernommene automatische Ausrichtung (kind 'auto' pairs, lib/georef) ──────────────
       // Die zwei Blattecken-Paare sind synthetisch: die Flächen sprechen die HERKUNFT aus,
       // statt Punkte zu zählen, die niemand gesetzt hat («2 Paare» wirkte wie erfunden).
       lampAutoHead: 'Automatisch ausgerichtet',

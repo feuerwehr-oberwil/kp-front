@@ -42,7 +42,11 @@ check` against the models); image, secrets, e2e, visual and perf stay CI's.
   lint` fails when a rule's count goes up, or down without `pnpm lint:update`), the style-debt
   baseline (`src/styles/styleDebt.baseline.json`,
   [`ui-conventions.md`](../ui-conventions.md#tokens-the-cascade-and-the-scales); a count that went
-  down is only a console note there, and in `controlDebt.test.ts`) and the vitest
+  down is only a console note there, and in `controlDebt.test.ts`), the dead-code findings
+  (`pnpm knip`: unused files, exports, types and dependencies per kind against
+  `scripts/knip-baseline.json`, config `knip.json`; an export used only in its own file does not
+  count, a count that went down is a note, `node scripts/knip-ratchet.mjs --update` lowers it)
+  and the vitest
   coverage floor are lowered (the floor raised) when you fix something and never moved the other
   way to pass. The gzipped entry, App, maplibre, pdf-worker and CSS chunks have a +5 % budget
   against `scripts/bundle-baseline.json` (`scripts/check-bundle-size.mjs`, CI); a deliberate

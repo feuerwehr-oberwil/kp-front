@@ -56,6 +56,10 @@ jobs:
       - name: Lint (eslint, per-rule ratchet)
         run: pnpm lint
 
+      # Dead code held to scripts/knip-baseline.json (scripts/knip-ratchet.mjs, config knip.json).
+      - name: Dead code (knip ratchet)
+        run: pnpm knip
+
       # The Playwright specs are Node code outside src/ — their own tsconfig (e2e/README.md).
       - name: Type-check e2e (tsc -p tsconfig.e2e.json)
         run: pnpm exec tsc -p tsconfig.e2e.json
