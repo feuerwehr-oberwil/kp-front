@@ -1511,7 +1511,7 @@ export function AtemschutzView({
         {canEdit && !focusMode && (
           <button className={s.newBtn} data-fold={HEAD_FOLD.newTrupp} onClick={() => openForm('create')} aria-label={az.newTrupp} title={az.newTrupp}>
             {/* the full word where it fits, the short one where the head's ladder has run out of
-                everything else — never a bare «+» (AGENTS.md: every button on the ASÜ board has a word) */}
+                everything else — never a bare «+» (every button on the ASÜ board has a word) */}
             <Icon id="plus-bold" /><span className="fold-long">{az.newTrupp}</span><span className="fold-short">{az.newTruppShort}</span>
           </button>
         )}
@@ -3090,7 +3090,7 @@ function TruppForm({
   stack?: boolean
   /** The phone board's frame (24.09.2026, D1 ⑥): a BOTTOM SHEET instead of the full-screen form,
    *  so the due clocks stay in view above it. With it come the grab bar and push-down-to-close —
-   *  it is a real bottom sheet now (AGENTS.md · overlays), and closing it that way is «not now»:
+   *  it is a real bottom sheet now (docs/ui-conventions.md · Overlays), and closing it that way is «not now»:
    *  every entry is kept (draftKeep) until «Abbrechen» or the save. */
   sheet?: boolean
   /** the due / overdue Trupps pinned ABOVE the sheet (AtemschutzView · pinnedRows), or nothing */

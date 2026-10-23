@@ -1890,7 +1890,7 @@ p.adm-sys-path { margin: 3px 0 0; }
    admin-scoped raise at the end of this file. */
 .adm-menu-item {
   display: flex; flex-direction: column; gap: 2px; width: 100%;
-  /* `--r-ctl`, not `--r-sm`: a menu row is a row, not a button (AGENTS.md · Buttons), and this
+  /* `--r-ctl`, not `--r-sm`: a menu row is a row, not a button (docs/ui-conventions.md · Buttons), and this
      is the same radius/hover/press every menu row in the app now carries — 13-incident.css ·
      «ONE menu row». The admin ships its own stylesheet, so the rules are repeated here rather
      than inherited. */

@@ -4609,7 +4609,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       {truppPick && (
         /* ⚠️ Modal → lib/overlays (focus trap + restore, scroll-lock, Esc, backdrop dismissal).
            The hand-rolled scrim it replaces had none of those, and the board's own Escape handler
-           fired underneath it. The AGENTS.md carve-out is for the NON-modal tool docks. */
+           fired underneath it. The hand-rolled carve-out (docs/ui-conventions.md · Overlays) is for the NON-modal tool docks. */
         <Overlay open onClose={() => setTruppPick(null)} className="wb-trupp-pick ui-dialog" ariaLabel={appConfig.copy.whiteboard.selectTrupp}>
           <div className="wb-trupp-pick-head">{appConfig.copy.whiteboard.selectTrupp}</div>
           {/* twin of the Lage picker (IncidentWorkspace): a Trupp already on THIS plan is

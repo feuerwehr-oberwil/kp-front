@@ -780,7 +780,7 @@ export default function CaptureApp() {
   // printed on the rapport as a fact. What is worth saying at this moment is where the real
   // rapport comes from, so that is what the modal says. It stays a modal because it also makes
   // the PDF an explicit two-step.
-  // ⚠️ It goes through `src/lib/overlays` like every other modal in the app (AGENTS.md), so the
+  // ⚠️ It goes through `src/lib/overlays` like every other modal in the app (docs/ui-conventions.md · Overlays), so the
   // focus trap, Esc, the backdrop dismissal, the ARIA and the scroll-lock are the ONE
   // implementation rather than this file's own. It used to be a hand-rolled `.cv-modal-ovl` with
   // a hand-rolled body-overflow freeze: no focus trap (Tab walked the page behind it), no Esc,
@@ -1081,7 +1081,7 @@ export default function CaptureApp() {
                   A CHOICE, not a yes/no switch (28.09.2026): it is the «none of these» answer to
                   the list under it and goes away with the first line, so it keeps ONE text and
                   shows «picked» by its fill – it used to grow a «✓» into its label, a chip whose
-                  words flipped (AGENTS.md · one control per kind of question). */}
+                  words flipped (docs/ui-conventions.md · Editor sheets: one control per kind of question). */}
               {lines.length === 0 && (
                 <button type="button" className={`cv-none${rm?.mittelConfirmedNone ? ' on' : ''}`} disabled={busy}
                   aria-pressed={!!rm?.mittelConfirmedNone}

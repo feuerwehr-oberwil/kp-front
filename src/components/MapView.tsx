@@ -1038,7 +1038,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   //
   // It now wears the picture every other attachment on this surface wears — «Ring lädt, dann
   // schnappt es» — and the whole contract comes with it: **not armed = nothing attaches, not
-  // even on release** (AGENTS.md · touch vocabulary). The aim is reported to the drop through
+  // even on release** (docs/ui-conventions.md · Touch vocabulary). The aim is reported to the drop through
   // `onMarkerDragEnd`, so the writer never re-guesses what the ring promised.
   //
   // ⚠️ `TEAM_JOIN_RADIUS_PX`, not `MAGNET_RADIUS_PX`: this gesture aims with the marker's LEFT
@@ -1081,7 +1081,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const now = dockAimRef.current
       if (!now || now.since !== st.since) return
       setDockAim({ ...now, armed: true })
-      buzz() // …on arm, and only on arm (AGENTS.md · touch vocabulary)
+      buzz() // …on arm, and only on arm (docs/ui-conventions.md · Touch vocabulary)
     }, MAGNET_DWELL_MS)
   }
   const clearTeamJoin = () => {
@@ -1434,7 +1434,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       const now = teamJoinRef.current
       if (!now || now.since !== st.since) return
       setTeamJoin({ ...now, armed: true })
-      buzz() // …on arm, and only on arm (AGENTS.md · touch vocabulary)
+      buzz() // …on arm, and only on arm (docs/ui-conventions.md · Touch vocabulary)
     }, MAGNET_DWELL_MS)
   }
   const teamJoinMarkerMove = (id: string, c: LngLat) => { onMarkerMove(id, c); trackTeamJoin(id, c); trackDockAim(id, c) }

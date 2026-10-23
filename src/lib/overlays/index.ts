@@ -1,7 +1,7 @@
 // Shared overlay primitives — the ONLY module that imports @base-ui/react directly. Every app
 // surface uses these wrappers so behavior, theming, and the a11y contract live in one place.
-// The non-modal map tool-docks stay hand-rolled on purpose — see AGENTS.md ("Overlays go
-// through src/lib/overlays/") for which surfaces are deliberately excluded and why.
+// The non-modal map tool-docks stay hand-rolled on purpose — see docs/ui-conventions.md · Overlays
+// for which surfaces are deliberately excluded and why.
 
 // Rules for this area that span modules: docs/ui-conventions.md · «Overlays».
 

@@ -1343,7 +1343,7 @@ button.rp-sign-row:disabled { cursor: default; }
 .cv-beilagen-add input { display: none; }
 .cv-beilagen-add.busy { opacity: var(--disabled); pointer-events: none; }
 
-/* The poster's button, on the app's ONE button spec (AGENTS.md · Buttons): neutral secondary by
+/* The poster's button, on the app's ONE button spec (docs/ui-conventions.md · Buttons): neutral secondary by
    default, `--btn-primary` for the single action a screen is about (.cv-pdf / .cv-primary below).
    It used to be filled with `color-mix(--accent 16%)`, and --accent IS this deployment's brand
    RED — which the spec reserves for danger/delete. The ⚠️ that stood here excused the tint as
@@ -1530,7 +1530,7 @@ button.rp-sign-row:disabled { cursor: default; }
 .cv-zrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
 .cv-zname { font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* THE one action this page is about — so it carries the app's primary fill, never the brand red
-   (AGENTS.md · Buttons). `.cv-quiet` still outranks it while the KP tablet is on the incident. */
+   (docs/ui-conventions.md · Buttons). `.cv-quiet` still outranks it while the KP tablet is on the incident. */
 .cv-pdf { align-self: flex-start; margin-top: 4px; background: var(--btn-primary);
   border-color: var(--btn-primary); color: var(--on-btn-primary); }
 /* cross-visibility QR ↔ KP: subtle live-dot line in the header (reassurance, not an alarm),
@@ -1779,7 +1779,7 @@ select.cv-input { appearance: none; -webkit-appearance: none;
      the same thing. It is not a second colour.
    · press / long-press — the house `--press` wash (02-base.css), composed over whatever fill the
      row already carries, and nothing moves.
-   · radius — `--r-ctl`. Rows, list items and option cells are not buttons (AGENTS.md · Buttons). */
+   · radius — `--r-ctl`. Rows, list items and option cells are not buttons (docs/ui-conventions.md · Buttons). */
 .ui-menu-item { border-radius: var(--r-ctl); }
 .ui-menu-item[data-highlighted] { background: var(--blue-8); }
 @media (hover: hover) {

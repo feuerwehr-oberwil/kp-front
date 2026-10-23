@@ -776,7 +776,7 @@ export const atemschutzCopy = {
     // der Knopf im Kopf der Tafel trägt auch am Handy sein Wort
     newTruppShort: 'Trupp',
     /* ── Staging-Durchgang 2, 25.09.2026 ── */
-    // jede Entfernung sagt es – mit Rückgängig (bestätigen-mit-Rückgängig, AGENTS.md)
+    // jede Entfernung sagt es – mit Rückgängig (bestätigen-mit-Rückgängig, docs/undo.md)
     removedToast: 'Trupp {name} entfernt',
     // «Nicht eingesetzt» vom sichtbaren Knopf der Karte – mit Rückgängig (Review 26.09.2026)
     notDeployedToast: 'Trupp {name}: nicht eingesetzt',

@@ -74,7 +74,7 @@
      before the first glyph, 16px glyphs. A state is the colour of a GLYPH inside it (a lamp, the
      leading icon), never an outline: the Massstab chip wore a blue ring and the object chip an
      amber one, and beside the toasts they read as four different things. The FAB stays round —
-     roundness is what makes it THE Eintrag button (AGENTS.md · one corner) — but it is the row's
+     roundness is what makes it THE Eintrag button (docs/ui-conventions.md · Buttons, «ONE corner») — but it is the row's
      height and stands on the row's baseline (15-mobile · --float-bottom). */
   --float-bg: var(--glass);
   --float-blur: blur(14px) saturate(1.4);
@@ -168,7 +168,7 @@
      harder to read, not easier. The rough line is 18: below it, stay local.
 
      ⚠️ Scrim and popup are separate names, not `+ 1`, because Base UI portals them as SIBLINGS
-     (see the overlays note in AGENTS.md) — they are two elements, so they read as two tokens. */
+     (see docs/ui-conventions.md · Overlays) — they are two elements, so they read as two tokens. */
   --z-surface-veil: 18;      /* the app's own wash under a full-screen surface */
   --z-surface-scrim: 19;     /* …and the scrim a surface lays over the map */
   --z-surface: 20;           /* Mittel · Atemschutz · Anwesenheit · Checklists · the whiteboard */
