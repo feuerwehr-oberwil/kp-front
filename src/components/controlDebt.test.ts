@@ -57,6 +57,7 @@ export function countControls(src: string): Counts {
 // 20.10.2026: what stood when the ratchet went in. Lower it as surfaces move onto the shared pieces.
 const BASELINE: Record<string, Counts> = {
   'src/components/AnwesenheitView.tsx': { pressed: 1 },
+  'src/components/ArmedToolPill.tsx': { pressed: 1 },
   'src/components/AtemschutzView.tsx': { pressed: 1 },
   'src/components/BandGrid.tsx': { pressed: 1 },
   'src/components/ComboMenu.tsx': { pressed: 1 },
