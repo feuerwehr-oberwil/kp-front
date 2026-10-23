@@ -448,5 +448,5 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .alarmCardPhone { top: calc(88px + env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); width: auto; max-width: none; }
 .alarmEyebrow { font: var(--fw-bold) var(--fs-micro)/1.2 var(--body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-dim); }
 .alarmHead { margin: 0; font: var(--fw-bold) var(--fs-3)/1.25 var(--body); color: var(--ink); }
-.alarmHeadRed { color: var(--red); }
+.alarmHeadRed { color: var(--red-strong); }
 .alarmActs { display: flex; gap: var(--sp-2); justify-content: flex-end; flex-wrap: wrap; }

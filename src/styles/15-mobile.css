@@ -461,7 +461,7 @@
      below stays the last resort for a bar that is fuller still. */
   .topbar .ip-switch-btn { padding: 6px 7px; gap: 4px; }
   /* ── «name over the clock» (07.10.2026, UI sweep · owner pick B3 D) ──
-     The pill is the Stichwort (13.5/700, ellipsis) over the Einsatzuhr (mono 12.5, its mode's
+     The pill is the Stichwort (--fs-2/700, ellipsis; 13.5 off the scale until 23.10.2026) over the Einsatzuhr (mono 12.5, its mode's
      glyph): panels/IncidentSwitcher · twoLine. The bar's own clock button is not rendered here
      any more (TopBar), so the pill may take the width the clock had; it is still the bar's
      yielder, and only the title ellipsises. The quiet «gespeichert» ✓ comes back beside it — a
@@ -472,9 +472,11 @@
   /* ⚠️ also past the bar's ladder: its title step (fit-9) is the TABLET's last resort and hides
      `.ip-switch-title`; here the title is half of what the pill says and never goes */
   .ip-switch-two .ip-switch-title, .topbar.fit-9 .ip-switch-two .ip-switch-title {
-    display: block; max-width: 100%; font-size: 13.5px; font-weight: var(--fw-bold); }
+    display: block; max-width: 100%; font-size: var(--fs-2); font-weight: var(--fw-bold); }
   .ip-switch-clock { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap;
     font: var(--fw-bold) var(--fs-1)/1.1 var(--mono); color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  /* the time is a <b> inside this bold line: the UA's `bolder` would make it 900, off the scale */
+  .ip-switch-clock b { font-weight: inherit; }
   .ip-switch-btn .ip-switch-clock svg { width: 12px; height: 12px; opacity: .8; }
   .topbar .ip-switch-two .ip-status { display: inline-flex; }
   /* the Übung marker in this pill is ONE letter («Ü», copy.exerciseInitial) in an amber square
@@ -656,7 +658,6 @@
   .navrail.folded.labelled:not(.expanded):not(.dragging) .nav-label,
   :is(.tool-rail, .wb-tools).folded.labelled:not(.expanded):not(.dragging) .vrail-label {
     box-sizing: border-box; max-width: 100%; padding: 0 2px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; }
-  .nav-foot { margin-top: 0; }
   .nav-sep { width: 1px; height: 26px; margin: 0 2px; flex: none; }   /* vertical divider in a row (see the width math on .nav-item) */
 
   /* zoom controls reposition (.toputil) migrated → MapUtility.module.css */
@@ -962,7 +963,12 @@
     background: var(--glass); backdrop-filter: blur(14px) saturate(1.4);
     border: 1px solid var(--glass-line); box-shadow: var(--e4);
     border-radius: var(--r-bar); padding: var(--bar-pad); box-sizing: border-box;
+    /* shown on the phone only — 13-incident.css hides it above (`.rp-tabs { display: none }`) */
+    display: block;
   }
+  .rp-tabs > .useg { display: flex; width: 100%; }
+  .rp-tabs .useg-btn { flex: 1; min-width: 0; min-height: var(--tap); position: relative;
+    padding: 8px; white-space: nowrap; }
 
   /* with the bottom bar present, the FAB lifts above it and the map attribution ⓘ lifts
      above the FAB so the bottom-right reads bar → FAB → ⓘ with no overlap

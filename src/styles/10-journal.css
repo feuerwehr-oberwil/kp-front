@@ -90,8 +90,6 @@
 .topbar.fit-5 :is(.tb-az, .ip-switch-btn) { padding-inline: var(--sp-2); }
 .topbar.fit-6 .tb-act:not(.tb-act-add) span:not(.tb-rem-count) { display: none; }
 .topbar.fit-6 .tb-act:not(.tb-act-add) { padding: 8px; }
-.topbar.fit-7 .tb-suche .tb-suche-full { display: none; }
-.topbar.fit-7 .tb-suche .tb-suche-short { display: inline; }
 .topbar.fit-8 .tb-az-name { display: none; }
 .topbar.fit-9 .ip-switch-title { display: none; }
 .topbar.fit-9 .ip-switch-glyph { display: grid; }
@@ -101,14 +99,13 @@
    one tap away in its menu, exactly as on the phone bar */
 .topbar.fit-9 .tb-mode { padding: var(--sp-1) var(--sp-2); font-size: 0; gap: 0; }
 .topbar.fit-9 .tb-mode .i { width: 16px; height: 16px; }
-.topbar.fit-10 .tb-suche-ask-n { display: none; }
 /* «Eintrag» gives its word LAST (29.09.2026, sweep K2): its glyph is the journal pen now, not a
    «+» that the rail's «+ Symbol» beside it also wears, so a bare glyph still says what it is */
 .topbar.fit-11 .tb-act-add .tb-act-label { display: none; }
 .topbar.fit-11 .tb-act-add { min-width: var(--tap); padding-inline: 8px; }
 /* every chip in the bar is at least a tap wide, its glyph and its number together */
-.topbar :is(.tb-az, .tb-suche) { min-width: var(--tap); justify-content: center; }
-.topbar :is(.tb-az, .tb-suche) > .i { flex: none; }
+.topbar .tb-az { min-width: var(--tap); justify-content: center; }
+.topbar .tb-az > .i { flex: none; }
 .tb-az.warn { background: var(--amber-16); color: var(--amber-strong); }
 @media (hover: hover) {
   .tb-az.warn:hover { background: var(--amber-28); }
@@ -631,7 +628,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
   font: var(--fw-bold) var(--fs-micro)/1.3 var(--body); letter-spacing: .04em; text-transform: uppercase;
   color: var(--ink-faint); }
 .jr-foot > * { white-space: nowrap; }
-.jr-foot-nachtrag { color: var(--red); font-weight: var(--fw-bold); }
+.jr-foot-nachtrag { color: var(--red-strong); font-weight: var(--fw-bold); }
 .jr-foot-rep { font-variant-numeric: tabular-nums; }
 /* ⚠️ WHICH item a Meldung answers. Without it three «PENDENZ» rows in a row are three unrelated
    sentences: the Verlauf is chronological, so each link has to carry its own anchor. Quiet and
@@ -961,7 +958,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 .tb-rem-count { z-index: 2; }
 /* the ONE count badge (05-navrail · .nav-count, 28.09.2026): 16px, 11/800, --r-xs; amber = open */
 .tb-rem-count { position: absolute; top: -5px; right: -5px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
-  border-radius: var(--r-xs); background: var(--amber); color: var(--on-fill); line-height: 16px; text-align: center;
+  border-radius: var(--r-xs); background: var(--amber); color: var(--on-amber); line-height: 16px; text-align: center;
   font: var(--fw-heavy) var(--fs-micro) var(--body); }
 
 /* ⚠️ TOMBSTONE, 23.08. — the whole banner layer that stood here is gone.

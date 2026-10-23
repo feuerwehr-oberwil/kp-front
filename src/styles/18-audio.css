@@ -73,7 +73,7 @@
 .ap-stt-note { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink-dim); font-size: var(--fs-2); font-weight: var(--fw-medium); flex-wrap: wrap; }
 .ap-stt-note .i { width: 14px; height: 14px; flex: none; }
 /* a transcript that FAILED is broken, not a warning — red, per the colour rule */
-.ap-stt-failed .i { color: var(--red); }
+.ap-stt-failed .i { color: var(--red-strong); }
 .ap-stt { flex: none; display: flex; flex-direction: column; gap: 2px; }
 .ap-stt-bar { display: flex; align-items: center; gap: var(--sp-2); border-radius: var(--r-ctl); padding: var(--sp-2) var(--sp-3);
   background: color-mix(in srgb, var(--amber) 9%, var(--surface)); border: 1px solid var(--amber-28);
@@ -128,7 +128,7 @@
 .ap-row-input:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* Abbrechen · Speichern under the transcript field: THE button, secondary + primary (<Button>,
    08.10.2026 — they were two framed 12.5px words at ~30px). The two ways INTO the field are icon
-   buttons up in the row itself (.jr-jump / .jr-jump-miss in 17-rapport.css). */
+   buttons up in the row itself (.jr-jump in 17-rapport.css). */
 .jr-transcript textarea { width: min(420px, 100%); resize: vertical; border: 1px solid var(--border); border-radius: var(--r-xs); background: var(--surface); color: var(--ink); padding: 8px; font: inherit; font-size: var(--fs-1); }
 .jr-transcript textarea:focus { outline: none; border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 .jr-transcript-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2); }
@@ -150,7 +150,7 @@
 .psync-stale > span { flex: 1 1 auto; min-width: 0; }
 .psync-result { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-2); color: var(--ink-dim); }
 @media (max-width: 720px) {
-  .report-meta-grid, .report-toggles { grid-template-columns: 1fr; }
+  .report-meta-grid { grid-template-columns: 1fr; }
 }
 
 /* Textbausteine: standard radio-message chips under the composer text.
@@ -299,7 +299,7 @@
 /* the three Arten carry their own colour ONCE CHOSEN — the same fill, in their tone (as the
    Suche's toned chips); an unchosen row stays uniform, so nothing on it competes with the text
    field above it */
-.jc-chip.jc-type-auftrag.on { color: var(--on-fill); background: var(--amber); border-color: var(--amber); }
+.jc-chip.jc-type-auftrag.on { color: var(--on-amber); background: var(--amber); border-color: var(--amber); }
 .jc-chip.jc-type-sofort.on { color: var(--on-accent-ink); background: var(--accent); border-color: var(--accent); }
 
 /* ── «bleibt offen» ────────────────────────────────────────────────────────────────────────
@@ -459,7 +459,7 @@
 .jc-open[data-state="1"] .jc-ring { background: currentColor; box-shadow: inset 0 0 0 3px var(--surface); }
 /* dringend — red, and the only state that carries a glyph. Not pulsing: a priority is not an
    alarm, and the pulsing red in this app belongs to the überfällige Trupp. */
-.jc-open[data-state="2"] { color: var(--red);
+.jc-open[data-state="2"] { color: var(--red-strong);
   background: var(--red-12);
   border-color: var(--red-45); }
 .jc-open[data-state="2"] .jc-ring { background: currentColor; border-color: currentColor; }
@@ -531,6 +531,7 @@
   /* ⚠️ the height of the Eintrag/Erinnerung track it stands in for (.useg-btn min-height + the
      track's 3px padding), or the same card is shorter as a Meldung than as an entry */
   min-height: var(--tap); display: flex; align-items: center; }
+.jc-mode-title b { font-weight: inherit; }   /* the title's 800: the UA's `bolder` made it 900, off the scale */
 /* ⚠️ A Meldung says WHAT IT IS and WHAT IT IS ABOUT on the title row, not on a band of its own
    beneath it. As a separate amber row it pushed the whole sheet down one line, so the same card
    stood at two different heights depending on how it had been opened — and the sheet is a

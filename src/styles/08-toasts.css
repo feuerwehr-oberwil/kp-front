@@ -11,7 +11,7 @@
 /* Demo deployments: a fixed diagonal "DEMO" ribbon across the top-left corner. Non-interactive
    (taps pass through), so it never blocks a control; amber to read as "not a real incident". */
 .demo-ribbon { position: fixed; top: calc(15px + env(safe-area-inset-top)); left: -36px; width: 132px; z-index: var(--z-ribbon); pointer-events: none;
-  transform: rotate(-45deg); background: var(--amber); color: var(--on-fill);
+  transform: rotate(-45deg); background: var(--amber); color: var(--on-amber);
   text-align: center; padding: var(--sp-1) 0; font-size: var(--fs-micro); font-weight: var(--fw-heavy); letter-spacing: 2px;
   box-shadow: var(--e1); }
 /* First-visit demo welcome modal (own scrim above the DEMO ribbon so it owns the screen). */
@@ -98,7 +98,7 @@
 .ml-row { display: flex; align-items: center; gap: var(--sp-3); min-height: 52px; padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-4); }
 .ml-row + .ml-row { border-top: 1px solid var(--border-soft); }
 .ml-ic { flex: none; width: 18px; height: 18px; color: var(--ink-faint); }
-.ml-row.t-alarm .ml-ic { color: var(--red); }
+.ml-row.t-alarm .ml-ic { color: var(--red-strong); }
 .ml-row.t-warn .ml-ic { color: var(--amber-strong); }
 .ml-row.t-info .ml-ic { color: var(--blue); }
 /* the text column is INERT except for the TITLE of a message that has somewhere to go (.ml-open
@@ -581,8 +581,6 @@
 .note-pill-input::placeholder { color: var(--note-ink); opacity: .45; }
 /* selected/editing note: an on-theme gold ring (NOT the blue marker halo, which we suppress
    for notes) — covers both the pill and the editable input (both carry .note-pill) */
-/* (`.twin-sel` selected a MIRRORED note; nothing carries that class any more — a plan-drawn
-   note is an ordinary marker on the Karte and wears `.marker.sel` like the rest.) */
 .marker.sel .note-pill { border-color: var(--note-border-sel); box-shadow: 0 0 0 2px var(--note-ring), var(--e2); }
 /* map text BOX: an explicit width (px — map notes don't scale with zoom) replaces the 180px
    auto-cap and lets the pill wrap + grow downwards. Mirrors .wb-text-label.box on the plan. */
@@ -598,7 +596,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   text-shadow: 0 0 3px var(--note-halo), 0 0 3px var(--note-halo), 0 0 6px var(--note-halo); }
 /* while selected/editing, a plain note still needs an edge to grab — a faint wash of its own
    paper colour, enough to see the box without turning it back into a sticker */
-.marker.sel .note-pill.plain, .wb-anno.sel .wb-text-label.plain, .twin-sel.note-pill.plain,
+.marker.sel .note-pill.plain, .wb-anno.sel .wb-text-label.plain,
 .wb-text-input.plain, .note-pill-input.plain {
   background: color-mix(in srgb, var(--note-bg) 22%, transparent); border-color: var(--note-border-sel); }
 
