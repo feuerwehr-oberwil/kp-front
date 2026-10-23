@@ -1,5 +1,5 @@
 import { apiGet, apiGetRaw, apiPost, apiPut } from '../lib/api'
-import type { PlanFloor } from '../lib/api/reference'
+import type { PlanFloor } from '../lib/incidents'
 import type { GeoPt, GeorefPair } from '../lib/georef'
 
 export type AlignmentStatus = 'pending' | 'processing' | 'ready' | 'needs_review' | 'no_match' | 'failed' | 'unavailable' | 'unsupported' | 'approved' | 'rejected'

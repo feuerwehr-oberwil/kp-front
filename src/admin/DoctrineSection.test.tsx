@@ -309,7 +309,7 @@ describe('the air estimate — the two decimals with hard bounds', () => {
 })
 
 // The Eingangsdruck minimum (24.09.2026): the one number behind the Trupp form's plausibility
-// question. Edited here and nowhere else (AGENTS.md · doctrine lives in /admin › Doktrin).
+// question. Edited here and nowhere else (docs/CONFIGURATION.md: doctrine lives in /admin › Doktrin).
 describe('Eingangsdruck mindestens — the minimum behind the one plausibility question', () => {
   /** right under the Eingangsdruck it is read against */
   const minimum = () => nums()[5]

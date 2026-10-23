@@ -11,7 +11,7 @@
    not at the end for tidiness, and renumber rather than leaving a gap.
 
    Component-specific layout still belongs in a *.module.css next to its component
-   (see AGENTS.md); this directory is for what is genuinely global.
+   (docs/ui-conventions.md · Tokens, the cascade and the scales); this directory is for what is genuinely global.
    ============================================================================ */
 
 @import './styles/01-tokens.css';

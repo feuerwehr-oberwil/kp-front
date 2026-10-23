@@ -1,4 +1,4 @@
-import { floorKey, joinKey, type PlanFloor } from '../lib/api/reference'
+import { floorKey, joinKey, type PlanFloor } from '../lib/incidents'
 import { floorLabel, signedFloor } from '../lib/whiteboard'
 
 /**

@@ -69,7 +69,8 @@ const closePts = (a: readonly BoardPoint[], b: readonly BoardPoint[], digits = 9
   a.forEach((p, i) => { expect(p[0]).toBeCloseTo(b[i][0], digits); expect(p[1]).toBeCloseTo(b[i][1], digits) })
 }
 
-describe('a Gebäude object moved through Modul 1 stays the Gebäude’s (post-mortem D2)', () => {
+// post-mortem D2
+describe('a Gebäude object moved through Modul 1 stays the Gebäude’s', () => {
   it('the field turn (19:00:54, ~0.3°): owner, storey and every vertex’s storey survive', () => {
     const changes = vi.fn()
     const { result } = store([gebaeudeLine()], { onAnchorChange: changes })
@@ -161,7 +162,8 @@ describe('a Gebäude object moved through Modul 1 stays the Gebäude’s (post-m
   })
 })
 
-describe('a stroke’s release event carries its position (post-mortem D2 · barCommit)', () => {
+// post-mortem D2
+describe('a stroke’s release event carries its position (barCommit)', () => {
   it('board.move with `pts` folds the stroke’s geometry in a replay', async () => {
     const line: BoardAnno = { id: 'd', kind: 'draw', pts: [[0.1, 0.1], [0.2, 0.3]] }
     const moved = barMove(line, 0.05, 0.02)
@@ -225,7 +227,8 @@ function truppActions(result: { current: ReturnType<typeof useObjectStore> }, tr
 const at = (x: number, y: number) => { const p = MODUL1.fit.toMap({ x, y }); return [p.lng, p.lat] as [number, number] }
 const stackAt = (x: number, y: number) => { const p = STACK.fit.toMap({ x, y }); return [p.lng, p.lat] as [number, number] }
 
-describe('machine writers never flip an anchor (post-mortem D3)', () => {
+// post-mortem D3
+describe('machine writers never flip an anchor', () => {
   const table: { writer: string; init: () => TacticalObject[]; run: (r: { current: ReturnType<typeof useObjectStore> }) => void; moved: string }[] = [
     {
       writer: 'settleAtHoseEnd — a Gebäude Trupp chip moved to a Karte hose’s end (setDocRaw)',

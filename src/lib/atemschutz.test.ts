@@ -799,7 +799,8 @@ describe('estimatePressure · time spent closed does not count', () => {
   })
 })
 
-describe('fmtDuration — a duration that says it is one (staging r4)', () => {
+// staging r4
+describe('fmtDuration — a duration that says it is one', () => {
   it('carries its unit, so «23:39» is never read as a clock time', () => {
     expect(fmtDuration(23 * 60 + 39)).toBe('23:39 min')
     expect(fmtDuration(3600 + 125)).toBe('1:02:05 h')
@@ -808,7 +809,8 @@ describe('fmtDuration — a duration that says it is one (staging r4)', () => {
   })
 })
 
-describe('the Atemschutznotfall (F1, 08.10.2026)', () => {
+// F1, 08.10.2026
+describe('the Atemschutznotfall', () => {
   const N = '2026-06-21T10:04:00Z'
   const live = (t: Trupp, now: number) => deriveTruppLive(t, now, 5, 60)
   const doctrine = { alarmBar: 100, alarmBarRueckzug: 50 }

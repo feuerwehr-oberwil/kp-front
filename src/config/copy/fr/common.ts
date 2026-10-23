@@ -4,17 +4,16 @@
 import type { Copy, Localizable } from '../index'
 
 type Keys =
-  | 'baseMap' | 'floor' | 'hoseHint' | 'noHistoryRows' | 'symbolSearchPlaceholder' | 'closeDialog'
+  | 'baseMap' | 'floor' | 'hoseHint' | 'symbolSearchPlaceholder' | 'closeDialog'
   | 'sheetGrip' | 'edit' | 'primarySymbol' | 'done' | 'cancel' | 'exerciseBadge'
   | 'exerciseInitial' | 'keepPlacing' | 'delete' | 'remove' | 'undo' | 'redo' | 'undoNamed'
   | 'redoNamed' | 'undoLost' | 'undoDomains' | 'undoSurfaces' | 'undoTopDropped'
-  | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'clearField' | 'noHits' | 'savedLive'
+  | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits' | 'savedLive'
 
 export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   baseMap: 'Carte de base',
   floor: { eg: 'RDC', og: '+{n}', ug: '-{n}' },
   hoseHint: '~{n} tuyaux',
-  noHistoryRows: 'Aucun événement enregistré',
   symbolSearchPlaceholder: 'Rechercher un symbole tactique …',
   closeDialog: 'Fermer',
   edit: 'Modifier',
@@ -54,7 +53,6 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   play: 'Lire',
   clear: 'Effacer',
   clearSearch: 'Effacer la recherche',
-  clearField: 'Effacer : {field}',
   noHits: 'Aucun résultat pour «{q}».',
   savedLive: 'Tout est enregistré au fur et à mesure.',
   sheetGrip: 'Ajuster la hauteur du détail',

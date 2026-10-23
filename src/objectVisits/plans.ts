@@ -6,7 +6,7 @@
 import { moduleTileLabel } from '../lib/navRail'
 import { comparePlanModules } from '../lib/planOrder'
 import type { DeploymentModule } from '../lib/deploymentConfig'
-import type { ReferenceDataset } from '../lib/api/reference'
+import type { ReferenceDataset } from '../lib/incidents'
 
 export interface VisitPlanRow {
   id: string

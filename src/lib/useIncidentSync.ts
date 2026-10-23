@@ -6,12 +6,12 @@ import { onReachable } from './connectivity'
 import { attendanceConflictRows, conflictRows } from './attendanceConflict'
 import { fillTemplate } from './format'
 import type { RecordConflict } from './mergeWorkspace'
-import { createLongPollLoop, SLOW_FOLLOW_MS } from './pollBackoff'
 import { createClockSkewAlert, createSyncAlertTracker } from './syncAlert'
 import { recordTrouble } from './trouble'
 import { serverNowIso } from './serverClock'
 import { renumberRow, type TruppRenumbering } from './truppNumbers'
 import { toast } from './ui'
+import { useLongPoll } from './useLongPoll'
 import type { Saved } from './workspace'
 import type { TimelineEvent } from '../types'
 
@@ -96,8 +96,6 @@ interface IncidentSyncDeps {
 export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, applyWorkspace, flushEvents, flushEventsBeacon, appendJournal, appendTeamRow, alarmUrgent, gestureOpen, incidentOpen, slowFollow }: IncidentSyncDeps) {
   const incidentOpenRef = useRef(incidentOpen)
   useEffect(() => { incidentOpenRef.current = incidentOpen }, [incidentOpen])
-  const slowFollowRef = useRef(slowFollow)
-  useEffect(() => { slowFollowRef.current = slowFollow }, [slowFollow])
   /** What the SERVER last said about the lifecycle (its `X-Incident-Open`), which is what the next
    *  poll claims — never only what the view shows. A closed view that did not adopt a reopen used to
    *  keep sending `open=0`, the server answered at once because it was open, and the loop went
@@ -271,18 +269,6 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     return () => { window.removeEventListener('online', onOnline); offReachable() }
   }, [readOnly, sync, flushEvents])
 
-  // Manual "Jetzt synchronisieren": push pending edits AND snap the live-follow pull to now —
-  // the "everything fresh right now" button for when things feel laggy. Viewers only pull.
-  // startRef hands the poll loop's (re)start out of its effect so this callback can fire it.
-  // Awaitable so the caller can SHOW that it ran. It used to be fire-and-forget, which on an
-  // already-synced Einsatz — the normal case — was indistinguishable from a dead button: the
-  // status line already said «gerade eben synchronisiert» before the tap and still did after.
-  const startRef = useRef<((delay: number) => void) | null>(null)
-  const syncNow = useCallback(async () => {
-    if (!readOnly) { flushEvents(); await sync.flush() }
-    startRef.current?.(0)
-  }, [readOnly, sync, flushEvents])
-
   // live-follow: every device follows the server's workspace revision and re-renders, so an edit
   // on one device (e.g. a tablet) shows up on the others (e.g. a phone) — shared situational
   // awareness without WebSocket. Viewers follow unconditionally; editors follow too, but skip a
@@ -305,73 +291,69 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // is not up to a minute late. The loop also catches up when the device comes back ONLINE: the
   // ease-off can have parked it up to livePollMaxMs out on a link that has since recovered.
   const liveRev = useRef(sync.rev)
-  useEffect(() => {
+  // The mechanics (generation guard, in-flight abort, ease-off, visibility/online/pagehide) are
+  // the shared loop's (useLongPoll · pollBackoff); this is only what a round DOES.
+  const restartPoll = useLongPoll({
     // While this device is sounding the alarm the hidden cadence drops to hiddenAlarmPollMs
-    // (see IncidentSyncDeps · alarmUrgent). `alarmUrgent` is in the effect's deps, so a flip
+    // (see IncidentSyncDeps · alarmUrgent). `alarmUrgent` is in the loop's deps, so a flip
     // restarts the loop and the new cadence applies at once — not after the parked 60 s timer.
-    const hiddenMs = () => (alarmUrgent ? appConfig.sync.hiddenAlarmPollMs : appConfig.sync.hiddenPollMs)
-
-    // The mechanics (generation guard, in-flight abort, ease-off, visibility/online/pagehide)
-    // are pollBackoff's; this is only what a round DOES.
-    const loop = createLongPollLoop({
-      baseMs: appConfig.sync.livePollMs,
-      maxMs: appConfig.sync.livePollMaxMs,
-      hiddenMs,
-      minDelayMs: () => (slowFollowRef.current ? SLOW_FOLLOW_MS : 0),
-      round: async ({ hidden, signal }) => {
-        // Demo follows the shared server too now (edits persist + sync across visitors, like a real
-        // station). The `!sync.hasUnsynced` guard still protects in-progress local edits from being
-        // clobbered mid-edit; the nightly reset re-seeds everyone at once. A dirty round fetches
-        // nothing, so it reports "unanswered" and the loop eases off.
-        if (!readOnly && sync.hasUnsynced) {
-          // ⚠️ …but it still asks whether the Einsatz is RUNNING (review of #235): a device that is
-          // always a little dirty would otherwise never hear a close by the poll. A quick no-wait
-          // read, whose lifecycle header is all that is used — nothing is adopted over the edits.
-          await pollWorkspaceSince(incidentId, Math.max(liveRev.current, sync.rev), { wait: false, signal, open: claimOpen(), onLifecycle, writer: sync.writerId }).catch(() => null)
-          return false
-        }
-        const since = Math.max(liveRev.current, sync.rev)
-        const askedAt = Date.now()
-        const res = await pollWorkspaceSince(incidentId, since, { wait: !hidden, signal, open: claimOpen(), onLifecycle, writer: sync.writerId })
-        // Only this engine's own saves since `since` (api/workspace · WorkspaceFollow): the server
-        // vouched that nobody else wrote in between, so there is nothing to fetch — park at its
-        // revision next. Before the dirty check on purpose: the answer often beats the save's own
-        // PUT response home, and asking about these revisions again would fetch the blob after all.
-        // An answer, not a skip: the loop stays hot, so another device's save is heard at once.
-        if (res && 'ownRev' in res) {
-          if (!signal.aborted) liveRev.current = Math.max(liveRev.current, res.ownRev)
-          return true
-        }
-        // RE-CHECK after the round-trip: a local edit may have landed WHILE this poll was in
-        // flight (with a held request that window is now the whole wait, so this guard matters
-        // MORE, not less). Adopting the server blob now would clobber that unsaved edit — the
-        // "symbol placed on a tablet vanishes ~200ms later" race. Skip the take-server: the
-        // edit's own debounced flush will 3-way merge against the server. The server DID answer,
-        // so the loop stays hot rather than easing off.
-        if (signal.aborted || (!readOnly && sync.hasUnsynced)) return true
-        if (res && res.workspace_rev > sync.rev) {
-          liveRev.current = res.workspace_rev
-          const ws = (res.workspace ?? {}) as Workspace
-          if (!readOnly) sync.adoptServer(ws, res.workspace_rev)
-          hydrate(ws as unknown as Saved)
-        }
-        // ⚠️ …and a held poll that came back at once with NOTHING new did not hold (N1): whatever
-        // the reason, answering «unanswered» lets the loop ease off instead of spinning. A real
-        // wake (another device's save) brings a blob and stays hot; a lifecycle wake brings the
-        // header, which the next claim now matches, so that poll parks again.
-        if (!res && !hidden && Date.now() - askedAt < QUICK_EMPTY_ANSWER_MS) return false
+    hiddenMs: () => (alarmUrgent ? appConfig.sync.hiddenAlarmPollMs : appConfig.sync.hiddenPollMs),
+    slowFollow,
+    round: async ({ hidden, signal }) => {
+      // Demo follows the shared server too now (edits persist + sync across visitors, like a real
+      // station). The `!sync.hasUnsynced` guard still protects in-progress local edits from being
+      // clobbered mid-edit; the nightly reset re-seeds everyone at once. A dirty round fetches
+      // nothing, so it reports "unanswered" and the loop eases off.
+      if (!readOnly && sync.hasUnsynced) {
+        // ⚠️ …but it still asks whether the Einsatz is RUNNING (review of #235): a device that is
+        // always a little dirty would otherwise never hear a close by the poll. A quick no-wait
+        // read, whose lifecycle header is all that is used — nothing is adopted over the edits.
+        await pollWorkspaceSince(incidentId, Math.max(liveRev.current, sync.rev), { wait: false, signal, open: claimOpen(), onLifecycle, writer: sync.writerId }).catch(() => null)
+        return false
+      }
+      const since = Math.max(liveRev.current, sync.rev)
+      const askedAt = Date.now()
+      const res = await pollWorkspaceSince(incidentId, since, { wait: !hidden, signal, open: claimOpen(), onLifecycle, writer: sync.writerId })
+      // Only this engine's own saves since `since` (api/workspace · WorkspaceFollow): the server
+      // vouched that nobody else wrote in between, so there is nothing to fetch — park at its
+      // revision next. Before the dirty check on purpose: the answer often beats the save's own
+      // PUT response home, and asking about these revisions again would fetch the blob after all.
+      // An answer, not a skip: the loop stays hot, so another device's save is heard at once.
+      if (res && 'ownRev' in res) {
+        if (!signal.aborted) liveRev.current = Math.max(liveRev.current, res.ownRev)
         return true
-      },
-    })
-    loop.start(appConfig.sync.livePollMs)
-    startRef.current = loop.start
-
-    return () => {
-      loop.stop()
-      startRef.current = null
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      }
+      // RE-CHECK after the round-trip: a local edit may have landed WHILE this poll was in
+      // flight (with a held request that window is now the whole wait, so this guard matters
+      // MORE, not less). Adopting the server blob now would clobber that unsaved edit — the
+      // "symbol placed on a tablet vanishes ~200ms later" race. Skip the take-server: the
+      // edit's own debounced flush will 3-way merge against the server. The server DID answer,
+      // so the loop stays hot rather than easing off.
+      if (signal.aborted || (!readOnly && sync.hasUnsynced)) return true
+      if (res && res.workspace_rev > sync.rev) {
+        liveRev.current = res.workspace_rev
+        const ws = (res.workspace ?? {}) as Workspace
+        if (!readOnly) sync.adoptServer(ws, res.workspace_rev)
+        hydrate(ws as unknown as Saved)
+      }
+      // ⚠️ …and a held poll that came back at once with NOTHING new did not hold (N1): whatever
+      // the reason, answering «unanswered» lets the loop ease off instead of spinning. A real
+      // wake (another device's save) brings a blob and stays hot; a lifecycle wake brings the
+      // header, which the next claim now matches, so that poll parks again.
+      if (!res && !hidden && Date.now() - askedAt < QUICK_EMPTY_ANSWER_MS) return false
+      return true
+    },
   }, [readOnly, incidentId, sync, alarmUrgent])
+
+  // Manual "Jetzt synchronisieren": push pending edits AND snap the live-follow pull to now —
+  // the "everything fresh right now" button for when things feel laggy. Viewers only pull.
+  // Awaitable so the caller can SHOW that it ran. It used to be fire-and-forget, which on an
+  // already-synced Einsatz — the normal case — was indistinguishable from a dead button: the
+  // status line already said «gerade eben synchronisiert» before the tap and still did after.
+  const syncNow = useCallback(async () => {
+    if (!readOnly) { flushEvents(); await sync.flush() }
+    restartPoll(0)
+  }, [readOnly, sync, flushEvents, restartPoll])
 
   // let the sync engine apply an auto-merged conflict result IN PLACE (no remount), so the
   // resolver smoothly gains the other device's edits instead of having the screen rebuilt.

@@ -139,7 +139,8 @@ describe('ReportPreflight · Auswertung default and operator choice', () => {
   })
 })
 
-describe('ReportPreflight · a CLOSED Einsatz (staging r3, F10)', () => {
+// staging r3, F10
+describe('ReportPreflight · a CLOSED Einsatz', () => {
   // The Abschluss promises «Spätere Korrekturen bleiben möglich und erscheinen als Nachträge», and
   // the server takes Rapport writes after the close: the fields stay editable, and one line at
   // the top says the changes are Nachträge — no fields that look open and do nothing.

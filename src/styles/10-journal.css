@@ -41,7 +41,7 @@
 /* Atemschutz alarm chip — conditional (only rendered while a Trupp is fällig/überfällig).
    A compact chip, not a banner, so it's an ambient cue rather than an interruption.
    ⚠️ Not a pill (24.09.2026): it sits in the bar's padding like .tb-act beside it, so it takes
-   the bar's nested corner (AGENTS.md · buttons · radius). On a phone it is --tap tall, and a
+   the bar's nested corner (docs/ui-conventions.md · Buttons · radius). On a phone it is --tap tall, and a
    44px capsule next to the square-cornered Verlauf button read as a foreign object. The same
    goes for .tb-gps and .tb-mode below – the three status chips of the bar share one shape. */
 .tb-az { display: inline-flex; align-items: center; gap: var(--sp-2); border: none; cursor: pointer; border-radius: var(--r-sm);

@@ -6,7 +6,8 @@ const home: Camera = { center: [7.556, 47.512], zoom: 15.5, padding: NO_PADDING 
 const framed: Camera = { center: [7.5571, 47.5132], zoom: 17.6, padding: { top: 80, bottom: 608, left: 0, right: 0 } }
 const other: Camera = { center: [7.5590, 47.5101], zoom: 17.6, padding: { top: 80, bottom: 608, left: 0, right: 0 } }
 
-describe('toolTakesTaps (owner R4: measure on top of objects)', () => {
+// owner R4
+describe('toolTakesTaps · measuring works on top of objects', () => {
   it('Messen, Punkt setzen and Gefahrgut with rings take every tap', () => {
     expect(toolTakesTaps('measure', 'off')).toBe(true)
     expect(toolTakesTaps('pin', 'off')).toBe(true)
@@ -19,7 +20,8 @@ describe('toolTakesTaps (owner R4: measure on top of objects)', () => {
   })
 })
 
-describe('the camera after a selection closes (owner R4: «doesn\'t constantly push the map south»)', () => {
+// owner R4: «doesn't constantly push the map south»
+describe('the camera after a selection closes goes back to where it was', () => {
   it('select → close returns to the camera before the selection, padding included', () => {
     const r = returnOnSelect(null, home)
     expect(cameraOnClose(r, framed)).toEqual(home)
@@ -59,7 +61,8 @@ describe('the camera after a selection closes (owner R4: «doesn\'t constantly p
   })
 })
 
-describe('the free map beside the tablet\'s panel (owner R6: «isn\'t neatly in focus»)', () => {
+// owner R6: «isn't neatly in focus»
+describe('the free map beside the tablet\'s panel', () => {
   it('starts right of the panel beside the rail, and ends at the tool rail', () => {
     // 1440 wide: panel 92…496, tool rail 1364…1424 – the middle 930 (e2e/karte-plan-back-camera)
     expect(besidePanel(60, 60)).toEqual({ top: 80, bottom: 0, left: 496, right: 76 })

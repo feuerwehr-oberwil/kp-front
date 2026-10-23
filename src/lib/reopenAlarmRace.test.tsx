@@ -84,7 +84,8 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); vi.useRealTimers() })
 
-describe('the alarm a reopen ends reads the same on every tablet, in any order (F1)', () => {
+// F1
+describe('the alarm a reopen ends reads the same on every tablet, in any order', () => {
   it('three tablets, the listeners racing the reopen row, write one reason: the restart', () => {
     const names = ['A', 'B', 'C'] as const
     const handles: Record<string, DeviceHandle | null> = {}

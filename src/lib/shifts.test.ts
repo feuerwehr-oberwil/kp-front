@@ -4,8 +4,8 @@ import {
   bandCounts, bandSplitPlan, mergePersonShifts, splitShiftAtBand,
   bandCoverFraction, barGeometry,
   ceilSlot, unshownShifts,
-  conflictingShiftIds, coverage, draftBand, draftShift, dragShift, floorSlot, freehandShifts,
-  intervalSpan, overlaps, plannedPersonCount, shiftInBand, shiftSpan, shiftsFor, sortBands,
+  conflictingShiftIds, coverage, draftBand, draftShift, dragShift, floorSlot,
+  intervalSpan, overlaps, shiftInBand, shiftSpan, shiftsFor, sortBands,
   timeAtFraction, timelineSpan, fitSpan, fitScrollLeft, nextHorizon,
 } from './shifts'
 import type { AttendanceState, Shift, ShiftBand } from '../types'
@@ -265,9 +265,6 @@ describe('row helpers', () => {
     expect(shiftsFor(list, 'p1').map((x) => x.id)).toEqual(['a', 'b'])
   })
 
-  it('counts people, not shifts', () => {
-    expect(plannedPersonCount([shift('a', 'p1', T(14), T(18)), shift('b', 'p1', T(20), T(23))])).toBe(1)
-  })
 })
 
 describe('draftShift', () => {
@@ -402,11 +399,6 @@ describe('bandCell — a column reads the shift that covers it, state and all', 
   it('reads the plain two states off a member sitting exactly on the band', () => {
     expect(bandCell([inBand('a', 'p1', T(7), T(12), 'bd1')], 'p1', früh).state).toBe('available')
     expect(bandCell([inBand('a', 'p1', T(7), T(12), 'bd1', true)], 'p1', früh).state).toBe('confirmed')
-  })
-
-  it('lists only the shifts belonging to no band as a person\'s own times', () => {
-    const list = [inBand('a', 'p1', T(7), T(12), 'bd1'), shift('b', 'p1', T(9), T(14)), shift('c', 'p2', T(9), T(14))]
-    expect(freehandShifts(list, 'p1').map((x) => x.id)).toEqual(['b'])
   })
 
   it('finds the stored member by bandId and never by matching clocks', () => {

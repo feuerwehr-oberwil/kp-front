@@ -73,7 +73,8 @@ describe('a place in the device list', () => {
     expect(findOpenDraft(all, 'u1', null, 'me')?.doc.id).toBe(atObject.doc.id)
     expect(findOpenDraft(all, placeKey(PLACE), null, 'someone else')).toBeNull()
   })
-  it('two independent reports on the same pin are never one stop (lead review of #368)', () => {
+  // lead review of #368
+  it('two independent reports on the same pin are never one stop', () => {
     // the k5 capture run: one Fehlermeldung from the tablet, one from the phone, same pin
     const a = { ...newVisitDoc({ place: PLACE, checklist: null }), lifecycle: 'completed' as const }
     const known = knownVisits([rec(a)], [

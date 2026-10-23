@@ -215,15 +215,6 @@ export const sheetKeyOf = (p: Pick<PlanDocument, 'id' | 'georefKey'>): string =>
  */
 export type FitChangeCause = 'seed' | 'reference' | 'measurement' | 'rollback'
 
-/** The landmark pairs of every sheet, as a string — what the OPERATOR set, and nothing derived
- *  from it. The counterpart to `fitSignature`, which is entirely derived. */
-export function pairsSignature(
-  plans: Pick<PlanDocument, 'id' | 'georefKey'>[],
-  georefOf: (georefKey: string) => Georef | null,
-): string {
-  return plans.map((p) => `${p.id}:${JSON.stringify(georefOf(sheetKeyOf(p))?.pairs ?? [])}`).join('|')
-}
-
 /** …and the reading. `before === null` is the very first bake of a session, which is nobody's act
  *  at all: a blob simply gains its map bodies, nothing moved from anywhere — and it outranks a
  *  rollback, because there is no earlier state for a refusal to have taken anything back to. */

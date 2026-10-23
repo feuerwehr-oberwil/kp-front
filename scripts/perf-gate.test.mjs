@@ -51,7 +51,7 @@ describe('perf gate on a slow runner', () => {
 describe('perf gate, the rest unchanged', () => {
   it('does not scale counts or sizes', () => {
     expect(judge({ key: 'edit.api_requests', unit: 'count', base: 88, now: 104, speed: 1.5 }).status).toBe('regressed')
-    expect(judge({ key: 'cold-start.js_kb', unit: 'kb', base: 1000, now: 1060, speed: 1.5 }).status).toBe('regressed')
+    expect(judge({ key: 'edit.kb_per_save', unit: 'kb', base: 1000, now: 1060, speed: 1.5 }).status).toBe('regressed')
   })
 
   it('without a calibration on either side, a budget is not scaled', () => {

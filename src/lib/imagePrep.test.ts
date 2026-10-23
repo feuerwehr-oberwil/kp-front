@@ -54,7 +54,8 @@ describe('prepareUploadImage keeps its own, different bargain', () => {
     expect(qualities).toEqual([])
   })
 
-  it('takes the metadata off a small file before it goes up — losslessly (review of #304)', async () => {
+  // review of #304
+  it('takes the metadata off a small file before it goes up — losslessly', async () => {
     const withGps = new Blob([fixture('gps-only.jpg')], { type: 'image/jpeg' })
     const up = await prepareUploadImage(withGps)
     expect(up).not.toBe(withGps)

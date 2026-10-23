@@ -660,7 +660,7 @@ describe('ContextPanel — a placed Notiz opens the sheet full', () => {
   it('expands the sheet and puts the caret in the note text', () => {
     const ctx = note(true)
     expect(ctx.classList.contains('sheet-full')).toBe(true)
-    expect(document.activeElement?.className).toBe('ctx-note-input')
+    expect(document.activeElement).toBe(screen.getByPlaceholderText(appConfig.copy.whiteboard.textPlaceholder))
   })
 
   it('leaves a sheet reopened on an existing Notiz at whatever height it had', () => {

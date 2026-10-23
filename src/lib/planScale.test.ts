@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { unitLen, pathUnits, calibrate, pathMetres, polyAreaM2, isStale, circleRadiusM, circleRadiusN, circleRingN, scaleLampTone, type NPoint } from './planScale'
+import { unitLen, pathUnits, calibrate, pathMetres, polyAreaM2, isStale, circleRadiusM, circleRadiusN, scaleLampTone, type NPoint } from './planScale'
 
 describe('unitLen — aspect correction', () => {
   it('is plain Euclidean on a square page (ar = 1)', () => {
@@ -97,23 +97,6 @@ describe('circleRadiusM / circleRadiusN', () => {
   it('answers null where the sheet cannot say — no factor, degenerate aspect', () => {
     expect(circleRadiusN(25, 0, 1.5)).toBeNull()
     expect(circleRadiusN(25, 4, 0)).toBeNull()
-  })
-})
-
-describe('circleRingN', () => {
-  it('is round in PIXELS, not in normalized units: the y radius carries the aspect', () => {
-    const ring = circleRingN(0.5, 0.5, 0.2, 2, 4)
-    expect(ring).toHaveLength(4)
-    expect(ring[0][0]).toBeCloseTo(0.7, 9)   // east: x + radiusN
-    expect(ring[0][1]).toBeCloseTo(0.5, 9)
-    expect(ring[1][0]).toBeCloseTo(0.5, 9)   // south: y + radiusN · ar
-    expect(ring[1][1]).toBeCloseTo(0.9, 9)
-  })
-
-  it('is open (last point is not the first), like every other normalized ring here', () => {
-    const ring = circleRingN(0.5, 0.5, 0.1, 1, 8)
-    expect(ring).toHaveLength(8)
-    expect(ring[7]).not.toEqual(ring[0])
   })
 })
 

@@ -57,7 +57,7 @@ const noLoop = () => {
 
 describe('useGpsFollow · a vehicle that does not move', () => {
   for (const state of ['guarded', 'continuous'] as const) {
-    it(`${state}: no write, a bounded number of renders, no #185`, () => {
+    it(`${state}: no write, a bounded number of renders, no render loop (React #185)`, () => {
       const done = noLoop()
       const { seen, feed } = mount(objectsFromLegacy([], [hose(state)], {}), [vehicle(TLF)])
       expect(seen.renders).toBeLessThanOrEqual(3)
@@ -139,7 +139,8 @@ describe('followLiveVehicles · the pass itself', () => {
  * and «Zurück auf Stand am Einsatzort» has to put the line back as it stood, as ONE undo step,
  * with the snapshot surviving every follower write, the sync merge and ↶/↷.
  */
-describe('useGpsFollow · «Weiter folgen» keeps the way back (D3)', () => {
+// D3
+describe('useGpsFollow · «Weiter folgen» keeps the way back', () => {
   const SITE = TLF
   const DEPOT: LngLat = [TLF[0] + 0.0100, TLF[1] + 0.0070] // ~1.1 km
   const path = (from: LngLat, to: LngLat, n: number): LngLat[] =>

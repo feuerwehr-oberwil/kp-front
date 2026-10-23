@@ -306,7 +306,8 @@ describe('«Wieder öffnen» on phone A reaches phone B the same way back', () =
   })
 })
 
-describe('what a closed Einsatz still takes is never refused along with the rest (review of #235)', () => {
+// review of #235
+describe('what a closed Einsatz still takes is never refused along with the rest', () => {
   it('a Kontakt made BEFORE the close, delivered after it, is recorded — nothing is parked', async () => {
     const sync = new WorkspaceSync(INC, { debounceMs: 60_000 })
     const { workspace } = await sync.init()
@@ -387,7 +388,8 @@ describe('what a closed Einsatz still takes is never refused along with the rest
   })
 })
 
-describe('a re-send never empties a refused slot it could not read (review of #235)', () => {
+// review of #235
+describe('a re-send never empties a refused slot it could not read', () => {
   it('requeueRefused after a failed read of the main slot sends nothing and leaves the slot', async () => {
     const idb = await import('./idb')
     const KEY = `kp-front-ws-${INC}::__refused__`
@@ -409,7 +411,8 @@ describe('a re-send never empties a refused slot it could not read (review of #2
   })
 })
 
-describe('a reopen reaches EVERY device showing the Einsatz closed — both orders (N1)', () => {
+// N1
+describe('a reopen reaches EVERY device showing the Einsatz closed — both orders', () => {
   // staging 26.09.2026: tablet B closed the Einsatz itself; tablet T opened it closed out of «Alle
   // Einsätze». Phone A reopened. B and T stayed «abgeschlossen» — the old rule followed a reopen
   // only where a close SIGNAL had switched the view. Now the answer is the same for both.

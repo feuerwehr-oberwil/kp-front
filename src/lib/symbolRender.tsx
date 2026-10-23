@@ -76,7 +76,7 @@ export function composeCompositeSvg(baseSvg: string, partSvg: string, scale = FA
 // articulated boom) all render as two stacked, separately-rotatable layers: the body by `rotation`,
 // the overlaid part by `rotation2`. The part glyphs are render-only (hidden from the palette by
 // useSymbols); the full authored VKF Drehleiter / VKF Hubretter glyphs stay as the palette thumbnails.
-export const DREHLEITER = 'VKF Drehleiter'
+const DREHLEITER = 'VKF Drehleiter'
 export const HUBRETTER = 'VKF Hubretter'
 export const DREHLEITER_PART = 'VKF Drehleiter Leiter'
 export const HUBRETTER_PART = 'VKF Hubretter Arm'

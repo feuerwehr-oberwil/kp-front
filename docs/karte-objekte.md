@@ -1130,7 +1130,7 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   alarm host (the same tone, and the OS notification with its sound and vibration) and the alarm
   rows in the Meldeleiste over the surface in front — overdue / Alarmdruck / Rückzug per Trupp,
   and the Notfall. «Zum Trupp» brings the Einsatz back (`App · uncoverEinsatz`, nothing reopens)
-  on the Atemschutz board at that card. Pinned by `IncidentWorkspace.harness.test.tsx` · (k).
+  on the Atemschutz board at that card. Pinned by `IncidentWorkspace.harness.lifecycle.test.tsx` · (k).
 - **The viewer state** (`KarteView` in sessionStorage: frame, object, open plan / Gebäude, the open
   tool by name only, and the label for «Zurück zu …») is per device and per tab session. It is
   written only after the catalogue has answered, so an early exit cannot blank it, and it never

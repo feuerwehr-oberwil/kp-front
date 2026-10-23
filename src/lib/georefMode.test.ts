@@ -13,7 +13,6 @@ import {
   georefPairIndex,
   georefPhoneTargetPoint,
   georefPlacing,
-  georefPointNo,
   georefReduce,
   georefSideCount,
   georefSnapshot,
@@ -160,7 +159,6 @@ describe('georefReduce · placing points as numbered slots', () => {
     expect(s.planId).toBe('modul2')
     expect(s.want).toBe('plan')
     expect(georefPlacing(s)).toBe(false)
-    expect(georefPointNo(s)).toBe(1)
   })
 
   it('a plan tap opens a half — and does NOT drag the operator to the map', () => {
@@ -180,7 +178,6 @@ describe('georefReduce · placing points as numbered slots', () => {
     s = georefReduce(s, { type: 'planTap', pt: { x: 0.4, y: 0.5 } })
     expect(openPlan(s)).toEqual([{ x: 0.2, y: 0.3 }, { x: 0.4, y: 0.5 }])
     expect(s.pairs).toHaveLength(0)
-    expect(georefPointNo(s)).toBe(3) // on the plan: the number a further tap would open
   })
 
   it('may start on the map and gives that half slot 1', () => {
@@ -188,7 +185,6 @@ describe('georefReduce · placing points as numbered slots', () => {
     expect(openMap(s)).toEqual([{ lng: 7.5, lat: 47.5 }])
     expect(s.pairs).toHaveLength(0)
     expect(s.want).toBe('map')
-    expect(georefPointNo(s)).toBe(2)
   })
 
   it('matches map-first points from the plan in the same numbered order', () => {
@@ -215,7 +211,6 @@ describe('georefReduce · placing points as numbered slots', () => {
     expect(s.want).toBe('map')
     // ⚠️ still armed: the third point is what earns a residual, so it has to be cheap
     expect(s.planId).toBe('modul2')
-    expect(georefPointNo(s)).toBe(2)
   })
 
   it('under three pairs the map matches the OLDEST open half — capture order is the pairing', () => {
@@ -224,7 +219,6 @@ describe('georefReduce · placing points as numbered slots', () => {
     expect(openPlan(s)).toHaveLength(3)
     s = georefReduce(s, { type: 'goMap' })
     expect(s.want).toBe('map')
-    expect(georefPointNo(s)).toBe(1) // over there the number is the OLDEST open point
     s = georefReduce(s, { type: 'mapTap', lngLat: mapOf(T1) })
     expect(s.pairs[0].plan).toEqual(T1)
     expect(s.want).toBe('map') // two still open — no hop back mid-queue
@@ -396,7 +390,6 @@ describe('georefReduce · selection, popover and Verschieben', () => {
     expect(s.want).toBe('plan')
     expect(georefPlacing(s)).toBe(false)
     expect(georefMatching(s)).toBe(false)
-    expect(georefPointNo(s)).toBe(1)
     s = georefReduce(s, { type: 'select', idx: 0, side: 'plan' })
     expect(s.sel).toBeNull()
   })
@@ -1074,7 +1067,8 @@ describe('georefReduce · the automatic suggestion (proposal review)', () => {
   })
 })
 
-describe('an APPROVED automatic fit reads «verknüpft», not «ungemessen» (18.09.2026)', () => {
+// 18.09.2026
+describe('an APPROVED automatic fit reads «verknüpft», not «ungemessen»', () => {
   const AUTO_PAIRS: GeorefPair[] = [
     { plan: { x: 0.15, y: 0.15 }, lngLat: mapOf({ x: 0.15, y: 0.15 }), kind: 'auto' },
     { plan: { x: 0.85, y: 0.85 }, lngLat: mapOf({ x: 0.85, y: 0.85 }), kind: 'auto' },

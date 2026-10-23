@@ -30,7 +30,7 @@ const { apiGet, apiPut, apiUpload, ApiError, listReference, refs } = vi.hoisted(
   }
 })
 vi.mock('../lib/api', () => ({ apiGet, apiPut, apiUpload, ApiError }))
-vi.mock('../lib/incidents', () => ({ listReference, listObjects: vi.fn(async () => []) }))
+vi.mock('../lib/incidents', async (orig) => ({ ...(await orig<typeof import('../lib/incidents')>()), listReference, listObjects: vi.fn(async () => []) }))
 vi.mock('./DataView', () => ({ GeodataView: () => null, ObjectsView: () => null }))
 
 import { ConfigProvider } from './ConfigContext'

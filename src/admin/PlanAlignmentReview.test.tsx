@@ -251,7 +251,7 @@ describe('full-screen plan editor', () => {
     })
     // the fit stands (two pairs), so its tile heads the grid
     await within(grid).findByTestId('preview')
-    expect((grid.firstElementChild as HTMLElement).className).toBe('adm-floor-preview-map')
+    expect(within(grid.firstElementChild as HTMLElement).queryByTestId('preview')).not.toBeNull()
     expect(within(grid).getAllByRole('img').map(el => el.getAttribute('aria-label'))).toEqual(['+1 · Dachstock', '0 · Erdgeschoss'])
     // no sentences: neither the old preview hint nor the «noch keine Ausrichtung» line
     expect(within(grid).queryByText(/Rahmen und Massstab/)).toBeNull()

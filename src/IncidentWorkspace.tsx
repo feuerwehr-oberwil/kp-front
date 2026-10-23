@@ -1,3 +1,11 @@
+// One open Einsatz – the shell App mounts per incident: it holds the workspace blob and its sync,
+// the ONE undo timeline, the Verlauf writers and the rail's surfaces (Lage, Plan, Checklisten,
+// Atemschutz, Anwesenheit, Mittel, Rapport), and hands each surface its slice. Split-out pieces
+// live in src/workspace/. It stays mounted while another surface is in front (`covered`), so its
+// sync, live poll and Atemschutz alarm keep running.
+// Rules: every mutation joins the one timeline (docs/undo.md); synced state and the record:
+// docs/sync-and-offline.md.
+
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'

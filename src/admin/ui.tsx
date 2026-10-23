@@ -439,27 +439,6 @@ export function InlineRecord({ action, note, children }: {
   )
 }
 
-/**
- * The dashed row that closes a list: «und hier kommt der nächste dazu».
- *
- * Every «+ … hinzufügen» in /admin is a `.adm-formlink-add` — a framed row when it stands alone
- * (28.09.2026: no longer dashed; the dashed frame is this placeholder row, not the button). `AddRow` is for the case where the row has something to say first:
- * a dim line on the left (what would be added, or why nothing has been yet) and the action on
- * the right.
- */
-export function AddRow({ label, children }: {
-  /** the dim half-sentence on the left; omitted, the action simply sits alone in the row */
-  label?: string
-  children: ReactNode
-}) {
-  return (
-    <div className="adm-addrow">
-      {label && <span className="adm-addrow-label">{label}</span>}
-      <span className="adm-addrow-act">{children}</span>
-    </div>
-  )
-}
-
 /** Status pill: tone drives the dot + text colour. */
 export function StatusBadge({ tone, label, state }: {
   tone: 'on' | 'off' | 'warn' | 'err'
@@ -540,9 +519,8 @@ export function ProgressBar({ done, total, label }: { done?: number; total?: num
  *  button/link. `tone='err'` colours it as a failure. Replaces the bare inline
  *  `<div className="adm-state">…` blocks that were copy-pasted across every view.
  *
- *  ⚠️ Same dashed row as `AddRow`, deliberately: «hier steht noch nichts» and «hier kommt
- *  etwas dazu» are the same sentence, and a centred 36px block said it in a different voice on
- *  every second page. The action sits at the right edge of the row while it fits and drops
+ *  ⚠️ A dashed row, deliberately: «hier steht noch nichts» is a placeholder, and a centred
+ *  36px block said it in a different voice on every second page. The action sits at the right edge of the row while it fits and drops
  *  under the text when it does not. */
 export function EmptyState({ message, hint, action, tone, loading = false }: {
   message: string

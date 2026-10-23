@@ -43,7 +43,7 @@ export function initials(name: string): string {
 
 // Display label for a backend role (editor/el/viewer). Display-only; the wire value
 // keeps the English role name. Read from the copy catalogue inside the call, so the
-// deployment locale applies (module-level capture would freeze it — AGENTS.md · i18n).
+// deployment locale applies (module-level capture would freeze it — docs/copy-and-wording.md).
 export function roleLabel(role: string): string {
   const C = appConfig.copy.admin.members
   return role === 'editor' ? C.roleEditor : role === 'el' ? C.roleEl : C.roleViewer

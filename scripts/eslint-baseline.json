@@ -8,6 +8,6 @@
     "react-hooks/purity": 26,
     "react-hooks/refs": 121,
     "react-hooks/set-state-in-effect": 74,
-    "react-refresh/only-export-components": 117
+    "react-refresh/only-export-components": 116
   }
 }

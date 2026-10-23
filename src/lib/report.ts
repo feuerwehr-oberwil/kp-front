@@ -1,3 +1,11 @@
+// The Rapport's content, as pure data: the print options, the Verlauf as journal rows, Pendenzen,
+// Trupp words and crew cycles, Personal / Mittel tables and the Kroki framing. No rendering –
+// `reportPdfDirect` composes the PDF payload from these, the backend draws it.
+// The labels here are ALSO the words on screen (the Atemschutz board, the Journal): the printed
+// word and the shown word come from one function, so a view that needs other wording swaps it at
+// the view layer, never here.
+// Rules for this area: docs/rapport.md.
+
 import type { AttendanceState, BoardDoc, Drawing, Entity, LngLat, MittelEntry, PlanDocument, TimelineEvent, Trupp, TruppReading } from '../types'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from './workspace'
 import { allAuftragTypes, appConfig } from '../config/appConfig'

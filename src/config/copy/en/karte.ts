@@ -70,7 +70,6 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     planSharpening: 'Loading a sharper view …',
     planSharpOffline: 'Sharper view needs a connection',
     planSharpFailed: 'The sharper view could not be loaded',
-    floorsLoading: 'Loading storeys …',
     floorsFailed: 'The storeys could not be loaded.',
     floorFailed: 'This storey could not be drawn.',
     onDevice: 'on this device',

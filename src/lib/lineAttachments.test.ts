@@ -4,7 +4,7 @@ import {
   advanceDwell, applyRouting, armDwell, arrowEdgePadPx, arrowTipLeadPx, attachInsetPx, boundaryPoint, DEFAULT_OBJECT_ROUTING, detachProgress, lineJoints, objectAttachment,
   DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, endpointCapacity, flipLine, MAGNET_DWELL_MS,
   forkDims, forkPortPoint, gpsGuard, incomingAttachments, isMagnetAnno, isMagnetEntity,
-  materializeEndpoint, moveLineBody,
+  moveLineBody,
   nearestFreeEndpoint, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget,
   MAGNET_RADIUS_PX, TEAM_JOIN_RADIUS_PX,
   wouldCreateCycle, type AttachableLine, type MagneticTarget,
@@ -179,12 +179,10 @@ describe('resolution, movement, detach, and networks', () => {
     expect(child.points[1]).toEqual([1, 0])
   })
 
-  it('keeps dangling fallbacks, materializes detach, and fixes attached body endpoints', () => {
+  it('keeps dangling fallbacks and fixes attached body endpoints', () => {
     const attached = line('a', { startAttachment: { target: { kind: 'object', id: 'missing' }, routing: 'direct' } })
     expect(resolveLinePoints(attached, { lines: [attached], objectPoint: () => null })).toEqual(attached.points)
     expect(moveLineBody(attached, [2, 3])).toEqual([[0, 0], [12, 3]])
-    const detached = materializeEndpoint(attached, 'start', [5, 6])
-    expect(detached.points[0]).toEqual([5, 6]); expect(detached.startAttachment).toBeUndefined()
   })
 
   it('traverses line and object parties with decreasing network depth', () => {

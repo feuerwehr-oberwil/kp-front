@@ -39,7 +39,7 @@ import { objectVisitsCopy } from './de/objectVisits'
 import { karteCopy } from './de/karte'
 import { adminCopy } from './de/admin'
 
-export type { HelpOnly, HelpBlock, HelpSection } from './de/help'
+export type { HelpOnly } from './de/help'
 
 export const de = {
   ...shellCopy,

@@ -16,7 +16,7 @@
 // a backgrounded tab does not hold a connection.
 //
 // The loop that spends these delays lives here too (`createLongPollLoop`): the workspace sync and
-// the Verlauf run the same one, and only the body of a round differs between them.
+// the Verlauf run the same one (through lib/useLongPoll), and only the body of a round differs.
 
 /** Spacing between two back-to-back long-poll rounds of a visible tab. Not a cadence — the
  *  server does the waiting — just a floor, so a round that returns instantly (a 304 the moment

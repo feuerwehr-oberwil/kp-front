@@ -122,7 +122,7 @@ export function noteBuildingAsked(index: readonly string[], where: string, keep 
 }
 
 /** Best-effort bookkeeping after a fresh answer was stored. An index that cannot be READ is left
- *  alone (AGENTS.md · a failed IndexedDB read is not a miss): writing over it would orphan
+ *  alone (docs/sync-and-offline.md: a failed IndexedDB read is not a miss): writing over it would orphan
  *  every entry it named. */
 let indexLane: Promise<void> = Promise.resolve()
 /** one index update at a time — two quick taps must not each write the index the other read */

@@ -235,4 +235,4 @@ ends an alarm with a Funkkontakt from another device, and the same `AtemschutzAl
 `AtemschutzNotfallMeldungen` rows over the surface in front, whose «Zum Trupp» brings the Einsatz
 back on this board at that card. Until then the Objektbesuche over an Einsatz unmounted it and
 the alarm went silent. Details: docs/karte-objekte.md · «Home»; pinned by
-`IncidentWorkspace.harness.test.tsx` · (k).
+`IncidentWorkspace.harness.lifecycle.test.tsx` · (k).

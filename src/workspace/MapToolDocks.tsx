@@ -287,7 +287,7 @@ export function MapToolDocks({
       {mapUI && teamPick && (
         /* ⚠️ Modal → lib/overlays, in lockstep with the plan's twin: focus trap + restore,
            scroll-lock, Esc and backdrop dismissal. The hand-rolled scrim both used to share had
-           none of them. (AGENTS.md's hand-rolled carve-out is the NON-modal tool docks.) */
+           none of them. (docs/ui-conventions.md · Overlays: the hand-rolled carve-out is the NON-modal tool docks.) */
         <Overlay
           open
           onClose={() => { setTeamPick(null); setTool('select') }}

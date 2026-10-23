@@ -65,7 +65,8 @@ describe('WheelPicker · looping clock wheels', () => {
   })
 })
 
-describe('DateTimeField · one date control (05.10.2026)', () => {
+// 05.10.2026
+describe('DateTimeField · one date control', () => {
   it('labels days «Mo 05.10.» — no comma that wraps the phone column', () => {
     expect(fmtWheelDay(new Date(2026, 9, 5))).toBe('Mo 05.10.')
   })

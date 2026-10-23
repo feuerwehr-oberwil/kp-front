@@ -6,7 +6,7 @@ import { Icon } from '../lib/icons'
  * Shared on purpose: the line editor's «Gehört zu Trupp …» (DrawEditor), the map marker's
  * «Atemschutz-Trupp» (MapMarkers) and the plan chip's twin of it (Whiteboard) are the same
  * control asked from three places, and three private copies of the row is how they drift apart.
- * Never a native `<select>` — see AGENTS.md.
+ * Never a native `<select>` — see docs/ui-conventions.md · Editor sheets.
  */
 export function MenuPick({ label, on }: { label: string; on: boolean }) {
   return (

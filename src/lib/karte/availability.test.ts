@@ -25,7 +25,8 @@ describe('objectAvailability — what opens without a network', () => {
   })
 
   // the bug of review round 3: a tiled plan opened online stores its tiles, never its PDF
-  it('a TILED plan opened online is held by its tiles — no PDF needed (review round 3)', () => {
+  // review round 3
+  it('a TILED plan opened online is held by its tiles — no PDF needed', () => {
     const a = objectAvailability(OBJ, held({
       [planKey(M1)]: { pdf: false, tiles: 'all', meta: null },
       [planKey(M23)]: { pdf: false, tiles: 'underlay', meta: null },

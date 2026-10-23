@@ -51,7 +51,6 @@ export const atemschutzCopy = {
     // meldet niemanden an, und genau diesen Eindruck darf der Satz nicht erwecken (02.09.).
     linkReentryHint: 'Der Link führt zurück auf diese Tafel – wird die Seite versehentlich geschlossen, einfach den QR-Code nochmals öffnen.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
-    liteNewTab: 'Trupp',
     /* ── Der Stapel: das Trupp-Formular auf dem Telefon (TruppForm · stack, 04.09.) ───────────
      * Löst den zweischrittigen Wizard ab (02.–04.09.). DREI Abschnitte, die immer alle sichtbar
      * sind; genau einer ist offen, die geschlossenen lesen ihre Antwort im Klartext vor. Damit
@@ -86,7 +85,6 @@ export const atemschutzCopy = {
     // «Auftrag» über den sechs Kacheln (27.09.2026, slim sweep 6) – nicht mehr «Art»: das Wort stand
     // direkt unter «Art des Trupps», und die Karte sagt schon «Auftrag» (editFieldLabels)
     auftragLabel: 'Auftrag',
-    auftragOpen: 'Auftrag offen',
     // DISPLAY labels for the Auftrag types, keyed by the auftrag `id`. ONE flat map over BOTH
     // lists (appConfig.atemschutz.auftrag = unter Atemschutz, .auftragEinfach = ohne) — which is
     // why `sichern` and `anderes` read the same on both kinds of card: they ARE the same id.
@@ -332,25 +330,10 @@ export const atemschutzCopy = {
     alarmNoteEst: 'Alarmdruck {bar} bar – laut Schätzung erreicht',
     lineField: 'Leitung',
     edit: 'Bearbeiten',
-    pressureConfirm: 'Bestätigen',
-    pressureConfirmHint: 'Neuen Druck bestätigen – zählt als Kontakt',
-    // ⚠️ A HINT, never a block. Air does not come back, so a rising value is almost always a
-    // typo — but «almost always» is not «always»: it is also how a wrong Eingangsdruck gets
-    // corrected, and at 3am the app does not get to refuse what the Überwacher says they read
-    // off the gauge. Shown while the value is still pending, so it can be fixed before it
-    // becomes a record rather than undone afterwards.
-    pressureRose: 'Höher als zuletzt ({from} bar) – vertippt?',
     // per-Trupp contact/pressure log (expandable on the card)
     verlauf: 'Verlauf',
-    // the readings, under the contact times that head the same expander (03.09.)
-    // ⚠️ No longer a tap zone on the clock (03.09.): the clock is a display again, and «Zeiten»
-    // is what the Verlauf's timing head is called — plus the preview on a Trupp that has times
-    // but no readings yet.
-    zoneTimes: 'Zeiten',
     // the ⋯ on the card: Bearbeiten · Platzieren · Leitung · Sortierung · Entfernen, as words
     cardMenu: 'Weitere Aktionen',
-    // the state band on a Trupp still at the door — the long sentence below it stays the hint
-    bandPreEntry: 'Noch nicht im Einsatz',
     // ⚠️ Die Unterzeile eines Trupps, der NIE im Einsatz war (truppNeverDeployed): keine laufende
     // Uhr, sondern die Uhrzeit der Anmeldung. Bis 04.09. stand über ihm «Draussen seit» und eine
     // tickende, fette Uhr – ein Sicherungstrupp, der nie unter Atemschutz war, las sich damit wie
@@ -361,8 +344,6 @@ export const atemschutzCopy = {
     nextContactDue: 'Nächster fällig',
     contactIntervalLabel: 'Kontakt-Intervall',
     contactIntervalValue: '{min} min',
-    // Verlauf footer preview — {what} = readingKind label, plus the bar for measured kinds
-    verlaufLatest: 'zuletzt: {time} {what}',
     // ⚠️ «Alarmdruck» and «Rückzug» are the two rows the printed Atemschutz-Journal is read for.
     // Both used to be indistinguishable on it — the Alarmdruck as one «Druck» among a column of
     // them, the Rückzug as a plain «Kontakt».
@@ -487,7 +468,6 @@ export const atemschutzCopy = {
     // away the one thing proving it stood ready. It is now closed out like any other: under
     // «Draussen», with a break clock, ready to re-enter at any time.
     actNotDeployed: 'Nicht eingesetzt',
-    actNotDeployedHint: 'Trupp abschliessen, ohne dass er unter AS war – bleibt für einen erneuten Einsatz bereit',
     // status word and Verlauf row for exactly this case: «draussen» claims it had been inside
     statusNotDeployed: 'Nicht eingesetzt',
     statusRemoved: 'Von Tafel entfernt',
@@ -578,11 +558,6 @@ export const atemschutzCopy = {
     logRenumbered: 'Trupp {name} heisst jetzt Trupp {no}',
     // …und ein loser Trupp-Marker, mit den Namen, die er auf dem Bild trug
     logRenumberedChip: '{from} heisst jetzt {to}',
-    // Verlauf row for when somebody changes the safety values. WITH old and new values:
-    // «geändert» alone doesn't say whether the threshold got stricter or looser.
-    logSafety: 'Atemschutz-Sicherheitswerte geändert: {changes}',
-    logSafetyInterval: 'Funkkontakt-Intervall {from} → {to} min',
-    logSafetyGrace: 'Nachfrist {from} → {to} s',
     logSafetyFunkkanal: 'Funkkanal {from} → {to}',
     logPlaced: 'Trupp {name} auf Plan platziert',
     logPlacedMap: 'Trupp {name} auf der Karte platziert',
@@ -776,7 +751,7 @@ export const atemschutzCopy = {
     // der Knopf im Kopf der Tafel trägt auch am Handy sein Wort
     newTruppShort: 'Trupp',
     /* ── Staging-Durchgang 2, 25.09.2026 ── */
-    // jede Entfernung sagt es – mit Rückgängig (bestätigen-mit-Rückgängig, AGENTS.md)
+    // jede Entfernung sagt es – mit Rückgängig (bestätigen-mit-Rückgängig, docs/undo.md)
     removedToast: 'Trupp {name} entfernt',
     // «Nicht eingesetzt» vom sichtbaren Knopf der Karte – mit Rückgängig (Review 26.09.2026)
     notDeployedToast: 'Trupp {name}: nicht eingesetzt',
@@ -818,7 +793,6 @@ export const atemschutzCopy = {
       goToWho: 'Zum {name}',
       // die Meldeleiste
       rowTitle: 'Notfall – Trupp {name}',
-      rowTitleMany: 'Notfall – {count} Trupps: {names}',
       // der Verlauf (und damit das Einsatzjournal im Rapport)
       logTrigger: 'Trupp {name}: Notfall ausgelöst',
       factPlace: 'Ort {place}',

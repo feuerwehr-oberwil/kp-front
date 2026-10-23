@@ -287,7 +287,7 @@ export function PhotosSection({ doc, readOnly, pending, onTakePhoto, onOpenPhoto
             </button>
           ))}
           {!readOnly && (
-            // the ONE dashed add in the app: a placeholder for a file (AGENTS.md · Small roles)
+            // the ONE dashed add in the app: a placeholder for a file (docs/ui-conventions.md · Small roles)
             <button type="button" className={s.addTile} onClick={() => onTakePhoto(null)}>
               <Icon id="cam" /><span>{C.addPhoto}</span>
             </button>

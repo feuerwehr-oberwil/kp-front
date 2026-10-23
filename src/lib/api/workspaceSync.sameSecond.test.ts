@@ -98,7 +98,8 @@ const setShift = (patch: Partial<Shift>) => (ws: Ws): Ws => ({
   ...ws, shifts: ws.shifts!.map((s) => (s.id === 'sh1' ? { ...s, ...patch } : s)),
 })
 
-describe('WorkspaceSync · two devices save different fields of one record in the same second (staging r4 D3)', () => {
+// staging r4, D3
+describe('WorkspaceSync · two devices save different fields of one record in the same second', () => {
   it('Anwesenheit: A\'s «von» and B\'s Bemerkung both survive, and no «bitte prüfen» row is raised', async () => {
     const { ws, conflicts } = await sameSecond(setVon('2026-09-25T21:38:00Z'), setNote('Fahrer TLF', '2026-09-25T21:38:30Z'))
     expect(ws.attendance!.p1).toMatchObject({ checkedInAt: '2026-09-25T21:38:00Z', intervals: [{ from: '2026-09-25T21:38:00Z' }], note: 'Fahrer TLF' })

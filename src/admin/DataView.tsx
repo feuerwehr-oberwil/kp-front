@@ -7,6 +7,7 @@ import {
   listReference,
   getDiveraPool,
   refreshDiveraPool,
+  isGeoDataset,
 } from '../lib/incidents'
 import type {
   ObjectWithPlans,
@@ -14,7 +15,6 @@ import type {
   DiveraAlarm,
 } from '../lib/incidents'
 import type { VehiclePosition } from '../types'
-import { isGeoDataset } from '../lib/api/reference'
 import { providerLabel } from '../lib/deploymentConfig'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, fmtFileSize } from '../lib/format'

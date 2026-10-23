@@ -319,7 +319,8 @@ describe('handLinkRow — a first link by hand is one row, from the act', () => 
  * first bake runs with the rail half-filled, the Einsatzobjekt's plans and its binding land
  * afterwards, and four Lüfter on the Gebäude stack carry a rotation that no longer matches their
  * anno. Prod wrote «Referenz angepasst – 4 Objekte neu verortet» here; nobody touched a reference. */
-describe('regression — 23.09.2026 18:43:23 / 20:31:07', () => {
+// field regression 23.09.2026 18:43:23 / 20:31:07
+describe('a remount and late-arriving plans are no reference change', () => {
   it('remount + late plans + non-identical bakes write no row', () => {
     const full = [plan('osm'), plan('modul1'), plan('modul2'), plan('modul3')]
     const store: Record<string, Georef> = {

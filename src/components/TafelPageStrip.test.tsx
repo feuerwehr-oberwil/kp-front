@@ -11,7 +11,8 @@ afterEach(cleanup)
 const FKS = BUNDLED_TEMPLATES[0]
 const pageOf = (id: string, at: string): FormAnno => formAnno(newFormPage(FKS, FKS.pages.find((p) => p.id === id)!, {}, at))
 
-describe('the page strip (owner, 10.10. evening)', () => {
+// owner, 10.10. evening
+describe('the page strip', () => {
   const pages = [pageOf('ef', '2026-10-10T09:00:00Z'), pageOf('konzept', '2026-10-10T09:01:00Z'), pageOf('konzept', '2026-10-10T09:02:00Z')]
   it('numbers the second Konzept, and «+ Seite» lists only page titles — a repeatable one stays on offer', async () => {
     const onAdd = vi.fn()

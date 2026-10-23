@@ -40,7 +40,7 @@
   .fab-entry:hover { filter: brightness(1.05); }
 }
 /* press = the house ink wash (02-base.css) over the fill — nothing moves on press
-   (AGENTS.md · touch vocabulary) */
+   (docs/ui-conventions.md · Touch vocabulary) */
 .fab-entry:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* names the LABEL, not every span — see the note on .tb-act-add in 10-journal.css */
   .fab-entry .i, .fab-entry .tb-act-label { position: relative; z-index: 1; }
