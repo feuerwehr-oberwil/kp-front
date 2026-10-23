@@ -437,7 +437,7 @@
        once the columns row is the 1fr.
    Hence `:first-child` rather than a bare `:has(> .formColWide)`, which the warning would match
    in the no-tiles shapes and hand the 1fr row to the tiles that are not there. That the tiles ARE
-   the first child is not an assumption — it is pinned by AtemschutzView.test.tsx («a tablet keeps
+   the first child is not an assumption — it is pinned by AtemschutzView.board.test.tsx («a tablet keeps
    the single screen»), because it is also a copy rule: the chooser stands above the fields it
    governs. */
 .modalBody { grid-template-rows: 1fr; }

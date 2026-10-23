@@ -57,7 +57,7 @@ export default tseslint.config(
   // the data layer and imports lib/api/* directly. Tests may import a module under test anywhere.
   {
     files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/lib/**', 'src/**/*.test.{ts,tsx}', 'src/**/*.harness.setup.tsx'],
+    ignores: ['src/lib/**', 'src/**/*.test.{ts,tsx}', 'src/**/*.setup.tsx'],
     rules: {
       'no-restricted-imports': ['error', { patterns: [{
         regex: '/lib/api/(incidents|workspace|workspaceSync|events|media|divera|personnel|geo|objects|reference)$',
