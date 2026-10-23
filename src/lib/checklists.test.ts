@@ -8,7 +8,7 @@ import {
   searchLibrary,
   snippet,
   isChecklistTemplateId,
-  matchDiveraEntries,
+  matchEntries,
   phaseItems,
   phaseProgress,
   searchEntries,
@@ -96,44 +96,52 @@ describe('searchEntries', () => {
   })
 })
 
-describe('matchDiveraEntries', () => {
-  const templates: ChecklistTemplate[] = [{ id: 'el', kind: 'reference', title: 'EL', version: 1, source: 's', entries }]
-  it('matches an alarm title to its tactics entry', () => {
-    expect(matchDiveraEntries(templates, { title: 'Brand Tiefgarage Bahnhofstr.' }).map((e) => e.id)).toEqual(['tg'])
+describe('matchEntries', () => {
+  /** one reference template with these entries, in this (the station's) order */
+  const taktik = (...es: [id: string, diveraKeywords: string[]][]): ChecklistTemplate[] => [{
+    id: 'el', kind: 'reference', title: 'EL', version: 1, source: 's',
+    entries: es.map(([id, diveraKeywords]) => ({ id, title: id, keywords: [], diveraKeywords, content: [] })),
+  }]
+  const ids = (es: RefEntry[]) => es.map((e) => e.id)
+  const station = taktik(
+    ['brand', ['BRAND', 'FEUER', 'ZIMMERBRAND']],
+    ['tg', ['TIEFGARAGE', 'GARAGE', 'BRAND']],
+    ['gas', ['GAS', 'GASLEITUNG']],
+    ['bauernhof', ['BAUERNHOF', 'STALL', 'BRAND']],
+  )
+
+  it('matches a keyword in the title', () => {
+    expect(ids(matchEntries(station, 'Zimmerbrand Schloss'))).toEqual(['brand'])
   })
-  it('matches on incident type too', () => {
-    expect(matchDiveraEntries(templates, { type: 'wespen' }).map((e) => e.id)).toEqual(['wespen'])
+  it('gives none for a title without a keyword – a keyword inside another word is none', () => {
+    expect(matchEntries(station, 'Wasserschaden Schlossgasse 9')).toEqual([])
+    expect(matchEntries(station, 'Kellerbrand')).toEqual([])
   })
-  it('returns nothing with no match', () => {
-    expect(matchDiveraEntries(templates, { title: 'Verkehrsunfall A2' })).toEqual([])
+  it('matches a keyword of several words as a phrase', () => {
+    const t = taktik(['ea', ['PKW BRAND', 'E-AUTO']])
+    expect(ids(matchEntries(t, 'PKW Brand A2'))).toEqual(['ea'])
+    expect(ids(matchEntries(t, 'E-Auto Garage'))).toEqual(['ea'])
+    expect(matchEntries(t, 'Brand PKW')).toEqual([])
   })
-  it('leads with the longer (more specific) keyword, keeping the others', () => {
-    const t2: ChecklistTemplate[] = [{ id: 'el', kind: 'reference', title: 'EL', version: 1, source: 's', entries: [
-      { id: 'brand', title: 'Brand', keywords: [], diveraKeywords: ['brand'], content: [] },
-      { id: 'tg', title: 'Tiefgarage', keywords: [], diveraKeywords: ['tiefgaragenbrand'], content: [] },
-    ] }]
-    expect(matchDiveraEntries(t2, { title: 'Tiefgaragenbrand UG' }).map((e) => e.id)).toEqual(['tg', 'brand'])
+  it('leads with the most specific: the longest keyword, then the most keywords hit', () => {
+    expect(ids(matchEntries(station, 'Brand Tiefgarage Schloss'))).toEqual(['tg', 'brand', 'bauernhof'])
+    expect(ids(matchEntries(station, 'Brand im Stall'))).toEqual(['bauernhof', 'brand', 'tg'])
+  })
+  it('breaks a tie in the station order, not alphabetically', () => {
+    const t = taktik(['wohnung', ['BRAND']], ['bauernhof', ['BRAND']], ['auto', ['BRAND']])
+    expect(ids(matchEntries(t, 'Brand'))).toEqual(['wohnung', 'bauernhof', 'auto'])
   })
 
   // The reported case: one Stichwort, three answers, none of them derivable from the alarm text.
   it('offers every page a «VU Strasse» could turn out to need', () => {
-    const t3: ChecklistTemplate[] = [{ id: 'el', kind: 'reference', title: 'EL', version: 1, source: 's', entries: [
-      { id: 'vu', title: 'Verkehrsunfall', keywords: [], diveraKeywords: ['vu'], content: [] },
-      { id: 'ea', title: 'E-Autobrand', keywords: [], diveraKeywords: ['vu strasse'], content: [] },
-      { id: 'oel', title: 'Ölspur auf Strasse', keywords: [], diveraKeywords: ['strasse'], content: [] },
-      { id: 'wesp', title: 'Wespen', keywords: [], diveraKeywords: ['wespen'], content: [] },
-    ] }]
-    expect(matchDiveraEntries(t3, { title: 'VU Strasse Hauptstrasse 12' }).map((e) => e.id))
-      .toEqual(['ea', 'oel', 'vu'])
+    const t = taktik(['vu', ['VU']], ['ea', ['VU STRASSE']], ['oel', ['STRASSE']], ['wesp', ['WESPEN']])
+    expect(ids(matchEntries(t, 'VU Strasse Hauptstrasse 12'))).toEqual(['ea', 'oel', 'vu'])
   })
 
   it('caps how many it offers, so a broad keyword does not become a second list', () => {
-    const many: ChecklistTemplate[] = [{ id: 'el', kind: 'reference', title: 'EL', version: 1, source: 's',
-      entries: Array.from({ length: 9 }, (_, i) => (
-        { id: `e${i}`, title: `E${i}`, keywords: [], diveraKeywords: ['brand'], content: [] } as RefEntry
-      )) }]
-    expect(matchDiveraEntries(many, { title: 'Brand' })).toHaveLength(4)
-    expect(matchDiveraEntries(many, { title: 'Brand' }, 2)).toHaveLength(2)
+    const many = taktik(...Array.from({ length: 9 }, (_, i): [string, string[]] => [`e${i}`, ['brand']]))
+    expect(matchEntries(many, 'Brand')).toHaveLength(4)
+    expect(matchEntries(many, 'Brand', 2)).toHaveLength(2)
   })
 })
 

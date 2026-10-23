@@ -78,7 +78,7 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     groupTasks: 'Tasks',
     searchPlaceholder: 'Search …',
     searchAria: 'Search manual or checklist',
-    matching: 'Matching: {title}',
+    groupMatching: 'Matching',
     none: 'No checklists available yet.',
     pickEntry: 'Choose or search a keyword.',
     done: 'done',

@@ -1961,6 +1961,14 @@ lists don't linger.
 | `manual` | an **Anleitung** for one device (05.10.2026) | `device` + `steps[]` | no | `steps[].images[].page` |
 | `visit` | an Objektbesuch checklist – [`object-visits.md`](object-visits.md); optional `targets` (`["object"]` default, `"location"` = usable at a place without an object) | `phases[].items[]` | answered on the visit | – |
 
+A `reference` entry's `diveraKeywords` put it in the Einsatz Checkliste's **«Passend»** group,
+above «Aufgaben», when the Einsatz title (its Stichwort) names one of them. Matching uses whole
+words of the title only (never the Kategorie), so a compound needs its own keyword: `BRAND` does
+not match «Kellerbrand», `KELLERBRAND` does. A keyword of several words (`PKW BRAND`) matches as
+a phrase. At most four entries show. The most specific comes first: the longest keyword hit, then
+the most keywords hit, then the entries' own order. No match means no group
+(`matchEntries` in `src/lib/checklists.ts`).
+
 Images are manifest `assets` (`{"page": N, "file": "…jpg|png|webp|svg"}`), stored as
 `checklists:<id>:p<N>`; only `reference` and `manual` entries may carry them. Each kind's
 shape is checked by `app/checklist_templates.py · template_problem` on every door (CLI,

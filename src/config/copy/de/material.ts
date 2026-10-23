@@ -124,7 +124,8 @@ export const materialCopy = {
     // field is narrow and the surface already says what it holds; searchAria carries the words.
     searchPlaceholder: 'Suchen …',
     searchAria: 'Anleitung oder Checkliste suchen',
-    matching: 'Passend: {title}',
+    // the rail's group of the Stichworte the Einsatz title names (ChecklistsView)
+    groupMatching: 'Passend',
     none: 'Keine Checklisten konfiguriert.',
     pickEntry: 'Stichwort wählen oder suchen.',
     // runner

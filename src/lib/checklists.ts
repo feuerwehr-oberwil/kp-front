@@ -5,7 +5,7 @@
 //    Ticking is timestamped, rides the workspace blob (offline cache + LWW sync),
 //    and milestone ticks push a Verlauf row + an audit event.
 //  • reference — read-only tactical guidance (the EL playbook), searchable and
-//    keyword-indexed so a Divera alarm can auto-surface the matching tactics page.
+//    keyword-indexed so an Einsatz's Stichwort can surface the matching tactics page.
 //  • manual — an Anleitung (05.10.2026): read-only numbered steps for ONE device (Hebekissen,
 //    Stromerzeuger), with optional warning/hint lines and step images. Never ticked, no state;
 //    grouped by `device` in the picker. Its images are prefetched for offline (warmManualImages).
@@ -15,7 +15,7 @@
 // them from /api/reference, caches them in IndexedDB for offline, and falls back to a bundled
 // neutral example when a deployment has none. The per-incident tick state lives in the `Saved`
 // blob (App.tsx). This file owns the schema, the loader, and the pure logic (progress, search,
-// Divera match) so it stays unit-testable.
+// Stichwort match) so it stays unit-testable.
 
 /*
  * **Anleitungen are a checklist kind, not a second pipeline** (05.10.2026). `kind: "manual"`
@@ -94,7 +94,8 @@ export interface RefEntry {
   id: string
   title: string
   keywords: string[]
-  /** keywords matched against a Divera incident title/type for auto-surface */
+  /** words matched against the Einsatz title (its Stichwort) for the rail's «Passend» group –
+   *  whole words, so a compound («Kellerbrand») needs its own keyword (matchEntries) */
   diveraKeywords?: string[]
   hazardColor?: HazardColor
   content: ContentBlock[]
@@ -393,37 +394,40 @@ export function allEntries(templates: ChecklistTemplate[]): RefEntry[] {
   return templates.filter((t) => t.kind === 'reference').flatMap((t) => t.entries ?? [])
 }
 
+/** a text's words, lowercase: «E-Auto Brand, Schlossgasse 9» → e · auto · brand · schlossgasse · 9 */
+const words = (s: string) => s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean)
+
+/** whether all of `kw`'s words stand in `hay` in a row («pkw brand» in «PKW Brand A2») */
+const hasPhrase = (hay: string[], kw: string[]) =>
+  kw.length > 0 && hay.some((_, i) => kw.every((w, j) => hay[i + j] === w))
+
 /**
- * Every reference entry whose `diveraKeywords` appear in an incident's title/type, most specific
- * keyword first — the tactics pages to surface for a Divera-sourced alarm.
+ * The Stichworte for an Einsatz title – the rail's «Passend» group (ChecklistsView), most
+ * specific first. A title with none of the `diveraKeywords` gets none.
  *
  * ⚠️ A list, not a single best match (31.08.). One Stichwort routinely has several answers:
  * «VU Strasse» is Verkehrsunfall AND E-Autobrand AND Ölspur auf Strasse, and which of the three
- * the Einsatz turns out to need is not knowable from the alarm text. Picking the longest keyword
- * and hiding the rest made the app look certain about something it cannot know, and the other
- * two were then only reachable by searching for a word the operator had to think of first.
+ * the Einsatz turns out to need is not knowable from the alarm text.
  *
- * Ranked by keyword length (the most specific match leads), then by title so the order is a
- * property of the data rather than of the template load order. `limit` keeps the rail from
- * turning into a second list on a broad keyword like «Brand».
+ * ⚠️ The TITLE only, in whole words (sweep 23.10.2026, F.6). It read `title + type`, but `type`
+ * is the Kategorie («Brandbekämpfung»), so every fire got four «brand» pages whatever its title
+ * said; and a substring hit «gas» in «Schlossgasse». A compound needs its own keyword
+ * («ZIMMERBRAND») – the station lists them already.
+ *
+ * Ranked by the longest keyword hit (the most specific), then by how many keywords hit, then in
+ * the station's own order – the Taktik list's (templates are sorted by the manifest), so a tie
+ * on a broad «BRAND» leads with «Brand (allgemein)», not alphabetically with «Bauernhof».
+ * `limit` keeps the group from turning into a second list.
  */
-export function matchDiveraEntries(
-  templates: ChecklistTemplate[],
-  incident: { title?: string; type?: string },
-  limit = 4,
-): RefEntry[] {
-  const hay = norm(`${incident.title ?? ''} ${incident.type ?? ''}`)
-  if (!hay.trim()) return []
-  const hits: { entry: RefEntry; len: number }[] = []
-  for (const e of allEntries(templates)) {
-    let best = 0
-    for (const kw of e.diveraKeywords ?? []) {
-      const k = norm(kw)
-      if (k && hay.includes(k)) best = Math.max(best, k.length)
-    }
-    if (best) hits.push({ entry: e, len: best })
-  }
-  hits.sort((a, b) => (b.len - a.len) || (a.entry.title < b.entry.title ? -1 : a.entry.title > b.entry.title ? 1 : 0))
+export function matchEntries(templates: ChecklistTemplate[], title: string | undefined, limit = 4): RefEntry[] {
+  const hay = words(title ?? '')
+  if (!hay.length) return []
+  const hits: { entry: RefEntry; at: number; len: number; n: number }[] = []
+  allEntries(templates).forEach((entry, at) => {
+    const found = (entry.diveraKeywords ?? []).filter((k) => hasPhrase(hay, words(k)))
+    if (found.length) hits.push({ entry, at, len: Math.max(...found.map((k) => norm(k).length)), n: found.length })
+  })
+  hits.sort((a, b) => b.len - a.len || b.n - a.n || a.at - b.at)
   return hits.slice(0, limit).map((h) => h.entry)
 }
 
