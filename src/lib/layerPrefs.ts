@@ -12,11 +12,12 @@
 // read once, as the seed — see deriveInitial).
 //
 // localStorage, not the prefs cookie (lib/prefs): a cookie rides on every request, and this is a
-// per-incident map of ~20 rows rather than one small scalar. Same shape as the app's other small
-// `kp.*` device stores (diveraDismiss, demoWelcome): best-effort throughout — a device with
-// storage disabled simply falls back to the defaults, which is a working map.
+// per-incident map of ~20 rows rather than one small scalar. Stored through lib/incidentPrefStore,
+// best-effort like every per-incident device store: a device with storage disabled simply falls
+// back to the defaults, which is a working map.
 
 import type { LayerId } from '../types'
+import { incidentPrefStore } from './incidentPrefStore'
 
 /** One layer's device-local state — the same triple the workspace blob's `layerState` carries. */
 export interface StoredLayerState {
@@ -25,26 +26,23 @@ export interface StoredLayerState {
   opacity?: number
 }
 
-const key = (incidentId: string) => `kp.layers.${incidentId}`
-
 const isRow = (x: unknown): x is StoredLayerState =>
   !!x && typeof x === 'object' && typeof (x as StoredLayerState).id === 'string'
   && typeof (x as StoredLayerState).visible === 'boolean'
 
+const store = incidentPrefStore<StoredLayerState[]>({
+  key: (incidentId) => `kp.layers.${incidentId}`,
+  // a foreign or corrupt row is dropped; nothing left is «never said», not «everything off»
+  parse: (v) => {
+    const rows = Array.isArray(v) ? v.filter(isRow) : []
+    return rows.length ? rows : undefined
+  },
+})
+
 /** What this device last looked at on this incident, or `undefined` when it has never said —
  *  which is what tells deriveInitial to fall back to the blob's legacy seed. */
-export function loadLayerPrefs(incidentId: string): StoredLayerState[] | undefined {
-  try {
-    const raw = localStorage.getItem(key(incidentId))
-    if (!raw) return undefined
-    const v: unknown = JSON.parse(raw)
-    if (!Array.isArray(v)) return undefined
-    const rows = v.filter(isRow)
-    return rows.length ? rows : undefined
-  } catch { return undefined }
-}
+export const loadLayerPrefs = (incidentId: string): StoredLayerState[] | undefined => store.read(incidentId)
 
 /** Remember this device's Ebenen for this incident. Never reaches the server. */
-export function saveLayerPrefs(incidentId: string, layers: readonly StoredLayerState[]): void {
-  try { localStorage.setItem(key(incidentId), JSON.stringify(layers)) } catch { /* preference only */ }
-}
+export const saveLayerPrefs = (incidentId: string, layers: readonly StoredLayerState[]): void =>
+  store.write(incidentId, layers)

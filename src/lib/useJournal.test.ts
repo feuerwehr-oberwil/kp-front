@@ -2,9 +2,10 @@
 import { cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-// The store itself is covered in journalStore.test.ts — what is under test here is the
-// live-follow LOOP around it: long-poll while visible, slow no-wait poll while hidden, ease off
-// when the server doesn't answer, and never leave a held request behind.
+// The store itself is covered in journalStore.test.ts, the loop's mechanics in useLongPoll.test.ts
+// and longPollLoop.test.ts — what is under test here is the Verlauf's ROUND on that loop: hold
+// the request while visible, a slow no-wait poll while hidden, ease off when the server doesn't
+// answer, push before the pull, and never leave a held request behind.
 const { pull, flush, instances } = vi.hoisted(() => ({
   pull: vi.fn(),
   flush: vi.fn(),
@@ -51,17 +52,6 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks() })
 
 describe('useJournal — live-follow loop', () => {
-  it('long-polls while visible and starts the next round right after the answer', async () => {
-    mount()
-    await vi.advanceTimersByTimeAsync(appConfig.sync.livePollMs)
-    expect(pull).toHaveBeenCalledTimes(1)
-    expect(pull.mock.calls[0][0].wait).toBe(true)
-    expect(pull.mock.calls[0][0].signal).toBeInstanceOf(AbortSignal)
-
-    await vi.advanceTimersByTimeAsync(LONG_POLL_SPACING_MS)
-    expect(pull).toHaveBeenCalledTimes(2)
-  })
-
   it('does NOT hold a connection while the tab is hidden', async () => {
     setHidden(true)
     mount()
@@ -92,6 +82,7 @@ describe('useJournal — live-follow loop', () => {
     mount()
     await vi.advanceTimersByTimeAsync(appConfig.sync.livePollMs)
     expect(pull).toHaveBeenCalledTimes(1)
+    expect(pull.mock.calls[0][0]).toMatchObject({ wait: true, signal: expect.any(AbortSignal) })
     expect(flush).toHaveBeenCalled()
     expect(flush.mock.invocationCallOrder[0]).toBeLessThan(pull.mock.invocationCallOrder[0])
   })
