@@ -211,7 +211,23 @@ export const incidentCopy = {
     insideTitle: 'Trupps noch drin',
     // die sichere, fokussierte Antwort auf der Liste der offenen Punkte
     confirmBack: 'Zurück',
+    // The rows' own answers, as buttons (3am sweep, 23.10.2026; lib/abschlussOpen · fixes). «Zeiten»
+    // is normally not on the list: an empty Einsatzende is pre-filled with «jetzt» (useAbschluss).
+    fix: {
+      zeiten: 'Jetzt setzen',
+      mittel: 'Nichts verwendet',
+      einsatzleiter: 'Wählen',
+      kontaktperson: 'Entfällt',
+      kurzbericht: 'Schreiben',
+      rueckmeldung: 'Entfällt',
+    },
+    // the pre-filled Einsatzende row: «Einsatzende · jetzt 23:41», written with the close
+    endeNow: 'jetzt {t}',
+    endeChange: 'Ändern',
     done: 'Rapport abgeschlossen',
+    // «Wieder öffnen» on the success toast, 10 s (3am sweep, 23.10.2026): the same reopen as
+    // «Alle Einsätze», without its confirm – the toast IS the confirm-with-undo
+    reopen: 'Wieder öffnen',
     // what an Abschluss left in the media queue stands in the Meldeleiste while it is there — it
     // was the closing toast's second half (S3, 20.10.2026; components/MediaPendingMeldung)
     mediaPendingTitle: '{n} Foto/Audio von «{title}» noch nicht hochgeladen',

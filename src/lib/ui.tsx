@@ -181,10 +181,18 @@ export function confirmDialog(opts: ConfirmOpts): Promise<boolean | 'alt'> {
       altLabel: opts.altLabel,
       altDanger: opts.altDanger,
       safeAnswer: opts.safeAnswer,
+      refresh: opts.refresh,
       resolve,
     }
     emit()
   })
+}
+
+/** A row's in-place action ran (ConfirmItem · action): the pending ask re-reads its spec. */
+function refreshConfirm() {
+  if (!confirmReq?.refresh) return
+  confirmReq = { ...confirmReq, ...confirmReq.refresh() }
+  emit()
 }
 
 /**
@@ -462,6 +470,7 @@ export function Overlays() {
         altDanger={req?.altDanger}
         safeAnswer={req?.safeAnswer}
         onResolve={close}
+        onRefresh={refreshConfirm}
       />
 
       {/* full-size picture — see openPhoto */}

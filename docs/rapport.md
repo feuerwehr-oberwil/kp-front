@@ -4,6 +4,21 @@ What the printed Einsatzrapport carries (`src/lib/report.ts`, `src/lib/reportPdf
 `src/lib/auswertung.ts`, `backend/app/report_pdf.py`, `backend/app/kroki.py`). Moved here from AGENTS.md on 2026-10-08,
 wording unchanged.
 
+## Abschluss – the «Noch offen» sheet (23.10.2026)
+
+`useAbschluss · confirmAndComplete` asks the one closing question over `lib/abschluss`'s
+Mindestangaben (`abschlussOpenItems`). Every row is a link to its field, and since the 3am sweep
+(owner's point 4) a row also carries its own **button**: «Nichts verwendet» (Material),
+«Entfällt» (Kontaktperson, Rückmeldung ELZ) write the same fields the Rapport's buttons write and
+the sheet stays open, re-reading itself (`ConfirmSpec · refresh`) — the row stays as a done one,
+the lead sentence and the button follow («Abschliessen» once nothing is open). «Wählen»
+(Einsatzleiter) and «Schreiben» (Kurzbericht) leave for the focused field. Anwesenheit and
+Abweichungen have no one-tap answer. An empty **Einsatzende is pre-filled with «jetzt»** on the
+deployment clock (`serverNowIso`), shown as a done row with «Ändern»; the close writes it before
+the handover, so «Zeiten» is only open on a sheet that may not write the Rapport. The success
+toast carries «Wieder öffnen» for 10 s (docs/undo.md). Close and reopen stamps come off
+`lib/serverClock`, like the Rapport's own «Jetzt» buttons.
+
 ## Unterschriften – signing on the screen (15.10.2026)
 
 The two Visum lines (Einsatzleiter, Kommandant) can be signed with a finger instead of a pen.
