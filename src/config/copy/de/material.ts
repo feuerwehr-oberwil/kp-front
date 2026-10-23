@@ -119,8 +119,10 @@ export const materialCopy = {
     railLabel: 'Checklisten',
     showList: 'Liste anzeigen',
     groupTasks: 'Aufgaben',
-    searchPlaceholder: 'Stichwort suchen …',
-    searchAria: 'Stichwort suchen',
+    // ONE placeholder for the library search wherever it stands – the Einsatz rail and the Karte
+    // home, tablet and phone (sweep F.10, 23.10.2026: it had three)
+    searchPlaceholder: 'Anleitung oder Checkliste suchen …',
+    searchAria: 'Anleitung oder Checkliste suchen',
     matching: 'Passend: {title}',
     none: 'Keine Checklisten konfiguriert.',
     pickEntry: 'Stichwort wählen oder suchen.',

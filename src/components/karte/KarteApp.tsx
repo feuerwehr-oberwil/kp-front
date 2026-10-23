@@ -1525,8 +1525,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
               onChange={setLibQuery}
               onTouchEnd={phone ? noPanTouchEnd : undefined}
               onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-              placeholder={defuseAutofill(C.librarySearchPlaceholder)}
-              aria-label={defuseAutofill(C.librarySearch)}
+              placeholder={defuseAutofill(appConfig.copy.checklists.searchPlaceholder)}
+              aria-label={defuseAutofill(appConfig.copy.checklists.searchAria)}
             />
           ) : !phone && (
             <SearchField
@@ -1585,7 +1585,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
                 // as Gefahrgut's field (review round 5: that pan moved the whole sheet)
                 onChange={setQuery} onTouchEnd={noPanTouchEnd}
                 onKeyDown={(e) => { if (e.key === 'Escape') setSearchOpen(false); else if (e.key === 'Enter') e.currentTarget.blur() }}
-                placeholder={defuseAutofill(C.searchPlaceholderShort)}
+                placeholder={defuseAutofill(C.searchPlaceholder)}
                 aria-label={defuseAutofill(C.searchPlaceholder)}
               />
             )}
