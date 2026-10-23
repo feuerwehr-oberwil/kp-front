@@ -88,5 +88,5 @@ describe('import graph', () => {
     expect([...graph.values()].reduce((n, e) => n + e.length, 0)).toBeGreaterThan(2000)
     const found = rings(graph).map((scc) => scc.map((f) => relative(SRC, f)).sort().join(' ↔ '))
     expect(found).toEqual([])
-  })
+  }, 30_000) // parses every module in src/ with the TS compiler – ~1 s idle, 8 s on a loaded box
 })
