@@ -46,6 +46,19 @@ export const reportCopy = {
     graceSec: '{n} s',
   },
   report: {
+    // Rapportangaben by field key – the Verlaufszeile that records a change names the field with
+    // these (lib/report · META_FIELD_LABELS reads, lib/captureClient for the QR poster too: one
+    // map, sweep C.3). The two «Entfällt» answers write their own sentences but still need a label.
+    metaFieldLabels: {
+      einsatzleiter: 'Einsatzleiter', kontaktperson: 'Kontaktperson', kommandant: 'Kommandant',
+      kontaktpersonTelefon: 'Telefon Kontaktperson',
+      summary: 'Kurzbericht', remarks: 'Bemerkungen', lehren: 'Lehren',
+      endedAt: 'Einsatzende', ausgeruecktAt: 'Ausgerückt', alarmiertAt: 'Alarmierung',
+      gerettete: 'Gerettete', rueckmeldungElz: 'Rückmeldung ELZ',
+      partnerContacts: 'Partnerorganisationen', gruppen: 'Alarmzeiten', fahrzeuge: 'Fahrzeugzeiten',
+      mittelConfirmedNone: 'Material «keine»', erfasser: 'Erfasser', krokiPrint: 'Kroki-Ausschnitt',
+      kontaktpersonNone: 'Kontaktperson', rueckmeldungNone: 'Rückmeldung ELZ',
+    } as Record<string, string>,
     erfasser: 'Erfasst durch',
     // print view chrome
     back: 'Zurück',

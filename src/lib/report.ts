@@ -1030,19 +1030,10 @@ export function spanAwareClock(bounds?: IncidentBounds): (iso?: string | null) =
   }
 }
 
-/** Human names for the Rapportangaben, for the Verlaufszeile that records a change to them. */
-const META_FIELD_LABELS: Record<string, string> = {
-  einsatzleiter: 'Einsatzleiter', kontaktperson: 'Kontaktperson', kommandant: 'Kommandant',
-  kontaktpersonTelefon: 'Telefon Kontaktperson',
-  summary: 'Kurzbericht', remarks: 'Bemerkungen', lehren: 'Lehren',
-  endedAt: 'Einsatzende', ausgeruecktAt: 'Ausgerückt', alarmiertAt: 'Alarmierung',
-  gerettete: 'Gerettete', rueckmeldungElz: 'Rückmeldung ELZ',
-  partnerContacts: 'Partnerorganisationen', gruppen: 'Alarmzeiten', fahrzeuge: 'Fahrzeugzeiten',
-  mittelConfirmedNone: 'Material «keine»', erfasser: 'Erfasser', krokiPrint: 'Kroki-Ausschnitt',
-  // the two «Entfällt» answers write their own sentences (see _structuredMetaLines) — a label is
-  // still needed, because that is what makes them a logged field rather than an internal key
-  kontaktpersonNone: 'Kontaktperson', rueckmeldungNone: 'Rückmeldung ELZ',
-}
+/** Human names for the Rapportangaben, for the Verlaufszeile that records a change to them –
+ *  the copy catalogue's one map (copy.report.metaFieldLabels), read at call time so the
+ *  resolved locale applies. The QR poster reads the same map (lib/captureClient). */
+const metaFieldLabels = () => appConfig.copy.report.metaFieldLabels
 
 /** Fields whose change is bookkeeping ABOUT the rapport rather than a statement about the
  *  Einsatz — logging them would bury the ones that matter.
@@ -1112,7 +1103,7 @@ export function changedReportMetaLines(prev: ReportMeta, next: ReportMeta): Repo
     // the structured fields write their own sentences — see `_structuredMetaLines`
     const structured = _structuredMetaLines(k, a, b)
     if (structured) { statements.push(...structured); continue }
-    const label = META_FIELD_LABELS[k]
+    const label = metaFieldLabels()[k]
     // A key with no human name is an internal one (`startedAt`, `alarmText`) — printing the
     // identifier put «startedAt» on the signed rapport, which is worse than saying nothing.
     if (!label) continue
@@ -1183,7 +1174,7 @@ export interface EinsatzleiterSpan {
  *  wrote them, the same reasoning as startsWithTemplate. */
 function _einsatzleiterPattern(): RegExp {
   const marker = '\u0000'
-  const filled = fillTemplate(appConfig.copy.preflight.metaValue, { label: META_FIELD_LABELS.einsatzleiter, value: marker })
+  const filled = fillTemplate(appConfig.copy.preflight.metaValue, { label: metaFieldLabels().einsatzleiter, value: marker })
   const escaped = filled.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return new RegExp(escaped.replace(marker, '(.+?)'), 'g')
 }
@@ -1235,11 +1226,11 @@ function _structuredMetaLines(k: string, a: unknown, b: unknown): string[] | und
     if (name && t) return [fillTemplate(P.metaRueckmeldung, { name, t })]
     if (name) return [fillTemplate(P.metaRueckmeldungName, { name })]
     if (t) return [fillTemplate(P.metaRueckmeldungTime, { t })]
-    return [`${META_FIELD_LABELS.rueckmeldungElz} ${P.metaCleared}`]
+    return [`${metaFieldLabels().rueckmeldungElz} ${P.metaCleared}`]
   }
   if (k === 'gerettete') {
     const value = _geretteteText(b as { personen?: number; tiere?: number } | undefined)
-    return [value ? fillTemplate(P.metaGerettete, { value }) : `${META_FIELD_LABELS.gerettete} ${P.metaCleared}`]
+    return [value ? fillTemplate(P.metaGerettete, { value }) : `${metaFieldLabels().gerettete} ${P.metaCleared}`]
   }
   // …and the answer «es gab keine», which is a statement of its own and not an empty field
   if (k === 'geretteteNone') return [b ? P.metaGeretteteNone : P.metaGeretteteNoneOff]
@@ -1247,10 +1238,10 @@ function _structuredMetaLines(k: string, a: unknown, b: unknown): string[] | und
   // «Entfällt» is a deliberate ANSWER, so it is recorded as one — a blank line in the record
   // looks like something forgotten, which is the whole reason these two fields exist.
   if (k === 'kontaktpersonNone') {
-    return [fillTemplate(b ? P.metaNoneOn : P.metaNoneOff, { label: META_FIELD_LABELS.kontaktpersonNone })]
+    return [fillTemplate(b ? P.metaNoneOn : P.metaNoneOff, { label: metaFieldLabels().kontaktpersonNone })]
   }
   if (k === 'rueckmeldungNone') {
-    return [fillTemplate(b ? P.metaNoneOn : P.metaNoneOff, { label: META_FIELD_LABELS.rueckmeldungNone })]
+    return [fillTemplate(b ? P.metaNoneOn : P.metaNoneOff, { label: metaFieldLabels().rueckmeldungNone })]
   }
   if (k === 'partnerContacts') return _partnerLines((a ?? []) as PartnerContact[], (b ?? []) as PartnerContact[])
   if (k === 'gruppen') return _gruppenLines((a ?? []) as GruppeZeit[], (b ?? []) as GruppeZeit[])

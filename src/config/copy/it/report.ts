@@ -44,6 +44,16 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'wheel
     graceSec: '{n} s',
   },
   report: {
+    metaFieldLabels: {
+      einsatzleiter: 'Capo intervento', kontaktperson: 'Persona di contatto', kommandant: 'Comandante',
+      kontaktpersonTelefon: 'Telefono persona di contatto',
+      summary: 'Rapporto breve', remarks: 'Osservazioni', lehren: 'Insegnamenti',
+      endedAt: 'Fine intervento', ausgeruecktAt: 'Partenza', alarmiertAt: 'Allarme',
+      gerettete: 'Salvati', rueckmeldungElz: 'Rapporto alla centrale',
+      partnerContacts: 'Organizzazioni partner', gruppen: 'Orari d’allarme', fahrzeuge: 'Orari dei veicoli',
+      mittelConfirmedNone: 'Materiale «nessuno»', erfasser: 'Registrato da', krokiPrint: 'Estratto dello schizzo',
+      kontaktpersonNone: 'Persona di contatto', rueckmeldungNone: 'Rapporto alla centrale',
+    } as Record<string, string>,
     erfasser: 'Registrato da',
     gerettete: 'Salvati',
     gerettetePersonen: 'persone',
