@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
-import { bboxSizeM, haversineM, hoseCount, hoseLengthHint, lv95ToWgs84, polygonAreaM2, wgs84ToLV95 } from './geo'
+import { afterEach, describe, expect, it } from 'vitest'
+import { bboxSizeM, fmtArea, fmtDistance, fmtLV95, haversineM, hoseCount, hoseLengthHint, lv95ToWgs84, polygonAreaM2, wgs84ToLV95 } from './geo'
+import { applyLocale } from '../config/copy'
 
 describe('wgs84ToLV95', () => {
   // swisstopo's canonical reference: the old observatory in Bern is the LV95 origin,
@@ -109,5 +110,18 @@ describe('bboxSizeM', () => {
 
   it('has nothing to say about a single point', () => {
     expect(bboxSizeM([[7.59, 47.53]])).toBeNull()
+  })
+})
+
+// sweep C.2: distances and areas formatted with the static `appConfig.locale` ('de-CH'), so a
+// French station read «1.25 km» – the deployment's locale decides (format · formatLocale)
+describe('numbers follow the deployment locale', () => {
+  afterEach(async () => { await applyLocale('de-CH') })
+
+  it('writes the French decimal comma, and keeps the Swiss apostrophe in LV95', async () => {
+    await applyLocale('fr-CH')
+    expect(fmtDistance(1250)).toBe('1,25 km')
+    expect(fmtArea(25_000)).toBe('2,50 ha')
+    expect(fmtLV95(7.4386, 46.9511)).toMatch(/^2'\d{3}'\d{3}/)
   })
 })

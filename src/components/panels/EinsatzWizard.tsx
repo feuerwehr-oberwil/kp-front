@@ -360,12 +360,13 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   return (
     <>
     {mapOpen && <MapPicker initial={coord} onCancel={() => setMapOpen(false)} onConfirm={applyPicked} />}
-    <Modal title={edit ? ix.editTitle : ix.titleNew} onClose={onClose} footer={<>
+    <Modal title={edit ? ix.editTitle : isExercise ? ix.titleNewExercise : ix.titleNew} onClose={onClose} footer={<>
       {/* «Abbrechen» in both modes (29.09.2026): the wizard is ONE step, and closing it goes back
           to the landing without opening anything — a cancel, not a «Zurück» to a previous step */}
       <button className="ip-btn" onClick={onClose}>{ix.cancel}</button>
       <button className="ip-btn primary" disabled={busy} aria-disabled={!effectiveTitle || demoBlocked} onClick={submit}>
-        {busy ? <><ShellLoader /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : ix.open}
+        {/* one verb, title and button alike: «eröffnen» – and «Übung» once the switch says so */}
+        {busy ? <><ShellLoader /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : isExercise ? ix.openExercise : ix.open}
       </button>
     </>}>
       {/* --- Standort --- */}
@@ -446,7 +447,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           {!coordOpen ? <span className="ip-fold-title">{ix.coordFold}</span> : (
             <>
               <Icon id={coord ? 'flag' : 'warn'} />
-              <span className="ip-loc-txt">{coord ? `${ix.coordSet} · ${coord[1].toFixed(5)}, ${coord[0].toFixed(5)}` : ix.coordNone}</span>
+              <span className="ip-loc-txt">{coord ? `${ix.coordSet} · ${coord[1].toFixed(5)}, ${coord[0].toFixed(5)}` : edit ? ix.coordNoneEdit : ix.coordNone}</span>
             </>
           )}
         </button>

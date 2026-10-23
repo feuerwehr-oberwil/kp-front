@@ -46,17 +46,7 @@ export type CaptureAction =
   | { kind: 'addAttachment'; id: string; url: string; caption?: string }
   | { kind: 'removeAttachment'; id: string }
 
-/** Human-readable names for the Rapportangaben the poster can touch — a Verlaufszeile that
- *  says «Rapportangaben geändert» and nothing else is a row nobody can act on. */
-const META_FIELD_LABELS: Record<string, string> = {
-  einsatzleiter: 'Einsatzleiter', kontaktperson: 'Kontaktperson',
-  kontaktpersonTelefon: 'Telefon Kontaktperson', summary: 'Kurzbericht',
-  remarks: 'Bemerkungen', lehren: 'Lehren', endedAt: 'Einsatzende', ausgeruecktAt: 'Ausgerückt',
-  gerettete: 'Gerettete', rueckmeldungElz: 'Rückmeldung ELZ', partnerContacts: 'Partnerorganisationen',
-  gruppen: 'Alarmzeiten', fahrzeuge: 'Fahrzeugzeiten', erfasser: 'Erfasser',
-}
-
-/** Which of those are short enough to quote, and which are prose — the tablet's rule, applied
+/** Which Rapportangaben are short enough to quote, and which are prose — the tablet's rule, applied
  *  to the subset the poster can reach (lib/report · META_SHORT / META_PROSE). */
 const META_SHORT = new Set(['einsatzleiter', 'kontaktperson', 'kontaktpersonTelefon', 'endedAt', 'ausgeruecktAt'])
 const META_PROSE = new Set(['summary', 'remarks', 'lehren'])
@@ -133,7 +123,7 @@ export function captureJournalRow(
         label: action.label, menge: String(action.menge), unit: unitLabel(action.unit),
       }))
     // ⚠️ 'attach', not 'photo' (23.08.): a Beilage is a Rapport row, while #photo is also what a
-    // composer photo entry wears, and that one is «Manuell». One glyph, two Bereiche — invisible
+    // composer photo entry wears, and that one is «Info». One glyph, two Bereiche — invisible
     // on paper (the print has a Bereich column) but fatal on the Verlauf, where the disc is now
     // the whole classification. Rows written before the change keep #photo and `journalArea`
     // keeps reading them as Rapport; the record is append-only.
@@ -151,7 +141,8 @@ export function captureJournalRow(
       // the person at the magazine records something the command post has not seen.
       const patch = action.patch as Record<string, unknown>
       const fields = keys.map((k) => {
-        const label = META_FIELD_LABELS[k] ?? k
+        // the copy catalogue's one Rapportangaben map, shared with the tablet (lib/report)
+        const label = appConfig.copy.report.metaFieldLabels[k] ?? k
         const v = patch[k]
         if (META_PROSE.has(k)) return `${label} ${typeof v === 'string' && v.trim() ? P.metaWritten : P.metaCleared}`
         if (META_SHORT.has(k) && typeof v === 'string' && v.trim()) {

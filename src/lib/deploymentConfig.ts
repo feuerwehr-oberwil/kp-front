@@ -165,6 +165,9 @@ export interface DeploymentDoctrine {
   /** the station's Ausrüstung list for a Trupp (types · Trupp.equipment), short labels as they
    *  print on a card. Absent/empty = the shipped national default (appConfig.atemschutz.equipment). */
   equipment?: { id: string; label: string }[] | null
+  /** metres the nearest object with plans may lie from the Einsatzadresse before the Plan warns
+   *  «nicht die Einsatzadresse» (useObjectPlans · objectNearbyOnly). Absent = 25. */
+  nearbyObjectWarnM?: number | null
 }
 
 /** One Dienstgrad in the station's ordered rank list. Mirrors backend `RankConfig`. Position
@@ -679,6 +682,12 @@ export function atemschutzDoctrine() {
     cylinderLiters: d.cylinderLiters ?? a.cylinderLiters,
     estConsumptionLPerMin: d.estConsumptionLPerMin ?? a.estConsumptionLPerMin,
   }
+}
+
+/** How far (m) the auto-surfaced object may lie from the Einsatzadresse before the Plan warns
+ *  that it is only the nearest one – the station's doctrine, else the shipped 25 m. */
+export function nearbyObjectWarnM(): number {
+  return resolved.doctrine?.nearbyObjectWarnM ?? appConfig.defaults.nearbyObjectWarnM
 }
 
 /**

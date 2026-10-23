@@ -1067,7 +1067,7 @@ export default function CaptureApp() {
 
         {hasMaterial && (
         <section className="cv-card cv-acc-card" data-step="mittel" ref={(el) => { sectionRefs.current.material = el }}>
-          <AccHead open={openSection === 'material'} label={C.sectionMaterial} sub={fillTemplate(C.mittelCount, { n: lines.length })} onToggle={() => toggleSection('material')} />
+          <AccHead open={openSection === 'material'} label={C.sectionMaterial} sub={C.mittelCount(lines.length)} onToggle={() => toggleSection('material')} />
           {openSection === 'material' && (
             <div className="cv-acc-body">
               <div className="cv-search-row cv-sticky-search">

@@ -57,7 +57,7 @@ const STATION = {
   },
 }
 
-/** The doctrine number boxes in DOM order: Funk (4), Druck (6), Kontakt (2), Luft (2). */
+/** The doctrine number boxes in DOM order: Funk (4), Druck (6), Kontakt (2), Luft (2), Objektpläne (1). */
 const nums = () => Array.from(document.querySelectorAll<HTMLInputElement>('input[type="number"]'))
 const autoButtons = () => screen.getAllByText(AUTO)
 
@@ -70,7 +70,7 @@ afterEach(() => { cleanup(); vi.useRealTimers() })
 
 async function open() {
   await act(async () => { render(<ConfigProvider><DoctrineSection /></ConfigProvider>) })
-  await waitFor(() => expect(nums().length).toBe(14))
+  await waitFor(() => expect(nums().length).toBe(15))
 }
 
 describe('Auftrag-Farben — «Automatisch» is the default state, not a null value', () => {
@@ -124,7 +124,7 @@ describe('Auftrag-Farben — «Automatisch» is the default state, not a null va
 describe('the doctrine numbers are integers on the backend, so a fraction never leaves the box', () => {
   it('holds «8.5» back and says what is expected — the neighbours still save', async () => {
     await open()
-    await type(nums()[0], '8.5') // Funkkanal — `int | None`, so 8.5 is `int_from_float`
+    await type(nums()[10], '8.5') // Kontaktintervall — `int | None`, so 8.5 is `int_from_float`
     await settle()
     expect(apiPut).not.toHaveBeenCalled()
     expect(screen.getByText(N.integer)).toBeTruthy()
@@ -132,7 +132,7 @@ describe('the doctrine numbers are integers on the backend, so a fraction never 
     await type(nums()[4], '280') // Eingangsdruck, on the same page and untouched by the refusal
     await settle()
     expect(sent()?.doctrine?.defaultPressureBar).toBe(280)
-    expect(sent()?.doctrine?.defaultFunkkanal).toBe(11) // the stored value, not the typed one
+    expect(sent()?.doctrine?.contactIntervalMin).toBe(5) // the stored value, not the typed one
     expectAccepted(sent())
   })
 
@@ -145,6 +145,33 @@ describe('the doctrine numbers are integers on the backend, so a fraction never 
     await type(nums()[0], '')
     await settle()
     expect(sent()?.doctrine?.defaultFunkkanal).toBeNull()
+    expectAccepted(sent())
+  })
+})
+
+// «Funkkanal (Standard)» took 999 under a «Funkkanal max» of 99 and the autosave pushed it to every
+// device (sweep F.4, 23.10.2026). Both default channels now live inside the station's own range.
+describe('the default Funkkanäle stay inside the station\'s Funkkanal min/max', () => {
+  const D = appConfig.copy.admin.doctrine
+  const RANGED = { ...STATION, doctrine: { ...STATION.doctrine, funkkanalMin: 1, funkkanalMax: 99 } }
+  const outOfRange = D.funkkanalOutOfRange.replace('{min}', '1').replace('{max}', '99')
+
+  it('holds a channel past the max back, on both boxes, and says the range', async () => {
+    apiGet.mockResolvedValue(structuredClone(RANGED))
+    await open()
+    await type(nums()[0], '999')
+    await type(nums()[1], '0')
+    await settle()
+    expect(apiPut).not.toHaveBeenCalled()
+    expect(screen.getAllByText(outOfRange)).toHaveLength(2)
+  })
+
+  it('stores a channel inside the range', async () => {
+    apiGet.mockResolvedValue(structuredClone(RANGED))
+    await open()
+    await type(nums()[0], '42')
+    await settle()
+    expect(sent()?.doctrine?.defaultFunkkanal).toBe(42)
     expectAccepted(sent())
   })
 })
@@ -329,6 +356,29 @@ describe('Eingangsdruck mindestens — the minimum behind the one plausibility q
   it('holds a value past the API maximum back', async () => {
     await open()
     await type(minimum(), '400')
+    await settle()
+    expect(apiPut).not.toHaveBeenCalled()
+  })
+})
+
+// «Nächstes Objekt, nicht die Einsatzadresse» fired at «0 m entfernt» (sweep E.6, 23.10.2026); how
+// far is far enough to warn is the station's call, 25 m out of the box.
+describe('Objekt-Warnung ab — the distance behind «nicht die Einsatzadresse»', () => {
+  const warnM = () => nums()[14]
+
+  it('shows the shipped 25 m and stores a station distance', async () => {
+    await open()
+    expect(warnM().value).toBe('25')
+    await type(warnM(), '60')
+    await settle()
+    expect(sent()?.doctrine?.nearbyObjectWarnM).toBe(60)
+    expectAccepted(sent())
+  })
+
+  it('holds an empty box and a value past 500 back – the field has no null', async () => {
+    await open()
+    await type(warnM(), '')
+    await type(warnM(), '501')
     await settle()
     expect(apiPut).not.toHaveBeenCalled()
   })

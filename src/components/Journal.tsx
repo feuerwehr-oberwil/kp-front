@@ -14,7 +14,7 @@ import { safeHref, thumbUrl } from '../lib/mediaUrl'
 import { ART_DISC, groupByDay, isHandWritten, isNachtrag, repeatRuns, rowGlyph, rowPhotos, rowText, rowTime, type ArtTone } from '../lib/verlauf'
 import { journalDisc } from '../lib/report'
 import { journalQuery, matchesJournalQuery } from '../lib/journalSearch'
-import { journalCategories, journalFacets, matchesJournalCategories, showsPinnedPendenzen, type JournalCategoryKind } from '../lib/journalFilter'
+import { journalCategories, journalCategory, journalFacets, matchesJournalCategories, showsPinnedPendenzen, type JournalCategoryKind } from '../lib/journalFilter'
 import type { OpenReminder } from '../lib/reminders'
 import { cardinalIndex, fmtDistance, takenClock, type PhotoPlacement } from '../lib/photoGeo'
 
@@ -148,7 +148,7 @@ function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'pla
     { icon: 'box', label: R.areaMittel },
     { icon: 'clipboard', label: R.areaRapport },
     { icon: 'check', label: R.areaChecklist },
-    { icon: 'type', label: R.areaManual },
+    { icon: 'type', label: C.entryTypes.info },
     { ...ART_DISC.auftrag, label: C.entryTypes.auftrag },
     { ...ART_DISC.sofort, label: C.entryTypes.sofort },
     { ring: 'open', label: C.legendPendenzOpen },
@@ -159,7 +159,7 @@ function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'pla
 
 /** The disc a filter row wears — the legend's disc for the same Bereich, so the menu reads as the
  *  legend with ticks. Auftrag and Sofortmassnahme wear their Art's disc, as their rows do
- *  (lib/verlauf · ART_DISC); «Manuell» keeps the composer's «T». */
+ *  (lib/verlauf · ART_DISC); «Info» keeps the composer's «T». */
 const FILTER_DISC: Record<JournalCategoryKind, { icon?: string; surface?: 'map' | 'plan'; tone?: ArtTone; ring?: RingState }> = {
   manual: { icon: 'type' }, auftrag: ART_DISC.auftrag, sofort: ART_DISC.sofort, pendenz: { ring: 'open' },
   map: { icon: 'circle', surface: 'map' }, plan: { icon: 'flag', surface: 'plan' },
@@ -343,11 +343,13 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   )
   // The filter menu's rows and counts. Counted over what the list would show WITHOUT the ticks —
   // the folded rows the search keeps — so each number is what ticking that row would add.
-  const facets = useMemo(() => {
+  // ⚠️ «Alle zeigen» counts ROWS, not the facets' sum: a typed Pendenz row counts under its Art
+  // AND under «Pendenz» (lib/journalFilter), so the sum would count it twice.
+  const { facets, facetTotal } = useMemo(() => {
     const folded = events.filter((e) => !repeats.hidden.has(e.id))
-    return journalFacets(folded, folded.filter((e) => matchesJournalQuery(e, query)), categories, filterSel)
+    const counted = folded.filter((e) => matchesJournalQuery(e, query))
+    return { facets: journalFacets(folded, counted, categories, filterSel), facetTotal: counted.length }
   }, [events, repeats, query, categories, filterSel])
-  const facetTotal = facets.reduce((n, f) => n + f.count, 0)
   const filterOn = facets.filter((f) => filterSel.has(f.key)).map((f) => f.label).join(' · ')
   const [pageCount, setVisibleCount] = useState(PAGE_ROWS)
   // no observer (jsdom, an old WebView): everything, as before
@@ -1220,7 +1222,9 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
           const byHand = isHandWritten(e)
           const facts: { k: string; v: string; sub?: string }[] = [
             ...(e.at ? [{ k: C.detailTime, v: formatTime(new Date(e.at), true) }] : []),
-            ...(disc ? [{ k: C.detailArea, v: disc.label }] : []),
+            // «Art» for what a person wrote (Info · Auftrag · Sofortmassnahme · Pendenz), «Bereich»
+            // only for where a row came from (Tafel, Lage …) – the filter's two groups (sweep E.5)
+            ...(disc ? [{ k: journalCategory(e, plans).group === 'art' ? C.typeLabel : C.detailArea, v: disc.label }] : []),
             {
               k: C.detailSource,
               v: byHand ? C.detailSourceManual : C.detailSourceSystem,

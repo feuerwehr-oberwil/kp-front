@@ -861,8 +861,17 @@ export function DoctrineSection() {
   // EMPTY box is a value — it goes back to the shipped doctrine — but «8.5» is not: pydantic
   // refuses a fractional int (`int_from_float`) and that 422 takes the whole document with it.
   // The box therefore steps by 1 and the value is checked before it enters the draft.
-  const numField = (label: string, tip: string, key: DoctrineKey, guard: NumberGuard = { kind: 'int', nullable: true }) =>
-    numberField({ path: ['doctrine', key], label, tip, guard, fallback: appConfig.atemschutz[key] })
+  const numField = (label: string, tip: string, key: DoctrineKey, guard: NumberGuard = { kind: 'int', nullable: true }, message?: string) =>
+    numberField({ path: ['doctrine', key], label, tip, guard, message, fallback: appConfig.atemschutz[key] })
+
+  // The two default channels stay inside the station's own Funkkanal min/max – the range the
+  // Trupp stepper offers. A 999 above a max of 99 was autosaved to every device (sweep F.4,
+  // 23.10.2026); out of range it now stays in the box with the field error, like the Rückzug line.
+  const funkkanalRange = {
+    min: getPath<number>(draft, ['doctrine', 'funkkanalMin']) ?? appConfig.atemschutz.funkkanalMin,
+    max: getPath<number>(draft, ['doctrine', 'funkkanalMax']) ?? appConfig.atemschutz.funkkanalMax,
+  }
+  const funkkanalGuard: NumberGuard = { kind: 'int', ...funkkanalRange, nullable: true }
 
   // ⚠️ A colour is stored as a KEY of `doctrine.auftragColors` (`dict[str, str] | None`), so
   // «Automatisch» has to REMOVE the key — writing `null` under it is a `string_type` 422, and it
@@ -899,13 +908,15 @@ export function DoctrineSection() {
   return (
     <SettingsSheet>
       <SettingsGroup title={C.groupFunk} />
-      {numField(C.defaultFunkkanal, C.defaultFunkkanalTip, 'defaultFunkkanal')}
+      {numField(C.defaultFunkkanal, C.defaultFunkkanalTip, 'defaultFunkkanal', funkkanalGuard,
+        fillTemplate(C.funkkanalOutOfRange, funkkanalRange))}
       {/* not in appConfig.atemschutz (its shipped fallback is «same as defaultFunkkanal»),
           so it bypasses the numField helper: the placeholder shows the channel an empty box
           actually yields — the station's AS default, else the shipped one. */}
       {numberField({
         path: ['doctrine', 'defaultFunkkanalEinfach'], label: C.defaultFunkkanalEinfach,
-        tip: C.defaultFunkkanalEinfachTip, guard: { kind: 'int', nullable: true },
+        tip: C.defaultFunkkanalEinfachTip, guard: funkkanalGuard,
+        message: fillTemplate(C.funkkanalOutOfRange, funkkanalRange),
         fallback: getPath<number>(draft, ['doctrine', 'defaultFunkkanal']) ?? appConfig.atemschutz.defaultFunkkanal,
       })}
       {numField(C.funkkanalMin, C.funkkanalMinTip, 'funkkanalMin')}
@@ -987,6 +998,16 @@ export function DoctrineSection() {
         { kind: 'decimal', min: 0, exclusiveMin: true, max: 30, nullable: true })}
       {numField(C.estConsumption, C.estConsumptionTip, 'estConsumptionLPerMin',
         { kind: 'decimal', min: 0, exclusiveMin: true, max: 200, nullable: true })}
+
+      {/* How far the auto-surfaced object may lie from the Einsatzadresse before the Plan warns
+          «nicht die Einsatzadresse» (useObjectPlans · objectNearbyOnly). Not an Atemschutz
+          number, so it bypasses numField. ⚠️ `int = 25` on the backend – no null, so an emptied
+          box is held back like Rapport › Rundung instead of being sent. */}
+      <SettingsGroup title={C.groupObject} />
+      {numberField({
+        path: ['doctrine', 'nearbyObjectWarnM'], label: C.nearbyObjectWarnM, tip: C.nearbyObjectWarnMTip,
+        guard: { kind: 'int', min: 0, max: 500 }, fallback: appConfig.defaults.nearbyObjectWarnM,
+      })}
 
       {/* Optional station colour per Auftrag. Empty = the default behaviour, where a Trupp's
           colour means IDENTITY (every Trupp a different one from the palette). Filling a row in

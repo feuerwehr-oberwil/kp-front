@@ -395,7 +395,7 @@ async function throwApiError(res: Response): Promise<never> {
         const parsed: { path: string; msg: string; kind?: string; input?: unknown }[] = body.detail.map(
           (item: { loc?: unknown[]; msg?: string; type?: string; input?: unknown }) => ({
             path: Array.isArray(item.loc) ? item.loc.filter((part) => part !== 'body').join('.') : '',
-            msg: item.msg ?? 'Ungültiger Wert',
+            msg: item.msg ?? appConfig.copy.errors.invalidValue,
             kind: item.type,
             input: item.input,
           }),

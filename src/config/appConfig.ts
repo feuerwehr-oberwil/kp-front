@@ -47,6 +47,9 @@ const base = {
     /** undo-history depth, shared by the Lage map doc and the Plan board (one cap
      *  instead of the map's old 60 vs the plan's old 80) */
     historyCap: 80,
+    /** metres the auto-surfaced object may lie from the Einsatzadresse before the Plan warns
+     *  «nicht die Einsatzadresse» (station override: `doctrine.nearbyObjectWarnM`) */
+    nearbyObjectWarnM: 25,
   },
   // Journal composer: national default Textbausteine (quick phrases) — fuzzy-completed while
   // typing (src/lib/quickPhrases.ts), so the list can be generous: only the 3 best matches

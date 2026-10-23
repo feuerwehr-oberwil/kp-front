@@ -63,7 +63,16 @@ const ORDER: JournalCategoryKind[] = [
 ]
 const ART: ReadonlySet<JournalCategoryKind> = new Set(['manual', 'auftrag', 'sofort', 'pendenz'])
 
-/** The one category a row falls in. Read at call time, so the resolved locale applies. */
+/** A row of a Pendenz's lifecycle (created, Meldung, erledigt) – the rows that wear the ring.
+ *  Same test as `report · journalArea`'s Pendenz branch, without its «untyped only» ordering. */
+function isPendenzRow(e: TimelineEvent): boolean {
+  return e.kind === 'reminder' || !!e.reminder
+}
+
+/** The one category a row falls in. Read at call time, so the resolved locale applies.
+ *  ⚠️ One exception to «one category»: an Auftrag or Sofortmassnahme raised with the ring is
+ *  filed under its Art here, but «Pendenz» keeps it too (`journalFacets`, `matchesJournalCategories`)
+ *  – the filter found 2 of the head's «6 offen» while it went by the category alone (sweep E.9). */
 export function journalCategory(e: TimelineEvent, plans: PlanDocument[]): JournalCategory {
   const disc = journalDisc(e, plans)
   const kind = kindOf(disc)
@@ -83,7 +92,7 @@ function kindOf(disc: { label: string; surface: 'map' | 'plan' | null }): Journa
     case J.entryTypes.auftrag: return 'auftrag'
     case J.entryTypes.sofort: return 'sofort'
     case J.noteChip: return 'pendenz'
-    case R.areaManual: return 'manual'
+    case J.entryTypes.info: return 'manual'
     case R.areaAnwesenheit: return 'anwesenheit'
     case R.areaAtemschutz: return 'atemschutz'
     case R.areaMittel: return 'mittel'
@@ -107,7 +116,7 @@ function kindLabel(kind: JournalCategoryKind): string {
   const J = appConfig.copy.journal
   const R = appConfig.copy.report
   const words: Record<JournalCategoryKind, string> = {
-    manual: R.areaManual, auftrag: J.entryTypes.auftrag, sofort: J.entryTypes.sofort, pendenz: J.noteChip,
+    manual: J.entryTypes.info, auftrag: J.entryTypes.auftrag, sofort: J.entryTypes.sofort, pendenz: J.noteChip,
     map: J.surfaceMap, plan: J.surfacePlan, anwesenheit: R.areaAnwesenheit, atemschutz: R.areaAtemschutz,
     mittel: R.areaMittel, checklist: R.areaChecklist, rapport: R.areaRapport, system: R.areaSystem,
   }
@@ -134,12 +143,21 @@ export function journalFacets(
     const c = cats.get(e.id)
     if (c && !byKey.has(c.key)) byKey.set(c.key, { ...c, count: 0 })
   }
+  // a typed Pendenz row also counts under «Pendenz» (see `journalCategory`)
+  const pendenz = (): JournalFacet => {
+    const kind: JournalCategoryKind = 'pendenz'
+    let f = byKey.get(kind)
+    if (!f) byKey.set(kind, f = { key: kind, kind, label: kindLabel(kind), group: 'art', count: 0 })
+    return f
+  }
+  for (const e of all) if (isPendenzRow(e)) pendenz()
   for (const e of counted) {
     const c = cats.get(e.id)
     if (!c) continue
     const f = byKey.get(c.key)
     if (f) f.count += 1
     else byKey.set(c.key, { ...c, count: 1 })
+    if (c.kind !== 'pendenz' && isPendenzRow(e)) pendenz().count += 1
   }
   // a tick whose rows are all gone — the record is append-only, so in practice a plan renamed
   // while the drawer was open: keep its row, or there is no way left to untick it
@@ -161,7 +179,7 @@ export function matchesJournalCategories(
 ): boolean {
   if (selected.size === 0) return true
   const c = cats.get(e.id)
-  return !!c && selected.has(c.key)
+  return (!!c && selected.has(c.key)) || (selected.has('pendenz' satisfies JournalCategoryKind) && isPendenzRow(e))
 }
 
 /** Does the pinned Pendenzen block stand above the list under these ticks (decided 24.09.2026)?

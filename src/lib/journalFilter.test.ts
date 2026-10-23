@@ -38,7 +38,7 @@ const keyOf = (id: string) => cats.get(id)!.key
 describe('journalCategory · the Verlauf’s own words, no new taxonomy', () => {
   it('files every row under exactly one category, in its group', () => {
     expect(events.map((e) => journalCategory(e, plans).label)).toEqual([
-      'Manuell', 'Auftrag', 'Sofortmassnahme', 'Pendenz',
+      'Info', 'Auftrag', 'Sofortmassnahme', 'Pendenz',
       'Karte', 'Tafel', 'Modul 2', 'Rapport',
       'Trupps', 'Trupps', 'Anwesenheit', 'Material', 'Checkliste', 'Rapport', 'System',
     ])
@@ -60,11 +60,39 @@ describe('journalCategory · the Verlauf’s own words, no new taxonomy', () => 
   })
 })
 
+// …but «Pendenz» still finds it: the filter said «Pendenz 2» under a head reading «6 offen»,
+// because an Auftrag or Sofortmassnahme with the ring went by its Art alone (sweep E.9).
+describe('«Pendenz» keeps every ring row, typed or not', () => {
+  const ringed: TimelineEvent[] = [
+    ...events,
+    row('rauf', 'Auftrag · Leiter stellen', { kind: 'journal', entryType: 'auftrag', reminder: { op: 'created', id: 'p9' } }),
+    row('rsof', 'Sofortmassnahme · Gas abstellen', { kind: 'journal', entryType: 'sofort', reminder: { op: 'created', id: 'p8' } }),
+  ]
+  const ringCats = journalCategories(ringed, plans)
+
+  it('counts them under «Pendenz» as well as under their Art', () => {
+    const f = journalFacets(ringed, ringed, ringCats)
+    expect(f.find((x) => x.key === 'pendenz')?.count).toBe(3)
+    expect(f.find((x) => x.key === 'auftrag')?.count).toBe(2)
+  })
+
+  it('keeps them when «Pendenz» is ticked', () => {
+    const kept = filterJournal(ringed, '', { selected: new Set(['pendenz']), plans }).map((e) => e.id)
+    expect(kept).toEqual(['pnd', 'rauf', 'rsof'])
+  })
+
+  it('offers «Pendenz» even when every ring row carries an Art', () => {
+    const typedOnly = ringed.filter((e) => e.id !== 'pnd')
+    const f = journalFacets(typedOnly, typedOnly, journalCategories(typedOnly, plans))
+    expect(f.find((x) => x.key === 'pendenz')).toMatchObject({ label: 'Pendenz', group: 'art', count: 2 })
+  })
+})
+
 describe('journalFacets · the menu’s rows and counts', () => {
   it('lists every category once, Art first, then the legend’s order, plans by name', () => {
     const f = journalFacets(events, events, cats)
     expect(f.map((x) => x.label)).toEqual([
-      'Manuell', 'Auftrag', 'Sofortmassnahme', 'Pendenz',
+      'Info', 'Auftrag', 'Sofortmassnahme', 'Pendenz',
       'Karte', 'Modul 2', 'Rapport', 'Tafel',
       'Anwesenheit', 'Trupps', 'Material', 'Rapport', 'Checkliste', 'System',
     ])

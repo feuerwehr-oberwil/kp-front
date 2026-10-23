@@ -343,7 +343,7 @@ export function MittelView({ entries, canEdit, onSave, captureUsage, placedSymbo
       <header ref={headRef} className={s.head}>
         <div className={s.headTitles}>
           <h2>{M.title}</h2>
-          <p data-fit-check>{lines ? fillTemplate(M.summary, { lines }) : M.summaryEmpty}</p>
+          <p data-fit-check>{lines ? M.summary(lines) : M.summaryEmpty}</p>
         </div>
         <div className={s.headActions}>
           {/* the poster read-out: a footnote, so the first (and only) thing the head's ladder takes

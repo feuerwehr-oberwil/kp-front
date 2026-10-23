@@ -7,7 +7,7 @@ import { georefForPlan } from './stationPlanScale'
 import { toast } from './ui'
 import { fillTemplate } from './format'
 import { appConfig } from '../config/appConfig'
-import { modulesFromConfig, moduleViewer, moduleHiddenWithGebaeude } from './deploymentConfig'
+import { modulesFromConfig, moduleViewer, moduleHiddenWithGebaeude, nearbyObjectWarnM } from './deploymentConfig'
 import { comparePlanModules, moduleCatalogue, sortPlanModuleIds } from './planOrder'
 import { moduleTileLabel } from './navRail'
 import type { LngLat, PlanDocument } from '../types'
@@ -198,11 +198,16 @@ export function buildPlanInfo(plans: ReferenceDataset[]): {
 
 /** How the hook takes part in the incident's frozen sheet bindings (lib/incidentPlanBindings). */
 /** What the Plan surface must warn about: the auto-surfaced object is NOT the incident's own
- *  address, only the nearest one with plans (`address_match === false`). Null when the address
- *  matched, when the distance is unknown, or on a payload cached before the field existed –
- *  an old listing must not turn every object amber. */
-export function objectNearbyOnly(o: Pick<ObjectWithPlans, 'address_match' | 'distance_m'>): { distanceM: number } | null {
-  if (o.address_match !== false || o.distance_m == null) return null
+ *  address, only the nearest one with plans (`address_match === false`), AND it lies farther than
+ *  `warnM` from it – an Einsatz addressed by the object's name («Mühlemattcenter») does not match
+ *  the address text, but at «0 m entfernt» the warning is wrong (sweep E.6, 23.10.2026). Null when
+ *  the address matched, when the distance is unknown or within `warnM`, or on a payload cached
+ *  before the field existed – an old listing must not turn every object amber. */
+export function objectNearbyOnly(
+  o: Pick<ObjectWithPlans, 'address_match' | 'distance_m'>,
+  warnM: number,
+): { distanceM: number } | null {
+  if (o.address_match !== false || o.distance_m == null || o.distance_m <= warnM) return null
   return { distanceM: o.distance_m }
 }
 
@@ -325,7 +330,7 @@ export function useObjectPlans(
             name: nearest.name,
             address: nearest.address,
             pos: nearest.lat != null && nearest.lng != null ? [nearest.lng, nearest.lat] : null,
-            nearby: objectNearbyOnly(nearest),
+            nearby: objectNearbyOnly(nearest, nearbyObjectWarnM()),
           }
           : { plans: {}, titles: {}, datasets: {} })
       })

@@ -6,6 +6,7 @@ import type { Copy, Localizable } from '../index'
 export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
   intake: {
     titleNew: 'Ouvrir une intervention',
+    titleNewExercise: 'Ouvrir un exercice',
     locationHead: 'Lieu',
     addressLabel: 'Adresse',
     addressPlaceholder: 'Rue n°, NPA localité',
@@ -20,6 +21,7 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     mapPickButton: 'Sur la carte',
     coordSet: 'Coordonnée définie',
     coordNone: 'Aucun lieu – sera ouverte sans coordonnée',
+    coordNoneEdit: 'Aucun lieu – intervention sans coordonnée',
     coordClear: 'Retirer le lieu',
     coordFold: 'Coordonnées',
     keywordHead: 'Mot-clé et catégorie',
@@ -28,6 +30,7 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     categoryLabel: 'Catégorie',
     detailsPlaceholder: 'Indications supplémentaires sur le message',
     open: 'Ouvrir l’intervention',
+    openExercise: 'Ouvrir l’exercice',
     opening: 'Ouverture …',
     cancel: 'Annuler',
     errorCreate: 'Échec de la création',

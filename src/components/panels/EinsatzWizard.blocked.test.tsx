@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, cleanup, fireEvent } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent, within } from '@testing-library/react'
 import { appConfig } from '../../config/appConfig'
 import { patchIncident, type IncidentMeta } from '../../lib/incidents'
 
@@ -15,10 +15,11 @@ vi.mock('../../lib/incidents', () => ({
   geocodeReverse: vi.fn(() => Promise.resolve(null)),
 }))
 vi.mock('../MapPicker', () => ({ MapPicker: () => null }))
-// the Sheet portals and traps focus; body + footer as plain markup is all this needs
+// the Sheet portals and traps focus; title + body + footer as plain markup is all this needs
 vi.mock('./_shared', async (orig) => ({
   ...(await orig<typeof import('./_shared')>()),
-  Modal: ({ children, footer }: { children: React.ReactNode; footer?: React.ReactNode }) => <div>{children}{footer}</div>,
+  Modal: ({ title, children, footer }: { title: string; children: React.ReactNode; footer?: React.ReactNode }) =>
+    <div><h2>{title}</h2>{children}{footer}</div>,
 }))
 
 const { EinsatzWizard } = await import('./EinsatzWizard')
@@ -40,5 +41,19 @@ describe('«Speichern» with the Stichwort emptied', () => {
     expect(patchIncident).not.toHaveBeenCalled()
     expect(input.closest('label')?.classList.contains('field-flash')).toBe(true)
     expect(document.activeElement).toBe(input)
+  })
+})
+
+// sweep F.8 (23.10.2026): the title said «eröffnen», the button «öffnen», and «Übung: Ja» changed neither
+describe('one verb on the create form, and «Übung» once the switch says so', () => {
+  it('says «Einsatz eröffnen», then «Übung eröffnen», in the title and on the button alike', () => {
+    render(<EinsatzWizard onClose={() => {}} onCreated={() => {}} />)
+    expect(screen.getByRole('heading', { name: ix.titleNew })).toBeTruthy()
+    expect(screen.getByRole('button', { name: ix.open })).toBeTruthy()
+    expect(ix.open).toBe(ix.titleNew)
+    fireEvent.click(within(screen.getByRole('group', { name: ix.exerciseLabel }))
+      .getByRole('button', { name: appConfig.copy.drawingEditor.yes }))
+    expect(screen.getByRole('heading', { name: ix.titleNewExercise })).toBeTruthy()
+    expect(screen.getByRole('button', { name: ix.openExercise })).toBeTruthy()
   })
 })

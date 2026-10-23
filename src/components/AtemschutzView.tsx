@@ -527,6 +527,8 @@ export function AtemschutzView({
    */
   const workRank = (t: Trupp) => (truppStillDeployed(t) ? 0 : t.status === 'raus' ? 2 : 1)
   const baseSort = (list: Trupp[]) => [...list].sort((a, b) => {
+    // the überfällig float – in the derived sorts only: «wie gesetzt» never moves a card, alarm or
+    // not (owner, 23.10.2026); the phone board floats by its own urgency sort (`phoneIn` below)
     if (order !== 'manuell') {
       const alarm = Number(sevOf(b.id) >= 2) - Number(sevOf(a.id) >= 2)
       if (alarm) return alarm

@@ -982,6 +982,9 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   font-size: 13.5px; color: var(--ink-faint);
 }
 .adm-state-err { color: var(--red-strong); }
+/* the sentence a delete sheet asks – body text, not an empty state: `.adm-state`'s 40px padding and
+   centring left a gap between it and the ids it names (sweep F.12, 23.10.2026) */
+.adm-confirm-body { margin: 0 0 8px; font-size: var(--fs-2); line-height: var(--lh-2); color: var(--ink); }
 
 /* ── teaching empty / load / error state (EmptyState primitive) ───────────────
    Richer than .adm-state: a headline + an optional "next step" hint + an optional
@@ -1321,7 +1324,10 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   }
   .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td.adm-c-side { order: 1; flex: none; align-self: center; }
   .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td.adm-c-act { order: 2; flex: none; align-self: center; text-align: right; }
-  .adm-history-table { min-width: 0; }
+  /* ⚠️ Two classes: the plain `.adm-history-table { min-width: 920px }` further down comes later
+     and won, so the flattened rows still measured 920px on a tablet and «Löschen» was a 2px
+     sliver at the card edge (sweep F.5, 23.10.2026). */
+  .adm-table.adm-history-table { min-width: 0; }
   /* a spanning cell (inline edit form, a row's error) is a full-width line of its own */
   .adm-table:not(.adm-table-scroll):not(.adm-rankmap) > tbody > tr > td[colspan] { order: 0; flex: 1 1 100%; }
   /* a secondary fact names itself: the column header, small, above the value */
@@ -1824,6 +1830,7 @@ p.adm-sys-path { margin: 3px 0 0; }
 
 .adm-history-table { min-width: 920px; }
 .adm-history-table .adm-ref-note { display: block; margin-top: 3px; }
+.adm-history-exercise { margin-left: 8px; vertical-align: 2px; }
 /* A row's own action is row-sized – the same compact pair the people tables use. A full-height
    button in a 12.5px table row reads as the page's main action, which deleting one line of
    history is not. */

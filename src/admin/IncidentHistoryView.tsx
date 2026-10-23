@@ -5,6 +5,10 @@ import { ConfirmCard } from '../lib/overlays/ConfirmCard'
 import { Card, EmptyState, StatusBadge, Table, fmtDateTime } from './ui'
 import { fillTemplate } from '../lib/format'
 
+/** Herkunft in words – the backend stores a slug (`Incident.source`: 'manual', 'divera', an intake
+ *  slug …) and printed it raw («MANUAL»). An unknown slug still shows as itself. */
+const sourceLabel = (source: string) => appConfig.copy.admin.incidentHistory.sources[source] ?? source
+
 type State = { kind: 'loading' } | { kind: 'error' } | { kind: 'ok'; data: IncidentMeta[] }
 
 export function IncidentHistoryView() {
@@ -37,7 +41,9 @@ export function IncidentHistoryView() {
   const rows = useMemo(() => {
     if (state.kind !== 'ok') return []
     const q = query.trim().toLocaleLowerCase()
-    return q ? state.data.filter((i) => `${i.title} ${i.address ?? ''} ${i.type ?? ''} ${i.source}`.toLocaleLowerCase().includes(q)) : state.data
+    // the search finds what the row SAYS («manuell», «Übung») as well as the stored slug
+    return q ? state.data.filter((i) => `${i.title} ${i.address ?? ''} ${i.type ?? ''} ${i.source} ${sourceLabel(i.source)} ${i.is_exercise ? appConfig.copy.exerciseBadge : ''}`
+      .toLocaleLowerCase().includes(q)) : state.data
   }, [query, state])
 
   return (
@@ -62,10 +68,13 @@ export function IncidentHistoryView() {
                   {/* `adm-time`, not `adm-mono`: a date is read as one token, so it stays on one
                       line, and tabular numerals line the columns up without the code face. */}
                   <td className="adm-time">{fmtDateTime(incident.started_at)}</td>
-                  <td className="adm-c-main"><span className="adm-ref-title">{incident.title}</span>{incident.address && <span className="adm-ref-note">{incident.address}</span>}</td>
+                  {/* an Übung says so in its row – it is the one kind that deletes while still open */}
+                  <td className="adm-c-main"><span className="adm-ref-title">{incident.title}</span>
+                    {incident.is_exercise && <span className="adm-view-badge adm-view-badge-warn adm-history-exercise">{appConfig.copy.exerciseBadge}</span>}
+                    {incident.address && <span className="adm-ref-note">{incident.address}</span>}</td>
                   {/* The badge carries no label of its own — the STATUS column already names it. */}
                   <td className="adm-c-side"><StatusBadge tone={closed ? 'off' : 'on'} label="" state={closed ? C.closed : C.open} /></td>
-                  <td><span className="adm-view-badge adm-view-badge-muted">{incident.source}</span></td>
+                  <td><span className="adm-view-badge adm-view-badge-muted">{sourceLabel(incident.source)}</span></td>
                   <td>{incident.report_done_at ? C.complete : C.incomplete}</td>
                   <td className="adm-time">{fmtDateTime(incident.updated_at)}</td>
                   {/* The backend's two doors, mirrored: an Übung (created as one, never marked
