@@ -155,7 +155,8 @@
     "contactGraceSec": 60,
     "alarmBar": 100,
     "alarmBarRueckzug": 50,
-    "entryPressureMin": 270
+    "entryPressureMin": 270,
+    "nearbyObjectWarnM": 25
   },
   "roster": {
     "source": "manual",
