@@ -136,8 +136,7 @@ test('cold start: kiosk login → the Einsatz on the Karte', async ({ page, base
   const { long } = await drain(page)
   j.r.set('blocking_ms', blocking(long), 'ms')
   j.r.set('long_tasks', long.length, 'count')
-  // what an Einsatz opening costs on the wire — the service worker's precache is its own line.
-  // Until the wire goes quiet, not a fixed wait: a lazy data file landed inside a 3 s window on
+  // what an Einsatz opening costs on the wire. Until the wire goes quiet, not a fixed wait: a lazy data file landed inside a 3 s window on
   // one run and after it on the next (51.6 vs 56.2 KB).
   await j.net.quiet(2_000, 30_000)
   const reqs = j.net.since(from)
@@ -145,7 +144,6 @@ test('cold start: kiosk login → the Einsatz on the Karte', async ({ page, base
   // opening an Einsatz should not have to write it: every save here is one per device per open
   // (the building outlines are a read that happens to be a POST)
   j.r.set('writes', reqs.filter((x) => x.kind === 'api' && x.method !== 'GET' && !/^\/api\/(auth|overpass)\//.test(x.path)).length, 'count')
-  j.r.set('precache_kb', reqs.filter((x) => x.bySw && x.kind !== 'api').reduce((a, x) => a + x.bytes, 0) / 1024, 'kb')
   const held = await retained(j.cdp)
   j.r.set('heap_mb', held.heapMb, 'mb')
   j.r.set('dom_nodes', held.nodes, 'count')
@@ -179,7 +177,7 @@ test('warm reload: the installed app opens the Einsatz again', async ({ page, ba
   j.r.set('reload_to_workspace_ms', median(shell), 'ms')
   j.r.set('reload_to_ready_ms', median(ready), 'ms')
   j.r.set('blocking_ms', median(blocked), 'ms')
-  // the last reload's traffic: static bytes here mean the precache missed something
+  // the last reload's traffic: a static request here means the precache missed something
   recordNetwork(j.r, '', reqs)
   j.r.save({ routes: routeTally(reqs) })
 })
