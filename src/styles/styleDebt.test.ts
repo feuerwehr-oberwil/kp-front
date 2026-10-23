@@ -99,7 +99,7 @@ describe('stylesheet debt ratchet', () => {
         if ((c[m] ?? 0) > now) down.push(`${f}: ${m} ${c[m]} → ${now}`)
       }
     }
-    if (down.length) console.info(`style debt went down (${down.length}) – lower the baseline when convenient: STYLE_DEBT_UPDATE=1 pnpm vitest run src/styles/styleDebt.test.ts\n  ${down.join('\n  ')}`)
+    if (down.length) console.warn(`style debt went down (${down.length}) – lower the baseline when convenient: STYLE_DEBT_UPDATE=1 pnpm vitest run src/styles/styleDebt.test.ts\n  ${down.join('\n  ')}`)
     expect(up, 'new literal(s): use the tokens in 01-tokens.css (--fs-*, --fw-*, --sp-*, --e*)').toEqual([])
   })
 })

@@ -120,7 +120,7 @@ describe('shared-control ratchet', () => {
         if ((c[m] ?? 0) > now) down.push(`${f}: ${m} ${c[m]} → ${now}`)
       }
     }
-    if (down.length) console.info(`raw controls went away (${down.length}) – lower BASELINE in controlDebt.test.ts when convenient\n  ${down.join('\n  ')}`)
+    if (down.length) console.warn(`raw controls went away (${down.length}) – lower BASELINE in controlDebt.test.ts when convenient\n  ${down.join('\n  ')}`)
     expect(up, 'a new raw toggle/select/search: use Segmented/Chip, Menu/Combo or SearchField (docs/ui-conventions · Small roles)').toEqual([])
   })
 })

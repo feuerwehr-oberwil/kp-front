@@ -2,7 +2,7 @@
 
 import type { BoardAnno, BoardDoc, BoardPoint, Drawing, Entity, LngLat } from '../types'
 import type { GeorefFit } from './georef'
-import { planGroundWidthM, boardSymbolToEntity, entityToBoardSymbol, entitySharedProps } from './georefTwins'
+import { planGroundWidthM, boardSymbolToEntity, entitySharedProps } from './georefTwins'
 import { directionalGlyph, directionalGlyph2, projectOnto, turnedToGround, turnedToSheet } from './planProjection'
 import { normalizeStackEdit } from './stackFloors'
 
