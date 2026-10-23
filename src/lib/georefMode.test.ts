@@ -1067,7 +1067,8 @@ describe('georefReduce · the automatic suggestion (proposal review)', () => {
   })
 })
 
-describe('an APPROVED automatic fit reads «verknüpft», not «ungemessen» (18.09.2026)', () => {
+// 18.09.2026
+describe('an APPROVED automatic fit reads «verknüpft», not «ungemessen»', () => {
   const AUTO_PAIRS: GeorefPair[] = [
     { plan: { x: 0.15, y: 0.15 }, lngLat: mapOf({ x: 0.15, y: 0.15 }), kind: 'auto' },
     { plan: { x: 0.85, y: 0.85 }, lngLat: mapOf({ x: 0.85, y: 0.85 }), kind: 'auto' },

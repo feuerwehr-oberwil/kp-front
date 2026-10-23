@@ -201,7 +201,8 @@ describe('the Ebenen rows', () => {
     expect(planRasterRows([p], undefined)[0].sub).toMatch(/^⌀ \d+\.\d\d m$/)
   })
 
-  it('an automatic fit says «ungemessen» — and a station-APPROVED one says «Verknüpft» (18.09.2026)', () => {
+  // 18.09.2026
+  it('an automatic fit says «ungemessen» — and a station-APPROVED one says «Verknüpft»', () => {
     const C = appConfig.copy.whiteboard.georef
     const auto: GeorefPair[] = PAIRS.map((pr) => ({ ...pr, kind: 'auto' }))
     const rowsFor = (approvedOf: (key: string) => boolean) =>

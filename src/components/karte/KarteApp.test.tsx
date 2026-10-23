@@ -481,7 +481,8 @@ describe('KarteApp', () => {
     expect(options[1].textContent).toMatch(/Remise Schloss/)
   })
 
-  it('lists an object as glyph · name · address, without its plan count (review round 2)', async () => {
+  // review round 2
+  it('lists an object as glyph · name · address, without its plan count', async () => {
     mount()
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
     const field = screen.getByPlaceholderText('Adresse oder Objekt suchen …', PLAIN)

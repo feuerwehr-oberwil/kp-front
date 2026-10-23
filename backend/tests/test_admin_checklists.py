@@ -245,9 +245,10 @@ def test_manual_upload_shape_check():
 
 
 def test_manual_may_carry_assets():
-    ChecklistEntry(
+    entry = ChecklistEntry(
         id="stromerzeuger", kind="manual", title="S", file="s.json", assets=[{"page": 1, "file": "a/p1.svg"}]
     )
+    assert [(a.page, a.file) for a in entry.assets] == [(1, "a/p1.svg")]
 
 
 def test_validate_files_manual_needs_an_asset_for_every_step_image(tmp_path):

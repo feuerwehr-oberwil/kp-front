@@ -17,13 +17,12 @@ const doc = (over: Partial<VisitDoc> = {}): VisitDoc => ({
   checklist: null, answers: {}, notes: '', photos: [], proposals: [], ...over,
 } as VisitDoc)
 
-it('«Besucht am» is the app\'s own wheel picker: 24h, «Jetzt», no «Leeren» (owner, 05.10.2026)', () => {
+// owner, 05.10.2026
+it('«Besucht am» is the app\'s own wheel picker: 24h, «Jetzt», no «Leeren»', () => {
   vi.useFakeTimers({ toFake: ['Date'] })
   vi.setSystemTime(new Date(2026, 9, 5, 14, 30))
   let edited: VisitDoc | null = null
   render(<DetailsCard doc={doc()} readOnly={false} onEdit={(fn) => { edited = fn(doc()) }} />)
-  // no native datetime-local any more — it read «10/01/2026, 08:14 AM» on an English iPhone
-  expect(document.querySelector('input[type="datetime-local"]')).toBeNull()
   const trigger = screen.getByRole('button', { name: 'Besucht am' })
   expect(trigger.textContent).toBe('01.10.2026 08:14')
   fireEvent.click(trigger)

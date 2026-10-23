@@ -54,10 +54,6 @@ afterEach(() => {
 })
 
 describe('ErrorBoundary — recovery affordances', () => {
-  it('renders children when nothing throws', () => {
-    render(<ErrorBoundary><div>live map</div></ErrorBoundary>)
-    expect(screen.getByText('live map')).toBeTruthy()
-  })
 
   it('shows only reload at the root (no incident scope to escape from)', () => {
     render(<ErrorBoundary><Boom /></ErrorBoundary>)

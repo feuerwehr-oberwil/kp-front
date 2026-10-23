@@ -89,7 +89,8 @@ describe('serverClock', () => {
   })
 })
 
-describe('serverClock — a stale header cannot move it (Feueralarm 23.09.2026)', () => {
+// Feueralarm 23.09.2026
+describe('serverClock — a stale header cannot move it', () => {
   it.each([
     ['90 min', 90 * 60_000],
     ['three days', 3 * DAY],
