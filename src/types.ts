@@ -844,6 +844,10 @@ export type PreparedMapOverlay =
 
 /** Whiteboard annotation. All positions are normalized 0..1 in plan-image space,
  *  so they stick to the plan across zoom/pan. */
+/** The Lage map's tool ids (copy · mapTools, hotkeys · ToolCmd) – the map's counterpart of
+ *  BoardTool. `select` is the Lage's Auswahl, `lasso` its Mehrfach; `shape` is armed from the
+ *  palette, not the rail. */
+export type MapTool = 'select' | 'lasso' | 'symbol' | 'shape' | 'line' | 'area' | 'circle' | 'note' | 'team' | 'measure'
 export type BoardTool = 'pan' | 'lasso' | 'draw' | 'line' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource' | 'scale' | 'measure'
 /** `form` (10.10.2026): a Tafel PAGE — a board-template page with what was written on it (lib/boardForm).
  *  Sheet-wide, no position, no map body; everything positional ignores it by having no x/y/pts. */

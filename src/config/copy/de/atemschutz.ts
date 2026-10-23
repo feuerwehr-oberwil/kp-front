@@ -2,6 +2,8 @@
 // One slice of the canonical `de` catalogue, assembled in ../de.ts — read the rules at the
 // top of that file before adding or renaming a key here.
 
+import type { LineContent } from '../../../types'
+
 export const atemschutzCopy = {
   atemschutz: {
     title: 'Atemschutzüberwachung',
@@ -950,5 +952,5 @@ export const atemschutzCopy = {
     N: 'Nasse Haltelinie',
     T: 'Trockene Haltelinie',
     G: 'Gegenfeuer',
-  } as Record<string, string>,
+  } satisfies Record<LineContent, string>,
 } as const

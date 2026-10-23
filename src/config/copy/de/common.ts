@@ -2,6 +2,8 @@
 // One slice of the canonical `de` catalogue, assembled in ../de.ts — read the rules at the
 // top of that file before adding or renaming a key here.
 
+import type { UndoDomain } from '../../../lib/undoTimeline'
+
 export const commonCopy = {
   baseMap: 'Grundkarte',
   // floor (Geschoss) short labels — shared by the Plan floor-stack and the report plan labels.
@@ -83,7 +85,7 @@ export const commonCopy = {
     zeitplan: 'Zeitplan',
     ansicht: 'Karte',
     pendenz: 'Verlauf',
-  },
+  } satisfies Record<UndoDomain, string>,
   /** Ein anderes Gerät hat geändert, was der OBERSTE Schritt zurückgenommen hätte: der Schritt
    *  fällt weg, und das ↶ zeigt jetzt auf etwas Älteres. Einmal sagen, statt still umzubenennen.
    *  `{what}` aus `undoDroppedWhat`. */
@@ -100,7 +102,7 @@ export const commonCopy = {
     zeitplan: 'den Zeitplan',
     ansicht: 'die Ansichten',
     pendenz: 'die Pendenz',
-  },
+  } satisfies Record<UndoDomain, string>,
   play: 'Abspielen',
   // The ✕ that EMPTIES a field (29.09.2026): «leeren», never «löschen» — «löschen» is the delete
   // verb (records are «gelöscht», removalWords.test), and this ✕ deletes nothing. ONE key for the

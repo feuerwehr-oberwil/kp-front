@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import type { BoardAnno, BoardDoc, BoardPoint, BuildingDoc, Drawing, Entity, GeoTrailPoint, LineAttachment, LngLat, TimelineEvent, TrailPoint, Trupp, TruppFields, TruppReading } from '../types'
 import type { TacticalObject } from './tacticalObjects'
+import type { WorkspaceMode } from '../workspace/types'
 import type { ObjectStore, SetBoard } from './useObjectStore'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
@@ -27,7 +28,6 @@ import type { UndoTimeline } from './undoTimeline'
 import { keepCrewFiled } from './crewFiling'
 import { recordKey } from './undoKeys'
 
-type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
 type PlanFocus = { x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null
 
 /** placement-target id for the Lage map in the «Wohin platzieren?» picker (vs. a plan id) */
@@ -263,7 +263,7 @@ interface Deps {
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   logPlan: (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number }) => void
   emit: (op_type: string, payload?: Record<string, unknown>, opts?: { observed?: string }) => void
-  setMode: (m: Mode) => void
+  setMode: (m: WorkspaceMode) => void
   setActivePlanId: (id: string) => void
   setPanel: (p: 'layers' | null) => void
   setPlanFocus: (f: PlanFocus) => void
