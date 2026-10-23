@@ -46,6 +46,9 @@ export default tseslint.config(
       'prefer-const': ['error', { destructuring: 'all' }],
       // pragmatic for an in-flight refactor — surface, don't block.
       '@typescript-eslint/no-explicit-any': 'warn',
+      // a `!` is a cast the compiler cannot check; lint is not type-aware, so nothing else counts
+      // them – the ratchet holds the number (sweep 23.10.2026, B.13). Tests are exempt below.
+      '@typescript-eslint/no-non-null-assertion': 'warn',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
@@ -53,6 +56,8 @@ export default tseslint.config(
   {
     files: ['**/*.test.{ts,tsx}'],
     languageOptions: { globals: { ...globals.node } },
+    // a fixture's `!` asserts what the test just arranged; a wrong one fails the test itself
+    rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
   // Playwright e2e: node, and a fixture's `use` callback is Playwright's, not React's hook
   {

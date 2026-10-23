@@ -1,13 +1,25 @@
 {
-  "_comment": "Warnings per eslint rule; `pnpm lint` (scripts/lint-ratchet.mjs) fails when a count goes up OR down. Lower with `pnpm lint:update`; never raise one to pass.",
+  "_comment": "Warnings per eslint rule, and (`silenced`) what eslint-disable directives silence per rule; `pnpm lint` (scripts/lint-ratchet.mjs) fails when a count goes up OR down. Lower with `pnpm lint:update`; never raise one to pass.",
   "rules": {
-    "@typescript-eslint/no-explicit-any": 6,
+    "@typescript-eslint/no-explicit-any": 3,
+    "@typescript-eslint/no-non-null-assertion": 381,
     "react-hooks/exhaustive-deps": 20,
     "react-hooks/immutability": 25,
     "react-hooks/preserve-manual-memoization": 8,
     "react-hooks/purity": 26,
     "react-hooks/refs": 121,
     "react-hooks/set-state-in-effect": 74,
-    "react-refresh/only-export-components": 117
+    "react-refresh/only-export-components": 106
+  },
+  "silenced": {
+    "@typescript-eslint/no-explicit-any": 10,
+    "@typescript-eslint/no-require-imports": 2,
+    "no-console": 4,
+    "no-misleading-character-class": 2,
+    "react-hooks/exhaustive-deps": 123,
+    "react-hooks/refs": 1,
+    "react-hooks/rules-of-hooks": 8,
+    "react-hooks/set-state-in-effect": 1,
+    "react-refresh/only-export-components": 1
   }
 }
