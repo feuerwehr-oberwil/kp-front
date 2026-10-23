@@ -789,35 +789,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/incidents/{incident_id}/einsatz-link": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create Einsatz Link
-         * @description Hand back the read-only Einsatz-Link for this Einsatz, minting it on the spot.
-         *
-         *     Two refusals, and they are deliberately different statuses because the operator can act on
-         *     only one of them:
-         *       · 403 — no minting key: the whole link surface is off, exactly as the exchange answers it
-         *         (api/incident_link · `open_link_session`). Nothing to be done on the Schadenplatz, so the
-         *         sheet points at der Verwaltung instead of offering a retry.
-         *       · 409 — the Einsatz is finished: an alarm link dies the moment it closes, so minting one
-         *         would hand over an address that never worked. Not the exchange's blind 404, because the
-         *         caller is a signed-in editor who already knows this Einsatz exists.
-         */
-        post: operations["create_einsatz_link_api_incidents__incident_id__einsatz_link_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/incidents/{incident_id}/atemschutz-link": {
         parameters: {
             query?: never;
@@ -849,6 +820,35 @@ export interface paths {
          *     is refused on its next request (auth/incident_link · `_atemschutz_key_unchanged`).
          */
         delete: operations["revoke_atemschutz_link_api_incidents__incident_id__atemschutz_link_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/incidents/{incident_id}/einsatz-link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Einsatz Link
+         * @description Hand back the read-only Einsatz-Link for this Einsatz, minting it on the spot.
+         *
+         *     Two refusals, and they are deliberately different statuses because the operator can act on
+         *     only one of them:
+         *       · 403 — no minting key: the whole link surface is off, exactly as the exchange answers it
+         *         (api/incident_link · `open_link_session`). Nothing to be done on the Schadenplatz, so the
+         *         sheet points at der Verwaltung instead of offering a retry.
+         *       · 409 — the Einsatz is finished: an alarm link dies the moment it closes, so minting one
+         *         would hand over an address that never worked. Not the exchange's blind 404, because the
+         *         caller is a signed-in editor who already knows this Einsatz exists.
+         */
+        post: operations["create_einsatz_link_api_incidents__incident_id__einsatz_link_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4825,6 +4825,10 @@ export interface components {
             access?: components["schemas"]["AccessConfig"];
             integrations?: components["schemas"]["ConfigIntegrations"];
             alarmVocabulary?: components["schemas"]["AlarmVocabularyStatus"];
+            /** Categorylabels */
+            categoryLabels?: {
+                [key: string]: string;
+            };
             /** Version */
             version?: string | null;
             /** Warnings */
@@ -4945,6 +4949,11 @@ export interface components {
             } | null;
             /** Equipment */
             equipment?: components["schemas"]["EquipmentItem"][] | null;
+            /**
+             * Nearbyobjectwarnm
+             * @default 25
+             */
+            nearbyObjectWarnM?: number;
         };
         /**
          * EquipmentItem
@@ -7088,9 +7097,12 @@ export interface components {
          */
         TruppsPut: {
             /** Trupps */
-            trupps: {
+            trupps: ({
+                /** @enum {string} */
+                status?: "angemeldet" | "aktiv" | "rueckzug" | "ueberfaellig" | "raus";
+            } & {
                 [key: string]: unknown;
-            }[];
+            })[];
             /** Base Rev */
             base_rev: number;
             /** Edited At */
@@ -8685,39 +8697,6 @@ export interface operations {
             };
         };
     };
-    create_einsatz_link_api_incidents__incident_id__einsatz_link_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                incident_id: string;
-            };
-            cookie?: {
-                access_token?: string | null;
-            };
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ViewLinkOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_atemschutz_link_api_incidents__incident_id__atemschutz_link_get: {
         parameters: {
             query?: never;
@@ -8785,6 +8764,39 @@ export interface operations {
         };
     };
     revoke_atemschutz_link_api_incidents__incident_id__atemschutz_link_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incident_id: string;
+            };
+            cookie?: {
+                access_token?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewLinkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_einsatz_link_api_incidents__incident_id__einsatz_link_post: {
         parameters: {
             query?: never;
             header?: never;

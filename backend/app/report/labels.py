@@ -88,7 +88,9 @@ L = {
     "boardMapAt": "Karte, Stand {t}",
     "boardContinued": "Fortsetzung: {t}",
     "pendenzUrgent": "dringend",
-    "colArea": "Bereich",
+    # the column carries a typed entry's Art (Info, Auftrag …) or an app row's Bereich (Kroki,
+    # Trupps …) – the app keeps those two words apart (sweep E.5), so the head names both
+    "colArea": "Art / Bereich",
     "colEntry": "Eintrag",
     "transcript": "Transkript",
     # a corrected row: latest wording above, this line says when and what it started as —
