@@ -7,7 +7,16 @@ import uuid
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    ValidationInfo,
+    WithJsonSchema,
+    field_validator,
+    model_validator,
+)
 
 from .alarm_validation import validate_reminder_row, validate_trupp
 
@@ -316,6 +325,26 @@ class WorkspacePut(BaseModel):
 MAX_TRUPPS = 200
 
 
+#: A Trupp's lifecycle phase — the ONE list of its words (client twin: src/types.ts · Trupp.status,
+#: held equal to the enum this emits into docs/openapi.json by src/lib/truppStatus.test.ts).
+#: angemeldet → aktiv → rueckzug → raus by hand; `ueberfaellig` is the derived overlay.
+TruppStatus = Literal["angemeldet", "aktiv", "rueckzug", "ueberfaellig", "raus"]
+
+#: A stored Trupp as the contract DESCRIBES it: an open object whose `status` is a TruppStatus.
+#: ⚠️ Schema only — validation stays `validate_trupp`'s, which does not refuse an unknown status:
+#: this is the Atemschutz save path, and an offline tablet's write must still land.
+_TruppDoc = Annotated[
+    dict[str, Any],
+    WithJsonSchema(
+        {
+            "type": "object",
+            "properties": {"status": TypeAdapter(TruppStatus).json_schema()},
+            "additionalProperties": True,
+        }
+    ),
+]
+
+
 class TruppsPut(BaseModel):
     """The Atemschutz SLICE of the workspace — the only write shape an Atemschutz link has.
 
@@ -324,7 +353,7 @@ class TruppsPut(BaseModel):
     is the same optimistic-concurrency token as the full PUT and produces the same 409.
     """
 
-    trupps: list[dict[str, Any]]
+    trupps: list[_TruppDoc]
     base_rev: int
     #: see WorkspacePut.edited_at
     edited_at: datetime | None = None

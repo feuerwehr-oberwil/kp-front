@@ -22397,6 +22397,18 @@
         "properties": {
           "trupps": {
             "items": {
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "angemeldet",
+                    "aktiv",
+                    "rueckzug",
+                    "ueberfaellig",
+                    "raus"
+                  ]
+                }
+              },
               "additionalProperties": true,
               "type": "object"
             },
