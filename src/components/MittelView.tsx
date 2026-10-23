@@ -14,12 +14,13 @@ import { Combo } from './Combo'
 import { Stepper } from './Stepper'
 import { Button, IconButton } from './Button'
 import { EmptyState } from './EmptyState'
-import type { MittelEntry, MittelStatus } from '../types'
+import type { MittelEntry } from '../types'
 import {
   visibleMittel, groupBySource, currentLineFor, currentMengeFor, availableFor, mittelListGroups, groupCatalogue,
   mittelRecommendations, defaultSourceFor, tombstoneStands,
   type CurrentMittel, type MittelListCell, type MittelListRow, type MittelRecommendation, type SymbolMatch,
   type TruppForMittel,
+  type MittelDraft,
 } from '../lib/mittel'
 import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import s from './Mittel.module.css'
@@ -27,28 +28,8 @@ import { useIsPhone } from '../lib/useIsPhone'
 import { usePageHeadFit } from '../lib/pageHeadFit'
 import c from './SurfaceControls.module.css'
 
-/** What the sheet hands back on every save: the material+unit+source identity plus the new
- *  running TOTAL. App.tsx turns it into an append-only event (no-op if unchanged). */
-export interface MittelDraft {
-  materialId?: string
-  label: string
-  unit: string
-  sourceId?: string
-  sourceLabel?: string
-  menge: number
-  /** Retablierung state: a value sets it, `null` clears it, omitted keeps the current one
-   *  (so quantity edits and composer saves never wipe a set status). */
-  status?: MittelStatus | null
-  /** free remark: same value / null / omitted semantics as `status`, so editing a quantity
-   *  never wipes a remark somebody wrote. */
-  note?: string | null
-  /** nominal Bestand of a hand-added line — what «noch N» counts down from. Same value / null /
-   *  omitted semantics as `note`. Catalogue materials get theirs from the config instead. */
-  stock?: number | null
-  /** remove the line for good. Only the pencil dialog sets this: stepping to 0 now means
-   *  «nothing used», not «gone». */
-  deleted?: boolean
-}
+/** (the draft type lives with the Mittel rules, lib/mittel; re-exported for the view's callers) */
+export type { MittelDraft }
 
 /** The largest stock still worth drawing as dots. Seven is where subitizing gives out — up to
  *  it you SEE «zwei von sieben», past it you start counting pips, which is slower than reading

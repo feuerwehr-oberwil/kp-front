@@ -9,7 +9,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate, unitLabel } from './format'
 import { newId } from './ids'
 import { currentLineFor, mittelKey } from './mittel'
-import type { MittelDraft } from '../components/MittelView'
+import type { MittelDraft } from './mittel'
 import type { MittelEntry, TimelineEvent } from '../types'
 
 /** How long a Mittel count has to sit still before it earns its Verlauf line. One ±burst is

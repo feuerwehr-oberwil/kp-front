@@ -11,7 +11,7 @@ import { prefs } from './bootPrefs'
 import type { ChecklistState } from '../lib/checklists'
 import { fillTemplate } from '../lib/format'
 import type { IncidentPlanBinding } from '../lib/incidentPlanBindings'
-import type { IncidentMeta } from '../lib/incidents'
+import type { IncidentMeta, Workspace } from '../lib/incidents'
 import { saveLayerPrefs } from '../lib/layerPrefs'
 import { type TacticalObject, type PlanFit, viewsOf } from '../lib/tacticalObjects'
 import type { TruppTrail } from '../lib/truppTrails'
@@ -137,7 +137,7 @@ export function useWorkspaceBlob({
    * device reads on its first open (lib/workspace · deriveInitial). So: never written from the
    * live layers, never wiped — whatever the record already says goes back unchanged. */
   const syncedLayerState = useRef<Saved['layerState']>(bootGate.ws?.layerState ?? [])
-  const applyWorkspace = useCallback((ws: Saved) => {
+  const applyWorkspace = useCallback((ws: Workspace) => {
     const gate = sanitizeWorkspace(ws)
     reportGate(gate)
     syncedLayerState.current = gate.ws?.layerState ?? []

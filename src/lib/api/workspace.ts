@@ -5,6 +5,8 @@ import { ApiError, apiBeacon, apiGet, apiGetRaw, apiPut, LONG_POLL_TIMEOUT_MS } 
 import type { Trupp } from '../../types'
 import { reportIncidentClosed, reportIncidentReopened } from '../incidentClosed'
 
+/** The blob on the wire. The app's typed view is `Saved` (lib/workspace): a `Saved` is a
+ *  Workspace as it stands, and the way back in is sanitizeWorkspace, never a cast. */
 export type Workspace = Record<string, unknown>
 
 /** Which sync engine saved (backend api/incidents · X-Workspace-Writer): the follower read asks

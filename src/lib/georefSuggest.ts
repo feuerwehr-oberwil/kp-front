@@ -16,7 +16,7 @@
  *  startGeorefProposal) — nothing is stored until the operator presses «Übernehmen».
  */
 import { ApiError, apiUploadRaw } from './api'
-import { planMatcherImage, planPrintedMPerU } from '../components/PdfViewport'
+import { planMatcherImage, planPrintedMPerU } from './pdfRaster'
 import type { GeoPt, GeorefPair } from './georef'
 
 /** The phases the busy card can show — 'render' is the client's own bake, the other two are

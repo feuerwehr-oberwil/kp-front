@@ -3,7 +3,7 @@ import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useSta
 import type { ReactivateResult } from './types'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
-import { demoSeedRebase, type Saved } from './lib/workspace'
+import { demoSeedRebase } from './lib/workspace'
 import { appConfig } from './config/appConfig'
 import { shortAddress, isDemoMode, alarmProviderName, objectVisitsConfig, getDeploymentConfig } from './lib/deploymentConfig'
 import { isOvPath, leaveAppEntries, navigateTo, OV_BASE, ovHref, showsObjectVisits, useOvRoute } from './objectVisits/route'
@@ -36,7 +36,7 @@ import { IncidentWorkspace } from './IncidentWorkspace'
 import {
   WorkspaceSync, listIncidentsResilient, getIncident, archiveIncident, reactivateIncident,
   migrateLegacyWorkspace, takeDiveraAlarm, patchIncident, attachDiveraAlarm, discardWorkspaceCache,
-  type DiveraAlarm, type IncidentFull, type IncidentMeta,
+  type DiveraAlarm, type IncidentFull, type IncidentMeta, type Workspace,
 } from './lib/incidents'
 import { isIncidentRunning } from './lib/api/incidents'
 import { closedMetaFor, closedNoticeAt, onIncidentClosed, onIncidentReopened, reopenedMetaFor, reportIncidentClosed, reportIncidentReopened, type IncidentClosedSignal, type IncidentReopenedSignal } from './lib/incidentClosed'
@@ -162,7 +162,7 @@ export default function App() {
   const [bootDecided, setBootDecided] = useState(false)
   const bootOpenSeq = useRef(0) // StrictMode / re-run guard: only the LATEST boot open may clear it
   const [activeMeta, setActiveMeta] = useState<IncidentMeta | null>(null)
-  const [workspace, setWorkspace] = useState<Saved | null>(null)
+  const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [remount, setRemount] = useState(0)
   // the Einsatz whose OPENING is still behind the workspace's snail cover (lib/bootCover). Set
   // by a genuine open only — never by a background remount, nor by re-selecting the Einsatz
@@ -415,7 +415,7 @@ export default function App() {
       // dialog — just a quiet notice. The merged result is applied in place via onApplyMerged
       // (registered by the live view); onServerWorkspace is the remount fallback.
       onMerged: () => toast(appConfig.copy.toast.merged),
-      onServerWorkspace: (ws) => { setWorkspace(ws as unknown as Saved); setRemount((n) => n + 1) },
+      onServerWorkspace: (ws) => { setWorkspace(ws); setRemount((n) => n + 1) },
     })
     const meta = opts.meta ?? (await getIncident(id))
     if (selectReq.current !== my) { sync.dispose(); return } // superseded mid-flight
@@ -441,7 +441,7 @@ export default function App() {
     // per tab + seed, so a refresh keeps the clocks running instead of shunting them backwards —
     // and the UNTOUCHED seed is the only thing it may ever touch, because the demo Einsatz is
     // shared across devices the moment anyone works it (see workspace · demoSeedRebase).
-    const seed = ws ? (isDemoMode() ? demoSeedRebase(ws as unknown as Saved, id, rev) : (ws as unknown as Saved)) : null
+    const seed = ws && isDemoMode() ? demoSeedRebase(ws, id, rev) : ws
     setWorkspace(seed)
     setForceReadOnly(!!opts.readOnly)
     setActiveId(id)
@@ -1218,7 +1218,7 @@ export default function App() {
             // is the blob as it stood when the Einsatz was opened; the live poll lands inside the
             // workspace, which gates the banner on the same field.
             needsIntakeReview(activeMeta, {
-              isEditor, reviewed: reviewedIncidents, reviewedAt: workspace?.intakeReviewedAt, now: Date.now(),
+              isEditor, reviewed: reviewedIncidents, reviewedAt: typeof workspace?.intakeReviewedAt === 'string' ? workspace.intakeReviewedAt : undefined, now: Date.now(),
             })
           }
           onReviewDone={() => markReviewed(activeMeta.id)}

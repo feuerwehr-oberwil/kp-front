@@ -7,21 +7,9 @@ import { appConfig } from '../../config/appConfig'
 import { putWorkspace, type Workspace } from './workspace'
 
 // --- Types (mirror backend schemas) -------------------------------------------------
-/** `Incident.status` values that mean the Einsatz is RUNNING — mirrors the backend's
- *  `INCIDENT_ACTIVE_STATUSES`. "offen" is what every intake writes; "in_arbeit" is what an
- *  editor sets once somebody is working it (shown as «In Arbeit» in the Einsatz list). */
-export const INCIDENT_ACTIVE_STATUSES = ['offen', 'in_arbeit']
-
-/** Is this Einsatz still running? The client-side twin of the backend's `Incident.is_open`,
- *  and the one place to ask — a hand-written copy that drifts from the server's answer shows
- *  affordances the API then refuses (or hides ones it would allow).
- *
- *  `closed_at` is deliberately NOT consulted: it is the first Einsatzende as a TIMESTAMP, kept
- *  across a reopen so later rows read as Nachträge (see lib/reminders, lib/report). Treating it
- *  as a liveness flag left a reactivated Einsatz half-dead. `is_archived` is the state. */
-export function isIncidentRunning(i: Pick<IncidentMeta, 'is_archived' | 'status'>): boolean {
-  return !i.is_archived && INCIDENT_ACTIVE_STATUSES.includes(i.status)
-}
+// the running rule lives in a leaf (lib/incidentRunning) so incidentClosed can ask it without an
+// import ring back through this module and ./workspace
+export { INCIDENT_ACTIVE_STATUSES, isIncidentRunning } from '../incidentRunning'
 
 /**
  * The Einsatzende the record states when nobody entered one: the CURRENT close. After «Wieder

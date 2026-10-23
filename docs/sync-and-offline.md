@@ -90,9 +90,11 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   client gate (`sanitizeWorkspace` · `isPassengerAnno`) keeps any board object of a kind it does
   not draw, untouched, and every merge and save carries it along (`isDrawnBoardKind` splits
   drawing from riding); (2) the server guards builds that predate the rule: a full save whose
-  `schemaVersion` is older than a kind (`app/workspace_kinds.py` · `BOARD_KIND_SINCE`) gets the
-  stored objects of that kind put back (`keep_newer_board_kinds`). A new board kind → bump
-  `WORKSPACE_SCHEMA_VERSION` (`src/lib/workspace.ts`, now 3) and add it to `BOARD_KIND_SINCE`.
+  `schemaVersion` is older than a kind (`backend/app/data/board_kinds.json`, read as
+  `app/workspace_kinds.py` · `BOARD_KIND_SINCE`) gets the stored objects of that kind put back
+  (`keep_newer_board_kinds`). A new board kind → bump `WORKSPACE_SCHEMA_VERSION`
+  (`src/lib/workspace.ts`, now 3) and give it its row in `board_kinds.json`;
+  `src/lib/boardKinds.test.ts` fails on a `BoardKind` without one.
   A Tafel page is ONE object but merges **atom by atom** (`lib/boardFormMerge`: a cell, a line,
   a field), the later edit (`t`, server clock) winning a true clash and writing a Verlauf row.
 - **IDs are prefixed timestamps, not UUIDs** – `newId(prefix)` from `src/lib/ids.ts`

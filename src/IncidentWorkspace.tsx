@@ -87,11 +87,12 @@ import { planStackTouches, type BoardHistory } from './components/useBoardDoc'
 import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
-import { prewarmPlans } from './components/PdfViewport'
+import { prewarmPlans } from './lib/pdfRaster'
 import { prefetchOutlines } from './components/OsmOutline'
 import {
   WorkspaceSync, 
   type IncidentMeta,
+  type Workspace,
   isIncidentRunning,
 } from './lib/incidents'
 import { useAuditEvents } from './lib/useAuditEvents'
@@ -206,7 +207,7 @@ if (prefs.pickedObject) savePrefs({ ...loadPrefs(), pickedObject: undefined })
 interface WorkspaceProps {
   incidentMeta: IncidentMeta
   incidents: IncidentMeta[]
-  workspace: Saved | null
+  workspace: Workspace | null
   sync: WorkspaceSync
   forceReadOnly: boolean
   /** another tab of THIS browser is editing the incident → read-only here + take-over banner */
