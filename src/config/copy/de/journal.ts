@@ -141,16 +141,16 @@ export const journalCopy = {
     // bedient und darum bewusst nach keinem Namen gefragt wurde (types · TimelineEvent.via)
     viaAtemschutzLink: 'Atemschutz-Link',
     viaAtemschutzLinkTitle: 'Eingetragen auf der abgegebenen Atemschutz-Tafel.',
-    // ── the row's detail sheet: a fact table, one line per thing the record actually holds ──
+    // ── the row's detail sheet (owner's pick 8, sweep E.4): the message is the title, a meta line
+    // under it «16:30:56 · Sofortmassnahme · von Hand erfasst» (time · Art/Bereich · Quelle), then a
+    // fact table for what the meta line does not say ──
     // ⚠️ Only lines with an answer are printed. A sheet of «–» teaches nothing and turns the one
     // fact that IS there (a correction, a repeat) into something to hunt for.
-    detailTime: 'Zeit',
-    detailArea: 'Bereich',
-    detailSource: 'Quelle',
-    // …written by hand vs. logged by the app. The second is why the pen is missing on that row,
-    // so the sheet says it rather than leaving an operator tapping a button that is not there.
-    detailSourceManual: 'Von Hand erfasst',
-    detailSourceSystem: 'Von der App erfasst',
+    // …written by hand vs. logged by the app — the meta line's last part, so lower case. The second
+    // is why the pen is missing on that row, so the sheet says it (and the hint under it) rather
+    // than leaving an operator tapping a button that is not there.
+    detailSourceManual: 'von Hand erfasst',
+    detailSourceSystem: 'von der App erfasst',
     detailSourceSystemHint: 'Systemzeilen sind nicht bearbeitbar',
     detailAttachments: 'Beilagen',
     detailAttachmentsN: '{n} Bilder',

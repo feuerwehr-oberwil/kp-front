@@ -65,7 +65,7 @@ a Checkliste, a Verlauf-Eintrag, a Mittel line).
   `whiteboard.*`, `Whiteboard.tsx`) keep their names.
 - **The place is «Verlauf», the thing is «Eintrag» – on every screen** (29.09.2026). The composer
   is «Neuer Eintrag», its toast «Eintrag erfasst», the checklist action chip «Verlauf», the
-  Führungsansicht «Verlauf & Symbol-Details», the source row «Von Hand erfasst». «Journal» appears
+  Führungsansicht «Verlauf & Symbol-Details», the detail sheet's meta line «… · von Hand erfasst». «Journal» appears
   on screen nowhere. **«Einsatzjournal» stays ONLY as the printed Rapport section's name**
   (`app/report · "journal"`, `copy.report.journal`, and the «Abschnitte» toggle that names that
   section) – the paper term. The printed Atemschutz section is «Atemschutzüberwachung», never
