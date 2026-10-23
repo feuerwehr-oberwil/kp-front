@@ -226,7 +226,7 @@ function ReadOut({ value }: { value?: string | null }) {
  * end of them. Three tabs put each of those within one screen.
  *
  * ⚠️ It decides what is SHOWN, never the order: the DOM stays in the printed rapport's order
- * (report_pdf.py / admin/capturePdf.ts), and from 601px up the bar is `display: none` and every
+ * (app/report / admin/capturePdf.ts), and from 601px up the bar is `display: none` and every
  * section is on screen exactly as it is today — the two-column layout at 1080 is untouched.
  *
  * ⚠️ THREE, and only three. Anwesenheit and Material were tried as two more tabs here
@@ -1446,7 +1446,7 @@ export function ReportPreflight({
                 Nothing actionable is lost: every state that needs a person is a warning, and a
                 warning still lands here, amber, counted, in the same glance as the button that
                 makes the paper. The Prüfnachweis read-out goes with it while it is intact —
-                the signed paper is the record (report_pdf · decision E), and «intact» is not
+                the signed paper is the record (app/report · decision E), and «intact» is not
                 news. A BROKEN chain is, and that raises the chip.
                 Not rendered while checking either: a spinner that resolves to nothing a moment
                 later is a flicker on the row, and the check is the app's business, not the
@@ -1672,7 +1672,7 @@ export function ReportPreflight({
               made one column two screens tall on a page half of which was margin; side by side
               the Zeiten grid gets the width it was always asking for and the checklist stays
               visible while the form is being typed. The DOM order is untouched — it is the order
-              of the printed rapport and of the paper Erfassungsblatt (report_pdf.py,
+              of the printed rapport and of the paper Erfassungsblatt (app/report,
               admin/capturePdf.ts, both tested) — the columns only decide WHERE, never in which
               order things are read. */}
           <div className="rp-col rp-col-form">

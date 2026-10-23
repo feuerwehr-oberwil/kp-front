@@ -1239,7 +1239,9 @@ export interface Trupp {
   exitTime?: string
   /** lifecycle phase. `angemeldet` = registered but not yet entered (no contact clock); manual
    *  transitions angemeldet → aktiv (eingerückt) → rueckzug → raus. `ueberfaellig` is the one
-   *  auto-overlay, derived while in the field when contact runs past the interval. */
+   *  auto-overlay, derived while in the field when contact runs past the interval.
+   *  ⚠️ The backend's twin is `schemas · TruppStatus` (the push sweep reads it); lib/truppStatus.test
+   *  holds the two equal. */
   status: 'angemeldet' | 'aktiv' | 'rueckzug' | 'ueberfaellig' | 'raus'
   /** linked plan resource chip — placed manually on the building plan (Gebäude floor-stack or
    *  Modul 6), NOT auto-created. Unset until the user presses "Platzieren". A Trupp is tracked

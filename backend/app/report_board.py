@@ -9,7 +9,7 @@ says: the FKS «Erste Führung» as the A3 poster scaled onto A4 portrait (the s
 ⚠️ Nothing written is ever cut off the record. A table holding more rows than its box fits at a
 legible size first shrinks the type (down to 6.5 pt), and whatever still does not fit is printed
 as a «Fortsetzung» table right after the page (`overflow`). The Lagekarte box takes the server's
-own Kroki render of the scene at print time (report_pdf · compose_report_pdf); without one it is
+own Kroki render of the scene at print time (app/report · compose_report_pdf); without one it is
 an empty box to sketch in by hand, as on the poster.
 """
 

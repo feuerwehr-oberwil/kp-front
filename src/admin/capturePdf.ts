@@ -80,7 +80,7 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
     doc.setLineDashPattern([0.8, 0.8], 0).setDrawColor(150).line(x1, yy, x2, yy)
     doc.setLineDashPattern([], 0)
   }
-  // 12.5pt bold + a solid dark rule — the Einsatzrapport's own section heading (report_pdf ·
+  // 12.5pt bold + a solid dark rule — the Einsatzrapport's own section heading (app/report ·
   // styles «h2»). The two documents are read one after the other, so a heading that is a point
   // smaller here made the paper twin look like a different form.
   const heading = (t: string) => {
@@ -134,7 +134,7 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
   // compact checkbox rows (Kategorie / Partner): fixed column raster, tick-off only.
   // `writeInLast` turns the trailing item into a write-in row — a ticked box, a label and a
   // dotted leader for the organisation nobody put on the list, which is exactly how the
-  // rapport ends its Partner table (report_pdf · _partner_table).
+  // rapport ends its Partner table (app/report · _partner_table).
   const checkRow = (items: string[], cols: number, writeInLast = false) => {
     const cw = (A4.w - 2 * M) / cols
     const rh = 5.6
@@ -182,11 +182,11 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
   }
 
   // The blank sheet is the PAPER TWIN of the Einsatzrapport, so it runs in the rapport's own
-  // section order (backend/app/report_pdf.py): Zeiten → Bemerkungen → Personal → Material →
+  // section order (backend/app/report): Zeiten → Bemerkungen → Personal → Material →
   // Partner → Unterschriften. It used to put Material and Partner before the roster, so
   // transferring a filled-in sheet into the app meant reading the two documents out of step.
   // --- Notizen ---------------------------------------------------------------------------
-  // 8 mm between write-in rules — the rapport's own Kurzbericht pitch (report_pdf ·
+  // 8 mm between write-in rules — the rapport's own Kurzbericht pitch (app/report ·
   // write_lines), which is what the transferred text will be set in
   ensure(7 + 5 * 8)
   heading(C.sheetNotizen)
@@ -204,7 +204,7 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
   // sheet, and keeping it together pushed a village-sized Wehr onto a third sheet the moment the
   // section order matched the rapport's. Chunked by what fits on the page rather than split
   // mid-column, so the two columns always belong to the same chunk and read top-to-bottom.
-  // Row pitch and the von–bis geometry follow the rapport's roster (report_pdf ·
+  // Row pitch and the von–bis geometry follow the rapport's roster (app/report ·
   // _personal_table): two write-in rules of equal width with the dash between them, so the
   // dash sits at ONE x down the whole column and each end has room for «02.08. 14:41» rather
   // than for a 7pt stub nobody can write on.
@@ -245,7 +245,7 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
   ensure(14)
   heading(C.sheetMaterial)
   const mats = [...catalogue].sort((a, b) => compareText(a.label, b.label))
-  // ⚠️ Amount and unit are two COLUMNS, as on the rapport (report_pdf · _mittel_table): as one
+  // ⚠️ Amount and unit are two COLUMNS, as on the rapport (app/report · _mittel_table): as one
   // `______ Stk` string it was the unit that landed on the shared right edge, so every rule
   // began where its unit happened to start — «Stk» at one x, «Sack» at another, and a lone «l»
   // read as a stray glyph hanging off a line.
@@ -282,7 +282,7 @@ export function downloadSheetPdf({ stationName, names, catalogue, groups = [], v
 
   // --- signatures (keep the block together) ----------------------------------------------
   // Both signatures carry their own «Ort, Datum», exactly like the rapport's Unterschriften
-  // block (report_pdf · sig): the two sheets are signed by the same two people on the same day
+  // block (app/report · sig): the two sheets are signed by the same two people on the same day
   // and one of them was missing the date line the other one has.
   ensure(22)
   heading(C.sheetSignatures)

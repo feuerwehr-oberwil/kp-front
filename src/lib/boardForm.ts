@@ -513,7 +513,7 @@ export function formHasContent(d: BoardFormData): boolean {
 export interface TrendWords { up: string; same: string; down: string }
 
 /**
- * One page, resolved for the server (backend · report_pdf · BoardPageIn): every label in the
+ * One page, resolved for the server (backend · app/report · BoardPageIn): every label in the
  * deployment's language, every row as the strings that print, in the layout's order. The server
  * draws the paper; it never has to know a template.
  */

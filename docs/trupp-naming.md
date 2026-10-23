@@ -175,7 +175,7 @@ be registrable offline.
 - **What stays:** rows already written under the old number keep it (append-only); the renumber
   row is what connects the two. The Rapport's Atemschutz page reads the Trupp's own record, so it
   prints the current number with the whole history under it, and its heading names the first
-  number too: «Trupp 3 (zuerst Trupp 1) – Meier Anna» (`formerNos`, backend `report_pdf ·
+  number too: «Trupp 3 (zuerst Trupp 1) – Meier Anna» (`formerNos`, backend `app/report ·
   _trupp_heading`). In the Verlauf a row ABOUT the Trupp (`subjectId`) marks its «Trupp 1» as
   THIS Trupp, by id, with what it is called now on the mark (`journalLinks · former`); anywhere
   else «Trupp 1» is whoever holds 1 now, and typing it completes to that one.
@@ -235,14 +235,14 @@ for this door. Revisit only if the field asks for the chip's number to stick.
 | One counter, chip names included | `src/lib/placedTrupps.ts` · `nextTruppNo` / `nextTeamName` (former numbers included); fed from `IncidentWorkspace · truppCounterNames` (every chip, every ghost trail, every Trupp ever registered) to `Whiteboard`, `useTeamMarkerActions` and `useTruppActions` |
 | Numbering on registration, crew rows on register / edit / transfer / re-entry, leader-only rows | `src/lib/useTruppActions.ts` · `createTrupp`, `crewRow` |
 | Migration of unnumbered records | `src/lib/workspace.ts` · `numberTrupps`, applied in `deriveInitial` |
-| Two devices, one number (§7) | `src/lib/truppNumbers.ts` · `resolveTruppNumbers` (called at the end of `mergeWorkspace`, scoped by `WorkspaceSync · numberScope`), `truppRenumberings` (diffed in `WorkspaceSync` · `reportRenumbered` → `onTruppRenumbered`), `renumberRow` (written by `useIncidentSync` · `appendTeamRow`); `Trupp.formerNos` → Rapport heading (`report_pdf · _trupp_heading`) and the Verlauf's link by id (`journalLinks` · `former`, `MarkOptions.subjectId`) |
+| Two devices, one number (§7) | `src/lib/truppNumbers.ts` · `resolveTruppNumbers` (called at the end of `mergeWorkspace`, scoped by `WorkspaceSync · numberScope`), `truppRenumberings` (diffed in `WorkspaceSync` · `reportRenumbered` → `onTruppRenumbered`), `renumberRow` (written by `useIncidentSync` · `appendTeamRow`); `Trupp.formerNos` → Rapport heading (`app/report · _trupp_heading`) and the Verlauf's link by id (`journalLinks` · `former`, `MarkOptions.subjectId`) |
 | One device never needs the merge (§7) | `src/lib/placedTrupps.ts` · `counterNames`, `teamNoTaken`, `freshTeamLabel`; `IncidentWorkspace · truppCounterNames / teamNameTaken` (⌘D, ghost revival, the Karte's rename), `Whiteboard` (⌘D, rename pen) |
 | Backend accepts `no` | `backend/app/alarm_validation.py` |
 | The one crew formatter, both forms | `src/lib/atemschutz.ts` · `truppLogName(t, 'crew' \| 'leader')` |
 | Vocabulary term `Trupp N` + legacy term, GF badge on the first person | `src/lib/journalLinks.ts` |
 | The badge | `src/components/TruppNo.tsx` (`.trupp-no` in `02-base.css`), used only in `TruppFinder` (not the phone row, the lite tab strip, the resting map marker / plan chip, or the selected `TwinTeamPill` – all dropped 14.09. – nor the Atemschutz card, dropped 30.09.2026) |
 | The join sheet of a loose chip | `src/components/TwinTeamPill.tsx` · `TruppJoinMenu` – the ONE list of Trupps a selected marker/chip can be joined to, on both surfaces; its last row «Neuer Trupp» opens the Anmeldung (`AtemschutzView · createRequest`) and the saved Trupp adopts the marker (`IncidentWorkspace · newTruppFromMarker / adoptMarkerA`) |
-| Crew per cycle and the change lines | `src/lib/report.ts` · `truppCrewHistory`; payload in `reportPdfDirect.ts` (`no`, `leader`, `cycles`); rendered by `backend/app/report_pdf.py` (`TruppIn.cycles`, heading `Trupp N – Leader`) |
+| Crew per cycle and the change lines | `src/lib/report.ts` · `truppCrewHistory`; payload in `reportPdfDirect.ts` (`no`, `leader`, `cycles`); rendered by `backend/app/report` (`TruppIn.cycles`, heading `Trupp N – Leader`) |
 
 ## Implementation order
 

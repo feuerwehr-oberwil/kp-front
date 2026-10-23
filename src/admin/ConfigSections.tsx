@@ -1963,7 +1963,7 @@ export function AlarmsSection() {
 /**
  * The station's Alarmgruppen — the OTHER half of the «Alarmierungs-/Ausrückzeiten» grid, whose
  * vehicle half is edited on «Fahrzeuge & Symbole» (FleetVehiclesEditor). Without a group here the
- * grid has no group rows at all, on the Rapport (lib/report · gruppenRows → backend/report_pdf)
+ * grid has no group rows at all, on the Rapport (lib/report · gruppenRows → backend/app/report)
  * and on the paper Erfassungsblatt (admin/capturePdf) alike — and there was no way to fix that
  * anywhere but the `admin_config` CLI. `id` is what a milestone webhook reports an Alarmzeit
  * against (backend/app/api/alarms.py · group_labels).

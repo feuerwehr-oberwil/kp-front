@@ -1349,7 +1349,7 @@ export default function CaptureApp() {
             onToggle={() => toggleSection('beilagen')} />
           {/* the photos that belong to the RAPPORT — an Ausweis, a Schaden. The poster is where
               the paperwork gets done, so this is where they are added; they print at the end of
-              the Rapport, large enough to read (backend/report_pdf). Only photos, only this
+              the Rapport, large enough to read (backend/app/report). Only photos, only this
               Einsatz — see the capture router's key set. */}
           {openSection === 'beilagen' && (
             <div className="cv-acc-body">

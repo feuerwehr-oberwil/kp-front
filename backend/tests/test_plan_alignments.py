@@ -12,7 +12,7 @@ from app import storage
 from app.api.report import resolve_report_assets
 from app.models import DeploymentConfig, ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision
 from app.plans import store_plan
-from app.report_pdf import ReportPayload
+from app.report import ReportPayload
 
 
 def _pdf(label: str, pages: int = 1) -> bytes:

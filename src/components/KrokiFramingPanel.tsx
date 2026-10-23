@@ -47,7 +47,7 @@ import { cartoRasterTiles, withCartoLabelsBaked } from '../lib/carto'
 
 // The auto-fit's zoom ceiling is lib/report · krokiFitMaxZoom (20, or 21 for a compact Lage).
 // ⚠️ A MapLibre CAMERA zoom — one level tighter than the server's 256-px projection; its mirror is
-// backend/app/report_pdf.py · _kroki_fit_max_z, not fit_view's own default.
+// backend/app/report · _kroki_fit_max_z, not fit_view's own default.
 /** Breathing room around the fitted Lage, in preview px. 48 was ~2 cm of white on every side of
  *  an A4 sheet — enough street to orient by is a good thing, that much of it is not. */
 const FIT_PAD = 28
@@ -60,7 +60,7 @@ const DEFAULT_ATTRIBUTION = '© CARTO, © OpenStreetMap-Mitwirkende'
 // ⚠️ ONE reference, for BOTH page shapes. There used to be a second, narrower one for Hoch, on
 // the reasoning that the server sizes a symbol in absolute pixels on a canvas whose width
 // changes with the orientation. It does not: `render_kroki` is called without `ref_width` for
-// either shape (report_pdf.py), so it uses its own 1050 both times and every rule is scaled by
+// either shape (app/report), so it uses its own 1050 both times and every rule is scaled by
 // `u = width / 1050`. What the sheet fixes is therefore size ÷ canvas width — the same fraction
 // upright as across — and dividing by 656 here inflated every scaled thing in Hoch by 1.6×.
 // That is what made the portrait crop's tags and captions look wrong while the paper was right.
@@ -655,7 +655,7 @@ export function KrokiFramingPanel({ scene, initial, atMs = null, atBusy = false,
             style={{ right: 0, bottom: 0, height: 18 * u, paddingInline: 6 * u, fontSize: 11 * u }}>{attribution}</span>
         </div>
         {/* «Legende» — the words the picture no longer carries. Two columns, filled down the first
-            and then the second, which is the order report_pdf.py lays them out in; below the
+            and then the second, which is the order app/report lays them out in; below the
             two-column breakpoint one column, where the sheet's own halving would only shorten
             lines that are already short. */}
         {/* nothing labelled in the whole Lage → no legend at all, exactly as the sheet prints

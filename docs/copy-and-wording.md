@@ -67,7 +67,7 @@ a Checkliste, a Verlauf-Eintrag, a Mittel line).
   is «Neuer Eintrag», its toast «Eintrag erfasst», the checklist action chip «Verlauf», the
   Führungsansicht «Verlauf & Symbol-Details», the source row «Von Hand erfasst». «Journal» appears
   on screen nowhere. **«Einsatzjournal» stays ONLY as the printed Rapport section's name**
-  (`report_pdf · "journal"`, `copy.report.journal`, and the «Abschnitte» toggle that names that
+  (`app/report · "journal"`, `copy.report.journal`, and the «Abschnitte» toggle that names that
   section) – the paper term. The printed Atemschutz section is «Atemschutzüberwachung», never
   «Atemschutz-Journal». en/fr/it keep their own place word (Log / Journal / Diario) and the same
   entry word (Entry / Entrée / Voce). Code identifiers (`journal.*`, `Journal.tsx`, `jr-*`,

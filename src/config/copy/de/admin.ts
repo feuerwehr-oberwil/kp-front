@@ -416,7 +416,7 @@ export const adminCopy = {
       sheetEnde: 'Einsatzende',
       sheetKontakt: 'Kontaktperson',
       sheetKontaktTelefon: 'Telefon',
-      // ⚠️ The section names are the Einsatzrapport's (backend · report_pdf · L) – the sheet is
+      // ⚠️ The section names are the Einsatzrapport's (backend · app/report · L) – the sheet is
       // its paper twin, and whoever transfers a filled-in sheet into the app reads both side by
       // side. Instructions like «(abhaken, ggf. von–bis)» only existed here and turned the same
       // rubric into two differently named ones.

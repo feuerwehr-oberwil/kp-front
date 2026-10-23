@@ -162,7 +162,7 @@ function PresenceSheet({ person, blocks, note, canEdit, startedAt, onSetTimes, o
           <input
             className="ip-input" defaultValue={note ?? ''} placeholder={A.notePlaceholder}
             // a remark is one line beside the name on the Personalblatt; an essay pasted in
-            // here used to make the whole Rapport fail to compose (report_pdf · _clip_note)
+            // here used to make the whole Rapport fail to compose (app/report · _clip_note)
             maxLength={240}
             onBlur={(e) => onSetNote(person.id, stripUnprintable(e.target.value))}
             onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}

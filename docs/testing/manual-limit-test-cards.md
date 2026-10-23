@@ -325,7 +325,7 @@ Steps:
   1. Open Rapportangaben.
   2. Fill required fields.
   3. Run report preflight.
-  4. Create the PDF via «Einsatzrapport (PDF)» (composed server-side, backend/app/report_pdf.py)
+  4. Create the PDF via «Einsatzrapport (PDF)» (composed server-side, backend/app/report)
      and print or save it.
   5. Review output as if it were handed in after the incident.
 Expected result:
@@ -442,7 +442,7 @@ Steps:
 Expected result:
   - Print output is readable.
   - Key sections are not clipped.
-  - The server-composed PDF (backend/app/report_pdf.py) is legible in greyscale.
+  - The server-composed PDF (backend/app/report) is legible in greyscale.
 Observed limit:
 Severity:
 Trust:
