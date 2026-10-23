@@ -341,10 +341,11 @@ export function ContextPanel({ entity, svg, onClose, onCenter, onOriginal, origi
     if (ROSTER_FIELDS.has(k)) return C.fieldNamePlaceholder
     return k ? fillTemplate(C.fieldValuePlaceholder, { label: rowLabel(k) }) : '…'
   }
-const SPREAD_GLYPH: Record<SpreadDir, string> = { left: '←', right: '→', up: '↑', down: '↓' }
-// The Entwicklungsgrenze is the bar ACROSS the arrow tip, so it stands perpendicular to its own
-// arrow: upright beside ← →, lying flat beside ↑ ↓. Same stroke the symbol prints.
-const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up: '─', down: '─' }
+// Drawn glyphs (sprite, lib/icons), not 12.5-px text arrows (sweep G.10). The Entwicklungsgrenze
+// is the bar ACROSS the arrow tip, so it stands perpendicular to its own arrow: upright beside
+// ← →, lying flat at the tip's height beside ↑ ↓. Same stroke the symbol prints.
+const SPREAD_GLYPH = { left: 'spread-left', right: 'spread-right', up: 'spread-up', down: 'spread-down' } satisfies Record<SpreadDir, string>
+const GRENZE_GLYPH = { left: 'grenze-v', right: 'grenze-v', up: 'grenze-up', down: 'grenze-down' } satisfies Record<SpreadDir, string>
 
   // a stepper is offered only where its callback is wired (the surface supports it)
   // AND the symbol's preset lists it; no preset passed ⇒ show all wired steppers.
@@ -940,18 +941,26 @@ const GRENZE_GLYPH: Record<SpreadDir, string> = { left: '│', right: '│', up:
                 <div className="spread-row" key={label}>
                   <span className="spread-lbl">{label}</span>
                   <div className="spread-btns">
-                    {dirs.map((d) => (
-                      <span className="spread-unit" key={d}>
+                    {dirs.map((d) => {
+                      const dir = (
                         <button className={`spread-btn dir ${sp[d] ? 'on' : ''}`} title={C.spreadDirTitles[d]}
-                          disabled={readOnly} onClick={() => toggleDir(d)}>{SPREAD_GLYPH[d]}</button>
-                        {/* the bar itself, not the word: on paper the Grenze IS the stroke across
-                            the arrow tip (→|), so the button shows what it draws — and it is
-                            perpendicular to its own arrow, like the printed symbol */}
+                          aria-label={C.spreadDirTitles[d]} disabled={readOnly} onClick={() => toggleDir(d)}>
+                          <Icon id={SPREAD_GLYPH[d]} />
+                        </button>
+                      )
+                      // the bar itself, not the word: on paper the Grenze IS the stroke across
+                      // the arrow tip (→|), so the button shows what it draws — and it is
+                      // perpendicular to its own arrow, like the printed symbol
+                      const grenze = (
                         <button className={`spread-btn grenze ${sp[boundedKey(d)] ? 'on' : ''}`}
                           title={C.spreadBoundedTitle} aria-label={`${C.spreadBounded} ${C.spreadDirTitles[d]}`}
-                          disabled={readOnly} onClick={() => toggleBounded(d)}>{GRENZE_GLYPH[d]}</button>
-                      </span>
-                    ))}
+                          disabled={readOnly} onClick={() => toggleBounded(d)}>
+                          <Icon id={GRENZE_GLYPH[d]} />
+                        </button>
+                      )
+                      // one capsule per direction, the bar on the arrow's tip side: «|←» and «→|»
+                      return <span className="spread-unit" key={d}>{d === 'left' ? <>{grenze}{dir}</> : <>{dir}{grenze}</>}</span>
+                    })}
                   </div>
                 </div>
               ))}
