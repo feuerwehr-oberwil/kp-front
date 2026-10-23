@@ -707,6 +707,10 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       funkkanalMinTip: 'Lower bound of the radio-channel stepper.',
       funkkanalMax: 'Radio channel max',
       funkkanalMaxTip: 'Upper bound of the radio-channel stepper.',
+      funkkanalOutOfRange: 'Value not saved yet – a channel between {min} and {max} is expected (radio channel min and max).',
+      groupObject: 'Object plans',
+      nearbyObjectWarnM: 'Warn «not the incident address» from (m)',
+      nearbyObjectWarnMTip: 'The Plan shows the nearest object with plans on its own. If it does not match the incident address and lies farther away than this many metres, the Plan warns «not the incident address». 0 = warn at any distance.',
 
       groupFunk: 'Radio',
       groupPressure: 'SCBA — pressure',

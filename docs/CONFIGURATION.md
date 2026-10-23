@@ -323,7 +323,8 @@ both now have browser pages – §9e and §9f.
     "defaultFunkkanal": 11,                       // null = no preset (national default)
     "defaultFunkkanalEinfach": null,              // default channel for Trupps OHNE Atemschutz;
                                                   // null = same as defaultFunkkanal
-    "funkkanalMin": 1, "funkkanalMax": 9999,
+    "funkkanalMin": 1, "funkkanalMax": 9999,     // the two defaults above stay inside this
+                                                  // range (/admin › Doktrin holds others back)
     "alarmBar": 100,                              // Alarmdruck (bar) for a Trupp AT WORK. One line
                                                   // on the way in – the older 60-bar
                                                   // «Mindestdruck» tier was dropped 2026-07-27.

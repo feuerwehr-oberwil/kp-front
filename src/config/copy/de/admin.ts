@@ -921,6 +921,10 @@ export const adminCopy = {
       funkkanalMinTip: 'Untere Grenze des Funkkanal-Reglers.',
       funkkanalMax: 'Funkkanal max',
       funkkanalMaxTip: 'Obere Grenze des Funkkanal-Reglers.',
+      funkkanalOutOfRange: 'Wert noch nicht gespeichert – erwartet wird ein Kanal zwischen {min} und {max} (Funkkanal min und max).',
+      groupObject: 'Objektpläne',
+      nearbyObjectWarnM: 'Warnung «nicht die Einsatzadresse» ab (m)',
+      nearbyObjectWarnMTip: 'Der Plan zeigt von selbst das nächste Objekt mit Plänen. Passt es nicht zur Einsatzadresse und liegt es weiter als so viele Meter entfernt, warnt der Plan «nicht die Einsatzadresse». 0 = bei jedem Abstand warnen.',
     },
     setup: {
       ackDo: 'Abhaken',
