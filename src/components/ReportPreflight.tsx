@@ -2100,7 +2100,7 @@ export function ReportPreflight({
                     <DateTimeField ariaLabel={P.incidentEndLabel} value={dtLocalToIso(endedAt)}
                       days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
                       onCommit={(iso) => { setEndedAt(dtLocalValue(iso ?? undefined)); persist({ endedAt: iso ?? undefined }) }} />
-                    <button type="button" className="ip-btn" onClick={() => { const v = dtLocalValue(new Date().toISOString()); setEndedAt(v); persist({ endedAt: dtLocalToIso(v) }) }}>{P.now}</button>
+                    <button type="button" className="ip-btn" onClick={() => { const v = dtLocalValue(serverNowIso()); setEndedAt(v); persist({ endedAt: dtLocalToIso(v) }) }}>{P.now}</button>
                   </div>
                 ) : <ReadOut value={whenOf(dtLocalToIso(endedAt))} />}
                 {zeitWarn('ende')}
@@ -2188,7 +2188,7 @@ export function ReportPreflight({
                         days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
                         onCommit={(iso) => { setRueckAt(iso ?? ''); persist(rueckOver(rueckName, iso ?? '')) }} />
                       <button type="button" className="ip-btn"
-                        onClick={() => { const iso = new Date().toISOString(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>
+                        onClick={() => { const iso = serverNowIso(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>
                     </div>
                     {/* the same plausibility hint the Einsatzende carries — this field has a DATE
                         wheel and is usually filled in from memory, so it is the likeliest of the

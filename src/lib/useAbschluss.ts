@@ -5,7 +5,8 @@ import { closeTimeOf, isIncidentRunning, type IncidentMeta } from './api/inciden
 import type { ReportMeta } from './workspace'
 import type { MediaQueueApi } from './useMediaQueue'
 import { abschlussFacts, missingSteps, type AbschlussStep } from './abschluss'
-import { abschlussOpenItems, abschlussOpenPoints, countsAsOpen, insideAbschlussMessage, registeredAbschlussMessage } from './abschlussOpen'
+import { abschlussEndeItem, abschlussOpenItems, abschlussOpenPoints, countsAsOpen, insideAbschlussMessage, registeredAbschlussMessage } from './abschlussOpen'
+import { serverNowIso } from './serverClock'
 import { truppInNotfall, truppLogName, truppStillDeployed, truppStillRegistered } from './atemschutz'
 import { fillTemplate } from './format'
 import { mittelLineCount } from './mittel'
@@ -51,6 +52,10 @@ interface Args {
   /** on at the operator's confirm, off once the close has answered: rows written in between are
    *  the Abschluss's own (`TimelineEvent.atClose`, staging r6 F3) */
   markClosing?: (on: boolean) => void
+  /** Write Rapport fields from the sheet (IncidentWorkspace · saveReportMeta over the live blob):
+   *  the rows' buttons («Nichts verwendet», «Entfällt») and the pre-filled Einsatzende. Absent
+   *  (a caller that may not edit the Rapport) ⇒ rows are links only and nothing is pre-filled. */
+  patchReportMeta?: (over: Partial<ReportMeta>) => void
 }
 
 /**
@@ -66,6 +71,7 @@ interface Args {
 export function useAbschluss({
   reportMeta, attendance, mittel, openConflictCount, trupps, incidentMeta, replayActive, media, onCompleteRapport,
   setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing,
+  patchReportMeta,
 }: Args) {
   const abschlussMissing = useMemo(
     () => missingSteps(abschlussFacts(reportMeta, Object.keys(attendance).length, mittelLineCount(mittel), openConflictCount)),
@@ -186,34 +192,63 @@ export function useAbschluss({
        ⚠️ Pending media belongs here too. The Abschluss closes the incident, and a Foto or a
        Sprachnotiz that never got a connection is still sitting on THIS device — the operator is
        about to walk away, so that is part of what they are confirming. */
-    const points = abschlussOpenPoints(abschlussMissing, truppsStillOut, media.pendingCount)
-    // …and it counts as an open point for the WORDING, the way a missing Angabe does: the message
-    // and the button both have to say that something is being closed over.
-    const anyOpen = points.some(countsAsOpen)
-    const ok = await confirmDialog({
-      title: A.confirmTitle,
-      message: anyOpen ? P.exportIncompleteLead : A.confirmMsg,
-      // ⚠️ Every row is a LINK, exactly as the print warning's rows are (lib/abschlussOpen).
-      // Naming a gap on the last screen before the Akte closes and leaving the operator to hunt
-      // for it is the same failure the «noch offen» chips fixed on the sheet itself. Tapping one
-      // resolves the ask false — going there is not going ahead.
-      items: abschlussOpenItems(points, {
-        step: (st) => { setMode('rapport'); setPanel(null); requestReportStep(st) },
-        trupps: () => { setMode('atemschutz'); setPanel(null) },
-        media: () => setOfflineReadyOpen(true),
-      }),
-      note: anyOpen ? A.confirmMsg : undefined,
-      // the button names what is actually about to happen — closing an Einsatz with open points
-      // is allowed, and the label is where that is said out loud
-      confirmLabel: anyOpen ? A.confirmAnyway : A.confirmBtn,
-      /* ⚠️ …and with open points the SAFE answer is the focused, filled one (staging r2, N6,
-         25.09.2026): after the crews question, an Enter on this list closed the Einsatz with
-         people still missing. «Zurück» is the default, «Trotzdem abschliessen» the quiet
-         choice. With nothing open, «Abschliessen» stays the primary — that is what the operator
-         came here to do. (The Suche's own first question sits above this one, in its PR.) */
-      ...(anyOpen ? { cancelLabel: A.confirmBack, safeAnswer: 'cancel' as const } : {}),
+    const go = {
+      step: (st: AbschlussStep) => { setMode('rapport'); setPanel(null); requestReportStep(st) },
+      trupps: () => { setMode('atemschutz'); setPanel(null) },
+      media: () => setOfflineReadyOpen(true),
+    }
+    /* The rows' own answers (3am sweep, 23.10.2026, owner's point 4): a step settled IN the sheet
+       («Nichts verwendet», «Entfällt») is written to the Rapport at once and its row stays as a
+       done one; the ask re-reads itself (ConfirmSpec · refresh) so the lead sentence and the
+       button follow. The step list itself (`abschlussMissing`) is the render's — `settled` is
+       what this sheet answered on top of it. */
+    const settled = new Map<AbschlussStep, string>()
+    const fix = patchReportMeta && ((step: AbschlussStep, over: Partial<ReportMeta>, answer: string) => {
+      patchReportMeta(over)
+      settled.set(step, answer)
     })
+    /* ⚠️ The Einsatzende is PRE-FILLED with «jetzt» (owner's pick): «Zeiten» stood open on
+       almost every close because nothing ever set it, and the answer is nearly always «now».
+       Shown as already set, with «Ändern»; written with the close (below), on the server clock.
+       Only for a caller that may write the Rapport. */
+    const pendingEnde = fix && !reportMeta.endedAt ? serverNowIso() : null
+    const spec = () => {
+      const missing = abschlussMissing.filter((st) => !(pendingEnde && st === 'zeiten'))
+      const points = abschlussOpenPoints(missing, truppsStillOut, media.pendingCount)
+      // …and it counts as an open point for the WORDING, the way a missing Angabe does: the
+      // message and the button both have to say that something is being closed over.
+      const anyOpen = points.some((pt) => countsAsOpen(pt) && !(pt.kind === 'step' && settled.has(pt.step)))
+      return {
+        message: anyOpen ? P.exportIncompleteLead : A.confirmMsg,
+        // ⚠️ Every row is a LINK, exactly as the print warning's rows are (lib/abschlussOpen).
+        // Naming a gap on the last screen before the Akte closes and leaving the operator to hunt
+        // for it is the same failure the «noch offen» chips fixed on the sheet itself. Tapping one
+        // resolves the ask false — going there is not going ahead.
+        items: [
+          ...(pendingEnde ? [abschlussEndeItem(pendingEnde, () => { patchReportMeta!({ endedAt: pendingEnde }); go.step('zeiten') })] : []),
+          ...abschlussOpenItems(points, go, fix ? { fix, now: serverNowIso, settled } : undefined),
+        ],
+        note: anyOpen ? A.confirmMsg : undefined,
+        // the button names what is actually about to happen — closing an Einsatz with open points
+        // is allowed, and the label is where that is said out loud
+        confirmLabel: anyOpen ? A.confirmAnyway : A.confirmBtn,
+        /* ⚠️ …and with open points the SAFE answer is the focused, filled one (staging r2, N6,
+           25.09.2026): after the crews question, an Enter on this list closed the Einsatz with
+           people still missing. «Zurück» is the default, «Trotzdem abschliessen» the quiet
+           choice. With nothing open, «Abschliessen» stays the primary — that is what the operator
+           came here to do. (The Suche's own first question sits above this one, in its PR.) */
+        cancelLabel: anyOpen ? A.confirmBack : appConfig.copy.confirm.cancel,
+        safeAnswer: anyOpen ? ('cancel' as const) : undefined,
+      }
+    }
+    const ok = await confirmDialog({ title: A.confirmTitle, ...spec(), refresh: spec })
     if (!ok) return false
+    // the pre-filled Einsatzende becomes the record's with the close — one task for React to
+    // commit it, so the handover's flush carries it (App · completeRapport flushes the sync)
+    if (pendingEnde) {
+      patchReportMeta!({ endedAt: pendingEnde })
+      await new Promise((r) => setTimeout(r, 0))
+    }
     // From the confirm to the close's answer, every row this device writes is the Abschluss's
     // own (staging r6, F3): marked so, it prints as part of the close, not as a Nachtrag. (The
     // two drains below cannot throw; the close's own answer lifts the mark either way.)
@@ -249,7 +284,7 @@ export function useAbschluss({
     // (offline, server error) instead of being forgotten for an Einsatz that is still open.
     return onCompleteRapport().finally(() => markClosing?.(false))
   // requestReportStep is a module-level loader of the caller's — stable, so naming it changes nothing
-  }, [abschlussMissing, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing])
+  }, [abschlussMissing, reportMeta.endedAt, truppsStillOut, media, onCompleteRapport, setMode, setPanel, setOfflineReadyOpen, requestReportStep, standDownTrupps, noteInsideAtClose, noteNotfallAtClose, flushOutboxes, markClosing, patchReportMeta])
 
   return { abschlussMissing, truppsStillOut, azFrozenAt, azMonitoring, confirmAndComplete }
 }

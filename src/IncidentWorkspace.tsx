@@ -1565,6 +1565,15 @@ export function IncidentWorkspace({
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- log is stable per mount
   }, [])
+  /** A field write from OUTSIDE the Rapport sheet — the Abschluss confirm's row buttons and its
+   *  pre-filled Einsatzende (useAbschluss · patchReportMeta). Over the blob as it stands NOW
+   *  (a ref: the confirm stands open for a while and a sync may move the blob under it), through
+   *  the one funnel every Rapport write takes (saveReportMeta: normalize, log, undo step).
+   *  The ref follows the blob after each commit — the sheet's taps are separate events, so each
+   *  one reads the write before it. */
+  const reportMetaRef = useRef(reportMeta)
+  useEffect(() => { reportMetaRef.current = reportMeta }, [reportMeta])
+  const patchReportMeta = useCallback((over: Partial<ReportMeta>) => saveReportMeta({ ...reportMetaRef.current, ...over }), [saveReportMeta])
 
   // the media queue, the one sync status the badge shows, «Jetzt synchronisieren» and the pre-close
   // drain (workspace/useMediaOutbox)
@@ -1615,6 +1624,8 @@ export function IncidentWorkspace({
     // «beim Abschluss noch drin» rows (#227), so those go up with them.
     flushOutboxes: flushRecordOutboxes,
     markClosing,
+    // the rows' buttons and the pre-filled Einsatzende write the Rapport — only where it may be edited
+    patchReportMeta: canEditRapport ? patchReportMeta : undefined,
   })
   // --- the Atemschutz clocks across «Wieder öffnen» (staging r3, F4; lib/reopenClocks) ----------
   // The newest close/reopen boundary in the Verlauf, the server's own rows. Right after a reopen

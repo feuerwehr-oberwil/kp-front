@@ -40,7 +40,7 @@ import {
 } from './lib/incidents'
 import { isIncidentRunning } from './lib/api/incidents'
 import { closedMetaFor, closedNoticeAt, onIncidentClosed, onIncidentReopened, reopenedMetaFor, reportIncidentClosed, reportIncidentReopened, type IncidentClosedSignal, type IncidentReopenedSignal } from './lib/incidentClosed'
-import { serverNow } from './lib/serverClock'
+import { serverNow, serverNowIso } from './lib/serverClock'
 import { unlockAlarm } from './lib/alarm'
 import { CRASH_HEALTHY_MS, clearCrash } from './lib/crashLoop'
 import { ApiError, isUnverifiable } from './lib/api'
@@ -737,6 +737,39 @@ export default function App() {
     if (entry && isIncidentRunning(entry)) reportIncidentReopened({ incidentId: activeMeta.id, source: 'list' })
   }, [incidents, activeMeta])
 
+  /** THE reopen, after its question was answered — by the confirm of `reactivateById` below, or
+   *  by the close toast's «Wieder öffnen» (completeRapport), which IS the question. */
+  const reopenNow = useCallback(async (id: string): Promise<ReactivateResult> => {
+    // this device's own reopen: its poll hears «open» before the remount below, and that is not
+    // «auf einem anderen Gerät wieder geöffnet»
+    reopeningLocallyRef.current = id
+    try {
+      // ⚠️ Reported, not swallowed: a failed reopen used to be followed by the incident being
+      // opened read-only anyway, which reads as «the app decided I may not edit this» rather than
+      // as «the server refused». Same rule as abschliessen — the outcome, not the intent.
+      try {
+        await reactivateIncident(id)
+      } catch (e) {
+        // Offline (or the server down) is not a refusal: say what it needs. There is no queue for
+        // a reopen on purpose — the server writes the reopen boundary the Atemschutz clocks restart
+        // from, and until it arrives the alarm holds (lib/reopenClocks · reopenPending), so an
+        // Einsatz reopened offline would run its Tafel without an Überfällig alarm.
+        toast(isUnverifiable(e) ? appConfig.copy.archived.reactivateNeedsServer
+          : e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
+        return 'failed'
+      }
+      await refreshList()
+      try {
+        await selectIncident(id, { readOnly: false })
+        return 'ok'
+      } catch {
+        return 'failed'
+      }
+    } finally {
+      if (reopeningLocallyRef.current === id) reopeningLocallyRef.current = null
+    }
+  }, [refreshList, selectIncident])
+
   // THE close, and the only one. Both doors on the ACTIVE Einsatz (the Rapport's button/band and
   // the Einsatz-Menü row) run their counting confirm in IncidentWorkspace and land here; «Alle
   // Einsätze» runs the plain confirm below and lands here too. Flush the last workspace edits,
@@ -750,7 +783,8 @@ export default function App() {
     closingLocallyRef.current = id
     try {
       if (id === activeId && syncRef.current) await syncRef.current.flush().catch(() => {})
-      await patchIncident(id, { report_done_at: new Date().toISOString() })
+      // the deployment's clock, like every other stamp on the record (lib/serverClock)
+      await patchIncident(id, { report_done_at: serverNowIso() })
       // ⚠️ NOT `.catch(() => {})`. A swallowed failure here sat one line above a green «Rapport
       // abgeschlossen» toast — and then the Einsatz reopened by itself on the next list refresh,
       // because it had never been closed at all. The catch below reports it and the Einsatz stays
@@ -761,7 +795,15 @@ export default function App() {
       // ⚠️ …and what is still queued stands as a Meldung while true, not in this toast (S3,
       // 20.10.2026): five seconds while the screen moves to the launcher is not «said out loud»
       const stillQueued = await clearUploadedMedia(id)
-      toast(appConfig.copy.abschluss.done, { icon: 'check', tone: 'success' })
+      /* «Wieder öffnen» on the toast, 10 s (3am sweep, 23.10.2026, owner's point 4): the way back
+         used to be Alle Einsätze → open read-only → «Wieder öffnen» → confirm. The toast is the
+         confirm-with-undo of the close (docs/undo.md) — the same reopen «Alle Einsätze» runs,
+         minus its question, and it refuses like the other undo toasts when the server has moved
+         on (reopenNow: a failed PATCH is said, nothing is reopened). */
+      toast(appConfig.copy.abschluss.done, {
+        icon: 'check', tone: 'success', duration: 10_000,
+        action: { label: appConfig.copy.abschluss.reopen, onClick: () => { void reopenNow(id) } },
+      })
       if (stillQueued) {
         const title = (incidents ?? []).find((i) => i.id === id)?.title ?? activeMeta?.title ?? ''
         setClosedMedia((cur) => [...cur.filter((p) => p.id !== id), { id, title, n: stillQueued }])
@@ -791,7 +833,7 @@ export default function App() {
     } finally {
       if (closingLocallyRef.current === id) closingLocallyRef.current = null
     }
-  }, [activeId, refreshList, incidents, activeMeta])
+  }, [activeId, refreshList, incidents, activeMeta, reopenNow])
 
   // Close ANY incident from the «Alle Einsätze» list (per-incident, not just the active one).
   // ⚠️ It ends the same way the Rapport does — through `completeRapport` — so an Einsatz put away
@@ -851,35 +893,8 @@ export default function App() {
       cancelLabel: appConfig.copy.cancel,
     })
     if (!ok) return 'cancelled'
-    // this device's own reopen: its poll hears «open» before the remount below, and that is not
-    // «auf einem anderen Gerät wieder geöffnet»
-    reopeningLocallyRef.current = id
-    try {
-      // ⚠️ Reported, not swallowed: a failed reopen used to be followed by the incident being
-      // opened read-only anyway, which reads as «the app decided I may not edit this» rather than
-      // as «the server refused». Same rule as abschliessen — the outcome, not the intent.
-      try {
-        await reactivateIncident(id)
-      } catch (e) {
-        // Offline (or the server down) is not a refusal: say what it needs. There is no queue for
-        // a reopen on purpose — the server writes the reopen boundary the Atemschutz clocks restart
-        // from, and until it arrives the alarm holds (lib/reopenClocks · reopenPending), so an
-        // Einsatz reopened offline would run its Tafel without an Überfällig alarm.
-        toast(isUnverifiable(e) ? appConfig.copy.archived.reactivateNeedsServer
-          : e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
-        return 'failed'
-      }
-      await refreshList()
-      try {
-        await selectIncident(id, { readOnly: false })
-        return 'ok'
-      } catch {
-        return 'failed'
-      }
-    } finally {
-      if (reopeningLocallyRef.current === id) reopeningLocallyRef.current = null
-    }
-  }, [refreshList, selectIncident])
+    return reopenNow(id)
+  }, [reopenNow])
 
   // Which screen (lib/karte/home · appScreen — tested there): the Objektbesuche surface, «Karte &
   // Objekte», the boot's splash, an Einsatz, or — for a link session only — the launch card.
