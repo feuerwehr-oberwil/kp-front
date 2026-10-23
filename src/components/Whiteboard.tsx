@@ -1,3 +1,11 @@
+// The Plan – one plan sheet, a Gebäude floor stack or the Tafel (Skizze + template pages) as the
+// background, and the Lage's tools on top of it: ink, symbols, Trupps, shapes, notes, measuring
+// and georeferencing. Every annotation is stored normalized 0..1 in plan-image space, so it
+// sticks across zoom, pan and re-tiling.
+// Lage ↔ Plan parity is a review criterion: a tool or gesture changed here is changed in MapView
+// too (docs/tactical-objects.md). Gebäude and alignments: docs/plans-and-buildings.md; the Tafel
+// pages: docs/board-templates.md.
+
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BuildingFloat } from './BuildingFloat'
 import type { BuildingInfo } from '../lib/api/building'
@@ -62,9 +70,6 @@ import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
 import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
-
-/** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
-const FOLDED_H = 28
 import { advanceDwell, armDwell, arrowEdgePadPx, arrowTipLeadPx, attachInsetPx, boundaryPoint, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
@@ -115,6 +120,8 @@ import { BUNDLED_TEMPLATES, warmBoardTemplates } from '../lib/boardTemplates'
 import type { MiniKarteProps } from './MiniKarte'
 
 const COLORS = appConfig.drawing.colors
+/** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
+const FOLDED_H = 28
 
 /** Size a note's textarea to its content, so the editable box is exactly as tall as the note it
  *  replaces (no scrollbar, no jump between "editing" and "done"). Height must be reset first —

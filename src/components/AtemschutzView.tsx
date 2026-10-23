@@ -1,3 +1,11 @@
+// The Atemschutz board – the Trupps page of an Einsatz: the phone board (Drin · Sicherungstrupp ·
+// Bereit · Draussen), the tablet grid, the handed-over link Tafel (`lite`) and the Trupp form.
+// ONE card on every board (`TruppCard`: `RowLine` + `TruppPair`, the phone row grown downwards) –
+// a board differs only in what it has room for, never in a card of its own. Every warning tier
+// comes from `truppAlarm` (lib/atemschutz), the same number the tone uses; the alarm itself runs
+// app-wide in `useAtemschutzAlarm`, so it fires while this page is not on screen.
+// Rules for this area: docs/atemschutz-board.md.
+
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FocusEvent as ReactFocusEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'

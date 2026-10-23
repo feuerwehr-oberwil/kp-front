@@ -1,3 +1,10 @@
+// The «Schichten» tab of the Anwesenheit – the Zeitplan transposed: one column per named watch
+// (`ShiftBand`), one row per person, one tap per cell to plan who stands which watch.
+// Availability is DERIVED from the person's drawn shifts, assignment is STORED (a decision, not a
+// clock that lined up). Like every shift, it plans and never writes the attendance record. The
+// maths lives in lib/shifts – this file only renders and asks; see `BandGrid` below for the why.
+// Words: docs/glossary.md › Zeitplan / Schichtenplanung.
+
 import { useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { appConfig } from '../config/appConfig'

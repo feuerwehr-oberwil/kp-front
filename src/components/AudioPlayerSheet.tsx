@@ -1,3 +1,10 @@
+// The Durchhören sheet – a recorded Verlauf row played back as a window on the incident timeline:
+// its markers (derived, lib/audioPlayer), the server waveform and the STT transcript drafts.
+// Everything the server adds is an aid, never a gate: no peaks → a flat bar; no STT engine, no
+// editor or a link session → no Transkribieren (fail-closed). What it writes stays append-only –
+// journal rows, or transcript sections on a voice memo (see `AudioPlayerSheet` below).
+// What reaches the Verlauf: docs/verlauf-coverage.md.
+
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { caretToEnd } from '../lib/ui'
 import type { TimelineEvent } from '../types'

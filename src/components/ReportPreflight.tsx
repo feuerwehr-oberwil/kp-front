@@ -1,3 +1,10 @@
+// The Rapport – the Einsatzrapport as a full surface, not a dialog: the Einsatzdaten and Zeiten,
+// the Kontrolle of what is still open, the print options with the Kroki framing panel, the PDF,
+// the Unterschriften and the «Abschliessen» band. It reads the Einsatz's own record (Verlauf,
+// Anwesenheit, Mittel, Trupps) rather than asking for it twice; what it prints comes from
+// lib/report. The close runs only through `onComplete` (the one shared Abschluss confirm).
+// Rules for this area: docs/rapport.md.
+
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { Button, IconButton } from './Button'
