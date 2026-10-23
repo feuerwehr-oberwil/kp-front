@@ -62,7 +62,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     hide: 'Hide',
     fromDivera: 'Taken from the alarm source',
     reviewTitle: 'Check the incident data',
-    locationSet: 'Location set',
     noLocationOnMap: 'No location – set on map',
     ok: 'Looks good',
     // DISPLAY labels for the category select — keyed by the German category value (the submitted

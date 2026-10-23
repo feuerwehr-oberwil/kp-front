@@ -70,7 +70,6 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     planSharpening: 'Chargement d’une vue plus nette …',
     planSharpOffline: 'Vue plus nette seulement avec réseau',
     planSharpFailed: 'La vue plus nette n’a pas pu être chargée',
-    floorsLoading: 'Chargement des niveaux …',
     floorsFailed: 'Les niveaux n’ont pas pu être chargés.',
     floorFailed: 'Ce niveau n’a pas pu être dessiné.',
     onDevice: 'sur cet appareil',

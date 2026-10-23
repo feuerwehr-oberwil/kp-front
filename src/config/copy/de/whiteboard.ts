@@ -317,9 +317,6 @@ export const whiteboardCopy = {
     trails: 'Spuren',
     trailsOn: 'Spuren einblenden',
     trailsOff: 'Spuren ausblenden',
-    // The ghost a removed Truppmarker left behind (lib/truppTrails): grey, read-only, and
-    // labelled with the Trupp's number, because that is the name that stays true.
-    ghostTrail: 'Spur {name}',
     ghostTrailHint: 'Spur von {name} – der Truppmarker wurde entfernt',
     ghostTrailTitle: 'Spur von {name}',
     ghostTrailAsk: 'Der Truppmarker wurde entfernt, seine Spur ist geblieben. Den Trupp am Ende der Spur wieder platzieren – oder die Spur entfernen?',
@@ -377,7 +374,6 @@ export const whiteboardCopy = {
     floorRemovedLogMarks: 'Geschoss {floor} entfernt – {n} Markierungen entfernt oder gekürzt',
     floorRestoredLog: 'Geschoss {floor} wiederhergestellt',
     floorAddedLog: 'Geschoss {floor} hinzugefügt',
-    floorAdded: 'Geschoss hinzugefügt',
     buildingReplaced: 'Gebäude ersetzt',
     buildingReplacedMarks: 'Gebäude ersetzt – {n} Markierungen entfernt',
     buildingReplacedKept: 'Gebäude gewechselt – Geschosse behalten',

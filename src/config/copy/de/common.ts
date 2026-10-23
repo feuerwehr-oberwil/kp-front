@@ -9,7 +9,6 @@ export const commonCopy = {
   floor: { eg: 'EG', og: '{n}. OG', ug: '{n}. UG' },
   // hose-count hint for the Messpfeil label (lib/geo · hoseLengthHint), e.g. "~5 Schläuche"
   hoseHint: '~{n} Schläuche',
-  noHistoryRows: 'Noch keine Ereignisse erfasst.',
   symbolSearchPlaceholder: 'Suchen …',
   closeDialog: 'Schliessen',
   sheetGrip: 'Detailhöhe anpassen',
@@ -104,11 +103,9 @@ export const commonCopy = {
   play: 'Abspielen',
   // The ✕ that EMPTIES a field (29.09.2026): «leeren», never «löschen» — «löschen» is the delete
   // verb (records are «gelöscht», removalWords.test), and this ✕ deletes nothing. ONE key for the
-  // bare word, one for the search, one template for a named field («Bemerkung leeren»); the
-  // four «Suche löschen» copies (help/anwesenheit/mittel/top) are gone.
+  // bare word and one for the search; the four «Suche löschen» copies (help/anwesenheit/mittel/top) are gone.
   clear: 'Leeren',
   clearSearch: 'Suche leeren',
-  clearField: '{field} leeren',
   // THE «no hits» line (29.09.2026) — says what was searched; a list keeps a noun of its own only
   // where the noun helps («Kein Trupp gefunden»). Drawn as `.no-hits` (13-incident.css).
   noHits: 'Keine Treffer für «{q}».',

@@ -202,10 +202,7 @@ export const journalCopy = {
     // die Knöpfe auf der Karte
     attendanceConflictTake: '{side} übernehmen',
     attendanceConflictKeep: 'Beide stimmen so',
-    attendanceConflictOpenTitle: 'Abweichungen',
     attendanceConflictOpenCount: '{n} offen',
-    attendanceConflictNoneOpen: 'Keine offen',
-    attendanceConflictCheckedAt: 'geprüft {t} · {by}',
     // system row appended when a three-way sync merge saw BOTH sides change the SAME
     // Atemschutz-Trupp concurrently (e.g. Druckmeldung on the tablet, Funkkontakt on the
     // phone). Unlike attendance the merge is field-level and drops nothing — the row exists

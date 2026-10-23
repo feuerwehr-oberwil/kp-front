@@ -4,17 +4,16 @@
 import type { Copy, Localizable } from '../index'
 
 type Keys =
-  | 'baseMap' | 'floor' | 'hoseHint' | 'noHistoryRows' | 'symbolSearchPlaceholder' | 'closeDialog'
+  | 'baseMap' | 'floor' | 'hoseHint' | 'symbolSearchPlaceholder' | 'closeDialog'
   | 'sheetGrip' | 'edit' | 'primarySymbol' | 'done' | 'cancel' | 'exerciseBadge'
   | 'exerciseInitial' | 'keepPlacing' | 'delete' | 'remove' | 'undo' | 'redo' | 'undoNamed'
   | 'redoNamed' | 'undoLost' | 'undoDomains' | 'undoSurfaces' | 'undoTopDropped'
-  | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'clearField' | 'noHits' | 'savedLive'
+  | 'undoDroppedWhat' | 'play' | 'clear' | 'clearSearch' | 'noHits' | 'savedLive'
 
 export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   baseMap: 'Mappa di base',
   floor: { eg: 'PT', og: '{n}° PS', ug: '{n}° PI' },
   hoseHint: '~{n} tubi',
-  noHistoryRows: 'Nessun evento registrato',
   symbolSearchPlaceholder: 'Cerca simbolo tattico …',
   closeDialog: 'Chiudi',
   edit: 'Modifica',
@@ -54,7 +53,6 @@ export const commonCopy: Localizable<Pick<Copy, Keys>> = {
   play: 'Riproduci',
   clear: 'Svuota',
   clearSearch: 'Svuota la ricerca',
-  clearField: 'Svuota: {field}',
   noHits: 'Nessun risultato per «{q}».',
   savedLive: 'Tutto viene salvato man mano.',
   sheetGrip: 'Regola l\'altezza del dettaglio',

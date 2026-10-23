@@ -91,7 +91,6 @@ export const karteCopy = {
     planSharpening: 'Schärfere Ansicht wird geladen …',
     planSharpOffline: 'Schärfere Ansicht nur mit Netz',
     planSharpFailed: 'Schärfere Ansicht konnte nicht geladen werden',
-    floorsLoading: 'Geschosse werden geladen …',
     floorsFailed: 'Die Geschosse liessen sich nicht laden.',
     floorFailed: 'Dieses Geschoss liess sich nicht zeichnen.',
     // offline (docs/karte-objekte.md · Offline): «●» only for what this device really holds

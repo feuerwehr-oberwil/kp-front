@@ -190,10 +190,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'errors'>> = {
     attendanceConflictOpenEnd: 'ouvert',
     attendanceConflictTake: 'Reprendre {side}',
     attendanceConflictKeep: 'Les deux sont correctes',
-    attendanceConflictOpenTitle: 'Divergences',
     attendanceConflictOpenCount: '{n} ouvertes',
-    attendanceConflictNoneOpen: 'Aucune ouverte',
-    attendanceConflictCheckedAt: 'vérifiée {t} · {by}',
     quickPhrasesAria: 'Formules types',
     openRemindersHead: 'En suspens',
     // le commutateur ○ à côté des chips Art — trois états sur une seule commande
