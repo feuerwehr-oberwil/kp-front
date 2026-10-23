@@ -23,6 +23,8 @@ export const karteCopy = {
     menuLabel: 'Menü – {name}',
     einsaetzeBadge: '{n} offen',
     runningOpen: 'Einsatz öffnen: {t}',
+    // the chip's «+N» (owner's pick 6A, sweep F.2): every OTHER open Einsatz and Übung; it opens the menu
+    runningMore: 'Weitere offen: {n} – Menü öffnen',
     // search
     searchPlaceholder: 'Adresse oder Objekt suchen …',
     searchOpen: 'Suchen',

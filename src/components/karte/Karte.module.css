@@ -28,25 +28,45 @@
    widened it – the input's own ~200px default did. It still gives way on a narrow bar (shrink, no
    min-width). */
 .search { flex: 0 1 auto; width: 380px; min-width: 0; }
-.running { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3);
-  border: none; border-radius: var(--r-sm); background: var(--red); color: var(--on-fill, #fff);
-  font: var(--fw-bold) var(--fs-2)/1.15 var(--body); cursor: pointer; max-width: 280px; flex: 0 1 auto; text-align: left; }
+.running { position: relative; display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3);
+  border-radius: var(--r-sm); background: var(--red); color: var(--on-fill, #fff);
+  font: var(--fw-bold) var(--fs-2)/1.15 var(--body); max-width: 280px; flex: 0 1 auto; }
 .running small { display: block; font: var(--fw-medium) var(--fs-micro)/1.2 var(--body); opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the chip is two buttons (KarteApp · runningChip): the name opens the Einsatz and its ::after
+   stretches over the whole chip — the chevron and the padding answer too — and «+N» stands above
+   that, opening the menu. A tap target each: the chip is --tap tall, «+N» --tap wide. */
+.runningOpen { display: flex; align-items: center; gap: var(--sp-2); flex: 1 1 auto; min-width: 0; min-height: var(--tap);
+  padding: 0; border: none; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.runningOpen::after { content: ''; position: absolute; inset: 0; border-radius: var(--r-sm); }
+.runningMore { position: relative; z-index: 1; flex: none; display: grid; place-items: center; min-width: var(--tap); min-height: var(--tap);
+  margin: 0 calc(-1 * var(--sp-1)); padding: 0; border: none; background: none; color: inherit; font: inherit; cursor: pointer; }
+.runningMore span { display: grid; place-items: center; min-width: 34px; height: 26px; padding: 0 var(--sp-2); border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--on-fill, #fff) 18%, transparent); font-variant-numeric: tabular-nums; }
+.runningChev { width: 16px; height: 16px; flex: none; pointer-events: none; }
 /* hover / press (owner, 20.10.2026: a hover on everything that answers a click) – the red's own
-   darker step, then the house press over it */
-@media (hover: hover) { .running:hover { background: var(--red-strong); } }
-.running:active { background-image: linear-gradient(var(--press), var(--press)); }
+   darker step, then the house press over it; on «+N» only its own pill */
+@media (hover: hover) {
+  .running:hover:not(:has(.runningMore:hover)) { background: var(--red-strong); }
+  .runningMore:hover span { background: color-mix(in srgb, var(--on-fill, #fff) 28%, transparent); }
+}
+.running:has(.runningOpen:active) { background-image: linear-gradient(var(--press), var(--press)); }
+.runningMore:active span { background-image: linear-gradient(var(--press), var(--press)); }
 .runningText { min-width: 0; overflow: hidden; }
 .runningText b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; animation: koPulse 1.4s infinite; }
 @keyframes koPulse { 50% { opacity: .3; } }
 @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
-/* the phone: the running Einsatz is a strip of its own under the bar. ⚠️ `min-width: 0`: a flex
+/* the phone's Checkliste (its bar holds the library's field): the running Einsatz is a strip of its
+   own under the bar. ⚠️ `min-width: 0`: a flex
    item never shrinks below its content, and a long title ran off the screen's edge instead of
    ending in «…» (owner, 22.10.2026) */
 .runningStrip { position: absolute; top: calc(88px + env(safe-area-inset-top)); left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right));
   z-index: var(--z-topbar); display: flex; }
 .runningStrip .running { max-width: none; min-width: 0; flex: 1; }
+/* …and on the phone's Karte it is IN the bar (owner's pick 6, 23.10.2026: «move phone one into
+   the top bar too»), between the menu button and the search: it takes what the two leave, the
+   title and the address end in «…», «+N» never gives way */
+.running.inBar { max-width: none; min-width: 0; flex: 1 1 auto; }
 
 /* ── search results ───────────────────────────────────────────────────────────────────────── */
 .results { position: absolute; top: calc(84px + env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); width: 470px; max-width: calc(100vw - 32px);
@@ -173,9 +193,9 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    KarteApp reads the twin's lines and hands the tag that width inline (e2e/karte-tag-fit.mjs). */
 .tagMk { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
   width: max-content; max-width: 280px; text-wrap: balance; text-align: center;
-  padding: 4px var(--sp-2); border-radius: var(--r-xs); border: 1.5px solid var(--red-45);
+  padding: 4px var(--sp-2); border-radius: var(--r-xs); border: 1.5px solid color-mix(in srgb, var(--obj-plans) 45%, transparent);
   background: var(--surface); color: var(--ink); font: var(--fw-bold) var(--fs-1)/1.2 var(--body); box-shadow: var(--e2); cursor: pointer; }
-.tagMk.sel { border-color: var(--red); box-shadow: 0 0 0 2px var(--red-22), var(--e2); }
+.tagMk.sel { border-color: var(--obj-plans); box-shadow: 0 0 0 2px color-mix(in srgb, var(--obj-plans) 22%, transparent), var(--e2); }
 /* hover: a neutral ring – the selection's ring without its colour (20.10.2026) */
 @media (hover: hover) {
   .tagMk:not(.sel):hover { box-shadow: 0 0 0 2px var(--ink-16), var(--e2); }
@@ -184,7 +204,7 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .tagMk.approx { border-style: dashed; border-color: var(--amber-strong); }
 /* the measuring twin of a tag (KarteApp · the placement pass) — laid out, never seen */
 .tagMk.measure { position: absolute; left: -9999px; top: 0; visibility: hidden; pointer-events: none; }
-/* an object without its tag (zoomed out, or no room for the tag): a red dot with a light ring,
+/* an object without its tag (zoomed out, or no room for the tag): a dot with a light ring,
    inside a 32 px tap target (lib/karte/labels) */
 .dotMk { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: none; background: none; cursor: pointer; }
 /* the arrival (lib/karte/arrival): a dot or tag mounted in the catalogue's first moments fades in
@@ -194,14 +214,16 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .waiting { visibility: hidden; }   /* mounted before the basemap's first settled frame: unseen, untappable, not in the tab order */
 .arrive { animation: arrive .26s var(--ease) both; animation-delay: var(--arrive, 0ms); }
 @keyframes arrive { from { opacity: 0; transform: translateY(4px) scale(.94); } }
-.dotMk::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--surface), var(--e1); }
+.dotMk::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--obj-plans); box-shadow: 0 0 0 2px var(--surface), var(--e1); }
 /* a station category's colour (config map.objectCategories, lib/karte/categories): the tag's rim
-   and the dot take it from `--cat`; without a category nothing here applies (red) */
+   and the dot take it from `--cat`; without a category nothing here applies (`--obj-plans`) */
 .tagMk.cat { border-color: color-mix(in srgb, var(--cat) 70%, transparent); }
 .tagMk.cat.sel { border-color: var(--cat); box-shadow: 0 0 0 2px color-mix(in srgb, var(--cat) 28%, transparent), var(--e2); }
 .dotMk.cat::after { background: var(--cat); }
-/* no categories configured: «has plans» is the red rim and dot; an object WITHOUT plans wears ink
-   instead — the one cue left after the plan count went (owner R3: «we just care that there are plans») */
+/* no categories configured: «has plans» is the `--obj-plans` rim and dot (ink: near-white at night,
+   near-black by day — owner's pick 7A, 23.10.2026; red until then); an object WITHOUT plans wears a
+   faded grey instead — the one cue left after the plan count went (owner R3: «we just care that
+   there are plans») */
 .tagMk.bare { border-color: var(--ink-28); }
 .tagMk.bare.sel { border-color: var(--ink-62); box-shadow: 0 0 0 2px var(--ink-16), var(--e2); }
 .dotMk.bare::after { background: var(--ink-45); }
