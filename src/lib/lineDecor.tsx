@@ -10,7 +10,13 @@ import type { LineTone } from './truppLines'
  *  boot-resolved locale applies (never capture appConfig.copy at module load). */
 export const CONTENT_LABELS: Record<string, string> = new Proxy(
   {},
-  { get: (_t, letter: string) => appConfig.copy.lineDecor[letter] ?? letter },
+  {
+    get: (_t, letter: string) => {
+      // widened on read: a letter a newer build drew (a passenger) shows as itself
+      const labels: Partial<Record<string, string>> = appConfig.copy.lineDecor
+      return labels[letter] ?? letter
+    },
+  },
 )
 
 /** A friendly name for a hose line in lists (connected-lines, focus targets) — its FKS

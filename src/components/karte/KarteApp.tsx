@@ -757,7 +757,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       const fit = a ? fitSimilarity(a.pairs, a.aspect) : null
       if (!a || !fit) throw new Error('no fit')
       const base = referenceUrl(georefPlan.id, georefPlan.version)
-      const url = await import('../PdfViewport').then((m) => m.planPreviewUrl((meta.page_count ?? 1) > 1 ? withPdfPage(base, a.page) : base, window.innerWidth, window.innerHeight))
+      const url = await import('../../lib/pdfRaster').then((m) => m.planPreviewUrl((meta.page_count ?? 1) > 1 ? withPdfPage(base, a.page) : base, window.innerWidth, window.innerHeight))
       const corners = ([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] as const).map((pt) => { const c = fit.toMap(pt); return [c.lng, c.lat] as [number, number] })
       if (alive) setRaster({ key: rasterKey, url, corners: corners as [[number, number], [number, number], [number, number], [number, number]] })
     })().catch(() => { if (alive) { setGeorefOn(false); toast(C.georefFailed, { icon: 'warn', tone: 'warn' }) } })

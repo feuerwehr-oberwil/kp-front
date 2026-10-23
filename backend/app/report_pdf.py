@@ -31,7 +31,7 @@ from html.parser import HTMLParser
 
 from PIL import Image as PILImage
 from PIL import ImageOps
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from reportlab import rl_config
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
@@ -612,6 +612,12 @@ class MittelFormRowIn(BaseModel):
 
 
 class ReportOptionsIn(BaseModel):
+    #: ⚠️ A switch this model does not know is refused (422), not dropped: the client keeps more
+    #: options than it sends (src/lib/report · ReportOptions – the framing, the plan choice …
+    #: shape the payload itself), and a renamed one must fail loudly instead of printing the
+    #: default. Every client build since 19.07.2026 sends a subset of these fields.
+    model_config = ConfigDict(extra="forbid")
+
     kroki: bool = True
     #: Kroki page orientation. A tall Lage (a Hochhaus, a street running north) wasted half a
     #: landscape sheet and printed the map postage-stamp small; the operator picks the shape in

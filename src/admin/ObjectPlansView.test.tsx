@@ -39,8 +39,8 @@ vi.mock('../lib/api', async () => {
   const actual = await vi.importActual<typeof import('../lib/api')>('../lib/api')
   return { ...actual, apiGet: () => Promise.reject(new Error('not stubbed')) }
 })
-const plan = { id: 'p1', object_id: 'o1', module: 'modul6', kind: 'pdf', title: 'Gebäudeplan', source_type: 'upload', source_note: null, content_type: 'application/pdf', size_bytes: 10, feature_count: null, current_version: 2, updated_at: '' }
-const object: ObjectWithPlans = { id: 'o1', name: 'Testhaus', address: 'Testweg 12', lat: null, lng: null, source_note: null, updated_at: '', plans: [plan], distance_m: null }
+const plan = { id: 'p1', object_id: 'o1', module: 'modul6', kind: 'pdf', title: 'Gebäudeplan', source_type: 'upload', source_note: null, content_type: 'application/pdf', size_bytes: 10, feature_count: null, current_version: 2, fetch_url: null, updated_at: '' }
+const object: ObjectWithPlans = { id: 'o1', name: 'Testhaus', address: 'Testweg 12', lat: null, lng: null, source_note: null, filing_folder: null, updated_at: '', plans: [plan], distance_m: null }
 const item: AlignmentItem = { id: 8, dataset_id: 'p1', plan_version: 2, page: 0, page_count: null, floors: [], can_approve: false, object_name: 'Testhaus', object_lng: null, object_lat: null, module: 'modul6', title: null, is_current: true, status: 'ready', edit_version: 1, pairs: [], aspect: null, scale_m_per_u: null, score: null, coverage: null, reason: null, created_at: '', updated_at: '', approved_at: null, reference_rings: [], reference_source: null, reference_at: null, marker_notes: null }
 const mount = () => render(<ObjectPlansView modules={[{ id: 'modul6', title: 'Modul 6', alignment: 'manual' }]} overview={() => <div>Catalogue overview</div>} />)
 /** the row's own control — one button spanning the name cell, no «Öffnen» beside it */

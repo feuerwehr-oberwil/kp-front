@@ -25,13 +25,13 @@ import type { useSymbols } from '../lib/useSymbols'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { Doc } from '../lib/workspace'
-import type { Entity, LngLat, TimelineEvent, Trupp, Drawing, NoteSize, Person, LineEndpoint, LineAttachment, LayerId, CaptionMode } from '../types'
+import type { Entity, LngLat, TimelineEvent, Trupp, Drawing, NoteSize, Person, LineEndpoint, LineAttachment, LayerId, CaptionMode, MapTool } from '../types'
 import type { WorkspaceMode } from './types'
 
 export interface MapDetailPanelsProps {
   detailSlotFree: boolean
   tacticalLocked: boolean
-  tool: string
+  tool: MapTool
   selected: Entity | null
   commit: (updater: (d: Doc) => Doc, opts?: { gesture?: boolean }) => void
   setSelectedId: Dispatch<SetStateAction<string | null>>

@@ -38,8 +38,10 @@ frontend ESLint, not the full gate. `just ci` also runs the coverage floor, the 
 audits, licenses and `just schema-check` (a throwaway Postgres migrated to head, then `alembic
 check` against the models); image, secrets, e2e, visual and perf stay CI's.
 
-- **Ratchets only go down.** The eslint warnings per rule (`scripts/eslint-baseline.json`; `pnpm
-  lint` fails when a rule's count goes up, or down without `pnpm lint:update`), the style-debt
+- **Ratchets only go down.** The eslint warnings per rule and what `eslint-disable` directives
+  silence per rule (`scripts/eslint-baseline.json`, `rules` and `silenced`; `pnpm lint` fails when
+  a count goes up, or down without `pnpm lint:update` – a non-null `!` outside the tests counts as
+  a warning), the style-debt
   baseline (`src/styles/styleDebt.baseline.json`,
   [`ui-conventions.md`](../ui-conventions.md#tokens-the-cascade-and-the-scales); a count that went
   down is only a console note there, and in `controlDebt.test.ts`), the dead-code findings

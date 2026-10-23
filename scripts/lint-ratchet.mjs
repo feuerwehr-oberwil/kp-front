@@ -10,6 +10,12 @@
 //   · a rule has FEWER — the baseline must come down with the fix, or the room is there for the
 //     next one to fill. `pnpm lint:update` lowers it (it never raises a count); commit the file.
 //
+// The same two-way hold applies to what an `eslint-disable` directive SILENCES, per rule (B.14,
+// 23.10.2026): a disable line is the cheapest way to make a warning count go down, and it used to
+// be invisible here (123 `exhaustive-deps` disables beside a baseline of 20). They are counted
+// from ESLint's own suppressed messages, so a directive that silences nothing is not one of them
+// (ESLint reports that as an unused directive, a warning of its own).
+//
 // Raising a count is a hand edit of the JSON, in the diff for a reviewer to see. Like the style
 // debt ratchet (src/styles/styleDebt.test.ts): never raise it to pass.
 //
@@ -34,8 +40,15 @@ const results = await eslint.lintFiles(['.'])
 
 /** rule → [{ file, line, message }] — warnings only; `null` rule ids (unused directives) as their own key */
 const warnings = new Map()
+/** rule → [{ file, line }] silenced by an eslint-disable directive (any severity) */
+const silenced = new Map()
 let errors = 0
 for (const r of results) {
+  for (const m of r.suppressedMessages ?? []) {
+    if (!m.ruleId) continue
+    if (!silenced.has(m.ruleId)) silenced.set(m.ruleId, [])
+    silenced.get(m.ruleId).push({ file: relative(process.cwd(), r.filePath), line: m.line })
+  }
   for (const m of r.messages) {
     if (m.severity === 2) { errors++; continue }
     const rule = m.ruleId ?? '(unused eslint-disable)'
@@ -51,23 +64,32 @@ if (errors > 0 || args.has('--all')) {
 }
 
 const baseline = JSON.parse(readFileSync(BASELINE, 'utf-8'))
+baseline.silenced ??= {}
 const counts = Object.fromEntries([...warnings].map(([rule, list]) => [rule, list.length]))
+const silencedCounts = Object.fromEntries([...silenced].map(([rule, list]) => [rule, list.length]))
 const rules = [...new Set([...Object.keys(baseline.rules), ...Object.keys(counts)])].sort()
+const silencedRules = [...new Set([...Object.keys(baseline.silenced), ...Object.keys(silencedCounts)])].sort()
 
 if (update) {
-  const next = {}
-  for (const rule of rules) {
-    const was = baseline.rules[rule] ?? 0
-    const now = counts[rule] ?? 0
-    if (now > was) {
-      console.error(`lint:update never raises a count — ${rule} is at ${now}, baseline ${was}. Fix the new warnings.`)
-      process.exit(1)
+  /** the lowered table, or exit when a count went up (`what`: the kind, for the message) */
+  const lowered = (keys, held, now, what) => {
+    const next = {}
+    for (const rule of keys) {
+      const was = held[rule] ?? 0
+      const n = now[rule] ?? 0
+      if (n > was) {
+        console.error(`lint:update never raises a count — ${what} ${rule} is at ${n}, baseline ${was}. Fix the new ones.`)
+        process.exit(1)
+      }
+      if (n > 0) next[rule] = n
     }
-    if (now > 0) next[rule] = now
+    return next
   }
-  writeFileSync(BASELINE, JSON.stringify({ ...baseline, rules: next }, null, 2) + '\n')
-  const total = Object.values(next).reduce((a, b) => a + b, 0)
-  console.log(`eslint-baseline.json: ${total} warnings across ${Object.keys(next).length} rules`)
+  const next = lowered(rules, baseline.rules, counts, 'warnings of')
+  const nextSilenced = lowered(silencedRules, baseline.silenced, silencedCounts, 'disabled')
+  writeFileSync(BASELINE, JSON.stringify({ ...baseline, rules: next, silenced: nextSilenced }, null, 2) + '\n')
+  const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0)
+  console.log(`eslint-baseline.json: ${sum(next)} warnings across ${Object.keys(next).length} rules, ${sum(nextSilenced)} silenced by eslint-disable`)
   process.exit(errors > 0 ? 1 : 0)
 }
 
@@ -78,6 +100,13 @@ for (const rule of rules) {
   const now = counts[rule] ?? 0
   if (now > was) up.push({ rule, was, now })
   else if (now < was) down.push({ rule, was, now })
+}
+const silencedUp = []
+for (const rule of silencedRules) {
+  const was = baseline.silenced[rule] ?? 0
+  const now = silencedCounts[rule] ?? 0
+  if (now > was) silencedUp.push({ rule, was, now })
+  else if (now < was) down.push({ rule: `${rule} (silenced)`, was, now })
 }
 
 const total = Object.values(counts).reduce((a, b) => a + b, 0)
@@ -90,12 +119,25 @@ for (const rule of rules) {
   console.log(`  ${rule.padEnd(width)}  ${String(now).padStart(4)}${mark}`)
 }
 
+const silencedWidth = Math.max(0, ...silencedRules.map((r) => r.length))
+if (silencedRules.length > 0) console.log('silenced by eslint-disable:')
+for (const rule of silencedRules) {
+  const was = baseline.silenced[rule] ?? 0
+  const now = silencedCounts[rule] ?? 0
+  const mark = now > was ? `  ▲ +${now - was}` : now < was ? `  ▼ −${was - now}` : ''
+  console.log(`  ${rule.padEnd(silencedWidth)}  ${String(now).padStart(4)}${mark}`)
+}
+
 for (const { rule, was, now } of up) {
   console.error(`\n✗ ${rule}: ${now} warnings, baseline ${was}. These are all of them — the new ones are among them:`)
   for (const w of warnings.get(rule)) console.error(`    ${w.file}:${w.line}  ${w.message}`)
+}
+for (const { rule, was, now } of silencedUp) {
+  console.error(`\n✗ ${rule}: ${now} silenced by eslint-disable, baseline ${was}. Fix the code rather than silence it — all of them:`)
+  for (const w of silenced.get(rule)) console.error(`    ${w.file}:${w.line}`)
 }
 if (down.length > 0) {
   console.error(`\n✗ fewer warnings than the baseline (${down.map((d) => `${d.rule} ${d.was}→${d.now}`).join(', ')}) — good.`)
   console.error('  Lower the baseline with them: `pnpm lint:update`, and commit eslint-baseline.json.')
 }
-process.exit(errors > 0 || up.length > 0 || down.length > 0 ? 1 : 0)
+process.exit(errors > 0 || up.length > 0 || silencedUp.length > 0 || down.length > 0 ? 1 : 0)

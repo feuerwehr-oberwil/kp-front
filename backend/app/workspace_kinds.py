@@ -9,16 +9,21 @@ never removes that object. The object is put back, into the unified `objects` an
 legacy `board` view alike, exactly as it was stored.
 
 A build at or above that version is trusted to delete: it knows the kind, so an absence is a
-decision. Add a row to `BOARD_KIND_SINCE` with every new board kind (and bump the client's
-`WORKSPACE_SCHEMA_VERSION` with it).
+decision. Every board kind has a row in `app/data/board_kinds.json` (and a new one bumps the
+client's `WORKSPACE_SCHEMA_VERSION` with it) – one file both sides are tested against.
 """
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
-#: board-anno kind → the workspace schema version that introduced it (src/lib/workspace.ts)
-BOARD_KIND_SINCE: dict[str, int] = {"form": 3}
+#: board-anno kind → the workspace schema version that introduced it (app/data/board_kinds.json,
+#: checked against src/types.ts · BoardKind by src/lib/boardKinds.test.ts)
+BOARD_KIND_SINCE: dict[str, int] = json.loads(
+    (Path(__file__).parent / "data" / "board_kinds.json").read_text(encoding="utf-8")
+)["since"]
 
 
 def _sheet_anno(obj: Any) -> tuple[str, dict[str, Any]] | None:

@@ -54,7 +54,7 @@ interface IncidentSyncDeps {
    *  identity changes exactly when a persisted slice changes — that's what re-fires the save. */
   buildPayload: () => Saved
   /** Write an authoritative workspace into App's state (the old hydrate body, minus skipSave). */
-  applyWorkspace: (ws: Saved) => void
+  applyWorkspace: (ws: Workspace) => void
   flushEvents: () => void
   flushEventsBeacon: () => void
   /** Append one Verlauf row (journal store) — used for the attendance-divergence note when a
@@ -119,7 +119,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
    *  Held as the serialized string — or, after a skipped mid-gesture compare (below), as the
    *  payload itself, serialized only when the next compare needs it. */
   const lastPushed = useRef<string | Saved | null>(null)
-  const hydrate = (ws: Saved) => { skipSave.current = true; applyWorkspace(ws) }
+  const hydrate = (ws: Workspace) => { skipSave.current = true; applyWorkspace(ws) }
 
   // Attendance divergence → ONE Verlauf note per affected person: a merge kept LWW but saw
   // both sides (e.g. KP tablet and QR-Erfassung) change the same person's entry. The seen-set
@@ -214,7 +214,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     // debounce (a live feed, a clock) otherwise held the push back for as long as it lasted.
     if (!readOnly && sync.hasUnsynced && gestureOpen?.()) {
       lastPushed.current = payload
-      sync.save(payload as unknown as Workspace, { keepTimer: true })
+      sync.save(payload, { keepTimer: true })
       return
     }
     const body = JSON.stringify(payload)
@@ -229,7 +229,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
     // Demo edits DO persist now (shared, like a real station) — visitors work a live incident that
     // survives reload and is reset once nightly (backend cron at 00:00 Europe/Zurich). Creating NEW
     // incidents stays blocked (backend + UI guards). save() also writes the IDB cache.
-    if (!readOnly) sync.save(payload as unknown as Workspace)
+    if (!readOnly) sync.save(payload)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [buildPayload])
 
@@ -334,7 +334,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
         liveRev.current = res.workspace_rev
         const ws = (res.workspace ?? {}) as Workspace
         if (!readOnly) sync.adoptServer(ws, res.workspace_rev)
-        hydrate(ws as unknown as Saved)
+        hydrate(ws)
       }
       // ⚠️ …and a held poll that came back at once with NOTHING new did not hold (N1): whatever
       // the reason, answering «unanswered» lets the loop ease off instead of spinning. A real
@@ -358,7 +358,7 @@ export function useIncidentSync({ sync, readOnly, incidentId, buildPayload, appl
   // let the sync engine apply an auto-merged conflict result IN PLACE (no remount), so the
   // resolver smoothly gains the other device's edits instead of having the screen rebuilt.
   useEffect(() => {
-    const onApplyMerged = (ws: Workspace, rev: number) => { liveRev.current = rev; hydrate(ws as unknown as Saved) }
+    const onApplyMerged = (ws: Workspace, rev: number) => { liveRev.current = rev; hydrate(ws) }
     sync.onApplyMerged = onApplyMerged
     return () => { if (sync.onApplyMerged === onApplyMerged) sync.onApplyMerged = undefined }
     // eslint-disable-next-line react-hooks/exhaustive-deps

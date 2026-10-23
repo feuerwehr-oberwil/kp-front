@@ -23,12 +23,12 @@ const knownLegacy = { pairs: [
   { plan: { x: 1, y: 1 }, lngLat: { lng: 7.51, lat: 47.49 } },
 ] }
 const object: ObjectWithPlans = {
-  id: 'house', name: 'House', address: null, lat: 47.5, lng: 7.5, source_note: null,
+  id: 'house', name: 'House', address: null, lat: 47.5, lng: 7.5, source_note: null, filing_folder: null,
   updated_at: '2026-09-09', distance_m: 0,
   plans: [{
     id: 'plan:house:modul2', object_id: 'house', module: 'modul2', kind: 'pdf', title: 'Modul 2',
     source_type: 'upload', source_note: null, content_type: 'application/pdf', size_bytes: 100,
-    feature_count: null, current_version: 4, updated_at: '2026-09-09',
+    feature_count: null, current_version: 4, fetch_url: null, updated_at: '2026-09-09',
   }],
 }
 beforeEach(() => { vi.clearAllMocks(); near.mockResolvedValue([object]); legacy.mockReturnValue(null) })

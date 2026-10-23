@@ -213,6 +213,15 @@ async def test_report_pdf_bad_payload_422(client, editor):
     assert r.status_code == 422
 
 
+async def test_report_pdf_unknown_option_422(client, editor):
+    # a renamed switch must fail loudly, not print the default (ReportOptionsIn · extra=forbid)
+    await _login(client, editor)
+    inc = await _create_incident(client)
+    payload = {**_minimal_payload(inc), "options": {"kroki": False, "krokiView": None}}
+    r = await client.post(f"/api/incidents/{inc}/report/pdf", data={"payload": json.dumps(payload)})
+    assert r.status_code == 422, r.text
+
+
 async def test_report_pdf_prints_beilagen_from_the_media_store(client, editor):
     """A Rapport-Beilage (ID document, damage photo) is resolved from the media store and
     printed as its own plate — the same server-side lookup a journal photo uses. A URL that

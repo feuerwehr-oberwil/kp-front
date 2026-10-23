@@ -25,15 +25,15 @@ import type { useCoordPicker } from '../lib/useCoordPicker'
 import type { useIsPhone } from '../lib/useIsPhone'
 import type { useMeasure } from '../lib/useMeasure'
 import type { useSymbols } from '../lib/useSymbols'
-import type { LngLat, ShapeKind, LineAttachment, Drawing, Trupp, GeoTrailPoint } from '../types'
+import type { LngLat, MapTool, ShapeKind, LineAttachment, Drawing, Trupp, GeoTrailPoint } from '../types'
 import type { RailLabels } from '../lib/prefs'
 
 export interface MapToolDocksProps {
   mapUI: boolean
-  tool: string
+  tool: MapTool
   pending: string | null
   setPending: Dispatch<SetStateAction<string | null>>
-  setTool: Dispatch<SetStateAction<string>>
+  setTool: Dispatch<SetStateAction<MapTool>>
   placeLock: boolean
   setPlaceLock: Dispatch<SetStateAction<boolean>>
   isPhone: ReturnType<typeof useIsPhone>

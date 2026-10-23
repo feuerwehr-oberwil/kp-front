@@ -1,12 +1,8 @@
 // Audit/event ingestion + hash-chain verification for an incident (the append-only record).
 import { apiBeacon, apiGet, apiPost } from '../api'
+import type { In } from './wire'
 
-export interface ClientEvent {
-  client_id?: string
-  op_type: string
-  payload?: Record<string, unknown>
-  occurred_at?: string
-}
+export type ClientEvent = In<'EventIn'>
 export const ingestEvents = (id: string, events: ClientEvent[]) =>
   apiPost(`/api/incidents/${id}/events`, { events })
 /** Fire-and-forget event ingest for page teardown — survives the document unloading. */

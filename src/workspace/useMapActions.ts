@@ -42,10 +42,11 @@ import { useSymbols } from '../lib/useSymbols'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
 import type { ShareLinkKind } from '../lib/viewLink'
 import type { Doc } from '../lib/workspace'
-import type { CameraView, Drawing, Entity, Incident, LineAttachment, LineEndpoint, LngLat, ShapeKind, TimelineEvent, Trupp, PlanDocument, NoteSize } from '../types'
+import type { CameraView, Drawing, Entity, Incident, LineAttachment, LineEndpoint, LngLat, ShapeKind, TimelineEvent, Trupp, PlanDocument, NoteSize, MapTool } from '../types'
 import type { OneShotRows, WorkspaceMode } from './types'
 import { useEffect, useMemo, useRef, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
+import { isMapTool } from '../lib/readOnlyTools'
 
 /**
  * Let a drawing go from an object that is disappearing off the Karte, pinning the endpoint where
@@ -74,8 +75,8 @@ function detachDrawingFrom(dr: Drawing, ent: Entity): Drawing {
 export interface UseMapActionsInputs {
   clearMapUi: (keep?: 'selection') => void
   setPaletteOpen: Dispatch<SetStateAction<boolean>>
-  tool: string
-  setTool: Dispatch<SetStateAction<string>>
+  tool: MapTool
+  setTool: Dispatch<SetStateAction<MapTool>>
   setPending: Dispatch<SetStateAction<string | null>>
   setPendingShape: Dispatch<SetStateAction<ShapeKind | null>>
   setSelectedId: Dispatch<SetStateAction<string | null>>
@@ -204,7 +205,7 @@ export function useMapActions({
     // on the way, exactly as picking the separate Mehrfach button always did.
     // tapping the already-active tool again exits it → back to Auswahl (closes its option dock)
     if (id === tool) { clearMapUi(); return }
-    clearMapUi(); setTool(id)
+    clearMapUi(); if (isMapTool(id)) setTool(id)
   }
 
   const pickShape = (kind: ShapeKind) => { setTool('shape'); setPending(null); setPendingShape(kind); setPaletteOpen(false) }

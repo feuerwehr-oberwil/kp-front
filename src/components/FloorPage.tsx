@@ -1,6 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { ShellLoader } from './ShellLoader'
-import { planRegionCropUrl, planRegionUrl, type RegionCrop } from './PdfViewport'
+import { planRegionCropUrl, planRegionUrl, type RegionCrop } from '../lib/pdfRaster'
 import { FLOOR_PAGE_SIDE, pageCanvasBudget } from '../lib/pdfRenderBudget'
 import { regionCorners } from '../lib/stackFit'
 import type { Pt } from '../lib/footprint'

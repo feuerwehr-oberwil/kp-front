@@ -10,6 +10,29 @@
 import type { MittelEntry, MittelStatus, Trupp } from '../types'
 import { isAtemschutzTrupp } from './atemschutz'
 
+/** What the sheet hands back on every save: the material+unit+source identity plus the new
+ *  running TOTAL. lib/useMittelActions turns it into an append-only event (no-op if unchanged). */
+export interface MittelDraft {
+  materialId?: string
+  label: string
+  unit: string
+  sourceId?: string
+  sourceLabel?: string
+  menge: number
+  /** Retablierung state: a value sets it, `null` clears it, omitted keeps the current one
+   *  (so quantity edits and composer saves never wipe a set status). */
+  status?: MittelStatus | null
+  /** free remark: same value / null / omitted semantics as `status`, so editing a quantity
+   *  never wipes a remark somebody wrote. */
+  note?: string | null
+  /** nominal Bestand of a hand-added line — what «noch N» counts down from. Same value / null /
+   *  omitted semantics as `note`. Catalogue materials get theirs from the config instead. */
+  stock?: number | null
+  /** remove the line for good. Only the pencil dialog sets this: stepping to 0 now means
+   *  «nothing used», not «gone». */
+  deleted?: boolean
+}
+
 /**
  * A unit reduced to what it MEANS, for comparing two spellings of it.
  *

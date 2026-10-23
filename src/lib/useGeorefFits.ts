@@ -15,7 +15,7 @@ import {
 } from './georefTwins'
 import { georefForPlan, getStationPlanScales, loadStationPlanScales, stationPlanScalesLoaded, takeRolledBackStationWrite } from './stationPlanScale'
 import { setGeorefLinkedHandler, useGeorefStorage } from './georefMode'
-import { planPreviewUrl, regionInkBox } from '../components/PdfViewport'
+import { planPreviewUrl, regionInkBox } from './pdfRaster'
 import { stackGroundFit } from './stackFit'
 import { floorPackOf, packBuildingDoc, PACK_TRIM_MS, trimmedPackFrame } from './floorPackBinding'
 import { buildingPackBinding } from './buildingPackBinding'

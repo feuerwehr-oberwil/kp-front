@@ -1,5 +1,6 @@
 // Pure helpers extracted from MapView: world-scaled symbol/shape sizing, GeoJSON
 // feature builders, and the symbol-kind predicates. No React — safe to unit-test.
+import type { Feature, FeatureCollection, LineString, Polygon } from 'geojson'
 import type { Entity, LayerId, LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
 import { VEHICLE_SYMBOLS } from '../lib/symbols'
@@ -160,10 +161,10 @@ export const resumeViewState = (
 export const pathSegmentCount = (points: number, isArea: boolean): number =>
   points < 2 ? 0 : isArea && points >= 3 ? points : points - 1
 
-export type FC = { type: 'FeatureCollection'; features: any[] }
-export const fc = (features: any[]): FC => ({ type: 'FeatureCollection', features })
-export const lineFeat = (coords: LngLat[], props: Record<string, unknown> = {}) => ({ type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: coords }, properties: props })
-export const polyFeat = (coords: LngLat[], props: any = {}) => ({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [[...coords, coords[0]]] }, properties: props })
+export type FC = FeatureCollection
+export const fc = (features: Feature[]): FC => ({ type: 'FeatureCollection', features })
+export const lineFeat = (coords: LngLat[], props: Record<string, unknown> = {}): Feature<LineString> => ({ type: 'Feature', geometry: { type: 'LineString', coordinates: coords }, properties: props })
+export const polyFeat = (coords: LngLat[], props: Record<string, unknown> = {}): Feature<Polygon> => ({ type: 'Feature', geometry: { type: 'Polygon', coordinates: [[...coords, coords[0]]] }, properties: props })
 
 /** Web-Mercator northing — the y half of the projection, without a map instance. */
 const mercY = (lat: number) => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360))

@@ -3,9 +3,14 @@
 // debounced merge-on-save engine live alongside in ./workspaceSync.
 import { ApiError, apiBeacon, apiGet, apiGetRaw, apiPut, LONG_POLL_TIMEOUT_MS } from '../api'
 import type { Trupp } from '../../types'
+import type { Out } from './wire'
 import { reportIncidentClosed, reportIncidentReopened } from '../incidentClosed'
 
+/** The blob on the wire. The app's typed view is `Saved` (lib/workspace): a `Saved` is a
+ *  Workspace as it stands, and the way back in is sanitizeWorkspace, never a cast. */
 export type Workspace = Record<string, unknown>
+/** What every workspace route answers: the blob (null on a `slim` save) and its revision. */
+type WorkspaceOut = Out<'WorkspaceOut'>
 
 /** Which sync engine saved (backend api/incidents · X-Workspace-Writer): the follower read asks
  *  with the same id, and a range of revisions that is nothing but this engine's own saves comes
@@ -15,7 +20,7 @@ const writerHeader = (writer?: string): Record<string, string> | undefined =>
   writer ? { 'X-Workspace-Writer': writer } : undefined
 
 export const getWorkspace = (id: string) =>
-  apiGet<{ workspace: Workspace | null; workspace_rev: number }>(`/api/incidents/${id}/workspace`)
+  apiGet<WorkspaceOut>(`/api/incidents/${id}/workspace`)
 // `slim=1`: only the revision comes back (workspace null). The engine reads nothing but the
 // rev off a push (workspaceSync · pushCurrent), and the full echo doubled the wire cost of
 // every save at field blob sizes. An older backend ignores the flag and keeps echoing — the
@@ -23,7 +28,7 @@ export const getWorkspace = (id: string) =>
 // `edited_at` (review of #235): when the newest edit in this save was made — a closed Einsatz
 // takes a save made before its close (backend · happened_after_close). Omitted when unknown.
 export const putWorkspace = (id: string, workspace: Workspace, base_rev: number, edited_at?: string, writer?: string) =>
-  apiPut<{ workspace: Workspace | null; workspace_rev: number }>(`/api/incidents/${id}/workspace?slim=1`, {
+  apiPut<WorkspaceOut>(`/api/incidents/${id}/workspace?slim=1`, {
     workspace,
     base_rev,
     ...(edited_at ? { edited_at } : {}),
@@ -41,7 +46,7 @@ export const putWorkspaceBeacon = (id: string, workspace: Workspace, base_rev: n
 // option routes its push and its teardown beacon here; everything else about the engine is
 // unchanged.
 export const putWorkspaceTrupps = (id: string, trupps: readonly Trupp[], base_rev: number, edited_at?: string, writer?: string) =>
-  apiPut<{ workspace: Workspace | null; workspace_rev: number }>(`/api/incidents/${id}/workspace/trupps`, {
+  apiPut<WorkspaceOut>(`/api/incidents/${id}/workspace/trupps`, {
     trupps,
     base_rev,
     ...(edited_at ? { edited_at } : {}),
@@ -59,7 +64,7 @@ export const putWorkspaceTruppsBeacon = (id: string, trupps: readonly Trupp[], b
 // server-side whatever this client sends. Same contract otherwise — `base_rev` in, rev out,
 // 409 on a race. WorkspaceSync's `slice: 'record'` routes here.
 export const putWorkspaceRecord = (id: string, workspace: Workspace, base_rev: number, writer?: string) =>
-  apiPut<{ workspace: Workspace | null; workspace_rev: number }>(`/api/incidents/${id}/workspace/record`, {
+  apiPut<WorkspaceOut>(`/api/incidents/${id}/workspace/record`, {
     workspace,
     base_rev,
   }, writerHeader(writer))

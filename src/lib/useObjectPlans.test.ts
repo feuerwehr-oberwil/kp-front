@@ -82,7 +82,7 @@ describe('railPlanTiles — the merged Gebäude tile', () => {
 const pdf = (over: Partial<ReferenceDataset> & { id: string }): ReferenceDataset => ({
   object_id: 'obj', module: null, kind: 'pdf', title: null, source_type: 'upload',
   source_note: null, content_type: 'application/pdf', size_bytes: 1000, feature_count: null,
-  current_version: 1, updated_at: '2026-08-25T00:00:00Z', ...over,
+  current_version: 1, fetch_url: null, updated_at: '2026-08-25T00:00:00Z', ...over,
 })
 
 // «Bernhardsberg 15» has «Modul 5 - Wasser 1.pdf» AND «Modul 5 - Wasser 2.pdf»; «Hinterbergweg 11»

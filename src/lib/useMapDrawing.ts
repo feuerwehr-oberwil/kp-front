@@ -3,7 +3,7 @@ import { appConfig } from '../config/appConfig'
 import { flipLine } from './lineAttachments'
 import { drawingEditChanges, drawingLogName } from './drawingEdit'
 import type { Doc } from './workspace'
-import type { Drawing, LineAttachment, LineEndpoint, LngLat, TimelineEvent } from '../types'
+import type { Drawing, LineAttachment, LineEndpoint, LngLat, MapTool, TimelineEvent } from '../types'
 import { confirmDialog, toast } from './ui'
 import { fillTemplate } from './format'
 import { newId } from './ids'
@@ -26,8 +26,8 @@ interface MapDrawingDeps {
   resolvedDrawings?: Drawing[]
   selectedDrawingId: string | null
   tacticalLocked: boolean
-  tool: string
-  setTool: (id: string) => void
+  tool: MapTool
+  setTool: (id: MapTool) => void
   commit: (updater: (d: Doc) => Doc, opts?: { gesture?: boolean }) => void
   setDocRaw: (updater: (d: Doc) => Doc) => void
   beginDrag: () => void
