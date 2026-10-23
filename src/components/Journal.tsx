@@ -343,11 +343,13 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   )
   // The filter menu's rows and counts. Counted over what the list would show WITHOUT the ticks —
   // the folded rows the search keeps — so each number is what ticking that row would add.
-  const facets = useMemo(() => {
+  // ⚠️ «Alle zeigen» counts ROWS, not the facets' sum: a typed Pendenz row counts under its Art
+  // AND under «Pendenz» (lib/journalFilter), so the sum would count it twice.
+  const { facets, facetTotal } = useMemo(() => {
     const folded = events.filter((e) => !repeats.hidden.has(e.id))
-    return journalFacets(folded, folded.filter((e) => matchesJournalQuery(e, query)), categories, filterSel)
+    const counted = folded.filter((e) => matchesJournalQuery(e, query))
+    return { facets: journalFacets(folded, counted, categories, filterSel), facetTotal: counted.length }
   }, [events, repeats, query, categories, filterSel])
-  const facetTotal = facets.reduce((n, f) => n + f.count, 0)
   const filterOn = facets.filter((f) => filterSel.has(f.key)).map((f) => f.label).join(' · ')
   const [pageCount, setVisibleCount] = useState(PAGE_ROWS)
   // no observer (jsdom, an old WebView): everything, as before

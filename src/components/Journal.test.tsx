@@ -250,6 +250,18 @@ describe('Journal · the Pendenzen block under the funnel', () => {
     fireEvent.click(document.querySelector('.jr-filter-all')!)
     await waitFor(() => expect(document.querySelector('.jr-pinned')).not.toBeNull())
   })
+
+  // sweep E.9: an Auftrag raised with the ring counts under «Auftrag» AND «Pendenz» – «Alle zeigen»
+  // still counts it once
+  it('counts a typed Pendenz row under both, and «Alle zeigen» counts rows', async () => {
+    const ringed = [...rows, { ...row('rauf', 1_010_000, 'Auftrag · Leiter stellen'), entryType: 'auftrag', reminder: { op: 'created', id: 'p2' } } as TimelineEvent]
+    setup({ events: ringed })
+    fireEvent.click(screen.getByRole('button', { name: 'Verlauf filtern' }))
+    const count = async (word: RegExp) => (await screen.findByRole('menuitemcheckbox', { name: word })).querySelector('.jr-filter-count')?.textContent
+    expect(await count(/Pendenz/)).toBe('2')
+    expect(await count(/Auftrag/)).toBe('2')
+    expect(document.querySelector('.jr-filter-reset .jr-filter-count')?.textContent).toBe('3')
+  })
 })
 
 describe('Journal · the classification column', () => {
