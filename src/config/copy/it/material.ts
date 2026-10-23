@@ -8,7 +8,7 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     railLabel: 'Checklist',
     showList: 'Mostra elenco',
     groupTasks: 'Compiti',
-    searchPlaceholder: 'Cerca istruzione o checklist …',
+    searchPlaceholder: 'Cerca …',
     searchAria: 'Cerca istruzione o checklist',
     matching: 'Corrispondente: {title}',
     none: 'Ancora nessuna checklist disponibile.',
