@@ -53,6 +53,18 @@ export default tseslint.config(
     files: ['**/*.test.{ts,tsx}'],
     languageOptions: { globals: { ...globals.node } },
   },
+  // The UI reaches the backend through ONE door, src/lib/incidents (see its header); src/lib is
+  // the data layer and imports lib/api/* directly. Tests may import a module under test anywhere.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/lib/**', 'src/**/*.test.{ts,tsx}', 'src/**/*.harness.setup.tsx'],
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [{
+        regex: '/lib/api/(incidents|workspace|workspaceSync|events|media|divera|personnel|geo|objects|reference)$',
+        message: "Import it from 'lib/incidents' – the UI's one entry point to the backend calls.",
+      }] }],
+    },
+  },
   // Playwright e2e: node, and a fixture's `use` callback is Playwright's, not React's hook
   {
     files: ['e2e/**/*.ts'],

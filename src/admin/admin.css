@@ -719,16 +719,12 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
   background: var(--surface); color: var(--ink-dim); font: var(--fw-medium) 12px/1.7 var(--mono);
   white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; }
 .adm-formlink-warn { color: var(--amber-strong); }
-/* ── «hier kommt der nächste dazu» (ui.tsx · AddRow, and every bare .adm-formlink-add) ────────
+/* ── «hier kommt der nächste dazu» (every .adm-formlink-add) ──────────────────────────────────
    ONE shape for adding, wherever a list ends: a row the full width of the list, inside the
    card's padding.
    28.09.2026: FRAMED, not dashed — the app's ONE «add» look (13-incident `.cv-btn-add`: solid
    edge, the surface, 14/700 ink). Dashed means «missing» (27.09. sweep); an add is an action.
-   The dashed `AddRow` / `EmptyState` below stay: they are the placeholder the button sits in.
-
-   ⚠️ The button alone IS the row when it stands alone (no caller had to change). Inside an
-   `AddRow` — which adds the dim half-sentence on the left — it goes back to being a button and
-   rides at the right edge. */
+   The dashed `EmptyState` stays: it is the placeholder a button sits in. */
 .adm-formlink-add { display: flex; width: 100%; align-items: center; gap: 8px;
   min-height: var(--tap); margin-top: 12px; padding: 13px 14px; cursor: pointer;
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm);
@@ -739,15 +735,6 @@ a.adm-side-item { box-sizing: border-box; text-decoration: none; }
 .adm-formlink-add:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .adm-formlink-add:disabled { opacity: var(--disabled); cursor: default; }
 .adm-formlink-add .i { width: 16px; height: 16px; }
-
-.adm-addrow { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; width: 100%;
-  margin-top: 12px; padding: 13px 14px;
-  border: 1px dashed var(--border); border-radius: var(--r-sm);
-  color: var(--ink-dim); font-size: var(--fs-1); line-height: 1.45; }
-.adm-addrow-label { min-width: 0; overflow-wrap: anywhere; }
-.adm-addrow-act { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-/* the button in an AddRow is a button again */
-.adm-addrow .adm-formlink-add { width: auto; margin: 0; padding: 0 15px; }
 
 /* color field */
 .adm-color-row { display: flex; align-items: center; gap: 10px; }

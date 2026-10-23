@@ -12,7 +12,7 @@ if (!globalThis.crypto?.subtle) {
   Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true })
 }
 
-vi.mock('../lib/incidents', () => ({ listObjects: vi.fn() }))
+vi.mock('../lib/incidents', async (orig) => ({ ...(await orig<typeof import('../lib/incidents')>()), listObjects: vi.fn() }))
 vi.mock('./planAlignmentApi', () => ({ loadAlignmentQueue: vi.fn() }))
 vi.mock('./PlanAlignmentReview', () => ({
   PlanAlignmentEditor: ({ item, onClose }: { item: AlignmentItem; onClose: () => void }) => <div role="dialog">Editor {item.id}<button onClick={onClose}>Back</button></div>,

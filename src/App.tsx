@@ -36,9 +36,8 @@ import { IncidentWorkspace } from './IncidentWorkspace'
 import {
   WorkspaceSync, listIncidentsResilient, getIncident, archiveIncident, reactivateIncident,
   migrateLegacyWorkspace, takeDiveraAlarm, patchIncident, attachDiveraAlarm, discardWorkspaceCache,
-  type DiveraAlarm, type IncidentFull, type IncidentMeta,
+  isIncidentRunning, type DiveraAlarm, type IncidentFull, type IncidentMeta,
 } from './lib/incidents'
-import { isIncidentRunning } from './lib/api/incidents'
 import { closedMetaFor, closedNoticeAt, onIncidentClosed, onIncidentReopened, reopenedMetaFor, reportIncidentClosed, reportIncidentReopened, type IncidentClosedSignal, type IncidentReopenedSignal } from './lib/incidentClosed'
 import { serverNow, serverNowIso } from './lib/serverClock'
 import { unlockAlarm } from './lib/alarm'

@@ -5,17 +5,13 @@
 
 // Rules for this area that span modules: docs/ui-conventions.md · «Overlays».
 
-export { Sheet, SheetClose, type SheetProps } from './Sheet'
-export { Overlay, type OverlayProps } from './Overlay'
+export { Sheet, SheetClose } from './Sheet'
+export { Overlay } from './Overlay'
 // for the ONE hand-rolled bottom sheet (components/Palette): the same bar, the same gesture
 export { SheetGrab } from './SheetGrab'
 // the footer row of a bespoke bottom-sheet frame — the same insets <Sheet>'s own footer pays
 export { SheetFoot } from './SheetFoot'
 export { useSwipeDismiss } from './swipeDismiss'
-export { ConfirmCard } from './ConfirmCard'
-export { Menu, type MenuActionItem, type MenuHeading } from './Menu'
-export { ContextMenu, type ContextMenuEntry } from './ContextMenu'
-export { Popover, PopoverClose, type PopoverProps } from './Popover'
-// a hand-rolled dropdown that can open over a Sheet/Overlay registers here, so the sheet's
-// backdrop/Esc dismissal stands down while it is open
-export { usePopoverGuard, popoverOpen, resetPopoverGuard } from './popoverGuard'
+export { Menu, type MenuActionItem } from './Menu'
+export { ContextMenu } from './ContextMenu'
+export { Popover, PopoverClose } from './Popover'

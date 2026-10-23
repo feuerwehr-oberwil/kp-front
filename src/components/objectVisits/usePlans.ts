@@ -2,7 +2,7 @@
 // with the phone's back gesture wired to «close».
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { getObjectResilient } from '../../lib/api/objects'
+import { getObjectResilient } from '../../lib/incidents'
 import { moduleCatalogue } from '../../lib/planOrder'
 import { visitPlanRows, type VisitPlanRow } from '../../objectVisits/plans'
 import { pushAppEntry } from '../../objectVisits/route'
