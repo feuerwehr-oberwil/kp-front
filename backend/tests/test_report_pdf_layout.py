@@ -1191,3 +1191,25 @@ def test_a_figure_page_that_fails_to_render_says_so_on_the_paper(monkeypatch, ca
         text = _all_text(compose_report_pdf(_skizze_payload([]), {}))
     assert "Seite «Tafel · Skizze» konnte nicht gedruckt werden" in text
     assert any(r.levelname == "ERROR" and "Tafel · Skizze" in r.getMessage() for r in caplog.records)
+
+
+def test_the_journal_bereich_never_breaks_a_word():
+    """«Sofortmassnahme» printed as «Sofortmassna / hme» on every such row: the Bereich column was
+    24 mm, sized before typed entries printed their Art there. The columns now fit their labels —
+    and a one-day Einsatz prints the time alone, with its date once in the heading."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Journal-Probe", "id": "p"},
+            "generatedAt": "23.10.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "journalDay": "23.10.2026",
+            "journal": [
+                {"timeLabel": "07:03", "area": "Info", "text": "Eintreffen am Einsatzort"},
+                {"timeLabel": "07:23", "area": "Sofortmassnahme", "text": "Hauswart meldet: 1 Person vermisst"},
+            ],
+        }
+    )
+    pdf = compose_report_pdf(payload, {})
+    text = _all_text(pdf)
+    assert "Einsatzjournal · 23.10.2026" in text
+    assert "Sofortmassnahme" in text

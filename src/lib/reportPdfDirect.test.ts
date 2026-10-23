@@ -1,5 +1,5 @@
 import { formatDateTime } from './report'
-import { fillTemplate } from './format'
+import { fillTemplate, formatTime } from './format'
 import { describe, it, expect } from 'vitest'
 import { closeTimeOf } from './api/incidents'
 import { buildDirectReportPayload, einsatzleiterForPdf, floorStackPages, forPaper, planAnnosForPdf, usedStackFloors } from './reportPdfDirect'
@@ -419,6 +419,22 @@ describe('buildDirectReportPayload · the close on paper', () => {
     expect(byText.get('Trupp 1: Kontakt')).toBeUndefined()
     expect(byText.get('Trupp 2: Kontakt')).toBe(true) // before the close, received after it
     expect(byText.get('Nach dem Wiederöffnen')).toBe(true)
+  })
+
+  it('prints the time alone on a one-day journal, with the date once beside it — and full labels across midnight', () => {
+    const at = (ats: string[]) => buildDirectReportPayload({
+      incident,
+      draft: { meta: {}, generatedAt: '2026-09-26T12:00:00.000Z', proof: {}, options: { journal: true } } as never,
+      trupps: [], attendance: {},
+      events: ats.map((a, i) => ({ id: `j${i}`, t: '', at: a, icon: 'type', text: `Zeile ${i}`, kind: 'journal' })),
+      plans: [],
+    }) as { journal: { timeLabel: string }[]; journalDay?: string }
+    const day = at(['2026-09-25T10:00:00.000Z', '2026-09-25T11:30:00.000Z'])
+    expect(day.journalDay).toBe(formatDateTime('2026-09-25T10:00:00.000Z').split(' ')[0])
+    expect(day.journal.map((r) => r.timeLabel)).toEqual(['2026-09-25T10:00:00.000Z', '2026-09-25T11:30:00.000Z'].map((iso) => formatTime(new Date(iso))))
+    const two = at(['2026-09-25T10:00:00.000Z', '2026-09-26T10:00:00.000Z'])
+    expect(two.journalDay).toBeUndefined()
+    expect(two.journal[1].timeLabel).toBe(formatDateTime('2026-09-26T10:00:00.000Z'))
   })
 
   it('ends the Einsatzleitung (and every other open span) at the SECOND close, not the first', () => {

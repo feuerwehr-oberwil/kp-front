@@ -23,7 +23,7 @@ import { isAtemschutzTrupp, isStandDownExit } from './atemschutz'
 import { DEFAULT_HOURS_ROUNDING, fmtHours, hoursRows, hoursSummary } from './attendanceHours'
 import { atemschutzDoctrine, getDeploymentConfig } from './deploymentConfig'
 import { serverNow } from './serverClock'
-import { fillTemplate } from './format'
+import { fillTemplate, formatTime, localeDate } from './format'
 import { buildKrokiPayload, circleSvgString, shapeSvgString } from './krokiPayload'
 import { symbolLegendText } from './symbols'
 import { doneBadge, doneOf, doneWord } from './objectDone'
@@ -462,6 +462,14 @@ export function tafelPayload(
   return { boardPages: pages, ...(map ? { boardMap: map } : {}), ...(skizze ? { skizze } : {}) }
 }
 
+/** The local date every journal row falls on («23.10.2026»), or undefined when they span midnight
+ *  or a row has no time of its own — then each row keeps its full «Datum Zeit» label. */
+function oneDay(isos: readonly (string | null)[]): string | undefined {
+  const days = new Set(isos.map((iso) => (iso ? localeDate(iso, { day: '2-digit', month: '2-digit', year: 'numeric' }) : null)))
+  const [day] = days
+  return (days.size === 1 && day) || undefined
+}
+
 /** The ONE payload builder behind the Rapport-PDF download. */
 export function buildDirectReportPayload(args: DirectReportArgs): Record<string, unknown> {
   const { incident, draft, trupps, attendance, events, plans, mittel = [], roster = [], attachments = [], scene, board, building } = args
@@ -479,10 +487,14 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
   // (lib/report · withFileNames), so they need no field of their own here.
   // ⚠️ `truppIds` off the UNFILTERED slice: a row about a Trupp that has since been taken off the
   // board is still a crew enumeration (see journalRows · truppIds).
-  const journal = args.scopeOnly ? [] : journalRows(events, plans, meta.startedAt ?? incident.started_at, incident.closed_at,
+  const journalPrint = args.scopeOnly ? [] : journalRows(events, plans, meta.startedAt ?? incident.started_at, incident.closed_at,
     { includeBookkeeping: draft.options.detailedAudit, vocab: args.vocab, truppIds: new Set(trupps.map((t) => t.id)) })
+  // a one-day Einsatz prints «07:03», not «23.10.2026 07:03» on every row: the date goes once
+  // into the section heading (report_pdf · ReportPayload.journalDay)
+  const journalDay = oneDay(journalPrint.map((r) => r.iso))
+  const journal = journalPrint
     .map((r) => ({
-      timeLabel: r.timeLabel, area: r.area, text: r.text, markup: r.markup, transcript: r.transcript || undefined,
+      timeLabel: journalDay && r.iso ? formatTime(new Date(r.iso)) : r.timeLabel, area: r.area, text: r.text, markup: r.markup, transcript: r.transcript || undefined,
       transcriptLines: r.transcriptLines,
       repeats: r.repeats,
       // a corrected line prints its first wording beside the latest — the paper says the same
@@ -702,6 +714,7 @@ export function buildDirectReportPayload(args: DirectReportArgs): Record<string,
     })),
     signatures: args.signatures ?? [],
     journal: draft.options.journal ? journal : [],
+    journalDay: draft.options.journal ? journalDay : undefined,
     pendenzen: draft.options.pendenzen ? pendenzen : [],
     // the internal Beilage (lib/auswertung): computed HERE, where the ISO stamps are
     auswertung: draft.options.auswertung

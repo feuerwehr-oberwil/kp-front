@@ -822,6 +822,9 @@ class ReportPayload(BaseModel):
     partnerPresets: list[str] = []
     personalSummary: PersonalSummaryIn | None = None
     journal: list[JournalRowIn] = []
+    #: the one date every journal row falls on (client-formatted), when they all do. The rows
+    #: then carry the time alone and the date prints once, in the section heading.
+    journalDay: str | None = None
     #: Aufträge / Pendenzen — printed right after the Verlauf they are derived from, so a reader
     #: checking one line only turns back a page.
     pendenzen: list[PendenzRowIn] = []
@@ -2372,10 +2375,24 @@ def compose_report_pdf(
         # document. Its own sheet says what it is. (_collapse_breaks drops the double if a
         # section boundary already broke here.)
         story.append(PageBreak())
-        story.extend(head(L["journal"]))
-        # the Eintrag column's content width — mirrors the colWidths below, minus the two
-        # 5pt side paddings _table_style() puts inside every cell
-        entry_w = inner_w - 53 * mm - 10
+        story.extend(head(f"{L['journal']} · {payload.journalDay}" if payload.journalDay else L["journal"]))
+
+        # ⚠️ Zeit and Bereich are as wide as their widest label, never wider than a cap — a word
+        # that does not fit its cell is BROKEN mid-word by ReportLab, and a fixed 24mm Bereich
+        # printed «Sofortmassna / hme» on every such row (23.10.2026). The Zeit column shrinks to
+        # «07:03» on a one-day Einsatz (`journalDay`) and gives the Eintrag the difference; a
+        # date label («16.08.2026 15:35», 24.7mm at 9pt) still fits under the 29mm cap.
+        # +10pt: the two 5pt side paddings _table_style() puts inside every cell.
+        def col_w(labels: list[str], heading: str, lo: float, hi: float) -> float:
+            widest = max([_str_w(t, "Helvetica", 9) + 1 for t in labels] + [_str_w(heading, "Helvetica-Bold", 8)])
+            return min(hi, max(lo, widest + 10))
+
+        # …and the «Nachtrag» mark under a row's time is a label of that column too
+        time_labels = [r.timeLabel for r in payload.journal] + [L["nachtrag"] for r in payload.journal if r.nachtrag]
+        time_w = col_w(time_labels, L["colTime"], 14 * mm, 29 * mm)
+        area_w = col_w([r.area for r in payload.journal], L["colArea"], 18 * mm, 38 * mm)
+        # the Eintrag column's content width — mirrors the colWidths below, minus the paddings
+        entry_w = inner_w - time_w - area_w - 10
         thead = [Paragraph(_esc(L[c]), st["cellhead"]) for c in ("colTime", "colArea", "colEntry")]
         body: list[list] = []
         for r in payload.journal:
@@ -2435,14 +2452,9 @@ def compose_report_pdf(
             if r.nachtrag:
                 time_cell.append(Paragraph(_esc(L["nachtrag"]), st["muted"]))
             body.append([time_cell, Paragraph(_esc(r.area), st["cell"]), entry_cells])
-        # ⚠️ 29mm: the longest label «16.08.2026 15:35» measures 24.7mm at 9pt Helvetica, plus the
-        # 3.5mm of cell padding — so it never wraps onto a second line, which would inflate EVERY
-        # journal row. It was 36mm, sized for a label that still carried a comma between the date
-        # and the time (see lib/report · formatDateTime); a date does not get longer, so the extra
-        # 7mm was permanent white space taken from the one column that holds the entries.
         # splitInRow: an entry longer than a page (a pasted Lagebericht) splits across pages
         # instead of failing the whole Rapport with a LayoutError (review of #338)
-        tbl = Table([thead, *body], colWidths=[29 * mm, 24 * mm, inner_w - 53 * mm], repeatRows=1, splitInRow=1)
+        tbl = Table([thead, *body], colWidths=[time_w, area_w, inner_w - time_w - area_w], repeatRows=1, splitInRow=1)
         tbl.setStyle(_table_style())
         story.append(tbl)
 

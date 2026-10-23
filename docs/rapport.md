@@ -57,6 +57,15 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
   no outside timestamp). Hence «Am Bildschirm», never «digital», on the paper. A recipient who
   needs the written form gets a printout signed by hand.
 
+## The Einsatzjournal on paper
+
+- **Zeit and Bereich are as wide as their widest label** (`report_pdf` · journal `col_w`, capped at
+  29 / 38 mm): ReportLab breaks a word that does not fit its cell, and the fixed 24 mm Bereich
+  printed «Sofortmassna / hme» on every such row (23.10.2026).
+- **A one-day Einsatz prints the time alone** («07:03»); the date stands once in the heading,
+  «Einsatzjournal · 23.10.2026» (`reportPdfDirect · oneDay` → `ReportPayload.journalDay`). Rows
+  across midnight keep «Datum Zeit» on every row.
+
 ## What the figure pages carry
 
 - **What the Rapport's figure pages carry (18.09.2026).** The **Kroki is the picture**; everything
