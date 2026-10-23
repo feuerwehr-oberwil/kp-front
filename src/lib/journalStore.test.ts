@@ -982,7 +982,8 @@ describe('JournalStore — one outbox per identity (RBAC S5)', () => {
   })
 })
 
-describe('JournalStore — a CLOSED Einsatz refuses the live rows (N3, 25.09.2026)', () => {
+// N3, 25.09.2026
+describe('JournalStore — a CLOSED Einsatz refuses the live rows', () => {
   // The other phone had a «Kontakt» and the alarm clock's «Überfällig» on the way when the
   // Einsatz was closed elsewhere. The server refuses them by name (409 incident_closed): they are
   // parked as REFUSED — kept, exported, never re-sent, not a red lamp, not in the Verlauf — and

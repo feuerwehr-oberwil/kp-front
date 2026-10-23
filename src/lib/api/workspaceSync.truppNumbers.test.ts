@@ -142,7 +142,8 @@ describe('WorkspaceSync · three online devices mint «Trupp 1» at once', () =>
   }, 30_000)
 })
 
-describe('WorkspaceSync · the renumbering row is never lost (review of #228)', () => {
+// review of #228
+describe('WorkspaceSync · the renumbering row is never lost', () => {
   it('a Trupp registered WHILE the merge PUT is in flight is renumbered and said', async () => {
     server.latency = () => 30
     const a = await device('a')
@@ -270,7 +271,8 @@ describe('WorkspaceSync · a session nobody listens to', () => {
 // said two crews «were» Trupp 3. A Trupp moves at most ONCE per collision, straight from the
 // number its device showed to the one it keeps, and a number nothing was written under never
 // enters `formerNos`.
-describe('WorkspaceSync · three devices, one collision, one move each (N16)', () => {
+// N16
+describe('WorkspaceSync · three devices, one collision, one move each', () => {
   const orders = [[0, 1, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0], [0, 2, 1], [1, 0, 2]]
   const patterns: [string, () => () => number][] = [
     ['no latency', () => () => 0],

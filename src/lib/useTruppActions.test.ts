@@ -1065,7 +1065,8 @@ describe('the Atemschutz-Alarm rows — what ended it, and once for the whole Ei
     }
   })
 
-  it('names the REOPEN when «Wieder öffnen» restarted the clock — no Funkkontakt that never happened (D5)', () => {
+  // D5
+  it('names the REOPEN when «Wieder öffnen» restarted the clock — no Funkkontakt that never happened', () => {
     const rows: { text: string; id?: string }[] = []
     const reopenAt = '2026-07-06T11:00:00Z'
     const { actions } = rowHarness(baseTrupp({
@@ -1084,7 +1085,8 @@ describe('the Atemschutz-Alarm rows — what ended it, and once for the whole Ei
     expect(later[0].text).toBe('Atemschutz-Alarm beendet: Trupp Fabich Mischa – Funkkontakt')
   })
 
-  it('writes the restart-ended row ONLY for an alarm still running at the reopen (N4)', () => {
+  // N4
+  it('writes the restart-ended row ONLY for an alarm still running at the reopen', () => {
     const reopenAt = '2026-07-06T11:00:00Z'
     const alarmOpenedOn = '2026-07-06T10:00:00Z' // the contact the alarm ran from (its turnus)
     // running at the reopen: the restart replaced exactly that contact → the restart ends it
@@ -2419,7 +2421,8 @@ describe('useTruppActions — Raus with a Restdruck', () => {
   })
 })
 
-describe('useTruppActions — the Sicherungstrupp going in says so (24.09.2026, D1 ⑦)', () => {
+// 24.09.2026, D1 ⑦
+describe('useTruppActions — the Sicherungstrupp going in says so', () => {
   const standing = (over: Partial<Trupp> = {}): Trupp =>
     baseTrupp({ status: 'angemeldet', entryTime: '', lastContactTime: '', readings: [], auftrag: 'sichern', ...over })
 
@@ -2501,7 +2504,8 @@ describe('useTruppActions — an Eingangsdruck set on purpose is logged as measu
   })
 })
 
-describe('useTruppActions — a removal says so and can be taken back from the toast (staging N4)', () => {
+// staging N4
+describe('useTruppActions — a removal says so and can be taken back from the toast', () => {
   it('shows ONE confirm-with-undo toast; its «Rückgängig» restores the card and drops the ↶ entry', () => {
     ui.toasts.length = 0
     const { actions, state, timeline } = timed(baseTrupp({ no: 3, members: ['Graf Eva'] }))
@@ -2546,7 +2550,8 @@ describe('useTruppActions — «Nicht eingesetzt» from the card says so and can
   })
 })
 
-describe('useTruppActions — an edit row names the whole crew (staging r2, N27)', () => {
+// staging r2, N27
+describe('useTruppActions — an edit row names the whole crew', () => {
   it('«Trupp N (Leader / Member): …», like every other row about the people in it', () => {
     const lines: string[] = []
     const { actions } = harness(baseTrupp({ no: 4, members: ['Graf Eva'], auftrag: 'loeschen' }), undefined, (_i, t) => lines.push(t))
@@ -2555,7 +2560,8 @@ describe('useTruppActions — an edit row names the whole crew (staging r2, N27)
   })
 })
 
-describe('useTruppActions — the Atemschutznotfall (F1, 08.10.2026)', () => {
+// F1, 08.10.2026
+describe('useTruppActions — the Atemschutznotfall', () => {
   beforeEach(() => { ui.toasts.length = 0 })
   /** A board whose actions are rebuilt on the CURRENT trupps for every step — the way every render
    *  of IncidentWorkspace rebuilds them — with one shared timeline, rows and audit events. */
@@ -2718,7 +2724,8 @@ describe('useTruppActions — the Atemschutznotfall (F1, 08.10.2026)', () => {
   })
 })
 
-describe('useTruppActions — a Trupp in a Notfall stays on the board (review of #300)', () => {
+// review of #300
+describe('useTruppActions — a Trupp in a Notfall stays on the board', () => {
   beforeEach(() => { ui.toasts.length = 0 })
   it('refuses «Entfernen» until «Notfall beendet», and says why', () => {
     const t = baseTrupp({ status: 'raus', exitTime: '2026-07-06T10:20:00Z', notfallAt: '2026-07-06T10:15:00Z' })

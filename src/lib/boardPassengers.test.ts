@@ -12,7 +12,8 @@ const EF = FKS.pages[0]
 const page = (): BoardFormData => newFormPage(FKS, EF, {}, '2026-10-10T09:00:00.000Z')
 const sheet = (a: BoardAnno): TacticalObject => ({ id: a.id, sheet: { planId: 'tafel', anno: a } })
 
-describe('a board object this build does not understand is a PASSENGER: kept, never dropped (review of #338)', () => {
+// review of #338
+describe('a board object this build does not understand is a PASSENGER: kept, never dropped', () => {
   const unknown = { id: 'st1', kind: 'sticker', glue: { colour: 'pink' } } as unknown as BoardAnno
   // a page from a newer template: a section type this build has never seen, a column type too
   const newer = formAnno(page())
@@ -44,7 +45,8 @@ describe('a board object this build does not understand is a PASSENGER: kept, ne
   })
 })
 
-describe('two devices on one page: merged cell by cell (review of #338)', () => {
+// review of #338
+describe('two devices on one page: merged cell by cell', () => {
   const base = page()
   it('different cells: both survive', () => {
     const mine = putRow(base, 'massnahmen', 'm1', { cells: { was: 'Riegel Seite C', wer: 'TLF' } }, 1000)
@@ -99,7 +101,8 @@ describe('the audit hears a cell, not the page', () => {
   })
 })
 
-describe('one device takes a page off while another writes on it (re-review of #338)', () => {
+// re-review of #338
+describe('one device takes a page off while another writes on it', () => {
   const base = putRow(page(), 'massnahmen', 'm1', { cells: { was: 'Riegel' } }, 500)
   const anno = formAnno(base) as FormAnno
   const at = (f: BoardFormData) => ({ objects: [sheet({ ...anno, form: f })] })
@@ -134,7 +137,8 @@ describe('one device takes a page off while another writes on it (re-review of #
   })
 })
 
-describe('a row emptied on one device while the other stamps its time (re-review of #338)', () => {
+// re-review of #338
+describe('a row emptied on one device while the other stamps its time', () => {
   it('goes — a time alone holds nothing to act on', () => {
     const base = putRow(page(), 'massnahmen', 'm1', { cells: { was: 'Riegel', wer: 'TLF' } }, 500)
     const emptied = putRow(base, 'massnahmen', 'm1', { cells: { was: '', wer: '' } }, 1000)

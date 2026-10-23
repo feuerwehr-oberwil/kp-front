@@ -1241,7 +1241,8 @@ describe('krokiFitMaxZoom', () => {
   })
 })
 
-describe('journalRows · Nachtrag (staging r3)', () => {
+// staging r3
+describe('journalRows · Nachtrag', () => {
   it('prints a row the server received after the close as a Nachtrag, in its own time order', () => {
     const closed = '2026-07-02T18:00:00Z'
     const events = [
@@ -1254,7 +1255,8 @@ describe('journalRows · Nachtrag (staging r3)', () => {
     expect(byText.get('Trupp 2: Kontakt')?.nachtrag).toBe(true)
   })
 
-  it('prints what the Abschluss itself wrote as part of the close (staging r6, F3)', () => {
+  // staging r6, F3
+  it('prints what the Abschluss itself wrote as part of the close', () => {
     const closed = '2026-07-02T18:00:00Z'
     const events = [
       { id: 'close', t: '', at: closed, icon: 'lock', text: 'Einsatz abgeschlossen', lifecycle: 'closed' as const },

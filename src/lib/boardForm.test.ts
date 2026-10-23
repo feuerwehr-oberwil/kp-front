@@ -24,7 +24,8 @@ describe('the bundled FKS «Erste Führung» — strict 1:1 with the poster', ()
     expect(EF.sections.map((s) => s.id)).toEqual(['problem', 'lagekarte', 'massnahmen', 'mittel', 'verbindungen', 'absprachen'])
     expect(EF.columns).toBe(2)
   })
-  it('switches the staging extras OFF — header, Stichwort, Erledigt, Wasserbezug / Absperrung — and the Tendenz ON (owner, round 2)', () => {
+  // owner, round 2
+  it('switches the staging extras OFF — header, Stichwort, Erledigt, Wasserbezug / Absperrung — and the Tendenz ON', () => {
     const problem = EF.sections[0]
     expect(EF.header).toBe(false)
     expect(problem.type === 'quad' && [problem.trend, problem.tag]).toEqual([true, false])
@@ -43,7 +44,8 @@ describe('the bundled FKS «Erste Führung» — strict 1:1 with the poster', ()
   })
 })
 
-describe('keeping and drawing are two questions (review of #338)', () => {
+// review of #338
+describe('keeping and drawing are two questions', () => {
   const patched = (patch: (t: BoardTemplate) => void) => { const t = JSON.parse(JSON.stringify(FKS)) as BoardTemplate; patch(t); return t }
   it.each([
     ['another schema', (t: BoardTemplate) => { (t as { schema: string }).schema = 'board-template/2' }],
@@ -203,7 +205,8 @@ describe('the Rapport gets the page resolved, in the deployment’s words', () =
   })
 })
 
-describe('repeatable pages (owner, 10.10. evening: «multiple concepts»)', () => {
+// owner, 10.10. evening: «multiple concepts»
+describe('repeatable pages', () => {
   it('Konzept and Rapport repeat; the others are offered once', () => {
     expect(FKS.pages.filter((p) => p.repeatable).map((p) => p.id)).toEqual(['konzept', 'rapport'])
   })

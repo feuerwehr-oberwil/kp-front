@@ -42,13 +42,15 @@ describe('isNachtrag', () => {
     expect(isNachtrag(row('no-at'), closed)).toBe(false) // legacy rows can't be judged
   })
 
-  it('flags a row the server RECEIVED after the close, whatever time it carries (staging r3)', () => {
+  // staging r3
+  it('flags a row the server RECEIVED after the close, whatever time it carries', () => {
     // a Kontakt from 17:55 that reached the server at 18:05, after an 18:00 close: in its time
     // order — and late on paper
     expect(isNachtrag({ ...row('late', '2026-07-02T17:55:00Z'), receivedAfterClose: true }, closed)).toBe(true)
   })
 
-  it('a row the Abschluss itself wrote is part of the close, not a Nachtrag (staging r6, F3)', () => {
+  // staging r6, F3
+  it('a row the Abschluss itself wrote is part of the close, not a Nachtrag', () => {
     // «Trupp 2 beim Abschluss noch drin», stamped 0.6 s past the server's closed_at
     const own = { ...row('inside', '2026-07-02T18:00:00.600Z'), atClose: true }
     expect(isNachtrag(own, closed)).toBe(false)

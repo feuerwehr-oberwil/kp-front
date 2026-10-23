@@ -33,7 +33,8 @@ describe('useAbschluss', () => {
     expect(closed.azFrozenAt).toBe(Date.parse('2026-09-23T03:30:00Z'))
   })
 
-  it('a close on ANOTHER device stops the alarm here, in place — no remount (N3, 25.09.2026)', () => {
+  // N3, 25.09.2026
+  it('a close on ANOTHER device stops the alarm here, in place — no remount', () => {
     // App flips the live meta when the close is heard (App · onIncidentClosed); the hook that
     // drives the AtemschutzAlarmHost must follow the SAME mount, not only the next open
     let meta: Parameters<typeof useAbschluss>[0]['incidentMeta'] = { is_archived: false, status: 'offen', closed_at: null }
@@ -53,7 +54,8 @@ describe('useAbschluss', () => {
     expect(r.truppsStillOut).toBe(0)
   })
 
-  it('drains the Verlauf and audit outboxes BEFORE the handover (review of #235)', async () => {
+  // review of #235
+  it('drains the Verlauf and audit outboxes BEFORE the handover', async () => {
     // after the archive they would be judged against a closed Einsatz
     vi.mocked(confirmDialog).mockResolvedValueOnce(true)
     const order: string[] = []
@@ -66,7 +68,8 @@ describe('useAbschluss', () => {
     expect(order).toEqual(['outboxes', 'complete'])
   })
 
-  it('marks the rows written between the confirm and the close as the Abschluss\'s own (staging r6, F3)', async () => {
+  // staging r6, F3
+  it('marks the rows written between the confirm and the close as the Abschluss\'s own', async () => {
     vi.mocked(confirmDialog).mockResolvedValueOnce(true)
     const marks: boolean[] = []
     const seen: string[] = []
@@ -94,7 +97,8 @@ describe('useAbschluss', () => {
     expect(marks).toEqual([])
   })
 
-  it('the «beim Abschluss noch drin» rows are written under the close mark (#227 × #235, staging integration)', async () => {
+  // #227 × #235, staging integration
+  it('the «beim Abschluss noch drin» rows are written under the close mark', async () => {
     // the crews question («trotzdem») and then the Abschluss confirm
     vi.mocked(confirmDialog).mockResolvedValueOnce(true).mockResolvedValueOnce(true)
     const marks: boolean[] = []

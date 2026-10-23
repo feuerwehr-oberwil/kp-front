@@ -192,7 +192,8 @@ describe('places', () => {
   })
 })
 
-describe('an object\'s address (review round 2: the address, never «Schlüsseldepot» in its place)', () => {
+// review round 2
+describe('an object\'s address is the address, never «Schlüsseldepot» in its place', () => {
   const KIND = 'Stationsobjekt'
   it('knows a name that is an address', () => {
     for (const n of ['Mühlemattstrasse 24', 'Schulstrasse 4', 'Bienenstrasse 28 (EH)', 'Hauptstr. 10a', 'Im Gwidum 3']) expect(nameIsAddress(n), n).toBe(true)
@@ -344,7 +345,8 @@ describe('plans as the rail documents', () => {
   ]
   const p = (module: string, title: string) => ({ id: `plan:x:${module}`, module, title })
 
-  it('names a file-name title by the module catalogue (owner R2 · real titles)', async () => {
+  // owner R2, real titles
+  it('names a file-name title by the module catalogue', async () => {
     const { planTitle } = await import('./plans')
     expect(planTitle(p('modul2', 'Migros – modul2'), STATION)).toBe('Wie komme ich herein')
     expect(planTitle(p('modul5-pv', 'Bruderholzstrasse 150 – modul5-pv'), STATION)).toBe('Photovoltaik')
@@ -366,7 +368,8 @@ describe('plans as the rail documents', () => {
     expect(planTitle(p('modul4', ''), STATION)).toBe('Modul 4')
   })
 
-  it('a plan row says «Modul …» only — every module key of the station (owner, review round 4)', async () => {
+  // owner, review round 4
+  it('a plan row says «Modul …» only — every module key of the station', async () => {
     const { planRowLabel } = await import('./plans')
     const want: Record<string, string> = {
       modul1: 'Modul 1', modul2: 'Modul 2', 'modul2-3': 'Modul 2-3', modul23: 'Modul 2-3', modul3: 'Modul 3',
@@ -412,7 +415,8 @@ describe('outline cells', () => {
   })
 })
 
-describe('the retired «depot» kind (review round 3, 17.10.2026)', () => {
+// review round 3, 17.10.2026
+describe('the retired «depot» kind', () => {
   it('reads an older catalogue\'s key box as the plan-less object it is', () => {
     const old = { generatedAt: 'x', objects: [SCHLOSS, { ...DEPOT, kind: 'depot' as unknown as 'objekt' }] }
     const read = withRetiredKinds(old)

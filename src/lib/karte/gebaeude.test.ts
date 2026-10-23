@@ -25,7 +25,8 @@ const meta = (p: StationPlan, o: Partial<PlanAlignmentMetadata> = {}): PlanAlign
   dataset_id: p.id, plan_version: p.version, revision_url: '', floors: [], alignments: [], ...o,
 })
 
-describe('the Karte\'s Gebäude is the Einsatz\'s (review round 4)', () => {
+// review round 4
+describe('the Karte\'s Gebäude is the Einsatz\'s', () => {
   it('binds the floor pack the way an Einsatz does, under the same sheet id', () => {
     expect(sheetBindingId('o1', 'modul6')).toBe(objectPlanGeorefKey('o1', 'modul6'))
     const metas = new Map([

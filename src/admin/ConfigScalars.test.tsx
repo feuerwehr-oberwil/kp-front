@@ -75,7 +75,8 @@ describe('identity.helpIntro — the paragraph every new AdF reads', () => {
   })
 })
 
-describe('identity.shortName — the Karte menu button (review round 5)', () => {
+// review round 5
+describe('identity.shortName — the Karte menu button', () => {
   it('stores the label, holds it to 8 characters, and clearing it is null (the menu symbol)', async () => {
     await setup(<IdentitySection />, () => screen.queryByRole('textbox', { name: new RegExp(I.shortName) }))
     const box = screen.getByRole('textbox', { name: new RegExp(I.shortName) }) as HTMLInputElement

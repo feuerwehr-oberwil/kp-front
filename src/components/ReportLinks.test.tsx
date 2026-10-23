@@ -134,7 +134,8 @@ describe('Rapport · Formulare & Links', () => {
       open.mockRestore()
     })
 
-    it('⚠️ the card is not drawn for a session that may not edit the Rapport (RBAC audit 22.10.2026)', () => {
+    // RBAC audit 22.10.2026
+    it('⚠️ the card is not drawn for a session that may not edit the Rapport', () => {
       // the station's pre-filled forms are the editor's paperwork – a viewer opening a
       // Schadenmeldung with this Einsatz's data in it is not a read
       setup({ canEdit: false })

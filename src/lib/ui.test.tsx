@@ -81,7 +81,8 @@ describe('confirmDialog (Base UI AlertDialog)', () => {
   })
 })
 
-describe('undoToast outlives remote merges (25.09.2026)', () => {
+// 25.09.2026
+describe('undoToast outlives remote merges', () => {
   it('declines once a merge changed a record its «Rückgängig» would write', () => {
     vi.useFakeTimers() // afterEach flushes what these leave standing
     render(<Overlays />)

@@ -432,7 +432,8 @@ describe('a locked line on the plan (BoardAnno.locked — the twin of Drawing.lo
 // Messen left the rail (deliberate Lage↔Plan divergence), the floating delete orbs left the
 // canvas (the detail panel is the one delete), a note opens on TAP like a symbol, the Punkte
 // draft carries real vertex handles, and tap-away releases a draft instead of eating it.
-describe('Plan round 3 (29.08.)', () => {
+// Plan round 3, 29.08.
+describe('the Plan rail and its drafts', () => {
   const T = appConfig.copy.toolDock
   const W = appConfig.copy.whiteboard
   // toNorm and the handle layout need a real board rect, which jsdom never lays out.

@@ -19,7 +19,8 @@ describe('discrete plan edit completion', () => {
   })
 })
 
-describe('the board’s own ↶ ↷ are restores, not placements (post-mortem D3, 24.09.2026)', () => {
+// post-mortem D3, 24.09.2026
+describe('the board’s own ↶ ↷ are restores, not placements', () => {
   it('hands the snapshot back with `gesture: false`, both ways', () => {
     const a = { id: 's', kind: 'symbol' as const, x: .5, y: .5 }
     const onChange = vi.fn()
@@ -35,7 +36,8 @@ describe('the board’s own ↶ ↷ are restores, not placements (post-mortem D3
   })
 })
 
-describe('a remote merge mid-gesture (25.09.2026)', () => {
+// 25.09.2026
+describe('a remote merge mid-gesture', () => {
   const a = { id: 's', kind: 'symbol' as const, x: .5, y: .5 }
   /** the board as the Whiteboard drives it: annos + the caller-owned stacks, in state */
   const mount = () => {
