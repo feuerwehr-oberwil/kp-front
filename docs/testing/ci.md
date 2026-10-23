@@ -41,7 +41,8 @@ check` against the models); image, secrets, e2e, visual and perf stay CI's.
 - **Ratchets only go down.** The eslint warnings per rule (`scripts/eslint-baseline.json`; `pnpm
   lint` fails when a rule's count goes up, or down without `pnpm lint:update`), the style-debt
   baseline (`src/styles/styleDebt.baseline.json`,
-  [`ui-conventions.md`](../ui-conventions.md#tokens-the-cascade-and-the-scales)) and the vitest
+  [`ui-conventions.md`](../ui-conventions.md#tokens-the-cascade-and-the-scales); a count that went
+  down is only a console note there, and in `controlDebt.test.ts`) and the vitest
   coverage floor are lowered (the floor raised) when you fix something and never moved the other
   way to pass. The gzipped entry, App, maplibre, pdf-worker and CSS chunks have a +5 % budget
   against `scripts/bundle-baseline.json` (`scripts/check-bundle-size.mjs`, CI); a deliberate

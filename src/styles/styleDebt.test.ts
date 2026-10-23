@@ -7,8 +7,9 @@
 //   weight   – a font-weight that is no step (600, 650, 750, 300, …)      → var(--fw-*)
 //   spacing  – a padding/margin/gap px value off the 4/8 grid (5, 7, 9…) → var(--sp-*)
 //   shadow   – a box-shadow with a literal colour (rgba, #…)              → var(--e1…e5)
-// and fails when a count goes UP, or a new file brings any. It also fails when a count goes
-// DOWN and the baseline still has the old number, the way the lint ceiling is lowered by hand:
+// and fails when a count goes UP, or a new file brings any. A count that went DOWN is a console
+// note, not a failure (sweep D.10, 23.10.2026: «down fails too» cost ~10 bookkeeping commits in
+// 16 days); lower the baseline when it suits you, the way the lint ceiling is lowered:
 //   STYLE_DEBT_UPDATE=1 pnpm vitest run src/styles/styleDebt.test.ts
 // rewrites styleDebt.baseline.json — but only ever lowers it. There is no command that raises it;
 // if a literal is genuinely right, say why in the file and edit the JSON in the same commit.
@@ -91,10 +92,6 @@ describe('stylesheet debt ratchet', () => {
         if ((c[m] ?? 0) > was) up.push(`${f}: ${m} ${was} → ${c[m]}`)
       }
     }
-    expect(up, 'new literal(s): use the tokens in 01-tokens.css (--fs-*, --fw-*, --sp-*, --e*)').toEqual([])
-  })
-
-  it('the baseline is as low as the stylesheets', () => {
     const down: string[] = []
     for (const [f, c] of Object.entries(baseline)) {
       for (const m of METRICS) {
@@ -102,6 +99,7 @@ describe('stylesheet debt ratchet', () => {
         if ((c[m] ?? 0) > now) down.push(`${f}: ${m} ${c[m]} → ${now}`)
       }
     }
-    expect(down, 'debt went down — lower the baseline: STYLE_DEBT_UPDATE=1 pnpm vitest run src/styles/styleDebt.test.ts').toEqual([])
+    if (down.length) console.info(`style debt went down (${down.length}) – lower the baseline when convenient: STYLE_DEBT_UPDATE=1 pnpm vitest run src/styles/styleDebt.test.ts\n  ${down.join('\n  ')}`)
+    expect(up, 'new literal(s): use the tokens in 01-tokens.css (--fs-*, --fw-*, --sp-*, --e*)').toEqual([])
   })
 })

@@ -39,9 +39,9 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   (staged; the owner sees pairs for anything visible), so do not mass-convert a file on the side.
   **The pile only shrinks**: `src/styles/styleDebt.test.ts` counts per stylesheet the literal
   font sizes, off-step weights, off-grid spacings and literal-colour shadows against
-  `styleDebt.baseline.json` and fails when one goes up – or when one went down and the baseline
-  was not lowered (`STYLE_DEBT_UPDATE=1 pnpm vitest run src/styles/styleDebt.test.ts`, which
-  only ever lowers it). Like the lint ceiling: never raise it to pass.
+  `styleDebt.baseline.json` and fails when one goes up; one that went down is a console note –
+  lower the baseline when convenient (`STYLE_DEBT_UPDATE=1 pnpm vitest run
+  src/styles/styleDebt.test.ts`, which only ever lowers it). Never raise it to pass.
 - **Breakpoints come from `src/lib/breakpoints.ts` only.** The one corner (`--r-sm`, `--r-bar`,
   `--r-xs`) is under «Buttons follow one spec» · *Radius*, the one button family under «Button
   components».
