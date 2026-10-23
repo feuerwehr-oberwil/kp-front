@@ -78,7 +78,6 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'wheel
     proofIntact: 'Catena di hash intatta',
     proofBroken: 'Catena di hash interrotta',
     proofBrokenAt: 'Catena di hash interrotta al #{seq}',
-    areaManual: 'Manuale',
     areaAtemschutz: 'Squadre',
     areaAnwesenheit: 'Presenze',
     areaMittel: 'Materiale',

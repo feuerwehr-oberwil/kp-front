@@ -78,7 +78,6 @@ export const reportCopy: Localizable<Pick<Copy, 'auswertung' | 'report' | 'wheel
     proofIntact: 'Chaîne de hash intacte',
     proofBroken: 'Chaîne de hash rompue',
     proofBrokenAt: 'Chaîne de hash rompue à #{seq}',
-    areaManual: 'Manuel',
     areaAtemschutz: 'Binômes',
     areaAnwesenheit: 'Présences',
     areaMittel: 'Matériel',

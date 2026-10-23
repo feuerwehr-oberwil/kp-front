@@ -133,7 +133,7 @@ export function captureJournalRow(
         label: action.label, menge: String(action.menge), unit: unitLabel(action.unit),
       }))
     // ⚠️ 'attach', not 'photo' (23.08.): a Beilage is a Rapport row, while #photo is also what a
-    // composer photo entry wears, and that one is «Manuell». One glyph, two Bereiche — invisible
+    // composer photo entry wears, and that one is «Info». One glyph, two Bereiche — invisible
     // on paper (the print has a Bereich column) but fatal on the Verlauf, where the disc is now
     // the whole classification. Rows written before the change keep #photo and `journalArea`
     // keeps reading them as Rapport; the record is append-only.

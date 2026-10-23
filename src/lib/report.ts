@@ -267,14 +267,14 @@ export function journalArea(e: TimelineEvent, plans: PlanDocument[]): string {
   if (e.kind === 'journal' && e.icon === 'check') return r.areaChecklist
   // …and so is taking one back: its ↶ glyph is shared, the template it was written from is not
   if (e.kind === 'journal' && startsWithTemplate(e.text, appConfig.copy.checklists.milestoneUndone)) return r.areaChecklist
-  // ⚠️ A row that WAS given a type says so in this column. «Manuell» answers «wo kam das her»,
-  // which is the least interesting thing about an Auftrag or a Sofortmassnahme — and the type
-  // was already in the text as a «Auftrag · » prefix, so the printed row carried the word twice
-  // and the column carried nothing. Now the column IS the type and `withoutAreaPrefix` drops
-  // the duplicate from the text. `info` keeps «Manuell»: it is the ordinary case and prints no
-  // tag anywhere else either.
+  // ⚠️ A row that WAS given a type says so in this column — and the type was already in the
+  // text as a «Auftrag · » prefix, so `withoutAreaPrefix` drops the duplicate from the text.
+  // A hand-written row without one is «Info», the composer's own word for the plain entry: the
+  // operator who wrote «Info» finds it under «Info» in the filter and on paper (sweep E.5,
+  // 23.10.2026 – it used to be a third word, «Manuell»).
+  const info = appConfig.copy.journal.entryTypes.info
   if (e.entryType && e.entryType !== 'info') {
-    return appConfig.copy.journal.entryTypes[e.entryType] ?? r.areaManual
+    return appConfig.copy.journal.entryTypes[e.entryType] ?? info
   }
   // …and a row raised by the ring is a Pendenz even without a typed tag — on screen the row
   // carries the «Pendenz» chip, so the printed column says the same word. AFTER the entryType
@@ -288,7 +288,7 @@ export function journalArea(e: TimelineEvent, plans: PlanDocument[]): string {
   // payload is the honest handle: only the Anwesenheit's rows carry one, both the `raised` and the
   // `resolved` half of the pair, and it is on every such row ever written.
   if (e.conflict) return r.areaAnwesenheit
-  if (e.kind === 'audio' || e.kind === 'photo' || e.kind === 'journal' || e.pinned) return r.areaManual
+  if (e.kind === 'audio' || e.kind === 'photo' || e.kind === 'journal' || e.pinned) return info
   // ── then by ICON, which is what actually separates the writers ──
   // ⚠️ Every row the QR poster writes has NO kind at all (lib/captureClient · row), so a rule
   // that went by kind classified all of them as map-tactical. The icon is the only thing the
@@ -305,7 +305,7 @@ export function journalArea(e: TimelineEvent, plans: PlanDocument[]): string {
   // append-only, so the old rows have to keep classifying as they always did. Same problem, and
   // the same answer, as `startsWithTemplate` below. The split exists for the SCREEN: the Verlauf
   // row's disc is now the whole classification (Journal · journalDisc), and #photo was also the
-  // glyph of a composer photo entry, which is «Manuell» two branches further up.
+  // glyph of a composer photo entry, which is «Info» two branches further up.
   if (e.icon === 'attach' || e.icon === 'photo') return r.areaRapport
   // ⚠️ 'clock' means Anwesenheit here and nothing else: the poster's Zeiten rows carry it. Snooze
   // rows carried it too until 23.08., but every one of them has a `reminder` and is answered as

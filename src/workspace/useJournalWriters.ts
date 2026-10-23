@@ -121,7 +121,7 @@ export function useJournalWriters({
     commit((d) => ({ ...d, entities: [...d.entities, ...made.filter((m) => !d.entities.some((e) => e.id === m.id))] }))
     for (const e of made) emit('entity.add', { id: e.id, kind: 'photo', entity: e })
     // 'cam' + 'symbol': a Lage row («Kroki»). NOT 'photo' — that glyph and kind are the
-    // composer's own photo entry («Manuell», editable by hand) and the Beilage (lib/report).
+    // composer's own photo entry («Info», editable by hand) and the Beilage (lib/report).
     log('cam', made.length === 1 ? P.logPlaced : fillTemplate(P.logPlacedN, { n: made.length }), 'symbol', undefined, made[0].id)
     setJournalOpen(false); setMode('map'); setPanel(null)
     setSelectedDrawingId(null); setSelectedId(made[0].id)

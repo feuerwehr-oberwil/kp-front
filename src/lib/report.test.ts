@@ -214,7 +214,7 @@ describe('report journal rows', () => {
     const rows = journalRows(events, plans)
     expect(rows.map((r) => r.id)).toEqual(['old', 'new'])
     expect(rows[0].area).toBe('Trupps')
-    expect(rows[1].area).toBe('Manuell')
+    expect(rows[1].area).toBe('Info')
   })
 
   // staging walk-through 25.09.2026: the paper printed «Symbol «Feuer» gesetzt» and dropped the
@@ -307,7 +307,7 @@ describe('report journal rows', () => {
     expect(row.text).toBe('Einsatzleiter: Meier Anna')
   })
 
-  // «Manuell» answers «wo kam das her» — the least interesting thing about an Auftrag, and the
+  // «where did it come from» is the least interesting thing about an Auftrag, and the
   // word was already sitting in the text as a «Auftrag · » prefix. Column and text swapped jobs.
   it('names the entry type in the Bereich column and drops it from the text', () => {
     const e: TimelineEvent = {
@@ -332,12 +332,12 @@ describe('report journal rows', () => {
     expect(row.text).toBe('')
   })
 
-  it('leaves an ordinary Info row as «Manuell» — the common case wears no tag anywhere', () => {
+  it('prints an ordinary Info row as «Info» — the composer’s own word', () => {
     const e: TimelineEvent = {
       id: 'a', t: '14:12', at: '2026-08-10T12:12:00.000Z', icon: 'type', kind: 'journal',
       text: 'Kellerbrand bestätigt', entryType: 'info',
     }
-    expect(journalRows([e], plans)[0].area).toBe('Manuell')
+    expect(journalRows([e], plans)[0].area).toBe('Info')
   })
 
   /* ⚠️ The crew-row cut is made HERE, off the row's own subject (04.09., Feldtest Manuel): only a
@@ -412,9 +412,9 @@ describe('journalArea · one glyph, one Bereich — without breaking the record'
   })
 
   // the collision the split removes: same glyph, two Bereiche, and on screen nothing else to
-  // tell them apart. The composer's photo entry is «Manuell» and must stay so.
-  it('keeps a composer photo entry «Manuell» — that is why the Beilage got its own glyph', () => {
-    expect(journalArea(ev({ icon: 'photo', kind: 'photo', text: 'Foto' }), plans)).toBe('Manuell')
+  // tell them apart. The composer's photo entry is «Info» and must stay so.
+  it('keeps a composer photo entry «Info» — that is why the Beilage got its own glyph', () => {
+    expect(journalArea(ev({ icon: 'photo', kind: 'photo', text: 'Foto' }), plans)).toBe('Info')
   })
 
   // the ↶ glyph is shared (Rückzug, Anwesenheit); the template says where it came from

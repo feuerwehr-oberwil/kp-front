@@ -306,7 +306,7 @@ export const journalCopy = {
     // ── Filter ────────────────────────────────────────────────────────────────────────────
     // The funnel beside the lens (feat 37 · B, 23.09.2026). Its categories are NOT words of its
     // own: they are the Bereiche the disc, the legend and the Rapport's «Bereich» column already
-    // say (report · areaManual …, entryTypes, noteChip), so nothing is named twice. The ticks
+    // say (entryTypes, noteChip, report · areaLage …), so nothing is named twice. The ticks
     // OR together and AND with the search (lib/journalFilter).
     filter: 'Verlauf filtern',
     filterArt: 'Art des Eintrags',

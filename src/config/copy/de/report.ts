@@ -94,8 +94,8 @@ export const reportCopy = {
     proofBroken: 'Hash-Kette unterbrochen',
     proofBrokenAt: 'Hash-Kette unterbrochen bei #{seq}',
     // journalArea — the "Bereich" column value for a printed journal row. The names are the app's
-    // own surface names (copy.modes), so a row can be found again where it was created.
-    areaManual: 'Manuell',
+    // own surface names (copy.modes), so a row can be found again where it was created. A
+    // hand-written row prints its Art instead (journal.entryTypes – «Info» for the plain one).
     // ⚠️ «Trupps», mit dem Bereich (copy.modes, 04.09.). Die Spalte sammelt JEDE Truppzeile —
     // auch die eines Trupps ohne Atemschutz —, und «Atemschutz» über einer Zeile «Verkehrstrupp
     // angemeldet» wäre auf einem Rechtsdokument schlicht falsch. Der gedruckte ABSCHNITT heisst
