@@ -102,7 +102,7 @@
 .adm-pos-hits .adm-hint { padding: var(--sp-2) var(--sp-3); }
 .adm-pos-was { display: block; width: 14px; height: 14px; border-radius: 50%; border: 2px dashed var(--surface); background: var(--ink-45); }
 .adm-pos-where { margin-top: var(--sp-2); }
-.adm-pos-legend { color: var(--red); }
+.adm-pos-legend { color: var(--red-strong); }
 .adm-pos-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); }
 .adm-pos-seg button { display: flex; flex-direction: column; gap: 2px; min-height: 56px; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--border); border-radius: var(--r-sm);
   background: var(--surface); color: var(--ink); text-align: left; cursor: pointer; }

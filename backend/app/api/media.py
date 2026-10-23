@@ -32,8 +32,8 @@ from ..auth.incident_link import link_session_incident
 from ..credentials import get as credential
 from ..credentials import load as load_credentials
 from ..database import get_db
+from ..incident_service import INCIDENT_NOT_FOUND, get_incident_or_404
 from ..models import Incident, Media, SttJob
-from .incidents import INCIDENT_NOT_FOUND, get_incident_or_404
 
 router = APIRouter(tags=["media"])
 logger = logging.getLogger(__name__)

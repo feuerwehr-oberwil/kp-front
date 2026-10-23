@@ -38,10 +38,17 @@ frontend ESLint, not the full gate. `just ci` also runs the coverage floor, the 
 audits, licenses and `just schema-check` (a throwaway Postgres migrated to head, then `alembic
 check` against the models); image, secrets, e2e, visual and perf stay CI's.
 
-- **Ratchets only go down.** The eslint warnings per rule (`scripts/eslint-baseline.json`; `pnpm
-  lint` fails when a rule's count goes up, or down without `pnpm lint:update`), the style-debt
+- **Ratchets only go down.** The eslint warnings per rule and what `eslint-disable` directives
+  silence per rule (`scripts/eslint-baseline.json`, `rules` and `silenced`; `pnpm lint` fails when
+  a count goes up, or down without `pnpm lint:update` – a non-null `!` outside the tests counts as
+  a warning), the style-debt
   baseline (`src/styles/styleDebt.baseline.json`,
-  [`ui-conventions.md`](../ui-conventions.md#tokens-the-cascade-and-the-scales)) and the vitest
+  [`ui-conventions.md`](../ui-conventions.md#tokens-the-cascade-and-the-scales); a count that went
+  down is only a console note there, and in `controlDebt.test.ts`), the dead-code findings
+  (`pnpm knip`: unused files, exports, types and dependencies per kind against
+  `scripts/knip-baseline.json`, config `knip.json`; an export used only in its own file does not
+  count, a count that went down is a note, `node scripts/knip-ratchet.mjs --update` lowers it)
+  and the vitest
   coverage floor are lowered (the floor raised) when you fix something and never moved the other
   way to pass. The gzipped entry, App, maplibre, pdf-worker and CSS chunks have a +5 % budget
   against `scripts/bundle-baseline.json` (`scripts/check-bundle-size.mjs`, CI); a deliberate
@@ -124,6 +131,12 @@ screenshots: those retain their separate projects and measurement environments. 
 `node scripts/check-e2e-suites.mjs` after changing project/spec selection. It discovers the real
 Playwright inventory, including new files/projects, without launching a browser or app, and
 rejects empty suites, duplicate cases or missing cases.
+
+Every browser job (the three suites, Performance, Visual, «Visual baselines») installs its
+browsers through `.github/actions/playwright-browsers`: `~/.cache/ms-playwright` comes from the
+Actions cache, keyed on the Playwright version and the browser list, and a hit installs only the
+apt dependencies. The CDN download was what stalled jobs into their 10-minute timeout (seven of
+sixteen runs re-run by hand in October 2026); a Playwright bump starts one cold run per key.
 
 Every suite retains the client-error/render-storm guard, the field scenario's no-retry policy,
 and the browser's own observation windows. Parallelize by isolated stacks, not additional

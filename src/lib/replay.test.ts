@@ -205,7 +205,8 @@ describe('attachment and Plan replay folding', () => {
     expect((await stateAt(b, 3000))?.board?.gebaeude[0]).toMatchObject({ color: 'red', pts: [[0, 0, 0], [1, 1, 1]] })
   })
 
-  it('replays a Tafel page: each edit\'s cells fold in, and a removal hides it (re-review of #338)', async () => {
+  // re-review of #338
+  it('replays a Tafel page: each edit\'s cells fold in, and a removal hides it', async () => {
     const page = formAnno(newFormPage(BUNDLED_TEMPLATES[0], BUNDLED_TEMPLATES[0].pages[0], {}, '2026-10-10T09:00:00.000Z'))
     const edited = putRow(page.form, 'massnahmen', 'm1', { cells: { was: 'Riegel', wer: 'TLF' } })
     const events = [

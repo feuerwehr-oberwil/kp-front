@@ -43,7 +43,7 @@ export function initials(name: string): string {
 
 // Display label for a backend role (editor/el/viewer). Display-only; the wire value
 // keeps the English role name. Read from the copy catalogue inside the call, so the
-// deployment locale applies (module-level capture would freeze it — AGENTS.md · i18n).
+// deployment locale applies (module-level capture would freeze it — docs/copy-and-wording.md).
 export function roleLabel(role: string): string {
   const C = appConfig.copy.admin.members
   return role === 'editor' ? C.roleEditor : role === 'el' ? C.roleEl : C.roleViewer
@@ -203,7 +203,7 @@ export function unitLabel(unit: string): string {
  * Strip what the printed Einsatzrapport cannot set — emoji, pictographs, dingbats and the
  * joiners/variation selectors that glue them together.
  *
- * The rapport is composed server-side in Helvetica (backend · report_pdf), which has no glyph
+ * The rapport is composed server-side in Helvetica (backend · app/report), which has no glyph
  * for any of these: a «Brand 🔥 im 2. OG» typed on a phone came out as «Brand ■ im 2. OG» on the
  * sheet that gets signed — and only there, so nobody saw it until the paper was in their hand.
  * Blocked at the input instead of fixed at render, so what the app shows and what the printer

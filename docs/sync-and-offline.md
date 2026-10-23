@@ -90,9 +90,11 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
   client gate (`sanitizeWorkspace` · `isPassengerAnno`) keeps any board object of a kind it does
   not draw, untouched, and every merge and save carries it along (`isDrawnBoardKind` splits
   drawing from riding); (2) the server guards builds that predate the rule: a full save whose
-  `schemaVersion` is older than a kind (`app/workspace_kinds.py` · `BOARD_KIND_SINCE`) gets the
-  stored objects of that kind put back (`keep_newer_board_kinds`). A new board kind → bump
-  `WORKSPACE_SCHEMA_VERSION` (`src/lib/workspace.ts`, now 3) and add it to `BOARD_KIND_SINCE`.
+  `schemaVersion` is older than a kind (`backend/app/data/board_kinds.json`, read as
+  `app/workspace_kinds.py` · `BOARD_KIND_SINCE`) gets the stored objects of that kind put back
+  (`keep_newer_board_kinds`). A new board kind → bump `WORKSPACE_SCHEMA_VERSION`
+  (`src/lib/workspace.ts`, now 3) and give it its row in `board_kinds.json`;
+  `src/lib/boardKinds.test.ts` fails on a `BoardKind` without one.
   A Tafel page is ONE object but merges **atom by atom** (`lib/boardFormMerge`: a cell, a line,
   a field), the later edit (`t`, server clock) winning a true clash and writing a Verlauf row.
 - **IDs are prefixed timestamps, not UUIDs** – `newId(prefix)` from `src/lib/ids.ts`
@@ -135,7 +137,7 @@ the module they concern (`lib/connectivity`, `lib/eventScope`, `lib/jsonEqual`,
 
 ⚠️ **A closed Einsatz keeps its RECORD, not its operation, and every device hears the close**
 (25.09.2026, staging N3: two devices ran a closed Einsatz for minutes and wrote a Kontakt and
-two «Überfällig» rows into it). Server (`api/incidents · incident_closed`): once `is_open` is
+two «Überfällig» rows into it). Server (`incident_service · incident_closed`): once `is_open` is
 false, a live write MADE AFTER THE CLOSE is 409 `{code: 'incident_closed', closed_at}` — judged
 by when it happened (rows `at`, events `occurred_at`, saves `edited_at`, all on the
 server-aligned clock, +120 s tolerance; no stamp ⇒ by arrival), never by when it arrived: a

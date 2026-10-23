@@ -2,41 +2,22 @@
 // per-incident listing so switching incidents with no signal keeps the plans.
 import { apiGet } from '../api'
 import { readThrough } from '../idb'
-import type { ReferenceDataset } from './reference'
+import type { CachedWithout, Out } from './wire'
 
-export interface ObjectWithPlans {
-  id: string
-  name: string
-  address: string | null
-  lat: number | null
-  lng: number | null
-  source_note: string | null
-  /** The station's key for this object, read-only: set by `admin_objects` and by the plan
-   *  pipelines, never by this app. Its absence is the object's provenance — «in der Maske
-   *  getippt» — and the scheduled Planspeicher-Abgleich matches on nothing else, so an object
-   *  without one is one that pull never touches (Verwaltung › Objektpläne says so).
-   *  Optional because a payload cached before 09.2026 has no such field. */
-  source_key?: string | null
-  /** Sofortmassnahmen / Bemerkungen off the Modul-1 sheet, one per line, and where they came
-   *  from (the Gebäude card, KP Front F5). Optional: absent on a server or a cache before 10.2026. */
-  measures?: string | null
-  remarks?: string | null
-  measures_source?: string | null
-  /** the town when it is not the home town («Therwil»); absent on older servers */
-  locality?: string | null
-  /** `'station'` once the station corrected the position in /admin («Lage korrigieren») — no
-   *  import, push or pull overwrites it then */
-  position_source?: string | null
-  position_set_at?: string | null
-  /** the station's outline choice: null = automatic, `building`, `none` */
-  outline?: 'building' | 'none' | null
-  updated_at: string
-  plans: ReferenceDataset[]
-  distance_m: number | null
-  /** objects-near-incident only: true = the incident's address matched this object, false =
-   *  surfaced by proximity alone (the plan rail warns then). Absent on older cached payloads. */
-  address_match?: boolean | null
-}
+/** One object with its plan datasets. `source_key` is the station's key for it, read-only (set
+ *  by `admin_objects` and the plan pipelines, never by this app): its absence is the object's
+ *  provenance — «in der Maske getippt» — and the scheduled Planspeicher-Abgleich matches on
+ *  nothing else. `measures`/`remarks` are the Sofortmassnahmen / Bemerkungen off the Modul-1
+ *  sheet, one per line, and `measures_source` where they came from (the Gebäude card).
+ *  `locality` is the town when it is not the home town. `position_source` is `'station'` once
+ *  the station corrected the position in /admin («Lage korrigieren») — no import, push or pull
+ *  overwrites it then. `outline` is the station's outline choice: null = automatic, `building`,
+ *  `none` (the server types it a plain string; those three are all its one writer stores).
+ *  `address_match` (objects-near-incident only): true = the incident's address matched, false =
+ *  surfaced by proximity alone (the plan rail warns then). The optional fields are absent from
+ *  a payload cached before they existed. */
+export type ObjectWithPlans = CachedWithout<Omit<Out<'ObjectWithPlans'>, 'outline'> & { outline: 'building' | 'none' | null },
+  'source_key' | 'measures' | 'remarks' | 'measures_source' | 'locality' | 'position_source' | 'position_set_at' | 'outline' | 'address_match'>
 
 export const listObjects = (q?: string, near?: string) => {
   const p = new URLSearchParams()

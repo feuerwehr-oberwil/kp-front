@@ -61,5 +61,3 @@ export function warmBoardTemplates(now = Date.now()): Promise<BoardTemplate[]> {
   if (!warm || now - warm.at > FRESH_MS) warm = { at: now, list: loadBoardTemplates() }
   return warm.list
 }
-/** test seam */
-export const resetWarmBoardTemplates = () => { warm = null }

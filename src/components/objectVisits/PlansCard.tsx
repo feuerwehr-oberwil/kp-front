@@ -8,7 +8,7 @@
 import { lazy, Suspense } from 'react'
 import { Icon } from '../../lib/icons'
 import { appConfig } from '../../config/appConfig'
-import { referenceUrl } from '../../lib/api/reference'
+import { referenceUrl } from '../../lib/incidents'
 import type { VisitPlanRow } from '../../objectVisits/plans'
 import { LoadingStatus } from '../ShellLoader'
 import { Segmented } from '../Segmented'

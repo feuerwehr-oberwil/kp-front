@@ -30,6 +30,8 @@ Response contract (both GET and PUT return the SAME projection ``DeploymentConfi
       "alarmVocabulary": { "source": "shipped"|"deployment", "schemaVersion": int,
                            "titleKeywords": int, "highPriorityKeywords": int,
                            "fallbackCategory": str },                           # derived
+      "categoryLabels": { str: str },   # derived: category key → German label (app/divera),
+                                         # the Einsatz wizard's Kategorie picker, in its order
       "version": str,                    # opaque token of the STORED document — send it back as
                                          # If-Match on the next PUT (see put_config)
       "warnings": [str]                  # PUT only: keys the schema dropped, layers that cannot
@@ -64,6 +66,7 @@ from ..config_guard import (
 from ..config_history import changed_sections, emptied_sections, keep_previous
 from ..credentials import load as load_credentials
 from ..database import get_db
+from ..divera import CATEGORY_LABELS
 from ..i18n import set_locale
 from ..models import DeploymentConfig, DeploymentConfigHistory, User
 from ..providers import integrations
@@ -214,6 +217,7 @@ def _projection(
         **payload,
         integrations=ints,
         alarmVocabulary=_alarm_vocabulary(doc),
+        categoryLabels=CATEGORY_LABELS,
         version=version,
         warnings=warnings or [],
     )

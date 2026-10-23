@@ -305,7 +305,7 @@ def test_floor_badge_and_sym_color():
 
 
 def test_composer_embeds_server_rendered_kroki_and_plan():
-    from app.report_pdf import ReportPayload, compose_report_pdf
+    from app.report import ReportPayload, compose_report_pdf
 
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
@@ -486,7 +486,7 @@ def test_a_plan_trupp_chip_prints_its_truppfarbe():
 def test_plan_anno_schema_lets_the_badge_fields_through():
     """The badges only reach the renderer if the SCHEMA knows them: pydantic drops an unknown
     field without a word, and the sheet then simply has no badge and no error either."""
-    from app.report_pdf import PlanAnnoIn
+    from app.report import PlanAnnoIn
 
     a = PlanAnnoIn.model_validate(
         {
@@ -594,7 +594,7 @@ def test_a_plan_page_and_the_kroki_word_the_same_caption_identically():
 def test_plan_anno_schema_lets_the_caption_through():
     """pydantic drops an unknown field without a word — the sheet would then simply have no
     legend and no error either (the badge fields' own lesson, one field later)."""
-    from app.report_pdf import PlanAnnoIn
+    from app.report import PlanAnnoIn
 
     a = PlanAnnoIn.model_validate(
         {"kind": "symbol", "x": 0.5, "y": 0.5, "symbol": "VKF Feuer", "caption": "Melder 3. OG"}
@@ -647,7 +647,7 @@ def test_every_label_becomes_a_number_and_a_legend_line():
 
 
 def test_a_kroki_without_labels_has_no_legend():
-    """An empty legend is what tells report_pdf not to put a numbered list under a picture that
+    """An empty legend is what tells app/report not to put a numbered list under a picture that
     carries no numbers — symbols without a caption are still just symbols."""
     from app import kroki as kk
 
@@ -757,7 +757,7 @@ def test_hatch_stays_inside_the_polygon():
 def test_hatch_survives_the_wire_schemas():
     """`hatch` only reaches the renderer if BOTH schemas know it — pydantic drops an unknown field
     without a word, which is exactly how a Schraffur drawn on screen printed as a plain wash."""
-    from app.report_pdf import KrokiDrawingIn, PlanAnnoIn
+    from app.report import KrokiDrawingIn, PlanAnnoIn
 
     d = KrokiDrawingIn.model_validate(
         {"kind": "area", "coords": [[7.5, 47.5], [7.6, 47.5], [7.6, 47.6]], "hatch": True, "fillOpacity": 0.25}
@@ -1007,7 +1007,7 @@ def test_the_done_time_never_touches_a_wide_storey_badge():
 
 def test_the_schemas_let_done_through():
     """pydantic drops an unknown field without a word — the sheet would simply print it red."""
-    from app.report_pdf import KrokiEntityIn, PlanAnnoIn
+    from app.report import KrokiEntityIn, PlanAnnoIn
 
     assert PlanAnnoIn.model_validate({"kind": "symbol", "done": "20:40"}).model_dump()["done"] == "20:40"
     assert KrokiEntityIn.model_validate({"coord": [7.5, 47.5], "done": "20:40"}).model_dump()["done"] == "20:40"

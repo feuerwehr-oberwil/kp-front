@@ -73,7 +73,10 @@ target-version = "py312"
 # inside ruff keeps this repo to one gate), LOG/PIE/C4/SIM the cheap correctness wins.
 # Deliberately NOT selected: PTH (62 hits, pure style) and TRY (46, mostly opinions about
 # exception shape). Both are noise-to-signal losers here.
-select = ["E", "F", "I", "N", "W", "UP", "B", "ASYNC", "BLE", "SIM", "C4", "PIE", "LOG", "S", "RUF"]
+#
+# PGH003 (no blanket `type: ignore`) and TC (imports only annotations use go under
+# TYPE_CHECKING) joined with sweep B.17 (23.10.2026) – the cheap half of the typing families.
+select = ["E", "F", "I", "N", "W", "UP", "B", "ASYNC", "BLE", "SIM", "C4", "PIE", "LOG", "S", "RUF", "PGH003", "TC"]
 ignore = [
     "E501",
     # RUF001/2/3 flag "ambiguous" unicode. Every hit in this repo is deliberate German
@@ -110,9 +113,16 @@ extend-immutable-calls = [
 # Test code legitimately does things app code must not: assert (S101, the whole point),
 # hardcode throwaway credentials (S105/S106), build stub classes with mutable class attrs
 # (RUF012), and read fixture files straight off disk inside an async test (ASYNC230 — there
-# is no event loop to protect, the test IS the only thing running).
-"tests/**" = ["S101", "S105", "S106", "S311", "B017", "RUF059", "RUF012", "ASYNC230"]
+# is no event loop to protect, the test IS the only thing running). TC: a test imports for
+# annotations freely – nothing there is worth a TYPE_CHECKING block.
+"tests/**" = ["S101", "S105", "S106", "S311", "B017", "RUF059", "RUF012", "ASYNC230", "TC"]
 "tests_live/**" = ["S101"]
+# TC on the 33 modules that predate it (sweep B.17, 23.10.2026: 58 findings). Moving an import
+# under TYPE_CHECKING is not cosmetic here: FastAPI and pydantic resolve annotations at RUNTIME, so
+# in a router or a model module the «typing-only» import is the one the app needs. Each module is
+# checked by hand when it is next worked on and then leaves this list; the telemetry modules are
+# byte-identical with kp-rueck (shared/MANIFEST.json) and stay.
+"app/{admin_cli,alarms,api/integrations,api/object_visits,api/object_visits_admin,api/station_reference,auth/microsoft,credentials,houses,mvt,object_footprints,object_visit_delivery,object_visits,observations,plan_alignment_compute,plan_alignment_worker,plan_approval,plan_floors,plan_markers,reference_buildings,roster_snapshot_ingest,roster_snapshot_sync,services/station_workbook,sharepoint_sync,station_index,telemetry/consent,telemetry/forwarder,telemetry/outbox,underground,vehicle_presence,visit_programmes,visits,weather_radar}.py" = ["TC001", "TC002", "TC003"]
 # Alembic revisions are generated files: the boilerplate header and import order are the
 # tool's, not ours, and rewriting them by hand invites merge pain for zero benefit.
 "alembic/versions/**" = ["I001", "W291", "E402", "UP035", "UP006"]
@@ -136,7 +146,7 @@ extend-immutable-calls = [
 "app/board_templates.py" = ["N815"]
 "app/admin_board_templates.py" = ["N815"]
 # Report payload mirrors the frontend's camelCase report JSON (reportMeta, krokiKey, …)
-"app/report_pdf.py" = ["N815"]
+"app/report/*.py" = ["N815"]
 # Zeitplan payload mirrors the same camelCase contract (incidentTitle, startedAt)
 "app/zeitplan_pdf.py" = ["N815"]
 # Scenario fields mirror the milestone webhook's camelCase contract (alarmedAt, vorOrt)
@@ -164,6 +174,24 @@ ignore_missing_imports = true
 # guarantee comes from the 39 absence-based sanitiser tests and the checksum, not from mypy.
 module = ["app.telemetry.scrub", "app.telemetry.envelope", "app.telemetry.outbox", "app.telemetry.forwarder"]
 ignore_errors = true
+
+[[tool.mypy.overrides]]
+# The strictness ratchet (sweep B.17, 23.10.2026): modules that pass `--strict` stay strict. The
+# tree-wide settings above stay deliberately non-strict (the kp-rueck lesson); a module joins this
+# list in the PR that gets it to zero, and never leaves it. ⚠️ Spelled out flag by flag: a
+# per-module `strict = true` switched strict on for the WHOLE tree (611 errors, mypy 2.3).
+module = ["app.workspace_kinds", "app.alarm_keywords", "app.admin_checklists"]
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+warn_return_any = true
+no_implicit_reexport = true
+strict_equality = true
+extra_checks = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

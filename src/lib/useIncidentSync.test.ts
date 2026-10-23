@@ -110,7 +110,7 @@ describe('useIncidentSync — persistence', () => {
     expect(sync.save).toHaveBeenCalledTimes(1)
   })
 
-  it('DOES push when not a demo instance (unchanged behavior)', () => {
+  it('DOES push when not a demo instance', () => {
     vi.spyOn(deploymentConfig, 'isDemoMode').mockReturnValue(false)
     const sync = makeSync()
     render(sync)
@@ -264,9 +264,10 @@ describe('useIncidentSync — renumbered Trupps', () => {
 })
 
 describe('useIncidentSync — live-follow loop', () => {
-  it('long-polls while visible and starts the next round right after the answer', async () => {
+  // The loop itself («the next round right after the answer») is useLongPoll's; this is the round.
+  it('asks for what came after its revision, held — and a HELD «nothing new» is an answer', async () => {
     // 304 after the server HELD the request (~20 s) — a real long-poll answer (an INSTANT 304 is
-    // a poll that did not hold, and eases off instead: see the N1 block below)
+    // a poll that did not hold, and eases off instead: see «a closed view never spins» below)
     pollWorkspaceSince.mockImplementation(() => new Promise((r) => setTimeout(() => r(null), 20_000)))
     const sync = makeSync()
     mount(sync)
@@ -465,7 +466,7 @@ describe('useIncidentSync – edit during a conflict merge', () => {
       const buildPayload = useCallback(() => ws, [ws])
       const status = useIncidentSync({
         sync, incidentId: 'i1', readOnly: false, buildPayload,
-        applyWorkspace: setWs, flushEvents, flushEventsBeacon,
+        applyWorkspace: (w) => setWs(w as Saved), flushEvents, flushEventsBeacon,
       })
       return { ws, setWs, status }
     })
@@ -522,7 +523,8 @@ describe('useIncidentSync — unmounting unhooks only its own sync callbacks', (
   })
 })
 
-describe('useIncidentSync — a closed view never spins its poll (N1, staging 26.09.2026)', () => {
+// N1, staging 26.09.2026
+describe('useIncidentSync — a closed view never spins its poll', () => {
   // A closed view that did not adopt a reopen kept claiming `open=0`; the server, open again,
   // answered at once, and the loop went straight into the next round: 3.4 requests a second.
   function mountClosed(sync: ReturnType<typeof makeSync>) {

@@ -79,7 +79,7 @@ with no ` - ` is all name. Everything that reads a plans folder – the private 
 SharePoint connector, the repair CLI – has to derive the id exactly this way: the connector
 hashed the whole folder string until 11.09.2026, which minted a second, address-less,
 coordinate-less object beside every one the station already had (and since an Einsatzobjekt is
-surfaced by distance, its plans were reachable by nobody). `admin_objects
+surfaced by distance, its plans were reachable by nobody). `admin_objects_repair
 repair-sharepoint-keys` folds those back and re-keys the rest.
 `fix_object_coords.py` is an optional accuracy pass that overwrites the swisstopo coordinates in
 the manifest with authoritative ones from the FireGIS amtliche Vermessung register. `admin_objects`

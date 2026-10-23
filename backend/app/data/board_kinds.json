@@ -1,0 +1,20 @@
+{
+  "about": [
+    "Every Plan board-anno kind (src/types.ts · BoardKind) with the workspace schemaVersion that",
+    "introduced it. The server never lets a save stamped below a stored object's version delete that",
+    "object (app/workspace_kinds.py). A new kind gets a row here AND bumps WORKSPACE_SCHEMA_VERSION",
+    "(src/lib/workspace.ts) to its version: src/lib/boardKinds.test.ts fails on a kind missing here,",
+    "a row the client does not know, or a version the client has not reached.",
+    "Kinds older than the stamp read 1 (a blob without schemaVersion)."
+  ],
+  "since": {
+    "draw": 1,
+    "area": 1,
+    "circle": 1,
+    "text": 1,
+    "symbol": 1,
+    "shape": 1,
+    "resource": 1,
+    "form": 3
+  }
+}

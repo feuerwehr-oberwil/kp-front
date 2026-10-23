@@ -78,18 +78,15 @@ button, input, select, textarea { font-family: inherit; }
   color: var(--ink-dim); background: var(--ink-8); vertical-align: middle; }
 
 /* shared interaction feel for all floating glass controls */
-.rbtn, .vrail-tool, .ctx-x, .sym-close, .chip, .btn {
+.vrail-tool, .ctx-x, .sym-close, .chip, .btn {
   transition: background .16s var(--ease), color .16s var(--ease),
     box-shadow .16s var(--ease);
-}
-@media (hover: hover) {
-  .rbtn:not(.active):hover { background: var(--hover-strong); }
 }
 /* THE house press rule: a press answers instantly with an ink wash. It is a
    background-IMAGE overlay, so it composes with whatever background-color the control
    carries — glass, white, or a saturated .on fill. Nothing moves: no scale, no
    translate — motion on press reads as lag under a gloved finger. */
-.rbtn:active:not(:disabled), .vrail-tool:active:not(:disabled),
+.vrail-tool:active:not(:disabled),
 .btn:active:not(:disabled), .chip:active:not(:disabled) {
   background-image: linear-gradient(var(--press), var(--press));
 }

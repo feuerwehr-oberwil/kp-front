@@ -17,10 +17,10 @@ from ..credentials import get as credential
 from ..credentials import load as load_credentials
 from ..database import get_db
 from ..geocode import geocode
+from ..incident_service import get_incident_or_404
 from ..models import DiveraEmergency, Incident
 from ..push import notify_new_alarm
 from ..schemas import DiveraEmergencyOut, DiveraTakeBody, DiveraWebhookPayload, IncidentFull
-from .incidents import get_incident_or_404
 
 router = APIRouter(prefix="/divera", tags=["divera"])
 

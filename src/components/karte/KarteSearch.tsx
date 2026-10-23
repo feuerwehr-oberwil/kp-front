@@ -14,7 +14,7 @@
 import { appConfig } from '../../config/appConfig'
 import { Icon } from '../../lib/icons'
 import { fmtDistance } from '../../lib/geo'
-import type { GeoHit } from '../../lib/api/geo'
+import type { GeoHit } from '../../lib/incidents'
 import type { ObjectHit } from '../../lib/karte/search'
 import { objectRowSub, splitAddress } from '../../lib/karte/places'
 import { ListCard, ListRow } from '../ListRow'

@@ -15,7 +15,7 @@ import pytest
 from PIL import Image
 
 from app import kroki as kk
-from app.report_pdf import ReportPayload, compose_report_pdf
+from app.report import ReportPayload, compose_report_pdf
 
 MAGENTA = (255, 0, 255)
 
@@ -71,7 +71,7 @@ def test_markup_cannot_pull_a_file_off_the_server(secret_png):
     ],
 )
 def test_no_external_resource_directive_survives(markup):
-    from app.report_pdf import safe_markup
+    from app.report.styles import safe_markup
 
     out = safe_markup(markup)
     assert "img" not in out.lower()
@@ -83,7 +83,7 @@ def test_the_markup_the_app_produces_is_kept():
     """src/lib/journalLinks.ts · linkMarkup — a bold vocabulary name, a linked address, and the
     escaping the client already did. All of it has to survive verbatim, or the Beilage prints
     tag soup where the record has names."""
-    from app.report_pdf import safe_markup
+    from app.report.styles import safe_markup
 
     src = '<b>Müller Hans</b> (GF) meldet <a href="tel:+41791234567"><u>079 123 45 67</u></a> &amp; R&amp;D'
     assert safe_markup(src) == src
@@ -92,14 +92,14 @@ def test_the_markup_the_app_produces_is_kept():
 
 
 def test_a_link_to_something_the_reader_cannot_tap_keeps_its_words():
-    from app.report_pdf import safe_markup
+    from app.report.styles import safe_markup
 
     out = safe_markup('<a href="javascript:alert(1)"><u>klick</u></a>')
     assert "javascript" not in out and "klick" in out
 
 
 def test_broken_markup_never_takes_the_rapport_down():
-    from app.report_pdf import safe_markup
+    from app.report.styles import safe_markup
 
     assert safe_markup("<b>unbalanciert") == "<b>unbalanciert</b>"  # closed, never left dangling
     assert safe_markup("fett</b> ohne Anfang") == "fett ohne Anfang"
@@ -115,7 +115,7 @@ def test_a_bold_journal_row_still_prints():
 
 
 def test_the_compose_path_never_ascii85_encodes_its_streams():
-    """`rl_config.useA85 = 0` (report_pdf.py, module load): the only C accelerator wheel for
+    """`rl_config.useA85 = 0` (app/report, module load): the only C accelerator wheel for
     ReportLab's base85 encoder is missing on this Python (5.0.0 / 3.13), so the pure-Python
     fallback burned ~70% of a full Rapport's render time and inflated the output by a third.
     Assert the encoding is actually off end-to-end — not just that the flag got set — and that
@@ -239,7 +239,7 @@ def test_a_journal_link_carrying_a_quote_prints_and_stays_escaped():
     """SEC-07 (05.09.): a decoded link (`&quot;` → a literal `"`) was inserted into the quoted
     ReportLab attribute unescaped, so it closed the `href="…"` and ReportLab raised — broken
     printing and an escaping gap. It is escaped for attribute context now."""
-    from app.report_pdf import safe_markup
+    from app.report.styles import safe_markup
 
     out = safe_markup('<a href="https://example.test/x&quot;y"><u>klick</u></a>')
     assert 'href="https://example.test/x&quot;y"' in out, out  # the quote is escaped, never raw

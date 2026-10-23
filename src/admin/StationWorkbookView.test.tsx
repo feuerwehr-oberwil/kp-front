@@ -312,9 +312,8 @@ describe('the page says what the workbook is not', () => {
     expect(document.querySelectorAll('.adm-card-body .adm-hint')).toHaveLength(0)
     const acts = [...document.querySelectorAll<HTMLButtonElement>('.adm-card-act button')]
     expect(acts.map((b) => b.textContent)).toEqual([C.download, C.choose])
-    // …and exactly one of them is the primary: the one that sends the file back
-    expect(acts[0].className).toContain('adm-int-btn')
-    expect(acts[1].className).toContain('adm-save-btn')
+    // …and exactly one of them is the primary (the save look): the one that sends the file back
+    expect(acts.map((b) => b.classList.contains('adm-save-btn'))).toEqual([false, true])
   })
 
   it('downloads the station’s own file as the template and the undo', async () => {

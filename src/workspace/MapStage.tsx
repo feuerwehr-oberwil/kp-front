@@ -22,7 +22,7 @@ import type { useMeasure } from '../lib/useMeasure'
 import type { useSymbols } from '../lib/useSymbols'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
 import type { Doc } from '../lib/workspace'
-import type { Entity, LayerDef, Incident, LngLat, Trupp, TimelineEvent, PreparedMapOverlay, LayerId, Drawing, LineAttachment, LineEndpoint, ShapeKind, CaptionMode } from '../types'
+import type { Entity, LayerDef, Incident, LngLat, Trupp, TimelineEvent, PreparedMapOverlay, LayerId, Drawing, LineAttachment, LineEndpoint, ShapeKind, CaptionMode, MapTool } from '../types'
 import type { WorkspaceMode } from './types'
 
 export interface MapStageProps {
@@ -44,7 +44,7 @@ export interface MapStageProps {
   setSelectedId: Dispatch<SetStateAction<string | null>>
   setSelectedDrawingId: Dispatch<SetStateAction<string | null>>
   setEditNoteId: Dispatch<SetStateAction<string | null>>
-  tool: string
+  tool: MapTool
   setNotePanelId: Dispatch<SetStateAction<string | null>>
   effTrupps: Trupp[]
   azAlarm: AtemschutzAlarmState

@@ -31,7 +31,7 @@ export function PlanScalePrompt({ refMInput, setRefMInput, onCommit, onClose }: 
     // ⚠️ Modal, so it goes through lib/overlays like every other modal surface — focus trap +
     // restore, scroll-lock, Esc and backdrop dismissal live there. The old hand-rolled
     // scrim + card had none of them, and the board's own Escape handler fired UNDERNEATH it,
-    // clearing the selection behind a dialog that stayed open. (The AGENTS.md carve-out for
+    // clearing the selection behind a dialog that stayed open. (The docs/ui-conventions.md · Overlays carve-out for
     // hand-rolled overlays covers the NON-modal tool docks, not this.)
     <Overlay open onClose={onClose} className="wb-cal-pop ui-dialog" ariaLabel={appConfig.copy.whiteboard.scale.promptTitle} initialFocus={inputRef}>
       <div className="wb-cal-title">{appConfig.copy.whiteboard.scale.promptTitle}</div>

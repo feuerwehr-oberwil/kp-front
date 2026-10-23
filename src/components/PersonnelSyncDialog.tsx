@@ -79,7 +79,7 @@ export function PersonnelSyncDialog({ provider, onClose, onSynced }: { provider:
           </ul>
           {/* ONE yes/no about the whole sync, not a pick among items — so the app's one binary
               idiom, `OnOff` «Aus | An» (28.09.2026), and not the one native checkbox left on a
-              sheet (AGENTS.md · one control per kind of question) */}
+              sheet (docs/ui-conventions.md · Editor sheets: one control per kind of question) */}
           {preview.stale.length > 0 && (() => {
             const label = fillTemplate(ps.staleHide, { n: preview.stale.length, provider })
             return (

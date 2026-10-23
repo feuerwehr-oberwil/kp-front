@@ -582,17 +582,6 @@ export function bandAssignWindow(cell: BandCell, band: ShiftBand): { from: strin
 }
 
 /**
- * One person's shifts that belong to NO band, earliest first.
- *
- * The Schichten grid can only show band membership, so somebody who drew 09:00–14:00 freihändig on
- * the axis sits empty in every column — indistinguishable from somebody who has offered nothing at
- * all. Their row carries these times as a mark instead, so the grid never claims they are free.
- */
-export function freehandShifts(shifts: Shift[], personId: string): Shift[] {
-  return shiftsFor(shifts, personId).filter((s) => !s.bandId)
-}
-
-/**
  * One person's shifts that NO column of this grid is showing — what the «eigene Zeiten» mark is for.
  *
  * Wider than «has no bandId»: a shift can also fall out of every column by drifting clear of the
@@ -749,11 +738,6 @@ export function draftBand(bands: ShiftBand[], nowMs: number, startedAt: string |
   const startMs = ms(startedAt)
   const base = ceilSlot(startMs != null && startMs > nowMs ? startMs : nowMs)
   return { from: new Date(base).toISOString(), to: new Date(base + hours * HOUR).toISOString() }
-}
-
-/** How many people carry at least one planned shift — the surface's summary line. */
-export function plannedPersonCount(shifts: Shift[]): number {
-  return new Set(shifts.map((s) => s.personId)).size
 }
 
 /**

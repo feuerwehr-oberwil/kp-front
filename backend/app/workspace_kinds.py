@@ -9,19 +9,24 @@ never removes that object. The object is put back, into the unified `objects` an
 legacy `board` view alike, exactly as it was stored.
 
 A build at or above that version is trusted to delete: it knows the kind, so an absence is a
-decision. Add a row to `BOARD_KIND_SINCE` with every new board kind (and bump the client's
-`WORKSPACE_SCHEMA_VERSION` with it).
+decision. Every board kind has a row in `app/data/board_kinds.json` (and a new one bumps the
+client's `WORKSPACE_SCHEMA_VERSION` with it) – one file both sides are tested against.
 """
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
-#: board-anno kind → the workspace schema version that introduced it (src/lib/workspace.ts)
-BOARD_KIND_SINCE: dict[str, int] = {"form": 3}
+#: board-anno kind → the workspace schema version that introduced it (app/data/board_kinds.json,
+#: checked against src/types.ts · BoardKind by src/lib/boardKinds.test.ts)
+BOARD_KIND_SINCE: dict[str, int] = json.loads(
+    (Path(__file__).parent / "data" / "board_kinds.json").read_text(encoding="utf-8")
+)["since"]
 
 
-def _sheet_anno(obj: Any) -> tuple[str, dict] | None:
+def _sheet_anno(obj: Any) -> tuple[str, dict[str, Any]] | None:
     if not isinstance(obj, dict):
         return None
     sheet = obj.get("sheet")
@@ -33,7 +38,7 @@ def _sheet_anno(obj: Any) -> tuple[str, dict] | None:
     return sheet["planId"], anno
 
 
-def keep_newer_board_kinds(workspace: dict, stored: dict | None) -> list[str]:
+def keep_newer_board_kinds(workspace: dict[str, Any], stored: dict[str, Any] | None) -> list[str]:
     """Put back every stored board object whose kind is newer than the saving build. Mutates
     `workspace` (the body about to be stored); returns the ids it put back."""
     sv = workspace.get("schemaVersion")
@@ -42,7 +47,7 @@ def keep_newer_board_kinds(workspace: dict, stored: dict | None) -> list[str]:
     if not newer or not isinstance(stored, dict):
         return []
     raw_objects = stored.get("objects")
-    stored_objects: list = raw_objects if isinstance(raw_objects, list) else []
+    stored_objects: list[Any] = raw_objects if isinstance(raw_objects, list) else []
     keep = []
     for obj in stored_objects:
         hit = _sheet_anno(obj)
@@ -64,7 +69,7 @@ def keep_newer_board_kinds(workspace: dict, stored: dict | None) -> list[str]:
         for obj in keep:
             plan_id, anno = _sheet_anno(obj)  # type: ignore[misc]
             raw_sheet = board.get(plan_id)
-            sheet: list = raw_sheet if isinstance(raw_sheet, list) else []
+            sheet: list[Any] = raw_sheet if isinstance(raw_sheet, list) else []
             if not any(isinstance(a, dict) and a.get("id") == anno.get("id") for a in sheet):
                 sheet = [*sheet, anno]
                 if obj.get("id") not in put_back:

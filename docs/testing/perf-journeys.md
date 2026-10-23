@@ -18,8 +18,8 @@ Trupps inside. The journeys never measure an empty app.
 
 | Journey | What the crew does | What it gates |
 | --- | --- | --- |
-| `cold-start` | Opens the app the first time, taps a name at the kiosk, types the PIN, lands on the Karte | Time to the workspace and to the lifted opening cover; API requests; JS/CSS/font/data bytes; the service worker's precache; **writes caused by just opening**; heap, DOM nodes and listeners after GC |
-| `warm-reload` | Reloads the installed app 3× | Reload time; static bytes that still hit the network (a precache miss); API requests |
+| `cold-start` | Opens the app the first time, taps a name at the kiosk, types the PIN, lands on the Karte | Time to the workspace and to the lifted opening cover; API requests and bytes; static requests; **writes caused by just opening**; heap, DOM nodes and listeners after GC |
+| `warm-reload` | Reloads the installed app 3× | Reload time; static requests that still hit the network (a precache miss); API requests |
 | `surface-tour` | Karte → Gebäude → Tafel → Checkliste → Trupps → Anwesenheit → Material → Rapport, four laps | Switch time per surface; worst interaction; blocking time; **heap / DOM nodes / listeners each lap leaves behind** (a leak on unmount) |
 | `edit` | Draws ten Linien on the Karte, drops ten Absperrkreise on the Tafel | Karte script time; Tafel tap → circle on screen; **saves** for twenty edits and the bytes of one save |
 | `verlauf` | Writes ten Meldungen, opens the whole Verlauf (3×), sees another tablet's entry arrive | Submit time; open-Verlauf time and blocking (median); remote entry → visible; journal POSTs |
@@ -67,7 +67,7 @@ journey called. When a request count moves, the report shows which routes change
   | unit | abs | rel | Why |
   | --- | --- | --- | --- |
   | `count` | 2 | 15 % | Requests and saves are nearly deterministic; a poll can land on either side of a window |
-  | `kb` | 5 | 5 % | Bundle bytes are exact; API payloads move a little |
+  | `kb` | 5 | 5 % | Bytes per save are exact; API payloads move a little (static bytes are the bundle budget's, `scripts/check-bundle-size.mjs`) |
   | `mb` | 1.5 | 25 % | Heap after a forced GC still varies |
   | `ms` | 60 | 50 % | A shared runner, after calibration |
 
@@ -158,7 +158,8 @@ look, not a verdict. A loaded box skews every time. Counts and sizes compare as 
   same Einsatz opened again, on the same device or a second one, writes nothing: e2e `open-writes.spec.ts`
   holds that at 0 (a count gate with an absolute tolerance of 2 could not).
   `cold-start.writes` keeps measuring the first open of an older Einsatz.
-- The first launch downloads ~2.3 MB of precache in the background (`cold-start.precache_kb`).
+- The first launch downloads ~2.7 MB of precache in the background (measured until 23.10.2026; the
+  bundle budget watches the big chunks, `cold-start.static_requests` the count).
 - Every Funkkontakt is a full workspace save: nine contacts sent nine PUTs and ~345 KB
   (`trupps.saves`). Twenty Karte and Tafel edits sent 10–12 saves of ~35 KB each (`edit.saves`,
   `edit.kb_per_save`). Both are baselined. A change that batches them shows up as 🟢.

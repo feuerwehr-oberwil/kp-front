@@ -10,7 +10,7 @@
  * The rule: what lies outside the section is not drawn, and where a stroke crosses the section's
  * edge an EDGE MARK stands on the crossing — a white disc, ringed in the stroke's colour, with an
  * arrowhead pointing the way the stroke leaves. The disc is map furniture, so it is round
- * (AGENTS.md · buttons); it wears the stroke's colour because it is part of that line, not chrome,
+ * (docs/ui-conventions.md · Buttons); it wears the stroke's colour because it is part of that line, not chrome,
  * and the stair mark's white plate because it says the same kind of thing: «goes on elsewhere».
  *
  * A section is a UNION of convex polygons: a storey drawn as two wings is two windows, and a

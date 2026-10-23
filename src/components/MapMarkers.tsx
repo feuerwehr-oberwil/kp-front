@@ -75,7 +75,7 @@ function TransformHandle({ className, icon, title, onStart, onMove, onEnd, style
     }
   })
   // ⚠️ `data-holdaction` and no `title`: a transform grip's press-and-hold IS its gesture, so the
-  // global hold-tooltip must not claim it (AGENTS.md · touch vocabulary) — asking «what is this»
+  // global hold-tooltip must not claim it (docs/ui-conventions.md · Touch vocabulary) — asking «what is this»
   // would otherwise start the very drag it is asking about. The name stays for screen readers.
   return <button ref={ref} className={className} style={style} aria-label={title} data-holdaction onClick={(e) => e.stopPropagation()}><Icon id={icon} /></button>
 }

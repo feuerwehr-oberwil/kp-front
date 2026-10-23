@@ -136,7 +136,7 @@ export function NavRail(p: Props) {
     },
     mittel: {
       id: page, glyph: <Icon id="box" />, title: P.modes.mittel,
-      meta: (p.mittelCount ?? 0) > 0 ? fillTemplate(P.mittel.summary, { lines: p.mittelCount ?? 0 }) : undefined,
+      meta: (p.mittelCount ?? 0) > 0 ? P.mittel.summary(p.mittelCount ?? 0) : undefined,
     },
   }[page]))
   // …and the second way into the list, for the hand that has learned press-and-hold everywhere

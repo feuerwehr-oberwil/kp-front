@@ -142,12 +142,14 @@ ol.cl-items > .cl-item { padding: var(--sp-3); }
 .cl-ref-doc-head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-4); }
 .cl-ref-doc-head h2 { margin: 0; font-size: var(--fs-4); font-weight: var(--fw-heavy); color: var(--ink); }
 .cl-ref-badge { font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .03em; text-transform: uppercase;
-  color: var(--on-accent-ink); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-xs); background: var(--ink-faint); }
-.cl-ref-badge.hz-red { background: var(--red); }
-.cl-ref-badge.hz-orange { background: var(--amber); }
-.cl-ref-badge.hz-green { background: var(--green); }
-.cl-ref-badge.hz-yellow { background: var(--hazard-yellow); }
-.cl-ref-badge.hz-blue { background: var(--blue); }
+  color: var(--surface); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-xs); background: var(--ink-faint); }
+/* the word on a hue is --on-fill (dark at night, where the hues flip bright); amber and the placard
+   yellow are too light for white by day and take --on-amber (01-tokens) */
+.cl-ref-badge.hz-red { background: var(--red); color: var(--on-fill); }
+.cl-ref-badge.hz-orange { background: var(--amber); color: var(--on-amber); }
+.cl-ref-badge.hz-green { background: var(--green); color: var(--on-fill); }
+.cl-ref-badge.hz-yellow { background: var(--hazard-yellow); color: var(--on-amber); }
+.cl-ref-badge.hz-blue { background: var(--blue); color: var(--on-fill); }
 .cl-ref-blocks { display: flex; flex-direction: column; gap: var(--sp-2); }
 .cl-ref-h { margin: 12px 0 2px; font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); }
 /* Depth has to be readable, not just measurable. A level-0 line is a STEP the EL works through;
@@ -166,7 +168,7 @@ ol.cl-items > .cl-item { padding: var(--sp-3); }
   box-shadow: inset 0 0 0 1.5px var(--ink-faint); margin-top: 8px; }
 /* after the depth rules on purpose: an emphasised line keeps its red at ANY level, and the
    `box-shadow: none` clears the hollow ring a nested dot would otherwise still carry */
-.cl-ref-bullet.em-red { color: var(--red); font-weight: var(--fw-bold); }
+.cl-ref-bullet.em-red { color: var(--red-strong); font-weight: var(--fw-bold); }
 .cl-ref-bullet.em-red .cl-ref-dot { background: var(--red); box-shadow: none; }
 .cl-ref-bullet.em-bold { font-weight: var(--fw-bold); }
 .cl-ref-note { display: flex; gap: var(--sp-2); align-items: flex-start; font-size: var(--fs-2); color: var(--ink-dim);

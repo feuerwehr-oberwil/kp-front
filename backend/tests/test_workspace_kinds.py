@@ -4,7 +4,11 @@ An old client drops a `form` object (a Tafel page) at its load gate and saves a 
 it. The server puts it back — it is not a deletion — while a build that knows the kind may delete.
 """
 
-from app.workspace_kinds import keep_newer_board_kinds
+import json
+from pathlib import Path
+
+from app import workspace_kinds
+from app.workspace_kinds import BOARD_KIND_SINCE, keep_newer_board_kinds
 
 PAGE = {"id": "fm1", "kind": "form", "form": {"v": 1, "at": "2026-10-10T09:00:00Z", "values": {}}}
 INK = {"id": "l1", "kind": "draw", "pts": [[0.1, 0.1], [0.2, 0.2]]}
@@ -54,3 +58,11 @@ async def test_end_to_end_an_old_save_keeps_the_pages(client, editor):
     assert r.status_code == 200, r.text
     ws = (await client.get(f"/api/incidents/{inc}/workspace")).json()["workspace"]
     assert [o["id"] for o in ws["objects"]] == ["l1"]
+
+
+def test_the_version_table_is_the_shared_file():
+    # the client checks the same file against its BoardKind union (src/lib/boardKinds.test.ts)
+    data = json.loads((Path(workspace_kinds.__file__).parent / "data" / "board_kinds.json").read_text("utf-8"))
+    assert data["since"] == BOARD_KIND_SINCE
+    assert BOARD_KIND_SINCE["form"] == 3  # Tafel pages: the kind the server protects today
+    assert all(isinstance(v, int) and v >= 1 for v in BOARD_KIND_SINCE.values())

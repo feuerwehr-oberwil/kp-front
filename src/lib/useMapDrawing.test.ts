@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { DRAW_DEFAULTS, useMapDrawing } from './useMapDrawing'
 import type { Doc } from './workspace'
-import type { Drawing } from '../types'
+import type { Drawing, MapTool } from '../types'
 
 // The two mutating behaviours this wave added to the map drawing surface:
 //  · C1 — a SEMANTIC edit (Leitung Nr., Stockwerk, Abschluss) earns ONE settled Verlauf row per
@@ -17,7 +17,7 @@ import { toast } from './ui'
 const line = (over: Partial<Drawing> = {}): Drawing =>
   ({ id: 'd1', kind: 'line', coords: [[7.7, 47.4], [7.8, 47.5]], ...over }) as Drawing
 
-function makeDeps(over: { tool?: string; tacticalLocked?: boolean; drawings?: Drawing[] } = {}) {
+function makeDeps(over: { tool?: MapTool; tacticalLocked?: boolean; drawings?: Drawing[] } = {}) {
   // a live doc the commit stub actually applies to, so a burst's second patch sees the first
   let doc = { entities: [], drawings: over.drawings ?? [line()] } as unknown as Doc
   const deps = {

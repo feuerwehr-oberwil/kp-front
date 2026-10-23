@@ -28,6 +28,8 @@ export function ArmedToolPill({ glyph, name, lock, className }: {
         <span className="armed-pill-glyph" aria-hidden>{glyph}</span>
         <span className="armed-pill-name">{name}</span>
       </div>
+      {/* a raw toggle, not Chip: it wears the pill's glass, so it reads as part of the readout
+          and not as one more chip on the map (controlDebt baseline +1) */}
       {lock && (
         <button type="button" className={`armed-pill-lock${lock.on ? ' on' : ''}`} aria-pressed={lock.on} onClick={lock.onToggle}>
           <Icon id="place-repeat" /><span>{appConfig.copy.keepPlacing}</span>

@@ -12,7 +12,7 @@ const modules: DeploymentModule[] = [
 ]
 const plan = (module: string | null, over: Partial<ReferenceDataset> = {}): ReferenceDataset => ({
   id: `plan:o:${module}`, object_id: 'o', module, kind: 'pdf', title: null, source_type: 'uploaded', source_note: null,
-  content_type: 'application/pdf', size_bytes: 1, feature_count: null, current_version: 3, updated_at: '', ...over,
+  content_type: 'application/pdf', size_bytes: 1, feature_count: null, current_version: 3, fetch_url: null, updated_at: '', ...over,
 })
 
 describe('visitPlanRows — the object\'s plans on a visit', () => {
@@ -21,7 +21,8 @@ describe('visitPlanRows — the object\'s plans on a visit', () => {
     expect(rows.map((r) => [r.title, r.sub])).toEqual([['Modul 1 · Übersicht', 'Situationsplan mit Zufahrt'], ['Modul 2/3 · Zugang & Objekt', ''], ['M5 · PV', '']])
   })
 
-  it('never shows a letter code alone — «W» is «M5 · Wasser», its tab «Wasser» (owner, 05.10.2026)', () => {
+  // owner, 05.10.2026
+  it('never shows a letter code alone — «W» is «M5 · Wasser», its tab «Wasser»', () => {
     const [w] = visitPlanRows(modules, [plan('modul5-wasser')])
     expect(w).toMatchObject({ title: 'M5 · Wasser', short: 'Wasser', sub: 'Löschwasser' })
     const [m1] = visitPlanRows(modules, [plan('modul1')])

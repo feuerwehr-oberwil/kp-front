@@ -39,3 +39,19 @@ describe('IncidentHistoryView — deleting an Einsatz', () => {
     await waitFor(() => expect(deleteIncident).toHaveBeenCalledWith('inc-1'))
   })
 })
+
+// «MANUAL» printed the stored slug, and an Übung – the one kind that deletes while open – looked
+// like every other row (sweep F.5, 23.10.2026)
+describe('IncidentHistoryView — what a row says', () => {
+  it('names the Herkunft in words, keeps an unknown slug, and marks an Übung', async () => {
+    listIncidents.mockResolvedValue([
+      closed,
+      { ...closed, id: 'inc-2', title: 'Übung Steiger', source: 'pager-x', is_exercise: true },
+    ])
+    render(<IncidentHistoryView />)
+    expect(await screen.findByText(C.sources.manual)).toBeTruthy()
+    expect(screen.getByText('pager-x')).toBeTruthy()
+    expect(screen.queryByText('manual')).toBeNull()
+    expect(screen.getAllByText(appConfig.copy.exerciseBadge)).toHaveLength(1)
+  })
+})

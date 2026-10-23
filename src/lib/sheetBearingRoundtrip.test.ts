@@ -296,7 +296,8 @@ function gebaeudeFit(): PlanFit {
   return { fit, aspect: 1 / tileAspectOf(PROD_BUILDING), stack: { floors: PROD_BUILDING.floors } }
 }
 
-describe('regression: the four Lüfter of the Feueralarm-Übung 23.09.2026', () => {
+// Feueralarm-Übung 23.09.2026
+describe('four Lüfter on a turned sheet keep their bearings', () => {
   const plan = gebaeudeFit()
   const fits = new Map([['gebaeude', plan]])
 

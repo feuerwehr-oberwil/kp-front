@@ -596,21 +596,6 @@ export function georefMatching(s: GeorefModeState): boolean {
   return !!s.planId && s.move?.side === 'map'
 }
 
-/**
- * 1-based number of the point the current step is about — the popover head and the prompts.
- *
- * While a half is selected or being re-placed that is ITS number; otherwise it is the number the
- * next tap on the fronted surface will most likely carry: the oldest open counterpart it would
- * complete, or one past the end when nothing is waiting.
- */
-export function georefPointNo(s: GeorefModeState): number {
-  if (s.move) return georefSlotNo(s.slots, s.move.idx)
-  if (s.sel) return georefSlotNo(s.slots, s.sel.idx)
-  const opposite = s.slots.findIndex((sl) => danglingHalf(sl, s.want === 'plan' ? 'map' : 'plan'))
-  if (opposite >= 0) return georefSlotNo(s.slots, opposite)
-  return s.slots.filter((sl) => sl.kind !== 'auto').length + 1
-}
-
 /** How many numbered marks stand on ONE surface, paired or still waiting — «Karte n · Modul m».
  *  ⚠️ The automatic anchors do not count: they are nobody's marks, and a bar reading «Karte 3»
  *  after one own tap is the app counting its own scaffolding at the operator. */

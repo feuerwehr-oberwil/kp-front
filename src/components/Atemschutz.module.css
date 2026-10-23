@@ -31,15 +31,17 @@
 .headTile:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 @media (hover: hover) { .headTile:hover:not(:disabled) { color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink-faint); } }
 .headTile[data-popup-open] { color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink-faint); }
-/* «+ Trupp» — THE filled tile */
-.newBtn { composes: headTile; background: var(--ink); color: var(--surface); box-shadow: none; }
-@media (hover: hover) { .newBtn:hover:not(:disabled) { color: var(--surface); box-shadow: none; background-image: linear-gradient(var(--press), var(--press)); } }
+/* «+ Trupp» — THE filled tile, in the app's one primary fill (01-tokens · --btn-primary). It was
+   --ink until 23.10.2026: the glaring near-white at night that --btn-primary exists to avoid, so
+   a routine «+ Trupp» outshone the overdue Trupps on the board. */
+.newBtn { composes: headTile; background: var(--btn-primary); color: var(--on-btn-primary); box-shadow: none; }
+@media (hover: hover) { .newBtn:hover:not(:disabled) { color: var(--on-btn-primary); box-shadow: none; background: var(--btn-primary-hover); } }
 /* per-device alarm-sound toggle (visual alarm + wake-lock stay on either way) */
 .muteBtn { composes: headTile; }
 .muteOn { color: var(--amber-strong); box-shadow: inset 0 0 0 1px var(--amber-45); }
 /* the browser has not released audio: the bell is on, and it cannot make a sound. Red, because
    this is the one bell state that needs a tap — see AtemschutzView · bellLabel. */
-.muteBlocked { color: var(--red); box-shadow: inset 0 0 0 1px var(--red-45);
+.muteBlocked { color: var(--red-strong); box-shadow: inset 0 0 0 1px var(--red-45);
   background: color-mix(in srgb, var(--red) 10%, var(--surface)); }
 /* the board's arrangement, behind its own icon; the archive menu, the QR and the lite ↶ ↷ wear it too */
 .orderBtn { composes: headTile; }
@@ -56,11 +58,11 @@
    Red TEXT on a faint red tint (27.09.2026): it was a red fill, and the owner's sweep found it
    «as loud as the alarm itself». As the only coloured tile in the row it is still the loudest —
    and the pulse is the tile's own, shallower than the card band's (a tinted tile at .3 vanishes). */
-.overdueBadge { composes: headTile; color: var(--red);
+.overdueBadge { composes: headTile; color: var(--red-strong);
   background: color-mix(in srgb, var(--red) 11%, var(--surface));
   box-shadow: inset 0 0 0 1px var(--red-45);
   font-variant-numeric: tabular-nums; animation: az-pulse-tile 1.2s infinite; }
-@media (hover: hover) { .overdueBadge:hover:not(:disabled) { color: var(--red); box-shadow: inset 0 0 0 1px var(--red-62); } }
+@media (hover: hover) { .overdueBadge:hover:not(:disabled) { color: var(--red-strong); box-shadow: inset 0 0 0 1px var(--red-62); } }
 /* muted: the same tile in plain grey — the count still stands, the tone does not */
 .overdueQuiet { color: var(--ink-dim); background: var(--surface); box-shadow: inset 0 0 0 1px var(--glass-edge); animation: none; }
 @keyframes az-pulse-tile { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
@@ -148,13 +150,13 @@
 .kontaktWarn { background: color-mix(in srgb, var(--amber) 15%, var(--surface)); color: var(--amber-strong);
   box-shadow: inset 0 0 0 1.5px var(--amber-45); }
 @media (hover: hover) { .kontaktWarn:hover { background: color-mix(in srgb, var(--amber) 24%, var(--surface)); } }
-.kontaktCrit { background: color-mix(in srgb, var(--red) 15%, var(--surface)); color: var(--red);
+.kontaktCrit { background: color-mix(in srgb, var(--red) 15%, var(--surface)); color: var(--red-strong);
   box-shadow: inset 0 0 0 1.5px var(--red-45); }
 @media (hover: hover) { .kontaktCrit:hover { background: color-mix(in srgb, var(--red) 24%, var(--surface)); } }
 
 /* (`.metaRow` retired 09.09. — it WAS the stacked Sockel row. `.metaAlarm` below outlives it:
    the red an alarming pressure wears is still worn, now by a value on `.metaLine`.) */
-.metaAlarm { color: var(--red) !important; }
+.metaAlarm { color: var(--red-strong) !important; }
 
 /* ── THE ONE LINE THE SOCKEL LEFT STANDING (09.09.) ───────────────────────────────────────────
    Four stacked look-up rows became one label-and-value line at the head of the Verlauf block —
@@ -333,11 +335,11 @@
   box-shadow: inset 0 0 0 1px var(--amber-45); }
 /* ⚠️ The card's ONE filled tile (27.09.2026, owner screenshot r2-1): «Wieder in den Einsatz» /
    «In den Einsatz» on a Trupp that is out, «Im Einsatz» on one still waiting. In the tile family
-   the one primary action is the ink-filled tile («+ Trupp» in the head, `.newBtn`; «Anmelden» in
-   the form), never a green band — and it reads by night too (`--ink` / `--surface`). */
-.actEnter, .actReenter { color: var(--surface); background: var(--ink); box-shadow: none; }
+   the one primary action is the filled tile («+ Trupp» in the head, `.newBtn`; «Anmelden» in
+   the form), never a green band — in the app's one primary fill (`--btn-primary`, dimmed at night). */
+.actEnter, .actReenter { color: var(--on-btn-primary); background: var(--btn-primary); box-shadow: none; }
 @media (hover: hover) {
-  .actEnter:hover, .actReenter:hover { background: var(--ink); background-image: linear-gradient(var(--press), var(--press)); }
+  .actEnter:hover, .actReenter:hover { background: var(--btn-primary-hover); }
 }
 /* (`.st-aktiv` … `.st-raus`, the tablet card's status TOP EDGE, went on 29.09.2026: the card's tone
    is the phone row's LEFT edge and wash by tier — `rowTone`, `.trowWarn` / `.trowCrit` / `.trowIdle`
@@ -437,7 +439,7 @@
        once the columns row is the 1fr.
    Hence `:first-child` rather than a bare `:has(> .formColWide)`, which the warning would match
    in the no-tiles shapes and hand the 1fr row to the tiles that are not there. That the tiles ARE
-   the first child is not an assumption — it is pinned by AtemschutzView.test.tsx («a tablet keeps
+   the first child is not an assumption — it is pinned by AtemschutzView.board.test.tsx («a tablet keeps
    the single screen»), because it is also a copy rule: the chooser stands above the fields it
    governs. */
 .modalBody { grid-template-rows: 1fr; }
@@ -606,7 +608,7 @@
 /* 44px touch pad behind the 26px visible target — gloved-finger sized without bloating the row */
 .slotRemove::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
 .slotRemove :global(.i) { width: 14px; height: 14px; }
-@media (hover: hover) { .slotRemove:hover { background: var(--red-12); color: var(--red); } }
+@media (hover: hover) { .slotRemove:hover { background: var(--red-12); color: var(--red-strong); } }
 .slotRemove:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .field input { border: 1px solid var(--glass-edge); border-radius: var(--r-ctl); padding: var(--sp-3);
   background: var(--surface); font-family: var(--body); font-size: var(--fs-3); color: var(--ink); outline: none; }
@@ -821,14 +823,14 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--sp-2); justify-items: start; }
 /* 160, not 150 (25.09.2026): the ✕ grew to the full 44px target, and at 360px two 157px cells
    left a name «Gast A…». A 360px phone now lays one chip per row, whole; from ~390px it is two. */
-/* ⚠️ `--r-sm`, not the row's `--r-ctl`: a chip is a button in the house spec (AGENTS.md ·
+/* ⚠️ `--r-sm`, not the row's `--r-ctl`: a chip is a button in the house spec (docs/ui-conventions.md ·
    Buttons), and it sits beside the search field's own `--r-ctl` — two different shapes is what
    says «these are targets, that is a field». */
 .chip { display: inline-flex; align-items: center; max-width: 100%; min-height: var(--tap);
   border: 1px solid var(--glass-edge); border-radius: var(--r-sm); background: var(--surface);
   /* the ✕'s wash sits 3px in from the chip's border on three sides (see .chipX::before), so its
      corner is the chip's minus the border and that inset — the two curves run concentric
-     (AGENTS.md · Buttons) */
+     (docs/ui-conventions.md · Buttons) */
   padding: 0 2px 0 0; --r-nested: calc(var(--r-sm) - 4px); }
 .chipPick { flex: 0 1 auto; min-width: 0; display: inline-flex; align-items: center; gap: var(--sp-2);
   align-self: stretch; padding: 0 var(--sp-1) 0 var(--sp-2); border: none; background: none; cursor: pointer;
@@ -867,7 +869,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    the 34px it always had, so the name beside it keeps every pixel of its width */
 .chipX::before { content: ''; position: absolute; inset: 3px 1px; z-index: -1; border-radius: var(--r-nested); }
 @media (hover: hover) {
-  .chipX:hover { color: var(--red); }
+  .chipX:hover { color: var(--red-strong); }
   .chipX:hover::before { background: var(--red-12); }
 }
 .chipX:active::before { background-image: linear-gradient(var(--press), var(--press)); }
@@ -1128,19 +1130,19 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    dot — the two lines then read as one block instead of two things that happen to be stacked */
 .trowEst { display: none; font-family: var(--mono); font-size: var(--fs-1); font-weight: var(--fw-bold);
   color: var(--ink-dim); font-variant-numeric: tabular-nums; margin-top: 2px; padding-left: calc(var(--trow-dot) + var(--sp-2)); }
-.trowEstLow { color: var(--red); }
+.trowEstLow { color: var(--red-strong); }
 
 .trowState { font-size: var(--fs-micro); font-weight: var(--fw-heavy); letter-spacing: .05em; text-transform: uppercase;
   color: var(--ink-faint); }
 .trowWarn .trowState { color: var(--amber-strong); }
-.trowCrit .trowState { color: var(--red); }
+.trowCrit .trowState { color: var(--red-strong); }
 
 /* the number the whole surface exists for — mono and tabular so the digits line up down the column */
 .trowClock { text-align: right; }
 .trowClockVal { display: block; font-family: var(--mono); font-size: 28px; font-weight: var(--fw-heavy);
   line-height: 1; color: var(--green); font-variant-numeric: tabular-nums; }
 .trowWarn .trowClockVal { color: var(--amber); }
-.trowCrit .trowClockVal { color: var(--red); }
+.trowCrit .trowClockVal { color: var(--red-strong); }
 /* «3d 9h» (AtemschutzView · ClockVal, 30.09.2026): the unit is a small body-face letter against its
    number, so a day-long clock stops out-measuring the name beside it */
 .clockUnit { font-family: var(--body); font-size: .75em; font-weight: var(--fw-bold); margin-left: 1px; }
@@ -1153,7 +1155,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    because the phone is where the sun is. */
 .trowTier { display: flex; justify-content: flex-end; margin-top: var(--sp-1); line-height: 1; color: var(--amber-strong); }
 .trowTier :global(.i) { width: 16px; height: 16px; flex: none; }
-.trowTierCrit { color: var(--red); }
+.trowTierCrit { color: var(--red-strong); }
 
 .trowPress { text-align: right; font-family: var(--mono); font-size: var(--fs-3); font-weight: var(--fw-bold);
   color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -1187,7 +1189,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   .trowState { display: none; }
   .trowClockVal { font-size: 25px; }
   .trowEst { display: block; }
-  /* trimmed to 44px — the repo's --tap floor exactly, not below it. AGENTS.md asks primary actions
+  /* trimmed to 44px — the repo's --tap floor exactly, not below it. The 3am tenet asks primary actions
      for 48–56px and this is the surface's primary action, so it sits at the bottom of what is
      allowed rather than in the comfortable band; deliberate, to buy the name its width back. */
   .trowKontakt { padding: 0; min-height: var(--tap); }
@@ -1401,7 +1403,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .tabWarn { background: color-mix(in srgb, var(--amber) 12%, var(--surface)); border-color: var(--amber); }
 .tabWarn .tabClock { color: var(--amber-strong); }
 .tabCrit { background: color-mix(in srgb, var(--red) 12%, var(--surface)); border-color: var(--red); }
-.tabCrit .tabClock { color: var(--red); }
+.tabCrit .tabClock { color: var(--red-strong); }
 /* the chosen tab is «where you are» — the nav's ink pill (29.09.2026, T9; the page tabs' rule of
    28.09.): --ink-fill with --on-accent-ink, never an outline-only «selected». On a red or amber
    tab the FILL wins — the card above already shows the tier, and the other tabs keep theirs.
@@ -1510,7 +1512,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    moved here, so the row and the opened card show it in one place. Mono like every bar on this
    board; red at or under this Trupp's line, the colour the band's «Alarmdruck» wore. */
 .pairBar { font: var(--fw-heavy) var(--fs-2) var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pairBarLow { color: var(--red); }
+.pairBarLow { color: var(--red-strong); }
 /* (…the second row of the grid, the lifecycle tiles, is `.actions` / `.actBtn` above — the base
    rules since 29.09.2026, when the tablet card took the phone's tiles.) */
 /* the tier as WORDS, one line under the tiles (TruppCard · stateLine); amber for «fällig», red for
@@ -1581,7 +1583,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .factGo :global(.i) { width: 14px; height: 14px; color: var(--ink-dim); }
 /* the ⋯, the last chip: square, the glyph in the dim ink */
 .kennQuiet { color: var(--ink-dim); }
-.kennCrit { color: var(--red); }
+.kennCrit { color: var(--red-strong); }
 /* the Verlauf keeps its full-bleed foot (hairline + wash), flush with the frame's bottom edge */
 .trowCard .vfoot { margin: var(--sp-3) calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)); }
 .trowCard .vfoot:empty { margin: 0; }
@@ -1596,11 +1598,11 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .trowSafetyWho { display: block; font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-dim); margin-top: 2px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* the Sicherungstrupp's one action, worded and filled like the tablet card's (07.10.2026, UI sweep):
-   «Im Einsatz» (`actEnter` — the button names the state it makes) in the card's ONE ink-filled
-   tile (`.actEnter`), never a green band. It was a green «Einsetzen» on the phone only. The row's
+   «Im Einsatz» (`actEnter` — the button names the state it makes) in the card's ONE filled
+   tile (`.actEnter`, `--btn-primary`), never a green band. It was a green «Einsetzen» on the phone only. The row's
    green edge and tint stay: they say WHICH Trupp this is, not what the button does. */
 .safetyDeploy { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 16px;
-  border-radius: var(--r-ctl); background: var(--ink); color: var(--surface); font: var(--fw-heavy) var(--fs-2) var(--body); }
+  border-radius: var(--r-ctl); background: var(--btn-primary); color: var(--on-btn-primary); font: var(--fw-heavy) var(--fs-2) var(--body); }
 .safetyDeploy:active { background-image: linear-gradient(var(--press), var(--press)); }
 /* The SICHERUNGSTRUPP head (26.09.2026, phone card slim-down): a section head like DRIN / DRAUSSEN,
    and «Bestimmen» at the row's right — a 36px pill of the count badge's family, so the
@@ -1610,9 +1612,11 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    tone, a hint (the alarm rules do not know it), never a fill. */
 /* 4 + the zone's 8px row gap = the 12px every other head keeps above its first card (30.09.2026) */
 .sectSafety { margin-bottom: 4px; }
-.sectAct { margin-left: auto; flex: none; min-height: 36px; padding: 0 var(--sp-3); border: none; cursor: pointer; border-radius: var(--r-sm);
+.sectAct { position: relative; margin-left: auto; flex: none; min-height: 36px; padding: 0 var(--sp-3); border: none; cursor: pointer; border-radius: var(--r-sm);
   background: var(--surface); color: var(--ink); font: var(--fw-heavy) var(--fs-2) var(--body); box-shadow: inset 0 0 0 1px var(--glass-edge); }
 .sectAct:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
+/* 36px drawn, --tap under a finger — the same 4px pad as `.fact` */
+@media (pointer: coarse) { .sectAct::before { content: ''; position: absolute; inset: -4px 0; } }
 .sectDue .sectTitle { color: var(--amber-strong); }
 
 /* (`.cardPressBtn`, the opened phone card's own Druck row, is gone since 26.09.2026: the opened
@@ -1628,7 +1632,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
   font: var(--fw-heavy) var(--fs-5) var(--mono); color: var(--ink); font-variant-numeric: tabular-nums;
   box-shadow: 0 0 0 1px var(--border-soft); }
 .pressureCell:active { background-image: linear-gradient(var(--press), var(--press)); }
-.pressureCellLow { color: var(--red); }
+.pressureCellLow { color: var(--red-strong); }
 /* the third list is the low one whatever the station's Alarmdruck says (a station may run with
    the pressure alarm off — `alarmBar: 0`): tinted as a column, red digits only at or below the line */
 .pressureCol:last-child { background: color-mix(in srgb, var(--red) 9%, var(--surface)); }
@@ -1746,10 +1750,10 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .pinTime { display: flex; flex-direction: column; align-items: flex-end; }
 .pinState { font-size: var(--fs-1); font-weight: var(--fw-bold); color: var(--ink-dim); margin-top: var(--sp-1); white-space: nowrap; }
 .trowWarn .pinState { color: var(--amber-strong); }
-.trowCrit .pinState { color: var(--red); }
+.trowCrit .pinState { color: var(--red-strong); }
 .pinClock { font: var(--fw-heavy) var(--fs-5) var(--mono); line-height: 1; font-variant-numeric: tabular-nums; color: var(--green); }
 .trowWarn .pinClock { color: var(--amber); }
-.trowCrit .pinClock { color: var(--red); }
+.trowCrit .pinClock { color: var(--red-strong); }
 .pinKontakt { min-height: 48px; padding: 0 var(--sp-4); border-radius: var(--r-ctl); font-size: var(--fs-2); }
 .pinKontakt :global(.i) { width: 16px; height: 16px; }
 /* confirmed during the hold: the calm tone of a fresh clock (PinnedRow · done) */

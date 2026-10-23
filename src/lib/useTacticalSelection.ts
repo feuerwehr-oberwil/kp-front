@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { LngLat, ShapeKind } from '../types'
+import type { LngLat, MapTool, ShapeKind } from '../types'
 
 /** Session-only tactical editing state for the Lage map surface: the active tool, the
  *  in-progress place gesture (pending symbol / shape / place-lock / Team coord), and what's
@@ -9,7 +9,7 @@ import type { LngLat, ShapeKind } from '../types'
  *  to their former inline selves. */
 export function useTacticalSelection() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [tool, setTool] = useState('select')
+  const [tool, setTool] = useState<MapTool>('select')
   // map Team tool: the tapped coord awaiting the «Welcher Trupp?» choice (mirrors the plan)
   const [teamPick, setTeamPick] = useState<LngLat | null>(null)
   const [pending, setPending] = useState<string | null>(null)

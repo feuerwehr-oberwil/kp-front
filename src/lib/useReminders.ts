@@ -44,7 +44,7 @@ interface Copy {
  * colleague may have reopened or closed it meanwhile, and a second «wieder offen» row for an item
  * that is open is a record of something that did not happen.
  * ⚠️ The toast's «Rückgängig» does the inverse itself and DROPS the timeline entry, so the act
- * is never undoable twice (AGENTS.md · confirm-with-undo).
+ * is never undoable twice (docs/undo.md · confirm-with-undo).
  */
 export function completeReminder(r: OpenReminder, deps: {
   append: (ev: ReminderEvent) => void

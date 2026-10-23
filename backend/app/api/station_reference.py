@@ -125,7 +125,7 @@ def module_code(module: str | None) -> str:
 def aliases_of(obj: ObjectSite, merged: list[str] | None = None) -> list[str]:
     """Other names for the object a member might type: the plan library's folder
     («Hauptstrasse 24 - Gemeindeverwaltung») when it is not just the name again, and the names
-    of objects merged into it (``admin_objects merge``, object_visits · ALIAS_SOURCE)."""
+    of objects merged into it (``admin_objects_repair merge``, object_visits · ALIAS_SOURCE)."""
     out: list[str] = []
     seen = {(obj.name or "").casefold(), (obj.address or "").casefold()}
     for alias in [(obj.filing_folder or "").strip(), *(merged or [])]:

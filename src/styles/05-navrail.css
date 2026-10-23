@@ -164,8 +164,8 @@
   box-sizing: border-box; border-radius: var(--r-xs); background: var(--ink-fill); color: var(--on-accent-ink);
   font: var(--fw-heavy) var(--fs-micro) var(--body); line-height: 12px; text-align: center; }
 /* the Rapport's «noch offen» is the chip's AMBER (13-incident · .rp-state.warn): a warning,
-   not an alarm (AGENTS.md · colour) */
-.nav-live.nav-count.nav-open { background: var(--amber); color: var(--on-fill); }
+   not an alarm (docs/ui-conventions.md · Buttons: amber = warning, red = danger) */
+.nav-live.nav-count.nav-open { background: var(--amber); color: var(--on-amber); }
 /* Atemschutz cross-surface alarm dot: amber when fällig, red + pulse when überfällig */
 .nav-live.nav-alarm { background: var(--amber); }
 .nav-live.nav-alarm.crit { background: var(--red); animation: nav-alarm-pulse 1.4s infinite; }
@@ -273,7 +273,7 @@ html.rail-dragging .layers-card { transition: none; }
    button's edge. */
 .lc-quick { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px 4px 2px; }
 .lc-quick > button { min-width: 0; padding: 0 var(--sp-1); white-space: normal; line-height: 1.1; }
-/* a section head is an EYEBROW (29.09.2026, K9 — AGENTS.md · Fields, titles, eyebrows) */
+/* a section head is an EYEBROW (29.09.2026, K9 — docs/ui-conventions.md · Fields, titles, eyebrows) */
 .lgroup { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
   padding: 16px 8px 8px; }
 /* the map's credits at the panel's foot – a footnote, not a control: the quietest text in the dock */
@@ -300,14 +300,14 @@ html.rail-dragging .layers-card { transition: none; }
 .lbase-ic { display: grid; place-items: center; color: var(--ink-dim); }
 .lbase.on .lbase-ic { color: var(--on-sel); }
 .lbase-ic .i { width: 20px; height: 20px; }
-/* 12.5px — the tile is interactive, so its word sits on the interactive floor (AGENTS.md · 3am),
+/* 12.5px — the tile is interactive, so its word sits on the interactive floor (the 3am tenet: interactive text ≥12.5px),
    not on the 11px the group heads use; it was 11 (22.09.2026). A long full name still ellipsises
    (the `title` keeps it), the short names the deployment ships fit whole. */
 .lbase-t { font-size: var(--fs-1); font-weight: var(--fw-bold); line-height: 1.15; text-align: left;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 /* clean list rows — transparent, no per-row box; visible vs hidden shown by the blue eye +
    opacity, with the dock's white hover highlight */
-/* a row, so `--r-ctl` (AGENTS.md · Buttons: rows and option cells are not buttons) */
+/* a row, so `--r-ctl` (docs/ui-conventions.md · Buttons: rows and option cells are not buttons) */
 .lrow { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 8px; border: none; background: transparent;
   border-radius: var(--r-ctl); font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink); cursor: pointer;
   transition: opacity .14s, background .14s; }

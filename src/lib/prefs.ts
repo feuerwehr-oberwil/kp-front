@@ -126,8 +126,10 @@ export interface Prefs {
    *  so a card keeps its slot and «Trupp 2 is the second one» stays true for the whole Einsatz.
    *  A device pref because it is a way of LOOKING at the board; the hand-set order itself is
    *  synced (Trupp.order), so «wie gesetzt» shows the same thing on every device.
-   *  ⚠️ Whatever is chosen, an überfälliger Trupp still floats to the top — a card that can hide
-   *  off-screen is the one failure mode this screen exists to prevent. */
+   *  ⚠️ «Wie gesetzt» keeps EVERY card in its slot, an überfälliger Trupp included: on the tablet
+   *  the board does not rearrange itself under the operator (owner, 23.10.2026). The derived
+   *  sorts float an überfälliger Trupp to the top; the phone board has no order choice and
+   *  always sorts by urgency, because there a card can hide off-screen (AtemschutzView). */
   atemschutzOrder?: 'dringlichkeit' | 'manuell' | 'auftrag' | 'name'
   /** Standort teilen — this device's standing PERMISSION to use its position for it, plus
    *  who it reports as. A DEVICE preference by design: it is the phone's owner deciding about

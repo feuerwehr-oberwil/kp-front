@@ -190,10 +190,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'errors'>> = {
     attendanceConflictOpenEnd: 'aperto',
     attendanceConflictTake: 'Riprendi {side}',
     attendanceConflictKeep: 'Entrambi corretti',
-    attendanceConflictOpenTitle: 'Divergenze',
     attendanceConflictOpenCount: '{n} aperte',
-    attendanceConflictNoneOpen: 'Nessuna aperta',
-    attendanceConflictCheckedAt: 'verificata {t} · {by}',
     quickPhrasesAria: 'Frasi tipo',
     openRemindersHead: 'Pendenze',
     // l'interruttore ○ accanto ai chip Art — tre stati su un unico comando
@@ -219,6 +216,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'errors'>> = {
     openReminderGo: 'Vai alla voce',
   },
   errors: {
+    invalidValue: 'Valore non valido',
+    moreSignatures: 'altre firme d’errore (oltre {n})',
     serverUnreachable: 'Errore di rete – server non raggiungibile',
     serverTimeout: 'Il server non risponde – timeout',
 

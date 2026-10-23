@@ -250,7 +250,8 @@ describe('computeAuswertung', () => {
   })
 })
 
-describe('review of #303', () => {
+// review of #303
+describe('removals, reopens and stray entries draw no phantom', () => {
   const sys = (id: string, hhmm: string, lifecycle: 'closed' | 'reopened'): TimelineEvent =>
     ({ id, t: hhmm, at: at(hhmm), icon: 'lock', text: lifecycle === 'closed' ? 'Einsatz abgeschlossen' : 'Einsatz wiedereröffnet', lifecycle } as TimelineEvent)
 

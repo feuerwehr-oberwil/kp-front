@@ -10,7 +10,7 @@ export const SKIZZE = 'skizze'
  *
  * Device-local on purpose, like a plan's zoom: the page you are on is a way of reading the Tafel,
  * so it never reaches the synced workspace — another tablet stays on its own page. Operational
- * VIEW state, so it lives in IndexedDB (lib/idb, AGENTS.md · «Operational browser state lives in
+ * VIEW state, so it lives in IndexedDB (lib/idb, docs/sync-and-offline.md · «Operational browser state lives in
  * IndexedDB»), mirrored in a module-level map so a surface switch (the Whiteboard unmounts every
  * time) comes back on the same page without waiting for the read. A page that no longer exists
  * falls back to the Skizze by construction (Whiteboard · `page`).

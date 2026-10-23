@@ -45,7 +45,8 @@ describe('name tags — which fit', () => {
     expect(shown.has('big')).toBe(false) // it would cover the selected tag
   })
 
-  it('a tag is centred on its object\'s point (owner R3: the marker never moves)', () => {
+  // owner R3
+  it('a tag is centred on its object\'s point — the marker never moves', () => {
     const r = tagRect({ id: 'x', x: 100, y: 50, w: 80, h: 26, rank: 0 })
     expect(r).toEqual({ left: 60, top: 37, right: 140, bottom: 63 })
     expect(overlaps(r, { left: 99, top: 49, right: 101, bottom: 51 })).toBe(true)
@@ -99,7 +100,8 @@ describe('the buildings of an object', () => {
     expect(objectBuildings(obj({ lat: 47.5300 }), [GYM, HOUSE])).toBeNull()
   })
 
-  it('a named row\'s underground garage rides along apart, to be drawn dashed (review round 3)', () => {
+  // review round 3
+  it('a named row\'s underground garage rides along apart, to be drawn dashed', () => {
     const fp = { type: 'MultiPolygon', coordinates: [[closed(HOUSE)]] }
     const garage = sq(7.5700, 47.5198, 0.0004)
     const b = objectBuildings(obj({ footprint: fp, underground: { type: 'MultiPolygon', coordinates: [[closed(garage)]] } }), [])

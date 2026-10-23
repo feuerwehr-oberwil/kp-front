@@ -4,21 +4,11 @@ import { apiGet, apiPut, apiUpload, ApiError } from '../api'
 import { idbGet, idbRead, idbSet } from '../idb'
 import { appConfig } from '../../config/appConfig'
 import type { GeorefPair } from '../georef'
+import type { Fits, In, Out } from './wire'
 
-export interface ReferenceDataset {
-  id: string
-  object_id: string | null
-  module: string | null
-  kind: string // 'pdf' | 'geojson' | 'symbols'
-  title: string | null
-  source_type: string
-  source_note: string | null
-  content_type: string | null
-  size_bytes: number | null
-  feature_count: number | null
-  current_version: number
-  updated_at: string
-}
+/** One reference dataset. `kind` is the server's word for it: pdf, geojson, symbols, tafel or
+ *  checklists (api/reference · replace_reference) – a plain string, as the server types it. */
+export type ReferenceDataset = Out<'ReferenceDatasetOut'>
 
 export const listReference = () => apiGet<ReferenceDataset[]>('/api/reference')
 /**
@@ -182,8 +172,8 @@ export function mergeReferenceLayer<T extends { id?: string }>(existing: T[], la
   return existing.map((l, i) => (i === at ? { ...l, ...layer } : l))
 }
 
-/** A render-config entry for a per-station reference layer (mirrors the backend
- *  ReferenceLayerConfig / admin_geodata manifest — see deploymentConfig.ts). */
+/** A render-config entry for a per-station reference layer (the backend's ReferenceLayerConfig /
+ *  admin_geodata manifest — see deploymentConfig.ts), as this client writes it. */
 export interface ReferenceLayerInput {
   id: string
   group?: string
@@ -200,6 +190,8 @@ export interface ReferenceLayerInput {
   attribution?: string
   autoActivate?: string[]
 }
+// a subset of the server's model (it also knows maxzoom, and takes nulls): checked, not aliased
+type _ReferenceLayerFits = Fits<ReferenceLayerInput, In<'ReferenceLayerConfig'>>
 
 /**
  * Add (or replace by id) one reference layer in the deployment config. Read-modify-write

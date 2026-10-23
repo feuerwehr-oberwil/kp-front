@@ -1,4 +1,4 @@
-"""One twin under ANOTHER name folded into an object — `admin_objects merge <loser> --into <id>`
+"""One twin under ANOTHER name folded into an object — `admin_objects_repair merge <loser> --into <id>`
 (review round 3, 17.10.2026: the plan-less «Stallenmattstrasse 2-14, Kaibmattweg 1-5 (EH)» is the
 plan library's «Stallenmattstrasse 1-14 …»; owner: «merge number 2 onto 1 and drop 2»), and the
 `twins` report that finds such pairs. Synthetic Musterdorf data.
@@ -10,7 +10,7 @@ import uuid
 import pytest
 from sqlalchemy import func, select
 
-from app import admin_objects, object_footprints, storage
+from app import admin_objects_repair, object_footprints, storage
 from app import object_visits as ov
 from app.models import ObjectPositionEvent, ObjectRef, ObjectSite, ObjectVisit, ReferenceDataset
 
@@ -20,7 +20,7 @@ TWO = uuid.UUID("22222222-2222-4222-8222-222222222222")
 
 @pytest.fixture(autouse=True)
 def _cli_session(monkeypatch, session_factory):
-    monkeypatch.setattr(admin_objects, "async_session_maker", session_factory)
+    monkeypatch.setattr(admin_objects_repair, "async_session_maker", session_factory)
 
 
 async def _twins(db) -> None:
@@ -71,7 +71,7 @@ async def _count(db, model, **where) -> int:
 
 async def test_the_dry_run_says_everything_and_writes_nothing(db_session, capsys):
     await _twins(db_session)
-    assert await admin_objects._merge_into(TWO, ONE, apply=False) == 0
+    assert await admin_objects_repair._merge_into(TWO, ONE, apply=False) == 0
     out = capsys.readouterr().out
     assert "created by: Integration: fwo" in out and "fwo-schlue:k-2" in out
     assert "1 Objektbesuch(e) and 1 outside id(s) move" in out and "1 position correction(s)" in out
@@ -83,7 +83,7 @@ async def test_the_dry_run_says_everything_and_writes_nothing(db_session, capsys
 
 async def test_apply_moves_everything_onto_the_survivor_and_drops_the_twin(db_session, capsys):
     await _twins(db_session)
-    assert await admin_objects._merge_into(TWO, ONE, apply=True) == 0
+    assert await admin_objects_repair._merge_into(TWO, ONE, apply=True) == 0
     db_session.expire_all()
     assert await db_session.get(ObjectSite, TWO) is None
     one = await db_session.get(ObjectSite, ONE)
@@ -101,7 +101,7 @@ async def test_apply_moves_everything_onto_the_survivor_and_drops_the_twin(db_se
 
 async def test_no_organizer_push_mints_the_twin_again(db_session):
     await _twins(db_session)
-    assert await admin_objects._merge_into(TWO, ONE, apply=True) == 0
+    assert await admin_objects_repair._merge_into(TWO, ONE, apply=True) == 0
     db_session.expire_all()
     # a new outside id under the merged-away folder/name resolves to the survivor
     got = await ov.upsert_integration_object(
@@ -115,7 +115,7 @@ async def test_the_viewer_finds_the_old_name(client, db_session, editor):
     from tests.test_building_facts import _login
 
     await _twins(db_session)
-    assert await admin_objects._merge_into(TWO, ONE, apply=True) == 0
+    assert await admin_objects_repair._merge_into(TWO, ONE, apply=True) == 0
     await _login(client, editor)
     objs = (await client.get("/api/reference/objects")).json()["objects"]
     assert [o["aliases"] for o in objs if o["id"] == str(ONE)] == [["Musterweg 2-14 (EH)"]]
@@ -124,9 +124,9 @@ async def test_the_viewer_finds_the_old_name(client, db_session, editor):
 async def test_refuses_nonsense(db_session):
     await _twins(db_session)
     with pytest.raises(SystemExit):
-        await admin_objects._merge_into(ONE, ONE, apply=False)
+        await admin_objects_repair._merge_into(ONE, ONE, apply=False)
     with pytest.raises(SystemExit):
-        await admin_objects._merge_into(uuid.uuid4(), ONE, apply=False)
+        await admin_objects_repair._merge_into(uuid.uuid4(), ONE, apply=False)
 
 
 async def test_twins_reports_a_plan_less_row_on_another_s_buildings(db_session, capsys):
@@ -146,7 +146,7 @@ async def test_twins_reports_a_plan_less_row_on_another_s_buildings(db_session, 
     storage.put_bytes(object_footprints.STORE_KEY, json.dumps({"footprints": {str(ONE): one, str(TWO): two}}).encode())
     object_footprints.clear_cache()
     try:
-        assert await admin_objects._report_twins() == 0
+        assert await admin_objects_repair._report_twins() == 0
     finally:
         storage.delete(object_footprints.STORE_KEY)
         object_footprints.clear_cache()

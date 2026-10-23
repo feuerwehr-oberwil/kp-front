@@ -22,7 +22,8 @@ const TRUPPS = `
 const folded = (h: HTMLElement) => [...h.querySelectorAll<HTMLElement>('[data-fold]')]
   .filter((p) => p.dataset.folded).map((p) => `${p.dataset.fold}:${p.dataset.folded}`)
 
-describe('the page head ladder (lib/pageHeadFit, 28.09.2026)', () => {
+// 28.09.2026
+describe('the page head ladder (lib/pageHeadFit)', () => {
   it('one step per rank PRESENT, ascending — a missing tile costs no step', () => {
     expect(foldRanks([7, 1, 5, 1, 8, 3])).toEqual([1, 3, 5, 7, 8])
     expect(foldRanks([])).toEqual([])

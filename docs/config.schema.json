@@ -464,6 +464,13 @@
           ],
           "default": null,
           "title": "Equipment"
+        },
+        "nearbyObjectWarnM": {
+          "default": 25,
+          "maximum": 500,
+          "minimum": 0,
+          "title": "Nearbyobjectwarnm",
+          "type": "integer"
         }
       },
       "title": "DoctrineConfig",

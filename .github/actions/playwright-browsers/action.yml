@@ -1,0 +1,34 @@
+name: Install Playwright browsers (cached)
+description: >-
+  Install the named Playwright browsers with ~/.cache/ms-playwright restored from the Actions
+  cache, keyed on the lockfile's Playwright version. The CDN download is what stalled browser
+  jobs into their timeout (sweep D.1, 23.10.2026: 647 s instead of 49 s); on a hit only the apt
+  dependencies are installed. Needs `pnpm install` first.
+inputs:
+  browsers:
+    description: Space-separated Playwright browser names, e.g. "chromium webkit"
+    default: chromium
+runs:
+  using: composite
+  steps:
+    - name: Playwright version
+      id: pw
+      shell: bash
+      run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+    - name: Restore the browser cache
+      id: cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-${{ inputs.browsers }}
+
+    - name: Download the browsers (cache miss)
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: pnpm exec playwright install --with-deps ${{ inputs.browsers }}
+
+    - name: System dependencies only (cache hit)
+      if: steps.cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: pnpm exec playwright install-deps ${{ inputs.browsers }}

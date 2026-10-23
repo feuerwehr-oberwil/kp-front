@@ -481,7 +481,8 @@ describe('KarteApp', () => {
     expect(options[1].textContent).toMatch(/Remise Schloss/)
   })
 
-  it('lists an object as glyph · name · address, without its plan count (review round 2)', async () => {
+  // review round 2
+  it('lists an object as glyph · name · address, without its plan count', async () => {
     mount()
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })
     const field = screen.getByPlaceholderText('Adresse oder Objekt suchen …', PLAIN)
@@ -737,7 +738,7 @@ describe('KarteApp', () => {
     // the map's round search button, the pin and the compass are the map's
     expect(screen.queryByRole('button', { name: 'Suchen' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Punkt setzen' })).toBeNull()
-    fireEvent.change(screen.getByLabelText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Generator' } })
+    fireEvent.change(screen.getByLabelText('Anleitung oder Checkliste suchen', PLAIN), { target: { value: 'Generator' } })
     expect(screen.getByTestId('library').textContent).toBe('Generator')
     fireEvent.click(within(nav).getByRole('button', { name: 'Messen' }))
     expect(screen.queryByTestId('library')).toBeNull()
@@ -779,7 +780,7 @@ describe('KarteApp', () => {
     // as on a plan: no tool rail; and the object's panel waits on the map
     expect(document.querySelector('.tool-rail')).toBeNull()
     expect(screen.queryByRole('heading', { name: 'Schloss Musterdorf' })).toBeNull()
-    fireEvent.change(screen.getByLabelText('Anleitung, Checkliste, Stichwort', PLAIN), { target: { value: 'Motorspritze' } })
+    fireEvent.change(screen.getByLabelText('Anleitung oder Checkliste suchen', PLAIN), { target: { value: 'Motorspritze' } })
     expect(screen.getByTestId('library').textContent).toBe('Motorspritze')
     fireEvent.click(within(rail()).getByRole('button', { name: 'Karte' }))
     expect(screen.queryByTestId('library')).toBeNull()
@@ -912,7 +913,7 @@ describe('KarteApp', () => {
     expect(screen.queryByPlaceholderText('Adresse oder Objekt suchen …', PLAIN)).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Suchen' }))
     const sheet = await screen.findByRole('region', { name: 'Suchen' })
-    const field = within(sheet).getByPlaceholderText('Adresse oder Objekt', PLAIN) as HTMLInputElement
+    const field = within(sheet).getByPlaceholderText('Adresse oder Objekt suchen …', PLAIN) as HTMLInputElement
     expect(document.activeElement).toBe(field)
     expect(field.name).toBe('search-karte')
     expect(field.getAttribute('autocomplete')).toBe('off')

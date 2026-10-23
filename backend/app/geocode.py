@@ -130,6 +130,30 @@ def _home_first(hits: list[GeoHit], default_locality: str) -> list[GeoHit]:
     return [h for h in hits if home(h)] + [h for h in hits if not home(h)]
 
 
+_WORD = re.compile(r"[a-z0-9]+")
+
+
+def _words(text: str) -> list[str]:
+    """Folded words of a query or label: lower case, accents off, «ue»/«oe»/«ae» as typed for ü/ö/ä."""
+    folded = _fold(text).replace("ue", "u").replace("oe", "o").replace("ae", "a")
+    return _WORD.findall(folded)
+
+
+def _shares_a_word(hits: list[GeoHit], query: str) -> list[GeoHit]:
+    """Only the hits whose label shares a word with what the operator typed (the first three
+    letters of a word are enough – a half-typed or misspelt street still counts).
+
+    ⚠️ Sweep F.3 (23.10.2026): `_bias` appends the home locality, and swisstopo drops a token it
+    cannot place, so «xyzqq» went out as «xyzqq 4104 Oberwil» and came back as six real Oberwil
+    addresses – plausible wrong pins under «Adressen» at 3am. Words shorter than three letters
+    (house numbers, «41») do not count; a query made only of those is left unfiltered.
+    """
+    wanted = [w[:3] for w in _words(query) if len(w) >= 3]
+    if not wanted:
+        return hits
+    return [h for h in hits if any(w.startswith(p) for w in _words(h.label) for p in wanted)]
+
+
 def _parse(results: list[dict]) -> list[GeoHit]:
     hits: list[GeoHit] = []
     for r in results:
@@ -196,7 +220,8 @@ async def search(address: str, limit: int = 6) -> list[GeoHit]:
     A query that finds nothing is retried once with its street token corrected against the
     region's street dictionary («haupstrasse 12» → «Hauptstrasse 12»), when exactly one known
     street is a single edit away – see street_dictionary. The hits carry swisstopo's label,
-    i.e. the corrected spelling.
+    i.e. the corrected spelling. A hit that shares no word with the query is dropped
+    (`_shares_a_word`): the appended home locality must not answer for a query that named nothing.
     """
     if not address or not address.strip():
         return []
@@ -209,11 +234,12 @@ async def search(address: str, limit: int = 6) -> list[GeoHit]:
         results = await _upstream(_bias(query, default_locality), bbox, limit)
         if not results and (streets := _streets.get(bbox)) and (fixed := correct_query(query, streets)):
             logger.info("Geocode retry with corrected street: %r → %r", query, fixed)
+            query = fixed
             results = await _upstream(_bias(fixed, default_locality), bbox, limit)
     except (httpx.HTTPError, ValueError) as e:
         logger.warning("Geocode failed for %r: %s", address, e)
         return []
-    return _home_first(_parse(results), default_locality)[:limit]
+    return _home_first(_shares_a_word(_parse(results), query), default_locality)[:limit]
 
 
 async def geocode(address: str) -> tuple[float, float] | None:

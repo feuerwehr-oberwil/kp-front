@@ -26,18 +26,6 @@ import { WheelPopover, type WheelValue } from './WheelPicker'
 import { hhmm, pad2 } from '../lib/format'
 import { dayRange, RECENT_DAYS } from '../lib/zeitplanFormat'
 
-/** '0715' | '7:15' | '19.30' → 'HH:MM' (24h), or null when not parseable/empty. */
-export function parseHHMM(raw: string): string | null {
-  const s = raw.trim().replace(/[.\s]/g, ':')
-  if (!s) return null
-  const m = /^(\d{1,2}):?(\d{2})$/.exec(s)
-  if (!m) return null
-  const h = Number(m[1])
-  const min = Number(m[2])
-  if (h > 23 || min > 59) return null
-  return `${pad2(h)}:${pad2(min)}`
-}
-
 export function TimeField({ value, valueDay, onCommit, disabled, ariaLabel, nowLabel, className, shortcut, clearLabel, clearActive, days, placeholder, token, required }: {
   /** current value as 'HH:MM' ('' = unset) */
   value: string

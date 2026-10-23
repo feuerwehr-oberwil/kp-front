@@ -152,6 +152,7 @@ const ds = (id: string) => ({
   size_bytes: 10,
   feature_count: null,
   current_version: 1,
+  fetch_url: null,
   updated_at: '2026-08-16T10:00:00Z',
 })
 

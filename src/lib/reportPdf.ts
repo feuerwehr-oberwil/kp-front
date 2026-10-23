@@ -1,4 +1,4 @@
-// Client side of the server-composed Einsatzrapport PDF (see backend app/report_pdf.py).
+// Client side of the server-composed Einsatzrapport PDF (see backend app/report).
 //
 // The payload is pure DATA — form fields, the Kroki scene, plan references + annotations.
 // The server renders the map (raster tiles + the

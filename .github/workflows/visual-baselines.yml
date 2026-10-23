@@ -56,7 +56,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Chromium
-        run: pnpm exec playwright install --with-deps chromium
+        uses: ./.github/actions/playwright-browsers
 
       # --update-snapshots=all rewrites every baseline, changed or not; the artifact then holds the
       # complete set in the same layout a red «Visual» run uploads (visual-results/actual/).

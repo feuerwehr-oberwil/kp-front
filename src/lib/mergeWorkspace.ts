@@ -40,14 +40,17 @@ import { objectsFromLegacy, viewsOf, type ObjectViews, type TacticalObject } fro
 import { mergeIncidentPlanBindings, type IncidentPlanBinding } from './incidentPlanBindings'
 import { landedClaims, resolveTruppNumbers, unwindUnlanded, type NumberScope } from './truppNumbers'
 import type { TruppTrail } from './truppTrails'
-import type { BoardDoc, Drawing, Entity, Trupp } from '../types'
+import type { BoardAnno, BoardDoc, Drawing, Entity, Trupp } from '../types'
 import type { InitialState, Saved } from './workspace'
 import { jsonEqual } from './jsonEqual'
 import { unionCrewFiled } from './crewFiling'
 
 type Id = string
+/** One id-keyed row as the merge walks it: an id plus whatever fields the blob holds. Indexable,
+ *  so the field-level resolvers read and write it as a plain record without a double cast. */
 interface HasId {
   id: Id
+  [k: string]: unknown
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
@@ -57,11 +60,13 @@ const hasId = (v: unknown): v is HasId => isObj(v) && typeof v.id === 'string'
  *  which this app alone writes (capture posts, admin edits, other versions), and one `.map` on
  *  a non-array here used to escape as an unhandled rejection that re-threw on every retry. */
 const asList = (v: unknown): HasId[] => (Array.isArray(v) ? v.filter(hasId) : [])
+/** `asList` read as a typed collection: only the id is checked, like everywhere in this merge. */
+const listOf = <T extends { id: Id }>(v: unknown): T[] => (Array.isArray(v) ? v.filter((x): x is T => hasId(x)) : [])
 /** A key→value record as mergeRecord can walk it; a non-object reads as empty. */
 const asRecord = (v: unknown): Record<string, unknown> => (isObj(v) ? v : {})
 /** A board (planId → annotations) with every doc coerced to a list. */
-const asBoard = (v: unknown): Record<string, HasId[]> =>
-  Object.fromEntries(Object.entries(asRecord(v)).map(([k, docs]) => [k, asList(docs)]))
+const asBoard = (v: unknown): BoardDoc =>
+  Object.fromEntries(Object.entries(asRecord(v)).map(([k, docs]) => [k, listOf<BoardAnno>(docs)]))
 
 /** Structural equality for plain JSON data (the only thing the blob holds). Used to tell "I
  *  changed this field" from "I left it as the ancestor" in the three-way field/record merges.
@@ -94,7 +99,7 @@ function pick3<T>(base: T, mine: T, theirs: T): T {
  * instead of dropping one device's safety record wholesale. It runs only with a real ancestor
  * (a concurrent same-id ADD stays LWW-mine: there is no base to diff against).
  */
-export function mergeById<T extends HasId>(
+export function mergeById<T extends { id: Id }>(
   base: T[],
   mine: T[],
   theirs: T[],
@@ -285,8 +290,8 @@ function mergeAttendanceEntry(ancestor: unknown, mine: unknown, theirs: unknown,
  *  device moves the start, another the end — both stand), but a pair assembled from two sides
  *  must still be a block: one that would end before it starts takes MY from/to together. */
 function mergeShift(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
-  const m = mine as unknown as Record<string, unknown>
-  const { merged } = mergeFields(ancestor as unknown as Record<string, unknown>, m, theirs as unknown as Record<string, unknown>)
+  const m = mine
+  const { merged } = mergeFields(ancestor, m, theirs)
   const from = Date.parse(String(merged.from)), to = Date.parse(String(merged.to))
   if (Number.isFinite(from) && Number.isFinite(to) && from >= to) {
     for (const k of ['from', 'to']) {
@@ -294,7 +299,7 @@ function mergeShift(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
       else delete merged[k]
     }
   }
-  return merged as unknown as HasId
+  return { ...merged, id: mine.id } // the three share the id (mergeById's key)
 }
 
 // --- Trupp merge: field-level three-way, because whole-object LWW loses safety data --------
@@ -368,10 +373,8 @@ function mergeReadings(base: Readingish[], mine: Readingish[], theirs: Readingis
  *   - everything else keeps the collection-wide LWW-mine precedence.
  */
 function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
-  const a = ancestor as unknown as Record<string, unknown>
-  const m = mine as unknown as Record<string, unknown>
-  const t = theirs as unknown as Record<string, unknown>
-  const out: Record<string, unknown> = {}
+  const a = ancestor, m = mine, t = theirs
+  const out: HasId = { id: mine.id } // the three share the id (mergeById's key)
   for (const k of new Set([...Object.keys(m), ...Object.keys(t)])) {
     if (k === 'readings' || k === 'crewFiled') continue // merged below
     const inA = k in a, inM = k in m, inT = k in t
@@ -436,7 +439,7 @@ function mergeTrupp(ancestor: HasId, mine: HasId, theirs: HasId): HasId {
   // off the Anwesenheit.
   const filed = unionCrewFiled(asStrings(a.crewFiled), asStrings(m.crewFiled), asStrings(t.crewFiled))
   if (filed) out.crewFiled = filed
-  return out as unknown as HasId
+  return out
 }
 
 const asStrings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [])
@@ -444,7 +447,7 @@ const asStrings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x 
 /** A Trupp minus its machine-only fields — what a human edited. Two devices that differ only in
  *  the crew-filing marker did not both CHANGE the Trupp in any sense a person should check. */
 const humanTrupp = (o: HasId): unknown => {
-  const { crewFiled: _m, ...rest } = o as HasId & { crewFiled?: unknown }
+  const { crewFiled: _m, ...rest } = o
   return rest
 }
 
@@ -593,9 +596,9 @@ export const MERGE_POLICY = {
   // an override of that same snapshot merges; the rule lives with the binding type
   // (lib/incidentPlanBindings).
   planBindings: (b, m, t) => mergeIncidentPlanBindings(
-    asList(b) as IncidentPlanBinding[],
-    asList(m) as IncidentPlanBinding[],
-    asList(t) as IncidentPlanBinding[],
+    listOf<IncidentPlanBinding>(b),
+    listOf<IncidentPlanBinding>(m),
+    listOf<IncidentPlanBinding>(t),
   ),
   building: pick3, // the Gebäude floor-stack doc (merged whole — same-object stays LWW)
   pickedObjectId: pick3, // the shared picked Einsatzobjekt (one picture across devices)
@@ -729,9 +732,9 @@ export function mergeWorkspace(
     Array.isArray(ws.objects)
       ? (ws.objects as TacticalObject[])
       : objectsFromLegacy(
-          asList(ws.entities) as Entity[],
-          asList(ws.drawings) as Drawing[],
-          asBoard(ws.board) as BoardDoc,
+          listOf<Entity>(ws.entities),
+          listOf<Drawing>(ws.drawings),
+          asBoard(ws.board),
         )
   const objects = mergeById(objectsOf(base), objectsOf(mine), objectsOf(theirs), (a, m, t) => resolveTactical(a, m, t, opts.onFormConflict))
   const cx: MergeCx = { objects, views: viewsOf(objects), onAttendanceConflict, onTruppConflict }

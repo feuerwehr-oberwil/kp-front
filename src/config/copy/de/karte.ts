@@ -25,13 +25,7 @@ export const karteCopy = {
     runningOpen: 'Einsatz öffnen: {t}',
     // search
     searchPlaceholder: 'Adresse oder Objekt suchen …',
-    searchPlaceholderShort: 'Adresse oder Objekt',
     searchOpen: 'Suchen',
-    // the Checkliste surface's field in the top bar (ChecklistLibrary · query)
-    // its placeholder is short – the descriptive one did not fit a phone (owner 19.10.2026); the
-    // long one stays the field's name for screen readers
-    librarySearchPlaceholder: 'Suchen …',
-    librarySearch: 'Anleitung, Checkliste, Stichwort',
     searchObjects: 'Stationsobjekte',
     searchAddresses: 'Adressen',
     searchNoObject: 'Kein Stationsobjekt gefunden.',
@@ -91,7 +85,6 @@ export const karteCopy = {
     planSharpening: 'Schärfere Ansicht wird geladen …',
     planSharpOffline: 'Schärfere Ansicht nur mit Netz',
     planSharpFailed: 'Schärfere Ansicht konnte nicht geladen werden',
-    floorsLoading: 'Geschosse werden geladen …',
     floorsFailed: 'Die Geschosse liessen sich nicht laden.',
     floorFailed: 'Dieses Geschoss liess sich nicht zeichnen.',
     // offline (docs/karte-objekte.md · Offline): «●» only for what this device really holds

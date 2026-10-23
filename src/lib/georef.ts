@@ -114,15 +114,6 @@ export const COLLINEAR_AXIS_RATIO = 0.08
  *  the distance any two useful references have. See `replacePair`. */
 export const PAIR_EPS_N = 0.002
 
-/** Is this reference PURELY the accepted automatic suggestion — no operator-set landmark yet?
- *  The surfaces then speak provenance («Automatisch ausgerichtet») instead of counting pairs
- *  the operator never placed, and the sheet draws no crosses for the synthetic corners. The
- *  first real point (kind 'gesetzt'/'korrigiert') switches everything back to the measured
- *  vocabulary. */
-export function isAutoGeoref(pairs: GeorefPair[]): boolean {
-  return pairs.length > 0 && pairs.every((p) => p.kind === 'auto')
-}
-
 /** Does the reference still lean on the automatic scaffolding at all? While it does, no
  *  surface may claim a measured residual — synthetic pairs in the fit contaminate the number
  *  (the experiment's rule against derived points posing as evidence). */

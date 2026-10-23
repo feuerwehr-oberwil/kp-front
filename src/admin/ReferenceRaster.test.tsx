@@ -24,7 +24,7 @@ const { apiGet, apiPut, ApiError } = vi.hoisted(() => {
 })
 vi.mock('../lib/api', () => ({ apiGet, apiPut, ApiError }))
 // the page also lists loaded datasets + the merged Geodaten view; neither is under test here
-vi.mock('../lib/incidents', () => ({ listReference: vi.fn(async () => []), listObjects: vi.fn(async () => []) }))
+vi.mock('../lib/incidents', async (orig) => ({ ...(await orig<typeof import('../lib/incidents')>()), listReference: vi.fn(async () => []), listObjects: vi.fn(async () => []) }))
 vi.mock('./DataView', () => ({ GeodataView: () => null, ObjectsView: () => null }))
 
 import { ConfigProvider } from './ConfigContext'

@@ -41,7 +41,7 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-from .report_pdf import _esc, _logo_flowable, _NumberedCanvas, _styles
+from .report.styles import _esc, _logo_flowable, _NumberedCanvas, _styles
 
 #: The station's wall clock. The client sends UTC ISO stamps (`toISOString()`), so every label
 #: on this sheet has to be converted before it is printed — rendering the aware datetime directly

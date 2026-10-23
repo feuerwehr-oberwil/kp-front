@@ -1,4 +1,13 @@
+// The shared domain types – what the Lage, the Plan, the Atemschutz board, the Verlauf and the
+// record are made of (`Entity`, `Drawing`, `BoardAnno`, `Trupp`, `TimelineEvent`, `Person` …).
+// Types only, no runtime code. Most of these shapes are synced and stored, so a change here is a
+// data change: map coordinates are WGS84 `LngLat` = `[lng, lat]`, plan positions 0..1 in
+// plan-image space; a new `BoardKind` bumps `WORKSPACE_SCHEMA_VERSION` (lib/workspace) and joins
+// `BOARD_KIND_SINCE` (backend app/workspace_kinds.py), so an older build carries it as a passenger.
+// Rules: docs/sync-and-offline.md.
+
 import type { BoardFormData } from './lib/boardForm'
+import type { Out } from './lib/api/wire'
 export type LngLat = [number, number]
 
 export type LayerId = string
@@ -26,7 +35,7 @@ export interface LayerDef {
   color?: string                // stroke/fill colour for a geojson overlay
   nightColor?: string           // brighter stroke/fill for night mode (dark colours vanish on the dark base)
   symbol?: string               // FireGIS symbol name to use as the icon for a point overlay
-  autoActivate?: string[]       // Einsatz categories (kategorien values) that auto-show this layer
+  autoActivate?: string[]       // Einsatz categories (German labels) that auto-show this layer
 }
 
 /** `person` = a crew member's self-reported live position (Standort teilen). Always `live`,
@@ -295,35 +304,15 @@ export interface Entity extends SymbolProps {
 /** One breadcrumb of a team marker's movement trail on the Lage map (WGS84). */
 export interface GeoTrailPoint { coord: LngLat; t: string }
 
-/** One vehicle position as returned by kp-rueck's GET /api/traccar/positions
- *  (see backend/app/api/traccar.py · VehiclePositionResponse). */
-export interface VehiclePosition {
-  device_id: number
-  device_name: string
-  unique_id: string
-  status: string          // 'online' | 'offline' | 'unknown'
-  latitude: number
-  longitude: number
-  speed?: number | null   // km/h
-  course?: number | null  // heading in degrees
-  last_update: string     // ISO timestamp
-  address?: string | null
-}
+/** One vehicle position (GET /api/traccar/positions, backend app/traccar · VehiclePosition):
+ *  `speed` km/h, `course` heading in degrees, `last_update` ISO. `status` is Traccar's own word
+ *  ('online' | 'offline' | 'unknown' from a real tracker; the fake fleet takes any). */
+export type VehiclePosition = Out<'VehiclePosition'>
 
-/** Current weather near a coordinate (see GET /api/weather). Mirrors the backend
- *  WeatherData model; wind_dir_deg is the meteorological FROM bearing (0=N, 90=E). */
-export interface WeatherData {
-  wind_dir_deg: number | null
-  wind_speed_kmh: number | null
-  wind_gust_kmh: number | null
-  temp_c: number | null
-  precip_mm: number | null
-  /** WMO present-weather code (0=clear, 2=partly, 3=overcast, 45=fog, 6x=rain, 7x=snow, 95=storm…). */
-  weather_code: number | null
-  observed_at: string | null
-  source: string
-  station: string | null
-}
+/** Current weather near a coordinate (GET /api/weather, backend WeatherData): `wind_dir_deg` is
+ *  the meteorological FROM bearing (0=N, 90=E); `weather_code` the WMO present-weather code
+ *  (0=clear, 2=partly, 3=overcast, 45=fog, 6x=rain, 7x=snow, 95=storm…). */
+export type WeatherData = Out<'WeatherData'>
 
 export type DrawKind = 'line' | 'area' | 'circle'
 export type LineEndpoint = 'start' | 'end'
@@ -844,6 +833,10 @@ export type PreparedMapOverlay =
 
 /** Whiteboard annotation. All positions are normalized 0..1 in plan-image space,
  *  so they stick to the plan across zoom/pan. */
+/** The Lage map's tool ids (copy · mapTools, hotkeys · ToolCmd) – the map's counterpart of
+ *  BoardTool. `select` is the Lage's Auswahl, `lasso` its Mehrfach; `shape` is armed from the
+ *  palette, not the rail. */
+export type MapTool = 'select' | 'lasso' | 'symbol' | 'shape' | 'line' | 'area' | 'circle' | 'note' | 'team' | 'measure'
 export type BoardTool = 'pan' | 'lasso' | 'draw' | 'line' | 'area' | 'circle' | 'text' | 'symbol' | 'shape' | 'resource' | 'scale' | 'measure'
 /** `form` (10.10.2026): a Tafel PAGE — a board-template page with what was written on it (lib/boardForm).
  *  Sheet-wide, no position, no map body; everything positional ignores it by having no x/y/pts. */
@@ -1246,7 +1239,9 @@ export interface Trupp {
   exitTime?: string
   /** lifecycle phase. `angemeldet` = registered but not yet entered (no contact clock); manual
    *  transitions angemeldet → aktiv (eingerückt) → rueckzug → raus. `ueberfaellig` is the one
-   *  auto-overlay, derived while in the field when contact runs past the interval. */
+   *  auto-overlay, derived while in the field when contact runs past the interval.
+   *  ⚠️ The backend's twin is `schemas · TruppStatus` (the push sweep reads it); lib/truppStatus.test
+   *  holds the two equal. */
   status: 'angemeldet' | 'aktiv' | 'rueckzug' | 'ueberfaellig' | 'raus'
   /** linked plan resource chip — placed manually on the building plan (Gebäude floor-stack or
    *  Modul 6), NOT auto-created. Unset until the user presses "Platzieren". A Trupp is tracked

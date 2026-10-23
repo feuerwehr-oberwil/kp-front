@@ -38,6 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from .alarm_validation import finite_nonnegative, timestamp_ms, validate_reminder_row
 from .config import settings
 from .models import Incident, JournalEntry, PushSubscription
+from .schemas import TruppStatus
 from .transaction_hooks import after_commit
 
 logger = logging.getLogger(__name__)
@@ -91,6 +92,12 @@ def _ms(iso: str | None) -> float | None:
     return timestamp_ms(iso)
 
 
+#: the phases in which a Trupp is not in the field: no contact clock, no Alarmdruck
+_NOT_IN_FIELD: tuple[TruppStatus, ...] = ("angemeldet", "raus")
+#: the phase whose Alarmdruck is the lower Rückzug line
+_RUECKZUG: TruppStatus = "rueckzug"
+
+
 def due_trupps(workspace: dict, doctrine: dict, now_ms: float) -> list[dict[str, Any]]:
     """Trupps at frontend tier 2: an Atemschutznotfall, overdue contact or measured Alarmdruck.
 
@@ -142,13 +149,13 @@ def due_trupps(workspace: dict, doctrine: dict, now_ms: float) -> list[dict[str,
             out.append({"id": t.get("id"), "name": t.get("name") or "Trupp", "since": notfall_at, "reason": "notfall"})
             continue
         entry = _ms(t.get("entryTime"))
-        if not entry or t.get("status") in ("angemeldet", "raus") or t.get("exitTime"):
+        if not entry or t.get("status") in _NOT_IN_FIELD or t.get("exitTime"):
             continue
         contact = _ms(t.get("lastContactTime")) or entry
         current_bar = t.get("lastPressureBar")
         if current_bar is None:
             current_bar = t.get("entryPressureBar")
-        line = alarm_bar_rueckzug if t.get("status") == "rueckzug" else alarm_bar
+        line = alarm_bar_rueckzug if t.get("status") == _RUECKZUG else alarm_bar
         pressure_due = (
             finite_nonnegative(current_bar)
             and isinstance(line, (int, float))

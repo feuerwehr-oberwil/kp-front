@@ -18,3 +18,9 @@ overrides:
 # One advisory, one reason, one expiry — the rule ci.yml states for any exception. Add them as
 # `auditConfig: ignoreGhsas: [GHSA-…]`, the reason beside each entry. Currently none
 # (GHSA-jrc7-96c5-q579 went with maplibre-gl 6, #193).
+
+# openapi-typescript 7 declares typescript ^5. It only writes src/lib/api/schema.d.ts (`just
+# openapi`) and runs fine on 6 (checked 23.10.2026); drop this once it declares 6.
+peerDependencyRules:
+  allowedVersions:
+    openapi-typescript>typescript: "6"

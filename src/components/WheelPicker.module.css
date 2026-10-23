@@ -102,4 +102,4 @@
    red and «OK» is disabled until the wheels move (see WheelPopover · note). */
 .note { margin: 8px 0 0; min-height: 22px; text-align: center; color: var(--blue-strong);
   font: var(--fw-bold) var(--fs-2) var(--mono); font-variant-numeric: tabular-nums; }
-.noteBad { color: var(--red); font-family: var(--body); }
+.noteBad { color: var(--red-strong); font-family: var(--body); }

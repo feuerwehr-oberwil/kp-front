@@ -18,7 +18,7 @@ const planRegionUrl = vi.fn(() => Promise.resolve('data:image/jpeg;base64,AAAA')
 // a DELIBERATELY tiny crop: every tile below is drawn far bigger than 10 px, so the sharp render
 // is asked for — which is what the older assertions in this file are about
 const planRegionCropUrl = vi.fn(() => Promise.resolve({ url: 'data:image/jpeg;base64,CROP', width: 10 }))
-vi.mock('./PdfViewport', () => ({
+vi.mock('../lib/pdfRaster', () => ({
   planRegionUrl: (...args: unknown[]) => planRegionUrl(...(args as [])),
   planRegionCropUrl: (...args: unknown[]) => planRegionCropUrl(...(args as [])),
 }))

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { regionRaster } from '../lib/pdfRenderBudget'
+import { regionRaster } from './pdfRenderBudget'
 
 /* `planRegionUrl` is what a Gebäude storey draws: pdf.js renders THIS floor's rectangle into a
  * canvas the size of the rectangle, the rest of the page shifted off it by the viewport's
@@ -37,7 +37,7 @@ beforeEach(() => {
 
 describe('planRegionUrl – one region of a page, rendered alone', () => {
   it('sizes the canvas to the region and shifts the rest of the page off it', async () => {
-    const { planRegionUrl } = await import('./PdfViewport')
+    const { planRegionUrl } = await import('./pdfRaster')
     const clip: [number, number, number, number] = [0.19, 0.08, 0.81, 0.3] // the Dreilinden EG storey
     const budget = 3_200_000 // a phone's document budget split between five storeys
     const out = await planRegionUrl('/plans/dreilinden.pdf#page=2', clip, budget)
@@ -58,7 +58,7 @@ describe('planRegionUrl – one region of a page, rendered alone', () => {
   })
 
   it('serves a second ask for the same region from the cache instead of rendering again', async () => {
-    const { planRegionUrl } = await import('./PdfViewport')
+    const { planRegionUrl } = await import('./pdfRaster')
     const clip: [number, number, number, number] = [0, 0, 0.5, 0.5]
     await planRegionUrl('/plans/dreilinden.pdf#page=4', clip, 3_200_000)
     await planRegionUrl('/plans/dreilinden.pdf#page=4', clip, 3_200_000)
@@ -66,7 +66,7 @@ describe('planRegionUrl – one region of a page, rendered alone', () => {
   })
 
   it('never starts a render the tile no longer wants', async () => {
-    const { planRegionUrl } = await import('./PdfViewport')
+    const { planRegionUrl } = await import('./pdfRaster')
     await expect(planRegionUrl('/plans/dreilinden.pdf#page=3', [0, 0, 1, 1], 3_200_000, 2048, () => false))
       .rejects.toThrow()
     expect(render).not.toHaveBeenCalled()

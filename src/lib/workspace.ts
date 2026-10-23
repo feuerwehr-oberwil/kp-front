@@ -18,6 +18,7 @@ import { objectsFromLegacy, viewsOf, type TacticalObject } from './tacticalObjec
 import { bearing360 } from './planProjection'
 import { isIncidentPlanBinding, type IncidentPlanBinding } from './incidentPlanBindings'
 import type { KrokiView } from './report'
+import type { Workspace } from './api/workspace'
 import type { PlanScale } from './planScale'
 import type { VehicleOverrides } from './useVehicleLayer'
 
@@ -171,7 +172,7 @@ export const SAFETY_KEYS = ['contactIntervalMin', 'contactGraceSec', 'defaultFun
 export type Doc = { entities: Entity[]; drawings: Drawing[] }
 
 /** The persisted workspace blob — opaque to the backend; the frontend owns its shape. */
-export interface Saved {
+export type Saved = {
   entities: Entity[]; drawings: Drawing[]; recent: string[]
   /** The unified tactical objects (schema 2, docs/tactical-objects.md) — ONE record per
    *  object, whatever surface it stands on; `entities`/`drawings`/`board` above become its
@@ -311,7 +312,8 @@ type Complete<T extends string, U extends readonly string[]> = Exclude<T, U[numb
 const kindSet = <T extends string>() => <const U extends readonly T[]>(u: U & Complete<T, U>): ReadonlySet<string> => new Set<string>(u)
 const ENTITY_KINDS = kindSet<EntityKind>()(['symbol', 'vehicle', 'note', 'photo', 'shape', 'team', 'person'])
 const DRAW_KINDS = kindSet<DrawKind>()(['line', 'area', 'circle'])
-const BOARD_KINDS = kindSet<BoardKind>()(['draw', 'area', 'circle', 'text', 'symbol', 'shape', 'resource', 'form'])
+/** every board kind this build draws (and the server's version table lists – lib/boardKinds.test) */
+export const BOARD_KINDS = kindSet<BoardKind>()(['draw', 'area', 'circle', 'text', 'symbol', 'shape', 'resource', 'form'])
 /** the pre-'resource' board kind, still accepted at the gate because normalizeBoard migrates it */
 const LEGACY_BOARD_KINDS: ReadonlySet<string> = new Set([...BOARD_KINDS, 'trupp'])
 /** fewest vertices a drawing of each kind can render with (a circle is its centre) */
@@ -627,7 +629,7 @@ const defaultPlanId = planDocuments.find((p) => p.id === 'modul1')?.id ?? planDo
 
 /**
  * Switch ON every layer whose `autoActivate` names the incident's category (the German
- * `kategorien` value, e.g. "Brandbekämpfung" → hydrants). Additive only — it never hides a
+ * label, e.g. "Brandbekämpfung" → hydrants – see `incidentCategories`). Additive only — it never hides a
  * layer, and layers already visible pass through unchanged (same array identity when
  * nothing matches, so it's safe in setState updaters).
  */
@@ -731,10 +733,13 @@ export const DEMO_SEED_REV = 1
  * rather than a screaming alarm — and stops the moment the incident becomes a worked, shared
  * record: from the first save on, every device reads the same real timestamps.
  */
-export function demoSeedRebase(ws: Saved, incidentId: string, rev: number, now: number = Date.now()): Saved {
-  if (rev > DEMO_SEED_REV) return ws
-  const stamp = latestTruppStamp(ws)
-  return stamp == null ? ws : rebaseDemoClocks(ws, demoClockAnchor(incidentId, stamp, now))
+export function demoSeedRebase(ws: Workspace, incidentId: string, rev: number, now: number = Date.now()): Saved {
+  // read as the app wrote it: an untouched demo seed is the server's own write (demo_reset), and
+  // the boot gate (sanitizeWorkspace) still checks the blob after this
+  const seed = ws as Saved
+  if (rev > DEMO_SEED_REV) return seed
+  const stamp = latestTruppStamp(seed)
+  return stamp == null ? seed : rebaseDemoClocks(seed, demoClockAnchor(incidentId, stamp, now))
 }
 
 /** Built-in app layers (base maps + operational Lage layers) + the station's reference layers

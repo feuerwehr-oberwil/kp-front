@@ -82,7 +82,7 @@ export interface MeldungAction {
   /** spin the glyph — the action is running (taking an alarm reaches the server) */
   busy?: boolean
   onClick: () => void
-  /** the row's one filled action (AGENTS.md button spec) */
+  /** the row's one filled action (docs/ui-conventions.md · Buttons) */
   primary?: boolean
   /** a primary whose move KEEPS things safely as they are, filled green like the Atemschutz
    *  «Eintritt» (`--green`) — «Am Einsatzort lassen» (GpsFollowMeldung, D3-a). Only with `primary`. */

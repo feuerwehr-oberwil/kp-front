@@ -163,7 +163,8 @@ describe('shouldReopenClosed', () => {
     expect(shouldReopenClosed(poisoned, { now: NOW, reload: true, crash: { id: 'a', n: 2, at: NOW } })).toBe(false)
   })
 
-  it('only a reload comes back: left, app closed, opened again → home (owner, 20.10.2026)', () => {
+  // owner, 20.10.2026
+  it('only a reload comes back: left, app closed, opened again → home', () => {
     const chosenAt = Date.parse('2026-07-08T11:50:00Z')
     expect(shouldReopenClosed(closed(), { now: NOW, reload: false, chosenAt, crash: null })).toBe(false)
   })

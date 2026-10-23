@@ -6,6 +6,7 @@ import type { Copy, Localizable } from '../index'
 export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
   intake: {
     titleNew: 'Open incident',
+    titleNewExercise: 'Open exercise',
     locationHead: 'Location',
     addressLabel: 'Address',
     addressPlaceholder: 'Street no, ZIP city',
@@ -22,6 +23,7 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     hereFailed: 'Location unavailable',
     coordSet: 'Coordinate set',
     coordNone: 'No location – will open without a coordinate',
+    coordNoneEdit: 'No location – incident without a coordinate',
     coordClear: 'Remove location',
     coordFold: 'Coordinates',
     keywordHead: 'Keyword & category',
@@ -32,6 +34,7 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     exerciseSub: 'Not counted in incident statistics',
     detailsPlaceholder: 'Additional details for the report',
     open: 'Open incident',
+    openExercise: 'Open exercise',
     opening: 'Opening …',
     cancel: 'Cancel',
     errorCreate: 'Creating failed',
@@ -62,7 +65,6 @@ export const intakeCopy: Localizable<Pick<Copy, 'intake'>> = {
     hide: 'Hide',
     fromDivera: 'Taken from the alarm source',
     reviewTitle: 'Check the incident data',
-    locationSet: 'Location set',
     noLocationOnMap: 'No location – set on map',
     ok: 'Looks good',
     // DISPLAY labels for the category select — keyed by the German category value (the submitted

@@ -2,6 +2,8 @@
 // One slice of the canonical `de` catalogue, assembled in ../de.ts — read the rules at the
 // top of that file before adding or renaming a key here.
 
+import type { UndoDomain } from '../../../lib/undoTimeline'
+
 export const commonCopy = {
   baseMap: 'Grundkarte',
   // floor (Geschoss) short labels — shared by the Plan floor-stack and the report plan labels.
@@ -9,7 +11,6 @@ export const commonCopy = {
   floor: { eg: 'EG', og: '{n}. OG', ug: '{n}. UG' },
   // hose-count hint for the Messpfeil label (lib/geo · hoseLengthHint), e.g. "~5 Schläuche"
   hoseHint: '~{n} Schläuche',
-  noHistoryRows: 'Noch keine Ereignisse erfasst.',
   symbolSearchPlaceholder: 'Suchen …',
   closeDialog: 'Schliessen',
   sheetGrip: 'Detailhöhe anpassen',
@@ -83,7 +84,7 @@ export const commonCopy = {
     zeitplan: 'Zeitplan',
     ansicht: 'Karte',
     pendenz: 'Verlauf',
-  },
+  } satisfies Record<UndoDomain, string>,
   /** Ein anderes Gerät hat geändert, was der OBERSTE Schritt zurückgenommen hätte: der Schritt
    *  fällt weg, und das ↶ zeigt jetzt auf etwas Älteres. Einmal sagen, statt still umzubenennen.
    *  `{what}` aus `undoDroppedWhat`. */
@@ -100,15 +101,13 @@ export const commonCopy = {
     zeitplan: 'den Zeitplan',
     ansicht: 'die Ansichten',
     pendenz: 'die Pendenz',
-  },
+  } satisfies Record<UndoDomain, string>,
   play: 'Abspielen',
   // The ✕ that EMPTIES a field (29.09.2026): «leeren», never «löschen» — «löschen» is the delete
   // verb (records are «gelöscht», removalWords.test), and this ✕ deletes nothing. ONE key for the
-  // bare word, one for the search, one template for a named field («Bemerkung leeren»); the
-  // four «Suche löschen» copies (help/anwesenheit/mittel/top) are gone.
+  // bare word and one for the search; the four «Suche löschen» copies (help/anwesenheit/mittel/top) are gone.
   clear: 'Leeren',
   clearSearch: 'Suche leeren',
-  clearField: '{field} leeren',
   // THE «no hits» line (29.09.2026) — says what was searched; a list keeps a noun of its own only
   // where the noun helps («Kein Trupp gefunden»). Drawn as `.no-hits` (13-incident.css).
   noHits: 'Keine Treffer für «{q}».',

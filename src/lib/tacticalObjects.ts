@@ -2,7 +2,7 @@
 
 import type { BoardAnno, BoardDoc, BoardPoint, Drawing, Entity, LngLat } from '../types'
 import type { GeorefFit } from './georef'
-import { planGroundWidthM, boardSymbolToEntity, entityToBoardSymbol, entitySharedProps } from './georefTwins'
+import { planGroundWidthM, boardSymbolToEntity, entitySharedProps } from './georefTwins'
 import { directionalGlyph, directionalGlyph2, projectOnto, turnedToGround, turnedToSheet } from './planProjection'
 import { normalizeStackEdit } from './stackFloors'
 
@@ -339,18 +339,6 @@ export function bakeGeoBody(o: TacticalObject, plan: PlanFit | undefined, layer:
     return settle({ drawing })
   }
   return o
-}
-
-/**
- * Bake the SHEET body of a geo-anchored object onto one plan — the door the «drag onto the
- * sheet» flow uses when it flips the anchor. The symbol path reuses the transfer converter;
- * the caller supplies the drop point in plan space.
- */
-export function bakeSheetSymbol(o: TacticalObject, planId: string, pt: { x: number; y: number }, plan: PlanFit): TacticalObject | null {
-  if (!o.entity) return null
-  const widthM = planGroundWidthM(plan.fit, plan.aspect)
-  const anno = entityToBoardSymbol(o.entity, pt, widthM)
-  return anno ? { ...o, sheet: { planId, anno } } : null
 }
 
 const sameCoord = (a: LngLat | undefined, b: LngLat | undefined): boolean =>

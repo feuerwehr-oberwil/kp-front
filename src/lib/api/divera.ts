@@ -4,19 +4,9 @@
 // it to the Einsatz already on the map.
 import { apiGet, apiPost } from '../api'
 import type { IncidentFull } from './incidents'
+import type { Out } from './wire'
 
-export interface DiveraAlarm {
-  id: string
-  divera_id: number
-  divera_number: string | null
-  title: string
-  text: string | null
-  address: string | null
-  lat: number | null
-  lng: number | null
-  received_at: string
-  is_taken: boolean
-}
+export type DiveraAlarm = Out<'DiveraEmergencyOut'>
 export const getDiveraPool = () => apiGet<DiveraAlarm[]>('/api/divera/pool')
 export const refreshDiveraPool = () => apiPost<{ new: number }>('/api/divera/pool/refresh')
 /** Open a pooled alarm as-is. Corrections are made afterwards, in the incident view — the

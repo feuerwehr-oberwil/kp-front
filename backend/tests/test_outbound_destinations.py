@@ -17,7 +17,8 @@ import pytest
 from PIL import Image
 
 from app import kroki as kk
-from app.report_pdf import _KROKI_PX_PORTRAIT, ReportPayload, _kroki_view
+from app.report import ReportPayload
+from app.report.kroki_view import _KROKI_PX_PORTRAIT, _kroki_view
 
 CARTO = "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
 SWISSTOPO = "https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg"

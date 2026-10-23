@@ -104,8 +104,6 @@ export const anwesenheitCopy: Localizable<Pick<Copy, Keys>> = {
     addGuest: 'Add «{name}» as a guest',
     guestBadge: 'Guest',
     removeGuest: 'Delete person',
-    presentOnlyOn: 'Present only — tap for the whole crew',
-    presentOnlyOff: 'Whole crew — tap for present only',
     onlyPresent: 'Present only',
   },
   anrueckend: {

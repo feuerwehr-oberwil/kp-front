@@ -60,7 +60,7 @@ async function openEinsatz(frame) {
     await page.locator('[data-karte-menu]').click()
     await page.getByRole('button', { name: 'Einsatz eröffnen' }).click()
     await page.getByPlaceholder('z. B. Gebäudebrand Schulhaus').fill('Tastatur-Check')
-    await page.getByRole('button', { name: 'Einsatz öffnen' }).click()
+    await page.getByRole('dialog').getByRole('button', { name: 'Einsatz eröffnen', exact: true }).click()
   }
   await page.locator('.fab-entry').first().waitFor({ timeout: 30000 })
   // the first-visit guide, when it shows

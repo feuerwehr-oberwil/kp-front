@@ -1,5 +1,6 @@
 import type { LngLat } from '../types'
 import { appConfig } from '../config/appConfig'
+import { formatLocale } from './format'
 
 const M_PER_LAT = 110540
 
@@ -35,7 +36,9 @@ export function lv95ToWgs84(e: number, n: number): [number, number] {
   return [(lon * 100) / 36, (lat * 100) / 36]
 }
 
-const thin = (n: number) => Math.round(n).toLocaleString(appConfig.locale).replace(/[\u00a0,]/g, "'")
+// LV95 groups with the Swiss apostrophe in every locale – fr-CH groups with a narrow no-break
+// space (U+202F), which is folded in like the others
+const thin = (n: number) => Math.round(n).toLocaleString(formatLocale()).replace(/[\u00a0\u202f,]/g, "'")
 export function fmtLV95(lon: number, lat: number): string {
   const [e, n] = wgs84ToLV95(lon, lat)
   return `${thin(e)} / ${thin(n)}`
@@ -87,7 +90,7 @@ export function pathLengthM(coords: LngLat[]): number {
 /** human distance: metres under 1 km, else kilometres with one decimal */
 export function fmtDistance(m: number): string {
   if (m < 1000) return `${Math.round(m)} m`
-  return `${(m / 1000).toLocaleString(appConfig.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km`
+  return `${(m / 1000).toLocaleString(formatLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km`
 }
 
 /** how many hose lengths a run needs: distance + a reserve margin, divided by the nominal
@@ -134,7 +137,7 @@ export function bboxSizeM(coords: LngLat[]): { widthM: number; heightM: number }
 
 /** human area: m² under 1 ha, hectares under 1 km², else km² */
 export function fmtArea(m2: number): string {
-  const num = (n: number, d = 2) => n.toLocaleString(appConfig.locale, { minimumFractionDigits: d, maximumFractionDigits: d })
+  const num = (n: number, d = 2) => n.toLocaleString(formatLocale(), { minimumFractionDigits: d, maximumFractionDigits: d })
   if (m2 < 10000) return `${Math.round(m2)} m²`
   if (m2 < 1_000_000) return `${num(m2 / 10000)} ha`
   return `${num(m2 / 1_000_000)} km²`

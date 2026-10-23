@@ -459,11 +459,6 @@ export function flipLine<P extends Coordinate>(line: AttachableLine<P>, lines: A
   }
 }
 
-export function materializeEndpoint<P extends Coordinate>(line: AttachableLine<P>, endpoint: LineEndpoint, resolved: P): AttachableLine<P> {
-  const points = line.points.map((p, i) => i === (endpoint === 'start' ? 0 : line.points.length - 1) ? [...resolved] as P : p)
-  return { ...line, points, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
-}
-
 /** Body movement leaves attached endpoints fixed; every other vertex translates. */
 export function moveLineBody<P extends Coordinate>(line: AttachableLine<P>, delta: Point): P[] {
   return line.points.map((p, i) => {

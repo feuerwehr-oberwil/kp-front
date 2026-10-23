@@ -57,7 +57,7 @@ export const captureCopy: Localizable<Pick<Copy, 'capture'>> = {
     stateLeft: 'partito',
     sectionMaterial: 'Materiale',
     cancel: 'Annulla',
-    mittelCount: '{n} posizioni',
+    mittelCount: (n: number) => (n === 1 ? '1 posizione' : `${n} posizioni`),
     pickMaterial: 'Scegliere il materiale …',
     add: 'Aggiungere',
     notePlaceholder: 'Nota per il diario …',

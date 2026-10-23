@@ -49,7 +49,8 @@ describe('the selected pill of a bound Trupp', () => {
   })
 })
 
-describe('the action bar and the trail (18.09.2026)', () => {
+// 18.09.2026
+describe('the action bar and the trail', () => {
   const W = appConfig.copy.whiteboard
   const openTrash = () => fireEvent.click(screen.getByRole('button', { name: appConfig.copy.remove }))
 

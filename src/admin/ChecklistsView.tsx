@@ -560,7 +560,7 @@ function DeleteSheet({ row, onClose, onDone }: {
         </>
       }
     >
-      <p className="adm-state">{fillTemplate(C.deleteBody, { title })}</p>
+      <p className="adm-confirm-body">{fillTemplate(C.deleteBody, { title })}</p>
       <ul className="adm-ck-facts">
         <li><code>{row.dataset.id}</code></li>
         {row.assets.map((a) => <li key={a.id}><code>{a.id}</code></li>)}

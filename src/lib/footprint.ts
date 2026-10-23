@@ -191,13 +191,6 @@ export function buildView(src: Ring[], angleDeg: number): FootprintView {
   return { rings: src.map((ring) => ring.map(toNorm)), aspect: h / w, toNorm, fromNorm }
 }
 
-/** Unit vector pointing to real-world north in a view rotated by `angleDeg`
- *  (board y is down, so north-up = [0,-1]). Drawn in the aspect-correct tile box. */
-export function northVec(angleDeg: number): Pt {
-  const a = (angleDeg * Math.PI) / 180
-  return [Math.sin(a), -Math.cos(a)]
-}
-
 // ---- tile <-> footprint-local affine -----------------------------------------------
 
 /** How much of a storey tile the drawing box may use — ONE definition, mirrored in px by

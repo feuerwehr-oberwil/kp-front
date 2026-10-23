@@ -19,7 +19,7 @@ import type { SyncStatus } from './api/workspaceSync'
 
 /**
  * The media queue's part of the shared sync status («Saved means every operational queue is
- * acknowledged», AGENTS.md). A capture is not on the record until the server has it, so a queued
+ * acknowledged», docs/sync-and-offline.md). A capture is not on the record until the server has it, so a queued
  * one is `pending`; one the server keeps refusing is `error`; one this device could not even
  * store is `storage` — the same three words the workspace, journal and audit outboxes use.
  */

@@ -19,6 +19,8 @@ vi.mock('../lib/stationPlanScale', () => ({
 // the PDF stack is the heaviest dependency in the app and irrelevant here
 vi.mock('./PdfViewport', () => ({
   PdfViewport: () => <canvas />,
+}))
+vi.mock('../lib/pdfRaster', () => ({
   prewarmPlans: () => {},
   pdfWorkerUrl: () => null,
   // the chooser warms these the moment it opens (lib/georefSuggest reads them too)

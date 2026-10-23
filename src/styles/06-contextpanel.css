@@ -217,10 +217,10 @@
    would silently swallow the earlier one. The row keeps its red key box (it stays red while
    focused, hence the higher specificity than :focus) and hands its border to the hint below. */
 .kv-row.dup { padding-bottom: 2px; }
-.kv-row.dup .kv-key { color: var(--red); background: var(--red-12);
+.kv-row.dup .kv-key { color: var(--red-strong); background: var(--red-12);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--red) 40%, transparent); }
 .kv-dup-hint { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 0 0 8px;
-  border-bottom: 1px solid var(--border-soft); font-size: var(--fs-1); line-height: 1.35; color: var(--red); }
+  border-bottom: 1px solid var(--border-soft); font-size: var(--fs-1); line-height: 1.35; color: var(--red-strong); }
 .kv-dup-hint .i { width: 13px; height: 13px; flex: none; margin-top: 1px; }
 /* shared custom dropdown (Combo) — styled like the Atemschutz Trupp picker, no native chrome */
 .combo { position: relative; flex: 1; min-width: 0; }
@@ -247,11 +247,6 @@
 }
 .combo-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .combo-clear .i { width: 13px; height: 13px; }
-.combo-input { width: 100%; box-sizing: border-box; border: 1px solid var(--glass-edge); border-radius: var(--r-sm); padding: 8px 12px;
-  font: var(--fw-medium) var(--fs-2) var(--body); color: var(--ink); background: var(--surface); outline: none; }
-/* it only exists while typing, and wears the one field focus (--focus-*, 28.09.2026) — it had a
-   solid blue edge of its own */
-.combo-input:focus { border-color: var(--focus-edge); box-shadow: var(--focus-halo); }
 /* a menu hugs its rows: even --bar-pad, and the corner is the rows' plus that gap (01-tokens · «ONE corner») */
 .combo-menu { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6; margin: 0; padding: var(--bar-pad); list-style: none;
   max-height: 240px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-bar); box-shadow: var(--e4); }
@@ -703,8 +698,8 @@ span.jr-rem { cursor: default; }
    was a salmon slab that shouted louder than the words on it — what has to read as urgent is the
    thing to do, not the rectangle around it. */
 .jr-pinned-row.urgent { background: var(--red-5); }
-.jr-pinned-row.urgent .jr-when { color: var(--red); }
-.jr-pinned-row.urgent .jr-rem { color: var(--red); }
+.jr-pinned-row.urgent .jr-when { color: var(--red-strong); }
+.jr-pinned-row.urgent .jr-rem { color: var(--red-strong); }
 .jr-pinned-row.urgent .jr-pinned-text { color: var(--red-strong); font-weight: var(--fw-bold); }
 /* The column holding the item and its thread — an ordinary div, so its height follows its
    children. They used to live INSIDE the button, where they rendered outside its box and the next
@@ -757,6 +752,10 @@ span.jr-pinned-text::after { display: none; }
 @media (hover: hover) {
   .jr-when:hover { color: var(--ink); }
 }
+/* 38×21 drawn; the pad fills the row's corner to a --tap square — up over the row's 6px top
+   padding, left over its 9px side, down to the 44px row floor, and right only 1px into the 10px
+   gap, whose other 9px are the ring's own pad (.jr-rem::before above). */
+@media (pointer: coarse) { .jr-when::before { content: ''; position: absolute; inset: -6px -1px -17px -9px; } }
 /* «meldet sich selbst» — the only mark a timed Erinnerung needs in this list. At the right end,
    where nothing competes with it: the ring moved into the icon slot at the front. */
 /* the Fälligkeit, as a clock AND the time it stands for — see Journal.tsx. `align-self` rather

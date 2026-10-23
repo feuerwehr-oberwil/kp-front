@@ -28,6 +28,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
   - [1e. `objectVisits` – the optional Objektbesuche module](#1e-objectvisits--the-optional-objektbesuche-module)
   - [`doctrine.alarmBarRueckzug` – the quieter line on Rückzug](#doctrinealarmbarrueckzug--the-quieter-line-for-a-trupp-on-rückzug)
   - [`doctrine.entryPressureMin` – the one question about a low Eingangsdruck](#doctrineentrypressuremin--the-one-question-about-a-low-eingangsdruck)
+  - [`doctrine.nearbyObjectWarnM` – when the nearest object is «nicht die Einsatzadresse»](#doctrinenearbyobjectwarnm--when-the-nearest-object-is-nicht-die-einsatzadresse)
 - [2. Reference / Werkleitungs layers – station-supplied](#2-reference--werkleitungs-layers--station-supplied-nothing-bundled)
   - [2a. Raster layer (WMS / WMTS)](#2a-raster-layer-wms--wmts--paste-a-url-template) ·
     [2b. Vector layer (GeoJSON)](#2b-vector-layer-geojson--for-pointslines-you-own)
@@ -323,7 +324,8 @@ both now have browser pages – §9e and §9f.
     "defaultFunkkanal": 11,                       // null = no preset (national default)
     "defaultFunkkanalEinfach": null,              // default channel for Trupps OHNE Atemschutz;
                                                   // null = same as defaultFunkkanal
-    "funkkanalMin": 1, "funkkanalMax": 9999,
+    "funkkanalMin": 1, "funkkanalMax": 9999,     // the two defaults above stay inside this
+                                                  // range (/admin › Doktrin holds others back)
     "alarmBar": 100,                              // Alarmdruck (bar) for a Trupp AT WORK. One line
                                                   // on the way in – the older 60-bar
                                                   // «Mindestdruck» tier was dropped 2026-07-27.
@@ -340,6 +342,8 @@ both now have browser pages – §9e and §9f.
     "auftragColors": null,                        // starting colour per Auftrag id, e.g.
                                                   // { "loeschen": "#e8392b" }; null = every Trupp
                                                   // its own colour (overridable per Trupp)
+    "nearbyObjectWarnM": 25,                      // Modul-Pläne: warn «nicht die Einsatzadresse»
+                                                  // only beyond this many metres – see below
     "equipment": [                                // Ausrüstung a Trupp can take in – short labels,
       { "id": "retthaube", "label": "Retthaube" }, // printed on the card and the Rapport. Absent /
       { "id": "wbk", "label": "WBK" },             // empty = these three shipped defaults. Ids are
@@ -521,6 +525,23 @@ question asked every time is one nobody reads.
 
 Frontend only – the server stores it and never checks a reading against it. Set it on **Station ›
 Doktrin**, under the Eingangsdruck, or in the config file; read through `atemschutzDoctrine()`.
+
+### `doctrine.nearbyObjectWarnM` – when the nearest object is «nicht die Einsatzadresse»
+
+When an Einsatz address matches no station object, the Plan's Modul-Pläne offer the nearest one
+with an amber chip and banner («Nächstes Objekt, nicht die Einsatzadresse»). The warning shows
+only when that object lies **farther than `nearbyObjectWarnM` metres** from the Einsatzort: an
+Einsatz addressed by the object's own name («Mühlemattcenter») matches no address but sits at
+0 m, and a warning that is usually wrong teaches people to ignore the one that is right (sweep
+E.6, 23.10.2026).
+
+| | |
+| --- | --- |
+| Range | integer, `0`–`500` m; `0` warns on every address mismatch |
+| Unset in the config | `25` |
+
+Set it on **Station › Doktrin** or in the config file. A stored value outside the range is served
+as `25` and logged, the rest of the document stays.
 
 ### ⚠️ `alarms.groups[].color` is not a colour
 

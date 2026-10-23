@@ -12,7 +12,7 @@ from app import storage
 from app.api.report import resolve_report_assets
 from app.models import DeploymentConfig, ObjectSite, PlanAlignment, PlanAlignmentEvent, PlanRevision
 from app.plans import store_plan
-from app.report_pdf import ReportPayload
+from app.report import ReportPayload
 
 
 def _pdf(label: str, pages: int = 1) -> bytes:
@@ -352,6 +352,33 @@ async def test_a_rejection_leaves_the_queue_without_publishing_and_can_be_undone
     assert response.json()["status"] == "needs_review"
     events = (await db_session.execute(select(PlanAlignmentEvent).order_by(PlanAlignmentEvent.id))).scalars().all()
     assert [e.action for e in events] == ["reject", "withdraw"]
+
+
+async def test_retry_requeues_a_failed_sheet_and_refuses_while_it_is_decided_or_running(
+    client, admin_login, db_session
+):
+    """«Neu berechnen»: the sheet goes back to the worker with a clean slate (attempts, reason and
+    lease reset), and a fit that is approved or already in the worker's hands is left alone."""
+    obj, ds, row = await _seed(db_session)
+    row.status, row.reason, row.attempts = "failed", "worker_retry_limit", 3
+    await db_session.commit()
+    await admin_login(client)
+    url = f"/api/admin/plan-alignments/{row.id}"
+
+    response = await client.post(url + "/retry", json={"edit_version": 1})
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "pending"
+    await db_session.refresh(row)
+    assert (row.status, row.reason, row.attempts, row.claimed_at) == ("pending", None, 0, None)
+    events = (await db_session.execute(select(PlanAlignmentEvent))).scalars().all()
+    assert [e.action for e in events] == ["retry"]
+
+    # pending (and processing, approved) is not retried – and a stale edit_version is a 409 too
+    assert (await client.post(url + "/retry", json={"edit_version": 2})).status_code == 409
+    row.status = "needs_review"
+    await db_session.commit()
+    assert (await client.post(url + "/retry", json={"edit_version": 1})).status_code == 409
+    assert (await client.post(url + "/retry", json={"edit_version": 2})).status_code == 200
 
 
 async def test_the_preview_thumbnail_is_a_small_jpeg_of_the_same_page(client, admin_login, db_session, monkeypatch):

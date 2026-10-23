@@ -502,7 +502,8 @@ describe('materialForSymbol — one symbol, several materials', () => {
   })
 })
 
-describe('tombstoneStands — the removal toast undoes only its own removal (25.09.2026)', () => {
+// 25.09.2026
+describe('tombstoneStands — the removal toast undoes only its own removal', () => {
   const probe = { label: 'Lüfter', unit: 'Stk' }
   const since = '2026-06-30T10:02:00.000Z'
   it('holds while the removal is the only word on the line since it was written', () => {

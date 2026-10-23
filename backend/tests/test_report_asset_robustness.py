@@ -8,7 +8,7 @@ skipped like a missing row.
 """
 
 from app.api.report import _MEDIA_URL, ReportAssetScope, _check_asset_scope, resolve_report_assets
-from app.report_pdf import ReportPayload
+from app.report import ReportPayload
 
 # 36 hex characters with no dashes: it matched the OLD `[0-9a-fA-F-]{36}` pattern, but
 # `uuid.UUID("0"*36)` raises (a UUID is 32 hex digits, not 36).

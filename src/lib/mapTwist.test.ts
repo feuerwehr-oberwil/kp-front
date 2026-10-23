@@ -146,7 +146,8 @@ describe('createTwistGate — rotation only after a deliberate twist', () => {
   })
 })
 
-describe('field case (iPad 23.09.2026) — a two-finger pan with slight roll', () => {
+// field case, iPad 23.09.2026
+describe('a two-finger pan with slight roll never turns the map', () => {
   it('leaves the bearing at exactly 0 over many frames', () => {
     const frames: Array<[TwistPoint, TwistPoint]> = []
     // a long diagonal two-finger scroll, the wrist rolling up to ±10° and the spread breathing
@@ -279,8 +280,10 @@ describe('installTwistGate — on the installed MapLibre\'s own rotate handler',
   })
 })
 
-describe('northSnap — a hand turn resting just off north settles on north (18.10.2026)', () => {
-  it('is the owner\'s ±10° (round 7), below the twist gate\'s threshold', () => {
+// 18.10.2026
+describe('northSnap — a hand turn resting just off north settles on north', () => {
+  // owner, round 7
+  it('is ±10°, below the twist gate\'s threshold', () => {
     expect(NORTH_SNAP_DEG).toBe(10)
     expect(NORTH_SNAP_DEG).toBeLessThan(TWIST_ENGAGE_DEG)
   })
@@ -290,7 +293,8 @@ describe('northSnap — a hand turn resting just off north settles on north (18.
     expect(northSnap(356)).toBe(0)
   })
   it('includes the boundary itself', () => expect(northSnap(10)).toBe(0))
-  it('reaches 8° now (round 7: «a little bit stronger»)', () => expect(northSnap(8)).toBe(0))
+  // round 7: «a little bit stronger»
+  it('reaches 8°', () => expect(northSnap(8)).toBe(0))
   it('a clear turn further stays', () => {
     expect(northSnap(10.5)).toBeNull()
     expect(northSnap(12)).toBeNull()

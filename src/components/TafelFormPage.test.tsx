@@ -143,7 +143,8 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     expect(document.querySelector('[data-testid="tafel-page"]')!.getAttribute('lang')).toBe(getLocaleId())
   })
 
-  it('a tap on the 8th ruling under three entries writes in the 4th — directly under them; Enter goes on down (owner, 10.10. evening)', () => {
+  // owner, 10.10. evening
+  it('a tap on the 8th ruling under three entries writes in the 4th — directly under them; Enter goes on down', () => {
     const commits: BoardFormData[] = []
     render(<Harness vehicles={['TLF', 'ADF', 'MTF']} onCommit={(d) => commits.push(d)} />)
     const mittel = document.querySelector('[data-sec="mittel"]')!
@@ -272,7 +273,8 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     expect(box('front').querySelectorAll('[data-trend]')).toHaveLength(1)
   })
 
-  it('a cell holds 2000 characters and says so calmly when it is full (re-review of #338)', () => {
+  // re-review of #338
+  it('a cell holds 2000 characters and says so calmly when it is full', () => {
     render(<Harness onCommit={() => {}} />)
     const was = document.querySelector<HTMLTextAreaElement>('[data-sec="massnahmen"] [data-kn$="|was"]')!
     expect(was.maxLength).toBe(2000)
@@ -281,7 +283,8 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     expect(screen.getByRole('status').textContent).toMatch(/2000 Zeichen/)
   })
 
-  it('typing over a value another device wrote meanwhile: the later stands, and it is said (re-review of #338)', () => {
+  // re-review of #338
+  it('typing over a value another device wrote meanwhile: the later stands, and it is said', () => {
     const base = putRow(newFormPage(FKS, EF, {}, '2026-10-10T09:24:00.000Z'), 'massnahmen', 'm1', { cells: { was: 'Riegel' } })
     const clashes: string[][] = []
     const props = { pageKey: 'p', readOnly: false, isPhone: false, onRemove: () => {}, inset: { top: 0, left: 0, right: 0, bottom: 0 }, onChange: () => {}, onConflict: (w: string, k: string, l: string) => clashes.push([w, k, l]) }
@@ -299,7 +302,8 @@ describe('a Tafel page by keyboard, like a spreadsheet', () => {
     expect(clashes).toHaveLength(1)
   })
 
-  it('a drag commits against the data as it stands at the drop, not as it was at the grab (#339 review)', () => {
+  // review of #339
+  it('a drag commits against the data as it stands at the drop, not as it was at the grab', () => {
     const MN = EF.sections.find((x) => x.id === 'massnahmen') as TableSection
     let base = newFormPage(FKS, EF, {}, '2026-10-10T09:24:00.000Z')
     for (const [id, was] of [['m1', 'A'], ['m2', 'B'], ['m3', 'C']]) base = putRow(base, 'massnahmen', id, { cells: { was } }, 1)

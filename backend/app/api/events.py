@@ -21,9 +21,9 @@ from ..auth.dependencies import (
 )
 from ..auth.incident_link import _Denied
 from ..database import get_db
+from ..incident_service import INCIDENT_NOT_FOUND, happened_after_close, incident_closed, incident_lifecycle
 from ..models import Incident, IncidentEvent
 from ..schemas import EventBatchIn, EventOut, SnapshotOut, VehicleSampleOut
-from .incidents import INCIDENT_NOT_FOUND, happened_after_close, incident_closed, incident_lifecycle
 
 router = APIRouter(prefix="/incidents", tags=["events"])
 
@@ -121,7 +121,7 @@ async def ingest_events(
     if not link and user.role == "el" and any(not _el_event_ok(e.op_type) for e in body.events):
         raise _Denied()
     # A CLOSED Einsatz takes the record vocabulary and nothing else — the same line as the `el`
-    # role's (N3, 25.09.2026; see api/incidents · `incident_closed`): no `atemschutz.contact`, no
+    # role's (N3, 25.09.2026; see incident_service · `incident_closed`): no `atemschutz.contact`, no
     # `atemschutz.alarm`, no Karte edit lands in it after the Abschluss. Checked under the row
     # lock the chain append takes next, and only for a batch that holds such an op.
     # An event that HAPPENED before the close is recorded, and one the chain already holds (a

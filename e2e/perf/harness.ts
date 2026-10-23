@@ -169,16 +169,15 @@ export function watchNetwork(context: BrowserContext, baseURL: string) {
 }
 
 const KB = 1024
-/** Record what a stretch of network traffic cost: per-kind counts and sizes. */
+/** Record what a stretch of network traffic cost: API requests and bytes, static requests.
+ *  Static BYTES are not measured here: the bundle budget (scripts/check-bundle-size.mjs) owns
+ *  them, and a static request where none belongs (a precache miss, a new chunk) is a count. */
 export function recordNetwork(r: Results, prefix: string, reqs: SeenRequest[]) {
   const page = reqs.filter((x) => !x.bySw)
   const api = page.filter((x) => x.kind === 'api')
   r.set(`${prefix}api_requests`, api.length, 'count')
   r.set(`${prefix}api_kb`, api.reduce((a, x) => a + x.bytes, 0) / KB, 'kb')
   r.set(`${prefix}static_requests`, page.filter((x) => x.kind !== 'api' && !x.external).length, 'count')
-  for (const kind of ['js', 'css', 'font', 'data'] as const) {
-    r.set(`${prefix}${kind}_kb`, page.filter((x) => x.kind === kind).reduce((a, x) => a + x.bytes, 0) / KB, 'kb')
-  }
   // hosts, not requests: how many basemap tiles land inside a window is timing; a host the app
   // never talked to before is a new dependency of an offline-first app
   r.set(`${prefix}external_hosts`, new Set(reqs.filter((x) => x.external).map((x) => x.path.split('/')[0].replace(/^[a-d]\./, ''))).size, 'count')
