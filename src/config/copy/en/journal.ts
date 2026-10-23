@@ -218,6 +218,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'errors'>> = {
   },
   errors: {
     updateFailed: 'Update failed',
+    invalidValue: 'Invalid value',
+    moreSignatures: 'further error signatures (over {n})',
     serverUnreachable: 'Network error – server unreachable',
     serverTimeout: 'Server not responding – timed out',
 

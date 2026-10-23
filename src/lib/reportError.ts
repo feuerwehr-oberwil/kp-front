@@ -1,5 +1,7 @@
 import { apiBeacon } from './api'
 import { APP_VERSION, GIT_SHA } from './buildInfo'
+import { appConfig } from '../config/appConfig'
+import { fillTemplate } from './format'
 
 // Surface uncaught frontend errors to the server log so a solo operator's silent crash is
 // visible to the deployer — the ErrorBoundary otherwise only console.errors, which nobody sees
@@ -198,7 +200,7 @@ export function reportClientError(err: unknown, ctx: Ctx = {}): void {
     } else if (sigs.size >= MAX_SIGNATURES) {
       // one row more than the cap: «and this many other distinct errors», counted like a repeat
       sigs.set(OVERFLOW_KEY, {
-        first: null, kind: 'error', message: `weitere Fehlersignaturen (über ${MAX_SIGNATURES})`,
+        first: null, kind: 'error', message: fillTemplate(appConfig.copy.errors.moreSignatures, { n: MAX_SIGNATURES }),
         pending: 1, pendingSince: now, pendingLast: now, lastSentAt: 0,
       })
     } else {

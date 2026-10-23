@@ -355,6 +355,10 @@ export const journalCopy = {
   },
   errors: {
     updateFailed: 'Aktualisierung fehlgeschlagen',
+    // a 422 field error the server sent without its own message (lib/api · ApiError.fields)
+    invalidValue: 'Ungültiger Wert',
+    // the error report's one row past its cap of distinct signatures (lib/reportError)
+    moreSignatures: 'weitere Fehlersignaturen (über {n})',
     // network failures, both with ApiError status 0 — the app falls back to its offline caches
     // either way; the wording only tells the operator WHICH kind of dead line they have.
     serverUnreachable: 'Netzwerkfehler – Server nicht erreichbar',

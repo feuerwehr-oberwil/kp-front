@@ -216,6 +216,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'errors'>> = {
     openReminderGo: 'Aller à l\'entrée',
   },
   errors: {
+    invalidValue: 'Valeur non valable',
+    moreSignatures: 'autres signatures d’erreur (plus de {n})',
     serverUnreachable: 'Erreur réseau – serveur inaccessible',
     serverTimeout: 'Le serveur ne répond pas – délai dépassé',
 
