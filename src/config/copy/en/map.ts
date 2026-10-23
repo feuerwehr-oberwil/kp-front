@@ -4,7 +4,7 @@
 import type { Copy, Localizable } from '../index'
 
 type Keys =
-  | 'mapTools' | 'planTools' | 'nav' | 'mapViews' | 'toast' | 'mapHints' | 'dockHints' | 'map'
+  | 'mapTools' | 'planTools' | 'nav' | 'mapViews' | 'toast' | 'dockHints' | 'map'
 
 export const mapCopy: Localizable<Pick<Copy, Keys>> = {
   mapTools: [
@@ -47,11 +47,7 @@ export const mapCopy: Localizable<Pick<Copy, Keys>> = {
     micFailed: 'Recording could not be started',
     merged: 'Changes merged',
   },
-  mapHints: {
-    placeSymbol: 'Tap the map to place "{name}"',
-  },
   dockHints: {
-    symbol: 'Tap the map to place the symbol. Turn on "Place several" to place several in a row.',
     lasso: 'Drag a frame around several objects with one finger. Two fingers still pan the map. Tapping «Multi» again switches back to Select.',
     line: 'Drag on the map or tap points to draw a line. Pick colour, width and style afterwards in the editor.',
     lineFreehand: 'Drag to draw a line. For single points: «Points». Pick colour, width and style afterwards in the editor.',

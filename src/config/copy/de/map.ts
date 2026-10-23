@@ -80,13 +80,9 @@ export const mapCopy = {
     micFailed: 'Aufnahme konnte nicht gestartet werden',
     merged: 'Änderungen zusammengeführt',
   },
-  mapHints: {
-    placeSymbol: 'Tippe auf die Karte, um «{name}» zu platzieren',
-  },
   // help shown by the info (ℹ) button on each tool dock — the instructions
   // that used to sit in the bottom hint bar
   dockHints: {
-    symbol: 'Auf die Karte tippen, um das Zeichen zu platzieren. «Mehrere platzieren» einschalten, um mehrere nacheinander zu setzen.',
     lasso: 'Mit einem Finger einen Rahmen um mehrere Objekte ziehen. Mit zwei Fingern verschiebt sich weiterhin die Karte. Nochmals auf «Mehrfach» tippen führt zurück zur Auswahl.',
     line: 'Auf der Karte ziehen oder Punkte tippen, um eine Linie zu zeichnen. Farbe, Breite und Stil danach im Editor.',
     /** …per input mode, because the two take different gestures: «Freihand» draws only with a
