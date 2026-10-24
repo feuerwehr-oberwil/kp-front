@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { LineAttachment } from '../types'
 import {
-  advanceDwell, applyRouting, armDwell, arrowEdgePadPx, arrowTipLeadPx, attachInsetPx, boundaryPoint, DEFAULT_OBJECT_ROUTING, detachProgress, lineJoints, objectAttachment,
+  advanceDwell, applyRouting, armDwell, arrowEdgePadPx, arrowTipLeadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, detachEnds, detachProgress, freeEnd, lineJoints, objectAttachment,
   DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, endpointCapacity, flipLine, MAGNET_DWELL_MS,
   forkDims, forkPortPoint, gpsGuard, incomingAttachments, isMagnetAnno, isMagnetEntity,
-  moveLineBody,
+  lineEndTargets, moveLineBody,
   nearestFreeEndpoint, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget,
   MAGNET_RADIUS_PX, TEAM_JOIN_RADIUS_PX,
-  wouldCreateCycle, type AttachableLine, type MagneticTarget,
+  wouldCreateCycle, type AttachableLine, type LineEnds, type MagneticTarget,
 } from './lineAttachments'
 
 const line = (id: string, extra: Partial<AttachableLine> = {}): AttachableLine => ({ id, points: [[0, 0], [10, 0]], ...extra })
@@ -413,5 +413,76 @@ describe('lineJoints', () => {
     const onObject = ln('o', { endAttachment: { target: { kind: 'object', id: 'sym' }, routing: 'direct' } })
     const dangling = ln('d', { startAttachment: { target: { kind: 'line', id: 'gone', endpoint: 'end' }, routing: 'direct' } })
     expect(lineJoints([onObject, dangling, ln('free')])).toEqual([])
+  })
+})
+
+describe('detachEnds (removing what a line hangs on)', () => {
+  const sym = (id: string): LineAttachment => ({ target: { kind: 'object', id }, routing: 'direct' })
+  const hose = { points: [[0, 0], [5, 5], [10, 0]] as [number, number][], startAttachment: sym('pump'), endAttachment: toLine('trunk') }
+
+  it('lets go only the ends whose target goes, each where `release` puts it', () => {
+    const out = detachEnds(hose, (_, a) => (a.target.id === 'pump' ? [-1, -1] : null))
+    expect(out).toEqual({ points: [[-1, -1], [5, 5], [10, 0]], freed: { startAttachment: undefined } })
+    // the spread clears the freed key and leaves the other coupling as it was
+    const line = { ...hose, ...out!.freed }
+    expect(line.endAttachment).toEqual(toLine('trunk'))
+    expect('startAttachment' in out!.freed).toBe(true)
+    expect('endAttachment' in out!.freed).toBe(false)
+  })
+
+  it('folds both ends in one pass, the second reading the points the first left', () => {
+    const seen: [number, number][][] = []
+    const out = detachEnds(hose, (ep, _, pts) => { seen.push([...pts]); return ep === 'start' ? [1, 1] : pts[pts.length - 1] })
+    expect(out?.points).toEqual([[1, 1], [5, 5], [10, 0]])
+    expect(out?.freed).toEqual({ startAttachment: undefined, endAttachment: undefined })
+    expect(seen[1][0]).toEqual([1, 1])
+  })
+
+  it('returns null when nothing hangs on the target — the line is left untouched', () => {
+    expect(detachEnds(hose, () => null)).toBeNull()
+    expect(detachEnds({ points: hose.points }, () => [9, 9])).toBeNull()
+  })
+
+  it('freeEnd moves one end and clears its key', () => {
+    expect(freeEnd(hose.points, 'end', [7, 7])).toEqual({ points: [[0, 0], [5, 5], [7, 7]], freed: { endAttachment: undefined } })
+  })
+})
+
+describe('lineEndTargets (the line half of both surfaces\' target walk)', () => {
+  const ends = (id: string, extra: Partial<LineEnds> = {}): LineEnds => ({ id, start: [[0, 0], [10, 0]], end: [[100, 0], [90, 0]], ...extra })
+
+  it('offers each free end once, at its tip, and the stored point when the surface asks', () => {
+    const got = lineEndTargets([ends('a')], [line('a')], '__draft__', ([x, y]) => [x / 10, y / 10])
+    expect(got.map((t) => [t.key, t.point, t.at])).toEqual([
+      ['line:a:start:0', [0, 0], [0, 0]],
+      ['line:a:end:0', [100, 0], [10, 0]],
+    ])
+  })
+
+  it('fans a Teilstück\'s end onto three prongs and drops the ports already taken', () => {
+    const branch = line('b', { startAttachment: toLine('ts', 'end', 1) })
+    const got = lineEndTargets([ends('ts', { teilstueck: true })], [line('ts', { teilstueck: true }), branch], '__draft__')
+    expect(got.filter((t) => t.target.kind === 'line' && t.target.endpoint === 'end').map((t) => t.port)).toEqual([0, 2])
+    expect(got.find((t) => t.port === 2)?.point).toEqual(forkPortPoint([100, 0], [90, 0], 4, 2))
+  })
+
+  it('blocks a target that would close a loop through the source', () => {
+    const lines = [line('a', { startAttachment: toLine('src') }), line('src')]
+    expect(lineEndTargets([ends('a')], lines, 'src').every((t) => t.blocked)).toBe(true)
+  })
+})
+
+describe('candidateAttachment', () => {
+  it('takes the next free port on a line end', () => {
+    const c: MagneticTarget = { key: 'k', target: { kind: 'line', id: 'ts', endpoint: 'end' }, point: [0, 0] }
+    const lines = [line('ts', { teilstueck: true }), line('b', { startAttachment: toLine('ts', 'end', 0) })]
+    expect(candidateAttachment(c, lines)).toEqual({ target: c.target, routing: 'direct', port: 1 })
+  })
+
+  it('arms the GPS guard where a live marker stands — and only for a live one', () => {
+    const c: MagneticTarget = { key: 'k', target: { kind: 'object', id: 'tlf' }, point: [0, 0], defaultRouting: 'trace' }
+    expect(candidateAttachment(c, [], (id) => (id === 'tlf' ? [7.6, 47.5] : undefined)))
+      .toEqual({ target: c.target, routing: 'trace', gps: { state: 'guarded', confirmedAt: [7.6, 47.5], lastSafe: [7.6, 47.5] } })
+    expect(candidateAttachment(c, [], () => undefined)).toEqual({ target: c.target, routing: 'trace' })
   })
 })
