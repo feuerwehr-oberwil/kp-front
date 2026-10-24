@@ -317,10 +317,13 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     broken, act now; blue/grey = normal status and in-progress.
   - *Text on colour (23.10.2026, sweep G.2/G.4–G.6):* red as TEXT or a glyph is `--red-strong`;
     `--red` only fills and strokes. A word on an `--amber` fill is `--on-amber` (dark in both
-    themes – white on amber is 2.5:1 by day), on the other hues `--on-fill`. The three ink tiers
-    and these fill pairs clear 4.5:1 in both themes; `src/styles/tokenContrast.test.ts` measures
-    them from `01-tokens.css` and also fails on a control filled with `--ink` (that is
-    `--btn-primary`'s job – `--ink` glares at night).
+    themes – white on amber is 2.5:1 by day), on the other hues `--on-fill`. A green or red fill
+    that carries a word or glyph is `--green-fill` / `--red-fill` (24.10.2026, sweep Q1: a touch
+    darker than `--green` / `--red` by day, the hue itself at night); the plain hues stay for
+    dots, lamps, edges and tints. The three ink tiers and these fill pairs clear 4.5:1 in both
+    themes; `src/styles/tokenContrast.test.ts` measures them from `01-tokens.css` and also fails
+    on a control filled with `--ink` (that is `--btn-primary`'s job – `--ink` glares at night) or
+    a labelled rule filled with the plain `--green` / `--red`.
   - *Disabled:* `opacity: var(--disabled)` + `cursor: default`. Never inline the number.
     **A save that cannot save YET is never natively `disabled`** (UX sweep F2, 20.10.2026; the
     Trupp form since 02.09.): it is `aria-disabled` (the same dimmed look, `.ip-btn` /

@@ -12,13 +12,13 @@
 //     pill), --on-fill on --blue, --on-amber on --amber, --surface on --ink-faint (a grey badge) 4.5
 //   · a «strong» hue on its own 16 % tint over --surface (the ÜBUNG badge, the overdue «Kontakt»,
 //     the selected chip)                                                                    4.5
-//   · --on-fill on --green and --red: 3:1 only. By day they measure 4.4 and 4.2 – the green «go»
-//     button and the red alarm/rec fills. Darkening the day green/red is a look change for the
-//     owner, not a token fix; until then these two are held where they are (WCAG's non-text and
-//     large-text floor), not let slide further.
+//   · --on-fill on --green-fill and --red-fill – the green «go» button, the red rec buttons, the
+//     running chip (24.10.2026, sweep Q1: white on the day --green / --red was 4.4 and 4.2)  4.5
 // It also holds the ONE primary (sweep G.2): a control is never filled with --ink – the near-white
 // glare at night that --btn-primary exists to avoid. A filled control with a label uses
 // --btn-primary / --on-btn-primary; --ink stays for dots, swatches and ticks (rules with no text colour).
+// The same guard keeps a labelled green/red fill on --green-fill / --red-fill: the plain hues stay
+// for dots, lamps and edges, which carry no word.
 import { globSync, readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
@@ -117,8 +117,8 @@ describe('token contrast (WCAG AA)', () => {
           ['--on-fill', '--blue', 4.5],
           ['--on-amber', '--amber', 4.5],
           ['--surface', '--ink-faint', 4.5],
-          ['--on-fill', '--green', 3],
-          ['--on-fill', '--red', 3],
+          ['--on-fill', '--green-fill', 4.5],
+          ['--on-fill', '--red-fill', 4.5],
         ]
         const low = pairs
           .map(([fg, bg, floor]) => [fg, bg, floor, contrast(colour(theme, fg), colour(theme, bg))] as const)
@@ -140,17 +140,27 @@ describe('token contrast (WCAG AA)', () => {
   }
 })
 
+/** every CSS rule that fills with `var(<token>)` AND sets a text colour – a label on that fill */
+function labelledFills(token: string): string[] {
+  const fill = new RegExp(`(?:^|[;\\s])background(?:-color)?\\s*:\\s*var\\(${token}\\)\\s*(?:;|$)`)
+  const offenders: string[] = []
+  for (const file of globSync('src/**/*.css').sort()) {
+    const css = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    for (const [, selector, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (fill.test(body) && /(?:^|[;\s])color\s*:/.test(body)) offenders.push(`${file}: ${selector.trim()}`)
+    }
+  }
+  return offenders
+}
+
 describe('one primary', () => {
   it('no control is filled with --ink', () => {
-    const offenders: string[] = []
-    for (const file of globSync('src/**/*.css').sort()) {
-      const css = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
-      for (const [, selector, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-        const inkFill = /(?:^|[;\s])background(?:-color)?\s*:\s*var\(--ink\)\s*(?:;|$)/.test(body)
-        const label = /(?:^|[;\s])color\s*:/.test(body)
-        if (inkFill && label) offenders.push(`${file}: ${selector.trim()}`)
-      }
-    }
-    expect(offenders, 'a filled control wears --btn-primary / --on-btn-primary (01-tokens)').toEqual([])
+    expect(labelledFills('--ink'), 'a filled control wears --btn-primary / --on-btn-primary (01-tokens)').toEqual([])
+  })
+})
+
+describe('labelled green / red fills', () => {
+  it('a word on green or red stands on --green-fill / --red-fill', () => {
+    expect([...labelledFills('--green'), ...labelledFills('--red')], 'use --green-fill / --red-fill (01-tokens)').toEqual([])
   })
 })

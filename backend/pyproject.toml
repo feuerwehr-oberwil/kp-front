@@ -117,12 +117,13 @@ extend-immutable-calls = [
 # annotations freely – nothing there is worth a TYPE_CHECKING block.
 "tests/**" = ["S101", "S105", "S106", "S311", "B017", "RUF059", "RUF012", "ASYNC230", "TC"]
 "tests_live/**" = ["S101"]
-# TC on the 33 modules that predate it (sweep B.17, 23.10.2026: 58 findings). Moving an import
+# TC on the 38 modules that predate it (sweep B.17, 23.10.2026: 58 findings; the five report/ modules
+# came in with the report_pdf.py split the same day, and tafel.py/schema.py hold pydantic models). Moving an import
 # under TYPE_CHECKING is not cosmetic here: FastAPI and pydantic resolve annotations at RUNTIME, so
 # in a router or a model module the «typing-only» import is the one the app needs. Each module is
 # checked by hand when it is next worked on and then leaves this list; the telemetry modules are
 # byte-identical with kp-rueck (shared/MANIFEST.json) and stay.
-"app/{admin_cli,alarms,api/integrations,api/object_visits,api/object_visits_admin,api/station_reference,auth/microsoft,credentials,houses,mvt,object_footprints,object_visit_delivery,object_visits,observations,plan_alignment_compute,plan_alignment_worker,plan_approval,plan_floors,plan_markers,reference_buildings,roster_snapshot_ingest,roster_snapshot_sync,services/station_workbook,sharepoint_sync,station_index,telemetry/consent,telemetry/forwarder,telemetry/outbox,underground,vehicle_presence,visit_programmes,visits,weather_radar}.py" = ["TC001", "TC002", "TC003"]
+"app/{admin_cli,alarms,api/integrations,api/object_visits,api/object_visits_admin,api/station_reference,auth/microsoft,credentials,houses,mvt,object_footprints,object_visit_delivery,object_visits,observations,plan_alignment_compute,plan_alignment_worker,plan_approval,plan_floors,plan_markers,reference_buildings,report/auswertung,report/compose,report/schema,report/styles,report/tafel,roster_snapshot_ingest,roster_snapshot_sync,services/station_workbook,sharepoint_sync,station_index,telemetry/consent,telemetry/forwarder,telemetry/outbox,underground,vehicle_presence,visit_programmes,visits,weather_radar}.py" = ["TC001", "TC002", "TC003"]
 # Alembic revisions are generated files: the boilerplate header and import order are the
 # tool's, not ours, and rewriting them by hand invites merge pain for zero benefit.
 "alembic/versions/**" = ["I001", "W291", "E402", "UP035", "UP006"]
