@@ -201,14 +201,12 @@
    Druck has not. The measured crossing is the alarm and lives on the clock and the Kontakt tile;
    this is the Planungshilfe, which must never raise the tier or read as a logged reading. The row
    spells out the limit and names the Schätzung as the source, so colour is never the only signal.
-   ⚠️ The ONE form-warning look since 29.09.2026 (T3; `.formWarn` below, 08-toasts · «ONE message
-   surface»): ink 14/700 (13 until 08.10.2026), the ⚠ alone in --red-strong, a 10% red tint, no border. It was red
-   12.5/700 text in a red-bordered box — the loudest block on the card after the clock, for an
-   estimate. Still a filled row with its glyph, so it stays clearly visible (owner). */
-.airNote { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3);
-  border-radius: var(--r-sm); background: color-mix(in srgb, var(--red) 10%, transparent);
-  font: var(--fw-bold) var(--fs-2)/1.4 var(--body); color: var(--ink); }
-.airNote :global(.i) { width: 16px; height: 16px; flex: none; color: var(--red-strong); }
+   ⚠️ A quiet outlined box since 24.10.2026 (owner, sweep M3): no red tint, no ⚠ of its own, a grey
+   edge and ink-dim 14/700 text. On an overdue card the clock's triangle and the red edge already
+   carry the alarm; a second filled red block with a second triangle said it twice, for an
+   estimate. The words — «Alarmdruck 100 bar – laut Schätzung erreicht» — stay, number included. */
+.airNote { padding: var(--sp-2) var(--sp-3); border: 1.5px solid var(--border); border-radius: var(--r-sm);
+  font: var(--fw-bold) var(--fs-2)/1.4 var(--body); color: var(--ink-dim); }
 
 /* ══ The card, zone by zone ═══════════════════════════════════════════════════════════════════
    ONE card on every board since 29.09.2026 (TruppCard's zone list): the line, the tiles, the state
@@ -1085,7 +1083,10 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   /* the Truppfarbe dot, and the indent that hangs a second line under the NAME past it */
   --trow-dot: 11px; }
 .trowWarn { border-left-color: var(--amber); background: color-mix(in srgb, var(--amber) 6%, var(--surface)); }
-.trowCrit { border-left-color: var(--red); background: color-mix(in srgb, var(--red) 6%, var(--surface)); }
+/* ⚠️ Überfällig has NO wash since 24.10.2026 (owner, sweep M3 — G.7: red for danger, quiet ground):
+   the red edge, the red clock with its triangle in front and the red «Kontakt» say it. The
+   Notfall banner keeps the wash (`.nfBanner`). */
+.trowCrit { border-left-color: var(--red); background: var(--surface); }
 /* registered, still to come — blue, like the card's own .st-angemeldet */
 .trowIdle { border-left-color: var(--blue); }
 /* …and DRAUSSEN, which since 17.08. sits between the running Trupps rather than in a section of
@@ -1149,13 +1150,17 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
 .clockGroup { margin-left: .15em; }
 .trowSub { display: block; font-size: var(--fs-micro); font-weight: var(--fw-bold); letter-spacing: .05em;
   text-transform: uppercase; color: var(--ink-faint); margin-top: var(--sp-1); white-space: nowrap; }
-/* the tier as a glyph under the clock (B5, 08.10.2026; glyph only since 09.10.2026, owner: «Symbol
+/* the tier as a glyph at the clock (B5, 08.10.2026; glyph only since 09.10.2026, owner: «Symbol
    only») — fällig (clock) / überfällig and Alarmdruck (triangle) no longer ride on colour alone.
    Inside the clock cell, so the row keeps its lines; shown on every width (unlike `.trowSub`),
    because the phone is where the sun is. */
 .trowTier { display: flex; justify-content: flex-end; margin-top: var(--sp-1); line-height: 1; color: var(--amber-strong); }
 .trowTier :global(.i) { width: 16px; height: 16px; flex: none; }
-.trowTierCrit { color: var(--red-strong); }
+/* überfällig / Alarmdruck: the triangle stands IN FRONT of the digits, on the clock's line (sweep
+   M3, 24.10.2026) — sized to the 25px clock, so it reads with the number as one «⚠ 30:22» */
+.trowClockLine { display: flex; justify-content: flex-end; align-items: center; gap: var(--sp-2); }
+.trowTierCrit { color: var(--red-strong); margin-top: 0; }
+.trowTierCrit :global(.i) { width: 22px; height: 22px; }
 
 .trowPress { text-align: right; font-family: var(--mono); font-size: var(--fs-3); font-weight: var(--fw-bold);
   color: var(--ink); font-variant-numeric: tabular-nums; }
@@ -1825,8 +1830,9 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 /* ── The Atemschutznotfall (F1, 08.10.2026 — AtemschutzNotfall.tsx) ───────────────────────────────
    Local to the feature and built from the board's own pieces: the held tile is an `.actBtn` (the
    lifecycle row's 48px tile, the one corner) that FILLS while it is held (lib/nodeHold drives
-   `--hold` — never a keyframe), and the banner the red tier's edge and wash (`.trowCrit`) at the
-   top of the board. Red means the alarm here and nothing else. */
+   `--hold` — never a keyframe), and the banner the red tier's edge (`.trowCrit`) and a red wash
+   of its own (`.nfBanner` — the overdue card lost its wash on 24.10.2026, the Notfall did not) at
+   the top of the board. Red means the alarm here and nothing else. */
 .nfRow { margin-top: var(--sp-2); }
 /* holding IS the gesture: no scroll, no selection, no iOS callout under the finger */
 .actNotfall, .actNotfallEnd { position: relative; isolation: isolate; overflow: hidden;
@@ -1864,7 +1870,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
 .body { scroll-padding-top: var(--nf-h, 0px); }
 /* The frame is the phone card's (`.trow.trowCard.trowCrit`, AtemschutzNotfall · NotfallBanner);
    this only stacks its rows and gives the head line its alarm face */
-.nfBanner { display: flex; flex-direction: column; }
+.nfBanner { display: flex; flex-direction: column; background: color-mix(in srgb, var(--red) 6%, var(--surface)); }
 /* row 1 = the card's head line: ⚠ in the dot's place, the name in red, the card's clock, and a
    chevron that points ON (it leads to the card, the card's own chevron folds DOWN) */
 .nfHead .trowName { color: var(--red-strong); }
