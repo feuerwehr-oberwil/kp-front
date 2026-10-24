@@ -10,7 +10,7 @@ export const materialCopy: Localizable<Pick<Copy, 'mittel' | 'checklists'>> = {
     groupTasks: 'Tâches',
     searchPlaceholder: 'Rechercher …',
     searchAria: 'Rechercher mode d’emploi ou checklist',
-    matching: 'Correspond : {title}',
+    groupMatching: 'Correspondances',
     none: 'Aucune checklist disponible pour le moment.',
     pickEntry: 'Choisir ou rechercher un mot-clé.',
     done: 'fait',

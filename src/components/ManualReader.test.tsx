@@ -53,7 +53,7 @@ describe('Checkliste picker · Anleitungen', () => {
   const mount = async (templates: ChecklistTemplate[]) => {
     vi.mocked(useMediaQuery).mockReturnValue(false)
     vi.mocked(warmTemplates).mockReturnValue({ list: Promise.resolve(templates), newer: null })
-    const view = render(<ChecklistsView checklists={{}} canTick divera={{}} onTick={noop} onBranch={noop} onAction={noop} />)
+    const view = render(<ChecklistsView checklists={{}} canTick onTick={noop} onBranch={noop} onAction={noop} />)
     await act(async () => {})
     return view
   }

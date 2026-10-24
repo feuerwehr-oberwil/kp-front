@@ -8,7 +8,7 @@ import {
   searchLibrary,
   snippet,
   isChecklistTemplateId,
-  matchDiveraEntries,
+  matchEntries,
   phaseItems,
   phaseProgress,
   searchEntries,
@@ -96,44 +96,96 @@ describe('searchEntries', () => {
   })
 })
 
-describe('matchDiveraEntries', () => {
-  const templates: ChecklistTemplate[] = [{ id: 'el', kind: 'reference', title: 'EL', version: 1, source: 's', entries }]
-  it('matches an alarm title to its tactics entry', () => {
-    expect(matchDiveraEntries(templates, { title: 'Brand Tiefgarage Bahnhofstr.' }).map((e) => e.id)).toEqual(['tg'])
+describe('matchEntries', () => {
+  /** one reference template with these entries (id = title), in this (the station's) order */
+  const taktik = (...es: [title: string, diveraKeywords: string[]][]): ChecklistTemplate[] => [{
+    id: 'el', kind: 'reference', title: 'EL', version: 1, source: 's',
+    entries: es.map(([title, diveraKeywords]) => ({ id: title, title, keywords: [], diveraKeywords, content: [] })),
+  }]
+  const ids = (es: RefEntry[]) => es.map((e) => e.id)
+  // the station's real Taktik · Stichworte and their alarm keywords (kp-front-data
+  // checklists/el-taktik.json, 24.10.2026) – copied, the image has src/ only
+  const station = taktik(
+    ["Brand (allgemein)", ["BRAND","FEUER","GEBÄUDEBRAND","ZIMMERBRAND","WOHNUNGSBRAND"]],
+    ["Brandmeldeanlagen", ["BMA","BRANDMELDEANLAGE","AUTOMATISCHE BRANDMELDUNG","FEHLALARM"]],
+    ["Dachstockbrand", ["DACHSTOCKBRAND","DACHSTOCK","DACHBRAND"]],
+    ["Hochhausbrand", ["HOCHHAUS","HOCHHAUSBRAND"]],
+    ["Viele Personen (Schule / Heim / Saal)", ["SCHULE","SCHULHAUS","ALTERSHEIM","PFLEGEHEIM","HEIM","SPITAL","HOTEL"]],
+    ["Tiefgaragenbrand", ["TIEFGARAGE","TIEFGARAGENBRAND","GARAGE","GARAGENBRAND","BRAND"]],
+    ["E-Autobrand / Lithium-Akku", ["E-AUTO","ELEKTROAUTO","FAHRZEUGBRAND","AUTOBRAND","PKW BRAND","BRAND","E-BIKE","AKKU"]],
+    ["Photovoltaik / Batteriespeicher", ["PHOTOVOLTAIK","PV","SOLAR"]],
+    ["Flächen- / Waldbrand", ["BRAND","FLÄCHENBRAND","VEGETATIONSBRAND","WALD","WALDBRAND","WIESENBRAND"]],
+    ["Kaminbrand", ["KAMINBRAND","KAMIN","SCHORNSTEIN","BRAND"]],
+    ["Bauernhof (Gefahren / Brand)", ["BAUERNHOF","SCHEUNE","STALL","LANDWIRTSCHAFT","BRAND"]],
+    ["Heuwehr", ["HEUWEHR","HEUSTOCK","HEU","BRAND"]],
+    ["Sonstige Brände", ["SILOBRAND","SILO","TRAFOSTATION","TRAFO","PERSONENBRAND"]],
+    ["Lüftereinsatz", ["LÜFTER","BELÜFTUNG","ENTRAUCHUNG"]],
+    ["Verkehrsunfall", ["VERKEHRSUNFALL","VU","VKU","UNFALL","EINGEKLEMMTE PERSON","PKW","LKW"]],
+    ["Tram / Bahn (BLT)", ["TRAM","BLT","VU SCHIENE","BAHN","PERSON UNTER TRAM"]],
+    ["Gasleitungen", ["GAS","GASAUSTRITT","GASLECK","GASGERUCH","GASLEITUNG","EXPLOSION"]],
+    ["Ölspur auf Strassen", ["ÖLSPUR","ÖL","VERUNREINIGUNG","STRASSE"]],
+    ["Gefahrgut / ABC", ["ABC","GEFAHRGUT","CHEMIE","GEFAHRSTOFF","ATOMAR","BIOLOGISCH"]],
+    ["Bergung aus Liftanlagen", ["LIFT","AUFZUG","PERSON IM LIFT","LIFTSTÖRUNG"]],
+    ["Türöffnung", ["TÜRÖFFNUNG","TÜR","NOTÖFFNUNG","PERSON IN NOTLAGE"]],
+    ["Person eingeklemmt / verschüttet", ["EINGEKLEMMTE PERSON","VERSCHÜTTET","PERSON EINGEKLEMMT","TECHNISCHE HILFELEISTUNG","EINSTURZ","EXPLOSION"]],
+    ["Eisrettung", ["EISRETTUNG","PERSON IM EIS","EIS","PERSON IM WASSER"]],
+    ["Räumung / Evakuation / Aufenthaltsprinzip", ["EVAKUATION","EVAKUIERUNG","RÄUMUNG"]],
+    ["Amok / Bedrohungslage", ["AMOK","BEDROHUNGSLAGE","POLIZEILAGE"]],
+    ["Wespen, Hornissen, Bienen", ["WESPEN","HORNISSEN","BIENEN","INSEKTEN","WESPENNEST"]],
+    ["Tierrettung", ["TIERRETTUNG","TIER","GROSSTIERRETTUNG","TIER IN NOTLAGE"]],
+    ["Med. USTÜ", ["MEDIZINISCHE UNTERSTÜTZUNG","TRAGHILFE","USTÜ","HUBRETTER"]],
+    ["Baum zersägen (Spannungsverhältnis)", ["BAUM","BAUM AUF STRASSE","STURMSCHADEN","UMGESTÜRZTER BAUM"]],
+    ["Wasserschaden", ["WASSERSCHADEN","WASSER IM KELLER","ÜBERSCHWEMMUNG"]],
+    ["Hochwasser / Unwetter", ["HOCHWASSER","UNWETTER","ÜBERSCHWEMMUNG","ELEMENTAR","STURM"]],
+  )
+  const match = (title: string) => ids(matchEntries(station, title))
+
+  it('matches a keyword in the title, the most specific first', () => {
+    expect(match('Brand Tiefgarage Schloss')).toEqual(['Tiefgaragenbrand', 'Brand (allgemein)', 'E-Autobrand / Lithium-Akku', 'Flächen- / Waldbrand'])
   })
-  it('matches on incident type too', () => {
-    expect(matchDiveraEntries(templates, { type: 'wespen' }).map((e) => e.id)).toEqual(['wespen'])
+  it('takes a word that is a keyword itself as that hit only, not also as an ending', () => {
+    expect(match('Zimmerbrand Schloss')).toEqual(['Brand (allgemein)'])
+    expect(match('Tiefgaragenbrand UG')).toEqual(['Tiefgaragenbrand'])
   })
-  it('returns nothing with no match', () => {
-    expect(matchDiveraEntries(templates, { title: 'Verkehrsunfall A2' })).toEqual([])
+  it('gives none for a title without a keyword – a keyword inside a word is none', () => {
+    expect(match('Kontrolle Schlossgasse 9')).toEqual([])
+    expect(match('Wasserschaden Schlossgasse 9')).toEqual(['Wasserschaden'])
   })
-  it('leads with the longer (more specific) keyword, keeping the others', () => {
-    const t2: ChecklistTemplate[] = [{ id: 'el', kind: 'reference', title: 'EL', version: 1, source: 's', entries: [
-      { id: 'brand', title: 'Brand', keywords: [], diveraKeywords: ['brand'], content: [] },
-      { id: 'tg', title: 'Tiefgarage', keywords: [], diveraKeywords: ['tiefgaragenbrand'], content: [] },
-    ] }]
-    expect(matchDiveraEntries(t2, { title: 'Tiefgaragenbrand UG' }).map((e) => e.id)).toEqual(['tg', 'brand'])
+  it('counts a word that ENDS in a keyword (owner 24.10.2026: «Kellerbrand» → brand)', () => {
+    expect(match('Kellerbrand')[0]).toBe('Brand (allgemein)')
+  })
+  it('lets only keywords of 5+ letters match a word ending', () => {
+    expect(match('Zimmerbrand Kreis')).not.toContain('Eisrettung')
+    expect(match('VU Autobahn')).toEqual(['Verkehrsunfall'])
+    expect(match('Katze Quartier')).toEqual([])
+  })
+  it('never matches a word ending in a street name', () => {
+    expect(match('Brand Hauptstrasse 5')).not.toContain('Ölspur auf Strassen')
+    expect(match('Brand Bahnhofstr.')).not.toContain('Ölspur auf Strassen')
+    // a word before a house number is a street name too
+    expect(match('Unfall Lindengarage 3')).toEqual(['Verkehrsunfall'])
+    expect(match('Unfall Lindengarage')).toEqual(['Tiefgaragenbrand', 'Verkehrsunfall'])
+  })
+  it('matches a keyword of several words as a phrase', () => {
+    const t = taktik(['ea', ['PKW BRAND', 'E-AUTO']])
+    expect(ids(matchEntries(t, 'PKW Brand A2'))).toEqual(['ea'])
+    expect(ids(matchEntries(t, 'E-Auto Garage'))).toEqual(['ea'])
+    expect(matchEntries(t, 'Brand PKW')).toEqual([])
+  })
+  it('ranks by the longest keyword, then the most keywords hit, then the station order', () => {
+    expect(match('Brand im Stall').slice(0, 2)).toEqual(['Bauernhof (Gefahren / Brand)', 'Brand (allgemein)'])
+    const t = taktik(['wohnung', ['BRAND']], ['bauernhof', ['BRAND']], ['auto', ['BRAND']])
+    expect(ids(matchEntries(t, 'Brand'))).toEqual(['wohnung', 'bauernhof', 'auto'])
   })
 
-  // The reported case: one Stichwort, three answers, none of them derivable from the alarm text.
+  // The reported case: one Stichwort, several answers, none of them derivable from the alarm text.
   it('offers every page a «VU Strasse» could turn out to need', () => {
-    const t3: ChecklistTemplate[] = [{ id: 'el', kind: 'reference', title: 'EL', version: 1, source: 's', entries: [
-      { id: 'vu', title: 'Verkehrsunfall', keywords: [], diveraKeywords: ['vu'], content: [] },
-      { id: 'ea', title: 'E-Autobrand', keywords: [], diveraKeywords: ['vu strasse'], content: [] },
-      { id: 'oel', title: 'Ölspur auf Strasse', keywords: [], diveraKeywords: ['strasse'], content: [] },
-      { id: 'wesp', title: 'Wespen', keywords: [], diveraKeywords: ['wespen'], content: [] },
-    ] }]
-    expect(matchDiveraEntries(t3, { title: 'VU Strasse Hauptstrasse 12' }).map((e) => e.id))
-      .toEqual(['ea', 'oel', 'vu'])
+    expect(match('VU Strasse Hauptstrasse 12')).toEqual(['Ölspur auf Strassen', 'Verkehrsunfall'])
   })
 
   it('caps how many it offers, so a broad keyword does not become a second list', () => {
-    const many: ChecklistTemplate[] = [{ id: 'el', kind: 'reference', title: 'EL', version: 1, source: 's',
-      entries: Array.from({ length: 9 }, (_, i) => (
-        { id: `e${i}`, title: `E${i}`, keywords: [], diveraKeywords: ['brand'], content: [] } as RefEntry
-      )) }]
-    expect(matchDiveraEntries(many, { title: 'Brand' })).toHaveLength(4)
-    expect(matchDiveraEntries(many, { title: 'Brand' }, 2)).toHaveLength(2)
+    expect(match('Brand')).toHaveLength(4)
+    expect(matchEntries(station, 'Brand', 2)).toHaveLength(2)
   })
 })
 

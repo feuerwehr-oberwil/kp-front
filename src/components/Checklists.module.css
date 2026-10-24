@@ -12,16 +12,8 @@
 /* left rail */
 .cl-rail { flex: 0 0 248px; overflow-y: auto; scrollbar-gutter: stable; padding: var(--sp-3) var(--sp-2); background: var(--surface);
   border-right: 1px solid var(--glass-edge); display: flex; flex-direction: column; gap: 16px; }
-.cl-rail-hint { display: flex; align-items: center; gap: var(--sp-2); border: none; cursor: pointer; text-align: left;
-  background: var(--red-8); color: var(--red-strong); font-family: var(--body); font-size: var(--fs-1); font-weight: var(--fw-bold);
-  padding: var(--sp-2); border-radius: var(--r-ctl); margin-top: 2px; }
-.cl-rail-hint :global(.i) { width: 14px; height: 14px; flex: none; }
-/* one Stichwort can have several answers — they stack as peers, none of them ranked visually
-   above the others beyond their order (lib/checklists · matchDiveraEntries) */
-.cl-rail-hints { display: flex; flex-direction: column; gap: var(--sp-1); }
-.cl-rail-hints .cl-rail-hint { margin-top: 0; }
 .cl-rail-search { margin: 2px 0 4px; }   /* THE search (components/SearchField, 29.09.2026) — placement only */
-/* all groups (Aufgaben + each reference template + the devices) are peers under the search bar –
+/* all groups («Passend», Aufgaben, each reference template, the devices) are peers under the search bar –
    THE ListGroup with the shared rows (ChecklistRail); the Stichwort's dot as a row's lead */
 .cl-rail-groups { display: flex; flex-direction: column; gap: var(--sp-4); }
 .cl-ref-lead { display: grid; place-items: center; }
@@ -81,9 +73,9 @@
    keeps its plain surface (it was a green card with a green box, the one green tick in the app) */
 .cl-item .cl-tick { flex: 1 1 auto; min-width: 0; align-items: flex-start; }
 @media (pointer: coarse) {
-  /* the rest of the surface's targets (22.09.2026): the Stichwort hint and the deep-link
-     chips (26px); the rail's rows are THE list row, --tap already */
-  .cl-rail-hint, .cl-deeplink { min-height: var(--tap); }
+  /* the rest of the surface's targets (22.09.2026): the deep-link chips (26px); the rail's rows
+     are THE list row, --tap already */
+  .cl-deeplink { min-height: var(--tap); }
 }
 .cl-item-body { display: block; flex: 1 1 auto; min-width: 0; }
 .cl-tick .cl-item-body { padding-top: 2px; }
