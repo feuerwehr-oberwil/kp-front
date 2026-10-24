@@ -16,14 +16,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { scrollBehavior } from '../lib/reducedMotion'
-import { fillTemplate, hhmm, stripUnprintable, telHref, unitLabel, compareText, fmtWhen, localeDate } from '../lib/format'
+import { fillTemplate, hhmm, stripUnprintable, unitLabel, compareText, fmtWhen } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { ShellLoader } from '../components/ShellLoader'
 import { currentLineFor, mittelLineCount, visibleMittel } from '../lib/mittel'
-import { applyTimeToIso, isoOnDay, keepEndAfterStart, keepStartBeforeEnd, missingSteps, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
-import { intervalsOf, isPresent } from '../lib/attendanceIntervals'
-import { ortOf } from '../lib/attendanceOrt'
+import { missingSteps, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
 import { addPartnerOrg } from '../lib/partnerOrgs'
 import { Overlays, toast } from '../lib/ui'
 import { Overlay } from '../lib/overlays'
@@ -31,9 +29,6 @@ import { prepareUploadImage } from '../lib/imagePrep'
 import type { AttendanceEntry, MittelEntry } from '../types'
 import type { PartnerContact, ReportMeta } from '../lib/workspace'
 import { Combo } from '../components/Combo'
-import { SearchField } from '../components/SearchField'
-import { InfoToggle } from '../components/InfoToggle'
-import { Stepper } from '../components/Stepper'
 import { TimeField } from '../components/TimeField'
 import { fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock } from '../lib/alarmzeiten'
 import { incidentDays } from '../lib/zeitplanFormat'
@@ -43,8 +38,14 @@ import {
   isNetworkFailure, nextGuestId, onServerTime, saveAction, withTimeout, type CaptureAction, type CapturePerson,
 } from '../lib/captureClient'
 import {
-  clearDraft, makeDebouncedFlush, restoreDraft, saveDraft, serverSkewMinutes, type DebouncedFlush,
+  makeDebouncedFlush, serverSkewMinutes, type DebouncedFlush,
 } from '../lib/captureDraft'
+import { PersonenSection } from './PersonenSection'
+import { MaterialSection, type MatProbe } from './MaterialSection'
+import { ZeitenSection } from './ZeitenSection'
+import { AngabenSection } from './AngabenSection'
+import { PartnerSection } from './PartnerSection'
+import { BeilagenSection } from './BeilagenSection'
 
 const tokenFromPath = (): string | null => {
   const m = /^\/e\/([A-Za-z0-9_-]{8,})\/?$/.exec(window.location.pathname)
@@ -82,48 +83,10 @@ const STEP_TARGET: Record<AbschlussStep, Section | 'abschluss'> = {
  *  over the rows the chip just scrolled to. */
 const STEP_FOCUS = new Set<AbschlussStep>(['zeiten', 'einsatzleiter', 'kontaktperson', 'kurzbericht', 'rueckmeldung'])
 
-/**
- * Where a corrected «von»/«bis» on a person's row lands.
- *
- * A day picked off the wheel is the operator's ANSWER and is kept as such — only the ordering
- * guard survives it, so a presence block can never end before it starts (a reversed block
- * renders as nothing and counts zero minutes on the Rapport). Without a day nothing changes:
- * the day is inferred from the neighbouring stamp, the same rule the Anwesenheit view applies,
- * so the two surfaces cannot drift.
- */
-const personTimeIso = (
-  clock: string, day: Date | undefined, edge: 'from' | 'to',
-  block: { from?: string; to?: string }, baseIso: string,
-): string | null => {
-  if (!day) {
-    return edge === 'to'
-      ? applyTimeToIso(block.to ?? baseIso, clock, { nextDayIfBefore: block.from })
-      : applyTimeToIso(baseIso, clock, { prevDayIfAfter: block.to })
-  }
-  const iso = isoOnDay(day, clock)
-  if (!iso) return null
-  if (edge === 'to') return block.from ? keepEndAfterStart(block.from, iso) : iso
-  return block.to ? keepStartBeforeEnd(iso, block.to) : iso
-}
-
-/** The calendar day of a recorded time — but ONLY when it is not the Einsatz' own start day.
- *  An Einsatz that ends the same evening (nearly all of them) reads as a bare clock exactly as
- *  before; one that runs past midnight says which day a «bis 01:15» belongs to. */
-const dayTag = (iso: string | undefined, baseIso: string): string | null => {
-  if (!iso) return null
-  const d = new Date(iso)
-  const base = new Date(baseIso)
-  if (!Number.isFinite(d.getTime()) || !Number.isFinite(base.getTime())) return null
-  if (d.toDateString() === base.toDateString()) return null
-  return localeDate(d, { day: '2-digit', month: '2-digit' })
-}
-
 // «Übung» reaches the poster exactly like a real Einsatz — the badge is what keeps a drill
 // (or a test run before a rollout) from being ticked off as the real thing. Same amber
 // token as the tablet's switcher/history badge, so it reads the same on both surfaces.
 const ExerciseBadge = () => <span className="cv-badge-exercise">{appConfig.copy.exerciseBadge}</span>
-
-type MatProbe = { materialId?: string; label: string; unit: string; sourceId?: string; sourceLabel?: string }
 
 // a network hiccup, a real backend verdict, and a broken token read differently under
 // stress — only the truly token-shaped failure falls back to the generic «Link ungültig»
@@ -132,73 +95,6 @@ const loadErrorMsg = (e: unknown): string => {
   if (e instanceof CaptureError && e.message) return e.message
   if (!(e instanceof CaptureError) && (!navigator.onLine || isNetworkFailure(e))) return c.loadFailedOffline
   return c.invalid
-}
-
-function AccHead({ open, label, sub, onToggle }: { open: boolean; label: string; sub: string; onToggle: () => void }) {
-  return (
-    <button type="button" className={`cv-acc-head${open ? ' on' : ''}`} aria-expanded={open} onClick={onToggle}>
-      <span className="cv-acc-label">{label}</span>
-      <span className="cv-acc-sub">{sub}</span>
-      {/* the one fold grammar: the global `.chev`, turned by aria-expanded (29.09.2026) */}
-      <Icon id="chevron-down" className="chev" />
-    </button>
-  )
-}
-
-// Text fields save on blur AND ~1s after typing pauses, plus a sessionStorage draft per
-// incident+field — a phone lock mid-sentence must not lose the Kurzbericht. The draft clears
-// once the server accepted the text; a restored draft is unsaved by definition (drafts clear
-// on success), so it flushes right after mount.
-function DraftField({ incidentId, field, saved, commit, textarea, number, tel, className, placeholder, ariaLabel, autoCapitalize, enterKeyHint }: {
-  incidentId: string
-  field: string
-  /** current server value ('' = unset) */
-  saved: string
-  /** flush the raw text; resolves true when the server (or a no-op) accepted it */
-  commit: (raw: string) => Promise<boolean>
-  textarea?: boolean
-  number?: boolean
-  tel?: boolean
-  className: string
-  placeholder: string
-  ariaLabel: string
-  autoCapitalize?: string
-  enterKeyHint?: 'done' | 'search'
-}) {
-  const [text, setText] = useState(() => restoreDraft(sessionStorage, incidentId, field, saved))
-  const commitRef = useRef(commit)
-  useEffect(() => { commitRef.current = commit }) // the flusher outlives renders — call the fresh closure
-  const [flusher] = useState(() => makeDebouncedFlush<string>(1000, async (raw) => {
-    if (await commitRef.current(raw)) clearDraft(sessionStorage, incidentId, field)
-  }))
-  useEffect(() => {
-    if (text !== saved) flusher.push(text) // restored draft → persist it
-    return () => { void flusher.flushNow() } // unmount (accordion collapse) must not drop text
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  const onChange = (raw: string) => {
-    // one guard for every free-text field the poster owns (Kurzbericht, Bemerkungen,
-    // Bildlegenden): the rapport is set in Helvetica and prints an emoji as a black box —
-    // lib/format · stripUnprintable
-    const v = stripUnprintable(raw)
-    setText(v)
-    saveDraft(sessionStorage, incidentId, field, v)
-    flusher.push(v)
-  }
-  const shared = {
-    className, placeholder, value: text, 'aria-label': ariaLabel,
-    onBlur: () => { void flusher.flushNow() },
-  }
-  if (textarea) {
-    return <textarea {...shared} rows={3} autoCapitalize={autoCapitalize} enterKeyHint={enterKeyHint}
-      onChange={(e) => onChange(e.target.value)} />
-  }
-  return (
-    <input {...shared} type={number ? 'number' : tel ? 'tel' : 'text'} min={number ? 0 : undefined}
-      inputMode={number ? 'numeric' : tel ? 'tel' : undefined}
-      autoCapitalize={autoCapitalize} autoCorrect="off" autoComplete="off" spellCheck={false}
-      enterKeyHint={enterKeyHint} onChange={(e) => onChange(e.target.value)} />
-  )
 }
 
 export default function CaptureApp() {
@@ -889,7 +785,7 @@ export default function CaptureApp() {
     )
   }
 
-  // --- screen 2: the capture sections (Personen · Material · Zeiten · Angaben) ---
+  // --- screen 2: the capture sections – one component each (./PersonenSection … ./BeilagenSection) ---
   // The Einsatz' own days, for the clocks that may legitimately fall on another one. On an
   // Einsatz that finished the same evening this is a single day and no wheel appears at all.
   // ⚠️ Read on render, not once on mount. It bounds the pickers' day wheel at «today», and this
@@ -929,447 +825,37 @@ export default function CaptureApp() {
 
       <div className="cv-acc">
         {hasPersonen && (
-        <section className="cv-card cv-acc-card" data-step="anwesenheit" ref={(el) => { sectionRefs.current.personen = el }}>
-          <AccHead open={openSection === 'personen'} label={C.sectionPersonen} sub={fillTemplate(C.presentCount, { n: presentCount })} onToggle={() => toggleSection('personen')} />
-          {openSection === 'personen' && (
-            <div className="cv-acc-body">
-              <div className="cv-search-row cv-sticky-search">
-                <SearchField className="cv-search" placeholder={C.searchName} aria-label={C.searchName} value={search} onChange={setSearch}
-                  autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="search" />
-                {/* «Erfasste N» — the check-back filter. Only once there IS something to check
-                    back on: on an untouched roster it would filter to an empty list, and a
-                    control that can only produce nothing is a trap on a phone at a door.
-                    ⚠️ …but it must also stay while it is ON, even at zero. The fourth tap on a
-                    row DELETES that person's entry, so filtering down to the last recorded
-                    person and tapping them once more took the count to 0 — and a toggle that
-                    unmounts while still filtering leaves an empty roster with nothing on screen
-                    to switch it off again. */}
-                {(recordedCount > 0 || onlyRecorded) && (
-                  <button type="button" className={`cv-filter${onlyRecorded ? ' on' : ''}`}
-                    aria-pressed={onlyRecorded} onClick={() => setOnlyRecorded((v) => !v)}>
-                    <Icon id="check" />
-                    <span>{fillTemplate(C.filterRecorded, { n: recordedCount })}</span>
-                  </button>
-                )}
-                <InfoToggle open={showTapHelp} onToggle={() => setShowTapHelp((v) => !v)} label={C.tapHelp} />
-              </div>
-              {showTapHelp && <p className="cv-hint">{C.tapHint}</p>}
-              <div className="cv-people">
-                {filteredRoster.map((p) => {
-                  const a = attendance[p.id]
-                  const here = isPresent(a)
-                  // ⚠️ THREE visible states, not two: «anwesend» alone was the half-truth this
-                  // feature exists to end — somebody who has scanned the poster in the Magazin
-                  // has not left the building yet, and the command post needs to see exactly
-                  // that. The row therefore shows Magazin and Vor Ort as different states.
-                  const atStation = here && ortOf(a) === 'station'
-                  const state = a ? (here ? (atStation ? 'station' : 'on') : 'left') : ''
-                  const stateLabel = !a ? '' : !here ? C.stateLeft : atStation ? A.ortStation : A.ortScene
-                  // the poster edits the CURRENT presence block (it keeps the narrow four-step
-                  // cycle; returns are ticked on the tablet, which has the Zeitplan for them)
-                  const blocks = intervalsOf(a)
-                  const bi = blocks.length - 1
-                  const cur = blocks[bi]
-                  const vonBase = cur?.from ?? incident.started_at
-                  return (
-                    <div key={p.id} className="cv-person-row">
-                      <button className={`cv-person ${state}`} disabled={busy}
-                        onClick={() => void tapPerson(p)}>
-                        <span className="cv-person-name">{p.display_name}</span>
-                        {/* a row with no Mannschaftsliste behind it SAYS so — the same word the
-                            tablet's pickers put on the same person (anwesenheit.guestBadge), so
-                            nobody wonders later why this name is in no export */}
-                        {!rosterIds.has(p.id) && <span className="cv-person-guest">{A.guestBadge}</span>}
-                        {/* state as a glyph chip — the pin and the Magazin are the same two
-                            glyphs the tablet's Anwesenheit uses, so the poster and the KP say
-                            the same thing the same way. The word rides as the aria-label. */}
-                        {a && (
-                          <span className="cv-person-state" role="img" aria-label={stateLabel}>
-                            <Icon id={!here ? 'arrow' : atStation ? 'station' : 'pin'} />
-                          </span>
-                        )}
-                      </button>
-                      {/* ONE inline time, same model as the Anwesenheit view: arrival while
-                          anwesend, leave time once gegangen — the flipping meaning is SAID
-                          with a von/bis tag, not implied (feedback 2026-07-18) */}
-                      {a && <span className="cv-time-tag">{here ? C.von : C.bis}</span>}
-                      {a && (
-                        <TimeField
-                          className="cv-person-time"
-                          ariaLabel={here ? C.von : C.bis}
-                          value={hhmm(here ? cur?.from : cur?.to)}
-                          disabled={busy}
-                          // the Einsatz' own days, exactly like the Zeiten grid below. The poster
-                          // is filled in hours later and an Einsatz that ran past midnight has two
-                          // of them — «bis 01:15» was silently filed on the wrong one, because a
-                          // bare clock can only be inferred from the neighbouring stamp.
-                          days={zeitDays}
-                          // …and the wheel opens on the day this stamp is ON (see TimeField ·
-                          // valueDay). Without it the day wheel starts at today, and a correction
-                          // made the morning after would move the block to the morning after.
-                          valueDay={(() => {
-                            const iso = here ? cur?.from : cur?.to
-                            return iso ? new Date(iso) : undefined
-                          })()}
-                          onCommit={(hhmm, day) => {
-                            if (!hhmm) return
-                            const iso = personTimeIso(hhmm, day, here ? 'from' : 'to',
-                              { from: cur?.from, to: cur?.to }, vonBase)
-                            if (!iso) return
-                            const patch = here ? { from: iso } : { to: iso }
-                            void run({ kind: 'setTimes', personId: p.id, index: bi, ...patch }).then((ok) => { if (ok) savedToast() })
-                          }}
-                        />
-                      )}
-                      {/* the day, and ONLY when it is not the Einsatz' own — see dayTag. On the
-                          ordinary same-evening Einsatz the row looks exactly as it did. */}
-                      {a && (() => {
-                        const tag = dayTag(here ? cur?.from : cur?.to, incident.started_at)
-                        return tag ? <span className="cv-date-tag">{tag}</span> : null
-                      })()}
-                    </div>
-                  )
-                })}
-                {/* THE GAST DOOR, last under the hits and only while something is typed — the
-                    same row, in the same place, with the same words as on the Trupp form. It
-                    carries the typed name itself, so it says what the tap will do instead of
-                    opening a second field to ask for the name again. */}
-                {guestOffer && (
-                  <button type="button" className="cv-btn cv-btn-add" disabled={busy}
-                    onClick={() => { void addGuest(guestOffer) }}>
-                    <Icon id="type" />
-                    <span>{fillTemplate(A.addGuest, { name: guestOffer })}</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </section>
+          <PersonenSection open={openSection === 'personen'} onToggle={() => toggleSection('personen')} sectionRef={(el) => { sectionRefs.current.personen = el }}
+            incident={incident} zeitDays={zeitDays} busy={busy} attendance={attendance} rosterIds={rosterIds}
+            filteredRoster={filteredRoster} presentCount={presentCount} recordedCount={recordedCount}
+            search={search} setSearch={setSearch} onlyRecorded={onlyRecorded} setOnlyRecorded={setOnlyRecorded}
+            showTapHelp={showTapHelp} setShowTapHelp={setShowTapHelp} guestOffer={guestOffer}
+            tapPerson={tapPerson} addGuest={addGuest} run={run} savedToast={savedToast} />
         )}
 
         {hasMaterial && (
-        <section className="cv-card cv-acc-card" data-step="mittel" ref={(el) => { sectionRefs.current.material = el }}>
-          <AccHead open={openSection === 'material'} label={C.sectionMaterial} sub={C.mittelCount(lines.length)} onToggle={() => toggleSection('material')} />
-          {openSection === 'material' && (
-            <div className="cv-acc-body">
-              <div className="cv-search-row cv-sticky-search">
-                <SearchField className="cv-search" placeholder={C.searchMaterial} aria-label={C.searchMaterial} value={matSearch} onChange={setMatSearch}
-                  autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="search" />
-              </div>
-              {/* «Nichts verwendet» — the same tick the tablet's Rapport carries (lib/abschluss ·
-                  stepDone). Without it the Material chip in the «noch offen» list could not be
-                  cleared from this page at all: an Einsatz where nothing was used is a legitimate
-                  rapport, but only once somebody has SAID so.
-                  A CHOICE, not a yes/no switch (28.09.2026): it is the «none of these» answer to
-                  the list under it and goes away with the first line, so it keeps ONE text and
-                  shows «picked» by its fill – it used to grow a «✓» into its label, a chip whose
-                  words flipped (docs/ui-conventions.md · Editor sheets: one control per kind of question). */}
-              {lines.length === 0 && (
-                <button type="button" className={`cv-none${rm?.mittelConfirmedNone ? ' on' : ''}`} disabled={busy}
-                  aria-pressed={!!rm?.mittelConfirmedNone}
-                  onClick={() => { void run({ kind: 'setMeta', patch: { mittelConfirmedNone: !rm?.mittelConfirmedNone } }).then((ok) => { if (ok) savedToast() }) }}>
-                  {AB.mittelNone}
-                </button>
-              )}
-              {shownGroups.map(([cat, items]) => (
-                <div key={cat || '_'} className="cv-matgroup">
-                  {cat && <div className="cv-matgroup-head">{cat}</div>}
-                  <ul className="cv-mittel">
-                    {items.map((item) => {
-                      const key = `mat:${item.id}`
-                      const probe = { materialId: item.id, label: item.label, unit: item.unit || appConfig.mittel.defaultUnit }
-                      const serverCur = currentLineFor(mittel, { ...probe, sourceId: undefined, sourceLabel: undefined })?.menge ?? 0
-                      const cur = matPending[key] ?? serverCur
-                      return (
-                        <li key={item.id} className={cur > 0 ? 'used' : ''}>
-                          <span className="cv-mittel-label">{item.label}</span>
-                          <Stepper value={cur} min={0} max={9999} ariaLabel={`${item.label} ${unitLabel(probe.unit)}`}
-                            format={(v) => `${v} ${unitLabel(probe.unit)}`}
-                            onChange={(v) => stepMittel(key, probe, cur, v - cur)} />
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-              ))}
-              {extraLines.length > 0 && (
-                <div className="cv-matgroup">
-                  <div className="cv-matgroup-head">{C.mittelExtra}</div>
-                  <ul className="cv-mittel">
-                    {extraLines.map((l) => {
-                      const probe = { materialId: l.materialId, label: l.label, unit: l.unit, sourceId: l.sourceId, sourceLabel: l.sourceLabel }
-                      const cur = matPending[l.key] ?? l.menge
-                      return (
-                        <li key={l.key} className="used">
-                          <span className="cv-mittel-label">{l.label}{l.sourceLabel ? ` · ${l.sourceLabel}` : ''}</span>
-                          <Stepper value={cur} min={0} max={9999} ariaLabel={`${l.label}${l.sourceLabel ? ` · ${l.sourceLabel}` : ''}`}
-                            format={(v) => `${v}${l.unit ? ` ${unitLabel(l.unit)}` : ''}`}
-                            onChange={(v) => stepMittel(l.key, probe, cur, v - cur)} />
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+          <MaterialSection open={openSection === 'material'} onToggle={() => toggleSection('material')} sectionRef={(el) => { sectionRefs.current.material = el }}
+            busy={busy} rm={rm} mittel={mittel} lines={lines} shownGroups={shownGroups} extraLines={extraLines}
+            matSearch={matSearch} setMatSearch={setMatSearch} matPending={matPending} stepMittel={stepMittel}
+            run={run} savedToast={savedToast} />
         )}
 
         {hasZeiten && (
-        <section className="cv-card cv-acc-card" ref={(el) => { sectionRefs.current.zeiten = el }}>
-          <AccHead open={openSection === 'zeiten'} label={C.sectionZeiten} sub={fillTemplate(C.zeitenFilled, { n: (rm?.gruppen ?? []).filter((g) => g.alarmedAt).length + (rm?.fahrzeuge ?? []).filter((f) => f.ausgerueckt).length })} onToggle={() => toggleSection('zeiten')} />
-          {openSection === 'zeiten' && (
-            <div className="cv-acc-body">
-              {gruppenRows(gruppenCfg, rm?.gruppen).length > 0 && (
-                <>
-                  <div className="cv-subhead">{C.gruppenHead}</div>
-                  <div className="cv-zgrid">
-                    {gruppenRows(gruppenCfg, rm?.gruppen).map(({ config: c, value: v }) => (
-                      <span key={c.id} className="cv-zrow">
-                        <span className="cv-zname">{c.label}{c.color ? ` (${c.color})` : ''}</span>
-                        <TimeField ariaLabel={c.label} value={hhmm(v?.alarmedAt)} disabled={busy} days={zeitDays}
-                          valueDay={v?.alarmedAt ? new Date(v.alarmedAt) : undefined}
-                          onCommit={(hhmm, day) => onGruppeZeit(c.id, hhmm, day)} />
-                      </span>
-                    ))}
-                  </div>
-                </>
-              )}
-              {fahrzeugRows(fahrzeugeCfg, rm?.fahrzeuge).length > 0 && (
-                <>
-                  <div className="cv-subhead">{C.fahrzeugeHead}</div>
-                  <div className="cv-zgrid">
-                    {fahrzeugRows(fahrzeugeCfg, rm?.fahrzeuge).map(({ config: c, value: v }) => (
-                      <span key={c.id} className="cv-zrow">
-                        <span className="cv-zname">{c.label}</span>
-                        <TimeField ariaLabel={c.label} value={hhmm(v?.ausgerueckt)} disabled={busy} days={zeitDays}
-                          valueDay={v?.ausgerueckt ? new Date(v.ausgerueckt) : undefined}
-                          onCommit={(hhmm, day) => onFahrzeugZeit(c.id, hhmm, day)} />
-                      </span>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-        </section>
+          <ZeitenSection open={openSection === 'zeiten'} onToggle={() => toggleSection('zeiten')} sectionRef={(el) => { sectionRefs.current.zeiten = el }}
+            busy={busy} rm={rm} zeitDays={zeitDays} gruppenCfg={gruppenCfg} fahrzeugeCfg={fahrzeugeCfg}
+            onGruppeZeit={onGruppeZeit} onFahrzeugZeit={onFahrzeugZeit} />
         )}
 
-        <section className="cv-card cv-acc-card" ref={(el) => { sectionRefs.current.angaben = el }}>
-          <AccHead open={openSection === 'angaben'} label={C.sectionAngaben} sub={rm?.einsatzleiter ?? '—'} onToggle={() => toggleSection('angaben')} />
-          {openSection === 'angaben' && (
-            <div className="cv-acc-body">
-              <div className="cv-row" data-step="einsatzleiter">
-                <span>{C.einsatzleiter}</span>
-                <div className="cv-rueck-name">
-                  <Combo
-                    value={rm?.einsatzleiter ?? ''}
-                    options={roster.map((p) => p.display_name)}
-                    placeholder={C.rueckName}
-                    allowCustom
-                    officerFilter
-                    rankOf={rankOf}
-                    onChange={(v) => {
-                      void run({ kind: 'setMeta', patch: { einsatzleiter: v || undefined } }).then(async (saved) => {
-                        if (!saved) return
-                        savedToast()
-                        // the Einsatzleiter was there, and the Personalblatt should say WHY the
-                        // name is on it — the Bemerkung only fills an empty one
-                        await markPickedPresent(v, saved, appConfig.copy.anwesenheit.roleEinsatzleiter)
-                      })
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="cv-row" data-step="kontaktperson">
-                <span>{C.kontaktperson}</span>
-                <div className="cv-row-controls cv-kontakt">
-                  <DraftField key={`${incident.id}:kontaktperson`} incidentId={incident.id} field="kontaktperson"
-                    saved={kontaktperson ?? ''} className="cv-input cv-kontakt-name" placeholder={C.kontaktpersonPlaceholder}
-                    ariaLabel={C.kontaktperson} autoCapitalize="words" enterKeyHint="done"
-                    commit={async (raw) => {
-                      const v = raw.trim()
-                      if (v === (kontaktperson ?? '')) return true
-                      const ok = await flushMeta({ kontaktperson: v })
-                      if (ok) savedToast()
-                      return ok
-                    }} />
-                  <DraftField key={`${incident.id}:kontaktpersonTelefon`} incidentId={incident.id} field="kontaktpersonTelefon"
-                    saved={kontaktTel ?? ''} className="cv-input cv-kontakt-tel" placeholder={C.kontaktpersonTelefonPlaceholder}
-                    ariaLabel={C.kontaktpersonTelefon} tel enterKeyHint="done"
-                    commit={async (raw) => {
-                      const v = raw.trim()
-                      if (v === (kontaktTel ?? '')) return true
-                      const ok = await flushMeta({ kontaktpersonTelefon: v })
-                      if (ok) savedToast()
-                      return ok
-                    }} />
-                  {/* dials the SAVED number — this surface lives on the phone in someone's hand */}
-                  {telHref(kontaktTel) && (
-                    <a className="cv-call" href={telHref(kontaktTel)}
-                      aria-label={C.kontaktpersonCall} title={C.kontaktpersonCall}>
-                      <Icon id="phone" />
-                    </a>
-                  )}
-                </div>
-              </div>
-              <div className="cv-row">
-                <span>{C.gerettete}</span>
-                {/* «–» while unanswered and the ✕ only with a value — the Rapport's Gerettete pair, one
-                    look for one question (29.09.2026) */}
-                <div className="cv-row-controls cv-counts">
-                  <label className="cv-count-row"><span>{C.gerettetePersonen}</span>
-                    <Stepper value={savedPersonen} min={0} max={999} seed={1} ariaLabel={C.gerettetePersonen}
-                      onChange={(v) => setGerettete(v, savedTiere)}
-                      onClear={savedPersonen != null ? () => setGerettete(null, savedTiere) : undefined} canClear />
-                  </label>
-                  <label className="cv-count-row"><span>{C.geretteteTiere}</span>
-                    <Stepper value={savedTiere} min={0} max={999} seed={1} ariaLabel={C.geretteteTiere}
-                      onChange={(v) => setGerettete(savedPersonen, v)}
-                      onClear={savedTiere != null ? () => setGerettete(savedPersonen, null) : undefined} canClear />
-                  </label>
-                </div>
-              </div>
-              {/* Kurzbericht lives HERE (moved from its own Bericht section 2026-07-18 —
-                  one section fewer; Bemerkungen dropped: it only duplicated confusion) */}
-              <div className="cv-row top" data-step="kurzbericht">
-                <span>{C.kurzberichtHead}</span>
-                <DraftField key={`${incident.id}:summary`} incidentId={incident.id} field="summary"
-                  textarea saved={rm?.summary ?? ''} className="cv-input cv-textarea" placeholder={C.kurzberichtPlaceholder}
-                  ariaLabel={C.kurzberichtHead} autoCapitalize="sentences"
-                  commit={async (raw) => {
-                    const v = raw.trim()
-                    if (v === (rm?.summary ?? '')) return true
-                    const ok = await flushMeta({ summary: v || undefined })
-                    if (ok) savedToast()
-                    return ok
-                  }} />
-              </div>
-            </div>
-          )}
-        </section>
+        <AngabenSection open={openSection === 'angaben'} onToggle={() => toggleSection('angaben')} sectionRef={(el) => { sectionRefs.current.angaben = el }}
+          incident={incident} rm={rm} roster={roster} rankOf={rankOf} kontaktperson={kontaktperson} kontaktTel={kontaktTel}
+          savedPersonen={savedPersonen} savedTiere={savedTiere} setGerettete={setGerettete}
+          run={run} flushMeta={flushMeta} markPickedPresent={markPickedPresent} savedToast={savedToast} />
 
-        {/* ⚠️ Partnerorganisationen and Beilagen used to be two rows INSIDE Angaben. Each grows
-            into a stack of its own, and a label sitting in the left gutter next to a three-row
-            block lines up with nothing — so they became sections like Personen and Material.
-            Every block on this page now opens and closes the same way. */}
-        <section className="cv-card cv-acc-card" ref={(el) => { sectionRefs.current.partner = el }}>
-          <AccHead open={openSection === 'partner'} label={C.partnersHead}
-            sub={partners.length ? fillTemplate(C.partnerCount, { n: partners.length }) : C.partnerNone}
-            onToggle={() => toggleSection('partner')} />
-          {/* the same two fields the tablet asks for: which organisation (the station's own
-              list, free text allowed) and one free line for whatever is worth saying. It rides
-              `reportMeta`, which the poster already reads and writes — nothing new is exposed. */}
-          {openSection === 'partner' && (
-            <div className="cv-acc-body">
-              <div className="cv-partners">
-                {partnerRows.map((r) => {
-                  const on = r.i >= 0
-                  return (
-                    <div className={`cv-partner${on ? ' on' : ''}`} key={r.custom ? `c${r.i}` : r.org}>
-                      {/* a free row names itself in its own field — see the Rapport sheet */}
-                      <button
-                        type="button" className={`cv-partner-tick${r.custom ? ' bare' : ''}`}
-                        role="checkbox" aria-checked={on} disabled={busy} aria-label={r.org || C.partnerOrg}
-                        onClick={() => (on
-                          ? removePartner(r.i)
-                          : void run({ kind: 'setMeta', patch: { partnerContacts: [...partners, { org: r.org }] } }))}
-                      >
-                        <span className="cv-partner-box">{on && <Icon id="check" />}</span>
-                        {!r.custom && <span className="cv-partner-org">{r.org}</span>}
-                      </button>
-                      {on && r.custom && (
-                        <input
-                          className="cv-input cv-partner-name" defaultValue={partners[r.i].org ?? ''}
-                          placeholder={C.partnerOrg} aria-label={C.partnerOrg} disabled={busy}
-                          onBlur={(e) => savePartner(r.i, { org: e.target.value.trim() })}
-                        />
-                      )}
-                      {on && (
-                        <input
-                          className="cv-input" defaultValue={partners[r.i].note ?? ''} placeholder={C.partnerNote}
-                          aria-label={`${r.org || C.partnerOrg} – ${C.partnerNote}`} disabled={busy}
-                          onBlur={(e) => savePartner(r.i, { note: e.target.value.trim() || undefined })}
-                        />
-                      )}
-                      {on && r.custom && (
-                        <button type="button" className="cv-btn cv-btn-ghost" aria-label={C.partnerRemove}
-                          title={C.partnerRemove} disabled={busy} onClick={() => removePartner(r.i)}>
-                          <Icon id="trash" />
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
-                {/* the list covers the usual partners; the unexpected one still has to fit — and
-                    it fits by being TYPED, not by opening a blank row first (see addPartner).
-                    ⚠️ A PLAIN field since 18.09.2026, not a picker: the menu suggested the
-                    station's own organisations, i.e. the very rows standing above it.
-                    A <fieldset> because `run()` drops a save that lands while another is in
-                    flight: an add nobody can see fail is worse than a control that is briefly
-                    not tappable. */}
-                <fieldset className="cv-partner-add" disabled={busy}>
-                  <input
-                    className="cv-input" value={partnerDraft} placeholder={C.partnerPlaceholder} aria-label={C.partnerAdd}
-                    maxLength={80}
-                    onChange={(e) => setPartnerDraft(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitPartner() } }}
-                  />
-                  <button type="button" className="cv-btn cv-btn-ghost" title={C.partnerAdd} aria-label={C.partnerAdd}
-                    disabled={!partnerDraft.trim()} onClick={commitPartner}>
-                    <Icon id="plus" />
-                  </button>
-                </fieldset>
-              </div>
-            </div>
-          )}
-        </section>
-        <section className="cv-card cv-acc-card" ref={(el) => { sectionRefs.current.beilagen = el }}>
-          <AccHead open={openSection === 'beilagen'} label={C.beilagenHead}
-            sub={attachments.length ? fillTemplate(C.beilagenCount, { n: attachments.length }) : C.beilagenNone}
-            onToggle={() => toggleSection('beilagen')} />
-          {/* the photos that belong to the RAPPORT — an Ausweis, a Schaden. The poster is where
-              the paperwork gets done, so this is where they are added; they print at the end of
-              the Rapport, large enough to read (backend/app/report). Only photos, only this
-              Einsatz — see the capture router's key set. */}
-          {openSection === 'beilagen' && (
-            <div className="cv-acc-body">
-              <div className="cv-beilagen">
-                {attachments.length > 0 && (
-                  <ul className="cv-beilagen-list">
-                    {attachments.map((a) => (
-                      <li key={a.id}>
-                        <img src={a.url} alt="" />
-                        <input
-                          className="cv-input" defaultValue={a.caption ?? ''} placeholder={C.beilagenCaption}
-                          aria-label={C.beilagenCaption} disabled={busy}
-                          onBlur={(e) => {
-                            const caption = stripUnprintable(e.target.value).trim()
-                            if (caption === (a.caption ?? '')) return
-                            void run({ kind: 'addAttachment', id: a.id, url: a.url, caption: caption || undefined })
-                              .then((ok) => { if (ok) savedToast() })
-                          }}
-                        />
-                        <button type="button" className="cv-btn cv-btn-ghost" aria-label={C.beilagenRemove} title={C.beilagenRemove}
-                          disabled={busy} onClick={() => { void run({ kind: 'removeAttachment', id: a.id }).then((ok) => { if (ok) savedToast() }) }}>
-                          <Icon id="trash" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <label className={`cv-btn cv-btn-add cv-beilagen-add${uploading ? ' busy' : ''}`}>
-                  {/* while the upload runs the control eats taps at 60% opacity — the house busy
-                      glyph says WHY instead of leaving a silently dead button (App.tsx idiom) */}
-                  {uploading ? <ShellLoader /> : <Icon id="photo" />}<span>{uploading ? C.beilagenBusy : C.beilagenAdd}</span>
-                  <input type="file" accept="image/*" multiple disabled={busy || uploading}
-                    onChange={(e) => { const files = [...(e.target.files ?? [])]; e.target.value = ''; if (files.length) void addBeilagen(files) }} />
-                </label>
-              </div>
-            </div>
-          )}
-        </section>
+        <PartnerSection open={openSection === 'partner'} onToggle={() => toggleSection('partner')} sectionRef={(el) => { sectionRefs.current.partner = el }}
+          busy={busy} partners={partners} partnerRows={partnerRows} partnerDraft={partnerDraft} setPartnerDraft={setPartnerDraft}
+          commitPartner={commitPartner} savePartner={savePartner} removePartner={removePartner} run={run} />
+        <BeilagenSection open={openSection === 'beilagen'} onToggle={() => toggleSection('beilagen')} sectionRef={(el) => { sectionRefs.current.beilagen = el }}
+          busy={busy} attachments={attachments} uploading={uploading} addBeilagen={addBeilagen} run={run} savedToast={savedToast} />
       </div>
 
       {/* Abschluss: Einsatzende + Rückmeldung ELZ live right before the PDF — they are
