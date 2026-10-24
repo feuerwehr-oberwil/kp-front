@@ -12,7 +12,7 @@ const doc = (p: Partial<PlanDocument> & { id: string }): PlanDocument => ({
 const modul3 = doc({ id: 'modul3', code: 'Modul 3' })
 const umrisse = doc({ id: BUILDING_PICK_ID, code: 'Umrisse', icon: 'footprint', osm: { center: [7.6, 47.5], radiusM: 250 } })
 const gebaeude = doc({ id: 'gebaeude', code: 'Gebäude', icon: 'floors', floorStack: true })
-const tafel = doc({ id: 'tafel', code: 'Tafel', icon: 'pen' })
+const tafel = doc({ id: 'tafel', code: 'Tafel', icon: 'easel' })
 
 const wb = appConfig.copy.whiteboard
 const glyph = (d: PlanDocument) => planGlyph(d)

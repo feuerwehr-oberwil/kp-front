@@ -132,7 +132,7 @@ export const planDocuments: PlanDocument[] = [
   { id: 'modul2-3', code: 'Modul 2/3', title: 'Zugang & Objekt', subtitle: 'Umgebungs- + Objektplan (kombiniert)', imageUrl: '', orientation: 'landscape' },
   { id: 'modul6', code: 'Modul 6', title: 'Gebäudepläne', subtitle: 'Geschosspläne (alle Geschosse)', imageUrl: '', orientation: 'portrait' },
   { id: 'osm', code: 'Umrisse', title: 'Gebäudeumrisse', subtitle: 'OSM-Gebäude (live) – Gebäude antippen', imageUrl: '', orientation: 'landscape', icon: 'footprint', osm: { center: CENTER, radiusM: 250 } },
-  { id: 'tafel', code: 'Tafel', title: 'Leeres Blatt', subtitle: 'Freie Notiz- / Skizzenfläche', imageUrl: '', orientation: 'landscape', icon: 'pen' },
+  { id: 'tafel', code: 'Tafel', title: 'Leeres Blatt', subtitle: 'Freie Notiz- / Skizzenfläche', imageUrl: '', orientation: 'landscape', icon: 'easel' },
 ]
 
 // The generated floor-stack document. Only shown once a building is picked on

@@ -15,6 +15,7 @@ export const karteCopy: Localizable<Pick<Copy, 'karte'>> = {
     menuLabel: 'Menu – {name}',
     einsaetzeBadge: '{n} open',
     runningOpen: 'Open incident: {t}',
+    runningMore: 'More open: {n} – open the menu',
     searchPlaceholder: 'Search address or object …',
     searchOpen: 'Search',
     searchObjects: 'Station objects',

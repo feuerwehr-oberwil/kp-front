@@ -636,6 +636,28 @@ describe('KarteApp', () => {
     expect(await screen.findByRole('dialog', { name: appConfig.copy.karte.device.title })).toBeTruthy()
   })
 
+  // owner's pick 6A (sweep F.2): the chip names the first REAL Einsatz, not `running[0]`; one «+N»
+  // counts every other open one, Übungen included, and opens the menu. Only Übungen → the Übung.
+  it('names the first real Einsatz on the running chip and counts the rest in one «+N» that opens the menu', () => {
+    type Meta = KarteAppProps['running'][number]
+    const inc = (id: string, title: string, is_exercise: boolean) =>
+      ({ id, title, address: 'Schlossgasse 9, Musterdorf', is_exercise }) as unknown as Meta
+    const onOpenIncident = vi.fn()
+    mount({ running: [inc('u1', 'Übung Atemschutz', true), inc('e1', 'Zimmerbrand Schloss', false), inc('e2', 'Ölspur', false)], onOpenIncident })
+    const chip = document.querySelector('[data-karte-running-chip]')!
+    expect(within(chip as HTMLElement).getByText('Zimmerbrand Schloss')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Einsatz öffnen: Zimmerbrand Schloss' }))
+    expect(onOpenIncident).toHaveBeenCalledWith(expect.objectContaining({ id: 'e1' }))
+    const more = screen.getByRole('button', { name: 'Weitere offen: 2 – Menü öffnen' })
+    expect(more.textContent).toBe('+2')
+    fireEvent.click(more)
+    expect(screen.getByRole('dialog', { name: 'Menü' })).toBeTruthy()
+    cleanup()
+    mount({ running: [inc('u1', 'Übung Atemschutz', true)] })
+    expect(screen.getByRole('button', { name: 'Einsatz öffnen: Übung Atemschutz' })).toBeTruthy()
+    expect(document.querySelector('[data-karte-running-more]')).toBeNull()
+  })
+
   it('keeps no dot with nothing running and no alarm to take', async () => {
     mount()
     await screen.findByRole('button', { name: /Schloss Musterdorf/ })

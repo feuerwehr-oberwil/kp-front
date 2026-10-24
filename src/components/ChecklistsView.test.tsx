@@ -21,7 +21,7 @@ describe('Checklist chooser loading', () => {
     let resolve!: (templates: ChecklistTemplate[]) => void
     vi.mocked(warmTemplates).mockReturnValue({ list: new Promise(done => { resolve = done }), newer: null })
     const noop = () => {}
-    const { container } = render(<ChecklistsView checklists={{}} canTick divera={{}}
+    const { container } = render(<ChecklistsView checklists={{}} canTick
       onTick={noop} onBranch={noop} onAction={noop} />)
     expect(within(screen.getByRole('navigation')).getByRole('status').textContent).toBe(appConfig.copy.loading)
     expect(screen.getAllByRole('status')).toHaveLength(1)
@@ -55,7 +55,7 @@ describe('Checklist chooser row and reading position', () => {
     vi.mocked(warmTemplates).mockReturnValue({ list: Promise.resolve([tpl('a', 'Aufgaben FU'), tpl('b', 'Lagerapport')]), newer: null })
     const noop = () => {}
     const { container } = render(<ChecklistsView checklists={{ a: { ticks: { 'a-1': { t: '2026-10-05T10:00:00.000Z' } } } }}
-      canTick divera={{}} onTick={noop} onBranch={noop} onAction={noop} scrollKey="inc-1" />)
+      canTick onTick={noop} onBranch={noop} onAction={noop} scrollKey="inc-1" />)
     await act(async () => {})
     fireEvent.click(screen.getByRole('button', { name: /Aufgaben FU/ }))
     const toggle = screen.getByRole('button', { name: appConfig.copy.checklists.showList })
@@ -82,7 +82,7 @@ describe('Checklist chooser row and reading position', () => {
     vi.mocked(useMediaQuery).mockReturnValue(true)
     vi.mocked(warmTemplates).mockReturnValue({ list: Promise.resolve([tpl('a', 'Aufgaben FU'), tpl('b', 'Lagerapport')]), newer: null })
     const noop = () => {}
-    const { container } = render(<ChecklistsView checklists={{}} canTick divera={{}}
+    const { container } = render(<ChecklistsView checklists={{}} canTick
       onTick={noop} onBranch={noop} onAction={noop} scrollKey="inc-2" />)
     await act(async () => {})
     const nav = container.querySelector('nav')!
@@ -100,7 +100,7 @@ describe('Checklist chooser row and reading position', () => {
     const lists = [tpl('a', 'Aufgaben FU'), tpl('b', 'Lagerapport')]
     vi.mocked(warmTemplates).mockReturnValue({ list: Promise.resolve(lists), newer: null })
     const noop = () => {}
-    const view = () => <ChecklistsView checklists={{}} canTick divera={{}}
+    const view = () => <ChecklistsView checklists={{}} canTick
       onTick={noop} onBranch={noop} onAction={noop} scrollKey="inc-3" />
     const first = render(view())
     await act(async () => {})
@@ -126,7 +126,7 @@ describe('Checklist chooser row and reading position', () => {
     const noop = () => {}
     const settle = () => act(async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0)) })
     window.history.replaceState(null, '', '/')
-    const { container, unmount } = render(<ChecklistsView checklists={{}} canTick divera={{}}
+    const { container, unmount } = render(<ChecklistsView checklists={{}} canTick
       onTick={noop} onBranch={noop} onAction={noop} scrollKey="inc-swipe" />)
     await settle()
     fireEvent.click(screen.getByRole('button', { name: /Lagerapport/ }))
@@ -141,5 +141,37 @@ describe('Checklist chooser row and reading position', () => {
     unmount() // another tab
     await settle()
     expect(appHistoryDepth()).toBe(0)
+  })
+})
+
+// Sweep 23.10.2026 (owner pick 4A): the Stichworte the Einsatz title names are a group of their
+// own, «Passend», above «Aufgaben» – the same rows as the Taktik list – and no group without a match.
+describe('Checklist «Passend» group', () => {
+  const templates = [
+    { id: 'fu', kind: 'action', title: 'Aufgaben FU', phases: [{ id: 'p', title: 'P', items: [{ id: 'i', text: 'Eins' }] }] },
+    { id: 'el', kind: 'reference', title: 'Taktik · Stichworte', entries: [
+      { id: 'brand', title: 'Brand (allgemein)', keywords: [], diveraKeywords: ['BRAND'], hazardColor: 'red', content: [] },
+      { id: 'tg', title: 'Tiefgaragenbrand', keywords: [], diveraKeywords: ['TIEFGARAGE', 'BRAND'], hazardColor: 'red', content: [] },
+    ] },
+  ] as unknown as ChecklistTemplate[]
+  const groups = () => screen.getAllByRole('region').map((g) => g.getAttribute('aria-label'))
+  const show = async (incidentTitle: string) => {
+    vi.mocked(useMediaQuery).mockReturnValue(false)
+    vi.mocked(warmTemplates).mockReturnValue({ list: Promise.resolve(templates), newer: null })
+    const noop = () => {}
+    render(<ChecklistsView checklists={{}} canTick incidentTitle={incidentTitle} onTick={noop} onBranch={noop} onAction={noop} />)
+    await act(async () => {})
+  }
+  const CL = appConfig.copy.checklists
+
+  it('leads the rail with the matching Stichworte, most specific first', async () => {
+    await show('Brand Tiefgarage Schloss')
+    expect(groups()).toEqual([CL.groupMatching, CL.groupTasks, 'Taktik · Stichworte'])
+    const rows = within(screen.getByRole('region', { name: CL.groupMatching })).getAllByRole('button')
+    expect(rows.map((r) => r.textContent)).toEqual(['Tiefgaragenbrand', 'Brand (allgemein)'])
+  })
+  it('has no group when the title names no Stichwort', async () => {
+    await show('Wasserschaden Schlossgasse 9')
+    expect(groups()).toEqual([CL.groupTasks, 'Taktik · Stichworte'])
   })
 })

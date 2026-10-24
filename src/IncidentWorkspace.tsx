@@ -3322,7 +3322,7 @@ export function IncidentWorkspace({
         <ChecklistsView
           checklists={checklists}
           canTick={canTick}
-          divera={{ title: incidentMeta.title, type: incidentMeta.type ?? undefined }}
+          incidentTitle={incidentMeta.title}
           onTick={toggleTick}
           onBranch={setBranch}
           onAction={checklistAction}
