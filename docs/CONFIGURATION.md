@@ -1967,7 +1967,9 @@ matched, never the Kategorie. A title word matches when it is the keyword or END
 matches «Kellerbrand», but `GAS` never matches «Schlossgasse». Word endings count only for
 keywords of 5+ letters (`EIS` does not match «Kreis»). They never count in a street name, meaning
 a word ending in strasse/str./gasse/weg/allee/rain/ring/platz or followed by a house number
-(`STRASSE` does not match «Hauptstrasse»). A keyword of several words (`PKW BRAND`) matches as a
+(`STRASSE` does not match «Hauptstrasse»). They also never count for a word that is a
+keyword itself: «Zimmerbrand» is the `ZIMMERBRAND` hit only, so it does not also bring up every
+entry that lists `BRAND`. A keyword of several words (`PKW BRAND`) matches as a
 phrase of whole words. A keyword in `diveraKeywords` makes its entry show for every title it
 matches: `BRAND` on an entry puts that entry up for every fire. At most four entries show. The most specific comes first: the longest keyword hit, then
 the most keywords hit, then the entries' own order. No match means no group

@@ -401,18 +401,23 @@ const words = (s: string) => s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boo
 const STREET = /(strasse|straße|str|gasse|weg|allee|rain|ring|platz)$/
 const HOUSE_NO = /^\d+[a-z]?$/
 
-/** whether title word `i` names the one-word keyword `kw`: the word itself, or its ending
- *  («Kellerbrand» → brand) – for keywords of 5+ letters only (eis/«Kreis», tier/«Quartier»,
- *  bahn/«Autobahn») and never in a street name (strasse/«Hauptstrasse»; a word before a house
- *  number is one too) */
-const namesWord = (hay: string[], i: number, kw: string) =>
-  hay[i] === kw || (kw.length >= 5 && hay[i].endsWith(kw) && !STREET.test(hay[i]) && !HOUSE_NO.test(hay[i + 1] ?? ''))
+/** A title's words, each with whether it may match a keyword by its ENDING («Kellerbrand» →
+ *  brand). Not a street name (strasse/«Hauptstrasse»; a word before a house number is one too),
+ *  and not a word that is a keyword itself: «Zimmerbrand» is the hit ZIMMERBRAND, not also every
+ *  page that lists BRAND. `keywords`: every one-word keyword of the station. */
+const titleWords = (title: string, keywords: Set<string>) => {
+  const ws = words(title)
+  return ws.map((w, i) => ({ w, byEnding: !keywords.has(w) && !STREET.test(w) && !HOUSE_NO.test(ws[i + 1] ?? '') }))
+}
+type TitleWord = ReturnType<typeof titleWords>[number]
 
-/** whether `kw` stands in `hay`: a one-word keyword per namesWord, a longer one as whole words
- *  in a row («pkw brand» in «PKW Brand A2») */
-const hasKeyword = (hay: string[], kw: string[]) =>
-  kw.length === 1 ? hay.some((_, i) => namesWord(hay, i, kw[0]))
-    : kw.length > 1 && hay.some((_, i) => kw.every((w, j) => hay[i + j] === w))
+/** whether `kw` (its words) stands in the title: a one-word keyword as a word or – 5+ letters
+ *  only (eis/«Kreis», tier/«Quartier», bahn/«Autobahn») – a word's ending; a longer one as whole
+ *  words in a row («pkw brand» in «PKW Brand A2») */
+const hasKeyword = (hay: TitleWord[], kw: string[]) =>
+  kw.length === 1
+    ? hay.some(({ w, byEnding }) => w === kw[0] || (byEnding && kw[0].length >= 5 && w.endsWith(kw[0])))
+    : kw.length > 1 && hay.some((_, i) => kw.every((k, j) => hay[i + j]?.w === k))
 
 /**
  * The Stichworte for an Einsatz title – the rail's «Passend» group (ChecklistsView), most
@@ -426,7 +431,8 @@ const hasKeyword = (hay: string[], kw: string[]) =>
  * `title + type`, but `type` is the Kategorie («Brandbekämpfung»), so every fire got four
  * «brand» pages whatever its title said; and a substring hit «gas» in «Schlossgasse». A title
  * word that ENDS in a keyword counts (owner: «Kellerbrand» → brand), a keyword inside a word
- * does not; the endings are guarded against short keywords and street names (namesWord).
+ * does not; the endings are guarded against short keywords, street names and words that are a
+ * keyword themselves (titleWords).
  *
  * Ranked by the longest keyword hit (the most specific), then by how many keywords hit, then in
  * the station's own order – the Taktik list's (templates are sorted by the manifest), so a tie
@@ -434,10 +440,12 @@ const hasKeyword = (hay: string[], kw: string[]) =>
  * `limit` keeps the group from turning into a second list.
  */
 export function matchEntries(templates: ChecklistTemplate[], title: string | undefined, limit = 4): RefEntry[] {
-  const hay = words(title ?? '')
+  const entries = allEntries(templates)
+  const oneWord = entries.flatMap((e) => (e.diveraKeywords ?? []).map(words)).filter((k) => k.length === 1)
+  const hay = titleWords(title ?? '', new Set(oneWord.map(([k]) => k)))
   if (!hay.length) return []
   const hits: { entry: RefEntry; at: number; len: number; n: number }[] = []
-  allEntries(templates).forEach((entry, at) => {
+  entries.forEach((entry, at) => {
     const found = (entry.diveraKeywords ?? []).filter((k) => hasKeyword(hay, words(k)))
     if (found.length) hits.push({ entry, at, len: Math.max(...found.map((k) => norm(k).length)), n: found.length })
   })

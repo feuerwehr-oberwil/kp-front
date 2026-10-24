@@ -142,7 +142,10 @@ describe('matchEntries', () => {
 
   it('matches a keyword in the title, the most specific first', () => {
     expect(match('Brand Tiefgarage Schloss')).toEqual(['Tiefgaragenbrand', 'Brand (allgemein)', 'E-Autobrand / Lithium-Akku', 'Flächen- / Waldbrand'])
-    expect(match('Zimmerbrand Schloss')[0]).toBe('Brand (allgemein)')
+  })
+  it('takes a word that is a keyword itself as that hit only, not also as an ending', () => {
+    expect(match('Zimmerbrand Schloss')).toEqual(['Brand (allgemein)'])
+    expect(match('Tiefgaragenbrand UG')).toEqual(['Tiefgaragenbrand'])
   })
   it('gives none for a title without a keyword – a keyword inside a word is none', () => {
     expect(match('Kontrolle Schlossgasse 9')).toEqual([])
