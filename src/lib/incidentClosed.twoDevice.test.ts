@@ -162,7 +162,7 @@ describe('a close on phone A reaches phone B, and B’s late Tafel writes are re
     expect(sync.hasUnsynced).toBe(true)
     expect(journal.pendingCount).toBe(2)
 
-    // phone A closes the Einsatz (App · completeRapport's archive, over the same wrapper)
+    // phone A closes the Einsatz (useIncidentLifecycle · completeRapport's archive, over the same wrapper)
     server.online = true
     await archiveIncident(INC)
     expect(server.open).toBe(false)
