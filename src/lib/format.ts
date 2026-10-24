@@ -117,10 +117,36 @@ export function dueClock(iso: string): string {
   return isNextDay(iso) ? `${t}${appConfig.copy.journal.reminderTomorrow}` : t
 }
 
-/** Local wall-clock HH:MM (24h, always zero-padded) from a Date — the hand-inlined
- *  `${pad(h)}:${pad(m)}` spelled once. Locale-independent by design, unlike formatTime. */
-export function hhmm(date: Date): string {
-  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+/** Local wall-clock HH:MM (24h, always zero-padded) from a Date or an ISO string — the
+ *  hand-inlined `${pad(h)}:${pad(m)}` spelled once. Locale-independent by design, unlike
+ *  formatTime. A missing or unparseable stamp is '' (what a TimeField shows as empty). */
+export function hhmm(date: Date | string | null | undefined): string {
+  if (date == null || date === '') return ''
+  const d = typeof date === 'string' ? new Date(date) : date
+  if (Number.isNaN(d.getTime())) return ''
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}
+
+/**
+ * When something happened, for a row or a status line, in the deployment's locale. Missing or
+ * unparseable → ''; a bare date («2026-10-21») is read as noon of that day.
+ * - default: always the date, the locale's own date+time form («21.10., 14:05» in de-CH) –
+ *   the Verwaltung panels and banners.
+ * - `todayShort`: just the clock today, «21.10. 14:05» on another day – lists that carry
+ *   items of any age (capture picker, Objektbesuche), where a bare «14:32» from last Tuesday
+ *   would read as today. Date and clock are joined by ONE space; Objektbesuche callers take
+ *   the clock with `.split(' ').pop()`.
+ */
+export function fmtWhen(
+  iso: string | null | undefined,
+  { todayShort = false, now = new Date() }: { todayShort?: boolean; now?: Date } = {},
+): string {
+  if (!iso) return ''
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso)
+  if (Number.isNaN(d.getTime())) return ''
+  if (!todayShort) return localeDateTime(d, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  const clock = formatTime(d)
+  return d.toDateString() === now.toDateString() ? clock : `${localeDate(d, { day: '2-digit', month: '2-digit' })} ${clock}`
 }
 
 /** ISO ⇄ <input type="datetime-local"> string (local time, minute precision). */

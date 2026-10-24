@@ -4,7 +4,8 @@ import { useMeldung, useMeldungKindPending } from '../../lib/useMeldung'
 import { appConfig } from '../../config/appConfig'
 import { shortAddress } from '../../lib/deploymentConfig'
 import type { DiveraAlarm, IncidentMeta } from '../../lib/incidents'
-import { realCoord, fmtWhen } from './_shared'
+import { realCoord } from './_shared'
+import { fmtWhen } from '../../lib/format'
 
 // ⚠️ None of the three below paints anything any more (23.08.). Each publishes ONE record into
 // the Meldeleiste — `{ id, kind, tone, title, sub, actions }` — and the strip decides which one

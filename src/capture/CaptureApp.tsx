@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { getDeploymentConfig } from '../lib/deploymentConfig'
 import { scrollBehavior } from '../lib/reducedMotion'
-import { fillTemplate, hhmm, stripUnprintable, telHref, unitLabel, compareText, formatTime, localeDate } from '../lib/format'
+import { fillTemplate, hhmm, stripUnprintable, telHref, unitLabel, compareText, fmtWhen, localeDate } from '../lib/format'
 import { Icon, IconSprite } from '../lib/icons'
 import { Splash } from '../components/Splash'
 import { ShellLoader } from '../components/ShellLoader'
@@ -49,24 +49,6 @@ import {
 const tokenFromPath = (): string | null => {
   const m = /^\/e\/([A-Za-z0-9_-]{8,})\/?$/.exec(window.location.pathname)
   return m ? m[1] : null
-}
-
-// clock for today, date + clock otherwise — the list now carries unreported incidents of
-// any age, and «Alarm 14:32» on a row from last Tuesday would read as "today, 14:32"
-const fmtWhen = (iso: string): string => {
-  const d = new Date(iso)
-  if (!Number.isFinite(d.getTime())) return ''
-  const clock = formatTime(d)
-  return d.toDateString() === new Date().toDateString()
-    ? clock
-    : `${localeDate(d, { day: '2-digit', month: '2-digit' })} ${clock}`
-}
-
-const toTime = (iso?: string): string => {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (!Number.isFinite(d.getTime())) return ''
-  return hhmm(d)
 }
 
 // cross-visibility poll cadence: only runs while the KP latch is still false (once true it's
@@ -896,7 +878,7 @@ export default function CaptureApp() {
               <button key={i.id} className="cv-item" onClick={() => void openIncident(i)}>
                 <span className="cv-item-main">
                   <span className="cv-item-title">{i.title}{i.is_exercise && <ExerciseBadge />}</span>
-                  <span className="cv-item-sub">{i.address ?? ''} · {fmtWhen(i.started_at)}</span>
+                  <span className="cv-item-sub">{i.address ?? ''} · {fmtWhen(i.started_at, { todayShort: true })}</span>
                 </span>
                 <Icon id="chevron" />
               </button>
@@ -923,7 +905,7 @@ export default function CaptureApp() {
         <button className="cv-back" onClick={() => setIncident(null)} aria-label={C.back}><Icon id="chevron" /></button>
         <div className="cv-head-main">
           <h1>{incident.title}{incident.is_exercise && <ExerciseBadge />}</h1>
-          <p>{incident.address ?? ''} · {fillTemplate(C.alarmedAt, { t: fmtWhen(incident.started_at) })}</p>
+          <p>{incident.address ?? ''} · {fillTemplate(C.alarmedAt, { t: fmtWhen(incident.started_at, { todayShort: true }) })}</p>
           {/* reassurance, not an alarm: the KP tablet has this incident — the full rapport
               (incl. Lageskizze) comes from there */}
           {kpActive && (
@@ -1015,7 +997,7 @@ export default function CaptureApp() {
                         <TimeField
                           className="cv-person-time"
                           ariaLabel={here ? C.von : C.bis}
-                          value={toTime(here ? cur?.from : cur?.to)}
+                          value={hhmm(here ? cur?.from : cur?.to)}
                           disabled={busy}
                           // the Einsatz' own days, exactly like the Zeiten grid below. The poster
                           // is filled in hours later and an Einsatz that ran past midnight has two
@@ -1146,7 +1128,7 @@ export default function CaptureApp() {
                     {gruppenRows(gruppenCfg, rm?.gruppen).map(({ config: c, value: v }) => (
                       <span key={c.id} className="cv-zrow">
                         <span className="cv-zname">{c.label}{c.color ? ` (${c.color})` : ''}</span>
-                        <TimeField ariaLabel={c.label} value={toTime(v?.alarmedAt)} disabled={busy} days={zeitDays}
+                        <TimeField ariaLabel={c.label} value={hhmm(v?.alarmedAt)} disabled={busy} days={zeitDays}
                           valueDay={v?.alarmedAt ? new Date(v.alarmedAt) : undefined}
                           onCommit={(hhmm, day) => onGruppeZeit(c.id, hhmm, day)} />
                       </span>
@@ -1161,7 +1143,7 @@ export default function CaptureApp() {
                     {fahrzeugRows(fahrzeugeCfg, rm?.fahrzeuge).map(({ config: c, value: v }) => (
                       <span key={c.id} className="cv-zrow">
                         <span className="cv-zname">{c.label}</span>
-                        <TimeField ariaLabel={c.label} value={toTime(v?.ausgerueckt)} disabled={busy} days={zeitDays}
+                        <TimeField ariaLabel={c.label} value={hhmm(v?.ausgerueckt)} disabled={busy} days={zeitDays}
                           valueDay={v?.ausgerueckt ? new Date(v.ausgerueckt) : undefined}
                           onCommit={(hhmm, day) => onFahrzeugZeit(c.id, hhmm, day)} />
                       </span>
@@ -1400,7 +1382,7 @@ export default function CaptureApp() {
                   either. The wheel stays for everything filled in the morning after. */}
               <div className="cv-row" data-step="zeiten">
                 <span>{C.ende}</span>
-                <TimeField ariaLabel={C.ende} value={toTime(endedAt)} disabled={busy} nowLabel={C.jetzt}
+                <TimeField ariaLabel={C.ende} value={hhmm(endedAt)} disabled={busy} nowLabel={C.jetzt}
                   days={zeitDays} valueDay={endedAt ? new Date(endedAt) : undefined}
                   onCommit={(hhmm, day) => {
                     const iso = zeitFromClock(incident.started_at, hhmm ?? '', day)
@@ -1429,7 +1411,7 @@ export default function CaptureApp() {
                       }}
                     />
                   </div>
-                  <TimeField ariaLabel={C.rueckZeit} value={toTime(rm?.rueckmeldungElz?.at)} disabled={busy} nowLabel={C.jetzt}
+                  <TimeField ariaLabel={C.rueckZeit} value={hhmm(rm?.rueckmeldungElz?.at)} disabled={busy} nowLabel={C.jetzt}
                     days={zeitDays} valueDay={rm?.rueckmeldungElz?.at ? new Date(rm.rueckmeldungElz.at) : undefined}
                     onCommit={(hhmm, day) => {
                       const iso = zeitFromClock(incident.started_at, hhmm ?? '', day)

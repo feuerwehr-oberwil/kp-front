@@ -13,7 +13,8 @@ import { pendingUploads } from '../../objectVisits/outbox'
 import type { VisitDoc } from '../../objectVisits/types'
 import type { OvFrom } from '../../objectVisits/route'
 import { Head } from './common'
-import { fmtDate, fmtWhen, visitTitle } from './ovFormat'
+import { fmtDate, visitTitle } from './ovFormat'
+import { fmtWhen } from '../../lib/format'
 import { PhotoSheet } from './Sheets'
 import { ChecklistSection, NotesSection, PhotosSection, ProposalsSection } from './VisitSections'
 import { useOv } from './ovContext'
@@ -59,7 +60,7 @@ export function AnswersPage({ id, from }: { id: string; from?: OvFrom }) {
   // photos not yet on the server wear the upload badge, as on the visit page
   const pending = new Set(local ? (local.base ? pendingUploads(local) : doc.photos.map((p) => p.id)) : [])
   const photo = photoId ? doc.photos.find((p) => p.id === photoId) ?? null : null
-  const when = `${fmtDate(doc.visitedAt)} ${fmtWhen(doc.visitedAt).split(' ').pop()}`
+  const when = `${fmtDate(doc.visitedAt)} ${fmtWhen(doc.visitedAt, { todayShort: true }).split(' ').pop()}`
   const empty = !doc.checklist && !doc.notes.trim() && doc.photos.length === 0 && doc.proposals.length === 0
 
   return (

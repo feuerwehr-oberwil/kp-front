@@ -9,7 +9,7 @@
     "react-hooks/purity": 26,
     "react-hooks/refs": 121,
     "react-hooks/set-state-in-effect": 74,
-    "react-refresh/only-export-components": 105
+    "react-refresh/only-export-components": 104
   },
   "silenced": {
     "@typescript-eslint/no-explicit-any": 10,
