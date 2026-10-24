@@ -5,7 +5,7 @@
 // lib/report. The close runs only through `onComplete` (the one shared Abschluss confirm).
 // Rules for this area: docs/rapport.md.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { Button, IconButton } from './Button'
 import { TickRow } from './TickRow'
@@ -48,7 +48,7 @@ import {
   defaultReportOptions, einsatzleiterFromScene, formatDateTime, hasVisiblePlanAnnotation, missingTranscriptCount, pendenzRows, proofLabel,
 } from '../lib/report'
 import { TAFEL_ID, findForms } from '../lib/boardForm'
-import { abschlussFacts, missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
+import { abschlussFacts, missingSteps, stepDone, type AbschlussFacts } from '../lib/abschluss'
 import { controlChipLabel } from '../lib/abschlussOpen'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { openConflicts, sideLabel, sideValue, type OpenConflict } from '../lib/attendanceConflict'
@@ -64,6 +64,7 @@ import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
 import { Stepper } from './Stepper'
 import { Menu, Popover } from '../lib/overlays'
+import { PHONE_TABS, STEP_TAB, rapportKept, useReportPlace, type PhoneTab } from './useReportPlace'
 
 const NO_IDS = new Set<string>()
 const NO_SIGNATURES: ReportSignature[] = []
@@ -73,21 +74,8 @@ const NO_SIGNATURES: ReportSignature[] = []
  *  title says what the nav calls this page, «Rapport». */
 const RP_FOLD = { complete: 1, chip: 2, pdf: 3, title: 4 } as const
 
-/**
- * «Zeig mir diese offene Angabe» — asked from OUTSIDE the sheet.
- *
- * The Abschluss confirm lists the same Mindestangaben the head's «noch offen» chips do, and
- * since 18.09.2026 its rows are tappable too (lib/abschlussOpen). But it also opens from the
- * Einsatz-Menü, where this surface is not mounted at all — so the ask has to survive the
- * `setMode('rapport')` that follows it. One live listener while the sheet stands, one queued
- * step while it does not; whichever answers, `jumpToStep` does the rest.
- */
-let stepListener: ((step: AbschlussStep) => void) | null = null
-const queuedStep: { current: AbschlussStep | null } = { current: null }
-export function requestReportStep(step: AbschlussStep) {
-  if (stepListener) stepListener(step)
-  else queuedStep.current = step
-}
+// «Zeig mir diese offene Angabe» from outside the sheet — lives with the tabs (useReportPlace)
+export { requestReportStep } from './useReportPlace'
 
 /** Does this partner row say anything at all? Blank rows live on screen and never reach the blob. */
 const partnerFilled = (p: PartnerContact) => [p.org, p.name, p.phone, p.note].some((v) => v?.trim())
@@ -219,66 +207,8 @@ function ReadOut({ value }: { value?: string | null }) {
 }
 
 
-/**
- * PHONE ONLY (≤600px, the width at which the rail becomes a bottom bar and every other surface
- * switches too). Stacked, this page is four form sections, a five-part round-up and the Kroki —
- * about five phone screens, and the Anwesenheits-Liste read out at the Appell sits at the far
- * end of them. Three tabs put each of those within one screen.
- *
- * ⚠️ It decides what is SHOWN, never the order: the DOM stays in the printed rapport's order
- * (app/report / admin/capturePdf.ts), and from 601px up the bar is `display: none` and every
- * section is on screen exactly as it is today — the two-column layout at 1080 is untouched.
- *
- * ⚠️ THREE, and only three. Anwesenheit and Material were tried as two more tabs here
- * (18.09.2026) and thrown out the same day: this surface already carries a head, a tab strip and
- * a page, and mounting a whole other surface — with ITS head and ITS own switcher — under the
- * strip stacked three navigations on top of each other. They are separate pages again, reached
- * from the bar's «Rapport» tile and its chooser (NavRail · GroupChooser) and from the rail.
- */
-type PhoneTab = 'bericht' | 'werwas' | 'beilagen'
-const PHONE_TABS: PhoneTab[] = ['bericht', 'werwas', 'beilagen']
-/** Which tab a still-open Mindestangabe lives in — the head's «noch offen» chips switch to it
- *  before they scroll, and the tab itself carries a dot while one of its steps is open. */
-const STEP_TAB: Record<AbschlussStep, PhoneTab> = {
-  zeiten: 'bericht',
-  einsatzleiter: 'bericht',
-  kontaktperson: 'bericht',
-  kurzbericht: 'bericht',
-  rueckmeldung: 'bericht',
-  anwesenheit: 'werwas',
-  mittel: 'werwas',
-  // an Anwesenheits-Abweichung is about who was there — it rides with the Anwesenheit it is about
-  abweichungen: 'werwas',
-}
-
-// The preflight UNMOUNTS while the operator hops to Anwesenheit / Mittel / Verlauf («Zurück
-// zum Einsatzrapport» remounts it) — remember the body's scroll position per incident so the
-// return lands where they left off, not back at the top. A deliberate close (X / overlay /
-// Abbrechen / Abschliessen) resets it, so a later fresh open starts at the top again.
-// ⚠️ The phone TAB rides in the same box and for the same reason: the Appell is «Rapport →
-// Personal & Mittel → hop to Anwesenheit to correct → back», and a return that landed on «Bericht»
-// would cost a tap on every single round trip. A genuinely fresh open — another Einsatz, or
-// after Abschliessen — still starts on «Bericht».
-// ⚠️ …and so does WHAT WILL PRINT: the print-section toggles (incl. the Kroki's Quer/Hoch and
-// its framing) plus the chosen Kroki-Stand. Switching «Einsatzjournal» off, hopping to
-// Anwesenheit to fix a name and coming back put every section silently back on — on the one
-// surface that decides what leaves the building, and with the choice buried in the ▾ menu where
-// nobody would notice it had been undone.
-// Only the operator's OWN changes are kept (`optionOverrides`, a patch — see patchOpt), never
-// the whole options object: the seeds `kroki` / `atemschutz` follow the LIVE
-// data, and a remembered `kroki: false` from a Rapport opened before anything was drawn would
-// have dropped the Lageskizze from the sheet for the rest of the Einsatz.
-// (a mutated `.current` box, not a reassigned binding — the react-compiler lint forbids
-// reassigning module variables inside the component)
-const savedScroll: {
-  current: { incidentId: string; top: number; tab: PhoneTab; optionOverrides: Partial<ReportOptions>; krokiAt: number | null } | null
-} = { current: null }
-
-/** What the box holds for THIS Einsatz, or null — another incident always starts fresh. */
-const keptFor = (incidentId: string) => (savedScroll.current?.incidentId === incidentId ? savedScroll.current : null)
-
-// «Später» on the Abschluss-Band, per incident. Same kind of box as savedScroll and for the same
-// reason — the surface unmounts on every hop to Anwesenheit/Mittel/Verlauf, and a dismissal that
+// «Später» on the Abschluss-Band, per incident. Same kind of box as the kept place (useReportPlace ·
+// rapportKept) and for the same reason — the surface unmounts on every hop to Anwesenheit/Mittel/Verlauf, and a dismissal that
 // did not survive that would put the band back on screen two taps later. Deliberately NOT in the
 // workspace blob and NOT on disk: it is one operator postponing one decision on one device, and a
 // «Später» that outlived a reload would turn the only surface that says «dieser Einsatz ist noch
@@ -448,6 +378,9 @@ export function ReportPreflight({
     warmTemplates().list.then((l) => { if (alive) setChecklistTemplates(l) }, () => {})
     return () => { alive = false }
   }, [checklists])
+  // what this Einsatz's Rapport looked like when it was last left (useReportPlace · rapportKept),
+  // read once: every seed below that it carries is a mount-time seed
+  const [kept] = useState(() => rapportKept.read(incident.id))
   const [options, setOptions] = useState<ReportOptions>(() => ({
     ...defaultReportOptions,
     kroki: mapContentCount > 0,
@@ -466,13 +399,13 @@ export function ReportPreflight({
     // remembered choice still wins — this is only what an unframed rapport starts from.
     krokiLandscape: reportMeta.krokiPrint?.landscape ?? false,
     // …and LAST, so the operator's own picks beat every seed above them: what was chosen before
-    // the hop to Anwesenheit/Mittel is what this Einsatz still prints (see savedScroll).
-    ...(keptFor(incident.id)?.optionOverrides ?? {}),
+    // the hop to Anwesenheit/Mittel is what this Einsatz still prints (see rapportKept).
+    ...(kept?.optionOverrides ?? {}),
   }))
   // The deviations from those seeds — the patch, not the result. Kept across the unmount so a
   // remount re-reads the live data (a Lage drawn in the meantime turns `kroki` back on) and then
   // re-applies what the operator actually decided.
-  const optionOverrides = useRef<Partial<ReportOptions>>(keptFor(incident.id)?.optionOverrides ?? {})
+  const optionOverrides = useRef<Partial<ReportOptions>>(kept?.optionOverrides ?? {})
 
   // Every focus move inside the sheet, counted. An adoption held back because the caret was in
   // the field (see useSyncedField) has to be retried when the operator leaves it, and «the field
@@ -536,10 +469,9 @@ export function ReportPreflight({
   // instant is what makes a rapport able to show the Rettung that has since left, or the moment
   // the Lage was at its worst. Reconstructed locally from the event journal (lib/replay), the
   // same fold the Wiedergabe uses — so the paper and the replay can never disagree.
-  // …and it survives the round trip to Anwesenheit/Mittel with the print options (savedScroll):
+  // …and it survives the round trip to Anwesenheit/Mittel with the print options (rapportKept):
   // a Stand picked by hand is a choice about the sheet, exactly like the sections are.
   const [krokiAt, setKrokiAt] = useState<number | null>(() => {
-    const kept = keptFor(incident.id)
     if (kept) return kept.krokiAt
     return reportMeta.krokiPrint?.at ? Date.parse(reportMeta.krokiPrint.at) || null : null
   })
@@ -1030,7 +962,7 @@ export function ReportPreflight({
     }
   }
   /** The ONE way an option changes — it also records the deviation, which is what outlives the
-   *  hop to Anwesenheit/Mittel (see savedScroll). Set an option any other way and it is back to
+   *  hop to Anwesenheit/Mittel (see rapportKept). Set an option any other way and it is back to
    *  its seed the moment the operator steps off this surface. */
   const patchOpt = (patch: Partial<ReportOptions>) => {
     optionOverrides.current = { ...optionOverrides.current, ...patch }
@@ -1241,18 +1173,10 @@ export function ReportPreflight({
   }, [controlOpen, isPhone])
 
 
-  // The tabs themselves are pure CSS; `isPhone` also controls the Kroki panel's mounting.
-  // The phone's three tabs (see PhoneTab). Seeded from the box that also carries the scroll
-  // position, so a hop to Anwesenheit and back returns to the tab it left from; a fresh Einsatz
-  // opens on «Bericht», which is the first section of the printed rapport.
-  const [phoneTab, setPhoneTab] = useState<PhoneTab>(() => keptFor(incident.id)?.tab ?? 'bericht')
-  /** Picked by hand — each tab starts at ITS top, never at the scroll offset of the one before
-   *  (which is a different page of different length). The «noch offen» chips do NOT go through
-   *  here: they scroll to their own field instead. */
-  const pickTab = (t: PhoneTab) => {
-    setPhoneTab(t)
-    if (bodyRef.current) bodyRef.current.scrollTop = 0
-  }
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const { phoneTab, pickTab, jumpToStep } = useReportPlace(incident.id, bodyRef, kept, () => ({
+    optionOverrides: optionOverrides.current, krokiAt,
+  }))
 
   // The head's one line, in the voice the other surfaces use («12 anwesend · 3 gegangen · 28
   // Mannschaft»): what is recorded, then the verdict. «Alle Angaben erfasst» is a claim, so it is
@@ -1281,7 +1205,7 @@ export function ReportPreflight({
   // top and from its seeds, so the whole kept box — scroll position, tab, print sections, Kroki
   // Stand — is forgotten. But only if the Abschluss actually happened.
   const complete = async () => {
-    if (await onComplete?.()) savedScroll.current = null
+    if (await onComplete?.()) rapportKept.forget()
   }
 
   // The Abschluss-Band under the head (see the JSX): shown once a rapport has been produced and
@@ -1295,89 +1219,6 @@ export function ReportPreflight({
     setBandHidden(true)
   }
   const showCloseBand = !!onComplete && !!meta.reportMadeAt && missing.length === 0 && !bandHidden
-
-  // Scroll keep-alive across the Anwesenheit/Mittel/Verlauf round trip (see savedScroll):
-  // Restore before paint on mount, capture on unmount. There is no «close» any more: leaving is
-  // choosing another surface in the rail, which unmounts this one and captures the scroll — and
-  // «Einsatz abschliessen» clears the saved position itself, because coming back to a completed
-  // rapport should start at the top.
-  /**
-   * Jump to the section a «noch offen» chip names, and flash it.
-   *
-   * The chips list what is still missing and were pure text: you read «Zeiten», then hunted for
-   * the Zeiten yourself down a page that is four sections long. Naming a problem and not
-   * pointing at it is the same failure the überfällig badge had on the Atemschutz board.
-   *
-   * Anchored on `data-step` rather than on refs: the six steps live in four different shapes
-   * (a CheckRow, a labelled field, a grid, a person picker), and one attribute is the only thing
-   * they can all carry without being restructured around it.
-   */
-  const jumpToStep = (step: AbschlussStep) => {
-    // On a phone the field may be in a tab that is not on screen, and a hidden element measures
-    // as nothing — so switch first and measure a frame later. Above 600px no tab is ever hidden
-    // and this is the same jump it always was, one frame later.
-    setPhoneTab(STEP_TAB[step])
-    requestAnimationFrame(() => requestAnimationFrame(() => flashStep(step)))
-  }
-  const flashStep = (step: AbschlussStep) => {
-    const body = bodyRef.current
-    const el = body?.querySelector<HTMLElement>(`[data-step="${step}"]`)
-    if (!body || !el) return
-    // ⚠️ Scroll the SHEET, not `scrollIntoView`. Three of the six targets are whole `<section>`s
-    // taller than the viewport, and `block: 'center'` centres their MIDDLE — which puts the
-    // heading the chip just named off the top of the screen, so the jump lands somewhere
-    // plausible and unrecognisable. Putting the target's top just under the sheet's top edge is
-    // the same thing a reader would do with their thumb.
-    const top = el.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 12
-    // jsdom has no element scrollTo – and the jump is driven from a timer, so a throw there is an
-    // unhandled error that fails the whole run rather than one test
-    if (typeof body.scrollTo === 'function') body.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
-    else body.scrollTop = Math.max(0, top)
-    // …and the same two-beat ink ring the Atemschutz board uses when a locked Anwesenheits-Zeile
-    // sends you to a card (Atemschutz.module.css · truppFlash). One surface, one way of saying
-    // «this one» — a soft 1.2 s background wash read as a rendering artefact rather than a point.
-    el.classList.remove('rp-flash')
-    void el.offsetWidth // restart the animation when the same chip is tapped twice
-    el.classList.add('rp-flash')
-    window.setTimeout(() => el.classList.remove('rp-flash'), 2000)
-    // the field the step is ABOUT, focused where there is one — a chip that scrolls to a text
-    // box the operator then has to tap is one tap short of finishing the job
-    el.querySelector<HTMLElement>('textarea, input, button')?.focus({ preventScroll: true })
-  }
-
-  const bodyRef = useRef<HTMLDivElement>(null)
-  // …and the outside ask (see requestReportStep). Through a ref because `jumpToStep` is rebuilt
-  // every render while this subscription is mount-only — the sheet must not re-register on each
-  // keystroke, and a jump queued before the mount is consumed exactly once.
-  const jumpRef = useRef(jumpToStep)
-  jumpRef.current = jumpToStep
-  useEffect(() => {
-    stepListener = (s) => jumpRef.current(s)
-    const queued = queuedStep.current
-    queuedStep.current = null
-    if (queued) jumpRef.current(queued)
-    return () => { stepListener = null }
-  }, [])
-  // …and the tab + the Kroki-Stand ride with it (see savedScroll). Read through refs in the
-  // cleanup because the effect below is mount-only and would otherwise capture the values this
-  // surface OPENED on. (`optionOverrides` is already a ref, so it needs no mirror.)
-  const phoneTabRef = useRef(phoneTab)
-  const krokiAtRef = useRef(krokiAt)
-  useEffect(() => { phoneTabRef.current = phoneTab; krokiAtRef.current = krokiAt })
-  useLayoutEffect(() => {
-    const el = bodyRef.current
-    const kept = keptFor(incident.id)
-    if (el && kept) el.scrollTop = kept.top
-    return () => {
-      if (el) {
-        savedScroll.current = {
-          incidentId: incident.id, top: el.scrollTop, tab: phoneTabRef.current,
-          optionOverrides: optionOverrides.current, krokiAt: krokiAtRef.current,
-        }
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // ONE ROW (lib/pageHeadFit): the head folds its tiles' words — «Abschliessen», then
   // «Einsatzrapport (PDF)» → «PDF» — until it fits; the Kontrolle chip's count is never cut
