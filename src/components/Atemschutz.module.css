@@ -204,7 +204,7 @@
    ⚠️ A quiet outlined box since 24.10.2026 (owner, sweep M3): no red tint, no ⚠ of its own, a grey
    edge and ink-dim 14/700 text. On an overdue card the clock's triangle and the red edge already
    carry the alarm; a second filled red block with a second triangle said it twice, for an
-   estimate. The words — «Alarmdruck 100 bar – laut Schätzung erreicht» — stay, number included. */
+   estimate. The words — «Alarmdruck 100 bar (Schätzung)» — stay, number included. */
 .airNote { padding: var(--sp-2) var(--sp-3); border: 1.5px solid var(--border); border-radius: var(--r-sm);
   font: var(--fw-bold) var(--fs-2)/1.4 var(--body); color: var(--ink-dim); }
 

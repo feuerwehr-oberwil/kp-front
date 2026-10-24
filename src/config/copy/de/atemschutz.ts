@@ -329,7 +329,7 @@ export const atemschutzCopy = {
     // Alarmdruck on the Trupp card. The «Schätzung» variant applies when only the projection has
     // reached the threshold – an estimate must never sound like a reported Druckmeldung.
     alarmNote: 'Alarmdruck {bar} bar erreicht',
-    alarmNoteEst: 'Alarmdruck {bar} bar – laut Schätzung erreicht',
+    alarmNoteEst: 'Alarmdruck {bar} bar (Schätzung)',
     lineField: 'Leitung',
     edit: 'Bearbeiten',
     // per-Trupp contact/pressure log (expandable on the card)
