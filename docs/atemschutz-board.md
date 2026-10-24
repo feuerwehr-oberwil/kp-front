@@ -31,7 +31,10 @@ questions, and what the record keeps (`components/AtemschutzView`). Module rules
     is probably not even required»): fällig / überfällig live on for a screen reader only
     (`.sr-only`), and an out Trupp's card carries no «Draussen» — it keeps the words colour cannot
     carry (the Alarmdruck with its limit, the stopped clock, «Nicht eingesetzt», «Bereit», a work
-    squad's state). The Druck is the pressure tile → `PressureSheet` everywhere; the
+    squad's state). An überfällig card has NO red wash since 24.10.2026 (sweep M3, G.7 – red for
+    danger, a quiet ground): the red left edge, the red clock with ONE triangle in front of its
+    digits, and the red «Kontakt» carry it; the triangle is what says «überfällig» without colour.
+    Fällig keeps its clock glyph under the digits; only the Notfall banner keeps a red wash. The Druck is the pressure tile → `PressureSheet` everywhere; the
     tablet's ± stepper with «Bestätigen», the band with the 40px clock, the tablet's grey
     Kennzeile with its blue Auftrag, the top status edge and the «Verlauf · zuletzt: … Druck 300
     bar» preview are gone — do not bring any of them back for the tablet. The focus Tafel's one
@@ -39,8 +42,10 @@ questions, and what the record keeps (`components/AtemschutzView`). Module rules
   - *The Schätzung stays readable on the card's foot* (29.09.2026, owner: «we still need the
     schätzung clearly visible»): the terse foot keeps its word and full ink — «1 d 11 h ·
     Schätzung ≈ 0 bar ⌄» — and the word, not a dimmed grey, is what keeps it from being read as a
-    logged Druck. Its alarm case is the note under the tiles in the ONE form-warning look (ink
-    13/700, ⚠ in `--red-strong`, 10% red tint, no border), never red text in a red box.
+    logged Druck, and it is never red (24.10.2026, sweep M3). Its alarm case is the note under
+    the tiles – «Alarmdruck 100 bar – laut Schätzung erreicht», number included – as a quiet
+    outlined box (grey edge, `--ink-dim` 14/700, no tint, no ⚠ of its own): the clock's triangle
+    already says the card is in alarm.
   - *Rückzug and Raus are equal tiles on every board* (29.09.2026): both framed grey, «Rückzug»
     amber only at or under the Trupp's Alarmdruck (`.actAlarm`). A permanently amber «Rückzug
     melden» says «warning» about a Trupp at 300 bar.
@@ -206,7 +211,7 @@ reworded.
   under the name when they do not fit, never cut, then the act at its own width, then the clock
   and › — name side and clock side both lead to the card. The facts are always in the alert's
   aria label, the Meldeleiste row and the Verlauf. The crew's OWN card wears the same ⚠ in its
-  dot's place and drops the fällig/überfällig glyph under its clock while the Notfall runs. A
+  dot's place and drops the fällig/überfällig glyph at its clock while the Notfall runs. A
   viewer gets the head and the note only. All banners share one sticky stack; with several
   Notfälle there are no facts. The board measures the stack (`--nf-h` on the port: its scroll
   padding, and the parking scroll of the phone's opened card), so an opened card lands below the

@@ -2152,7 +2152,7 @@ function rowTone(t: Trupp, status: TruppLive['status'], sev: number): string {
  *  not»). One drawing, so opening a Trupp never moves, resizes or recolours the line the thumb
  *  just pressed; the chevron beside it is the caller's, because it points the other way. */
 function RowLine({ t, live, color, lite, tier }: { t: Trupp; live: TruppLive; color?: string; lite: boolean
-  /** the tier as glyph + word under the clock (tierMark) — null/absent while silent */
+  /** the tier as a glyph at the clock (tierMark) — null/absent while silent */
   tier?: TierMark | null
 }) {
   const az = appConfig.copy.atemschutz
@@ -2167,8 +2167,15 @@ function RowLine({ t, live, color, lite, tier }: { t: Trupp; live: TruppLive; co
   const clockSub = clock.sub === az.outFor ? words.outFor : clock.sub
   const inNotfall = truppInNotfall(t)
   // …and no tier glyph under its clock: the ⚠ before the name already says the loudest thing,
-  // a second one under the clock repeated it (fällig/überfällig stays on every other crew)
+  // a second one at the clock repeated it (fällig/überfällig stays on every other crew)
   const tierShown = inNotfall ? null : tier
+  // the glyph only (owner, 09.10.2026: «Symbol only»); aria-hidden because the row's own
+  // aria-label and the card's status line already speak the word, and the title shows it on hover
+  const tierGlyph = tierShown && (
+    <span className={cx(s.trowTier, tierShown.crit && s.trowTierCrit)} aria-hidden title={tierShown.text}>
+      <Icon id={tierShown.icon} />
+    </span>
+  )
   return (
     <>
       <span className={s.trowId}>
@@ -2189,16 +2196,15 @@ function RowLine({ t, live, color, lite, tier }: { t: Trupp; live: TruppLive; co
       {/* one derivation with the card's band (collapsedClock) — the row used to freeze a work
           squad's Einsatzzeit after the exit and show «–:––» for an out crew's break clock */}
       <span className={s.trowClock}>
-        <span className={s.trowClockVal}><ClockVal val={clock.val} /></span>
+        {/* überfällig / Alarmdruck: ONE triangle on the clock's line, in front of the digits (owner,
+            24.10.2026, sweep M3) — with the card's tint gone, it is what says «überfällig» without
+            colour. Fällig keeps its clock glyph under the digits. */}
+        <span className={s.trowClockLine}>
+          {tierShown?.crit && tierGlyph}
+          <span className={s.trowClockVal}><ClockVal val={clock.val} /></span>
+        </span>
         <span className={s.trowSub}>{clockSub}</span>
-        {/* the glyph only (owner, 09.10.2026: «Symbol only»); aria-hidden because the row's own
-            aria-label and the card's status line already speak the word, and the title shows it
-            on hover */}
-        {tierShown && (
-          <span className={cx(s.trowTier, tierShown.crit && s.trowTierCrit)} aria-hidden title={tierShown.text}>
-            <Icon id={tierShown.icon} />
-          </span>
-        )}
+        {!tierShown?.crit && tierGlyph}
       </span>
     </>
   )
@@ -2463,7 +2469,7 @@ function TruppCard({
   const rowMode = !!onCollapse
   /* ⚠️ 29.09.2026 (owner on staging): «drop the überfällig – if the card is red it's pretty obvious»,
    * and «the draussen subtitle is probably not even required». So fällig / überfällig are not a
-   * state LINE: since B5 (08.10.2026) they are a glyph under the clock on the card's first
+   * state LINE: since B5 (08.10.2026) they are a glyph at the clock on the card's first
    * line (RowLine · tierMark), so colour is not the only carrier, and this line stays
    * for a screen reader only (`hidden`). An out Trupp's «Draussen» goes on every board — its card
    * is the grey one with «Wieder in den Einsatz» on it. What stays in words is what colour cannot
@@ -2616,7 +2622,9 @@ function TruppCard({
         key: 'est',
         label: az.estimatedShort,
         value: `≈ ${estimate.bar} bar`,
-        alarm: estimateLow,
+        // ⚠️ never red (owner, 24.10.2026, sweep M3): a crossed Schätzung is said once, by the
+        // Alarmdruck note with its limit — the red «≈ 0 bar» at the foot said it a second time.
+        // A MEASURED Druck on this line (`bar` above) keeps its red.
         // …and it keeps its WORD on the terse line (29.09.2026): on a line that can also carry a
         // MEASURED «240 bar», an unnamed «≈ 0 bar» is exactly the mix-up this guards against — the
         // word does it now, not a dimmed grey that also made the number easy to read past
@@ -2732,7 +2740,7 @@ function TruppCard({
         {canEdit && monitored && preEntry && <div className={s.preHint}>{az.preEntryHint}</div>}
         {airNote && (
           <div className={s.airNote} role="status" aria-live="polite">
-            <Icon id="warn" /><span>{airNote}</span>
+            <span>{airNote}</span>
           </div>
         )}
       </div>

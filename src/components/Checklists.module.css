@@ -137,9 +137,9 @@ ol.cl-items > .cl-item { padding: var(--sp-3); }
   color: var(--surface); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-xs); background: var(--ink-faint); }
 /* the word on a hue is --on-fill (dark at night, where the hues flip bright); amber and the placard
    yellow are too light for white by day and take --on-amber (01-tokens) */
-.cl-ref-badge.hz-red { background: var(--red); color: var(--on-fill); }
+.cl-ref-badge.hz-red { background: var(--red-fill); color: var(--on-fill); }
 .cl-ref-badge.hz-orange { background: var(--amber); color: var(--on-amber); }
-.cl-ref-badge.hz-green { background: var(--green); color: var(--on-fill); }
+.cl-ref-badge.hz-green { background: var(--green-fill); color: var(--on-fill); }
 .cl-ref-badge.hz-yellow { background: var(--hazard-yellow); color: var(--on-amber); }
 .cl-ref-badge.hz-blue { background: var(--blue); color: var(--on-fill); }
 .cl-ref-blocks { display: flex; flex-direction: column; gap: var(--sp-2); }

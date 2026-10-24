@@ -231,8 +231,8 @@
 .draw-editor .de-gps-head b { display: block; font-size: var(--fs-2); font-weight: var(--fw-bold); color: var(--ink); line-height: 1.3; }
 .draw-editor .de-gps-head span { display: block; margin-top: 2px; font-size: var(--fs-1); font-weight: var(--fw-medium); color: var(--ink-dim); }
 .draw-editor .de-gps-back { display: flex; width: 100%; align-items: center; justify-content: center; min-height: 48px;
-  margin-top: 8px; padding: 0 12px; border: 1px solid var(--green); border-radius: var(--r-sm);
-  background: var(--green); color: var(--on-fill); font-size: var(--fs-2); font-weight: var(--fw-bold); cursor: pointer; }
+  margin-top: 8px; padding: 0 12px; border: 1px solid var(--green-fill); border-radius: var(--r-sm);
+  background: var(--green-fill); color: var(--on-fill); font-size: var(--fs-2); font-weight: var(--fw-bold); cursor: pointer; }
 .draw-editor .de-gps-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 /* three moves (stop/continue · on site · here): the odd one out takes the whole second line */
 .draw-editor .de-gps-row > :last-child:nth-child(odd) { grid-column: 1 / -1; }

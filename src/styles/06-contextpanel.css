@@ -329,7 +329,7 @@
    against a printed table, not read as a sentence */
 .un-haz-tile.num .un-haz-tile-v { font-family: var(--mono); }
 .un-haz-water { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 8px; border-radius: var(--r-xs);
-  background: var(--red); color: var(--on-fill); font-size: var(--fs-1); font-weight: var(--fw-bold); }
+  background: var(--red-fill); color: var(--on-fill); font-size: var(--fs-1); font-weight: var(--fw-bold); }
 .un-haz-water svg { width: 15px; height: 15px; flex: none; }
 /* the Stoff's bullet points, at the foot of the card since review round 7: its own block, parted
    from the figures above it by one hairline */
@@ -613,7 +613,7 @@ span.jr-rem { cursor: default; }
 .jr-rem-box .i { width: 13px; height: 13px; opacity: 0; }
 .jr-rem.overdue { color: var(--amber-strong); border-color: color-mix(in srgb, var(--amber) 55%, var(--glass-edge)); }
 .jr-rem.done { color: var(--ink-faint); border-color: var(--border-soft); }
-.jr-rem.done .jr-rem-box { background: var(--green); border-color: var(--green); color: var(--on-fill); }
+.jr-rem.done .jr-rem-box { background: var(--green-fill); border-color: var(--green-fill); color: var(--on-fill); }
 .jr-rem.done .jr-rem-box .i { opacity: 1; }
 
 /* OFFENE ERINNERUNGEN — the UPPER of the drawer's two scroll areas, a sibling of `.history-list`

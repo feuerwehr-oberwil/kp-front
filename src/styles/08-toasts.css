@@ -603,7 +603,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 /* ✓ "Fertig" on a text box being edited: in box mode Enter makes a newline, so touch needs a
    visible way out (tap-away and Esc work too, but neither is discoverable with gloves on). */
 .note-done { position: absolute; right: -12px; bottom: -12px; width: 32px; height: 32px;
-  padding: 0; border-radius: 50%; border: none; background: var(--green); color: var(--on-fill);
+  padding: 0; border-radius: 50%; border: none; background: var(--green-fill); color: var(--on-fill);
   display: grid; place-items: center; cursor: pointer; z-index: 3;
   box-shadow: var(--e2); }
 .note-done .i { width: 16px; height: 16px; stroke-width: 2.4; }
@@ -797,7 +797,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 /* timeline audio play — ROUND. It is a transport control, the one shape every player in the
    world uses for it, and the only thing on the row that is not a rounded rectangle should be
    the thing that is not a button-with-a-label. */
-.tl-play { background: var(--green); color: var(--on-fill); border: none; border-radius: 50%; width: 26px; height: 26px;
+.tl-play { background: var(--green-fill); color: var(--on-fill); border: none; border-radius: 50%; width: 26px; height: 26px;
   cursor: pointer; display: grid; place-items: center; flex: none; }
 /* press = the house ink wash (02-base.css), over the green fill; nothing moves */
 .tl-play:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }

@@ -465,8 +465,8 @@ describe('the opened phone card wears the collapsed row’s line and pair', () =
 })
 
 /* B5, 08.10.2026: the phone row carried fällig / überfällig by colour alone — no answer in direct
- * sun or to a colour-blind reader. A glyph now stands under the clock, inside the clock cell (no
- * new row), a different one per tier; glyph only (owner, 09.10.2026: «Symbol only»), the word is
+ * sun or to a colour-blind reader. A glyph now stands in the clock cell (no new row), a different
+ * one per tier – fällig's clock under the digits, the triangle in front of them (24.10.2026); glyph only (owner, 09.10.2026: «Symbol only»), the word is
  * in the row's spoken name and the hover title, and the Alarmdruck never reads «Überfällig». */
 describe('the phone row says its tier with a glyph, not colour alone', () => {
   afterEach(() => { vi.mocked(useIsPhone).mockReturnValue(false) })
@@ -496,6 +496,11 @@ describe('the phone row says its tier with a glyph, not colour alone', () => {
     // a pressure alarm is a different event: it says so, and never «Überfällig»
     expect(press.getAttribute('title')).toBe(az.clockAlarmPressure)
     expect(press.querySelector('use')!.getAttribute('href')).toBe('#warn')
+    // the triangle stands in FRONT of the digits on the clock's line, the clock glyph under them
+    // (sweep M3, 24.10.2026)
+    for (const crit of [over, press]) expect(crit.nextElementSibling!.className).toContain(s.trowClockVal)
+    expect(due.parentElement!.className).toContain(s.trowClock)
+    expect(due.previousElementSibling!.className).toContain(s.trowSub)
     // …and the row's spoken name carries the word too (the mark itself is aria-hidden)
     expect(screen.getByText('Due Dora').closest(`.${s.trow}`)!.getAttribute('aria-label')).toContain(az.rowDue)
     expect(screen.getByText('Low Paula').closest(`.${s.trow}`)!.getAttribute('aria-label')).toContain(az.clockAlarmPressure)

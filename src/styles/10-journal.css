@@ -298,7 +298,7 @@ button.tb-mode:active:not(:disabled) { background-image: linear-gradient(var(--p
 .tb-act-add.cancelling .tb-act-ic .i-entry-x, .fab-entry.cancelling .tb-act-ic .i-entry-x { display: block; }
 .tb-act-add.cancelling .tb-act-label, .fab-entry.cancelling .tb-act-label { display: none; }
 
-.tb-act-add.rec { background: var(--red); color: var(--on-fill); box-shadow: none; animation: recPulse 1.4s ease-in-out infinite; }
+.tb-act-add.rec { background: var(--red-fill); color: var(--on-fill); box-shadow: none; animation: recPulse 1.4s ease-in-out infinite; }
 .tb-act-add.rec span { font-family: var(--mono); }
 
 /* ── the latched hold's two slide targets (Sprachnotiz · Foto) ──
@@ -876,7 +876,7 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 @media (hover: hover) {
   .jc-rec:hover { color: var(--ink); }
 }
-.jc-rec.on { background: var(--red); border-color: var(--red); color: var(--on-fill); animation: recPulse 1.4s ease-in-out infinite; }
+.jc-rec.on { background: var(--red-fill); border-color: var(--red-fill); color: var(--on-fill); animation: recPulse 1.4s ease-in-out infinite; }
 @keyframes recPulse { 50% { opacity: .72; } }
 /* framed exactly like the imported-memo row below it — the two say the same thing about the same
    kind of thing, and a bare play/length/✕ floating on an empty row read as unfinished next to it */
