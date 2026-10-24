@@ -465,7 +465,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     (`HEAD_FIT_STEPS` · 'eintrag-word'). While the hold's chooser is up, the glyph gives way to
     its drawn ✕ (both paths always in the DOM). «Trupp finden» wears `#trupp-find` (people with a
     small lens — the owner's pick B, 29.09.2026; the flag in a reticle read as «ugly») on the Trupp tool's dock and in the finder's head — never the
-    `#search` lens, which a search tile wears.
+    `#search` lens, which a search tile wears. The Tafel wears `#easel` (a board on two legs,
+    23.10.2026, sweep G.9) – `#pen` is «Linie» in the tool rail beside it. An Aufgaben list wears
+    `#tasks` (two empty boxes, sweep F.9), never `#check`, which beside «0%» read as «done». The
+    Entwicklung toggles are drawn `#spread-*` arrows with their `#grenze-*` bar on the tip side,
+    one capsule per direction (sweep G.10).
     (11) **Anwesend = the green tint, nothing else** (29.09.2026, owner pick B): no status dot, no
     green border. Not colour alone: present rows are the ones with the Ort + Uhr buttons, gone
     rows are `--done-opacity`, and the state word is in the row button's accessible name

@@ -94,7 +94,7 @@ const NAV: NavGroup[] = [
       { id: 'objektplaene', icon: 'doc' },
       { id: 'checklisten', icon: 'checklist' },
       // the Tafel's pages travel like the checklists — so they sit beside them
-      { id: 'tafel', icon: 'pen' },
+      { id: 'tafel', icon: 'easel' },
       // right under Checklisten: its visit checklists are uploaded there
       { id: 'objektbesuche', icon: 'clipboard' },
     ],

@@ -63,7 +63,7 @@ export function moduleTileLabel(id: string, title?: string): string {
 }
 
 /** the glyph a plan item renders: a monogram (1…/2/3) for modules + the floor-stack,
- *  otherwise an icon (the doc's own, falling back to pen for the blank Tafel / doc). */
+ *  otherwise an icon (the doc's own, falling back to the easel for the blank Tafel, the doc otherwise). */
 export function planGlyph(doc: PlanDocument): { mono: string } | { icon: string } {
   // a combined sheet (e.g. id "modul2-3" / "modul23" from a "Modul 2-3.pdf") shows the
   // fractional "2/3" monogram; a single module shows the bare number ("2" — the M prefix
@@ -89,7 +89,7 @@ export function planGlyph(doc: PlanDocument): { mono: string } | { icon: string 
   // storey icon once a stack exists, the footprint while it does not, which is how the rail says
   // whether there is a stack without being opened. See lib/useObjectPlans · railPlanTiles.
   if (doc.floorStack) return { icon: doc.icon ?? 'floors' } // Gebäude floor-stack: stacked-floors icon, not a bare "G"
-  if (doc.id === 'tafel') return { icon: doc.icon ?? 'pen' }
+  if (doc.id === 'tafel') return { icon: doc.icon ?? 'easel' }
   return { icon: doc.icon ?? 'doc' }
 }
 
@@ -121,7 +121,7 @@ export function moduleNumbers(doc: PlanDocument): number[] {
  *  A phone bar has room for a handful of tiles, and a station with four modules plus a Gebäude
  *  had eleven — so the bar scrolled, and the destinations past the fade could not be recognised
  *  at all. The plan documents fold into one tile that WEARS the loaded document's own glyph (the
- *  mono chip «1»/«RWA», the floor stack, the Tafel's pencil) and is worded «Pläne»: the glyph
+ *  mono chip «1»/«RWA», the floor stack, the Tafel's easel) and is worded «Pläne»: the glyph
  *  carries the recognition, the word carries the destination.
  *
  *  ⚠️ No sub-label. It used to stack chip + «Pläne» + the document code into a 46px tile, three

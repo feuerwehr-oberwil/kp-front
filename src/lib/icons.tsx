@@ -5,6 +5,9 @@ export function IconSprite() {
       <symbol id="cursor" viewBox="0 0 24 24"><path d="M5 3l15 6.5-6.5 2.2L11 21z" /></symbol>
       <symbol id="hex" viewBox="0 0 24 24"><path d="M12 3 20 7.5v9L12 21 4 16.5v-9z" /></symbol>
       <symbol id="pen" viewBox="0 0 24 24"><path d="M4 20l3.5-1 11-11-2.5-2.5L5 16.5z" /><path d="M14 6.5 17.5 10" /></symbol>
+      {/* The Tafel (23.10.2026, sweep G.9): a board on two legs, empty. It wore #pen, which is
+          «Linie» in the tool rail right beside it – one glyph, two tools, with rail words off. */}
+      <symbol id="easel" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="11.5" rx="1.2" /><path d="M8.2 21 10 15M15.8 21 14 15M12 3.5V2" /></symbol>
       <symbol id="area" viewBox="0 0 24 24"><path d="M5 7l7-3 7 4-2 9-9 2z" /></symbol>
       <symbol id="circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="1.3" /></symbol>
       <symbol id="type" viewBox="0 0 24 24"><path d="M5 5h14M12 5v14M9 19h6" /></symbol>
@@ -122,6 +125,10 @@ export function IconSprite() {
           fact rather than as one more button that could still be pressed. */}
       <symbol id="star" viewBox="0 0 24 24"><path d="m12 3.8 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" stroke-linejoin="round" /></symbol>
       <symbol id="checklist" viewBox="0 0 24 24"><rect x="3.5" y="6.5" width="14" height="14" rx="2" /><path d="M8 3.5h10.5a2 2 0 0 1 2 2V16" /><path d="M6.8 12.4l1.5 1.5 2.7-3M13.2 13h2" /><path d="M6.8 17.2l1.5 1.5 2.7-3M13.2 17.8h2" /></symbol>
+      {/* An Aufgaben list in the Checkliste rail and the Nachschlagen library (23.10.2026, sweep
+          F.9): two EMPTY boxes with their lines – a list still to work through. It wore #check,
+          which beside «0%» read as «done»; the glyph names the kind, not a state. */}
+      <symbol id="tasks" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="5.5" height="5.5" rx="1.2" /><rect x="3.5" y="14" width="5.5" height="5.5" rx="1.2" /><path d="M12.5 7.25h8M12.5 16.75h8" /></symbol>
       {/* the Rapport's signature (15.10.2026): a handwritten stroke on its line — not a pen, which
           already means «bearbeiten» everywhere; and the same stroke with a padlock for «signed,
           so locked» */}
@@ -163,6 +170,16 @@ export function IconSprite() {
           handles can never be mistaken for the same control (01.09.) */}
       <symbol id="resize-h" viewBox="0 0 24 24"><path d="M3 12h18" /><path d="M7 8l-4 4 4 4" /><path d="M17 8l4 4-4 4" /></symbol>
       <symbol id="resize-v" viewBox="0 0 24 24"><path d="M12 3v18" /><path d="M8 7l4-4 4 4" /><path d="M8 17l4 4 4-4" /></symbol>
+      {/* The FKS Entwicklung toggles (ContextPanel): an arrow per direction and its Grenze, the
+          stroke across the arrow tip. The bar sits where that tip is – upright beside ← →, lying
+          flat at the top beside ↑ and at the bottom beside ↓ –, so each pair reads «|←», «→|». */}
+      <symbol id="spread-left" viewBox="0 0 24 24"><path d="M20 12H4.5M10 6.5 4.5 12l5.5 5.5" /></symbol>
+      <symbol id="spread-right" viewBox="0 0 24 24"><path d="M4 12h15.5M14 6.5l5.5 5.5-5.5 5.5" /></symbol>
+      <symbol id="spread-up" viewBox="0 0 24 24"><path d="M12 20V4.5M6.5 10 12 4.5l5.5 5.5" /></symbol>
+      <symbol id="spread-down" viewBox="0 0 24 24"><path d="M12 4v15.5M6.5 14l5.5 5.5 5.5-5.5" /></symbol>
+      <symbol id="grenze-v" viewBox="0 0 24 24"><path d="M12 4v16" /></symbol>
+      <symbol id="grenze-up" viewBox="0 0 24 24"><path d="M4.5 4.5h15" /></symbol>
+      <symbol id="grenze-down" viewBox="0 0 24 24"><path d="M4.5 19.5h15" /></symbol>
       <symbol id="move" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" /></symbol>
       <symbol id="measure" viewBox="0 0 24 24"><path d="M3 14.5 14.5 3 21 9.5 9.5 21z" /><path d="M7 10.5l2 2M10.5 7l2.5 2.5M14 3.5l2 2" /></symbol>
       <symbol id="polygon" viewBox="0 0 24 24"><path d="M12 3.5 20 9 17 19.5 7 19.5 4 9z" /><circle cx="12" cy="3.5" r="1.5" fill="currentColor" stroke="none" /><circle cx="20" cy="9" r="1.5" fill="currentColor" stroke="none" /><circle cx="17" cy="19.5" r="1.5" fill="currentColor" stroke="none" /><circle cx="7" cy="19.5" r="1.5" fill="currentColor" stroke="none" /><circle cx="4" cy="9" r="1.5" fill="currentColor" stroke="none" /></symbol>

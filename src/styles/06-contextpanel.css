@@ -366,24 +366,27 @@
 .spread-row + .spread-row { border-top: 1px solid var(--border-soft); }
 .spread-lbl { font-size: var(--fs-2); font-weight: var(--fw-medium); color: var(--ink-dim); }
 .spread-btns { display: inline-flex; gap: 8px; flex-wrap: wrap; }
-/* Each arrow carries its OWN Grenze, glued to it: the pair reads as one thing, and the bar
-   belongs to that arrow rather than to the row. ⚠️ Both halves colour INDEPENDENTLY — the whole
-   unit filling blue for the direction left a set Grenze nowhere to go but darker, which reads
-   as recessed on the one control that is actively saying «stopped here». */
-.spread-unit { display: inline-flex; gap: 2px; }
-.spread-unit .dir { border-radius: var(--r-sm) 0 0 var(--r-sm); }
-/* the bar glyph, not the word «Grenze»: it says what it draws and the pair then costs barely
-   more width than the single button it replaces. The word survives as the aria-label. */
-.spread-unit .grenze { min-width: 30px; padding: 0; border-radius: 0 var(--r-sm) var(--r-sm) 0;
-  font-size: var(--fs-3); line-height: 1; }
-.spread-btn { min-width: 44px; height: 44px; padding: 0 8px; border-radius: var(--r-sm); border: 1px solid var(--border);
-  background: var(--surface-2); color: var(--ink); font-family: var(--mono); font-size: var(--fs-1); font-weight: var(--fw-bold);
-  cursor: pointer; display: grid; place-items: center; transition: background .14s var(--ease), color .14s var(--ease), border-color .14s var(--ease); }
+/* Each arrow carries its OWN Grenze, glued to it in ONE capsule split by a dashed line (sweep
+   2B, 23.10.2026): the pair reads as one thing, and the bar belongs to that arrow rather than to
+   the row. The bar half sits on the arrow's tip side, «|←» and «→|». ⚠️ Both halves colour
+   INDEPENDENTLY — the whole unit filling blue for the direction left a set Grenze nowhere to go
+   but darker, which reads as recessed on the one control that is actively saying «stopped here». */
+.spread-unit { display: inline-flex; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface-2); }
+.spread-unit > .spread-btn:first-child { border-radius: calc(var(--r-sm) - 1px) 0 0 calc(var(--r-sm) - 1px); }
+.spread-unit > .spread-btn:last-child { border-radius: 0 calc(var(--r-sm) - 1px) calc(var(--r-sm) - 1px) 0; }
+.spread-unit > .spread-btn + .spread-btn { border-left: 1px dashed var(--border); }
+/* each half a full 44px target; the drawn glyph at 22px, the bar a touch heavier than the arrow
+   so the thin stroke still reads as «stopped» */
+.spread-btn { width: 44px; height: 44px; padding: 0; border: none; background: transparent; color: var(--ink);
+  cursor: pointer; display: grid; place-items: center; transition: background .14s var(--ease), color .14s var(--ease); }
+.spread-btn .i { width: 22px; height: 22px; stroke-width: 2.4; }
+.spread-btn.grenze .i { stroke-width: 3; }
+.spread-btn:focus-visible { outline-offset: -2px; }
 @media (hover: hover) {
-  .spread-btn:hover:not(:disabled):not(.on) { background: var(--surface); border-color: var(--border); }
+  .spread-btn:hover:not(:disabled):not(.on) { background: var(--surface); }
 }
 .spread-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.spread-btn.on { background: var(--sel); border-color: var(--sel); color: var(--on-sel); }
+.spread-btn.on { background: var(--sel); color: var(--on-sel); }
 .spread-btn:disabled { opacity: var(--disabled); cursor: default; }
 
 /* general free-text notes */
