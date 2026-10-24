@@ -364,7 +364,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     estimatedSourceHistory: 'da {count} rilevamenti di pressione · stato {time}',
     estimatedSourceFallback: '{rate} L/min presunti · stato {time}',
     alarmNote: 'Pressione d\'allarme di {bar} bar raggiunta',
-    alarmNoteEst: 'Pressione d\'allarme di {bar} bar – raggiunta secondo la stima',
+    alarmNoteEst: 'Pressione d\'allarme di {bar} bar (stima)',
     chipHint: 'ARA – tocca per la sorveglianza',
     alarmRowOverdue: 'Autoprotezione in ritardo – {name}',
     alarmRowOverdueSub: 'Nessun contatto radio – stabilire subito il contatto.',

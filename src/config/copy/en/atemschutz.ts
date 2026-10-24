@@ -141,7 +141,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     currentPressure: 'Pressure',
     lowestPressure: 'Lowest',
     alarmNote: 'Alarm pressure {bar} bar reached',
-    alarmNoteEst: 'Alarm pressure {bar} bar – reached per estimate',
+    alarmNoteEst: 'Alarm pressure {bar} bar (estimate)',
     lineField: 'Line',
     edit: 'Edit',
     verlauf: 'Log',

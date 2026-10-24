@@ -43,7 +43,7 @@ questions, and what the record keeps (`components/AtemschutzView`). Module rules
     schätzung clearly visible»): the terse foot keeps its word and full ink — «1 d 11 h ·
     Schätzung ≈ 0 bar ⌄» — and the word, not a dimmed grey, is what keeps it from being read as a
     logged Druck, and it is never red (24.10.2026, sweep M3). Its alarm case is the note under
-    the tiles – «Alarmdruck 100 bar – laut Schätzung erreicht», number included – as a quiet
+    the tiles – «Alarmdruck 100 bar (Schätzung)», number included – as a quiet
     outlined box (grey edge, `--ink-dim` 14/700, no tint, no ⚠ of its own): the clock's triangle
     already says the card is in alarm.
   - *Rückzug and Raus are equal tiles on every board* (29.09.2026): both framed grey, «Rückzug»
