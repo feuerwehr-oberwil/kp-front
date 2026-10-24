@@ -349,8 +349,11 @@ function startsWithTemplate(text: string, template: string): boolean {
 
 /** Prefixes a printed entry no longer needs, because the Bereich beside it now says the same
  *  thing. The RECORD keeps its wording — it is append-only, and the live Verlauf has no column
- *  to lean on, so «Rapportangaben: …» is exactly right there. Only the printed row drops it. */
-function withoutAreaPrefix(text: string): string {
+ *  to lean on, so «Rapportangaben: …» is exactly right there. Only the printed row drops it —
+ *  and the Verlauf row's detail sheet, whose title is the message and whose meta line under it
+ *  names the Art / Bereich (Journal · the detail sheet, sweep E.4). Returns '' for a row that is
+ *  the bare type tag (see below); the caller decides what stands there instead. */
+export function withoutAreaPrefix(text: string): string {
   const prefixes = [
     appConfig.copy.preflight.logMetaChanged,
     appConfig.copy.capture.logMeta,

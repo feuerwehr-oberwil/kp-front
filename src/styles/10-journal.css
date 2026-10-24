@@ -1035,7 +1035,17 @@ a.jr-link-url { color: var(--blue); text-decoration: underline; text-underline-o
 .hist-ev .tl-play::after { width: 48px; height: 48px; }
 
 /* ── the row's detail sheet (Sheet · .jr-detail) ── */
-/* The pictures the row carries, ABOVE its words: on a photo entry the sentence is «Foto» or the
+/* The title IS the row's message (owner's pick 8, sweep E.4): it wraps, the ✕ stays in the top
+   corner however many lines it takes, and five lines is the cap — a longer message stands whole
+   in the body as well (Journal · detailClamped). Under it the meta line «16:30:56 · Sofortmassnahme ·
+   von Hand erfasst»; a system row's «not editable» hint is its quieter second line. */
+.jr-detail .ip-head { align-items: flex-start; gap: var(--sp-3); }
+.jr-detail .ip-head h2 { flex: 1 1 auto; min-width: 0; }
+.jr-detail-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 5; line-clamp: 5;
+  overflow: hidden; overflow-wrap: anywhere; }
+.jr-detail-meta { margin: 0 0 var(--sp-3); font: var(--fw-medium) var(--fs-2)/1.4 var(--body); color: var(--ink-dim); }
+.jr-detail-meta small { display: block; margin-top: 2px; font-size: var(--fs-micro); color: var(--ink-faint); }
+/* The pictures the row carries, under the meta line: on a photo entry the sentence is «Foto» or the
    Bereich's own word, so the picture is the row. A wrapping strip rather than one hero, because
    a Sofortmassnahme routinely carries three and the sheet must not become a scroll to see them.
    ⚠️ Fixed height, `object-fit: cover`: a portrait phone shot and a landscape one land in one

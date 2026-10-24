@@ -487,6 +487,10 @@
    comments stand in the :root block above. */
 :root, .kf-paper {
   --press: color-mix(in srgb, var(--ink) 9%, transparent);
+  /* «this object has plans» on the Karte: its dot, name-tag rim and building outlines (MapLibre
+     reads it through themeToken). Ink, never red – red means danger, and the running Einsatz's
+     chip is the Karte's one red (owner's pick 7A, sweep G.7, 23.10.2026) */
+  --obj-plans: var(--ink);
   --sel: var(--blue);
   --on-sel: var(--on-fill);
   --sel-wash: color-mix(in srgb, var(--blue) 14%, transparent);
