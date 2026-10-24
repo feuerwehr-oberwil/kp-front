@@ -1,7 +1,8 @@
 # The Atemschutz board
 
 The Trupps page: the phone board, the one card every board wears, the Trupp form and its
-questions, and what the record keeps (`components/AtemschutzView`). Module rules live in
+questions, and what the record keeps (`components/AtemschutzView`; the card and the phone row in
+`components/TruppCard`, the form in `components/TruppForm`). Module rules live in
 `lib/truppLeader`, `lib/contactEcho`, `components/TruppSheets`,
 `components/AtemschutzAlarmMeldung` and `lib/meldeleisteHost`. Moved here from AGENTS.md on
 2026-10-08, wording unchanged.

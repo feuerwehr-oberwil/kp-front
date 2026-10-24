@@ -1302,7 +1302,7 @@ export function useTruppActions(deps: Deps) {
    * What the Trupp takes in (types · Trupp.equipment) — the ids from the station's list
    * (deploymentConfig · atemschutzEquipment), in whatever order the list has them.
    *
-   * The form's «Ausrüstung» chips (AtemschutzView · TruppForm) travel as `TruppFields.equipment`
+   * The form's «Ausrüstung» chips (components/TruppForm) travel as `TruppFields.equipment`
    * through `editTrupp`, so a save that touches the Auftrag AND the Ausrüstung is ONE Verlauf row.
    * This action is for a change made OUTSIDE the form (a card control, once there is one); its
    * row is the same housekeeping shape — «Trupp 1 (Meier Anna): Ausrüstung: Retthaube, WBK» —
@@ -1333,7 +1333,7 @@ export function useTruppActions(deps: Deps) {
   }
   /**
    * Take one person OUT of the Trupp they are still recorded in, because they are being written
-   * into another one — the tap behind «bereits in einem anderen Trupp» (AtemschutzView · TruppForm).
+   * into another one — the tap behind «bereits in einem anderen Trupp» (components/TruppForm).
    *
    * The warning used to be a dead end: it named the obstacle, and clearing it meant throwing this
    * form away, finding the other card, editing it and starting over. This is that round trip, as
