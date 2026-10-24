@@ -98,7 +98,7 @@ rules that break silently.
   - ⚠️ a new synced field needs a `MERGE_POLICY` row (`mergeWorkspace.ts`);
   - ⚠️ every minted id comes from `newId(prefix)` (`src/lib/ids.ts`), never `crypto.randomUUID()`;
   - ⚠️ a board object kind a build does not draw is a passenger, never dropped (a new kind bumps
-    `WORKSPACE_SCHEMA_VERSION` and joins `BOARD_KIND_SINCE`);
+    `WORKSPACE_SCHEMA_VERSION` and joins `backend/app/data/board_kinds.json`);
   - operational state in IndexedDB, «saved» means every queue acknowledged, records append-only,
     the server observes. What reaches the Verlauf: [`docs/verlauf-coverage.md`](docs/verlauf-coverage.md).
 - **Divera answers / presence** → [`docs/divera-connector.md`](docs/divera-connector.md) › Rückmeldungen

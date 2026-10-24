@@ -37,7 +37,7 @@
 .mp-k :global(.i) { width: 12px; height: 12px; }
 .mp-v { white-space: nowrap; font-family: var(--mono); font-size: var(--fs-3); font-weight: var(--fw-bold); color: var(--ink); letter-spacing: -.3px; }
 .mp-v.up { color: var(--green); }
-.mp-v.down { color: var(--red); }
+.mp-v.down { color: var(--red-strong); }
 .mp-prof-title { font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint); }
 .mp-prof-msg { font-size: var(--fs-1); color: var(--ink-faint); padding: 8px 0; text-align: center; }
 .mp-chart-wrap { width: 100%; }

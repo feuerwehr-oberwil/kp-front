@@ -10,7 +10,7 @@ export const ZOOM_STEP = 1.3
  * tiles — shares ONE budget, and it is device-aware (lib/pdfRenderBudget, 15.09.2026): four
  * sites each asking for «as crisp as the screen can show» is what jetsammed an iPhone on an A1
  * Geschossplan. Re-exported here so this module stays the reader's one import. */
-export { canvasScale, pageCanvasBudget, MAX_CANVAS_PX, CANVAS_MAX_SIDE as MAX_CANVAS_SIDE, DOC_CANVAS_PX } from './pdfRenderBudget'
+export { canvasScale, pageCanvasBudget, MAX_CANVAS_PX } from './pdfRenderBudget'
 
 export const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z))
 

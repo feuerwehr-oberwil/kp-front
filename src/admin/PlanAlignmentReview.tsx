@@ -1,3 +1,10 @@
+// The admin's review of server-computed plan alignments: the wall of proposals (standalone, or
+// embedded as the «Vorschläge» tab of the Objektpläne page) and the one full-screen editor that
+// fixes a sheet by hand – a plain sheet, or a floor pack (Modul 6, floors first, then the map).
+// A proposal is published ONLY by an explicit approval here; computing, fetching or selecting one
+// never publishes it, and an Einsatz freezes the fit it bound.
+// Rules for this area: docs/plans-and-buildings.md.
+
 import { createContext, lazy, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { appConfig } from '../config/appConfig'
 import { ApiError } from '../lib/api'

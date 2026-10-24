@@ -25,7 +25,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     shareLinkOn: 'Transmettre la surveillance – un lien est actif',
     linkReentryHint: 'Le lien ramène à ce tableau – si la page est fermée par mégarde, il suffit d’ouvrir à nouveau le code QR.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
-    liteNewTab: 'Binôme',
     /** the three-section stack on ANY phone (TruppForm · stack, 04.09.) – replaces the two-step
      *  wizard; «Mission et ligne» is one section (see de/atemschutz.ts). */
     stackPressure: '{n} bar',
@@ -39,7 +38,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     formRedeployTitle: 'Réengager',
     sectionTeam: 'Binôme',
     auftragLabel: 'Mission',
-    auftragOpen: 'Mission ouverte',
     // Libellés d'AFFICHAGE des types de mission, indexés par l'id (la valeur stockée reste l'id).
     auftragLabels: {
       retten: 'Sauver',
@@ -135,18 +133,13 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     lowestPressure: 'Le plus bas',
     lineField: 'Conduite',
     edit: 'Modifier',
-    pressureConfirm: 'Confirmer',
-    pressureConfirmHint: 'Confirmer la nouvelle pression – compte comme contact',
     verlauf: 'Journal',
     cardMenu: 'Autres actions',
-    bandPreEntry: 'Pas encore engagée',
     bandRegisteredAt: 'annoncée à',
-    zoneTimes: 'Heures',
     lastContactAt: 'Dernier contact',
     nextContactDue: 'Prochain contact',
     contactIntervalLabel: 'Intervalle de contact',
     contactIntervalValue: '{min} min',
-    verlaufLatest: 'dernier : {time} {what}',
     // ⚠️ Des mots d’ÉVÉNEMENT dans cette colonne (« Art »), jamais des mots d’état : la ligne dit
     // ce qui s’est passé, « Sorti » est ce que la carte dit du binôme ensuite (status · outFor).
     readingKind: { registered: 'Annoncée', entry: 'Entrée', contact: 'Contact', pressure: 'Pression',
@@ -186,7 +179,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     actExitPlain: 'Mission terminée', // ⚠️ app only — see de/atemschutz.ts · actExitPlain
     actReenter: 'Réengager',
     actNotDeployed: 'Non engagée',
-    actNotDeployedHint: 'Clore l’équipe sans qu’elle soit passée sous ARI – reste prête pour un engagement ultérieur',
     statusNotDeployed: 'Non engagée',
     statusRemoved: 'Retiré du tableau',
     logNotDeployed: 'Équipe {name} non engagée',
@@ -295,7 +287,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       goTo: 'Vers le binôme',
       goToWho: 'Vers le {name}',
       rowTitle: 'Urgence – binôme {name}',
-      rowTitleMany: 'Urgence – {count} binômes : {names}',
       logTrigger: 'Binôme {name} : urgence déclenchée',
       factPlace: 'lieu {place}',
       factContact: 'dernier contact {time}',
@@ -373,8 +364,7 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     estimatedSourceHistory: 'sur {count} relevés de pression · état {time}',
     estimatedSourceFallback: '{rate} L/min supposés · état {time}',
     alarmNote: 'Pression d\'alarme de {bar} bar atteinte',
-    alarmNoteEst: 'Pression d\'alarme de {bar} bar – atteinte selon l\'estimation',
-    pressureRose: 'Plus élevé que la dernière fois ({from} bar) – faute de frappe ?',
+    alarmNoteEst: 'Pression d\'alarme de {bar} bar (estimation)',
     chipHint: 'ARI – toucher pour la surveillance',
     alarmRowOverdue: 'ARI en retard – {name}',
     alarmRowOverdueSub: 'Aucun contact radio – établir le contact immédiatement.',
@@ -386,9 +376,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     alarmRowGo: 'Vers le binôme',
     alarmRowAck: 'Pris connaissance',
     alarmRowReadOnly: 'lecture seule',
-    logSafety: 'Valeurs de sécurité ARI modifiées : {changes}',
-    logSafetyInterval: 'Intervalle de contact radio {from} → {to} min',
-    logSafetyGrace: 'Délai de grâce {from} → {to} s',
     logSafetyFunkkanal: 'Canal radio {from} → {to}',
     logEditFields: 'Binôme {name} : {changes}',
     changeLeader: 'Chef de binôme {from} → {to}',

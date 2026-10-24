@@ -702,6 +702,7 @@ def _register_optional_routers() -> None:
         ("app.api.plan_scales", "router"),
         ("app.api.branding", "router"),
         ("app.api.incidents", "router"),
+        ("app.api.incident_link", "incidents_router"),
         ("app.api.person_positions", "router"),
         ("app.api.media", "router"),
         ("app.api.divera", "router"),

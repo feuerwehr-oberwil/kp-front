@@ -7,10 +7,19 @@
 // The Einsatzleiter is the reason this exists: hands-off is about not changing the picture, not
 // about being unable to ask how far the Leitung reaches.
 
+import type { BoardTool, MapTool } from '../types'
+
+/** Every Lage-map tool id, as a set the rail's plain-string ids are checked against. */
+const MAP_TOOLS: Record<MapTool, true> = {
+  select: true, lasso: true, symbol: true, shape: true, line: true, area: true, circle: true, note: true, team: true, measure: true,
+}
+/** Is this rail/palette id (a plain string – the rail components serve Lage and Plan) a Lage tool? */
+export const isMapTool = (id: string): id is MapTool => Object.prototype.hasOwnProperty.call(MAP_TOOLS, id)
+
 /** Lage-map tool ids that change nothing. */
-export const MAP_READONLY_TOOLS = ['select', 'measure'] as const
+export const MAP_READONLY_TOOLS = ['select', 'measure'] as const satisfies readonly MapTool[]
 /** Plan/whiteboard equivalents ('pan' is the plan's Auswahl). */
-export const PLAN_READONLY_TOOLS = ['pan', 'measure'] as const
+export const PLAN_READONLY_TOOLS = ['pan', 'measure'] as const satisfies readonly BoardTool[]
 
 /** Is this Lage-map tool id one a locked surface still offers? (Hotkeys + the arm-state reset
  *  ask this; the plan reaches its tools through the same map ids, see Whiteboard's pickTool.) */

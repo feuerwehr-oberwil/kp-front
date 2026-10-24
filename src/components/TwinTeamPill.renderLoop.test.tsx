@@ -50,7 +50,7 @@ describe('TwinTeamPill · its bar placement is not an update of its own', () => 
   })
 
   for (const state of ['guarded', 'continuous'] as const) {
-    it(`stays open under a ${state} live-GPS store that updates on every sample, without #185`, () => {
+    it(`stays open under a ${state} live-GPS store that updates on every sample, without a render loop (React #185)`, () => {
       const errors: unknown[] = []
       const spy = vi.spyOn(console, 'error').mockImplementation((...a) => { errors.push(a[0]) })
       let hostRenders = 0

@@ -556,6 +556,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       loading: 'Chargement des interventions…', error: 'Impossible de charger les interventions.', search: 'Rechercher titre, adresse ou source…',
       none: 'Aucune intervention.', noMatches: 'Aucune intervention ne correspond.', started: 'Début', incident: 'Intervention', status: 'Statut',
       source: 'Source', report: 'Rapport', updated: 'Modifié', open: 'ouverte', closed: 'terminée', complete: 'complet', incomplete: 'en attente',
+      sources: { manual: 'Saisi à la main', divera: 'Divera', firehub: 'FireHub', migrated: 'Repris' } as Record<string, string>,
 
       delete: 'Supprimer',
       deleteAria: 'Supprimer «{title}»',
@@ -720,6 +721,10 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       funkkanalMinTip: 'Limite inférieure du réglage de canal radio.',
       funkkanalMax: 'Canal radio max',
       funkkanalMaxTip: 'Limite supérieure du réglage de canal radio.',
+      funkkanalOutOfRange: 'Valeur pas encore enregistrée – un canal entre {min} et {max} est attendu (canal radio min et max).',
+      groupObject: 'Plans d\'objet',
+      nearbyObjectWarnM: 'Avertir «pas l’adresse de l’intervention» dès (m)',
+      nearbyObjectWarnMTip: 'Le plan affiche de lui-même l\'objet le plus proche qui a des plans. S\'il ne correspond pas à l’adresse de l’intervention et se trouve à plus de ce nombre de mètres, le plan avertit «pas l’adresse de l’intervention». 0 = avertir à toute distance.',
     },
     setup: {
       ackDo: 'Cocher',

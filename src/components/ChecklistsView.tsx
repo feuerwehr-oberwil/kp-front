@@ -2,7 +2,7 @@ import { LoadingStatus } from './ShellLoader'
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '../lib/icons'
 import type { ChecklistState, ChecklistTemplate, Item, TemplateState } from '../lib/checklists'
-import { allEntries, warmTemplates, matchDiveraEntries, searchEntries, templateProgress } from '../lib/checklists'
+import { allEntries, warmTemplates, matchEntries, searchEntries, templateProgress } from '../lib/checklists'
 import { chapterOf, isTickable, manualGroups } from '../lib/checklists'
 import { ChecklistRunner } from './ChecklistRunner'
 import { useRememberedScroll } from '../lib/rememberedScroll'
@@ -51,11 +51,12 @@ function writePicked(k: string, patch: Picked) {
 // renders the selection: an action checklist runs as a checkable phase list; a Stichwort
 // opens its reading view (with inline diagrams). Ticking/branch are lifted to App.
 export function ChecklistsView({
-  checklists, canTick, divera, onTick, onBranch, onAction, offersAction, scrollKey = '',
+  checklists, canTick, incidentTitle, onTick, onBranch, onAction, offersAction, scrollKey = '',
 }: {
   checklists: ChecklistState
   canTick: boolean
-  divera: { title?: string; type?: string }
+  /** the Einsatz title (its Stichwort) – the «Passend» group's Stichworte are matched on it */
+  incidentTitle?: string
   onTick: (template: ChecklistTemplate, item: Item) => void
   onBranch: (templateId: string, phaseId: string, branchId: string) => void
   onAction: (item: Item, a: NonNullable<Item['action']>) => void
@@ -93,7 +94,7 @@ export function ChecklistsView({
   const manuals = useMemo(() => templates.filter((t) => t.kind === 'manual'), [templates])
   // every device, unfiltered: a chapter's «k von n» and its neighbours do not change with the search
   const devices = useMemo(() => manualGroups(templates, ''), [templates])
-  const autoMatches = useMemo(() => matchDiveraEntries(templates, divera), [templates, divera])
+  const autoMatches = useMemo(() => matchEntries(templates, incidentTitle), [templates, incidentTitle])
 
   // The picker rail collapses to a single toggle row once something is picked, so the
   // checklist/playbook text gets the full height; tapping the row reopens the list.
@@ -163,6 +164,7 @@ export function ChecklistsView({
 
   const [query, setQuery] = useState('')
   const results = useMemo(() => searchEntries(entries, query), [entries, query])
+  const matchResults = useMemo(() => searchEntries(autoMatches, query), [autoMatches, query])
   // the search at the top of the rail filters every group uniformly — action lists by title,
   // reference entries by title/keyword — so Aufgaben, Taktik and Grundlagen are peer groups.
   const q = query.trim().toLowerCase()
@@ -229,19 +231,6 @@ export function ChecklistsView({
       ) : (
       <nav ref={railRef} className={cx(s['cl-rail'], railNarrow && railOpen && s['cl-rail-full'])} aria-label={CL.railLabel}>
         <SearchField className={s['cl-rail-search']} value={query} onChange={setQuery} placeholder={CL.searchPlaceholder} aria-label={CL.searchAria} />
-        {/* ⚠️ ALL matches, not the best one (31.08.). «VU Strasse» is Verkehrsunfall AND
-            E-Autobrand AND Ölspur — which of them this Einsatz is cannot be read off the
-            Stichwort, and showing only the longest keyword match made the app look certain
-            about something it does not know. Most specific first (lib/checklists). */}
-        {autoMatches.length > 0 && (
-          <div className={s['cl-rail-hints']}>
-            {autoMatches.map((m) => (
-              <button key={m.id} className={s['cl-rail-hint']} onClick={() => pick({ kind: 'entry', id: m.id })}>
-                <Icon id="flag" /><span>{fillTemplate(CL.matching, { title: m.title })}</span>
-              </button>
-            ))}
-          </div>
-        )}
         {/* every group is a peer below the search: the checkable Aufgaben, then each reference
             template (Taktik-Stichworte, Grundlagen-Infos). One scroll region. */}
         <div className={s['cl-rail-groups']}>
@@ -251,6 +240,19 @@ export function ChecklistsView({
               last (19.10.2026, owner: «least important during an active emergency») – and its
               ticks: a checklist's «40%» at its row's end. A device with chapters opens its page,
               a single Anleitung opens directly. */}
+          {/* «Passend»: the Stichworte this Einsatz's title names, most specific first – ALL of
+              them, not the best one (31.08.: «VU Strasse» is Verkehrsunfall AND E-Autobrand AND
+              Ölspur; lib/checklists · matchEntries). A group like every other (owner pick 4A,
+              sweep 23.10.2026): the Stichwort rows below, no red – red is for danger only. No
+              match, or none left by the search → no group. */}
+          {matchResults.length > 0 && (
+            <ListGroup label={CL.groupMatching} look={look}>
+              {matchResults.map((e) => (
+                <EntryRow key={e.id} entry={e} on={!railNarrow && sel?.kind === 'entry' && sel.id === e.id}
+                  onOpen={() => pick({ kind: 'entry', id: e.id })} />
+              ))}
+            </ListGroup>
+          )}
           {actionResults.length > 0 && (
             <ListGroup label={CL.groupTasks} look={look}>
               {actionResults.map((t) => {

@@ -103,3 +103,16 @@ async def test_it_never_raises_on_an_unreachable_tenant(db_session, blank_env):
 
     assert result["ok"] is False
     assert result["detail"]
+
+
+async def test_the_route_is_the_admin_s_and_answers_with_the_probe(client, db_session, blank_env, admin_login, editor):
+    """`POST /api/sharepoint/probe` – the button behind «Verbindung testen». A PIN session is
+    not enough (the probe spends the tenant's credentials); the admin gets the probe's own
+    answer, never a 500."""
+    await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": "135790"})
+    assert (await client.post("/api/sharepoint/probe")).status_code in (401, 403)
+
+    await admin_login(client)
+    response = await client.post("/api/sharepoint/probe")
+    assert response.status_code == 200, response.text
+    assert response.json() == {"ok": False, "detail": "no SharePoint credentials stored"}

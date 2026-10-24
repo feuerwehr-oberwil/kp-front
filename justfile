@@ -248,6 +248,7 @@ ci-no-backend: ci-frontend (ci-unit "8")
 [group('Quality')]
 ci-frontend:
     pnpm lint
+    pnpm knip
     pnpm exec tsc -p tsconfig.e2e.json
     node scripts/check-e2e-suites.mjs
     pnpm build
@@ -397,11 +398,13 @@ build:
     pnpm build
 
 # (Runs `config-schema` too, so the two committed contracts can never drift apart — a pytest
-# fails on either of them being stale.)
-# Dump the OpenAPI schema to docs/openapi.json (committed API contract).
+# fails on either of them being stale. The frontend's types are generated from the same file:
+# src/lib/api/schema.d.ts, which src/lib/api/schema.test.ts keeps fresh.)
+# Dump the OpenAPI schema to docs/openapi.json (committed API contract) and its TS types.
 [group('Release')]
 openapi: config-schema
     cd backend && uv run python -m app.dump_openapi ../docs/openapi.json
+    pnpm openapi:types
 
 # (The same JSON Schema `admin_config schema` prints. Committed because an agent or a station
 # writing a config file should not need a Python toolchain to read the contract first.)

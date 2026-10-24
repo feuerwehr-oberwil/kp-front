@@ -104,11 +104,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'errors'>> = {
     correctHint: 'Il testo originale resta nel verbale.',
     viaAtemschutzLink: 'Link APR',
     viaAtemschutzLinkTitle: 'Inserito sulla tabella APR ceduta.',
-    detailTime: 'Ora',
-    detailArea: 'Ambito',
-    detailSource: 'Fonte',
-    detailSourceManual: 'Inserito a mano',
-    detailSourceSystem: 'Registrato dall’app',
+    detailSourceManual: 'inserito a mano',
+    detailSourceSystem: 'registrato dall’app',
     detailSourceSystemHint: 'Le righe di sistema non sono modificabili',
     detailAttachments: 'Allegati',
     detailAttachmentsN: '{n} immagini',
@@ -190,10 +187,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'errors'>> = {
     attendanceConflictOpenEnd: 'aperto',
     attendanceConflictTake: 'Riprendi {side}',
     attendanceConflictKeep: 'Entrambi corretti',
-    attendanceConflictOpenTitle: 'Divergenze',
     attendanceConflictOpenCount: '{n} aperte',
-    attendanceConflictNoneOpen: 'Nessuna aperta',
-    attendanceConflictCheckedAt: 'verificata {t} · {by}',
     quickPhrasesAria: 'Frasi tipo',
     openRemindersHead: 'Pendenze',
     // l'interruttore ○ accanto ai chip Art — tre stati su un unico comando
@@ -219,6 +213,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'errors'>> = {
     openReminderGo: 'Vai alla voce',
   },
   errors: {
+    invalidValue: 'Valore non valido',
+    moreSignatures: 'altre firme d’errore (oltre {n})',
     serverUnreachable: 'Errore di rete – server non raggiungibile',
     serverTimeout: 'Il server non risponde – timeout',
 

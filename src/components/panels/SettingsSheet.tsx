@@ -11,6 +11,7 @@ import { OnOff, Segmented } from '../Segmented'
 import { Stepper } from '../Stepper'
 import { Button } from '../Button'
 import { compareText } from '../../lib/format'
+import { AlarmReadinessRows } from '../karte/AlarmReadiness'
 
 /** Percent for a symbol multiplier — «110 %» is a size anyone reads at a glance, «1.1» is not.
  *  No-break space before the sign, so the number and its unit never split across a line. */
@@ -148,6 +149,9 @@ export function SettingsSheet({
       <div className="set-sheet">
         <section className="set-group">
           <h3 className="set-group-t">{cp.deviceGroup}</h3>
+          {/* «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): the same rows as the Karte home's
+              «Auf diesem Gerät», so the fix is also where somebody looks for a switch */}
+          <AlarmReadinessRows className="set-alarm" />
           <div className="set-card">
             <div className="set-row">
               <span className="set-row-l">{cp.colorScheme}</span>

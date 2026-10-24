@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto'
 import { IDBFactory } from 'fake-indexeddb'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { alarmProviderName, atemschutzDoctrine, atemschutzEquipment, carrySessionOnly, demoNote, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, moduleAlignment, moduleViewer, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
+import { alarmProviderName, atemschutzDoctrine, incidentCategories, atemschutzEquipment, carrySessionOnly, demoNote, getDeploymentConfig, loadDeploymentConfig, loadDeploymentConfigBounded, mapReferenceLayers, moduleAlignment, moduleViewer, personnelProviderName, reportLinks, stripLocality } from './deploymentConfig'
 import { idbSet, __resetIdbForTests } from './idb'
 
 describe('mapReferenceLayers', () => {
@@ -253,6 +253,23 @@ describe('Atemschutz equipment list', () => {
   it('falls back to the default when the station’s list is empty after cleaning', async () => {
     await load({ equipment: [{ id: ' ', label: '' }] })
     expect(atemschutzEquipment().map((e) => e.id)).toEqual(['retthaube', 'wbk', 'multiwarn'])
+  })
+})
+
+describe('incidentCategories — the server owns the Kategorien', () => {
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('offers the served German labels in the served order, and nothing before they arrive', async () => {
+    const serve = async (body: unknown) => {
+      vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(body), {
+        status: 200, headers: { 'content-type': 'application/json' },
+      })))
+      await loadDeploymentConfig()
+    }
+    await serve({ categoryLabels: { strassenrettung: 'Strassenrettung', brandbekaempfung: 'Brandbekämpfung' } })
+    expect(incidentCategories()).toEqual(['Strassenrettung', 'Brandbekämpfung'])
+    await serve({})
+    expect(incidentCategories()).toEqual([])
   })
 })
 

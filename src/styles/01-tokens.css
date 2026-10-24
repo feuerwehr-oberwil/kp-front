@@ -26,7 +26,10 @@
   --glass-edge: rgba(30, 45, 70, .1);
   --ink: #1b2330;
   --ink-dim: #4d586a;
-  --ink-faint: #6c7686;
+  /* The three ink tiers all clear WCAG AA (4.5:1) on --surface, the canvas and the glass, in both
+     themes — tokenContrast.test.ts holds them there. --ink-faint was #6c7686 / #76829a until
+     23.10.2026: 4.05:1 on the canvas by day and 3.64:1 on every night sheet, on 312 text rules. */
+  --ink-faint: #606a7a;
   --red: #e8392b;
   /* Brand-identity accent. Defaults to the brigade red (and inherits its day/night
      flip via var(--red)), so the look is unchanged with no deployment config. A
@@ -74,7 +77,7 @@
      before the first glyph, 16px glyphs. A state is the colour of a GLYPH inside it (a lamp, the
      leading icon), never an outline: the Massstab chip wore a blue ring and the object chip an
      amber one, and beside the toasts they read as four different things. The FAB stays round —
-     roundness is what makes it THE Eintrag button (AGENTS.md · one corner) — but it is the row's
+     roundness is what makes it THE Eintrag button (docs/ui-conventions.md · Buttons, «ONE corner») — but it is the row's
      height and stands on the row's baseline (15-mobile · --float-bottom). */
   --float-bg: var(--glass);
   --float-blur: blur(14px) saturate(1.4);
@@ -122,15 +125,29 @@
      NOT used on --accent: that one is set per station at runtime (deploymentConfig), so nobody
      here knows whether it is light or dark, and those sites keep --on-accent-ink. */
   --on-fill: #fff;
+  /* The green and red a WORD (or glyph) in --on-fill sits on: the «go» button, a green tab, the
+     record buttons, the running-Einsatz chip, the red/green badges. By day --green and --red
+     carry white at only 4.4 and 4.2:1, so the fills are a touch darker (4.6:1 each, owner's
+     «darken», sweep Q1, 24.10.2026); lines, dots, edges and tints keep the brighter hue. Night
+     fills with the hue itself (dark ink on it, 8:1). tokenContrast.test.ts holds both at 4.5. */
+  --green-fill: #168648;
+  --red-fill: #da3628;
+  /* Ink on an --amber fill (count badges, the Auftrag chip, the DEMO ribbon). Amber is the one hue
+     too LIGHT for white by day — #fff on #e2920a is 2.5:1 — so it takes the dark ink in both
+     themes: 6.3:1 by day, and at night it is --on-fill, 10:1. */
+  --on-amber: var(--ink);
   --ink-fill: #1b2330;        /* dark "active pill" / Trupp marker bar surface (= day --ink) */
   --ink-fill-hover: #0f1722;  /* hover on dark ink-fill buttons (darker in day) */
   /* "strong" accent variants: a darker shade used as a hover background on an accent
      button OR as legible text on a faint accent-tint chip. Day = the literals they
      replace; night flips LIGHTER so the same role reads on dark surfaces. */
   --blue-strong: #1a5fd0;
-  --green-strong: #137a40;
-  --amber-strong: #b4690a;
-  --red-strong: #c43122;
+  /* green/amber/red were #137a40 / #b4690a / #c43122: 4.4, 3.7 and 4.4:1 on their own 16 % tint
+     (a selected chip, the ÜBUNG badge, the overdue «Kontakt»). Darkened just enough to clear 4.5
+     there (tokenContrast.test.ts). */
+  --green-strong: #12743d;
+  --amber-strong: #9e5c08;
+  --red-strong: #bd2f21;
   --red-solid-hover: #cf2c1f; /* hover bg on a solid-red (warn) button */
   --green-solid-hover: #1f9d57; /* hover bg on a solid-green (enter) button */
   /* floating label badges drawn over the map / plan board (coords, trail times,
@@ -168,7 +185,7 @@
      harder to read, not easier. The rough line is 18: below it, stay local.
 
      ⚠️ Scrim and popup are separate names, not `+ 1`, because Base UI portals them as SIBLINGS
-     (see the overlays note in AGENTS.md) — they are two elements, so they read as two tokens. */
+     (see docs/ui-conventions.md · Overlays) — they are two elements, so they read as two tokens. */
   --z-surface-veil: 18;      /* the app's own wash under a full-screen surface */
   --z-surface-scrim: 19;     /* …and the scrim a surface lays over the map */
   --z-surface: 20;           /* Mittel · Atemschutz · Anwesenheit · Checklists · the whiteboard */
@@ -395,7 +412,7 @@
   --glass-edge: rgba(255, 255, 255, .12);
   --ink: #e8edf4;
   --ink-dim: #a4b0c2;
-  --ink-faint: #76829a;
+  --ink-faint: #8a95ab;
   /* brighter, slightly desaturated accents for contrast on dark surfaces */
   --red: #ff5a4d;
   --blue: #5aa0ff;
@@ -423,6 +440,9 @@
   /* white-on-accent text stays near-white but warmed a touch off pure #fff */
   --on-accent-ink: #f5f8fc;
   --on-fill: #0d1118;         /* see the day block — 7.1:1 on the night blue, 8.1:1 on the green */
+  --green-fill: var(--green);
+  --red-fill: var(--red);
+  --on-amber: var(--on-fill);
   /* "active/selected" dark pills + the Trupp marker bar stay a raised dark surface in night
      (NOT the now-light --ink), so their light content keeps contrast */
   --ink-fill: #2b3545;
@@ -476,6 +496,10 @@
    comments stand in the :root block above. */
 :root, .kf-paper {
   --press: color-mix(in srgb, var(--ink) 9%, transparent);
+  /* «this object has plans» on the Karte: its dot, name-tag rim and building outlines (MapLibre
+     reads it through themeToken). Ink, never red – red means danger, and the running Einsatz's
+     chip is the Karte's one red (owner's pick 7A, sweep G.7, 23.10.2026) */
+  --obj-plans: var(--ink);
   --sel: var(--blue);
   --on-sel: var(--on-fill);
   --sel-wash: color-mix(in srgb, var(--blue) 14%, transparent);

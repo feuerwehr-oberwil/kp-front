@@ -22,7 +22,8 @@ const SET: UndergroundSet = { fetchedAt: '2026-10-18T03:00:00+00:00', count: 2, 
 
 beforeEach(() => { rec.set = null; rec.asked = 0; rec.fail = false })
 
-describe('«Unterirdische Bauten» on the Einsatz map (owner, review round 5)', () => {
+// owner, review round 5
+describe('«Unterirdische Bauten» on the Einsatz map', () => {
   it('is an Einsatz layer, ON by default, after the built-in rows, in its own «Station» group', () => {
     const ls = defaultLayers()
     const row = ls.find((l) => l.id === UNDERGROUND_LAYER_ID)

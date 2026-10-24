@@ -116,7 +116,8 @@ describe('undoKeys — a snapshot history re-laid onto a merge', () => {
   })
 })
 
-describe('undoKeys — links between records (review of #234)', () => {
+// review of #234
+describe('undoKeys — links between records', () => {
   const objects = listById<{ id: string }>('objects', objectRefs)
 
   it('reads every id-valued link a tactical object carries', () => {
@@ -178,7 +179,8 @@ describe('undoKeys — the merge bookkeeping, all or nothing', () => {
   })
 })
 
-describe('undoKeys — the ↶ that silently pointed at something else (F8, staging r3)', () => {
+// F8, staging r3: the ↶ that silently pointed at something else
+describe('undoKeys — ↶ says so when a merge took the step it would undo', () => {
   const entry = (label: string, keys: string[]) => ({ domain: 'karte' as const, label, touches: () => keys, undo: () => true, redo: () => true })
 
   it('says so once when the merge took the step ↶ would have taken back', () => {
@@ -241,7 +243,8 @@ describe('undoKeys — a toast that outlives a merge', () => {
   })
 })
 
-describe('undoKeys — slices other PRs added (staging integration 25.09.2026)', () => {
+// staging integration 25.09.2026: slices other PRs added
+describe('undoKeys — a marker that only grew is no changed record', () => {
   it('a Trupp whose crew-filing marker only grew is not a changed record — every inverse keeps the marker', () => {
     const t = { id: 't1', no: 1, status: 'bereit' }
     expect(workspaceChanges({ trupps: [t] }, { trupps: [{ ...t, crewFiled: ['p1'] }] }).size).toBe(0)

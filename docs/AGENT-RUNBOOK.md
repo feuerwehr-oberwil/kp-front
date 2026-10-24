@@ -215,16 +215,18 @@ An Arbeitsmappe import that would refuse a row, empty a config section or deacti
 
 ### Census and repair
 
-Run from `backend/`. **Both report only by default; `--apply` is what writes.**
+Run from `backend/`. The repairs are their own CLI, `app.admin_objects_repair` (moved out of
+`admin_objects` on 23.10.2026, which keeps load/push). **They report only by default; `--apply`
+is what writes.**
 
 ```bash
-uv run python -m app.admin_objects show                    # what is stored, with plan counts
-uv run python -m app.admin_objects merge-duplicates        # fold NFD/NFC twins + exact duplicates
-uv run python -m app.admin_objects twins                   # likely twins under another name (report only, always)
-uv run python -m app.admin_objects merge <loser-id> --into <survivor-id>   # fold ONE such twin
-uv run python -m app.admin_objects remove-empty            # objects with no plans and no references
-uv run python -m app.admin_objects repair-sharepoint-keys  # fold pre-2026-09-11 whole-folder-key twins
-uv run python -m app.admin_objects geocode-missing         # place plan-carrying objects without coordinates
+uv run python -m app.admin_objects show                           # what is stored, with plan counts
+uv run python -m app.admin_objects_repair merge-duplicates        # fold NFD/NFC twins + exact duplicates
+uv run python -m app.admin_objects_repair twins                   # likely twins under another name (report only, always)
+uv run python -m app.admin_objects_repair merge <loser-id> --into <survivor-id>   # fold ONE such twin
+uv run python -m app.admin_objects_repair remove-empty            # objects with no plans and no references
+uv run python -m app.admin_objects_repair repair-sharepoint-keys  # fold pre-2026-09-11 whole-folder-key twins
+uv run python -m app.admin_objects_repair geocode-missing         # place plan-carrying objects without coordinates
 ```
 
 - `merge-duplicates` is the fix for the twins a Mac-run import mints: macOS writes decomposed

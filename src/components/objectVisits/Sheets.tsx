@@ -67,7 +67,7 @@ export function PhotoSheet({ visitId, photo, preparing, stored, items, readOnly,
                   ? <Segmented ariaLabel={C.photoBelongs} options={options} value={current} onChange={setItem} />
                   : (
                     // past four the app's own menu, a tick on the current row — never a native
-                    // <select> (AGENTS.md; the line editor's «Gehört zu Trupp …» is the same pick)
+                    // <select> (docs/ui-conventions.md · Editor sheets; the line editor's «Gehört zu Trupp …» is the same pick)
                     <Menu
                       trigger={
                         <button type="button" className={`ip-input ${s.select}`} aria-label={C.photoBelongs}>

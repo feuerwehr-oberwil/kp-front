@@ -23,15 +23,11 @@ export const karteCopy = {
     menuLabel: 'Menü – {name}',
     einsaetzeBadge: '{n} offen',
     runningOpen: 'Einsatz öffnen: {t}',
+    // the chip's «+N» (owner's pick 6A, sweep F.2): every OTHER open Einsatz and Übung; it opens the menu
+    runningMore: 'Weitere offen: {n} – Menü öffnen',
     // search
     searchPlaceholder: 'Adresse oder Objekt suchen …',
-    searchPlaceholderShort: 'Adresse oder Objekt',
     searchOpen: 'Suchen',
-    // the Checkliste surface's field in the top bar (ChecklistLibrary · query)
-    // its placeholder is short – the descriptive one did not fit a phone (owner 19.10.2026); the
-    // long one stays the field's name for screen readers
-    librarySearchPlaceholder: 'Suchen …',
-    librarySearch: 'Anleitung, Checkliste, Stichwort',
     searchObjects: 'Stationsobjekte',
     searchAddresses: 'Adressen',
     searchNoObject: 'Kein Stationsobjekt gefunden.',
@@ -91,7 +87,6 @@ export const karteCopy = {
     planSharpening: 'Schärfere Ansicht wird geladen …',
     planSharpOffline: 'Schärfere Ansicht nur mit Netz',
     planSharpFailed: 'Schärfere Ansicht konnte nicht geladen werden',
-    floorsLoading: 'Geschosse werden geladen …',
     floorsFailed: 'Die Geschosse liessen sich nicht laden.',
     floorFailed: 'Dieses Geschoss liess sich nicht zeichnen.',
     // offline (docs/karte-objekte.md · Offline): «●» only for what this device really holds
@@ -171,6 +166,41 @@ export const karteCopy = {
     basemapAction: 'Verfügbarkeit',
     device: {
       title: 'Auf diesem Gerät',
+      // «Alarm auf diesem Gerät» (3am sweep §1, 23.10.2026): the four readiness rows, their
+      // one-tap fixes, the Testalarm, the opt-out, and the Karte home's nudge card
+      alarm: {
+        title: 'Alarm auf diesem Gerät',
+        lead: 'Damit «Neuer Einsatz» dieses Gerät weckt – auch wenn die App zu ist.',
+        unavailable: 'Push ist auf dieser Installation nicht eingerichtet.',
+        installed: 'Als App installiert',
+        installedSub: { installed: 'vom Startbildschirm', browser: 'im Browser geöffnet – als App zuverlässiger', browserIos: 'im Browser geöffnet – Alarme nur in der installierten App' },
+        install: 'Installieren',
+        permission: 'Benachrichtigung',
+        permissionSub: { granted: 'erlaubt', ask: 'vom Gerät noch nicht erlaubt', denied: 'im System abgelehnt – in den Geräte-Einstellungen erlauben', afterInstall: 'erst in der installierten App' },
+        allow: 'Erlauben',
+        subscription: 'Alarm-Abo',
+        subscriptionSub: { subscribed: 'erneuert am {d}', stale: 'seit {d} nicht erneuert – läuft aus', none: 'nicht registriert' },
+        renew: 'Erneuern',
+        session: 'Anmeldung',
+        sessionSub: { valid: 'gültig bis {d}', soon: 'läuft am {d} ab – Öffnen der App verlängert', gone: 'abgelaufen – neu anmelden', unknown: 'Dauer unbekannt' },
+        test: 'Testalarm senden',
+        testLast: 'Letzter Testalarm: {d}',
+        testNever: 'Noch nie getestet',
+        testSent: 'Testalarm gesendet – kommt in wenigen Sekunden',
+        testWait: 'Testalarm: bitte eine Minute warten',
+        testUnregistered: 'Dieses Gerät ist nicht registriert – zuerst «Erlauben»',
+        testFailed: 'Testalarm liess sich nicht senden',
+        optOut: 'Keine Alarme auf diesem Gerät',
+        optOutSub: 'Push aus – jederzeit wieder einschaltbar',
+        optedOut: 'Alarme aus',
+        optedOutSub: 'Dieses Gerät bekommt keinen «Neuer Einsatz»',
+        optIn: 'Einschalten',
+        nudgeRed: 'Dieses Gerät bekommt keinen Alarm',
+        nudgeCheck: 'Alarm auf diesem Gerät noch nie getestet',
+        nudgeCheckOld: 'Alarm auf diesem Gerät lange nicht getestet',
+        later: 'Später',
+        state: { ok: 'in Ordnung', warn: 'Hinweis', red: 'fehlt' },
+      },
       leadOffline: 'Offline. Karte & Objekte zeigt, was wirklich auf diesem Gerät liegt.',
       leadOnline: 'Was ohne Netz zur Verfügung stünde.',
       catalogue: 'Objektkatalog',

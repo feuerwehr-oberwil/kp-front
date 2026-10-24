@@ -235,6 +235,22 @@
         "operationId": "me_api_auth_me_get",
         "parameters": [
           {
+            "name": "refresh_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Refresh Token"
+            }
+          },
+          {
             "name": "access_token",
             "in": "cookie",
             "required": false,
@@ -2381,66 +2397,6 @@
         }
       }
     },
-    "/api/incidents/{incident_id}/einsatz-link": {
-      "post": {
-        "tags": [
-          "incidents"
-        ],
-        "summary": "Create Einsatz Link",
-        "description": "Hand back the read-only Einsatz-Link for this Einsatz, minting it on the spot.\n\nTwo refusals, and they are deliberately different statuses because the operator can act on\nonly one of them:\n  · 403 — no minting key: the whole link surface is off, exactly as the exchange answers it\n    (api/incident_link · `open_link_session`). Nothing to be done on the Schadenplatz, so the\n    sheet points at der Verwaltung instead of offering a retry.\n  · 409 — the Einsatz is finished: an alarm link dies the moment it closes, so minting one\n    would hand over an address that never worked. Not the exchange's blind 404, because the\n    caller is a signed-in editor who already knows this Einsatz exists.",
-        "operationId": "create_einsatz_link_api_incidents__incident_id__einsatz_link_post",
-        "parameters": [
-          {
-            "name": "incident_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Incident Id"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ViewLinkOut"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/incidents/{incident_id}/atemschutz-link": {
       "get": {
         "tags": [
@@ -2565,6 +2521,66 @@
         "summary": "Revoke Atemschutz Link",
         "description": "Take it back mid-Einsatz. The URL stops working AND the phone that already has it open\nis refused on its next request (auth/incident_link · `_atemschutz_key_unchanged`).",
         "operationId": "revoke_atemschutz_link_api_incidents__incident_id__atemschutz_link_delete",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Incident Id"
+            }
+          },
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewLinkOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/incidents/{incident_id}/einsatz-link": {
+      "post": {
+        "tags": [
+          "incidents"
+        ],
+        "summary": "Create Einsatz Link",
+        "description": "Hand back the read-only Einsatz-Link for this Einsatz, minting it on the spot.\n\nTwo refusals, and they are deliberately different statuses because the operator can act on\nonly one of them:\n  · 403 — no minting key: the whole link surface is off, exactly as the exchange answers it\n    (api/incident_link · `open_link_session`). Nothing to be done on the Schadenplatz, so the\n    sheet points at der Verwaltung instead of offering a retry.\n  · 409 — the Einsatz is finished: an alarm link dies the moment it closes, so minting one\n    would hand over an address that never worked. Not the exchange's blind 404, because the\n    caller is a signed-in editor who already knows this Einsatz exists.",
+        "operationId": "create_einsatz_link_api_incidents__incident_id__einsatz_link_post",
         "parameters": [
           {
             "name": "incident_id",
@@ -10386,6 +10402,112 @@
         }
       }
     },
+    "/api/push/subscriptions/renew": {
+      "post": {
+        "tags": [
+          "push"
+        ],
+        "summary": "Renew",
+        "description": "Renew a registration WITHOUT a session: the subscription's own endpoint + keys are the\ncredential (3am sweep §1.3, 23.10.2026).\n\nThe 180-day TTL (``SUBSCRIPTION_TTL_DAYS``) used to be renewable only with a live login,\nso a phone whose session had lapsed silently fell out of the alarm audience. The endpoint is\na capability URL only that browser holds, and ``p256dh``/``auth`` are its private\nregistration — a caller who presents all three IS that browser. Nothing is created and no\nowner changes: an unknown endpoint or a key mismatch answers the same 404, so this cannot be\nused to probe which endpoints exist. The row keeps its user (and so its alarm audience).",
+        "operationId": "renew_api_push_subscriptions_renew_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Renew Api Push Subscriptions Renew Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/push/test": {
+      "post": {
+        "tags": [
+          "push"
+        ],
+        "summary": "Test Push",
+        "description": "«Testalarm senden»: one push to THIS browser's registration, so the person sees with their\nown eyes that an alarm would reach this phone (3am sweep §1.1, 23.10.2026).\n\nOnly a row the caller owns — the endpoint is the device's capability URL, and sending to\nsomebody else's would be a stranger ringing their phone. 409 while push is not configured,\n429 inside the per-endpoint minute, 404 for a registration this login does not hold. The\noutcome is the push service's answer, not the phone's: ``accepted`` means it took the\nmessage; a ``gone`` row is pruned here like in a sweep.",
+        "operationId": "test_push_api_push_test_post",
+        "parameters": [
+          {
+            "name": "access_token",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Access Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TestPushIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Test Push Api Push Test Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/incidents/{incident_id}/report/pdf": {
       "post": {
         "tags": [
@@ -16069,6 +16191,13 @@
           "alarmVocabulary": {
             "$ref": "#/components/schemas/AlarmVocabularyStatus"
           },
+          "categoryLabels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Categorylabels"
+          },
           "version": {
             "anyOf": [
               {
@@ -16560,6 +16689,13 @@
               }
             ],
             "title": "Equipment"
+          },
+          "nearbyObjectWarnM": {
+            "type": "integer",
+            "maximum": 500.0,
+            "minimum": 0.0,
+            "title": "Nearbyobjectwarnm",
+            "default": 25
           }
         },
         "type": "object",
@@ -22257,10 +22393,36 @@
         "title": "TerminalSessionIn",
         "description": "The poll's body — no token (the device cookie is the credential), only the incident the\nterminal is currently bound to, if any, so a made choice sticks (see `_resolve_standing`)."
       },
+      "TestPushIn": {
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "maxLength": 2048,
+            "title": "Endpoint"
+          }
+        },
+        "type": "object",
+        "required": [
+          "endpoint"
+        ],
+        "title": "TestPushIn"
+      },
       "TruppsPut": {
         "properties": {
           "trupps": {
             "items": {
+              "properties": {
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "angemeldet",
+                    "aktiv",
+                    "rueckzug",
+                    "ueberfaellig",
+                    "raus"
+                  ]
+                }
+              },
               "additionalProperties": true,
               "type": "object"
             },
@@ -22496,6 +22658,18 @@
               }
             ],
             "title": "Link Kind"
+          },
+          "session_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Until"
           }
         },
         "type": "object",

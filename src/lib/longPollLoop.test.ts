@@ -170,7 +170,8 @@ describe('createLongPollLoop', () => {
   })
 })
 
-describe('createLongPollLoop · minDelayMs (staging r3: the Atemschutz-Link of a closed Einsatz)', () => {
+// staging r3: the Atemschutz-Link of a closed Einsatz, refused until a reopen
+describe('createLongPollLoop · minDelayMs — a follower refused until a state changes', () => {
   it('spaces the rounds by the floor while it says so — once a minute, not a 403 every few seconds', async () => {
     let slow = true
     const round = vi.fn(async () => false) // every request refused

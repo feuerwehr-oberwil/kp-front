@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react'
 import type { BoardAnno, BoardDoc, BoardPoint, BuildingDoc, Drawing, Entity, GeoTrailPoint, LineAttachment, LngLat, TimelineEvent, TrailPoint, Trupp, TruppFields, TruppReading } from '../types'
 import type { TacticalObject } from './tacticalObjects'
+import type { WorkspaceMode } from '../workspace/types'
 import type { ObjectStore, SetBoard } from './useObjectStore'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatTime } from './format'
@@ -27,7 +28,6 @@ import type { UndoTimeline } from './undoTimeline'
 import { keepCrewFiled } from './crewFiling'
 import { recordKey } from './undoKeys'
 
-type Mode = 'map' | 'plans' | 'checklists' | 'atemschutz' | 'anwesenheit' | 'mittel' | 'rapport'
 type PlanFocus = { x: number; y: number; floor: number; annoId?: string; flash?: boolean; nonce: number } | null
 
 /** placement-target id for the Lage map in the «Wohin platzieren?» picker (vs. a plan id) */
@@ -263,7 +263,7 @@ interface Deps {
   log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
   logPlan: (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number }) => void
   emit: (op_type: string, payload?: Record<string, unknown>, opts?: { observed?: string }) => void
-  setMode: (m: Mode) => void
+  setMode: (m: WorkspaceMode) => void
   setActivePlanId: (id: string) => void
   setPanel: (p: 'layers' | null) => void
   setPlanFocus: (f: PlanFocus) => void
@@ -1108,7 +1108,7 @@ export function useTruppActions(deps: Deps) {
     }
     /* …with ONE exception, the card's own «Nicht eingesetzt» (owner review 26.09.2026): it is a
      * visible button again, and a one-shot that closes a Trupp gets the confirm-with-undo toast
-     * (AGENTS.md). Its «Rückgängig» takes the step off the timeline and puts the Trupp back as it
+     * (docs/undo.md). Its «Rückgängig» takes the step off the timeline and puts the Trupp back as it
      * stood — the Verlauf keeps both lines. Not for the Abschluss's bulk stand-down (no opts). */
     if (opts?.undoToast && neverDeployed && tr) {
       const who = typeof tr.no === 'number' ? String(tr.no) : tr.name
@@ -1143,7 +1143,7 @@ export function useTruppActions(deps: Deps) {
    *   · an `atemschutz.notfall` audit event (the one prefix a Link-Tafel may send).
    * ⚠️ Undoable like every Tafel act (↶, and the confirm-with-undo toast for the fast mistake):
    * the Trupp goes back as it stood, the Verlauf keeps its row AND gets the counter-row — a
-   * mistaken trigger is cheap to take back and still on paper (AGENTS.md · undo).
+   * mistaken trigger is cheap to take back and still on paper (docs/undo.md).
    */
   const triggerNotfall = (id: string) => {
     const tr = trupps.find((t) => t.id === id)
@@ -1432,7 +1432,7 @@ export function useTruppActions(deps: Deps) {
           entryPressureBar: f.pressure, lastPressureBar: undefined, lastPressureTime: undefined, lowestBar: f.pressure,
           // ⚠️ APPENDED, not replaced (17.08.). This used to start a new `readings` array, which
           // threw away the first deployment's entry pressure and every reading taken during it —
-          // and `backend/app/report_pdf.py` prints exactly this array, so the crew that had been
+          // and `backend/app/report` prints exactly this array, so the crew that had been
           // under PA the longest was the half missing from the safety document. The card's own
           // numbers (entryPressureBar, lowestBar) still describe the RUNNING deployment; what is
           // «current» in the log is everything from here on (lib/atemschutz · currentRunStart).
@@ -1850,7 +1850,7 @@ export function useTruppActions(deps: Deps) {
     // second registration of a crew that only ever registered once. The placement refs stay gone
     // (see restoreTrupp): the chip on the plan cannot be resurrected faithfully.
     // ⚠️ Three doors, one act: this ↶ timeline entry, the non-expiring «Entfernte Trupps» menu,
-    // and — back since 25.09.2026 (staging N4) — the confirm-with-undo toast AGENTS.md asks of a
+    // and — back since 25.09.2026 (staging N4) — the confirm-with-undo toast docs/undo.md asks of a
     // one-shot that DESTROYS something (the 09.09. sweep took it with the Kontakt/Druck toasts,
     // but a removal is not a Kontakt). The toast's «Rückgängig» restores through `restoreTrupp`
     // and drops this timeline entry, so the act is never undoable twice.

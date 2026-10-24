@@ -11,6 +11,14 @@ page is for integrators and contributors.
 
 The full contract is committed as [`openapi.json`](openapi.json) (regenerate with `just openapi`).
 
+The frontend reads its wire types off the same file: `just openapi` also writes
+`src/lib/api/schema.d.ts` (`pnpm openapi:types`, kept fresh by `src/lib/api/schema.test.ts`), and
+the types in `src/lib/api/*` are aliases of it (`src/lib/api/wire.ts` · `Out<…>` / `In<…>`), so a
+field renamed or retyped on the server fails `tsc` in the client. Where the client deliberately
+differs – a field an older cached copy lacks, a field only the device writes – the alias says so
+(`CachedWithout`, an intersection). A response the server types only as `dict` stays hand-typed in
+the client; a hand-typed request body is checked against the server's model with `Fits`.
+
 Interactive docs (`/docs` Swagger, `/redoc`, `/openapi.json`) are served **in development**. In
 production they are **off by default** – set `EXPOSE_API_DOCS=true` to enable them on a deployed
 instance for integration work.

@@ -158,6 +158,8 @@ describe('kompakte Ruhezeile — eine Position bei 0 trägt nur ein «+»', () =
     // the very same tap left the full form standing — «noch eine» lands on the ±stepper
     expect(stepper('Tauchpumpe Stk.')).toBeTruthy()
     expect(screen.queryByRole('button', { name: addOne('Tauchpumpe') })).toBeNull()
+    // …and the head counts it in the singular – it said «1 Positionen» (sweep F.7)
+    expect(screen.getByText('1 Position')).toBeTruthy()
   })
 
   it('folds straight back to the «+» when the count is taken to 0 — not only on the next visit', () => {

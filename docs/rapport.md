@@ -1,8 +1,23 @@
 # The Rapport
 
 What the printed Einsatzrapport carries (`src/lib/report.ts`, `src/lib/reportPdfDirect.ts`,
-`src/lib/auswertung.ts`, `backend/app/report_pdf.py`, `backend/app/kroki.py`). Moved here from AGENTS.md on 2026-10-08,
+`src/lib/auswertung.ts`, `backend/app/report`, `backend/app/kroki.py`). Moved here from AGENTS.md on 2026-10-08,
 wording unchanged.
+
+## Abschluss – the «Noch offen» sheet (23.10.2026)
+
+`useAbschluss · confirmAndComplete` asks the one closing question over `lib/abschluss`'s
+Mindestangaben (`abschlussOpenItems`). Every row is a link to its field, and since the 3am sweep
+(owner's point 4) a row also carries its own **button**: «Nichts verwendet» (Material),
+«Entfällt» (Kontaktperson, Rückmeldung ELZ) write the same fields the Rapport's buttons write and
+the sheet stays open, re-reading itself (`ConfirmSpec · refresh`) — the row stays as a done one,
+the lead sentence and the button follow («Abschliessen» once nothing is open). «Wählen»
+(Einsatzleiter) and «Schreiben» (Kurzbericht) leave for the focused field. Anwesenheit and
+Abweichungen have no one-tap answer. An empty **Einsatzende is pre-filled with «jetzt»** on the
+deployment clock (`serverNowIso`), shown as a done row with «Ändern»; the close writes it before
+the handover, so «Zeiten» is only open on a sheet that may not write the Rapport. The success
+toast carries «Wieder öffnen» for 10 s (docs/undo.md). Close and reopen stamps come off
+`lib/serverClock`, like the Rapport's own «Jetzt» buttons.
 
 ## Unterschriften – signing on the screen (15.10.2026)
 
@@ -30,7 +45,7 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
 - **Stored**: the SHAPE of the strokes only (integers in a 1000-wide box) – no timing, no pressure
   (PRIVACY.md). Each signing writes a Verlauf row («Rapport unterschrieben: …, Prüfsumme …») and a
   hash-chained audit event (`report.signature.add` / `.void`).
-- **On paper** (`report_pdf · _draw_signature`): the strokes sit on the line beside the name,
+- **On paper** (`app/report · _draw_signature`): the strokes sit on the line beside the name,
   «Ort, Datum» is filled in (`map.geocoder.defaultLocality` without its postcode), and a small line
   says «Am Bildschirm unterschrieben … · Prüfsumme …». A signature that no longer holds is not
   sent; its line prints empty. **Decision E stands**: the printed paper is the record – the
@@ -41,6 +56,15 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
   signer» (shared login, no key), and the Prüfsumme detects a change only inside the app (no key,
   no outside timestamp). Hence «Am Bildschirm», never «digital», on the paper. A recipient who
   needs the written form gets a printout signed by hand.
+
+## The Einsatzjournal on paper
+
+- **Zeit and Bereich are as wide as their widest label** (`app/report` · journal `col_w`, capped at
+  29 / 38 mm): ReportLab breaks a word that does not fit its cell, and the fixed 24 mm Bereich
+  printed «Sofortmassna / hme» on every such row (23.10.2026).
+- **A one-day Einsatz prints the time alone** («07:03»); the date stands once in the heading,
+  «Einsatzjournal · 23.10.2026» (`reportPdfDirect · oneDay` → `ReportPayload.journalDay`). Rows
+  across midnight keep «Datum Zeit» on every row.
 
 ## What the figure pages carry
 
@@ -58,11 +82,16 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
     `caption: 'off'` is a screen declutter and is not read; only «Beschriftungen aus» silences it.
     A «Gelöscht / erledigt» symbol ends its line on that Status with its time («Feuer · gelöscht
     20:40», 24.09.2026) and prints grey, never absent.
-  - **One figure-page template** (`report_pdf · figure_pages`): heading, then the muted «Einsatz ·
+  - **One figure-page template** (`app/report · figure_pages`): heading, then the muted «Einsatz ·
     Stand …» line, picture, legend – for the Kroki, a plan sheet and a Gebäude page alike. A new
     kind of figure page joins that list; it does not get a layout block of its own. Orientation is
     per kind ON PURPOSE: the Kroki is a free crop (the operator's choice), a plan sheet has the
     shape its author gave it (the bitmap decides).
+  - **A sheet the renderer throws on keeps its place** (23.10.2026): heading plus «Seite «…»
+    konnte nicht gedruckt werden.», logged at ERROR. It used to be skipped with a warning – and
+    from 22.07. to 23.10.2026 that silently dropped every Tafel-Skizze with a Linie or Fläche,
+    because plan points are `[x, y, floor]` and `kroki · _overlay_board_annos` unpacked two. The
+    renderer reads `p[0], p[1]`; the client sends the points as stored.
   - **An attached Leitung end is coupled by the SERVER** (`kroki · _snap_attached_ends`, fed by
     `startAt` / `endAt` + the entity `id`; a branch off a Teilstück by `startAtLine` / `endAtLine`
     onto the fork's prong tip – `_snap_line_joints`, one geometry with the glyph: `_fork_dims`). The client has no projection and ends the line on a
@@ -70,7 +99,7 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
     end on it. ⚠️ And the fallback fit mirrors the PANEL: the ceiling is
     `report · krokiFitMaxZoom` (20; 21 for a COMPACT Lage under 30 m – one level past the basemap's
     last sharp one, so a single-building cluster is not 15 % of the sheet). That is a MapLibre
-    camera zoom, one level tighter than the 256-px projection: `report_pdf · _kroki_fit_max_z` = +1.
+    camera zoom, one level tighter than the 256-px projection: `app/report · _kroki_fit_max_z` = +1.
     On paper the count badge is a WHITE chip like the storey badge – the numbered legend discs are
     the only dark marks on the sheet.
 
@@ -86,7 +115,7 @@ the three mockup rounds: `docs/planning/signature-2026-10-15/` (local, gitignore
   QR-Erfassung's own PDF too; a viewer link cannot make a PDF at all.
 - **Derived on the client, printed by the server.** `lib/auswertung` reads the record where the
   ISO stamps are and sends minute offsets + finished strings in the deployment's language
-  (`report_pdf · AuswertungIn`) – the same split as `personalSummary`. Nothing is estimated: a
+  (`app/report · AuswertungIn`) – the same split as `personalSummary`. Nothing is estimated: a
   figure without its data prints «—», a vehicle that never reported vor Ort gets a dot, not a bar.
 - **«Funkkontakte eingehalten» is the board's own rule.** An interval runs from the Eintritt or a
   contact (Kontakt, Druck, Alarm, Rückzug, Wiedereinstieg) to the next one or the Austritt;

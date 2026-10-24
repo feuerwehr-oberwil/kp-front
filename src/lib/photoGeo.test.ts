@@ -238,7 +238,8 @@ describe('photoUrlKey / withPhotoUrls — the map is rebuilt only when a picture
   })
 })
 
-describe('the device position stands in for a missing EXIF one (09.10.2026)', () => {
+// 09.10.2026
+describe('the device position stands in for a missing EXIF one', () => {
   const NOW_FILE = (name: string) => new File([readFileSync(`src/lib/fixtures/exif/${name}`)], name, { lastModified: Date.now() })
   const deviceAt = (lat: number, lng: number) => vi.fn(async (): Promise<PhotoGeo | null> => ({ lat, lng, acc: 9, source: 'device', takenAt: '2026-10-09T12:00:00+02:00' }))
 

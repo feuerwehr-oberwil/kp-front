@@ -226,7 +226,7 @@
    same time (conflictingShiftIds). Reported, never refused: at 3am that is a hint to look, not a
    reason to block the plan. An outline, not a fill, so the cell still says which state it is in. */
 .cellConflict { border: 1.5px solid var(--red); box-shadow: 0 0 0 1px var(--red) inset; }
-.cellConflict svg { width: 12px; height: 12px; color: var(--red); flex: none; }
+.cellConflict svg { width: 12px; height: 12px; color: var(--red-strong); flex: none; }
 .cellConfirmed.cellConflict svg { color: var(--on-fill); }
 
 /* only from the fourth column, where the grid genuinely runs off the edge */

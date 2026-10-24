@@ -11,7 +11,7 @@
 /* Demo deployments: a fixed diagonal "DEMO" ribbon across the top-left corner. Non-interactive
    (taps pass through), so it never blocks a control; amber to read as "not a real incident". */
 .demo-ribbon { position: fixed; top: calc(15px + env(safe-area-inset-top)); left: -36px; width: 132px; z-index: var(--z-ribbon); pointer-events: none;
-  transform: rotate(-45deg); background: var(--amber); color: var(--on-fill);
+  transform: rotate(-45deg); background: var(--amber); color: var(--on-amber);
   text-align: center; padding: var(--sp-1) 0; font-size: var(--fs-micro); font-weight: var(--fw-heavy); letter-spacing: 2px;
   box-shadow: var(--e1); }
 /* First-visit demo welcome modal (own scrim above the DEMO ribbon so it owns the screen). */
@@ -98,7 +98,7 @@
 .ml-row { display: flex; align-items: center; gap: var(--sp-3); min-height: 52px; padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-4); }
 .ml-row + .ml-row { border-top: 1px solid var(--border-soft); }
 .ml-ic { flex: none; width: 18px; height: 18px; color: var(--ink-faint); }
-.ml-row.t-alarm .ml-ic { color: var(--red); }
+.ml-row.t-alarm .ml-ic { color: var(--red-strong); }
 .ml-row.t-warn .ml-ic { color: var(--amber-strong); }
 .ml-row.t-info .ml-ic { color: var(--blue); }
 /* the text column is INERT except for the TITLE of a message that has somewhere to go (.ml-open
@@ -453,6 +453,15 @@
   font: var(--fw-bold) var(--fs-2)/1.3 var(--body); color: var(--ink); text-align: left; cursor: pointer; }
 .confirm-list-btn:active { background: var(--ink-8); }
 .confirm-list-chev { font-size: var(--fs-4); line-height: 1; color: var(--ink-faint); }
+/* the row's own answer as a BUTTON at its end (3am sweep, 23.10.2026): «Nichts verwendet»,
+   «Entfällt», «Ändern» – the link row and the button share the line, the button never grows
+   into the row's width. A done row (the pre-filled Einsatzende) wears a check and its read-out. */
+.confirm-list-go { display: flex; align-items: stretch; gap: 8px; }
+.confirm-list-go .confirm-list-btn { flex: 1 1 auto; min-width: 0; }
+.confirm-list-btn > span:first-child { flex: 1 1 auto; min-width: 0; }
+.confirm-list-end { font: var(--fw-medium) var(--fs-1)/1.3 var(--body); color: var(--ink-faint); white-space: nowrap; }
+.confirm-list-done { width: 18px; height: 18px; flex: 0 0 auto; color: var(--green); }
+.confirm-list-action { flex: 0 0 auto; white-space: nowrap; }
 /* …and the consequence AFTER them, where it reads as the answer to the list rather than as
    more of the same sentence */
 .confirm-note { margin: 0 0 var(--sp-4); font: var(--fw-medium) var(--fs-1)/1.45 var(--body); color: var(--ink-faint); }
@@ -572,8 +581,6 @@
 .note-pill-input::placeholder { color: var(--note-ink); opacity: .45; }
 /* selected/editing note: an on-theme gold ring (NOT the blue marker halo, which we suppress
    for notes) — covers both the pill and the editable input (both carry .note-pill) */
-/* (`.twin-sel` selected a MIRRORED note; nothing carries that class any more — a plan-drawn
-   note is an ordinary marker on the Karte and wears `.marker.sel` like the rest.) */
 .marker.sel .note-pill { border-color: var(--note-border-sel); box-shadow: 0 0 0 2px var(--note-ring), var(--e2); }
 /* map text BOX: an explicit width (px — map notes don't scale with zoom) replaces the 180px
    auto-cap and lets the pill wrap + grow downwards. Mirrors .wb-text-label.box on the plan. */
@@ -589,14 +596,14 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
   text-shadow: 0 0 3px var(--note-halo), 0 0 3px var(--note-halo), 0 0 6px var(--note-halo); }
 /* while selected/editing, a plain note still needs an edge to grab — a faint wash of its own
    paper colour, enough to see the box without turning it back into a sticker */
-.marker.sel .note-pill.plain, .wb-anno.sel .wb-text-label.plain, .twin-sel.note-pill.plain,
+.marker.sel .note-pill.plain, .wb-anno.sel .wb-text-label.plain,
 .wb-text-input.plain, .note-pill-input.plain {
   background: color-mix(in srgb, var(--note-bg) 22%, transparent); border-color: var(--note-border-sel); }
 
 /* ✓ "Fertig" on a text box being edited: in box mode Enter makes a newline, so touch needs a
    visible way out (tap-away and Esc work too, but neither is discoverable with gloves on). */
 .note-done { position: absolute; right: -12px; bottom: -12px; width: 32px; height: 32px;
-  padding: 0; border-radius: 50%; border: none; background: var(--green); color: var(--on-fill);
+  padding: 0; border-radius: 50%; border: none; background: var(--green-fill); color: var(--on-fill);
   display: grid; place-items: center; cursor: pointer; z-index: 3;
   box-shadow: var(--e2); }
 .note-done .i { width: 16px; height: 16px; stroke-width: 2.4; }
@@ -790,7 +797,7 @@ textarea.note-pill-input { resize: none; overflow: hidden; display: block; line-
 /* timeline audio play — ROUND. It is a transport control, the one shape every player in the
    world uses for it, and the only thing on the row that is not a rounded rectangle should be
    the thing that is not a button-with-a-label. */
-.tl-play { background: var(--green); color: var(--on-fill); border: none; border-radius: 50%; width: 26px; height: 26px;
+.tl-play { background: var(--green-fill); color: var(--on-fill); border: none; border-radius: 50%; width: 26px; height: 26px;
   cursor: pointer; display: grid; place-items: center; flex: none; }
 /* press = the house ink wash (02-base.css), over the green fill; nothing moves */
 .tl-play:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }

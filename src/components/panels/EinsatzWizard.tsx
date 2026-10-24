@@ -12,7 +12,7 @@ import { appConfig } from '../../config/appConfig'
 import { dtLocalValue, dtLocalToIso, fillTemplate } from '../../lib/format'
 import { fmtDistance, haversineM } from '../../lib/geo'
 import { matchesAnyQuery, searchQuery } from '../../lib/search'
-import { isDemoMode, shortAddress } from '../../lib/deploymentConfig'
+import { incidentCategories, isDemoMode, shortAddress } from '../../lib/deploymentConfig'
 import {
   createIncident,
   geocodeReverse,
@@ -91,8 +91,11 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   const [alarmiertAt, setAlarmiertAt] = useState(
     dtLocalValue(edit ? edit.started_at : new Date().toISOString()),
   )
-  // category defaults to the first VKF type (Brandbekämpfung) so the dropdown is never empty
-  const [kategorie, setKategorie] = useState<string | null>(edit?.type ?? ix.kategorien[0])
+  // category defaults to the first VKF type (Brandbekämpfung) so the dropdown is never empty;
+  // the list is the server's (`categoryLabels`), the option text translated per locale
+  const kategorien = incidentCategories()
+  const kategorieText = (k: string) => ix.kategorienLabels[k] ?? k
+  const [kategorie, setKategorie] = useState<string | null>(edit?.type ?? kategorien[0] ?? null)
   // Priorität has NO control any more (18.09.2026): it is inferred from the alarm keywords and
   // nobody was correcting it here — a field on the intake form that only ever repeated a guess.
   // The value itself is untouched: an existing incident keeps whatever it carries (so the diff
@@ -280,7 +283,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
 
   // «Eröffnen» must never be a dead-end: after the primary «Hier»/GPS path the title is often
   // blank, which used to leave the button disabled with no hint. Fall back to the address
-  // short-form, then the category label (always set) — there's always a sensible incident name.
+  // short-form, then the category label (set once the config has loaded) — a sensible incident name.
   // ⚠️ CREATE only. On an existing Einsatz the fallback is a silent rename: select-all in the
   // Stichwort field and, before a character is typed, the panel has already resolved a title —
   // save and «Gebäudebrand Schulhaus» becomes «Schulstrasse 4». Correcting is not creating; a
@@ -289,7 +292,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
     ? title.trim()
     : title.trim() ||
       (address.trim() ? shortAddress(address.trim()) ?? '' : '') ||
-      (ix.kategorienLabels[kategorie ?? ix.kategorien[0]] ?? kategorie ?? ix.kategorien[0])
+      (kategorie ? kategorieText(kategorie) : '')
   // Demo: a visitor may explore the whole wizard, but actually opening a new Einsatz is blocked
   // (it would write to the shared backend). Editing the demo incident stays fully open.
   const demoBlocked = isDemoMode() && !edit
@@ -357,12 +360,13 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
   return (
     <>
     {mapOpen && <MapPicker initial={coord} onCancel={() => setMapOpen(false)} onConfirm={applyPicked} />}
-    <Modal title={edit ? ix.editTitle : ix.titleNew} onClose={onClose} footer={<>
+    <Modal title={edit ? ix.editTitle : isExercise ? ix.titleNewExercise : ix.titleNew} onClose={onClose} footer={<>
       {/* «Abbrechen» in both modes (29.09.2026): the wizard is ONE step, and closing it goes back
           to the landing without opening anything — a cancel, not a «Zurück» to a previous step */}
       <button className="ip-btn" onClick={onClose}>{ix.cancel}</button>
       <button className="ip-btn primary" disabled={busy} aria-disabled={!effectiveTitle || demoBlocked} onClick={submit}>
-        {busy ? <><ShellLoader /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : ix.open}
+        {/* one verb, title and button alike: «eröffnen» – and «Übung» once the switch says so */}
+        {busy ? <><ShellLoader /> {edit ? ix.saving : ix.opening}</> : edit ? ix.save : isExercise ? ix.openExercise : ix.open}
       </button>
     </>}>
       {/* --- Standort --- */}
@@ -443,7 +447,7 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
           {!coordOpen ? <span className="ip-fold-title">{ix.coordFold}</span> : (
             <>
               <Icon id={coord ? 'flag' : 'warn'} />
-              <span className="ip-loc-txt">{coord ? `${ix.coordSet} · ${coord[1].toFixed(5)}, ${coord[0].toFixed(5)}` : ix.coordNone}</span>
+              <span className="ip-loc-txt">{coord ? `${ix.coordSet} · ${coord[1].toFixed(5)}, ${coord[0].toFixed(5)}` : edit ? ix.coordNoneEdit : ix.coordNone}</span>
             </>
           )}
         </button>
@@ -463,12 +467,12 @@ export function EinsatzWizard({ edit, nearCoord, onClose, onCreated }: {
         {/* themed Combo instead of the OS select; options are display labels, the stored
             value stays the (German) kategorie key — mapped back on change */}
         <Combo
-          value={ix.kategorienLabels[kategorie ?? ix.kategorien[0]] ?? kategorie ?? ix.kategorien[0]}
-          options={ix.kategorien.map((k) => ix.kategorienLabels[k] ?? k)}
+          value={kategorie ? kategorieText(kategorie) : ''}
+          options={kategorien.map(kategorieText)}
           placeholder={ix.categoryLabel}
           clearable={false}
           onChange={(label) => {
-            const key = ix.kategorien.find((k) => (ix.kategorienLabels[k] ?? k) === label) ?? label
+            const key = kategorien.find((k) => kategorieText(k) === label) ?? label
             setKategorie(key)
           }}
         />

@@ -28,6 +28,7 @@ config JSON: [§1](#1-deployment-config-the-json-the-deployment-owner-edits).
   - [1e. `objectVisits` – the optional Objektbesuche module](#1e-objectvisits--the-optional-objektbesuche-module)
   - [`doctrine.alarmBarRueckzug` – the quieter line on Rückzug](#doctrinealarmbarrueckzug--the-quieter-line-for-a-trupp-on-rückzug)
   - [`doctrine.entryPressureMin` – the one question about a low Eingangsdruck](#doctrineentrypressuremin--the-one-question-about-a-low-eingangsdruck)
+  - [`doctrine.nearbyObjectWarnM` – when the nearest object is «nicht die Einsatzadresse»](#doctrinenearbyobjectwarnm--when-the-nearest-object-is-nicht-die-einsatzadresse)
 - [2. Reference / Werkleitungs layers – station-supplied](#2-reference--werkleitungs-layers--station-supplied-nothing-bundled)
   - [2a. Raster layer (WMS / WMTS)](#2a-raster-layer-wms--wmts--paste-a-url-template) ·
     [2b. Vector layer (GeoJSON)](#2b-vector-layer-geojson--for-pointslines-you-own)
@@ -323,7 +324,8 @@ both now have browser pages – §9e and §9f.
     "defaultFunkkanal": 11,                       // null = no preset (national default)
     "defaultFunkkanalEinfach": null,              // default channel for Trupps OHNE Atemschutz;
                                                   // null = same as defaultFunkkanal
-    "funkkanalMin": 1, "funkkanalMax": 9999,
+    "funkkanalMin": 1, "funkkanalMax": 9999,     // the two defaults above stay inside this
+                                                  // range (/admin › Doktrin holds others back)
     "alarmBar": 100,                              // Alarmdruck (bar) for a Trupp AT WORK. One line
                                                   // on the way in – the older 60-bar
                                                   // «Mindestdruck» tier was dropped 2026-07-27.
@@ -340,6 +342,8 @@ both now have browser pages – §9e and §9f.
     "auftragColors": null,                        // starting colour per Auftrag id, e.g.
                                                   // { "loeschen": "#e8392b" }; null = every Trupp
                                                   // its own colour (overridable per Trupp)
+    "nearbyObjectWarnM": 25,                      // Modul-Pläne: warn «nicht die Einsatzadresse»
+                                                  // only beyond this many metres – see below
     "equipment": [                                // Ausrüstung a Trupp can take in – short labels,
       { "id": "retthaube", "label": "Retthaube" }, // printed on the card and the Rapport. Absent /
       { "id": "wbk", "label": "WBK" },             // empty = these three shipped defaults. Ids are
@@ -521,6 +525,23 @@ question asked every time is one nobody reads.
 
 Frontend only – the server stores it and never checks a reading against it. Set it on **Station ›
 Doktrin**, under the Eingangsdruck, or in the config file; read through `atemschutzDoctrine()`.
+
+### `doctrine.nearbyObjectWarnM` – when the nearest object is «nicht die Einsatzadresse»
+
+When an Einsatz address matches no station object, the Plan's Modul-Pläne offer the nearest one
+with an amber chip and banner («Nächstes Objekt, nicht die Einsatzadresse»). The warning shows
+only when that object lies **farther than `nearbyObjectWarnM` metres** from the Einsatzort: an
+Einsatz addressed by the object's own name («Mühlemattcenter») matches no address but sits at
+0 m, and a warning that is usually wrong teaches people to ignore the one that is right (sweep
+E.6, 23.10.2026).
+
+| | |
+| --- | --- |
+| Range | integer, `0`–`500` m; `0` warns on every address mismatch |
+| Unset in the config | `25` |
+
+Set it on **Station › Doktrin** or in the config file. A stored value outside the range is served
+as `25` and logged, the rest of the document stays.
 
 ### ⚠️ `alarms.groups[].color` is not a colour
 
@@ -1316,7 +1337,9 @@ Not part of `deployment_config` – operational users are managed separately fro
 The product role model is deliberately small:
 
 - **Login:** pick your name from the roster → enter your **PIN** (fast at 3am, per-person
-  identity for the audit trail). JWT access (8h) + refresh (7d) with rotation + revocation.
+  identity for the audit trail). JWT access (8h) + refresh (90d, `refresh_token_expire_days` – was
+  7d until 23.10.2026: an alarm push has to open into a live session, and a volunteer's alarms are
+  weeks apart) with rotation + revocation.
 - **Roles:** `editor` (FU / Einsatzleitung support; can mutate incident state), `el`
   (Einsatzleiter function, since 2026-09-07: reads everything, edits only Anwesenheit/Zeitplan,
   Material, Checklisten and the Rapport incl. Beilagen – server-enforced) and `viewer`
@@ -1937,6 +1960,20 @@ lists don't linger.
 | `reference` | Merkblätter / tactical playbook (Stichworte) | `entries[].content[]` | no | `{"type": "image", "page": N}` blocks |
 | `manual` | an **Anleitung** for one device (05.10.2026) | `device` + `steps[]` | no | `steps[].images[].page` |
 | `visit` | an Objektbesuch checklist – [`object-visits.md`](object-visits.md); optional `targets` (`["object"]` default, `"location"` = usable at a place without an object) | `phases[].items[]` | answered on the visit | – |
+
+A `reference` entry's `diveraKeywords` put it in the Einsatz Checkliste's **«Passend»** group,
+above «Aufgaben», when the Einsatz title (its Stichwort) names one of them. Only the title is
+matched, never the Kategorie. A title word matches when it is the keyword or ENDS in it: `BRAND`
+matches «Kellerbrand», but `GAS` never matches «Schlossgasse». Word endings count only for
+keywords of 5+ letters (`EIS` does not match «Kreis»). They never count in a street name, meaning
+a word ending in strasse/str./gasse/weg/allee/rain/ring/platz or followed by a house number
+(`STRASSE` does not match «Hauptstrasse»). They also never count for a word that is a
+keyword itself: «Zimmerbrand» is the `ZIMMERBRAND` hit only, so it does not also bring up every
+entry that lists `BRAND`. A keyword of several words (`PKW BRAND`) matches as a
+phrase of whole words. A keyword in `diveraKeywords` makes its entry show for every title it
+matches: `BRAND` on an entry puts that entry up for every fire. At most four entries show. The most specific comes first: the longest keyword hit, then
+the most keywords hit, then the entries' own order. No match means no group
+(`matchEntries` in `src/lib/checklists.ts`).
 
 Images are manifest `assets` (`{"page": N, "file": "…jpg|png|webp|svg"}`), stored as
 `checklists:<id>:p<N>`; only `reference` and `manual` entries may carry them. Each kind's

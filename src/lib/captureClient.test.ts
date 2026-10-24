@@ -367,6 +367,19 @@ describe('captureJournalRow — the poster writes to the Verlauf too', () => {
     expect(row?.text).toContain('Einsatzende')
   })
 
+  // sweep C.3: the poster kept its own German label map – a French station's row read «Einsatzleiter»
+  it('names the field in the deployment\'s language, from the one copy map', async () => {
+    const { applyLocale } = await import('../config/copy')
+    await applyLocale('fr-CH')
+    try {
+      const row = captureJournalRow({ kind: 'setMeta', patch: { einsatzleiter: 'X' } }, NOW)
+      expect(row?.text).toContain(appConfig.copy.report.metaFieldLabels.einsatzleiter)
+      expect(row?.text).not.toContain('Einsatzleiter')
+    } finally {
+      await applyLocale('de-CH')
+    }
+  })
+
   it('stays silent for the Erfasser bookkeeping field', () => {
     // who tapped the poster is about the capture, not about the Einsatz
     expect(captureJournalRow({ kind: 'setMeta', patch: { erfasser: 'Meier' } }, NOW)).toBeNull()

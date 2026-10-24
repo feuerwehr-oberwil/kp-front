@@ -190,7 +190,7 @@ def folder_key(folder: str | None) -> str:
     return " ".join(unicodedata.normalize("NFC", folder or "").split()).casefold()
 
 
-#: The ref source of a name an object was MERGED from (``admin_objects merge``): «Stallenmatt-
+#: The ref source of a name an object was MERGED from (``admin_objects_repair merge``): «Stallenmatt-
 #: strasse 2-14 …» folded into «… 1-14 …» keeps its old name as an alias on the survivor, so the
 #: viewer's search still finds it and an organizer push under the old folder/name resolves to the
 #: survivor instead of minting the twin again. The colon is outside ``SOURCE_RE``: no organizer
@@ -1375,7 +1375,7 @@ async def upsert_integration_object(
                 obj = candidate
                 break
     if obj is None:
-        # a folder or name an object was merged away from (admin_objects merge) is the survivor's:
+        # a folder or name an object was merged away from (admin_objects_repair merge) is the survivor's:
         # the organizer that minted the twin must not mint it again
         said = {folder_key(folder), folder_key(name)} - {""}
         for oid, names in (await aliases_by_object(db)).items():

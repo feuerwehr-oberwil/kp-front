@@ -151,3 +151,17 @@ def test_the_entry_pressure_minimum_stays_in_range(value):
     doc = load_stored_config({"identity": {"appName": "Feuerwehr Steintal"}, "doctrine": {"entryPressureMin": value}})
     assert doc.identity.appName == "Feuerwehr Steintal"
     assert doc.doctrine.entryPressureMin is None
+
+
+def test_the_nearby_object_warning_distance_defaults_to_25_m_and_is_bounded():
+    """Sweep E.6: the «nicht die Einsatzadresse» warning fired at «0 m entfernt». The station sets
+    how far the nearest object may lie before it warns; unset is 25 m."""
+    assert DeploymentConfigIn.model_validate({"doctrine": {}}).doctrine.nearbyObjectWarnM == 25
+    assert DeploymentConfigIn.model_validate({"doctrine": {"nearbyObjectWarnM": 0}}).doctrine.nearbyObjectWarnM == 0
+    for value in (-1, 501):
+        with pytest.raises(ValidationError):
+            DeploymentConfigIn.model_validate({"doctrine": {"nearbyObjectWarnM": value}})
+    # a stored value out of range costs the station this one number, not its configuration
+    doc = load_stored_config({"identity": {"appName": "Feuerwehr Steintal"}, "doctrine": {"nearbyObjectWarnM": 900}})
+    assert doc.identity.appName == "Feuerwehr Steintal"
+    assert doc.doctrine.nearbyObjectWarnM == 25

@@ -337,7 +337,8 @@ describe('Gebäude range edits use the same storeys on every surface', () => {
   })
 })
 
-describe('photoOverlay — a Verlauf photo on a georeferenced sheet (F16)', () => {
+// F16
+describe('photoOverlay — a Verlauf photo on a georeferenced sheet', () => {
   const photo = (over: Partial<Entity> = {}) => ent({
     id: 'ph1', kind: 'photo', layer: 'markup', coord: coordEast(50), photoUrl: '/api/media/a',
     photoOf: { row: 'j1', i: 0 }, heading: 90, ...over,

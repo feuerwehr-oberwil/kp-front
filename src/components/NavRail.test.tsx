@@ -9,7 +9,7 @@ afterEach(cleanup)
 const docs: PlanDocument[] = [
   { id: 'modul1', code: 'Modul 1', title: 'Übersicht', subtitle: '', imageUrl: '', orientation: 'portrait' },
   { id: 'modul5-rwa', code: 'RWA', title: 'RWA', subtitle: '', imageUrl: '', orientation: 'landscape' },
-  { id: 'tafel', code: 'Tafel', title: 'Leeres Blatt', subtitle: '', imageUrl: '', orientation: 'landscape', icon: 'pen' },
+  { id: 'tafel', code: 'Tafel', title: 'Leeres Blatt', subtitle: '', imageUrl: '', orientation: 'landscape', icon: 'easel' },
 ]
 
 function props(over: Partial<React.ComponentProps<typeof NavRail>> = {}) {
@@ -147,7 +147,7 @@ describe('folded plan tile', () => {
 
   it('takes the icon of an icon-document just as the rail does', () => {
     setup({ fold: true, activePlanId: 'tafel' })
-    // the Tafel is an icon doc, so there is no monogram chip at all — only its pen glyph
+    // the Tafel is an icon doc, so there is no monogram chip at all — only its easel glyph
     expect(tile().querySelector('.nav-mono-chip')).toBeNull()
     expect(tile().querySelector('.nav-glyph svg')).toBeTruthy()
   })

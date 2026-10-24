@@ -124,6 +124,74 @@ describe('the search field records somebody who is not on the Mannschaftsliste',
   })
 })
 
+/* An empty Mannschaftsliste (a fresh tablet offline, a roster import that has not run yet) used to
+ * hide the whole surface: «28 anwesend» in the head over «Noch kein Personal erfasst.», no list, no
+ * search – so that device could neither see who was here nor record anybody (sweep F.1, 23.10.2026). */
+describe('an empty roster still shows who is recorded and lets a name be entered', () => {
+  const A = appConfig.copy.anwesenheit
+  const recorded: AttendanceState = {
+    g1: { status: 'present', displayNameSnapshot: 'Muster Felix', intervals: [{ from: '2026-08-07T10:00:00.000Z' }] },
+  } as unknown as AttendanceState
+  const retry = () => screen.queryByRole('button', { name: new RegExp(A.retry) })
+
+  it('lists the attendance entries and keeps the search', () => {
+    mount({ people: [], attendance: recorded, onAddGuest: vi.fn() })
+    expect(screen.getByText('Muster Felix')).toBeTruthy()
+    expect(screen.queryByText(A.emptyTitle)).toBeNull()
+    expect(screen.getByPlaceholderText(A.searchPlaceholder)).toBeTruthy()
+  })
+
+  it('with nobody at all: teaches, keeps the Gast entry, and offers no retry without an error', () => {
+    const onAddGuest = vi.fn()
+    mount({ people: [], onAddGuest })
+    expect(screen.getByText(A.emptyTitle)).toBeTruthy()
+    expect(retry()).toBeNull()
+    fireEvent.change(screen.getByPlaceholderText(A.searchPlaceholder), { target: { value: 'Muster Felix' } })
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(A.addGuest.replace('{name}', 'Muster Felix')) }))
+    expect(onAddGuest).toHaveBeenCalledWith('Muster Felix')
+  })
+
+  it('offers the retry when the roster fetch actually failed', () => {
+    mount({ people: [], error: true })
+    expect(screen.getByText(A.loadFailedTitle)).toBeTruthy()
+    expect(retry()).toBeTruthy()
+  })
+})
+
+/* Owner, 23.10.2026: people are found by typing one name after another, not by scrolling – so a
+ * status set from a search hands the field back empty and focused for the next name. */
+describe('a status set from the search clears it for the next name', () => {
+  const A = appConfig.copy.anwesenheit
+  const crew: Person[] = [...people, { id: 'p2', displayName: 'Studer Corinne', active: true, updatedAt: 't' }]
+  const search = () => screen.getByPlaceholderText(A.searchPlaceholder) as HTMLInputElement
+
+  it('empties and focuses the field after the tap, and the whole list is back', () => {
+    const onMarkPresent = vi.fn()
+    mount({ people: crew, onMarkPresent })
+    fireEvent.change(search(), { target: { value: 'meier' } })
+    expect(screen.queryByText('Studer Corinne')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Meier Anna/ }))
+    expect(onMarkPresent).toHaveBeenCalledWith(expect.objectContaining({ id: 'p1' }))
+    expect(search().value).toBe('')
+    expect(document.activeElement).toBe(search())
+    expect(screen.getByText('Studer Corinne')).toBeTruthy()
+  })
+
+  it('leaves the focus alone when nothing was typed', () => {
+    mount({ people: crew })
+    fireEvent.click(screen.getByRole('button', { name: /Meier Anna/ }))
+    expect(document.activeElement).not.toBe(search())
+  })
+
+  it('hands the field back after a Gast is recorded from it, too', () => {
+    mount({ onAddGuest: vi.fn() })
+    fireEvent.change(search(), { target: { value: 'Muster Felix' } })
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(A.addGuest.replace('{name}', 'Muster Felix')) }))
+    expect(search().value).toBe('')
+    expect(document.activeElement).toBe(search())
+  })
+})
+
 // The print-dialog line («24 Personen · 1 Schicht · Stand 13:13», PaperSheet's `sheetContent(Bands)`)
 // used to interpolate a bare count, so «1 Schichten»/«1 Personen» printed on paper. Both counts now
 // inflect on their own (`zeitplan.peopleCount`/`bandsCount`, same function-per-count idiom as

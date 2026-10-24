@@ -1,3 +1,11 @@
+// One open Einsatz – the shell App mounts per incident: it holds the workspace blob and its sync,
+// the ONE undo timeline, the Verlauf writers and the rail's surfaces (Lage, Plan, Checklisten,
+// Atemschutz, Anwesenheit, Mittel, Rapport), and hands each surface its slice. Split-out pieces
+// live in src/workspace/. It stays mounted while another surface is in front (`covered`), so its
+// sync, live poll and Atemschutz alarm keep running.
+// Rules: every mutation joins the one timeline (docs/undo.md); synced state and the record:
+// docs/sync-and-offline.md.
+
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import './app.css'
@@ -87,11 +95,12 @@ import { planStackTouches, type BoardHistory } from './components/useBoardDoc'
 import type { BoardViews } from './components/useBoardView'
 import { ReplayBar } from './components/ReplayBar'
 import { FabEntry } from './components/FabEntry'
-import { prewarmPlans } from './components/PdfViewport'
+import { prewarmPlans } from './lib/pdfRaster'
 import { prefetchOutlines } from './components/OsmOutline'
 import {
   WorkspaceSync, 
   type IncidentMeta,
+  type Workspace,
   isIncidentRunning,
 } from './lib/incidents'
 import { useAuditEvents } from './lib/useAuditEvents'
@@ -206,7 +215,7 @@ if (prefs.pickedObject) savePrefs({ ...loadPrefs(), pickedObject: undefined })
 interface WorkspaceProps {
   incidentMeta: IncidentMeta
   incidents: IncidentMeta[]
-  workspace: Saved | null
+  workspace: Workspace | null
   sync: WorkspaceSync
   forceReadOnly: boolean
   /** another tab of THIS browser is editing the incident → read-only here + take-over banner */
@@ -1565,6 +1574,15 @@ export function IncidentWorkspace({
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- log is stable per mount
   }, [])
+  /** A field write from OUTSIDE the Rapport sheet — the Abschluss confirm's row buttons and its
+   *  pre-filled Einsatzende (useAbschluss · patchReportMeta). Over the blob as it stands NOW
+   *  (a ref: the confirm stands open for a while and a sync may move the blob under it), through
+   *  the one funnel every Rapport write takes (saveReportMeta: normalize, log, undo step).
+   *  The ref follows the blob after each commit — the sheet's taps are separate events, so each
+   *  one reads the write before it. */
+  const reportMetaRef = useRef(reportMeta)
+  useEffect(() => { reportMetaRef.current = reportMeta }, [reportMeta])
+  const patchReportMeta = useCallback((over: Partial<ReportMeta>) => saveReportMeta({ ...reportMetaRef.current, ...over }), [saveReportMeta])
 
   // the media queue, the one sync status the badge shows, «Jetzt synchronisieren» and the pre-close
   // drain (workspace/useMediaOutbox)
@@ -1615,6 +1633,8 @@ export function IncidentWorkspace({
     // «beim Abschluss noch drin» rows (#227), so those go up with them.
     flushOutboxes: flushRecordOutboxes,
     markClosing,
+    // the rows' buttons and the pre-filled Einsatzende write the Rapport — only where it may be edited
+    patchReportMeta: canEditRapport ? patchReportMeta : undefined,
   })
   // --- the Atemschutz clocks across «Wieder öffnen» (staging r3, F4; lib/reopenClocks) ----------
   // The newest close/reopen boundary in the Verlauf, the server's own rows. Right after a reopen
@@ -1918,8 +1938,7 @@ export function IncidentWorkspace({
   // threaded in so the handlers behave identically to their former inline selves.
   const {
     draft, setDraft,
-    drawColor, setDrawColor, drawWidth, setDrawWidth, drawDashed, setDrawDashed,
-    setDrawMarker, setDrawArrow,
+    drawColor, drawWidth, drawDashed,
     lineMode, setLineMode, areaMode, setAreaMode,
     draftActive, lineNodes, freehandKind, selectedDrawing,
     commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, patchDrawing, patchDrawingById,
@@ -3256,9 +3275,9 @@ export function IncidentWorkspace({
         symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone,
         vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, log,
         assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
-        noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing, setDrawColor, setDrawWidth,
-        setDrawDashed, selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel, setDrawMarker,
-        setDrawArrow, changeMapEnding, reverseDrawing, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
+        noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
+        selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
+        changeMapEnding, reverseDrawing, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
         unlinkLine, setSelectedDrawingId, setMode, setPanel, setGpsRouting, revertAll, gpsEndOf, releaseHere,
         releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing,
       }} />
@@ -3303,7 +3322,7 @@ export function IncidentWorkspace({
         <ChecklistsView
           checklists={checklists}
           canTick={canTick}
-          divera={{ title: incidentMeta.title, type: incidentMeta.type ?? undefined }}
+          incidentTitle={incidentMeta.title}
           onTick={toggleTick}
           onBranch={setBranch}
           onAction={checklistAction}

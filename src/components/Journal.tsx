@@ -12,7 +12,7 @@ import { appConfig } from '../config/appConfig'
 import { dueClock, fillTemplate, fmtDuration, formatTime } from '../lib/format'
 import { safeHref, thumbUrl } from '../lib/mediaUrl'
 import { ART_DISC, groupByDay, isHandWritten, isNachtrag, repeatRuns, rowGlyph, rowPhotos, rowText, rowTime, type ArtTone } from '../lib/verlauf'
-import { journalDisc } from '../lib/report'
+import { journalDisc, withoutAreaPrefix } from '../lib/report'
 import { journalQuery, matchesJournalQuery } from '../lib/journalSearch'
 import { journalCategories, journalFacets, matchesJournalCategories, showsPinnedPendenzen, type JournalCategoryKind } from '../lib/journalFilter'
 import type { OpenReminder } from '../lib/reminders'
@@ -148,7 +148,7 @@ function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'pla
     { icon: 'box', label: R.areaMittel },
     { icon: 'clipboard', label: R.areaRapport },
     { icon: 'check', label: R.areaChecklist },
-    { icon: 'type', label: R.areaManual },
+    { icon: 'type', label: C.entryTypes.info },
     { ...ART_DISC.auftrag, label: C.entryTypes.auftrag },
     { ...ART_DISC.sofort, label: C.entryTypes.sofort },
     { ring: 'open', label: C.legendPendenzOpen },
@@ -159,7 +159,7 @@ function legendEntries(): { label: string; icon?: string; surface?: 'map' | 'pla
 
 /** The disc a filter row wears — the legend's disc for the same Bereich, so the menu reads as the
  *  legend with ticks. Auftrag and Sofortmassnahme wear their Art's disc, as their rows do
- *  (lib/verlauf · ART_DISC); «Manuell» keeps the composer's «T». */
+ *  (lib/verlauf · ART_DISC); «Info» keeps the composer's «T». */
 const FILTER_DISC: Record<JournalCategoryKind, { icon?: string; surface?: 'map' | 'plan'; tone?: ArtTone; ring?: RingState }> = {
   manual: { icon: 'type' }, auftrag: ART_DISC.auftrag, sofort: ART_DISC.sofort, pendenz: { ring: 'open' },
   map: { icon: 'circle', surface: 'map' }, plan: { icon: 'flag', surface: 'plan' },
@@ -310,6 +310,9 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   // actions it is the one that happens mid-incident under time pressure, so it keeps (and
   // grows) its one-tap spot.
   const [detailId, setDetailId] = useState<string | null>(null)
+  // the sheet's title is the row's message, capped at five lines (10-journal · .jr-detail-title);
+  // a capped one stands whole in the body too, so no word of the record is out of reach
+  const [detailClamped, setDetailClamped] = useState(false)
   // recordings as windows on the incident timeline: a row whose time falls inside one is
   // an annotation of that recording and links back into the player at its moment
   const audioWindows = useMemo(() => events
@@ -343,11 +346,13 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
   )
   // The filter menu's rows and counts. Counted over what the list would show WITHOUT the ticks —
   // the folded rows the search keeps — so each number is what ticking that row would add.
-  const facets = useMemo(() => {
+  // ⚠️ «Alle zeigen» counts ROWS, not the facets' sum: a typed Pendenz row counts under its Art
+  // AND under «Pendenz» (lib/journalFilter), so the sum would count it twice.
+  const { facets, facetTotal } = useMemo(() => {
     const folded = events.filter((e) => !repeats.hidden.has(e.id))
-    return journalFacets(folded, folded.filter((e) => matchesJournalQuery(e, query)), categories, filterSel)
+    const counted = folded.filter((e) => matchesJournalQuery(e, query))
+    return { facets: journalFacets(folded, counted, categories, filterSel), facetTotal: counted.length }
   }, [events, repeats, query, categories, filterSel])
-  const facetTotal = facets.reduce((n, f) => n + f.count, 0)
   const filterOn = facets.filter((f) => filterSel.has(f.key)).map((f) => f.label).join(' · ')
   const [pageCount, setVisibleCount] = useState(PAGE_ROWS)
   // no observer (jsdom, an old WebView): everything, as before
@@ -1218,14 +1223,24 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
           // isHandWritten) — so the sheet answers «warum kann ich das nicht ändern» with the
           // same rule that decides it, instead of leaving an absent button to explain itself.
           const byHand = isHandWritten(e)
+          // THE TITLE is the message itself (owner's pick 8, sweep E.4 — it reused the composer's
+          // «Neuer Eintrag»), without the type tag the composer writes into the text («Auftrag · …»):
+          // the meta line under it says the Art. A row that IS the bare tag (a photo-only
+          // Sofortmassnahme) keeps its own word.
+          const title = withoutAreaPrefix(rowText(e)) || rowText(e)
+          // THE META LINE: when to the second · the Art (Info · Auftrag · Sofortmassnahme · Pendenz)
+          // or the Bereich (Tafel, Lage …) — the filter's two groups (sweep E.5) — · who wrote it.
+          // The time is the only place in the app that prints SECONDS: the list shows HH:MM, so «why
+          // is this line above that one» has no answer anywhere else (the Verlauf sorts on the full
+          // stamp — lib/journalStore · chronological).
+          const meta = [
+            e.at ? formatTime(new Date(e.at), true) : null,
+            disc?.label,
+            byHand ? C.detailSourceManual : C.detailSourceSystem,
+          ].filter(Boolean).join(' · ')
+          // THE FACTS: what the meta line does not say, in the order the questions get asked after
+          // the fact — what came with it, and what happened to it afterwards
           const facts: { k: string; v: string; sub?: string }[] = [
-            ...(e.at ? [{ k: C.detailTime, v: formatTime(new Date(e.at), true) }] : []),
-            ...(disc ? [{ k: C.detailArea, v: disc.label }] : []),
-            {
-              k: C.detailSource,
-              v: byHand ? C.detailSourceManual : C.detailSourceSystem,
-              ...(byHand ? {} : { sub: C.detailSourceSystemHint }),
-            },
             ...(photos.length
               ? [{ k: C.detailAttachments, v: photos.length === 1 ? C.detailAttachmentsOne : fillTemplate(C.detailAttachmentsN, { n: photos.length }) }]
               : []),
@@ -1246,7 +1261,7 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
               ? [{
                   k: C.detailCorrected,
                   v: formatTime(new Date(e.correctedAt), true),
-                  ...(e.textOriginal ? { sub: fillTemplate(C.detailCorrectedFirst, { text: e.textOriginal }) } : {}),
+                  ...(e.textOriginal ? { sub: fillTemplate(C.detailCorrectedFirst, { text: withoutAreaPrefix(e.textOriginal) || e.textOriginal }) } : {}),
                 }]
               : []),
             ...(repeated > 1
@@ -1256,7 +1271,15 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
           ]
           return (
             <Sheet open onClose={() => setDetailId(null)} fit sheetClassName="jr-detail"
-              title={`${rowTime(e)} · ${e.audioUrl ? C.audioClipLabel : C.composerTitle}`}>
+              title={(
+                <span className="jr-detail-title" ref={(el) => { if (el) setDetailClamped(el.scrollHeight > el.clientHeight + 1) }}>
+                  {marked(title, e.subjectId)}
+                </span>
+              )}>
+              <p className="jr-detail-meta">
+                {meta}
+                {!byHand && <small>{C.detailSourceSystemHint}</small>}
+              </p>
               {/* THE PICTURES, before the paperwork. A photo row's text is «Foto» or the Bereich's
                   own word (lib/verlauf · rowText), so the sheet used to open on a sentence that
                   said nothing about the one thing the row was written to carry — and the picture
@@ -1275,8 +1298,9 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                   ))}
                 </div>
               )}
-              {/* the row's own words, and — on a memo — what it says (the list's subtitle chrome) */}
-              <p className="jr-detail-text">{marked(rowText(e), e.subjectId)}</p>
+              {/* the row's own words, whole, when the title had to stop at five lines */}
+              {detailClamped && <p className="jr-detail-text">{marked(rowText(e), e.subjectId)}</p>}
+              {/* …and on a memo what it says (the list's subtitle chrome) */}
               {e.audioUrl && hasTx && (
                 <div className="jr-subs">
                   {e.transcript && <p><span>{marked(e.transcript)}</span></p>}
@@ -1285,23 +1309,19 @@ export function Journal({ events, plans, closedAt, vocab = [], onSelect, onClose
                   ))}
                 </div>
               )}
-              {/* ── THE FACTS ──
-                  One line per thing the append-only record actually holds about this row, in the
-                  order the questions get asked after the fact: when exactly, under what, written
-                  by whom or by what, what came with it, and what happened to it afterwards.
-                  ⚠️ Only lines with an answer are printed — a table of «–» teaches nothing and
-                  buries the one fact that IS there. And the time is the only place in the app
-                  that prints SECONDS: the list shows HH:MM, so «why is this line above that one»
-                  has no answer anywhere else (the Verlauf now sorts on the full stamp —
-                  lib/journalStore · chronological). */}
-              <dl className="jr-detail-facts">
-                {facts.map((f) => (
-                  <div key={f.k}>
-                    <dt>{f.k}</dt>
-                    <dd>{f.v}{f.sub && <small>{f.sub}</small>}</dd>
-                  </div>
-                ))}
-              </dl>
+              {/* ── THE FACTS ── what the meta line does not say (`facts` above). ⚠️ Only lines with
+                  an answer are printed — a table of «–» teaches nothing and buries the one fact
+                  that IS there; a plain row has no table at all. */}
+              {facts.length > 0 && (
+                <dl className="jr-detail-facts">
+                  {facts.map((f) => (
+                    <div key={f.k}>
+                      <dt>{f.k}</dt>
+                      <dd>{f.v}{f.sub && <small>{f.sub}</small>}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
               <div className="jr-detail-acts">
                 {e.audioUrl && e.audioMeta && onOpenPlayer && (
                   <Button block icon={<Icon id="wave" />}

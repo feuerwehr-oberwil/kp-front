@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { fitSimilarity, type GeorefPair } from './georef'
 import {
-  applyBoardToObjects, applyDocToObjects, bakeGeoBody, bakeSheetSymbol,
+  applyBoardToObjects, applyDocToObjects, bakeGeoBody,
   anchorChanges, bakePlan, objectsFromLegacy, sheetAnchoredIds, sheetAnnos, viewsOf, type TacticalObject,
 } from './tacticalObjects'
 import type { BoardAnno, Drawing, Entity } from '../types'
@@ -260,22 +260,6 @@ describe('bakeGeoBody — the write-through that makes the record self-contained
   it('without a fit the object stays sheet-only — honestly absent from the map', () => {
     const o: TacticalObject = { id: 's1', sheet: { planId: 'modul2', anno: anno('s1') } }
     expect(bakeGeoBody(o, undefined, 'taktisch')).toBe(o)
-  })
-})
-
-describe('bakeSheetSymbol — the drag-onto-the-sheet door', () => {
-  it('creates the sheet body at the drop point and keeps one id', () => {
-    const o: TacticalObject = { id: 'e1', entity: ent('e1', { floor: 1, reachM: 25 }) }
-    const baked = bakeSheetSymbol(o, 'modul2', { x: 0.25, y: 0.75 }, PLAN)!
-    expect(baked.sheet?.planId).toBe('modul2')
-    expect(baked.sheet?.anno.id).toBe('e1')
-    expect(baked.sheet?.anno.storey).toBe(1)
-    expect(baked.sheet?.anno.reachN).toBeCloseTo(0.25, 5)
-  })
-
-  it('refuses a live vehicle — an overlay is not a record', () => {
-    const o: TacticalObject = { id: 'v1', entity: ent('v1', { live: true }) }
-    expect(bakeSheetSymbol(o, 'modul2', { x: 0.5, y: 0.5 }, PLAN)).toBeNull()
   })
 })
 

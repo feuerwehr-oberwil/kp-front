@@ -1,7 +1,7 @@
 /*
  * **The Auswertung is a Beilage of the PDF, not a screen** (F7, 09.10.2026 — owner: «maybe just
  * on the pdf export?»). Key figures + a swimlane timeline + the Lehren, printed on its own
- * landscape sheet at the END of the Rapport (backend · report_pdf · `_auswertung_story`), so the
+ * landscape sheet at the END of the Rapport (backend · app/report · `_auswertung_story`), so the
  * Kader copy carries it and the signed part handed to a Gemeinde can be stapled without it.
  * Switched by `ReportOptions.auswertung` (on for the Rapport sheet, off for the QR-Erfassung's own
  * PDF).
@@ -401,7 +401,7 @@ export function tickStepMin(spanMin: number): number {
 }
 
 /**
- * The payload block the server prints (backend · report_pdf · AuswertungIn). Times are MINUTES
+ * The payload block the server prints (backend · app/report · AuswertungIn). Times are MINUTES
  * after the axis start; every string is finished, in the deployment's language.
  */
 export function auswertungForPdf(a: Auswertung, input: Pick<AuswertungInput, 'contactIntervalMin' | 'contactGraceSec'>, lehren?: string) {
@@ -504,5 +504,3 @@ export function auswertungForPdf(a: Auswertung, input: Pick<AuswertungInput, 'co
     lehrenNote: lehren?.trim() ? C.lehrenSeePage1 : undefined,
   }
 }
-
-export type AuswertungPdf = ReturnType<typeof auswertungForPdf>

@@ -56,3 +56,43 @@ def test_ranking_is_stable_behind_the_home_town():
 def test_no_locality_configured_keeps_the_upstream_order():
     hits = [_hit("A 1 4103 Bottmingen"), _hit("B 2 4104 Oberwil")]
     assert [h.label[0] for h in _home_first(hits, "")] == ["A", "B"]
+
+
+def _result(label: str) -> dict:
+    return {"attrs": {"label": label, "lat": 47.51, "lon": 7.55}}
+
+
+async def _search_with(monkeypatch, query: str, labels: list[str]) -> list[str]:
+    """`search` against a canned swisstopo answer: no network, the bias as on Oberwil."""
+    from app import geocode
+
+    async def bias() -> tuple[str, str]:
+        return LOCALITY, ""
+
+    async def upstream(_text: str, _bbox: str, _limit: int) -> list[dict]:
+        return [_result(label) for label in labels]
+
+    monkeypatch.setattr(geocode, "_resolve_bias", bias)
+    monkeypatch.setattr(geocode, "_upstream", upstream)
+    return [h.label for h in await geocode.search(query)]
+
+
+async def test_a_query_matching_nothing_lists_no_addresses(monkeypatch):
+    """⚠️ Sweep F.3. «xyzqq» goes out as «xyzqq 4104 Oberwil»; swisstopo drops the token it
+    cannot place and answers with real Oberwil addresses – plausible wrong pins at 3am."""
+    labels = ["Im Spitzenhägli 2 4104 Oberwil", "Bruderholzhof 160f 4104 Oberwil", "Oberwil (BL)"]
+    assert await _search_with(monkeypatch, "xyzqq", labels) == []
+    assert await _search_with(monkeypatch, "xyzqq 12", labels) == []
+
+
+async def test_a_typed_street_survives_the_filter(monkeypatch):
+    """A half-typed or abbreviated street, umlauts typed or not, still finds its address."""
+    labels = ["Mühlemattstrasse 22 4104 Oberwil", "Im Spitzenhägli 2 4104 Oberwil"]
+    for query in ("Mühlemattstr", "muehlemattstr 22", "Muhlematt", "mühlemattsrasse 22"):
+        assert await _search_with(monkeypatch, query, labels) == ["Mühlemattstrasse 22 4104 Oberwil"], query
+
+
+async def test_a_locality_typed_by_the_operator_counts(monkeypatch):
+    labels = ["Hauptstrasse 4 4103 Bottmingen"]
+    assert await _search_with(monkeypatch, "Hauptstr 4, Bottmingen", labels) == labels
+    assert await _search_with(monkeypatch, "4103", labels) == labels

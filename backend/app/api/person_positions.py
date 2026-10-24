@@ -58,8 +58,8 @@ from ..auth.capture_limiter import position_limiter
 from ..auth.client_ip import client_ip
 from ..auth.dependencies import CurrentUser
 from ..database import dialect_insert, execute_dml, get_db
+from ..incident_service import INCIDENT_NOT_FOUND, get_incident_or_404
 from ..models import Incident, Personnel, PersonPosition
-from .incidents import INCIDENT_NOT_FOUND, get_incident_or_404
 
 
 class PositionIn(BaseModel):

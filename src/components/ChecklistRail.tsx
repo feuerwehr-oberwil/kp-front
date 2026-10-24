@@ -19,7 +19,7 @@ import s from './Checklists.module.css'
 
 export type RailLook = 'card' | 'rail'
 
-/** a template's row: the check (a checklist), the Rapport glyph or the document (an Anleitung) */
+/** a template's row: the empty boxes (an Aufgaben list), the Rapport glyph or the document (an Anleitung) */
 export function TemplateRow({ template, title, sub, end, on, onOpen }: {
   template: ChecklistTemplate
   /** default: the template's title (the library passes it with the search hit marked) */
@@ -30,7 +30,7 @@ export function TemplateRow({ template, title, sub, end, on, onOpen }: {
   onOpen: () => void
 }) {
   return (
-    <ListRow lead={<Icon id={template.kind === 'rapport' ? 'history' : template.kind === 'manual' ? 'doc' : 'check'} />} title={title ?? template.title}
+    <ListRow lead={<Icon id={template.kind === 'rapport' ? 'history' : template.kind === 'manual' ? 'doc' : 'tasks'} />} title={title ?? template.title}
       sub={sub} end={end} on={on} onClick={onOpen} />
   )
 }

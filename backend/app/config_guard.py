@@ -56,12 +56,12 @@ __all__ = [
 RUNTIME_SECTIONS: tuple[str, ...] = ("referenceLayers",)
 
 #: Fields the RESPONSE carries and the document does not: env-derived integration flags, the
-#: computed vocabulary summary, the version token, these warnings themselves. Every caller that
+#: computed vocabulary summary, the Kategorien labels, the version token, these warnings themselves. Every caller that
 #: GETs the document, edits one field and PUTs the whole thing back — which is what the admin UI
 #: does on every autosave — hands them straight back, and `extra="ignore"` drops them. So they
 #: are not typos and must not be reported as dropped keys: four bogus warnings on every save is
 #: how a report nobody reads is made.
-RESPONSE_ONLY_FIELDS: tuple[str, ...] = ("integrations", "alarmVocabulary", "version", "warnings")
+RESPONSE_ONLY_FIELDS: tuple[str, ...] = ("integrations", "alarmVocabulary", "categoryLabels", "version", "warnings")
 
 
 def carry_runtime_sections(

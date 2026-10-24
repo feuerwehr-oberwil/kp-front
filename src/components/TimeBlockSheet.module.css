@@ -44,7 +44,7 @@ button.headMain:active { background-image: linear-gradient(var(--press), var(--p
 .tonePlanned { background: var(--blue-16); color: var(--blue-strong); }
 .toneOpen { background: var(--green-16); color: var(--green-strong); }
 .toneDone { background: var(--ink-5); color: var(--ink-dim); }
-.cardWarn .head { background: var(--red-16); color: var(--red); }
+.cardWarn .head { background: var(--red-16); color: var(--red-strong); }
 /* the head is also a switch, and the sign for that is always on screen: a ⇄ at the head's right
    edge, beside the duration – the number is the thing that flips. The hover-revealed word only
    ever spoke to a pointer; an iPad never saw it. */

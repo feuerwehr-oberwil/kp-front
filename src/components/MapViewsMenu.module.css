@@ -36,7 +36,7 @@
    against the dark background, but two adjacent HIGHLIGHTED rows (.on, or the saved-views list)
    share the same background fill with nothing between them and merge into one solid block. A
    real gap after every row gives both cases the same visible seam. */
-/* a row, not a button: `--r-ctl` (AGENTS.md · Buttons) — the same radius the Ebenen rows
+/* a row, not a button: `--r-ctl` (docs/ui-conventions.md · Buttons) — the same radius the Ebenen rows
    beside this dock carry. */
 .row { display: flex; align-items: center; gap: 2px; width: 100%; min-height: 44px; border-radius: var(--r-ctl); margin-bottom: 4px; }
 .row.on { background: var(--sel-wash); }

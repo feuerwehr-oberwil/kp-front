@@ -33,7 +33,8 @@ describe('useAbschluss', () => {
     expect(closed.azFrozenAt).toBe(Date.parse('2026-09-23T03:30:00Z'))
   })
 
-  it('a close on ANOTHER device stops the alarm here, in place — no remount (N3, 25.09.2026)', () => {
+  // N3, 25.09.2026
+  it('a close on ANOTHER device stops the alarm here, in place — no remount', () => {
     // App flips the live meta when the close is heard (App · onIncidentClosed); the hook that
     // drives the AtemschutzAlarmHost must follow the SAME mount, not only the next open
     let meta: Parameters<typeof useAbschluss>[0]['incidentMeta'] = { is_archived: false, status: 'offen', closed_at: null }
@@ -53,7 +54,8 @@ describe('useAbschluss', () => {
     expect(r.truppsStillOut).toBe(0)
   })
 
-  it('drains the Verlauf and audit outboxes BEFORE the handover (review of #235)', async () => {
+  // review of #235
+  it('drains the Verlauf and audit outboxes BEFORE the handover', async () => {
     // after the archive they would be judged against a closed Einsatz
     vi.mocked(confirmDialog).mockResolvedValueOnce(true)
     const order: string[] = []
@@ -66,7 +68,8 @@ describe('useAbschluss', () => {
     expect(order).toEqual(['outboxes', 'complete'])
   })
 
-  it('marks the rows written between the confirm and the close as the Abschluss\'s own (staging r6, F3)', async () => {
+  // staging r6, F3
+  it('marks the rows written between the confirm and the close as the Abschluss\'s own', async () => {
     vi.mocked(confirmDialog).mockResolvedValueOnce(true)
     const marks: boolean[] = []
     const seen: string[] = []
@@ -94,7 +97,8 @@ describe('useAbschluss', () => {
     expect(marks).toEqual([])
   })
 
-  it('the «beim Abschluss noch drin» rows are written under the close mark (#227 × #235, staging integration)', async () => {
+  // #227 × #235, staging integration
+  it('the «beim Abschluss noch drin» rows are written under the close mark', async () => {
     // the crews question («trotzdem») and then the Abschluss confirm
     vi.mocked(confirmDialog).mockResolvedValueOnce(true).mockResolvedValueOnce(true)
     const marks: boolean[] = []
@@ -293,6 +297,77 @@ describe('useAbschluss', () => {
       confirmLabel: appConfig.copy.abschluss.confirmAnyway,
       cancelLabel: appConfig.copy.abschluss.confirmBack,
       safeAnswer: 'cancel',
+    })
+  })
+
+  /* The sheet's rows answer themselves and the Einsatzende is pre-filled (3am sweep, 23.10.2026,
+     owner's point 4): «Zeiten» stood open on almost every close because nothing ever set it. */
+  describe('the «Noch offen» sheet settles points in place', () => {
+    const A = appConfig.copy.abschluss
+    type Ask = Parameters<typeof confirmDialog>[0]
+
+    it('pre-fills an empty Einsatzende as a done row and writes it with the close, before the handover', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValueOnce(true)
+      const order: string[] = []
+      const patchReportMeta = vi.fn((over: Partial<ReportMeta>) => { order.push(`patch:${Object.keys(over).join()}`) })
+      const a = args({ patchReportMeta, onCompleteRapport: vi.fn(async () => { order.push('complete'); return true }) })
+      await expect(renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()).resolves.toBe(true)
+      const spec = ask.mock.calls[0][0] as Ask
+      // the first row IS the Einsatzende, already set, with «Ändern»; «Zeiten» is not on the list
+      expect(spec.items?.[0]).toMatchObject({ label: A.ende, done: true, action: { label: A.endeChange, leaves: true } })
+      expect(spec.items?.slice(1).map((i) => typeof i === 'string' ? i : i.label)).not.toContain(A.steps.zeiten)
+      expect(order).toEqual(['patch:endedAt', 'complete'])
+      expect(patchReportMeta.mock.calls[0][0].endedAt).toMatch(/^\d{4}-/)
+    })
+
+    it('pre-fills nothing when the Ende is set, or when the Rapport may not be written', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValue(true)
+      const patchReportMeta = vi.fn()
+      await renderHook(() => useAbschluss(args({ patchReportMeta, reportMeta: { endedAt: '2026-10-23T20:00:00Z' } as ReportMeta }))).result.current.confirmAndComplete()
+      expect(patchReportMeta).not.toHaveBeenCalled()
+      expect((ask.mock.calls[0][0] as Ask).items?.some((i) => typeof i !== 'string' && i.label === A.ende)).toBe(false)
+      await renderHook(() => useAbschluss(args())).result.current.confirmAndComplete()
+      const spec = ask.mock.calls[1][0] as Ask
+      expect(spec.items?.some((i) => typeof i !== 'string' && i.label === A.ende)).toBe(false)
+      // …and the rows are plain links then: no buttons on a sheet that cannot write
+      expect(spec.items?.every((i) => typeof i === 'string' || !i.action)).toBe(true)
+    })
+
+    it('a row\'s button writes at once; the re-read sheet keeps the row as done and re-words itself', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValueOnce(false)
+      const patchReportMeta = vi.fn()
+      // everything but Material answered already
+      const meta = { endedAt: '2026-10-23T20:00:00Z', einsatzleiter: 'Muster', kontaktpersonNone: true, summary: 'ok', rueckmeldungNone: true } as ReportMeta
+      const a = args({ patchReportMeta, reportMeta: meta, attendance: { p1: {} } as never })
+      await renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()
+      const spec = ask.mock.calls[0][0] as Ask
+      expect(spec).toMatchObject({ confirmLabel: A.confirmAnyway, safeAnswer: 'cancel' })
+      const row = spec.items?.find((i) => typeof i !== 'string' && i.label === A.steps.mittel)
+      expect(row).toMatchObject({ action: { label: A.fix.mittel } })
+      if (typeof row === 'string' || !row?.action) throw new Error('no row')
+      row.action.onClick()
+      expect(patchReportMeta).toHaveBeenCalledWith({ mittelConfirmedNone: true })
+      // the sheet re-reads: nothing open any more — plain «Abschliessen», the row stays, done
+      const next = spec.refresh!()
+      expect(next).toMatchObject({ message: A.confirmMsg, confirmLabel: A.confirmBtn, safeAnswer: undefined })
+      expect(next.items?.[0]).toMatchObject({ label: A.steps.mittel, done: true, end: A.fix.mittel })
+    })
+
+    it('«Ändern» on the pre-filled Ende writes it and goes to the Rapport\'s field', async () => {
+      const ask = vi.mocked(confirmDialog)
+      ask.mockReset().mockResolvedValueOnce(false)
+      const patchReportMeta = vi.fn()
+      const a = args({ patchReportMeta })
+      await renderHook(() => useAbschluss(a)).result.current.confirmAndComplete()
+      const ende = (ask.mock.calls[0][0] as Ask).items?.[0]
+      if (typeof ende === 'string' || !ende?.action) throw new Error('no Ende row')
+      ende.action.onClick()
+      expect(patchReportMeta).toHaveBeenCalledWith({ endedAt: expect.stringMatching(/^\d{4}-/) })
+      expect(a.requestReportStep).toHaveBeenCalledWith('zeiten')
+      expect(a.setMode).toHaveBeenCalledWith('rapport')
     })
   })
 })

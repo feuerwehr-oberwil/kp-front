@@ -2,7 +2,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate, formatSymbolName } from './format'
 import { linePresetLabel } from './lineStyle'
 import { floorLabel } from './whiteboard'
-import type { BoardAnno, Drawing, Entity } from '../types'
+import type { BoardAnno, Drawing, Entity, LineContent } from '../types'
 
 /**
  * What changed on a drawing, in words — the Verlauf line for editing a line/Fläche on the Kroki.
@@ -53,7 +53,7 @@ export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
   // «Typ: Wasser» (03.09., 07:52) — that read on paper as three properties holding at once
   // rather than as one line whose type was corrected twice.
   if ((prev.content ?? '') !== (next.content ?? '')) {
-    const label = (c: string | undefined) => (c ? (appConfig.copy.lineDecor[c] ?? c) : E.contentPlain)
+    const label = (c: LineContent | undefined) => (c ? (appConfig.copy.lineDecor[c] ?? c) : E.contentPlain)
     out.push(statement(E.content, label(next.content), !!prev.content))
   }
 

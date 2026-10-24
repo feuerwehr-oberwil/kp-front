@@ -1,3 +1,10 @@
+// The Rapport – the Einsatzrapport as a full surface, not a dialog: the Einsatzdaten and Zeiten,
+// the Kontrolle of what is still open, the print options with the Kroki framing panel, the PDF,
+// the Unterschriften and the «Abschliessen» band. It reads the Einsatz's own record (Verlauf,
+// Anwesenheit, Mittel, Trupps) rather than asking for it twice; what it prints comes from
+// lib/report. The close runs only through `onComplete` (the one shared Abschluss confirm).
+// Rules for this area: docs/rapport.md.
+
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../lib/icons'
 import { Button, IconButton } from './Button'
@@ -24,9 +31,7 @@ import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { ShareIncident } from './panels/ShareIncident'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable, telHref, unitLabel } from '../lib/format'
-import type { IncidentMeta } from '../lib/incidents'
-import { getIncident, verifyChain } from '../lib/incidents'
-import { closeTimeOf } from '../lib/api/incidents'
+import { closeTimeOf, getIncident, verifyChain, type IncidentMeta } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
 import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock, zeitIssues } from '../lib/alarmzeiten'
 import { fahrtenText } from '../lib/vehiclePresence'
@@ -221,7 +226,7 @@ function ReadOut({ value }: { value?: string | null }) {
  * end of them. Three tabs put each of those within one screen.
  *
  * ⚠️ It decides what is SHOWN, never the order: the DOM stays in the printed rapport's order
- * (report_pdf.py / admin/capturePdf.ts), and from 601px up the bar is `display: none` and every
+ * (app/report / admin/capturePdf.ts), and from 601px up the bar is `display: none` and every
  * section is on screen exactly as it is today — the two-column layout at 1080 is untouched.
  *
  * ⚠️ THREE, and only three. Anwesenheit and Material were tried as two more tabs here
@@ -1441,7 +1446,7 @@ export function ReportPreflight({
                 Nothing actionable is lost: every state that needs a person is a warning, and a
                 warning still lands here, amber, counted, in the same glance as the button that
                 makes the paper. The Prüfnachweis read-out goes with it while it is intact —
-                the signed paper is the record (report_pdf · decision E), and «intact» is not
+                the signed paper is the record (app/report · decision E), and «intact» is not
                 news. A BROKEN chain is, and that raises the chip.
                 Not rendered while checking either: a spinner that resolves to nothing a moment
                 later is a flicker on the row, and the check is the app's business, not the
@@ -1667,7 +1672,7 @@ export function ReportPreflight({
               made one column two screens tall on a page half of which was margin; side by side
               the Zeiten grid gets the width it was always asking for and the checklist stays
               visible while the form is being typed. The DOM order is untouched — it is the order
-              of the printed rapport and of the paper Erfassungsblatt (report_pdf.py,
+              of the printed rapport and of the paper Erfassungsblatt (app/report,
               admin/capturePdf.ts, both tested) — the columns only decide WHERE, never in which
               order things are read. */}
           <div className="rp-col rp-col-form">
@@ -2100,7 +2105,7 @@ export function ReportPreflight({
                     <DateTimeField ariaLabel={P.incidentEndLabel} value={dtLocalToIso(endedAt)}
                       days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
                       onCommit={(iso) => { setEndedAt(dtLocalValue(iso ?? undefined)); persist({ endedAt: iso ?? undefined }) }} />
-                    <button type="button" className="ip-btn" onClick={() => { const v = dtLocalValue(new Date().toISOString()); setEndedAt(v); persist({ endedAt: dtLocalToIso(v) }) }}>{P.now}</button>
+                    <button type="button" className="ip-btn" onClick={() => { const v = dtLocalValue(serverNowIso()); setEndedAt(v); persist({ endedAt: dtLocalToIso(v) }) }}>{P.now}</button>
                   </div>
                 ) : <ReadOut value={whenOf(dtLocalToIso(endedAt))} />}
                 {zeitWarn('ende')}
@@ -2188,7 +2193,7 @@ export function ReportPreflight({
                         days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
                         onCommit={(iso) => { setRueckAt(iso ?? ''); persist(rueckOver(rueckName, iso ?? '')) }} />
                       <button type="button" className="ip-btn"
-                        onClick={() => { const iso = new Date().toISOString(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>
+                        onClick={() => { const iso = serverNowIso(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>
                     </div>
                     {/* the same plausibility hint the Einsatzende carries — this field has a DATE
                         wheel and is usually filled in from memory, so it is the likeliest of the
@@ -2254,7 +2259,7 @@ export function ReportPreflight({
                 </div>
               )}
             </CheckRow>
-            <CheckRow anchor="mittel" tab="werwas" done={stepDone('mittel', facts)} label={A.steps.mittel} sub={fillTemplate(A.mittelCount, { n: mittelCount })} onGo={onOpenMittel}>
+            <CheckRow anchor="mittel" tab="werwas" done={stepDone('mittel', facts)} label={A.steps.mittel} sub={A.mittelCount(mittelCount)} onGo={onOpenMittel}>
               {mittelCount > 0 && (
                 <div className="rp-check-extra">
                   <div className="rp-people">

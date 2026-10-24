@@ -48,7 +48,7 @@ export const NOTFALL_FIRED_MS = 450
  * A click with no pointer behind it (keyboard, switch access: `detail === 0`) cannot hold, so it
  * asks ONE question instead, the safe answer focused.
  * ⚠️ `data-holdaction` rides in on the hold's props, so the app-wide hold-tooltip never claims the
- * press (AGENTS.md · touch vocabulary).
+ * press (docs/ui-conventions.md · Touch vocabulary).
  */
 export function NotfallHold({ end = false, onFire, className }: {
   /** the «Notfall beendet» face of the tile */

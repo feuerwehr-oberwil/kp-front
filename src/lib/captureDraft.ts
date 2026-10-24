@@ -2,36 +2,37 @@
 // (a phone lock mid-sentence must not lose the Kurzbericht), a debounced flusher that
 // chains overlapping saves per field/line, and the clock-skew readout for the backend's
 // X-Server-Time header. Pure logic — the CaptureApp wires it to inputs and saveAction.
+//
+// A draft is one lib/incidentPrefStore value per incident AND field (best-effort; the storage is
+// passed in — sessionStorage in the app, a map in tests). ⚠️ Key and stored shape are what a
+// phone holds mid-Einsatz: `kp.capture.draft.<incident>.<field>` → `{"v": text, "at": ms}`.
 
-/** Storage-shaped for tests; sessionStorage in the app. */
-export interface DraftStore {
-  getItem(key: string): string | null
-  setItem(key: string, value: string): void
-  removeItem(key: string): void
+import { incidentPrefStore, type PrefStorage } from './incidentPrefStore'
+
+/** A stored draft: the text, and when it was typed (`at` is written, never read). */
+interface StoredDraft { v: string; at?: number }
+
+const drafts = (store: PrefStorage, field: string) => incidentPrefStore<StoredDraft>({
+  key: (incidentId) => `kp.capture.draft.${incidentId}.${field}`,
+  parse: (d) => (typeof d === 'object' && d !== null && 'v' in d && typeof d.v === 'string' ? { v: d.v } : undefined),
+  storage: () => store,
+})
+
+export function saveDraft(store: PrefStorage, incidentId: string, field: string, value: string): void {
+  drafts(store, field).write(incidentId, { v: value, at: Date.now() })
 }
 
-const draftKey = (incidentId: string, field: string) => `kp.capture.draft.${incidentId}.${field}`
-
-export function saveDraft(store: DraftStore, incidentId: string, field: string, value: string): void {
-  try { store.setItem(draftKey(incidentId, field), JSON.stringify({ v: value, at: Date.now() })) } catch { /* quota/private mode — drafts are best-effort */ }
+export function loadDraft(store: PrefStorage, incidentId: string, field: string): string | null {
+  return drafts(store, field).read(incidentId)?.v ?? null
 }
 
-export function loadDraft(store: DraftStore, incidentId: string, field: string): string | null {
-  try {
-    const raw = store.getItem(draftKey(incidentId, field))
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as { v?: unknown }
-    return typeof parsed?.v === 'string' ? parsed.v : null
-  } catch { return null }
-}
-
-export function clearDraft(store: DraftStore, incidentId: string, field: string): void {
-  try { store.removeItem(draftKey(incidentId, field)) } catch { /* best-effort */ }
+export function clearDraft(store: PrefStorage, incidentId: string, field: string): void {
+  drafts(store, field).clear(incidentId)
 }
 
 /** Drafts clear on successful save, so a surviving draft that differs from the saved
  *  value is by definition newer/unsaved — it wins. Identical or absent → saved value. */
-export function restoreDraft(store: DraftStore, incidentId: string, field: string, saved: string): string {
+export function restoreDraft(store: PrefStorage, incidentId: string, field: string, saved: string): string {
   const draft = loadDraft(store, incidentId, field)
   return draft !== null && draft !== saved ? draft : saved
 }

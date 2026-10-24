@@ -49,7 +49,7 @@
    applied, which removed the only way back to it after scrolling the wheels. */
 /* …and pressed is THE choice fill (01-tokens · --sel); the green tab fills green */
 .tabOn { background: var(--sel); border-color: var(--sel); color: var(--on-sel); box-shadow: var(--sel-shadow); }
-.green.tabOn { background: var(--green); border-color: var(--green); color: var(--on-fill); }
+.green.tabOn { background: var(--green-fill); border-color: var(--green-fill); color: var(--on-fill); }
 
 /* desktop: the typed field and the day, side by side — one control per value. */
 .typedRow { display: flex; flex-wrap: wrap; gap: var(--sp-2); width: 100%; }
@@ -102,4 +102,4 @@
    red and «OK» is disabled until the wheels move (see WheelPopover · note). */
 .note { margin: 8px 0 0; min-height: 22px; text-align: center; color: var(--blue-strong);
   font: var(--fw-bold) var(--fs-2) var(--mono); font-variant-numeric: tabular-nums; }
-.noteBad { color: var(--red); font-family: var(--body); }
+.noteBad { color: var(--red-strong); font-family: var(--body); }

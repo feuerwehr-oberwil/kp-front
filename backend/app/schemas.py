@@ -7,7 +7,16 @@ import uuid
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    TypeAdapter,
+    ValidationInfo,
+    WithJsonSchema,
+    field_validator,
+    model_validator,
+)
 
 from .alarm_validation import validate_reminder_row, validate_trupp
 
@@ -49,6 +58,10 @@ class UserOut(BaseModel):
     # "terminal" are read-only, "atemschutz" and "atemschutz-standing" may operate the
     # Atemschutzüberwachung of that one Einsatz and nothing else. None for a real account.
     link_kind: Literal["alarm", "view", "atemschutz", "atemschutz-standing", "terminal"] | None = None
+    # When this device's login lapses unless renewed — the refresh token's expiry (auth/router ·
+    # login, refresh, me). The app's «Alarm auf diesem Gerät» readiness shows it (lib/alarmReadiness).
+    # None for a link session and for a /me answered off the access cookie alone.
+    session_until: datetime | None = None
 
 
 # --- User administration (Slice 2 — Members & access) -------------------------------
@@ -295,7 +308,7 @@ class WorkspacePut(BaseModel):
     workspace: dict[str, Any]
     base_rev: int
     #: When the newest edit in this save was MADE (the client's server-aligned clock) — a closed
-    #: Einsatz takes a save made before its close (api/incidents · `happened_after_close`).
+    #: Einsatz takes a save made before its close (incident_service · `happened_after_close`).
     #: Absent (an older client) → judged by arrival.
     edited_at: datetime | None = None
 
@@ -312,6 +325,26 @@ class WorkspacePut(BaseModel):
 MAX_TRUPPS = 200
 
 
+#: A Trupp's lifecycle phase — the ONE list of its words (client twin: src/types.ts · Trupp.status,
+#: held equal to the enum this emits into docs/openapi.json by src/lib/truppStatus.test.ts).
+#: angemeldet → aktiv → rueckzug → raus by hand; `ueberfaellig` is the derived overlay.
+TruppStatus = Literal["angemeldet", "aktiv", "rueckzug", "ueberfaellig", "raus"]
+
+#: A stored Trupp as the contract DESCRIBES it: an open object whose `status` is a TruppStatus.
+#: ⚠️ Schema only — validation stays `validate_trupp`'s, which does not refuse an unknown status:
+#: this is the Atemschutz save path, and an offline tablet's write must still land.
+_TruppDoc = Annotated[
+    dict[str, Any],
+    WithJsonSchema(
+        {
+            "type": "object",
+            "properties": {"status": TypeAdapter(TruppStatus).json_schema()},
+            "additionalProperties": True,
+        }
+    ),
+]
+
+
 class TruppsPut(BaseModel):
     """The Atemschutz SLICE of the workspace — the only write shape an Atemschutz link has.
 
@@ -320,7 +353,7 @@ class TruppsPut(BaseModel):
     is the same optimistic-concurrency token as the full PUT and produces the same 409.
     """
 
-    trupps: list[dict[str, Any]]
+    trupps: list[_TruppDoc]
     base_rev: int
     #: see WorkspacePut.edited_at
     edited_at: datetime | None = None
@@ -1487,6 +1520,11 @@ class EquipmentItem(BaseModel):
     label: str = Field(min_length=1, max_length=40)
 
 
+#: The upper bound of ``doctrine.nearbyObjectWarnM`` – beyond it the nearest object is no
+#: candidate for the Einsatzort at all.
+NEARBY_OBJECT_WARN_MAX_M = 500
+
+
 class DoctrineConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
     defaultFunkkanal: int | None = None
@@ -1539,6 +1577,27 @@ class DoctrineConfig(BaseModel):
     # Rapport («Retthaube», «WBK»). Absent/empty keeps the shipped default (src/config/appConfig.ts ·
     # atemschutz.equipment). Declared here because ``extra="ignore"`` would otherwise drop it on save.
     equipment: list[EquipmentItem] | None = None
+    #: Modul-Pläne (sweep E.6, 23.10.2026): the «nächstes Objekt, nicht die Einsatzadresse»
+    #: warning shows only when the nearest object lies farther than this from the Einsatzort, in
+    #: metres. It fired at «0 m entfernt» for an Einsatz addressed by the object's own name.
+    #: 0 warns on every address mismatch (the old rule). The bounds are published in the schema
+    #: (the /admin field reads them) but enforced in `_nearby_warning_in_range`, so a stored
+    #: value outside them degrades instead of failing the whole document.
+    nearbyObjectWarnM: int = Field(default=25, json_schema_extra={"minimum": 0, "maximum": NEARBY_OBJECT_WARN_MAX_M})
+
+    @model_validator(mode="after")
+    def _nearby_warning_in_range(self, info: ValidationInfo) -> "DoctrineConfig":
+        """0–500 m; a stored value outside drops to the default (see `_pressure_lines_stay_in_range`
+        for why stored documents degrade instead of failing)."""
+        if not (0 <= self.nearbyObjectWarnM <= NEARBY_OBJECT_WARN_MAX_M):
+            if not (info.context or {}).get("stored"):
+                raise ValueError(
+                    f"doctrine.nearbyObjectWarnM ({self.nearbyObjectWarnM}) must be between 0 and "
+                    f"{NEARBY_OBJECT_WARN_MAX_M}"
+                )
+            logger.warning("doctrine.nearbyObjectWarnM %r is out of range — serving 25 m", self.nearbyObjectWarnM)
+            self.nearbyObjectWarnM = 25
+        return self
 
     @model_validator(mode="after")
     def _pressure_lines_stay_in_range(self, info: ValidationInfo) -> "DoctrineConfig":
@@ -2415,6 +2474,9 @@ class DeploymentConfigOut(DeploymentConfigIn):
     # Derived from the document, not stored: a one-glance answer to "shipped or ours?" that
     # does not require reading (or understanding) the whole `alarmKeywords` block above.
     alarmVocabulary: AlarmVocabularyStatus = Field(default_factory=AlarmVocabularyStatus)
+    # The Einsatz Kategorien, category key → the German label stored on `incidents.type`, in the
+    # wizard's picker order. Derived (app/divera · CATEGORY_LABELS), never stored – the one copy.
+    categoryLabels: dict[str, str] = Field(default_factory=dict)
     # Opaque version token of the stored document — hand it back on the next PUT and a write
     # against a document somebody else has since changed is refused (409) instead of silently
     # winning. See app/api/config · put_config. NOT part of the document; `DeploymentConfigIn`

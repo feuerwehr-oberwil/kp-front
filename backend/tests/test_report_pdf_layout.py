@@ -13,7 +13,7 @@ import pypdfium2 as pdfium
 import pypdfium2.raw as pdfium_c
 from PIL import Image
 
-from app.report_pdf import ReportPayload, compose_report_pdf
+from app.report import ReportPayload, compose_report_pdf
 
 
 def test_no_blank_page_between_kroki_and_beilagen():
@@ -665,7 +665,7 @@ def test_dispatch_text_loses_its_emoji_before_it_reaches_the_page():
     """Helvetica draws a black box for a pictograph, and the Stichwort is set 20pt at the top of
     the sheet. The app blocks emoji where text is TYPED, but the Stichwort/Kategorie/Adresse
     arrive from the ELZ verbatim and nobody here can edit them in a guarded field."""
-    from app.report_pdf import IncidentFacts, ReportMetaIn
+    from app.report import IncidentFacts, ReportMetaIn
 
     f = IncidentFacts(
         title="Brand \U0001f525 Hauptstrasse 4", type="Brand ✅", address="Hauptstr. 4 \U0001f3e0", id="x"
@@ -922,7 +922,7 @@ def test_a_floor_stack_pages_north_dial_keeps_its_bearing():
     """⚠️ The client sends the dial's ANGLE (`deg`) and the renderer reads it off the dumped anno —
     but the model between them did not declare the field, so validation dropped it and every
     turned Gebäude page printed a dial claiming north-up."""
-    from app.report_pdf import PlanPageIn
+    from app.report import PlanPageIn
 
     page = PlanPageIn.model_validate(
         {"label": "Gebäude · EG", "blankAspect": 1.0, "annos": [{"kind": "north", "x": 0.94, "y": 0.02, "deg": 37.5}]}
@@ -935,7 +935,8 @@ def test_the_fallback_kroki_fit_frames_like_the_panel():
     256-px projection's z20. The server's «mirror» cap of 20 therefore framed twice the ground
     whenever a rapport printed without a reported crop: a single-building Lage came out with its
     symbols merged into one blob (18.09.2026 review)."""
-    from app.report_pdf import KrokiIn, _kroki_view
+    from app.report import KrokiIn
+    from app.report.kroki_view import _kroki_view
 
     # a Lage spread over one street block: content would fit tighter, the cap holds it at 21
     pk = KrokiIn.model_validate({"fitPoints": [[7.5704, 47.5241], [7.5709, 47.5241]]})  # ~38 m
@@ -1145,3 +1146,71 @@ def test_signature_strokes_are_bounded():
     assert len(d) == 200
     assert max(len(s) for s in d) == 4000
     compose_report_pdf(payload, {})  # and it still composes
+
+
+def _all_text(pdf: bytes) -> str:
+    doc = pdfium.PdfDocument(pdf)
+    return "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+
+
+def _skizze_payload(annos: list[dict]) -> ReportPayload:
+    return ReportPayload.model_validate(
+        {
+            "incident": {"title": "Skizze-Probe", "id": "p"},
+            "generatedAt": "23.10.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "planPages": [{"label": "Tafel · Skizze", "blankAspect": 0.707, "annos": annos}],
+        }
+    )
+
+
+def test_a_skizze_with_a_linie_and_a_flaeche_reaches_the_rapport():
+    """Plan points are stored as `[x, y, floor]` since 22.07.2026, and the client sends them as
+    stored. The renderer unpacked two, threw, and the composer skipped the page — so every
+    Tafel-Skizze carrying a Linie or a Fläche left the Rapport without its picture."""
+    payload = _skizze_payload(
+        [
+            {"kind": "draw", "pts": [[0.25, 0.46, 0], [0.6, 0.5, 0], [0.7, 0.3, 0]], "color": "#d23"},
+            {"kind": "area", "pts": [[0.1, 0.1, 0], [0.3, 0.1, 0], [0.2, 0.3, 0]], "label": "Brandabschnitt"},
+        ]
+    )
+    text = _all_text(compose_report_pdf(payload, {}))
+    assert "Tafel · Skizze" in text
+    assert "konnte nicht gedruckt werden" not in text
+
+
+def test_a_figure_page_that_fails_to_render_says_so_on_the_paper(monkeypatch, caplog):
+    """A sheet the renderer cannot draw must not vanish without a word: the reader of the Rapport
+    is told which page is missing, and the server log says so at ERROR."""
+    from app import kroki
+
+    def broken(*_a, **_k):
+        raise ValueError("boom")
+
+    monkeypatch.setattr(kroki, "render_blank_page", broken)
+    with caplog.at_level("ERROR"):
+        text = _all_text(compose_report_pdf(_skizze_payload([]), {}))
+    assert "Seite «Tafel · Skizze» konnte nicht gedruckt werden" in text
+    assert any(r.levelname == "ERROR" and "Tafel · Skizze" in r.getMessage() for r in caplog.records)
+
+
+def test_the_journal_bereich_never_breaks_a_word():
+    """«Sofortmassnahme» printed as «Sofortmassna / hme» on every such row: the Bereich column was
+    24 mm, sized before typed entries printed their Art there. The columns now fit their labels —
+    and a one-day Einsatz prints the time alone, with its date once in the heading."""
+    payload = ReportPayload.model_validate(
+        {
+            "incident": {"title": "Journal-Probe", "id": "p"},
+            "generatedAt": "23.10.2026 09:00",
+            "proof": {"statusLabel": "intakt", "count": 1, "head": "0"},
+            "journalDay": "23.10.2026",
+            "journal": [
+                {"timeLabel": "07:03", "area": "Info", "text": "Eintreffen am Einsatzort"},
+                {"timeLabel": "07:23", "area": "Sofortmassnahme", "text": "Hauswart meldet: 1 Person vermisst"},
+            ],
+        }
+    )
+    pdf = compose_report_pdf(payload, {})
+    text = _all_text(pdf)
+    assert "Einsatzjournal · 23.10.2026" in text
+    assert "Sofortmassnahme" in text

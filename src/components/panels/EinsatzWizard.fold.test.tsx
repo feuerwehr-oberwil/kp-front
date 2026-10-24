@@ -66,7 +66,7 @@ describe('the «Koordinaten» fold', () => {
   it('stands open when the address resolved to no coordinate', () => {
     render(<EinsatzWizard edit={meta({ lng: null, lat: null })} onClose={() => {}} onCreated={() => {}} />)
     expect(open().getAttribute('aria-expanded')).toBe('true')
-    expect(screen.getByText(ix.coordNone)).toBeTruthy()
+    expect(screen.getByText(ix.coordNoneEdit)).toBeTruthy()
   })
 
   // a blank create has neither yet — it opens, and closes itself once an address+coordinate stand
@@ -82,6 +82,6 @@ describe('the «Koordinaten» fold', () => {
     fireEvent.click(screen.getByRole('button', { name: ix.coordClear }))
     // the coordinate is gone, but the fold the operator opened has not slammed shut on them
     expect(open().getAttribute('aria-expanded')).toBe('true')
-    expect(screen.getByText(ix.coordNone)).toBeTruthy()
+    expect(screen.getByText(ix.coordNoneEdit)).toBeTruthy()
   })
 })

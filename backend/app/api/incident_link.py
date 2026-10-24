@@ -26,7 +26,7 @@ so a link nobody at the station ever worked never reaches the statistics.
 THE SECOND KIND OF LINK (2026-09-01)
 ------------------------------------
 `/l/v<secret>` is the Rapport's own view link, minted in the app by an editor
-(api/incidents · the `view-link` trio) and handed to somebody OUTSIDE the station: a Gemeinde,
+(the `view-link` trio below) and handed to somebody OUTSIDE the station: a Gemeinde,
 a Nachbarwehr, an insurer — «so they can see in one go what we did». It lands on the same door
 and opens the same read-only session, and every other rule above still holds: one incident,
 the same allowlist, the same scope check.
@@ -41,7 +41,7 @@ session already open on somebody's phone dies together with the URL.
 THE THIRD KIND OF LINK (2026-09-01)
 -----------------------------------
 `/l/a<secret>` is the Atemschutz link, minted in the app by an editor from a RUNNING Einsatz
-(api/incidents · the `atemschutz-link` trio) and handed to somebody who is not on the FU — the
+(the `atemschutz-link` trio below) and handed to somebody who is not on the FU — the
 colleague at the Eingang who keeps the Atemschutzüberwachung. Same door, same secret-is-the-
 credential lookup, same per-incident revocation as the view link; the lifetime is the alarm
 link's instead (the Einsatz closes, the link dies), and it is the one kind that may write.
@@ -51,7 +51,7 @@ THE ALARM LINK, MINTED IN THE APP (2026-09-02)
 ----------------------------------------------
 Not a fourth kind — the *first* one, produced by somebody other than the alerting system. An
 editor on the Schadenplatz hands the Zentrale, the EL or a Nachbarwehr a live read-only view
-mid-Einsatz (api/incidents · `create_einsatz_link` → `mint_incident_link_token` below). The
+mid-Einsatz (`create_einsatz_link` → `mint_incident_link_token` below). The
 token is signed with the station's own minting key, opens the same read-only session, and dies
 under exactly the same two conditions: the Einsatz closes, or the key is rotated.
 
@@ -84,17 +84,20 @@ every printed QR, every enrolled device and every open session dies at once.
 
 import secrets
 import uuid
+from dataclasses import dataclass
 
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from jwt import InvalidTokenError as JWTError
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import audit
 from ..alarms import open_pooled_alarm
 from ..auth.cookies import TERMINAL_COOKIE, set_link_cookie, set_terminal_cookie
-from ..auth.dependencies import CurrentAdmin
+from ..auth.dependencies import CurrentAdmin, CurrentEditor
 from ..auth.incident_link import (
     LINK_TOKEN_TYPE,
     ClosedForLink,
@@ -111,7 +114,9 @@ from ..auth.incident_link import (
 from ..auth.secret_token import secret_matches
 from ..database import get_db
 from ..deployment_config import config_row
+from ..incident_service import get_incident_or_404
 from ..models import INCIDENT_ACTIVE_STATUSES, DeploymentConfig, Incident
+from ..schemas import ViewLinkOut
 
 router = APIRouter(prefix="/incident-link", tags=["incident-link"])
 
@@ -160,7 +165,7 @@ async def station_minting_key(db: AsyncSession) -> str | None:
     """The station's minting key, or None when the feature was never set up.
 
     One lookup for both directions — the exchange below reads it to VERIFY a token, and the
-    in-app mint (api/incidents · `create_einsatz_link`) reads it to SIGN one. «Kein Schlüssel»
+    in-app mint (`create_einsatz_link` below) reads it to SIGN one. «Kein Schlüssel»
     has to mean the same thing on both sides or the app would offer a link nothing can redeem.
     """
     return (
@@ -558,3 +563,230 @@ async def open_link_session(body: LinkTokenIn, response: Response, db: AsyncSess
     set_link_cookie(response, create_link_session_token(str(inc.id), key))
     # The id the SPA needs to open the incident; the session itself lives in the cookie.
     return {"incident_id": str(inc.id)}
+
+
+# --- the per-incident links, minted in the app ----------------------------------------------
+#
+# The editor's side of three of the kinds above (sweep A.20, 23.10.2026: moved here from
+# api/incidents, next to the secrets they mint). Their URLs stay `/api/incidents/{id}/…`, so they
+# hang off their own router, registered in main.py beside the incidents router.
+#
+# THE VIEW LINK («so people outside our station can see everything we did, in one go») and THE
+# ATEMSCHUTZ LINK («der am Eingang soll die Atemschutzüberwachung auf seinem eigenen Handy
+# führen») are one shape, `_StoredLink`: the secret IS the link, stored per incident; minting is
+# idempotent — asking twice hands back the same URL rather than quietly invalidating the one
+# already sent, because «I can't find the link» must not be the same gesture as «I want the old
+# one dead»; revoking clears the column and every session already open on it ends (checked per
+# request in auth/incident_link). Minting and revoking each write a row into the hash chain — the
+# moment the Einsatz became readable (or writable) outside the FU — and the secret never goes in:
+# an audit trail is read by more people than the link is meant for.
+#
+# They differ in lifetime. The view link does not die when the Einsatz closes (that is its normal
+# case) and can be minted on a closed one; the Atemschutz link has the alarm link's lifetime — it
+# cannot be minted on a finished Einsatz (409, the caller is an editor who knows the Einsatz
+# exists, so not the exchange's blind 404) and dies when it is closed or archived. Its GET still
+# answers on a closed Einsatz: the QR panel has to show that a link is still standing, which is
+# what makes revoking it a deliberate act rather than something forgotten.
+
+incidents_router = APIRouter(prefix="/incidents", tags=["incidents"])
+
+
+@dataclass(frozen=True)
+class _StoredLink:
+    """One per-incident link kind whose secret lives in an `Incident` column."""
+
+    #: the `Incident` column holding the secret
+    column: str
+    #: the token's kind marker (`VIEW_TOKEN_PREFIX` / `ATEMSCHUTZ_TOKEN_PREFIX`)
+    prefix: str
+    #: `IncidentEvent.source` and the payload key of its chain rows
+    source: str
+    payload_key: str
+    #: the 409 detail when minting on a closed Einsatz; None = mintable whatever the state
+    closed_detail: str | None = None
+
+    def out(self, inc: Incident) -> ViewLinkOut:
+        secret = getattr(inc, self.column)
+        return ViewLinkOut(enabled=bool(secret), token=f"{self.prefix}{secret}" if secret else None)
+
+    async def _record(self, db: AsyncSession, inc: Incident, user_id: uuid.UUID, enabled: bool) -> None:
+        await audit.append_event(
+            db,
+            incident_id=inc.id,
+            op_type="meta.change",
+            source=self.source,
+            user_id=user_id,
+            payload={self.payload_key: enabled},
+        )
+
+    async def read(self, db: AsyncSession, incident_id: uuid.UUID) -> ViewLinkOut:
+        return self.out(await get_incident_or_404(db, incident_id))
+
+    async def mint(self, db: AsyncSession, incident_id: uuid.UUID, user_id: uuid.UUID) -> ViewLinkOut:
+        """Mint it, or hand back the one that already exists. The row is locked: two editors
+        reading no secret in the same window would otherwise both write one, and the QR the first
+        already showed would encode a secret the second overwrote."""
+        inc = await get_incident_or_404(db, incident_id, lock=True)
+        if self.closed_detail and not inc.is_open:
+            raise HTTPException(status_code=409, detail=self.closed_detail)
+        if not getattr(inc, self.column):
+            setattr(inc, self.column, secrets.token_urlsafe(32))
+            await db.flush()
+            await self._record(db, inc, user_id, True)
+        return self.out(inc)
+
+    async def revoke(self, db: AsyncSession, incident_id: uuid.UUID, user_id: uuid.UUID) -> ViewLinkOut:
+        inc = await get_incident_or_404(db, incident_id)
+        if getattr(inc, self.column):
+            setattr(inc, self.column, None)
+            await db.flush()
+            await self._record(db, inc, user_id, False)
+        return ViewLinkOut(enabled=False, token=None)
+
+
+VIEW_LINK = _StoredLink(column="view_link_key", prefix=VIEW_TOKEN_PREFIX, source="view-link", payload_key="view_link")
+ATEMSCHUTZ_LINK = _StoredLink(
+    column="atemschutz_link_key",
+    prefix=ATEMSCHUTZ_TOKEN_PREFIX,
+    source="atemschutz-link",
+    payload_key="atemschutz_link",
+    closed_detail="Einsatz ist abgeschlossen — für die Atemschutzüberwachung kann kein Link mehr erstellt werden",
+)
+
+
+@incidents_router.get("/{incident_id}/view-link", response_model=ViewLinkOut)
+async def get_view_link(
+    incident_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)
+) -> ViewLinkOut:
+    """What the Rapport shows: the live link, or that there is none."""
+    return await VIEW_LINK.read(db, incident_id)
+
+
+@incidents_router.post("/{incident_id}/view-link", response_model=ViewLinkOut)
+async def create_view_link(
+    incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
+) -> ViewLinkOut:
+    """Mint the link, or hand back the one that already exists."""
+    return await VIEW_LINK.mint(db, incident_id, user.id)
+
+
+@incidents_router.delete("/{incident_id}/view-link", response_model=ViewLinkOut)
+async def revoke_view_link(
+    incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
+) -> ViewLinkOut:
+    """Revoke it. The URL stops working AND every session already open on it ends — checked per
+    request in auth/incident_link, because a link that cannot expire has to be killable."""
+    return await VIEW_LINK.revoke(db, incident_id, user.id)
+
+
+@incidents_router.get("/{incident_id}/atemschutz-link", response_model=ViewLinkOut)
+async def get_atemschutz_link(
+    incident_id: uuid.UUID, _user: CurrentEditor, db: AsyncSession = Depends(get_db)
+) -> ViewLinkOut:
+    """The live link, or that there is none. Readable on a closed Einsatz too — the QR panel
+    has to be able to show that a link is still standing, which is what makes revoking it a
+    deliberate act rather than something forgotten."""
+    return await ATEMSCHUTZ_LINK.read(db, incident_id)
+
+
+@incidents_router.post("/{incident_id}/atemschutz-link", response_model=ViewLinkOut)
+async def create_atemschutz_link(
+    incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
+) -> ViewLinkOut:
+    """Mint it, or hand back the one that already exists.
+
+    409 on a closed or archived Einsatz, the same shape as refusing to delete a running one:
+    the caller is an authenticated editor who knows the Einsatz exists, so the honest answer is
+    «not in this state», not the exchange's deliberately blind 404. A minted link would be dead
+    on arrival anyway — `enforce_link_scope` requires the Einsatz to be open on every request.
+    """
+    return await ATEMSCHUTZ_LINK.mint(db, incident_id, user.id)
+
+
+@incidents_router.delete("/{incident_id}/atemschutz-link", response_model=ViewLinkOut)
+async def revoke_atemschutz_link(
+    incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
+) -> ViewLinkOut:
+    """Take it back mid-Einsatz. The URL stops working AND the phone that already has it open
+    is refused on its next request (auth/incident_link · `_atemschutz_key_unchanged`)."""
+    return await ATEMSCHUTZ_LINK.revoke(db, incident_id, user.id)
+
+
+# --- the Einsatz-Link, minted from inside the app -----------------------------------------
+#
+# «Die Zentrale soll live mitschauen.» Exactly the link a responder taps out of an alarm — the
+# station's minting key signs it, the read-only allowlist bounds it, and it dies when the Einsatz
+# is closed or the key is rotated (auth/incident_link). What is new is only who can produce one:
+# until now that was the alerting system alone, so handing the EL or a Nachbarwehr a live view
+# mid-Einsatz was something nobody at the Schadenplatz could do.
+#
+# NOTHING IS STORED, and that is the difference from the two stored links above. The token is
+# derived from the incident id and the station key, so there is no per-incident secret, no GET to
+# read one back and no DELETE to revoke one: taking it back is rotating the key in der Verwaltung
+# — which takes every alarm link with it, deliberately — or closing the Einsatz. Deriving it also
+# makes minting naturally idempotent: asking twice hands back the address already circulating.
+
+#: `IncidentEvent.source` for the row below. String(16) in the model — keep it short.
+EINSATZ_LINK_SOURCE = "einsatz-link"
+
+
+@incidents_router.post("/{incident_id}/einsatz-link", response_model=ViewLinkOut)
+async def create_einsatz_link(
+    incident_id: uuid.UUID, user: CurrentEditor, db: AsyncSession = Depends(get_db)
+) -> ViewLinkOut:
+    """Hand back the read-only Einsatz-Link for this Einsatz, minting it on the spot.
+
+    Two refusals, and they are deliberately different statuses because the operator can act on
+    only one of them:
+      · 403 — no minting key: the whole link surface is off, exactly as the exchange answers it
+        (api/incident_link · `open_link_session`). Nothing to be done on the Schadenplatz, so the
+        sheet points at der Verwaltung instead of offering a retry.
+      · 409 — the Einsatz is finished: an alarm link dies the moment it closes, so minting one
+        would hand over an address that never worked. Not the exchange's blind 404, because the
+        caller is a signed-in editor who already knows this Einsatz exists.
+    """
+    inc = await get_incident_or_404(db, incident_id, lock=True)
+    key = await station_minting_key(db)
+    if not key:
+        raise no_minting_key()
+    if not inc.is_open:
+        raise HTTPException(
+            status_code=409,
+            detail="Einsatz ist abgeschlossen – dafür kann kein Einsatz-Link mehr erstellt werden",
+        )
+
+    # One row per Einsatz, not per look: the moment worth recording is «the running Lage became
+    # readable outside the FU», and re-opening the sheet to show the same QR again is not a
+    # second such moment. There is no stored secret to tell the two apart, so the chain itself is
+    # asked. The secret never goes in — an audit trail is read by more people than the link is.
+    #
+    # ⚠️ The SELECT is only the fast path. What ENFORCES «one row» is the partial unique index on
+    # (incident_id) where source = 'einsatz-link' (models · IncidentEvent), because check-then-
+    # append is a race and the incident-row lock above does not settle it everywhere: SQLite has
+    # no row locks, so on a dev machine a StrictMode double mount wrote the row twice into the
+    # hash chain. The savepoint is what lets the loser lose harmlessly — the duplicate INSERT is
+    # rolled back to it, the winner's row and the chain stand, and both callers get the same
+    # token, which is the answer they came for either way.
+    from ..models import IncidentEvent
+
+    seen = (
+        await db.execute(
+            select(IncidentEvent.id)
+            .where(IncidentEvent.incident_id == inc.id, IncidentEvent.source == EINSATZ_LINK_SOURCE)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if seen is None:
+        try:
+            async with db.begin_nested():
+                await audit.append_event(
+                    db,
+                    incident_id=inc.id,
+                    op_type="meta.change",
+                    source=EINSATZ_LINK_SOURCE,
+                    user_id=user.id,
+                    payload={"einsatz_link": True},
+                )
+        except IntegrityError:
+            pass
+    return ViewLinkOut(enabled=True, token=mint_incident_link_token(str(inc.id), key))

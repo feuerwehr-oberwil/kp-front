@@ -225,6 +225,9 @@ uv run python -m app.admin_objects push <manifest> --base <url> --admin-secret <
 uv run python -m app.admin_objects show                   # list stored objects + plan counts
 ```
 
+The one-off repairs of a station's object table (twins, re-keying, geocoding, empty rows) are
+`app.admin_objects_repair` – [`docs/AGENT-RUNBOOK.md`](../docs/AGENT-RUNBOOK.md) › Census and repair.
+
 Every object needs a **stable** key, because that is what makes a rerun *update* the object
 instead of creating a second one. Give it as `"key": "schulhaus-dorfmatt"` – a short name you
 can retype next year, hashed to a fixed uuid5 – or, for manifests the private importer writes,

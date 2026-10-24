@@ -305,7 +305,8 @@ describe('AuditEventStore · a 403 the role can never avoid is parked, not held 
     expect(await idb.idbGet('kp-audit-incident:el-phone')).toMatchObject({ refused: five, rejected: [] })
   })
 
-  it('what a CLOSED Einsatz refuses is parked for an editor too — the record events still land (N3)', async () => {
+  // N3
+  it('what a CLOSED Einsatz refuses is parked for an editor too — the record events still land', async () => {
     const heard: unknown[] = []
     const off = onIncidentClosed((s) => heard.push(s))
     const closed = new ApiError(409, 'Einsatz ist abgeschlossen – nicht mehr übernommen')

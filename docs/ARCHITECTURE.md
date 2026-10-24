@@ -89,7 +89,7 @@ flowchart TB
 | Data | Source | How it reaches the app | Offline |
 | --- | --- | --- | --- |
 | Tactical symbols (FKS) | KP-Front-authored (`tools/gen_symbols.py`) | bundled `public/tactical-symbols.json`, also seeded into the reference store | ✅ cached |
-| Hazmat UN-Nr → Stoff (ADR) | UNECE ADR table | bundled `src/data/unHazard.json` | ✅ in-app |
+| Hazmat UN-Nr → Stoff (ADR) | UNECE ADR table | static `public/un-hazard.json` (lib/unHazard) | ✅ in-app |
 | Base map tiles | swisstopo WMTS · OSM · canton WMS | **browser fetches tile servers directly** | ⚠️ pre-cached areas only – a per-device setting (Offline-Vorbereitung) can pre-cache automatically shortly after an incident opens, instead of relying on the manual «Alles für offline laden» |
 | Geocoding / address search | swisstopo geo.admin | backend proxy `GET /api/geocode` | ✗ online only |
 | Weather / wind | MeteoSwiss → Open-Meteo fallback | backend proxy `GET /api/weather`; recorded by the scheduler (`weather.observe`) | last value cached |
@@ -135,7 +135,7 @@ flowchart LR
   subgraph CORE["Core services"]
     AUD["audit.py<br/>hash-chain + snapshots"]
     STG["storage.py<br/>local volume / S3"]
-    REND["kroki · report_pdf · plan_tiles<br/>plan_alignment_worker · audio"]
+    REND["kroki · app/report · plan_tiles<br/>plan_alignment_worker · audio"]
     CRED["credentials.py · egress.py<br/>encrypted store · SSRF floor"]
     SCHED["scheduler.py<br/>one leader (advisory lock)"]
   end

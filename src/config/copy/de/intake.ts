@@ -9,6 +9,8 @@ export const intakeCopy = {
   // got wrong on an incident that is already running.
   intake: {
     titleNew: 'Einsatz eröffnen',
+    // …and with «Übung: Ja» the form says what it is about to open (sweep F.8)
+    titleNewExercise: 'Übung eröffnen',
     // --- Standort section ---
     locationHead: 'Standort',
     addressLabel: 'Adresse',
@@ -29,6 +31,8 @@ export const intakeCopy = {
     hereFailed: 'Standort nicht verfügbar',
     coordSet: 'Koordinate gesetzt',
     coordNone: 'Kein Standort – wird ohne Koordinate eröffnet',
+    // the edit form: the Einsatz is already open, so nothing «wird eröffnet» any more
+    coordNoneEdit: 'Kein Standort – Einsatz ohne Koordinate',
     coordClear: 'Standort entfernen',
     // The fold over the literal coordinate (owner, 18.09.2026) — see EinsatzWizard.
     coordFold: 'Koordinaten',
@@ -51,7 +55,8 @@ export const intakeCopy = {
     alarmTextUnavailable: 'Alarmmeldung konnte nicht geladen werden – bleibt unverändert',
     detailsPlaceholder: 'Zusätzliche Angaben zur Meldung',
     // --- Actions ---
-    open: 'Einsatz öffnen',
+    open: 'Einsatz eröffnen',
+    openExercise: 'Übung eröffnen',
     opening: 'Wird eröffnet …',
     demoBlocked: 'In der Demo deaktiviert – hier lässt sich kein neuer Einsatz eröffnen.',
     cancel: 'Abbrechen',
@@ -89,58 +94,14 @@ export const intakeCopy = {
     // ERSETZT die 700px-Karte mit Meldung und Kategorie-Combo — geprüft wird beim
     // Bearbeiten, bestätigt wird mit «Passt».
     reviewTitle: 'Einsatzdaten prüfen',
-    locationSet: 'Standort gesetzt',
     noLocationOnMap: 'Kein Standort – auf Karte setzen',
     ok: 'Passt',
-    // VKF Schadenkategorien — mirrors the labels the backend derives server-side (see
-    // backend app/divera.py CATEGORY_LABELS). The keyword half below comes from
-    // backend/app/data/alarm_keywords.json, the file kp-front and kp-rueck share;
-    // copy.test.ts fails when this list and that file disagree, so "keep in sync"
-    // is now checked rather than remembered. Note it mirrors the SHIPPED vocabulary:
-    // a station that sets its own `alarmKeywords` changes what the server classifies,
-    // not this list.
-    kategorien: [
-      'Brandbekämpfung',
-      'Strassenrettung',
-      'Technische Hilfeleistung',
-      'Elementarereignis',
-      'Ölwehr',
-      'Chemiewehr',
-      'Strahlenwehr',
-      'Einsatz Bahnanlagen',
-      'BMA / unechte Alarme',
-      'Gerettete Tiere',
-      'Dienstleistungen',
-      'Diverse Einsätze',
-    ] as string[],
-    // Keyword (UPPERCASE substring of the Stichwort) → category, mirroring the same
-    // backend map. Lets the wizard pre-select a category for a Divera alarm; first hit
-    // wins. The backend still derives it authoritatively if the EL leaves it unset.
-    kategorieGuess: [
-      ['FEUER', 'Brandbekämpfung'],
-      ['BRAND', 'Brandbekämpfung'],
-      ['HOCHWASSER', 'Elementarereignis'],
-      ['UNWETTER', 'Elementarereignis'],
-      ['STURM', 'Elementarereignis'],
-      ['VU', 'Strassenrettung'],
-      ['VERKEHR', 'Strassenrettung'],
-      ['UNFALL', 'Strassenrettung'],
-      ['THL', 'Technische Hilfeleistung'],
-      ['TECH', 'Technische Hilfeleistung'],
-      ['ÖL', 'Ölwehr'],
-      ['OELWEHR', 'Ölwehr'],
-      ['CHEMIE', 'Chemiewehr'],
-      ['STRAHLEN', 'Strahlenwehr'],
-      ['BAHN', 'Einsatz Bahnanlagen'],
-      ['BMA', 'BMA / unechte Alarme'],
-      ['FEHLALARM', 'BMA / unechte Alarme'],
-      ['DIENST', 'Dienstleistungen'],
-      ['TIER', 'Gerettete Tiere'],
-    ] as [string, string][],
-    // DISPLAY labels for the category <select>, keyed by the German category VALUE (the entries
-    // of `kategorien`). de = identity (German→German); en/fr/it translate. The stored/submitted
-    // value stays the German `kategorien` entry — only the option TEXT localizes; the select
-    // falls back to the raw German key when a label is missing.
+    // The VKF Schadenkategorien are the SERVER's (`categoryLabels` on GET /api/config, from
+    // backend app/divera.py CATEGORY_LABELS) – read through `incidentCategories()`.
+    // DISPLAY labels for the category picker, keyed by the German category VALUE (the server's
+    // `categoryLabels` values). de = identity (German→German); en/fr/it translate. The stored/
+    // submitted value stays the German label — only the option TEXT localizes; the picker
+    // falls back to the German label when a translation is missing.
     kategorienLabels: {
       'Brandbekämpfung': 'Brandbekämpfung',
       'Strassenrettung': 'Strassenrettung',

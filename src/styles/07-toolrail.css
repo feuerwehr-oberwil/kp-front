@@ -205,18 +205,21 @@
 }
 .step-btn:active:not(:disabled) { background: var(--blue-12); border-color: var(--blue); }
 .step-btn:disabled { opacity: var(--disabled); cursor: default; }
-.step-val { font-family: var(--mono); font-weight: var(--fw-medium); min-width: 30px; text-align: center; color: var(--ink);
+.step-val { font-family: var(--mono); font-size: var(--fs-2); font-weight: var(--fw-medium); min-width: 30px; text-align: center; color: var(--ink);
   /* digits must not change width as they change value, or the ± buttons twitch under the finger */
   font-variant-numeric: tabular-nums; }
 /* tap the value to type a number directly */
-.step-val-btn { display: inline-grid; place-items: center; min-height: 44px; border: none; background: transparent; cursor: pointer; padding: 4px; border-radius: var(--r-sm); }
+.step-val-btn { position: relative; display: inline-grid; place-items: center; min-height: 44px; border: none; background: transparent; cursor: pointer; padding: 4px; border-radius: var(--r-sm); }
+/* a short value («1») leaves the button ~30px wide: a pad brings it to --tap under a finger. The ±
+   buttons stand 8px away, so 7px a side never reaches them. */
+@media (pointer: coarse) { .step-val-btn::before { content: ''; position: absolute; inset: 0 -7px; } }
 @media (hover: hover) {
   .step-val-btn:hover:not(:disabled) { background: var(--hover); }
 }
 .step-val-btn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .step-val-btn:disabled { cursor: default; }
 /* over-stock flag: the value reads red (e.g. Mittel used past the available amount) */
-.step-val.step-over { color: var(--red); }
+.step-val.step-over { color: var(--red-strong); }
 .step-input { width: 52px; box-sizing: border-box; border: 1px solid var(--glass-edge); border-radius: var(--r-xs);
   background: var(--surface); padding: 4px; outline: none; }
 /* typed-value mode: the one field focus (--focus-*, 28.09.2026), not a solid blue edge */
@@ -228,7 +231,7 @@
 .step-clear { width: var(--tap); height: var(--tap); flex: none; margin-left: 4px; border-radius: var(--r-sm); border: none; padding: 0;
   background: transparent; color: var(--ink-dim); cursor: pointer; display: grid; place-items: center; }
 @media (hover: hover) {
-  .step-clear:hover:not(:disabled) { background: var(--red-12); color: var(--red); }
+  .step-clear:hover:not(:disabled) { background: var(--red-12); color: var(--red-strong); }
 }
 .step-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 .step-clear:disabled { opacity: var(--disabled); cursor: default; }
@@ -284,7 +287,7 @@
 .sym-close .i { width: 18px; height: 18px; }
 .sym-scroll { flex: 1; overflow-y: auto; scrollbar-width: thin; }
 .sym-ghead { position: sticky; top: 0; background: var(--surface); backdrop-filter: blur(4px); z-index: 1;
-  /* a section head is an EYEBROW (29.09.2026, K9 — AGENTS.md · Fields, titles, eyebrows) */
+  /* a section head is an EYEBROW (29.09.2026, K9 — docs/ui-conventions.md · Fields, titles, eyebrows) */
   font: var(--eyebrow); letter-spacing: var(--eyebrow-track); text-transform: uppercase; color: var(--ink-faint);
   padding: 12px 4px 8px; }
 .sym-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 8px; align-content: start; margin-bottom: 8px; }

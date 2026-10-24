@@ -45,6 +45,7 @@ const plan = (over: Partial<ReferenceDataset> = {}): ReferenceDataset => ({
   size_bytes: 12345,
   feature_count: null,
   current_version: 1,
+  fetch_url: null,
   updated_at: '2026-08-16T10:00:00Z',
   ...over,
 })
@@ -56,6 +57,7 @@ const existing = (over: Partial<ObjectWithPlans> = {}): ObjectWithPlans => ({
   lat: 47.4712,
   lng: 7.5501,
   source_note: null,
+  filing_folder: null,
   updated_at: '2026-08-16T10:00:00Z',
   plans: [],
   distance_m: null,

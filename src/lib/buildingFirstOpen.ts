@@ -13,7 +13,7 @@
 //     corrected in «Bearbeiten» or a manual Objekt pick is a new building and is shown once again;
 //   · READ means closed (✕ / Esc / the chip). Left open and the surface or the app gone, it was not
 //     dismissed and comes back the next time the Karte is shown; the chip stays to reopen it;
-//   · operational VIEW state, so it lives in IndexedDB (lib/idb, AGENTS.md · «Operational browser
+//   · operational VIEW state, so it lives in IndexedDB (lib/idb, docs/sync-and-offline.md · «Operational browser
 //     state lives in IndexedDB»), mirrored in memory so a surface switch never waits for the read
 //     and a device whose storage refuses still shows it only once per session.
 import { useCallback, useEffect, useState } from 'react'

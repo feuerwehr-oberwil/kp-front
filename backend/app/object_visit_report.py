@@ -7,7 +7,7 @@ the checklist table (answer + note, «nicht geprüft» where nothing was answere
 Bemerkungen, the Korrekturvorschläge («zur Prüfung, nicht übernommen»), the photos two-up with
 their captions, and a footer naming the checklist id/version, the visit id and its URL.
 
-Labels are German, like the Einsatzrapport (report_pdf.py). A photo whose bytes are not stored yet
+Labels are German, like the Einsatzrapport (app/report). A photo whose bytes are not stored yet
 prints as a «Foto ausstehend» placeholder: the report must render the moment a revision exists,
 and a missing picture is a fact about the visit, not a reason to fail the document.
 

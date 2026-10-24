@@ -4,7 +4,7 @@
 // Derived, never stored: the rings are computed from the placard entity's UN number on every
 // render, so they follow the marker, vanish with it, and can never drift out of sync the way a
 // hand-drawn Absperrkreis does. They ride the placard's own layer, so hiding «taktisch» hides
-// them too. ⚠️ Like the panel's ERG block they are a Planungshilfe (AGENTS.md 3am rule): the
+// them too. ⚠️ Like the panel's ERG block they are a Planungshilfe (the 3am tenet): the
 // assumptions — first TIH row, day or night by the sun at the placard, circles where the ERG
 // means downwind corridors — are named here and surfaced next to the control in the
 // ContextPanel, not hidden.
@@ -45,7 +45,7 @@ export function isErgDay(now: Date, coord?: Coord | null): boolean {
 
 /** The panel's reason for the pick: «Nacht · Sonnenuntergang 16:42» — the horizon crossing that
  *  made it day or night, in the deployment's time format. Just «Tag»/«Nacht» when the sun has
- *  not crossed within 24 h. Reads the copy inside the call (AGENTS.md · i18n). */
+ *  not crossed within 24 h. Reads the copy inside the call (docs/copy-and-wording.md). */
 export function ergDayNote(now: Date, coord?: Coord | null): string {
   const C = appConfig.copy.contextPanel
   const day = isErgDay(now, coord)

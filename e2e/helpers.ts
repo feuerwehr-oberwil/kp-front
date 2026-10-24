@@ -86,6 +86,6 @@ export async function ensureIncidentOpen(page: Page) {
   await page.locator('[data-karte-menu]').click()
   await page.getByRole('button', { name: 'Einsatz eröffnen' }).click()
   await page.getByPlaceholder('z. B. Gebäudebrand Schulhaus').fill('E2E Smoke Test')
-  await page.getByRole('button', { name: 'Einsatz öffnen' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Einsatz eröffnen', exact: true }).click()
   await expect(navrail).toBeVisible()
 }

@@ -23,6 +23,7 @@ from ..auth.dependencies import CurrentUser
 from ..building_facts import in_switzerland, registers_cached
 from ..database import get_db
 from ..geo_util import haversine_m
+from ..incident_service import get_incident_or_404
 from ..models import DeploymentConfig, Incident, ObjectSite, ObjectVisit
 from ..object_visits import ov_config
 from ..schemas import (
@@ -33,7 +34,6 @@ from ..schemas import (
     BuildingVisitOut,
     load_stored_config,
 )
-from .incidents import get_incident_or_404
 from .objects import _norm_addr, ranked_objects_near
 
 logger = logging.getLogger(__name__)

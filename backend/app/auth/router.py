@@ -91,6 +91,18 @@ def _refuse_cross_site(request: Request) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Anfrage von einer fremden Herkunft")
 
 
+def _with_session(user: User, until: datetime | None) -> UserOut:
+    """The account as the client sees it, plus when its refresh token runs out (UserOut ·
+    session_until). The readiness rows on the Karte home read it; nothing else does."""
+    out = UserOut.model_validate(user)
+    out.session_until = until
+    return out
+
+
+def _refresh_until() -> datetime:
+    return datetime.now(UTC) + timedelta(days=settings.refresh_token_expire_days)
+
+
 def _claims(user: User) -> dict:
     # The generation travels in every token this app mints; `dependencies.get_current_user`
     # and /auth/refresh refuse one that is behind the row's (see revoke_sessions).
@@ -136,7 +148,9 @@ async def roster(request: Request, db: AsyncSession = Depends(get_db)) -> list[U
 
 
 @router.post("/login", response_model=UserOut)
-async def login(body: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)) -> User:
+async def login(
+    body: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)
+) -> UserOut:
     # Per (account, source): a cooldown shared by every caller of one account would be a remote
     # switch for locking the Einsatzleiter out of their own tile (pin_limiter's docstring).
     source = client_ip(request)
@@ -210,7 +224,7 @@ async def login(body: LoginRequest, request: Request, response: Response, db: As
 
     claims = _claims(user)
     set_auth_cookies(response, create_access_token(claims), create_refresh_token(claims))
-    return user
+    return _with_session(user, _refresh_until())
 
 
 @router.post("/refresh", response_model=UserOut)
@@ -218,7 +232,7 @@ async def refresh(
     response: Response,
     refresh_token: Annotated[str | None, Cookie(alias=REFRESH_COOKIE)] = None,
     db: AsyncSession = Depends(get_db),
-) -> User:
+) -> UserOut:
     if not refresh_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Kein Refresh-Token")
     try:
@@ -270,7 +284,7 @@ async def refresh(
         logger.info("Refresh re-delivered: a rotation's answer was lost (user=%s)", user_id)
     claims = _claims(user)
     set_auth_cookies(response, create_access_token(claims), create_refresh_token(claims, jti=successor))
-    return user
+    return _with_session(user, _refresh_until())
 
 
 @router.post("/logout")
@@ -287,8 +301,21 @@ async def logout(
 
 
 @router.get("/me", response_model=UserOut)
-async def me(current_user: CurrentUser) -> User:
-    return current_user
+async def me(
+    current_user: CurrentUser,
+    refresh_token: Annotated[str | None, Cookie(alias=REFRESH_COOKIE)] = None,
+) -> UserOut:
+    # The refresh cookie's expiry is read, never consumed or verified beyond its signature: a
+    # link session has no refresh cookie and answers None, so does a cookie this key cannot read.
+    until: datetime | None = None
+    if refresh_token and not getattr(current_user, "link_scoped", False):
+        try:
+            exp = decode_token(refresh_token).get("exp")
+            if isinstance(exp, (int, float)):
+                until = datetime.fromtimestamp(exp, tz=UTC)
+        except (JWTError, OverflowError, OSError, ValueError):
+            until = None
+    return _with_session(current_user, until)
 
 
 # --- User administration (Slice 2 — Members & access) -------------------------------

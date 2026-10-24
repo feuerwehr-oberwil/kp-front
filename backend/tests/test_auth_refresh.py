@@ -141,3 +141,24 @@ async def test_logout_before_any_rotation_is_final(client, editor):
         assert (await page.post("/api/auth/logout")).status_code == 200
 
     assert (await _refresh(token)).status_code == 401
+
+
+async def test_session_until_tells_the_device_when_its_login_lapses(client, editor):
+    """`session_until` (UserOut) is the refresh token's expiry: on login and refresh the fresh
+    token's, on /me the cookie's — the «Anmeldung» readiness row reads it (3am sweep §1.4)."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.config import settings
+
+    def days_left(iso: str) -> float:
+        return (datetime.fromisoformat(iso) - datetime.now(UTC)) / timedelta(days=1)
+
+    r = await client.post("/api/auth/login", json={"user_id": str(editor.id), "pin": TEST_PIN})
+    assert r.status_code == 200
+    assert abs(days_left(r.json()["session_until"]) - settings.refresh_token_expire_days) < 0.01
+    me = await client.get("/api/auth/me")
+    assert abs(days_left(me.json()["session_until"]) - settings.refresh_token_expire_days) < 0.01
+    r = await client.post("/api/auth/refresh")
+    assert r.status_code == 200
+    assert abs(days_left(r.json()["session_until"]) - settings.refresh_token_expire_days) < 0.01
+    assert settings.refresh_token_expire_days == 90  # the 3am rule: alarms weeks apart, no PIN each time

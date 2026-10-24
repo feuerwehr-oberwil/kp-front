@@ -6,7 +6,7 @@
  * Keys: patientensammelstelle, sanitaetshilfsstelle, rettungsachse, standort-einsatzleitung,
  * sammelstelle-unverletzte, warteraum (the poster's six), wasserbezug, absperrung (station switches).
  *
- * ⚠️ The Rapport draws the SAME shapes with ReportLab (backend · report_pdf · _draw_signature) —
+ * ⚠️ The Rapport draws the SAME shapes with ReportLab (backend · app/report · _draw_signature) —
  * a new key goes into both, or the paper prints an empty Signatur box.
  */
 function shape(key: string) {

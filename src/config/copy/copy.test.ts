@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs'
 import { describe, it, expect, afterEach } from 'vitest'
 import { applyLocale, getCopy, getLocaleId, AVAILABLE_LOCALES } from './index'
 
@@ -41,12 +40,6 @@ describe('English (full overlay)', () => {
     expect(getCopy().intake.objectPlans(3)).toBe('3 plans')
   })
 
-  it('falls back to German for keys it deliberately omits (intake categories)', async () => {
-    await applyLocale('en')
-    // kategorien mirrors the backend German labels — untranslated by design
-    expect(getCopy().intake.kategorien).toContain('Brandbekämpfung')
-  })
-
   it('keeps the UN/Stoff DATA keys German (they match preset field names)', async () => {
     await applyLocale('en')
     expect(getCopy().contextPanel.unField).toBe('UN-Nr.')
@@ -65,13 +58,12 @@ describe('French / Italian (full translations)', () => {
   })
 
   it('still fall back to German for the 4 structural data keys (not translated by design)', async () => {
-    // unField/stoffField are data keys (match preset fields); kategorien/kategorieGuess
-    // mirror the backend German keyword map — fr/it omit them, so German shows through.
+    // unField/stoffField are data keys (match preset fields) — fr/it omit them, so German
+    // shows through.
     for (const loc of ['fr', 'it']) {
       await applyLocale(loc)
       expect(getCopy().contextPanel.unField).toBe('UN-Nr.')
       expect(getCopy().contextPanel.stoffField).toBe('Stoff')
-      expect(getCopy().intake.kategorien).toContain('Brandbekämpfung')
     }
   })
 })
@@ -79,41 +71,5 @@ describe('French / Italian (full translations)', () => {
 describe('admin picker registry', () => {
   it('offers exactly the four supported languages', async () => {
     expect(AVAILABLE_LOCALES.map((l) => l.id)).toEqual(['de-CH', 'en', 'fr', 'it'])
-  })
-})
-
-describe('intake.kategorieGuess mirrors the shared alarm keyword file', () => {
-  // The wizard guesses a category client-side (EinsatzWizard.tsx) so the operator sees a
-  // sensible default before the server answers. That means the keyword list exists TWICE in
-  // this repo — here, and in backend/app/data/alarm_keywords.json, which is itself vendored
-  // into kp-rueck. Its comment has said "keep in sync if that map changes" for a long time
-  // and nothing ever checked. This is the check.
-  //
-  // It pins this list against the SHIPPED vocabulary, which is the default every deployment
-  // gets. A station that brings its own (`alarmKeywords` in the deployment config) replaces
-  // what the SERVER classifies with; this bundled guess is not per-station and never was.
-  //
-  // Read from disk rather than imported: the JSON belongs to the backend package and must not
-  // become a frontend build input — that would be exactly the coupling the file avoids.
-  const shared = JSON.parse(
-    readFileSync(
-      new URL('../../../backend/app/data/alarm_keywords.json', import.meta.url),
-      'utf-8',
-    ),
-  ) as { keyword_to_category: { pairs: [string, string][] } }
-
-  it('carries the same keywords, in the same order (first hit wins on both sides)', async () => {
-    await applyLocale('de-CH')
-    const frontend = getCopy().intake.kategorieGuess.map(([keyword]) => keyword)
-    const backend = shared.keyword_to_category.pairs.map(([keyword]) => keyword)
-    expect(frontend).toEqual(backend)
-  })
-
-  it('only guesses categories the picker actually offers', async () => {
-    await applyLocale('de-CH')
-    const kategorien = new Set(getCopy().intake.kategorien)
-    for (const [keyword, label] of getCopy().intake.kategorieGuess) {
-      expect(kategorien, `«${keyword}» guesses «${label}», which is not a selectable category`).toContain(label)
-    }
   })
 })

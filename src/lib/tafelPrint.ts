@@ -1,7 +1,7 @@
 // The Tafel's own print (10.10.2026, owner: «maybe add a print option»): one page — or all of
 // them — as a PDF, from the page's «Drucken». The SAME sheets the Rapport carries («Tafel –
 // Seiten»: lib/boardForm · formForPdf → backend app/report_board), composed by the server without
-// the Rapport around them (POST /api/incidents/{id}/tafel/pdf · report_pdf · compose_tafel_pdf).
+// the Rapport around them (POST /api/incidents/{id}/tafel/pdf · app/report · compose_tafel_pdf).
 //
 // Loaded on the tap (Whiteboard · printPages), never with the Tafel: the Kroki payload builder
 // it needs for the Lagekarte box is the Rapport's, and has no business in the board's chunk.

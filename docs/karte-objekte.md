@@ -71,7 +71,7 @@ How each field is derived – none of them is a new column:
   under `footprint`; `building` = only the building at the pin; `none` = no outline at all — the
   viewer then draws NO OSM fallback either (`lib/karte/places · objectBuildings`).
 - **`aliases`**: the plan library's folder name when it differs from the name and address, and
-  the names of objects merged into this one (`admin_objects merge`, docs/AGENT-RUNBOOK.md).
+  the names of objects merged into this one (`admin_objects_repair merge`, docs/AGENT-RUNBOOK.md).
 - **`plans`**: the object's PDF datasets with bytes, by module. `code` is the module key without
   «modul» («23» → «2/3»). `pages` comes only from a tile manifest the server already wrote
   (`plan_tiles.stored_page_count`) – the listing never opens every PDF – so it is `null` when
@@ -135,7 +135,7 @@ How each field is derived – none of them is a new column:
 
 An object's position comes from its import: the station's private importer and `admin_objects
 load/push` write the manifest's `lat`/`lng`, the SharePoint pull geocodes the folder's address
-when it creates an object, `admin_objects geocode-missing` / `repair-sharepoint-keys` fill the
+when it creates an object, `admin_objects_repair geocode-missing` / `repair-sharepoint-keys` fill the
 ones without. ⚠️ **None of them may take a fuzzy match** (review round 2, 17.10.2026: ARA Birsig,
 «Erlenstrasse 60» without its town — `geocode()` appended the home locality, swisstopo had no
 Erlenstrasse in Oberwil and answered «Vorderbergstrasse 60, 4104 Oberwil», 1.1 km from the real
@@ -259,8 +259,10 @@ The rules that are easy to break:
   name somewhere the point is not, and that read as a moved marker.
 - **A tag is the name, never a plan count** (owner, round 3: «we just care that there are
   plans»). Whether an object has plans is its colour: the station's category (below), or, with
-  no categories configured, the default look — red rim and dot with plans, an ink-grey rim and
-  dot without (`Karte.module.css · .bare`). No count on any tag or row; the sheet's plan rows are
+  no categories configured, the default look — ink rim, dot and outline with plans (the named
+  token `--obj-plans`: near-white at night, near-black by day; owner's pick 7A, 23.10.2026 — it was
+  red, and red is danger's: the running Einsatz's chip is now the Karte's one red), a faded grey rim
+  and dot without (`Karte.module.css · .bare`). No count on any tag or row; the sheet's plan rows are
   the only list of plans.
 - **Dots, and a name only where it fits** (owner, 17.10.2026; `lib/karte/labels`). Below z16 every
   object is a small dot (a 32 px tap target); no text. From z16 on a tag only where it fits: one
@@ -979,6 +981,14 @@ and `KarteDevice.tsx` probe). No «ganze Station herunterladen»: that would be 
 
 What the surface shows offline:
 
+- **«Auf diesem Gerät» opens with «Alarm auf diesem Gerät»** (3am sweep §1, 23.10.2026): the four
+  readiness rows (installed · Benachrichtigung · Alarm-Abo · Anmeldung) with their one-tap fixes,
+  «Testalarm senden» and the opt-out – the same rows as under Einstellungen › Gerät
+  (`karte/AlarmReadiness`, rules in `lib/alarmReadiness`; the push side in
+  [`divera-connector.md`](divera-connector.md)). The home's nudge card (`AlarmNudgeCard`, under the
+  bar) shows only when a row is red or nothing was checked for 90 days, never while an Einsatz runs,
+  never under the menu or the search; «Später» hides it 30 days, «Keine Alarme auf diesem Gerät»
+  for good. Green = no card, not a line.
 - **The bar's «Offline» chip** (a dot only on the phone) stands where the weather was and opens
   **«Auf diesem Gerät»**: Objektkatalog · Karte (this view) · Pläne (PDFs of the whole catalogue) ·
   Gebäuderegister · Gefahrgut · Adresssuche · Wetter/Fahrzeuge · Gerätespeicher (Pläne counts the
@@ -1066,8 +1076,15 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   does not load steps back to the symbol. Phone and tablet alike (the tablet's «keiner offen / 1
   läuft» sub line went with the word — the red chip beside it names the running Einsatz). A small
   **red dot** on its corner while an Einsatz runs or an alarm waits (it was a count); the count is
-  in its accessible name: «Menü – <appName>, 2 offen». The red running-Einsatz strip under the bar
-  stays. The Einsatz's own bar (IncidentSwitcher, the title ▾) is not this button.
+  in its accessible name: «Menü – <appName>, 2 offen».
+- **The running chip** (owner's pick 6A, 23.10.2026, sweep F.2) names the first REAL Einsatz —
+  an Übung only when nothing but Übungen runs — with its short address, and ONE «+N» for every other
+  open one, Einsätze and Übungen together (no separate Übung count). The name opens that Einsatz;
+  «+N» opens the menu, which lists them all. It stands in the bar on both devices — on a phone
+  between the menu button and the search (owner: «there is enough space in the peacetime mode»; it
+  was a strip under the bar), where it takes what the two leave: the title and the address end in
+  «…», «+N» never gives way. Only the phone's Checkliste, whose bar holds the library's field, keeps
+  it as a strip under the bar. The Einsatz's own bar (IncidentSwitcher, the title ▾) is not this button.
 - **The arrival** (owner, 20.10.2026, after Wispr Flow's streak grid: «a very subtle loading
   animation for the stuff that arrives» — picked «Welle» from a gallery of real-app clips). The
   catalogue answers in one go and the dots and name tags used to land in one frame; now each
@@ -1079,7 +1096,7 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   moment, without the map, and only for markers mounted in the 2.5 s after it: one mounting
   mid-wave joins where the wave stands (`waveDelay`) — a tag replacing its dot stands at once if
   the dot had already arrived — and after the window every mount is instant, motion on an
-  interaction reads as lag. The red outlines, which answer a viewport fetch after the map, fade in over
+  interaction reads as lag. The objects' outlines, which answer a viewport fetch after the map, fade in over
   280 ms when their layer first stands (`MapLayers` · `FilledOverlay`, `fadeIn`); a pan's new rings
   update the source and never fade. The weather chip grows into the bar instead of shoving its
   edge out (`10-journal.css` · `tb-chip-in`). Not animated, on purpose: the app menu and the search
@@ -1122,7 +1139,7 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   alarm host (the same tone, and the OS notification with its sound and vibration) and the alarm
   rows in the Meldeleiste over the surface in front — overdue / Alarmdruck / Rückzug per Trupp,
   and the Notfall. «Zum Trupp» brings the Einsatz back (`App · uncoverEinsatz`, nothing reopens)
-  on the Atemschutz board at that card. Pinned by `IncidentWorkspace.harness.test.tsx` · (k).
+  on the Atemschutz board at that card. Pinned by `IncidentWorkspace.harness.lifecycle.test.tsx` · (k).
 - **The viewer state** (`KarteView` in sessionStorage: frame, object, open plan / Gebäude, the open
   tool by name only, and the label for «Zurück zu …») is per device and per tab session. It is
   written only after the catalogue has answered, so an early exit cannot blank it, and it never

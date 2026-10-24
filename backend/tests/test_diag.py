@@ -39,16 +39,12 @@ async def test_client_error_accepted_and_logged(client, caplog):
     assert "reading 'id'" in logged
 
 
-async def test_minimal_body_accepted(client):
-    # every field is optional — a sparse report must still be accepted
-    r = await client.post("/api/diag/client-error", json={})
-    assert r.status_code == 204
-
-
-async def test_no_auth_required(client):
-    # no login: a crash can occur before the operator is authenticated
-    r = await client.post("/api/diag/client-error", json={"message": "boom"})
-    assert r.status_code == 204
+async def test_sparse_report_accepted_without_login(client):
+    # every field is optional, and no login: a crash can occur before the operator is
+    # authenticated, and a sparse report must still be accepted
+    for body in ({}, {"message": "boom"}):
+        r = await client.post("/api/diag/client-error", json=body)
+        assert r.status_code == 204
 
 
 async def test_oversized_field_is_rejected_not_500(client):

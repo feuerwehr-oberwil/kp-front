@@ -1,4 +1,4 @@
-import type { AtemschutzAuftrag, EinfachAuftrag, LayerId, SymbolControl } from '../types'
+import type { AtemschutzAuftrag, EinfachAuftrag, SymbolControl } from '../types'
 import { getCopy, type Copy } from './copy'
 
 /** One symbol's curated defaults: which built-in steppers make sense for it
@@ -41,12 +41,15 @@ const base = {
     github: 'https://github.com/feuerwehr-oberwil/kp-front',
   },
   defaults: {
-    operationalLayerId: 'taktisch' as LayerId,   // placed symbols
-    drawingLayerId: 'markup' as LayerId,          // freehand/area drawings, notes, photos
+    operationalLayerId: 'taktisch', // placed symbols
+    drawingLayerId: 'markup',   // freehand/area drawings, notes, photos
     snapshotFilePrefix: 'incident-map-snapshot',
     /** undo-history depth, shared by the Lage map doc and the Plan board (one cap
      *  instead of the map's old 60 vs the plan's old 80) */
     historyCap: 80,
+    /** metres the auto-surfaced object may lie from the Einsatzadresse before the Plan warns
+     *  «nicht die Einsatzadresse» (station override: `doctrine.nearbyObjectWarnM`) */
+    nearbyObjectWarnM: 25,
   },
   // Journal composer: national default Textbausteine (quick phrases) — fuzzy-completed while
   // typing (src/lib/quickPhrases.ts), so the list can be generous: only the 3 best matches
@@ -144,14 +147,14 @@ const base = {
   gps: {
     baseUrl: (import.meta.env.VITE_KP_RUECK_URL ?? '').replace(/\/$/, ''),
     positionsPath: '/api/traccar/positions',
-    layerId: 'fahrzeuge' as LayerId,
+    layerId: 'fahrzeuge',
     pollMs: 15_000,
     // Breadcrumbs behind each vehicle. Own layer and OFF by default: on a busy Lage the tracks
     // compete with the tactical symbols, and the question they answer ("where did it come
     // from?") is one you ask occasionally, not continuously. Polled only while the layer is
     // actually visible — an unopened layer costs nothing.
     trailsPath: '/api/traccar/trails',
-    trailsLayerId: 'fahrzeugspuren' as LayerId,
+    trailsLayerId: 'fahrzeugspuren',
     trailMinutes: 30,
     trailsPollMs: 30_000,
     // each live vehicle renders a generic vehicle glyph with its name + heading
@@ -164,7 +167,7 @@ const base = {
   // is the case this exists for). Own-backend, same-origin, one row per person, gone when the
   // Einsatz closes. Nothing here alerts on distance: being far away is normal and useful.
   personGps: {
-    layerId: 'personen' as LayerId,
+    layerId: 'personen',
     /** how often the command post asks for the picture */
     pollMs: 15_000,
     /** how often a sharing phone reports, at most (a fix that hasn't moved still refreshes

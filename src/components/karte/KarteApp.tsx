@@ -2,7 +2,7 @@
 // Its own lazy chunk (App · lazy), mounted for the `/karte` route.
 //
 // What it is: the station area on the Einsatz's map (MapView, its Ebenen, the vehicles, the
-// weather), every station object as its building(s) outlined in red with its name tag (owner,
+// weather), every station object as its building(s) outlined in ink (`--obj-plans`) with its name tag (owner,
 // review round 3: «just highlight buildings / building groups» — no key-box kind), one panel for whatever is known about the selected place, the object's plans
 // in the NavRail grammar (on a phone: as rows in its slide-up sheet, KartePanel), and the reference
 // tools — Punkt setzen, Messen, Gefahrgut — that need no symbol placed first.
@@ -57,11 +57,9 @@ import { fmtDistance, fmtLV95, fmtWGS, haversineM } from '../../lib/geo'
 import { themeToken, uiBlue } from '../../lib/themeToken'
 import { dismissToast, toast } from '../../lib/ui'
 import { usePlacementLane } from '../../lib/toastLane'
-import { geocodeReverse, geocodeSearch, type GeoHit } from '../../lib/api/geo'
-import { getApprovedPlanAlignments, referenceUrl } from '../../lib/api/reference'
+import { geocodeReverse, geocodeSearch, getApprovedPlanAlignments, referenceUrl, type GeoHit, type IncidentMeta } from '../../lib/incidents'
 import { loadStationBuilding, loadStationObjects, type StationObject, type StationObjects } from '../../lib/api/stationReference'
 import { UNDER_DASH, undergroundOverlay, useUnderground } from '../../lib/underground'
-import type { IncidentMeta } from '../../lib/api/incidents'
 import { listVisits } from '../../objectVisits/api'
 import { ovHref, navigateTo } from '../../objectVisits/route'
 import { lookupErg } from '../../lib/erg'
@@ -89,6 +87,7 @@ import { MapHint, MeasurePanel } from '../MeasurePanel'
 import { LONG_PRESS_MOVE_TOL_PX, LONG_PRESS_MS } from '../../lib/useLongPress'
 import { buzz } from '../../lib/haptics'
 import { ToolDock } from '../ToolDock'
+import { ArmedToolPill } from '../ArmedToolPill'
 import { ToolRail } from '../ToolRail'
 import { MapViewsButton, type ViewsApi } from '../MapViewsMenu'
 import { WeatherBadge } from '../TopBar'
@@ -101,6 +100,7 @@ import { KarteGefahrgut } from './KarteGefahrgut'
 import { KarteKeySheet } from './KarteKeySheet'
 import { KarteNavRail, KarteSurface } from './KartePlans'
 import { KarteDevice } from './KarteDevice'
+import { AlarmNudgeCard } from './AlarmReadiness'
 import { useMapCoverage, useObjectAvailability } from './useKarteOffline'
 import { NoBasemapMeldung } from '../NoBasemapMeldung'
 import { UpdateBanner } from '../UpdateBanner'
@@ -177,7 +177,7 @@ export interface KarteAppProps {
   announceReturn?: boolean
   /** hand over to the Objektbesuche surface at this address */
   onOpenVisits: (href: string) => void
-  /** the open Einsätze, the newest first (the red chip shows the first) */
+  /** the open Einsätze, the newest first (the red chip names the first real one — see `runningChip`) */
   running: IncidentMeta[]
   onOpenIncident: (i: IncidentMeta) => void
 }
@@ -308,7 +308,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     el.classList.add(s.arrive)
   }
   // ── the station's object colours (config `map.objectCategories`, lib/karte/categories) ──────
-  // An object no rule takes keeps the default look (red; grey without plans). Each category
+  // An object no rule takes keeps the default look (`--obj-plans`; grey without plans). Each category
   // is an Ebenen row of its own; a hidden one takes its objects off the map (outline, dot, tag,
   // tap) — the selected object stays, it was chosen on purpose.
   const catRules = useMemo(() => categoryRules(objectCategoryRules(), lang), [lang])
@@ -757,7 +757,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       const fit = a ? fitSimilarity(a.pairs, a.aspect) : null
       if (!a || !fit) throw new Error('no fit')
       const base = referenceUrl(georefPlan.id, georefPlan.version)
-      const url = await import('../PdfViewport').then((m) => m.planPreviewUrl((meta.page_count ?? 1) > 1 ? withPdfPage(base, a.page) : base, window.innerWidth, window.innerHeight))
+      const url = await import('../../lib/pdfRaster').then((m) => m.planPreviewUrl((meta.page_count ?? 1) > 1 ? withPdfPage(base, a.page) : base, window.innerWidth, window.innerHeight))
       const corners = ([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] as const).map((pt) => { const c = fit.toMap(pt); return [c.lng, c.lat] as [number, number] })
       if (alive) setRaster({ key: rasterKey, url, corners: corners as [[number, number], [number, number], [number, number], [number, number]] })
     })().catch(() => { if (alive) { setGeorefOn(false); toast(C.georefFailed, { icon: 'warn', tone: 'warn' }) } })
@@ -773,10 +773,11 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }
 
   // ── the map's content ─────────────────────────────────────────────────────────────────────
-  const red = themeToken('--red', appConfig.ergRings.isolationColor)
+  // «has plans» (01-tokens · --obj-plans): ink, near-white at night, near-black by day — red is danger's
+  const plansInk = themeToken('--obj-plans', '#1b2330')
   const hatchInk = themeToken('--ink-faint', '#6c7686')
   // the underground buildings: dashed like an object's own garage, but in the neutral ink (never an
-  // object's red or a category colour) and only an outline. ONE overlay object for as long as the
+  // object's own ink or a category colour) and only an outline. ONE overlay object for as long as the
   // set and the theme stay, so MapLayers never re-sends ~15 000 rings on a re-render.
   const underInk = themeToken('--ink-dim', '#4d586a')
   const underRings = under?.rings
@@ -785,12 +786,12 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     : null), [underRings, underInk])
   const overlays = useMemo<PreparedMapOverlay[]>(() => {
     const out: PreparedMapOverlay[] = []
-    // one overlay per colour: the default red first, then each category in the config's order
+    // one overlay per colour: the default ink first, then each category in the config's order
     const byColor = new Map<string, { id: string; rings: LngLat[][]; under: LngLat[][] }>()
     for (const [id, b] of outlines) {
       if (id === selObj?.id || catOff(id)) continue
       const c = cats.get(id)
-      const key = c?.color ?? red
+      const key = c?.color ?? plansInk
       const slot = byColor.get(key) ?? { id: c ? `karte-objects-${c.id}` : 'karte-objects', rings: [], under: [] }
       slot.rings.push(...b.rings)
       slot.under.push(...b.under)
@@ -804,7 +805,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     for (const [color, slot] of byColor) out.push({ id: slot.id, kind: 'polygons', layer: OBJECTS_LAYER, rings: slot.rings, color, fillOpacity: 0.14, lineWidth: 1.6, lineOpacity: 0.85, fadeIn: true })
     // the selected object: EVERY one of its buildings in the strong style, in its own colour
     const mine = selObj ? outlines.get(selObj.id) : null
-    const mineColor = (selObj && cats.get(selObj.id)?.color) ?? red
+    const mineColor = (selObj && cats.get(selObj.id)?.color) ?? plansInk
     if (mine?.under.length) out.push({ id: 'karte-object-sel-under', kind: 'polygons', layer: ALWAYS_LAYER, rings: mine.under, color: mineColor, fillOpacity: 0.1, lineWidth: 2.5, lineOpacity: 1, lineDasharray: UNDER_DASH })
     if (mine) out.push({ id: 'karte-object-sel', kind: 'polygons', layer: ALWAYS_LAYER, rings: mine.rings, color: mineColor, fillOpacity: 0.3, lineWidth: 3, lineOpacity: 1 })
     // …and the one building the tap hit, dashed in blue: what the switch's house level opens
@@ -829,7 +830,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
       }
     }
     return out
-  }, [outlines, selObj, sel, tool, erg, red, ringsNear, uncached, hatchInk, cats, catOff, underOn, underOverlay])
+  }, [outlines, selObj, sel, tool, erg, plansInk, ringsNear, uncached, hatchInk, cats, catOff, underOn, underOverlay])
   const tagZoom = view.zoom >= LABEL_MIN_ZOOM
   // Messen / Punkt setzen / Gefahrgut's centre take every tap, on an object too (owner, review
   // round 4 — lib/karte/camera · toolTakesTaps): its dot and tag let the finger through to the map
@@ -1063,14 +1064,14 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
     const out: PreparedMapOverlay[] = []
     if (outlined?.kind === 'object') {
       const b = outlines.get(outlined.id)
-      if (b) out.push({ id: 'karte-hover-object', kind: 'polygons', layer: ALWAYS_LAYER, rings: b.rings, color: cats.get(outlined.id)?.color ?? red, fillOpacity: 0.16, lineWidth: 2.6, lineOpacity: 1 })
+      if (b) out.push({ id: 'karte-hover-object', kind: 'polygons', layer: ALWAYS_LAYER, rings: b.rings, color: cats.get(outlined.id)?.color ?? plansInk, fillOpacity: 0.16, lineWidth: 2.6, lineOpacity: 1 })
       if (outlined.ring) out.push({ id: 'karte-hover-house', kind: 'polygons', layer: ALWAYS_LAYER, rings: [outlined.ring], color: '#ffffff', fillOpacity: 0, lineWidth: 2.5, lineOpacity: 1 })
     } else if (outlined?.kind === 'plain') {
       out.push({ id: 'karte-hover-plain', kind: 'polygons', layer: ALWAYS_LAYER, rings: [outlined.ring], color: blue, fillOpacity: 0, lineWidth: 2, lineOpacity: 1 })
     }
     if (hydPoint && px != null && py != null) out.push({ id: 'karte-hydrant-line', kind: 'line', layer: ALWAYS_LAYER, coords: [[px, py], hydPoint.coord], color: blue, width: 3, dasharray: [2, 1.5] })
     return out
-  }, [outlined, outlines, cats, red, blue, hydPoint, px, py])
+  }, [outlined, outlines, cats, plansInk, blue, hydPoint, px, py])
   const mapOverlays = useMemo(() => (hoverOverlays.length ? [...overlays, ...hoverOverlays] : overlays), [overlays, hoverOverlays])
 
   // the hydrant shown off-screen or under the panel: the map moves so both ends are in view
@@ -1207,13 +1208,27 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
   }
 
   // ── chrome ────────────────────────────────────────────────────────────────────────────────
-  const live = running[0] ?? null
+  // the running chip (owner's pick 6A, sweep F.2): it names the first REAL Einsatz — an Übung only
+  // when nothing but Übungen runs — and ONE «+N» counts every other open one, Einsätze and Übungen
+  // together. The name opens that Einsatz (the whole chip is its target, chevron included); «+N»
+  // opens the menu, which lists them all. In the bar on both devices; a phone's Checkliste, whose
+  // bar holds the library's search field, keeps it as a strip under the bar.
+  const live = running.find((i) => !i.is_exercise) ?? running[0] ?? null
+  const more = live ? running.length - 1 : 0
   const runningChip = live && (
-    <button type="button" className={s.running} onClick={() => onOpenIncident(live)} aria-label={fillTemplate(C.runningOpen, { t: live.title })}>
-      <span className={s.pulse} aria-hidden />
-      <span className={s.runningText}><b>{live.title}</b>{live.address && <small>{live.address.split(',')[0]}</small>}</span>
-      <Icon id="chevron" />
-    </button>
+    <div className={cx(s.running, phone && !onLibrary && s.inBar)} data-karte-running-chip="">
+      <button type="button" className={s.runningOpen} onClick={() => onOpenIncident(live)} aria-label={fillTemplate(C.runningOpen, { t: live.title })}>
+        <span className={s.pulse} aria-hidden />
+        <span className={s.runningText}><b>{live.title}</b>{live.address && <small>{live.address.split(',')[0]}</small>}</span>
+      </button>
+      {more > 0 && (
+        <button type="button" className={s.runningMore} onClick={() => { setSheetOpen(true); setSearchOpen(false) }}
+          aria-label={fillTemplate(C.runningMore, { n: more })} aria-haspopup="dialog" aria-expanded={sheetOpen} data-karte-running-more="">
+          <span>+{more}</span>
+        </button>
+      )}
+      <Icon id="chevron" className={s.runningChev} />
+    </div>
   )
   const panelSel: PanelSel | null = !sel ? null
     : sel.kind === 'object' ? (selObj ? { kind: 'object', obj: selObj } : null)
@@ -1434,10 +1449,10 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             const pick = (e: React.MouseEvent) => { e.stopPropagation(); if (takesTaps) onMapClick(at); else selectObject(o.id, false) }
             const isSel = selObj?.id === o.id
             if (catOff(o.id) && !isSel) return null
-            // the category's colour (lib/karte/categories); none = the default red, untouched
+            // the category's colour (lib/karte/categories); none = the default `--obj-plans`, untouched
             const cat = cats.get(o.id)
             const catStyle = cat ? ({ '--cat': cat.color, '--cat-ink': inkOn(cat.color) } as React.CSSProperties) : undefined
-            // without categories, «has plans» is the red; an object without any is drawn quieter
+            // without categories, «has plans» is `--obj-plans`; an object without any is drawn quieter
             const bare = !o.plans.length
             if (!isSel && !(tagZoom && tagged?.has(o.id))) {
               return (
@@ -1525,8 +1540,8 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
               onChange={setLibQuery}
               onTouchEnd={phone ? noPanTouchEnd : undefined}
               onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
-              placeholder={defuseAutofill(C.librarySearchPlaceholder)}
-              aria-label={defuseAutofill(C.librarySearch)}
+              placeholder={defuseAutofill(appConfig.copy.checklists.searchPlaceholder)}
+              aria-label={defuseAutofill(appConfig.copy.checklists.searchAria)}
             />
           ) : !phone && (
             <SearchField
@@ -1547,7 +1562,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
               <span className={s.offDot} aria-hidden />{!phone && C.offlineChip}
             </button>
           ) : !phone && liveWeather.data?.wind_dir_deg != null && <WeatherBadge weather={liveWeather.data} bearing={view.bearing} />}
-          {!phone && runningChip}
+          {(!phone || !onLibrary) && runningChip}
           {phone && !onLibrary && (
             <button type="button" className={cx('ip-switch-btn', s.searchBtn)} onClick={() => (searchOpen ? setSearchOpen(false) : openPhoneSearch())}
               aria-label={C.searchOpen} title={C.searchOpen} aria-expanded={searchOpen} data-karte-search-open="">
@@ -1562,8 +1577,12 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             </div>
           )}
         </div>
-        {/* the strip stands where the «Einsätze» sheet hangs — and the sheet lists the same Einsatz */}
-        {phone && live && !sheetOpen && <div className={s.runningStrip} data-karte-running="">{runningChip}</div>}
+        {/* a phone's Checkliste: the bar holds the library's field, so the chip is a strip under it,
+            where the «Einsätze» sheet hangs — and the sheet lists the same Einsatz */}
+        {phone && onLibrary && live && !sheetOpen && <div className={s.runningStrip} data-karte-running="">{runningChip}</div>}
+        {/* «Alarm auf diesem Gerät» (3am sweep §1): the nudge under the bar — never while an Einsatz
+            runs on this device, never under the menu or the search, nothing at all when green */}
+        {!live && !sheetOpen && !searchOpen && !onLibrary && <AlarmNudgeCard inIncident={running.length > 0} phone={phone} />}
 
         {searchOpen && !phone && !onLibrary && (
           <KarteSearch query={query} hits={hits} nearest={nearest} addresses={addrState === 'ok' ? addr.list : []} addrState={addrState}
@@ -1582,7 +1601,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
                 // as Gefahrgut's field (review round 5: that pan moved the whole sheet)
                 onChange={setQuery} onTouchEnd={noPanTouchEnd}
                 onKeyDown={(e) => { if (e.key === 'Escape') setSearchOpen(false); else if (e.key === 'Enter') e.currentTarget.blur() }}
-                placeholder={defuseAutofill(C.searchPlaceholderShort)}
+                placeholder={defuseAutofill(C.searchPlaceholder)}
                 aria-label={defuseAutofill(C.searchPlaceholder)}
               />
             )}
@@ -1682,6 +1701,9 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
 
         {tool === 'measure' && (
           <>
+            {/* the armed tool's readout, as on the Lage map (MapToolDocks) – not on the phone,
+                where the results panel stands in that row */}
+            {!phone && <ArmedToolPill glyph={<Icon id="measure" />} name={C.tools.measure} />}
             <ToolDock groups={[
               [{ type: 'close', onClick: () => setTool('measure') }],
               [

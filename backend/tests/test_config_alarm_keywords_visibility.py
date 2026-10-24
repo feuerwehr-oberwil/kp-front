@@ -110,3 +110,15 @@ async def test_admin_get_round_trips_the_vocabulary(client, admin_login, put_con
     assert after["identity"]["appName"] == "Feuerwehr Musterdorf"
     assert after["alarmKeywords"] is not None, "the round-trip deleted the station's vocabulary"
     assert after["alarmVocabulary"]["source"] == "deployment"
+
+
+@pytest.mark.asyncio
+async def test_the_kategorien_labels_are_served_to_everyone_in_picker_order(client):
+    """Sweep B.9: the wizard's Kategorie picker reads the server's labels – there is no second
+    list in the frontend to drift. Public like the summary: the login screen precedes every
+    session, and a category label is no secret."""
+    from app.divera import CATEGORY_LABELS
+
+    served = (await client.get("/api/config")).json()["categoryLabels"]
+    assert list(served.items()) == list(CATEGORY_LABELS.items())
+    assert next(iter(served.values())) == "Brandbekämpfung"  # the wizard's default

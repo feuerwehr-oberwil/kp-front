@@ -12,7 +12,7 @@ const doc = (p: Partial<PlanDocument> & { id: string }): PlanDocument => ({
 const modul3 = doc({ id: 'modul3', code: 'Modul 3' })
 const umrisse = doc({ id: BUILDING_PICK_ID, code: 'Umrisse', icon: 'footprint', osm: { center: [7.6, 47.5], radiusM: 250 } })
 const gebaeude = doc({ id: 'gebaeude', code: 'Gebäude', icon: 'floors', floorStack: true })
-const tafel = doc({ id: 'tafel', code: 'Tafel', icon: 'pen' })
+const tafel = doc({ id: 'tafel', code: 'Tafel', icon: 'easel' })
 
 const wb = appConfig.copy.whiteboard
 const glyph = (d: PlanDocument) => planGlyph(d)
@@ -82,7 +82,7 @@ describe('railPlanTiles — the merged Gebäude tile', () => {
 const pdf = (over: Partial<ReferenceDataset> & { id: string }): ReferenceDataset => ({
   object_id: 'obj', module: null, kind: 'pdf', title: null, source_type: 'upload',
   source_note: null, content_type: 'application/pdf', size_bytes: 1000, feature_count: null,
-  current_version: 1, updated_at: '2026-08-25T00:00:00Z', ...over,
+  current_version: 1, fetch_url: null, updated_at: '2026-08-25T00:00:00Z', ...over,
 })
 
 // «Bernhardsberg 15» has «Modul 5 - Wasser 1.pdf» AND «Modul 5 - Wasser 2.pdf»; «Hinterbergweg 11»
@@ -155,19 +155,28 @@ describe('a numbered sub-slot from the backend reaches the rail as its own tile'
 })
 
 // The chip warns only when the backend SAID the address did not match – an older cached listing
-// carries no verdict and must not paint every object amber.
+// carries no verdict and must not paint every object amber – and the object lies past the
+// station's distance: at «0 m entfernt» the warning is wrong.
 describe('objectNearbyOnly', () => {
   it('is silent when the incident address matched the object', () => {
-    expect(objectNearbyOnly({ address_match: true, distance_m: 0 })).toBeNull()
+    expect(objectNearbyOnly({ address_match: true, distance_m: 0 }, 25)).toBeNull()
   })
 
   it('carries the distance when the object was surfaced by proximity alone', () => {
-    expect(objectNearbyOnly({ address_match: false, distance_m: 80 })).toEqual({ distanceM: 80 })
+    expect(objectNearbyOnly({ address_match: false, distance_m: 80 }, 25)).toEqual({ distanceM: 80 })
+  })
+
+  it('is silent up to the warning distance, and warns past it', () => {
+    expect(objectNearbyOnly({ address_match: false, distance_m: 0 }, 25)).toBeNull()
+    expect(objectNearbyOnly({ address_match: false, distance_m: 25 }, 25)).toBeNull()
+    expect(objectNearbyOnly({ address_match: false, distance_m: 26 }, 25)).toEqual({ distanceM: 26 })
+    // 0 = every object that is not the Einsatzadresse and not right on it
+    expect(objectNearbyOnly({ address_match: false, distance_m: 1 }, 0)).toEqual({ distanceM: 1 })
   })
 
   it('is silent on a payload without the field (cached before it existed) or without a distance', () => {
-    expect(objectNearbyOnly({ distance_m: 80 })).toBeNull()
-    expect(objectNearbyOnly({ address_match: null, distance_m: 80 })).toBeNull()
-    expect(objectNearbyOnly({ address_match: false, distance_m: null })).toBeNull()
+    expect(objectNearbyOnly({ distance_m: 80 }, 25)).toBeNull()
+    expect(objectNearbyOnly({ address_match: null, distance_m: 80 }, 25)).toBeNull()
+    expect(objectNearbyOnly({ address_match: false, distance_m: null }, 25)).toBeNull()
   })
 })

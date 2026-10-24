@@ -6,13 +6,16 @@
 
 import type { Dispatch, SetStateAction, RefObject } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
+import { ArmedSymbolGlyph, ArmedToolPill } from '../components/ArmedToolPill'
 import { type ViewsApi, MapViewsButton } from '../components/MapViewsMenu'
 import { MeasurePanel } from '../components/MeasurePanel'
 import { Palette } from '../components/Palette'
 import { ToolDock } from '../components/ToolDock'
 import { ToolRail } from '../components/ToolRail'
 import { appConfig } from '../config/appConfig'
+import { armedToolIcon, armedToolName } from '../lib/armedTool'
 import { isAtemschutzTrupp } from '../lib/atemschutz'
+import { formatSymbolName } from '../lib/format'
 import { Icon } from '../lib/icons'
 import { layerPresetLabel, type LayerPreset } from '../lib/layerPreset'
 import { Overlay } from '../lib/overlays'
@@ -22,15 +25,15 @@ import type { useCoordPicker } from '../lib/useCoordPicker'
 import type { useIsPhone } from '../lib/useIsPhone'
 import type { useMeasure } from '../lib/useMeasure'
 import type { useSymbols } from '../lib/useSymbols'
-import type { LngLat, ShapeKind, LineAttachment, Drawing, Trupp, GeoTrailPoint } from '../types'
+import type { LngLat, MapTool, ShapeKind, LineAttachment, Drawing, Trupp, GeoTrailPoint } from '../types'
 import type { RailLabels } from '../lib/prefs'
 
 export interface MapToolDocksProps {
   mapUI: boolean
-  tool: string
+  tool: MapTool
   pending: string | null
   setPending: Dispatch<SetStateAction<string | null>>
-  setTool: Dispatch<SetStateAction<string>>
+  setTool: Dispatch<SetStateAction<MapTool>>
   placeLock: boolean
   setPlaceLock: Dispatch<SetStateAction<boolean>>
   isPhone: ReturnType<typeof useIsPhone>
@@ -89,14 +92,28 @@ export function MapToolDocks({
 }: MapToolDocksProps) {
   return (
     <>
-      {/* active-tool affordances — all anchored bottom-centre, like the draw style bar */}
-      {mapUI && tool === 'symbol' && pending && (
-        <ToolDock groups={[
-          [{ type: 'close', onClick: () => { setPending(null); setTool('select') } }],
-          [{ type: 'toggle', icon: 'place-repeat', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
-          [{ type: 'info', text: appConfig.copy.dockHints.symbol }],
-        ]} />
-      )}
+      {/* the armed tool's readout — ONE pill, bottom centre, glyph + name (3am sweep point 3,
+          23.10.2026). A symbol wears its own SVG and name, the others their rail glyph and word;
+          Linie/Fläche say their input mode. The symbol tool has no dock any more: the pill IS
+          its readout, «Mehrere platzieren» stands beside it, and the way out is the rail tile or
+          Escape. Not on the phone while Messen is armed – its results panel stands in that row. */}
+      {mapUI && tool !== 'select' && !(isPhone && tool === 'measure') && (() => {
+        if (tool === 'symbol') {
+          if (!pending) return null
+          return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}
+            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }} />
+        }
+        if (tool === 'shape') {
+          if (!pendingShape) return null
+          return <ArmedToolPill glyph={<ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />}
+            name={appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel} />
+        }
+        const name = armedToolName(tool, appConfig.copy.mapTools, { lineMode, areaMode })
+        const icon = armedToolIcon(tool, appConfig.copy.mapTools)
+        if (!name || !icon) return null
+        return <ArmedToolPill glyph={<Icon id={icon} />} name={name} />
+      })()}
+      {/* active-tool option docks — the right-edge column (a bottom bar on the phone) */}
       {mapUI && tool === 'lasso' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => setTool('select') }],
@@ -114,7 +131,7 @@ export function MapToolDocks({
           ],
           // «D pur» (09.09.): no colour/width/style here — the finished line lands selected in
           // the DrawEditor (useMapDrawing · one-shot to Select), which is where the styling
-          // lives; new lines inherit the last-used style (the editor writes the defaults back)
+          // lives; every new line starts from the plain default (useMapDrawing · DRAW_DEFAULTS)
           [{ type: 'info', text: lineMode === 'nodes' ? appConfig.copy.dockHints.lineNodes : appConfig.copy.dockHints.lineFreehand }],
         ]} />
       )}
@@ -177,7 +194,8 @@ export function MapToolDocks({
       {mapUI && tool === 'shape' && pendingShape && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('select') } }],
-          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color={isPhone ? 'currentColor' : '#fff'} aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
+          // currentColor, not #fff: the dock is light by day since 20.10.2026 (3am sweep, nit)
+          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
           // a two-point shape is placed by naming two places, so «mehrere nacheinander» has no
           // meaning for it — the «Mehrere platzieren» toggle is simply not offered
           ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'place-repeat', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
@@ -269,7 +287,7 @@ export function MapToolDocks({
       {mapUI && teamPick && (
         /* ⚠️ Modal → lib/overlays, in lockstep with the plan's twin: focus trap + restore,
            scroll-lock, Esc and backdrop dismissal. The hand-rolled scrim both used to share had
-           none of them. (AGENTS.md's hand-rolled carve-out is the NON-modal tool docks.) */
+           none of them. (docs/ui-conventions.md · Overlays: the hand-rolled carve-out is the NON-modal tool docks.) */
         <Overlay
           open
           onClose={() => { setTeamPick(null); setTool('select') }}

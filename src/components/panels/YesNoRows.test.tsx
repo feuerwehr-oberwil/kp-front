@@ -18,6 +18,12 @@ vi.mock('../../lib/incidents', () => ({
   geocodeReverse: vi.fn(() => Promise.resolve(null)),
 }))
 vi.mock('../MapPicker', () => ({ MapPicker: () => null }))
+// the Einstellungen carry the alarm readiness rows, which read the session – mounted bare here
+vi.mock('../../lib/auth', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('../../lib/auth')>()
+  const value = { user: null, loading: false, probeUnreachable: false, sessionExpired: false, login: () => Promise.resolve(), logout: () => Promise.resolve() }
+  return { ...mod, useAuth: () => value }
+})
 vi.mock('./_shared', async (orig) => ({
   ...(await orig<typeof import('./_shared')>()),
   Modal: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,

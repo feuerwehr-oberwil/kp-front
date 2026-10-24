@@ -285,7 +285,7 @@ async def capture_put_workspace(
     it still equals base_rev, so a tablet that saved in between makes this a 409 rather than
     a silent overwrite of the map with a stale snapshot.
     """
-    from .incidents import apply_workspace_put
+    from ..incident_service import apply_workspace_put
 
     # The incoming WorkspacePut is validated already. Merging its permitted keys must
     # not reject unchanged legacy fields owned by the main app.

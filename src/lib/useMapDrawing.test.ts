@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import { useMapDrawing } from './useMapDrawing'
+import { DRAW_DEFAULTS, useMapDrawing } from './useMapDrawing'
 import type { Doc } from './workspace'
-import type { Drawing } from '../types'
+import type { Drawing, MapTool } from '../types'
 
 // The two mutating behaviours this wave added to the map drawing surface:
 //  · C1 — a SEMANTIC edit (Leitung Nr., Stockwerk, Abschluss) earns ONE settled Verlauf row per
@@ -17,7 +17,7 @@ import { toast } from './ui'
 const line = (over: Partial<Drawing> = {}): Drawing =>
   ({ id: 'd1', kind: 'line', coords: [[7.7, 47.4], [7.8, 47.5]], ...over }) as Drawing
 
-function makeDeps(over: { tool?: string; tacticalLocked?: boolean; drawings?: Drawing[] } = {}) {
+function makeDeps(over: { tool?: MapTool; tacticalLocked?: boolean; drawings?: Drawing[] } = {}) {
   // a live doc the commit stub actually applies to, so a burst's second patch sees the first
   let doc = { entities: [], drawings: over.drawings ?? [line()] } as unknown as Doc
   const deps = {
@@ -415,5 +415,22 @@ describe('GPS ends: «Zurück», «Am Einsatzort lösen», «Hier lösen», drag
     act(() => { result.current.setDrawingAttachment('d1', 'end', undefined, DEPOT) })
     act(() => { result.current.patchDrawingsById([{ id: 'd1', patch: { color: '#000000' } }]) })
     expect(deps.commit).not.toHaveBeenCalled()
+  })
+})
+
+describe('a new line starts from the plain default (3am sweep §2)', () => {
+  it('never inherits the last edited line\'s colour, dash, marker or arrow', () => {
+    // the selected line (d1) is restyled the way an Absperrung ends up – chain marker included
+    const deps = makeDeps({ tool: 'line' })
+    const { result, rerender } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.patchDrawing({ color: '#f00', width: 8, dashed: true, marker: 'chain', arrow: true }) })
+    rerender({ ...deps })
+    // …and the next hose line is still the plain default
+    let made: Drawing | null = null
+    act(() => { made = result.current.createLine([[7.7, 47.4], [7.8, 47.5]]) })
+    expect(made).toMatchObject({ kind: 'line', color: DRAW_DEFAULTS.color, width: DRAW_DEFAULTS.width })
+    expect(made).not.toHaveProperty('marker')
+    expect(made).not.toHaveProperty('arrow')
+    expect((made as unknown as Drawing).dashed).toBeUndefined()
   })
 })

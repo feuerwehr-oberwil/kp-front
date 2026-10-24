@@ -47,7 +47,8 @@ const FIELD_LINE: BoardPoint[] = [
 ]
 const FIELD_DRAG = { ndx: 0.5448739556757053 - 0.5594606614476276, ndy: (0.9837921760315975 - 0.7317920763602359) / N }
 
-describe('a stroke dragged past its storey tile keeps its shape (post-mortem D1)', () => {
+// post-mortem D1
+describe('a stroke dragged past its storey tile keeps its shape', () => {
   it('reproduces the field: the per-point clamp flattened 5 of 6 vertices onto y = 1', () => {
     // the OLD writer, verbatim in spirit: localY on each vertex
     const bpts = geo.boardPts(FIELD_LINE, 0)

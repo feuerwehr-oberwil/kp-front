@@ -3,7 +3,7 @@ import { Button } from './Button'
 import { useState } from 'react'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
-import type { SyncStatus } from '../lib/api/workspaceSync'
+import type { SyncStatus } from '../lib/incidents'
 
 /** One recovery point for journal entries that have not reached the server.
  *

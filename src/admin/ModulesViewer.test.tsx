@@ -33,6 +33,7 @@ function plan(module: string, sourceType = 'import'): ObjectWithPlans['plans'][n
     size_bytes: 1,
     feature_count: null,
     current_version: 1,
+    fetch_url: null,
     updated_at: '2026-06-28T00:00:00Z',
   }
 }
@@ -45,6 +46,7 @@ function obj(id: string, module: string, over: Partial<ObjectWithPlans> = {}): O
     lat: null,
     lng: null,
     source_note: null,
+    filing_folder: null,
     updated_at: '2026-06-28T00:00:00Z',
     plans: [plan(module)],
     distance_m: null,

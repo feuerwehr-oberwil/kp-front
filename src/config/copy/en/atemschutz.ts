@@ -25,7 +25,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     shareLinkOn: 'Hand over monitoring – a link is active',
     linkReentryHint: 'The link leads back to this board – if the page is closed by accident, simply open the QR code again.',
     /** the «+ Trupp» tab on the handed-over phone board (AtemschutzView · focusMode) */
-    liteNewTab: 'Team',
     /** the three-section stack on ANY phone (TruppForm · stack, 04.09.) – replaces the two-step
      *  wizard. Titles name the FIELDS; a collapsed section reads its own answer out beside the
      *  title, and «Order & line» is one section (see de/atemschutz.ts). */
@@ -40,7 +39,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     formRedeployTitle: 'Re-deploy',
     sectionTeam: 'Team',
     auftragLabel: 'Task',
-    auftragOpen: 'No task yet',
     // DISPLAY labels for the Auftrag types, keyed by the auftrag id (stored value stays the id).
     auftragLabels: {
       retten: 'Rescue',
@@ -143,21 +141,16 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     currentPressure: 'Pressure',
     lowestPressure: 'Lowest',
     alarmNote: 'Alarm pressure {bar} bar reached',
-    alarmNoteEst: 'Alarm pressure {bar} bar – reached per estimate',
+    alarmNoteEst: 'Alarm pressure {bar} bar (estimate)',
     lineField: 'Line',
     edit: 'Edit',
-    pressureConfirm: 'Confirm',
-    pressureConfirmHint: 'Confirm new pressure – counts as contact',
     verlauf: 'Log',
     cardMenu: 'More actions',
-    bandPreEntry: 'Not yet deployed',
     bandRegisteredAt: 'registered at',
-    zoneTimes: 'Times',
     lastContactAt: 'Last contact',
     nextContactDue: 'Next due',
     contactIntervalLabel: 'Contact interval',
     contactIntervalValue: '{min} min',
-    verlaufLatest: 'last: {time} {what}',
     // ⚠️ EVENT words in this column («Art» / kind), never state words: the row says what happened,
     // and «Out» is what the card says about the team afterwards (status · outFor). Same split the
     // German base keeps — see the note there.
@@ -198,7 +191,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     actExitPlain: 'Task done', // ⚠️ app only — see de/atemschutz.ts · actExitPlain
     actReenter: 'Re-deploy',
     actNotDeployed: 'Not deployed',
-    actNotDeployedHint: 'Close the team without it ever going on air — stays ready for a later deployment',
     statusNotDeployed: 'Not deployed',
     statusRemoved: 'Removed from board',
     logNotDeployed: 'Team {name} not deployed',
@@ -307,7 +299,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
       goTo: 'To the team',
       goToWho: 'To {name}',
       rowTitle: 'Emergency – team {name}',
-      rowTitleMany: 'Emergency – {count} teams: {names}',
       logTrigger: 'Team {name}: emergency raised',
       factPlace: 'location {place}',
       factContact: 'last contact {time}',
@@ -377,7 +368,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     editPressureHint: 'Corrects the recorded entry pressure — does not count as radio contact.',
     officersOnly: 'officers only',
     assignedFallbackName: 'This person',
-    pressureRose: 'Higher than last time ({from} bar) — mistyped?',
     chipHint: 'SCBA — tap for monitoring',
     alarmRowOverdue: 'SCBA overdue — {name}',
     alarmRowOverdueSub: 'No radio contact — establish contact now.',
@@ -389,9 +379,6 @@ export const atemschutzCopy: Localizable<Pick<Copy, 'atemschutz' | 'lineDecor'>>
     alarmRowGo: 'To the team',
     alarmRowAck: 'Acknowledged',
     alarmRowReadOnly: 'read-only',
-    logSafety: 'SCBA safety values changed: {changes}',
-    logSafetyInterval: 'Radio contact interval {from} → {to} min',
-    logSafetyGrace: 'Grace period {from} → {to} s',
     logSafetyFunkkanal: 'Radio channel {from} → {to}',
     logEditFields: 'Team {name}: {changes}',
     changeLeader: 'Team leader {from} → {to}',

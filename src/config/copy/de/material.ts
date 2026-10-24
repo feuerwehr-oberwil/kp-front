@@ -6,7 +6,7 @@ export const materialCopy = {
   // Mittel surface (MittelView) — manual material capture for Rapport / resupply
   mittel: {
     title: 'Material',
-    summary: '{lines} Positionen',
+    summary: (n: number) => (n === 1 ? '1 Position' : `${n} Positionen`),
     summaryEmpty: 'Noch nichts erfasst',
     add: 'Material',
     // «In Verwendung» ist ein Filter-Knopf auf der Suchzeile, kein Tab mehr – die Bezeichnung
@@ -119,9 +119,13 @@ export const materialCopy = {
     railLabel: 'Checklisten',
     showList: 'Liste anzeigen',
     groupTasks: 'Aufgaben',
-    searchPlaceholder: 'Stichwort suchen …',
-    searchAria: 'Stichwort suchen',
-    matching: 'Passend: {title}',
+    // ONE placeholder for the library search wherever it stands – the Einsatz rail and the Karte
+    // home, tablet and phone (sweep F.10, 23.10.2026: it had three). Short, because the phone
+    // field is narrow and the surface already says what it holds; searchAria carries the words.
+    searchPlaceholder: 'Suchen …',
+    searchAria: 'Anleitung oder Checkliste suchen',
+    // the rail's group of the Stichworte the Einsatz title names (ChecklistsView)
+    groupMatching: 'Passend',
     none: 'Keine Checklisten konfiguriert.',
     pickEntry: 'Stichwort wählen oder suchen.',
     // runner

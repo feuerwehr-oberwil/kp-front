@@ -104,11 +104,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'errors'>> = {
     correctHint: 'La formulation initiale reste au procès-verbal.',
     viaAtemschutzLink: 'Lien ARI',
     viaAtemschutzLinkTitle: 'Saisi sur le tableau ARI transmis.',
-    detailTime: 'Heure',
-    detailArea: 'Domaine',
-    detailSource: 'Source',
-    detailSourceManual: 'Saisi à la main',
-    detailSourceSystem: 'Enregistré par l’application',
+    detailSourceManual: 'saisi à la main',
+    detailSourceSystem: 'enregistré par l’application',
     detailSourceSystemHint: 'Les lignes système ne sont pas modifiables',
     detailAttachments: 'Annexes',
     detailAttachmentsN: '{n} images',
@@ -190,10 +187,7 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'errors'>> = {
     attendanceConflictOpenEnd: 'ouvert',
     attendanceConflictTake: 'Reprendre {side}',
     attendanceConflictKeep: 'Les deux sont correctes',
-    attendanceConflictOpenTitle: 'Divergences',
     attendanceConflictOpenCount: '{n} ouvertes',
-    attendanceConflictNoneOpen: 'Aucune ouverte',
-    attendanceConflictCheckedAt: 'vérifiée {t} · {by}',
     quickPhrasesAria: 'Formules types',
     openRemindersHead: 'En suspens',
     // le commutateur ○ à côté des chips Art — trois états sur une seule commande
@@ -219,6 +213,8 @@ export const journalCopy: Localizable<Pick<Copy, 'journal' | 'errors'>> = {
     openReminderGo: 'Aller à l\'entrée',
   },
   errors: {
+    invalidValue: 'Valeur non valable',
+    moreSignatures: 'autres signatures d’erreur (plus de {n})',
     serverUnreachable: 'Erreur réseau – serveur inaccessible',
     serverTimeout: 'Le serveur ne répond pas – délai dépassé',
 

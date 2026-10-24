@@ -198,6 +198,8 @@ EXAMPLE_CONFIG: dict[str, Any] = {
         "alarmBarRueckzug": 50,
         # below this Eingangsdruck the Trupp form asks once («… ist für einen Eintritt tief»)
         "entryPressureMin": 270,
+        # Modul-Pläne warn «nicht die Einsatzadresse» only when the nearest object is farther (m)
+        "nearbyObjectWarnM": 25,
     },
     "roster": {
         "source": "manual",
@@ -296,7 +298,7 @@ def _push(
         remote = got.json()
         version = remote.get("version")
         # ⚠️ Strip the RESPONSE-ONLY fields before comparing. `integrations` is env-derived,
-        # `alarmVocabulary` is a computed summary and `version` is the document's own hash —
+        # `alarmVocabulary`/`categoryLabels` are derived and `version` is the document's own hash —
         # none of them exist in a config FILE, so leaving them in made `emptied_sections` report
         # "this push would empty alarmVocabulary and version" on a push of the deployment's own
         # config. A refusal that fires on a no-op is a refusal nobody will read twice.

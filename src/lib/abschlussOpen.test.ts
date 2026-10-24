@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
-import { abschlussOpenItems, abschlussOpenLabel, abschlussOpenPoints, controlChipLabel, countsAsOpen, insideAbschlussMessage, registeredAbschlussMessage } from './abschlussOpen'
+import { abschlussEndeItem, abschlussOpenItems, abschlussOpenLabel, abschlussOpenPoints, abschlussStepAction, controlChipLabel, countsAsOpen, insideAbschlussMessage, registeredAbschlussMessage } from './abschlussOpen'
 import type { Trupp } from '../types'
-import { ABSCHLUSS_STEPS } from './abschluss'
+import { ABSCHLUSS_STEPS, type AbschlussStep } from './abschluss'
 import { appConfig } from '../config/appConfig'
 
 /**
@@ -104,5 +104,67 @@ describe('insideAbschlussMessage — the crews still inside, by name', () => {
       .toBe('1 Trupp ist noch drin: Trupp 1 (Muster Leo / Graf Eva).')
     expect(insideAbschlussMessage([t({ no: 1 }), t({ id: 'y', no: 2, name: 'Frei Nora' })]))
       .toBe('2 Trupps sind noch drin: Trupp 1 (Muster Leo), Trupp 2 (Frei Nora).')
+  })
+})
+
+/* The rows' own BUTTONS (3am sweep, 23.10.2026, owner's point 4): «tappable buttons where you can
+   clearly just tap on them … and don't have to infer that the whole line is clickable». */
+describe('abschlussStepAction — each row answers itself', () => {
+  const go = { step: vi.fn(), trupps: vi.fn(), media: vi.fn() }
+  const F = appConfig.copy.abschluss.fix
+  const now = () => '2026-10-23T21:41:00.000Z'
+
+  it('the four in-place answers write what the Rapport\'s own buttons write, and say so', () => {
+    const fix = vi.fn()
+    const expected: Partial<Record<AbschlussStep, object>> = {
+      zeiten: { endedAt: now() },
+      mittel: { mittelConfirmedNone: true },
+      kontaktperson: { kontaktperson: undefined, kontaktpersonTelefon: undefined, kontaktpersonNone: true },
+      rueckmeldung: { rueckmeldungElz: undefined, rueckmeldungNone: true },
+    }
+    for (const [step, over] of Object.entries(expected) as [AbschlussStep, object][]) {
+      const a = abschlussStepAction(step, go, fix, now)!
+      expect(a.label).toBe(F[step as keyof typeof F])
+      expect(a.leaves).toBeUndefined()
+      a.onClick()
+      expect(fix).toHaveBeenLastCalledWith(step, over, F[step as keyof typeof F])
+    }
+    expect(go.step).not.toHaveBeenCalled()
+  })
+
+  it('«Wählen» and «Schreiben» LEAVE for the field — the answer needs a name or words', () => {
+    for (const step of ['einsatzleiter', 'kurzbericht'] as const) {
+      const a = abschlussStepAction(step, go, vi.fn(), now)!
+      expect(a.leaves).toBe(true)
+      a.onClick()
+      expect(go.step).toHaveBeenLastCalledWith(step)
+    }
+  })
+
+  it('a head count and a divergence have no one-tap answer', () => {
+    expect(abschlussStepAction('anwesenheit', go, vi.fn(), now)).toBeUndefined()
+    expect(abschlussStepAction('abweichungen', go, vi.fn(), now)).toBeUndefined()
+  })
+
+  it('a settled row stays in place as a done one — its answer at the end, still a link', () => {
+    const settled = new Map<AbschlussStep, string>([['mittel', F.mittel]])
+    const items = abschlussOpenItems(abschlussOpenPoints(['mittel', 'kurzbericht'], 0, 0), go, { fix: vi.fn(), now, settled })
+    expect(items[0]).toMatchObject({ done: true, end: F.mittel })
+    expect(items[0].action).toBeUndefined()
+    expect(items[1]).toMatchObject({ action: { label: F.kurzbericht, leaves: true } })
+    // …and without a fix (a caller that may not edit the Rapport) the rows are links only
+    expect(abschlussOpenItems(abschlussOpenPoints(['mittel'], 0, 0), go)[0].action).toBeUndefined()
+  })
+})
+
+describe('abschlussEndeItem — the Einsatzende pre-filled with «jetzt»', () => {
+  it('shows the clock as already set, and «Ändern» leaves for the field', () => {
+    const change = vi.fn()
+    const d = new Date(2026, 9, 23, 23, 41)
+    const it_ = abschlussEndeItem(d.toISOString(), change)
+    expect(it_).toMatchObject({ label: appConfig.copy.abschluss.ende, done: true, end: 'jetzt 23:41' })
+    expect(it_.action).toMatchObject({ label: appConfig.copy.abschluss.endeChange, leaves: true })
+    it_.action!.onClick()
+    expect(change).toHaveBeenCalledTimes(1)
   })
 })

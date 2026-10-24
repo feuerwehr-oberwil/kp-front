@@ -416,7 +416,7 @@ export const adminCopy = {
       sheetEnde: 'Einsatzende',
       sheetKontakt: 'Kontaktperson',
       sheetKontaktTelefon: 'Telefon',
-      // ⚠️ The section names are the Einsatzrapport's (backend · report_pdf · L) – the sheet is
+      // ⚠️ The section names are the Einsatzrapport's (backend · app/report · L) – the sheet is
       // its paper twin, and whoever transfers a filled-in sheet into the app reads both side by
       // side. Instructions like «(abhaken, ggf. von–bis)» only existed here and turned the same
       // rubric into two differently named ones.
@@ -629,6 +629,7 @@ export const adminCopy = {
       loading: 'Einsätze werden geladen …', error: 'Einsätze konnten nicht geladen werden.', search: 'Titel, Adresse oder Herkunft suchen …',
       none: 'Noch keine Einsätze.', noMatches: 'Keine Einsätze passen zur Suche.', started: 'Beginn', incident: 'Einsatz', status: 'Status',
       source: 'Herkunft', report: 'Rapport', updated: 'Geändert', open: 'offen', closed: 'abgeschlossen', complete: 'vollständig', incomplete: 'offen',
+      sources: { manual: 'Manuell erfasst', divera: 'Divera', firehub: 'FireHub', migrated: 'Übernommen' } as Record<string, string>,
       // ⚠️ Löschen vernichtet eine Einsatzakte: Verlauf, Prüfkette, Anwesenheit, Fotos und
       // Sprachnotizen. Die Frage nennt deshalb, was verschwindet — nicht «wirklich löschen?»,
       // was nur fragt, ob man den Knopf treffen wollte. Nur für abgeschlossene Einsätze, weil
@@ -921,6 +922,10 @@ export const adminCopy = {
       funkkanalMinTip: 'Untere Grenze des Funkkanal-Reglers.',
       funkkanalMax: 'Funkkanal max',
       funkkanalMaxTip: 'Obere Grenze des Funkkanal-Reglers.',
+      funkkanalOutOfRange: 'Wert noch nicht gespeichert – erwartet wird ein Kanal zwischen {min} und {max} (Funkkanal min und max).',
+      groupObject: 'Objektpläne',
+      nearbyObjectWarnM: 'Warnung «nicht die Einsatzadresse» ab (m)',
+      nearbyObjectWarnMTip: 'Der Plan zeigt von selbst das nächste Objekt mit Plänen. Passt es nicht zur Einsatzadresse und liegt es weiter als so viele Meter entfernt, warnt der Plan «nicht die Einsatzadresse». 0 = bei jedem Abstand warnen.',
     },
     setup: {
       ackDo: 'Abhaken',

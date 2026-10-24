@@ -258,9 +258,10 @@ export function normalizeTime(raw: string): string {
 
 const sectionValue = (d: BoardFormData, sec: string): FormSectionValue => d.values[sec] ?? {}
 const withSection = (d: BoardFormData, sec: string, v: FormSectionValue): BoardFormData => ({ ...d, values: { ...d.values, [sec]: v } })
-const same = (a: Record<string, unknown>, b: Record<string, unknown>) => {
-  const keys = new Set([...Object.keys(a), ...Object.keys(b)])
-  return [...keys].every((k) => JSON.stringify(a[k]) === JSON.stringify(b[k]))
+/** Field-wise JSON equality of two plain objects (a line, a row, a row's cells). */
+const same = (a: object, b: object) => {
+  const va = new Map(Object.entries(a)), vb = new Map(Object.entries(b))
+  return [...new Set([...va.keys(), ...vb.keys()])].every((k) => JSON.stringify(va.get(k)) === JSON.stringify(vb.get(k)))
 }
 
 /** A line is content when it has words — a trend or a tag on its own is not (as on staging). */
@@ -283,7 +284,7 @@ function putLineRaw(d: BoardFormData, sec: string, cell: string, id: string, pat
   const before: FormLine = i >= 0 ? list[i] : { id, text: '' }
   const after: FormLine = { ...before, ...patch }
   for (const k of ['trend', 'tag'] as const) if (after[k] === undefined || after[k] === '') delete after[k]
-  if (i >= 0 && same(before as unknown as Record<string, unknown>, after as unknown as Record<string, unknown>)) return d
+  if (i >= 0 && same(before, after)) return d
   const empty = lineIsEmpty(after)
   if (i < 0 && empty) return d
   const pinned = pinOrder(list)
@@ -345,7 +346,7 @@ function putRowRaw(d: BoardFormData, sec: string, id: string, patch: { cells?: R
   if (!after.done) delete after.done
   // an edited seed row is the operator's row from now on
   if (after.seed && patch.cells && !same(before.cells, cells)) delete after.seed
-  if (i >= 0 && same(before as unknown as Record<string, unknown>, after as unknown as Record<string, unknown>)) return d
+  if (i >= 0 && same(before, after)) return d
   const empty = !contentCols(s).some((c) => (after.cells[c] ?? '').trim())
   if (fixed) {
     const bare = !Object.keys(after.cells).length && !after.done
@@ -512,7 +513,7 @@ export function formHasContent(d: BoardFormData): boolean {
 export interface TrendWords { up: string; same: string; down: string }
 
 /**
- * One page, resolved for the server (backend · report_pdf · BoardPageIn): every label in the
+ * One page, resolved for the server (backend · app/report · BoardPageIn): every label in the
  * deployment's language, every row as the strings that print, in the layout's order. The server
  * draws the paper; it never has to know a template.
  */

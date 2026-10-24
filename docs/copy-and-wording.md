@@ -28,7 +28,7 @@ AGENTS.md on 2026-10-08 (the wording) and 2026-10-18 (the mechanics), wording un
   Two caveats: (1) module-level captures like `const C = appConfig.copy.x` freeze the language
   at import – read inside the component/function instead; (2) a few copy values are structural
   DATA keys, not labels (`contextPanel.unField`/`stoffField` match the non-localized preset
-  fields, intake `kategorien`/`kategorieGuess` mirror the backend) – leave these untranslated
+  fields, intake `kategorien` mirrors the backend) – leave these untranslated
   (German fallback).
 - Help text is per device (`lib/helpDevice`).
 
@@ -65,9 +65,9 @@ a Checkliste, a Verlauf-Eintrag, a Mittel line).
   `whiteboard.*`, `Whiteboard.tsx`) keep their names.
 - **The place is «Verlauf», the thing is «Eintrag» – on every screen** (29.09.2026). The composer
   is «Neuer Eintrag», its toast «Eintrag erfasst», the checklist action chip «Verlauf», the
-  Führungsansicht «Verlauf & Symbol-Details», the source row «Von Hand erfasst». «Journal» appears
+  Führungsansicht «Verlauf & Symbol-Details», the detail sheet's meta line «… · von Hand erfasst». «Journal» appears
   on screen nowhere. **«Einsatzjournal» stays ONLY as the printed Rapport section's name**
-  (`report_pdf · "journal"`, `copy.report.journal`, and the «Abschnitte» toggle that names that
+  (`app/report · "journal"`, `copy.report.journal`, and the «Abschnitte» toggle that names that
   section) – the paper term. The printed Atemschutz section is «Atemschutzüberwachung», never
   «Atemschutz-Journal». en/fr/it keep their own place word (Log / Journal / Diario) and the same
   entry word (Entry / Entrée / Voce). Code identifiers (`journal.*`, `Journal.tsx`, `jr-*`,
@@ -93,8 +93,7 @@ a Checkliste, a Verlauf-Eintrag, a Mittel line).
   - **A retry sentence says what happened, the button says «Erneut versuchen»** (29.09.2026) —
     never «… nochmals versuchen» in the sentence next to it; one button word in every locale.
 - **A ✕ that empties a field says «leeren», never «löschen»** (29.09.2026) — «löschen» is the
-  delete verb. `copy.clear` «Leeren», `copy.clearSearch` «Suche leeren», `copy.clearField`
-  «{field} leeren»; no per-surface «Suche löschen» copies.
+  delete verb. `copy.clear` «Leeren», `copy.clearSearch` «Suche leeren»; no per-surface «Suche löschen» copies.
 - **A search field's placeholder is «<Thing> suchen …», or bare «Suchen …» where the surface
   already names the thing** (swept 18.09.2026: «Suchen», «Name suchen», «Suchen oder Name
   eingeben …» and three-dot `...` all existed side by side). Always the ellipsis character with a

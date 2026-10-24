@@ -3,7 +3,7 @@ import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useSta
 import type { ReactivateResult } from './types'
 import './app.css'
 import { IconSprite, Icon } from './lib/icons'
-import { demoSeedRebase, type Saved } from './lib/workspace'
+import { demoSeedRebase } from './lib/workspace'
 import { appConfig } from './config/appConfig'
 import { shortAddress, isDemoMode, alarmProviderName, objectVisitsConfig, getDeploymentConfig } from './lib/deploymentConfig'
 import { isOvPath, leaveAppEntries, navigateTo, OV_BASE, ovHref, showsObjectVisits, useOvRoute } from './objectVisits/route'
@@ -29,18 +29,17 @@ import { claimBootNotifyTarget } from './lib/notifyTarget'
 import { useIncidentTabLock } from './lib/tabLock'
 import { clearIncidentMedia, clearUploadedMedia, listMediaQueue } from './lib/mediaQueue'
 import { MediaPendingMeldung, type ClosedMediaPending } from './components/MediaPendingMeldung'
-import { ensurePushSubscription } from './lib/push'
+import { clearAppBadge, ensurePushSubscription } from './lib/push'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { isAtemschutzLinkKind, useAuth } from './lib/auth'
 import { IncidentWorkspace } from './IncidentWorkspace'
 import {
   WorkspaceSync, listIncidentsResilient, getIncident, archiveIncident, reactivateIncident,
   migrateLegacyWorkspace, takeDiveraAlarm, patchIncident, attachDiveraAlarm, discardWorkspaceCache,
-  type DiveraAlarm, type IncidentFull, type IncidentMeta,
+  isIncidentRunning, type DiveraAlarm, type IncidentFull, type IncidentMeta, type Workspace,
 } from './lib/incidents'
-import { isIncidentRunning } from './lib/api/incidents'
 import { closedMetaFor, closedNoticeAt, onIncidentClosed, onIncidentReopened, reopenedMetaFor, reportIncidentClosed, reportIncidentReopened, type IncidentClosedSignal, type IncidentReopenedSignal } from './lib/incidentClosed'
-import { serverNow } from './lib/serverClock'
+import { serverNow, serverNowIso } from './lib/serverClock'
 import { unlockAlarm } from './lib/alarm'
 import { CRASH_HEALTHY_MS, clearCrash } from './lib/crashLoop'
 import { ApiError, isUnverifiable } from './lib/api'
@@ -162,7 +161,7 @@ export default function App() {
   const [bootDecided, setBootDecided] = useState(false)
   const bootOpenSeq = useRef(0) // StrictMode / re-run guard: only the LATEST boot open may clear it
   const [activeMeta, setActiveMeta] = useState<IncidentMeta | null>(null)
-  const [workspace, setWorkspace] = useState<Saved | null>(null)
+  const [workspace, setWorkspace] = useState<Workspace | null>(null)
   const [remount, setRemount] = useState(0)
   // the Einsatz whose OPENING is still behind the workspace's snail cover (lib/bootCover). Set
   // by a genuine open only — never by a background remount, nor by re-selecting the Einsatz
@@ -309,7 +308,8 @@ export default function App() {
   // targets (atemschutz/journal) are claimed by IncidentWorkspace once mounted.
   useEffect(() => {
     if (!isEditor) return
-    const openPool = () => { void refreshPool() }
+    // the home-screen badge the push set (sw-notify.js) is cleared now that the alarm is on screen
+    const openPool = () => { clearAppBadge(); void refreshPool() }
     if (claimBootNotifyTarget(['divera'])) openPool()
     const sw = typeof navigator !== 'undefined' ? navigator.serviceWorker : undefined
     if (!sw) return
@@ -414,7 +414,7 @@ export default function App() {
       // dialog — just a quiet notice. The merged result is applied in place via onApplyMerged
       // (registered by the live view); onServerWorkspace is the remount fallback.
       onMerged: () => toast(appConfig.copy.toast.merged),
-      onServerWorkspace: (ws) => { setWorkspace(ws as unknown as Saved); setRemount((n) => n + 1) },
+      onServerWorkspace: (ws) => { setWorkspace(ws); setRemount((n) => n + 1) },
     })
     const meta = opts.meta ?? (await getIncident(id))
     if (selectReq.current !== my) { sync.dispose(); return } // superseded mid-flight
@@ -440,7 +440,7 @@ export default function App() {
     // per tab + seed, so a refresh keeps the clocks running instead of shunting them backwards —
     // and the UNTOUCHED seed is the only thing it may ever touch, because the demo Einsatz is
     // shared across devices the moment anyone works it (see workspace · demoSeedRebase).
-    const seed = ws ? (isDemoMode() ? demoSeedRebase(ws as unknown as Saved, id, rev) : (ws as unknown as Saved)) : null
+    const seed = ws && isDemoMode() ? demoSeedRebase(ws, id, rev) : ws
     setWorkspace(seed)
     setForceReadOnly(!!opts.readOnly)
     setActiveId(id)
@@ -736,6 +736,39 @@ export default function App() {
     if (entry && isIncidentRunning(entry)) reportIncidentReopened({ incidentId: activeMeta.id, source: 'list' })
   }, [incidents, activeMeta])
 
+  /** THE reopen, after its question was answered — by the confirm of `reactivateById` below, or
+   *  by the close toast's «Wieder öffnen» (completeRapport), which IS the question. */
+  const reopenNow = useCallback(async (id: string): Promise<ReactivateResult> => {
+    // this device's own reopen: its poll hears «open» before the remount below, and that is not
+    // «auf einem anderen Gerät wieder geöffnet»
+    reopeningLocallyRef.current = id
+    try {
+      // ⚠️ Reported, not swallowed: a failed reopen used to be followed by the incident being
+      // opened read-only anyway, which reads as «the app decided I may not edit this» rather than
+      // as «the server refused». Same rule as abschliessen — the outcome, not the intent.
+      try {
+        await reactivateIncident(id)
+      } catch (e) {
+        // Offline (or the server down) is not a refusal: say what it needs. There is no queue for
+        // a reopen on purpose — the server writes the reopen boundary the Atemschutz clocks restart
+        // from, and until it arrives the alarm holds (lib/reopenClocks · reopenPending), so an
+        // Einsatz reopened offline would run its Tafel without an Überfällig alarm.
+        toast(isUnverifiable(e) ? appConfig.copy.archived.reactivateNeedsServer
+          : e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
+        return 'failed'
+      }
+      await refreshList()
+      try {
+        await selectIncident(id, { readOnly: false })
+        return 'ok'
+      } catch {
+        return 'failed'
+      }
+    } finally {
+      if (reopeningLocallyRef.current === id) reopeningLocallyRef.current = null
+    }
+  }, [refreshList, selectIncident])
+
   // THE close, and the only one. Both doors on the ACTIVE Einsatz (the Rapport's button/band and
   // the Einsatz-Menü row) run their counting confirm in IncidentWorkspace and land here; «Alle
   // Einsätze» runs the plain confirm below and lands here too. Flush the last workspace edits,
@@ -749,7 +782,8 @@ export default function App() {
     closingLocallyRef.current = id
     try {
       if (id === activeId && syncRef.current) await syncRef.current.flush().catch(() => {})
-      await patchIncident(id, { report_done_at: new Date().toISOString() })
+      // the deployment's clock, like every other stamp on the record (lib/serverClock)
+      await patchIncident(id, { report_done_at: serverNowIso() })
       // ⚠️ NOT `.catch(() => {})`. A swallowed failure here sat one line above a green «Rapport
       // abgeschlossen» toast — and then the Einsatz reopened by itself on the next list refresh,
       // because it had never been closed at all. The catch below reports it and the Einsatz stays
@@ -760,7 +794,15 @@ export default function App() {
       // ⚠️ …and what is still queued stands as a Meldung while true, not in this toast (S3,
       // 20.10.2026): five seconds while the screen moves to the launcher is not «said out loud»
       const stillQueued = await clearUploadedMedia(id)
-      toast(appConfig.copy.abschluss.done, { icon: 'check', tone: 'success' })
+      /* «Wieder öffnen» on the toast, 10 s (3am sweep, 23.10.2026, owner's point 4): the way back
+         used to be Alle Einsätze → open read-only → «Wieder öffnen» → confirm. The toast is the
+         confirm-with-undo of the close (docs/undo.md) — the same reopen «Alle Einsätze» runs,
+         minus its question, and it refuses like the other undo toasts when the server has moved
+         on (reopenNow: a failed PATCH is said, nothing is reopened). */
+      toast(appConfig.copy.abschluss.done, {
+        icon: 'check', tone: 'success', duration: 10_000,
+        action: { label: appConfig.copy.abschluss.reopen, onClick: () => { void reopenNow(id) } },
+      })
       if (stillQueued) {
         const title = (incidents ?? []).find((i) => i.id === id)?.title ?? activeMeta?.title ?? ''
         setClosedMedia((cur) => [...cur.filter((p) => p.id !== id), { id, title, n: stillQueued }])
@@ -790,7 +832,7 @@ export default function App() {
     } finally {
       if (closingLocallyRef.current === id) closingLocallyRef.current = null
     }
-  }, [activeId, refreshList, incidents, activeMeta])
+  }, [activeId, refreshList, incidents, activeMeta, reopenNow])
 
   // Close ANY incident from the «Alle Einsätze» list (per-incident, not just the active one).
   // ⚠️ It ends the same way the Rapport does — through `completeRapport` — so an Einsatz put away
@@ -850,35 +892,8 @@ export default function App() {
       cancelLabel: appConfig.copy.cancel,
     })
     if (!ok) return 'cancelled'
-    // this device's own reopen: its poll hears «open» before the remount below, and that is not
-    // «auf einem anderen Gerät wieder geöffnet»
-    reopeningLocallyRef.current = id
-    try {
-      // ⚠️ Reported, not swallowed: a failed reopen used to be followed by the incident being
-      // opened read-only anyway, which reads as «the app decided I may not edit this» rather than
-      // as «the server refused». Same rule as abschliessen — the outcome, not the intent.
-      try {
-        await reactivateIncident(id)
-      } catch (e) {
-        // Offline (or the server down) is not a refusal: say what it needs. There is no queue for
-        // a reopen on purpose — the server writes the reopen boundary the Atemschutz clocks restart
-        // from, and until it arrives the alarm holds (lib/reopenClocks · reopenPending), so an
-        // Einsatz reopened offline would run its Tafel without an Überfällig alarm.
-        toast(isUnverifiable(e) ? appConfig.copy.archived.reactivateNeedsServer
-          : e instanceof ApiError ? e.detail : appConfig.copy.errors.updateFailed, { icon: 'warn', tone: 'warn' })
-        return 'failed'
-      }
-      await refreshList()
-      try {
-        await selectIncident(id, { readOnly: false })
-        return 'ok'
-      } catch {
-        return 'failed'
-      }
-    } finally {
-      if (reopeningLocallyRef.current === id) reopeningLocallyRef.current = null
-    }
-  }, [refreshList, selectIncident])
+    return reopenNow(id)
+  }, [reopenNow])
 
   // Which screen (lib/karte/home · appScreen — tested there): the Objektbesuche surface, «Karte &
   // Objekte», the boot's splash, an Einsatz, or — for a link session only — the launch card.
@@ -1202,7 +1217,7 @@ export default function App() {
             // is the blob as it stood when the Einsatz was opened; the live poll lands inside the
             // workspace, which gates the banner on the same field.
             needsIntakeReview(activeMeta, {
-              isEditor, reviewed: reviewedIncidents, reviewedAt: workspace?.intakeReviewedAt, now: Date.now(),
+              isEditor, reviewed: reviewedIncidents, reviewedAt: typeof workspace?.intakeReviewedAt === 'string' ? workspace.intakeReviewedAt : undefined, now: Date.now(),
             })
           }
           onReviewDone={() => markReviewed(activeMeta.id)}

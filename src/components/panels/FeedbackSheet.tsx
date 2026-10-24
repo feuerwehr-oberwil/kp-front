@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { appConfig } from '../../config/appConfig'
 import { buildLabel } from '../../lib/buildInfo'
-import { getDeploymentConfig } from '../../lib/deploymentConfig'
+import { deploymentName } from '../../lib/deploymentConfig'
 import { Icon } from '../../lib/icons'
 import { toast } from '../../lib/ui'
 import {
@@ -64,7 +64,8 @@ export function FeedbackSheet({ trouble, onClose }: {
   // Snapshot once on open: the report should describe the moment the operator started writing,
   // not shift under them if the network flaps mid-sentence.
   const env = useMemo(() => readEnv(buildLabel(), appConfig.locale), [])
-  const appName = getDeploymentConfig().identity?.appName ?? appConfig.appName
+  // the station's wordmark, as everywhere else – not the code default «Incident Map» (sweep C.4)
+  const appName = deploymentName()
   const repo = appConfig.feedback.github
 
   const input: ReportInput = {

@@ -26,7 +26,7 @@
 /* ⚠️ The house shapes, not pills (20.09.2026): this bar was the one place in the app with
    fully round buttons in a fully round tray, at 13px/600 – and on a phone both labels wrapped
    onto two lines, so it stood twice as tall as any other bar. Buttons are --r-sm at the compact
-   12.5px/700 on the --tap floor like every button (AGENTS.md · buttons), the tray is the glass
+   12.5px/700 on the --tap floor like every button (docs/ui-conventions.md · Buttons), the tray is the glass
    cluster the map's other floating controls sit in, and a label never wraps. */
 /* The instruction bar and its context line are MESSAGES, so they wear the one message surface
    (08-toasts.css · «ONE message surface», 25.09.2026): the app's surface, ink 14/500, the one
@@ -48,7 +48,7 @@
 @media (hover: hover) { .wb-osm-clear:hover { background: var(--border); color: var(--ink); } }
 .wb-osm-clear:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
 /* the one action of the bar → the primary fill. It was red, and red never fills an action
-   (AGENTS.md · buttons): «Übernehmen» destroys nothing. */
+   (docs/ui-conventions.md · Buttons): «Übernehmen» destroys nothing. */
 .wb-osm-take { background: var(--btn-primary); color: var(--on-btn-primary); font-weight: var(--fw-heavy); }
 @media (hover: hover) { .wb-osm-take:hover { filter: brightness(1.06); } }
 .wb-osm-take:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }

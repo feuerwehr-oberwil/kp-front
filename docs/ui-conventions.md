@@ -39,9 +39,9 @@ sheets, overlays, the button spec and the touch vocabulary. Phone-only layout is
   (staged; the owner sees pairs for anything visible), so do not mass-convert a file on the side.
   **The pile only shrinks**: `src/styles/styleDebt.test.ts` counts per stylesheet the literal
   font sizes, off-step weights, off-grid spacings and literal-colour shadows against
-  `styleDebt.baseline.json` and fails when one goes up – or when one went down and the baseline
-  was not lowered (`STYLE_DEBT_UPDATE=1 pnpm vitest run src/styles/styleDebt.test.ts`, which
-  only ever lowers it). Like the lint ceiling: never raise it to pass.
+  `styleDebt.baseline.json` and fails when one goes up; one that went down is a console note –
+  lower the baseline when convenient (`STYLE_DEBT_UPDATE=1 pnpm vitest run
+  src/styles/styleDebt.test.ts`, which only ever lowers it). Never raise it to pass.
 - **Breakpoints come from `src/lib/breakpoints.ts` only.** The one corner (`--r-sm`, `--r-bar`,
   `--r-xs`) is under «Buttons follow one spec» · *Radius*, the one button family under «Button
   components».
@@ -302,6 +302,9 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     (`.wb-dock-tog.on`) is the `--sel` fill — that fill, not the dock, says «armed». The ✓ is
     `--btn-primary`. No dock carries a line of text, on any surface or width (20.10.2026, owner:
     «Remove the line. I don't think they add any value.»): a tool's instructions are its ⓘ.
+    **The armed tool's name is the readout pill** (`.armed-pill`, 23.10.2026): glyph + word,
+    bottom centre, the same glass, `--tap` high, no pointer events – a readout, not a control
+    (tactical-objects.md · «The armed tool's readout»). The symbol tool has no dock since then.
     The sticky close button has no masking shadow: a solid surface patch mismatches the glass.
     The blank Tafel offers no Messen on a phone; map and scaled plans keep it. The mobile
     Ansichten popover dismisses on an outside pointer press, allowing the pressed control to act.
@@ -312,6 +315,15 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     `--on-btn-primary`), never `--ink-fill`/`--blue`/`--accent` directly. **Red never fills an
     action** – it means danger/delete only. Amber = warning but not critical; red = danger,
     broken, act now; blue/grey = normal status and in-progress.
+  - *Text on colour (23.10.2026, sweep G.2/G.4–G.6):* red as TEXT or a glyph is `--red-strong`;
+    `--red` only fills and strokes. A word on an `--amber` fill is `--on-amber` (dark in both
+    themes – white on amber is 2.5:1 by day), on the other hues `--on-fill`. A green or red fill
+    that carries a word or glyph is `--green-fill` / `--red-fill` (24.10.2026, sweep Q1: a touch
+    darker than `--green` / `--red` by day, the hue itself at night); the plain hues stay for
+    dots, lamps, edges and tints. The three ink tiers and these fill pairs clear 4.5:1 in both
+    themes; `src/styles/tokenContrast.test.ts` measures them from `01-tokens.css` and also fails
+    on a control filled with `--ink` (that is `--btn-primary`'s job – `--ink` glares at night) or
+    a labelled rule filled with the plain `--green` / `--red`.
   - *Disabled:* `opacity: var(--disabled)` + `cursor: default`. Never inline the number.
     **A save that cannot save YET is never natively `disabled`** (UX sweep F2, 20.10.2026; the
     Trupp form since 02.09.): it is `aria-disabled` (the same dimmed look, `.ip-btn` /
@@ -456,7 +468,11 @@ Three rules the primitives own, so no surface re-answers them (18.09.2026):
     (`HEAD_FIT_STEPS` · 'eintrag-word'). While the hold's chooser is up, the glyph gives way to
     its drawn ✕ (both paths always in the DOM). «Trupp finden» wears `#trupp-find` (people with a
     small lens — the owner's pick B, 29.09.2026; the flag in a reticle read as «ugly») on the Trupp tool's dock and in the finder's head — never the
-    `#search` lens, which a search tile wears.
+    `#search` lens, which a search tile wears. The Tafel wears `#easel` (a board on two legs,
+    23.10.2026, sweep G.9) – `#pen` is «Linie» in the tool rail beside it. An Aufgaben list wears
+    `#tasks` (two empty boxes, sweep F.9), never `#check`, which beside «0%» read as «done». The
+    Entwicklung toggles are drawn `#spread-*` arrows with their `#grenze-*` bar on the tip side,
+    one capsule per direction (sweep G.10).
     (11) **Anwesend = the green tint, nothing else** (29.09.2026, owner pick B): no status dot, no
     green border. Not colour alone: present rows are the ones with the Ort + Uhr buttons, gone
     rows are `--done-opacity`, and the state word is in the row button's accessible name

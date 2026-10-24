@@ -1,3 +1,10 @@
+// The Plan's drawing pieces, split out of Whiteboard: the ink and circle SVG layers, the vertex /
+// radius / draft handles and the armed tool's docks. Each is the plan twin of a Lage piece in
+// MapView – same grips, same docks (the shared `ToolDock`), same tap order – so a change to one
+// side is asked of the other (Lage ↔ Plan parity). The layers and handles render in board px
+// (`sW`/`sH` + the storey `mapY`), never in a stretched 0..1 viewBox, and take gestures as props.
+// Rules for this area: docs/tactical-objects.md.
+
 import { useId } from 'react'
 import type { BoardAnno, BoardPoint, BoardTool } from '../types'
 import { Icon } from '../lib/icons'

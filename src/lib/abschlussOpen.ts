@@ -1,8 +1,9 @@
 import { appConfig } from '../config/appConfig'
-import { fillTemplate } from './format'
+import { fillTemplate, formatTime } from './format'
 import type { AbschlussStep } from './abschluss'
 import type { ConfirmItem } from './overlays/ConfirmCard'
 import type { Trupp } from '../types'
+import type { ReportMeta } from './workspace'
 import { truppLogName } from './atemschutz'
 
 /**
@@ -66,17 +67,70 @@ export function abschlussOpenLabel(p: AbschlussOpenPoint): string {
  */
 export const countsAsOpen = (p: AbschlussOpenPoint): boolean => p.kind !== 'media'
 
+/**
+ * Settle a Mindestangabe IN the sheet (3am sweep, 23.10.2026, owner's point 4): the row's button
+ * writes the answer to the Rapport and the sheet stays open. `(step, over, answer)` — the caller
+ * writes `over` the way the Rapport's own «Entfällt» would and keeps the step as answered with
+ * that word (the row stays, done).
+ */
+export type AbschlussFix = (step: AbschlussStep, over: Partial<ReportMeta>, answer: string) => void
+
+/**
+ * What a step's BUTTON does. Four answer in place («Jetzt setzen», «Nichts verwendet»,
+ * «Entfällt» ×2 — the same writes the Rapport's own buttons make, so `normalizeReportMeta`
+ * reads them the same way); two need the operator's words or a name and go to the field,
+ * focused («Wählen», «Schreiben» — `leaves`). Anwesenheit and Abweichungen have no one-tap
+ * answer: a head count is counted and a divergence is decided, both on their own surfaces.
+ */
+export function abschlussStepAction(step: AbschlussStep, go: AbschlussOpenTargets, fix: AbschlussFix, now: () => string): ConfirmItem['action'] {
+  const F = appConfig.copy.abschluss.fix
+  switch (step) {
+    case 'zeiten': return { label: F.zeiten, onClick: () => fix(step, { endedAt: now() }, F.zeiten) }
+    case 'mittel': return { label: F.mittel, onClick: () => fix(step, { mittelConfirmedNone: true }, F.mittel) }
+    case 'kontaktperson': return { label: F.kontaktperson, onClick: () => fix(step, { kontaktperson: undefined, kontaktpersonTelefon: undefined, kontaktpersonNone: true }, F.kontaktperson) }
+    case 'rueckmeldung': return { label: F.rueckmeldung, onClick: () => fix(step, { rueckmeldungElz: undefined, rueckmeldungNone: true }, F.rueckmeldung) }
+    case 'einsatzleiter': return { label: F.einsatzleiter, onClick: () => go.step(step), leaves: true }
+    case 'kurzbericht': return { label: F.kurzbericht, onClick: () => go.step(step), leaves: true }
+    case 'anwesenheit':
+    case 'abweichungen': return undefined
+  }
+}
+
 /** The rows the confirm renders. Tapping one resolves the ask `false` (going there is not going
- *  ahead) and then navigates — see overlays/ConfirmCard · ConfirmItem. */
-export function abschlussOpenItems(points: AbschlussOpenPoint[], go: AbschlussOpenTargets): ConfirmItem[] {
-  return points.map((p) => ({
-    label: abschlussOpenLabel(p),
-    onClick: () => {
+ *  ahead) and then navigates — see overlays/ConfirmCard · ConfirmItem. With a `fix`, each step
+ *  row also carries its button (abschlussStepAction); `settled` rows (answered in this sheet)
+ *  stay in place as the record of it — a check and the answer's word, still a link. */
+export function abschlussOpenItems(
+  points: AbschlussOpenPoint[], go: AbschlussOpenTargets,
+  opts?: { fix: AbschlussFix; now: () => string; settled?: ReadonlyMap<AbschlussStep, string> },
+): ConfirmItem[] {
+  return points.map((p) => {
+    const onClick = () => {
       if (p.kind === 'step') go.step(p.step)
       else if (p.kind === 'trupps') go.trupps()
       else go.media()
-    },
-  }))
+    }
+    const answer = p.kind === 'step' ? opts?.settled?.get(p.step) : undefined
+    if (answer) return { label: abschlussOpenLabel(p), end: answer, done: true, onClick }
+    const action = p.kind === 'step' && opts ? abschlussStepAction(p.step, go, opts.fix, opts.now) : undefined
+    return { label: abschlussOpenLabel(p), onClick, ...(action ? { action } : {}) }
+  })
+}
+
+/**
+ * The pre-filled Einsatzende (owner's pick, 23.10.2026): «Einsatzende · jetzt 23:41», shown as
+ * already set, with «Ändern». The close writes it (useAbschluss); «Ändern» writes it too and goes
+ * to the Rapport's field — so the field shows the value being changed, not an empty one.
+ */
+export function abschlussEndeItem(iso: string, change: () => void): ConfirmItem {
+  const A = appConfig.copy.abschluss
+  return {
+    label: A.ende,
+    end: fillTemplate(A.endeNow, { t: formatTime(new Date(iso)) }),
+    done: true,
+    onClick: change,
+    action: { label: A.endeChange, onClick: change, leaves: true },
+  }
 }
 
 /**

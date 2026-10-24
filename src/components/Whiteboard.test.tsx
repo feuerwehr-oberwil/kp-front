@@ -432,7 +432,8 @@ describe('a locked line on the plan (BoardAnno.locked — the twin of Drawing.lo
 // Messen left the rail (deliberate Lage↔Plan divergence), the floating delete orbs left the
 // canvas (the detail panel is the one delete), a note opens on TAP like a symbol, the Punkte
 // draft carries real vertex handles, and tap-away releases a draft instead of eating it.
-describe('Plan round 3 (29.08.)', () => {
+// Plan round 3, 29.08.
+describe('the Plan rail and its drafts', () => {
   const T = appConfig.copy.toolDock
   const W = appConfig.copy.whiteboard
   // toNorm and the handle layout need a real board rect, which jsdom never lays out.
@@ -493,6 +494,14 @@ describe('Plan round 3 (29.08.)', () => {
     // pressing a «+» splices a node right there (and hands the same press its drag)
     fireEvent.pointerDown(inserts[0], { clientX: 200, clientY: 100, pointerId: 2 })
     expect(screen.getAllByRole('button', { name: W.dragVertex })).toHaveLength(4)
+  })
+
+  // sweep E.2: «Leeres Blatt – mit Linie … beschriften» sat under the first line being laid
+  it('takes the empty-sheet hint away as soon as a draft is on the sheet', () => {
+    const { container } = renderPlan([])
+    expect(screen.getByText(W.blankHint)).toBeTruthy()
+    drawAreaDraft(container)
+    expect(screen.queryByText(W.blankHint)).toBeNull()
   })
 
   it('auto-commits a committable draft on tap-away — and «Rückgängig» hands the shape back', () => {

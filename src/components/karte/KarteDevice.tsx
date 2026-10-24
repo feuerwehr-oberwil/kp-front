@@ -16,6 +16,7 @@ import { Sheet } from '../../lib/overlays'
 import { storedBuildingCount, storedStationObjects, type StationObject } from '../../lib/api/stationReference'
 import { cacheProbeable, deviceRows, planKey, planLamp, type DeviceFacts, type Lamp } from '../../lib/karte/availability'
 import { heldPlanPages } from './useKarteOffline'
+import { AlarmReadinessRows } from './AlarmReadiness'
 import { ListCard, ListRow } from '../ListRow'
 import s from './Karte.module.css'
 
@@ -61,6 +62,8 @@ export function KarteDevice({ offline, objects, map, onClose }: {
   const rows = facts ? deviceRows({ ...facts, offline, map }, C, { day: fmtDay, size: fmtFileSize }) : null
   return (
     <Sheet open onClose={onClose} title={C.title} fit sheetClassName={s.deviceSheet}>
+      {/* «Alarm auf diesem Gerät» first (3am sweep §1): would a «Neuer Einsatz» wake this device? */}
+      <AlarmReadinessRows className={s.deviceAlarm} />
       <p className={s.deviceLead}>{offline ? C.leadOffline : C.leadOnline}</p>
       {rows ? (
         <ListCard role="list">

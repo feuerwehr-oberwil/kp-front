@@ -141,16 +141,16 @@ export const journalCopy = {
     // bedient und darum bewusst nach keinem Namen gefragt wurde (types · TimelineEvent.via)
     viaAtemschutzLink: 'Atemschutz-Link',
     viaAtemschutzLinkTitle: 'Eingetragen auf der abgegebenen Atemschutz-Tafel.',
-    // ── the row's detail sheet: a fact table, one line per thing the record actually holds ──
+    // ── the row's detail sheet (owner's pick 8, sweep E.4): the message is the title, a meta line
+    // under it «16:30:56 · Sofortmassnahme · von Hand erfasst» (time · Art/Bereich · Quelle), then a
+    // fact table for what the meta line does not say ──
     // ⚠️ Only lines with an answer are printed. A sheet of «–» teaches nothing and turns the one
     // fact that IS there (a correction, a repeat) into something to hunt for.
-    detailTime: 'Zeit',
-    detailArea: 'Bereich',
-    detailSource: 'Quelle',
-    // …written by hand vs. logged by the app. The second is why the pen is missing on that row,
-    // so the sheet says it rather than leaving an operator tapping a button that is not there.
-    detailSourceManual: 'Von Hand erfasst',
-    detailSourceSystem: 'Von der App erfasst',
+    // …written by hand vs. logged by the app — the meta line's last part, so lower case. The second
+    // is why the pen is missing on that row, so the sheet says it (and the hint under it) rather
+    // than leaving an operator tapping a button that is not there.
+    detailSourceManual: 'von Hand erfasst',
+    detailSourceSystem: 'von der App erfasst',
     detailSourceSystemHint: 'Systemzeilen sind nicht bearbeitbar',
     detailAttachments: 'Beilagen',
     detailAttachmentsN: '{n} Bilder',
@@ -202,10 +202,7 @@ export const journalCopy = {
     // die Knöpfe auf der Karte
     attendanceConflictTake: '{side} übernehmen',
     attendanceConflictKeep: 'Beide stimmen so',
-    attendanceConflictOpenTitle: 'Abweichungen',
     attendanceConflictOpenCount: '{n} offen',
-    attendanceConflictNoneOpen: 'Keine offen',
-    attendanceConflictCheckedAt: 'geprüft {t} · {by}',
     // system row appended when a three-way sync merge saw BOTH sides change the SAME
     // Atemschutz-Trupp concurrently (e.g. Druckmeldung on the tablet, Funkkontakt on the
     // phone). Unlike attendance the merge is field-level and drops nothing — the row exists
@@ -309,7 +306,7 @@ export const journalCopy = {
     // ── Filter ────────────────────────────────────────────────────────────────────────────
     // The funnel beside the lens (feat 37 · B, 23.09.2026). Its categories are NOT words of its
     // own: they are the Bereiche the disc, the legend and the Rapport's «Bereich» column already
-    // say (report · areaManual …, entryTypes, noteChip), so nothing is named twice. The ticks
+    // say (entryTypes, noteChip, report · areaLage …), so nothing is named twice. The ticks
     // OR together and AND with the search (lib/journalFilter).
     filter: 'Verlauf filtern',
     filterArt: 'Art des Eintrags',
@@ -358,6 +355,10 @@ export const journalCopy = {
   },
   errors: {
     updateFailed: 'Aktualisierung fehlgeschlagen',
+    // a 422 field error the server sent without its own message (lib/api · ApiError.fields)
+    invalidValue: 'Ungültiger Wert',
+    // the error report's one row past its cap of distinct signatures (lib/reportError)
+    moreSignatures: 'weitere Fehlersignaturen (über {n})',
     // network failures, both with ApiError status 0 — the app falls back to its offline caches
     // either way; the wording only tells the operator WHICH kind of dead line they have.
     serverUnreachable: 'Netzwerkfehler – Server nicht erreichbar',

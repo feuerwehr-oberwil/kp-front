@@ -218,7 +218,7 @@ function DeleteSheet({ row, onClose, onDone }: { row: Row; onClose: () => void; 
           </button>
         </>
       )}>
-      <p className="adm-state">{fillTemplate(C.deleteBody, { title })}</p>
+      <p className="adm-confirm-body">{fillTemplate(C.deleteBody, { title })}</p>
       <ul className="adm-ck-facts"><li><code>{row.dataset.id}</code></li></ul>
       {error && <p className="adm-state adm-state-err">{error}</p>}
     </Sheet>

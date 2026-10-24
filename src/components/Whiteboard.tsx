@@ -1,3 +1,11 @@
+// The Plan – one plan sheet, a Gebäude floor stack or the Tafel (Skizze + template pages) as the
+// background, and the Lage's tools on top of it: ink, symbols, Trupps, shapes, notes, measuring
+// and georeferencing. Every annotation is stored normalized 0..1 in plan-image space, so it
+// sticks across zoom, pan and re-tiling.
+// Lage ↔ Plan parity is a review criterion: a tool or gesture changed here is changed in MapView
+// too (docs/tactical-objects.md). Gebäude and alignments: docs/plans-and-buildings.md; the Tafel
+// pages: docs/board-templates.md.
+
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BuildingFloat } from './BuildingFloat'
 import type { BuildingInfo } from '../lib/api/building'
@@ -13,7 +21,8 @@ import { FloorPage } from './FloorPage'
 import { usePlanPaperMm } from './usePlanPaper'
 import { paperMaxScale } from '../lib/planTiles'
 import { prefetchPlanTiles } from '../lib/planTilePrefetch'
-import { PdfViewport, planMatcherImage, planPrintedMPerU, prewarmPlans } from './PdfViewport'
+import { PdfViewport } from './PdfViewport'
+import { planMatcherImage, planPrintedMPerU, prewarmPlans } from '../lib/pdfRaster'
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
@@ -62,9 +71,6 @@ import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
 import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
-
-/** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
-const FOLDED_H = 28
 import { advanceDwell, armDwell, arrowEdgePadPx, arrowTipLeadPx, attachInsetPx, boundaryPoint, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
@@ -98,6 +104,8 @@ import { useBoardGestures } from './useBoardGestures'
 import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles, type TruppFinderDoor } from './WbControls'
 import { MeasurePanel } from './MeasurePanel'
 import { ToolDock } from './ToolDock'
+import { ArmedSymbolGlyph, ArmedToolPill } from './ArmedToolPill'
+import { armedToolIcon, armedToolName } from '../lib/armedTool'
 import { PlanCompass } from './PlanCompass'
 import { OrientSlider } from './OrientSlider'
 import { ToolRail } from './ToolRail'
@@ -113,6 +121,8 @@ import { BUNDLED_TEMPLATES, warmBoardTemplates } from '../lib/boardTemplates'
 import type { MiniKarteProps } from './MiniKarte'
 
 const COLORS = appConfig.drawing.colors
+/** height of the strip a folded-away storey leaves behind (board px, matches 09-whiteboard.css) */
+const FOLDED_H = 28
 
 /** Size a note's textarea to its content, so the editable box is exactly as tall as the note it
  *  replaces (no scrollbar, no jump between "editing" and "done"). Height must be reset first —
@@ -381,6 +391,10 @@ export interface PlanLogExtra {
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
+/** The style every new Plan ink is born with – never the last edited ink's (3am sweep §2,
+ *  23.10.2026; the Karte's twin is useMapDrawing · DRAW_DEFAULTS). */
+const INK_DEFAULTS = { color: appConfig.drawing.defaultColor, width: 5, dashed: false, marker: '', arrow: false } as const
+
 export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
@@ -504,14 +518,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // this sheet. Its open panel gives the projection the source object's normal selection halo.
   // a pending team placement awaiting a Trupp pick (x/y/floor of the tapped point)
   const [truppPick, setTruppPick] = useState<{ x: number; y: number; floor: number } | null>(null)
-  // The NEXT ink's style — «the last line is the template» (the Lage map's drawColor/…).
-  // Since «D pur» (09.09.) the docks carry no style controls and there is no preset row
-  // either: the DrawEditor's edits write these back, decoration included.
-  const [color, setColor] = useState<string>(appConfig.drawing.defaultColor)
-  const [width, setWidth] = useState(5)
-  const [dashed, setDashed] = useState(false)
-  const [marker, setMarker] = useState('')
-  const [lineArrow, setLineArrow] = useState(false)
+  // Every new ink starts from the ONE plain default (INK_DEFAULTS) – the Karte's rule
+  // (useMapDrawing · DRAW_DEFAULTS). Until 23.10.2026 the DrawEditor's edits were written back
+  // here as the next ink's template, marker and arrowhead included (3am sweep §2).
+  const { color, width, dashed, marker, arrow: lineArrow } = INK_DEFAULTS
   // Fläche: tapped nodes, or a dragged outline — the Lage map's `areaMode`, same default and
   // same reason (a fire's edge has no corners to tap).
   const [areaMode, setAreaMode] = useState<'nodes' | 'freehand'>('nodes')
@@ -3329,8 +3339,9 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 preselectSrc={building?.geo ? building.src : undefined} preselectGeo={building?.geo}
                 pin={incidentPos} onPick={onSelectBuilding} />
             ) : blank ? (
-              // the hint teaches the tools — a board that cannot be written on has none to teach
-              annos.length === 0 && !readOnly && <div className="wb-blank-hint">{appConfig.copy.whiteboard.blankHint}</div>
+              // the hint teaches the tools — a board that cannot be written on has none to teach, and
+              // it steps aside the moment the first line or circle is being laid (sweep E.2)
+              annos.length === 0 && !draft && !circleDraft && !readOnly && <div className="wb-blank-hint">{appConfig.copy.whiteboard.blankHint}</div>
             ) : (
               <PdfViewport
                 key={active.id}
@@ -4281,21 +4292,33 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         />
       )}
 
-      {/* symbol/shape placement — the SAME shared ToolDock the Lage map uses (close + «Mehrere
-          platzieren» + info hint), so placing on the plan feels identical to placing on the map. Rest tool
-          is 'pan' here (the plan pans on empty canvas) vs the map's 'select'. */}
-      {pending && tool === 'symbol' && (
-        <ToolDock groups={[
-          [{ type: 'close', onClick: () => { setPending(null); setTool('pan') } }],
-          [{ type: 'toggle', icon: 'place-repeat', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }],
-          [{ type: 'info', text: appConfig.copy.dockHints.symbol }],
-        ]} />
-      )}
+      {/* the armed tool's readout — the SAME pill the Lage map shows (MapToolDocks): glyph + name,
+          bottom centre, nothing else. The symbol tool has no dock here either; «Mehrere
+          platzieren» stands beside the pill. Rest tool is 'pan' here (the plan pans on empty
+          canvas) vs the map's 'select'. Not on the phone while Messen is armed – its results
+          panel stands in that row. */}
+      {tool !== 'pan' && !(isPhone && tool === 'measure') && (() => {
+        if (tool === 'symbol') {
+          if (!pending) return null
+          return <ArmedToolPill glyph={<ArmedSymbolGlyph svg={sym.byName[pending] ?? ''} />} name={formatSymbolName(pending) || pending}
+            lock={{ on: placeLock, onToggle: () => setPlaceLock((v) => !v) }} />
+        }
+        if (tool === 'shape') {
+          if (!pendingShape) return null
+          return <ArmedToolPill glyph={<ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit />}
+            name={appConfig.copy.shapes.names[pendingShape] ?? appConfig.copy.shapes.kindLabel} />
+        }
+        const name = armedToolName(tool, appConfig.copy.planTools, { lineMode, areaMode })
+        const icon = armedToolIcon(tool, appConfig.copy.planTools)
+        if (!name || !icon) return null
+        return <ArmedToolPill glyph={<Icon id={icon} />} name={name} />
+      })()}
 
       {pendingShape && tool === 'shape' && (
         <ToolDock groups={[
           [{ type: 'close', onClick: () => { setPendingShape(null); setRotStart(null); setTool('pan') } }],
-          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color={isPhone ? 'currentColor' : '#fff'} aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
+          // currentColor, not #fff: the dock is light by day since 20.10.2026 (3am sweep, nit)
+          [{ type: 'glyph', node: <ShapeGlyph kind={pendingShape} color="currentColor" aspect={SHAPE_DEFS[pendingShape].defaultAspect} fit /> }],
           // «mehrere nacheinander» has no meaning for a shape laid between two named places
           ...(SHAPE_TWO_POINT[pendingShape] ? [] : [[{ type: 'toggle' as const, icon: 'place-repeat', label: appConfig.copy.keepPlacing, on: placeLock, onClick: () => setPlaceLock((v) => !v) }]]),
           [{ type: 'info', text: !SHAPE_TWO_POINT[pendingShape] ? appConfig.copy.dockHints.shape
@@ -4477,12 +4500,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 return widthM == null || heightM == null ? null : { widthM, heightM }
               })()
             : null}
-          // …each style edit is also remembered as the NEXT ink's default («D pur», 09.09.:
-          // the docks carry no style controls and the preset row is gone — the last line is
-          // the template, decoration included)
-          onColor={(c) => { patchCommit(selDraw.id, { color: c }); setColor(c) }}
-          onWidth={(w) => { patchCommit(selDraw.id, { width: w }); setWidth(w) }}
-          onDashed={(d) => { patchCommit(selDraw.id, { dashed: d }); setDashed(d) }}
+          // a style edit changes THIS ink only – the next one starts from INK_DEFAULTS again
+          onColor={(c) => patchCommit(selDraw.id, { color: c })}
+          onWidth={(w) => patchCommit(selDraw.id, { width: w })}
+          onDashed={(d) => patchCommit(selDraw.id, { dashed: d })}
           // ⚠️ Live while typing, one step on blur — the same split the Lage got (useMapDrawing ·
           // patchDrawingLabelLive). Through `patchCommit` every keystroke was its own undo step and
           // its own audit event: eleven of each for the word «Sicherung».
@@ -4496,8 +4517,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             if (live) emit('board.edit', { id: selDraw.id, patch: { label: label || undefined }, planId: activeId })
             else patchCommit(selDraw.id, { label: label || undefined })
           }}
-          onMarker={(m) => { patchCommit(selDraw.id, { marker: m || undefined }); setMarker(m) }}
-          onArrow={(a) => { patchCommit(selDraw.id, { arrow: a || undefined }); setLineArrow(a) }}
+          onMarker={(m) => patchCommit(selDraw.id, { marker: m || undefined })}
+          onArrow={(a) => patchCommit(selDraw.id, { arrow: a || undefined })}
           onEnding={(ending) => void changePlanEnding(ending)}
           onReverse={selDraw.kind === 'draw' ? reverseAnno : undefined}
           onContent={(content) => patchCommit(selDraw.id, { content })}
@@ -4597,7 +4618,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       {truppPick && (
         /* ⚠️ Modal → lib/overlays (focus trap + restore, scroll-lock, Esc, backdrop dismissal).
            The hand-rolled scrim it replaces had none of those, and the board's own Escape handler
-           fired underneath it. The AGENTS.md carve-out is for the NON-modal tool docks. */
+           fired underneath it. The hand-rolled carve-out (docs/ui-conventions.md · Overlays) is for the NON-modal tool docks. */
         <Overlay open onClose={() => setTruppPick(null)} className="wb-trupp-pick ui-dialog" ariaLabel={appConfig.copy.whiteboard.selectTrupp}>
           <div className="wb-trupp-pick-head">{appConfig.copy.whiteboard.selectTrupp}</div>
           {/* twin of the Lage picker (IncidentWorkspace): a Trupp already on THIS plan is

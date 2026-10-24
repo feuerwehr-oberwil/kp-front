@@ -25,13 +25,13 @@ import type { useSymbols } from '../lib/useSymbols'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
 import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { Doc } from '../lib/workspace'
-import type { Entity, LngLat, TimelineEvent, Trupp, Drawing, NoteSize, Person, LineEndpoint, LineAttachment, LayerId, CaptionMode } from '../types'
+import type { Entity, LngLat, TimelineEvent, Trupp, Drawing, NoteSize, Person, LineEndpoint, LineAttachment, LayerId, CaptionMode, MapTool } from '../types'
 import type { WorkspaceMode } from './types'
 
 export interface MapDetailPanelsProps {
   detailSlotFree: boolean
   tacticalLocked: boolean
-  tool: string
+  tool: MapTool
   selected: Entity | null
   commit: (updater: (d: Doc) => Doc, opts?: { gesture?: boolean }) => void
   setSelectedId: Dispatch<SetStateAction<string | null>>
@@ -76,14 +76,9 @@ export interface MapDetailPanelsProps {
   setNoteDefaults: Dispatch<SetStateAction<{ size: NoteSize; plain: boolean; color: string }>>
   selectedDrawing: Drawing | null
   patchDrawing: (patch: Partial<Drawing>) => void
-  setDrawColor: Dispatch<SetStateAction<string>>
-  setDrawWidth: Dispatch<SetStateAction<number>>
-  setDrawDashed: Dispatch<SetStateAction<boolean>>
   selectedDrawingId: string | null
   patchDrawingLabelLive: (id: string, label: string) => void
   commitDrawingLabel: (id: string, label: string) => void
-  setDrawMarker: Dispatch<SetStateAction<string>>
-  setDrawArrow: Dispatch<SetStateAction<boolean>>
   changeMapEnding: (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck', drawing?: Drawing | null) => Promise<void>
   reverseDrawing: (id: string) => void
   syncLineNoToTrupp: (lineId: string, lineNo: number | undefined) => void
@@ -112,9 +107,9 @@ export function MapDetailPanels({
   symbolCaptions, rosterNames, rosterRank, personStatus, rosterFieldHints, setEntityDone,
   vehicleOverrides, canEditIncident, readOnly, stopPersonSharing, setVehicleOverrides, log,
   assignTypedName, drawings, entities, focusDrawing, noteEntity, notePlacedId, setNotePanelId,
-  noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing, setDrawColor, setDrawWidth,
-  setDrawDashed, selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel, setDrawMarker,
-  setDrawArrow, changeMapEnding, reverseDrawing, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
+  noteTextLive, setNoteDefaults, selectedDrawing, patchDrawing,
+  selectedDrawingId, patchDrawingLabelLive, commitDrawingLabel,
+  changeMapEnding, reverseDrawing, syncLineNoToTrupp, pickablePersonnel, linkTruppLine,
   unlinkLine, setSelectedDrawingId, setMode, setPanel, setGpsRouting, revertAll, gpsEndOf, releaseHere,
   releaseOnSite, setDrawingAttachment, focusEntity, isVisible, toggleLayer, deleteDrawing,
 }: MapDetailPanelsProps) {
@@ -396,16 +391,15 @@ export function MapDetailPanels({
              the collapsible swisstopo Höhenprofil (fetched only once it is opened) */
           lengthM={selectedDrawing.coords.length >= 2 ? pathLengthM(selectedDrawing.coords) : null}
           profileCoords={selectedDrawing.coords}
-          // …each style edit is remembered as the NEXT drawing's default («D pur», 09.09.: the
-          // docks carry no style controls and the preset row is gone — the last line is the
-          // template, decoration included)
-          onColor={(c) => { patchDrawing({ color: c }); setDrawColor(c) }}
-          onWidth={(w) => { patchDrawing({ width: w }); setDrawWidth(w) }}
-          onDashed={(dashed) => { patchDrawing({ dashed }); setDrawDashed(dashed) }}
+          // a style edit changes THIS drawing only – the next one starts from the plain default
+          // again (useMapDrawing · DRAW_DEFAULTS; until 23.10.2026 these wrote the template back)
+          onColor={(c) => patchDrawing({ color: c })}
+          onWidth={(w) => patchDrawing({ width: w })}
+          onDashed={(dashed) => patchDrawing({ dashed })}
           onLabel={(label) => { if (selectedDrawingId) patchDrawingLabelLive(selectedDrawingId, label) }}
           onLabelCommit={(label) => { if (selectedDrawingId) commitDrawingLabel(selectedDrawingId, label) }}
-          onMarker={(marker) => { patchDrawing({ marker }); setDrawMarker(marker) }}
-          onArrow={(arrow) => { patchDrawing({ arrow }); setDrawArrow(arrow) }}
+          onMarker={(marker) => patchDrawing({ marker })}
+          onArrow={(arrow) => patchDrawing({ arrow })}
           onEnding={(ending) => void changeMapEnding(ending)}
           onReverse={tacticalLocked ? undefined : () => reverseDrawing(selectedDrawing.id)}
           onContent={(content) => patchDrawing({ content })}
