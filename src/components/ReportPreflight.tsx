@@ -41,8 +41,6 @@ import type { AssignableRole } from '../lib/roleAssignment'
 import { deploymentName, getDeploymentConfig, reportLinks } from '../lib/deploymentConfig'
 import { addPartnerOrg, partnerOrgOffer, partnerOrgsFromLage } from '../lib/partnerOrgs'
 import { linkTokenValues, resolveLinkUrl, type ReportLink } from '../lib/reportLinks'
-import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
-import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
 import type { ReportDraft, ReportOptions } from '../lib/report'
 import {
   defaultReportOptions, einsatzleiterFromScene, formatDateTime, hasVisiblePlanAnnotation, missingTranscriptCount, pendenzRows, proofLabel,
@@ -64,7 +62,11 @@ import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
 import { Stepper } from './Stepper'
 import { Menu, Popover } from '../lib/overlays'
+import { CheckRow } from './ReportCheckRow'
+import { ReportSignatures } from './ReportSignatures'
+import { printedSignatures, useSignatureLock } from './useReportSignatures'
 import { useAuditProof } from './useAuditProof'
+import { initialKrokiAt, useKrokiMoment } from './useKrokiMoment'
 import { PHONE_TABS, STEP_TAB, rapportKept, useReportPlace, type PhoneTab } from './useReportPlace'
 
 const NO_IDS = new Set<string>()
@@ -169,32 +171,6 @@ function clockOf(iso?: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
   return hhmm(d)
-}
-
-function CheckRow({ done, label, sub, onGo, anchor, tab, children }: {
-  done: boolean
-  label: string
-  sub: string
-  onGo?: () => void
-  /** the Abschluss step this row answers — the «noch offen» chips scroll to it (see jumpToStep) */
-  anchor?: string
-  /** which phone tab this row belongs to — inert above 600px (see PhoneTab) */
-  tab?: PhoneTab
-  children?: ReactNode
-}) {
-  return (
-    <div className="rp-check" data-step={anchor} data-tab={tab}>
-      <button type="button" className="rp-check-main" onClick={onGo} disabled={!onGo}>
-        <span className={`rp-check-dot${done ? ' done' : ''}`}>
-          <Icon id={done ? 'check' : 'minus'} />
-        </span>
-        <span className="rp-check-label">{label}</span>
-        <span className="rp-check-sub">{sub}</span>
-        {onGo && <Icon id="chevron" className="rp-check-go" />}
-      </button>
-      {children}
-    </div>
-  )
 }
 
 /** A recorded value on a Rapport this session cannot change – a viewer, a view link, a closed
@@ -330,19 +306,10 @@ export function ReportPreflight({
   onVoidSignatures?: () => void
 }) {
   // ── Unterschriften (15.10.2026) ──────────────────────────────────────────────────────────
-  // The signed part's hash as it stands NOW (computed below, once `meta` exists — this state
-  // carries it to the top, where the lock has to be known before anything uses `canEdit`).
-  const [scopeHash, setScopeHash] = useState<string | undefined>()
+  // The lock has to be known up here, before anything uses `canEdit` (useSignatureLock); the
+  // signed part's hash it checks against is computed below, once `meta` exists (setScopeHash).
   const closedAt = closeTimeOf(incident)
-  const liveSigs = useMemo(() => {
-    const a = activeSignatures(reportSignatures)
-    // made before the latest close = a signature of a Rapport that has since been reopened
-    for (const r of SIGNATURE_ROLES) if (a[r] && closedAt && a[r]!.at < closedAt) delete a[r]
-    return a
-  }, [reportSignatures, closedAt])
-  const sigValid = (r: SignatureRole) => !!liveSigs[r] && signatureState(liveSigs[r]!, scopeHash) === 'valid'
-  /** signed and still valid: the form is read-only until somebody chooses «Ändern» */
-  const signedLock = closed && SIGNATURE_ROLES.some(sigValid)
+  const { liveSigs, sigValid, signedLock, setScopeHash } = useSignatureLock(reportSignatures, closedAt, closed)
   const canEdit = canEditIn && !signedLock
 
   // Defaults follow the data: a rapport-only incident (nothing drawn) prints without the
@@ -466,52 +433,23 @@ export function ReportPreflight({
   }
   const patchPartner = (i: number, over: Partial<PartnerContact>) =>
     savePartners(partners.map((p, j) => (j === i ? { ...p, ...over } : p)))
-  // WHEN the printed Kroki shows. The live picture is the default and the common case; a past
-  // instant is what makes a rapport able to show the Rettung that has since left, or the moment
-  // the Lage was at its worst. Reconstructed locally from the event journal (lib/replay), the
-  // same fold the Wiedergabe uses — so the paper and the replay can never disagree.
-  // …and it survives the round trip to Anwesenheit/Mittel with the print options (rapportKept):
-  // a Stand picked by hand is a choice about the sheet, exactly like the sections are.
-  const [krokiAt, setKrokiAt] = useState<number | null>(() => {
-    if (kept) return kept.krokiAt
-    return reportMeta.krokiPrint?.at ? Date.parse(reportMeta.krokiPrint.at) || null : null
+  // WHEN the printed Kroki shows (useKrokiMoment). It survives the round trip to
+  // Anwesenheit/Mittel with the print options (rapportKept): a Stand picked by hand is a choice
+  // about the sheet, exactly like the sections are.
+  /** Is there anything to frame? A rapport-only Einsatz (nothing drawn, nothing placed) seeds
+   *  the Kroki section OFF and must not show an empty map pretending to be a picture — and
+   *  switching the section off by hand means the same thing: nothing is going on the paper. */
+  const krokiPanel = options.kroki && mapContentCount > 0 && !!scene
+  const kroki = useKrokiMoment({
+    incidentId: incident.id,
+    startedAt: reportMeta.startedAt ?? incident.started_at,
+    initialAt: initialKrokiAt(kept, reportMeta.krokiPrint?.at),
+    shown: krokiPanel,
+    events,
   })
-  const [pastScene, setPastScene] = useState<{ entities: Entity[]; drawings: Drawing[] } | null>(null)
-  const [krokiAtBusy, setKrokiAtBusy] = useState(false)
-  // WHEN anything happened, for the Stand slider's tick marks. Derived from the SAME source the
-  // replay bar uses, so the two surfaces cannot disagree about where the Einsatz has substance:
-  // the recorded actions plus the Verlauf rows that carry an absolute time.
-  const [auditMoments, setAuditMoments] = useState<number[]>([])
-  const bundleRef = useRef<ReplayBundle | null>(null)
-  useEffect(() => {
-    if (krokiAt == null) { setPastScene(null); return }
-    let alive = true
-    setKrokiAtBusy(true)
-    void (async () => {
-      try {
-        const startMs = Date.parse(meta.startedAt ?? incident.started_at)
-        bundleRef.current ??= await loadReplay(incident.id, startMs, Date.now())
-        const ws = await stateAt(bundleRef.current, krokiAt)
-        if (!alive) return
-        // vehicles come from the recorded GPS samples, like the Wiedergabe draws them
-        const vehicles: Entity[] = vehiclesAt(bundleRef.current.samples, krokiAt).map((v) => ({
-          id: `replay-veh-${v.deviceId}`, kind: 'vehicle', layer: appConfig.gps.layerId,
-          coord: v.coord, symbolSvg: vehicleSymbolSvg(String(v.deviceId), autoRotation(v.course), v.course != null),
-          label: `Fahrzeug ${v.deviceId}`, live: true, directed: v.course != null,
-        }))
-        setPastScene({ entities: [...(ws?.entities ?? []), ...vehicles], drawings: ws?.drawings ?? [] })
-      } catch {
-        if (alive) { setPastScene(null); toast(P.krokiAtFailed, { icon: 'warn', tone: 'warn' }) }
-      } finally {
-        if (alive) setKrokiAtBusy(false)
-      }
-    })()
-    return () => { alive = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- incident/meta are stable per sheet
-  }, [krokiAt])
 
   /** the Lage the printed Kroki is built from: the reconstructed one when a moment is chosen */
-  const effScene = pastScene && scene ? { ...scene, entities: pastScene.entities, drawings: pastScene.drawings } : scene
+  const effScene = kroki.pastScene && scene ? { ...scene, entities: kroki.pastScene.entities, drawings: kroki.pastScene.drawings } : scene
 
   const presetOrgs = getDeploymentConfig().report?.partnerOrgs ?? []
   /** One row per organisation: the station's list (ticked or not), then any recorded org that is
@@ -831,11 +769,8 @@ export function ReportPreflight({
       meta, generatedAt,
       proof: { ...proof, checkedAt: proof.checkedAt || generatedAt },
       // krokiAt travels with the draft so the printed caption dates the PICTURE, not the print
-      // Stamp the chosen instant ONLY when the reconstruction for it is actually what prints.
-      // `effScene` falls back to the LIVE Lage while the reconstruction is in flight and after
-      // one fails, and a caption saying «Stand 21:14» over a picture of 23:00 is a false
-      // statement on a document that is a legal record. No caption is the honest fallback.
-      options: { ...options, krokiAt: krokiAt != null && pastScene ? new Date(krokiAt).toISOString() : null },
+      // — and only when the reconstruction for it is what prints (useKrokiMoment · printedAt)
+      options: { ...options, krokiAt: kroki.printedAt },
     }
   }
   // The ONE argument list both the PDF and the signature scope are built from — so «what is
@@ -859,21 +794,6 @@ export function ReportPreflight({
     return () => { alive = false; clearTimeout(t) }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the record, not on every render's closures
   }, [closed, scopeKey])
-  /** the valid signatures as the paper prints them; a signature that no longer holds is left
-   *  off, and its line prints empty (decision 15.10.2026) */
-  const printedSignatures = (): PrintedSignature[] => SIGNATURE_ROLES.filter((r) => closed && sigValid(r)).map((r) => {
-    const g = liveSigs[r]!
-    const date = formatDateTime(g.at)
-    return {
-      role: r, name: g.name,
-      placeDate: [g.place, date.split(' ')[0]].filter(Boolean).join(', '),
-      at: date,
-      checksum: shortChecksum(g.scope),
-      strokes: g.strokes,
-    }
-  })
-  // «Rapport unterschreiben»: which line the sheet is open for (null = closed)
-  const [signFor, setSignFor] = useState<SignatureRole | null>(null)
   /** this session signs Rapporte at all (not a viewer, a link, an archived view) – on a running
    *  Einsatz it cannot sign YET, which `canSign` adds */
   const maySign = canEditIn && !!onSign
@@ -906,10 +826,6 @@ export function ReportPreflight({
       return false
     }
   }
-  const changeSigned = async () => {
-    const S = appConfig.copy.signature
-    if (await confirmDialog({ title: S.changeTitle, message: S.changeMsg, confirmLabel: S.changeConfirm })) onVoidSignatures?.()
-  }
   const [pdfBusy, setPdfBusy] = useState(false)
   /** A rapport has just been produced (the PDF in hand). The blob remembers WHEN, so the Rapport can tell whoever opens it next that the
    *  paper already exists — on this device or on any other.
@@ -934,7 +850,7 @@ export function ReportPreflight({
     const draft = buildDraft()
     setPdfBusy(true)
     try {
-      await downloadDirectReportPdf({ ...pdfArgs(draft), signatures: printedSignatures() })
+      await downloadDirectReportPdf({ ...pdfArgs(draft), signatures: printedSignatures(liveSigs, sigValid, closed) })
       // The PDF itself used to be the only feedback, and it still is the proof — but it is also
       // the moment everything except the bookkeeping is done, and nothing ever said so.
       stampReportMade(framing)
@@ -953,44 +869,12 @@ export function ReportPreflight({
     optionOverrides.current = { ...optionOverrides.current, ...patch }
     setOptions((o) => ({ ...o, ...patch }))
   }
-  /** Is there anything to frame? A rapport-only Einsatz (nothing drawn, nothing placed) seeds
-   *  the Kroki section OFF and must not show an empty map pretending to be a picture — and
-   *  switching the section off by hand means the same thing: nothing is going on the paper. */
-  const krokiPanel = options.kroki && mapContentCount > 0 && !!effScene
   // is there anything on the SERVER to archive? Journal photos/recordings and Rapport-Beilagen
   // are all Media rows; blob: URLs are uploads still in flight and not fetchable as a ZIP yet
   const hasStoredMedia = useMemo(() => (
     attachments.some((a) => a.url.startsWith('/'))
     || events.some((e) => (e.audioUrl ?? '').startsWith('/') || rowPhotos(e).some((u) => u.startsWith('/')))
   ), [attachments, events])
-  // The panel is a fold: on a wide screen it is open, because seeing the crop while the form is
-  // typed is the whole reason it stopped being a modal; below the two-column breakpoint a map
-  // crop is a postcard sitting between the operator and the fields, so it starts closed and
-  // Loaded when the crop becomes visible, not on the first drag: the ticks exist to aim that
-  // drag, so arriving after it would be arriving too late. Best-effort — a replay bundle that
-  // will not load costs the marks, never the slider.
-  const krokiShown = krokiPanel
-  useEffect(() => {
-    if (!krokiShown) return
-    let alive = true
-    void (async () => {
-      try {
-        const startMs = Date.parse(meta.startedAt ?? incident.started_at)
-        bundleRef.current ??= await loadReplay(incident.id, startMs, Date.now())
-        if (alive) setAuditMoments(activityMoments(bundleRef.current.events))
-      } catch { /* no marks from the audit side; the slider still works */ }
-    })()
-    return () => { alive = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the panel becoming visible
-  }, [krokiShown, incident.id])
-  // ⚠️ The journal moments come from the LIVE timeline (the same rows the Verlauf's own strip
-  // ticks) and are derived REACTIVELY: the effect above runs once when the panel becomes
-  // visible, and the rows routinely arrive after that (the journal store loads async since the
-  // Verlauf moved out of the blob) — a one-shot read latched an empty barcode (19.08.).
-  const krokiMoments = useMemo(
-    () => [...auditMoments, ...activityMoments([], events)],
-    [auditMoments, events],
-  )
   const startOutput = async () => {
     // ⚠️ A rapport that is still missing Mindestangaben may ALWAYS be produced — printing is
     // never blocked by what somebody has not typed yet, and a half-filled sheet taken to the
@@ -1022,7 +906,7 @@ export function ReportPreflight({
       ? {
         krokiPrint: {
           view: options.krokiView,
-          at: krokiAt != null && pastScene ? new Date(krokiAt).toISOString() : undefined,
+          at: kroki.printedAt ?? undefined,
           landscape: options.krokiLandscape,
         },
       }
@@ -1160,7 +1044,7 @@ export function ReportPreflight({
 
   const bodyRef = useRef<HTMLDivElement>(null)
   const { phoneTab, pickTab, jumpToStep } = useReportPlace(incident.id, bodyRef, kept, () => ({
-    optionOverrides: optionOverrides.current, krokiAt,
+    optionOverrides: optionOverrides.current, krokiAt: kroki.at,
   }))
 
   // The head's one line, in the voice the other surfaces use («12 anwesend · 3 gegangen · 28
@@ -1213,6 +1097,24 @@ export function ReportPreflight({
   usePageHeadFit(headRef, [
     missing.length, warnCount, checking, controlOk, !!onComplete, pdfBusy,
   ].join('|'))
+
+  // What the signing sheet shows beside the pad (ReportSignatures): which Einsatz, from when to
+  // when, how many people and positions — and «Ort, Datum» as the line will print it.
+  const signAlarm = meta.alarmiertAt ?? incident.started_at ?? undefined
+  const signEnd = meta.endedAt ?? closedAt ?? undefined
+  const signSheet = {
+    summary: {
+      einsatz: [incident.title, signAlarm ? formatDateTime(signAlarm).split(' ')[0] : ''].filter(Boolean).join(' · '),
+      zeiten: signAlarm && signEnd ? fillTemplate(appConfig.copy.signature.zeiten, { from: hhmm(new Date(signAlarm)), to: hhmm(new Date(signEnd)) }) : undefined,
+      personen: attendanceCount,
+      positionen: mittelCount,
+    },
+    placeDate: [signPlace, formatDateTime(serverNowIso()).split(' ')[0]].filter(Boolean).join(', '),
+    onViewPdf: () => void downloadPdf(),
+    onSign: doSign,
+    personnel, presentIds, rolesById,
+    onAddGuest: onAddGuest && ((name: string) => onAddGuest(name, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter)),
+  }
 
   return (
     /* A SURFACE, not a dialog. The Rapport is filled in across a whole Einsatz — a sentence
@@ -2318,76 +2220,14 @@ export function ReportPreflight({
               )}
             </CheckRow>
             {/* Unterschriften (15.10.2026): after the Partnerorganisationen, where the Visum sits on
-                the paper. Optional — nothing asks for it, nothing waits for it. A signature that
-                still holds locks the form above; one that no longer holds says «ungültig» and a
-                tap signs anew (owner: no explanation box). Rows without rules, like the cards
-                above. */}
-            {(() => {
-              const S = appConfig.copy.signature
-              const stale = SIGNATURE_ROLES.filter((r) => liveSigs[r] && !sigValid(r))
-              const valid = SIGNATURE_ROLES.filter(sigValid)
-              const sub = !closed ? S.optional
-                : stale.length ? S.invalid
-                : valid.length ? fillTemplate(S.count, { n: valid.length }) : S.optional
-              const nameOf = (r: SignatureRole) => (r === 'el' ? meta.einsatzleiter || einsatzleiter : kdtDefault)
-              const roleLabel = (r: SignatureRole) => (r === 'el' ? S.roleEl : S.roleKdt)
-              // A session that never signs reads signatures, it is not asked for them: no card at
-              // all until one exists – «nach dem Abschluss hier unterschreiben» and two empty lines
-              // were an instruction to a driver (RBAC audit 22.10.2026).
-              if (!maySign && (!closed || !SIGNATURE_ROLES.some((r) => liveSigs[r]))) return null
-              return (
-                <CheckRow tab="werwas" done={closed && valid.length > 0 && !stale.length} label={S.cardTitle} sub={sub}>
-                  <div className="rp-check-extra rp-sign">
-                    {!closed ? <p className="rp-sign-hint">{S.runningHint}</p> : SIGNATURE_ROLES.map((r) => {
-                      const g = liveSigs[r]
-                      const who = (
-                        <span className="rp-sign-who">
-                          <span className="rp-sign-role">{roleLabel(r)}</span>
-                          <span className="rp-sign-name">{g?.name || nameOf(r) || '–'}</span>
-                        </span>
-                      )
-                      if (g && sigValid(r)) return (
-                        <div className="rp-sign-row" key={r}>
-                          {who}
-                          <SignatureImage strokes={g.strokes} className="rp-sign-img" />
-                          <span className="rp-sign-time">{hhmm(new Date(g.at))}</span>
-                        </div>
-                      )
-                      // a signature that no longer holds: a tap signs anew – for a session that
-                      // cannot sign, the same row as a read-out (no dead button, no chevron)
-                      if (g && !canSign) return (
-                        <div className="rp-sign-row rp-sign-void" key={r}>
-                          {who}
-                          <SignatureImage strokes={g.strokes} className="rp-sign-img" />
-                          <span className="rp-sign-bad"><Icon id="warn" />{S.invalid}</span>
-                        </div>
-                      )
-                      if (g) return (
-                        <button type="button" className="rp-sign-row rp-sign-void" key={r}
-                          aria-label={`${roleLabel(r)} – ${S.resign}`} onClick={() => setSignFor(r)}>
-                          {who}
-                          <SignatureImage strokes={g.strokes} className="rp-sign-img" />
-                          <span className="rp-sign-bad"><Icon id="warn" />{S.invalid}</span>
-                          <Icon id="chevron" className="rp-sign-go" />
-                        </button>
-                      )
-                      return (
-                        <div className="rp-sign-row" key={r}>
-                          {who}
-                          {canSign && <Button onClick={() => setSignFor(r)}>{S.sign}</Button>}
-                        </div>
-                      )
-                    })}
-                    {signedLock && (
-                      <div className="rp-sign-foot">
-                        <span className="rp-sign-locked"><Icon id="signature-lock" />{S.locked}</span>
-                        {canEditIn && onVoidSignatures && <Button onClick={() => void changeSigned()}>{S.change}</Button>}
-                      </div>
-                    )}
-                  </div>
-                </CheckRow>
-              )
-            })()}
+                the paper (ReportSignatures — the card and the sheet a line is signed in). */}
+            <ReportSignatures
+              closed={closed} maySign={maySign} canSign={canSign} signedLock={signedLock}
+              liveSigs={liveSigs} sigValid={sigValid}
+              elName={meta.einsatzleiter || einsatzleiter} kdtName={kdtDefault}
+              onVoidSignatures={canEditIn ? onVoidSignatures : undefined}
+              sheet={signSheet}
+            />
             {/* Beilagen sit right under Partnerorganisationen: same family, same question —
                 what else belongs to this rapport. Tapping a thumbnail opens the picture full-size
                 (lib/ui · openPhoto), because a 52px square is not something you can check. */}
@@ -2530,10 +2370,10 @@ export function ReportPreflight({
                   // WHEN the picture shows. One picture is one Lage at one time; naming the
                   // moment is the honest answer to «die Rettung ist weg», and the map redraws
                   // under the crop as it is reconstructed.
-                  atMs={krokiAt}
-                  atBusy={krokiAtBusy}
-                  onAtChange={setKrokiAt}
-                  moments={krokiMoments}
+                  atMs={kroki.at}
+                  atBusy={kroki.busy}
+                  onAtChange={kroki.setAt}
+                  moments={kroki.moments}
                   startedAtMs={Date.parse(meta.startedAt ?? incident.started_at) || null}
                   landscape={options.krokiLandscape}
                   onLandscapeChange={(v) => patchOpt({ krokiLandscape: v })}
@@ -2578,32 +2418,6 @@ export function ReportPreflight({
             pinning the warning would have made it possible to print past one without ever having
             seen it — the same failure the «never behind a fold» rule exists to prevent. */}
       </div>
-      {signFor && (() => {
-        const S = appConfig.copy.signature
-        const alarm = meta.alarmiertAt ?? incident.started_at ?? undefined
-        const end = meta.endedAt ?? closedAt ?? undefined
-        const day = alarm ? formatDateTime(alarm).split(' ')[0] : ''
-        return (
-          <SignatureSheet
-            open onClose={() => setSignFor(null)}
-            initialRole={signFor}
-            signedRoles={Object.fromEntries(SIGNATURE_ROLES.filter(sigValid).map((r) => [r, hhmm(new Date(liveSigs[r]!.at))]))}
-            elName={{ name: meta.einsatzleiter || einsatzleiter }}
-            kdtName={{ name: kdtDefault }}
-            summary={{
-              einsatz: [incident.title, day].filter(Boolean).join(' · '),
-              zeiten: alarm && end ? fillTemplate(S.zeiten, { from: hhmm(new Date(alarm)), to: hhmm(new Date(end)) }) : undefined,
-              personen: attendanceCount,
-              positionen: mittelCount,
-            }}
-            placeDate={[signPlace, formatDateTime(serverNowIso()).split(' ')[0]].filter(Boolean).join(', ')}
-            onViewPdf={() => void downloadPdf()}
-            onSign={doSign}
-            personnel={personnel} presentIds={presentIds} rolesById={rolesById}
-            onAddGuest={onAddGuest && ((name) => onAddGuest(name, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter))}
-          />
-        )
-      })()}
     </>
   )
 }
