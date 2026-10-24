@@ -8,6 +8,7 @@ import type { ZeitplanSheet } from '../lib/zeitplanPrint'
 import { cx } from '../lib/cx'
 import { appConfig } from '../config/appConfig'
 import { useIsPhone } from '../lib/useIsPhone'
+import { incidentSlot, useIncidentSlot } from '../lib/draftKeep'
 import { usePageHeadFit } from '../lib/pageHeadFit'
 import { fillTemplate, fmtSpanShort, hhmm, stripUnprintable } from '../lib/format'
 import { personnelProviderName } from '../lib/deploymentConfig'
@@ -54,7 +55,8 @@ const noop = () => {}
  *  on purpose: a whole way of working does not belong behind three dots. */
 type AnwesenheitTab = 'list' | 'plan' | 'bands'
 
-/** Which tab was open, remembered in `sessionStorage` and stamped with the incident.
+/** Which tab was open, remembered in `sessionStorage` and stamped with the incident
+ *  (lib/draftKeep · incidentSlot).
  *
  *  Deliberately not the device cookie it used to be. Coming back to the tab you were working
  *  in matters across a RELOAD mid-incident — that is what the memory is for — but a choice
@@ -62,36 +64,16 @@ type AnwesenheitTab = 'list' | 'plan' | 'bands'
  *  follow you into a different Einsatz. sessionStorage dies with the app; the incident stamp
  *  covers switching. Anything else falls back to the crew list, which is what this surface is
  *  for and the only one of the three that is useful before anyone has planned anything. */
-const TAB_KEY = 'kp-front-anwesenheit-tab'
+const keptTab = incidentSlot<AnwesenheitTab>('kp-front-anwesenheit-tab', 'session')
 
 /** A Zeitraum length for the read-out: «12», or «2,5» for a fitted half-hour window. */
 const fmtHours = (h: number): string =>
   h.toLocaleString(appConfig.locale, { maximumFractionDigits: 1 })
 
-function rememberedTab(incidentId: string | undefined): AnwesenheitTab | null {
-  if (!incidentId) return null
-  try {
-    const raw = sessionStorage.getItem(TAB_KEY)
-    if (!raw) return null
-    const v = JSON.parse(raw) as { incidentId?: string; view?: AnwesenheitTab }
-    return v?.incidentId === incidentId && v.view ? v.view : null
-  } catch { return null }
-}
-
 /** …and whether «Nur Anwesende» was on, remembered exactly the same way and for the same reason:
  *  a narrowing survives the reload you did mid-Einsatz, and dies with the app. Default OFF — a
  *  list that opens already hiding people is a list that lies about the Mannschaft. */
-const PRESENT_KEY = 'kp-front-anwesenheit-present-only'
-
-function rememberedOnlyPresent(incidentId: string | undefined): boolean {
-  if (!incidentId) return false
-  try {
-    const raw = sessionStorage.getItem(PRESENT_KEY)
-    if (!raw) return false
-    const v = JSON.parse(raw) as { incidentId?: string; on?: boolean }
-    return v?.incidentId === incidentId && !!v.on
-  } catch { return false }
-}
+const keptOnlyPresent = incidentSlot<boolean>('kp-front-anwesenheit-present-only', 'session')
 
 // HH:MM of an ISO stamp — the tappable time chip / the <input type="time"> value
 function toHM(iso: string): string {
@@ -421,12 +403,11 @@ export function AnwesenheitView({
   // Anwesenheit, Zeitplan and Schichten are three readings of the SAME filtered, ordered
   // Mannschaft — the search + rank filter above apply to all of them, so a name sits in the same
   // place whichever one is open.
-  const [view, setView] = useState<AnwesenheitTab>(() => rememberedTab(incidentId) ?? 'list')
+  const [view, setView] = useIncidentSlot(keptTab, incidentId, 'list')
   const pickView = (v: AnwesenheitTab) => {
     setView(v)
     // the Zeitplan's zoom lasts only while the Zeitplan is on screen; the next visit opens fitted
     if (v !== 'plan') setHorizonH(null)
-    try { sessionStorage.setItem(TAB_KEY, JSON.stringify({ incidentId, view: v })) } catch { /* private mode */ }
   }
   // one clock for the whole surface: it drives the «jetzt» line and the growing open bar. Only
   // ticks while the Zeitplan is on screen — the attendance list has nothing that moves.
@@ -515,14 +496,8 @@ export function AnwesenheitView({
    *
    * ⚠️ «Anwesend» here means «Vor Ort» (attendanceFilter · PRESENT_STATE): the Magazin is not
    * here. It ANDs with the search and with both facets, like every other narrowing. */
-  const [presentOnly, setPresentOnly] = useState(() => rememberedOnlyPresent(incidentId))
-  const toggleOnlyPresent = () => {
-    setPresentOnly((v) => {
-      const on = !v
-      try { sessionStorage.setItem(PRESENT_KEY, JSON.stringify({ incidentId, on })) } catch { /* private mode */ }
-      return on
-    })
-  }
+  const [presentOnly, setPresentOnly] = useIncidentSlot(keptOnlyPresent, incidentId, false)
+  const toggleOnlyPresent = () => setPresentOnly(!presentOnly)
   // …and the state narrowing, plus the one genuinely orthogonal flag. Both are SETS: several
   // picks inside a facet OR together («anwesend oder gegangen» = wer war überhaupt da), an empty
   // set means «alle». Every row carries the MARK the person row carries — the row's own look in
