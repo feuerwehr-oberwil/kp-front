@@ -31,7 +31,7 @@ import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { ShareIncident } from './panels/ShareIncident'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable, telHref, unitLabel } from '../lib/format'
-import { closeTimeOf, getIncident, verifyChain, type IncidentMeta } from '../lib/incidents'
+import { closeTimeOf, getIncident, type IncidentMeta } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
 import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock, zeitIssues } from '../lib/alarmzeiten'
 import { fahrtenText } from '../lib/vehiclePresence'
@@ -43,7 +43,7 @@ import { addPartnerOrg, partnerOrgOffer, partnerOrgsFromLage } from '../lib/part
 import { linkTokenValues, resolveLinkUrl, type ReportLink } from '../lib/reportLinks'
 import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
 import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
-import type { AuditProof, ReportDraft, ReportOptions } from '../lib/report'
+import type { ReportDraft, ReportOptions } from '../lib/report'
 import {
   defaultReportOptions, einsatzleiterFromScene, formatDateTime, hasVisiblePlanAnnotation, missingTranscriptCount, pendenzRows, proofLabel,
 } from '../lib/report'
@@ -64,6 +64,7 @@ import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
 import { Stepper } from './Stepper'
 import { Menu, Popover } from '../lib/overlays'
+import { useAuditProof } from './useAuditProof'
 import { PHONE_TABS, STEP_TAB, rapportKept, useReportPlace, type PhoneTab } from './useReportPlace'
 
 const NO_IDS = new Set<string>()
@@ -545,8 +546,7 @@ export function ReportPreflight({
     addPartner(partnerDraft)
     setPartnerDraft('')
   }
-  const [proof, setProof] = useState<AuditProof>({ intact: null, checkedAt: new Date().toISOString(), offline: true })
-  const [checking, setChecking] = useState(true)
+  const { proof, checking } = useAuditProof(incident.id)
   // the alarm text auto-fills from the incident's dispatch text when none was typed in the
   // Einsatzdaten panel — display + print fallback only, never persisted into the report blob.
   const [alarmFallback, setAlarmFallback] = useState('')
@@ -604,21 +604,6 @@ export function ReportPreflight({
   // day it meant (applyTimeToIso rolled it forward past the start). The Einsatzende beside
   // it has always asked for a date; this is the same question and now asks it the same way.
   const [rueckAt, setRueckAt, rueckAtDirty] = useSyncedField('rueckAt', remoteRueckAt, normText, blurTick)
-
-  useEffect(() => {
-    let alive = true
-    verifyChain(incident.id)
-      .then((r) => {
-        if (!alive) return
-        setProof({ intact: r.intact, brokenAtSeq: r.broken_at_seq, count: r.count, head: r.head, checkedAt: new Date().toISOString() })
-      })
-      .catch(() => {
-        if (!alive) return
-        setProof({ intact: null, checkedAt: new Date().toISOString(), offline: true })
-      })
-      .finally(() => { if (alive) setChecking(false) })
-    return () => { alive = false }
-  }, [incident.id])
 
   useEffect(() => {
     if (reportMeta.alarmText) return
