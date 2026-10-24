@@ -29,7 +29,7 @@ const DARK_BASE_PAINT = { 'raster-brightness-min': 0.75, 'raster-contrast': 0.83
 /** One prepared overlay as GeoJSON — the same object for the same overlay, so a re-render hands
  *  react-map-gl the data it already has and MapLibre is not made to re-tile it. That matters for
  *  the big ones: the region's ~15 000 underground buildings («Karte & Objekte», one overlay kept
- *  by identity in KarteApp) were re-sent to the worker on every pan's render without it. */
+ *  by identity in karte/useKarteOverlays) were re-sent to the worker on every pan's render without it. */
 const overlayDataCache = new WeakMap<PreparedMapOverlay, ReturnType<typeof buildOverlayData>>()
 function overlayData(overlay: PreparedMapOverlay) {
   let data = overlayDataCache.get(overlay)
