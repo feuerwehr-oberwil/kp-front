@@ -46,7 +46,7 @@
   .fab-entry .i, .fab-entry .tb-act-label { position: relative; z-index: 1; }
 .fab-entry .i { width: 18px; height: 18px; }
 /* recording: the FAB turns red + shows the running timer, same as the TopBar Eintrag */
-.fab-entry.rec { background: var(--red); color: var(--on-accent-ink); border-color: transparent; animation: recPulse 1.4s ease-in-out infinite; }
+.fab-entry.rec { background: var(--red-fill); color: var(--on-accent-ink); border-color: transparent; animation: recPulse 1.4s ease-in-out infinite; }
 .fab-entry.rec span { font-family: var(--mono); }
 /* ⚠️ NO «quiet» step-back any more (18.09.2026, field ask). The circle used to shrink to .82
    and half-fade while anything underneath was scrolled: on the Journal, where the list is

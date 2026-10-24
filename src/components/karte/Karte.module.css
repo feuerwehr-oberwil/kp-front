@@ -29,7 +29,7 @@
    min-width). */
 .search { flex: 0 1 auto; width: 380px; min-width: 0; }
 .running { position: relative; display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3);
-  border-radius: var(--r-sm); background: var(--red); color: var(--on-fill, #fff);
+  border-radius: var(--r-sm); background: var(--red-fill); color: var(--on-fill, #fff);
   font: var(--fw-bold) var(--fs-2)/1.15 var(--body); max-width: 280px; flex: 0 1 auto; }
 .running small { display: block; font: var(--fw-medium) var(--fs-micro)/1.2 var(--body); opacity: .9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* the chip is two buttons (KarteApp · runningChip): the name opens the Einsatz and its ::after
