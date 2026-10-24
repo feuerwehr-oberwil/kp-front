@@ -95,7 +95,7 @@ export interface RefEntry {
   title: string
   keywords: string[]
   /** words matched against the Einsatz title (its Stichwort) for the rail's «Passend» group –
-   *  whole words, so a compound («Kellerbrand») needs its own keyword (matchEntries) */
+   *  whole words or a word's ending («Kellerbrand» → BRAND), never inside a word (matchEntries) */
   diveraKeywords?: string[]
   hazardColor?: HazardColor
   content: ContentBlock[]
@@ -397,9 +397,22 @@ export function allEntries(templates: ChecklistTemplate[]): RefEntry[] {
 /** a text's words, lowercase: «E-Auto Brand, Schlossgasse 9» → e · auto · brand · schlossgasse · 9 */
 const words = (s: string) => s.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean)
 
-/** whether all of `kw`'s words stand in `hay` in a row («pkw brand» in «PKW Brand A2») */
-const hasPhrase = (hay: string[], kw: string[]) =>
-  kw.length > 0 && hay.some((_, i) => kw.every((w, j) => hay[i + j] === w))
+/** a street name: «Hauptstrasse», «Bahnhofstr.», «Schlossgasse», «Kirchrain» … */
+const STREET = /(strasse|straße|str|gasse|weg|allee|rain|ring|platz)$/
+const HOUSE_NO = /^\d+[a-z]?$/
+
+/** whether title word `i` names the one-word keyword `kw`: the word itself, or its ending
+ *  («Kellerbrand» → brand) – for keywords of 5+ letters only (eis/«Kreis», tier/«Quartier»,
+ *  bahn/«Autobahn») and never in a street name (strasse/«Hauptstrasse»; a word before a house
+ *  number is one too) */
+const namesWord = (hay: string[], i: number, kw: string) =>
+  hay[i] === kw || (kw.length >= 5 && hay[i].endsWith(kw) && !STREET.test(hay[i]) && !HOUSE_NO.test(hay[i + 1] ?? ''))
+
+/** whether `kw` stands in `hay`: a one-word keyword per namesWord, a longer one as whole words
+ *  in a row («pkw brand» in «PKW Brand A2») */
+const hasKeyword = (hay: string[], kw: string[]) =>
+  kw.length === 1 ? hay.some((_, i) => namesWord(hay, i, kw[0]))
+    : kw.length > 1 && hay.some((_, i) => kw.every((w, j) => hay[i + j] === w))
 
 /**
  * The Stichworte for an Einsatz title – the rail's «Passend» group (ChecklistsView), most
@@ -409,10 +422,11 @@ const hasPhrase = (hay: string[], kw: string[]) =>
  * «VU Strasse» is Verkehrsunfall AND E-Autobrand AND Ölspur auf Strasse, and which of the three
  * the Einsatz turns out to need is not knowable from the alarm text.
  *
- * ⚠️ The TITLE only, in whole words (sweep 23.10.2026, F.6). It read `title + type`, but `type`
- * is the Kategorie («Brandbekämpfung»), so every fire got four «brand» pages whatever its title
- * said; and a substring hit «gas» in «Schlossgasse». A compound needs its own keyword
- * («ZIMMERBRAND») – the station lists them already.
+ * ⚠️ The TITLE only, in whole words or word endings (sweep 23.10.2026, F.6). It read
+ * `title + type`, but `type` is the Kategorie («Brandbekämpfung»), so every fire got four
+ * «brand» pages whatever its title said; and a substring hit «gas» in «Schlossgasse». A title
+ * word that ENDS in a keyword counts (owner: «Kellerbrand» → brand), a keyword inside a word
+ * does not; the endings are guarded against short keywords and street names (namesWord).
  *
  * Ranked by the longest keyword hit (the most specific), then by how many keywords hit, then in
  * the station's own order – the Taktik list's (templates are sorted by the manifest), so a tie
@@ -424,7 +438,7 @@ export function matchEntries(templates: ChecklistTemplate[], title: string | und
   if (!hay.length) return []
   const hits: { entry: RefEntry; at: number; len: number; n: number }[] = []
   allEntries(templates).forEach((entry, at) => {
-    const found = (entry.diveraKeywords ?? []).filter((k) => hasPhrase(hay, words(k)))
+    const found = (entry.diveraKeywords ?? []).filter((k) => hasKeyword(hay, words(k)))
     if (found.length) hits.push({ entry, at, len: Math.max(...found.map((k) => norm(k).length)), n: found.length })
   })
   hits.sort((a, b) => b.len - a.len || b.n - a.n || a.at - b.at)
