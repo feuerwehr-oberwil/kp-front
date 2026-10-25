@@ -1,8 +1,9 @@
 // Keyboard shortcuts for working the app at a keyboard (tablet stays touch-first; this is the
 // power-user layer). ONE place maps a KeyboardEvent → a semantic command; IncidentWorkspace
 // dispatches it per surface (Lage map vs Plan whiteboard) so the same key does the parallel thing
-// on both — Lage↔Plan parity is a review criterion. Escape (bail-out / close chrome) and
-// Delete/Backspace (delete selection) are handled by their own listeners and are NOT re-mapped here.
+// on both — Lage↔Plan parity is a review criterion. Escape (bail-out / close chrome — its own
+// table, lib/hotkeyRoute · routeEscape) and Delete/Backspace (delete selection, its own listener)
+// are NOT re-mapped here.
 //
 // Numbers address the plan MODULES by their own number (the rail already shows "1" / "2/3" as the
 // module glyph — that badge IS the key): 1 → Modul 1, 2 or 3 → Modul 2/3, 4 → Modul 4, …
