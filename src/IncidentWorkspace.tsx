@@ -524,7 +524,7 @@ export function IncidentWorkspace({
     },
   )
   const {
-    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, gestureOpen, rebake,
+    objects, doc, board, setDocRaw, setBoard, beginSheetStep, commit, beginDrag, endDrag, gestureOpen, rebake,
     undo: undoDoc, redo: redoDoc, rebaseObjects, replaceObjects, liveObjects, stepKeys: storeStepKeys,
   } = store
   // ⚠️ Through refs: the entry outlives the render that pushed it, and `undoDoc` closes over that
@@ -1102,13 +1102,14 @@ export function IncidentWorkspace({
     () => !bootGate.ws?.planBindings?.length && hasLegacyAlignmentContext(bootGate.ws),
     [],  // eslint-disable-line react-hooks/exhaustive-deps
   )
-  const { plansSettled, backendPlans, resolvedPlanDocs, manualObject, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject, activeObjectId } = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
+  const objectPlans = useObjectPlans(incidentMeta.id, incidentView.center, setActivePlanId, pickedObjectId, setPickedObjectId, {
     bindings: planBindings,
     // a machine seed of a key outside the record slice – see `canWriteBlob`
     onBind: (proposed) => { if (canWriteBlob) setPlanBindings((prev) => fillBindingFloors(addPlanBindings(prev, proposed), proposed)) },
     legacyPlanIds,
     preserveLegacy,
   })
+  const { plansSettled, backendPlans, resolvedPlanDocs, manualObject, pickObject, resetObject, activeObjectId } = objectPlans
 
   // The Gebäude-Steckbrief (KP Front F5) — a chip in the Karte's and the plan's bottom-left chip
   // row (BuildingFloat): fetched with the Einsatz so it is cached for offline before anybody taps it. Only the operator's MANUAL pick is passed — without
@@ -1828,11 +1829,12 @@ export function IncidentWorkspace({
   // --- Georeferenz: which plans are tied to the ground, and how — lib/useGeorefFits -------------
   // ⚠️ Called HERE, where the block stood: its effects must keep their place after the store's and
   // the hydrate's. `log` is declared below and reaches it through `histSide` (assigned under it).
-  const { linkedPlans, floorPack, georefPlanRasters, activeLinkedPlan, selectedPlanProjection, planLive, planPhotos } = useGeorefFits({
+  const georefFits = useGeorefFits({
     planDocs, planScale, building, setBuilding, planBindings, activeObjectId, board, objects, rebake,
     planFitsRef, fitsVersion, setFitsVersion, stepLabelRef: stepLabel, histSide, readOnly, canWriteBlob, tacticalLocked, replayActive,
     twinLayers, twinLayerOpacity, activePlanId, selectedId, liveVehicles, livePeople, isVisible, mapEntities,
   })
+  const { linkedPlans, georefPlanRasters, selectedPlanProjection } = georefFits
 
   // The journal is append-only: every action pushes a row, and nothing ever edits
   // or removes one — undo/redo log their own lines. So the stream stays a faithful
@@ -2292,7 +2294,7 @@ export function IncidentWorkspace({
       else focusEntity(entityId)
     },
   })
-  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, triggerNotfall, endNotfall, truppPlace, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors } = truppActions
+  const { createTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, triggerNotfall, endNotfall, truppPlace, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors } = truppActions
   // The alarm host runs on EVERY device – tone and OS notification are the point – but only a
   // session that writes the Trupps records the crossing in the Verlauf (RBAC audit V1, 22.10.2026).
   // The FU or the Atemschutz-Link writes that row, once per turnus, for everybody.
@@ -2322,7 +2324,6 @@ export function IncidentWorkspace({
   const {
     deleteGroup, deleteEntity, placed, goToModule, goToTrupp, viewsApi, toggleViews, selected,
     showMapSourceOnPlan, undockTeam, setEntityDone, focusDrawing, noteEntity, pick, pickShape,
-    moveLiveOnSheet, showPlanSourceOnMap,
   } = mapActions
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
   const teamMarkers = useTeamMarkerActions({
@@ -2745,15 +2746,16 @@ export function IncidentWorkspace({
 
   // the roster's side of the record — vocabulary, pickers' names and hints, and every door that puts
   // somebody on the Anwesenheit because they were given a job (workspace/useRosterRoles)
-  const {
-    fileTruppGuest, createTruppA, editTruppA, reactivateTruppA, presentIds, rapportTarget,
-    linkRosterFields, rosterNames, rosterRank, personStatus, rosterFieldHints, stopPersonSharing,
-    assignTypedName, assignRole, journalVocab,
-  } = useRosterRoles({
+  const roster = useRosterRoles({
     linkedTrupps, truppOfPerson, pickablePersonnel, attendance, allTrupps, phoneFold, mode, incidentMeta,
     rosterIdByName, rosterById, trupps, setSelectedId, log, canWriteRecord, attSet, openTruppSave,
     addGuest, replayActive, setAttendance, setTrupps, createTrupp, editTrupp, reactivateTrupp,
   })
+  const {
+    fileTruppGuest, createTruppA, editTruppA, reactivateTruppA, presentIds, rapportTarget,
+    linkRosterFields, rosterNames, rosterRank, personStatus, rosterFieldHints, stopPersonSharing,
+    assignTypedName, assignRole, journalVocab,
+  } = roster
 
   // --- checklists ---
   // Ticking is field documentation, not tactical editing, so it's gated by ROLE
@@ -3243,18 +3245,13 @@ export function IncidentWorkspace({
 
       <PlansSurface {...{
         mode, sym, guarded, railLabels, planDocs, tacticalLocked, isPhone, journalOpen, replayActive,
-        linkScoped, activePlanId, activeObjectName, activeObjectAddress, buildingInfo, activeObjectNearby,
-        incidentMeta, activeObjectPos, incidentView, setPickerOpen, symbolScale, activeLinkedPlan,
-        symbolCaptions, mapSuppressedCaptions, planLive, planPhotos, moveLiveOnSheet, showPlanSourceOnMap,
-        replayBoard, board, trails, deleteGhostTrail, armTrailDrop, setBoard, replayBuilding, building,
-        floorPack, objects, planBindings, activeObjectId, setBuilding, setActivePlanId, rememberGebaeudeStep,
-        oneShotUndoToast, onReorient, objectsRef, boardRef, logPlan, rosterNames, rosterRank,
-        linkRosterFields, personStatus, rosterFieldHints, addRecent, user, emit, planHist, planHistory,
-        setPlanHistory, rememberPlanStep, planStepLink, endSheetStep, onPlanStepLabel, planViews, planFit,
-        planKeys, planFocus, effTrupps, truppCounterNames, teamNameTaken, azAlarm, updateTrupp,
-        askTruppEntry, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker, linkTruppLine, unlinkLine,
-        linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, syncLineNoToTrupp, setMode, setPanel,
-        setTruppFocus, planScale, setPlanScale, tafel,
+        linkScoped, activePlanId, setActivePlanId, objectPlans, buildingInfo, incidentMeta, incidentView,
+        setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, georefFits, mapActions,
+        replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, setBuilding,
+        planBindings, rememberGebaeudeStep, oneShotUndoToast, onReorient, objectsRef, boardRef, logPlan,
+        roster, addRecent, user, emit, planHist, planHistory, setPlanHistory, rememberPlanStep, planStepLink,
+        onPlanStepLabel, planViews, planFit, planKeys, planFocus, effTrupps, truppCounterNames, teamNameTaken,
+        azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, setPlanScale, tafel,
         truppFinder: { open: () => setFindTruppOpen(true), disabled: placed.length === 0 },
       }} />
 

@@ -1,7 +1,9 @@
 // The Plan surface: the lazy Whiteboard over the active plan document, with everything it reads
 // from and writes back to the Einsatz (the tactical store's `board`, the plan histories, the
-// Trupps, the Georeferenz). Split out of IncidentWorkspace (E1, 09.10.2026) verbatim; mounted
-// only while `mode === 'plans'` — which is why the plan STACKS live in the workspace, not here.
+// Trupps, the Georeferenz). Split out of IncidentWorkspace (E1, 09.10.2026); mounted only while
+// `mode === 'plans'` — which is why the plan STACKS live in the workspace, not here. The
+// workspace's hooks come in as their own result objects (the store, the object's plans, the
+// georeferenced fits, the map actions, the roster, the Trupp actions).
 
 import { type ReactNode, type Dispatch, type SetStateAction, type RefObject, Suspense } from 'react'
 import type { JSX } from 'react/jsx-runtime'
@@ -15,13 +17,11 @@ import { gebaeudeDoc } from '../data/demoIncident'
 import type { AtemschutzAlarmState } from '../lib/atemschutz'
 import type { AuthUser } from '../lib/auth'
 import { amendBuilding, buildingPickStep } from '../lib/buildingTransfer'
-import { type FloorPackView, floorPackOf, packStoreys, packFloorNames } from '../lib/floorPackBinding'
+import { floorPackOf, packStoreys, packFloorNames } from '../lib/floorPackBinding'
 import { buildView } from '../lib/footprint'
 import { fillTemplate } from '../lib/format'
-import type { GeorefPlan } from '../lib/georefTwins'
 import type { IncidentPlanBinding } from '../lib/incidentPlanBindings'
 import type { IncidentMeta } from '../lib/incidents'
-import type { LiveMark, PhotoMark } from '../lib/planProjection'
 import type { PlanStepLink } from '../lib/planStepLink'
 import { type RailLabels, type SymbolSurface, planSymbolScale } from '../lib/prefs'
 import { withoutOwnOnStorey, removeStorey } from '../lib/stackFloors'
@@ -32,15 +32,19 @@ import { confirmDialog } from '../lib/ui'
 import { type RecordKey, recordKey, annoRefs } from '../lib/undoKeys'
 import type { Dropper } from '../lib/undoTimeline'
 import type { useBuildingInfo } from '../lib/useBuildingInfo'
+import type { useGeorefFits } from '../lib/useGeorefFits'
 import type { useIsPhone } from '../lib/useIsPhone'
-import { BUILDING_PICK_ID } from '../lib/useObjectPlans'
-import type { SetBoard } from '../lib/useObjectStore'
+import { BUILDING_PICK_ID, type useObjectPlans } from '../lib/useObjectPlans'
+import type { ObjectStore } from '../lib/useObjectStore'
 import type { useSymbols } from '../lib/useSymbols'
+import type { useTruppActions } from '../lib/useTruppActions'
 import { floorLabel } from '../lib/whiteboard'
 import type { PlanScales } from '../lib/workspace'
-import type { PlanDocument, LngLat, Incident, BoardDoc, BuildingDoc, TimelineEvent, Entity, Trupp, LineAttachment, BoardAnno, CaptionMode } from '../types'
+import type { PlanDocument, Incident, BoardDoc, BuildingDoc, TimelineEvent, Entity, Trupp, BoardAnno, CaptionMode } from '../types'
 import { Whiteboard } from './lazySurfaces'
 import type { OneShotRows, WorkspaceMode } from './types'
+import type { useMapActions } from './useMapActions'
+import type { useRosterRoles } from './useRosterRoles'
 
 export interface PlansSurfaceProps {
   mode: WorkspaceMode
@@ -54,47 +58,38 @@ export interface PlansSurfaceProps {
   replayActive: boolean
   linkScoped: boolean
   activePlanId: string
-  activeObjectName: string | null
-  activeObjectAddress: string | null
+  setActivePlanId: Dispatch<SetStateAction<string>>
+  /** which object's plans these are, and how it was surfaced (lib/useObjectPlans) */
+  objectPlans: ReturnType<typeof useObjectPlans>
   buildingInfo: ReturnType<typeof useBuildingInfo>
-  activeObjectNearby: { objectId: string; distanceM: number } | null
   incidentMeta: IncidentMeta
-  activeObjectPos: LngLat | null
   incidentView: Incident
   setPickerOpen: Dispatch<SetStateAction<boolean>>
   symbolScale: Record<SymbolSurface, number>
-  activeLinkedPlan: GeorefPlan | null
   symbolCaptions: CaptionMode
   mapSuppressedCaptions: ReadonlySet<string>
-  planLive: LiveMark[]
-  planPhotos: PhotoMark[]
-  moveLiveOnSheet: (entityId: string, coord: LngLat, phase: 'start' | 'move' | 'end') => void
-  showPlanSourceOnMap: (_planId: string, annoId: string, coord: LngLat) => void
+  /** the georeferenced sheets and what they project (lib/useGeorefFits) */
+  georefFits: ReturnType<typeof useGeorefFits>
+  /** the Karte's gestures — a live vehicle dragged on a sheet, «Auf der Karte zeigen» (workspace/useMapActions) */
+  mapActions: ReturnType<typeof useMapActions>
   replayBoard: BoardDoc | null
-  board: BoardDoc
+  replayBuilding: BuildingDoc | null
+  /** the tactical store (lib/useObjectStore) */
+  store: ObjectStore
   trails: TruppTrail[]
   deleteGhostTrail: (id: string) => Promise<void>
   armTrailDrop: (sourceId: string, on: boolean) => void
-  setBoard: SetBoard
-  replayBuilding: BuildingDoc | null
   building: BuildingDoc | null
-  floorPack: FloorPackView | null
-  objects: TacticalObject[]
-  planBindings: IncidentPlanBinding[]
-  activeObjectId: string | undefined
   setBuilding: Dispatch<SetStateAction<BuildingDoc | null>>
-  setActivePlanId: Dispatch<SetStateAction<string>>
+  planBindings: IncidentPlanBinding[]
   rememberGebaeudeStep: (label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') => Dropper
   oneShotUndoToast: (text: string, label: string, restore: () => void, drop: Dropper, rows?: OneShotRows | 'silent', opts?: { kind?: string }) => number
   onReorient: (next: BuildingDoc) => void
   objectsRef: RefObject<TacticalObject[]>
   boardRef: RefObject<BoardDoc>
   logPlan: (icon: string, text: string, extra?: { kind?: TimelineEvent['kind']; annoId?: string; x?: number; y?: number; floor?: number; subjectId?: string }) => void
-  rosterNames: string[]
-  rosterRank: { [k: string]: string | undefined }
-  linkRosterFields: (prev: Entity, fields: Record<string, string>, opts?: { force?: boolean }) => void
-  personStatus: (name: string) => { label: string; tone?: 'warn' | 'muted' | 'info' } | undefined
-  rosterFieldHints: (e: Entity | undefined) => Record<string, string | undefined> | undefined
+  /** the roster's names, ranks and hints for the symbol fields (workspace/useRosterRoles) */
+  roster: ReturnType<typeof useRosterRoles>
   addRecent: (name: string) => void
   user: AuthUser | null
   emit: (op_type: string, payload?: Record<string, unknown>, opts?: { observed?: string }) => void
@@ -103,7 +98,6 @@ export interface PlansSurfaceProps {
   setPlanHistory: Dispatch<SetStateAction<BoardHistory>>
   rememberPlanStep: (planId: string, step: string) => void
   planStepLink: RefObject<PlanStepLink | null>
-  endSheetStep: () => void
   onPlanStepLabel: (label: string) => void
   planViews: RefObject<BoardViews>
   planFit: RefObject<(() => void) | null>
@@ -113,19 +107,10 @@ export interface PlansSurfaceProps {
   truppCounterNames: (exceptId?: string) => (string | undefined)[]
   teamNameTaken: (id: string, label: string) => boolean
   azAlarm: AtemschutzAlarmState
-  updateTrupp: (id: string, patch: Partial<Trupp>) => void
-  askTruppEntry: (id: string) => Promise<void>
-  adoptTruppMarker: (truppId: string, markerId: string) => Promise<boolean>
-  releaseTruppMarker: (markerId: string) => void
+  truppActions: ReturnType<typeof useTruppActions>
   newTruppFromMarker: (markerId: string) => void
-  linkTruppLine: (truppId: string, lineId: string) => boolean
-  unlinkLine: (lineId: string) => void
-  linkLineToAttachedTrupp: (lineId: string, attachment: LineAttachment | undefined) => boolean
-  unlinkLineFromDetachedTrupp: (lineId: string, previous: LineAttachment | undefined) => boolean
-  syncLineNoToTrupp: (lineId: string, lineNo: number | undefined) => void
-  setMode: Dispatch<SetStateAction<WorkspaceMode>>
-  setPanel: Dispatch<SetStateAction<'layers' | null>>
-  setTruppFocus: Dispatch<SetStateAction<{ id: string; nonce: number } | null>>
+  /** «Im Atemschutz zeigen»: the board, landed on that Trupp's card */
+  showTrupp: (truppId: string) => void
   planScale: PlanScales
   setPlanScale: Dispatch<SetStateAction<PlanScales>>
   /** the Tafel's pages (workspace/useTafelPages) — absent for a link session */
@@ -136,19 +121,23 @@ export interface PlansSurfaceProps {
 
 export function PlansSurface({
   mode, sym, guarded, railLabels, planDocs, tacticalLocked, isPhone, journalOpen, replayActive,
-  linkScoped, activePlanId, activeObjectName, activeObjectAddress, buildingInfo, activeObjectNearby,
-  incidentMeta, activeObjectPos, incidentView, setPickerOpen, symbolScale, activeLinkedPlan,
-  symbolCaptions, mapSuppressedCaptions, planLive, planPhotos, moveLiveOnSheet, showPlanSourceOnMap,
-  replayBoard, board, trails, deleteGhostTrail, armTrailDrop, setBoard, replayBuilding, building,
-  floorPack, objects, planBindings, activeObjectId, setBuilding, setActivePlanId, rememberGebaeudeStep,
-  oneShotUndoToast, onReorient, objectsRef, boardRef, logPlan, rosterNames, rosterRank,
-  linkRosterFields, personStatus, rosterFieldHints, addRecent, user, emit, planHist, planHistory,
-  setPlanHistory, rememberPlanStep, planStepLink, endSheetStep, onPlanStepLabel, planViews, planFit,
-  planKeys, planFocus, effTrupps, truppCounterNames, teamNameTaken, azAlarm, updateTrupp,
-  askTruppEntry, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker, linkTruppLine, unlinkLine,
-  linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, syncLineNoToTrupp, setMode, setPanel,
-  setTruppFocus, planScale, setPlanScale, tafel, truppFinder,
+  linkScoped, activePlanId, setActivePlanId, objectPlans, buildingInfo, incidentMeta, incidentView,
+  setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, georefFits, mapActions,
+  replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, setBuilding,
+  planBindings, rememberGebaeudeStep, oneShotUndoToast, onReorient, objectsRef, boardRef, logPlan,
+  roster, addRecent, user, emit, planHist, planHistory, setPlanHistory, rememberPlanStep, planStepLink,
+  onPlanStepLabel, planViews, planFit, planKeys, planFocus, effTrupps, truppCounterNames, teamNameTaken,
+  azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, setPlanScale, tafel, truppFinder,
 }: PlansSurfaceProps) {
+  const { activeObjectName, activeObjectAddress, activeObjectNearby, activeObjectPos, activeObjectId } = objectPlans
+  const { activeLinkedPlan, floorPack, planLive, planPhotos } = georefFits
+  const { moveLiveOnSheet, showPlanSourceOnMap } = mapActions
+  const { board, setBoard, objects, endSheetStep } = store
+  const { rosterNames, rosterRank, linkRosterFields, personStatus, rosterFieldHints } = roster
+  const {
+    updateTrupp, askTruppEntry, adoptTruppMarker, releaseTruppMarker, linkTruppLine, unlinkLine,
+    linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, syncLineNoToTrupp,
+  } = truppActions
   return (
     <>
       {/* like the map: mounted once the pack has loaded OR failed for good (empty glyph table) */}
@@ -424,7 +413,7 @@ export function PlansSurface({
           onLineDetached={tacticalLocked ? undefined : (annoId, previous) => { unlinkLineFromDetachedTrupp(annoId, previous) }}
           onLineRenumber={tacticalLocked ? undefined : syncLineNoToTrupp}
           // the plan chip's twin of the map marker's jump — it points at the card too
-          onShowTrupp={(truppId) => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: truppId, nonce: Date.now() }) }}
+          onShowTrupp={showTrupp}
           tafel={tafel}
           truppFinder={truppFinder}
           planScale={planScale}
