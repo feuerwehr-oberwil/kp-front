@@ -465,10 +465,7 @@ export function IncidentWorkspace({
   // reached from every drawing, symbol and property path in the app, and threading a word through
   // all of them would be a different change. The Tafel, Mittel and the Checklisten name their
   // action exactly, because there the timeline entry is written by hand anyway.
-  const {
-    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, gestureOpen, rebake,
-    undo: undoDoc, redo: redoDoc, rebaseObjects, replaceObjects, liveObjects, stepKeys: storeStepKeys,
-  } = useObjectStore(
+  const store = useObjectStore(
     init.objects,
     readOnly,
     {
@@ -526,6 +523,10 @@ export function IncidentWorkspace({
       },
     },
   )
+  const {
+    objects, doc, board, setDocRaw, setBoard, beginSheetStep, endSheetStep, commit, beginDrag, endDrag, gestureOpen, rebake,
+    undo: undoDoc, redo: redoDoc, rebaseObjects, replaceObjects, liveObjects, stepKeys: storeStepKeys,
+  } = store
   // ⚠️ Through refs: the entry outlives the render that pushed it, and `undoDoc` closes over that
   // render's `past`/`future`. Calling the captured one would step a stack that has moved on.
   const undoDocRef = useRef(undoDoc); undoDocRef.current = undoDoc
@@ -609,7 +610,8 @@ export function IncidentWorkspace({
   // Session-only tactical editing state (active tool, place gesture, selection) — see
   // useTacticalSelection. Declared before enterReplay (which clears it) so its setters are in
   // scope for that callback; threaded into useMapDrawing below just as before.
-  const { selectedId, setSelectedId, tool, setTool, teamPick, setTeamPick, pending, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock, selectedDrawingId, setSelectedDrawingId, selectedDrawIds, setSelectedDrawIds, selectedEntityIds, setSelectedEntityIds } = useTacticalSelection()
+  const selection = useTacticalSelection()
+  const { selectedId, setSelectedId, tool, setTool, teamPick, setTeamPick, pending, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock, selectedDrawingId, setSelectedDrawingId, selectedDrawIds, setSelectedDrawIds, selectedEntityIds, setSelectedEntityIds } = selection
   /** Where the currently selected drawing was TAPPED (map-container px), paired with its id so a
    *  selection that arrived some other way can't borrow a stale point. Only the panel nudge reads
    *  it (lib/panelNudge · panelNudgeSelection). */
@@ -1893,15 +1895,7 @@ export function IncidentWorkspace({
   // Lage-map drawing surface (draft, line mode/preset, draw-style controls, Drawing CRUD +
   // on-canvas editing) lives in useMapDrawing — the undoable doc and selection state are
   // threaded in so the handlers behave identically to their former inline selves.
-  const {
-    draft, setDraft,
-    drawColor, drawWidth, drawDashed,
-    lineMode, setLineMode, areaMode, setAreaMode,
-    draftActive, lineNodes, freehandKind, selectedDrawing,
-    commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, patchDrawing, patchDrawingById,
-    patchDrawingLabelLive, commitDrawingLabel,
-    editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
-  } = useMapDrawing({
+  const mapDrawing = useMapDrawing({
     drawings, resolvedDrawings: resolvedMapDrawings, selectedDrawingId, tacticalLocked, tool, setTool,
     commit, setDocRaw, beginDrag, endDrag, emit, log,
     setSelectedDrawingId, setSelectedId, setSelectedDrawIds, setSelectedEntityIds,
@@ -1910,6 +1904,12 @@ export function IncidentWorkspace({
     onLineAttached: (lineId, attachment) => { linkLineToAttachedTrupp(lineId, attachment) },
     onLineDetached: (lineId, previous) => { unlinkLineFromDetachedTrupp(lineId, previous) },
   })
+  const {
+    setDraft, lineMode, setLineMode, areaMode, setAreaMode, draftActive, selectedDrawing,
+    commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, createCircle, patchDrawing, patchDrawingById,
+    patchDrawingLabelLive, commitDrawingLabel,
+    deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
+  } = mapDrawing
   const changeMapEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck', drawing = selectedDrawing) => {
     if (!drawing) return
     const incoming = drawing.teilstueck && ending !== 'teilstueck'
@@ -2248,51 +2248,51 @@ export function IncidentWorkspace({
     }
     return undefined
   }
-  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, triggerNotfall, endNotfall, truppPlace, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors } =
-    useTruppActions({
-      trupps, drawings, entities, objects, setTrupps, board, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
-      // The Atemschutz-Tafel joins the one global timeline (08.09.2026): every Kontakt, Druck,
-      // Statuswechsel, Bearbeitung, Wieder-Einrücken, Anmeldung and Löschen records itself there,
-      // so ↶ in the header reaches the board — including from the handed-over Link-Tafel, which
-      // has no TopBar and gets its own pair (AtemschutzView · headActs).
-      undoTimeline: undoHist,
-      // ⚠️ …and reads the CURRENT trupps when a step is finally pressed, not the render that
-      // recorded it. A merge between the tap and the ↶ is exactly the case that has to decline.
-      liveTrupps: () => truppsRef.current,
-      counterNames: () => truppCounterNames(),
-      placeOf: truppPositionWords,
-      // An Atemschutz-Link session syncs the trupps slice and nothing else: a chip removed or
-      // recoloured here would change only on this phone and be undone by the next poll, while
-      // the tablet keeps the old one. So the placement half of every Trupp action is a no-op
-      // there; the tablet's own board/entities stay the single source for the picture.
-      setBoard: asLink ? () => {} : setBoard,
-      setDocRaw: asLink ? () => {} : setDocRaw,
-      // a new map marker lands at the current map centre (the operator drags it to position);
-      // fall back to the Einsatzort when the map hasn't been opened yet this session
-      mapCenter: () => {
-        const c = mapRef.current?.getMap()?.getCenter()
-        return c ? [c.lng, c.lat] as LngLat : incidentView.center
-      },
-      // jump-to for a team marker: coord is passed on placement (state not yet committed);
-      // later focuses look the entity up like a Verlauf row does. fly=false selects without
-      // moving the camera (tap-placed markers are already in view).
-      // the hose a Trupp works on — «Leitung zeigen» on the Atemschutz card
-      // «Leitung zeigen» SHOWS the hose, it does not open it: fly there and outline it for a
-      // moment, with nothing selected — no vertex handles under the finger, no editor sheet over
-      // the map. Tapping the line is still how you edit it.
-      focusMapDrawing: (drawingId) => {
-        setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedDrawingId(null); setSelectedId(null)
-        const d = drawings.find((x) => x.id === drawingId)
-        if (d?.coords[0]) flyToMapVisible(d.coords[0], 17.8)
-        setFlashDrawingId(drawingId)
-      },
-      focusMapEntity: (entityId, coord, fly = true) => {
-        setMode('map')
-        if (!fly) { setSelectedId(entityId); setSelectedDrawingId(null); return }
-        if (coord) { setSelectedId(entityId); setSelectedDrawingId(null); flyToMapVisible(coord, 18.4) }
-        else focusEntity(entityId)
-      },
-    })
+  const truppActions = useTruppActions({
+    trupps, drawings, entities, objects, setTrupps, board, building, log, logPlan, emit, setMode, setActivePlanId, setPanel, setPlanFocus,
+    // The Atemschutz-Tafel joins the one global timeline (08.09.2026): every Kontakt, Druck,
+    // Statuswechsel, Bearbeitung, Wieder-Einrücken, Anmeldung and Löschen records itself there,
+    // so ↶ in the header reaches the board — including from the handed-over Link-Tafel, which
+    // has no TopBar and gets its own pair (AtemschutzView · headActs).
+    undoTimeline: undoHist,
+    // ⚠️ …and reads the CURRENT trupps when a step is finally pressed, not the render that
+    // recorded it. A merge between the tap and the ↶ is exactly the case that has to decline.
+    liveTrupps: () => truppsRef.current,
+    counterNames: () => truppCounterNames(),
+    placeOf: truppPositionWords,
+    // An Atemschutz-Link session syncs the trupps slice and nothing else: a chip removed or
+    // recoloured here would change only on this phone and be undone by the next poll, while
+    // the tablet keeps the old one. So the placement half of every Trupp action is a no-op
+    // there; the tablet's own board/entities stay the single source for the picture.
+    setBoard: asLink ? () => {} : setBoard,
+    setDocRaw: asLink ? () => {} : setDocRaw,
+    // a new map marker lands at the current map centre (the operator drags it to position);
+    // fall back to the Einsatzort when the map hasn't been opened yet this session
+    mapCenter: () => {
+      const c = mapRef.current?.getMap()?.getCenter()
+      return c ? [c.lng, c.lat] as LngLat : incidentView.center
+    },
+    // jump-to for a team marker: coord is passed on placement (state not yet committed);
+    // later focuses look the entity up like a Verlauf row does. fly=false selects without
+    // moving the camera (tap-placed markers are already in view).
+    // the hose a Trupp works on — «Leitung zeigen» on the Atemschutz card
+    // «Leitung zeigen» SHOWS the hose, it does not open it: fly there and outline it for a
+    // moment, with nothing selected — no vertex handles under the finger, no editor sheet over
+    // the map. Tapping the line is still how you edit it.
+    focusMapDrawing: (drawingId) => {
+      setSelectedDrawIds([]); setSelectedEntityIds([]); setSelectedDrawingId(null); setSelectedId(null)
+      const d = drawings.find((x) => x.id === drawingId)
+      if (d?.coords[0]) flyToMapVisible(d.coords[0], 17.8)
+      setFlashDrawingId(drawingId)
+    },
+    focusMapEntity: (entityId, coord, fly = true) => {
+      setMode('map')
+      if (!fly) { setSelectedId(entityId); setSelectedDrawingId(null); return }
+      if (coord) { setSelectedId(entityId); setSelectedDrawingId(null); flyToMapVisible(coord, 18.4) }
+      else focusEntity(entityId)
+    },
+  })
+  const { createTrupp, updateTrupp, moveTrupp, placeTruppOnPlan, placeTruppOnMap, adoptTruppMarker, releaseTruppMarker, askTruppEntry, focusTruppOnPlan, recordContact, recordPressure, setTruppStatus, triggerNotfall, endNotfall, truppPlace, editTrupp, transferOutOfTrupp, reactivateTrupp, logTruppAlarm, logTruppAlarmCleared, deleteTrupp, restoreTrupp, linkTruppLine, linkLineToAttachedTrupp, unlinkLineFromDetachedTrupp, unlinkTruppLine, unlinkLine, syncLineNoToTrupp, showTruppLine, truppsWithLine, truppLineNos, truppColors } = truppActions
   // The alarm host runs on EVERY device – tone and OS notification are the point – but only a
   // session that writes the Trupps records the crossing in the Verlauf (RBAC audit V1, 22.10.2026).
   // The FU or the Atemschutz-Link writes that row, once per turnus, for everybody.
@@ -2303,12 +2303,7 @@ export function IncidentWorkspace({
 
   // the Karte's gestures and commands — tool picks, map taps, views, keys, the lasso group, marker
   // moves and docking, jumps, delete and «erledigt» (workspace/useMapActions)
-  const {
-    deleteGroup, deleteEntity, placed, goToModule, finishSelection, onMapClick, startEntityMove,
-    streamEntityMove, finishEntityMove, onMarquee, transformGroup, goToTrupp, viewsApi, toggleViews,
-    selected, showMapSourceOnPlan, undockTeam, setEntityDone, focusDrawing, noteEntity, pick, pickShape,
-    moveLiveOnSheet, showPlanSourceOnMap,
-  } = useMapActions({
+  const mapActions = useMapActions({
     clearMapUi, setPaletteOpen, tool, setTool, setPending, setPendingShape, setSelectedId,
     setSelectedDrawingId, setSelectedDrawIds, setSelectedEntityIds, setNotePanelId, setEditNoteId, panel,
     setPanel, tacticalLocked, pendingShape, rotStart, setRotStart, commit, placeLock, log, emit, pending,
@@ -2324,8 +2319,13 @@ export function IncidentWorkspace({
     endDrag, flyToMapVisible, setVehicleOverrides, trupps, linkTruppLine, patchEntity, objectsRef, objects,
     selectedPlanProjection, setPlanFocus, focusEntity, editNoteId, user, stepLabelRef: stepLabel,
   })
+  const {
+    deleteGroup, deleteEntity, placed, goToModule, goToTrupp, viewsApi, toggleViews, selected,
+    showMapSourceOnPlan, undockTeam, setEntityDone, focusDrawing, noteEntity, pick, pickShape,
+    moveLiveOnSheet, showPlanSourceOnMap,
+  } = mapActions
   // a generic (untracked) team marker — the map twin of the plan's placeTeamChip
-  const { placeGenericTeam, renameTeam, markTeamPosition, clearTeamTrail } = useTeamMarkerActions({
+  const teamMarkers = useTeamMarkerActions({
     entities, commit, log, emit, setSelectedId, setSelectedDrawingId,
     // every chip, every ghost trail and every registered Trupp count into the numbering: ONE
     // counter per Einsatz (docs/trupp-naming.md §1)
@@ -2333,6 +2333,7 @@ export function IncidentWorkspace({
     trupps: () => truppsRef.current,
     teamNameTaken,
   })
+  const { placeGenericTeam } = teamMarkers
   /** The card's / the form's half of a marker join. A Trupp that was JUST registered is not in
    *  the hook's `trupps` until the next render, so its adopt waits one render (pendingAdopt);
    *  an existing Trupp joins straight away. */
@@ -2347,6 +2348,9 @@ export function IncidentWorkspace({
     void adoptTruppMarker(pendingAdopt.truppId, pendingAdopt.markerId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingAdopt, trupps])
+  /** «Im Atemschutz zeigen» from a map marker or a plan chip (both surfaces): to the board, landed
+   *  on that Trupp's card — the board can be a wall of Trupps, so the jump answers «which one?». */
+  const showTrupp = (truppId: string) => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: truppId, nonce: Date.now() }) }
   /** «Neuer Trupp» on a loose marker's join sheet (both surfaces): to the board, form open,
    *  and the marker waits for the save. */
   const newTruppFromMarker = (markerId: string) => {
@@ -3134,21 +3138,13 @@ export function IncidentWorkspace({
       {closedMeldung}
 
       <MapStage {...{
-        sym, guarded, mapRef, mapEntities, tacticalLocked, mapLayers, symbolScale, symbolCaptions,
-        setMapSuppressedCaptions, incidentView, initialFitPoints, locateReq, editNoteId, noteTextLive,
-        noteTextCommit, setSelectedId, setSelectedDrawingId, setEditNoteId, tool, setNotePanelId, effTrupps,
-        azAlarm, setMode, setPanel, setTruppFocus, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker,
-        markTeamPosition, renameTeam, clearTeamTrail, removeTeamWithTrail, trails, deleteGhostTrail, doc,
-        unlinkTruppLine, patchEntity, linkTruppLine, log, mapOverlays, finishSelection, georefPlanRasters,
-        weatherRadar: mapUI && !replayActive ? weather.mapRadar : null,
-        isVisible, selectedId, measure, setSelectedDrawIds, setSelectedEntityIds, onMapClick, drawings,
-        draft, areaMode, lineNodes, setDraft, setDraftPointAttachment, startEntityMove, streamEntityMove,
-        finishEntityMove, setVehicleOverrides, beginDrag, setDocRaw, endDrag, setView, onBasemapUnavailable,
-        onMapSettled, coord, pendingShape, rotStart, freehandKind, onFreehand, createCircle, drawColor,
-        drawWidth, drawDashed, selectedDrawingId, flashDrawingId, setDrawTap, patchDrawingById, commit,
-        deleteEntity, selectedDrawing, editDrawingCoords, editDrawingRadius, insertDrawingVertex,
-        deleteDrawingVertex, setDrawingAttachment, moveLabel, selectedDrawIds, selectedEntityIds, onMarquee,
-        transformGroup,
+        sym, guarded, mapRef, mapEntities, drawings, tacticalLocked, mapLayers, isVisible, mapOverlays,
+        georefPlanRasters, weatherRadar: mapUI && !replayActive ? weather.mapRadar : null, symbolScale,
+        symbolCaptions, setMapSuppressedCaptions, incidentView, initialFitPoints, locateReq, setView,
+        onBasemapUnavailable, onMapSettled, selection, store, mapDrawing, mapActions, truppActions,
+        teamMarkers, patchEntity, log, editNoteId, setEditNoteId, noteTextLive, noteTextCommit,
+        setNotePanelId, effTrupps, azAlarm, showTrupp, newTruppFromMarker, removeTeamWithTrail, trails,
+        deleteGhostTrail, measure, coord, rotStart, flashDrawingId, setDrawTap, setVehicleOverrides,
       }} />
 
       <WorkspaceTopBar {...{
