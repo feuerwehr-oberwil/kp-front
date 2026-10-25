@@ -89,6 +89,24 @@ describe('useKrokiMoment', () => {
     expect(loadReplay).toHaveBeenCalledTimes(1)
   })
 
+  // A Rapport reopened on a kept Stand with the Kroki on screen asks for the bundle from both
+  // effects in the same tick – one download, not two in parallel.
+  it('opening on a kept Stand with the panel shown loads the bundle once', async () => {
+    const { result } = hook({ initialAt: AT, shown: true })
+    await waitFor(() => expect(result.current.pastScene).not.toBeNull())
+    await waitFor(() => expect(result.current.moments).toHaveLength(1))
+    expect(loadReplay).toHaveBeenCalledTimes(1)
+  })
+
+  it('a bundle that failed to load is asked for again on the next instant', async () => {
+    vi.mocked(loadReplay).mockRejectedValueOnce(new Error('offline'))
+    const { result } = hook({ initialAt: AT })
+    await waitFor(() => expect(toast).toHaveBeenCalledTimes(1))
+    act(() => result.current.setAt(AT + 60_000))
+    await waitFor(() => expect(result.current.pastScene).not.toBeNull())
+    expect(loadReplay).toHaveBeenCalledTimes(2)
+  })
+
   it('the tick marks load when the panel is shown, and the Verlauf rows join them as they arrive', async () => {
     const { result, rerender } = hook()
     expect(result.current.moments).toEqual([])
