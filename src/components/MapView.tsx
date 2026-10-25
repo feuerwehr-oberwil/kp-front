@@ -56,7 +56,7 @@ import { useIsPhone } from '../lib/useIsPhone'
 import { reportMapError } from '../lib/mapError'
 import { isTypingTarget } from '../lib/hotkeys'
 import { QuietAttributionControl } from './MapAttribution'
-import { GeorefAdjustLayer, GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
+import { GeorefCheckOutline, GeorefMapLoupe, GeorefMapMarks } from './GeorefMapLayer'
 import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsMap, registerGeorefPhoneTarget, useGeorefMapTap, useGeorefMode } from '../lib/georefMode'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { setLiveBearing } from '../lib/liveBearing'
@@ -1301,9 +1301,6 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
       {!georef.check && <GeorefMapMarks mode={georef} map={mapInst.current} />}
       {/* …and the one-shot «Deckung prüfen»: the sheet's outline, where the fit puts it */}
       <GeorefCheckOutline mode={georef} map={mapInst.current} />
-      {/* …and the automatic suggestion's transform surface: while ✥/⟳ is armed on a proposal
-          review, drags on the Karte move/turn the whole sheet instead of panning */}
-      <GeorefAdjustLayer mode={georef} map={mapInst.current} />
 
       {/* committed drawings (per-feature colour/width) — gated by the markup layer toggle */}
       <Source id="s-draw" type="geojson" data={drawFC}>

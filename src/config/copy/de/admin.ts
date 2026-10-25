@@ -1667,7 +1667,7 @@ export const adminCopy = {
       alignmentCol: 'Karte',
       alignmentAuto: 'automatisch',
       alignmentManual: 'von Hand',
-      alignmentHint: 'Wie Blätter dieses Moduls auf die Karte kommen: «automatisch» – der Server rechnet einen Vorschlag, den du unter Plan-Ausrichtung freigibst (im Einsatz gibt es dafür «Automatisch ausrichten»); «von Hand» – nur mit Referenzpunkten; «—» – nie auf der Karte. Gesetzt wird das in der Konfiguration (modules[].alignment).',
+      alignmentHint: 'Wie Blätter dieses Moduls auf die Karte kommen: «automatisch» – der Server rechnet einen Vorschlag, den du unter Plan-Ausrichtung freigibst; «von Hand» – nur mit Referenzpunkten; «—» – nie auf der Karte. Gesetzt wird das in der Konfiguration (modules[].alignment).',
       detectionNone: 'keine Regel',
       combinedWith: 'Kombiniert mit',
       familyBadge: 'Familie',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { routeHotkey, type HotkeyState } from './hotkeyRoute'
+import { routeEscape, routeHotkey, type EscapeAction, type EscapeState, type HotkeyState } from './hotkeyRoute'
 import type { HotkeyCommand } from './hotkeys'
 
 // The keyboard's routing table (23.09.2026): which action a decoded shortcut becomes on which
@@ -79,5 +79,24 @@ describe('routeHotkey', () => {
     expect(route({ type: 'module', n: 3 }, g)).toEqual({ action: { type: 'none' }, prevent: true })
     // …and everything that is not navigation still works inside it
     expect(route({ type: 'undo' }, g).action).toEqual({ type: 'undo' })
+  })
+})
+
+// Escape peels ONE layer per press, in a fixed order — pressing it on a Karte with everything open
+// walks back to the plain map one step at a time, and a plain map ignores it.
+describe('routeEscape', () => {
+  const closes: Record<Exclude<EscapeAction, 'none'>, keyof EscapeState> = {
+    cancelPlacement: 'placing', coordOff: 'coordOn', closeChrome: 'chromeOpen',
+    disarmTool: 'toolArmed', closeNotePanel: 'notePanelOpen', clearSelection: 'selected',
+  }
+
+  it('walks back from everything open to the plain map, one layer per press', () => {
+    let s: EscapeState = { placing: true, coordOn: true, chromeOpen: true, toolArmed: true, notePanelOpen: true, selected: true }
+    const presses: EscapeAction[] = []
+    for (let a = routeEscape(s); a !== 'none'; a = routeEscape(s)) {
+      presses.push(a)
+      s = { ...s, [closes[a]]: false }
+    }
+    expect(presses).toEqual(['cancelPlacement', 'coordOff', 'closeChrome', 'disarmTool', 'closeNotePanel', 'clearSelection'])
   })
 })

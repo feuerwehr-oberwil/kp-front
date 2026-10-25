@@ -89,7 +89,7 @@ import { INK_DEFAULTS, usePlanDraft } from './usePlanDraft'
 import { usePlanCreate, type InkTap } from './usePlanCreate'
 import { useMeasuredSheet } from './useMeasuredSheet'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
-import { GeorefBoardLayer, GeorefDock, GeorefInstrument, GeorefLinkChooser, GeorefSplitSeam, type PlanViewApi } from './GeorefMode'
+import { GeorefBoardLayer, GeorefDock, GeorefInstrument, GeorefSplitSeam, type PlanViewApi } from './GeorefMode'
 import { GeorefQuality } from './GeorefQuality'
 import { GeorefTransfer } from './GeorefTransfer'
 import { fitSimilarity, hasAutoPairs, realPairCount } from '../lib/georef'
@@ -302,8 +302,8 @@ interface Props {
   /** the Einsatz the banner's dismissal is remembered for, and the address it contrasts with */
   incidentId?: string
   incidentAddress?: string | null
-  /** anchor for «Automatisch ausrichten» — the active object's coordinate (else the Einsatzort);
-   *  the backend fetches its OSM building reference box around it (lib/georefSuggest) */
+  /** UNREAD since the field's «Automatisch ausrichten» was removed (25.10.2026). PlansSurface still
+   *  passes it; drop the two together once the workspace prop refactor (sweep A.3) has landed. */
   georefAnchor?: LngLat | null
   /** the Einsatz's own coordinate (null without one) — the pin on the Gebäude picker */
   incidentPos?: LngLat | null
@@ -368,7 +368,7 @@ export interface PlanLogExtra {
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
 
-export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel }: Props) {
+export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
   // lib/boardForm) and any board object this build does not understand (lib/workspace ·
   // isPassengerAnno). Nothing positional may see them: every drawing path below reads `annos` —
@@ -809,11 +809,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // --- Karte verknüpfen (Georeferenz) — components/usePlanGeoref ------------------------------
   const {
     georefApproved, georefState, georefChipShown, beginGeoref,
-    linkChoice, setLinkChoice, autoStep, closeLinkChoice, canAutoAlign, runAutoAlign,
     qualityFor, setQualityFor, georefQuality, georefTransferOpen, setGeorefTransferOpen, georefTransferTargets, transferGeoref,
   } = usePlanGeoref({
     plans, active, activeId, activeGeorefKey, georef, georefArmed, georefPairs, georefFit, canGeoref, readOnly, linkViewer,
-    measureAR, activeScale, georefAnchor, boardRef,
+    measureAR, boardRef,
   })
   /** The Massstab pill's own lamp (18.09.2026) — the phone pill is icon + lamp and nothing else,
    *  so this dot is all that is left of «Ref. 25 m» / «nicht kalibriert» / «Massstab neu prüfen».
@@ -1543,7 +1542,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   }
 
 
-  // removing a storey: the confirm is the OWNER's (IncidentWorkspace · onRemoveFloor →
+  // removing a storey: the confirm is the OWNER's (workspace/useGebaeudeActions · removeFloor →
   // lib/storeyRemoval), because only the store knows which annos on this tile are the stack's own
   // and which are the Karte's, merely shown here — and only the own ones can be lost
   /** a storey's word on its label («4. OG», «EG», or the name the Gebäude gave it) */
@@ -3095,11 +3094,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
           disabled={readOnly}
           aria-expanded={georefState.kind === 'linked' && !readOnly ? georefQuality : undefined}
           onClick={() => {
-            // linked ⇒ the chip opens the Passung; unlinked ⇒ the chooser when the matcher can
-            // be asked, else the pairing straight away. A plan that has no reference has nothing
-            // to show, so the reading would be an empty panel where the verb belongs.
+            // linked ⇒ the chip opens the Passung; unlinked ⇒ the pairing straight away. A plan
+            // that has no reference has nothing to show, so the reading would be an empty panel
+            // where the verb belongs.
             if (georefState.kind === 'linked') setQualityFor(georefQuality ? null : activeId)
-            else if (canAutoAlign) setLinkChoice((v) => !v)
             else beginGeoref()
           }}
         >
@@ -3151,20 +3149,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
             onCheck={() => beginGeoref({ check: true, returnToQuality: true })}
             onTransfer={georefTransferTargets.length ? () => setGeorefTransferOpen(true) : undefined}
             onReset={() => { setQualityFor(null); resetGeorefPlan(activeGeorefKey); toast(appConfig.copy.whiteboard.georef.resetDone) }}
-          />
-        </GeorefDock>
-      )}
-
-      {/* the unlinked chip's chooser — «Automatisch ausrichten» / «Punkte selbst setzen». Same
-          dock (and the same stay-live rule) as the Passung above; only offered when the matcher
-          can actually be asked (canAutoAlign), else the chip arms the point flow directly. */}
-      {linkChoice && !georefArmed && georefState.kind !== 'linked' && !readOnly && (
-        <GeorefDock label={appConfig.copy.whiteboard.georef.linkTitle} onClose={closeLinkChoice}>
-          <GeorefLinkChooser
-            busyStep={autoStep}
-            onAuto={() => void runAutoAlign()}
-            onManual={() => { setLinkChoice(false); beginGeoref() }}
-            onClose={closeLinkChoice}
           />
         </GeorefDock>
       )}

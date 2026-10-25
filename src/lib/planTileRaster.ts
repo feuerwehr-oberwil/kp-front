@@ -1,8 +1,8 @@
 /**
  * A RASTER of a tiled sheet (or of one region of it), composed from the server's tiles.
  *
- * Several callers want pixels rather than a view: the Karte's plan backdrop, the image
- * «Automatisch ausrichten» uploads, the ink scan that trims a new Gebäude's frame. Each used to
+ * Several callers want pixels rather than a view: the Karte's plan backdrop and the ink scan
+ * that trims a new Gebäude's frame. Each used to
  * take them from a pdf.js bake — one more multi-second walk over the page's display list and a
  * page-sized bitmap held for it (components/PdfViewport). For a sheet with a pyramid the same
  * pixels are a handful of small images away, so they are drawn from those instead; `null` means

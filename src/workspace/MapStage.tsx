@@ -1,9 +1,12 @@
 // The Karte itself: the MapView with the tactical picture (or the reconstructed past during a
 // replay), the live vehicles and crew, the reference layers and the linked plans' rasters — or
 // the boot placeholder while the symbol pack loads. Split out of IncidentWorkspace (E1,
-// 09.10.2026) verbatim; every writer it calls is the workspace's and comes in as a prop.
+// 09.10.2026); every writer it calls is the workspace's. The workspace's hooks come in as their
+// own result objects (the selection, the store, the drawing surface, the map actions, the Trupp
+// and team-marker actions), so a new action is one edit in the hook and one here.
 
 import type { KarteWeather } from './useKarteWeather'
+import type { useMapActions } from './useMapActions'
 import type { ReactNode, RefObject, Dispatch, SetStateAction } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
 import type { JSX } from 'react/jsx-runtime'
@@ -18,124 +21,95 @@ import { type TruppTrail, mapGhostTrails } from '../lib/truppTrails'
 import { undoToast } from '../lib/ui'
 import { recordKey } from '../lib/undoKeys'
 import type { useCoordPicker } from '../lib/useCoordPicker'
+import type { useMapDrawing } from '../lib/useMapDrawing'
 import type { useMeasure } from '../lib/useMeasure'
+import type { ObjectStore } from '../lib/useObjectStore'
 import type { useSymbols } from '../lib/useSymbols'
+import type { useTacticalSelection } from '../lib/useTacticalSelection'
+import type { useTeamMarkerActions } from '../lib/useTeamMarkerActions'
+import type { useTruppActions } from '../lib/useTruppActions'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
-import type { Doc } from '../lib/workspace'
-import type { Entity, LayerDef, Incident, LngLat, Trupp, TimelineEvent, PreparedMapOverlay, LayerId, Drawing, LineAttachment, LineEndpoint, ShapeKind, CaptionMode, MapTool } from '../types'
-import type { WorkspaceMode } from './types'
+import type { Entity, LayerDef, Incident, LngLat, Trupp, TimelineEvent, PreparedMapOverlay, LayerId, Drawing, CaptionMode } from '../types'
 
 export interface MapStageProps {
   sym: ReturnType<typeof useSymbols>
   guarded: (surface: string, node: ReactNode, toMap?: boolean) => JSX.Element
   mapRef: RefObject<MapRef | null>
   mapEntities: Entity[]
+  drawings: Drawing[]
   tacticalLocked: boolean
   mapLayers: LayerDef[]
+  isVisible: (id: LayerId) => boolean
+  mapOverlays: PreparedMapOverlay[]
+  georefPlanRasters: { id: string; url: string; opacity: number; coordinates: [[number, number], [number, number], [number, number], [number, number]] }[]
+  /** the «Niederschlag (Radar)» layer while it is on (workspace/useKarteWeather · mapRadar) */
+  weatherRadar: KarteWeather['mapRadar']
   symbolScale: Record<SymbolSurface, number>
   symbolCaptions: CaptionMode
   setMapSuppressedCaptions: Dispatch<SetStateAction<ReadonlySet<string>>>
   incidentView: Incident
   initialFitPoints: LngLat[] | undefined
   locateReq: number
-  editNoteId: string | null
-  noteTextLive: (id: string, v: string) => void
-  noteTextCommit: (id: string, v: string) => void
-  setSelectedId: Dispatch<SetStateAction<string | null>>
-  setSelectedDrawingId: Dispatch<SetStateAction<string | null>>
-  setEditNoteId: Dispatch<SetStateAction<string | null>>
-  tool: MapTool
-  setNotePanelId: Dispatch<SetStateAction<string | null>>
-  effTrupps: Trupp[]
-  azAlarm: AtemschutzAlarmState
-  setMode: Dispatch<SetStateAction<WorkspaceMode>>
-  setPanel: Dispatch<SetStateAction<'layers' | null>>
-  setTruppFocus: Dispatch<SetStateAction<{ id: string; nonce: number } | null>>
-  adoptTruppMarker: (truppId: string, markerId: string) => Promise<boolean>
-  releaseTruppMarker: (markerId: string) => void
-  newTruppFromMarker: (markerId: string) => void
-  markTeamPosition: (id: string) => void
-  renameTeam: (id: string, name: string) => void
-  clearTeamTrail: (id: string) => Promise<void>
-  removeTeamWithTrail: (id: string) => Promise<void>
-  trails: TruppTrail[]
-  deleteGhostTrail: (id: string) => Promise<void>
-  doc: Doc
-  unlinkTruppLine: (truppId: string) => void
-  patchEntity: (id: string, patch: Partial<Entity>) => void
-  linkTruppLine: (truppId: string, lineId: string) => boolean
-  log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
-  mapOverlays: PreparedMapOverlay[]
-  finishSelection: () => void
-  georefPlanRasters: { id: string; url: string; opacity: number; coordinates: [[number, number], [number, number], [number, number], [number, number]] }[]
-  /** the «Niederschlag (Radar)» layer while it is on (workspace/useKarteWeather · mapRadar) */
-  weatherRadar: KarteWeather['mapRadar']
-  isVisible: (id: LayerId) => boolean
-  selectedId: string | null
-  measure: ReturnType<typeof useMeasure>
-  setSelectedDrawIds: Dispatch<SetStateAction<string[]>>
-  setSelectedEntityIds: Dispatch<SetStateAction<string[]>>
-  onMapClick: (c: LngLat) => void
-  drawings: Drawing[]
-  draft: LngLat[]
-  areaMode: 'freehand' | 'nodes'
-  lineNodes: boolean
-  setDraft: (action: SetStateAction<LngLat[]>) => void
-  setDraftPointAttachment: (attachment?: LineAttachment) => void
-  startEntityMove: (id: string) => void
-  streamEntityMove: (id: string, c: LngLat) => void
-  finishEntityMove: (id: string, c: LngLat, join?: { lineId: string; endpoint: LineEndpoint } | null, dock?: { hostId: string } | null) => void
-  setVehicleOverrides: Dispatch<SetStateAction<VehicleOverrides>>
-  beginDrag: () => void
-  setDocRaw: (update: SetStateAction<Doc>, opts?: { gesture?: boolean; movedIds?: readonly string[] }) => void
-  endDrag: () => void
   setView: Dispatch<SetStateAction<{ bearing: number; center: LngLat; zoom: number }>>
   onBasemapUnavailable: () => void
   onMapSettled: () => void
+  /** the tool, the place gesture and the selection (lib/useTacticalSelection) */
+  selection: ReturnType<typeof useTacticalSelection>
+  /** the tactical store (lib/useObjectStore) */
+  store: ObjectStore
+  /** the Karte's drawing surface — draft, style, Drawing CRUD (lib/useMapDrawing) */
+  mapDrawing: ReturnType<typeof useMapDrawing>
+  /** the Karte's gestures and commands (workspace/useMapActions) */
+  mapActions: ReturnType<typeof useMapActions>
+  truppActions: ReturnType<typeof useTruppActions>
+  teamMarkers: ReturnType<typeof useTeamMarkerActions>
+  patchEntity: (id: string, patch: Partial<Entity>) => void
+  log: (icon: string, text: string, kind?: TimelineEvent['kind'], audioUrl?: string, entityId?: string, opts?: { rowId?: string; subjectId?: string }) => void
+  editNoteId: string | null
+  setEditNoteId: Dispatch<SetStateAction<string | null>>
+  noteTextLive: (id: string, v: string) => void
+  noteTextCommit: (id: string, v: string) => void
+  setNotePanelId: Dispatch<SetStateAction<string | null>>
+  effTrupps: Trupp[]
+  azAlarm: AtemschutzAlarmState
+  /** «Im Atemschutz zeigen»: the board, landed on that Trupp's card */
+  showTrupp: (truppId: string) => void
+  newTruppFromMarker: (markerId: string) => void
+  removeTeamWithTrail: (id: string) => Promise<void>
+  trails: TruppTrail[]
+  deleteGhostTrail: (id: string) => Promise<void>
+  measure: ReturnType<typeof useMeasure>
   coord: ReturnType<typeof useCoordPicker>
-  pendingShape: ShapeKind | null
   rotStart: LngLat | null
-  freehandKind: 'line' | 'area' | null
-  onFreehand: (coords: LngLat[], attachments?: { startAttachment?: LineAttachment; endAttachment?: LineAttachment }) => Drawing | null
-  createCircle: (center: LngLat, radiusM: number) => void
-  drawColor: string
-  drawWidth: number
-  drawDashed: boolean
-  selectedDrawingId: string | null
   flashDrawingId: string | null
   setDrawTap: Dispatch<SetStateAction<{ id: string; x: number; y: number } | null>>
-  patchDrawingById: (id: string, patch: Partial<Drawing>) => void
-  commit: (updater: (d: Doc) => Doc, opts?: { gesture?: boolean }) => void
-  deleteEntity: (id: string) => Promise<boolean>
-  selectedDrawing: Drawing | null
-  editDrawingCoords: (id: string, coords: LngLat[], phase: 'start' | 'move' | 'end') => void
-  editDrawingRadius: (id: string, radiusM: number, phase: 'start' | 'move' | 'end') => void
-  insertDrawingVertex: (id: string, index: number, c: LngLat) => void
-  deleteDrawingVertex: (id: string, index: number) => void
-  setDrawingAttachment: (id: string, endpoint: LineEndpoint, attachment: LineAttachment | undefined, fallback: LngLat) => void
-  moveLabel: (id: string, at: LngLat | null, phase: 'start' | 'move' | 'end', which?: 'label' | 'end') => void
-  selectedDrawIds: string[]
-  selectedEntityIds: string[]
-  onMarquee: (drawIds: string[], entIds: string[]) => void
-  transformGroup: (ids: string[], entIds: string[], t: { dLng: number; dLat: number; deg: number }, phase: 'start' | 'move' | 'end') => void
+  setVehicleOverrides: Dispatch<SetStateAction<VehicleOverrides>>
 }
 
 export function MapStage({
-  sym, guarded, mapRef, mapEntities, tacticalLocked, mapLayers, symbolScale, symbolCaptions,
-  setMapSuppressedCaptions, incidentView, initialFitPoints, locateReq, editNoteId, noteTextLive,
-  noteTextCommit, setSelectedId, setSelectedDrawingId, setEditNoteId, tool, setNotePanelId, effTrupps,
-  azAlarm, setMode, setPanel, setTruppFocus, adoptTruppMarker, releaseTruppMarker, newTruppFromMarker,
-  markTeamPosition, renameTeam, clearTeamTrail, removeTeamWithTrail, trails, deleteGhostTrail, doc,
-  unlinkTruppLine, patchEntity, linkTruppLine, log, mapOverlays, finishSelection, georefPlanRasters, weatherRadar,
-  isVisible, selectedId, measure, setSelectedDrawIds, setSelectedEntityIds, onMapClick, drawings,
-  draft, areaMode, lineNodes, setDraft, setDraftPointAttachment, startEntityMove, streamEntityMove,
-  finishEntityMove, setVehicleOverrides, beginDrag, setDocRaw, endDrag, setView, onBasemapUnavailable,
-  onMapSettled, coord, pendingShape, rotStart, freehandKind, onFreehand, createCircle, drawColor,
-  drawWidth, drawDashed, selectedDrawingId, flashDrawingId, setDrawTap, patchDrawingById, commit,
-  deleteEntity, selectedDrawing, editDrawingCoords, editDrawingRadius, insertDrawingVertex,
-  deleteDrawingVertex, setDrawingAttachment, moveLabel, selectedDrawIds, selectedEntityIds, onMarquee,
-  transformGroup,
+  sym, guarded, mapRef, mapEntities, drawings, tacticalLocked, mapLayers, isVisible, mapOverlays,
+  georefPlanRasters, weatherRadar, symbolScale, symbolCaptions, setMapSuppressedCaptions, incidentView,
+  initialFitPoints, locateReq, setView, onBasemapUnavailable, onMapSettled, selection, store, mapDrawing,
+  mapActions, truppActions, teamMarkers, patchEntity, log, editNoteId, setEditNoteId, noteTextLive,
+  noteTextCommit, setNotePanelId, effTrupps, azAlarm, showTrupp, newTruppFromMarker, removeTeamWithTrail,
+  trails, deleteGhostTrail, measure, coord, rotStart, flashDrawingId, setDrawTap, setVehicleOverrides,
 }: MapStageProps) {
+  const {
+    tool, pendingShape, selectedId, setSelectedId, selectedDrawingId, setSelectedDrawingId,
+    selectedDrawIds, setSelectedDrawIds, selectedEntityIds, setSelectedEntityIds,
+  } = selection
+  const { doc, commit, setDocRaw, beginDrag, endDrag } = store
+  const {
+    draft, setDraft, areaMode, lineNodes, setDraftPointAttachment, freehandKind, onFreehand, createCircle,
+    drawColor, drawWidth, drawDashed, selectedDrawing, patchDrawingById, editDrawingCoords,
+    editDrawingRadius, insertDrawingVertex, deleteDrawingVertex, setDrawingAttachment, moveLabel,
+  } = mapDrawing
+  const {
+    finishSelection, onMapClick, onMarquee, transformGroup, startEntityMove, streamEntityMove,
+    finishEntityMove, deleteEntity,
+  } = mapActions
+  const { adoptTruppMarker, releaseTruppMarker, linkTruppLine, unlinkTruppLine } = truppActions
+  const { markTeamPosition, renameTeam, clearTeamTrail } = teamMarkers
   return (
     <>
       {/* the map mounts once the pack has loaded OR failed for good — with an empty glyph table a
@@ -168,7 +142,7 @@ export function MapStage({
           // …and it LANDS on the card: the board can be a wall of Trupps, so «Im Atemschutz
           // zeigen» points at the one that was tapped (same gesture as the alarm row's «Zum
           // Trupp»). Without the focus the jump answered «which one is this?» with a list.
-          onShowTrupp={(truppId) => { setMode('atemschutz'); setPanel(null); setTruppFocus({ id: truppId, nonce: Date.now() }) }}
+          onShowTrupp={showTrupp}
           // the marker's half of the Trupp join — the same action the Atemschutz card's picker
           // calls, so the takeover confirm and the «einrücken?» ask exist exactly once
           onTeamTrupp={tacticalLocked ? undefined : (entityId, truppId) => {

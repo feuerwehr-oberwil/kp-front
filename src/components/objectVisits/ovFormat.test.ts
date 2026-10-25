@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { answerDigest, recentPlaceVisits, summaryTitle, syncLabel, syncShort, visitTitle } from './ovFormat'
+import { answerDigest, conflictValue, recentPlaceVisits, summaryTitle, syncLabel, syncShort, visitTitle } from './ovFormat'
 import { appConfig } from '../../config/appConfig'
 
 // The head of a visit is one phone line (owner, 03.10.2026: «Entwur · Gespeichert 1 · Ablage wa»):
@@ -57,5 +57,20 @@ describe('a visit at a place, named and summed up', () => {
     // ov-b is a draft on this device (the newer fact), ov-d is at an object
     expect(rows.map((r) => r.id)).toEqual(['ov-c', 'ov-a'])
     expect(rows[1]).toMatchObject({ label: 'bei Talholzstrasse 15', checklist: 'Fehlermeldung', people: 'Muster Max' })
+  })
+})
+
+// The conflict card's «Besuchsdatum» sides: the date once, then the clock – on any day.
+describe('conflictValue · visitedAt', () => {
+  const doc = {} as Parameters<typeof conflictValue>[2]
+  const c = { key: 'visitedAt' } as Parameters<typeof conflictValue>[0]
+  it('names another day once («21.10.2026 14:05», not «21.10.2026 21.10. 14:05»)', () => {
+    expect(conflictValue(c, new Date(2026, 9, 21, 14, 5).toISOString(), doc)).toBe('21.10.2026 14:05')
+  })
+  it('reads the same for today', () => {
+    const now = new Date()
+    now.setHours(9, 30, 0, 0)
+    const day = `${String(now.getDate()).padStart(2, '0')}.${String(now.getMonth() + 1).padStart(2, '0')}.${now.getFullYear()}`
+    expect(conflictValue(c, now.toISOString(), doc)).toBe(`${day} 09:30`)
   })
 })

@@ -280,12 +280,12 @@ describe('handLinkRow — a first link by hand is one row, from the act', () => 
     expect(s.rows).toEqual([fillTemplate(C.referenceDroppedKept, { n: 1 }), fillTemplate(C.referenceRebaked, { n: 1 })])
   })
 
-  it('an accepted proposal and a transfer are each one row (the same act, two doors)', () => {
+  it('two hand links of an automatic fit are one row each', () => {
     const docs = [plan('modul2'), plan('modul3')]
     const { s, bake, handLink } = session([onSheet('a', 'modul3')])
     bake(docs, {})
     const auto = pairs(0).map((p) => ({ ...p, kind: 'auto' as const }))
-    handLink(docs, key('modul2'), auto) // «Übernehmen»
+    handLink(docs, key('modul2'), auto)
     bake(docs, { [key('modul2')]: { pairs: auto } })
     handLink(docs, key('modul3'), auto) // «Passung übertragen» onto modul3
     bake(docs, { [key('modul2')]: { pairs: auto }, [key('modul3')]: { pairs: auto } })

@@ -83,7 +83,7 @@ export interface ObjectStore {
    * Plan write.
    *
    * ⚠️ OWNERSHIP DECIDES THE STACK. An edit of the sheet's OWN annos is silent here, because the
-   * plan surface keeps its own per-document history (IncidentWorkspace · planHistory, Whiteboard
+   * plan surface keeps its own per-document history (workspace/usePlanStacks, Whiteboard
    * · useBoardDoc) and restores it straight back through this setter. But a sheet also draws
    * objects it does not own — the Karte's, projected onto it — and an edit of one of those is a
    * store-level act: it moves a map object, or flips its anchor, and a per-sheet snapshot of
@@ -99,7 +99,7 @@ export interface ObjectStore {
    * writer is. (It hard-coded `true` until 24.09.2026, so each of those could flip an anchor.)
    */
   setBoard: SetBoard
-  /** A plan step is beginning (IncidentWorkspace · rememberPlanStep). One gesture is one step on
+  /** A plan step is beginning (workspace/usePlanStacks · rememberPlanStep). One gesture is one step on
    *  either stack, so the first cross-ownership fold after this arms is the only one that
    *  checkpoints; a discrete write outside a gesture is its own step and needs no arming. */
   beginSheetStep: () => void
@@ -187,7 +187,7 @@ export interface ObjectStoreOptions {
   /**
    * ⚠️ A plan step's fold reached an object the sheet does not own, so THIS stack took the step
    * (this file's header · «Ownership decides the undo stack»). The plan surface laid its own checkpoint when
-   * the step began (IncidentWorkspace · rememberPlanStep), before anyone knew whom the edit would
+   * the step began (workspace/usePlanStacks · rememberPlanStep), before anyone knew whom the edit would
    * touch — and one gesture is ONE step, so the caller withdraws that plan entry here. Without it
    * a plan-panel edit of a Karte-owned symbol cost two ↶ presses, and the second reported a lost
    * step. Fired once per open plan step, outside the store's updater.

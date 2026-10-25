@@ -462,8 +462,8 @@ export function useObjectPlans(
   // stays the label everywhere the object is CHOSEN (the picker, the toast), where it is what
   // you search for. Falls back to the name when an object carries no address.
   const activeObjectAddress = manualObject?.address ?? autoInfo.address ?? null
-  // the active object's own coordinate — the anchor «Automatisch ausrichten» fetches its OSM
-  // reference box around. Null when the object carries none (callers fall back to the incident).
+  // the active object's own coordinate, null when the object carries none. Its one reader, the
+  // Whiteboard's `georefAnchor`, went with the field's «Automatisch ausrichten» (25.10.2026).
   const activeObjectPos = manualObject ? manualObject.pos ?? null : autoInfo.pos ?? null
   // the warning the object chip carries when the AUTO-surfaced object is merely the nearest one
   // and not the Einsatzadresse. A manual pick is the operator's own choice – no warning.

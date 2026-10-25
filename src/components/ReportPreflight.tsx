@@ -867,7 +867,7 @@ export function ReportPreflight({
 
 
   const bodyRef = useRef<HTMLDivElement>(null)
-  const { phoneTab, pickTab, jumpToStep } = useReportPlace(incident.id, bodyRef, kept, () => ({
+  const { phoneTab, pickTab, jumpToStep, forgetPlace } = useReportPlace(incident.id, bodyRef, kept, () => ({
     optionOverrides: optionOverrides.current, krokiAt: kroki.at,
   }))
 
@@ -898,7 +898,7 @@ export function ReportPreflight({
   // top and from its seeds, so the whole kept box — scroll position, tab, print sections, Kroki
   // Stand — is forgotten. But only if the Abschluss actually happened.
   const complete = async () => {
-    if (await onComplete?.()) rapportKept.forget()
+    if (await onComplete?.()) forgetPlace()
   }
 
   // The Abschluss-Band under the head (see the JSX): shown once a rapport has been produced and
