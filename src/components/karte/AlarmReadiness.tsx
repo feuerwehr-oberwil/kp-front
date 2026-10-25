@@ -26,6 +26,7 @@ import { Button } from '../Button'
 import { InstallGuide } from '../InstallGuide'
 import { ListCard, ListGroup, ListRow } from '../ListRow'
 import s from './Karte.module.css'
+import { publishHeight } from '../../lib/publishHeight'
 
 const DAY = 24 * 3600 * 1000
 const permissionNow = (): NotificationPermission | 'unsupported' =>
@@ -150,6 +151,10 @@ export function AlarmReadinessRows({ className }: { className?: string }) {
   )
 }
 
+// the card's height as `--nudge-h`: the toasts stand under it, not on its head (08-toasts / 15-mobile ·
+// `--nudge-reserve`; owner 25.10.2026: «Rapport abgeschlossen» covered «… noch nie getestet»)
+const nudgeHeight = publishHeight('--nudge-h')
+
 /** The Karte home's card (owner's pick, round 1): only when a row is red or nothing was checked
  *  for 90 days, never inside an Einsatz. The first red row with its fix, or — all green — the
  *  Testalarm; «Später» hides it 30 days, «Keine Alarme auf diesem Gerät» for good (push off).
@@ -163,7 +168,7 @@ export function AlarmNudgeCard({ inIncident, phone }: { inIncident: boolean; pho
   const head = red ? A.nudgeRed : store.lastCheck == null ? A.nudgeCheck : A.nudgeCheckOld
   return (
     <>
-      <section className={cx(s.alarmCard, phone && s.alarmCardPhone)} aria-label={A.title} data-alarm-nudge={red ? 'red' : 'check'}>
+      <section ref={nudgeHeight} className={cx(s.alarmCard, phone && s.alarmCardPhone)} aria-label={A.title} data-alarm-nudge={red ? 'red' : 'check'}>
         <div className={s.alarmEyebrow}>{A.title}</div>
         <h2 className={cx(s.alarmHead, red && s.alarmHeadRed)}>{head}</h2>
         {red ? (

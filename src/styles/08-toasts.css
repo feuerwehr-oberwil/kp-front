@@ -253,7 +253,7 @@
      Gebäude's «+ UG» and a dialog's buttons — with the top only for a placement mode. Clamped so
      a tall strip never pushes the lane off the screen: there it stands over the strip's last
      rows, which stay put under it, and is gone in six seconds. */
-  top: min(calc(92px + var(--ml-reserve, 0px) + env(safe-area-inset-top)), calc(100dvh - 160px));
+  top: min(calc(92px + var(--ml-reserve, 0px) + var(--nudge-reserve, 0px) + env(safe-area-inset-top)), calc(100dvh - 160px));
   bottom: auto; z-index: var(--z-toast);
   display: flex; flex-direction: column-reverse; align-items: stretch; gap: 8px; pointer-events: none;
   max-height: min(32dvh, 240px);
@@ -273,6 +273,10 @@
   left: max(24px, calc(50% - 204px)); right: max(24px, calc(50% - 204px)); }
 /* the strip's measured height (Meldeleiste · `--ml-h`) + the 8px channel — the lane starts there */
 :root:has(.ml) .toaster { --ml-reserve: calc(var(--ml-h, 0px) + 8px); }
+/* …and under the Karte home's alarm card (karte/AlarmReadiness · AlarmNudgeCard, 84px down, its
+   measured `--nudge-h`) + the same 8px channel: «Rapport abgeschlossen · Wieder öffnen» lay on the
+   card's head (owner, 25.10.2026) */
+:root:has([data-alarm-nudge]) .toaster { --nudge-reserve: calc(84px + var(--nudge-h, 0px) + 8px - 92px); }
 /* (the foot's lifts over the plan's chip row and the Gebäude's «+ UG» went with the foot lane,
    20.10.2026.) While a placement mode takes the map's or the plan's taps (`data-placing`,
    lib/toastLane · usePlacementLane) the strip is bounded, so the lane under it stays near the
