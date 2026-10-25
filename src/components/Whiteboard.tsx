@@ -21,7 +21,7 @@ import { usePlanPaperMm } from './usePlanPaper'
 import { paperMaxScale } from '../lib/planTiles'
 import { prefetchPlanTiles } from '../lib/planTilePrefetch'
 import { PdfViewport } from './PdfViewport'
-import { planMatcherImage, planPrintedMPerU, prewarmPlans } from '../lib/pdfRaster'
+import { prewarmPlans } from '../lib/pdfRaster'
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
@@ -51,7 +51,6 @@ import { usePlacement } from '../lib/useTacticalSelection'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { usePlacementLane } from '../lib/toastLane'
-import { ApiError } from '../lib/api'
 import { Menu, Overlay } from '../lib/overlays'
 import { isBottomSheet, nudgeSelectionIntoRect, rectCenter, visibleWorkRect, type NudgeBox } from '../lib/panelNudge'
 import { doneAct, doneOf, donePlace, offersDone } from '../lib/objectDone'
@@ -85,17 +84,16 @@ import type { PlanScales } from '../lib/workspace'
 import { fmtDistance, fmtArea } from '../lib/geo'
 import { activeViewDeg, bandAspect, BOX_H, BOX_W, buildView, principalAngleDeg, remapPoint, stackScaleMPerU, type Ring } from '../lib/footprint'
 import { usePlanMeasure } from './usePlanMeasure'
+import { usePlanGeoref } from './usePlanGeoref'
 import { useMeasuredSheet } from './useMeasuredSheet'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
 import { GeorefBoardLayer, GeorefDock, GeorefInstrument, GeorefLinkChooser, GeorefSplitSeam, type PlanViewApi } from './GeorefMode'
 import { GeorefQuality } from './GeorefQuality'
-import { GeorefTransfer, type GeorefTransferTarget } from './GeorefTransfer'
+import { GeorefTransfer } from './GeorefTransfer'
 import { fitSimilarity, hasAutoPairs, realPairCount } from '../lib/georef'
-import { incidentBindingApproved } from '../lib/incidentPlanBindings'
 import { georefForPlan, getStationPlanScales, noteMeasuredAspect, refreshStationPlanScales } from '../lib/stationPlanScale'
 import { planAspect } from '../lib/georefTwins'
-import { georefChip, georefChipTone, georefDispatch, resetGeorefPlan, setGeorefSaveErrorHandler, startGeorefMode, startGeorefProposal, transferGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
-import { georefSuggestEligible, requestGeorefSuggestion, type GeorefSuggestStep } from '../lib/georefSuggest'
+import { georefChipTone, resetGeorefPlan, useGeorefMode, useGeorefStorage } from '../lib/georefMode'
 import { PlanLiveLayer, PlanPhotoMarks } from './PlanLiveLayer'
 import type { LiveMark, PhotoMark } from '../lib/planProjection'
 import { MAX_SCALE, MAX_SCALE_STACK, MIN_SCALE, boardViewSignature, useBoardView, type BoardViews } from './useBoardView'
@@ -720,45 +718,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     if (!selectOnly) return
     setTool('pan'); setPending(null); setPendingShape(null); setPaletteOpen(false); setDraft(null); setCircleDraft(null)
   }, [selectOnly, setTool, setPending, setPendingShape])
-  // WHICH plan the Passung is open for, not merely whether it is open: switching documents then
-  // closes it by derivation instead of by an effect that fires after the wrong panel has already
-  // been painted over the new sheet.
-  const [qualityFor, setQualityFor] = useState<string | null>(null)
-  // Esc cancels an in-progress node shape, else clears the selection
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      // typing in a field? Escape leaves the FIELD and nothing more, so one key press never
-      // both finishes the text and drops the selection (which would take the handles with it).
-      // Read the event TARGET, not activeElement: the field's own handler has already blurred
-      // by the time this bubbles up, so activeElement is <body> and the guard would miss.
-      const el = e.target instanceof HTMLElement ? e.target : null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
-      // …and a MODAL on top of the board owns Escape outright: it closes, the board does not
-      // also drop the draft/selection behind it. Focus is trapped inside the dialog, so the
-      // target is enough to tell (covers the Trupp picker, the Maßstab entry, every overlay).
-      if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
-      // ⚠️ Escape stays an EXPLICIT discard — deliberately NOT routed through releaseDraft
-      // (A6, 29.08.): tap-away loses a draft by ACCIDENT, so it auto-commits; Escape is the
-      // one gesture whose whole meaning is «weg damit», and auto-saving it would leave no
-      // way to throw a half-laid shape away.
-      if (rotStart) { setRotStart(null); clearRotMagnet() }
-      else if (draft) { setDraft(null); draftAttachments.current = {} }
-      else if (circleDraft) setCircleDraft(null)
-      // …then the Passung dock. It is deliberately not an Overlay (it must not trap the board
-      // behind a scrim while a fit is being judged), so it has no Escape of its own and would
-      // otherwise be the ONE panel on this surface that the key cannot dismiss.
-      else if (qualityFor) setQualityFor(null)
-      else if (notePanelId) setNotePanelId(null)
-      else if (selId) setSelId(null)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-    // `rotStart` belongs here: without it the handler kept the null from before the first tap,
-    // and Escape skipped a half-laid Rotation (review sweep 23.09.2026). `clearRotMagnet` is
-    // left out on purpose: it is declared further down (useWbRotor), and every render's copy
-    // touches the same refs and setter, so an older one does the same.
-  }, [rotStart, draft, circleDraft, qualityFor, selId, notePanelId])
 
   // measure viewport so the board can be sized to "contain" the plan exactly — keyed to the
   // canvas ELEMENT, not mount, so it attaches when the canvas appears after a viewer-only doc
@@ -837,6 +796,13 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   useEffect(() => { void refreshStationPlanScales() }, [activeGeorefKey])
   const canGeoref = !osm && !blank && !stack && active?.viewer !== true
   const measureARForGeoref = stack ? 1 / tileAR : 1 / aspect
+  // Armed ⇒ the live pairs; otherwise what is stored. Deliberately NOT memoised: both sides are
+  // a reference to an array somebody else owns (the mode store, or the station document), so the
+  // identity is already stable between renders and a memo would only add a dependency the linter
+  // cannot see. `useGeorefStorage()` above is what makes the stored read re-run.
+  // measureAR is the plan's width/height — exactly the `planAspect` the fit is taken at. Solved
+  // per render rather than memoised: it is a closed-form fit over at most a handful of points,
+  // and a memo here would depend on an array identity the linter cannot reason about.
   const georefPairs = georefArmed ? georef.pairs : georefForPlan(activeGeorefKey)?.pairs ?? []
   const georefFit = canGeoref ? fitSimilarity(georefPairs, measureARForGeoref) : null
   // A7 (29.08.): the Gebäude floor-stack is excluded from the georef fit (one similarity can't
@@ -896,25 +862,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
    *  «Länge» stepper, so all three agree with each other and with the map. */
   const rotN = rotationBoundsN(planWidthM)
 
-  // --- Karte verknüpfen (Georeferenz) --------------------------------------------------------
-  // The pairing mode itself lives in lib/georefMode — outside React, because on a phone this
-  // component is unmounted between the plan tap and the map tap (see that file's header).
-  // Which surfaces can carry a georeference at all: a printed sheet can. The Tafel has no
-  // geometry to tie down, the OSM picking face IS the map, a viewer-only PDF is not annotated,
-  // and the Gebäude floor stack is a COLUMN of copies of one footprint — one similarity
-  // transform cannot mean anything across it (georef.ts · «tile-locally», not built here).
-  // Armed ⇒ the live pairs; otherwise what is stored. Deliberately NOT memoised: both sides are
-  // a reference to an array somebody else owns (the mode store, or the station document), so the
-  // identity is already stable between renders and a memo would only add a dependency the linter
-  // cannot see. `useGeorefStorage()` above is what makes the stored read re-run.
-  // measureAR is the plan's width/height — exactly the `planAspect` the fit is taken at. Solved
-  // per render rather than memoised: it is a closed-form fit over at most a handful of points,
-  // and a memo here would depend on an array identity the linter cannot reason about.
-  // ⚠️ …and whether the station APPROVED this sheet's fit (incidentPlanBindings ·
-  // incidentBindingApproved): an approved fit is a linked one, in the same tone a hand-measured
-  // reference wears — see georefMode · georefChip (18.09.2026).
-  const georefApproved = incidentBindingApproved(activeGeorefKey)
-  const georefState = georefChip(georefFit, georef, activeId, georefPairs, georefApproved)
+  // --- Karte verknüpfen (Georeferenz) — components/usePlanGeoref ------------------------------
+  const {
+    georefApproved, georefState, georefChipShown, beginGeoref,
+    linkChoice, setLinkChoice, autoStep, closeLinkChoice, canAutoAlign, runAutoAlign,
+    qualityFor, setQualityFor, georefQuality, georefTransferOpen, setGeorefTransferOpen, georefTransferTargets, transferGeoref,
+  } = usePlanGeoref({
+    plans, active, activeId, activeGeorefKey, georef, georefArmed, georefPairs, georefFit, canGeoref, readOnly, linkViewer,
+    measureAR, activeScale, georefAnchor, boardRef,
+  })
   /** The Massstab pill's own lamp (18.09.2026) — the phone pill is icon + lamp and nothing else,
    *  so this dot is all that is left of «Ref. 25 m» / «nicht kalibriert» / «Massstab neu prüfen».
    *  The mapping is a pure helper (planScale · scaleLampTone) so the tones cannot drift from the
@@ -923,8 +879,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const scaleTone = scaleLampTone({
     auto: scaleAuto, autoFromFit: !!georefFit, fitWarn: georefState.warn, stale: scaleStale, calibrated,
   })
-  /** the «⌖ Karte» chip stands in the pill row (editors; a locked session only once it is linked) */
-  const georefChipShown = canGeoref && (!readOnly || georefState.kind === 'linked') && !linkViewer
   /** ONE chip until the plan is linked (29.09.2026, sweep K10): while there is neither a link nor a
    *  scale, «Karte verknüpfen» is the one door — a link GIVES the scale — and «Massstab» appears
    *  once a link or a hand calibration exists. Two red lamps on every plan at rest said the same
@@ -933,142 +887,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
    *  Massstab chip stays, the only door there is. */
   const scaleWaitsForLink = georefChipShown && georefState.kind !== 'linked'
     && !scaleAuto && !calibrated && !scaleStale && tool !== 'scale'
-  /** The real plan bitmap for «Deckung prüfen». The PDF viewport already rendered it into its
-   *  first canvas, so taking a same-origin snapshot is both cheaper and more faithful than
-   *  rendering the PDF a second time on the map side. It rides in the cross-surface mode store,
-   *  which also keeps it alive while the Whiteboard is unmounted on a phone. */
-  const georefPreviewUrl = () => {
-    const canvas = boardRef.current?.querySelector('canvas') as HTMLCanvasElement | null
-    if (!canvas?.width || !canvas.height) return null
-    try { return canvas.toDataURL('image/jpeg', 0.82) } catch { return null }
-  }
-  const beginGeoref = (opts?: { check?: boolean; returnToQuality?: boolean }) => startGeorefMode(activeId, measureAR, {
-    storageKey: activeGeorefKey,
-    check: opts?.check,
-    returnToQuality: opts?.returnToQuality,
-    previewUrl: georefPreviewUrl(),
-  })
-  // ── «Automatisch ausrichten» — the CV suggestion path of an unlinked sheet ─────────────────
-  // The unlinked chip opens a two-way chooser when the matcher CAN be asked (Modul-2 template,
-  // an anchor coordinate, a resolvable calibration); otherwise it arms the point flow directly,
-  // exactly as before. The suggestion arrives as a PROPOSAL review on the coverage view —
-  // nothing is stored until «Übernehmen» there (lib/georefMode · startGeorefProposal).
-  const [linkChoice, setLinkChoice] = useState(false)
-  // the phase the busy card names (render → Gebäudedaten → vergleichen); null = not running
-  const [autoStep, setAutoStep] = useState<GeorefSuggestStep | null>(null)
-  const autoBusy = autoStep != null
-  // Token of the CURRENT auto-align run. The matcher takes seconds and a thread cannot be
-  // recalled — but its ANSWER can be orphaned: closing the chooser, switching sheets or
-  // starting a fresh run bumps the token, so a stale completion can never yank the workspace
-  // into a proposal review nobody is waiting for.
-  const autoRunRef = useRef(0)
-  useEffect(() => { autoRunRef.current++; setLinkChoice(false); setAutoStep(null) }, [activeId])
-  // the chooser's ✕ and the phone sheet's push-down: the answer of a run still in flight is orphaned
-  const closeLinkChoice = () => { autoRunRef.current++; setAutoStep(null); setLinkChoice(false) }
-  // Warm «Plan rendern» — the matcher raster (usually the resident bake, encoded) and the
-  // printed-scale read — the moment the chooser opens, so the seconds the operator spends
-  // reading the card cover whatever little work remains.
-  useEffect(() => {
-    if (!linkChoice || !active?.imageUrl) return
-    const url = planUrl(active.imageUrl)
-    void planMatcherImage(url).catch(() => {})
-    void planPrintedMPerU(url).catch(() => {})
-  }, [linkChoice]) // eslint-disable-line react-hooks/exhaustive-deps
-  const georefAnchorPt = georefAnchor ? { lng: georefAnchor[0], lat: georefAnchor[1] } : null
-  const canAutoAlign = !!active?.imageUrl && georefSuggestEligible(activeId, georefAnchorPt)
-  const runAutoAlign = async () => {
-    if (!georefAnchorPt || !active?.imageUrl || autoBusy) return
-    const runId = ++autoRunRef.current
-    setAutoStep('render')
-    try {
-      const out = await requestGeorefSuggestion(
-        {
-          planUrl: planUrl(active.imageUrl),
-          anchor: georefAnchorPt,
-          mPerU: activeScale?.mPerU,
-          template: activeId.startsWith('modul1') ? 'm1' : 'm2',
-        },
-        (step) => { if (runId === autoRunRef.current) setAutoStep(step) },
-      )
-      // the chooser was closed / the sheet switched while the matcher ran — orphaned answer
-      if (runId !== autoRunRef.current) return
-      if (out.kind !== 'fit') {
-        // a normal outcome, not an error: the chooser stays up, «Punkte selbst setzen» is right there
-        toast(out.kind === 'noScale' ? appConfig.copy.whiteboard.georef.autoNoScale : appConfig.copy.whiteboard.georef.autoNone, { icon: 'warn', tone: 'warn' })
-        return
-      }
-      setLinkChoice(false)
-      startGeorefProposal(activeId, measureAR, { storageKey: activeGeorefKey, pairs: out.suggestion.pairs, previewUrl: georefPreviewUrl(), uncertain: !out.suggestion.confident })
-    } catch (e) {
-      if (runId !== autoRunRef.current) return // an orphaned failure has no audience either
-      const unavailable = e instanceof ApiError && e.status === 503
-      toast(unavailable ? appConfig.copy.whiteboard.georef.autoUnavailable : appConfig.copy.whiteboard.georef.autoFailed, { icon: 'warn', tone: 'warn' })
-    } finally {
-      if (runId === autoRunRef.current) setAutoStep(null)
-    }
-  }
-  const georefQuality = qualityFor === activeId
-  const [georefTransferOpen, setGeorefTransferOpen] = useState(false)
-  const georefPanelPlan = useRef(activeId)
-  // These overlays describe one concrete document. A real document switch closes them for good;
-  // merely hiding them and reopening the old state when the operator later returns is dangerous
-  // because transfer would then act on a source they are no longer looking at.
-  useEffect(() => {
-    if (georefPanelPlan.current === activeId) return
-    georefPanelPlan.current = activeId
-    setQualityFor(null)
-    setGeorefTransferOpen(false)
-  }, [activeId])
-  // A coverage check opened from Passung keeps its mode alive just long enough for the phone to
-  // navigate back from Karte and mount this surface again. Restore the panel, then retire that
-  // temporary mode; on desktop the same transition is immediate and produces identical UI.
-  useEffect(() => {
-    if (!georefArmed || georef.check || georef.checkReturn !== 'quality') return
-    setQualityFor(activeId)
-    georefDispatch({ type: 'dismiss' })
-  }, [activeId, georefArmed, georef.check, georef.checkReturn])
-  // Only object-specific Modul sheets receive a `georefKey`; this excludes Tafel, OSM and
-  // generic PDFs without guessing from their labels. Sibling Modules describe the same object
-  // area, which is exactly the case where copying a fit is meaningful.
-  const georefTransferTargets: GeorefTransferTarget[] = active?.georefKey
-    ? plans
-      .filter((p) => p.id !== activeId && !!p.georefKey && p.viewer !== true && !!p.imageUrl && !p.osm && !p.floorStack)
-      .map((plan) => ({ plan, linked: !!georefForPlan(plan.georefKey!)?.pairs.length }))
-    : []
-  const transferGeoref = async (target: GeorefTransferTarget) => {
-    const C = appConfig.copy.whiteboard.georef
-    const targetKey = target.plan.georefKey
-    if (!targetKey) return false
-    if (target.linked) {
-      const replace = await confirmDialog({
-        title: fillTemplate(C.transferReplaceTitle, { target: target.plan.code }),
-        message: fillTemplate(C.transferReplaceBody, { target: target.plan.code, source: active?.code ?? activeId }),
-        confirmLabel: C.transfer,
-        cancelLabel: C.cancel,
-      })
-      if (!replace) return false
-    }
-    try {
-      const copied = await transferGeorefPlan(activeGeorefKey, targetKey)
-      if (!copied) return false
-      toast(fillTemplate(C.transferDone, { target: target.plan.code }))
-      return true
-    } catch {
-      toast(C.saveFailed, { icon: 'warn', tone: 'warn' })
-      return false
-    }
-  }
-  // an offline PUT must not lose the pairs: they stay in the store and the next save writes the
-  // whole list again (saveGeoref replaces the document), so the retry needs no queue of its own
-  useEffect(() => {
-    setGeorefSaveErrorHandler(() => toast(appConfig.copy.whiteboard.georef.saveFailed, { icon: 'warn', tone: 'warn' }))
-    return () => setGeorefSaveErrorHandler(null)
-  }, [])
-  // switching to another plan document ends the mode — the references belong to ONE sheet, and
-  // a half-placed pair carried onto a different one would be nonsense
-  useEffect(() => {
-    if (georef.planId && georef.planId !== activeId) georefDispatch({ type: 'dismiss' })
-  }, [activeId]) // eslint-disable-line react-hooks/exhaustive-deps
   // ⚠️ ONE mode at a time — the same clean slate a document switch makes (see the reset above).
   // Arming hides the tool rail, and until 26.08. that was ALL it did: the tool stayed armed
   // underneath, so a Messen path kept its handles, a create tool kept its `.wb-ink` layer and a
@@ -1086,6 +904,41 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     resetEphemeral() // the calibration nodes usePlanMeasure owns
     setTool('pan')
   }, [georefArmed]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Esc cancels an in-progress node shape, else clears the selection
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      // typing in a field? Escape leaves the FIELD and nothing more, so one key press never
+      // both finishes the text and drops the selection (which would take the handles with it).
+      // Read the event TARGET, not activeElement: the field's own handler has already blurred
+      // by the time this bubbles up, so activeElement is <body> and the guard would miss.
+      const el = e.target instanceof HTMLElement ? e.target : null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      // …and a MODAL on top of the board owns Escape outright: it closes, the board does not
+      // also drop the draft/selection behind it. Focus is trapped inside the dialog, so the
+      // target is enough to tell (covers the Trupp picker, the Maßstab entry, every overlay).
+      if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
+      // ⚠️ Escape stays an EXPLICIT discard — deliberately NOT routed through releaseDraft
+      // (A6, 29.08.): tap-away loses a draft by ACCIDENT, so it auto-commits; Escape is the
+      // one gesture whose whole meaning is «weg damit», and auto-saving it would leave no
+      // way to throw a half-laid shape away.
+      if (rotStart) { setRotStart(null); clearRotMagnet() }
+      else if (draft) { setDraft(null); draftAttachments.current = {} }
+      else if (circleDraft) setCircleDraft(null)
+      // …then the Passung dock. It is deliberately not an Overlay (it must not trap the board
+      // behind a scrim while a fit is being judged), so it has no Escape of its own and would
+      // otherwise be the ONE panel on this surface that the key cannot dismiss.
+      else if (qualityFor) setQualityFor(null)
+      else if (notePanelId) setNotePanelId(null)
+      else if (selId) setSelId(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // `rotStart` belongs here: without it the handler kept the null from before the first tap,
+    // and Escape skipped a half-laid Rotation (review sweep 23.09.2026). `clearRotMagnet` is
+    // left out on purpose: it is declared further down (useWbRotor), and every render's copy
+    // touches the same refs and setter, so an older one does the same.
+  }, [rotStart, draft, circleDraft, qualityFor, selId, notePanelId])
   const georefView: PlanViewApi = { toNorm, applyView, zoomTo, scaleRef, posRef, canvasEl, boardRef }
 
   // --- Zwillinge: what the Karte lends this sheet ---------------------------------------------
