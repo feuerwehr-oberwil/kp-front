@@ -1,4 +1,4 @@
-// Rules for this area that span modules: docs/plans-and-buildings.md · ««Automatisch ausrichten» and approved alignments».
+// Rules for this area that span modules: docs/plans-and-buildings.md · «Automatic alignments and their approval».
 
 import type { PlanFloor } from './api/reference'
 import type { Georef, GeorefPair } from './georef'

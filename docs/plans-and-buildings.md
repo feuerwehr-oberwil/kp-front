@@ -33,36 +33,32 @@ AGENTS.md on 2026-10-08, wording unchanged.
     entfernen» is the danger row and stays the owner's confirm-with-undo (IncidentWorkspace ·
     onRemoveFloor). No eye and no bin on the canvas: delete is the rarest act on this surface.
 
-## «Automatisch ausrichten» and approved alignments
+## Automatic alignments and their approval
 
-- **«Automatisch ausrichten» PROPOSES a georeference; it never asserts one** (08.09.2026). An
-  unlinked module sheet's «Karte verknüpfen» chip offers the CV suggestion beside the point
-  flow: `POST /api/georef/suggest` (matcher in `app/georef_suggest.py`, evaluation + provenance
-  in the gitignored `docs/planning/auto-alignment/`) segments the client-rendered sheet
-  (`PdfViewport · planMatcherImage` reuses the resident bake), matches it against OSM building
-  rings via the Overpass proxy, and streams NDJSON progress for the step card. The heavy CV
-  deps are the **optional `georef` dependency group** (`uv sync --extra georef`) — installed in
-  the production image since 11.09.2026 (`Dockerfile`, both `uv sync` lines; without the extra
-  the endpoint answers 503 and the app degrades to the point flow, fail-closed). ⚠️ A server that cannot do it **never offers it**: `/api/config` states
-  the capability (`integrations.autoAlignConfigured` — extra importable *and* an Overpass mirror
-  configured, `app/providers.py`) and the chip then arms the point flow directly instead of
-  answering every press with «…ist auf diesem Server nicht eingerichtet» (field report
-  09.09.2026). The honesty rules are load-bearing: an accepted fit is stored as exactly
-  **two pairs `kind: 'auto'`** (more would fabricate zero-residual evidence); while any auto
-  pair is in the fit no surface ever claims a ⌀ — but **whether it is called «ungemessen»
-  depends on the APPROVAL** (18.09.2026): an unapproved proposal reads «Automatisch ausgerichtet ·
-  ungemessen» in the amber tone, while a fit the admin greenlit on Objektpläne is a plain
-  **«verknüpft»** everywhere — chip tone, lamp («Von der Station freigegeben», green), Passung,
-  Ebenen row — with the residual simply OMITTED rather than replaced by a word that calls a
-  reviewed reference doubtful. The signal is the binding, never a heuristic on the pairs:
+- **The field never asks for an automatic alignment** (13.09.2026; the unreachable client path –
+  chooser, request, proposal review on «Deckung prüfen» – was deleted on 25.10.2026). Out there a
+  sheet's link to the map has exactly two states: set by hand with reference points («Karte
+  verknüpfen» arms the point flow directly), or «Verknüpft» because the station approved the
+  server's proposal (next bullet). The matcher is server-side (`app/georef_suggest.py`, evaluation
+  + provenance in the gitignored `docs/planning/auto-alignment/`): it segments the sheet and
+  matches it against OSM building rings via the Overpass proxy. Its heavy CV deps are the
+  **optional `georef` dependency group** (`uv sync --extra georef`), installed in the production
+  image since 11.09.2026 (`Dockerfile`, both `uv sync` lines). `POST /api/georef/suggest` has had
+  no client since 25.10.2026. The honesty rules are load-bearing: an automatic fit is stored as
+  exactly **two pairs `kind: 'auto'`** (more would fabricate zero-residual evidence); while any
+  auto pair is in the fit no surface ever claims a ⌀ — but **whether it is called «ungemessen»
+  depends on the APPROVAL** (18.09.2026): an unapproved automatic fit reads «Automatisch
+  ausgerichtet · ungemessen» in the amber tone, while a fit the admin greenlit on Objektpläne is a
+  plain **«verknüpft»** everywhere — chip tone, lamp («Von der Station freigegeben», green),
+  Passung, Ebenen row — with the residual simply OMITTED rather than replaced by a word that calls
+  a reviewed reference doubtful. The signal is the binding, never a heuristic on the pairs:
   `incidentPlanBindings · incidentBindingApproved` (`source === 'approved'` and no operator
   `override`), threaded into `georefChip` / `georefLamp` / `GeorefQuality` / `georefPlans`; one
-  operator-set pair of their own is a correction in progress and brings the proposal wording
-  back. Auto anchors are ghosted, badged «A», excluded from every count, and the
-  SECOND operator-set pair drops them (`georefMode · settleSlots`); score ≤ 6 = confident,
-  under the template ceiling (12 · m1 16) = amber «Deckung nachprüfen», above = «kein
-  Vorschlag» — and an **m1 result is never confident**. The proposal review lives on «Deckung
-  prüfen» (nothing persists before «Übernehmen», which is confirm-with-undo).
+  operator-set pair of their own is a correction in progress and brings the «ungemessen» wording
+  back. Auto anchors are ghosted, badged «A», excluded from every count, and the SECOND
+  operator-set pair drops them (`georefMode · settleSlots`); score ≤ 6 = confident, under the
+  template ceiling (12 · m1 16) = amber «Deckung nachprüfen», above = «kein Vorschlag» — and an
+  **m1 result is never confident**.
 - **Plan alignments are pre-computed server-side and published only by explicit approval**
   (11.09.2026). Every distinct byte version of a Modul-PDF is pinned as an immutable
   `plan_revisions` row (`plans.py · store_plan` — identical bytes are a metadata refresh, old
@@ -108,7 +104,7 @@ AGENTS.md on 2026-10-08, wording unchanged.
   the current view's detail is still loading or could not be had, and has the next level over the
   same area fetched ahead; without it the board behaves as before. Tile overlap against seams is half a
   PIXEL, never a constant of the unit square. `lib/planTileRaster · composeTiles` gives the
-  Karte backdrop, the auto-align upload and the ink scan their pixels without a bake, and a
+  Karte backdrop and the ink scan their pixels without a bake, and a
   tiled sheet is never pre-baked. `lib/planTilePrefetch` fetches an object's complete pyramids
   through the service worker (`plan-tiles` CacheFirst, `plan-tile-manifests` NetworkFirst — both
   listed BEFORE the reference routes and purged on denial) so a sheet is whole offline. No

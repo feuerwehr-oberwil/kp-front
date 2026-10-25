@@ -1393,7 +1393,7 @@ export const adminCopy: Localizable<Pick<Copy, 'admin'>> = {
       alignmentCol: 'Map',
       alignmentAuto: 'automatic',
       alignmentManual: 'by hand',
-      alignmentHint: 'How this module’s sheets get onto the map: “automatic” – the server proposes a fit you approve under plan alignment (the field offers “Align automatically”); “by hand” – reference points only; “—” – never on the map. Set in the configuration (modules[].alignment).',
+      alignmentHint: 'How this module’s sheets get onto the map: “automatic” – the server proposes a fit you approve under plan alignment; “by hand” – reference points only; “—” – never on the map. Set in the configuration (modules[].alignment).',
       detectionNone: 'no rule',
       combinedWith: 'Combined with',
       familyBadge: 'Family',

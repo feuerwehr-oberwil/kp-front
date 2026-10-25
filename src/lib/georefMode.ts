@@ -45,9 +45,8 @@
  *  points, and Esc/«Behalten» put the cross back down untouched.
  */
 import { useEffect, useRef, useSyncExternalStore } from 'react'
-import { approvedUntouched, BASELINE_WARN_M, fitSimilarity, hasAutoPairs, nudgePairsOnMap, realPairCount, rematchPairs, residualClaim, samePlanPt, type GeoPt, type GeorefFit, type GeorefPair, type PlanPt, type SheetNudge } from './georef'
+import { approvedUntouched, BASELINE_WARN_M, fitSimilarity, hasAutoPairs, realPairCount, rematchPairs, residualClaim, samePlanPt, type GeoPt, type GeorefFit, type GeorefPair, type PlanPt } from './georef'
 import { georefForPlan, saveGeoref, subscribeStationPlanScales } from './stationPlanScale'
-import { sameValue } from './undoKeys'
 import { incidentBindingApproved, isIncidentGeorefKey, saveIncidentGeoref } from './incidentPlanBindings'
 import { isAdminGeorefKey, saveAdminGeoref } from './adminGeorefSink'
 import { useIsPhone } from './useIsPhone'
@@ -120,43 +119,12 @@ export interface GeorefModeState {
    *  inset in the corner of the PANE being aimed at – the admin's full-screen editor, where the
    *  sheet and the map stand side by side and both halves wear the same magnifier */
   loupe: 'top' | 'inset'
-  /** An automatic alignment suggestion under review (georefSuggest): the ORIGINAL suggested
-   *  pairs, kept for «Vorschlag wiederherstellen». Non-null means the coverage view is a
-   *  PROPOSAL — the live `pairs` are the (possibly nudged) suggestion, nothing is persisted,
-   *  and the way out is «Übernehmen» (acceptGeorefProposal) or «Verwerfen» (end). */
-  proposal: GeorefPair[] | null
-  /** The matcher scored the proposal in its review-carefully band — the coverage view leads
-   *  with «Deckung nachprüfen» instead of the plain proposal head. */
-  proposalUncertain: boolean
-  /** «Anpassen» is open: the review bar wears the transform controls (grips, Plangrösse, undo)
-   *  instead of the accept row. Its own flag, not derived from an armed grip — disarming a grip
-   *  must not collapse the editing chrome under the finger. */
-  adjusting: boolean
-  /** The armed transform grip of the proposal review — ✥ or ⟳, mirroring the SelectionBar's
-   *  «tap arms a surface mode» grammar: while armed, a drag anywhere on the Karte moves or
-   *  turns the whole sheet. */
-  adjust: 'move' | 'rotate' | null
-  /** Undo stack of whole-sheet nudges during the proposal review (newest last, bounded). */
-  undoStack: GeorefPair[][]
 }
 
-export const GEOREF_OFF: GeorefModeState = { planId: null, storageKey: null, slots: [], pairs: [], sel: null, move: null, want: 'plan', aspect: 1, check: false, checkReturn: null, returnToQuality: false, checkOpacity: 0.58, previewUrl: null, loupe: 'top', proposal: null, proposalUncertain: false, adjusting: false, adjust: null, undoStack: [] }
+export const GEOREF_OFF: GeorefModeState = { planId: null, storageKey: null, slots: [], pairs: [], sel: null, move: null, want: 'plan', aspect: 1, check: false, checkReturn: null, returnToQuality: false, checkOpacity: 0.58, previewUrl: null, loupe: 'top' }
 
 export type GeorefAction =
-  | { type: 'start'; planId: string; storageKey?: string; pairs: GeorefPair[]; aspect: number; check?: boolean; returnToQuality?: boolean; previewUrl?: string | null; proposal?: boolean; uncertain?: boolean; loupe?: 'top' | 'inset' }
-  /** «Anpassen» / «Fertig» of the proposal review — open or close the transform chrome.
-   *  Opening arms ✥ straight away (the first thing a nudge needs); closing disarms both. */
-  | { type: 'adjustOpen'; on: boolean }
-  /** ✥ / ⟳ during a proposal review — tap arms, the same grip toggles off (null disarms). */
-  | { type: 'adjustArm'; kind: 'move' | 'rotate' | null }
-  /** One whole-sheet nudge of the proposal (drag frame, or a stepper press). `checkpoint`
-   *  snapshots the pre-nudge pairs for undo — gesture starts and steppers set it, the
-   *  per-frame stream of a drag does not. */
-  | { type: 'proposalNudge'; nudge: SheetNudge; checkpoint?: boolean }
-  /** undo the last checkpointed nudge */
-  | { type: 'proposalUndo' }
-  /** back to the untouched suggestion (checkpointed, so it is itself undoable) */
-  | { type: 'proposalRestore' }
+  | { type: 'start'; planId: string; storageKey?: string; pairs: GeorefPair[]; aspect: number; check?: boolean; returnToQuality?: boolean; previewUrl?: string | null; loupe?: 'top' | 'inset' }
   /** «Fertig» / Esc / «Abbrechen» — every half still waiting for its counterpart is dropped */
   | { type: 'end' }
   /** Hard teardown after a parent return has been restored, or when its document disappeared. */
@@ -194,7 +162,7 @@ export type GeorefAction =
  *  matching the moment an action is renamed, and it does so SILENTLY — «Deckung prüfen» would
  *  simply start closing itself on every hop between the sheet and the Karte, with nothing to
  *  point at. Its sibling `EDITS_PAIRS` is typed for the same reason. */
-const KEEPS_CHECK: ReadonlySet<GeorefAction['type']> = new Set(['check', 'checkOpacity', 'finishCheck', 'start', 'goMap', 'goPlan', 'unpick', 'beginMove', 'adjustOpen', 'adjustArm', 'proposalNudge', 'proposalUndo', 'proposalRestore'])
+const KEEPS_CHECK: ReadonlySet<GeorefAction['type']> = new Set(['check', 'checkOpacity', 'finishCheck', 'start', 'goMap', 'goPlan', 'unpick', 'beginMove'])
 
 /**
  * The whole mode as one pure function — armed / halves / pairing / correction / cancel.
@@ -330,50 +298,18 @@ function fold(s: GeorefModeState, a: GeorefAction): GeorefModeState {
         want: 'plan',
         aspect: a.aspect,
         check: !!a.check,
-        // a proposal review is its own sub-flow, not a check launched from the Passung
-        checkReturn: a.check && !a.proposal ? 'quality' : null,
+        checkReturn: a.check ? 'quality' : null,
         returnToQuality: !!a.returnToQuality,
         checkOpacity: s.checkOpacity,
         previewUrl: a.previewUrl ?? null,
         loupe: a.loupe ?? 'top',
-        proposal: a.proposal ? a.pairs : null,
-        proposalUncertain: !!a.proposal && !!a.uncertain,
-        adjusting: false,
-        adjust: null,
-        undoStack: [],
       }
-    case 'adjustOpen':
-      if (!s.planId || !s.proposal || s.adjusting === a.on) return s
-      return { ...s, adjusting: a.on, adjust: a.on ? 'move' : null }
-    case 'adjustArm': {
-      if (!s.planId || !s.proposal || !s.adjusting) return s
-      const adjust = a.kind === s.adjust ? null : a.kind
-      return adjust === s.adjust ? s : { ...s, adjust }
-    }
-    case 'proposalNudge': {
-      if (!s.planId || !s.proposal) return s
-      const pairs = nudgePairsOnMap(s.pairs, a.nudge)
-      if (pairs === s.pairs) return s
-      const undoStack = a.checkpoint ? [...s.undoStack.slice(-59), s.pairs] : s.undoStack
-      return { ...s, pairs, slots: pairs.map((p) => ({ plan: p.plan, map: p.lngLat, kind: p.kind })), undoStack }
-    }
-    case 'proposalUndo': {
-      if (!s.planId || !s.proposal || !s.undoStack.length) return s
-      const pairs = s.undoStack[s.undoStack.length - 1]
-      return { ...s, pairs, slots: pairs.map((p) => ({ plan: p.plan, map: p.lngLat, kind: p.kind })), undoStack: s.undoStack.slice(0, -1) }
-    }
-    case 'proposalRestore': {
-      if (!s.planId || !s.proposal || s.pairs === s.proposal) return s
-      return { ...s, pairs: s.proposal, slots: s.proposal.map((p) => ({ plan: p.plan, map: p.lngLat, kind: p.kind })), undoStack: [...s.undoStack.slice(-59), s.pairs], adjust: null }
-    }
     case 'check':
       return s.planId && (s.check !== a.on || (!!a.previewUrl && a.previewUrl !== s.previewUrl))
         ? { ...s, check: a.on, checkReturn: a.on ? 'alignment' : null, previewUrl: a.previewUrl ?? s.previewUrl }
         : s
     case 'finishCheck':
-      // ⚠️ not during a proposal review: coverage IS that review's surface, and leaving it would
-      // drop unaccepted auto pairs into the live placement mode. Its exits are Übernehmen/Verwerfen.
-      return s.planId && s.check && !s.proposal ? { ...s, check: false, checkReturn: s.checkReturn === 'quality' ? 'quality' : null } : s
+      return s.planId && s.check ? { ...s, check: false, checkReturn: s.checkReturn === 'quality' ? 'quality' : null } : s
     case 'checkOpacity': {
       if (!s.planId) return s
       const checkOpacity = Math.max(0, Math.min(1, a.opacity))
@@ -396,9 +332,7 @@ function fold(s: GeorefModeState, a: GeorefAction): GeorefModeState {
     case 'goPlan':
       return s.planId && s.want !== 'plan' ? { ...s, want: 'plan' } : s
     case 'planTap': {
-      // defense in depth: a proposal review disables placement by reachability (coverage owns
-      // the taps) — the reducer refuses too, so no future surface can place into a proposal
-      if (!s.planId || s.proposal) return s
+      if (!s.planId) return s
       // «Verschieben» armed for a plan half: this tap is its new place
       if (s.move?.side === 'plan') {
         const idx = s.move.idx
@@ -413,7 +347,7 @@ function fold(s: GeorefModeState, a: GeorefAction): GeorefModeState {
       return withSlots(s, settleSlots([...s.slots, { plan: a.pt, kind: 'gesetzt' }], s.aspect), { sel: null, want: 'plan' })
     }
     case 'mapTap': {
-      if (!s.planId || s.proposal) return s // see planTap
+      if (!s.planId) return s
       if (s.move?.side === 'map') {
         const idx = s.move.idx
         const cur = s.slots[idx]
@@ -701,7 +635,7 @@ export function georefChip(
     residualM: auto ? null : residualClaim(fit),
     // An APPROVED fit is a linked fit (18.09.2026): the station reviewed the coverage and
     // published it, so the chip wears the same tone a hand-measured reference does. Amber is
-    // for a fit nobody has checked — a proposal, or two pairs that solve exactly.
+    // for a fit nobody has checked — an unapproved automatic one, or two pairs that solve exactly.
     // ⚠️ …and «approved» is `approvedUntouched`, the same condition the Ampel reads: with one
     // hand-set point beside the Automatik a correction is in progress, and the chip said
     // «verknüpft» while the lamp and the Passung panel stood amber about the very same fit.
@@ -815,10 +749,10 @@ let onOpenDropped: ((k: number) => void) | null = null
 export function setGeorefOpenDroppedHandler(fn: ((k: number) => void) | null) { onOpenDropped = fn }
 
 /**
- * ⚠️ A HAND just linked a sheet that had NO fit — the second pair placed, a proposal's
- * «Übernehmen», a «Passung übertragen» onto an unlinked Modul. Called from those three commit
- * points and from nowhere else, with the pairs that now stand, so the Verlauf gets its row from
- * the ACT (IncidentWorkspace · the hand-link row).
+ * ⚠️ A HAND just linked a sheet that had NO fit — the second pair placed, or a «Passung
+ * übertragen» onto an unlinked Modul. Called from those two commit points and from nowhere else,
+ * with the pairs that now stand, so the Verlauf gets its row from the ACT (IncidentWorkspace · the
+ * hand-link row).
  *
  * It cannot come from the re-bake: to the fit reader a first link and a plan that merely finished
  * loading are the same thing — a sheet key appearing with a fit — and it rightly reads both as a
@@ -905,7 +839,7 @@ export function georefDispatch(a: GeorefAction) {
       // the admin's review draft (adminGeorefSink): in memory until «Ausrichtung freigeben»
       try { saveAdminGeoref(prev.storageKey, { pairs: next.pairs }) } catch { onSaveError?.() }
     } else queueSave(prev.storageKey, next.pairs)
-    // commit point 1 of 3: the pair that makes an unlinked sheet's fit (see `noteHandLink`).
+    // commit point 1 of 2: the pair that makes an unlinked sheet's fit (see `noteHandLink`).
     // The mode's pairs ARE the stored ones — seeded from storage at `start`, saved on every edit.
     if (stored) noteHandLink(prev.storageKey, prev.pairs, next.pairs)
   }
@@ -1037,7 +971,7 @@ export async function transferGeorefPlan(sourceKey: string, targetKey: string): 
   } else {
     await saveGeoref(targetKey, { pairs })
   }
-  // commit point 3 of 3: a Passung copied onto a Modul that had none (see `noteHandLink`)
+  // commit point 2 of 2: a Passung copied onto a Modul that had none (see `noteHandLink`)
   noteHandLink(targetKey, before, pairs)
   rev++
   listeners.forEach((l) => l())
@@ -1069,49 +1003,6 @@ export function useGeorefMode(): GeorefModeState {
 export function startGeorefMode(planId: string, aspect: number, opts?: { storageKey?: string; check?: boolean; returnToQuality?: boolean; previewUrl?: string | null; loupe?: 'top' | 'inset' }) {
   const storageKey = opts?.storageKey ?? planId
   georefDispatch({ type: 'start', planId, storageKey, pairs: georefForPlan(storageKey)?.pairs ?? [], aspect, check: opts?.check, returnToQuality: opts?.returnToQuality, previewUrl: opts?.previewUrl, loupe: opts?.loupe })
-}
-
-/** Arm the PROPOSAL review: the automatic suggestion's pairs on the coverage view, unsaved.
- *  The way out is `acceptGeorefProposal` or «Verwerfen» (`end` — nothing was ever stored). */
-export function startGeorefProposal(planId: string, aspect: number, opts: { storageKey?: string; pairs: GeorefPair[]; previewUrl?: string | null; uncertain?: boolean }) {
-  georefDispatch({ type: 'start', planId, storageKey: opts.storageKey ?? planId, pairs: opts.pairs, aspect, check: true, proposal: true, previewUrl: opts.previewUrl, uncertain: opts.uncertain })
-}
-
-/** Does the sheet's stored georeference still say exactly `pairs`? The «Übernehmen» toast asks
- *  before its «Rückgängig» resets the sheet: once another device has corrected the reference (or
- *  it moved any other way), the reset would wipe THEIR work, and the toast declines instead. */
-export function georefStillIs(georefKey: string, pairs: readonly GeorefPair[]): boolean {
-  return sameValue(georefForPlan(georefKey)?.pairs ?? [], pairs)
-}
-
-/** «Übernehmen» on a proposal: persist the (possibly nudged) pairs as the sheet's georeference
- *  and end the mode. False = nothing to accept, or the save failed (the standard save-failed
- *  toast was raised via the store's handler; the review stays up so nothing is lost). */
-export async function acceptGeorefProposal(): Promise<boolean> {
-  const s = state
-  if (!s.proposal || !s.storageKey || s.pairs.length < 2) return false
-  const before = georefForPlan(s.storageKey)?.pairs ?? []
-  try {
-    if (isIncidentGeorefKey(s.storageKey)) saveIncidentGeoref(s.storageKey, { pairs: s.pairs })
-    else await saveGeoref(s.storageKey, { pairs: s.pairs })
-  } catch {
-    onSaveError?.()
-    return false
-  }
-  // commit point 2 of 3: «Übernehmen» on an unlinked sheet (see `noteHandLink`)
-  noteHandLink(s.storageKey, before, s.pairs)
-  georefDispatch({ type: 'dismiss' })
-  return true
-}
-
-/** The Plangrösse read-out of a proposal review: the sheet's current size as a percentage of
- *  the untouched suggestion (100 = as suggested). */
-export function georefProposalScalePct(s: GeorefModeState): number {
-  if (!s.proposal) return 100
-  const cur = fitSimilarity(s.pairs, s.aspect)
-  const base = fitSimilarity(s.proposal, s.aspect)
-  if (!cur || !base || !(base.scaleMPerU > 0)) return 100
-  return Math.round((cur.scaleMPerU / base.scaleMPerU) * 100)
 }
 
 /**
@@ -1150,7 +1041,7 @@ export function georefWantsMap(s: GeorefModeState): boolean {
 /** Esc follows the visible exit action everywhere — including on the Karte surface, where the
  *  plan's own Escape handler is not even mounted. Coverage is a sub-mode, so Esc leaves it via
  *  the same return path as its «Fertig» rather than abandoning the parent alignment/Passung. */
-export function useGeorefEscape(active: boolean, checking = false, picked = false, adjust: 'grip' | 'open' | false = false) {
+export function useGeorefEscape(active: boolean, checking = false, picked = false) {
   useEffect(() => {
     if (!active) return
     const onKey = (e: KeyboardEvent) => {
@@ -1161,12 +1052,8 @@ export function useGeorefEscape(active: boolean, checking = false, picked = fals
       if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
       e.stopPropagation()
       // Escape peels ONE layer at a time: an armed «Verschieben» or an open popover first
-      // (`unpick` — the cross goes back down untouched), then an armed proposal grip, then
-      // coverage, then the mode. Esc is never the ONLY exit: «Behalten» in the popover and the
-      // visible bar buttons do the same. (On a proposal review, `finishCheck` is a reducer
-      // no-op on purpose — its exits are the review's own Übernehmen/Verwerfen buttons.)
-      if (adjust === 'grip') { georefDispatch({ type: 'adjustArm', kind: null }); return }
-      if (adjust === 'open') { georefDispatch({ type: 'adjustOpen', on: false }); return }
+      // (`unpick` — the cross goes back down untouched), then coverage, then the mode. Esc is
+      // never the ONLY exit: «Behalten» in the popover and the visible bar buttons do the same.
       if (picked) { georefDispatch({ type: 'unpick' }); return }
       if (checking) { georefDispatch({ type: 'finishCheck' }); return }
       endGeorefMode() // the same exit as the visible buttons — dropped open halves get named
@@ -1174,5 +1061,5 @@ export function useGeorefEscape(active: boolean, checking = false, picked = fals
     // capture, so the mode backs out before the board's own Escape drops a selection
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [active, checking, picked, adjust])
+  }, [active, checking, picked])
 }

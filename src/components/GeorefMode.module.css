@@ -583,63 +583,9 @@
   }
 }
 
-/* ── the automatic suggestion's proposal review chrome ───────────────────────────────────────
-   (GeorefProposalActions · GeorefAdjustLayer — see the approved mock,
-   mockups/auto-alignment/a.html). */
-
-/* ✥ / ⟳ — the SelectionBar's grip colours verbatim (11-measure.css · .sel-bar-act):
-   resting solid --blue, armed --ink-fill with the blue ring drawn OUTSIDE the button */
-.grip {
-  width: 52px; height: 44px; flex: none; border: 0; border-radius: var(--r-sm); padding: 0;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: var(--blue); color: var(--on-fill); cursor: pointer;
-  transition: background-color .14s var(--ease), box-shadow .14s var(--ease);
-}
-@media (hover: hover) { .grip:not(.gripOn):hover { background: var(--blue-strong); } }
-.grip svg { width: 19px; height: 19px; }
-.gripOn { background: var(--ink-fill); color: var(--on-accent-ink);
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--blue); }
-@media (hover: hover) { .gripOn:hover { background: var(--ink-fill-hover); } }
-@media (prefers-reduced-motion: reduce) { .grip { transition: none; } }
-
-/* Plangrösse — the shared Stepper (07-toolrail.css · .step) beside its label. `.stepBtn` stays
-   for the undo square beside it. */
-.sizeStep { display: inline-flex; align-items: center; gap: var(--sp-1); flex: none; }
-.sizeLabel { font: var(--fw-bold) var(--fs-1) var(--body); color: var(--ink-dim); margin-right: 2px; white-space: nowrap; }
-.stepBtn {
-  width: var(--tap); height: var(--tap); flex: none; border-radius: var(--r-sm);
-  border: 1px solid var(--border); background: var(--surface-2); color: var(--ink);
-  display: grid; place-items: center; padding: 0; cursor: pointer;
-}
-@media (hover: hover) { .stepBtn:hover:not(:disabled) { background: var(--surface); } }
-.stepBtn:active:not(:disabled) { background-image: linear-gradient(var(--press), var(--press)); }
-.stepBtn:disabled { opacity: var(--disabled); cursor: default; }
-.stepBtn svg { width: 16px; height: 16px; }
-/* «100 %» and «99 %» take one width, so − does not slide under the finger */
-.sizeStep :global(.step-val) { min-width: 52px; }
-.adjustAction { min-width: 0; }
-/* the desktop pill needs the quiet grammar too (it was phone-only before the proposal review) */
+/* the quiet grammar outside the phone bar too – the desktop pill */
 .quietBtn { border-color: transparent; background: transparent; }
 @media (hover: hover) { .pill .quietBtn:hover { border-color: transparent; background: var(--fill-soft); } }
-
-/* the armed grip's capture surface over the Karte — transparent, but it owns every pointer */
-.adjustCapture { position: absolute; inset: 0; z-index: 6; touch-action: none; cursor: move; }
-.adjustRotate { cursor: crosshair; }
-.adjustHint {
-  /* below the floating TopBar (04-topbar), which hovers over the map's own top edge */
-  position: absolute; top: 92px; left: 50%; transform: translateX(-50%); z-index: 7;
-  background: var(--label-bg); color: var(--ink); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm);
-  font: var(--fw-bold) var(--fs-1) var(--body); white-space: nowrap; box-shadow: var(--e3); pointer-events: none;
-}
-/* the turn's degrees, beside the pivot on the surface — never off a button at the bar */
-.pivotBadge {
-  display: inline-block; background: var(--label-bg); color: var(--blue-strong);
-  padding: var(--sp-1) var(--sp-2); border-radius: var(--r-xs); font: var(--fw-bold) var(--fs-2) var(--body);
-  font-variant-numeric: tabular-nums; box-shadow: var(--e3); pointer-events: none;
-}
-
-/* the review-carefully proposal head — the amber the Ampel line already speaks */
-.warnHead { color: var(--amber-strong); }
 
 /* the synthetic anchors of an accepted automatic alignment: ghosted, badged «A» — draggable
    (dragging promotes one to a real 'korrigiert' reference) but visibly nobody's tap */
