@@ -5,11 +5,9 @@
 // workspace's hooks come in as their own result objects (the store, the object's plans, the
 // georeferenced fits, the map actions, the roster, the Trupp actions).
 
-import { type ReactNode, type Dispatch, type SetStateAction, type RefObject, Suspense } from 'react'
+import { type ReactNode, type Dispatch, type SetStateAction, Suspense } from 'react'
 import type { JSX } from 'react/jsx-runtime'
 import { LoadingStatus } from '../components/ShellLoader'
-import type { BoardHistory } from '../components/useBoardDoc'
-import type { BoardViews } from '../components/useBoardView'
 import type { TafelPagesProps } from '../components/Whiteboard'
 import type { TruppFinderDoor } from '../components/WbControls'
 import { appConfig } from '../config/appConfig'
@@ -17,7 +15,6 @@ import { gebaeudeDoc } from '../data/demoIncident'
 import type { AtemschutzAlarmState } from '../lib/atemschutz'
 import type { AuthUser } from '../lib/auth'
 import type { IncidentMeta } from '../lib/incidents'
-import type { PlanStepLink } from '../lib/planStepLink'
 import { type RailLabels, type SymbolSurface, planSymbolScale } from '../lib/prefs'
 import { type TruppTrail, planGhostTrails } from '../lib/truppTrails'
 import type { useBuildingInfo } from '../lib/useBuildingInfo'
@@ -33,6 +30,7 @@ import { Whiteboard } from './lazySurfaces'
 import type { useGebaeudeActions } from './useGebaeudeActions'
 import type { WorkspaceMode } from './types'
 import type { useMapActions } from './useMapActions'
+import type { usePlanStacks } from './usePlanStacks'
 import type { useRosterRoles } from './useRosterRoles'
 
 export interface PlansSurfaceProps {
@@ -77,15 +75,8 @@ export interface PlansSurfaceProps {
   addRecent: (name: string) => void
   user: AuthUser | null
   emit: (op_type: string, payload?: Record<string, unknown>, opts?: { observed?: string }) => void
-  planHist: RefObject<{ undo: (expect?: string) => boolean; redo: (expect?: string) => boolean } | null>
-  planHistory: BoardHistory
-  setPlanHistory: Dispatch<SetStateAction<BoardHistory>>
-  rememberPlanStep: (planId: string, step: string) => void
-  planStepLink: RefObject<PlanStepLink | null>
-  onPlanStepLabel: (label: string) => void
-  planViews: RefObject<BoardViews>
-  planFit: RefObject<(() => void) | null>
-  planKeys: RefObject<{ pickTool: (tool: string) => void; zoom: (f: number) => void; duplicate: () => void } | null>
+  /** the Plan's per-document undo stacks and the handles the Whiteboard reports up (workspace/usePlanStacks) */
+  planStacks: ReturnType<typeof usePlanStacks>
   planFocus: { x: number; y: number; floor: number; annoId?: string; twinEntityId?: string; flash?: boolean; nonce: number } | null
   effTrupps: Trupp[]
   truppCounterNames: (exceptId?: string) => (string | undefined)[]
@@ -108,14 +99,13 @@ export function PlansSurface({
   linkScoped, activePlanId, setActivePlanId, objectPlans, buildingInfo, incidentMeta, incidentView,
   setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, georefFits, mapActions,
   replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
-  roster, addRecent, user, emit, planHist, planHistory, setPlanHistory, rememberPlanStep, planStepLink,
-  onPlanStepLabel, planViews, planFit, planKeys, planFocus, effTrupps, truppCounterNames, teamNameTaken,
+  roster, addRecent, user, emit, planStacks, planFocus, effTrupps, truppCounterNames, teamNameTaken,
   azAlarm, truppActions, newTruppFromMarker, showTrupp, planScale, setPlanScale, tafel, truppFinder,
 }: PlansSurfaceProps) {
   const { activeObjectName, activeObjectAddress, activeObjectNearby, activeObjectPos } = objectPlans
   const { activeLinkedPlan, floorPack, planLive, planPhotos } = georefFits
   const { moveLiveOnSheet, showPlanSourceOnMap } = mapActions
-  const { board, setBoard, endSheetStep } = store
+  const { board, setBoard } = store
   const { rosterNames, rosterRank, linkRosterFields, personStatus, rosterFieldHints } = roster
   const {
     updateTrupp, askTruppEntry, adoptTruppMarker, releaseTruppMarker, linkTruppLine, unlinkLine,
@@ -214,15 +204,15 @@ export function PlansSurface({
           log={logPlan}
           authorName={user?.display_name}
           emit={emit}
-          historyRef={planHist}
-          hist={planHistory}
-          setHist={setPlanHistory}
-          onCheckpoint={rememberPlanStep}
-          onStepEnd={() => { planStepLink.current?.closed(); endSheetStep() }}
-          onStepLabel={onPlanStepLabel}
-          views={planViews}
-          fitRef={planFit}
-          keysRef={planKeys}
+          historyRef={planStacks.planHist}
+          hist={planStacks.planHistory}
+          setHist={planStacks.setPlanHistory}
+          onCheckpoint={planStacks.rememberPlanStep}
+          onStepEnd={planStacks.endPlanStep}
+          onStepLabel={planStacks.onPlanStepLabel}
+          views={planStacks.planViews}
+          fitRef={planStacks.planFit}
+          keysRef={planStacks.planKeys}
           focus={planFocus}
           trupps={effTrupps}
           // the Karte's markers, the other plans' chips, the ghost trails and every Trupp ever
