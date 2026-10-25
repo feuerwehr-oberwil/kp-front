@@ -293,15 +293,23 @@ def test_object_categories_are_validated_in_the_config():
                         "color": "#f59e0b",
                         "match": {"modules": ["modul5-pv*"]},
                     },
+                    # «ink»: the default look's colour, per theme (owner, 25.10.2026)
+                    {"id": "plaene", "label": "Einsatzpläne", "color": "ink", "match": {"modules": ["modul1*"]}},
                     {"id": "rest", "label": "Ohne Pläne", "color": "#64748b", "match": {"kinds": ["objekt"]}},
                 ]
             }
         }
     )
-    assert [c.id for c in ok.map.objectCategories] == ["pv", "rest"]
+    assert [(c.id, c.color) for c in ok.map.objectCategories] == [
+        ("pv", "#f59e0b"),
+        ("plaene", "ink"),
+        ("rest", "#64748b"),
+    ]
     assert DeploymentConfigIn.model_validate({}).map.objectCategories == []  # unset = today's look
     for bad in (
         {"id": "pv", "label": "PV", "color": "orange"},
+        {"id": "pv", "label": "PV", "color": "Ink"},
+        {"id": "pv", "label": "PV", "color": "#ink"},
         {"id": "PV Anlagen", "label": "PV", "color": "#f59e0b"},
         {"id": "pv", "label": "PV", "color": "#f59e0b", "match": {"kinds": ["haus"]}},
     ):

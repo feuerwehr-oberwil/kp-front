@@ -114,7 +114,9 @@
 /* ── «Objektfarben» (ObjectCategoriesCard) ────────────────────────────────── */
 .adm-cat-actions { display: inline-flex; gap: var(--sp-1); }
 .adm-cat-kinds { display: inline-flex; flex-wrap: wrap; gap: var(--sp-1); }
-.adm-cat-kinds .adm-token[aria-pressed='true'] { border-color: var(--blue); background: var(--blue-8); }
+.adm-cat-kinds .adm-token[aria-pressed='true'], .adm-cat-ink[aria-pressed='true'] { border-color: var(--blue); background: var(--blue-8); }
+/* «Tinte» beside the colour picker (ObjectCategoriesCard): its own ink swatch, never squeezed */
+.adm-cat-ink { flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); }
 .adm-pos-suggest { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-2) 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm);
   background: var(--amber-12); border: 1px solid var(--amber-45); color: var(--ink); }
 .adm-pos-suggest span { flex: 1; }

@@ -510,15 +510,17 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             const pick = (e: React.MouseEvent) => { e.stopPropagation(); if (takesTaps) onMapClick(at); else selectObject(o.id, false) }
             const isSel = selObj?.id === o.id
             if (catOff(o.id) && !isSel) return null
-            // the category's colour (lib/karte/categories); none = the default `--obj-plans`, untouched
+            // the category's colour (lib/karte/categories); none = the default `--obj-plans`, untouched,
+            // and so is an `ink` category (color null) — it only keeps its Ebenen row
             const cat = cats.get(o.id)
-            const catStyle = cat ? ({ '--cat': cat.color, '--cat-ink': inkOn(cat.color) } as React.CSSProperties) : undefined
+            const hue = cat?.color
+            const catStyle = hue ? ({ '--cat': hue, '--cat-ink': inkOn(hue) } as React.CSSProperties) : undefined
             // without categories, «has plans» is `--obj-plans`; an object without any is drawn quieter
             const bare = !o.plans.length
             if (!isSel && !(tagZoom && tagged?.has(o.id))) {
               return (
                 <Marker key={`dot:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" style={{ zIndex: 1, pointerEvents: takesTaps ? 'none' : undefined }}>
-                  <button type="button" ref={arriveRef(o.id)} className={cx(s.dotMk, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through, !mapUp && s.waiting)} style={catStyle} aria-label={o.name} title={o.name} onClick={pick} />
+                  <button type="button" ref={arriveRef(o.id)} className={cx(s.dotMk, hue && s.cat, !cat && bare && s.bare, takesTaps && s.through, !mapUp && s.waiting)} style={catStyle} aria-label={o.name} title={o.name} onClick={pick} />
                 </Marker>
               )
             }
@@ -528,7 +530,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
             const fit = fits.get(o.name)
             return (
               <Marker key={`tag:${o.id}`} longitude={at[0]} latitude={at[1]} anchor="center" offset={[dx, 0]} style={{ zIndex: isSel ? 3 : 2, pointerEvents: takesTaps ? 'none' : undefined }}>
-                <button type="button" ref={arriveRef(o.id)} className={cx(s.tagMk, isSel && s.sel, cat && s.cat, !cat && bare && s.bare, takesTaps && s.through, !mapUp && s.waiting)} style={fit ? { ...catStyle, width: fit } : catStyle} onClick={pick}>
+                <button type="button" ref={arriveRef(o.id)} className={cx(s.tagMk, isSel && s.sel, hue && s.cat, !cat && bare && s.bare, takesTaps && s.through, !mapUp && s.waiting)} style={fit ? { ...catStyle, width: fit } : catStyle} onClick={pick}>
                   {tagText(o.name)}
                 </button>
               </Marker>

@@ -48,6 +48,21 @@ describe('stationOverlays · the map\'s stack, bottom first', () => {
     expect(building.slice(-1)[0]).toMatchObject({ id: 'karte-building', rings: [plain] })
   })
 
+  it('an ink category (color null) draws in the theme\'s ink, day and night, and still hides on its own', () => {
+    // the Schloss is in «Einsatzpläne» set to ink; the Depot has no category
+    const cats = new Map<string, { id: string; color: string | null }>([...CATS, ['schloss', { id: 'plaene', color: null }]])
+    for (const ink of ['#1b2330', '#eef1f5']) { // --obj-plans by day, at night
+      const out = stationOverlays({ ...base, cats, ink })
+      // one slot with the uncategorised Depot, under the default's id, in this theme's ink
+      expect(out.find((o) => o.id === 'karte-objects')).toMatchObject({ rings: [SCHLOSS, DEPOT], color: ink })
+      expect(out.find((o) => o.id === 'karte-objects-under')).toMatchObject({ rings: [SCHLOSS_GARAGE], color: ink })
+      expect(stationOverlays({ ...base, cats, ink, sel: { kind: 'object', id: 'schloss' }, selId: 'schloss' }).slice(-1)[0]).toMatchObject({ id: 'karte-object-sel', color: ink })
+      expect(pointerOverlays({ outlined: { kind: 'object', id: 'schloss', ring: null }, outlines: OUTLINES, cats, ink, blue: '#2f6fed', hydrantLine: null })[0]).toMatchObject({ id: 'karte-hover-object', color: ink })
+    }
+    const hidden = (id: string) => id === 'schloss'
+    expect(stationOverlays({ ...base, cats, hidden }).find((o) => o.id === 'karte-objects')).toMatchObject({ rings: [DEPOT] })
+  })
+
   it('Gefahrgut draws only with a UN number AND a centre', () => {
     expect(stationOverlays({ ...base, erg: { ...NO_ERG, un: '1203' } }).some((o) => o.id.startsWith('karte-erg-'))).toBe(false)
     expect(stationOverlays({ ...base, erg: { ...NO_ERG, center: [7.57, 47.52] } }).some((o) => o.id.startsWith('karte-erg-'))).toBe(false)
