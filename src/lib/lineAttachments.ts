@@ -532,16 +532,17 @@ export function detachEnds<P>(
   line: { points: readonly P[]; startAttachment?: LineAttachment; endAttachment?: LineAttachment },
   release: (endpoint: LineEndpoint, attachment: LineAttachment, points: readonly P[]) => P | null | undefined,
 ): { points: P[]; freed: FreedEnds } | null {
-  let out: { points: P[]; freed: FreedEnds } | null = null
+  let points: P[] | null = null
+  let freed: FreedEnds = {}
   for (const endpoint of ['start', 'end'] as const) {
     const a = endpoint === 'start' ? line.startAttachment : line.endAttachment
-    const points: readonly P[] = out ? out.points : line.points
-    const at = a ? release(endpoint, a, points) : null
+    const at = a ? release(endpoint, a, points ?? line.points) : null
     if (at == null) continue
-    const next: { points: P[]; freed: FreedEnds } = freeEnd(points, endpoint, at)
-    out = { points: next.points, freed: { ...out?.freed, ...next.freed } }
+    const next = freeEnd(points ?? line.points, endpoint, at)
+    points = next.points
+    freed = { ...freed, ...next.freed }
   }
-  return out
+  return points ? { points, freed } : null
 }
 
 /** Body movement leaves attached endpoints fixed; every other vertex translates. */
