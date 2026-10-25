@@ -262,8 +262,8 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
     // Atemschutz page, marked «vom Board entfernt». A Trupp registered on the wrong card at 3am
     // is still a thing that was written down, and the record says so.
     // The redo un-stamps it again, which is why `apply` is not the registration itself.
+    // `removedAt` is the moment of the UNDO – read when it runs, not when the Trupp was registered.
     if (undoTimeline) {
-      const removedAt = serverNowIso()
       const present = () => (liveTrupps?.() ?? trupps).some((x) => x.id === t.id)
       const stamp = (v: string | undefined) => {
         if (!present()) return false
@@ -275,7 +275,7 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
         logStep(dir, line, t.id)
         return true
       }
-      undoTimeline.push({ domain: 'trupps', label: line, touches: () => [recordKey('trupps', t.id)], undo: () => step('undo', removedAt), redo: () => step('redo', undefined) })
+      undoTimeline.push({ domain: 'trupps', label: line, touches: () => [recordKey('trupps', t.id)], undo: () => step('undo', serverNowIso()), redo: () => step('redo', undefined) })
     }
   }
 
@@ -337,7 +337,7 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
     const kindPatch = (t: Trupp): Partial<Trupp> => {
       const nowPa = (f.kind ?? 'atemschutz') === 'atemschutz'
       if (nowPa === isAtemschutzTrupp(t)) return {}
-      const at = new Date().toISOString()
+      const at = serverNowIso()
       if (!nowPa) {
         return { kind: 'einfach', readings: [...(t.readings ?? []), { t: at, bar: t.lastPressureBar ?? t.entryPressureBar, kind: 'paOff' }] }
       }
@@ -358,7 +358,7 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
     // a changed crew is a `crew` row too, on top of whatever readings the two patches above
     // settled on — the Rapport reads the crew off the log, not off the card (see crewRow)
     const crewChanged = !!tr && (f.name !== tr.name || (f.members ?? []).join('\u0000') !== (tr.members ?? []).join('\u0000'))
-    const crewAt = new Date().toISOString() // stamped ONCE, so the timeline's ↷ re-applies the same row
+    const crewAt = serverNowIso() // stamped ONCE, so the timeline's ↷ re-applies the same row
     const withCrew = (t: Trupp): Trupp => {
       const next = { ...t, ...patch }
       return crewChanged ? { ...next, readings: [...(next.readings ?? []), crewRow(next, crewAt)] } : next
@@ -469,7 +469,7 @@ export function truppLifecycleActions(deps: LifecycleDeps) {
     }
     // ⚠️ …plus a `crew` row, which is the one thing here that touches `readings`: it records
     // WHO the Trupp is from now on, so the Rapport can say when this person left (see crewRow).
-    const at = new Date().toISOString()
+    const at = serverNowIso()
     const apply = (t: Trupp): Trupp => { const n = { ...t, ...patch }; return { ...n, readings: [...(n.readings ?? []), crewRow(n, at)] } }
     setTrupps((ts) => ts.map((t) => (t.id === fromId ? apply(t) : t)))
     // the Trupp's NAME is its Gruppenführer's (types · Trupp.name), so handing the leader over
