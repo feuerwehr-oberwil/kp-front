@@ -497,4 +497,13 @@ describe('reverseDrawing — replay', () => {
     expect(replayed.startAttachment?.target).toEqual(onSym.target)
     expect(replayed).not.toHaveProperty('endAttachment')
   })
+
+  it('a pinned end label goes with the old end in replay too', async () => {
+    const deps = makeDeps({ drawings: [line({ coords: [[0, 0], [1, 1]], endLabelAt: [1.1, 1.1] })] })
+    const before = deps.drawings
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.reverseDrawing('d1') })
+    const [replayed] = (await replayEmits({ drawings: before }, deps.emit.mock.calls)).drawings
+    expect(replayed).not.toHaveProperty('endLabelAt')
+  })
 })
