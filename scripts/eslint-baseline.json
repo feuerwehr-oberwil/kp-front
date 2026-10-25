@@ -4,10 +4,10 @@
     "@typescript-eslint/no-explicit-any": 3,
     "@typescript-eslint/no-non-null-assertion": 367,
     "react-hooks/exhaustive-deps": 20,
-    "react-hooks/immutability": 22,
+    "react-hooks/immutability": 21,
     "react-hooks/preserve-manual-memoization": 8,
     "react-hooks/purity": 13,
-    "react-hooks/refs": 117,
+    "react-hooks/refs": 115,
     "react-hooks/set-state-in-effect": 70,
     "react-refresh/only-export-components": 104
   },

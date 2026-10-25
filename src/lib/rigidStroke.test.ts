@@ -6,7 +6,7 @@ import type { BoardPoint } from '../types'
 /* D1 of the 23.09.2026 post-mortem: a stroke dragged past its storey tile's edge was clamped PER
  * VERTEX (`localY` → clamp01), so every vertex that crossed landed on y = 1 while the rest kept
  * travelling — the Leitung's shape was destroyed, and the Karte hose baked off it with it. The
- * body drag (Whiteboard · drawMove) and the SelectionBar (Whiteboard · barApply) now both write
+ * body drag (useWbBodyDrag · drawMove) and the SelectionBar (useWbSelectionBar · barApply) now both write
  * through `floorGeometry · moveRigid`, which limits the TRANSLATION. These tests drive it with
  * exactly the frame each of those two writers hands it. */
 
@@ -24,10 +24,10 @@ const expectSameShape = (a: readonly BoardPoint[], b: readonly BoardPoint[], dig
 }
 const within01 = (pts: readonly BoardPoint[]) => pts.every((p) => p[1] >= 0 && p[1] <= 1)
 
-/** Whiteboard · drawMove — a pure translation of the start geometry */
+/** useWbBodyDrag · drawMove — a pure translation of the start geometry */
 const drawMove = (pts: BoardPoint[], home: number, ndx: number, ndy: number, pinned?: (i: number) => BoardPoint | null) =>
   geo.moveRigid(geo.boardPts(pts, home), home, (x, by) => [x + ndx, by + ndy], pinned)
-/** Whiteboard · barApply — a turn about the selection centre (in px proportions), then the move */
+/** useWbSelectionBar · barApply — a turn about the selection centre (in px proportions), then the move */
 const barApply = (pts: BoardPoint[], home: number, t: { ndx: number; ndy: number; deg: number }, xScale = 1) => {
   const bpts = geo.boardPts(pts, home)
   const cx = bpts.reduce((s, p) => s + p[0], 0) / bpts.length, cy = bpts.reduce((s, p) => s + p[1], 0) / bpts.length

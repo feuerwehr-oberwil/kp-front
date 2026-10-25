@@ -12,7 +12,7 @@ import { draftActive as isDraftActive, finishKind, releaseDraft } from './draftM
 import { onSiteCoords, revertCoords } from './gpsReturn'
 
 /** The style every new line / Fläche is born with – never the last edited line's
- *  (3am sweep §2, 23.10.2026). The Plan's inks use the same rule (Whiteboard · INK_DEFAULTS). */
+ *  (3am sweep §2, 23.10.2026). The Plan's inks use the same rule (usePlanDraft · INK_DEFAULTS). */
 export const DRAW_DEFAULTS = { color: appConfig.drawing.defaultColor, width: 4, dashed: false, marker: '', arrow: false } as const
 
 // same settle window as the workspace's noteEntityEdit / Rapportangaben logger

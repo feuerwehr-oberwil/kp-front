@@ -53,7 +53,7 @@ const FIELD_GEBAEUDE_LINE: BoardAnno = {
 }
 const gebaeudeLine = () => bakeGeoBody({ id: FIELD_GEBAEUDE_LINE.id, sheet: { planId: 'gebaeude', anno: FIELD_GEBAEUDE_LINE } }, STACK, 'taktisch')
 
-/** the SelectionBar's writer on a single sheet (Whiteboard · barApply → floorGeometry · moveRigid) */
+/** the SelectionBar's writer on a single sheet (useWbSelectionBar · barApply → floorGeometry · moveRigid) */
 const flat = floorGeometry(false, [0], 1)
 const barTurn = (a: BoardAnno, deg: number): BoardAnno => {
   const bpts = flat.boardPts(a.pts!, a.floor ?? 0)
@@ -147,7 +147,7 @@ describe('a Gebäude object moved through Modul 1 stays the Gebäude’s', () =>
       result.current.endSheetStep()
     })
     expect(events.map((e) => e.op)).toEqual(['board.edit', 'draw.edit'])
-    // …plus the surface's own release event (Whiteboard · barCommit), which a replay of Modul 1's
+    // …plus the surface's own release event (useWbSelectionBar · barCommit), which a replay of Modul 1's
     // recorded board has no row for — it must fold to nothing rather than to a second copy
     const all = [...events, { op: 'board.move', payload: { id: initial.id, pts: turned.pts, planId: 'modul1' } }]
     const replay: ReplayBundle = {

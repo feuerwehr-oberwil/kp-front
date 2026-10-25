@@ -615,7 +615,7 @@ export const MapView = forwardRef<MapRef, MapViewProps>(function MapView(props, 
   // ⚠️ A7 · the magnet is raised for a freehand LINE only. An area's endpoints are not a thing
   // that attaches — `onFreehand` hands an area's attachments straight back (useMapDrawing) — so a
   // ring filling over a Hydrant while a Fläche is dragged across it was promising a link that was
-  // then discarded. The Plan says the same thing in its own words (Whiteboard · inkMove: «no
+  // then discarded. The Plan says the same thing in its own words (usePlanCreate · inkUp: «no
   // magnet and no attachments — those belong to a Leitung's ends»).
   const { fhPath, marquee, circle } = useMapCanvasGestures({ mapInst, mapReady, freehand: !!freehand, onFreehand, onFreehandPointer: freehand === 'area' ? undefined : updateDraftMagnet, marqueeEnabled, drawings, entities, onMarquee, circleEnabled, onCircle, circleMinRadiusM: appConfig.drawing.circleMinRadiusM, circleInitialRadiusM: appConfig.drawing.circleInitialRadiusM })
 
