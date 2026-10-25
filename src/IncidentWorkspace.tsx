@@ -1675,50 +1675,6 @@ export function IncidentWorkspace({
   const flushMedia = media.flush
   useEffect(() => { if (recordsSyncStatus === 'synced') void flushMedia() }, [recordsSyncStatus, flushMedia])
 
-  // Escape is the universal bail-out — it peels back one layer of transient state at a time so
-  // there's always a quick way back to the plain map: (1) cancel an armed placement, (2) close the
-  // open map chrome (Ebenen panel / views popover), (3) clear the current selection. (Modal sheets
-  // handle their own Esc via the overlay wrapper; this is only the non-modal map chrome.)
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      // typing in a field? Escape leaves the FIELD and nothing more — one key press must never
-      // both finish the text and drop the selection. Read the event TARGET, not activeElement:
-      // the field's own handler has already blurred by the time this bubbles up.
-      const el = e.target as HTMLElement | null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
-      // …and a MODAL on top of the map owns Escape outright — it closes, and the map does NOT also
-      // peel a layer behind it. That is what the note above always claimed; it was never enforced,
-      // so Esc in the «Welcher Trupp?» picker closed the picker AND disarmed the Team tool. Focus
-      // is trapped inside the dialog, so the event target is enough to tell.
-      // ⚠️ `alertdialog` as well as `dialog`: ConfirmCard (lib/overlays/ConfirmCard) renders the
-      // alert role, so a delete confirm on the Lage was NOT a modal by this test — Escape closed
-      // the confirm AND peeled a map layer behind it. The Plan's twin of this handler already
-      // matched both roles; this is the Lage catching up.
-      if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
-      if (pending || pendingShape) { setPending(null); setPendingShape(null); setRotStart(null); setTool('select') }
-      // …then the coordinate crosshair: while it aims it swallows every map tap and hides the
-      // selection bar, and until 02.09. Escape did not know it existed
-      else if (coord.mode !== 'off') coord.setMode('off')
-      else if (panel || viewsOpen) { setPanel(null); setViewsOpen(false) }
-      // …then the active TOOL and the dock that belongs to it. Escape used to bail out of an
-      // armed placement but leave Messen or Zeichnen running with its dock open over the map,
-      // so the one key that is supposed to get you back to a plain map got you most of the way
-      // and stopped.
-      // ⚠️ setDraft([]), NOT settleDraft: Escape is the EXPLICIT discard. Every tap-away path
-      // auto-commits a committable draft (see settleDraft), but a deliberate cancel has to keep
-      // cancelling — the one key that means «weg damit» must never save the thing instead.
-      else if (tool !== 'select') { setTool('select'); setDraft([]) }
-      // the note panel closes BEFORE the selection does — Escape backs out one layer at a time
-      else if (notePanelId) setNotePanelId(null)
-      else if (selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length) { setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]) }
-    }
-    // covered by another surface: its keys are its own (see `covered`)
-    if (covered) return
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [covered, pending, pendingShape, coord.mode, panel, viewsOpen, tool, notePanelId, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds])  // eslint-disable-line react-hooks/exhaustive-deps
-
   // Selecting something opens its details (ContextPanel) — so the moment a NEW selection lands, drop
   // every other transient bit of map chrome that would sit over it or the tool rail: the Ebenen dock,
   // the views popover, and any armed tool / placement dock (back to Auswahl). Edge-triggered on a
@@ -1762,9 +1718,10 @@ export function IncidentWorkspace({
     return () => window.removeEventListener('keydown', onKey)
   }, [covered, mode, selectedId, selectedDrawingId, selectedDrawIds, selectedEntityIds, doc, tacticalLocked])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keyboard shortcuts (see lib/hotkeys + the "Tastaturkürzel" help section). One mount-once
-  // listener delegates to hotkeyRef, which is reassigned every render with the live handlers —
-  // so shortcuts always act on current state without a churn of add/removeEventListener.
+  // Keyboard shortcuts (see lib/hotkeys + the "Tastaturkürzel" help section) and Escape's
+  // bail-out (lib/hotkeyRoute · routeEscape). One mount-once listener delegates to hotkeyRef,
+  // which useMapActions reassigns every render with the live handlers — so keys always act on
+  // current state without a churn of add/removeEventListener.
   useEffect(() => {
     if (covered) return // the surface in front owns the keyboard (see `covered`)
     const onKey = (e: KeyboardEvent) => hotkeyRef.current(e)
@@ -2358,7 +2315,8 @@ export function IncidentWorkspace({
     sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, lineMode, measure, mapRef,
     incidentView, entities, liveIds, resolvedMapDrawings, cameraViews, view, setLocateReq, incidentOpen,
     share, setShareParent, setSharePick, setCameraViews, rememberOneShotRef, C_HIST, setViewsOpen,
-    selectedId, doc, truppCounterNames, selectedDrawingId, planDocs, mode, setMode, setActivePlanId,
+    viewsOpen, selectedId, selectedDrawIds, selectedEntityIds, doc, truppCounterNames, selectedDrawingId,
+    planDocs, mode, setMode, setActivePlanId,
     hotkeyRef, settingsOpen, paletteOpen, pickerOpen, helpOpen, installGuideOpen, offlineReadyOpen,
     shareLink, composerOpen, georefActive, georefMode, replayActive, readOnly, linkScoped, goToNav,
     planFit, stepHistory, planKeys, setJournalOpen, setComposerOpen, togglePanel, setSettingsOpen,

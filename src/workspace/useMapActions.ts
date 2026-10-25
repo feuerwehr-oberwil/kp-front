@@ -16,7 +16,7 @@ import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { bearingDeg, circlePolygon, haversineM, midCoord } from '../lib/geo'
 import { georefDispatch, useGeorefMode } from '../lib/georefMode'
 import type { GeorefPlan } from '../lib/georefTwins'
-import { routeHotkey } from '../lib/hotkeyRoute'
+import { routeEscape, routeHotkey } from '../lib/hotkeyRoute'
 import { resolveHotkey, isTypingTarget } from '../lib/hotkeys'
 import { newId } from '../lib/ids'
 import { applyRouting, detachEnds, freeEnd, moveLineBody, objectAttachment } from '../lib/lineAttachments'
@@ -116,7 +116,10 @@ export interface UseMapActionsInputs {
   rememberOneShotRef: RefObject<(domain: UndoDomain, label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') => Dropper>
   C_HIST: import('../config/copy').Copy
   setViewsOpen: Dispatch<SetStateAction<boolean>>
+  viewsOpen: boolean
   selectedId: string | null
+  selectedDrawIds: string[]
+  selectedEntityIds: string[]
   doc: Doc
   truppCounterNames: (exceptId?: string) => (string | undefined)[]
   selectedDrawingId: string | null
@@ -178,7 +181,8 @@ export function useMapActions({
   sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, lineMode, measure, mapRef,
   incidentView, entities, liveIds, resolvedMapDrawings, cameraViews, view, setLocateReq, incidentOpen,
   share, setShareParent, setSharePick, setCameraViews, rememberOneShotRef, C_HIST, setViewsOpen,
-  selectedId, doc, truppCounterNames, selectedDrawingId, planDocs, mode, setMode, setActivePlanId,
+  viewsOpen, selectedId, selectedDrawIds, selectedEntityIds, doc, truppCounterNames, selectedDrawingId,
+  planDocs, mode, setMode, setActivePlanId,
   hotkeyRef, settingsOpen, paletteOpen, pickerOpen, helpOpen, installGuideOpen, offlineReadyOpen,
   shareLink, composerOpen, georefActive, georefMode, replayActive, readOnly, linkScoped, goToNav,
   planFit, stepHistory, planKeys, setJournalOpen, setComposerOpen, togglePanel, setSettingsOpen,
@@ -464,9 +468,46 @@ export function useMapActions({
     return true
   }
 
-  // Reassigned every render (effect, no deps) so the mount-once listener (above) always sees
-  // live handlers/state without re-subscribing — the latest-ref pattern.
+  /** Escape: one layer of transient Karte state per press — lib/hotkeyRoute · routeEscape is the
+   *  order. (Modal sheets handle their own Esc via the overlay wrapper; this is only the non-modal
+   *  map chrome.) */
+  const escape = (e: KeyboardEvent) => {
+    // typing in a field? Escape leaves the FIELD and nothing more — one key press must never
+    // both finish the text and drop the selection. Read the event TARGET, not activeElement:
+    // the field's own handler has already blurred by the time this bubbles up.
+    const el = e.target as HTMLElement | null
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+    // …and a MODAL on top of the map owns Escape outright — it closes, and the map does NOT also
+    // peel a layer behind it (Esc in the «Welcher Trupp?» picker used to close the picker AND
+    // disarm the Team tool). Focus is trapped inside the dialog, so the event target is enough.
+    // ⚠️ `alertdialog` as well as `dialog`: ConfirmCard (lib/overlays/ConfirmCard) renders the
+    // alert role, and a delete confirm on the Lage must not peel a map layer behind it either.
+    if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
+    switch (routeEscape({
+      placing: !!(pending || pendingShape),
+      coordOn: coord.mode !== 'off',
+      chromeOpen: !!(panel || viewsOpen),
+      toolArmed: tool !== 'select',
+      notePanelOpen: !!notePanelId,
+      selected: !!(selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length),
+    })) {
+      case 'cancelPlacement': setPending(null); setPendingShape(null); setRotStart(null); setTool('select'); break
+      case 'coordOff': coord.setMode('off'); break
+      case 'closeChrome': setPanel(null); setViewsOpen(false); break
+      // ⚠️ setDraft([]), NOT settleDraft: Escape is the EXPLICIT discard. Every tap-away path
+      // auto-commits a committable draft (useMapDrawing · settleDraft), but the one key that means
+      // «weg damit» must never save the thing instead.
+      case 'disarmTool': setTool('select'); setDraft([]); break
+      case 'closeNotePanel': setNotePanelId(null); break
+      case 'clearSelection': setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); break
+    }
+  }
+
+  // Reassigned every render (effect, no deps) so the mount-once listener (IncidentWorkspace)
+  // always sees live handlers/state without re-subscribing — the latest-ref pattern.
   useEffect(() => { hotkeyRef.current = (e: KeyboardEvent) => {
+    // Escape is no shortcut (resolveHotkey maps nothing to it) and keeps its own guards above
+    if (e.key === 'Escape') { escape(e); return }
     if (isTypingTarget(document.activeElement)) return
     // WHERE the key goes is lib/hotkeyRoute's table (pure, tested there); this only carries it out
     const { action: a, prevent } = routeHotkey(resolveHotkey(e), {
