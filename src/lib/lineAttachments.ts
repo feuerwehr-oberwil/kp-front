@@ -35,7 +35,7 @@ export interface MagneticTarget {
 /**
  * What a Leitung endpoint, a placement and a Rotation end may dock onto — ONE list per frame,
  * because it used to be four hand-maintained copies (MapView · candidatesAt and
- * trackPlaceMagnet, MapMarkers · trackEndMagnet, Whiteboard · planCandidatesAt) and nothing
+ * usePlaceMagnet · trackPlaceMagnet, MapMarkers · trackEndMagnet, Whiteboard · planCandidatesAt) and nothing
  * stopped them drifting apart.
  *
  * Only objects that STATE A PLACE: a symbol, a vehicle, a crew. A Fläche is ground, a note is
@@ -317,6 +317,54 @@ export function nextFreePort<P extends Coordinate>(lines: AttachableLine<P>[], t
   return null
 }
 
+/** A line as the magnet walks it: each end's tip in the surface's px, with the neighbouring
+ *  vertex a Teilstück's fork prongs fan from. The surface projects; `lineEndTargets` decides. */
+export interface LineEnds {
+  id: string
+  teilstueck?: boolean
+  width?: number
+  start: [tip: Point, neighbor: Point]
+  end: [tip: Point, neighbor: Point]
+}
+
+/**
+ * Every free port on every other line's ends, as magnet targets — the line half of the target
+ * walk both surfaces run (MapView · candidatesAt, Whiteboard · planCandidatesAt). A Teilstück's
+ * end offers three ports on its drawn fork prongs, every other end its bare tip; a port another
+ * line already holds is gone, and a target that would close a loop through `sourceId` is
+ * `blocked`. `toStored` (the Karte) also records each point in stored coordinates
+ * (MagneticTarget · at). Pass the lines without the source itself.
+ */
+export function lineEndTargets<P extends Coordinate>(lines: readonly LineEnds[], attachmentLines: AttachableLine<P>[], sourceId: string, toStored?: (p: Point) => Point): MagneticTarget[] {
+  return lines.flatMap((l) => (['start', 'end'] as const).flatMap((endpoint) => {
+    const [tip, neighbor] = l[endpoint]
+    const capacity = endpoint === 'end' && l.teilstueck ? 3 : 1
+    const usedPorts = incomingAttachments(attachmentLines, l.id, endpoint).map((x) => x.attachment.port ?? 0)
+    const free = Array.from({ length: capacity }, (_, i) => i).filter((port) => !usedPorts.includes(port))
+    return free.map((port): MagneticTarget => {
+      const point = capacity === 3 ? forkPortPoint(tip, neighbor, l.width ?? 4, port) : tip
+      return {
+        key: `line:${l.id}:${endpoint}:${port}`, target: { kind: 'line', id: l.id, endpoint }, point,
+        ...(toStored ? { at: toStored(point) } : {}),
+        capacity, usedPorts, port, blocked: wouldCreateCycle(attachmentLines, sourceId, l.id), defaultRouting: 'direct',
+      }
+    })
+  }))
+}
+
+/** The attachment a magnet candidate becomes: its target and default routing, the next free port
+ *  on a line end, and — for a live GPS marker (the Karte; `liveAt` returns its position) — the
+ *  follow guard armed at where it stands now. */
+export function candidateAttachment<P extends Coordinate>(candidate: MagneticTarget, attachmentLines: AttachableLine<P>[], liveAt?: (objectId: string) => Point | undefined): LineAttachment {
+  const target = candidate.target
+  const live = target.kind === 'object' ? liveAt?.(target.id) : undefined
+  return {
+    target, routing: candidate.defaultRouting ?? 'direct',
+    ...(target.kind === 'line' ? { port: candidate.port ?? nextFreePort(attachmentLines, target.id, target.endpoint) ?? undefined } : {}),
+    ...(live ? { gps: { state: 'guarded' as const, confirmedAt: live, lastSafe: live } } : {}),
+  }
+}
+
 /** One line end coupled onto another line's end — a hose joint. */
 export interface LineJoint<P extends Coordinate = Point> {
   lineId: string
@@ -457,6 +505,102 @@ export function flipLine<P extends Coordinate>(line: AttachableLine<P>, lines: A
     endAttachment: line.startAttachment,
     incoming,
   }
+}
+
+/** The attachment keys a detach clears — spread onto the line, so only the freed ends' keys are
+ *  written (as `undefined`) and the other end's coupling is left exactly as it was. */
+export type FreedEnds = { startAttachment?: undefined; endAttachment?: undefined }
+
+/** One end let go: its point moves to `at`, its attachment key is cleared. */
+export function freeEnd<P>(points: readonly P[], endpoint: LineEndpoint, at: P): { points: P[]; freed: FreedEnds } {
+  const last = endpoint === 'start' ? 0 : points.length - 1
+  return {
+    points: points.map((p, i) => (i === last ? at : p)),
+    freed: endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined },
+  }
+}
+
+/**
+ * «Mit verbundenen Leitungen entfernen»: every end of ONE line that hangs on something going away
+ * is let go, landing where `release` says (where the end stands on screen now, or where the target
+ * stood) — the fold both surfaces run when a symbol, a Leitung or a whole Mehrfach group is
+ * deleted, and when a Teilstück loses its «E» (Lage useMapActions / useMapDrawing, Plan
+ * Whiteboard). `release` returns null to leave an end coupled. Ends fold start first, each
+ * reading the points as the previous end left them. Null when no end was let go.
+ */
+export function detachEnds<P>(
+  line: { points: readonly P[]; startAttachment?: LineAttachment; endAttachment?: LineAttachment },
+  release: (endpoint: LineEndpoint, attachment: LineAttachment, points: readonly P[]) => P | null | undefined,
+): { points: P[]; freed: FreedEnds } | null {
+  let points: P[] | null = null
+  let freed: FreedEnds = {}
+  for (const endpoint of ['start', 'end'] as const) {
+    const a = endpoint === 'start' ? line.startAttachment : line.endAttachment
+    const at = a ? release(endpoint, a, points ?? line.points) : null
+    if (at == null) continue
+    const next: { points: P[]; freed: FreedEnds } = freeEnd(points ?? line.points, endpoint, at)
+    points = next.points
+    freed = { ...freed, ...next.freed }
+  }
+  return points ? { points, freed } : null
+}
+
+/** A line patch as the audit stream carries it: an attachment key the patch CLEARS goes as `null`,
+ *  because JSON drops an `undefined` key and replay would keep the old coupling (lib/replay folds
+ *  the `null` back to absent); a key that couples is sent as it is. Every emit of a patch that can
+ *  free an end goes through here — a detach, «Umkehren», a removal. The live commit keeps the
+ *  `undefined` patch. */
+export function wireFreed<T extends { startAttachment?: LineAttachment; endAttachment?: LineAttachment }>(patch: T):
+  Omit<T, 'startAttachment' | 'endAttachment'> & { startAttachment?: LineAttachment | null; endAttachment?: LineAttachment | null } {
+  const { startAttachment, endAttachment, ...rest } = patch
+  return {
+    ...rest,
+    ...('startAttachment' in patch ? { startAttachment: startAttachment ?? null } : {}),
+    ...('endAttachment' in patch ? { endAttachment: endAttachment ?? null } : {}),
+  }
+}
+
+/** One line's detach as a `draw.edit` patch: BOTH freed ends in one coords array. */
+export type DetachPatch = { coords: LngLat[] } & FreedEnds
+/** …and as the Plan's `board.edit` patch (its ink keeps its points in `pts`). */
+export type AnnoDetachPatch = { pts: BoardPoint[] } & FreedEnds
+
+type Releasable = { id: string; startAttachment?: LineAttachment; endAttachment?: LineAttachment }
+type Release<L, P> = (line: L, endpoint: LineEndpoint, attachment: LineAttachment, points: readonly P[]) => P | null | undefined
+
+/** `detachEnds` over a list of lines: each line that let go of something, ONCE, both ends folded. */
+function detachLines<L extends Releasable, P>(lines: readonly L[], pointsOf: (l: L) => readonly P[] | undefined, release: Release<L, P>) {
+  const out: { line: L; points: P[]; freed: FreedEnds }[] = []
+  for (const line of lines) {
+    const points = pointsOf(line)
+    if (!points || points.length < 2) continue
+    const done = detachEnds({ ...line, points }, (endpoint, a, pts) => release(line, endpoint, a, pts))
+    if (done) out.push({ line, ...done })
+  }
+  return out
+}
+
+/**
+ * `detachEnds` over the Lage's drawings: one patch per line that let go of something, keyed by
+ * line id. The Lage's delete paths (useMapActions · deleteEntity / deleteGroup, useMapDrawing ·
+ * deleteDrawing, IncidentWorkspace · changeMapEnding) apply these in their commit AND emit each as
+ * ONE `draw.edit` — never one per end: two per-end patches built from the same original coords
+ * each carry the other end's OLD point, so replay folded the second over the first and put the
+ * first end back. `detachAnnos` is the Plan's twin (Whiteboard · changePlanEnding).
+ */
+export function detachDrawings(drawings: readonly Drawing[], release: Release<Drawing, LngLat>): Map<string, DetachPatch> {
+  return new Map(detachLines(drawings, (d) => d.coords, release).map(({ line, points, freed }) => [line.id, { coords: points, ...freed }]))
+}
+
+/** The Plan's `detachDrawings`: one `board.edit` patch per ink line, both ends in it. */
+export function detachAnnos(annos: readonly BoardAnno[], release: Release<BoardAnno, BoardPoint>): Map<string, AnnoDetachPatch> {
+  return new Map(detachLines(annos, (a) => a.pts, release).map(({ line, points, freed }) => [line.id, { pts: points, ...freed }]))
+}
+
+/** A line with its `detachDrawings` / `detachAnnos` patch applied — the same object when it has none. */
+export function withDetach<T extends { id: string }>(line: T, released: ReadonlyMap<string, Partial<T>>): T {
+  const patch = released.get(line.id)
+  return patch ? { ...line, ...patch } : line
 }
 
 /** Body movement leaves attached endpoints fixed; every other vertex translates. */

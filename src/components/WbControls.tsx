@@ -287,7 +287,7 @@ interface CircleProps {
  * WIDTH (types · BoardAnno.radiusN), and one layer owning that conversion keeps it exact.
  *
  * Painted UNDER the ink layer on purpose: a Leitung drawn across a big cordon must win the tap,
- * the same ordering rule the Karte states (MapView · handleClick).
+ * the same ordering rule the Karte states (components/mapClick · routeMapClick).
  */
 export function WbCircleLayer({ annos, draft, sW, sH, mapY, color, selId, flashId, onPickCircle, sections }: CircleProps) {
   const W = Math.max(1, sW), H = Math.max(1, sH)

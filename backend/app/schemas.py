@@ -1386,14 +1386,15 @@ class ObjectCategoryMatch(BaseModel):
 
 class ObjectCategoryConfig(BaseModel):
     """One colour rule for «Karte & Objekte» (src/lib/karte/categories.ts). Ordered, first match
-    wins; an object no rule matches keeps the default look (red, grey without plans)."""
+    wins; an object no rule matches keeps the default look (ink, grey without plans)."""
 
     model_config = ConfigDict(extra="ignore")
     id: str = Field(min_length=1, max_length=40, pattern=r"^[a-z0-9][a-z0-9_-]*$")
     #: one string, or one per language (``{"de": "Photovoltaik", "fr": "Photovoltaïque"}``)
     label: str | dict[Literal["de", "fr", "it", "en"], str]
-    #: ``#rrggbb``
-    color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
+    #: ``#rrggbb``, or ``ink``: the default look's colour (the theme's ``--obj-plans`` — near-white
+    #: at night, near-black by day), for a category that only wants its own Ebenen row
+    color: str = Field(pattern=r"^(#[0-9a-fA-F]{6}|ink)$")
     match: ObjectCategoryMatch = Field(default_factory=ObjectCategoryMatch)
 
 
@@ -1411,7 +1412,7 @@ class MapConfig(BaseModel):
     geocoder: MapGeocoder = Field(default_factory=MapGeocoder)
     externalLinks: list[MapExternalLink] = Field(default_factory=list)
     # «Karte & Objekte»: the station's object colours (docs/karte-objekte.md · Categories). Empty
-    # = every object red, as before.
+    # = the default look for every object (ink, grey without plans).
     objectCategories: list[ObjectCategoryConfig] = Field(default_factory=list, max_length=20)
 
     @model_validator(mode="after")
@@ -2052,8 +2053,8 @@ class ModuleConfig(BaseModel):
     sub-slot — "Modul 5 - Wasser" → ``modul5-wasser`` labelled "Wasser".
 
     ``alignment`` says how this module's sheets get onto the Karte: ``auto`` — the server
-    proposes a fit for the admin to approve and the field offers «Automatisch ausrichten»;
-    ``manual`` — reference points by hand only (admin wall or field); ``none`` — the sheet is
+    proposes a fit for the admin to approve on Objektpläne (the field sets points by hand until
+    then); ``manual`` — reference points by hand only (admin wall or field); ``none`` — the sheet is
     never laid on the map. Unset = ``auto`` for modul1/modul2/modul2-3, ``none`` otherwise
     (``module_alignment`` in plan_alignment_compute is the one resolver).
     """
@@ -2418,12 +2419,6 @@ class ConfigIntegrations(BaseModel):
     traccarConfigured: bool = False
     # STT engine reachable (env stt_base_url set) — gates the player's Transkribieren button
     sttConfigured: bool = False
-    # «Automatisch ausrichten» answerable at all: the optional `georef` extra is importable AND
-    # an Overpass mirror is configured — the two things POST /api/georef/suggest fails closed on
-    # (503). Gates the chooser on the unlinked ⌖-Karte chip (lib/georefSuggest ·
-    # georefSuggestEligible); without it the chip arms the manual point flow directly, instead
-    # of offering a button whose only possible answer is an error toast.
-    autoAlignConfigured: bool = False
     # CARTO Basemaps client key. Public by design: MapLibre sends it as `?key=` on tile URLs.
     cartoBasemapKey: str | None = None
     # «Mit Microsoft anmelden» is set up (auth/microsoft · enabled) — gates the login screen's

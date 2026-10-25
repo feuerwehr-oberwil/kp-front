@@ -5,7 +5,7 @@
 // lib/report. The close runs only through `onComplete` (the one shared Abschluss confirm).
 // Rules for this area: docs/rapport.md.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { Button, IconButton } from './Button'
 import { TickRow } from './TickRow'
@@ -13,12 +13,11 @@ import { ShellLoader } from './ShellLoader'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
-import { downloadDirectReportPdf, signedPartOf, usedStackFloors, type PrintedSignature } from '../lib/reportPdfDirect'
-import { activeSignatures, sha256Hex, shortChecksum, signatureState, SIGNATURE_ROLES, type ReportSignature, type SignatureRole } from '../lib/reportSignature'
+import { downloadDirectReportPdf, signedPartOf, usedStackFloors } from '../lib/reportPdfDirect'
+import { sha256Hex, type ReportSignature } from '../lib/reportSignature'
 import { newId } from '../lib/ids'
 import { serverNowIso } from '../lib/serverClock'
-import { SignatureImage } from './SignaturePad'
-import { SignatureSheet, type SignSubmit } from './SignatureSheet'
+import type { SignSubmit } from './SignatureSheet'
 import { warmTemplates, type ChecklistState, type ChecklistTemplate } from '../lib/checklists'
 import { downloadUrl } from '../lib/download'
 import { thumbUrl } from '../lib/mediaUrl'
@@ -31,7 +30,7 @@ import { KrokiFramingPanel } from './KrokiFramingPanel'
 import { ShareIncident } from './panels/ShareIncident'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate, hhmm, dtLocalValue, dtLocalToIso, stripUnprintable, telHref, unitLabel } from '../lib/format'
-import { closeTimeOf, getIncident, verifyChain, type IncidentMeta } from '../lib/incidents'
+import { closeTimeOf, getIncident, type IncidentMeta } from '../lib/incidents'
 import type { FahrzeugZeit, GruppeZeit, PartnerContact, ReportMeta } from '../lib/workspace'
 import { deriveAusgerueckt, fahrzeugRows, gruppenRows, setFahrzeugZeit, setGruppeZeit, zeitFromClock, zeitIssues } from '../lib/alarmzeiten'
 import { fahrtenText } from '../lib/vehiclePresence'
@@ -41,14 +40,12 @@ import type { AssignableRole } from '../lib/roleAssignment'
 import { deploymentName, getDeploymentConfig, reportLinks } from '../lib/deploymentConfig'
 import { addPartnerOrg, partnerOrgOffer, partnerOrgsFromLage } from '../lib/partnerOrgs'
 import { linkTokenValues, resolveLinkUrl, type ReportLink } from '../lib/reportLinks'
-import { activityMoments, loadReplay, stateAt, vehiclesAt, type ReplayBundle } from '../lib/replay'
-import { autoRotation, vehicleSymbolSvg } from '../lib/useVehiclePositions'
-import type { AuditProof, ReportDraft, ReportOptions } from '../lib/report'
+import type { ReportDraft, ReportOptions } from '../lib/report'
 import {
-  defaultReportOptions, einsatzleiterFromScene, formatDateTime, hasVisiblePlanAnnotation, missingTranscriptCount, pendenzRows, proofLabel,
+  defaultReportOptions, formatDateTime, hasVisiblePlanAnnotation, missingTranscriptCount, pendenzRows, proofLabel,
 } from '../lib/report'
 import { TAFEL_ID, findForms } from '../lib/boardForm'
-import { abschlussFacts, missingSteps, stepDone, type AbschlussFacts, type AbschlussStep } from '../lib/abschluss'
+import { abschlussFacts, missingSteps, stepDone, type AbschlussFacts } from '../lib/abschluss'
 import { controlChipLabel } from '../lib/abschlussOpen'
 import { hoursRows, unresolvedHoursRows } from '../lib/attendanceHours'
 import { openConflicts, sideLabel, sideValue, type OpenConflict } from '../lib/attendanceConflict'
@@ -64,6 +61,14 @@ import { CaptureUsageChip, type CaptureUsage } from './CaptureUsageChip'
 import { DateTimeField, TimeField } from './TimeField'
 import { Stepper } from './Stepper'
 import { Menu, Popover } from '../lib/overlays'
+import { CheckRow } from './ReportCheckRow'
+import { dirtyFormMeta, formToMeta, geretteteMeta, numOrU, partnerFilled, partnersMeta, remoteForm, rueckMeta, type ReportForm } from './reportForm'
+import { normCount, normDtLocal, normList, normPartners, normText, useBlurTick, useSyncedField } from './useSyncedField'
+import { ReportSignatures } from './ReportSignatures'
+import { printedSignatures, useSignatureLock } from './useReportSignatures'
+import { useAuditProof } from './useAuditProof'
+import { initialKrokiAt, useKrokiMoment } from './useKrokiMoment'
+import { PHONE_TABS, STEP_TAB, rapportKept, useReportPlace, type PhoneTab } from './useReportPlace'
 
 const NO_IDS = new Set<string>()
 const NO_SIGNATURES: ReportSignature[] = []
@@ -73,106 +78,8 @@ const NO_SIGNATURES: ReportSignature[] = []
  *  title says what the nav calls this page, «Rapport». */
 const RP_FOLD = { complete: 1, chip: 2, pdf: 3, title: 4 } as const
 
-/**
- * «Zeig mir diese offene Angabe» — asked from OUTSIDE the sheet.
- *
- * The Abschluss confirm lists the same Mindestangaben the head's «noch offen» chips do, and
- * since 18.09.2026 its rows are tappable too (lib/abschlussOpen). But it also opens from the
- * Einsatz-Menü, where this surface is not mounted at all — so the ask has to survive the
- * `setMode('rapport')` that follows it. One live listener while the sheet stands, one queued
- * step while it does not; whichever answers, `jumpToStep` does the rest.
- */
-let stepListener: ((step: AbschlussStep) => void) | null = null
-const queuedStep: { current: AbschlussStep | null } = { current: null }
-export function requestReportStep(step: AbschlussStep) {
-  if (stepListener) stepListener(step)
-  else queuedStep.current = step
-}
-
-/** Does this partner row say anything at all? Blank rows live on screen and never reach the blob. */
-const partnerFilled = (p: PartnerContact) => [p.org, p.name, p.phone, p.note].some((v) => v?.trim())
-
-/** A typed count as the blob stores it — «», «3 », «-1» and «abc» all mean «nichts eingetragen». */
-const numOrU = (s: string): number | undefined => {
-  const n = Number(s)
-  return s.trim() !== '' && Number.isFinite(n) && n >= 0 ? Math.round(n) : undefined
-}
-
-// --- Rapportangaben that BOTH sides write ----------------------------------------------------
-//
-// The Rapport is not a dialog: it is opened early in an Einsatz and left open for hours, while
-// the workspace syncs every few seconds and the Einsatzleiter fills in the same sheet on the
-// iPad next to it. Every field below used to be seeded from `reportMeta` ONCE, at mount, and
-// then ignored the prop for the rest of the Einsatz — so the form showed the state it opened
-// on, and (the real damage) wrote all fifteen of those stale values back into the blob on the
-// next keystroke in any one of them. A Kurzbericht typed on the iPad was gone the moment
-// somebody touched the Bemerkung on the laptop. «Der Einsatzrapport synchronisiert nicht.»
-//
-// `useSyncedField` is the three-way merge that replaces the seeding. Two rules, and they are
-// the same rule seen from both ends:
-//   • what this operator did NOT touch follows the blob (adoption), and
-//   • what this operator DID touch is all this device is allowed to write back (`dirty`).
-//
-/** Which synced field the caret is in, by the `data-sync` marker on its wrapper — `null` when
- *  the focus is anywhere else on the sheet. One attribute per field beats an onFocus/onBlur pair
- *  on every input, half of which are custom components that forward neither. */
-const focusedSyncField = (): string | null => {
-  const el = typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null)
-  return el?.closest?.('[data-sync]')?.getAttribute('data-sync') ?? null
-}
-
-/** Canonical forms. A round trip through the LOCAL shape must not read as a change — a
- *  Kurzbericht is trimmed on the way to the blob, `dtLocalValue` drops the seconds off an ISO
- *  stamp, a Stepper writes «3» where the blob holds 3 — and a field that looks edited because
- *  of one of those would clobber the blob exactly as before. */
-const normText = (v: string) => v.trim()
-const normDtLocal = (v: string) => dtLocalToIso(v) ?? ''
-const normCount = (v: string) => String(numOrU(v) ?? '')
-const normList = (v: unknown[]) => JSON.stringify(v)
-/** blank partner rows live on screen and never reach the blob, so they are not a change either */
-const normPartners = (v: PartnerContact[]) => JSON.stringify(v.filter(partnerFilled))
-
-/**
- * One Rapportangabe, merged with whatever the other devices have made of it.
- *
- * @param name    the field's `data-sync` marker — how «is the caret in here right now» is asked
- * @param remote  what the blob says, already in this field's LOCAL shape (dtLocal string, list,
- *                «» for absent), so the two sides are comparable at all
- * @param norm    the field's canonical form (see above)
- * @param tick    bumped on every focus move inside the sheet, so an adoption that was held back
- *                for the caret is retried the moment the field is left
- *
- * ⚠️ Nothing is ever yanked out from under a typing operator: while the field has the caret the
- * remote value waits, and the field stays CLEAN while it waits — so what this device saves is
- * the blob's value, not the stale text still on screen. `dirty` is exactly what the save may
- * carry (see dirtyMeta), and it clears itself the moment the write lands back in `reportMeta`.
- */
-function useSyncedField<T>(
-  name: string, remote: T, norm: (v: T) => string, tick: number,
-): readonly [T, (next: T) => void, boolean] {
-  const [value, setValue] = useState(remote)
-  const [dirty, setDirty] = useState(false)
-  const rn = norm(remote)
-  const ln = norm(value)
-  useEffect(() => {
-    // In sync — which is also how a local edit stops being dirty: every field here persists on
-    // change and the workspace echoes the write straight back, so one render later the blob
-    // says what the operator typed and this device has nothing left of its own to defend.
-    if (rn === ln) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- the write landed; nothing to defend
-      if (dirty) setDirty(false)
-      return
-    }
-    if (dirty) return                        // this operator's edit is the newer one — it stands
-    if (focusedSyncField() === name) return  // …or is being typed right now: adopt on blur (tick)
-    setValue(remote)                         // adoption: the blob moved, an untouched field follows
-    // `remote` itself is deliberately not a dep — it is compared through `norm`, so a new array
-    // identity that says the same thing must not re-run this.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rn, ln, dirty, tick, name])
-  const set = (next: T) => { setDirty(true); setValue(next) }
-  return [value, set, dirty] as const
-}
+// «Zeig mir diese offene Angabe» from outside the sheet — lives with the tabs (useReportPlace)
+export { requestReportStep } from './useReportPlace'
 
 /** HH:MM display value for the compact time inputs of the Zeiten grid. */
 function clockOf(iso?: string): string {
@@ -180,32 +87,6 @@ function clockOf(iso?: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return ''
   return hhmm(d)
-}
-
-function CheckRow({ done, label, sub, onGo, anchor, tab, children }: {
-  done: boolean
-  label: string
-  sub: string
-  onGo?: () => void
-  /** the Abschluss step this row answers — the «noch offen» chips scroll to it (see jumpToStep) */
-  anchor?: string
-  /** which phone tab this row belongs to — inert above 600px (see PhoneTab) */
-  tab?: PhoneTab
-  children?: ReactNode
-}) {
-  return (
-    <div className="rp-check" data-step={anchor} data-tab={tab}>
-      <button type="button" className="rp-check-main" onClick={onGo} disabled={!onGo}>
-        <span className={`rp-check-dot${done ? ' done' : ''}`}>
-          <Icon id={done ? 'check' : 'minus'} />
-        </span>
-        <span className="rp-check-label">{label}</span>
-        <span className="rp-check-sub">{sub}</span>
-        {onGo && <Icon id="chevron" className="rp-check-go" />}
-      </button>
-      {children}
-    </div>
-  )
 }
 
 /** A recorded value on a Rapport this session cannot change – a viewer, a view link, a closed
@@ -219,66 +100,8 @@ function ReadOut({ value }: { value?: string | null }) {
 }
 
 
-/**
- * PHONE ONLY (≤600px, the width at which the rail becomes a bottom bar and every other surface
- * switches too). Stacked, this page is four form sections, a five-part round-up and the Kroki —
- * about five phone screens, and the Anwesenheits-Liste read out at the Appell sits at the far
- * end of them. Three tabs put each of those within one screen.
- *
- * ⚠️ It decides what is SHOWN, never the order: the DOM stays in the printed rapport's order
- * (app/report / admin/capturePdf.ts), and from 601px up the bar is `display: none` and every
- * section is on screen exactly as it is today — the two-column layout at 1080 is untouched.
- *
- * ⚠️ THREE, and only three. Anwesenheit and Material were tried as two more tabs here
- * (18.09.2026) and thrown out the same day: this surface already carries a head, a tab strip and
- * a page, and mounting a whole other surface — with ITS head and ITS own switcher — under the
- * strip stacked three navigations on top of each other. They are separate pages again, reached
- * from the bar's «Rapport» tile and its chooser (NavRail · GroupChooser) and from the rail.
- */
-type PhoneTab = 'bericht' | 'werwas' | 'beilagen'
-const PHONE_TABS: PhoneTab[] = ['bericht', 'werwas', 'beilagen']
-/** Which tab a still-open Mindestangabe lives in — the head's «noch offen» chips switch to it
- *  before they scroll, and the tab itself carries a dot while one of its steps is open. */
-const STEP_TAB: Record<AbschlussStep, PhoneTab> = {
-  zeiten: 'bericht',
-  einsatzleiter: 'bericht',
-  kontaktperson: 'bericht',
-  kurzbericht: 'bericht',
-  rueckmeldung: 'bericht',
-  anwesenheit: 'werwas',
-  mittel: 'werwas',
-  // an Anwesenheits-Abweichung is about who was there — it rides with the Anwesenheit it is about
-  abweichungen: 'werwas',
-}
-
-// The preflight UNMOUNTS while the operator hops to Anwesenheit / Mittel / Verlauf («Zurück
-// zum Einsatzrapport» remounts it) — remember the body's scroll position per incident so the
-// return lands where they left off, not back at the top. A deliberate close (X / overlay /
-// Abbrechen / Abschliessen) resets it, so a later fresh open starts at the top again.
-// ⚠️ The phone TAB rides in the same box and for the same reason: the Appell is «Rapport →
-// Personal & Mittel → hop to Anwesenheit to correct → back», and a return that landed on «Bericht»
-// would cost a tap on every single round trip. A genuinely fresh open — another Einsatz, or
-// after Abschliessen — still starts on «Bericht».
-// ⚠️ …and so does WHAT WILL PRINT: the print-section toggles (incl. the Kroki's Quer/Hoch and
-// its framing) plus the chosen Kroki-Stand. Switching «Einsatzjournal» off, hopping to
-// Anwesenheit to fix a name and coming back put every section silently back on — on the one
-// surface that decides what leaves the building, and with the choice buried in the ▾ menu where
-// nobody would notice it had been undone.
-// Only the operator's OWN changes are kept (`optionOverrides`, a patch — see patchOpt), never
-// the whole options object: the seeds `kroki` / `atemschutz` follow the LIVE
-// data, and a remembered `kroki: false` from a Rapport opened before anything was drawn would
-// have dropped the Lageskizze from the sheet for the rest of the Einsatz.
-// (a mutated `.current` box, not a reassigned binding — the react-compiler lint forbids
-// reassigning module variables inside the component)
-const savedScroll: {
-  current: { incidentId: string; top: number; tab: PhoneTab; optionOverrides: Partial<ReportOptions>; krokiAt: number | null } | null
-} = { current: null }
-
-/** What the box holds for THIS Einsatz, or null — another incident always starts fresh. */
-const keptFor = (incidentId: string) => (savedScroll.current?.incidentId === incidentId ? savedScroll.current : null)
-
-// «Später» on the Abschluss-Band, per incident. Same kind of box as savedScroll and for the same
-// reason — the surface unmounts on every hop to Anwesenheit/Mittel/Verlauf, and a dismissal that
+// «Später» on the Abschluss-Band, per incident. Same kind of box as the kept place (useReportPlace ·
+// rapportKept) and for the same reason — the surface unmounts on every hop to Anwesenheit/Mittel/Verlauf, and a dismissal that
 // did not survive that would put the band back on screen two taps later. Deliberately NOT in the
 // workspace blob and NOT on disk: it is one operator postponing one decision on one device, and a
 // «Später» that outlived a reload would turn the only surface that says «dieser Einsatz ist noch
@@ -399,19 +222,10 @@ export function ReportPreflight({
   onVoidSignatures?: () => void
 }) {
   // ── Unterschriften (15.10.2026) ──────────────────────────────────────────────────────────
-  // The signed part's hash as it stands NOW (computed below, once `meta` exists — this state
-  // carries it to the top, where the lock has to be known before anything uses `canEdit`).
-  const [scopeHash, setScopeHash] = useState<string | undefined>()
+  // The lock has to be known up here, before anything uses `canEdit` (useSignatureLock); the
+  // signed part's hash it checks against is computed below, once `meta` exists (setScopeHash).
   const closedAt = closeTimeOf(incident)
-  const liveSigs = useMemo(() => {
-    const a = activeSignatures(reportSignatures)
-    // made before the latest close = a signature of a Rapport that has since been reopened
-    for (const r of SIGNATURE_ROLES) if (a[r] && closedAt && a[r]!.at < closedAt) delete a[r]
-    return a
-  }, [reportSignatures, closedAt])
-  const sigValid = (r: SignatureRole) => !!liveSigs[r] && signatureState(liveSigs[r]!, scopeHash) === 'valid'
-  /** signed and still valid: the form is read-only until somebody chooses «Ändern» */
-  const signedLock = closed && SIGNATURE_ROLES.some(sigValid)
+  const { liveSigs, sigValid, signedLock, setScopeHash } = useSignatureLock(reportSignatures, closedAt, closed)
   const canEdit = canEditIn && !signedLock
 
   // Defaults follow the data: a rapport-only incident (nothing drawn) prints without the
@@ -448,6 +262,9 @@ export function ReportPreflight({
     warmTemplates().list.then((l) => { if (alive) setChecklistTemplates(l) }, () => {})
     return () => { alive = false }
   }, [checklists])
+  // what this Einsatz's Rapport looked like when it was last left (useReportPlace · rapportKept),
+  // read once: every seed below that it carries is a mount-time seed
+  const [kept] = useState(() => rapportKept.read(incident.id))
   const [options, setOptions] = useState<ReportOptions>(() => ({
     ...defaultReportOptions,
     kroki: mapContentCount > 0,
@@ -466,52 +283,20 @@ export function ReportPreflight({
     // remembered choice still wins — this is only what an unframed rapport starts from.
     krokiLandscape: reportMeta.krokiPrint?.landscape ?? false,
     // …and LAST, so the operator's own picks beat every seed above them: what was chosen before
-    // the hop to Anwesenheit/Mittel is what this Einsatz still prints (see savedScroll).
-    ...(keptFor(incident.id)?.optionOverrides ?? {}),
+    // the hop to Anwesenheit/Mittel is what this Einsatz still prints (see rapportKept).
+    ...(kept?.optionOverrides ?? {}),
   }))
   // The deviations from those seeds — the patch, not the result. Kept across the unmount so a
   // remount re-reads the live data (a Lage drawn in the meantime turns `kroki` back on) and then
   // re-applies what the operator actually decided.
-  const optionOverrides = useRef<Partial<ReportOptions>>(keptFor(incident.id)?.optionOverrides ?? {})
+  const optionOverrides = useRef<Partial<ReportOptions>>(kept?.optionOverrides ?? {})
 
-  // Every focus move inside the sheet, counted. An adoption held back because the caret was in
-  // the field (see useSyncedField) has to be retried when the operator leaves it, and «the field
-  // was left» is not a prop change — nothing else would re-run the effect. Both halves of the
-  // move are counted because `focusout` fires BEFORE the next element has the focus, so the
-  // reading taken on the way out can still name the field being left.
-  const [blurTick, setBlurTick] = useState(0)
-  useEffect(() => {
-    const moved = (e: FocusEvent) => {
-      if ((e.target as HTMLElement | null)?.closest?.('[data-sync]')) setBlurTick((t) => t + 1)
-    }
-    document.addEventListener('focusin', moved)
-    document.addEventListener('focusout', moved)
-    return () => {
-      document.removeEventListener('focusin', moved)
-      document.removeEventListener('focusout', moved)
-    }
-  }, [])
+  // Every focus move inside the sheet, counted (useSyncedField · useBlurTick).
+  const blurTick = useBlurTick()
 
-  // What the BLOB says, field by field, in the shape each field holds it in on screen. This
-  // block is the mapping the old seeding did once at mount and never again; it is read on every
-  // render now, and `useSyncedField` decides per field whether the screen follows it.
-  const remoteSummary = reportMeta.summary ?? ''
-  const remoteKontaktperson = reportMeta.kontaktperson ?? ''
-  const remoteKontaktTel = reportMeta.kontaktpersonTelefon ?? ''
-  // ⚠️ The Kroki fallback belongs in here, not beside it: it is what an EMPTY blob shows, so a
-  // field sitting on the seeded name is in agreement with the blob and must not count as an edit
-  // this device has to defend (that is what `seededEinsatzleiter` below persists, once).
-  const remoteEinsatzleiter = reportMeta.einsatzleiter ?? einsatzleiterFromScene(scene?.entities) ?? ''
-  const remoteEndedAt = dtLocalValue(reportMeta.endedAt ?? closeTimeOf(incident) ?? undefined)
-  const remoteAusgerueckt = dtLocalValue(reportMeta.ausgeruecktAt)
-  const remoteRemarks = reportMeta.remarks ?? ''
-  const remoteLehren = reportMeta.lehren ?? ''
-  const remoteGruppen = reportMeta.gruppen ?? []
-  const remoteFahrzeuge = reportMeta.fahrzeuge ?? []
-  const remoteGeretteteP = reportMeta.gerettete?.personen?.toString() ?? ''
-  const remoteGeretteteT = reportMeta.gerettete?.tiere?.toString() ?? ''
-  const remoteRueckName = reportMeta.rueckmeldungElz?.name ?? ''
-  const remoteRueckAt = reportMeta.rueckmeldungElz?.at ?? ''
+  // What the BLOB says, field by field, in the shape each field holds it in on screen
+  // (reportForm · remoteForm); `useSyncedField` decides per field whether the screen follows it.
+  const remote = remoteForm(reportMeta, scene?.entities, incident)
   const remotePartners = reportMeta.partnerContacts ?? []
 
   // Partnerorganisationen. The field existed in the model and PRINTED for months, but nothing
@@ -527,58 +312,27 @@ export function ReportPreflight({
     if (!canEdit) return
     setPartners(next)
     // an all-empty row is nothing to record — dropped on the way to the blob, kept on screen
-    const clean = next.filter(partnerFilled)
-    persist({ partnerContacts: clean.length ? clean : undefined })
+    persist(partnersMeta(next))
   }
   const patchPartner = (i: number, over: Partial<PartnerContact>) =>
     savePartners(partners.map((p, j) => (j === i ? { ...p, ...over } : p)))
-  // WHEN the printed Kroki shows. The live picture is the default and the common case; a past
-  // instant is what makes a rapport able to show the Rettung that has since left, or the moment
-  // the Lage was at its worst. Reconstructed locally from the event journal (lib/replay), the
-  // same fold the Wiedergabe uses — so the paper and the replay can never disagree.
-  // …and it survives the round trip to Anwesenheit/Mittel with the print options (savedScroll):
-  // a Stand picked by hand is a choice about the sheet, exactly like the sections are.
-  const [krokiAt, setKrokiAt] = useState<number | null>(() => {
-    const kept = keptFor(incident.id)
-    if (kept) return kept.krokiAt
-    return reportMeta.krokiPrint?.at ? Date.parse(reportMeta.krokiPrint.at) || null : null
+  // WHEN the printed Kroki shows (useKrokiMoment). It survives the round trip to
+  // Anwesenheit/Mittel with the print options (rapportKept): a Stand picked by hand is a choice
+  // about the sheet, exactly like the sections are.
+  /** Is there anything to frame? A rapport-only Einsatz (nothing drawn, nothing placed) seeds
+   *  the Kroki section OFF and must not show an empty map pretending to be a picture — and
+   *  switching the section off by hand means the same thing: nothing is going on the paper. */
+  const krokiPanel = options.kroki && mapContentCount > 0 && !!scene
+  const kroki = useKrokiMoment({
+    incidentId: incident.id,
+    startedAt: reportMeta.startedAt ?? incident.started_at,
+    initialAt: initialKrokiAt(kept, reportMeta.krokiPrint?.at),
+    shown: krokiPanel,
+    events,
   })
-  const [pastScene, setPastScene] = useState<{ entities: Entity[]; drawings: Drawing[] } | null>(null)
-  const [krokiAtBusy, setKrokiAtBusy] = useState(false)
-  // WHEN anything happened, for the Stand slider's tick marks. Derived from the SAME source the
-  // replay bar uses, so the two surfaces cannot disagree about where the Einsatz has substance:
-  // the recorded actions plus the Verlauf rows that carry an absolute time.
-  const [auditMoments, setAuditMoments] = useState<number[]>([])
-  const bundleRef = useRef<ReplayBundle | null>(null)
-  useEffect(() => {
-    if (krokiAt == null) { setPastScene(null); return }
-    let alive = true
-    setKrokiAtBusy(true)
-    void (async () => {
-      try {
-        const startMs = Date.parse(meta.startedAt ?? incident.started_at)
-        bundleRef.current ??= await loadReplay(incident.id, startMs, Date.now())
-        const ws = await stateAt(bundleRef.current, krokiAt)
-        if (!alive) return
-        // vehicles come from the recorded GPS samples, like the Wiedergabe draws them
-        const vehicles: Entity[] = vehiclesAt(bundleRef.current.samples, krokiAt).map((v) => ({
-          id: `replay-veh-${v.deviceId}`, kind: 'vehicle', layer: appConfig.gps.layerId,
-          coord: v.coord, symbolSvg: vehicleSymbolSvg(String(v.deviceId), autoRotation(v.course), v.course != null),
-          label: `Fahrzeug ${v.deviceId}`, live: true, directed: v.course != null,
-        }))
-        setPastScene({ entities: [...(ws?.entities ?? []), ...vehicles], drawings: ws?.drawings ?? [] })
-      } catch {
-        if (alive) { setPastScene(null); toast(P.krokiAtFailed, { icon: 'warn', tone: 'warn' }) }
-      } finally {
-        if (alive) setKrokiAtBusy(false)
-      }
-    })()
-    return () => { alive = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- incident/meta are stable per sheet
-  }, [krokiAt])
 
   /** the Lage the printed Kroki is built from: the reconstructed one when a moment is chosen */
-  const effScene = pastScene && scene ? { ...scene, entities: pastScene.entities, drawings: pastScene.drawings } : scene
+  const effScene = kroki.pastScene && scene ? { ...scene, entities: kroki.pastScene.entities, drawings: kroki.pastScene.drawings } : scene
 
   const presetOrgs = getDeploymentConfig().report?.partnerOrgs ?? []
   /** One row per organisation: the station's list (ticked or not), then any recorded org that is
@@ -613,8 +367,7 @@ export function ReportPreflight({
     addPartner(partnerDraft)
     setPartnerDraft('')
   }
-  const [proof, setProof] = useState<AuditProof>({ intact: null, checkedAt: new Date().toISOString(), offline: true })
-  const [checking, setChecking] = useState(true)
+  const { proof, checking } = useAuditProof(incident.id)
   // the alarm text auto-fills from the incident's dispatch text when none was typed in the
   // Einsatzdaten panel — display + print fallback only, never persisted into the report blob.
   const [alarmFallback, setAlarmFallback] = useState('')
@@ -623,24 +376,24 @@ export function ReportPreflight({
   // live (see persist) so nothing is lost if the sheet is closed — and every field follows the
   // blob while this operator is not editing it (see useSyncedField), because the same sheet is
   // open on the Einsatzleiter's iPad.
-  const [summary, setSummary, summaryDirty] = useSyncedField('summary', remoteSummary, normText, blurTick)
-  const [kontaktperson, setKontaktperson, kontaktpersonDirty] = useSyncedField('kontaktperson', remoteKontaktperson, normText, blurTick)
-  const [kontaktTel, setKontaktTel, kontaktTelDirty] = useSyncedField('kontaktTel', remoteKontaktTel, normText, blurTick)
+  const [summary, setSummary, summaryDirty] = useSyncedField('summary', remote.summary, normText, blurTick)
+  const [kontaktperson, setKontaktperson, kontaktpersonDirty] = useSyncedField('kontaktperson', remote.kontaktperson, normText, blurTick)
+  const [kontaktTel, setKontaktTel, kontaktTelDirty] = useSyncedField('kontaktTel', remote.kontaktTel, normText, blurTick)
   // Seeded from the Kroki when the Rapport has none of its own: the EL was already named on the
   // map (Einsatzleiter glyph / KP Front), so typing it a second time is pure duplication. A
   // pre-fill only — the picker stays editable and the typed value wins from then on.
-  const [einsatzleiter, setEinsatzleiter, einsatzleiterDirty] = useSyncedField('einsatzleiter', remoteEinsatzleiter, normText, blurTick)
-  const [endedAt, setEndedAt, endedAtDirty] = useSyncedField('endedAt', remoteEndedAt, normDtLocal, blurTick)
-  const [ausgerueckt, setAusgerueckt, ausgeruecktDirty] = useSyncedField('ausgerueckt', remoteAusgerueckt, normDtLocal, blurTick)
-  const [remarks, setRemarks, remarksDirty] = useSyncedField('remarks', remoteRemarks, normText, blurTick)
-  const [lehren, setLehren, lehrenDirty] = useSyncedField('lehren', remoteLehren, normText, blurTick)
+  const [einsatzleiter, setEinsatzleiter, einsatzleiterDirty] = useSyncedField('einsatzleiter', remote.einsatzleiter, normText, blurTick)
+  const [endedAt, setEndedAt, endedAtDirty] = useSyncedField('endedAt', remote.endedAt, normDtLocal, blurTick)
+  const [ausgerueckt, setAusgerueckt, ausgeruecktDirty] = useSyncedField('ausgerueckt', remote.ausgerueckt, normDtLocal, blurTick)
+  const [remarks, setRemarks, remarksDirty] = useSyncedField('remarks', remote.remarks, normText, blurTick)
+  const [lehren, setLehren, lehrenDirty] = useSyncedField('lehren', remote.lehren, normText, blurTick)
   // Alarmierungs-/Ausrückzeiten grid (G1/G2) + the paper-form Details fields (G4).
   // Grid rows come from deployment config (empty config = grid hidden); values are
   // prefilled by the milestone webhook, edits here stamp `manual` (human beats machine).
-  const [gruppen, setGruppen, gruppenDirty] = useSyncedField<GruppeZeit[]>('gruppen', remoteGruppen, normList, blurTick)
-  const [fahrzeuge, setFahrzeuge, fahrzeugeDirty] = useSyncedField<FahrzeugZeit[]>('fahrzeuge', remoteFahrzeuge, normList, blurTick)
-  const [geretteteP, setGeretteteP, gerettetePDirty] = useSyncedField('geretteteP', remoteGeretteteP, normCount, blurTick)
-  const [geretteteT, setGeretteteT, geretteteTDirty] = useSyncedField('geretteteT', remoteGeretteteT, normCount, blurTick)
+  const [gruppen, setGruppen, gruppenDirty] = useSyncedField<GruppeZeit[]>('gruppen', remote.gruppen, normList, blurTick)
+  const [fahrzeuge, setFahrzeuge, fahrzeugeDirty] = useSyncedField<FahrzeugZeit[]>('fahrzeuge', remote.fahrzeuge, normList, blurTick)
+  const [geretteteP, setGeretteteP, gerettetePDirty] = useSyncedField('geretteteP', remote.geretteteP, normCount, blurTick)
+  const [geretteteT, setGeretteteT, geretteteTDirty] = useSyncedField('geretteteT', remote.geretteteT, normCount, blurTick)
   // ── «Auf der Lage» — the Gerettete already standing on the map, offered into the fields ──
   // Same shape as the Material surface's «Gesetzt, aber nicht erfasst» strip: it states what it
   // read and where, one tap fills both fields, and nothing is ever written on its own. The
@@ -666,27 +419,12 @@ export function ReportPreflight({
   // (not memoised: one pass over the already-memoised symbols, and `presetOrgs` is a fresh array
   // on every render anyway — a useMemo here would recompute each time AND lie about it)
   const partnerHint = canEdit ? partnerOrgOffer(partnerOrgsFromLage(placedOnLage, presetOrgs), partners) : null
-  const [rueckName, setRueckName, rueckNameDirty] = useSyncedField('rueckName', remoteRueckName, normText, blurTick)
+  const [rueckName, setRueckName, rueckNameDirty] = useSyncedField('rueckName', remote.rueckName, normText, blurTick)
   // ⚠️ The full ISO, not an HH:MM. The Rückmeldung an die ELZ is regularly given after
   // midnight, or the morning after on a long Einsatz, and a bare clock had to guess which
   // day it meant (applyTimeToIso rolled it forward past the start). The Einsatzende beside
   // it has always asked for a date; this is the same question and now asks it the same way.
-  const [rueckAt, setRueckAt, rueckAtDirty] = useSyncedField('rueckAt', remoteRueckAt, normText, blurTick)
-
-  useEffect(() => {
-    let alive = true
-    verifyChain(incident.id)
-      .then((r) => {
-        if (!alive) return
-        setProof({ intact: r.intact, brokenAtSeq: r.broken_at_seq, count: r.count, head: r.head, checkedAt: new Date().toISOString() })
-      })
-      .catch(() => {
-        if (!alive) return
-        setProof({ intact: null, checkedAt: new Date().toISOString(), offline: true })
-      })
-      .finally(() => { if (alive) setChecking(false) })
-    return () => { alive = false }
-  }, [incident.id])
+  const [rueckAt, setRueckAt, rueckAtDirty] = useSyncedField('rueckAt', remote.rueckAt, normText, blurTick)
 
   useEffect(() => {
     if (reportMeta.alarmText) return
@@ -702,87 +440,28 @@ export function ReportPreflight({
   const derivedAus = deriveAusgerueckt(fahrzeuge)
 
   const rueckIso = rueckAt || undefined
-  const geretteteOver = (p: string, t: string): Partial<ReportMeta> => ({
-    gerettete: numOrU(p) !== undefined || numOrU(t) !== undefined
-      ? { personen: numOrU(p), tiere: numOrU(t) } : undefined,
-  })
-  // The Rückmeldung is often given LATER than it happened — «ah, die ELZ hab ich gestern um
-  // 23:40 informiert» — so it carries a DATE, like the Einsatzende above it. It used to be a
-  // bare clock with an optional day chip, which could only offer the incident's own days and
-  // defaulted to rolling the time forward past the start; a Rückmeldung given the next morning
-  // was filed on the night of the fire, on the one field that records when the ELZ was told.
-  const rueckOver = (name: string, iso: string): Partial<ReportMeta> => {
-    const at = iso || undefined
-    return { rueckmeldungElz: name.trim() || at ? { name: name.trim() || undefined, at } : undefined }
+  const form: ReportForm = {
+    summary, kontaktperson, kontaktTel, einsatzleiter, endedAt, ausgerueckt, remarks, lehren,
+    gruppen, fahrzeuge, geretteteP, geretteteT, rueckName, rueckAt,
   }
-  /** The form AS IT STANDS ON SCREEN, for everything that reads the rapport rather than writes
-   *  it: the head's «noch offen», the Abschluss-Checkliste, the printed draft. It is not what
-   *  gets SAVED (that is `dirtyMeta` — this device may only write what it changed): an
-   *  Einsatzende typed a second ago has to count here without a round trip, and a field still
-   *  holding a value the blob has moved on from prints what the operator is looking at. */
-  const editedMeta = (): Partial<ReportMeta> => ({
-    summary: summary.trim() || undefined,
-    kontaktperson: kontaktperson.trim() || undefined,
-    kontaktpersonTelefon: kontaktTel.trim() || undefined,
-    einsatzleiter: einsatzleiter.trim() || undefined,
-    endedAt: dtLocalToIso(endedAt),
-    ausgeruecktAt: derivedAus ?? dtLocalToIso(ausgerueckt),
-    remarks: remarks.trim() || undefined,
-    lehren: lehren.trim() || undefined,
-    gruppen: gruppen.length ? gruppen : undefined,
-    fahrzeuge: fahrzeuge.length ? fahrzeuge : undefined,
-    gerettete: numOrU(geretteteP) !== undefined || numOrU(geretteteT) !== undefined
-      ? { personen: numOrU(geretteteP), tiere: numOrU(geretteteT) } : undefined,
-    rueckmeldungElz: rueckName.trim() || rueckIso ? { name: rueckName.trim() || undefined, at: rueckIso } : undefined,
-  })
-
+  /** The form AS IT STANDS ON SCREEN (reportForm · formToMeta), for everything that reads the
+   *  rapport rather than writes it. It is not what gets SAVED: that is `dirtyMeta`. */
+  const editedMeta = () => formToMeta(form)
   /**
-   * What THIS device is entitled to write: the fields its operator actually changed and whose
-   * change has not landed in the blob yet. Everything else is left to pass through from the
-   * latest `reportMeta`.
-   *
-   * ⚠️ This used to be `editedMeta()` — all fifteen fields, every time, out of state that was
-   * seeded at mount and never refreshed. So a device that had the Rapport open wrote its own
-   * half-hour-old idea of every field back on the next keystroke in any one of them, and the
-   * Kurzbericht the Einsatzleiter had just typed on the iPad was gone. A field is in here only
-   * while `useSyncedField` says the operator moved it, which also means a field they are
-   * currently TYPING in but have not changed (the caret holds off its adoption) is deliberately
-   * absent: what leaves this device is the blob's value, not the stale text still on screen.
+   * What THIS device is entitled to write (reportForm · dirtyFormMeta): the fields its operator
+   * actually changed and whose change has not landed in the blob yet. A field they are currently
+   * TYPING in but have not changed (the caret holds off its adoption) is deliberately absent:
+   * what leaves this device is the blob's value, not the stale text still on screen.
    */
-  const dirtyMeta = (): Partial<ReportMeta> => {
-    const out: Partial<ReportMeta> = {}
-    if (summaryDirty) out.summary = summary.trim() || undefined
-    if (kontaktpersonDirty) out.kontaktperson = kontaktperson.trim() || undefined
-    if (kontaktTelDirty) out.kontaktpersonTelefon = kontaktTel.trim() || undefined
-    if (einsatzleiterDirty) out.einsatzleiter = einsatzleiter.trim() || undefined
-    if (endedAtDirty) out.endedAt = dtLocalToIso(endedAt)
-    // The header «Ausgerückt» is derived from the vehicle grid the moment it holds anything, so
-    // a change to either side is a change to this one stamp (see derivedAus).
-    if (ausgeruecktDirty || fahrzeugeDirty) out.ausgeruecktAt = derivedAus ?? dtLocalToIso(ausgerueckt)
-    if (remarksDirty) out.remarks = remarks.trim() || undefined
-    if (lehrenDirty) out.lehren = lehren.trim() || undefined
-    if (gruppenDirty) out.gruppen = gruppen.length ? gruppen : undefined
-    if (fahrzeugeDirty) out.fahrzeuge = fahrzeuge.length ? fahrzeuge : undefined
-    // ⚠️ Two fields, ONE blob key — so an untouched half is taken from the blob rather than from
-    // this device's copy of it: writing `gerettete` because the Tiere moved must not put back
-    // the Personen count another device corrected in the meantime.
-    if (gerettetePDirty || geretteteTDirty) {
-      const p = numOrU(gerettetePDirty ? geretteteP : remoteGeretteteP)
-      const t = numOrU(geretteteTDirty ? geretteteT : remoteGeretteteT)
-      out.gerettete = p !== undefined || t !== undefined ? { personen: p, tiere: t } : undefined
-    }
-    // …and the same for the Rückmeldung's name + time
-    if (rueckNameDirty || rueckAtDirty) {
-      const name = (rueckNameDirty ? rueckName : remoteRueckName).trim()
-      const at = (rueckAtDirty ? rueckAt : remoteRueckAt) || undefined
-      out.rueckmeldungElz = name || at ? { name: name || undefined, at } : undefined
-    }
-    if (partnersDirty) {
-      const clean = partners.filter(partnerFilled)
-      out.partnerContacts = clean.length ? clean : undefined
-    }
-    return out
-  }
+  const dirtyMeta = (): Partial<ReportMeta> => ({
+    ...dirtyFormMeta(form, remote, {
+      summary: summaryDirty, kontaktperson: kontaktpersonDirty, kontaktTel: kontaktTelDirty,
+      einsatzleiter: einsatzleiterDirty, endedAt: endedAtDirty, ausgerueckt: ausgeruecktDirty,
+      remarks: remarksDirty, lehren: lehrenDirty, gruppen: gruppenDirty, fahrzeuge: fahrzeugeDirty,
+      geretteteP: gerettetePDirty, geretteteT: geretteteTDirty, rueckName: rueckNameDirty, rueckAt: rueckAtDirty,
+    }),
+    ...(partnersDirty ? partnersMeta(partners) : {}),
+  })
 
   // The freshest blob this surface has seen, for the writes that do NOT happen inside the event
   // that triggered them (see persist, stampReportMade). Updated in an effect rather than during
@@ -914,11 +593,8 @@ export function ReportPreflight({
       meta, generatedAt,
       proof: { ...proof, checkedAt: proof.checkedAt || generatedAt },
       // krokiAt travels with the draft so the printed caption dates the PICTURE, not the print
-      // Stamp the chosen instant ONLY when the reconstruction for it is actually what prints.
-      // `effScene` falls back to the LIVE Lage while the reconstruction is in flight and after
-      // one fails, and a caption saying «Stand 21:14» over a picture of 23:00 is a false
-      // statement on a document that is a legal record. No caption is the honest fallback.
-      options: { ...options, krokiAt: krokiAt != null && pastScene ? new Date(krokiAt).toISOString() : null },
+      // — and only when the reconstruction for it is what prints (useKrokiMoment · printedAt)
+      options: { ...options, krokiAt: kroki.printedAt },
     }
   }
   // The ONE argument list both the PDF and the signature scope are built from — so «what is
@@ -942,21 +618,6 @@ export function ReportPreflight({
     return () => { alive = false; clearTimeout(t) }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the record, not on every render's closures
   }, [closed, scopeKey])
-  /** the valid signatures as the paper prints them; a signature that no longer holds is left
-   *  off, and its line prints empty (decision 15.10.2026) */
-  const printedSignatures = (): PrintedSignature[] => SIGNATURE_ROLES.filter((r) => closed && sigValid(r)).map((r) => {
-    const g = liveSigs[r]!
-    const date = formatDateTime(g.at)
-    return {
-      role: r, name: g.name,
-      placeDate: [g.place, date.split(' ')[0]].filter(Boolean).join(', '),
-      at: date,
-      checksum: shortChecksum(g.scope),
-      strokes: g.strokes,
-    }
-  })
-  // «Rapport unterschreiben»: which line the sheet is open for (null = closed)
-  const [signFor, setSignFor] = useState<SignatureRole | null>(null)
   /** this session signs Rapporte at all (not a viewer, a link, an archived view) – on a running
    *  Einsatz it cannot sign YET, which `canSign` adds */
   const maySign = canEditIn && !!onSign
@@ -989,10 +650,6 @@ export function ReportPreflight({
       return false
     }
   }
-  const changeSigned = async () => {
-    const S = appConfig.copy.signature
-    if (await confirmDialog({ title: S.changeTitle, message: S.changeMsg, confirmLabel: S.changeConfirm })) onVoidSignatures?.()
-  }
   const [pdfBusy, setPdfBusy] = useState(false)
   /** A rapport has just been produced (the PDF in hand). The blob remembers WHEN, so the Rapport can tell whoever opens it next that the
    *  paper already exists — on this device or on any other.
@@ -1017,7 +674,7 @@ export function ReportPreflight({
     const draft = buildDraft()
     setPdfBusy(true)
     try {
-      await downloadDirectReportPdf({ ...pdfArgs(draft), signatures: printedSignatures() })
+      await downloadDirectReportPdf({ ...pdfArgs(draft), signatures: printedSignatures(liveSigs, sigValid, closed) })
       // The PDF itself used to be the only feedback, and it still is the proof — but it is also
       // the moment everything except the bookkeeping is done, and nothing ever said so.
       stampReportMade(framing)
@@ -1030,50 +687,18 @@ export function ReportPreflight({
     }
   }
   /** The ONE way an option changes — it also records the deviation, which is what outlives the
-   *  hop to Anwesenheit/Mittel (see savedScroll). Set an option any other way and it is back to
+   *  hop to Anwesenheit/Mittel (see rapportKept). Set an option any other way and it is back to
    *  its seed the moment the operator steps off this surface. */
   const patchOpt = (patch: Partial<ReportOptions>) => {
     optionOverrides.current = { ...optionOverrides.current, ...patch }
     setOptions((o) => ({ ...o, ...patch }))
   }
-  /** Is there anything to frame? A rapport-only Einsatz (nothing drawn, nothing placed) seeds
-   *  the Kroki section OFF and must not show an empty map pretending to be a picture — and
-   *  switching the section off by hand means the same thing: nothing is going on the paper. */
-  const krokiPanel = options.kroki && mapContentCount > 0 && !!effScene
   // is there anything on the SERVER to archive? Journal photos/recordings and Rapport-Beilagen
   // are all Media rows; blob: URLs are uploads still in flight and not fetchable as a ZIP yet
   const hasStoredMedia = useMemo(() => (
     attachments.some((a) => a.url.startsWith('/'))
     || events.some((e) => (e.audioUrl ?? '').startsWith('/') || rowPhotos(e).some((u) => u.startsWith('/')))
   ), [attachments, events])
-  // The panel is a fold: on a wide screen it is open, because seeing the crop while the form is
-  // typed is the whole reason it stopped being a modal; below the two-column breakpoint a map
-  // crop is a postcard sitting between the operator and the fields, so it starts closed and
-  // Loaded when the crop becomes visible, not on the first drag: the ticks exist to aim that
-  // drag, so arriving after it would be arriving too late. Best-effort — a replay bundle that
-  // will not load costs the marks, never the slider.
-  const krokiShown = krokiPanel
-  useEffect(() => {
-    if (!krokiShown) return
-    let alive = true
-    void (async () => {
-      try {
-        const startMs = Date.parse(meta.startedAt ?? incident.started_at)
-        bundleRef.current ??= await loadReplay(incident.id, startMs, Date.now())
-        if (alive) setAuditMoments(activityMoments(bundleRef.current.events))
-      } catch { /* no marks from the audit side; the slider still works */ }
-    })()
-    return () => { alive = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on the panel becoming visible
-  }, [krokiShown, incident.id])
-  // ⚠️ The journal moments come from the LIVE timeline (the same rows the Verlauf's own strip
-  // ticks) and are derived REACTIVELY: the effect above runs once when the panel becomes
-  // visible, and the rows routinely arrive after that (the journal store loads async since the
-  // Verlauf moved out of the blob) — a one-shot read latched an empty barcode (19.08.).
-  const krokiMoments = useMemo(
-    () => [...auditMoments, ...activityMoments([], events)],
-    [auditMoments, events],
-  )
   const startOutput = async () => {
     // ⚠️ A rapport that is still missing Mindestangaben may ALWAYS be produced — printing is
     // never blocked by what somebody has not typed yet, and a half-filled sheet taken to the
@@ -1105,7 +730,7 @@ export function ReportPreflight({
       ? {
         krokiPrint: {
           view: options.krokiView,
-          at: krokiAt != null && pastScene ? new Date(krokiAt).toISOString() : undefined,
+          at: kroki.printedAt ?? undefined,
           landscape: options.krokiLandscape,
         },
       }
@@ -1241,18 +866,10 @@ export function ReportPreflight({
   }, [controlOpen, isPhone])
 
 
-  // The tabs themselves are pure CSS; `isPhone` also controls the Kroki panel's mounting.
-  // The phone's three tabs (see PhoneTab). Seeded from the box that also carries the scroll
-  // position, so a hop to Anwesenheit and back returns to the tab it left from; a fresh Einsatz
-  // opens on «Bericht», which is the first section of the printed rapport.
-  const [phoneTab, setPhoneTab] = useState<PhoneTab>(() => keptFor(incident.id)?.tab ?? 'bericht')
-  /** Picked by hand — each tab starts at ITS top, never at the scroll offset of the one before
-   *  (which is a different page of different length). The «noch offen» chips do NOT go through
-   *  here: they scroll to their own field instead. */
-  const pickTab = (t: PhoneTab) => {
-    setPhoneTab(t)
-    if (bodyRef.current) bodyRef.current.scrollTop = 0
-  }
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const { phoneTab, pickTab, jumpToStep, forgetPlace } = useReportPlace(incident.id, bodyRef, kept, () => ({
+    optionOverrides: optionOverrides.current, krokiAt: kroki.at,
+  }))
 
   // The head's one line, in the voice the other surfaces use («12 anwesend · 3 gegangen · 28
   // Mannschaft»): what is recorded, then the verdict. «Alle Angaben erfasst» is a claim, so it is
@@ -1281,7 +898,7 @@ export function ReportPreflight({
   // top and from its seeds, so the whole kept box — scroll position, tab, print sections, Kroki
   // Stand — is forgotten. But only if the Abschluss actually happened.
   const complete = async () => {
-    if (await onComplete?.()) savedScroll.current = null
+    if (await onComplete?.()) forgetPlace()
   }
 
   // The Abschluss-Band under the head (see the JSX): shown once a rapport has been produced and
@@ -1296,89 +913,6 @@ export function ReportPreflight({
   }
   const showCloseBand = !!onComplete && !!meta.reportMadeAt && missing.length === 0 && !bandHidden
 
-  // Scroll keep-alive across the Anwesenheit/Mittel/Verlauf round trip (see savedScroll):
-  // Restore before paint on mount, capture on unmount. There is no «close» any more: leaving is
-  // choosing another surface in the rail, which unmounts this one and captures the scroll — and
-  // «Einsatz abschliessen» clears the saved position itself, because coming back to a completed
-  // rapport should start at the top.
-  /**
-   * Jump to the section a «noch offen» chip names, and flash it.
-   *
-   * The chips list what is still missing and were pure text: you read «Zeiten», then hunted for
-   * the Zeiten yourself down a page that is four sections long. Naming a problem and not
-   * pointing at it is the same failure the überfällig badge had on the Atemschutz board.
-   *
-   * Anchored on `data-step` rather than on refs: the six steps live in four different shapes
-   * (a CheckRow, a labelled field, a grid, a person picker), and one attribute is the only thing
-   * they can all carry without being restructured around it.
-   */
-  const jumpToStep = (step: AbschlussStep) => {
-    // On a phone the field may be in a tab that is not on screen, and a hidden element measures
-    // as nothing — so switch first and measure a frame later. Above 600px no tab is ever hidden
-    // and this is the same jump it always was, one frame later.
-    setPhoneTab(STEP_TAB[step])
-    requestAnimationFrame(() => requestAnimationFrame(() => flashStep(step)))
-  }
-  const flashStep = (step: AbschlussStep) => {
-    const body = bodyRef.current
-    const el = body?.querySelector<HTMLElement>(`[data-step="${step}"]`)
-    if (!body || !el) return
-    // ⚠️ Scroll the SHEET, not `scrollIntoView`. Three of the six targets are whole `<section>`s
-    // taller than the viewport, and `block: 'center'` centres their MIDDLE — which puts the
-    // heading the chip just named off the top of the screen, so the jump lands somewhere
-    // plausible and unrecognisable. Putting the target's top just under the sheet's top edge is
-    // the same thing a reader would do with their thumb.
-    const top = el.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 12
-    // jsdom has no element scrollTo – and the jump is driven from a timer, so a throw there is an
-    // unhandled error that fails the whole run rather than one test
-    if (typeof body.scrollTo === 'function') body.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
-    else body.scrollTop = Math.max(0, top)
-    // …and the same two-beat ink ring the Atemschutz board uses when a locked Anwesenheits-Zeile
-    // sends you to a card (Atemschutz.module.css · truppFlash). One surface, one way of saying
-    // «this one» — a soft 1.2 s background wash read as a rendering artefact rather than a point.
-    el.classList.remove('rp-flash')
-    void el.offsetWidth // restart the animation when the same chip is tapped twice
-    el.classList.add('rp-flash')
-    window.setTimeout(() => el.classList.remove('rp-flash'), 2000)
-    // the field the step is ABOUT, focused where there is one — a chip that scrolls to a text
-    // box the operator then has to tap is one tap short of finishing the job
-    el.querySelector<HTMLElement>('textarea, input, button')?.focus({ preventScroll: true })
-  }
-
-  const bodyRef = useRef<HTMLDivElement>(null)
-  // …and the outside ask (see requestReportStep). Through a ref because `jumpToStep` is rebuilt
-  // every render while this subscription is mount-only — the sheet must not re-register on each
-  // keystroke, and a jump queued before the mount is consumed exactly once.
-  const jumpRef = useRef(jumpToStep)
-  jumpRef.current = jumpToStep
-  useEffect(() => {
-    stepListener = (s) => jumpRef.current(s)
-    const queued = queuedStep.current
-    queuedStep.current = null
-    if (queued) jumpRef.current(queued)
-    return () => { stepListener = null }
-  }, [])
-  // …and the tab + the Kroki-Stand ride with it (see savedScroll). Read through refs in the
-  // cleanup because the effect below is mount-only and would otherwise capture the values this
-  // surface OPENED on. (`optionOverrides` is already a ref, so it needs no mirror.)
-  const phoneTabRef = useRef(phoneTab)
-  const krokiAtRef = useRef(krokiAt)
-  useEffect(() => { phoneTabRef.current = phoneTab; krokiAtRef.current = krokiAt })
-  useLayoutEffect(() => {
-    const el = bodyRef.current
-    const kept = keptFor(incident.id)
-    if (el && kept) el.scrollTop = kept.top
-    return () => {
-      if (el) {
-        savedScroll.current = {
-          incidentId: incident.id, top: el.scrollTop, tab: phoneTabRef.current,
-          optionOverrides: optionOverrides.current, krokiAt: krokiAtRef.current,
-        }
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
   // ONE ROW (lib/pageHeadFit): the head folds its tiles' words — «Abschliessen», then
   // «Einsatzrapport (PDF)» → «PDF» — until it fits; the Kontrolle chip's count is never cut
   // (`data-fit-check`). It was a breakpoint (words above 1080px, icons below) and, on a phone, a
@@ -1387,6 +921,24 @@ export function ReportPreflight({
   usePageHeadFit(headRef, [
     missing.length, warnCount, checking, controlOk, !!onComplete, pdfBusy,
   ].join('|'))
+
+  // What the signing sheet shows beside the pad (ReportSignatures): which Einsatz, from when to
+  // when, how many people and positions — and «Ort, Datum» as the line will print it.
+  const signAlarm = meta.alarmiertAt ?? incident.started_at ?? undefined
+  const signEnd = meta.endedAt ?? closedAt ?? undefined
+  const signSheet = {
+    summary: {
+      einsatz: [incident.title, signAlarm ? formatDateTime(signAlarm).split(' ')[0] : ''].filter(Boolean).join(' · '),
+      zeiten: signAlarm && signEnd ? fillTemplate(appConfig.copy.signature.zeiten, { from: hhmm(new Date(signAlarm)), to: hhmm(new Date(signEnd)) }) : undefined,
+      personen: attendanceCount,
+      positionen: mittelCount,
+    },
+    placeDate: [signPlace, formatDateTime(serverNowIso()).split(' ')[0]].filter(Boolean).join(', '),
+    onViewPdf: () => void downloadPdf(),
+    onSign: doSign,
+    personnel, presentIds, rolesById,
+    onAddGuest: onAddGuest && ((name: string) => onAddGuest(name, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter)),
+  }
 
   return (
     /* A SURFACE, not a dialog. The Rapport is filled in across a whole Einsatz — a sentence
@@ -1894,15 +1446,15 @@ export function ReportPreflight({
                     <span>{P.gerettetePersonen}</span>
                     <Stepper value={numOrU(geretteteP) ?? null} min={0} max={999} seed={1} ariaLabel={P.gerettetePersonen}
                       readOnly={meta.geretteteNone}
-                      onChange={(v) => { setGeretteteP(String(v)); persist(geretteteOver(String(v), geretteteT)) }}
-                      onClear={() => { setGeretteteP(''); persist(geretteteOver('', geretteteT)) }} canClear={geretteteP !== ''} />
+                      onChange={(v) => { setGeretteteP(String(v)); persist(geretteteMeta(String(v), geretteteT)) }}
+                      onClear={() => { setGeretteteP(''); persist(geretteteMeta('', geretteteT)) }} canClear={geretteteP !== ''} />
                   </div>
                   <div className="rz-count" data-sync="geretteteT">
                     <span>{P.geretteteTiere}</span>
                     <Stepper value={numOrU(geretteteT) ?? null} min={0} max={999} seed={1} ariaLabel={P.geretteteTiere}
                       readOnly={meta.geretteteNone}
-                      onChange={(v) => { setGeretteteT(String(v)); persist(geretteteOver(geretteteP, String(v))) }}
-                      onClear={() => { setGeretteteT(''); persist(geretteteOver(geretteteP, '')) }} canClear={geretteteT !== ''} />
+                      onChange={(v) => { setGeretteteT(String(v)); persist(geretteteMeta(geretteteP, String(v))) }}
+                      onClear={() => { setGeretteteT(''); persist(geretteteMeta(geretteteP, '')) }} canClear={geretteteT !== ''} />
                   </div>
                 </div>
                 )}
@@ -1947,7 +1499,7 @@ export function ReportPreflight({
                       onClick={() => {
                         const p = String(geretteteHint.personen)
                         const t = String(geretteteHint.tiere)
-                        setGeretteteP(p); setGeretteteT(t); persist(geretteteOver(p, t))
+                        setGeretteteP(p); setGeretteteT(t); persist(geretteteMeta(p, t))
                       }}>
                       {P.geretteteLageTake}
                     </Button>
@@ -2068,7 +1620,7 @@ export function ReportPreflight({
                   {/* What the SERVER observed from GPS (D2, 24.09.2026) — display only, and read
                       off the REMOTE blob: the server is its only writer, so a local copy being
                       edited above has nothing to add to it. */}
-                  <VehicleGpsTable fahrzeuge={remoteFahrzeuge} />
+                  <VehicleGpsTable fahrzeuge={remote.fahrzeuge} />
                 </>
               )
             })()}
@@ -2157,7 +1709,7 @@ export function ReportPreflight({
                     label={P.rueckmeldungLabel} placeholder={P.rueckmeldungName}
                     value={{ name: rueckName }} onChange={(slot) => {
                       setRueckName(slot.name)
-                      persist(rueckOver(slot.name, rueckAt))
+                      persist(rueckMeta(slot.name, rueckAt))
                       // ⚠️ `presence`, NOT `el`. Whoever reported back to the ELZ was on scene to
                       // have something to report — that is all this field says. Filed as `el` it
                       // inherited the Einsatzleiter conflict check and warned «X ist Einsatzleiter
@@ -2191,9 +1743,9 @@ export function ReportPreflight({
                     <div className="report-meta-end dtrow">
                       <DateTimeField ariaLabel={P.rueckmeldungZeit} value={rueckAt}
                         days={incidentDays(meta.startedAt ?? incident.started_at, renderNow)}
-                        onCommit={(iso) => { setRueckAt(iso ?? ''); persist(rueckOver(rueckName, iso ?? '')) }} />
+                        onCommit={(iso) => { setRueckAt(iso ?? ''); persist(rueckMeta(rueckName, iso ?? '')) }} />
                       <button type="button" className="ip-btn"
-                        onClick={() => { const iso = serverNowIso(); setRueckAt(iso); persist(rueckOver(rueckName, iso)) }}>{P.now}</button>
+                        onClick={() => { const iso = serverNowIso(); setRueckAt(iso); persist(rueckMeta(rueckName, iso)) }}>{P.now}</button>
                     </div>
                     {/* the same plausibility hint the Einsatzende carries — this field has a DATE
                         wheel and is usually filled in from memory, so it is the likeliest of the
@@ -2492,76 +2044,14 @@ export function ReportPreflight({
               )}
             </CheckRow>
             {/* Unterschriften (15.10.2026): after the Partnerorganisationen, where the Visum sits on
-                the paper. Optional — nothing asks for it, nothing waits for it. A signature that
-                still holds locks the form above; one that no longer holds says «ungültig» and a
-                tap signs anew (owner: no explanation box). Rows without rules, like the cards
-                above. */}
-            {(() => {
-              const S = appConfig.copy.signature
-              const stale = SIGNATURE_ROLES.filter((r) => liveSigs[r] && !sigValid(r))
-              const valid = SIGNATURE_ROLES.filter(sigValid)
-              const sub = !closed ? S.optional
-                : stale.length ? S.invalid
-                : valid.length ? fillTemplate(S.count, { n: valid.length }) : S.optional
-              const nameOf = (r: SignatureRole) => (r === 'el' ? meta.einsatzleiter || einsatzleiter : kdtDefault)
-              const roleLabel = (r: SignatureRole) => (r === 'el' ? S.roleEl : S.roleKdt)
-              // A session that never signs reads signatures, it is not asked for them: no card at
-              // all until one exists – «nach dem Abschluss hier unterschreiben» and two empty lines
-              // were an instruction to a driver (RBAC audit 22.10.2026).
-              if (!maySign && (!closed || !SIGNATURE_ROLES.some((r) => liveSigs[r]))) return null
-              return (
-                <CheckRow tab="werwas" done={closed && valid.length > 0 && !stale.length} label={S.cardTitle} sub={sub}>
-                  <div className="rp-check-extra rp-sign">
-                    {!closed ? <p className="rp-sign-hint">{S.runningHint}</p> : SIGNATURE_ROLES.map((r) => {
-                      const g = liveSigs[r]
-                      const who = (
-                        <span className="rp-sign-who">
-                          <span className="rp-sign-role">{roleLabel(r)}</span>
-                          <span className="rp-sign-name">{g?.name || nameOf(r) || '–'}</span>
-                        </span>
-                      )
-                      if (g && sigValid(r)) return (
-                        <div className="rp-sign-row" key={r}>
-                          {who}
-                          <SignatureImage strokes={g.strokes} className="rp-sign-img" />
-                          <span className="rp-sign-time">{hhmm(new Date(g.at))}</span>
-                        </div>
-                      )
-                      // a signature that no longer holds: a tap signs anew – for a session that
-                      // cannot sign, the same row as a read-out (no dead button, no chevron)
-                      if (g && !canSign) return (
-                        <div className="rp-sign-row rp-sign-void" key={r}>
-                          {who}
-                          <SignatureImage strokes={g.strokes} className="rp-sign-img" />
-                          <span className="rp-sign-bad"><Icon id="warn" />{S.invalid}</span>
-                        </div>
-                      )
-                      if (g) return (
-                        <button type="button" className="rp-sign-row rp-sign-void" key={r}
-                          aria-label={`${roleLabel(r)} – ${S.resign}`} onClick={() => setSignFor(r)}>
-                          {who}
-                          <SignatureImage strokes={g.strokes} className="rp-sign-img" />
-                          <span className="rp-sign-bad"><Icon id="warn" />{S.invalid}</span>
-                          <Icon id="chevron" className="rp-sign-go" />
-                        </button>
-                      )
-                      return (
-                        <div className="rp-sign-row" key={r}>
-                          {who}
-                          {canSign && <Button onClick={() => setSignFor(r)}>{S.sign}</Button>}
-                        </div>
-                      )
-                    })}
-                    {signedLock && (
-                      <div className="rp-sign-foot">
-                        <span className="rp-sign-locked"><Icon id="signature-lock" />{S.locked}</span>
-                        {canEditIn && onVoidSignatures && <Button onClick={() => void changeSigned()}>{S.change}</Button>}
-                      </div>
-                    )}
-                  </div>
-                </CheckRow>
-              )
-            })()}
+                the paper (ReportSignatures — the card and the sheet a line is signed in). */}
+            <ReportSignatures
+              closed={closed} maySign={maySign} canSign={canSign} signedLock={signedLock}
+              liveSigs={liveSigs} sigValid={sigValid}
+              elName={meta.einsatzleiter || einsatzleiter} kdtName={kdtDefault}
+              onVoidSignatures={canEditIn ? onVoidSignatures : undefined}
+              sheet={signSheet}
+            />
             {/* Beilagen sit right under Partnerorganisationen: same family, same question —
                 what else belongs to this rapport. Tapping a thumbnail opens the picture full-size
                 (lib/ui · openPhoto), because a 52px square is not something you can check. */}
@@ -2695,7 +2185,7 @@ export function ReportPreflight({
               framing. This panel decides what the printed Kroki shows, so a crop nobody chose is
               not a cosmetic bug. Above 600px `isPhone` is false and this is the same always-on
               panel it was. */}
-          {krokiPanel && (!isPhone || phoneTab === 'beilagen') && (
+          {krokiPanel && effScene && (!isPhone || phoneTab === 'beilagen') && (
             <section className="report-pre-section rp-kroki" data-tab="beilagen">
               <h3>{P.krokiHead}</h3>
               <KrokiFramingPanel
@@ -2704,10 +2194,10 @@ export function ReportPreflight({
                   // WHEN the picture shows. One picture is one Lage at one time; naming the
                   // moment is the honest answer to «die Rettung ist weg», and the map redraws
                   // under the crop as it is reconstructed.
-                  atMs={krokiAt}
-                  atBusy={krokiAtBusy}
-                  onAtChange={setKrokiAt}
-                  moments={krokiMoments}
+                  atMs={kroki.at}
+                  atBusy={kroki.busy}
+                  onAtChange={kroki.setAt}
+                  moments={kroki.moments}
                   startedAtMs={Date.parse(meta.startedAt ?? incident.started_at) || null}
                   landscape={options.krokiLandscape}
                   onLandscapeChange={(v) => patchOpt({ krokiLandscape: v })}
@@ -2752,32 +2242,6 @@ export function ReportPreflight({
             pinning the warning would have made it possible to print past one without ever having
             seen it — the same failure the «never behind a fold» rule exists to prevent. */}
       </div>
-      {signFor && (() => {
-        const S = appConfig.copy.signature
-        const alarm = meta.alarmiertAt ?? incident.started_at ?? undefined
-        const end = meta.endedAt ?? closedAt ?? undefined
-        const day = alarm ? formatDateTime(alarm).split(' ')[0] : ''
-        return (
-          <SignatureSheet
-            open onClose={() => setSignFor(null)}
-            initialRole={signFor}
-            signedRoles={Object.fromEntries(SIGNATURE_ROLES.filter(sigValid).map((r) => [r, hhmm(new Date(liveSigs[r]!.at))]))}
-            elName={{ name: meta.einsatzleiter || einsatzleiter }}
-            kdtName={{ name: kdtDefault }}
-            summary={{
-              einsatz: [incident.title, day].filter(Boolean).join(' · '),
-              zeiten: alarm && end ? fillTemplate(S.zeiten, { from: hhmm(new Date(alarm)), to: hhmm(new Date(end)) }) : undefined,
-              personen: attendanceCount,
-              positionen: mittelCount,
-            }}
-            placeDate={[signPlace, formatDateTime(serverNowIso()).split(' ')[0]].filter(Boolean).join(', ')}
-            onViewPdf={() => void downloadPdf()}
-            onSign={doSign}
-            personnel={personnel} presentIds={presentIds} rolesById={rolesById}
-            onAddGuest={onAddGuest && ((name) => onAddGuest(name, 'el', appConfig.copy.anwesenheit.roleEinsatzleiter))}
-          />
-        )
-      })()}
     </>
   )
 }

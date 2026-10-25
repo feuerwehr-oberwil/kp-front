@@ -3,7 +3,7 @@
 // catalogue answers in one go and the dots and name tags used to land in one frame; now each
 // marker fades in a few milliseconds after its western neighbour, so the map reads as filling
 // from left to right — ARRIVAL_SWEEP_MS across the screen, 260ms per marker (Karte.module.css ·
-// .arrive). KarteApp computes the delays ONCE, from the view the catalogue arrived in, and only
+// .arrive). components/karte/useKarteArrival computes the delays ONCE, from the view the catalogue arrived in, and only
 // markers mounted in the moments after it wear them; a tag replacing its dot on a later zoom or a
 // re-selection mounts instantly — motion on an interaction reads as lag (docs/ui-conventions).
 //

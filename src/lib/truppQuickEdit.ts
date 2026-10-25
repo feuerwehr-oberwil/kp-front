@@ -142,7 +142,7 @@ export function truppSheetFields(t: Trupp, team: readonly CrewSlot[], equipment:
  *  all four sheets (29.09.2026, sweep 3 T5): the title is the QUESTION (Druck · Kanal · Auftrag ·
  *  Mannschaft), this line is whose — the Trupp sheet said «Trupp 3» over «Keller Laura» and the
  *  Druck sheet «Keller Laura · Druck» on one line, three ways to say whose sheet is open. Here since
- *  30.09.2026: the Trupp form's number sheets say whose too (AtemschutzView · TruppForm). */
+ *  30.09.2026: the Trupp form's number sheets say whose too (components/TruppForm). */
 export function truppSheetSub(t: Trupp): string {
   const az = appConfig.copy.atemschutz
   return t.no != null ? `${t.name} · ${fillTemplate(az.quickTrupp, { no: t.no })}` : t.name

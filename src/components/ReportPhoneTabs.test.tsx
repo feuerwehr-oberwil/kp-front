@@ -158,6 +158,37 @@ describe('Einsatzrapport · phone tabs', () => {
     openMenu()
     expect(isChecked(journal())).toBe(false)
   })
+
+  // After «Einsatz abschliessen» the kept place is forgotten – and the surface unmounting
+  // afterwards must not write it back, or reopening the completed rapport lands on the old
+  // tab with the old print choices.
+  it('reopens fresh after the Abschluss, even though the surface unmounts after it', async () => {
+    const incident = { ...(INCIDENT as object), id: 'i-done' } as typeof INCIDENT
+    const openMenu = () => fireEvent.click(screen.getByRole('button', { name: 'Weitere Druckoptionen' }))
+    const journal = () => screen.getByRole('menuitemcheckbox', { name: 'Einsatzjournal' })
+    const sheet = (onComplete?: () => Promise<boolean>) => (
+      <ReportPreflight
+        incident={incident} reportMeta={{ alarmiertAt: START.toISOString() }} events={[]}
+        annotatedPlanCount={0} truppCount={0} attendanceCount={0} mittelCount={0}
+        mapContentCount={0} onSaveMeta={vi.fn()} onComplete={onComplete}
+      />
+    )
+
+    const onComplete = vi.fn(async () => true)
+    const first = render(sheet(onComplete))
+    fireEvent.click(screen.getByRole('button', { name: /Personal & Mittel/ }))
+    openMenu()
+    fireEvent.click(journal())
+    fireEvent.click(screen.getAllByRole('button', { name: 'Einsatz abschliessen' })[0])
+    await waitFor(() => expect(onComplete).toHaveBeenCalled())
+    await act(async () => {})
+    first.unmount()
+
+    const second = render(sheet())
+    expect((second.container.querySelector('.report-preflight-body') as HTMLElement).dataset.phoneTab).toBe('bericht')
+    openMenu()
+    expect(isChecked(journal())).toBe(true)
+  })
 })
 
 

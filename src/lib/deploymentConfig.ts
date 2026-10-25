@@ -153,7 +153,7 @@ export interface DeploymentDoctrine {
   contactIntervalMin?: number | null
   contactGraceSec?: number | null
   defaultPressureBar?: number | null
-  /** the lowest Eingangsdruck taken without a question; 0 = never ask (AtemschutzView · TruppForm) */
+  /** the lowest Eingangsdruck taken without a question; 0 = never ask (components/TruppForm) */
   entryPressureMin?: number | null
   pressureStep?: number | null
   pressureMax?: number | null
@@ -303,10 +303,6 @@ export interface DeploymentIntegrations {
   traccarConfigured?: boolean
   /** STT engine reachable (env stt_base_url) — gates the player's Transkribieren button */
   sttConfigured?: boolean
-  /** The server can answer POST /api/georef/suggest: the optional `georef` extra is installed
-   *  AND an Overpass mirror is configured. Gates «Automatisch ausrichten» (lib/georefSuggest ·
-   *  georefSuggestEligible) — an image without the extra must not offer the button. */
-  autoAlignConfigured?: boolean
   /** CARTO Basemaps browser key; public by design and restricted to deployment domains. */
   cartoBasemapKey?: string | null
   /** «Mit Microsoft anmelden» is set up (backend auth/microsoft) — gates the login screen's button. */

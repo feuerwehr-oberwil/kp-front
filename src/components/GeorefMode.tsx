@@ -1,4 +1,3 @@
-import { ShellLoader } from './ShellLoader'
 /** The PLAN half of «Karte verknüpfen» — crosses, tap capture, loupe, popover and mode panel.
  *
  *  The map half lives in GeorefMapLayer (inside MapView); the state both sides share lives in
@@ -10,11 +9,10 @@ import { createPortal } from 'react-dom'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { Icon } from '../lib/icons'
-import { confirmDialog, toast, undoToast } from '../lib/ui'
-import { acceptGeorefProposal, beginTap, georefStillIs, endGeorefMode, georefDispatch, georefLamp, georefOpenHint, georefPairIndex, georefPhoneTargetPoint, georefProposalScalePct, peekGeorefPhoneTarget, georefOpenCount, georefPlacing, georefSideCount, georefSlotLabel, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, resetGeorefPlan, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type GeorefSide, type TapGesture } from '../lib/georefMode'
+import { confirmDialog, toast } from '../lib/ui'
+import { beginTap, endGeorefMode, georefDispatch, georefLamp, georefOpenHint, georefPairIndex, georefPhoneTargetPoint, peekGeorefPhoneTarget, georefOpenCount, georefPlacing, georefSideCount, georefSlotLabel, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type GeorefSide, type TapGesture } from '../lib/georefMode'
 import { approvedUntouched, fitSimilarity, hasAutoPairs, residualClaim } from '../lib/georef'
 import { incidentBindingApproved } from '../lib/incidentPlanBindings'
-import type { GeorefSuggestStep } from '../lib/georefSuggest'
 import { useIsPhone } from '../lib/useIsPhone'
 import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
 import { getMeldeleisteHost, subscribeMeldeleisteHost } from '../lib/meldeleisteHost'
@@ -23,7 +21,6 @@ import { InfoToggle } from './InfoToggle'
 import { Button } from './Button'
 import { Segmented } from './Segmented'
 import { Slider } from './Slider'
-import { Stepper } from './Stepper'
 import s from './GeorefMode.module.css'
 
 /** The loupe's magnification over the plan as it is currently displayed. */
@@ -530,7 +527,7 @@ function PlanLoupe({ aim, sW, sH, boardRef, corner = false }: { aim: Aim; sW: nu
 }
 
 /**
- * The Passung's dock — the frame around `GeorefQuality` and `GeorefLinkChooser` (Whiteboard).
+ * The Passung's dock — the frame around `GeorefQuality` (Whiteboard).
  * On a tablet a card one row above the chip that opened it; on a PHONE a slide-up bottom sheet
  * (29.09.2026, owner — AGENTS · «What a surface IS on a phone»): flush with the bottom edge and
  * both sides, over the two bars, the grab bar on top, pushed down to close (`useSwipeDismiss`,
@@ -550,68 +547,6 @@ export function GeorefDock({ label, onClose, children }: { label: string; onClos
     </div>
   )
   return isPhone && host ? createPortal(dock, host) : dock
-}
-
-/**
- * The unlinked chip's chooser: «Automatisch ausrichten» or «Punkte selbst setzen».
- *
- * Content only — the Whiteboard wraps it in `GeorefDock` (the Passung's own panel chrome and
- * stay-live rule; a bottom sheet on a phone). While the matcher runs (3–14 s) the card shows the REAL phases
- * (`busyStep`, fed by the endpoint's own progress lines) as a checked-off step list with a
- * bar — never an indeterminate spinner over a 15-second wait. «kein Vorschlag» keeps the
- * card up, because the manual way out is right here.
- */
-export function GeorefLinkChooser({ busyStep, onAuto, onManual, onClose }: {
-  busyStep: GeorefSuggestStep | null
-  onAuto: () => void
-  onManual: () => void
-  onClose: () => void
-}) {
-  const C = appConfig.copy.whiteboard.georef
-  const steps: { id: GeorefSuggestStep; label: string }[] = [
-    { id: 'render', label: C.autoStepRender },
-    { id: 'osm', label: C.autoStepOsm },
-    { id: 'match', label: C.autoStepMatch },
-  ]
-  const at = busyStep ? steps.findIndex((st) => st.id === busyStep) : -1
-  return (
-    <div className={s.chooser}>
-      <div className={s.chooserHeadRow}>
-        {/* ONE title: while the matcher runs, what the card IS is the running alignment */}
-        <strong className={s.chooserHead}>{busyStep ? C.autoBusy : C.linkTitle}</strong>
-        <button type="button" className={`ip-x ${s.chooserX}`} onClick={onClose} aria-label={C.closeMode} title={C.closeMode}>
-          <Icon id="close" />
-        </button>
-      </div>
-      {busyStep
-        ? (
-          <div className={s.chooserBusy} role="status">
-            {steps.map((st, i) => (
-              <span key={st.id} className={`${s.stepRow} ${i < at ? s.stepDone : i === at ? s.stepNow : ''}`}>
-                {i < at ? <Icon id="check" /> : i === at ? <ShellLoader /> : <span className={s.stepDot} aria-hidden />}
-                {st.label}
-              </span>
-            ))}
-            {/* honest fill: completed steps plus half the running one — it never creeps on its own */}
-            <span className={s.stepBar} aria-hidden><span style={{ width: `${((at + 0.5) / steps.length) * 100}%` }} /></span>
-          </div>
-        )
-        : (
-          <>
-            {/* two ways in, as equal two-line option rows — each says what happens next, so the
-                choice is made by reading the card, not by knowing the feature (the 3am rule) */}
-            <button type="button" className={`${s.chooserOpt} ${s.chooserOptAuto}`} onClick={onAuto}>
-              <Icon id="locate" />
-              <span><b>{C.autoStart}</b><i>{C.autoStartSub}</i></span>
-            </button>
-            <button type="button" className={s.chooserOpt} onClick={onManual}>
-              <Icon id="plus" />
-              <span><b>{C.autoManual}</b><i>{C.autoManualSub}</i></span>
-            </button>
-          </>
-        )}
-    </div>
-  )
 }
 
 /**
@@ -683,19 +618,8 @@ async function clearGeorefPoints() {
   if (ok) georefDispatch({ type: 'clear' })
 }
 
-/** The proposal review's status line, ONE derivation for the desktop instrument and the phone
- *  card: adjusting > uncertain («Deckung nachprüfen», the matcher's review-carefully band) >
- *  the plain proposal head. */
-function proposalStatus(mode: GeorefModeState): { head: string; sub: string; warn: boolean } {
-  const C = appConfig.copy.whiteboard.georef
-  if (mode.adjusting) return { head: C.proposalAdjustHead, sub: C.proposalAdjustSub, warn: false }
-  if (mode.proposalUncertain) return { head: C.proposalCheckHead, sub: C.proposalCheckSub, warn: true }
-  return { head: C.proposalHead, sub: C.proposalSub, warn: false }
-}
-
-/** The Karte↔Modul opacity slider of the coverage view, shared by the plain check and the
- *  proposal review — one control, one wording, whatever put the sheet on the map. The app's own
- *  `Slider` (20.10.2026, UX sweep M3), the one the Ebenen' Deckkraft wears. */
+/** The Karte↔Modul opacity slider of the coverage view. The app's own `Slider` (20.10.2026, UX
+ *  sweep M3), the one the Ebenen' Deckkraft wears. */
 function CheckBlend({ mode }: { mode: GeorefModeState }) {
   const C = appConfig.copy.whiteboard.georef
   const pct = Math.round(mode.checkOpacity * 100)
@@ -712,85 +636,12 @@ function CheckBlend({ mode }: { mode: GeorefModeState }) {
   )
 }
 
-/**
- * The review bar of an automatic suggestion (mode.proposal, on the coverage view).
- *
- * Two levels, following the approved mock (mockups/auto-alignment/a.html): the accept row
- * (blend · Anpassen · Übernehmen · Verwerfen), and behind «Anpassen» the transform chrome —
- * Plangrösse as the shared Stepper, step undo, «Vorschlag wiederherstellen», the ✥/⟳ grips in
- * the SelectionBar's arm grammar, and «Fertig» back to the accept row. Nothing here persists;
- * «Übernehmen» saves the pairs and raises the confirm-with-undo toast.
- */
-/** Plangrösse's range in % of the suggestion: a correction of a fit, not a re-draw – and a typed
- *  «5» must not shrink the sheet to a speck */
-const PROPOSAL_SIZE_MIN = 25
-const PROPOSAL_SIZE_MAX = 400
-
-function GeorefProposalActions({ mode }: { mode: GeorefModeState }) {
-  const C = appConfig.copy.whiteboard.georef
-  const pct = georefProposalScalePct(mode)
-  const accept = async () => {
-    const key = mode.storageKey
-    const accepted = mode.pairs
-    // the reset takes back exactly what was accepted — never a reference somebody has corrected
-    // since (lib/georefMode · georefStillIs)
-    if (await acceptGeorefProposal() && key) undoToast(C.acceptedToast, () => resetGeorefPlan(key), () => georefStillIs(key, accepted))
-  }
-  if (!mode.adjusting) {
-    return (
-      <>
-        <CheckBlend mode={mode} />
-        <button className={`btn ${s.adjustAction}`} onClick={() => georefDispatch({ type: 'adjustOpen', on: true })}>
-          <Icon id="move" />{C.adjust}
-        </button>
-        <button className={`btn primary ${s.finishAction}`} onClick={() => void accept()}>
-          <Icon id="check" />{C.accept}
-        </button>
-        {/* the way out that KEEPS nothing — deliberately not «Schliessen»: an unaccepted
-            proposal dies with the mode, and the word must say so */}
-        <button className={`btn link ${s.quietBtn}`} onClick={() => endGeorefMode()}>{C.discard}</button>
-      </>
-    )
-  }
-  const resize = (to: number) => {
-    const factor = to / pct
-    if (factor > 0 && factor !== 1 && Number.isFinite(factor)) georefDispatch({ type: 'proposalNudge', nudge: { scaleFactor: factor }, checkpoint: true })
-  }
-  return (
-    <>
-      <CheckBlend mode={mode} />
-      {/* the shared Stepper: hold ± to repeat, tap the value to type a size */}
-      <span className={s.sizeStep}>
-        <span className={s.sizeLabel} aria-hidden>{C.planSize}</span>
-        <Stepper value={pct} min={PROPOSAL_SIZE_MIN} max={PROPOSAL_SIZE_MAX} format={(v) => `${v} %`}
-          ariaLabel={C.planSize} onChange={resize} />
-      </span>
-      <button className={s.stepBtn} aria-label={C.undoNudge} title={C.undoNudge} disabled={!mode.undoStack.length}
-        onClick={() => georefDispatch({ type: 'proposalUndo' })}><Icon id="undo" /></button>
-      <button className={`btn link ${s.quietBtn}`} disabled={mode.pairs === mode.proposal}
-        onClick={() => georefDispatch({ type: 'proposalRestore' })}>{C.restore}</button>
-      {/* ✥ / ⟳ — solid blue grips, armed = ink-fill + blue ring, exactly the SelectionBar's
-          colour statement (11-measure.css · .sel-bar-act): tap arms the surface mode, a drag
-          anywhere on the Karte then moves/turns the sheet (GeorefAdjustLayer). */}
-      <button className={`${s.grip} ${mode.adjust === 'move' ? s.gripOn : ''}`} aria-pressed={mode.adjust === 'move'}
-        aria-label={C.popMove} title={C.popMove}
-        onClick={() => georefDispatch({ type: 'adjustArm', kind: 'move' })}><Icon id="move" /></button>
-      <button className={`${s.grip} ${mode.adjust === 'rotate' ? s.gripOn : ''}`} aria-pressed={mode.adjust === 'rotate'}
-        aria-label={C.rotateGrip} title={C.rotateGrip}
-        onClick={() => georefDispatch({ type: 'adjustArm', kind: 'rotate' })}><Icon id="rotate" /></button>
-      <button className={`btn ${s.finishAction}`} onClick={() => georefDispatch({ type: 'adjustOpen', on: false })}>{C.done}</button>
-    </>
-  )
-}
-
 function GeorefActions({ mode, onReset }: { mode: GeorefModeState; onReset?: () => void }) {
   const C = appConfig.copy.whiteboard.georef
   // Coverage is a full-screen visual comparison, not another point-placement step. Its bar is
   // intentionally one line: blend the two pictures, then return to the exact map/plan side the
   // operator came from. Finishing the alignment remains a separate, deliberate action.
-  // With a PROPOSAL on the coverage, the bar is the suggestion's review instead.
   if (mode.check) {
-    if (mode.proposal) return <GeorefProposalActions mode={mode} />
     return (
       <>
         <CheckBlend mode={mode} />
@@ -870,14 +721,10 @@ export function GeorefInstrument({ mode, inline = false, onReset }: { mode: Geor
       <span className={`${s.dot} ${s[`dot_${st.lamp.tone}`]}`} />
       <span className={s.pillText}>
         {/* the one instruction. No per-point prompt: the free order means the app no longer
-            knows better than the operator which surface is «next». A proposal review names
-            its own state instead of «Deckung prüfen» — the check is what it IS, not its verb. */}
-        <span className={`${s.promptText} ${mode.check && mode.proposal && proposalStatus(mode).warn ? s.warnHead : ''}`}>{mode.check
-          ? mode.proposal ? proposalStatus(mode).head : C.checkFit
+            knows better than the operator which surface is «next». */}
+        <span className={s.promptText}>{mode.check
+          ? C.checkFit
           : mode.move ? st.sub : C.freeOrderTap}</span>
-        {mode.check && mode.proposal && (
-          <span className={s.promptHint}>{proposalStatus(mode).sub}</span>
-        )}
         {!mode.check && (
           <span className={`${s.lampLine} ${s[`lampLine_${st.lamp.tone}`]}`}>
             <b>{st.lamp.head}</b>{!mode.move && st.sub ? <>{' · '}<i>{st.sub}</i></> : null}
@@ -913,7 +760,7 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
   const isPhone = useIsPhone()
   // Esc lives here too, for the same reason: on the Karte surface the plan's own keyboard
   // handler is not mounted, and «the way out» must not depend on which half you are in.
-  useGeorefEscape(!!mode.planId, mode.check, !!mode.move || !!mode.sel, mode.adjust ? 'grip' : mode.adjusting ? 'open' : false)
+  useGeorefEscape(!!mode.planId, mode.check, !!mode.move || !!mode.sel)
   const C = appConfig.copy.whiteboard.georef
   const shownSurface = mode.check ? 'map' : mode.want
   const barRef = useRef<HTMLDivElement | null>(null)
@@ -1040,17 +887,6 @@ export function GeorefModeBars({ planLabel }: { planLabel?: string }) {
               {!mode.move && <div className={s.subline}>{C.freeOrderPlace}</div>}
             </>
           )
-      )}
-      {/* a proposal review on a phone leads with its own status line — the actions below are
-          icon grips and short verbs, and «what is this screen» must not depend on them */}
-      {mode.check && mode.proposal && (
-        <div className={s.statusRow}>
-          <span className={`${s.sdot} ${s.sdot_amber}`} />
-          <span className={s.stext}>
-            <b>{proposalStatus(mode).head}</b>
-            <i>{proposalStatus(mode).sub}</i>
-          </span>
-        </div>
       )}
       {mode.check
         ? <span className={s.acts}><GeorefActions mode={mode} /></span>

@@ -715,7 +715,6 @@ def _register_optional_routers() -> None:
         ("app.api.traccar", "router"),
         ("app.api.weather", "router"),
         ("app.api.geocode", "router"),
-        ("app.api.georef_suggest", "router"),
         ("app.api.overpass", "router"),
         # before api/reference: its `/{dataset_id}` would swallow `/reference/objects`
         ("app.api.station_reference", "router"),

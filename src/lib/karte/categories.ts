@@ -11,7 +11,13 @@
 //                 must not turn into a catch-all and paint every object).
 //   · `modules` — one of the object's plan modules matches one of the globs (`modul5-pv*`)
 // A rule naming neither matches everything (a catch-all at the end). An object no rule matches
-// keeps today's look: red, grey without plans. No rules at all = today's look everywhere.
+// keeps the default look: ink (`--obj-plans`), grey without plans. No rules at all = the default
+// look everywhere.
+//
+// A rule's colour is a `#rrggbb` or `ink` (owner, 25.10.2026: «Einsatzpläne» keeps its Ebenen row
+// but draws like the default 7A look): ink is the theme's `--obj-plans` — near-white at night,
+// near-black by day — so it is no hex; the parsed category carries `color: null` for it, and every
+// reader falls back to the ink it already uses for an object without a category.
 //
 // Pure: the map (KarteApp) colours dots, tags and outlines with `categoryOf(…).color`, Ebenen gets
 // one row per rule, and these functions are what the tests pin.
@@ -24,7 +30,7 @@ export interface ObjectCategoryRule {
   id: string
   /** one string, or one per language (`{ de, fr, it, en }`) */
   label: string | Record<string, string>
-  /** `#rrggbb` */
+  /** `#rrggbb`, or `ink` (`INK`): the theme's `--obj-plans` */
   color: string
   match?: { kinds?: (ObjectKind | 'depot')[] | null; modules?: string[] | null } | null
 }
@@ -32,18 +38,26 @@ export interface ObjectCategoryRule {
 export interface ObjectCategory {
   id: string
   label: string
-  color: string
+  /** `#rrggbb`; null = ink, the default look (`--obj-plans`, which the reader resolves per theme) */
+  color: string | null
   kinds: ObjectKind[] | null
   modules: RegExp[] | null
 }
 
 const HEX = /^#[0-9a-fA-F]{6}$/
+/** the colour keyword for «the default look» (backend ObjectCategoryConfig.color) */
+export const INK = 'ink'
 const KINDS: readonly ObjectKind[] = ['einsatzobjekt', 'objekt']
 
 /** `modul5-pv*` → /^modul5-pv.*$/i — `*` any run, `?` one character, everything else literal. */
 export function globToRegExp(glob: string): RegExp {
   const body = glob.trim().replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.')
   return new RegExp(`^${body}$`, 'i')
+}
+
+/** A colour the server accepts: `#rrggbb` or `ink`. */
+export function isCategoryColor(color: string | null | undefined): boolean {
+  return color === INK || HEX.test(color ?? '')
 }
 
 /** The label in the deployment's language, else German, else the first one given, else the id. */
@@ -64,7 +78,7 @@ export function categoryRules(raw: readonly ObjectCategoryRule[] | null | undefi
   const seen = new Set<string>()
   const out: ObjectCategory[] = []
   for (const r of raw) {
-    if (!r || typeof r.id !== 'string' || !r.id.trim() || seen.has(r.id) || !HEX.test(r.color ?? '')) continue
+    if (!r || typeof r.id !== 'string' || !r.id.trim() || seen.has(r.id) || !isCategoryColor(r.color)) continue
     seen.add(r.id)
     const named = Array.isArray(r.match?.kinds) && r.match.kinds.length > 0
     // only retired kinds named (`[depot]`): an empty list, which matches nothing
@@ -73,7 +87,7 @@ export function categoryRules(raw: readonly ObjectCategoryRule[] | null | undefi
     out.push({
       id: r.id,
       label: categoryLabel(r.label, lang, r.id),
-      color: r.color,
+      color: r.color === INK ? null : r.color,
       kinds,
       modules: mods && mods.length ? mods.map(globToRegExp) : null,
     })
@@ -123,5 +137,5 @@ export function categoryId(label: string, taken: readonly string[]): string {
 
 /** The rules the server accepts — the rest is what the card warns about. */
 export function writableRules(rows: readonly ObjectCategoryRule[]): ObjectCategoryRule[] {
-  return rows.filter((r) => !!r.id && HEX.test(r.color ?? '') && !!categoryLabel(r.label, 'de', '').trim())
+  return rows.filter((r) => !!r.id && isCategoryColor(r.color) && !!categoryLabel(r.label, 'de', '').trim())
 }

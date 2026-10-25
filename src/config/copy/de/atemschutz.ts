@@ -116,7 +116,7 @@ export const atemschutzCopy = {
     // Das Feld im Trupp-Formular (nur unter Atemschutz) – Mehrfach-Chips aus atemschutzEquipment()
     equipmentLabel: 'Ausrüstung',
     // KURZ-Tags für die Kennzeile der Karte, pro geliefertem Id; eine Station-eigene Id ohne
-    // Eintrag hier zeigt ihr volles Label (AtemschutzView · TruppCard)
+    // Eintrag hier zeigt ihr volles Label (components/TruppCard)
     equipmentShort: {
       retthaube: 'RH',
       wbk: 'WBK',
@@ -272,7 +272,7 @@ export const atemschutzCopy = {
     assignedConflictDeployed: '{name} ist in einem Trupp, der im Einsatz ist.',
     // when the slot is linked but nameless — used to be a German literal in the code
     assignedFallbackName: 'Diese Person',
-    // «Speichern» blocked (AtemschutzView · TruppForm attemptSubmit, field feedback 02.09.): a
+    // «Speichern» blocked (TruppForm · attemptSubmit, field feedback 02.09.): a
     // short toast alongside the flash on the field itself, so a blocked tap explains itself
     // instead of just sitting there. One per reason, in the same order canSubmit checks them.
     saveBlockedTeam: 'Zuerst einen Gruppenführer eintragen.',
@@ -390,7 +390,7 @@ export const atemschutzCopy = {
     clockFrozen: 'Stand beim Abschluss',
     clockWarn: 'Kontakt fällig',
     clockOverdue: 'Überfällig',
-    // the phone row's short tier word for its clock glyph (AtemschutzView · tierMark, B5): drawn
+    // the phone row's short tier word for its clock glyph (truppCardText · tierMark, B5): drawn
     // as the glyph only since 09.10.2026, so this is the row's aria-label and the glyph's title
     rowDue: 'Fällig',
     // …and the same block on a PRESSURE alarm: same three lines, but the number is the bar the
@@ -463,7 +463,7 @@ export const atemschutzCopy = {
     // ⚠️ APP ONLY (09.09., Feldtest) – ein Trupp ohne Atemschutz meldet einen erledigten Auftrag,
     // keinen Funkkontakt. Die ausgehändigte Link-Tafel bleibt bei «Raus melden», für JEDEN
     // Trupp: das ist der eine Bildschirm, den eine externe Person bekommt, und er darf nicht
-    // plötzlich anders sprechen (AtemschutzView · plainWords).
+    // plötzlich anders sprechen (TruppCard · plainWords).
     actExitPlain: 'Auftrag erledigt',
     actReenter: 'Wieder in den Einsatz',
     // A Sicherungstrupp mostly does NOT go in. Until 08.08. you could only delete it – i.e. throw

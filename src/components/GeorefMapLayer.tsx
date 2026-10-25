@@ -12,7 +12,7 @@ import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { georefDispatch, georefMatching, georefSlotLabel, GEOREF_TAP_SLOP_PX, peekGeorefPhoneTarget, useGeorefMode, type GeorefModeState } from '../lib/georefMode'
 import { GeorefPopoverCard } from './GeorefMode'
-import { fitSimilarity, type GeoPt } from '../lib/georef'
+import { fitSimilarity } from '../lib/georef'
 import { motionDuration } from '../lib/reducedMotion'
 import { uiBlue } from '../lib/themeToken'
 import s from './GeorefMode.module.css'
@@ -144,92 +144,6 @@ export function GeorefMapMarks({ mode, map }: { mode: GeorefModeState; map: MlMa
   )
 }
 
-// --- the proposal review's transform surface --------------------------------------------------
-
-/** Centroid of the pairs' map halves — the pivot ⟳ turns the sheet about. */
-function pairsCentre(pairs: { lngLat: GeoPt }[]): GeoPt {
-  return {
-    lng: pairs.reduce((a, p) => a + p.lngLat.lng, 0) / pairs.length,
-    lat: pairs.reduce((a, p) => a + p.lngLat.lat, 0) / pairs.length,
-  }
-}
-
-/**
- * While ✥ or ⟳ is armed on an automatic suggestion (mode.adjust), this capture layer owns every
- * pointer on the Karte: a drag moves the whole sheet, or turns it about the pairs' centroid —
- * streamed through `proposalNudge` in the same latitude-corrected metres the fit solves in.
- * «While armed the surface answers no taps at all» is the SelectionBar's own arm grammar; the
- * map's pan comes back the moment the grip is disarmed. The first sample of each gesture
- * checkpoints, so one drag is one undo step.
- */
-export function GeorefAdjustLayer({ mode, map }: { mode: GeorefModeState; map: MlMap | null }) {
-  // previous sample + the rotation pivot, container-relative px (the frame map.project uses)
-  const drag = useRef<{ id: number; x: number; y: number; cx: number; cy: number; checkpointed: boolean } | null>(null)
-  const C = appConfig.copy.whiteboard.georef
-  if (!mode.proposal || !mode.check || !mode.adjust || !map || mode.pairs.length < 2) return null
-  const kind = mode.adjust
-  const centre = pairsCentre(mode.pairs)
-  // the turn's degrees, read ON the surface beside the pivot (the SelectionTurn rule): the
-  // sheet's current rotation relative to the untouched suggestion
-  const fitNow = fitSimilarity(mode.pairs, mode.aspect)
-  const fitBase = fitSimilarity(mode.proposal, mode.aspect)
-  const turnDeg = fitNow && fitBase ? ((fitNow.rotationDeg - fitBase.rotationDeg + 540) % 360) - 180 : 0
-
-  const local = (e: React.PointerEvent) => {
-    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    return { x: e.clientX - r.left, y: e.clientY - r.top }
-  }
-  const down = (e: React.PointerEvent) => {
-    e.stopPropagation()
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-    const p = local(e)
-    const c = map.project([centre.lng, centre.lat])
-    drag.current = { id: e.pointerId, x: p.x, y: p.y, cx: c.x, cy: c.y, checkpointed: false }
-  }
-  const move = (e: React.PointerEvent) => {
-    e.stopPropagation()
-    const d = drag.current
-    if (!d || d.id !== e.pointerId) return
-    const p = local(e)
-    if (p.x === d.x && p.y === d.y) return
-    const checkpoint = !d.checkpointed
-    d.checkpointed = true
-    if (kind === 'move') {
-      const from = map.unproject([d.x, d.y])
-      const to = map.unproject([p.x, p.y])
-      const k = 111_320 * Math.cos((centre.lat * Math.PI) / 180)
-      georefDispatch({ type: 'proposalNudge', nudge: { dxM: (to.lng - from.lng) * k, dyM: (to.lat - from.lat) * 111_320 }, checkpoint })
-    } else {
-      // math-sense CCW bearing around the pivot (screen y runs down, hence the flip); a screen
-      // rotation IS the geographic rotation whatever the map's own bearing is
-      const before = Math.atan2(-(d.y - d.cy), d.x - d.cx)
-      const after = Math.atan2(-(p.y - d.cy), p.x - d.cx)
-      georefDispatch({ type: 'proposalNudge', nudge: { rotDeg: ((after - before) * 180) / Math.PI }, checkpoint })
-    }
-    d.x = p.x
-    d.y = p.y
-  }
-  const up = (e: React.PointerEvent) => {
-    e.stopPropagation()
-    if (drag.current?.id === e.pointerId) drag.current = null
-  }
-
-  return (
-    <>
-      <div
-        className={`${s.adjustCapture} ${kind === 'rotate' ? s.adjustRotate : ''}`}
-        onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
-      />
-      <div className={s.adjustHint}>{kind === 'rotate' ? C.hintRotate : C.hintMove}</div>
-      {kind === 'rotate' && (
-        <Marker longitude={centre.lng} latitude={centre.lat} anchor="center">
-          <span className={s.pivotBadge} aria-hidden>{turnDeg.toFixed(1)}°</span>
-        </Marker>
-      )}
-    </>
-  )
-}
-
 // --- «Deckung prüfen» -------------------------------------------------------------------------
 
 /**
@@ -256,9 +170,9 @@ export function GeorefCheckOutline({ mode, map }: { mode: GeorefModeState; map: 
   // otherwise left untouched, and subsequent pan/zoom remains fully manual. Wait until the CSS
   // has expanded the former split pane to the full viewport before fitting: fitting against its
   // old half-width is what left the plan centred in the right half of the finished layout.
-  // ⚠️ ONCE per opened check, not once per pairs identity: a proposal nudge (Plangrösse step,
-  // ✥/⟳ drag) changes `pairs` every frame, and refitting then flew the camera under the very
-  // gesture that was aiming the sheet — «the entire map behind moves too» (field, 08.09.).
+  // ⚠️ ONCE per opened check, not once per pairs identity: refitting on every new `pairs` flew
+  // the camera under the very gesture that was aiming the sheet — «the entire map behind moves
+  // too» (field, 08.09.).
   const fitKey = mode.check && mode.planId ? mode.planId : null
   const fitDone = useRef<string | null>(null)
   // closing the check re-arms the fit, so REOPENING it on the same plan centres again
@@ -497,7 +411,7 @@ export function GeorefMapLoupe({ map, layers, isVisible, night, atRef }: {
    * on the map's own centre (see `aim` below).
    *
    * ⚠️ A ref and not a prop, because this used to be `useState` in MapView. Every pointer sample
-   * of the georef turn therefore re-rendered the whole map tree — and `labelDecisions()` runs
+   * of the georef turn therefore re-rendered the whole map tree — and the label pass (useLabelPass) runs
    * unconditionally in that render, projecting every entity through `map.project` and running the
    * full AABB pass. MapView's own comment on `onView` already forbids exactly this ("that
    * re-renders all of IncidentWorkspace every frame"); the loupe was doing the local equivalent

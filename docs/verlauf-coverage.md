@@ -63,13 +63,13 @@ derived id `trn-<id>-<from>-<to>`, so the devices that all noticed it – the re
 Atemschutz-Link included – leave one row between them.
 
 A newly registered Trupp creates a Verlauf row – «Trupp {name} angemeldet»
-(`useTruppActions.ts` · `logRegister`). Whoever thinks it's missing is usually just not looking
+(`truppActions/lifecycle.ts` · `logRegister`). Whoever thinks it's missing is usually just not looking
 at the Verlauf while registering: Atemschutz is its own view.
 
 **Closed since 2026-08-17** (this used to be listed here as a gap): removing (`logRemoved`,
 «Trupp {name} entfernt») and restoring (`logRestored`) write their row. A colour change is a
 clause of the edit row («Farbe geändert», `atemschutz.changeColor` in
-`useTruppActions` · `truppEditChanges`); since 04.09.2026 the Trupp form no longer offers a
+`truppActions/lifecycle` · `truppEditChanges`); since 04.09.2026 the Trupp form no longer offers a
 colour, so it only fires if a stored colour actually differs.
 A deleted Trupp is only soft-removed anyway (`removedAt`) and keeps printing on the
 Rapport as «Von Tafel entfernt».
@@ -213,7 +213,7 @@ below.
 
 | Row | When | ↶ |
 |---|---|---|
-| «Referenz angepasst – {n} Objekte neu verortet» (`referenceRebaked`) | a **hand** corrected the fit: moved a cross, accepted «Automatisch ausrichten», transferred a Passung | yes – one step for all n |
+| «Referenz angepasst – {n} Objekte neu verortet» (`referenceRebaked`) | a **hand** corrected the fit: moved a cross, transferred a Passung | yes – one step for all n |
 | «Blattform gemessen – {n} Objekte neu verortet» (`referenceRemeasured`) | the **app** measured the sheet and re-solved the SAME pairs in a truer shape (`noteMeasuredAspect`) | yes |
 | «Referenz entfernt» / «… – {n} Objekte behalten ihre letzte Position» (`referenceDropped` / `referenceDroppedKept`) | «Referenz zurücksetzen»: the fit is gone, and **nothing moves** – both bodies stand where they stood | no – nothing moved |
 | «Referenz-Änderung verworfen – Speichern fehlgeschlagen» (`referenceRolledBack`) | the station document PUT was refused (409 or offline) and the optimistic write was rolled back | no – the correction above it never stuck |
@@ -263,9 +263,9 @@ Karte does). Review item 21b split the two acts (`src/lib/objectDone.ts`):
 | «Entfernen» (single object) on the **Plan** | «Feuer entfernt» – the Karte's own `log.objectDeleted`, named the way the Karte names it (`drawingEdit · annoLogName`), carried as `subjectId` | `board.delete` | yes, as before |
 
 - **One act, one row.** Each row is written by the act's own handler (`IncidentWorkspace ·
-  setEntityDone`, `Whiteboard · setAnnoDone` / `logRemoved`) and nowhere else: the store fold
-  writes none, the Karte's edit-settle window (`entityEditChanges`) does not read `done`, and a
-  plan removal of a *projected* Karte object goes through the plan's handler only.
+  setEntityDone`, `Whiteboard · setAnnoDone` / `usePlanRemoval · logRemoved`) and nowhere else:
+  the store fold writes none, the Karte's edit-settle window (`entityEditChanges`) does not read
+  `done`, and a plan removal of a *projected* Karte object goes through the plan's handler only.
 - **Replay stays coherent because the act emits BOTH views' op** – the pair, like an anchor flip.
   The surface a finger is on speaks its own document, and the replay folds views: a mark on a
   plan also emits `entity.edit` (the Karte's baked or own body; a symbol with no map body folds to
@@ -424,7 +424,7 @@ not operator actions. Ordered by operational impact.
 1. **Corrections to the incident data** are in the audit, not in the Verlauf (see above).
    `started_at` is a field of the legal document and even carries its own
    `started_at_source = "manual"` – but nobody can look the change itself up in the Verlauf.
-2. **Changing the line number of a drawn hose line** – audit only (`useTruppActions.ts` ·
+2. **Changing the line number of a drawn hose line** – audit only (`truppActions/lines.ts` ·
    `atemschutz.line.renumber`). This number is what maps which Trupp works on which
    Leitung – so the mapping can be shifted silently. ⚠️ Since 19.08. a renumber pulls the
    number onto the Trupp (**via the anchor, never via the number**), so the mapping *is*

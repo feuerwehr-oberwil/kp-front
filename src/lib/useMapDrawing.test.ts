@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { DRAW_DEFAULTS, useMapDrawing } from './useMapDrawing'
 import type { Doc } from './workspace'
-import type { Drawing, MapTool } from '../types'
+import type { Drawing, LineAttachment, MapTool } from '../types'
 
 // The two mutating behaviours this wave added to the map drawing surface:
 //  · C1 — a SEMANTIC edit (Leitung Nr., Stockwerk, Abschluss) earns ONE settled Verlauf row per
@@ -12,7 +12,8 @@ import type { Drawing, MapTool } from '../types'
 //    an undo that returns the shape TO THE HAND; a fragment says it was discarded.
 
 vi.mock('./ui', () => ({ toast: vi.fn(), confirmDialog: vi.fn() }))
-import { toast } from './ui'
+import { confirmDialog, toast } from './ui'
+import { replayEmits } from './replay.test-utils'
 
 const line = (over: Partial<Drawing> = {}): Drawing =>
   ({ id: 'd1', kind: 'line', coords: [[7.7, 47.4], [7.8, 47.5]], ...over }) as Drawing
@@ -432,5 +433,77 @@ describe('a new line starts from the plain default (3am sweep §2)', () => {
     expect(made).not.toHaveProperty('marker')
     expect(made).not.toHaveProperty('arrow')
     expect((made as unknown as Drawing).dashed).toBeUndefined()
+  })
+})
+
+// Deleting a Leitung lets go of every end hanging on it. Both ends of one line on the deleted
+// target used to go out as two `draw.edit`s, each built from the line's ORIGINAL coords — so
+// replay folded the second over the first and put the first end back where it was.
+describe('deleteDrawing — ends hanging on the deleted line', () => {
+  it('replay shows BOTH ends moved when both hang on the deleted line', async () => {
+    const target = line({ id: 't', coords: [[1, 1], [2, 2]] })
+    const hanging = line({
+      id: 'h', coords: [[0, 0], [5, 5], [9, 9]],
+      startAttachment: { target: { kind: 'line', id: 't', endpoint: 'start' }, routing: 'direct' },
+      endAttachment: { target: { kind: 'line', id: 't', endpoint: 'end' }, routing: 'direct' },
+    })
+    const deps = makeDeps({ drawings: [target, hanging] })
+    const before = deps.drawings
+    vi.mocked(confirmDialog).mockResolvedValue(true)
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    await act(async () => { await result.current.deleteDrawing('t') })
+    const live = deps.drawings.find((d) => d.id === 'h')
+    expect(live?.coords).toEqual([[1, 1], [5, 5], [2, 2]])
+    const replayed = await replayEmits({ drawings: before }, deps.emit.mock.calls)
+    expect(replayed.drawings.find((d) => d.id === 'h')?.coords).toEqual([[1, 1], [5, 5], [2, 2]])
+    expect(deps.emit.mock.calls.filter(([op]) => op === 'draw.edit')).toHaveLength(1)
+  })
+})
+
+// Punkte-mode Linie, the Plan's rule (usePlanCreate · node tap): every tap AFTER the first owns
+// the end slot — a free tap clears what an earlier tap on a symbol banked, so the line does not
+// end «on» a symbol it no longer reaches.
+describe('setDraftPointAttachment — node taps', () => {
+  const onSym = (id: string): LineAttachment => ({ target: { kind: 'object', id }, routing: 'direct' })
+
+  it('a free tap after a tap on a symbol leaves the end free', () => {
+    const deps = makeDeps({ tool: 'line', drawings: [] })
+    const { result, rerender } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.setLineMode('nodes') })
+    act(() => { result.current.setDraftPointAttachment(onSym('a')) })
+    act(() => { result.current.setDraft([[0, 0]]) })
+    act(() => { result.current.setDraftPointAttachment(onSym('b')) })
+    act(() => { result.current.setDraft([[0, 0], [1, 1]]) })
+    act(() => { result.current.setDraftPointAttachment(undefined) })
+    act(() => { result.current.setDraft([[0, 0], [1, 1], [2, 2]]) })
+    rerender({ ...deps })
+    act(() => { result.current.commitDraft() })
+    const made = deps.drawings[0]
+    expect(made.startAttachment?.target).toEqual({ kind: 'object', id: 'a' })
+    expect(made.endAttachment).toBeUndefined()
+  })
+})
+
+// «Umkehren» swaps the ends' couplings. An end that is FREE after the swap went out as
+// `undefined`, which JSON drops — replay kept the old coupling on that end.
+describe('reverseDrawing — replay', () => {
+  it('a line coupled at one end only is coupled at the OTHER end in replay', async () => {
+    const onSym: LineAttachment = { target: { kind: 'object', id: 's' }, routing: 'direct' }
+    const deps = makeDeps({ drawings: [line({ coords: [[0, 0], [1, 1]], endAttachment: onSym })] })
+    const before = deps.drawings
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.reverseDrawing('d1') })
+    const [replayed] = (await replayEmits({ drawings: before }, deps.emit.mock.calls)).drawings
+    expect(replayed.startAttachment?.target).toEqual(onSym.target)
+    expect(replayed).not.toHaveProperty('endAttachment')
+  })
+
+  it('a pinned end label goes with the old end in replay too', async () => {
+    const deps = makeDeps({ drawings: [line({ coords: [[0, 0], [1, 1]], endLabelAt: [1.1, 1.1] })] })
+    const before = deps.drawings
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.reverseDrawing('d1') })
+    const [replayed] = (await replayEmits({ drawings: before }, deps.emit.mock.calls)).drawings
+    expect(replayed).not.toHaveProperty('endLabelAt')
   })
 })

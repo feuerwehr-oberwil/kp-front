@@ -7,7 +7,7 @@
 // silently throws away what was already in it.
 //
 // Module-level rather than component state, for the same reason the Rapport keeps its scroll
-// position that way (ReportPreflight · savedScroll): the component that owns the value is exactly
+// position that way (`incidentSlot` below): the component that owns the value is exactly
 // the thing that goes away. Not persisted to disk — a draft is a thing you are in the middle of,
 // not a record; it belongs to this session and this incident, and a reload is a fresh start.
 //
@@ -59,4 +59,62 @@ export function useKeptState<T>(key: string, empty: T): [T, (next: T | ((prev: T
   }, [key])
   const clear = useCallback(() => { store.delete(key); setValue(empty) }, [key, empty])
   return [value, set, clear]
+}
+
+// ── Kept per Einsatz: «where was I on this Einsatz», one slot per surface ──────────────────────
+//
+// The other kind of remembering. Not a draft but a way of LOOKING: which tab was open, whether
+// «Nur Anwesende» was on, where the Rapport was scrolled to and what it will print. ONE slot per
+// key, stamped with the Einsatz it was written for: writing it for another Einsatz replaces it,
+// and reading it for an Einsatz it was not written for gives `null` — a fresh open. The stamp is
+// what keeps two Einsätze apart, so `clearAllDrafts` leaves these alone.
+//
+// `memory` outlives a surface switch and dies with a reload; `session` is sessionStorage (JSON —
+// keep the value plain data), which survives a reload mid-Einsatz and dies with the app.
+
+/** A per-Einsatz slot — see `incidentSlot`. */
+export type IncidentSlot<T> = {
+  /** what was kept for THIS Einsatz, or null (nothing kept, or kept for another one) */
+  read: (incidentId: string | undefined) => T | null
+  write: (incidentId: string | undefined, value: T) => void
+  forget: () => void
+}
+
+const slots = new Map<string, { incidentId?: string; value: unknown }>()
+
+/** One remembered value per `key` for the Einsatz it was written for. Create it at module level,
+ *  once per surface; `useIncidentSlot` is the `useState` over it. */
+export function incidentSlot<T>(key: string, where: 'memory' | 'session' = 'memory'): IncidentSlot<T> {
+  const load = (): { incidentId?: string; value?: unknown } | null | undefined => {
+    if (where === 'memory') return slots.get(key)
+    try {
+      const raw = sessionStorage.getItem(key)
+      return raw ? JSON.parse(raw) : undefined
+    } catch { return undefined }
+  }
+  return {
+    read: (incidentId) => {
+      if (!incidentId) return null
+      const box = load()
+      return box?.incidentId === incidentId && box.value !== undefined ? (box.value as T) : null
+    },
+    write: (incidentId, value) => {
+      if (where === 'memory') slots.set(key, { incidentId, value })
+      else try { sessionStorage.setItem(key, JSON.stringify({ incidentId, value })) } catch { /* private mode */ }
+    },
+    forget: () => {
+      if (where === 'memory') slots.delete(key)
+      else try { sessionStorage.removeItem(key) } catch { /* private mode */ }
+    },
+  }
+}
+
+/** `useState` seeded from a per-Einsatz slot and written back on every set. */
+export function useIncidentSlot<T>(slot: IncidentSlot<T>, incidentId: string | undefined, fallback: T): [T, (next: T) => void] {
+  const [value, setValue] = useState<T>(() => slot.read(incidentId) ?? fallback)
+  const set = useCallback((next: T) => {
+    setValue(next)
+    slot.write(incidentId, next)
+  }, [slot, incidentId])
+  return [value, set]
 }

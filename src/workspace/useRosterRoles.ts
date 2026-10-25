@@ -288,7 +288,7 @@ export function useRosterRoles({
       assignTypedName(name, 'presence', name === lead ? leaderRole : role)
     }
   }
-  /** The Trupp form's Gast door (AtemschutzView · TruppForm · fileGuests), called at the SAVE.
+  /** The Trupp form's Gast door (TruppForm · fileGuests), called at the SAVE.
    *  A name the Mannschaft knows is that person; any other is a Gast row, filed QUIETLY — the
    *  crew's one «Unter AS: …» row that `ensurePresentFromTrupp` writes right after names them
    *  all — and remembered for that call (staging N1: one person, one row, one line). */

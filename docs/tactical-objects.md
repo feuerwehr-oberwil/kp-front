@@ -13,6 +13,16 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   relative coordinate system may diverge. Shared logic lives in `ToolDock`, `DrawEditor`,
   `SelectionBar` and `src/lib/lineStyle.ts` / `src/lib/selectionTransform.ts`; the renderers stay
   separate only for that surface-specific part.
+- **The twins are one module each** (sweep wave 2, 24.10.2026), so parity holds by construction,
+  not by review: the magnet of a line being drawn (`lib/useDraftMagnet` – line-start exception,
+  start-radius claim, dwell, release only if armed, the «Angekuppelt» joints; each surface hands
+  in only its projection and target walk, `lineAttachments · lineEndTargets` /
+  `candidateAttachment`; the Lage's walk is `components/mapMagnetTargets`, its magnets
+  `components/useMapMagnet`), the draft contract (`lib/draftMachine` – ✓ «Fertig» and the A6
+  tap-away auto-commit), «mit verbundenen Leitungen entfernen» (`lineAttachments · detachEnds`; the Lage sends
+  it as ONE `draw.edit` per line, both ends in it – `detachDrawings` – so replay keeps both ends moved),
+  ⌘D (`lib/duplicate`), and the armed tool + per-team trails + note-panel closing rules
+  (`useTacticalSelection · usePlacement`, `lib/useHiddenTrails`, `lib/useNotePanelClosing`).
 - **The armed tool's readout is one pill** (`components/ArmedToolPill`, `lib/armedTool`,
   23.10.2026, 3am sweep point 3 – owner: «a small little info thing at the bottom that now you're
   placing symbol XYZ and that's it»). Bottom centre of the Karte, the Einsatz map, a Plan and the
@@ -24,7 +34,7 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   Strecke ↔ Fläche, Trupp finden). On a phone the pill stands on the floating row (above the dock
   while one is out) and yields to the Messen results panel.
 - **A new line starts from the plain default, always** (`useMapDrawing · DRAW_DEFAULTS`,
-  `Whiteboard · INK_DEFAULTS`, 23.10.2026): the surface's colour, width, solid, no marker, no
+  `usePlanDraft · INK_DEFAULTS`, 23.10.2026): the surface's colour, width, solid, no marker, no
   arrowhead – whatever the last line was edited to. Until then the DrawEditor wrote every style
   edit back as the next line's template, so an Absperrung's chain marker rode into the next hose
   line. Styling is done in the editor, after the draw, on that one drawing.
@@ -85,7 +95,7 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
     plan-drawn hoses off their sheet with nobody touching anything; such writers pass
     `gesture: false` and their position crosses through the fit instead. Both store writers take
     it — `setDocRaw` and, since 24.09.2026, `setBoard` (it hard-coded «gesture»): a plan ↶/↷
-    restoring a snapshot (`planStepAt`, `useBoardDoc`), the Trupp sweeps that move a marker
+    restoring a snapshot (`usePlanStacks · planStepAt`, `useBoardDoc`), the Trupp sweeps that move a marker
     (`settleAtHoseEnd`, `unlinkTruppLine`), a Gebäude amend and a storey removal. A writer that
     rewrites what a sheet OWNS hands the lent annos back untouched (`tacticalObjects ·
     withOwnAnnos`) — the Gebäude amend carried the Karte's projections through the old building

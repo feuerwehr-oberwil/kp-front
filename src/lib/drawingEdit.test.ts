@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { drawingEditChanges, drawingLogName } from './drawingEdit'
+import { drawingEditChanges, drawingLogName, endingFlags, endingOf, endingWireFlags, type LineEnding } from './drawingEdit'
+import { replayEmits } from './replay.test-utils'
 import type { Drawing } from '../types'
 
 const line = (over: Partial<Drawing>): Drawing => ({
@@ -115,5 +116,17 @@ describe('Abschnitt fields on a Fläche', () => {
     expect(drawingEditChanges(area({}), area({ abschnittAuftrag: 'Brandbekämpfung Trakt B' }))).toEqual(['Auftrag: Brandbekämpfung Trakt B'])
     expect(drawingEditChanges(area({ abschnittAuftrag: 'Brandbekämpfung' }), area({ abschnittAuftrag: 'Wasserversorgung' }))).toEqual(['Auftrag auf Wasserversorgung geändert'])
     expect(drawingEditChanges(area({ abschnittAuftrag: 'x' }), area({}))).toEqual(['Auftrag entfernt'])
+  })
+})
+
+// The Abschluss as the audit stream carries it (IncidentWorkspace · changeMapEnding): whatever the
+// line ended in before, the replayed line ends in the chosen Abschluss — «Pfeil + Stopp» included,
+// and a flag switched OFF stays off (JSON drops an `undefined`).
+describe('endingWireFlags — the Abschluss in replay', () => {
+  const endings: LineEnding[] = ['none', 'arrow', 'arrowStop', 'teilstueck']
+  it.each(endings.flatMap((from) => endings.map((to) => [from, to] as const)))('%s → %s', async (from, to) => {
+    const drawings = [{ id: 'd', kind: 'line', coords: [[7, 47], [8, 48]], ...endingFlags(from) } as Drawing]
+    const replayed = await replayEmits({ drawings }, [['draw.edit', { id: 'd', patch: endingWireFlags(to) }]])
+    expect(endingOf(replayed.drawings[0])).toBe(to)
   })
 })

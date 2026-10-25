@@ -20,6 +20,29 @@ export const rowTime = (e: TimelineEvent): string => (e.at ? formatTime(new Date
  *  CLOSED_CLOCK_TOLERANCE), so the flag can never carry a real Nachtrag off the paper. */
 export const AT_CLOSE_TOLERANCE_MS = 120_000
 
+// A row is clickable only when it carries a real jump target: a map entity, a
+// pinned map point, or something ON a plan. Plain log lines (undo/redo, deletions,
+// surface-only journal notes) are read-only — the journal is a record, not a UI.
+//
+// ⚠️ A plan row is a target when it is about a THING on the plan: it names the annotation
+// (`annoId`) or its spot (`px`), or — for the rows written before either was recorded — it is one
+// of the kinds only a placement writes (`symbol` · `team`; a Pendenz or a typed note on a plan is
+// about neither, and an undo is `history`).
+//
+// How well it lands is the second question. A placement logged since 23.08. carries annoId · px/py
+// · floor, and the jump selects the object and brings it into view, the way the Lage's `entityId`
+// jump always has (IncidentWorkspace · focusEvent). One logged before that carries the plan
+// document alone and lands on it — which is all any plan row ever did. The record is append-only,
+// so those rows are never going to grow coordinates; landing them on the right plan with nothing
+// selected is the graceful floor, not a bug to guard against.
+export const rowTarget = (e: TimelineEvent): 'map-entity' | 'map-pin' | 'plan' | null => {
+  if (e.entityId) return 'map-entity'
+  if (e.coord) return 'map-pin'
+  const placedOnPlan = e.annoId != null || e.px != null || e.kind === 'symbol' || e.kind === 'team'
+  if (e.surface === 'plan' && e.planId && placedOnPlan) return 'plan'
+  return null
+}
+
 /** appended after the Einsatzende (closed_at) → renders as a Nachtrag — and so does a row the
  *  server received while the Einsatz was closed, whatever time it carries (`receivedAfterClose`).
  *  ⚠️ …except what the Abschluss wrote on its way to the close (staging r6, F3): «Trupp … beim

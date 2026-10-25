@@ -186,11 +186,21 @@ entry). It is the app's home with no Einsatz open (below), and over an open one 
 the Einsatz menu's «Einsatz verlassen»; a deep link at start opens no Einsatz behind it (the same rule as `/besuche`).
 Not for a link session.
 
+Where the code lives: `KarteApp` is the wiring between the concerns (what a selection, a tool or a
+tap does to the others) and the markup; each concern is a hook beside it — `useKarteCatalogue`
+(the start view, the deep link, the catalogue), `useKarteArrival`, `useKarteLayers` (the layers,
+object colours, the aligned plan, Ebenen's rows), `useKarteOffline`, `useKarteOutlines`,
+`useKarteTools`, `useKarteSession` (the address, the kept view), `useKarteMenu`, `useKarteSearch`,
+`useKarteCamera` (framing, the way back, the compass), `useKartePlace` (register, addresses,
+visits, hydrants), `useKartePointer` (hover and hold), `useKarteOverlays`, `useKarteTags`. The pure
+rules are `lib/karte/*` — `selection` (what a point hits), `overlays` (what the map draws),
+`camera`, `places`, `labels` and the rest.
+
 What it reuses, so nothing forks:
 
 | Piece | Reused from |
 |---|---|
-| map, layers, vehicles, measure path, georef raster, weather radar | `MapView` (read-only, no drawings) + `MapLayers` (a `polygons` overlay kind draws the outlines) |
+| map, layers, vehicles, measure path, georef raster, weather radar | `MapView` (read-only, no drawings: its base props only, none of the tactical ones — `components/mapViewProps`) + `MapLayers` (a `polygons` overlay kind draws the outlines) |
 | Ebenen | `LayerPanel`, under its OWN device key (`kp.layers.karte`, `lib/karte/session`), without the Einsatz-only layers (taktisch, Skizzen, Personen) and the catalogue's «Unterirdische Bauten» (its own Station row stands in); the radar's choice too (`kp.karte.radar`) |
 | tools | the Einsatz's `ToolRail` (tablet) / the folded `navrail` bar (phone: Karte · Checkliste │ Messen · Gefahrgut · Ebenen — «Checkliste» below), `ToolDock` + `MeasurePanel` WITHOUT «Als Linie/Fläche übernehmen» (and without a line saying it is not saved — nothing here is), stacked on the phone like an Einsatz's: dock 6px above the bar, readout 6px above the dock, one bar lower because the Karte has no tool bar, `MapViewsButton` without saved views |
 | weather | `useWeather` + `WeatherBadge` |
@@ -843,17 +853,25 @@ device Anleitungen to read in peace time — the Einsatz tab's word and glyph
 Owner, 17.10.2026: colour the objects so that objects with plans, water plans, PV systems … are
 told apart. The station sets ordered rules in the deployment config (Verwaltung › Station &
 Karte › «Objektfarben», schema `ObjectCategoryConfig`), FIRST match wins:
-`{ id, label: "…" | { de, fr, it, en }, color: "#rrggbb", match: { kinds?: [einsatzobjekt|objekt], modules?: [glob…] } }`.
+`{ id, label: "…" | { de, fr, it, en }, color: "#rrggbb" | "ink", match: { kinds?: [einsatzobjekt|objekt], modules?: [glob…] } }`.
 A rule matches when every condition it names holds (none named = catch-all); `modules` globs
 match the object's plan modules (`modul5-pv*` = `modul5-pv`, `-pv15`, `-pv20`). An object no rule
-takes keeps the default look: red, ink-grey without plans. No rules = that default map.
+takes keeps the default look: ink (`--obj-plans`, owner's pick 7A, 23.10.2026), grey without
+plans. No rules = that default map.
+
+- **`"ink"` (admin: «Tinte»)** is a colour like a hex (owner, 25.10.2026): the category draws
+  exactly like the default – dot, tag rim and outline in `--obj-plans`, near-black by day,
+  near-white at night, repainted on the flip – but keeps its own Ebenen row and on/off switch
+  (its glyph in ink). Parsed as `color: null` (`lib/karte/categories`), so every reader falls back
+  to the ink it uses for an object without a category. FWO's «Einsatzpläne» uses it.
 
 - **Order = precedence.** FWO's order (owner, review round 5, 18.10.2026: «emergency plans have
-  precedence over PV or water (ie red first then blue then yellow)»): Einsatzpläne red
-  (`modul1*`, `modul2*`, `modul3*`, `modul4*`, `modul6*`) → Wasser blue (`modul5-wasser*`) →
-  Photovoltaik amber (`modul5-pv*`) → ohne Pläne grey (`kinds: [einsatzobjekt, objekt]`). An object
-  with an Einsatzplan AND a PV or water module is red. Do not use `modul*` for the red rule: it
-  also matches the `modul5-*` modules and would paint every PV/water object red.
+  precedence over PV or water (ie red first then blue then yellow)»): Einsatzpläne – red until
+  7A, `"ink"` since 25.10.2026 – (`modul1*`, `modul2*`, `modul3*`, `modul4*`, `modul6*`) → Wasser
+  blue (`modul5-wasser*`) → Photovoltaik amber (`modul5-pv*`) → ohne Pläne grey
+  (`kinds: [einsatzobjekt, objekt]`). An object with an Einsatzplan AND a PV or water module is
+  ink. Do not use `modul*` for the Einsatzpläne rule: it also matches the `modul5-*` modules and
+  would take every PV/water object.
 
 - ⚠️ `kinds: ["depot"]` is **retired** (review round 3): the schema still accepts it, so an
   existing config stays valid, and it matches NO object — a rule naming only `depot` paints
@@ -1114,9 +1132,9 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   sheet, in the slot the Einsatz menu gives «Offline-Bereitschaft», which is about an open
   Einsatz), Funktionen & Hilfe, Installieren where offered; who is signed in with Abmelden, the
   build label. With nothing running and nothing to take, one quiet line says «Keine offenen
-  Einsätze». The Rückmeldung prompt (`trouble`) heads the sheet. `App · homeMenu` hands in the
-  handlers; the viewer only opens and closes the sheet (`einsaetze.render(close, onDevice)`). The
-  red dot is running Einsätze + alarms waiting to be taken. The old card (`App · launcherBody`) is
+  Einsätze». The Rückmeldung prompt (`trouble`) heads the sheet. App hands the handlers to
+  `components/HomeMenus · HomeMenu`; the viewer only opens and closes the sheet (`einsaetze.render(close, onDevice)`). The
+  red dot is running Einsätze + alarms waiting to be taken. The old card (`components/HomeMenus · LauncherBody`) is
   left only for a link session whose Einsatz could not be fetched.
 - **Alarms** show in the Meldeleiste and the banner (no «Anhängen»: no Einsatz is being worked on
   screen); nothing switches by itself. Taking one keeps the 12 s «Alarm übernommen · Rückgängig»,

@@ -16,7 +16,6 @@ from typing import Literal, TypedDict
 import anyio
 
 from . import overpass, storage
-from .api.georef_suggest import _load_matcher, _match_limiter, _osm_around
 from .pdfium_lock import pdfium_lock
 from .reference_buildings import clip as clip_reference
 
@@ -33,6 +32,53 @@ class Capability(TypedDict):
 class ReferencePoint(TypedDict):
     lng: float
     lat: float
+
+
+# The matcher is a 3–15 s CPU burn per page and a thread cannot be cancelled once started — its
+# own small limiter keeps a burst of jobs from pegging every core and starving the PDF renderers,
+# which share the default thread pool.
+_match_limiter = anyio.CapacityLimiter(2)
+
+
+def _load_matcher():
+    """The lazy heavy-deps import (the optional `georef` extra), as a SEAM: the «dependencies
+    missing» path is exactly what holds on an image without the extra, so it must be testable
+    from an environment where the extra IS installed — the tests monkeypatch this to raise."""
+    from . import georef_suggest
+
+    return georef_suggest
+
+
+# Overpass answers for one object change on OSM's timescale, not the station's: cache them per
+# rounded coordinate so a re-run does not re-ask the public mirrors (which rate-limit), and serve
+# the last good answer when every mirror momentarily fails.
+_OSM_TTL_S = 600
+_osm_cache: dict[str, tuple[float, dict]] = {}
+
+
+async def _osm_around(lng: float, lat: float, radius_m: float) -> dict:
+    # the radius is part of the identity: a Modul-1 attempt needs the WIDE box, and must not be
+    # handed the narrow one a Modul-2 attempt on the same object just cached
+    key = f"{round(lng, 4)},{round(lat, 4)},{round(radius_m)}"
+    now = time.monotonic()
+    hit = _osm_cache.get(key)
+    if hit and now - hit[0] < _OSM_TTL_S:
+        return hit[1]
+    dlat = radius_m / 111_320
+    dlng = radius_m / (111_320 * math.cos(math.radians(lat)))
+    bbox = f"{lat - dlat},{lng - dlng},{lat + dlat},{lng + dlng}"
+    try:
+        data = await overpass.fetch_buildings(overpass.BUILDINGS_QUERY.format(bbox=bbox))
+    except Exception:
+        # stale beats a failure — buildings do not move. The entry may be well past the TTL (it
+        # only ever leaves by LRU eviction), which is still the better answer than nothing.
+        if hit:
+            return hit[1]
+        raise
+    _osm_cache[key] = (now, data)
+    if len(_osm_cache) > 64:
+        del _osm_cache[min(_osm_cache, key=lambda k: _osm_cache[k][0])]
+    return data
 
 
 def alignment_capability() -> Capability:

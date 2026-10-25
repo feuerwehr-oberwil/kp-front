@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 /** Hold this long (without moving) to fire — long enough not to clash with a drag, and the
  *  platform-usual long press on both Android and iOS. Exported because a hold on the map canvas
  *  cannot use this hook (it listens on maplibre's container, not on a React element) and the app
- *  must answer every still hold on one beat (karte/KarteApp · the map's hold). */
+ *  must answer every still hold on one beat (karte/useKartePointer · useMapPress). */
 export const LONG_PRESS_MS = 500
 /** any movement past this is a drag/reshape, not a press → cancel */
 export const LONG_PRESS_MOVE_TOL_PX = 8

@@ -16,18 +16,18 @@ import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { bearingDeg, circlePolygon, haversineM, midCoord } from '../lib/geo'
 import { georefDispatch, useGeorefMode } from '../lib/georefMode'
 import type { GeorefPlan } from '../lib/georefTwins'
-import { routeHotkey } from '../lib/hotkeyRoute'
+import { routeEscape, routeHotkey } from '../lib/hotkeyRoute'
 import { resolveHotkey, isTypingTarget } from '../lib/hotkeys'
 import { newId } from '../lib/ids'
-import { applyRouting, moveLineBody, objectAttachment } from '../lib/lineAttachments'
+import { applyRouting, detachDrawings, moveLineBody, objectAttachment, wireFreed, withDetach, type DetachPatch } from '../lib/lineAttachments'
 import { moduleNumbers } from '../lib/navRail'
 import { autoNoteWPx } from '../lib/notes'
 import { doneAct, donePlace } from '../lib/objectDone'
 import { nudgePointIntoRect, nudgeSelectionIntoRect, type NudgeBox } from '../lib/panelNudge'
-import { freshTeamLabel, placedTrupps, type PlacedTrupp } from '../lib/placedTrupps'
+import { placedTrupps, type PlacedTrupp } from '../lib/placedTrupps'
 import { motionDuration, prefersReducedMotion } from '../lib/reducedMotion'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
-import { serverNowIso } from '../lib/serverClock'
+import { serverNow, serverNowIso } from '../lib/serverClock'
 import { ROTATION_DEFAULT_RUN_M, ROTATION_W_M, SHAPE_DEFS, SHAPE_MIN_M, SHAPE_TWO_POINT, rotationBox } from '../lib/shapes'
 import { seedSymbolProps, VEHICLE_SYMBOLS } from '../lib/symbols'
 import type { TacticalObject } from '../lib/tacticalObjects'
@@ -37,6 +37,7 @@ import { recordKey, type RecordKey } from '../lib/undoKeys'
 import type { Dropper, UndoDomain } from '../lib/undoTimeline'
 import { useCoordPicker } from '../lib/useCoordPicker'
 import { useMeasure } from '../lib/useMeasure'
+import { useNotePanelClosing } from '../lib/useNotePanelClosing'
 import { useShareMyPosition } from '../lib/useShareMyPosition'
 import { useSymbols } from '../lib/useSymbols'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
@@ -48,29 +49,6 @@ import { useEffect, useMemo, useRef, type Dispatch, type RefObject, type SetStat
 import type { MapRef } from 'react-map-gl/maplibre'
 import { isMapTool } from '../lib/readOnlyTools'
 
-/**
- * Let a drawing go from an object that is disappearing off the Karte, pinning the endpoint where
- * the object stood so the drawn line does not jump.
- *
- * An object leaves the map by two doors — «Löschen» and «Hierher übertragen» (onto a Modul) — and
- * both owe every Leitung anchored to it the same courtesy. Only deletion used to do it; the
- * transfer filtered the entity out and left the attachments pointing at an id that no longer
- * existed, so «Verbunden mit» printed the raw id and trace-routing quietly stopped working. One
- * helper, so the two doors cannot drift apart again.
- *
- * Returns the drawing unchanged when nothing is attached to `ent` — safe to `.map()` over the
- * whole list.
- */
-function detachDrawingFrom(dr: Drawing, ent: Entity): Drawing {
-  let next = dr
-  for (const endpoint of ['start', 'end'] as const) {
-    const a = endpoint === 'start' ? next.startAttachment : next.endAttachment
-    if (a?.target.kind !== 'object' || a.target.id !== ent.id || next.coords.length < 2) continue
-    const coords = next.coords.map((p, i) => (i === (endpoint === 'start' ? 0 : next.coords.length - 1) ? ent.coord : p))
-    next = { ...next, coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
-  }
-  return next
-}
 
 export interface UseMapActionsInputs {
   clearMapUi: (keep?: 'selection') => void
@@ -120,7 +98,10 @@ export interface UseMapActionsInputs {
   rememberOneShotRef: RefObject<(domain: UndoDomain, label: string, restore: () => void, reapply: () => void, touches: () => readonly RecordKey[] | null, rows?: OneShotRows | 'silent') => Dropper>
   C_HIST: import('../config/copy').Copy
   setViewsOpen: Dispatch<SetStateAction<boolean>>
+  viewsOpen: boolean
   selectedId: string | null
+  selectedDrawIds: string[]
+  selectedEntityIds: string[]
   doc: Doc
   truppCounterNames: (exceptId?: string) => (string | undefined)[]
   selectedDrawingId: string | null
@@ -182,7 +163,8 @@ export function useMapActions({
   sym, addRecent, noteDefaults, setNotePlacedId, setTeamPick, setDraft, lineMode, measure, mapRef,
   incidentView, entities, liveIds, resolvedMapDrawings, cameraViews, view, setLocateReq, incidentOpen,
   share, setShareParent, setSharePick, setCameraViews, rememberOneShotRef, C_HIST, setViewsOpen,
-  selectedId, doc, truppCounterNames, selectedDrawingId, planDocs, mode, setMode, setActivePlanId,
+  viewsOpen, selectedId, selectedDrawIds, selectedEntityIds, doc, truppCounterNames, selectedDrawingId,
+  planDocs, mode, setMode, setActivePlanId,
   hotkeyRef, settingsOpen, paletteOpen, pickerOpen, helpOpen, installGuideOpen, offlineReadyOpen,
   shareLink, composerOpen, georefActive, georefMode, replayActive, readOnly, linkScoped, goToNav,
   planFit, stepHistory, planKeys, setJournalOpen, setComposerOpen, togglePanel, setSettingsOpen,
@@ -438,10 +420,8 @@ export function useMapActions({
       const src = doc.entities.find((e) => e.id === selectedId)
       if (!src || src.live || !Array.isArray(src.coord)) return
       const id = newId('p')
-      const dup = duplicateEntity(src, id)
-      // ⚠️ a loose «Trupp 3» copied is not a second Trupp 3 (docs/trupp-naming.md §7): it takes the
-      // next number of the one counter, as a new chip dropped from the tool would
-      const copy = dup.kind === 'team' && !dup.truppId ? { ...dup, label: freshTeamLabel(dup.label, truppCounterNames()) } : dup
+      // the copy rules — no «erledigt», a loose Trupp's next number — are lib/duplicate's
+      const copy = duplicateEntity(src, id, truppCounterNames)
       commit((d) => ({ ...d, entities: [...d.entities, copy] }))
       setSelectedId(id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
       log('layers', appConfig.copy.log.duplicated, 'symbol', undefined, id); emit('entity.add', { id, entity: copy })
@@ -470,9 +450,46 @@ export function useMapActions({
     return true
   }
 
-  // Reassigned every render (effect, no deps) so the mount-once listener (above) always sees
-  // live handlers/state without re-subscribing — the latest-ref pattern.
+  /** Escape: one layer of transient Karte state per press — lib/hotkeyRoute · routeEscape is the
+   *  order. (Modal sheets handle their own Esc via the overlay wrapper; this is only the non-modal
+   *  map chrome.) */
+  const escape = (e: KeyboardEvent) => {
+    // typing in a field? Escape leaves the FIELD and nothing more — one key press must never
+    // both finish the text and drop the selection. Read the event TARGET, not activeElement:
+    // the field's own handler has already blurred by the time this bubbles up.
+    const el = e.target as HTMLElement | null
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+    // …and a MODAL on top of the map owns Escape outright — it closes, and the map does NOT also
+    // peel a layer behind it (Esc in the «Welcher Trupp?» picker used to close the picker AND
+    // disarm the Team tool). Focus is trapped inside the dialog, so the event target is enough.
+    // ⚠️ `alertdialog` as well as `dialog`: ConfirmCard (lib/overlays/ConfirmCard) renders the
+    // alert role, and a delete confirm on the Lage must not peel a map layer behind it either.
+    if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
+    switch (routeEscape({
+      placing: !!(pending || pendingShape),
+      coordOn: coord.mode !== 'off',
+      chromeOpen: !!(panel || viewsOpen),
+      toolArmed: tool !== 'select',
+      notePanelOpen: !!notePanelId,
+      selected: !!(selectedId || selectedDrawingId || selectedDrawIds.length || selectedEntityIds.length),
+    })) {
+      case 'cancelPlacement': setPending(null); setPendingShape(null); setRotStart(null); setTool('select'); break
+      case 'coordOff': coord.setMode('off'); break
+      case 'closeChrome': setPanel(null); setViewsOpen(false); break
+      // ⚠️ setDraft([]), NOT settleDraft: Escape is the EXPLICIT discard. Every tap-away path
+      // auto-commits a committable draft (useMapDrawing · settleDraft), but the one key that means
+      // «weg damit» must never save the thing instead.
+      case 'disarmTool': setTool('select'); setDraft([]); break
+      case 'closeNotePanel': setNotePanelId(null); break
+      case 'clearSelection': setSelectedId(null); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([]); break
+    }
+  }
+
+  // Reassigned every render (effect, no deps) so the mount-once listener (IncidentWorkspace)
+  // always sees live handlers/state without re-subscribing — the latest-ref pattern.
   useEffect(() => { hotkeyRef.current = (e: KeyboardEvent) => {
+    // Escape is no shortcut (resolveHotkey maps nothing to it) and keeps its own guards above
+    if (e.key === 'Escape') { escape(e); return }
     if (isTypingTarget(document.activeElement)) return
     // WHERE the key goes is lib/hotkeyRoute's table (pure, tested there); this only carries it out
     const { action: a, prevent } = routeHotkey(resolveHotkey(e), {
@@ -512,14 +529,8 @@ export function useMapActions({
   const selected = entities.find((e) => e.id === selectedId) ?? null
   // the note whose ⚙ was tapped — a deleted note simply drops out here and the panel unmounts
   const noteEntity = entities.find((e) => e.id === notePanelId && e.kind === 'note') ?? null
-  // the panel belongs to the SELECTED note: deselecting (empty map, Esc, picking something
-  // else) closes it too, so a stray panel can never outlive the thing it describes
-  useEffect(() => { if (notePanelId && selectedId !== notePanelId) setNotePanelId(null) }, [selectedId, notePanelId, setNotePanelId])
-  // reaching for a tool means you are done reading this note — the panel should not sit there
-  // while you place the next thing (selection alone doesn't change until that thing lands)
-  useEffect(() => { if (tool !== 'select') setNotePanelId(null) }, [tool, setNotePanelId])
-  // the «just placed» mark lives exactly as long as that panel does
-  useEffect(() => { if (notePlacedId && notePanelId !== notePlacedId) setNotePlacedId(null) }, [notePanelId, notePlacedId, setNotePlacedId])
+  // …and it closes on the Plan's three rules too: deselected, a tool armed, the placed mark spent
+  useNotePanelClosing({ selectedId, tool, rest: 'select', notePanelId, setNotePanelId, notePlacedId, setNotePlacedId })
 
   // keep the tapped symbol visible: the ContextPanel overlay covers the right band of the
   // map — when the selection (incl. its halo/handles) lands under it, ease the camera just
@@ -674,33 +685,20 @@ export function useMapActions({
       const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleteTitle, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return
     }
+    // one patch per line, both ends in it — applied here and sent as ONE draw.edit (detachDrawings)
+    const released = detachDrawings(drawings.filter((dr) => !ids.includes(dr.id)), (_, __, a) => {
+      const object = a.target.kind === 'object' && ents.includes(a.target.id) ? entities.find((e) => e.id === a.target.id) : null
+      const targetLine = a.target.kind === 'line' && ids.includes(a.target.id) ? drawings.find((x) => x.id === a.target.id) : null
+      return object?.coord ?? (targetLine && a.target.kind === 'line' ? targetLine.coords[a.target.endpoint === 'start' ? 0 : targetLine.coords.length - 1] : null)
+    })
     commit((d) => ({
       ...d,
-      drawings: d.drawings.filter((dr) => !ids.includes(dr.id)).map((dr) => {
-        let next = dr
-        for (const endpoint of ['start', 'end'] as const) {
-          const a = endpoint === 'start' ? next.startAttachment : next.endAttachment
-          if (!a || next.coords.length < 2) continue
-          const object = a.target.kind === 'object' && ents.includes(a.target.id) ? entities.find((e) => e.id === a.target.id) : null
-          const targetLine = a.target.kind === 'line' && ids.includes(a.target.id) ? drawings.find((x) => x.id === a.target.id) : null
-          const fallback = object?.coord ?? (targetLine && a.target.kind === 'line' ? targetLine.coords[a.target.endpoint === 'start' ? 0 : targetLine.coords.length - 1] : null)
-          if (!fallback) continue
-          const coords = next.coords.map((p, i) => i === (endpoint === 'start' ? 0 : next.coords.length - 1) ? fallback : p)
-          next = { ...next, coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
-        }
-        return next
-      }),
+      drawings: d.drawings.filter((dr) => !ids.includes(dr.id)).map((dr) => withDetach(dr, released)),
       entities: d.entities.filter((e) => !ents.includes(e.id)),
     }))
     ids.forEach((id) => emit('draw.delete', { id }))
     ents.forEach((id) => emit('entity.delete', { id }))
-    affected.forEach(({ dr, endpoint, a }) => {
-      const object = a.target.kind === 'object' ? entities.find((e) => e.id === a.target.id) : null
-      const targetLine = a.target.kind === 'line' ? drawings.find((x) => x.id === a.target.id) : null
-      const fallback = object?.coord ?? (targetLine && a.target.kind === 'line' ? targetLine.coords[a.target.endpoint === 'start' ? 0 : targetLine.coords.length - 1] : dr.coords[endpoint === 'start' ? 0 : dr.coords.length - 1])
-      const coords = dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? fallback : p)
-      emit('draw.edit', { id: dr.id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
-    })
+    released.forEach((patch, id) => emit('draw.edit', { id, patch: wireFreed(patch) }))
     setSelectedDrawIds([]); setSelectedEntityIds([])
     // ONE row, counted or named (lib/drawingEdit · removalRowText) — «… entfernt»
     log('close', removalRowText(drawings.filter((d) => ids.includes(d.id)), entities.filter((e) => ents.includes(e.id))),
@@ -756,7 +754,7 @@ export function useMapActions({
       if (isDockable(ent) && map) {
         const others = doc.entities.filter((e) => e.id !== id)
         const near = () => nearestDockHost(c, others, (p) => map.project(p), dockRadiusFor(ent)) ?? undefined
-        // a Trupp marker docks only through a CLOSED ring (MapView · trackDockAim); with the ring
+        // a Trupp marker docks only through a CLOSED ring (useTruppMarkerAim · trackDockAim); with the ring
         // still open the drop keeps an existing bond while it is in reach and lets go beyond it
         dockHost = dock === undefined ? near()
           : dock ? others.find((e) => e.id === dock.hostId)
@@ -768,7 +766,7 @@ export function useMapActions({
       // is the pick, from whichever side the operator happens to work.
       // ⚠️ The aim is NOT re-computed here. The Karte drew the blue ring while the marker
       // travelled and it is the one that knows whether the ring actually CLOSED — «not armed =
-      // nothing attaches, not even on release» (MapView · trackTeamJoin). Guessing a second time
+      // nothing attaches, not even on release» (useTruppMarkerAim · trackTeamJoin). Guessing a second time
       // at the drop point is how this coupled hoses nobody had aimed at. It is still folded into
       // the move's own undo step, as one gesture.
       // ⚠️ …and ONE Trupp per Leitung (lib/truppLines · lineTakesTrupp, 15.09.): a hose that
@@ -787,7 +785,7 @@ export function useMapActions({
       setDocRaw((d) => ({
         ...d,
         entities: carryDocked(d.entities, id, d.entities.find((e) => e.id === id)?.coord ?? c, c)
-          .map((e) => (e.id === id ? { ...e, coord: c, ...(dockPatch ?? {}), ...(e.kind === 'team' ? { t: formatTime(new Date()) } : {}) } : e)),
+          .map((e) => (e.id === id ? { ...e, coord: c, ...(dockPatch ?? {}), ...(e.kind === 'team' ? { t: formatTime(new Date(serverNow())) } : {}) } : e)),
         drawings: hoseJoin
           ? d.drawings.map((dr) => (dr.id === hoseJoin.lineId ? { ...dr, [hoseKey]: hoseAttachment } : dr))
           : d.drawings,
@@ -933,13 +931,15 @@ export function useMapActions({
       })
       if (!ok) return false
     }
+    // every Leitung end on the symbol lets go where it stood, so the line does not jump — one patch
+    // per line, applied here and sent as ONE draw.edit below (lib/lineAttachments · detachDrawings)
+    const released = ent ? detachDrawings(connected, (_, __, a) => (a.target.kind === 'object' && a.target.id === ent.id ? ent.coord : null)) : new Map<string, DetachPatch>()
     commit((d) => ({
       ...d,
       // …and a deleted host releases its angedockte Gefahrentafel (the placard stays — it is
       // still a record of the substance — it just stops following a ghost)
       entities: d.entities.filter((e) => e.id !== id).map((e) => (e.dockedTo === id ? { ...e, dockedTo: undefined } : e)),
-      // the same detach «Hierher übertragen» performs — see detachDrawingFrom
-      drawings: ent ? d.drawings.map((dr) => detachDrawingFrom(dr, ent)) : d.drawings,
+      drawings: d.drawings.map((dr) => withDetach(dr, released)),
     }))
     if (selectedId === id) setSelectedId(null)
     if (editNoteId === id) setEditNoteId(null)
@@ -953,14 +953,7 @@ export function useMapActions({
         undefined, undefined, undefined, { subjectId: id })
     }
     emit('entity.delete', { id })
-    if (ent) connected.forEach((dr) => {
-      for (const endpoint of ['start', 'end'] as const) {
-        const a = endpoint === 'start' ? dr.startAttachment : dr.endAttachment
-        if (a?.target.kind !== 'object' || a.target.id !== id) continue
-        const coords = dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? ent.coord : p)
-        emit('draw.edit', { id: dr.id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
-      }
-    })
+    released.forEach((patch, lineId) => emit('draw.edit', { id: lineId, patch: wireFreed(patch) }))
     return true
   }
   /**

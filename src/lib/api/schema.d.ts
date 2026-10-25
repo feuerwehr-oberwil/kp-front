@@ -2130,23 +2130,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/georef/suggest": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Suggest Alignment */
-        post: operations["suggest_alignment_api_georef_suggest_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/overpass/buildings": {
         parameters: {
             query?: never;
@@ -4370,11 +4353,6 @@ export interface components {
              */
             figures?: string[];
         };
-        /** Body_suggest_alignment_api_georef_suggest_post */
-        Body_suggest_alignment_api_georef_suggest_post: {
-            /** Image */
-            image: string;
-        };
         /** Body_tafel_pdf_api_incidents__incident_id__tafel_pdf_post */
         Body_tafel_pdf_api_incidents__incident_id__tafel_pdf_post: {
             /** Payload */
@@ -4676,11 +4654,6 @@ export interface components {
              * @default false
              */
             sttConfigured?: boolean;
-            /**
-             * Autoalignconfigured
-             * @default false
-             */
-            autoAlignConfigured?: boolean;
             /** Cartobasemapkey */
             cartoBasemapKey?: string | null;
             /**
@@ -5757,8 +5730,8 @@ export interface components {
          *     sub-slot — "Modul 5 - Wasser" → ``modul5-wasser`` labelled "Wasser".
          *
          *     ``alignment`` says how this module's sheets get onto the Karte: ``auto`` — the server
-         *     proposes a fit for the admin to approve and the field offers «Automatisch ausrichten»;
-         *     ``manual`` — reference points by hand only (admin wall or field); ``none`` — the sheet is
+         *     proposes a fit for the admin to approve on Objektpläne (the field sets points by hand until
+         *     then); ``manual`` — reference points by hand only (admin wall or field); ``none`` — the sheet is
          *     never laid on the map. Unset = ``auto`` for modul1/modul2/modul2-3, ``none`` otherwise
          *     (``module_alignment`` in plan_alignment_compute is the one resolver).
          */
@@ -5809,7 +5782,7 @@ export interface components {
         /**
          * ObjectCategoryConfig
          * @description One colour rule for «Karte & Objekte» (src/lib/karte/categories.ts). Ordered, first match
-         *     wins; an object no rule matches keeps the default look (red, grey without plans).
+         *     wins; an object no rule matches keeps the default look (ink, grey without plans).
          */
         ObjectCategoryConfig: {
             /** Id */
@@ -11164,46 +11137,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GeoHit"] | null;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    suggest_alignment_api_georef_suggest_post: {
-        parameters: {
-            query: {
-                lng: number;
-                lat: number;
-                mPerPx: number;
-                template?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: {
-                access_token?: string | null;
-            };
-        };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["Body_suggest_alignment_api_georef_suggest_post"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */

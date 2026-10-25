@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react'
 import { appConfig } from '../../config/appConfig'
-import { fillTemplate, hhmm, unitLabel, formatLocale } from '../../lib/format'
+import { fillTemplate, fmtWhen, formatTime, unitLabel, formatLocale } from '../../lib/format'
 import { attachmentUrl } from '../../objectVisits/api'
 import { readAttachment } from '../../objectVisits/store'
 import type { DeliveryState, SyncState } from '../../objectVisits/status'
@@ -30,14 +30,6 @@ export function fmtDayShort(iso: string | null | undefined): string {
   const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso)
   if (Number.isNaN(d.getTime())) return ''
   return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`
-}
-
-/** hh:mm today, «dd.mm. hh:mm» on another day */
-export function fmtWhen(iso: string | null | undefined, now = new Date()): string {
-  if (!iso) return ''
-  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toDateString() === now.toDateString() ? hhmm(d) : `${fmtDayShort(iso)} ${hhmm(d)}`
 }
 
 export function fmtDistance(m: number): string {
@@ -89,10 +81,10 @@ export function syncLabel(sync: SyncState): string {
     case 'auth': return S.auth
     case 'error': return S.error
     case 'sending': return S.sending
-    case 'local': return sync.at ? fillTemplate(S.localAt, { time: fmtWhen(sync.at) }) : S.local
-    case 'changes': return fillTemplate(S.changes, { time: fmtWhen(sync.at) })
+    case 'local': return sync.at ? fillTemplate(S.localAt, { time: fmtWhen(sync.at, { todayShort: true }) }) : S.local
+    case 'changes': return fillTemplate(S.changes, { time: fmtWhen(sync.at, { todayShort: true }) })
     case 'photos': return fillTemplate(S.photos, { done: sync.photosDone ?? 0, total: sync.photosTotal ?? 0 })
-    case 'saved': return fillTemplate(S.saved, { time: fmtWhen(sync.at) })
+    case 'saved': return fillTemplate(S.saved, { time: fmtWhen(sync.at, { todayShort: true }) })
     case 'remote': return fillTemplate(S.remote, { n: sync.revision ?? 0 })
   }
 }
@@ -103,8 +95,8 @@ export function syncLabel(sync: SyncState): string {
 export function syncShort(sync: SyncState): string {
   switch (sync.kind) {
     case 'saved':
-    case 'changes': return fmtWhen(sync.at)
-    case 'local': return sync.at ? fmtWhen(sync.at) : appConfig.copy.objectVisits.sync.local
+    case 'changes': return fmtWhen(sync.at, { todayShort: true })
+    case 'local': return sync.at ? fmtWhen(sync.at, { todayShort: true }) : appConfig.copy.objectVisits.sync.local
     default: return syncLabel(sync)
   }
 }
@@ -151,7 +143,7 @@ export function conflictValue(c: VisitConflict, side: unknown, doc: VisitDoc): s
     const id = c.key.slice('answers.'.length)
     return answerText(checklistItems(doc.checklist).find((i) => i.id === id), side as Answer)
   }
-  if (typeof side === 'string') return c.key === 'visitedAt' ? `${fmtDate(side)} ${fmtWhen(side)}` : side
+  if (typeof side === 'string') return c.key === 'visitedAt' ? `${fmtDate(side)} ${formatTime(new Date(side))}` : side
   if (Array.isArray(side)) return side.join(', ')
   const o = side as Record<string, unknown>
   if (typeof o.caption === 'string') return o.caption || C.photoTitle

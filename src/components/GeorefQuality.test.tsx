@@ -5,7 +5,7 @@ import { GeorefQuality } from './GeorefQuality'
 import { fitSimilarity, type GeorefPair } from '../lib/georef'
 import { appConfig } from '../config/appConfig'
 
-/* «Passung» on a fit that came out of «Automatisch ausrichten»: a PROPOSAL is unmeasured and
+/* «Passung» on an automatic fit (the station's proposal): a PROPOSAL is unmeasured and
  * says so, an APPROVED one is linked and must not (18.09.2026). Neither ever invents a ⌀. */
 const C = appConfig.copy.whiteboard.georef
 const ORIGIN = { lng: 7.5525, lat: 47.5145 }

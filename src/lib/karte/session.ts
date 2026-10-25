@@ -81,7 +81,7 @@ const EINSATZ_ONLY: readonly string[] = [
   appConfig.defaults.operationalLayerId,
   appConfig.defaults.drawingLayerId,
   appConfig.personGps.layerId,
-  // not Einsatz-only, but the viewer has its own row for it under «Station» (KarteApp ·
+  // not Einsatz-only, but the viewer has its own row for it under «Station» (useKarteLayers ·
   // UNDERGROUND_ROW, with the count and the loading state) — the catalogue's would be a twin
   UNDERGROUND_LAYER_ID,
 ]
