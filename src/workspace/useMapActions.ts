@@ -739,7 +739,7 @@ export function useMapActions({
       if (isDockable(ent) && map) {
         const others = doc.entities.filter((e) => e.id !== id)
         const near = () => nearestDockHost(c, others, (p) => map.project(p), dockRadiusFor(ent)) ?? undefined
-        // a Trupp marker docks only through a CLOSED ring (MapView · trackDockAim); with the ring
+        // a Trupp marker docks only through a CLOSED ring (useTruppMarkerAim · trackDockAim); with the ring
         // still open the drop keeps an existing bond while it is in reach and lets go beyond it
         dockHost = dock === undefined ? near()
           : dock ? others.find((e) => e.id === dock.hostId)
@@ -751,7 +751,7 @@ export function useMapActions({
       // is the pick, from whichever side the operator happens to work.
       // ⚠️ The aim is NOT re-computed here. The Karte drew the blue ring while the marker
       // travelled and it is the one that knows whether the ring actually CLOSED — «not armed =
-      // nothing attaches, not even on release» (MapView · trackTeamJoin). Guessing a second time
+      // nothing attaches, not even on release» (useTruppMarkerAim · trackTeamJoin). Guessing a second time
       // at the drop point is how this coupled hoses nobody had aimed at. It is still folded into
       // the move's own undo step, as one gesture.
       // ⚠️ …and ONE Trupp per Leitung (lib/truppLines · lineTakesTrupp, 15.09.): a hose that

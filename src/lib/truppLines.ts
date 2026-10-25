@@ -103,7 +103,7 @@ function best(cands: Trupp[]): Trupp | undefined {
 //
 // THE rule lives in the three functions below, and every join entry point reads them:
 //   · the Karte's magnet — a taken Leitung offers no «Anschluss frei» ring at all (MapView ·
-//     freeHoseEnds / trackTeamJoin), so its free end is simply a free end,
+//     freeHoseEnds / useTruppMarkerAim · trackTeamJoin), so its free end is simply a free end,
 //   · the HOSE-END magnet, from the other side — a taken Leitung does not see another Trupp's
 //     marker/chip as a target at all (MapView · candidatesAt, Whiteboard · planCandidatesAt):
 //     no ring, no dwell, no attach, the end stays under the finger (`markerTakesLineEnd`),

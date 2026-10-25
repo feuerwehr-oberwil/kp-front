@@ -360,7 +360,7 @@ describe('nearestFreeEndpoint (a marker dropped on the end of a hose)', () => {
   /** ⚠️ The Trupp-MARKER half of this magnet reaches further than the endpoint half, and it has
    *  to: an endpoint is dragged by the very point that lands in the socket, a marker is dragged
    *  by its body while its LEFT EDGE is what aims (lib/lineAttachments · TEAM_JOIN_RADIUS_PX,
-   *  used by MapView · trackTeamJoin). A reach that stayed at 32 px is «nothing happened» with a
+   *  used by useTruppMarkerAim · trackTeamJoin). A reach that stayed at 32 px is «nothing happened» with a
    *  pill under the thumb — which is exactly what the field reported. */
   it('reaches further for a Trupp marker than for a dragged endpoint', () => {
     expect(TEAM_JOIN_RADIUS_PX).toBeGreaterThan(MAGNET_RADIUS_PX)
