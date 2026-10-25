@@ -12,7 +12,8 @@ import type { Drawing, MapTool } from '../types'
 //    an undo that returns the shape TO THE HAND; a fragment says it was discarded.
 
 vi.mock('./ui', () => ({ toast: vi.fn(), confirmDialog: vi.fn() }))
-import { toast } from './ui'
+import { confirmDialog, toast } from './ui'
+import { replayEmits } from './replay.test-utils'
 
 const line = (over: Partial<Drawing> = {}): Drawing =>
   ({ id: 'd1', kind: 'line', coords: [[7.7, 47.4], [7.8, 47.5]], ...over }) as Drawing
@@ -432,5 +433,29 @@ describe('a new line starts from the plain default (3am sweep §2)', () => {
     expect(made).not.toHaveProperty('marker')
     expect(made).not.toHaveProperty('arrow')
     expect((made as unknown as Drawing).dashed).toBeUndefined()
+  })
+})
+
+// Deleting a Leitung lets go of every end hanging on it. Both ends of one line on the deleted
+// target used to go out as two `draw.edit`s, each built from the line's ORIGINAL coords — so
+// replay folded the second over the first and put the first end back where it was.
+describe('deleteDrawing — ends hanging on the deleted line', () => {
+  it('replay shows BOTH ends moved when both hang on the deleted line', async () => {
+    const target = line({ id: 't', coords: [[1, 1], [2, 2]] })
+    const hanging = line({
+      id: 'h', coords: [[0, 0], [5, 5], [9, 9]],
+      startAttachment: { target: { kind: 'line', id: 't', endpoint: 'start' }, routing: 'direct' },
+      endAttachment: { target: { kind: 'line', id: 't', endpoint: 'end' }, routing: 'direct' },
+    })
+    const deps = makeDeps({ drawings: [target, hanging] })
+    const before = deps.drawings
+    vi.mocked(confirmDialog).mockResolvedValue(true)
+    const { result } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    await act(async () => { await result.current.deleteDrawing('t') })
+    const live = deps.drawings.find((d) => d.id === 'h')
+    expect(live?.coords).toEqual([[1, 1], [5, 5], [2, 2]])
+    const replayed = await replayEmits({ drawings: before }, deps.emit.mock.calls)
+    expect(replayed.drawings.find((d) => d.id === 'h')?.coords).toEqual([[1, 1], [5, 5], [2, 2]])
+    expect(deps.emit.mock.calls.filter(([op]) => op === 'draw.edit')).toHaveLength(1)
   })
 })

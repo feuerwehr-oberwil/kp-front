@@ -19,7 +19,7 @@ import type { GeorefPlan } from '../lib/georefTwins'
 import { routeEscape, routeHotkey } from '../lib/hotkeyRoute'
 import { resolveHotkey, isTypingTarget } from '../lib/hotkeys'
 import { newId } from '../lib/ids'
-import { applyRouting, detachEnds, freeEnd, moveLineBody, objectAttachment } from '../lib/lineAttachments'
+import { applyRouting, detachDrawings, moveLineBody, objectAttachment, withDetach, type DetachPatch } from '../lib/lineAttachments'
 import { moduleNumbers } from '../lib/navRail'
 import { autoNoteWPx } from '../lib/notes'
 import { doneAct, donePlace } from '../lib/objectDone'
@@ -49,24 +49,6 @@ import { useEffect, useMemo, useRef, type Dispatch, type RefObject, type SetStat
 import type { MapRef } from 'react-map-gl/maplibre'
 import { isMapTool } from '../lib/readOnlyTools'
 
-/**
- * Let a drawing go from an object that is disappearing off the Karte, pinning the endpoint where
- * the object stood so the drawn line does not jump.
- *
- * An object leaves the map by two doors — «Löschen» and «Hierher übertragen» (onto a Modul) — and
- * both owe every Leitung anchored to it the same courtesy. Only deletion used to do it; the
- * transfer filtered the entity out and left the attachments pointing at an id that no longer
- * existed, so «Verbunden mit» printed the raw id and trace-routing quietly stopped working. One
- * helper, so the two doors cannot drift apart again.
- *
- * Returns the drawing unchanged when nothing is attached to `ent` — safe to `.map()` over the
- * whole list.
- */
-function detachDrawingFrom(dr: Drawing, ent: Entity): Drawing {
-  if (dr.coords.length < 2) return dr
-  const out = detachEnds({ ...dr, points: dr.coords }, (_, a) => (a.target.kind === 'object' && a.target.id === ent.id ? ent.coord : null))
-  return out ? { ...dr, coords: out.points, ...out.freed } : dr
-}
 
 export interface UseMapActionsInputs {
   clearMapUi: (keep?: 'selection') => void
@@ -703,28 +685,20 @@ export function useMapActions({
       const ok = await confirmDialog({ title: appConfig.copy.whiteboard.groupDeleteTitle, message: fillTemplate(appConfig.copy.drawingEditor.removeConnectedMessage, { n: affected.length }), confirmLabel: appConfig.copy.remove, cancelLabel: appConfig.copy.cancel, danger: true })
       if (!ok) return
     }
+    // one patch per line, both ends in it — applied here and sent as ONE draw.edit (detachDrawings)
+    const released = detachDrawings(drawings.filter((dr) => !ids.includes(dr.id)), (_, __, a) => {
+      const object = a.target.kind === 'object' && ents.includes(a.target.id) ? entities.find((e) => e.id === a.target.id) : null
+      const targetLine = a.target.kind === 'line' && ids.includes(a.target.id) ? drawings.find((x) => x.id === a.target.id) : null
+      return object?.coord ?? (targetLine && a.target.kind === 'line' ? targetLine.coords[a.target.endpoint === 'start' ? 0 : targetLine.coords.length - 1] : null)
+    })
     commit((d) => ({
       ...d,
-      drawings: d.drawings.filter((dr) => !ids.includes(dr.id)).map((dr) => {
-        if (dr.coords.length < 2) return dr
-        const out = detachEnds({ ...dr, points: dr.coords }, (_, a) => {
-          const object = a.target.kind === 'object' && ents.includes(a.target.id) ? entities.find((e) => e.id === a.target.id) : null
-          const targetLine = a.target.kind === 'line' && ids.includes(a.target.id) ? drawings.find((x) => x.id === a.target.id) : null
-          return object?.coord ?? (targetLine && a.target.kind === 'line' ? targetLine.coords[a.target.endpoint === 'start' ? 0 : targetLine.coords.length - 1] : null)
-        })
-        return out ? { ...dr, coords: out.points, ...out.freed } : dr
-      }),
+      drawings: d.drawings.filter((dr) => !ids.includes(dr.id)).map((dr) => withDetach(dr, released)),
       entities: d.entities.filter((e) => !ents.includes(e.id)),
     }))
     ids.forEach((id) => emit('draw.delete', { id }))
     ents.forEach((id) => emit('entity.delete', { id }))
-    affected.forEach(({ dr, endpoint, a }) => {
-      const object = a.target.kind === 'object' ? entities.find((e) => e.id === a.target.id) : null
-      const targetLine = a.target.kind === 'line' ? drawings.find((x) => x.id === a.target.id) : null
-      const fallback = object?.coord ?? (targetLine && a.target.kind === 'line' ? targetLine.coords[a.target.endpoint === 'start' ? 0 : targetLine.coords.length - 1] : dr.coords[endpoint === 'start' ? 0 : dr.coords.length - 1])
-      const { points: coords, freed } = freeEnd(dr.coords, endpoint, fallback)
-      emit('draw.edit', { id: dr.id, patch: { coords, ...freed } })
-    })
+    released.forEach((patch, id) => emit('draw.edit', { id, patch }))
     setSelectedDrawIds([]); setSelectedEntityIds([])
     // ONE row, counted or named (lib/drawingEdit · removalRowText) — «… entfernt»
     log('close', removalRowText(drawings.filter((d) => ids.includes(d.id)), entities.filter((e) => ents.includes(e.id))),
@@ -957,13 +931,15 @@ export function useMapActions({
       })
       if (!ok) return false
     }
+    // every Leitung end on the symbol lets go where it stood, so the line does not jump — one patch
+    // per line, applied here and sent as ONE draw.edit below (lib/lineAttachments · detachDrawings)
+    const released = ent ? detachDrawings(connected, (_, __, a) => (a.target.kind === 'object' && a.target.id === ent.id ? ent.coord : null)) : new Map<string, DetachPatch>()
     commit((d) => ({
       ...d,
       // …and a deleted host releases its angedockte Gefahrentafel (the placard stays — it is
       // still a record of the substance — it just stops following a ghost)
       entities: d.entities.filter((e) => e.id !== id).map((e) => (e.dockedTo === id ? { ...e, dockedTo: undefined } : e)),
-      // the same detach «Hierher übertragen» performs — see detachDrawingFrom
-      drawings: ent ? d.drawings.map((dr) => detachDrawingFrom(dr, ent)) : d.drawings,
+      drawings: d.drawings.map((dr) => withDetach(dr, released)),
     }))
     if (selectedId === id) setSelectedId(null)
     if (editNoteId === id) setEditNoteId(null)
@@ -977,14 +953,7 @@ export function useMapActions({
         undefined, undefined, undefined, { subjectId: id })
     }
     emit('entity.delete', { id })
-    if (ent) connected.forEach((dr) => {
-      for (const endpoint of ['start', 'end'] as const) {
-        const a = endpoint === 'start' ? dr.startAttachment : dr.endAttachment
-        if (a?.target.kind !== 'object' || a.target.id !== id) continue
-        const { points: coords, freed } = freeEnd(dr.coords, endpoint, ent.coord)
-        emit('draw.edit', { id: dr.id, patch: { coords, ...freed } })
-      }
-    })
+    released.forEach((patch, lineId) => emit('draw.edit', { id: lineId, patch }))
     return true
   }
   /**
