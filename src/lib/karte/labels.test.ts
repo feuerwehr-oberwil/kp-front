@@ -60,6 +60,23 @@ describe('name tags — which fit', () => {
     expect(r('objekt', 2, false, true)).toBeGreaterThan(r('objekt', 2))
   })
 
+  it('with a ring around the map, the tags just off it are decided too – a pan brings them in standing', () => {
+    const cands = [tag('east', 470, 300), tag('far', 900, 300), tag('on', 200, 400)]
+    expect(placeTags(cands, VIEW).has('east')).toBe(false)
+    const ringed = placeTags(cands, { ...VIEW, pad: 200 })
+    expect([...ringed.keys()].sort()).toEqual(['east', 'on']) // «far» is beyond the ring
+    expect(ringed.get('east')).toBe(0) // a ring tag never slides
+  })
+
+  it('the ring never changes the map\'s own tags: they are placed first, as without it', () => {
+    // a high-rank ring tag that would overlap a low-rank one on the map
+    const cands = [tag('edge', 370, 300, 0), tag('ring', 420, 300, 9)]
+    expect(placeTags(cands, { ...VIEW, pad: 200 }).has('edge')).toBe(true)
+    expect(placeTags(cands, { ...VIEW, pad: 200 }).has('ring')).toBe(false)
+    const onMapOnly = [tag('a', 100, 300, 2), tag('b', 210, 300, 1), tag('c', 380, 500, 0)]
+    expect(placeTags(onMapOnly, { ...VIEW, pad: 300 })).toEqual(placeTags(onMapOnly, VIEW))
+  })
+
   it('the placement is stable: the same input, the same answer', () => {
     const cands = [tag('b', 200, 400), tag('a', 210, 405), tag('c', 220, 410)]
     const one = placeTags(cands, VIEW)

@@ -279,7 +279,11 @@ The rules that are easy to break:
   greedy pass in screen space once the map has settled, the selected object first (always
   tagged), then Einsatzobjekte, then more plans; a tag that would cover another tag or the chrome
   (top bar, bottom bar, an open panel or sheet, the rails — every child of the surface but the
-  map) stays a dot. Outlines draw from z15 as before.
+  map) stays a dot. Outlines draw from z15 as before. The pass also runs every 200 ms WHILE the
+  map moves, and decides the tags in a ring around the map too (0.6 × its longer side): a pan
+  brings the next tags in already standing, not on release (owner, 25.10.2026). The map's own tags
+  go first, exactly as without the ring – a tag just off the map never displaces one on it
+  (`components/karte/useKarteTags`, `placeTags · pad`; check: `e2e/karte-tags-pan.mjs`).
 - **No key boxes on the map** (owner, round 3): no FKS «Schlüsseldepot» symbol, kicker, note or
   mark. The objects once drawn that way are objects like any other — outline, dot, tag, colour.
 - **A turn let go just off north lands on north** (owner, review round 6, 18.10.2026: «add a small
