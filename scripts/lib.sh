@@ -63,7 +63,7 @@ T_DIAG_STORAGE="/ready says the storage volume is not writable. The container ca
   Usually volume ownership, sometimes simply a full disk (check the storage line above). Try:
       docker compose down
       docker volume inspect kp-front_storage        # find its Mountpoint
-      sudo chown -R 1000:1000 <that mountpoint>
+      sudo chown -R 10001:10001 <that mountpoint>
       docker compose up -d
   On Railway this is a different beast: set RAILWAY_RUN_UID=0 on the service."
 T_DIAG_DATABASE="/ready says the database is unreachable. The db container is usually still

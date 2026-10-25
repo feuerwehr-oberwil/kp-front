@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Apply migrations (with a pre-migration safety dump), then start the API (which also
-# serves the SPA in prod).
+# serves the SPA in prod). Backup retention keeps paths NUL-delimited: storage directories
+# may contain whitespace or quotes.
 set -euo pipefail
 
 # Pre-migration safety net: when a migration is actually pending, dump the DB first so a bad
@@ -83,8 +84,9 @@ if [ -n "${DATABASE_URL:-}" ]; then
         # fragments ends up rotating away the last good backup.
         if (umask 077; pg_dump "$dump_url" | gzip > "$f.part") && [ -s "$f.part" ] && gzip -t "$f.part" 2>/dev/null; then
           mv "$f.part" "$f"
-          # keep the newest 5 pre-migration dumps
-          ls -1t "$BACKUP_DIR"/pre-migrate-*.sql.gz 2>/dev/null | tail -n +6 | xargs -r rm -f --
+          # Keep the newest 5 complete dumps without splitting an operator-chosen path.
+          find "$BACKUP_DIR" -maxdepth 1 -type f -name 'pre-migrate-*.sql.gz' -printf '%T@ %p\0' \
+            | sort -zrn | tail -z -n +6 | cut -z -d ' ' -f2- | xargs -0 -r rm -f --
         else
           rm -f "$f.part"
           abort_or_override "pre-migration dump failed or produced an unreadable file."
