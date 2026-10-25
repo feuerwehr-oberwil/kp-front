@@ -40,6 +40,7 @@ import { useMapMagnet } from './useMapMagnet'
 import { usePlaceMagnet } from './usePlaceMagnet'
 import { useTruppMarkerAim } from './useTruppMarkerAim'
 import { useLabelPass } from './useLabelPass'
+import { routeMapClick } from './mapClick'
 import { LineMarker } from './LineMarker'
 import { MapMarkers } from './MapMarkers'
 import { MapLayers } from './MapLayers'
@@ -88,11 +89,6 @@ const circleRing = (d: Drawing): LngLat[] => circlePolygon(d.coords[0], d.radius
  *  Müller H.» on a Leitung whose Trupp is out) simply did nothing. Same slop useHoldToDrag gives
  *  a marker tap (TAP_TOL_PX). */
 const TAG_TAP_TOL_PX = 16
-/** A node tap this close to the draft's last node lands on that node's own 44px handle pad: it
- *  is the second tap of a double tap, not a corner (UX sweep M4 rework — with a tool armed a double
- *  tap no longer zooms, and its second tap arrives before the first node's handle is there to
- *  catch it, so it laid a zero-length segment). */
-const NODE_REPEAT_PX = 22
 /** How long after a pan/pinch a `click` still counts as the tail of that gesture. The browser
  *  synthesizes its mouse trail right after touchend, so the trailing click arrives a few ms AFTER
  *  MapLibre's dragend — but well inside this window, which no second deliberate tap fits in. */
@@ -194,22 +190,6 @@ export function subPathInsert(coords: LngLat[], a: number, b: number): { index: 
   }
   // unreachable (steps ≥ 1), but a total of 0 must still hand back a usable point
   return { index: a + 1, coord: coords[a] }
-}
-
-// planar shoelace area (deg², relative only) of a clicked feature's outer ring; non-polygon
-// (line) features return 0 so they stay the most specific pick when overlapping a fill.
-const featArea = (f: { geometry?: { type?: string; coordinates?: unknown } }): number => {
-  const g = f.geometry
-  if (g?.type !== 'Polygon') return 0
-  const ring = (g.coordinates as [number, number][][])?.[0]
-  if (!ring || ring.length < 3) return 0
-  let s = 0
-  for (let i = 0, n = ring.length; i < n; i++) {
-    const [x1, y1] = ring[i]
-    const [x2, y2] = ring[(i + 1) % n]
-    s += x1 * y2 - x2 * y1
-  }
-  return Math.abs(s) / 2
 }
 
 interface Props {
@@ -1307,94 +1287,30 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     window.addEventListener('pointercancel', up, true)
   }
 
-  // which path segment a click landed on (pixel-space point→segment distance), so a
-  // click on the measure line/outline inserts a vertex there instead of appending.
-  // Returns the insert index (after the segment's start; closing edge → push at end).
-  const segInsertIndex = (points: LngLat[], isArea: boolean, ll: LngLat): number | null => {
-    const m = mapInst.current
-    if (!m || points.length < 2) return null
-    const cp = m.project(ll as [number, number])
-    const px = points.map((p) => m.project(p as [number, number]))
-    const n = px.length
-    const segs = pathSegmentCount(n, isArea) // area: includes the closing edge
-    let best = -1, bestD = Infinity
-    for (let i = 0; i < segs; i++) {
-      const a = px[i], b = px[(i + 1) % n]
-      const dx = b.x - a.x, dy = b.y - a.y
-      const len2 = dx * dx + dy * dy || 1
-      const t = Math.max(0, Math.min(1, ((cp.x - a.x) * dx + (cp.y - a.y) * dy) / len2))
-      const d = Math.hypot(cp.x - (a.x + t * dx), cp.y - (a.y + t * dy))
-      if (d < bestD) { bestD = d; best = i }
-    }
-    return best < 0 ? null : best + 1
-  }
-
   const handleClick = (e: MapLayerMouseEvent) => {
     // swallow the click that trails a long-press vertex delete (keeps the line selected)
     if (suppressClick.current) { suppressClick.current = false; return }
     // …and the one that trails a pan/pinch (see panGesture): moving the map is not a tap on it,
     // so it may neither deselect, nor place, nor pick.
     if (clickTrailsPan()) return
-    // The pairing mode owns every click on the map while it runs — including the ones that come
-    // too early. Placing a symbol mid-pairing would be a silent mis-hit on a surface the operator
-    // is aiming at for something else entirely.
-    // ⚠️ The pairing mode SWALLOWS the click and places nothing here. MapLibre emits `click`
-    // whenever the pointer goes down and comes up within 3px of each other — which a pan that
-    // returns to its starting point does — so the placement rides on pointer-up with a sticky
-    // moved flag instead (see the georef handlers on <Map> below). Swallowing still matters:
-    // a mis-aimed reference tap must never drop a symbol on the Lage.
-    if (georefOn) return
-    // picking takes precedence — lock the clicked coordinate, place nothing
-    if (picking) { onPick?.([e.lngLat.lng, e.lngLat.lat]); return }
-    const lc: LngLat = [e.lngLat.lng, e.lngLat.lat]
-    // clicking the measure path inserts a draggable vertex on that segment
-    if (measureKind && onMeasureInsert && e.features?.some((f) => f.layer?.id === 'l-measure-hit')) {
-      const idx = segInsertIndex(measurePoints, measureKind === 'area', lc)
-      if (idx != null) { onMeasureInsert(idx, lc); return }
+    // everything else is the dispatcher's call (components/mapClick · routeMapClick)
+    const m = mapInst.current
+    const click = routeMapClick({
+      at: [e.lngLat.lng, e.lngLat.lat], point: e.point, features: e.features ?? [], georefOn, picking: !!picking,
+      measure: measureKind ? { points: measurePoints, isArea: measureKind === 'area', canInsert: !!onMeasureInsert } : null,
+      edit: editDraw && editNodes ? { id: editDraw.id, points: editDraw.coords, isArea: editArea, canInsert: !!onDrawingVertexInsert } : null,
+      draft: draftKind ? { points: draft, isArea: draftKind === 'area', canInsert: !!onDraftInsert } : null,
+      placing: !!placing, lockedIds,
+    }, m ? (c) => m.project(c as [number, number]) : null)
+    switch (click.kind) {
+      case 'pick': onPick?.(click.at); return
+      case 'measureInsert': onMeasureInsert?.(click.index, click.at); return
+      case 'vertexInsert': onDrawingVertexInsert?.(click.id, click.index, click.at); return
+      case 'draftInsert': onDraftInsert?.(click.index, click.at); return
+      case 'selectDrawing': onSelectDrawing(click.id, click.at); return
+      case 'place': onMapClick(placeMagnet ? place.placedCoord(click.at) : click.at); return
+      case 'none': return
     }
-    // clicking the selected drawing's outline inserts a vertex there (reshape)
-    if (editDraw && editNodes && onDrawingVertexInsert && e.features?.some((f) => f.layer?.id === 'l-draw-edit-hit')) {
-      const idx = segInsertIndex(editDraw.coords, editArea, lc)
-      if (idx != null) { onDrawingVertexInsert(editDraw.id, idx, lc); return }
-    }
-    // clicking the in-progress draft's outline inserts a vertex there (same as measure)
-    if (draftKind && onDraftInsert && e.features?.some((f) => f.layer?.id === 'l-draft-hit')) {
-      const idx = segInsertIndex(draft, draftKind === 'area', lc)
-      if (idx != null) { onDraftInsert(idx, lc); return }
-    }
-    // while a placement tool is active, a click adds/places — don't let a drawing's
-    // fill/outline under the cursor swallow it as a selection (so symbols etc. can be
-    // dropped INSIDE an area). Selection-by-click only applies in the Select tool.
-    if (!placing) {
-      // among every drawing under the cursor, pick the SMALLEST shape — so a small Fläche
-      // drawn over a big Absperrkreis (radius) wins the click instead of the circle's fill
-      // swallowing it (both are polygons in one layer, so render order alone is unreliable).
-      // Lines/outlines have ~0 area, keeping thin lines the most specific (selectable) pick.
-      // Locked shapes are skipped entirely so they go click-through (unlock via the lock chip).
-      // ⚠️ Mirrored plan ink is in the SAME resolution, not in a pass of its own: a projection is
-      // the object seen from this side, so a twin drawn over a native Fläche has to win the click
-      // by the same smallest-shape rule the two natives would settle it by. A locked source is
-      // skipped on either side — its ink is click-through until its LockChip is held.
-      const cands = (e.features ?? []).filter((f) => {
-        const p = f?.properties
-        if (!p) return false
-        if (p.twinKey != null) return !p.locked
-        return p.id != null && !lockedIds.has(p.id as string)
-      })
-      if (cands.length) {
-        let best = cands[0]
-        let bestA = featArea(best)
-        for (let i = 1; i < cands.length; i++) {
-          const a = featArea(cands[i])
-          if (a < bestA) { bestA = a; best = cands[i] }
-        }
-        onSelectDrawing(best.properties!.id as string, { x: e.point.x, y: e.point.y }); return
-      }
-    }
-    const last = draftKind ? draft[draft.length - 1] : undefined
-    const lastPx = last && mapInst.current?.project(last)
-    if (lastPx && Math.hypot(e.point.x - lastPx.x, e.point.y - lastPx.y) < NODE_REPEAT_PX) return
-    onMapClick(placeMagnet ? place.placedCoord(lc) : lc)
   }
   const fhFC = useMemo(() => fc(fhPath && fhPath.length >= 2 ? [lineFeat(fhPath)] : []), [fhPath])
   // team trails: the dashed line through a Trupp's RECORDED positions (parity with the plan
