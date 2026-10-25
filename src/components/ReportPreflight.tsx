@@ -5,7 +5,7 @@
 // lib/report. The close runs only through `onComplete` (the one shared Abschluss confirm).
 // Rules for this area: docs/rapport.md.
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../lib/icons'
 import { Button, IconButton } from './Button'
 import { TickRow } from './TickRow'
@@ -13,12 +13,11 @@ import { ShellLoader } from './ShellLoader'
 import { cx } from '../lib/cx'
 import { parseAlarmText } from '../lib/alarmText'
 import { confirmDialog, openPhoto, toast, type ToastAction } from '../lib/ui'
-import { downloadDirectReportPdf, signedPartOf, usedStackFloors, type PrintedSignature } from '../lib/reportPdfDirect'
-import { activeSignatures, sha256Hex, shortChecksum, signatureState, SIGNATURE_ROLES, type ReportSignature, type SignatureRole } from '../lib/reportSignature'
+import { downloadDirectReportPdf, signedPartOf, usedStackFloors } from '../lib/reportPdfDirect'
+import { sha256Hex, type ReportSignature } from '../lib/reportSignature'
 import { newId } from '../lib/ids'
 import { serverNowIso } from '../lib/serverClock'
-import { SignatureImage } from './SignaturePad'
-import { SignatureSheet, type SignSubmit } from './SignatureSheet'
+import type { SignSubmit } from './SignatureSheet'
 import { warmTemplates, type ChecklistState, type ChecklistTemplate } from '../lib/checklists'
 import { downloadUrl } from '../lib/download'
 import { thumbUrl } from '../lib/mediaUrl'
@@ -2361,7 +2360,7 @@ export function ReportPreflight({
               framing. This panel decides what the printed Kroki shows, so a crop nobody chose is
               not a cosmetic bug. Above 600px `isPhone` is false and this is the same always-on
               panel it was. */}
-          {krokiPanel && (!isPhone || phoneTab === 'beilagen') && (
+          {krokiPanel && effScene && (!isPhone || phoneTab === 'beilagen') && (
             <section className="report-pre-section rp-kroki" data-tab="beilagen">
               <h3>{P.krokiHead}</h3>
               <KrokiFramingPanel
