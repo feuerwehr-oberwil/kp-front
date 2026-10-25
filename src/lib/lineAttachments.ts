@@ -545,6 +545,14 @@ export function detachEnds<P>(
   return points ? { points, freed } : null
 }
 
+/** A detach patch as the audit stream carries it: each cleared end as `null`, because JSON drops
+ *  an `undefined` key and replay would keep the old coupling (lib/replay folds the `null` back to
+ *  absent). The live commit keeps the `undefined` patch. */
+export function wireFreed<T extends FreedEnds>(patch: T): Omit<T, keyof FreedEnds> & { startAttachment?: null; endAttachment?: null } {
+  const { startAttachment: _start, endAttachment: _end, ...rest } = patch
+  return { ...rest, ...('startAttachment' in patch ? { startAttachment: null } : {}), ...('endAttachment' in patch ? { endAttachment: null } : {}) }
+}
+
 /** One line's detach as a `draw.edit` patch: BOTH freed ends in one coords array. */
 export type DetachPatch = { coords: LngLat[] } & FreedEnds
 

@@ -106,7 +106,7 @@ import { EL_EVENT_PREFIXES, eventScopeFor } from './lib/eventScope'
 import { combinedSyncStatus } from './lib/combinedSyncStatus'
 import { endingFlags, endingWireFlags, type LineEnding } from './lib/drawingEdit'
 import { useMapDrawing } from './lib/useMapDrawing'
-import { detachDrawings, resolveMapDrawings, withDetach } from './lib/lineAttachments'
+import { detachDrawings, resolveMapDrawings, wireFreed, withDetach } from './lib/lineAttachments'
 import { leitungOptions } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
@@ -132,7 +132,7 @@ import { createPortal, flushSync } from 'react-dom'
 import type { NoteSize } from './types'
 import { TruppFinder } from './components/TruppFinder'
 import { counterNames, freshTeamLabel, markerOptions, markerSite, teamNoTaken } from './lib/placedTrupps'
-import { serverNowIso } from './lib/serverClock'
+import { serverNow, serverNowIso } from './lib/serverClock'
 import { clockRestartRowId, clocksAfterReopen } from './lib/reopenClocks'
 import { IncidentClosedMeldung, LinkRefusedMeldung } from './components/IncidentClosedMeldung'
 import { useGhostTrails } from './lib/useGhostTrails'
@@ -1843,7 +1843,7 @@ export function IncidentWorkspace({
       ? { ...d, ...endingFlags(ending) }
       : withDetach(d, released))) }))
     emit('draw.edit', { id: drawing.id, patch: endingWireFlags(ending) })
-    released.forEach((patch, id) => emit('draw.edit', { id, patch }))
+    released.forEach((patch, id) => emit('draw.edit', { id, patch: wireFreed(patch) }))
   }
   // Attached Leitung ends follow their live vehicles (lib/useGpsFollow).
   // ⚠️ 24.09.2026 — this pass was the render storm of the Übung on 23.09.2026 (React #185 on
@@ -2561,10 +2561,10 @@ export function IncidentWorkspace({
           if (back.surface === 'plan') placeTruppOnPlan(liveTruppId, back.planId, back.at, { id: back.markerId, trail: back.trail })
           else placeTruppOnMap(liveTruppId, back.coord, { id: back.markerId, trail: back.trail })
         } else if (back.surface === 'plan') {
-          const chip: BoardAnno = { id: revive.id, kind: 'resource', ...back.at, text: looseName, t: formatTime(new Date()), color: g.color, trail: back.trail }
+          const chip: BoardAnno = { id: revive.id, kind: 'resource', ...back.at, text: looseName, t: formatTime(new Date(serverNow())), color: g.color, trail: back.trail }
           setBoard((b) => ({ ...b, [back.planId]: [...(b[back.planId] ?? []).filter((a) => a.id !== chip.id), chip] }))
         } else {
-          const marker: Entity = { id: revive.id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: back.coord, label: looseName, t: formatTime(new Date()), color: g.color, trail: back.trail }
+          const marker: Entity = { id: revive.id, kind: 'team', layer: appConfig.defaults.operationalLayerId, coord: back.coord, label: looseName, t: formatTime(new Date(serverNow())), color: g.color, trail: back.trail }
           setDocRaw((d) => ({ ...d, entities: [...d.entities.filter((e) => e.id !== marker.id), marker] }))
         }
         return
@@ -3031,7 +3031,7 @@ export function IncidentWorkspace({
         georefPlanRasters, weatherRadar: mapUI && !replayActive ? weather.mapRadar : null, symbolScale,
         symbolCaptions, setMapSuppressedCaptions, incidentView, initialFitPoints, locateReq, setView,
         onBasemapUnavailable, onMapSettled, selection, store, mapDrawing, mapActions, truppActions,
-        teamMarkers, patchEntity, log, editNoteId, setEditNoteId, noteTextLive, noteTextCommit,
+        teamMarkers, patchEntity, editNoteId, setEditNoteId, noteTextLive, noteTextCommit,
         setNotePanelId, effTrupps, azAlarm, showTrupp, newTruppFromMarker, removeTeamWithTrail, trails,
         deleteGhostTrail, measure, coord, rotStart, flashDrawingId, setDrawTap, setVehicleOverrides,
       }} />

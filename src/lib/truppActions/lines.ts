@@ -2,7 +2,7 @@ import type { BoardPoint, LineAttachment, Trupp } from '../../types'
 import { appConfig } from '../../config/appConfig'
 import { fillTemplate } from '../format'
 import { toast } from '../ui'
-import { objectAttachment } from '../lineAttachments'
+import { objectAttachment, wireFreed } from '../lineAttachments'
 import { lineTakesTrupp, resolveLinkNumber, truppForLine, truppIdForAttachment, type LinkableLine, type TruppMarker } from '../truppLines'
 import { truppLogName } from '../atemschutz'
 import { isOutTrupp, type TruppActionCore, type TruppActionDeps } from './core'
@@ -332,7 +332,7 @@ export function truppLineActions(deps: LineDeps) {
           const at: BoardPoint = [chip.x ?? 0, chip.y ?? 0, chip.floor ?? 0]
           const pts = next.pts!.map((q, i): BoardPoint => (i === (ep === 'start' ? 0 : next.pts!.length - 1) ? at : q))
           next = { ...next, pts, ...(ep === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
-          emit('board.edit', { id: a.id, patch: { pts, ...(ep === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }, planId: pid })
+          emit('board.edit', { id: a.id, patch: wireFreed({ pts, ...(ep === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }), planId: pid })
         }
         return next
       })]

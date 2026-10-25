@@ -12,6 +12,7 @@ import type { SymbolsApi } from '../lib/useSymbols'
 import { appConfig } from '../config/appConfig'
 import { newId } from '../lib/ids'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
+import { serverNow } from '../lib/serverClock'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { rdpIndices, isTapStroke, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { minPoints } from '../lib/vertexOps'
@@ -183,7 +184,7 @@ export function usePlanCreate({
       ...(placedTeamNames?.() ?? []),
     ], trupps)
     const color = TEAM_COLORS[teams % TEAM_COLORS.length]
-    add({ id, kind: 'resource', x, y, floor, text: name, t: formatTime(new Date()), color, trail: [], truppId: trupp?.id })
+    add({ id, kind: 'resource', x, y, floor, text: name, t: formatTime(new Date(serverNow())), color, trail: [], truppId: trupp?.id })
     if (trupp) onLinkTrupp?.(id, trupp.id)
     // the row already states a place («auf Plan gesetzt»); on a floor stack that place is a
     // storey, so it is named (18.09.2026 — same rule as useTruppActions · placeTruppOnPlan)

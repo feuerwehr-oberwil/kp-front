@@ -21,8 +21,9 @@ export interface MapMagnetDeps {
   entities: Entity[]
   /** the surface's target walk (MapView · candidatesAt) — called at event time only */
   candidates: (sourceId: string, at: LngLat) => MagneticTarget[]
-  /** the line being drawn: node taps or a freehand stroke (lib/useMapDrawing) */
-  draft: { kind: 'line' | 'area' | null; freehand: 'line' | 'area' | null; length: number; onPointAttachment?: (attachment?: LineAttachment) => void }
+  /** the line being drawn: node taps or a freehand stroke (lib/useMapDrawing); `startAttachment` is
+   *  what a node draft's first tap banked */
+  draft: { kind: 'line' | 'area' | null; freehand: 'line' | 'area' | null; length: number; onPointAttachment?: (attachment?: LineAttachment) => void; startAttachment?: LineAttachment }
   onDrawingAttachment?: (id: string, endpoint: LineEndpoint, attachment: LineAttachment | undefined, fallback: LngLat) => void
   /** an end coupled to a Trupp marker moves the marker instead: its drag's three phases
    *  (MapView · teamJoinMarkerMove / teamJoinMarkerDragEnd) */
@@ -173,7 +174,9 @@ export function useMapMagnet({ mapInst, storedDrawings, entities, candidates, dr
   return {
     endpointDrag, attachmentLines, beginEndpointDrag, moveEndpointDrag, finishEndpointDrag,
     /** the draft's live magnet (its ConnectRing), and the claim its first end has made so far */
-    draftMagnetState: draftMagnet.state, draftStart: () => draftMagnet.current()?.startAttachment,
+    // a node draft's later taps each run their own magnet session, so the first tap's banked
+    // claim is read from the draft (the Plan's rule, usePlanDraft · planCandidatesAt)
+    draftMagnetState: draftMagnet.state, draftStart: () => draftMagnet.current()?.startAttachment ?? (draft.length ? draft.startAttachment : undefined),
     updateDraftMagnet, nodeMagnetActive, finishDraftNodeMagnet, joinPreview,
   }
 }

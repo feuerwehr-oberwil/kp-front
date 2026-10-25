@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { DRAW_DEFAULTS, useMapDrawing } from './useMapDrawing'
 import type { Doc } from './workspace'
-import type { Drawing, MapTool } from '../types'
+import type { Drawing, LineAttachment, MapTool } from '../types'
 
 // The two mutating behaviours this wave added to the map drawing surface:
 //  · C1 — a SEMANTIC edit (Leitung Nr., Stockwerk, Abschluss) earns ONE settled Verlauf row per
@@ -457,5 +457,29 @@ describe('deleteDrawing — ends hanging on the deleted line', () => {
     const replayed = await replayEmits({ drawings: before }, deps.emit.mock.calls)
     expect(replayed.drawings.find((d) => d.id === 'h')?.coords).toEqual([[1, 1], [5, 5], [2, 2]])
     expect(deps.emit.mock.calls.filter(([op]) => op === 'draw.edit')).toHaveLength(1)
+  })
+})
+
+// Punkte-mode Linie, the Plan's rule (usePlanCreate · node tap): every tap AFTER the first owns
+// the end slot — a free tap clears what an earlier tap on a symbol banked, so the line does not
+// end «on» a symbol it no longer reaches.
+describe('setDraftPointAttachment — node taps', () => {
+  const onSym = (id: string): LineAttachment => ({ target: { kind: 'object', id }, routing: 'direct' })
+
+  it('a free tap after a tap on a symbol leaves the end free', () => {
+    const deps = makeDeps({ tool: 'line', drawings: [] })
+    const { result, rerender } = renderHook((p) => useMapDrawing(p), { initialProps: deps })
+    act(() => { result.current.setLineMode('nodes') })
+    act(() => { result.current.setDraftPointAttachment(onSym('a')) })
+    act(() => { result.current.setDraft([[0, 0]]) })
+    act(() => { result.current.setDraftPointAttachment(onSym('b')) })
+    act(() => { result.current.setDraft([[0, 0], [1, 1]]) })
+    act(() => { result.current.setDraftPointAttachment(undefined) })
+    act(() => { result.current.setDraft([[0, 0], [1, 1], [2, 2]]) })
+    rerender({ ...deps })
+    act(() => { result.current.commitDraft() })
+    const made = deps.drawings[0]
+    expect(made.startAttachment?.target).toEqual({ kind: 'object', id: 'a' })
+    expect(made.endAttachment).toBeUndefined()
   })
 })
