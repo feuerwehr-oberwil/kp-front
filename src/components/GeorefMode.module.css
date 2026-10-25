@@ -583,47 +583,9 @@
   }
 }
 
-/* ── the automatic suggestion: chooser card + proposal review chrome ─────────────────────────
-   (GeorefLinkChooser · GeorefProposalActions · GeorefAdjustLayer — see the approved mock,
+/* ── the automatic suggestion's proposal review chrome ───────────────────────────────────────
+   (GeorefProposalActions · GeorefAdjustLayer — see the approved mock,
    mockups/auto-alignment/a.html). */
-
-/* the chooser's content; the Whiteboard's .wb-georef-dock supplies the panel chrome */
-.chooser { display: grid; gap: 8px; width: 320px; max-width: calc(100vw - 24px); padding: 12px 12px 12px 16px; }
-.chooserHeadRow { display: flex; align-items: center; gap: 8px; }
-.chooserHead { flex: 1; min-width: 0; font-size: var(--fs-2); }
-/* the ✕ IS the global `.ip-x` (28.09.2026 — a 44px tile with a 15px glyph, beside a title and no
-   search field); this only keeps it out of the row's flex */
-.chooserX { flex: none; margin-right: -2px; }
-/* one way in per row: icon, the verb, and what happens next — an option list, not a form */
-.chooserOpt {
-  display: flex; align-items: center; gap: 12px; text-align: left; width: 100%;
-  min-height: 56px; padding: 8px 12px; border: 1px solid var(--border);
-  border-radius: var(--r-sm); background: var(--surface); color: var(--ink); cursor: pointer;
-  margin-right: 4px; box-sizing: border-box;
-}
-.chooserOpt svg { width: 19px; height: 19px; flex: none; color: var(--ink-dim); }
-.chooserOpt > span { min-width: 0; }
-.chooserOpt b { display: block; font: var(--fw-bold) var(--fs-2)/1.3 var(--body); }
-.chooserOpt i { display: block; font: var(--fw-medium) var(--fs-micro)/1.35 var(--body); font-style: normal; color: var(--ink-dim); margin-top: 2px; }
-/* the leading option wears the link tone — the same blue every georef instrument speaks */
-.chooserOptAuto { border-color: var(--blue-45);
-  background: color-mix(in srgb, var(--blue) 5%, var(--surface)); }
-.chooserOptAuto svg, .chooserOptAuto b { color: var(--blue-strong); }
-.chooserOpt:active { background-image: linear-gradient(var(--press), var(--press)); }
-.chooserBusy { display: grid; gap: var(--sp-2); padding: 2px 4px 2px 0; }
-/* the matcher's REAL phases, checked off as the endpoint reports them */
-.stepRow { display: flex; align-items: center; gap: var(--sp-2); min-height: 22px;
-  font: var(--fw-medium) var(--fs-1) var(--body); color: var(--ink-faint); }
-.stepRow svg { width: 15px; height: 15px; flex: none; color: var(--green-strong); }
-.stepNow { color: var(--ink); font-weight: var(--fw-bold); }
-.stepNow svg { color: var(--ink); }
-.stepDone { color: var(--ink-dim); }
-.stepDot { flex: none; width: 7px; height: 7px; margin: 0 4px;
-  border-radius: 50%; background: var(--ink-16); }
-.stepBar { display: block; height: 4px; margin: var(--sp-2) var(--sp-1) 2px 0; border-radius: var(--r-pill);
-  background: var(--blue-16); overflow: hidden; }
-.stepBar > span { display: block; height: 100%; border-radius: var(--r-pill);
-  background: var(--blue); transition: width .35s var(--ease); }
 
 /* ✥ / ⟳ — the SelectionBar's grip colours verbatim (11-measure.css · .sel-bar-act):
    resting solid --blue, armed --ink-fill with the blue ring drawn OUTSIDE the button */
@@ -688,7 +650,7 @@
    screen, so its content does too — the tablet card's own widths would leave a gap at the right,
    and the head is the handle the push-down starts on */
 @media (--phone) {
-  .quality, .chooser { width: auto; max-width: none; padding: var(--sp-2) var(--sp-5) var(--sp-4); }
-  .qHead, .chooserHeadRow { touch-action: none; }
-  .qHead button, .chooserHeadRow button { touch-action: auto; }
+  .quality { width: auto; max-width: none; padding: var(--sp-2) var(--sp-5) var(--sp-4); }
+  .qHead { touch-action: none; }
+  .qHead button { touch-action: auto; }
 }

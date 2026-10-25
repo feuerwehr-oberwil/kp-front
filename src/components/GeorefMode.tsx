@@ -1,4 +1,3 @@
-import { ShellLoader } from './ShellLoader'
 /** The PLAN half of «Karte verknüpfen» — crosses, tap capture, loupe, popover and mode panel.
  *
  *  The map half lives in GeorefMapLayer (inside MapView); the state both sides share lives in
@@ -14,7 +13,6 @@ import { confirmDialog, toast, undoToast } from '../lib/ui'
 import { acceptGeorefProposal, beginTap, georefStillIs, endGeorefMode, georefDispatch, georefLamp, georefOpenHint, georefPairIndex, georefPhoneTargetPoint, georefProposalScalePct, peekGeorefPhoneTarget, georefOpenCount, georefPlacing, georefSideCount, georefSlotLabel, GEOREF_TAP_SLOP_PX, isPlacingTap, placeGeorefPhoneTarget, registerGeorefPhoneTarget, resetGeorefPlan, trackTap, useGeorefEscape, useGeorefMode, type GeorefModeState, type GeorefSide, type TapGesture } from '../lib/georefMode'
 import { approvedUntouched, fitSimilarity, hasAutoPairs, residualClaim } from '../lib/georef'
 import { incidentBindingApproved } from '../lib/incidentPlanBindings'
-import type { GeorefSuggestStep } from '../lib/georefSuggest'
 import { useIsPhone } from '../lib/useIsPhone'
 import { SheetGrab, useSwipeDismiss } from '../lib/overlays'
 import { getMeldeleisteHost, subscribeMeldeleisteHost } from '../lib/meldeleisteHost'
@@ -530,7 +528,7 @@ function PlanLoupe({ aim, sW, sH, boardRef, corner = false }: { aim: Aim; sW: nu
 }
 
 /**
- * The Passung's dock — the frame around `GeorefQuality` and `GeorefLinkChooser` (Whiteboard).
+ * The Passung's dock — the frame around `GeorefQuality` (Whiteboard).
  * On a tablet a card one row above the chip that opened it; on a PHONE a slide-up bottom sheet
  * (29.09.2026, owner — AGENTS · «What a surface IS on a phone»): flush with the bottom edge and
  * both sides, over the two bars, the grab bar on top, pushed down to close (`useSwipeDismiss`,
@@ -550,68 +548,6 @@ export function GeorefDock({ label, onClose, children }: { label: string; onClos
     </div>
   )
   return isPhone && host ? createPortal(dock, host) : dock
-}
-
-/**
- * The unlinked chip's chooser: «Automatisch ausrichten» or «Punkte selbst setzen».
- *
- * Content only — the Whiteboard wraps it in `GeorefDock` (the Passung's own panel chrome and
- * stay-live rule; a bottom sheet on a phone). While the matcher runs (3–14 s) the card shows the REAL phases
- * (`busyStep`, fed by the endpoint's own progress lines) as a checked-off step list with a
- * bar — never an indeterminate spinner over a 15-second wait. «kein Vorschlag» keeps the
- * card up, because the manual way out is right here.
- */
-export function GeorefLinkChooser({ busyStep, onAuto, onManual, onClose }: {
-  busyStep: GeorefSuggestStep | null
-  onAuto: () => void
-  onManual: () => void
-  onClose: () => void
-}) {
-  const C = appConfig.copy.whiteboard.georef
-  const steps: { id: GeorefSuggestStep; label: string }[] = [
-    { id: 'render', label: C.autoStepRender },
-    { id: 'osm', label: C.autoStepOsm },
-    { id: 'match', label: C.autoStepMatch },
-  ]
-  const at = busyStep ? steps.findIndex((st) => st.id === busyStep) : -1
-  return (
-    <div className={s.chooser}>
-      <div className={s.chooserHeadRow}>
-        {/* ONE title: while the matcher runs, what the card IS is the running alignment */}
-        <strong className={s.chooserHead}>{busyStep ? C.autoBusy : C.linkTitle}</strong>
-        <button type="button" className={`ip-x ${s.chooserX}`} onClick={onClose} aria-label={C.closeMode} title={C.closeMode}>
-          <Icon id="close" />
-        </button>
-      </div>
-      {busyStep
-        ? (
-          <div className={s.chooserBusy} role="status">
-            {steps.map((st, i) => (
-              <span key={st.id} className={`${s.stepRow} ${i < at ? s.stepDone : i === at ? s.stepNow : ''}`}>
-                {i < at ? <Icon id="check" /> : i === at ? <ShellLoader /> : <span className={s.stepDot} aria-hidden />}
-                {st.label}
-              </span>
-            ))}
-            {/* honest fill: completed steps plus half the running one — it never creeps on its own */}
-            <span className={s.stepBar} aria-hidden><span style={{ width: `${((at + 0.5) / steps.length) * 100}%` }} /></span>
-          </div>
-        )
-        : (
-          <>
-            {/* two ways in, as equal two-line option rows — each says what happens next, so the
-                choice is made by reading the card, not by knowing the feature (the 3am rule) */}
-            <button type="button" className={`${s.chooserOpt} ${s.chooserOptAuto}`} onClick={onAuto}>
-              <Icon id="locate" />
-              <span><b>{C.autoStart}</b><i>{C.autoStartSub}</i></span>
-            </button>
-            <button type="button" className={s.chooserOpt} onClick={onManual}>
-              <Icon id="plus" />
-              <span><b>{C.autoManual}</b><i>{C.autoManualSub}</i></span>
-            </button>
-          </>
-        )}
-    </div>
-  )
 }
 
 /**

@@ -47,7 +47,8 @@ export interface GeoPt {
  *
  *  `kind` records HOW the pair came to be: 'gesetzt' when it was placed as a new reference,
  *  'korrigiert' when an existing cross was re-tapped to fix the error the operator could see,
- *  'auto' when it was derived from an accepted automatic alignment suggestion (georefSuggest).
+ *  'auto' when it was derived from an automatic alignment suggestion (the worker's proposal, approved
+ *  in Admin › Objektpläne › Plan-Ausrichtung).
  *  It carries no weight in the fit — it exists so the UI can say which pairs were adjusted. */
 export interface GeorefPair {
   plan: PlanPt

@@ -1,4 +1,4 @@
-// «Karte verknüpfen» on the Plan: the chip's reading, the chooser with «Automatisch ausrichten»,
+// «Karte verknüpfen» on the Plan: the chip's reading, arming the point flow,
 // the Passung and its transfer to a sibling Modul — everything about tying THIS sheet to the map
 // that lives in the board, not in the mode store. Lifted out of the Whiteboard (sweep A.1,
 // 25.10.2026); the fit itself is solved by the Whiteboard before its measuring hook (a linked
@@ -6,20 +6,15 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type React from 'react'
-import type { LngLat, PlanDocument } from '../types'
+import type { PlanDocument } from '../types'
 import { appConfig } from '../config/appConfig'
 import { fillTemplate } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
-import { ApiError } from '../lib/api'
-import { planMatcherImage, planPrintedMPerU } from '../lib/pdfRaster'
-import { planUrl } from '../lib/whiteboard'
 import type { fitSimilarity } from '../lib/georef'
 import { incidentBindingApproved } from '../lib/incidentPlanBindings'
 import { georefForPlan } from '../lib/stationPlanScale'
-import { georefChip, georefDispatch, setGeorefSaveErrorHandler, startGeorefMode, startGeorefProposal, transferGeorefPlan, type GeorefModeState } from '../lib/georefMode'
-import { georefSuggestEligible, requestGeorefSuggestion, type GeorefSuggestStep } from '../lib/georefSuggest'
+import { georefChip, georefDispatch, setGeorefSaveErrorHandler, startGeorefMode, transferGeorefPlan, type GeorefModeState } from '../lib/georefMode'
 import type { GeorefTransferTarget } from './GeorefTransfer'
-import type { usePlanMeasure } from './usePlanMeasure'
 
 interface Args {
   plans: PlanDocument[]
@@ -40,9 +35,6 @@ interface Args {
   /** an Einsatz-Link session: the origin's instruments, never shown */
   linkViewer: boolean
   measureAR: number
-  activeScale: ReturnType<typeof usePlanMeasure>['activeScale']
-  /** the matcher's anchor: the active object's coordinate, else the Einsatzort */
-  georefAnchor?: LngLat | null
   /** the board, whose first canvas is the plan bitmap «Deckung prüfen» shows on the map */
   boardRef: React.RefObject<HTMLDivElement | null>
 }
@@ -51,7 +43,7 @@ interface Args {
  *  run in the Whiteboard (after the measuring hook, before the document-switch reset). */
 export function usePlanGeoref({
   plans, active, activeId, activeGeorefKey, georef, georefArmed, georefPairs, georefFit, canGeoref, readOnly, linkViewer,
-  measureAR, activeScale, georefAnchor, boardRef,
+  measureAR, boardRef,
 }: Args) {
   // WHICH plan the Passung is open for, not merely whether it is open: switching documents then
   // closes it by derivation instead of by an effect that fires after the wrong panel has already
@@ -85,65 +77,6 @@ export function usePlanGeoref({
     returnToQuality: opts?.returnToQuality,
     previewUrl: georefPreviewUrl(),
   })
-  // ── «Automatisch ausrichten» — the CV suggestion path of an unlinked sheet ─────────────────
-  // The unlinked chip opens a two-way chooser when the matcher CAN be asked (Modul-2 template,
-  // an anchor coordinate, a resolvable calibration); otherwise it arms the point flow directly,
-  // exactly as before. The suggestion arrives as a PROPOSAL review on the coverage view —
-  // nothing is stored until «Übernehmen» there (lib/georefMode · startGeorefProposal).
-  const [linkChoice, setLinkChoice] = useState(false)
-  // the phase the busy card names (render → Gebäudedaten → vergleichen); null = not running
-  const [autoStep, setAutoStep] = useState<GeorefSuggestStep | null>(null)
-  const autoBusy = autoStep != null
-  // Token of the CURRENT auto-align run. The matcher takes seconds and a thread cannot be
-  // recalled — but its ANSWER can be orphaned: closing the chooser, switching sheets or
-  // starting a fresh run bumps the token, so a stale completion can never yank the workspace
-  // into a proposal review nobody is waiting for.
-  const autoRunRef = useRef(0)
-  useEffect(() => { autoRunRef.current++; setLinkChoice(false); setAutoStep(null) }, [activeId])
-  // the chooser's ✕ and the phone sheet's push-down: the answer of a run still in flight is orphaned
-  const closeLinkChoice = () => { autoRunRef.current++; setAutoStep(null); setLinkChoice(false) }
-  // Warm «Plan rendern» — the matcher raster (usually the resident bake, encoded) and the
-  // printed-scale read — the moment the chooser opens, so the seconds the operator spends
-  // reading the card cover whatever little work remains.
-  useEffect(() => {
-    if (!linkChoice || !active?.imageUrl) return
-    const url = planUrl(active.imageUrl)
-    void planMatcherImage(url).catch(() => {})
-    void planPrintedMPerU(url).catch(() => {})
-  }, [linkChoice]) // eslint-disable-line react-hooks/exhaustive-deps
-  const georefAnchorPt = georefAnchor ? { lng: georefAnchor[0], lat: georefAnchor[1] } : null
-  const canAutoAlign = !!active?.imageUrl && georefSuggestEligible(activeId, georefAnchorPt)
-  const runAutoAlign = async () => {
-    if (!georefAnchorPt || !active?.imageUrl || autoBusy) return
-    const runId = ++autoRunRef.current
-    setAutoStep('render')
-    try {
-      const out = await requestGeorefSuggestion(
-        {
-          planUrl: planUrl(active.imageUrl),
-          anchor: georefAnchorPt,
-          mPerU: activeScale?.mPerU,
-          template: activeId.startsWith('modul1') ? 'm1' : 'm2',
-        },
-        (step) => { if (runId === autoRunRef.current) setAutoStep(step) },
-      )
-      // the chooser was closed / the sheet switched while the matcher ran — orphaned answer
-      if (runId !== autoRunRef.current) return
-      if (out.kind !== 'fit') {
-        // a normal outcome, not an error: the chooser stays up, «Punkte selbst setzen» is right there
-        toast(out.kind === 'noScale' ? appConfig.copy.whiteboard.georef.autoNoScale : appConfig.copy.whiteboard.georef.autoNone, { icon: 'warn', tone: 'warn' })
-        return
-      }
-      setLinkChoice(false)
-      startGeorefProposal(activeId, measureAR, { storageKey: activeGeorefKey, pairs: out.suggestion.pairs, previewUrl: georefPreviewUrl(), uncertain: !out.suggestion.confident })
-    } catch (e) {
-      if (runId !== autoRunRef.current) return // an orphaned failure has no audience either
-      const unavailable = e instanceof ApiError && e.status === 503
-      toast(unavailable ? appConfig.copy.whiteboard.georef.autoUnavailable : appConfig.copy.whiteboard.georef.autoFailed, { icon: 'warn', tone: 'warn' })
-    } finally {
-      if (runId === autoRunRef.current) setAutoStep(null)
-    }
-  }
   const georefQuality = qualityFor === activeId
   const [georefTransferOpen, setGeorefTransferOpen] = useState(false)
   const georefPanelPlan = useRef(activeId)
@@ -209,7 +142,6 @@ export function usePlanGeoref({
 
   return {
     georefApproved, georefState, georefChipShown, beginGeoref,
-    linkChoice, setLinkChoice, autoStep, closeLinkChoice, canAutoAlign, runAutoAlign,
     qualityFor, setQualityFor, georefQuality, georefTransferOpen, setGeorefTransferOpen, georefTransferTargets, transferGeoref,
   }
 }
