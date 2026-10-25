@@ -11,7 +11,7 @@
 //   · the Einsatz's Ebenen row: `undergroundLayerDef` — a real `LayerDef`, so the Einsatz's
 //     device prefs, «Alle ein / aus», «Standard» and the replay's `layer.toggle` take it like any
 //     row. ON by default (part of «Standard»). «Karte & Objekte» has its own row under «Station»
-//     (KarteApp · UNDERGROUND_ROW), so `lib/karte/session · viewerLayers` leaves this one out.
+//     (components/karte/useKarteLayers · UNDERGROUND_ROW), so `lib/karte/session · viewerLayers` leaves this one out.
 //
 // Not on the Tafel's «Lagekarte» box nor the Rapport's Kroki: both show the Lage (the box passes no
 // prepared overlays, the print renders base map + Lage only) — a dashed garage is reference data.

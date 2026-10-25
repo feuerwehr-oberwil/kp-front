@@ -28,7 +28,7 @@ it (`lib/undoTimeline`, `lib/undoKeys`). Moved here from AGENTS.md on 2026-10-08
 - *Confirm-with-undo toast* – the fast door beside the header pair, for a one-shot that
   destroys something (a Geschoss, a Beilage, an Anwesenheits-Block, a Pendenz's «Erledigt» —
   whose inverse is an APPENDED `reopened` row, since 23.09.2026; and the **Abschluss** itself,
-  since 23.10.2026: «Rapport abgeschlossen» carries «Wieder öffnen» for 10 s, `App ·
+  since 23.10.2026: «Rapport abgeschlossen» carries «Wieder öffnen» for 10 s, `lib/useIncidentLifecycle ·
   completeRapport` → `reopenNow` — the same reopen «Alle Einsätze» runs without its confirm, and
   a reopen the server refuses is said, not retried). It does the inverse
   itself and **drops its timeline entry** (`push` returns the dropper), so an act is never

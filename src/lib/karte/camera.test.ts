@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { besidePanel, cameraOnClose, NO_PADDING, returnOnSelect, sameCamera, toolTakesTaps, type Camera } from './camera'
 
 const home: Camera = { center: [7.556, 47.512], zoom: 15.5, padding: NO_PADDING }
-// a selection framed in the strip above the phone's sheet (KarteApp · panelPad)
+// a selection framed in the strip above the phone's sheet (useKarteCamera · panelPad)
 const framed: Camera = { center: [7.5571, 47.5132], zoom: 17.6, padding: { top: 80, bottom: 608, left: 0, right: 0 } }
 const other: Camera = { center: [7.5590, 47.5101], zoom: 17.6, padding: { top: 80, bottom: 608, left: 0, right: 0 } }
 
@@ -38,7 +38,7 @@ describe('the camera after a selection closes goes back to where it was', () => 
   })
 
   it('the user\'s own move drops the way back: the map stays where they put it', () => {
-    // KarteApp sets the way back to null on a movestart with an originalEvent
+    // useKarteCamera sets the way back to null on a movestart with an originalEvent
     expect(cameraOnClose(null, other)).toBeNull()
     // …and the next selection starts a new one from there
     expect(cameraOnClose(returnOnSelect(null, other), framed)).toEqual(other)

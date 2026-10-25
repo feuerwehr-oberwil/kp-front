@@ -148,7 +148,7 @@ describe('(c) the Abschluss', () => {
 
 // N3, staging 25.09.2026
 describe('(i) closed on ANOTHER device while open here', () => {
-  // App flips the live meta when the close is heard (App · onIncidentClosed) and hands the moment
+  // App flips the live meta when the close is heard (useIncidentLifecycle · onIncidentClosed) and hands the moment
   // down — no remount. The same mount must go read-only, stop the Atemschutz alarm (its Meldung is
   // the audible alarm's own row) and say what happened, with the time.
   it('the Karte locks, the alarm stops and one row says «auf einem anderen Gerät abgeschlossen»', async () => {

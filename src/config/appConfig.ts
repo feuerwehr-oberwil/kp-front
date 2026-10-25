@@ -678,7 +678,7 @@ const base = {
     defaultPressureBar: 300,
     /** the lowest Eingangsdruck taken without a question (24.09.2026, Übung 23.09.: 60 and 180 bar
      *  went through as entries). Below it, registering, re-entering on a new cylinder or correcting
-     *  asks ONCE, with the value on the button (AtemschutzView · TruppForm). No upper bound on
+     *  asks ONCE, with the value on the button (components/TruppForm). No upper bound on
      *  purpose. 0 switches the question off. */
     entryPressureMin: 270,
     /** Alarmdruck (bar) – at or below it the Trupp turns back, and the card says so on the

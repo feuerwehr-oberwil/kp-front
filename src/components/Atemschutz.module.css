@@ -1005,7 +1005,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   .modalStack:global(.is-kb) .modalBody { padding: 2px var(--sp-5) var(--sp-2); }
   .modalStack:global(.is-kb) .modalFoot { padding: var(--sp-2) var(--sp-5); }
   .modalStack:global(.is-kb) .formBlocked { margin: 0 var(--sp-5) var(--sp-2); }
-  /* `.stack`'s first child is ALWAYS the Mannschaft block (AtemschutzView · TruppForm renders
+  /* `.stack`'s first child is ALWAYS the Mannschaft block (TruppForm renders
      `teamFields` first, on every mode) — everything after it is «Art des Trupps», Auftrag/Ziel/
      Leitung and the folded Standard row. The `assignedConflict` warning and the `blocked` line
      deliberately stay: both are about the very list on screen, and both already sit below it. */
@@ -1061,7 +1061,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
    earlier note here claimed landscape phones at 852px used them; at 852px `useIsPhone()` is
    false and the board renders CARDS.) Consequence worth knowing: `.trowPress` is always hidden,
    so the row's pressure lives on the phone-only second line under the name (see `.trowEst` and
-   AtemschutzView · TruppRow, which puts the MEASURED bar there on a pressure alarm).
+   TruppCard · TruppRow, which puts the MEASURED bar there on a pressure alarm).
 
    ⚠️ GRID, not flex. The first version laid each row out with flex, which meant every row sized
    its own columns from its own content: a Trupp with no Kontakt button (angemeldet) let its
@@ -1144,7 +1144,7 @@ button.stepVal:active:not(:disabled) { background-image: linear-gradient(var(--p
   line-height: 1; color: var(--green); font-variant-numeric: tabular-nums; }
 .trowWarn .trowClockVal { color: var(--amber); }
 .trowCrit .trowClockVal { color: var(--red-strong); }
-/* «3d 9h» (AtemschutzView · ClockVal, 30.09.2026): the unit is a small body-face letter against its
+/* «3d 9h» (TruppCard · ClockVal, 30.09.2026): the unit is a small body-face letter against its
    number, so a day-long clock stops out-measuring the name beside it */
 .clockUnit { font-family: var(--body); font-size: .75em; font-weight: var(--fw-bold); margin-left: 1px; }
 .clockGroup { margin-left: .15em; }
@@ -1875,7 +1875,7 @@ button.fact:active { background-image: linear-gradient(var(--press), var(--press
    chevron that points ON (it leads to the card, the card's own chevron folds DOWN) */
 .nfHead .trowName { color: var(--red-strong); }
 .nfGlyph { width: 18px; height: 18px; flex: none; }
-/* …and the same ⚠ in the dot's place on the crew's own card (AtemschutzView · RowLine) */
+/* …and the same ⚠ in the dot's place on the crew's own card (TruppCard · RowLine) */
 .trowName .nfGlyph { color: var(--red-strong); }
 .nfHead .trowChevron { color: var(--red-strong); }
 /* A WIDE board (tablet / desktop grid, owner round 4): ONE slim row — «⚠ name» + the facts | the

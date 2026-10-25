@@ -186,6 +186,16 @@ entry). It is the app's home with no Einsatz open (below), and over an open one 
 the Einsatz menu's «Einsatz verlassen»; a deep link at start opens no Einsatz behind it (the same rule as `/besuche`).
 Not for a link session.
 
+Where the code lives: `KarteApp` is the wiring between the concerns (what a selection, a tool or a
+tap does to the others) and the markup; each concern is a hook beside it — `useKarteCatalogue`
+(the start view, the deep link, the catalogue), `useKarteArrival`, `useKarteLayers` (the layers,
+object colours, the aligned plan, Ebenen's rows), `useKarteOffline`, `useKarteOutlines`,
+`useKarteTools`, `useKarteSession` (the address, the kept view), `useKarteMenu`, `useKarteSearch`,
+`useKarteCamera` (framing, the way back, the compass), `useKartePlace` (register, addresses,
+visits, hydrants), `useKartePointer` (hover and hold), `useKarteOverlays`, `useKarteTags`. The pure
+rules are `lib/karte/*` — `selection` (what a point hits), `overlays` (what the map draws),
+`camera`, `places`, `labels` and the rest.
+
 What it reuses, so nothing forks:
 
 | Piece | Reused from |
@@ -1114,9 +1124,9 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   sheet, in the slot the Einsatz menu gives «Offline-Bereitschaft», which is about an open
   Einsatz), Funktionen & Hilfe, Installieren where offered; who is signed in with Abmelden, the
   build label. With nothing running and nothing to take, one quiet line says «Keine offenen
-  Einsätze». The Rückmeldung prompt (`trouble`) heads the sheet. `App · homeMenu` hands in the
-  handlers; the viewer only opens and closes the sheet (`einsaetze.render(close, onDevice)`). The
-  red dot is running Einsätze + alarms waiting to be taken. The old card (`App · launcherBody`) is
+  Einsätze». The Rückmeldung prompt (`trouble`) heads the sheet. App hands the handlers to
+  `components/HomeMenus · HomeMenu`; the viewer only opens and closes the sheet (`einsaetze.render(close, onDevice)`). The
+  red dot is running Einsätze + alarms waiting to be taken. The old card (`components/HomeMenus · LauncherBody`) is
   left only for a link session whose Einsatz could not be fetched.
 - **Alarms** show in the Meldeleiste and the banner (no «Anhängen»: no Einsatz is being worked on
   screen); nothing switches by itself. Taking one keeps the 12 s «Alarm übernommen · Rückgängig»,
