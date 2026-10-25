@@ -35,7 +35,7 @@ export interface MagneticTarget {
 /**
  * What a Leitung endpoint, a placement and a Rotation end may dock onto — ONE list per frame,
  * because it used to be four hand-maintained copies (MapView · candidatesAt and
- * trackPlaceMagnet, MapMarkers · trackEndMagnet, Whiteboard · planCandidatesAt) and nothing
+ * usePlaceMagnet · trackPlaceMagnet, MapMarkers · trackEndMagnet, Whiteboard · planCandidatesAt) and nothing
  * stopped them drifting apart.
  *
  * Only objects that STATE A PLACE: a symbol, a vehicle, a crew. A Fläche is ground, a note is

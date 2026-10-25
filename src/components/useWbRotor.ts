@@ -63,7 +63,7 @@ export function useWbRotor({ tool, readOnly, annos, boardRef, inkTap, toNorm, lo
 
   // --- drag-to-rotate a selected directional symbol (rotor handle) ---
   // ── «Halten, dann verbindet es», an einer Rotation ───────────────────────────────────────
-  // The plan twin of the map's claim (MapMarkers · trackEndMagnet / MapView · trackPlaceMagnet),
+  // The plan twin of the map's claim (MapMarkers · trackEndMagnet / usePlaceMagnet · trackPlaceMagnet),
   // down to the same chip, the same ring and the same rule: the point keeps following the finger
   // while the ring fills, and only a FULL ring puts it on the symbol. It serves both moments a
   // Rotation has — laying one of its two points down, and dragging an end afterwards — because

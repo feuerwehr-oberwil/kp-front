@@ -8,7 +8,6 @@
 import { forwardRef, Fragment, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
-import { buzz } from '../lib/haptics'
 import { useHiddenTrails } from '../lib/useHiddenTrails'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import '../lib/maplibreWorker'
@@ -29,7 +28,7 @@ import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
 import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
 import { EMPTY_STYLE, mapMaxZoom, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LABEL_STYLE, SYM_CAPTION_STYLE, SYM_CAPTION_GAP, READOUT_LABEL_STYLE, END_TAG_LABEL_STYLE } from '../lib/mapView'
-import { dockSlots, dockRadiusFor, nearestDockHost } from '../lib/docking'
+import { dockSlots } from '../lib/docking'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
 import { floorBadge } from '../lib/symbolRender'
 import { isNamedPerson, symbolCaptionText } from '../lib/symbols'
@@ -43,6 +42,8 @@ import { useVehicleTrails } from '../lib/useVehicleTrails'
 import { useMapCanvasGestures } from './useMapCanvasGestures'
 import { mapMagnetTargets } from './mapMagnetTargets'
 import { useMapMagnet } from './useMapMagnet'
+import { usePlaceMagnet } from './usePlaceMagnet'
+import { useTruppMarkerAim } from './useTruppMarkerAim'
 import { LineMarker } from './LineMarker'
 import { MapMarkers } from './MapMarkers'
 import { MapLayers } from './MapLayers'
@@ -64,7 +65,7 @@ import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsM
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { setLiveBearing } from '../lib/liveBearing'
 import { LABEL_ABOVE, measureLabelPlacement } from '../lib/measureLabelPlace'
-import { attachInsetPx, lineJoints, boundaryPoint, DETACH_SHOW_PROGRESS, dwellFor, forkPortPoint, gpsGuard, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, relationshipNetwork, resolveLinePoints, type AttachableLine, type MagneticTarget, nearestFreeEndpoint, TEAM_JOIN_RADIUS_PX } from '../lib/lineAttachments'
+import { attachInsetPx, lineJoints, boundaryPoint, DETACH_SHOW_PROGRESS, dwellFor, forkPortPoint, gpsGuard, moveLineBody, relationshipNetwork, resolveLinePoints, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 
 /** The ink a ghost «Spur» is drawn in — neutral grey, not the Trupp's colour: colour means
  *  IDENTITY on this map (lib/teamColors), and a trail whose marker is gone must not claim that a
@@ -745,138 +746,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     return mapMagnetTargets(map, { entities, drawings, attachmentLines, trupps: trupps ?? [], zoom, bearing, symMul },
       sourceId, at, draftStart())
   }
-  // ── Rotation legen: der Magnet an jedem der beiden Punkte ─────────────────────────────────
-  //
-  // A Rotation is laid between two PLACES, so each of its two taps may couple to a symbol — and
-  // it couples the way everything else in the app does: press, hold until the ring closes, let go.
-  //
-  // ⚠️ Deliberately NOT the line-START exception (lib/useDraftMagnet · start),
-  // which arms instantly because the finger was already ON the prong it aimed at. Here the very
-  // same press is also the thing that PLACES a point, so an instant claim would silently attach
-  // every point ever dropped near a symbol — the invisible coupling the ring exists to prevent.
-  //
-  // It rides the pointer, not the hover: a mouse crossing a symbol with no button down must not
-  // start filling a ring for a tap that is not happening.
-  const [placeMag, setPlaceMag] = useState<{ coord: LngLat; since: number; armed: boolean } | null>(null)
-  const placeMagRef = useRef<{ key: string; coord: LngLat; since: number; armed: boolean } | null>(null)
-  const placeDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const placeDown = useRef(false)
-  /** dragPan paused while a claim is live: a finger holding still for the MAGNET_DWELL_MS dwell wobbles
-   *  past MapLibre's 3 px slop, and the pan that started killed the claim AND ate the click —
-   *  on a real device the ring could never be ridden to the end. Paused, the full 32 px magnet
-   *  radius is the wobble budget; leaving it clears the claim and gives the pan back. */
-  const placePanPaused = useRef(false)
-  const clearPlaceMagnet = () => {
-    if (placeDwellTimer.current) { clearTimeout(placeDwellTimer.current); placeDwellTimer.current = null }
-    if (placeMagRef.current) { placeMagRef.current = null; setPlaceMag(null) }
-    if (placePanPaused.current) { placePanPaused.current = false; mapInst.current?.dragPan.enable() }
-  }
-  // The prop can drop mid-claim (Escape, the dock's ×) — at that point every handler that could
-  // clear the ring is unbound, so without this the ring and its pending dwell timer outlive the
-  // gesture until the next pan. Unmount takes the timer with it for the same reason.
-  useEffect(() => {
-    if (!placeMagnet) clearPlaceMagnet()
-  }, [placeMagnet])
-  useEffect(() => () => { if (placeDwellTimer.current) clearTimeout(placeDwellTimer.current) }, [])
+  // a Rotation's two taps may each claim a symbol by dwelling (components/usePlaceMagnet)
+  const place = usePlaceMagnet({ mapInst, entities, isVisible, enabled: placeMagnet })
+  const placeMag = place.placeMag
   // no Karte, no live bearing – the readers fall back to the settled one (lib/liveBearing)
   useEffect(() => () => setLiveBearing(null), [])
-  const trackPlaceMagnet = (at: LngLat) => {
-    const map = mapInst.current
-    if (!map) return
-    const p = map.project(at)
-    let best: { key: string; coord: LngLat; d: number } | null = null
-    // a symbol you can see on this surface is a place you can aim the next one at
-    const anchors: { key: string; coord: LngLat }[] = [
-      ...entities.flatMap((e) => (isMagnetEntity(e) && Array.isArray(e.coord) && isVisible(effectiveLayer(e))
-        ? [{ key: e.id, coord: e.coord as LngLat }] : [])),
-    ]
-    for (const a of anchors) {
-      const q = map.project(a.coord)
-      const d = Math.hypot(q.x - p.x, q.y - p.y)
-      if (d < MAGNET_RADIUS_PX && (!best || d < best.d)) best = { ...a, d }
-    }
-    if (!best) { clearPlaceMagnet(); return }
-    if (placeMagRef.current?.key === best.key) return
-    clearPlaceMagnet()
-    const st = { key: best.key, coord: best.coord, since: Date.now(), armed: false }
-    placeMagRef.current = st
-    if (placeDown.current) { placePanPaused.current = true; map.dragPan.disable() }
-    setPlaceMag({ coord: st.coord, since: st.since, armed: false })
-    placeDwellTimer.current = setTimeout(() => {
-      const now = placeMagRef.current
-      if (!now || now.key !== st.key) return
-      now.armed = true
-      setPlaceMag({ coord: now.coord, since: now.since, armed: true })
-      buzz()
-    }, MAGNET_DWELL_MS)
-  }
-  /** the coord this tap actually places — the claimed symbol's own spot if its ring closed */
-  const placedCoord = (lc: LngLat): LngLat => {
-    const armed = placeMagRef.current?.armed ? placeMagRef.current.coord : null
-    clearPlaceMagnet()
-    return armed ?? lc
-  }
 
-  // ── Truppmarker auf ein freies Leitungsende: derselbe Magnet, von der anderen Seite ────────
-  //
-  // Dropping a Trupp's marker on the free end of a hose joins the two — the same link that
-  // snapping the hose onto the marker makes, from whichever side the operator happens to work.
-  // Until 15.09. that happened INVISIBLY on release: nothing said a hose end was free, nothing
-  // said the drop had found one, and a marker parked near a hose could couple to it by accident.
-  //
-  // It now wears the picture every other attachment on this surface wears — «Ring lädt, dann
-  // schnappt es» — and the whole contract comes with it: **not armed = nothing attaches, not
-  // even on release** (docs/ui-conventions.md · Touch vocabulary). The aim is reported to the drop through
-  // `onMarkerDragEnd`, so the writer never re-guesses what the ring promised.
-  //
-  // ⚠️ `TEAM_JOIN_RADIUS_PX`, not `MAGNET_RADIUS_PX`: this gesture aims with the marker's LEFT
-  // EDGE (the dot on its coordinate), not with the finger — see the constant's own note.
-  type TeamJoinAim = { entityId: string; lineId: string; endpoint: LineEndpoint; coord: LngLat; since: number; armed: boolean }
-  const [teamJoin, setTeamJoinState] = useState<TeamJoinAim | null>(null)
-  const teamJoinRef = useRef<TeamJoinAim | null>(null)
-  const teamJoinTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  /** a Trupp marker is in the hand — what turns the free couplings on (they are an answer to
-   *  this gesture, not permanent furniture: a Lage with a dozen hoses would grow a dozen rings) */
-  const [teamDragId, setTeamDragId] = useState<string | null>(null)
-  const setTeamJoin = (next: TeamJoinAim | null) => { teamJoinRef.current = next; setTeamJoinState(next) }
-  /** …and the OTHER thing a Trupp marker in the hand can land on: a symbol to dock to
-   *  (lib/docking). The same ring, the same hold («Halten zum Verbinden»): it fills on the host
-   *  while the marker hovers inside the dock radius, and only a CLOSED ring docks on release –
-   *  a marker merely carried past a symbol must not stick to it. The hose join above wins when
-   *  both are in reach; the dock ring then does not show at all. */
-  type DockAim = { entityId: string; hostId: string; coord: LngLat; since: number; armed: boolean }
-  const [dockAim, setDockAimState] = useState<DockAim | null>(null)
-  const dockAimRef = useRef<DockAim | null>(null)
-  const dockAimTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const setDockAim = (next: DockAim | null) => { dockAimRef.current = next; setDockAimState(next) }
-  const clearDockAim = () => {
-    if (dockAimTimer.current) { clearTimeout(dockAimTimer.current); dockAimTimer.current = null }
-    if (dockAimRef.current) setDockAim(null)
-  }
-  useEffect(() => () => { if (dockAimTimer.current) clearTimeout(dockAimTimer.current) }, [])
-  const trackDockAim = (id: string, c: LngLat) => {
-    const map = mapInst.current
-    const me = entities.find((e) => e.id === id)
-    if (!map || me?.kind !== 'team' || teamJoinRef.current) { clearDockAim(); return }
-    const host = nearestDockHost(c, entities.filter((e) => e.id !== id), (q) => map.project(q as [number, number]), dockRadiusFor(me))
-    if (!host || !Array.isArray(host.coord)) { clearDockAim(); return }
-    // still over the same host: let the ring keep filling rather than restarting it
-    if (dockAimRef.current?.entityId === id && dockAimRef.current.hostId === host.id) return
-    clearDockAim()
-    const st: DockAim = { entityId: id, hostId: host.id, coord: host.coord as LngLat, since: Date.now(), armed: false }
-    setDockAim(st)
-    dockAimTimer.current = setTimeout(() => {
-      const now = dockAimRef.current
-      if (!now || now.since !== st.since) return
-      setDockAim({ ...now, armed: true })
-      buzz() // …on arm, and only on arm (docs/ui-conventions.md · Touch vocabulary)
-    }, MAGNET_DWELL_MS)
-  }
-  const clearTeamJoin = () => {
-    if (teamJoinTimer.current) { clearTimeout(teamJoinTimer.current); teamJoinTimer.current = null }
-    if (teamJoinRef.current) setTeamJoin(null)
-  }
-  useEffect(() => () => { if (teamJoinTimer.current) clearTimeout(teamJoinTimer.current) }, [])
   // own position (GPS) — a quiet blue dot so the crew can see where they stand relative to the
   // Einsatzort. ON DEMAND, not a continuous watch: a permanent high-accuracy watchPosition keeps
   // the GPS chip powered for the whole shift, one of the biggest battery drains — and once you know
@@ -1177,56 +1052,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     d.kind !== 'line' || !Array.isArray(d.coords) || d.coords.length < 2 || d.endAttachment ? []
       : [{ lineId: d.id, endpoint: 'end' as const, color: d.color || DEFAULT_INK, coord: d.coords[d.coords.length - 1] as LngLat }]
   ))
-  /** the hose ends the marker is being aimed at, per drag move — mirrors `trackPlaceMagnet` */
-  const trackTeamJoin = (id: string, at: LngLat) => {
-    const map = mapInst.current
-    const ent = entities.find((x) => x.id === id)
-    // only a Trupp marker joins, and only where hoses are actually drawn
-    if (!map || ent?.kind !== 'team' || !ent.truppId || !nativeDrawingChrome) { clearTeamJoin(); return }
-    if (teamDragId !== id) setTeamDragId(id)
-    const p = map.project(at as [number, number])
-    const hit = nearestFreeEndpoint(
-      [p.x, p.y],
-      // …and never a Leitung that already has a crew: `openHoseLines` is the same «one Trupp per
-      // line» filter the rings above are drawn from, so the ring and the aim can never disagree
-      openHoseLines.flatMap((d) => (d.kind === 'line' && Array.isArray(d.coords) && d.coords.length >= 2
-        ? [{ id: d.id, points: d.coords, startAttachment: d.startAttachment, endAttachment: d.endAttachment }] : [])),
-      (c) => { const q = map.project(c as [number, number]); return [q.x, q.y] },
-      TEAM_JOIN_RADIUS_PX,
-      ['end'],
-    )
-    if (!hit) { clearTeamJoin(); return }
-    const cur = teamJoinRef.current
-    // still on the same end: let the ring keep filling rather than restarting it
-    if (cur && cur.entityId === id && cur.lineId === hit.lineId && cur.endpoint === hit.endpoint) return
-    clearTeamJoin()
-    const ll = map.unproject(hit.point as [number, number])
-    const st: TeamJoinAim = { entityId: id, lineId: hit.lineId, endpoint: hit.endpoint, coord: [ll.lng, ll.lat], since: Date.now(), armed: false }
-    setTeamJoin(st)
-    teamJoinTimer.current = setTimeout(() => {
-      const now = teamJoinRef.current
-      if (!now || now.since !== st.since) return
-      setTeamJoin({ ...now, armed: true })
-      buzz() // …on arm, and only on arm (docs/ui-conventions.md · Touch vocabulary)
-    }, MAGNET_DWELL_MS)
-  }
-  const teamJoinMarkerMove = (id: string, c: LngLat) => { onMarkerMove(id, c); trackTeamJoin(id, c); trackDockAim(id, c) }
-  const teamJoinMarkerDragEnd = (id: string, c: LngLat) => {
-    const aim = teamJoinRef.current
-    // only a CLOSED ring joins; everything else is an ordinary drop that moved a marker
-    const join = aim?.armed && aim.entityId === id ? { lineId: aim.lineId, endpoint: aim.endpoint } : null
-    // …and the dock, the same way: a closed ring docks, an open one is an ordinary drop. Only a
-    // Trupp marker has an opinion here; a placard leaves it undefined and docks instantly, as
-    // it always did (IncidentWorkspace · finishEntityMove).
-    const da = dockAimRef.current
-    const dock = entities.find((e) => e.id === id)?.kind === 'team'
-      ? (da?.armed && da.entityId === id ? { hostId: da.hostId } : null)
-      : undefined
-    clearTeamJoin()
-    clearDockAim()
-    setTeamDragId(null)
-    onMarkerDragEnd(id, c, join, dock)
-  }
+  // a Trupp marker in the hand aims at a free hose end or a symbol to dock to (components/useTruppMarkerAim)
+  const { teamJoin, dockAim, teamDragId, setTeamDragId, teamJoinMarkerMove, teamJoinMarkerDragEnd } =
+    useTruppMarkerAim({ mapInst, entities, openHoseLines, nativeDrawingChrome, onMarkerMove, onMarkerDragEnd })
   // ── ONE label pass for the whole map ─────────────────────────────────────────────────────
   // Every family above (symbol captions, Trupp names, Leitung end tags, line readouts, radius
   // readouts) used to place its label wherever its own geometry pointed, blind to the others,
@@ -1730,7 +1558,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const last = draftKind ? draft[draft.length - 1] : undefined
     const lastPx = last && mapInst.current?.project(last)
     if (lastPx && Math.hypot(e.point.x - lastPx.x, e.point.y - lastPx.y) < NODE_REPEAT_PX) return
-    onMapClick(placeMagnet ? placedCoord(lc) : lc)
+    onMapClick(placeMagnet ? place.placedCoord(lc) : lc)
   }
   const fhFC = useMemo(() => fc(fhPath && fhPath.length >= 2 ? [lineFeat(fhPath)] : []), [fhPath])
   // team trails: the dashed line through a Trupp's RECORDED positions (parity with the plan
@@ -1830,7 +1658,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       onDragStart={(e) => {
         if (e.originalEvent && 'touches' in e.originalEvent) beginPanGesture()
         beginSheetPeek()
-        placeDown.current = false; clearPlaceMagnet() // panning away is not a tap on anything
+        place.cancel() // panning away is not a tap on anything
         if (georefOn && !(e.originalEvent && 'touches' in e.originalEvent)) georefTap.panned()
       }}
       onDragEnd={(e) => { if (e.originalEvent && 'touches' in e.originalEvent) endPanGesture(); endSheetPeek() }}
@@ -1849,9 +1677,9 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // ⚠️ A press that begins on a CROSS never starts a placement gesture: the cross's own
       // handlers (pick / drag) own it, but their native events still bubble to this container —
       // without the filter, clicking a pending cross also dropped a stray point underneath it.
-      onMouseDown={(nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet) { placeDown.current = true; trackPlaceMagnet([e.lngLat.lng, e.lngLat.lat]) } if (georefOn && !georefTapOnMarker(e.originalEvent?.target)) { aimGeorefMap(); georefTap.start(e.point) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
-      onMouseMove={(picking || nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet && placeDown.current) trackPlaceMagnet([e.lngLat.lng, e.lngLat.lat]); if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
-      onMouseUp={(nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet) placeDown.current = false; if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped) placeGeoref(e.lngLat) } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onMouseDown={(nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet) place.down([e.lngLat.lng, e.lngLat.lat]); if (georefOn && !georefTapOnMarker(e.originalEvent?.target)) { aimGeorefMap(); georefTap.start(e.point) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onMouseMove={(picking || nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet) place.move([e.lngLat.lng, e.lngLat.lat]); if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onMouseUp={(nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet) place.up(); if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped) placeGeoref(e.lngLat) } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
       // ⚠️ The pairing aim is deliberately NOT cleared here. The loupe is up for the whole of the
       // map's turn and keeps showing the last thing aimed at — clearing it on mouse-out closed
       // the magnifier every time the hand crossed the seam back to the plan.
@@ -1859,10 +1687,10 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // mousemove never fires on touch — stream the aim coords from the drag as well,
       // so the crosshair readout tracks the finger on iPhone/iPad
       // same cross filter as onMouseDown — a finger on a cross is a pick, never a placement
-      onTouchStart={(nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet) { placeDown.current = true; trackPlaceMagnet([e.lngLat.lng, e.lngLat.lat]) } if (georefOn && !georefTapOnMarker(e.originalEvent?.target)) { aimGeorefMap(); georefTap.start(e.point, e.points.length > 1) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onTouchStart={(nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet) place.down([e.lngLat.lng, e.lngLat.lat]); if (georefOn && !georefTapOnMarker(e.originalEvent?.target)) { aimGeorefMap(); georefTap.start(e.point, e.points.length > 1) } if (nodeMagnetActive) updateDraftMagnet('start', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
       // mousemove never fires on touch — the loupe follows the drag instead, which is exactly the
       // gesture the mock asks for («halten und schieben»)
-      onTouchMove={(picking || nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet && placeDown.current) trackPlaceMagnet([e.lngLat.lng, e.lngLat.lat]); if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point, e.points.length > 1); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onTouchMove={(picking || nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet) place.move([e.lngLat.lng, e.lngLat.lat]); if (picking) onCursor?.([e.lngLat.lng, e.lngLat.lat]); if (georefOn) georefTap.track(e.point, e.points.length > 1); if (georefTurn) { aimGeorefMap(); georefPoint.current = { lng: e.lngLat.lng, lat: e.lngLat.lat } } if (nodeMagnetActive) updateDraftMagnet('move', [e.lngLat.lng, e.lngLat.lat]) } : undefined}
       // ⚠️ A placing tap CANCELS its touchend. The browser follows an uncancelled tap with a
       // synthesized mousedown/mouseup/click at the same position: the mouse pair re-ran this
       // very machine (one duplicate point per tap), and the click landed on the cross that had
@@ -1871,7 +1699,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
       // tablet placement «very unreliable». MapLibre registers touchend non-passively, so
       // preventDefault here is honoured and stops the whole synthetic trail. Pans, pinches and
       // non-placing taps stay untouched — crosses keep receiving their real taps.
-      onTouchEnd={(nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet) { placeDown.current = false; if (placeMagRef.current?.armed) { onMapClick(placedCoord([e.lngLat.lng, e.lngLat.lat])); e.originalEvent?.preventDefault() } } if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped && placeGeoref(e.lngLat)) e.originalEvent?.preventDefault() } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
+      onTouchEnd={(nodeMagnetActive || georefOn || placeMagnet) ? (e) => { if (placeMagnet) { place.up(); if (place.armed()) { onMapClick(place.placedCoord([e.lngLat.lng, e.lngLat.lat])); e.originalEvent?.preventDefault() } } if (georefOn) { const tapped = georefTap.end(); if (!isPhone && tapped && placeGeoref(e.lngLat)) e.originalEvent?.preventDefault() } if (nodeMagnetActive) finishDraftNodeMagnet([e.lngLat.lng, e.lngLat.lat]) } : undefined}
       /* ⚠️ an ARMED claim places on the RELEASE itself (above): past the browser's long-press
          threshold no synthetic click follows a touch, so waiting for handleClick left the ring
          closed and nothing placed — the same lesson the georef taps learned (28.08.).
