@@ -263,9 +263,9 @@ Karte does). Review item 21b split the two acts (`src/lib/objectDone.ts`):
 | «Entfernen» (single object) on the **Plan** | «Feuer entfernt» – the Karte's own `log.objectDeleted`, named the way the Karte names it (`drawingEdit · annoLogName`), carried as `subjectId` | `board.delete` | yes, as before |
 
 - **One act, one row.** Each row is written by the act's own handler (`IncidentWorkspace ·
-  setEntityDone`, `Whiteboard · setAnnoDone` / `logRemoved`) and nowhere else: the store fold
-  writes none, the Karte's edit-settle window (`entityEditChanges`) does not read `done`, and a
-  plan removal of a *projected* Karte object goes through the plan's handler only.
+  setEntityDone`, `Whiteboard · setAnnoDone` / `usePlanRemoval · logRemoved`) and nowhere else:
+  the store fold writes none, the Karte's edit-settle window (`entityEditChanges`) does not read
+  `done`, and a plan removal of a *projected* Karte object goes through the plan's handler only.
 - **Replay stays coherent because the act emits BOTH views' op** – the pair, like an anchor flip.
   The surface a finger is on speaks its own document, and the replay folds views: a mark on a
   plan also emits `entity.edit` (the Karte's baked or own body; a symbol with no map body folds to
