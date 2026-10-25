@@ -62,7 +62,7 @@ export function isDockable(e: Entity | undefined): boolean {
 // [dot][gap][name] — anchored by its left edge, so a second one beside the first would lay its
 // name straight across the first one's. Downwards each strip gets its own horizontal band, which
 // is also the only arrangement the label pass can book without measuring text it never renders
-// (MapView · labelDecisions).
+// (components/useLabelPass · mapLabelDecisions).
 
 /** The vertical pitch of the stack: one dot (13px) plus air, so two names never touch. */
 export const DOCK_SLOT_STEP_PX = 19

@@ -26,24 +26,20 @@ import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { SelectionBar } from './SelectionBar'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
-import { SHAPE_MAX_PX, shapeAspect } from '../lib/shapes'
-import { EMPTY_STYLE, mapMaxZoom, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_DOT_GAP, TEAM_LABEL_STYLE, SYM_CAPTION_STYLE, SYM_CAPTION_GAP, READOUT_LABEL_STYLE, END_TAG_LABEL_STYLE } from '../lib/mapView'
-import { dockSlots } from '../lib/docking'
+import { SHAPE_MAX_PX } from '../lib/shapes'
+import { EMPTY_STYLE, mapMaxZoom, vis, fc, lineFeat, polyFeat, pathSegmentCount, resumeViewState, shapePx, symPx, effectiveLayer, nativeDrawingChromeVisible, lineLabelAction } from '../lib/mapView'
 import { TeilstueckFork, EndTag, hasLineDecor } from '../lib/lineDecor'
-import { floorBadge } from '../lib/symbolRender'
-import { isNamedPerson, symbolCaptionText } from '../lib/symbols'
-import { softHyphenateText } from '../lib/symbolWrap'
-import { cachedLabelSize, LABEL_RANK, MARKER_Z, placeLabels, type LabelBox, type LabelCandidate, type LabelStyle } from '../lib/labelPass'
+import { MARKER_Z } from '../lib/labelPass'
 import type { TruppTrail } from '../lib/truppTrails'
 import { lineTakesTrupp, teamLineBadges, truppForLine, truppLineTone } from '../lib/truppLines'
 import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon, haversineM } from '../lib/geo'
-import { noteWPx } from '../lib/notes'
 import { useVehicleTrails } from '../lib/useVehicleTrails'
 import { useMapCanvasGestures } from './useMapCanvasGestures'
 import { mapMagnetTargets } from './mapMagnetTargets'
 import { useMapMagnet } from './useMapMagnet'
 import { usePlaceMagnet } from './usePlaceMagnet'
 import { useTruppMarkerAim } from './useTruppMarkerAim'
+import { useLabelPass } from './useLabelPass'
 import { LineMarker } from './LineMarker'
 import { MapMarkers } from './MapMarkers'
 import { MapLayers } from './MapLayers'
@@ -73,8 +69,6 @@ import { attachInsetPx, lineJoints, boundaryPoint, DETACH_SHOW_PROGRESS, dwellFo
  *  cannot read a CSS custom property; it is deliberately mid-grey, so it reads on both themes. */
 const GHOST_TRAIL_INK = '#8a8f98'
 
-// ── label-pass geometry: the numbers the stylesheet uses, said once ────────────────────────
-
 // Every edit handle of a SELECTED drawing (node pads, «+» midpoints, grow arrows, detach chips,
 // the Absperrkreis's radius ring) rides at MARKER_Z.selected: a react-map-gl
 // marker defaults to z-auto, which paints BELOW every resting symbol/team (MARKER_Z 4–8), so the
@@ -82,10 +76,6 @@ const GHOST_TRAIL_INK = '#8a8f98'
 // endpoint could not be grabbed to extend it (28.08. field feedback). One stacking table for all
 // of it (lib/labelPass), like the end tags directly below.
 const handleZ: React.CSSProperties = { zIndex: MARKER_Z.selected }
-// The pass measures a label before it exists in the DOM, so the chrome around its text has to
-// be mirrored here. When a label's CSS changes, these change with it — each is named for the
-// rule it comes from.
-const NO_LABELS: ReadonlySet<string> = new Set()
 /** the `measurePoints` default — a module constant, so an absent prop keeps ONE identity and the
  *  memoized measure source below is not rebuilt on every render */
 const NO_POINTS: LngLat[] = []
@@ -107,36 +97,6 @@ const NODE_REPEAT_PX = 22
  *  synthesizes its mouse trail right after touchend, so the trailing click arrives a few ms AFTER
  *  MapLibre's dragend — but well inside this window, which no second deliberate tap fits in. */
 const PAN_CLICK_TAIL_MS = 350
-/** `.sym-caption { margin-top }` (03-map.css), held to the CSS in lib/mapView */
-const CAPTION_GAP = SYM_CAPTION_GAP
-/** the end tag's Marker `offset={[0, -14]}` (below) */
-const END_TAG_LIFT = 14
-/** the line-readout / radius Markers' `anchor="bottom"` offsets (below) */
-const READOUT_LIFT = 10
-const RADIUS_LIFT = 4
-const LABEL_STYLE = {
-  /** `.sym-caption` (lib/mapView · SYM_CAPTION_STYLE) */
-  caption: SYM_CAPTION_STYLE,
-  /** `.team-dot b` — never wraps */
-  team: TEAM_LABEL_STYLE,
-  /** `.measure-label.draw-label` (lib/mapView · READOUT_LABEL_STYLE) */
-  readout: READOUT_LABEL_STYLE,
-  /** `.line-end-tag` (lib/mapView · END_TAG_LABEL_STYLE) */
-  endTag: END_TAG_LABEL_STYLE,
-} satisfies Record<string, LabelStyle>
-
-/** The end tag's text laid out the way `EndTag` lays it out: the Leitung's own facts on one
- *  row, the Trupp on its own (`inline-grid` gives each text run a row of its own). */
-/** the end tag's text as the label pass measures it – the Leitung's own facts only. The Trupp on
- *  it is never printed here (15.09.): its marker stands at this very end, and that IS the name. */
-function endTagText(d: Drawing): string {
-  const parts: string[] = []
-  if (d.lineNo != null) parts.push(String(d.lineNo))
-  if (d.content) parts.push(d.content)
-  if (d.floorTag != null) parts.push(floorBadge(d.floorTag))
-  return parts.join(' · ')
-}
-
 /** Keep MapLibre's own KeyboardHandler off while a text field owns focus — the map must not
  *  zoom/pan on a «+», «-» or an arrow that is being TYPED. Idempotent, so it is safe to call
  *  from a focus event and from every render (see the two effects that use it). */
@@ -506,11 +466,6 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // deleted node reappeared and the hold looked broken (19.08.).
   const deletePointKeepTool = (fn?: (i: number) => void) => (i: number) => { suppressClick.current = true; fn?.(i) }
   const [mapReady, setMapReady] = useState(false)
-  // A pure PAN changes no other state in this component, but it moves every label on screen, so
-  // the label pass has to run again. One counter bumped on moveend is the whole trigger — pan,
-  // zoom and rotate all end there. Deliberately NOT per frame: labels appearing and disappearing
-  // under a moving finger read as flicker, so the decision is taken once the map comes to rest.
-  const [, bumpLabelFrame] = useState(0)
   // MapLibre paint specs can't read CSS vars, so the two TRANSIENT overlays drawn in the UI blue —
   // the draft shape and the measure path — resolve `--blue` off the live theme (lib/themeToken)
   // rather than freezing a literal into the paint spec, where they stayed dark-on-dark over a
@@ -1055,130 +1010,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // a Trupp marker in the hand aims at a free hose end or a symbol to dock to (components/useTruppMarkerAim)
   const { teamJoin, dockAim, teamDragId, setTeamDragId, teamJoinMarkerMove, teamJoinMarkerDragEnd } =
     useTruppMarkerAim({ mapInst, entities, openHoseLines, nativeDrawingChrome, onMarkerMove, onMarkerDragEnd })
-  // ── ONE label pass for the whole map ─────────────────────────────────────────────────────
-  // Every family above (symbol captions, Trupp names, Leitung end tags, line readouts, radius
-  // readouts) used to place its label wherever its own geometry pointed, blind to the others,
-  // decluttered only by a global zoom switch and truncated by an ellipsis. Now they all go
-  // through lib/labelPass: one rank order, one AABB test, nothing moves, and what does not fit
-  // is not drawn — its owner paints a 6px ink dot instead. See labelPass.ts for the why.
-  function labelDecisions(): ReadonlySet<string> {
-    const m = mapInst.current
-    if (!m) return NO_LABELS
-    const px = (c: LngLat) => m.project(c as [number, number])
-    // ties inside a rank go to whatever is nearer the incident — never to placement order
-    const hub = px(initialCenter)
-    const near = (p: { x: number; y: number }) => Math.hypot(p.x - hub.x, p.y - hub.y)
-    const occupied: LabelBox[] = []
-    const cands: LabelCandidate[] = []
-    // a docked Trupp marker stands on its HOST's bottom-left corner, not on its own coordinate
-    // (lib/docking · dockSlotOffset) — the pass books the box the eye actually sees, or it would
-    // clear labels for ground nothing is drawn on and let real ones collide on the corner
-    const dockedSlots = dockSlots(entities)
-
-    // Seed: every visible glyph. A label may cover empty ground, never another symbol.
-    for (const e of entities) {
-      if (!Array.isArray(e.coord) || !isVisible(effectiveLayer(e))) continue
-      const dock = teamDockAnchor(e, entities, dockedSlots, zoom, symMul,
-        e.kind === 'team' ? teamStripPx(e.label ?? '') : undefined)
-      const own = px(dock?.host.coord ?? e.coord)
-      const p = dock ? { x: own.x + dock.dx, y: own.y + dock.dy } : own
-      const g = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom, SHAPE_MAX_PX[e.shape ?? 'square'])
-        : e.kind === 'photo' ? 56
-        : e.kind === 'note' ? noteWPx(e.noteW)
-        : e.kind === 'team' ? TEAM_DOT_PX
-        : symPx(e.kind, e.coord[1], zoom, symMul)
-      // a stretched Rechteck/Rauch is g wide but g × aspect tall — seed the real box, or a
-      // label happily lands on the lower half of a tall shape it believes is square
-      const gh = e.kind === 'shape' ? g * shapeAspect(e.shape ?? 'square', e.aspect) : g
-      const isSel = e.id === selectedId || selectedEntityIds.includes(e.id)
-      if (e.kind === 'team') {
-        // a resting Trupp marker is `[dot][gap][name]` anchored by its LEFT edge (MapMarkers):
-        // the DOT sits on the coordinate and the name hangs off to the right of it, so dropping
-        // the name below moves nothing on screen
-        const label = e.label ?? ''
-        const s = cachedLabelSize(label, LABEL_STYLE.team)
-        occupied.push({ x: p.x - TEAM_DOT_PX / 2, y: p.y - TEAM_DOT_PX / 2, w: TEAM_DOT_PX, h: TEAM_DOT_PX })
-        // a marker on a due/überfällig Trupp's Leitung keeps the alarm rank its tag has
-        const badge = teamLines.get(e.id)
-        // the selected Trupp shows its full pill instead of the bare name — not a candidate,
-        // but its footprint still has to push everything else away
-        if (label && !isSel) {
-          // ⚠️ A joined marker shares the rank of its Leitung's tag: a Leitung whose Trupp is due
-          // or overdue outranks everything but the selection, and that is the one label on the
-          // map somebody's air depends on.
-          const rank = badge && (badge.tone === 'crit' || badge.tone === 'warn')
-            ? LABEL_RANK.criticalTag : LABEL_RANK.team
-          // ⚠️ pinned (15.09., Bastian: «I always want to see the Trupp marker»): the name is
-          // never suppressed – it books its box so everything else yields, and a docked marker
-          // beside a busy symbol no longer shrinks to a bare dot.
-          cands.push({ key: `team:${e.id}`, rank, pinned: true, dist: near(p),
-            box: { x: p.x + TEAM_DOT_PX / 2 + TEAM_DOT_GAP, y: p.y - s.h / 2, w: s.w, h: s.h } })
-        }
-        continue
-      }
-      occupied.push({ x: p.x - g / 2, y: p.y - gh / 2, w: g, h: gh })
-      // only the glyph branch prints a caption (MapMarkers) — a note's own text is its body,
-      // not a caption, and asking symbolCaptionText for one would invent a phantom box
-      if (e.kind === 'shape' || e.kind === 'note' || e.kind === 'photo') continue
-      const cap = symbolCaptionText(e, captionMode)
-      if (!cap) continue
-      const s = cachedLabelSize(softHyphenateText(cap), LABEL_STYLE.caption)
-      // A person's typed name ranks with the Trupp names, not with the metadata captions — who is
-      // standing there is the same class of fact as which Trupp is there (lib/symbols · isNamedPerson).
-      const rank = isSel ? LABEL_RANK.selected : isNamedPerson(e) ? LABEL_RANK.team : LABEL_RANK.caption
-      cands.push({ key: `cap:${e.id}`, rank, dist: near(p),
-        box: { x: p.x - s.w / 2, y: p.y + g / 2 + CAPTION_GAP, w: s.w, h: s.h } })
-    }
-
-    if (drawingsVisible) {
-      // Leitung end tags. A tag whose Atemschutz-Trupp is due or overdue outranks everything
-      // except the selection — that is the one label on the map somebody's air depends on.
-      for (const ld of lineDecor) {
-        const text = endTagText(ld.d)
-        if (!text) continue
-        const p = px(ld.d.endLabelAt ?? ld.anchor)
-        const s = cachedLabelSize(text, LABEL_STYLE.endTag)
-        cands.push({
-          key: `tag:${ld.d.id}`,
-          rank: ld.d.id === selectedDrawingId ? LABEL_RANK.selected
-            : ld.tone === 'crit' || ld.tone === 'warn' ? LABEL_RANK.criticalTag : LABEL_RANK.tag,
-          pinned: !!ld.d.endLabelAt,
-          dist: near(p),
-          box: { x: p.x - s.w / 2, y: p.y - END_TAG_LIFT - s.h / 2, w: s.w, h: s.h },
-        })
-      }
-      for (const l of drawLabels) {
-        const p = px(l.coord)
-        const s = cachedLabelSize(l.lines.join('\n'), LABEL_STYLE.readout)
-        cands.push({ key: `dl:${l.id}`, rank: l.id === selectedDrawingId ? LABEL_RANK.selected : LABEL_RANK.readout,
-          pinned: storedDrawings.some((d) => d.id === l.id && !!d.labelAt), dist: near(p),
-          box: { x: p.x - s.w / 2, y: p.y - READOUT_LIFT - s.h, w: s.w, h: s.h } })
-      }
-      for (const c of circleLabels) {
-        const p = px(c.coord)
-        const s = cachedLabelSize(c.text, LABEL_STYLE.readout)
-        cands.push({ key: `cl:${c.id}`, rank: c.id === selectedDrawingId ? LABEL_RANK.selected : LABEL_RANK.radius, dist: near(p),
-          box: { x: p.x - s.w / 2, y: p.y - RADIUS_LIFT - s.h, w: s.w, h: s.h } })
-      }
-    }
-    // ── the Georeferenz twins ────────────────────────────────────────────────────────────
-    // A projection is presentation-equivalent to the object beside it, and that includes being
-    // arbitrated by this pass: twin labels used to be neither suppressed NOR visible to it, so
-    // they printed over native names and native names dodged nothing (01.09.).
-    // The live Messen readouts deliberately stay OUT of the pass: they belong to a tool the
-    // operator is holding right now, they change on every vertex drag, and a measurement that
-    // blinks out because a caption got there first would be unusable.
-    return placeLabels(cands, occupied)
-  }
-  const suppressedLabels = labelDecisions()
-  const suppressedCaptionKey = [...suppressedLabels]
-    .filter((key) => key.startsWith('cap:'))
-    .map((key) => key.slice(4))
-    .sort()
-    .join('\u0000')
-  useEffect(() => {
-    onCaptionSuppressionChange?.(new Set(suppressedCaptionKey ? suppressedCaptionKey.split('\u0000') : []))
-  }, [onCaptionSuppressionChange, suppressedCaptionKey])
+  // ── ONE label pass for the whole map (components/useLabelPass) ──
+  const { suppressedLabels, bumpLabelFrame } = useLabelPass(mapInst, {
+    initialCenter, entities, isVisible, zoom, symMul, captionMode, selectedId, selectedEntityIds, teamLines,
+    drawingsVisible, lineDecor, drawLabels, circleLabels, selectedDrawingId, storedDrawings,
+  }, onCaptionSuppressionChange)
 
   // the draft outline/fill; its vertices render as draggable Markers (not circles) below
   const draftFC = useMemo(() => fc(draft.length >= 2 ? [draftKind === 'area' && draft.length >= 3 ? polyFeat(draft) : lineFeat(draft)] : []), [draft, draftKind])
@@ -1626,7 +1462,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         // a hand turn resting within NORTH_SNAP_DEG of north settles on it (its own ease carries
         // no originalEvent, so its moveend lands here as an ordinary settle and never re-snaps)
         if (mapInst.current) northSnap.moveEnd(mapInst.current, e.originalEvent, motionDuration(NORTH_SNAP_MS))
-        setZoom(e.viewState.zoom); setBearing(e.viewState.bearing); setLiveBearing(e.viewState.bearing); bumpLabelFrame((n) => n + 1)
+        setZoom(e.viewState.zoom); setBearing(e.viewState.bearing); setLiveBearing(e.viewState.bearing); bumpLabelFrame()
         viewRef.current = { center: [e.viewState.longitude, e.viewState.latitude], zoom: e.viewState.zoom, bearing: e.viewState.bearing }
         onView({ bearing: e.viewState.bearing, center: [e.viewState.longitude, e.viewState.latitude], zoom: e.viewState.zoom })
       }}
