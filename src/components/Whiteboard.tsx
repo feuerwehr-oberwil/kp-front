@@ -48,6 +48,7 @@ import { DUP_PREFIX, duplicateAnno } from '../lib/duplicate'
 import { useHiddenTrails } from '../lib/useHiddenTrails'
 import { useNotePanelClosing } from '../lib/useNotePanelClosing'
 import { usePlacement } from '../lib/useTacticalSelection'
+import { endingWireFlags, type LineEnding } from '../lib/drawingEdit'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { usePlacementLane } from '../lib/toastLane'
@@ -1511,7 +1512,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     flip.incoming.forEach((i) => emit('board.edit', { id: i.lineId, patch: { [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }, planId: activeId }))
   }
 
-  const changePlanEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck') => {
+  const changePlanEnding = async (ending: LineEnding) => {
     if (!selDraw) return
     const incoming = selDraw.teilstueck && ending !== 'teilstueck' ? annos.flatMap((a) => (['start', 'end'] as const).filter((endpoint) => {
       const rel = endpoint === 'start' ? a.startAttachment : a.endAttachment
@@ -1531,7 +1532,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     commit(annos.map((a) => (a.id === selDraw.id
       ? { ...a, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
       : withDetach(a, released))))
-    emit('board.edit', { id: selDraw.id, patch: { arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }, planId: activeId })
+    emit('board.edit', { id: selDraw.id, patch: endingWireFlags(ending), planId: activeId })
     released.forEach((patch, id) => emit('board.edit', { id, patch: wireFreed(patch), planId: activeId }))
   }
 
