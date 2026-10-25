@@ -1386,14 +1386,15 @@ class ObjectCategoryMatch(BaseModel):
 
 class ObjectCategoryConfig(BaseModel):
     """One colour rule for «Karte & Objekte» (src/lib/karte/categories.ts). Ordered, first match
-    wins; an object no rule matches keeps the default look (red, grey without plans)."""
+    wins; an object no rule matches keeps the default look (ink, grey without plans)."""
 
     model_config = ConfigDict(extra="ignore")
     id: str = Field(min_length=1, max_length=40, pattern=r"^[a-z0-9][a-z0-9_-]*$")
     #: one string, or one per language (``{"de": "Photovoltaik", "fr": "Photovoltaïque"}``)
     label: str | dict[Literal["de", "fr", "it", "en"], str]
-    #: ``#rrggbb``
-    color: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
+    #: ``#rrggbb``, or ``ink``: the default look's colour (the theme's ``--obj-plans`` — near-white
+    #: at night, near-black by day), for a category that only wants its own Ebenen row
+    color: str = Field(pattern=r"^(#[0-9a-fA-F]{6}|ink)$")
     match: ObjectCategoryMatch = Field(default_factory=ObjectCategoryMatch)
 
 
@@ -1411,7 +1412,7 @@ class MapConfig(BaseModel):
     geocoder: MapGeocoder = Field(default_factory=MapGeocoder)
     externalLinks: list[MapExternalLink] = Field(default_factory=list)
     # «Karte & Objekte»: the station's object colours (docs/karte-objekte.md · Categories). Empty
-    # = every object red, as before.
+    # = the default look for every object (ink, grey without plans).
     objectCategories: list[ObjectCategoryConfig] = Field(default_factory=list, max_length=20)
 
     @model_validator(mode="after")

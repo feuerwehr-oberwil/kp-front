@@ -28,6 +28,7 @@ export const UNDERGROUND_LAYER = 'karte-unterirdisch' as LayerId
 /** Gefahrgut's state as the tool holds it (components/karte/useKarteTools) */
 export interface ErgState { un: string; mode: ErgRingMode; center: LngLat | null; at: Date }
 
+/** object id → its category; a category's `color: null` (ink) draws in `ink`, like no category */
 type Categories = ReadonlyMap<string, Pick<ObjectCategory, 'id' | 'color'>>
 
 /** Every object's buildings but the selected one's: one overlay per colour, in the order the
@@ -41,7 +42,8 @@ function objectOverlays(outlines: ObjectOutlines, cats: Categories, hidden: (id:
     if (id === selId || hidden(id)) continue
     const c = cats.get(id)
     const key = c?.color ?? ink
-    const slot = byColor.get(key) ?? { id: c ? `karte-objects-${c.id}` : 'karte-objects', rings: [], under: [] }
+    // an ink category shares the default's slot and id, whichever object the catalogue meets first
+    const slot = byColor.get(key) ?? { id: c?.color ? `karte-objects-${c.id}` : 'karte-objects', rings: [], under: [] }
     slot.rings.push(...b.rings)
     slot.under.push(...b.under)
     byColor.set(key, slot)
