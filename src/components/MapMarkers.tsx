@@ -332,7 +332,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   const trackEndMagnet = (id: string, pt: { x: number; y: number }, toCont: { x: number; y: number }) => {
     const p = { x: pt.x + toCont.x, y: pt.y + toCont.y }
     let best: { key: string; coord: LngLat; d: number; q: { x: number; y: number } } | null = null
-    // the same targets the PLACEMENT magnet accepts (MapView · trackPlaceMagnet) — an end laid
+    // the same targets the PLACEMENT magnet accepts (usePlaceMagnet · trackPlaceMagnet) — an end laid
     // onto a TLF must be re-dockable when it is dragged later, plan-drawn TLF included: it is an
     // entity on this map like any other now (lib/tacticalObjects)
     const anchors: { key: string; coord: LngLat }[] = [

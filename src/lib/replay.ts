@@ -521,7 +521,7 @@ function applyEvent(ws: Saved, e: ReplayEvent): void {
     case 'board.edit': {
       const planId = typeof p.planId === 'string' ? p.planId : null
       const patch = p.patch as Partial<BoardAnno> | undefined
-      // a Tafel page's edit names the CELLS it changed, not the page (Whiteboard · editPage,
+      // a Tafel page's edit names the CELLS it changed, not the page (usePlanTafelPages · editPage,
       // review of #338): fold the delta into the page as it stood, and a removal as its tombstone
       const fp = p.form as { delta?: unknown; removed?: unknown } | undefined
       if (planId && id && fp && typeof fp === 'object' && !patch) {

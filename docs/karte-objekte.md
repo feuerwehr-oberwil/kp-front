@@ -200,7 +200,7 @@ What it reuses, so nothing forks:
 
 | Piece | Reused from |
 |---|---|
-| map, layers, vehicles, measure path, georef raster, weather radar | `MapView` (read-only, no drawings) + `MapLayers` (a `polygons` overlay kind draws the outlines) |
+| map, layers, vehicles, measure path, georef raster, weather radar | `MapView` (read-only, no drawings: its base props only, none of the tactical ones — `components/mapViewProps`) + `MapLayers` (a `polygons` overlay kind draws the outlines) |
 | Ebenen | `LayerPanel`, under its OWN device key (`kp.layers.karte`, `lib/karte/session`), without the Einsatz-only layers (taktisch, Skizzen, Personen) and the catalogue's «Unterirdische Bauten» (its own Station row stands in); the radar's choice too (`kp.karte.radar`) |
 | tools | the Einsatz's `ToolRail` (tablet) / the folded `navrail` bar (phone: Karte · Checkliste │ Messen · Gefahrgut · Ebenen — «Checkliste» below), `ToolDock` + `MeasurePanel` WITHOUT «Als Linie/Fläche übernehmen» (and without a line saying it is not saved — nothing here is), stacked on the phone like an Einsatz's: dock 6px above the bar, readout 6px above the dock, one bar lower because the Karte has no tool bar, `MapViewsButton` without saved views |
 | weather | `useWeather` + `WeatherBadge` |

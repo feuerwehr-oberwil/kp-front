@@ -106,7 +106,6 @@ import { NoBasemapMeldung } from '../NoBasemapMeldung'
 import { UpdateBanner } from '../UpdateBanner'
 import s from './Karte.module.css'
 
-const NOOP = () => {}
 const NO_HYDRANTS: NamedPoint[] = []
 /** `surface` while the Checkliste is shown (a document id never looks like this) */
 const LIBRARY = 'karte:checkliste'
@@ -485,29 +484,12 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
           zoomCapAtBase
           preparedOverlays={mapOverlays}
           isVisible={viewer.isVisible}
-          selectedId={null}
           onSelect={onEntity}
           onMapClick={onMapClick}
           readOnly
-          drawings={[]}
-          drawingsVisible={false}
-          draft={[]}
-          draftKind={null}
           placing={tool !== null}
-          draggable={false}
-          onMarkerDragStart={NOOP}
-          onMarkerMove={NOOP}
-          onMarkerDragEnd={NOOP}
           onView={(v) => { setView(v); loadOutlines() }}
           onSettled={() => { setMapUp(true); flyPending(); loadOutlines(); watchUserMoves(); watchHover(); watchPress() }}
-          freehand={null}
-          onFreehand={NOOP}
-          drawColor="#000000"
-          drawWidth={3}
-          drawDashed={false}
-          selectedDrawingId={null}
-          onSelectDrawing={NOOP}
-          onDelete={NOOP}
           measurePoints={tool === 'measure' ? measure.path : []}
           measureKind={tool === 'measure' ? measure.mode : null}
           measureLabels={measure.labels}

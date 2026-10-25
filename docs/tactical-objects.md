@@ -17,7 +17,8 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   not by review: the magnet of a line being drawn (`lib/useDraftMagnet` – line-start exception,
   start-radius claim, dwell, release only if armed, the «Angekuppelt» joints; each surface hands
   in only its projection and target walk, `lineAttachments · lineEndTargets` /
-  `candidateAttachment`), the draft contract (`lib/draftMachine` – ✓ «Fertig» and the A6
+  `candidateAttachment`; the Lage's walk is `components/mapMagnetTargets`, its magnets
+  `components/useMapMagnet`), the draft contract (`lib/draftMachine` – ✓ «Fertig» and the A6
   tap-away auto-commit), «mit verbundenen Leitungen entfernen» (`lineAttachments · detachEnds`),
   ⌘D (`lib/duplicate`), and the armed tool + per-team trails + note-panel closing rules
   (`useTacticalSelection · usePlacement`, `lib/useHiddenTrails`, `lib/useNotePanelClosing`).
@@ -32,7 +33,7 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   Strecke ↔ Fläche, Trupp finden). On a phone the pill stands on the floating row (above the dock
   while one is out) and yields to the Messen results panel.
 - **A new line starts from the plain default, always** (`useMapDrawing · DRAW_DEFAULTS`,
-  `Whiteboard · INK_DEFAULTS`, 23.10.2026): the surface's colour, width, solid, no marker, no
+  `usePlanDraft · INK_DEFAULTS`, 23.10.2026): the surface's colour, width, solid, no marker, no
   arrowhead – whatever the last line was edited to. Until then the DrawEditor wrote every style
   edit back as the next line's template, so an Absperrung's chain marker rode into the next hose
   line. Styling is done in the editor, after the draw, on that one drawing.

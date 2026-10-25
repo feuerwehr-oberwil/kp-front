@@ -2631,7 +2631,7 @@ export function IncidentWorkspace({
   ghostReseedRef.current = reseedGhostTrails
   /**
    * «Marker und Spur löschen» on the Karte's Trupp marker — the third row of its trash menu
-   * (components/TwinTeamPill), the twin of the plan chip's (Whiteboard · removeWithTrail).
+   * (components/TwinTeamPill), the twin of the plan chip's (usePlanRemoval · removeWithTrail).
    * The reconciliation is armed FIRST, so the ghost this removal would otherwise stand up is
    * written already `removedAt`-stamped (lib/truppTrails) and the searched area goes with the
    * marker. One undo step: only the marker's own removal was ever committed, and taking it back
