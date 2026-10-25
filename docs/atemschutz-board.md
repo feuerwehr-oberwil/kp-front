@@ -1,7 +1,8 @@
 # The Atemschutz board
 
 The Trupps page: the phone board, the one card every board wears, the Trupp form and its
-questions, and what the record keeps (`components/AtemschutzView`). Module rules live in
+questions, and what the record keeps (`components/AtemschutzView`; the card and the phone row in
+`components/TruppCard`, the form in `components/TruppForm`). Module rules live in
 `lib/truppLeader`, `lib/contactEcho`, `components/TruppSheets`,
 `components/AtemschutzAlarmMeldung` and `lib/meldeleisteHost`. Moved here from AGENTS.md on
 2026-10-08, wording unchanged.
@@ -167,7 +168,7 @@ reworded.
   tap only says how: the tile's word becomes «Gedrückt halten» for 1.6 s, in place, no toast; a
   click without a pointer (keyboard) asks one question.
   «Notfall beendet» replaces it on the Trupp in one. Never on a closed Einsatz or a viewer.
-- *What it writes* (`useTruppActions · triggerNotfall / endNotfall`): `notfallAt` on the Trupp
+- *What it writes* (`truppActions/clock · triggerNotfall / endNotfall`): `notfallAt` on the Trupp
   (the Notfall clock on every device through the trupps slice — a Link-Tafel writes it too), a
   `notfall` / `notfallEnde` row in the Trupp's own log (the Atemschutz page of the Rapport; its
   bar is the last KNOWN value, never printed as measured), ONE Verlauf row with the facts as they

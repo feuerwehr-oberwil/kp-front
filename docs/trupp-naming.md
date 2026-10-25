@@ -233,7 +233,7 @@ for this door. Revisit only if the field asks for the chip's number to stick.
 |---|---|
 | `Trupp.no`, the `crew` reading | `src/types.ts` |
 | One counter, chip names included | `src/lib/placedTrupps.ts` · `nextTruppNo` / `nextTeamName` (former numbers included); fed from `IncidentWorkspace · truppCounterNames` (every chip, every ghost trail, every Trupp ever registered) to `Whiteboard`, `useTeamMarkerActions` and `useTruppActions` |
-| Numbering on registration, crew rows on register / edit / transfer / re-entry, leader-only rows | `src/lib/useTruppActions.ts` · `createTrupp`, `crewRow` |
+| Numbering on registration, crew rows on register / edit / transfer / re-entry, leader-only rows | `src/lib/truppActions/lifecycle.ts` · `createTrupp`, `truppActions/core.ts` · `crewRow` |
 | Migration of unnumbered records | `src/lib/workspace.ts` · `numberTrupps`, applied in `deriveInitial` |
 | Two devices, one number (§7) | `src/lib/truppNumbers.ts` · `resolveTruppNumbers` (called at the end of `mergeWorkspace`, scoped by `WorkspaceSync · numberScope`), `truppRenumberings` (diffed in `WorkspaceSync` · `reportRenumbered` → `onTruppRenumbered`), `renumberRow` (written by `useIncidentSync` · `appendTeamRow`); `Trupp.formerNos` → Rapport heading (`app/report · _trupp_heading`) and the Verlauf's link by id (`journalLinks` · `former`, `MarkOptions.subjectId`) |
 | One device never needs the merge (§7) | `src/lib/placedTrupps.ts` · `counterNames`, `teamNoTaken`, `freshTeamLabel`; `IncidentWorkspace · truppCounterNames / teamNameTaken` (⌘D, ghost revival, the Karte's rename), `Whiteboard` (⌘D, rename pen) |

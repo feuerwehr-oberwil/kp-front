@@ -123,7 +123,7 @@ export function anyTruppInField(trupps: Trupp[]): boolean {
 }
 
 /**
- * The name a Trupp's card head shows — the Gruppenführer (AtemschutzView · RowLine, on the phone
+ * The name a Trupp's card head shows — the Gruppenführer (TruppCard · RowLine, on the phone
  * row, the opened card and the tablet card alike) — and so the name the Atemschutznotfall's banner
  * shows for the SAME crew (components/AtemschutzNotfall, 10.10.2026: «⚠ Trupp 1» above a card
  * headed «Binggeli Michael» did not read as one crew). One function, so the two cannot drift; the
