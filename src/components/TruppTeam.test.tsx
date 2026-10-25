@@ -212,7 +212,7 @@ describe('TruppTeam', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
-  // the Gast is held by the FORM until it is saved (AtemschutzView · TruppForm files it then) —
+  // the Gast is held by the FORM until it is saved (TruppForm files it then) —
   // the chip itself writes nothing anywhere
   it('holds the Gast as a bare name — nothing is filed from the picker', () => {
     const onChange = setup()

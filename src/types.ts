@@ -619,7 +619,7 @@ export interface TimelineEvent {
    * alone, so two DIFFERENT symbols removed seconds apart printed as «Feuerwehr gelöscht 2×» —
    * one thing that happened twice, where two things had each happened once (03.09.: Feuerwehr,
    * Polizei and Lüfter, all of them pairs). It is deliberately NOT `entityId`: that field is
-   * what makes a row clickable (Journal · targetOf), and a deletion must not offer a jump to
+   * what makes a row clickable (lib/verlauf · rowTarget), and a deletion must not offer a jump to
    * something that no longer exists.
    */
   subjectId?: string

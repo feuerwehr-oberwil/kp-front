@@ -7,10 +7,10 @@
 import { useEffect, useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { appConfig } from '../../config/appConfig'
-import { fillTemplate } from '../../lib/format'
+import { fillTemplate, fmtWhen } from '../../lib/format'
 import { getRevisions } from '../../objectVisits/api'
 import { personName, type Revision } from '../../objectVisits/types'
-import { fmtDate, fmtWhen, lifecycleLabel } from './ovFormat'
+import { fmtDate, lifecycleLabel } from './ovFormat'
 import { ListRow } from '../ListRow'
 import s from './ObjectVisits.module.css'
 
@@ -19,8 +19,8 @@ export function CardRow({ icon, title, onClick }: { icon: string; title: string;
   return <ListRow lead={<Icon id={icon} />} title={title} onClick={onClick} />
 }
 
-const short = (iso: string) => `${fmtDate(iso).slice(0, 6)} ${fmtWhen(iso).split(' ').pop()}`
-const long = (iso: string) => `${fmtDate(iso)} ${fmtWhen(iso).split(' ').pop()}`
+const short = (iso: string) => `${fmtDate(iso).slice(0, 6)} ${fmtWhen(iso, { todayShort: true }).split(' ').pop()}`
+const long = (iso: string) => `${fmtDate(iso)} ${fmtWhen(iso, { todayShort: true }).split(' ').pop()}`
 
 /** Why the card has no «Bearbeiten» any more: this visit went view-only (objectVisits/lock ·
  *  the server's `lockedAt`), and since when. Stands where the edit row stood. */

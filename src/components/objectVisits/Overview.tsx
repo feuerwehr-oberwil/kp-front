@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { localCalendarDay, visitSchedule, type ScheduleGroup } from '../../lib/visitSchedule'
 import { Icon } from '../../lib/icons'
 import { appConfig } from '../../config/appConfig'
-import { fillTemplate } from '../../lib/format'
+import { fillTemplate, fmtWhen } from '../../lib/format'
 import { deploymentName } from '../../lib/deploymentConfig'
 import { matchesAnyQuery, searchQuery } from '../../lib/search'
 import { SearchField } from '../SearchField'
@@ -15,7 +15,7 @@ import { isVisitDurable, type LocalVisit } from '../../objectVisits/store'
 import { hasWork } from '../../objectVisits/outbox'
 import type { Catalogue, CatalogueObject } from '../../objectVisits/types'
 import { Head, Section } from './common'
-import { fmtDate, fmtDistance, fmtWhen, plural, recentPlaceVisits, summaryTitle, syncLabel, visitTitle } from './ovFormat'
+import { fmtDate, fmtDistance, plural, recentPlaceVisits, summaryTitle, syncLabel, visitTitle } from './ovFormat'
 import { useOv } from './ovContext'
 import { ListCard, ListRow } from '../ListRow'
 import s from './ObjectVisits.module.css'
@@ -94,7 +94,7 @@ export function Overview() {
     const tone = st.sync.kind === 'saved' ? 'ip-badge-ok' : 'ip-badge-todo'
     return (
       <ListRow key={v.doc.id} lead={<span className={s.dot} aria-hidden />} title={visitTitle(v.doc)}
-        sub={[v.doc.object?.address, fmtWhen(v.savedAt)].filter(Boolean).join(' · ')}
+        sub={[v.doc.object?.address, fmtWhen(v.savedAt, { todayShort: true })].filter(Boolean).join(' · ')}
         end={<span className={`ip-badge ${tone}`}>{label}</span>} onClick={() => ov.go({ kind: 'visit', id: v.doc.id })} />
     )
   }
@@ -140,7 +140,7 @@ export function Overview() {
               <ListCard>
                 {drafts.map(draftRow)}
                 {serverDrafts.map((v) => (
-                  <ListRow key={v.id} lead={<span className={s.dot} aria-hidden />} title={summaryTitle(v)} sub={fmtWhen(v.updatedAt ?? v.visitedAt)}
+                  <ListRow key={v.id} lead={<span className={s.dot} aria-hidden />} title={summaryTitle(v)} sub={fmtWhen(v.updatedAt ?? v.visitedAt, { todayShort: true })}
                     end={<span className="ip-badge ip-badge-arch">{fillTemplate(C.sync.remote, { n: v.revision })}</span>}
                     onClick={() => ov.go({ kind: 'visit', id: v.id })} />
                 ))}

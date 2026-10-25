@@ -153,7 +153,7 @@ export interface DeploymentDoctrine {
   contactIntervalMin?: number | null
   contactGraceSec?: number | null
   defaultPressureBar?: number | null
-  /** the lowest Eingangsdruck taken without a question; 0 = never ask (AtemschutzView · TruppForm) */
+  /** the lowest Eingangsdruck taken without a question; 0 = never ask (components/TruppForm) */
   entryPressureMin?: number | null
   pressureStep?: number | null
   pressureMax?: number | null
