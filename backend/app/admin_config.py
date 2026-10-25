@@ -42,6 +42,9 @@ Behaviour:
   naming which vocabulary the file puts in charge. It is NOT in ``example``: the shipped
   ``app/data/alarm_keywords.json`` is the right answer for nearly every station, and a
   station that needs its own starts from a copy of that file (see docs/CONFIGURATION.md §1a).
+
+Writes lock and reload the singleton before preserving history, so another accepted write
+cannot disappear from both the live document and its recovery history.
 """
 
 import argparse
@@ -65,6 +68,7 @@ from .config_guard import (
 )
 from .config_history import keep_previous
 from .database import async_session_maker
+from .deployment_config import config_row
 from .models import DeploymentConfig, DeploymentConfigHistory
 from .ranks import SWISS_DEFAULT_RANKS
 from .schemas import DeploymentConfigIn
@@ -452,14 +456,11 @@ async def _load(doc_json: dict[str, Any]) -> None:
     """Write a document that is ALREADY final — the runtime sections have been carried into it by
     the caller (see `_prepare`), so what lands is exactly what the caller was shown and checked."""
     async with async_session_maker() as db:
-        row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
+        row = await config_row(db, lock=True)
         # keep what is being replaced — this is the path with no user behind it and no undo of
         # its own, and it is the one that publishes a whole file (app/config_history)
         await keep_previous(db, "cli")
-        if row is None:
-            db.add(DeploymentConfig(id=1, config_json=doc_json))
-        else:
-            row.config_json = doc_json
+        row.config_json = doc_json
         await db.commit()
 
 
@@ -499,12 +500,9 @@ async def _restore(entry_id: int) -> dict[str, Any] | None:
         ).scalar_one_or_none()
         if entry is None or not entry.config_json:
             return None
+        row = await config_row(db, lock=True)
         await keep_previous(db, "cli")
-        row = (await db.execute(select(DeploymentConfig).where(DeploymentConfig.id == 1))).scalar_one_or_none()
-        if row is None:
-            db.add(DeploymentConfig(id=1, config_json=entry.config_json))
-        else:
-            row.config_json = entry.config_json
+        row.config_json = entry.config_json
         await db.commit()
         return entry.config_json
 

@@ -30,7 +30,8 @@ that live among the station data.
 * **The workbook keeps its confirmation.** The connector runs the same planner the admin
   preview runs and applies it ONLY when the plan refuses nothing and empties nothing. A
   workbook that would deactivate people or clear a config section is left for a human, and the
-  area reports `needs_review` until one looks.
+  area reports `needs_review` until one looks. Planning reloads and locks the config through
+  apply, so the session's copy from before the download cannot overwrite a newer save.
 * **Nothing is written anywhere else.** No write ever goes back to SharePoint — see
   app/sharepoint_graph.
 * **An area fails alone and says so.** Each one runs inside its own savepoint: an importer that
@@ -1252,7 +1253,7 @@ async def _sync_workbook(
         out.status, out.detail = "unreachable", str(e)[:400]
         return out
 
-    plan = await plan_workbook(db, data)
+    plan = await plan_workbook(db, data, lock=True)
     if not plan.preview.ok:
         out.status = "needs_review"
         out.detail = "the workbook has rows the import refuses: " + " · ".join(plan.preview.errors[:3])

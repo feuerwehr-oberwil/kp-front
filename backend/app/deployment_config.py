@@ -25,10 +25,12 @@ async def config_row(db: AsyncSession, *, lock: bool = False) -> DeploymentConfi
 
     ``lock`` takes the row FOR UPDATE and re-reads it from the database, for a writer that does
     read-modify-write on ``config_json``. That is every writer of this document — there are no
-    partial writes — but the HTTP ones have ``If-Match`` to refuse a lost update, and a
-    BACKGROUND one has nothing: the SharePoint poll reads the layers, merges its own by id and
-    writes the whole document back, so an admin saving in the Verwaltung inside that window was
-    simply overwritten. ``populate_existing`` matters as much as the lock: without it the
+    partial writes. A version check must run UNDER this lock too: ``If-Match`` alone lets two
+    overlapping requests both accept one version before either writes. Read-modify-write
+    imports take it before PLANNING, not only before assigning the replacement. This also
+    serialises their history snapshots with the write they describe.
+
+    ``populate_existing`` matters as much as the lock: without it the
     identity map would hand back the copy this session loaded BEFORE waiting for the lock, which
     is the stale document the lock was taken to avoid reading.
 

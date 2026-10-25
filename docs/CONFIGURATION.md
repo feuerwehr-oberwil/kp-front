@@ -194,6 +194,12 @@ both now have browser pages – §9e and §9f.
 >    with **no** `If-Match` is refused with **428 Precondition Required** (the response's `ETag`
 >    is the token to come back with).
 >
+>    The version check, history snapshot and replacement run under the same database row lock
+>    (`deployment_config.config_row(lock=True)`). A second simultaneous save therefore checks
+>    the version AFTER the first commits. Branding, rank adoption, geodata and workbook imports
+>    take the same lock before deriving the document they preserve; workbook previews stay
+>    read-only. Taking the lock only after planning would still overwrite a newer save.
+>
 >    ⚠️ Two earlier versions of this guard each left a hole. Merely making the header optional
 >    protects only tabs new enough to send it, and the tab that does the damage is by definition
 >    an old one – the demo was clobbered a second time that way. Requiring it of *browsers only*
