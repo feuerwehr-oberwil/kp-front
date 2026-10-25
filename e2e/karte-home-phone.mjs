@@ -6,26 +6,51 @@
 // A device-class check, not a Playwright spec: WebKit at iPhone 13 size (and the tablet for 1),
 // run by hand against a running dev stack (it imports the app's toast module through Vite):
 //
-//   LD_LIBRARY_PATH=… node e2e/karte-home-phone.mjs http://127.0.0.1:5110   (PIN 000000 stack)
+//   LD_LIBRARY_PATH=… node e2e/karte-home-phone.mjs http://127.0.0.1:5188   (PIN 000000 stack)
 //
 // The local stack has no VAPID key, so `/api/push/vapid-key` is answered with a stand-in – push
 // counts as available and the card shows as on a station phone. WebKit on Linux has no touch
 // drag: the gesture is dispatched as touch + pointer EVENTS, which is what MapLibre listens to.
-import { open, PHONE_WK, TABLET, settle, done } from '/home/basti/kp-front-wt/_kit/shots.mjs'
+// Exit code 1 and «✗» lines when a check fails.
+import { createRequire } from 'node:module'
+import path from 'node:path'
 
-const base = process.argv[2] ?? process.env.APP
+const require = createRequire(path.join(process.cwd(), 'package.json'))
+const { webkit, devices } = require('@playwright/test')
+const BASE = process.argv[2] ?? process.env.E2E_BASE_URL ?? 'http://127.0.0.1:5188'
+const PIN = process.env.E2E_PIN ?? '000000'
+const DEVICES = {
+  phone: { ...devices['iPhone 13'], viewport: { width: 390, height: 844 } },
+  tablet: { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, hasTouch: true },
+}
+// the app's toast module, fetched through Vite inside the page (a computed path, so knip does not
+// read it as an import of this script)
+const TOAST_MODULE = ['', 'src', 'lib', 'ui.tsx'].join('/')
 let failed = 0
 const check = (ok, what) => { console.log(`${ok ? '✓' : '✗'} ${what}`); if (!ok) failed++ }
+const browser = await webkit.launch()
 
-for (const [name, dev] of [['phone', PHONE_WK], ['tablet', { ...TABLET, engine: 'webkit' }]]) {
-  const { ctx, page } = await open(base, dev, { path: '/karte', view: { center: [7.555, 47.515], zoom: 16 }, theme: 'day' })
+for (const [name, dev] of Object.entries(DEVICES)) {
+  const ctx = await browser.newContext({ ...dev, baseURL: BASE, serviceWorkers: 'block' })
   await ctx.route(/\/api\/push\/vapid-key/, (r) => r.fulfill({ json: { key: 'stand-in', enabled: true } }))
-  await page.reload(); await settle(page)
+  await ctx.addInitScript(() => sessionStorage.setItem('kp.karte.view', JSON.stringify({ center: [7.555, 47.515], zoom: 16, bearing: 0, objectId: null, surface: 'karte' })))
+  const page = await ctx.newPage()
+  await page.goto('/')
+  await page.locator('.roster-tile, [data-karte]').first().waitFor({ timeout: 30000 })
+  if (await page.locator('.roster-tile').first().isVisible().catch(() => false)) {
+    await page.locator('.roster-tile').first().click()
+    await page.locator('.pinpad').waitFor()
+    for (const d of PIN) await page.keyboard.press(d)
+    await page.keyboard.press('Enter')
+    await page.locator('[data-karte], .topbar').first().waitFor({ timeout: 30000 })
+  }
+  await page.goto('/karte')
+  await page.locator('[data-karte]').first().waitFor({ timeout: 30000 })
   const card = page.locator('[data-alarm-nudge]')
   await card.waitFor({ timeout: 15000 })
-  await page.evaluate(() => import('/src/lib/ui.tsx').then((m) => m.toast('Rapport abgeschlossen', {
+  await page.evaluate((mod) => import(mod).then((m) => m.toast('Rapport abgeschlossen', {
     icon: 'check', tone: 'success', duration: 10_000, action: { label: 'Wieder öffnen', onClick: () => {} },
-  })))
+  })), TOAST_MODULE)
   const pill = page.locator('.toaster > *').first()
   await pill.waitFor({ timeout: 5000 })
   await page.waitForTimeout(400) // the pill's entrance
@@ -54,11 +79,11 @@ for (const [name, dev] of [['phone', PHONE_WK], ['tablet', { ...TABLET, engine: 
       for (let i = 1; i <= 12; i++) { send('touchmove', y + i * 12); await wait(16) }
       send('touchend', y + 144); await wait(800)
     })
-    await settle(page, { quiet: 600, max: 4000 })
+    await page.waitForTimeout(600)
     const z1 = await zoom()
     check(z1 > z0 + 0.5, `phone: one-finger double-tap-drag zooms the Karte (${z0} → ${z1})`)
   }
   await ctx.close()
 }
-await done()
+await browser.close()
 process.exit(failed ? 1 : 0)
