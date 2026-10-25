@@ -538,7 +538,7 @@ export function detachEnds<P>(
     const a = endpoint === 'start' ? line.startAttachment : line.endAttachment
     const at = a ? release(endpoint, a, points ?? line.points) : null
     if (at == null) continue
-    const next = freeEnd(points ?? line.points, endpoint, at)
+    const next: { points: P[]; freed: FreedEnds } = freeEnd(points ?? line.points, endpoint, at)
     points = next.points
     freed = { ...freed, ...next.freed }
   }

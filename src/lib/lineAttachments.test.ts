@@ -432,7 +432,7 @@ describe('detachEnds (removing what a line hangs on)', () => {
 
   it('folds both ends in one pass, the second reading the points the first left', () => {
     const seen: [number, number][][] = []
-    const out = detachEnds(hose, (ep, _, pts) => { seen.push([...pts]); return ep === 'start' ? [1, 1] : pts[pts.length - 1] })
+    const out = detachEnds(hose, (ep, _, pts) => { seen.push([...pts]); return ep === 'start' ? [1, 1] as [number, number] : pts[pts.length - 1] })
     expect(out?.points).toEqual([[1, 1], [5, 5], [10, 0]])
     expect(out?.freed).toEqual({ startAttachment: undefined, endAttachment: undefined })
     expect(seen[1][0]).toEqual([1, 1])
