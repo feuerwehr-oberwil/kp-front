@@ -44,6 +44,8 @@ vi.mock('../lib/ui', async (importOriginal) => {
 })
 
 import { Whiteboard } from './Whiteboard'
+import { replayEmits } from '../lib/replay.test-utils'
+import { endingOf } from '../lib/drawingEdit'
 
 class RO { observe() {} unobserve() {} disconnect() {} }
 
@@ -1875,5 +1877,19 @@ describe('a double tap on a Punkte draft finishes nothing', () => {
     corners(container)
     fireEvent.click(screen.getByRole('button', { name: appConfig.copy.done }))
     expect(onChange.mock.calls[0][0][0].kind).toBe('area')
+  })
+})
+
+// The Plan's Abschluss as the audit stream carries it (lib/drawingEdit · endingWireFlags, the
+// Lage's twin): a flag switched OFF went out as `undefined`, which JSON drops, so replay kept it.
+describe('the Plan\'s Abschluss in replay', () => {
+  it('«Keiner» on an arrow line replays as no Abschluss', async () => {
+    const arrowLine: BoardAnno = { ...line, arrow: true, arrowStop: true }
+    const emit = vi.fn()
+    const { container } = renderPlan([arrowLine], { emit })
+    fireEvent.pointerDown(hitShape(container))
+    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: appConfig.copy.drawingEditor.endingNoneWhat })[0]) })
+    const { board } = await replayEmits({ board: { tafel: [arrowLine] } }, emit.mock.calls)
+    expect(endingOf(board.tafel[0])).toBe('none')
   })
 })
