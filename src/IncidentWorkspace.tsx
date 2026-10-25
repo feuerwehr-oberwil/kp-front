@@ -107,7 +107,7 @@ import { useAuditEvents } from './lib/useAuditEvents'
 import { EL_EVENT_PREFIXES, eventScopeFor } from './lib/eventScope'
 import { combinedSyncStatus } from './lib/combinedSyncStatus'
 import { useMapDrawing } from './lib/useMapDrawing'
-import { resolveMapDrawings } from './lib/lineAttachments'
+import { detachEnds, freeEnd, resolveMapDrawings } from './lib/lineAttachments'
 import { leitungOptions } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
@@ -1972,21 +1972,17 @@ export function IncidentWorkspace({
     noteDrawingEdit(drawing, { arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined })
     commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => {
       if (d.id === drawing.id) return { ...d, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
-      let next = d
-      for (const endpoint of ['start', 'end'] as const) {
-        const a = endpoint === 'start' ? next.startAttachment : next.endAttachment
-        if (!incoming.some((x) => x.id === d.id && x.endpoint === endpoint) || !a || next.coords.length < 2) continue
-        const coords = next.coords.map((p, i) => i === (endpoint === 'start' ? 0 : next.coords.length - 1) ? fallback : p)
-        next = { ...next, coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
-      }
-      return next
+      // the ends that hung on the «E» let go where it stood (lib/lineAttachments · detachEnds)
+      if (d.coords.length < 2) return d
+      const out = detachEnds({ ...d, points: d.coords }, (endpoint) => (incoming.some((x) => x.id === d.id && x.endpoint === endpoint) ? fallback : null))
+      return out ? { ...d, coords: out.points, ...out.freed } : d
     }) }))
     emit('draw.edit', { id: drawing.id, patch: { arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined } })
     incoming.forEach(({ id, endpoint }) => {
       const line = drawings.find((d) => d.id === id)
       if (!line) return
-      const coords = line.coords.map((p, i) => i === (endpoint === 'start' ? 0 : line.coords.length - 1) ? fallback : p)
-      emit('draw.edit', { id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
+      const { points: coords, freed } = freeEnd(line.coords, endpoint, fallback)
+      emit('draw.edit', { id, patch: { coords, ...freed } })
     })
   }
   // Attached Leitung ends follow their live vehicles (lib/useGpsFollow).
