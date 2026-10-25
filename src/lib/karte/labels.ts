@@ -64,16 +64,24 @@ export const TAG_KEEP_OVER_ANCHOR = 16
  * the map's own size — a tag near a side edge slides inward rather than being cut off (never so
  * far that it leaves its anchor), one that would still run off the map is not placed. `always` is
  * placed whatever it covers (the selected object).
+ * `pad` (px) decides the tags just OFF the map as well, so a pan brings them in already standing
+ * (owner, 25.10.2026: «they arrive immediately after coming into view», not on release). The map's
+ * own tags are placed first and exactly as without it; a tag whose object lies in the ring around
+ * the map comes after them – never displacing one on screen – unslid, and it may not run out of
+ * the ring.
  */
 export function placeTags(
   cands: readonly TagCandidate[],
-  view: { width: number; height: number; occupied?: readonly Rect[]; gap?: number; always?: string | null; margin?: number },
+  view: { width: number; height: number; occupied?: readonly Rect[]; gap?: number; always?: string | null; margin?: number; pad?: number },
 ): Map<string, number> {
   const gap = view.gap ?? 4
   const margin = view.margin ?? 4
+  const pad = view.pad ?? 0
   const placed: Rect[] = []
   const out = new Map<string, number>()
-  const order = [...cands].sort((a, b) => (a.id === view.always ? -1 : b.id === view.always ? 1 : b.rank - a.rank || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)))
+  const onMap = (c: TagCandidate) => c.x >= 0 && c.x <= view.width && c.y >= 0 && c.y <= view.height
+  const byRank = (a: TagCandidate, b: TagCandidate) => (a.id === view.always ? -1 : b.id === view.always ? 1 : b.rank - a.rank || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+  const order = [...cands].filter((c) => onMap(c) || c.id === view.always).sort(byRank)
   for (const c of order) {
     const base = tagRect(c)
     const reach = Math.max(0, c.w / 2 - TAG_KEEP_OVER_ANCHOR)
@@ -87,6 +95,16 @@ export function placeTags(
     }
     placed.push(r)
     out.set(c.id, c.id === view.always ? 0 : Math.round(dx))
+  }
+  if (pad > 0) {
+    for (const c of cands.filter((c) => !onMap(c) && !out.has(c.id)).sort(byRank)) {
+      const r = tagRect(c)
+      if (r.left < -pad || r.top < -pad || r.right > view.width + pad || r.bottom > view.height + pad) continue
+      if (view.occupied?.some((o) => overlaps(r, o))) continue
+      if (placed.some((p) => overlaps(r, p, gap))) continue
+      placed.push(r)
+      out.set(c.id, 0)
+    }
   }
   return out
 }

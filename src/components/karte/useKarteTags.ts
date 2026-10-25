@@ -11,10 +11,17 @@ import type { LngLat } from '../../types'
 /** a tag's text: a number range («1-14») never folds at its hyphen (a word joiner after it) */
 export const tagText = (name: string) => name.replace(/(\d)-(?=\d)/g, '$1-⁠')
 
+/** the ring around the map whose tags are decided too, as a share of the map's longer side */
+const RING = 0.6
+/** how often the placement re-runs while the map moves (a pan, a pinch) */
+const MOVE_PASS_MS = 200
+
 /**
  * One greedy pass once the map has settled (`view` moves on moveend), again when what covers the
  * map changes (`covered`: panel, sheet, search, a tool …), on a resize, and once more after a
- * panel has slid in. `measureRef` is the tag's off-screen twin; `tagged` is id → how far its tag
+ * panel has slid in – and every `MOVE_PASS_MS` WHILE the map moves, over the map plus a ring
+ * around it (`RING`): a pan brings the next tags in already standing instead of on release (owner,
+ * 25.10.2026). `measureRef` is the tag's off-screen twin; `tagged` is id → how far its tag
  * slides sideways to stay on the map (an object not in it shows its dot), `fits` is name → the
  * width a FOLDED tag is given.
  */
@@ -109,7 +116,7 @@ export function useTagPlacement(p: {
             rank: tagRank({ kind: o.kind, plans: openableCount(o), selected: o.id === selId, wasShown: !!taggedRef.current?.has(o.id) }),
           })
         }
-        next = placeTags(cands, { width: box.width, height: box.height, occupied, always: selId })
+        next = placeTags(cands, { width: box.width, height: box.height, occupied, always: selId, pad: Math.round(Math.max(box.width, box.height) * RING) })
       }
       if (folded) { fitsRef.current = folded; setFits(folded); folded = null }
       if (samePlacement(taggedRef.current, next)) return
@@ -118,7 +125,17 @@ export function useTagPlacement(p: {
     }
     const raf = requestAnimationFrame(run)
     const t = setTimeout(run, 400)
-    return () => { alive = false; cancelAnimationFrame(raf); clearTimeout(t) }
+    // …and during the move itself, at most every MOVE_PASS_MS, the last one trailing
+    let last = 0
+    let trailing = 0
+    const onMove = () => {
+      const now = performance.now()
+      if (now - last >= MOVE_PASS_MS) { last = now; run() }
+      else if (!trailing) trailing = window.setTimeout(() => { trailing = 0; last = performance.now(); run() }, MOVE_PASS_MS - (now - last))
+    }
+    const live = mapRef.current?.getMap?.()
+    live?.on('move', onMove)
+    return () => { alive = false; cancelAnimationFrame(raf); clearTimeout(t); clearTimeout(trailing); live?.off?.('move', onMove) }
   }, [view, objects, selId, objectsOn, covered, phone, resized, catOff, mapRef, rootRef])
   return { measureRef, fits, tagged }
 }
