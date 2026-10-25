@@ -37,15 +37,15 @@ describe('stationOverlays · the map\'s stack, bottom first', () => {
   it('a hidden category takes its objects off the map; the selected one stays', () => {
     const hidden = (id: string) => id === 'schule'
     expect(ids(stationOverlays({ ...base, hidden }))).toEqual(['karte-objects-under', 'karte-objects'])
-    expect(stationOverlays({ ...base, hidden, sel: { kind: 'object', id: 'schule' }, selId: 'schule' }).at(-1)).toMatchObject({ id: 'karte-object-sel', color: '#2b6cb0' })
+    expect(stationOverlays({ ...base, hidden, sel: { kind: 'object', id: 'schule' }, selId: 'schule' }).slice(-1)[0]).toMatchObject({ id: 'karte-object-sel', color: '#2b6cb0' })
   })
 
   it('a building tap: the house a switch opens dashed, a plain building found by its point', () => {
     const hit = stationOverlays({ ...base, sel: { kind: 'object', id: 'schloss', hit: { at: [0.5, 0.5], ring: SCHLOSS } }, selId: 'schloss' })
-    expect(hit.at(-1)).toMatchObject({ id: 'karte-object-hit', rings: [SCHLOSS], color: '#2f6fed', lineDasharray: [2, 1.4] })
+    expect(hit.slice(-1)[0]).toMatchObject({ id: 'karte-object-hit', rings: [SCHLOSS], color: '#2f6fed', lineDasharray: [2, 1.4] })
     const plain = sq(30, 30)
     const building = stationOverlays({ ...base, sel: { kind: 'building', at: [30.5, 30.5], ring: null, address: null }, ringsNear: () => [plain] })
-    expect(building.at(-1)).toMatchObject({ id: 'karte-building', rings: [plain] })
+    expect(building.slice(-1)[0]).toMatchObject({ id: 'karte-building', rings: [plain] })
   })
 
   it('Gefahrgut draws only with a UN number AND a centre', () => {

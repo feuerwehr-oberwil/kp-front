@@ -801,7 +801,7 @@ export default function KarteApp({ einsaetze, announceReturn = false, onOpenVisi
 
         {tool === 'erg' && (
           <KarteGefahrgut
-            un={erg.un} onUn={(un) => setErg((e) => ({ ...e, un, center: e.center ?? selPoint(sel) ?? view.center, at: new Date() }))}
+            un={erg.un} onUn={(un) => setErg((e) => ({ ...e, un, center: e.center ?? selPoint(sel, byId) ?? view.center, at: new Date() }))}
             mode={erg.mode} onMode={(mode) => setErg((e) => ({ ...e, mode, at: new Date() }))}
             center={erg.center} onClose={() => setTool('erg')} phone={phone} focusOnOpen={phone && ergKeys}
           />
