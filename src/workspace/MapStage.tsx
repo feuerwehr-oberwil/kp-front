@@ -100,7 +100,7 @@ export function MapStage({
   } = selection
   const { doc, commit, setDocRaw, beginDrag, endDrag } = store
   const {
-    draft, setDraft, areaMode, lineNodes, setDraftPointAttachment, freehandKind, onFreehand, createCircle,
+    draft, setDraft, areaMode, lineNodes, setDraftPointAttachment, draftStartAttachment, freehandKind, onFreehand, createCircle,
     drawColor, drawWidth, drawDashed, selectedDrawing, patchDrawingById, editDrawingCoords,
     editDrawingRadius, insertDrawingVertex, deleteDrawingVertex, setDrawingAttachment, moveLabel,
   } = mapDrawing
@@ -217,6 +217,7 @@ export function MapStage({
           onDraftInsert={(i, c) => setDraft((pts) => { const next = [...pts]; next.splice(i, 0, c); return next })}
           onDraftDelete={(i) => setDraft((pts) => pts.filter((_, j) => j !== i))}
           onDraftPointAttachment={setDraftPointAttachment}
+          draftStartAttachment={draftStartAttachment}
           measurePoints={tool === 'measure' ? measure.path : []}
           measureKind={tool === 'measure' ? measure.mode : null}
           onMeasureDrag={(i, c) => measure.setPath((pts) => pts.map((p, j) => (j === i ? c : p)))}

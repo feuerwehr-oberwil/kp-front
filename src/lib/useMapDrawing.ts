@@ -142,9 +142,11 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     if (tool === 'area') return coords.length >= minPoints('area') ? createArea(coords) : null
     return createLine(coords, attachments)
   }
+  /** One node tap's magnet result (MapView · onDraftPointAttachment) — the Plan's rule
+   *  (usePlanCreate · node tap): the first tap owns the start, every later tap the END slot, so a
+   *  free tap clears what an earlier tap on a symbol banked. */
   const setDraftPointAttachment = (attachment?: LineAttachment) => {
-    if (!attachment) return
-    setDraftAttachments((a) => draft.length === 0 ? { ...a, startAttachment: attachment } : { ...a, endAttachment: attachment })
+    setDraftAttachments((a) => draft.length === 0 ? { startAttachment: attachment } : { ...a, endAttachment: attachment })
   }
   // Absperrkreis / Gefahrenradius: a dragged circle becomes a real (undoable, synced,
   // journaled) circle Drawing — centre in coords[0], radius in metres. Drops into Select
@@ -542,7 +544,9 @@ export function useMapDrawing(deps: MapDrawingDeps) {
     drawColor, drawWidth, drawDashed,
     lineMode, setLineMode, areaMode, setAreaMode,
     draftActive, lineNodes, freehandKind, selectedDrawing,
-    commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle, patchDrawing, patchDrawingById,
+    commitDraft, settleDraft, noteDrawingEdit, createLine, createArea, onFreehand, setDraftPointAttachment, createCircle,
+    /** the claim the node draft's first tap banked — the magnet judges every later tap by it */
+    draftStartAttachment: draftAttachments.startAttachment, patchDrawing, patchDrawingById,
     patchDrawingLabelLive, commitDrawingLabel,
     editDrawingCoords, editDrawingRadius, moveLabel, insertDrawingVertex, deleteDrawingVertex, deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
   }
