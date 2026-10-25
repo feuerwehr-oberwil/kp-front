@@ -104,6 +104,7 @@ import {
 import { useAuditEvents } from './lib/useAuditEvents'
 import { EL_EVENT_PREFIXES, eventScopeFor } from './lib/eventScope'
 import { combinedSyncStatus } from './lib/combinedSyncStatus'
+import { endingFlags, endingWireFlags, type LineEnding } from './lib/drawingEdit'
 import { useMapDrawing } from './lib/useMapDrawing'
 import { detachDrawings, resolveMapDrawings, wireFreed, withDetach } from './lib/lineAttachments'
 import { leitungOptions } from './lib/truppLines'
@@ -1818,7 +1819,7 @@ export function IncidentWorkspace({
     patchDrawingLabelLive, commitDrawingLabel,
     deleteDrawing, reverseDrawing, setDrawingAttachment, revertGpsFollow, releaseGpsOnSite, patchDrawingsById,
   } = mapDrawing
-  const changeMapEnding = async (ending: 'none' | 'arrow' | 'arrowStop' | 'teilstueck', drawing = selectedDrawing) => {
+  const changeMapEnding = async (ending: LineEnding, drawing = selectedDrawing) => {
     if (!drawing) return
     const incoming = drawing.teilstueck && ending !== 'teilstueck'
       ? drawings.flatMap((d) => (['start', 'end'] as const).filter((endpoint) => {
@@ -1834,14 +1835,14 @@ export function IncidentWorkspace({
     // the Abschluss is a semantic edit like any DrawEditor field — one settled Verlauf row
     // («Zeichnung: Abschluss: Teilstück»), same funnel as patchDrawing (useMapDrawing ·
     // noteDrawingEdit / lib/drawingEdit), which this hand-rolled commit bypasses.
-    noteDrawingEdit(drawing, { arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined })
+    noteDrawingEdit(drawing, endingFlags(ending))
     // the ends that hung on the «E» let go where it stood — one patch per line, both ends in it,
     // applied here and sent as ONE draw.edit (lib/lineAttachments · detachDrawings)
     const released = detachDrawings(drawings.filter((d) => d.id !== drawing.id), (d, endpoint) => (incoming.some((x) => x.id === d.id && x.endpoint === endpoint) ? fallback : null))
     commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => (d.id === drawing.id
-      ? { ...d, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
+      ? { ...d, ...endingFlags(ending) }
       : withDetach(d, released))) }))
-    emit('draw.edit', { id: drawing.id, patch: { arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined } })
+    emit('draw.edit', { id: drawing.id, patch: endingWireFlags(ending) })
     released.forEach((patch, id) => emit('draw.edit', { id, patch: wireFreed(patch) }))
   }
   // Attached Leitung ends follow their live vehicles (lib/useGpsFollow).
