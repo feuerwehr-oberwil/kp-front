@@ -22,9 +22,17 @@ import type { BoardAnno, Drawing, Entity, LineContent } from '../types'
 
 /** The one Abschluss a line end shows, derived the way the DrawEditor's radio reads the three
  *  flags (Teilstück replaces the arrow; the Stopp bar rides on the arrow). */
-type LineEnding = 'none' | 'arrow' | 'arrowStop' | 'teilstueck'
-const endingOf = (d: Drawing): LineEnding =>
+export type LineEnding = 'none' | 'arrow' | 'arrowStop' | 'teilstueck'
+export const endingOf = (d: Pick<Drawing, 'arrow' | 'arrowStop' | 'teilstueck'>): LineEnding =>
   d.teilstueck ? 'teilstueck' : d.arrow ? (d.arrowStop ? 'arrowStop' : 'arrow') : 'none'
+/** The flags an Abschluss sets — the inverse of `endingOf`, for the live commit (off = absent). */
+export const endingFlags = (e: LineEnding): Pick<Drawing, 'arrow' | 'arrowStop' | 'teilstueck'> =>
+  ({ arrow: e === 'arrow' || e === 'arrowStop' || undefined, arrowStop: e === 'arrowStop' || undefined, teilstueck: e === 'teilstueck' || undefined })
+/** …and as the `draw.edit` the Abschluss sends (IncidentWorkspace · changeMapEnding): all three
+ *  flags, an off one as `false` — JSON drops an `undefined`, and replay would keep the old
+ *  Abschluss (it lost «Pfeil + Stopp» and every switch back to «Keiner»). */
+export const endingWireFlags = (e: LineEnding): Required<Pick<Drawing, 'arrow' | 'arrowStop' | 'teilstueck'>> =>
+  ({ arrow: e === 'arrow' || e === 'arrowStop', arrowStop: e === 'arrowStop', teilstueck: e === 'teilstueck' })
 
 export function drawingEditChanges(prev: Drawing, next: Drawing): string[] {
   const L = appConfig.copy.log
