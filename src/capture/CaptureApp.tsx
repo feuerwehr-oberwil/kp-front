@@ -649,7 +649,6 @@ export default function CaptureApp() {
     } catch { toast(C.pdfFailed, { icon: 'warn', tone: 'warn' }) } finally { setPdfBusy(false) }
   }
 
-  const A = appConfig.copy.anwesenheit
   // the closing-step names, shared with the tablet's Rapport so both surfaces call the same
   // missing field the same thing
   const AB = appConfig.copy.abschluss

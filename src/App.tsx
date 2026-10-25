@@ -659,7 +659,7 @@ export default function App() {
   }, [])
 
   // ── close / reopen: lib/useIncidentLifecycle ──
-  const { reopenNow, completeRapport, archiveById, reactivateById } = useCloseReopen({
+  const { completeRapport, archiveById, reactivateById } = useCloseReopen({
     closingLocallyRef, reopeningLocallyRef, activeId, activeMeta, incidents, syncRef, archiveReturnRef, refreshList,
     selectIncident, setClosedMedia, setActiveId, setActiveMeta, setWorkspace, setForceReadOnly,
   })
