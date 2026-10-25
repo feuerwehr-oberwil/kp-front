@@ -35,7 +35,7 @@ export interface DraftMagnetSurface<P> {
 
 /**
  * «Ring lädt, dann schnappt es» for a line being DRAWN — the one machine under both surfaces
- * (MapView · updateDraftMagnet, Whiteboard · updatePlanDraftMagnet), which used to be two copies
+ * (MapView · updateDraftMagnet, usePlanDraft · updatePlanDraftMagnet), which used to be two copies
  * kept in step by review. The rules (docs/ui-conventions.md · Touch vocabulary):
  *
  * - **Line-START exception** (`start`). A pointerDOWN that already lands inside a target's radius

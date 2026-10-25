@@ -42,11 +42,9 @@ import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { markerTakesLineEnd, truppForLine, truppIdForAttachment, truppIsOut, truppLineTone, type LinkableLine } from '../lib/truppLines'
 import { nextTeamName } from '../lib/placedTrupps'
-import { draftActive as isDraftActive, finishKind, releaseDraft as releaseDraftOf } from '../lib/draftMachine'
 import { DUP_PREFIX, duplicateAnno } from '../lib/duplicate'
 import { useHiddenTrails } from '../lib/useHiddenTrails'
 import { useNotePanelClosing } from '../lib/useNotePanelClosing'
-import { joinTargets, useDraftMagnet } from '../lib/useDraftMagnet'
 import { usePlacement } from '../lib/useTacticalSelection'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
@@ -85,6 +83,7 @@ import { fmtDistance, fmtArea } from '../lib/geo'
 import { activeViewDeg, bandAspect, BOX_H, BOX_W, buildView, principalAngleDeg, remapPoint, stackScaleMPerU, type Ring } from '../lib/footprint'
 import { usePlanMeasure } from './usePlanMeasure'
 import { usePlanGeoref } from './usePlanGeoref'
+import { INK_DEFAULTS, usePlanDraft } from './usePlanDraft'
 import { useMeasuredSheet } from './useMeasuredSheet'
 import { PlanScalePrompt, PlanScalePersist } from './PlanScalePrompts'
 import { GeorefBoardLayer, GeorefDock, GeorefInstrument, GeorefLinkChooser, GeorefSplitSeam, type PlanViewApi } from './GeorefMode'
@@ -97,8 +96,7 @@ import { georefChipTone, resetGeorefPlan, useGeorefMode, useGeorefStorage } from
 import { PlanLiveLayer, PlanPhotoMarks } from './PlanLiveLayer'
 import type { LiveMark, PhotoMark } from '../lib/planProjection'
 import { MAX_SCALE, MAX_SCALE_STACK, MIN_SCALE, boardViewSignature, useBoardView, type BoardViews } from './useBoardView'
-import { newPlanStep, pushBoardPast, useBoardDoc, type BoardHistory } from './useBoardDoc'
-import { recordKey, watchRecords } from '../lib/undoKeys'
+import { useBoardDoc, type BoardHistory } from './useBoardDoc'
 import { useBoardGestures } from './useBoardGestures'
 import { WbToolDocks, WbCircleHandle, WbCircleLayer, WbInkLayer, WbVertexHandles, WbDraftHandles, type TruppFinderDoor } from './WbControls'
 import { MeasurePanel } from './MeasurePanel'
@@ -371,9 +369,6 @@ export interface PlanLogExtra {
 // annotate it with draw / text / symbols and place resource chips whose
 // timestamp updates each time they are moved. All annotation coordinates are
 // normalized 0..1 in plan-image space so they stick across zoom/pan.
-/** The style every new Plan ink is born with – never the last edited ink's (3am sweep §2,
- *  23.10.2026; the Karte's twin is useMapDrawing · DRAW_DEFAULTS). */
-const INK_DEFAULTS = { color: appConfig.drawing.defaultColor, width: 5, dashed: false, marker: '', arrow: false } as const
 
 export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, captionMode = 'off', mapSuppressedCaptions, onChange: onChangeAll, building, floorPack, onSelectBuilding, onBuildingFace, onReorient, onAddFloor, onRemoveFloor, readOnly: readOnlyProp = false, sym, rosterNames = [], rosterRank, onRosterField, personStatus, fieldHints, onRecent, log, authorName, onStepLabel, emit = () => {}, historyRef, hist, setHist, onCheckpoint, views, fitRef, keysRef, focus, onView, trupps = [], placedTeamNames, teamNameTaken, onLinkTrupp, onShowTrupp, truppFinder, ghostTrails = [], onGhostTrail, onTrailDrop, onTeamTrupp, onTeamNewTrupp, onLinkLineTrupp, onLineAttached, onLineDetached, onLineRenumber, truppSeverities, objectName, objectAddress, objectNearby, buildingInfo, incidentId, incidentAddress, georefAnchor, incidentPos, onObjectSwitch, planScale = {}, onCalibrate, live = [], photos = [], onPlanLiveMove, onStepEnd, onPlanProjection, slimTools: slimToolsProp = false, linkViewer = false, railLabels, tafel }: Props) {
   // ⚠️ RIDERS: what lives on a sheet but is not drawn ON it — the Tafel's pages (kind `form`,
@@ -496,21 +491,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // this sheet. Its open panel gives the projection the source object's normal selection halo.
   // a pending team placement awaiting a Trupp pick (x/y/floor of the tapped point)
   const [truppPick, setTruppPick] = useState<{ x: number; y: number; floor: number } | null>(null)
-  // Every new ink starts from the ONE plain default (INK_DEFAULTS) – the Karte's rule
-  // (useMapDrawing · DRAW_DEFAULTS). Until 23.10.2026 the DrawEditor's edits were written back
-  // here as the next ink's template, marker and arrowhead included (3am sweep §2).
-  const { color, width, dashed, marker, arrow: lineArrow } = INK_DEFAULTS
-  // Fläche: tapped nodes, or a dragged outline — the Lage map's `areaMode`, same default and
-  // same reason (a fire's edge has no corners to tap).
-  const [areaMode, setAreaMode] = useState<'nodes' | 'freehand'>('nodes')
-  const [draft, setDraft] = useState<BoardPoint[] | null>(null)
-  /** Absperrkreis being dragged out: centre (plan-normalized, storey-local) + radius as a
-   *  fraction of the plan width. The drag IS the shape here, exactly as on the Karte
-   *  (useMapCanvasGestures · circle), so it lives beside `draft` and never in the document. */
-  const [circleDraft, setCircleDraft] = useState<{ x: number; y: number; floor: number; r: number } | null>(null)
-  const draftAttachments = useRef<{ startAttachment?: LineAttachment; endAttachment?: LineAttachment }>({})
-  // the single Linie tool's input mode: Freihand (drag) ↔ Punkte (tap each vertex), like the Lage map
-  const [lineMode, setLineMode] = useState<'freehand' | 'nodes'>('freehand')
   /** Where the selected anno was TAPPED (client px), paired with its id so a selection that
    *  arrived some other way can't borrow a stale point. Read only by the panel nudge. */
   const [annoTap, setAnnoTap] = useState<{ id: string; x: number; y: number } | null>(null)
@@ -550,14 +530,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const planEndpointDrag = useRef<PlanEndpointDrag | null>(null)
   const planDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const setPlanEndpointDrag = (next: PlanEndpointDrag | null) => { planEndpointDrag.current = next; setPlanEndpointDragState(next) }
-  // the magnet of a line being DRAWN — the Karte's own machine (lib/useDraftMagnet), in board px
-  // over this sheet's target walk (planCandidatesAt / planAttachmentFor below)
-  const planMagnet = useDraftMagnet<BoardPoint>({
-    project: (p) => [p[0] * sW, mapY(p[2], p[1]) * sH],
-    candidates: (p) => planCandidatesAt('__draft__', [p[0] * sW, mapY(p[2], p[1]) * sH]),
-    attachmentFor: (c) => planAttachmentFor(c),
-  })
-  const planDraftMagnetState = planMagnet.state
   // which text note is mid-edit (so we checkpoint undo once per edit session, then stream
   // each keystroke live into the anno — like the Lage note title)
   const textEditId = useRef<string | null>(null)
@@ -685,7 +657,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     ? floorPack?.fit ? floorPack.fit.rotationDeg + shownAngle : null
     : shownAngle
 
-  const draftFloor = useRef(0)
   // two-finger pinch tracking ON the create-tool ink overlay, so the user can pinch-zoom the
   // plan WITHOUT leaving the active draw/measure tool (the overlay otherwise swallows pointers)
   const inkPtrs = useRef<Map<number, { x: number; y: number }>>(new Map())
@@ -703,21 +674,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const { mapY, localY, floorAt, boardPts, moveRigid } = floorGeometry(stack, floorsTTB, N)
 
   // Leaving Linie/Fläche mid-shape no longer silently drops the draft (A6, 29.08.): the
-  // tool-change release lives BELOW, next to the commit machinery it needs (see releaseDraft).
+  // tool-change release lives in usePlanDraft, next to the commit machinery it needs.
   // The half-laid Maßstab tap is ephemeral and usePlanMeasure clears it itself.
-  // `releaseRef` also serves the DOCUMENT-leave release: an effect cleanup's closure is stale
-  // (from the render its effect last ran in), while this ref — re-pointed by an every-commit
-  // effect — still holds the OLD document's closure when the cleanups of the next commit run.
+  // `releaseRef` serves the release this board's own lifecycle makes — arming the Georeferenz,
+  // leaving the DOCUMENT: an effect cleanup's closure is stale (from the render its effect last
+  // ran in), while this ref — re-pointed by an every-commit effect below usePlanDraft — still
+  // holds the OLD document's closure when the cleanups of the next commit run.
   const releaseRef = useRef<(from: BoardTool) => void>(() => {})
   // the tool the live draft was laid under (the release must classify by the tool being LEFT)
   const prevTool = useRef<BoardTool>('pan')
-  // Arriving on the selection-only sheet also DISARMS what was carried over: its dock went with
-  // the rail, so a still-pending symbol would be an invisible armed state that fires on the next
-  // document opened.
-  useEffect(() => {
-    if (!selectOnly) return
-    setTool('pan'); setPending(null); setPendingShape(null); setPaletteOpen(false); setDraft(null); setCircleDraft(null)
-  }, [selectOnly, setTool, setPending, setPendingShape])
 
   // measure viewport so the board can be sized to "contain" the plan exactly — keyed to the
   // canvas ELEMENT, not mount, so it attaches when the canvas appears after a viewer-only doc
@@ -904,41 +869,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     resetEphemeral() // the calibration nodes usePlanMeasure owns
     setTool('pan')
   }, [georefArmed]) // eslint-disable-line react-hooks/exhaustive-deps
-  // Esc cancels an in-progress node shape, else clears the selection
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      // typing in a field? Escape leaves the FIELD and nothing more, so one key press never
-      // both finishes the text and drops the selection (which would take the handles with it).
-      // Read the event TARGET, not activeElement: the field's own handler has already blurred
-      // by the time this bubbles up, so activeElement is <body> and the guard would miss.
-      const el = e.target instanceof HTMLElement ? e.target : null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
-      // …and a MODAL on top of the board owns Escape outright: it closes, the board does not
-      // also drop the draft/selection behind it. Focus is trapped inside the dialog, so the
-      // target is enough to tell (covers the Trupp picker, the Maßstab entry, every overlay).
-      if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
-      // ⚠️ Escape stays an EXPLICIT discard — deliberately NOT routed through releaseDraft
-      // (A6, 29.08.): tap-away loses a draft by ACCIDENT, so it auto-commits; Escape is the
-      // one gesture whose whole meaning is «weg damit», and auto-saving it would leave no
-      // way to throw a half-laid shape away.
-      if (rotStart) { setRotStart(null); clearRotMagnet() }
-      else if (draft) { setDraft(null); draftAttachments.current = {} }
-      else if (circleDraft) setCircleDraft(null)
-      // …then the Passung dock. It is deliberately not an Overlay (it must not trap the board
-      // behind a scrim while a fit is being judged), so it has no Escape of its own and would
-      // otherwise be the ONE panel on this surface that the key cannot dismiss.
-      else if (qualityFor) setQualityFor(null)
-      else if (notePanelId) setNotePanelId(null)
-      else if (selId) setSelId(null)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-    // `rotStart` belongs here: without it the handler kept the null from before the first tap,
-    // and Escape skipped a half-laid Rotation (review sweep 23.09.2026). `clearRotMagnet` is
-    // left out on purpose: it is declared further down (useWbRotor), and every render's copy
-    // touches the same refs and setter, so an older one does the same.
-  }, [rotStart, draft, circleDraft, qualityFor, selId, notePanelId])
   const georefView: PlanViewApi = { toNorm, applyView, zoomTo, scaleRef, posRef, canvasEl, boardRef }
 
   // --- Zwillinge: what the Karte lends this sheet ---------------------------------------------
@@ -956,25 +886,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     onPlanLiveMove(id, [c.lng, c.lat], phase)
   }, [readOnly, georefFit, onPlanLiveMove])
 
-  // reset transient state when switching document. Sits BELOW the hook because it clears the
-  // state the hook owns — above it, resetEphemeral is not yet declared.
-  // ⚠️ The ASPECT is no longer seeded here, and deliberately: this effect is keyed on the Modul
-  // SLOT, which does not change when the operator switches Einsatzobjekt — so the seed never ran
-  // for the new building and the previous one's shape carried over into its fit. It is reseeded
-  // per SHEET now (components/useMeasuredSheet), which covers a plan switch as well.
-  // ⚠️ The VIEW is no longer reset here: useBoardView restores the plan's remembered zoom/pan
-  // (falling back to fit on a first visit), and a reset here would run after it and undo it.
-  useEffect(() => {
-    setSelId(null); setSelIds([]); setEditId(null); setDraft(null); setPending(null)
-    resetEphemeral() // the calibrate state usePlanMeasure owns
-    if (tool === 'symbol') setTool('pan')
-    // Leaving the DOCUMENT (plan switch, or unmounting the whole surface) is a tap-away too
-    // (A6, 29.08.). Through releaseRef, because this cleanup's own closure is from the render
-    // the document was OPENED in, when the draft did not exist yet — the ref, re-pointed every
-    // commit and read before any new effect runs, still holds the old document's closure, so
-    // the auto-commit lands on the sheet the shape was actually drawn on.
-    return () => releaseRef.current(prevTool.current)
-  }, [activeId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Annotation document + per-plan undo/redo (the set/commit mutation funnel, audit-emitting CRUD,
   // and the global-TopBar history wiring) live in useBoardDoc; the gesture handlers and render
@@ -1149,14 +1060,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   useEffect(() => {
     if (!rotPlacing) { setRotStart(null); clearRotMagnet() }
   }, [rotPlacing]) // eslint-disable-line react-hooks/exhaustive-deps
-  // node-based (tap each vertex, then finish): the area tool, and the Linie tool in Punkte mode.
-  // In Freihand mode the Linie tool drags a stroke instead (handled below).
-  const noding = (tool === 'area' && areaMode === 'nodes') || (tool === 'line' && lineMode === 'nodes')
-  /** the drag IS the shape right now — a freehand Linie or a freehand Fläche. The one
-   *  predicate the three pointer handlers share, so the two tools cannot drift apart. */
-  const inking = (tool === 'line' && lineMode === 'freehand') || (tool === 'area' && areaMode === 'freehand')
-  // the in-progress node draft is committable: an area needs ≥3 pts, a Punkte-mode line ≥2 (gates ✓)
-  const draftActive = isDraftActive(tool, { lineMode, areaMode }, draft?.length ?? 0)
   // symbols/notes are sized smaller on the Gebäude floor-stack (small storey tiles) than on the
   // full-page module plans, so they don't dwarf the building outline — closer to the Lage map feel
   // Symbol/note size: on a PDF plan, scale it to the board WIDTH (= one page's width, since stitched
@@ -1257,12 +1160,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   /** Every placed Trupp chip on this sheet, as the one-Trupp rule reads them (a Plan's `resource`
    *  is the Karte's team marker — lib/truppLines · TruppMarker). */
   const planTruppMarkers = () => annos.flatMap((a) => (a.kind === 'resource' ? [{ id: a.id, truppId: a.truppId }] : []))
-  const planCandidatesAt = (sourceId: string, pointer: [number, number]): MagneticTarget[] => {
+  const planCandidatesAt = (sourceId: string, pointer: [number, number], draftStart?: LineAttachment): MagneticTarget[] => {
     // ── EINE Leitung, EIN Trupp, schon am Magneten (lib/truppLines · markerTakesLineEnd) ──
     // The Plan's twin of the Lage rule (MapView · candidatesAt): a hose that already has a crew
     // does not see another Trupp's chip as a target at all — only its own, so a coupling pulled
     // off can be put back. A draft is judged by the claim its first end already made.
-    const draftStart = draftAttachments.current.startAttachment
     const srcLine: LinkableLine | undefined = annos.find((a) => a.id === sourceId && a.kind === 'draw')
       ?? (sourceId === '__draft__' ? { id: sourceId, truppId: truppIdForAttachment(draftStart, planTruppMarkers()) } : undefined)
     const objects: MagneticTarget[] = annos
@@ -1283,30 +1185,91 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     return [...objects, ...lines]
   }
   const planAttachmentFor = (c: MagneticTarget): LineAttachment => candidateAttachment(c, attachmentLines)
-  /** The draft magnet's phases from the ink overlay (lib/useDraftMagnet). `atStart` is the caller's
-   *  claim on pointerDOWN only — a MOVE re-derives it from the stroke's own first point. What the
-   *  press lands on is banked into `draftAttachments` at once, as the Trupp rule above reads it. */
-  const updatePlanDraftMagnet = (point: BoardPoint, phase: 'start' | 'move', atStart = false) => {
-    if (phase === 'start') draftAttachments.current = { ...draftAttachments.current, ...planMagnet.start(point, atStart) }
-    else planMagnet.move(point)
-  }
-  /** The «Angekuppelt» rings, the Karte's `joinPreview` in board px (lib/useDraftMagnet ·
-   *  joinTargets), ringed in the TARGET line's ink. */
-  const planJoinPreview = (): { key: string; point: [number, number]; color: string }[] =>
-    joinTargets(planDraftMagnetState, planEndpointDragState)
-      .map((c) => ({ key: c.key, point: c.point, color: annos.find((a) => a.id === c.target.id)?.color || COLORS[0] }))
-  /** Settle the stroke's magnet: an end whose ring CLOSED fills its slot in `draftAttachments`,
-   *  unless the press already banked one there. */
-  const finishPlanDraftMagnet = () => {
-    const out = planMagnet.end()
-    if (!out) return
-    const da = draftAttachments.current
-    draftAttachments.current = {
-      ...da,
-      ...(!da.startAttachment && out.startAttachment ? { startAttachment: out.startAttachment } : {}),
-      ...(!da.endAttachment && out.endAttachment ? { endAttachment: out.endAttachment } : {}),
+
+  // --- the draft in the hand, its magnet, the commit funnel and the A6 release — components/usePlanDraft ---
+  const {
+    lineMode, setLineMode, areaMode, setAreaMode, draft, setDraft, circleDraft, setCircleDraft,
+    draftAttachmentsRef, draftFloorRef,
+    noding, inking, draftActive, planDraftMagnetState, updatePlanDraftMagnet, planJoinPreview, finishPlanDraftMagnet,
+    addLine, addArea, addCircle, finishShape, cancelShape, releaseDraft,
+  } = usePlanDraft({
+    tool, setTool, annos, annosAll, activeId, onChange, add, setHist, onCheckpoint, log, emit, setSelId, onLineAttached,
+    sW, sH, mapY, planCandidatesAt, planAttachmentFor, planEndpointDragState, prevToolRef: prevTool,
+  })
+  // Arriving on the selection-only sheet also DISARMS what was carried over: its dock went with
+  // the rail, so a still-pending symbol would be an invisible armed state that fires on the next
+  // document opened.
+  useEffect(() => {
+    if (!selectOnly) return
+    setTool('pan'); setPending(null); setPendingShape(null); setPaletteOpen(false); setDraft(null); setCircleDraft(null)
+  }, [selectOnly, setTool, setPending, setPendingShape, setDraft, setCircleDraft])
+  // Esc cancels an in-progress node shape, else clears the selection
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      // typing in a field? Escape leaves the FIELD and nothing more, so one key press never
+      // both finishes the text and drops the selection (which would take the handles with it).
+      // Read the event TARGET, not activeElement: the field's own handler has already blurred
+      // by the time this bubbles up, so activeElement is <body> and the guard would miss.
+      const el = e.target instanceof HTMLElement ? e.target : null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      // …and a MODAL on top of the board owns Escape outright: it closes, the board does not
+      // also drop the draft/selection behind it. Focus is trapped inside the dialog, so the
+      // target is enough to tell (covers the Trupp picker, the Maßstab entry, every overlay).
+      if (el?.closest('[role="dialog"], [role="alertdialog"]')) return
+      // ⚠️ Escape stays an EXPLICIT discard — deliberately NOT routed through releaseDraft
+      // (A6, 29.08.): tap-away loses a draft by ACCIDENT, so it auto-commits; Escape is the
+      // one gesture whose whole meaning is «weg damit», and auto-saving it would leave no
+      // way to throw a half-laid shape away.
+      if (rotStart) { setRotStart(null); clearRotMagnet() }
+      else if (draft) cancelShape()
+      else if (circleDraft) setCircleDraft(null)
+      // …then the Passung dock. It is deliberately not an Overlay (it must not trap the board
+      // behind a scrim while a fit is being judged), so it has no Escape of its own and would
+      // otherwise be the ONE panel on this surface that the key cannot dismiss.
+      else if (qualityFor) setQualityFor(null)
+      else if (notePanelId) setNotePanelId(null)
+      else if (selId) setSelId(null)
     }
-  }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // `rotStart` belongs here: without it the handler kept the null from before the first tap,
+    // and Escape skipped a half-laid Rotation (review sweep 23.09.2026). `clearRotMagnet` is
+    // left out on purpose: it is declared further down (useWbRotor), and every render's copy
+    // touches the same refs and setter, so an older one does the same.
+  }, [rotStart, draft, circleDraft, qualityFor, selId, notePanelId])
+
+  // reset transient state when switching document. Sits BELOW usePlanMeasure and usePlanDraft
+  // because it clears the state they own — above them, resetEphemeral and setDraft are not yet
+  // declared.
+  // ⚠️ The ASPECT is no longer seeded here, and deliberately: this effect is keyed on the Modul
+  // SLOT, which does not change when the operator switches Einsatzobjekt — so the seed never ran
+  // for the new building and the previous one's shape carried over into its fit. It is reseeded
+  // per SHEET now (components/useMeasuredSheet), which covers a plan switch as well.
+  // ⚠️ The VIEW is no longer reset here: useBoardView restores the plan's remembered zoom/pan
+  // (falling back to fit on a first visit), and a reset here would run after it and undo it.
+  useEffect(() => {
+    setSelId(null); setSelIds([]); setEditId(null); setDraft(null); setPending(null)
+    resetEphemeral() // the calibrate state usePlanMeasure owns
+    if (tool === 'symbol') setTool('pan')
+    // Leaving the DOCUMENT (plan switch, or unmounting the whole surface) is a tap-away too
+    // (A6, 29.08.). Through releaseRef, because this cleanup's own closure is from the render
+    // the document was OPENED in, when the draft did not exist yet — the ref, re-pointed every
+    // commit and read before any new effect runs, still holds the old document's closure, so
+    // the auto-commit lands on the sheet the shape was actually drawn on.
+    return () => releaseRef.current(prevTool.current)
+  }, [activeId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // re-point the leave-document release every commit (see releaseRef above for why a ref), and
+  // release on a TOOL change — below usePlanDraft, whose commit machinery the release is.
+  useEffect(() => { releaseRef.current = releaseDraft })
+  useEffect(() => {
+    const from = prevTool.current
+    prevTool.current = tool
+    if (from !== tool) releaseDraft(from)
+    // …and a half-dragged cordon goes with the tool: its overlay unmounts with it, so nothing
+    // would ever end the gesture and the preview ring would hang on the sheet
+    if (from !== tool) setCircleDraft(null)
+  }, [tool]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- create-tool interactions (on the ink overlay) ---
   // every created anno carries its storey (floor) and tile-local coords; on a
@@ -1319,7 +1282,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       e.stopPropagation()
       // an aborted stroke leaves no line, so it may leave no attachment either — the start one
       // armed on pointerdown would otherwise ride along into the next line (see inkUp)
-      if (inking) { setDraft(null); if (tool === 'line') { finishPlanDraftMagnet(); draftAttachments.current = {} } }
+      if (inking) { setDraft(null); if (tool === 'line') { finishPlanDraftMagnet(); draftAttachmentsRef.current = {} } }
       setCircleDraft(null) // two fingers navigate — no cordon is laid by a pinch
       inkTap.current = null // a second finger → pinch-zoom, not a node tap
       inkPinch.current = inkPinchPts()?.dist ?? null
@@ -1334,8 +1297,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const x = n[0], y = localY(n[1], floor)
     if (tool === 'line') {
       const atStart = !draft?.length
-      if (atStart) draftAttachments.current = {}
-      else draftAttachments.current = { ...draftAttachments.current, endAttachment: undefined }
+      if (atStart) draftAttachmentsRef.current = {}
+      else draftAttachmentsRef.current = { ...draftAttachmentsRef.current, endAttachment: undefined }
       updatePlanDraftMagnet([x, y, floor], 'start', atStart)
     }
     if (tool === 'circle') {
@@ -1344,7 +1307,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       // finger lands — «etwas ist hier, zieh es auf» — instead of a zero-size point, and a
       // release without a drag commits that default rather than nothing.
       ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-      draftFloor.current = floor
+      draftFloorRef.current = floor
       setCircleDraft({ x, y, floor, r: appConfig.drawing.circleInitialRadiusN })
       return
     }
@@ -1352,7 +1315,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       // Freehand is the one create gesture that IS the drag — the stroke follows the finger,
       // so it can't double as a pan. Every OTHER create tool places on a single tap (placeNode/inkUp).
       ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-      draftFloor.current = floor
+      draftFloorRef.current = floor
       setDraft([[x, y, floor]])
       return
     }
@@ -1426,8 +1389,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       // tool is armed the tool owns every tap). A quick second tap lands on the grip the first one
       // just laid, so it adds no corner. Lines retain the floor below each pointer; areas stay on
       // the first floor.
-      if (!draft) draftFloor.current = floor
-      const pointFloor = tool === 'line' ? floor : draftFloor.current
+      if (!draft) draftFloorRef.current = floor
+      const pointFloor = tool === 'line' ? floor : draftFloorRef.current
       const ly = localY(n[1], pointFloor)
       setDraft((d) => (d ? [...d, [n[0], ly, pointFloor]] : [[n[0], ly, pointFloor]]))
       return
@@ -1545,7 +1508,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       }
       if (tool === 'line') {
         const n = toNorm(e.clientX, e.clientY)
-        if (n) { const floor = stack ? floorAt(n[1]) : draftFloor.current; updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], 'move') }
+        if (n) { const floor = stack ? floorAt(n[1]) : draftFloorRef.current; updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], 'move') }
       }
       // node tool: drag pans the board (and disqualifies the tap). 8px of slop tolerates finger
       // jitter so a still tap still places. Pan from the recorded origin, like useBoardGestures.
@@ -1564,7 +1527,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     }
     if (!inking || !draft) return
     const n = toNorm(e.clientX, e.clientY); if (n) {
-      const floor = stack ? floorAt(n[1]) : draftFloor.current
+      const floor = stack ? floorAt(n[1]) : draftFloorRef.current
       if (tool === 'line') updatePlanDraftMagnet([n[0], localY(n[1], floor), floor], 'move')
       setDraft((d) => (d ? [...d, [n[0], localY(n[1], floor), floor]] : [[n[0], localY(n[1], floor), floor]]))
     }
@@ -1595,7 +1558,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     // A dragged Fläche: the same thinned stroke as a freehand Linie, closed into a ring. No
     // magnet and no attachments — those belong to a Leitung's ends, and an area has none.
     if (tool === 'area' && areaMode === 'freehand' && draft) {
-      const px = draft.map(([x, y, floor]): [number, number] => [x * sW, mapY(floor ?? draftFloor.current, y) * sH])
+      const px = draft.map(([x, y, floor]): [number, number] => [x * sW, mapY(floor ?? draftFloorRef.current, y) * sH])
       if (!isTapStroke(px)) {
         const idx = rdpIndices(px, FREEHAND_SIMPLIFY_PX)
         if (idx.length >= minPoints('area')) addArea(idx.map((i) => draft[i]))
@@ -1611,7 +1574,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       finishPlanDraftMagnet()
       // thin the raw stroke into a clean, editable polyline (drops the point clusters a slow finger
       // dumps at the start/end). Node-mode lines keep their explicit taps (finishShape doesn't thin).
-      const px = draft.map(([x, y, floor]): [number, number] => [x * sW, mapY(floor ?? draftFloor.current, y) * sH])
+      const px = draft.map(([x, y, floor]): [number, number] => [x * sW, mapY(floor ?? draftFloorRef.current, y) * sH])
       if (!isTapStroke(px)) {
         const idx = rdpIndices(px, FREEHAND_SIMPLIFY_PX)
         addLine(idx.map((i) => draft[i]))
@@ -1620,146 +1583,12 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         // The stroke went nowhere, so nothing may be left behind — least of all the start
         // attachment that armed the instant the finger landed on a target (lineAttachments ·
         // armDwell). Without this the next line drawn anywhere on the plan inherited it.
-        draftAttachments.current = {}
+        draftAttachmentsRef.current = {}
       }
       setDraft(null)
     }
   }
-  // create a Linie from a finished path (a freehand drag OR a node-tapped draft), baking the sticky
-  // preset's arrow/marker/dash. Mirrors the Lage map's createLine, so both surfaces behave
-  // identically. Returns the anno so the tap-away auto-commit (releaseDraft) can offer its undo;
-  // addLine below is the interactive wrapper (select + drop to pan so the style editor opens).
-  const commitLine = (pts: BoardPoint[]): BoardAnno => {
-    const id = newId('l')
-    const floor = pts[0]?.[2] ?? draftFloor.current
-    const anno: BoardAnno = { id, kind: 'draw', pts, floor, color, width, ...draftAttachments.current,
-      dashed: dashed || undefined, ...(marker ? { marker } : {}), ...(lineArrow ? { arrow: true } : {}) }
-    add(anno)
-    // a stroke that ENDED on a Trupp's chip is that Trupp's Leitung — both ends are reported,
-    // because either of them may be the coupling (see Props · onLineAttached)
-    for (const a of [anno.startAttachment, anno.endAttachment]) if (a) onLineAttached?.(id, a)
-    // the jump-back aims at the line's FIRST node: a Leitung can run across two floors, and the
-    // end it was started from is the end the operator was standing at when the row was written
-    log('pen', appConfig.copy.whiteboard.placeLine, { annoId: id, x: pts[0]?.[0], y: pts[0]?.[1], floor })
-    draftAttachments.current = {}
-    return anno
-  }
-  const addLine = (pts: BoardPoint[]) => { const { id } = commitLine(pts); setSelId(id); setTool('pan') }
-  // create a Fläche from a finished ring — the twin of commitLine/addLine: addArea selects it +
-  // drops to pan so its draggable vertex handles are immediately usable (matches the Lage map,
-  // where a finished area auto-selects for reshaping).
-  // ⚠️ an area lives on ONE storey: the caller pins every vertex to the same floor.
-  const commitArea = (pts: BoardPoint[]): BoardAnno => {
-    const id = newId('a')
-    const floor = pts[0]?.[2] ?? draftFloor.current
-    const anno: BoardAnno = { id, kind: 'area', pts, floor, color, width, dashed }
-    add(anno)
-    log('area', appConfig.copy.whiteboard.placeArea, { annoId: id, x: pts[0]?.[0], y: pts[0]?.[1], floor })
-    return anno
-  }
-  const addArea = (pts: BoardPoint[]) => { const { id } = commitArea(pts); setSelId(id); setTool('pan') }
-  // Absperrkreis / Gefahrenradius — the plan twin of the Karte's createCircle (lib/useMapDrawing):
-  // the same hazard colour, dashed slim ring and default fill, undoable + journaled + audited
-  // through the same `add`. Drops to pan with the circle selected so its radius stepper is right
-  // there, exactly as the map's does.
-  const addCircle = (x: number, y: number, floor: number, radiusN: number) => {
-    const id = newId('c')
-    add({ id, kind: 'circle', x, y, floor, radiusN, color: appConfig.drawing.circleColor,
-      dashed: true, width: appConfig.drawing.circleLineWidth, fillOpacity: appConfig.drawing.circleFillOpacity })
-    log('circle', appConfig.copy.whiteboard.placeCircle, { annoId: id, x, y, floor })
-    setSelId(id); setTool('pan')
-  }
-  // commit the in-progress node shape: a Linie (≥2 pts) or a Fläche (≥3 pts, closed + filled) —
-  // the Karte's rule (lib/draftMachine · finishKind). Then drop to pan so it's immediately selectable.
-  const finishShape = () => {
-    const d = draft
-    const kind = d ? finishKind(tool, d.length) : null
-    setDraft(null)
-    if (d && kind === 'line') addLine(d)
-    else if (d && kind === 'area') addArea(d)
-    else setTool('pan')
-  }
-  const cancelShape = () => { setDraft(null); draftAttachments.current = {} }
 
-  // --- A6 (29.08.): tap-away must not silently discard a node draft -------------------------
-  // live mirrors for the auto-commit toast's «Rückgängig», which fires seconds later from outside
-  // any render: the same-sheet undo must act on the annos/document of NOW, not of commit time.
-  // the WHOLE sheet (pages included): these refs feed a history snapshot, and onChange puts the pages back anyway
-  const annosRef = useRef(annosAll); const activeIdRef = useRef(activeId); const onChangeRef = useRef(onChange)
-  useEffect(() => { annosRef.current = annosAll; activeIdRef.current = activeId; onChangeRef.current = onChange })
-  /**
-   * Whatever disarms a create tool with a draft still in the hand — picking another tool, arming
-   * the Georeferenz, switching the document, leaving the surface — lands here (A6, 29.08.; the
-   * Lage map runs the identical contract — the decision is lib/draftMachine · releaseDraft). A
-   * committable draft (Punkte-Linie ≥2, Fläche ≥3) auto-commits through the same
-   * commitLine/commitArea path the ✓ takes, with a toast whose «Rückgängig» does more than delete:
-   * it hands the SHAPE back as the draft and re-arms its tool — decided: undo returns the shape to
-   * the hand. A fragment below the minimum has nothing worth keeping and says so in an action-less
-   * toast; a mid-stroke Freihand remnant dies with its tool. Escape is deliberately NOT routed
-   * through here — it is the one EXPLICIT discard (see the key handler above).
-   */
-  const releaseDraft = (from: BoardTool) => {
-    const d = draft
-    if (!d?.length) return
-    const release = releaseDraftOf({ from, lineMode, count: d.length })
-    if (release.type === 'keep') return
-    setDraft(null)
-    if (release.type !== 'commit') {
-      draftAttachments.current = {}
-      if (release.type === 'discard') toast(appConfig.copy.toolDock.draftDiscarded)
-      return
-    }
-    const kind = release.kind
-    const att = { ...draftAttachments.current } // commitLine consumes the ref — kept for the undo
-    const planId = activeId
-    const anno = kind === 'line' ? commitLine(d) : commitArea(d)
-    // the take-back deletes this ONE anno — spent once another device's merge changed it
-    // (lib/undoKeys · watchRecords), so it can never delete their edit
-    const watch = watchRecords([recordKey('objects', anno.id)])
-    toast(fillTemplate(appConfig.copy.toolDock.autoCommitted, { name: kind === 'line' ? appConfig.copy.drawingEditor.line : appConfig.copy.drawingEditor.area }), {
-      onDismiss: watch.release,
-      action: {
-        label: appConfig.copy.toolDock.autoCommitUndo,
-        onClick: () => {
-          watch.release()
-          if (!watch.ok()) { toast(appConfig.copy.undoLost, { icon: 'warn' }); return }
-          if (activeIdRef.current === planId) {
-            // still on this sheet: take the anno back and put the shape in the hand again
-            const step = newPlanStep()
-            setHist((m) => pushBoardPast(m, planId, annosRef.current, step)); onCheckpoint?.(planId, step)
-            onChangeRef.current(annosRef.current.filter((a) => a.id !== anno.id))
-            emit('board.delete', { id: anno.id, planId })
-            draftAttachments.current = att
-            draftFloor.current = d[0]?.[2] ?? 0
-            setDraft(d)
-            if (kind === 'line') setLineMode('nodes')
-            // pre-set the release's memory so re-arming the tool is not itself a tap-away
-            prevTool.current = kind === 'line' ? 'line' : 'area'
-            setTool(kind === 'line' ? 'line' : 'area')
-          } else {
-            // the document was left mid-toast: the anno still comes off its own sheet (through
-            // this closure, which still points there), but a draft cannot be handed back onto a
-            // document that is no longer open
-            const step = newPlanStep()
-            setHist((m) => pushBoardPast(m, planId, [...annosAll, anno], step)); onCheckpoint?.(planId, step)
-            onChange(annos)
-            emit('board.delete', { id: anno.id, planId })
-          }
-        },
-      },
-    })
-  }
-  // re-point the leave-document release every commit (see releaseRef above for why a ref), and
-  // release on a TOOL change — declared here, below the commit machinery the release needs.
-  useEffect(() => { releaseRef.current = releaseDraft })
-  useEffect(() => {
-    const from = prevTool.current
-    prevTool.current = tool
-    if (from !== tool) releaseDraft(from)
-    // …and a half-dragged cordon goes with the tool: its overlay unmounts with it, so nothing
-    // would ever end the gesture and the preview ring would hang on the sheet
-    if (from !== tool) setCircleDraft(null)
-  }, [tool]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- single freehand-stroke select + drag (tap the fat hit-line in WbInkLayer, pan mode) ---
   const drawDown = (id: string, e: React.PointerEvent) => {
@@ -1905,7 +1734,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     resolvedPts, attachmentLines, planCandidatesAt, pushPast, patch, patchCommit, emit, activeId,
     onLineAttached, onLineDetached, planEndpointDrag, setPlanEndpointDrag, planDwellTimerRef: planDwellTimer,
     allFloorsTTB, revealFloor, centerOnPoint: (x, y, floor, atScale) => centerOnPoint(x, y, floor, atScale), scaleRef,
-    draftFloor, setDraft,
+    draftFloor: draftFloorRef, setDraft,
   })
 
   // --- chip dragging (resource / symbol / text in pan mode) — components/useWbChipDrag ---
@@ -3067,7 +2896,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
               onPickCircle={tool === 'pan' ? circleDown : undefined} sections={sections ?? undefined} />
 
             {/* committed drawings */}
-            <WbInkLayer annos={drawnAnnos} draft={draft} draftFloor={draftFloor.current} draftClosed={tool === 'area'} color={color} width={width} dashed={dashed} hiddenTrails={hiddenTrails} mapY={mapY}
+            <WbInkLayer annos={drawnAnnos} draft={draft} draftFloor={draftFloorRef.current} draftClosed={tool === 'area'} color={INK_DEFAULTS.color} width={INK_DEFAULTS.width} dashed={INK_DEFAULTS.dashed} hiddenTrails={hiddenTrails} mapY={mapY}
               selId={selId} flashId={flashId} networkIds={[...relationship.lineIds]} onPickDraw={tool === 'pan' ? drawDown : undefined}
               truppTones={truppTones} sW={sW} sH={sH} sections={sections ?? undefined} />
             {/* «Ring lädt, dann schnappt es» — the identical pair the Lage map draws: a blue chip
@@ -3380,7 +3209,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 capture layer (their z-indices already beat it) so they stay tappable while the
                 tool is armed — a tap beside them still lays the next point as before. */}
             {noding && !!draft?.length && (
-              <WbDraftHandles pts={draft} closed={tool === 'area'} draftFloor={draftFloor.current}
+              <WbDraftHandles pts={draft} closed={tool === 'area'} draftFloor={draftFloorRef.current}
                 sW={sW} sH={sH} mapY={mapY}
                 onVertexDown={draftVertDown} onInsert={draftInsert} onDeleteVertex={draftDeleteVertex} />
             )}
@@ -3935,7 +3764,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 // a Linie keeps the storey under each node; a Fläche lives on ONE storey — its
                 // first point's — exactly like the node tool, which pins every vertex of a ring
                 // to the floor it was started on.
-                const floorOf = (y: number) => (stack ? floorAt(y) : draftFloor.current)
+                const floorOf = (y: number) => (stack ? floorAt(y) : draftFloorRef.current)
                 const ringFloor = floorOf(measPath[0][1])
                 const pts: BoardPoint[] = measPath.map(([x, y]) => {
                   const f = measMode === 'line' ? floorOf(y) : ringFloor
