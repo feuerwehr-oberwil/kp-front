@@ -105,7 +105,7 @@ import { useAuditEvents } from './lib/useAuditEvents'
 import { EL_EVENT_PREFIXES, eventScopeFor } from './lib/eventScope'
 import { combinedSyncStatus } from './lib/combinedSyncStatus'
 import { useMapDrawing } from './lib/useMapDrawing'
-import { detachDrawings, resolveMapDrawings, withDetach } from './lib/lineAttachments'
+import { detachDrawings, resolveMapDrawings, wireFreed, withDetach } from './lib/lineAttachments'
 import { leitungOptions } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
@@ -1842,7 +1842,7 @@ export function IncidentWorkspace({
       ? { ...d, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
       : withDetach(d, released))) }))
     emit('draw.edit', { id: drawing.id, patch: { arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined } })
-    released.forEach((patch, id) => emit('draw.edit', { id, patch }))
+    released.forEach((patch, id) => emit('draw.edit', { id, patch: wireFreed(patch) }))
   }
   // Attached Leitung ends follow their live vehicles (lib/useGpsFollow).
   // ⚠️ 24.09.2026 — this pass was the render storm of the Übung on 23.09.2026 (React #185 on

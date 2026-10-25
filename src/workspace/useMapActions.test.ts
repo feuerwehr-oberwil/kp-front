@@ -59,3 +59,18 @@ describe('delete — a line with both ends on what goes', () => {
     expect(given.emit.mock.calls.filter(([op]) => op === 'draw.edit')).toHaveLength(1)
   })
 })
+
+// …and the coupling goes with it in replay too: a cleared end used to travel as `undefined`,
+// which JSON drops, so the replayed line still hung on the deleted symbols.
+describe('delete — replay clears the freed ends\' attachments', () => {
+  it('deleteGroup: the replayed line hangs on nothing', async () => {
+    const entities = [ent('a', [1, 1]), ent('b', [2, 2])]
+    const drawings = [leitung({ startAttachment: onObject('a'), endAttachment: onObject('b') })]
+    const { deps, given } = makeDeps(entities, drawings)
+    const { result } = renderHook(() => useMapActions(deps))
+    await act(async () => { await result.current.deleteGroup([], ['a', 'b']) })
+    const [replayed] = (await replayEmits({ entities, drawings }, given.emit.mock.calls)).drawings
+    expect(replayed).not.toHaveProperty('startAttachment')
+    expect(replayed).not.toHaveProperty('endAttachment')
+  })
+})
