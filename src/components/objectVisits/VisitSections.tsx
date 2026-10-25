@@ -6,7 +6,7 @@ import { useState, type ReactNode } from 'react'
 import { Icon } from '../../lib/icons'
 import { Button } from '../Button'
 import { appConfig } from '../../config/appConfig'
-import { fillTemplate, unitLabel } from '../../lib/format'
+import { fillTemplate, fmtWhen, unitLabel } from '../../lib/format'
 import type { Item } from '../../lib/checklists'
 import { Segmented } from '../Segmented'
 import { DateTimeField } from '../TimeField'
@@ -14,7 +14,7 @@ import { answerStats, checklistItems, inputOf, isAnswered, localIso } from '../.
 import { rememberWith, splitPeople } from '../../objectVisits/devicePrefs'
 import type { Answer, VisitDoc, VisitPhoto, VisitProposal } from '../../objectVisits/types'
 import { Section, Thumb } from './common'
-import { answerDigest, answerText, fmtDate, fmtWhen } from './ovFormat'
+import { answerDigest, answerText, fmtDate } from './ovFormat'
 import { ListCard, ListRow } from '../ListRow'
 import s from './ObjectVisits.module.css'
 
@@ -360,7 +360,7 @@ export function SummaryCard({ doc, byName, badge, onOpen, children }: {
                 <span className={s.sumTitle}>{doc.checklist?.title ?? C.noChecklist}</span>
                 {badge}
               </span>
-              <span className={s.sumText}>{`${fmtDate(doc.visitedAt)} ${fmtWhen(doc.visitedAt).split(' ').pop()}`}{people ? ` · ${people}` : ''}</span>
+              <span className={s.sumText}>{`${fmtDate(doc.visitedAt)} ${fmtWhen(doc.visitedAt, { todayShort: true }).split(' ').pop()}`}{people ? ` · ${people}` : ''}</span>
             </span>
             {onOpen && <Icon id="chevron" className={s.chev} />}
           </>

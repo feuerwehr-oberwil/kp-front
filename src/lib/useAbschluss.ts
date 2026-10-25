@@ -244,7 +244,7 @@ export function useAbschluss({
     const ok = await confirmDialog({ title: A.confirmTitle, ...spec(), refresh: spec })
     if (!ok) return false
     // the pre-filled Einsatzende becomes the record's with the close — one task for React to
-    // commit it, so the handover's flush carries it (App · completeRapport flushes the sync)
+    // commit it, so the handover's flush carries it (useIncidentLifecycle · completeRapport flushes the sync)
     if (pendingEnde) {
       patchReportMeta!({ endedAt: pendingEnde })
       await new Promise((r) => setTimeout(r, 0))
@@ -256,7 +256,7 @@ export function useAbschluss({
     if (standDown.length && standDownTrupps) {
       standDownTrupps(standDown)
       // one task for React to commit the Trupps, so the save queue holds the stand-down before
-      // the handover flushes it (App · completeRapport flushes the sync, then archives)
+      // the handover flushes it (useIncidentLifecycle · completeRapport flushes the sync, then archives)
       await new Promise((r) => setTimeout(r, 0))
     }
     /* ⚠️ Closing over a crew still inside wrote NOTHING (staging r3 F4): the record ended with two

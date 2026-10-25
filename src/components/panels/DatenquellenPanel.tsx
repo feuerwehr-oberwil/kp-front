@@ -18,7 +18,8 @@ import {
   type ReferenceDataset,
 } from '../../lib/incidents'
 import { getAdminSession } from '../../admin/adminAuth'
-import { Modal, fmtWhen } from './_shared'
+import { Modal } from './_shared'
+import { fmtWhen } from '../../lib/format'
 import { SearchField } from '../SearchField'
 
 // --- Datenquellen (Phase 7) ---------------------------------------------------------

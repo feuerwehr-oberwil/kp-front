@@ -108,7 +108,7 @@ questions, and what the record keeps (`components/AtemschutzView`). Module rules
   against the Trupps as they stand then — a crew sent in meanwhile never gets an Austritt.
   Crews still INSIDE are the Abschluss's own FIRST question, by name («2 Trupps sind noch drin:
   Trupp 1 (…), Trupp 2 (…).»), «Zur Tafel» focused, closing anyway the quiet answer — and after
-  the Abschluss the app lands on HOME (App · completeRapport, 05.10.2026; home is «Karte &
+  the Abschluss the app lands on HOME (useIncidentLifecycle · completeRapport, 05.10.2026; home is «Karte &
   Objekte» since 16.10.2026), never opens another: the closed Einsatz is forgotten on the device
   and `prefs.landedAt` keeps a cold start at home too, until one is opened by hand or a NEWER alarm arrives (pickBootIncident).
   A Sicherungstrupp wears «SiTr» on its row and card at every width, sent in or not.

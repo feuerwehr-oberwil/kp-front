@@ -35,7 +35,7 @@ describe('useAbschluss', () => {
 
   // N3, 25.09.2026
   it('a close on ANOTHER device stops the alarm here, in place — no remount', () => {
-    // App flips the live meta when the close is heard (App · onIncidentClosed); the hook that
+    // App flips the live meta when the close is heard (useIncidentLifecycle · onIncidentClosed); the hook that
     // drives the AtemschutzAlarmHost must follow the SAME mount, not only the next open
     let meta: Parameters<typeof useAbschluss>[0]['incidentMeta'] = { is_archived: false, status: 'offen', closed_at: null }
     const h = renderHook(() => useAbschluss(args({ incidentMeta: meta })))

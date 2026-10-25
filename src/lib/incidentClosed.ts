@@ -25,7 +25,7 @@ import { isIncidentRunning } from './incidentRunning'
  *  - the 30 s incident-list watch: the active Einsatz is missing from the open list. That is only
  *    a SUSPICION (a list is bounded, a cache is old), so App asks the server before acting.
  *
- * App owns the answer (App · onIncidentClosed): the same Einsatz, read-only, with a one-line
+ * App owns the answer (useIncidentLifecycle · onIncidentClosed): the same Einsatz, read-only, with a one-line
  * notice — never a jump into another Einsatz.
  */
 
@@ -80,7 +80,7 @@ export function closedNoticeAt(closedAt: string | null | undefined, sawRunningAt
 
 /**
  * What App does with a signal: the meta to show the open Einsatz with from now on, or `null` for
- * «nothing» (App · onIncidentClosed). Pure, so the rules are pinned where they are written:
+ * «nothing» (useIncidentLifecycle · onIncidentClosed). Pure, so the rules are pinned where they are written:
  *  - only the Einsatz ON SCREEN, and only while it still reads as running;
  *  - never the one THIS device is closing right now (its own poll hears it first);
  *  - the server's own meta wins when it could be read — and if it says «running» (reopened

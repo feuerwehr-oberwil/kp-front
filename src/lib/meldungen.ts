@@ -54,7 +54,7 @@ export const MELDUNG_RANK = {
   /** the Einsatz's saved data came from a NEWER build, or had entries the load gate skipped
    *  (useWorkspaceBlob, S3 20.10.2026) — true for as long as this build reads that blob */
   workspace: 9,
-  /** a closed Einsatz's Fotos / Sprachnotizen are still only on this device (App · completeRapport,
+  /** a closed Einsatz's Fotos / Sprachnotizen are still only on this device (useIncidentLifecycle · completeRapport,
    *  S3 20.10.2026) — stands while the queue holds them */
   media: 10,
   /** another tab of this browser holds the edit lock */

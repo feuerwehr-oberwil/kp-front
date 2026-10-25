@@ -5,13 +5,13 @@ import { useState } from 'react'
 import { Icon } from '../../lib/icons'
 import { Button } from '../Button'
 import { appConfig } from '../../config/appConfig'
-import { fillTemplate } from '../../lib/format'
+import { fillTemplate, fmtWhen } from '../../lib/format'
 import { Sheet } from '../../lib/overlays'
 import type { VisitStatus } from '../../objectVisits/status'
 import { destinationLabel } from '../../objectVisits/folders'
 import { getDeploymentConfig } from '../../lib/deploymentConfig'
 import type { LocalVisit } from '../../objectVisits/store'
-import { deliveryLabel, fmtWhen, lifecycleLabel, syncLabel, syncShort } from './ovFormat'
+import { deliveryLabel, lifecycleLabel, syncLabel, syncShort } from './ovFormat'
 import s from './ObjectVisits.module.css'
 
 const syncTone = (k: VisitStatus['sync']['kind']) =>
@@ -46,7 +46,7 @@ export function StatusLine({ status, rec, canSend, onSendNow }: {
 
   const deviceText = (): string[] => {
     const out: string[] = []
-    if (rec?.savedAt) out.push(fillTemplate(C.statusSavedAt, { time: fmtWhen(rec.savedAt) }))
+    if (rec?.savedAt) out.push(fillTemplate(C.statusSavedAt, { time: fmtWhen(rec.savedAt, { todayShort: true }) }))
     if (!rec?.base) out.push(C.statusNeverSent)
     else {
       out.push(fillTemplate(C.statusRevision, { n: rec.base.revision }))

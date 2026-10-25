@@ -1114,9 +1114,9 @@ With no Einsatz open, an **account** lands on the viewer at `/` instead of the o
   sheet, in the slot the Einsatz menu gives «Offline-Bereitschaft», which is about an open
   Einsatz), Funktionen & Hilfe, Installieren where offered; who is signed in with Abmelden, the
   build label. With nothing running and nothing to take, one quiet line says «Keine offenen
-  Einsätze». The Rückmeldung prompt (`trouble`) heads the sheet. `App · homeMenu` hands in the
-  handlers; the viewer only opens and closes the sheet (`einsaetze.render(close, onDevice)`). The
-  red dot is running Einsätze + alarms waiting to be taken. The old card (`App · launcherBody`) is
+  Einsätze». The Rückmeldung prompt (`trouble`) heads the sheet. App hands the handlers to
+  `components/HomeMenus · HomeMenu`; the viewer only opens and closes the sheet (`einsaetze.render(close, onDevice)`). The
+  red dot is running Einsätze + alarms waiting to be taken. The old card (`components/HomeMenus · LauncherBody`) is
   left only for a link session whose Einsatz could not be fetched.
 - **Alarms** show in the Meldeleiste and the banner (no «Anhängen»: no Einsatz is being worked on
   screen); nothing switches by itself. Taking one keeps the 12 s «Alarm übernommen · Rückgängig»,
