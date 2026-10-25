@@ -17,7 +17,7 @@ import type { useShareMyPosition } from '../lib/useShareMyPosition'
 import type { useSymbols } from '../lib/useSymbols'
 import type { useWeather } from '../lib/useWeather'
 import type { ShareLinkKind } from '../lib/viewLink'
-import type { LngLat, Person, CaptionMode } from '../types'
+import type { Person, CaptionMode } from '../types'
 
 export interface WorkspaceSheetsProps {
   helpOpen: boolean
@@ -33,7 +33,7 @@ export interface WorkspaceSheetsProps {
   offlineProbeUrls: { tiles: string[]; plan: string; references: string[] }
   sym: ReturnType<typeof useSymbols>
   backendPlans: Record<string, string>
-  manualObject: { id: string; name: string; address?: string | null; pos?: LngLat | null; plans: Record<string, string>; titles: Record<string, string>; datasets: Record<string, PlanDatasetRef> } | null
+  manualObject: { id: string; name: string; address?: string | null; plans: Record<string, string>; titles: Record<string, string>; datasets: Record<string, PlanDatasetRef> } | null
   liveWeather: ReturnType<typeof useWeather>
   personnel: Person[]
   syncStatus: SyncStatus

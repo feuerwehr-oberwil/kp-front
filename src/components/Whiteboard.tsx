@@ -302,9 +302,6 @@ interface Props {
   /** the Einsatz the banner's dismissal is remembered for, and the address it contrasts with */
   incidentId?: string
   incidentAddress?: string | null
-  /** UNREAD since the field's «Automatisch ausrichten» was removed (25.10.2026). PlansSurface still
-   *  passes it; drop the two together once the workspace prop refactor (sweep A.3) has landed. */
-  georefAnchor?: LngLat | null
   /** the Einsatz's own coordinate (null without one) — the pin on the Gebäude picker */
   incidentPos?: LngLat | null
   /** open the PlanPicker. Omitted (an Einsatz-Link, which is bound to one object's plans)

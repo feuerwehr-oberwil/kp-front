@@ -1,4 +1,4 @@
-"""Automatic plan alignment — the CV matcher behind POST /api/georef/suggest.
+"""Automatic plan alignment — the CV matcher behind the plan-alignment worker (plan_alignment_compute).
 
 Based on the feasibility prototype (docs/planning/auto-alignment/prototype.py,
 2026-09-08: 12/16 Modul-2 sheets produced plausible starting alignments): segment the filled
@@ -9,12 +9,13 @@ dilated OSM edges = context coverage at every pose), then trimmed ICP refinement
 peaks. The pose with the highest context coverage wins. Modul 1 scores its red compound
 against the full building set, since an operational compound need not be a single OSM
 footprint (the score is diagnostic only, see COVERAGE_CONFIDENT). The result
-is a similarity transform — a STARTING PROPOSAL the operator reviews in «Deckung prüfen»,
-never a silently accepted georeference, and not a claim of survey accuracy.
+is a similarity transform — a STARTING PROPOSAL the station reviews and approves on
+Objektpläne, never a silently accepted georeference, and not a claim of survey accuracy.
 
 This module carries the heavy numeric dependencies (opencv-python-headless, numpy, scipy —
-the optional `georef` dependency group). The API seam (app/api/georef_suggest.py) imports it
-lazily and answers 503 while they are not installed, so the base image owes nothing to it.
+the optional `georef` dependency group). The worker (plan_alignment_compute · _load_matcher)
+imports it lazily and reports the alignment as unavailable while they are not installed, so the
+base image owes nothing to it.
 
 Frame conventions, kept from the prototype so its evaluation stays valid:
 - Sheet pixels are y-DOWN; every boundary point is y-flipped into y-UP before fitting, so it
@@ -26,7 +27,7 @@ Frame conventions, kept from the prototype so its evaluation stays valid:
   geometrically convenient fit that contradicts the printed scale is not a plausible one.
 """
 
-# Rules for this area that span modules: docs/plans-and-buildings.md · ««Automatisch ausrichten» and approved alignments».
+# Rules for this area that span modules: docs/plans-and-buildings.md · «Automatic alignments and their approval».
 
 from __future__ import annotations
 
