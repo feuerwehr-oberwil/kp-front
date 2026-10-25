@@ -1880,6 +1880,57 @@ describe('a double tap on a Punkte draft finishes nothing', () => {
   })
 })
 
+// Taking the «E» off a Teilstück lets go of every line end hanging on it, where the E stood. A line
+// with BOTH ends on that E used to go out as two `board.edit`s, each from the line's ORIGINAL
+// points — so replay folded the second over the first and put the first end back (Lage twin #492).
+describe('the Abschluss «Keiner» on a Teilstück (changePlanEnding)', () => {
+  it('sends ONE board.edit per hanging line, with both ends where the E stood', async () => {
+    const onE = { target: { kind: 'line' as const, id: 't1', endpoint: 'end' as const }, routing: 'direct' as const }
+    const teil: BoardAnno = { id: 't1', kind: 'draw', pts: [[0.2, 0.2, 0], [0.8, 0.8, 0]], floor: 0, teilstueck: true }
+    const loop: BoardAnno = { id: 'h1', kind: 'draw', pts: [[0.1, 0.9, 0], [0.5, 0.5, 0], [0.9, 0.1, 0]], floor: 0, startAttachment: onE, endAttachment: onE }
+    const emit = vi.fn()
+    ui.answer = true
+    const { container } = renderPlan([teil, loop], { emit })
+    fireEvent.pointerDown(hitShape(container))
+    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: appConfig.copy.drawingEditor.endingNoneWhat })[0]) })
+    const edits = emit.mock.calls.filter(([op, p]) => op === 'board.edit' && p?.id === 'h1')
+    expect(edits).toHaveLength(1)
+    const pts = edits[0][1].patch.pts as number[][]
+    expect(pts[0]).toEqual([0.8, 0.8, 0])
+    expect(pts[pts.length - 1]).toEqual([0.8, 0.8, 0])
+  })
+})
+
+// The Plan's twins of the replay rules: a cleared line end travels as `null` (lineAttachments ·
+// wireFreed), so the replayed sheet hangs the line on nothing the live sheet doesn't.
+describe('Plan line ends in replay', () => {
+  const onChip = { target: { kind: 'object' as const, id: 'c1' }, routing: 'direct' as const }
+
+  it('«Umkehren»: an end that is free after the swap is free in replay', async () => {
+    const coupled: BoardAnno = { ...line, endAttachment: onChip }
+    const emit = vi.fn()
+    const { container } = renderPlan([coupled], { emit })
+    fireEvent.pointerDown(hitShape(container))
+    fireEvent.click(screen.getAllByRole('button', { name: new RegExp(appConfig.copy.drawingEditor.reverse) })[0])
+    const { board } = await replayEmits({ board: { tafel: [coupled] } }, emit.mock.calls)
+    expect(board.tafel[0].startAttachment?.target).toEqual(onChip.target)
+    expect(board.tafel[0]).not.toHaveProperty('endAttachment')
+  })
+
+  it('deleting what a line hangs on leaves the line free in replay', async () => {
+    const target: BoardAnno = { id: 't1', kind: 'draw', pts: [[0.6, 0.1, 0], [0.9, 0.1, 0]], floor: 0 }
+    const hanging: BoardAnno = { ...line, endAttachment: { target: { kind: 'line', id: 't1', endpoint: 'start' }, routing: 'direct' } }
+    const emit = vi.fn()
+    ui.answer = true
+    const { container } = renderPlan([target, hanging], { emit })
+    fireEvent.pointerDown(hitShape(container))
+    await act(async () => { fireEvent.click(screen.getAllByRole('button', { name: new RegExp(appConfig.copy.remove) })[0]) })
+    expect(emit.mock.calls.some(([op]) => op === 'board.delete')).toBe(true)
+    const { board } = await replayEmits({ board: { tafel: [target, hanging] } }, emit.mock.calls)
+    expect(board.tafel.find((a) => a.id === 'l1')).not.toHaveProperty('endAttachment')
+  })
+})
+
 // The Plan's Abschluss as the audit stream carries it (lib/drawingEdit · endingWireFlags, the
 // Lage's twin): a flag switched OFF went out as `undefined`, which JSON drops, so replay kept it.
 describe('the Plan\'s Abschluss in replay', () => {

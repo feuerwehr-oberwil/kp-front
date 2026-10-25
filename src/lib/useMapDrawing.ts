@@ -385,7 +385,8 @@ export function useMapDrawing(deps: MapDrawingDeps) {
         ? mine.reduce((acc, i) => ({ ...acc, [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }), x)
         : x
     }) }))
-    emit('draw.edit', { id, patch })
+    // the pinned end label stays with the old end: cleared, as `null` on the wire (JSON drops `undefined`)
+    emit('draw.edit', { id, patch: { ...wireFreed(patch), endLabelAt: null } })
     flip.incoming.forEach((i) => emit('draw.edit', { id: i.lineId, patch: { [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment } }))
   }
   const deleteDrawing = async (id: string) => {

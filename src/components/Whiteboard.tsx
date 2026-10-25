@@ -71,7 +71,7 @@ import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
 import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
-import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachEnds, dwellFor, flipLine, freeEnd, forkPortPoint, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
+import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachAnnos, dwellFor, flipLine, forkPortPoint, wireFreed, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, withDetach, type AnnoDetachPatch, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
 import type { FloorPackView } from '../lib/floorPackBinding'
@@ -1508,7 +1508,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       const mine = flip.incoming.filter((i) => i.lineId === a.id)
       return mine.reduce((acc, i) => ({ ...acc, [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }), a)
     }))
-    emit('board.edit', { id: selDraw.id, patch: { pts: flip.points, startAttachment: flip.startAttachment, endAttachment: flip.endAttachment }, planId: activeId })
+    emit('board.edit', { id: selDraw.id, patch: wireFreed({ pts: flip.points, startAttachment: flip.startAttachment, endAttachment: flip.endAttachment }), planId: activeId })
     flip.incoming.forEach((i) => emit('board.edit', { id: i.lineId, patch: { [i.endpoint === 'start' ? 'startAttachment' : 'endAttachment']: i.attachment }, planId: activeId }))
   }
 
@@ -1524,19 +1524,16 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     }
     const resolved = renderAnnos.find((a) => a.id === selDraw.id)?.pts
     const fallback = resolved?.[resolved.length - 1] ?? selDraw.pts?.[selDraw.pts.length - 1]
-    commit(annos.map((a) => {
-      if (a.id === selDraw.id) return { ...a, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
-      if (!fallback || !a.pts?.length) return a
-      const out = detachEnds({ ...a, points: a.pts }, (endpoint) => (incoming.some((x) => x.id === a.id && x.endpoint === endpoint) ? fallback : null))
-      return out ? { ...a, pts: out.points, ...out.freed } : a
-    }))
+    // the ends that hung on the «E» let go where it stood — one patch per line, both ends in it,
+    // applied here and sent as ONE board.edit (lib/lineAttachments · detachAnnos)
+    const released = fallback
+      ? detachAnnos(annos.filter((a) => a.id !== selDraw.id), (a, endpoint) => (incoming.some((x) => x.id === a.id && x.endpoint === endpoint) ? fallback : null))
+      : new Map<string, AnnoDetachPatch>()
+    commit(annos.map((a) => (a.id === selDraw.id
+      ? { ...a, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
+      : withDetach(a, released))))
     emit('board.edit', { id: selDraw.id, patch: endingWireFlags(ending), planId: activeId })
-    incoming.forEach(({ id, endpoint }) => {
-      const line = annos.find((a) => a.id === id)
-      if (!line?.pts || !fallback) return
-      const { points: pts, freed } = freeEnd(line.pts, endpoint, fallback)
-      emit('board.edit', { id, patch: { pts, ...freed }, planId: activeId })
-    })
+    released.forEach((patch, id) => emit('board.edit', { id, patch: wireFreed(patch), planId: activeId }))
   }
 
 
