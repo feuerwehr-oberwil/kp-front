@@ -213,7 +213,7 @@ below.
 
 | Row | When | ↶ |
 |---|---|---|
-| «Referenz angepasst – {n} Objekte neu verortet» (`referenceRebaked`) | a **hand** corrected the fit: moved a cross, accepted «Automatisch ausrichten», transferred a Passung | yes – one step for all n |
+| «Referenz angepasst – {n} Objekte neu verortet» (`referenceRebaked`) | a **hand** corrected the fit: moved a cross, transferred a Passung | yes – one step for all n |
 | «Blattform gemessen – {n} Objekte neu verortet» (`referenceRemeasured`) | the **app** measured the sheet and re-solved the SAME pairs in a truer shape (`noteMeasuredAspect`) | yes |
 | «Referenz entfernt» / «… – {n} Objekte behalten ihre letzte Position» (`referenceDropped` / `referenceDroppedKept`) | «Referenz zurücksetzen»: the fit is gone, and **nothing moves** – both bodies stand where they stood | no – nothing moved |
 | «Referenz-Änderung verworfen – Speichern fehlgeschlagen» (`referenceRolledBack`) | the station document PUT was refused (409 or offline) and the optimistic write was rolled back | no – the correction above it never stuck |

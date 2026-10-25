@@ -23,23 +23,7 @@ vi.mock('./PdfViewport', () => ({
 vi.mock('../lib/pdfRaster', () => ({
   prewarmPlans: () => {},
   pdfWorkerUrl: () => null,
-  // the chooser warms these the moment it opens (lib/georefSuggest reads them too)
-  planMatcherImage: () => Promise.resolve(new Blob()),
-  planPrintedMPerU: () => Promise.resolve(null),
 }))
-// Whether this SERVER can align automatically is a fact of the deployment, read synchronously
-// off the config singleton — the rest of the module stays real.
-const server = vi.hoisted(() => ({ autoAlign: true }))
-vi.mock('../lib/deploymentConfig', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../lib/deploymentConfig')>()
-  return {
-    ...actual,
-    getDeploymentConfig: () => ({
-      ...actual.getDeploymentConfig(),
-      integrations: { autoAlignConfigured: server.autoAlign },
-    }),
-  }
-})
 
 import { Whiteboard } from './Whiteboard'
 import { PHONE_QUERY } from '../lib/useIsPhone'
@@ -60,7 +44,7 @@ beforeAll(() => {
     addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false,
   })) as unknown as typeof window.matchMedia
 })
-afterEach(() => { cleanup(); resetGeorefMode(); store.pairs = []; server.autoAlign = true })
+afterEach(() => { cleanup(); resetGeorefMode(); store.pairs = [] })
 
 const modul: PlanDocument = {
   id: 'modul2', code: 'Modul 2', title: 'Übersicht', subtitle: '', imageUrl: 'modul2.pdf',
@@ -94,15 +78,13 @@ const pair = (x: number, y: number, lng: number, lat: number): GeorefPair =>
 /** two references ~130 m apart — a solvable fit that is still «aus 2 Punkten» */
 const TWO = [pair(0.2, 0.2, 7.5, 47.5), pair(0.8, 0.8, 7.5015, 47.4991)]
 
-/** `anchor` is the object/incident coordinate the CV matcher fetches its OSM buildings around;
- *  without one «Automatisch ausrichten» is not eligible whatever the server can do. */
-const renderBoard = (activeId = 'modul2', readOnly = false, anchor: [number, number] | null = null) =>
+const renderBoard = (activeId = 'modul2', readOnly = false) =>
   render(<>
     <Whiteboard
       plans={[modul, modul3, tafel]} activeId={activeId} annos={[]} onChange={() => {}}
       building={null} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
       readOnly={readOnly} slimTools sym={sym} onRecent={() => {}} log={() => {}}
-      hist={{}} setHist={() => {}} focus={null} georefAnchor={anchor}
+      hist={{}} setHist={() => {}} focus={null}
     />
     <Overlays />
   </>)
@@ -114,7 +96,7 @@ const renderStack = (planScale: Record<string, { mPerU: number; refM: number; ar
       plans={[modul, gebaeude]} activeId="gebaeude" annos={[]} onChange={() => {}}
       building={HAUS} onSelectBuilding={() => {}} onAddFloor={() => {}} onRemoveFloor={() => {}}
       slimTools sym={sym} onRecent={() => {}} log={() => {}}
-      hist={{}} setHist={() => {}} focus={null} georefAnchor={null} planScale={planScale}
+      hist={{}} setHist={() => {}} focus={null} planScale={planScale}
     />
     <Overlays />
   </>)
@@ -195,19 +177,12 @@ describe('the «Karte verknüpfen» chip', () => {
     expect(screen.queryByRole('button', { name: 'Abbrechen' })).toBeNull()
   })
 
-  // ⚠️ The field never asks for a proposal (13.09.2026): a sheet is linked by hand with reference
-  // points, or it is already «Verknüpft» because the station approved the server's proposal in
-  // the admin. Whatever the server can do, the chip arms the point flow directly.
-  it('never offers the automatic path in the field – the chip arms the point flow, server or no server', () => {
-    renderBoard('modul2', false, [7.5, 47.5])
+  // A sheet is linked by hand with reference points, or it is already «Verknüpft» because the
+  // station approved the server's proposal in the admin (13.09.2026): the chip arms the points.
+  it('on an unlinked sheet arms the point flow', () => {
+    renderBoard('modul2')
     fireEvent.click(screen.getByRole('button', { name: /Karte verknüpfen/ }))
-    expect(screen.queryByRole('button', { name: /Automatisch ausrichten/ })).toBeNull()
     expect(georefSnapshot().planId).toBe('modul2')
-    resetGeorefMode()
-    server.autoAlign = false
-    renderBoard('modul2', false, [7.5, 47.5])
-    fireEvent.click(screen.getAllByRole('button', { name: /Karte verknüpfen/ })[0])
-    expect(screen.queryByRole('button', { name: /Automatisch ausrichten/ })).toBeNull()
   })
 
   // A locked session (el, Führungsansicht, viewer, replay) keeps the READING — tone and words —

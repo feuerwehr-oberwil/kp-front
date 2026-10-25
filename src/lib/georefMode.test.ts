@@ -23,14 +23,12 @@ import {
   isPlacingTap,
   placeGeorefPhoneTarget,
   registerGeorefPhoneTarget,
-  resetGeorefMode, georefStillIs,
+  resetGeorefMode,
   resetGeorefPlan,
   settleSlots,
   trackTap,
   transferGeorefPlan,
-  acceptGeorefProposal,
   setGeorefLinkedHandler,
-  startGeorefProposal,
   type GeorefModeState,
   type GeorefSlot,
 } from './georefMode'
@@ -862,24 +860,6 @@ describe('a hand linking an unlinked sheet is announced by the act, once', () =>
     expect(linked).not.toHaveBeenCalled()
   })
 
-  it('«Übernehmen» on an unlinked sheet links it; on a linked one it does not', async () => {
-    startGeorefProposal('modul2', AR, { storageKey: KEY, pairs: TRI.slice(0, 2) })
-    await expect(acceptGeorefProposal()).resolves.toBe(true)
-    expect(linked).toHaveBeenCalledTimes(1)
-    expect(linked.mock.calls[0]).toEqual([KEY, TRI.slice(0, 2)])
-    linked.mockClear()
-    mockGeorefForPlan.mockReturnValue({ pairs: TRI })
-    startGeorefProposal('modul2', AR, { storageKey: KEY, pairs: TRI.slice(0, 2) })
-    await acceptGeorefProposal()
-    expect(linked).not.toHaveBeenCalled()
-  })
-
-  it('«Verwerfen» stores nothing and links nothing', () => {
-    startGeorefProposal('modul2', AR, { storageKey: KEY, pairs: TRI.slice(0, 2) })
-    georefDispatch({ type: 'end' })
-    expect(linked).not.toHaveBeenCalled()
-  })
-
   it('a transfer onto an unlinked Modul links it; replacing a linked Modul\'s fit does not', async () => {
     const src = 'object:o1:plan:modul3', dst = 'object:o1:plan:modul4'
     let dstPairs: GeorefPair[] | null = null
@@ -995,78 +975,6 @@ describe('georefTapOnMarker — a cross owns its own gesture', () => {
   })
 })
 
-describe('georefReduce · the automatic suggestion (proposal review)', () => {
-  const SUG: GeorefPair[] = [
-    { plan: { x: 0.15, y: 0.15 }, lngLat: mapOf({ x: 0.15, y: 0.15 }), kind: 'auto' },
-    { plan: { x: 0.85, y: 0.85 }, lngLat: mapOf({ x: 0.85, y: 0.85 }), kind: 'auto' },
-  ]
-  const proposal = (): GeorefModeState =>
-    georefReduce(GEOREF_OFF, { type: 'start', planId: 'modul2', storageKey: 'object:o1:plan:modul2', pairs: SUG, aspect: AR, check: true, proposal: true })
-
-  it('arms straight into coverage with the suggestion held as proposal, unsaved', () => {
-    const s = proposal()
-    expect(s.check).toBe(true)
-    expect(s.proposal).toBe(SUG)
-    expect(s.pairs).toBe(SUG)
-    expect(s.adjusting).toBe(false)
-    // a proposal review is not a Passung-launched check — no quality return
-    expect(s.checkReturn).toBeNull()
-  })
-
-  it('«Anpassen» opens the transform chrome and arms ✥; grips toggle; «Fertig» disarms both', () => {
-    let s = georefReduce(proposal(), { type: 'adjustOpen', on: true })
-    expect(s.adjusting).toBe(true)
-    expect(s.adjust).toBe('move')
-    s = georefReduce(s, { type: 'adjustArm', kind: 'rotate' })
-    expect(s.adjust).toBe('rotate')
-    s = georefReduce(s, { type: 'adjustArm', kind: 'rotate' }) // same grip again disarms
-    expect(s.adjust).toBeNull()
-    expect(s.adjusting).toBe(true) // …but the chrome stays until «Fertig»
-    s = georefReduce(s, { type: 'adjustOpen', on: false })
-    expect(s.adjusting).toBe(false)
-    expect(s.adjust).toBeNull()
-  })
-
-  it('nudges transform the pairs, keep coverage up, checkpoint for undo, and restore', () => {
-    let s = georefReduce(proposal(), { type: 'adjustOpen', on: true })
-    s = georefReduce(s, { type: 'proposalNudge', nudge: { dxM: 12 }, checkpoint: true })
-    expect(s.check).toBe(true) // a nudge must never dismiss the coverage it is judged on
-    expect(s.pairs).not.toBe(SUG)
-    expect(s.undoStack).toHaveLength(1)
-    // a streamed drag frame without checkpoint grows no undo step
-    s = georefReduce(s, { type: 'proposalNudge', nudge: { dxM: 3 } })
-    expect(s.undoStack).toHaveLength(1)
-    const nudged = s.pairs
-    s = georefReduce(s, { type: 'proposalUndo' })
-    expect(s.pairs).toBe(SUG)
-    expect(s.undoStack).toHaveLength(0)
-    // restore goes back to the suggestion from anywhere, itself undoable
-    s = georefReduce(s, { type: 'proposalNudge', nudge: { rotDeg: 5 }, checkpoint: true })
-    s = georefReduce(s, { type: 'proposalRestore' })
-    expect(s.pairs).toBe(SUG)
-    expect(s.undoStack.length).toBeGreaterThan(0)
-    expect(nudged).not.toBe(SUG)
-  })
-
-  it('finishCheck is a no-op on a proposal — coverage IS the review surface', () => {
-    const s = proposal()
-    expect(georefReduce(s, { type: 'finishCheck' })).toBe(s)
-  })
-
-  it('«Verwerfen» (end) drops the whole review — nothing survives', () => {
-    const s = georefReduce(georefReduce(proposal(), { type: 'adjustOpen', on: true }), { type: 'proposalNudge', nudge: { dxM: 5 }, checkpoint: true })
-    expect(georefReduce(s, { type: 'end' })).toBe(GEOREF_OFF)
-  })
-
-  it('proposal actions are no-ops outside a proposal review', () => {
-    const s = armed(TRI)
-    expect(georefReduce(s, { type: 'adjustOpen', on: true })).toBe(s)
-    expect(georefReduce(s, { type: 'proposalNudge', nudge: { dxM: 5 }, checkpoint: true })).toBe(s)
-    expect(georefReduce(s, { type: 'proposalUndo' })).toBe(s)
-    expect(georefReduce(s, { type: 'proposalRestore' })).toBe(s)
-  })
-})
-
 // 18.09.2026
 describe('an APPROVED automatic fit reads «verknüpft», not «ungemessen»', () => {
   const AUTO_PAIRS: GeorefPair[] = [
@@ -1109,7 +1017,7 @@ describe('an APPROVED automatic fit reads «verknüpft», not «ungemessen»', (
     release()
   })
 
-  it('…while an unapproved proposal keeps its proposal wording', () => {
+  it('…while an unapproved automatic fit keeps its «ungemessen» wording', () => {
     const release = withBinding('legacy')
     const mode = georefReduce(GEOREF_OFF, { type: 'start', planId: 'modul2', storageKey: KEY, pairs: AUTO_PAIRS, aspect: AR })
     const lamp = georefLamp(fitSimilarity(AUTO_PAIRS, AR), mode)
@@ -1125,7 +1033,7 @@ describe('an APPROVED automatic fit reads «verknüpft», not «ungemessen»', (
     release()
   })
 
-  it('an operator correction disconnects the approval — the proposal wording is back', () => {
+  it('an operator correction disconnects the approval — the «ungemessen» wording is back', () => {
     // an override IS the operator's own fit (incidentPlanBindings · incidentBindingApproved)
     const release = withBinding('approved', { pairs: AUTO_PAIRS })
     const mode = georefReduce(GEOREF_OFF, { type: 'start', planId: 'modul2', storageKey: KEY, pairs: AUTO_PAIRS, aspect: AR })
@@ -1189,24 +1097,5 @@ describe('georefChipTone — the Ampel tone of the idle pill', () => {
     const chip = georefChip(null, GEOREF_OFF, 'modul2')
     expect(chip.kind).toBe('unlinked')
     expect(georefChipTone(chip)).toBe('grey')
-  })
-})
-
-// 25.09.2026: «Übernehmen»'s toast resets the sheet — only while the reference is still exactly
-// what was accepted, never one another device has corrected since
-describe('georefStillIs — the accept toast takes back only what it accepted', () => {
-  const accepted: GeorefPair[] = [
-    { plan: { x: 0, y: 0 }, lngLat: { lng: 7.5, lat: 47.5 } },
-    { plan: { x: 1, y: 0 }, lngLat: { lng: 7.51, lat: 47.5 } },
-  ]
-  it('holds while the stored pairs are the accepted ones', () => {
-    mockGeorefForPlan.mockReturnValue({ pairs: accepted } as Georef)
-    expect(georefStillIs('modul2', accepted)).toBe(true)
-  })
-  it('declines once the reference moved — or went', () => {
-    mockGeorefForPlan.mockReturnValue({ pairs: [accepted[0], { ...accepted[1], lngLat: { lng: 7.52, lat: 47.5 } }] } as Georef)
-    expect(georefStillIs('modul2', accepted)).toBe(false)
-    mockGeorefForPlan.mockReturnValue(null)
-    expect(georefStillIs('modul2', accepted)).toBe(false)
   })
 })

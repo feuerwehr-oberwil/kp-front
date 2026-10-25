@@ -47,7 +47,8 @@ export interface GeoPt {
  *
  *  `kind` records HOW the pair came to be: 'gesetzt' when it was placed as a new reference,
  *  'korrigiert' when an existing cross was re-tapped to fix the error the operator could see,
- *  'auto' when it was derived from an accepted automatic alignment suggestion (georefSuggest).
+ *  'auto' when it was derived from an automatic alignment suggestion (the worker's proposal, approved
+ *  in Admin › Objektpläne › Plan-Ausrichtung).
  *  It carries no weight in the fit — it exists so the UI can say which pairs were adjusted. */
 export interface GeorefPair {
   plan: PlanPt
@@ -343,51 +344,6 @@ export function replacePair(pairs: GeorefPair[], pair: GeorefPair, eps = PAIR_EP
   const next = [...pairs]
   next[i] = pair
   return next
-}
-
-// ── whole-sheet adjustment of an automatic suggestion ──────────────────────────────────────────
-
-/** One incremental nudge of the whole sheet: metres of translation, degrees of turn, and a
- *  ×-factor of size — whichever of the three the gesture carried. */
-export interface SheetNudge {
-  /** east / north, in latitude-corrected metres */
-  dxM?: number
-  dyM?: number
-  /** counter-clockwise, math sense — the same sense `GeorefFit.rotationDeg` reports */
-  rotDeg?: number
-  /** uniform size factor (1 = unchanged) */
-  scaleFactor?: number
-}
-
-/**
- * Move / turn / resize the WHOLE sheet by transforming every pair's MAP half.
- *
- * This is how «Anpassen» on an automatic suggestion works: the plan halves are the sheet's own
- * identity and never move; rotating and scaling happen about the map halves' centroid in the
- * same latitude-corrected metre frame the fit itself solves in, so a 1 m nudge here is the same
- * metre a residual would report. Returns a new array (kinds kept); the input is untouched.
- * A no-op nudge returns the SAME array, so callers can compare by reference.
- */
-export function nudgePairsOnMap(pairs: GeorefPair[], nudge: SheetNudge): GeorefPair[] {
-  const { dxM = 0, dyM = 0, rotDeg = 0, scaleFactor = 1 } = nudge
-  if (!pairs.length || (dxM === 0 && dyM === 0 && rotDeg === 0 && scaleFactor === 1)) return pairs
-  if (!(Number.isFinite(dxM) && Number.isFinite(dyM) && Number.isFinite(rotDeg) && scaleFactor > 0)) return pairs
-  const lat0 = pairs.reduce((s, p) => s + p.lngLat.lat, 0) / pairs.length
-  const { project, unproject } = projector(lat0)
-  const M = pairs.map((p) => project(p.lngLat))
-  const c = centroid(M)
-  const th = (rotDeg * Math.PI) / 180
-  const cos = Math.cos(th), sin = Math.sin(th)
-  return pairs.map((p, i) => {
-    const vx = M[i].x - c.x, vy = M[i].y - c.y
-    return {
-      ...p,
-      lngLat: unproject({
-        x: c.x + scaleFactor * (cos * vx - sin * vy) + dxM,
-        y: c.y + scaleFactor * (sin * vx + cos * vy) + dyM,
-      }),
-    }
-  })
 }
 
 // ── automatic re-matching of mismatched pair ORDER ─────────────────────────────────────────────
