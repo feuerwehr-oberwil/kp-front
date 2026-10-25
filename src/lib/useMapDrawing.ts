@@ -1,6 +1,6 @@
 import { type SetStateAction, useRef, useState } from 'react'
 import { appConfig } from '../config/appConfig'
-import { detachEnds, flipLine, freeEnd } from './lineAttachments'
+import { detachDrawings, flipLine, withDetach } from './lineAttachments'
 import { drawingEditChanges, drawingLogName } from './drawingEdit'
 import type { Doc } from './workspace'
 import type { Drawing, LineAttachment, LineEndpoint, LngLat, MapTool, TimelineEvent } from '../types'
@@ -402,20 +402,12 @@ export function useMapDrawing(deps: MapDrawingDeps) {
       })
       if (!ok) return
     }
-    commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== id).map((dr) => {
-      if (dr.coords.length < 2) return dr
-      const out = detachEnds({ ...dr, points: dr.coords }, (ep, a, coords) => (a.target.kind !== 'line' || a.target.id !== id ? null
-        : resolvedTarget?.coords[a.target.endpoint === 'start' ? 0 : resolvedTarget.coords.length - 1] ?? coords[ep === 'start' ? 0 : coords.length - 1]))
-      return out ? { ...dr, coords: out.points, ...out.freed } : dr
-    }) }))
+    // one patch per line, both ends in it — applied here and sent as ONE draw.edit (lib/lineAttachments · detachDrawings)
+    const released = detachDrawings(drawings.filter((dr) => dr.id !== id), (_, ep, a, coords) => (a.target.kind !== 'line' || a.target.id !== id ? null
+      : resolvedTarget?.coords[a.target.endpoint === 'start' ? 0 : resolvedTarget.coords.length - 1] ?? coords[ep === 'start' ? 0 : coords.length - 1]))
+    commit((d) => ({ ...d, drawings: d.drawings.filter((dr) => dr.id !== id).map((dr) => withDetach(dr, released)) }))
     emit('draw.delete', { id })
-    incoming.forEach(({ drawing, endpoint }) => {
-      const attachment = endpoint === 'start' ? drawing.startAttachment : drawing.endAttachment
-      const targetEndpoint = attachment?.target.kind === 'line' ? attachment.target.endpoint : endpoint
-      const fallback = resolvedTarget?.coords[targetEndpoint === 'start' ? 0 : resolvedTarget.coords.length - 1] ?? drawing.coords[endpoint === 'start' ? 0 : drawing.coords.length - 1]
-      const { points: coords, freed } = freeEnd(drawing.coords, endpoint, fallback)
-      emit('draw.edit', { id: drawing.id, patch: { coords, ...freed } })
-    })
+    released.forEach((patch, lineId) => emit('draw.edit', { id: lineId, patch }))
     if (selectedDrawingId === id) setSelectedDrawingId(null)
     // named like its creation row («Fläche gezeichnet» → «Fläche gelöscht»), not the bare kind-blind
     // «Zeichnung gelöscht» the record used to close on
