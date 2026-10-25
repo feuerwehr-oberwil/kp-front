@@ -17,7 +17,7 @@
 //     are plans»; the colour category, or the default look's rim, says that).
 //
 // Pure: positions and sizes come in, the set of tagged ids goes out. The surface measures the
-// chrome and the text (components/karte/KarteApp); this file never touches the DOM.
+// chrome and the text (components/karte/useKarteTags); this file never touches the DOM.
 
 /** Below this zoom the map shows dots only (z16 ≈ a few streets on a phone). */
 export const LABEL_MIN_ZOOM = 16

@@ -90,7 +90,7 @@ describe('the buildings of an object', () => {
     const b = objectBuildings(obj({ footprint: fp }), [])
     expect(b?.rings).toEqual([HOUSE, GYM])
     expect(b?.main).toEqual(HOUSE)
-    // a tap on ANY of them finds the object (KarteApp · onMapClick reads ringAt over the set)
+    // a tap on ANY of them finds the object (lib/karte/selection · objectAt reads ringAt over the set)
     expect(ringAt(b!.rings, [7.5711, 47.5201])).toEqual(GYM)
   })
 
@@ -107,7 +107,7 @@ describe('the buildings of an object', () => {
     const b = objectBuildings(obj({ footprint: fp, underground: { type: 'MultiPolygon', coordinates: [[closed(garage)]] } }), [])
     expect(b?.rings).toEqual([HOUSE])
     expect(b?.under).toEqual([garage])
-    // a tap on the garage finds the object too (KarteApp · onMapClick reads ringAt over `under`)
+    // a tap on the garage finds the object too (lib/karte/selection · objectAt reads ringAt over `under`)
     expect(ringAt(b!.under, [7.5702, 47.5199])).toEqual(garage)
   })
 

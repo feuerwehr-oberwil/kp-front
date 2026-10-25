@@ -1,5 +1,5 @@
 // «Karte & Objekte» — two map rules of the viewer, pure so they can be tested without MapLibre
-// (components/karte/KarteApp wires them; docs/karte-objekte.md · «Taps and the camera»).
+// (components/karte/useKarteCamera wires them; docs/karte-objekte.md · «The viewer»).
 //
 // 1. A TOOL THAT WAITS FOR A TAP TAKES EVERY TAP (owner, review round 4, 17.10.2026: «while
 //    measuring we should also be able to measure on top of objects (not have the objects get
@@ -24,11 +24,11 @@
 //    neatly in focus»). A place is framed in the middle of the map between the panel and the tool
 //    rail, under the bar — measured from the rails' published widths, so the round-5 chevron's
 //    wider rail moves the middle with it (`besidePanel`). And back from a plan the selected
-//    object is framed there again (KarteApp), however the tap that selected it left the map.
+//    object is framed there again (useKarteCamera · useFrameOnReturn), however the tap that selected it left the map.
 
 import type { LngLat } from '../../types'
 
-/** A map tool armed for a tap (KarteApp · Tool), and Gefahrgut's ring mode. */
+/** A map tool armed for a tap (components/karte/useKarteTools · Tool), and Gefahrgut's ring mode. */
 export function toolTakesTaps(tool: string | null, ergMode: string): boolean {
   return tool === 'measure' || tool === 'pin' || (tool === 'erg' && ergMode !== 'off')
 }
@@ -64,7 +64,7 @@ export function sameCamera(a: Camera, b: Camera): boolean {
 }
 
 /** The camera to ease to when the selection closes with the map at `now` — null: stay. The user's
- *  own move has already dropped `r` to null (KarteApp · movestart with an originalEvent). */
+ *  own move has already dropped `r` to null (useKarteCamera · movestart with an originalEvent). */
 export function cameraOnClose(r: CameraReturn | null, now: Camera): Camera | null {
   if (!r) return null
   const to = r.to === 'camera' ? r.cam : { center: now.center, zoom: now.zoom, padding: NO_PADDING }

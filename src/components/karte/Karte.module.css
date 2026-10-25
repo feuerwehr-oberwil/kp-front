@@ -190,7 +190,7 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
    medium names («Amselstrasse 24-32, Auf der Wacht 2») stay one line. The measuring twin below
    wears the same rules, so the placement pass collides the folded size. A folded box is as wide
    as its longest line, not the 280px (owner, round 3): CSS cannot shrink a wrapped box, so
-   KarteApp reads the twin's lines and hands the tag that width inline (e2e/karte-tag-fit.mjs). */
+   useKarteTags reads the twin's lines and KarteApp hands the tag that width inline (e2e/karte-tag-fit.mjs). */
 .tagMk { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
   width: max-content; max-width: 280px; text-wrap: balance; text-align: center;
   padding: 4px var(--sp-2); border-radius: var(--r-xs); border: 1.5px solid color-mix(in srgb, var(--obj-plans) 45%, transparent);
@@ -202,13 +202,13 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
   .dotMk:hover::after { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink-16), var(--e1); }
 }
 .tagMk.approx { border-style: dashed; border-color: var(--amber-strong); }
-/* the measuring twin of a tag (KarteApp · the placement pass) — laid out, never seen */
+/* the measuring twin of a tag (useKarteTags · the placement pass) — laid out, never seen */
 .tagMk.measure { position: absolute; left: -9999px; top: 0; visibility: hidden; pointer-events: none; }
 /* an object without its tag (zoomed out, or no room for the tag): a dot with a light ring,
    inside a 32 px tap target (lib/karte/labels) */
 .dotMk { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: none; background: none; cursor: pointer; }
 /* the arrival (lib/karte/arrival): a dot or tag mounted in the catalogue's first moments fades in
-   after its western neighbours — `--arrive` is its wait, both set on the element by KarteApp's
+   after its western neighbours — `--arrive` is its wait, both set on the element by useKarteArrival's
    arriveRef, outside React's className. On the button, never the Marker: the Marker's transform
    is MapLibre's position. Reduced motion: 03-map's global rule. */
 .waiting { visibility: hidden; }   /* mounted before the basemap's first settled frame: unseen, untappable, not in the tab order */
@@ -227,7 +227,7 @@ button.hydRow.lit:global(.list-row):not(:disabled) { background-color: var(--sel
 .tagMk.bare { border-color: var(--ink-28); }
 .tagMk.bare.sel { border-color: var(--ink-62); box-shadow: 0 0 0 2px var(--ink-16), var(--e2); }
 .dotMk.bare::after { background: var(--ink-45); }
-/* the mouse's label beside the cursor (KarteApp · hover; never on touch): placed by the pointer,
+/* the mouse's label beside the cursor (useKartePointer · useMapHover; never on touch): placed by the pointer,
    never in its way */
 .hoverTip { position: absolute; left: 0; top: 0; z-index: var(--z-chrome-raised); pointer-events: none; max-width: 320px; padding: var(--sp-2) var(--sp-3);
   border-radius: var(--r-sm); background: var(--surface); border: 1px solid var(--border-soft); box-shadow: var(--e3); }
