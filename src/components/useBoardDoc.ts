@@ -181,7 +181,7 @@ export function useBoardDoc({ annos, onChange, emit, activeId, selId, setSelId, 
     onChange(prev.snap, { gesture: false }); setSelId(null); setEditId(null)
     onRestore?.(annos, prev.snap)
     // ⚠️ No Verlauf row here since 08.09.2026. This is reached ONLY through the one global
-    // timeline now (IncidentWorkspace · planStepAt), which writes the row itself — and writes
+    // timeline now (workspace/usePlanStacks · planStepAt), which writes the row itself — and writes
     // the SAME row whether the plan happened to be open or not. Logging in both places gave a
     // step on the open plan two lines and a step on a closed one a different wording.
     return true

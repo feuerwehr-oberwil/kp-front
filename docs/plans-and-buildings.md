@@ -30,8 +30,8 @@ AGENTS.md on 2026-10-08, wording unchanged.
     «EG», a custom name); the signed chip comes back only when a custom name hides the order. A
     tap opens a Menu «Ausblenden · Geschoss entfernen» — Ausblenden is a way of looking
     (device-local, on read-only surfaces too, the folded strip is the way back), «Geschoss
-    entfernen» is the danger row and stays the owner's confirm-with-undo (IncidentWorkspace ·
-    onRemoveFloor). No eye and no bin on the canvas: delete is the rarest act on this surface.
+    entfernen» is the danger row and stays the owner's confirm-with-undo (workspace/useGebaeudeActions ·
+    removeFloor). No eye and no bin on the canvas: delete is the rarest act on this surface.
 
 ## «Automatisch ausrichten» and approved alignments
 

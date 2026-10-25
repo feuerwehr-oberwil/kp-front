@@ -3,7 +3,7 @@
  * decides the undo stack»; review of PR #226, 25.09.2026).
  *
  * A plan step lays its own checkpoint the moment it begins (useBoardDoc · pushPast →
- * IncidentWorkspace · rememberPlanStep): a snapshot of the sheet on its per-plan history and an
+ * workspace/usePlanStacks · rememberPlanStep): a snapshot of the sheet on its per-plan history and an
  * entry on the global timeline. Only the fold that follows can tell whom the edit touched — and
  * when it reaches an object the sheet does not OWN (a Karte symbol projected onto it), the store
  * takes the step on its own stack (useObjectStore · onForeignStep). Both stayed, so a plan-panel

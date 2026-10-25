@@ -337,7 +337,7 @@ export function IncidentWorkspace({
   /** the caption the NEXT store checkpoint carries, when its writer knows a better word than
    *  the domain's — see `onCheckpoint` below */
   const stepLabel = useRef<string | null>(null)
-  /** …and the same one-shot caption for the next PLAN step (rememberPlanStep), set by a plan writer
+  /** …and the same one-shot caption for the next PLAN step (workspace/usePlanStacks · rememberPlanStep), set by a plan writer
    *  that knows the words for its act (Whiteboard · onStepLabel) */
   const planStepLabel = useRef<string | null>(null)
   /** ONE gesture on a plan is ONE undo step, whichever stack takes it (lib/planStepLink) */
@@ -1300,7 +1300,7 @@ export function IncidentWorkspace({
   /** the Bildlegende step that stands — a caption is typed, so it is ONE step and not one per
    *  letter (same window and the same reason as the Rapportangaben). */
   const lastCaptionStep = useRef<{ key: string; at: number; from: string | undefined; drop: () => void } | null>(null)
-  /** …and the Gebäude-Drehung, which is a slider: one drag is one step (see onReorient). */
+  /** …and the Gebäude-Drehung, which is a slider: one drag is one step (workspace/useGebaeudeActions · reorient). */
   const lastReorient = useRef<{ at: number; from: BuildingDoc; drop: () => void } | null>(null)
 
   // The blob both ways — the load gate's toast, applyWorkspace (merge in) and buildPayload (save
