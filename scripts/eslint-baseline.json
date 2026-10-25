@@ -7,7 +7,7 @@
     "react-hooks/immutability": 22,
     "react-hooks/preserve-manual-memoization": 8,
     "react-hooks/purity": 17,
-    "react-hooks/refs": 120,
+    "react-hooks/refs": 119,
     "react-hooks/set-state-in-effect": 70,
     "react-refresh/only-export-components": 104
   },

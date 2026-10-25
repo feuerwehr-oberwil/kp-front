@@ -9,7 +9,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BuildingFloat } from './BuildingFloat'
 import type { BuildingInfo } from '../lib/api/building'
-import { LineMarker } from './LineMarker'
 import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
 import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
@@ -26,7 +25,7 @@ import { planMatcherImage, planPrintedMPerU, prewarmPlans } from '../lib/pdfRast
 import { PdfScroller } from './PdfScroller'
 import { OsmOutline } from './OsmOutline'
 import { appConfig } from '../config/appConfig'
-import { markerParamsAlong, markerSpacing, markerGlyph, lerpPoint, lookbackPoint, rdpIndices, isTapStroke, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
+import { rdpIndices, isTapStroke, FREEHAND_SIMPLIFY_PX } from '../lib/lineStyle'
 import { minPoints } from '../lib/vertexOps'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { useWbVertexEdit, type PlanEndpointDrag } from './useWbVertexEdit'
@@ -35,11 +34,12 @@ import { useWbChipDrag } from './useWbChipDrag'
 import { CIRCLE_MAX_N, useWbRotor } from './useWbRotor'
 import { SelectionBar } from './SelectionBar'
 import { PlanAnno, type PlanAnnoBoard } from './PlanAnno'
+import { PlanLineDecor } from './PlanLineDecor'
 import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
-import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
+import { hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { markerTakesLineEnd, truppForLine, truppIdForAttachment, truppIsOut, truppLineTone, type LinkableLine } from '../lib/truppLines'
 import { nextTeamName } from '../lib/placedTrupps'
 import { draftActive as isDraftActive, finishKind, releaseDraft as releaseDraftOf } from '../lib/draftMachine'
@@ -72,7 +72,7 @@ import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
 import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
-import { arrowEdgePadPx, arrowTipLeadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachEnds, dwellFor, flipLine, freeEnd, forkPortPoint, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
+import { arrowEdgePadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachEnds, dwellFor, flipLine, freeEnd, forkPortPoint, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
 import type { FloorPackView } from '../lib/floorPackBinding'
@@ -82,7 +82,7 @@ import { slimTools, PLAN_READONLY_TOOLS } from '../lib/readOnlyTools'
 import { isSelectOnlySurface } from '../lib/useObjectPlans'
 import { useIsPhone } from '../lib/useIsPhone'
 import type { PlanScales } from '../lib/workspace'
-import { fmtDistance, fmtArea, hoseLengthHint } from '../lib/geo'
+import { fmtDistance, fmtArea } from '../lib/geo'
 import { activeViewDeg, bandAspect, BOX_H, BOX_W, buildView, principalAngleDeg, remapPoint, stackScaleMPerU, type Ring } from '../lib/footprint'
 import { usePlanMeasure } from './usePlanMeasure'
 import { useMeasuredSheet } from './useMeasuredSheet'
@@ -3296,114 +3296,10 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
                 )
               }))
             })}
-            {renderAnnos.filter((a) => a.kind === 'draw' && (a.arrow || a.marker || a.label || a.showDistance || hasLineDecor(a)) && (a.pts?.length ?? 0) >= 2).map((a) => {
-              const p = a.pts!
-              const bpx = p.map(([x, y, floor]) => [x * sW, mapY(floor ?? a.floor, y) * sH] as [number, number])
-              const end = bpx[bpx.length - 1]
-              const midIdx = Math.floor((bpx.length - 1) / 2)
-              const mid = bpx[midIdx]
-              const color = a.color || COLORS[0]
-              // On the stack the stroke is cut to its storey's section (lib/storeyClip): whatever
-              // stands on a part that is not drawn — the tip, the tag, a marker, the label — is not
-              // drawn either; the edge mark says the line goes on. `seg` names the vertex a spot
-              // follows, whose storey it is on.
-              const onLine = (seg: number, at: [number, number]) => onSection(p[seg][2] ?? a.floor, at)
-              const endShown = onLine(bpx.length - 1, end)
-              // arrowhead sized to the line weight (tip at 0,0 = the end point), like a real spitze
-              const ahw = Math.max(7, (a.width ?? 5) * 1.7) // half-width
-              const ahl = ahw * 2.1 // length back from the tip
-              // bearing from a point sampled back along the stroke (stable; the last freehand
-              // segment is tiny + jittery), so the head points the way the line actually travels
-              const ref = lookbackPoint(bpx, Math.max(ahl, 16))
-              const dxr = end[0] - ref[0], dyr = end[1] - ref[1]
-              const dlen = Math.hypot(dxr, dyr) || 1
-              const ang = Math.atan2(dyr, dxr) * 180 / Math.PI
-              // push the tip a little PAST the line's visual end: clear the round cap (~half the
-              // stroke width beyond the last vertex), then a few px more so the spitze leads the line
-              const fwd = arrowTipLeadPx(a.width ?? 5)
-              const last: [number, number] = [end[0] + (dxr / dlen) * fwd, end[1] + (dyr / dlen) * fwd]
-              // `deg` rides along so an FKS chain glyph stands on the line; a letter ignores it.
-              // Board px are screen px here (the board is only translated/scaled), so the bearing
-              // is directly usable — the same value the Lage map computes from projected px.
-              const markerPts: { at: [number, number]; deg: number }[] = a.marker
-                ? (() => {
-                  const along = markerParamsAlong(bpx, markerSpacing(a.marker))
-                  const ps = along.map(({ seg, t, deg }) => ({ seg, at: lerpPoint(bpx[seg], bpx[seg + 1], t), deg }))
-                  return (ps.length ? ps : [{ seg: midIdx, at: mid, deg: 0 }])
-                    .filter((m) => onLine(m.seg, m.at)).map(({ at, deg }) => ({ at, deg }))
-                })()
-                : []
-              // distance read-out (calibrated plans only); falls back to a "calibrate first" nudge
-              // the Atemschutz-Trupp on this Leitung (anchor or number) and how it is doing
-              const lineTrupp = truppForLine(a, trupps)
-              const lineTone = lineTrupp ? truppLineTone(lineTrupp, truppSeverities?.[lineTrupp.id] ?? 0) : 'idle'
-              const distM = a.showDistance ? planMetres(a.pts!.map(([x, y]) => [x, y])) : null
-              const labelLines: string[] = []
-              if (distM != null) labelLines.push(`${fmtDistance(distM)} · ${hoseLengthHint(distM)}`)
-              else if (a.showDistance) labelLines.push(appConfig.copy.whiteboard.scale.needsCalibration)
-              if (a.label) labelLines.push(a.label)
-              return (
-                <Fragment key={`am-${a.id}`}>
-                  {a.arrow && endShown && (
-                    // SVG centred on the end point (viewBox origin (0,0) = svg centre = the path tip).
-                    // Centring uses the same translate-pair the markers use (reliable); the head is
-                    // rotated by an SVG `transform` on the path about (0,0), so the TIP stays pinned to
-                    // the end point at every angle — doing the rotation in CSS on the <svg> instead
-                    // would pivot about the box and skew the tip off the line. Tinted to the line colour.
-                    <svg className="wb-arrowhead" width="80" height="80" viewBox="-40 -40 80 80" aria-hidden
-                      style={{ left: 0, top: 0, color, transform: `translate(${last[0]}px, ${last[1]}px) translate(-50%, -50%)` }}>
-                      <path transform={`rotate(${ang})`} d={`M0,0 L${-ahl},${-ahw} L${-ahl},${ahw} Z`} fill="currentColor" />
-                      {/* the «Stopp»: the Entwicklungsgrenze bar just past the tip, like the fire's */}
-                      {a.arrowStop && <path transform={`rotate(${ang})`} d={`M4,${-ahw * 1.3} L4,${ahw * 1.3}`} stroke="currentColor" strokeWidth={Math.max(3, (a.width ?? 5) * 0.9)} strokeLinecap="round" fill="none" />}
-                    </svg>
-                  )}
-                  {/* FKS Teilstück fork at the tip (rotated to the line's screen angle) */}
-                  {a.teilstueck && endShown && (
-                    <span className="wb-line-deco" style={{ transform: `translate(${end[0]}px, ${end[1]}px) translate(-50%, -50%)` }}>
-                      <TeilstueckFork angleDeg={ang} color={color} width={a.width ?? 5} />
-                    </span>
-                  )}
-                  {/* one combined FKS tag (Leitung-Nr · content · Stockwerk) — anchored just before
-                      the tip and draggable (endDx/endDy, normalized) to clear other symbols */}
-                  {(a.content || a.lineNo != null || a.floorTag != null || lineTrupp) && (() => {
-                    const pe = bpx[bpx.length - 1]
-                    const pp = bpx[bpx.length - 2] ?? pe
-                    const base: [number, number] = [pp[0] + (pe[0] - pp[0]) * 0.72, pp[1] + (pe[1] - pp[1]) * 0.72]
-                    if (!onLine(bpx.length - 1, base)) return null
-                    const ax = base[0] + (a.endDx ?? 0) * sW
-                    const ay = base[1] + (a.endDy ?? -0.02) * sH
-                    return (
-                      <span className="wb-line-deco draggable" style={{ transform: `translate(${ax}px, ${ay}px) translate(-50%, -50%)`, cursor: tool === 'pan' ? 'move' : undefined }}
-                        onPointerDown={tool === 'pan' ? (e) => labelDown(e, a.id, a.endDx ?? 0, a.endDy ?? -0.02, 'end') : undefined}
-                        onPointerMove={tool === 'pan' ? labelMove : undefined}
-                        onPointerUp={tool === 'pan' ? labelUp : undefined}
-                        onPointerCancel={tool === 'pan' ? labelUp : undefined}>
-                        <EndTag
-                          lineNo={a.lineNo} content={a.content} floorTag={a.floorTag}
-                          tone={lineTone}
-                          color={color}
-                        />
-                      </span>
-                    )
-                  })()}
-                  {/* a LETTER keeps the plan's chip (plate + ring, legible over a printed plan);
-                      a chain GLYPH is bare, like the sheet draws it — hence the two classes. */}
-                  {markerPts.map((mp, i) => (
-                    <span key={`mk-${i}`} className={markerGlyph(a.marker) ? 'wb-line-glyph' : 'wb-line-marker'}
-                      style={{ left: 0, top: 0, color, transform: `translate(${mp.at[0]}px, ${mp.at[1]}px) translate(-50%, -50%)` }}>
-                      <LineMarker marker={a.marker!} color={color} deg={mp.deg} className="wb-line-mk" />
-                    </span>
-                  ))}
-                  {labelLines.length > 0 && onLine(midIdx, mid) && (
-                    <span className="wb-line-label" style={{ left: 0, top: 0, transform: `translate(${mid[0] + (a.labelDx ?? 0) * sW}px, ${mid[1] + (a.labelDy ?? 0) * sH}px) translate(-50%, -100%)`, cursor: tool === 'pan' ? 'move' : undefined }}
-                      onPointerDown={tool === 'pan' ? (e) => labelDown(e, a.id, a.labelDx ?? 0, a.labelDy ?? 0) : undefined}
-                      onPointerMove={tool === 'pan' ? labelMove : undefined}
-                      onPointerUp={tool === 'pan' ? labelUp : undefined}
-                      onPointerCancel={tool === 'pan' ? labelUp : undefined}>{labelLines.map((t, j) => <div key={j}>{t}</div>)}</span>
-                  )}
-                </Fragment>
-              )
-            })}
+            {renderAnnos.filter((a) => a.kind === 'draw' && (a.arrow || a.marker || a.label || a.showDistance || hasLineDecor(a)) && (a.pts?.length ?? 0) >= 2).map((a) => (
+              <PlanLineDecor key={`am-${a.id}`} a={a} sW={sW} sH={sH} mapY={mapY} onSection={onSection} trupps={trupps} truppSeverities={truppSeverities}
+                planMetres={planMetres} tool={tool} labelDown={labelDown} labelMove={labelMove} labelUp={labelUp} />
+            ))}
 
             {/* area (Sektor/Abschnitt) labels — a labelled area renders its free text at the polygon
                 centroid in board px (the 1×1 ink SVG would distort text). Draggable like a line label.
