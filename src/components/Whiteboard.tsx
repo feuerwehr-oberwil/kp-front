@@ -11,7 +11,7 @@ import { BuildingFloat } from './BuildingFloat'
 import type { BuildingInfo } from '../lib/api/building'
 import { LineMarker } from './LineMarker'
 import { ConnectRing, NodeDeleteChip } from './NodeDeleteChip'
-import type { BoardAnno, BoardKind, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
+import type { BoardAnno, BoardPoint, BoardTool, BuildingDoc, CaptionMode, LineAttachment, LineEndpoint, LngLat, NoteSize, PlanDocument, ShapeKind, SrcGeoref, Trupp } from '../types'
 import type { SymbolsApi } from '../lib/useSymbols'
 import type { RailLabels } from '../lib/prefs'
 import { Icon } from '../lib/icons'
@@ -38,10 +38,15 @@ import { SelectionTurn } from './SelectionTurn'
 import { useArmedTransform } from '../lib/useArmedTransform'
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
-import { buzz } from '../lib/haptics'
 import { TeilstueckFork, EndTag, hasLineDecor, lineLabel } from '../lib/lineDecor'
 import { markerTakesLineEnd, truppForLine, truppIdForAttachment, truppIsOut, truppLineTone, type LinkableLine } from '../lib/truppLines'
-import { freshTeamLabel, nextTeamName, teamNoTaken } from '../lib/placedTrupps'
+import { nextTeamName, teamNoTaken } from '../lib/placedTrupps'
+import { draftActive as isDraftActive, finishKind, releaseDraft as releaseDraftOf } from '../lib/draftMachine'
+import { DUP_PREFIX, duplicateAnno } from '../lib/duplicate'
+import { useHiddenTrails } from '../lib/useHiddenTrails'
+import { useNotePanelClosing } from '../lib/useNotePanelClosing'
+import { joinTargets, useDraftMagnet } from '../lib/useDraftMagnet'
+import { usePlacement } from '../lib/useTacticalSelection'
 import { fillTemplate, formatSymbolName, formatTime } from '../lib/format'
 import { confirmDialog, toast } from '../lib/ui'
 import { usePlacementLane } from '../lib/toastLane'
@@ -71,7 +76,7 @@ import { dismissNearbyBanner, nearbyBannerDismissed, nearbyBannerKey } from '../
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
 import { planUrl, tileAspectOf, TOP_INSET, STACK_VPAD, STACK_CHIP_ROW, chipRowInset, containFit, sideInsets, clamp01, floorLabel, floorGeometry, signedFloor, floorCrossings, storeyTowards } from '../lib/whiteboard'
 import { loadHiddenFloors, saveHiddenFloors, shownFloors } from '../lib/floorPrefs'
-import { advanceDwell, armDwell, arrowEdgePadPx, arrowTipLeadPx, attachInsetPx, boundaryPoint, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, distance, dwellFor, EMPTY_DWELL, flipLine, forkPortPoint, incomingAttachments, isMagnetAnno, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget } from '../lib/lineAttachments'
+import { arrowEdgePadPx, arrowTipLeadPx, attachInsetPx, boundaryPoint, candidateAttachment, DEFAULT_OBJECT_ROUTING, DETACH_SHOW_PROGRESS, detachEnds, dwellFor, flipLine, freeEnd, forkPortPoint, isMagnetAnno, lineEndTargets, relationshipNetwork, resolveLinePoints, type AttachableLine, type MagneticTarget } from '../lib/lineAttachments'
 import { packFrameRing, packPagePlacement, pagePlacement, regionCorners, reorientBearings, stackGroundFit } from '../lib/stackFit'
 import { circleRing, enclosesSection, inSection, rectPoly, storeySections, visibleCentre } from '../lib/storeyClip'
 import type { FloorPackView } from '../lib/floorPackBinding'
@@ -468,7 +473,11 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // does not remount between documents), so a Linie armed on the Tafel would arrive still armed
   // on the selection-only Umrisse sheet — with no rail left to disarm it. Forcing the rest tool
   // there closes every create path at once (they all gate on `tool`) instead of gating each.
-  const [armedTool, setTool] = useState<BoardTool>('pan')
+  // …and what it will place next: the pending symbol / shape and the place-lock, the Karte's
+  // own placement state (lib/useTacticalSelection · usePlacement). Placing one at a time by
+  // default (drop to pan + select it after each), or holding the lock to keep placing several,
+  // is identical to the Lage map placement model.
+  const { tool: armedTool, setTool, pending, setPending, pendingShape, setPendingShape, placeLock, setPlaceLock } = usePlacement<BoardTool>('pan')
   /** measure node currently in the hand — its cumulative label (25px over the fingertip) steps
    *  aside and the fixed .measure-readout carries the number instead (mirrors MapView) */
   const [measDragNode, setMeasDragNode] = useState<number | null>(null)
@@ -487,12 +496,6 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const tool: BoardTool = selectOnly ? 'pan' : armedTool
   // a plan tool takes the taps: the toasts give way to the top lane meanwhile (lib/toastLane)
   usePlacementLane(tool !== 'pan' && !readOnlyProp)
-  const [pending, setPending] = useState<string | null>(null)
-  // a generic shape (Pfeil / Rauch / Rechteck) armed from the palette — mirror of the map's pendingShape
-  const [pendingShape, setPendingShape] = useState<ShapeKind | null>(null)
-  // place one symbol at a time by default (drop to pan + select it after each), or
-  // hold the lock to keep placing several — identical to the Lage map placement model.
-  const [placeLock, setPlaceLock] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [selId, setSelId] = useState<string | null>(null)
   // marquee (Mehrfach/lasso) group selection — parity with the Lage map. A separate
@@ -544,14 +547,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // (components/useMeasuredSheet). Seeded and reseeded there; nothing else may set it.
   const { aspect, takeAspect, measured: aspectMeasured } = useMeasuredSheet(activeGeorefKey, active?.orientation)
   const [vp, setVp] = useState({ w: 0, h: 0 })
-  // per-team trail visibility (anno ids hidden this session) — the eye on a selected team
-  // hides only THAT team's trail; there is no global Spuren toggle anymore
-  const [hiddenTrails, setHiddenTrails] = useState<ReadonlySet<string>>(new Set())
-  const toggleTrail = (id: string) => setHiddenTrails((prev) => {
-    const next = new Set(prev)
-    next.has(id) ? next.delete(id) : next.add(id)
-    return next
-  })
+  // per-team trail visibility, the same as the Karte's (lib/useHiddenTrails)
+  const { hiddenTrails, toggleTrail } = useHiddenTrails()
   // Plan-Maßstab (calibration) + Messen (ephemeral distance/area) own their state end to end in
   // usePlanMeasure — see the hook call below, which needs toNorm/floorAt and so cannot sit here.
 
@@ -578,15 +575,14 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   const planEndpointDrag = useRef<PlanEndpointDrag | null>(null)
   const planDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const setPlanEndpointDrag = (next: PlanEndpointDrag | null) => { planEndpointDrag.current = next; setPlanEndpointDragState(next) }
-  // `first` is where the stroke went DOWN — the start's claim is kept while the finger is still
-  // within STROKE_START_RADIUS_PX of it (see updatePlanDraftMagnet), exactly as on the Lage map.
-  /** `startJoin`: the joint (board px) the stroke's START is coupled onto, held for the whole
-   *  stroke so the «Angekuppelt» ring stays on it after the finger has left (MapView twin). */
-  type PlanDraftMagnet = { first: BoardPoint; atStart: boolean; point: BoardPoint; dwell: DwellState; candidate: MagneticTarget | null; startJoin?: { key: string; point: [number, number]; color: string } }
-  const [planDraftMagnetState, setPlanDraftMagnetState] = useState<PlanDraftMagnet | null>(null)
-  const planDraftMagnet = useRef<PlanDraftMagnet | null>(null)
-  const planDraftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const setPlanDraftMagnet = (next: PlanDraftMagnet | null) => { planDraftMagnet.current = next; setPlanDraftMagnetState(next) }
+  // the magnet of a line being DRAWN — the Karte's own machine (lib/useDraftMagnet), in board px
+  // over this sheet's target walk (planCandidatesAt / planAttachmentFor below)
+  const planMagnet = useDraftMagnet<BoardPoint>({
+    project: (p) => [p[0] * sW, mapY(p[2], p[1]) * sH],
+    candidates: (p) => planCandidatesAt('__draft__', [p[0] * sW, mapY(p[2], p[1]) * sH]),
+    attachmentFor: (c) => planAttachmentFor(c),
+  })
+  const planDraftMagnetState = planMagnet.state
   // which text note is mid-edit (so we checkpoint undo once per edit session, then stream
   // each keystroke live into the anno — like the Lage note title)
   const textEditId = useRef<string | null>(null)
@@ -746,7 +742,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   useEffect(() => {
     if (!selectOnly) return
     setTool('pan'); setPending(null); setPendingShape(null); setPaletteOpen(false); setDraft(null); setCircleDraft(null)
-  }, [selectOnly])
+  }, [selectOnly, setTool, setPending, setPendingShape])
   // WHICH plan the Passung is open for, not merely whether it is open: switching documents then
   // closes it by derivation instead of by an effect that fires after the wrong panel has already
   // been painted over the new sheet.
@@ -1282,38 +1278,21 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   useEffect(() => { if (fitRef) fitRef.current = () => applyView(1, { x: 0, y: 0 }); return () => { if (fitRef) fitRef.current = null } })
   /**
    * Cmd/Ctrl+D — duplicate the ONE selected annotation, a small nudge away so the copy is visibly
-   * offset and separately selectable (A22). The Karte's own semantics (IncidentWorkspace ·
-   * duplicateSelection), in plan-width fractions: one object at a time, one undo step, one
-   * «Objekt dupliziert» row, and the selection moves to the copy.
+   * offset and separately selectable (A22). The Karte's own semantics (useMapActions ·
+   * duplicateSelection) and the same copy rules (lib/duplicate · duplicateAnno): one object at a
+   * time, one undo step, one «Objekt dupliziert» row, and the selection moves to the copy.
    *
    * Deliberately NOT wired for a Mehrfach group or for a mirrored object — neither is on the
    * Karte either. A group would need a per-item id remap (and, on the Kroki, would have to decide
    * what a copied attachment points at); a twin's source lives in the other document, and this
    * surface's `add` writes only its own.
-   *
-   * ⚠️ The copy carries no `trail`. A recorded track belongs to the Trupp that walked it, and a
-   * duplicate that inherited it would put a fabricated movement history into the record — and,
-   * since 18.09.2026, leave a ghost trail behind that nobody ever walked.
    */
-  const DUP_OFFSET_N = 0.02 // ~2 % of the plan width — the same visible nudge a detached endpoint gets
-  const DUP_PREFIX: Record<BoardKind, string> = { draw: 'l', area: 'a', circle: 'c', text: 't', symbol: 's', shape: 'sh', resource: 'r', form: 'fm' }
   const duplicateSelection = () => {
     if (readOnly || selIds.length > 1) return
     const src = annos.find((a) => a.id === selId)
     if (!src) return
     const id = newId(DUP_PREFIX[src.kind])
-    // …and no «Gelöscht / erledigt» either: the copy is a new thing on the picture (lib/duplicate)
-    const { done: _done, ...rest } = src
-    // ⚠️ a loose «Trupp 3» copied is not a second Trupp 3 (docs/trupp-naming.md §7): it takes the
-    // next number of the one counter, as a chip dropped with the Trupp tool would
-    const teamNames = () => [...annos.filter((a) => a.kind === 'resource').map((a) => a.text), ...(placedTeamNames?.() ?? [])]
-    const copy: BoardAnno = {
-      ...rest, id, trail: undefined,
-      ...(src.kind === 'resource' && !src.truppId ? { text: freshTeamLabel(src.text, teamNames()) } : {}),
-      ...(src.pts ? { pts: src.pts.map(([x, y, floor]): BoardPoint => [x + DUP_OFFSET_N, y + DUP_OFFSET_N, floor ?? src.floor ?? 0]) } : {}),
-      ...(src.x != null ? { x: src.x + DUP_OFFSET_N } : {}),
-      ...(src.y != null ? { y: src.y + DUP_OFFSET_N } : {}),
-    }
+    const copy = duplicateAnno(src, id, () => [...annos.filter((a) => a.kind === 'resource').map((a) => a.text), ...(placedTeamNames?.() ?? [])])
     add(copy)
     setSelId(id); setSelIds([])
     log('layers', appConfig.copy.log.duplicated, { annoId: id, x: copy.x ?? copy.pts?.[0]?.[0], y: copy.y ?? copy.pts?.[0]?.[1], floor: copy.floor })
@@ -1321,7 +1300,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
 
   useEffect(() => {
     if (isPhone && active.id === 'tafel' && tool === 'measure') setTool('pan')
-  }, [isPhone, active.id, tool])
+  }, [isPhone, active.id, tool, setTool])
 
   // expose tool-pick + zoom + duplicate to the keyboard-shortcut layer. Semantic ids (from App) →
   // Plan tools; the rest tool is 'pan' (the plan pans on empty canvas), 'note'→'text',
@@ -1364,7 +1343,7 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
    *  predicate the three pointer handlers share, so the two tools cannot drift apart. */
   const inking = (tool === 'line' && lineMode === 'freehand') || (tool === 'area' && areaMode === 'freehand')
   // the in-progress node draft is committable: an area needs ≥3 pts, a Punkte-mode line ≥2 (gates ✓)
-  const draftActive = (tool === 'area' && areaMode === 'nodes' && (draft?.length ?? 0) >= minPoints('area')) || (tool === 'line' && lineMode === 'nodes' && (draft?.length ?? 0) >= minPoints('draw'))
+  const draftActive = isDraftActive(tool, { lineMode, areaMode }, draft?.length ?? 0)
   // symbols/notes are sized smaller on the Gebäude floor-stack (small storey tiles) than on the
   // full-page module plans, so they don't dwarf the building outline — closer to the Lage map feel
   // Symbol/note size: on a PDF plan, scale it to the board WIDTH (= one page's width, since stitched
@@ -1482,103 +1461,38 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
         const edge = boundaryPoint({ shape: 'rect', center, width: box.width, height: box.height, rotation: a.rotation }, pointer)
         return { key: `object:${a.id}`, target: { kind: 'object', id: a.id }, point: edge, defaultRouting: DEFAULT_OBJECT_ROUTING }
       })
-    const lines: MagneticTarget[] = renderAnnos
+    const lines = lineEndTargets(renderAnnos
       .filter((a) => a.kind === 'draw' && a.id !== sourceId && (a.pts?.length ?? 0) >= 2)
-      .flatMap((a) => (['start', 'end'] as const).flatMap((endpoint) => {
-        const p = endpoint === 'start' ? a.pts![0] : a.pts![a.pts!.length - 1]
-        const capacity = endpoint === 'end' && a.teilstueck ? 3 : 1
-        const usedPorts = incomingAttachments(attachmentLines, a.id, endpoint).map((x) => x.attachment.port ?? 0)
-        const free = Array.from({ length: capacity }, (_, i) => i).filter((port) => !usedPorts.includes(port))
-        const q = endpoint === 'start' ? a.pts![1] : a.pts![a.pts!.length - 2]
-        const pp: [number, number] = [p[0] * sW, mapY(p[2] ?? a.floor, p[1]) * sH]
-        const qp: [number, number] = [q[0] * sW, mapY(q[2] ?? a.floor, q[1]) * sH]
-        return free.map((port) => {
-          // three-port Teilstück ends fan onto the drawn fork prongs; every other endpoint is the bare tip
-          const point = capacity === 3 ? forkPortPoint(pp, qp, a.width ?? 4, port) : pp
-          return { key: `line:${a.id}:${endpoint}:${port}`, target: { kind: 'line', id: a.id, endpoint }, point, capacity, usedPorts, port, blocked: wouldCreateCycle(attachmentLines, sourceId, a.id), defaultRouting: 'direct' as const }
-        })
-      }))
+      .map((a) => {
+        const pts = a.pts!, px = (p: BoardPoint): [number, number] => [p[0] * sW, mapY(p[2] ?? a.floor, p[1]) * sH]
+        return { id: a.id, teilstueck: a.teilstueck, width: a.width, start: [px(pts[0]), px(pts[1])], end: [px(pts[pts.length - 1]), px(pts[pts.length - 2])] }
+      }), attachmentLines, sourceId)
     return [...objects, ...lines]
   }
-  const planAttachmentFor = (c: MagneticTarget): LineAttachment => ({
-    target: c.target, routing: c.defaultRouting ?? 'direct',
-    ...(c.target.kind === 'line' ? { port: c.port ?? nextFreePort(attachmentLines, c.target.id, c.target.endpoint) ?? undefined } : {}),
-  })
-  /** Same «Ring lädt, dann schnappt es» machine as the Lage map's `updateDraftMagnet`, in board px.
-   *  `phase` is the whole difference between the two behaviours: a pointerDOWN that lands on a
-   *  target is deliberate aim and arms at once (the line-START exception — you put your finger on
-   *  the Teilstück's prong because that is where the branch begins); a SYMBOL acquired later in
-   *  the same stroke has to hold still for `MAGNET_DWELL_MS` first, a LINE target acquired later
-   *  arms at once (lib/lineAttachments · dwellFor).
-   *
-   *  `atStart` is the caller's claim on pointerDOWN only. A MOVE re-derives it from the stroke's
-   *  own first point — the map's rule — so it is not passed there. */
+  const planAttachmentFor = (c: MagneticTarget): LineAttachment => candidateAttachment(c, attachmentLines)
+  /** The draft magnet's phases from the ink overlay (lib/useDraftMagnet). `atStart` is the caller's
+   *  claim on pointerDOWN only — a MOVE re-derives it from the stroke's own first point. What the
+   *  press lands on is banked into `draftAttachments` at once, as the Trupp rule above reads it. */
   const updatePlanDraftMagnet = (point: BoardPoint, phase: 'start' | 'move', atStart = false) => {
-    const pointer: [number, number] = [point[0] * sW, mapY(point[2], point[1]) * sH]
-    const cur = planDraftMagnet.current
-    const targets = planCandidatesAt('__draft__', pointer)
-    if (planDraftTimer.current) clearTimeout(planDraftTimer.current)
-    if (phase === 'start') {
-      const candidate = nearestMagneticTarget(pointer, targets)
-      const startJoin = atStart && candidate?.target.kind === 'line'
-        ? { key: candidate.key, point: candidate.point, color: annos.find((a) => a.id === candidate.target.id)?.color || COLORS[0] } : undefined
-      setPlanDraftMagnet({ first: point, point, atStart, candidate, dwell: armDwell(candidate?.key ?? null, Date.now()), ...(startJoin ? { startJoin } : {}) })
-      if (candidate) {
-        draftAttachments.current = { ...draftAttachments.current, [atStart ? 'startAttachment' : 'endAttachment']: planAttachmentFor(candidate) }
-        buzz()
-      }
-      return
-    }
-    if (!cur) return
-    // The start KEEPS its claim while the finger is still within STROKE_START_RADIUS_PX of the
-    // pointerDOWN point and has not already banked a start attachment — the same rule the map
-    // applies (MapView · updateDraftMagnet). The Plan used to hand `false` in from the very first
-    // pixel of movement, so a SHORT stroke begun on a symbol lost the start's ring before it could
-    // ever be honoured. Leaving that radius ends the claim: from there the FAR end earns its own
-    // ring, even over the very target the stroke began on.
-    const first = cur.first
-    const firstPx: [number, number] = [first[0] * sW, mapY(first[2], first[1]) * sH]
-    const nowAtStart = cur.atStart && distance(firstPx, pointer) < STROKE_START_RADIUS_PX && !draftAttachments.current.startAttachment
-    const candidate = stickyMagneticTarget(pointer, targets, cur.candidate?.key ?? null)
-    const base = nowAtStart === cur.atStart ? cur.dwell : EMPTY_DWELL
-    const next: PlanDraftMagnet = { first, point, atStart: nowAtStart, candidate, dwell: advanceDwell(base, candidate, Date.now()), ...(cur.startJoin ? { startJoin: cur.startJoin } : {}) }
-    setPlanDraftMagnet(next)
-    // a line target arms on acquisition (dwellFor = 0) — one buzz, as the closed ring gives
-    if (next.dwell.armed && !base.armed) buzz()
-    // arm on a motionless finger (no pointermove ⇒ no advanceDwell); the attachment itself is
-    // only written on release, so moving on after arming still lets the end go free.
-    if (candidate && !next.dwell.armed) planDraftTimer.current = setTimeout(() => {
-      const now = planDraftMagnet.current
-      if (!now || now.candidate?.key !== candidate.key) return
-      setPlanDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true } }); buzz()
-    }, Math.max(0, dwellFor(candidate) - (Date.now() - next.dwell.since)))
+    if (phase === 'start') draftAttachments.current = { ...draftAttachments.current, ...planMagnet.start(point, atStart) }
+    else planMagnet.move(point)
   }
-  /** The joints a gesture in progress is coupled onto — the «Angekuppelt» rings, the Karte's
-   *  `joinPreview` in board px: the draft's start for the whole stroke, plus an ARMED line target
-   *  under a draft end or a dragged end, ringed in the TARGET line's ink. */
-  const planJoinPreview = (): { key: string; point: [number, number]; color: string }[] => {
-    const out: { key: string; point: [number, number]; color: string }[] = []
-    const ink = (id: string) => annos.find((a) => a.id === id)?.color || COLORS[0]
-    const dm = planDraftMagnetState
-    if (dm?.startJoin) out.push(dm.startJoin)
-    for (const g of [dm, planEndpointDragState]) {
-      const c = g?.candidate
-      if (!g?.dwell.armed || c?.target.kind !== 'line' || out.some((j) => j.key === c.key)) continue
-      out.push({ key: c.key, point: c.point, color: ink(c.target.id) })
-    }
-    return out
-  }
+  /** The «Angekuppelt» rings, the Karte's `joinPreview` in board px (lib/useDraftMagnet ·
+   *  joinTargets), ringed in the TARGET line's ink. */
+  const planJoinPreview = (): { key: string; point: [number, number]; color: string }[] =>
+    joinTargets(planDraftMagnetState, planEndpointDragState)
+      .map((c) => ({ key: c.key, point: c.point, color: annos.find((a) => a.id === c.target.id)?.color || COLORS[0] }))
+  /** Settle the stroke's magnet: an end whose ring CLOSED fills its slot in `draftAttachments`,
+   *  unless the press already banked one there. */
   const finishPlanDraftMagnet = () => {
-    if (planDraftTimer.current) clearTimeout(planDraftTimer.current)
-    // Ring lädt, dann schnappt es: only a CLOSED ring attaches. A stroke that ends on a symbol
-    // without pausing there lands free — until 25.08. it silently coupled instead, which is the
-    // invisible attachment reported from the field.
-    const now = planDraftMagnet.current, c = now?.candidate
-    if (now?.dwell.armed && c) {
-      const key = now.atStart ? 'startAttachment' : 'endAttachment'
-      if (!draftAttachments.current[key]) draftAttachments.current = { ...draftAttachments.current, [key]: planAttachmentFor(c) }
+    const out = planMagnet.end()
+    if (!out) return
+    const da = draftAttachments.current
+    draftAttachments.current = {
+      ...da,
+      ...(!da.startAttachment && out.startAttachment ? { startAttachment: out.startAttachment } : {}),
+      ...(!da.endAttachment && out.endAttachment ? { endAttachment: out.endAttachment } : {}),
     }
-    setPlanDraftMagnet(null)
   }
 
   // --- create-tool interactions (on the ink overlay) ---
@@ -1942,21 +1856,15 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     log('circle', appConfig.copy.whiteboard.placeCircle, { annoId: id, x, y, floor })
     setSelId(id); setTool('pan')
   }
-  // commit the in-progress node shape: a Linie (≥2 pts) or a Fläche (≥3 pts, closed + filled).
-  // Then drop to pan so it's immediately selectable.
+  // commit the in-progress node shape: a Linie (≥2 pts) or a Fläche (≥3 pts, closed + filled) —
+  // the Karte's rule (lib/draftMachine · finishKind). Then drop to pan so it's immediately selectable.
   const finishShape = () => {
     const d = draft
-    if (tool === 'line' && d && d.length >= minPoints('draw')) {
-      setDraft(null)
-      addLine(d)
-      return
-    }
-    if (tool === 'area' && d && d.length >= minPoints('area')) {
-      setDraft(null)
-      addArea(d)
-      return
-    }
-    setDraft(null); setTool('pan')
+    const kind = d ? finishKind(tool, d.length) : null
+    setDraft(null)
+    if (d && kind === 'line') addLine(d)
+    else if (d && kind === 'area') addArea(d)
+    else setTool('pan')
   }
   const cancelShape = () => { setDraft(null); draftAttachments.current = {} }
 
@@ -1969,32 +1877,26 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   /**
    * Whatever disarms a create tool with a draft still in the hand — picking another tool, arming
    * the Georeferenz, switching the document, leaving the surface — lands here (A6, 29.08.; the
-   * Lage map implements the identical contract). A committable draft (Punkte-Linie ≥2, Fläche ≥3)
-   * auto-commits through the same commitLine/commitArea path the ✓ takes, with a toast whose
-   * «Rückgängig» does more than delete: it hands the SHAPE back as the draft and re-arms its tool
-   * — decided: undo returns the shape to the hand. A fragment below the minimum has nothing worth
-   * keeping and says so in an action-less toast. Escape is deliberately NOT routed through here —
-   * it is the one EXPLICIT discard (see the key handler above).
+   * Lage map runs the identical contract — the decision is lib/draftMachine · releaseDraft). A
+   * committable draft (Punkte-Linie ≥2, Fläche ≥3) auto-commits through the same
+   * commitLine/commitArea path the ✓ takes, with a toast whose «Rückgängig» does more than delete:
+   * it hands the SHAPE back as the draft and re-arms its tool — decided: undo returns the shape to
+   * the hand. A fragment below the minimum has nothing worth keeping and says so in an action-less
+   * toast; a mid-stroke Freihand remnant dies with its tool. Escape is deliberately NOT routed
+   * through here — it is the one EXPLICIT discard (see the key handler above).
    */
   const releaseDraft = (from: BoardTool) => {
     const d = draft
     if (!d?.length) return
-    // classify by the tool being LEFT. A draft under any other `from` is not this release's to
-    // touch: the undo below restores a draft WHILE re-arming its tool, and that arming must not
-    // read as a tap-away that eats the very shape it just handed back. The one exception is a
-    // mid-stroke Freihand remnant (a keyboard tool switch during the stroke), which dies with
-    // its tool exactly as before.
-    const kind = from === 'area' ? 'area' : from === 'line' && lineMode === 'nodes' ? 'line' : null
-    if (!kind) {
-      if (from === 'line') { setDraft(null); draftAttachments.current = {} }
-      return
-    }
+    const release = releaseDraftOf({ from, lineMode, count: d.length })
+    if (release.type === 'keep') return
     setDraft(null)
-    if (d.length < minPoints(kind)) {
+    if (release.type !== 'commit') {
       draftAttachments.current = {}
-      toast(appConfig.copy.toolDock.draftDiscarded)
+      if (release.type === 'discard') toast(appConfig.copy.toolDock.draftDiscarded)
       return
     }
+    const kind = release.kind
     const att = { ...draftAttachments.current } // commitLine consumes the ref — kept for the undo
     const planId = activeId
     const anno = kind === 'line' ? commitLine(d) : commitArea(d)
@@ -2317,29 +2219,24 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     })
     if (!ok) return false
     const changed = new Set(affected.map((x) => x.a.id))
+    // each coupled end lets go where it stands on screen now (lib/lineAttachments · detachEnds) —
+    // the ONE fold the commit and the per-line audit events below both read
+    const detached = (a: BoardAnno) => detachEnds({ ...a, points: a.pts ?? [] }, (endpoint, rel, pts) => {
+      if (rel.target.id !== target.id) return null
+      const resolvedSource = renderAnnos.find((x) => x.id === a.id)?.pts
+      return resolvedSource?.[endpoint === 'start' ? 0 : resolvedSource.length - 1] ?? pts[endpoint === 'start' ? 0 : pts.length - 1]
+    })
     commit(annos.filter((a) => a.id !== target.id).map((a) => {
-      let next = a
-      for (const endpoint of ['start', 'end'] as const) {
-        const rel = endpoint === 'start' ? next.startAttachment : next.endAttachment
-        if (!rel || rel.target.id !== target.id || !next.pts?.length) continue
-        const resolvedSource = renderAnnos.find((x) => x.id === next.id)?.pts
-        const fallback: BoardPoint = resolvedSource?.[endpoint === 'start' ? 0 : resolvedSource.length - 1] ?? next.pts[endpoint === 'start' ? 0 : next.pts.length - 1]
-        const pts = next.pts.map((p, i): BoardPoint => i === (endpoint === 'start' ? 0 : next.pts!.length - 1) ? fallback : p)
-        next = { ...next, pts, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
-      }
-      return next
+      const out = a.pts?.length ? detached(a) : null
+      return out ? { ...a, pts: out.points, ...out.freed } : a
     }))
     emit('board.delete', { id: target.id, planId: activeId })
     logRemoved(target)
     changed.forEach((id) => {
       const source = annos.find((a) => a.id === id)
       if (!source?.pts) return
-      let next = source
-      for (const { endpoint } of affected.filter((x) => x.a.id === id)) {
-        const resolvedSource = renderAnnos.find((x) => x.id === next.id)?.pts
-        const fallback: BoardPoint = resolvedSource?.[endpoint === 'start' ? 0 : resolvedSource.length - 1] ?? next.pts![endpoint === 'start' ? 0 : next.pts!.length - 1]
-        next = { ...next, pts: next.pts!.map((p, i): BoardPoint => i === (endpoint === 'start' ? 0 : next.pts!.length - 1) ? fallback : p), ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
-      }
+      const out = detached(source)
+      const next = out ? { ...source, pts: out.points, ...out.freed } : source
       emit('board.edit', { id, patch: { pts: next.pts, startAttachment: next.startAttachment, endAttachment: next.endAttachment }, planId: activeId })
     })
     if (selId === target.id) setSelId(null)
@@ -2382,16 +2279,13 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
       if (!ok) return
     }
     commit(annos.filter((a) => !removable.includes(a.id)).map((a) => {
-      let next = a
-      for (const endpoint of ['start', 'end'] as const) {
-        const rel = endpoint === 'start' ? next.startAttachment : next.endAttachment
-        if (!rel || !removable.includes(rel.target.id) || !next.pts?.length) continue
-        const resolvedSource = renderAnnos.find((x) => x.id === next.id)?.pts
-        const fallback: BoardPoint = resolvedSource?.[endpoint === 'start' ? 0 : resolvedSource.length - 1] ?? next.pts[endpoint === 'start' ? 0 : next.pts.length - 1]
-        const pts = next.pts.map((p, i): BoardPoint => i === (endpoint === 'start' ? 0 : next.pts!.length - 1) ? fallback : p)
-        next = { ...next, pts, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
-      }
-      return next
+      if (!a.pts?.length) return a
+      const out = detachEnds({ ...a, points: a.pts }, (endpoint, rel, pts) => {
+        if (!removable.includes(rel.target.id)) return null
+        const resolvedSource = renderAnnos.find((x) => x.id === a.id)?.pts
+        return resolvedSource?.[endpoint === 'start' ? 0 : resolvedSource.length - 1] ?? pts[endpoint === 'start' ? 0 : pts.length - 1]
+      })
+      return out ? { ...a, pts: out.points, ...out.freed } : a
     }))
     removable.forEach((id) => emit('board.delete', { id, planId: activeId }))
     setSelIds((ids) => ids.filter((id) => !removable.includes(id)))
@@ -2556,14 +2450,8 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
   // symbol grammar, on both surfaces. `notePanelId` stays separate from `selId` for the one
   // exception: a freshly PLACED note goes straight into typing without the panel in the way.
   const selNote = annos.find((a) => a.id === notePanelId && a.kind === 'text')
-  // the panel belongs to the SELECTED note: deselecting (empty canvas, Esc, picking something
-  // else) closes it too, so a stray panel can never outlive the thing it describes
-  useEffect(() => { if (notePanelId && selId !== notePanelId) setNotePanelId(null) }, [selId, notePanelId])
-  // reaching for a tool means you are done reading this note — the panel should not sit there
-  // while you place the next thing (selection alone doesn't change until that thing lands)
-  useEffect(() => { if (tool !== 'pan') setNotePanelId(null) }, [tool])
-  // the «just placed» mark lives exactly as long as that panel does
-  useEffect(() => { if (notePlacedId && notePanelId !== notePlacedId) setNotePlacedId(null) }, [notePanelId, notePlacedId])
+  // …and closes on the Karte's three rules: deselected, a tool armed, the placed mark spent
+  useNotePanelClosing({ selectedId: selId, tool, rest: 'pan', notePanelId, setNotePanelId, notePlacedId, setNotePlacedId })
   // a selected stroke / Linie / Fläche — drives the shared DrawEditor (style + presets) panel
   // ⚠️ 'circle' rides along: an Absperrkreis is styled, locked, measured and deleted through the
   // same DrawEditor as a Linie/Fläche (the Karte does exactly this — MapView · editDraw). It is
@@ -2798,20 +2686,16 @@ export function Whiteboard({ plans, activeId, annos: annosAll, symMul = 1, capti
     const fallback = resolved?.[resolved.length - 1] ?? selDraw.pts?.[selDraw.pts.length - 1]
     commit(annos.map((a) => {
       if (a.id === selDraw.id) return { ...a, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
-      let next = a
-      for (const endpoint of ['start', 'end'] as const) {
-        if (!fallback || !incoming.some((x) => x.id === a.id && x.endpoint === endpoint) || !next.pts?.length) continue
-        const pts = next.pts.map((p, i): BoardPoint => i === (endpoint === 'start' ? 0 : next.pts!.length - 1) ? fallback : p)
-        next = { ...next, pts, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
-      }
-      return next
+      if (!fallback || !a.pts?.length) return a
+      const out = detachEnds({ ...a, points: a.pts }, (endpoint) => (incoming.some((x) => x.id === a.id && x.endpoint === endpoint) ? fallback : null))
+      return out ? { ...a, pts: out.points, ...out.freed } : a
     }))
     emit('board.edit', { id: selDraw.id, patch: { arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }, planId: activeId })
     incoming.forEach(({ id, endpoint }) => {
       const line = annos.find((a) => a.id === id)
       if (!line?.pts || !fallback) return
-      const pts = line.pts.map((p, i): BoardPoint => i === (endpoint === 'start' ? 0 : line.pts!.length - 1) ? fallback : p)
-      emit('board.edit', { id, patch: { pts, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }, planId: activeId })
+      const { points: pts, freed } = freeEnd(line.pts, endpoint, fallback)
+      emit('board.edit', { id, patch: { pts, ...freed }, planId: activeId })
     })
   }
 

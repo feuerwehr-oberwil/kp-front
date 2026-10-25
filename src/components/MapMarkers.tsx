@@ -3,82 +3,21 @@ import { Marker } from 'react-map-gl/maplibre'
 import type { CaptionMode, Entity, LngLat, Trupp } from '../types'
 import { buzz } from '../lib/haptics'
 import { appConfig } from '../config/appConfig'
-import { thumbUrl } from '../lib/mediaUrl'
 import { DRAG_DEADZONE_PX, useHoldToDrag } from '../lib/useHoldToDrag'
 import { beginSheetPeek, endSheetPeek } from '../lib/sheetPeek'
 import { Icon } from '../lib/icons'
-import { LockChip } from './LockChip'
-import { TwinTeamPill } from './TwinTeamPill'
-import { ROTATION_MAX_M, ROTATION_W_M, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_M, SHAPE_MAX_PX, SHAPE_MIN_M, SHAPE_TWO_POINT, ShapeGlyph, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
+import { ROTATION_MAX_M, ROTATION_W_M, SHAPE_AXIS_GRIPS, SHAPE_DEFS, SHAPE_FREE_ASPECT, SHAPE_MAX_M, SHAPE_MIN_M, rotationBox, rotationGripOffPx, rotationRun, shapeAspect, shapeAspectMax } from '../lib/shapes'
 import { isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX } from '../lib/lineAttachments'
 import type { TeamLineBadge } from '../lib/truppLines'
 import { ghostTrailLabel, type TruppTrail } from '../lib/truppTrails'
 import { fillTemplate } from '../lib/format'
-import { DEFAULT_INK } from '../lib/lineStyle'
 import { ConnectRing } from './NodeDeleteChip'
-import { vehicleSymbolSvg } from '../lib/useVehiclePositions'
-import { placardSvgForSymbol } from '../lib/placard'
+import { EntityMarker, type ShapeGripMode } from './EntityMarker'
 import { useHazardData } from '../lib/useHazardData'
-import { TacticalSymbol, compositeSpec, compositePartGlyph, luefterVariant, isHubretter, HubretterBoom, floorBadge } from '../lib/symbolRender'
-import { doneBadge } from '../lib/objectDone'
-import { symbolCaptionText } from '../lib/symbols'
-import { softHyphenateText } from '../lib/symbolWrap'
-import { fanOffsets, markerZ, pileAt } from '../lib/labelPass'
-import { noteScale, noteWPx } from '../lib/notes'
-import { pxPerM, symPx, shapePx, isRotatableSym, isVehicleSym, effectiveLayer, teamDockAnchor, teamStripPx, TEAM_DOT_PX, TEAM_PILL_CAP_PX } from '../lib/mapView'
+import { fanOffsets, pileAt } from '../lib/labelPass'
+import { pxPerM, symPx, effectiveLayer } from '../lib/mapView'
 import { dockSlots } from '../lib/docking'
 import { freeResizeLocal, rotationEnd, rotationEndDeg, rotorDeg } from '../lib/rotorMath'
-
-// A transform handle (rotate / resize) whose drag is bound with NATIVE pointer listeners that
-// stopPropagation, so react-map-gl's marker-drag (a listener on the parent that fires on the same
-// pointerdown) never starts alongside it. React's onPointerDown stopPropagation is delegated at
-// the document root and runs too late — by then the marker is already dragging. Using the capture
-// (setPointerCapture) keeps the move/up events on this element for the whole gesture.
-function TransformHandle({ className, icon, title, onStart, onMove, onEnd, style }: {
-  className: string; icon: string; title: string
-  onStart: (clientX: number, clientY: number, el: HTMLElement) => void
-  onMove: (clientX: number, clientY: number) => void
-  onEnd: () => void
-  style?: React.CSSProperties
-}) {
-  const ref = useRef<HTMLButtonElement>(null)
-  // re-bind each render so the closures see the latest callbacks; it's a single element/listener
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const down = (e: PointerEvent) => {
-      e.stopPropagation(); e.preventDefault()
-      el.setPointerCapture(e.pointerId)
-      onStart(e.clientX, e.clientY, el)
-      const move = (ev: PointerEvent) => { ev.stopPropagation(); onMove(ev.clientX, ev.clientY) }
-      const end = (ev: PointerEvent) => {
-        ev.stopPropagation()
-        el.removeEventListener('pointermove', move)
-        el.removeEventListener('pointerup', end)
-        el.removeEventListener('pointercancel', end)
-        onEnd()
-      }
-      el.addEventListener('pointermove', move)
-      el.addEventListener('pointerup', end)
-      el.addEventListener('pointercancel', end)
-    }
-    // MapLibre's Marker starts its drag on mousedown / touchstart (not just pointerdown), so block
-    // those at the handle too — otherwise the marker still drags alongside the rotation on touch/stylus
-    const block = (ev: Event) => ev.stopPropagation()
-    el.addEventListener('pointerdown', down)
-    el.addEventListener('mousedown', block)
-    el.addEventListener('touchstart', block, { passive: true })
-    return () => {
-      el.removeEventListener('pointerdown', down)
-      el.removeEventListener('mousedown', block)
-      el.removeEventListener('touchstart', block)
-    }
-  })
-  // ⚠️ `data-holdaction` and no `title`: a transform grip's press-and-hold IS its gesture, so the
-  // global hold-tooltip must not claim it (docs/ui-conventions.md · Touch vocabulary) — asking «what is this»
-  // would otherwise start the very drag it is asking about. The name stays for screen readers.
-  return <button ref={ref} className={className} style={style} aria-label={title} data-holdaction onClick={(e) => e.stopPropagation()}><Icon id={icon} /></button>
-}
 
 /** Kinds the nearest-centre hit test arbitrates: compact glyphs, centred on their coordinate. */
 const PILE_KINDS: Entity['kind'][] = ['symbol', 'vehicle', 'person']
@@ -107,7 +46,7 @@ function autoGrow(el: HTMLTextAreaElement | null) {
   else el.style.removeProperty('height')
 }
 
-interface Props {
+export interface MapMarkersProps {
   entities: Entity[]
   byName: Record<string, string>
   isVisible: (id: Entity['layer']) => boolean
@@ -219,7 +158,7 @@ interface Props {
  * vehicle) plus its selection affordances — delete, rotor (live vehicles), and the
  * shape/symbol transform handles. Owns the rotor/transform pointer-drag refs.
  */
-export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, readOnly = false, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink, onTeamUndock, ghostTrails, onGhostTrail }: Props) {
+export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelectedIds = [], networkEntityIds = [], zoom, bearing = 0, symMul = 1, captionMode = 'off', suppressedLabels, draggable, project, unproject, setDragPan, onSelect, onMarkerDragStart, onMarkerMove, onMarkerDragEnd, onDelete, onRotate, onShapeTransform, onUnlockShape, readOnly = false, editNoteId = null, onNoteText, onNoteCommit, onNoteEdit, onNotePanel, trupps, onShowTrupp, onTeamTrupp, onTeamNewTrupp, onTeamMark, onTeamRename, onTeamClearTrail, onTeamRemoveWithTrail, hiddenTrails, onToggleTrail, teamLines, onTeamUnlink, onTeamUndock, ghostTrails, onGhostTrail }: MapMarkersProps) {
   const ghostLabel = (g: TruppTrail) => ghostTrailLabel(g, appConfig.copy.whiteboard.team, trupps ?? [])
   // repaint the baked placard glyphs (Kemler auto-derived via lookupUN) when the fetched
   // ADR dataset lands — see lib/useHazardData.
@@ -274,7 +213,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   // both captured on pointer-down so the corner drag can be resolved in the shape's own frame
   const shapeRef = useRef<{
     id: string; cx: number; cy: number; lat: number
-    mode: 'rotate' | 'resize' | 'width' | 'rotate2' | 'cage' | 'endA' | 'endB'
+    mode: ShapeGripMode
     rot: number; free: boolean; keepHeightM: number | null; aspectMax: number; maxM: number
     /** end drags only: the end that stays put (client px), how far the grip floats past the cap,
      *  and the client→container offset the new centre is unprojected through */
@@ -430,7 +369,7 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   // drag-to-transform a shape. Both handles measure from the glyph centre, so the maths is
   // rotation-invariant: rotate = angle centre→pointer (+90° so the top handle leads); resize =
   // pointer distance → ground size in metres. A 'start' / 'end' pair folds the gesture into one undo.
-  const shapeDown = (clientX: number, clientY: number, el: HTMLElement, id: string, lat: number, mode: 'rotate' | 'resize' | 'width' | 'rotate2' | 'cage' | 'endA' | 'endB') => {
+  const shapeDown = (clientX: number, clientY: number, el: HTMLElement, id: string, lat: number, mode: ShapeGripMode) => {
     hold.cancel() // a handle press takes over from any pending/active marker hold
     const marker = el.closest('.marker')
     const glyph = marker?.querySelector('.shape-glyph, .ts') as HTMLElement | null
@@ -570,6 +509,126 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
     if (ent.kind === 'note') onNotePanel?.(ent.id)
   }
 
+  // ── the inline note editor (see focusNote above) ──
+  const noteChange = (ev: React.ChangeEvent<HTMLTextAreaElement>, id: string) => { onNoteText?.(id, ev.target.value); autoGrow(ev.currentTarget) }
+  const noteBlur = (ev: React.FocusEvent<HTMLTextAreaElement>, id: string) => {
+    // A blur in the first moment after placement is NOT the user leaving the
+    // field — it's MapLibre focusing its canvas (and/or a select-panel mount)
+    // stealing focus. Committing here would set editNoteId=null and unmount the
+    // input before a key can be pressed ("placed but not focused"). So inside a
+    // short window, bounce focus straight back and skip the commit; a deliberate
+    // click-away always lands well after this (human reaction ≥ ~200ms).
+    const el = ev.currentTarget
+    if (!noteForceCommit.current && Date.now() - noteEditStart.current < 350) { requestAnimationFrame(() => el.focus()); return }
+    noteForceCommit.current = false
+    onNoteCommit?.(id, ev.target.value)
+  }
+  // Enter makes a new line — the ✓, Esc and clicking away are the way out.
+  // `noteForceCommit` tells the blur this is a deliberate commit, so the 350ms
+  // focus-steal guard above lets it through instead of bouncing focus back.
+  const noteKeyDown = (ev: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (ev.key === 'Escape') {
+      ev.preventDefault(); noteForceCommit.current = true; (ev.target as HTMLTextAreaElement).blur()
+    }
+  }
+  /** the ✓ Fertig (bound on pointerdown: the textarea's blur unmounts the button first) */
+  const noteDone = (id: string, text: string) => { noteForceCommit.current = true; onNoteCommit?.(id, text) }
+
+  /** A press on one marker's body (EntityMarker): tap selects, resolving the pile under the pad;
+   *  press-and-hold (touch) / press-and-drag (mouse) moves. `dockDragStart` = where a docked
+   *  Trupp marker is drawn, so its drag starts from the slot. See useHoldToDrag. */
+  const pressMarker = (ev: React.PointerEvent<HTMLDivElement>, e: Entity, dockDragStart: () => LngLat | null) => {
+    const cx = ev.clientX, cy = ev.clientY
+    // Which marker did the finger MEAN? Not "whichever DOM node happened to be on
+    // top" — that is placement order, and it is how a tap on the Wasserbezugsort
+    // handed you the Kleinlöscher. Resolve the whole pile under the pad by nearest
+    // centre; a SELECT then targets that one.
+    // ⚠️ A DRAG does not: it acts on the marker actually pressed. Nearest-centre
+    // only ever differs from it when the pad covers several markers — and there the
+    // tap makes no choice either, it fans the pile out and asks. Letting the drag
+    // guess there moved a neighbour the finger never touched (and, when the neighbour
+    // was a live person position, silently refused to move anything at all).
+    const pile = pileUnder(ev.currentTarget, cx, cy, e)
+    const near = (pile.length ? entities.find((x) => x.id === pile[0].id) : undefined) ?? e
+    const fanned = !!fan
+    // A DOCKED Trupp marker is moved as one with its host (15.09., «dragging either
+    // should move both»): the grip lands on the marker, the drag is the symbol's,
+    // and the marker rides along in its slot (lib/docking · carryDocked). Parting
+    // them is the pill's own «Lösen», never a drag.
+    const host = e.kind === 'team' && e.dockedTo ? entities.find((h) => h.id === e.dockedTo && Array.isArray(h.coord)) : undefined
+    const grab = host ?? e
+    // pointerId/isPrimary ride along so the gesture stays bound to THIS finger: the
+    // second finger of a pinch must go to the map, never steer a symbol (useHoldToDrag)
+    hold.begin({ clientX: cx, clientY: cy, pointerId: ev.pointerId, isPrimary: ev.isPrimary }, {
+      onTap: () => {
+        // already fanned: the spokes ARE the choice, so this tap is the answer
+        if (fanned) { setFan(null); selectEntity(e); return }
+        // more than one candidate under the finger → fan them out instead of
+        // guessing. One candidate → select it straight away, exactly as before.
+        if (pile.length > 1) { openFan(fanOffsets(pile)); return }
+        selectEntity(near)
+      },
+      onHoldStart: () => {
+        // a rotor / shape-transform gesture owns the pointer — never also translate
+        if (rotateRef.current || shapeRef.current) { hold.cancel(); return }
+        entDrag.current = { id: grab.id, cx, cy, lx: cx, ly: cy, moved: false, last: host ? (host.coord as LngLat) : dockDragStart() }
+        grabbedId.current = e.id
+        // don't select here: a quick hold-drag to reposition shouldn't open the
+        // ContextPanel. The move targets the symbol by id regardless of selection;
+        // selection (→ panel) is deferred to onDragEnd and only if it never moved.
+        setDragPan(false) // stop the map panning under the held symbol
+      },
+      onDragMove: (mx, my) => {
+        const st = entDrag.current; if (!st || st.id !== grab.id) return
+        // deadzone: don't move until the finger clears DRAG_DEADZONE_PX from the grab point
+        if (!st.moved && Math.hypot(mx - st.cx, my - st.cy) < DRAG_DEADZONE_PX) return
+        // Re-anchor on EVERY move: project where the symbol is NOW through the LIVE map
+        // transform and add only the pointer travel since the last move. A screen-px
+        // anchor snapshotted at the grab goes stale the instant the map moves under the
+        // finger (a pinch, a container resize, a programmatic jumpTo) — unprojecting it
+        // through the new transform then teleports the symbol, which is what «bugs out
+        // when the map resizes» looked like. Incrementally, a changed transform costs
+        // nothing: the symbol simply keeps its screen offset to the finger.
+        const base = project((st.last ?? grab.coord) as LngLat)
+        if (!base) return
+        const nc = unproject({ x: base.x + (mx - st.lx), y: base.y + (my - st.ly) })
+        if (!nc) return
+        st.lx = mx; st.ly = my
+        // snapshot for undo + show the selection halo on first real move — and on a
+        // phone let the detail sheet peek away, so the drag has the whole surface
+        if (!st.moved) { st.moved = true; onMarkerDragStart(grab.id); setDraggingId(grab.id); beginSheetPeek() }
+        st.last = nc
+        onMarkerMove(grab.id, nc)
+      },
+      onDragEnd: () => {
+        const st = entDrag.current; entDrag.current = null
+        setDragPan(true)
+        setDraggingId(null) // drop the halo once it stops moving
+        endSheetPeek() // …and the sheet comes back to the height it had
+        if (st?.moved && st.last) onMarkerDragEnd(grab.id, st.last)
+        // held but never dragged → treat as a select (open the panel). A SELECT
+        // resolves the pile like a tap does — by nearest centre, never by whichever
+        // node is on top — or a slow gloved tap would hand out the wrong marker
+        // while a quick one on the same spot got it right.
+        else if (selectedId !== near.id) selectEntity(near)
+      },
+      // An already-selected symbol (panel open) drags INSTANTLY like a mouse — move
+      // on the first travel, no hold delay. Unselected touch still needs the deliberate
+      // hold so a pan/flick starting on a symbol doesn't grab it.
+      // A self-reported crew position is the one marker nobody may drag. A live
+      // VEHICLE can be nudged — that override is a deliberate feature — but moving
+      // a person's dot would have the operator assert where somebody is, which is
+      // a different and unbacked claim from the one the dot makes.
+      // While a pile is fanned nothing drags: the glyphs are standing off their
+      // real positions, so a drag would write back a coordinate nobody chose.
+    // ⚠️ A FORM has no body drag at all (02.09.): it is moved from the bar's ✥ — dragged
+      // as the small adjustment, or armed for the whole surface. Its body is a
+      // tap-select target and nothing else, so a press that starts on a Rotation's
+      // loop still pans the map, and the shape can never be nudged by a mis-aimed
+      // tap on the very grip somebody was reaching for.
+    }, { mode: selectedId === e.id || ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: draggable && e.kind !== 'person' && e.kind !== 'shape' && !fanned && !e.locked })
+  }
+
   // ── Andocken: der feste Platz (lib/docking, 15.09.2026) ────────────────────────────────────
   // A Trupp marker docked onto a symbol is DRAWN at that symbol's bottom-left corner — one place,
   // every time, whatever corner of the tile the hand let go over — and several of them stack
@@ -587,586 +646,22 @@ export function MapMarkers({ entities, byName, isVisible, selectedId, groupSelec
   // missing a coord) so one bad row can't white-screen the whole map
   return (
     <>
-      {entities.filter((e) => isVisible(effectiveLayer(e)) && Array.isArray(e.coord)).map((e) => {
-        // the glyph's on-screen pixel size — drives the selection halo + handle ring so
-        // they sit a fixed distance OUTSIDE the glyph at any zoom (small glyphs push the
-        // handles out to a comfortable minimum via --hbox in CSS, big ones track the edge).
-        // a shape's box is width × (width · aspect) — the halo/handle anchor (--gpx → --hbox)
-        // takes the LARGER side so the ring always encloses the rectangle
-        const shpW = e.kind === 'shape' ? shapePx(e.sizeM, e.coord[1], zoom, SHAPE_MAX_PX[e.shape ?? 'square']) : 0
-        const shpH = e.kind === 'shape' ? shpW * shapeAspect(e.shape ?? 'square', e.aspect) : 0
-        const gpx = e.kind === 'shape' ? Math.max(shpW, shpH)
-          : e.kind === 'note' || e.kind === 'photo' || e.kind === 'team' ? 56
-          : symPx(e.kind, e.coord[1], zoom, symMul)
-        // this marker's offset while its pile is fanned open — and the hairline back to where
-        // it actually is, which is why nothing here is a lie the operator has to remember
-        const spoke = fan?.[e.id]
-        // Selected, multi-selected or mid-drag — the three states that mean «this one, now».
-        // They share the halo AND the raised stacking: tapping a symbol that sits under another
-        // one has to bring it out, or the panel opens for something the operator cannot see.
-        const raised = selectedId === e.id || groupSelectedIds.includes(e.id) || (draggingId === e.id && grabbedId.current === e.id)
-        // ⚠️ A Trupp marker is a STRIP — [dot][gap][name] — and centring the whole strip put half
-        // the NAME's width between the dot and the point it states: the dot stood off its own
-        // Trupp, and jumped sideways the moment the label pass dropped the name (a symbol dragged
-        // past is enough), which read as the label coming off its dot and the dot moving on its
-        // own. Anchored by its LEFT edge with half a dot taken back, the dot sits ON the
-        // coordinate and the name simply hangs off it — appearing or disappearing moves nothing.
-        // The selected pill does the same with its accent cap, so selecting doesn't shift it
-        // either. Every other marker is centred on its glyph, as before.
-        const teamStrip = e.kind === 'team'
-        // Tactical stacking, decided in ONE place (lib/labelPass · MARKER_Z / markerZ). It has to
-        // be set HERE, on the marker container: every MapLibre marker is its own stacking context
-        // (it carries a transform), so a z-index inside the marker cannot lift it past a sibling.
-        const z = markerZ(e.kind, { selected: raised, fanned: !!spoke })
-        // A LOCKED shape is click-through, exactly like a locked drawn Fläche: its ink takes no
-        // tap at all — placement and selection pass to whatever is beneath — and the centre
-        // LockChip (re-enabling its own pointer events) is the only door back in.
-        const lockedShape = e.kind === 'shape' && !!e.locked
-        // …and a docked Trupp marker is DRAWN on its host's bottom-left corner instead of on its
-        // own point (lib/mapView · teamDockAnchor). The stored coordinate is untouched — it is
-        // still the drop point, still carried along when the host moves, and still what the
-        // marker falls back to the moment the bond is let go.
-        // ⚠️ …but NOT while it is being dragged: a marker in the hand follows the finger, or the
-        // gesture that undocks it would draw nothing at all until the drop.
-        const dockAnchor = draggingId === e.id ? null
-          : teamDockAnchor(e, entities, dockedSlots, zoom, symMul, e.kind === 'team' ? teamStripPx(e.label ?? '') : undefined)
-        const at = dockAnchor?.host.coord ?? e.coord
-        /** …and the drag therefore STARTS from the slot, not from the stored point under it: the
-         *  two are up to one dock radius apart, and grabbing a docked marker used to teleport it
-         *  there before it moved a pixel. Seeded as the drag's first «where it is now». */
-        const dockDragStart = (): LngLat | null => {
-          if (!dockAnchor?.host.coord) return null
-          const h = project(dockAnchor.host.coord)
-          return (h ? unproject({ x: h.x + dockAnchor.dx, y: h.y + dockAnchor.dy }) : null) ?? null
-        }
-        return (
-        <Marker
-          key={e.id}
-          longitude={at[0]}
-          latitude={at[1]}
-          anchor={teamStrip ? 'left' : 'center'}
-          offset={teamStrip
-            ? [(selectedId === e.id ? -TEAM_PILL_CAP_PX : -TEAM_DOT_PX / 2) + (dockAnchor?.dx ?? 0), dockAnchor?.dy ?? 0]
-            : undefined}
-          style={{ zIndex: z, ...(lockedShape ? { pointerEvents: 'none' as const } : null) }}
-          draggable={false}
-          // swallow the synthetic click so it can't reach the map (deselect / placement); selection
-          // itself is reported by the hold gesture's onTap, which fires even on a slightly-moved touch
-          onClick={(ev) => ev.originalEvent.stopPropagation()}
-        >
-          <div
-            // `dragging` is its own class, not folded into `sel`: the two look the same but mean
-            // different things, and only the drag should change the cursor (see .marker.dragging).
-            // `marker-shape` takes the square touch pad off a Form: its hit area follows its own
-            // box, per axis and turning with it (03-map.css · .shape-glyph::before).
-            className={`marker${e.kind === 'note' ? ' marker-note' : ''}${e.kind === 'shape' ? ' marker-shape' : ''}${networkEntityIds.includes(e.id) ? ' network' : ''}${draggingId === e.id ? ' dragging' : ''}${spoke ? ' fanned' : ''} ${raised ? 'sel' : ''}`}
-            style={{ ['--gpx' as string]: `${gpx}px`, ...(spoke ? { ['--fan-dx' as string]: `${spoke.dx}px`, ['--fan-dy' as string]: `${spoke.dy}px` } : null) }}
-            // Tap selects; press-and-hold (touch) / press-and-drag (mouse) moves. A quick flick stays
-            // a map pan/zoom. Not while editing a note's text (the input owns the pointer).
-            // canDrag gates the MOVE only — tap-to-select still works in every tool. See useHoldToDrag.
-            onPointerDown={!(e.kind === 'note' && editNoteId === e.id) && !lockedShape
-              ? (ev) => {
-                  const cx = ev.clientX, cy = ev.clientY
-                  // Which marker did the finger MEAN? Not "whichever DOM node happened to be on
-                  // top" — that is placement order, and it is how a tap on the Wasserbezugsort
-                  // handed you the Kleinlöscher. Resolve the whole pile under the pad by nearest
-                  // centre; a SELECT then targets that one.
-                  // ⚠️ A DRAG does not: it acts on the marker actually pressed. Nearest-centre
-                  // only ever differs from it when the pad covers several markers — and there the
-                  // tap makes no choice either, it fans the pile out and asks. Letting the drag
-                  // guess there moved a neighbour the finger never touched (and, when the neighbour
-                  // was a live person position, silently refused to move anything at all).
-                  const pile = pileUnder(ev.currentTarget, cx, cy, e)
-                  const near = (pile.length ? entities.find((x) => x.id === pile[0].id) : undefined) ?? e
-                  const fanned = !!fan
-                  // A DOCKED Trupp marker is moved as one with its host (15.09., «dragging either
-                  // should move both»): the grip lands on the marker, the drag is the symbol's,
-                  // and the marker rides along in its slot (lib/docking · carryDocked). Parting
-                  // them is the pill's own «Lösen», never a drag.
-                  const host = e.kind === 'team' && e.dockedTo ? entities.find((h) => h.id === e.dockedTo && Array.isArray(h.coord)) : undefined
-                  const grab = host ?? e
-                  // pointerId/isPrimary ride along so the gesture stays bound to THIS finger: the
-                  // second finger of a pinch must go to the map, never steer a symbol (useHoldToDrag)
-                  hold.begin({ clientX: cx, clientY: cy, pointerId: ev.pointerId, isPrimary: ev.isPrimary }, {
-                    onTap: () => {
-                      // already fanned: the spokes ARE the choice, so this tap is the answer
-                      if (fanned) { setFan(null); selectEntity(e); return }
-                      // more than one candidate under the finger → fan them out instead of
-                      // guessing. One candidate → select it straight away, exactly as before.
-                      if (pile.length > 1) { openFan(fanOffsets(pile)); return }
-                      selectEntity(near)
-                    },
-                    onHoldStart: () => {
-                      // a rotor / shape-transform gesture owns the pointer — never also translate
-                      if (rotateRef.current || shapeRef.current) { hold.cancel(); return }
-                      entDrag.current = { id: grab.id, cx, cy, lx: cx, ly: cy, moved: false, last: host ? (host.coord as LngLat) : dockDragStart() }
-                      grabbedId.current = e.id
-                      // don't select here: a quick hold-drag to reposition shouldn't open the
-                      // ContextPanel. The move targets the symbol by id regardless of selection;
-                      // selection (→ panel) is deferred to onDragEnd and only if it never moved.
-                      setDragPan(false) // stop the map panning under the held symbol
-                    },
-                    onDragMove: (mx, my) => {
-                      const st = entDrag.current; if (!st || st.id !== grab.id) return
-                      // deadzone: don't move until the finger clears DRAG_DEADZONE_PX from the grab point
-                      if (!st.moved && Math.hypot(mx - st.cx, my - st.cy) < DRAG_DEADZONE_PX) return
-                      // Re-anchor on EVERY move: project where the symbol is NOW through the LIVE map
-                      // transform and add only the pointer travel since the last move. A screen-px
-                      // anchor snapshotted at the grab goes stale the instant the map moves under the
-                      // finger (a pinch, a container resize, a programmatic jumpTo) — unprojecting it
-                      // through the new transform then teleports the symbol, which is what «bugs out
-                      // when the map resizes» looked like. Incrementally, a changed transform costs
-                      // nothing: the symbol simply keeps its screen offset to the finger.
-                      const base = project((st.last ?? grab.coord) as LngLat)
-                      if (!base) return
-                      const nc = unproject({ x: base.x + (mx - st.lx), y: base.y + (my - st.ly) })
-                      if (!nc) return
-                      st.lx = mx; st.ly = my
-                      // snapshot for undo + show the selection halo on first real move — and on a
-                      // phone let the detail sheet peek away, so the drag has the whole surface
-                      if (!st.moved) { st.moved = true; onMarkerDragStart(grab.id); setDraggingId(grab.id); beginSheetPeek() }
-                      st.last = nc
-                      onMarkerMove(grab.id, nc)
-                    },
-                    onDragEnd: () => {
-                      const st = entDrag.current; entDrag.current = null
-                      setDragPan(true)
-                      setDraggingId(null) // drop the halo once it stops moving
-                      endSheetPeek() // …and the sheet comes back to the height it had
-                      if (st?.moved && st.last) onMarkerDragEnd(grab.id, st.last)
-                      // held but never dragged → treat as a select (open the panel). A SELECT
-                      // resolves the pile like a tap does — by nearest centre, never by whichever
-                      // node is on top — or a slow gloved tap would hand out the wrong marker
-                      // while a quick one on the same spot got it right.
-                      else if (selectedId !== near.id) selectEntity(near)
-                    },
-                    // An already-selected symbol (panel open) drags INSTANTLY like a mouse — move
-                    // on the first travel, no hold delay. Unselected touch still needs the deliberate
-                    // hold so a pan/flick starting on a symbol doesn't grab it.
-                    // A self-reported crew position is the one marker nobody may drag. A live
-                    // VEHICLE can be nudged — that override is a deliberate feature — but moving
-                    // a person's dot would have the operator assert where somebody is, which is
-                    // a different and unbacked claim from the one the dot makes.
-                    // While a pile is fanned nothing drags: the glyphs are standing off their
-                    // real positions, so a drag would write back a coordinate nobody chose.
-                  // ⚠️ A FORM has no body drag at all (02.09.): it is moved from the bar's ✥ — dragged
-                    // as the small adjustment, or armed for the whole surface. Its body is a
-                    // tap-select target and nothing else, so a press that starts on a Rotation's
-                    // loop still pans the map, and the shape can never be nudged by a mis-aimed
-                    // tap on the very grip somebody was reaching for.
-                  }, { mode: selectedId === e.id || ev.pointerType === 'mouse' ? 'mouse' : 'touch', canDrag: draggable && e.kind !== 'person' && e.kind !== 'shape' && !fanned && !e.locked })
-                }
-              : undefined}
-          >
-            {/* the hairline home. Drawn INSIDE the (already offset) marker, so it runs from the
-                fanned glyph back to −offset = the true position, with a dot marking it. Purely
-                decorative — pointer-events stay off it, or it would eat the tap it exists for. */}
-            {spoke && (
-              <svg className="fan-spoke" aria-hidden>
-                <line x1="0" y1="0" x2={-spoke.dx} y2={-spoke.dy} />
-                <circle cx={-spoke.dx} cy={-spoke.dy} r="2.5" />
-              </svg>
-            )}
-            {/* ⚠️ …and never on a FORM (02.09.). A Form is selected to be worked on with its own
-                precise grips — the ends, the two axes, the cage — and a 104px ring around a
-                metres-true shape says nothing those grips do not already say while covering the
-                ground they sit on. Its selection is the grips plus the bar. `note` and `team`
-                have always been out for the same reason: they carry their own selected chrome. */}
-            {raised && e.kind !== 'note' && e.kind !== 'team' && e.kind !== 'shape' && <div className="sel-halo" />}
-            {networkEntityIds.includes(e.id) && selectedId !== e.id && <div className="network-halo" />}
-            {e.kind === 'team' ? (() => {
-              // resting: a compact team-coloured dot + name (low map clutter); selected: the
-              // full pill (the plan board's resource chip, shared wb-resource CSS) with the
-              // timestamp. A Trupp marked «raus» on the Atemschutz board dims here too.
-              const isRaus = !!e.truppId && !!trupps?.some((t) => t.id === e.truppId && t.status === 'raus')
-              const teamCol = e.color || appConfig.drawing.teamColors[0]
-              // The Leitung this Trupp works (MapView · teamLineBadges): its ink and, where the
-              // hose actually ends here, a coupling. ⚠️ Name only, no Leitung number (11.10.2026,
-              // owner — the Gebäude chip's look): the hose's end tag says which Leitung. Absent
-              // badge = the marker it always was.
-              const badge = teamLines?.get(e.id)
-              if (selectedId !== e.id) {
-                // the pass could not fit the name without covering something that outranks it:
-                // the coloured dot stays (a Trupp is always visible AS a Trupp), and the ink dot
-                // says a name is there. One tap on the marker brings it back — a selected object
-                // is exempt from suppression.
-                const nameHidden = !!e.label && !!suppressedLabels?.has(`team:${e.id}`)
-                return (
-                  <>
-                    <span className={`team-dot ${isRaus ? 'raus' : ''}${badge ? ' joined' : ''}`}
-                      style={{ '--team': teamCol, ...(badge ? { '--line': badge.color } : null) } as React.CSSProperties}>
-                      <i />
-                      {!nameHidden && <b>{e.label}</b>}
-                      {/* the storey (18.09.2026) — only where the marker HAS one, which on the
-                          Karte means its body was baked off a Gebäude chip (lib/tacticalObjects
-                          · bakeGeoBody). A Trupp dropped straight onto the map is on no storey,
-                          and a «0» there would assert an EG nobody stated. Tied to the name's
-                          visibility: the label pass books one box for [dot][gap][name]. */}
-                      {!nameHidden && e.floor != null && <em className="team-floor">{floorBadge(e.floor)}</em>}
-                    </span>
-                  </>
-                )
-              }
-              // the pill AND its action bar are the ONE shared component (components/TwinTeamPill),
-              // the very same one the two mirrors wear — so the Karte, the Plan and both twins
-              // can never again answer differently for the same Trupp. The full bar only appears
-              // where this surface may write (`draggable`); a read-only Karte keeps the two doors
-              // that change nothing — the jump to the Trupp's card and this device's trail
-              // toggle — and the bare pill when neither applies.
-              // The marker container already owns the press, so no `hit` shell is passed.
-              return (
-                <TwinTeamPill
-                  name={e.label ?? ''} time={e.t} color={teamCol}
-                  raus={isRaus} truppId={e.truppId} floor={e.floor}
-                  trailCount={e.trail?.length ?? 0}
-                  trailShown={!hiddenTrails?.has(e.id)} trupps={trupps ?? []}
-                  line={badge}
-                  renameRef={focusTeam}
-                  acts={draggable ? {
-                    rename: onTeamRename && ((name) => onTeamRename(e.id, name)),
-                    pick: onTeamTrupp && ((truppId) => onTeamTrupp(e.id, truppId)),
-                    newTrupp: onTeamNewTrupp && (() => onTeamNewTrupp(e.id)),
-                    mark: onTeamMark && (() => onTeamMark(e.id)),
-                    clearTrail: () => onTeamClearTrail?.(e.id),
-                    remove: () => onDelete(e.id),
-                    removeWithTrail: onTeamRemoveWithTrail && (() => onTeamRemoveWithTrail(e.id)),
-                    showTrupp: onShowTrupp,
-                    toggleTrail: onToggleTrail && (() => onToggleTrail(e.id)),
-                    unlink: badge && onTeamUnlink && (() => onTeamUnlink(e.id, badge.lineId)),
-                    undock: e.dockedTo && onTeamUndock ? () => onTeamUndock(e.id) : undefined,
-                  } : readOnly && ((e.truppId && onShowTrupp) || (e.trail?.length && onToggleTrail)) ? {
-                    showTrupp: onShowTrupp,
-                    toggleTrail: onToggleTrail && (() => onToggleTrail(e.id)),
-                  } : undefined} />
-              )
-            })() : e.kind === 'shape' ? (
-              <>
-                <div
-                  className="shape-glyph"
-                  style={{ width: shpW, height: shpH, transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}
-                >
-                  <ShapeGlyph kind={e.shape ?? 'square'} color={e.color ?? DEFAULT_INK} stop={e.stop} aspect={e.aspect} carrier={e.carrier} reverse={e.reverse} strokeW={e.strokeW} boxPx={shpW} fillOpacity={e.fillOpacity} hatch={e.hatch} sharpCorners={e.sharpCorners} />
-                </div>
-                {/* the click-through ink's only tap target — outside the rotated box, so the
-                    chip stays upright (drawings' twin: MapView · lockChips) */}
-                {lockedShape && onUnlockShape && (
-                  <span className="shape-lock-anchor">
-                    <LockChip onUnlock={() => onUnlockShape(e.id)} />
-                  </span>
-                )}
-              </>
-            ) : e.kind === 'note' ? (() => {
-              // every note is a wrapping box; a stored note with no width falls back to the
-              // default. Font size = the fixed 12px base × the size-slider step.
-              // Colour applies in BOTH looks. It used to be `notePlain && color`, so on the
-              // default pill the whole colour row was decoration: you picked red, nothing
-              // changed, and the swatch stayed selected to prove it had been understood.
-              // Plain = coloured ink (there is nothing else to colour); pill = tinted paper,
-              // mixed in CSS so it holds up in day and night.
-              const tinted = !e.notePlain && !!e.color
-              const cls = (base: string) => `${base} box${e.notePlain ? ' plain' : ''}${tinted ? ' tinted' : ''}`
-              const nStyle = {
-                fontSize: 12 * noteScale(e.noteSize), width: noteWPx(e.noteW),
-                ...(e.color ? (e.notePlain ? { color: e.color } : { '--note-tint': e.color }) : null),
-              } as React.CSSProperties
-              return editNoteId === e.id ? (
-                <textarea
-                  className={cls('note-pill note-pill-input')}
-                  ref={focusNote}
-                  rows={1}
-                  style={nStyle}
-                  value={e.label ?? ''}
-                  placeholder={appConfig.copy.whiteboard.textPlaceholder}
-                  onPointerDown={(ev) => ev.stopPropagation()}
-                  onChange={(ev) => { onNoteText?.(e.id, ev.target.value); autoGrow(ev.currentTarget) }}
-                  onBlur={(ev) => {
-                    // A blur in the first moment after placement is NOT the user leaving the
-                    // field — it's MapLibre focusing its canvas (and/or a select-panel mount)
-                    // stealing focus. Committing here would set editNoteId=null and unmount the
-                    // input before a key can be pressed ("placed but not focused"). So inside a
-                    // short window, bounce focus straight back and skip the commit; a deliberate
-                    // click-away always lands well after this (human reaction ≥ ~200ms).
-                    const el = ev.currentTarget
-                    if (!noteForceCommit.current && Date.now() - noteEditStart.current < 350) { requestAnimationFrame(() => el.focus()); return }
-                    noteForceCommit.current = false
-                    onNoteCommit?.(e.id, ev.target.value)
-                  }}
-                  // Enter makes a new line — the ✓, Esc and clicking away are the way out.
-                  // `noteForceCommit` tells the blur this is a deliberate commit, so the 350ms
-                  // focus-steal guard above lets it through instead of bouncing focus back.
-                  onKeyDown={(ev) => {
-                    if (ev.key === 'Escape') {
-                      ev.preventDefault(); noteForceCommit.current = true; (ev.target as HTMLTextAreaElement).blur()
-                    }
-                  }}
-                />
-              ) : (
-                <div className={cls('note-pill')} style={nStyle} onDoubleClick={(ev) => { ev.stopPropagation(); onNoteEdit?.(e.id) }}>
-                  {e.label || <span className="note-pill-ph">{appConfig.copy.whiteboard.text}</span>}
-                </div>
-              )
-            })() : e.kind === 'photo' ? (
-              // 56 px on the map — the small copy, for the same reason as the Verlauf chip
-              <div className="ts photo">
-                {/* the lens's bearing from the EXIF (lib/photoGeo), as a view cone from the spot
-                    it was taken on — ground-pinned, so it turns with the map like a vehicle */}
-                {e.heading != null && (
-                  <svg className="photo-cone" viewBox="0 0 120 120" aria-hidden
-                    style={{ transform: `translate(-50%, -50%) rotate(${e.heading - bearing}deg)` }}>
-                    <path d="M60 60 L28.4 11.4 A58 58 0 0 1 91.6 11.4 Z" />
-                  </svg>
-                )}
-                <img src={thumbUrl(e.photoUrl)} alt="" decoding="async" />
-              </div>
-            ) : (() => {
-              // the generic vehicle bakes its name + heading into the glyph (text stays
-              // upright); every other symbol uses its library/static svg
-              // A live GPS vehicle is `kind: 'vehicle'` (not a placed 'symbol'), so isVehicleSym
-              // said no and it fell through to the generic branch: the chip rotated the ALREADY
-              // rotated glyph, which turned the body twice and tilted the baked-in name with it.
-              // It is a vehicle for rendering purposes — same treatment as the placed one.
-              const veh = isVehicleSym(e) || (e.kind === 'vehicle' && !!e.symbolSvg)
-              const comp = compositeSpec(e.symbol)
-              const hub = isHubretter(e.symbol)
-              // ONLY directional symbols (a rotation handle, or a vehicle/live unit) stay pinned to
-              // the ground via − bearing; plain markers (hydrants, KP, command posts, lifts…) stay
-              // UPRIGHT at every bearing ("always north"), so they never look crooked on a turned map.
-              // The Hubretter body is rotatable (`rotation`), INDEPENDENT of the boom (`rotation2`).
-              // ⚠️ A shared PERSON position is live but has no heading — nobody reports which way
-              // they are facing, and the glyph is a disc with their initials in it. It was caught
-              // by `e.live` and tilted with the map like a truck, which turns the one thing on it
-              // that has to be read at a glance upside down. A person is «always north».
-              const directional = (veh || !!e.live || isRotatableSym(e)) && e.kind !== 'person'
-              const rot = (e.rotation ?? 0) - (directional ? bearing : 0)
-              // rebuilt at the bearing-compensated angle; `directed` so a vehicle that has never
-              // moved doesn't gain a heading arrow it never reported
-              const svg = veh ? vehicleSymbolSvg(e.label ?? '', rot, e.directed ?? true)
-                : comp ? (byName[comp.base] ?? '')
-                : hub ? (byName[appConfig.symbols.vehicleName] ?? '')   // plain body; the boom is drawn separately
-                : (placardSvgForSymbol(e.symbol, e.fields) ?? e.symbolSvg ?? (e.symbol ? byName[luefterVariant(e.symbol, e.extract)!] ?? byName[e.symbol] ?? '' : ''))
-              // a composite stacks its part (Grosslüfter fan / Drehleiter ladder) as a separately-
-              // rotatable overlay aimed by rotation2; the Lüfter's extract (Absaugen) swaps to the
-              // reversed-arrow fan glyph. Ladder scales 1:1 over the body; the fan reads at 60%.
-              const overlay = comp ? { svg: byName[compositePartGlyph(comp, e.extract)] ?? byName[comp.part] ?? '', rotation: (e.rotation2 ?? 0) - bearing, scale: comp.scale, offsetX: comp.offsetX } : undefined
-              // Hubretter boom: a variable-reach articulated arm drawn behind the body, ground-scaled in
-              // metres (reachM) and aimed by rotation2 (−bearing). The cage tip carries the drag handle.
-              const boomPx = hub ? Math.max(24, Math.min(900, (e.reachM ?? 18) * pxPerM(e.coord[1], zoom))) : 0
-              // The caption is decided by the ONE label pass, not by a zoom threshold: it is
-              // printed whole where it fits and replaced by a dot where it does not. Routed
-              // through softHyphenateText because a caption is a FIELD VALUE, not a symbol name
-              // — «Salpetersäure, rauchend» has to break at the compound seam, not by syllable.
-              const capText = symbolCaptionText(e, captionMode)
-              const capHidden = !!capText && !!suppressedLabels?.has(`cap:${e.id}`)
-              // the vehicle glyph rotates its body internally, so the chip must NOT also rotate;
-              // every other symbol (incl. a composite body) applies its stored rotation to the chip.
-              return (
-                <>
-                  <TacticalSymbol
-                    svg={svg}
-                    sizePx={symPx(e.kind, e.coord[1], zoom, symMul)}
-                    rotation={veh ? 0 : rot}
-                    overlay={overlay}
-                    floor={e.floor}
-                    floorFrom={e.floorFrom}
-                    floorTo={e.floorTo}
-                    spread={e.spread}
-                    count={e.count}
-                    // the bond seen from the HOST's side (lib/docking): the same `link` glyph the
-                    // Trupp marker wears, on the one free corner of the tile — storey top-right,
-                    // count bottom-right, the docked Trupps themselves bottom-left. The crews'
-                    // names ride as its title; the words «bei «…»» stay off the map.
-                    docked={dockedHosts.get(e.id)?.join(' · ')}
-                    // «Gelöscht / erledigt»: grey glyph + the time, the same rule the Plan draws
-                    done={doneBadge(e)}
-                    // a vehicle's NAME is already in the glyph — symbolCaptionText drops it and
-                    // keeps the rest (Fahrer, eigene Felder, Notizen), which only 'Alle' prints
-                    caption={capHidden || !capText ? null : softHyphenateText(capText)}
-                  />
-                  {/* boom AFTER the body → paints on top (mounted on the turntable / roof) */}
-                  {hub && <HubretterBoom lengthPx={boomPx} deg={(e.rotation2 ?? 0) - bearing} />}
-                </>
-              )
-            })()}
-            {/* ⚠️ A selected Notiz carries NO on-canvas grips at all. The inline ✕ and the pen/⚙
-                row went on 29.08. (the panel opens on the tap itself — see selectEntity); the
-                right-edge width grip followed on 05.09. A note sizes itself to what is typed
-                (`noteAutoW` · lib/notes · autoNoteWPx), so the grip only ever un-did that — and it
-                sat where a finger reaches for the note itself, on the one object whose everyday
-                gesture is «move it out of the way». Width is not a decision the Kroki needs from
-                anybody. The body still moves by hold-drag, and double-tap stays the desktop
-                shortcut into inline edit. */}
-            {/* ✓ Fertig — box mode only, where Enter no longer commits */}
-            {e.kind === 'note' && editNoteId === e.id && (
-              <button
-                className="note-done"
-                title={appConfig.copy.notes.done}
-                aria-label={appConfig.copy.notes.done}
-                // pointerdown, not click: the textarea's blur unmounts this button first
-                onPointerDown={(ev) => { ev.preventDefault(); ev.stopPropagation(); noteForceCommit.current = true; onNoteCommit?.(e.id, e.label ?? '') }}
-              >
-                <Icon id="check" />
-              </button>
-            )}
-            {/* Rotation is for live VEHICLES (a truck faces somewhere). A person dot carries no
-                heading, so a rotate handle on it would invite orienting a fact that has no
-                orientation. */}
-            {selectedId === e.id && e.live && e.kind !== 'person' && onRotate && (
-              <TransformHandle
-                className="handle marker-rotate"
-                icon="rotate"
-                title={appConfig.copy.contextPanel.rotateHint}
-                onStart={(x, y, el) => rotDown(x, y, el, e.id)}
-                onMove={rotMove}
-                onEnd={rotUp}
-              />
-            )}
-            {selectedId === e.id && e.kind === 'shape' && !e.locked && onShapeTransform && (() => {
-              // rotor rotates with the shape so the handles stay attached to it: a tethered
-              // knob (top) for rotation, a corner grip for resize. The CSS anchors assume a
-              // SQUARE --hbox; a stretched shape overrides them inline so the knob rides the
-              // real top edge and the grip the real corner (same floors as .marker.sel --hbox).
-              const hbW = Math.max(shpW, 56), hbH = Math.max(shpH, 56)
-              const axisGrips = SHAPE_AXIS_GRIPS[e.shape ?? 'square']
-              // ── A Rotation is its two ENDS, and nothing else ──────────────────────────────
-              // Each end sets the run's length AND its bearing, and the width follows the run —
-              // so there is no rotate knob and no size grip left to draw. They live in the rotor,
-              // which already turns with the shape, so «along the run» is simply left and right.
-              // The grips float past the caps (rotationGripOffPx) on a short tether, or they
-              // would cover both the loop's own end and whatever the end was dropped on.
-              if (SHAPE_TWO_POINT[e.shape ?? 'square']) {
-                const runPx = Math.max(0, shpW - shpH)
-                const off = rotationGripOffPx(shpH)
-                return (
-                  <div className="shape-rotor" style={{ transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}>
-                    {([['endA', -1], ['endB', 1]] as const).map(([which, sign]) => (
-                      <TransformHandle
-                        key={which}
-                        className="handle shape-end"
-                        icon="resize-h"
-                        style={{ left: `calc(50% + ${sign * (runPx / 2 + off)}px)`, top: '50%' }}
-                        title={appConfig.copy.shapes.endHint}
-                        onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], which)}
-                        onMove={shapeMove}
-                        onEnd={shapeUp}
-                      />
-                    ))}
-                  </div>
-                )
-              }
-              // ── No rotate knob on a Form (02.09.) ── turning the whole object is the fixed
-              // SelectionBar's ⟳ (a drag dials, a tap arms the surface), and a second rotor on the
-              // shape's own edge said the same thing twice. Only its SIZE grips stay: they answer
-              // «how big», which the bar cannot. The rotor wrapper remains so the grips ride the
-              // shape's rotation; directional symbols keep their knob (they are not on the bar).
-              return (
-              <div className="shape-rotor" style={{ transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}>
-                {/* ── ONE GRIP PER AXIS on a Rechteck and a Rotation (01.09.) ──
-                    Both handles used to be corner grips wearing the same «resize» glyph, so
-                    nothing on screen said which of the two sizes a drag would change. Now the ↔
-                    sits on the right edge and moves the x-axis, the ↕ sits on the bottom edge and
-                    moves the y-axis: the grip stands ON the axis it controls and its arrows point
-                    the way it goes. The Rauch keeps the diagonal corner — a plume is pulled into
-                    shape, not given a width and a height (lib/shapes · SHAPE_AXIS_GRIPS). */}
-                {axisGrips ? <>
-                  <TransformHandle
-                    className="handle shape-resize shape-axis-x"
-                    icon="resize-h"
-                    style={{ left: `calc(50% + ${hbW / 2 + 3}px)`, top: '50%' }}
-                    title={appConfig.copy.shapes.boxWidthHint}
-                    onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'resize')}
-                    onMove={shapeMove}
-                    onEnd={shapeUp}
-                  />
-                  <TransformHandle
-                    className="handle shape-width shape-axis-y"
-                    icon="resize-v"
-                    style={{ left: '50%', top: `calc(50% + ${hbH / 2 + 3}px)` }}
-                    title={appConfig.copy.shapes.boxHeightHint}
-                    onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'width')}
-                    onMove={shapeMove}
-                    onEnd={shapeUp}
-                  />
-                </> : (
-                  <TransformHandle
-                    className="handle shape-resize"
-                    icon="resize"
-                    style={{ left: `calc(50% + ${hbW / 2 + 3}px)`, top: `calc(50% + ${hbH / 2 + 3}px)` }}
-                    title={appConfig.copy.shapes.resizeHint}
-                    onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'resize')}
-                    onMove={shapeMove}
-                    onEnd={shapeUp}
-                  />
-                )}
-              </div>
-              )
-            })()}
-            {selectedId === e.id && isRotatableSym(e) && !compositeSpec(e.symbol) && onShapeTransform && (
-              // directional symbol: rotate-only handle (no resize — symbols keep their
-              // real-world scale). Tethered knob rotates with the symbol.
-              <div className="shape-rotor" style={{ transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}>
-                <span className="shape-stem" />
-                <TransformHandle
-                  className="handle shape-rotate"
-                  icon="rotate"
-                  title={appConfig.copy.shapes.rotate}
-                  onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'rotate')}
-                  onMove={shapeMove}
-                  onEnd={shapeUp}
-                />
-              </div>
-            )}
-            {selectedId === e.id && !!compositeSpec(e.symbol) && onShapeTransform && (
-              // composite (Grosslüfter / Drehleiter / Hubretter): TWO tethered rotors — a short blue
-              // knob aims the vehicle body, a longer amber knob aims the part (fan / ladder / boom).
-              // Each rotor rotates with its own part (− bearing) so the handles stay attached as the
-              // map turns.
-              <>
-                <div className="shape-rotor" style={{ transform: `rotate(${(e.rotation ?? 0) - bearing}deg)` }}>
-                  <span className="shape-stem" />
-                  <TransformHandle
-                    className="handle shape-rotate"
-                    icon="rotate"
-                    title={appConfig.copy.contextPanel.rotationVehicle}
-                    onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'rotate')}
-                    onMove={shapeMove}
-                    onEnd={shapeUp}
-                  />
-                </div>
-                <div className="shape-rotor shape-rotor-fan" style={{ transform: `rotate(${(e.rotation2 ?? 0) - bearing}deg)` }}>
-                  <span className="shape-stem" />
-                  <TransformHandle
-                    className="handle shape-rotate shape-rotate-fan"
-                    icon="rotate"
-                    title={appConfig.copy.contextPanel[compositeSpec(e.symbol)!.partLabel]}
-                    onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'rotate2')}
-                    onMove={shapeMove}
-                    onEnd={shapeUp}
-                  />
-                </div>
-              </>
-            )}
-            {selectedId === e.id && isHubretter(e.symbol) && onShapeTransform && (() => {
-              // Hubretter cage tip: ONE handle at the boom end. Dragging it sets both the boom bearing
-              // (rotation2) and the reach (reachM). Positioned at the tip = centre + reach·(bearing).
-              const rad = (((e.rotation2 ?? 0) - bearing) * Math.PI) / 180
-              const len = Math.max(24, Math.min(900, (e.reachM ?? 18) * pxPerM(e.coord[1], zoom)))
-              return (
-                <div className="cage-handle" style={{ left: `calc(50% + ${(Math.cos(rad) * len).toFixed(1)}px)`, top: `calc(50% + ${(Math.sin(rad) * len).toFixed(1)}px)` }}>
-                  <TransformHandle
-                    className="handle shape-rotate shape-cage"
-                    icon="move"
-                    title={appConfig.copy.shapes.moveHint}
-                    onStart={(x, y, el) => shapeDown(x, y, el, e.id, e.coord[1], 'cage')}
-                    onMove={shapeMove}
-                    onEnd={shapeUp}
-                  />
-                </div>
-              )
-            })()}
-          </div>
-        </Marker>
-        )
-      })}
+      {entities.filter((e) => isVisible(effectiveLayer(e)) && Array.isArray(e.coord)).map((e) => (
+        <EntityMarker
+          key={e.id} e={e} entities={entities} byName={byName} selectedId={selectedId}
+          groupSelectedIds={groupSelectedIds} networkEntityIds={networkEntityIds}
+          zoom={zoom} bearing={bearing} symMul={symMul} captionMode={captionMode} suppressedLabels={suppressedLabels}
+          readOnly={readOnly} draggable={draggable} editNoteId={editNoteId} project={project} unproject={unproject}
+          spoke={fan?.[e.id]} draggingId={draggingId} grabbedId={grabbedId.current}
+          dockedSlots={dockedSlots} dockedHosts={dockedHosts} onPress={pressMarker}
+          rotDown={rotDown} rotMove={rotMove} rotUp={rotUp} shapeDown={shapeDown} shapeMove={shapeMove} shapeUp={shapeUp}
+          focusNote={focusNote} focusTeam={focusTeam} noteChange={noteChange} noteBlur={noteBlur} noteKeyDown={noteKeyDown} noteDone={noteDone}
+          onDelete={onDelete} onRotate={onRotate} onShapeTransform={onShapeTransform} onUnlockShape={onUnlockShape} onNoteEdit={onNoteEdit}
+          trupps={trupps} onShowTrupp={onShowTrupp} onTeamTrupp={onTeamTrupp} onTeamNewTrupp={onTeamNewTrupp} onTeamMark={onTeamMark}
+          onTeamRename={onTeamRename} onTeamClearTrail={onTeamClearTrail} onTeamRemoveWithTrail={onTeamRemoveWithTrail}
+          hiddenTrails={hiddenTrails} onToggleTrail={onToggleTrail} teamLines={teamLines} onTeamUnlink={onTeamUnlink} onTeamUndock={onTeamUndock}
+        />
+      ))}
       {/* the attachment ring at a Rotation end's claimed symbol — the same chip the Leitungen
           raise, so «halten, dann verbindet es» is one thing to learn (see trackEndMagnet) */}
       {endMagnet && (

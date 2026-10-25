@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { groupByDay, isHandWritten, rowGlyph, isNachtrag, rowText, rowTime, rowPhotos, swapUrl, repeatRuns } from './verlauf'
+import { groupByDay, isHandWritten, rowGlyph, isNachtrag, rowText, rowTime, rowPhotos, rowTarget, swapUrl, repeatRuns } from './verlauf'
 import type { TimelineEvent } from '../types'
 
 const row = (id: string, at?: string): TimelineEvent =>
@@ -352,5 +352,21 @@ describe('rowGlyph (a hand-written row shows its Art)', () => {
     expect(rowGlyph(row({ kind: 'audio', icon: 'mic', entryType: 'auftrag' }))).toEqual({ icon: 'mic' })
     expect(rowGlyph(row({ kind: 'photo', icon: 'photo', entryType: 'sofort' }))).toEqual({ icon: 'photo' })
     expect(rowGlyph(row({ kind: 'team', icon: 'gauge' }))).toEqual({ icon: 'gauge' })
+  })
+})
+
+// moved out of Journal with the row (sweep A.8): a row is a way somewhere only when it carries one
+describe('rowTarget', () => {
+  const base = row('r')
+  it('jumps to a map entity, else a pinned point, else a thing placed on a plan', () => {
+    expect(rowTarget({ ...base, entityId: 'e1', coord: [7.5, 47.5] })).toBe('map-entity')
+    expect(rowTarget({ ...base, coord: [7.5, 47.5] })).toBe('map-pin')
+    expect(rowTarget({ ...base, surface: 'plan', planId: 'p1', annoId: 'a1' })).toBe('plan')
+    // a pre-23.08. placement row carries only its kind, and still lands on its plan
+    expect(rowTarget({ ...base, surface: 'plan', planId: 'p1', kind: 'symbol' })).toBe('plan')
+  })
+  it('is read-only otherwise — a note on a plan is about no thing on it', () => {
+    expect(rowTarget(base)).toBeNull()
+    expect(rowTarget({ ...base, surface: 'plan', planId: 'p1', kind: 'journal' })).toBeNull()
   })
 })

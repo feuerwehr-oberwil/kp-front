@@ -19,12 +19,12 @@ import type { GeorefPlan } from '../lib/georefTwins'
 import { routeHotkey } from '../lib/hotkeyRoute'
 import { resolveHotkey, isTypingTarget } from '../lib/hotkeys'
 import { newId } from '../lib/ids'
-import { applyRouting, moveLineBody, objectAttachment } from '../lib/lineAttachments'
+import { applyRouting, detachEnds, freeEnd, moveLineBody, objectAttachment } from '../lib/lineAttachments'
 import { moduleNumbers } from '../lib/navRail'
 import { autoNoteWPx } from '../lib/notes'
 import { doneAct, donePlace } from '../lib/objectDone'
 import { nudgePointIntoRect, nudgeSelectionIntoRect, type NudgeBox } from '../lib/panelNudge'
-import { freshTeamLabel, placedTrupps, type PlacedTrupp } from '../lib/placedTrupps'
+import { placedTrupps, type PlacedTrupp } from '../lib/placedTrupps'
 import { motionDuration, prefersReducedMotion } from '../lib/reducedMotion'
 import { centroid, rotateAround, turnedBy } from '../lib/selectionTransform'
 import { serverNowIso } from '../lib/serverClock'
@@ -37,6 +37,7 @@ import { recordKey, type RecordKey } from '../lib/undoKeys'
 import type { Dropper, UndoDomain } from '../lib/undoTimeline'
 import { useCoordPicker } from '../lib/useCoordPicker'
 import { useMeasure } from '../lib/useMeasure'
+import { useNotePanelClosing } from '../lib/useNotePanelClosing'
 import { useShareMyPosition } from '../lib/useShareMyPosition'
 import { useSymbols } from '../lib/useSymbols'
 import type { VehicleOverrides } from '../lib/useVehicleLayer'
@@ -62,14 +63,9 @@ import { isMapTool } from '../lib/readOnlyTools'
  * whole list.
  */
 function detachDrawingFrom(dr: Drawing, ent: Entity): Drawing {
-  let next = dr
-  for (const endpoint of ['start', 'end'] as const) {
-    const a = endpoint === 'start' ? next.startAttachment : next.endAttachment
-    if (a?.target.kind !== 'object' || a.target.id !== ent.id || next.coords.length < 2) continue
-    const coords = next.coords.map((p, i) => (i === (endpoint === 'start' ? 0 : next.coords.length - 1) ? ent.coord : p))
-    next = { ...next, coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
-  }
-  return next
+  if (dr.coords.length < 2) return dr
+  const out = detachEnds({ ...dr, points: dr.coords }, (_, a) => (a.target.kind === 'object' && a.target.id === ent.id ? ent.coord : null))
+  return out ? { ...dr, coords: out.points, ...out.freed } : dr
 }
 
 export interface UseMapActionsInputs {
@@ -438,10 +434,8 @@ export function useMapActions({
       const src = doc.entities.find((e) => e.id === selectedId)
       if (!src || src.live || !Array.isArray(src.coord)) return
       const id = newId('p')
-      const dup = duplicateEntity(src, id)
-      // ⚠️ a loose «Trupp 3» copied is not a second Trupp 3 (docs/trupp-naming.md §7): it takes the
-      // next number of the one counter, as a new chip dropped from the tool would
-      const copy = dup.kind === 'team' && !dup.truppId ? { ...dup, label: freshTeamLabel(dup.label, truppCounterNames()) } : dup
+      // the copy rules — no «erledigt», a loose Trupp's next number — are lib/duplicate's
+      const copy = duplicateEntity(src, id, truppCounterNames)
       commit((d) => ({ ...d, entities: [...d.entities, copy] }))
       setSelectedId(id); setSelectedDrawingId(null); setSelectedDrawIds([]); setSelectedEntityIds([])
       log('layers', appConfig.copy.log.duplicated, 'symbol', undefined, id); emit('entity.add', { id, entity: copy })
@@ -512,14 +506,8 @@ export function useMapActions({
   const selected = entities.find((e) => e.id === selectedId) ?? null
   // the note whose ⚙ was tapped — a deleted note simply drops out here and the panel unmounts
   const noteEntity = entities.find((e) => e.id === notePanelId && e.kind === 'note') ?? null
-  // the panel belongs to the SELECTED note: deselecting (empty map, Esc, picking something
-  // else) closes it too, so a stray panel can never outlive the thing it describes
-  useEffect(() => { if (notePanelId && selectedId !== notePanelId) setNotePanelId(null) }, [selectedId, notePanelId, setNotePanelId])
-  // reaching for a tool means you are done reading this note — the panel should not sit there
-  // while you place the next thing (selection alone doesn't change until that thing lands)
-  useEffect(() => { if (tool !== 'select') setNotePanelId(null) }, [tool, setNotePanelId])
-  // the «just placed» mark lives exactly as long as that panel does
-  useEffect(() => { if (notePlacedId && notePanelId !== notePlacedId) setNotePlacedId(null) }, [notePanelId, notePlacedId, setNotePlacedId])
+  // …and it closes on the Plan's three rules too: deselected, a tool armed, the placed mark spent
+  useNotePanelClosing({ selectedId, tool, rest: 'select', notePanelId, setNotePanelId, notePlacedId, setNotePlacedId })
 
   // keep the tapped symbol visible: the ContextPanel overlay covers the right band of the
   // map — when the selection (incl. its halo/handles) lands under it, ease the camera just
@@ -677,18 +665,13 @@ export function useMapActions({
     commit((d) => ({
       ...d,
       drawings: d.drawings.filter((dr) => !ids.includes(dr.id)).map((dr) => {
-        let next = dr
-        for (const endpoint of ['start', 'end'] as const) {
-          const a = endpoint === 'start' ? next.startAttachment : next.endAttachment
-          if (!a || next.coords.length < 2) continue
+        if (dr.coords.length < 2) return dr
+        const out = detachEnds({ ...dr, points: dr.coords }, (_, a) => {
           const object = a.target.kind === 'object' && ents.includes(a.target.id) ? entities.find((e) => e.id === a.target.id) : null
           const targetLine = a.target.kind === 'line' && ids.includes(a.target.id) ? drawings.find((x) => x.id === a.target.id) : null
-          const fallback = object?.coord ?? (targetLine && a.target.kind === 'line' ? targetLine.coords[a.target.endpoint === 'start' ? 0 : targetLine.coords.length - 1] : null)
-          if (!fallback) continue
-          const coords = next.coords.map((p, i) => i === (endpoint === 'start' ? 0 : next.coords.length - 1) ? fallback : p)
-          next = { ...next, coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) }
-        }
-        return next
+          return object?.coord ?? (targetLine && a.target.kind === 'line' ? targetLine.coords[a.target.endpoint === 'start' ? 0 : targetLine.coords.length - 1] : null)
+        })
+        return out ? { ...dr, coords: out.points, ...out.freed } : dr
       }),
       entities: d.entities.filter((e) => !ents.includes(e.id)),
     }))
@@ -698,8 +681,8 @@ export function useMapActions({
       const object = a.target.kind === 'object' ? entities.find((e) => e.id === a.target.id) : null
       const targetLine = a.target.kind === 'line' ? drawings.find((x) => x.id === a.target.id) : null
       const fallback = object?.coord ?? (targetLine && a.target.kind === 'line' ? targetLine.coords[a.target.endpoint === 'start' ? 0 : targetLine.coords.length - 1] : dr.coords[endpoint === 'start' ? 0 : dr.coords.length - 1])
-      const coords = dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? fallback : p)
-      emit('draw.edit', { id: dr.id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
+      const { points: coords, freed } = freeEnd(dr.coords, endpoint, fallback)
+      emit('draw.edit', { id: dr.id, patch: { coords, ...freed } })
     })
     setSelectedDrawIds([]); setSelectedEntityIds([])
     // ONE row, counted or named (lib/drawingEdit · removalRowText) — «… entfernt»
@@ -957,8 +940,8 @@ export function useMapActions({
       for (const endpoint of ['start', 'end'] as const) {
         const a = endpoint === 'start' ? dr.startAttachment : dr.endAttachment
         if (a?.target.kind !== 'object' || a.target.id !== id) continue
-        const coords = dr.coords.map((p, i) => i === (endpoint === 'start' ? 0 : dr.coords.length - 1) ? ent.coord : p)
-        emit('draw.edit', { id: dr.id, patch: { coords, ...(endpoint === 'start' ? { startAttachment: undefined } : { endAttachment: undefined }) } })
+        const { points: coords, freed } = freeEnd(dr.coords, endpoint, ent.coord)
+        emit('draw.edit', { id: dr.id, patch: { coords, ...freed } })
       }
     })
     return true

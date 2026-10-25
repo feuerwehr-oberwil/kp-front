@@ -5,9 +5,13 @@
 //     panel's ●/○, the rail's dimmed tiles, the surface's «Auf diesem Gerät» chip);
 //   · `useMapCoverage`: which base tiles of the current view this device holds — the hatching
 //     of map area with nothing behind it while offline, and the sheet's «Karte» row.
+//
+// `usePlansHeld` and `useBasemapOffline` are what the surface (KarteApp) wires of them.
 
-import { useEffect, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import type { MapRef } from 'react-map-gl/maplibre'
+import { useNightTheme } from '../../lib/useNightTheme'
+import type { LayerDef, LngLat } from '../../types'
 import { storedPlanAlignments } from '../../lib/incidents'
 import type { StationObject } from '../../lib/api/stationReference'
 import {
@@ -101,4 +105,62 @@ export function useMapCoverage({ enabled, mapRef, viewKey, templates, maxzoom }:
   }, [enabled, key])
   // a stale answer for another view is still the best picture until the new one arrives
   return enabled && cov ? cov.value : null
+}
+
+const NO_TILES: TileXY[] = []
+
+/** Which of the selected object's plans this device holds: `docHeld(d)` (null = not known yet)
+ *  for the rail's dimmed tiles, `openHeld` for the open one. Re-asked every few seconds while an
+ *  open sheet is not held yet and the network is up: opening it online is what puts it in the
+ *  cache, and the chip should say so once it is there. */
+export function usePlansHeld(selObj: StationObject | null, openDoc: { plan: StationObject['plans'][number] | null } | null, online: boolean) {
+  const [availNonce, setAvailNonce] = useState(0)
+  const avail = useObjectAvailability(selObj, availNonce)
+  const docHeld = (d: { plan: StationObject['plans'][number] | null } | null): boolean | null => {
+    if (!d || !avail) return null
+    // opens here at all (◐ included: a soft deep zoom, storeys partly) — lib/karte/availability · planLamp
+    return (d.plan ? avail.plans[planKey(d.plan)] ?? 'online' : avail.gebaeude ?? 'online') !== 'online'
+  }
+  const openHeld = docHeld(openDoc)
+  useEffect(() => {
+    if (!openDoc || openHeld !== false || !online) return
+    const t = setInterval(() => setAvailNonce((n) => n + 1), 5000)
+    return () => clearInterval(t)
+  }, [openDoc, openHeld, online])
+  return { avail, docHeld, openHeld }
+}
+
+/** The base map this device holds for the view: hatched (`uncached`) where there is NOTHING behind
+ *  the map (neither the tile nor a parent MapLibre could scale up) — asked only while offline or
+ *  while «Auf diesem Gerät» (`deviceOpen`) is open. And the «Keine Basiskarte» Meldung
+ *  (MapView · onBasemapUnavailable): once per visit to the viewer, withdrawn the moment the link
+ *  is back — the Einsatz's rule (IncidentWorkspace). */
+export function useBasemapOffline({ online, mapRef, view, layers }: {
+  online: boolean
+  mapRef: RefObject<MapRef | null>
+  view: { center: LngLat; zoom: number }
+  layers: readonly LayerDef[]
+}) {
+  const night = useNightTheme()
+  const [deviceOpen, setDeviceOpen] = useState(false)
+  const base = layers.find((l) => l.base && l.visible) ?? null
+  const baseTemplates = base ? (night && base.nightTiles?.length ? base.nightTiles : base.tiles ?? null) : null
+  const coverage = useMapCoverage({
+    enabled: !online || deviceOpen,
+    mapRef,
+    viewKey: `${view.center[0].toFixed(4)},${view.center[1].toFixed(4)}@${view.zoom.toFixed(1)}`,
+    templates: baseTemplates,
+    maxzoom: base?.maxzoom,
+  })
+  const uncached = useMemo(() => (!online && coverage && coverage !== 'far' ? coverage.missing : NO_TILES), [online, coverage])
+  const [noBasemap, setNoBasemap] = useState(false)
+  const noBasemapSaid = useRef(false)
+  const onBasemapUnavailable = useCallback(() => {
+    if (noBasemapSaid.current) return
+    noBasemapSaid.current = true
+    setNoBasemap(true)
+  }, [setNoBasemap]) // the setter named: the React Compiler infers it (lint ratchet)
+  const [wasOnline, setWasOnline] = useState(online)
+  if (online !== wasOnline) { setWasOnline(online); if (online) setNoBasemap(false) }
+  return { deviceOpen, setDeviceOpen, coverage, uncached, noBasemap, setNoBasemap, onBasemapUnavailable }
 }

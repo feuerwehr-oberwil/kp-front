@@ -47,7 +47,7 @@ export function leaderByRank<T extends CrewSlot>(team: T[], rankOf: (slot: T) =>
  * One crew change in the Trupp form, with the rule applied: while `auto` holds, the crown follows
  * the rank (on an add AND on a removal — the leader taken out hands it to the next most senior);
  * a `lead` is the operator's own pick and switches `auto` off. The form starts `auto` on a NEW
- * Trupp only (AtemschutzView · TruppForm).
+ * Trupp only (components/TruppForm).
  */
 export function crewAfterChange<T extends CrewSlot>(
   next: T[], why: CrewChange, auto: boolean, rankOf: (slot: T) => number,

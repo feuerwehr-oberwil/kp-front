@@ -63,13 +63,13 @@ derived id `trn-<id>-<from>-<to>`, so the devices that all noticed it – the re
 Atemschutz-Link included – leave one row between them.
 
 A newly registered Trupp creates a Verlauf row – «Trupp {name} angemeldet»
-(`useTruppActions.ts` · `logRegister`). Whoever thinks it's missing is usually just not looking
+(`truppActions/lifecycle.ts` · `logRegister`). Whoever thinks it's missing is usually just not looking
 at the Verlauf while registering: Atemschutz is its own view.
 
 **Closed since 2026-08-17** (this used to be listed here as a gap): removing (`logRemoved`,
 «Trupp {name} entfernt») and restoring (`logRestored`) write their row. A colour change is a
 clause of the edit row («Farbe geändert», `atemschutz.changeColor` in
-`useTruppActions` · `truppEditChanges`); since 04.09.2026 the Trupp form no longer offers a
+`truppActions/lifecycle` · `truppEditChanges`); since 04.09.2026 the Trupp form no longer offers a
 colour, so it only fires if a stored colour actually differs.
 A deleted Trupp is only soft-removed anyway (`removedAt`) and keeps printing on the
 Rapport as «Von Tafel entfernt».
@@ -424,7 +424,7 @@ not operator actions. Ordered by operational impact.
 1. **Corrections to the incident data** are in the audit, not in the Verlauf (see above).
    `started_at` is a field of the legal document and even carries its own
    `started_at_source = "manual"` – but nobody can look the change itself up in the Verlauf.
-2. **Changing the line number of a drawn hose line** – audit only (`useTruppActions.ts` ·
+2. **Changing the line number of a drawn hose line** – audit only (`truppActions/lines.ts` ·
    `atemschutz.line.renumber`). This number is what maps which Trupp works on which
    Leitung – so the mapping can be shifted silently. ⚠️ Since 19.08. a renumber pulls the
    number onto the Trupp (**via the anchor, never via the number**), so the mapping *is*

@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { applyLocale } from '../config/copy'
-import { compareText, formatLocale, localeDate, localeDateTime, dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart } from './format'
+import { compareText, formatLocale, localeDate, localeDateTime, dueClock, fillTemplate, fmtDuration, fmtFileSize, fmtMMSS, fmtWhen, hhmm, formatSymbolName, formatTime, initials, isNextDay, restoreUmlauts, roleLabel, stripUnprintable, telHref, unitLabel, streetPart } from './format'
 
 describe('restoreUmlauts', () => {
   it('restores transliterated umlauts (lower + upper variants)', () => {
@@ -211,6 +211,37 @@ describe('formatLocale and the locale helpers', () => {
       })
     }
     expect(offenders).toEqual([])
+  })
+})
+
+// One helper for «when did this happen» (A.16, 24.10.2026): the panels' always-dated form and
+// the «clock today, date + clock otherwise» form the capture picker and Objektbesuche share.
+describe('fmtWhen', () => {
+  const now = new Date(2026, 9, 21, 18, 0)
+  const today = new Date(2026, 9, 21, 14, 5).toISOString()
+  const tuesday = new Date(2026, 9, 14, 14, 5).toISOString()
+
+  it('always carries the date by default, in the locale\'s own date+time form', () => {
+    expect(fmtWhen(today, { now })).toBe('21.10., 14:05')
+    expect(fmtWhen(tuesday, { now })).toBe('14.10., 14:05')
+  })
+
+  it('todayShort: the bare clock today, date + clock (one space) on another day', () => {
+    expect(fmtWhen(today, { todayShort: true, now })).toBe('14:05')
+    expect(fmtWhen(tuesday, { todayShort: true, now })).toBe('14.10. 14:05')
+  })
+
+  it('reads a bare date as noon of that day, and gives nothing for a missing or broken stamp', () => {
+    expect(fmtWhen('2026-10-14', { todayShort: true, now })).toBe('14.10. 12:00')
+    for (const bad of [null, undefined, '', 'gestern']) expect(fmtWhen(bad, { now })).toBe('')
+  })
+})
+
+describe('hhmm', () => {
+  it('pads a Date or an ISO string to HH:MM, and is empty for a missing or broken stamp', () => {
+    expect(hhmm(new Date(2026, 9, 21, 7, 5))).toBe('07:05')
+    expect(hhmm(new Date(2026, 9, 21, 7, 5).toISOString())).toBe('07:05')
+    for (const bad of [null, undefined, '', 'gestern']) expect(hhmm(bad)).toBe('')
   })
 })
 
