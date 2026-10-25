@@ -6880,100 +6880,6 @@
         }
       }
     },
-    "/api/georef/suggest": {
-      "post": {
-        "tags": [
-          "georef"
-        ],
-        "summary": "Suggest Alignment",
-        "operationId": "suggest_alignment_api_georef_suggest_post",
-        "parameters": [
-          {
-            "name": "lng",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "number",
-              "title": "Lng"
-            }
-          },
-          {
-            "name": "lat",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "number",
-              "title": "Lat"
-            }
-          },
-          {
-            "name": "mPerPx",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "number",
-              "title": "Mperpx"
-            }
-          },
-          {
-            "name": "template",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "m2",
-              "title": "Template"
-            }
-          },
-          {
-            "name": "access_token",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Access Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "$ref": "#/components/schemas/Body_suggest_alignment_api_georef_suggest_post"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/overpass/buildings": {
       "post": {
         "tags": [
@@ -14946,20 +14852,6 @@
         ],
         "title": "Body_report_pdf_api_incidents__incident_id__report_pdf_post"
       },
-      "Body_suggest_alignment_api_georef_suggest_post": {
-        "properties": {
-          "image": {
-            "type": "string",
-            "contentMediaType": "application/octet-stream",
-            "title": "Image"
-          }
-        },
-        "type": "object",
-        "required": [
-          "image"
-        ],
-        "title": "Body_suggest_alignment_api_georef_suggest_post"
-      },
       "Body_tafel_pdf_api_incidents__incident_id__tafel_pdf_post": {
         "properties": {
           "payload": {
@@ -15790,11 +15682,6 @@
           "sttConfigured": {
             "type": "boolean",
             "title": "Sttconfigured",
-            "default": false
-          },
-          "autoAlignConfigured": {
-            "type": "boolean",
-            "title": "Autoalignconfigured",
             "default": false
           },
           "cartoBasemapKey": {
@@ -19174,7 +19061,7 @@
           "id"
         ],
         "title": "ModuleConfig",
-        "description": "One Objektplan module — drives BOTH the app's plan tile and the import parsing, so a\nstation configures its module set / labels / parsing in one place.\n\nDisplay: ``code`` is the short tile label ('M1', '2/3', 'Wasser'), plus title/subtitle/\norientation/order/icon. Parsing: ``match`` is a regex tested (case-insensitive) against a\nsource PDF's filename stem — the first module whose ``match`` hits claims the file.\n``combinedWith`` marks a combined sheet that also fills other slots (modul2-3 → modul2 +\nmodul3). ``family`` marks a generative module whose ``match`` has a capture group for a\nsub-slot — \"Modul 5 - Wasser\" → ``modul5-wasser`` labelled \"Wasser\".\n\n``alignment`` says how this module's sheets get onto the Karte: ``auto`` — the server\nproposes a fit for the admin to approve and the field offers «Automatisch ausrichten»;\n``manual`` — reference points by hand only (admin wall or field); ``none`` — the sheet is\nnever laid on the map. Unset = ``auto`` for modul1/modul2/modul2-3, ``none`` otherwise\n(``module_alignment`` in plan_alignment_compute is the one resolver)."
+        "description": "One Objektplan module — drives BOTH the app's plan tile and the import parsing, so a\nstation configures its module set / labels / parsing in one place.\n\nDisplay: ``code`` is the short tile label ('M1', '2/3', 'Wasser'), plus title/subtitle/\norientation/order/icon. Parsing: ``match`` is a regex tested (case-insensitive) against a\nsource PDF's filename stem — the first module whose ``match`` hits claims the file.\n``combinedWith`` marks a combined sheet that also fills other slots (modul2-3 → modul2 +\nmodul3). ``family`` marks a generative module whose ``match`` has a capture group for a\nsub-slot — \"Modul 5 - Wasser\" → ``modul5-wasser`` labelled \"Wasser\".\n\n``alignment`` says how this module's sheets get onto the Karte: ``auto`` — the server\nproposes a fit for the admin to approve on Objektpläne (the field sets points by hand until\nthen); ``manual`` — reference points by hand only (admin wall or field); ``none`` — the sheet is\nnever laid on the map. Unset = ``auto`` for modul1/modul2/modul2-3, ``none`` otherwise\n(``module_alignment`` in plan_alignment_compute is the one resolver)."
       },
       "ObjectCategoryConfig": {
         "properties": {

@@ -105,7 +105,7 @@ import { useAuditEvents } from './lib/useAuditEvents'
 import { EL_EVENT_PREFIXES, eventScopeFor } from './lib/eventScope'
 import { combinedSyncStatus } from './lib/combinedSyncStatus'
 import { useMapDrawing } from './lib/useMapDrawing'
-import { detachEnds, freeEnd, resolveMapDrawings } from './lib/lineAttachments'
+import { detachDrawings, resolveMapDrawings, withDetach } from './lib/lineAttachments'
 import { leitungOptions } from './lib/truppLines'
 import { useIncidentSync } from './lib/useIncidentSync'
 import { useTruppActions, LAGE_TARGET } from './lib/useTruppActions'
@@ -1835,20 +1835,14 @@ export function IncidentWorkspace({
     // («Zeichnung: Abschluss: Teilstück»), same funnel as patchDrawing (useMapDrawing ·
     // noteDrawingEdit / lib/drawingEdit), which this hand-rolled commit bypasses.
     noteDrawingEdit(drawing, { arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined })
-    commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => {
-      if (d.id === drawing.id) return { ...d, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
-      // the ends that hung on the «E» let go where it stood (lib/lineAttachments · detachEnds)
-      if (d.coords.length < 2) return d
-      const out = detachEnds({ ...d, points: d.coords }, (endpoint) => (incoming.some((x) => x.id === d.id && x.endpoint === endpoint) ? fallback : null))
-      return out ? { ...d, coords: out.points, ...out.freed } : d
-    }) }))
+    // the ends that hung on the «E» let go where it stood — one patch per line, both ends in it,
+    // applied here and sent as ONE draw.edit (lib/lineAttachments · detachDrawings)
+    const released = detachDrawings(drawings.filter((d) => d.id !== drawing.id), (d, endpoint) => (incoming.some((x) => x.id === d.id && x.endpoint === endpoint) ? fallback : null))
+    commit((doc) => ({ ...doc, drawings: doc.drawings.map((d) => (d.id === drawing.id
+      ? { ...d, arrow: ending === 'arrow' || ending === 'arrowStop' || undefined, arrowStop: ending === 'arrowStop' || undefined, teilstueck: ending === 'teilstueck' || undefined }
+      : withDetach(d, released))) }))
     emit('draw.edit', { id: drawing.id, patch: { arrow: ending === 'arrow' || undefined, teilstueck: ending === 'teilstueck' || undefined } })
-    incoming.forEach(({ id, endpoint }) => {
-      const line = drawings.find((d) => d.id === id)
-      if (!line) return
-      const { points: coords, freed } = freeEnd(line.coords, endpoint, fallback)
-      emit('draw.edit', { id, patch: { coords, ...freed } })
-    })
+    released.forEach((patch, id) => emit('draw.edit', { id, patch }))
   }
   // Attached Leitung ends follow their live vehicles (lib/useGpsFollow).
   // ⚠️ 24.09.2026 — this pass was the render storm of the Übung on 23.09.2026 (React #185 on
@@ -3137,7 +3131,7 @@ export function IncidentWorkspace({
 
       <PlansSurface {...{
         mode, sym, guarded, railLabels, planDocs, tacticalLocked, isPhone, journalOpen, replayActive,
-        linkScoped, activePlanId, setActivePlanId, objectPlans, buildingInfo, incidentMeta, incidentView,
+        linkScoped, activePlanId, setActivePlanId, objectPlans, buildingInfo, incidentMeta,
         setPickerOpen, symbolScale, symbolCaptions, mapSuppressedCaptions, georefFits, mapActions,
         replayBoard, replayBuilding, store, trails, deleteGhostTrail, armTrailDrop, building, gebaeude, logPlan,
         roster, addRecent, user, emit, planStacks, planFocus, effTrupps, truppCounterNames, teamNameTaken,

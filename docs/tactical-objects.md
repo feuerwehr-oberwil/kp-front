@@ -19,7 +19,8 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   in only its projection and target walk, `lineAttachments · lineEndTargets` /
   `candidateAttachment`; the Lage's walk is `components/mapMagnetTargets`, its magnets
   `components/useMapMagnet`), the draft contract (`lib/draftMachine` – ✓ «Fertig» and the A6
-  tap-away auto-commit), «mit verbundenen Leitungen entfernen» (`lineAttachments · detachEnds`),
+  tap-away auto-commit), «mit verbundenen Leitungen entfernen» (`lineAttachments · detachEnds`; the Lage sends
+  it as ONE `draw.edit` per line, both ends in it – `detachDrawings` – so replay keeps both ends moved),
   ⌘D (`lib/duplicate`), and the armed tool + per-team trails + note-panel closing rules
   (`useTacticalSelection · usePlacement`, `lib/useHiddenTrails`, `lib/useNotePanelClosing`).
 - **The armed tool's readout is one pill** (`components/ArmedToolPill`, `lib/armedTool`,

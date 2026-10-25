@@ -545,6 +545,36 @@ export function detachEnds<P>(
   return points ? { points, freed } : null
 }
 
+/** One line's detach as a `draw.edit` patch: BOTH freed ends in one coords array. */
+export type DetachPatch = { coords: LngLat[] } & FreedEnds
+
+/**
+ * `detachEnds` over the Lage's drawings: one patch per line that let go of something, keyed by
+ * line id. The Lage's delete paths (useMapActions · deleteEntity / deleteGroup, useMapDrawing ·
+ * deleteDrawing, IncidentWorkspace · changeMapEnding) apply these in their commit AND emit each as
+ * ONE `draw.edit` — never one per end: two per-end patches built from the same original coords
+ * each carry the other end's OLD point, so replay folded the second over the first and put the
+ * first end back.
+ */
+export function detachDrawings(
+  drawings: readonly Drawing[],
+  release: (line: Drawing, endpoint: LineEndpoint, attachment: LineAttachment, points: readonly LngLat[]) => LngLat | null | undefined,
+): Map<string, DetachPatch> {
+  const out = new Map<string, DetachPatch>()
+  for (const dr of drawings) {
+    if (dr.coords.length < 2) continue
+    const done = detachEnds({ ...dr, points: dr.coords }, (endpoint, a, points) => release(dr, endpoint, a, points))
+    if (done) out.set(dr.id, { coords: done.points, ...done.freed })
+  }
+  return out
+}
+
+/** A drawing with its `detachDrawings` patch applied — the same object when it has none. */
+export function withDetach(dr: Drawing, released: ReadonlyMap<string, DetachPatch>): Drawing {
+  const patch = released.get(dr.id)
+  return patch ? { ...dr, ...patch } : dr
+}
+
 /** Body movement leaves attached endpoints fixed; every other vertex translates. */
 export function moveLineBody<P extends Coordinate>(line: AttachableLine<P>, delta: Point): P[] {
   return line.points.map((p, i) => {

@@ -4,6 +4,7 @@ import { fillTemplate, formatTime } from '../format'
 import { confirmDialog } from '../ui'
 import { gebaeudeDoc } from '../../data/demoIncident'
 import { newId } from '../ids'
+import { serverNowIso } from '../serverClock'
 import { truppAwaitsEntry, truppLogName } from '../atemschutz'
 import { resolveMarkerJoin } from '../placedTrupps'
 import { floorLabel } from '../whiteboard'
@@ -12,7 +13,8 @@ import type { TruppColorActions } from './colors'
 
 // The Trupp PLACEMENT family — where a Trupp stands in the picture: its plan chip or its Lage
 // marker (one place at a time), joining an already placed marker to a Trupp and letting it go,
-// and the jump to it. Composed by lib/useTruppActions.
+// and the jump to it. Composed by lib/useTruppActions. The chip/marker time counts in the
+// deployment's time (lib/serverClock), like the clock family's stamps.
 
 type PlacementDeps = Pick<TruppActionDeps, 'trupps' | 'drawings' | 'objects' | 'board' | 'setBoard' | 'setDocRaw'
   | 'building' | 'log' | 'logPlan' | 'emit' | 'setMode' | 'setActivePlanId' | 'setPanel' | 'setPlanFocus' | 'mapCenter' | 'focusMapEntity'>
@@ -84,7 +86,7 @@ export function truppPlacementActions(deps: PlacementDeps) {
     const planId = targetPlanId ?? (building ? gebaeudeDoc.id : 'modul6')
     const annoId = revive?.id ?? newId('trupp')
     const spot = at ?? { x: 0.5, y: 0.5, floor: 0 }
-    const chip: BoardAnno = { id: annoId, kind: 'resource', ...spot, text: truppLabel(tr.name), t: formatTime(new Date()), color: teamColor(id), trail: revive?.trail ?? [], truppId: id }
+    const chip: BoardAnno = { id: annoId, kind: 'resource', ...spot, text: truppLabel(tr.name), t: formatTime(new Date(serverNowIso())), color: teamColor(id), trail: revive?.trail ?? [], truppId: id }
     dropPlacements(tr)
     setBoard((b) => ({ ...b, [planId]: [...(b[planId] ?? []), chip] }))
     updateTrupp(id, { annoId, planId, entityId: undefined })
@@ -115,7 +117,7 @@ export function truppPlacementActions(deps: PlacementDeps) {
     const entityId = revive?.id ?? newId('trupp')
     const marker: Entity = {
       id: entityId, kind: 'team', layer: appConfig.defaults.operationalLayerId,
-      coord: atCoord ?? mapCenter(), label: truppLabel(tr.name), t: formatTime(new Date()),
+      coord: atCoord ?? mapCenter(), label: truppLabel(tr.name), t: formatTime(new Date(serverNowIso())),
       color: teamColor(id), trail: revive?.trail ?? [], truppId: id,
     }
     dropPlacements(tr)
