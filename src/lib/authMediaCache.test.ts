@@ -23,7 +23,7 @@ function serviceWorkerHarness() {
     delete: vi.fn(async (name: string) => stores.delete(name)),
   }
   let requestNo = 0
-  const fetchMock = vi.fn(async () => new Response(`network-${++requestNo}`, { status: 200 }))
+  const fetchMock = vi.fn(async (_request?: unknown, _init?: RequestInit) => new Response(`network-${++requestNo}`, { status: 200 }))
   const selfMock = {
     location: { origin: 'https://kp.test' },
     addEventListener: (type: string, handler: Handler) => { handlers.set(type, handler) },
@@ -57,7 +57,19 @@ function serviceWorkerHarness() {
     return (await response!).text()
   }
 
-  return { cachesMock, fetchMock, media, message, stores }
+  async function reference(clientId: string, path: string, headers?: HeadersInit) {
+    let response: Promise<Response> | undefined
+    let stopped = false
+    handlers.get('fetch')?.({
+      clientId,
+      request: new Request(`https://kp.test${path}`, { headers }),
+      stopImmediatePropagation: () => { stopped = true },
+      respondWith: (promise: Promise<Response>) => { response = promise },
+    })
+    return { stopped, response: response ? await response : undefined }
+  }
+
+  return { cachesMock, fetchMock, media, reference, message, stores }
 }
 
 describe('auth-aware service-worker media cache', () => {
@@ -90,5 +102,41 @@ describe('auth-aware service-worker media cache', () => {
     await h.message('second-user', { type: 'kp-media-auth', kind: 'logged-out' })
     expect(h.stores.has('incident-media')).toBe(false)
     expect(h.stores.has('kp-media-cache-owner')).toBe(false)
+  })
+
+  it('lets the server authorize every link/unknown reference read instead of a cached account answer', async () => {
+    const h = serviceWorkerHarness()
+    h.stores.set('reference-data', new Map([['https://kp.test/api/reference/objects', new Response('whole station register')]]))
+    h.stores.set('reference-plans', new Map([['https://kp.test/api/reference/plan%3Aoutside?v=1', new Response('another incident plan')]]))
+    h.fetchMock.mockImplementation(async () => new Response('link forbidden', { status: 403 }))
+    await h.message('link', { type: 'kp-media-auth', kind: 'link' })
+    for (const client of ['unknown', 'link']) {
+      for (const path of ['/api/reference/objects', '/api/reference/building?lat=47&lng=7', '/api/reference/plan%3Aoutside?v=1', '/api/reference/plan%3Aoutside/tiles/1/1/0/0/0', '/api/reference/checklists%3Aoutside%3Ap1?v=1']) {
+        const result = await h.reference(client, path)
+        expect(result.stopped, `${client}: ${path}`).toBe(true)
+        expect(result.response?.status).toBe(403)
+        expect(await result.response?.text()).toBe('link forbidden')
+      }
+    }
+    expect(h.fetchMock).toHaveBeenCalledTimes(10)
+    for (const call of h.fetchMock.mock.calls) expect(call[1]?.cache).toBe('no-store')
+    // The account still needs these offline: refusing the link must not delete its copy.
+    expect(h.stores.has('reference-data')).toBe(true)
+    expect(h.stores.has('reference-plans')).toBe(true)
+  })
+
+  it('preserves account reference caching, but an explicit link header bypasses it immediately', async () => {
+    const h = serviceWorkerHarness()
+    await h.message('tablet', { type: 'kp-media-auth', kind: 'user', userId: 'user-a' })
+    const account = await h.reference('tablet', '/api/reference/plan%3Astation?v=1', { 'X-Incident-Link': 'off' })
+    expect(account).toEqual({ stopped: false, response: undefined }) // Workbox owns account caching
+    expect(h.fetchMock).not.toHaveBeenCalled()
+    h.fetchMock.mockImplementation(async () => new Response('link forbidden', { status: 403 }))
+    const forced = await h.reference('tablet', '/api/reference/plan%3Aoutside?v=1', { 'X-Incident-Link': 'use' })
+    expect(forced.stopped).toBe(true)
+    expect(forced.response?.status).toBe(403)
+    // A headerless subresource on a handed-over link also bypasses the account cache.
+    await h.message('tablet', { type: 'kp-media-auth', kind: 'link' })
+    expect((await h.reference('tablet', '/api/reference/plan%3Aoutside?v=1')).response?.status).toBe(403)
   })
 })

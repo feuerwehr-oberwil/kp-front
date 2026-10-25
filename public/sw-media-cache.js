@@ -1,6 +1,8 @@
 // Auth-aware incident-media cache. Imported before Workbox registers its routes, so this
 // listener owns /api/media/* and stops Workbox from installing a second, auth-blind route.
-// Reference data stays station-scoped and remains under Workbox's normal runtime cache.
+// Reference caches belong to real account clients only. A link or unknown client must ask the
+// server, past BOTH Workbox and the browser's HTTP cache: a cached station register/plan must
+// never bypass the link's incident scope. Account reference reads keep Workbox's offline cache.
 const KP_MEDIA_CACHE = 'incident-media'
 const KP_MEDIA_OWNER_CACHE = 'kp-media-cache-owner'
 // Station reference data (symbols + geojson), cached by Workbox (vite.config · reference-data).
@@ -54,7 +56,7 @@ self.addEventListener('message', (event) => {
     kpMediaClients.set(clientId, { kind: 'user', userId: event.data.userId })
     event.waitUntil(kpSetMediaOwner(event.data.userId))
   } else if (event.data.kind === 'link') {
-    // A link may fetch media the backend authorizes, but never via another user's cache.
+    // A link may fetch media/reference data the backend authorizes, never the account's cache.
     kpMediaClients.set(clientId, { kind: 'link' })
   } else if (event.data.kind === 'logged-out') {
     // Sign-out AND explicit server denial arrive here (lib/auth · denySession). Both are about
@@ -116,7 +118,21 @@ async function kpHandleMedia(event) {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return
   const url = new URL(event.request.url)
-  if (url.origin !== self.location.origin || !url.pathname.startsWith('/api/media/')) return
+  if (url.origin !== self.location.origin) return
+
+  const auth = kpMediaClients.get(event.clientId)
+  if (url.pathname.startsWith('/api/reference/') &&
+      (auth?.kind !== 'user' || event.request.headers.get('X-Incident-Link') === 'use')) {
+    // Workbox matches URLs, not the session whose cookie/header answers the request. Its
+    // StaleWhileRevalidate would return the account's cached 200 even while the server says
+    // 403 to this link; pinned PDFs/tiles are CacheFirst and never ask the server at all.
+    // A headerless <img> is gated by its client, and an explicit link header wins even before
+    // the page's new auth message arrives. Unknown clients fail closed after a worker restart.
+    event.stopImmediatePropagation()
+    event.respondWith(fetch(event.request, { cache: 'no-store' }))
+    return
+  }
+  if (!url.pathname.startsWith('/api/media/')) return
 
   event.stopImmediatePropagation()
   event.respondWith(kpHandleMedia(event))

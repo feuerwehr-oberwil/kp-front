@@ -345,6 +345,15 @@ export default defineConfig(({ mode }) => {
               options: { cacheName: 'map-glyphs', cacheableResponse: { statuses: [200] } },
             },
             {
+              // The station catalogue and point facts already have their offline copy in
+              // IndexedDB (lib/api/stationReference). A stale-first Workbox answer hid changes
+              // and could answer a link with the account's full register before its 403 arrived.
+              // Before the generic reference rule; the worker also gates all reference caches
+              // by client session (public/sw-media-cache.js), including old cached entries.
+              urlPattern: /\/api\/reference\/(?:objects|building)(?:\?|$)/,
+              handler: 'NetworkOnly',
+            },
+            {
               // A plan revision's APPROVED ALIGNMENTS (`/api/reference/plan:x/alignments?v=3`)
               // are never the service worker's to keep (24.09.2026, Feueralarm root cause B). The
               // pinned-PDF rule below matched them — `[^?]*` runs through `/alignments` — and
