@@ -43,9 +43,10 @@ AGENTS.md on 2026-10-08, wording unchanged.
   + provenance in the gitignored `docs/planning/auto-alignment/`): it segments the sheet and
   matches it against OSM building rings via the Overpass proxy. Its heavy CV deps are the
   **optional `georef` dependency group** (`uv sync --extra georef`), installed in the production
-  image since 11.09.2026 (`Dockerfile`, both `uv sync` lines). `POST /api/georef/suggest` has had
-  no client since 25.10.2026. The honesty rules are load-bearing: an automatic fit is stored as
-  exactly **two pairs `kind: 'auto'`** (more would fabricate zero-residual evidence); while any
+  image since 11.09.2026 (`Dockerfile`, both `uv sync` lines). It runs only in the alignment worker
+  (`app/plan_alignment_compute.py`); the field's `POST /api/georef/suggest` and its
+  `integrations.autoAlignConfigured` flag were deleted on 25.10.2026. The honesty rules are
+  load-bearing: an automatic fit is stored as exactly **two pairs `kind: 'auto'`** (more would fabricate zero-residual evidence); while any
   auto pair is in the fit no surface ever claims a ⌀ — but **whether it is called «ungemessen»
   depends on the APPROVAL** (18.09.2026): an unapproved automatic fit reads «Automatisch
   ausgerichtet · ungemessen» in the amber tone, while a fit the admin greenlit on Objektpläne is a

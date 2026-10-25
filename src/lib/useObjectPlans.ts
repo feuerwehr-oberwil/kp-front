@@ -234,8 +234,8 @@ export function useObjectPlans(
   /** when given, module sheets bind to their exact dataset revision + approved fit */
   bindingOpts?: PlanBindingOptions,
 ) {
-  const [autoInfo, setAutoInfo] = useState<{ id?: string; plans: Record<string, string>; titles: Record<string, string>; datasets: Record<string, PlanDatasetRef>; name?: string; address?: string | null; pos?: LngLat | null; nearby?: { distanceM: number } | null }>({ plans: {}, titles: {}, datasets: {} })
-  const [manualObject, setManualObject] = useState<{ id: string; name: string; address?: string | null; pos?: LngLat | null; plans: Record<string, string>; titles: Record<string, string>; datasets: Record<string, PlanDatasetRef> } | null>(null)
+  const [autoInfo, setAutoInfo] = useState<{ id?: string; plans: Record<string, string>; titles: Record<string, string>; datasets: Record<string, PlanDatasetRef>; name?: string; address?: string | null; nearby?: { distanceM: number } | null }>({ plans: {}, titles: {}, datasets: {} })
+  const [manualObject, setManualObject] = useState<{ id: string; name: string; address?: string | null; plans: Record<string, string>; titles: Record<string, string>; datasets: Record<string, PlanDatasetRef> } | null>(null)
   const backendPlans = manualObject?.plans ?? autoInfo.plans
   const backendTitles = manualObject?.titles ?? autoInfo.titles
   const backendDatasets = manualObject?.datasets ?? autoInfo.datasets
@@ -329,7 +329,6 @@ export function useObjectPlans(
             ...buildPlanInfo(nearest.plans),
             name: nearest.name,
             address: nearest.address,
-            pos: nearest.lat != null && nearest.lng != null ? [nearest.lng, nearest.lat] : null,
             nearby: objectNearbyOnly(nearest, nearbyObjectWarnM()),
           }
           : { plans: {}, titles: {}, datasets: {} })
@@ -428,7 +427,7 @@ export function useObjectPlans(
     if (manualObject?.id === pickedObjectId) return
     let alive = true
     getObjectResilient(pickedObjectId) // offline → falls back to the IDB-cached object
-      .then((obj) => { if (alive) setManualObject({ id: obj.id, name: obj.name, address: obj.address, pos: obj.lat != null && obj.lng != null ? [obj.lng, obj.lat] : null, ...buildPlanInfo(obj.plans) }) })
+      .then((obj) => { if (alive) setManualObject({ id: obj.id, name: obj.name, address: obj.address, ...buildPlanInfo(obj.plans) }) })
       .catch(() => { /* object removed → fall back to auto */ })
       .finally(() => { if (alive) setManualSettledFor(pickedObjectId) })
     return () => { alive = false }
@@ -440,7 +439,7 @@ export function useObjectPlans(
   // jump to the first module so the chosen object's PDF is visible immediately.
   const pickObject = useCallback((obj: ObjectWithPlans) => {
     const info = buildPlanInfo(obj.plans)
-    setManualObject({ id: obj.id, name: obj.name, address: obj.address, pos: obj.lat != null && obj.lng != null ? [obj.lng, obj.lat] : null, ...info })
+    setManualObject({ id: obj.id, name: obj.name, address: obj.address, ...info })
     onPick(obj.id) // sync the pick per incident (workspace blob), so it survives switching + reload
     // jump to the object's FIRST module in the rail's own order — Modul 1 where it has one
     const firstModule = sortPlanModuleIds(moduleCatalogue(), Object.keys(info.plans))[0]
@@ -462,13 +461,10 @@ export function useObjectPlans(
   // stays the label everywhere the object is CHOSEN (the picker, the toast), where it is what
   // you search for. Falls back to the name when an object carries no address.
   const activeObjectAddress = manualObject?.address ?? autoInfo.address ?? null
-  // the active object's own coordinate, null when the object carries none. Its one reader, the
-  // Whiteboard's `georefAnchor`, went with the field's «Automatisch ausrichten» (25.10.2026).
-  const activeObjectPos = manualObject ? manualObject.pos ?? null : autoInfo.pos ?? null
   // the warning the object chip carries when the AUTO-surfaced object is merely the nearest one
   // and not the Einsatzadresse. A manual pick is the operator's own choice – no warning.
   // …with the object's id, so the plan surface can remember its banner per Einsatz and object
   const activeObjectNearby = manualObject || !autoInfo.nearby ? null : { ...autoInfo.nearby, objectId: autoInfo.id ?? '' }
   const plansSettled = autoSettled && (!pickedObjectId || manualObject?.id === pickedObjectId || manualSettledFor === pickedObjectId)
-  return { plansSettled, backendPlans, resolvedPlanDocs, effectiveBindings, manualObject, activeObjectId, activeObjectName, activeObjectAddress, activeObjectPos, activeObjectNearby, pickObject, resetObject }
+  return { plansSettled, backendPlans, resolvedPlanDocs, effectiveBindings, manualObject, activeObjectId, activeObjectName, activeObjectAddress, activeObjectNearby, pickObject, resetObject }
 }
