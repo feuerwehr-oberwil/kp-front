@@ -37,11 +37,12 @@ import { isNamedPerson, symbolCaptionText } from '../lib/symbols'
 import { softHyphenateText } from '../lib/symbolWrap'
 import { cachedLabelSize, LABEL_RANK, MARKER_Z, placeLabels, type LabelBox, type LabelCandidate, type LabelStyle } from '../lib/labelPass'
 import type { TruppTrail } from '../lib/truppTrails'
-import { lineTakesTrupp, markerTakesLineEnd, teamLineBadges, truppForLine, truppIdForAttachment, truppLineTone, type LinkableLine } from '../lib/truppLines'
+import { lineTakesTrupp, teamLineBadges, truppForLine, truppLineTone } from '../lib/truppLines'
 import { pathLengthM, fmtDistance, fmtArea, polygonAreaM2, hoseLengthHint, circlePolygon, haversineM } from '../lib/geo'
 import { noteWPx } from '../lib/notes'
 import { useVehicleTrails } from '../lib/useVehicleTrails'
 import { useMapCanvasGestures } from './useMapCanvasGestures'
+import { DRAFT_SOURCE, mapMagnetTargets } from './mapMagnetTargets'
 import { LineMarker } from './LineMarker'
 import { MapMarkers } from './MapMarkers'
 import { MapLayers } from './MapLayers'
@@ -63,7 +64,7 @@ import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsM
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { setLiveBearing } from '../lib/liveBearing'
 import { LABEL_ABOVE, measureLabelPlacement } from '../lib/measureLabelPlace'
-import { advanceDwell, attachInsetPx, candidateAttachment, DEFAULT_OBJECT_ROUTING, lineEndTargets, lineJoints, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, forkPortPoint, gpsGuard, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint, TEAM_JOIN_RADIUS_PX } from '../lib/lineAttachments'
+import { advanceDwell, attachInsetPx, candidateAttachment, lineJoints, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, forkPortPoint, gpsGuard, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint, TEAM_JOIN_RADIUS_PX } from '../lib/lineAttachments'
 
 /** The ink a ghost «Spur» is drawn in — neutral grey, not the Trupp's colour: colour means
  *  IDENTITY on this map (lib/teamColors), and a trail whose marker is gone must not claim that a
@@ -669,7 +670,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   // surface's projection and target walk (candidatesAt / attachmentForCandidate below)
   const draftMagnet = useDraftMagnet<LngLat>({
     project: (c) => { const p = mapInst.current!.project(c); return [p.x, p.y] },
-    candidates: (c) => candidatesAt('__draft__', c),
+    candidates: (c) => candidatesAt(DRAFT_SOURCE, c),
     attachmentFor: (c) => attachmentForCandidate(c),
   })
   const draftMagnetState = draftMagnet.state
@@ -756,46 +757,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     const e = entities.find((x) => x.id === a.target.id)
     return e && !isVisible(effectiveLayer(e)) ? [e] : []
   }) : []
-  /** Every placed Trupp marker on this surface, as the one-Trupp rule reads them. */
-  const truppMarkers = () => entities.flatMap((e) => (e.kind === 'team' ? [{ id: e.id, truppId: e.truppId }] : []))
+  /** The magnet's targets for a line end of `sourceId` at `at` (components/mapMagnetTargets) —
+   *  read fresh on every call, so the draft's start claim and the live camera are current. */
   const candidatesAt = (sourceId: string, at: LngLat): MagneticTarget[] => {
     const map = mapInst.current
     if (!map) return []
-    const pointer = map.project(at)
-    // ── EINE Leitung, EIN Trupp, schon am Magneten (lib/truppLines · markerTakesLineEnd) ──
-    // A hose that already has a crew does not SEE another Trupp's marker: no ring, no dwell, no
-    // attach — the end just stays under the finger. Refusing only the link left the picture
-    // claiming a second crew, which is the «Trupp an beiden Enden» this rule exists to stop.
-    // A DRAFT is judged by the claim its first end already made, so one stroke cannot do it either.
-    const draftStart = draftMagnet.current()?.startAttachment
-    const srcLine: LinkableLine | undefined = drawings.find((d) => d.id === sourceId)
-      ?? (sourceId === '__draft__' ? { id: sourceId, truppId: truppIdForAttachment(draftStart, truppMarkers()) } : undefined)
-    const objectTargets: MagneticTarget[] = entities
-      .filter((e) => isMagnetEntity(e) && Array.isArray(e.coord)
-        && (e.kind !== 'team' || markerTakesLineEnd(srcLine, trupps ?? [], { id: e.id, truppId: e.truppId })))
-      .map((e) => {
-        const c = map.project(e.coord), size = e.kind === 'team' ? 56 : symPx(e.kind, e.coord[1], zoom, symMul)
-        // A Trupp marker is a STRIP – [dot][name] hanging right of the coordinate – and the hand
-        // aims at the name as readily as at the dot (15.09.). The target point is the nearest
-        // point of that strip's box, so an end laid over the name is «on» the marker; the
-        // coupling itself still resolves to the dot (resolveLinePoints · objectPoint).
-        if (e.kind === 'team') {
-          const w = teamStripPx(e.label ?? '')
-          const x0 = c.x - TEAM_DOT_PX / 2 - 6, x1 = x0 + w + 12, y0 = c.y - 16, y1 = c.y + 16
-          const point: [number, number] = [Math.min(Math.max(pointer.x, x0), x1), Math.min(Math.max(pointer.y, y0), y1)]
-          return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point, defaultRouting: DEFAULT_OBJECT_ROUTING }
-        }
-        const edge = boundaryPoint({ shape: 'rect', center: [c.x, c.y], width: size, height: e.kind === 'vehicle' ? size * 0.7 : size, rotation: (e.rotation ?? 0) - bearing }, [pointer.x, pointer.y])
-        return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point: edge, defaultRouting: DEFAULT_OBJECT_ROUTING }
-      })
-    const px = (c: LngLat): [number, number] => { const p = map.project(c); return [p.x, p.y] }
-    const lineTargets = lineEndTargets(drawings
-      .filter((d) => d.kind === 'line' && d.id !== sourceId && d.coords.length >= 2)
-      .map((d) => ({
-        id: d.id, teilstueck: d.teilstueck, width: d.width,
-        start: [px(d.coords[0]), px(d.coords[1])], end: [px(d.coords[d.coords.length - 1]), px(d.coords[d.coords.length - 2])],
-      })), attachmentLines, sourceId, (p) => { const ll = map.unproject(p); return [ll.lng, ll.lat] })
-    return [...objectTargets, ...lineTargets]
+    return mapMagnetTargets(map, { entities, drawings, attachmentLines, trupps: trupps ?? [], zoom, bearing, symMul },
+      sourceId, at, draftMagnet.current()?.startAttachment)
   }
   const beginEndpointDrag = (id: string, endpoint: LineEndpoint, coord: LngLat) => {
     const stored = storedDrawings.find((d) => d.id === id)
