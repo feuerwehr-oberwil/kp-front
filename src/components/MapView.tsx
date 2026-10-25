@@ -9,6 +9,8 @@ import { forwardRef, Fragment, Suspense, useCallback, useEffect, useLayoutEffect
 import Map, { Marker, Source, Layer, type MapRef, type MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { Map as MlMap } from 'maplibre-gl'
 import { buzz } from '../lib/haptics'
+import { useHiddenTrails } from '../lib/useHiddenTrails'
+import { joinTargets, useDraftMagnet, type DraftAttachments } from '../lib/useDraftMagnet'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import '../lib/maplibreWorker'
 import type { CaptionMode, Drawing, Entity, LayerDef, LayerId, LineAttachment, LineEndpoint, LngLat, PreparedMapOverlay, Trupp } from '../types'
@@ -61,7 +63,7 @@ import { georefDispatch, georefPhoneTargetPoint, georefTapOnMarker, georefWantsM
 import { DRAG_DEADZONE_PX } from '../lib/useHoldToDrag'
 import { setLiveBearing } from '../lib/liveBearing'
 import { LABEL_ABOVE, measureLabelPlacement } from '../lib/measureLabelPlace'
-import { advanceDwell, armDwell, attachInsetPx, DEFAULT_OBJECT_ROUTING, lineJoints, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, forkPortPoint, gpsGuard, incomingAttachments, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nearestMagneticTarget, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, STROKE_START_RADIUS_PX, wouldCreateCycle, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint, TEAM_JOIN_RADIUS_PX } from '../lib/lineAttachments'
+import { advanceDwell, attachInsetPx, candidateAttachment, DEFAULT_OBJECT_ROUTING, lineEndTargets, lineJoints, boundaryPoint, detachProgress, DETACH_SHOW_PROGRESS, dwellFor, EMPTY_DWELL, forkPortPoint, gpsGuard, isMagnetEntity, MAGNET_DWELL_MS, MAGNET_RADIUS_PX, moveLineBody, nextFreePort, relationshipNetwork, resolveLinePoints, stickyMagneticTarget, type AttachableLine, type DwellState, type MagneticTarget, nearestFreeEndpoint, TEAM_JOIN_RADIUS_PX } from '../lib/lineAttachments'
 
 /** The ink a ghost «Spur» is drawn in — neutral grey, not the Trupp's colour: colour means
  *  IDENTITY on this map (lib/teamColors), and a trail whose marker is gone must not claim that a
@@ -459,19 +461,12 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     onSelectionDone, georefPlanRasters = [], weatherRadar = null, children, showOrigin = true, zoomCapAtBase = false } = props
   const [zoom, setZoom] = useState(initialZoom)
   const isPhone = useIsPhone()
-  // per-team trail visibility (map-session, default all shown) — the eye in a selected
-  // team's action bar hides only THAT team's trail; mirrors the plan board's per-team
-  // hiddenTrails. The record itself is never touched here.
-  const [hiddenTrails, setHiddenTrails] = useState<ReadonlySet<string>>(new Set())
+  // per-team trail visibility, the same as the plan board's (lib/useHiddenTrails)
+  const { hiddenTrails, toggleTrail } = useHiddenTrails()
   /** measure vertex currently in the hand — while set, the cumulative label under that finger
    *  steps aside and the tool's number stands fixed at the top edge instead (mockup 03-B: a
    *  rapidly changing value is read where it stands still, never under the fingertip) */
   const [measureDragNode, setMeasureDragNode] = useState<number | null>(null)
-  const toggleTrail = (id: string) => setHiddenTrails((prev) => {
-    const next = new Set(prev)
-    next.has(id) ? next.delete(id) : next.add(id)
-    return next
-  })
   // current map bearing (deg) — placed symbols are pinned to GEOGRAPHIC orientation, so the
   // glyph CSS rotation is offset by −bearing and re-renders live as the map rotates (a vehicle
   // "facing south" keeps facing south when you spin the map). Streamed on every rotate frame.
@@ -670,13 +665,14 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
   const endpointDragRef = useRef<EndpointDrag | null>(null)
   const dwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const setEndpointDrag = (next: EndpointDrag | null) => { endpointDragRef.current = next; setEndpointDragState(next) }
-  /** `startJoin`: where the stroke's START is coupled onto another line's end (its prong), held for
-   *  the whole stroke so the «Angekuppelt» ring stays on the joint after the finger has left it. */
-  type DraftMagnet = { first: LngLat; coord: LngLat; atStart: boolean; dwell: DwellState; candidate: MagneticTarget | null; startAttachment?: LineAttachment; endAttachment?: LineAttachment; startJoin?: { key: string; coord: LngLat } }
-  const [draftMagnetState, setDraftMagnetState] = useState<DraftMagnet | null>(null)
-  const draftMagnet = useRef<DraftMagnet | null>(null)
-  const draftDwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const setDraftMagnet = (next: DraftMagnet | null) => { draftMagnet.current = next; setDraftMagnetState(next) }
+  // the magnet of a line being DRAWN — the Plan's own machine (lib/useDraftMagnet), over this
+  // surface's projection and target walk (candidatesAt / attachmentForCandidate below)
+  const draftMagnet = useDraftMagnet<LngLat>({
+    project: (c) => { const p = mapInst.current!.project(c); return [p.x, p.y] },
+    candidates: (c) => candidatesAt('__draft__', c),
+    attachmentFor: (c) => attachmentForCandidate(c),
+  })
+  const draftMagnetState = draftMagnet.state
 
   // Resolve magnetic intent late, in the renderer's current screen space. Stored endpoint
   // coordinates stay untouched as fallbacks; every downstream map consumer below sees this
@@ -771,7 +767,7 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     // attach — the end just stays under the finger. Refusing only the link left the picture
     // claiming a second crew, which is the «Trupp an beiden Enden» this rule exists to stop.
     // A DRAFT is judged by the claim its first end already made, so one stroke cannot do it either.
-    const draftStart = draftMagnet.current?.startAttachment
+    const draftStart = draftMagnet.current()?.startAttachment
     const srcLine: LinkableLine | undefined = drawings.find((d) => d.id === sourceId)
       ?? (sourceId === '__draft__' ? { id: sourceId, truppId: truppIdForAttachment(draftStart, truppMarkers()) } : undefined)
     const objectTargets: MagneticTarget[] = entities
@@ -792,22 +788,13 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
         const edge = boundaryPoint({ shape: 'rect', center: [c.x, c.y], width: size, height: e.kind === 'vehicle' ? size * 0.7 : size, rotation: (e.rotation ?? 0) - bearing }, [pointer.x, pointer.y])
         return { key: `object:${e.id}`, target: { kind: 'object', id: e.id, live: !!e.live }, point: edge, defaultRouting: DEFAULT_OBJECT_ROUTING }
       })
-    const lineTargets: MagneticTarget[] = drawings
+    const px = (c: LngLat): [number, number] => { const p = map.project(c); return [p.x, p.y] }
+    const lineTargets = lineEndTargets(drawings
       .filter((d) => d.kind === 'line' && d.id !== sourceId && d.coords.length >= 2)
-      .flatMap((d) => (['start', 'end'] as const).flatMap((endpoint) => {
-        const point = endpoint === 'start' ? d.coords[0] : d.coords[d.coords.length - 1]
-        const p = map.project(point)
-        const capacity = endpoint === 'end' && d.teilstueck ? 3 : 1
-        const usedPorts = incomingAttachments(attachmentLines, d.id, endpoint).map((x) => x.attachment.port ?? 0)
-        const free = Array.from({ length: capacity }, (_, i) => i).filter((port) => !usedPorts.includes(port))
-        const neighbor = map.project(endpoint === 'start' ? d.coords[1] : d.coords[d.coords.length - 2])
-        return free.map((port) => {
-          // three-port Teilstück ends fan onto the drawn fork prongs; every other endpoint is the bare tip
-          const point = capacity === 3 ? forkPortPoint([p.x, p.y], [neighbor.x, neighbor.y], d.width ?? 4, port) : [p.x, p.y] as [number, number]
-          const ll = map.unproject(point)
-          return { key: `line:${d.id}:${endpoint}:${port}`, target: { kind: 'line', id: d.id, endpoint }, point, at: [ll.lng, ll.lat] as [number, number], capacity, usedPorts, port, blocked: wouldCreateCycle(attachmentLines, sourceId, d.id), defaultRouting: 'direct' as const }
-        })
-      }))
+      .map((d) => ({
+        id: d.id, teilstueck: d.teilstueck, width: d.width,
+        start: [px(d.coords[0]), px(d.coords[1])], end: [px(d.coords[d.coords.length - 1]), px(d.coords[d.coords.length - 2])],
+      })), attachmentLines, sourceId, (p) => { const ll = map.unproject(p); return [ll.lng, ll.lat] })
     return [...objectTargets, ...lineTargets]
   }
   const beginEndpointDrag = (id: string, endpoint: LineEndpoint, coord: LngLat) => {
@@ -886,85 +873,24 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     setEndpointDrag(null)
   }
 
-  const attachmentForCandidate = (candidate: MagneticTarget): LineAttachment => {
-    const target = candidate.target
-    const entity = target.kind === 'object' ? entities.find((e) => e.id === target.id) : null
-    return {
-      target, routing: candidate.defaultRouting ?? 'direct',
-      ...(target.kind === 'line' ? { port: candidate.port ?? nextFreePort(attachmentLines, target.id, target.endpoint) ?? undefined } : {}),
-      ...(target.kind === 'object' && entity?.live ? { gps: { state: 'guarded' as const, confirmedAt: entity.coord, lastSafe: entity.coord } } : {}),
-    }
-  }
-  const updateDraftMagnet = (phase: 'start' | 'move' | 'end', coord: LngLat): { startAttachment?: LineAttachment; endAttachment?: LineAttachment } | void => {
-    const map = mapInst.current
-    if (!map) return
-    if (phase === 'start') {
-      // ── Line-START exception ──────────────────────────────────────────────────────────────
-      // A pointerDOWN that already lands inside a target's radius is deliberate aim: the finger
-      // was PUT on the Teilstück's prong because that is where the branch begins. There is
-      // nothing to hesitate about, so this one arms instantly and its ring is drawn full — the
-      // dwell exists to catch SYMBOLS a moving line PASSES OVER, not the one it was aimed at
-      // (a line target never dwells at all — lib/lineAttachments · dwellFor).
-      // (Node-mode taps come through here too, and for the same reason: every tap is aimed.)
-      if (draftDwellTimer.current) clearTimeout(draftDwellTimer.current)
-      const targets = candidatesAt('__draft__', coord), pp = map.project(coord)
-      const candidate = nearestMagneticTarget([pp.x, pp.y], targets)
-      const atStart = draftKind === 'line' && !freehand ? draft.length === 0 : true
-      const attachment = candidate ? attachmentForCandidate(candidate) : undefined
-      const startJoin = atStart && candidate?.target.kind === 'line' && candidate.at
-        ? { key: candidate.key, coord: candidate.at as LngLat } : undefined
-      setDraftMagnet({
-        first: coord, coord, atStart, candidate, dwell: armDwell(candidate?.key ?? null, Date.now()),
-        ...(attachment ? (atStart ? { startAttachment: attachment } : { endAttachment: attachment }) : {}),
-        ...(startJoin ? { startJoin } : {}),
-      })
-      if (candidate) buzz()
-    } else if (phase === 'move') {
-      const cur = draftMagnet.current; if (!cur) return
-      const a = map.project(cur.first), b = map.project(coord)
-      const atStart = Math.hypot(b.x - a.x, b.y - a.y) < STROKE_START_RADIUS_PX && !cur.startAttachment
-      const targets = candidatesAt('__draft__', coord)
-      const candidate = stickyMagneticTarget([b.x, b.y], targets, cur.candidate?.key ?? null)
-      // Leaving the start point ends the start's claim: from here the FAR end has to earn its own
-      // ring, even over the very target the stroke began on. Without this reset the instantly
-      // armed start would hand its `armed` straight to the end.
-      const base = atStart === cur.atStart ? cur.dwell : EMPTY_DWELL
-      const next = { ...cur, coord, atStart, candidate, dwell: advanceDwell(base, candidate, Date.now()) }
-      setDraftMagnet(next)
-      if (draftDwellTimer.current) clearTimeout(draftDwellTimer.current)
-      // a line target arms on acquisition (dwellFor = 0) — one buzz, as the closed ring gives
-      if (next.dwell.armed && !base.armed) buzz()
-      // arm on a motionless finger (no pointermove ⇒ no advanceDwell); the attachment itself is
-      // only materialised on release, so moving on after arming still lets the end go free.
-      if (candidate && !next.dwell.armed) draftDwellTimer.current = setTimeout(() => {
-        const now = draftMagnet.current
-        if (!now || now.candidate?.key !== candidate.key) return
-        setDraftMagnet({ ...now, dwell: { ...now.dwell, armed: true } })
-        buzz()
-      }, Math.max(0, dwellFor(candidate) - (Date.now() - next.dwell.since)))
-    } else {
-      const cur = draftMagnet.current
-      if (draftDwellTimer.current) clearTimeout(draftDwellTimer.current)
-      // Ring lädt, dann schnappt es: the far end attaches only if its ring actually closed. A
-      // stroke that FINISHES on a symbol without pausing there lands free — deliberately, and it
-      // is the reason the ring is drawn at all. (Until 25.08. this recomputed the target at the
-      // release point and attached regardless, which is the invisible coupling from the field.)
-      let start = cur?.startAttachment, end = cur?.endAttachment
-      if (cur?.dwell.armed && cur.candidate) {
-        const attachment = attachmentForCandidate(cur.candidate)
-        if (cur.atStart) start = start ?? attachment; else end = end ?? attachment
-      }
-      const out = cur ? { startAttachment: start, endAttachment: end } : undefined
-      setDraftMagnet(null)
-      return out
-    }
+  // …a live GPS marker's end starts out guarded where the marker stands (lib/lineAttachments)
+  const attachmentForCandidate = (candidate: MagneticTarget): LineAttachment =>
+    candidateAttachment(candidate, attachmentLines, (id) => { const e = entities.find((x) => x.id === id); return e?.live ? e.coord : undefined })
+  /** The draft magnet's phases as the canvas gestures report them (useMapCanvasGestures ·
+   *  onFreehandPointer, and the node taps below). A node-mode line's START is its first tap;
+   *  every freehand stroke and every other tap aims for itself (lib/useDraftMagnet). */
+  const updateDraftMagnet = (phase: 'start' | 'move' | 'end', coord: LngLat): DraftAttachments | void => {
+    if (!mapInst.current) return
+    if (phase === 'start') draftMagnet.start(coord, draftKind === 'line' && !freehand ? draft.length === 0 : true)
+    else if (phase === 'move') draftMagnet.move(coord)
+    else return draftMagnet.end()
   }
   // ── Rotation legen: der Magnet an jedem der beiden Punkte ─────────────────────────────────
   //
   // A Rotation is laid between two PLACES, so each of its two taps may couple to a symbol — and
   // it couples the way everything else in the app does: press, hold until the ring closes, let go.
   //
-  // ⚠️ Deliberately NOT the line-START exception above (`updateDraftMagnet` · phase 'start'),
+  // ⚠️ Deliberately NOT the line-START exception (lib/useDraftMagnet · start),
   // which arms instantly because the finger was already ON the prong it aimed at. Here the very
   // same press is also the thing that PLACES a point, so an instant claim would silently attach
   // every point ever dropped near a symbol — the invisible coupling the ring exists to prevent.
@@ -1396,21 +1322,11 @@ export const MapView = forwardRef<MapRef, Props>(function MapView(props, ref) {
     d.kind !== 'line' || !Array.isArray(d.coords) || d.coords.length < 2 || d.endAttachment ? []
       : [{ lineId: d.id, endpoint: 'end' as const, color: d.color || DEFAULT_INK, coord: d.coords[d.coords.length - 1] as LngLat }]
   ))
-  /** The joints a gesture in progress is coupled onto — the «Angekuppelt» rings (render below): the
-   *  draft's start for the whole stroke, plus an ARMED line target under a draft end or a dragged
-   *  end. Ringed in the TARGET line's ink, since the ring sits on its node. */
-  const joinPreview = ((): { key: string; coord: LngLat; color: string }[] => {
-    const out: { key: string; coord: LngLat; color: string }[] = []
-    const ink = (target: LineAttachment['target']) => storedDrawings.find((d) => d.id === target.id)?.color || DEFAULT_INK
-    const dm = draftMagnetState
-    if (dm?.startJoin && dm.startAttachment?.target.kind === 'line') out.push({ key: dm.startJoin.key, coord: dm.startJoin.coord, color: ink(dm.startAttachment.target) })
-    for (const g of [dm, endpointDrag]) {
-      const c = g?.candidate
-      if (!g?.dwell.armed || c?.target.kind !== 'line' || out.some((j) => j.key === c.key)) continue
-      if (c.at) out.push({ key: c.key, coord: c.at as LngLat, color: ink(c.target) })
-    }
-    return out
-  })()
+  /** The joints a gesture in progress is coupled onto — the «Angekuppelt» rings (render below,
+   *  lib/useDraftMagnet · joinTargets), at each target's stored point and in the TARGET line's
+   *  ink, since the ring sits on its node. */
+  const joinPreview = joinTargets(draftMagnetState, endpointDrag).flatMap((c) => (c.at
+    ? [{ key: c.key, coord: c.at as LngLat, color: storedDrawings.find((d) => d.id === c.target.id)?.color || DEFAULT_INK }] : []))
   /** the hose ends the marker is being aimed at, per drag move — mirrors `trackPlaceMagnet` */
   const trackTeamJoin = (id: string, at: LngLat) => {
     const map = mapInst.current

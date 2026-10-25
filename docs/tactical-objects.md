@@ -13,6 +13,14 @@ One object, two surfaces: how a tactical object is stored, anchored, projected a
   relative coordinate system may diverge. Shared logic lives in `ToolDock`, `DrawEditor`,
   `SelectionBar` and `src/lib/lineStyle.ts` / `src/lib/selectionTransform.ts`; the renderers stay
   separate only for that surface-specific part.
+- **The twins are one module each** (sweep wave 2, 24.10.2026), so parity holds by construction,
+  not by review: the magnet of a line being drawn (`lib/useDraftMagnet` – line-start exception,
+  start-radius claim, dwell, release only if armed, the «Angekuppelt» joints; each surface hands
+  in only its projection and target walk, `lineAttachments · lineEndTargets` /
+  `candidateAttachment`), the draft contract (`lib/draftMachine` – ✓ «Fertig» and the A6
+  tap-away auto-commit), «mit verbundenen Leitungen entfernen» (`lineAttachments · detachEnds`),
+  ⌘D (`lib/duplicate`), and the armed tool + per-team trails + note-panel closing rules
+  (`useTacticalSelection · usePlacement`, `lib/useHiddenTrails`, `lib/useNotePanelClosing`).
 - **The armed tool's readout is one pill** (`components/ArmedToolPill`, `lib/armedTool`,
   23.10.2026, 3am sweep point 3 – owner: «a small little info thing at the bottom that now you're
   placing symbol XYZ and that's it»). Bottom centre of the Karte, the Einsatz map, a Plan and the
